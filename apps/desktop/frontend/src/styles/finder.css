@@ -96,7 +96,7 @@
 
 .finder-pane-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(240px, 320px);
+  grid-template-columns: minmax(0, 1fr);
   gap: var(--space-sm);
   min-height: 0;
   min-width: 0;
@@ -109,12 +109,13 @@
 
 .finder-secondary-panes {
   display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
   align-content: start;
   gap: var(--space-sm);
   max-width: 100%;
   min-width: 0;
   min-height: 0;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .finder-pane {
@@ -283,8 +284,22 @@
   background: var(--color-overlay-surface);
 }
 
+.finder-entry-path {
+  background: color-mix(in srgb, var(--color-primary-soft) 58%, transparent);
+  box-shadow: inset 3px 0 0 var(--color-primary-hairline);
+}
+
+.finder-entry-path:not(.finder-entry-selected):hover {
+  background: color-mix(
+    in srgb,
+    var(--color-primary-soft) 76%,
+    var(--color-overlay-surface)
+  );
+}
+
 .finder-entry-selected {
   background: var(--color-primary-soft);
+  box-shadow: inset 3px 0 0 var(--color-primary);
 }
 
 .finder-entry-icon {
@@ -387,6 +402,18 @@
   display: grid;
   gap: var(--space-sm);
   min-width: 0;
+}
+
+.finder-git-status-summary,
+.finder-git-flow {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.finder-git-flow {
+  grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  align-items: center;
 }
 
 .finder-git-manual-commit,
@@ -770,38 +797,14 @@
 }
 
 @media (max-width: 1180px) {
-  .finder-pane-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .finder-secondary-panes {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .finder-secondary-panes .finder-pane:not(.finder-pane-maximized) {
-    grid-template-rows: auto;
-  }
-
-  .finder-secondary-panes .finder-pane:not(.finder-pane-maximized) .finder-pane-body {
-    display: none;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
   }
 }
 
 @container (max-width: 860px) {
-  .finder-pane-layout {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
   .finder-secondary-panes {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .finder-secondary-panes .finder-pane:not(.finder-pane-maximized) {
-    grid-template-rows: auto;
-  }
-
-  .finder-secondary-panes .finder-pane:not(.finder-pane-maximized) .finder-pane-body {
-    display: none;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
   }
 }
 

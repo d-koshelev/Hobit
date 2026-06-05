@@ -138,12 +138,24 @@ describe("FinderWidget", () => {
     expect(finderPane("Finder Columns view").textContent).toContain(
       "Columns view",
     );
+    expect(finderPane("Finder Columns view").className).toContain(
+      "finder-pane-normal",
+    );
     expect(finderPane("Finder Git panel").textContent).toContain("Git panel");
+    expect(finderPane("Finder Git panel").className).toContain(
+      "finder-pane-normal",
+    );
     expect(finderPane("Finder Commit panel").textContent).toContain(
       "Commit panel",
     );
+    expect(finderPane("Finder Commit panel").className).toContain(
+      "finder-pane-minimized",
+    );
     expect(finderPane("Finder History panel").textContent).toContain(
       "History panel",
+    );
+    expect(finderPane("Finder History panel").className).toContain(
+      "finder-pane-minimized",
     );
 
     await clickButtonByLabel("Minimize Git panel");
@@ -212,6 +224,11 @@ describe("FinderWidget", () => {
     expect(document.body.textContent).toContain("src");
     expect(document.body.textContent).toContain("README.md");
     expect(document.body.textContent).toContain("2 changed");
+    expect(document.body.textContent).toContain("Repository root: project");
+    expect(document.body.textContent).toContain("Refresh status");
+    expect(document.body.textContent).toContain("Select changed file");
+    expect(document.body.textContent).toContain("Commit selected");
+    expect(document.body.textContent).toContain("Push manually");
     expect(document.body.textContent).toContain("Modified");
     expect(document.body.textContent).toContain("Added");
     expect(document.body.textContent).toContain("finder: add history");
@@ -234,6 +251,13 @@ describe("FinderWidget", () => {
 
     await clickButtonContaining("App.tsx");
 
+    expect(finderEntryButton("src").className).toContain("finder-entry-path");
+    expect(finderEntryButton("src").className).not.toContain(
+      "finder-entry-selected",
+    );
+    expect(finderEntryButton("App.tsx").className).toContain(
+      "finder-entry-selected",
+    );
     expect(getWorkspaceGitFileDiffMock).toHaveBeenCalledWith({
       maxPatchBytes: 96 * 1024,
       path: "src/App.tsx",
@@ -667,6 +691,28 @@ describe("FinderWidget", () => {
     );
     expect(pushWorkspaceGitMock).not.toHaveBeenCalled();
   });
+
+  it("shows repository path errors inside the Finder Git panel", async () => {
+    const onSelectWorkspaceDirectory = vi.fn(async () => "C:/missing/project");
+    getWorkspaceGitStatusMock.mockRejectedValue(
+      new Error("repository path not found: C:/missing/project"),
+    );
+    getWorkspaceGitLogMock.mockResolvedValue(gitLog([]));
+
+    renderWidget({ onSelectWorkspaceDirectory });
+
+    await clickButton("Open root");
+
+    expect(document.body.textContent).toContain(
+      "Repository root: C:/missing/project",
+    );
+    expect(document.body.textContent).toContain(
+      "repository path not found: C:/missing/project",
+    );
+    expect(document.body.textContent).toContain(
+      "Git status has not loaded for this approved root.",
+    );
+  });
 });
 
 function renderWidget(overrides: Partial<Parameters<typeof FinderWidget>[0]> = {}) {
@@ -728,6 +774,16 @@ function finderPane(label: string) {
     throw new Error(`Finder pane not found: ${label}`);
   }
   return pane;
+}
+
+function finderEntryButton(text: string) {
+  const button = Array.from(
+    document.querySelectorAll<HTMLButtonElement>(".finder-entry"),
+  ).find((entryButton) => entryButton.textContent?.includes(text));
+  if (!button) {
+    throw new Error(`Finder entry not found: ${text}`);
+  }
+  return button;
 }
 
 async function changeTextarea(value: string) {

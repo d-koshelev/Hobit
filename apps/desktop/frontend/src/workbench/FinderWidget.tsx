@@ -72,9 +72,9 @@ const FINDER_ROOT_STATE_KEY = "finderRoot";
 
 const DEFAULT_FINDER_PANE_STATES: FinderPaneStates = {
   columns: "normal",
-  commit: "normal",
+  commit: "minimized",
   git: "normal",
-  history: "normal",
+  history: "minimized",
 };
 
 declare global {
@@ -1057,6 +1057,8 @@ export function FinderWidget({
                 error={gitStatus.error}
                 loading={gitStatus.loading}
                 onChangeViewMode={setViewMode}
+                onRefreshStatus={() => void refreshGitStatusForRoot()}
+                repositoryRoot={root?.gitRoot ?? null}
                 status={gitStatus.status}
                 viewMode={viewMode}
               />
@@ -1657,6 +1659,10 @@ function FinderColumnView({
           const isSelected =
             selectedItem?.pathSegments.join("/") ===
             entry.pathSegments.join("/");
+          const isPathAncestor = isFinderPathAncestor(
+            entry.pathSegments,
+            selectedItem?.pathSegments ?? [],
+          );
           const change = changeForEntry(entry, changeByPath, changedFiles);
 
           return (
@@ -1664,6 +1670,7 @@ function FinderColumnView({
               aria-pressed={isSelected}
               className={[
                 "finder-entry",
+                isPathAncestor ? "finder-entry-path" : null,
                 isSelected ? "finder-entry-selected" : null,
               ]
                 .filter(Boolean)
@@ -1699,11 +1706,23 @@ function FinderColumnView({
   );
 }
 
+function isFinderPathAncestor(candidate: string[], selected: string[]) {
+  if (candidate.length === 0 || candidate.length >= selected.length) {
+    return false;
+  }
+
+  return candidate.every(
+    (segment, index) => segment === selected[index],
+  );
+}
+
 function FinderGitStatusPanel({
   changedFiles,
   error,
   loading,
   onChangeViewMode,
+  onRefreshStatus,
+  repositoryRoot,
   status,
   viewMode,
 }: {
@@ -1711,10 +1730,13 @@ function FinderGitStatusPanel({
   error: string | null;
   loading: boolean;
   onChangeViewMode: (viewMode: FinderViewMode) => void;
+  onRefreshStatus: () => void;
+  repositoryRoot: string | null;
   status: GitRepositoryStatus | null;
   viewMode: FinderViewMode;
 }) {
   const branchLabel = status?.branch?.name ?? "No branch loaded";
+  const upstreamLabel = status?.branch?.upstream ?? "No upstream loaded";
   const statusLabel = loading
     ? "Reading"
     : status
@@ -1728,7 +1750,9 @@ function FinderGitStatusPanel({
       <div className="finder-git-status-header">
         <div className="finder-scope-copy">
           <p className="finder-title">Git status</p>
-          <p className="finder-text">{branchLabel}</p>
+          <p className="finder-text">
+            Repository root: {repositoryRoot ?? "No approved root path"}
+          </p>
         </div>
         <div className="finder-git-status-actions">
           <Badge
@@ -1747,6 +1771,13 @@ function FinderGitStatusPanel({
           <Badge variant={changedFiles.length > 0 ? "warning" : "neutral"}>
             {changedFiles.length} changed
           </Badge>
+          <Button
+            disabled={!repositoryRoot || loading}
+            onClick={onRefreshStatus}
+            variant="secondary"
+          >
+            {loading ? "Reading status" : "Refresh status"}
+          </Button>
           <div className="finder-view-toggle" role="group" aria-label="Finder file view">
             <Button
               onClick={() => onChangeViewMode("all")}
@@ -1763,6 +1794,21 @@ function FinderGitStatusPanel({
             </Button>
           </div>
         </div>
+      </div>
+      <div className="finder-git-status-summary" aria-label="Finder Git repository summary">
+        <FinderGitCommitFact label="Branch" value={branchLabel} />
+        <FinderGitCommitFact label="Upstream" value={upstreamLabel} />
+        <FinderGitCommitFact label="Ahead" value={formatGitCount(status?.branch?.ahead)} />
+        <FinderGitCommitFact label="Behind" value={formatGitCount(status?.branch?.behind)} />
+      </div>
+      <div className="finder-git-flow" aria-label="Finder Git manual flow">
+        <Badge variant="neutral">Refresh status</Badge>
+        <Badge variant={changedFiles.length > 0 ? "warning" : "neutral"}>
+          Select changed file
+        </Badge>
+        <Badge variant="neutral">View diff</Badge>
+        <Badge variant="neutral">Commit selected</Badge>
+        <Badge variant="neutral">Push manually</Badge>
       </div>
       {error ? <p className="finder-preview-error">{error}</p> : null}
       {changedFiles.length > 0 ? (
@@ -1787,6 +1833,10 @@ function FinderGitStatusPanel({
         </div>
       ) : status && !loading ? (
         <p className="finder-column-state">No changed files in this Git snapshot.</p>
+      ) : !status && !loading ? (
+        <p className="finder-column-state">
+          Git status has not loaded for this approved root.
+        </p>
       ) : null}
     </div>
   );
