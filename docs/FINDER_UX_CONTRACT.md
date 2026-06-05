@@ -9,13 +9,12 @@ operator-controlled Workspace/project view for files, folders, previews,
 in-place text edits, and Git-aware review without becoming a shell, hidden
 filesystem scanner, broad context-ingestion path, or standalone IDE clone.
 
-Status: Stable v0.1 target UX contract / docs-type-design only.
+Status: Current Stable v0.1 contract / docs-only.
 
 This contract does not implement frontend UI, backend or Tauri commands, Rust
 or TypeScript types, storage/schema changes, additional file watching, Git
-mutations beyond the Finder Git manual commit/push boundaries defined in
-`docs/FINDER_WIDGET_API_CONTRACT.md`, Workspace Agent tools, provider tools,
-hidden reads, or hidden writes.
+mutations beyond current Finder Git manual commit/push behavior, Workspace
+Agent tools, provider tools, hidden reads, or hidden writes.
 
 Current implemented behavior remains governed by
 `docs/CURRENT_WIDGET_SURFACE.md`.
@@ -135,20 +134,6 @@ Finder shell sections:
 Finder should avoid box-inside-box composition. The column strip and preview
 are one continuous widget surface, not separate widgets.
 
-Layout contract:
-
-- the column strip is the primary navigation region;
-- the preview is Finder-owned pane presentation attached to the current
-  selection, not a detached widget or separate Git surface;
-- folder navigation, file preview, edit state, and selected-file diff remain
-  visible as one Finder task context when space allows;
-- pane state changes may change the amount of visible preview area, but they
-  do not change the approved root, selected item, edit draft, or Git state by
-  themselves;
-- the first Minimal implementation may render fewer controls, but it must not
-  choose a layout direction that prevents the Operational column plus floating
-  preview model.
-
 ## Column Navigation
 
 Finder uses column-based navigation as the primary file navigation model.
@@ -161,22 +146,12 @@ Column rules:
 - the selected item is highlighted in its owning column;
 - the visible path can be inferred from the column chain;
 - horizontal overflow may scroll columns rather than replacing the whole view;
-- changing an earlier folder selection truncates later columns that no longer
-  belong to the selected path;
-- selecting a file does not open a child column; it updates selection metadata
-  and makes preview/diff actions available when supported;
-- column width, row height, and selection affordances should remain stable so
-  selection changes do not resize the whole widget surface;
 - columns show bounded directory entries and visible cap metadata when capped;
 - binary, unsupported, ignored, permission-denied, or too-large entries use visible states;
 - changing column selection does not create a new widget instance.
 
 Columns may show compact Git indicators when Git status is available for the
 approved root. Indicators are read-only status, not Git actions.
-
-Columns are not a hidden project index. A column is loaded only for the
-approved root or a selected visible folder inside that root, with bounds and
-typed unsupported states preserved.
 
 ## Floating Preview Pane
 
@@ -197,18 +172,6 @@ The same preview pane can switch between normal file preview and Git diff for
 the selected item. This avoids separate Git review surfaces for the common
 case of "what changed in this file?"
 
-Preview ownership rules:
-
-- one Finder widget has at most one active floating preview pane;
-- the preview is bound to the selected item and the approved root;
-- switching between `content`, `edit`, `diff`, and `metadata` modes preserves
-  the same selected item unless the operator selects a different item;
-- opening a diff does not create or require a standalone Git widget;
-- the preview may float over or beside the column strip inside the Finder
-  shell, but it remains part of the same WidgetInstance;
-- the preview body must show cap, truncation, redaction, binary, unsupported,
-  or error metadata when content cannot be shown normally.
-
 Pane states follow `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`:
 
 - `normal`: preview participates in the Finder layout;
@@ -220,16 +183,6 @@ Pane states follow `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`:
 Pane state changes are presentation only. They do not read extra content,
 write files, refresh Git, create Queue tasks, or send context to Workspace
 Agent by themselves.
-
-State expectations:
-
-- minimized preview preserves selection and unsaved edit warnings;
-- maximized preview preserves a visible route back to column navigation;
-- collapsed preview must still expose enough status to show dirty, failed,
-  capped, unsupported, or Git-diff-loaded state;
-- hidden preview is valid before selection or for unsupported selections, but
-  hiding the preview does not discard an edit draft unless the operator chooses
-  an explicit save/discard path.
 
 ## Edit In Place
 
@@ -246,10 +199,6 @@ Edit rules:
 - Save writes only the selected file inside the approved root through the
   current approved file handle/API path where available;
 - Cancel discards the draft and returns to the last loaded preview;
-- preview pane minimize, maximize, or collapse does not save, cancel, or
-  discard the draft;
-- switching from edit mode to Git diff mode with unsaved changes must preserve
-  the dirty draft and keep the unsaved state visible;
 - autosave is not part of this contract;
 - formatting, refactors, multi-file edits, and agent-authored patches are out
   of scope for this UX contract.
@@ -264,11 +213,6 @@ be read-only or unsupported with visible reasons.
 Finder shows Git-aware review for the approved root where Git data is
 available.
 
-Stable v0.1 product direction: Git lives in Finder space. The operator should
-be able to review file status, selected-file diff, recent history, manual
-commit, and manual push from the Finder-owned Git plugin surfaces without
-treating a separate Git widget as the normal product center.
-
 Git-in-Finder rules:
 
 - Git status and diff reads require the same explicit approved root boundary;
@@ -277,10 +221,6 @@ Git-in-Finder rules:
 - status indicators may appear in columns and selection metadata;
 - selecting a changed file may load a bounded selected-file diff into the same
   floating preview pane;
-- the diff preview is a mode of the Finder preview pane, not a second preview
-  pane and not a new WidgetInstance;
-- changed-file lists, history, commit details, and commit/push forms belong to
-  Finder-owned panes or controls that use the Finder Git plugin API;
 - diff preview must show truncation, binary, generated-file, and unsupported
   states when applicable;
 - raw diff is not default AI context;
@@ -306,8 +246,6 @@ Safe Finder snapshots should include:
 - visible columns with bounded entries;
 - selected item id/path label/type;
 - preview mode and preview lifecycle state;
-- floating preview pane state: normal, minimized, maximized, collapsed, or
-  hidden;
 - edit dirty/saved/error state;
 - Git status summary when available;
 - selected-file diff summary when loaded;
@@ -454,18 +392,12 @@ Stable v0.1 test scenarios:
 
 - select fixture root, list first column, and assert cap metadata;
 - navigate nested folders and assert previous columns remain visible;
-- change an earlier folder selection and assert stale descendant columns are
-  removed from the visible path;
 - select fixture text file and read capped content preview;
 - minimize, maximize, collapse, and restore preview without changing selection;
 - enter edit mode, modify draft, cancel, and assert no file mutation;
 - enter edit mode, modify draft, save, and assert selected fixture file changed;
-- enter edit mode, modify draft, minimize/collapse/maximize preview, and
-  assert the draft remains dirty until explicit Save or Cancel;
 - load Git status for an explicit fixture repository root;
 - select changed fixture file and load bounded diff in the same preview pane;
-- switch the same selected file between content preview and Git diff preview
-  without creating another widget instance;
 - read bounded Git history;
 - require explicit confirmation for manual commit;
 - require explicit confirmation and safe upstream state for manual push;
@@ -486,7 +418,7 @@ and any broader Git/file mutation workflows.
 
 This contract does not add:
 
-- any Finder implementation or runtime behavior;
+- additional Finder implementation beyond current Stable v0.1 behavior;
 - storage/schema changes;
 - approved root persistence;
 - hidden filesystem access;
