@@ -3,6 +3,7 @@ import {
   displayTaskTitle,
   coordinatorStatusBlocksNewWork,
   isFinalQueueTaskStatus,
+  queueTagColorToken,
   itemTypeLabel,
   normalizeItemType,
   normalizeQueueTag,
@@ -18,6 +19,8 @@ import {
   type AgentQueueDependencyState,
   type AgentQueueExecutorInfoTone,
   type AgentWorkerSummary,
+  type QueueTagColorToken,
+  type QueueTagSummary,
 } from "../agentQueueTaskUiModel";
 import {
   compareQueueRoutingItems,
@@ -32,13 +35,9 @@ import {
   normalizeCoordinatorStatus,
 } from "../agentQueueStatusLabels";
 
-export type QueueFlowTagColorToken =
-  | "queue-flow-tag-1"
-  | "queue-flow-tag-2"
-  | "queue-flow-tag-3"
-  | "queue-flow-tag-4"
-  | "queue-flow-tag-5"
-  | "queue-flow-tag-6";
+export { queueTagColorToken } from "../agentQueueTaskUiModel";
+
+export type QueueFlowTagColorToken = QueueTagColorToken;
 
 export type QueueFlowMap = {
   blockedColumns: QueueFlowColumn[];
@@ -139,6 +138,7 @@ export type QueueResultGroup = {
 export type BuildQueueFlowMapInput = {
   dependencyStates: ReadonlyMap<string, AgentQueueDependencyState>;
   pausedQueueTagIds?: ReadonlySet<string>;
+  queueTags?: readonly Pick<QueueTagSummary, "colorToken" | "queueTagId">[];
   routingStates: ReadonlyMap<string, AgentQueueAssignedWorkerRoutingState>;
   schedulerPlan?: AgentQueueSchedulerPlan;
   tasks: AgentQueueTask[];
@@ -148,17 +148,22 @@ export type BuildQueueFlowMapInput = {
 export function buildQueueFlowMap({
   dependencyStates,
   pausedQueueTagIds = new Set(),
+  queueTags = [],
   routingStates,
   schedulerPlan,
   tasks,
   workers,
 }: BuildQueueFlowMapInput): QueueFlowMap {
+  const queueTagColorTokens = new Map(
+    queueTags.map((tag) => [tag.queueTagId, tag.colorToken] as const),
+  );
   const itemBlocksById = new Map(
     tasks.map((task) => [
       task.queueItemId,
       queueFlowItemBlock({
         dependencyState: dependencyStates.get(task.queueItemId),
         pausedQueueTagIds,
+        queueTagColorTokens,
         routingState: routingStates.get(task.queueItemId),
         tasks,
         task,
@@ -239,33 +244,17 @@ export function buildQueueFlowMap({
   };
 }
 
-export function queueTagColorToken(queueTagId: string): QueueFlowTagColorToken {
-  const tokens: QueueFlowTagColorToken[] = [
-    "queue-flow-tag-1",
-    "queue-flow-tag-2",
-    "queue-flow-tag-3",
-    "queue-flow-tag-4",
-    "queue-flow-tag-5",
-    "queue-flow-tag-6",
-  ];
-  let hash = 0;
-
-  for (const character of queueTagId) {
-    hash = (hash * 31 + character.charCodeAt(0)) >>> 0;
-  }
-
-  return tokens[hash % tokens.length] ?? "queue-flow-tag-1";
-}
-
 function queueFlowItemBlock({
   dependencyState,
   pausedQueueTagIds,
+  queueTagColorTokens,
   routingState,
   tasks,
   task,
 }: {
   dependencyState?: AgentQueueDependencyState;
   pausedQueueTagIds: ReadonlySet<string>;
+  queueTagColorTokens: ReadonlyMap<string, QueueFlowTagColorToken>;
   routingState?: AgentQueueAssignedWorkerRoutingState;
   tasks: AgentQueueTask[];
   task: AgentQueueTask;
@@ -312,7 +301,9 @@ function queueFlowItemBlock({
   const block = {
     assignedWorkerLabel: routingState?.assignedWorker?.name ?? null,
     blockedReasons,
-    colorToken: queueTagColorToken(queueTag.queueTagId),
+    colorToken:
+      queueTagColorTokens.get(queueTag.queueTagId) ??
+      queueTagColorToken(queueTag.queueTagId),
     dependencyStatus: normalizedDependencyState.status,
     dependsOn: normalizedDependencyState.dependsOn,
     executorInfoDetail: flowExecutorInfo.detail,

@@ -1,9 +1,12 @@
-import { act } from "react";
+import { act, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentQueueTask } from "../workspace/types";
-import { queueDependencyStatesByTask } from "./agentQueueTaskUiModel";
+import {
+  queueDependencyStatesByTask,
+  type QueueTagSummary,
+} from "./agentQueueTaskUiModel";
 import { AgentQueueFlowMap } from "./AgentQueueFlowMap";
 import { DEFAULT_AGENT_QUEUE_VIEW_MODE } from "./AgentQueuePlaceholderWidget";
 import { queueTagColorToken } from "./queue/agentQueueFlowMapModel";
@@ -427,6 +430,44 @@ describe("AgentQueueFlowMap", () => {
     );
   });
 
+  it("uses editable queue tag color summaries for groups and blocks", () => {
+    const customToken =
+      queueTagColorToken("review") === "queue-flow-tag-5"
+        ? "queue-flow-tag-2"
+        : "queue-flow-tag-5";
+
+    renderFlowMap({
+      queueTags: [
+        queueTagSummary({
+          colorToken: customToken,
+          queueTagId: "review",
+          queueTagName: "Review",
+        }),
+      ],
+      tasks: [
+        queueTask({
+          queueItemId: "custom-review",
+          queueTagId: "review",
+          queueTagName: "Review",
+          status: "queued",
+          title: "Custom review",
+        }),
+      ],
+    });
+
+    const group = document.querySelector<HTMLElement>(
+      ".agent-queue-flow-group[data-tag-color-token]",
+    );
+    const block = document.querySelector<HTMLButtonElement>(
+      '[data-queue-item-id="custom-review"]',
+    );
+
+    expect(group?.dataset.tagColorToken).toBe(customToken);
+    expect(group?.classList.contains(customToken)).toBe(true);
+    expect(block?.dataset.tagColorToken).toBe(customToken);
+    expect(block?.classList.contains(customToken)).toBe(true);
+  });
+
   it("shows execution-complete unfinalized results without completed or done labels", () => {
     renderFlowMap({
       tasks: [
@@ -607,6 +648,44 @@ describe("AgentQueueFlowMap", () => {
     expect(onStart).not.toHaveBeenCalled();
   });
 
+  it("keeps flow-map card order stable after selecting a task box", () => {
+    const onSelectTask = vi.fn();
+    const tasks = [
+      queueTask({
+        orderIndex: 0,
+        queueItemId: "result-a",
+        status: "completed",
+        title: "Result A",
+      }),
+      queueTask({
+        orderIndex: 1,
+        queueItemId: "result-b",
+        status: "completed",
+        title: "Result B",
+      }),
+      queueTask({
+        orderIndex: 2,
+        queueItemId: "result-c",
+        status: "completed",
+        title: "Result C",
+      }),
+    ];
+
+    renderStatefulFlowMap({ onSelectTask, tasks });
+
+    const beforeClick = renderedQueueItemIds();
+
+    clickButton("Result B");
+
+    expect(onSelectTask).toHaveBeenCalledWith("result-b");
+    expect(renderedQueueItemIds()).toEqual(beforeClick);
+    expect(
+      document
+        .querySelector('[data-queue-item-id="result-b"]')
+        ?.getAttribute("aria-current"),
+    ).toBe("true");
+  });
+
   it("selects the running item from a working executor block only", () => {
     const onSelectTask = vi.fn();
     renderFlowMap({
@@ -631,10 +710,12 @@ describe("AgentQueueFlowMap", () => {
 function renderFlowMap({
   globalExecutionState = "started",
   onSelectTask = vi.fn(),
+  queueTags = [],
   tasks,
 }: {
   globalExecutionState?: "started" | "stopped" | "stop_kill_requested";
   onSelectTask?: (queueItemId: string) => void;
+  queueTags?: QueueTagSummary[];
   tasks: AgentQueueTask[];
 }) {
   container = document.createElement("div");
@@ -672,9 +753,73 @@ function renderFlowMap({
         schedulerPlan={schedulerPlan}
         selectedTask={tasks[0] ?? null}
         tasks={tasks}
+        queueTags={queueTags}
         workers={testWorkers}
       />,
     );
+  });
+}
+
+function renderStatefulFlowMap({
+  globalExecutionState = "started",
+  onSelectTask = vi.fn(),
+  tasks,
+}: {
+  globalExecutionState?: "started" | "stopped" | "stop_kill_requested";
+  onSelectTask?: (queueItemId: string) => void;
+  tasks: AgentQueueTask[];
+}) {
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+
+  function StatefulFlowMap() {
+    const [selectedTaskId, setSelectedTaskId] = useState(
+      tasks[0]?.queueItemId ?? null,
+    );
+    const selectedTask =
+      tasks.find((task) => task.queueItemId === selectedTaskId) ?? null;
+    const dependencyStates = queueDependencyStatesByTask(tasks);
+    const testWorkers = workers();
+    const schedulerPlan = buildAgentQueueSchedulerPlan({
+      dependencyStates,
+      globalExecutionState,
+      pausedQueueTagIds: new Set(),
+      tasks,
+      workers: testWorkers,
+    });
+    const embeddedExecutor = buildAgentQueueEmbeddedExecutorSection({
+      dependencyStates,
+      maxExecutors: 3,
+      schedulerPlan,
+      tasks,
+      workers: testWorkers,
+    });
+
+    return (
+      <AgentQueueFlowMap
+        dependencyStates={dependencyStates}
+        embeddedExecutor={embeddedExecutor}
+        isSelecting={false}
+        onSelectTask={(queueItemId) => {
+          onSelectTask(queueItemId);
+          setSelectedTaskId(queueItemId);
+        }}
+        pausedQueueTagIds={new Set()}
+        routingStates={getAssignedWorkerRoutingStates(tasks, testWorkers, {
+          dependencyStates,
+          tasks,
+        })}
+        schedulerPlan={schedulerPlan}
+        selectedTask={selectedTask}
+        tasks={tasks}
+        workers={testWorkers}
+      />
+    );
+  }
+
+  act(() => {
+    root?.render(<StatefulFlowMap />);
   });
 }
 
@@ -690,6 +835,32 @@ function clickButton(text: string) {
   act(() => {
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
+}
+
+function renderedQueueItemIds() {
+  return Array.from(document.querySelectorAll<HTMLElement>("[data-queue-item-id]"))
+    .map((item) => item.dataset.queueItemId)
+    .filter((queueItemId): queueItemId is string => Boolean(queueItemId));
+}
+
+function queueTagSummary(
+  overrides: Partial<QueueTagSummary> = {},
+): QueueTagSummary {
+  return {
+    colorToken: "queue-flow-tag-1",
+    coordinatorReviewCount: 0,
+    failedValidationCount: 0,
+    needsCoordinatorReview: false,
+    needsReviewCount: 0,
+    pauseReason: null,
+    queueTagId: "default",
+    queueTagName: "Default",
+    runningCount: 0,
+    status: "running",
+    taskCount: 0,
+    validatingCount: 0,
+    ...overrides,
+  };
 }
 
 function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {

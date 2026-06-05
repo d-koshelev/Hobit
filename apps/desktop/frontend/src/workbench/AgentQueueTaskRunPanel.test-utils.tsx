@@ -65,6 +65,7 @@ export function renderPanel(
   root = createRoot(container);
   const queueTags = overrides.queueTags ?? [
     {
+      colorToken: "queue-flow-tag-1",
       queueTagId: "default",
       queueTagName: "Default",
       coordinatorReviewCount: 0,

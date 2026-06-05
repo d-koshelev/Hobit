@@ -208,7 +208,7 @@ describe("agent queue flow map model", () => {
 
     expect(block?.colorToken).toBe(queueTagColorToken("validation"));
     expect(block?.assignedWorkerLabel).toBeNull();
-    expect(block?.statusLabel).toBe("Running");
+    expect(block?.statusLabel).toBe("Validating");
     expect(block?.validationStatus).toBe("validating");
     expect(block?.validationStatusLabel).toBe("Validating");
   });

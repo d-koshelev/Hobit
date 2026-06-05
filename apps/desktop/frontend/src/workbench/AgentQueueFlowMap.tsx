@@ -6,6 +6,7 @@ import {
   coordinatorStatusBadgeVariant,
   type AgentQueueDependencyState,
   type AgentWorkerSummary,
+  type QueueTagSummary,
 } from "./agentQueueTaskUiModel";
 import {
   buildQueueFlowMap,
@@ -33,6 +34,7 @@ type AgentQueueFlowMapProps = {
   schedulerPlan?: AgentQueueSchedulerPlan;
   selectedTask: AgentQueueTask | null;
   tasks: AgentQueueTask[];
+  queueTags?: QueueTagSummary[];
   workers: AgentWorkerSummary[];
 };
 
@@ -48,23 +50,23 @@ export function AgentQueueFlowMap({
   schedulerPlan,
   selectedTask,
   tasks,
+  queueTags = [],
   workers,
 }: AgentQueueFlowMapProps) {
   const [isSampleTopologyEnabled, setIsSampleTopologyEnabled] = useState(false);
-  const [selectedSampleItemId, setSelectedSampleItemId] = useState<string | null>(
-    null,
-  );
+  const [selectedSampleItemId, setSelectedSampleItemId] = useState<string | null>(null);
   const flowMap = useMemo(
     () =>
       buildQueueFlowMap({
         dependencyStates,
         pausedQueueTagIds,
+        queueTags,
         routingStates,
         schedulerPlan,
         tasks,
         workers,
       }),
-    [dependencyStates, pausedQueueTagIds, routingStates, schedulerPlan, tasks, workers],
+    [dependencyStates, pausedQueueTagIds, queueTags, routingStates, schedulerPlan, tasks, workers],
   );
   const sampleTopology = useMemo(
     () => (CAN_SHOW_SAMPLE_TOPOLOGY ? buildSampleQueueFlowMapTopology() : null),
@@ -74,12 +76,8 @@ export function AgentQueueFlowMap({
   const isSampleTopology =
     canShowSampleTopology && isSampleTopologyEnabled && sampleTopology !== null;
   const activeFlowMap = isSampleTopology && sampleTopology ? sampleTopology.flowMap : flowMap;
-  const activeEmbeddedExecutor = isSampleTopology
-    ? sampleTopology?.embeddedExecutor
-    : embeddedExecutor;
-  const activeSchedulerPlan = isSampleTopology
-    ? sampleTopology?.schedulerPlan
-    : schedulerPlan;
+  const activeEmbeddedExecutor = isSampleTopology ? sampleTopology?.embeddedExecutor : embeddedExecutor;
+  const activeSchedulerPlan = isSampleTopology ? sampleTopology?.schedulerPlan : schedulerPlan;
   const activeSelectedTaskId = isSampleTopology
     ? selectedSampleItemId
     : selectedTask?.queueItemId ?? null;

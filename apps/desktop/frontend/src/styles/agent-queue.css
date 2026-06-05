@@ -313,9 +313,22 @@
 }
 
 .agent-queue-sidebar-row-title {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-xs);
   color: var(--color-text-primary);
   font-size: var(--text-xs);
   font-weight: 700;
+}
+
+.agent-queue-tag-color-swatch {
+  width: 0.65rem;
+  height: 0.65rem;
+  flex: 0 0 auto;
+  border: 1px solid var(--agent-queue-flow-tag-border);
+  border-radius: var(--radius-xs);
+  background: var(--agent-queue-flow-tag);
 }
 
 .agent-queue-sidebar-row {
@@ -447,6 +460,17 @@
 
 .agent-queue-tag-management-input {
   min-width: 0;
+  width: 100%;
+}
+
+.agent-queue-tag-color-control {
+  display: grid;
+  min-width: 96px;
+  gap: 2px;
+}
+
+.agent-queue-tag-color-select {
+  min-height: var(--control-height-sm);
   width: 100%;
 }
 
@@ -840,9 +864,7 @@
 }
 
 .agent-queue-flow-result-group {
-  flex: 1 1 260px;
-  width: auto;
-  max-width: none;
+  flex: 0 1 176px;
   align-content: start;
 }
 

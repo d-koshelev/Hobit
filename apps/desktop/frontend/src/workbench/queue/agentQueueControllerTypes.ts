@@ -17,6 +17,7 @@ import type {
 import type {
   AgentWorkerSummary,
   QueueGlobalStatus,
+  QueueTagColorToken,
   QueueTagSummary,
   WorkerScope,
 } from "../agentQueueTaskUiModel";
@@ -277,6 +278,10 @@ export type AgentQueueFoundationController = {
   onRenameWorker: (workerId: string, name: string) => void;
   onRenameQueueTag: (queueTagId: string, queueTagName: string) => Promise<boolean>;
   onResumeQueueTag: (queueTagId: string) => void;
+  onSetQueueTagColor: (
+    queueTagId: string,
+    colorToken: QueueTagColorToken,
+  ) => boolean;
   onStartWorkers: () => void;
   onStopAndKillRunning: () => void;
   onStopWorkers: () => void;

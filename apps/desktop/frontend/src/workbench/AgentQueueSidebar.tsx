@@ -11,6 +11,7 @@ import type {
   AgentQueueFoundationController,
 } from "./queue/useAgentQueueController";
 import { AgentQueueAutonomousSection } from "./AgentQueueAutonomousSection";
+import { AgentQueueTagColorControl, AgentQueueTagColorSwatch } from "./AgentQueueTagColorControl";
 
 type AgentQueueSidebarProps = {
   autonomous: AgentQueueAutonomousController;
@@ -22,14 +23,10 @@ export function AgentQueueSidebar({ autonomous, foundation }: AgentQueueSidebarP
   const [newTagName, setNewTagName] = useState("");
   const [renamingTagId, setRenamingTagId] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
-  const [deleteConfirmTagId, setDeleteConfirmTagId] = useState<string | null>(
-    null,
-  );
+  const [deleteConfirmTagId, setDeleteConfirmTagId] = useState<string | null>(null);
   const [renamingWorkerId, setRenamingWorkerId] = useState<string | null>(null);
   const [workerRenameDraft, setWorkerRenameDraft] = useState("");
-  const [deleteConfirmWorkerId, setDeleteConfirmWorkerId] = useState<
-    string | null
-  >(null);
+  const [deleteConfirmWorkerId, setDeleteConfirmWorkerId] = useState<string | null>(null);
 
   const enabledWorkerCount = foundation.workers.filter(
     (worker) => worker.enabled,
@@ -104,9 +101,7 @@ export function AgentQueueSidebar({ autonomous, foundation }: AgentQueueSidebarP
                   <input
                     aria-label={`Rename ${tag.queueTagName}`}
                     className="input agent-queue-tag-management-input"
-                    onChange={(event) =>
-                      setRenameDraft(event.currentTarget.value)
-                    }
+                    onChange={(event) => setRenameDraft(event.currentTarget.value)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter") {
                         void confirmRename(tag.queueTagId);
@@ -116,6 +111,7 @@ export function AgentQueueSidebar({ autonomous, foundation }: AgentQueueSidebarP
                   />
                 ) : (
                   <p className="agent-queue-sidebar-row-title">
+                    <AgentQueueTagColorSwatch colorToken={tag.colorToken} />
                     {tag.queueTagName}
                   </p>
                 )}
@@ -200,9 +196,11 @@ export function AgentQueueSidebar({ autonomous, foundation }: AgentQueueSidebarP
             {foundation.queueTags.map((tag) => (
               <div className="agent-queue-management-row" key={tag.queueTagId}>
                 <p className="agent-queue-sidebar-row-title">
+                  <AgentQueueTagColorSwatch colorToken={tag.colorToken} />
                   {tag.queueTagName}
                 </p>
                 <div className="agent-queue-sidebar-row-actions">
+                  <AgentQueueTagColorControl colorToken={tag.colorToken} onChange={(colorToken) => foundation.onSetQueueTagColor(tag.queueTagId, colorToken)} queueTagName={tag.queueTagName} />
                   {renamingTagId === tag.queueTagId ? (
                     <>
                       <Button

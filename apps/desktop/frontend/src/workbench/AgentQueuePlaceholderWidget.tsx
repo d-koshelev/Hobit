@@ -286,6 +286,7 @@ export function AgentQueuePlaceholderWidget({
                 schedulerPlan={queue.foundation.schedulerPlan}
                 selectedTask={selectedTask}
                 tasks={tasks}
+                queueTags={queue.foundation.queueTags}
                 workers={queue.foundation.workers}
               />
             }

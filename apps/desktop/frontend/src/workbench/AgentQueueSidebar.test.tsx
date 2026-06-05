@@ -149,6 +149,7 @@ describe("AgentQueueSidebar", () => {
     const foundation = foundationController();
     foundation.queueTags = [
       {
+        colorToken: "queue-flow-tag-1",
         queueTagId: "default",
         queueTagName: "Default",
         coordinatorReviewCount: 1,
@@ -306,6 +307,7 @@ function foundationController(
     onRenameWorker: vi.fn(),
     onRenameQueueTag: vi.fn(async () => true),
     onResumeQueueTag: vi.fn(),
+    onSetQueueTagColor: vi.fn(() => true),
     onStartWorkers: vi.fn(),
     onStopAndKillRunning: vi.fn(),
     onStopWorkers: vi.fn(),
@@ -314,6 +316,7 @@ function foundationController(
     pausedQueueTagIds: new Set(),
     queueTags: [
       {
+        colorToken: "queue-flow-tag-1",
         queueTagId: "default",
         queueTagName: "Default",
         coordinatorReviewCount: 0,

@@ -308,6 +308,7 @@ export function buildAgentQueueControllerViewModel({
     pauseQueueTag,
     renameQueueTag,
     resumeQueueTag,
+    setQueueTagColor,
   } = tagActions;
   const {
     changeWorkerScope,
@@ -520,6 +521,7 @@ export function buildAgentQueueControllerViewModel({
       onRenameWorker: renameWorker,
       onRenameQueueTag: renameQueueTag,
       onResumeQueueTag: resumeQueueTag,
+      onSetQueueTagColor: setQueueTagColor,
       onStartWorkers: startWorkers,
       onStopAndKillRunning: stopAndKillRunning,
       onStopWorkers: stopWorkers,

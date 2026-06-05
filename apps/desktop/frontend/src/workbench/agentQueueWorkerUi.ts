@@ -18,6 +18,10 @@ import {
   type AgentQueueDependencyState,
 } from "./agentQueueDependencyUi";
 import { type BadgeVariant } from "./agentQueueFormatting";
+import {
+  queueTagColorToken,
+  type QueueTagColorToken,
+} from "./queue/agentQueueTagColors";
 import { AGENT_RUN_WIDGET_DEFINITION_ID } from "./widgetRegistry";
 
 export type QueueTagStatus = "running" | "paused";
@@ -44,6 +48,7 @@ export type AgentQueueExecutorInfo = {
 };
 
 export type QueueTagRecord = {
+  colorToken?: QueueTagColorToken;
   queueTagId: string;
   queueTagName: string;
 };
@@ -54,6 +59,7 @@ export type QueueTagPauseState = {
 };
 
 export type QueueTagSummary = {
+  colorToken: QueueTagColorToken;
   queueTagId: string;
   queueTagName: string;
   status: QueueTagStatus;
@@ -364,6 +370,7 @@ export function queueTagsFromTasks(
     const pauseState = pauseStates.get(queueTag.queueTagId);
 
     return {
+      colorToken: queueTag.colorToken ?? queueTagColorToken(queueTag.queueTagId),
       queueTagId: queueTag.queueTagId,
       queueTagName: queueTag.queueTagName,
       runningCount: 0,
@@ -387,6 +394,8 @@ export function queueTagsFromTasks(
     const current =
       summaries.get(queueTagId) ??
       createSummary({
+        colorToken: managedTags.find((tag) => tag.queueTagId === queueTagId)
+          ?.colorToken,
         queueTagId,
         queueTagName,
       });

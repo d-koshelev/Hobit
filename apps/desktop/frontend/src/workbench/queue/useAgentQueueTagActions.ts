@@ -10,7 +10,10 @@ import {
   normalizeTaskDependencies,
   normalizeTaskExecutionPolicy,
   normalizeValidationStatus,
+  queueTagColorToken,
   queueTagNameToId,
+  isQueueTagColorToken,
+  type QueueTagColorToken,
   type QueueTagPauseState,
   type TaskDraft,
   type WorkerScope,
@@ -93,6 +96,7 @@ export function createAgentQueueTagActions({
 
     setManagedQueueTags((current) =>
       upsertQueueTagRecord(current, {
+        colorToken: queueTagColorToken(queueTagId),
         queueTagId,
         queueTagName: normalizedName,
       }),
@@ -166,6 +170,7 @@ export function createAgentQueueTagActions({
 
     setManagedQueueTags((current) =>
       upsertQueueTagRecord(current, {
+        colorToken: tag.colorToken,
         queueTagId,
         queueTagName: normalizedName,
       }),
@@ -340,17 +345,51 @@ export function createAgentQueueTagActions({
     setGlobalMessage("Queue tag resumed by coordinator review.");
   }
 
+  function setQueueTagColor(
+    queueTagId: string,
+    colorToken: QueueTagColorToken,
+  ) {
+    const tag = queueTags.find((candidate) => candidate.queueTagId === queueTagId);
+
+    setTagManagementError(null);
+    setTagManagementMessage(null);
+
+    if (!tag) {
+      setTagManagementError("Queue tag could not be found.");
+      return false;
+    }
+
+    if (!isQueueTagColorToken(colorToken)) {
+      setTagManagementError("Queue tag color is not supported.");
+      return false;
+    }
+
+    setManagedQueueTags((current) =>
+      upsertQueueTagRecord(current, {
+        colorToken,
+        queueTagId,
+        queueTagName: tag.queueTagName,
+      }),
+    );
+    setTagManagementMessage(
+      "Queue tag color updated for this Hobit session. Current tag storage does not persist colors yet.",
+    );
+    return true;
+  }
+
   return {
     createQueueTag,
     deleteQueueTag,
     pauseQueueTag,
     renameQueueTag,
     resumeQueueTag,
+    setQueueTagColor,
   };
 }
 
 export function queueTagSummaryToRecord(tag: QueueTagSummary): QueueTagRecord {
   return {
+    colorToken: tag.colorToken,
     queueTagId: tag.queueTagId,
     queueTagName: tag.queueTagName,
   };
