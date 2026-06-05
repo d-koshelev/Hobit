@@ -105,6 +105,8 @@ describe("FinderWidget", () => {
   });
 
   it("restores a persisted explicit path root when supported by widget state", async () => {
+    homeDirMock.mockResolvedValue("C:/Users/Dmitry");
+
     renderWidget({
       instance: {
         ...instance(),
@@ -127,7 +129,7 @@ describe("FinderWidget", () => {
     expect(document.body.textContent).toContain(
       "Directory listing is unavailable until this root is reopened with a supported directory handle.",
     );
-    expect(homeDirMock).not.toHaveBeenCalled();
+    expect(homeDirMock).toHaveBeenCalledTimes(1);
   });
 
   it("renders universal pane controls for columns, Git, commit, and history", async () => {
@@ -334,8 +336,12 @@ describe("FinderWidget", () => {
     renderWidget({ onCreateAgentQueueTask: createQueueTask });
 
     await clickButton("Open root");
+    expect(document.body.textContent).not.toContain("Knowledge source");
     await clickButtonContaining("src");
+    expect(document.body.textContent).not.toContain("Folder");
     await clickButtonContaining("App.tsx");
+    expect(document.body.textContent).not.toContain("File");
+    expect(document.body.textContent).toContain("Selected actions");
     await clickButton("Create Knowledge task");
 
     expect(createQueueTask).toHaveBeenCalledWith(

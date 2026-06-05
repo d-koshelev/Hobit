@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { homeDir } from "@tauri-apps/api/path";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
@@ -208,6 +209,18 @@ export function FinderWidget({
         return;
       }
 
+      const resolvedHomeDirectory = await resolveUserHomeDirectory();
+      if (isCancelled) {
+        return;
+      }
+
+      if (rootRef.current || isOpeningRootRef.current) {
+        setDidInitializeDefaultRoot(true);
+        return;
+      }
+
+      setHomeDirectory(resolvedHomeDirectory);
+
       const persistedRoot = readPersistedFinderRoot(instance.state);
       if (persistedRoot) {
         openPathOnlyRoot(persistedRoot.path, {
@@ -219,20 +232,16 @@ export function FinderWidget({
         return;
       }
 
-      const resolvedHomeDirectory = await resolveUserHomeDirectory();
-      if (
-        isCancelled ||
-        !resolvedHomeDirectory ||
-        rootRef.current ||
-        isOpeningRootRef.current
-      ) {
+      if (!resolvedHomeDirectory) {
+        setRootError(
+          "Home directory is unavailable in this runtime. Open an explicit root to browse files.",
+        );
         setDidInitializeDefaultRoot(true);
         return;
       }
 
-      setHomeDirectory(resolvedHomeDirectory);
       openPathOnlyRoot(resolvedHomeDirectory, {
-        label: resolvedHomeDirectory,
+        label: "Home",
         reason:
           "Home is the default root. Directory columns require opening a supported root in this runtime.",
       });
@@ -971,15 +980,6 @@ export function FinderWidget({
           </section>
         ) : null}
 
-        <FinderKnowledgeSourcePanel
-          blocker={knowledgeTaskBlocker}
-          error={knowledgeTaskError}
-          isCreating={isCreatingKnowledgeTask}
-          message={knowledgeTaskMessage}
-          onCreateTask={() => void createKnowledgeTaskFromSelection()}
-          selectedItem={selectedItem}
-        />
-
         <div aria-label="Finder panes" className="finder-pane-layout">
           <FinderPaneShell
             className="finder-columns-pane"
@@ -994,6 +994,16 @@ export function FinderWidget({
             }
             title="Columns view"
           >
+            {selectedItem ? (
+              <FinderSelectedActionsPanel
+                blocker={knowledgeTaskBlocker}
+                error={knowledgeTaskError}
+                isCreating={isCreatingKnowledgeTask}
+                message={knowledgeTaskMessage}
+                onCreateTask={() => void createKnowledgeTaskFromSelection()}
+                selectedItem={selectedItem}
+              />
+            ) : null}
             <div className="finder-layout">
               <section aria-label="Finder columns" className="finder-column-strip">
                 {columns.length === 0 ? (
@@ -1426,7 +1436,7 @@ function FinderFloatingPreview({
   );
 }
 
-function FinderKnowledgeSourcePanel({
+function FinderSelectedActionsPanel({
   blocker,
   error,
   isCreating,
@@ -1444,23 +1454,25 @@ function FinderKnowledgeSourcePanel({
   const selectedLabel = selectedItem
     ? selectedItem.pathSegments.join("/")
     : "No file or folder selected";
+  const selectedKindLabel =
+    selectedItem?.kind === "directory" ? "folder" : "file";
 
   return (
     <section
-      aria-label="Finder Knowledge source"
-      className="finder-knowledge-source"
+      aria-label="Finder selected actions"
+      className="finder-selected-actions"
     >
       <div className="finder-scope-copy">
-        <p className="finder-title">Knowledge source</p>
+        <p className="finder-title">Selected actions</p>
         <p className="finder-text">
           {selectedItem
-            ? `${finderEntryKindLabel(selectedItem.kind)}: ${selectedLabel}`
+            ? `Selected ${selectedKindLabel}: ${selectedLabel}`
             : selectedLabel}
         </p>
       </div>
       <div className="finder-source-actions">
         <Badge variant={selectedItem ? "info" : "neutral"}>
-          {selectedItem ? finderEntryKindLabel(selectedItem.kind) : "No selection"}
+          {selectedItem ? selectedKindLabel : "No selection"}
         </Badge>
         <Badge variant="neutral">Manual Queue</Badge>
         <Button
@@ -1519,8 +1531,7 @@ function readPersistedFinderRoot(
 
 async function resolveUserHomeDirectory() {
   try {
-    const pathApi = await import("@tauri-apps/api/path");
-    return await pathApi.homeDir();
+    return await homeDir();
   } catch {
     return null;
   }
@@ -1654,9 +1665,11 @@ function FinderColumnView({
               onClick={() => onSelectEntry(entry)}
               type="button"
             >
-              <span className="finder-entry-kind">
-                {entry.kind === "directory" ? "Folder" : "File"}
-              </span>
+              <span
+                aria-label={finderEntryKindLabel(entry.kind)}
+                className={`finder-entry-icon finder-entry-icon-${entry.kind}`}
+                role="img"
+              />
               <span className="finder-entry-name">{entry.name}</span>
               {change ? (
                 <Badge
