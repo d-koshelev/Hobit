@@ -92,6 +92,7 @@ export function InteractiveAgentPlaceholderWidget({
   frameMoveEnabled,
   frameStyle,
   instance,
+  agentActivityEvents,
   logRefreshToken,
   onCreateAgentQueueTask,
   onCreateKnowledgeDocument,
@@ -160,6 +161,9 @@ export function InteractiveAgentPlaceholderWidget({
   const sessionScopeKeyRef = useRef(sessionScopeKey);
   const trimmedDraftLength = draft.trim().length;
   const isQueueCommandDraft = Boolean(parseWorkspaceAgentQueueCommand(draft));
+  const currentAgentActivityEvents = (agentActivityEvents ?? []).filter(
+    (event) => event.sourceWidgetInstanceId === instance.id,
+  );
   const directWork = useWorkspaceAgentDirectWorkController({
     draft,
     instanceId: instance.id,
@@ -848,6 +852,7 @@ export function InteractiveAgentPlaceholderWidget({
           directMode={
             isDirectModeEnabled
               ? {
+                  agentActivityEvents: currentAgentActivityEvents,
                   activitySummary: directWork.directWorkActivitySummary,
                   canStartDirectWork:
                     directWork.canStartDirectWork ||
@@ -861,7 +866,6 @@ export function InteractiveAgentPlaceholderWidget({
                   knowledgeLookup: directWork.workspaceKnowledgeLookup,
                   logs: directWork.directWorkLogs,
                   onDirectoryChange: directWork.handleWorkingDirectoryChange,
-                  onResetThread: directWork.handleNewThread,
                   onSandboxChange: directWork.handleSandboxChange,
                   onSelectWorkspaceDirectory,
                   onStopDirectWork: () => void directWork.handleStopDirectWork(),

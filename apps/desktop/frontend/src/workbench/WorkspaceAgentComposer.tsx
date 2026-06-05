@@ -7,6 +7,7 @@ import {
 } from "react";
 import { Button } from "../design-system/Button";
 import type { DirectWorkSandbox } from "../workspace/types";
+import type { AgentActivityEvent } from "./agentActivityModel";
 import {
   type CoordinatorDirectWorkLogEntry,
   type CoordinatorDirectWorkStatus,
@@ -19,6 +20,7 @@ import { WorkspaceAgentVisibleContextPanel } from "./WorkspaceAgentVisibleContex
 import type { WorkspaceAgentVisibleContext } from "./workspaceAgentVisibleContext";
 
 type WorkspaceAgentComposerDirectMode = {
+  agentActivityEvents: AgentActivityEvent[];
   activitySummary: WorkspaceAgentActivitySummary;
   canStartDirectWork: boolean;
   canStopDirectWork: boolean;
@@ -30,7 +32,6 @@ type WorkspaceAgentComposerDirectMode = {
   knowledgeLookup: WorkspaceKnowledgeLookup;
   logs: CoordinatorDirectWorkLogEntry[];
   onDirectoryChange: (value: string) => void;
-  onResetThread: () => void;
   onSandboxChange: (value: DirectWorkSandbox) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
   onStopDirectWork: () => void;
@@ -68,16 +69,25 @@ export function WorkspaceAgentComposer({
 }) {
   const textareaId = useId();
   const newThreadInputId = useId();
+  const [isActivityOpen, setIsActivityOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [startNewThreadOnNextRun, setStartNewThreadOnNextRun] =
     useState(false);
   const isDirectModeEnabled = Boolean(directMode);
+  const isDirectWorkRunning = directMode?.status === "running";
   const hasActiveThread = Boolean(directMode?.threadId);
-  const currentThreadText = directMode?.threadId
-    ? `Current thread: ${shortCodexThreadId(directMode.threadId)}`
-    : "Current thread: No active thread";
+  const currentThreadText =
+    directMode?.threadId && isDirectModeEnabled
+      ? `Thread: ${shortCodexThreadId(directMode.threadId)}`
+      : "Thread: none";
   const currentThreadTitle = directMode?.threadId
     ? `Codex thread id: ${directMode.threadId}`
     : "No active Codex thread.";
+  const workingLabel = isDirectWorkRunning
+    ? "Working"
+    : isProviderPending
+      ? "Waiting"
+      : null;
 
   useEffect(() => {
     if (!hasActiveThread) {
@@ -141,6 +151,18 @@ export function WorkspaceAgentComposer({
               {directMode.isStopPending ? "Stopping" : "Stop"}
             </Button>
           ) : null}
+          {workingLabel ? (
+            <span
+              aria-live="polite"
+              className="interactive-agent-working-indicator"
+              role="status"
+            >
+              <span aria-hidden="true" className="interactive-agent-working-dot" />
+              <span aria-hidden="true" className="interactive-agent-working-dot" />
+              <span aria-hidden="true" className="interactive-agent-working-dot" />
+              <span>{workingLabel}</span>
+            </span>
+          ) : null}
           {directMode ? (
             <div
               aria-label="Current Codex thread"
@@ -188,24 +210,48 @@ export function WorkspaceAgentComposer({
                 ? "Drafting"
                 : "Send"}
           </Button>
+          {directMode ? (
+            <Button
+              aria-expanded={isSettingsOpen}
+              aria-label="Toggle Codex settings"
+              className="interactive-agent-settings-button"
+              onClick={() => setIsSettingsOpen((current) => !current)}
+              title="Codex settings"
+              type="button"
+              variant="ghost"
+            >
+              ⚙
+            </Button>
+          ) : null}
+          {directMode ? (
+            <Button
+              aria-expanded={isActivityOpen}
+              aria-label="Show Agent Activity"
+              onClick={() => setIsActivityOpen((current) => !current)}
+              type="button"
+              variant="ghost"
+            >
+              {isActivityOpen ? "Hide Agent Activity" : "Show Agent Activity"}
+            </Button>
+          ) : null}
         </div>
       </div>
       {directMode ? (
         <WorkspaceAgentDirectModePanel
+          agentActivityEvents={directMode.agentActivityEvents}
           activitySummary={directMode.activitySummary}
           directWorkDirectory={directMode.directWorkDirectory}
           directWorkSandbox={directMode.directWorkSandbox}
           error={directMode.error}
           finalResult={directMode.finalResult}
+          isActivityOpen={isActivityOpen}
+          isSettingsOpen={isSettingsOpen}
           knowledgeLookup={directMode.knowledgeLookup}
           logs={directMode.logs}
           onDirectoryChange={directMode.onDirectoryChange}
-          onResetThread={directMode.onResetThread}
           onSandboxChange={directMode.onSandboxChange}
           onSelectWorkspaceDirectory={directMode.onSelectWorkspaceDirectory}
           runId={directMode.runId}
-          status={directMode.status}
-          threadId={directMode.threadId}
           threadNotice={directMode.threadNotice}
           warning={directMode.warning}
         />

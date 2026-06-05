@@ -264,22 +264,51 @@ export async function setTextInputValue(value: string) {
 }
 
 export async function setSandboxValue(value: string) {
-  const select = document.querySelector<HTMLSelectElement>(
-    'select[aria-label="Codex sandbox"]',
-  );
-  if (!select) {
-    throw new Error("Codex sandbox select not found.");
+  if (!document.querySelector('[role="radiogroup"][aria-label="Codex sandbox"]')) {
+    const settingsButton = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle Codex settings"]',
+    );
+    if (!settingsButton) {
+      throw new Error("Codex settings button not found.");
+    }
+
+    await act(async () => {
+      settingsButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+  }
+
+  const label = sandboxLabel(value);
+  const option = Array.from(
+    document.querySelectorAll<HTMLButtonElement>(
+      '[role="radio"][aria-checked]',
+    ),
+  ).find((button) => button.textContent === label);
+  if (!option) {
+    throw new Error(`Codex sandbox option not found: ${label}`);
   }
 
   await act(async () => {
-    const descriptor = Object.getOwnPropertyDescriptor(
-      HTMLSelectElement.prototype,
-      "value",
-    );
-    descriptor?.set?.call(select, value);
-    select.dispatchEvent(new Event("change", { bubbles: true }));
+    option.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
   });
+}
+
+function sandboxLabel(value: string) {
+  if (value === "read_only") {
+    return "Read only";
+  }
+
+  if (value === "workspace_write") {
+    return "Workspace write";
+  }
+
+  if (value === "danger_full_access") {
+    return "Full access";
+  }
+
+  return value;
 }
 
 export async function clickButton(text: string) {

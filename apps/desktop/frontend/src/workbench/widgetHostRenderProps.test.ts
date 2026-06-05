@@ -116,7 +116,7 @@ describe("widgetHostRenderProps", () => {
     expect(props.onRunTerminalCommand).toBeUndefined();
   });
 
-  it("routes current-session Agent Activity events only to Agent Activity", () => {
+  it("routes current-session Agent Activity events to Agent Activity and Workspace Agent", () => {
     const publish = vi.fn();
     const activityEvents = [agentActivityEvent()];
 
@@ -131,7 +131,7 @@ describe("widgetHostRenderProps", () => {
         agentActivityEvents: activityEvents,
         onPublishAgentActivityEvents: publish,
       }).agentActivityEvents,
-    ).toBeUndefined();
+    ).toBe(activityEvents);
     expect(
       renderPropsFor(INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY, {
         agentActivityEvents: activityEvents,

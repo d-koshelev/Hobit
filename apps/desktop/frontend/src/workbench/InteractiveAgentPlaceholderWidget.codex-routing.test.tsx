@@ -2,7 +2,6 @@
 import {
   attachedContextRequest,
   buttonWithText,
-  buttonsWithText,
   checkboxWithLabel,
   clickButton,
   clickButtonIn,
@@ -93,11 +92,9 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).toContain(
       "Runs with Codex from the selected working directory.",
     );
-    expect(document.body.textContent).toContain(
-      "Starting new Codex thread. Workspace knowledge not available. Starting Codex Direct Work from ~.",
-    );
+    expect(document.body.textContent).toContain("Thread active: thread_b...");
     expect(document.body.textContent).toContain("Codex handled the task.");
-    expect(document.body.textContent).toContain("Thread active thread_b...");
+    expect(document.body.textContent).toContain("Thread: thread_b...");
     expect(lastAssistantMessageText()).toBe("Codex handled the task.");
     expect(lastAssistantMessageText()).not.toContain("Sent to Codex Direct Mode");
     expect(lastAssistantMessageText()).not.toContain("Starting foreground Codex Direct Work");
@@ -203,7 +200,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       ".interactive-agent-direct-mode-details",
     );
     expect(details?.open).toBe(false);
-    expect(details?.textContent).toContain("item.started");
+    expect(details?.textContent).not.toContain("item.started");
     expect(publishActivityEvents).toHaveBeenCalled();
     expect(
       publishActivityEvents.mock.calls.flatMap((call) => call[0]),
@@ -283,8 +280,8 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(
       JSON.stringify(startDirectWork.mock.calls[1][1]),
     ).not.toContain("I have 5 apples");
-    expect(document.body.textContent).toContain("Continuing Codex thread");
-    expect(document.body.textContent).toContain("Thread active thread_s...");
+    expect(document.body.textContent).toContain("Thread active: thread_s...");
+    expect(document.body.textContent).toContain("Thread: thread_s...");
   });
 
   it("New Thread checkbox starts only the next Codex run without the active thread", async () => {
@@ -331,7 +328,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
 
     await setTextareaValue("First run.");
     await clickButton("Run with Codex");
-    expect(document.body.textContent).toContain("Current thread: thread_c...");
+    expect(document.body.textContent).toContain("Thread: thread_c...");
 
     await setTextareaValue("Fresh run.");
     await setCheckboxChecked("New Thread", true);
@@ -491,15 +488,15 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
 
     await setTextareaValue("Workspace A first run.");
     await clickButton("Run with Codex");
-    expect(document.body.textContent).toContain("Thread active thread_w...");
+    expect(document.body.textContent).toContain("Thread: thread_w...");
 
     await rerenderWidget({
       onStartCodexDirectWorkStream: startDirectWork,
       workspaceId: "workspace_b",
     });
 
-    expect(document.body.textContent).toContain("No active thread");
-    expect(document.body.textContent).not.toContain("Thread active thread_w...");
+    expect(document.body.textContent).toContain("Thread: none");
+    expect(document.body.textContent).not.toContain("Thread: thread_w...");
 
     await setTextareaValue("Workspace B first run.");
     await clickButton("Run with Codex");
@@ -561,7 +558,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       workspaceId: "workspace_1",
     });
 
-    expect(document.body.textContent).toContain("No active thread");
+    expect(document.body.textContent).toContain("Thread: none");
 
     await setTextareaValue("Widget B first run.");
     await clickButton("Run with Codex");
@@ -616,9 +613,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     await toggleDirectMode();
     await setTextareaValue("Remember this.");
     await clickButton("Run with Codex");
-    await clickButton("New thread");
-    expect(document.body.textContent).toContain("Codex thread reset.");
-    expect(document.body.textContent).toContain("No active thread");
+    await setCheckboxChecked("New Thread", true);
 
     await setTextareaValue("Start over.");
     await clickButton("Run with Codex");
@@ -629,7 +624,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       operatorPrompt: "Start over.",
     });
     expect(document.body.textContent).toContain("Remember this.");
-    expect(buttonsWithText("New thread")).toHaveLength(1);
+    expect(checkboxWithLabel("New Thread")).toBeDefined();
     expect(document.body.textContent).not.toContain("New Codex thread");
   });
 
@@ -699,16 +694,13 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     });
     expect(textareaValue()).toContain("BLUE-RAVEN-42");
 
-    await clickButton("New thread");
-
-    expect(textareaValue()).not.toContain("BLUE-RAVEN-42");
-    expect(document.body.textContent).toContain("No active thread");
-    expect(document.body.textContent).not.toContain(
-      "Falcon code, chunk 1",
-    );
+    await setCheckboxChecked("New Thread", true);
 
     await setTextareaValue("Ask again without workspace knowledge.");
     await clickButton("Run with Codex");
+
+    expect(textareaValue()).not.toContain("BLUE-RAVEN-42");
+    expect(document.body.textContent).not.toContain("Falcon code, chunk 1");
 
     const nextRequest = startDirectWork.mock.calls[1][1] as {
       codexThreadId: string | null;
@@ -763,6 +755,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     await toggleDirectMode();
     await setTextareaValue("Run in home.");
     await clickButton("Run with Codex");
+    await clickButton("⚙");
     await setTextInputValue("C:/work/project");
     expect(document.body.textContent).toContain(
       "Working directory changed. Next Codex run starts a new thread.",
@@ -821,6 +814,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     await toggleDirectMode();
     await setTextareaValue("Run in home.");
     await clickButton("Run with Codex");
+    await clickButton("⚙");
     await clickButton("Browse");
 
     expect(selectWorkspaceDirectory).toHaveBeenCalledTimes(1);
@@ -850,6 +844,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       onStartCodexDirectWorkStream: startDirectWork,
     });
 
+    await clickButton("⚙");
     await clickButton("Browse");
 
     expect(selectWorkspaceDirectory).toHaveBeenCalledTimes(1);
@@ -866,6 +861,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     renderWidget({ onStartCodexDirectWorkStream: startDirectWork });
 
     await toggleDirectMode();
+    await clickButton("⚙");
     await setTextInputValue("");
     await setTextareaValue("Implement a focused change.");
     await clickButton("Run with Codex");
@@ -955,6 +951,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(request.operatorPrompt).toContain("Use the API docs for this task.");
     expect(JSON.stringify(request)).not.toMatch(/notes body|filesystem|disabled/i);
     expect(document.body.textContent).toContain("Used knowledge: 2 snippets");
+    await toggleDetails("Used knowledge: 2 snippets");
     expect(document.body.textContent).toContain("Workspace API guide, chunk 1");
   });
 
@@ -1008,6 +1005,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     };
     expect(request.operatorPrompt).toContain("Scope: Workspace");
     expect(request.operatorPrompt).toContain("Scope: Global");
+    await toggleDetails("Used knowledge: 2 snippets");
     expect(document.body.textContent).toContain(
       "Workspace Falcon deployment notes, chunk 1",
     );
@@ -1117,7 +1115,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
 
     await setTextareaValue("What is the Falcon smoke code?");
     await clickButton("Run with Codex");
-    expect(document.body.textContent).toContain("Thread active thread_f...");
+    expect(document.body.textContent).toContain("Thread: thread_f...");
     expect(document.body.textContent).toContain("BLUE-RAVEN-42");
 
     await rerenderWidget({
@@ -1126,7 +1124,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       workspaceId: "workspace_b",
     });
 
-    expect(document.body.textContent).toContain("No active thread");
+    expect(document.body.textContent).toContain("Thread: none");
     expect(document.body.textContent).not.toContain("BLUE-RAVEN-42");
 
     await setTextareaValue("What is the Falcon smoke code?");
@@ -1147,3 +1145,19 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
   });
 
 });
+
+async function toggleDetails(summaryText: string) {
+  const summary = Array.from(document.querySelectorAll("summary")).find(
+    (candidate) => candidate.textContent === summaryText,
+  );
+  const details = summary?.closest("details") as HTMLDetailsElement | null;
+
+  if (!details) {
+    throw new Error(`Details summary not found: ${summaryText}`);
+  }
+
+  details.open = true;
+  details.dispatchEvent(new Event("toggle", { bubbles: true }));
+  await Promise.resolve();
+  await Promise.resolve();
+}

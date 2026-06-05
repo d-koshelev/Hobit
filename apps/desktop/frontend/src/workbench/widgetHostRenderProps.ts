@@ -150,6 +150,7 @@ export function widgetHostRenderProps({
       ...commonProps,
       ...workspaceAgentWidgetProps({
         actions: widgetActions,
+        agentActivityEvents,
         coordinatorAttachedContextRequest,
         instanceId,
         onOpenAgentQueueItem,

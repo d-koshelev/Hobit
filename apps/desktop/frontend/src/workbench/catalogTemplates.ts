@@ -4,7 +4,6 @@ import type {
   WidgetLayoutDefaults,
 } from "./types";
 import {
-  AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
   FINDER_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
@@ -91,23 +90,6 @@ export const widgetCatalogTemplates: WidgetCatalogTemplate[] = [
       "No hidden widget tools or automatic queue starts",
     ],
     futureWidgetDefinitionId: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
-  },
-  {
-    id: AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
-    title: "Agent Activity",
-    catalogCategory: "agents",
-    category: "observability",
-    description:
-      "Readable timeline of current-session agent work.",
-    readiness: "ready",
-    availability: "available",
-    layoutDefaults: getWidgetLayoutDefaults(AGENT_ACTIVITY_WIDGET_DEFINITION_ID),
-    capabilitySummary: [
-      "Workspace Agent and Executor activity",
-      "Current-session events only",
-      "Raw event previews stay collapsed",
-    ],
-    futureWidgetDefinitionId: AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   },
   {
     id: AGENT_QUEUE_WIDGET_DEFINITION_ID,

@@ -66,9 +66,7 @@ describe("WorkspaceAgentComposer", () => {
   it("shows current thread state and disables New Thread when no thread is active", () => {
     renderComposer({ directModeEnabled: true });
 
-    expect(document.body.textContent).toContain(
-      "Current thread: No active thread",
-    );
+    expect(document.body.textContent).toContain("Thread: none");
     expect(checkboxWithLabel("New Thread")?.disabled).toBe(true);
     expect(checkboxWithLabel("New Thread")?.checked).toBe(false);
   });
@@ -82,7 +80,7 @@ describe("WorkspaceAgentComposer", () => {
       threadId,
     });
 
-    expect(document.body.textContent).toContain("Current thread: thread_v...");
+    expect(document.body.textContent).toContain("Thread: thread_v...");
 
     await setTextareaValue("Run this with a fresh Codex thread.");
     await setCheckboxChecked("New Thread", true);
@@ -113,6 +111,49 @@ describe("WorkspaceAgentComposer", () => {
     ).toBeTruthy();
   });
 
+  it("keeps Codex settings behind the settings gear", async () => {
+    renderComposer({ directModeEnabled: true });
+
+    expect(
+      document.querySelector('[aria-label="Codex settings"]'),
+    ).toBeNull();
+
+    await clickButton("⚙");
+
+    expect(
+      document.querySelector('[aria-label="Codex settings"]'),
+    ).not.toBeNull();
+    expect(document.body.textContent).toContain("Working dir");
+    expect(document.body.textContent).toContain("Workspace write");
+  });
+
+  it("shows the embedded Agent Activity panel on request", async () => {
+    renderComposer({
+      activityEvents: [
+        {
+          id: "activity-1",
+          runId: "run-1",
+          severity: "info",
+          sourceKind: "workspace-agent",
+          sourceLabel: "Workspace Agent",
+          sourceWidgetInstanceId: "agent-1",
+          status: "running",
+          timestamp: 1,
+          timestampLabel: "0s",
+          title: "Started run",
+          workspaceId: "workspace-1",
+        },
+      ],
+      directModeEnabled: true,
+    });
+
+    expect(document.body.textContent).not.toContain("Started run");
+
+    await clickButton("Show Agent Activity");
+
+    expect(document.body.textContent).toContain("Started run");
+  });
+
   it("renders and removes visible attached context", async () => {
     const onRemoveVisibleContext = vi.fn();
     renderComposer({
@@ -133,6 +174,9 @@ describe("WorkspaceAgentComposer", () => {
 });
 
 type RenderComposerOptions = {
+  activityEvents?: NonNullable<
+    Parameters<typeof WorkspaceAgentComposer>[0]["directMode"]
+  >["agentActivityEvents"];
   directModeEnabled?: boolean;
   initialDraft?: string;
   onRemoveVisibleContext?: () => void;
@@ -149,6 +193,7 @@ function renderComposer(options: RenderComposerOptions = {}) {
 }
 
 function ComposerHarness({
+  activityEvents = [],
   directModeEnabled = false,
   initialDraft = "",
   onRemoveVisibleContext = vi.fn(),
@@ -167,6 +212,7 @@ function ComposerHarness({
       directMode={
         directModeEnabled
           ? {
+              agentActivityEvents: activityEvents,
               activitySummary: EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
               canStartDirectWork: canAct,
               canStopDirectWork: false,
@@ -178,7 +224,6 @@ function ComposerHarness({
               knowledgeLookup: EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP,
               logs: [],
               onDirectoryChange: vi.fn(),
-              onResetThread: vi.fn(),
               onSandboxChange: vi.fn(),
               onSelectWorkspaceDirectory: vi.fn(async () => null),
               onStopDirectWork: vi.fn(),

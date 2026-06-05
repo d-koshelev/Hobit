@@ -8,7 +8,6 @@ import {
 } from "./catalogTemplates";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import {
-  AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
   AGENT_RUN_WIDGET_DEFINITION_ID,
   FINDER_WIDGET_DEFINITION_ID,
@@ -44,7 +43,7 @@ describe("WidgetCatalogShell", () => {
     renderCatalog();
 
     expect(document.body.textContent).toContain("Workspace Agent");
-    expect(document.body.textContent).toContain("Agent Activity");
+    expect(document.body.textContent).not.toContain("Agent Activity");
     expect(document.body.textContent).toContain("Knowledge / Skills");
     expect(document.body.textContent).toContain("Notes");
     expect(document.body.textContent).toContain("Finder");
@@ -115,7 +114,6 @@ describe("widgetCatalogTemplates", () => {
   it("preserves current catalog insertion ids", () => {
     expect(catalogIds()).toEqual([
       INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
-      AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
       AGENT_QUEUE_WIDGET_DEFINITION_ID,
       SKILL_LIBRARY_WIDGET_DEFINITION_ID,
       NOTES_WIDGET_DEFINITION_ID,
@@ -144,12 +142,6 @@ describe("widgetCatalogTemplates", () => {
       defaultWidth: 840,
       minHeight: 432,
       minWidth: 672,
-    });
-    expect(templateFor(AGENT_ACTIVITY_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
-      defaultHeight: 600,
-      defaultWidth: 600,
-      minHeight: 432,
-      minWidth: 480,
     });
     expect(templateFor(NOTES_WIDGET_DEFINITION_ID).layoutDefaults).toEqual({
       defaultHeight: 552,

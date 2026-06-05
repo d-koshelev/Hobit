@@ -10,7 +10,6 @@ import type {
   AgentQueueTask,
 } from "../workspace/types";
 import {
-  AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   NOTES_WIDGET_DEFINITION_ID,
   SKILL_LIBRARY_WIDGET_DEFINITION_ID,
@@ -234,11 +233,6 @@ describe("WorkbenchShell widget layout controls", () => {
       { width: 840, height: 672 },
     ],
     ["Terminal", TERMINAL_WIDGET_DEFINITION_ID, { width: 816, height: 600 }],
-    [
-      "Agent Activity",
-      AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
-      { width: 600, height: 600 },
-    ],
     [
       "Notes",
       NOTES_WIDGET_DEFINITION_ID,

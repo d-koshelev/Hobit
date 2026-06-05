@@ -24,6 +24,7 @@ type WorkspaceAgentActions = Pick<
 
 type WorkspaceAgentWidgetPropsOptions = {
   actions: WorkspaceAgentActions;
+  agentActivityEvents: AgentActivityEvent[];
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   instanceId: WidgetInstanceId;
   onOpenAgentQueueItem?: (queueItemId: string) => void;
@@ -34,6 +35,7 @@ type WorkspaceAgentWidgetPropsOptions = {
 
 export function workspaceAgentWidgetProps({
   actions,
+  agentActivityEvents,
   coordinatorAttachedContextRequest,
   instanceId,
   onOpenAgentQueueItem,
@@ -42,6 +44,7 @@ export function workspaceAgentWidgetProps({
   workspaceQueueApi,
 }: WorkspaceAgentWidgetPropsOptions): Partial<WidgetRenderProps> {
   return {
+    agentActivityEvents,
     coordinatorAttachedContextRequest:
       coordinatorAttachedContextRequest?.targetCoordinatorWidgetInstanceId ===
       instanceId

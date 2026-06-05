@@ -2,7 +2,6 @@
 import {
   attachedContextRequest,
   buttonWithText,
-  buttonsWithText,
   checkboxWithLabel,
   clickButton,
   clickButtonIn,
@@ -121,12 +120,19 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(checkboxWithLabel("Direct Mode")).toBeUndefined();
     expect(buttonWithText("Start Direct Work")).toBeUndefined();
 
-    expect(document.querySelector(".interactive-agent-direct-mode-bar")).not.toBeNull();
+    expect(
+      document.querySelector('[aria-label="Codex settings"]'),
+    ).toBeNull();
+    expect(buttonWithText("⚙")).toBeDefined();
+    expect(document.body.textContent).not.toContain("Working dir");
+    await clickButton("⚙");
+    expect(
+      document.querySelector('[aria-label="Codex settings"]'),
+    ).not.toBeNull();
     expect(document.body.textContent).toContain("Working dir");
     expect(textInputValue()).toBe("~");
-    expect(document.body.textContent).toContain("No active thread");
-    expect(document.body.textContent).toContain("New thread");
-    expect(buttonsWithText("New thread")).toHaveLength(1);
+    expect(document.body.textContent).toContain("Thread: none");
+    expect(document.body.textContent).toContain("New Thread");
     expect(document.body.textContent).not.toContain("New Codex thread");
     expect(document.body.textContent).toContain(
       "~ resolves to your user home.",
@@ -134,7 +140,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).toContain(
       "If access is denied, choose a project folder or scratch workspace.",
     );
-    expect(document.body.textContent).toContain(
+    expect(document.body.textContent).not.toContain(
       "Try: /Documents/hobit-workspace-agent-scratch",
     );
     expect(buttonWithText("Run with Codex")).toBeDefined();
