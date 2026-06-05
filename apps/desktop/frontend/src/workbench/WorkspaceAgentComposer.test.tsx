@@ -118,7 +118,7 @@ describe("WorkspaceAgentComposer", () => {
       document.querySelector('[aria-label="Codex settings"]'),
     ).toBeNull();
 
-    await clickButton("⚙");
+    await clickButtonByLabel("Toggle Codex settings");
 
     expect(
       document.querySelector('[aria-label="Codex settings"]'),
@@ -149,9 +149,10 @@ describe("WorkspaceAgentComposer", () => {
 
     expect(document.body.textContent).not.toContain("Started run");
 
-    await clickButton("Show Agent Activity");
+    await clickButtonByLabel("Show Agent Activity");
 
     expect(document.body.textContent).toContain("Started run");
+    expect(document.body.textContent).toContain("Hide Agent Activity");
   });
 
   it("renders and removes visible attached context", async () => {
@@ -293,6 +294,12 @@ function buttonWithText(text: string) {
   );
 }
 
+function buttonWithLabel(label: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (button) => button.getAttribute("aria-label") === label,
+  );
+}
+
 function checkboxWithLabel(text: string) {
   return Array.from(document.querySelectorAll("label")).find((label) =>
     label.textContent?.includes(text),
@@ -317,6 +324,18 @@ async function setCheckboxChecked(label: string, checked: boolean) {
     if (checkbox.checked !== checked) {
       checkbox.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     }
+    await Promise.resolve();
+  });
+}
+
+async function clickButtonByLabel(label: string) {
+  await act(async () => {
+    const button = buttonWithLabel(label);
+    if (!button) {
+      throw new Error(`Button not found: ${label}`);
+    }
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
     await Promise.resolve();
   });
 }

@@ -189,7 +189,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     await clickButton("Run with Codex");
 
     expect(document.body.textContent).toContain(
-      "Codex is runningRunning command: git status",
+      "Codex is running: Running command: git status",
     );
     const assistantMessages = document.querySelectorAll(
       '[data-testid="interactive-agent-message-assistant"]',

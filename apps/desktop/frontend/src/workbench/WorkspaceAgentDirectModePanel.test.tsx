@@ -235,7 +235,7 @@ describe("WorkspaceAgentDirectModePanel", () => {
     });
 
     expect(document.body.textContent).toContain(
-      "Codex is runningRunning command: git status",
+      "Codex is running: Running command: git status",
     );
     const details = document.querySelector<HTMLDetailsElement>(
       ".interactive-agent-direct-mode-details",

@@ -154,7 +154,7 @@ export function WorkspaceAgentComposer({
           {workingLabel ? (
             <span
               aria-live="polite"
-              className="interactive-agent-working-indicator"
+              className={`interactive-agent-working-indicator interactive-agent-working-indicator-${workingLabel.toLowerCase()}`}
               role="status"
             >
               <span aria-hidden="true" className="interactive-agent-working-dot" />
@@ -172,6 +172,19 @@ export function WorkspaceAgentComposer({
               {currentThreadText}
             </div>
           ) : null}
+          <Button
+            disabled={directMode ? !directMode.canStartDirectWork : !canSend}
+            type="submit"
+            variant="primary"
+          >
+            {directMode
+              ? directMode.status === "running"
+                ? "Running with Codex"
+                : "Run with Codex"
+              : isProviderPending
+                ? "Drafting"
+                : "Send"}
+          </Button>
           {directMode ? (
             <label
               className="interactive-agent-run-new-thread"
@@ -195,21 +208,6 @@ export function WorkspaceAgentComposer({
               <span>New Thread</span>
             </label>
           ) : null}
-          <Button
-            disabled={
-              directMode ? !directMode.canStartDirectWork : !canSend
-            }
-            type="submit"
-            variant="primary"
-          >
-            {directMode
-              ? directMode.status === "running"
-                ? "Running with Codex"
-                : "Run with Codex"
-              : isProviderPending
-                ? "Drafting"
-                : "Send"}
-          </Button>
           {directMode ? (
             <Button
               aria-expanded={isSettingsOpen}
@@ -220,13 +218,16 @@ export function WorkspaceAgentComposer({
               type="button"
               variant="ghost"
             >
-              ⚙
+              <span aria-hidden="true">{"\u2699"}</span>
             </Button>
           ) : null}
           {directMode ? (
             <Button
               aria-expanded={isActivityOpen}
-              aria-label="Show Agent Activity"
+              aria-label={
+                isActivityOpen ? "Hide Agent Activity" : "Show Agent Activity"
+              }
+              className="interactive-agent-activity-toggle"
               onClick={() => setIsActivityOpen((current) => !current)}
               type="button"
               variant="ghost"

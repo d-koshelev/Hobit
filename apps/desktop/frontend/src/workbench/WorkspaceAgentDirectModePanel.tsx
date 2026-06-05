@@ -245,7 +245,7 @@ export function WorkspaceAgentDirectModePanel({
             className={`interactive-agent-activity-line interactive-agent-activity-line-${activitySummary.severity}`}
           >
             <span className="interactive-agent-activity-label">
-              {activityLabel}
+              {activityLabel}:{" "}
             </span>
             <span className="interactive-agent-activity-text">
               {activityText}

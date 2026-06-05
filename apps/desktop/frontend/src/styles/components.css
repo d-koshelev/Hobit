@@ -917,6 +917,11 @@
   font-size: var(--text-sm);
 }
 
+.interactive-agent-activity-toggle.button {
+  min-height: var(--control-height-md);
+  padding: 0 var(--space-sm);
+}
+
 .interactive-agent-working-indicator {
   display: inline-flex;
   min-height: var(--control-height-md);
@@ -928,12 +933,20 @@
   line-height: var(--line-tight);
 }
 
+.interactive-agent-working-indicator-waiting {
+  color: var(--color-warning);
+}
+
 .interactive-agent-working-dot {
   width: 5px;
   height: 5px;
   border-radius: 999px;
   animation: interactive-agent-working-pulse 900ms ease-in-out infinite;
   background: var(--color-info);
+}
+
+.interactive-agent-working-indicator-waiting .interactive-agent-working-dot {
+  background: var(--color-warning);
 }
 
 .interactive-agent-working-dot:nth-child(2) {
