@@ -37,8 +37,10 @@ pub(crate) fn create_terminal_pty_session_blocking(
         return Ok(None);
     }
 
+    let request = request.try_into()?;
+
     sessions
-        .create_session(request.into())
+        .create_session(request)
         .map(|session| Some(TerminalPtySessionDto::from(session)))
 }
 

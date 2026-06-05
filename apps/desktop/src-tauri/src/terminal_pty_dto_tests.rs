@@ -24,7 +24,8 @@ fn maps_terminal_pty_create_request_to_runtime_request() {
         output_buffer_cap_bytes: Some(65_536),
     };
 
-    let runtime_request: crate::terminal_pty::TerminalPtyCreateRequest = request.into();
+    let runtime_request: crate::terminal_pty::TerminalPtyCreateRequest =
+        request.try_into().expect("map terminal create request");
 
     assert_eq!(runtime_request.workspace_id, "ws_1");
     assert_eq!(runtime_request.workbench_id, "wb_1");

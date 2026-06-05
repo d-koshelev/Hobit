@@ -6,22 +6,23 @@
   min-height: 0;
   min-width: 0;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: 4px;
 }
 
 .terminal-tabs {
   display: flex;
-  flex: 0 0 auto;
+  flex: 0 0 24px;
   min-width: 0;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 4px;
   overflow-x: auto;
-  padding-bottom: 2px;
+  padding-bottom: 1px;
 }
 
 .terminal-tab {
   display: inline-flex;
-  max-width: min(220px, 46vw);
+  max-width: min(150px, 36vw);
+  min-height: 22px;
   min-width: 0;
   align-items: stretch;
   overflow: hidden;
@@ -49,9 +50,9 @@
   min-width: 0;
   flex: 1 1 auto;
   cursor: pointer;
-  gap: 2px;
+  gap: 0;
   justify-items: start;
-  padding: 5px var(--space-xs);
+  padding: 2px 6px;
   text-align: left;
 }
 
@@ -70,7 +71,7 @@
   overflow: hidden;
   max-width: 100%;
   color: var(--color-text-muted);
-  font-size: var(--text-xs);
+  font-size: 10px;
   line-height: var(--line-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -80,8 +81,14 @@
   flex: 0 0 auto;
   cursor: pointer;
   border-left: 1px solid var(--color-border-subtle);
-  padding: 0 7px;
+  padding: 0 6px;
   color: var(--color-text-muted);
+}
+
+.terminal-tab-new {
+  min-height: 22px;
+  padding: 1px 7px;
+  white-space: nowrap;
 }
 
 .terminal-tab-close:disabled {
@@ -105,7 +112,7 @@
   flex: 1;
   min-height: 0;
   min-width: 0;
-  gap: var(--space-xs);
+  gap: 4px;
 }
 
 .terminal-pane-grid-columns {
@@ -161,14 +168,14 @@
 }
 
 .terminal-pane {
+  position: relative;
   display: flex;
   flex: 1;
   min-height: 0;
   min-width: 0;
   flex-direction: column;
-  gap: var(--space-xs);
+  gap: 0;
   overflow: hidden;
-  resize: both;
   border: 1px solid
     color-mix(in srgb, var(--color-border-subtle) 70%, transparent);
   border-radius: var(--radius-sm);
@@ -183,13 +190,14 @@
 .terminal-pane-toolbar {
   display: flex;
   flex: 0 0 auto;
+  min-height: 24px;
   min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-xs);
+  gap: 4px;
   border-bottom: 1px solid
     color-mix(in srgb, var(--color-border-subtle) 60%, transparent);
-  padding: 5px var(--space-xs);
+  padding: 2px 5px;
 }
 
 .terminal-pane-title {
@@ -197,7 +205,7 @@
   min-width: 0;
   cursor: pointer;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 4px;
   color: var(--color-text-primary);
   font-size: var(--text-xs);
   font-weight: 720;
@@ -210,14 +218,21 @@
   color: var(--color-accent);
   font-size: var(--text-xs);
   line-height: var(--line-tight);
-  padding: 1px 5px;
+  padding: 0 4px;
 }
 
 .terminal-pane-actions {
   display: inline-flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: var(--space-xs);
+  gap: 3px;
+}
+
+.terminal-icon-button {
+  min-width: 22px;
+  min-height: 22px;
+  padding: 1px 6px;
+  line-height: var(--line-tight);
 }
 
 .terminal-shell {
@@ -239,18 +254,25 @@
   min-width: 0;
   align-items: center;
   justify-content: space-between;
-  gap: var(--space-sm);
+  gap: 6px;
   border-bottom: 1px solid
     color-mix(in srgb, var(--color-border-subtle) 55%, transparent);
   background: color-mix(in srgb, var(--color-input-surface) 28%, transparent);
-  padding: 6px var(--space-xs);
+  padding: 3px 5px;
 }
 
 .terminal-shell-actions {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: 3px;
+}
+
+.terminal-shell-actions .button {
+  min-height: 22px;
+  padding: 1px 6px;
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
 }
 
 .terminal-shell-meta {
@@ -258,13 +280,13 @@
   flex: 1 1 auto;
   min-width: 0;
   align-items: center;
-  gap: var(--space-sm);
+  gap: 6px;
 }
 
 .terminal-shell-meta-item {
   display: grid;
   min-width: 0;
-  max-width: min(28vw, 260px);
+  max-width: min(22vw, 220px);
   grid-template-columns: auto minmax(0, 1fr);
   align-items: baseline;
   gap: 5px;
@@ -379,7 +401,7 @@
   min-height: 0;
   min-width: 0;
   overflow: hidden;
-  padding: var(--space-xs);
+  padding: 4px;
 }
 
 .terminal-xterm-surface {
@@ -408,24 +430,6 @@
   line-height: var(--line-normal);
 }
 
-.terminal-settings {
-  flex: 0 0 auto;
-  padding-top: 0;
-}
-
-.terminal-settings-summary {
-  width: fit-content;
-  cursor: pointer;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  font-weight: 720;
-  line-height: var(--line-tight);
-}
-
-.terminal-settings-summary:hover {
-  color: var(--color-text-primary);
-}
-
 .terminal-settings-body,
 .terminal-settings-safety {
   display: grid;
@@ -433,9 +437,35 @@
 }
 
 .terminal-settings-body {
-  margin-top: var(--space-xs);
-  border-top: 1px solid var(--color-border-subtle);
-  padding-top: var(--space-sm);
+  max-height: min(520px, calc(100vh - 180px));
+  overflow: auto;
+}
+
+.terminal-settings-popover {
+  position: absolute;
+  z-index: 30;
+  top: 28px;
+  right: 5px;
+  display: grid;
+  width: min(560px, calc(100% - 10px));
+  max-width: calc(100vw - 48px);
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-widget-surface-raised);
+  box-shadow: var(--shadow-widget);
+  padding: var(--space-sm);
+}
+
+.terminal-settings-popover-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: 760;
+  line-height: var(--line-tight);
 }
 
 .terminal-settings-body .terminal-command-panel,
@@ -495,8 +525,7 @@
   }
 
   .terminal-pane-toolbar {
-    align-items: flex-start;
-    flex-direction: column;
+    align-items: center;
   }
 
   .terminal-pane-actions {

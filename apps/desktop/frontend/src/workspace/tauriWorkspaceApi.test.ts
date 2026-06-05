@@ -581,7 +581,6 @@ describe("tauri workspace api adapter", () => {
   });
 
   it("maps Terminal PTY requests, raw writes, resize, and stable action command names", async () => {
-    mocks.homeDir.mockResolvedValue("C:/Users/Dmitry");
     mocks.invoke.mockResolvedValue(tauriTerminalSession());
 
     await createTerminalPtySession({
@@ -608,7 +607,7 @@ describe("tauri workspace api adapter", () => {
         widget_instance_id: "term_1",
         shell: "",
         shell_args: ["-NoLogo"],
-        working_directory: "C:/Users/Dmitry/repo",
+        working_directory: "~/repo",
         cols: 100,
         rows: 30,
         output_buffer_cap_bytes: 65536,

@@ -226,8 +226,14 @@ export function TerminalPtySessionPanel({
             </span>
           );
         })}
-        <Button onClick={createTab} variant="secondary">
-          New tab
+        <Button
+          aria-label="New terminal tab"
+          className="terminal-tab-new"
+          onClick={createTab}
+          title="New tab"
+          variant="secondary"
+        >
+          + Tab
         </Button>
       </div>
 

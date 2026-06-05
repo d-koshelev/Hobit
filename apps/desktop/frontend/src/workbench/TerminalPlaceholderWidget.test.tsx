@@ -172,7 +172,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     expect(buttonWithText("Send")).toBeUndefined();
     expect(buttonWithText("Restart")).not.toBeNull();
 
-    expect(document.body.textContent).toContain("Terminal settings");
+    expect(buttonWithLabel("Terminal pane settings")).not.toBeNull();
     expect(document.body.textContent).not.toContain("Working directory");
     expect(document.body.textContent).not.toContain("Shell executable");
     expect(document.body.textContent).not.toContain("Shell args");
@@ -235,7 +235,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
   it("keeps PTY settings and legacy fallback accessible inside settings", async () => {
     renderWidget();
 
-    await clickText("Terminal settings");
+    await clickButtonByLabel("Terminal pane settings");
 
     expect(document.body.textContent).toContain("Working directory");
     expect(inputWithLabel("Working directory")?.value).toBe("~");
@@ -328,7 +328,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     await settleTerminalStartup();
 
     await clickButton("Close");
-    await clickText("Terminal settings");
+    await clickButtonByLabel("Terminal pane settings");
     await changeInputByLabel("Working directory", "C:\\repo");
     await clickButton("Restart");
 
@@ -690,7 +690,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
 
     renderWidget({ onCreateTerminalPtySession });
     await settleTerminalStartup();
-    await clickButton("New tab");
+    await clickButtonByLabel("New terminal tab");
     await settleTerminalStartup();
 
     expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(2);
@@ -715,22 +715,22 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
 
     renderWidget({ onCreateTerminalPtySession });
     await settleTerminalStartup();
-    await clickButton("Split right");
+    await clickButtonByLabel("Split pane right");
     await settleTerminalStartup();
-    await clickButton("Split down");
+    await clickButtonByLabel("Split pane down");
     await settleTerminalStartup();
-    await clickButton("Split right");
+    await clickButtonByLabel("Split pane right");
     await settleTerminalStartup();
 
     expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(4);
     expect(document.body.textContent).toContain("4 panes");
-    expect(buttonsWithText("Split right")).toHaveLength(4);
-    expect(buttonsWithText("Split right").every((button) => button.disabled)).toBe(
-      true,
-    );
-    expect(buttonsWithText("Split down").every((button) => button.disabled)).toBe(
-      true,
-    );
+    expect(buttonsWithLabel("Split pane right")).toHaveLength(4);
+    expect(
+      buttonsWithLabel("Split pane right").every((button) => button.disabled),
+    ).toBe(true);
+    expect(
+      buttonsWithLabel("Split pane down").every((button) => button.disabled),
+    ).toBe(true);
   });
 
   it("routes xterm input only from the active pane session", async () => {
@@ -764,7 +764,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
 
     renderWidget({ onCreateTerminalPtySession, onWriteTerminalPtySession });
     await settleTerminalStartup();
-    await clickButton("Split right");
+    await clickButtonByLabel("Split pane right");
     await settleTerminalStartup();
 
     await act(async () => {
@@ -822,6 +822,17 @@ async function clickButton(text: string) {
   });
 }
 
+async function clickButtonByLabel(label: string) {
+  await act(async () => {
+    const button = buttonWithLabel(label);
+    if (!button) {
+      throw new Error(`Button not found: ${label}`);
+    }
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 async function clickText(text: string) {
   await act(async () => {
     const element = Array.from(
@@ -863,9 +874,21 @@ function buttonWithText(text: string) {
   );
 }
 
+function buttonWithLabel(label: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (button) => button.getAttribute("aria-label") === label,
+  );
+}
+
 function buttonsWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).filter(
     (button) => button.textContent === text,
+  );
+}
+
+function buttonsWithLabel(label: string) {
+  return Array.from(document.querySelectorAll("button")).filter(
+    (button) => button.getAttribute("aria-label") === label,
   );
 }
 

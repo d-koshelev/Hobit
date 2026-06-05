@@ -11,10 +11,10 @@ import {
   type TerminalPtySession,
 } from "../workspace/types";
 import {
-  TerminalPtySettingsBody,
   TerminalShellHeader,
   TerminalShellOutputPanel,
 } from "./TerminalPtySessionPanelParts";
+import { TerminalPtySettingsPopover } from "./TerminalPtySettingsPopover";
 import type { TerminalPtySessionPanelProps } from "./TerminalPtySessionTypes";
 import type { TerminalXtermSurfaceHandle } from "./TerminalXtermSurface";
 import {
@@ -514,28 +514,89 @@ export function TerminalPtyPanePanel({
         </button>
         <div className="terminal-pane-actions">
           <Button
+            aria-label="Split pane right"
+            className="terminal-icon-button"
             disabled={!canSplitPane}
             onClick={onSplitRight}
+            title="Split right"
             variant="secondary"
           >
-            Split right
+            R
           </Button>
           <Button
+            aria-label="Split pane down"
+            className="terminal-icon-button"
             disabled={!canSplitPane}
             onClick={onSplitDown}
+            title="Split down"
             variant="secondary"
           >
-            Split down
+            D
           </Button>
           <Button
-            disabled={!canRemovePane}
-            onClick={onClosePane}
+            aria-label="Terminal pane settings"
+            aria-expanded={settingsOpen}
+            className="terminal-icon-button"
+            onClick={() => setSettingsOpen((isOpen) => !isOpen)}
+            title="Terminal settings"
             variant="secondary"
           >
-            Close pane
+            ⚙
+          </Button>
+          <Button
+            aria-label="Close pane"
+            className="terminal-icon-button"
+            disabled={!canRemovePane}
+            onClick={onClosePane}
+            title={
+              hasOpenSession
+                ? "Close the session before removing this pane."
+                : "Close pane"
+            }
+            variant="secondary"
+          >
+            x
           </Button>
         </div>
       </div>
+      {settingsOpen ? (
+        <TerminalPtySettingsPopover
+          activeSession={activeSession}
+          canResize={canResize}
+          colsDraft={colsDraft}
+          colsError={colsError}
+          colsInputId={colsInputId}
+          instance={instance}
+          isResizing={isResizing}
+          isStarting={isStarting}
+          legacyFallbackOpen={legacyFallbackOpen}
+          onClose={() => setSettingsOpen(false)}
+          onColsDraftChange={setColsDraft}
+          onLegacyFallbackOpenChange={setLegacyFallbackOpen}
+          onOutputCapDraftChange={setOutputCapDraft}
+          onResize={() => void resizeSession()}
+          onRowsDraftChange={setRowsDraft}
+          onRunTerminalCommand={onRunTerminalCommand}
+          onShellArgsDraftChange={setShellArgsDraft}
+          onShellDraftChange={setShellDraft}
+          onWorkingDirectoryDraftChange={setWorkingDirectoryDraft}
+          outputCapDraft={outputCapDraft}
+          outputCapError={outputCapError}
+          outputCapInputId={outputCapInputId}
+          rowsDraft={rowsDraft}
+          rowsError={rowsError}
+          rowsInputId={rowsInputId}
+          session={session}
+          shellArgsDraft={shellArgsDraft}
+          shellArgsInputId={shellArgsInputId}
+          shellDraft={shellDraft}
+          shellInputId={shellInputId}
+          shellLabel={DEFAULT_SHELL_LABEL}
+          titleId={settingsTitleId}
+          workingDirectoryDraft={workingDirectoryDraft}
+          workingDirectoryInputId={workingDirectoryInputId}
+        />
+      ) : null}
       <div className="terminal-shell">
         <TerminalShellHeader
           activeSession={activeSession}
@@ -603,57 +664,6 @@ export function TerminalPtyPanePanel({
           terminalSurfaceRef={terminalSurfaceRef}
         />
       </div>
-
-      <details
-        aria-labelledby={settingsTitleId}
-        className="terminal-settings"
-        onToggle={(event) => {
-          if (event.currentTarget !== event.target) {
-            return;
-          }
-          setSettingsOpen(event.currentTarget.open);
-        }}
-      >
-        <summary className="terminal-settings-summary" id={settingsTitleId}>
-          Terminal settings
-        </summary>
-        {settingsOpen ? (
-          <TerminalPtySettingsBody
-            activeSession={activeSession}
-            canResize={canResize}
-            colsDraft={colsDraft}
-            colsError={colsError}
-            colsInputId={colsInputId}
-            instance={instance}
-            isResizing={isResizing}
-            isStarting={isStarting}
-            legacyFallbackOpen={legacyFallbackOpen}
-            onColsDraftChange={setColsDraft}
-            onLegacyFallbackOpenChange={setLegacyFallbackOpen}
-            onOutputCapDraftChange={setOutputCapDraft}
-            onResize={() => void resizeSession()}
-            onRowsDraftChange={setRowsDraft}
-            onRunTerminalCommand={onRunTerminalCommand}
-            onShellArgsDraftChange={setShellArgsDraft}
-            onShellDraftChange={setShellDraft}
-            onWorkingDirectoryDraftChange={setWorkingDirectoryDraft}
-            outputCapDraft={outputCapDraft}
-            outputCapError={outputCapError}
-            outputCapInputId={outputCapInputId}
-            rowsDraft={rowsDraft}
-            rowsError={rowsError}
-            rowsInputId={rowsInputId}
-            session={session}
-            shellArgsDraft={shellArgsDraft}
-            shellArgsInputId={shellArgsInputId}
-            shellDraft={shellDraft}
-            shellInputId={shellInputId}
-            shellLabel={DEFAULT_SHELL_LABEL}
-            workingDirectoryDraft={workingDirectoryDraft}
-            workingDirectoryInputId={workingDirectoryInputId}
-          />
-        ) : null}
-      </details>
     </section>
   );
 }
