@@ -246,27 +246,12 @@ describe("WorkspaceAgentDirectModePanel", () => {
     );
   });
 
-  it("shows the embedded read-only activity panel when requested", () => {
-    renderPanel({
-      agentActivityEvents: [
-        {
-          id: "activity-1",
-          runId: "run-1",
-          severity: "info",
-          sourceKind: "workspace-agent",
-          sourceLabel: "Workspace Agent",
-          sourceWidgetInstanceId: "agent-1",
-          status: "running",
-          timestamp: 1,
-          timestampLabel: "0s",
-          title: "Started run",
-          workspaceId: "workspace-1",
-        },
-      ],
-      isActivityOpen: true,
-    });
+  it("does not render Agent Activity inside the Direct Work detail panel", () => {
+    renderPanel();
 
-    expect(document.body.textContent).toContain("Started run");
+    expect(
+      document.querySelector('[aria-label="Workspace Agent activity panel"]'),
+    ).toBeNull();
   });
 });
 
@@ -277,19 +262,15 @@ type RenderPanelOptions = Partial<
 function renderPanel(options: RenderPanelOptions = {}) {
   render(
     <WorkspaceAgentDirectModePanel
-      agentActivityEvents={[]}
       activitySummary={EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY}
-      activityPlacement="bottom"
       directWorkDirectory="~"
       directWorkSandbox="workspace_write"
       error={null}
       finalResult={null}
-      isActivityOpen={false}
       isDetailsOpen={false}
       isSettingsOpen={true}
       knowledgeLookup={EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP}
       logs={[]}
-      onActivityPlacementChange={vi.fn()}
       onDirectoryChange={vi.fn()}
       onSandboxChange={vi.fn()}
       onSelectWorkspaceDirectory={vi.fn(async () => null)}

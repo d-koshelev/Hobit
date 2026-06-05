@@ -237,7 +237,6 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     );
   });
 
-
   it("stores the first Codex thread id and resumes it on the next Codex run", async () => {
     const startDirectWork = vi.fn(
       async (

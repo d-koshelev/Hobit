@@ -7,7 +7,6 @@ import {
 } from "react";
 import { Button } from "../design-system/Button";
 import type { DirectWorkSandbox } from "../workspace/types";
-import type { AgentActivityEvent } from "./agentActivityModel";
 import {
   type CoordinatorDirectWorkLogEntry,
   type CoordinatorDirectWorkStatus,
@@ -20,7 +19,6 @@ import { WorkspaceAgentVisibleContextPanel } from "./WorkspaceAgentVisibleContex
 import type { WorkspaceAgentVisibleContext } from "./workspaceAgentVisibleContext";
 
 type WorkspaceAgentComposerDirectMode = {
-  agentActivityEvents: AgentActivityEvent[];
   activitySummary: WorkspaceAgentActivitySummary;
   canStartDirectWork: boolean;
   canStopDirectWork: boolean;
@@ -41,8 +39,6 @@ type WorkspaceAgentComposerDirectMode = {
   threadNotice: string | null;
   warning: string | null;
 };
-
-type WorkspaceAgentPopupPlacement = "bottom" | "right" | "left";
 
 export function WorkspaceAgentComposer({
   canSend,
@@ -71,11 +67,8 @@ export function WorkspaceAgentComposer({
 }) {
   const textareaId = useId();
   const newThreadInputId = useId();
-  const [isActivityOpen, setIsActivityOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [activityPlacement, setActivityPlacement] =
-    useState<WorkspaceAgentPopupPlacement>("bottom");
   const [startNewThreadOnNextRun, setStartNewThreadOnNextRun] =
     useState(false);
   const isDirectModeEnabled = Boolean(directMode);
@@ -240,37 +233,19 @@ export function WorkspaceAgentComposer({
               Run details
             </Button>
           ) : null}
-          {directMode ? (
-            <Button
-              aria-expanded={isActivityOpen}
-              aria-label={
-                isActivityOpen ? "Hide Agent Activity" : "Show Agent Activity"
-              }
-              className="interactive-agent-activity-toggle"
-              onClick={() => setIsActivityOpen((current) => !current)}
-              type="button"
-              variant="ghost"
-            >
-              Activity
-            </Button>
-          ) : null}
         </div>
       </div>
       {directMode ? (
         <WorkspaceAgentDirectModePanel
-          agentActivityEvents={directMode.agentActivityEvents}
           activitySummary={directMode.activitySummary}
-          activityPlacement={activityPlacement}
           directWorkDirectory={directMode.directWorkDirectory}
           directWorkSandbox={directMode.directWorkSandbox}
           error={directMode.error}
           finalResult={directMode.finalResult}
-          isActivityOpen={isActivityOpen}
           isDetailsOpen={isDetailsOpen}
           isSettingsOpen={isSettingsOpen}
           knowledgeLookup={directMode.knowledgeLookup}
           logs={directMode.logs}
-          onActivityPlacementChange={setActivityPlacement}
           onDirectoryChange={directMode.onDirectoryChange}
           onSandboxChange={directMode.onSandboxChange}
           onSelectWorkspaceDirectory={directMode.onSelectWorkspaceDirectory}

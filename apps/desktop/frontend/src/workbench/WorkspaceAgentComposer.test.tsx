@@ -127,33 +127,11 @@ describe("WorkspaceAgentComposer", () => {
     expect(document.body.textContent).toContain("Workspace write");
   });
 
-  it("shows the Agent Activity popup on request", async () => {
-    renderComposer({
-      activityEvents: [
-        {
-          id: "activity-1",
-          runId: "run-1",
-          severity: "info",
-          sourceKind: "workspace-agent",
-          sourceLabel: "Workspace Agent",
-          sourceWidgetInstanceId: "agent-1",
-          status: "running",
-          timestamp: 1,
-          timestampLabel: "0s",
-          title: "Started run",
-          workspaceId: "workspace-1",
-        },
-      ],
-      directModeEnabled: true,
-    });
+  it("keeps Agent Activity out of the composer popup controls", () => {
+    renderComposer({ directModeEnabled: true });
 
-    expect(document.body.textContent).not.toContain("Started run");
-
-    await clickButtonByLabel("Show Agent Activity");
-
-    expect(document.body.textContent).toContain("Started run");
-    expect(document.body.textContent).toContain("Agent Activity");
-    expect(document.body.textContent).toContain("bottom");
+    expect(buttonWithLabel("Show Agent Activity")).toBeUndefined();
+    expect(buttonWithLabel("Hide Agent Activity")).toBeUndefined();
   });
 
   it("renders and removes visible attached context", async () => {
@@ -176,9 +154,6 @@ describe("WorkspaceAgentComposer", () => {
 });
 
 type RenderComposerOptions = {
-  activityEvents?: NonNullable<
-    Parameters<typeof WorkspaceAgentComposer>[0]["directMode"]
-  >["agentActivityEvents"];
   directModeEnabled?: boolean;
   initialDraft?: string;
   onRemoveVisibleContext?: () => void;
@@ -195,7 +170,6 @@ function renderComposer(options: RenderComposerOptions = {}) {
 }
 
 function ComposerHarness({
-  activityEvents = [],
   directModeEnabled = false,
   initialDraft = "",
   onRemoveVisibleContext = vi.fn(),
@@ -214,7 +188,6 @@ function ComposerHarness({
       directMode={
         directModeEnabled
           ? {
-              agentActivityEvents: activityEvents,
               activitySummary: EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
               canStartDirectWork: canAct,
               canStopDirectWork: false,

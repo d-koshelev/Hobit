@@ -32,6 +32,7 @@ import {
   type CoordinatorDirectWorkStatus,
 } from "./workspaceAgentDirectWorkModel";
 import type { WorkspaceAgentRunMetadata } from "./workspaceAgentRunMetadata";
+import { WorkspaceAgentActivitySidePane } from "./WorkspaceAgentActivitySidePane";
 import { WorkspaceAgentComposer } from "./WorkspaceAgentComposer";
 import { WorkspaceAgentHeaderStatus } from "./WorkspaceAgentStatusPanel";
 import {
@@ -148,6 +149,7 @@ export function InteractiveAgentPlaceholderWidget({
     ReadonlySet<string>
   >(() => new Set());
   const [draft, setDraft] = useState("");
+  const [isActivityPaneCollapsed, setIsActivityPaneCollapsed] = useState(false);
   const [visibleAttachedContext, setVisibleAttachedContext] =
     useState<WorkspaceAgentVisibleContext | null>(null);
   const [isProviderPending, setIsProviderPending] = useState(false);
@@ -805,7 +807,7 @@ export function InteractiveAgentPlaceholderWidget({
       }
       title={title}
     >
-      <div className="interactive-agent-chat">
+      <div className={isActivityPaneCollapsed ? "interactive-agent-chat interactive-agent-chat-activity-collapsed" : "interactive-agent-chat"}>
         <WorkspaceAgentTranscript
           creatingKnowledgeDocumentProposalIds={
             creatingKnowledgeDocumentProposalIds
@@ -815,13 +817,9 @@ export function InteractiveAgentPlaceholderWidget({
           messages={messages}
           onApproveAllQueueDrafts={approveAllQueueDrafts}
           onApproveProposal={approveProposal}
-          onCreateKnowledgeDocument={(proposalId) =>
-            void createKnowledgeDocumentFromProposal(proposalId)
-          }
+          onCreateKnowledgeDocument={(proposalId) => void createKnowledgeDocumentFromProposal(proposalId)}
           onCreateNote={(proposalId) => void createNoteFromProposal(proposalId)}
-          onCreateQueueTask={(proposalId) =>
-            void createQueueTaskFromProposal(proposalId)
-          }
+          onCreateQueueTask={(proposalId) => void createQueueTaskFromProposal(proposalId)}
           onCreateQueueTaskFromReportCard={onCreateAgentQueueTask}
           onCreateSkill={(proposalId) => void createSkillFromProposal(proposalId)}
           onEditProposal={editProposal}
@@ -851,7 +849,6 @@ export function InteractiveAgentPlaceholderWidget({
           directMode={
             isDirectModeEnabled
               ? {
-                  agentActivityEvents: currentAgentActivityEvents,
                   activitySummary: directWork.directWorkActivitySummary,
                   canStartDirectWork:
                     directWork.canStartDirectWork ||
@@ -890,6 +887,11 @@ export function InteractiveAgentPlaceholderWidget({
           onSend={sendCoordinatorMessage}
           textareaRef={textareaRef}
           visibleAttachedContext={visibleAttachedContext}
+        />
+        <WorkspaceAgentActivitySidePane
+          collapsed={isActivityPaneCollapsed}
+          events={currentAgentActivityEvents}
+          onToggleCollapsed={() => setIsActivityPaneCollapsed((current) => !current)}
         />
       </div>
     </WidgetFrame>

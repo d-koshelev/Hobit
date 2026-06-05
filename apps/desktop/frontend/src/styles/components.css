@@ -888,11 +888,19 @@
 }
 
 .interactive-agent-chat {
-  display: flex;
+  display: grid;
   min-height: 0;
   flex: 1;
-  flex-direction: column;
+  grid-template-areas:
+    "transcript activity"
+    "composer activity";
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 30%);
+  grid-template-rows: minmax(0, 1fr) auto;
   gap: var(--space-sm);
+}
+
+.interactive-agent-chat-activity-collapsed {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .interactive-agent-action-row {
@@ -917,7 +925,6 @@
   font-size: var(--text-sm);
 }
 
-.interactive-agent-activity-toggle.button,
 .interactive-agent-details-toggle.button {
   min-height: var(--control-height-md);
   padding: 0 var(--space-sm);
@@ -1656,6 +1663,7 @@
 }
 
 .interactive-agent-message-list {
+  grid-area: transcript;
   align-content: start;
   flex: 1;
   min-height: 300px;
@@ -1898,6 +1906,7 @@
 }
 
 .interactive-agent-composer {
+  grid-area: composer;
   position: sticky;
   bottom: 0;
   border-top: 1px solid var(--color-border-subtle);
@@ -1910,6 +1919,81 @@
   padding: var(--space-sm);
   box-shadow:
     0 -8px 22px color-mix(in srgb, var(--color-app-bg) 22%, transparent);
+}
+
+.interactive-agent-activity-side-pane {
+  display: grid;
+  grid-area: activity;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-width: 0;
+  min-height: 0;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--color-io-surface) 72%, transparent);
+  padding: var(--space-sm);
+}
+
+.interactive-agent-activity-side-pane-collapsed {
+  width: max-content;
+  justify-self: end;
+  grid-template-rows: auto;
+  align-content: start;
+}
+
+.interactive-agent-activity-side-header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.interactive-agent-activity-side-title-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.interactive-agent-activity-side-title,
+.interactive-agent-activity-side-subtitle {
+  margin: 0;
+}
+
+.interactive-agent-activity-side-title {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 760;
+  line-height: var(--line-tight);
+}
+
+.interactive-agent-activity-side-subtitle {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.interactive-agent-activity-side-toggle.button {
+  min-height: 26px;
+  padding: 0 var(--space-sm);
+  font-size: var(--text-xs);
+}
+
+@media (max-width: 860px) {
+  .interactive-agent-chat {
+    grid-template-areas:
+      "transcript"
+      "composer"
+      "activity";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(260px, 1fr) auto auto;
+  }
+
+  .interactive-agent-activity-side-pane,
+  .interactive-agent-activity-side-pane-collapsed {
+    width: auto;
+    justify-self: stretch;
+  }
 }
 
 .interactive-agent-attached-context {

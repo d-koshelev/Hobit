@@ -35,12 +35,12 @@ export function WorkspaceAgentMessageBubble({
       }`}
       data-testid={`interactive-agent-message-${role}`}
     >
-      <div className="interactive-agent-message-body">
-        {renderMessageBody(body)}
-      </div>
       {role === "assistant" && runMetadata ? (
         <WorkspaceAgentMessageRunMetadata metadata={runMetadata} />
       ) : null}
+      <div className="interactive-agent-message-body">
+        {renderMessageBody(body)}
+      </div>
       {providerMeta ? (
         <details
           className={`interactive-agent-provider-meta interactive-agent-provider-meta-${providerMeta.tone}`}

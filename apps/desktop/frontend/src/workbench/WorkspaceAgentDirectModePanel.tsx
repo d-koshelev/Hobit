@@ -12,8 +12,6 @@ import {
   cappedPreviewText,
 } from "../renderMemoryGuards";
 import type { DirectWorkSandbox } from "../workspace/types";
-import type { AgentActivityEvent } from "./agentActivityModel";
-import { AgentActivityPanel } from "./AgentActivityPanel";
 import {
   compactDirectWorkText,
   directWorkDirectoryResolutionText,
@@ -26,19 +24,15 @@ import {
 } from "./workspaceAgentDirectWorkModel";
 
 export function WorkspaceAgentDirectModePanel({
-  agentActivityEvents,
   activitySummary,
-  activityPlacement,
   directWorkDirectory,
   directWorkSandbox,
   error,
   finalResult,
-  isActivityOpen,
   isDetailsOpen,
   isSettingsOpen,
   knowledgeLookup,
   logs,
-  onActivityPlacementChange,
   onDirectoryChange,
   onSandboxChange,
   onSelectWorkspaceDirectory,
@@ -46,19 +40,15 @@ export function WorkspaceAgentDirectModePanel({
   threadNotice,
   warning,
 }: {
-  agentActivityEvents: AgentActivityEvent[];
   activitySummary: WorkspaceAgentActivitySummary;
-  activityPlacement: "bottom" | "right" | "left";
   directWorkDirectory: string;
   directWorkSandbox: DirectWorkSandbox;
   error: string | null;
   finalResult: string | null;
-  isActivityOpen: boolean;
   isDetailsOpen: boolean;
   isSettingsOpen: boolean;
   knowledgeLookup: WorkspaceKnowledgeLookup;
   logs: CoordinatorDirectWorkLogEntry[];
-  onActivityPlacementChange: (placement: "bottom" | "right" | "left") => void;
   onDirectoryChange: (value: string) => void;
   onSandboxChange: (value: DirectWorkSandbox) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
@@ -354,43 +344,6 @@ export function WorkspaceAgentDirectModePanel({
                 <WorkspaceKnowledgeLookupDetails lookup={knowledgeLookup} />
               </div>
             </details>
-          </section>
-        ) : null}
-        {isActivityOpen ? (
-          <section
-            aria-label="Workspace Agent activity panel"
-            className={`interactive-agent-popup interactive-agent-popup-${activityPlacement} interactive-agent-activity-panel`}
-          >
-            <div className="interactive-agent-popup-header">
-              <p className="interactive-agent-popup-title">Agent Activity</p>
-              <div
-                aria-label="Agent Activity placement"
-                className="interactive-agent-popup-placement"
-              >
-                {(["bottom", "right", "left"] as const).map((placement) => (
-                  <button
-                    aria-pressed={activityPlacement === placement}
-                    className={
-                      activityPlacement === placement
-                        ? "interactive-agent-popup-placement-button interactive-agent-popup-placement-button-active"
-                        : "interactive-agent-popup-placement-button"
-                    }
-                    key={placement}
-                    onClick={() => onActivityPlacementChange(placement)}
-                    type="button"
-                  >
-                    {placement}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="interactive-agent-direct-mode-detail-body">
-              <AgentActivityPanel
-                compact
-                emptyText="No Workspace Agent activity for this widget yet."
-                events={agentActivityEvents}
-              />
-            </div>
           </section>
         ) : null}
       </div>
