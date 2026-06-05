@@ -4,8 +4,27 @@ import type {
 } from "./queue/agentQueueWidgetApiTypes";
 import {
   firstNonEmpty,
+  errorToMessage,
   timestampValue,
 } from "./workspaceAgentQueueCommandUtils";
+import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+
+export async function explainQueueFailure(bridge: WorkspaceAgentQueueBridge) {
+  try {
+    const result = await bridge.getSnapshot({ includeSelectedItem: true });
+    const snapshot = result.snapshot ?? result.item;
+
+    if (!result.ok || !snapshot) {
+      return `Queue failure evidence could not be loaded: ${
+        result.error?.message ?? result.message
+      }`;
+    }
+
+    return queueFailureExplanation(snapshot);
+  } catch (error) {
+    return `Queue failure evidence could not be loaded: ${errorToMessage(error)}`;
+  }
+}
 
 export function queueFailureExplanation(snapshot: QueueWidgetSnapshot) {
   const item = failureExplanationTarget(snapshot);
