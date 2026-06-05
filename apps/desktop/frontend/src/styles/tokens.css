@@ -48,24 +48,24 @@
   --ui-scale: 1;
   --ui-scale-percent: 100%;
 
-  --space-xs: 4px;
-  --space-sm: 8px;
-  --space-md: 12px;
-  --space-lg: 16px;
-  --space-xl: 24px;
-  --space-2xl: 32px;
+  --space-xs: 3px;
+  --space-sm: 5px;
+  --space-md: 7px;
+  --space-lg: 9px;
+  --space-xl: 12px;
+  --space-2xl: 16px;
 
-  --scaled-space-xs: calc(4px * var(--ui-scale));
-  --scaled-space-sm: calc(8px * var(--ui-scale));
-  --scaled-space-md: calc(12px * var(--ui-scale));
-  --scaled-space-lg: calc(16px * var(--ui-scale));
-  --scaled-space-xl: calc(24px * var(--ui-scale));
+  --scaled-space-xs: calc(3px * var(--ui-scale));
+  --scaled-space-sm: calc(5px * var(--ui-scale));
+  --scaled-space-md: calc(7px * var(--ui-scale));
+  --scaled-space-lg: calc(9px * var(--ui-scale));
+  --scaled-space-xl: calc(12px * var(--ui-scale));
 
   --workbench-grid-step: 24px;
   --workbench-grid-dot:
     color-mix(in srgb, var(--color-border-strong) 44%, transparent);
-  --workbench-canvas-padding-x: var(--space-md);
-  --workbench-canvas-padding-y: var(--space-sm);
+  --workbench-canvas-padding-x: var(--space-sm);
+  --workbench-canvas-padding-y: var(--space-xs);
 
   --radius-xs: 3px;
   --radius-sm: 5px;
@@ -95,13 +95,13 @@
   --control-height-sm: calc(28px * var(--ui-scale));
   --control-height-md: calc(34px * var(--ui-scale));
   --control-height-lg: calc(38px * var(--ui-scale));
-  --control-padding-x: calc(12px * var(--ui-scale));
-  --control-padding-x-sm: calc(8px * var(--ui-scale));
-  --panel-padding: calc(12px * var(--ui-scale));
-  --field-gap: calc(8px * var(--ui-scale));
+  --control-padding-x: calc(10px * var(--ui-scale));
+  --control-padding-x-sm: calc(7px * var(--ui-scale));
+  --panel-padding: calc(7px * var(--ui-scale));
+  --field-gap: calc(5px * var(--ui-scale));
   --badge-height: calc(22px * var(--ui-scale));
-  --widget-header-padding-x: calc(8px * var(--ui-scale));
-  --widget-header-padding-y: calc(4px * var(--ui-scale));
+  --widget-header-padding-x: calc(6px * var(--ui-scale));
+  --widget-header-padding-y: calc(3px * var(--ui-scale));
 
   --line-tight: 1.2;
   --line-normal: 1.5;

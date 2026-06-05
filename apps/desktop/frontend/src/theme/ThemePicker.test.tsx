@@ -54,6 +54,20 @@ describe("ThemePicker", () => {
     expect(discordPreset?.variables["--hb-text-muted"]).toBe("#b5bac1");
   });
 
+  it("defines the Industrial Cockpit preset as a colors-only dark palette", () => {
+    const industrialPreset = themePresets.find(
+      (preset) => preset.id === "industrial-cockpit",
+    );
+
+    expect(industrialPreset?.name).toBe("Industrial Cockpit");
+    expect(industrialPreset?.mode).toBe("dark");
+    expect(industrialPreset?.variables["--hb-accent-primary"]).toBe("#f5a524");
+    expect(industrialPreset?.variables["--hb-bg-canvas"]).toBe("#090b0b");
+    expect(industrialPreset?.variables["--hb-surface-panel"]).toBe("#171a18");
+    expect(industrialPreset?.variables["--hb-status-success"]).toBe("#6fd16f");
+    expect(industrialPreset?.variables["--hb-text-muted"]).toBe("#9b998d");
+  });
+
   it("applies the default theme", async () => {
     renderThemePicker();
     await flushEffects();
@@ -74,6 +88,7 @@ describe("ThemePicker", () => {
     expect(document.body.textContent).toContain("Discord Dark");
     expect(document.body.textContent).toContain("Graphite");
     expect(document.body.textContent).toContain("Forest");
+    expect(document.body.textContent).toContain("Industrial Cockpit");
   });
 
   it("uses 100% UI scale by default", async () => {
@@ -180,6 +195,33 @@ describe("ThemePicker", () => {
     expect(document.documentElement.dataset.hobitTheme).toBe("discord-dark");
     expect(rootStyle("--hb-bg-app")).toBe("#1e2124");
     expect(storedTheme()?.selectedThemeId).toBe("discord-dark");
+  });
+
+  it("applies and persists Industrial Cockpit theme variables", async () => {
+    renderThemePicker();
+    await flushEffects();
+
+    clickButton("Theme");
+    clickButton("Industrial Cockpit");
+    await flushEffects();
+
+    expect(document.documentElement.dataset.hobitTheme).toBe(
+      "industrial-cockpit",
+    );
+    expect(document.documentElement.dataset.hobitThemeMode).toBe("dark");
+    expect(rootStyle("--hb-accent-primary")).toBe("#f5a524");
+    expect(rootStyle("--hb-bg-app")).toBe("#0c0f0f");
+    expect(rootStyle("--hb-bg-canvas")).toBe("#090b0b");
+    expect(rootStyle("--hb-bg-topbar")).toBe("#111413");
+    expect(rootStyle("--hb-surface-panel")).toBe("#171a18");
+    expect(rootStyle("--hb-surface-panel-raised")).toBe("#20251f");
+    expect(rootStyle("--hb-surface-widget")).toBe("#131715");
+    expect(rootStyle("--hb-surface-widget-raised")).toBe("#1a1f1b");
+    expect(rootStyle("--hb-status-success")).toBe("#6fd16f");
+    expect(rootStyle("--hb-status-warning")).toBe("#f6c64b");
+    expect(rootStyle("--hb-text-muted")).toBe("#9b998d");
+    expect(rootStyle("--hb-border-default")).toBe("#30352f");
+    expect(storedTheme()?.selectedThemeId).toBe("industrial-cockpit");
   });
 
   it("renders HEX inputs for custom color fields", async () => {
