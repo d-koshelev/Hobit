@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import {
@@ -67,6 +67,7 @@ import {
 
 const MAX_GIT_DIFF_PATCH_BYTES = 96 * 1024;
 const MAX_GIT_HISTORY_ENTRIES = 30;
+const FINDER_ROOT_STATE_KEY = "finderRoot";
 
 const DEFAULT_FINDER_PANE_STATES: FinderPaneStates = {
   columns: "normal",
@@ -77,9 +78,25 @@ const DEFAULT_FINDER_PANE_STATES: FinderPaneStates = {
 
 declare global {
   interface Window {
-    showDirectoryPicker?: () => Promise<FinderDirectoryHandle>;
+    showDirectoryPicker?: (options?: {
+      id?: string;
+      mode?: "read" | "readwrite";
+      startIn?:
+        | "desktop"
+        | "documents"
+        | "downloads"
+        | "music"
+        | "pictures"
+        | "videos";
+    }) => Promise<FinderDirectoryHandle>;
   }
 }
+
+type PersistedFinderRoot = {
+  label: string;
+  path: string;
+  source: "explicit";
+};
 
 export function FinderWidget({
   frameActions,
@@ -92,6 +109,7 @@ export function FinderWidget({
   onLoadLogs,
   onSelectWorkspaceDirectory,
   onStartFrameMove,
+  onUpdateState,
   title,
 }: WidgetRenderProps) {
   const [columns, setColumns] = useState<FinderColumn[]>([]);
@@ -137,10 +155,20 @@ export function FinderWidget({
     null,
   );
   const [isCreatingKnowledgeTask, setIsCreatingKnowledgeTask] = useState(false);
+  const [homeDirectory, setHomeDirectory] = useState<string | null>(null);
+  const [didInitializeDefaultRoot, setDidInitializeDefaultRoot] =
+    useState(false);
+  const rootRef = useRef<FinderRootState | null>(null);
+  const isOpeningRootRef = useRef(false);
 
   const selectedPath = selectedItem
     ? selectedItem.pathSegments.join("/")
     : root?.label ?? "No root selected";
+  const currentPathLabel = selectedItem
+    ? selectedItem.pathSegments.join("/") || "/"
+    : root
+      ? "/"
+      : "No selection";
   const knowledgeTaskBlocker = getFinderKnowledgeTaskBlocker({
     filePreview,
     onCreateAgentQueueTask,
@@ -160,12 +188,71 @@ export function FinderWidget({
     setKnowledgeTaskError(null);
   }, [selectedPath]);
 
+  useEffect(() => {
+    rootRef.current = root;
+  }, [root]);
+
+  useEffect(() => {
+    isOpeningRootRef.current = isOpeningRoot;
+  }, [isOpeningRoot]);
+
+  useEffect(() => {
+    let isCancelled = false;
+
+    async function initializeDefaultRoot() {
+      if (
+        didInitializeDefaultRoot ||
+        rootRef.current ||
+        isOpeningRootRef.current
+      ) {
+        return;
+      }
+
+      const persistedRoot = readPersistedFinderRoot(instance.state);
+      if (persistedRoot) {
+        openPathOnlyRoot(persistedRoot.path, {
+          label: persistedRoot.label,
+          reason:
+            "Directory listing is unavailable until this root is reopened with a supported directory handle.",
+        });
+        setDidInitializeDefaultRoot(true);
+        return;
+      }
+
+      const resolvedHomeDirectory = await resolveUserHomeDirectory();
+      if (
+        isCancelled ||
+        !resolvedHomeDirectory ||
+        rootRef.current ||
+        isOpeningRootRef.current
+      ) {
+        setDidInitializeDefaultRoot(true);
+        return;
+      }
+
+      setHomeDirectory(resolvedHomeDirectory);
+      openPathOnlyRoot(resolvedHomeDirectory, {
+        label: resolvedHomeDirectory,
+        reason:
+          "Home is the default root. Directory columns require opening a supported root in this runtime.",
+      });
+      setDidInitializeDefaultRoot(true);
+    }
+
+    void initializeDefaultRoot();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [didInitializeDefaultRoot, instance.state]);
+
   async function openRoot() {
     if (isOpeningRoot) {
       return;
     }
 
     setRootError(null);
+    setDidInitializeDefaultRoot(true);
     setIsOpeningRoot(true);
     setSelectedItem(null);
     setFilePreview(null);
@@ -184,6 +271,7 @@ export function FinderWidget({
       if (canUseDirectoryPicker && window.showDirectoryPicker) {
         const directoryHandle = await window.showDirectoryPicker();
         const rootLabel = directoryHandle.name || "Selected root";
+        void persistFinderRoot(null);
         setRoot({
           gitRoot: rootLabel,
           handle: directoryHandle,
@@ -219,6 +307,11 @@ export function FinderWidget({
           setRootError(
             "Directory listing is unavailable in this frontend runtime.",
           );
+          void persistFinderRoot({
+            label: selectedDirectory,
+            path: selectedDirectory,
+            source: "explicit",
+          });
           await refreshGitStatusForRoot(selectedDirectory);
           await loadGitHistoryForRoot(selectedDirectory);
         }
@@ -764,6 +857,53 @@ export function FinderWidget({
     });
   }
 
+  function openPathOnlyRoot(
+    path: string,
+    {
+      label,
+      reason,
+    }: {
+      label: string;
+      reason: string;
+    },
+  ) {
+    setRoot({
+      gitRoot: path,
+      handle: null,
+      label,
+      listingAvailable: false,
+    });
+    setColumns([]);
+    setSelectedItem(null);
+    setFilePreview(null);
+    setPreviewPaneState("hidden");
+    setPreviewMode("content");
+    resetGitDiffPreview();
+    setGitStatus({
+      error: null,
+      loading: false,
+      status: null,
+    });
+    resetGitHistory();
+    setViewMode("all");
+    setRootError(reason);
+  }
+
+  async function persistFinderRoot(rootState: PersistedFinderRoot | null) {
+    if (!onUpdateState) {
+      return;
+    }
+
+    const nextState = { ...instance.state };
+    if (rootState) {
+      nextState[FINDER_ROOT_STATE_KEY] = rootState;
+    } else {
+      delete nextState[FINDER_ROOT_STATE_KEY];
+    }
+
+    await onUpdateState(instance.id, nextState);
+  }
+
   function setPaneState(paneId: FinderPaneId, state: FinderPaneState) {
     setPaneStates((currentStates) => ({
       ...currentStates,
@@ -792,17 +932,20 @@ export function FinderWidget({
           .join(" ")}
       >
         <section aria-label="Finder root scope" className="finder-scope">
-          <div className="finder-scope-copy">
-            <p className="finder-title">Workspace root</p>
-            <p className="finder-text">
-              {root
-                ? root.label
-                : "Choose a local root before listing files or folders."}
-            </p>
+          <div className="finder-path-strip">
+            <FinderPathFact
+              label="Home"
+              value={homeDirectory ?? "Unavailable in this runtime"}
+            />
+            <FinderPathFact
+              label="Root"
+              value={root ? root.label : "No root selected"}
+            />
+            <FinderPathFact label="Current" value={currentPathLabel} />
           </div>
           <div className="finder-scope-actions">
             <Badge variant={root?.listingAvailable ? "success" : "neutral"}>
-              {root?.listingAvailable ? "Root open" : "No root"}
+              {root?.listingAvailable ? "Root open" : root ? "Path root" : "No root"}
             </Badge>
             <Button
               disabled={!root?.gitRoot || gitStatus.loading}
@@ -839,6 +982,7 @@ export function FinderWidget({
 
         <div aria-label="Finder panes" className="finder-pane-layout">
           <FinderPaneShell
+            className="finder-columns-pane"
             onMaximize={() => setPaneState("columns", "maximized")}
             onMinimize={() => setPaneState("columns", "minimized")}
             onRestore={() => setPaneState("columns", "normal")}
@@ -878,73 +1022,75 @@ export function FinderWidget({
             </div>
           </FinderPaneShell>
 
-          <FinderPaneShell
-            onMaximize={() => setPaneState("git", "maximized")}
-            onMinimize={() => setPaneState("git", "minimized")}
-            onRestore={() => setPaneState("git", "normal")}
-            state={paneStates.git}
-            subtitle={
-              gitStatus.status
-                ? `${changedFiles.length} changed files in latest snapshot`
-                : "Read-only status for the approved root"
-            }
-            title="Git panel"
-          >
-            <FinderGitStatusPanel
-              changedFiles={changedFiles}
-              error={gitStatus.error}
-              loading={gitStatus.loading}
-              onChangeViewMode={setViewMode}
-              status={gitStatus.status}
-              viewMode={viewMode}
-            />
-          </FinderPaneShell>
-
-          <FinderPaneShell
-            onMaximize={() => setPaneState("commit", "maximized")}
-            onMinimize={() => setPaneState("commit", "minimized")}
-            onRestore={() => setPaneState("commit", "normal")}
-            state={paneStates.commit}
-            subtitle="Explicit selected-file commit controls"
-            title="Commit panel"
-          >
-            <FinderGitManualCommitPanel
-              onCreateCommit={createFinderGitCommit}
-              onRefreshAfterCommit={() => refreshGitAfterCommit()}
-              repositoryRoot={root?.gitRoot ?? null}
-              status={gitStatus.status}
-            />
-            <FinderGitManualPushPanel
-              onPush={pushFinderGit}
-              onRefreshAfterPush={() => refreshGitAfterPush()}
-              repositoryRoot={root?.gitRoot ?? null}
-              status={gitStatus.status}
-            />
-          </FinderPaneShell>
-
-          <FinderPaneShell
-            onMaximize={() => setPaneState("history", "maximized")}
-            onMinimize={() => setPaneState("history", "minimized")}
-            onRestore={() => setPaneState("history", "normal")}
-            state={paneStates.history}
-            subtitle={
-              gitHistory.log
-                ? `${gitHistory.log.entries.length} commits loaded`
-                : "Read-only recent commit history"
-            }
-            title="History panel"
-          >
-            <FinderGitHistoryPanel
-              history={gitHistory}
-              onRefreshHistory={() => void loadGitHistoryForRoot()}
-              onSelectHistoryEntry={(hash) =>
-                setGitHistory((currentHistory) => ({
-                  ...currentHistory,
-                  selectedHash: hash,
-                }))
+          <div className="finder-secondary-panes">
+            <FinderPaneShell
+              onMaximize={() => setPaneState("git", "maximized")}
+              onMinimize={() => setPaneState("git", "minimized")}
+              onRestore={() => setPaneState("git", "normal")}
+              state={paneStates.git}
+              subtitle={
+                gitStatus.status
+                  ? `${changedFiles.length} changed files in latest snapshot`
+                  : "Read-only status for the approved root"
               }
-            />
-          </FinderPaneShell>
+              title="Git panel"
+            >
+              <FinderGitStatusPanel
+                changedFiles={changedFiles}
+                error={gitStatus.error}
+                loading={gitStatus.loading}
+                onChangeViewMode={setViewMode}
+                status={gitStatus.status}
+                viewMode={viewMode}
+              />
+            </FinderPaneShell>
+
+            <FinderPaneShell
+              onMaximize={() => setPaneState("commit", "maximized")}
+              onMinimize={() => setPaneState("commit", "minimized")}
+              onRestore={() => setPaneState("commit", "normal")}
+              state={paneStates.commit}
+              subtitle="Explicit selected-file commit controls"
+              title="Commit panel"
+            >
+              <FinderGitManualCommitPanel
+                onCreateCommit={createFinderGitCommit}
+                onRefreshAfterCommit={() => refreshGitAfterCommit()}
+                repositoryRoot={root?.gitRoot ?? null}
+                status={gitStatus.status}
+              />
+              <FinderGitManualPushPanel
+                onPush={pushFinderGit}
+                onRefreshAfterPush={() => refreshGitAfterPush()}
+                repositoryRoot={root?.gitRoot ?? null}
+                status={gitStatus.status}
+              />
+            </FinderPaneShell>
+
+            <FinderPaneShell
+              onMaximize={() => setPaneState("history", "maximized")}
+              onMinimize={() => setPaneState("history", "minimized")}
+              onRestore={() => setPaneState("history", "normal")}
+              state={paneStates.history}
+              subtitle={
+                gitHistory.log
+                  ? `${gitHistory.log.entries.length} commits loaded`
+                  : "Read-only recent commit history"
+              }
+              title="History panel"
+            >
+              <FinderGitHistoryPanel
+                history={gitHistory}
+                onRefreshHistory={() => void loadGitHistoryForRoot()}
+                onSelectHistoryEntry={(hash) =>
+                  setGitHistory((currentHistory) => ({
+                    ...currentHistory,
+                    selectedHash: hash,
+                  }))
+                }
+              />
+            </FinderPaneShell>
+          </div>
         </div>
 
         {filePreview && previewPaneState !== "hidden" ? (
@@ -978,6 +1124,7 @@ export function FinderWidget({
 
 function FinderPaneShell({
   children,
+  className,
   onMaximize,
   onMinimize,
   onRestore,
@@ -986,6 +1133,7 @@ function FinderPaneShell({
   title,
 }: {
   children: ReactNode;
+  className?: string;
   onMaximize: () => void;
   onMinimize: () => void;
   onRestore: () => void;
@@ -999,7 +1147,9 @@ function FinderPaneShell({
   return (
     <section
       aria-label={`Finder ${title}`}
-      className={["finder-pane", `finder-pane-${state}`].join(" ")}
+      className={["finder-pane", `finder-pane-${state}`, className]
+        .filter(Boolean)
+        .join(" ")}
     >
       <header className="finder-pane-header">
         <div className="finder-scope-copy">
@@ -1046,6 +1196,15 @@ function FinderPaneShell({
       </header>
       <div className="finder-pane-body">{children}</div>
     </section>
+  );
+}
+
+function FinderPathFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="finder-path-fact">
+      <span className="finder-title">{label}</span>
+      <code>{value}</code>
+    </div>
   );
 }
 
@@ -1328,6 +1487,42 @@ function finderPaneStateLabel(state: FinderPaneState) {
       return "Minimized";
     case "normal":
       return "Normal";
+  }
+}
+
+function readPersistedFinderRoot(
+  state: Record<string, unknown>,
+): PersistedFinderRoot | null {
+  const rawRoot = state[FINDER_ROOT_STATE_KEY];
+
+  if (!rawRoot || typeof rawRoot !== "object") {
+    return null;
+  }
+
+  const candidate = rawRoot as Partial<PersistedFinderRoot>;
+  if (
+    typeof candidate.path !== "string" ||
+    !candidate.path.trim() ||
+    typeof candidate.label !== "string" ||
+    !candidate.label.trim() ||
+    candidate.source !== "explicit"
+  ) {
+    return null;
+  }
+
+  return {
+    label: candidate.label,
+    path: candidate.path,
+    source: "explicit",
+  };
+}
+
+async function resolveUserHomeDirectory() {
+  try {
+    const pathApi = await import("@tauri-apps/api/path");
+    return await pathApi.homeDir();
+  } catch {
+    return null;
   }
 }
 

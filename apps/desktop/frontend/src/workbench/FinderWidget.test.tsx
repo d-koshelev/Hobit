@@ -2,6 +2,7 @@ import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { homeDir } from "@tauri-apps/api/path";
 import {
   createWorkspaceGitCommit,
   getWorkspaceGitFileDiff,
@@ -28,9 +29,13 @@ vi.mock("../workspace/workspaceGitApi", () => ({
   getWorkspaceGitStatus: vi.fn(),
   pushWorkspaceGit: vi.fn(),
 }));
+vi.mock("@tauri-apps/api/path", () => ({
+  homeDir: vi.fn(),
+}));
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
+const homeDirMock = vi.mocked(homeDir);
 const getWorkspaceGitStatusMock = vi.mocked(getWorkspaceGitStatus);
 const getWorkspaceGitFileDiffMock = vi.mocked(getWorkspaceGitFileDiff);
 const getWorkspaceGitLogMock = vi.mocked(getWorkspaceGitLog);
@@ -76,10 +81,55 @@ afterEach(() => {
   getWorkspaceGitLogMock.mockReset();
   createWorkspaceGitCommitMock.mockReset();
   pushWorkspaceGitMock.mockReset();
+  homeDirMock.mockReset();
   vi.restoreAllMocks();
 });
 
 describe("FinderWidget", () => {
+  it("opens the user home path as the default root when no explicit root is selected", async () => {
+    homeDirMock.mockResolvedValue("C:/Users/Dmitry");
+
+    renderWidget();
+    await act(async () => {
+      await flushPromises();
+    });
+
+    expect(document.body.textContent).toContain("Home");
+    expect(document.body.textContent).toContain("C:/Users/Dmitry");
+    expect(document.body.textContent).toContain("Path root");
+    expect(document.body.textContent).toContain(
+      "Home is the default root. Directory columns require opening a supported root in this runtime.",
+    );
+    expect(getWorkspaceGitStatusMock).not.toHaveBeenCalled();
+    expect(getWorkspaceGitLogMock).not.toHaveBeenCalled();
+  });
+
+  it("restores a persisted explicit path root when supported by widget state", async () => {
+    renderWidget({
+      instance: {
+        ...instance(),
+        state: {
+          finderRoot: {
+            label: "C:/work/project",
+            path: "C:/work/project",
+            source: "explicit",
+          },
+        },
+      },
+    });
+    await act(async () => {
+      await flushPromises();
+    });
+
+    expect(document.body.textContent).toContain("Root");
+    expect(document.body.textContent).toContain("C:/work/project");
+    expect(document.body.textContent).toContain("Path root");
+    expect(document.body.textContent).toContain(
+      "Directory listing is unavailable until this root is reopened with a supported directory handle.",
+    );
+    expect(homeDirMock).not.toHaveBeenCalled();
+  });
+
   it("renders universal pane controls for columns, Git, commit, and history", async () => {
     renderWidget();
 
@@ -234,10 +284,11 @@ describe("FinderWidget", () => {
 
   it("shows an honest unsupported listing state when only the native directory label picker is available", async () => {
     const onSelectWorkspaceDirectory = vi.fn(async () => "C:/work/project");
+    const onUpdateState = vi.fn(async () => undefined);
     getWorkspaceGitStatusMock.mockResolvedValue(gitStatus([]));
     getWorkspaceGitLogMock.mockResolvedValue(gitLog([]));
 
-    renderWidget({ onSelectWorkspaceDirectory });
+    renderWidget({ onSelectWorkspaceDirectory, onUpdateState });
 
     await clickButton("Open root");
 
@@ -256,6 +307,13 @@ describe("FinderWidget", () => {
     expect(document.body.textContent).toContain("Clean");
     expect(document.body.textContent).toContain("0 changed");
     expect(document.querySelectorAll(".finder-column")).toHaveLength(0);
+    expect(onUpdateState).toHaveBeenCalledWith("finder_widget", {
+      finderRoot: {
+        label: "C:/work/project",
+        path: "C:/work/project",
+        source: "explicit",
+      },
+    });
   });
 
   it("creates a manual Knowledge Queue task from a selected Finder file", async () => {
