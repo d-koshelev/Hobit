@@ -29,7 +29,7 @@ type CatalogSkillPreviewProps = {
   onAttachToQueueTask: () => void;
   message: string | null;
   onAttachToWorkspaceAgent: () => void;
-  onManageSkill: () => void;
+  onEditSkill: () => void;
   skill: Skill;
   skills: Skill[];
 };
@@ -86,7 +86,7 @@ export function CatalogSkillPreview({
   message,
   onAttachToQueueTask,
   onAttachToWorkspaceAgent,
-  onManageSkill,
+  onEditSkill,
   skill,
   skills,
 }: CatalogSkillPreviewProps) {
@@ -128,15 +128,15 @@ export function CatalogSkillPreview({
         >
           Attach to Queue task
         </Button>
-        <Button onClick={onManageSkill} variant="secondary">
-          Manage skill
+        <Button onClick={onEditSkill} variant="secondary">
+          Edit skill
         </Button>
       </div>
       <p className="skill-attach-note">
         {canAttachToWorkspaceAgent
           ? "Attach uses the last saved Skill. Save edits before attaching. Does not send automatically."
           : "Add Workspace Agent to attach saved Skills as visible context."}
-        {" "}Manage skill opens the editable Skill record panel. Queue attachments store
+        {" "}Edit skill opens the selected Skill record editor. Queue attachments store
         refs and summaries only.
       </p>
       <CatalogMessages error={error} message={message} />

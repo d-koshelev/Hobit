@@ -13,6 +13,7 @@ import type { WidgetRenderProps } from "./types";
 import { useSkillLibraryCatalogAttachments } from "./useSkillLibraryCatalogAttachments";
 import { useSkillLibraryDocumentImport } from "./useSkillLibraryDocumentImport";
 import { useSkillLibraryDraftReview } from "./useSkillLibraryDraftReview";
+import { useSkillLibrarySkillPanelActions } from "./useSkillLibrarySkillPanelActions";
 
 export type {
   SkillLibraryDocumentsPanelHandle,
@@ -78,17 +79,31 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
     ? (catalogItems.find((item) => item.id === selectedCatalogItemId) ?? null)
     : null;
   const {
+    loadSkillImportDraft,
+    openSelectedSkillInSkillsPanel,
+    showSkillsInCatalog,
+    skillPanelStartupAction,
+    startNewSkill,
+  } = useSkillLibrarySkillPanelActions({
+    setActiveUtilityPanel,
+    setCatalogView,
+    setDocumentMessage,
+  });
+  const {
     documentImportPath,
     documentImportScope,
-    importDocumentFromPath,
+    importTarget,
+    loadSelectedImportFile,
     importPickerAvailable,
     isImportingDocument,
     pickDesktopImportFile,
     selectBrowserImportFile,
     setDocumentImportScope,
+    setImportTarget,
   } = useSkillLibraryDocumentImport({
     isDocumentDirty,
     loadDocuments,
+    onLoadSkillImportDraft: loadSkillImportDraft,
     onCreateKnowledgeDocument,
     onReadKnowledgeDocumentImportFile,
     setDocumentError,
@@ -555,10 +570,6 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
     );
   }
 
-  function openSkillsPanel() {
-    setActiveUtilityPanel("skills");
-  }
-
   function openDocumentPanel() {
     if (!selectedDocument && !documentDraft.knowledgeDocumentId) {
       startNewDocument();
@@ -566,18 +577,6 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
     }
 
     setActiveUtilityPanel("document");
-  }
-
-  function openSelectedSkillInSkillsPanel() {
-    openSkillsPanel();
-    if (selectedSkill) {
-      void skillsPanelRef.current?.selectSkill(selectedSkill.skillId);
-    }
-  }
-
-  function startNewSkill() {
-    openSkillsPanel();
-    skillsPanelRef.current?.startNewSkill();
   }
 
   function refreshCatalogAfterSkillsChange() {
@@ -613,6 +612,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
         hasImportFileApi={
           Boolean(onReadKnowledgeDocumentImportFile) || !importPickerAvailable
         }
+        importTarget={importTarget}
         importPickerAvailable={importPickerAvailable}
         isAcceptingDraftItem={isAcceptingDraftItem}
         isCreatingRefreshTask={isCreatingRefreshTask}
@@ -637,23 +637,26 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
         onDiscardDraft={discardDocumentDraft}
         onDocumentImportScopeChange={setDocumentImportScope}
         onDraftPayloadChange={updateDraftPayload}
+        onImportTargetChange={setImportTarget}
         onImportBrowserFileSelected={(file) => void selectBrowserImportFile(file)}
         onGetSkill={onGetSkill}
-        onImportDocument={() => void importDocumentFromPath()}
         onListSkills={onListSkills}
         onLoadDraftReviewPayload={loadDraftReviewPayload}
+        onLoadSelectedImportFile={() => void loadSelectedImportFile()}
         onMarkStale={() => void updateSelectedDocumentLifecycle("stale")}
-        onOpenDocumentPanel={openDocumentPanel}
         onPickImportFile={() => void pickDesktopImportFile()}
         onRejectDraftItem={rejectDraftItem}
         onRestoreDocument={() => void updateSelectedDocumentLifecycle("active")}
         onSaveDocument={() => void saveDocument()}
+        onShowSkillsInCatalog={showSkillsInCatalog}
         onSetDocumentDraftField={setDocumentDraftField}
         onSkillsChanged={refreshCatalogAfterSkillsChange}
+        onStartNewDocument={startNewDocument}
         onStartNewSkill={startNewSkill}
         onToggleUtilityPanel={toggleUtilityPanel}
         onUpdateSkill={onUpdateSkill}
         skillCreateAvailable={skillCreateAvailable}
+        skillPanelStartupAction={skillPanelStartupAction}
         skillsPanelRef={skillsPanelRef}
       />
       {isLoadingDocuments ? (
@@ -682,7 +685,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
             onAttachSkillToQueueTask={attachSelectedSkillToQueueTask}
             onAttachSkillToWorkspaceAgent={attachSelectedSkillToCoordinator}
             onEditDocument={openDocumentPanel}
-            onManageSkill={openSelectedSkillInSkillsPanel}
+            onEditSkill={() => openSelectedSkillInSkillsPanel(selectedSkill)}
             selectedDocument={selectedDocument}
             selectedSkill={selectedSkill}
             skills={skills}

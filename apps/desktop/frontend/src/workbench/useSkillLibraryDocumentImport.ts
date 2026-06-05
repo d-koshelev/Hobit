@@ -4,7 +4,9 @@ import { isTauriRuntime } from "../workspace/tauriEnvironment";
 import type { KnowledgeDocument } from "../workspace/types";
 import {
   EMPTY_DOCUMENT_DRAFT,
+  EMPTY_SKILL_DRAFT,
   type KnowledgeDocumentDraft,
+  type SkillDraft,
 } from "./skillLibraryModel";
 import { knowledgeDocumentQuickSummaryWarning } from "./knowledgeDocumentQuickSummaryWarning";
 import { errorToMessage } from "./SkillLibraryDocumentsPanel.helpers";
@@ -13,11 +15,19 @@ import type { WidgetRenderProps } from "./types";
 type UseSkillLibraryDocumentImportParams = {
   isDocumentDirty: boolean;
   loadDocuments: (preferredDocumentId: string | null) => Promise<void>;
+  onLoadSkillImportDraft: (request: SkillImportDraftRequest) => void;
   onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
   onReadKnowledgeDocumentImportFile: WidgetRenderProps["onReadKnowledgeDocumentImportFile"];
   setDocumentError: (message: string | null) => void;
   setDocumentMessage: (message: string | null) => void;
   setSelectedDocumentDraft: (document: KnowledgeDocument) => void;
+};
+
+export type SkillLibraryImportTarget = "document" | "skill";
+
+export type SkillImportDraftRequest = {
+  draft: SkillDraft;
+  fileName: string;
 };
 
 type ImportSelection =
@@ -37,6 +47,7 @@ type ImportSelection =
 export function useSkillLibraryDocumentImport({
   isDocumentDirty,
   loadDocuments,
+  onLoadSkillImportDraft,
   onCreateKnowledgeDocument,
   onReadKnowledgeDocumentImportFile,
   setDocumentError,
@@ -47,6 +58,8 @@ export function useSkillLibraryDocumentImport({
     useState<ImportSelection | null>(null);
   const [documentImportScope, setDocumentImportScope] =
     useState<KnowledgeDocumentDraft["scope"]>(EMPTY_DOCUMENT_DRAFT.scope);
+  const [importTarget, setImportTarget] =
+    useState<SkillLibraryImportTarget>("document");
   const [isImportingDocument, setIsImportingDocument] = useState(false);
   const importPickerAvailable = isTauriRuntime();
 
@@ -126,15 +139,16 @@ export function useSkillLibraryDocumentImport({
     }
   }
 
-  async function importDocumentFromPath() {
-    if (
-      !onCreateKnowledgeDocument ||
-      isImportingDocument
-    ) {
+  async function loadSelectedImportFile() {
+    if (isImportingDocument) {
       return;
     }
 
-    if (isDocumentDirty) {
+    if (importTarget === "document" && !onCreateKnowledgeDocument) {
+      return;
+    }
+
+    if (importTarget === "document" && isDocumentDirty) {
       setDocumentMessage(
         "Save or discard the current document before importing another.",
       );
@@ -160,7 +174,25 @@ export function useSkillLibraryDocumentImport({
               onReadKnowledgeDocumentImportFile,
             )
           : documentImportSelection;
-      const importedDocument = await onCreateKnowledgeDocument({
+      if (importTarget === "skill") {
+        onLoadSkillImportDraft({
+          draft: skillDraftFromImportedFile(importedFile),
+          fileName: importedFile.fileName,
+        });
+        setDocumentImportSelection(null);
+        setDocumentMessage(
+          `Loaded ${importedFile.fileName} as a Skill draft for review. Save it from the Skill editor to keep it.`,
+        );
+        return;
+      }
+
+      const createKnowledgeDocument = onCreateKnowledgeDocument;
+
+      if (!createKnowledgeDocument) {
+        return;
+      }
+
+      const importedDocument = await createKnowledgeDocument({
         title: importedFile.title,
         scope: documentImportScope,
         catalogItemType: "documentation_knowledge",
@@ -198,12 +230,14 @@ export function useSkillLibraryDocumentImport({
   return {
     documentImportPath: documentImportSelection?.fileName ?? "",
     documentImportScope,
-    importDocumentFromPath,
+    importTarget,
+    loadSelectedImportFile,
     importPickerAvailable,
     isImportingDocument,
     pickDesktopImportFile,
     selectBrowserImportFile,
     setDocumentImportScope,
+    setImportTarget,
   };
 }
 
@@ -237,4 +271,20 @@ function fileNameFromPath(path: string) {
 
 function titleFromFileName(fileName: string) {
   return fileName.replace(/\.(txt|md|markdown)$/i, "") || fileName;
+}
+
+function skillDraftFromImportedFile(importedFile: {
+  content: string;
+  fileName: string;
+  sourceRef: string;
+  title: string;
+}): SkillDraft {
+  return {
+    ...EMPTY_SKILL_DRAFT,
+    prerequisites: [`Source file: ${importedFile.fileName}`, importedFile.sourceRef].filter(Boolean).join("\n"),
+    steps: importedFile.content,
+    tags: "import",
+    title: importedFile.title,
+    whenToUse: `Review this imported Skill draft before use. Source: ${importedFile.fileName}`,
+  };
 }

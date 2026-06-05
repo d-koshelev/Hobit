@@ -1,5 +1,6 @@
 import type { ChangeEvent } from "react";
 import { Button } from "../design-system/Button";
+import type { SkillLibraryImportTarget } from "./useSkillLibraryDocumentImport";
 import type { KnowledgeDocumentDraft } from "./skillLibraryModel";
 
 type SkillLibraryDocumentImportControlsProps = {
@@ -7,6 +8,7 @@ type SkillLibraryDocumentImportControlsProps = {
   documentImportPath: string;
   documentImportScope: KnowledgeDocumentDraft["scope"];
   hasImportFileApi: boolean;
+  importTarget: SkillLibraryImportTarget;
   importPickerAvailable: boolean;
   isDeletingDocument: boolean;
   isImportingDocument: boolean;
@@ -15,8 +17,10 @@ type SkillLibraryDocumentImportControlsProps = {
   onDocumentImportScopeChange: (
     scope: KnowledgeDocumentDraft["scope"],
   ) => void;
-  onImportDocument: () => void;
+  onImportTargetChange: (target: SkillLibraryImportTarget) => void;
+  onLoadSelectedImportFile: () => void;
   onPickImportFile: () => void;
+  skillImportAvailable: boolean;
 };
 
 export function SkillLibraryDocumentImportControls({
@@ -24,17 +28,21 @@ export function SkillLibraryDocumentImportControls({
   documentImportPath,
   documentImportScope,
   hasImportFileApi,
+  importTarget,
   importPickerAvailable,
   isDeletingDocument,
   isImportingDocument,
   isSavingDocument,
   onBrowserFileSelected,
   onDocumentImportScopeChange,
-  onImportDocument,
+  onImportTargetChange,
+  onLoadSelectedImportFile,
   onPickImportFile,
+  skillImportAvailable,
 }: SkillLibraryDocumentImportControlsProps) {
+  const isSkillImport = importTarget === "skill";
   const pickerDisabled =
-    !documentApiAvailable ||
+    (!documentApiAvailable && !skillImportAvailable) ||
     !hasImportFileApi ||
     isImportingDocument ||
     isSavingDocument ||
@@ -47,6 +55,14 @@ export function SkillLibraryDocumentImportControls({
 
   return (
     <div className="skill-document-import">
+      <div className="skill-document-import-intro">
+        <p className="skill-list-meta">Import selected file</p>
+        <p>
+          Choose one plain text or Markdown file, confirm the target, then load
+          it into the catalog. Folder import, binary parsing, background
+          ingestion, and vector indexing are not implemented.
+        </p>
+      </div>
       <div className="skill-field skill-document-import-path">
         <span>Selected file</span>
         <div className="skill-document-import-picker-row">
@@ -88,10 +104,26 @@ export function SkillLibraryDocumentImportControls({
           </span>
         </div>
       </div>
+      <label className="skill-field skill-document-import-target">
+        <span>Target</span>
+        <select
+          className="input"
+          onChange={(event) =>
+            onImportTargetChange(
+              event.currentTarget.value === "skill" ? "skill" : "document",
+            )
+          }
+          value={importTarget}
+        >
+          <option value="document">Knowledge Document</option>
+          <option value="skill">Skill draft</option>
+        </select>
+      </label>
       <label className="skill-field skill-document-import-scope">
         <span>Import as</span>
         <select
           className="input"
+          disabled={isSkillImport}
           onChange={(event) =>
             onDocumentImportScopeChange(
               event.currentTarget.value === "global" ? "global" : "workspace",
@@ -103,24 +135,44 @@ export function SkillLibraryDocumentImportControls({
           <option value="global">Global document</option>
         </select>
       </label>
+      {isSkillImport ? (
+        <p className="skill-document-import-note">
+          Skill file import is limited to loading plain text or Markdown into an
+          unsaved Skill draft. Structured Skill package import is not
+          implemented; review and save the draft from the Skill editor.
+        </p>
+      ) : (
+        <p className="skill-document-import-note">
+          Knowledge Document import creates an active enabled document from the
+          selected file through the normal document create path.
+        </p>
+      )}
       <Button
         disabled={
-          !documentApiAvailable ||
+          (isSkillImport ? !skillImportAvailable : !documentApiAvailable) ||
           !hasImportFileApi ||
           !documentImportPath ||
           isImportingDocument ||
           isSavingDocument ||
           isDeletingDocument
         }
-        onClick={onImportDocument}
+        onClick={onLoadSelectedImportFile}
         title={
           hasImportFileApi
-            ? "Imports the selected .txt, .md, or .markdown file into this workspace."
+            ? isSkillImport
+              ? "Loads the selected .txt, .md, or .markdown file into an unsaved Skill draft."
+              : "Imports the selected .txt, .md, or .markdown file into this workspace."
             : "File import is unavailable in this runtime."
         }
-        variant="secondary"
+        variant="primary"
       >
-        {isImportingDocument ? "Importing" : "Import .txt/.md"}
+        {isImportingDocument
+          ? isSkillImport
+            ? "Loading"
+            : "Importing"
+          : isSkillImport
+            ? "Load skill draft"
+            : "Import document"}
       </Button>
     </div>
   );

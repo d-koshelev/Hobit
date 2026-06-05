@@ -87,7 +87,7 @@ export function WidgetLogsPanel({
       onRequestClose={onClose}
       returnFocusRef={anchorRef}
     >
-      <h3 className="widget-log-title" id={titleId}>
+      <h3 className="widget-log-title" data-popup-drag-handle id={titleId}>
         Logs
       </h3>
       <WidgetLogPanelBody

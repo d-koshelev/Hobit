@@ -3,6 +3,7 @@ import {
   useEffect,
   useImperativeHandle,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { Button } from "../design-system/Button";
@@ -25,12 +26,30 @@ export type SkillLibrarySkillsPanelHandle = {
   selectSkill: (skillId: string) => Promise<void>;
 };
 
+export type SkillLibrarySkillsPanelStartupAction =
+  | {
+      actionId: number;
+      kind: "import";
+      draft: SkillDraft;
+      sourceFileName: string;
+    }
+  | {
+      actionId: number;
+      kind: "new";
+    }
+  | {
+      actionId: number;
+      kind: "select";
+      skillId: string;
+    };
+
 export type SkillLibrarySkillsToolbarState = {
   isNewDisabled: boolean;
   reviewStatus: SkillReviewStatus;
 };
 
 type SkillLibrarySkillsPanelProps = {
+  catalogEditorMode?: boolean;
   isActive: boolean;
   onAttachContextToCoordinator: WidgetRenderProps["onAttachContextToCoordinator"];
   onAttachKnowledgeContextToQueueTask: WidgetRenderProps["onAttachKnowledgeContextToQueueTask"];
@@ -41,6 +60,7 @@ type SkillLibrarySkillsPanelProps = {
   onSkillsChanged?: () => void;
   onToolbarStateChange: (state: SkillLibrarySkillsToolbarState) => void;
   onUpdateSkill: WidgetRenderProps["onUpdateSkill"];
+  startupAction?: SkillLibrarySkillsPanelStartupAction | null;
 };
 
 export const SkillLibrarySkillsPanel = forwardRef<
@@ -48,6 +68,7 @@ export const SkillLibrarySkillsPanel = forwardRef<
   SkillLibrarySkillsPanelProps
 >(function SkillLibrarySkillsPanel(
   {
+    catalogEditorMode = false,
     isActive,
     onAttachContextToCoordinator,
     onAttachKnowledgeContextToQueueTask,
@@ -58,9 +79,11 @@ export const SkillLibrarySkillsPanel = forwardRef<
     onSkillsChanged,
     onToolbarStateChange,
     onUpdateSkill,
+    startupAction,
   },
   ref,
 ) {
+  const handledStartupActionIdRef = useRef<number | null>(null);
   const apiAvailable = Boolean(
     onCreateSkill && onDeleteSkill && onGetSkill && onListSkills && onUpdateSkill,
   );
@@ -99,6 +122,31 @@ export const SkillLibrarySkillsPanel = forwardRef<
     selectSkill,
     startNewSkill,
   }));
+
+  useEffect(() => {
+    if (
+      !isActive ||
+      isLoading ||
+      !startupAction ||
+      handledStartupActionIdRef.current === startupAction.actionId
+    ) {
+      return;
+    }
+
+    handledStartupActionIdRef.current = startupAction.actionId;
+
+    if (startupAction.kind === "new") {
+      startNewSkill();
+      return;
+    }
+
+    if (startupAction.kind === "select") {
+      void selectSkill(startupAction.skillId);
+      return;
+    }
+
+    loadImportedSkillDraft(startupAction.draft, startupAction.sourceFileName);
+  }, [isActive, isLoading, startupAction]);
 
   async function loadSkills(preferredSkillId: string | null) {
     if (!apiAvailable || !onListSkills || !onGetSkill) {
@@ -280,6 +328,20 @@ export const SkillLibrarySkillsPanel = forwardRef<
     setError(null);
   }
 
+  function loadImportedSkillDraft(importedDraft: SkillDraft, sourceFileName: string) {
+    if (isDirty) {
+      setMessage("Save or discard the current skill before loading an imported draft.");
+      return;
+    }
+
+    setSelectedSkill(null);
+    setDraft(importedDraft);
+    setMessage(
+      `Loaded ${sourceFileName} as an unsaved Skill draft. Review and save it before attaching or using it.`,
+    );
+    setError(null);
+  }
+
   function attachSelectedSkillToCoordinator() {
     if (!selectedSkill || isDirty || !onAttachContextToCoordinator) {
       return;
@@ -347,40 +409,48 @@ export const SkillLibrarySkillsPanel = forwardRef<
       ) : error && skills.length === 0 ? (
         <EmptyState text={error} title="Skills unavailable." />
       ) : (
-        <div className="skill-library-layout">
-          <aside className="skill-list-pane" aria-label="Skills">
-            {skills.length === 0 ? (
-              <EmptyState
-                text="Create the first reusable operator-authored skill for this workspace."
-                title="No skills yet."
-              />
-            ) : (
-              <div className="skill-list">
-                {skills.map((skill) => (
-                  <button
-                    className={[
-                      "skill-list-row",
-                      selectedSkill?.skillId === skill.skillId
-                        ? "skill-list-row-selected"
-                        : "",
-                    ]
-                      .filter(Boolean)
-                      .join(" ")}
-                    disabled={isSelecting}
-                    key={skill.skillId}
-                    onClick={() => void selectSkill(skill.skillId)}
-                    type="button"
-                  >
-                    <span className="skill-list-title">{skill.title}</span>
-                    <span className="skill-list-meta">
-                      {statusLabel(skill.reviewStatus)}
-                      {skill.tags ? ` - ${skill.tags}` : ""}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </aside>
+        <div
+          className={
+            catalogEditorMode
+              ? "skill-library-layout skill-library-layout-editor-only"
+              : "skill-library-layout"
+          }
+        >
+          {catalogEditorMode ? null : (
+            <aside className="skill-list-pane" aria-label="Skills">
+              {skills.length === 0 ? (
+                <EmptyState
+                  text="Create the first reusable operator-authored skill for this workspace."
+                  title="No skills yet."
+                />
+              ) : (
+                <div className="skill-list">
+                  {skills.map((skill) => (
+                    <button
+                      className={[
+                        "skill-list-row",
+                        selectedSkill?.skillId === skill.skillId
+                          ? "skill-list-row-selected"
+                          : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      disabled={isSelecting}
+                      key={skill.skillId}
+                      onClick={() => void selectSkill(skill.skillId)}
+                      type="button"
+                    >
+                      <span className="skill-list-title">{skill.title}</span>
+                      <span className="skill-list-meta">
+                        {statusLabel(skill.reviewStatus)}
+                        {skill.tags ? ` - ${skill.tags}` : ""}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </aside>
+          )}
 
           <section className="skill-editor-pane" aria-label="Selected skill">
             <div className="skill-editor">

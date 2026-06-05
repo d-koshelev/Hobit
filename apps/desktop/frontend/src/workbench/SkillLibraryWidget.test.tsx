@@ -38,7 +38,7 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).not.toContain(
       "Catalog views combine scoped documents and saved skills.",
     );
-    expect(document.body.textContent).not.toContain("Draft payload");
+    expect(document.body.textContent).not.toContain("Queue result or draft pack");
     expect(document.body.textContent).not.toContain("Selected file");
     expect(buttonWithText("Active")).toBeDefined();
     expect(buttonWithText("Codebase")).toBeDefined();
@@ -48,7 +48,7 @@ describe("SkillLibraryWidget", () => {
     await clickCatalogView("Skills");
 
     expect(document.body.textContent).toContain(
-      "Create the first saved Skill from Manage skills.",
+      "Create a Skill with New skill or load a Skill draft from Import file.",
     );
   });
 
@@ -89,7 +89,8 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
-    await clickButton("Manage skills");
+    await clickButton("New skill");
+    await flush();
     await changeInput('input[placeholder="Untitled skill"]', "Deploy review");
     await changeTextareaByLabel("When to use", "Before a production deploy");
     await changeTextareaByLabel("Steps", "Run validation\nReview changed files");
@@ -122,7 +123,9 @@ describe("SkillLibraryWidget", () => {
     await clickButton("Delete");
 
     expect(deleteSkill).toHaveBeenCalledWith({ skillId: "skill_created" });
-    expect(document.body.textContent).toContain("No skills yet.");
+    expect(document.body.textContent).toContain(
+      "Create a Skill with New skill or load a Skill draft from Import file.",
+    );
   });
 
   it("renders catalog and creates, saves, and deletes a document", async () => {
@@ -306,6 +309,11 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain("Source");
     expect(document.body.textContent).toContain("Relations");
 
+    await clickButton("Manage skills");
+
+    expect(visibleListRowsText()).toContain("Review skill");
+    expect(visibleListRowsText()).not.toContain("Widget registry boundary");
+
     await clickButton("Global");
 
     expect(visibleListRowsText()).toContain("Old decision");
@@ -349,7 +357,8 @@ describe("SkillLibraryWidget", () => {
       "Title: Review skill",
     );
 
-    await clickButton("Manage skill");
+    await clickButton("Edit skill");
+    await flush();
 
     expect(document.body.textContent).toContain(
       "Skills are not sent to Workspace Agent unless explicitly attached.",
@@ -497,7 +506,7 @@ describe("SkillLibraryWidget", () => {
     await flush();
     await clickButton("Import file");
     await chooseImportFile("README.md", "# Imported\n\nUse this imported reference.");
-    await clickButton("Import .txt/.md");
+    await clickButton("Import document");
 
     expect(readImportFile).not.toHaveBeenCalled();
     expect(createKnowledgeDocument).toHaveBeenCalledWith(
@@ -512,6 +521,59 @@ describe("SkillLibraryWidget", () => {
     );
     expect(document.body.textContent).toContain("Imported document");
     expect(document.body.textContent).toContain("README");
+  });
+
+  it("loads an explicit text or Markdown file as a reviewed Skill draft before saving", async () => {
+    let skills: Skill[] = [];
+    const createSkill = vi.fn(async (request) => {
+      const skill = skillFixture({
+        ...request,
+        skillId: "skill_imported",
+      });
+      skills = [skill];
+      return skill;
+    });
+
+    renderWidget({
+      onCreateSkill: createSkill,
+      onGetSkill: vi.fn(
+        async (skillId) =>
+          skills.find((skill) => skill.skillId === skillId) ?? null,
+      ),
+      onListSkills: vi.fn(async () => skills),
+      onUpdateSkill: vi.fn(async (request) => skillFixture(request)),
+    });
+
+    await flush();
+    await clickButton("Import file");
+    await changeSelectByLabel("Target", "skill");
+    expect(document.body.textContent).toContain(
+      "Structured Skill package import is not implemented",
+    );
+    await chooseImportFile(
+      "review-skill.md",
+      "Inspect changed files\nRun focused tests",
+    );
+    await clickButton("Load skill draft");
+    await flush();
+
+    expect(document.body.textContent).toContain(
+      "Loaded review-skill.md as an unsaved Skill draft",
+    );
+
+    await clickButton("Save skill");
+
+    expect(createSkill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prerequisites: "Source file: review-skill.md\nreview-skill.md",
+        reviewStatus: "draft",
+        steps: "Inspect changed files\nRun focused tests",
+        tags: "import",
+        title: "review-skill",
+        whenToUse:
+          "Review this imported Skill draft before use. Source: review-skill.md",
+      }),
+    );
   });
 
   it("creates a global document and imports as a global document", async () => {
@@ -568,7 +630,7 @@ describe("SkillLibraryWidget", () => {
     await clickButton("Import file");
     await chooseImportFile("GLOBAL.md", "# Global\n\nUse this global reference.");
     await changeSelectByLabel("Import as", "global");
-    await clickButton("Import .txt/.md");
+    await clickButton("Import document");
 
     expect(createKnowledgeDocument).toHaveBeenLastCalledWith(
       expect.objectContaining({
@@ -649,8 +711,8 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
-    await clickButton("Review Queue drafts");
-    await changeTextareaByLabel("Draft payload", draftPayload);
+    await clickButton("Review draft output");
+    await changeTextareaByLabel("Queue result or draft pack", draftPayload);
     await clickButton("Load drafts");
 
     expect(document.body.textContent).toContain("Generated Queue knowledge");
@@ -865,13 +927,15 @@ describe("SkillLibraryWidget", () => {
     expect(button?.disabled).toBe(true);
   });
 
-  it("keeps Skill CRUD available behind the skill manager", async () => {
+  it("keeps Skill CRUD available through the catalog skill editor", async () => {
     renderWidget();
 
     await flush();
-    await clickButton("Manage skills");
+    await clickButton("New skill");
+    await flush();
 
-    expect(document.body.textContent).toContain("No skills yet.");
+    expect(document.body.textContent).toContain("Skill editor");
     expect(buttonWithText("New skill")).toBeDefined();
+    expect(document.querySelector('input[placeholder="Untitled skill"]')).not.toBeNull();
   });
 });

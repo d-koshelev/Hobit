@@ -3,6 +3,7 @@ import {
   useRef,
   useState,
   type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type RefObject,
 } from "react";
@@ -27,6 +28,16 @@ type AnchoredPosition = {
   top: number;
 };
 
+type DragPosition = {
+  left: number;
+  top: number;
+};
+
+type ActiveDrag = {
+  offsetX: number;
+  offsetY: number;
+};
+
 const POPUP_EDGE_GAP = 12;
 const POPUP_ANCHOR_GAP = 6;
 const POPUP_MIN_MAX_HEIGHT = 180;
@@ -42,7 +53,10 @@ export function PopupShell({
   variant = "anchored",
 }: PopupShellProps) {
   const popupRef = useRef<HTMLDivElement | null>(null);
+  const activeDragRef = useRef<ActiveDrag | null>(null);
   const [position, setPosition] = useState<AnchoredPosition | null>(null);
+  const [dragPosition, setDragPosition] = useState<DragPosition | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
 
   useEffect(() => {
     if (!isOpen) {
@@ -54,6 +68,10 @@ export function PopupShell({
 
   useEffect(() => {
     if (!isOpen || variant !== "anchored") {
+      return;
+    }
+
+    if (dragPosition) {
       return;
     }
 
@@ -112,7 +130,46 @@ export function PopupShell({
       window.removeEventListener("resize", updatePosition);
       window.removeEventListener("scroll", updatePosition, true);
     };
-  }, [anchorRef, isOpen, variant]);
+  }, [anchorRef, dragPosition, isOpen, variant]);
+
+  useEffect(() => {
+    if (!isOpen || !isDragging) {
+      return;
+    }
+
+    function movePopup(event: PointerEvent) {
+      const activeDrag = activeDragRef.current;
+      const popup = popupRef.current;
+
+      if (!activeDrag || !popup) {
+        return;
+      }
+
+      const rect = popup.getBoundingClientRect();
+      const maxLeft = Math.max(POPUP_EDGE_GAP, window.innerWidth - rect.width - POPUP_EDGE_GAP);
+      const maxTop = Math.max(POPUP_EDGE_GAP, window.innerHeight - rect.height - POPUP_EDGE_GAP);
+
+      setDragPosition({
+        left: clamp(event.clientX - activeDrag.offsetX, POPUP_EDGE_GAP, maxLeft),
+        top: clamp(event.clientY - activeDrag.offsetY, POPUP_EDGE_GAP, maxTop),
+      });
+    }
+
+    function stopPopupDrag() {
+      activeDragRef.current = null;
+      setIsDragging(false);
+    }
+
+    window.addEventListener("pointermove", movePopup);
+    window.addEventListener("pointerup", stopPopupDrag);
+    window.addEventListener("pointercancel", stopPopupDrag);
+
+    return () => {
+      window.removeEventListener("pointermove", movePopup);
+      window.removeEventListener("pointerup", stopPopupDrag);
+      window.removeEventListener("pointercancel", stopPopupDrag);
+    };
+  }, [isDragging, isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -165,14 +222,45 @@ export function PopupShell({
     return null;
   }
 
+  function startPopupDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!(event.target instanceof Element)) {
+      return;
+    }
+
+    const dragHandle = event.target.closest("[data-popup-drag-handle]");
+
+    if (!dragHandle || !popupRef.current?.contains(dragHandle)) {
+      return;
+    }
+
+    const rect = popupRef.current.getBoundingClientRect();
+    activeDragRef.current = {
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+    };
+    setDragPosition({
+      left: rect.left,
+      top: rect.top,
+    });
+    setIsDragging(true);
+    event.preventDefault();
+  }
+
   return createPortal(
     <div
       aria-labelledby={labelId}
-      className={`popup-shell popup-shell-${variant}`}
+      className={[
+        "popup-shell",
+        `popup-shell-${variant}`,
+        isDragging ? "popup-shell-dragging" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
       id={id}
+      onPointerDown={startPopupDrag}
       ref={popupRef}
       role="dialog"
-      style={popupStyle(variant, position)}
+      style={popupStyle(variant, position, dragPosition)}
       tabIndex={-1}
     >
       {children}
@@ -184,7 +272,18 @@ export function PopupShell({
 function popupStyle(
   variant: PopupShellVariant,
   position: AnchoredPosition | null,
+  dragPosition: DragPosition | null,
 ): CSSProperties | undefined {
+  if (dragPosition) {
+    return {
+      left: `${dragPosition.left}px`,
+      maxHeight: `calc(100vh - ${POPUP_EDGE_GAP * 2}px)`,
+      right: "auto",
+      top: `${dragPosition.top}px`,
+      transform: "none",
+    };
+  }
+
   if (variant === "floating") {
     return undefined;
   }
@@ -200,4 +299,8 @@ function popupStyle(
     right: `${position.right}px`,
     top: `${position.top}px`,
   };
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
 }

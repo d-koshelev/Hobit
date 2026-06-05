@@ -1,10 +1,8 @@
 import { useCallback, useRef, useState } from "react";
-import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import {
   SkillLibraryDocumentsPanel,
   type SkillLibraryDocumentsPanelHandle,
-  type SkillLibraryDocumentsToolbarState,
 } from "./SkillLibraryDocumentsPanel";
 import type { WidgetRenderProps } from "./types";
 
@@ -35,17 +33,8 @@ export function SkillLibraryWidget({
   const documentsPanelRef = useRef<SkillLibraryDocumentsPanelHandle | null>(
     null,
   );
-  const [documentsToolbarState, setDocumentsToolbarState] =
-    useState<SkillLibraryDocumentsToolbarState>({
-      isNewDisabled: true,
-    });
   const [isHelpOpen, setIsHelpOpen] = useState(false);
-  const onDocumentsToolbarStateChange = useCallback(
-    (state: SkillLibraryDocumentsToolbarState) => {
-      setDocumentsToolbarState(state);
-    },
-    [],
-  );
+  const onDocumentsToolbarStateChange = useCallback(() => undefined, []);
 
   const statusBadge = (
     <div className="skill-library-help" data-widget-header-drag-ignore>
@@ -79,24 +68,9 @@ export function SkillLibraryWidget({
     </div>
   );
 
-  function startNewCatalogItem() {
-    documentsPanelRef.current?.startNewDocument();
-  }
-
   return (
     <WidgetFrame
-      actions={
-        <>
-          <Button
-            disabled={documentsToolbarState.isNewDisabled}
-            onClick={startNewCatalogItem}
-            variant="secondary"
-          >
-            New item
-          </Button>
-          {frameActions}
-        </>
-      }
+      actions={frameActions}
       logRefreshToken={logRefreshToken}
       moveEnabled={frameMoveEnabled}
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}

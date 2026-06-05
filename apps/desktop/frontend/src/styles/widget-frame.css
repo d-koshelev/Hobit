@@ -271,6 +271,15 @@
   line-height: var(--line-tight);
 }
 
+[data-popup-drag-handle] {
+  cursor: grab;
+  user-select: none;
+}
+
+.popup-shell-dragging [data-popup-drag-handle] {
+  cursor: grabbing;
+}
+
 .widget-log-placeholder {
   margin-top: var(--space-xs);
   color: var(--color-text-muted);

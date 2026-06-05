@@ -67,6 +67,57 @@ describe("PopupShell", () => {
     expect(popup?.classList.contains("popup-shell-floating")).toBe(true);
     expect(container.textContent).not.toContain("Popup content");
   });
+
+  it("moves popups by a marked drag header", async () => {
+    const onRequestClose = vi.fn();
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <AnchoredPopupFixture isOpen onRequestClose={onRequestClose} />,
+      );
+      await Promise.resolve();
+    });
+
+    const popup = document.querySelector<HTMLElement>(".popup-shell");
+    const title = document.querySelector<HTMLElement>("[data-popup-drag-handle]");
+
+    expect(popup).not.toBeNull();
+    expect(title).not.toBeNull();
+
+    await act(async () => {
+      title?.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          clientX: 730,
+          clientY: 704,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MouseEvent("pointermove", {
+          clientX: 640,
+          clientY: 620,
+        }),
+      );
+      window.dispatchEvent(
+        new MouseEvent("pointerup", {
+          clientX: 640,
+          clientY: 620,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(Number.parseFloat(popup?.style.left ?? "0")).toBeGreaterThan(0);
+    expect(Number.parseFloat(popup?.style.top ?? "0")).toBeLessThan(700);
+  });
 });
 
 function AnchoredPopupFixture({
@@ -112,7 +163,7 @@ function AnchoredPopupFixture({
         onRequestClose={onRequestClose}
         variant={variant}
       >
-        <h2 id="test-popup-title">Popup title</h2>
+        <h2 data-popup-drag-handle id="test-popup-title">Popup title</h2>
         <p>Popup content</p>
       </PopupShell>
     </div>

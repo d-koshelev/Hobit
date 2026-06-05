@@ -72,6 +72,10 @@
   min-height: 0;
 }
 
+.skill-library-layout-editor-only {
+  grid-template-columns: 1fr;
+}
+
 .skill-catalog-layout {
   display: grid;
   gap: var(--space-md);
@@ -118,12 +122,26 @@
   width: min(720px, 100%);
 }
 
+.skill-library-drawer-moved {
+  max-height: calc(100vh - 24px);
+}
+
 .skill-library-panel-header {
   align-items: center;
   display: flex;
   gap: var(--space-sm);
   justify-content: space-between;
   min-width: 0;
+}
+
+.skill-library-panel-header-draggable {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.skill-library-drawer-dragging .skill-library-panel-header-draggable {
+  cursor: grabbing;
 }
 
 .skill-library-panel-header h3,
@@ -142,7 +160,25 @@
   align-items: end;
   display: grid;
   gap: var(--space-sm);
-  grid-template-columns: minmax(0, 1fr) minmax(160px, auto) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, auto) minmax(160px, auto) auto;
+}
+
+.skill-document-import-intro,
+.skill-document-import-note {
+  grid-column: 1 / -1;
+}
+
+.skill-document-import-intro {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.skill-document-import-intro p,
+.skill-document-import-note {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  margin: 0;
 }
 
 .skill-document-import-picker-row {
@@ -208,6 +244,13 @@
   resize: vertical;
 }
 
+.skill-draft-review-help {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  margin: 0;
+}
+
 .skill-draft-review-list {
   display: grid;
   gap: var(--space-sm);
@@ -264,6 +307,10 @@
 
 .skill-document-import-scope {
   min-width: 160px;
+}
+
+.skill-document-import-target {
+  min-width: 150px;
 }
 
 .skill-scope-filter {

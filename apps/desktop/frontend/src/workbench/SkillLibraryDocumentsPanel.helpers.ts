@@ -33,7 +33,7 @@ export function emptyCatalogText(view: KnowledgeCatalogView) {
   }
 
   if (view === "skills") {
-    return "Create the first saved Skill from Manage skills.";
+    return "Create a Skill with New skill or load a Skill draft from Import file.";
   }
 
   if (view === "drafts") {

@@ -24,7 +24,7 @@ type SkillLibraryCatalogDetailPaneProps = {
   onAttachSkillToQueueTask: () => void;
   onAttachSkillToWorkspaceAgent: () => void;
   onEditDocument: () => void;
-  onManageSkill: () => void;
+  onEditSkill: () => void;
 };
 
 export function SkillLibraryCatalogDetailPane({
@@ -43,7 +43,7 @@ export function SkillLibraryCatalogDetailPane({
   onAttachSkillToQueueTask,
   onAttachSkillToWorkspaceAgent,
   onEditDocument,
-  onManageSkill,
+  onEditSkill,
 }: SkillLibraryCatalogDetailPaneProps) {
   return (
     <section className="skill-editor-pane" aria-label="Selected catalog item">
@@ -60,7 +60,7 @@ export function SkillLibraryCatalogDetailPane({
           message={message}
           onAttachToQueueTask={onAttachSkillToQueueTask}
           onAttachToWorkspaceAgent={onAttachSkillToWorkspaceAgent}
-          onManageSkill={onManageSkill}
+          onEditSkill={onEditSkill}
           skill={selectedSkill}
           skills={skills}
         />

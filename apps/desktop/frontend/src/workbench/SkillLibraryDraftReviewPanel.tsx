@@ -51,7 +51,7 @@ export function SkillLibraryDraftReviewPanel({
       <div className="skill-draft-review-header">
         <div>
           <p className="skill-list-meta">Draft review</p>
-          <h3>Queue Knowledge drafts</h3>
+          <h3>Review Queue result drafts</h3>
         </div>
         {draftReviewPack ? (
           <span className="skill-scope-badge">
@@ -60,12 +60,19 @@ export function SkillLibraryDraftReviewPanel({
           </span>
         ) : null}
       </div>
+      <p className="skill-draft-review-help">
+        Paste the visible Queue worker report, final result, or draft-pack JSON
+        that contains proposed Knowledge items. Loading drafts only prepares
+        this review surface; accept creates a Knowledge Document or Skill
+        through the existing catalog paths, and rejection is local to this
+        review.
+      </p>
       <label className="skill-field skill-field-wide">
-        <span>Draft payload</span>
+        <span>Queue result or draft pack</span>
         <textarea
           className="input skill-draft-payload-textarea"
           onChange={(event) => onDraftPayloadChange(event.currentTarget.value)}
-          placeholder="Paste a Queue result, worker report, or draft pack JSON."
+          placeholder="Paste the Queue result, worker report, or fenced hobit-knowledge-draft JSON."
           value={draftPayload}
         />
       </label>
