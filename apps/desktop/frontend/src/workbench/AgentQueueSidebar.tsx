@@ -156,17 +156,20 @@ function QueueStateSection({
           onClick={() => foundation.onStopAndKillRunning()}
           variant="ghost"
         >
-          STOP + KILL RUNNING
+          Stop + kill running
         </Button>
       </div>
-      <p className="agent-queue-run-note agent-queue-state-strip">
-        {queueGlobalExecutionStateDescription(globalExecutionState)}
-      </p>
-      {foundation.globalMessage ? (
-        <p className="agent-queue-run-note agent-queue-sidebar-subtle">
-          {foundation.globalMessage}
+      <details className="agent-queue-details agent-queue-rail-details">
+        <summary>Queue state detail</summary>
+        <p className="agent-queue-run-note agent-queue-state-strip">
+          {queueGlobalExecutionStateDescription(globalExecutionState)}
         </p>
-      ) : null}
+        {foundation.globalMessage ? (
+          <p className="agent-queue-run-note agent-queue-sidebar-subtle">
+            {foundation.globalMessage}
+          </p>
+        ) : null}
+      </details>
     </section>
   );
 }
@@ -193,7 +196,7 @@ function SchedulerSummarySection({
           {foundation.schedulerPlan.globalState.label}
         </Badge>
       </div>
-      <dl className="agent-queue-scheduler-facts">
+      <dl className="agent-queue-scheduler-facts agent-queue-rail-metrics agent-queue-rail-metrics-3">
         <div>
           <dt>Schedulable</dt>
           <dd>{foundation.schedulerPlan.schedulableItemCount}</dd>
@@ -212,12 +215,12 @@ function SchedulerSummarySection({
         <p className="agent-queue-run-note">
           {foundation.schedulerPlan.explanation}
         </p>
+        {foundation.schedulerPlan.topBlockedReasons.length > 0 ? (
+          <p className="agent-queue-sidebar-row-meta">
+            Top blocker: {foundation.schedulerPlan.topBlockedReasons[0].label}
+          </p>
+        ) : null}
       </details>
-      {foundation.schedulerPlan.topBlockedReasons.length > 0 ? (
-        <p className="agent-queue-sidebar-row-meta">
-          Top blocker: {foundation.schedulerPlan.topBlockedReasons[0].label}
-        </p>
-      ) : null}
     </section>
   );
 }
@@ -266,7 +269,7 @@ function ExecutorCapacitySection({
       {foundation.maxExecutorMessage ? (
         <p className="agent-queue-run-note">{foundation.maxExecutorMessage}</p>
       ) : null}
-      <dl className="agent-queue-executor-facts">
+      <dl className="agent-queue-executor-facts agent-queue-rail-metrics">
         <div>
           <dt>Configured</dt>
           <dd>{foundation.embeddedExecutor.currentConfiguredWorkerCount}</dd>
@@ -285,13 +288,11 @@ function ExecutorCapacitySection({
         </div>
       </dl>
       <details className="agent-queue-details agent-queue-rail-details">
-        <summary>Capacity note</summary>
+        <summary>Capacity details</summary>
         <p className="agent-queue-run-note">
           Capacity is Queue-owned. Edits do not start or stop local work.
         </p>
-      </details>
-      <details className="agent-queue-details agent-queue-rail-details">
-        <summary>Validation summary</summary>
+        <p className="agent-queue-sidebar-row-meta">Validation summary</p>
         <dl className="agent-queue-validation-summary">
           {[
             ["Validating", foundation.validationSummary.validating ?? 0],

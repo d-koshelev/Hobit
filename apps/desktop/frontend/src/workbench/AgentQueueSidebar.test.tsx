@@ -33,7 +33,7 @@ describe("AgentQueueSidebar", () => {
 
     expect(document.body.textContent).toContain("Enable");
     expect(document.body.textContent).toContain("Disable");
-    expect(document.body.textContent).toContain("STOP + KILL RUNNING");
+    expect(document.body.textContent).toContain("Stop + kill running");
     expect(document.body.textContent).toContain("Scheduler summary");
     expect(document.body.textContent).toContain("Dry-run only");
     expect(document.body.textContent).toContain("Capacity");
@@ -46,7 +46,7 @@ describe("AgentQueueSidebar", () => {
     expect(document.body.textContent).toContain("Dry-run paused");
     expect(document.body.textContent).toContain("Manage tags");
     expect(document.body.textContent).toContain(
-      "Tag colors are editable for the current Hobit session",
+      "Color changes update the current session only",
     );
     expect(document.body.textContent).toContain("Worker controls");
     expect(document.body.textContent).toContain("Add worker");
@@ -59,7 +59,7 @@ describe("AgentQueueSidebar", () => {
 
     clickButton("Enable");
     clickButton("Disable");
-    clickButton("STOP + KILL RUNNING");
+    clickButton("Stop + kill running");
     clickButton("Pause");
 
     expect(foundation.onStartWorkers).toHaveBeenCalledTimes(1);
@@ -174,7 +174,7 @@ describe("AgentQueueSidebar", () => {
     expect(document.body.textContent).toContain("Failed validation1");
     expect(document.body.textContent).toContain("Coordinator review1");
 
-    clickButton("Resume tag");
+    clickButton("Resume");
 
     expect(foundation.onResumeQueueTag).toHaveBeenCalledWith("default");
   });

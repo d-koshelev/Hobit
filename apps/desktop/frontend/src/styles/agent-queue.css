@@ -411,6 +411,11 @@
   justify-content: flex-end;
 }
 
+.agent-queue-section-header,
+.agent-queue-sidebar-header {
+  flex-wrap: wrap;
+}
+
 .agent-queue-rail-details {
   border-top: 1px solid var(--color-border-subtle);
   padding-top: 5px;
@@ -540,6 +545,31 @@
 .agent-queue-scheduler-facts dd,
 .agent-queue-item-foundation-facts dd {
   color: var(--color-text-primary);
+}
+
+.agent-queue-rail-metrics {
+  grid-template-columns: repeat(auto-fit, minmax(58px, 1fr));
+}
+
+.agent-queue-rail-metrics-3 {
+  grid-template-columns: repeat(auto-fit, minmax(50px, 1fr));
+}
+
+.agent-queue-rail-metrics > div {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: 1px;
+}
+
+.agent-queue-rail-metrics dt,
+.agent-queue-rail-metrics dd {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.agent-queue-rail-metrics dd {
+  font-weight: 760;
 }
 
 .agent-queue-max-executors-input {
