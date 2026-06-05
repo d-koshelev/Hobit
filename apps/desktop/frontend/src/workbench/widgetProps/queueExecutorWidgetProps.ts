@@ -16,6 +16,11 @@ import type {
 import type { AgentQueueController } from "../queue/useAgentQueueController";
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
 
+type AgentQueueKnowledgeActions = Pick<
+  WorkbenchWidgetInstanceActions,
+  "createKnowledgeDocument" | "createSkill"
+>;
+
 type AgentExecutorActions = Pick<
   WorkbenchWidgetInstanceActions,
   | "attachToCodexDirectWorkStream"
@@ -30,6 +35,7 @@ type AgentExecutorActions = Pick<
 >;
 
 type AgentQueueWidgetPropsOptions = {
+  actions: AgentQueueKnowledgeActions;
   agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   agentQueueController: AgentQueueController;
   agentExecutorSlots: AgentExecutorSlot[];
@@ -58,6 +64,7 @@ type AgentExecutorWidgetPropsOptions = {
 };
 
 export function agentQueueWidgetProps({
+  actions,
   agentQueueItemOpenRequest,
   agentQueueController,
   agentExecutorSlots,
@@ -70,6 +77,8 @@ export function agentQueueWidgetProps({
     agentQueueController,
     agentExecutorSlots,
     onAttachContextToCoordinator,
+    onCreateKnowledgeDocument: actions.createKnowledgeDocument,
+    onCreateSkill: actions.createSkill,
     onShowQueueReportInWorkspaceChat,
     onOpenAgentExecutorRun,
   };

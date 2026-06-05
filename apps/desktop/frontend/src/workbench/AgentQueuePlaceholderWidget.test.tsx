@@ -3,9 +3,15 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentQueueTask } from "../workspace/types";
+import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
+import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
+import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
+import { workerReport } from "./AgentQueueTaskRunPanel.test-fixtures";
 import { useAgentQueueController } from "./queue/useAgentQueueController";
+import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import type { WidgetRenderProps } from "./types";
+import { widgetHostRenderProps } from "./widgetHostRenderProps";
 import {
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
@@ -206,6 +212,108 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     );
     expect(layout?.getAttribute("style")).toContain(
       "--agent-queue-right-rail-width: 320px",
+    );
+  });
+
+  it("accepts Knowledge drafts from the real Agent Queue widget render props", async () => {
+    const createKnowledgeDocument = vi.fn(
+      async (
+        request: Parameters<
+          NonNullable<WidgetRenderProps["onCreateKnowledgeDocument"]>
+        >[0],
+      ) => ({
+        ...request,
+        createdAt: "2026-05-22T10:02:00.000Z",
+        knowledgeDocumentId: "doc_from_queue_widget",
+        scope: request.scope ?? "workspace",
+        catalogItemType:
+          request.catalogItemType ?? "documentation_knowledge",
+        lifecycleStatus: request.lifecycleStatus ?? "active",
+        quickSummary: request.quickSummary ?? "",
+        sourceKind: request.sourceKind ?? "",
+        sourceRef: request.sourceRef ?? "",
+        updatedAt: "2026-05-22T10:02:00.000Z",
+        workspaceId: "workspace-1",
+      }),
+    );
+    const actions = widgetActions({
+      createKnowledgeDocument,
+      createSkill: vi.fn(),
+    });
+    const renderProps = widgetHostRenderProps({
+      agentActivityEvents: [],
+      agentExecutorRunOpenRequest: null,
+      agentQueueItemOpenRequest: null,
+      agentExecutorSlots: [],
+      componentKey: AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
+      coordinatorAttachedContextRequest: null,
+      queueReportActionCardRequest: null,
+      directWorkGitReview: directWorkGitReviewHandoff(),
+      directWorkRunHandoff: directWorkRunHandoffController(),
+      hasGitWidget: false,
+      instanceId: "queue-widget-1",
+      onAttachContextToCoordinator: undefined,
+      onOpenAgentExecutorRun: vi.fn(),
+      onPublishAgentActivityEvents: vi.fn(),
+      widgetActions: actions,
+      workspaceQueueApi: workspaceQueueApi(),
+    });
+    const report = workerReport({
+      rawReportPreview: JSON.stringify({
+        draftPackId: "pack_real_widget",
+        packTitle: "Real Widget Knowledge Pack",
+        proposedItems: [
+          {
+            draftItemId: "draft_real_doc",
+            fullContent: "Accept through the actual Agent Queue widget props.",
+            quickSummary: "Queue render props provide Knowledge create.",
+            suggestedScope: "workspace-local",
+            suggestedTags: ["queue", "render-props"],
+            suggestedType: "documentation_knowledge",
+            title: "Queue render prop Knowledge",
+          },
+        ],
+        queueItemId: "task_1",
+      }),
+      reportStatus: "completed",
+    });
+    const selectedTask = queueTask({
+      coordinatorStatus: "awaiting_coordinator_review",
+      status: "completed",
+      workerExecutionReports: [report],
+    });
+
+    renderQueueWidget({
+      ...renderProps,
+      onGetAgentQueueTask: async () => selectedTask,
+      onListAgentQueueTasks: async () => [selectedTask],
+    });
+    await flushRender();
+
+    const acceptButton = buttonByText("Accept as Knowledge Document");
+
+    expect(acceptButton).toBeDefined();
+    expect(acceptButton?.disabled).toBe(false);
+
+    await clickButtonAsync("Accept as Knowledge Document");
+
+    expect(createKnowledgeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        catalogItemType: "documentation_knowledge",
+        content: "Accept through the actual Agent Queue widget props.",
+        enabled: true,
+        lifecycleStatus: "active",
+        quickSummary: "Queue render props provide Knowledge create.",
+        scope: "workspace",
+        sourceKind: "queue_draft",
+        sourceLabel: "Queue task task_1",
+        sourceRef: "queue:task_1;draft:draft_real_doc",
+        tags: "queue, render-props",
+        title: "Queue render prop Knowledge",
+      }),
+    );
+    expect(document.body.textContent).toContain(
+      "Draft item accepted as a Knowledge Document.",
     );
   });
 });
@@ -533,6 +641,19 @@ function buttonByText(text: string) {
   );
 }
 
+async function clickButtonAsync(text: string) {
+  const button = buttonByText(text);
+
+  if (!button || button.disabled) {
+    throw new Error(`Enabled button not found: ${text}`);
+  }
+
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 async function changeValue(
   element: HTMLInputElement | HTMLTextAreaElement,
   value: string,
@@ -638,6 +759,59 @@ function rect({ width }: { width: number }) {
     y: 0,
     toJSON: () => ({}),
   } as DOMRect;
+}
+
+function directWorkGitReviewHandoff(): DirectWorkGitReviewHandoff {
+  return {
+    request: null,
+    requestReview: vi.fn(),
+    status: null,
+    updateStatus: vi.fn(),
+  };
+}
+
+function directWorkRunHandoffController(): DirectWorkRunHandoffController {
+  return {
+    handoffs: {},
+    queueTaskAutoRefreshRequest: null,
+    recordFinalState: vi.fn(),
+    recordHandoff: vi.fn(),
+  };
+}
+
+function workspaceQueueApi(
+  overrides: Partial<WorkspaceQueueApi> = {},
+): WorkspaceQueueApi {
+  return {
+    controller: {} as WorkspaceQueueApi["controller"],
+    createItem: vi.fn(),
+    getRunSettingsDefaults: vi.fn(() => ({
+      approvalPolicy: "never" as const,
+      codexExecutable: "codex.cmd",
+      executionWorkspace: "C:/repo",
+      sandbox: "read_only" as const,
+    })),
+    getSnapshot: vi.fn(),
+    queueExecutorSlots: [],
+    queueId: "workspace:workspace-1:agent-queue",
+    runAutonomousQueue: vi.fn(),
+    stopAutonomousQueueAfterCurrent: vi.fn(),
+    updateItem: vi.fn(),
+    ...overrides,
+  };
+}
+
+function widgetActions(
+  overrides: Partial<WorkbenchWidgetInstanceActions> = {},
+): WorkbenchWidgetInstanceActions {
+  return {
+    createKnowledgeDocument: vi.fn(),
+    createSkill: vi.fn(),
+    listWidgetLogs: vi.fn(),
+    updateWidgetLayout: vi.fn(),
+    updateWidgetState: vi.fn(),
+    ...overrides,
+  } as unknown as WorkbenchWidgetInstanceActions;
 }
 
 function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {

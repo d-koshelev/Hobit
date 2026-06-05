@@ -297,6 +297,10 @@ describe("widgetHostRenderProps", () => {
     expect(props.agentExecutorSlots).toBe(slots);
     expect(props.agentQueueController?.agentExecutorSlots).toBe(slots);
     expect(props.onAttachContextToCoordinator).toBe(attach);
+    expect(props.onCreateKnowledgeDocument).toBe(
+      actions.createKnowledgeDocument,
+    );
+    expect(props.onCreateSkill).toBe(actions.createSkill);
     expect(props.onOpenAgentExecutorRun).toBe(openExecutorRun);
     expect(props.onAssignAgentQueueTaskToExecutor).toBeUndefined();
     expect(props.onCreateAgentQueueTask).toBeUndefined();

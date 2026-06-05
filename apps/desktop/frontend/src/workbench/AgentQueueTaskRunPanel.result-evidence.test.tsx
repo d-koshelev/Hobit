@@ -281,7 +281,27 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     expect(reportMetadata?.open).toBe(false);
   });
 
-  it("exposes draft Knowledge packs from Queue worker report output", () => {
+  it("surfaces Queue-generated draft Knowledge packs as actionable review items", async () => {
+    const createKnowledgeDocument = vi.fn(async (request) => ({
+      ...request,
+      createdAt: "2026-05-22T10:02:00.000Z",
+      knowledgeDocumentId: "doc_queue_1",
+      scope: request.scope ?? "workspace",
+      catalogItemType: request.catalogItemType ?? "documentation_knowledge",
+      lifecycleStatus: request.lifecycleStatus ?? "active",
+      quickSummary: request.quickSummary ?? "",
+      sourceKind: request.sourceKind ?? "",
+      sourceRef: request.sourceRef ?? "",
+      updatedAt: "2026-05-22T10:02:00.000Z",
+      workspaceId: "ws_1",
+    }));
+    const createSkill = vi.fn(async (request) => ({
+      ...request,
+      createdAt: "2026-05-22T10:02:00.000Z",
+      skillId: "skill_queue_1",
+      updatedAt: "2026-05-22T10:02:00.000Z",
+      workspaceId: "ws_1",
+    }));
     const report = workerReport({
       rawReportPreview: JSON.stringify({
         draftPackId: "pack_queue_1",
@@ -291,8 +311,120 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
             draftItemId: "draft_doc",
             fullContent: "Review generated Queue drafts in Knowledge / Skills.",
             quickSummary: "Queue draft review is explicit.",
+            suggestedScope: "workspace-local",
+            suggestedTags: ["queue", "knowledge"],
             suggestedType: "documentation_knowledge",
             title: "Queue draft review",
+          },
+          {
+            draftItemId: "draft_skill",
+            fullContent: "Inspect the Queue result before accepting it.",
+            quickSummary: "Use when reviewing generated Queue drafts.",
+            suggestedTags: "queue, review",
+            suggestedType: "skill",
+            title: "Review Queue draft packs",
+          },
+          {
+            draftItemId: "draft_reject",
+            fullContent: "This proposed item should remain unaccepted.",
+            quickSummary: "Reject this generated draft.",
+            suggestedType: "known_issue",
+            title: "Rejected Queue draft",
+          },
+        ],
+        queueItemId: "task_1",
+      }),
+      reportStatus: "completed",
+    });
+    const selectedTask = {
+      ...queueTask(),
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [report],
+    };
+
+    renderDetailsPanel({
+      onCreateKnowledgeDocument: createKnowledgeDocument,
+      onCreateSkill: createSkill,
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(report),
+    });
+
+    const resultText = sectionText("Result / Evidence");
+
+    expect(resultText).toContain("Knowledge draft pack");
+    expect(resultText).toContain("Generated Knowledge Pack contains 3 draft item");
+    expect(resultText).toContain("Queue draft review");
+    expect(resultText).toContain("Review Queue draft packs");
+    expect(resultText).toContain("Rejected Queue draft");
+    expect(resultText).toContain(
+      "Accepting creates Knowledge / Skills records only for selected items.",
+    );
+    expect(buttonByText("Copy draft payload")).toBeDefined();
+    expect(buttonByText("Accept as Knowledge Document")).toBeDefined();
+    expect(buttonByText("Accept as Skill")).toBeDefined();
+    expect(buttonByText("Reject / leave unaccepted")).toBeDefined();
+
+    await clickButtonAsync("Accept as Knowledge Document");
+
+    expect(createKnowledgeDocument).toHaveBeenCalledWith(
+      expect.objectContaining({
+        catalogItemType: "documentation_knowledge",
+        content: "Review generated Queue drafts in Knowledge / Skills.",
+        enabled: true,
+        lifecycleStatus: "active",
+        quickSummary: "Queue draft review is explicit.",
+        scope: "workspace",
+        sourceKind: "queue_draft",
+        sourceLabel: "Queue task task_1",
+        sourceRef: "queue:task_1;draft:draft_doc",
+        tags: "queue, knowledge",
+        title: "Queue draft review",
+      }),
+    );
+
+    await clickButtonAsync("Accept as Skill");
+
+    expect(createSkill).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prerequisites: "Queue task task_1\nSource ref: queue:task_1;draft:draft_skill",
+        reviewStatus: "reviewed",
+        steps: "Inspect the Queue result before accepting it.",
+        tags: "queue, review",
+        title: "Review Queue draft packs",
+        whenToUse: "Use when reviewing generated Queue drafts.",
+      }),
+    );
+
+    await clickButtonAsync("Reject / leave unaccepted");
+
+    expect(sectionText("Result / Evidence")).toContain("Accepted");
+    expect(sectionText("Result / Evidence")).toContain("Rejected for this review");
+    expect(sectionText("Result / Evidence")).toContain("Not saved as Knowledge");
+    expect(createKnowledgeDocument).toHaveBeenCalledTimes(1);
+    expect(createSkill).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows draft acceptance as unavailable when Queue lacks Knowledge create callbacks", () => {
+    const report = workerReport({
+      rawReportPreview: JSON.stringify({
+        draftPackId: "pack_queue_unavailable",
+        packTitle: "Unavailable Knowledge Pack",
+        proposedItems: [
+          {
+            draftItemId: "draft_doc_unavailable",
+            fullContent: "This draft cannot be accepted without the Knowledge API.",
+            quickSummary: "Knowledge accept needs a create callback.",
+            suggestedType: "documentation_knowledge",
+            title: "Unavailable Knowledge draft",
+          },
+          {
+            draftItemId: "draft_skill_unavailable",
+            fullContent: "This skill draft cannot be accepted without the Skill API.",
+            quickSummary: "Skill accept needs a create callback.",
+            suggestedType: "skill",
+            title: "Unavailable Skill draft",
           },
         ],
         queueItemId: "task_1",
@@ -312,14 +444,18 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
       workerReport: workerReportController(report),
     });
 
+    const acceptDocument = buttonByText("Accept as Knowledge Document");
+    const acceptSkill = buttonByText("Accept as Skill");
     const resultText = sectionText("Result / Evidence");
 
-    expect(resultText).toContain("Knowledge draft pack");
-    expect(resultText).toContain("Generated Knowledge Pack contains 1 draft item");
+    expect(acceptDocument?.disabled).toBe(true);
+    expect(acceptSkill?.disabled).toBe(true);
     expect(resultText).toContain(
-      "Review and accept items from Knowledge / Skills.",
+      "Accept unavailable: Knowledge Document create API is not available in this Queue widget.",
     );
-    expect(buttonByText("Copy draft payload")).toBeDefined();
+    expect(resultText).toContain(
+      "Accept unavailable: Skill create API is not available in this Queue widget.",
+    );
   });
 
   it("shows completed Direct Work output as report evidence without finalizing", () => {
@@ -680,3 +816,18 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     expect(onAttachDemoReport).toHaveBeenCalledTimes(1);
   });
 });
+
+async function clickButtonAsync(text: string) {
+  const button = Array.from(document.querySelectorAll("button")).find(
+    (candidate) => candidate.textContent === text && !candidate.disabled,
+  );
+
+  if (!button) {
+    throw new Error(`Button not found: ${text}`);
+  }
+
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}

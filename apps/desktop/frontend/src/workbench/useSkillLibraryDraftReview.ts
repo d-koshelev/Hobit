@@ -1,18 +1,12 @@
 import { useState } from "react";
 import type { KnowledgeDocument } from "../workspace/types";
-import { knowledgeDocumentQuickSummaryWarning } from "./knowledgeDocumentQuickSummaryWarning";
+import { acceptKnowledgeDraftItem } from "./knowledgeDraftAcceptance";
 import {
-  knowledgeDraftAcceptedSourceLabel,
-  knowledgeDraftAcceptedSourceRef,
   parseKnowledgeDraftPackFromText,
   type KnowledgeDraftReviewItem,
   type KnowledgeDraftReviewPack,
 } from "./knowledgeDraftPacks";
-import {
-  draftRiskNotes,
-  errorToMessage,
-  sourceNotesForDraft,
-} from "./SkillLibraryDocumentsPanel.helpers";
+import { errorToMessage } from "./SkillLibraryDocumentsPanel.helpers";
 import type { WidgetRenderProps } from "./types";
 
 type UseSkillLibraryDraftReviewParams = {
@@ -110,49 +104,25 @@ export function useSkillLibraryDraftReview({
     setDocumentError(null);
 
     try {
-      let acceptedMessage = "Draft item accepted into Knowledge / Skills.";
+      const acceptedDraft = await acceptKnowledgeDraftItem({
+        item,
+        onCreateKnowledgeDocument,
+        onCreateSkill,
+        pack: draftReviewPack,
+      });
 
-      if (item.targetKind === "skill" && onCreateSkill) {
-        await onCreateSkill({
-          title: item.title,
-          whenToUse: item.quickSummary,
-          prerequisites: sourceNotesForDraft(draftReviewPack, item),
-          steps: item.fullContent,
-          validation: "",
-          risks: draftRiskNotes(item),
-          tags: item.suggestedTags,
-          reviewStatus: "reviewed",
-        });
+      if (acceptedDraft.kind === "skill") {
         await loadDocuments(null);
-      } else if (onCreateKnowledgeDocument) {
-        const acceptedDocument = await onCreateKnowledgeDocument({
-          scope: item.suggestedScope,
-          catalogItemType: item.suggestedType,
-          quickSummary: item.quickSummary.trim(),
-          lifecycleStatus: "active",
-          title: item.title,
-          sourceLabel: knowledgeDraftAcceptedSourceLabel(draftReviewPack, item),
-          sourceKind: "queue_draft",
-          sourceRef: knowledgeDraftAcceptedSourceRef(draftReviewPack, item),
-          content: item.fullContent,
-          tags: item.suggestedTags,
-          enabled: true,
-        });
-        setSelectedDocumentDraft(acceptedDocument);
-        await loadDocuments(acceptedDocument.knowledgeDocumentId);
-        acceptedMessage = [
-          "Draft item accepted into Knowledge / Skills. Proposed quick summary was used when present.",
-          knowledgeDocumentQuickSummaryWarning(acceptedDocument),
-        ]
-          .filter(Boolean)
-          .join(" ");
+      } else {
+        setSelectedDocumentDraft(acceptedDraft.document);
+        await loadDocuments(acceptedDraft.document.knowledgeDocumentId);
       }
 
       setDraftReviewDecisions((current) => ({
         ...current,
         [item.draftItemId]: "accepted",
       }));
-      setDocumentMessage(acceptedMessage);
+      setDocumentMessage(acceptedDraft.message);
     } catch (acceptError) {
       setDocumentError(
         errorToMessage(acceptError, "Unable to accept draft item."),

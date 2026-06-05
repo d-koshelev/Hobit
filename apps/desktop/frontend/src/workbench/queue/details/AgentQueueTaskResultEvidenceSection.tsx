@@ -7,8 +7,9 @@ import type {
 } from "../../../workspace/types";
 import {
   parseKnowledgeDraftPackFromText,
-  type KnowledgeDraftReviewPack,
 } from "../../knowledgeDraftPacks";
+import type { WidgetRenderProps } from "../../types";
+import { AgentQueueKnowledgeDraftReview } from "./AgentQueueKnowledgeDraftReview";
 import {
   directWorkEvidenceForQueue,
   finalResponseEvidence,
@@ -33,12 +34,16 @@ import type {
 
 export function AgentQueueTaskResultEvidenceSection({
   onShowQueueReportInWorkspaceChat,
+  onCreateKnowledgeDocument,
+  onCreateSkill,
   queue,
   selectedTask,
 }: {
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
+  onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
+  onCreateSkill: WidgetRenderProps["onCreateSkill"];
   queue: AgentQueueController;
   selectedTask: SelectedAgentQueueTask;
 }) {
@@ -75,13 +80,20 @@ export function AgentQueueTaskResultEvidenceSection({
 
       {report ? (
         <WorkerReportEvidenceSummary
+          onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+          onCreateSkill={onCreateSkill}
           onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
           queue={queue}
           report={report}
           reportCard={reportCard}
         />
       ) : runEvidence ? (
-        <DirectWorkEvidenceSummary evidence={runEvidence} queue={queue} />
+        <DirectWorkEvidenceSummary
+          evidence={runEvidence}
+          onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+          onCreateSkill={onCreateSkill}
+          queue={queue}
+        />
       ) : hasFinishedRunLink(queue) || isReportReadyStatus(selectedTask.status) ? (
         <div className="agent-queue-human-report-summary">
           <p className="agent-queue-worker-report-summary">
@@ -139,11 +151,15 @@ export function AgentQueueTaskResultEvidenceSection({
 }
 
 function WorkerReportEvidenceSummary({
+  onCreateKnowledgeDocument,
+  onCreateSkill,
   onShowQueueReportInWorkspaceChat,
   queue,
   report,
   reportCard,
 }: {
+  onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
+  onCreateSkill: WidgetRenderProps["onCreateSkill"];
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
@@ -167,7 +183,13 @@ function WorkerReportEvidenceSummary({
         label={failed && !report.rawReportPreview?.trim() ? "Failure summary" : "Final response"}
         response={finalResponse}
       />
-      {draftPack ? <KnowledgeDraftPackNotice pack={draftPack} /> : null}
+      {draftPack ? (
+        <AgentQueueKnowledgeDraftReview
+          onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+          onCreateSkill={onCreateSkill}
+          pack={draftPack}
+        />
+      ) : null}
 
       <dl className="agent-queue-result-evidence-facts agent-queue-result-evidence-facts-primary">
         <div>
@@ -289,9 +311,13 @@ function QueueContextEvidenceSummary({
 
 export function DirectWorkEvidenceSummary({
   evidence,
+  onCreateKnowledgeDocument,
+  onCreateSkill,
   queue,
 }: {
   evidence: DirectWorkEvidence;
+  onCreateKnowledgeDocument?: WidgetRenderProps["onCreateKnowledgeDocument"];
+  onCreateSkill?: WidgetRenderProps["onCreateSkill"];
   queue: AgentQueueController;
 }) {
   const failed = evidence.status === "failed";
@@ -306,7 +332,13 @@ export function DirectWorkEvidenceSummary({
         label={failed ? "Failure summary" : "Final response"}
         response={finalResponse}
       />
-      {draftPack ? <KnowledgeDraftPackNotice pack={draftPack} /> : null}
+      {draftPack ? (
+        <AgentQueueKnowledgeDraftReview
+          onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+          onCreateSkill={onCreateSkill}
+          pack={draftPack}
+        />
+      ) : null}
       {failed ? (
         <dl className="agent-queue-result-evidence-facts agent-queue-result-evidence-facts-primary">
           <div>
@@ -417,38 +449,6 @@ function LazyDetails({
       {isOpen ? children : null}
     </details>
   );
-}
-
-function KnowledgeDraftPackNotice({ pack }: { pack: KnowledgeDraftReviewPack }) {
-  return (
-    <div className="agent-queue-knowledge-draft-notice">
-      <div>
-        <p className="agent-queue-final-response-label">
-          Knowledge draft pack
-        </p>
-        <p className="agent-queue-run-note">
-          {pack.packTitle} contains {pack.proposedItems.length.toString()} draft
-          item{pack.proposedItems.length === 1 ? "" : "s"}. Review and accept
-          items from Knowledge / Skills.
-        </p>
-      </div>
-      <Button
-        onClick={() => void copyDraftPackPayload(pack)}
-        title="Copies the draft pack JSON for explicit import in Knowledge / Skills."
-        variant="secondary"
-      >
-        Copy draft payload
-      </Button>
-    </div>
-  );
-}
-
-async function copyDraftPackPayload(pack: KnowledgeDraftReviewPack) {
-  if (!navigator.clipboard) {
-    return;
-  }
-
-  await navigator.clipboard.writeText(pack.rawJson);
 }
 
 function workerReportFinalResponse(report: AgentQueueWorkerExecutionReport) {

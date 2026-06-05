@@ -128,6 +128,8 @@ export function renderDetailsPanel({
   editTask = editController(),
   executionPlan = executionPlanController(null),
   latestRun = latestRunController(null),
+  onCreateKnowledgeDocument,
+  onCreateSkill,
   onShowQueueReportInWorkspaceChat,
   reportActionCard,
   run = runController(),
@@ -148,6 +150,12 @@ export function renderDetailsPanel({
   editTask?: ReturnType<typeof editController>;
   executionPlan?: AgentQueueExecutionPlanController;
   latestRun?: AgentQueueLatestRunLinkController;
+  onCreateKnowledgeDocument?: ComponentProps<
+    typeof AgentQueueTaskDetailsPanel
+  >["onCreateKnowledgeDocument"];
+  onCreateSkill?: ComponentProps<
+    typeof AgentQueueTaskDetailsPanel
+  >["onCreateSkill"];
   onShowQueueReportInWorkspaceChat?: ComponentProps<
     typeof AgentQueueTaskDetailsPanel
   >["onShowQueueReportInWorkspaceChat"];
@@ -352,6 +360,8 @@ export function renderDetailsPanel({
         promptInputId="prompt"
         queue={queue}
         onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+        onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+        onCreateSkill={onCreateSkill}
         selectedTaskHint="Task hint"
         statusInputId="status"
         titleInputId="title"

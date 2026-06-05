@@ -4,6 +4,7 @@ import type {
   AgentExecutorRunOpenRequestInput,
   AgentExecutorSlot,
   CoordinatorAttachedContextInput,
+  WidgetRenderProps,
 } from "./types";
 import type { AgentQueueReportActionCard } from "../workspace/types";
 import { AgentQueueFlowSelectionSummary } from "./queue/details/AgentQueueFlowSelectionSummary";
@@ -35,6 +36,8 @@ type AgentQueueTaskDetailsPanelProps = {
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
+  onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
+  onCreateSkill: WidgetRenderProps["onCreateSkill"];
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
@@ -54,6 +57,8 @@ export function AgentQueueTaskDetailsPanel({
   executionPolicyInputId,
   onOpenAgentExecutorRun,
   onAttachContextToCoordinator,
+  onCreateKnowledgeDocument,
+  onCreateSkill,
   onShowQueueReportInWorkspaceChat,
   priorityInputId,
   promptInputId,
@@ -144,6 +149,8 @@ export function AgentQueueTaskDetailsPanel({
               <AgentQueueTaskActivityTimelineSection queue={queue} selectedTask={selectedTask} />
 
               <AgentQueueTaskResultEvidenceSection
+                onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+                onCreateSkill={onCreateSkill}
                 onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
                 queue={queue}
                 selectedTask={selectedTask}
@@ -163,6 +170,8 @@ export function AgentQueueTaskDetailsPanel({
               <AgentQueueTaskActivityTimelineSection queue={queue} selectedTask={selectedTask} />
 
               <AgentQueueTaskResultEvidenceSection
+                onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+                onCreateSkill={onCreateSkill}
                 onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
                 queue={queue}
                 selectedTask={selectedTask}
@@ -224,6 +233,8 @@ export function AgentQueueTaskDetailsPanel({
               <AgentQueueTaskActivityTimelineSection queue={queue} selectedTask={selectedTask} />
 
               <AgentQueueTaskResultEvidenceSection
+                onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+                onCreateSkill={onCreateSkill}
                 onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
                 queue={queue}
                 selectedTask={selectedTask}

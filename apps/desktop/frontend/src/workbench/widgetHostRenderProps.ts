@@ -102,6 +102,7 @@ export function widgetHostRenderProps({
     return {
       ...commonProps,
       ...agentQueueWidgetProps({
+        actions: widgetActions,
         agentQueueItemOpenRequest,
         agentQueueController: workspaceQueueApi.controller,
         agentExecutorSlots: workspaceQueueApi.queueExecutorSlots,
