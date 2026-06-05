@@ -10,6 +10,7 @@ export type AgentActivityStatus =
   | "pending"
   | "running"
   | "completed"
+  | "cancelled"
   | "failed";
 
 export type AgentActivitySeverity =
@@ -126,10 +127,25 @@ function readableDirectWorkActivity(
       );
     }
 
+    if (finalStatus === "cancelled") {
+      return activity(
+        "cancelled",
+        "warning",
+        "Cancelled run",
+        compactText(
+          event.errorMessage ??
+            event.stderrPreview ??
+            event.text ??
+            "Run was cancelled.",
+        ),
+        failureDetails(event),
+      );
+    }
+
     return activity(
       "failed",
-      finalStatus === "cancelled" ? "warning" : "error",
-      finalStatus === "cancelled" ? "Cancelled run" : "Failed run",
+      "error",
+      "Failed run",
       compactText(
         event.errorMessage ??
           event.stderrPreview ??

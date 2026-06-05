@@ -1,13 +1,7 @@
-import {
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { useEffect, useRef, useState } from "react";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
-import {
-  type CoordinatorActionProposal,
-} from "./coordinatorActionProposalRegistry";
+import type { CoordinatorActionProposal } from "./coordinatorActionProposalRegistry";
 import type {
   AgentQueueReportActionCard,
   AgentQueueReportActionType,
@@ -37,6 +31,7 @@ import {
   directWorkFailureTranscriptBody,
   type CoordinatorDirectWorkStatus,
 } from "./workspaceAgentDirectWorkModel";
+import type { WorkspaceAgentRunMetadata } from "./workspaceAgentRunMetadata";
 import { WorkspaceAgentComposer } from "./WorkspaceAgentComposer";
 import { WorkspaceAgentHeaderStatus } from "./WorkspaceAgentStatusPanel";
 import {
@@ -530,6 +525,7 @@ export function InteractiveAgentPlaceholderWidget({
     status: CoordinatorDirectWorkStatus,
     reason: string,
     useDirectBody = false,
+    runMetadata?: WorkspaceAgentRunMetadata,
   ) {
     const body =
       status === "completed" || useDirectBody
@@ -538,7 +534,10 @@ export function InteractiveAgentPlaceholderWidget({
           ? directWorkFailureTranscriptBody(reason)
           : reason;
 
-    const assistantMessage = createLocalMessage("assistant", body);
+    const assistantMessage = {
+      ...createLocalMessage("assistant", body),
+      runMetadata,
+    };
     const catalogProposals = catalogActionProposalsFromText(
       body,
       assistantMessage.id,

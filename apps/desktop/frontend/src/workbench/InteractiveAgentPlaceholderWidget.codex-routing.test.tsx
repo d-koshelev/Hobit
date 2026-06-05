@@ -59,6 +59,22 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
         );
         onEvent(
           directWorkEvent({
+            eventKind: "codex_json_event",
+            line: JSON.stringify({
+              type: "turn.completed",
+              usage: {
+                input_tokens: 10,
+                output_tokens: 20,
+                total_tokens: 30,
+              },
+            }),
+            parsedCodexEventType: "turn.completed",
+            runId: "run_brain",
+          }),
+        );
+        onEvent(
+          directWorkEvent({
+            elapsedMs: 1234,
             eventKind: "completed",
             finalStatus: "completed",
             isFinal: true,
@@ -95,6 +111,11 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).toContain("Thread active: thread_b...");
     expect(document.body.textContent).toContain("Codex handled the task.");
     expect(document.body.textContent).toContain("Thread: thread_b...");
+    expect(document.body.textContent).toContain("StatusCompleted");
+    expect(document.body.textContent).toContain("Steps3");
+    expect(document.body.textContent).toContain("Time1.2s");
+    expect(document.body.textContent).toContain("Threadthread_b...");
+    expect(document.body.textContent).toContain("Tokens10 in, 20 out, 30 total");
     expect(lastAssistantMessageText()).toBe("Codex handled the task.");
     expect(lastAssistantMessageText()).not.toContain("Sent to Codex Direct Mode");
     expect(lastAssistantMessageText()).not.toContain("Starting foreground Codex Direct Work");
@@ -199,8 +220,8 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     const details = document.querySelector<HTMLDetailsElement>(
       ".interactive-agent-direct-mode-details",
     );
-    expect(details?.open).toBe(false);
-    expect(details?.textContent).not.toContain("item.started");
+    expect(details).toBeNull();
+    expect(document.body.textContent).not.toContain("item.started");
     expect(publishActivityEvents).toHaveBeenCalled();
     expect(
       publishActivityEvents.mock.calls.flatMap((call) => call[0]),
@@ -711,6 +732,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       "Ask again without workspace knowledge.",
     );
     expect(nextRequest.operatorPrompt).not.toContain("BLUE-RAVEN-42");
+    await clickButton("Run details");
     expect(document.body.textContent).toContain(
       "Workspace knowledge checked: no matches",
     );
@@ -950,6 +972,8 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(request.operatorPrompt).toContain("User request:");
     expect(request.operatorPrompt).toContain("Use the API docs for this task.");
     expect(JSON.stringify(request)).not.toMatch(/notes body|filesystem|disabled/i);
+    expect(document.body.textContent).not.toContain("Used knowledge: 2 snippets");
+    await clickButton("Run details");
     expect(document.body.textContent).toContain("Used knowledge: 2 snippets");
     await toggleDetails("Used knowledge: 2 snippets");
     expect(document.body.textContent).toContain("Workspace API guide, chunk 1");
@@ -1005,6 +1029,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     };
     expect(request.operatorPrompt).toContain("Scope: Workspace");
     expect(request.operatorPrompt).toContain("Scope: Global");
+    await clickButton("Run details");
     await toggleDetails("Used knowledge: 2 snippets");
     expect(document.body.textContent).toContain(
       "Workspace Falcon deployment notes, chunk 1",
@@ -1051,6 +1076,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
       operatorPrompt: "No document should match.",
     });
+    await clickButton("Run details");
     expect(document.body.textContent).toContain(
       "Workspace knowledge checked: no matches",
     );
@@ -1139,6 +1165,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       "What is the Falcon smoke code?",
     );
     expect(workspaceBRequest.operatorPrompt).not.toContain("BLUE-RAVEN-42");
+    await clickButton("Run details");
     expect(document.body.textContent).toContain(
       "Workspace knowledge checked: no matches",
     );

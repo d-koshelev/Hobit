@@ -25,9 +25,12 @@ export function AgentActivityPanel({
   );
   const [isFollowingLatest, setIsFollowingLatest] = useState(true);
   const timelineRef = useRef<HTMLOListElement | null>(null);
-  const latestEventId = events[events.length - 1]?.id;
-  const renderedEvents = capArrayToLast(
-    events,
+  const runGroups = groupActivityEventsByRun(events);
+  const latestGroupId = runGroups[runGroups.length - 1]?.id;
+  const latestGroupEventCount = runGroups[runGroups.length - 1]?.events.length ?? 0;
+  const latestGroupTimestamp = runGroups[runGroups.length - 1]?.timestamp ?? 0;
+  const renderedGroups = capArrayToLast(
+    runGroups,
     RENDER_MEMORY_CAPS.activityRenderedEvents,
   );
 
@@ -47,7 +50,13 @@ export function AgentActivityPanel({
     }
 
     scrollTimelineToBottom(timeline);
-  }, [events.length, isFollowingLatest, latestEventId]);
+  }, [
+    runGroups.length,
+    isFollowingLatest,
+    latestGroupId,
+    latestGroupEventCount,
+    latestGroupTimestamp,
+  ]);
 
   function handleTimelineScroll(event: UIEvent<HTMLOListElement>) {
     const timeline = event.currentTarget;
@@ -80,29 +89,28 @@ export function AgentActivityPanel({
       onScroll={handleTimelineScroll}
       ref={timelineRef}
     >
-      {renderedEvents.hiddenCount > 0 ? (
+      {renderedGroups.hiddenCount > 0 ? (
         <li className="agent-activity-event agent-activity-event-neutral">
           <p className="agent-activity-event-summary">
-            Showing last {renderedEvents.items.length.toString()} events.
-            Preview capped; {renderedEvents.hiddenCount.toString()} older
-            event(s) hidden from the renderer.
+            Showing last {renderedGroups.items.length.toString()} runs.
+            Preview capped; {renderedGroups.hiddenCount.toString()} older
+            run(s) hidden from the renderer.
           </p>
         </li>
       ) : null}
-      {renderedEvents.items.map((event) => {
-        const isExpanded = expandedEventIds.has(event.id);
-        const tone = eventTone(event);
-        const title = compactTitle(event);
+      {renderedGroups.items.map((runGroup) => {
+        const isExpanded = expandedEventIds.has(runGroup.id);
+        const tone = runTone(runGroup);
 
         return (
           <li
-            className={`agent-activity-event agent-activity-event-${tone} agent-activity-event-status-${event.status} agent-activity-event-severity-${event.severity}`}
-            key={event.id}
+            className={`agent-activity-event agent-activity-event-${tone} agent-activity-event-status-${runGroup.status} agent-activity-event-severity-${runGroup.severity}`}
+            key={runGroup.id}
           >
             <button
               aria-expanded={isExpanded}
               className="agent-activity-event-row"
-              onClick={() => toggleEvent(event.id)}
+              onClick={() => toggleEvent(runGroup.id)}
               type="button"
             >
               <span
@@ -110,10 +118,12 @@ export function AgentActivityPanel({
                 className={`status-dot status-dot-${tone}`}
               />
               <span className="agent-activity-event-copy">
-                <span className="agent-activity-event-title">{title}</span>
-                {event.summary ? (
+                <span className="agent-activity-event-title">
+                  {runGroup.title}
+                </span>
+                {runGroup.summary ? (
                   <span className="agent-activity-event-summary">
-                    {event.summary}
+                    {runGroup.summary}
                   </span>
                 ) : null}
               </span>
@@ -121,13 +131,13 @@ export function AgentActivityPanel({
                 className="agent-activity-event-status"
                 variant={badgeVariant(tone)}
               >
-                {statusLabel(event.status)}
+                {statusLabel(runGroup.status)}
               </Badge>
               <span className="agent-activity-event-time">
-                {event.timestampLabel}
+                {runGroup.timestampLabel}
               </span>
             </button>
-            {isExpanded ? <ExpandedEventDetails event={event} /> : null}
+            {isExpanded ? <ExpandedRunDetails runGroup={runGroup} /> : null}
           </li>
         );
       })}
@@ -135,40 +145,186 @@ export function AgentActivityPanel({
   );
 }
 
-function ExpandedEventDetails({ event }: { event: AgentActivityEvent }) {
+type AgentActivityRunGroup = {
+  events: AgentActivityEvent[];
+  id: string;
+  runId: string;
+  severity: AgentActivityEvent["severity"];
+  sourceKind: AgentActivityEvent["sourceKind"];
+  sourceLabel: string;
+  sourceWidgetInstanceId: string;
+  status: AgentActivityEvent["status"];
+  summary: string;
+  timestamp: number;
+  timestampLabel: string;
+  title: string;
+  workspaceId: string;
+};
+
+function ExpandedRunDetails({
+  runGroup,
+}: {
+  runGroup: AgentActivityRunGroup;
+}) {
   return (
     <div className="agent-activity-event-details">
-      {event.command ? (
-        <DetailBlock label="Command" value={event.command} />
-      ) : null}
-      {event.summary ? <DetailBlock label="Summary" value={event.summary} /> : null}
-      {event.details ? <DetailBlock label="Details" value={event.details} /> : null}
-      {event.outputPreview ? (
-        <DetailBlock label="Command output" value={event.outputPreview} />
-      ) : null}
-      {event.rawPreview ? (
-        <DetailBlock label="Raw preview" value={event.rawPreview} />
-      ) : null}
+      <ol className="agent-activity-run-event-list">
+        {runGroup.events.map((event) => (
+          <li className="agent-activity-run-event" key={event.id}>
+            <span className="agent-activity-run-event-title">
+              {compactTitle(event)}
+            </span>
+            <span className="agent-activity-run-event-summary">
+              {event.summary ?? statusLabel(event.status)}
+            </span>
+            <span className="agent-activity-run-event-time">
+              {event.timestampLabel}
+            </span>
+            {event.command ? (
+              <DetailBlock label="Command" value={event.command} />
+            ) : null}
+            {event.details ? (
+              <DetailBlock label="Details" value={event.details} />
+            ) : null}
+            {event.outputPreview ? (
+              <DetailBlock label="Command output" value={event.outputPreview} />
+            ) : null}
+            {event.rawPreview ? (
+              <DetailBlock label="Raw preview" value={event.rawPreview} />
+            ) : null}
+          </li>
+        ))}
+      </ol>
       <dl className="agent-activity-event-metadata">
         <div>
           <dt>Source</dt>
-          <dd>{event.sourceLabel}</dd>
+          <dd>{runGroup.sourceLabel}</dd>
         </div>
         <div>
           <dt>Run</dt>
-          <dd>{event.runId}</dd>
+          <dd>{runGroup.runId}</dd>
         </div>
         <div>
           <dt>Status</dt>
-          <dd>{statusLabel(event.status)}</dd>
+          <dd>{statusLabel(runGroup.status)}</dd>
         </div>
         <div>
           <dt>Severity</dt>
-          <dd>{severityLabel(event.severity)}</dd>
+          <dd>{severityLabel(runGroup.severity)}</dd>
         </div>
       </dl>
     </div>
   );
+}
+
+function groupActivityEventsByRun(
+  events: AgentActivityEvent[],
+): AgentActivityRunGroup[] {
+  const groups = new Map<string, AgentActivityEvent[]>();
+
+  for (const event of events) {
+    const key = [
+      event.workspaceId,
+      event.sourceWidgetInstanceId,
+      event.runId,
+    ].join(":");
+    groups.set(key, [...(groups.get(key) ?? []), event]);
+  }
+
+  return Array.from(groups.entries())
+    .map(([id, groupEvents]) => activityRunGroup(id, groupEvents))
+    .sort((first, second) =>
+      first.timestamp === second.timestamp
+        ? first.id.localeCompare(second.id)
+        : first.timestamp - second.timestamp,
+    );
+}
+
+function activityRunGroup(
+  id: string,
+  events: AgentActivityEvent[],
+): AgentActivityRunGroup {
+  const sortedEvents = [...events].sort((first, second) =>
+    first.timestamp === second.timestamp
+      ? first.id.localeCompare(second.id)
+      : first.timestamp - second.timestamp,
+  );
+  const latestEvent = sortedEvents[sortedEvents.length - 1]!;
+  const finalRunEvent = [...sortedEvents].reverse().find(isRunFinalEvent);
+  const status = finalRunEvent?.status ?? groupStatus(sortedEvents);
+  const severity = finalRunEvent?.severity ?? groupSeverity(sortedEvents, status);
+  const stepCount = sortedEvents.filter(isStepEvent).length;
+  const latestTitle = compactTitle(latestEvent);
+
+  return {
+    events: sortedEvents,
+    id,
+    runId: latestEvent.runId,
+    severity,
+    sourceKind: latestEvent.sourceKind,
+    sourceLabel: latestEvent.sourceLabel,
+    sourceWidgetInstanceId: latestEvent.sourceWidgetInstanceId,
+    status,
+    summary: `${stepCount.toString()} ${
+      stepCount === 1 ? "step" : "steps"
+    } - latest: ${latestTitle}`,
+    timestamp: latestEvent.timestamp,
+    timestampLabel: latestEvent.timestampLabel,
+    title: "Agent run",
+    workspaceId: latestEvent.workspaceId,
+  };
+}
+
+function isRunFinalEvent(event: AgentActivityEvent) {
+  return (
+    event.title === "Completed run" ||
+    event.title === "Failed run" ||
+    event.title === "Cancelled run"
+  );
+}
+
+function groupStatus(events: AgentActivityEvent[]): AgentActivityEvent["status"] {
+  if (events.some((event) => event.status === "failed")) {
+    return "failed";
+  }
+
+  if (events.some((event) => event.status === "cancelled")) {
+    return "cancelled";
+  }
+
+  if (events.some((event) => event.status === "running")) {
+    return "running";
+  }
+
+  return "completed";
+}
+
+function groupSeverity(
+  events: AgentActivityEvent[],
+  status: AgentActivityEvent["status"],
+): AgentActivityEvent["severity"] {
+  if (status === "failed") {
+    return "error";
+  }
+
+  if (status === "cancelled") {
+    return "warning";
+  }
+
+  if (status === "completed") {
+    return "success";
+  }
+
+  return events[events.length - 1]?.severity ?? "info";
+}
+
+function isStepEvent(event: AgentActivityEvent) {
+  return ![
+    "Started run",
+    "Completed run",
+    "Failed run",
+    "Cancelled run",
+  ].includes(event.title);
 }
 
 function DetailBlock({ label, value }: { label: string; value: string }) {
@@ -197,6 +353,10 @@ function statusLabel(status: AgentActivityEvent["status"]) {
 
   if (status === "completed") {
     return "Completed";
+  }
+
+  if (status === "cancelled") {
+    return "Cancelled";
   }
 
   return "Failed";
@@ -230,27 +390,27 @@ function compactTitle(event: AgentActivityEvent) {
   return event.title;
 }
 
-function eventTone(event: AgentActivityEvent) {
-  if (event.status === "running") {
+function runTone(runGroup: AgentActivityRunGroup) {
+  if (runGroup.status === "running") {
     return "info";
   }
 
-  if (event.status === "completed") {
+  if (runGroup.status === "completed") {
     return "success";
   }
 
-  if (event.status === "failed") {
+  if (runGroup.status === "failed") {
     return "error";
   }
 
-  if (event.severity === "warning") {
+  if (runGroup.status === "cancelled" || runGroup.severity === "warning") {
     return "warning";
   }
 
   return "neutral";
 }
 
-function badgeVariant(tone: ReturnType<typeof eventTone>) {
+function badgeVariant(tone: ReturnType<typeof runTone>) {
   return tone === "neutral" ? "neutral" : tone;
 }
 

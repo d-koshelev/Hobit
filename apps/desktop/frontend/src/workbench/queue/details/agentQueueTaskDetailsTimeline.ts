@@ -22,7 +22,7 @@ import type {
 export function activityDisplayEvent(event: {
   id: string;
   severity: "info" | "success" | "warning" | "error";
-  status: "pending" | "running" | "completed" | "failed";
+  status: "pending" | "running" | "completed" | "failed" | "cancelled";
   summary?: string;
   title: string;
 }): ActivityDisplayEntry {
@@ -53,6 +53,10 @@ export function activityDisplayBadge(
 
   if (status === "failed") {
     return "Failed";
+  }
+
+  if (status === "cancelled") {
+    return "Cancelled";
   }
 
   if (status === "running") {

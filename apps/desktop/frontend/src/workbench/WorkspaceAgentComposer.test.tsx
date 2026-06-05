@@ -127,7 +127,7 @@ describe("WorkspaceAgentComposer", () => {
     expect(document.body.textContent).toContain("Workspace write");
   });
 
-  it("shows the embedded Agent Activity panel on request", async () => {
+  it("shows the Agent Activity popup on request", async () => {
     renderComposer({
       activityEvents: [
         {
@@ -152,7 +152,8 @@ describe("WorkspaceAgentComposer", () => {
     await clickButtonByLabel("Show Agent Activity");
 
     expect(document.body.textContent).toContain("Started run");
-    expect(document.body.textContent).toContain("Hide Agent Activity");
+    expect(document.body.textContent).toContain("Agent Activity");
+    expect(document.body.textContent).toContain("bottom");
   });
 
   it("renders and removes visible attached context", async () => {

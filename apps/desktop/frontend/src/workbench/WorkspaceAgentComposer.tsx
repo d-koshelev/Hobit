@@ -42,6 +42,8 @@ type WorkspaceAgentComposerDirectMode = {
   warning: string | null;
 };
 
+type WorkspaceAgentPopupPlacement = "bottom" | "right" | "left";
+
 export function WorkspaceAgentComposer({
   canSend,
   directMode,
@@ -70,7 +72,10 @@ export function WorkspaceAgentComposer({
   const textareaId = useId();
   const newThreadInputId = useId();
   const [isActivityOpen, setIsActivityOpen] = useState(false);
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [activityPlacement, setActivityPlacement] =
+    useState<WorkspaceAgentPopupPlacement>("bottom");
   const [startNewThreadOnNextRun, setStartNewThreadOnNextRun] =
     useState(false);
   const isDirectModeEnabled = Boolean(directMode);
@@ -223,6 +228,20 @@ export function WorkspaceAgentComposer({
           ) : null}
           {directMode ? (
             <Button
+              aria-expanded={isDetailsOpen}
+              aria-label={
+                isDetailsOpen ? "Hide Run Details" : "Show Run Details"
+              }
+              className="interactive-agent-details-toggle"
+              onClick={() => setIsDetailsOpen((current) => !current)}
+              type="button"
+              variant="ghost"
+            >
+              Run details
+            </Button>
+          ) : null}
+          {directMode ? (
+            <Button
               aria-expanded={isActivityOpen}
               aria-label={
                 isActivityOpen ? "Hide Agent Activity" : "Show Agent Activity"
@@ -232,7 +251,7 @@ export function WorkspaceAgentComposer({
               type="button"
               variant="ghost"
             >
-              {isActivityOpen ? "Hide Agent Activity" : "Show Agent Activity"}
+              Activity
             </Button>
           ) : null}
         </div>
@@ -241,14 +260,17 @@ export function WorkspaceAgentComposer({
         <WorkspaceAgentDirectModePanel
           agentActivityEvents={directMode.agentActivityEvents}
           activitySummary={directMode.activitySummary}
+          activityPlacement={activityPlacement}
           directWorkDirectory={directMode.directWorkDirectory}
           directWorkSandbox={directMode.directWorkSandbox}
           error={directMode.error}
           finalResult={directMode.finalResult}
           isActivityOpen={isActivityOpen}
+          isDetailsOpen={isDetailsOpen}
           isSettingsOpen={isSettingsOpen}
           knowledgeLookup={directMode.knowledgeLookup}
           logs={directMode.logs}
+          onActivityPlacementChange={setActivityPlacement}
           onDirectoryChange={directMode.onDirectoryChange}
           onSandboxChange={directMode.onSandboxChange}
           onSelectWorkspaceDirectory={directMode.onSelectWorkspaceDirectory}

@@ -40,6 +40,11 @@ import {
   workspaceAgentActivitySummaryFromEvent,
 } from "./workspaceAgentDirectWorkModel";
 import { errorToMessage } from "./workspaceAgentProviderGuards";
+import {
+  tokenUsageFromDirectWorkStreamEvent,
+  type WorkspaceAgentRunMetadata,
+  type WorkspaceAgentRunTokenUsage,
+} from "./workspaceAgentRunMetadata";
 import type { WidgetRenderProps } from "./types";
 
 type UseWorkspaceAgentDirectWorkControllerOptions = {
@@ -50,6 +55,7 @@ type UseWorkspaceAgentDirectWorkControllerOptions = {
     status: CoordinatorDirectWorkStatus,
     reason: string,
     useDirectBody?: boolean,
+    runMetadata?: WorkspaceAgentRunMetadata,
   ) => void;
   onAppendOperatorTranscript: (body: string) => void;
   onCancelCodexDirectWorkRun?: WidgetRenderProps["onCancelCodexDirectWorkRun"];
@@ -119,6 +125,12 @@ export function useWorkspaceAgentDirectWorkController({
   const directWorkFinalMessageRef = useRef<string | null>(null);
   const directWorkAccessDeniedRef = useRef(false);
   const directWorkCapturedThreadIdRef = useRef<string | null>(null);
+  const directWorkActivitySummaryRef = useRef<WorkspaceAgentActivitySummary>(
+    EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
+  );
+  const directWorkTokenUsageRef = useRef<WorkspaceAgentRunTokenUsage | null>(
+    null,
+  );
   const directWorkRunScopeRef = useRef<ActiveDirectWorkRunScope | null>(null);
   const directWorkLogSequenceRef = useRef(0);
   const workspaceScopeId = workspaceId?.trim() || "__local_workspace__";
@@ -176,6 +188,7 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkFinalMessageRef.current = null;
     directWorkAccessDeniedRef.current = false;
     directWorkCapturedThreadIdRef.current = null;
+    directWorkTokenUsageRef.current = null;
     directWorkRunScopeRef.current = {
       widgetInstanceId: instanceId,
       workingDirectory: repoRoot,
@@ -223,7 +236,7 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkError(null);
     setDirectWorkWarning(null);
     setDirectWorkFinalResult(null);
-    setDirectWorkActivitySummary(
+    updateDirectWorkActivitySummary(
       workspaceAgentActivitySummaryForLocalStart(
         resumeThreadId ? "Starting agent turn" : "Starting Codex thread",
       ),
@@ -288,9 +301,14 @@ export function useWorkspaceAgentDirectWorkController({
       setDirectWorkStatus("failed");
       setDirectWorkError(message);
       setDirectWorkWarning(null);
-      setDirectWorkActivitySummary((currentSummary) =>
-        workspaceAgentActivitySummaryForLocalFailure(currentSummary, message),
-      );
+      setDirectWorkActivitySummary((currentSummary) => {
+        const nextSummary = workspaceAgentActivitySummaryForLocalFailure(
+          currentSummary,
+          message,
+        );
+        directWorkActivitySummaryRef.current = nextSummary;
+        return nextSummary;
+      });
       appendDirectWorkLog(message, "local");
       onAppendAssistantTranscript("failed", message);
     } finally {
@@ -367,6 +385,7 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkFinalMessageRef.current = null;
     directWorkAccessDeniedRef.current = false;
     directWorkCapturedThreadIdRef.current = null;
+    directWorkTokenUsageRef.current = null;
     directWorkRunScopeRef.current = null;
     directWorkLogSequenceRef.current = 0;
     setDirectWorkDirectory("~");
@@ -379,7 +398,7 @@ export function useWorkspaceAgentDirectWorkController({
     setCurrentCodexThread(null);
     setCodexThreadNotice(null);
     setDirectWorkLogs([]);
-    setDirectWorkActivitySummary(EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY);
+    updateDirectWorkActivitySummary(EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY);
     setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
     setIsDirectWorkStopPending(false);
   }
@@ -440,6 +459,10 @@ export function useWorkspaceAgentDirectWorkController({
     if (activityEvent) {
       onPublishAgentActivityEvents?.([activityEvent]);
     }
+    const tokenUsage = tokenUsageFromDirectWorkStreamEvent(event);
+    if (tokenUsage) {
+      directWorkTokenUsageRef.current = tokenUsage;
+    }
 
     if (directWorkEventHasAccessDenied(event)) {
       directWorkAccessDeniedRef.current = true;
@@ -482,11 +505,14 @@ export function useWorkspaceAgentDirectWorkController({
     );
 
     if (!event.isFinal) {
-      setDirectWorkActivitySummary((currentSummary) =>
-        workspaceAgentActivitySummaryFromEvent(currentSummary, event, {
+      const nextSummary = workspaceAgentActivitySummaryFromEvent(
+        directWorkActivitySummaryRef.current,
+        event,
+        {
           accessDeniedSeen: directWorkAccessDeniedRef.current,
-        }),
+        },
       );
+      updateDirectWorkActivitySummary(nextSummary);
       return;
     }
 
@@ -516,12 +542,15 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkFinalResult(finalResult);
     setDirectWorkError(failureReason);
     setDirectWorkWarning(failureWarning);
-    setDirectWorkActivitySummary((currentSummary) =>
-      workspaceAgentActivitySummaryFromEvent(currentSummary, event, {
+    const finalActivitySummary = workspaceAgentActivitySummaryFromEvent(
+      directWorkActivitySummaryRef.current,
+      event,
+      {
         accessDeniedSeen: directWorkAccessDeniedRef.current,
         failureReason,
-      }),
+      },
     );
+    updateDirectWorkActivitySummary(finalActivitySummary);
     if (
       finalStatus === "completed" &&
       !directWorkCapturedThreadIdRef.current
@@ -536,6 +565,17 @@ export function useWorkspaceAgentDirectWorkController({
       finalStatus,
       finalResult,
       Boolean(finalAgentMessage),
+      {
+        durationMs: event.elapsedMs >= 0 ? event.elapsedMs : null,
+        status:
+          finalStatus === "completed" || finalStatus === "cancelled"
+            ? finalStatus
+            : "failed",
+        stepCount: finalActivitySummary.stepCount,
+        threadId:
+          directWorkCapturedThreadIdRef.current ?? event.codexThreadId ?? null,
+        tokenUsage: directWorkTokenUsageRef.current,
+      },
     );
     directWorkRunScopeRef.current = null;
   }
@@ -566,11 +606,23 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkError(reason);
     setDirectWorkWarning(null);
     setDirectWorkFinalResult(null);
-    setDirectWorkActivitySummary((currentSummary) =>
-      workspaceAgentActivitySummaryForLocalFailure(currentSummary, reason),
-    );
+    setDirectWorkActivitySummary((currentSummary) => {
+      const nextSummary = workspaceAgentActivitySummaryForLocalFailure(
+        currentSummary,
+        reason,
+      );
+      directWorkActivitySummaryRef.current = nextSummary;
+      return nextSummary;
+    });
     appendDirectWorkLog(reason, "local");
     onAppendAssistantTranscript("failed", reason);
+  }
+
+  function updateDirectWorkActivitySummary(
+    summary: WorkspaceAgentActivitySummary,
+  ) {
+    directWorkActivitySummaryRef.current = summary;
+    setDirectWorkActivitySummary(summary);
   }
 
   function stopDirectWorkEventListening() {

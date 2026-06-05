@@ -4,6 +4,13 @@ import {
   cappedPreviewText,
 } from "../renderMemoryGuards";
 import type { CoordinatorProviderMessageMeta } from "./coordinatorProviderRequest";
+import {
+  type WorkspaceAgentRunMetadata,
+  runMetadataDurationLabel,
+  runMetadataStatusLabel,
+  runMetadataThreadLabel,
+  runMetadataTokenLabel,
+} from "./workspaceAgentRunMetadata";
 
 export type WorkspaceAgentMessageBubbleRole = "operator" | "assistant";
 
@@ -12,11 +19,13 @@ export function WorkspaceAgentMessageBubble({
   children,
   providerMeta,
   role,
+  runMetadata,
 }: {
   body: string;
   children?: ReactNode;
   providerMeta?: CoordinatorProviderMessageMeta;
   role: WorkspaceAgentMessageBubbleRole;
+  runMetadata?: WorkspaceAgentRunMetadata;
 }) {
   return (
     <article
@@ -29,6 +38,9 @@ export function WorkspaceAgentMessageBubble({
       <div className="interactive-agent-message-body">
         {renderMessageBody(body)}
       </div>
+      {role === "assistant" && runMetadata ? (
+        <WorkspaceAgentMessageRunMetadata metadata={runMetadata} />
+      ) : null}
       {providerMeta ? (
         <details
           className={`interactive-agent-provider-meta interactive-agent-provider-meta-${providerMeta.tone}`}
@@ -45,6 +57,50 @@ export function WorkspaceAgentMessageBubble({
       ) : null}
       {children}
     </article>
+  );
+}
+
+function WorkspaceAgentMessageRunMetadata({
+  metadata,
+}: {
+  metadata: WorkspaceAgentRunMetadata;
+}) {
+  const durationLabel = runMetadataDurationLabel(metadata.durationMs);
+  const threadLabel = runMetadataThreadLabel(metadata.threadId);
+  const tokenLabel = runMetadataTokenLabel(metadata.tokenUsage);
+
+  return (
+    <dl
+      aria-label="Workspace Agent run metadata"
+      className={`interactive-agent-run-metadata interactive-agent-run-metadata-${metadata.status}`}
+    >
+      <div>
+        <dt>Status</dt>
+        <dd>{runMetadataStatusLabel(metadata.status)}</dd>
+      </div>
+      <div>
+        <dt>Steps</dt>
+        <dd>{metadata.stepCount.toString()}</dd>
+      </div>
+      {durationLabel ? (
+        <div>
+          <dt>Time</dt>
+          <dd>{durationLabel}</dd>
+        </div>
+      ) : null}
+      {threadLabel ? (
+        <div>
+          <dt>Thread</dt>
+          <dd>{threadLabel}</dd>
+        </div>
+      ) : null}
+      {tokenLabel ? (
+        <div>
+          <dt>Tokens</dt>
+          <dd>{tokenLabel}</dd>
+        </div>
+      ) : null}
+    </dl>
   );
 }
 

@@ -18,6 +18,7 @@ import type {
   CoordinatorPlanDraft,
 } from "./coordinatorLocalProposalGeneration";
 import type { CoordinatorProviderMessageMeta } from "./coordinatorProviderRequest";
+import type { WorkspaceAgentRunMetadata } from "./workspaceAgentRunMetadata";
 import {
   CoordinatorPlanCard,
   CoordinatorReviewCard,
@@ -61,6 +62,7 @@ export type WorkspaceAgentTranscriptMessage = {
   queueReportCardId?: string;
   reviewId?: string;
   role: "operator" | "assistant";
+  runMetadata?: WorkspaceAgentRunMetadata;
   body: string;
 };
 
@@ -181,6 +183,7 @@ export function WorkspaceAgentTranscript({
           key={message.id}
           providerMeta={message.providerMeta}
           role={message.role}
+          runMetadata={message.runMetadata}
         >
           {message.planId && plans[message.planId] ? (
             <CoordinatorPlanCard plan={plans[message.planId]} />

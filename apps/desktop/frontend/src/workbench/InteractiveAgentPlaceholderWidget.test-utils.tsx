@@ -336,7 +336,10 @@ export function lastAssistantMessageText() {
     '[data-testid="interactive-agent-message-assistant"]',
   );
   const lastMessage = assistantMessages[assistantMessages.length - 1];
-  return lastMessage?.textContent ?? "";
+  return (
+    lastMessage?.querySelector(".interactive-agent-message-body")
+      ?.textContent ?? ""
+  );
 }
 
 export function lastOperatorMessageText() {

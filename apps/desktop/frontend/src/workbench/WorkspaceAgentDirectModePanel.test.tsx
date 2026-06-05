@@ -240,8 +240,8 @@ describe("WorkspaceAgentDirectModePanel", () => {
     const details = document.querySelector<HTMLDetailsElement>(
       ".interactive-agent-direct-mode-details",
     );
-    expect(details?.open).toBe(false);
-    expect(details?.textContent).not.toContain(
+    expect(details).toBeNull();
+    expect(document.body.textContent).not.toContain(
       "item.started command_execution",
     );
   });
@@ -279,14 +279,17 @@ function renderPanel(options: RenderPanelOptions = {}) {
     <WorkspaceAgentDirectModePanel
       agentActivityEvents={[]}
       activitySummary={EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY}
+      activityPlacement="bottom"
       directWorkDirectory="~"
       directWorkSandbox="workspace_write"
       error={null}
       finalResult={null}
       isActivityOpen={false}
+      isDetailsOpen={false}
       isSettingsOpen={true}
       knowledgeLookup={EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP}
       logs={[]}
+      onActivityPlacementChange={vi.fn()}
       onDirectoryChange={vi.fn()}
       onSandboxChange={vi.fn()}
       onSelectWorkspaceDirectory={vi.fn(async () => null)}

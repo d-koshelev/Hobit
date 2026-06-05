@@ -35,7 +35,7 @@ describe("AgentActivityPanel", () => {
     expect(document.body.textContent).toContain("No agent activity yet.");
   });
 
-  it("renders compact one-line rows by default", () => {
+  it("renders compact grouped run rows by default", () => {
     render(
       <AgentActivityPanel
         events={[
@@ -70,12 +70,14 @@ describe("AgentActivityPanel", () => {
 
     const rows = document.querySelectorAll(".agent-activity-event-row");
 
-    expect(rows).toHaveLength(4);
-    expect(document.body.textContent).toContain("Started thread");
+    expect(rows).toHaveLength(1);
+    expect(document.body.textContent).toContain("Agent run");
+    expect(document.body.textContent).toContain("4 steps");
+    expect(document.body.textContent).toContain("latest: Running command");
+    expect(document.body.textContent).not.toContain("Started thread");
     expect(document.body.textContent).toContain("Running command");
-    expect(document.body.textContent).toContain("Running git status --short");
-    expect(document.body.textContent).toContain("Finished command");
-    expect(document.body.textContent).toContain("Command failed");
+    expect(document.body.textContent).not.toContain("Running git status --short");
+    expect(document.body.textContent).not.toContain("Command failed");
     expect(document.querySelector(".agent-activity-event-details")).toBeNull();
   });
 
@@ -140,12 +142,14 @@ describe("AgentActivityPanel", () => {
           }),
           activityEvent({
             id: "completed-event",
+            runId: "run-2",
             severity: "success",
             status: "completed",
             title: "Command finished",
           }),
           activityEvent({
             id: "failed-event",
+            runId: "run-3",
             severity: "error",
             status: "failed",
             title: "Command failed",

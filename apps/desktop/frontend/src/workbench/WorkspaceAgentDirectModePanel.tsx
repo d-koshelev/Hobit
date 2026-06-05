@@ -3,7 +3,6 @@ import {
   useId,
   useRef,
   useState,
-  type ReactNode,
   type MutableRefObject,
 } from "react";
 import { Button } from "../design-system/Button";
@@ -29,14 +28,17 @@ import {
 export function WorkspaceAgentDirectModePanel({
   agentActivityEvents,
   activitySummary,
+  activityPlacement,
   directWorkDirectory,
   directWorkSandbox,
   error,
   finalResult,
   isActivityOpen,
+  isDetailsOpen,
   isSettingsOpen,
   knowledgeLookup,
   logs,
+  onActivityPlacementChange,
   onDirectoryChange,
   onSandboxChange,
   onSelectWorkspaceDirectory,
@@ -46,14 +48,17 @@ export function WorkspaceAgentDirectModePanel({
 }: {
   agentActivityEvents: AgentActivityEvent[];
   activitySummary: WorkspaceAgentActivitySummary;
+  activityPlacement: "bottom" | "right" | "left";
   directWorkDirectory: string;
   directWorkSandbox: DirectWorkSandbox;
   error: string | null;
   finalResult: string | null;
   isActivityOpen: boolean;
+  isDetailsOpen: boolean;
   isSettingsOpen: boolean;
   knowledgeLookup: WorkspaceKnowledgeLookup;
   logs: CoordinatorDirectWorkLogEntry[];
+  onActivityPlacementChange: (placement: "bottom" | "right" | "left") => void;
   onDirectoryChange: (value: string) => void;
   onSandboxChange: (value: DirectWorkSandbox) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
@@ -72,7 +77,6 @@ export function WorkspaceAgentDirectModePanel({
   const [isDirectoryBrowsePending, setIsDirectoryBrowsePending] =
     useState(false);
   const [threadCopyStatus, setThreadCopyStatus] = useState<string | null>(null);
-  const latestLog = logs[logs.length - 1]?.text ?? null;
   const visibleLogs = capArrayToLast(logs, RENDER_MEMORY_CAPS.eventRows);
   const resolutionText = directWorkDirectoryResolutionText(directWorkDirectory);
   const scratchSuggestion =
@@ -292,15 +296,15 @@ export function WorkspaceAgentDirectModePanel({
               Final: {compactResult}
             </span>
           ) : null}
-          {!error && !compactResult && latestLog ? (
-            <span>Latest: {compactDirectWorkText(latestLog)}</span>
-          ) : null}
         </div>
-        <div className="interactive-agent-direct-mode-disclosures">
-          <LazyDetails
-            className="interactive-agent-direct-mode-details"
-            summary="Direct Work details"
+        {isDetailsOpen ? (
+          <section
+            aria-label="Workspace Agent run details"
+            className="interactive-agent-popup interactive-agent-popup-bottom interactive-agent-run-details-popup"
           >
+            <div className="interactive-agent-popup-header">
+              <p className="interactive-agent-popup-title">Run details</p>
+            </div>
             <div className="interactive-agent-direct-mode-detail-body">
               <p className="interactive-agent-direct-mode-help">
                 <span>{resolutionText}</span>
@@ -344,26 +348,49 @@ export function WorkspaceAgentDirectModePanel({
                 </div>
               ) : null}
             </div>
-          </LazyDetails>
-          <LazyDetails
-            className="interactive-agent-direct-mode-details"
-            summary={workspaceKnowledgeSummaryText(knowledgeLookup)}
-          >
-            <div className="interactive-agent-direct-mode-detail-body">
-              <WorkspaceKnowledgeLookupDetails lookup={knowledgeLookup} />
-            </div>
-          </LazyDetails>
-        </div>
+            <details className="interactive-agent-direct-mode-details">
+              <summary>{workspaceKnowledgeSummaryText(knowledgeLookup)}</summary>
+              <div className="interactive-agent-direct-mode-detail-body">
+                <WorkspaceKnowledgeLookupDetails lookup={knowledgeLookup} />
+              </div>
+            </details>
+          </section>
+        ) : null}
         {isActivityOpen ? (
           <section
             aria-label="Workspace Agent activity panel"
-            className="interactive-agent-activity-panel"
+            className={`interactive-agent-popup interactive-agent-popup-${activityPlacement} interactive-agent-activity-panel`}
           >
-            <AgentActivityPanel
-              compact
-              emptyText="No Workspace Agent activity for this widget yet."
-              events={agentActivityEvents}
-            />
+            <div className="interactive-agent-popup-header">
+              <p className="interactive-agent-popup-title">Agent Activity</p>
+              <div
+                aria-label="Agent Activity placement"
+                className="interactive-agent-popup-placement"
+              >
+                {(["bottom", "right", "left"] as const).map((placement) => (
+                  <button
+                    aria-pressed={activityPlacement === placement}
+                    className={
+                      activityPlacement === placement
+                        ? "interactive-agent-popup-placement-button interactive-agent-popup-placement-button-active"
+                        : "interactive-agent-popup-placement-button"
+                    }
+                    key={placement}
+                    onClick={() => onActivityPlacementChange(placement)}
+                    type="button"
+                  >
+                    {placement}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="interactive-agent-direct-mode-detail-body">
+              <AgentActivityPanel
+                compact
+                emptyText="No Workspace Agent activity for this widget yet."
+                events={agentActivityEvents}
+              />
+            </div>
           </section>
         ) : null}
       </div>
@@ -392,28 +419,6 @@ const SANDBOX_OPTIONS: ReadonlyArray<{
     value: "danger_full_access",
   },
 ];
-
-function LazyDetails({
-  children,
-  className,
-  summary,
-}: {
-  children: ReactNode;
-  className: string;
-  summary: string;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-
-  return (
-    <details
-      className={className}
-      onToggle={(event) => setIsOpen(event.currentTarget.open)}
-    >
-      <summary>{summary}</summary>
-      {isOpen ? children : null}
-    </details>
-  );
-}
 
 function workspaceAgentActivityLabel(
   status: WorkspaceAgentActivitySummary["status"],
