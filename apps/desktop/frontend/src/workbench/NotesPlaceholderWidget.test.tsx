@@ -233,6 +233,106 @@ describe("NotesPlaceholderWidget empty state", () => {
     });
     expect(document.body.textContent).toContain("Saved");
   });
+
+  it("pretty formats JSON explicitly and saves the formatted dirty note", async () => {
+    const selectedNote = note({
+      body: '{"b":2,"a":[1]}',
+      noteId: "note_42",
+      title: "Falcon deployment note",
+    });
+    const formattedBody = '{\n  "b": 2,\n  "a": [\n    1\n  ]\n}';
+    const updatedNote = {
+      ...selectedNote,
+      body: formattedBody,
+      updatedAt: "2026-05-25T00:01:00.000Z",
+    };
+    const onCreateWorkspaceNote = vi.fn();
+    const onGetWorkspaceNote = vi.fn(async () => selectedNote);
+    const onListWorkspaceNotes = vi.fn(async () => [selectedNote]);
+    const onUpdateWorkspaceNote = vi.fn(
+      async (_request: UpdateNoteInput) => updatedNote,
+    );
+
+    renderWidget({
+      onCreateWorkspaceNote,
+      onGetWorkspaceNote,
+      onListWorkspaceNotes,
+      onUpdateWorkspaceNote,
+    });
+    await flushEffects();
+
+    await clickButton("Pretty JSON");
+
+    expect(textareaValue(".notes-body-input")).toBe(formattedBody);
+    expect(document.body.textContent).toContain("Unsaved");
+
+    await clickButton("Save");
+    await flushEffects();
+
+    expect(onUpdateWorkspaceNote).toHaveBeenCalledWith({
+      body: formattedBody,
+      noteId: "note_42",
+      pinned: false,
+      title: "Falcon deployment note",
+    });
+    expect(document.body.textContent).toContain("Saved");
+  });
+
+  it("shows an inline formatting error for invalid JSON without changing content", async () => {
+    const selectedNote = note({
+      body: "{ bad json",
+      noteId: "note_42",
+      title: "Falcon deployment note",
+    });
+    const onCreateWorkspaceNote = vi.fn();
+    const onGetWorkspaceNote = vi.fn(async () => selectedNote);
+    const onListWorkspaceNotes = vi.fn(async () => [selectedNote]);
+    const onUpdateWorkspaceNote = vi.fn();
+
+    renderWidget({
+      onCreateWorkspaceNote,
+      onGetWorkspaceNote,
+      onListWorkspaceNotes,
+      onUpdateWorkspaceNote,
+    });
+    await flushEffects();
+
+    await clickButton("Pretty JSON");
+
+    expect(textareaValue(".notes-body-input")).toBe("{ bad json");
+    expect(document.body.textContent).toContain(
+      "Invalid JSON. Note body was not changed.",
+    );
+    expect(onUpdateWorkspaceNote).not.toHaveBeenCalled();
+  });
+
+  it("shows an inline formatting error for invalid CSV without changing content", async () => {
+    const selectedNote = note({
+      body: 'name,note\nAda,"open',
+      noteId: "note_42",
+      title: "Falcon deployment note",
+    });
+    const onCreateWorkspaceNote = vi.fn();
+    const onGetWorkspaceNote = vi.fn(async () => selectedNote);
+    const onListWorkspaceNotes = vi.fn(async () => [selectedNote]);
+    const onUpdateWorkspaceNote = vi.fn();
+
+    renderWidget({
+      onCreateWorkspaceNote,
+      onGetWorkspaceNote,
+      onListWorkspaceNotes,
+      onUpdateWorkspaceNote,
+    });
+    await flushEffects();
+
+    await clickButton("Format CSV");
+
+    expect(textareaValue(".notes-body-input")).toBe('name,note\nAda,"open');
+    expect(document.body.textContent).toContain(
+      "Invalid CSV. A quoted field is not closed.",
+    );
+    expect(onUpdateWorkspaceNote).not.toHaveBeenCalled();
+  });
 });
 
 function renderWidget(
@@ -299,6 +399,15 @@ function changeTextarea(selector: string, value: string) {
     setNativeValue(textarea, value);
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
   });
+}
+
+function textareaValue(selector: string) {
+  const textarea = document.querySelector<HTMLTextAreaElement>(selector);
+  if (!textarea) {
+    throw new Error(`Textarea not found: ${selector}`);
+  }
+
+  return textarea.value;
 }
 
 function changeSelect(index: number, value: string) {

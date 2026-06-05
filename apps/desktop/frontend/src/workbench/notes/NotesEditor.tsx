@@ -1,5 +1,5 @@
 import { Button } from "../../design-system/Button";
-import type { KeyboardEvent } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import type { KnowledgeDocument, WorkspaceNote } from "../../workspace/types";
 import {
   KNOWLEDGE_DOCUMENT_TYPE_OPTIONS,
@@ -7,7 +7,38 @@ import {
 } from "../skillLibraryModel";
 import { NotesEmptyState } from "./NotesEmptyState";
 import { NotesStatusMessage } from "./NotesStatusMessage";
+import {
+  formatNoteBody,
+  type NotesFormatAction,
+} from "./notesFormatters";
 import { DEFAULT_NOTE_TITLE } from "./useWorkspaceNotesController";
+
+const NOTE_FORMAT_ACTIONS: Array<{
+  action: NotesFormatAction;
+  label: string;
+  title: string;
+}> = [
+  {
+    action: "pretty-json",
+    label: "Pretty JSON",
+    title: "Parse and indent the note body as JSON.",
+  },
+  {
+    action: "minify-json",
+    label: "Minify JSON",
+    title: "Parse and compact the note body as JSON.",
+  },
+  {
+    action: "normalize-csv",
+    label: "Format CSV",
+    title: "Normalize comma-separated values and line endings.",
+  },
+  {
+    action: "normalize-text",
+    label: "Normalize text",
+    title: "Normalize plain text line endings and excess blank lines.",
+  },
+];
 
 export function NotesEditor({
   bodyInputId,
@@ -76,6 +107,12 @@ export function NotesEditor({
   titleInputId: string;
   validationMessage: string | null;
 }) {
+  const [formatError, setFormatError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFormatError(null);
+  }, [selectedNote?.noteId]);
+
   function saveFromKeyboard(event: KeyboardEvent<HTMLElement>) {
     if (!(event.ctrlKey || event.metaKey) || event.key.toLowerCase() !== "s") {
       return;
@@ -92,6 +129,29 @@ export function NotesEditor({
     }
 
     void onSaveNote();
+  }
+
+  function updateDraftBody(value: string) {
+    if (formatError) {
+      setFormatError(null);
+    }
+
+    onUpdateDraftBody(value);
+  }
+
+  function applyBodyFormat(action: NotesFormatAction) {
+    const result = formatNoteBody(action, draftBody);
+
+    if (!result.ok) {
+      setFormatError(result.error);
+      return;
+    }
+
+    setFormatError(null);
+
+    if (result.value !== draftBody) {
+      onUpdateDraftBody(result.value);
+    }
   }
 
   return (
@@ -121,10 +181,28 @@ export function NotesEditor({
             aria-label="Note body"
             className="input notes-body-input"
             id={bodyInputId}
-            onChange={(event) => onUpdateDraftBody(event.currentTarget.value)}
+            onChange={(event) => updateDraftBody(event.currentTarget.value)}
             placeholder="Write note…"
             value={draftBody}
           />
+          <div
+            aria-label="Note body formatting actions"
+            className="notes-format-toolbar"
+          >
+            <span className="notes-format-label">Format</span>
+            {NOTE_FORMAT_ACTIONS.map((action) => (
+              <Button
+                className="notes-format-action"
+                disabled={!selectedNote || isSaving}
+                key={action.action}
+                onClick={() => applyBodyFormat(action.action)}
+                title={action.title}
+                variant="ghost"
+              >
+                {action.label}
+              </Button>
+            ))}
+          </div>
           <div className="notes-editor-controls">
             <Button
               disabled={
@@ -250,6 +328,9 @@ export function NotesEditor({
             <NotesStatusMessage variant="warning">
               {validationMessage}
             </NotesStatusMessage>
+          ) : null}
+          {formatError ? (
+            <NotesStatusMessage variant="error">{formatError}</NotesStatusMessage>
           ) : null}
           {editorError ? (
             <NotesStatusMessage variant="error">{editorError}</NotesStatusMessage>
