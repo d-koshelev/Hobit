@@ -428,6 +428,16 @@ describe("AgentQueueFlowMap", () => {
     expect(document.querySelector(".agent-queue-flow-results")?.textContent).toContain(
       "Reported task",
     );
+    expect(
+      document.querySelector(
+        '.agent-queue-flow-results [data-queue-item-id="reported-task"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      document
+        .querySelector('.agent-queue-flow-results [data-queue-item-id="reported-task"]')
+        ?.classList.contains("agent-queue-flow-block-compact"),
+    ).toBe(false);
   });
 
   it("uses editable queue tag color summaries for groups and blocks", () => {

@@ -11,7 +11,7 @@ import type {
   AgentQueueFoundationController,
 } from "./queue/useAgentQueueController";
 import { AgentQueueAutonomousSection } from "./AgentQueueAutonomousSection";
-import { AgentQueueTagColorControl, AgentQueueTagColorSwatch } from "./AgentQueueTagColorControl";
+import { AgentQueueSidebarTagsSection } from "./AgentQueueSidebarTagsSection";
 
 type AgentQueueSidebarProps = {
   autonomous: AgentQueueAutonomousController;
@@ -20,10 +20,6 @@ type AgentQueueSidebarProps = {
 
 export function AgentQueueSidebar({ autonomous, foundation }: AgentQueueSidebarProps) {
   const globalExecutionState = foundation.globalExecutionState;
-  const [newTagName, setNewTagName] = useState("");
-  const [renamingTagId, setRenamingTagId] = useState<string | null>(null);
-  const [renameDraft, setRenameDraft] = useState("");
-  const [deleteConfirmTagId, setDeleteConfirmTagId] = useState<string | null>(null);
   const [renamingWorkerId, setRenamingWorkerId] = useState<string | null>(null);
   const [workerRenameDraft, setWorkerRenameDraft] = useState("");
   const [deleteConfirmWorkerId, setDeleteConfirmWorkerId] = useState<string | null>(null);
@@ -34,39 +30,6 @@ export function AgentQueueSidebar({ autonomous, foundation }: AgentQueueSidebarP
   const runningWorkerCount = foundation.workers.filter(
     (worker) => worker.status === "running",
   ).length;
-  const pausedTagCount = foundation.queueTags.filter(
-    (tag) => tag.status === "paused",
-  ).length;
-
-  function createTag() {
-    if (foundation.onCreateQueueTag(newTagName)) {
-      setNewTagName("");
-      setDeleteConfirmTagId(null);
-    }
-  }
-
-  function startRename(queueTagId: string, queueTagName: string) {
-    setRenamingTagId(queueTagId);
-    setRenameDraft(queueTagName);
-    setDeleteConfirmTagId(null);
-  }
-
-  async function confirmRename(queueTagId: string) {
-    if (await foundation.onRenameQueueTag(queueTagId, renameDraft)) {
-      setRenamingTagId(null);
-      setRenameDraft("");
-    }
-  }
-
-  function requestDelete(queueTagId: string, isEmpty: boolean) {
-    if (!isEmpty) {
-      foundation.onDeleteQueueTag(queueTagId);
-      return;
-    }
-
-    setDeleteConfirmTagId(queueTagId);
-    setRenamingTagId(null);
-  }
 
   return (
     <aside aria-label="Queue and workers" className="agent-queue-sidebar">
@@ -78,199 +41,7 @@ export function AgentQueueSidebar({ autonomous, foundation }: AgentQueueSidebarP
 
       <ExecutorCapacitySection foundation={foundation} />
 
-      <section className="agent-queue-sidebar-section">
-        <div className="agent-queue-section-header">
-          <p className="agent-queue-section-title">Tags</p>
-          <Badge variant={pausedTagCount > 0 ? "warning" : "neutral"}>
-            {foundation.queueTags.length.toString()} tags
-          </Badge>
-        </div>
-        <p className="agent-queue-sidebar-row-meta agent-queue-compact-summary">
-          {pausedTagCount > 0
-            ? `${pausedTagCount.toString()} paused`
-            : "Tags ready"}
-        </p>
-        <div className="agent-queue-sidebar-list">
-          {foundation.queueTags.map((tag) => (
-            <div
-              className="agent-queue-sidebar-row agent-queue-sidebar-row-compact"
-              key={tag.queueTagId}
-            >
-              <div>
-                {renamingTagId === tag.queueTagId ? (
-                  <input
-                    aria-label={`Rename ${tag.queueTagName}`}
-                    className="input agent-queue-tag-management-input"
-                    onChange={(event) => setRenameDraft(event.currentTarget.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") {
-                        void confirmRename(tag.queueTagId);
-                      }
-                    }}
-                    value={renameDraft}
-                  />
-                ) : (
-                  <p className="agent-queue-sidebar-row-title">
-                    <AgentQueueTagColorSwatch colorToken={tag.colorToken} />
-                    {tag.queueTagName}
-                  </p>
-                )}
-                <p className="agent-queue-sidebar-row-meta">
-                  {tag.taskCount} items, {tag.runningCount} running
-                </p>
-                <p className="agent-queue-sidebar-row-meta">
-                  Val {tag.validatingCount}, review {tag.needsReviewCount}
-                  {tag.failedValidationCount > 0
-                    ? `, ${tag.failedValidationCount.toString()} failed`
-                    : ""}
-                </p>
-                {tag.coordinatorReviewCount > 0 ? (
-                  <p className="agent-queue-sidebar-row-meta">
-                    {tag.coordinatorReviewCount} coord review
-                  </p>
-                ) : null}
-                {tag.pauseReason ? (
-                  <p className="agent-queue-sidebar-row-meta">
-                    Paused by {pauseReasonLabel(tag.pauseReason)}
-                  </p>
-                ) : null}
-              </div>
-              <div className="agent-queue-sidebar-row-actions">
-                <Badge variant={tag.status === "paused" ? "warning" : "success"}>
-                  {tag.status}
-                </Badge>
-                {tag.needsCoordinatorReview ? (
-                  <Badge variant="warning">review</Badge>
-                ) : null}
-                {tag.status === "paused" ? (
-                  <Button
-                    onClick={() => foundation.onResumeQueueTag(tag.queueTagId)}
-                    variant="ghost"
-                  >
-                    Resume tag
-                  </Button>
-                ) : (
-                  <Button
-                    onClick={() => foundation.onPauseQueueTag(tag.queueTagId)}
-                    variant="ghost"
-                  >
-                    Pause
-                  </Button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-        <details className="agent-queue-details agent-queue-rail-details agent-queue-management-details">
-          <summary>Manage tags</summary>
-          <div className="agent-queue-tag-create-row">
-            <input
-              aria-label="New queue tag name"
-              className="input agent-queue-tag-management-input"
-              onChange={(event) => setNewTagName(event.currentTarget.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter") {
-                  createTag();
-                }
-              }}
-              placeholder="New tag"
-              value={newTagName}
-            />
-            <Button onClick={createTag} variant="secondary">
-              Add tag
-            </Button>
-          </div>
-          {foundation.tagManagementError ? (
-            <p
-              className="agent-queue-message agent-queue-message-error"
-              role="alert"
-            >
-              {foundation.tagManagementError}
-            </p>
-          ) : foundation.tagManagementMessage ? (
-            <p className="agent-queue-message">
-              {foundation.tagManagementMessage}
-            </p>
-          ) : null}
-          <div className="agent-queue-sidebar-list">
-            {foundation.queueTags.map((tag) => (
-              <div className="agent-queue-management-row" key={tag.queueTagId}>
-                <p className="agent-queue-sidebar-row-title">
-                  <AgentQueueTagColorSwatch colorToken={tag.colorToken} />
-                  {tag.queueTagName}
-                </p>
-                <div className="agent-queue-sidebar-row-actions">
-                  <AgentQueueTagColorControl colorToken={tag.colorToken} onChange={(colorToken) => foundation.onSetQueueTagColor(tag.queueTagId, colorToken)} queueTagName={tag.queueTagName} />
-                  {renamingTagId === tag.queueTagId ? (
-                    <>
-                      <Button
-                        onClick={() => void confirmRename(tag.queueTagId)}
-                        variant="secondary"
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        onClick={() => {
-                          setRenamingTagId(null);
-                          setRenameDraft("");
-                        }}
-                        variant="ghost"
-                      >
-                        Cancel
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      onClick={() =>
-                        startRename(tag.queueTagId, tag.queueTagName)
-                      }
-                      variant="ghost"
-                    >
-                      Rename
-                    </Button>
-                  )}
-                  {deleteConfirmTagId === tag.queueTagId ? (
-                    <>
-                      <Button
-                        className="agent-queue-delete-button"
-                        onClick={() => {
-                          if (foundation.onDeleteQueueTag(tag.queueTagId)) {
-                            setDeleteConfirmTagId(null);
-                          }
-                        }}
-                        variant="ghost"
-                      >
-                        Confirm delete
-                      </Button>
-                      <Button
-                        onClick={() => setDeleteConfirmTagId(null)}
-                        variant="ghost"
-                      >
-                        Cancel
-                      </Button>
-                    </>
-                  ) : (
-                    <Button
-                      className="agent-queue-delete-button"
-                      onClick={() =>
-                        requestDelete(tag.queueTagId, tag.taskCount === 0)
-                      }
-                      title={
-                        tag.taskCount === 0
-                          ? "Delete this empty queue tag."
-                          : "Reassign items before deleting this queue tag."
-                      }
-                      variant="ghost"
-                    >
-                      Delete
-                    </Button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </details>
-      </section>
+      <AgentQueueSidebarTagsSection foundation={foundation} />
 
       <section className="agent-queue-sidebar-section">
         <div className="agent-queue-section-header">
@@ -603,14 +374,6 @@ function WorkerRow({
             : ", all tags"}
         </p>
         <p className="agent-queue-sidebar-row-meta">{planLabel}</p>
-        {dryRunNote ? (
-          <p className="agent-queue-sidebar-row-meta">{dryRunNote}</p>
-        ) : null}
-        {plan?.bestNextItem ? (
-          <p className="agent-queue-sidebar-row-meta">
-            {workerNextPlanStatus(foundation, worker.workerId)}
-          </p>
-        ) : null}
         {worker.scope.kind === "queue_tag" && worker.status === "paused" ? (
           <p className="agent-queue-sidebar-row-meta">Tag paused.</p>
         ) : null}
@@ -631,11 +394,27 @@ function WorkerRow({
         </Badge>
         {worker.currentItemId ? <Badge variant="info">active</Badge> : null}
       </div>
-      {worker.lastReportSummary ? (
-        <p className="agent-queue-sidebar-row-meta">
-          {worker.lastReportSummary}
-        </p>
-      ) : null}
+      <details className="agent-queue-details agent-queue-rail-details agent-queue-worker-secondary-details">
+        <summary>Worker details</summary>
+        {dryRunNote ? (
+          <p className="agent-queue-sidebar-row-meta">{dryRunNote}</p>
+        ) : null}
+        {plan?.bestNextItem ? (
+          <p className="agent-queue-sidebar-row-meta">
+            {workerNextPlanStatus(foundation, worker.workerId)}
+          </p>
+        ) : null}
+        {worker.lastReportSummary ? (
+          <p className="agent-queue-sidebar-row-meta">
+            {worker.lastReportSummary}
+          </p>
+        ) : null}
+        {!dryRunNote && !plan?.bestNextItem && !worker.lastReportSummary ? (
+          <p className="agent-queue-sidebar-row-meta">
+            No secondary worker detail.
+          </p>
+        ) : null}
+      </details>
       <details className="agent-queue-details agent-queue-rail-details agent-queue-worker-management">
         <summary>Manage worker</summary>
         <label className="field-label" htmlFor={`worker-enabled-${worker.workerId}`}>
@@ -756,16 +535,6 @@ function WorkerRow({
       </details>
     </div>
   );
-}
-
-function pauseReasonLabel(reason: string) {
-  switch (reason) {
-    case "edit_review":
-      return "task edit review";
-    case "manual":
-    default:
-      return "manual pause";
-  }
 }
 
 function workerSchedulerPlan(

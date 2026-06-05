@@ -192,15 +192,27 @@ function activityStatusLineForRun(
   switch (runStatus) {
     case "completed":
     case "review_needed":
+      if (!queue.latestRun.link && !queue.run.startedRunId) {
+        return "Execution complete - no active run is selected.";
+      }
+
       return queue.runActivity.statusLine.startsWith("Running")
         ? "Completed - final response received."
         : queue.runActivity.statusLine;
     case "failed":
     case "timed_out":
+      if (!queue.latestRun.link && !queue.run.startedRunId) {
+        return "Failed - no active run is selected.";
+      }
+
       return queue.runActivity.statusLine.startsWith("Running")
         ? "Failed - review run details."
         : queue.runActivity.statusLine;
     case "cancelled":
+      if (!queue.latestRun.link && !queue.run.startedRunId) {
+        return "Cancelled - no active run is selected.";
+      }
+
       return queue.runActivity.statusLine.startsWith("Running")
         ? "Cancelled - run stopped before completion."
         : queue.runActivity.statusLine;
@@ -447,13 +459,13 @@ export function HumanReadableActivityPanel({
             {queue.runEvidence.isLoading
               ? "Loading run result..."
               : failed
-                ? "Failure evidence missing."
-                : "No run evidence attached."}
+                ? "Failure result is not loaded."
+                : "Run result is not loaded."}
           </p>
           <p className="agent-queue-run-note">
             {queue.runEvidence.isLoading
               ? "Direct Work finished. Hobit is loading the linked result evidence before coordinator review."
-              : "Review is not ready. Rerun the task, attach a report, or inspect Internal details before making a coordinator decision."}
+              : "Use the result section to refresh the result, attach a report, or inspect Developer details."}
           </p>
           {!queue.runEvidence.isLoading && queue.runEvidence.error ? (
             <p

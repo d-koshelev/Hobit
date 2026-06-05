@@ -99,6 +99,33 @@ export function buildFallbackActivityEvents(
       message: "Waiting for final response.",
       title: queue.runActivity.currentStage,
     });
+  } else if (
+    selectedTask.status === "completed" ||
+    selectedTask.status === "review_needed"
+  ) {
+    entries.push({
+      badge: "Complete",
+      badgeVariant: "success",
+      key: "fallback-task-completed",
+      message: "Execution complete. No active run event is selected.",
+      title: "Run completed",
+    });
+  } else if (selectedTask.status === "failed") {
+    entries.push({
+      badge: "Failed",
+      badgeVariant: "error",
+      key: "fallback-task-failed",
+      message: "Execution failed. No active run event is selected.",
+      title: "Run failed",
+    });
+  } else if (selectedTask.status === "cancelled") {
+    entries.push({
+      badge: "Cancelled",
+      badgeVariant: "warning",
+      key: "fallback-task-cancelled",
+      message: "Execution was cancelled. No active run event is selected.",
+      title: "Run cancelled",
+    });
   }
 
   return entries;
@@ -312,18 +339,18 @@ function runTimelineMessage(status: string, hasEvidence: boolean) {
   if (status === "completed" || status === "review_needed") {
     return hasEvidence
       ? "Execution complete. Evidence is available for coordinator review."
-      : "Execution complete. Evidence is missing; review is not ready.";
+      : "Execution complete. Result is not loaded in Queue yet.";
   }
 
   if (status === "cancelled") {
     return hasEvidence
       ? "Execution was cancelled. Evidence is available for coordinator review."
-      : "Execution was cancelled. Failure evidence is missing.";
+      : "Execution was cancelled. Result is not loaded in Queue yet.";
   }
 
   return hasEvidence
     ? "Execution failed. Review the visible error evidence."
-    : "Execution failed. Failure evidence is missing.";
+    : "Execution failed. Failure result is not loaded in Queue yet.";
 }
 
 function runTimelineBadgeVariant(status: string): HumanTimelineEntry["badgeVariant"] {

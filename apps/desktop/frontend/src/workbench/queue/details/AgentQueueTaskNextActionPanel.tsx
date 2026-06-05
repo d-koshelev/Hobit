@@ -237,11 +237,11 @@ function nextActionForSelectedTask(
 
     return {
       actions,
-      badge: failed ? "Failure evidence missing" : "Evidence missing",
+      badge: failed ? "Failure result not loaded" : "Result not loaded",
       badgeVariant: "warning",
-      copy: "Review Result / Evidence before making a coordinator decision.",
+      copy: "Use the result section to refresh the result, attach a report, or inspect Developer details.",
       secondaryCopy: null,
-      title: failed ? "Resolve failure evidence" : "Resolve result evidence",
+      title: failed ? "Resolve failed run result" : "Resolve finished run result",
       tone: "blocked",
     };
   }
@@ -332,7 +332,7 @@ function nextActionForSelectedTask(
         "Worker evidence or coordinator decisions are waiting for explicit review. Do not start more work until the coordinator state is resolved.",
       secondaryCopy: hasReviewEvidence
         ? "Review the report evidence below, then use coordinator finalization when it is relevant."
-        : "No run evidence is attached yet.",
+        : "Use the result section to resolve the linked run result.",
       title: "Awaiting coordinator review",
       tone: "review",
     };

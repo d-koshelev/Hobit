@@ -47,7 +47,8 @@ export function resultEvidenceState(
     return {
       badge: failed ? "Failure evidence missing" : "Evidence missing",
       badgeVariant: "warning",
-      copy: "Execution finished without loaded worker report or Direct Work result evidence.",
+      copy:
+        "Execution finished without loaded worker report or Direct Work result evidence. Review is not ready until the operator refreshes the result, attaches a report, or inspects Developer details.",
       title: failed ? "Failure evidence missing" : "Evidence missing",
     };
   }
@@ -474,8 +475,8 @@ export function latestReportLabel(
 
   if (hasFinishedRunLink(queue) || isReportReadyStatus(task.status)) {
     return isFailedRunEvidence(queue, task)
-      ? "Failure evidence missing"
-      : "Evidence missing";
+      ? "Failure result not loaded"
+      : "Result not loaded";
   }
 
   return "No worker report";

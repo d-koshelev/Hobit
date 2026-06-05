@@ -28,19 +28,19 @@ export function overviewStateSentence(
     case "completed":
       return hasEvidence
         ? "Execution complete. Evidence is ready for coordinator review."
-        : "Execution complete. Evidence missing. Review not ready.";
+        : "Execution complete. Result evidence is not loaded yet.";
     case "failed":
       return hasEvidence
         ? "Execution failed. Review the evidence and request changes if needed."
-        : "Execution failed. Failure evidence missing. Review not ready.";
+        : "Execution failed. Failure result is not loaded yet.";
     case "cancelled":
       return hasEvidence
         ? "Execution was cancelled. Review the attached evidence."
-        : "Execution was cancelled. Evidence missing. Review not ready.";
+        : "Execution was cancelled. Result evidence is not loaded yet.";
     case "review_needed":
       return hasEvidence
         ? "Evidence is ready for human review."
-        : "Review requested, but evidence is missing.";
+        : "Review requested. Result evidence is not loaded yet.";
     case "queued":
     case "ready":
       return `${statusLabel(selectedTask.status)} task. It runs only after an explicit operator action.`;
@@ -62,7 +62,7 @@ export function overviewNextStep(
   }
 
   if (isReportReadyStatus(selectedTask.status) || hasFinishedRunLink(queue)) {
-    return "Next: rerun task, attach report, or inspect developer details.";
+    return "Next: use the result section to refresh the result, attach a report, or inspect Developer details.";
   }
 
   if (queue.run.canStart) {
@@ -89,7 +89,7 @@ export function overviewNextStep(
   }
 
   if (coordinatorStatusBlocksNewWork(selectedTask.coordinatorStatus)) {
-    return "Next: attach evidence before making a coordinator decision.";
+    return "Next: use the result section before making a coordinator decision.";
   }
 
   if (queue.run.readinessMessage) {

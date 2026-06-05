@@ -100,13 +100,13 @@ export function AgentQueueTaskResultEvidenceSection({
             {queue.runEvidence.isLoading
               ? "Loading run result..."
               : failed
-                ? "Failure evidence missing."
-                : "No run evidence attached."}
+                ? "Failure result is not loaded."
+                : "Run result is not loaded."}
           </p>
           <p className="agent-queue-run-note">
             {queue.runEvidence.isLoading
               ? "Direct Work finished. Hobit is loading the linked result evidence before coordinator review."
-              : "Review is not ready. Rerun the task, attach a report, or inspect Developer details before making a coordinator decision."}
+              : "Use the actions below to refresh the result, attach a report, or inspect Developer details."}
           </p>
           {!queue.runEvidence.isLoading && queue.runEvidence.error ? (
             <p

@@ -45,6 +45,9 @@ describe("AgentQueueSidebar", () => {
     expect(document.body.textContent).toContain("0 schedulable items");
     expect(document.body.textContent).toContain("Dry-run paused");
     expect(document.body.textContent).toContain("Manage tags");
+    expect(document.body.textContent).toContain(
+      "Tag colors are editable for the current Hobit session",
+    );
     expect(document.body.textContent).toContain("Worker controls");
     expect(document.body.textContent).toContain("Add worker");
     expect(document.body.textContent).toContain("Needs review");
@@ -166,12 +169,42 @@ describe("AgentQueueSidebar", () => {
     renderSidebar(foundation);
 
     expect(document.body.textContent).toContain("paused");
-    expect(document.body.textContent).toContain("Val 1, review 2, 1 failed");
-    expect(document.body.textContent).toContain("1 coord review");
+    expect(document.body.textContent).toContain("Validating1");
+    expect(document.body.textContent).toContain("Needs review2");
+    expect(document.body.textContent).toContain("Failed validation1");
+    expect(document.body.textContent).toContain("Coordinator review1");
 
     clickButton("Resume tag");
 
     expect(foundation.onResumeQueueTag).toHaveBeenCalledWith("default");
+  });
+
+  it("edits tag color through current-session tag management", () => {
+    const foundation = foundationController();
+    renderSidebar(foundation);
+
+    const colorSelect = document.querySelector<HTMLSelectElement>(
+      'select[aria-label="Color for Default"]',
+    );
+
+    expect(colorSelect?.value).toBe("queue-flow-tag-1");
+    expect(document.body.textContent).toContain(
+      "Color changes update the current session only",
+    );
+
+    act(() => {
+      if (!colorSelect) {
+        throw new Error("Tag color select not found.");
+      }
+
+      colorSelect.value = "queue-flow-tag-5";
+      colorSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    expect(foundation.onSetQueueTagColor).toHaveBeenCalledWith(
+      "default",
+      "queue-flow-tag-5",
+    );
   });
 });
 

@@ -732,10 +732,12 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     const overviewText = sectionText("Selected task overview");
     const activityText = sectionText("Agent activity");
     const resultText = sectionText("Result / Evidence");
+    const nextActionText = sectionText("Next action");
 
     expect(overviewText).toContain("Execution complete");
-    expect(overviewText).toContain("Evidence missing");
-    expect(overviewText).toContain("Review not ready");
+    expect(overviewText).toContain("Result evidence is not loaded yet");
+    expect(overviewText).not.toContain("Evidence missing");
+    expect(overviewText).not.toContain("Review not ready");
     expect(overviewText).not.toContain("Awaiting coordinator review");
     const promptSummaryText =
       document.querySelector(".agent-queue-prompt-preview-text")?.textContent ??
@@ -749,8 +751,12 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     expect(promptSummaryText).not.toContain("Expected report");
     expect(promptSummaryText).not.toContain("Files changed");
     expect(detailsBySummary("Full prompt")?.open).toBe(false);
+    expect(nextActionText).toContain("Resolve finished run result");
+    expect(nextActionText).toContain("Result not loaded");
+    expect(nextActionText).not.toContain("Evidence missing");
+    expect(nextActionText).not.toContain("Review is not ready");
     expect(resultText).toContain("Evidence missing");
-    expect(resultText).toContain("No run evidence attached");
+    expect(resultText).toContain("Run result is not loaded");
     expect(resultText).toContain("Review is not ready");
     expect(resultText).toContain("Direct Work result was not found.");
     expect(resultText).not.toContain("Report ready");

@@ -76,7 +76,7 @@ describe("AgentQueueTaskRunPanel failure and error display", () => {
     const reportText = sectionText("Result / Evidence");
 
     expect(reportText).toContain("Evidence missing");
-    expect(reportText).toContain("No run evidence attached.");
+    expect(reportText).toContain("Run result is not loaded.");
     expect(reportText).toContain("Unable to load Direct Work result evidence.");
     expect(reportText).toContain("Refresh result");
     expect(reportText).not.toContain("No report");

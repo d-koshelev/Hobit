@@ -328,7 +328,9 @@ describe("AgentQueueTaskRunPanel settings and readiness", () => {
     expect(document.body.textContent).toContain("Next action");
     expect(document.body.textContent).toContain("Promote to queued");
     expect(document.body.textContent).toContain("Draft task.");
-    expect(document.body.textContent).toContain("No run evidence attached.");
+    expect(document.body.textContent).toContain(
+      "No run evidence attached. Run the task or attach a report before coordinator review.",
+    );
 
     clickFirstButton("Edit status");
 

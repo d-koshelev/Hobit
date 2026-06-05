@@ -416,7 +416,7 @@ function QueueTaskRunStatePanel({
               isRunning
                 ? "The selected Queue task is active."
                 : evidenceMissing
-                  ? "The selected Queue task has finished, but no report evidence is attached."
+                  ? "The selected Queue task has finished, but its result is not loaded in Queue."
                   : "The selected Queue task has reported evidence for coordinator review."
             }
           >
@@ -431,8 +431,8 @@ function QueueTaskRunStatePanel({
               ? "Running - waiting for final response."
               : evidenceMissing
                 ? failed
-                  ? "Failure evidence missing. Review is not ready."
-                  : "Evidence missing. Review is not ready."
+                  ? "Failure result is not loaded. Use the result section for review options."
+                  : "Result is not loaded. Use the result section for review options."
               : failed
                 ? "Failure evidence is ready for coordinator review. Pre-run readiness checks are not the current action."
                 : "Report ready. Awaiting coordinator review. Pre-run readiness checks are not the current action."}
@@ -454,8 +454,8 @@ function QueueTaskRunStatePanel({
               ? "Running"
               : evidenceMissing
                 ? failed
-                  ? "Failure evidence missing"
-                  : "Evidence missing"
+                  ? "Failure result not loaded"
+                  : "Result not loaded"
                 : failed
                   ? "Run failed"
                   : "Awaiting review"}
@@ -473,7 +473,7 @@ function QueueTaskRunStatePanel({
             <dt>Result state</dt>
             <dd>
               {evidenceMissing
-                ? "Evidence missing"
+                ? "Result not loaded"
                 : failed
                   ? "Failure evidence ready"
                   : "Report ready"}

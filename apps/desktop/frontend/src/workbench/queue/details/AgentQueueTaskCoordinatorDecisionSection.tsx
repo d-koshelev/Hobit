@@ -52,11 +52,11 @@ export function AgentQueueTaskCoordinatorDecisionSection({
               Coordinator decision
             </p>
             <p className="agent-queue-run-note">
-              Evidence is missing. Final acceptance is disabled until a worker
+              Result is not loaded. Final acceptance is disabled until a worker
               report or Direct Work result is attached.
             </p>
           </div>
-          <Badge variant="warning">Evidence missing</Badge>
+          <Badge variant="warning">Result not loaded</Badge>
         </div>
         <div className="agent-queue-finalization-actions">
           <Button disabled={true} onClick={() => finalization.onFinalize()} variant="secondary">
