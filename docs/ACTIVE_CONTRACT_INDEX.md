@@ -53,9 +53,9 @@ semantic test runner behavior, or new widgets.
 
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
-examples for planning vocabulary only; Finder remains a required Stable v0.1
-gap governed by `docs/CURRENT_WIDGET_SURFACE.md` until a future implementation
-block explicitly lands it.
+examples for planning vocabulary only; current Finder behavior is governed by
+the explicitly scoped Stable v0.1 Finder surface in
+`docs/CURRENT_WIDGET_SURFACE.md`.
 
 `docs/PHASE_1_STABILIZATION_CLOSEOUT.md` is the Phase 1 closeout report. It is
 a process/status document only. It does not override product contracts,
@@ -331,9 +331,9 @@ unless the task explicitly requests it.
 - `docs/CURRENT_WIDGET_SURFACE.md` - read before changing catalog, widgets, or
   user-facing current-state language. Stable v0.1 product-surface language
   treats Workspace Agent plus Agent Queue as the core dogfooding loop, Terminal
-  as the explicit command surface, Finder as the required file/project
-  navigation gap, and Agent Executor plus Git as supporting/compatibility
-  surfaces rather than product widgets.
+  as the explicit command surface, Finder as the file/project navigation
+  surface, and Agent Executor plus Git as supporting/compatibility surfaces
+  rather than product widgets.
 - `docs/WIDGET_CONTRACT.md` - read for widget identity, lifecycle,
   presentation, registry, and Workbench composition rules.
 - `docs/WORKSPACE_CONTRACT.md` - read for Workspace isolation, Workbench
@@ -444,9 +444,9 @@ the local executor flow visible to operators.
   Plugin API contract for Stable v0.1. It defines
   open-root/list/search/preview/select/attach/edit API boundaries plus
   WorkspaceGitApi-backed Git status, changed-file, diff, history, commit
-  detail, manual commit, and manual push boundaries. Finder is a required
-  Stable v0.1 gap, not current implemented behavior; future vocabulary in this
-  contract does not add runtime behavior by itself.
+  detail, manual commit, and manual push boundaries. Current behavior is the
+  implemented subset described in `docs/CURRENT_WIDGET_SURFACE.md`; future
+  vocabulary in this contract does not add runtime behavior by itself.
 - `docs/FINDER_UX_CONTRACT.md` - Finder UX contract for macOS-like
   column navigation, Finder-owned floating preview, edit-in-place with
   explicit Save / Cancel, selected-file Git diff preview, pane presentation

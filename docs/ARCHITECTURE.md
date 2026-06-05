@@ -29,10 +29,9 @@ crates and the Tauri desktop shell, a Vite/React frontend, a minimal Tauri
 workspace bridge, and a SQLite workspace persistence foundation. Stable v0.1
 is centered on the Workspace Agent + Agent Queue dogfooding loop, with
 Terminal as the explicit command surface. Agent Activity, Notes, Knowledge /
-Skills, Database / JDBC Preview, and Runbook Preview remain workbench
-capabilities. Finder remains a required Stable v0.1 product gap. Agent
-Executor and Git remain implemented supporting / compatibility surfaces, but
-they are not Stable v0.1 product widgets.
+Skills, Finder, Database / JDBC Preview, and Runbook Preview remain workbench
+capabilities. Agent Executor and Git remain implemented supporting /
+compatibility surfaces, but they are not Stable v0.1 product widgets.
 Workspace Agent reuses the
 existing `interactive-agent` widget id/component for compatibility and is a
 foreground chat-based AI agent widget for planning, reasoning, task drafting,
@@ -63,11 +62,14 @@ support is currently implemented for Windows and Linux; other desktop builds
 return an unsupported-platform error for live PTY creation until platform
 support or catalog gating is added. Terminal preserves the bounded one-shot
 command path as a demoted legacy fallback for persisted Terminal widget
-instances. Finder is the required Stable v0.1 file/project navigation gap and
-must not be presented as current behavior until a future implementation block
-explicitly lands it. Git has a deprecated/internal compatibility manual
-desktop-only status/diff review surface plus explicit selected-file local
-commit UI with operator confirmation.
+instances. Finder is the Stable v0.1 file/project navigation surface with
+explicit root selection, column-based navigation, bounded file preview, a
+Finder-owned floating preview pane, edit-in-place with Save / Cancel for
+supported uncapped text files, and a Finder Git plugin for status
+badges/changed files, selected-file diff preview, Git history, manual local
+commit, and explicit manual push. Git has a deprecated/internal compatibility
+manual desktop-only status/diff review surface plus explicit selected-file
+local commit UI with operator confirmation.
 Agent Queue is the core Stable v0.1 async task organization and execution
 follow-up surface for promoted/larger work blocks backed by
 Workspace-scoped task storage/API, assignment API/UI, explicit assigned-task
@@ -148,12 +150,12 @@ There is no
 Agent Chat proposal surface, Agent Monitoring surface, Template Library, Dock, Agent CLI
 runtime, Script Runner, JIRA, Confluence, Image Edit, Terminal tabs, Terminal
 split panes, Terminal command history, executable chat runtime beyond the
-manual Direct Work/Queue API paths, Finder implementation, Git behavior beyond
-current retained standalone compatibility status/diff review, selected-file
-diff, Git history, and explicit local commit, hidden context access, provider
-settings UI, secrets UI, direct HTTPS vendor adapter, Evidence/Sources capture
-or review, AI context packs, or broad tool execution in the current
-user-facing workbench surface.
+manual Direct Work/Queue API paths, Git behavior beyond current status/diff
+review, selected-file diff, Git history, explicit local commit, and explicit
+manual push through Finder Git plus retained standalone compatibility local
+commit, hidden context access, provider settings UI, secrets UI, direct HTTPS
+vendor adapter, Evidence/Sources capture or review, AI context packs, or broad
+tool execution in the current user-facing workbench surface.
 
 ## Documentation Contracts
 
@@ -306,19 +308,19 @@ adding a second separate chat concept.
 
 `GIT_WIDGET_CONTRACT.md` defines the deprecated/internal standalone Git Widget
 compatibility boundary and the Stable v0.1 product direction that Git review
-belongs with future Finder through Workspace Git API-backed controls. The retained
+belongs in Finder through Workspace Git API-backed controls. The retained
 standalone Git surface has a transient explicit repository-root input, manual
 desktop-only read-only status/diff review, grouped changed files, recent
 history, and explicit selected-file local commit UI with operator
-confirmation. Future Stable v0.1 Finder Git is expected to add status
-badges/changed files, selected-file diff preview, Git history, manual local
-commit, and explicit manual push. Finder implementation, repository
-root/status persistence, polling, watching, fetch, validation association,
-Git-response association, reset, clean, stash, force push, push-all, branch
-management, and Agent Executor auto-commit are not implemented. Git reads must
-use an explicit operator-approved repository root; hidden parent traversal,
-Workspace-wide repository scanning, hidden push, and network fetch during
-read-only status collection are forbidden by that contract.
+confirmation. Stable v0.1 Finder Git adds status badges/changed files,
+selected-file diff preview, Git history, manual local commit, and explicit
+manual push. Repository root/status persistence, polling, watching, fetch,
+validation association, Git-response association, reset, clean, stash, force
+push, push-all, branch management, and Agent Executor auto-commit are not
+implemented. Git reads must use an explicit operator-approved repository root;
+hidden parent traversal, Workspace-wide repository scanning, hidden push, and
+network fetch during read-only status collection are forbidden by that
+contract.
 
 `TEMPLATE_CONTRACT.md` defines the future product/domain contract for reusable Request Templates and Response Templates. Templates are not implemented yet; they are future Workspace/Project assets for creating concrete request snapshots and validating response shape. Template Library is not part of the current Widget Catalog, and no template storage, editing, request generation, response capture, response parsing, response validation, executor integration, Git-response association, or agent execution behavior is implemented.
 
@@ -391,9 +393,8 @@ Workbench shell remains available as an advanced/manual start mode.
 
 The frontend includes a Widget Catalog drawer opened from Add Widget controls.
 The current user-facing catalog exposes Ready / MVP templates for Workspace
-Agent, Agent Activity, Agent Queue, Knowledge / Skills, Terminal, and Notes,
-plus Preview templates for Database / JDBC and Runbook. Finder remains a
-required Stable v0.1 gap and is not a current catalog entry.
+Agent, Agent Activity, Agent Queue, Knowledge / Skills, Finder, Terminal, and
+Notes, plus Preview templates for Database / JDBC and Runbook.
 Workspace Agent uses the current
 `interactive-agent` compatibility/local-chat placeholder as the central
 operator work surface. Agent Executor reuses the existing `agent-run`
@@ -413,11 +414,12 @@ legacy one-shot fallback surfaces, script execution, executable Workspace Agent
 runtime, Workspace-aware agent action runtime, executable proposal
 behavior, Agent Queue scheduler/automatic dispatch/runtime, Terminal result
 monitoring, arbitrary widget result monitoring, Template Library runtime, template
-storage/editing/request generation/response validation, Finder implementation,
-Git behavior beyond retained standalone compatibility status/diff/history/local
-commit for an explicit transient repository root, real product catalog widget
-insertion beyond Workspace Agent, Agent Activity, Agent Queue, Knowledge /
-Skills, Database / JDBC, Runbook, Terminal, and Notes, real Dock behavior, widget Full/Compact/Indicator view
+storage/editing/request generation/response validation, Git behavior beyond
+Finder Git status/diff/history/manual commit/manual push plus retained
+standalone compatibility status/diff/history/local commit for an explicit
+transient repository root, real product catalog widget insertion beyond
+Workspace Agent, Agent Activity, Agent Queue, Knowledge / Skills, Finder,
+Database / JDBC, Runbook, Terminal, and Notes, real Dock behavior, widget Full/Compact/Indicator view
 mode behavior,
 persisted presence zones beyond current canvas/floating presentation, preset
 editor, full drag/drop layout editor, snapping, collision detection,
@@ -562,10 +564,10 @@ standalone Git compatibility commit path validates explicit
 Workspace/Workbench/Git-widget ownership, requires explicit selected files, an
 operator-provided message, and confirmation, creates a local commit only, and
 does not push, reset, clean, stash, fetch, poll, watch, or auto-commit. Stable
-v0.1 product Git commit/push behavior belongs to the future Finder Git plugin
-and Workspace Git API boundary; manual push is explicit only and does not
-allow force push, push-all, hidden push, automatic push, reset, clean, stash,
-or branch management.
+v0.1 product Git commit/push behavior belongs to the Finder Git plugin and
+Workspace Git API boundary; manual push is explicit only and does not allow
+force push, push-all, hidden push, automatic push, reset, clean, stash, or
+branch management.
 
 The `generate_agent_chat_ai_proposal` Tauri command remains a retained
 compatibility path for older Agent Chat proposal artifacts; it validates the
@@ -650,8 +652,8 @@ and Git. Workspace Agent uses the existing
 
 The Widget Catalog has frontend-local template metadata for current surfaces.
 Ready / MVP templates are Workspace Agent, Agent Activity, Agent Queue,
-Knowledge / Skills, Terminal, and Notes. Preview templates are Database / JDBC
-and Runbook. Finder remains a required Stable v0.1 gap. There is no
+Knowledge / Skills, Finder, Terminal, and Notes. Preview templates are
+Database / JDBC and Runbook. There is no
 Planned section in the current user-facing catalog, no runtime widget loading,
 and no real capability widget insertion beyond those available
 templates/placeholders through the Tauri bridge yet.
@@ -714,12 +716,15 @@ steps MVP with states such as pending, running, done, failed, skipped, and
 blocked, plus local notes/evidence. It has no persistence, step execution, edit
 mode, builder, Queue integration, or agent-assisted steps.
 
-Finder is the required Stable v0.1 file/project navigation gap. Future Finder
-must use explicit root selection, bounded file/project navigation, visible
-preview/edit boundaries, and Finder-owned Git review/control if implemented.
-It must not be presented as current behavior, a hidden scanner, Terminal
-launcher, arbitrary command prompt, broad context ingestion path, or unsupported
-Git control surface until a future implementation block explicitly lands it.
+Finder is the Stable v0.1 file/project navigation surface. It uses explicit
+root selection, column-based navigation with previous folders visible, bounded
+file content preview, a Finder-owned floating preview pane with presentation
+state, and edit-in-place with Save / Cancel for supported uncapped text files.
+Finder Git plugin behavior includes status badges/changed files, selected-file
+diff preview, Git history, manual local commit, and explicit manual push.
+Manual push is user-triggered only and does not allow force push, push-all,
+hidden push, automatic push after commit or Executor completion, reset, clean,
+stash, or branch management.
 
 The standalone Git surface is deprecated/internal compatibility with a
 transient explicit repository-root input. In the Tauri desktop path, it
@@ -826,12 +831,13 @@ Full runtime restore is not implemented yet. There is no event replay, widget
 runtime reconstruction, preset editor, real Dock behavior, widget
 Full/Compact/Indicator view mode behavior, persisted presence zone model, full
 drag/drop layout editor, real product catalog widget insertion beyond Workspace
-Agent, Agent Activity, Agent Queue, Knowledge / Skills,
+Agent, Agent Activity, Agent Queue, Knowledge / Skills, Finder,
 Database / JDBC, Runbook, Terminal, and Notes, Terminal tabs/splits/history, executable
 Workspace Agent runtime, automatic Agent Queue dispatch or real scheduler behavior
 beyond explicit assigned-task starts, Template Library execution, Git behavior
-beyond retained standalone compatibility status/diff/history/local commit,
-Finder implementation, or automatic agent runtime behavior.
+beyond Finder Git status/diff/history/manual commit/manual push plus retained
+standalone compatibility status/diff/history/local commit, or automatic agent
+runtime behavior.
 
 ## Current Notes Model Boundary
 
@@ -850,9 +856,9 @@ durable source of truth, and future rendering must not execute commands, load
 remote assets by default, or mutate note content.
 
 The current app includes Workspace Agent, Agent Activity, Agent Queue,
-Knowledge / Skills, Terminal, and Notes product-facing widgets, plus Database /
-JDBC Preview and Runbook Preview, with Finder as a required Stable v0.1 gap and
-Agent Executor and Git retained as supporting/compatibility surfaces.
+Knowledge / Skills, Finder, Terminal, and Notes product-facing widgets, plus
+Database / JDBC Preview and Runbook Preview, with Agent Executor and Git
+retained as supporting/compatibility surfaces.
 Workspace Agent is the current foreground chat-based agent work surface and
 compatibility foundation for the target foreground Workspace Agent. It has
 local current-session chat state through the existing `interactive-agent`
@@ -879,13 +885,14 @@ Windows and Linux.
 There is no Notebook tab model, text formatting tool surface, Notes folder UI,
 Markdown editor, Markdown renderer, Mermaid or diagram renderer, rendered block
 preview system, autosave, archive/delete UI, tags, sync, Knowledge ingestion
-flow, AI-in-Notes behavior, Finder implementation, Finder root persistence,
-broad search/indexing, Workspace Agent file attachment, branch management,
-push-all, force push, Agent Queue automatic execution/response
-capture/validation, real external JDBC SQL execution, Template Library runtime,
+flow, AI-in-Notes behavior, Finder root persistence, broad search/indexing,
+Workspace Agent file attachment, branch management, push-all, force push,
+Agent Queue automatic execution/response capture/validation, real external
+JDBC SQL execution, Template Library runtime,
 template storage/editing/request generation/response validation, Git behavior
-beyond retained standalone compatibility status/diff/history/local commit, or
-executable Workspace Agent runtime in the current repository.
+beyond Finder Git status/diff/history/manual commit/manual push plus retained
+standalone compatibility status/diff/history/local commit, or executable
+Workspace Agent runtime in the current repository.
 
 ## Intended Repository Layout
 
@@ -936,8 +943,8 @@ workspace including the Tauri shell, core Rust domain/storage/application
 crates, a frontend Workspace Start Screen, Workspace Agent MVP surface, and
 advanced Empty Workbench shell, a Widget
 Catalog with Workspace Agent, Agent Activity, Agent Queue, Knowledge / Skills,
-Terminal, and Notes product-facing surfaces, plus Database / JDBC Preview and
-Runbook Preview, plus
+Finder, Terminal, and Notes product-facing surfaces, plus Database / JDBC
+Preview and Runbook Preview, plus
 supporting/compatibility Agent Executor and Git implementations outside the
 normal product catalog, a
 minimal Tauri desktop host, SQLite-backed
@@ -952,8 +959,9 @@ parsing that does not switch the product default away from mock execution,
 retained backend proposal/review artifact
 paths that are not exposed as current catalog surfaces, and a narrow manual
 desktop-only Git status/diff/history and selected-file local commit path for
-the deprecated/internal Git compatibility surface, with Finder retained as a
-required Stable v0.1 product gap.
+the deprecated/internal Git compatibility surface, and a Stable v0.1 Finder
+surface with column navigation, file preview/edit, Finder Git selected-file
+diff/history, manual local commit, and explicit manual push.
 Generated Tauri schema artifacts under `apps/desktop/src-tauri/gen/`
 are ignored.
 

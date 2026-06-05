@@ -46,10 +46,8 @@ Every Stable v0.1 acceptance run must record:
 - [ ] `docs/CURRENT_WIDGET_SURFACE.md` still matches the accepted current
   product surface.
 - [ ] Widget Catalog exposes only product-facing Workspace Agent, Agent Queue,
-  Terminal, Agent Activity, Notes, Knowledge / Skills, Database / JDBC Preview,
-  and Runbook Preview entries.
-- [ ] Finder is tracked as a required Stable v0.1 gap and is not presented as a
-  current product widget until implemented.
+  Terminal, Agent Activity, Notes, Knowledge / Skills, Finder, Database / JDBC
+  Preview, and Runbook Preview entries.
 - [ ] Agent Executor and standalone Git are not presented as normal product
   widgets; if reachable for compatibility/internal support, they are clearly
   labeled as supporting/deprecated compatibility surfaces.
@@ -212,25 +210,21 @@ Every Stable v0.1 acceptance run must record:
 - [ ] Verify unsupported platforms report visible unsupported behavior rather
   than pretending live PTY works.
 
-## K. Git Compatibility And Future Finder Git
+## K. Finder Git Plugin And Git Compatibility
 
-- [ ] If Finder is not implemented, mark this section blocked by the required
-  Finder gap.
-- [ ] Once Finder Git is implemented, select an explicit approved root before
-  any Git read.
-- [ ] Once Finder Git is implemented, verify Finder shows status badges or
-  changed-file state for changed files where Git data is available.
-- [ ] Once Finder Git is implemented, select a changed file and verify bounded
-  selected-file diff preview renders in Finder.
-- [ ] Once Finder Git is implemented, verify recent Git history renders in
-  Finder where available.
-- [ ] Once Finder Git is implemented, commit only explicit selected files with
-  an operator-provided message and explicit confirmation.
-- [ ] Once Finder Git is implemented, push only through an explicit Finder Git
-  manual push action after visible branch/upstream/ahead-behind review.
-- [ ] Once Finder Git is implemented, verify manual push does not support force
-  push, push-all, hidden push, automatic push after commit or Executor
-  completion, reset, clean, stash, or branch management.
+- [ ] From Finder, select an explicit approved root before any Git read.
+- [ ] Verify Finder shows status badges or changed-file state for changed
+  files where Git data is available.
+- [ ] Select a changed file and verify bounded selected-file diff preview
+  renders in Finder.
+- [ ] Verify recent Git history renders in Finder where available.
+- [ ] Commit only explicit selected files with an operator-provided message and
+  explicit confirmation.
+- [ ] Push only through an explicit Finder Git manual push action after visible
+  branch/upstream/ahead-behind review.
+- [ ] Verify manual push does not support force push, push-all, hidden push,
+  automatic push after commit or Executor completion, reset, clean, stash, or
+  branch management.
 - [ ] Verify standalone Git, if reachable, is labeled deprecated/internal
   compatibility and is not presented as a normal product widget.
 - [ ] Verify Git does not persist repository root/status as Workspace state,
@@ -264,26 +258,17 @@ Every Stable v0.1 acceptance run must record:
 
 ## N. Finder
 
-- [ ] If Finder is not implemented, mark this section blocked by the required
-  Finder gap.
-- [ ] Once Finder is implemented, select an explicit root before listing files
-  or folders.
-- [ ] Once Finder is implemented, navigate nested folders through column-based
-  navigation.
-- [ ] Once Finder is implemented, verify previous folders remain visible as
-  earlier columns.
-- [ ] Once Finder is implemented, select a file and verify bounded file content
-  preview renders.
-- [ ] Once Finder is implemented, minimize and maximize the floating preview
-  pane without changing widget identity, reading hidden content, saving edits,
-  refreshing Git, or sending context.
-- [ ] Once Finder is implemented, edit a supported uncapped text file in place
-  and save explicitly.
-- [ ] Once Finder is implemented, edit a supported uncapped text file in place
-  and cancel explicitly.
-- [ ] Once Finder is implemented, verify unsupported, capped, binary,
-  permission-denied, or too-large files show visible states rather than fake
-  content.
+- [ ] Select an explicit root before listing files or folders.
+- [ ] Navigate nested folders through column-based navigation.
+- [ ] Verify previous folders remain visible as earlier columns.
+- [ ] Select a file and verify bounded file content preview renders.
+- [ ] Minimize and maximize the floating preview pane without changing widget
+  identity, reading hidden content, saving edits, refreshing Git, or sending
+  context.
+- [ ] Edit a supported uncapped text file in place and save explicitly.
+- [ ] Edit a supported uncapped text file in place and cancel explicitly.
+- [ ] Verify unsupported, capped, binary, permission-denied, or too-large files
+  show visible states rather than fake content.
 - [ ] Verify Finder is not a generic IDE, hidden scanner, Terminal launcher,
   arbitrary command prompt, broad context ingestion path, or Workspace Agent
   hidden context source.
@@ -360,7 +345,7 @@ G. Agent Activity: [ ] pass [ ] partial [ ] fail [ ] not attempted
 H. Notes: [ ] pass [ ] partial [ ] fail [ ] not attempted
 I. Knowledge / Skills: [ ] pass [ ] partial [ ] fail [ ] not attempted
 J. Terminal: [ ] pass [ ] partial [ ] fail [ ] not attempted
-K. Git compatibility and future Finder Git: [ ] pass [ ] partial [ ] fail [ ] not attempted
+K. Finder Git plugin and Git compatibility: [ ] pass [ ] partial [ ] fail [ ] not attempted
 L. Database / JDBC Preview: [ ] pass [ ] partial [ ] fail [ ] not attempted
 M. Runbook Preview: [ ] pass [ ] partial [ ] fail [ ] not attempted
 N. Finder: [ ] pass [ ] partial [ ] fail [ ] not attempted
