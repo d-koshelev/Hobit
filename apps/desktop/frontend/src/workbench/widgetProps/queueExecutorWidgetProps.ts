@@ -7,6 +7,7 @@ import type {
 import type {
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
+  AgentQueueItemOpenRequest,
   AgentExecutorSlot,
   CoordinatorAttachedContextInput,
   WidgetInstanceId,
@@ -35,6 +36,7 @@ type AgentExecutorActions = Pick<
 
 type AgentQueueWidgetPropsOptions = {
   actions: AgentQueueKnowledgeActions;
+  agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   agentQueueController: AgentQueueController;
   agentExecutorSlots: AgentExecutorSlot[];
   onAttachContextToCoordinator?: (
@@ -63,6 +65,7 @@ type AgentExecutorWidgetPropsOptions = {
 
 export function agentQueueWidgetProps({
   actions,
+  agentQueueItemOpenRequest,
   agentQueueController,
   agentExecutorSlots,
   onAttachContextToCoordinator,
@@ -70,6 +73,7 @@ export function agentQueueWidgetProps({
   onOpenAgentExecutorRun,
 }: AgentQueueWidgetPropsOptions): Partial<WidgetRenderProps> {
   return {
+    agentQueueItemOpenRequest,
     agentQueueController,
     agentExecutorSlots,
     onAttachContextToCoordinator,

@@ -22,10 +22,7 @@ import {
   queueTagColorToken,
   type QueueTagColorToken,
 } from "./queue/agentQueueTagColors";
-import {
-  AGENT_QUEUE_WIDGET_DEFINITION_ID,
-  AGENT_RUN_WIDGET_DEFINITION_ID,
-} from "./widgetRegistry";
+import { AGENT_RUN_WIDGET_DEFINITION_ID } from "./widgetRegistry";
 
 export type QueueTagStatus = "running" | "paused";
 export type QueueTagPauseReason = "manual" | "edit_review";
@@ -350,33 +347,6 @@ export function agentExecutorSlotsFromWidgets(
       label: agentExecutorSlotLabel(widget.id),
       widgetInstanceId: widget.id,
     }));
-}
-
-export function queueExecutorSlotsFromWidgets(
-  widgets: WidgetInstance[],
-): AgentExecutorSlot[] {
-  const queueWidget = widgets
-    .filter(
-      (widget) =>
-        widget.visible &&
-        widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
-    )
-    .sort((first, second) => first.layout.order - second.layout.order)[0];
-  const agentExecutorSlots = agentExecutorSlotsFromWidgets(widgets);
-
-  return queueWidget
-    ? [
-        {
-          label: "Local executor ready",
-          ownerKind: "agent_queue" as const,
-          widgetInstanceId: queueWidget.id,
-        },
-        ...agentExecutorSlots.map((slot) => ({
-          ...slot,
-          ownerKind: slot.ownerKind ?? ("agent_executor" as const),
-        })),
-      ]
-    : agentExecutorSlots;
 }
 
 export function assignmentLabel(assignedExecutorWidgetId: string | null) {

@@ -27,6 +27,7 @@ type WorkspaceAgentWidgetPropsOptions = {
   agentActivityEvents: AgentActivityEvent[];
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   instanceId: WidgetInstanceId;
+  onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
   workspaceQueueApi: WorkspaceQueueApi;
@@ -37,6 +38,7 @@ export function workspaceAgentWidgetProps({
   agentActivityEvents,
   coordinatorAttachedContextRequest,
   instanceId,
+  onOpenAgentQueueItem,
   onPublishAgentActivityEvents,
   queueReportActionCardRequest,
   workspaceQueueApi,
@@ -60,7 +62,7 @@ export function workspaceAgentWidgetProps({
     onCreateWorkspaceNote: actions.createWorkspaceNote,
     onGenerateCoordinatorProviderResponse:
       actions.generateCoordinatorProviderResponse,
-    onOpenAgentQueueItem: workspaceQueueApi.openQueueItem,
+    onOpenAgentQueueItem,
     onPublishAgentActivityEvents,
     onSearchKnowledgeDocuments: actions.searchKnowledgeDocuments,
     onSelectWorkspaceDirectory: actions.selectWorkspaceDirectory,

@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { AgentQueueTask } from "../workspace/types";
@@ -40,6 +40,7 @@ export function AgentQueuePlaceholderWidget({
   frameStyle,
   instance,
   logRefreshToken,
+  agentQueueItemOpenRequest,
   agentExecutorSlots = [],
   agentQueueController,
   onLoadLogs,
@@ -97,6 +98,17 @@ export function AgentQueuePlaceholderWidget({
     selectTask,
     tasks,
   } = queue;
+
+  useEffect(() => {
+    if (
+      !agentQueueItemOpenRequest ||
+      agentQueueItemOpenRequest.targetQueueWidgetInstanceId !== instance.id
+    ) {
+      return;
+    }
+
+    void selectTask(agentQueueItemOpenRequest.queueItemId);
+  }, [agentQueueItemOpenRequest?.id]);
 
   const queueFrameActions = (
     <>

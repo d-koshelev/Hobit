@@ -20,6 +20,8 @@ import type {
 import type {
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
+  AgentQueueItemOpenRequest,
+  AgentExecutorSlot,
   CoordinatorAttachedContextInput,
   CoordinatorAttachedContextRequest,
   WorkspaceAgentQueueReportActionCardRequest,
@@ -42,7 +44,9 @@ import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 
 type WidgetHostRenderPropsOptions = {
   agentActivityEvents: AgentActivityEvent[];
+  agentExecutorSlots: AgentExecutorSlot[];
   agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
+  agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   componentKey: string;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
@@ -56,6 +60,7 @@ type WidgetHostRenderPropsOptions = {
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
+  onOpenAgentQueueItem?: (queueItemId: string) => void;
   onOpenAgentExecutorRun: (
     request: AgentExecutorRunOpenRequestInput,
   ) => void;
@@ -66,7 +71,9 @@ type WidgetHostRenderPropsOptions = {
 
 export function widgetHostRenderProps({
   agentActivityEvents,
+  agentExecutorSlots,
   agentExecutorRunOpenRequest,
+  agentQueueItemOpenRequest,
   componentKey,
   coordinatorAttachedContextRequest,
   queueReportActionCardRequest,
@@ -76,6 +83,7 @@ export function widgetHostRenderProps({
   instanceId,
   onAttachContextToCoordinator,
   onShowQueueReportInWorkspaceChat,
+  onOpenAgentQueueItem,
   onOpenAgentExecutorRun,
   onPublishAgentActivityEvents,
   widgetActions,
@@ -95,6 +103,7 @@ export function widgetHostRenderProps({
       ...commonProps,
       ...agentQueueWidgetProps({
         actions: widgetActions,
+        agentQueueItemOpenRequest,
         agentQueueController: workspaceQueueApi.controller,
         agentExecutorSlots: workspaceQueueApi.queueExecutorSlots,
         onAttachContextToCoordinator,
@@ -144,6 +153,7 @@ export function widgetHostRenderProps({
         agentActivityEvents,
         coordinatorAttachedContextRequest,
         instanceId,
+        onOpenAgentQueueItem,
         onPublishAgentActivityEvents,
         queueReportActionCardRequest,
         workspaceQueueApi,

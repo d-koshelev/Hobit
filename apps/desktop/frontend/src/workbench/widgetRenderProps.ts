@@ -79,6 +79,7 @@ import type {
 import type { AgentActivityEvent } from "./agentActivityModel";
 import type {
   AgentExecutorSlot,
+  AgentQueueItemOpenRequest,
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
   CoordinatorAttachedContextInput,
@@ -110,6 +111,7 @@ export type WidgetRenderProps = {
   directWorkGitReviewStatus?: DirectWorkGitReviewStatus | null;
   directWorkRunHandoff?: DirectWorkRunHandoff | null;
   agentExecutorRunOpenRequest?: AgentExecutorRunOpenRequest | null;
+  agentQueueItemOpenRequest?: AgentQueueItemOpenRequest | null;
   coordinatorAttachedContextRequest?: CoordinatorAttachedContextRequest | null;
   queueReportActionCardRequest?: WorkspaceAgentQueueReportActionCardRequest | null;
   frameActions?: ReactNode;
