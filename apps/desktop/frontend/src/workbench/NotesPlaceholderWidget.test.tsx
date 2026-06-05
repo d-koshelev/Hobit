@@ -115,8 +115,8 @@ describe("NotesPlaceholderWidget empty state", () => {
     await flushEffects();
 
     expect(buttonWithText("Create document")).toBeDefined();
-    changeSelect(1, "global");
-    changeSelect(2, "draft");
+    changeSelectByLabelText("Scope", "global");
+    changeSelectByLabelText("Status", "draft");
     changeInput(".notes-promotion-tags input", "deployment, falcon");
     await clickButton("Create document");
     await flushEffects();
@@ -261,7 +261,7 @@ describe("NotesPlaceholderWidget empty state", () => {
     });
     await flushEffects();
 
-    await clickButton("Pretty JSON");
+    await clickButton("Format");
 
     expect(textareaValue(".notes-body-input")).toBe(formattedBody);
     expect(document.body.textContent).toContain("Unsaved");
@@ -297,7 +297,7 @@ describe("NotesPlaceholderWidget empty state", () => {
     });
     await flushEffects();
 
-    await clickButton("Pretty JSON");
+    await clickButton("Format");
 
     expect(textareaValue(".notes-body-input")).toBe("{ bad json");
     expect(document.body.textContent).toContain(
@@ -325,7 +325,8 @@ describe("NotesPlaceholderWidget empty state", () => {
     });
     await flushEffects();
 
-    await clickButton("Format CSV");
+    changeSelectByLabelText("Format", "normalize-csv");
+    await clickButton("Format");
 
     expect(textareaValue(".notes-body-input")).toBe('name,note\nAda,"open');
     expect(document.body.textContent).toContain(
@@ -410,11 +411,18 @@ function textareaValue(selector: string) {
   return textarea.value;
 }
 
-function changeSelect(index: number, value: string) {
+function changeSelectByLabelText(labelText: string, value: string) {
   act(() => {
-    const select = Array.from(document.querySelectorAll("select"))[index];
+    const label = Array.from(document.querySelectorAll("label")).find(
+      (candidate) =>
+        Array.from(candidate.querySelectorAll("span")).some(
+          (span) => span.textContent === labelText,
+        ),
+    );
+    const select = label?.querySelector("select");
+
     if (!select) {
-      throw new Error(`Select not found at index: ${index.toString()}`);
+      throw new Error(`Select not found for label: ${labelText}`);
     }
 
     setNativeValue(select, value);

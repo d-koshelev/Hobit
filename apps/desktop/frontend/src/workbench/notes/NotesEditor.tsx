@@ -108,6 +108,8 @@ export function NotesEditor({
   validationMessage: string | null;
 }) {
   const [formatError, setFormatError] = useState<string | null>(null);
+  const [selectedFormatAction, setSelectedFormatAction] =
+    useState<NotesFormatAction>("pretty-json");
 
   useEffect(() => {
     setFormatError(null);
@@ -139,8 +141,8 @@ export function NotesEditor({
     onUpdateDraftBody(value);
   }
 
-  function applyBodyFormat(action: NotesFormatAction) {
-    const result = formatNoteBody(action, draftBody);
+  function applyBodyFormat() {
+    const result = formatNoteBody(selectedFormatAction, draftBody);
 
     if (!result.ok) {
       setFormatError(result.error);
@@ -189,19 +191,39 @@ export function NotesEditor({
             aria-label="Note body formatting actions"
             className="notes-format-toolbar"
           >
-            <span className="notes-format-label">Format</span>
-            {NOTE_FORMAT_ACTIONS.map((action) => (
-              <Button
-                className="notes-format-action"
+            <label className="notes-format-field">
+              <span className="notes-format-label">Format</span>
+              <select
+                aria-label="Format note body"
+                className="input notes-format-select"
                 disabled={!selectedNote || isSaving}
-                key={action.action}
-                onClick={() => applyBodyFormat(action.action)}
-                title={action.title}
-                variant="ghost"
+                onChange={(event) =>
+                  setSelectedFormatAction(
+                    event.currentTarget.value as NotesFormatAction,
+                  )
+                }
+                value={selectedFormatAction}
               >
-                {action.label}
-              </Button>
-            ))}
+                {NOTE_FORMAT_ACTIONS.map((action) => (
+                  <option key={action.action} value={action.action}>
+                    {action.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <Button
+              className="notes-format-action"
+              disabled={!selectedNote || isSaving}
+              onClick={applyBodyFormat}
+              title={
+                NOTE_FORMAT_ACTIONS.find(
+                  (action) => action.action === selectedFormatAction,
+                )?.title
+              }
+              variant="ghost"
+            >
+              Format
+            </Button>
           </div>
           <div className="notes-editor-controls">
             <Button
