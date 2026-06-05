@@ -1,609 +1,286 @@
-import {
-  useEffect,
-  useId,
-  useLayoutEffect,
-  useRef,
-  useState,
-} from "react";
-import {
-  DEFAULT_TERMINAL_WORKING_DIRECTORY,
-  type TerminalPtySession,
-} from "../workspace/types";
-import {
-  TerminalPtySettingsBody,
-  TerminalShellHeader,
-  TerminalShellOutputPanel,
-} from "./TerminalPtySessionPanelParts";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "../design-system/Button";
+import { TerminalPtyPanePanel } from "./TerminalPtyPanePanel";
 import type { TerminalPtySessionPanelProps } from "./TerminalPtySessionTypes";
-import type { TerminalXtermSurfaceHandle } from "./TerminalXtermSurface";
-import {
-  errorToMessage,
-  parsePositiveIntegerInput,
-  positiveIntegerInputError,
-  TerminalNotice,
-} from "./TerminalRunCommandPanel";
-import {
-  isTerminalPtyActive,
-  isUnsupportedError,
-  maxOutputSequence,
-  terminalArgumentLines,
-  terminalPtyStatusView,
-  terminalPtyVisibleOutput,
-} from "./TerminalPtySessionView";
+import type { TerminalFrameStatusView } from "./TerminalRunCommandPanel";
 
-const DEFAULT_SHELL = "";
-const DEFAULT_SHELL_LABEL = "Default shell";
-const DEFAULT_COLS = "80";
-const DEFAULT_ROWS = "24";
-const DEFAULT_OUTPUT_BUFFER_CAP_BYTES = "65536";
-const POLL_INTERVAL_MS = 1250;
-const terminalAutoStartRequests = new Map<
-  string,
-  Promise<TerminalPtySession | null>
->();
+const MAX_PANES_PER_TAB = 4;
+const INITIAL_TAB_ID = "terminal-tab-1";
+const INITIAL_PANE_ID = "terminal-pane-1";
+
+type TerminalTab = {
+  activePaneId: string;
+  id: string;
+  layoutMode: "columns" | "grid" | "rows";
+  paneIds: string[];
+  title: string;
+};
 
 export function TerminalPtySessionPanel({
   instance,
-  onCloseTerminalPtySession,
-  onCreateTerminalPtySession,
   onActiveSessionChange,
   onFrameStatusChange,
-  onGetTerminalPtySession,
-  onKillTerminalPtySession,
-  onResizeTerminalPtySession,
-  onRunTerminalCommand,
-  onStopTerminalPtySession,
-  onWriteTerminalPtySession,
+  ...paneCallbacks
 }: TerminalPtySessionPanelProps) {
-  const settingsTitleId = useId();
-  const shellInputId = useId();
-  const shellArgsInputId = useId();
-  const workingDirectoryInputId = useId();
-  const colsInputId = useId();
-  const rowsInputId = useId();
-  const outputCapInputId = useId();
-  const terminalSurfaceRef = useRef<TerminalXtermSurfaceHandle | null>(null);
-  const [shellDraft, setShellDraft] = useState(DEFAULT_SHELL);
-  const [shellArgsDraft, setShellArgsDraft] = useState("");
-  const [workingDirectoryDraft, setWorkingDirectoryDraft] = useState(
-    DEFAULT_TERMINAL_WORKING_DIRECTORY,
-  );
-  const [colsDraft, setColsDraft] = useState(DEFAULT_COLS);
-  const [rowsDraft, setRowsDraft] = useState(DEFAULT_ROWS);
-  const [outputCapDraft, setOutputCapDraft] = useState(
-    DEFAULT_OUTPUT_BUFFER_CAP_BYTES,
-  );
-  const [session, setSession] = useState<TerminalPtySession | null>(null);
-  const [clearedThroughSequence, setClearedThroughSequence] = useState(0);
-  const [isStarting, setIsStarting] = useState(false);
-  const [isResizing, setIsResizing] = useState(false);
-  const [isStopping, setIsStopping] = useState(false);
-  const [isKilling, setIsKilling] = useState(false);
-  const [isClosing, setIsClosing] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [killConfirmOpen, setKillConfirmOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [legacyFallbackOpen, setLegacyFallbackOpen] = useState(false);
-  const [copyStatus, setCopyStatus] = useState<string | null>(null);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const autoStartAttemptedRef = useRef(false);
-  const clearedThroughSequenceRef = useRef(0);
-  const startInFlightRef = useRef(false);
+  const nextTabNumberRef = useRef(2);
+  const nextPaneNumberRef = useRef(2);
+  const [tabs, setTabs] = useState<TerminalTab[]>([
+    {
+      activePaneId: INITIAL_PANE_ID,
+      id: INITIAL_TAB_ID,
+      layoutMode: "columns",
+      paneIds: [INITIAL_PANE_ID],
+      title: "Tab 1",
+    },
+  ]);
+  const [activeTabId, setActiveTabId] = useState(INITIAL_TAB_ID);
+  const [paneActivity, setPaneActivity] = useState<Record<string, boolean>>({});
+  const [paneStatuses, setPaneStatuses] = useState<
+    Record<string, TerminalFrameStatusView>
+  >({});
 
-  const shell = shellDraft.trim();
-  const workingDirectory = workingDirectoryDraft.trim();
-  const shellArgs = terminalArgumentLines(shellArgsDraft);
-  const colsError = positiveIntegerInputError(colsDraft, "Columns");
-  const rowsError = positiveIntegerInputError(rowsDraft, "Rows");
-  const outputCapError = positiveIntegerInputError(
-    outputCapDraft,
-    "Output buffer cap bytes",
-  );
-  const numericInputError = colsError ?? rowsError ?? outputCapError;
-  const activeSession = Boolean(session && isTerminalPtyActive(session));
-  const hasOpenSession = Boolean(session && session.status !== "closed");
-  const statusView = terminalPtyStatusView(session, errorMessage, isStarting);
-  const shellLabel = session?.shell || shell || DEFAULT_SHELL_LABEL;
-  const workingDirectoryLabel =
-    session?.workingDirectory || workingDirectory || "Not selected";
-  const sessionStateLabel = session?.status ?? statusView.label.toLowerCase();
-  const exitCodeLabel = session
-    ? session.exitCode === null
-      ? "none"
-      : String(session.exitCode)
-    : "none";
-  const canStart =
-    Boolean(onCreateTerminalPtySession) &&
-    !hasOpenSession &&
-    !isStarting &&
-    workingDirectory.length > 0 &&
-    !numericInputError;
-  const canResize =
-    Boolean(onResizeTerminalPtySession) &&
-    activeSession &&
-    !numericInputError &&
-    !isResizing;
-  const canStop =
-    Boolean(onStopTerminalPtySession) && activeSession && !isStopping;
-  const canKill =
-    Boolean(onKillTerminalPtySession) && activeSession && !isKilling;
-  const canClose =
-    Boolean(onCloseTerminalPtySession) &&
-    Boolean(session) &&
-    !activeSession &&
-    session?.status !== "closed" &&
-    !isClosing;
-  const canRefresh =
-    Boolean(session) &&
-    session?.status !== "closed" &&
-    Boolean(onGetTerminalPtySession) &&
-    !isRefreshing;
-  const canCopy = Boolean(session && session.status !== "closed");
-  const canClear = Boolean(session && maxOutputSequence(session) > 0);
+  const activeTab = tabs.find((tab) => tab.id === activeTabId) ?? tabs[0];
+  const activePaneStatus = activeTab
+    ? paneStatuses[activeTab.activePaneId]
+    : null;
 
   useEffect(() => {
-    onFrameStatusChange?.(statusView);
-  }, [onFrameStatusChange, statusView.label, statusView.variant]);
+    if (activePaneStatus) {
+      onFrameStatusChange?.(activePaneStatus);
+    }
+  }, [activePaneStatus, onFrameStatusChange]);
 
   useEffect(() => {
-    onActiveSessionChange?.(activeSession);
-  }, [activeSession, onActiveSessionChange]);
+    onActiveSessionChange?.(
+      Object.values(paneActivity).some((isActive) => isActive),
+    );
+  }, [onActiveSessionChange, paneActivity]);
 
-  useEffect(() => {
+  const recordPaneActivity = useCallback(
+    (paneId: string, isActive: boolean) => {
+      setPaneActivity((current) =>
+        current[paneId] === isActive
+          ? current
+          : { ...current, [paneId]: isActive },
+      );
+    },
+    [],
+  );
+
+  const recordPaneStatus = useCallback(
+    (paneId: string, status: TerminalFrameStatusView) => {
+      setPaneStatuses((current) =>
+        current[paneId]?.label === status.label &&
+        current[paneId]?.variant === status.variant
+          ? current
+          : { ...current, [paneId]: status },
+      );
+    },
+    [],
+  );
+
+  function createTab() {
+    const tabNumber = nextTabNumberRef.current;
+    nextTabNumberRef.current += 1;
+    const paneId = createPaneId(nextPaneNumberRef);
+    const tabId = `terminal-tab-${tabNumber}`;
+
+    setTabs((current) => [
+      ...current,
+      {
+        activePaneId: paneId,
+        id: tabId,
+        layoutMode: "columns",
+        paneIds: [paneId],
+        title: `Tab ${tabNumber}`,
+      },
+    ]);
+    setActiveTabId(tabId);
+  }
+
+  function closeTab(tabId: string) {
+    const tab = tabs.find((candidate) => candidate.id === tabId);
     if (
-      autoStartAttemptedRef.current ||
-      session ||
-      isStarting ||
-      !onCreateTerminalPtySession ||
-      !workingDirectory ||
-      numericInputError
+      !tab ||
+      tabs.length === 1 ||
+      tab.paneIds.some((paneId) => paneActivity[paneId])
     ) {
       return;
     }
 
-    autoStartAttemptedRef.current = true;
-    void startSession({ autoStart: true });
-  }, [
-    isStarting,
-    numericInputError,
-    onCreateTerminalPtySession,
-    session,
-    workingDirectory,
-  ]);
-
-  useEffect(() => {
-    if (!session || !isTerminalPtyActive(session) || !onGetTerminalPtySession) {
-      return;
-    }
-
-    const interval = window.setInterval(() => {
-      void refreshSession(true);
-    }, POLL_INTERVAL_MS);
-
-    return () => window.clearInterval(interval);
-  }, [onGetTerminalPtySession, session?.sessionId, session?.status]);
-
-  useLayoutEffect(() => {
-    terminalSurfaceRef.current?.fit();
-  }, [session?.sessionId, session?.status]);
-
-  useEffect(() => {
-    clearedThroughSequenceRef.current = clearedThroughSequence;
-  }, [clearedThroughSequence]);
-
-  async function startSession({ autoStart = false } = {}) {
-    if (!onCreateTerminalPtySession || startInFlightRef.current) {
-      return;
-    }
-
-    setErrorMessage(null);
-    setCopyStatus(null);
-
-    if (!workingDirectory) {
-      setErrorMessage("Execution workspace / working directory is required.");
-      return;
-    }
-    if (numericInputError) {
-      setErrorMessage(numericInputError);
-      return;
-    }
-
-    startInFlightRef.current = true;
-    setIsStarting(true);
-    setClearedThroughSequence(0);
-
-    try {
-      const cols = parsePositiveIntegerInput(colsDraft, "Columns");
-      const rows = parsePositiveIntegerInput(rowsDraft, "Rows");
-      const outputBufferCapBytes = parsePositiveIntegerInput(
-        outputCapDraft,
-        "Output buffer cap bytes",
-      );
-      const request = {
-        shell,
-        shellArgs,
-        workingDirectory,
-        cols,
-        rows,
-        outputBufferCapBytes,
-      };
-      const response = autoStart
-        ? await createAutoStartedSession(
-            instance.id,
-            () => onCreateTerminalPtySession(instance.id, request),
-          )
-        : await onCreateTerminalPtySession(instance.id, request);
-
-      if (!response) {
-        throw new Error(
-          "Terminal PTY session was not accepted for this widget instance.",
-        );
+    setTabs((current) => {
+      const nextTabs = current.filter((candidate) => candidate.id !== tabId);
+      if (activeTabId === tabId) {
+        setActiveTabId(nextTabs[0]?.id ?? INITIAL_TAB_ID);
       }
-
-      setSession(response);
-      window.setTimeout(() => terminalSurfaceRef.current?.focus(), 0);
-    } catch (error) {
-      setErrorMessage(
-        errorToMessage(error, "Unable to create Terminal PTY session."),
-      );
-    } finally {
-      startInFlightRef.current = false;
-      setIsStarting(false);
-    }
+      return nextTabs;
+    });
   }
 
-  async function sendRawStdin(data: string) {
-    if (!session || !onWriteTerminalPtySession || !activeSession) {
+  function activatePane(tabId: string, paneId: string) {
+    setActiveTabId(tabId);
+    setTabs((current) =>
+      current.map((tab) =>
+        tab.id === tabId ? { ...tab, activePaneId: paneId } : tab,
+      ),
+    );
+  }
+
+  function splitActivePane(direction: "columns" | "rows") {
+    if (!activeTab || activeTab.paneIds.length >= MAX_PANES_PER_TAB) {
       return;
     }
 
-    setErrorMessage(null);
+    const newPaneId = createPaneId(nextPaneNumberRef);
+    setTabs((current) =>
+      current.map((tab) => {
+        if (tab.id !== activeTab.id) {
+          return tab;
+        }
 
-    try {
-      const response = await onWriteTerminalPtySession(instance.id, {
-        sessionId: session.sessionId,
-        data,
-      });
-      applySessionResponse(response);
-    } catch (error) {
-      setErrorMessage(
-        errorToMessage(error, "Unable to send input to Terminal PTY session."),
-      );
-    } finally {
-      terminalSurfaceRef.current?.focus();
-    }
+        const nextLayoutMode =
+          tab.paneIds.length > 1 && tab.layoutMode !== direction
+            ? "grid"
+            : direction;
+
+        return {
+          ...tab,
+          activePaneId: newPaneId,
+          layoutMode: nextLayoutMode,
+          paneIds: [...tab.paneIds, newPaneId],
+        };
+      }),
+    );
   }
 
-  async function resizeSession() {
-    if (!session || !onResizeTerminalPtySession || !canResize) {
+  function closePane(tabId: string, paneId: string) {
+    const tab = tabs.find((candidate) => candidate.id === tabId);
+    if (!tab || tab.paneIds.length === 1 || paneActivity[paneId]) {
       return;
     }
 
-    setErrorMessage(null);
-    setIsResizing(true);
-
-    try {
-      const cols = parsePositiveIntegerInput(colsDraft, "Columns");
-      const rows = parsePositiveIntegerInput(rowsDraft, "Rows");
-      if (cols === null || rows === null) {
-        throw new Error("Columns and rows are required.");
-      }
-      const response = await onResizeTerminalPtySession(instance.id, {
-        sessionId: session.sessionId,
-        cols,
-        rows,
-      });
-      applySessionResponse(response);
-    } catch (error) {
-      setErrorMessage(errorToMessage(error, "Unable to resize PTY session."));
-    } finally {
-      setIsResizing(false);
-    }
-  }
-
-  async function stopSession() {
-    if (!session || !onStopTerminalPtySession || !canStop) {
-      return;
-    }
-
-    setErrorMessage(null);
-    setIsStopping(true);
-
-    try {
-      const response = await onStopTerminalPtySession(instance.id, {
-        sessionId: session.sessionId,
-      });
-      applySessionResponse(response);
-    } catch (error) {
-      setErrorMessage(errorToMessage(error, "Unable to stop PTY session."));
-    } finally {
-      setIsStopping(false);
-    }
-  }
-
-  async function killSession() {
-    if (!session || !onKillTerminalPtySession || !canKill) {
-      return;
-    }
-
-    setErrorMessage(null);
-    setIsKilling(true);
-
-    try {
-      const response = await onKillTerminalPtySession(instance.id, {
-        sessionId: session.sessionId,
-      });
-      setKillConfirmOpen(false);
-      applySessionResponse(response);
-    } catch (error) {
-      setErrorMessage(
-        errorToMessage(error, "Unable to force terminate PTY session."),
-      );
-    } finally {
-      setIsKilling(false);
-    }
-  }
-
-  async function closeSession() {
-    if (!session || !onCloseTerminalPtySession || !canClose) {
-      return;
-    }
-
-    setErrorMessage(null);
-    setIsClosing(true);
-
-    try {
-      const response = await onCloseTerminalPtySession(instance.id, {
-        sessionId: session.sessionId,
-      });
-      applySessionResponse(response);
-    } catch (error) {
-      setErrorMessage(errorToMessage(error, "Unable to close PTY session."));
-    } finally {
-      setIsClosing(false);
-    }
-  }
-
-  async function refreshSession(quiet = false) {
-    if (!session || !onGetTerminalPtySession) {
-      return;
-    }
-
-    if (!quiet) {
-      setIsRefreshing(true);
-      setErrorMessage(null);
-    }
-
-    try {
-      const response = await onGetTerminalPtySession(instance.id, {
-        sessionId: session.sessionId,
-      });
-      applySessionResponse(response);
-    } catch (error) {
-      if (!quiet) {
-        setErrorMessage(errorToMessage(error, "Unable to refresh PTY session."));
-      }
-    } finally {
-      if (!quiet) {
-        setIsRefreshing(false);
-      }
-    }
-  }
-
-  function applySessionResponse(response: TerminalPtySession | null) {
-    if (!response) {
-      setErrorMessage("Terminal PTY session is no longer available.");
-      return;
-    }
-
-    setSession(response);
-    if (response.cols) {
-      setColsDraft(String(response.cols));
-    }
-    if (response.rows) {
-      setRowsDraft(String(response.rows));
-    }
-  }
-
-  function clearVisibleOutput() {
-    const nextClearedThroughSequence = maxOutputSequence(session);
-    clearedThroughSequenceRef.current = nextClearedThroughSequence;
-    setClearedThroughSequence(nextClearedThroughSequence);
-    terminalSurfaceRef.current?.clear();
-    terminalSurfaceRef.current?.focus();
-    setCopyStatus(null);
-  }
-
-  async function copyVisibleOutput() {
-    const xtermText = terminalSurfaceRef.current?.getCopyText();
-    const outputToCopy =
-      xtermText === null || xtermText === undefined
-        ? terminalPtyVisibleOutput(session, clearedThroughSequenceRef.current)
-        : xtermText.trimEnd();
-
-    if (!outputToCopy) {
-      setCopyStatus("No output to copy.");
-      terminalSurfaceRef.current?.focus();
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(outputToCopy);
-      setCopyStatus("Output copied.");
-    } catch {
-      setCopyStatus("Copy failed.");
-    } finally {
-      terminalSurfaceRef.current?.focus();
-    }
-  }
-
-  function handleXtermFitDimensions(cols: number, rows: number) {
-    setColsDraft(String(cols));
-    setRowsDraft(String(rows));
-  }
-
-  async function resizeSessionToXterm(cols: number, rows: number) {
-    if (!session || !onResizeTerminalPtySession || !activeSession) {
-      return;
-    }
-
-    setErrorMessage(null);
-    setIsResizing(true);
-
-    try {
-      const response = await onResizeTerminalPtySession(instance.id, {
-        sessionId: session.sessionId,
-        cols,
-        rows,
-      });
-      applySessionResponse(response);
-    } catch (error) {
-      setErrorMessage(errorToMessage(error, "Unable to resize PTY session."));
-    } finally {
-      setIsResizing(false);
-    }
+    const remainingPaneIds = tab.paneIds.filter((id) => id !== paneId);
+    setTabs((current) =>
+      current.map((candidate) =>
+        candidate.id === tabId
+          ? {
+              ...candidate,
+              activePaneId:
+                candidate.activePaneId === paneId
+                  ? remainingPaneIds[0]
+                  : candidate.activePaneId,
+              layoutMode:
+                remainingPaneIds.length === 1 ? "columns" : candidate.layoutMode,
+              paneIds: remainingPaneIds,
+            }
+          : candidate,
+      ),
+    );
+    setPaneActivity((current) => omitKey(current, paneId));
+    setPaneStatuses((current) => omitKey(current, paneId));
   }
 
   return (
     <section aria-label="Terminal session" className="terminal-pty-panel">
-      <div className="terminal-shell">
-        <TerminalShellHeader
-          activeSession={activeSession}
-          canClose={canClose}
-          canClear={canClear}
-          canCopy={canCopy}
-          canKill={canKill}
-          canRefresh={canRefresh}
-          canStart={canStart}
-          canStop={canStop}
-          exitCodeLabel={exitCodeLabel}
-          hasOpenSession={hasOpenSession}
-          isClosing={isClosing}
-          isStarting={isStarting}
-          isRefreshing={isRefreshing}
-          isKilling={isKilling}
-          isStopping={isStopping}
-          killConfirmOpen={killConfirmOpen}
-          onCancelKill={() => setKillConfirmOpen(false)}
-          onClear={clearVisibleOutput}
-          onClose={() => void closeSession()}
-          onCopy={() => void copyVisibleOutput()}
-          onKill={() => void killSession()}
-          onOpenKillConfirm={() => setKillConfirmOpen(true)}
-          onRefresh={() => void refreshSession(false)}
-          onRestart={() => void startSession()}
-          onStop={() => void stopSession()}
-          sessionStateLabel={sessionStateLabel}
-          shellLabel={shellLabel}
-          workingDirectoryLabel={workingDirectoryLabel}
-        />
-
-        {errorMessage ? (
-          <TerminalNotice
-            message={errorMessage}
-            title={
-              isUnsupportedError(errorMessage) ? "Unsupported" : "Terminal error"
-            }
-            variant={isUnsupportedError(errorMessage) ? "info" : "error"}
-          />
-        ) : null}
-
-        {!workingDirectory && !activeSession ? (
-          <TerminalNotice
-            message="Terminal runs local commands in the selected working directory."
-            title="Working directory required"
-            variant="info"
-          />
-        ) : null}
-
-        {numericInputError ? (
-          <p className="terminal-command-validation" role="alert">
-            {numericInputError}
-          </p>
-        ) : null}
-
-        <TerminalShellOutputPanel
-          activeSession={activeSession}
-          clearedThroughSequence={clearedThroughSequence}
-          copyStatus={copyStatus}
-          onFitDimensions={handleXtermFitDimensions}
-          onInputData={(data) => void sendRawStdin(data)}
-          onResize={(cols, rows) => void resizeSessionToXterm(cols, rows)}
-          session={session}
-          terminalSurfaceRef={terminalSurfaceRef}
-        />
+      <div className="terminal-tabs" role="tablist" aria-label="Terminal tabs">
+        {tabs.map((tab) => {
+          const tabActive = tab.id === activeTabId;
+          const tabRunning = tab.paneIds.some((paneId) => paneActivity[paneId]);
+          const closeDisabled = tabs.length === 1 || tabRunning;
+          return (
+            <span
+              className={
+                tabActive
+                  ? "terminal-tab terminal-tab-active"
+                  : "terminal-tab"
+              }
+              key={tab.id}
+            >
+              <button
+                aria-selected={tabActive}
+                className="terminal-tab-button"
+                onClick={() => setActiveTabId(tab.id)}
+                role="tab"
+                type="button"
+              >
+                <span>{tab.title}</span>
+                <span className="terminal-tab-meta">
+                  {tab.paneIds.length} pane{tab.paneIds.length === 1 ? "" : "s"}
+                  {tabRunning ? " running" : ""}
+                </span>
+              </button>
+              <button
+                aria-label={`Close ${tab.title}`}
+                className="terminal-tab-close"
+                disabled={closeDisabled}
+                onClick={() => closeTab(tab.id)}
+                title={
+                  tabRunning
+                    ? "Stop or kill running panes before closing this tab."
+                    : undefined
+                }
+                type="button"
+              >
+                x
+              </button>
+            </span>
+          );
+        })}
+        <Button onClick={createTab} variant="secondary">
+          New tab
+        </Button>
       </div>
 
-      <details
-        aria-labelledby={settingsTitleId}
-        className="terminal-settings"
-        onToggle={(event) => {
-          if (event.currentTarget !== event.target) {
-            return;
+      {tabs.map((tab) => (
+        <div
+          aria-hidden={tab.id !== activeTabId}
+          className={
+            tab.id === activeTabId
+              ? "terminal-tab-panel terminal-tab-panel-active"
+              : "terminal-tab-panel"
           }
-          setSettingsOpen(event.currentTarget.open);
-        }}
-      >
-        <summary className="terminal-settings-summary" id={settingsTitleId}>
-          Terminal settings
-        </summary>
-        {settingsOpen ? (
-          <TerminalPtySettingsBody
-            activeSession={activeSession}
-            canResize={canResize}
-            colsDraft={colsDraft}
-            colsError={colsError}
-            colsInputId={colsInputId}
-            instance={instance}
-            isResizing={isResizing}
-            isStarting={isStarting}
-            legacyFallbackOpen={legacyFallbackOpen}
-            onColsDraftChange={setColsDraft}
-            onLegacyFallbackOpenChange={setLegacyFallbackOpen}
-            onOutputCapDraftChange={setOutputCapDraft}
-            onResize={() => void resizeSession()}
-            onRowsDraftChange={setRowsDraft}
-            onRunTerminalCommand={onRunTerminalCommand}
-            onShellArgsDraftChange={setShellArgsDraft}
-            onShellDraftChange={setShellDraft}
-            onWorkingDirectoryDraftChange={setWorkingDirectoryDraft}
-            outputCapDraft={outputCapDraft}
-            outputCapError={outputCapError}
-            outputCapInputId={outputCapInputId}
-            rowsDraft={rowsDraft}
-            rowsError={rowsError}
-            rowsInputId={rowsInputId}
-            session={session}
-            shellArgsDraft={shellArgsDraft}
-            shellArgsInputId={shellArgsInputId}
-            shellDraft={shellDraft}
-            shellInputId={shellInputId}
-            shellLabel={DEFAULT_SHELL_LABEL}
-            workingDirectoryDraft={workingDirectoryDraft}
-            workingDirectoryInputId={workingDirectoryInputId}
-          />
-        ) : null}
-      </details>
+          key={tab.id}
+          role="tabpanel"
+        >
+          <div
+            className={`terminal-pane-grid terminal-pane-grid-${tab.layoutMode}`}
+          >
+            {tab.paneIds.map((paneId, paneIndex) => (
+              <TerminalPtyPanePanel
+                {...paneCallbacks}
+                canClosePane={tab.paneIds.length > 1}
+                canSplitPane={tab.paneIds.length < MAX_PANES_PER_TAB}
+                instance={instance}
+                isActivePane={paneId === tab.activePaneId}
+                isTabVisible={tab.id === activeTabId}
+                key={paneId}
+                onActivatePane={() => activatePane(tab.id, paneId)}
+                onClosePane={() => closePane(tab.id, paneId)}
+                onPaneActiveSessionChange={(isActive) =>
+                  recordPaneActivity(paneId, isActive)
+                }
+                onPaneStatusChange={(status) => recordPaneStatus(paneId, status)}
+                onSplitDown={() => splitActivePane("rows")}
+                onSplitRight={() => splitActivePane("columns")}
+                paneId={paneId}
+                paneLabel={`Pane ${paneIndex + 1}`}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
     </section>
   );
 }
 
-async function createAutoStartedSession(
-  widgetInstanceId: string,
-  createSession: () => Promise<TerminalPtySession | null>,
-) {
-  const existingRequest = terminalAutoStartRequests.get(widgetInstanceId);
-  if (existingRequest) {
-    return existingRequest;
-  }
+function createPaneId(nextPaneNumberRef: { current: number }) {
+  const paneNumber = nextPaneNumberRef.current;
+  nextPaneNumberRef.current += 1;
+  return `terminal-pane-${paneNumber}`;
+}
 
-  const request = createSession();
-  terminalAutoStartRequests.set(widgetInstanceId, request);
-  try {
-    return await request;
-  } finally {
-    if (terminalAutoStartRequests.get(widgetInstanceId) === request) {
-      terminalAutoStartRequests.delete(widgetInstanceId);
-    }
-  }
+function omitKey<T>(record: Record<string, T>, key: string) {
+  const next = { ...record };
+  delete next[key];
+  return next;
 }

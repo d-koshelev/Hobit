@@ -665,6 +665,120 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(2);
     expect(latestTerminal().write).toHaveBeenLastCalledWith("new session\r\n");
   });
+
+  it("creates a new tab with its own auto-started PTY session", async () => {
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >()
+      .mockResolvedValueOnce(
+        terminalSession({
+          outputText: "tab one\r\n",
+          sessionId: "pty_1",
+          workingDirectory: "C:\\repo",
+        }),
+      )
+      .mockResolvedValueOnce(
+        terminalSession({
+          outputText: "tab two\r\n",
+          sessionId: "pty_2",
+          workingDirectory: "C:\\repo-two",
+        }),
+      );
+
+    renderWidget({ onCreateTerminalPtySession });
+    await settleTerminalStartup();
+    await clickButton("New tab");
+    await settleTerminalStartup();
+
+    expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(2);
+    expect(document.body.textContent).toContain("Tab 2");
+    expect(latestTerminal().bufferText).toContain("tab two");
+  });
+
+  it("splits panes up to four per tab and disables additional splits", async () => {
+    let createCount = 0;
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async () => {
+      createCount += 1;
+      return terminalSession({
+        sessionId: `pty_${createCount}`,
+        workingDirectory: "C:\\repo",
+      });
+    });
+
+    renderWidget({ onCreateTerminalPtySession });
+    await settleTerminalStartup();
+    await clickButton("Split right");
+    await settleTerminalStartup();
+    await clickButton("Split down");
+    await settleTerminalStartup();
+    await clickButton("Split right");
+    await settleTerminalStartup();
+
+    expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(4);
+    expect(document.body.textContent).toContain("4 panes");
+    expect(buttonsWithText("Split right")).toHaveLength(4);
+    expect(buttonsWithText("Split right").every((button) => button.disabled)).toBe(
+      true,
+    );
+    expect(buttonsWithText("Split down").every((button) => button.disabled)).toBe(
+      true,
+    );
+  });
+
+  it("routes xterm input only from the active pane session", async () => {
+    let createCount = 0;
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async () => {
+      createCount += 1;
+      return terminalSession({
+        sessionId: `pty_${createCount}`,
+        status: "running",
+        workingDirectory: "C:\\repo",
+      });
+    });
+    const onWriteTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: WritePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async (_widgetInstanceId, request) =>
+      terminalSession({
+        outputText: request.data,
+        sessionId: request.sessionId,
+        status: "running",
+        workingDirectory: "C:\\repo",
+      }),
+    );
+
+    renderWidget({ onCreateTerminalPtySession, onWriteTerminalPtySession });
+    await settleTerminalStartup();
+    await clickButton("Split right");
+    await settleTerminalStartup();
+
+    await act(async () => {
+      xtermMockState.terminals[0]?.emitData("ignored\r");
+      latestTerminal().emitData("active\r");
+      await Promise.resolve();
+    });
+
+    expect(onWriteTerminalPtySession).toHaveBeenCalledTimes(1);
+    expect(onWriteTerminalPtySession.mock.calls[0][1]).toEqual({
+      data: "active\r",
+      sessionId: "pty_2",
+    });
+  });
 });
 
 function renderWidget(
@@ -745,6 +859,12 @@ async function changeInputByLabel(labelText: string, value: string) {
 
 function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === text,
+  );
+}
+
+function buttonsWithText(text: string) {
+  return Array.from(document.querySelectorAll("button")).filter(
     (button) => button.textContent === text,
   );
 }
