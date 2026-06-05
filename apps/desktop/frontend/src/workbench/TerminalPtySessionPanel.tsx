@@ -37,6 +37,10 @@ const DEFAULT_COLS = "80";
 const DEFAULT_ROWS = "24";
 const DEFAULT_OUTPUT_BUFFER_CAP_BYTES = "65536";
 const POLL_INTERVAL_MS = 1250;
+const terminalAutoStartRequests = new Map<
+  string,
+  Promise<TerminalPtySession | null>
+>();
 
 export function TerminalPtySessionPanel({
   instance,
@@ -82,7 +86,9 @@ export function TerminalPtySessionPanel({
   const [legacyFallbackOpen, setLegacyFallbackOpen] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const autoStartAttemptedRef = useRef(false);
   const clearedThroughSequenceRef = useRef(0);
+  const startInFlightRef = useRef(false);
 
   const shell = shellDraft.trim();
   const workingDirectory = workingDirectoryDraft.trim();
@@ -127,6 +133,13 @@ export function TerminalPtySessionPanel({
     !activeSession &&
     session?.status !== "closed" &&
     !isClosing;
+  const canRefresh =
+    Boolean(session) &&
+    session?.status !== "closed" &&
+    Boolean(onGetTerminalPtySession) &&
+    !isRefreshing;
+  const canCopy = Boolean(session && session.status !== "closed");
+  const canClear = Boolean(session && maxOutputSequence(session) > 0);
 
   useEffect(() => {
     onFrameStatusChange?.(statusView);
@@ -135,6 +148,28 @@ export function TerminalPtySessionPanel({
   useEffect(() => {
     onActiveSessionChange?.(activeSession);
   }, [activeSession, onActiveSessionChange]);
+
+  useEffect(() => {
+    if (
+      autoStartAttemptedRef.current ||
+      session ||
+      isStarting ||
+      !onCreateTerminalPtySession ||
+      !workingDirectory ||
+      numericInputError
+    ) {
+      return;
+    }
+
+    autoStartAttemptedRef.current = true;
+    void startSession({ autoStart: true });
+  }, [
+    isStarting,
+    numericInputError,
+    onCreateTerminalPtySession,
+    session,
+    workingDirectory,
+  ]);
 
   useEffect(() => {
     if (!session || !isTerminalPtyActive(session) || !onGetTerminalPtySession) {
@@ -156,8 +191,8 @@ export function TerminalPtySessionPanel({
     clearedThroughSequenceRef.current = clearedThroughSequence;
   }, [clearedThroughSequence]);
 
-  async function startSession() {
-    if (!onCreateTerminalPtySession || isStarting) {
+  async function startSession({ autoStart = false } = {}) {
+    if (!onCreateTerminalPtySession || startInFlightRef.current) {
       return;
     }
 
@@ -173,6 +208,7 @@ export function TerminalPtySessionPanel({
       return;
     }
 
+    startInFlightRef.current = true;
     setIsStarting(true);
     setClearedThroughSequence(0);
 
@@ -183,14 +219,20 @@ export function TerminalPtySessionPanel({
         outputCapDraft,
         "Output buffer cap bytes",
       );
-      const response = await onCreateTerminalPtySession(instance.id, {
+      const request = {
         shell,
         shellArgs,
         workingDirectory,
         cols,
         rows,
         outputBufferCapBytes,
-      });
+      };
+      const response = autoStart
+        ? await createAutoStartedSession(
+            instance.id,
+            () => onCreateTerminalPtySession(instance.id, request),
+          )
+        : await onCreateTerminalPtySession(instance.id, request);
 
       if (!response) {
         throw new Error(
@@ -205,6 +247,7 @@ export function TerminalPtySessionPanel({
         errorToMessage(error, "Unable to create Terminal PTY session."),
       );
     } finally {
+      startInFlightRef.current = false;
       setIsStarting(false);
     }
   }
@@ -427,15 +470,28 @@ export function TerminalPtySessionPanel({
         <TerminalShellHeader
           activeSession={activeSession}
           canClose={canClose}
+          canClear={canClear}
+          canCopy={canCopy}
+          canKill={canKill}
+          canRefresh={canRefresh}
           canStart={canStart}
           canStop={canStop}
           exitCodeLabel={exitCodeLabel}
           hasOpenSession={hasOpenSession}
           isClosing={isClosing}
           isStarting={isStarting}
+          isRefreshing={isRefreshing}
+          isKilling={isKilling}
           isStopping={isStopping}
+          killConfirmOpen={killConfirmOpen}
+          onCancelKill={() => setKillConfirmOpen(false)}
+          onClear={clearVisibleOutput}
           onClose={() => void closeSession()}
-          onStart={() => void startSession()}
+          onCopy={() => void copyVisibleOutput()}
+          onKill={() => void killSession()}
+          onOpenKillConfirm={() => setKillConfirmOpen(true)}
+          onRefresh={() => void refreshSession(false)}
+          onRestart={() => void startSession()}
           onStop={() => void stopSession()}
           sessionStateLabel={sessionStateLabel}
           shellLabel={shellLabel}
@@ -470,17 +526,11 @@ export function TerminalPtySessionPanel({
           activeSession={activeSession}
           clearedThroughSequence={clearedThroughSequence}
           copyStatus={copyStatus}
-          isRefreshing={isRefreshing}
-          onClear={clearVisibleOutput}
-          onCopy={() => void copyVisibleOutput()}
           onFitDimensions={handleXtermFitDimensions}
-          onGetTerminalPtySession={onGetTerminalPtySession}
           onInputData={(data) => void sendRawStdin(data)}
-          onRefresh={() => void refreshSession(false)}
           onResize={(cols, rows) => void resizeSessionToXterm(cols, rows)}
           session={session}
           terminalSurfaceRef={terminalSurfaceRef}
-          workingDirectoryLabel={workingDirectoryLabel}
         />
       </div>
 
@@ -500,22 +550,16 @@ export function TerminalPtySessionPanel({
         {settingsOpen ? (
           <TerminalPtySettingsBody
             activeSession={activeSession}
-            canKill={canKill}
             canResize={canResize}
             colsDraft={colsDraft}
             colsError={colsError}
             colsInputId={colsInputId}
             instance={instance}
-            isKilling={isKilling}
             isResizing={isResizing}
             isStarting={isStarting}
-            killConfirmOpen={killConfirmOpen}
             legacyFallbackOpen={legacyFallbackOpen}
-            onCancelKill={() => setKillConfirmOpen(false)}
             onColsDraftChange={setColsDraft}
-            onKill={() => void killSession()}
             onLegacyFallbackOpenChange={setLegacyFallbackOpen}
-            onOpenKillConfirm={() => setKillConfirmOpen(true)}
             onOutputCapDraftChange={setOutputCapDraft}
             onResize={() => void resizeSession()}
             onRowsDraftChange={setRowsDraft}
@@ -542,4 +586,24 @@ export function TerminalPtySessionPanel({
       </details>
     </section>
   );
+}
+
+async function createAutoStartedSession(
+  widgetInstanceId: string,
+  createSession: () => Promise<TerminalPtySession | null>,
+) {
+  const existingRequest = terminalAutoStartRequests.get(widgetInstanceId);
+  if (existingRequest) {
+    return existingRequest;
+  }
+
+  const request = createSession();
+  terminalAutoStartRequests.set(widgetInstanceId, request);
+  try {
+    return await request;
+  } finally {
+    if (terminalAutoStartRequests.get(widgetInstanceId) === request) {
+      terminalAutoStartRequests.delete(widgetInstanceId);
+    }
+  }
 }

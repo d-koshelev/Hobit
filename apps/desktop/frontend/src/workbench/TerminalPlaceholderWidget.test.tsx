@@ -1,4 +1,4 @@
-import { act } from "react";
+import { StrictMode, act } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -156,7 +156,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     expect(document.body.textContent).toContain("exit");
     expect(document.body.textContent).toContain("none");
     expect(document.body.textContent).toContain(
-      "Start a terminal session to run commands.",
+      "Starting default shell...",
     );
     expect(
       document.querySelector('[aria-label="Terminal PTY output"]'),
@@ -170,7 +170,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
       ),
     ).toBeNull();
     expect(buttonWithText("Send")).toBeUndefined();
-    expect(buttonWithText("Start")).not.toBeNull();
+    expect(buttonWithText("Restart")).not.toBeNull();
 
     expect(document.body.textContent).toContain("Terminal settings");
     expect(document.body.textContent).not.toContain("Working directory");
@@ -184,13 +184,36 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     );
   });
 
-  it("does not create PTY sessions or run fallback commands on render", () => {
-    const onCreateTerminalPtySession = vi.fn();
+  it("auto-starts one default PTY session in StrictMode and does not run fallback commands", async () => {
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({
+        outputText: "Windows PowerShell\r\nPS ~> ",
+        status: "running",
+        workingDirectory: "C:\\Users\\Dmitry",
+      }),
+    );
     const onRunTerminalCommand = vi.fn();
 
-    renderWidget({ onCreateTerminalPtySession, onRunTerminalCommand });
+    renderWidget(
+      { onCreateTerminalPtySession, onRunTerminalCommand },
+      { strictMode: true },
+    );
+    await settleTerminalStartup();
 
-    expect(onCreateTerminalPtySession).not.toHaveBeenCalled();
+    expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(1);
+    expect(onCreateTerminalPtySession.mock.calls[0][1]).toEqual({
+      cols: 80,
+      outputBufferCapBytes: 65536,
+      rows: 24,
+      shell: "",
+      shellArgs: [],
+      workingDirectory: "~",
+    });
     expect(onRunTerminalCommand).not.toHaveBeenCalled();
   });
 
@@ -248,8 +271,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     );
 
     renderWidget({ onCreateTerminalPtySession });
-
-    await clickButton("Start");
+    await settleTerminalStartup();
 
     expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(1);
     expect(onCreateTerminalPtySession.mock.calls[0][1]).toEqual({
@@ -271,29 +293,48 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     ).toBe("C:\\Users\\Dmitry\\project");
   });
 
-  it("starts a PTY session without changing the create request shape", async () => {
+  it("restarts with edited PTY settings after the auto-started session is closed", async () => {
     const onCreateTerminalPtySession = vi.fn<
       (
         widgetInstanceId: string,
         request: CreatePtyInput,
       ) => Promise<TerminalPtySession>
+    >()
+      .mockResolvedValueOnce(
+        terminalSession({
+          outputText: "Windows PowerShell\r\nPS ~> ",
+          status: "exited",
+          workingDirectory: "C:\\Users\\Dmitry",
+        }),
+      )
+      .mockResolvedValueOnce(
+        terminalSession({
+          outputText: "Windows PowerShell\r\nPS C:\\repo> ",
+          sessionId: "pty_2",
+          status: "running",
+          workingDirectory: "C:\\repo",
+        }),
+      );
+    const onCloseTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: PtyActionInput,
+      ) => Promise<TerminalPtySession>
     >(async () =>
-      terminalSession({
-        outputText: "Windows PowerShell\r\nPS C:\\repo> ",
-        status: "running",
-        workingDirectory: "C:\\repo",
-      }),
+      terminalSession({ status: "closed", workingDirectory: "C:\\Users\\Dmitry" }),
     );
 
-    renderWidget({ onCreateTerminalPtySession });
+    renderWidget({ onCloseTerminalPtySession, onCreateTerminalPtySession });
+    await settleTerminalStartup();
 
+    await clickButton("Close");
     await clickText("Terminal settings");
     await changeInputByLabel("Working directory", "C:\\repo");
-    await clickButton("Start");
+    await clickButton("Restart");
 
-    expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(1);
+    expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(2);
     expect(onCreateTerminalPtySession.mock.calls[0][0]).toBe("terminal_widget");
-    expect(onCreateTerminalPtySession.mock.calls[0][1]).toEqual({
+    expect(onCreateTerminalPtySession.mock.calls[1][1]).toEqual({
       cols: 80,
       outputBufferCapBytes: 65536,
       rows: 24,
@@ -325,10 +366,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     );
 
     renderWidget({ onCreateTerminalPtySession });
-
-    await clickText("Terminal settings");
-    await changeInputByLabel("Working directory", "C:\\repo");
-    await clickButton("Start");
+    await settleTerminalStartup();
 
     expect(latestTerminal().write).toHaveBeenCalledWith(rawOutput);
   });
@@ -356,10 +394,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     );
 
     renderWidget({ onCreateTerminalPtySession, onWriteTerminalPtySession });
-
-    await clickText("Terminal settings");
-    await changeInputByLabel("Working directory", "C:\\repo");
-    await clickButton("Start");
+    await settleTerminalStartup();
 
     await act(async () => {
       latestTerminal().emitData("echo hello\r");
@@ -394,10 +429,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     );
 
     renderWidget({ onCreateTerminalPtySession, onWriteTerminalPtySession });
-
-    await clickText("Terminal settings");
-    await changeInputByLabel("Working directory", "C:\\repo");
-    await clickButton("Start");
+    await settleTerminalStartup();
 
     await act(async () => {
       latestTerminal().emitData("\x03");
@@ -456,10 +488,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     );
 
     renderWidget({ onCreateTerminalPtySession, onResizeTerminalPtySession });
-
-    await clickText("Terminal settings");
-    await changeInputByLabel("Working directory", "C:\\repo");
-    await clickButton("Start");
+    await settleTerminalStartup();
 
     latestTerminal().cols = 100;
     latestTerminal().rows = 32;
@@ -509,10 +538,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
       onCreateTerminalPtySession,
       onStopTerminalPtySession,
     });
-
-    await clickText("Terminal settings");
-    await changeInputByLabel("Working directory", "C:\\repo");
-    await clickButton("Start");
+    await settleTerminalStartup();
     await clickButton("Stop");
     await clickButton("Close");
 
@@ -544,10 +570,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     );
 
     renderWidget({ onCreateTerminalPtySession });
-
-    await clickText("Terminal settings");
-    await changeInputByLabel("Working directory", "C:\\repo");
-    await clickButton("Start");
+    await settleTerminalStartup();
     await clickButton("Copy");
     await clickButton("Clear");
 
@@ -575,10 +598,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     );
 
     renderWidget({ onCreateTerminalPtySession });
-
-    await clickText("Terminal settings");
-    await changeInputByLabel("Working directory", "C:\\repo");
-    await clickButton("Start");
+    await settleTerminalStartup();
     await clickButton("Clear");
     await clickButton("Copy");
 
@@ -619,10 +639,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     );
 
     renderWidget({ onCloseTerminalPtySession, onCreateTerminalPtySession });
-
-    await clickText("Terminal settings");
-    await changeInputByLabel("Working directory", "C:\\repo");
-    await clickButton("Start");
+    await settleTerminalStartup();
 
     expect(document.body.textContent).toContain(
       "Session exited with code 7. Close it before starting a new session.",
@@ -639,11 +656,11 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     await clickButton("Close");
 
     expect(document.body.textContent).toContain(
-      "Session closed. Start creates a new explicit session.",
+      "Session closed. Restart creates a new explicit session.",
     );
-    expect(buttonWithText("Start")).not.toBeNull();
+    expect(buttonWithText("Restart")).not.toBeNull();
 
-    await clickButton("Start");
+    await clickButton("Restart");
 
     expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(2);
     expect(latestTerminal().write).toHaveBeenLastCalledWith("new session\r\n");
@@ -652,21 +669,31 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
 
 function renderWidget(
   overrides: Partial<Parameters<typeof TerminalPlaceholderWidget>[0]> = {},
+  options: { strictMode?: boolean } = {},
 ) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
+  const widget = (
+    <TerminalPlaceholderWidget
+      config={{}}
+      definition={definition()}
+      instance={instance()}
+      title="Terminal"
+      {...overrides}
+    />
+  );
 
   act(() => {
-    root?.render(
-      <TerminalPlaceholderWidget
-        config={{}}
-        definition={definition()}
-        instance={instance()}
-        title="Terminal"
-        {...overrides}
-      />,
-    );
+    root?.render(options.strictMode ? <StrictMode>{widget}</StrictMode> : widget);
+  });
+}
+
+async function settleTerminalStartup() {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
   });
 }
 

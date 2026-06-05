@@ -6,7 +6,7 @@
   min-height: 0;
   min-width: 0;
   flex-direction: column;
-  gap: var(--space-sm);
+  gap: var(--space-xs);
 }
 
 .terminal-shell {
@@ -16,8 +16,9 @@
   min-width: 0;
   flex-direction: column;
   overflow: hidden;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-md);
+  border: 1px solid
+    color-mix(in srgb, var(--color-border-subtle) 55%, transparent);
+  border-radius: var(--radius-sm);
   background: var(--color-io-surface);
 }
 
@@ -28,13 +29,12 @@
   justify-content: space-between;
   gap: var(--space-sm);
   border-bottom: 1px solid
-    color-mix(in srgb, var(--color-border-subtle) 70%, transparent);
-  background: color-mix(in srgb, var(--color-input-surface) 42%, transparent);
-  padding: var(--space-xs) var(--space-sm);
+    color-mix(in srgb, var(--color-border-subtle) 55%, transparent);
+  background: color-mix(in srgb, var(--color-input-surface) 28%, transparent);
+  padding: 6px var(--space-xs);
 }
 
-.terminal-shell-actions,
-.terminal-shell-output-actions {
+.terminal-shell-actions {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
@@ -46,14 +46,16 @@
   flex: 1 1 auto;
   min-width: 0;
   align-items: center;
-  gap: var(--space-md);
+  gap: var(--space-sm);
 }
 
 .terminal-shell-meta-item {
   display: grid;
   min-width: 0;
-  max-width: min(32vw, 280px);
-  gap: 3px;
+  max-width: min(28vw, 260px);
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: baseline;
+  gap: 5px;
 }
 
 .terminal-shell-meta-label {
@@ -63,8 +65,7 @@
   line-height: var(--line-tight);
 }
 
-.terminal-shell-meta-value,
-.terminal-shell-path {
+.terminal-shell-meta-value {
   min-width: 0;
   overflow: hidden;
   color: var(--color-text-secondary);
@@ -76,11 +77,11 @@
 }
 
 .terminal-shell-output-panel {
-  display: grid;
+  display: flex;
   flex: 1;
   min-height: 0;
   min-width: 0;
-  grid-template-rows: auto minmax(0, 1fr);
+  flex-direction: column;
   gap: 0;
   background: transparent;
 }
@@ -90,19 +91,10 @@
   margin: var(--space-xs) var(--space-sm) 0;
 }
 
-.terminal-shell-output-toolbar {
-  display: flex;
-  min-width: 0;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-sm);
-  padding: var(--space-xs) var(--space-sm);
-}
-
 .terminal-shell-output-panel > .terminal-command-note,
 .terminal-shell-output-panel > .terminal-command-validation,
 .terminal-shell-output-panel > .terminal-session-state {
-  padding: 0 var(--space-sm) var(--space-xs);
+  padding: var(--space-xs) var(--space-xs) 0;
 }
 
 .terminal-session-state {
@@ -111,13 +103,6 @@
   font-family: var(--font-mono);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
-}
-
-.terminal-pty-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs);
 }
 
 .terminal-pty-kill-action {
@@ -178,14 +163,15 @@
 
 .terminal-xterm-shell {
   position: relative;
-  min-height: 260px;
+  flex: 1;
+  min-height: 0;
   min-width: 0;
   overflow: hidden;
-  padding: var(--space-sm) var(--space-sm) var(--panel-padding);
+  padding: var(--space-xs);
 }
 
 .terminal-xterm-surface {
-  min-height: 260px;
+  min-height: 0;
   height: 100%;
   min-width: 0;
 }
@@ -212,7 +198,7 @@
 
 .terminal-settings {
   flex: 0 0 auto;
-  padding-top: var(--space-xs);
+  padding-top: 0;
 }
 
 .terminal-settings-summary {
@@ -235,7 +221,7 @@
 }
 
 .terminal-settings-body {
-  margin-top: var(--space-sm);
+  margin-top: var(--space-xs);
   border-top: 1px solid var(--color-border-subtle);
   padding-top: var(--space-sm);
 }
@@ -292,17 +278,12 @@
     max-width: 100%;
   }
 
-  .terminal-shell-actions,
-  .terminal-shell-output-toolbar {
+  .terminal-shell-actions {
     align-items: flex-start;
-  }
-
-  .terminal-shell-output-toolbar {
-    flex-direction: column;
   }
 
   .terminal-xterm-shell,
   .terminal-xterm-surface {
-    min-height: 180px;
+    min-height: 0;
   }
 }

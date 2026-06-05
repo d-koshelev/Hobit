@@ -15,22 +15,34 @@ import {
 import type { TerminalPtySessionPanelProps } from "./TerminalPtySessionTypes";
 import {
   isTerminalPtyActive,
-  maxOutputSequence,
   TerminalPtySessionSummary,
 } from "./TerminalPtySessionView";
 
 export function TerminalShellHeader({
   activeSession,
   canClose,
+  canClear,
+  canCopy,
+  canKill,
+  canRefresh,
   canStart,
   canStop,
   exitCodeLabel,
   hasOpenSession,
   isClosing,
+  isKilling,
+  isRefreshing,
   isStarting,
   isStopping,
+  killConfirmOpen,
+  onCancelKill,
+  onClear,
   onClose,
-  onStart,
+  onCopy,
+  onKill,
+  onOpenKillConfirm,
+  onRefresh,
+  onRestart,
   onStop,
   sessionStateLabel,
   shellLabel,
@@ -38,15 +50,28 @@ export function TerminalShellHeader({
 }: {
   activeSession: boolean;
   canClose: boolean;
+  canClear: boolean;
+  canCopy: boolean;
+  canKill: boolean;
+  canRefresh: boolean;
   canStart: boolean;
   canStop: boolean;
   exitCodeLabel: string;
   hasOpenSession: boolean;
   isClosing: boolean;
+  isKilling: boolean;
+  isRefreshing: boolean;
   isStarting: boolean;
   isStopping: boolean;
+  killConfirmOpen: boolean;
+  onCancelKill: () => void;
+  onClear: () => void;
   onClose: () => void;
-  onStart: () => void;
+  onCopy: () => void;
+  onKill: () => void;
+  onOpenKillConfirm: () => void;
+  onRefresh: () => void;
+  onRestart: () => void;
   onStop: () => void;
   sessionStateLabel: string;
   shellLabel: string;
@@ -62,14 +87,39 @@ export function TerminalShellHeader({
       </div>
       <div className="terminal-shell-actions">
         {!hasOpenSession ? (
-          <Button disabled={!canStart} onClick={onStart} variant="primary">
-            {isStarting ? "Starting..." : "Start"}
+          <Button disabled={!canStart} onClick={onRestart} variant="secondary">
+            {isStarting ? "Starting..." : "Restart"}
+          </Button>
+        ) : null}
+        {hasOpenSession ? (
+          <Button disabled={!canRefresh} onClick={onRefresh} variant="secondary">
+            {isRefreshing ? "Refreshing..." : "Refresh"}
+          </Button>
+        ) : null}
+        {hasOpenSession ? (
+          <Button disabled={!canCopy} onClick={onCopy} variant="secondary">
+            Copy
+          </Button>
+        ) : null}
+        {hasOpenSession ? (
+          <Button disabled={!canClear} onClick={onClear} variant="secondary">
+            Clear
           </Button>
         ) : null}
         {activeSession ? (
           <Button disabled={!canStop} onClick={onStop} variant="secondary">
             {isStopping ? "Stopping..." : "Stop"}
           </Button>
+        ) : null}
+        {activeSession ? (
+          <TerminalKillControl
+            canKill={canKill}
+            isKilling={isKilling}
+            killConfirmOpen={killConfirmOpen}
+            onCancelKill={onCancelKill}
+            onKill={onKill}
+            onOpenKillConfirm={onOpenKillConfirm}
+          />
         ) : null}
         {canClose ? (
           <Button disabled={!canClose} onClick={onClose} variant="secondary">
@@ -102,68 +152,23 @@ export function TerminalShellOutputPanel({
   activeSession,
   clearedThroughSequence,
   copyStatus,
-  isRefreshing,
-  onClear,
-  onCopy,
   onFitDimensions,
-  onGetTerminalPtySession,
   onInputData,
-  onRefresh,
   onResize,
   session,
   terminalSurfaceRef,
-  workingDirectoryLabel,
 }: {
   activeSession: boolean;
   clearedThroughSequence: number;
   copyStatus: string | null;
-  isRefreshing: boolean;
-  onClear: () => void;
-  onCopy: () => void;
   onFitDimensions: (cols: number, rows: number) => void;
-  onGetTerminalPtySession?: TerminalPtySessionPanelProps["onGetTerminalPtySession"];
   onInputData: (data: string) => void;
-  onRefresh: () => void;
   onResize: (cols: number, rows: number) => void;
   session: TerminalPtySession | null;
   terminalSurfaceRef: RefObject<TerminalXtermSurfaceHandle | null>;
-  workingDirectoryLabel: string;
 }) {
   return (
     <div className="terminal-shell-output-panel">
-      <div className="terminal-shell-output-toolbar">
-        <span className="terminal-shell-path" title={workingDirectoryLabel}>
-          {workingDirectoryLabel}
-        </span>
-        <span className="terminal-shell-output-actions">
-          <Button
-            disabled={
-              !session ||
-              session.status === "closed" ||
-              !onGetTerminalPtySession ||
-              isRefreshing
-            }
-            onClick={onRefresh}
-            variant="secondary"
-          >
-            {isRefreshing ? "Refreshing..." : "Refresh"}
-          </Button>
-          <Button
-            disabled={!session || session.status === "closed"}
-            onClick={onCopy}
-            variant="secondary"
-          >
-            Copy
-          </Button>
-          <Button
-            disabled={!session || maxOutputSequence(session) === 0}
-            onClick={onClear}
-            variant="secondary"
-          >
-            Clear
-          </Button>
-        </span>
-      </div>
       {copyStatus ? (
         <p className="terminal-command-note" role="status">
           {copyStatus}
@@ -192,21 +197,15 @@ export function TerminalShellOutputPanel({
 
 export function TerminalPtySettingsBody({
   activeSession,
-  canKill,
   canResize,
   colsDraft,
   colsError,
   colsInputId,
   instance,
-  isKilling,
   isResizing,
   isStarting,
-  killConfirmOpen,
   legacyFallbackOpen,
-  onCancelKill,
-  onKill,
   onLegacyFallbackOpenChange,
-  onOpenKillConfirm,
   onResize,
   onRunTerminalCommand,
   outputCapDraft,
@@ -231,21 +230,15 @@ export function TerminalPtySettingsBody({
   onWorkingDirectoryDraftChange,
 }: {
   activeSession: boolean;
-  canKill: boolean;
   canResize: boolean;
   colsDraft: string;
   colsError: string | null;
   colsInputId: string;
   instance: WidgetInstance;
-  isKilling: boolean;
   isResizing: boolean;
   isStarting: boolean;
-  killConfirmOpen: boolean;
   legacyFallbackOpen: boolean;
-  onCancelKill: () => void;
-  onKill: () => void;
   onLegacyFallbackOpenChange: (isOpen: boolean) => void;
-  onOpenKillConfirm: () => void;
   onResize: () => void;
   onRunTerminalCommand: TerminalPtySessionPanelProps["onRunTerminalCommand"];
   outputCapDraft: string;
@@ -332,14 +325,7 @@ export function TerminalPtySettingsBody({
       </div>
 
       <TerminalPtySessionSummary session={session} />
-      <TerminalSettingsSafety
-        canKill={canKill}
-        isKilling={isKilling}
-        killConfirmOpen={killConfirmOpen}
-        onCancelKill={onCancelKill}
-        onKill={onKill}
-        onOpenKillConfirm={onOpenKillConfirm}
-      />
+      <TerminalSettingsSafety />
       <TerminalLegacyFallback
         activeSession={activeSession}
         instance={instance}
@@ -461,7 +447,18 @@ function TerminalShellArgsField({
   );
 }
 
-function TerminalSettingsSafety({
+function TerminalSettingsSafety() {
+  return (
+    <div className="terminal-settings-safety">
+      <p className="terminal-command-note">
+        Output is a bounded runtime-only buffer and is not persisted. Keyboard
+        input is sent directly to the active PTY session.
+      </p>
+    </div>
+  );
+}
+
+function TerminalKillControl({
   canKill,
   isKilling,
   killConfirmOpen,
@@ -477,52 +474,40 @@ function TerminalSettingsSafety({
   onOpenKillConfirm: () => void;
 }) {
   return (
-    <div className="terminal-settings-safety">
-      <p className="terminal-command-note">
-        Output is a bounded runtime-only buffer and is not persisted. Keyboard
-        input is sent directly to the active PTY session.
-      </p>
-      <div className="terminal-pty-actions">
-        <span className="terminal-pty-kill-action">
-          <Button
-            className="terminal-pty-kill-button"
-            disabled={!canKill}
-            onClick={onOpenKillConfirm}
-            variant="secondary"
-          >
-            Kill
-          </Button>
-          {killConfirmOpen ? (
-            <span className="terminal-pty-kill-confirm" role="alert">
-              <span className="terminal-run-notice-title">
-                Force terminate session?
-              </span>
-              <span className="terminal-run-notice-text">
-                Kill stops only the owned shell process. File changes already
-                written by commands are not rolled back.
-              </span>
-              <span className="terminal-pty-kill-confirm-actions">
-                <Button
-                  className="terminal-pty-kill-button"
-                  disabled={isKilling}
-                  onClick={onKill}
-                  variant="secondary"
-                >
-                  {isKilling ? "Killing..." : "Confirm kill"}
-                </Button>
-                <Button
-                  disabled={isKilling}
-                  onClick={onCancelKill}
-                  variant="ghost"
-                >
-                  Cancel
-                </Button>
-              </span>
-            </span>
-          ) : null}
+    <span className="terminal-pty-kill-action">
+      <Button
+        className="terminal-pty-kill-button"
+        disabled={!canKill}
+        onClick={onOpenKillConfirm}
+        variant="secondary"
+      >
+        Kill
+      </Button>
+      {killConfirmOpen ? (
+        <span className="terminal-pty-kill-confirm" role="alert">
+          <span className="terminal-run-notice-title">
+            Force terminate session?
+          </span>
+          <span className="terminal-run-notice-text">
+            Kill stops only the owned shell process. File changes already
+            written by commands are not rolled back.
+          </span>
+          <span className="terminal-pty-kill-confirm-actions">
+            <Button
+              className="terminal-pty-kill-button"
+              disabled={isKilling}
+              onClick={onKill}
+              variant="secondary"
+            >
+              {isKilling ? "Killing..." : "Confirm kill"}
+            </Button>
+            <Button disabled={isKilling} onClick={onCancelKill} variant="ghost">
+              Cancel
+            </Button>
+          </span>
         </span>
-      </div>
-    </div>
+      ) : null}
+    </span>
   );
 }
 
@@ -609,7 +594,7 @@ function terminalSessionLifecycleMessage(session: TerminalPtySession) {
     case "killed":
       return "Session killed. Close it before starting a new session.";
     case "closed":
-      return "Session closed. Start creates a new explicit session.";
+      return "Session closed. Restart creates a new explicit session.";
     default:
       return session.errorMessage;
   }

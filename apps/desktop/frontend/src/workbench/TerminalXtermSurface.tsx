@@ -277,7 +277,7 @@ export const TerminalXtermSurface = forwardRef<
       />
       {!sessionId ? (
         <div className="terminal-xterm-placeholder">
-          Start a terminal session to run commands.
+          Starting default shell...
         </div>
       ) : null}
     </div>
