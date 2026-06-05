@@ -1,5 +1,6 @@
 import {
   useId,
+  useRef,
   useState,
   type CSSProperties,
   type PointerEvent as ReactPointerEvent,
@@ -43,6 +44,7 @@ export function WidgetFrame({
 }: WidgetFrameProps) {
   const logPanelId = useId();
   const logPanelTitleId = useId();
+  const logButtonRef = useRef<HTMLButtonElement | null>(null);
   const [isLogPanelOpen, setIsLogPanelOpen] = useState(false);
 
   function startMove(event: ReactPointerEvent<HTMLElement>) {
@@ -89,6 +91,7 @@ export function WidgetFrame({
             aria-controls={logPanelId}
             aria-expanded={isLogPanelOpen}
             onClick={() => setIsLogPanelOpen((current) => !current)}
+            ref={logButtonRef}
             variant={isLogPanelOpen ? "secondary" : "ghost"}
           >
             Logs
@@ -97,9 +100,11 @@ export function WidgetFrame({
       </header>
       <div className="widget-content">{children}</div>
       <WidgetLogsPanel
+        anchorRef={logButtonRef}
         id={logPanelId}
         isOpen={isLogPanelOpen}
         logRefreshToken={logRefreshToken}
+        onClose={() => setIsLogPanelOpen(false)}
         onLoadLogs={onLoadLogs}
         titleId={logPanelTitleId}
       />

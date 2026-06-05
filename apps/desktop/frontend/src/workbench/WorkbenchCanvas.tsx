@@ -50,6 +50,7 @@ import {
   widgetPopoutLayerStyle,
   type PopoutPosition,
   type PopoutPositionMap,
+  type ResizeDirection,
   type WorkbenchGridSize,
 } from "./workbenchLayoutGeometry";
 
@@ -76,15 +77,11 @@ export function WorkbenchCanvas({
   viewState,
   widgetActions,
 }: WorkbenchCanvasProps) {
-  const [poppedOutWidgetIds, setPoppedOutWidgetIds] =
-    useState<WidgetInstanceId[]>([]);
-  const [popoutPositions, setPopoutPositions] =
-    useState<PopoutPositionMap>({});
-  const [layoutSurfaceWidth, setLayoutSurfaceWidth] = useState<number | null>(
-    null,
-  );
-  const [activePopoutDrag, setActivePopoutDrag] =
-    useState<ActivePopoutDrag | null>(null);
+  const [poppedOutWidgetIds, setPoppedOutWidgetIds] = useState<WidgetInstanceId[]>([]);
+  const [popoutPositions, setPopoutPositions] = useState<PopoutPositionMap>({});
+  const [layoutSurfaceWidth, setLayoutSurfaceWidth] = useState<number | null>(null);
+  const [activePopoutDrag, setActivePopoutDrag] = useState<ActivePopoutDrag | null>(null);
+  const [frontWidgetInstanceId, setFrontWidgetInstanceId] = useState<WidgetInstanceId | null>(null);
   const agentExecutorRunOpenRequestIdRef = useRef(0);
   const [agentExecutorRunOpenRequest, setAgentExecutorRunOpenRequest] =
     useState<AgentExecutorRunOpenRequest | null>(null);
@@ -237,6 +234,9 @@ export function WorkbenchCanvas({
   useEffect(() => {
     const visibleWidgetIds = visibleWidgetIdSet(visibleWidgets);
 
+    setFrontWidgetInstanceId((currentId) =>
+      currentId && visibleWidgetIds.has(currentId) ? currentId : null,
+    );
     setPoppedOutWidgetIds((currentIds) =>
       removeStaleWidgetIds(currentIds, visibleWidgetIds),
     );
@@ -305,6 +305,7 @@ export function WorkbenchCanvas({
   }, []);
 
   function popOutWidget(widgetInstanceId: WidgetInstanceId) {
+    setFrontWidgetInstanceId(widgetInstanceId);
     setPoppedOutWidgetIds((currentIds) =>
       currentIds.includes(widgetInstanceId)
         ? currentIds
@@ -318,6 +319,7 @@ export function WorkbenchCanvas({
   }
 
   function dockBackWidget(widgetInstanceId: WidgetInstanceId) {
+    setFrontWidgetInstanceId(widgetInstanceId);
     setPoppedOutWidgetIds((currentIds) =>
       currentIds.filter((currentId) => currentId !== widgetInstanceId),
     );
@@ -338,6 +340,7 @@ export function WorkbenchCanvas({
     pointerX: number,
     pointerY: number,
   ) {
+    setFrontWidgetInstanceId(widgetInstanceId);
     const currentPosition =
       popoutPositions[widgetInstanceId] ?? defaultPopoutPosition();
 
@@ -379,6 +382,25 @@ export function WorkbenchCanvas({
       id: ++agentExecutorRunOpenRequestIdRef.current,
       runId,
     });
+  }
+
+  function startWidgetDrag(
+    widgetInstanceId: WidgetInstanceId,
+    pointerX: number,
+    pointerY: number,
+  ) {
+    setFrontWidgetInstanceId(widgetInstanceId);
+    startDockedDrag(widgetInstanceId, pointerX, pointerY);
+  }
+
+  function startWidgetResize(
+    widgetInstanceId: WidgetInstanceId,
+    direction: ResizeDirection,
+    pointerX: number,
+    pointerY: number,
+  ) {
+    setFrontWidgetInstanceId(widgetInstanceId);
+    startDockedResize(widgetInstanceId, direction, pointerX, pointerY);
   }
 
   function attachContextToCoordinator(request: CoordinatorAttachedContextInput) {
@@ -521,11 +543,23 @@ export function WorkbenchCanvas({
                   className={itemClassName}
                   data-widget-instance-id={widget.id}
                   key={widget.id}
-                  style={widgetLayoutItemStyle(
-                    widget,
-                    dockedDragPositions,
-                    dockedResizeSizes,
-                  )}
+                  onFocusCapture={() => setFrontWidgetInstanceId(widget.id)}
+                  onPointerDownCapture={() =>
+                    setFrontWidgetInstanceId(widget.id)
+                  }
+                  style={{
+                    ...widgetLayoutItemStyle(
+                      widget,
+                      dockedDragPositions,
+                      dockedResizeSizes,
+                    ),
+                    zIndex:
+                      isDragging || isResizing
+                        ? 20
+                        : frontWidgetInstanceId === widget.id
+                          ? 18
+                          : undefined,
+                  }}
                 >
                   {isPoppedOut ? (
                     <>
@@ -537,9 +571,11 @@ export function WorkbenchCanvas({
                         aria-label={`${widget.title} floating widget`}
                         className="widget-popout-layer"
                         role="dialog"
-                        style={widgetPopoutLayerStyle(
-                          popoutPositions[widget.id],
-                        )}
+                        style={{
+                          ...widgetPopoutLayerStyle(popoutPositions[widget.id]),
+                          zIndex:
+                            frontWidgetInstanceId === widget.id ? 50 : undefined,
+                        }}
                       >
                         <WidgetHost
                           agentActivityEvents={agentActivityEvents}
@@ -578,7 +614,7 @@ export function WorkbenchCanvas({
                           }
                           onOpenAgentExecutorRun={openAgentExecutorRun}
                           onPopOut={popOutWidget}
-                          onStartDockedDrag={startDockedDrag}
+                          onStartDockedDrag={startWidgetDrag}
                           onStartPopoutDrag={startPopoutDrag}
                           presentationMode="popped-out"
                           widgetActions={widgetActions}
@@ -625,7 +661,7 @@ export function WorkbenchCanvas({
                         onPublishAgentActivityEvents={publishAgentActivityEvents}
                         onOpenAgentExecutorRun={openAgentExecutorRun}
                         onPopOut={popOutWidget}
-                        onStartDockedDrag={startDockedDrag}
+                        onStartDockedDrag={startWidgetDrag}
                         onStartPopoutDrag={startPopoutDrag}
                         presentationMode="docked"
                         widgetActions={widgetActions}
@@ -638,7 +674,7 @@ export function WorkbenchCanvas({
                             isResizing ? activeDockedResizeDirection : null
                           }
                           onStartResize={(direction, pointerX, pointerY) =>
-                            startDockedResize(
+                            startWidgetResize(
                               widget.id,
                               direction,
                               pointerX,

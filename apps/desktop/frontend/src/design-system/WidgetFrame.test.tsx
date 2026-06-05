@@ -55,6 +55,70 @@ describe("WidgetFrame logs", () => {
 
     expect(document.body.textContent).toContain("Logs");
     expect(document.body.textContent).toContain("Widget state saved");
+    expect(container?.textContent).not.toContain("Widget state saved");
+    expect(document.querySelector(".popup-shell")).not.toBeNull();
+  });
+
+  it("closes the logs popup on Escape or outside press and returns focus", async () => {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <WidgetFrame
+          onLoadLogs={async () => [
+            {
+              createdAt: "2026-05-22T10:00:00.000Z",
+              id: "log_1",
+              level: "info",
+              message: "Widget state saved",
+            },
+          ]}
+          title="Test Widget"
+        >
+          <p>Widget body</p>
+        </WidgetFrame>,
+      );
+    });
+
+    const logsButton = buttonWithText("Logs");
+
+    await act(async () => {
+      logsButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector(".popup-shell")).not.toBeNull();
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(document.querySelector(".popup-shell")).toBeNull();
+    expect(document.activeElement).toBe(logsButton);
+
+    await act(async () => {
+      logsButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector(".popup-shell")).not.toBeNull();
+
+    await act(async () => {
+      document.body.dispatchEvent(
+        new MouseEvent("pointerdown", { bubbles: true }),
+      );
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(document.querySelector(".popup-shell")).toBeNull();
+    expect(document.activeElement).toBe(logsButton);
   });
 });
 

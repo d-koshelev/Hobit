@@ -521,6 +521,60 @@ describe("WorkbenchShell widget layout controls", () => {
     );
   });
 
+  it("brings focused, dragged, and resized widgets to the front", async () => {
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+      workspaceWorkbenchState({ widgetDefinitionIds: ["notes", "notes"] }),
+    );
+    const firstWidget = notesWidget();
+    const baseSecondWidget = notesWidget();
+    const secondWidget = {
+      ...baseSecondWidget,
+      id: "widget_notes_2",
+      layout: { ...baseSecondWidget.layout, order: 1, x: 24, y: 24 },
+      title: "Second Notes",
+    };
+
+    renderShell(workbenchViewState({ widgets: [firstWidget, secondWidget] }));
+    setLayoutSurfaceRect();
+
+    const firstElement = widgetElement("widget_notes_1");
+    const secondElement = widgetElement("widget_notes_2");
+
+    expect(firstElement.style.zIndex).toBe("");
+    expect(secondElement.style.zIndex).toBe("");
+
+    await awaitAct(() => {
+      secondElement.dispatchEvent(pointerEvent("pointerdown", { clientX: 34, clientY: 34 }));
+    });
+
+    expect(secondElement.style.zIndex).toBe("18");
+
+    await awaitAct(() => {
+      firstElement
+        .querySelector(".widget-header")
+        ?.dispatchEvent(pointerEvent("pointerdown", { clientX: 10, clientY: 10 }));
+    });
+    await flushShellEffects();
+
+    expect(firstElement.style.zIndex).toBe("20");
+
+    await awaitAct(() => {
+      window.dispatchEvent(pointerEvent("pointerup", { clientX: 10, clientY: 10 }));
+    });
+    await flushShellEffects();
+
+    expect(firstElement.style.zIndex).toBe("18");
+
+    await awaitAct(() => {
+      resizeButtonInWidget("widget_notes_2", "Resize widget").dispatchEvent(
+        pointerEvent("pointerdown", { clientX: 384, clientY: 264 }),
+      );
+    });
+    await flushShellEffects();
+
+    expect(secondElement.style.zIndex).toBe("20");
+  });
+
   it("resizes from the left edge and highlights only the active edge", async () => {
     workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
       workspaceWorkbenchState({
@@ -918,6 +972,25 @@ function buttonInCatalogCard(widgetDefinitionId: string) {
     throw new Error(`Catalog card button not found: ${widgetDefinitionId}`);
   }
 
+  return button;
+}
+
+function widgetElement(widgetInstanceId: string) {
+  const element = document.querySelector<HTMLElement>(
+    `[data-widget-instance-id="${widgetInstanceId}"]`,
+  );
+  if (!element) {
+    throw new Error(`Widget layout item not found: ${widgetInstanceId}`);
+  }
+  return element;
+}
+
+function resizeButtonInWidget(widgetInstanceId: string, label: string) {
+  const button = widgetElement(widgetInstanceId)
+    .querySelector<HTMLButtonElement>(`button[aria-label="${label}"]`);
+  if (!button) {
+    throw new Error(`Resize button not found: ${widgetInstanceId} ${label}`);
+  }
   return button;
 }
 

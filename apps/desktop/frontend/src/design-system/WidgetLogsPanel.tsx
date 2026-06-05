@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import {
   RENDER_MEMORY_CAPS,
   capArrayToLast,
   cappedPreviewText,
 } from "../renderMemoryGuards";
+import { PopupShell } from "./PopupShell";
 
 export type WidgetLogsPanelLogEntry = {
   id: string;
@@ -14,17 +15,21 @@ export type WidgetLogsPanelLogEntry = {
 };
 
 type WidgetLogsPanelProps = {
+  anchorRef: RefObject<HTMLElement | null>;
   id: string;
   isOpen: boolean;
   logRefreshToken?: number;
+  onClose: () => void;
   onLoadLogs?: () => Promise<WidgetLogsPanelLogEntry[]>;
   titleId: string;
 };
 
 export function WidgetLogsPanel({
+  anchorRef,
   id,
   isOpen,
   logRefreshToken,
+  onClose,
   onLoadLogs,
   titleId,
 }: WidgetLogsPanelProps) {
@@ -73,15 +78,14 @@ export function WidgetLogsPanel({
     };
   }, [isOpen, logRefreshToken]);
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <section
-      aria-labelledby={titleId}
-      className="widget-log-panel"
+    <PopupShell
+      anchorRef={anchorRef}
       id={id}
+      isOpen={isOpen}
+      labelId={titleId}
+      onRequestClose={onClose}
+      returnFocusRef={anchorRef}
     >
       <h3 className="widget-log-title" id={titleId}>
         Logs
@@ -91,7 +95,7 @@ export function WidgetLogsPanel({
         isLoading={isLoadingLogs}
         logs={logEntries}
       />
-    </section>
+    </PopupShell>
   );
 }
 
