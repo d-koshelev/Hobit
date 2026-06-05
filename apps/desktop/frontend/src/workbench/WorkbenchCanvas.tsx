@@ -1,4 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { RendererMemoryDiagnosticsPanel } from "../diagnostics/RendererMemoryDiagnosticsPanel";
+import {
+  isRendererMemoryDiagnosticsEnabled,
+  rendererDiagnosticsSourceFromWorkbench,
+  retainedDirectWorkCharCount,
+} from "../diagnostics/rendererMemoryDiagnostics";
 import { WorkbenchResizeHandles } from "./WorkbenchResizeHandles";
 import { WorkbenchWidgetGhost } from "./WorkbenchWidgetGhost";
 import { WidgetHost } from "./WidgetHost";
@@ -132,6 +138,39 @@ export function WorkbenchCanvas({
         presetId: viewState.workbench.preset.id,
         widgets: visibleWidgets,
       });
+  const memoryDiagnosticsEnabled = isRendererMemoryDiagnosticsEnabled();
+  const memoryDiagnosticsSource = useMemo(
+    () =>
+      rendererDiagnosticsSourceFromWorkbench({
+        agentActivityEventCount: agentActivityEvents.length,
+        directWorkRetainedCharCount: retainedDirectWorkCharCount(
+          workspaceQueueApi.controller.runActivity.eventState.rawEvents,
+        ),
+        directWorkRunHandoffCount: Object.keys(directWorkRunHandoff.handoffs)
+          .length,
+        mountedWidgets: renderedVisibleWidgets.map((widget) => ({
+          definitionId: widget.definitionId,
+          id: widget.id,
+        })),
+        queueItemCount: workspaceQueueApi.controller.tasks.length,
+        queueRunActivityEventCount:
+          workspaceQueueApi.controller.runActivity.eventState.events.length,
+        queueRunActivityRawEventCount:
+          workspaceQueueApi.controller.runActivity.eventState.rawEvents.length,
+        queueRunHistoryCount: workspaceQueueApi.controller.runHistory.totalCount,
+        viewState,
+      }),
+    [
+      agentActivityEvents.length,
+      directWorkRunHandoff.handoffs,
+      renderedVisibleWidgets,
+      viewState,
+      workspaceQueueApi.controller.runActivity.eventState.events.length,
+      workspaceQueueApi.controller.runActivity.eventState.rawEvents,
+      workspaceQueueApi.controller.runHistory.totalCount,
+      workspaceQueueApi.controller.tasks.length,
+    ],
+  );
   const {
     activeDockedDragWidgetInstanceId,
     activeDockedResizeDirection,
@@ -434,68 +473,122 @@ export function WorkbenchCanvas({
 
   if (visibleWidgets.length === 0) {
     return (
-      <WorkbenchEmptyCanvas
-        canvasGridStyle={canvasGridStyle}
-        canvasLabel={canvasLabel}
-        canvasShellClass={canvasShellClass}
-        onOpenWidgetCatalog={onOpenWidgetCatalog}
-        onStartCoordinatorWorkspace={
-          onStartCoordinatorWorkspace ?? onOpenWidgetCatalog
-        }
-      />
+      <>
+        <WorkbenchEmptyCanvas
+          canvasGridStyle={canvasGridStyle}
+          canvasLabel={canvasLabel}
+          canvasShellClass={canvasShellClass}
+          onOpenWidgetCatalog={onOpenWidgetCatalog}
+          onStartCoordinatorWorkspace={
+            onStartCoordinatorWorkspace ?? onOpenWidgetCatalog
+          }
+        />
+        {memoryDiagnosticsEnabled ? (
+          <RendererMemoryDiagnosticsPanel source={memoryDiagnosticsSource} />
+        ) : null}
+      </>
     );
   }
 
   return (
-    <section
-      className={canvasShellClass}
-      aria-label={canvasLabel}
-      style={canvasGridStyle}
-    >
-      <div className="canvas-stack">
-        <div
-          className="widget-layout-surface"
-          ref={layoutSurfaceRef}
-          style={layoutSurfaceStyle}
-        >
-          {renderedVisibleWidgets.map((widget) => {
-            const isPoppedOut = poppedOutWidgetIds.includes(widget.id);
-            const isDragging = activeDockedDragWidgetInstanceId === widget.id;
-            const isResizing =
-              activeDockedResizeWidgetInstanceId === widget.id;
-            const itemClassName = isDragging
-              ? "widget-layout-item widget-layout-item-dragging"
-              : isResizing
-                ? "widget-layout-item widget-layout-item-resizing"
-              : "widget-layout-item";
-            const dockedSize =
-              dockedResizeSizes[widget.id] ?? widgetDockedSize(widget);
+    <>
+      <section
+        className={canvasShellClass}
+        aria-label={canvasLabel}
+        style={canvasGridStyle}
+      >
+        <div className="canvas-stack">
+          <div
+            className="widget-layout-surface"
+            ref={layoutSurfaceRef}
+            style={layoutSurfaceStyle}
+          >
+            {renderedVisibleWidgets.map((widget) => {
+              const isPoppedOut = poppedOutWidgetIds.includes(widget.id);
+              const isDragging = activeDockedDragWidgetInstanceId === widget.id;
+              const isResizing =
+                activeDockedResizeWidgetInstanceId === widget.id;
+              const itemClassName = isDragging
+                ? "widget-layout-item widget-layout-item-dragging"
+                : isResizing
+                  ? "widget-layout-item widget-layout-item-resizing"
+                  : "widget-layout-item";
+              const dockedSize =
+                dockedResizeSizes[widget.id] ?? widgetDockedSize(widget);
 
-            return (
-              <div
-                className={itemClassName}
-                data-widget-instance-id={widget.id}
-                key={widget.id}
-                style={widgetLayoutItemStyle(
-                  widget,
-                  dockedDragPositions,
-                  dockedResizeSizes,
-                )}
-              >
-                {isPoppedOut ? (
-                  <>
-                    <WorkbenchWidgetGhost
-                      instance={widget}
-                      onDockBack={dockBackWidget}
-                    />
-                    <div
-                      aria-label={`${widget.title} floating widget`}
-                      className="widget-popout-layer"
-                      role="dialog"
-                      style={widgetPopoutLayerStyle(
-                        popoutPositions[widget.id],
-                      )}
-                    >
+              return (
+                <div
+                  className={itemClassName}
+                  data-widget-instance-id={widget.id}
+                  key={widget.id}
+                  style={widgetLayoutItemStyle(
+                    widget,
+                    dockedDragPositions,
+                    dockedResizeSizes,
+                  )}
+                >
+                  {isPoppedOut ? (
+                    <>
+                      <WorkbenchWidgetGhost
+                        instance={widget}
+                        onDockBack={dockBackWidget}
+                      />
+                      <div
+                        aria-label={`${widget.title} floating widget`}
+                        className="widget-popout-layer"
+                        role="dialog"
+                        style={widgetPopoutLayerStyle(
+                          popoutPositions[widget.id],
+                        )}
+                      >
+                        <WidgetHost
+                          agentActivityEvents={agentActivityEvents}
+                          agentExecutorSlots={agentExecutorSlots}
+                          agentExecutorRunOpenRequest={
+                            agentExecutorRunOpenRequest
+                          }
+                          agentQueueItemOpenRequest={agentQueueItemOpenRequest}
+                          coordinatorAttachedContextRequest={
+                            coordinatorAttachedContextRequest
+                          }
+                          queueReportActionCardRequest={
+                            queueReportActionCardRequest
+                          }
+                          directWorkGitReview={directWorkGitReview}
+                          directWorkRunHandoff={directWorkRunHandoff}
+                          hasGitWidget={hasGitWidget}
+                          instance={widget}
+                          layoutMode={layoutMode}
+                          onDockBack={dockBackWidget}
+                          onAttachContextToCoordinator={
+                            coordinatorWidget
+                              ? attachContextToCoordinator
+                              : undefined
+                          }
+                          onShowQueueReportInWorkspaceChat={
+                            coordinatorWidget
+                              ? showQueueReportInWorkspaceChat
+                              : undefined
+                          }
+                          onOpenAgentQueueItem={
+                            queueWidget ? openAgentQueueItem : undefined
+                          }
+                          onPublishAgentActivityEvents={
+                            publishAgentActivityEvents
+                          }
+                          onOpenAgentExecutorRun={openAgentExecutorRun}
+                          onPopOut={popOutWidget}
+                          onStartDockedDrag={startDockedDrag}
+                          onStartPopoutDrag={startPopoutDrag}
+                          presentationMode="popped-out"
+                          widgetActions={widgetActions}
+                          workspaceQueueApi={workspaceQueueApi}
+                          workspaceId={viewState.workspace.id}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    <div className="widget-docked-surface">
                       <WidgetHost
                         agentActivityEvents={agentActivityEvents}
                         agentExecutorSlots={agentExecutorSlots}
@@ -509,6 +602,7 @@ export function WorkbenchCanvas({
                         queueReportActionCardRequest={
                           queueReportActionCardRequest
                         }
+                        dockedSize={dockedSize}
                         directWorkGitReview={directWorkGitReview}
                         directWorkRunHandoff={directWorkRunHandoff}
                         hasGitWidget={hasGitWidget}
@@ -528,79 +622,42 @@ export function WorkbenchCanvas({
                         onOpenAgentQueueItem={
                           queueWidget ? openAgentQueueItem : undefined
                         }
-                        onPublishAgentActivityEvents={
-                          publishAgentActivityEvents
-                        }
+                        onPublishAgentActivityEvents={publishAgentActivityEvents}
                         onOpenAgentExecutorRun={openAgentExecutorRun}
                         onPopOut={popOutWidget}
                         onStartDockedDrag={startDockedDrag}
                         onStartPopoutDrag={startPopoutDrag}
-                        presentationMode="popped-out"
+                        presentationMode="docked"
                         widgetActions={widgetActions}
                         workspaceQueueApi={workspaceQueueApi}
                         workspaceId={viewState.workspace.id}
                       />
+                      {isLayoutEditing && widget.layout.mode === "docked" ? (
+                        <WorkbenchResizeHandles
+                          activeDirection={
+                            isResizing ? activeDockedResizeDirection : null
+                          }
+                          onStartResize={(direction, pointerX, pointerY) =>
+                            startDockedResize(
+                              widget.id,
+                              direction,
+                              pointerX,
+                              pointerY,
+                            )
+                          }
+                        />
+                      ) : null}
                     </div>
-                  </>
-                ) : (
-                  <div className="widget-docked-surface">
-                    <WidgetHost
-                      agentActivityEvents={agentActivityEvents}
-                      agentExecutorSlots={agentExecutorSlots}
-                      agentExecutorRunOpenRequest={agentExecutorRunOpenRequest}
-                      agentQueueItemOpenRequest={agentQueueItemOpenRequest}
-                      coordinatorAttachedContextRequest={
-                        coordinatorAttachedContextRequest
-                      }
-                      queueReportActionCardRequest={queueReportActionCardRequest}
-                      dockedSize={dockedSize}
-                      directWorkGitReview={directWorkGitReview}
-                      directWorkRunHandoff={directWorkRunHandoff}
-                      hasGitWidget={hasGitWidget}
-                      instance={widget}
-                      layoutMode={layoutMode}
-                      onDockBack={dockBackWidget}
-                      onAttachContextToCoordinator={
-                        coordinatorWidget ? attachContextToCoordinator : undefined
-                      }
-                      onShowQueueReportInWorkspaceChat={
-                        coordinatorWidget ? showQueueReportInWorkspaceChat : undefined
-                      }
-                      onOpenAgentQueueItem={
-                        queueWidget ? openAgentQueueItem : undefined
-                      }
-                      onPublishAgentActivityEvents={publishAgentActivityEvents}
-                      onOpenAgentExecutorRun={openAgentExecutorRun}
-                      onPopOut={popOutWidget}
-                      onStartDockedDrag={startDockedDrag}
-                      onStartPopoutDrag={startPopoutDrag}
-                      presentationMode="docked"
-                      widgetActions={widgetActions}
-                      workspaceQueueApi={workspaceQueueApi}
-                      workspaceId={viewState.workspace.id}
-                    />
-                    {isLayoutEditing && widget.layout.mode === "docked" ? (
-                      <WorkbenchResizeHandles
-                        activeDirection={
-                          isResizing ? activeDockedResizeDirection : null
-                        }
-                        onStartResize={(direction, pointerX, pointerY) =>
-                          startDockedResize(
-                            widget.id,
-                            direction,
-                            pointerX,
-                            pointerY,
-                          )
-                        }
-                      />
-                    ) : null}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+      {memoryDiagnosticsEnabled ? (
+        <RendererMemoryDiagnosticsPanel source={memoryDiagnosticsSource} />
+      ) : null}
+    </>
   );
 }
