@@ -187,7 +187,6 @@ describe("TerminalXtermSurface", () => {
     });
 
     expect(onInputData).toHaveBeenCalledWith("\x1B[A");
-    expect(latestTerminal().focus).toHaveBeenCalled();
   });
 
   it("forwards control and escape input unchanged", async () => {

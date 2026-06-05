@@ -5,7 +5,6 @@ import {
   useRef,
   useState,
 } from "react";
-import { Button } from "../design-system/Button";
 import {
   DEFAULT_TERMINAL_WORKING_DIRECTORY,
   type TerminalPtySession,
@@ -200,7 +199,13 @@ export function TerminalPtyPanePanel({
   ]);
 
   useEffect(() => {
-    if (!session || !isTerminalPtyActive(session) || !onGetTerminalPtySession) {
+    if (
+      !session ||
+      !isTerminalPtyActive(session) ||
+      !onGetTerminalPtySession ||
+      !isActivePane ||
+      !isTabVisible
+    ) {
       return;
     }
 
@@ -209,7 +214,13 @@ export function TerminalPtyPanePanel({
     }, POLL_INTERVAL_MS);
 
     return () => window.clearInterval(interval);
-  }, [onGetTerminalPtySession, session?.sessionId, session?.status]);
+  }, [
+    isActivePane,
+    isTabVisible,
+    onGetTerminalPtySession,
+    session?.sessionId,
+    session?.status,
+  ]);
 
   useLayoutEffect(() => {
     terminalSurfaceRef.current?.fit();
@@ -285,19 +296,20 @@ export function TerminalPtyPanePanel({
       return;
     }
 
-    setErrorMessage(null);
-
     try {
-      const response = await onWriteTerminalPtySession(instance.id, {
+      await onWriteTerminalPtySession(instance.id, {
         sessionId: session.sessionId,
         data,
       });
-      applySessionResponse(response);
+      if (data.includes("\r") || data.includes("\n")) {
+        window.setTimeout(() => {
+          void refreshSession(true);
+        }, 80);
+      }
     } catch (error) {
       setErrorMessage(
         errorToMessage(error, "Unable to send input to Terminal PTY session."),
       );
-    } finally {
       terminalSurfaceRef.current?.focus();
     }
   }
@@ -502,63 +514,6 @@ export function TerminalPtyPanePanel({
       }
       onMouseDown={onActivatePane}
     >
-      <div className="terminal-pane-toolbar">
-        <button
-          aria-pressed={isActivePane}
-          className="terminal-pane-title"
-          onClick={onActivatePane}
-          type="button"
-        >
-          {paneLabel}
-          {isActivePane ? <span>Active</span> : null}
-        </button>
-        <div className="terminal-pane-actions">
-          <Button
-            aria-label="Split pane right"
-            className="terminal-icon-button"
-            disabled={!canSplitPane}
-            onClick={onSplitRight}
-            title="Split right"
-            variant="secondary"
-          >
-            R
-          </Button>
-          <Button
-            aria-label="Split pane down"
-            className="terminal-icon-button"
-            disabled={!canSplitPane}
-            onClick={onSplitDown}
-            title="Split down"
-            variant="secondary"
-          >
-            D
-          </Button>
-          <Button
-            aria-label="Terminal pane settings"
-            aria-expanded={settingsOpen}
-            className="terminal-icon-button"
-            onClick={() => setSettingsOpen((isOpen) => !isOpen)}
-            title="Terminal settings"
-            variant="secondary"
-          >
-            ⚙
-          </Button>
-          <Button
-            aria-label="Close pane"
-            className="terminal-icon-button"
-            disabled={!canRemovePane}
-            onClick={onClosePane}
-            title={
-              hasOpenSession
-                ? "Close the session before removing this pane."
-                : "Close pane"
-            }
-            variant="secondary"
-          >
-            x
-          </Button>
-        </div>
-      </div>
       {settingsOpen ? (
         <TerminalPtySettingsPopover
           activeSession={activeSession}
@@ -604,26 +559,36 @@ export function TerminalPtyPanePanel({
           canClear={canClear}
           canCopy={canCopy}
           canKill={canKill}
+          canRemovePane={canRemovePane}
           canRefresh={canRefresh}
+          canSplitPane={canSplitPane}
           canStart={canStart}
           canStop={canStop}
           exitCodeLabel={exitCodeLabel}
           hasOpenSession={hasOpenSession}
+          isActivePane={isActivePane}
           isClosing={isClosing}
           isStarting={isStarting}
           isRefreshing={isRefreshing}
           isKilling={isKilling}
           isStopping={isStopping}
           killConfirmOpen={killConfirmOpen}
+          onActivatePane={onActivatePane}
           onCancelKill={() => setKillConfirmOpen(false)}
           onClear={clearVisibleOutput}
           onClose={() => void closeSession()}
+          onClosePane={onClosePane}
           onCopy={() => void copyVisibleOutput()}
           onKill={() => void killSession()}
           onOpenKillConfirm={() => setKillConfirmOpen(true)}
           onRefresh={() => void refreshSession(false)}
           onRestart={() => void startSession()}
+          onSplitDown={onSplitDown}
+          onSplitRight={onSplitRight}
           onStop={() => void stopSession()}
+          onToggleSettings={() => setSettingsOpen((isOpen) => !isOpen)}
+          paneLabel={paneLabel}
+          settingsOpen={settingsOpen}
           sessionStateLabel={sessionStateLabel}
           shellLabel={shellLabel}
           workingDirectoryLabel={workingDirectoryLabel}

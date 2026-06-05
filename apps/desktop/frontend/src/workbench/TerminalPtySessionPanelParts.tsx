@@ -24,26 +24,36 @@ export function TerminalShellHeader({
   canClear,
   canCopy,
   canKill,
+  canRemovePane,
   canRefresh,
+  canSplitPane,
   canStart,
   canStop,
   exitCodeLabel,
   hasOpenSession,
+  isActivePane,
   isClosing,
   isKilling,
   isRefreshing,
   isStarting,
   isStopping,
   killConfirmOpen,
+  onActivatePane,
   onCancelKill,
   onClear,
   onClose,
+  onClosePane,
   onCopy,
   onKill,
   onOpenKillConfirm,
   onRefresh,
   onRestart,
+  onSplitDown,
+  onSplitRight,
   onStop,
+  onToggleSettings,
+  paneLabel,
+  settingsOpen,
   sessionStateLabel,
   shellLabel,
   workingDirectoryLabel,
@@ -53,26 +63,36 @@ export function TerminalShellHeader({
   canClear: boolean;
   canCopy: boolean;
   canKill: boolean;
+  canRemovePane: boolean;
   canRefresh: boolean;
+  canSplitPane: boolean;
   canStart: boolean;
   canStop: boolean;
   exitCodeLabel: string;
   hasOpenSession: boolean;
+  isActivePane: boolean;
   isClosing: boolean;
   isKilling: boolean;
   isRefreshing: boolean;
   isStarting: boolean;
   isStopping: boolean;
   killConfirmOpen: boolean;
+  onActivatePane: () => void;
   onCancelKill: () => void;
   onClear: () => void;
   onClose: () => void;
+  onClosePane: () => void;
   onCopy: () => void;
   onKill: () => void;
   onOpenKillConfirm: () => void;
   onRefresh: () => void;
   onRestart: () => void;
+  onSplitDown: () => void;
+  onSplitRight: () => void;
   onStop: () => void;
+  onToggleSettings: () => void;
+  paneLabel: string;
+  settingsOpen: boolean;
   sessionStateLabel: string;
   shellLabel: string;
   workingDirectoryLabel: string;
@@ -80,12 +100,53 @@ export function TerminalShellHeader({
   return (
     <div className="terminal-shell-header">
       <div className="terminal-shell-meta" aria-label="Terminal context">
+        <button
+          aria-pressed={isActivePane}
+          className="terminal-pane-title"
+          onClick={onActivatePane}
+          type="button"
+        >
+          <span className="terminal-pane-title-text">{paneLabel}</span>
+          {isActivePane ? (
+            <span className="terminal-pane-active-indicator">Active</span>
+          ) : null}
+        </button>
         <TerminalShellMetaItem label="cwd" value={workingDirectoryLabel} />
         <TerminalShellMetaItem label="shell" value={shellLabel} />
         <TerminalShellMetaItem label="state" value={sessionStateLabel} />
         <TerminalShellMetaItem label="exit" value={exitCodeLabel} />
       </div>
       <div className="terminal-shell-actions">
+        <Button
+          aria-label="Split pane right"
+          className="terminal-icon-button"
+          disabled={!canSplitPane}
+          onClick={onSplitRight}
+          title="Split right"
+          variant="secondary"
+        >
+          R
+        </Button>
+        <Button
+          aria-label="Split pane down"
+          className="terminal-icon-button"
+          disabled={!canSplitPane}
+          onClick={onSplitDown}
+          title="Split down"
+          variant="secondary"
+        >
+          D
+        </Button>
+        <Button
+          aria-label="Terminal pane settings"
+          aria-expanded={settingsOpen}
+          className="terminal-icon-button"
+          onClick={onToggleSettings}
+          title="Terminal settings"
+          variant="secondary"
+        >
+          S
+        </Button>
         {!hasOpenSession ? (
           <Button disabled={!canStart} onClick={onRestart} variant="secondary">
             {isStarting ? "Starting..." : "Restart"}
@@ -126,6 +187,20 @@ export function TerminalShellHeader({
             {isClosing ? "Closing..." : "Close"}
           </Button>
         ) : null}
+        <Button
+          aria-label="Close pane"
+          className="terminal-icon-button"
+          disabled={!canRemovePane}
+          onClick={onClosePane}
+          title={
+            hasOpenSession
+              ? "Close the session before removing this pane."
+              : "Close pane"
+          }
+          variant="secondary"
+        >
+          x
+        </Button>
       </div>
     </div>
   );

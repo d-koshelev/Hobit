@@ -139,6 +139,7 @@ afterEach(() => {
   document.body.innerHTML = "";
   xtermMockState.fitAddons.length = 0;
   xtermMockState.terminals.length = 0;
+  vi.useRealTimers();
   vi.restoreAllMocks();
 });
 
@@ -371,7 +372,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     expect(latestTerminal().write).toHaveBeenCalledWith(rawOutput);
   });
 
-  it("sends raw xterm input through the existing write callback shape", async () => {
+  it("sends raw xterm input without replacing session state on every key", async () => {
     const onCreateTerminalPtySession = vi.fn<
       (
         widgetInstanceId: string,
@@ -407,7 +408,70 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
       data: "echo hello\r",
       sessionId: "pty_1",
     });
-    expect(latestTerminal().write).toHaveBeenCalledWith("echo hello\r\nhello\r\n");
+    expect(latestTerminal().write).not.toHaveBeenCalledWith(
+      "echo hello\r\nhello\r\n",
+    );
+  });
+
+  it("refreshes after Enter so shell error output is visible", async () => {
+    vi.useFakeTimers();
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({ status: "running", workingDirectory: "C:\\repo" }),
+    );
+    const onWriteTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: WritePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async (_widgetInstanceId, request) =>
+      terminalSession({
+        sessionId: request.sessionId,
+        status: "running",
+        workingDirectory: "C:\\repo",
+      }),
+    );
+    const onGetTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: PtyActionInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({
+        outputText:
+          "git status1\r\nGet-Command: The term 'git status1' is not recognized\r\n",
+        status: "running",
+        workingDirectory: "C:\\repo",
+      }),
+    );
+
+    renderWidget({
+      onCreateTerminalPtySession,
+      onGetTerminalPtySession,
+      onWriteTerminalPtySession,
+    });
+    await settleTerminalStartup();
+
+    await act(async () => {
+      latestTerminal().emitData("git status1\r");
+      await Promise.resolve();
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(80);
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(onGetTerminalPtySession).toHaveBeenCalledWith("terminal_widget", {
+      sessionId: "pty_1",
+    });
+    expect(latestTerminal().write).toHaveBeenCalledWith(
+      "git status1\r\nGet-Command: The term 'git status1' is not recognized\r\n",
+    );
   });
 
   it("sends control, escape, and arrow-key sequences as raw xterm data", async () => {
@@ -443,7 +507,6 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
       "\x1B",
       "\x1B[A",
     ]);
-    expect(latestTerminal().focus).toHaveBeenCalled();
   });
 
   it("does not send PTY input before the operator starts a session", async () => {
@@ -694,8 +757,30 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     await settleTerminalStartup();
 
     expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(2);
-    expect(document.body.textContent).toContain("Tab 2");
+    expect(inputWithAriaLabel("Rename Tab 2")?.value).toBe("Tab 2");
     expect(latestTerminal().bufferText).toContain("tab two");
+  });
+
+  it("renames terminal tabs without showing pane counts or status text", async () => {
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({ status: "running", workingDirectory: "C:\\repo" }),
+    );
+
+    renderWidget({ onCreateTerminalPtySession });
+    await settleTerminalStartup();
+    await clickButtonByLabel("New terminal tab");
+    await settleTerminalStartup();
+    await changeInputByAriaLabel("Rename Tab 2", "Build shell");
+
+    expect(inputWithAriaLabel("Rename Build shell")?.value).toBe(
+      "Build shell",
+    );
+    expect(document.querySelector(".terminal-tab-meta")).toBeNull();
   });
 
   it("splits panes up to four per tab and disables additional splits", async () => {
@@ -723,7 +808,6 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     await settleTerminalStartup();
 
     expect(onCreateTerminalPtySession).toHaveBeenCalledTimes(4);
-    expect(document.body.textContent).toContain("4 panes");
     expect(buttonsWithLabel("Split pane right")).toHaveLength(4);
     expect(
       buttonsWithLabel("Split pane right").every((button) => button.disabled),
@@ -868,6 +952,19 @@ async function changeInputByLabel(labelText: string, value: string) {
   });
 }
 
+async function changeInputByAriaLabel(labelText: string, value: string) {
+  await act(async () => {
+    const input = inputWithAriaLabel(labelText);
+    if (!input) {
+      throw new Error(`Input not found for aria-label: ${labelText}`);
+    }
+    setNativeInputValue(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 function buttonWithText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.textContent === text,
@@ -901,6 +998,12 @@ function inputWithLabel(labelText: string) {
   }
   const id = label.getAttribute("for");
   return id ? (document.getElementById(id) as HTMLInputElement | null) : null;
+}
+
+function inputWithAriaLabel(labelText: string) {
+  return document.querySelector<HTMLInputElement>(
+    `input[aria-label="${labelText}"]`,
+  );
 }
 
 function setNativeInputValue(field: HTMLInputElement, value: string) {

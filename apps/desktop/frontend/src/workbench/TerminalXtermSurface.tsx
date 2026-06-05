@@ -181,7 +181,6 @@ export const TerminalXtermSurface = forwardRef<
       }
 
       latestHandlersRef.current.onInputData(data);
-      terminal.focus();
     });
 
     terminalRef.current = terminal;

@@ -98,6 +98,22 @@ export function TerminalPtySessionPanel({
     setActiveTabId(tabId);
   }
 
+  function renameTab(tabId: string, title: string) {
+    setTabs((current) =>
+      current.map((tab) => (tab.id === tabId ? { ...tab, title } : tab)),
+    );
+  }
+
+  function commitTabRename(tabId: string) {
+    setTabs((current) =>
+      current.map((tab) =>
+        tab.id === tabId && !tab.title.trim()
+          ? { ...tab, title: "Untitled" }
+          : tab,
+      ),
+    );
+  }
+
   function closeTab(tabId: string) {
     const tab = tabs.find((candidate) => candidate.id === tabId);
     if (
@@ -187,6 +203,7 @@ export function TerminalPtySessionPanel({
           const tabActive = tab.id === activeTabId;
           const tabRunning = tab.paneIds.some((paneId) => paneActivity[paneId]);
           const closeDisabled = tabs.length === 1 || tabRunning;
+          const displayTitle = tab.title.trim() || "Untitled";
           return (
             <span
               className={
@@ -195,22 +212,27 @@ export function TerminalPtySessionPanel({
                   : "terminal-tab"
               }
               key={tab.id}
+              role="tab"
+              aria-selected={tabActive}
             >
+              <input
+                aria-label={`Rename ${displayTitle}`}
+                className="terminal-tab-name-input"
+                onBlur={() => commitTabRename(tab.id)}
+                onChange={(event) => renameTab(tab.id, event.target.value)}
+                onFocus={() => setActiveTabId(tab.id)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.currentTarget.blur();
+                  }
+                }}
+                spellCheck={false}
+                title={displayTitle}
+                type="text"
+                value={tab.title}
+              />
               <button
-                aria-selected={tabActive}
-                className="terminal-tab-button"
-                onClick={() => setActiveTabId(tab.id)}
-                role="tab"
-                type="button"
-              >
-                <span>{tab.title}</span>
-                <span className="terminal-tab-meta">
-                  {tab.paneIds.length} pane{tab.paneIds.length === 1 ? "" : "s"}
-                  {tabRunning ? " running" : ""}
-                </span>
-              </button>
-              <button
-                aria-label={`Close ${tab.title}`}
+                aria-label={`Close ${displayTitle}`}
                 className="terminal-tab-close"
                 disabled={closeDisabled}
                 onClick={() => closeTab(tab.id)}
