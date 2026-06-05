@@ -214,21 +214,20 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     });
 
     const overviewText = sectionText("Selected task overview");
+    const nextActionText = sectionText("Next action");
     const resultText = sectionText("Result / Evidence");
-    const decisionText = sectionText("Coordinator decision");
 
     expect(overviewText).toContain(
       "Next: review report and make coordinator decision.",
     );
     expect(resultText).toContain("Report ready");
     expect(resultText).toContain("Report ready");
-    expect(decisionText).toContain("Awaiting coordinator review");
-    expect(decisionText).toContain("Accept result");
-    expect(decisionText).toContain("Request changes");
-    expect(decisionText).toContain("Create follow-up");
-    expect(decisionText).not.toContain("Finalize / Accept");
+    expect(nextActionText).toContain("Review report and make coordinator decision");
+    expect(nextActionText).toContain("Request changes");
+    expect(nextActionText).toContain("Create follow-up");
+    expect(nextActionText).toContain("Finalize / Accept");
     expect(resultText).not.toContain("Local executor unavailable");
-    expect(decisionText).not.toContain("Select local executor");
+    expect(nextActionText).not.toContain("Select local executor");
     expect(resultText).not.toContain("Before run");
   });
 
@@ -518,28 +517,28 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     });
 
     const overviewText = sectionText("Selected task overview");
-    const promptText = sectionText("Prompt summary");
+    const contextText = sectionText("Attached Queue task context");
     const activityText = sectionText("Agent activity");
     const resultText = sectionText("Result / Evidence");
-    const decisionText = sectionText("Coordinator decision");
+    const nextActionText = sectionText("Next action");
     const fullResponse = detailsBySummary("Full response");
     const rawDirectWorkDetails = detailsBySummary("Raw Direct Work details");
     const developerDetails = detailsBySummary("Developer details");
     const overviewIndex = document.body.textContent?.indexOf("Overview") ?? -1;
-    const promptIndex =
-      document.body.textContent?.indexOf("Prompt summary") ?? -1;
+    const nextActionIndex =
+      document.body.textContent?.indexOf("Next action") ?? -1;
+    const contextIndex =
+      document.body.textContent?.indexOf("Context") ?? -1;
     const activityIndex =
       document.body.textContent?.indexOf("Agent activity") ?? -1;
     const resultIndex =
       document.body.textContent?.indexOf("Result / Evidence") ?? -1;
-    const decisionIndex =
-      document.body.textContent?.indexOf("Coordinator decision") ?? -1;
     const developerIndex =
       document.body.textContent?.lastIndexOf("Developer details") ?? -1;
 
     expect(overviewText).toContain("Execution complete");
     expect(overviewText).toContain("Awaiting coordinator review");
-    expect(promptText).toContain("Prompt");
+    expect(contextText).toContain("Task prompt");
     expect(resultText).toContain("Report ready");
     expect(resultText).toContain("Final response");
     expect(resultText).toContain("StatusPassed");
@@ -565,23 +564,22 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     );
     expect(resultText).not.toContain("No report");
     expect(resultText).not.toContain("No worker report");
-    expect(decisionText).toContain("Awaiting coordinator review");
-    expect(decisionText).toContain("Accept result");
-    expect(decisionText).toContain("Request changes");
-    expect(decisionText).toContain("Create follow-up");
-    expect(decisionText).not.toContain("Finalize / Accept item");
+    expect(nextActionText).toContain("Review report and make coordinator decision");
+    expect(nextActionText).toContain("Request changes");
+    expect(nextActionText).toContain("Create follow-up");
+    expect(nextActionText).not.toContain("Finalize / Accept item");
     expect(activityText).toContain("Run completed");
     expect(activityText).toContain("Completed - final response received.");
-    expect(activityText).toContain("Report ready");
+    expect(activityText).toContain("Completed");
     expect(fullResponse).toBeUndefined();
     expect(rawDirectWorkDetails?.open).toBe(false);
     expect(developerDetails?.open).toBe(false);
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
-    expect(promptIndex).toBeGreaterThan(overviewIndex);
-    expect(activityIndex).toBeGreaterThan(promptIndex);
-    expect(resultIndex).toBeGreaterThan(activityIndex);
-    expect(decisionIndex).toBeGreaterThan(resultIndex);
-    expect(developerIndex).toBeGreaterThan(decisionIndex);
+    expect(nextActionIndex).toBeGreaterThan(overviewIndex);
+    expect(contextIndex).toBeGreaterThan(nextActionIndex);
+    expect(resultIndex).toBeGreaterThan(contextIndex);
+    expect(activityIndex).toBeGreaterThan(resultIndex);
+    expect(developerIndex).toBeGreaterThan(activityIndex);
   });
 
   it("shows a short Direct Work final response fully in Result / Evidence", () => {

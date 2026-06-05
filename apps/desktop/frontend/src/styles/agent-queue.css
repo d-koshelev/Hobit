@@ -292,9 +292,11 @@
 .agent-queue-sidebar {
   align-content: start;
   overflow: auto;
+  overflow-x: hidden;
 }
 
 .agent-queue-sidebar-section {
+  min-width: 0;
   border-bottom: 1px solid var(--color-border-subtle);
   padding-bottom: var(--space-xs);
 }
@@ -336,6 +338,12 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-xs);
+}
+
+.agent-queue-global-actions > button,
+.agent-queue-sidebar-row-actions > button {
+  min-width: 0;
+  white-space: normal;
 }
 
 .agent-queue-global-action-active {
@@ -2038,6 +2046,21 @@
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
   font-weight: 700;
+}
+
+.agent-queue-context-section pre {
+  max-height: 220px;
+  overflow: auto;
+  margin: var(--space-xs) 0 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-io-surface);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  padding: var(--space-sm);
+  white-space: pre-wrap;
 }
 
 .agent-queue-context-ref {

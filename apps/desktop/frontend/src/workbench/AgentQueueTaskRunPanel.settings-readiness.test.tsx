@@ -284,23 +284,23 @@ describe("AgentQueueTaskRunPanel settings and readiness", () => {
     expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
 
-  it("orders the selected rail as overview, prompt, actions, agent activity, evidence, then developer details", () => {
+  it("orders the selected rail as overview, next action, context, evidence, activity, then developer details", () => {
     renderDetailsPanel();
 
     const text = document.body.textContent ?? "";
     const overviewIndex = text.indexOf("Overview");
-    const promptIndex = text.indexOf("Prompt");
-    const actionsIndex = text.indexOf("Actions and settings");
-    const activityIndex = text.indexOf("Agent activity");
+    const nextActionIndex = text.indexOf("Next action");
+    const contextIndex = text.indexOf("Context");
     const evidenceIndex = text.indexOf("Result / Evidence");
+    const activityIndex = text.indexOf("Agent activity");
     const developerIndex = text.indexOf("Developer details");
 
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
-    expect(promptIndex).toBeGreaterThan(overviewIndex);
-    expect(actionsIndex).toBeGreaterThan(promptIndex);
-    expect(activityIndex).toBeGreaterThan(actionsIndex);
-    expect(evidenceIndex).toBeGreaterThan(activityIndex);
-    expect(developerIndex).toBeGreaterThan(evidenceIndex);
+    expect(nextActionIndex).toBeGreaterThan(overviewIndex);
+    expect(contextIndex).toBeGreaterThan(nextActionIndex);
+    expect(evidenceIndex).toBeGreaterThan(contextIndex);
+    expect(activityIndex).toBeGreaterThan(evidenceIndex);
+    expect(developerIndex).toBeGreaterThan(activityIndex);
     expect(detailsBySummary("Developer details")?.open).toBe(false);
   });
 

@@ -130,13 +130,39 @@ export function buildAgentQueueRunActivitySnapshot({
       : null,
     rawEvents: activity.rawEvents,
     recentEvents,
-    statusLine:
-      currentStage === "Report ready"
-        ? "Completed - final response received."
-        : currentStage === "Failed"
-          ? "Failed - review run details."
-          : "Running - waiting for final response.",
+    statusLine: statusLineForRunActivity({
+      currentStage,
+      latestEvent,
+      latestRun,
+      selectedTask,
+    }),
   };
+}
+
+function statusLineForRunActivity({
+  currentStage,
+  latestEvent,
+  latestRun,
+  selectedTask,
+}: {
+  currentStage: AgentQueueRunStage;
+  latestEvent: AgentActivityEvent | null;
+  latestRun: AgentQueueTaskRunLinkSummary | null;
+  selectedTask: AgentQueueTask;
+}) {
+  if (currentStage === "Report ready") {
+    return "Completed - final response received.";
+  }
+
+  if (currentStage === "Failed") {
+    return "Failed - review run details.";
+  }
+
+  if (latestRun?.status === "running" || selectedTask.status === "running") {
+    return "Running - waiting for final response.";
+  }
+
+  return latestEvent ? "Run activity received." : "No active run selected.";
 }
 
 function inferRunStage({

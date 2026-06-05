@@ -75,13 +75,15 @@ export function AgentQueueSidebar({ autonomous, foundation }: AgentQueueSidebarP
     <aside aria-label="Queue and workers" className="agent-queue-sidebar">
       <QueueStateSection foundation={foundation} />
 
+      <SchedulerSummarySection foundation={foundation} />
+
       <AgentQueueAutonomousSection autonomous={autonomous} />
 
       <ExecutorCapacitySection foundation={foundation} />
 
       <section className="agent-queue-sidebar-section">
         <div className="agent-queue-section-header">
-          <p className="agent-queue-section-title">Queue tags</p>
+          <p className="agent-queue-section-title">Tags</p>
           <Badge variant={pausedTagCount > 0 ? "warning" : "neutral"}>
             {foundation.queueTags.length.toString()} tags
           </Badge>
@@ -323,28 +325,6 @@ export function AgentQueueSidebar({ autonomous, foundation }: AgentQueueSidebarP
           </Button>
         </details>
       </section>
-
-      <section className="agent-queue-sidebar-section agent-queue-sidebar-section-secondary">
-        <p className="agent-queue-section-title">Validation</p>
-        <dl className="agent-queue-validation-summary">
-          <div>
-            <dt>Validating</dt>
-            <dd>{foundation.validationSummary.validating ?? 0}</dd>
-          </div>
-          <div>
-            <dt>Passed</dt>
-            <dd>{foundation.validationSummary.passed ?? 0}</dd>
-          </div>
-          <div>
-            <dt>Needs review</dt>
-            <dd>{foundation.validationSummary.needs_review ?? 0}</dd>
-          </div>
-          <div>
-            <dt>Failed</dt>
-            <dd>{foundation.validationSummary.failed ?? 0}</dd>
-          </div>
-        </dl>
-      </section>
     </aside>
   );
 }
@@ -359,7 +339,7 @@ function QueueStateSection({
   return (
     <section className="agent-queue-sidebar-section">
       <div className="agent-queue-sidebar-header">
-        <p className="agent-queue-pane-title">Queue + Workers</p>
+        <p className="agent-queue-pane-title">Queue control</p>
         <Badge
           variant={
             globalExecutionState === "started"
@@ -418,67 +398,71 @@ function QueueStateSection({
           {foundation.globalMessage}
         </p>
       ) : null}
-      <div
-        className="agent-queue-scheduler-preview"
-        aria-label="Scheduler dry-run preview"
-      >
-        <div className="agent-queue-section-header">
-          <p className="agent-queue-section-title">Scheduler dry run</p>
-          <Badge
-            variant={
-              foundation.schedulerPlan.globalState.allowsScheduling
-                ? "info"
-                : foundation.schedulerPlan.globalState.code ===
-                    "stop_kill_requested"
-                  ? "warning"
-                  : "neutral"
-            }
-          >
-            {foundation.schedulerPlan.globalState.label}
-          </Badge>
-        </div>
-        <dl className="agent-queue-scheduler-facts">
-          <div>
-            <dt>Schedulable</dt>
-            <dd>{foundation.schedulerPlan.schedulableItemCount}</dd>
-          </div>
-          <div>
-            <dt>Worker next</dt>
-            <dd>{foundation.schedulerPlan.recommendations.length}</dd>
-          </div>
-          <div>
-            <dt>Blocked</dt>
-            <dd>{foundation.schedulerPlan.blockedItems.length}</dd>
-          </div>
-        </dl>
-        <details className="agent-queue-details agent-queue-rail-details">
-          <summary>Reason</summary>
-          <p className="agent-queue-run-note">
-            {foundation.schedulerPlan.explanation}
-          </p>
-        </details>
-        {foundation.schedulerPlan.topBlockedReasons.length > 0 ? (
-          <p className="agent-queue-sidebar-row-meta">
-            Top blocker: {foundation.schedulerPlan.topBlockedReasons[0].label}
-          </p>
-        ) : null}
+    </section>
+  );
+}
+function SchedulerSummarySection({
+  foundation,
+}: { foundation: AgentQueueFoundationController }) {
+  return (
+    <section
+      aria-label="Scheduler dry-run preview"
+      className="agent-queue-sidebar-section agent-queue-scheduler-preview"
+    >
+      <div className="agent-queue-section-header">
+        <p className="agent-queue-section-title">Scheduler summary</p>
+        <Badge
+          variant={
+            foundation.schedulerPlan.globalState.allowsScheduling
+              ? "info"
+              : foundation.schedulerPlan.globalState.code ===
+                  "stop_kill_requested"
+                ? "warning"
+                : "neutral"
+          }
+        >
+          {foundation.schedulerPlan.globalState.label}
+        </Badge>
       </div>
+      <dl className="agent-queue-scheduler-facts">
+        <div>
+          <dt>Schedulable</dt>
+          <dd>{foundation.schedulerPlan.schedulableItemCount}</dd>
+        </div>
+        <div>
+          <dt>Worker next</dt>
+          <dd>{foundation.schedulerPlan.recommendations.length}</dd>
+        </div>
+        <div>
+          <dt>Blocked</dt>
+          <dd>{foundation.schedulerPlan.blockedItems.length}</dd>
+        </div>
+      </dl>
+      <details className="agent-queue-details agent-queue-rail-details">
+        <summary>Dry-run reason</summary>
+        <p className="agent-queue-run-note">
+          {foundation.schedulerPlan.explanation}
+        </p>
+      </details>
+      {foundation.schedulerPlan.topBlockedReasons.length > 0 ? (
+        <p className="agent-queue-sidebar-row-meta">
+          Top blocker: {foundation.schedulerPlan.topBlockedReasons[0].label}
+        </p>
+      ) : null}
     </section>
   );
 }
 
 function ExecutorCapacitySection({
   foundation,
-}: {
-  foundation: AgentQueueFoundationController;
-}) {
+}: { foundation: AgentQueueFoundationController }) {
   return (
     <section
       aria-label="Local executor capacity"
       className="agent-queue-sidebar-section"
     >
       <div className="agent-queue-section-header">
-        <p className="agent-queue-section-title">Local executor capacity</p>
+        <p className="agent-queue-section-title">Capacity</p>
         <Badge
           variant={
             foundation.embeddedExecutor.capacityRecommendation.code ===
@@ -536,6 +520,22 @@ function ExecutorCapacitySection({
         <p className="agent-queue-run-note">
           Capacity is Queue-owned. Edits do not start or stop local work.
         </p>
+      </details>
+      <details className="agent-queue-details agent-queue-rail-details">
+        <summary>Validation summary</summary>
+        <dl className="agent-queue-validation-summary">
+          {[
+            ["Validating", foundation.validationSummary.validating ?? 0],
+            ["Passed", foundation.validationSummary.passed ?? 0],
+            ["Needs review", foundation.validationSummary.needs_review ?? 0],
+            ["Failed", foundation.validationSummary.failed ?? 0],
+          ].map(([label, value]) => (
+            <div key={label}>
+              <dt>{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
       </details>
     </section>
   );

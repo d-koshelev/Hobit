@@ -10,19 +10,13 @@ import type { AgentQueueReportActionCard } from "../workspace/types";
 import { AgentQueueFlowSelectionSummary } from "./queue/details/AgentQueueFlowSelectionSummary";
 import { AgentQueueTaskActivityTimelineSection } from "./queue/details/AgentQueueTaskActivityTimelineSection";
 import { AgentQueueTaskActionSurface } from "./queue/details/AgentQueueTaskActionSurface";
-import { AgentQueueTaskCoordinatorDecisionSection } from "./queue/details/AgentQueueTaskCoordinatorDecisionSection";
 import { AgentQueueTaskContextSection } from "./queue/details/AgentQueueTaskContextSection";
 import {
   AgentQueueTaskDeveloperDetailsSection,
   SubmittedMetadata,
 } from "./queue/details/AgentQueueTaskDeveloperDetailsSection";
 import { AgentQueueTaskOverviewSection } from "./queue/details/AgentQueueTaskOverviewSection";
-import { AgentQueueTaskPromptSection } from "./queue/details/AgentQueueTaskPromptSection";
 import { AgentQueueTaskResultEvidenceSection } from "./queue/details/AgentQueueTaskResultEvidenceSection";
-import {
-  hasReviewEvidenceForTask,
-  isSelectedTaskRunning,
-} from "./queue/details/agentQueueTaskDetailsEvidence";
 import type { AgentQueueController } from "./queue/details/agentQueueTaskDetailsTypes";
 
 type AgentQueueTaskDetailsPanelProps = {
@@ -140,117 +134,38 @@ export function AgentQueueTaskDetailsPanel({
         <div className="agent-queue-task-editor">
           <AgentQueueTaskOverviewSection queue={queue} selectedTask={selectedTask} />
 
+          <AgentQueueTaskActionSurface
+            agentExecutorSlots={agentExecutorSlots}
+            assignmentInputId={assignmentInputId}
+            onAttachContextToCoordinator={onAttachContextToCoordinator}
+            onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+            queue={queue}
+            selectedTask={selectedTask}
+          />
+
           <AgentQueueTaskContextSection selectedTask={selectedTask} />
 
-          <AgentQueueTaskPromptSection prompt={selectedTask.prompt} />
+          <AgentQueueTaskResultEvidenceSection
+            onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+            onCreateSkill={onCreateSkill}
+            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+            queue={queue}
+            selectedTask={selectedTask}
+          />
 
-          {isSelectedTaskRunning(queue, selectedTask) ? (
-            <>
-              <AgentQueueTaskActivityTimelineSection queue={queue} selectedTask={selectedTask} />
+          <AgentQueueTaskActivityTimelineSection queue={queue} selectedTask={selectedTask} />
 
-              <AgentQueueTaskResultEvidenceSection
-                onCreateKnowledgeDocument={onCreateKnowledgeDocument}
-                onCreateSkill={onCreateSkill}
-                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-                queue={queue}
-                selectedTask={selectedTask}
-              />
-
-              <AgentQueueTaskDeveloperDetailsSection
-                agentExecutorSlots={agentExecutorSlots}
-                onAttachContextToCoordinator={onAttachContextToCoordinator}
-                onOpenAgentExecutorRun={onOpenAgentExecutorRun}
-                queue={queue}
-                selectedTask={selectedTask}
-                showSubmittedMetadata={true}
-              />
-            </>
-          ) : hasReviewEvidenceForTask(queue, selectedTask) ? (
-            <>
-              <AgentQueueTaskActivityTimelineSection queue={queue} selectedTask={selectedTask} />
-
-              <AgentQueueTaskResultEvidenceSection
-                onCreateKnowledgeDocument={onCreateKnowledgeDocument}
-                onCreateSkill={onCreateSkill}
-                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-                queue={queue}
-                selectedTask={selectedTask}
-              />
-
-              <AgentQueueTaskCoordinatorDecisionSection queue={queue} />
-
-              <AgentQueueTaskDeveloperDetailsSection
-                agentExecutorSlots={agentExecutorSlots}
-                onAttachContextToCoordinator={onAttachContextToCoordinator}
-                onOpenAgentExecutorRun={onOpenAgentExecutorRun}
-                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-                queue={queue}
-                selectedTask={selectedTask}
-                showDiffReviewLinkage={true}
-                showSubmittedMetadata={true}
-                showWorkerExecutionReport={true}
-                taskEditMetadata={
-                  <details
-                    className="agent-queue-details agent-queue-secondary-details"
-                    open={editTask.isEditing}
-                  >
-                    <summary>Task edit metadata</summary>
-                    <AgentQueueTaskSection
-                      deleteTask={deleteTask}
-                      descriptionInputId={descriptionInputId}
-                      draft={draft}
-                      editTask={editTask}
-                      executionPolicyInputId={executionPolicyInputId}
-                      isDirty={isDirty}
-                      isSaving={isSaving}
-                      onDraftChange={updateDraft}
-                      onPriorityChange={updatePriority}
-                      onSave={() => void saveTask()}
-                      ordering={queue.ordering}
-                      priorityInputId={priorityInputId}
-                      promptInputId={promptInputId}
-                      selectedTask={selectedTask}
-                      selectedTaskHint={selectedTaskHint}
-                      statusInputId={statusInputId}
-                      tasks={tasks}
-                      titleInputId={titleInputId}
-                    />
-                  </details>
-                }
-              />
-            </>
-          ) : (
-            <>
-              <AgentQueueTaskActionSurface
-                agentExecutorSlots={agentExecutorSlots}
-                assignmentInputId={assignmentInputId}
-                onAttachContextToCoordinator={onAttachContextToCoordinator}
-                onOpenAgentExecutorRun={onOpenAgentExecutorRun}
-                queue={queue}
-                selectedTask={selectedTask}
-              />
-
-              <AgentQueueTaskActivityTimelineSection queue={queue} selectedTask={selectedTask} />
-
-              <AgentQueueTaskResultEvidenceSection
-                onCreateKnowledgeDocument={onCreateKnowledgeDocument}
-                onCreateSkill={onCreateSkill}
-                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-                queue={queue}
-                selectedTask={selectedTask}
-              />
-
-              <AgentQueueTaskDeveloperDetailsSection
-                agentExecutorSlots={agentExecutorSlots}
-                onAttachContextToCoordinator={onAttachContextToCoordinator}
-                onOpenAgentExecutorRun={onOpenAgentExecutorRun}
-                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-                queue={queue}
-                selectedTask={selectedTask}
-                showDiffReviewLinkage={true}
-                showWorkerExecutionReport={true}
-              />
-
+          <AgentQueueTaskDeveloperDetailsSection
+            agentExecutorSlots={agentExecutorSlots}
+            onAttachContextToCoordinator={onAttachContextToCoordinator}
+            onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+            onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+            queue={queue}
+            selectedTask={selectedTask}
+            showDiffReviewLinkage={true}
+            showSubmittedMetadata={true}
+            showWorkerExecutionReport={true}
+            taskEditMetadata={
               <details
                 className="agent-queue-details agent-queue-secondary-details"
                 open={editTask.isEditing}
@@ -278,8 +193,8 @@ export function AgentQueueTaskDetailsPanel({
                   titleInputId={titleInputId}
                 />
               </details>
-            </>
-          )}
+            }
+          />
 
           {validationMessage ? (
             <p

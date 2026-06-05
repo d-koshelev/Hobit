@@ -117,12 +117,12 @@ describe("AgentQueueTaskRunPanel failure and error display", () => {
       workerReport: workerReportController(null),
     });
 
-    const decisionText = sectionText("Coordinator decision");
+    const nextActionText = sectionText("Next action");
     const reportText = sectionText("Result / Evidence");
 
-    expect(decisionText).toContain("Accept result");
-    expect(decisionText).toContain("Request changes");
-    expect(decisionText).toContain("Create follow-up");
+    expect(nextActionText).toContain("Review report and make coordinator decision");
+    expect(nextActionText).toContain("Request changes");
+    expect(nextActionText).toContain("Create follow-up");
     expect(reportText).toContain("Run failed");
     expect(reportText).toContain("Failure summary");
     expect(reportText).toContain("StatusFailed");

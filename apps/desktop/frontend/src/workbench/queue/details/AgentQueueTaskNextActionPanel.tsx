@@ -239,11 +239,9 @@ function nextActionForSelectedTask(
       actions,
       badge: failed ? "Failure evidence missing" : "Evidence missing",
       badgeVariant: "warning",
-      copy: failed
-        ? "The run failed, but no worker report or Direct Work result evidence is attached. Review is not ready."
-        : "Execution is complete, but no worker report or Direct Work result evidence is attached. Review is not ready.",
-      secondaryCopy: "Rerun the task, attach a report, or inspect Developer details before making a coordinator decision.",
-      title: failed ? "Failure evidence missing" : "Evidence missing",
+      copy: "Review Result / Evidence before making a coordinator decision.",
+      secondaryCopy: null,
+      title: failed ? "Resolve failure evidence" : "Resolve result evidence",
       tone: "blocked",
     };
   }

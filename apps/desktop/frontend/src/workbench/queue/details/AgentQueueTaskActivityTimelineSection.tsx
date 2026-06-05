@@ -41,6 +41,8 @@ export function AgentQueueTaskActivityTimelineSection({
       ? activity.recentEvents.map(activityDisplayEvent)
       : buildFallbackActivityEvents(queue, selectedTask);
   const currentEvent = recentEvents[recentEvents.length - 1];
+  const activityState = activityStatusForRun(queue, selectedTask);
+  const statusLine = activityStatusLineForRun(queue, selectedTask);
 
   return (
     <section
@@ -51,20 +53,12 @@ export function AgentQueueTaskActivityTimelineSection({
         <div>
           <p className="agent-queue-expanded-kicker">Agent activity</p>
           <p className="agent-queue-execution-group-title">
-            {activity.statusLine}
+            {statusLine}
           </p>
         </div>
         <div className="agent-queue-execution-badges">
-          <Badge
-            variant={
-              activity.currentStage === "Failed"
-                ? "error"
-                : isRunning
-                  ? "info"
-                  : "success"
-            }
-          >
-            {activity.currentStage}
+          <Badge variant={activityState.badgeVariant}>
+            {activityState.label}
           </Badge>
         </div>
       </div>
@@ -154,6 +148,67 @@ export function AgentQueueTaskActivityTimelineSection({
       ) : null}
     </section>
   );
+}
+
+function activityStatusForRun(
+  queue: AgentQueueController,
+  selectedTask: SelectedAgentQueueTask,
+) {
+  const runStatus = queue.latestRun.link?.status ?? selectedTask.status;
+
+  switch (runStatus) {
+    case "running":
+      return { badgeVariant: "info" as const, label: "Running" };
+    case "completed":
+      return { badgeVariant: "success" as const, label: "Completed" };
+    case "failed":
+      return { badgeVariant: "error" as const, label: "Failed" };
+    case "timed_out":
+      return { badgeVariant: "error" as const, label: "Timed out" };
+    case "cancelled":
+      return { badgeVariant: "warning" as const, label: "Cancelled" };
+    default:
+      if (isSelectedTaskRunning(queue, selectedTask)) {
+        return { badgeVariant: "info" as const, label: "Running" };
+      }
+
+      return {
+        badgeVariant: queue.runActivity.currentStage === "Failed" ? "error" as const : "neutral" as const,
+        label: queue.runActivity.currentStage,
+      };
+  }
+}
+
+function activityStatusLineForRun(
+  queue: AgentQueueController,
+  selectedTask: SelectedAgentQueueTask,
+) {
+  const runStatus = queue.latestRun.link?.status ?? selectedTask.status;
+
+  if (isSelectedTaskRunning(queue, selectedTask)) {
+    return queue.runActivity.statusLine;
+  }
+
+  switch (runStatus) {
+    case "completed":
+    case "review_needed":
+      return queue.runActivity.statusLine.startsWith("Running")
+        ? "Completed - final response received."
+        : queue.runActivity.statusLine;
+    case "failed":
+    case "timed_out":
+      return queue.runActivity.statusLine.startsWith("Running")
+        ? "Failed - review run details."
+        : queue.runActivity.statusLine;
+    case "cancelled":
+      return queue.runActivity.statusLine.startsWith("Running")
+        ? "Cancelled - run stopped before completion."
+        : queue.runActivity.statusLine;
+    default:
+      return queue.latestRun.link || queue.run.startedRunId
+        ? queue.runActivity.statusLine
+        : "No active run selected.";
+  }
 }
 
 export function RawRunActivityDetails({ queue }: { queue: AgentQueueController }) {

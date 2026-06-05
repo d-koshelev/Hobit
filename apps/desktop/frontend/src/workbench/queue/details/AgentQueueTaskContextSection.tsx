@@ -5,9 +5,14 @@ import type {
   AgentQueueTaskContextWarning,
 } from "../../../workspace/types";
 import {
+  RENDER_MEMORY_CAPS,
+  cappedPreviewText,
+} from "../../../renderMemoryGuards";
+import {
   materializeQueueExecutionPrompt,
   queueContextSummary,
 } from "../../agentQueueKnowledgeContext";
+import { promptSummary } from "./agentQueueTaskDetailsFormatters";
 
 type AgentQueueTaskContextSectionProps = {
   selectedTask: AgentQueueTask;
@@ -19,6 +24,11 @@ export function AgentQueueTaskContextSection({
   const context = selectedTask.context;
   const summary = queueContextSummary(context);
   const hasContext = summary.knowledgeCount > 0 || summary.skillCount > 0;
+  const promptText = selectedTask.prompt.trim();
+  const hasPrompt = promptText.length > 0;
+  const taskPromptSummary = hasPrompt
+    ? promptSummary(promptText)
+    : "No prompt has been written for this task.";
   const materialized = hasContext
     ? materializeQueueExecutionPrompt(selectedTask)
     : null;
@@ -31,11 +41,27 @@ export function AgentQueueTaskContextSection({
       <div className="agent-queue-section-header">
         <div>
           <p className="agent-queue-expanded-kicker">Context</p>
-          <h3 className="agent-queue-section-title">Attached Knowledge / Skills</h3>
+          <h3 className="agent-queue-section-title">Prompt and attachments</h3>
         </div>
         <span className="agent-queue-context-count">
           {(summary.knowledgeCount + summary.skillCount).toString()}
         </span>
+      </div>
+
+      <div className="agent-queue-context-group">
+        <p className="agent-queue-context-label">Task prompt</p>
+        <p className="agent-queue-prompt-preview-text">{taskPromptSummary}</p>
+        {hasPrompt ? (
+          <details className="agent-queue-details agent-queue-secondary-details">
+            <summary>Full prompt</summary>
+            <pre>
+              {cappedPreviewText(
+                promptText,
+                RENDER_MEMORY_CAPS.transcriptPayloadChars,
+              )}
+            </pre>
+          </details>
+        ) : null}
       </div>
 
       {!hasContext ? (
