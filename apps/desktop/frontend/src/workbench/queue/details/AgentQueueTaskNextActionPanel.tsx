@@ -20,6 +20,7 @@ import {
   directWorkEvidenceForQueue,
   hasFinishedRunLink,
   isFailedRunEvidence,
+  isSelectedTaskRunning,
 } from "./agentQueueTaskDetailsEvidence";
 import type {
   AgentQueueController,
@@ -118,7 +119,7 @@ function nextActionForSelectedTask(
   const actions: NextAction["actions"] = [];
   const closureState = queueClosureStateForTask(selectedTask);
 
-  if (selectedTask.status === "running" || queue.latestRun.link?.status === "running") {
+  if (isSelectedTaskRunning(queue, selectedTask)) {
     return {
       actions,
       badge: "Running",
@@ -244,7 +245,8 @@ function nextActionForSelectedTask(
       actions,
       badge: failed ? "Failure result not loaded" : "Result not loaded",
       badgeVariant: "warning",
-      copy: "Use the result section to refresh the result, attach a report, or inspect Developer details.",
+      copy:
+        "Review is not ready until the operator refreshes the result, attaches a report, or inspects Developer details.",
       secondaryCopy: null,
       title: failed ? "Resolve failed run result" : "Resolve finished run result",
       tone: "blocked",

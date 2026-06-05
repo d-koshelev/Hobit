@@ -27,20 +27,20 @@ export function overviewStateSentence(
       return `Running. ${executorLabel} is executing this task.`;
     case "completed":
       return hasEvidence
-        ? "Execution complete. Evidence is ready for coordinator review."
-        : "Execution complete. Result evidence is not loaded yet.";
+        ? "Execution complete. Result ready."
+        : "Execution complete. Result pending.";
     case "failed":
       return hasEvidence
-        ? "Execution failed. Review the evidence and request changes if needed."
-        : "Execution failed. Failure result is not loaded yet.";
+        ? "Execution failed. Result ready."
+        : "Execution failed. Result pending.";
     case "cancelled":
       return hasEvidence
-        ? "Execution was cancelled. Review the attached evidence."
-        : "Execution was cancelled. Result evidence is not loaded yet.";
+        ? "Execution was cancelled. Result ready."
+        : "Execution was cancelled. Result pending.";
     case "review_needed":
       return hasEvidence
-        ? "Evidence is ready for human review."
-        : "Review requested. Result evidence is not loaded yet.";
+        ? "Result ready for review."
+        : "Review requested. Result pending.";
     case "queued":
     case "ready":
       return `${statusLabel(selectedTask.status)} task. It runs only after an explicit operator action.`;

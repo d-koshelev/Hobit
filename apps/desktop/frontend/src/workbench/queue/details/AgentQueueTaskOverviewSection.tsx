@@ -1,32 +1,21 @@
 import { Badge } from "../../../design-system/Badge";
 import {
-  coordinatorStatusBadgeVariant,
-  coordinatorStatusLabel,
   displayTaskTitle,
-  normalizeQueueTag,
-  normalizeValidationStatus,
   queueExecutorInfoForTask,
-  queueTaskPriorityLabel,
   statusBadgeVariant,
-  validationStatusLabel,
 } from "../../agentQueueTaskUiModel";
 import {
   hasReviewEvidenceForTask,
   isSelectedTaskRunning,
-  latestReportLabel,
 } from "./agentQueueTaskDetailsEvidence";
 import {
-  diffReviewHeaderLabel,
   selectedTaskStatusRailLabel,
 } from "./agentQueueTaskDetailsFormatters";
 import type {
   AgentQueueController,
   SelectedAgentQueueTask,
 } from "./agentQueueTaskDetailsTypes";
-import {
-  overviewNextStep,
-  overviewStateSentence,
-} from "./agentQueueTaskDetailsViewModel";
+import { overviewStateSentence } from "./agentQueueTaskDetailsViewModel";
 
 export function AgentQueueTaskOverviewSection({
   queue,
@@ -35,10 +24,6 @@ export function AgentQueueTaskOverviewSection({
   queue: AgentQueueController;
   selectedTask: SelectedAgentQueueTask;
 }) {
-  const queueTag = normalizeQueueTag(selectedTask);
-  const validationStatus = normalizeValidationStatus(
-    selectedTask.validationStatus,
-  );
   const dependencyState = queue.dependencyStates.get(selectedTask.queueItemId);
   const routingState = queue.assignedWorkerRoutingStates.get(
     selectedTask.queueItemId,
@@ -86,20 +71,16 @@ export function AgentQueueTaskOverviewSection({
         </Badge>
         {isRunning ? (
           <Badge variant="info">{queue.runActivity.currentStage}</Badge>
-        ) : (
-          <>
-          </>
-        )}
-        {!isRunning &&
-        selectedTask.coordinatorStatus &&
-        selectedTask.coordinatorStatus !== "not_reported" &&
-        hasReviewEvidenceForTask(queue, selectedTask) ? (
-          <Badge variant={coordinatorStatusBadgeVariant(selectedTask.coordinatorStatus)}>
-            {coordinatorStatusLabel(selectedTask.coordinatorStatus)}
-          </Badge>
-        ) : !isRunning && hasReviewEvidenceForTask(queue, selectedTask) ? (
+        ) : hasReviewEvidenceForTask(queue, selectedTask) ? (
           <Badge variant="warning">
-            Awaiting coordinator review
+            Awaiting review
+          </Badge>
+        ) : selectedTask.status === "completed" ||
+          selectedTask.status === "failed" ||
+          selectedTask.status === "cancelled" ||
+          selectedTask.status === "review_needed" ? (
+          <Badge variant="warning">
+            Result pending
           </Badge>
         ) : null}
       </div>
@@ -108,30 +89,7 @@ export function AgentQueueTaskOverviewSection({
         <p className="agent-queue-overview-next">
           Current stage: {queue.runActivity.currentStage}.
         </p>
-      ) : (
-        <>
-          <p className="agent-queue-overview-next">
-            {overviewNextStep(queue, selectedTask)}
-          </p>
-          <div className="agent-queue-overview-secondary">
-            <span>{queueTag.queueTagName}</span>
-            <span>Priority {queueTaskPriorityLabel(selectedTask.priority)}</span>
-            {queue.ordering.orderLabel ? (
-              <span>Order {queue.ordering.orderLabel}</span>
-            ) : null}
-            <span>{executorInfo.label}</span>
-            {latestReportLabel(queue, selectedTask) !== "No worker report" ? (
-              <span>{latestReportLabel(queue, selectedTask)}</span>
-            ) : null}
-            {validationStatus !== "not_started" ? (
-              <span>{validationStatusLabel(validationStatus)}</span>
-            ) : null}
-            {diffReviewHeaderLabel(queue, selectedTask) !== "Not requested" ? (
-              <span>{diffReviewHeaderLabel(queue, selectedTask)}</span>
-            ) : null}
-          </div>
-        </>
-      )}
+      ) : null}
     </section>
   );
 }

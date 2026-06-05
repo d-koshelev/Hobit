@@ -130,20 +130,12 @@ export function AgentQueueTaskResultEvidenceSection({
               Developer details
             </Button>
           </div>
-          <details className="agent-queue-details agent-queue-secondary-details">
-            <summary>Result note</summary>
-            <p className="agent-queue-run-note">
-              {queue.runEvidence.isLoading
-                ? "Direct Work finished. Hobit is loading linked result evidence before coordinator review."
-                : "Refresh the result, attach a report, or inspect Developer details."}
-            </p>
-          </details>
         </div>
       ) : (
         <p className="agent-queue-run-note">
           {isSelectedTaskRunning(queue, selectedTask)
             ? "Result will appear here when the run completes."
-            : "No run evidence attached. Run the task or attach a report before coordinator review."}
+            : "No result evidence yet."}
         </p>
       )}
       {shouldShowContextEvidence ? (

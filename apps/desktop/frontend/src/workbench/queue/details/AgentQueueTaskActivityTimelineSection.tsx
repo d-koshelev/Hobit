@@ -40,18 +40,22 @@ export function AgentQueueTaskActivityTimelineSection({
     activity.recentEvents.length > 0
       ? activity.recentEvents.map(activityDisplayEvent)
       : buildFallbackActivityEvents(queue, selectedTask);
-  const currentEvent = recentEvents[recentEvents.length - 1];
+  const currentEvent = reconciledCurrentActivityEvent(
+    recentEvents[recentEvents.length - 1],
+    queue,
+    selectedTask,
+  );
   const activityState = activityStatusForRun(queue, selectedTask);
   const statusLine = activityStatusLineForRun(queue, selectedTask);
 
   return (
     <section
-      aria-label="Agent activity"
+      aria-label="Activity"
       className="agent-queue-expanded-section agent-queue-agent-activity"
     >
       <div className="agent-queue-expanded-section-header">
         <div>
-          <p className="agent-queue-expanded-kicker">Agent activity</p>
+          <p className="agent-queue-expanded-kicker">Activity</p>
           <p className="agent-queue-execution-group-title">
             {statusLine}
           </p>
@@ -176,6 +180,53 @@ function activityStatusForRun(
         badgeVariant: queue.runActivity.currentStage === "Failed" ? "error" as const : "neutral" as const,
         label: queue.runActivity.currentStage,
       };
+  }
+}
+
+function reconciledCurrentActivityEvent(
+  event: ReturnType<typeof activityDisplayEvent> | undefined,
+  queue: AgentQueueController,
+  selectedTask: SelectedAgentQueueTask,
+) {
+  if (!event || isSelectedTaskRunning(queue, selectedTask)) {
+    return event;
+  }
+
+  const runStatus = queue.latestRun.link?.status ?? selectedTask.status;
+
+  if (event.badge !== "Running") {
+    return event;
+  }
+
+  switch (runStatus) {
+    case "completed":
+    case "review_needed":
+      return {
+        ...event,
+        badge: "Done",
+        badgeVariant: "success" as const,
+        message: activityStatusLineForRun(queue, selectedTask),
+        title: "Run completed",
+      };
+    case "failed":
+    case "timed_out":
+      return {
+        ...event,
+        badge: "Failed",
+        badgeVariant: "error" as const,
+        message: activityStatusLineForRun(queue, selectedTask),
+        title: "Run failed",
+      };
+    case "cancelled":
+      return {
+        ...event,
+        badge: "Cancelled",
+        badgeVariant: "warning" as const,
+        message: activityStatusLineForRun(queue, selectedTask),
+        title: "Run cancelled",
+      };
+    default:
+      return event;
   }
 }
 

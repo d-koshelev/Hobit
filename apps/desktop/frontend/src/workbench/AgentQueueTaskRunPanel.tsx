@@ -151,14 +151,21 @@ export function AgentQueueTaskRunPanel({
   const workerAssignmentDisabled = Boolean(
     scopedAssignmentDisabled || workerDisabled || selectedExecutorIsQueueOwned,
   );
+  const latestRunStatus = latestRun.link?.status;
   const isRunningTask =
-    selectedTask.status === "running" || latestRun.link?.status === "running";
+    latestRunStatus && latestRunStatus !== "unknown"
+      ? latestRunStatus === "running"
+      : selectedTask.status === "running";
+  const hasFinishedLatestRun = Boolean(
+    latestRunStatus && latestRunStatus !== "running" && latestRunStatus !== "unknown",
+  );
   const hasWorkerReport =
     (selectedTask.workerExecutionReports?.length ?? 0) > 0;
   const isFinalTaskWithoutEvidence =
     !isRunningTask &&
     !hasWorkerReport &&
-    (selectedTask.status === "completed" ||
+    (hasFinishedLatestRun ||
+      selectedTask.status === "completed" ||
       selectedTask.status === "review_needed" ||
       selectedTask.status === "failed" ||
       selectedTask.status === "cancelled");
@@ -401,10 +408,9 @@ function QueueTaskRunStatePanel({
   selectedTask: AgentQueueTask;
   status: "running" | "report-ready" | "evidence-missing";
 }) {
-  const link = latestRun.link;
   const isRunning = status === "running";
   const evidenceMissing = status === "evidence-missing";
-  const failed = isFailedRunState(link?.status ?? selectedTask.status);
+  const failed = isFailedRunState(latestRun.link?.status ?? selectedTask.status);
 
   return (
     <div className="agent-queue-execution-group agent-queue-run-state-panel">
@@ -431,11 +437,11 @@ function QueueTaskRunStatePanel({
               ? "Running - waiting for final response."
               : evidenceMissing
                 ? failed
-                  ? "Failure result is not loaded. Use the result section for review options."
-                  : "Result is not loaded. Use the result section for review options."
+                  ? "Failure result is not loaded."
+                  : "Result is not loaded."
               : failed
-                ? "Failure evidence is ready for coordinator review. Pre-run readiness checks are not the current action."
-                : "Report ready. Awaiting coordinator review. Pre-run readiness checks are not the current action."}
+                ? "Failure evidence is ready."
+                : "Report ready."}
           </p>
         </div>
         <div className="agent-queue-execution-badges">
@@ -465,40 +471,9 @@ function QueueTaskRunStatePanel({
 
       {isRunning ? (
         <p className="agent-queue-run-note">
-          Live events are shown in the selected task Agent activity panel.
+          Live events are shown in Activity.
         </p>
-      ) : (
-        <dl className="agent-queue-run-state-facts">
-          <div>
-            <dt>Result state</dt>
-            <dd>
-              {evidenceMissing
-                ? "Result not loaded"
-                : failed
-                  ? "Failure evidence ready"
-                  : "Report ready"}
-            </dd>
-          </div>
-          <div>
-            <dt>Review state</dt>
-            <dd>
-              {evidenceMissing
-                ? "Not ready"
-                : failed
-                  ? "Coordinator review needed"
-                  : "Awaiting coordinator review"}
-            </dd>
-          </div>
-          <div>
-            <dt>Started</dt>
-            <dd>{link?.startedAt ? formatRunStateTimestamp(link.startedAt) : "Not recorded"}</dd>
-          </div>
-          <div>
-            <dt>Duration</dt>
-            <dd>{runDurationLabel(link?.startedAt, link?.completedAt)}</dd>
-          </div>
-        </dl>
-      )}
+      ) : null}
 
       <div className="agent-queue-run-actions">
         <Button
@@ -715,57 +690,6 @@ function scrollToSelectedTaskReport() {
   document
     .getElementById("agent-queue-human-log-report")
     ?.scrollIntoView({ block: "nearest" });
-}
-
-function runDurationLabel(
-  startedAt: string | null | undefined,
-  completedAt: string | null | undefined,
-) {
-  if (!startedAt) {
-    return "Not recorded";
-  }
-
-  const started = new Date(startedAt);
-  const ended = completedAt ? new Date(completedAt) : new Date();
-
-  if (Number.isNaN(started.getTime()) || Number.isNaN(ended.getTime())) {
-    return completedAt ? "Recorded" : "Running";
-  }
-
-  const seconds = Math.max(0, Math.round((ended.getTime() - started.getTime()) / 1000));
-
-  if (seconds < 60) {
-    return `${seconds.toString()}s`;
-  }
-
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-
-  if (minutes < 60) {
-    return remainingSeconds
-      ? `${minutes.toString()}m ${remainingSeconds.toString()}s`
-      : `${minutes.toString()}m`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  return remainingMinutes
-    ? `${hours.toString()}h ${remainingMinutes.toString()}m`
-    : `${hours.toString()}h`;
-}
-
-function formatRunStateTimestamp(value: string) {
-  const parsed = new Date(value);
-
-  if (Number.isNaN(parsed.getTime())) {
-    return value;
-  }
-
-  return parsed.toLocaleString(undefined, {
-    dateStyle: "short",
-    timeStyle: "short",
-  });
 }
 
 function tagPauseDetail(reason: string | null | undefined) {

@@ -268,7 +268,8 @@ describe("AgentQueueTaskRunPanel settings and readiness", () => {
     expect(document.body.textContent).toContain("Overview");
     expect(document.body.textContent).toContain("Expanded queue detail");
     expect(document.body.textContent).toContain("Implementation");
-    expect(document.body.textContent).toContain("Priority P1");
+    expect(document.body.textContent).toContain("Priority");
+    expect(document.body.textContent).toContain("P1");
     expect(document.body.textContent).toContain("Executor");
     expect(document.body.textContent).toContain("Submitted metadata");
     expect(document.body.textContent).toContain("Prompt");
@@ -292,7 +293,7 @@ describe("AgentQueueTaskRunPanel settings and readiness", () => {
     const nextActionIndex = text.indexOf("Next action");
     const contextIndex = text.indexOf("Context");
     const evidenceIndex = text.indexOf("Result / Evidence");
-    const activityIndex = text.indexOf("Agent activity");
+    const activityIndex = text.indexOf("Activity");
     const developerIndex = text.indexOf("Developer details");
 
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
@@ -329,7 +330,7 @@ describe("AgentQueueTaskRunPanel settings and readiness", () => {
     expect(document.body.textContent).toContain("Promote to queued");
     expect(document.body.textContent).toContain("Draft task.");
     expect(document.body.textContent).toContain(
-      "No run evidence attached. Run the task or attach a report before coordinator review.",
+      "No result evidence yet.",
     );
 
     clickFirstButton("Edit status");

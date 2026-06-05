@@ -45,19 +45,18 @@ export function resultEvidenceState(
 
   if (hasFinishedRunLink(queue) || isReportReadyStatus(selectedTask.status)) {
     return {
-      badge: failed ? "Failure evidence missing" : "Evidence missing",
+      badge: failed ? "Failure result not loaded" : "Result not loaded",
       badgeVariant: "warning",
-      copy:
-        "Execution finished without loaded worker report or Direct Work result evidence. Review is not ready until the operator refreshes the result, attaches a report, or inspects Developer details.",
-      title: failed ? "Failure evidence missing" : "Evidence missing",
+      copy: "",
+      title: failed ? "Failure result not loaded" : "Result not loaded",
     };
   }
 
   return {
-    badge: "No run evidence",
+    badge: "No result",
     badgeVariant: "neutral",
-    copy: "Run the task or attach a report before coordinator review.",
-    title: "No run evidence attached",
+    copy: "",
+    title: "No result evidence",
   };
 }
 
@@ -424,9 +423,13 @@ export function isSelectedTaskRunning(
   queue: AgentQueueController,
   selectedTask: SelectedAgentQueueTask,
 ) {
-  return (
-    selectedTask.status === "running" || queue.latestRun.link?.status === "running"
-  );
+  const latestRunStatus = queue.latestRun.link?.status;
+
+  if (latestRunStatus && latestRunStatus !== "unknown") {
+    return latestRunStatus === "running";
+  }
+
+  return selectedTask.status === "running";
 }
 
 export function hasReviewEvidenceForTask(

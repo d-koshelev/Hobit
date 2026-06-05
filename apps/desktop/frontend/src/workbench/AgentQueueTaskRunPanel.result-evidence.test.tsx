@@ -172,10 +172,7 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     const executionText = executionSectionText();
 
     expect(executionText).toContain("Report ready");
-    expect(executionText).toContain("Awaiting coordinator review");
     expect(executionText).toContain("View report");
-    expect(executionText).toContain("Result stateReport ready");
-    expect(executionText).toContain("Review stateAwaiting coordinator review");
     expect(executionText).not.toContain("queue_owned_executor");
     expect(executionText).not.toContain("run_done_123456");
     expect(executionText).not.toContain("Local executor unavailable");
@@ -217,9 +214,8 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     const nextActionText = sectionText("Next action");
     const resultText = sectionText("Result / Evidence");
 
-    expect(overviewText).toContain(
-      "Next: review report and make coordinator decision.",
-    );
+    expect(overviewText).toContain("Execution complete. Result ready.");
+    expect(overviewText).toContain("Awaiting review");
     expect(resultText).toContain("Report ready");
     expect(resultText).toContain("Report ready");
     expect(nextActionText).toContain("Review report and make coordinator decision");
@@ -518,7 +514,7 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
 
     const overviewText = sectionText("Selected task overview");
     const contextText = sectionText("Attached Queue task context");
-    const activityText = sectionText("Agent activity");
+    const activityText = sectionText("Activity");
     const resultText = sectionText("Result / Evidence");
     const nextActionText = sectionText("Next action");
     const fullResponse = detailsBySummary("Full response");
@@ -530,14 +526,14 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     const contextIndex =
       document.body.textContent?.indexOf("Context") ?? -1;
     const activityIndex =
-      document.body.textContent?.indexOf("Agent activity") ?? -1;
+      document.body.textContent?.indexOf("Activity") ?? -1;
     const resultIndex =
       document.body.textContent?.indexOf("Result / Evidence") ?? -1;
     const developerIndex =
       document.body.textContent?.lastIndexOf("Developer details") ?? -1;
 
     expect(overviewText).toContain("Execution complete");
-    expect(overviewText).toContain("Awaiting coordinator review");
+    expect(overviewText).toContain("Awaiting review");
     expect(contextText).toContain("Task prompt");
     expect(resultText).toContain("Report ready");
     expect(resultText).toContain("Final response");
@@ -730,12 +726,12 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     });
 
     const overviewText = sectionText("Selected task overview");
-    const activityText = sectionText("Agent activity");
+    const activityText = sectionText("Activity");
     const resultText = sectionText("Result / Evidence");
     const nextActionText = sectionText("Next action");
 
     expect(overviewText).toContain("Execution complete");
-    expect(overviewText).toContain("Result evidence is not loaded yet");
+    expect(overviewText).toContain("Result pending");
     expect(overviewText).not.toContain("Evidence missing");
     expect(overviewText).not.toContain("Review not ready");
     expect(overviewText).not.toContain("Awaiting coordinator review");
@@ -754,10 +750,10 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     expect(nextActionText).toContain("Resolve finished run result");
     expect(nextActionText).toContain("Result not loaded");
     expect(nextActionText).not.toContain("Evidence missing");
-    expect(nextActionText).not.toContain("Review is not ready");
-    expect(resultText).toContain("Evidence missing");
+    expect(nextActionText).toContain("Review is not ready");
+    expect(resultText).toContain("Result not loaded");
     expect(resultText).toContain("Run result is not loaded");
-    expect(resultText).toContain("Review is not ready");
+    expect(resultText).not.toContain("Review is not ready");
     expect(resultText).toContain("Direct Work result was not found.");
     expect(resultText).not.toContain("Report ready");
     expect(activityText).toContain("Report ready");

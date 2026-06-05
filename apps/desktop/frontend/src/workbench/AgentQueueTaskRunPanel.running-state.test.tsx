@@ -101,9 +101,7 @@ describe("AgentQueueTaskRunPanel running state", () => {
 
     expect(executionText).toContain("Agent activity");
     expect(executionText).toContain("Running - waiting for final response.");
-    expect(executionText).toContain(
-      "Live events are shown in the selected task Agent activity panel.",
-    );
+    expect(executionText).toContain("Live events are shown in Activity.");
     expect(executionText).not.toContain("queue_owned_executor");
     expect(executionText).not.toContain("run_active_123456");
     expect(executionText).toContain("Refresh status");
@@ -186,7 +184,7 @@ describe("AgentQueueTaskRunPanel running state", () => {
     });
 
     const overviewText = sectionText("Selected task overview");
-    const activityText = sectionText("Agent activity");
+    const activityText = sectionText("Activity");
     const resultText = sectionText("Result / Evidence");
     const developerDetails = detailsBySummary("Developer details");
 
