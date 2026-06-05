@@ -68,6 +68,8 @@ export function useAgentExecutorController({
   const activeRequestRef = useRef<CodexDirectWorkRequestDraft | null>(null);
   const runStartedAtRef = useRef<number | null>(null);
   const stopStreamListeningRef = useRef<(() => void) | null>(null);
+  const streamStartAbortControllerRef = useRef<AbortController | null>(null);
+  const isMountedRef = useRef(false);
   const canRunBackend = Boolean(
     onStartCodexDirectWorkStream || onRunCodexDirectWork,
   );
@@ -113,7 +115,14 @@ export function useAgentExecutorController({
     widgetInstanceId,
   });
 
-  useEffect(() => () => stopActiveStreamListening(), []);
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      stopActiveStreamListening();
+    };
+  }, []);
 
   useCodexDirectWorkQueueHandoff({
     activeRequestRef,
@@ -161,6 +170,10 @@ export function useAgentExecutorController({
 
       await runOneShotDirectWork(request);
     } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
       setRunErrorMessage(codexDirectWorkErrorToMessage(error));
       activeRequestRef.current = null;
       setIsRunning(false);
@@ -248,11 +261,25 @@ export function useAgentExecutorController({
       throw new Error("Codex Direct Work streaming is unavailable.");
     }
 
+    streamStartAbortControllerRef.current?.abort();
+    const startAbortController = new AbortController();
+    streamStartAbortControllerRef.current = startAbortController;
+
     const session = await onStartCodexDirectWorkStream(
       widgetInstanceId,
       request,
       recordStreamEvent,
-    );
+      startAbortController.signal,
+    ).finally(() => {
+      if (streamStartAbortControllerRef.current === startAbortController) {
+        streamStartAbortControllerRef.current = null;
+      }
+    });
+
+    if (!isMountedRef.current || startAbortController.signal.aborted) {
+      session?.stopListening();
+      return;
+    }
 
     if (!session) {
       throw new Error(
@@ -448,6 +475,8 @@ export function useAgentExecutorController({
   }
 
   function stopActiveStreamListening() {
+    streamStartAbortControllerRef.current?.abort();
+    streamStartAbortControllerRef.current = null;
     stopStreamListeningRef.current?.();
     stopStreamListeningRef.current = null;
   }

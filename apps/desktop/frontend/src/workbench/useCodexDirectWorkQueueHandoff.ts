@@ -52,6 +52,7 @@ type UseCodexDirectWorkQueueHandoffOptions = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
     onEvent: (event: DirectWorkStreamEvent) => void,
+    signal?: AbortSignal,
   ) => Promise<CodexDirectWorkStreamSession | null>;
   onGetAgentExecutorRunDetail?: (
     widgetInstanceId: WidgetInstanceId,
@@ -106,7 +107,9 @@ export function useCodexDirectWorkQueueHandoff({
   widgetInstanceId,
 }: UseCodexDirectWorkQueueHandoffOptions) {
   const activeStreamingRunIdRef = useRef(activeStreamingRunId);
+  const attachAbortControllerRef = useRef<AbortController | null>(null);
   const handledQueueHandoffIdRef = useRef<number | null>(null);
+  const isMountedRef = useRef(false);
   const liveRunRef = useRef(liveRun);
   const recoveryTimerRef = useRef<number | null>(null);
 
@@ -118,7 +121,16 @@ export function useCodexDirectWorkQueueHandoff({
     liveRunRef.current = liveRun;
   }, [liveRun]);
 
-  useEffect(() => () => clearQueueHandoffRecoveryTimer(), []);
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      attachAbortControllerRef.current?.abort();
+      attachAbortControllerRef.current = null;
+      clearQueueHandoffRecoveryTimer();
+    };
+  }, []);
 
   useEffect(() => {
     if (
@@ -167,6 +179,10 @@ export function useCodexDirectWorkQueueHandoff({
       handoff.runId,
     );
 
+    attachAbortControllerRef.current?.abort();
+    const attachAbortController = new AbortController();
+    attachAbortControllerRef.current = attachAbortController;
+
     try {
       const session = await onAttachToCodexDirectWorkStream(
         widgetInstanceId,
@@ -175,7 +191,17 @@ export function useCodexDirectWorkQueueHandoff({
           recordStreamEvent(event);
           notifyQueueRunFinalStateFromEvent(handoff, event);
         },
-      );
+        attachAbortController.signal,
+      ).finally(() => {
+        if (attachAbortControllerRef.current === attachAbortController) {
+          attachAbortControllerRef.current = null;
+        }
+      });
+
+      if (!isMountedRef.current || attachAbortController.signal.aborted) {
+        session?.stopListening();
+        return;
+      }
 
       if (!session) {
         throw new Error("Queue-started Direct Work stream was not attached.");
@@ -184,6 +210,10 @@ export function useCodexDirectWorkQueueHandoff({
       stopStreamListeningRef.current = session.stopListening;
       scheduleQueueHandoffRecovery(handoff);
     } catch (error) {
+      if (!isMountedRef.current || attachAbortController.signal.aborted) {
+        return;
+      }
+
       clearQueueHandoffRecoveryTimer();
       setRunErrorMessage(codexDirectWorkErrorToMessage(error));
       liveRunRef.current = null;

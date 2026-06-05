@@ -111,6 +111,10 @@ export function useWorkspaceAgentDirectWorkController({
     useState<WorkspaceKnowledgeLookup>(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
   const [isDirectWorkStopPending, setIsDirectWorkStopPending] = useState(false);
   const directWorkStopListeningRef = useRef<(() => void) | null>(null);
+  const directWorkStartAbortControllerRef = useRef<AbortController | null>(
+    null,
+  );
+  const isMountedRef = useRef(false);
   const directWorkCompletedDuringStartRef = useRef(false);
   const directWorkFinalMessageRef = useRef<string | null>(null);
   const directWorkAccessDeniedRef = useRef(false);
@@ -135,7 +139,14 @@ export function useWorkspaceAgentDirectWorkController({
     Boolean(directWorkRunId) &&
     Boolean(onCancelCodexDirectWorkRun);
 
-  useEffect(() => () => stopDirectWorkEventListening(), []);
+  useEffect(() => {
+    isMountedRef.current = true;
+
+    return () => {
+      isMountedRef.current = false;
+      stopDirectWorkEventListening();
+    };
+  }, []);
 
   async function handleRunWithCodex(options: RunWithCodexOptions = {}) {
     if (directWorkStatus === "running") {
@@ -187,8 +198,16 @@ export function useWorkspaceAgentDirectWorkController({
     if (currentCodexThread && !resumeThreadId) {
       setCurrentCodexThread(null);
     }
+    directWorkStartAbortControllerRef.current?.abort();
+    const startAbortController = new AbortController();
+    directWorkStartAbortControllerRef.current = startAbortController;
     const knowledgeLookup =
       await searchWorkspaceKnowledgeForDirectWork(operatorPrompt);
+
+    if (!isMountedRef.current || startAbortController.signal.aborted) {
+      return;
+    }
+
     const promptForCodex =
       knowledgeLookup.results.length > 0
         ? codexPromptWithWorkspaceKnowledge(operatorPrompt, knowledgeLookup.results)
@@ -235,7 +254,13 @@ export function useWorkspaceAgentDirectWorkController({
           timeoutMs: null,
         },
         recordDirectWorkEvent,
+        startAbortController.signal,
       );
+
+      if (!isMountedRef.current || startAbortController.signal.aborted) {
+        session?.stopListening();
+        return;
+      }
 
       if (!session) {
         throw new Error(
@@ -254,6 +279,10 @@ export function useWorkspaceAgentDirectWorkController({
         );
       }
     } catch (error) {
+      if (!isMountedRef.current || startAbortController.signal.aborted) {
+        return;
+      }
+
       const message = errorToMessage(error, "Unable to start Direct Work.");
       stopDirectWorkEventListening();
       setDirectWorkStatus("failed");
@@ -265,7 +294,12 @@ export function useWorkspaceAgentDirectWorkController({
       appendDirectWorkLog(message, "local");
       onAppendAssistantTranscript("failed", message);
     } finally {
-      onFocusComposer();
+      if (directWorkStartAbortControllerRef.current === startAbortController) {
+        directWorkStartAbortControllerRef.current = null;
+      }
+      if (isMountedRef.current && !startAbortController.signal.aborted) {
+        onFocusComposer();
+      }
     }
   }
 
@@ -540,6 +574,8 @@ export function useWorkspaceAgentDirectWorkController({
   }
 
   function stopDirectWorkEventListening() {
+    directWorkStartAbortControllerRef.current?.abort();
+    directWorkStartAbortControllerRef.current = null;
     directWorkStopListeningRef.current?.();
     directWorkStopListeningRef.current = null;
   }

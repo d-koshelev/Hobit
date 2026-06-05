@@ -43,6 +43,7 @@ export type AgentExecutorWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
     onEvent: (event: DirectWorkStreamEvent) => void,
+    signal?: AbortSignal,
   ) => Promise<CodexDirectWorkStreamSession | null>;
   cancelCodexDirectWorkRun: (
     widgetInstanceId: WidgetInstanceId,
@@ -79,6 +80,7 @@ export type AgentExecutorWidgetActions = {
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
     onEvent: (event: DirectWorkStreamEvent) => void,
+    signal?: AbortSignal,
   ) => Promise<CodexDirectWorkStreamSession | null>;
 };
 
@@ -287,6 +289,7 @@ export function createAgentExecutorWidgetActions({
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRunRequest,
     onEvent: (event: DirectWorkStreamEvent) => void,
+    signal?: AbortSignal,
   ): Promise<CodexDirectWorkStreamSession | null> {
     const workbenchId = requireOpenWorkbench(
       viewState,
@@ -303,6 +306,7 @@ export function createAgentExecutorWidgetActions({
       currentSessionActivity,
       onEvent,
       request,
+      signal,
       widgetInstanceId,
       workbenchId,
       workspaceId: viewState.workspace.id,
@@ -313,6 +317,7 @@ export function createAgentExecutorWidgetActions({
     widgetInstanceId: WidgetInstanceId,
     runId: string,
     onEvent: (event: DirectWorkStreamEvent) => void,
+    signal?: AbortSignal,
   ): Promise<CodexDirectWorkStreamSession | null> {
     const workbenchId = requireOpenWorkbench(
       viewState,
@@ -329,6 +334,7 @@ export function createAgentExecutorWidgetActions({
       currentSessionActivity,
       onEvent,
       runId,
+      signal,
       widgetInstanceId,
       workbenchId,
       workspaceId: viewState.workspace.id,

@@ -127,6 +127,7 @@ export type WidgetRenderProps = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
     onEvent: (event: DirectWorkStreamEvent) => void,
+    signal?: AbortSignal,
   ) => Promise<
     | (StartCodexDirectWorkStreamResponse & {
         stopListening: () => void;
@@ -387,6 +388,7 @@ export type WidgetRenderProps = {
       "workspaceId" | "workbenchId" | "widgetInstanceId"
     >,
     onEvent: (event: DirectWorkStreamEvent) => void,
+    signal?: AbortSignal,
   ) => Promise<
     | (StartCodexDirectWorkStreamResponse & {
         stopListening: () => void;

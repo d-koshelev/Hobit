@@ -7,6 +7,7 @@ import type {
   RunCodexDirectWorkRequest,
   StartCodexDirectWorkStreamResponse,
 } from "../workspace/types";
+import { RENDER_MEMORY_CAPS, capArrayToLast } from "../renderMemoryGuards";
 import { directWorkResultFromStreamEvent } from "./directWorkStreamActivity";
 import type { WidgetInstanceId } from "./types";
 import type { CurrentSessionActivityEvents } from "./useCurrentSessionActivity";
@@ -25,6 +26,7 @@ type DirectWorkStreamSessionOptions = {
   bumpWidgetLogRefreshToken: (widgetInstanceId: WidgetInstanceId) => void;
   currentSessionActivity?: CurrentSessionActivityEvents;
   onEvent: (event: DirectWorkStreamEvent) => void;
+  signal?: AbortSignal;
   widgetInstanceId: WidgetInstanceId;
   workbenchId: string;
   workspaceId: string;
@@ -35,15 +37,26 @@ export async function startDirectWorkStreamSession({
   currentSessionActivity,
   onEvent,
   request,
+  signal,
   widgetInstanceId,
   workbenchId,
   workspaceId,
 }: DirectWorkStreamSessionOptions & {
   request: CodexDirectWorkRunRequest;
 }): Promise<CodexDirectWorkStreamSession | null> {
+  if (signal?.aborted) {
+    return null;
+  }
+
   let activeRunId: string | null = null;
   const queuedEvents: DirectWorkStreamEvent[] = [];
   let finalEventSeen = false;
+  let stopListening: () => void = () => undefined;
+  let removeAbortListener: () => void = () => undefined;
+  const stopStream = () => {
+    removeAbortListener();
+    stopListening();
+  };
 
   const unsubscribe = await listenToDirectWorkStreamEvents((event) => {
     if (
@@ -54,6 +67,13 @@ export async function startDirectWorkStreamSession({
 
     if (!activeRunId) {
       queuedEvents.push(event);
+      const cappedQueuedEvents = capArrayToLast(
+        queuedEvents,
+        RENDER_MEMORY_CAPS.eventRows,
+      ).items;
+      if (cappedQueuedEvents.length !== queuedEvents.length) {
+        queuedEvents.splice(0, queuedEvents.length, ...cappedQueuedEvents);
+      }
       return;
     }
 
@@ -69,11 +89,19 @@ export async function startDirectWorkStreamSession({
         bumpWidgetLogRefreshToken,
         currentSessionActivity,
         event,
-        unsubscribe,
+        unsubscribe: stopStream,
         widgetInstanceId,
       });
     }
   });
+  stopListening = createIdempotentStop(unsubscribe);
+
+  if (signal?.aborted) {
+    stopListening();
+    return null;
+  }
+
+  removeAbortListener = addAbortListener(signal, stopListening);
 
   currentSessionActivity?.markDirectWorkRunStarted(widgetInstanceId);
 
@@ -86,7 +114,18 @@ export async function startDirectWorkStreamSession({
     });
 
     if (!response) {
-      unsubscribe();
+      stopListening();
+      removeAbortListener();
+      currentSessionActivity?.markDirectWorkRunFinished(
+        widgetInstanceId,
+        null,
+      );
+      return null;
+    }
+
+    if (signal?.aborted) {
+      stopListening();
+      removeAbortListener();
       currentSessionActivity?.markDirectWorkRunFinished(
         widgetInstanceId,
         null,
@@ -106,23 +145,25 @@ export async function startDirectWorkStreamSession({
             bumpWidgetLogRefreshToken,
             currentSessionActivity,
             event,
-            unsubscribe,
+            unsubscribe: stopStream,
             widgetInstanceId,
           });
         }
       });
+    queuedEvents.length = 0;
 
     return {
       ...response,
-      stopListening: () => {
-        unsubscribe();
+      stopListening: createIdempotentStop(() => {
+        stopStream();
         if (!finalEventSeen) {
           bumpWidgetLogRefreshToken(widgetInstanceId);
         }
-      },
+      }),
     };
   } catch (error) {
-    unsubscribe();
+    removeAbortListener();
+    stopListening();
     currentSessionActivity?.markDirectWorkRunFailed(widgetInstanceId, error);
     throw error;
   }
@@ -133,13 +174,24 @@ export async function attachDirectWorkStreamSession({
   currentSessionActivity,
   onEvent,
   runId,
+  signal,
   widgetInstanceId,
   workbenchId,
   workspaceId,
 }: DirectWorkStreamSessionOptions & {
   runId: string;
 }): Promise<CodexDirectWorkStreamSession> {
+  if (signal?.aborted) {
+    throw new Error("Direct Work stream attachment was cancelled.");
+  }
+
   let finalEventSeen = false;
+  let stopListening: () => void = () => undefined;
+  let removeAbortListener: () => void = () => undefined;
+  const stopStream = () => {
+    removeAbortListener();
+    stopListening();
+  };
 
   const unsubscribe = await listenToDirectWorkStreamEvents((event) => {
     if (
@@ -160,21 +212,29 @@ export async function attachDirectWorkStreamSession({
         bumpWidgetLogRefreshToken,
         currentSessionActivity,
         event,
-        unsubscribe,
+        unsubscribe: stopStream,
         widgetInstanceId,
       });
     }
   });
+  stopListening = createIdempotentStop(unsubscribe);
+
+  if (signal?.aborted) {
+    stopListening();
+    throw new Error("Direct Work stream attachment was cancelled.");
+  }
+
+  removeAbortListener = addAbortListener(signal, stopListening);
 
   return {
     runId,
     status: "attached",
-    stopListening: () => {
-      unsubscribe();
+    stopListening: createIdempotentStop(() => {
+      stopStream();
       if (!finalEventSeen) {
         bumpWidgetLogRefreshToken(widgetInstanceId);
       }
-    },
+    }),
   };
 }
 
@@ -210,4 +270,31 @@ function recordFinalStreamEvent({
     directWorkResultFromStreamEvent(event),
   );
   unsubscribe();
+}
+
+function createIdempotentStop(unsubscribe: () => void) {
+  let stopped = false;
+
+  return () => {
+    if (stopped) {
+      return;
+    }
+
+    stopped = true;
+    unsubscribe();
+  };
+}
+
+function addAbortListener(
+  signal: AbortSignal | undefined,
+  stopListening: () => void,
+) {
+  if (!signal) {
+    return () => undefined;
+  }
+
+  const abort = () => stopListening();
+  signal.addEventListener("abort", abort, { once: true });
+
+  return () => signal.removeEventListener("abort", abort);
 }

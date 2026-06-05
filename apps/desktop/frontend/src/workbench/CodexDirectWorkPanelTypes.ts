@@ -66,11 +66,13 @@ export type CodexDirectWorkPanelProps = {
     widgetInstanceId: WidgetInstanceId,
     runId: string,
     onEvent: (event: DirectWorkStreamEvent) => void,
+    signal?: AbortSignal,
   ) => Promise<CodexDirectWorkStreamSession | null>;
   onStartCodexDirectWorkStream?: (
     widgetInstanceId: WidgetInstanceId,
     request: CodexDirectWorkRequestDraft,
     onEvent: (event: DirectWorkStreamEvent) => void,
+    signal?: AbortSignal,
   ) => Promise<CodexDirectWorkStreamSession | null>;
   directWorkRunHandoff?: DirectWorkRunHandoff | null;
   widgetInstanceId: WidgetInstanceId;
