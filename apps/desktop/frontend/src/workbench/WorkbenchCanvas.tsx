@@ -13,7 +13,7 @@ import {
   mergeAgentActivityEvents,
   type AgentActivityEvent,
 } from "./agentActivityModel";
-import { agentExecutorSlotsFromWidgets } from "./agentQueueTaskUiModel";
+import { queueExecutorSlotsFromWidgets } from "./agentQueueTaskUiModel";
 import { coordinatorNotesWidgetsForCanvasWidth } from "./presets";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
@@ -28,7 +28,6 @@ import { useWorkbenchLayoutInteractions } from "./useWorkbenchLayoutInteractions
 import type {
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
-  AgentQueueItemOpenRequest,
   CoordinatorAttachedContextInput,
   CoordinatorAttachedContextRequest,
   WorkspaceAgentQueueReportActionCardRequest,
@@ -85,9 +84,6 @@ export function WorkbenchCanvas({
   const agentExecutorRunOpenRequestIdRef = useRef(0);
   const [agentExecutorRunOpenRequest, setAgentExecutorRunOpenRequest] =
     useState<AgentExecutorRunOpenRequest | null>(null);
-  const agentQueueItemOpenRequestIdRef = useRef(0);
-  const [agentQueueItemOpenRequest, setAgentQueueItemOpenRequest] =
-    useState<AgentQueueItemOpenRequest | null>(null);
   const [agentActivityEvents, setAgentActivityEvents] = useState<
     AgentActivityEvent[]
   >([]);
@@ -116,14 +112,16 @@ export function WorkbenchCanvas({
   const queueWidget = visibleWidgets.find(
     (widget) => widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
   );
-  const agentExecutorSlots = useMemo(() => agentExecutorSlotsFromWidgets(viewState.widgets), [viewState.widgets]);
+  const queueExecutorSlots = useMemo(
+    () => queueExecutorSlotsFromWidgets(viewState.widgets),
+    [viewState.widgets],
+  );
   const directWorkGitReview = useDirectWorkGitReviewHandoff();
   const directWorkRunHandoff = useDirectWorkRunHandoff();
   const workspaceQueueApi = useWorkspaceQueueApi({
     actions: widgetActions,
-    agentExecutorSlots,
     directWorkRunHandoff,
-    queueWidgetInstanceId: queueWidget?.id ?? null,
+    queueExecutorSlots,
     workspaceId: viewState.workspace.id,
   });
   const canvasLabel = `${viewState.workbench.preset.title} canvas`;
@@ -198,6 +196,24 @@ export function WorkbenchCanvas({
   useEffect(() => {
     setAgentActivityEvents([]);
   }, [viewState.workspace.id]);
+
+  useEffect(() => {
+    if (!workspaceQueueApi.queueItemOpenRequest || !queueWidget) {
+      return;
+    }
+
+    const target =
+      typeof document === "undefined"
+        ? null
+        : Array.from(
+            document.querySelectorAll<HTMLElement>("[data-widget-instance-id]"),
+          ).find((element) => element.dataset.widgetInstanceId === queueWidget.id);
+
+    target?.scrollIntoView({
+      block: "nearest",
+      inline: "nearest",
+    });
+  }, [queueWidget?.id, workspaceQueueApi.queueItemOpenRequest?.id]);
 
   useEffect(() => {
     const surface = layoutSurfaceRef.current;
@@ -457,29 +473,6 @@ export function WorkbenchCanvas({
     });
   }
 
-  function openAgentQueueItem(queueItemId: string) {
-    if (!queueWidget) {
-      return;
-    }
-
-    const target =
-      typeof document === "undefined"
-        ? null
-        : Array.from(
-            document.querySelectorAll<HTMLElement>("[data-widget-instance-id]"),
-          ).find((element) => element.dataset.widgetInstanceId === queueWidget.id);
-
-    target?.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-    });
-    setAgentQueueItemOpenRequest({
-      id: ++agentQueueItemOpenRequestIdRef.current,
-      queueItemId,
-      targetQueueWidgetInstanceId: queueWidget.id,
-    });
-  }
-
   function publishAgentActivityEvents(events: AgentActivityEvent[]) {
     const workspaceId = viewState.workspace.id;
     const scopedEvents = events.filter((event) => event.workspaceId === workspaceId);
@@ -579,11 +572,9 @@ export function WorkbenchCanvas({
                       >
                         <WidgetHost
                           agentActivityEvents={agentActivityEvents}
-                          agentExecutorSlots={agentExecutorSlots}
                           agentExecutorRunOpenRequest={
                             agentExecutorRunOpenRequest
                           }
-                          agentQueueItemOpenRequest={agentQueueItemOpenRequest}
                           coordinatorAttachedContextRequest={
                             coordinatorAttachedContextRequest
                           }
@@ -606,9 +597,6 @@ export function WorkbenchCanvas({
                               ? showQueueReportInWorkspaceChat
                               : undefined
                           }
-                          onOpenAgentQueueItem={
-                            queueWidget ? openAgentQueueItem : undefined
-                          }
                           onPublishAgentActivityEvents={
                             publishAgentActivityEvents
                           }
@@ -627,11 +615,9 @@ export function WorkbenchCanvas({
                     <div className="widget-docked-surface">
                       <WidgetHost
                         agentActivityEvents={agentActivityEvents}
-                        agentExecutorSlots={agentExecutorSlots}
                         agentExecutorRunOpenRequest={
                           agentExecutorRunOpenRequest
                         }
-                        agentQueueItemOpenRequest={agentQueueItemOpenRequest}
                         coordinatorAttachedContextRequest={
                           coordinatorAttachedContextRequest
                         }
@@ -654,9 +640,6 @@ export function WorkbenchCanvas({
                           coordinatorWidget
                             ? showQueueReportInWorkspaceChat
                             : undefined
-                        }
-                        onOpenAgentQueueItem={
-                          queueWidget ? openAgentQueueItem : undefined
                         }
                         onPublishAgentActivityEvents={publishAgentActivityEvents}
                         onOpenAgentExecutorRun={openAgentExecutorRun}

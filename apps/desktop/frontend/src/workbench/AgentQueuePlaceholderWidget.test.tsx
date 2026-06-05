@@ -243,8 +243,6 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     const renderProps = widgetHostRenderProps({
       agentActivityEvents: [],
       agentExecutorRunOpenRequest: null,
-      agentQueueItemOpenRequest: null,
-      agentExecutorSlots: [],
       componentKey: AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
       coordinatorAttachedContextRequest: null,
       queueReportActionCardRequest: null,
@@ -792,6 +790,8 @@ function workspaceQueueApi(
       sandbox: "read_only" as const,
     })),
     getSnapshot: vi.fn(),
+    openQueueItem: vi.fn(),
+    queueItemOpenRequest: null,
     queueExecutorSlots: [],
     queueId: "workspace:workspace-1:agent-queue",
     runAutonomousQueue: vi.fn(),

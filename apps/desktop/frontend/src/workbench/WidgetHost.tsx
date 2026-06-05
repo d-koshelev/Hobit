@@ -33,8 +33,6 @@ import type {
   WorkbenchLayoutMode,
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
-  AgentQueueItemOpenRequest,
-  AgentExecutorSlot,
   CoordinatorAttachedContextInput,
   CoordinatorAttachedContextRequest,
   WorkspaceAgentQueueReportActionCardRequest,
@@ -85,10 +83,8 @@ type WidgetHostProps = {
   hasGitWidget: boolean;
   agentActivityEvents: AgentActivityEvent[];
   agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
-  agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
-  agentExecutorSlots: AgentExecutorSlot[];
   instance: WidgetInstance;
   layoutMode: WorkbenchLayoutMode;
   onDockBack: (widgetInstanceId: WidgetInstance["id"]) => void;
@@ -102,7 +98,6 @@ type WidgetHostProps = {
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
-  onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
   onStartDockedDrag: (
     widgetInstanceId: WidgetInstance["id"],
@@ -127,17 +122,14 @@ export function WidgetHost({
   hasGitWidget,
   agentActivityEvents,
   agentExecutorRunOpenRequest,
-  agentQueueItemOpenRequest,
   coordinatorAttachedContextRequest,
   queueReportActionCardRequest,
-  agentExecutorSlots,
   instance,
   layoutMode,
   onDockBack,
   onOpenAgentExecutorRun,
   onAttachContextToCoordinator,
   onShowQueueReportInWorkspaceChat,
-  onOpenAgentQueueItem,
   onPublishAgentActivityEvents,
   onStartDockedDrag,
   onStartPopoutDrag,
@@ -236,9 +228,7 @@ export function WidgetHost({
   const title = frameTitle;
   const renderProps = widgetHostRenderProps({
     agentActivityEvents,
-    agentExecutorSlots,
     agentExecutorRunOpenRequest,
-    agentQueueItemOpenRequest,
     componentKey: definition.componentKey,
     coordinatorAttachedContextRequest,
     queueReportActionCardRequest,
@@ -248,7 +238,6 @@ export function WidgetHost({
     instanceId: instance.id,
     onAttachContextToCoordinator,
     onShowQueueReportInWorkspaceChat,
-    onOpenAgentQueueItem,
     onOpenAgentExecutorRun,
     onPublishAgentActivityEvents,
     widgetActions,

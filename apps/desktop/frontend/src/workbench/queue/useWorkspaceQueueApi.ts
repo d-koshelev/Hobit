@@ -1,8 +1,8 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
 import type { DirectWorkRunHandoffController } from "../useDirectWorkRunHandoff";
-import type { AgentExecutorSlot, WidgetInstanceId } from "../types";
+import type { AgentExecutorSlot, AgentQueueItemOpenRequest } from "../types";
 import {
   createWorkspaceAgentQueueBridge,
   type WorkspaceAgentQueueAutonomousActionName,
@@ -46,39 +46,31 @@ type WorkspaceQueueActions = Pick<
 
 export type WorkspaceQueueApi = WorkspaceAgentQueueBridge & {
   controller: AgentQueueController;
+  openQueueItem: (queueItemId: string) => void;
+  queueItemOpenRequest: AgentQueueItemOpenRequest | null;
   queueExecutorSlots: AgentExecutorSlot[];
   queueId: string;
 };
 
 export function useWorkspaceQueueApi({
   actions,
-  agentExecutorSlots,
   directWorkRunHandoff,
-  queueWidgetInstanceId,
+  queueExecutorSlots,
   workspaceId,
 }: {
   actions: WorkspaceQueueActions;
-  agentExecutorSlots: AgentExecutorSlot[];
+  queueExecutorSlots: AgentExecutorSlot[];
   directWorkRunHandoff: DirectWorkRunHandoffController;
-  queueWidgetInstanceId?: WidgetInstanceId | null;
   workspaceId: string;
 }): WorkspaceQueueApi {
-  const queueExecutorSlots = useMemo(
+  const queueItemOpenRequestIdRef = useRef(0);
+  const [queueItemOpenRequest, setQueueItemOpenRequest] =
+    useState<AgentQueueItemOpenRequest | null>(null);
+  const queueOwnerWidgetInstanceId = useMemo(
     () =>
-      queueWidgetInstanceId
-        ? [
-            {
-              label: "Local executor ready",
-              ownerKind: "agent_queue" as const,
-              widgetInstanceId: queueWidgetInstanceId,
-            },
-            ...agentExecutorSlots.map((slot) => ({
-              ...slot,
-              ownerKind: slot.ownerKind ?? ("agent_executor" as const),
-            })),
-          ]
-        : agentExecutorSlots,
-    [agentExecutorSlots, queueWidgetInstanceId],
+      queueExecutorSlots.find((slot) => slot.ownerKind === "agent_queue")
+        ?.widgetInstanceId ?? null,
+    [queueExecutorSlots],
   );
   const getAgentQueueTaskLatestRunLink = useCallback(
     (queueItemId: string) =>
@@ -113,7 +105,7 @@ export function useWorkspaceQueueApi({
     onUpdateAgentQueueTask: actions.updateAgentQueueTask,
     onUpdateAgentQueueWorker: actions.updateAgentQueueWorker,
     queueTaskAutoRefreshRequest: directWorkRunHandoff.queueTaskAutoRefreshRequest,
-    queueWidgetInstanceId: queueWidgetInstanceId ?? null,
+    queueWidgetInstanceId: queueOwnerWidgetInstanceId,
   });
   const queueId = queueIdForWorkspace(workspaceId);
   const queueApi = useMemo(
@@ -161,10 +153,28 @@ export function useWorkspaceQueueApi({
     },
     workspaceId,
   });
+  const openQueueItem = useCallback(
+    (queueItemId: string) => {
+      const trimmedQueueItemId = queueItemId.trim();
+
+      if (!trimmedQueueItemId) {
+        return;
+      }
+
+      setQueueItemOpenRequest({
+        id: ++queueItemOpenRequestIdRef.current,
+        queueItemId: trimmedQueueItemId,
+      });
+      void controller.selectTask(trimmedQueueItemId);
+    },
+    [controller.selectTask],
+  );
 
   return {
     ...bridge,
     controller,
+    openQueueItem,
+    queueItemOpenRequest,
     queueExecutorSlots,
     queueId,
   };

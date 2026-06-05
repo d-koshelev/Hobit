@@ -86,6 +86,7 @@ describe("widgetHostRenderProps", () => {
     expect(props.onGenerateCoordinatorProviderResponse).toBe(
       actions.generateCoordinatorProviderResponse,
     );
+    expect(props.onOpenAgentQueueItem).toBe(workspaceQueue.openQueueItem);
     expect(props.workspaceAgentQueueBridge).toBeDefined();
     expect(props.workspaceAgentQueueBridge?.getRunSettingsDefaults?.()).toEqual(
       {
@@ -283,7 +284,6 @@ describe("widgetHostRenderProps", () => {
       },
     ];
     const props = renderPropsFor(AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY, {
-      agentExecutorSlots: slots,
       directWorkRunHandoff: handoff,
       onAttachContextToCoordinator: attach,
       onOpenAgentExecutorRun: openExecutorRun,
@@ -414,8 +414,6 @@ function renderPropsFor(
   return widgetHostRenderProps({
     agentActivityEvents: [],
     agentExecutorRunOpenRequest: null,
-    agentQueueItemOpenRequest: null,
-    agentExecutorSlots: [],
     componentKey,
     coordinatorAttachedContextRequest: null,
     queueReportActionCardRequest: null,
@@ -445,6 +443,8 @@ function workspaceQueueApi(
       sandbox: "read_only" as const,
     })),
     getSnapshot: vi.fn(),
+    openQueueItem: vi.fn(),
+    queueItemOpenRequest: null,
     queueExecutorSlots: [],
     queueId: "workspace:workspace_1:agent-queue",
     runAutonomousQueue: vi.fn(),

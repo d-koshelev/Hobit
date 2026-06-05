@@ -247,7 +247,6 @@ export type WorkspaceAgentQueueReportActionCardRequest = {
 export type AgentQueueItemOpenRequest = {
   id: number;
   queueItemId: string;
-  targetQueueWidgetInstanceId: WidgetInstanceId;
 };
 
 export type DirectWorkQueueTaskAutoRefreshRequest = Omit<
