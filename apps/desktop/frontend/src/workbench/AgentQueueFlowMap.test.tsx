@@ -437,7 +437,7 @@ describe("AgentQueueFlowMap", () => {
       document
         .querySelector('.agent-queue-flow-results [data-queue-item-id="reported-task"]')
         ?.classList.contains("agent-queue-flow-block-compact"),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("uses editable queue tag color summaries for groups and blocks", () => {

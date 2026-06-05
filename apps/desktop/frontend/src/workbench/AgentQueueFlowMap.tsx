@@ -323,6 +323,7 @@ function QueueFlowLayer({
 }
 
 function QueueFlowTagGroup({
+  blockVariant = "default",
   className,
   group,
   isSelecting,
@@ -330,6 +331,7 @@ function QueueFlowTagGroup({
   selectedTaskId,
   useSampleTopology = false,
 }: {
+  blockVariant?: "compact" | "compact-with-badges" | "default";
   className: "agent-queue-flow-group" | "agent-queue-flow-result-group";
   group: QueueFlowGroup | QueueResultGroup;
   isSelecting: boolean;
@@ -365,7 +367,7 @@ function QueueFlowTagGroup({
             item={item}
             key={item.queueItemId}
             onSelectTask={onSelectTask}
-            variant={useSampleTopology ? "compact" : "default"}
+            variant={useSampleTopology ? "compact" : blockVariant}
           />
         ))}
       </div>
@@ -525,6 +527,7 @@ function QueueFlowResultsSection({
         <div className="agent-queue-flow-result-groups">
           {groups.map((group) => (
             <QueueFlowTagGroup
+              blockVariant="compact-with-badges"
               className="agent-queue-flow-result-group"
               group={group}
               isSelecting={isSelecting}
@@ -576,11 +579,12 @@ function FlowItemBlock({
   isSelected: boolean;
   item: QueueFlowItemBlock;
   onSelectTask: (queueItemId: string) => void;
-  variant?: "compact" | "default";
+  variant?: "compact" | "compact-with-badges" | "default";
 }) {
   const isBlocked = item.primaryZone === "blocked";
   const hasReason = item.blockedReasons.length > 0;
-  const isCompact = variant === "compact";
+  const isCompact = variant === "compact" || variant === "compact-with-badges";
+  const hideSupplemental = variant === "compact";
 
   return (
     <button
@@ -606,7 +610,7 @@ function FlowItemBlock({
         <span className="agent-queue-flow-tag-swatch agent-queue-flow-block-swatch" />
         <span className="agent-queue-flow-block-title">{item.title}</span>
       </span>
-      {isCompact ? null : (
+      {hideSupplemental ? null : (
         <span className="agent-queue-flow-block-badges">
           <Badge variant={item.statusBadgeVariant}>{item.statusLabel}</Badge>
           {item.coordinatorStatus !== "not_reported" ? (
@@ -628,7 +632,7 @@ function FlowItemBlock({
           ) : null}
         </span>
       )}
-      {hasReason && !isCompact ? (
+      {hasReason && !hideSupplemental ? (
         <span className="agent-queue-flow-block-reason">
           {item.blockedReasons[0]}
         </span>

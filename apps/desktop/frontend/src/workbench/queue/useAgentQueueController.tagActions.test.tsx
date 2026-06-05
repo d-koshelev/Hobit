@@ -119,6 +119,42 @@ describe("useAgentQueueController tag actions", () => {
     hook.unmount();
   });
 
+  it("updates queue tag color for the current session without mutating task order or execution", async () => {
+    const harness = createQueueHarness([
+      queueTask({ orderIndex: 0, queueItemId: "queue-1" }),
+      queueTask({ orderIndex: 1, queueItemId: "queue-2" }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    const beforeOrder = hook.result.current.tasks.map((task) => task.queueItemId);
+
+    act(() => {
+      expect(
+        hook.result.current.foundation.onSetQueueTagColor(
+          "default",
+          "queue-flow-tag-5",
+        ),
+      ).toBe(true);
+    });
+
+    expect(hook.result.current.foundation.queueTags[0]?.colorToken).toBe(
+      "queue-flow-tag-5",
+    );
+    expect(hook.result.current.tasks.map((task) => task.queueItemId)).toEqual(
+      beforeOrder,
+    );
+    expect(hook.result.current.foundation.tagManagementMessage).toBe(
+      "Queue tag color updated for this Hobit session. Current tag storage does not persist colors yet.",
+    );
+    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
   it("rejects empty and duplicate queue tag names", async () => {
     const harness = createQueueHarness([
       queueTask({ queueItemId: "queue-1" }),

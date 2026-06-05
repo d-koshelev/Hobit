@@ -1403,7 +1403,7 @@
 
 .agent-queue-flow-results .agent-queue-flow-block {
   background: var(--color-io-surface);
-  min-height: 48px;
+  min-height: 28px;
   max-width: 176px;
 }
 
@@ -1537,33 +1537,33 @@
 }
 
 .queue-flow-tag-1 {
-  --agent-queue-flow-tag: var(--color-border-strong);
-  --agent-queue-flow-tag-border: var(--color-border-subtle);
-  --agent-queue-flow-tag-soft: var(--color-neutral-soft);
+  --agent-queue-flow-tag: var(--color-primary);
+  --agent-queue-flow-tag-border: var(--color-primary-hairline);
+  --agent-queue-flow-tag-soft: var(--color-primary-soft);
 }
 
 .queue-flow-tag-2 {
-  --agent-queue-flow-tag: var(--color-border-strong);
-  --agent-queue-flow-tag-border: var(--color-border-subtle);
-  --agent-queue-flow-tag-soft: var(--color-neutral-soft);
+  --agent-queue-flow-tag: var(--color-info);
+  --agent-queue-flow-tag-border: var(--color-info);
+  --agent-queue-flow-tag-soft: var(--color-info-soft);
 }
 
 .queue-flow-tag-3 {
-  --agent-queue-flow-tag: var(--color-border-strong);
-  --agent-queue-flow-tag-border: var(--color-border-subtle);
-  --agent-queue-flow-tag-soft: var(--color-neutral-soft);
+  --agent-queue-flow-tag: var(--color-success);
+  --agent-queue-flow-tag-border: var(--color-success);
+  --agent-queue-flow-tag-soft: var(--color-success-soft);
 }
 
 .queue-flow-tag-4 {
-  --agent-queue-flow-tag: var(--color-border-strong);
-  --agent-queue-flow-tag-border: var(--color-border-subtle);
-  --agent-queue-flow-tag-soft: var(--color-neutral-soft);
+  --agent-queue-flow-tag: var(--color-warning);
+  --agent-queue-flow-tag-border: var(--color-warning);
+  --agent-queue-flow-tag-soft: var(--color-warning-soft);
 }
 
 .queue-flow-tag-5 {
-  --agent-queue-flow-tag: var(--color-border-strong);
-  --agent-queue-flow-tag-border: var(--color-border-subtle);
-  --agent-queue-flow-tag-soft: var(--color-neutral-soft);
+  --agent-queue-flow-tag: var(--color-error);
+  --agent-queue-flow-tag-border: var(--color-error);
+  --agent-queue-flow-tag-soft: var(--color-error-soft);
 }
 
 .queue-flow-tag-6 {
