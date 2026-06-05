@@ -215,6 +215,31 @@ export async function changeCheckbox(labelText: string, checked: boolean) {
   });
 }
 
+export async function chooseImportFile(fileName: string, content: string) {
+  const input = Array.from(
+    document.querySelectorAll<HTMLInputElement>(
+      'input[aria-label="Choose Knowledge import file"]',
+    ),
+  ).find((candidate) => !isHidden(candidate));
+  if (!input) {
+    throw new Error("Knowledge import file input not found.");
+  }
+
+  const file = new File([content], fileName, {
+    type: fileName.endsWith(".txt") ? "text/plain" : "text/markdown",
+  });
+
+  await act(async () => {
+    Object.defineProperty(input, "files", {
+      configurable: true,
+      value: [file],
+    });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 function setNativeValue(
   field: HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement,
   value: string,

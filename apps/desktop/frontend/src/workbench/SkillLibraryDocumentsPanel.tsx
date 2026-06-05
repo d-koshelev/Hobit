@@ -3,7 +3,7 @@ import { EmptyState } from "../design-system/EmptyState";
 import type { KnowledgeDocument, Skill } from "../workspace/types";
 import { DEFAULT_DOCUMENT_TITLE, EMPTY_DOCUMENT_DRAFT, filterKnowledgeCatalogItems, isKnowledgeDocumentDraftDirty, knowledgeCatalogItemsFromRecords, knowledgeDocumentDraftFromDocument, type KnowledgeDocumentDraft, type KnowledgeCatalogListItem, type KnowledgeCatalogView } from "./skillLibraryModel";
 import { knowledgeDocumentMessageWithSummaryWarning } from "./knowledgeDocumentQuickSummaryWarning";
-import { SkillLibraryCatalogListView, SkillLibraryCatalogSummary, SkillLibraryCatalogViewControls } from "./SkillLibraryCatalogListView";
+import { SkillLibraryCatalogListView, SkillLibraryCatalogViewControls } from "./SkillLibraryCatalogListView";
 import { SkillLibraryCatalogDetailPane } from "./SkillLibraryCatalogDetailPane";
 import { SkillLibraryCatalogUtilityPanels, type KnowledgeUtilityPanel } from "./SkillLibraryCatalogUtilityPanels";
 import { documentLifecycleUpdateMessage, errorToMessage, isSourceBackedDocument, knowledgeDocumentRequestFromDocument, knowledgeDocumentRequestFromDraft, refreshQueueTaskRequestFromDocument } from "./SkillLibraryDocumentsPanel.helpers";
@@ -19,10 +19,7 @@ export type {
   SkillLibraryDocumentsToolbarState,
 } from "./SkillLibraryDocumentsPanel.types";
 
-export const SkillLibraryDocumentsPanel = forwardRef<
-  SkillLibraryDocumentsPanelHandle,
-  SkillLibraryDocumentsPanelProps
->(function SkillLibraryDocumentsPanel(
+export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelHandle, SkillLibraryDocumentsPanelProps>(function SkillLibraryDocumentsPanel(
   {
     isActive,
     onAttachContextToCoordinator,
@@ -55,8 +52,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   const skillCreateAvailable = Boolean(onCreateSkill);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
   const [skills, setSkills] = useState<Skill[]>([]);
-  const [selectedDocument, setSelectedDocument] =
-    useState<KnowledgeDocument | null>(null);
+  const [selectedDocument, setSelectedDocument] = useState<KnowledgeDocument | null>(null);
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
   const [documentDraft, setDocumentDraft] = useState<KnowledgeDocumentDraft>({
     ...EMPTY_DOCUMENT_DRAFT,
@@ -67,22 +63,12 @@ export const SkillLibraryDocumentsPanel = forwardRef<
   const [isDeletingDocument, setIsDeletingDocument] = useState(false);
   const [isSelectingDocument, setIsSelectingDocument] = useState(false);
   const [catalogView, setCatalogView] = useState<KnowledgeCatalogView>("all");
-  const [activeUtilityPanel, setActiveUtilityPanel] =
-    useState<KnowledgeUtilityPanel>(null);
+  const [activeUtilityPanel, setActiveUtilityPanel] = useState<KnowledgeUtilityPanel>(null);
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
   const [documentError, setDocumentError] = useState<string | null>(null);
-  const isDocumentDirty = useMemo(
-    () => isKnowledgeDocumentDraftDirty(documentDraft, selectedDocument),
-    [documentDraft, selectedDocument],
-  );
-  const catalogItems = useMemo(
-    () => knowledgeCatalogItemsFromRecords(documents, skills),
-    [documents, skills],
-  );
-  const visibleCatalogItems = useMemo(
-    () => filterKnowledgeCatalogItems(catalogItems, catalogView),
-    [catalogItems, catalogView],
-  );
+  const isDocumentDirty = useMemo(() => isKnowledgeDocumentDraftDirty(documentDraft, selectedDocument), [documentDraft, selectedDocument]);
+  const catalogItems = useMemo(() => knowledgeCatalogItemsFromRecords(documents, skills), [documents, skills]);
+  const visibleCatalogItems = useMemo(() => filterKnowledgeCatalogItems(catalogItems, catalogView), [catalogItems, catalogView]);
   const selectedCatalogItemId = selectedDocument
     ? `document:${selectedDocument.knowledgeDocumentId}`
     : selectedSkill
@@ -95,9 +81,11 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     documentImportPath,
     documentImportScope,
     importDocumentFromPath,
+    importPickerAvailable,
     isImportingDocument,
+    pickDesktopImportFile,
+    selectBrowserImportFile,
     setDocumentImportScope,
-    updateDocumentImportPath,
   } = useSkillLibraryDocumentImport({
     isDocumentDirty,
     loadDocuments,
@@ -238,6 +226,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     setDocumentDraft({ ...EMPTY_DOCUMENT_DRAFT });
     setDocumentMessage(null);
     setDocumentError(null);
+    setActiveUtilityPanel("document");
   }
 
   async function selectCatalogItem(item: KnowledgeCatalogListItem) {
@@ -570,6 +559,15 @@ export const SkillLibraryDocumentsPanel = forwardRef<
     setActiveUtilityPanel("skills");
   }
 
+  function openDocumentPanel() {
+    if (!selectedDocument && !documentDraft.knowledgeDocumentId) {
+      startNewDocument();
+      return;
+    }
+
+    setActiveUtilityPanel("document");
+  }
+
   function openSelectedSkillInSkillsPanel() {
     openSkillsPanel();
     if (selectedSkill) {
@@ -593,38 +591,64 @@ export const SkillLibraryDocumentsPanel = forwardRef<
       role="region"
       aria-label="Knowledge Catalog"
     >
-      <SkillLibraryCatalogSummary />
       <SkillLibraryCatalogViewControls
         catalogView={catalogView}
         onCatalogViewChange={setCatalogView}
       />
       <SkillLibraryCatalogUtilityPanels
         activeUtilityPanel={activeUtilityPanel}
+        attachmentState={selectedAttachmentState}
+        canAttachKnowledgeContextToQueueTask={Boolean(onAttachKnowledgeContextToQueueTask)}
+        canCreateAgentQueueTask={Boolean(onCreateAgentQueueTask)}
         documentApiAvailable={documentApiAvailable}
+        documentDraft={documentDraft}
+        documentError={documentError}
         documentImportPath={documentImportPath}
         documentImportScope={documentImportScope}
+        documentMessage={documentMessage}
+        documents={documents}
         draftPayload={draftPayload}
         draftReviewDecisions={draftReviewDecisions}
         draftReviewPack={draftReviewPack}
-        hasImportFileApi={Boolean(onReadKnowledgeDocumentImportFile)}
+        hasImportFileApi={
+          Boolean(onReadKnowledgeDocumentImportFile) || !importPickerAvailable
+        }
+        importPickerAvailable={importPickerAvailable}
         isAcceptingDraftItem={isAcceptingDraftItem}
+        isCreatingRefreshTask={isCreatingRefreshTask}
         isDeletingDocument={isDeletingDocument}
+        isDocumentDirty={isDocumentDirty}
         isImportingDocument={isImportingDocument}
         isSavingDocument={isSavingDocument}
+        selectedCatalogItem={selectedCatalogItem}
+        selectedDocument={selectedDocument}
+        skills={skills}
         onAcceptDraftItem={(item) => void acceptDraftItem(item)}
+        onArchiveDocument={() => void updateSelectedDocumentLifecycle("archived")}
+        onAttachDocumentToQueueTask={attachSelectedDocumentToQueueTask}
         onAttachContextToCoordinator={onAttachContextToCoordinator}
         onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
         onClearDraftReviewPayload={clearDraftReviewPayload}
+        onCloseUtilityPanel={() => setActiveUtilityPanel(null)}
+        onCreateRefreshTask={() => void createRefreshQueueTask()}
         onCreateSkill={onCreateSkill}
+        onDeleteDocument={() => void deleteSelectedDocument()}
         onDeleteSkill={onDeleteSkill}
-        onDocumentImportPathChange={updateDocumentImportPath}
+        onDiscardDraft={discardDocumentDraft}
         onDocumentImportScopeChange={setDocumentImportScope}
         onDraftPayloadChange={updateDraftPayload}
+        onImportBrowserFileSelected={(file) => void selectBrowserImportFile(file)}
         onGetSkill={onGetSkill}
         onImportDocument={() => void importDocumentFromPath()}
         onListSkills={onListSkills}
         onLoadDraftReviewPayload={loadDraftReviewPayload}
+        onMarkStale={() => void updateSelectedDocumentLifecycle("stale")}
+        onOpenDocumentPanel={openDocumentPanel}
+        onPickImportFile={() => void pickDesktopImportFile()}
         onRejectDraftItem={rejectDraftItem}
+        onRestoreDocument={() => void updateSelectedDocumentLifecycle("active")}
+        onSaveDocument={() => void saveDocument()}
+        onSetDocumentDraftField={setDocumentDraftField}
         onSkillsChanged={refreshCatalogAfterSkillsChange}
         onStartNewSkill={startNewSkill}
         onToggleUtilityPanel={toggleUtilityPanel}
@@ -633,10 +657,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<
         skillsPanelRef={skillsPanelRef}
       />
       {isLoadingDocuments ? (
-        <EmptyState
-          text="Knowledge catalog items are loading from workspace APIs."
-          title="Loading catalog."
-        />
+        <EmptyState text="Knowledge catalog items are loading from workspace APIs." title="Loading catalog." />
       ) : documentError && documents.length === 0 && skills.length === 0 ? (
         <EmptyState text={documentError} title="Catalog unavailable." />
       ) : (
@@ -651,35 +672,16 @@ export const SkillLibraryDocumentsPanel = forwardRef<
           <SkillLibraryCatalogDetailPane
             attachmentState={selectedAttachmentState}
             canAttachContextToCoordinator={Boolean(onAttachContextToCoordinator)}
-            canAttachKnowledgeContextToQueueTask={Boolean(
-              onAttachKnowledgeContextToQueueTask,
-            )}
-            canCreateAgentQueueTask={Boolean(onCreateAgentQueueTask)}
-            documentApiAvailable={documentApiAvailable}
-            documentDraft={documentDraft}
+            canAttachKnowledgeContextToQueueTask={Boolean(onAttachKnowledgeContextToQueueTask)}
             documents={documents}
             error={documentError}
-            isCreatingRefreshTask={isCreatingRefreshTask}
-            isDeletingDocument={isDeletingDocument}
             isDocumentDirty={isDocumentDirty}
-            isSavingDocument={isSavingDocument}
             item={selectedCatalogItem}
             message={documentMessage}
-            onArchiveDocument={() =>
-              void updateSelectedDocumentLifecycle("archived")
-            }
             onAttachDocumentToQueueTask={attachSelectedDocumentToQueueTask}
             onAttachSkillToQueueTask={attachSelectedSkillToQueueTask}
             onAttachSkillToWorkspaceAgent={attachSelectedSkillToCoordinator}
-            onCreateRefreshTask={() => void createRefreshQueueTask()}
-            onDeleteDocument={() => void deleteSelectedDocument()}
-            onDiscardDraft={discardDocumentDraft}
-            onMarkStale={() => void updateSelectedDocumentLifecycle("stale")}
-            onRestoreDocument={() =>
-              void updateSelectedDocumentLifecycle("active")
-            }
-            onSaveDocument={() => void saveDocument()}
-            onSetDocumentDraftField={setDocumentDraftField}
+            onEditDocument={openDocumentPanel}
             onManageSkill={openSelectedSkillInSkillsPanel}
             selectedDocument={selectedDocument}
             selectedSkill={selectedSkill}

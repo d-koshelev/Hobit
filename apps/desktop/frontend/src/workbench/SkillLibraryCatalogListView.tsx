@@ -20,18 +20,6 @@ type SkillLibraryCatalogListViewProps = {
   onSelectCatalogItem: (item: KnowledgeCatalogListItem) => void;
 };
 
-export function SkillLibraryCatalogSummary() {
-  return (
-    <div className="skill-library-summary skill-library-summary-secondary">
-      <span>Catalog views combine scoped documents and saved skills.</span>
-      <span>
-        Only enabled active documents are searched for Workspace Agent Codex
-        runs.
-      </span>
-    </div>
-  );
-}
-
 export function SkillLibraryCatalogViewControls({
   catalogView,
   onCatalogViewChange,

@@ -9,6 +9,7 @@ import {
   changeSelectByLabel,
   changeTextarea,
   changeTextareaByLabel,
+  chooseImportFile,
   clickButton,
   clickCatalogView,
   clickEnabledButton,
@@ -34,11 +35,11 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).not.toContain(
       "Scoped Knowledge Catalog",
     );
-    expect(document.body.textContent).toContain(
+    expect(document.body.textContent).not.toContain(
       "Catalog views combine scoped documents and saved skills.",
     );
     expect(document.body.textContent).not.toContain("Draft payload");
-    expect(document.body.textContent).not.toContain("Import path");
+    expect(document.body.textContent).not.toContain("Selected file");
     expect(buttonWithText("Active")).toBeDefined();
     expect(buttonWithText("Codebase")).toBeDefined();
     expect(buttonWithText("Prompt templates")).toBeDefined();
@@ -165,10 +166,11 @@ describe("SkillLibraryWidget", () => {
     await flush();
 
     expect(document.body.textContent).toContain("No catalog items yet.");
-    expect(document.body.textContent).toContain(
+    expect(document.body.textContent).not.toContain(
       "Only enabled active documents are searched for Workspace Agent Codex",
     );
 
+    await clickButton("New item");
     await changeInput('input[placeholder="Untitled document"]', "API docs");
     await changeSelectByLabel("Type", "documentation_knowledge");
     await changeSelectByLabel("Status", "active");
@@ -494,15 +496,10 @@ describe("SkillLibraryWidget", () => {
 
     await flush();
     await clickButton("Import file");
-    await changeInput(
-      'input[placeholder="Path to .txt, .md, or .markdown file"]',
-      "C:\\docs\\README.md",
-    );
+    await chooseImportFile("README.md", "# Imported\n\nUse this imported reference.");
     await clickButton("Import .txt/.md");
 
-    expect(readImportFile).toHaveBeenCalledWith({
-      path: "C:\\docs\\README.md",
-    });
+    expect(readImportFile).not.toHaveBeenCalled();
     expect(createKnowledgeDocument).toHaveBeenCalledWith(
       expect.objectContaining({
         content: "# Imported\n\nUse this imported reference.",
@@ -551,6 +548,7 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
+    await clickButton("New item");
     await changeSelectByLabel("Scope", "global");
     await changeInput('input[placeholder="Untitled document"]', "Global docs");
     await changeTextareaByLabel(
@@ -568,10 +566,7 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).toContain("Global");
 
     await clickButton("Import file");
-    await changeInput(
-      'input[placeholder="Path to .txt, .md, or .markdown file"]',
-      "C:\\docs\\GLOBAL.md",
-    );
+    await chooseImportFile("GLOBAL.md", "# Global\n\nUse this global reference.");
     await changeSelectByLabel("Import as", "global");
     await clickButton("Import .txt/.md");
 
@@ -738,6 +733,7 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
+    await clickButton("Edit item");
     await clickEnabledButton("Mark stale");
 
     expect(updateKnowledgeDocument).toHaveBeenCalledWith(
@@ -822,6 +818,7 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
+    await clickButton("Edit item");
     await clickEnabledButton("Create refresh task");
 
     expect(createAgentQueueTask).toHaveBeenCalledWith(
@@ -861,6 +858,7 @@ describe("SkillLibraryWidget", () => {
     });
 
     await flush();
+    await clickButton("Edit item");
 
     const button = buttonWithText("Create refresh task");
     expect(button).toBeDefined();

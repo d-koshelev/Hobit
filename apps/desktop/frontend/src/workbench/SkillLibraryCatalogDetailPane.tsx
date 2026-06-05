@@ -1,47 +1,29 @@
 import type { KnowledgeDocument, Skill } from "../workspace/types";
 import {
-  CatalogDocumentEditor,
+  CatalogDocumentPreview,
   CatalogSkillPreview,
 } from "./SkillLibraryCatalogPreview";
-import { isSourceBackedDocument } from "./SkillLibraryDocumentsPanel.helpers";
 import type {
   KnowledgeCatalogAttachmentState,
   KnowledgeCatalogListItem,
-  KnowledgeDocumentDraft,
 } from "./skillLibraryModel";
 
 type SkillLibraryCatalogDetailPaneProps = {
   attachmentState?: KnowledgeCatalogAttachmentState;
   canAttachContextToCoordinator: boolean;
   canAttachKnowledgeContextToQueueTask: boolean;
-  canCreateAgentQueueTask: boolean;
-  documentApiAvailable: boolean;
-  documentDraft: KnowledgeDocumentDraft;
   documents: KnowledgeDocument[];
   error: string | null;
-  isCreatingRefreshTask: boolean;
-  isDeletingDocument: boolean;
   isDocumentDirty: boolean;
-  isSavingDocument: boolean;
   item: KnowledgeCatalogListItem | null;
   message: string | null;
   selectedDocument: KnowledgeDocument | null;
   selectedSkill: Skill | null;
   skills: Skill[];
-  onArchiveDocument: () => void;
   onAttachDocumentToQueueTask: () => void;
   onAttachSkillToQueueTask: () => void;
   onAttachSkillToWorkspaceAgent: () => void;
-  onCreateRefreshTask: () => void;
-  onDeleteDocument: () => void;
-  onDiscardDraft: () => void;
-  onMarkStale: () => void;
-  onRestoreDocument: () => void;
-  onSaveDocument: () => void;
-  onSetDocumentDraftField: <Key extends keyof KnowledgeDocumentDraft>(
-    key: Key,
-    value: KnowledgeDocumentDraft[Key],
-  ) => void;
+  onEditDocument: () => void;
   onManageSkill: () => void;
 };
 
@@ -49,31 +31,18 @@ export function SkillLibraryCatalogDetailPane({
   attachmentState,
   canAttachContextToCoordinator,
   canAttachKnowledgeContextToQueueTask,
-  canCreateAgentQueueTask,
-  documentApiAvailable,
-  documentDraft,
   documents,
   error,
-  isCreatingRefreshTask,
-  isDeletingDocument,
   isDocumentDirty,
-  isSavingDocument,
   item,
   message,
   selectedDocument,
   selectedSkill,
   skills,
-  onArchiveDocument,
   onAttachDocumentToQueueTask,
   onAttachSkillToQueueTask,
   onAttachSkillToWorkspaceAgent,
-  onCreateRefreshTask,
-  onDeleteDocument,
-  onDiscardDraft,
-  onMarkStale,
-  onRestoreDocument,
-  onSaveDocument,
-  onSetDocumentDraftField,
+  onEditDocument,
   onManageSkill,
 }: SkillLibraryCatalogDetailPaneProps) {
   return (
@@ -95,41 +64,30 @@ export function SkillLibraryCatalogDetailPane({
           skill={selectedSkill}
           skills={skills}
         />
-      ) : (
-        <CatalogDocumentEditor
+      ) : selectedDocument ? (
+        <CatalogDocumentPreview
           attachmentState={attachmentState}
           canAttachToQueueTask={Boolean(
-            selectedDocument &&
-              !isDocumentDirty &&
-              canAttachKnowledgeContextToQueueTask,
+            !isDocumentDirty && canAttachKnowledgeContextToQueueTask,
           )}
-          canCreateRefreshTask={Boolean(
-            selectedDocument &&
-              !isDocumentDirty &&
-              canCreateAgentQueueTask &&
-              isSourceBackedDocument(selectedDocument),
-          )}
-          documentApiAvailable={documentApiAvailable}
+          document={selectedDocument}
           documents={documents}
-          draft={documentDraft}
           error={error}
-          isCreatingRefreshTask={isCreatingRefreshTask}
-          isDeletingDocument={isDeletingDocument}
-          isDirty={isDocumentDirty}
-          isSavingDocument={isSavingDocument}
           item={item}
           message={message}
           onAttachToQueueTask={onAttachDocumentToQueueTask}
-          onArchiveDocument={onArchiveDocument}
-          onCreateRefreshTask={onCreateRefreshTask}
-          onDeleteDocument={onDeleteDocument}
-          onDiscardDraft={onDiscardDraft}
-          onMarkStale={onMarkStale}
-          onRestoreDocument={onRestoreDocument}
-          onSaveDocument={onSaveDocument}
-          onSetDraftField={onSetDocumentDraftField}
+          onEditDocument={onEditDocument}
           skills={skills}
         />
+      ) : (
+        <div className="skill-catalog-empty-preview">
+          <p className="skill-list-meta">Selected preview</p>
+          <h3>No catalog item selected.</h3>
+          <p>
+            Select a Knowledge Document or Skill from the catalog, or use New
+            item to create a document in the editor drawer.
+          </p>
+        </div>
       )}
     </section>
   );

@@ -9,6 +9,7 @@ import {
   KNOWLEDGE_DOCUMENT_TYPE_OPTIONS,
   KNOWLEDGE_LIFECYCLE_STATUS_OPTIONS,
   knowledgeDocumentRelations,
+  knowledgeDocumentDraftFromDocument,
   skillRelations,
   skillCatalogFullContent,
   type KnowledgeCatalogAttachmentState,
@@ -59,6 +60,19 @@ type CatalogDocumentEditorProps = {
     key: Key,
     value: KnowledgeDocumentDraft[Key],
   ) => void;
+  skills: Skill[];
+};
+
+type CatalogDocumentPreviewProps = {
+  attachmentState?: KnowledgeCatalogAttachmentState;
+  canAttachToQueueTask: boolean;
+  document: KnowledgeDocument;
+  documents: KnowledgeDocument[];
+  error: string | null;
+  item: KnowledgeCatalogListItem | null;
+  message: string | null;
+  onAttachToQueueTask: () => void;
+  onEditDocument: () => void;
   skills: Skill[];
 };
 
@@ -119,8 +133,70 @@ export function CatalogSkillPreview({
         </Button>
       </div>
       <p className="skill-attach-note">
-        Skills are catalog items for discovery. Manage skill opens the editable
-        Skill record panel. Queue attachments store refs and summaries only.
+        {canAttachToWorkspaceAgent
+          ? "Attach uses the last saved Skill. Save edits before attaching. Does not send automatically."
+          : "Add Workspace Agent to attach saved Skills as visible context."}
+        {" "}Manage skill opens the editable Skill record panel. Queue attachments store
+        refs and summaries only.
+      </p>
+      <CatalogMessages error={error} message={message} />
+    </div>
+  );
+}
+
+export function CatalogDocumentPreview({
+  attachmentState,
+  canAttachToQueueTask,
+  document,
+  documents,
+  error,
+  item,
+  message,
+  onAttachToQueueTask,
+  onEditDocument,
+  skills,
+}: CatalogDocumentPreviewProps) {
+  const relations = knowledgeDocumentRelations({
+    attachmentState,
+    documents,
+    draft: knowledgeDocumentDraftFromDocument(document),
+    skills,
+  });
+
+  return (
+    <div className="skill-editor skill-catalog-readonly-preview">
+      <CatalogPreviewHeader item={item} />
+      <PreviewField label="Quick summary" value={document.quickSummary} />
+      <PreviewField label="Full content" value={document.content} />
+      <PreviewField
+        label="Source"
+        value={[
+          document.sourceLabel,
+          document.sourceRef ? `Source ref: ${document.sourceRef}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n")}
+      />
+      <PreviewField
+        label="Relations"
+        value={knowledgeRelationsText(relations)}
+      />
+      <div className="skill-editor-actions">
+        <Button
+          disabled={!canAttachToQueueTask}
+          onClick={onAttachToQueueTask}
+          title="Attaches this saved Knowledge Document to the selected Queue task as a safe ref and summary. Does not run automatically."
+          variant="secondary"
+        >
+          Attach to Queue task
+        </Button>
+        <Button onClick={onEditDocument} variant="secondary">
+          Edit item
+        </Button>
+      </div>
+      <p className="skill-attach-note">
+        This is a saved Knowledge Document preview. Edit item opens the
+        catalog item editor; attachments store safe refs and summaries only.
       </p>
       <CatalogMessages error={error} message={message} />
     </div>

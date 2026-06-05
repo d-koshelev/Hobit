@@ -1,5 +1,4 @@
 import { useCallback, useRef, useState } from "react";
-import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import {
@@ -40,6 +39,7 @@ export function SkillLibraryWidget({
     useState<SkillLibraryDocumentsToolbarState>({
       isNewDisabled: true,
     });
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const onDocumentsToolbarStateChange = useCallback(
     (state: SkillLibraryDocumentsToolbarState) => {
       setDocumentsToolbarState(state);
@@ -48,7 +48,35 @@ export function SkillLibraryWidget({
   );
 
   const statusBadge = (
-    <Badge variant="info">Catalog</Badge>
+    <div className="skill-library-help" data-widget-header-drag-ignore>
+      <button
+        aria-expanded={isHelpOpen}
+        aria-label="Knowledge / Skills help"
+        className="skill-library-info-button"
+        onClick={() => setIsHelpOpen((current) => !current)}
+        title="Knowledge / Skills help"
+        type="button"
+      >
+        i
+      </button>
+      {isHelpOpen ? (
+        <div className="skill-library-info-popover" role="dialog">
+          <p>
+            Knowledge / Skills is a unified catalog of workspace and global
+            Knowledge Documents plus workspace Skill records.
+          </p>
+          <p>
+            Only enabled active documents are searched before Workspace Agent
+            Codex runs. Skills are attached only through explicit operator
+            actions.
+          </p>
+          <p>
+            Imports accept one selected .txt, .md, or .markdown file. Folder
+            ingestion, hidden memory, and vector search are not implemented.
+          </p>
+        </div>
+      ) : null}
+    </div>
   );
 
   function startNewCatalogItem() {
@@ -64,7 +92,7 @@ export function SkillLibraryWidget({
             onClick={startNewCatalogItem}
             variant="secondary"
           >
-            New catalog item
+            New item
           </Button>
           {frameActions}
         </>

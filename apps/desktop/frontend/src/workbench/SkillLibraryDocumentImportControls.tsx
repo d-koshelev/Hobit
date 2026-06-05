@@ -1,3 +1,4 @@
+import type { ChangeEvent } from "react";
 import { Button } from "../design-system/Button";
 import type { KnowledgeDocumentDraft } from "./skillLibraryModel";
 
@@ -6,14 +7,16 @@ type SkillLibraryDocumentImportControlsProps = {
   documentImportPath: string;
   documentImportScope: KnowledgeDocumentDraft["scope"];
   hasImportFileApi: boolean;
+  importPickerAvailable: boolean;
   isDeletingDocument: boolean;
   isImportingDocument: boolean;
   isSavingDocument: boolean;
-  onDocumentImportPathChange: (path: string) => void;
+  onBrowserFileSelected: (file: File | null) => void;
   onDocumentImportScopeChange: (
     scope: KnowledgeDocumentDraft["scope"],
   ) => void;
   onImportDocument: () => void;
+  onPickImportFile: () => void;
 };
 
 export function SkillLibraryDocumentImportControls({
@@ -21,26 +24,70 @@ export function SkillLibraryDocumentImportControls({
   documentImportPath,
   documentImportScope,
   hasImportFileApi,
+  importPickerAvailable,
   isDeletingDocument,
   isImportingDocument,
   isSavingDocument,
-  onDocumentImportPathChange,
+  onBrowserFileSelected,
   onDocumentImportScopeChange,
   onImportDocument,
+  onPickImportFile,
 }: SkillLibraryDocumentImportControlsProps) {
+  const pickerDisabled =
+    !documentApiAvailable ||
+    !hasImportFileApi ||
+    isImportingDocument ||
+    isSavingDocument ||
+    isDeletingDocument;
+
+  function handleBrowserFileChange(event: ChangeEvent<HTMLInputElement>) {
+    onBrowserFileSelected(event.currentTarget.files?.[0] ?? null);
+    event.currentTarget.value = "";
+  }
+
   return (
     <div className="skill-document-import">
-      <label className="skill-field skill-document-import-path">
-        <span>Import path</span>
-        <input
-          className="input"
-          onChange={(event) =>
-            onDocumentImportPathChange(event.currentTarget.value)
-          }
-          placeholder="Path to .txt, .md, or .markdown file"
-          value={documentImportPath}
-        />
-      </label>
+      <div className="skill-field skill-document-import-path">
+        <span>Selected file</span>
+        <div className="skill-document-import-picker-row">
+          {importPickerAvailable ? (
+            <Button
+              disabled={pickerDisabled}
+              onClick={onPickImportFile}
+              title="Choose one .txt, .md, or .markdown file. Folder import is not supported."
+              variant="secondary"
+            >
+              Choose file
+            </Button>
+          ) : (
+            <label
+              className={[
+                "button",
+                "button-secondary",
+                pickerDisabled
+                  ? "skill-document-import-file-button-disabled"
+                  : "",
+              ]
+                .filter(Boolean)
+                .join(" ")}
+              title="Choose one .txt, .md, or .markdown file. Folder import is not supported."
+            >
+              Choose file
+              <input
+                accept=".txt,.md,.markdown,text/plain,text/markdown"
+                aria-label="Choose Knowledge import file"
+                className="skill-document-import-file-input"
+                disabled={pickerDisabled}
+                onChange={handleBrowserFileChange}
+                type="file"
+              />
+            </label>
+          )}
+          <span className="skill-document-import-file-label">
+            {documentImportPath || "No file selected"}
+          </span>
+        </div>
+      </div>
       <label className="skill-field skill-document-import-scope">
         <span>Import as</span>
         <select
@@ -60,6 +107,7 @@ export function SkillLibraryDocumentImportControls({
         disabled={
           !documentApiAvailable ||
           !hasImportFileApi ||
+          !documentImportPath ||
           isImportingDocument ||
           isSavingDocument ||
           isDeletingDocument
@@ -67,8 +115,8 @@ export function SkillLibraryDocumentImportControls({
         onClick={onImportDocument}
         title={
           hasImportFileApi
-            ? "Imports one explicit .txt, .md, or .markdown file into this workspace."
-            : "Import from path is only available in the Tauri desktop shell."
+            ? "Imports the selected .txt, .md, or .markdown file into this workspace."
+            : "File import is unavailable in this runtime."
         }
         variant="secondary"
       >
