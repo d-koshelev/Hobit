@@ -33,14 +33,6 @@ Workspace API owns durable state, capability policy, action routing, events,
 evidence, and logs. Panes render and interact with that API through bounded,
 typed, app-native calls.
 
-Universal responsibility split:
-
-- Widget = shell/container for one WidgetInstance in a Workbench.
-- Workspace API = logic, durable state, capability policy, actions, events,
-  evidence, logs, and semantic test hooks.
-- Pane = visualization and input surface over safe Workspace API state,
-  selected evidence, bounded logs, or typed action forms.
-
 ```text
 Workspace API
   -> safe state snapshot / evidence / logs / action forms
@@ -81,12 +73,6 @@ It does not own:
 The shell remains one WidgetInstance when panes are rearranged, minimized,
 maximized, collapsed, hidden, floated, docked, or moved in a future presence
 zone.
-
-Shell state is presentation state. It may remember which pane is selected,
-collapsed, minimized, maximized, hidden, or resized, but it must not become the
-source of truth for Queue tasks, Finder selections, Terminal sessions,
-Workspace Agent conversations, Git status, Notes, Knowledge records, JDBC
-connectors, or any other domain resource.
 
 ## Workspace API Ownership
 
@@ -172,16 +158,6 @@ Allowed pane states:
   not relevant, not configured, unsupported, or intentionally hidden by the
   operator. Hidden does not delete state or grant hidden execution.
 
-Pane state examples:
-
-- A Queue task details pane can be collapsed while task data remains owned by
-  the Queue Workspace API.
-- A Finder preview pane can be hidden before a file is selected without
-  clearing the Finder selection.
-- A Terminal settings pane can be minimized while the PTY pane remains normal.
-- A Workspace Agent proposal/details pane can be maximized for review without
-  granting extra tool access or hidden context.
-
 Rules:
 
 - Pane state changes must not create or delete WidgetInstances.
@@ -228,11 +204,6 @@ many widgets.
 Pane type must not weaken the owning widget contract. For example, a `terminal`
 pane inside Terminal remains governed by the Terminal PTY contract, and a
 `diff` pane inside Git remains bounded by the Git contract.
-
-Pane types are intentionally generic. A `list` pane in Queue, a `list` pane in
-Notes, and a `list` pane in Finder can share presentation vocabulary while
-still using different Workspace APIs, safety policy, actions, events, and
-domain contracts.
 
 ## Layout Composition
 
@@ -282,8 +253,7 @@ APIs, storage, runtime behavior, or widget behavior changes.
 
 ### Finder
 
-Status: future Stable v0.1 gap example. Finder is not an implemented current
-widget. Future Finder behavior remains governed by
+Status: current Stable v0.1 example. Finder behavior remains governed by
 `docs/CURRENT_WIDGET_SURFACE.md`, `docs/FINDER_WIDGET_API_CONTRACT.md`, and
 `docs/FINDER_UX_CONTRACT.md`.
 
