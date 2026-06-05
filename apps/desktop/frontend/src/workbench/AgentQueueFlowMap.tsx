@@ -127,7 +127,6 @@ export function AgentQueueFlowMap({
               type="button"
             >
               <span>Sample topology</span>
-              <span>visual sample</span>
             </button>
           ) : null}
         </div>
@@ -135,7 +134,6 @@ export function AgentQueueFlowMap({
       {isSampleTopology ? (
         <div className="agent-queue-flow-sample-note" role="note">
           <span>Sample topology active.</span>
-          <span>Non-persistent visual-test data; real Queue state is unchanged.</span>
           {selectedSampleItem ? (
             <span>Sample selected: {selectedSampleItem.title}</span>
           ) : null}
@@ -611,33 +609,23 @@ function FlowItemBlock({
       {isCompact ? null : (
         <span className="agent-queue-flow-block-badges">
           <Badge variant={item.statusBadgeVariant}>{item.statusLabel}</Badge>
-          <Badge variant="neutral">
-            {item.assignedWorkerLabel ?? item.executorInfoLabel}
-          </Badge>
-          {item.hasWorkerReport ? (
-            <Badge variant="info">Report ready</Badge>
-          ) : null}
           {item.coordinatorStatus !== "not_reported" ? (
             <Badge variant={coordinatorStatusBadgeVariant(item.coordinatorStatus)}>
               {item.coordinatorStatusLabel}
             </Badge>
-          ) : null}
-          {item.hasLinkedDiffReview ? (
+          ) : isBlocked ? (
+            <Badge variant="warning">Blocked</Badge>
+          ) : item.hasWorkerReport ? (
+            <Badge variant="warning">Report ready</Badge>
+          ) : item.hasLinkedDiffReview ? (
             <Badge variant="warning">Diff review</Badge>
-          ) : null}
-          {item.validationStatus !== "not_started" ? (
+          ) : item.validationStatus === "failed" ? (
             <Badge
-              className={
-                item.validationStatus === "validating"
-                  ? "agent-queue-validation-animating"
-                  : undefined
-              }
               variant={validationBadgeVariant(item.validationStatus)}
             >
               {item.validationStatusLabel}
             </Badge>
           ) : null}
-          {isBlocked ? <Badge variant="warning">Blocked</Badge> : null}
         </span>
       )}
       {hasReason && !isCompact ? (
@@ -715,13 +703,8 @@ function ExecutorLaneBlock({
               <Badge variant={lane.activeItem.statusBadgeVariant}>
                 {lane.activeItem.statusLabel}
               </Badge>
-              {lane.activeItem.validationStatus !== "not_started" ? (
+              {lane.activeItem.validationStatus === "failed" ? (
                 <Badge
-                  className={
-                    lane.activeItem.validationStatus === "validating"
-                      ? "agent-queue-validation-animating"
-                      : undefined
-                  }
                   variant={validationBadgeVariant(lane.activeItem.validationStatus)}
                 >
                   {lane.activeItem.validationStatusLabel}

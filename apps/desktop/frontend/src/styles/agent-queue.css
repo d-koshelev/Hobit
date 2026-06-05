@@ -637,14 +637,18 @@
   font-weight: 720;
 }
 
-.agent-queue-flow-sample-toggle > span:last-child {
+.agent-queue-flow-sample-toggle > span:not(:first-child) {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
 }
 
 .agent-queue-flow-sample-toggle-active {
-  border-color: var(--color-warning);
-  background: var(--color-warning-soft);
+  border-color: var(--color-primary-hairline);
+  background: color-mix(
+    in srgb,
+    var(--color-primary-soft) 34%,
+    var(--color-nested-surface)
+  );
 }
 
 .agent-queue-flow-sample-note {
@@ -652,14 +656,10 @@
   min-width: 0;
   flex-wrap: wrap;
   gap: var(--space-xs);
-  border: 1px solid var(--color-warning);
+  border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: color-mix(
-    in srgb,
-    var(--color-warning-soft) 46%,
-    var(--color-nested-surface)
-  );
-  color: var(--color-warning);
+  background: var(--color-nested-surface);
+  color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
   padding: 5px var(--space-xs);
@@ -865,14 +865,14 @@
   gap: 5px;
   border: 1px solid color-mix(
     in srgb,
-    var(--agent-queue-flow-tag-border) 46%,
+    var(--agent-queue-flow-tag-border) 24%,
     var(--color-border-subtle)
   );
   border-radius: var(--radius-sm);
   background: color-mix(
     in srgb,
-    var(--agent-queue-flow-tag-soft) 24%,
-    transparent
+    var(--color-neutral-soft) 22%,
+    var(--color-nested-surface)
   );
   padding: 5px;
 }
@@ -911,14 +911,14 @@
   gap: 4px;
   border: 1px solid color-mix(
     in srgb,
-    var(--agent-queue-flow-tag-border) 76%,
+    var(--agent-queue-flow-tag-border) 30%,
     var(--color-border-subtle)
   );
-  border-left: 4px solid var(--agent-queue-flow-tag);
+  border-left: 3px solid var(--color-border-strong);
   border-radius: var(--radius-sm);
   background: color-mix(
     in srgb,
-    var(--agent-queue-flow-tag-soft) 58%,
+    var(--color-neutral-soft) 28%,
     var(--color-nested-surface)
   );
   color: var(--color-text-secondary);
@@ -1010,7 +1010,7 @@
 .agent-queue-flow-block:focus-visible,
 .agent-queue-flow-executor-block:hover,
 .agent-queue-flow-executor-block:focus-visible {
-  border-color: var(--agent-queue-flow-tag);
+  border-color: var(--color-primary-hairline);
   outline: none;
 }
 
@@ -1022,7 +1022,7 @@
 .agent-queue-flow-block:not(:disabled):hover {
   background: color-mix(
     in srgb,
-    var(--agent-queue-flow-tag-soft) 72%,
+    var(--color-neutral-soft) 42%,
     var(--color-widget-surface-raised)
   );
 }
@@ -1038,13 +1038,18 @@
 }
 
 .agent-queue-flow-block-muted {
+  border-color: color-mix(
+    in srgb,
+    var(--color-warning) 48%,
+    var(--color-border-subtle)
+  );
+  border-left-color: var(--color-warning);
   background: color-mix(
     in srgb,
-    var(--agent-queue-flow-tag-soft) 28%,
+    var(--color-warning-soft) 18%,
     var(--color-nested-surface)
   );
-  color: var(--color-text-muted);
-  opacity: 0.86;
+  color: var(--color-text-secondary);
 }
 
 .agent-queue-flow-block-title,
@@ -1276,13 +1281,13 @@
   border-style: solid;
   border-color: color-mix(
     in srgb,
-    var(--agent-queue-flow-tag-border) 78%,
+    var(--color-border-strong) 38%,
     var(--color-border-subtle)
   );
-  border-left: 4px solid var(--agent-queue-flow-tag);
+  border-left: 3px solid var(--color-border-strong);
   background: color-mix(
     in srgb,
-    var(--agent-queue-flow-tag-soft) 54%,
+    var(--color-neutral-soft) 32%,
     var(--color-nested-surface)
   );
   cursor: pointer;
@@ -1502,33 +1507,33 @@
 }
 
 .queue-flow-tag-1 {
-  --agent-queue-flow-tag: var(--color-primary);
-  --agent-queue-flow-tag-border: var(--color-primary-hairline);
-  --agent-queue-flow-tag-soft: var(--color-primary-soft);
+  --agent-queue-flow-tag: var(--color-border-strong);
+  --agent-queue-flow-tag-border: var(--color-border-subtle);
+  --agent-queue-flow-tag-soft: var(--color-neutral-soft);
 }
 
 .queue-flow-tag-2 {
-  --agent-queue-flow-tag: var(--color-info);
-  --agent-queue-flow-tag-border: var(--color-info);
-  --agent-queue-flow-tag-soft: var(--color-info-soft);
+  --agent-queue-flow-tag: var(--color-border-strong);
+  --agent-queue-flow-tag-border: var(--color-border-subtle);
+  --agent-queue-flow-tag-soft: var(--color-neutral-soft);
 }
 
 .queue-flow-tag-3 {
-  --agent-queue-flow-tag: var(--color-success);
-  --agent-queue-flow-tag-border: var(--color-success);
-  --agent-queue-flow-tag-soft: var(--color-success-soft);
+  --agent-queue-flow-tag: var(--color-border-strong);
+  --agent-queue-flow-tag-border: var(--color-border-subtle);
+  --agent-queue-flow-tag-soft: var(--color-neutral-soft);
 }
 
 .queue-flow-tag-4 {
-  --agent-queue-flow-tag: var(--color-warning);
-  --agent-queue-flow-tag-border: var(--color-warning);
-  --agent-queue-flow-tag-soft: var(--color-warning-soft);
+  --agent-queue-flow-tag: var(--color-border-strong);
+  --agent-queue-flow-tag-border: var(--color-border-subtle);
+  --agent-queue-flow-tag-soft: var(--color-neutral-soft);
 }
 
 .queue-flow-tag-5 {
-  --agent-queue-flow-tag: var(--color-error);
-  --agent-queue-flow-tag-border: var(--color-error);
-  --agent-queue-flow-tag-soft: var(--color-error-soft);
+  --agent-queue-flow-tag: var(--color-border-strong);
+  --agent-queue-flow-tag-border: var(--color-border-subtle);
+  --agent-queue-flow-tag-soft: var(--color-neutral-soft);
 }
 
 .queue-flow-tag-6 {
@@ -1927,8 +1932,12 @@
 .agent-queue-executor-info-executing,
 .agent-queue-executor-info-validating,
 .agent-queue-executor-info-reported {
-  border-color: var(--color-info);
-  background: var(--color-info-soft);
+  border-color: var(--color-border-strong);
+  background: color-mix(
+    in srgb,
+    var(--color-neutral-soft) 34%,
+    var(--color-io-surface)
+  );
 }
 
 .agent-queue-executor-info-done {

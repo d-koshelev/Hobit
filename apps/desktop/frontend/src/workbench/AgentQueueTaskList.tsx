@@ -22,12 +22,10 @@ import {
   taskPreview,
   validationBadgeVariant,
   validationStatusLabel,
-  workerLabel,
   type QueueFilter,
   type AgentQueueDependencyState,
 } from "./agentQueueTaskUiModel";
 import {
-  executionPlanBadgeVariant,
   executionPlanStatusLabel,
 } from "./queue/agentQueueExecutionPlanModel";
 import { diffReviewSourceLabel } from "./queue/agentQueueDiffReviewModel";
@@ -125,7 +123,7 @@ export function AgentQueueTaskList({
             </p>
           </div>
         ) : (
-          filteredTasks.map((task, taskIndex) => {
+          filteredTasks.map((task) => {
             const updatedText = formatUpdatedTimestamp(task.updatedAt);
             const taskTitle = displayTaskTitle(task);
             const taskHint = taskPreview(task);
@@ -192,14 +190,21 @@ export function AgentQueueTaskList({
                 </span>
                 <span className="agent-queue-task-row-status-grid">
                   <span className="agent-queue-task-row-status-cell">
-                    <span>Execution</span>
+                    <span>Status</span>
                     <Badge variant={statusBadgeVariant(task.status)}>
                       {statusLabel(task.status)}
                     </Badge>
                   </span>
                   <span className="agent-queue-task-row-status-cell">
                     <span>Plan</span>
-                    <Badge variant={executionPlanBadgeVariant(task.executionPlanPreview)}>
+                    <Badge
+                      variant={
+                        task.executionPlanPreview?.status === "needs_split" ||
+                        task.executionPlanPreview?.status === "stale"
+                          ? "warning"
+                          : "neutral"
+                      }
+                    >
                       {executionPlanStatusLabel(task.executionPlanPreview)}
                     </Badge>
                   </span>
@@ -217,44 +222,46 @@ export function AgentQueueTaskList({
                       <strong>{executorInfo.label}</strong>
                     </span>
                   </span>
-                  <span className="agent-queue-task-row-status-cell">
-                    <span>Review</span>
-                    {hasWorkerReport ? (
-                      <Badge variant="info">Report received</Badge>
-                    ) : task.coordinatorStatus ? (
-                      <Badge
-                        variant={coordinatorStatusBadgeVariant(
-                          task.coordinatorStatus,
-                        )}
-                      >
-                        {coordinatorStatusLabel(task.coordinatorStatus)}
-                      </Badge>
-                    ) : (
-                      <Badge variant="neutral">No report</Badge>
-                    )}
-                  </span>
-                  <span className="agent-queue-task-row-status-cell">
-                    <span>Validation</span>
-                    <Badge
-                      className={
-                        validationStatus === "validating"
-                          ? "agent-queue-validation-animating"
-                          : undefined
-                      }
-                      variant={validationBadgeVariant(validationStatus)}
-                    >
-                      {validationStatusLabel(validationStatus)}
-                    </Badge>
-                  </span>
-                  {routingState?.assignedWorker ? (
+                  {hasWorkerReport || task.coordinatorStatus ? (
                     <span className="agent-queue-task-row-status-cell">
-                      <span>Route</span>
-                      <Badge variant={routingState.canTake ? "success" : "warning"}>
-                        {routingState.canTake ? "Worker eligible" : "Worker blocked"}
+                      <span>Review</span>
+                      {hasWorkerReport ? (
+                        <Badge variant="warning">Report received</Badge>
+                      ) : task.coordinatorStatus ? (
+                        <Badge
+                          variant={coordinatorStatusBadgeVariant(
+                            task.coordinatorStatus,
+                          )}
+                        >
+                          {coordinatorStatusLabel(task.coordinatorStatus)}
+                        </Badge>
+                      ) : null}
+                    </span>
+                  ) : null}
+                  {validationStatus !== "not_started" ? (
+                    <span className="agent-queue-task-row-status-cell">
+                      <span>Validation</span>
+                      <Badge
+                        className={
+                          validationStatus === "validating"
+                            ? "agent-queue-validation-animating"
+                            : undefined
+                        }
+                        variant={validationBadgeVariant(validationStatus)}
+                      >
+                        {validationStatusLabel(validationStatus)}
                       </Badge>
                     </span>
                   ) : null}
-                  {dependencyState && dependencyState.dependsOn.length > 0 ? (
+                  {routingState?.assignedWorker && !routingState.canTake ? (
+                    <span className="agent-queue-task-row-status-cell">
+                      <span>Route</span>
+                      <Badge variant="warning">Worker blocked</Badge>
+                    </span>
+                  ) : null}
+                  {dependencyState &&
+                  dependencyState.dependsOn.length > 0 &&
+                  dependencyState.status !== "ready" ? (
                     <span className="agent-queue-task-row-status-cell">
                       <span>Deps</span>
                       <Badge
@@ -280,17 +287,9 @@ export function AgentQueueTaskList({
                   {task.diffReview?.reviewTargetSummary ? (
                     <span>{task.diffReview.reviewTargetSummary}</span>
                   ) : null}
-                  <span>
-                    Worker{" "}
-                    {workerLabel(
-                      task.assignedWorkerId ?? task.assignedExecutorWidgetId,
-                    )}
-                  </span>
                   {routingBlockedLabel ? <span>{routingBlockedLabel}</span> : null}
                   <span>Priority {queueTaskPriorityLabel(task.priority)}</span>
-                  <span>Order {(taskIndex + 1).toString()}</span>
                   <span>{assignmentLabel(task.assignedExecutorWidgetId)}</span>
-                  <span>{executionPlanStatusLabel(task.executionPlanPreview)}</span>
                   {hasWorkerReport ? (
                     <span>Awaiting coordinator review</span>
                   ) : null}

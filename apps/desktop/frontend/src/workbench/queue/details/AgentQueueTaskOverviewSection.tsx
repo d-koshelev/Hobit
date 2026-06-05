@@ -88,13 +88,6 @@ export function AgentQueueTaskOverviewSection({
           <Badge variant="info">{queue.runActivity.currentStage}</Badge>
         ) : (
           <>
-            <Badge variant="neutral">{queueTag.queueTagName}</Badge>
-            <Badge variant="neutral">
-              Priority {queueTaskPriorityLabel(selectedTask.priority)}
-            </Badge>
-            {queue.ordering.orderLabel ? (
-              <Badge variant="neutral">Order {queue.ordering.orderLabel}</Badge>
-            ) : null}
           </>
         )}
         {!isRunning &&
@@ -121,6 +114,11 @@ export function AgentQueueTaskOverviewSection({
             {overviewNextStep(queue, selectedTask)}
           </p>
           <div className="agent-queue-overview-secondary">
+            <span>{queueTag.queueTagName}</span>
+            <span>Priority {queueTaskPriorityLabel(selectedTask.priority)}</span>
+            {queue.ordering.orderLabel ? (
+              <span>Order {queue.ordering.orderLabel}</span>
+            ) : null}
             <span>{executorInfo.label}</span>
             {latestReportLabel(queue, selectedTask) !== "No worker report" ? (
               <span>{latestReportLabel(queue, selectedTask)}</span>

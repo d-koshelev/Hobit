@@ -103,11 +103,6 @@ export function AgentQueueTaskResultEvidenceSection({
                 ? "Failure result is not loaded."
                 : "Run result is not loaded."}
           </p>
-          <p className="agent-queue-run-note">
-            {queue.runEvidence.isLoading
-              ? "Direct Work finished. Hobit is loading the linked result evidence before coordinator review."
-              : "Use the actions below to refresh the result, attach a report, or inspect Developer details."}
-          </p>
           {!queue.runEvidence.isLoading && queue.runEvidence.error ? (
             <p
               className="agent-queue-message agent-queue-message-error"
@@ -135,6 +130,14 @@ export function AgentQueueTaskResultEvidenceSection({
               Developer details
             </Button>
           </div>
+          <details className="agent-queue-details agent-queue-secondary-details">
+            <summary>Result note</summary>
+            <p className="agent-queue-run-note">
+              {queue.runEvidence.isLoading
+                ? "Direct Work finished. Hobit is loading linked result evidence before coordinator review."
+                : "Refresh the result, attach a report, or inspect Developer details."}
+            </p>
+          </details>
         </div>
       ) : (
         <p className="agent-queue-run-note">

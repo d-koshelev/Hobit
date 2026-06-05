@@ -68,11 +68,16 @@ export function AgentQueueTaskNextActionPanel({
         </div>
         <Badge variant={action.badgeVariant}>{action.badge}</Badge>
       </div>
-      <p className="agent-queue-next-action-copy">{action.copy}</p>
+      {action.copy ? (
+        <p className="agent-queue-next-action-copy">{action.copy}</p>
+      ) : null}
       {action.secondaryCopy ? (
-        <p className="agent-queue-next-action-secondary">
-          {action.secondaryCopy}
-        </p>
+        <details className="agent-queue-details agent-queue-secondary-details">
+          <summary>Decision note</summary>
+          <p className="agent-queue-next-action-secondary">
+            {action.secondaryCopy}
+          </p>
+        </details>
       ) : null}
       {action.actions.length > 0 ? (
         <div className="agent-queue-run-actions">

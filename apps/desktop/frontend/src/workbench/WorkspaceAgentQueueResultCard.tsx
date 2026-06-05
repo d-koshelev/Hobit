@@ -69,9 +69,12 @@ export function WorkspaceAgentQueueActionResultCard({
 
       {snapshot ? <WorkspaceAgentQueueSnapshotCard snapshot={snapshot} /> : null}
 
-      <p className="coordinator-proposal-note">
-        {WORKSPACE_AGENT_QUEUE_SAFE_RESULT_NOTE}
-      </p>
+      <details className="workspace-agent-queue-action-details">
+        <summary>Result boundary</summary>
+        <p className="coordinator-proposal-note">
+          {WORKSPACE_AGENT_QUEUE_SAFE_RESULT_NOTE}
+        </p>
+      </details>
     </section>
   );
 }

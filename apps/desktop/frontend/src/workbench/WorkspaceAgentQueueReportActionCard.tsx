@@ -387,14 +387,8 @@ export function WorkspaceAgentQueueReportActionCard({
           <h4 className="coordinator-proposal-title">{card.sourceItemTitle}</h4>
         </div>
         <div className="coordinator-proposal-badges">
-          <Badge variant="warning">Coordinator action required</Badge>
           <Badge variant={queueClosureStateBadgeVariant(card.sourceClosureState)}>
             {queueClosureStateLabel(card.sourceClosureState)}
-          </Badge>
-          <Badge variant="neutral">
-            {card.sourceCoordinatorStatus === "finalized"
-              ? "Finalized by coordinator"
-              : "No automatic final status"}
           </Badge>
         </div>
       </div>
@@ -469,11 +463,14 @@ export function WorkspaceAgentQueueReportActionCard({
         </p>
       ) : null}
 
-      <p className="coordinator-proposal-note">
-        Report received. Actions create/update Queue state only where explicit
-        plumbing exists. No provider, Executor, Codex, rollback execution, or
-        automatic finalization runs from this card.
-      </p>
+      <details className="workspace-agent-report-card-details">
+        <summary>Action boundary</summary>
+        <p className="coordinator-proposal-note">
+          Actions create/update Queue state only where explicit plumbing exists.
+          No provider, Executor, Codex, rollback execution, or automatic
+          finalization runs from this card.
+        </p>
+      </details>
 
       <div className="workspace-agent-report-card-actions">
         {card.recommendedActions.map((action) => (

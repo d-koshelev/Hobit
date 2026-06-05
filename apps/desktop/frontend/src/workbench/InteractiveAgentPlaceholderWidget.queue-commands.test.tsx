@@ -74,7 +74,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).toContain("1 warning(s)");
     expect(document.body.textContent).toContain("1 error(s)");
     expect(document.body.textContent).toContain("abc1234");
-    expect(document.body.textContent).toContain("No automatic final status");
+    expect(document.body.textContent).toContain("No closure state");
     expect(provider).not.toHaveBeenCalled();
 
     await clickButton("Create follow-up");

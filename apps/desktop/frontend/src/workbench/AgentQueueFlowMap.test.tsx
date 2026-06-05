@@ -126,7 +126,7 @@ describe("AgentQueueFlowMap", () => {
     expect(block?.dataset.tagColorToken).toBe(queueTagColorToken("review"));
     expect(block?.classList.contains(queueTagColorToken("review"))).toBe(true);
     expect(document.body.textContent).toContain("Running commands");
-    expect(document.body.textContent).toContain("Passed");
+    expect(document.body.textContent).not.toContain("Passed");
   });
 
   it("renders compact worker or executor labels on work-item blocks", () => {

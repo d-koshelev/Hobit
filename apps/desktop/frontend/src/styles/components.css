@@ -2521,6 +2521,19 @@
   gap: var(--space-xs);
 }
 
+.workspace-agent-report-card-details {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.workspace-agent-report-card-details summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
 .workspace-agent-report-card-review-summary {
   background: var(--color-nested-surface);
   border: 1px solid var(--color-border-subtle);

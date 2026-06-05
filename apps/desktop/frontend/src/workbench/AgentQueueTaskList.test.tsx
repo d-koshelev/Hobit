@@ -28,8 +28,7 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
 
     expect(document.body.textContent).toContain("Tag Default");
     expect(document.body.textContent).toContain("Priority P0");
-    expect(document.body.textContent).toContain("Order 1");
-    expect(document.body.textContent).toContain("Not started");
+    expect(document.body.textContent).toContain("Plan needed");
     expect(document.body.textContent).toContain("Implementation");
   });
 
@@ -99,7 +98,7 @@ describe("AgentQueueTaskList Queue + Workers fields", () => {
     );
 
     expect(document.body.textContent).toContain("Tag paused");
-    expect(document.body.textContent).toContain("Worker Local executor");
+    expect(document.body.textContent).toContain("Local executor");
     expect(document.querySelector(".agent-queue-task-row-paused")).not.toBeNull();
   });
 
