@@ -50,7 +50,10 @@ The Stable v0.1 product-facing workbench surface is:
 - Database / JDBC
 - Runbook
 - Notes
-- Finder, required gap, not implemented
+
+Required Stable v0.1 gap:
+
+- Finder, not implemented
 
 Agent Executor and Git are supporting/compatibility surfaces, not Stable v0.1 product widgets. Each capability should be expressed as a widget, tool, or shared state surface that can be added, removed, configured, and composed through presets.
 

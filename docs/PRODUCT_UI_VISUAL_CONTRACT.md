@@ -51,13 +51,17 @@ Ready / MVP capabilities:
 Preview:
 
 - Database / JDBC
-- Finder
 - Runbook
+
+Required Stable v0.1 gap:
+
+- Finder, for explicit file/project navigation and future Finder-owned Git
+  review/control
 
 Supporting / compatibility surfaces:
 
 - Agent Executor, for Direct Work runtime detail and diagnostics
-- Git, for explicit repository review/control
+- Git, for deprecated/internal explicit repository review/control compatibility
 
 Old or future surfaces such as Agent Chat, Agent Monitoring, Template Library,
 Dock, Agent CLI, Script Runner, JIRA, Confluence, Image Edit,

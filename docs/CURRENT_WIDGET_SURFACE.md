@@ -47,12 +47,15 @@ Stable v0.1 product-facing workbench surfaces:
 - Agent Activity
 - Notes
 - Knowledge / Skills
-- Finder
 
 Current preview surfaces:
 
 - Database / JDBC
 - Runbook
+
+Required Stable v0.1 product gap:
+
+- Finder
 
 Supporting / compatibility surfaces that may remain implemented for internal
 runtime detail, persisted compatibility, or focused transition work but are not
@@ -68,11 +71,11 @@ Compatibility IDs and component keys may still appear in code and persistence.
 
 New Workspaces use the default name `Untitled` and open into the
 Workspace Agent MVP surface: Workspace Agent plus Notes. Agent Activity,
-Agent Queue, Terminal, Finder, Database / JDBC, Knowledge / Skills, and
-Runbook remain optional product-facing widgets added when needed. Agent
-Executor and Git may remain implemented as supporting/compatibility surfaces,
-but they are not Stable v0.1 product widgets and are not normal Widget Catalog
-entries.
+Agent Queue, Terminal, Database / JDBC, Knowledge / Skills, and Runbook remain
+optional product-facing widgets added when needed. Finder remains a required
+Stable v0.1 gap. Agent Executor and Git may remain implemented as
+supporting/compatibility surfaces, but they are not Stable v0.1 product
+widgets and are not normal Widget Catalog entries.
 
 An opened Workspace can be closed from the Workbench top bar to return to the
 Workspace Start Screen. Close is navigation only: it does not delete the
@@ -215,9 +218,9 @@ v0.1 product widget.
 - Deprecated/internal compatibility desktop Git review/control surface for an
   explicit operator-provided repository root. It is not a Stable v0.1 product
   widget or normal product catalog entry.
-- Stable v0.1 product Git functionality belongs to the Workspace Git API and
-  the Finder Git plugin. The standalone Git widget code is retained only for
-  compatibility and transition work.
+- Stable v0.1 product Git functionality belongs to the future Workspace Git
+  API and Finder Git plugin. The standalone Git widget code is retained only
+  for compatibility and transition work.
 - Reads a manual read-only status snapshot, grouped changed-file data,
   selected-file diff, and recent Git history in the Tauri desktop shell.
 - The compact widget surface is organized as Changes, Diff, History, and
@@ -232,40 +235,17 @@ v0.1 product widget.
   stash, checkout/switch branches, revert files, auto-commit Agent Executor
   output, or mutate Git outside the explicit local commit path.
 
-### Finder
+### Finder Required Gap
 
-- Current Stable v0.1 file/project navigation widget.
-- Uses the `finder` widget definition id.
-- Provides explicit root approval through the browser File System Access
-  directory picker when available. If only the native Workspace directory
-  picker path is available, Finder shows the selected root label and an honest
-  unsupported listing state rather than fake file data.
-- Lists a bounded, non-recursive directory column for the approved root and
-  opens selected folders as additional macOS-like columns while previous
-  folders remain visible.
-- Selecting a file opens a floating file preview with bounded text content,
-  selected root-relative path, size, capped-preview state, and binary/unsupported
-  errors.
-- Uncapped text files with a writable File System Access handle support explicit
-  edit-in-place with save and cancel. Save writes only the selected file through
-  the approved handle; changing selection or closing with unsaved edits is
-  blocked until save/cancel.
-- The floating preview pane can be minimized or maximized as Finder
-  presentation state without creating a new widget instance, reading hidden
-  content, saving edits, refreshing Git, or sending context to Workspace Agent.
-- Finder includes a Git plugin for the approved root. The plugin can show Git
-  status badges/changed-file state, load a bounded selected-file diff preview,
-  show recent Git history, create an explicit manual local commit, and perform
-  an explicit manual push when safe upstream state is visible.
-- Finder Git manual push is an operator-triggered external/network mutation.
-  It has no force push, no push-all, no hidden push, no automatic push after
-  commit or Executor completion, no reset/clean/stash, and no branch
-  management unless a later contract explicitly implements it.
-- Directory listing state is current-session frontend state only.
-- Does not persist approved roots, scan recursively, watch folders, perform
-  broad IDE search/indexing, attach context to Workspace Agent, launch
-  Terminal, create Queue/Executor work, expose arbitrary command prompts,
-  provide broad IDE behavior, or run unsupported Git operations.
+- Required Stable v0.1 product gap, not a current implemented widget surface.
+- Future Finder work must start from the Finder contracts before adding a
+  widget, catalog entry, file/project navigation, file preview/edit, Git plugin,
+  context attachment, or storage/API behavior.
+- Finder must not be added silently as a file browser, hidden workspace
+  scanner, Git surface, Terminal launcher, arbitrary command prompt, broad IDE
+  surface, or broad context ingestion path.
+- Until Finder is explicitly implemented, Git remains only the
+  deprecated/internal compatibility surface described above.
 
 ### Terminal
 
@@ -938,11 +918,12 @@ v0.1 product widget.
   from a saved selected Note. Promotion creates a separate Knowledge Document
   with source metadata and leaves the original Note unchanged. Notes are not
   read, summarized, indexed, or promoted automatically.
-- Workspace Agent and Finder can create visible manual Knowledge-generation
-  Queue task drafts from explicit selected codebase/docs/history refs or
-  prompt text. Creating the task does not run analysis, activate Knowledge,
-  search hidden context, or create provider/tool permissions. Structured
-  durable source refs and a dedicated generation runtime remain future.
+- Workspace Agent can create visible manual Knowledge-generation Queue task
+  drafts from explicit prompt text. Future Finder-based drafts from selected
+  codebase/docs/history refs remain part of the Finder gap. Creating the task
+  does not run analysis, activate Knowledge, search hidden context, or create
+  provider/tool permissions. Structured durable source refs and a dedicated
+  generation runtime remain future.
 - Queue worker report output can expose draft Knowledge packs for review in
   Knowledge / Skills. Accept/reject requires explicit operator action.
   Accepted drafts can create durable Knowledge Documents through the explicit
@@ -1022,7 +1003,7 @@ v0.1 product widget.
   normal Terminal surface and not Script Runner.
 - Agent Executor and Git are supporting/compatibility surfaces for current
   Direct Work detail and legacy explicit repository review. They are not Stable
-  v0.1 product widgets; Git product functionality belongs to Finder Git.
+  v0.1 product widgets; future product Git functionality belongs with Finder.
 - The older Notes widget-local `{ "body": "..." }` state is
   Compatibility/Deprecated for new product work.
 
@@ -1040,10 +1021,10 @@ or surfaced unless explicitly requested by a future task:
 - JIRA
 - Confluence
 - Image Edit
-- Finder root persistence, broad search/indexing, folder watching, context
-  attachment, branch management, push-all, force push, and Git operations
-  beyond the current column navigation, file preview/edit, selected-file diff,
-  history, manual local commit, and explicit manual push behavior
+- Finder implementation, root persistence, broad search/indexing, folder
+  watching, context attachment, branch management, push-all, force push, and
+  Git operations beyond the retained standalone compatibility local review and
+  commit path
 - separate legacy Coordinator preview surface
 - full Knowledge Catalog
 - Stages
