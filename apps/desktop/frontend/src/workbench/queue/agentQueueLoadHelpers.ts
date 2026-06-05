@@ -137,9 +137,12 @@ export async function refreshAgentQueueRunLinks({
   setLatestRunLinkError,
   setRunHistoryLinks,
 }: RefreshQueueRunLinksInput) {
-  if (!queueItemId || (!onListAgentQueueTaskRunLinks && !onGetAgentQueueTaskLatestRunLink)) {
-    setLatestRunLink(null);
-    setRunHistoryLinks([]);
+  if (
+    !queueItemId ||
+    (!onListAgentQueueTaskRunLinks && !onGetAgentQueueTaskLatestRunLink)
+  ) {
+    setLatestRunLink((current) => (current === null ? current : null));
+    setRunHistoryLinks((current) => (current.length === 0 ? current : []));
     setLatestRunLinkError(null);
     setIsLatestRunLinkLoading(false);
     return;
@@ -153,16 +156,27 @@ export async function refreshAgentQueueRunLinks({
   try {
     if (onListAgentQueueTaskRunLinks) {
       const links = await onListAgentQueueTaskRunLinks(queueItemId);
-      setRunHistoryLinks(links);
-      setLatestRunLink(links[0] ?? null);
+      setRunHistoryLinks((current) =>
+        areAgentQueueRunLinkListsEqual(current, links) ? current : links,
+      );
+      setLatestRunLink((current) =>
+        areAgentQueueRunLinksEqual(current, links[0] ?? null)
+          ? current
+          : links[0] ?? null,
+      );
     } else if (onGetAgentQueueTaskLatestRunLink) {
       const link = await onGetAgentQueueTaskLatestRunLink(queueItemId);
-      setLatestRunLink(link);
-      setRunHistoryLinks(link ? [link] : []);
+      setLatestRunLink((current) =>
+        areAgentQueueRunLinksEqual(current, link) ? current : link,
+      );
+      setRunHistoryLinks((current) => {
+        const links = link ? [link] : [];
+        return areAgentQueueRunLinkListsEqual(current, links) ? current : links;
+      });
     }
   } catch (error) {
-    setLatestRunLink(null);
-    setRunHistoryLinks([]);
+    setLatestRunLink((current) => (current === null ? current : null));
+    setRunHistoryLinks((current) => (current.length === 0 ? current : []));
     setLatestRunLinkError(
       errorToMessage(error, "Unable to load Queue run metadata."),
     );
@@ -171,4 +185,42 @@ export async function refreshAgentQueueRunLinks({
       setIsLatestRunLinkLoading(false);
     }
   }
+}
+
+function areAgentQueueRunLinkListsEqual(
+  current: AgentQueueTaskRunLinkSummary[],
+  next: AgentQueueTaskRunLinkSummary[],
+) {
+  return (
+    current.length === next.length &&
+    current.every((link, index) =>
+      areAgentQueueRunLinksEqual(link, next[index] ?? null),
+    )
+  );
+}
+
+function areAgentQueueRunLinksEqual(
+  current: AgentQueueTaskRunLinkSummary | null,
+  next: AgentQueueTaskRunLinkSummary | null,
+) {
+  return (
+    current === next ||
+    Boolean(
+      current &&
+        next &&
+        current.completedAt === next.completedAt &&
+        current.createdAt === next.createdAt &&
+        current.directWorkRunId === next.directWorkRunId &&
+        current.executorWidgetId === next.executorWidgetId &&
+        current.linkId === next.linkId &&
+        current.queueTaskId === next.queueTaskId &&
+        current.reviewStatus === next.reviewStatus &&
+        current.source === next.source &&
+        current.startedAt === next.startedAt &&
+        current.status === next.status &&
+        current.updatedAt === next.updatedAt &&
+        current.validationStatus === next.validationStatus &&
+        current.workspaceId === next.workspaceId,
+    )
+  );
 }

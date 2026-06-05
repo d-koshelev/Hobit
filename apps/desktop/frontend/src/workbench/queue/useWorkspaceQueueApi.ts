@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
 import type { DirectWorkRunHandoffController } from "../useDirectWorkRunHandoff";
@@ -80,6 +80,16 @@ export function useWorkspaceQueueApi({
         : agentExecutorSlots,
     [agentExecutorSlots, queueWidgetInstanceId],
   );
+  const getAgentQueueTaskLatestRunLink = useCallback(
+    (queueItemId: string) =>
+      actions.getAgentQueueTaskLatestRunLink({ queueItemId }),
+    [actions.getAgentQueueTaskLatestRunLink],
+  );
+  const listAgentQueueTaskRunLinks = useCallback(
+    (queueItemId: string) =>
+      actions.listAgentQueueTaskRunLinks({ queueItemId }),
+    [actions.listAgentQueueTaskRunLinks],
+  );
   const controller = useAgentQueueController({
     agentExecutorSlots: queueExecutorSlots,
     onAssignAgentQueueTaskToExecutor: actions.assignAgentQueueTaskToExecutor,
@@ -92,11 +102,9 @@ export function useWorkspaceQueueApi({
     onGetAgentExecutorRunDetail: actions.getAgentExecutorRunDetail,
     onGetAgentQueueRunnerSnapshot: actions.getAgentQueueRunnerSnapshot,
     onGetAgentQueueTask: actions.getAgentQueueTask,
-    onGetAgentQueueTaskLatestRunLink: (queueItemId) =>
-      actions.getAgentQueueTaskLatestRunLink({ queueItemId }),
+    onGetAgentQueueTaskLatestRunLink: getAgentQueueTaskLatestRunLink,
     onListenToDirectWorkStreamEvents: actions.listenToDirectWorkStreamEvents,
-    onListAgentQueueTaskRunLinks: (queueItemId) =>
-      actions.listAgentQueueTaskRunLinks({ queueItemId }),
+    onListAgentQueueTaskRunLinks: listAgentQueueTaskRunLinks,
     onListAgentQueueTasks: actions.listAgentQueueTasks,
     onListAgentQueueWorkers: actions.listAgentQueueWorkers,
     onStartAgentQueueRunnerSession: actions.startAgentQueueRunnerSession,
@@ -115,8 +123,7 @@ export function useWorkspaceQueueApi({
         createAgentQueueTask: actions.createAgentQueueTask,
         getAgentQueueRunnerSnapshot: actions.getAgentQueueRunnerSnapshot,
         getAgentQueueTask: actions.getAgentQueueTask,
-        listAgentQueueTaskRunLinks: (queueItemId) =>
-          actions.listAgentQueueTaskRunLinks({ queueItemId }),
+        listAgentQueueTaskRunLinks,
         listAgentQueueTasks: actions.listAgentQueueTasks,
         listAgentQueueWorkers: actions.listAgentQueueWorkers,
         queueId,
@@ -128,7 +135,7 @@ export function useWorkspaceQueueApi({
       actions.createAgentQueueTask,
       actions.getAgentQueueRunnerSnapshot,
       actions.getAgentQueueTask,
-      actions.listAgentQueueTaskRunLinks,
+      listAgentQueueTaskRunLinks,
       actions.listAgentQueueTasks,
       actions.listAgentQueueWorkers,
       actions.updateAgentQueueTask,
