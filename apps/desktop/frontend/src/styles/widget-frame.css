@@ -92,7 +92,7 @@
   align-items: center;
   gap: var(--space-xs);
   overflow: hidden;
-  min-height: calc(24px * var(--ui-scale));
+  min-height: calc(22px * var(--ui-scale));
 }
 
 .widget-status {
@@ -128,13 +128,13 @@
 }
 
 .widget-actions .button {
-  min-height: calc(24px * var(--ui-scale));
-  padding: 0 calc(7px * var(--ui-scale));
+  min-height: calc(22px * var(--ui-scale));
+  padding: 0 calc(6px * var(--ui-scale));
 }
 
 .widget-actions .button.widget-icon-button {
-  width: calc(24px * var(--ui-scale));
-  min-width: calc(24px * var(--ui-scale));
+  width: calc(22px * var(--ui-scale));
+  min-width: calc(22px * var(--ui-scale));
   padding: 0;
 }
 

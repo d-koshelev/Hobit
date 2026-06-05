@@ -66,16 +66,39 @@ export function PopupShell({
       }
 
       const rect = anchor.getBoundingClientRect();
-      const top = Math.min(
-        window.innerHeight - POPUP_EDGE_GAP,
-        rect.bottom + POPUP_ANCHOR_GAP,
+      const viewportHeight = Math.max(0, window.innerHeight - POPUP_EDGE_GAP * 2);
+      const belowTop = rect.bottom + POPUP_ANCHOR_GAP;
+      const belowHeight = Math.max(
+        0,
+        window.innerHeight - belowTop - POPUP_EDGE_GAP,
       );
+      const aboveHeight = Math.max(
+        0,
+        rect.top - POPUP_ANCHOR_GAP - POPUP_EDGE_GAP,
+      );
+      const shouldOpenAbove =
+        belowHeight < POPUP_MIN_MAX_HEIGHT && aboveHeight > belowHeight;
+      const availableHeight = shouldOpenAbove ? aboveHeight : belowHeight;
+      const maxHeight = Math.max(
+        Math.min(POPUP_MIN_MAX_HEIGHT, viewportHeight),
+        Math.min(availableHeight, viewportHeight),
+      );
+      const measuredHeight =
+        popupRef.current?.getBoundingClientRect().height ??
+        POPUP_MIN_MAX_HEIGHT;
+      const clampedHeight = Math.min(
+        measuredHeight || POPUP_MIN_MAX_HEIGHT,
+        maxHeight,
+      );
+      const top = shouldOpenAbove
+        ? Math.max(POPUP_EDGE_GAP, rect.top - POPUP_ANCHOR_GAP - clampedHeight)
+        : Math.min(
+            Math.max(POPUP_EDGE_GAP, belowTop),
+            POPUP_EDGE_GAP + viewportHeight - clampedHeight,
+          );
 
       setPosition({
-        maxHeight: Math.max(
-          POPUP_MIN_MAX_HEIGHT,
-          window.innerHeight - top - POPUP_EDGE_GAP,
-        ),
+        maxHeight,
         right: Math.max(POPUP_EDGE_GAP, window.innerWidth - rect.right),
         top,
       });
