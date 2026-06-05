@@ -3,5 +3,10 @@
   "identifier": "default",
   "description": "Allow the main Hobit window to subscribe to Tauri events and open an explicit directory picker.",
   "windows": ["main"],
-  "permissions": ["core:event:default", "core:event:allow-listen", "dialog:allow-open"]
+  "permissions": [
+    "core:event:default",
+    "core:event:allow-listen",
+    "core:path:allow-resolve-directory",
+    "dialog:allow-open"
+  ]
 }

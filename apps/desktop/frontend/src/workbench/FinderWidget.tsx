@@ -183,6 +183,13 @@ export function FinderWidget({
   const canUseDirectoryPicker =
     typeof window !== "undefined" &&
     typeof window.showDirectoryPicker === "function";
+  const rootStatusLabel = root
+    ? root.listingAvailable
+      ? "Root open"
+      : root.label === "Home"
+        ? "Home path"
+        : "Path root"
+    : "No root";
 
   useEffect(() => {
     setKnowledgeTaskMessage(null);
@@ -234,7 +241,7 @@ export function FinderWidget({
 
       if (!resolvedHomeDirectory) {
         setRootError(
-          "Home directory is unavailable in this runtime. Open an explicit root to browse files.",
+          "Home directory could not be resolved in this runtime. Open an explicit root to browse files.",
         );
         setDidInitializeDefaultRoot(true);
         return;
@@ -243,7 +250,7 @@ export function FinderWidget({
       openPathOnlyRoot(resolvedHomeDirectory, {
         label: "Home",
         reason:
-          "Home is the default root. Directory columns require opening a supported root in this runtime.",
+          "Home is open as the default root path. Directory columns require a supported directory handle in this runtime.",
       });
       setDidInitializeDefaultRoot(true);
     }
@@ -954,7 +961,7 @@ export function FinderWidget({
           </div>
           <div className="finder-scope-actions">
             <Badge variant={root?.listingAvailable ? "success" : "neutral"}>
-              {root?.listingAvailable ? "Root open" : root ? "Path root" : "No root"}
+              {rootStatusLabel}
             </Badge>
             <Button
               disabled={!root?.gitRoot || gitStatus.loading}

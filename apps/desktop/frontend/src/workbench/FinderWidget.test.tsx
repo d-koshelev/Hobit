@@ -96,9 +96,9 @@ describe("FinderWidget", () => {
 
     expect(document.body.textContent).toContain("Home");
     expect(document.body.textContent).toContain("C:/Users/Dmitry");
-    expect(document.body.textContent).toContain("Path root");
+    expect(document.body.textContent).toContain("Home path");
     expect(document.body.textContent).toContain(
-      "Home is the default root. Directory columns require opening a supported root in this runtime.",
+      "Home is open as the default root path. Directory columns require a supported directory handle in this runtime.",
     );
     expect(getWorkspaceGitStatusMock).not.toHaveBeenCalled();
     expect(getWorkspaceGitLogMock).not.toHaveBeenCalled();
