@@ -24,9 +24,21 @@ pub(crate) struct CreateKnowledgeDocumentRequest {
     pub source_ref: Option<String>,
     #[serde(default)]
     pub source_refs: Option<Vec<KnowledgeSourceRef>>,
+    #[serde(default)]
+    pub relations: Vec<hobit_app::KnowledgeRelation>,
     pub content: String,
     pub tags: String,
     pub enabled: bool,
+    #[serde(default = "default_true")]
+    pub searchable: bool,
+    #[serde(default)]
+    pub version_summary: Option<String>,
+    #[serde(default)]
+    pub reviewed_at: Option<String>,
+    #[serde(default)]
+    pub created_by_task_id: Option<String>,
+    #[serde(default)]
+    pub created_from_run_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -60,9 +72,21 @@ pub(crate) struct UpdateKnowledgeDocumentRequest {
     pub source_ref: Option<String>,
     #[serde(default)]
     pub source_refs: Option<Vec<KnowledgeSourceRef>>,
+    #[serde(default)]
+    pub relations: Vec<hobit_app::KnowledgeRelation>,
     pub content: String,
     pub tags: String,
     pub enabled: bool,
+    #[serde(default = "default_true")]
+    pub searchable: bool,
+    #[serde(default)]
+    pub version_summary: Option<String>,
+    #[serde(default)]
+    pub reviewed_at: Option<String>,
+    #[serde(default)]
+    pub created_by_task_id: Option<String>,
+    #[serde(default)]
+    pub created_from_run_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -91,11 +115,18 @@ pub(crate) struct KnowledgeDocumentDto {
     pub source_kind: String,
     pub source_ref: String,
     pub source_refs: Vec<KnowledgeSourceRef>,
+    pub relations: Vec<hobit_app::KnowledgeRelation>,
     pub content: String,
     pub tags: String,
     pub enabled: bool,
+    pub searchable: bool,
+    pub version: i64,
+    pub version_summary: String,
     pub created_at: String,
     pub updated_at: String,
+    pub reviewed_at: Option<String>,
+    pub created_by_task_id: Option<String>,
+    pub created_from_run_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -138,9 +169,16 @@ impl From<CreateKnowledgeDocumentRequest> for CreateKnowledgeDocumentInput {
             source_label: request.source_label,
             source_kind,
             source_ref,
+            source_refs: request.source_refs.unwrap_or_default(),
+            relations: request.relations,
             content: request.content,
             tags: request.tags,
             enabled: request.enabled,
+            searchable: request.searchable,
+            version_summary: request.version_summary,
+            reviewed_at: request.reviewed_at,
+            created_by_task_id: request.created_by_task_id,
+            created_from_run_id: request.created_from_run_id,
         }
     }
 }
@@ -173,9 +211,16 @@ impl From<UpdateKnowledgeDocumentRequest> for UpdateKnowledgeDocumentInput {
             source_label: request.source_label,
             source_kind,
             source_ref,
+            source_refs: request.source_refs.unwrap_or_default(),
+            relations: request.relations,
             content: request.content,
             tags: request.tags,
             enabled: request.enabled,
+            searchable: request.searchable,
+            version_summary: request.version_summary,
+            reviewed_at: request.reviewed_at,
+            created_by_task_id: request.created_by_task_id,
+            created_from_run_id: request.created_from_run_id,
         }
     }
 }
@@ -201,12 +246,6 @@ impl From<SearchKnowledgeDocumentsRequest> for SearchKnowledgeDocumentsInput {
 
 impl From<KnowledgeDocumentSummary> for KnowledgeDocumentDto {
     fn from(summary: KnowledgeDocumentSummary) -> Self {
-        let source_refs = vec![KnowledgeSourceRef::from_legacy_fields(
-            &summary.source_kind,
-            &summary.source_ref,
-            summary.source_label.clone(),
-        )];
-
         Self {
             knowledge_document_id: summary.knowledge_document_id,
             workspace_id: summary.workspace_id,
@@ -216,14 +255,21 @@ impl From<KnowledgeDocumentSummary> for KnowledgeDocumentDto {
             lifecycle_status: summary.lifecycle_status,
             title: summary.title,
             source_label: summary.source_label,
-            source_refs,
+            source_refs: summary.source_refs,
+            relations: summary.relations,
             source_kind: summary.source_kind,
             source_ref: summary.source_ref,
             content: summary.content,
             tags: summary.tags,
             enabled: summary.enabled,
+            searchable: summary.searchable,
+            version: summary.version,
+            version_summary: summary.version_summary,
             created_at: summary.created_at,
             updated_at: summary.updated_at,
+            reviewed_at: summary.reviewed_at,
+            created_by_task_id: summary.created_by_task_id,
+            created_from_run_id: summary.created_from_run_id,
         }
     }
 }
@@ -242,4 +288,8 @@ impl From<KnowledgeDocumentSearchResultSummary> for KnowledgeDocumentSearchResul
             score: summary.score,
         }
     }
+}
+
+fn default_true() -> bool {
+    true
 }

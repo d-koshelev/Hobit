@@ -38,11 +38,26 @@ export const createKnowledgeDocument: WorkspaceApi["createKnowledgeDocument"] =
           sourceRef,
         }),
       ],
+      relations: request.relations ?? [],
       content: request.content,
       tags: request.tags,
       enabled: request.enabled,
+      searchable: request.searchable ?? true,
+      version: 1,
+      versionSummary: request.versionSummary ?? "",
       createdAt: now,
       updatedAt: now,
+      reviewedAt:
+        request.reviewedAt ??
+        (request.lifecycleStatus === "draft" ||
+        request.lifecycleStatus === "stale" ||
+        request.lifecycleStatus === "archived"
+          ? null
+          : now),
+      createdByTaskId:
+        request.createdByTaskId ?? inferCreatedByTaskId(request.sourceRefs),
+      createdFromRunId:
+        request.createdFromRunId ?? inferCreatedFromRunId(request.sourceRefs),
     };
 
     if (document.scope === "global") {
@@ -117,10 +132,28 @@ export const updateKnowledgeDocument: WorkspaceApi["updateKnowledgeDocument"] =
             sourceRef,
           }),
         ],
+      relations: request.relations ?? currentDocument.relations ?? [],
       content: request.content,
       tags: request.tags,
       enabled: request.enabled,
+      searchable: request.searchable ?? currentDocument.searchable ?? true,
+      version: (currentDocument.version ?? 1) + 1,
+      versionSummary: request.versionSummary ?? "",
       updatedAt: new Date().toISOString(),
+      reviewedAt:
+        request.reviewedAt ??
+        currentDocument.reviewedAt ??
+        (request.lifecycleStatus === "active" || request.lifecycleStatus === "rejected"
+          ? new Date().toISOString()
+          : null),
+      createdByTaskId:
+        request.createdByTaskId ??
+        currentDocument.createdByTaskId ??
+        inferCreatedByTaskId(request.sourceRefs),
+      createdFromRunId:
+        request.createdFromRunId ??
+        currentDocument.createdFromRunId ??
+        inferCreatedFromRunId(request.sourceRefs),
     };
     currentDocuments.splice(documentIndex, 1);
     if (updatedDocument.scope === "global") {
@@ -171,6 +204,7 @@ export const searchKnowledgeDocuments: WorkspaceApi["searchKnowledgeDocuments"] 
 
     const results = getVisibleDocuments(request.workspaceId)
       .filter((document) => document.enabled)
+      .filter((document) => document.searchable !== false)
       .filter((document) => document.lifecycleStatus === "active")
       .flatMap((document) =>
         chunkDocumentContent(document.content).map((snippet, index) => ({
@@ -223,6 +257,7 @@ function cloneDocument(document: KnowledgeDocument): KnowledgeDocument {
   return {
     ...document,
     sourceRefs: document.sourceRefs?.map((sourceRef) => ({ ...sourceRef })),
+    relations: document.relations?.map((relation) => ({ ...relation })),
   };
 }
 
@@ -248,6 +283,27 @@ function normalizeSourceKind(sourceKind: string | null | undefined) {
 
 function normalizeSourceRef(sourceRef: string | null | undefined) {
   return sourceRef?.trim() ?? "";
+}
+
+function inferCreatedByTaskId(sourceRefs: KnowledgeDocument["sourceRefs"]) {
+  for (const sourceRef of sourceRefs ?? []) {
+    if (sourceRef.kind === "queue_task") {
+      return sourceRef.queueTaskId;
+    }
+    if (sourceRef.kind === "queue_run") {
+      return sourceRef.queueTaskId ?? undefined;
+    }
+  }
+  return undefined;
+}
+
+function inferCreatedFromRunId(sourceRefs: KnowledgeDocument["sourceRefs"]) {
+  for (const sourceRef of sourceRefs ?? []) {
+    if (sourceRef.kind === "queue_run") {
+      return sourceRef.runId;
+    }
+  }
+  return undefined;
 }
 
 function chunkDocumentContent(content: string) {

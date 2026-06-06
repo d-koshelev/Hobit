@@ -83,15 +83,30 @@ fn init_schema_upgrades_knowledge_document_scope_columns() {
             source_label: "Global source",
             source_kind: None,
             source_ref: None,
+            source_refs: None,
+            relations: None,
             content: "Global content",
             tags: "",
             enabled: true,
+            searchable: true,
+            version_summary: None,
             created_at: Some("2"),
             updated_at: Some("2"),
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
         })
         .expect("create global document after upgrade");
 
     assert_eq!(legacy.scope, "workspace");
+    assert!(legacy.searchable);
+    assert_eq!(legacy.source_refs, "[]");
+    assert_eq!(legacy.relations, "[]");
+    assert_eq!(legacy.version, 1);
+    assert_eq!(legacy.version_summary, "");
+    assert!(legacy.reviewed_at.is_none());
+    assert!(legacy.created_by_task_id.is_none());
+    assert!(legacy.created_from_run_id.is_none());
     assert_eq!(chunks[0].scope, "workspace");
     assert_eq!(global.scope, "global");
     assert_eq!(global.workspace_id, "");

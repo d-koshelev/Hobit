@@ -1,4 +1,7 @@
-use hobit_app::{KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary};
+use hobit_app::{
+    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, KnowledgeManualSourceRef,
+    KnowledgeRelation, KnowledgeSourceRef,
+};
 use serde_json::json;
 
 use crate::knowledge_documents_dto::{
@@ -19,9 +22,15 @@ fn maps_create_knowledge_document_request_to_app_input_with_scope_and_enabled() 
         source_kind: Some("operator_authored".to_owned()),
         source_ref: Some("manual".to_owned()),
         source_refs: None,
+        relations: Vec::new(),
         content: "Content".to_owned(),
         tags: "ops".to_owned(),
         enabled: true,
+        searchable: true,
+        version_summary: Some("Initial review".to_owned()),
+        reviewed_at: Some("3".to_owned()),
+        created_by_task_id: None,
+        created_from_run_id: None,
     };
 
     let input: hobit_app::CreateKnowledgeDocumentInput = request.into();
@@ -35,6 +44,9 @@ fn maps_create_knowledge_document_request_to_app_input_with_scope_and_enabled() 
     assert_eq!(input.source_kind.as_deref(), Some("operator_authored"));
     assert_eq!(input.source_ref.as_deref(), Some("manual"));
     assert!(input.enabled);
+    assert!(input.searchable);
+    assert_eq!(input.version_summary.as_deref(), Some("Initial review"));
+    assert_eq!(input.reviewed_at.as_deref(), Some("3"));
 }
 
 #[test]
@@ -51,9 +63,15 @@ fn maps_update_knowledge_document_request_to_app_input_with_scope_and_enabled() 
         source_kind: Some("file".to_owned()),
         source_ref: Some("docs/checks.md".to_owned()),
         source_refs: None,
+        relations: Vec::new(),
         content: "Content".to_owned(),
         tags: "ops".to_owned(),
         enabled: false,
+        searchable: false,
+        version_summary: Some("Disabled for review".to_owned()),
+        reviewed_at: None,
+        created_by_task_id: Some("task-1".to_owned()),
+        created_from_run_id: Some("run-1".to_owned()),
     };
 
     let input: hobit_app::UpdateKnowledgeDocumentInput = request.into();
@@ -70,6 +88,13 @@ fn maps_update_knowledge_document_request_to_app_input_with_scope_and_enabled() 
     assert_eq!(input.source_kind.as_deref(), Some("file"));
     assert_eq!(input.source_ref.as_deref(), Some("docs/checks.md"));
     assert!(!input.enabled);
+    assert!(!input.searchable);
+    assert_eq!(
+        input.version_summary.as_deref(),
+        Some("Disabled for review")
+    );
+    assert_eq!(input.created_by_task_id.as_deref(), Some("task-1"));
+    assert_eq!(input.created_from_run_id.as_deref(), Some("run-1"));
 }
 
 #[test]
@@ -93,6 +118,7 @@ fn maps_typed_source_refs_to_legacy_app_input_for_compatibility() {
 
     assert_eq!(input.source_kind.as_deref(), Some("codebase_path"));
     assert_eq!(input.source_ref.as_deref(), Some("src/lib.rs"));
+    assert_eq!(input.source_refs.len(), 1);
 }
 
 #[test]
@@ -124,11 +150,31 @@ fn serializes_knowledge_document_dto_with_stable_snake_case_fields() {
         source_label: "Paste".to_owned(),
         source_kind: "external_url".to_owned(),
         source_ref: "https://example.invalid/doc".to_owned(),
+        source_refs: vec![KnowledgeSourceRef::Manual(KnowledgeManualSourceRef {
+            label: "Paste".to_owned(),
+            ref_text: "https://example.invalid/doc".to_owned(),
+            captured_at: None,
+            redaction: None,
+            cap: None,
+        })],
+        relations: vec![KnowledgeRelation {
+            relation_id: "rel-1".to_owned(),
+            relation_type: "supports".to_owned(),
+            target_ref: "task-1".to_owned(),
+            label: "Supports task".to_owned(),
+            created_at: Some("3".to_owned()),
+        }],
         content: "Content".to_owned(),
         tags: "ops".to_owned(),
         enabled: true,
+        searchable: true,
+        version: 2,
+        version_summary: "Accepted update".to_owned(),
         created_at: "1".to_owned(),
         updated_at: "2".to_owned(),
+        reviewed_at: Some("3".to_owned()),
+        created_by_task_id: Some("task-1".to_owned()),
+        created_from_run_id: Some("run-1".to_owned()),
     });
 
     assert_eq!(
@@ -152,11 +198,24 @@ fn serializes_knowledge_document_dto_with_stable_snake_case_fields() {
                 "redaction": null,
                 "cap": null
             }],
+            "relations": [{
+                "relation_id": "rel-1",
+                "relation_type": "supports",
+                "target_ref": "task-1",
+                "label": "Supports task",
+                "created_at": "3"
+            }],
             "content": "Content",
             "tags": "ops",
             "enabled": true,
+            "searchable": true,
+            "version": 2,
+            "version_summary": "Accepted update",
             "created_at": "1",
-            "updated_at": "2"
+            "updated_at": "2",
+            "reviewed_at": "3",
+            "created_by_task_id": "task-1",
+            "created_from_run_id": "run-1"
         })
     );
 }

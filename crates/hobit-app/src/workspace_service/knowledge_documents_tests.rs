@@ -1,4 +1,5 @@
 use super::*;
+use crate::{KnowledgeQueueRunSourceRef, KnowledgeSourceRef};
 
 fn initialized_service() -> WorkspaceService {
     let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
@@ -23,9 +24,16 @@ fn create_document_input(workspace_id: String) -> CreateKnowledgeDocumentInput {
         source_label: "Manual paste".to_owned(),
         source_kind: None,
         source_ref: None,
+        source_refs: Vec::new(),
+        relations: Vec::new(),
         content: "Blue green deployment requires validation.".to_owned(),
         tags: "deploy, release".to_owned(),
         enabled: true,
+        searchable: true,
+        version_summary: None,
+        reviewed_at: None,
+        created_by_task_id: None,
+        created_from_run_id: None,
     }
 }
 
@@ -47,8 +55,14 @@ fn create_list_get_update_delete_and_search_knowledge_document() {
     assert_eq!(document.source_label, "Manual paste");
     assert_eq!(document.source_kind, "operator_authored");
     assert_eq!(document.source_ref, "");
+    assert_eq!(document.source_refs.len(), 1);
+    assert!(document.relations.is_empty());
     assert_eq!(document.tags, "deploy, release");
     assert!(document.enabled);
+    assert!(document.searchable);
+    assert_eq!(document.version, 1);
+    assert_eq!(document.version_summary, "");
+    assert_eq!(document.reviewed_at, Some(document.created_at.clone()));
     assert!(!document.created_at.is_empty());
     assert_eq!(document.created_at, document.updated_at);
 
@@ -93,9 +107,16 @@ fn create_list_get_update_delete_and_search_knowledge_document() {
             source_label: "".to_owned(),
             source_kind: Some("file".to_owned()),
             source_ref: Some(" docs/rollback.md ".to_owned()),
+            source_refs: Vec::new(),
+            relations: Vec::new(),
             content: "Rollback needs database snapshots.".to_owned(),
             tags: "rollback,  release, ".to_owned(),
             enabled: false,
+            searchable: true,
+            version_summary: Some("Stale rollback update".to_owned()),
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
         })
         .expect("update document")
         .expect("updated document");
@@ -112,6 +133,9 @@ fn create_list_get_update_delete_and_search_knowledge_document() {
     assert_eq!(updated.source_ref, "docs/rollback.md");
     assert_eq!(updated.tags, "rollback, release");
     assert!(!updated.enabled);
+    assert!(updated.searchable);
+    assert_eq!(updated.version, 2);
+    assert_eq!(updated.version_summary, "Stale rollback update");
     assert_ne!(updated.updated_at, document.updated_at);
 
     let disabled_results = service
@@ -227,6 +251,51 @@ fn global_knowledge_documents_are_visible_and_searchable_across_workspaces() {
 }
 
 #[test]
+fn create_active_document_with_typed_source_refs_relations_and_provenance() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Knowledge provenance workspace");
+    let mut input = create_document_input(workspace.id.clone());
+    input.title = "Generated run summary".to_owned();
+    input.quick_summary = Some("Captured reviewed run learning.".to_owned());
+    input.source_refs = vec![KnowledgeSourceRef::QueueRun(KnowledgeQueueRunSourceRef {
+        label: "Queue run".to_owned(),
+        queue_task_id: Some("task-123".to_owned()),
+        run_id: "run-456".to_owned(),
+        source_version: Some("report-v1".to_owned()),
+        captured_at: Some("2026-06-06T10:00:00Z".to_owned()),
+        redaction: Some("bounded summary only".to_owned()),
+        cap: Some("900 chars".to_owned()),
+    })];
+    input.relations = vec![crate::KnowledgeRelation {
+        relation_id: "rel-1".to_owned(),
+        relation_type: "supports".to_owned(),
+        target_ref: "task-123".to_owned(),
+        label: "Supports source task".to_owned(),
+        created_at: Some("2026-06-06T10:00:00Z".to_owned()),
+    }];
+    input.version_summary = Some("Accepted from reviewed Queue run.".to_owned());
+
+    let document = service
+        .create_knowledge_document(input)
+        .expect("create document");
+
+    assert_eq!(document.lifecycle_status, "active");
+    assert!(document.enabled);
+    assert!(document.searchable);
+    assert_eq!(document.source_kind, "queue_run");
+    assert_eq!(document.source_ref, "run-456");
+    assert_eq!(document.source_refs.len(), 1);
+    assert_eq!(document.relations.len(), 1);
+    assert_eq!(document.created_by_task_id.as_deref(), Some("task-123"));
+    assert_eq!(document.created_from_run_id.as_deref(), Some("run-456"));
+    assert_eq!(document.version, 1);
+    assert_eq!(
+        document.version_summary,
+        "Accepted from reviewed Queue run."
+    );
+}
+
+#[test]
 fn non_active_knowledge_documents_are_not_searchable() {
     let service = initialized_service();
     let workspace = create_workspace(&service, "Knowledge workspace");
@@ -239,6 +308,67 @@ fn non_active_knowledge_documents_are_not_searchable() {
         .expect("create stale document");
 
     assert_eq!(document.lifecycle_status, "stale");
+
+    let results = service
+        .search_knowledge_documents(SearchKnowledgeDocumentsInput {
+            workspace_id: workspace.id,
+            query: unique_needle.to_owned(),
+            limit: Some(5),
+        })
+        .expect("search documents");
+
+    assert!(results.is_empty());
+}
+
+#[test]
+fn stale_archived_and_rejected_statuses_persist_and_do_not_search() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Knowledge lifecycle workspace");
+    let statuses = ["stale", "archived", "rejected"];
+
+    for status in statuses {
+        let mut input = create_document_input(workspace.id.clone());
+        input.lifecycle_status = Some(status.to_owned());
+        input.title = format!("{status} document");
+        input.content = format!("{status}_status_unique_needle");
+        let document = service
+            .create_knowledge_document(input)
+            .expect("create lifecycle document");
+        assert_eq!(document.lifecycle_status, status);
+    }
+
+    let listed = service
+        .list_knowledge_documents(&workspace.id)
+        .expect("list lifecycle documents");
+    for status in statuses {
+        assert!(listed
+            .iter()
+            .any(|document| document.lifecycle_status == status));
+        let results = service
+            .search_knowledge_documents(SearchKnowledgeDocumentsInput {
+                workspace_id: workspace.id.clone(),
+                query: format!("{status}_status_unique_needle"),
+                limit: Some(5),
+            })
+            .expect("search lifecycle document");
+        assert!(results.is_empty());
+    }
+}
+
+#[test]
+fn searchable_false_documents_are_not_searched() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Knowledge searchable workspace");
+    let unique_needle = "not_searchable_unique_needle";
+    let mut input = create_document_input(workspace.id.clone());
+    input.content = format!("{unique_needle} should not be found.");
+    input.searchable = false;
+    let document = service
+        .create_knowledge_document(input)
+        .expect("create non-searchable document");
+
+    assert!(document.enabled);
+    assert!(!document.searchable);
 
     let results = service
         .search_knowledge_documents(SearchKnowledgeDocumentsInput {
@@ -389,9 +519,16 @@ fn knowledge_document_methods_reject_unknown_and_cross_workspace_access() {
             source_label: "Other".to_owned(),
             source_kind: None,
             source_ref: None,
+            source_refs: Vec::new(),
+            relations: Vec::new(),
             content: "Other".to_owned(),
             tags: "other".to_owned(),
             enabled: true,
+            searchable: true,
+            version_summary: None,
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
         })
         .expect_err("cross-workspace update rejected");
     assert!(update_error

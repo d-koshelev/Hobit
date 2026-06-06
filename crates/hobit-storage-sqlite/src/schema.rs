@@ -194,9 +194,30 @@ CREATE TABLE IF NOT EXISTS knowledge_documents (
     source_label TEXT NOT NULL,
     source_kind TEXT NOT NULL DEFAULT 'operator_authored',
     source_ref TEXT NOT NULL DEFAULT '',
+    source_refs TEXT NOT NULL DEFAULT '[]',
+    relations TEXT NOT NULL DEFAULT '[]',
     content TEXT NOT NULL,
     tags TEXT NOT NULL,
     enabled INTEGER NOT NULL DEFAULT 1,
+    searchable INTEGER NOT NULL DEFAULT 1,
+    version INTEGER NOT NULL DEFAULT 1,
+    version_summary TEXT NOT NULL DEFAULT '',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    reviewed_at TEXT NULL,
+    created_by_task_id TEXT NULL,
+    created_from_run_id TEXT NULL
+);
+
+CREATE TABLE IF NOT EXISTS knowledge_document_versions (
+    knowledge_document_version_id TEXT PRIMARY KEY,
+    knowledge_document_id TEXT NOT NULL REFERENCES knowledge_documents(knowledge_document_id) ON DELETE CASCADE,
+    version INTEGER NOT NULL,
+    version_summary TEXT NOT NULL DEFAULT '',
+    lifecycle_status TEXT NOT NULL,
+    source_refs TEXT NOT NULL DEFAULT '[]',
+    relations TEXT NOT NULL DEFAULT '[]',
+    content TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -318,6 +339,9 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_documents_workspace_ordering
 CREATE INDEX IF NOT EXISTS idx_knowledge_document_chunks_document_id
     ON knowledge_document_chunks(knowledge_document_id);
 
+CREATE INDEX IF NOT EXISTS idx_knowledge_document_versions_document_id
+    ON knowledge_document_versions(knowledge_document_id, version);
+
 CREATE INDEX IF NOT EXISTS idx_knowledge_document_chunks_workspace_id
     ON knowledge_document_chunks(workspace_id);
 
@@ -370,4 +394,7 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_documents_scope
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_document_chunks_scope
     ON knowledge_document_chunks(scope);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_documents_searchable
+    ON knowledge_documents(searchable);
 "#;

@@ -16,9 +16,11 @@ export type KnowledgeItemType =
   | "external_reference";
 
 export type KnowledgeCatalogItemType =
+  | "document"
   | "codebase_knowledge"
   | "documentation_knowledge"
   | "architecture_decision"
+  | "decision"
   | "runbook"
   | "skill"
   | "prompt_template"
@@ -193,9 +195,15 @@ export type CreateKnowledgeDocumentRequest = {
   sourceKind?: string;
   sourceRef?: string;
   sourceRefs?: KnowledgeSourceRef[];
+  relations?: KnowledgeRelation[];
   content: string;
   tags: string;
   enabled: boolean;
+  searchable?: boolean;
+  versionSummary?: string | null;
+  reviewedAt?: string | null;
+  createdByTaskId?: string | null;
+  createdFromRunId?: string | null;
 };
 
 export type ListKnowledgeDocumentsRequest = {
@@ -219,9 +227,15 @@ export type UpdateKnowledgeDocumentRequest = {
   sourceKind?: string;
   sourceRef?: string;
   sourceRefs?: KnowledgeSourceRef[];
+  relations?: KnowledgeRelation[];
   content: string;
   tags: string;
   enabled: boolean;
+  searchable?: boolean;
+  versionSummary?: string | null;
+  reviewedAt?: string | null;
+  createdByTaskId?: string | null;
+  createdFromRunId?: string | null;
 };
 
 export type DeleteKnowledgeDocumentRequest = {
@@ -257,11 +271,18 @@ export type KnowledgeDocument = {
   sourceKind: string;
   sourceRef: string;
   sourceRefs?: KnowledgeSourceRef[];
+  relations?: KnowledgeRelation[];
   content: string;
   tags: string;
   enabled: boolean;
+  searchable?: boolean;
+  version?: number;
+  versionSummary?: string | null;
   createdAt: string;
   updatedAt: string;
+  reviewedAt?: string | null;
+  createdByTaskId?: string | null;
+  createdFromRunId?: string | null;
 };
 
 export type KnowledgeDocumentSearchResult = {
@@ -292,7 +313,10 @@ export function knowledgeItemTypeFromCatalogItemType(
   itemType: KnowledgeCatalogItemType,
 ): KnowledgeItemType {
   switch (itemType) {
+    case "document":
+      return "document";
     case "architecture_decision":
+    case "decision":
       return "decision";
     case "prompt_template":
     case "investigation_summary":

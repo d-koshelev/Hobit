@@ -33,6 +33,7 @@ mod agent_queue_workers;
 mod events;
 mod jdbc_connection_profiles;
 mod jdbc_connectors;
+mod knowledge_document_schema;
 mod knowledge_documents;
 mod knowledge_search;
 mod notes;
@@ -58,6 +59,8 @@ mod jdbc_connection_profiles_tests;
 mod jdbc_connectors_tests;
 #[cfg(test)]
 mod knowledge_document_schema_tests;
+#[cfg(test)]
+mod knowledge_documents_production_tests;
 #[cfg(test)]
 mod knowledge_documents_tests;
 #[cfg(test)]

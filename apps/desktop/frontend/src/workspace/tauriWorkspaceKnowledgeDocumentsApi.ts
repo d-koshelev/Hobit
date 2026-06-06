@@ -27,11 +27,18 @@ type TauriKnowledgeDocument = {
   source_kind?: string | null;
   source_ref?: string | null;
   source_refs?: TauriKnowledgeSourceRef[] | null;
+  relations?: TauriKnowledgeRelation[] | null;
   content: string;
   tags: string;
   enabled: boolean;
+  searchable?: boolean | null;
+  version?: number | null;
+  version_summary?: string | null;
   created_at: string;
   updated_at: string;
+  reviewed_at?: string | null;
+  created_by_task_id?: string | null;
+  created_from_run_id?: string | null;
 };
 
 type TauriKnowledgeDocumentSearchResult = {
@@ -115,6 +122,14 @@ type TauriKnowledgeSourceRef =
       cap?: string | null;
     };
 
+type TauriKnowledgeRelation = {
+  relation_id: string;
+  relation_type: string;
+  target_ref: string;
+  label: string;
+  created_at?: string | null;
+};
+
 export async function createKnowledgeDocument(
   request: CreateKnowledgeDocumentRequest,
 ): Promise<KnowledgeDocument> {
@@ -181,9 +196,17 @@ export async function updateKnowledgeDocument(
         ...(request.sourceRefs
           ? { source_refs: request.sourceRefs.map(toTauriKnowledgeSourceRef) }
           : {}),
+        ...(request.relations
+          ? { relations: request.relations.map(toTauriKnowledgeRelation) }
+          : {}),
         content: request.content,
         tags: request.tags,
         enabled: request.enabled,
+        searchable: request.searchable ?? true,
+        version_summary: request.versionSummary ?? null,
+        reviewed_at: request.reviewedAt ?? null,
+        created_by_task_id: request.createdByTaskId ?? null,
+        created_from_run_id: request.createdFromRunId ?? null,
       },
     },
   );
@@ -237,9 +260,17 @@ function toTauriCreateKnowledgeDocumentRequest(
     ...(request.sourceRefs
       ? { source_refs: request.sourceRefs.map(toTauriKnowledgeSourceRef) }
       : {}),
+    ...(request.relations
+      ? { relations: request.relations.map(toTauriKnowledgeRelation) }
+      : {}),
     content: request.content,
     tags: request.tags,
     enabled: request.enabled,
+    searchable: request.searchable ?? true,
+    version_summary: request.versionSummary ?? null,
+    reviewed_at: request.reviewedAt ?? null,
+    created_by_task_id: request.createdByTaskId ?? null,
+    created_from_run_id: request.createdFromRunId ?? null,
   };
 }
 
@@ -262,11 +293,18 @@ function normalizeKnowledgeDocument(
     sourceKind: document.source_kind ?? "operator_authored",
     sourceRef: document.source_ref ?? "",
     sourceRefs: normalizeKnowledgeSourceRefs(document),
+    relations: document.relations?.map(normalizeKnowledgeRelation) ?? [],
     content: document.content,
     tags: document.tags,
     enabled: document.enabled,
+    searchable: document.searchable ?? true,
+    version: document.version ?? 1,
+    versionSummary: document.version_summary ?? "",
     createdAt: document.created_at,
     updatedAt: document.updated_at,
+    reviewedAt: document.reviewed_at ?? null,
+    createdByTaskId: document.created_by_task_id ?? null,
+    createdFromRunId: document.created_from_run_id ?? null,
   };
 }
 
@@ -384,6 +422,28 @@ function normalizeKnowledgeSourceRef(
   }
 }
 
+function normalizeKnowledgeRelation(relation: TauriKnowledgeRelation) {
+  return {
+    relationId: relation.relation_id,
+    relationType: relation.relation_type,
+    targetRef: relation.target_ref,
+    label: relation.label,
+    createdAt: relation.created_at,
+  };
+}
+
+function toTauriKnowledgeRelation(
+  relation: NonNullable<KnowledgeDocument["relations"]>[number],
+): TauriKnowledgeRelation {
+  return {
+    relation_id: relation.relationId,
+    relation_type: relation.relationType,
+    target_ref: relation.targetRef,
+    label: relation.label,
+    created_at: relation.createdAt,
+  };
+}
+
 function toTauriKnowledgeSourceRef(
   sourceRef: KnowledgeSourceRef,
 ): TauriKnowledgeSourceRef {
@@ -474,7 +534,9 @@ function normalizeKnowledgeCatalogItemType(
   itemType: string | null | undefined,
 ) {
   switch (itemType) {
+    case "document":
     case "codebase_knowledge":
+    case "decision":
     case "architecture_decision":
     case "runbook":
     case "skill":

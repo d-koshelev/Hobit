@@ -214,11 +214,19 @@ pub struct KnowledgeDocumentRow {
     pub source_label: String,
     pub source_kind: String,
     pub source_ref: String,
+    pub source_refs: String,
+    pub relations: String,
     pub content: String,
     pub tags: String,
     pub enabled: bool,
+    pub searchable: bool,
+    pub version: i64,
+    pub version_summary: String,
     pub created_at: String,
     pub updated_at: String,
+    pub reviewed_at: Option<String>,
+    pub created_by_task_id: Option<String>,
+    pub created_from_run_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

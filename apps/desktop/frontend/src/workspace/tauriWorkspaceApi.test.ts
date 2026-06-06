@@ -525,6 +525,11 @@ describe("tauri workspace api adapter", () => {
         content: "Content",
         tags: "ops",
         enabled: true,
+        searchable: true,
+        version_summary: null,
+        reviewed_at: null,
+        created_by_task_id: null,
+        created_from_run_id: null,
       },
     });
 
@@ -556,6 +561,11 @@ describe("tauri workspace api adapter", () => {
         source_label: "Paste",
         source_kind: "file",
         source_ref: "docs/checks.md",
+        searchable: true,
+        version_summary: null,
+        reviewed_at: null,
+        created_by_task_id: null,
+        created_from_run_id: null,
       }),
     });
 

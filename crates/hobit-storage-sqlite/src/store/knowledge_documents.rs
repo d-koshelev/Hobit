@@ -19,148 +19,6 @@ const KNOWLEDGE_DOCUMENT_SCOPE_GLOBAL: &str = "global";
 const KNOWLEDGE_DOCUMENT_SCOPE_WORKSPACE: &str = "workspace";
 
 impl SqliteStore {
-    pub(super) fn upgrade_knowledge_documents_schema(&self) -> Result<()> {
-        let document_columns = self.table_columns("knowledge_documents")?;
-        let chunk_columns = self.table_columns("knowledge_document_chunks")?;
-        let document_has_scope = document_columns.iter().any(|column| column.name == "scope");
-        let chunks_have_scope = chunk_columns.iter().any(|column| column.name == "scope");
-        let document_workspace_not_null = document_columns
-            .iter()
-            .find(|column| column.name == "workspace_id")
-            .is_some_and(|column| column.not_null);
-        let chunk_workspace_not_null = chunk_columns
-            .iter()
-            .find(|column| column.name == "workspace_id")
-            .is_some_and(|column| column.not_null);
-
-        if !document_has_scope
-            || !chunks_have_scope
-            || document_workspace_not_null
-            || chunk_workspace_not_null
-        {
-            let document_scope_expression = if document_has_scope {
-                "COALESCE(scope, 'workspace')"
-            } else {
-                "'workspace'"
-            };
-            let chunk_scope_expression = if chunks_have_scope {
-                "COALESCE(scope, 'workspace')"
-            } else {
-                "'workspace'"
-            };
-
-            let sql = format!(
-                r#"
-                ALTER TABLE knowledge_document_chunks RENAME TO knowledge_document_chunks_legacy;
-                ALTER TABLE knowledge_documents RENAME TO knowledge_documents_legacy;
-
-                CREATE TABLE knowledge_documents (
-                    knowledge_document_id TEXT PRIMARY KEY,
-                    workspace_id TEXT NULL REFERENCES workspaces(id),
-                    scope TEXT NOT NULL DEFAULT 'workspace',
-                    catalog_item_type TEXT NOT NULL DEFAULT 'documentation_knowledge',
-                    quick_summary TEXT NOT NULL DEFAULT '',
-                    lifecycle_status TEXT NOT NULL DEFAULT 'active',
-                    title TEXT NOT NULL,
-                    source_label TEXT NOT NULL,
-                    source_kind TEXT NOT NULL DEFAULT 'operator_authored',
-                    source_ref TEXT NOT NULL DEFAULT '',
-                    content TEXT NOT NULL,
-                    tags TEXT NOT NULL,
-                    enabled INTEGER NOT NULL DEFAULT 1,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL
-                );
-
-                CREATE TABLE knowledge_document_chunks (
-                    chunk_id TEXT PRIMARY KEY,
-                    knowledge_document_id TEXT NOT NULL REFERENCES knowledge_documents(knowledge_document_id) ON DELETE CASCADE,
-                    workspace_id TEXT NULL REFERENCES workspaces(id),
-                    scope TEXT NOT NULL DEFAULT 'workspace',
-                    chunk_index INTEGER NOT NULL,
-                    text TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                );
-
-                INSERT INTO knowledge_documents (
-                    knowledge_document_id, workspace_id, scope, catalog_item_type,
-                    quick_summary, lifecycle_status, title, source_label,
-                    source_kind, source_ref, content, tags, enabled, created_at,
-                    updated_at
-                )
-                SELECT
-                    knowledge_document_id,
-                    workspace_id,
-                    {document_scope_expression},
-                    'documentation_knowledge',
-                    '',
-                    'active',
-                    title,
-                    source_label,
-                    'operator_authored',
-                    '',
-                    content,
-                    tags,
-                    enabled,
-                    created_at,
-                    updated_at
-                FROM knowledge_documents_legacy;
-
-                INSERT INTO knowledge_document_chunks (
-                    chunk_id, knowledge_document_id, workspace_id, scope,
-                    chunk_index, text, created_at
-                )
-                SELECT
-                    chunk_id,
-                    knowledge_document_id,
-                    workspace_id,
-                    {chunk_scope_expression},
-                    chunk_index,
-                    text,
-                    created_at
-                FROM knowledge_document_chunks_legacy;
-
-                DROP TABLE knowledge_document_chunks_legacy;
-                DROP TABLE knowledge_documents_legacy;
-                "#
-            );
-
-            self.connection.execute_batch(&sql)?;
-        }
-
-        self.ensure_knowledge_document_catalog_columns()?;
-        Ok(())
-    }
-
-    fn ensure_knowledge_document_catalog_columns(&self) -> Result<()> {
-        self.ensure_column(
-            "knowledge_documents",
-            "catalog_item_type",
-            "catalog_item_type TEXT NOT NULL DEFAULT 'documentation_knowledge'",
-        )?;
-        self.ensure_column(
-            "knowledge_documents",
-            "quick_summary",
-            "quick_summary TEXT NOT NULL DEFAULT ''",
-        )?;
-        self.ensure_column(
-            "knowledge_documents",
-            "lifecycle_status",
-            "lifecycle_status TEXT NOT NULL DEFAULT 'active'",
-        )?;
-        self.ensure_column(
-            "knowledge_documents",
-            "source_kind",
-            "source_kind TEXT NOT NULL DEFAULT 'operator_authored'",
-        )?;
-        self.ensure_column(
-            "knowledge_documents",
-            "source_ref",
-            "source_ref TEXT NOT NULL DEFAULT ''",
-        )?;
-        Ok(())
-    }
-
     pub fn create_knowledge_document(
         &self,
         input: NewKnowledgeDocument<'_>,
@@ -181,14 +39,24 @@ impl SqliteStore {
         let lifecycle_status = input.lifecycle_status.unwrap_or("active");
         let source_kind = input.source_kind.unwrap_or("operator_authored");
         let source_ref = input.source_ref.unwrap_or("");
+        let source_refs = input.source_refs.unwrap_or("[]");
+        let relations = input.relations.unwrap_or("[]");
+        let version_summary = input.version_summary.unwrap_or("");
+        let reviewed_at = input
+            .reviewed_at
+            .or_else(|| reviewed_timestamp_for_status(lifecycle_status, &created_at));
 
         self.connection.execute(
             "INSERT INTO knowledge_documents (
                 knowledge_document_id, workspace_id, scope, catalog_item_type,
                 quick_summary, lifecycle_status, title, source_label,
-                source_kind, source_ref, content, tags, enabled, created_at,
-                updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                source_kind, source_ref, source_refs, relations, content, tags,
+                enabled, searchable, version, version_summary, created_at,
+                updated_at, reviewed_at, created_by_task_id, created_from_run_id
+            ) VALUES (
+                ?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13,
+                ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21, ?22, ?23
+            )",
             params![
                 input.knowledge_document_id,
                 owner_workspace_id,
@@ -200,12 +68,31 @@ impl SqliteStore {
                 input.source_label,
                 source_kind,
                 source_ref,
+                source_refs,
+                relations,
                 input.content,
                 input.tags,
                 bool_to_i64(input.enabled),
+                bool_to_i64(input.searchable),
+                1_i64,
+                version_summary,
                 created_at,
                 updated_at,
+                reviewed_at,
+                input.created_by_task_id,
+                input.created_from_run_id,
             ],
+        )?;
+        self.insert_knowledge_document_version(
+            input.knowledge_document_id,
+            1,
+            version_summary,
+            lifecycle_status,
+            source_refs,
+            relations,
+            input.content,
+            &created_at,
+            &updated_at,
         )?;
         self.replace_knowledge_document_chunks(
             owner_workspace_id,
@@ -226,8 +113,10 @@ impl SqliteStore {
         let mut statement = self.connection.prepare(
             "SELECT knowledge_document_id, COALESCE(workspace_id, ''), scope,
                     catalog_item_type, quick_summary, lifecycle_status, title,
-                    source_label, source_kind, source_ref, content, tags,
-                    enabled, created_at, updated_at
+                    source_label, source_kind, source_ref, source_refs,
+                    relations, content, tags, enabled, searchable, version,
+                    version_summary, created_at, updated_at, reviewed_at,
+                    created_by_task_id, created_from_run_id
              FROM knowledge_documents
              WHERE (scope = 'workspace' AND workspace_id = ?1)
                 OR scope = 'global'
@@ -247,8 +136,10 @@ impl SqliteStore {
             .query_row(
                 "SELECT knowledge_document_id, COALESCE(workspace_id, ''), scope,
                         catalog_item_type, quick_summary, lifecycle_status, title,
-                        source_label, source_kind, source_ref, content, tags,
-                        enabled, created_at, updated_at
+                        source_label, source_kind, source_ref, source_refs,
+                        relations, content, tags, enabled, searchable, version,
+                        version_summary, created_at, updated_at, reviewed_at,
+                        created_by_task_id, created_from_run_id
                  FROM knowledge_documents
                  WHERE knowledge_document_id = ?2
                     AND (
@@ -269,8 +160,10 @@ impl SqliteStore {
             .query_row(
                 "SELECT knowledge_document_id, COALESCE(workspace_id, ''), scope,
                         catalog_item_type, quick_summary, lifecycle_status, title,
-                        source_label, source_kind, source_ref, content, tags,
-                        enabled, created_at, updated_at
+                        source_label, source_kind, source_ref, source_refs,
+                        relations, content, tags, enabled, searchable, version,
+                        version_summary, created_at, updated_at, reviewed_at,
+                        created_by_task_id, created_from_run_id
                  FROM knowledge_documents
                  WHERE knowledge_document_id = ?1",
                 params![knowledge_document_id],
@@ -298,6 +191,17 @@ impl SqliteStore {
         let lifecycle_status = update.lifecycle_status.unwrap_or("active");
         let source_kind = update.source_kind.unwrap_or("operator_authored");
         let source_ref = update.source_ref.unwrap_or("");
+        let source_refs = update.source_refs.unwrap_or("[]");
+        let relations = update.relations.unwrap_or("[]");
+        let version_summary = update.version_summary.unwrap_or("");
+        let current = self.get_knowledge_document(workspace_id, knowledge_document_id)?;
+        let next_version = current.as_ref().map_or(1, |document| document.version + 1);
+        let reviewed_at = update.reviewed_at.or_else(|| {
+            current
+                .as_ref()
+                .and_then(|document| document.reviewed_at.as_deref())
+                .or_else(|| reviewed_timestamp_for_status(lifecycle_status, &updated_at))
+        });
         let affected_rows = self.connection.execute(
             "UPDATE knowledge_documents
              SET workspace_id = ?1,
@@ -309,13 +213,21 @@ impl SqliteStore {
                  source_label = ?7,
                  source_kind = ?8,
                  source_ref = ?9,
-                 content = ?10,
-                 tags = ?11,
-                 enabled = ?12,
-                 updated_at = ?13
-             WHERE knowledge_document_id = ?14
+                 source_refs = ?10,
+                 relations = ?11,
+                 content = ?12,
+                 tags = ?13,
+                 enabled = ?14,
+                 searchable = ?15,
+                 version = ?16,
+                 version_summary = ?17,
+                 updated_at = ?18,
+                 reviewed_at = ?19,
+                 created_by_task_id = ?20,
+                 created_from_run_id = ?21
+             WHERE knowledge_document_id = ?22
                 AND (
-                    (scope = 'workspace' AND workspace_id = ?15)
+                    (scope = 'workspace' AND workspace_id = ?23)
                     OR scope = 'global'
                 )",
             params![
@@ -328,10 +240,26 @@ impl SqliteStore {
                 update.source_label,
                 source_kind,
                 source_ref,
+                source_refs,
+                relations,
                 update.content,
                 update.tags,
                 bool_to_i64(update.enabled),
+                bool_to_i64(update.searchable),
+                next_version,
+                version_summary,
                 updated_at,
+                reviewed_at,
+                update.created_by_task_id.or_else(|| {
+                    current
+                        .as_ref()
+                        .and_then(|document| document.created_by_task_id.as_deref())
+                }),
+                update.created_from_run_id.or_else(|| {
+                    current
+                        .as_ref()
+                        .and_then(|document| document.created_from_run_id.as_deref())
+                }),
                 knowledge_document_id,
                 workspace_id,
             ],
@@ -341,6 +269,17 @@ impl SqliteStore {
             return Ok(None);
         }
 
+        self.insert_knowledge_document_version(
+            knowledge_document_id,
+            next_version,
+            version_summary,
+            lifecycle_status,
+            source_refs,
+            relations,
+            update.content,
+            &updated_at,
+            &updated_at,
+        )?;
         self.replace_knowledge_document_chunks(
             owner_workspace_id,
             scope,
@@ -440,6 +379,7 @@ impl SqliteStore {
                     )
                 )
                 AND knowledge_documents.enabled = 1
+                AND knowledge_documents.searchable = 1
                 AND knowledge_documents.lifecycle_status = 'active'",
         )?;
 
@@ -469,6 +409,42 @@ impl SqliteStore {
         sort_knowledge_search_results(&mut results);
         results.truncate(capped_limit);
         Ok(results)
+    }
+
+    fn insert_knowledge_document_version(
+        &self,
+        knowledge_document_id: &str,
+        version: i64,
+        version_summary: &str,
+        lifecycle_status: &str,
+        source_refs: &str,
+        relations: &str,
+        content: &str,
+        created_at: &str,
+        updated_at: &str,
+    ) -> Result<()> {
+        let knowledge_document_version_id = format!("{knowledge_document_id}_v{version:06}");
+        self.connection.execute(
+            "INSERT OR REPLACE INTO knowledge_document_versions (
+                knowledge_document_version_id, knowledge_document_id, version,
+                version_summary, lifecycle_status, source_refs, relations,
+                content, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            params![
+                knowledge_document_version_id,
+                knowledge_document_id,
+                version,
+                version_summary,
+                lifecycle_status,
+                source_refs,
+                relations,
+                content,
+                created_at,
+                updated_at,
+            ],
+        )?;
+
+        Ok(())
     }
 
     fn replace_knowledge_document_chunks(
@@ -526,4 +502,11 @@ fn knowledge_document_owner_workspace_id<'a>(
         KNOWLEDGE_DOCUMENT_SCOPE_GLOBAL => None,
         _ => Some(workspace_id),
     }
+}
+
+fn reviewed_timestamp_for_status<'a>(
+    lifecycle_status: &str,
+    timestamp: &'a str,
+) -> Option<&'a str> {
+    matches!(lifecycle_status, "active" | "rejected").then_some(timestamp)
 }

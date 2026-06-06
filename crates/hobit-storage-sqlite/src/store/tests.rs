@@ -486,11 +486,18 @@ fn list_workspace_summaries_includes_metadata_and_scoped_counts() {
             source_label: "manual",
             source_kind: None,
             source_ref: None,
+            source_refs: None,
+            relations: None,
             content: "Content",
             tags: "",
             enabled: true,
+            searchable: true,
+            version_summary: None,
             created_at: Some("1"),
             updated_at: Some("1"),
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
         })
         .expect("create document");
     store

@@ -32,11 +32,18 @@ fn create_document(
             source_label: "Manual paste",
             source_kind: None,
             source_ref: None,
+            source_refs: None,
+            relations: None,
             content,
             tags: "deploy, runbook",
             enabled,
+            searchable: true,
+            version_summary: None,
             created_at: Some("1"),
             updated_at: Some("1"),
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
         })
         .expect("create knowledge document")
 }
@@ -63,11 +70,18 @@ fn create_document_with_metadata(
             source_label,
             source_kind: None,
             source_ref: None,
+            source_refs: None,
+            relations: None,
             content,
             tags,
             enabled,
+            searchable: true,
+            version_summary: None,
             created_at: Some("1"),
             updated_at: Some("1"),
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
         })
         .expect("create knowledge document")
 }
@@ -122,10 +136,17 @@ fn create_list_get_update_and_delete_knowledge_document() {
                 source_label: "README.md",
                 source_kind: Some("file"),
                 source_ref: Some("README.md"),
+                source_refs: None,
+                relations: None,
                 content: "Updated rollback procedure.",
                 tags: "rollback",
                 enabled: false,
+                searchable: true,
+                version_summary: Some("Marked rollback stale."),
                 updated_at: Some("2"),
+                reviewed_at: None,
+                created_by_task_id: None,
+                created_from_run_id: None,
             },
         )
         .expect("update document")
@@ -141,6 +162,9 @@ fn create_list_get_update_and_delete_knowledge_document() {
     assert_eq!(updated.content, "Updated rollback procedure.");
     assert_eq!(updated.tags, "rollback");
     assert!(!updated.enabled);
+    assert!(updated.searchable);
+    assert_eq!(updated.version, 2);
+    assert_eq!(updated.version_summary, "Marked rollback stale.");
     assert_eq!(updated.updated_at, "2");
 
     assert!(store
@@ -186,10 +210,17 @@ fn chunks_are_created_updated_and_deleted_with_document() {
                 source_label: "Manual paste",
                 source_kind: None,
                 source_ref: None,
+                source_refs: None,
+                relations: None,
                 content: "Replacement content about rollback.",
                 tags: "rollback",
                 enabled: true,
+                searchable: true,
+                version_summary: None,
                 updated_at: Some("2"),
+                reviewed_at: None,
+                created_by_task_id: None,
+                created_from_run_id: None,
             },
         )
         .expect("update document");
@@ -268,37 +299,6 @@ fn disabled_documents_are_not_searched() {
 }
 
 #[test]
-fn non_active_documents_are_not_searched() {
-    let store = initialized_store();
-    create_workspace(&store, "workspace-1");
-    store
-        .create_knowledge_document(NewKnowledgeDocument {
-            knowledge_document_id: "doc-stale",
-            workspace_id: "workspace-1",
-            scope: None,
-            catalog_item_type: Some("documentation_knowledge"),
-            quick_summary: Some("Stale summary"),
-            lifecycle_status: Some("stale"),
-            title: "Stale guide",
-            source_label: "Manual paste",
-            source_kind: Some("operator_authored"),
-            source_ref: None,
-            content: "Contains unique stale lifecycle keyword.",
-            tags: "stale",
-            enabled: true,
-            created_at: Some("1"),
-            updated_at: Some("1"),
-        })
-        .expect("create stale document");
-
-    let results = store
-        .search_knowledge_documents("workspace-1", "stale lifecycle keyword", 5)
-        .expect("search documents");
-
-    assert!(results.is_empty());
-}
-
-#[test]
 fn create_global_document_and_list_with_workspace_documents() {
     let store = initialized_store();
     create_workspace(&store, "workspace-1");
@@ -323,11 +323,18 @@ fn create_global_document_and_list_with_workspace_documents() {
             source_label: "Global paste",
             source_kind: None,
             source_ref: None,
+            source_refs: None,
+            relations: None,
             content: "Global EON troubleshooting content.",
             tags: "global, eon",
             enabled: true,
+            searchable: true,
+            version_summary: None,
             created_at: Some("2"),
             updated_at: Some("2"),
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
         })
         .expect("create global document");
 
@@ -444,11 +451,18 @@ fn search_includes_global_documents_for_each_workspace_without_cross_workspace_l
             source_label: "Global paste",
             source_kind: None,
             source_ref: None,
+            source_refs: None,
+            relations: None,
             content: "Global EON needle.",
             tags: "global",
             enabled: true,
+            searchable: true,
+            version_summary: None,
             created_at: Some("1"),
             updated_at: Some("1"),
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
         })
         .expect("create global document");
 
@@ -495,11 +509,18 @@ fn disabled_and_deleted_global_documents_are_not_searched() {
             source_label: "Global paste",
             source_kind: None,
             source_ref: None,
+            source_refs: None,
+            relations: None,
             content: "disabledglobal needle.",
             tags: "",
             enabled: false,
+            searchable: true,
+            version_summary: None,
             created_at: Some("1"),
             updated_at: Some("1"),
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
         })
         .expect("create disabled global document");
     store
@@ -514,11 +535,18 @@ fn disabled_and_deleted_global_documents_are_not_searched() {
             source_label: "Global paste",
             source_kind: None,
             source_ref: None,
+            source_refs: None,
+            relations: None,
             content: "deletedglobal needle.",
             tags: "",
             enabled: true,
+            searchable: true,
+            version_summary: None,
             created_at: Some("1"),
             updated_at: Some("1"),
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
         })
         .expect("create deleted global document");
 

@@ -252,11 +252,18 @@ pub struct NewKnowledgeDocument<'a> {
     pub source_label: &'a str,
     pub source_kind: Option<&'a str>,
     pub source_ref: Option<&'a str>,
+    pub source_refs: Option<&'a str>,
+    pub relations: Option<&'a str>,
     pub content: &'a str,
     pub tags: &'a str,
     pub enabled: bool,
+    pub searchable: bool,
+    pub version_summary: Option<&'a str>,
     pub created_at: Option<&'a str>,
     pub updated_at: Option<&'a str>,
+    pub reviewed_at: Option<&'a str>,
+    pub created_by_task_id: Option<&'a str>,
+    pub created_from_run_id: Option<&'a str>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -269,10 +276,17 @@ pub struct KnowledgeDocumentUpdate<'a> {
     pub source_label: &'a str,
     pub source_kind: Option<&'a str>,
     pub source_ref: Option<&'a str>,
+    pub source_refs: Option<&'a str>,
+    pub relations: Option<&'a str>,
     pub content: &'a str,
     pub tags: &'a str,
     pub enabled: bool,
+    pub searchable: bool,
+    pub version_summary: Option<&'a str>,
     pub updated_at: Option<&'a str>,
+    pub reviewed_at: Option<&'a str>,
+    pub created_by_task_id: Option<&'a str>,
+    pub created_from_run_id: Option<&'a str>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

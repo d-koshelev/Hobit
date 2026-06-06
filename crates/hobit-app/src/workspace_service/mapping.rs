@@ -5,6 +5,8 @@ use hobit_storage_sqlite::{
     WorkspaceNoteRow, WorkspaceRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
+use crate::{KnowledgeRelation, KnowledgeSourceRef};
+
 use super::{
     AgentQueueTaskSummary, AgentQueueWorkerSummary, JdbcConnectionProfileSummary,
     JdbcConnectorSummary, KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary,
@@ -157,6 +159,15 @@ pub(super) fn skill_summary(row: SkillRow) -> SkillSummary {
 }
 
 pub(super) fn knowledge_document_summary(row: KnowledgeDocumentRow) -> KnowledgeDocumentSummary {
+    let source_refs = parse_json_vec::<KnowledgeSourceRef>(&row.source_refs).unwrap_or_else(|| {
+        vec![KnowledgeSourceRef::from_legacy_fields(
+            &row.source_kind,
+            &row.source_ref,
+            row.source_label.clone(),
+        )]
+    });
+    let relations = parse_json_vec::<KnowledgeRelation>(&row.relations).unwrap_or_default();
+
     KnowledgeDocumentSummary {
         knowledge_document_id: row.knowledge_document_id,
         workspace_id: row.workspace_id,
@@ -168,11 +179,19 @@ pub(super) fn knowledge_document_summary(row: KnowledgeDocumentRow) -> Knowledge
         source_label: row.source_label,
         source_kind: row.source_kind,
         source_ref: row.source_ref,
+        source_refs,
+        relations,
         content: row.content,
         tags: row.tags,
         enabled: row.enabled,
+        searchable: row.searchable,
+        version: row.version,
+        version_summary: row.version_summary,
         created_at: row.created_at,
         updated_at: row.updated_at,
+        reviewed_at: row.reviewed_at,
+        created_by_task_id: row.created_by_task_id,
+        created_from_run_id: row.created_from_run_id,
     }
 }
 
@@ -284,4 +303,11 @@ pub(super) fn workbench_event_summary(row: WorkbenchEventRow) -> WorkbenchEventS
         summary: row.summary,
         created_at: row.created_at,
     }
+}
+
+fn parse_json_vec<T>(raw: &str) -> Option<Vec<T>>
+where
+    T: serde::de::DeserializeOwned,
+{
+    serde_json::from_str::<Vec<T>>(raw).ok()
 }

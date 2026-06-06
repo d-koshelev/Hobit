@@ -1,6 +1,8 @@
 use hobit_storage_sqlite::{KnowledgeDocumentUpdate, NewKnowledgeDocument};
 
-use crate::{KnowledgeLifecycleStatus, WorkspaceServiceError};
+use crate::{
+    KnowledgeLifecycleStatus, KnowledgeRelation, KnowledgeSourceRef, WorkspaceServiceError,
+};
 
 use super::{
     knowledge_document_search::{bounded_knowledge_snippet, normalized_knowledge_search_limit},
@@ -13,8 +15,10 @@ use super::{
 };
 
 const CATALOG_ITEM_TYPE_CODEBASE_KNOWLEDGE: &str = "codebase_knowledge";
+const CATALOG_ITEM_TYPE_DOCUMENT: &str = "document";
 const CATALOG_ITEM_TYPE_DOCUMENTATION_KNOWLEDGE: &str = "documentation_knowledge";
 const CATALOG_ITEM_TYPE_ARCHITECTURE_DECISION: &str = "architecture_decision";
+const CATALOG_ITEM_TYPE_DECISION: &str = "decision";
 const CATALOG_ITEM_TYPE_RUNBOOK: &str = "runbook";
 const CATALOG_ITEM_TYPE_SKILL: &str = "skill";
 const CATALOG_ITEM_TYPE_PROMPT_TEMPLATE: &str = "prompt_template";
@@ -54,11 +58,18 @@ impl WorkspaceService {
                     source_label: &input.source_label,
                     source_kind: Some(&input.source_kind),
                     source_ref: Some(&input.source_ref),
+                    source_refs: Some(&input.source_refs_json),
+                    relations: Some(&input.relations_json),
                     content: &input.content,
                     tags: &input.tags,
                     enabled: input.enabled,
+                    searchable: input.searchable,
+                    version_summary: input.version_summary.as_deref(),
                     created_at: Some(&created_at),
                     updated_at: Some(&created_at),
+                    reviewed_at: input.reviewed_at.as_deref(),
+                    created_by_task_id: input.created_by_task_id.as_deref(),
+                    created_from_run_id: input.created_from_run_id.as_deref(),
                 })?;
                 store.touch_workspace(&input.workspace_id)?;
                 Ok(document)
@@ -127,10 +138,17 @@ impl WorkspaceService {
                     source_label: &input.source_label,
                     source_kind: Some(&input.source_kind),
                     source_ref: Some(&input.source_ref),
+                    source_refs: Some(&input.source_refs_json),
+                    relations: Some(&input.relations_json),
                     content: &input.content,
                     tags: &input.tags,
                     enabled: input.enabled,
+                    searchable: input.searchable,
+                    version_summary: input.version_summary.as_deref(),
                     updated_at: Some(&updated_at),
+                    reviewed_at: input.reviewed_at.as_deref(),
+                    created_by_task_id: input.created_by_task_id.as_deref(),
+                    created_from_run_id: input.created_from_run_id.as_deref(),
                 },
             )?;
             if document.is_some() {
@@ -231,9 +249,16 @@ struct NormalizedCreateKnowledgeDocumentInput {
     source_label: String,
     source_kind: String,
     source_ref: String,
+    source_refs_json: String,
+    relations_json: String,
     content: String,
     tags: String,
     enabled: bool,
+    searchable: bool,
+    version_summary: Option<String>,
+    reviewed_at: Option<String>,
+    created_by_task_id: Option<String>,
+    created_from_run_id: Option<String>,
     scope: String,
 }
 
@@ -248,9 +273,16 @@ struct NormalizedUpdateKnowledgeDocumentInput {
     source_label: String,
     source_kind: String,
     source_ref: String,
+    source_refs_json: String,
+    relations_json: String,
     content: String,
     tags: String,
     enabled: bool,
+    searchable: bool,
+    version_summary: Option<String>,
+    reviewed_at: Option<String>,
+    created_by_task_id: Option<String>,
+    created_from_run_id: Option<String>,
     scope: String,
 }
 
@@ -263,18 +295,57 @@ struct NormalizedDeleteKnowledgeDocumentInput {
 fn normalize_create_knowledge_document_input(
     input: CreateKnowledgeDocumentInput,
 ) -> Result<NormalizedCreateKnowledgeDocumentInput, WorkspaceServiceError> {
+    let source_label = normalize_source_label(input.source_label);
+    let has_typed_source_refs = !input.source_refs.is_empty();
+    let source_refs = normalize_source_refs(
+        input.source_refs,
+        &input.source_kind,
+        &input.source_ref,
+        &source_label,
+    );
+    let source_kind = normalize_source_kind(input.source_kind.or_else(|| {
+        has_typed_source_refs
+            .then(|| {
+                source_refs
+                    .first()
+                    .map(|source_ref| source_ref.legacy_kind().to_owned())
+            })
+            .flatten()
+    }));
+    let source_ref = normalize_source_ref(input.source_ref.or_else(|| {
+        has_typed_source_refs
+            .then(|| {
+                source_refs
+                    .first()
+                    .map(|source_ref| source_ref.legacy_ref().to_owned())
+            })
+            .flatten()
+    }));
+    let (created_by_task_id, created_from_run_id) = normalize_source_provenance(
+        input.created_by_task_id,
+        input.created_from_run_id,
+        &source_refs,
+    );
+
     Ok(NormalizedCreateKnowledgeDocumentInput {
         workspace_id: required_owned(input.workspace_id, "workspace id")?,
         title: required_owned(input.title, "knowledge document title")?,
         catalog_item_type: normalize_catalog_item_type(input.catalog_item_type)?,
         quick_summary: normalize_quick_summary(input.quick_summary),
         lifecycle_status: normalize_lifecycle_status(input.lifecycle_status)?,
-        source_label: normalize_source_label(input.source_label),
-        source_kind: normalize_source_kind(input.source_kind),
-        source_ref: normalize_source_ref(input.source_ref),
+        source_label,
+        source_kind,
+        source_ref,
+        source_refs_json: serialize_source_refs(&source_refs)?,
+        relations_json: serialize_relations(&input.relations)?,
         content: input.content,
         tags: normalize_tags(input.tags),
         enabled: input.enabled,
+        searchable: input.searchable,
+        version_summary: normalize_optional_line(input.version_summary),
+        reviewed_at: normalize_optional_line(input.reviewed_at),
+        created_by_task_id,
+        created_from_run_id,
         scope: normalize_scope(input.scope),
     })
 }
@@ -282,6 +353,38 @@ fn normalize_create_knowledge_document_input(
 fn normalize_update_knowledge_document_input(
     input: UpdateKnowledgeDocumentInput,
 ) -> Result<NormalizedUpdateKnowledgeDocumentInput, WorkspaceServiceError> {
+    let source_label = normalize_source_label(input.source_label);
+    let has_typed_source_refs = !input.source_refs.is_empty();
+    let source_refs = normalize_source_refs(
+        input.source_refs,
+        &input.source_kind,
+        &input.source_ref,
+        &source_label,
+    );
+    let source_kind = normalize_source_kind(input.source_kind.or_else(|| {
+        has_typed_source_refs
+            .then(|| {
+                source_refs
+                    .first()
+                    .map(|source_ref| source_ref.legacy_kind().to_owned())
+            })
+            .flatten()
+    }));
+    let source_ref = normalize_source_ref(input.source_ref.or_else(|| {
+        has_typed_source_refs
+            .then(|| {
+                source_refs
+                    .first()
+                    .map(|source_ref| source_ref.legacy_ref().to_owned())
+            })
+            .flatten()
+    }));
+    let (created_by_task_id, created_from_run_id) = normalize_source_provenance(
+        input.created_by_task_id,
+        input.created_from_run_id,
+        &source_refs,
+    );
+
     Ok(NormalizedUpdateKnowledgeDocumentInput {
         workspace_id: required_owned(input.workspace_id, "workspace id")?,
         knowledge_document_id: required_owned(
@@ -292,12 +395,19 @@ fn normalize_update_knowledge_document_input(
         catalog_item_type: normalize_catalog_item_type(input.catalog_item_type)?,
         quick_summary: normalize_quick_summary(input.quick_summary),
         lifecycle_status: normalize_lifecycle_status(input.lifecycle_status)?,
-        source_label: normalize_source_label(input.source_label),
-        source_kind: normalize_source_kind(input.source_kind),
-        source_ref: normalize_source_ref(input.source_ref),
+        source_label,
+        source_kind,
+        source_ref,
+        source_refs_json: serialize_source_refs(&source_refs)?,
+        relations_json: serialize_relations(&input.relations)?,
         content: input.content,
         tags: normalize_tags(input.tags),
         enabled: input.enabled,
+        searchable: input.searchable,
+        version_summary: normalize_optional_line(input.version_summary),
+        reviewed_at: normalize_optional_line(input.reviewed_at),
+        created_by_task_id,
+        created_from_run_id,
         scope: normalize_scope(input.scope),
     })
 }
@@ -363,9 +473,11 @@ fn normalize_catalog_item_type(
         .to_owned();
 
     match catalog_item_type.as_str() {
-        CATALOG_ITEM_TYPE_CODEBASE_KNOWLEDGE
+        CATALOG_ITEM_TYPE_DOCUMENT
+        | CATALOG_ITEM_TYPE_CODEBASE_KNOWLEDGE
         | CATALOG_ITEM_TYPE_DOCUMENTATION_KNOWLEDGE
         | CATALOG_ITEM_TYPE_ARCHITECTURE_DECISION
+        | CATALOG_ITEM_TYPE_DECISION
         | CATALOG_ITEM_TYPE_RUNBOOK
         | CATALOG_ITEM_TYPE_SKILL
         | CATALOG_ITEM_TYPE_PROMPT_TEMPLATE
@@ -406,6 +518,66 @@ fn normalize_tags(tags: String) -> String {
         .filter(|tag| !tag.is_empty())
         .collect::<Vec<_>>()
         .join(", ")
+}
+
+fn normalize_source_refs(
+    source_refs: Vec<KnowledgeSourceRef>,
+    source_kind: &Option<String>,
+    source_ref: &Option<String>,
+    source_label: &str,
+) -> Vec<KnowledgeSourceRef> {
+    if source_refs.is_empty() {
+        vec![KnowledgeSourceRef::from_legacy_fields(
+            source_kind.as_deref().unwrap_or("operator_authored"),
+            source_ref.as_deref().unwrap_or(""),
+            source_label.to_owned(),
+        )]
+    } else {
+        source_refs
+    }
+}
+
+fn serialize_source_refs(
+    source_refs: &[KnowledgeSourceRef],
+) -> Result<String, WorkspaceServiceError> {
+    serde_json::to_string(source_refs).map_err(|error| {
+        WorkspaceServiceError::InvalidInput(format!("invalid knowledge source refs: {error}"))
+    })
+}
+
+fn serialize_relations(relations: &[KnowledgeRelation]) -> Result<String, WorkspaceServiceError> {
+    serde_json::to_string(relations).map_err(|error| {
+        WorkspaceServiceError::InvalidInput(format!("invalid knowledge relations: {error}"))
+    })
+}
+
+fn normalize_source_provenance(
+    created_by_task_id: Option<String>,
+    created_from_run_id: Option<String>,
+    source_refs: &[KnowledgeSourceRef],
+) -> (Option<String>, Option<String>) {
+    let inferred_task_id = source_refs.iter().find_map(|source_ref| match source_ref {
+        KnowledgeSourceRef::QueueTask(source) => Some(source.queue_task_id.clone()),
+        KnowledgeSourceRef::QueueRun(source) => source.queue_task_id.clone(),
+        _ => None,
+    });
+    let inferred_run_id = source_refs.iter().find_map(|source_ref| match source_ref {
+        KnowledgeSourceRef::QueueRun(source) => Some(source.run_id.clone()),
+        _ => None,
+    });
+
+    (
+        normalize_optional_line(created_by_task_id).or(inferred_task_id),
+        normalize_optional_line(created_from_run_id).or(inferred_run_id),
+    )
+}
+
+fn normalize_optional_line(value: Option<String>) -> Option<String> {
+    value
+        .as_deref()
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
 }
 
 fn normalize_scope(scope: Option<String>) -> String {
