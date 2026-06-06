@@ -1,4 +1,6 @@
-use hobit_storage_sqlite::{KnowledgeDocumentUpdate, NewKnowledgeDocument};
+use hobit_storage_sqlite::{
+    KnowledgeDocumentSearchFilters, KnowledgeDocumentUpdate, NewKnowledgeDocument,
+};
 
 use crate::{
     KnowledgeLifecycleStatus, KnowledgeRelation, KnowledgeSourceRef, WorkspaceServiceError,
@@ -10,7 +12,8 @@ use super::{
     placeholder_id, placeholder_timestamp,
     validation::required_input,
     CreateKnowledgeDocumentInput, DeleteKnowledgeDocumentInput,
-    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, SearchKnowledgeDocumentsInput,
+    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary,
+    SearchKnowledgeDocumentsFiltersInput, SearchKnowledgeDocumentsInput,
     UpdateKnowledgeDocumentInput, WorkspaceService,
 };
 
@@ -186,6 +189,17 @@ impl WorkspaceService {
         &self,
         input: SearchKnowledgeDocumentsInput,
     ) -> Result<Vec<KnowledgeDocumentSearchResultSummary>, WorkspaceServiceError> {
+        self.search_knowledge_documents_with_filters(
+            input,
+            SearchKnowledgeDocumentsFiltersInput::default(),
+        )
+    }
+
+    pub fn search_knowledge_documents_with_filters(
+        &self,
+        input: SearchKnowledgeDocumentsInput,
+        filters: SearchKnowledgeDocumentsFiltersInput,
+    ) -> Result<Vec<KnowledgeDocumentSearchResultSummary>, WorkspaceServiceError> {
         let workspace_id = required_owned(input.workspace_id, "workspace id")?;
         let query = input.query.trim().to_owned();
         if query.is_empty() {
@@ -199,10 +213,11 @@ impl WorkspaceService {
         }
 
         let limit = normalized_knowledge_search_limit(input.limit);
+        let filters = normalize_search_filters(filters)?;
 
         Ok(self
             .store
-            .search_knowledge_documents(&workspace_id, &query, limit)?
+            .search_knowledge_documents_with_filters(&workspace_id, &query, limit, &filters)?
             .into_iter()
             .map(|row| {
                 let snippet = bounded_knowledge_snippet(&row.text);
@@ -237,6 +252,57 @@ impl WorkspaceService {
 
         Ok(())
     }
+}
+
+fn normalize_search_filters(
+    filters: SearchKnowledgeDocumentsFiltersInput,
+) -> Result<KnowledgeDocumentSearchFilters, WorkspaceServiceError> {
+    Ok(KnowledgeDocumentSearchFilters {
+        scopes: normalize_search_scopes(filters.scopes),
+        catalog_item_types: normalize_search_catalog_item_types(filters.catalog_item_types)?,
+        lifecycle_statuses: normalize_search_lifecycle_statuses(filters.lifecycle_statuses)?,
+        tags: normalize_search_values(filters.tags),
+        source_kinds: normalize_search_values(filters.source_kinds),
+        updated_after: normalize_optional_line(filters.updated_after),
+        updated_within_days: filters.updated_within_days.map(|days| days.clamp(1, 366)),
+    })
+}
+
+fn normalize_search_scopes(scopes: Vec<String>) -> Vec<String> {
+    scopes
+        .into_iter()
+        .filter_map(|scope| match scope.trim() {
+            "global" => Some("global".to_owned()),
+            "workspace" | "workspace-local" => Some("workspace".to_owned()),
+            _ => None,
+        })
+        .collect()
+}
+
+fn normalize_search_catalog_item_types(
+    catalog_item_types: Vec<String>,
+) -> Result<Vec<String>, WorkspaceServiceError> {
+    catalog_item_types
+        .into_iter()
+        .map(|item_type| normalize_catalog_item_type(Some(item_type)))
+        .collect()
+}
+
+fn normalize_search_lifecycle_statuses(
+    lifecycle_statuses: Vec<String>,
+) -> Result<Vec<String>, WorkspaceServiceError> {
+    lifecycle_statuses
+        .into_iter()
+        .map(|status| normalize_lifecycle_status(Some(status)))
+        .collect()
+}
+
+fn normalize_search_values(values: Vec<String>) -> Vec<String> {
+    values
+        .into_iter()
+        .map(|value| value.trim().to_ascii_lowercase())
+        .filter(|value| !value.is_empty())
+        .collect()
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

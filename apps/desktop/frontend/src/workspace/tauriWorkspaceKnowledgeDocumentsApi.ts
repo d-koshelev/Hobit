@@ -263,6 +263,13 @@ export async function searchKnowledgeDocuments(
         workspace_id: request.workspaceId,
         query: request.query,
         limit: request.limit ?? null,
+        scopes: request.scopes ?? [],
+        catalog_item_types: request.catalogItemTypes ?? [],
+        lifecycle_statuses: request.lifecycleStatuses ?? [],
+        tags: request.tags ?? [],
+        source_kinds: request.sourceKinds ?? [],
+        updated_after: request.updatedAfter ?? null,
+        updated_within_days: request.updatedWithinDays ?? null,
       },
     },
   );

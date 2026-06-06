@@ -266,6 +266,31 @@ describe("agentQueueKnowledgeContext", () => {
     expect(snapshot?.content).toContain("[truncated]");
     expect(snapshot?.content.length).toBeLessThan(2600);
   });
+
+  it("warns when Knowledge materialization is large or may contain a secret", () => {
+    const taskWithContext = attachContextToQueueTask(
+      queueTask(),
+      {
+        document: knowledgeDocument({
+          content: `${"A".repeat(120_000)}\napi_key=example-token`,
+          quickSummary: "Large secret-bearing document",
+        }),
+        kind: "knowledge_document",
+      },
+      "2026-06-04T10:00:00.000Z",
+    );
+
+    expect(taskWithContext.context?.contextWarnings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "large_content", severity: "warning" }),
+        expect.objectContaining({ code: "possible_secret", severity: "warning" }),
+      ]),
+    );
+    expect(taskWithContext.context?.attachedKnowledgeSnapshots[0]?.capped).toBe(true);
+    expect(
+      materializeQueueExecutionPrompt(taskWithContext).evidenceSection,
+    ).toContain("possible_secret");
+  });
 });
 
 function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {

@@ -4,8 +4,10 @@ use serde::{Deserialize, Serialize};
 use crate::WorkspaceServiceError;
 
 mod prompt;
+mod safety;
 
 use prompt::{capped_snapshots_for_prompt, prompt_context_section, prompt_evidence_section};
+use safety::knowledge_content_warnings;
 
 use super::{
     agent_queue_tasks::{load_agent_queue_task, map_storage_agent_queue_task_error},
@@ -501,6 +503,11 @@ fn knowledge_document_warnings(
             created_at,
         ));
     }
+    warnings.extend(knowledge_content_warnings(
+        &document.content,
+        ref_item,
+        created_at,
+    ));
     warnings
 }
 
@@ -551,6 +558,18 @@ fn context_warning_message(ref_item: &QueueTaskContextRef, code: &str) -> String
         "archived" => format!("{} is archived. Review before materialization.", ref_item.title),
         "summary_missing" => format!(
             "{} has a summary missing warning. Add a quick summary before relying on this Knowledge context.",
+            ref_item.title
+        ),
+        "content_capped" => format!(
+            "{} was capped to a bounded excerpt before Queue materialization.",
+            ref_item.title
+        ),
+        "large_content" => format!(
+            "{} is large and was materialized only as a bounded excerpt.",
+            ref_item.title
+        ),
+        "possible_secret" => format!(
+            "{} may contain an obvious credential or token. Redact before relying on this context.",
             ref_item.title
         ),
         _ => format!("{} has a context warning: {code}.", ref_item.title),

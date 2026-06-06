@@ -67,6 +67,7 @@ fn knowledge_document_command_helpers_create_list_get_update_delete_and_search()
             workspace_id: workspace_id.clone(),
             query: "blue validation".to_owned(),
             limit: Some(5),
+            ..search_request_defaults()
         },
         db_path.clone(),
     )
@@ -118,6 +119,7 @@ fn knowledge_document_command_helpers_create_list_get_update_delete_and_search()
             workspace_id: workspace_id.clone(),
             query: "rollback snapshots".to_owned(),
             limit: Some(5),
+            ..search_request_defaults()
         },
         db_path.clone(),
     )
@@ -222,6 +224,7 @@ fn knowledge_document_command_helpers_include_global_scope_in_list_and_search() 
             workspace_id: second_workspace_id,
             query: "needle".to_owned(),
             limit: Some(5),
+            ..search_request_defaults()
         },
         db_path.clone(),
     )
@@ -243,6 +246,21 @@ fn create_workspace_in_test_db(db_path: &Path) -> String {
     drop(service);
 
     workspace_id
+}
+
+fn search_request_defaults() -> SearchKnowledgeDocumentsRequest {
+    SearchKnowledgeDocumentsRequest {
+        workspace_id: String::new(),
+        query: String::new(),
+        limit: None,
+        scopes: Vec::new(),
+        catalog_item_types: Vec::new(),
+        lifecycle_statuses: Vec::new(),
+        tags: Vec::new(),
+        source_kinds: Vec::new(),
+        updated_after: None,
+        updated_within_days: None,
+    }
 }
 
 fn unique_test_db_path() -> PathBuf {

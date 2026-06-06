@@ -126,15 +126,29 @@ fn deserializes_search_request_with_snake_case_names() {
     let request: SearchKnowledgeDocumentsRequest = serde_json::from_value(json!({
         "workspace_id": "ws_1",
         "query": "deploy",
-        "limit": 3
+        "limit": 3,
+        "scopes": ["workspace"],
+        "catalog_item_types": ["codebase_knowledge"],
+        "lifecycle_statuses": ["active"],
+        "tags": ["frontend"],
+        "source_kinds": ["docs_path"],
+        "updated_after": "1000",
+        "updated_within_days": 7
     }))
     .expect("deserialize search request");
 
-    let input: hobit_app::SearchKnowledgeDocumentsInput = request.into();
+    let (input, filters) = request.into_parts();
 
     assert_eq!(input.workspace_id, "ws_1");
     assert_eq!(input.query, "deploy");
     assert_eq!(input.limit, Some(3));
+    assert_eq!(filters.scopes, vec!["workspace"]);
+    assert_eq!(filters.catalog_item_types, vec!["codebase_knowledge"]);
+    assert_eq!(filters.lifecycle_statuses, vec!["active"]);
+    assert_eq!(filters.tags, vec!["frontend"]);
+    assert_eq!(filters.source_kinds, vec!["docs_path"]);
+    assert_eq!(filters.updated_after.as_deref(), Some("1000"));
+    assert_eq!(filters.updated_within_days, Some(7));
 }
 
 #[test]
@@ -200,7 +214,11 @@ fn serializes_knowledge_document_dto_with_stable_snake_case_fields() {
                 "ref_text": "https://example.invalid/doc",
                 "captured_at": null,
                 "redaction": null,
-                "cap": null
+                "cap": null,
+                "workspace_scope": null,
+                "reason": null,
+                "caps": [],
+                "warnings": []
             }],
             "relations": [{
                 "relation_id": "rel-1",

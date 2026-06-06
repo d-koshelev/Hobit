@@ -184,7 +184,8 @@ pub use jdbc_query_types::{
 use jdbc_runtime_config::JdbcRuntimeConfig;
 pub use knowledge_document_types::{
     CreateKnowledgeDocumentInput, DeleteKnowledgeDocumentInput,
-    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, SearchKnowledgeDocumentsInput,
+    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary,
+    SearchKnowledgeDocumentsFiltersInput, SearchKnowledgeDocumentsInput,
     UpdateKnowledgeDocumentInput,
 };
 pub use knowledge_draft_review_types::{

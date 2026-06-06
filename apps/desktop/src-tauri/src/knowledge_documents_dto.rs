@@ -1,7 +1,8 @@
 use hobit_app::{
     CreateKnowledgeDocumentInput, DeleteKnowledgeDocumentInput,
     KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, KnowledgeSourceRef,
-    SearchKnowledgeDocumentsInput, UpdateKnowledgeDocumentInput,
+    SearchKnowledgeDocumentsFiltersInput, SearchKnowledgeDocumentsInput,
+    UpdateKnowledgeDocumentInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -100,6 +101,20 @@ pub(crate) struct SearchKnowledgeDocumentsRequest {
     pub workspace_id: String,
     pub query: String,
     pub limit: Option<usize>,
+    #[serde(default)]
+    pub scopes: Vec<String>,
+    #[serde(default)]
+    pub catalog_item_types: Vec<String>,
+    #[serde(default)]
+    pub lifecycle_statuses: Vec<String>,
+    #[serde(default)]
+    pub tags: Vec<String>,
+    #[serde(default)]
+    pub source_kinds: Vec<String>,
+    #[serde(default)]
+    pub updated_after: Option<String>,
+    #[serde(default)]
+    pub updated_within_days: Option<u32>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -241,6 +256,32 @@ impl From<SearchKnowledgeDocumentsRequest> for SearchKnowledgeDocumentsInput {
             query: request.query,
             limit: request.limit,
         }
+    }
+}
+
+impl SearchKnowledgeDocumentsRequest {
+    pub(crate) fn into_parts(
+        self,
+    ) -> (
+        SearchKnowledgeDocumentsInput,
+        SearchKnowledgeDocumentsFiltersInput,
+    ) {
+        (
+            SearchKnowledgeDocumentsInput {
+                workspace_id: self.workspace_id,
+                query: self.query,
+                limit: self.limit,
+            },
+            SearchKnowledgeDocumentsFiltersInput {
+                scopes: self.scopes,
+                catalog_item_types: self.catalog_item_types,
+                lifecycle_statuses: self.lifecycle_statuses,
+                tags: self.tags,
+                source_kinds: self.source_kinds,
+                updated_after: self.updated_after,
+                updated_within_days: self.updated_within_days,
+            },
+        )
     }
 }
 

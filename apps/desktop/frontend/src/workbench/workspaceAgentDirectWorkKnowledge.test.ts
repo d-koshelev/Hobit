@@ -40,6 +40,22 @@ describe("workspaceAgentDirectWorkKnowledge", () => {
     expect(prompt).not.toMatch(/allowed_tools|queue execution|queue dispatch/i);
   });
 
+  it("caps oversized knowledge snippets before prompt materialization", () => {
+    const prompt = codexPromptWithWorkspaceKnowledge(
+      "Keep Knowledge bounded.",
+      [
+        knowledgeResult({
+          documentTitle: "Oversized Knowledge",
+          snippet: "secret-free ".repeat(1000),
+        }),
+      ],
+    );
+
+    expect(prompt).toContain("[Doc: Oversized Knowledge, chunk 1]");
+    expect(prompt).toContain("...");
+    expect(prompt).not.toContain("secret-free ".repeat(100));
+  });
+
   it("keeps no-match and failed lookup copy non-materializing", () => {
     expect(
       workspaceKnowledgeSummaryText({

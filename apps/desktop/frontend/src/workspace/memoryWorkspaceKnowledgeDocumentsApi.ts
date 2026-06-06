@@ -206,6 +206,7 @@ export const searchKnowledgeDocuments: WorkspaceApi["searchKnowledgeDocuments"] 
       .filter((document) => document.enabled)
       .filter((document) => document.searchable !== false)
       .filter((document) => document.lifecycleStatus === "active")
+      .filter((document) => matchesSearchFilters(document, request))
       .flatMap((document) =>
         chunkDocumentContent(document.content).map((snippet, index) => ({
           knowledgeDocumentId: document.knowledgeDocumentId,
@@ -225,6 +226,74 @@ export const searchKnowledgeDocuments: WorkspaceApi["searchKnowledgeDocuments"] 
 
     return results.map(cloneSearchResult);
   };
+
+function matchesSearchFilters(
+  document: KnowledgeDocument,
+  request: Parameters<WorkspaceApi["searchKnowledgeDocuments"]>[0],
+) {
+  return (
+    matchesStringFilter(request.scopes, document.scope) &&
+    matchesStringFilter(request.catalogItemTypes, document.catalogItemType) &&
+    matchesStringFilter(request.lifecycleStatuses, document.lifecycleStatus) &&
+    matchesStringFilter(request.sourceKinds, document.sourceKind) &&
+    matchesTagFilter(request.tags, document.tags) &&
+    matchesUpdatedFilter(document, request)
+  );
+}
+
+function matchesStringFilter(
+  acceptedValues: readonly string[] | null | undefined,
+  value: string,
+) {
+  return (
+    !acceptedValues?.length ||
+    acceptedValues.some(
+      (accepted) => accepted.trim().toLocaleLowerCase() === value.toLocaleLowerCase(),
+    )
+  );
+}
+
+function matchesTagFilter(
+  requiredTags: readonly string[] | null | undefined,
+  documentTags: string,
+) {
+  if (!requiredTags?.length) {
+    return true;
+  }
+
+  const tags = documentTags
+    .split(",")
+    .map((tag) => tag.trim().toLocaleLowerCase())
+    .filter(Boolean);
+  return requiredTags
+    .map((tag) => tag.trim().toLocaleLowerCase())
+    .filter(Boolean)
+    .every((tag) => tags.includes(tag));
+}
+
+function matchesUpdatedFilter(
+  document: KnowledgeDocument,
+  request: Parameters<WorkspaceApi["searchKnowledgeDocuments"]>[0],
+) {
+  const updatedAt = Date.parse(document.updatedAt);
+  if (Number.isNaN(updatedAt)) {
+    return !request.updatedAfter && !request.updatedWithinDays;
+  }
+
+  if (request.updatedAfter && updatedAt < Date.parse(request.updatedAfter)) {
+    return false;
+  }
+
+  if (request.updatedWithinDays) {
+    const days = Math.max(1, Math.min(request.updatedWithinDays, 366));
+    const cutoff = Date.now() - days * 24 * 60 * 60 * 1000;
+    if (updatedAt < cutoff) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 function getWorkspaceDocuments(workspaceId: string) {
   return documentsByWorkspaceId.get(workspaceId) ?? [];

@@ -13,6 +13,7 @@ const CONTEXT_TOKEN_BUDGET = 1600;
 const CONTEXT_CHAR_BUDGET = CONTEXT_TOKEN_BUDGET * 4;
 const KNOWLEDGE_DOCUMENT_EXCERPT_CHARS = 2200;
 const SKILL_INSTRUCTION_CHARS = 1800;
+const LARGE_KNOWLEDGE_CONTENT_CHARS = 100_000;
 
 export type AgentQueueKnowledgeContextAttachInput =
   | {
@@ -490,6 +491,16 @@ function knowledgeDocumentWarnings(
     );
   }
 
+  if (document.content.length > LARGE_KNOWLEDGE_CONTENT_CHARS) {
+    warnings.push(contextWarning(ref, "warning", "large_content", createdAt));
+  } else if (document.content.length > KNOWLEDGE_DOCUMENT_EXCERPT_CHARS) {
+    warnings.push(contextWarning(ref, "warning", "content_capped", createdAt));
+  }
+
+  if (containsPossibleSecret(document.content)) {
+    warnings.push(contextWarning(ref, "warning", "possible_secret", createdAt));
+  }
+
   return warnings;
 }
 
@@ -543,9 +554,25 @@ function contextWarningMessage(ref: AgentQueueTaskContextRef, code: string) {
       return `${ref.title} is archived. Review before any future materialization.`;
     case "summary_missing":
       return `${ref.title} has a summary missing warning. Add a quick summary before relying on this Knowledge context.`;
+    case "content_capped":
+      return `${ref.title} was capped to a bounded excerpt before Queue materialization.`;
+    case "large_content":
+      return `${ref.title} is large and was materialized only as a bounded excerpt.`;
+    case "possible_secret":
+      return `${ref.title} may contain an obvious credential or token. Redact before relying on this context.`;
     default:
       return `${ref.title} has a context warning: ${code}.`;
   }
+}
+
+function containsPossibleSecret(value: string) {
+  const lowered = value.toLocaleLowerCase();
+  return (
+    lowered.includes("-----begin private key-----") ||
+    /\b(password|passwd|pwd|api[_-]?key|secret|token|access[_-]?key)\s*[:=]/i.test(value) ||
+    /\baws[_-]?secret[_-]?access[_-]?key\b/i.test(value) ||
+    /\bAKIA[0-9A-Z]{16}\b/.test(value)
+  );
 }
 
 function visibleSummary(value: string) {

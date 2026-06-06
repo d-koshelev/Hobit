@@ -282,6 +282,13 @@ export type SearchKnowledgeDocumentsRequest = {
   workspaceId: string;
   query: string;
   limit?: number | null;
+  scopes?: KnowledgeDocumentScope[] | null;
+  catalogItemTypes?: KnowledgeCatalogItemType[] | null;
+  lifecycleStatuses?: KnowledgeLifecycleStatus[] | null;
+  tags?: string[] | null;
+  sourceKinds?: string[] | null;
+  updatedAfter?: string | null;
+  updatedWithinDays?: number | null;
 };
 
 export type ReadKnowledgeDocumentImportFileRequest = {

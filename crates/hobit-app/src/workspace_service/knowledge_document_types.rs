@@ -58,6 +58,17 @@ pub struct SearchKnowledgeDocumentsInput {
     pub limit: Option<usize>,
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SearchKnowledgeDocumentsFiltersInput {
+    pub scopes: Vec<String>,
+    pub catalog_item_types: Vec<String>,
+    pub lifecycle_statuses: Vec<String>,
+    pub tags: Vec<String>,
+    pub source_kinds: Vec<String>,
+    pub updated_after: Option<String>,
+    pub updated_within_days: Option<u32>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct KnowledgeDocumentSummary {
     pub knowledge_document_id: String,

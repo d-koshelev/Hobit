@@ -195,6 +195,84 @@ fn knowledge_document_search_is_workspace_scoped_and_capped() {
 }
 
 #[test]
+fn filtered_knowledge_search_respects_typed_filters_and_active_only_policy() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Filtered Knowledge workspace");
+    let unique_needle = "typed_filter_unique_needle";
+
+    let mut codebase_input = create_document_input(workspace.id.clone());
+    codebase_input.title = "Workspace codebase filter guide".to_owned();
+    codebase_input.catalog_item_type = Some("codebase_knowledge".to_owned());
+    codebase_input.source_kind = Some("docs_path".to_owned());
+    codebase_input.tags = "deploy, frontend".to_owned();
+    codebase_input.content = format!("{unique_needle} workspace codebase match.");
+    let codebase = service
+        .create_knowledge_document(codebase_input)
+        .expect("create codebase document");
+
+    let mut global_input = create_document_input(workspace.id.clone());
+    global_input.scope = Some("global".to_owned());
+    global_input.title = "Global filter guide".to_owned();
+    global_input.catalog_item_type = Some("known_issue".to_owned());
+    global_input.source_kind = Some("manual".to_owned());
+    global_input.tags = "backend".to_owned();
+    global_input.content = format!("{unique_needle} global known issue match.");
+    service
+        .create_knowledge_document(global_input)
+        .expect("create global document");
+
+    let mut stale_input = create_document_input(workspace.id.clone());
+    stale_input.title = "Stale filter guide".to_owned();
+    stale_input.lifecycle_status = Some("stale".to_owned());
+    stale_input.tags = "deploy, frontend".to_owned();
+    stale_input.content = format!("{unique_needle} stale must not match.");
+    service
+        .create_knowledge_document(stale_input)
+        .expect("create stale document");
+
+    let filtered = service
+        .search_knowledge_documents_with_filters(
+            SearchKnowledgeDocumentsInput {
+                workspace_id: workspace.id.clone(),
+                query: unique_needle.to_owned(),
+                limit: Some(10),
+            },
+            SearchKnowledgeDocumentsFiltersInput {
+                scopes: vec!["workspace-local".to_owned()],
+                catalog_item_types: vec!["codebase_knowledge".to_owned()],
+                lifecycle_statuses: vec!["active".to_owned()],
+                tags: vec!["deploy".to_owned(), "frontend".to_owned()],
+                source_kinds: vec!["docs_path".to_owned()],
+                updated_after: Some(codebase.updated_at.clone()),
+                updated_within_days: None,
+            },
+        )
+        .expect("filtered search");
+
+    assert_eq!(filtered.len(), 1);
+    assert_eq!(
+        filtered[0].knowledge_document_id,
+        codebase.knowledge_document_id
+    );
+
+    let stale_filtered = service
+        .search_knowledge_documents_with_filters(
+            SearchKnowledgeDocumentsInput {
+                workspace_id: workspace.id,
+                query: unique_needle.to_owned(),
+                limit: Some(10),
+            },
+            SearchKnowledgeDocumentsFiltersInput {
+                lifecycle_statuses: vec!["stale".to_owned()],
+                ..SearchKnowledgeDocumentsFiltersInput::default()
+            },
+        )
+        .expect("stale-filtered search");
+
+    assert!(stale_filtered.is_empty());
+}
+
+#[test]
 fn global_knowledge_documents_are_visible_and_searchable_across_workspaces() {
     let service = initialized_service();
     let first = create_workspace(&service, "First workspace");

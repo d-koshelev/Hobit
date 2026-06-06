@@ -291,6 +291,17 @@ pub struct KnowledgeDocumentUpdate<'a> {
     pub created_from_run_id: Option<&'a str>,
 }
 
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct KnowledgeDocumentSearchFilters {
+    pub scopes: Vec<String>,
+    pub catalog_item_types: Vec<String>,
+    pub lifecycle_statuses: Vec<String>,
+    pub tags: Vec<String>,
+    pub source_kinds: Vec<String>,
+    pub updated_after: Option<String>,
+    pub updated_within_days: Option<u32>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewKnowledgeDraftReviewRecord<'a> {
     pub review_id: &'a str,

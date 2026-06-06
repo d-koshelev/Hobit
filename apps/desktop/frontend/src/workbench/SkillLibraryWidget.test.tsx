@@ -609,21 +609,35 @@ describe("SkillLibraryWidget", () => {
 
     await flush();
     await clickButton("Import file");
-    await chooseImportFile("README.md", "# Imported\n\nUse this imported reference.");
+    await chooseImportFile(
+      "README.md",
+      "# Imported\n\nUse this imported reference.\napi_key=example-token",
+    );
     await clickButton("Import document");
 
     expect(readImportFile).not.toHaveBeenCalled();
     expect(createKnowledgeDocument).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: "# Imported\n\nUse this imported reference.",
+        content:
+          "# Imported\n\nUse this imported reference.\napi_key=example-token",
         enabled: true,
         scope: "workspace",
         sourceLabel: "README.md",
+        sourceRefs: [
+          expect.objectContaining({
+            warnings: expect.arrayContaining([
+              "Possible credential or token detected; redact before use.",
+            ]),
+          }),
+        ],
         tags: "",
         title: "README",
       }),
     );
     expect(document.body.textContent).toContain("Imported document");
+    expect(document.body.textContent).toContain(
+      "Possible credential or token detected",
+    );
     expect(document.body.textContent).toContain("README");
   });
 

@@ -1,5 +1,9 @@
 import type { KnowledgeDocumentSearchResult } from "../workspace/types";
 
+const MAX_WORKSPACE_KNOWLEDGE_RESULTS = 5;
+const MAX_WORKSPACE_KNOWLEDGE_SNIPPET_CHARS = 900;
+const MAX_WORKSPACE_KNOWLEDGE_CONTEXT_CHARS = 3600;
+
 export type WorkspaceKnowledgeLookupStatus =
   | "idle"
   | "checked"
@@ -67,16 +71,30 @@ export function codexPromptWithWorkspaceKnowledge(
   operatorPrompt: string,
   results: KnowledgeDocumentSearchResult[],
 ) {
-  const knowledgeBlock = results
-    .slice(0, 5)
-    .map((result) =>
+  const knowledgeBlocks: string[] = [];
+  let usedChars = 0;
+
+  for (const result of results.slice(0, MAX_WORKSPACE_KNOWLEDGE_RESULTS)) {
+    if (usedChars >= MAX_WORKSPACE_KNOWLEDGE_CONTEXT_CHARS) {
+      break;
+    }
+
+    const remainingChars = MAX_WORKSPACE_KNOWLEDGE_CONTEXT_CHARS - usedChars;
+    const snippet = boundedSnippet(result.snippet, Math.min(
+      MAX_WORKSPACE_KNOWLEDGE_SNIPPET_CHARS,
+      remainingChars,
+    ));
+    const block =
       [
         `[Doc: ${result.documentTitle}, chunk ${result.chunkIndex + 1}]`,
         `Scope: ${knowledgeScopeLabel(result.scope)}`,
-        result.snippet,
-      ].join("\n"),
-    )
-    .join("\n\n");
+        snippet,
+      ].join("\n");
+    knowledgeBlocks.push(block);
+    usedChars += block.length + 2;
+  }
+
+  const knowledgeBlock = knowledgeBlocks.join("\n\n");
 
   return [
     "Workspace knowledge found for this request:",
@@ -90,4 +108,13 @@ export function codexPromptWithWorkspaceKnowledge(
 
 export function knowledgeScopeLabel(scope: KnowledgeDocumentSearchResult["scope"]) {
   return scope === "global" ? "Global" : "Workspace";
+}
+
+function boundedSnippet(value: string, maxChars: number) {
+  const compacted = value.replace(/\s+/g, " ").trim();
+  if (compacted.length <= maxChars) {
+    return compacted;
+  }
+
+  return `${compacted.slice(0, Math.max(0, maxChars - 3)).trimEnd()}...`;
 }

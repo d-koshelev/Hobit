@@ -12,6 +12,9 @@ import { knowledgeDocumentQuickSummaryWarning } from "./knowledgeDocumentQuickSu
 import { errorToMessage } from "./SkillLibraryDocumentsPanel.helpers";
 import type { WidgetRenderProps } from "./types";
 
+const MAX_IMPORT_FILE_BYTES = 1024 * 1024;
+const LARGE_IMPORT_CONTENT_CHARS = 100_000;
+
 type UseSkillLibraryDocumentImportParams = {
   isDocumentDirty: boolean;
   loadDocuments: (preferredDocumentId: string | null) => Promise<void>;
@@ -125,6 +128,11 @@ export function useSkillLibraryDocumentImport({
       return;
     }
 
+    if (file.size > MAX_IMPORT_FILE_BYTES) {
+      setDocumentMessage("Selected file is too large. Import supports files up to 1 MB.");
+      return;
+    }
+
     try {
       const content = await file.text();
       setDocumentImportSelection({
@@ -174,6 +182,7 @@ export function useSkillLibraryDocumentImport({
               onReadKnowledgeDocumentImportFile,
             )
           : documentImportSelection;
+      const importWarnings = knowledgeImportWarnings(importedFile.content);
       if (importTarget === "skill") {
         onLoadSkillImportDraft({
           draft: skillDraftFromImportedFile(importedFile),
@@ -210,7 +219,10 @@ export function useSkillLibraryDocumentImport({
             label: importedFile.fileName,
             path: importedFile.sourceRef,
             reason: "Operator imported one selected text/Markdown file.",
-            warnings: ["No folder import, binary parsing, or background ingest."],
+            warnings: [
+              "No folder import, binary parsing, or background ingest.",
+              ...importWarnings,
+            ],
             workspaceScope:
               documentImportScope === "global" ? "global" : "workspace-local",
           },
@@ -228,6 +240,9 @@ export function useSkillLibraryDocumentImport({
         [
           "Imported document",
           knowledgeDocumentQuickSummaryWarning(importedDocument),
+          importWarnings.length > 0
+            ? `Import warnings: ${importWarnings.join(" ")}`
+            : "",
         ]
           .filter(Boolean)
           .join(". "),
@@ -253,6 +268,30 @@ export function useSkillLibraryDocumentImport({
     setDocumentImportScope,
     setImportTarget,
   };
+}
+
+function knowledgeImportWarnings(content: string) {
+  const warnings: string[] = [];
+
+  if (content.length > LARGE_IMPORT_CONTENT_CHARS) {
+    warnings.push("Large content was imported; future context uses bounded excerpts.");
+  }
+
+  if (containsPossibleSecret(content)) {
+    warnings.push("Possible credential or token detected; redact before use.");
+  }
+
+  return warnings;
+}
+
+function containsPossibleSecret(value: string) {
+  const lowered = value.toLocaleLowerCase();
+  return (
+    lowered.includes("-----begin private key-----") ||
+    /\b(password|passwd|pwd|api[_-]?key|secret|token|access[_-]?key)\s*[:=]/i.test(value) ||
+    /\baws[_-]?secret[_-]?access[_-]?key\b/i.test(value) ||
+    /\bAKIA[0-9A-Z]{16}\b/.test(value)
+  );
 }
 
 async function readDesktopImportSelection(

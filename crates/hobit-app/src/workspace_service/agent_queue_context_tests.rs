@@ -265,3 +265,56 @@ fn no_context_task_has_no_materialized_prompt() {
 
     assert_eq!(materialized, None);
 }
+
+#[test]
+fn materialized_queue_context_warns_for_large_or_secret_knowledge() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+    let task = create_task(&service, &workspace.id);
+    let mut document = create_document(&service, &workspace.id, true, "active");
+    document = service
+        .update_knowledge_document(UpdateKnowledgeDocumentInput {
+            workspace_id: workspace.id.clone(),
+            knowledge_document_id: document.knowledge_document_id,
+            scope: Some("workspace".to_owned()),
+            catalog_item_type: Some("documentation_knowledge".to_owned()),
+            quick_summary: Some("Large secret-bearing document.".to_owned()),
+            lifecycle_status: Some("active".to_owned()),
+            title: "Large secret docs".to_owned(),
+            source_label: "Operator authored".to_owned(),
+            source_kind: Some("manual".to_owned()),
+            source_ref: Some("doc-ref".to_owned()),
+            source_refs: Vec::new(),
+            relations: Vec::new(),
+            content: format!("{}\napi_key=example-token", "A".repeat(120_000)),
+            tags: "queue".to_owned(),
+            enabled: true,
+            searchable: true,
+            version_summary: None,
+            reviewed_at: None,
+            created_by_task_id: None,
+            created_from_run_id: None,
+        })
+        .expect("update document")
+        .expect("updated document");
+
+    let attached = service
+        .attach_knowledge_to_queue_task(AttachKnowledgeToQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: task.queue_item_id.clone(),
+            knowledge_id: document.knowledge_document_id,
+        })
+        .expect("attach knowledge");
+    let context_json = attached.context_json.expect("context json");
+
+    assert!(context_json.contains("large_content"));
+    assert!(context_json.contains("possible_secret"));
+    assert!(context_json.contains("\"capped\":true"));
+
+    let materialized = service
+        .materialize_agent_queue_task_context_prompt(&workspace.id, &task.queue_item_id)
+        .expect("materialize")
+        .expect("prompt");
+    assert!(materialized.contains("possible_secret"));
+    assert!(materialized.contains("[Capped excerpt]"));
+}

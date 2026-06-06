@@ -1,6 +1,10 @@
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use rusqlite::{params, OptionalExtension, Result};
 
-use crate::inputs::{KnowledgeDocumentUpdate, NewKnowledgeDocument};
+use crate::inputs::{
+    KnowledgeDocumentSearchFilters, KnowledgeDocumentUpdate, NewKnowledgeDocument,
+};
 use crate::mappers::{bool_to_i64, knowledge_document_chunk_row, knowledge_document_row};
 use crate::rows::{
     KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
@@ -348,6 +352,21 @@ impl SqliteStore {
         query: &str,
         limit: usize,
     ) -> Result<Vec<KnowledgeDocumentSearchResultRow>> {
+        self.search_knowledge_documents_with_filters(
+            workspace_id,
+            query,
+            limit,
+            &KnowledgeDocumentSearchFilters::default(),
+        )
+    }
+
+    pub fn search_knowledge_documents_with_filters(
+        &self,
+        workspace_id: &str,
+        query: &str,
+        limit: usize,
+        filters: &KnowledgeDocumentSearchFilters,
+    ) -> Result<Vec<KnowledgeDocumentSearchResultRow>> {
         let terms = lexical_terms(query);
         if terms.is_empty() {
             return Ok(Vec::new());
@@ -358,8 +377,12 @@ impl SqliteStore {
                 knowledge_documents.knowledge_document_id,
                 knowledge_documents.title,
                 knowledge_documents.scope,
+                knowledge_documents.catalog_item_type,
+                knowledge_documents.lifecycle_status,
                 knowledge_documents.source_label,
+                knowledge_documents.source_kind,
                 knowledge_documents.tags,
+                knowledge_documents.updated_at,
                 knowledge_document_chunks.chunk_id,
                 knowledge_document_chunks.chunk_index,
                 knowledge_document_chunks.text
@@ -388,11 +411,15 @@ impl SqliteStore {
                 knowledge_document_id: row.get(0)?,
                 document_title: row.get(1)?,
                 scope: row.get(2)?,
-                source_label: row.get(3)?,
-                tags: row.get(4)?,
-                chunk_id: row.get(5)?,
-                chunk_index: row.get(6)?,
-                text: row.get(7)?,
+                catalog_item_type: row.get(3)?,
+                lifecycle_status: row.get(4)?,
+                source_label: row.get(5)?,
+                source_kind: row.get(6)?,
+                tags: row.get(7)?,
+                updated_at: row.get(8)?,
+                chunk_id: row.get(9)?,
+                chunk_index: row.get(10)?,
+                text: row.get(11)?,
                 score: 0,
             })
         })?;
@@ -400,6 +427,7 @@ impl SqliteStore {
         let mut results = rows
             .collect::<Result<Vec<_>>>()?
             .into_iter()
+            .filter(|row| knowledge_search_result_matches_filters(row, filters))
             .filter_map(|mut row| {
                 row.score = knowledge_search_score(&row, &terms);
                 (row.score > 0).then_some(row)
@@ -485,6 +513,78 @@ impl SqliteStore {
 
         Ok(())
     }
+}
+
+fn knowledge_search_result_matches_filters(
+    row: &KnowledgeDocumentSearchResultRow,
+    filters: &KnowledgeDocumentSearchFilters,
+) -> bool {
+    string_filter_matches(&filters.scopes, &row.scope)
+        && string_filter_matches(&filters.catalog_item_types, &row.catalog_item_type)
+        && string_filter_matches(&filters.lifecycle_statuses, &row.lifecycle_status)
+        && tags_filter_matches(&filters.tags, &row.tags)
+        && string_filter_matches(&filters.source_kinds, &row.source_kind)
+        && updated_filter_matches(row, filters)
+}
+
+fn string_filter_matches(accepted_values: &[String], value: &str) -> bool {
+    accepted_values.is_empty()
+        || accepted_values
+            .iter()
+            .any(|accepted| accepted.eq_ignore_ascii_case(value))
+}
+
+fn tags_filter_matches(required_tags: &[String], document_tags: &str) -> bool {
+    if required_tags.is_empty() {
+        return true;
+    }
+
+    let tags = document_tags
+        .split(',')
+        .map(|tag| tag.trim().to_ascii_lowercase())
+        .filter(|tag| !tag.is_empty())
+        .collect::<Vec<_>>();
+    required_tags
+        .iter()
+        .all(|required| tags.iter().any(|tag| tag == required))
+}
+
+fn updated_filter_matches(
+    row: &KnowledgeDocumentSearchResultRow,
+    filters: &KnowledgeDocumentSearchFilters,
+) -> bool {
+    let Some(updated_at) = parse_timestamp(&row.updated_at) else {
+        return filters.updated_after.is_none() && filters.updated_within_days.is_none();
+    };
+
+    if filters
+        .updated_after
+        .as_deref()
+        .and_then(parse_timestamp)
+        .is_some_and(|cutoff| updated_at < cutoff)
+    {
+        return false;
+    }
+
+    if let Some(recent_days) = filters.updated_within_days {
+        let cutoff = now_unix_seconds().saturating_sub(u64::from(recent_days) * 86_400);
+        if updated_at < cutoff as f64 {
+            return false;
+        }
+    }
+
+    true
+}
+
+fn parse_timestamp(value: &str) -> Option<f64> {
+    value.trim().parse::<f64>().ok()
+}
+
+fn now_unix_seconds() -> u64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs())
+        .unwrap_or(0)
 }
 
 fn normalized_knowledge_document_scope(scope: Option<&str>) -> &str {

@@ -123,8 +123,9 @@ fn search_knowledge_documents_blocking(
     db_path: PathBuf,
 ) -> Result<Vec<KnowledgeDocumentSearchResultDto>, String> {
     let service = workspace_service(&db_path)?;
+    let (input, filters) = request.into_parts();
     service
-        .search_knowledge_documents(request.into())
+        .search_knowledge_documents_with_filters(input, filters)
         .map(|results| {
             results
                 .into_iter()
