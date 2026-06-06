@@ -119,6 +119,17 @@ of truth for their domains.
   Queue-context attach/materialization, Finder/Notes integrations, safety
   status, docs drift, and file-size blockers. It does not add behavior or
   override current widget contracts.
+- `docs/KNOWLEDGE_PRODUCTION_STATUS.md` - docs-only production-readiness
+  status record for Knowledge / Skills. It records the current MVP versus
+  production gaps for fields/API, draft ledger, Queue context durability,
+  source refs, search/safety, limitations, and future exclusions. It does not
+  add behavior or override current widget contracts.
+- `docs/KNOWLEDGE_PRODUCTION_SMOKE_CHECKLIST.md` - docs-only manual and
+  automated smoke checklist for Knowledge production readiness. It records
+  smoke steps for Knowledge, Skills, generation, draft review, provenance,
+  Workspace Agent attach, Queue attach/materialization, disabled/rejected/
+  stale behavior, caps/secret warnings, and no hidden context. It does not add
+  behavior, validation automation, or acceptance status by itself.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
