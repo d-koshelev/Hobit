@@ -57,10 +57,17 @@ pub use hobit_tools::codex_cli::CodexDirectStreamCancellationToken;
 pub use knowledge::{
     EvidenceArtifactLink, EvidenceAttribution, EvidenceConfidence, EvidenceFreshness, EvidenceId,
     EvidenceRef, EvidenceReviewStatus, EvidenceSourceId, EvidenceSourceKind, EvidenceSourceRef,
-    KnowledgeContextEligibility, KnowledgeEvidenceLink, KnowledgeFreshness, KnowledgeItemId,
-    KnowledgeItemKind, KnowledgeItemRef, KnowledgeOwnerId, KnowledgeOwnerRef, KnowledgeRefSummary,
-    KnowledgeReviewStatus, KnowledgeVisibility, KnowledgeWorkspaceRef, RunbookId, RunbookRef,
-    SkillId, SkillRef, SkillReviewStatus, SkillVersionRef,
+    KnowledgeContextEligibility, KnowledgeContextSnapshot, KnowledgeContextSnapshotContentKind,
+    KnowledgeDraftReviewDecision, KnowledgeDraftReviewDecisionKind, KnowledgeEvidenceLink,
+    KnowledgeFinderSelectionSourceRef, KnowledgeFreshness, KnowledgeImportFileSourceRef,
+    KnowledgeItemId, KnowledgeItemKind, KnowledgeItemRef, KnowledgeItemType,
+    KnowledgeLifecycleStatus, KnowledgeManualSourceRef, KnowledgeModelParseError,
+    KnowledgeNoteSourceRef, KnowledgeOwnerId, KnowledgeOwnerRef, KnowledgePathSourceRef,
+    KnowledgeQueueRunSourceRef, KnowledgeQueueTaskSourceRef, KnowledgeRefSummary,
+    KnowledgeRelation, KnowledgeReviewStatus, KnowledgeSafetyWarning,
+    KnowledgeSafetyWarningSeverity, KnowledgeScope, KnowledgeSourceRef, KnowledgeVersionSummary,
+    KnowledgeVisibility, KnowledgeWorkspaceRef, RunbookId, RunbookRef, SkillId, SkillRef,
+    SkillReviewStatus, SkillVersionRef,
 };
 pub use runtime_adapters::{
     RuntimeAdapterId, RuntimeArtifactClass, RuntimeArtifactSummary, RuntimeCorrelationId,

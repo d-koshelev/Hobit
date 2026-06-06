@@ -1,4 +1,9 @@
-import type { KnowledgeDocument, KnowledgeDocumentSearchResult } from "./types";
+import {
+  knowledgeSourceRefFromLegacyFields,
+  legacyKnowledgeSourceFromRefs,
+  type KnowledgeDocument,
+  type KnowledgeDocumentSearchResult,
+} from "./types";
 import type { WorkspaceApi } from "./workspaceApiTypes";
 
 const documentsByWorkspaceId = new Map<string, KnowledgeDocument[]>();
@@ -8,6 +13,13 @@ let nextDocumentId = 1;
 export const createKnowledgeDocument: WorkspaceApi["createKnowledgeDocument"] =
   async (request) => {
     const now = new Date().toISOString();
+    const legacySource = legacyKnowledgeSourceFromRefs(request.sourceRefs);
+    const sourceKind = normalizeSourceKind(
+      request.sourceKind ?? legacySource?.sourceKind,
+    );
+    const sourceRef = normalizeSourceRef(
+      request.sourceRef ?? legacySource?.sourceRef,
+    );
     const document: KnowledgeDocument = {
       knowledgeDocumentId: `dev_memory_kdoc_${nextDocumentId++}`,
       workspaceId: request.scope === "global" ? "" : request.workspaceId,
@@ -17,8 +29,15 @@ export const createKnowledgeDocument: WorkspaceApi["createKnowledgeDocument"] =
       lifecycleStatus: request.lifecycleStatus ?? "active",
       title: request.title,
       sourceLabel: request.sourceLabel,
-      sourceKind: normalizeSourceKind(request.sourceKind),
-      sourceRef: normalizeSourceRef(request.sourceRef),
+      sourceKind,
+      sourceRef,
+      sourceRefs: request.sourceRefs ?? [
+        knowledgeSourceRefFromLegacyFields({
+          sourceKind,
+          sourceLabel: request.sourceLabel,
+          sourceRef,
+        }),
+      ],
       content: request.content,
       tags: request.tags,
       enabled: request.enabled,
@@ -68,6 +87,13 @@ export const updateKnowledgeDocument: WorkspaceApi["updateKnowledgeDocument"] =
 
     const currentDocument = currentDocuments[documentIndex];
     const nextScope = request.scope ?? currentDocument.scope;
+    const legacySource = legacyKnowledgeSourceFromRefs(request.sourceRefs);
+    const sourceKind = normalizeSourceKind(
+      request.sourceKind ?? legacySource?.sourceKind ?? currentDocument.sourceKind,
+    );
+    const sourceRef = normalizeSourceRef(
+      request.sourceRef ?? legacySource?.sourceRef ?? currentDocument.sourceRef,
+    );
     const updatedDocument: KnowledgeDocument = {
       ...currentDocument,
       workspaceId: nextScope === "global" ? "" : request.workspaceId,
@@ -81,12 +107,16 @@ export const updateKnowledgeDocument: WorkspaceApi["updateKnowledgeDocument"] =
         request.lifecycleStatus ?? currentDocument.lifecycleStatus,
       title: request.title,
       sourceLabel: request.sourceLabel,
-      sourceKind: normalizeSourceKind(
-        request.sourceKind ?? currentDocument.sourceKind,
-      ),
-      sourceRef: normalizeSourceRef(
-        request.sourceRef ?? currentDocument.sourceRef,
-      ),
+      sourceKind,
+      sourceRef,
+      sourceRefs: request.sourceRefs ??
+        currentDocument.sourceRefs ?? [
+          knowledgeSourceRefFromLegacyFields({
+            sourceKind,
+            sourceLabel: request.sourceLabel,
+            sourceRef,
+          }),
+        ],
       content: request.content,
       tags: request.tags,
       enabled: request.enabled,
@@ -190,7 +220,10 @@ function compareDocuments(left: KnowledgeDocument, right: KnowledgeDocument) {
 }
 
 function cloneDocument(document: KnowledgeDocument): KnowledgeDocument {
-  return { ...document };
+  return {
+    ...document,
+    sourceRefs: document.sourceRefs?.map((sourceRef) => ({ ...sourceRef })),
+  };
 }
 
 function cloneSearchResult(

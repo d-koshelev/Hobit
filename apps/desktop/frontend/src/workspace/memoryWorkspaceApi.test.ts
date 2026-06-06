@@ -62,6 +62,13 @@ describe("memory workspace api fallback", () => {
       scope: "workspace",
       title: "Workspace doc",
       sourceLabel: "Workspace paste",
+      sourceRefs: [
+        {
+          kind: "docs_path",
+          label: "Workspace docs",
+          path: "docs/workspace.md",
+        },
+      ],
       content: `${uniqueNeedle} workspace-only`,
       tags: "workspace",
       enabled: true,
@@ -107,6 +114,12 @@ describe("memory workspace api fallback", () => {
     });
 
     expect(workspaceDocument.scope).toBe("workspace");
+    expect(workspaceDocument.sourceKind).toBe("docs_path");
+    expect(workspaceDocument.sourceRef).toBe("docs/workspace.md");
+    expect(workspaceDocument.sourceRefs?.[0]).toMatchObject({
+      kind: "docs_path",
+      path: "docs/workspace.md",
+    });
     expect(globalDocument).toMatchObject({ scope: "global", workspaceId: "" });
     expect(
       firstManualResults.map((result) => result.documentTitle),

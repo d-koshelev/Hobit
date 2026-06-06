@@ -580,6 +580,66 @@ describe("tauri workspace api adapter", () => {
     ]);
   });
 
+  it("maps typed Knowledge source refs through the Tauri Knowledge Document adapter", async () => {
+    mocks.invoke.mockResolvedValueOnce(
+      tauriKnowledgeDocument({
+        source_kind: "queue_run",
+        source_ref: "run_1",
+        source_refs: [
+          {
+            kind: "queue_run",
+            label: "Queue run",
+            queue_task_id: "task_1",
+            run_id: "run_1",
+          },
+        ],
+      }),
+    );
+
+    await expect(
+      createKnowledgeDocument({
+        workspaceId: "ws_1",
+        title: "Queue run Knowledge",
+        sourceLabel: "Queue run",
+        sourceRefs: [
+          {
+            kind: "queue_run",
+            label: "Queue run",
+            queueTaskId: "task_1",
+            runId: "run_1",
+          },
+        ],
+        content: "Content",
+        tags: "ops",
+        enabled: true,
+      }),
+    ).resolves.toMatchObject({
+      sourceKind: "queue_run",
+      sourceRef: "run_1",
+      sourceRefs: [
+        {
+          kind: "queue_run",
+          label: "Queue run",
+          queueTaskId: "task_1",
+          runId: "run_1",
+        },
+      ],
+    });
+    expect(mocks.invoke).toHaveBeenCalledWith("create_knowledge_document", {
+      request: expect.objectContaining({
+        source_kind: "queue_run",
+        source_ref: "run_1",
+        source_refs: [
+          expect.objectContaining({
+            kind: "queue_run",
+            queue_task_id: "task_1",
+            run_id: "run_1",
+          }),
+        ],
+      }),
+    });
+  });
+
   it("maps Terminal PTY requests, raw writes, resize, and stable action command names", async () => {
     mocks.invoke.mockResolvedValue(tauriTerminalSession());
 
@@ -927,6 +987,9 @@ function tauriKnowledgeDocument(
   overrides: Partial<{
     enabled: boolean;
     scope: "global" | "workspace";
+    source_kind: string;
+    source_ref: string;
+    source_refs: unknown[];
   }> = {},
 ) {
   return {
@@ -938,8 +1001,9 @@ function tauriKnowledgeDocument(
     lifecycle_status: "active",
     title: "Doc",
     source_label: "Paste",
-    source_kind: "operator_authored",
-    source_ref: "",
+    source_kind: overrides.source_kind ?? "operator_authored",
+    source_ref: overrides.source_ref ?? "",
+    source_refs: overrides.source_refs,
     content: "Content",
     tags: "ops",
     enabled: overrides.enabled ?? true,

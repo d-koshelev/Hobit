@@ -167,3 +167,60 @@ fn knowledge_model_compiles_without_schema_dto_or_runtime_wiring() {
     assert_eq!(KnowledgeItemKind::Skill, link.knowledge_item.kind);
     assert_eq!(EvidenceConfidence::Medium, link.evidence.confidence);
 }
+
+#[test]
+fn production_knowledge_lifecycle_is_typed_and_validated() {
+    assert_eq!(
+        KnowledgeLifecycleStatus::Active,
+        KnowledgeLifecycleStatus::try_from("active").expect("active lifecycle")
+    );
+    assert!(KnowledgeLifecycleStatus::Active.is_normally_materializable(true, true));
+    assert!(!KnowledgeLifecycleStatus::Rejected.is_normally_materializable(true, true));
+    assert!(KnowledgeLifecycleStatus::try_from("reviewed").is_err());
+}
+
+#[test]
+fn production_knowledge_item_type_keeps_catalog_compatibility_adapter() {
+    assert_eq!(
+        KnowledgeItemType::Decision,
+        KnowledgeItemType::from_catalog_item_type_lossy("architecture_decision")
+    );
+    assert_eq!(
+        KnowledgeItemType::DocumentationKnowledge,
+        KnowledgeItemType::try_from("documentation_knowledge").expect("knowledge type")
+    );
+    assert!(KnowledgeItemType::try_from("prompt_template").is_err());
+}
+
+#[test]
+fn production_knowledge_scope_maps_legacy_document_scope() {
+    assert_eq!(
+        KnowledgeScope::WorkspaceLocal,
+        KnowledgeScope::from_legacy_document_scope("workspace")
+    );
+    assert_eq!(
+        "workspace",
+        KnowledgeScope::WorkspaceLocal.legacy_document_scope()
+    );
+    assert_eq!(
+        KnowledgeScope::Global,
+        KnowledgeScope::from_legacy_document_scope("global")
+    );
+}
+
+#[test]
+fn production_source_refs_are_typed_with_legacy_string_adapters() {
+    let code_ref =
+        KnowledgeSourceRef::from_legacy_fields("file", "src/lib.rs", "Selected source file");
+    let queue_ref =
+        KnowledgeSourceRef::from_legacy_fields("queue_run", "run_42", "Queue run result");
+    let manual_ref =
+        KnowledgeSourceRef::from_legacy_fields("operator_authored", "manual", "Operator note");
+
+    assert_eq!("codebase_path", code_ref.legacy_kind());
+    assert_eq!("src/lib.rs", code_ref.legacy_ref());
+    assert_eq!("queue_run", queue_ref.legacy_kind());
+    assert_eq!("run_42", queue_ref.legacy_ref());
+    assert_eq!("manual", manual_ref.legacy_kind());
+    assert_eq!("manual", manual_ref.legacy_ref());
+}

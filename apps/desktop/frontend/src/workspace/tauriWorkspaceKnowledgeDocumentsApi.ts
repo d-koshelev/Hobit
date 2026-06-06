@@ -1,10 +1,15 @@
 import { invoke } from "@tauri-apps/api/core";
+import {
+  knowledgeSourceRefFromLegacyFields,
+  legacyKnowledgeSourceFromRefs,
+} from "./types";
 import type {
   CreateKnowledgeDocumentRequest,
   DeleteKnowledgeDocumentRequest,
   GetKnowledgeDocumentRequest,
   KnowledgeDocument,
   KnowledgeDocumentSearchResult,
+  KnowledgeSourceRef,
   ListKnowledgeDocumentsRequest,
   SearchKnowledgeDocumentsRequest,
   UpdateKnowledgeDocumentRequest,
@@ -21,6 +26,7 @@ type TauriKnowledgeDocument = {
   source_label: string;
   source_kind?: string | null;
   source_ref?: string | null;
+  source_refs?: TauriKnowledgeSourceRef[] | null;
   content: string;
   tags: string;
   enabled: boolean;
@@ -39,6 +45,75 @@ type TauriKnowledgeDocumentSearchResult = {
   snippet: string;
   score: number;
 };
+
+type TauriKnowledgeSourceRef =
+  | {
+      kind: "codebase_path" | "docs_path";
+      label: string;
+      path: string;
+      selector?: string | null;
+      source_version?: string | null;
+      captured_at?: string | null;
+      redaction?: string | null;
+      cap?: string | null;
+    }
+  | {
+      kind: "queue_task";
+      label: string;
+      queue_task_id: string;
+      source_version?: string | null;
+      captured_at?: string | null;
+      redaction?: string | null;
+      cap?: string | null;
+    }
+  | {
+      kind: "queue_run";
+      label: string;
+      queue_task_id?: string | null;
+      run_id: string;
+      source_version?: string | null;
+      captured_at?: string | null;
+      redaction?: string | null;
+      cap?: string | null;
+    }
+  | {
+      kind: "note";
+      label: string;
+      note_id: string;
+      source_version?: string | null;
+      captured_at?: string | null;
+      redaction?: string | null;
+      cap?: string | null;
+    }
+  | {
+      kind: "finder_selection";
+      label: string;
+      selection_id?: string | null;
+      path: string;
+      selection_kind?: string | null;
+      source_version?: string | null;
+      captured_at?: string | null;
+      redaction?: string | null;
+      cap?: string | null;
+    }
+  | {
+      kind: "manual";
+      label: string;
+      ref_text: string;
+      captured_at?: string | null;
+      redaction?: string | null;
+      cap?: string | null;
+    }
+  | {
+      kind: "import_file";
+      label: string;
+      path: string;
+      file_name?: string | null;
+      imported_at?: string | null;
+      source_version?: string | null;
+      redaction?: string | null;
+      cap?: string | null;
+    };
 
 export async function createKnowledgeDocument(
   request: CreateKnowledgeDocumentRequest,
@@ -87,6 +162,7 @@ export async function getKnowledgeDocument(
 export async function updateKnowledgeDocument(
   request: UpdateKnowledgeDocumentRequest,
 ): Promise<KnowledgeDocument | null> {
+  const legacySource = legacyKnowledgeSourceFromRefs(request.sourceRefs);
   const document = await invoke<TauriKnowledgeDocument | null>(
     "update_knowledge_document",
     {
@@ -99,8 +175,12 @@ export async function updateKnowledgeDocument(
         lifecycle_status: request.lifecycleStatus ?? "active",
         title: request.title,
         source_label: request.sourceLabel,
-        source_kind: request.sourceKind ?? "operator_authored",
-        source_ref: request.sourceRef ?? "",
+        source_kind:
+          request.sourceKind ?? legacySource?.sourceKind ?? "operator_authored",
+        source_ref: request.sourceRef ?? legacySource?.sourceRef ?? "",
+        ...(request.sourceRefs
+          ? { source_refs: request.sourceRefs.map(toTauriKnowledgeSourceRef) }
+          : {}),
         content: request.content,
         tags: request.tags,
         enabled: request.enabled,
@@ -142,6 +222,7 @@ export async function searchKnowledgeDocuments(
 function toTauriCreateKnowledgeDocumentRequest(
   request: CreateKnowledgeDocumentRequest,
 ) {
+  const legacySource = legacyKnowledgeSourceFromRefs(request.sourceRefs);
   return {
     workspace_id: request.workspaceId,
     scope: request.scope ?? "workspace",
@@ -150,8 +231,12 @@ function toTauriCreateKnowledgeDocumentRequest(
     lifecycle_status: request.lifecycleStatus ?? "active",
     title: request.title,
     source_label: request.sourceLabel,
-    source_kind: request.sourceKind ?? "operator_authored",
-    source_ref: request.sourceRef ?? "",
+    source_kind:
+      request.sourceKind ?? legacySource?.sourceKind ?? "operator_authored",
+    source_ref: request.sourceRef ?? legacySource?.sourceRef ?? "",
+    ...(request.sourceRefs
+      ? { source_refs: request.sourceRefs.map(toTauriKnowledgeSourceRef) }
+      : {}),
     content: request.content,
     tags: request.tags,
     enabled: request.enabled,
@@ -176,6 +261,7 @@ function normalizeKnowledgeDocument(
     sourceLabel: document.source_label,
     sourceKind: document.source_kind ?? "operator_authored",
     sourceRef: document.source_ref ?? "",
+    sourceRefs: normalizeKnowledgeSourceRefs(document),
     content: document.content,
     tags: document.tags,
     enabled: document.enabled,
@@ -198,6 +284,186 @@ function normalizeKnowledgeDocumentSearchResult(
     snippet: result.snippet,
     score: result.score,
   };
+}
+
+function normalizeKnowledgeSourceRefs(
+  document: TauriKnowledgeDocument,
+): KnowledgeSourceRef[] {
+  if (document.source_refs?.length) {
+    return document.source_refs.map(normalizeKnowledgeSourceRef);
+  }
+
+  return [
+    knowledgeSourceRefFromLegacyFields({
+      sourceKind: document.source_kind,
+      sourceLabel: document.source_label,
+      sourceRef: document.source_ref,
+    }),
+  ];
+}
+
+function normalizeKnowledgeSourceRef(
+  sourceRef: TauriKnowledgeSourceRef,
+): KnowledgeSourceRef {
+  switch (sourceRef.kind) {
+    case "codebase_path":
+    case "docs_path":
+      return {
+        cap: sourceRef.cap,
+        capturedAt: sourceRef.captured_at,
+        kind: sourceRef.kind,
+        label: sourceRef.label,
+        path: sourceRef.path,
+        redaction: sourceRef.redaction,
+        selector: sourceRef.selector,
+        sourceVersion: sourceRef.source_version,
+      };
+    case "queue_task":
+      return {
+        cap: sourceRef.cap,
+        capturedAt: sourceRef.captured_at,
+        kind: "queue_task",
+        label: sourceRef.label,
+        queueTaskId: sourceRef.queue_task_id,
+        redaction: sourceRef.redaction,
+        sourceVersion: sourceRef.source_version,
+      };
+    case "queue_run":
+      return {
+        cap: sourceRef.cap,
+        capturedAt: sourceRef.captured_at,
+        kind: "queue_run",
+        label: sourceRef.label,
+        queueTaskId: sourceRef.queue_task_id,
+        redaction: sourceRef.redaction,
+        runId: sourceRef.run_id,
+        sourceVersion: sourceRef.source_version,
+      };
+    case "note":
+      return {
+        cap: sourceRef.cap,
+        capturedAt: sourceRef.captured_at,
+        kind: "note",
+        label: sourceRef.label,
+        noteId: sourceRef.note_id,
+        redaction: sourceRef.redaction,
+        sourceVersion: sourceRef.source_version,
+      };
+    case "finder_selection":
+      return {
+        cap: sourceRef.cap,
+        capturedAt: sourceRef.captured_at,
+        kind: "finder_selection",
+        label: sourceRef.label,
+        path: sourceRef.path,
+        redaction: sourceRef.redaction,
+        selectionId: sourceRef.selection_id,
+        selectionKind: sourceRef.selection_kind,
+        sourceVersion: sourceRef.source_version,
+      };
+    case "manual":
+      return {
+        cap: sourceRef.cap,
+        capturedAt: sourceRef.captured_at,
+        kind: "manual",
+        label: sourceRef.label,
+        redaction: sourceRef.redaction,
+        refText: sourceRef.ref_text,
+      };
+    case "import_file":
+      return {
+        cap: sourceRef.cap,
+        fileName: sourceRef.file_name,
+        importedAt: sourceRef.imported_at,
+        kind: "import_file",
+        label: sourceRef.label,
+        path: sourceRef.path,
+        redaction: sourceRef.redaction,
+        sourceVersion: sourceRef.source_version,
+      };
+  }
+}
+
+function toTauriKnowledgeSourceRef(
+  sourceRef: KnowledgeSourceRef,
+): TauriKnowledgeSourceRef {
+  switch (sourceRef.kind) {
+    case "codebase_path":
+    case "docs_path":
+      return {
+        cap: sourceRef.cap,
+        captured_at: sourceRef.capturedAt,
+        kind: sourceRef.kind,
+        label: sourceRef.label,
+        path: sourceRef.path,
+        redaction: sourceRef.redaction,
+        selector: sourceRef.selector,
+        source_version: sourceRef.sourceVersion,
+      };
+    case "queue_task":
+      return {
+        cap: sourceRef.cap,
+        captured_at: sourceRef.capturedAt,
+        kind: "queue_task",
+        label: sourceRef.label,
+        queue_task_id: sourceRef.queueTaskId,
+        redaction: sourceRef.redaction,
+        source_version: sourceRef.sourceVersion,
+      };
+    case "queue_run":
+      return {
+        cap: sourceRef.cap,
+        captured_at: sourceRef.capturedAt,
+        kind: "queue_run",
+        label: sourceRef.label,
+        queue_task_id: sourceRef.queueTaskId,
+        redaction: sourceRef.redaction,
+        run_id: sourceRef.runId,
+        source_version: sourceRef.sourceVersion,
+      };
+    case "note":
+      return {
+        cap: sourceRef.cap,
+        captured_at: sourceRef.capturedAt,
+        kind: "note",
+        label: sourceRef.label,
+        note_id: sourceRef.noteId,
+        redaction: sourceRef.redaction,
+        source_version: sourceRef.sourceVersion,
+      };
+    case "finder_selection":
+      return {
+        cap: sourceRef.cap,
+        captured_at: sourceRef.capturedAt,
+        kind: "finder_selection",
+        label: sourceRef.label,
+        path: sourceRef.path,
+        redaction: sourceRef.redaction,
+        selection_id: sourceRef.selectionId,
+        selection_kind: sourceRef.selectionKind,
+        source_version: sourceRef.sourceVersion,
+      };
+    case "manual":
+      return {
+        cap: sourceRef.cap,
+        captured_at: sourceRef.capturedAt,
+        kind: "manual",
+        label: sourceRef.label,
+        redaction: sourceRef.redaction,
+        ref_text: sourceRef.refText,
+      };
+    case "import_file":
+      return {
+        cap: sourceRef.cap,
+        file_name: sourceRef.fileName,
+        imported_at: sourceRef.importedAt,
+        kind: "import_file",
+        label: sourceRef.label,
+        path: sourceRef.path,
+        redaction: sourceRef.redaction,
+        source_version: sourceRef.sourceVersion,
+      };
+  }
 }
 
 function normalizeKnowledgeDocumentScope(scope: string | null | undefined) {

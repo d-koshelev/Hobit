@@ -1,6 +1,6 @@
 use hobit_storage_sqlite::{KnowledgeDocumentUpdate, NewKnowledgeDocument};
 
-use crate::WorkspaceServiceError;
+use crate::{KnowledgeLifecycleStatus, WorkspaceServiceError};
 
 use super::{
     knowledge_document_search::{bounded_knowledge_snippet, normalized_knowledge_search_limit},
@@ -24,11 +24,6 @@ const CATALOG_ITEM_TYPE_WORKFLOW: &str = "workflow";
 const CATALOG_ITEM_TYPE_COMMAND_HISTORY_SUMMARY: &str = "command_history_summary";
 const CATALOG_ITEM_TYPE_INVESTIGATION_SUMMARY: &str = "investigation_summary";
 const CATALOG_ITEM_TYPE_EXTERNAL_REFERENCE: &str = "external_reference";
-const LIFECYCLE_STATUS_DRAFT: &str = "draft";
-const LIFECYCLE_STATUS_ACTIVE: &str = "active";
-const LIFECYCLE_STATUS_STALE: &str = "stale";
-const LIFECYCLE_STATUS_ARCHIVED: &str = "archived";
-const LIFECYCLE_STATUS_REJECTED: &str = "rejected";
 
 impl WorkspaceService {
     pub fn create_knowledge_document(
@@ -393,19 +388,16 @@ fn normalize_lifecycle_status(
         .as_deref()
         .map(str::trim)
         .filter(|lifecycle_status| !lifecycle_status.is_empty())
-        .unwrap_or(LIFECYCLE_STATUS_ACTIVE)
+        .unwrap_or(KnowledgeLifecycleStatus::Active.as_str())
         .to_owned();
 
-    match lifecycle_status.as_str() {
-        LIFECYCLE_STATUS_DRAFT
-        | LIFECYCLE_STATUS_ACTIVE
-        | LIFECYCLE_STATUS_STALE
-        | LIFECYCLE_STATUS_ARCHIVED
-        | LIFECYCLE_STATUS_REJECTED => Ok(lifecycle_status),
-        _ => Err(WorkspaceServiceError::InvalidInput(format!(
-            "unsupported knowledge lifecycle status: {lifecycle_status}"
-        ))),
-    }
+    KnowledgeLifecycleStatus::try_from(lifecycle_status.as_str())
+        .map(|status| status.as_str().to_owned())
+        .map_err(|_| {
+            WorkspaceServiceError::InvalidInput(format!(
+                "unsupported knowledge lifecycle status: {lifecycle_status}"
+            ))
+        })
 }
 
 fn normalize_tags(tags: String) -> String {

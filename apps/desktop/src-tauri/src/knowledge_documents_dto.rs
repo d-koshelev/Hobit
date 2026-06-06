@@ -1,7 +1,7 @@
 use hobit_app::{
     CreateKnowledgeDocumentInput, DeleteKnowledgeDocumentInput,
-    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, SearchKnowledgeDocumentsInput,
-    UpdateKnowledgeDocumentInput,
+    KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, KnowledgeSourceRef,
+    SearchKnowledgeDocumentsInput, UpdateKnowledgeDocumentInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +22,8 @@ pub(crate) struct CreateKnowledgeDocumentRequest {
     pub source_kind: Option<String>,
     #[serde(default)]
     pub source_ref: Option<String>,
+    #[serde(default)]
+    pub source_refs: Option<Vec<KnowledgeSourceRef>>,
     pub content: String,
     pub tags: String,
     pub enabled: bool,
@@ -56,6 +58,8 @@ pub(crate) struct UpdateKnowledgeDocumentRequest {
     pub source_kind: Option<String>,
     #[serde(default)]
     pub source_ref: Option<String>,
+    #[serde(default)]
+    pub source_refs: Option<Vec<KnowledgeSourceRef>>,
     pub content: String,
     pub tags: String,
     pub enabled: bool,
@@ -86,6 +90,7 @@ pub(crate) struct KnowledgeDocumentDto {
     pub source_label: String,
     pub source_kind: String,
     pub source_ref: String,
+    pub source_refs: Vec<KnowledgeSourceRef>,
     pub content: String,
     pub tags: String,
     pub enabled: bool,
@@ -108,6 +113,21 @@ pub(crate) struct KnowledgeDocumentSearchResultDto {
 
 impl From<CreateKnowledgeDocumentRequest> for CreateKnowledgeDocumentInput {
     fn from(request: CreateKnowledgeDocumentRequest) -> Self {
+        let source_kind = request.source_kind.or_else(|| {
+            request
+                .source_refs
+                .as_ref()
+                .and_then(|source_refs| source_refs.first())
+                .map(|source_ref| source_ref.legacy_kind().to_owned())
+        });
+        let source_ref = request.source_ref.or_else(|| {
+            request
+                .source_refs
+                .as_ref()
+                .and_then(|source_refs| source_refs.first())
+                .map(|source_ref| source_ref.legacy_ref().to_owned())
+        });
+
         Self {
             workspace_id: request.workspace_id,
             scope: request.scope,
@@ -116,8 +136,8 @@ impl From<CreateKnowledgeDocumentRequest> for CreateKnowledgeDocumentInput {
             lifecycle_status: request.lifecycle_status,
             title: request.title,
             source_label: request.source_label,
-            source_kind: request.source_kind,
-            source_ref: request.source_ref,
+            source_kind,
+            source_ref,
             content: request.content,
             tags: request.tags,
             enabled: request.enabled,
@@ -127,6 +147,21 @@ impl From<CreateKnowledgeDocumentRequest> for CreateKnowledgeDocumentInput {
 
 impl From<UpdateKnowledgeDocumentRequest> for UpdateKnowledgeDocumentInput {
     fn from(request: UpdateKnowledgeDocumentRequest) -> Self {
+        let source_kind = request.source_kind.or_else(|| {
+            request
+                .source_refs
+                .as_ref()
+                .and_then(|source_refs| source_refs.first())
+                .map(|source_ref| source_ref.legacy_kind().to_owned())
+        });
+        let source_ref = request.source_ref.or_else(|| {
+            request
+                .source_refs
+                .as_ref()
+                .and_then(|source_refs| source_refs.first())
+                .map(|source_ref| source_ref.legacy_ref().to_owned())
+        });
+
         Self {
             workspace_id: request.workspace_id,
             knowledge_document_id: request.knowledge_document_id,
@@ -136,8 +171,8 @@ impl From<UpdateKnowledgeDocumentRequest> for UpdateKnowledgeDocumentInput {
             lifecycle_status: request.lifecycle_status,
             title: request.title,
             source_label: request.source_label,
-            source_kind: request.source_kind,
-            source_ref: request.source_ref,
+            source_kind,
+            source_ref,
             content: request.content,
             tags: request.tags,
             enabled: request.enabled,
@@ -166,6 +201,12 @@ impl From<SearchKnowledgeDocumentsRequest> for SearchKnowledgeDocumentsInput {
 
 impl From<KnowledgeDocumentSummary> for KnowledgeDocumentDto {
     fn from(summary: KnowledgeDocumentSummary) -> Self {
+        let source_refs = vec![KnowledgeSourceRef::from_legacy_fields(
+            &summary.source_kind,
+            &summary.source_ref,
+            summary.source_label.clone(),
+        )];
+
         Self {
             knowledge_document_id: summary.knowledge_document_id,
             workspace_id: summary.workspace_id,
@@ -175,6 +216,7 @@ impl From<KnowledgeDocumentSummary> for KnowledgeDocumentDto {
             lifecycle_status: summary.lifecycle_status,
             title: summary.title,
             source_label: summary.source_label,
+            source_refs,
             source_kind: summary.source_kind,
             source_ref: summary.source_ref,
             content: summary.content,

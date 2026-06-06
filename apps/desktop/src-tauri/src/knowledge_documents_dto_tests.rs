@@ -18,6 +18,7 @@ fn maps_create_knowledge_document_request_to_app_input_with_scope_and_enabled() 
         source_label: "Paste".to_owned(),
         source_kind: Some("operator_authored".to_owned()),
         source_ref: Some("manual".to_owned()),
+        source_refs: None,
         content: "Content".to_owned(),
         tags: "ops".to_owned(),
         enabled: true,
@@ -49,6 +50,7 @@ fn maps_update_knowledge_document_request_to_app_input_with_scope_and_enabled() 
         source_label: "Paste".to_owned(),
         source_kind: Some("file".to_owned()),
         source_ref: Some("docs/checks.md".to_owned()),
+        source_refs: None,
         content: "Content".to_owned(),
         tags: "ops".to_owned(),
         enabled: false,
@@ -68,6 +70,29 @@ fn maps_update_knowledge_document_request_to_app_input_with_scope_and_enabled() 
     assert_eq!(input.source_kind.as_deref(), Some("file"));
     assert_eq!(input.source_ref.as_deref(), Some("docs/checks.md"));
     assert!(!input.enabled);
+}
+
+#[test]
+fn maps_typed_source_refs_to_legacy_app_input_for_compatibility() {
+    let request: CreateKnowledgeDocumentRequest = serde_json::from_value(json!({
+        "workspace_id": "ws_1",
+        "title": "Doc",
+        "source_label": "Selected code",
+        "source_refs": [{
+            "kind": "codebase_path",
+            "label": "Selected code",
+            "path": "src/lib.rs"
+        }],
+        "content": "Content",
+        "tags": "",
+        "enabled": true
+    }))
+    .expect("deserialize typed source ref request");
+
+    let input: hobit_app::CreateKnowledgeDocumentInput = request.into();
+
+    assert_eq!(input.source_kind.as_deref(), Some("codebase_path"));
+    assert_eq!(input.source_ref.as_deref(), Some("src/lib.rs"));
 }
 
 #[test]
@@ -119,6 +144,14 @@ fn serializes_knowledge_document_dto_with_stable_snake_case_fields() {
             "source_label": "Paste",
             "source_kind": "external_url",
             "source_ref": "https://example.invalid/doc",
+            "source_refs": [{
+                "kind": "manual",
+                "label": "Paste",
+                "ref_text": "https://example.invalid/doc",
+                "captured_at": null,
+                "redaction": null,
+                "cap": null
+            }],
             "content": "Content",
             "tags": "ops",
             "enabled": true,
