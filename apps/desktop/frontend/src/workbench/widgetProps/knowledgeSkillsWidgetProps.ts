@@ -13,9 +13,11 @@ type KnowledgeSkillsActions = Pick<
   | "deleteSkill"
   | "getKnowledgeDocument"
   | "getSkill"
+  | "listKnowledgeDraftReviews"
   | "listKnowledgeDocuments"
   | "listSkills"
   | "readKnowledgeDocumentImportFile"
+  | "recordKnowledgeDraftReview"
   | "updateKnowledgeDocument"
   | "updateSkill"
 >;
@@ -44,8 +46,10 @@ export function knowledgeSkillsWidgetProps({
     onGetKnowledgeDocument: actions.getKnowledgeDocument,
     onGetSkill: actions.getSkill,
     onListKnowledgeDocuments: actions.listKnowledgeDocuments,
+    onListKnowledgeDraftReviews: actions.listKnowledgeDraftReviews,
     onListSkills: actions.listSkills,
     onReadKnowledgeDocumentImportFile: actions.readKnowledgeDocumentImportFile,
+    onRecordKnowledgeDraftReview: actions.recordKnowledgeDraftReview,
     onUpdateKnowledgeDocument: actions.updateKnowledgeDocument,
     onUpdateSkill: actions.updateSkill,
   };

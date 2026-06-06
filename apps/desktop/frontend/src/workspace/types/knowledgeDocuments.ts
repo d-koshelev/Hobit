@@ -138,21 +138,49 @@ export type KnowledgeVersionSummary = {
 export type KnowledgeDraftReviewDecisionKind =
   | "accepted"
   | "rejected"
-  | "edited"
-  | "split"
-  | "merged"
+  | "edited_before_accept"
   | "blocked";
 
 export type KnowledgeDraftReviewDecision = {
-  decisionId: string;
-  decision: KnowledgeDraftReviewDecisionKind;
-  queueItemId?: string | null;
-  runId?: string | null;
-  reviewerId?: string | null;
-  decidedAt: string;
-  reason?: string | null;
-  resultingItemIds: string[];
-  resultingVersionIds: string[];
+  reviewId: string;
+  workspaceId: string;
+  draftPackId: string;
+  sourceFingerprint: string;
+  sourceQueueItemId?: string | null;
+  sourceRunId?: string | null;
+  proposedItemId: string;
+  proposedItemKey: string;
+  action: KnowledgeDraftReviewDecisionKind;
+  reviewedAt: string;
+  acceptedKnowledgeDocumentId?: string | null;
+  acceptedSkillId?: string | null;
+  rejectionReason?: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RecordKnowledgeDraftReviewRequest = {
+  workspaceId: string;
+  draftPackId: string;
+  sourceFingerprint?: string | null;
+  sourceQueueItemId?: string | null;
+  sourceRunId?: string | null;
+  proposedItemId: string;
+  proposedItemKey?: string | null;
+  action: Extract<
+    KnowledgeDraftReviewDecisionKind,
+    "accepted" | "rejected" | "edited_before_accept"
+  >;
+  reviewedAt?: string | null;
+  acceptedKnowledgeDocumentId?: string | null;
+  acceptedSkillId?: string | null;
+  rejectionReason?: string | null;
+};
+
+export type ListKnowledgeDraftReviewsRequest = {
+  workspaceId: string;
+  draftPackId: string;
+  sourceFingerprint?: string | null;
 };
 
 export type KnowledgeSafetyWarningSeverity = "info" | "warning" | "blocked";

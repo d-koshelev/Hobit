@@ -79,6 +79,31 @@ export function knowledgeDraftAcceptedSourceRef(
   return item.sourceRef || pack.queueItemId || pack.draftPackId;
 }
 
+export function knowledgeDraftReviewSourceFingerprint(
+  pack: KnowledgeDraftReviewPack,
+) {
+  return [
+    pack.queueItemId ? `queue:${pack.queueItemId}` : null,
+    `pack:${pack.draftPackId}`,
+    pack.sourceLabel ? `source:${pack.sourceLabel}` : null,
+  ]
+    .filter(Boolean)
+    .join("|");
+}
+
+export function knowledgeDraftReviewItemKey(
+  pack: KnowledgeDraftReviewPack,
+  item: KnowledgeDraftReviewItem,
+) {
+  return [
+    pack.draftPackId,
+    item.draftItemId,
+    item.sourceRef || item.title,
+  ]
+    .filter(Boolean)
+    .join("|");
+}
+
 function candidateValuesFromText(text: string) {
   const trimmed = text.trim();
   const candidates: unknown[] = [];

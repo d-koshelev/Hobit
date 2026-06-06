@@ -84,7 +84,9 @@ import type {
   PushWorkspaceGitRequest,
   WorkspaceGitDiffSummary,
   KnowledgeDocument,
+  KnowledgeDraftReviewDecision,
   KnowledgeDocumentSearchResult,
+  ListKnowledgeDraftReviewsRequest,
   ListAgentExecutorRunsRequest,
   ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
@@ -102,6 +104,7 @@ import type {
   RunDirectWorkValidationResponse,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
+  RecordKnowledgeDraftReviewRequest,
   SearchKnowledgeDocumentsRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
@@ -184,6 +187,12 @@ export type WorkspaceApi = {
   searchKnowledgeDocuments: (
     request: SearchKnowledgeDocumentsRequest,
   ) => Promise<KnowledgeDocumentSearchResult[]>;
+  recordKnowledgeDraftReview: (
+    request: RecordKnowledgeDraftReviewRequest,
+  ) => Promise<KnowledgeDraftReviewDecision>;
+  listKnowledgeDraftReviews: (
+    request: ListKnowledgeDraftReviewsRequest,
+  ) => Promise<KnowledgeDraftReviewDecision[]>;
   createJdbcConnector: (
     request: CreateJdbcConnectorRequest,
   ) => Promise<JdbcConnector>;

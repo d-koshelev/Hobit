@@ -18,7 +18,10 @@ import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetAction
 
 type AgentQueueKnowledgeActions = Pick<
   WorkbenchWidgetInstanceActions,
-  "createKnowledgeDocument" | "createSkill"
+  | "createKnowledgeDocument"
+  | "createSkill"
+  | "listKnowledgeDraftReviews"
+  | "recordKnowledgeDraftReview"
 >;
 
 type AgentExecutorActions = Pick<
@@ -79,6 +82,8 @@ export function agentQueueWidgetProps({
     onAttachContextToCoordinator,
     onCreateKnowledgeDocument: actions.createKnowledgeDocument,
     onCreateSkill: actions.createSkill,
+    onListKnowledgeDraftReviews: actions.listKnowledgeDraftReviews,
+    onRecordKnowledgeDraftReview: actions.recordKnowledgeDraftReview,
     onShowQueueReportInWorkspaceChat,
     onOpenAgentExecutorRun,
   };

@@ -13,6 +13,10 @@ import {
   searchKnowledgeDocuments,
   updateKnowledgeDocument,
 } from "../workspace/workspaceApiKnowledgeDocuments";
+import {
+  listKnowledgeDraftReviews,
+  recordKnowledgeDraftReview,
+} from "../workspace/workspaceApiKnowledgeDraftReview";
 import { readKnowledgeDocumentImportFile } from "../workspace/workspaceApiKnowledgeDocumentImport";
 import type {
   CreateKnowledgeDocumentRequest,
@@ -21,7 +25,10 @@ import type {
   DeleteSkillRequest,
   KnowledgeDocumentImportFile,
   KnowledgeDocument,
+  KnowledgeDraftReviewDecision,
   KnowledgeDocumentSearchResult,
+  ListKnowledgeDraftReviewsRequest,
+  RecordKnowledgeDraftReviewRequest,
   ReadKnowledgeDocumentImportFileRequest,
   SearchKnowledgeDocumentsRequest,
   Skill,
@@ -51,6 +58,14 @@ export type KnowledgeDocumentSearchRequest = Omit<
 >;
 export type KnowledgeDocumentImportFileRequest =
   ReadKnowledgeDocumentImportFileRequest;
+export type KnowledgeDraftReviewRecordRequest = Omit<
+  RecordKnowledgeDraftReviewRequest,
+  "workspaceId"
+>;
+export type KnowledgeDraftReviewListRequest = Omit<
+  ListKnowledgeDraftReviewsRequest,
+  "workspaceId"
+>;
 
 export type WorkspaceSkillWidgetActions = {
   createSkill: (request: SkillCreateRequest) => Promise<Skill>;
@@ -74,6 +89,12 @@ export type WorkspaceSkillWidgetActions = {
   searchKnowledgeDocuments?: (
     request: KnowledgeDocumentSearchRequest,
   ) => Promise<KnowledgeDocumentSearchResult[]>;
+  recordKnowledgeDraftReview?: (
+    request: KnowledgeDraftReviewRecordRequest,
+  ) => Promise<KnowledgeDraftReviewDecision>;
+  listKnowledgeDraftReviews?: (
+    request: KnowledgeDraftReviewListRequest,
+  ) => Promise<KnowledgeDraftReviewDecision[]>;
   readKnowledgeDocumentImportFile?: (
     request: KnowledgeDocumentImportFileRequest,
   ) => Promise<KnowledgeDocumentImportFile>;
@@ -154,6 +175,20 @@ export function createWorkspaceSkillActions(
     searchKnowledgeDocuments: (request) => {
       requireOpenWorkbench(viewState, "search knowledge documents");
       return searchKnowledgeDocuments({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    recordKnowledgeDraftReview: (request) => {
+      requireOpenWorkbench(viewState, "record draft Knowledge review decisions");
+      return recordKnowledgeDraftReview({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    listKnowledgeDraftReviews: (request) => {
+      requireOpenWorkbench(viewState, "read draft Knowledge review decisions");
+      return listKnowledgeDraftReviews({
         workspaceId: viewState.workspace.id,
         ...request,
       });

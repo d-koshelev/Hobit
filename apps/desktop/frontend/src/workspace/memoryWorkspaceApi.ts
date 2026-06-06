@@ -79,6 +79,8 @@ import {
   validateJdbcReadOnlySql,
   probeJdbcDriver,
   writeTerminalPtySession,
+  listKnowledgeDraftReviews as unsupportedListKnowledgeDraftReviews,
+  recordKnowledgeDraftReview as unsupportedRecordKnowledgeDraftReview,
   searchKnowledgeDocuments as unsupportedSearchKnowledgeDocuments,
 } from "./memoryUnsupportedWorkspaceApi";
 import {
@@ -95,6 +97,10 @@ import {
   listMemoryAgentQueueWorkers,
   updateMemoryAgentQueueWorker,
 } from "./memoryAgentQueueWorkersApi";
+import {
+  listKnowledgeDraftReviews as listMemoryKnowledgeDraftReviews,
+  recordKnowledgeDraftReview as recordMemoryKnowledgeDraftReview,
+} from "./memoryKnowledgeDraftReviewApi";
 import {
   createWorkspaceNote as createMemoryWorkspaceNote,
   getWorkspaceNote as getMemoryWorkspaceNote,
@@ -166,6 +172,8 @@ const memoryKnowledgeDocumentsApi = import.meta.env.DEV
       updateKnowledgeDocument: updateMemoryKnowledgeDocument,
       deleteKnowledgeDocument: deleteMemoryKnowledgeDocument,
       searchKnowledgeDocuments: searchMemoryKnowledgeDocuments,
+      recordKnowledgeDraftReview: recordMemoryKnowledgeDraftReview,
+      listKnowledgeDraftReviews: listMemoryKnowledgeDraftReviews,
     }
   : {
       createKnowledgeDocument: unsupportedCreateKnowledgeDocument,
@@ -174,6 +182,8 @@ const memoryKnowledgeDocumentsApi = import.meta.env.DEV
       updateKnowledgeDocument: unsupportedUpdateKnowledgeDocument,
       deleteKnowledgeDocument: unsupportedDeleteKnowledgeDocument,
       searchKnowledgeDocuments: unsupportedSearchKnowledgeDocuments,
+      recordKnowledgeDraftReview: unsupportedRecordKnowledgeDraftReview,
+      listKnowledgeDraftReviews: unsupportedListKnowledgeDraftReviews,
     };
 const memoryAgentQueueWorkersApi = import.meta.env.DEV
   ? {
@@ -214,6 +224,8 @@ export const memoryWorkspaceApi: WorkspaceApi = {
   updateKnowledgeDocument: memoryKnowledgeDocumentsApi.updateKnowledgeDocument,
   deleteKnowledgeDocument: memoryKnowledgeDocumentsApi.deleteKnowledgeDocument,
   searchKnowledgeDocuments: memoryKnowledgeDocumentsApi.searchKnowledgeDocuments,
+  recordKnowledgeDraftReview: memoryKnowledgeDocumentsApi.recordKnowledgeDraftReview,
+  listKnowledgeDraftReviews: memoryKnowledgeDocumentsApi.listKnowledgeDraftReviews,
   createJdbcConnector,
   listJdbcConnectors,
   getJdbcConnector,

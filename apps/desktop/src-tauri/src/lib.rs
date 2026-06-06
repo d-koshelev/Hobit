@@ -58,6 +58,8 @@ mod knowledge_documents_commands;
 mod knowledge_documents_dto;
 #[cfg(test)]
 mod knowledge_documents_dto_tests;
+mod knowledge_draft_review_commands;
+mod knowledge_draft_review_dto;
 mod notes_commands;
 mod notes_dto;
 #[cfg(test)]
@@ -161,6 +163,8 @@ pub fn run() {
             knowledge_documents_commands::delete_knowledge_document,
             knowledge_documents_commands::search_knowledge_documents,
             knowledge_document_import_commands::read_knowledge_document_import_file,
+            knowledge_draft_review_commands::record_knowledge_draft_review,
+            knowledge_draft_review_commands::list_knowledge_draft_reviews,
             jdbc_connector_commands::create_jdbc_connector,
             jdbc_connector_commands::list_jdbc_connectors,
             jdbc_connector_commands::get_jdbc_connector,

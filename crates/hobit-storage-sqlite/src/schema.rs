@@ -232,6 +232,25 @@ CREATE TABLE IF NOT EXISTS knowledge_document_chunks (
     created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS knowledge_draft_review_ledger (
+    review_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    draft_pack_id TEXT NOT NULL,
+    source_fingerprint TEXT NOT NULL DEFAULT '',
+    source_queue_item_id TEXT NULL,
+    source_run_id TEXT NULL,
+    proposed_item_id TEXT NOT NULL,
+    proposed_item_key TEXT NOT NULL,
+    action TEXT NOT NULL,
+    reviewed_at TEXT NOT NULL,
+    accepted_knowledge_document_id TEXT NULL REFERENCES knowledge_documents(knowledge_document_id) ON DELETE SET NULL,
+    accepted_skill_id TEXT NULL REFERENCES skills(skill_id) ON DELETE SET NULL,
+    rejection_reason TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(workspace_id, draft_pack_id, proposed_item_id)
+);
+
 CREATE TABLE IF NOT EXISTS jdbc_connectors (
     connector_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -397,4 +416,10 @@ CREATE INDEX IF NOT EXISTS idx_knowledge_document_chunks_scope
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_documents_searchable
     ON knowledge_documents(searchable);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_draft_review_ledger_workspace_pack
+    ON knowledge_draft_review_ledger(workspace_id, draft_pack_id);
+
+CREATE INDEX IF NOT EXISTS idx_knowledge_draft_review_ledger_workspace_source
+    ON knowledge_draft_review_ledger(workspace_id, source_fingerprint);
 "#;

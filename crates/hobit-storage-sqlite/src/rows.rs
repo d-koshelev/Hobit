@@ -254,6 +254,25 @@ pub struct KnowledgeDocumentSearchResultRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct KnowledgeDraftReviewRecordRow {
+    pub review_id: String,
+    pub workspace_id: String,
+    pub draft_pack_id: String,
+    pub source_fingerprint: String,
+    pub source_queue_item_id: Option<String>,
+    pub source_run_id: Option<String>,
+    pub proposed_item_id: String,
+    pub proposed_item_key: String,
+    pub action: String,
+    pub reviewed_at: String,
+    pub accepted_knowledge_document_id: Option<String>,
+    pub accepted_skill_id: Option<String>,
+    pub rejection_reason: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct JdbcConnectorRow {
     pub connector_id: String,
     pub workspace_id: String,

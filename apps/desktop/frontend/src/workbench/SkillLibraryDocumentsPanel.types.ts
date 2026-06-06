@@ -20,8 +20,10 @@ export type SkillLibraryDocumentsPanelProps = {
   onGetKnowledgeDocument: WidgetRenderProps["onGetKnowledgeDocument"];
   onGetSkill: WidgetRenderProps["onGetSkill"];
   onListKnowledgeDocuments: WidgetRenderProps["onListKnowledgeDocuments"];
+  onListKnowledgeDraftReviews: WidgetRenderProps["onListKnowledgeDraftReviews"];
   onListSkills: WidgetRenderProps["onListSkills"];
   onReadKnowledgeDocumentImportFile: WidgetRenderProps["onReadKnowledgeDocumentImportFile"];
+  onRecordKnowledgeDraftReview: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   onToolbarStateChange: (state: SkillLibraryDocumentsToolbarState) => void;
   onUpdateKnowledgeDocument: WidgetRenderProps["onUpdateKnowledgeDocument"];
   onUpdateSkill: WidgetRenderProps["onUpdateSkill"];

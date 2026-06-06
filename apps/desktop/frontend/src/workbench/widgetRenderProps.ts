@@ -48,8 +48,10 @@ import type {
   GitLog,
   GitRepositoryStatus,
   KnowledgeDocument,
+  KnowledgeDraftReviewDecision,
   KnowledgeDocumentImportFile,
   KnowledgeDocumentSearchResult,
+  ListKnowledgeDraftReviewsRequest,
   CreateTerminalPtySessionRequest,
   ListTerminalPtySessionsRequest,
   RunCodexDirectWorkRequest,
@@ -61,6 +63,7 @@ import type {
   ResizeTerminalPtySessionRequest,
   ReadKnowledgeDocumentImportFileRequest,
   SearchKnowledgeDocumentsRequest,
+  RecordKnowledgeDraftReviewRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartAgentQueueRunnerSessionRequest,
@@ -432,6 +435,12 @@ export type WidgetRenderProps = {
   onSearchKnowledgeDocuments?: (
     request: Omit<SearchKnowledgeDocumentsRequest, "workspaceId">,
   ) => Promise<KnowledgeDocumentSearchResult[]>;
+  onRecordKnowledgeDraftReview?: (
+    request: Omit<RecordKnowledgeDraftReviewRequest, "workspaceId">,
+  ) => Promise<KnowledgeDraftReviewDecision>;
+  onListKnowledgeDraftReviews?: (
+    request: Omit<ListKnowledgeDraftReviewsRequest, "workspaceId">,
+  ) => Promise<KnowledgeDraftReviewDecision[]>;
   queueTaskAutoRefreshRequest?: DirectWorkQueueTaskAutoRefreshRequest | null;
   title: string;
   workspaceId?: string;

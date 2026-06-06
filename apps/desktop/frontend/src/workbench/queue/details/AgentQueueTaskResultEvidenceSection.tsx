@@ -36,6 +36,8 @@ export function AgentQueueTaskResultEvidenceSection({
   onShowQueueReportInWorkspaceChat,
   onCreateKnowledgeDocument,
   onCreateSkill,
+  onListKnowledgeDraftReviews,
+  onRecordKnowledgeDraftReview,
   queue,
   selectedTask,
 }: {
@@ -44,6 +46,8 @@ export function AgentQueueTaskResultEvidenceSection({
   ) => void;
   onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
   onCreateSkill: WidgetRenderProps["onCreateSkill"];
+  onListKnowledgeDraftReviews: WidgetRenderProps["onListKnowledgeDraftReviews"];
+  onRecordKnowledgeDraftReview: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   queue: AgentQueueController;
   selectedTask: SelectedAgentQueueTask;
 }) {
@@ -82,6 +86,8 @@ export function AgentQueueTaskResultEvidenceSection({
         <WorkerReportEvidenceSummary
           onCreateKnowledgeDocument={onCreateKnowledgeDocument}
           onCreateSkill={onCreateSkill}
+          onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+          onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
           onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
           queue={queue}
           report={report}
@@ -92,6 +98,8 @@ export function AgentQueueTaskResultEvidenceSection({
           evidence={runEvidence}
           onCreateKnowledgeDocument={onCreateKnowledgeDocument}
           onCreateSkill={onCreateSkill}
+          onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+          onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
           queue={queue}
         />
       ) : hasFinishedRunLink(queue) || isReportReadyStatus(selectedTask.status) ? (
@@ -148,6 +156,8 @@ export function AgentQueueTaskResultEvidenceSection({
 function WorkerReportEvidenceSummary({
   onCreateKnowledgeDocument,
   onCreateSkill,
+  onListKnowledgeDraftReviews,
+  onRecordKnowledgeDraftReview,
   onShowQueueReportInWorkspaceChat,
   queue,
   report,
@@ -155,6 +165,8 @@ function WorkerReportEvidenceSummary({
 }: {
   onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
   onCreateSkill: WidgetRenderProps["onCreateSkill"];
+  onListKnowledgeDraftReviews: WidgetRenderProps["onListKnowledgeDraftReviews"];
+  onRecordKnowledgeDraftReview: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
@@ -182,6 +194,8 @@ function WorkerReportEvidenceSummary({
         <AgentQueueKnowledgeDraftReview
           onCreateKnowledgeDocument={onCreateKnowledgeDocument}
           onCreateSkill={onCreateSkill}
+          onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+          onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
           pack={draftPack}
         />
       ) : null}
@@ -308,11 +322,15 @@ export function DirectWorkEvidenceSummary({
   evidence,
   onCreateKnowledgeDocument,
   onCreateSkill,
+  onListKnowledgeDraftReviews,
+  onRecordKnowledgeDraftReview,
   queue,
 }: {
   evidence: DirectWorkEvidence;
   onCreateKnowledgeDocument?: WidgetRenderProps["onCreateKnowledgeDocument"];
   onCreateSkill?: WidgetRenderProps["onCreateSkill"];
+  onListKnowledgeDraftReviews?: WidgetRenderProps["onListKnowledgeDraftReviews"];
+  onRecordKnowledgeDraftReview?: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   queue: AgentQueueController;
 }) {
   const failed = evidence.status === "failed";
@@ -331,6 +349,8 @@ export function DirectWorkEvidenceSummary({
         <AgentQueueKnowledgeDraftReview
           onCreateKnowledgeDocument={onCreateKnowledgeDocument}
           onCreateSkill={onCreateSkill}
+          onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+          onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
           pack={draftPack}
         />
       ) : null}

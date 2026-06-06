@@ -83,17 +83,25 @@ describe("Knowledge production DTO model", () => {
       warnings: [warning],
     };
     const decision: KnowledgeDraftReviewDecision = {
-      decidedAt: "2026-06-04T10:05:00.000Z",
-      decision: "accepted",
-      decisionId: "decision_1",
-      queueItemId: "task_1",
-      reason: "Operator accepted bounded draft.",
-      resultingItemIds: ["kdoc_1"],
-      resultingVersionIds: ["version_1"],
+      acceptedKnowledgeDocumentId: "kdoc_1",
+      acceptedSkillId: null,
+      action: "accepted",
+      createdAt: "2026-06-04T10:05:00.000Z",
+      draftPackId: "pack_1",
+      proposedItemId: "draft_1",
+      proposedItemKey: "pack_1|draft_1",
+      rejectionReason: null,
+      reviewedAt: "2026-06-04T10:05:00.000Z",
+      reviewId: "decision_1",
+      sourceFingerprint: "queue:task_1|pack:pack_1",
+      sourceQueueItemId: "task_1",
+      sourceRunId: null,
+      updatedAt: "2026-06-04T10:05:00.000Z",
+      workspaceId: "ws_1",
     };
 
     expect(snapshot.content).toBe("Bounded excerpt only.");
     expect(snapshot.warnings[0]?.severity).toBe("warning");
-    expect(decision.decision).toBe("accepted");
+    expect(decision.action).toBe("accepted");
   });
 });

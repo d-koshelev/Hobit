@@ -12,17 +12,19 @@ pub use crate::inputs::{
     AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, AgentQueueWorkerUpdate,
     JdbcConnectionProfileUpdate, JdbcConnectorUpdate, KnowledgeDocumentUpdate, NewAgentQueueItem,
     NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewJdbcConnectionProfile,
-    NewJdbcConnector, NewKnowledgeDocument, NewSharedStateObject, NewSkill, NewWidgetInstance,
-    NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession,
-    SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
+    NewJdbcConnector, NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject,
+    NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
+    NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
+    WorkspaceNoteUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
     AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerRow,
     JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    KnowledgeDocumentSearchResultRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow,
-    WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
-    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    KnowledgeDocumentSearchResultRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow,
+    SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
+    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    WorkspaceWorkbenchRow,
 };
 use crate::schema;
 
@@ -35,6 +37,7 @@ mod jdbc_connection_profiles;
 mod jdbc_connectors;
 mod knowledge_document_schema;
 mod knowledge_documents;
+mod knowledge_draft_review_ledger;
 mod knowledge_search;
 mod notes;
 mod sessions;
@@ -63,6 +66,8 @@ mod knowledge_document_schema_tests;
 mod knowledge_documents_production_tests;
 #[cfg(test)]
 mod knowledge_documents_tests;
+#[cfg(test)]
+mod knowledge_draft_review_ledger_tests;
 #[cfg(test)]
 mod notes_tests;
 #[cfg(test)]

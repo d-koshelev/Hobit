@@ -297,6 +297,13 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
       updatedAt: "2026-05-22T10:02:00.000Z",
       workspaceId: "ws_1",
     }));
+    const recordKnowledgeDraftReview = vi.fn(async (request) => ({
+      ...request,
+      createdAt: request.reviewedAt,
+      reviewId: `review_${request.proposedItemId}`,
+      updatedAt: request.reviewedAt,
+      workspaceId: "ws_1",
+    }));
     const report = workerReport({
       rawReportPreview: JSON.stringify({
         draftPackId: "pack_queue_1",
@@ -341,6 +348,7 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     renderDetailsPanel({
       onCreateKnowledgeDocument: createKnowledgeDocument,
       onCreateSkill: createSkill,
+      onRecordKnowledgeDraftReview: recordKnowledgeDraftReview,
       selectedTask,
       tasks: [selectedTask],
       workerReport: workerReportController(report),
@@ -378,6 +386,19 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
         title: "Queue draft review",
       }),
     );
+    expect(recordKnowledgeDraftReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        acceptedKnowledgeDocumentId: "doc_queue_1",
+        acceptedSkillId: null,
+        action: "accepted",
+        draftPackId: "pack_queue_1",
+        proposedItemId: "draft_doc",
+        proposedItemKey:
+          "pack_queue_1|draft_doc|queue:task_1;draft:draft_doc",
+        sourceFingerprint: "queue:task_1|pack:pack_queue_1|source:Queue task task_1",
+        sourceQueueItemId: "task_1",
+      }),
+    );
 
     await clickButtonAsync("Accept as Skill");
 
@@ -391,6 +412,15 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
         whenToUse: "Use when reviewing generated Queue drafts.",
       }),
     );
+    expect(recordKnowledgeDraftReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        acceptedKnowledgeDocumentId: null,
+        acceptedSkillId: "skill_queue_1",
+        action: "accepted",
+        draftPackId: "pack_queue_1",
+        proposedItemId: "draft_skill",
+      }),
+    );
 
     await clickButtonAsync("Reject / leave unaccepted");
 
@@ -399,6 +429,115 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     expect(sectionText("Result / Evidence")).toContain("Not saved as Knowledge");
     expect(createKnowledgeDocument).toHaveBeenCalledTimes(1);
     expect(createSkill).toHaveBeenCalledTimes(1);
+    expect(recordKnowledgeDraftReview).toHaveBeenCalledWith(
+      expect.objectContaining({
+        acceptedKnowledgeDocumentId: null,
+        acceptedSkillId: null,
+        action: "rejected",
+        draftPackId: "pack_queue_1",
+        proposedItemId: "draft_reject",
+        rejectionReason: null,
+      }),
+    );
+    expect(recordKnowledgeDraftReview).toHaveBeenCalledTimes(3);
+  });
+
+  it("reloads existing Queue draft review ledger decisions without creating hidden Knowledge", async () => {
+    const createKnowledgeDocument = vi.fn();
+    const createSkill = vi.fn();
+    const listKnowledgeDraftReviews = vi.fn(async () => [
+      {
+        acceptedKnowledgeDocumentId: "doc_existing_1",
+        acceptedSkillId: null,
+        action: "accepted" as const,
+        createdAt: "2026-05-22T10:02:00.000Z",
+        draftPackId: "pack_queue_reopen",
+        proposedItemId: "draft_doc",
+        proposedItemKey:
+          "pack_queue_reopen|draft_doc|queue:task_1;draft:draft_doc",
+        rejectionReason: null,
+        reviewedAt: "2026-05-22T10:02:00.000Z",
+        reviewId: "review_existing_doc",
+        sourceFingerprint:
+          "queue:task_1|pack:pack_queue_reopen|source:Queue task task_1",
+        sourceQueueItemId: "task_1",
+        sourceRunId: null,
+        updatedAt: "2026-05-22T10:02:00.000Z",
+        workspaceId: "ws_1",
+      },
+      {
+        acceptedKnowledgeDocumentId: null,
+        acceptedSkillId: null,
+        action: "rejected" as const,
+        createdAt: "2026-05-22T10:03:00.000Z",
+        draftPackId: "pack_queue_reopen",
+        proposedItemId: "draft_reject",
+        proposedItemKey:
+          "pack_queue_reopen|draft_reject|queue:task_1;draft:draft_reject",
+        rejectionReason: null,
+        reviewedAt: "2026-05-22T10:03:00.000Z",
+        reviewId: "review_existing_reject",
+        sourceFingerprint:
+          "queue:task_1|pack:pack_queue_reopen|source:Queue task task_1",
+        sourceQueueItemId: "task_1",
+        sourceRunId: null,
+        updatedAt: "2026-05-22T10:03:00.000Z",
+        workspaceId: "ws_1",
+      },
+    ]);
+    const report = workerReport({
+      rawReportPreview: JSON.stringify({
+        draftPackId: "pack_queue_reopen",
+        packTitle: "Reopened Knowledge Pack",
+        proposedItems: [
+          {
+            draftItemId: "draft_doc",
+            fullContent: "Already accepted draft.",
+            quickSummary: "Already accepted.",
+            suggestedType: "documentation_knowledge",
+            title: "Accepted draft",
+          },
+          {
+            draftItemId: "draft_reject",
+            fullContent: "Already rejected draft.",
+            quickSummary: "Already rejected.",
+            suggestedType: "known_issue",
+            title: "Rejected draft",
+          },
+        ],
+        queueItemId: "task_1",
+      }),
+      reportStatus: "completed",
+    });
+    const selectedTask = {
+      ...queueTask(),
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [report],
+    };
+
+    renderDetailsPanel({
+      onCreateKnowledgeDocument: createKnowledgeDocument,
+      onCreateSkill: createSkill,
+      onListKnowledgeDraftReviews: listKnowledgeDraftReviews,
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(report),
+    });
+
+    await flushAsync();
+
+    const resultText = sectionText("Result / Evidence");
+
+    expect(listKnowledgeDraftReviews).toHaveBeenCalledWith({
+      draftPackId: "pack_queue_reopen",
+      sourceFingerprint:
+        "queue:task_1|pack:pack_queue_reopen|source:Queue task task_1",
+    });
+    expect(resultText).toContain("Accepted");
+    expect(resultText).toContain("Rejected for this review");
+    expect(createKnowledgeDocument).not.toHaveBeenCalled();
+    expect(createSkill).not.toHaveBeenCalled();
   });
 
   it("shows draft acceptance as unavailable when Queue lacks Knowledge create callbacks", () => {
@@ -828,6 +967,13 @@ async function clickButtonAsync(text: string) {
 
   await act(async () => {
     button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
+async function flushAsync() {
+  await act(async () => {
+    await Promise.resolve();
     await Promise.resolve();
   });
 }

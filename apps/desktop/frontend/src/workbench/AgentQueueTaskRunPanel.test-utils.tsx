@@ -131,6 +131,8 @@ export function renderDetailsPanel({
   latestRun = latestRunController(null),
   onCreateKnowledgeDocument,
   onCreateSkill,
+  onListKnowledgeDraftReviews,
+  onRecordKnowledgeDraftReview,
   onShowQueueReportInWorkspaceChat,
   reportActionCard,
   run = runController(),
@@ -157,6 +159,12 @@ export function renderDetailsPanel({
   onCreateSkill?: ComponentProps<
     typeof AgentQueueTaskDetailsPanel
   >["onCreateSkill"];
+  onListKnowledgeDraftReviews?: ComponentProps<
+    typeof AgentQueueTaskDetailsPanel
+  >["onListKnowledgeDraftReviews"];
+  onRecordKnowledgeDraftReview?: ComponentProps<
+    typeof AgentQueueTaskDetailsPanel
+  >["onRecordKnowledgeDraftReview"];
   onShowQueueReportInWorkspaceChat?: ComponentProps<
     typeof AgentQueueTaskDetailsPanel
   >["onShowQueueReportInWorkspaceChat"];
@@ -363,6 +371,8 @@ export function renderDetailsPanel({
         onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
         onCreateKnowledgeDocument={onCreateKnowledgeDocument}
         onCreateSkill={onCreateSkill}
+        onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+        onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
         selectedTaskHint="Task hint"
         statusInputId="status"
         titleInputId="title"

@@ -5,9 +5,9 @@ use rusqlite::Result;
 use crate::rows::{
     AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerRow,
     JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
-    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow,
+    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 pub(crate) fn workspace_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceRow> {
@@ -267,6 +267,28 @@ pub(crate) fn knowledge_document_chunk_row(
         chunk_index: row.get(4)?,
         text: row.get(5)?,
         created_at: row.get(6)?,
+    })
+}
+
+pub(crate) fn knowledge_draft_review_record_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<KnowledgeDraftReviewRecordRow> {
+    Ok(KnowledgeDraftReviewRecordRow {
+        review_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        draft_pack_id: row.get(2)?,
+        source_fingerprint: row.get(3)?,
+        source_queue_item_id: row.get(4)?,
+        source_run_id: row.get(5)?,
+        proposed_item_id: row.get(6)?,
+        proposed_item_key: row.get(7)?,
+        action: row.get(8)?,
+        reviewed_at: row.get(9)?,
+        accepted_knowledge_document_id: row.get(10)?,
+        accepted_skill_id: row.get(11)?,
+        rejection_reason: row.get(12)?,
+        created_at: row.get(13)?,
+        updated_at: row.get(14)?,
     })
 }
 

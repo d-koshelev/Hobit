@@ -32,6 +32,8 @@ type AgentQueueTaskDetailsPanelProps = {
   ) => void;
   onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
   onCreateSkill: WidgetRenderProps["onCreateSkill"];
+  onListKnowledgeDraftReviews: WidgetRenderProps["onListKnowledgeDraftReviews"];
+  onRecordKnowledgeDraftReview: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
@@ -53,6 +55,8 @@ export function AgentQueueTaskDetailsPanel({
   onAttachContextToCoordinator,
   onCreateKnowledgeDocument,
   onCreateSkill,
+  onListKnowledgeDraftReviews,
+  onRecordKnowledgeDraftReview,
   onShowQueueReportInWorkspaceChat,
   priorityInputId,
   promptInputId,
@@ -148,6 +152,8 @@ export function AgentQueueTaskDetailsPanel({
           <AgentQueueTaskResultEvidenceSection
             onCreateKnowledgeDocument={onCreateKnowledgeDocument}
             onCreateSkill={onCreateSkill}
+            onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+            onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
             onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
             queue={queue}
             selectedTask={selectedTask}

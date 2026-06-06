@@ -290,6 +290,25 @@ pub struct KnowledgeDocumentUpdate<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewKnowledgeDraftReviewRecord<'a> {
+    pub review_id: &'a str,
+    pub workspace_id: &'a str,
+    pub draft_pack_id: &'a str,
+    pub source_fingerprint: &'a str,
+    pub source_queue_item_id: Option<&'a str>,
+    pub source_run_id: Option<&'a str>,
+    pub proposed_item_id: &'a str,
+    pub proposed_item_key: &'a str,
+    pub action: &'a str,
+    pub reviewed_at: Option<&'a str>,
+    pub accepted_knowledge_document_id: Option<&'a str>,
+    pub accepted_skill_id: Option<&'a str>,
+    pub rejection_reason: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewJdbcConnector<'a> {
     pub connector_id: &'a str,
     pub workspace_id: &'a str,

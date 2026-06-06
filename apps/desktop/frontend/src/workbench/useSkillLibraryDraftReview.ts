@@ -2,6 +2,8 @@ import { useState } from "react";
 import type { KnowledgeDocument } from "../workspace/types";
 import { acceptKnowledgeDraftItem } from "./knowledgeDraftAcceptance";
 import {
+  knowledgeDraftReviewItemKey,
+  knowledgeDraftReviewSourceFingerprint,
   parseKnowledgeDraftPackFromText,
   type KnowledgeDraftReviewItem,
   type KnowledgeDraftReviewPack,
@@ -13,6 +15,8 @@ type UseSkillLibraryDraftReviewParams = {
   loadDocuments: (preferredDocumentId: string | null) => Promise<void>;
   onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
   onCreateSkill: WidgetRenderProps["onCreateSkill"];
+  onListKnowledgeDraftReviews: WidgetRenderProps["onListKnowledgeDraftReviews"];
+  onRecordKnowledgeDraftReview: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   setDocumentError: (message: string | null) => void;
   setDocumentMessage: (message: string | null) => void;
   setSelectedDocumentDraft: (document: KnowledgeDocument) => void;
@@ -22,6 +26,8 @@ export function useSkillLibraryDraftReview({
   loadDocuments,
   onCreateKnowledgeDocument,
   onCreateSkill,
+  onListKnowledgeDraftReviews,
+  onRecordKnowledgeDraftReview,
   setDocumentError,
   setDocumentMessage,
   setSelectedDocumentDraft,
@@ -63,6 +69,10 @@ export function useSkillLibraryDraftReview({
       } for review.`,
     );
     setDocumentError(null);
+
+    if (onListKnowledgeDraftReviews) {
+      void loadDraftReviewLedger(parsedPack);
+    }
   }
 
   function clearDraftReviewPayload() {
@@ -73,7 +83,29 @@ export function useSkillLibraryDraftReview({
     setDocumentError(null);
   }
 
-  function rejectDraftItem(item: KnowledgeDraftReviewItem) {
+  async function rejectDraftItem(item: KnowledgeDraftReviewItem) {
+    if (draftReviewPack && onRecordKnowledgeDraftReview) {
+      try {
+        await onRecordKnowledgeDraftReview({
+          draftPackId: draftReviewPack.draftPackId,
+          sourceFingerprint:
+            knowledgeDraftReviewSourceFingerprint(draftReviewPack),
+          sourceQueueItemId:
+            item.sourceQueueItemId ?? draftReviewPack.queueItemId,
+          sourceRunId: null,
+          proposedItemId: item.draftItemId,
+          proposedItemKey: knowledgeDraftReviewItemKey(draftReviewPack, item),
+          action: "rejected",
+          reviewedAt: new Date().toISOString(),
+          acceptedKnowledgeDocumentId: null,
+          acceptedSkillId: null,
+          rejectionReason: null,
+        });
+      } catch {
+        // Keep local review behavior when the durable ledger is unavailable.
+      }
+    }
+
     setDraftReviewDecisions((current) => ({
       ...current,
       [item.draftItemId]: "rejected",
@@ -111,6 +143,32 @@ export function useSkillLibraryDraftReview({
         pack: draftReviewPack,
       });
 
+      if (onRecordKnowledgeDraftReview) {
+        try {
+          await onRecordKnowledgeDraftReview({
+            draftPackId: draftReviewPack.draftPackId,
+            sourceFingerprint:
+              knowledgeDraftReviewSourceFingerprint(draftReviewPack),
+            sourceQueueItemId:
+              item.sourceQueueItemId ?? draftReviewPack.queueItemId,
+            sourceRunId: null,
+            proposedItemId: item.draftItemId,
+            proposedItemKey: knowledgeDraftReviewItemKey(draftReviewPack, item),
+            action: "accepted",
+            reviewedAt: new Date().toISOString(),
+            acceptedKnowledgeDocumentId:
+              acceptedDraft.kind === "document"
+                ? acceptedDraft.document.knowledgeDocumentId
+                : null,
+            acceptedSkillId:
+              acceptedDraft.kind === "skill" ? acceptedDraft.skill.skillId : null,
+            rejectionReason: null,
+          });
+        } catch {
+          // The created item remains explicit; local decision state is the fallback.
+        }
+      }
+
       if (acceptedDraft.kind === "skill") {
         await loadDocuments(null);
       } else {
@@ -143,4 +201,34 @@ export function useSkillLibraryDraftReview({
     rejectDraftItem,
     updateDraftPayload,
   };
+
+  async function loadDraftReviewLedger(pack: KnowledgeDraftReviewPack) {
+    if (!onListKnowledgeDraftReviews) {
+      return;
+    }
+
+    try {
+      const ledgerDecisions = await onListKnowledgeDraftReviews({
+        draftPackId: pack.draftPackId,
+        sourceFingerprint: knowledgeDraftReviewSourceFingerprint(pack),
+      });
+
+      if (ledgerDecisions.length === 0) {
+        return;
+      }
+
+      setDraftReviewDecisions((current) => ({
+        ...current,
+        ...Object.fromEntries(
+          ledgerDecisions.map((decision) => [
+            decision.proposedItemId,
+            decision.action === "rejected" ? "rejected" : "accepted",
+          ]),
+        ),
+      }));
+      setDocumentMessage("Loaded previous draft review decisions for this pack.");
+    } catch {
+      // Local review state remains available if the ledger cannot be read.
+    }
+  }
 }

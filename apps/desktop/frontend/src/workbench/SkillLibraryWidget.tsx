@@ -20,6 +20,7 @@ export function SkillLibraryWidget({
   onGetKnowledgeDocument,
   onGetSkill,
   onListKnowledgeDocuments,
+  onListKnowledgeDraftReviews,
   onListSkills,
   onLoadLogs,
   onAttachKnowledgeContextToQueueTask,
@@ -27,6 +28,7 @@ export function SkillLibraryWidget({
   onAttachContextToCoordinator,
   onStartFrameMove,
   onUpdateKnowledgeDocument,
+  onRecordKnowledgeDraftReview,
   onUpdateSkill,
   title,
 }: WidgetRenderProps) {
@@ -92,9 +94,11 @@ export function SkillLibraryWidget({
           onGetKnowledgeDocument={onGetKnowledgeDocument}
           onGetSkill={onGetSkill}
           onListKnowledgeDocuments={onListKnowledgeDocuments}
+          onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
           onListSkills={onListSkills}
           onReadKnowledgeDocumentImportFile={onReadKnowledgeDocumentImportFile}
           onToolbarStateChange={onDocumentsToolbarStateChange}
+          onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
           onUpdateKnowledgeDocument={onUpdateKnowledgeDocument}
           onUpdateSkill={onUpdateSkill}
           ref={documentsPanelRef}

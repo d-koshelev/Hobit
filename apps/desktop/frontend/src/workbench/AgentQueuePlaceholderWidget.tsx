@@ -47,6 +47,8 @@ export function AgentQueuePlaceholderWidget({
   onAttachContextToCoordinator,
   onCreateKnowledgeDocument,
   onCreateSkill,
+  onListKnowledgeDraftReviews,
+  onRecordKnowledgeDraftReview,
   onShowQueueReportInWorkspaceChat,
   onOpenAgentExecutorRun,
   onStartFrameMove,
@@ -268,6 +270,8 @@ export function AgentQueuePlaceholderWidget({
                 onAttachContextToCoordinator={onAttachContextToCoordinator}
                 onCreateKnowledgeDocument={onCreateKnowledgeDocument}
                 onCreateSkill={onCreateSkill}
+                onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+                onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
                 onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
                 onOpenAgentExecutorRun={onOpenAgentExecutorRun}
                 selectedTaskHint={selectedTaskHint}

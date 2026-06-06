@@ -44,6 +44,8 @@ mod jdbc_sidecar_protocol;
 mod knowledge_document_search;
 mod knowledge_document_types;
 mod knowledge_documents;
+mod knowledge_draft_review_ledger;
+mod knowledge_draft_review_types;
 mod logs;
 mod mapping;
 mod notes;
@@ -115,6 +117,8 @@ mod jdbc_sidecar_protocol_tests;
 #[cfg(test)]
 mod knowledge_documents_tests;
 #[cfg(test)]
+mod knowledge_draft_review_ledger_tests;
+#[cfg(test)]
 mod notes_tests;
 #[cfg(test)]
 mod skills_tests;
@@ -175,6 +179,9 @@ pub use knowledge_document_types::{
     CreateKnowledgeDocumentInput, DeleteKnowledgeDocumentInput,
     KnowledgeDocumentSearchResultSummary, KnowledgeDocumentSummary, SearchKnowledgeDocumentsInput,
     UpdateKnowledgeDocumentInput,
+};
+pub use knowledge_draft_review_types::{
+    KnowledgeDraftReviewSummary, ListKnowledgeDraftReviewsInput, RecordKnowledgeDraftReviewInput,
 };
 pub use types::{
     AgentChatAiProposalProvider, AgentChatAiProposalRunSummary, AgentChatAiProviderOutcome,

@@ -19,16 +19,18 @@ pub use inputs::{
     AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, AgentQueueWorkerUpdate,
     JdbcConnectionProfileUpdate, JdbcConnectorUpdate, KnowledgeDocumentUpdate, NewAgentQueueItem,
     NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewJdbcConnectionProfile,
-    NewJdbcConnector, NewKnowledgeDocument, NewSharedStateObject, NewSkill, NewWidgetInstance,
-    NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession,
-    SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
+    NewJdbcConnector, NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject,
+    NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
+    NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
+    WorkspaceNoteUpdate,
 };
 pub use rows::{
     AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerRow,
     JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    KnowledgeDocumentSearchResultRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow,
-    WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
-    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    KnowledgeDocumentSearchResultRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow,
+    SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
+    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    WorkspaceWorkbenchRow,
 };
 pub use rusqlite::Error as StorageError;
 pub use store::SqliteStore;

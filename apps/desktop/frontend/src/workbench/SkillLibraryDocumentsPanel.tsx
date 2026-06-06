@@ -14,7 +14,6 @@ import { useSkillLibraryCatalogAttachments } from "./useSkillLibraryCatalogAttac
 import { useSkillLibraryDocumentImport } from "./useSkillLibraryDocumentImport";
 import { useSkillLibraryDraftReview } from "./useSkillLibraryDraftReview";
 import { useSkillLibrarySkillPanelActions } from "./useSkillLibrarySkillPanelActions";
-
 export type {
   SkillLibraryDocumentsPanelHandle,
   SkillLibraryDocumentsToolbarState,
@@ -33,8 +32,10 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
     onGetKnowledgeDocument,
     onGetSkill,
     onListKnowledgeDocuments,
+    onListKnowledgeDraftReviews,
     onListSkills,
     onReadKnowledgeDocumentImportFile,
+    onRecordKnowledgeDraftReview,
     onToolbarStateChange,
     onUpdateKnowledgeDocument,
     onUpdateSkill,
@@ -124,6 +125,8 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
     loadDocuments,
     onCreateKnowledgeDocument,
     onCreateSkill,
+    onListKnowledgeDraftReviews,
+    onRecordKnowledgeDraftReview,
     setDocumentError,
     setDocumentMessage,
     setSelectedDocumentDraft,
@@ -645,7 +648,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
         onLoadSelectedImportFile={() => void loadSelectedImportFile()}
         onMarkStale={() => void updateSelectedDocumentLifecycle("stale")}
         onPickImportFile={() => void pickDesktopImportFile()}
-        onRejectDraftItem={rejectDraftItem}
+        onRejectDraftItem={(item) => void rejectDraftItem(item)}
         onRestoreDocument={() => void updateSelectedDocumentLifecycle("active")}
         onSaveDocument={() => void saveDocument()}
         onShowSkillsInCatalog={showSkillsInCatalog}

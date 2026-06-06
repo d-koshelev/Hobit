@@ -112,6 +112,20 @@ export const searchKnowledgeDocuments: WorkspaceApi["searchKnowledgeDocuments"] 
     );
   };
 
+export const recordKnowledgeDraftReview: WorkspaceApi["recordKnowledgeDraftReview"] =
+  async (_request) => {
+    throw new Error(
+      "Knowledge draft review ledger persistence is only available in the Tauri desktop shell. Browser fallback cannot persist draft review decisions.",
+    );
+  };
+
+export const listKnowledgeDraftReviews: WorkspaceApi["listKnowledgeDraftReviews"] =
+  async (_request) => {
+    throw new Error(
+      "Knowledge draft review ledger persistence is only available in the Tauri desktop shell. Browser fallback cannot read draft review decisions.",
+    );
+  };
+
 export const createJdbcConnector: WorkspaceApi["createJdbcConnector"] = async (
   _request,
 ) => {

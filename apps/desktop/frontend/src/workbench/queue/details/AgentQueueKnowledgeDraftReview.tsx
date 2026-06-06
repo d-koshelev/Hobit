@@ -4,6 +4,8 @@ import { Button } from "../../../design-system/Button";
 import { acceptKnowledgeDraftItem } from "../../knowledgeDraftAcceptance";
 import {
   knowledgeDraftAcceptedSourceRef,
+  knowledgeDraftReviewItemKey,
+  knowledgeDraftReviewSourceFingerprint,
   type KnowledgeDraftReviewItem,
   type KnowledgeDraftReviewPack,
 } from "../../knowledgeDraftPacks";
@@ -15,10 +17,14 @@ type QueueDraftReviewDecision = "accepted" | "pending" | "rejected";
 export function AgentQueueKnowledgeDraftReview({
   onCreateKnowledgeDocument,
   onCreateSkill,
+  onListKnowledgeDraftReviews,
+  onRecordKnowledgeDraftReview,
   pack,
 }: {
   onCreateKnowledgeDocument: WidgetRenderProps["onCreateKnowledgeDocument"];
   onCreateSkill: WidgetRenderProps["onCreateSkill"];
+  onListKnowledgeDraftReviews: WidgetRenderProps["onListKnowledgeDraftReviews"];
+  onRecordKnowledgeDraftReview: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   pack: KnowledgeDraftReviewPack;
 }) {
   const [acceptingItemId, setAcceptingItemId] = useState<string | null>(null);
@@ -29,13 +35,70 @@ export function AgentQueueKnowledgeDraftReview({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let isActive = true;
+
     setAcceptingItemId(null);
     setDecisions({});
     setMessage(null);
     setError(null);
-  }, [pack.draftPackId, pack.rawJson]);
 
-  function rejectDraftItem(item: KnowledgeDraftReviewItem) {
+    if (!onListKnowledgeDraftReviews) {
+      return () => {
+        isActive = false;
+      };
+    }
+
+    void onListKnowledgeDraftReviews({
+      draftPackId: pack.draftPackId,
+      sourceFingerprint: knowledgeDraftReviewSourceFingerprint(pack),
+    })
+      .then((ledgerDecisions) => {
+        if (!isActive || ledgerDecisions.length === 0) {
+          return;
+        }
+
+        setDecisions(
+          Object.fromEntries(
+            ledgerDecisions.map((decision) => [
+              decision.proposedItemId,
+              decision.action === "rejected" ? "rejected" : "accepted",
+            ]),
+          ),
+        );
+        setMessage("Loaded previous draft review decisions for this pack.");
+      })
+      .catch(() => {
+        if (isActive) {
+          setMessage(null);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [onListKnowledgeDraftReviews, pack.draftPackId, pack.rawJson]);
+
+  async function rejectDraftItem(item: KnowledgeDraftReviewItem) {
+    if (onRecordKnowledgeDraftReview) {
+      try {
+        await onRecordKnowledgeDraftReview({
+          draftPackId: pack.draftPackId,
+          sourceFingerprint: knowledgeDraftReviewSourceFingerprint(pack),
+          sourceQueueItemId: item.sourceQueueItemId ?? pack.queueItemId,
+          sourceRunId: null,
+          proposedItemId: item.draftItemId,
+          proposedItemKey: knowledgeDraftReviewItemKey(pack, item),
+          action: "rejected",
+          reviewedAt: new Date().toISOString(),
+          acceptedKnowledgeDocumentId: null,
+          acceptedSkillId: null,
+          rejectionReason: null,
+        });
+      } catch {
+        // Keep local review behavior when the durable ledger is unavailable.
+      }
+    }
+
     setDecisions((current) => ({
       ...current,
       [item.draftItemId]: "rejected",
@@ -60,6 +123,30 @@ export function AgentQueueKnowledgeDraftReview({
         onCreateSkill,
         pack,
       });
+
+      if (onRecordKnowledgeDraftReview) {
+        try {
+          await onRecordKnowledgeDraftReview({
+            draftPackId: pack.draftPackId,
+            sourceFingerprint: knowledgeDraftReviewSourceFingerprint(pack),
+            sourceQueueItemId: item.sourceQueueItemId ?? pack.queueItemId,
+            sourceRunId: null,
+            proposedItemId: item.draftItemId,
+            proposedItemKey: knowledgeDraftReviewItemKey(pack, item),
+            action: "accepted",
+            reviewedAt: new Date().toISOString(),
+            acceptedKnowledgeDocumentId:
+              accepted.kind === "document"
+                ? accepted.document.knowledgeDocumentId
+                : null,
+            acceptedSkillId:
+              accepted.kind === "skill" ? accepted.skill.skillId : null,
+            rejectionReason: null,
+          });
+        } catch {
+          // The created item remains explicit; local decision state is the fallback.
+        }
+      }
 
       setDecisions((current) => ({
         ...current,
@@ -106,7 +193,7 @@ export function AgentQueueKnowledgeDraftReview({
             onAccept={() => void acceptDraft(item)}
             onCreateKnowledgeDocument={onCreateKnowledgeDocument}
             onCreateSkill={onCreateSkill}
-            onReject={() => rejectDraftItem(item)}
+            onReject={() => void rejectDraftItem(item)}
             pack={pack}
           />
         ))}
