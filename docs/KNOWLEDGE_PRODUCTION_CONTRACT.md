@@ -65,7 +65,32 @@ Each Knowledge item record must include:
 - `createdByTaskId` (when generated from a Queue task)
 - `createdFromRunId` (when generated from a run context)
 
-`sourceRefs` and `relations` must be explicit and reviewable.
+Field rules:
+
+- `quickSummary` is the default scan, review, search-result, attachment, and
+  materialization preview. It must be bounded to one to three lines and must
+  not replace `fullContent` as the durable source.
+- `fullContent` is the reviewed body for the Knowledge item. It is not copied
+  into prompts, Queue tasks, Executor runs, or provider requests by default.
+- `scope` is either `global` or `workspace-local` for this tranche. `global`
+  means local-user/global project memory in the local Hobit installation, not
+  team/server memory.
+- `enabled` controls whether an otherwise eligible item can be selected or
+  materialized.
+- `searchable` controls whether an otherwise eligible item appears in normal
+  search/retrieval surfaces.
+- `sourceRefs` must be explicit, reviewable refs to files, docs, URLs, Queue
+  tasks, runs, command summaries, decisions, imported documents, or
+  operator-authored sources. Source refs should carry label, kind/origin,
+  selector, source version/hash/timestamp where available, selected-at or
+  captured-at timestamp, and redaction/cap notes when relevant.
+- `relations` must be explicit, reviewable links to other Knowledge items,
+  Queue tasks, runs, decisions, validation rules, known issues, source docs, or
+  artifacts. Relations are for navigation/provenance only in this tranche; they
+  do not create a graph canvas, hidden traversal, or automatic context.
+- `createdByTaskId` and `createdFromRunId` are required when available and
+  must remain nullable/absent only when the item was not created from a task or
+  run, or when the source predates this production model.
 
 ## 4) Search and Activation Rules
 
@@ -76,6 +101,15 @@ Each Knowledge item record must include:
 - Disabled, rejected, stale, and archived items may be displayed only in review/history surfaces.
 - Rejected items must not be attachable, searchable, or auto-materialized in any run path.
 - Draft items are never auto-materialized; they require explicit acceptance flow.
+- Stale items may appear in maintenance/review surfaces and may be attached
+  only through a visible warning and acknowledgement policy defined by the
+  consuming surface. They must not be silently used as current guidance.
+- Archived items are retained for history and should be blocked for normal
+  attach/materialization unless a future explicit recovery/reuse flow restores
+  them to `active`.
+- Search and activation state must be derived from the item record and current
+  lifecycle policy, not from provider memory, local hidden caches, embeddings,
+  background indexes, or previous prompt context.
 
 ## 5) Lifecycle
 
@@ -89,6 +123,21 @@ Valid lifecycle values:
 
 Transitions are explicit and operator-visible.
 
+Minimum lifecycle transition rules:
+
+- `draft -> active`: allowed only after explicit operator review and accept.
+- `draft -> rejected`: allowed after explicit operator reject; rejected content
+  must not become active project memory.
+- `active -> stale`: allowed when source drift, age, conflicting evidence, or
+  operator judgment marks the item suspect.
+- `stale -> active`: allowed only after refresh/review confirms the item is
+  current.
+- `active | stale | draft -> archived`: allowed as explicit retirement while
+  preserving history.
+- `rejected -> active`: blocked by default. A future explicit recovery flow
+  must create a new reviewed version/snapshot rather than silently reusing the
+  rejected record.
+
 ## 6) Versioning
 
 - Versioning is immutable by default:
@@ -99,6 +148,12 @@ Transitions are explicit and operator-visible.
   - `createdAt` and `updatedAt`
   - `versionSource` (optional: run/task/ref or event basis)
 - `sourceRefs` must include hashes/timestamps where available to support staleness checks.
+- Historical Queue snapshots, draft review ledger records, and execution
+  evidence must point to the exact Knowledge version/snapshot used at the time.
+  Later edits must not rewrite those historical references.
+- A current-record alias may expose the latest version for normal list/read
+  flows, but production design must keep enough immutable version data to
+  explain what was accepted, attached, materialized, or used in a run.
 
 ## 7) Durable Queue Context Ownership
 
@@ -117,6 +172,22 @@ Queue-owned task context must include at least:
 
 Execution/hand-off must use materialized bounded context, not raw full bodies.
 
+Durable Queue context rules:
+
+- Queue context is visible task state before execution, not hidden executor or
+  provider memory.
+- Queue-owned refs/snapshots are tied to the Queue task and, when executed,
+  the specific run. They must remain reviewable after Knowledge items change.
+- Materialization must copy only bounded summaries/excerpts plus provenance,
+  status, version, warnings, and token estimates. It must not copy raw full
+  document bodies by default.
+- Disabled, rejected, missing, or blocked source refs must block new
+  materialization and execution until detached, replaced, or explicitly
+  resolved under the relevant surface contract.
+- Stale, draft, or archived source refs must produce visible warnings and may
+  block depending on the consuming policy. They must never be silently treated
+  as active Knowledge.
+
 ## 8) Draft Review Ledger
 
 Draft review decisions must be recorded in a draft-review ledger for production-readiness:
@@ -131,6 +202,20 @@ Draft review decisions must be recorded in a draft-review ledger for production-
 
 Ledger records are the source of truth for auditability of review action.
 Rejected draft content must not become active project memory.
+
+Draft review ledger rules:
+
+- The ledger records decisions about drafts; it is not itself active Knowledge
+  context.
+- Accepted decisions must link to the created or updated Knowledge item id and
+  immutable version/snapshot.
+- Rejected decisions may preserve bounded draft metadata, reason, source refs,
+  and generated-text hash for accountability, but rejected content must not be
+  searchable, attachable, materialized, or sent to providers/executors.
+- Editing, splitting, and merging must preserve source run/task links and
+  source refs for each resulting item/version.
+- Ledger records should be audit-ready, but they do not become Evidence unless
+  a future Evidence contract and storage slice explicitly links them.
 
 ## 9) Production Non-goals for This Tranche
 
@@ -154,6 +239,26 @@ Rejected draft content must not become active project memory.
 - Queue context must be review-visible before execution.
 - Raw full bodies are never copied into provider prompts by default; bounded excerpts/summaries are used with explicit caps and visible provenance.
 - Secret-bearing content must be redacted or excluded by policy before any attachment or run materialization.
+- Caps are mandatory for search results, selected refs, materialized snapshots,
+  prompt excerpts, draft packs, and review previews. Over-cap behavior must be
+  visible as truncation, overflow, or blocked state; the system must not
+  silently include omitted content.
+- Secret warning policy must flag obvious credentials, tokens, private keys,
+  passwords, environment dumps, secret-bearing JDBC URLs, API keys, certificates,
+  and similar sensitive material before acceptance, attachment, or
+  materialization. Warning does not make the content safe by itself; the
+  operator must redact, exclude, or explicitly approve a future policy-defined
+  bounded use path.
+- Knowledge search, attach, and materialization must use operator-visible
+  records and explicit source refs only. Provider memory, embeddings, local
+  hidden indexes, raw logs, unselected files, hidden widget state, and
+  background scans are not valid sources in this tranche.
+- Disabled or rejected Knowledge must not be materialized through indirect
+  paths such as Queue snapshots, Workspace Agent attachments, draft packs,
+  generated prompts, Context Pack placeholders, or execution evidence.
+- Automatic Knowledge creation, acceptance, refresh, stale marking, Queue task
+  creation, context attachment, or prompt injection remains out of scope unless
+  a later focused contract explicitly adds it.
 
 ## 11) Status and Compatibility
 
