@@ -5,9 +5,9 @@ import {
 } from "./coordinatorActionProposalRegistry";
 import {
   docsKnowledgeGenerationSourceRefs,
-  formatKnowledgeGenerationSourceRefs,
   historyKnowledgeGenerationQueueTaskPrompt,
 } from "./workspaceAgentQueuePromptTemplates";
+import { formatKnowledgeGenerationSourceRefs } from "./knowledgeSourceRefs";
 
 const LABELED_VALUE_BOUNDARY = [
   "title",

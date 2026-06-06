@@ -273,8 +273,22 @@ export function useWorkspaceNotesController({
         lifecycleStatus: promotionLifecycleStatus,
         title: documentTitle,
         sourceLabel: `Note: ${documentTitle}`,
-        sourceKind: "workspace_note",
+        sourceKind: "note",
         sourceRef: selectedNote.noteId,
+        sourceRefs: [
+          {
+            cap: "Explicit saved Note promotion only",
+            caps: ["Explicit saved Note promotion only"],
+            capturedAt: new Date().toISOString(),
+            kind: "note",
+            label: `Note: ${documentTitle}`,
+            noteId: selectedNote.noteId,
+            reason: "Operator promoted a saved selected Note into Knowledge.",
+            warnings: ["Original Note remains unchanged; Notes are not auto-ingested."],
+            workspaceScope:
+              promotionScope === "global" ? "global" : "workspace-local",
+          },
+        ],
         content: selectedNote.body,
         tags: promotionTags,
         enabled: promotionLifecycleStatus === "active",

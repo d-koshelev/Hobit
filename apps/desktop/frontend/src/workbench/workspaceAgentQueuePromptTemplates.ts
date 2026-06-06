@@ -1,3 +1,10 @@
+import {
+  SOURCE_REF_PROMPT_FALLBACK_WARNING,
+  formatKnowledgeGenerationSourceRefs,
+  type KnowledgeGenerationSourceRef,
+  type KnowledgeGenerationSourceRefKind,
+} from "./knowledgeSourceRefs";
+
 export function structuredCreateQueueTaskPrompt(rawIntent: string) {
   const normalizedIntent = normalizeCreateTaskIntent(rawIntent);
 
@@ -71,46 +78,6 @@ export function structuredCreateQueueTaskPrompt(rawIntent: string) {
   };
 }
 
-export type KnowledgeGenerationSourceRefKind =
-  | "codebase"
-  | "docs"
-  | "coordinator_history"
-  | "command_history";
-
-export type KnowledgeGenerationSourceRef = {
-  caps: string[];
-  id?: string;
-  kind: KnowledgeGenerationSourceRefKind;
-  label: string;
-  path?: string;
-  reason: string;
-  scope: string;
-  selector?: string;
-  warnings: string[];
-};
-
-const SOURCE_REF_PROMPT_EMBEDDED_WARNING =
-  "Current Queue task API has no durable sourceRefs field; these structured refs are embedded in the prompt only.";
-
-export function formatKnowledgeGenerationSourceRefs(
-  refs: KnowledgeGenerationSourceRef[],
-) {
-  return [
-    "Structured source refs:",
-    ...refs.flatMap((ref, index) => [
-      `${index + 1}. kind: ${ref.kind}`,
-      `   label: ${ref.label}`,
-      ...(ref.selector ? [`   selector: ${ref.selector}`] : []),
-      ...(ref.path ? [`   path: ${ref.path}`] : []),
-      ...(ref.id ? [`   id: ${ref.id}`] : []),
-      `   reason: ${ref.reason}`,
-      `   scope: ${ref.scope}`,
-      `   caps: ${ref.caps.join("; ")}`,
-      `   warnings: ${ref.warnings.join("; ") || "none"}`,
-    ]),
-  ].join("\n");
-}
-
 export function codebaseKnowledgeGenerationSourceRefs(
   sourceRef: string,
 ): KnowledgeGenerationSourceRef[] {
@@ -135,7 +102,7 @@ export function codebaseKnowledgeGenerationSourceRefs(
         ...(hasConcretePath
           ? []
           : ["No concrete path was captured; report a blocker before running if the source remains ambiguous."]),
-        SOURCE_REF_PROMPT_EMBEDDED_WARNING,
+        SOURCE_REF_PROMPT_FALLBACK_WARNING,
       ],
     },
   ];
@@ -172,7 +139,7 @@ export function docsKnowledgeGenerationSourceRefs(
         ...(hasConcreteRef
           ? []
           : ["No concrete docs/path refs were captured; report a blocker before running if the source remains ambiguous."]),
-        SOURCE_REF_PROMPT_EMBEDDED_WARNING,
+        SOURCE_REF_PROMPT_FALLBACK_WARNING,
       ],
     };
   });
@@ -206,7 +173,7 @@ export function historyKnowledgeGenerationSourceRefs({
         ...(selectedSourceRefs.toLowerCase().startsWith("selected ")
           ? ["No concrete history refs were captured; report a blocker before running if the source remains ambiguous."]
           : []),
-        SOURCE_REF_PROMPT_EMBEDDED_WARNING,
+        SOURCE_REF_PROMPT_FALLBACK_WARNING,
       ],
     },
   ];

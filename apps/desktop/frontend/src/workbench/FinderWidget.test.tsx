@@ -388,6 +388,11 @@ describe("FinderWidget", () => {
     expect(request?.prompt).toContain("label: Finder approved root");
     expect(request?.prompt).toContain("label: Finder selected file");
     expect(request?.prompt).toContain("path: src/App.tsx");
+    expect(request?.prompt).toContain("selector: file: src/App.tsx");
+    expect(request?.prompt).toContain("reason: Generate draft Knowledge from the explicit Finder selection.");
+    expect(request?.prompt).toContain(
+      "Fallback: if task metadata has no sourceRefs field",
+    );
     expect(request?.prompt).toContain(
       "Current Queue task API has no durable sourceRefs field",
     );

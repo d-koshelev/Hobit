@@ -129,9 +129,22 @@ describe("NotesPlaceholderWidget empty state", () => {
       lifecycleStatus: "draft",
       quickSummary: "Deploy Falcon with the staged checklist.",
       scope: "global",
-      sourceKind: "workspace_note",
+      sourceKind: "note",
       sourceLabel: "Note: Falcon deployment note",
       sourceRef: "note_42",
+      sourceRefs: [
+        expect.objectContaining({
+          caps: ["Explicit saved Note promotion only"],
+          kind: "note",
+          label: "Note: Falcon deployment note",
+          noteId: "note_42",
+          reason: "Operator promoted a saved selected Note into Knowledge.",
+          warnings: [
+            "Original Note remains unchanged; Notes are not auto-ingested.",
+          ],
+          workspaceScope: "global",
+        }),
+      ],
       tags: "deployment, falcon",
       title: "Falcon deployment note",
     });

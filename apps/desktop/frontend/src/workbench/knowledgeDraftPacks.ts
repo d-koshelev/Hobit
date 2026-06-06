@@ -1,6 +1,8 @@
 import type {
   KnowledgeCatalogItemType,
   KnowledgeDocumentScope,
+  KnowledgeScope,
+  KnowledgeSourceRef,
 } from "../workspace/types";
 
 const KNOWLEDGE_DOCUMENT_TYPES: KnowledgeCatalogItemType[] = [
@@ -32,6 +34,7 @@ export type KnowledgeDraftReviewItem = {
   sourceLabel: string;
   sourceQueueItemId: string | null;
   sourceRef: string;
+  sourceRefs: KnowledgeSourceRef[];
   suggestedScope: KnowledgeDocumentScope;
   suggestedTags: string;
   suggestedType: KnowledgeCatalogItemType;
@@ -46,6 +49,7 @@ export type KnowledgeDraftReviewPack = {
   queueItemId: string | null;
   rawJson: string;
   sourceLabel: string;
+  sourceRefs: KnowledgeSourceRef[];
   proposedItems: KnowledgeDraftReviewItem[];
 };
 
@@ -77,6 +81,48 @@ export function knowledgeDraftAcceptedSourceRef(
   item: KnowledgeDraftReviewItem,
 ) {
   return item.sourceRef || pack.queueItemId || pack.draftPackId;
+}
+
+export function knowledgeDraftAcceptedSourceRefs(
+  pack: KnowledgeDraftReviewPack,
+  item: KnowledgeDraftReviewItem,
+): KnowledgeSourceRef[] {
+  if (item.sourceRefs.length > 0) {
+    return item.sourceRefs;
+  }
+
+  if (pack.sourceRefs.length > 0) {
+    return pack.sourceRefs;
+  }
+
+  const queueTaskId = item.sourceQueueItemId ?? pack.queueItemId;
+  if (queueTaskId) {
+    return [
+      {
+        cap: "Bounded Queue draft pack review only",
+        caps: ["Bounded Queue draft pack review only"],
+        kind: "queue_task",
+        label: knowledgeDraftAcceptedSourceLabel(pack, item),
+        queueTaskId,
+        reason: "Accepted from an operator-reviewed Knowledge draft pack.",
+        warnings: ["Partial provenance fallback; draft item did not include structured sourceRefs."],
+        workspaceScope: "workspace-local",
+      },
+    ];
+  }
+
+  return [
+    {
+      cap: "Imported or manual draft pack fallback",
+      caps: ["Imported or manual draft pack fallback"],
+      kind: "manual",
+      label: knowledgeDraftAcceptedSourceLabel(pack, item),
+      reason: "Accepted from an operator-reviewed draft pack without structured sourceRefs.",
+      refText: knowledgeDraftAcceptedSourceRef(pack, item),
+      warnings: ["Partial provenance fallback; sourceRefs were not available."],
+      workspaceScope: "workspace-local",
+    },
+  ];
 }
 
 export function knowledgeDraftReviewSourceFingerprint(
@@ -251,11 +297,13 @@ function normalizeDraftPack(value: Record<string, unknown>) {
   const sourceLabel = queueItemId
     ? `Queue task ${queueItemId}`
     : "Imported draft pack";
+  const packSourceRefs = normalizeSourceRefs(value.sourceRefs ?? value.source_refs);
   const proposedItems = proposedItemsValue
     .map((item, index) =>
       normalizeDraftItem(item, {
         fallbackId: `draft-item-${index + 1}`,
         fallbackSourceLabel: sourceLabel,
+        fallbackSourceRefs: packSourceRefs,
         queueItemId,
       }),
     )
@@ -273,6 +321,7 @@ function normalizeDraftPack(value: Record<string, unknown>) {
     queueItemId,
     rawJson: JSON.stringify(value, null, 2),
     sourceLabel,
+    sourceRefs: packSourceRefs,
   };
 }
 
@@ -281,6 +330,7 @@ function normalizeDraftItem(
   options: {
     fallbackId: string;
     fallbackSourceLabel: string;
+    fallbackSourceRefs: KnowledgeSourceRef[];
     queueItemId: string | null;
   },
 ): KnowledgeDraftReviewItem | null {
@@ -318,6 +368,9 @@ function normalizeDraftItem(
     [sourceQueueItemId ? `queue:${sourceQueueItemId}` : null, `draft:${draftItemId}`]
       .filter(Boolean)
       .join(";");
+  const itemSourceRefs = normalizeSourceRefs(value.sourceRefs ?? value.source_refs);
+  const sourceRefs =
+    itemSourceRefs.length > 0 ? itemSourceRefs : options.fallbackSourceRefs;
 
   return {
     activationRecommendation: stringValue(
@@ -335,6 +388,7 @@ function normalizeDraftItem(
       options.fallbackSourceLabel,
     sourceQueueItemId,
     sourceRef,
+    sourceRefs,
     suggestedScope: normalizeScope(
       stringValue(value.suggestedScope ?? value.suggested_scope ?? value.scope),
     ),
@@ -343,6 +397,122 @@ function normalizeDraftItem(
     targetKind,
     title,
   };
+}
+
+function normalizeSourceRefs(value: unknown): KnowledgeSourceRef[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map(normalizeSourceRef)
+    .filter((sourceRef): sourceRef is KnowledgeSourceRef => Boolean(sourceRef));
+}
+
+function normalizeSourceRef(value: unknown): KnowledgeSourceRef | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const kind = stringValue(value.kind);
+  const label = stringValue(value.label) || "Draft source";
+  const metadata = {
+    cap: stringValue(value.cap) || null,
+    caps: stringList(value.caps),
+    reason: stringValue(value.reason) || null,
+    warnings: stringList(value.warnings),
+    workspaceScope: normalizeSourceScope(
+      stringValue(value.workspaceScope ?? value.workspace_scope ?? value.scope),
+    ),
+  };
+
+  switch (kind) {
+    case "codebase":
+    case "codebase_path":
+      return {
+        ...metadata,
+        kind: "codebase_path",
+        label,
+        path: stringValue(value.path ?? value.selector ?? value.id),
+        selector: stringValue(value.selector) || null,
+      };
+    case "docs":
+    case "docs_path":
+      return {
+        ...metadata,
+        kind: "docs_path",
+        label,
+        path: stringValue(value.path ?? value.selector ?? value.id),
+        selector: stringValue(value.selector) || null,
+      };
+    case "queue_task":
+      return {
+        ...metadata,
+        kind: "queue_task",
+        label,
+        queueTaskId: stringValue(value.queueTaskId ?? value.queue_task_id ?? value.id),
+      };
+    case "queue_run":
+      return {
+        ...metadata,
+        kind: "queue_run",
+        label,
+        queueTaskId:
+          stringValue(value.queueTaskId ?? value.queue_task_id) || null,
+        runId: stringValue(value.runId ?? value.run_id ?? value.id),
+      };
+    case "note":
+      return {
+        ...metadata,
+        kind: "note",
+        label,
+        noteId: stringValue(value.noteId ?? value.note_id ?? value.id),
+      };
+    case "finder_selection":
+      return {
+        ...metadata,
+        kind: "finder_selection",
+        label,
+        path: stringValue(value.path ?? value.selector ?? value.id),
+        selectionId:
+          stringValue(value.selectionId ?? value.selection_id) || null,
+        selectionKind:
+          stringValue(value.selectionKind ?? value.selection_kind) || null,
+      };
+    case "import_file":
+      return {
+        ...metadata,
+        fileName: stringValue(value.fileName ?? value.file_name) || null,
+        kind: "import_file",
+        label,
+        path: stringValue(value.path ?? value.selector ?? value.id),
+      };
+    case "coordinator_history":
+    case "command_history":
+    case "manual":
+      return {
+        ...metadata,
+        kind: "manual",
+        label,
+        refText: stringValue(value.refText ?? value.ref_text ?? value.selector ?? value.id),
+      };
+    default:
+      return null;
+  }
+}
+
+function normalizeSourceScope(
+  value: string,
+): KnowledgeScope | "current-session-visible" | null {
+  if (
+    value === "workspace-local" ||
+    value === "global" ||
+    value === "current-session-visible"
+  ) {
+    return value;
+  }
+
+  return null;
 }
 
 function normalizeKnowledgeType(value: string): KnowledgeCatalogItemType {

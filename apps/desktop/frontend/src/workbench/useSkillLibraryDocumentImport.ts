@@ -199,8 +199,22 @@ export function useSkillLibraryDocumentImport({
         quickSummary: "",
         lifecycleStatus: "active",
         sourceLabel: importedFile.fileName,
-        sourceKind: "file_import",
+        sourceKind: "import_file",
         sourceRef: importedFile.sourceRef,
+        sourceRefs: [
+          {
+            cap: "Explicit single-file plain text/Markdown import only",
+            caps: ["Explicit single-file plain text/Markdown import only"],
+            fileName: importedFile.fileName,
+            kind: "import_file",
+            label: importedFile.fileName,
+            path: importedFile.sourceRef,
+            reason: "Operator imported one selected text/Markdown file.",
+            warnings: ["No folder import, binary parsing, or background ingest."],
+            workspaceScope:
+              documentImportScope === "global" ? "global" : "workspace-local",
+          },
+        ],
         content: importedFile.content,
         tags: "",
         enabled: true,

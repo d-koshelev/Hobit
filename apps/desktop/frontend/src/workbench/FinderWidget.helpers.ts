@@ -4,7 +4,10 @@ import type {
   GitLog,
   GitRepositoryStatus,
 } from "../workspace/types";
-import { formatKnowledgeGenerationSourceRefs } from "./workspaceAgentQueuePromptTemplates";
+import {
+  SOURCE_REF_PROMPT_FALLBACK_WARNING,
+  formatKnowledgeGenerationSourceRefs,
+} from "./knowledgeSourceRefs";
 
 const MAX_DIRECTORY_ENTRIES = 200;
 const MAX_FILE_PREVIEW_BYTES = 100 * 1024;
@@ -318,7 +321,7 @@ export function finderKnowledgeQueueTaskRequest({
       scope: "workspace-local",
       selector: rootLabel,
       warnings: [
-        "Current Queue task API has no durable sourceRefs field; these structured refs are embedded in the prompt only.",
+        SOURCE_REF_PROMPT_FALLBACK_WARNING,
       ],
     },
     {
@@ -335,7 +338,7 @@ export function finderKnowledgeQueueTaskRequest({
       scope: "workspace-local",
       selector: sourceRef,
       warnings: [
-        "Current Queue task API has no durable sourceRefs field; these structured refs are embedded in the prompt only.",
+        SOURCE_REF_PROMPT_FALLBACK_WARNING,
       ],
     },
   ]);

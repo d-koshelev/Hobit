@@ -265,6 +265,10 @@ fn create_active_document_with_typed_source_refs_relations_and_provenance() {
         captured_at: Some("2026-06-06T10:00:00Z".to_owned()),
         redaction: Some("bounded summary only".to_owned()),
         cap: Some("900 chars".to_owned()),
+        workspace_scope: Some("workspace-local".to_owned()),
+        reason: Some("Accepted from reviewed Queue run.".to_owned()),
+        caps: vec!["900 chars".to_owned()],
+        warnings: Vec::new(),
     })];
     input.relations = vec![crate::KnowledgeRelation {
         relation_id: "rel-1".to_owned(),

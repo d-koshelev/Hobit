@@ -3,6 +3,7 @@ import { knowledgeDocumentQuickSummaryWarning } from "./knowledgeDocumentQuickSu
 import {
   knowledgeDraftAcceptedSourceLabel,
   knowledgeDraftAcceptedSourceRef,
+  knowledgeDraftAcceptedSourceRefs,
   type KnowledgeDraftReviewItem,
   type KnowledgeDraftReviewPack,
 } from "./knowledgeDraftPacks";
@@ -75,6 +76,7 @@ export async function acceptKnowledgeDraftItem({
     sourceLabel: knowledgeDraftAcceptedSourceLabel(pack, item),
     sourceKind: "queue_draft",
     sourceRef: knowledgeDraftAcceptedSourceRef(pack, item),
+    sourceRefs: knowledgeDraftAcceptedSourceRefs(pack, item),
     content: item.fullContent,
     tags: item.suggestedTags,
     enabled: true,

@@ -38,8 +38,15 @@ export type KnowledgeLifecycleStatus =
   | "archived"
   | "rejected";
 
+export type KnowledgeSourceRefMetadata = {
+  workspaceScope?: KnowledgeScope | "current-session-visible" | null;
+  reason?: string | null;
+  caps?: string[] | null;
+  warnings?: string[] | null;
+};
+
 export type KnowledgeSourceRef =
-  | {
+  | (KnowledgeSourceRefMetadata & {
       kind: "codebase_path";
       label: string;
       path: string;
@@ -48,8 +55,8 @@ export type KnowledgeSourceRef =
       capturedAt?: string | null;
       redaction?: string | null;
       cap?: string | null;
-    }
-  | {
+    })
+  | (KnowledgeSourceRefMetadata & {
       kind: "docs_path";
       label: string;
       path: string;
@@ -58,8 +65,8 @@ export type KnowledgeSourceRef =
       capturedAt?: string | null;
       redaction?: string | null;
       cap?: string | null;
-    }
-  | {
+    })
+  | (KnowledgeSourceRefMetadata & {
       kind: "queue_task";
       label: string;
       queueTaskId: string;
@@ -67,8 +74,8 @@ export type KnowledgeSourceRef =
       capturedAt?: string | null;
       redaction?: string | null;
       cap?: string | null;
-    }
-  | {
+    })
+  | (KnowledgeSourceRefMetadata & {
       kind: "queue_run";
       label: string;
       queueTaskId?: string | null;
@@ -77,8 +84,8 @@ export type KnowledgeSourceRef =
       capturedAt?: string | null;
       redaction?: string | null;
       cap?: string | null;
-    }
-  | {
+    })
+  | (KnowledgeSourceRefMetadata & {
       kind: "note";
       label: string;
       noteId: string;
@@ -86,8 +93,8 @@ export type KnowledgeSourceRef =
       capturedAt?: string | null;
       redaction?: string | null;
       cap?: string | null;
-    }
-  | {
+    })
+  | (KnowledgeSourceRefMetadata & {
       kind: "finder_selection";
       label: string;
       selectionId?: string | null;
@@ -97,16 +104,16 @@ export type KnowledgeSourceRef =
       capturedAt?: string | null;
       redaction?: string | null;
       cap?: string | null;
-    }
-  | {
+    })
+  | (KnowledgeSourceRefMetadata & {
       kind: "manual";
       label: string;
       refText: string;
       capturedAt?: string | null;
       redaction?: string | null;
       cap?: string | null;
-    }
-  | {
+    })
+  | (KnowledgeSourceRefMetadata & {
       kind: "import_file";
       label: string;
       path: string;
@@ -115,7 +122,7 @@ export type KnowledgeSourceRef =
       sourceVersion?: string | null;
       redaction?: string | null;
       cap?: string | null;
-    };
+    });
 
 export type KnowledgeRelation = {
   relationId: string;

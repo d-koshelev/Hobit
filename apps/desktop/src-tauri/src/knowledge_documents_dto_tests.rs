@@ -156,6 +156,10 @@ fn serializes_knowledge_document_dto_with_stable_snake_case_fields() {
             captured_at: None,
             redaction: None,
             cap: None,
+            workspace_scope: None,
+            reason: None,
+            caps: Vec::new(),
+            warnings: Vec::new(),
         })],
         relations: vec![KnowledgeRelation {
             relation_id: "rel-1".to_owned(),

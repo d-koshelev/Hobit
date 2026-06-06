@@ -1,4 +1,4 @@
-import type { KnowledgeDocument } from "../workspace/types";
+import type { KnowledgeDocument, KnowledgeSourceRef } from "../workspace/types";
 import {
   knowledgeDraftAcceptedSourceLabel,
   knowledgeDraftAcceptedSourceRef,
@@ -120,6 +120,7 @@ export function refreshQueueTaskRequestFromDocument(
 ) {
   const sourceLabel = document.sourceLabel.trim() || "Knowledge source";
   const sourceRef = document.sourceRef.trim();
+  const sourceRefs = sourceRefsForDocument(document);
   const title = `Refresh Knowledge: ${document.title.trim() || DEFAULT_DOCUMENT_TITLE}`;
 
   return {
@@ -133,6 +134,8 @@ export function refreshQueueTaskRequestFromDocument(
       `Source label: ${sourceLabel}`,
       `Source kind: ${document.sourceKind.trim() || "source_ref"}`,
       `Source ref: ${sourceRef}`,
+      "Structured source refs:",
+      ...sourceRefs.map((ref, index) => `${index + 1}. ${sourceRefSummary(ref)}`),
       "The current item must remain unchanged until the operator manually accepts an update.",
     ].join("\n"),
     executionPolicy: "manual" as const,
@@ -151,6 +154,8 @@ export function refreshQueueTaskRequestFromDocument(
       `Source label: ${sourceLabel}`,
       `Source kind: ${document.sourceKind.trim() || "source_ref"}`,
       `Source ref: ${sourceRef}`,
+      "Structured source refs from current Knowledge item:",
+      ...sourceRefs.map((ref, index) => `${index + 1}. ${sourceRefSummary(ref)}`),
       "",
       "Return a bounded draft Knowledge pack for review. The draft should propose updated title, quickSummary, fullContent, tags, type, scope, confidence, blockers, and source refs. Do not activate the update.",
     ].join("\n"),
@@ -171,6 +176,7 @@ export function knowledgeDocumentRequestFromDraft(
     sourceLabel: draft.sourceLabel,
     sourceKind: draft.sourceKind,
     sourceRef: draft.sourceRef,
+    sourceRefs: sourceRefsForDraft(draft),
     content: draft.content,
     tags: draft.tags,
     enabled: draft.enabled,
@@ -190,8 +196,110 @@ export function knowledgeDocumentRequestFromDocument(
     sourceLabel: document.sourceLabel,
     sourceKind: document.sourceKind,
     sourceRef: document.sourceRef,
+    sourceRefs: sourceRefsForDocument(document),
     content: document.content,
     tags: document.tags,
     enabled: document.enabled,
   };
+}
+
+function sourceRefsForDraft(draft: KnowledgeDocumentDraft): KnowledgeSourceRef[] {
+  const sourceKind = draft.sourceKind.trim();
+  const sourceRef = draft.sourceRef.trim();
+  const sourceLabel = draft.sourceLabel.trim() || "Manual Knowledge source";
+
+  if (sourceKind === "import_file" || sourceKind === "file_import") {
+    return [
+      {
+        cap: "Explicit single-file plain text/Markdown import only",
+        caps: ["Explicit single-file plain text/Markdown import only"],
+        kind: "import_file",
+        label: sourceLabel,
+        path: sourceRef,
+        reason: "Operator imported one selected text/Markdown file.",
+        warnings: ["No folder import, binary parsing, or background ingest."],
+        workspaceScope:
+          draft.scope === "global" ? "global" : "workspace-local",
+      },
+    ];
+  }
+
+  return [
+    {
+      cap: "Operator-authored or manually entered Knowledge source",
+      caps: ["Operator-authored or manually entered source ref only"],
+      kind: "manual",
+      label: sourceLabel,
+      reason: "Operator manually authored or entered this Knowledge source.",
+      refText: sourceRef,
+      warnings: ["No automatic source discovery or hidden context was used."],
+      workspaceScope:
+        draft.scope === "global" ? "global" : "workspace-local",
+    },
+  ];
+}
+
+function sourceRefsForDocument(document: KnowledgeDocument): KnowledgeSourceRef[] {
+  if (document.sourceRefs?.length) {
+    return document.sourceRefs;
+  }
+
+  const scope = document.scope === "global" ? "global" : "workspace-local";
+  const sourceLabel = document.sourceLabel.trim() || "Knowledge source";
+  const sourceRef = document.sourceRef.trim();
+
+  if (document.sourceKind === "workspace_note" || document.sourceKind === "note") {
+    return [
+      {
+        cap: "Explicit saved Note promotion only",
+        caps: ["Explicit saved Note promotion only"],
+        kind: "note",
+        label: sourceLabel,
+        noteId: sourceRef,
+        reason: "Operator promoted a saved selected Note into Knowledge.",
+        warnings: ["Original Note remains unchanged; Notes are not auto-ingested."],
+        workspaceScope: scope,
+      },
+    ];
+  }
+
+  return [
+    {
+      cap: "Legacy single source ref fallback",
+      caps: ["Legacy single source ref fallback"],
+      kind: "manual",
+      label: sourceLabel,
+      reason: "Structured source refs were not present; preserving the visible legacy source ref.",
+      refText: sourceRef,
+      warnings: ["Partial provenance only."],
+      workspaceScope: scope,
+    },
+  ];
+}
+
+function sourceRefSummary(sourceRef: KnowledgeSourceRef) {
+  const common = [
+    `kind=${sourceRef.kind}`,
+    `label=${sourceRef.label}`,
+    sourceRef.reason ? `reason=${sourceRef.reason}` : "",
+    sourceRef.workspaceScope ? `scope=${sourceRef.workspaceScope}` : "",
+  ].filter(Boolean);
+
+  switch (sourceRef.kind) {
+    case "codebase_path":
+    case "docs_path":
+      return [...common, `path=${sourceRef.path}`].join("; ");
+    case "queue_task":
+      return [...common, `id=${sourceRef.queueTaskId}`].join("; ");
+    case "queue_run":
+      return [...common, `id=${sourceRef.runId}`].join("; ");
+    case "note":
+      return [...common, `id=${sourceRef.noteId}`].join("; ");
+    case "finder_selection":
+      return [...common, `path=${sourceRef.path}`].join("; ");
+    case "import_file":
+      return [...common, `path=${sourceRef.path}`].join("; ");
+    case "manual":
+      return [...common, `selector=${sourceRef.refText}`].join("; ");
+  }
 }

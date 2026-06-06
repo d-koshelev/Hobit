@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   codebaseKnowledgeGenerationQueueTaskPrompt,
+  docsKnowledgeGenerationSourceRefs,
   historyKnowledgeGenerationQueueTaskPrompt,
 } from "./workspaceAgentQueuePromptTemplates";
+import { formatKnowledgeGenerationSourceRefs } from "./knowledgeSourceRefs";
 
 describe("workspaceAgentQueuePromptTemplates Knowledge source refs", () => {
   it("adds structured codebase source refs to codebase Knowledge prompts", () => {
@@ -33,6 +35,22 @@ describe("workspaceAgentQueuePromptTemplates Knowledge source refs", () => {
     expect(draft.prompt).toContain("scope: current-session-visible");
     expect(draft.prompt).toContain(
       "Current Queue task API has no durable sourceRefs field",
+    );
+  });
+
+  it("adds structured docs source refs to documentation Knowledge prompts", () => {
+    const refs = docsKnowledgeGenerationSourceRefs(
+      "docs/ACTIVE_CONTRACT_INDEX.md, decision:knowledge-refresh",
+    );
+    const promptPayload = formatKnowledgeGenerationSourceRefs(refs);
+
+    expect(promptPayload).toContain("Structured source refs:");
+    expect(promptPayload).toContain("kind: docs");
+    expect(promptPayload).toContain("path: docs/ACTIVE_CONTRACT_INDEX.md");
+    expect(promptPayload).toContain("id: decision:knowledge-refresh");
+    expect(promptPayload).toContain("scope: workspace-local");
+    expect(promptPayload).toContain(
+      "Fallback: if task metadata has no sourceRefs field",
     );
   });
 });

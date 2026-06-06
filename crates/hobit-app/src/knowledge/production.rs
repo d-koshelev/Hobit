@@ -172,6 +172,10 @@ impl KnowledgeSourceRef {
                 captured_at: None,
                 redaction: None,
                 cap: None,
+                workspace_scope: None,
+                reason: None,
+                caps: Vec::new(),
+                warnings: Vec::new(),
             }),
             "docs_path" | "docs" | "documentation" => Self::DocsPath(KnowledgePathSourceRef {
                 label,
@@ -181,6 +185,10 @@ impl KnowledgeSourceRef {
                 captured_at: None,
                 redaction: None,
                 cap: None,
+                workspace_scope: None,
+                reason: None,
+                caps: Vec::new(),
+                warnings: Vec::new(),
             }),
             "queue_task" | "queue" => Self::QueueTask(KnowledgeQueueTaskSourceRef {
                 label,
@@ -189,6 +197,10 @@ impl KnowledgeSourceRef {
                 captured_at: None,
                 redaction: None,
                 cap: None,
+                workspace_scope: None,
+                reason: None,
+                caps: Vec::new(),
+                warnings: Vec::new(),
             }),
             "queue_run" | "run" => Self::QueueRun(KnowledgeQueueRunSourceRef {
                 label,
@@ -198,6 +210,10 @@ impl KnowledgeSourceRef {
                 captured_at: None,
                 redaction: None,
                 cap: None,
+                workspace_scope: None,
+                reason: None,
+                caps: Vec::new(),
+                warnings: Vec::new(),
             }),
             "note" => Self::Note(KnowledgeNoteSourceRef {
                 label,
@@ -206,6 +222,10 @@ impl KnowledgeSourceRef {
                 captured_at: None,
                 redaction: None,
                 cap: None,
+                workspace_scope: None,
+                reason: None,
+                caps: Vec::new(),
+                warnings: Vec::new(),
             }),
             "finder_selection" | "finder" => {
                 Self::FinderSelection(KnowledgeFinderSelectionSourceRef {
@@ -217,6 +237,10 @@ impl KnowledgeSourceRef {
                     captured_at: None,
                     redaction: None,
                     cap: None,
+                    workspace_scope: None,
+                    reason: None,
+                    caps: Vec::new(),
+                    warnings: Vec::new(),
                 })
             }
             "import_file" | "import" => Self::ImportFile(KnowledgeImportFileSourceRef {
@@ -227,6 +251,10 @@ impl KnowledgeSourceRef {
                 source_version: None,
                 redaction: None,
                 cap: None,
+                workspace_scope: None,
+                reason: None,
+                caps: Vec::new(),
+                warnings: Vec::new(),
             }),
             "file" => Self::CodebasePath(KnowledgePathSourceRef {
                 label,
@@ -236,6 +264,10 @@ impl KnowledgeSourceRef {
                 captured_at: None,
                 redaction: None,
                 cap: None,
+                workspace_scope: None,
+                reason: None,
+                caps: Vec::new(),
+                warnings: Vec::new(),
             }),
             _ => Self::Manual(KnowledgeManualSourceRef {
                 label,
@@ -243,6 +275,10 @@ impl KnowledgeSourceRef {
                 captured_at: None,
                 redaction: None,
                 cap: None,
+                workspace_scope: None,
+                reason: None,
+                caps: Vec::new(),
+                warnings: Vec::new(),
             }),
         }
     }
@@ -282,6 +318,12 @@ pub struct KnowledgePathSourceRef {
     pub captured_at: Option<String>,
     pub redaction: Option<String>,
     pub cap: Option<String>,
+    pub workspace_scope: Option<String>,
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub caps: Vec<String>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -292,6 +334,12 @@ pub struct KnowledgeQueueTaskSourceRef {
     pub captured_at: Option<String>,
     pub redaction: Option<String>,
     pub cap: Option<String>,
+    pub workspace_scope: Option<String>,
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub caps: Vec<String>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -303,6 +351,12 @@ pub struct KnowledgeQueueRunSourceRef {
     pub captured_at: Option<String>,
     pub redaction: Option<String>,
     pub cap: Option<String>,
+    pub workspace_scope: Option<String>,
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub caps: Vec<String>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -313,6 +367,12 @@ pub struct KnowledgeNoteSourceRef {
     pub captured_at: Option<String>,
     pub redaction: Option<String>,
     pub cap: Option<String>,
+    pub workspace_scope: Option<String>,
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub caps: Vec<String>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -325,6 +385,12 @@ pub struct KnowledgeFinderSelectionSourceRef {
     pub captured_at: Option<String>,
     pub redaction: Option<String>,
     pub cap: Option<String>,
+    pub workspace_scope: Option<String>,
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub caps: Vec<String>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -334,6 +400,12 @@ pub struct KnowledgeManualSourceRef {
     pub captured_at: Option<String>,
     pub redaction: Option<String>,
     pub cap: Option<String>,
+    pub workspace_scope: Option<String>,
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub caps: Vec<String>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
@@ -345,6 +417,12 @@ pub struct KnowledgeImportFileSourceRef {
     pub source_version: Option<String>,
     pub redaction: Option<String>,
     pub cap: Option<String>,
+    pub workspace_scope: Option<String>,
+    pub reason: Option<String>,
+    #[serde(default)]
+    pub caps: Vec<String>,
+    #[serde(default)]
+    pub warnings: Vec<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]

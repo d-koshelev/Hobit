@@ -63,6 +63,10 @@ type TauriKnowledgeSourceRef =
       captured_at?: string | null;
       redaction?: string | null;
       cap?: string | null;
+      workspace_scope?: string | null;
+      reason?: string | null;
+      caps?: string[] | null;
+      warnings?: string[] | null;
     }
   | {
       kind: "queue_task";
@@ -72,6 +76,10 @@ type TauriKnowledgeSourceRef =
       captured_at?: string | null;
       redaction?: string | null;
       cap?: string | null;
+      workspace_scope?: string | null;
+      reason?: string | null;
+      caps?: string[] | null;
+      warnings?: string[] | null;
     }
   | {
       kind: "queue_run";
@@ -82,6 +90,10 @@ type TauriKnowledgeSourceRef =
       captured_at?: string | null;
       redaction?: string | null;
       cap?: string | null;
+      workspace_scope?: string | null;
+      reason?: string | null;
+      caps?: string[] | null;
+      warnings?: string[] | null;
     }
   | {
       kind: "note";
@@ -91,6 +103,10 @@ type TauriKnowledgeSourceRef =
       captured_at?: string | null;
       redaction?: string | null;
       cap?: string | null;
+      workspace_scope?: string | null;
+      reason?: string | null;
+      caps?: string[] | null;
+      warnings?: string[] | null;
     }
   | {
       kind: "finder_selection";
@@ -102,6 +118,10 @@ type TauriKnowledgeSourceRef =
       captured_at?: string | null;
       redaction?: string | null;
       cap?: string | null;
+      workspace_scope?: string | null;
+      reason?: string | null;
+      caps?: string[] | null;
+      warnings?: string[] | null;
     }
   | {
       kind: "manual";
@@ -110,6 +130,10 @@ type TauriKnowledgeSourceRef =
       captured_at?: string | null;
       redaction?: string | null;
       cap?: string | null;
+      workspace_scope?: string | null;
+      reason?: string | null;
+      caps?: string[] | null;
+      warnings?: string[] | null;
     }
   | {
       kind: "import_file";
@@ -120,6 +144,10 @@ type TauriKnowledgeSourceRef =
       source_version?: string | null;
       redaction?: string | null;
       cap?: string | null;
+      workspace_scope?: string | null;
+      reason?: string | null;
+      caps?: string[] | null;
+      warnings?: string[] | null;
     };
 
 type TauriKnowledgeRelation = {
@@ -348,76 +376,104 @@ function normalizeKnowledgeSourceRef(
     case "docs_path":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps ?? [],
         capturedAt: sourceRef.captured_at,
         kind: sourceRef.kind,
         label: sourceRef.label,
         path: sourceRef.path,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         selector: sourceRef.selector,
         sourceVersion: sourceRef.source_version,
+        warnings: sourceRef.warnings ?? [],
+        workspaceScope: normalizeKnowledgeSourceRefScope(sourceRef.workspace_scope),
       };
     case "queue_task":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps ?? [],
         capturedAt: sourceRef.captured_at,
         kind: "queue_task",
         label: sourceRef.label,
         queueTaskId: sourceRef.queue_task_id,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         sourceVersion: sourceRef.source_version,
+        warnings: sourceRef.warnings ?? [],
+        workspaceScope: normalizeKnowledgeSourceRefScope(sourceRef.workspace_scope),
       };
     case "queue_run":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps ?? [],
         capturedAt: sourceRef.captured_at,
         kind: "queue_run",
         label: sourceRef.label,
         queueTaskId: sourceRef.queue_task_id,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         runId: sourceRef.run_id,
         sourceVersion: sourceRef.source_version,
+        warnings: sourceRef.warnings ?? [],
+        workspaceScope: normalizeKnowledgeSourceRefScope(sourceRef.workspace_scope),
       };
     case "note":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps ?? [],
         capturedAt: sourceRef.captured_at,
         kind: "note",
         label: sourceRef.label,
         noteId: sourceRef.note_id,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         sourceVersion: sourceRef.source_version,
+        warnings: sourceRef.warnings ?? [],
+        workspaceScope: normalizeKnowledgeSourceRefScope(sourceRef.workspace_scope),
       };
     case "finder_selection":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps ?? [],
         capturedAt: sourceRef.captured_at,
         kind: "finder_selection",
         label: sourceRef.label,
         path: sourceRef.path,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         selectionId: sourceRef.selection_id,
         selectionKind: sourceRef.selection_kind,
         sourceVersion: sourceRef.source_version,
+        warnings: sourceRef.warnings ?? [],
+        workspaceScope: normalizeKnowledgeSourceRefScope(sourceRef.workspace_scope),
       };
     case "manual":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps ?? [],
         capturedAt: sourceRef.captured_at,
         kind: "manual",
         label: sourceRef.label,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         refText: sourceRef.ref_text,
+        warnings: sourceRef.warnings ?? [],
+        workspaceScope: normalizeKnowledgeSourceRefScope(sourceRef.workspace_scope),
       };
     case "import_file":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps ?? [],
         fileName: sourceRef.file_name,
         importedAt: sourceRef.imported_at,
         kind: "import_file",
         label: sourceRef.label,
         path: sourceRef.path,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         sourceVersion: sourceRef.source_version,
+        warnings: sourceRef.warnings ?? [],
+        workspaceScope: normalizeKnowledgeSourceRefScope(sourceRef.workspace_scope),
       };
   }
 }
@@ -452,76 +508,104 @@ function toTauriKnowledgeSourceRef(
     case "docs_path":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps,
         captured_at: sourceRef.capturedAt,
         kind: sourceRef.kind,
         label: sourceRef.label,
         path: sourceRef.path,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         selector: sourceRef.selector,
         source_version: sourceRef.sourceVersion,
+        warnings: sourceRef.warnings,
+        workspace_scope: sourceRef.workspaceScope,
       };
     case "queue_task":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps,
         captured_at: sourceRef.capturedAt,
         kind: "queue_task",
         label: sourceRef.label,
         queue_task_id: sourceRef.queueTaskId,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         source_version: sourceRef.sourceVersion,
+        warnings: sourceRef.warnings,
+        workspace_scope: sourceRef.workspaceScope,
       };
     case "queue_run":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps,
         captured_at: sourceRef.capturedAt,
         kind: "queue_run",
         label: sourceRef.label,
         queue_task_id: sourceRef.queueTaskId,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         run_id: sourceRef.runId,
         source_version: sourceRef.sourceVersion,
+        warnings: sourceRef.warnings,
+        workspace_scope: sourceRef.workspaceScope,
       };
     case "note":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps,
         captured_at: sourceRef.capturedAt,
         kind: "note",
         label: sourceRef.label,
         note_id: sourceRef.noteId,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         source_version: sourceRef.sourceVersion,
+        warnings: sourceRef.warnings,
+        workspace_scope: sourceRef.workspaceScope,
       };
     case "finder_selection":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps,
         captured_at: sourceRef.capturedAt,
         kind: "finder_selection",
         label: sourceRef.label,
         path: sourceRef.path,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         selection_id: sourceRef.selectionId,
         selection_kind: sourceRef.selectionKind,
         source_version: sourceRef.sourceVersion,
+        warnings: sourceRef.warnings,
+        workspace_scope: sourceRef.workspaceScope,
       };
     case "manual":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps,
         captured_at: sourceRef.capturedAt,
         kind: "manual",
         label: sourceRef.label,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         ref_text: sourceRef.refText,
+        warnings: sourceRef.warnings,
+        workspace_scope: sourceRef.workspaceScope,
       };
     case "import_file":
       return {
         cap: sourceRef.cap,
+        caps: sourceRef.caps,
         file_name: sourceRef.fileName,
         imported_at: sourceRef.importedAt,
         kind: "import_file",
         label: sourceRef.label,
         path: sourceRef.path,
+        reason: sourceRef.reason,
         redaction: sourceRef.redaction,
         source_version: sourceRef.sourceVersion,
+        warnings: sourceRef.warnings,
+        workspace_scope: sourceRef.workspaceScope,
       };
   }
 }
@@ -567,4 +651,16 @@ function normalizeKnowledgeLifecycleStatus(
     default:
       return "active";
   }
+}
+
+function normalizeKnowledgeSourceRefScope(scope: string | null | undefined) {
+  if (
+    scope === "global" ||
+    scope === "workspace-local" ||
+    scope === "current-session-visible"
+  ) {
+    return scope;
+  }
+
+  return null;
 }
