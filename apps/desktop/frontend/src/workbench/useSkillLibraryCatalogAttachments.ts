@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { KnowledgeDocument, Skill } from "../workspace/types";
 import {
   DEFAULT_DOCUMENT_TITLE,
+  knowledgeDocumentWorkspaceAgentContextText,
   skillCoordinatorContextText,
   type KnowledgeCatalogAttachmentState,
 } from "./skillLibraryModel";
@@ -45,6 +46,80 @@ export function useSkillLibraryCatalogAttachments({
     setDocumentError(null);
   }
 
+  function attachSelectedDocumentToWorkspaceAgent() {
+    if (!selectedDocument || !onAttachContextToCoordinator || isDocumentDirty) {
+      return;
+    }
+
+    const title = selectedDocument.title.trim() || DEFAULT_DOCUMENT_TITLE;
+
+    if (!selectedDocument.enabled || selectedDocument.searchable === false) {
+      setDocumentMessage(
+        `${title} is disabled and cannot be attached to Workspace Agent.`,
+      );
+      setDocumentError(
+        `${title} is disabled and cannot be attached to Workspace Agent.`,
+      );
+      return;
+    }
+
+    if (selectedDocument.lifecycleStatus === "rejected") {
+      setDocumentMessage(
+        `${title} is rejected and cannot be attached to Workspace Agent.`,
+      );
+      setDocumentError(
+        `${title} is rejected and cannot be attached to Workspace Agent.`,
+      );
+      return;
+    }
+
+    if (selectedDocument.lifecycleStatus === "archived") {
+      setDocumentMessage(
+        `${title} is archived. Restore it before attaching to Workspace Agent.`,
+      );
+      setDocumentError(
+        `${title} is archived. Restore it before attaching to Workspace Agent.`,
+      );
+      return;
+    }
+
+    if (selectedDocument.lifecycleStatus === "draft") {
+      setDocumentMessage(
+        `${title} is still a draft. Mark it active after review before attaching to Workspace Agent.`,
+      );
+      setDocumentError(
+        `${title} is still a draft. Mark it active after review before attaching to Workspace Agent.`,
+      );
+      return;
+    }
+
+    if (selectedDocument.lifecycleStatus === "stale") {
+      const confirmed = window.confirm(
+        `Attach stale Knowledge Document "${title}" to Workspace Agent as a bounded visible snapshot?`,
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
+
+    onAttachContextToCoordinator({
+      contextText: knowledgeDocumentWorkspaceAgentContextText(selectedDocument),
+      sourceLabel: "Knowledge / Skills / Knowledge Document",
+    });
+    rememberCatalogAttachment(
+      `document:${selectedDocument.knowledgeDocumentId}`,
+      {
+        workspaceAgentContextAttached: true,
+      },
+    );
+    setDocumentMessage(
+      selectedDocument.lifecycleStatus === "stale"
+        ? "Knowledge Document attached to Workspace Agent as a bounded visible snapshot with stale warning."
+        : "Knowledge Document attached to Workspace Agent as a bounded visible snapshot.",
+    );
+    setDocumentError(null);
+  }
+
   async function attachSelectedSkillToQueueTask() {
     if (!selectedSkill || !onAttachKnowledgeContextToQueueTask) {
       return;
@@ -78,9 +153,51 @@ export function useSkillLibraryCatalogAttachments({
       return;
     }
 
+    const title = selectedDocument.title.trim() || DEFAULT_DOCUMENT_TITLE;
+
+    if (!selectedDocument.enabled || selectedDocument.searchable === false) {
+      setDocumentMessage(
+        `${title} is disabled and cannot be used as Queue context.`,
+      );
+      setDocumentError(
+        `${title} is disabled and cannot be used as Queue context.`,
+      );
+      return;
+    }
+
+    if (selectedDocument.lifecycleStatus === "rejected") {
+      setDocumentMessage(
+        `${title} is rejected and cannot be used as Queue context.`,
+      );
+      setDocumentError(
+        `${title} is rejected and cannot be used as Queue context.`,
+      );
+      return;
+    }
+
+    if (selectedDocument.lifecycleStatus === "archived") {
+      setDocumentMessage(
+        `${title} is archived. Restore it before using it as Queue context.`,
+      );
+      setDocumentError(
+        `${title} is archived. Restore it before using it as Queue context.`,
+      );
+      return;
+    }
+
+    if (selectedDocument.lifecycleStatus === "draft") {
+      setDocumentMessage(
+        `${title} is still a draft. Mark it active after review before using it as Queue context.`,
+      );
+      setDocumentError(
+        `${title} is still a draft. Mark it active after review before using it as Queue context.`,
+      );
+      return;
+    }
+
     if (selectedDocument.lifecycleStatus === "stale") {
       const confirmed = window.confirm(
-        `Attach stale Knowledge Document "${selectedDocument.title.trim() || DEFAULT_DOCUMENT_TITLE}" to the selected Queue task? The task will keep a visible stale-context warning.`,
+        `Attach stale Knowledge Document "${title}" to the selected Queue task? The task will keep a visible stale-context warning.`,
       );
       if (!confirmed) {
         return;
@@ -129,6 +246,7 @@ export function useSkillLibraryCatalogAttachments({
 
   return {
     attachSelectedDocumentToQueueTask,
+    attachSelectedDocumentToWorkspaceAgent,
     attachSelectedSkillToCoordinator,
     attachSelectedSkillToQueueTask,
     attachmentStateByCatalogItemId,

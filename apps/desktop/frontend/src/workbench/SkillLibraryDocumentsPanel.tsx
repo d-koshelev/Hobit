@@ -14,10 +14,7 @@ import { useSkillLibraryCatalogAttachments } from "./useSkillLibraryCatalogAttac
 import { useSkillLibraryDocumentImport } from "./useSkillLibraryDocumentImport";
 import { useSkillLibraryDraftReview } from "./useSkillLibraryDraftReview";
 import { useSkillLibrarySkillPanelActions } from "./useSkillLibrarySkillPanelActions";
-export type {
-  SkillLibraryDocumentsPanelHandle,
-  SkillLibraryDocumentsToolbarState,
-} from "./SkillLibraryDocumentsPanel.types";
+export type { SkillLibraryDocumentsPanelHandle, SkillLibraryDocumentsToolbarState } from "./SkillLibraryDocumentsPanel.types";
 
 export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelHandle, SkillLibraryDocumentsPanelProps>(function SkillLibraryDocumentsPanel(
   {
@@ -65,12 +62,13 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
   const [isDeletingDocument, setIsDeletingDocument] = useState(false);
   const [isSelectingDocument, setIsSelectingDocument] = useState(false);
   const [catalogView, setCatalogView] = useState<KnowledgeCatalogView>("all");
+  const [catalogSearchQuery, setCatalogSearchQuery] = useState("");
   const [activeUtilityPanel, setActiveUtilityPanel] = useState<KnowledgeUtilityPanel>(null);
   const [documentMessage, setDocumentMessage] = useState<string | null>(null);
   const [documentError, setDocumentError] = useState<string | null>(null);
   const isDocumentDirty = useMemo(() => isKnowledgeDocumentDraftDirty(documentDraft, selectedDocument), [documentDraft, selectedDocument]);
   const catalogItems = useMemo(() => knowledgeCatalogItemsFromRecords(documents, skills), [documents, skills]);
-  const visibleCatalogItems = useMemo(() => filterKnowledgeCatalogItems(catalogItems, catalogView), [catalogItems, catalogView]);
+  const visibleCatalogItems = useMemo(() => filterKnowledgeCatalogItems(catalogItems, catalogView, catalogSearchQuery), [catalogItems, catalogSearchQuery, catalogView]);
   const selectedCatalogItemId = selectedDocument
     ? `document:${selectedDocument.knowledgeDocumentId}`
     : selectedSkill
@@ -133,6 +131,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
   });
   const {
     attachSelectedDocumentToQueueTask,
+    attachSelectedDocumentToWorkspaceAgent,
     attachSelectedSkillToCoordinator,
     attachSelectedSkillToQueueTask,
     attachmentStateByCatalogItemId,
@@ -152,17 +151,14 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
   useEffect(() => {
     void loadDocuments(null);
   }, [documentApiAvailable, skillApiAvailable]);
-
   useEffect(() => {
     onToolbarStateChange({
       isNewDisabled: !documentApiAvailable || isLoadingDocuments,
     });
   }, [documentApiAvailable, isLoadingDocuments, onToolbarStateChange]);
-
   useImperativeHandle(ref, () => ({
     startNewDocument,
   }));
-
   async function loadDocuments(preferredDocumentId: string | null) {
     if (!documentApiAvailable && !skillApiAvailable) {
       setDocuments([]);
@@ -595,7 +591,9 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
     >
       <SkillLibraryCatalogViewControls
         catalogView={catalogView}
+        catalogSearchQuery={catalogSearchQuery}
         onCatalogViewChange={setCatalogView}
+        onCatalogSearchQueryChange={setCatalogSearchQuery}
       />
       <SkillLibraryCatalogUtilityPanels
         activeUtilityPanel={activeUtilityPanel}
@@ -685,6 +683,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
             item={selectedCatalogItem}
             message={documentMessage}
             onAttachDocumentToQueueTask={attachSelectedDocumentToQueueTask}
+            onAttachDocumentToWorkspaceAgent={attachSelectedDocumentToWorkspaceAgent}
             onAttachSkillToQueueTask={attachSelectedSkillToQueueTask}
             onAttachSkillToWorkspaceAgent={attachSelectedSkillToCoordinator}
             onEditDocument={openDocumentPanel}

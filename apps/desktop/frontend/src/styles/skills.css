@@ -320,6 +320,21 @@
   gap: var(--space-xs);
 }
 
+.skill-catalog-filter-stack {
+  display: grid;
+  gap: var(--space-sm);
+}
+
+.skill-catalog-search {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.skill-catalog-search span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+}
+
 .skill-scope-filter-button {
   background: transparent;
   border: 1px solid var(--color-border-subtle);

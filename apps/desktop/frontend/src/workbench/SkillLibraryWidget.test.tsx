@@ -41,8 +41,11 @@ describe("SkillLibraryWidget", () => {
     expect(document.body.textContent).not.toContain("Queue result or draft pack");
     expect(document.body.textContent).not.toContain("Selected file");
     expect(buttonWithText("Active")).toBeDefined();
+    expect(buttonWithText("Documents")).toBeDefined();
     expect(buttonWithText("Codebase")).toBeDefined();
-    expect(buttonWithText("Prompt templates")).toBeDefined();
+    expect(buttonWithText("Validation rules")).toBeDefined();
+    expect(buttonWithText("Known issues")).toBeDefined();
+    expect(buttonWithText("Workflows")).toBeDefined();
     expect(buttonWithText("Archived")).toBeDefined();
 
     await clickCatalogView("Skills");
@@ -247,6 +250,7 @@ describe("SkillLibraryWidget", () => {
         tags: "frontend, registry",
         title: "Widget registry boundary",
         updatedAt: "2026-05-25T12:00:00Z",
+        version: 3,
       }),
       knowledgeDocumentFixture({
         catalogItemType: "architecture_decision",
@@ -269,6 +273,26 @@ describe("SkillLibraryWidget", () => {
         tags: "issue",
         title: "Archived known issue",
         updatedAt: "2026-05-23T12:00:00Z",
+      }),
+      knowledgeDocumentFixture({
+        catalogItemType: "workflow",
+        knowledgeDocumentId: "doc_workflow",
+        lifecycleStatus: "active",
+        quickSummary: "Use for release workflow review.",
+        scope: "workspace",
+        tags: "workflow",
+        title: "Release workflow",
+        updatedAt: "2026-05-22T12:00:00Z",
+      }),
+      knowledgeDocumentFixture({
+        catalogItemType: "validation_rule",
+        knowledgeDocumentId: "doc_validation",
+        lifecycleStatus: "active",
+        quickSummary: "Run typecheck before final report.",
+        scope: "workspace",
+        tags: "validation",
+        title: "Typecheck rule",
+        updatedAt: "2026-05-21T12:00:00Z",
       }),
     ];
     const skill = skillFixture({
@@ -307,7 +331,27 @@ describe("SkillLibraryWidget", () => {
     );
     expect(document.body.textContent).toContain("Selected preview");
     expect(document.body.textContent).toContain("Source");
+    expect(document.body.textContent).toContain("Version: v3");
+    expect(document.body.textContent).toContain("Updated: 2026-05-25T12:00:00Z");
     expect(document.body.textContent).toContain("Relations");
+
+    await changeInput(
+      'input[placeholder="Search title, summary, source, tag, or type"]',
+      "typecheck",
+    );
+
+    expect(visibleListRowsText()).toContain("Typecheck rule");
+    expect(visibleListRowsText()).not.toContain("Widget registry boundary");
+
+    await changeInput(
+      'input[placeholder="Search title, summary, source, tag, or type"]',
+      "",
+    );
+
+    await clickButton("Documents");
+
+    expect(visibleListRowsText()).toContain("Widget registry boundary");
+    expect(visibleListRowsText()).not.toContain("Review skill");
 
     await clickButton("Manage skills");
 
@@ -331,6 +375,16 @@ describe("SkillLibraryWidget", () => {
     expect(visibleListRowsText()).toContain("Widget registry boundary");
     expect(visibleListRowsText()).not.toContain("Old decision");
 
+    await clickButton("Validation rules");
+
+    expect(visibleListRowsText()).toContain("Typecheck rule");
+    expect(visibleListRowsText()).not.toContain("Widget registry boundary");
+
+    await clickButton("Workflows");
+
+    expect(visibleListRowsText()).toContain("Release workflow");
+    expect(visibleListRowsText()).not.toContain("Typecheck rule");
+
     await clickButton("Stale");
 
     expect(visibleListRowsText()).toContain("Old decision");
@@ -340,6 +394,11 @@ describe("SkillLibraryWidget", () => {
 
     expect(visibleListRowsText()).toContain("Archived known issue");
     expect(visibleListRowsText()).not.toContain("Widget registry boundary");
+
+    await clickButton("Known issues");
+
+    expect(visibleListRowsText()).toContain("Archived known issue");
+    expect(visibleListRowsText()).not.toContain("Release workflow");
 
     await clickCatalogView("Skills");
     await clickListRow("Review skill");
@@ -362,6 +421,51 @@ describe("SkillLibraryWidget", () => {
 
     expect(document.body.textContent).toContain(
       "Skills are not sent to Workspace Agent unless explicitly attached.",
+    );
+  });
+
+  it("attaches a Knowledge Document to Workspace Agent as a bounded visible snapshot", async () => {
+    const documentRecord = knowledgeDocumentFixture({
+      content: `${"Full body line. ".repeat(200)}Secret-looking text is not auto-redacted by caps.`,
+      createdByTaskId: "queue_source_1",
+      createdFromRunId: "run_source_1",
+      knowledgeDocumentId: "doc_agent",
+      quickSummary: "Use this bounded catalog snapshot.",
+      sourceKind: "queue_run",
+      sourceLabel: "Queue run output",
+      sourceRef: "run_source_1",
+      title: "Agent attach docs",
+      version: 4,
+    });
+    const attachToCoordinator = vi.fn();
+
+    renderWidget({
+      onAttachContextToCoordinator: attachToCoordinator,
+      onGetKnowledgeDocument: vi.fn(async () => documentRecord),
+      onListKnowledgeDocuments: vi.fn(async () => [documentRecord]),
+    });
+
+    await flush();
+
+    expect(document.body.textContent).toContain("Source task: queue_source_1");
+    expect(document.body.textContent).toContain("Source run: run_source_1");
+
+    await clickButton("Attach to Workspace Agent");
+
+    expect(attachToCoordinator).toHaveBeenCalledTimes(1);
+    const request = attachToCoordinator.mock.calls[0][0];
+    expect(request.sourceLabel).toBe("Knowledge / Skills / Knowledge Document");
+    expect(request.contextText).toContain("Knowledge Document Snapshot");
+    expect(request.contextText).toContain("Title: Agent attach docs");
+    expect(request.contextText).toContain("Version: v4");
+    expect(request.contextText).toContain("Quick summary:");
+    expect(request.contextText).toContain("Bounded excerpt:");
+    expect(request.contextText).toContain(
+      "full document body was not attached by default",
+    );
+    expect(request.contextText.length).toBeLessThan(documentRecord.content.length);
+    expect(document.body.textContent).toContain(
+      "Knowledge Document attached to Workspace Agent as a bounded visible snapshot.",
     );
   });
 

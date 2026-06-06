@@ -114,7 +114,9 @@ describe("SkillLibraryWidget Workspace Agent Skill attach", () => {
     });
 
     await flush();
-    await clickButton("Manage skills");
+    await clickCatalogView("Skills");
+    await clickListRow("Saved Skill");
+    await clickButton("Edit skill");
     await changeTextareaByLabel("Steps", "Unsaved edited step");
 
     const attachButton = buttonWithText("Attach to Workspace Agent");

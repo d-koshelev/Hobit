@@ -9,7 +9,9 @@ import { emptyCatalogText } from "./SkillLibraryDocumentsPanel.helpers";
 
 type SkillLibraryCatalogViewControlsProps = {
   catalogView: KnowledgeCatalogView;
+  catalogSearchQuery: string;
   onCatalogViewChange: (catalogView: KnowledgeCatalogView) => void;
+  onCatalogSearchQueryChange: (query: string) => void;
 };
 
 type SkillLibraryCatalogListViewProps = {
@@ -22,28 +24,43 @@ type SkillLibraryCatalogListViewProps = {
 
 export function SkillLibraryCatalogViewControls({
   catalogView,
+  catalogSearchQuery,
   onCatalogViewChange,
+  onCatalogSearchQueryChange,
 }: SkillLibraryCatalogViewControlsProps) {
   return (
-    <div className="skill-scope-filter" aria-label="Knowledge catalog views">
-      {KNOWLEDGE_CATALOG_VIEW_OPTIONS.map((filter) => (
-        <button
-          aria-pressed={catalogView === filter.value}
-          className={[
-            "skill-scope-filter-button",
-            catalogView === filter.value
-              ? "skill-scope-filter-button-active"
-              : "",
-          ]
-            .filter(Boolean)
-            .join(" ")}
-          key={filter.value}
-          onClick={() => onCatalogViewChange(filter.value)}
-          type="button"
-        >
-          {filter.label}
-        </button>
-      ))}
+    <div className="skill-catalog-filter-stack">
+      <label className="skill-catalog-search">
+        <span>Search catalog</span>
+        <input
+          className="input"
+          onChange={(event) =>
+            onCatalogSearchQueryChange(event.currentTarget.value)
+          }
+          placeholder="Search title, summary, source, tag, or type"
+          value={catalogSearchQuery}
+        />
+      </label>
+      <div className="skill-scope-filter" aria-label="Knowledge catalog views">
+        {KNOWLEDGE_CATALOG_VIEW_OPTIONS.map((filter) => (
+          <button
+            aria-pressed={catalogView === filter.value}
+            className={[
+              "skill-scope-filter-button",
+              catalogView === filter.value
+                ? "skill-scope-filter-button-active"
+                : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            key={filter.value}
+            onClick={() => onCatalogViewChange(filter.value)}
+            type="button"
+          >
+            {filter.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ import type {
   Skill,
   SkillReviewStatus,
 } from "../workspace/types";
+import { RENDER_MEMORY_CAPS, cappedPreviewText } from "../renderMemoryGuards";
 
 export const DEFAULT_SKILL_TITLE = "Untitled skill";
 export const DEFAULT_DOCUMENT_TITLE = "Untitled document";
@@ -36,6 +37,7 @@ export type KnowledgeCatalogView =
   | "active"
   | "global"
   | "workspace"
+  | "documents"
   | "skills"
   | "codebase"
   | "docs"
@@ -43,6 +45,7 @@ export type KnowledgeCatalogView =
   | "runbooks"
   | "prompt_templates"
   | "validation_rules"
+  | "known_issues"
   | "workflows"
   | "drafts"
   | "stale"
@@ -62,6 +65,7 @@ export type KnowledgeCatalogListItem = {
   tags: string;
   updatedAt: string;
   quickSummary: string;
+  searchableText: string;
 };
 
 export type KnowledgeCatalogAttachmentState = {
@@ -84,14 +88,16 @@ export const KNOWLEDGE_CATALOG_VIEW_OPTIONS: Array<{
   { label: "Active", value: "active" },
   { label: "Global", value: "global" },
   { label: "Workspace", value: "workspace" },
+  { label: "Documents", value: "documents" },
   { label: "Skills", value: "skills" },
   { label: "Codebase", value: "codebase" },
-  { label: "Docs", value: "docs" },
+  { label: "Documentation", value: "docs" },
   { label: "Decisions", value: "decisions" },
   { label: "Runbooks", value: "runbooks" },
-  { label: "Prompt templates", value: "prompt_templates" },
   { label: "Validation rules", value: "validation_rules" },
+  { label: "Known issues", value: "known_issues" },
   { label: "Workflows", value: "workflows" },
+  { label: "Prompt templates", value: "prompt_templates" },
   { label: "Drafts", value: "drafts" },
   { label: "Stale", value: "stale" },
   { label: "Archived", value: "archived" },
@@ -213,8 +219,16 @@ export function knowledgeCatalogItemsFromRecords(
 export function filterKnowledgeCatalogItems(
   items: KnowledgeCatalogListItem[],
   view: KnowledgeCatalogView,
+  query = "",
 ) {
-  return items.filter((item) => knowledgeCatalogItemMatchesView(item, view));
+  const normalizedQuery = normalizeSearchText(query);
+
+  return items.filter(
+    (item) =>
+      knowledgeCatalogItemMatchesView(item, view) &&
+      (!normalizedQuery ||
+        normalizeSearchText(item.searchableText).includes(normalizedQuery)),
+  );
 }
 
 export function knowledgeCatalogTypeLabel(
@@ -353,6 +367,47 @@ export function skillCoordinatorContextText(
   ].join("\n");
 }
 
+export function knowledgeDocumentWorkspaceAgentContextText(
+  document: KnowledgeDocument,
+) {
+  const summary =
+    document.quickSummary.trim() || firstUsefulLine(document.content) || "(empty)";
+  const excerpt = cappedPreviewText(
+    document.content.trim(),
+    Math.min(RENDER_MEMORY_CAPS.knowledgePreviewChars, 1200),
+  );
+  const version = knowledgeDocumentVersionLabel(document);
+  const source = [
+    document.sourceLabel.trim() || "Knowledge Document",
+    document.sourceRef.trim() ? `Source ref: ${document.sourceRef.trim()}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return [
+    "Knowledge Document Snapshot",
+    `Title: ${visibleSkillValue(document.title)}`,
+    `Type: ${knowledgeCatalogTypeLabel(document.catalogItemType)}`,
+    `Scope: ${knowledgeDocumentScopeLabel(document.scope)}`,
+    `Lifecycle: ${knowledgeLifecycleStatusLabel(document.lifecycleStatus)}`,
+    `Enabled: ${document.enabled ? "yes" : "no"}`,
+    `Searchable: ${document.searchable === false ? "no" : "yes"}`,
+    `Version: ${version}`,
+    `Updated: ${formatKnowledgeCatalogDate(document.updatedAt)}`,
+    "Source:",
+    source || "(empty)",
+    "Quick summary:",
+    summary,
+    "Bounded excerpt:",
+    excerpt || "(empty)",
+    "Attachment note: bounded snapshot only; full document body was not attached by default.",
+  ].join("\n");
+}
+
+export function knowledgeDocumentVersionLabel(document: KnowledgeDocument) {
+  return document.versionSummary?.trim() || `v${document.version ?? 1}`;
+}
+
 export function statusLabel(status: SkillReviewStatus) {
   return (
     REVIEW_STATUS_OPTIONS.find((option) => option.value === status)?.label ??
@@ -382,38 +437,69 @@ function visibleSkillValue(value: string) {
 function knowledgeCatalogItemFromDocument(
   document: KnowledgeDocument,
 ): KnowledgeCatalogListItem {
+  const typeLabel = knowledgeCatalogTypeLabel(document.catalogItemType);
+  const statusLabel = knowledgeLifecycleStatusLabel(document.lifecycleStatus);
+  const scopeLabel = knowledgeDocumentScopeLabel(document.scope);
+  const quickSummary =
+    document.quickSummary.trim() ||
+    firstUsefulLine(document.content) ||
+    "No quick summary yet.";
+
   return {
     id: `document:${document.knowledgeDocumentId}`,
-    quickSummary:
-      document.quickSummary.trim() ||
-      firstUsefulLine(document.content) ||
-      "No quick summary yet.",
+    quickSummary,
     recordId: document.knowledgeDocumentId,
     recordKind: "document",
-    scopeLabel: knowledgeDocumentScopeLabel(document.scope),
+    scopeLabel,
+    searchableText: [
+      document.title,
+      quickSummary,
+      typeLabel,
+      statusLabel,
+      scopeLabel,
+      document.tags,
+      document.sourceLabel,
+      document.sourceRef,
+      document.versionSummary ?? "",
+    ].join("\n"),
     status: document.lifecycleStatus,
-    statusLabel: knowledgeLifecycleStatusLabel(document.lifecycleStatus),
+    statusLabel,
     tags: document.tags,
     title: document.title,
-    typeLabel: knowledgeCatalogTypeLabel(document.catalogItemType),
+    typeLabel,
     updatedAt: document.updatedAt,
   };
 }
 
 function knowledgeCatalogItemFromSkill(skill: Skill): KnowledgeCatalogListItem {
   const status = skillLifecycleStatus(skill.reviewStatus);
+  const statusLabelValue = statusLabel(skill.reviewStatus);
+  const quickSummary =
+    firstUsefulLine(skill.whenToUse) ||
+    firstUsefulLine(skill.steps) ||
+    "No quick summary yet.";
 
   return {
     id: `skill:${skill.skillId}`,
-    quickSummary:
-      firstUsefulLine(skill.whenToUse) ||
-      firstUsefulLine(skill.steps) ||
-      "No quick summary yet.",
+    quickSummary,
     recordId: skill.skillId,
     recordKind: "skill",
     scopeLabel: "Workspace",
+    searchableText: [
+      skill.title,
+      quickSummary,
+      "Skill",
+      statusLabelValue,
+      "Workspace",
+      skill.tags,
+      skill.whenToUse,
+      skill.prerequisites,
+      skill.steps,
+      skill.validation,
+      skill.risks,
+    ].join("\n"),
     status,
-    statusLabel: statusLabel(skill.reviewStatus),
+    statusLabel: statusLabelValue,
     tags: skill.tags,
     title: skill.title,
     typeLabel: "Skill",
@@ -445,6 +531,8 @@ function knowledgeCatalogItemMatchesView(
       return item.scopeLabel === "Global";
     case "workspace":
       return item.scopeLabel === "Workspace";
+    case "documents":
+      return item.recordKind === "document";
     case "skills":
       return item.recordKind === "skill";
     case "codebase":
@@ -459,6 +547,8 @@ function knowledgeCatalogItemMatchesView(
       return item.typeLabel === "Prompt template";
     case "validation_rules":
       return item.typeLabel === "Validation rule";
+    case "known_issues":
+      return item.typeLabel === "Known issue";
     case "workflows":
       return item.typeLabel === "Workflow";
     case "drafts":
@@ -471,6 +561,10 @@ function knowledgeCatalogItemMatchesView(
     default:
       return true;
   }
+}
+
+function normalizeSearchText(value: string) {
+  return value.trim().toLowerCase();
 }
 
 function skillLifecycleStatus(

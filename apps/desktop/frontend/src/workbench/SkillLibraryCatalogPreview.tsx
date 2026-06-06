@@ -10,6 +10,7 @@ import {
   KNOWLEDGE_LIFECYCLE_STATUS_OPTIONS,
   knowledgeDocumentRelations,
   knowledgeDocumentDraftFromDocument,
+  knowledgeDocumentVersionLabel,
   skillRelations,
   skillCatalogFullContent,
   type KnowledgeCatalogAttachmentState,
@@ -65,6 +66,7 @@ type CatalogDocumentEditorProps = {
 
 type CatalogDocumentPreviewProps = {
   attachmentState?: KnowledgeCatalogAttachmentState;
+  canAttachToWorkspaceAgent: boolean;
   canAttachToQueueTask: boolean;
   document: KnowledgeDocument;
   documents: KnowledgeDocument[];
@@ -72,6 +74,7 @@ type CatalogDocumentPreviewProps = {
   item: KnowledgeCatalogListItem | null;
   message: string | null;
   onAttachToQueueTask: () => void;
+  onAttachToWorkspaceAgent: () => void;
   onEditDocument: () => void;
   skills: Skill[];
 };
@@ -146,6 +149,7 @@ export function CatalogSkillPreview({
 
 export function CatalogDocumentPreview({
   attachmentState,
+  canAttachToWorkspaceAgent,
   canAttachToQueueTask,
   document,
   documents,
@@ -153,6 +157,7 @@ export function CatalogDocumentPreview({
   item,
   message,
   onAttachToQueueTask,
+  onAttachToWorkspaceAgent,
   onEditDocument,
   skills,
 }: CatalogDocumentPreviewProps) {
@@ -169,10 +174,34 @@ export function CatalogDocumentPreview({
       <PreviewField label="Quick summary" value={document.quickSummary} />
       <PreviewField label="Full content" value={document.content} />
       <PreviewField
+        label="Catalog metadata"
+        value={[
+          `Type: ${item?.typeLabel ?? document.catalogItemType}`,
+          `Scope: ${item?.scopeLabel ?? document.scope}`,
+          `Lifecycle: ${item?.statusLabel ?? document.lifecycleStatus}`,
+          `Enabled: ${document.enabled ? "yes" : "no"}`,
+          `Searchable: ${document.searchable === false ? "no" : "yes"}`,
+          `Version: ${knowledgeDocumentVersionLabel(document)}`,
+          `Created: ${document.createdAt}`,
+          `Updated: ${document.updatedAt}`,
+          document.reviewedAt ? `Reviewed: ${document.reviewedAt}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n")}
+      />
+      <PreviewField
         label="Source"
         value={[
           document.sourceLabel,
           document.sourceRef ? `Source ref: ${document.sourceRef}` : "",
+          document.sourceKind ? `Source kind: ${document.sourceKind}` : "",
+          document.createdByTaskId
+            ? `Source task: ${document.createdByTaskId}`
+            : "",
+          document.createdFromRunId
+            ? `Source run: ${document.createdFromRunId}`
+            : "",
+          ...sourceRefPreviewLines(document),
         ]
           .filter(Boolean)
           .join("\n")}
@@ -182,6 +211,22 @@ export function CatalogDocumentPreview({
         value={knowledgeRelationsText(relations)}
       />
       <div className="skill-editor-actions">
+        {canAttachToWorkspaceAgent ? (
+          <Button
+            disabled={
+              !document.enabled ||
+              document.searchable === false ||
+              document.lifecycleStatus === "archived" ||
+              document.lifecycleStatus === "draft" ||
+              document.lifecycleStatus === "rejected"
+            }
+            onClick={onAttachToWorkspaceAgent}
+            title="Attaches a bounded visible Knowledge Document snapshot to Workspace Agent. Does not send automatically."
+            variant="secondary"
+          >
+            Attach to Workspace Agent
+          </Button>
+        ) : null}
         <Button
           disabled={!canAttachToQueueTask}
           onClick={onAttachToQueueTask}
@@ -196,7 +241,8 @@ export function CatalogDocumentPreview({
       </div>
       <p className="skill-attach-note">
         This is a saved Knowledge Document preview. Edit item opens the
-        catalog item editor; attachments store safe refs and summaries only.
+        catalog item editor; attachments use safe refs, summaries, and bounded
+        excerpts only.
       </p>
       <CatalogMessages error={error} message={message} />
     </div>
@@ -509,6 +555,28 @@ function knowledgeRelationsText(relations: KnowledgeRelation[]) {
   return relations
     .map((relation) => `${relation.label}: ${relation.value}`)
     .join("\n");
+}
+
+function sourceRefPreviewLines(document: KnowledgeDocument) {
+  return (document.sourceRefs ?? []).slice(0, 5).map((sourceRef, index) => {
+    const prefix = `Source ref ${index + 1}`;
+
+    switch (sourceRef.kind) {
+      case "codebase_path":
+      case "docs_path":
+      case "finder_selection":
+      case "import_file":
+        return `${prefix}: ${sourceRef.kind} ${sourceRef.path}`;
+      case "queue_task":
+        return `${prefix}: queue task ${sourceRef.queueTaskId}`;
+      case "queue_run":
+        return `${prefix}: run ${sourceRef.runId}`;
+      case "note":
+        return `${prefix}: note ${sourceRef.noteId}`;
+      case "manual":
+        return `${prefix}: manual ${sourceRef.refText}`;
+    }
+  });
 }
 
 function CatalogPreviewHeader({

@@ -21,6 +21,7 @@ type SkillLibraryCatalogDetailPaneProps = {
   selectedSkill: Skill | null;
   skills: Skill[];
   onAttachDocumentToQueueTask: () => void;
+  onAttachDocumentToWorkspaceAgent: () => void;
   onAttachSkillToQueueTask: () => void;
   onAttachSkillToWorkspaceAgent: () => void;
   onEditDocument: () => void;
@@ -40,6 +41,7 @@ export function SkillLibraryCatalogDetailPane({
   selectedSkill,
   skills,
   onAttachDocumentToQueueTask,
+  onAttachDocumentToWorkspaceAgent,
   onAttachSkillToQueueTask,
   onAttachSkillToWorkspaceAgent,
   onEditDocument,
@@ -67,6 +69,7 @@ export function SkillLibraryCatalogDetailPane({
       ) : selectedDocument ? (
         <CatalogDocumentPreview
           attachmentState={attachmentState}
+          canAttachToWorkspaceAgent={canAttachContextToCoordinator}
           canAttachToQueueTask={Boolean(
             !isDocumentDirty && canAttachKnowledgeContextToQueueTask,
           )}
@@ -76,6 +79,7 @@ export function SkillLibraryCatalogDetailPane({
           item={item}
           message={message}
           onAttachToQueueTask={onAttachDocumentToQueueTask}
+          onAttachToWorkspaceAgent={onAttachDocumentToWorkspaceAgent}
           onEditDocument={onEditDocument}
           skills={skills}
         />
