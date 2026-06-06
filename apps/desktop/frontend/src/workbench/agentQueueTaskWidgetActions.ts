@@ -1,11 +1,15 @@
 import {
   assignAgentQueueTaskToExecutor,
+  attachKnowledgeToQueueTask,
+  attachSkillToQueueTask,
   clearAgentQueueTaskAssignment,
   createAgentQueueTask,
   createAgentQueueWorker,
   deleteAgentQueueTask,
   deleteAgentQueueWorker,
   getAgentQueueTask,
+  detachKnowledgeFromQueueTask,
+  detachSkillFromQueueTask,
   getAgentQueueTaskLatestRunLink,
   getAgentQueueRunnerSnapshot,
   listAgentQueueTaskRunLinks,
@@ -22,12 +26,16 @@ import type {
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
   AgentQueueWorkerConfig,
+  AttachKnowledgeToQueueTaskRequest,
+  AttachSkillToQueueTaskRequest,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
   CreateAgentQueueWorkerRequest,
   DeleteAgentQueueTaskRequest,
   DeleteAgentQueueWorkerRequest,
+  DetachKnowledgeFromQueueTaskRequest,
+  DetachSkillFromQueueTaskRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartAgentQueueRunnerSessionRequest,
@@ -58,6 +66,26 @@ export type AgentQueueTaskClearAssignmentRequest = Omit<
 
 export type AgentQueueTaskDeleteRequest = Omit<
   DeleteAgentQueueTaskRequest,
+  "workspaceId"
+>;
+
+export type AgentQueueTaskAttachKnowledgeRequest = Omit<
+  AttachKnowledgeToQueueTaskRequest,
+  "workspaceId"
+>;
+
+export type AgentQueueTaskDetachKnowledgeRequest = Omit<
+  DetachKnowledgeFromQueueTaskRequest,
+  "workspaceId"
+>;
+
+export type AgentQueueTaskAttachSkillRequest = Omit<
+  AttachSkillToQueueTaskRequest,
+  "workspaceId"
+>;
+
+export type AgentQueueTaskDetachSkillRequest = Omit<
+  DetachSkillFromQueueTaskRequest,
   "workspaceId"
 >;
 
@@ -106,6 +134,18 @@ export type AgentQueueTaskWidgetActions = {
   deleteAgentQueueTask: (
     request: AgentQueueTaskDeleteRequest,
   ) => Promise<boolean>;
+  attachKnowledgeToQueueTask: (
+    request: AgentQueueTaskAttachKnowledgeRequest,
+  ) => Promise<AgentQueueTask>;
+  detachKnowledgeFromQueueTask: (
+    request: AgentQueueTaskDetachKnowledgeRequest,
+  ) => Promise<AgentQueueTask>;
+  attachSkillToQueueTask: (
+    request: AgentQueueTaskAttachSkillRequest,
+  ) => Promise<AgentQueueTask>;
+  detachSkillFromQueueTask: (
+    request: AgentQueueTaskDetachSkillRequest,
+  ) => Promise<AgentQueueTask>;
   listAgentQueueWorkers: () => Promise<AgentQueueWorkerConfig[]>;
   createAgentQueueWorker: (
     request: AgentQueueWorkerCreateRequest,
@@ -172,6 +212,34 @@ export function createAgentQueueTaskActions(
     deleteAgentQueueTask: (request) => {
       requireOpenWorkbench(viewState, "delete Agent Queue tasks");
       return deleteAgentQueueTask({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    attachKnowledgeToQueueTask: (request) => {
+      requireOpenWorkbench(viewState, "attach Knowledge to Agent Queue tasks");
+      return attachKnowledgeToQueueTask({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    detachKnowledgeFromQueueTask: (request) => {
+      requireOpenWorkbench(viewState, "detach Knowledge from Agent Queue tasks");
+      return detachKnowledgeFromQueueTask({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    attachSkillToQueueTask: (request) => {
+      requireOpenWorkbench(viewState, "attach Skills to Agent Queue tasks");
+      return attachSkillToQueueTask({
+        workspaceId: viewState.workspace.id,
+        ...request,
+      });
+    },
+    detachSkillFromQueueTask: (request) => {
+      requireOpenWorkbench(viewState, "detach Skills from Agent Queue tasks");
+      return detachSkillFromQueueTask({
         workspaceId: viewState.workspace.id,
         ...request,
       });

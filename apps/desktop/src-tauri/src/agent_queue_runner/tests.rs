@@ -443,6 +443,7 @@ fn task_summary(
         description: String::new(),
         prompt: prompt.to_owned(),
         status: status.to_owned(),
+        context_json: None,
         priority: 0,
         execution_policy: execution_policy.to_owned(),
         execution_workspace: None,

@@ -355,15 +355,21 @@ export const SkillLibrarySkillsPanel = forwardRef<
     setError(null);
   }
 
-  function attachSelectedSkillToQueueTask() {
+  async function attachSelectedSkillToQueueTask() {
     if (!selectedSkill || isDirty || !onAttachKnowledgeContextToQueueTask) {
       return;
     }
 
-    const result = onAttachKnowledgeContextToQueueTask({
-      kind: "skill",
-      skill: selectedSkill,
-    });
+    const result = await Promise.resolve(onAttachKnowledgeContextToQueueTask({
+        kind: "skill",
+        skill: selectedSkill,
+      })).catch((attachError) => ({
+        message:
+          attachError instanceof Error
+            ? attachError.message
+            : "Unable to attach Skill to the selected Queue task.",
+        status: "unavailable" as const,
+      }));
     setMessage(result.message);
     setError(result.status === "blocked" ? result.message : null);
   }
@@ -542,7 +548,7 @@ export const SkillLibrarySkillsPanel = forwardRef<
                 {onAttachKnowledgeContextToQueueTask ? (
                   <Button
                     disabled={!canAttachToQueueTask || isSaving || isDeleting}
-                    onClick={attachSelectedSkillToQueueTask}
+                    onClick={() => void attachSelectedSkillToQueueTask()}
                     title={
                       isDirty
                         ? "Save this Skill before attaching it to a Queue task."

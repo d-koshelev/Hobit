@@ -113,6 +113,8 @@ class CoordinatorProviderProductSmokeRuntime {
   actions(): WorkbenchWidgetInstanceActions {
     return {
       assignAgentQueueTaskToExecutor: this.queueDispatchUnsupported,
+      attachKnowledgeToQueueTask: this.queueDispatchUnsupported,
+      attachSkillToQueueTask: this.queueDispatchUnsupported,
       attachToCodexDirectWorkStream: this.executorUnsupported,
       cancelCodexDirectWorkRun: this.executorUnsupported,
       listenToDirectWorkStreamEvents: async () => () => undefined,
@@ -150,6 +152,8 @@ class CoordinatorProviderProductSmokeRuntime {
       deleteAgentQueueTask: async () => this.forbidden(false),
       deleteAgentQueueWorker: async () => true,
       deleteSkill: this.unsupported,
+      detachKnowledgeFromQueueTask: this.queueDispatchUnsupported,
+      detachSkillFromQueueTask: this.queueDispatchUnsupported,
       createGitCommit: this.gitUnsupported,
       createJdbcConnector: this.jdbcUnsupported,
       createJdbcConnectionProfile: this.jdbcUnsupported,

@@ -288,6 +288,19 @@ export type GetAgentQueueTaskRequest = {
 
 export type DeleteAgentQueueTaskRequest = GetAgentQueueTaskRequest;
 
+export type AttachKnowledgeToQueueTaskRequest = GetAgentQueueTaskRequest & {
+  knowledgeId: string;
+};
+
+export type DetachKnowledgeFromQueueTaskRequest =
+  AttachKnowledgeToQueueTaskRequest;
+
+export type AttachSkillToQueueTaskRequest = GetAgentQueueTaskRequest & {
+  skillId: string;
+};
+
+export type DetachSkillFromQueueTaskRequest = AttachSkillToQueueTaskRequest;
+
 export type UpdateAgentQueueTaskRequest = {
   workspaceId: string;
   queueItemId: string;

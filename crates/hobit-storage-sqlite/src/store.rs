@@ -168,6 +168,11 @@ impl SqliteStore {
             "approval_policy",
             "approval_policy TEXT NULL",
         )?;
+        self.ensure_column(
+            "agent_queue_tasks",
+            "context_json",
+            "context_json TEXT NULL",
+        )?;
         self.connection.execute_batch(schema::POST_INIT_SCHEMA)?;
         Ok(())
     }

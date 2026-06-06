@@ -105,6 +105,34 @@ export const deleteKnowledgeDocument: WorkspaceApi["deleteKnowledgeDocument"] =
     );
   };
 
+export const attachKnowledgeToQueueTask: WorkspaceApi["attachKnowledgeToQueueTask"] =
+  async (_request) => {
+    throw new Error(
+      "Queue Knowledge context persistence is only available in the Tauri desktop shell. Browser fallback cannot attach Knowledge to Queue tasks.",
+    );
+  };
+
+export const detachKnowledgeFromQueueTask: WorkspaceApi["detachKnowledgeFromQueueTask"] =
+  async (_request) => {
+    throw new Error(
+      "Queue Knowledge context persistence is only available in the Tauri desktop shell. Browser fallback cannot detach Knowledge from Queue tasks.",
+    );
+  };
+
+export const attachSkillToQueueTask: WorkspaceApi["attachSkillToQueueTask"] =
+  async (_request) => {
+    throw new Error(
+      "Queue Skill context persistence is only available in the Tauri desktop shell. Browser fallback cannot attach Skills to Queue tasks.",
+    );
+  };
+
+export const detachSkillFromQueueTask: WorkspaceApi["detachSkillFromQueueTask"] =
+  async (_request) => {
+    throw new Error(
+      "Queue Skill context persistence is only available in the Tauri desktop shell. Browser fallback cannot detach Skills from Queue tasks.",
+    );
+  };
+
 export const searchKnowledgeDocuments: WorkspaceApi["searchKnowledgeDocuments"] =
   async (_request) => {
     throw new Error(

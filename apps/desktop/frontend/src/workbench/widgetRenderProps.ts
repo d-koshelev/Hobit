@@ -26,6 +26,8 @@ import type {
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
   AgentQueueWorkerConfig,
+  AttachKnowledgeToQueueTaskRequest,
+  AttachSkillToQueueTaskRequest,
   AssignAgentQueueTaskToExecutorRequest,
   CancelCodexDirectWorkRunResponse,
   ClearAgentQueueTaskAssignmentRequest,
@@ -40,6 +42,8 @@ import type {
   DirectWorkStreamEvent,
   DeleteAgentQueueTaskRequest,
   DeleteAgentQueueWorkerRequest,
+  DetachKnowledgeFromQueueTaskRequest,
+  DetachSkillFromQueueTaskRequest,
   ForceKillCodexDirectWorkRunResponse,
   GenerateCoordinatorProviderResponse,
   GenerateCoordinatorProviderResponseRequest,
@@ -154,6 +158,18 @@ export type WidgetRenderProps = {
   onDeleteAgentQueueTask?: (
     request: Omit<DeleteAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<boolean>;
+  onAttachKnowledgeToQueueTask?: (
+    request: Omit<AttachKnowledgeToQueueTaskRequest, "workspaceId">,
+  ) => Promise<AgentQueueTask>;
+  onDetachKnowledgeFromQueueTask?: (
+    request: Omit<DetachKnowledgeFromQueueTaskRequest, "workspaceId">,
+  ) => Promise<AgentQueueTask>;
+  onAttachSkillToQueueTask?: (
+    request: Omit<AttachSkillToQueueTaskRequest, "workspaceId">,
+  ) => Promise<AgentQueueTask>;
+  onDetachSkillFromQueueTask?: (
+    request: Omit<DetachSkillFromQueueTaskRequest, "workspaceId">,
+  ) => Promise<AgentQueueTask>;
   onListAgentQueueWorkers?: () => Promise<AgentQueueWorkerConfig[]>;
   onCreateAgentQueueWorker?: (
     request: Omit<CreateAgentQueueWorkerRequest, "workspaceId">,

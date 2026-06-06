@@ -155,6 +155,7 @@ fn create_workspace_graph(store: &SqliteStore, workspace_id: &str, suffix: &str)
             codex_executable: None,
             sandbox: None,
             approval_policy: None,
+            context_json: None,
             created_at: Some("5"),
             updated_at: Some("5"),
         })

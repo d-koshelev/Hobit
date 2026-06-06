@@ -135,6 +135,7 @@ class QueueExecutorSmokeRuntime {
             }
           : this.cloneTask();
       },
+      attachKnowledgeToQueueTask: async () => this.forbidden(this.cloneTask()), attachSkillToQueueTask: async () => this.forbidden(this.cloneTask()),
       attachToCodexDirectWorkStream: async (_widgetInstanceId, runId, onEvent) => {
         this.attachCallCount += 1;
         this.streamListeners.set(runId, onEvent);
@@ -180,6 +181,7 @@ class QueueExecutorSmokeRuntime {
       },
       deleteAgentQueueWorker: async () => true,
       deleteSkill: this.unsupported,
+      detachKnowledgeFromQueueTask: async () => this.forbidden(this.cloneTask()), detachSkillFromQueueTask: async () => this.forbidden(this.cloneTask()),
       createGitCommit: async () => this.forbidden(null),
       createJdbcConnector: this.unsupported,
       createJdbcConnectionProfile: this.unsupported,
@@ -194,12 +196,10 @@ class QueueExecutorSmokeRuntime {
       getAgentExecutorRunDetail: async (_widgetInstanceId, runId) => {
         this.executorRunDetailCallCount += 1;
         this.executorRunDetailRunIds.push(runId);
-
         if (this.scenario === "reconciliation-final" && runId === RUN_ID) {
           this.markFinalAvailable();
           return this.runDetail(runId);
         }
-
         return this.finalStatusAvailable ? this.runDetail(runId) : null;
       },
       getAgentQueueTask: async (queueItemId) =>

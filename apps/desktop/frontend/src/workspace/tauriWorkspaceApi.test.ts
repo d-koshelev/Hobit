@@ -753,6 +753,8 @@ describe("tauri workspace api adapter", () => {
         status: "queued",
         priority: 2,
         execution_policy: "auto",
+        context_json:
+          '{"attachedKnowledgeRefs":[{"id":"doc-1","kind":"knowledge_document","title":"Docs","source":"Workspace document","scope":"workspace-local","status":"active","quickSummary":"Summary","attachedAt":"2026-06-04T10:00:00.000Z","version":"1"}],"attachedSkillRefs":[],"attachedKnowledgeSnapshots":[],"contextWarnings":[],"contextTokenBudget":{"estimatedTokens":0,"maxTokens":1600,"overBudget":false},"materializedAt":null}',
         assigned_executor_widget_id: null,
         created_at: "1",
         updated_at: "2",
@@ -800,6 +802,14 @@ describe("tauri workspace api adapter", () => {
         executionPolicy: "auto",
       }),
     ).resolves.toMatchObject({
+      context: {
+        attachedKnowledgeRefs: [
+          expect.objectContaining({
+            id: "doc-1",
+            title: "Docs",
+          }),
+        ],
+      },
       executionPolicy: "auto",
       queueItemId: "queue_1",
     });
@@ -809,6 +819,9 @@ describe("tauri workspace api adapter", () => {
         workspace_id: "ws_1",
       }),
     });
+    expect(mocks.invoke.mock.calls[0][1].request).not.toHaveProperty(
+      "context_json",
+    );
 
     await expect(
       startAssignedAgentQueueTask({

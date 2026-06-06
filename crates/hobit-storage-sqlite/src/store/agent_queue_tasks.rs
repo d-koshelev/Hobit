@@ -31,8 +31,8 @@ impl SqliteStore {
             "INSERT INTO agent_queue_tasks (
                 queue_item_id, workspace_id, title, description, prompt, status,
                 priority, execution_policy, execution_workspace, codex_executable,
-                sandbox, approval_policy, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+                sandbox, approval_policy, context_json, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
             params![
                 input.queue_item_id,
                 input.workspace_id,
@@ -46,6 +46,7 @@ impl SqliteStore {
                 input.codex_executable,
                 input.sandbox,
                 input.approval_policy,
+                input.context_json,
                 created_at,
                 updated_at,
             ],
@@ -59,7 +60,8 @@ impl SqliteStore {
         let mut statement = self.connection.prepare(
             "SELECT queue_item_id, workspace_id, title, description, prompt, status,
                 priority, execution_policy, execution_workspace, codex_executable,
-                sandbox, approval_policy, assigned_executor_widget_id, created_at, updated_at
+                sandbox, approval_policy, context_json, assigned_executor_widget_id,
+                created_at, updated_at
              FROM agent_queue_tasks
              WHERE workspace_id = ?1
              ORDER BY priority DESC, updated_at DESC, created_at DESC, queue_item_id DESC",
@@ -78,7 +80,8 @@ impl SqliteStore {
             .query_row(
                 "SELECT queue_item_id, workspace_id, title, description, prompt,
                     status, priority, execution_policy, execution_workspace, codex_executable,
-                    sandbox, approval_policy, assigned_executor_widget_id, created_at, updated_at
+                    sandbox, approval_policy, context_json, assigned_executor_widget_id,
+                    created_at, updated_at
                  FROM agent_queue_tasks
                  WHERE workspace_id = ?1 AND queue_item_id = ?2",
                 params![workspace_id, queue_item_id],
@@ -95,7 +98,8 @@ impl SqliteStore {
             .query_row(
                 "SELECT queue_item_id, workspace_id, title, description, prompt,
                     status, priority, execution_policy, execution_workspace, codex_executable,
-                    sandbox, approval_policy, assigned_executor_widget_id, created_at, updated_at
+                    sandbox, approval_policy, context_json, assigned_executor_widget_id,
+                    created_at, updated_at
                  FROM agent_queue_tasks
                  WHERE queue_item_id = ?1",
                 params![queue_item_id],
@@ -119,8 +123,9 @@ impl SqliteStore {
              SET title = ?1, description = ?2, prompt = ?3, status = ?4,
                 priority = ?5, execution_policy = COALESCE(?6, execution_policy),
                 execution_workspace = ?7, codex_executable = ?8, sandbox = ?9,
-                approval_policy = ?10, updated_at = ?11
-             WHERE workspace_id = ?12 AND queue_item_id = ?13",
+                approval_policy = ?10, context_json = COALESCE(?11, context_json),
+                updated_at = ?12
+             WHERE workspace_id = ?13 AND queue_item_id = ?14",
             params![
                 update.title,
                 update.description,
@@ -132,6 +137,7 @@ impl SqliteStore {
                 update.codex_executable,
                 update.sandbox,
                 update.approval_policy,
+                update.context_json,
                 updated_at,
                 workspace_id,
                 queue_item_id,
@@ -160,6 +166,30 @@ impl SqliteStore {
              SET status = ?1, updated_at = ?2
              WHERE workspace_id = ?3 AND queue_item_id = ?4",
             params![status, updated_at, workspace_id, queue_item_id],
+        )?;
+
+        if affected_rows == 0 {
+            return Ok(None);
+        }
+
+        self.get_agent_queue_task(workspace_id, queue_item_id)
+    }
+
+    pub fn update_agent_queue_task_context(
+        &self,
+        workspace_id: &str,
+        queue_item_id: &str,
+        context_json: Option<&str>,
+        updated_at: Option<&str>,
+    ) -> Result<Option<AgentQueueTaskRow>> {
+        let updated_at = updated_at
+            .map(str::to_owned)
+            .unwrap_or_else(now_precise_timestamp);
+        let affected_rows = self.connection.execute(
+            "UPDATE agent_queue_tasks
+             SET context_json = ?1, updated_at = ?2
+             WHERE workspace_id = ?3 AND queue_item_id = ?4",
+            params![context_json, updated_at, workspace_id, queue_item_id],
         )?;
 
         if affected_rows == 0 {

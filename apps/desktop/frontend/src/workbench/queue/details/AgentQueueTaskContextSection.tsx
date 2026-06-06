@@ -15,10 +15,12 @@ import {
 import { promptSummary } from "./agentQueueTaskDetailsFormatters";
 
 type AgentQueueTaskContextSectionProps = {
+  onDetachContextRef?: (ref: AgentQueueTaskContextRef) => unknown;
   selectedTask: AgentQueueTask;
 };
 
 export function AgentQueueTaskContextSection({
+  onDetachContextRef,
   selectedTask,
 }: AgentQueueTaskContextSectionProps) {
   const context = selectedTask.context;
@@ -66,19 +68,24 @@ export function AgentQueueTaskContextSection({
 
       {!hasContext ? (
         <p className="agent-queue-section-copy">
-          No Knowledge or Skill refs are attached for this session.
+          No Knowledge or Skill refs are attached to this Queue task.
         </p>
       ) : (
         <>
           <p className="agent-queue-section-copy">
-            Attached for this session only. These refs and bounded snapshots are
-            visible before run, but they are not saved as Queue task context.
+            Attached refs and bounded snapshots are saved on this Queue task and
+            visible before execution.
           </p>
           <ContextRefList
             label="Knowledge"
+            onDetachContextRef={onDetachContextRef}
             refs={context?.attachedKnowledgeRefs ?? []}
           />
-          <ContextRefList label="Skills" refs={context?.attachedSkillRefs ?? []} />
+          <ContextRefList
+            label="Skills"
+            onDetachContextRef={onDetachContextRef}
+            refs={context?.attachedSkillRefs ?? []}
+          />
           <SnapshotList snapshots={context?.attachedKnowledgeSnapshots ?? []} />
           <ContextWarningList warnings={context?.contextWarnings ?? []} />
           {materialized?.contextSection ? (
@@ -117,7 +124,7 @@ function SnapshotList({
 
   return (
     <div className="agent-queue-context-group">
-      <p className="agent-queue-context-label">Prepared session snapshots</p>
+      <p className="agent-queue-context-label">Durable bounded snapshots</p>
       {snapshots.map((snapshot) => (
         <article className="agent-queue-context-ref" key={snapshot.id}>
           <div className="agent-queue-context-ref-header">
@@ -143,9 +150,11 @@ function SnapshotList({
 
 function ContextRefList({
   label,
+  onDetachContextRef,
   refs,
 }: {
   label: string;
+  onDetachContextRef?: (ref: AgentQueueTaskContextRef) => unknown;
   refs: AgentQueueTaskContextRef[];
 }) {
   if (refs.length === 0) {
@@ -162,6 +171,15 @@ function ContextRefList({
             <span>{ref.status}</span>
           </div>
           <p>{ref.quickSummary}</p>
+          {onDetachContextRef ? (
+            <button
+              className="agent-queue-secondary-button"
+              onClick={() => void onDetachContextRef(ref)}
+              type="button"
+            >
+              Remove
+            </button>
+          ) : null}
           <dl>
             <div>
               <dt>Scope</dt>

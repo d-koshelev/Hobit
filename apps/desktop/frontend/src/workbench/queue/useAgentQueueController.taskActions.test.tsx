@@ -269,20 +269,20 @@ describe("useAgentQueueController task actions", () => {
       harness.startRequests[0].materializedOperatorPrompt ?? "";
     expect(materializedPrompt.includes("Visible Skill Instructions")).toBe(true);
     expect(
-      materializedPrompt.indexOf("Attached Queue Context") <
+      materializedPrompt.indexOf("Knowledge / Skills context") <
         materializedPrompt.indexOf("Run this local Hobit task"),
     ).toBe(true);
-    expect(materializedPrompt.includes("Queue Context Run Handoff")).toBe(true);
+    expect(materializedPrompt.includes("Context used")).toBe(true);
     expect(
       materializedPrompt.includes(
-        "Context storage: current-session UI state; not saved as Queue task context.",
+        "Context storage: durable Queue task context.",
       ),
     ).toBe(true);
 
     hook.unmount();
   });
 
-  it("keeps attached Queue context frontend-local and drops it after remount", async () => {
+  it("persists attached Queue context and materializes the durable snapshot after remount without autorun", async () => {
     const harness = createQueueHarness([
       queueTask({
         assignedExecutorWidgetId: "executor-1",
@@ -295,29 +295,37 @@ describe("useAgentQueueController task actions", () => {
 
     await flushControllerLoad();
 
-    let result: ReturnType<
+    let result: Awaited<ReturnType<
       typeof hook.result.current.knowledgeContext.onAttachSelected
-    > | null = null;
+    >> | null = null;
 
-    act(() => {
-      result = hook.result.current.knowledgeContext.onAttachSelected({
-        document: knowledgeDocument({
-          content: "Session-only body can be prepared before a visible run.",
-          title: "Session-only docs",
-        }),
+    const document = knowledgeDocument({
+      content: "Durable snapshot body can be prepared before a visible run.",
+      title: "Durable docs",
+    });
+    harness.rememberKnowledgeDocument(document);
+
+    await act(async () => {
+      result = await hook.result.current.knowledgeContext.onAttachSelected({
+        document,
         kind: "knowledge_document",
       });
+      await flushHookEffects();
     });
 
     expect(result).toEqual({
-      message: "Session-only docs attached to Queue task.",
+      message: "Durable docs attached to Queue task.",
       status: "attached",
       taskTitle: "Queue task",
     });
     expect(
       hook.result.current.selectedTask?.context?.attachedKnowledgeRefs,
     ).toHaveLength(1);
-    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.attachKnowledgeRequests).toHaveLength(1);
+    expect(harness.attachKnowledgeRequests[0]).toEqual({
+      knowledgeId: document.knowledgeDocumentId,
+      queueItemId: "queue-1",
+    });
     expect(harness.startRequests).toHaveLength(0);
     expect(harness.autorunStartRequests).toHaveLength(0);
 
@@ -325,8 +333,93 @@ describe("useAgentQueueController task actions", () => {
     hook = renderQueueController(harness);
     await flushControllerLoad();
 
-    expect(hook.result.current.selectedTask?.context).toBe(undefined);
-    expect(harness.updateRequests).toHaveLength(0);
+    expect(
+      hook.result.current.selectedTask?.context?.attachedKnowledgeRefs,
+    ).toHaveLength(1);
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+      hook.result.current.run.onRepoRootDraftChange("C:\\repo");
+    });
+    await act(async () => {
+      hook.result.current.run.onStartAssignedTask();
+      await flushHookEffects();
+    });
+
+    expect(harness.startRequests).toHaveLength(1);
+    expect(
+      harness.startRequests[0].materializedOperatorPrompt?.includes(
+        "Durable snapshot body can be prepared before a visible run.",
+      ),
+    ).toBe(true);
+    expect(
+      harness.startRequests[0].materializedOperatorPrompt?.includes(
+        "Context storage: durable Queue task context.",
+      ),
+    ).toBe(true);
+    expect(harness.attachKnowledgeRequests).toHaveLength(1);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("persists detached Queue context without starting work", async () => {
+    const harness = createQueueHarness([
+      attachContextToQueueTask(
+        queueTask({
+          assignedExecutorWidgetId: "executor-1",
+          prompt: "Run this local Hobit task",
+          queueItemId: "queue-1",
+          status: "ready",
+        }),
+        {
+          document: knowledgeDocument({
+            content: "Durable body.",
+            title: "Durable docs",
+          }),
+          kind: "knowledge_document",
+        },
+        "2026-06-04T10:00:00.000Z",
+      ),
+    ]);
+    let hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    const ref =
+      hook.result.current.selectedTask?.context?.attachedKnowledgeRefs[0];
+    expect(Boolean(ref)).toBe(true);
+
+    let result: Awaited<ReturnType<
+      typeof hook.result.current.knowledgeContext.onDetachSelected
+    >> | null = null;
+    await act(async () => {
+      result = await hook.result.current.knowledgeContext.onDetachSelected(ref!);
+      await flushHookEffects();
+    });
+
+    expect(result).toEqual({
+      message: "Durable docs removed from Queue task.",
+      status: "detached",
+      taskTitle: "Queue task",
+    });
+    expect(
+      hook.result.current.selectedTask?.context?.attachedKnowledgeRefs,
+    ).toHaveLength(0);
+    expect(harness.detachKnowledgeRequests).toHaveLength(1);
+    expect(harness.detachKnowledgeRequests[0]).toEqual({
+      knowledgeId: ref!.id,
+      queueItemId: "queue-1",
+    });
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+
+    hook.unmount();
+    hook = renderQueueController(harness);
+    await flushControllerLoad();
+
+    expect(
+      hook.result.current.selectedTask?.context?.attachedKnowledgeRefs,
+    ).toHaveLength(0);
     expect(harness.startRequests).toHaveLength(0);
     expect(harness.autorunStartRequests).toHaveLength(0);
 
@@ -346,13 +439,13 @@ describe("useAgentQueueController task actions", () => {
 
     await flushControllerLoad();
 
-    const result = hook.result.current.knowledgeContext.onAttachSelected({
-      document: knowledgeDocument({
-        content: "Disabled document body must not materialize.",
-        enabled: false,
-        title: "Disabled Queue docs",
-      }),
-      kind: "knowledge_document",
+    const result = await hook.result.current.knowledgeContext.onAttachSelected({
+        document: knowledgeDocument({
+          content: "Disabled document body must not materialize.",
+          enabled: false,
+          title: "Disabled Queue docs",
+        }),
+        kind: "knowledge_document",
     });
 
     expect(result).toEqual({

@@ -1,8 +1,12 @@
 import { act } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentQueueTask, KnowledgeDocument } from "../../../workspace/types";
+import type {
+  AgentQueueTask,
+  AgentQueueTaskContextRef,
+  KnowledgeDocument,
+} from "../../../workspace/types";
 import { attachContextToQueueTask } from "../../agentQueueKnowledgeContext";
 import { AgentQueueTaskContextSection } from "./AgentQueueTaskContextSection";
 
@@ -22,7 +26,7 @@ afterEach(() => {
 });
 
 describe("AgentQueueTaskContextSection", () => {
-  it("renders current-session limitation and visible prompt preview", () => {
+  it("renders durable Queue task context and visible prompt preview", () => {
     const selectedTask = attachContextToQueueTask(
       queueTask(),
       {
@@ -38,15 +42,15 @@ describe("AgentQueueTaskContextSection", () => {
     renderContextSection(selectedTask);
 
     expect(document.body.textContent).toContain(
-      "Attached for this session only.",
+      "Attached refs and bounded snapshots are saved on this Queue task",
     );
-    expect(document.body.textContent).toContain(
-      "not saved as Queue task context",
-    );
-    expect(document.body.textContent).toContain("Prepared session snapshots");
+    expect(document.body.textContent).toContain("Durable bounded snapshots");
     expect(document.body.textContent).toContain("Prompt context preview");
     expect(document.body.textContent).toContain(
-      "Only this visible, bounded, current-session Queue task context is included.",
+      "Only this visible, bounded Queue-owned task context is included.",
+    );
+    expect(document.body.textContent).toContain(
+      "This context is saved on the Queue task until removed.",
     );
     expect(document.body.textContent).toContain(
       "Visible bounded body for the run prompt.",
@@ -56,22 +60,58 @@ describe("AgentQueueTaskContextSection", () => {
     );
   });
 
-  it("keeps empty state scoped to this session", () => {
+  it("keeps empty state scoped to the Queue task", () => {
     renderContextSection(queueTask());
 
     expect(document.body.textContent).toContain(
-      "No Knowledge or Skill refs are attached for this session.",
+      "No Knowledge or Skill refs are attached to this Queue task.",
+    );
+  });
+
+  it("calls explicit detach for a selected context ref", () => {
+    const selectedTask = attachContextToQueueTask(
+      queueTask(),
+      {
+        document: knowledgeDocument({
+          title: "Queue context docs",
+        }),
+        kind: "knowledge_document",
+      },
+      "2026-06-04T10:00:00.000Z",
+    );
+    const onDetachContextRef = vi.fn();
+
+    renderContextSection(selectedTask, onDetachContextRef);
+
+    const removeButton = Array.from(document.querySelectorAll("button")).find(
+      (button) => button.textContent === "Remove",
+    );
+    expect(removeButton).toBeTruthy();
+    act(() => {
+      removeButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    expect(onDetachContextRef).toHaveBeenCalledWith(
+      selectedTask.context?.attachedKnowledgeRefs[0],
     );
   });
 });
 
-function renderContextSection(selectedTask: AgentQueueTask) {
+function renderContextSection(
+  selectedTask: AgentQueueTask,
+  onDetachContextRef?: (ref: AgentQueueTaskContextRef) => void,
+) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
 
   act(() => {
-    root?.render(<AgentQueueTaskContextSection selectedTask={selectedTask} />);
+    root?.render(
+      <AgentQueueTaskContextSection
+        onDetachContextRef={onDetachContextRef}
+        selectedTask={selectedTask}
+      />,
+    );
   });
 }
 

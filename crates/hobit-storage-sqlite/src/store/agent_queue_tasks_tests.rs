@@ -34,6 +34,7 @@ fn create_task(
             codex_executable: None,
             sandbox: None,
             approval_policy: None,
+            context_json: None,
             created_at: Some(updated_at),
             updated_at: Some(updated_at),
         })
@@ -93,6 +94,7 @@ fn create_agent_queue_task_stores_workspace_scoped_task() {
             codex_executable: None,
             sandbox: None,
             approval_policy: None,
+            context_json: None,
             created_at: Some("1"),
             updated_at: Some("2"),
         })
@@ -161,6 +163,7 @@ fn update_agent_queue_task_updates_fields_and_updated_at() {
                 codex_executable: None,
                 sandbox: None,
                 approval_policy: None,
+                context_json: None,
                 updated_at: Some("2"),
             },
         )
@@ -196,6 +199,7 @@ fn agent_queue_task_execution_policy_round_trips_and_update_preserves_when_omitt
             codex_executable: None,
             sandbox: None,
             approval_policy: None,
+            context_json: None,
             created_at: Some("1"),
             updated_at: Some("1"),
         })
@@ -218,6 +222,7 @@ fn agent_queue_task_execution_policy_round_trips_and_update_preserves_when_omitt
                 codex_executable: None,
                 sandbox: None,
                 approval_policy: None,
+                context_json: None,
                 updated_at: Some("2"),
             },
         )
@@ -241,6 +246,7 @@ fn agent_queue_task_execution_policy_round_trips_and_update_preserves_when_omitt
                 codex_executable: None,
                 sandbox: None,
                 approval_policy: None,
+                context_json: None,
                 updated_at: Some("3"),
             },
         )
@@ -255,6 +261,105 @@ fn agent_queue_task_execution_policy_round_trips_and_update_preserves_when_omitt
             .expect("queue task")
             .execution_policy,
         "after_previous_success"
+    );
+}
+
+#[test]
+fn agent_queue_task_context_json_round_trips_and_update_preserves_when_omitted() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    let context_json = r#"{"attachedKnowledgeRefs":[{"id":"doc-1"}],"attachedKnowledgeSnapshots":[{"excerpt":"bounded"}]}"#;
+    let detached_context_json =
+        r#"{"attachedKnowledgeRefs":[],"attachedSkillRefs":[],"attachedKnowledgeSnapshots":[]}"#;
+
+    let created = store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: "task-context",
+            workspace_id: "workspace-1",
+            title: "Context task",
+            description: "Description",
+            prompt: "Prompt",
+            status: "queued",
+            priority: 1,
+            execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
+            context_json: Some(context_json),
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create queue task");
+
+    assert_eq!(created.context_json.as_deref(), Some(context_json));
+    assert_eq!(
+        store
+            .get_agent_queue_task("workspace-1", "task-context")
+            .expect("get queue task")
+            .expect("queue task")
+            .context_json
+            .as_deref(),
+        Some(context_json)
+    );
+    assert_eq!(
+        store
+            .list_agent_queue_tasks("workspace-1")
+            .expect("list queue tasks")[0]
+            .context_json
+            .as_deref(),
+        Some(context_json)
+    );
+
+    let preserved = store
+        .update_agent_queue_task(
+            "workspace-1",
+            "task-context",
+            AgentQueueTaskUpdate {
+                title: "Context preserved",
+                description: "Description",
+                prompt: "Prompt",
+                status: "queued",
+                priority: 1,
+                execution_policy: None,
+                execution_workspace: None,
+                codex_executable: None,
+                sandbox: None,
+                approval_policy: None,
+                context_json: None,
+                updated_at: Some("2"),
+            },
+        )
+        .expect("update queue task")
+        .expect("updated queue task");
+
+    assert_eq!(preserved.context_json.as_deref(), Some(context_json));
+
+    let detached = store
+        .update_agent_queue_task(
+            "workspace-1",
+            "task-context",
+            AgentQueueTaskUpdate {
+                title: "Context detached",
+                description: "Description",
+                prompt: "Prompt",
+                status: "queued",
+                priority: 1,
+                execution_policy: None,
+                execution_workspace: None,
+                codex_executable: None,
+                sandbox: None,
+                approval_policy: None,
+                context_json: Some(detached_context_json),
+                updated_at: Some("3"),
+            },
+        )
+        .expect("update queue task")
+        .expect("updated queue task");
+
+    assert_eq!(
+        detached.context_json.as_deref(),
+        Some(detached_context_json)
     );
 }
 
@@ -277,6 +382,7 @@ fn running_status_round_trips_through_create_update_get_and_list() {
             codex_executable: None,
             sandbox: None,
             approval_policy: None,
+            context_json: None,
             created_at: Some("1"),
             updated_at: Some("1"),
         })
@@ -299,6 +405,7 @@ fn running_status_round_trips_through_create_update_get_and_list() {
                 codex_executable: None,
                 sandbox: None,
                 approval_policy: None,
+                context_json: None,
                 updated_at: Some("2"),
             },
         )
@@ -341,6 +448,7 @@ fn unknown_agent_queue_task_returns_none() {
                 codex_executable: None,
                 sandbox: None,
                 approval_policy: None,
+                context_json: None,
                 updated_at: Some("2"),
             },
         )
@@ -409,6 +517,7 @@ fn update_agent_queue_task_status_updates_status_and_updated_at() {
             codex_executable: None,
             sandbox: None,
             approval_policy: None,
+            context_json: None,
             created_at: Some("1"),
             updated_at: Some("1"),
         })

@@ -121,6 +121,7 @@ pub struct NewAgentQueueTask<'a> {
     pub codex_executable: Option<&'a str>,
     pub sandbox: Option<&'a str>,
     pub approval_policy: Option<&'a str>,
+    pub context_json: Option<&'a str>,
     pub created_at: Option<&'a str>,
     pub updated_at: Option<&'a str>,
 }
@@ -137,6 +138,7 @@ pub struct AgentQueueTaskUpdate<'a> {
     pub codex_executable: Option<&'a str>,
     pub sandbox: Option<&'a str>,
     pub approval_policy: Option<&'a str>,
+    pub context_json: Option<&'a str>,
     pub updated_at: Option<&'a str>,
 }
 

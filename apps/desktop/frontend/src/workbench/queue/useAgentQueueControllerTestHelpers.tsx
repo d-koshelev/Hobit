@@ -3,20 +3,30 @@ import type {
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
   AgentQueueWorkerConfig,
+  AttachKnowledgeToQueueTaskRequest,
+  AttachSkillToQueueTaskRequest,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueTaskRequest,
   CreateAgentQueueWorkerRequest,
   DeleteAgentQueueTaskRequest,
   DeleteAgentQueueWorkerRequest,
+  DetachKnowledgeFromQueueTaskRequest,
+  DetachSkillFromQueueTaskRequest,
   StartAgentQueueRunnerSessionRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   UpdateAgentQueueTaskRequest,
   UpdateAgentQueueWorkerRequest,
   DirectWorkStreamEvent,
+  KnowledgeDocument,
+  Skill,
 } from "../../workspace/types";
 import type { DirectWorkRunHandoffInput } from "../types";
+import {
+  attachContextToQueueTask,
+  detachContextFromQueueTask,
+} from "../agentQueueKnowledgeContext";
 import {
   flushHookEffects,
   renderHook,
@@ -43,10 +53,24 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
     initialTasks.map((task) => [task.queueItemId, task]),
   );
   const workers = new Map<string, AgentQueueWorkerConfig>();
+  const harnessKnowledgeDocuments = new Map<string, KnowledgeDocument>();
+  const harnessSkills = new Map<string, Skill>();
   const createRequests: Array<Omit<CreateAgentQueueTaskRequest, "workspaceId">> =
     [];
   const updateRequests: Array<Omit<UpdateAgentQueueTaskRequest, "workspaceId">> =
     [];
+  const attachKnowledgeRequests: Array<
+    Omit<AttachKnowledgeToQueueTaskRequest, "workspaceId">
+  > = [];
+  const detachKnowledgeRequests: Array<
+    Omit<DetachKnowledgeFromQueueTaskRequest, "workspaceId">
+  > = [];
+  const attachSkillRequests: Array<
+    Omit<AttachSkillToQueueTaskRequest, "workspaceId">
+  > = [];
+  const detachSkillRequests: Array<
+    Omit<DetachSkillFromQueueTaskRequest, "workspaceId">
+  > = [];
   const assignRequests: Array<
     Omit<AssignAgentQueueTaskToExecutorRequest, "workspaceId">
   > = [];
@@ -135,6 +159,60 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
     ) => {
       deleteRequests.push(request);
       return tasks.delete(request.queueItemId);
+    },
+    onAttachKnowledgeToQueueTask: async (request) => {
+      attachKnowledgeRequests.push(request);
+      const task = tasks.get(request.queueItemId);
+      const document = harnessKnowledgeDocuments.get(request.knowledgeId);
+      if (!task || !document) {
+        throw new Error("Knowledge or Queue task not found.");
+      }
+      const updatedTask = attachContextToQueueTask(task, {
+        document,
+        kind: "knowledge_document",
+      });
+      tasks.set(updatedTask.queueItemId, updatedTask);
+      return updatedTask;
+    },
+    onDetachKnowledgeFromQueueTask: async (request) => {
+      detachKnowledgeRequests.push(request);
+      const task = tasks.get(request.queueItemId);
+      const ref = task?.context?.attachedKnowledgeRefs.find(
+        (item) => item.id === request.knowledgeId,
+      );
+      if (!task || !ref) {
+        throw new Error("Knowledge or Queue task not found.");
+      }
+      const updatedTask = detachContextFromQueueTask(task, ref);
+      tasks.set(updatedTask.queueItemId, updatedTask);
+      return updatedTask;
+    },
+    onAttachSkillToQueueTask: async (request) => {
+      attachSkillRequests.push(request);
+      const task = tasks.get(request.queueItemId);
+      const skill = harnessSkills.get(request.skillId);
+      if (!task || !skill) {
+        throw new Error("Skill or Queue task not found.");
+      }
+      const updatedTask = attachContextToQueueTask(task, {
+        kind: "skill",
+        skill,
+      });
+      tasks.set(updatedTask.queueItemId, updatedTask);
+      return updatedTask;
+    },
+    onDetachSkillFromQueueTask: async (request) => {
+      detachSkillRequests.push(request);
+      const task = tasks.get(request.queueItemId);
+      const ref = task?.context?.attachedSkillRefs.find(
+        (item) => item.id === request.skillId,
+      );
+      if (!task || !ref) {
+        throw new Error("Skill or Queue task not found.");
+      }
+      const updatedTask = detachContextFromQueueTask(task, ref);
+      tasks.set(updatedTask.queueItemId, updatedTask);
+      return updatedTask;
     },
     onListAgentQueueWorkers: async () => Array.from(workers.values()),
     onCreateAgentQueueWorker: async (request) => {
@@ -258,6 +336,7 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
         codexExecutable: request.codexExecutable ?? null,
         sandbox: request.sandbox ?? null,
         approvalPolicy: request.approvalPolicy ?? null,
+        context: task.context,
         itemType: request.itemType ?? task.itemType,
         priority: request.priority,
         prompt: request.prompt,
@@ -277,6 +356,8 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
 
   return {
     assignRequests,
+    attachKnowledgeRequests,
+    attachSkillRequests,
     autorunStartRequests,
     get autorunSnapshotRequests() {
       return autorunSnapshotRequests;
@@ -287,6 +368,8 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
     clearRequests,
     createRequests,
     deleteRequests,
+    detachKnowledgeRequests,
+    detachSkillRequests,
     createWorkerRequests,
     deleteWorkerRequests,
     get getRequests() {
@@ -303,6 +386,12 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
     },
     replaceTask(task: AgentQueueTask) {
       tasks.set(task.queueItemId, task);
+    },
+    rememberKnowledgeDocument(document: KnowledgeDocument) {
+      harnessKnowledgeDocuments.set(document.knowledgeDocumentId, document);
+    },
+    rememberSkill(skill: Skill) {
+      harnessSkills.set(skill.skillId, skill);
     },
     startRequests,
     runLinkRequests,

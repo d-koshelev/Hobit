@@ -514,6 +514,7 @@ fn list_workspace_summaries_includes_metadata_and_scoped_counts() {
             codex_executable: None,
             sandbox: None,
             approval_policy: None,
+            context_json: None,
             created_at: Some("1"),
             updated_at: Some("1"),
         })

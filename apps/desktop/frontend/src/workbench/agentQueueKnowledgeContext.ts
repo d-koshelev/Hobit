@@ -26,7 +26,7 @@ export type AgentQueueKnowledgeContextAttachInput =
 
 export type AgentQueueKnowledgeContextAttachResult = {
   message: string;
-  status: "attached" | "blocked" | "unavailable";
+  status: "attached" | "blocked" | "detached" | "unavailable";
   taskTitle?: string;
 };
 
@@ -57,6 +57,49 @@ export function attachContextToQueueTask(
   return {
     ...task,
     context: mergeTaskContext(task.context, attachment),
+  };
+}
+
+export function detachContextFromQueueTask(
+  task: AgentQueueTask,
+  ref: AgentQueueTaskContextRef,
+): AgentQueueTask {
+  const context = task.context ?? emptyQueueTaskContext();
+  const attachedKnowledgeRefs = context.attachedKnowledgeRefs.filter(
+    (existingRef) => existingRef.id !== ref.id,
+  );
+  const attachedSkillRefs = context.attachedSkillRefs.filter(
+    (existingRef) => existingRef.id !== ref.id,
+  );
+  const attachedKnowledgeSnapshots = context.attachedKnowledgeSnapshots.filter(
+    (snapshot) => snapshot.sourceRefId !== ref.id,
+  );
+
+  return {
+    ...task,
+    context: withContextBudget({
+      attachedKnowledgeRefs,
+      attachedSkillRefs,
+      attachedKnowledgeSnapshots,
+      contextWarnings: context.contextWarnings.filter(
+        (warning) => warning.sourceRefId !== ref.id,
+      ),
+      contextTokenBudget: emptyContextBudget(),
+      materializedAt:
+        attachedKnowledgeSnapshots[attachedKnowledgeSnapshots.length - 1]
+          ?.materializedAt ?? null,
+    }),
+  };
+}
+
+export function emptyQueueTaskContext(): AgentQueueTaskContext {
+  return {
+    attachedKnowledgeRefs: [],
+    attachedSkillRefs: [],
+    attachedKnowledgeSnapshots: [],
+    contextWarnings: [],
+    contextTokenBudget: emptyContextBudget(),
+    materializedAt: null,
   };
 }
 
@@ -321,9 +364,9 @@ function promptContextSection(snapshots: AgentQueueTaskContextSnapshot[]) {
   const skills = snapshots.filter((snapshot) => snapshot.kind === "skill");
 
   return [
-    "Attached Queue Context",
-    "Only this visible, bounded, current-session Queue task context is included.",
-    "This is not saved as Queue task context.",
+    "Knowledge / Skills context",
+    "Only this visible, bounded Queue-owned task context is included.",
+    "This context is saved on the Queue task until removed.",
     skills.length > 0 ? "Visible Skill Instructions" : null,
     ...skills.map(snapshotPromptBlock),
     knowledge.length > 0 ? "Visible Knowledge Document Excerpts" : null,
@@ -340,9 +383,9 @@ function promptEvidenceSection(
 ) {
   const warningIds = warnings.map((warning) => warning.id);
   return [
-    "Queue Context Run Handoff",
+    "Context used",
     `Queue task id: ${task.queueItemId}`,
-    "Context storage: current-session UI state; not saved as Queue task context.",
+    "Context storage: durable Queue task context.",
     "Included in this run prompt: yes.",
     `Snapshot ids used: ${snapshots.map((snapshot) => snapshot.id).join(", ")}`,
     `Knowledge refs used: ${snapshots

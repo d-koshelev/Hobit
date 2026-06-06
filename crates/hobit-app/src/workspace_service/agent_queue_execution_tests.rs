@@ -69,7 +69,7 @@ fn assigned_queue_task_start_uses_visible_materialized_prompt_override() {
     assign_task(&service, &workspace_id, &task.queue_item_id, &executor_id);
     let mut input = start_input(&workspace_id, &task.queue_item_id);
     input.materialized_operator_prompt = Some(
-        "Attached Queue Context\nVisible Skill Instructions\n\nStored task prompt.".to_owned(),
+        "Knowledge / Skills context\nVisible Skill Instructions\n\nStored task prompt.".to_owned(),
     );
 
     let plan = service
@@ -93,16 +93,16 @@ fn assigned_queue_task_start_uses_visible_materialized_prompt_override() {
 
     assert_eq!(
         plan.direct_work_input.operator_prompt,
-        "Attached Queue Context\nVisible Skill Instructions\n\nStored task prompt."
+        "Knowledge / Skills context\nVisible Skill Instructions\n\nStored task prompt."
     );
     assert_eq!(
         start.direct_work_input.operator_prompt,
-        "Attached Queue Context\nVisible Skill Instructions\n\nStored task prompt."
+        "Knowledge / Skills context\nVisible Skill Instructions\n\nStored task prompt."
     );
     assert_eq!(stored_task.prompt, "Stored task prompt.");
     assert_eq!(
         command_payload["operator_prompt"],
-        "Attached Queue Context\nVisible Skill Instructions\n\nStored task prompt."
+        "Knowledge / Skills context\nVisible Skill Instructions\n\nStored task prompt."
     );
 }
 

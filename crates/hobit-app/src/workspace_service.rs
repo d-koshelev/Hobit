@@ -10,6 +10,7 @@ mod agent_executor_history;
 mod agent_monitoring;
 mod agent_proposals;
 mod agent_queue;
+mod agent_queue_context;
 mod agent_queue_execution;
 mod agent_queue_lifecycle;
 mod agent_queue_run_links;
@@ -71,11 +72,15 @@ mod agent_monitoring_tests;
 #[cfg(test)]
 mod agent_proposal_tests;
 #[cfg(test)]
+mod agent_queue_context_tests;
+#[cfg(test)]
 mod agent_queue_execution_tests;
 #[cfg(test)]
 mod agent_queue_lifecycle_tests;
 #[cfg(test)]
 mod agent_queue_run_links_tests;
+#[cfg(test)]
+mod agent_queue_task_policy_tests;
 #[cfg(test)]
 mod agent_queue_tasks_tests;
 #[cfg(test)]
@@ -142,8 +147,10 @@ pub use agent_queue_task_types::{
     AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AgentQueueTaskRunSummary,
     AgentQueueTaskSummary, AgentQueueWorkerSummary, AssignAgentQueueTaskToExecutorInput,
     AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary,
+    AttachKnowledgeToQueueTaskInput, AttachSkillToQueueTaskInput,
     ClearAgentQueueTaskAssignmentInput, CreateAgentQueueTaskInput, CreateAgentQueueWorkerInput,
-    DeleteAgentQueueTaskInput, DeleteAgentQueueWorkerInput, FinishAssignedAgentQueueTaskRunInput,
+    DeleteAgentQueueTaskInput, DeleteAgentQueueWorkerInput, DetachKnowledgeFromQueueTaskInput,
+    DetachSkillFromQueueTaskInput, FinishAssignedAgentQueueTaskRunInput,
     RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
     StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput, UpdateAgentQueueWorkerInput,
 };
@@ -208,7 +215,6 @@ pub use types::{
     WorkspaceDeletionSummary, WorkspaceNoteSummary, WorkspaceSessionSummary, WorkspaceSummary,
     WorkspaceWorkbenchState,
 };
-
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);
 const WORKBENCH_STATE_RECENT_EVENT_LIMIT: usize = 100;
 const PLACEHOLDER_WIDGET_LAYOUT_MODE: &str = "docked";
@@ -249,7 +255,6 @@ pub struct WorkspaceService {
     store: SqliteStore,
     jdbc_runtime_config: JdbcRuntimeConfig,
 }
-
 impl WorkspaceService {
     pub fn new(store: SqliteStore) -> Self {
         Self {
@@ -274,7 +279,6 @@ impl WorkspaceService {
         self.jdbc_runtime_config = jdbc_runtime_config;
     }
 }
-
 // Placeholder ID and timestamp strategy until Hobit selects a durable ID policy.
 fn placeholder_id(prefix: &str) -> String {
     let suffix = NEXT_ID_SUFFIX.fetch_add(1, Ordering::Relaxed);
@@ -287,7 +291,6 @@ fn placeholder_timestamp() -> String {
         Err(_) => "0.000000000".to_owned(),
     }
 }
-
 fn unix_nanos() -> u128 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)

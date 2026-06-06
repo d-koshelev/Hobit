@@ -123,6 +123,7 @@ CREATE TABLE IF NOT EXISTS agent_queue_tasks (
     codex_executable TEXT NULL,
     sandbox TEXT NULL,
     approval_policy TEXT NULL,
+    context_json TEXT NULL,
     assigned_executor_widget_id TEXT NULL REFERENCES widget_instances(id) ON DELETE SET NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL

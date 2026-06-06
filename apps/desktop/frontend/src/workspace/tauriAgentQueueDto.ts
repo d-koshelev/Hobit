@@ -54,6 +54,7 @@ export type TauriAgentQueueTask = {
   codex_executable?: string | null;
   sandbox?: string | null;
   approval_policy?: string | null;
+  context_json?: string | null;
   assigned_executor_widget_id: string | null;
   created_at: string;
   updated_at: string;

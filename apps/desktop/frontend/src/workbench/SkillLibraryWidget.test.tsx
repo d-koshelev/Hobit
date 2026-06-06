@@ -401,7 +401,7 @@ describe("SkillLibraryWidget", () => {
       whenToUse: "When reviewing Queue-produced Knowledge.",
     });
     const attachToCoordinator = vi.fn();
-    const attachKnowledgeContextToQueueTask = vi.fn(() => ({
+    const attachKnowledgeContextToQueueTask = vi.fn(async () => ({
       message: "Queue review skill attached to Implement frontend.",
       status: "attached" as const,
       taskTitle: "Implement frontend",
@@ -779,7 +779,7 @@ describe("SkillLibraryWidget", () => {
       });
       return knowledgeDocument;
     });
-    const attachKnowledgeContextToQueueTask = vi.fn(() => ({
+    const attachKnowledgeContextToQueueTask = vi.fn(async () => ({
       message: "Source-backed docs attached to Refresh docs.",
       status: "attached" as const,
       taskTitle: "Refresh docs",

@@ -85,6 +85,8 @@ class JdbcReadOnlyUiSmokeRuntime {
   actions(): WorkbenchWidgetInstanceActions {
     return {
       assignAgentQueueTaskToExecutor: this.unsupported,
+      attachKnowledgeToQueueTask: this.unsupported,
+      attachSkillToQueueTask: this.unsupported,
       attachToCodexDirectWorkStream: this.unsupported,
       cancelCodexDirectWorkRun: this.unsupported,
       listenToDirectWorkStreamEvents: async () => () => undefined,
@@ -95,6 +97,8 @@ class JdbcReadOnlyUiSmokeRuntime {
       deleteAgentQueueTask: this.unsupported,
       deleteAgentQueueWorker: this.unsupported,
       deleteSkill: this.unsupported,
+      detachKnowledgeFromQueueTask: this.unsupported,
+      detachSkillFromQueueTask: this.unsupported,
       createGitCommit: this.unsupported,
       createJdbcConnector: async () => {
         this.createConnectorCallCount += 1;

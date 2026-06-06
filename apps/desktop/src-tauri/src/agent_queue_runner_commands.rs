@@ -111,10 +111,14 @@ async fn start_agent_queue_runner_session_once(
 
     let start_response = start_assigned_agent_queue_task_from_request_with_source(
         StartAssignedAgentQueueTaskRequest {
-            workspace_id: request.workspace_id,
+            workspace_id: request.workspace_id.clone(),
             queue_item_id: queue_item_id.clone(),
             queue_owner_widget_instance_id: None,
-            materialized_operator_prompt: None,
+            materialized_operator_prompt: materialized_prompt_for_queue_task(
+                &db_path,
+                &request.workspace_id,
+                &queue_item_id,
+            )?,
             codex_executable: request.codex_executable,
             repo_root: request.repo_root,
             sandbox: request.sandbox,
@@ -196,10 +200,14 @@ fn start_agent_queue_runner_session_once_without_background(
 
     let start = start_assigned_agent_queue_task_blocking_with_source(
         StartAssignedAgentQueueTaskRequest {
-            workspace_id: request.workspace_id,
-            queue_item_id,
+            workspace_id: request.workspace_id.clone(),
+            queue_item_id: queue_item_id.clone(),
             queue_owner_widget_instance_id: None,
-            materialized_operator_prompt: None,
+            materialized_operator_prompt: materialized_prompt_for_queue_task(
+                &db_path,
+                &request.workspace_id,
+                &queue_item_id,
+            )?,
             codex_executable: request.codex_executable,
             repo_root: request.repo_root,
             sandbox: request.sandbox,
@@ -419,7 +427,14 @@ async fn continue_agent_queue_runner_after_success(
     };
 
     let start_response = match start_assigned_agent_queue_task_from_request_with_source(
-        continuation_start_request(&start_request, queue_item_id),
+        match continuation_start_request(&start_request, queue_item_id, &db_path) {
+            Ok(request) => request,
+            Err(_) => {
+                return QueueRunnerSnapshotDto::from(
+                    registry.stop_after_final_status(QueueRunnerStopReason::InvalidConfig),
+                );
+            }
+        },
         app,
         db_path,
         active_runs,
@@ -497,12 +512,15 @@ async fn run_agent_queue_runner_tick(
 fn continuation_start_request(
     request: &QueueRunnerStartRequest,
     queue_item_id: String,
-) -> StartAssignedAgentQueueTaskRequest {
-    StartAssignedAgentQueueTaskRequest {
+    db_path: &std::path::Path,
+) -> Result<StartAssignedAgentQueueTaskRequest, String> {
+    let materialized_operator_prompt =
+        materialized_prompt_for_queue_task(db_path, &request.workspace_id, &queue_item_id)?;
+    Ok(StartAssignedAgentQueueTaskRequest {
         workspace_id: request.workspace_id.clone(),
         queue_item_id,
         queue_owner_widget_instance_id: None,
-        materialized_operator_prompt: None,
+        materialized_operator_prompt,
         codex_executable: request.runtime_config.codex_executable.clone(),
         repo_root: request.runtime_config.repo_root.clone(),
         sandbox: request.runtime_config.sandbox.clone(),
@@ -510,7 +528,18 @@ fn continuation_start_request(
         timeout_ms: request.runtime_config.timeout_ms,
         stdout_cap_bytes: request.runtime_config.stdout_cap_bytes,
         stderr_cap_bytes: request.runtime_config.stderr_cap_bytes,
-    }
+    })
+}
+
+fn materialized_prompt_for_queue_task(
+    db_path: &std::path::Path,
+    workspace_id: &str,
+    queue_item_id: &str,
+) -> Result<Option<String>, String> {
+    let service = workspace_service(db_path)?;
+    service
+        .materialize_agent_queue_task_context_prompt(workspace_id, queue_item_id)
+        .map_err(command_error)
 }
 
 fn record_autorun_run_link_final_status(
@@ -643,8 +672,18 @@ fn continue_agent_queue_runner_after_success_without_background(
         }
     };
 
+    let continuation_request =
+        match continuation_start_request(&start_request, queue_item_id, &db_path) {
+            Ok(request) => request,
+            Err(_) => {
+                return QueueRunnerSnapshotDto::from(
+                    registry.stop_after_final_status(QueueRunnerStopReason::InvalidConfig),
+                );
+            }
+        };
+
     let start_response = match start_assigned_agent_queue_task_blocking_with_source(
-        continuation_start_request(&start_request, queue_item_id),
+        continuation_request,
         db_path,
         active_runs,
         AgentQueueTaskRunSource::Autorun,

@@ -24,10 +24,14 @@ import {
 type WorkspaceQueueActions = Pick<
   WorkbenchWidgetInstanceActions,
   | "assignAgentQueueTaskToExecutor"
+  | "attachKnowledgeToQueueTask"
+  | "attachSkillToQueueTask"
   | "clearAgentQueueTaskAssignment"
   | "createAgentQueueTask"
   | "createAgentQueueWorker"
   | "deleteAgentQueueTask"
+  | "detachKnowledgeFromQueueTask"
+  | "detachSkillFromQueueTask"
   | "deleteAgentQueueWorker"
   | "getAgentExecutorRunDetail"
   | "getAgentQueueRunnerSnapshot"
@@ -93,10 +97,14 @@ export function useWorkspaceQueueApi({
   const controller = useAgentQueueController({
     agentExecutorSlots: queueExecutorSlots,
     onAssignAgentQueueTaskToExecutor: actions.assignAgentQueueTaskToExecutor,
+    onAttachKnowledgeToQueueTask: actions.attachKnowledgeToQueueTask,
+    onAttachSkillToQueueTask: actions.attachSkillToQueueTask,
     onClearAgentQueueTaskAssignment: actions.clearAgentQueueTaskAssignment,
     onCreateAgentQueueTask: actions.createAgentQueueTask,
     onCreateAgentQueueWorker: actions.createAgentQueueWorker,
     onDeleteAgentQueueTask: actions.deleteAgentQueueTask,
+    onDetachKnowledgeFromQueueTask: actions.detachKnowledgeFromQueueTask,
+    onDetachSkillFromQueueTask: actions.detachSkillFromQueueTask,
     onDeleteAgentQueueWorker: actions.deleteAgentQueueWorker,
     onDirectWorkRunHandoffStarted: directWorkRunHandoff.recordHandoff,
     onGetAgentExecutorRunDetail: actions.getAgentExecutorRunDetail,

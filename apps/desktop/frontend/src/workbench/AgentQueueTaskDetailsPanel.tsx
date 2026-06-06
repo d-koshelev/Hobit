@@ -147,7 +147,10 @@ export function AgentQueueTaskDetailsPanel({
             selectedTask={selectedTask}
           />
 
-          <AgentQueueTaskContextSection selectedTask={selectedTask} />
+          <AgentQueueTaskContextSection
+            onDetachContextRef={queue.knowledgeContext.onDetachSelected}
+            selectedTask={selectedTask}
+          />
 
           <AgentQueueTaskResultEvidenceSection
             onCreateKnowledgeDocument={onCreateKnowledgeDocument}

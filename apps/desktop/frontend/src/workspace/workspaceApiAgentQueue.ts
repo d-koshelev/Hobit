@@ -6,6 +6,8 @@ import type {
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
   AgentQueueWorkerConfig,
+  AttachKnowledgeToQueueTaskRequest,
+  AttachSkillToQueueTaskRequest,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueItemFromProposalRequest,
@@ -13,6 +15,8 @@ import type {
   CreateAgentQueueWorkerRequest,
   DeleteAgentQueueTaskRequest,
   DeleteAgentQueueWorkerRequest,
+  DetachKnowledgeFromQueueTaskRequest,
+  DetachSkillFromQueueTaskRequest,
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskLatestRunLinkRequest,
   GetAgentQueueTaskRequest,
@@ -66,6 +70,30 @@ export function deleteAgentQueueTask(
   request: DeleteAgentQueueTaskRequest,
 ): Promise<boolean> {
   return getWorkspaceApi().deleteAgentQueueTask(request);
+}
+
+export function attachKnowledgeToQueueTask(
+  request: AttachKnowledgeToQueueTaskRequest,
+): Promise<AgentQueueTask> {
+  return getWorkspaceApi().attachKnowledgeToQueueTask(request);
+}
+
+export function detachKnowledgeFromQueueTask(
+  request: DetachKnowledgeFromQueueTaskRequest,
+): Promise<AgentQueueTask> {
+  return getWorkspaceApi().detachKnowledgeFromQueueTask(request);
+}
+
+export function attachSkillToQueueTask(
+  request: AttachSkillToQueueTaskRequest,
+): Promise<AgentQueueTask> {
+  return getWorkspaceApi().attachSkillToQueueTask(request);
+}
+
+export function detachSkillFromQueueTask(
+  request: DetachSkillFromQueueTaskRequest,
+): Promise<AgentQueueTask> {
+  return getWorkspaceApi().detachSkillFromQueueTask(request);
 }
 
 export function listAgentQueueWorkers(

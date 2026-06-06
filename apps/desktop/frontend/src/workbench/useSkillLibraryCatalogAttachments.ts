@@ -45,15 +45,21 @@ export function useSkillLibraryCatalogAttachments({
     setDocumentError(null);
   }
 
-  function attachSelectedSkillToQueueTask() {
+  async function attachSelectedSkillToQueueTask() {
     if (!selectedSkill || !onAttachKnowledgeContextToQueueTask) {
       return;
     }
 
-    const result = onAttachKnowledgeContextToQueueTask({
-      kind: "skill",
-      skill: selectedSkill,
-    });
+    const result = await Promise.resolve(onAttachKnowledgeContextToQueueTask({
+        kind: "skill",
+        skill: selectedSkill,
+      })).catch((error) => ({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to attach Skill to the selected Queue task.",
+        status: "unavailable" as const,
+      }));
     if (result.status === "attached") {
       rememberCatalogAttachment(`skill:${selectedSkill.skillId}`, {
         queueTaskTitle: result.taskTitle ?? "Selected Queue task",
@@ -63,7 +69,7 @@ export function useSkillLibraryCatalogAttachments({
     setDocumentError(result.status === "blocked" ? result.message : null);
   }
 
-  function attachSelectedDocumentToQueueTask() {
+  async function attachSelectedDocumentToQueueTask() {
     if (
       !selectedDocument ||
       isDocumentDirty ||
@@ -81,10 +87,16 @@ export function useSkillLibraryCatalogAttachments({
       }
     }
 
-    const result = onAttachKnowledgeContextToQueueTask({
-      document: selectedDocument,
-      kind: "knowledge_document",
-    });
+    const result = await Promise.resolve(onAttachKnowledgeContextToQueueTask({
+        document: selectedDocument,
+        kind: "knowledge_document",
+      })).catch((error) => ({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to attach Knowledge Document to the selected Queue task.",
+        status: "unavailable" as const,
+      }));
     if (result.status === "attached") {
       rememberCatalogAttachment(
         `document:${selectedDocument.knowledgeDocumentId}`,

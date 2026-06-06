@@ -4,6 +4,7 @@ import type {
   AgentQueueReportActionCard,
   AgentQueueRunnerSnapshot,
   AgentQueueTask,
+  AgentQueueTaskContextRef,
   AgentQueueTaskRunLinkSummary,
   AgentQueueWorkerExecutionReport,
   AgentExecutorRunDetail,
@@ -33,9 +34,13 @@ export type UseAgentQueueControllerOptions = Pick<
   WidgetRenderProps,
   | "agentExecutorSlots"
   | "onAssignAgentQueueTaskToExecutor"
+  | "onAttachKnowledgeToQueueTask"
+  | "onAttachSkillToQueueTask"
   | "onClearAgentQueueTaskAssignment"
   | "onCreateAgentQueueTask"
   | "onDeleteAgentQueueTask"
+  | "onDetachKnowledgeFromQueueTask"
+  | "onDetachSkillFromQueueTask"
   | "onCreateAgentQueueWorker"
   | "onDeleteAgentQueueWorker"
   | "onDirectWorkRunHandoffStarted"
@@ -260,7 +265,10 @@ export type AgentQueueEditController = {
 export type AgentQueueKnowledgeContextController = {
   onAttachSelected: (
     input: AgentQueueKnowledgeContextAttachInput,
-  ) => AgentQueueKnowledgeContextAttachResult;
+  ) => Promise<AgentQueueKnowledgeContextAttachResult>;
+  onDetachSelected: (
+    ref: AgentQueueTaskContextRef,
+  ) => Promise<AgentQueueKnowledgeContextAttachResult>;
 };
 
 export type AgentQueueFoundationController = {

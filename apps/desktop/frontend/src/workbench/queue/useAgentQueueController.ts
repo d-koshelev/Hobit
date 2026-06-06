@@ -64,10 +64,14 @@ export type {
 export function useAgentQueueController({
   agentExecutorSlots = [],
   onAssignAgentQueueTaskToExecutor,
+  onAttachKnowledgeToQueueTask,
+  onAttachSkillToQueueTask,
   onClearAgentQueueTaskAssignment,
   onCreateAgentQueueTask,
   onCreateAgentQueueWorker,
   onDeleteAgentQueueTask,
+  onDetachKnowledgeFromQueueTask,
+  onDetachSkillFromQueueTask,
   onDeleteAgentQueueWorker,
   onDirectWorkRunHandoffStarted,
   onGetAgentExecutorRunDetail,
@@ -776,11 +780,16 @@ export function useAgentQueueController({
   const { refreshAutorunSnapshot } = runActions;
   const {
     attachKnowledgeContextToSelectedTask,
+    detachKnowledgeContextFromSelectedTask,
     markReportActionCardShown,
   } = createAgentQueueSelectedTaskActions({
     applyUpdatedTask,
     hasOpenTaskEdit,
     localTaskFieldsRef,
+    onAttachKnowledgeToQueueTask,
+    onAttachSkillToQueueTask,
+    onDetachKnowledgeFromQueueTask,
+    onDetachSkillFromQueueTask,
     selectedTask,
     setLocalTaskFields,
     setValidationMessage,
@@ -841,6 +850,7 @@ export function useAgentQueueController({
     maxExecutorMessage,
     knowledgeContext: {
       onAttachSelected: attachKnowledgeContextToSelectedTask,
+      onDetachSelected: detachKnowledgeContextFromSelectedTask,
     },
     onGetAgentExecutorRunDetail,
     onGetAgentQueueTaskLatestRunLink,

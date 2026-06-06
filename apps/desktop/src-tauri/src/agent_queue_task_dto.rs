@@ -1,6 +1,8 @@
 use hobit_app::{
-    AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, ClearAgentQueueTaskAssignmentInput,
-    CreateAgentQueueTaskInput, DeleteAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+    AgentQueueTaskSummary, AssignAgentQueueTaskToExecutorInput, AttachKnowledgeToQueueTaskInput,
+    AttachSkillToQueueTaskInput, ClearAgentQueueTaskAssignmentInput, CreateAgentQueueTaskInput,
+    DeleteAgentQueueTaskInput, DetachKnowledgeFromQueueTaskInput, DetachSkillFromQueueTaskInput,
+    UpdateAgentQueueTaskInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -57,6 +59,34 @@ pub(crate) struct UpdateAgentQueueTaskRequest {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct AttachKnowledgeToQueueTaskRequest {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub knowledge_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct DetachKnowledgeFromQueueTaskRequest {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub knowledge_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct AttachSkillToQueueTaskRequest {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub skill_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct DetachSkillFromQueueTaskRequest {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub skill_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
 pub(crate) struct AssignAgentQueueTaskToExecutorRequest {
     pub workspace_id: String,
     pub queue_item_id: String,
@@ -89,6 +119,7 @@ pub(crate) struct AgentQueueTaskDto {
     pub codex_executable: Option<String>,
     pub sandbox: Option<String>,
     pub approval_policy: Option<String>,
+    pub context_json: Option<String>,
     pub assigned_executor_widget_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,
@@ -127,6 +158,46 @@ impl From<UpdateAgentQueueTaskRequest> for UpdateAgentQueueTaskInput {
             codex_executable: request.codex_executable,
             sandbox: request.sandbox,
             approval_policy: request.approval_policy,
+        }
+    }
+}
+
+impl From<AttachKnowledgeToQueueTaskRequest> for AttachKnowledgeToQueueTaskInput {
+    fn from(request: AttachKnowledgeToQueueTaskRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            queue_item_id: request.queue_item_id,
+            knowledge_id: request.knowledge_id,
+        }
+    }
+}
+
+impl From<DetachKnowledgeFromQueueTaskRequest> for DetachKnowledgeFromQueueTaskInput {
+    fn from(request: DetachKnowledgeFromQueueTaskRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            queue_item_id: request.queue_item_id,
+            knowledge_id: request.knowledge_id,
+        }
+    }
+}
+
+impl From<AttachSkillToQueueTaskRequest> for AttachSkillToQueueTaskInput {
+    fn from(request: AttachSkillToQueueTaskRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            queue_item_id: request.queue_item_id,
+            skill_id: request.skill_id,
+        }
+    }
+}
+
+impl From<DetachSkillFromQueueTaskRequest> for DetachSkillFromQueueTaskInput {
+    fn from(request: DetachSkillFromQueueTaskRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            queue_item_id: request.queue_item_id,
+            skill_id: request.skill_id,
         }
     }
 }
@@ -174,6 +245,7 @@ impl From<AgentQueueTaskSummary> for AgentQueueTaskDto {
             codex_executable: summary.codex_executable,
             sandbox: summary.sandbox,
             approval_policy: summary.approval_policy,
+            context_json: summary.context_json,
             assigned_executor_widget_id: summary.assigned_executor_widget_id,
             created_at: summary.created_at,
             updated_at: summary.updated_at,

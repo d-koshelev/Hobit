@@ -4,6 +4,7 @@ import type { AgentQueueTask, KnowledgeDocument, Skill } from "../workspace/type
 import {
   attachContextToQueueTask,
   buildQueueContextAttachment,
+  detachContextFromQueueTask,
   materializeQueueExecutionPrompt,
 } from "./agentQueueKnowledgeContext";
 
@@ -171,7 +172,29 @@ describe("agentQueueKnowledgeContext", () => {
     );
   });
 
-  it("materializes visible Queue context before the task prompt with run handoff refs", () => {
+  it("detaches refs and snapshots without changing the stored prompt", () => {
+    const taskWithContext = attachContextToQueueTask(
+      queueTask(),
+      {
+        document: knowledgeDocument({
+          content: "Durable bounded snapshot.",
+          quickSummary: "Durable summary.",
+        }),
+        kind: "knowledge_document",
+      },
+      "2026-06-04T10:00:00.000Z",
+    );
+    const ref = taskWithContext.context?.attachedKnowledgeRefs[0];
+
+    const updatedTask = detachContextFromQueueTask(taskWithContext, ref!);
+
+    expect(updatedTask.prompt).toBe("Do the task.");
+    expect(updatedTask.context?.attachedKnowledgeRefs).toHaveLength(0);
+    expect(updatedTask.context?.attachedKnowledgeSnapshots).toHaveLength(0);
+    expect(updatedTask.context?.contextWarnings).toHaveLength(0);
+  });
+
+  it("materializes visible Queue context before the task prompt with context-used refs", () => {
     const taskWithDocument = attachContextToQueueTask(
       queueTask(),
       {
@@ -202,19 +225,19 @@ describe("agentQueueKnowledgeContext", () => {
       "Visible Knowledge Document Excerpts",
     );
     expect(materialized.contextSection).toContain(
-      "Only this visible, bounded, current-session Queue task context is included.",
+      "Only this visible, bounded Queue-owned task context is included.",
     );
     expect(materialized.contextSection).toContain(
-      "This is not saved as Queue task context.",
+      "This context is saved on the Queue task until removed.",
     );
-    expect(materialized.materializedPrompt.indexOf("Attached Queue Context")).toBeLessThan(
+    expect(materialized.materializedPrompt.indexOf("Knowledge / Skills context")).toBeLessThan(
       materialized.materializedPrompt.indexOf("Do the task."),
     );
     expect(materialized.materializedPrompt).toContain(
-      "Queue Context Run Handoff",
+      "Context used",
     );
     expect(materialized.materializedPrompt).toContain(
-      "Context storage: current-session UI state; not saved as Queue task context.",
+      "Context storage: durable Queue task context.",
     );
     expect(materialized.materializedPrompt).toContain(
       "Included in this run prompt: yes.",

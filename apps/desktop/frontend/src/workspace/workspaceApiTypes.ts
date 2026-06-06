@@ -32,6 +32,8 @@ import type {
   AgentQueueTask,
   AgentQueueTaskRunLinkSummary,
   AgentQueueWorkerConfig,
+  AttachKnowledgeToQueueTaskRequest,
+  AttachSkillToQueueTaskRequest,
   AssignAgentQueueTaskToExecutorRequest,
   CancelCodexDirectWorkRunRequest,
   CancelCodexDirectWorkRunResponse,
@@ -48,6 +50,8 @@ import type {
   CreateTerminalPtySessionRequest,
   DeleteAgentQueueTaskRequest,
   DeleteAgentQueueWorkerRequest,
+  DetachKnowledgeFromQueueTaskRequest,
+  DetachSkillFromQueueTaskRequest,
   DeleteKnowledgeDocumentRequest,
   DeleteWidgetInstanceFromWorkbenchRequest,
   DeleteWorkspaceRequest,
@@ -280,6 +284,18 @@ export type WorkspaceApi = {
   deleteAgentQueueTask: (
     request: DeleteAgentQueueTaskRequest,
   ) => Promise<boolean>;
+  attachKnowledgeToQueueTask: (
+    request: AttachKnowledgeToQueueTaskRequest,
+  ) => Promise<AgentQueueTask>;
+  detachKnowledgeFromQueueTask: (
+    request: DetachKnowledgeFromQueueTaskRequest,
+  ) => Promise<AgentQueueTask>;
+  attachSkillToQueueTask: (
+    request: AttachSkillToQueueTaskRequest,
+  ) => Promise<AgentQueueTask>;
+  detachSkillFromQueueTask: (
+    request: DetachSkillFromQueueTaskRequest,
+  ) => Promise<AgentQueueTask>;
   listAgentQueueWorkers: (
     request: ListAgentQueueWorkersRequest,
   ) => Promise<AgentQueueWorkerConfig[]>;

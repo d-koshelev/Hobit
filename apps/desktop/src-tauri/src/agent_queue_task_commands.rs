@@ -5,9 +5,11 @@ use hobit_storage_sqlite::SqliteStore;
 use tauri::State;
 
 use crate::agent_queue_task_dto::{
-    AgentQueueTaskDto, AssignAgentQueueTaskToExecutorRequest, ClearAgentQueueTaskAssignmentRequest,
-    CreateAgentQueueTaskRequest, DeleteAgentQueueTaskRequest, GetAgentQueueTaskRequest,
-    ListAgentQueueTasksRequest, UpdateAgentQueueTaskRequest,
+    AgentQueueTaskDto, AssignAgentQueueTaskToExecutorRequest, AttachKnowledgeToQueueTaskRequest,
+    AttachSkillToQueueTaskRequest, ClearAgentQueueTaskAssignmentRequest,
+    CreateAgentQueueTaskRequest, DeleteAgentQueueTaskRequest, DetachKnowledgeFromQueueTaskRequest,
+    DetachSkillFromQueueTaskRequest, GetAgentQueueTaskRequest, ListAgentQueueTasksRequest,
+    UpdateAgentQueueTaskRequest,
 };
 use crate::app_state::AppState;
 
@@ -74,6 +76,54 @@ pub(crate) fn update_agent_queue_task(
     state: State<'_, AppState>,
 ) -> Result<Option<AgentQueueTaskDto>, String> {
     update_agent_queue_task_blocking(request, state.db_path().to_path_buf())
+}
+
+#[tauri::command]
+pub(crate) fn attach_knowledge_to_queue_task(
+    request: AttachKnowledgeToQueueTaskRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueTaskDto, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .attach_knowledge_to_queue_task(request.into())
+        .map(AgentQueueTaskDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn detach_knowledge_from_queue_task(
+    request: DetachKnowledgeFromQueueTaskRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueTaskDto, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .detach_knowledge_from_queue_task(request.into())
+        .map(AgentQueueTaskDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn attach_skill_to_queue_task(
+    request: AttachSkillToQueueTaskRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueTaskDto, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .attach_skill_to_queue_task(request.into())
+        .map(AgentQueueTaskDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn detach_skill_from_queue_task(
+    request: DetachSkillFromQueueTaskRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueTaskDto, String> {
+    let service = workspace_service(state.db_path())?;
+    service
+        .detach_skill_from_queue_task(request.into())
+        .map(AgentQueueTaskDto::from)
+        .map_err(command_error)
 }
 
 fn update_agent_queue_task_blocking(

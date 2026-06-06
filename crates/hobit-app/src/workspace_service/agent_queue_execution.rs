@@ -1,6 +1,7 @@
 use crate::WorkspaceServiceError;
 
 use super::{
+    agent_queue_context::materialize_queue_task_context_prompt,
     agent_queue_lifecycle::{
         map_direct_work_final_status_to_queue_status, AgentQueueExecutionLifecycleStatus,
         AgentQueueTaskLifecycleStatus, AGENT_QUEUE_TASK_STATUS_RUNNING,
@@ -46,10 +47,7 @@ impl WorkspaceService {
             &input,
             executor.workbench_id.clone(),
             executor.id.clone(),
-            input
-                .materialized_operator_prompt
-                .clone()
-                .unwrap_or(task.prompt),
+            materialized_operator_prompt_for_task(&input, &task)?,
         )?;
 
         Ok(AssignedAgentQueueTaskRunPlan {
@@ -93,10 +91,8 @@ impl WorkspaceService {
                     &input,
                     executor.workbench_id.clone(),
                     executor.id.clone(),
-                    input
-                        .materialized_operator_prompt
-                        .clone()
-                        .unwrap_or_else(|| task.prompt.clone()),
+                    materialized_operator_prompt_for_task(&input, &task)
+                        .map_err(|error| storage_invalid_input(error.to_string()))?,
                 )
                 .map_err(|error| storage_invalid_input(error.to_string()))?;
                 let normalized_direct_work_input =
@@ -217,6 +213,19 @@ impl WorkspaceService {
             .map(agent_queue_task_summary)
             .map_err(map_storage_agent_queue_task_error)
     }
+}
+
+fn materialized_operator_prompt_for_task(
+    input: &NormalizedStartAssignedAgentQueueTaskInput,
+    task: &hobit_storage_sqlite::AgentQueueTaskRow,
+) -> Result<String, WorkspaceServiceError> {
+    if let Some(prompt) = input.materialized_operator_prompt.clone() {
+        return Ok(prompt);
+    }
+
+    materialize_queue_task_context_prompt(task)
+        .map_err(WorkspaceServiceError::InvalidInput)
+        .map(|prompt| prompt.unwrap_or_else(|| task.prompt.clone()))
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

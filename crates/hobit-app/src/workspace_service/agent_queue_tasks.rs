@@ -48,6 +48,7 @@ impl WorkspaceService {
                     codex_executable: input.codex_executable.as_deref(),
                     sandbox: input.sandbox.as_deref(),
                     approval_policy: input.approval_policy.as_deref(),
+                    context_json: None,
                     created_at: Some(&created_at),
                     updated_at: Some(&created_at),
                 })?;
@@ -117,6 +118,7 @@ impl WorkspaceService {
                     codex_executable: input.codex_executable.as_deref(),
                     sandbox: input.sandbox.as_deref(),
                     approval_policy: input.approval_policy.as_deref(),
+                    context_json: None,
                     updated_at: Some(&updated_at),
                 },
             )?;

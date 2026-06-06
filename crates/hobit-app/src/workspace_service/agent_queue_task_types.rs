@@ -30,6 +30,34 @@ pub struct UpdateAgentQueueTaskInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AttachKnowledgeToQueueTaskInput {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub knowledge_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DetachKnowledgeFromQueueTaskInput {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub knowledge_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AttachSkillToQueueTaskInput {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub skill_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DetachSkillFromQueueTaskInput {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub skill_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssignAgentQueueTaskToExecutorInput {
     pub workspace_id: String,
     pub queue_item_id: String,
@@ -106,6 +134,7 @@ pub struct AgentQueueTaskSummary {
     pub codex_executable: Option<String>,
     pub sandbox: Option<String>,
     pub approval_policy: Option<String>,
+    pub context_json: Option<String>,
     pub assigned_executor_widget_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,

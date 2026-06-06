@@ -120,6 +120,7 @@ fn maps_agent_queue_task_summary_to_dto() {
         codex_executable: None,
         sandbox: None,
         approval_policy: None,
+        context_json: Some(r#"{"attachedKnowledgeSnapshots":[]}"#.to_owned()),
         assigned_executor_widget_id: Some("executor_1".to_owned()),
         created_at: "1".to_owned(),
         updated_at: "2".to_owned(),
@@ -135,6 +136,10 @@ fn maps_agent_queue_task_summary_to_dto() {
     assert_eq!(dto.status, "running");
     assert_eq!(dto.priority, 3);
     assert_eq!(dto.execution_policy, "manual");
+    assert_eq!(
+        dto.context_json.as_deref(),
+        Some(r#"{"attachedKnowledgeSnapshots":[]}"#)
+    );
     assert_eq!(
         dto.assigned_executor_widget_id.as_deref(),
         Some("executor_1")

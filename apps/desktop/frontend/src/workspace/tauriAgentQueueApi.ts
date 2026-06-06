@@ -5,6 +5,7 @@ import type {
   AgentQueueRunnerSnapshot,
   AgentQueueSnapshot,
   AgentQueueTask,
+  AgentQueueTaskContext,
   AgentQueueTaskRunLinkSummary,
   AgentQueueTaskRunReviewStatus,
   AgentQueueTaskRunSource,
@@ -12,6 +13,7 @@ import type {
   AgentQueueTaskExecutionPolicy,
   AgentQueueWorkerConfig,
   AgentQueueWorkerScopeKind,
+  AttachKnowledgeToQueueTaskRequest, AttachSkillToQueueTaskRequest,
   AssignAgentQueueTaskToExecutorRequest,
   ClearAgentQueueTaskAssignmentRequest,
   CreateAgentQueueItemFromProposalRequest,
@@ -19,6 +21,7 @@ import type {
   CreateAgentQueueWorkerRequest,
   DeleteAgentQueueTaskRequest,
   DeleteAgentQueueWorkerRequest,
+  DetachKnowledgeFromQueueTaskRequest, DetachSkillFromQueueTaskRequest,
   GetAgentQueueSnapshotRequest,
   GetAgentQueueTaskRequest,
   GetAgentQueueTaskLatestRunLinkRequest,
@@ -161,6 +164,34 @@ export async function deleteAgentQueueTask(
       queue_item_id: request.queueItemId,
     },
   });
+}
+
+export const attachKnowledgeToQueueTask = (request: AttachKnowledgeToQueueTaskRequest): Promise<AgentQueueTask> =>
+  invokeQueueTaskContextMutation("attach_knowledge_to_queue_task", request, "knowledge_id", request.knowledgeId);
+
+export const detachKnowledgeFromQueueTask = (request: DetachKnowledgeFromQueueTaskRequest): Promise<AgentQueueTask> =>
+  invokeQueueTaskContextMutation("detach_knowledge_from_queue_task", request, "knowledge_id", request.knowledgeId);
+
+export const attachSkillToQueueTask = (request: AttachSkillToQueueTaskRequest): Promise<AgentQueueTask> =>
+  invokeQueueTaskContextMutation("attach_skill_to_queue_task", request, "skill_id", request.skillId);
+
+export const detachSkillFromQueueTask = (request: DetachSkillFromQueueTaskRequest): Promise<AgentQueueTask> =>
+  invokeQueueTaskContextMutation("detach_skill_from_queue_task", request, "skill_id", request.skillId);
+
+async function invokeQueueTaskContextMutation(
+  command: string,
+  request: { workspaceId: string; queueItemId: string },
+  refKey: "knowledge_id" | "skill_id",
+  refId: string,
+): Promise<AgentQueueTask> {
+  const task = await invoke<TauriAgentQueueTask>(command, {
+    request: {
+      workspace_id: request.workspaceId,
+      queue_item_id: request.queueItemId,
+      [refKey]: refId,
+    },
+  });
+  return normalizeAgentQueueTask(task);
 }
 
 export async function listAgentQueueWorkers(
@@ -419,10 +450,65 @@ function normalizeAgentQueueTask(task: TauriAgentQueueTask): AgentQueueTask {
     codexExecutable: task.codex_executable ?? null,
     sandbox: normalizeSandbox(task.sandbox),
     approvalPolicy: normalizeApprovalPolicy(task.approval_policy),
+    context: normalizeAgentQueueTaskContext(task.context_json),
     assignedExecutorWidgetId: task.assigned_executor_widget_id,
     createdAt: task.created_at,
     updatedAt: task.updated_at,
   };
+}
+
+function normalizeAgentQueueTaskContext(
+  contextJson: string | null | undefined,
+): AgentQueueTaskContext | undefined {
+  if (!contextJson) {
+    return undefined;
+  }
+
+  try {
+    const value = JSON.parse(contextJson) as unknown;
+    if (!isRecord(value)) {
+      return undefined;
+    }
+
+    return {
+      attachedKnowledgeRefs: Array.isArray(value.attachedKnowledgeRefs)
+        ? (value.attachedKnowledgeRefs as AgentQueueTaskContext["attachedKnowledgeRefs"])
+        : [],
+      attachedSkillRefs: Array.isArray(value.attachedSkillRefs)
+        ? (value.attachedSkillRefs as AgentQueueTaskContext["attachedSkillRefs"])
+        : [],
+      attachedKnowledgeSnapshots: Array.isArray(value.attachedKnowledgeSnapshots)
+        ? (value.attachedKnowledgeSnapshots as AgentQueueTaskContext["attachedKnowledgeSnapshots"])
+        : [],
+      contextWarnings: Array.isArray(value.contextWarnings)
+        ? (value.contextWarnings as AgentQueueTaskContext["contextWarnings"])
+        : [],
+      contextTokenBudget: isRecord(value.contextTokenBudget)
+        ? {
+            estimatedTokens:
+              typeof value.contextTokenBudget.estimatedTokens === "number"
+                ? value.contextTokenBudget.estimatedTokens
+                : 0,
+            maxTokens:
+              typeof value.contextTokenBudget.maxTokens === "number"
+                ? value.contextTokenBudget.maxTokens
+                : 0,
+            overBudget:
+              typeof value.contextTokenBudget.overBudget === "boolean"
+                ? value.contextTokenBudget.overBudget
+                : false,
+          }
+        : { estimatedTokens: 0, maxTokens: 0, overBudget: false },
+      materializedAt:
+        typeof value.materializedAt === "string" ? value.materializedAt : null,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function normalizeSandbox(

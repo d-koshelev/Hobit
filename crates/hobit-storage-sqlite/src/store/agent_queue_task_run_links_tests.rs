@@ -50,6 +50,7 @@ fn create_workspace_task_and_executor(store: &SqliteStore) {
             codex_executable: None,
             sandbox: None,
             approval_policy: None,
+            context_json: None,
             created_at: Some("1"),
             updated_at: Some("1"),
         })

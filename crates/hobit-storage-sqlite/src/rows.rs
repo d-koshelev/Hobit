@@ -138,6 +138,7 @@ pub struct AgentQueueTaskRow {
     pub codex_executable: Option<String>,
     pub sandbox: Option<String>,
     pub approval_policy: Option<String>,
+    pub context_json: Option<String>,
     pub assigned_executor_widget_id: Option<String>,
     pub created_at: String,
     pub updated_at: String,

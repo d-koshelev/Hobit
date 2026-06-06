@@ -266,6 +266,7 @@ pub(super) fn agent_queue_task_summary(row: AgentQueueTaskRow) -> AgentQueueTask
         codex_executable: row.codex_executable,
         sandbox: row.sandbox,
         approval_policy: row.approval_policy,
+        context_json: row.context_json,
         assigned_executor_widget_id: row.assigned_executor_widget_id,
         created_at: row.created_at,
         updated_at: row.updated_at,

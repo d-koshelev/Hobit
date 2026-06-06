@@ -32,6 +32,7 @@ fn agent_queue_task_command_helpers_create_list_get_and_update() {
     assert_eq!(created.status, "queued");
     assert_eq!(created.priority, 3);
     assert_eq!(created.execution_policy, "auto");
+    assert_eq!(created.context_json, None);
     assert_eq!(created.assigned_executor_widget_id, None);
 
     let listed = list_agent_queue_tasks_blocking(
@@ -81,6 +82,7 @@ fn agent_queue_task_command_helpers_create_list_get_and_update() {
     assert_eq!(updated.status, "running");
     assert_eq!(updated.priority, 4);
     assert_eq!(updated.execution_policy, "auto");
+    assert_eq!(updated.context_json, None);
     assert_eq!(updated.assigned_executor_widget_id, None);
     remove_test_db_files(&db_path);
 }

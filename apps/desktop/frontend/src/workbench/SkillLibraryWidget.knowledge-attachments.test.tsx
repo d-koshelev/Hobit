@@ -20,7 +20,7 @@ describe("SkillLibraryWidget Knowledge / Queue attachments", () => {
       title: "Queue planning skill",
       whenToUse: "Before running a queued frontend task",
     });
-    const attachKnowledgeContextToQueueTask = vi.fn(() => ({
+    const attachKnowledgeContextToQueueTask = vi.fn(async () => ({
       message: "Queue planning skill attached to Frontend test task.",
       status: "attached" as const,
       taskTitle: "Frontend test task",
@@ -71,7 +71,7 @@ describe("SkillLibraryWidget Knowledge / Queue attachments", () => {
       }),
     ];
     const attachKnowledgeContextToQueueTask = vi.fn(
-      (
+      async (
         request:
           | { document: KnowledgeDocument; kind: "knowledge_document" }
           | { kind: "skill"; skill: Skill },
