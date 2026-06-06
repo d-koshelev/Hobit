@@ -290,6 +290,11 @@ unless the task explicitly requests it.
   add storage, schema, frontend UI, backend/Tauri commands, provider behavior,
   Queue behavior, Workspace Agent behavior, automatic ingestion, or runtime
   execution.
+- `docs/KNOWLEDGE_PRODUCTION_CONTRACT.md` - production-readiness readiness
+  contract for explicit Knowledge / Skills architecture before implementation.
+  It defines production item model completeness, durable Queue-owned draft
+  context linkage, required version/provenance fields, and explicit safety
+  boundaries (no hidden memory, no vector search, no auto-ingest).
 - `docs/KNOWLEDGE_GENERATION_WORKFLOW_CONTRACT.md` - read for Queue-based
   Knowledge generation workflow work. It records the current partial behavior
   for visible/manual Queue task creation and draft-pack review, and defines the
@@ -580,6 +585,7 @@ These documents should not override the Workspace Agent model or
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
 - Queue-based Knowledge generation work: read
+  `docs/KNOWLEDGE_PRODUCTION_CONTRACT.md`,
   `docs/KNOWLEDGE_GENERATION_WORKFLOW_CONTRACT.md`,
   `docs/KNOWLEDGE_DRAFT_REVIEW_PERSISTENCE_DECISION.md`,
   `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`,
