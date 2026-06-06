@@ -228,7 +228,7 @@ describe("agentQueueKnowledgeContext", () => {
       "Only this visible, bounded Queue-owned task context is included.",
     );
     expect(materialized.contextSection).toContain(
-      "This context is saved on the Queue task until removed.",
+      "This prepared context is visible before execution and included only in the explicit run prompt.",
     );
     expect(materialized.materializedPrompt.indexOf("Knowledge / Skills context")).toBeLessThan(
       materialized.materializedPrompt.indexOf("Do the task."),
@@ -237,7 +237,7 @@ describe("agentQueueKnowledgeContext", () => {
       "Context used",
     );
     expect(materialized.materializedPrompt).toContain(
-      "Context storage: durable Queue task context.",
+      "Context storage: visible prepared Queue task context.",
     );
     expect(materialized.materializedPrompt).toContain(
       "Included in this run prompt: yes.",

@@ -649,16 +649,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
   });
 
 
-  it("New thread clears visible carried context and old knowledge before the next run", async () => {
-    const searchKnowledge = vi
-      .fn()
-      .mockResolvedValueOnce([
-        knowledgeResult({
-          documentTitle: "Falcon code",
-          snippet: "The secret smoke code for Falcon is BLUE-RAVEN-42.",
-        }),
-      ])
-      .mockResolvedValueOnce([]);
+  it("New thread clears visible carried context before the next run", async () => {
     const startDirectWork = vi.fn(
       async (
         _widgetInstanceId: string,
@@ -691,7 +682,6 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       },
     );
     renderWidget({
-      onSearchKnowledgeDocuments: searchKnowledge,
       onStartCodexDirectWorkStream: startDirectWork,
       workspaceId: "workspace_1",
     });
@@ -701,14 +691,13 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(
       (startDirectWork.mock.calls[0][1] as { operatorPrompt: string })
         .operatorPrompt,
-    ).toContain("BLUE-RAVEN-42");
+    ).toBe("What is the Falcon smoke code?");
 
     await rerenderWidget({
       coordinatorAttachedContextRequest: attachedContextRequest({
         contextText: "Carryover should be removable: BLUE-RAVEN-42",
         sourceLabel: "Manual context",
       }),
-      onSearchKnowledgeDocuments: searchKnowledge,
       onStartCodexDirectWorkStream: startDirectWork,
       workspaceId: "workspace_1",
     });
@@ -731,10 +720,6 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       "Ask again without workspace knowledge.",
     );
     expect(nextRequest.operatorPrompt).not.toContain("BLUE-RAVEN-42");
-    await clickButton("Run details");
-    expect(document.body.textContent).toContain(
-      "Workspace knowledge checked: no matches",
-    );
   });
 
 
@@ -909,7 +894,8 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
   });
 
 
-  it("adds retrieved workspace knowledge visibly to the Codex prompt", async () => {
+  it("searches Knowledge only through an explicit Workspace Agent command", async () => {
+    const provider = vi.fn();
     const searchKnowledge = vi.fn(async () => [
       knowledgeResult({
         chunkId: "chunk_api_1",
@@ -922,78 +908,52 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
         snippet: "Validate with the documented smoke command.",
       }),
     ]);
-    const startDirectWork = vi.fn(
-      async (
-        _widgetInstanceId: string,
-        _request: unknown,
-        onEvent: (event: DirectWorkStreamEvent) => void,
-      ) => {
-        onEvent(
-          directWorkEvent({
-            eventKind: "completed",
-            finalStatus: "completed",
-            isFinal: true,
-            text: "Codex used visible knowledge if relevant.",
-          }),
-        );
-        return {
-          runId: "run_knowledge",
-          status: "started",
-          stopListening: vi.fn(),
-        };
-      },
-    );
+    const startDirectWork = vi.fn();
     renderWidget({
+      onGenerateCoordinatorProviderResponse: provider,
       onSearchKnowledgeDocuments: searchKnowledge,
       onStartCodexDirectWorkStream: startDirectWork,
     });
 
-    await toggleDirectMode();
-    await setTextareaValue("Use the API docs for this task.");
+    await setTextareaValue("knowledge search: API docs");
     await clickButton("Run with Codex");
 
     expect(searchKnowledge).toHaveBeenCalledWith({
-      limit: 5,
-      query: "Use the API docs for this task.",
+      limit: 3,
+      query: "API docs",
     });
-    expect(startDirectWork).toHaveBeenCalledTimes(1);
-    const request = startDirectWork.mock.calls[0][1] as {
-      operatorPrompt: string;
-    };
-    expect(request.operatorPrompt).toContain(
-      "Workspace knowledge found for this request:",
-    );
-    expect(request.operatorPrompt).toContain("[Doc: API guide, chunk 1]");
-    expect(request.operatorPrompt).toContain("Scope: Workspace");
-    expect(request.operatorPrompt).toContain(
+    expect(document.body.textContent).toContain("Knowledge search results");
+    expect(document.body.textContent).toContain("API guide");
+    expect(document.body.textContent).toContain("Scope: Workspace");
+    expect(document.body.textContent).toContain(
       "Use the workspace-local API reference.",
     );
-    expect(request.operatorPrompt).toContain("User request:");
-    expect(request.operatorPrompt).toContain("Use the API docs for this task.");
-    expect(JSON.stringify(request)).not.toMatch(/notes body|filesystem|disabled/i);
-    expect(document.body.textContent).not.toContain("Used knowledge: 2 snippets");
-    await clickButton("Run details");
-    expect(document.body.textContent).toContain("Used knowledge: 2 snippets");
-    await toggleDetails("Used knowledge: 2 snippets");
-    expect(document.body.textContent).toContain("Workspace API guide, chunk 1");
+    expect(document.body.textContent).toContain("No context was attached");
+    expect(document.body.textContent).not.toMatch(/Terminal command|JDBC query/i);
+    expect(provider).not.toHaveBeenCalled();
+    expect(startDirectWork).not.toHaveBeenCalled();
   });
 
 
-  it("shows global and workspace scope for used knowledge details and prompt context", async () => {
+  it("attaches one active Knowledge result as visible bounded context before Codex", async () => {
     const searchKnowledge = vi.fn(async () => [
       knowledgeResult({
-        chunkId: "chunk_workspace_1",
-        documentTitle: "Falcon deployment notes",
+        chunkId: "chunk_api_1",
+        documentTitle: "API guide",
         scope: "workspace",
-        snippet: "Use workspace Falcon deployment notes.",
-      }),
-      knowledgeResult({
-        chunkId: "chunk_global_1",
-        documentTitle: "Vertica EON troubleshooting",
-        scope: "global",
-        snippet: "Use global Vertica EON troubleshooting.",
+        snippet: "Use the workspace-local API reference.",
       }),
     ]);
+    const getKnowledgeDocument = vi.fn(async () =>
+      knowledgeDocumentFixture({
+        knowledgeDocumentId: "doc_1",
+        quickSummary: "Use the API reference.",
+        sourceLabel: "Workspace API guide",
+        sourceRef: "docs/api.md",
+        title: "API guide",
+        updatedAt: "2026-06-01T10:00:00.000Z",
+      }),
+    );
     const startDirectWork = vi.fn(
       async (
         _widgetInstanceId: string,
@@ -1005,41 +965,49 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             eventKind: "completed",
             finalStatus: "completed",
             isFinal: true,
-            text: "Codex used scoped knowledge if relevant.",
+            text: "Codex used visible context if relevant.",
           }),
         );
         return {
-          runId: "run_scoped_knowledge",
+          runId: "run_visible_knowledge",
           status: "started",
           stopListening: vi.fn(),
         };
       },
     );
     renderWidget({
+      onGetKnowledgeDocument: getKnowledgeDocument,
       onSearchKnowledgeDocuments: searchKnowledge,
       onStartCodexDirectWorkStream: startDirectWork,
     });
 
-    await setTextareaValue("Use Falcon and EON docs.");
+    await setTextareaValue("knowledge attach: API docs");
     await clickButton("Run with Codex");
+    expect(startDirectWork).not.toHaveBeenCalled();
+    expect(searchKnowledge).toHaveBeenCalledWith({
+      limit: 3,
+      query: "API docs",
+    });
+    expect(getKnowledgeDocument).toHaveBeenCalledWith("doc_1");
+    expect(document.body.textContent).toContain("Knowledge context attached visibly");
+    expect(textareaValue()).toContain("Visible attached context");
+    expect(textareaValue()).toContain("Scope: Workspace");
+    expect(textareaValue()).toContain("Version: 2026-06-01T10:00:00.000Z");
 
+    await setTextareaValue(textareaValue() + "\n\nUse this context for the task.");
+    await clickButton("Run with Codex");
     const request = startDirectWork.mock.calls[0][1] as {
       operatorPrompt: string;
     };
+    expect(request.operatorPrompt).toContain("Visible attached context");
+    expect(request.operatorPrompt).toContain("Knowledge: API guide");
     expect(request.operatorPrompt).toContain("Scope: Workspace");
-    expect(request.operatorPrompt).toContain("Scope: Global");
-    await clickButton("Run details");
-    await toggleDetails("Used knowledge: 2 snippets");
-    expect(document.body.textContent).toContain(
-      "Workspace Falcon deployment notes, chunk 1",
-    );
-    expect(document.body.textContent).toContain(
-      "Global Vertica EON troubleshooting, chunk 1",
-    );
+    expect(request.operatorPrompt).toContain("Source ref: docs/api.md");
+    expect(request.operatorPrompt).not.toMatch(/RAW_FULL_DOCUMENT_BODY|allowed_tools/i);
   });
 
 
-  it("shows no-match knowledge checks without augmenting the Codex prompt", async () => {
+  it("does not search Knowledge automatically before Codex runs", async () => {
     const searchKnowledge = vi.fn(async () => []);
     const startDirectWork = vi.fn(
       async (
@@ -1071,27 +1039,18 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     await setTextareaValue("No document should match.");
     await clickButton("Run with Codex");
 
-    expect(searchKnowledge).toHaveBeenCalledTimes(1);
+    expect(searchKnowledge).not.toHaveBeenCalled();
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
       operatorPrompt: "No document should match.",
     });
     await clickButton("Run details");
     expect(document.body.textContent).toContain(
-      "Workspace knowledge checked: no matches",
+      "Knowledge is not searched automatically",
     );
   });
 
 
   it("does not leak Falcon knowledge through a resumed thread in a new workspace", async () => {
-    const searchKnowledge = vi
-      .fn()
-      .mockResolvedValueOnce([
-        knowledgeResult({
-          documentTitle: "Falcon smoke",
-          snippet: "The secret smoke code for Falcon is BLUE-RAVEN-42.",
-        }),
-      ])
-      .mockResolvedValueOnce([]);
     const startDirectWork = vi.fn(
       async (
         _widgetInstanceId: string,
@@ -1133,7 +1092,6 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       },
     );
     renderWidget({
-      onSearchKnowledgeDocuments: searchKnowledge,
       onStartCodexDirectWorkStream: startDirectWork,
       workspaceId: "workspace_a",
     });
@@ -1141,10 +1099,8 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     await setTextareaValue("What is the Falcon smoke code?");
     await clickButton("Run with Codex");
     expect(document.body.textContent).toContain("Thread: thread_f...");
-    expect(document.body.textContent).toContain("BLUE-RAVEN-42");
 
     await rerenderWidget({
-      onSearchKnowledgeDocuments: searchKnowledge,
       onStartCodexDirectWorkStream: startDirectWork,
       workspaceId: "workspace_b",
     });
@@ -1164,10 +1120,6 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       "What is the Falcon smoke code?",
     );
     expect(workspaceBRequest.operatorPrompt).not.toContain("BLUE-RAVEN-42");
-    await clickButton("Run details");
-    expect(document.body.textContent).toContain(
-      "Workspace knowledge checked: no matches",
-    );
   });
 
 });

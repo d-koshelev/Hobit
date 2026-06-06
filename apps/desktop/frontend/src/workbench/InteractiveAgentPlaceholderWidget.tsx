@@ -2,10 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
 import type { CoordinatorActionProposal } from "./coordinatorActionProposalRegistry";
-import type {
-  AgentQueueReportActionCard,
-  AgentQueueReportActionType,
-} from "../workspace/types";
+import type { AgentQueueReportActionCard, AgentQueueReportActionType } from "../workspace/types";
 import {
   generateLocalCoordinatorProposals,
   type CoordinatorOutcomeReviewDraft,
@@ -22,15 +19,9 @@ import {
   coordinatorProviderProposalDraftContext,
   coordinatorProviderResponseMeta,
 } from "./coordinatorProviderRequest";
-import {
-  errorToMessage,
-  providerResponseAllowsCatalogDrafts,
-} from "./workspaceAgentProviderGuards";
+import { errorToMessage, providerResponseAllowsCatalogDrafts } from "./workspaceAgentProviderGuards";
 import type { WidgetRenderProps } from "./types";
-import {
-  directWorkFailureTranscriptBody,
-  type CoordinatorDirectWorkStatus,
-} from "./workspaceAgentDirectWorkModel";
+import { directWorkFailureTranscriptBody, type CoordinatorDirectWorkStatus } from "./workspaceAgentDirectWorkModel";
 import type { WorkspaceAgentRunMetadata } from "./workspaceAgentRunMetadata";
 import { WorkspaceAgentActivitySidePane } from "./WorkspaceAgentActivitySidePane";
 import { WorkspaceAgentComposer } from "./WorkspaceAgentComposer";
@@ -41,10 +32,7 @@ import {
   workspaceAgentVisibleContextBlock,
   type WorkspaceAgentVisibleContext,
 } from "./workspaceAgentVisibleContext";
-import {
-  WorkspaceAgentTranscript,
-  type WorkspaceAgentTranscriptMessage,
-} from "./WorkspaceAgentTranscript";
+import { WorkspaceAgentTranscript, type WorkspaceAgentTranscriptMessage } from "./WorkspaceAgentTranscript";
 import {
   workspaceAgentQueueActionCardTitle,
   type WorkspaceAgentQueueActionCardResult,
@@ -53,17 +41,13 @@ import {
   workspaceAgentQueueIntentDraftsFromText,
   type WorkspaceAgentQueueIntentDraft,
 } from "./workspaceAgentQueueIntent";
-import {
-  parseWorkspaceAgentQueueCommand,
-  runWorkspaceAgentQueueCommand,
-} from "./workspaceAgentQueueCommandHandler";
+import { parseWorkspaceAgentQueueCommand, runWorkspaceAgentQueueCommand } from "./workspaceAgentQueueCommandHandler";
+import { sendWorkspaceAgentKnowledgeCommandFromDraft } from "./workspaceAgentKnowledgeCommands";
 import type {
   WorkspaceAgentQueueReportActionCardPatch,
   WorkspaceAgentQueueReportActionResult,
 } from "./WorkspaceAgentQueueReportActionCard";
-import {
-  WORKSPACE_AGENT_SUGGESTED_PROMPTS,
-} from "./workspaceAgentSuggestedPrompts";
+import { WORKSPACE_AGENT_SUGGESTED_PROMPTS } from "./workspaceAgentSuggestedPrompts";
 import {
   approveProposal as approveProposalState,
   approveQueueDraftProposals,
@@ -96,6 +80,7 @@ export function InteractiveAgentPlaceholderWidget({
   onCreateWorkspaceNote,
   coordinatorAttachedContextRequest,
   onGenerateCoordinatorProviderResponse,
+  onGetKnowledgeDocument,
   onOpenAgentQueueItem,
   onSearchKnowledgeDocuments,
   onCancelCodexDirectWorkRun,
@@ -113,45 +98,24 @@ export function InteractiveAgentPlaceholderWidget({
   const messageListRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const nextMessageId = useRef(1);
-  const [messages, setMessages] = useState<InteractiveAgentMessage[]>(
-    INITIAL_MESSAGES,
-  );
+  const [messages, setMessages] = useState<InteractiveAgentMessage[]>(INITIAL_MESSAGES);
   const [plans, setPlans] = useState<Record<string, CoordinatorPlanDraft>>({});
-  const [reviews, setReviews] = useState<
-    Record<string, CoordinatorOutcomeReviewDraft>
-  >({});
-  const [proposals, setProposals] = useState<
-    Record<string, CoordinatorActionProposal>
-  >({});
-  const [queueReportCards, setQueueReportCards] = useState<
-    Record<string, AgentQueueReportActionCard>
-  >({});
-  const [queueReportActionResults, setQueueReportActionResults] = useState<
-    Record<string, Record<string, WorkspaceAgentQueueReportActionResult>>
-  >({});
-  const [queueActionResults, setQueueActionResults] = useState<
-    Record<string, WorkspaceAgentQueueActionCardResult>
-  >({});
-  const [queueIntentDrafts, setQueueIntentDrafts] = useState<
-    Record<string, WorkspaceAgentQueueIntentDraft>
-  >({});
-  const [creatingQueueProposalIds, setCreatingQueueProposalIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
+  const [reviews, setReviews] = useState<Record<string, CoordinatorOutcomeReviewDraft>>({});
+  const [proposals, setProposals] = useState<Record<string, CoordinatorActionProposal>>({});
+  const [queueReportCards, setQueueReportCards] = useState<Record<string, AgentQueueReportActionCard>>({});
+  const [queueReportActionResults, setQueueReportActionResults] = useState<Record<string, Record<string, WorkspaceAgentQueueReportActionResult>>>({});
+  const [queueActionResults, setQueueActionResults] = useState<Record<string, WorkspaceAgentQueueActionCardResult>>({});
+  const [queueIntentDrafts, setQueueIntentDrafts] = useState<Record<string, WorkspaceAgentQueueIntentDraft>>({});
+  const [creatingQueueProposalIds, setCreatingQueueProposalIds] = useState<ReadonlySet<string>>(() => new Set());
   const [
     creatingKnowledgeDocumentProposalIds,
     setCreatingKnowledgeDocumentProposalIds,
   ] = useState<ReadonlySet<string>>(() => new Set());
-  const [creatingNoteProposalIds, setCreatingNoteProposalIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
-  const [creatingSkillProposalIds, setCreatingSkillProposalIds] = useState<
-    ReadonlySet<string>
-  >(() => new Set());
+  const [creatingNoteProposalIds, setCreatingNoteProposalIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [creatingSkillProposalIds, setCreatingSkillProposalIds] = useState<ReadonlySet<string>>(() => new Set());
   const [draft, setDraft] = useState("");
   const [isActivityPaneCollapsed, setIsActivityPaneCollapsed] = useState(false);
-  const [visibleAttachedContext, setVisibleAttachedContext] =
-    useState<WorkspaceAgentVisibleContext | null>(null);
+  const [visibleAttachedContext, setVisibleAttachedContext] = useState<WorkspaceAgentVisibleContext | null>(null);
   const [isProviderPending, setIsProviderPending] = useState(false);
   const workspaceScopeId = workspaceId?.trim() || "__local_workspace__";
   const sessionScopeKey = `${workspaceScopeId}\u0000${instance.id}`;
@@ -286,6 +250,10 @@ export function InteractiveAgentPlaceholderWidget({
     }
 
     if (await sendQueueCommandFromDraft(trimmedDraft)) {
+      return;
+    }
+
+    if (await sendKnowledgeCommandFromDraft(trimmedDraft)) {
       return;
     }
 
@@ -501,6 +469,26 @@ export function InteractiveAgentPlaceholderWidget({
     window.setTimeout(() => textareaRef.current?.focus(), 0);
 
     return true;
+  }
+
+  async function sendKnowledgeCommandFromDraft(trimmedDraft: string) {
+    return sendWorkspaceAgentKnowledgeCommandFromDraft({
+      createLocalMessage,
+      getKnowledgeDocument: onGetKnowledgeDocument,
+      isProviderPending,
+      onFocusComposer: () => textareaRef.current?.focus(),
+      onMessages: (operatorMessage, assistantMessage) => {
+        setMessages((currentMessages) => [
+          ...currentMessages,
+          operatorMessage,
+          assistantMessage,
+        ]);
+      },
+      onSetDraft: setDraft,
+      onSetVisibleContext: setVisibleAttachedContext,
+      rawDraft: trimmedDraft,
+      searchKnowledgeDocuments: onSearchKnowledgeDocuments,
+    });
   }
 
   function resetCurrentSessionState() {
@@ -879,6 +867,10 @@ export function InteractiveAgentPlaceholderWidget({
           onRemoveVisibleContext={removeVisibleAttachedContext}
           onRunWithCodex={async ({ startNewThread } = {}) => {
             if (await sendQueueCommandFromDraft(draft.trim())) {
+              return;
+            }
+
+            if (await sendKnowledgeCommandFromDraft(draft.trim())) {
               return;
             }
 

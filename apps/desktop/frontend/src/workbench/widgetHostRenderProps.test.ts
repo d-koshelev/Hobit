@@ -86,6 +86,7 @@ describe("widgetHostRenderProps", () => {
     expect(props.onGenerateCoordinatorProviderResponse).toBe(
       actions.generateCoordinatorProviderResponse,
     );
+    expect(props.onGetKnowledgeDocument).toBe(actions.getKnowledgeDocument);
     expect(props.workspaceAgentQueueBridge).toBeDefined();
     expect(props.workspaceAgentQueueBridge?.getRunSettingsDefaults?.()).toEqual(
       {

@@ -148,7 +148,7 @@ export function AgentQueueTaskDetailsPanel({
           />
 
           <AgentQueueTaskContextSection
-            onDetachContextRef={queue.knowledgeContext.onDetachSelected}
+            onDetachContextRef={queue.knowledgeContext?.onDetachSelected}
             selectedTask={selectedTask}
           />
 

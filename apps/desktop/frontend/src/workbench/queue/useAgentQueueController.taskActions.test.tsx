@@ -275,7 +275,7 @@ describe("useAgentQueueController task actions", () => {
     expect(materializedPrompt.includes("Context used")).toBe(true);
     expect(
       materializedPrompt.includes(
-        "Context storage: durable Queue task context.",
+        "Context storage: visible prepared Queue task context.",
       ),
     ).toBe(true);
 
@@ -353,7 +353,7 @@ describe("useAgentQueueController task actions", () => {
     ).toBe(true);
     expect(
       harness.startRequests[0].materializedOperatorPrompt?.includes(
-        "Context storage: durable Queue task context.",
+        "Context storage: visible prepared Queue task context.",
       ),
     ).toBe(true);
     expect(harness.attachKnowledgeRequests).toHaveLength(1);

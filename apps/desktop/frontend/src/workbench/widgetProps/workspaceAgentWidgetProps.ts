@@ -16,6 +16,7 @@ type WorkspaceAgentActions = Pick<
   | "createSkill"
   | "createWorkspaceNote"
   | "generateCoordinatorProviderResponse"
+  | "getKnowledgeDocument"
   | "searchKnowledgeDocuments"
   | "selectWorkspaceDirectory"
   | "startCodexDirectWorkStream"
@@ -62,6 +63,7 @@ export function workspaceAgentWidgetProps({
     onCreateWorkspaceNote: actions.createWorkspaceNote,
     onGenerateCoordinatorProviderResponse:
       actions.generateCoordinatorProviderResponse,
+    onGetKnowledgeDocument: actions.getKnowledgeDocument,
     onOpenAgentQueueItem,
     onPublishAgentActivityEvents,
     onSearchKnowledgeDocuments: actions.searchKnowledgeDocuments,

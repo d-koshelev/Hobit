@@ -18,7 +18,6 @@ import {
   EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY,
   EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP,
   codexAgentMessageFromEvent,
-  codexPromptWithWorkspaceKnowledge,
   codexThreadIdForScope,
   coordinatorDirectWorkStatusFromEvent,
   defaultCoordinatorCodexExecutable,
@@ -28,7 +27,6 @@ import {
   directWorkFailureIsAccessDenied,
   directWorkFailureReason,
   shortCodexThreadId,
-  workspaceKnowledgeLogText,
   type ActiveDirectWorkRunScope,
   type CodexThreadScope,
   type CoordinatorDirectWorkLogEntry,
@@ -85,7 +83,6 @@ export function useWorkspaceAgentDirectWorkController({
   onFocusComposer,
   onPublishAgentActivityEvents,
   onRemoveVisibleAttachedContext,
-  onSearchKnowledgeDocuments,
   onStartCodexDirectWorkStream,
   workspaceId,
 }: UseWorkspaceAgentDirectWorkControllerOptions) {
@@ -214,17 +211,6 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkStartAbortControllerRef.current?.abort();
     const startAbortController = new AbortController();
     directWorkStartAbortControllerRef.current = startAbortController;
-    const knowledgeLookup =
-      await searchWorkspaceKnowledgeForDirectWork(operatorPrompt);
-
-    if (!isMountedRef.current || startAbortController.signal.aborted) {
-      return;
-    }
-
-    const promptForCodex =
-      knowledgeLookup.results.length > 0
-        ? codexPromptWithWorkspaceKnowledge(operatorPrompt, knowledgeLookup.results)
-        : operatorPrompt;
     const threadStartText = resumeThreadId
       ? `Continuing Codex thread ${shortCodexThreadId(resumeThreadId)}.`
       : "Starting new Codex thread.";
@@ -245,9 +231,7 @@ export function useWorkspaceAgentDirectWorkController({
       {
         id: "direct-local-starting",
         kind: "local",
-        text: `${threadStartText} ${workspaceKnowledgeLogText(
-          knowledgeLookup,
-        )} Starting Codex Direct Work from ${repoRoot}.`,
+        text: `${threadStartText} Knowledge is not searched automatically; only visible composer text is sent. Starting Codex Direct Work from ${repoRoot}.`,
       },
     ]);
 
@@ -258,7 +242,7 @@ export function useWorkspaceAgentDirectWorkController({
           approvalPolicy: "never",
           codexExecutable: defaultCoordinatorCodexExecutable(),
           codexThreadId: resumeThreadId,
-          operatorPrompt: promptForCodex,
+          operatorPrompt,
           repoRoot,
           sandbox: directWorkSandbox,
           skipGitRepoCheck: true,
@@ -401,49 +385,6 @@ export function useWorkspaceAgentDirectWorkController({
     updateDirectWorkActivitySummary(EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY);
     setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
     setIsDirectWorkStopPending(false);
-  }
-
-  async function searchWorkspaceKnowledgeForDirectWork(
-    operatorPrompt: string,
-  ): Promise<WorkspaceKnowledgeLookup> {
-    const query = operatorPrompt.trim();
-    if (!query) {
-      const lookup = { ...EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP, query };
-      setWorkspaceKnowledgeLookup(lookup);
-      return lookup;
-    }
-
-    if (!onSearchKnowledgeDocuments) {
-      const lookup: WorkspaceKnowledgeLookup = {
-        error: null,
-        query,
-        results: [],
-        status: "unavailable",
-      };
-      setWorkspaceKnowledgeLookup(lookup);
-      return lookup;
-    }
-
-    try {
-      const results = await onSearchKnowledgeDocuments({ limit: 5, query });
-      const lookup: WorkspaceKnowledgeLookup = {
-        error: null,
-        query,
-        results,
-        status: results.length > 0 ? "matched" : "checked",
-      };
-      setWorkspaceKnowledgeLookup(lookup);
-      return lookup;
-    } catch (error) {
-      const lookup: WorkspaceKnowledgeLookup = {
-        error: errorToMessage(error, "Knowledge search failed."),
-        query,
-        results: [],
-        status: "failed",
-      };
-      setWorkspaceKnowledgeLookup(lookup);
-      return lookup;
-    }
   }
 
   function recordDirectWorkEvent(event: DirectWorkStreamEvent) {

@@ -367,7 +367,7 @@ function promptContextSection(snapshots: AgentQueueTaskContextSnapshot[]) {
   return [
     "Knowledge / Skills context",
     "Only this visible, bounded Queue-owned task context is included.",
-    "This context is saved on the Queue task until removed.",
+    "This prepared context is visible before execution and included only in the explicit run prompt.",
     skills.length > 0 ? "Visible Skill Instructions" : null,
     ...skills.map(snapshotPromptBlock),
     knowledge.length > 0 ? "Visible Knowledge Document Excerpts" : null,
@@ -386,7 +386,7 @@ function promptEvidenceSection(
   return [
     "Context used",
     `Queue task id: ${task.queueItemId}`,
-    "Context storage: durable Queue task context.",
+    "Context storage: visible prepared Queue task context.",
     "Included in this run prompt: yes.",
     `Snapshot ids used: ${snapshots.map((snapshot) => snapshot.id).join(", ")}`,
     `Knowledge refs used: ${snapshots

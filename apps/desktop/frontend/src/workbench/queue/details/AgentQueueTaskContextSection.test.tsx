@@ -42,7 +42,7 @@ describe("AgentQueueTaskContextSection", () => {
     renderContextSection(selectedTask);
 
     expect(document.body.textContent).toContain(
-      "Attached refs and bounded snapshots are saved on this Queue task",
+      "Attached refs and bounded snapshots are visible on this Queue task",
     );
     expect(document.body.textContent).toContain("Durable bounded snapshots");
     expect(document.body.textContent).toContain("Prompt context preview");
@@ -50,7 +50,7 @@ describe("AgentQueueTaskContextSection", () => {
       "Only this visible, bounded Queue-owned task context is included.",
     );
     expect(document.body.textContent).toContain(
-      "This context is saved on the Queue task until removed.",
+      "This prepared context is visible before execution and included only in the explicit run prompt.",
     );
     expect(document.body.textContent).toContain(
       "Visible bounded body for the run prompt.",

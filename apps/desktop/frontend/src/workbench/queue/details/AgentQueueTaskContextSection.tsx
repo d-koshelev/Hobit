@@ -73,8 +73,8 @@ export function AgentQueueTaskContextSection({
       ) : (
         <>
           <p className="agent-queue-section-copy">
-            Attached refs and bounded snapshots are saved on this Queue task and
-            visible before execution.
+            Attached refs and bounded snapshots are visible on this Queue task
+            before execution.
           </p>
           <ContextRefList
             label="Knowledge"
