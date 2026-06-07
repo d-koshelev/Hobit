@@ -248,6 +248,12 @@ unless the task explicitly requests it.
   Pane as visualization, including pane states and pane types. It does not add
   frontend UI, backend/Tauri commands, storage/schema, Finder implementation,
   Terminal split panes, runtime behavior, or widget behavior changes.
+- `docs/WIDGET_UNIFICATION_CONTRACT.md` - active docs-only shared widget shell
+  and layout contract for future WidgetFrame, WidgetInfo, WidgetPopupShell,
+  layout-zone, responsibility-model, and migration-order work. It does not add
+  frontend UI, backend/Tauri commands, storage/schema, WidgetHost rewrites,
+  WorkbenchCanvas rewrites, Workspace API splits, runtime behavior, or broad
+  visual redesign.
 - `docs/AGENT_QUEUE_WIDGET_API_CONTRACT.md` - first concrete Workspace Widget
   API contract for Agent Queue. It defines the singleton Queue identity,
   snapshot, item shape, app-native actions, QueuePatch model, events,
@@ -586,9 +592,10 @@ These documents should not override the Workspace Agent model or
   widget/domain contract when one exists. Implementation should not start until
   the contract packet reaches Definition of Ready.
 - Universal widget shell, pane layout, or pane type/state work: read
-  `docs/WIDGET_CONTRACT.md`, `docs/WORKSPACE_WIDGET_API_CONTRACT.md`, and
-  `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`; add affected widget/domain
-  contracts only when changing domain behavior.
+  `docs/WIDGET_CONTRACT.md`, `docs/WORKSPACE_WIDGET_API_CONTRACT.md`,
+  `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`, and
+  `docs/WIDGET_UNIFICATION_CONTRACT.md`; add affected widget/domain contracts
+  only when changing domain behavior.
 - Docs-only product model work: read the default set plus the affected domain
   contract.
 - Workspace Widget API or semantic widget testing model work: read
