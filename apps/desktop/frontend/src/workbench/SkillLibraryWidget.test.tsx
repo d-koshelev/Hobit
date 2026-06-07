@@ -1,3 +1,4 @@
+import { act } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import type { KnowledgeDocument, Skill } from "../workspace/types";
@@ -22,6 +23,43 @@ import {
 } from "./SkillLibraryWidget.test-helpers";
 
 describe("SkillLibraryWidget", () => {
+  it("keeps Knowledge / Skills header explanation behind the shared info popup", async () => {
+    renderWidget({
+      onListSkills: vi.fn(async () => []),
+      onGetSkill: vi.fn(),
+      onListKnowledgeDocuments: vi.fn(async () => []),
+    });
+
+    await flush();
+
+    expect(document.querySelector(".popup-shell")).toBeNull();
+    expect(document.body.textContent).not.toContain(
+      "Knowledge / Skills is a unified catalog",
+    );
+
+    const infoButton = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Knowledge / Skills help"]',
+    );
+
+    expect(infoButton).not.toBeNull();
+
+    await act(async () => {
+      infoButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const popup = document.querySelector<HTMLElement>(".popup-shell");
+
+    expect(popup).not.toBeNull();
+    expect(popup?.textContent).toContain(
+      "Knowledge / Skills is a unified catalog",
+    );
+    expect(popup?.textContent).toContain(
+      "Folder ingestion, hidden memory, and vector search are not implemented.",
+    );
+  });
+
   it("renders the empty workspace-local safety state", async () => {
     renderWidget({
       onListSkills: vi.fn(async () => []),

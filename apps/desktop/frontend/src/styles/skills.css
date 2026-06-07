@@ -5,54 +5,6 @@
   min-height: 0;
 }
 
-.skill-library-help {
-  position: relative;
-}
-
-.skill-library-info-button {
-  align-items: center;
-  background: transparent;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
-  color: var(--color-text-muted);
-  cursor: pointer;
-  display: inline-flex;
-  font: inherit;
-  font-size: var(--text-xs);
-  font-weight: 700;
-  height: 20px;
-  justify-content: center;
-  line-height: 1;
-  width: 20px;
-}
-
-.skill-library-info-button:hover {
-  border-color: var(--color-border-strong);
-  color: var(--color-text-primary);
-}
-
-.skill-library-info-popover {
-  background: var(--color-overlay-surface);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-elevated);
-  color: var(--color-text-muted);
-  display: grid;
-  font-size: var(--text-xs);
-  gap: var(--space-xs);
-  line-height: var(--line-normal);
-  padding: var(--space-sm);
-  position: absolute;
-  right: 0;
-  top: calc(100% + var(--space-xs));
-  width: min(320px, 78vw);
-  z-index: 20;
-}
-
-.skill-library-info-popover p {
-  margin: 0;
-}
-
 .skill-library-tab-panel {
   display: flex;
   flex-direction: column;

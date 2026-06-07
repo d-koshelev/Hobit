@@ -271,6 +271,60 @@
   line-height: var(--line-tight);
 }
 
+.widget-info {
+  position: relative;
+}
+
+.widget-info-button {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  height: calc(20px * var(--ui-scale));
+  justify-content: center;
+  line-height: 1;
+  min-width: calc(20px * var(--ui-scale));
+  padding: 0;
+  width: calc(20px * var(--ui-scale));
+}
+
+.widget-info-button:hover,
+.widget-info-button:focus-visible {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+}
+
+.widget-info-popover {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.widget-info-popover h3,
+.widget-info-popover p {
+  margin: 0;
+}
+
+.widget-info-popover h3 {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.widget-info-popover-content {
+  color: var(--color-text-muted);
+  display: grid;
+  font-size: var(--text-xs);
+  gap: var(--space-xs);
+  line-height: var(--line-normal);
+}
+
 [data-popup-drag-handle] {
   cursor: grab;
   user-select: none;

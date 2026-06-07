@@ -1,4 +1,5 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
+import { WidgetInfoPopover } from "../design-system/WidgetInfoPopover";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import {
   SkillLibraryDocumentsPanel,
@@ -35,39 +36,26 @@ export function SkillLibraryWidget({
   const documentsPanelRef = useRef<SkillLibraryDocumentsPanelHandle | null>(
     null,
   );
-  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const onDocumentsToolbarStateChange = useCallback(() => undefined, []);
 
   const statusBadge = (
-    <div className="skill-library-help" data-widget-header-drag-ignore>
-      <button
-        aria-expanded={isHelpOpen}
-        aria-label="Knowledge / Skills help"
-        className="skill-library-info-button"
-        onClick={() => setIsHelpOpen((current) => !current)}
-        title="Knowledge / Skills help"
-        type="button"
-      >
-        i
-      </button>
-      {isHelpOpen ? (
-        <div className="skill-library-info-popover" role="dialog">
-          <p>
-            Knowledge / Skills is a unified catalog of workspace and global
-            Knowledge Documents plus workspace Skill records.
-          </p>
-          <p>
-            Only enabled active documents are searched before Workspace Agent
-            Codex runs. Skills are attached only through explicit operator
-            actions.
-          </p>
-          <p>
-            Imports accept one selected .txt, .md, or .markdown file. Folder
-            ingestion, hidden memory, and vector search are not implemented.
-          </p>
-        </div>
-      ) : null}
-    </div>
+    <WidgetInfoPopover
+      label="Knowledge / Skills help"
+      title="Knowledge / Skills"
+    >
+      <p>
+        Knowledge / Skills is a unified catalog of workspace and global
+        Knowledge Documents plus workspace Skill records.
+      </p>
+      <p>
+        Only enabled active documents are searched before Workspace Agent Codex
+        runs. Skills are attached only through explicit operator actions.
+      </p>
+      <p>
+        Imports accept one selected .txt, .md, or .markdown file. Folder
+        ingestion, hidden memory, and vector search are not implemented.
+      </p>
+    </WidgetInfoPopover>
   );
 
   return (
