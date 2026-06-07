@@ -478,6 +478,15 @@ the local executor flow visible to operators.
   implementation-block model. It does not add frontend behavior,
   backend/runtime behavior, storage/schema, scheduling, dependency execution,
   Git mutation, Terminal launch, or hidden automation.
+- `docs/QUEUE_V2_REPLACE_V1_CONTRACT.md` - docs-only product decision that
+  the old Agent Queue V1 visual surface can be removed and QueueV2 becomes the
+  Agent Queue widget implementation. It preserves saved Agent Queue widget
+  compatibility, Queue domain API/storage/runtime/Autorun semantics,
+  Knowledge context attach/materialization, and component id/key compatibility
+  while deproductizing the Board v2 / Flow Map toggle, old V1 Flow Map normal
+  UI, and old dense sidebar/right-rail UI. It does not add frontend behavior,
+  backend/runtime behavior, storage/schema changes, scheduling, dependency
+  execution, Git mutation, Terminal launch, or hidden automation.
 - `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` - manual assignment from
   Queue tasks to visible Agent Executor slots.
 - `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` - explicit manual run of an assigned
