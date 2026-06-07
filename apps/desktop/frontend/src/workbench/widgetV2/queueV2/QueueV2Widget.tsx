@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+
 import {
   WidgetV2BottomDrawer,
   WidgetV2LeftRail,
@@ -12,6 +14,10 @@ import type {
   AgentWorkerSummary,
   QueueGlobalStatus,
 } from "../../agentQueueTaskUiModel";
+import { selectQueueV2ViewModel } from "../../queue/queueV2ViewModel";
+import { QueueV2ActivityStream } from "./QueueV2ActivityStream";
+import { QueueV2LeftRail } from "./QueueV2LeftRail";
+import { QueueV2TopBar } from "./QueueV2TopBar";
 
 const queueV2Manifest = getWidgetV2Manifest("queue-v2");
 
@@ -30,6 +36,18 @@ export function QueueV2Widget({
   tasks = [],
   workers = [],
 }: QueueV2WidgetProps) {
+  const viewModel = useMemo(
+    () =>
+      selectQueueV2ViewModel({
+        autorunArmed,
+        globalExecutionState,
+        pausedQueueTagIds,
+        tasks,
+        workers,
+      }),
+    [autorunArmed, globalExecutionState, pausedQueueTagIds, tasks, workers],
+  );
+
   return (
     <WidgetV2Shell
       status={{
@@ -42,22 +60,24 @@ export function QueueV2Widget({
       title={queueV2Manifest?.title ?? "Agent Queue v2"}
     >
       <WidgetV2Toolbar label="Agent Queue v2 command bar">
-        <span>Board preview</span>
-        <span>Selection only. Actions are not wired.</span>
+        <QueueV2TopBar
+          globalExecutionState={globalExecutionState}
+          viewModel={viewModel}
+        />
       </WidgetV2Toolbar>
       <WidgetV2PanelLayout
         bottomDrawer={
-          <WidgetV2BottomDrawer label="Agent Queue v2 closed and history">
-            <details>
-              <summary>Activity / history</summary>
-              <p>Detailed run history and raw output remain collapsed.</p>
-            </details>
+          <WidgetV2BottomDrawer label="Agent Queue v2 activity and closed history">
+            <QueueV2ActivityStream viewModel={viewModel} />
           </WidgetV2BottomDrawer>
         }
         leftRail={
           <WidgetV2LeftRail label="Agent Queue v2 left rail">
-            <p>Workers: {workers.length.toString()}</p>
-            <p>Autorun: {autorunArmed ? "Armed" : "Off"}</p>
+            <QueueV2LeftRail
+              globalExecutionState={globalExecutionState}
+              tasks={tasks}
+              viewModel={viewModel}
+            />
           </WidgetV2LeftRail>
         }
         primary={

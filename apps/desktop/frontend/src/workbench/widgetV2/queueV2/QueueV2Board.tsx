@@ -2,7 +2,6 @@ import { useMemo, useRef, useState } from "react";
 
 import type { AgentQueueTask } from "../../../workspace/types";
 import {
-  queueGlobalExecutionStateLabel,
   type AgentWorkerSummary,
   type QueueGlobalStatus,
 } from "../../agentQueueTaskUiModel";
@@ -93,29 +92,6 @@ export function QueueV2Board({
 
   return (
     <section aria-label="Queue v2 board" className="queue-v2-board">
-      <div className="queue-v2-board-summary" aria-label="Queue v2 summary">
-        <QueueV2SummaryItem
-          label="Queue"
-          value={queueGlobalExecutionStateLabel(globalExecutionState)}
-        />
-        <QueueV2SummaryItem
-          label="Ready now"
-          value={board.counts.eligibleNow.toString()}
-        />
-        <QueueV2SummaryItem
-          label="Running"
-          value={board.counts.running.toString()}
-        />
-        <QueueV2SummaryItem
-          label="Review"
-          value={board.counts.reviewNeeded.toString()}
-        />
-        <QueueV2SummaryItem
-          label="Workers"
-          value={`${board.capacity.availableSlots.toString()}/${board.capacity.totalSlots.toString()}`}
-        />
-      </div>
-
       <div className="queue-v2-lanes" role="list">
         {LEADING_BOARD_LANES.map((lane) => (
           <QueueV2Lane
@@ -163,21 +139,6 @@ export function QueueV2Board({
         taskViewModel={detailTaskViewModel}
       />
     </section>
-  );
-}
-
-function QueueV2SummaryItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="queue-v2-summary-item">
-      <span>{label}</span>
-      <strong>{value}</strong>
-    </div>
   );
 }
 
