@@ -130,6 +130,12 @@ of truth for their domains.
   Workspace Agent attach, Queue attach/materialization, disabled/rejected/
   stale behavior, caps/secret warnings, and no hidden context. It does not add
   behavior, validation automation, or acceptance status by itself.
+- `docs/KNOWLEDGE_PRODUCTION_POST_RUN_AUDIT.md` - inspect-only post-run audit
+  after the Knowledge production implementation pack. It records readiness,
+  implemented durable Knowledge fields/versioning, draft review ledger, durable
+  Queue context, context materialization/evidence, source refs, safety status,
+  docs drift, maintainability risks, and remaining manual smoke. It does not
+  add behavior or override current widget contracts.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
