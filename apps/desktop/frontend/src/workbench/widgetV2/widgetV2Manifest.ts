@@ -13,6 +13,8 @@ function hasItems<T>(value: readonly T[] | undefined): boolean {
   return Array.isArray(value) && value.length > 0;
 }
 
+const widgetV2ManifestStatuses = new Set(["planned", "experimental", "available"]);
+
 export function validateWidgetV2Manifest(
   manifest: WidgetV2Manifest,
 ): WidgetV2ManifestValidationResult {
@@ -26,6 +28,14 @@ export function validateWidgetV2Manifest(
     errors.push("Widget V2 manifest requires a non-empty name.");
   }
 
+  if (!hasText(manifest.title)) {
+    errors.push("Widget V2 manifest requires a non-empty title.");
+  }
+
+  if (!hasText(manifest.description)) {
+    errors.push("Widget V2 manifest requires a non-empty description.");
+  }
+
   if (!hasText(manifest.productRole)) {
     errors.push("Widget V2 manifest requires a non-empty product role.");
   }
@@ -36,6 +46,24 @@ export function validateWidgetV2Manifest(
 
   if (!hasItems(manifest.supportedLayoutKinds)) {
     errors.push("Widget V2 manifest requires at least one supported layout kind.");
+  }
+
+  if (!hasText(manifest.layoutKind)) {
+    errors.push("Widget V2 manifest requires a non-empty layout kind.");
+  }
+
+  if (!widgetV2ManifestStatuses.has(manifest.status)) {
+    errors.push(
+      "Widget V2 manifest status must be planned, experimental, or available.",
+    );
+  }
+
+  if (!hasText(manifest.productOwnerDomain)) {
+    errors.push("Widget V2 manifest requires a non-empty product owner domain.");
+  }
+
+  if (!hasItems(manifest.safetyBoundaries)) {
+    errors.push("Widget V2 manifest requires at least one safety boundary.");
   }
 
   if (!hasItems(manifest.requiredPanelSlots)) {

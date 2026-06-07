@@ -10,9 +10,15 @@ function manifest(overrides: Partial<WidgetV2Manifest> = {}): WidgetV2Manifest {
   return {
     kind: "queue-v2",
     name: "Queue V2",
+    title: "Queue V2",
+    description: "Future Queue V2 metadata contract.",
     productRole: "Organize promoted async work with visible operator control.",
     capabilities: ["render-primary-surface", "dispatch-typed-action"],
+    layoutKind: "operational",
     supportedLayoutKinds: ["minimal", "operational"],
+    status: "planned",
+    productOwnerDomain: "agent-queue",
+    safetyBoundaries: ["No hidden execution."],
     requiredPanelSlots: ["header", "primary"],
     optionalPanelSlots: ["toolbar", "right-inspector", "bottom-drawer"],
     actions: [
@@ -46,9 +52,15 @@ describe("Widget V2 manifest foundation", () => {
       manifest({
         kind: "",
         name: " ",
+        title: "",
+        description: "",
         productRole: "",
         capabilities: [],
+        layoutKind: "" as WidgetV2Manifest["layoutKind"],
         supportedLayoutKinds: [],
+        status: "retired" as WidgetV2Manifest["status"],
+        productOwnerDomain: "",
+        safetyBoundaries: [],
         requiredPanelSlots: [],
       }),
     );
@@ -57,9 +69,15 @@ describe("Widget V2 manifest foundation", () => {
     expect(result.errors).toEqual([
       "Widget V2 manifest requires a non-empty kind.",
       "Widget V2 manifest requires a non-empty name.",
+      "Widget V2 manifest requires a non-empty title.",
+      "Widget V2 manifest requires a non-empty description.",
       "Widget V2 manifest requires a non-empty product role.",
       "Widget V2 manifest requires at least one capability.",
       "Widget V2 manifest requires at least one supported layout kind.",
+      "Widget V2 manifest requires a non-empty layout kind.",
+      "Widget V2 manifest status must be planned, experimental, or available.",
+      "Widget V2 manifest requires a non-empty product owner domain.",
+      "Widget V2 manifest requires at least one safety boundary.",
       "Widget V2 manifest requires at least one required panel slot.",
     ]);
   });

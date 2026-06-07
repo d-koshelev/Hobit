@@ -6,6 +6,7 @@ export type WidgetV2Kind =
   | "workspace-agent-v2"
   | "terminal-v2"
   | "finder-v2"
+  | "notes-v2"
   | (string & {});
 
 export type WidgetV2Capability =
@@ -19,6 +20,17 @@ export type WidgetV2Capability =
   | (string & {});
 
 export type WidgetV2LayoutKind = "minimal" | "operational" | "full" | "expert";
+
+export type WidgetV2ManifestStatus = "planned" | "experimental" | "available";
+
+export type WidgetV2ProductOwnerDomain =
+  | "agent-queue"
+  | "knowledge"
+  | "workspace-agent"
+  | "terminal"
+  | "finder"
+  | "notes"
+  | (string & {});
 
 export type WidgetV2PanelSlot =
   | "header"
@@ -56,9 +68,15 @@ export interface WidgetV2StatusSummary {
 export interface WidgetV2Manifest {
   readonly kind: WidgetV2Kind;
   readonly name: string;
+  readonly title: string;
+  readonly description: string;
   readonly productRole: string;
   readonly capabilities: readonly WidgetV2Capability[];
+  readonly layoutKind: WidgetV2LayoutKind;
   readonly supportedLayoutKinds: readonly WidgetV2LayoutKind[];
+  readonly status: WidgetV2ManifestStatus;
+  readonly productOwnerDomain: WidgetV2ProductOwnerDomain;
+  readonly safetyBoundaries: readonly string[];
   readonly requiredPanelSlots: readonly WidgetV2PanelSlot[];
   readonly optionalPanelSlots?: readonly WidgetV2PanelSlot[];
   readonly actions?: readonly WidgetV2ActionIntent[];
