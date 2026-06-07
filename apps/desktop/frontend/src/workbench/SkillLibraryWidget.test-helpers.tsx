@@ -4,7 +4,13 @@ import { afterEach, vi } from "vitest";
 
 import type { KnowledgeDocument, Skill } from "../workspace/types";
 import { SkillLibraryWidget } from "./SkillLibraryWidget";
+import { WidgetHost } from "./WidgetHost";
 import type { WidgetDefinition, WidgetInstance } from "./types";
+import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
+import {
+  WidgetRuntimeContextProvider,
+  type WidgetRuntimeContextValue,
+} from "./widgetRuntimeContext";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -24,13 +30,14 @@ afterEach(() => {
 
 export function renderWidget(
   overrides: Partial<Parameters<typeof SkillLibraryWidget>[0]> = {},
+  runtime?: WidgetRuntimeContextValue,
 ) {
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
 
   act(() => {
-    root?.render(
+    const widget = (
       <SkillLibraryWidget
         config={{}}
         definition={definition()}
@@ -51,9 +58,84 @@ export function renderWidget(
         )}
         title="Skill Library"
         {...overrides}
+      />
+    );
+
+    root?.render(
+      runtime ? (
+        <WidgetRuntimeContextProvider runtime={runtime}>
+          {widget}
+        </WidgetRuntimeContextProvider>
+      ) : (
+        widget
+      ),
+    );
+  });
+}
+
+export function renderWidgetThroughHost({
+  actions: actionOverrides = {},
+}: {
+  actions?: Partial<WorkbenchWidgetInstanceActions>;
+} = {}) {
+  container = document.createElement("div");
+  document.body.append(container);
+  root = createRoot(container);
+
+  const actions = widgetActions(actionOverrides);
+
+  act(() => {
+    root?.render(
+      <WidgetHost
+        agentActivityEvents={[]}
+        agentExecutorRunOpenRequest={null}
+        agentExecutorSlots={[]}
+        agentQueueItemOpenRequest={null}
+        coordinatorAttachedContextRequest={null}
+        directWorkGitReview={{
+          request: null,
+          requestReview: vi.fn(),
+          status: null,
+          updateStatus: vi.fn(),
+        }}
+        directWorkRunHandoff={{
+          handoffs: {},
+          queueTaskAutoRefreshRequest: null,
+          recordFinalState: vi.fn(),
+          recordHandoff: vi.fn(),
+        }}
+        hasGitWidget={false}
+        instance={instance()}
+        layoutMode="locked"
+        onDockBack={vi.fn()}
+        onOpenAgentExecutorRun={vi.fn()}
+        onPopOut={vi.fn()}
+        onPublishAgentActivityEvents={vi.fn()}
+        onStartDockedDrag={vi.fn()}
+        onStartPopoutDrag={vi.fn()}
+        presentationMode="docked"
+        queueReportActionCardRequest={null}
+        widgetActions={actions}
+        workspaceId="workspace_1"
+        workspaceQueueApi={
+          ({
+            controller: {
+              knowledgeContext: {
+                onAttachSelected: vi.fn(),
+              },
+            },
+            createItem: vi.fn(),
+            getSnapshot: vi.fn(),
+            queueId: "workspace:workspace_1:agent-queue",
+            queueExecutorSlots: [],
+            updateItem: vi.fn(),
+          } as unknown) as Parameters<typeof WidgetHost>[0]["workspaceQueueApi"]
+        }
       />,
     );
   });
+
+  return { actions };
 }
 
 export async function flush() {
@@ -357,4 +439,37 @@ function instance(): WidgetInstance {
     title: "Skill Library",
     visible: true,
   };
+}
+
+function widgetActions(
+  overrides: Partial<WorkbenchWidgetInstanceActions>,
+): WorkbenchWidgetInstanceActions {
+  return {
+    createAgentQueueTask: vi.fn(),
+    createKnowledgeDocument: vi.fn(async (request) =>
+      knowledgeDocumentFixture(request),
+    ),
+    createSkill: vi.fn(async (request) => skillFixture(request)),
+    deleteKnowledgeDocument: vi.fn(async () => true),
+    deleteSkill: vi.fn(async () => true),
+    getKnowledgeDocument: vi.fn(async () => null),
+    getSkill: vi.fn(async () => null),
+    listKnowledgeDocuments: vi.fn(async () => []),
+    listKnowledgeDraftReviews: vi.fn(async () => []),
+    listSkills: vi.fn(async () => []),
+    listWidgetLogs: vi.fn(async () => []),
+    logRefreshTokens: {
+      skill_widget: 2,
+    },
+    readKnowledgeDocumentImportFile: vi.fn(),
+    recordKnowledgeDraftReview: vi.fn(),
+    removeWidgetInstance: vi.fn(),
+    updateKnowledgeDocument: vi.fn(async (request) =>
+      knowledgeDocumentFixture(request),
+    ),
+    updateSkill: vi.fn(async (request) => skillFixture(request)),
+    updateWidgetLayout: vi.fn(),
+    updateWidgetState: vi.fn(),
+    ...overrides,
+  } as unknown as WorkbenchWidgetInstanceActions;
 }

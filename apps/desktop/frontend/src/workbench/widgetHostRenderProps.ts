@@ -177,7 +177,6 @@ export function widgetHostRenderProps({
 
   if (componentKey === SKILL_LIBRARY_COMPONENT_KEY) {
     return {
-      ...commonProps,
       ...knowledgeSkillsWidgetProps({
         actions: widgetActions,
         onAttachContextToCoordinator,

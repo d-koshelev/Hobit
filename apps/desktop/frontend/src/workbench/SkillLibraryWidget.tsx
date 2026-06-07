@@ -6,6 +6,7 @@ import {
   type SkillLibraryDocumentsPanelHandle,
 } from "./SkillLibraryDocumentsPanel";
 import type { WidgetRenderProps } from "./types";
+import { useWidgetRuntimeContext } from "./widgetRuntimeContext";
 
 export function SkillLibraryWidget({
   frameActions,
@@ -33,10 +34,20 @@ export function SkillLibraryWidget({
   onUpdateSkill,
   title,
 }: WidgetRenderProps) {
+  const runtime = useWidgetRuntimeContext();
   const documentsPanelRef = useRef<SkillLibraryDocumentsPanelHandle | null>(
     null,
   );
   const onDocumentsToolbarStateChange = useCallback(() => undefined, []);
+  const widgetInstanceId = runtime.identity.widgetInstanceId ?? instance.id;
+  const loadLogs = runtime.logs.isAvailable
+    ? runtime.logs.load
+    : onLoadLogs
+      ? () => onLoadLogs(widgetInstanceId)
+      : undefined;
+  const effectiveLogRefreshToken = runtime.logs.isAvailable
+    ? runtime.logs.refreshToken
+    : logRefreshToken;
 
   const statusBadge = (
     <WidgetInfoPopover
@@ -61,9 +72,9 @@ export function SkillLibraryWidget({
   return (
     <WidgetFrame
       actions={frameActions}
-      logRefreshToken={logRefreshToken}
+      logRefreshToken={effectiveLogRefreshToken}
       moveEnabled={frameMoveEnabled}
-      onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
+      onLoadLogs={loadLogs}
       onMoveStart={onStartFrameMove}
       status={statusBadge}
       style={frameStyle}

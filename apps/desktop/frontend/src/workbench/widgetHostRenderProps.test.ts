@@ -251,6 +251,9 @@ describe("widgetHostRenderProps", () => {
       actions.updateKnowledgeDocument,
     );
     expect(props.onUpdateSkill).toBe(actions.updateSkill);
+    expect(props.onLoadLogs).toBeUndefined();
+    expect(props.onUpdateLayout).toBeUndefined();
+    expect(props.onUpdateState).toBeUndefined();
     expect(props.onSelectWorkspaceDirectory).toBeUndefined();
     expect(props.onStartCodexDirectWorkStream).toBeUndefined();
   });
