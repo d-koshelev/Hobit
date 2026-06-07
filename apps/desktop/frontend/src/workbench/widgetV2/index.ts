@@ -11,6 +11,16 @@ export type {
 } from "./widgetV2Types";
 
 export {
+  WidgetV2BottomDrawer,
+  WidgetV2Header,
+  WidgetV2LeftRail,
+  WidgetV2PanelLayout,
+  WidgetV2RightInspector,
+  WidgetV2Shell,
+  WidgetV2Toolbar,
+} from "./WidgetV2Shell";
+
+export {
   assertUniqueWidgetV2Kinds,
   validateWidgetV2Manifest,
 } from "./widgetV2Manifest";
