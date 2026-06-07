@@ -1,4 +1,4 @@
-import { act, type ReactNode } from "react";
+import { act, createRef, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -272,9 +272,13 @@ function renderPanel(options: RenderPanelOptions = {}) {
       knowledgeLookup={EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP}
       logs={[]}
       onDirectoryChange={vi.fn()}
+      onRequestCloseDetails={vi.fn()}
+      onRequestCloseSettings={vi.fn()}
       onSandboxChange={vi.fn()}
       onSelectWorkspaceDirectory={vi.fn(async () => null)}
       runId={null}
+      runDetailsAnchorRef={createRef<HTMLButtonElement>()}
+      settingsAnchorRef={createRef<HTMLButtonElement>()}
       threadNotice={null}
       warning={null}
       {...options}

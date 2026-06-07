@@ -91,6 +91,47 @@ describe("WorkspaceAgentStatusPanel", () => {
     expect(onPromptExampleClick).toHaveBeenCalledWith(
       "Make a plan from visible text.",
     );
+    expect(
+      document.querySelector('[aria-label="Workspace Agent prompt examples"]'),
+    ).toBeNull();
+  });
+
+  it("uses the shared popup shell for prompt examples and closes with Escape", async () => {
+    const onPromptExampleClick = vi.fn();
+
+    render(
+      <WorkspaceAgentHeaderStatus
+        onPromptExampleClick={onPromptExampleClick}
+        promptExamples={[
+          { label: "Make a plan", prompt: "Make a plan from visible text." },
+        ]}
+        status="idle"
+      />,
+    );
+
+    const button = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Toggle Workspace Agent prompt examples"]',
+    );
+
+    act(() => {
+      button?.focus();
+      button?.click();
+    });
+
+    expect(document.querySelector(".popup-shell")).not.toBeNull();
+    expect(
+      document.querySelector('[aria-label="Workspace Agent prompt examples"]'),
+    ).not.toBeNull();
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(document.querySelector(".popup-shell")).toBeNull();
+    expect(document.activeElement).toBe(button);
   });
 });
 

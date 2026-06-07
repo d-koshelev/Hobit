@@ -4,8 +4,10 @@ import {
   useRef,
   useState,
   type MutableRefObject,
+  type RefObject,
 } from "react";
 import { Button } from "../design-system/Button";
+import { WidgetPopupShell } from "../design-system/WidgetPopupShell";
 import {
   RENDER_MEMORY_CAPS,
   capArrayToLast,
@@ -34,9 +36,13 @@ export function WorkspaceAgentDirectModePanel({
   knowledgeLookup,
   logs,
   onDirectoryChange,
+  onRequestCloseDetails,
+  onRequestCloseSettings,
   onSandboxChange,
   onSelectWorkspaceDirectory,
   runId,
+  runDetailsAnchorRef,
+  settingsAnchorRef,
   threadNotice,
   warning,
 }: {
@@ -50,13 +56,19 @@ export function WorkspaceAgentDirectModePanel({
   knowledgeLookup: WorkspaceKnowledgeLookup;
   logs: CoordinatorDirectWorkLogEntry[];
   onDirectoryChange: (value: string) => void;
+  onRequestCloseDetails: () => void;
+  onRequestCloseSettings: () => void;
   onSandboxChange: (value: DirectWorkSandbox) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
   runId: string | null;
+  runDetailsAnchorRef: RefObject<HTMLButtonElement | null>;
+  settingsAnchorRef: RefObject<HTMLButtonElement | null>;
   threadNotice: string | null;
   warning: string | null;
 }) {
   const workingDirectoryInputId = useId();
+  const settingsTitleId = useId();
+  const runDetailsTitleId = useId();
   const clearDirectoryCopyStatusTimer = useRef<number | null>(null);
   const [directoryCopyStatus, setDirectoryCopyStatus] = useState<string | null>(
     null,
@@ -141,95 +153,114 @@ export function WorkspaceAgentDirectModePanel({
       className="interactive-agent-direct-mode"
     >
       {isSettingsOpen ? (
-        <div
-          aria-label="Codex settings"
-          className="interactive-agent-direct-mode-settings"
+        <WidgetPopupShell
+          anchorRef={settingsAnchorRef}
+          id="workspace-agent-codex-settings-popup"
+          isOpen={isSettingsOpen}
+          onRequestClose={onRequestCloseSettings}
+          returnFocusRef={settingsAnchorRef}
+          titleId={settingsTitleId}
         >
-          <div className="interactive-agent-direct-mode-working-row">
-            <label
-              className="interactive-agent-direct-mode-field"
-              htmlFor={workingDirectoryInputId}
-            >
-              <span className="interactive-agent-direct-mode-label">
-                Working dir
-              </span>
-              <input
-                aria-label="Working directory"
-                autoComplete="off"
-                className="input interactive-agent-direct-mode-input"
-                id={workingDirectoryInputId}
-                onChange={(event) =>
-                  onDirectoryChange(event.currentTarget.value)
-                }
-                spellCheck={false}
-                title={directWorkDirectory || "Working directory"}
-                type="text"
-                value={directWorkDirectory}
-              />
-            </label>
-            <Button
-              aria-label="Browse for working directory"
-              className="interactive-agent-direct-mode-browse-button"
-              disabled={!onSelectWorkspaceDirectory || isDirectoryBrowsePending}
-              onClick={() => void browseWorkingDirectory()}
-              title="Select working directory"
-              type="button"
-              variant="ghost"
-            >
-              {isDirectoryBrowsePending ? "Browsing" : "Browse"}
-            </Button>
-            <Button
-              aria-label="Copy working directory"
-              className="interactive-agent-direct-mode-copy-button"
-              disabled={!directWorkDirectory}
-              onClick={() =>
-                void copyValue(
-                  directWorkDirectory,
-                  "Copied working directory.",
-                  setDirectoryCopyStatus,
-                  clearDirectoryCopyStatusTimer,
-                )
-              }
-              title="Copy working directory"
-              type="button"
-              variant="ghost"
-            >
-              Copy
-            </Button>
-          </div>
-          <div className="interactive-agent-direct-mode-field">
-            <span className="interactive-agent-direct-mode-label">Sandbox</span>
-            <div
-              aria-label="Codex sandbox"
-              className="interactive-agent-sandbox-segments"
-              role="radiogroup"
-            >
-              {SANDBOX_OPTIONS.map((option) => (
-                <button
-                  aria-checked={directWorkSandbox === option.value}
-                  className={
-                    directWorkSandbox === option.value
-                      ? "interactive-agent-sandbox-segment interactive-agent-sandbox-segment-active"
-                      : "interactive-agent-sandbox-segment"
-                  }
-                  key={option.value}
-                  onClick={() => onSandboxChange(option.value)}
-                  role="radio"
-                  title={option.title}
-                  type="button"
-                >
-                  {option.label}
-                </button>
-              ))}
+          <section
+            aria-label="Codex settings"
+            aria-labelledby={settingsTitleId}
+            className="interactive-agent-direct-mode-settings"
+          >
+            <div className="interactive-agent-popup-header">
+              <p
+                className="interactive-agent-popup-title"
+                data-popup-drag-handle
+                id={settingsTitleId}
+              >
+                Codex settings
+              </p>
             </div>
-          </div>
-          <p className="interactive-agent-direct-mode-help">
-            <span>
-              ~ resolves to your user home. If access is denied, choose a
-              project folder or scratch workspace.
-            </span>
-          </p>
-        </div>
+            <div className="interactive-agent-direct-mode-working-row">
+              <label
+                className="interactive-agent-direct-mode-field"
+                htmlFor={workingDirectoryInputId}
+              >
+                <span className="interactive-agent-direct-mode-label">
+                  Working dir
+                </span>
+                <input
+                  aria-label="Working directory"
+                  autoComplete="off"
+                  className="input interactive-agent-direct-mode-input"
+                  id={workingDirectoryInputId}
+                  onChange={(event) =>
+                    onDirectoryChange(event.currentTarget.value)
+                  }
+                  spellCheck={false}
+                  title={directWorkDirectory || "Working directory"}
+                  type="text"
+                  value={directWorkDirectory}
+                />
+              </label>
+              <Button
+                aria-label="Browse for working directory"
+                className="interactive-agent-direct-mode-browse-button"
+                disabled={!onSelectWorkspaceDirectory || isDirectoryBrowsePending}
+                onClick={() => void browseWorkingDirectory()}
+                title="Select working directory"
+                type="button"
+                variant="ghost"
+              >
+                {isDirectoryBrowsePending ? "Browsing" : "Browse"}
+              </Button>
+              <Button
+                aria-label="Copy working directory"
+                className="interactive-agent-direct-mode-copy-button"
+                disabled={!directWorkDirectory}
+                onClick={() =>
+                  void copyValue(
+                    directWorkDirectory,
+                    "Copied working directory.",
+                    setDirectoryCopyStatus,
+                    clearDirectoryCopyStatusTimer,
+                  )
+                }
+                title="Copy working directory"
+                type="button"
+                variant="ghost"
+              >
+                Copy
+              </Button>
+            </div>
+            <div className="interactive-agent-direct-mode-field">
+              <span className="interactive-agent-direct-mode-label">Sandbox</span>
+              <div
+                aria-label="Codex sandbox"
+                className="interactive-agent-sandbox-segments"
+                role="radiogroup"
+              >
+                {SANDBOX_OPTIONS.map((option) => (
+                  <button
+                    aria-checked={directWorkSandbox === option.value}
+                    className={
+                      directWorkSandbox === option.value
+                        ? "interactive-agent-sandbox-segment interactive-agent-sandbox-segment-active"
+                        : "interactive-agent-sandbox-segment"
+                    }
+                    key={option.value}
+                    onClick={() => onSandboxChange(option.value)}
+                    role="radio"
+                    title={option.title}
+                    type="button"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <p className="interactive-agent-direct-mode-help">
+              <span>
+                ~ resolves to your user home. If access is denied, choose a
+                project folder or scratch workspace.
+              </span>
+            </p>
+          </section>
+        </WidgetPopupShell>
       ) : null}
 
       <div className="interactive-agent-direct-mode-body">
@@ -288,63 +319,79 @@ export function WorkspaceAgentDirectModePanel({
           ) : null}
         </div>
         {isDetailsOpen ? (
-          <section
-            aria-label="Workspace Agent run details"
-            className="interactive-agent-popup interactive-agent-popup-bottom interactive-agent-run-details-popup"
+          <WidgetPopupShell
+            anchorRef={runDetailsAnchorRef}
+            id="workspace-agent-run-details-popup"
+            isOpen={isDetailsOpen}
+            onRequestClose={onRequestCloseDetails}
+            returnFocusRef={runDetailsAnchorRef}
+            titleId={runDetailsTitleId}
           >
-            <div className="interactive-agent-popup-header">
-              <p className="interactive-agent-popup-title">Run details</p>
-            </div>
-            <div className="interactive-agent-direct-mode-detail-body">
-              <p className="interactive-agent-direct-mode-help">
-                <span>{resolutionText}</span>
-                {scratchSuggestion ? (
-                  <span>Try: {scratchSuggestion}</span>
-                ) : null}
-              </p>
-              {visibleLogs.items.length > 0 ? (
-                <ul className="interactive-agent-direct-mode-log">
-                  {visibleLogs.hiddenCount > 0 ? (
-                    <li>
-                      Showing last {visibleLogs.items.length.toString()} events.
-                      Preview capped.
-                    </li>
-                  ) : null}
-                  {visibleLogs.items.map((entry) => (
-                    <li key={entry.id}>
-                      {cappedPreviewText(
-                        entry.text,
-                        RENDER_MEMORY_CAPS.transcriptPayloadChars,
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <p className="interactive-agent-direct-mode-help">
-                  No run details yet.
+            <section
+              aria-label="Workspace Agent run details"
+              aria-labelledby={runDetailsTitleId}
+              className="interactive-agent-run-details-popup"
+            >
+              <div className="interactive-agent-popup-header">
+                <p
+                  className="interactive-agent-popup-title"
+                  data-popup-drag-handle
+                  id={runDetailsTitleId}
+                >
+                  Run details
                 </p>
-              )}
-              {finalResult ? (
-                <div className="interactive-agent-direct-mode-result">
-                  <p className="interactive-agent-status-label">
-                    Final result
-                  </p>
-                  <pre>
-                    {cappedPreviewText(
-                      finalResult,
-                      RENDER_MEMORY_CAPS.transcriptMessageChars,
-                    )}
-                  </pre>
-                </div>
-              ) : null}
-            </div>
-            <details className="interactive-agent-direct-mode-details">
-              <summary>{workspaceKnowledgeSummaryText(knowledgeLookup)}</summary>
-              <div className="interactive-agent-direct-mode-detail-body">
-                <WorkspaceKnowledgeLookupDetails lookup={knowledgeLookup} />
               </div>
-            </details>
-          </section>
+              <div className="interactive-agent-direct-mode-detail-body">
+                <p className="interactive-agent-direct-mode-help">
+                  <span>{resolutionText}</span>
+                  {scratchSuggestion ? (
+                    <span>Try: {scratchSuggestion}</span>
+                  ) : null}
+                </p>
+                {visibleLogs.items.length > 0 ? (
+                  <ul className="interactive-agent-direct-mode-log">
+                    {visibleLogs.hiddenCount > 0 ? (
+                      <li>
+                        Showing last {visibleLogs.items.length.toString()} events.
+                        Preview capped.
+                      </li>
+                    ) : null}
+                    {visibleLogs.items.map((entry) => (
+                      <li key={entry.id}>
+                        {cappedPreviewText(
+                          entry.text,
+                          RENDER_MEMORY_CAPS.transcriptPayloadChars,
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="interactive-agent-direct-mode-help">
+                    No run details yet.
+                  </p>
+                )}
+                {finalResult ? (
+                  <div className="interactive-agent-direct-mode-result">
+                    <p className="interactive-agent-status-label">
+                      Final result
+                    </p>
+                    <pre>
+                      {cappedPreviewText(
+                        finalResult,
+                        RENDER_MEMORY_CAPS.transcriptMessageChars,
+                      )}
+                    </pre>
+                  </div>
+                ) : null}
+              </div>
+              <details className="interactive-agent-direct-mode-details">
+                <summary>{workspaceKnowledgeSummaryText(knowledgeLookup)}</summary>
+                <div className="interactive-agent-direct-mode-detail-body">
+                  <WorkspaceKnowledgeLookupDetails lookup={knowledgeLookup} />
+                </div>
+              </details>
+            </section>
+          </WidgetPopupShell>
         ) : null}
       </div>
     </section>

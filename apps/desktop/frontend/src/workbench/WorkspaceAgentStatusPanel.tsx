@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Badge } from "../design-system/Badge";
+import { WidgetPopupShell } from "../design-system/WidgetPopupShell";
 import type { WorkspaceAgentSuggestedPrompt } from "./workspaceAgentSuggestedPrompts";
 import type { CoordinatorDirectWorkStatus } from "./workspaceAgentDirectWorkModel";
 
@@ -16,6 +17,8 @@ export function WorkspaceAgentHeaderStatus({
   promptExamples?: WorkspaceAgentSuggestedPrompt[];
   status: CoordinatorDirectWorkStatus;
 }) {
+  const promptExamplesButtonRef = useRef<HTMLButtonElement | null>(null);
+  const promptExamplesTitleId = useId();
   const [promptExamplesOpen, setPromptExamplesOpen] = useState(false);
   const showPromptExamples = promptExamples.length > 0 && onPromptExampleClick;
 
@@ -43,21 +46,42 @@ export function WorkspaceAgentHeaderStatus({
             aria-label="Toggle Workspace Agent prompt examples"
             className="button button-secondary interactive-agent-examples-toggle"
             onClick={() => setPromptExamplesOpen((isOpen) => !isOpen)}
+            ref={promptExamplesButtonRef}
             type="button"
           >
             Examples
           </button>
-          {promptExamplesOpen ? (
+          <WidgetPopupShell
+            anchorRef={promptExamplesButtonRef}
+            id="workspace-agent-prompt-examples-popup"
+            isOpen={promptExamplesOpen}
+            onRequestClose={() => setPromptExamplesOpen(false)}
+            returnFocusRef={promptExamplesButtonRef}
+            titleId={promptExamplesTitleId}
+          >
             <section
               aria-label="Workspace Agent prompt examples"
+              aria-labelledby={promptExamplesTitleId}
               className="interactive-agent-examples-panel"
             >
+              <div className="interactive-agent-popup-header">
+                <p
+                  className="interactive-agent-popup-title"
+                  data-popup-drag-handle
+                  id={promptExamplesTitleId}
+                >
+                  Prompt examples
+                </p>
+              </div>
               <div className="interactive-agent-suggestion-list">
                 {promptExamples.map((suggestion) => (
                   <button
                     className="interactive-agent-suggestion"
                     key={suggestion.label}
-                    onClick={() => onPromptExampleClick(suggestion.prompt)}
+                    onClick={() => {
+                      onPromptExampleClick(suggestion.prompt);
+                      setPromptExamplesOpen(false);
+                    }}
                     type="button"
                   >
                     {suggestion.label}
@@ -65,7 +89,7 @@ export function WorkspaceAgentHeaderStatus({
                 ))}
               </div>
             </section>
-          ) : null}
+          </WidgetPopupShell>
         </div>
       ) : null}
     </div>

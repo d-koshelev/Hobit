@@ -3,6 +3,7 @@ import {
   type RefObject,
   useEffect,
   useId,
+  useRef,
   useState,
 } from "react";
 import { Button } from "../design-system/Button";
@@ -67,6 +68,8 @@ export function WorkspaceAgentComposer({
 }) {
   const textareaId = useId();
   const newThreadInputId = useId();
+  const settingsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const detailsButtonRef = useRef<HTMLButtonElement | null>(null);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [startNewThreadOnNextRun, setStartNewThreadOnNextRun] =
@@ -212,6 +215,7 @@ export function WorkspaceAgentComposer({
               aria-label="Toggle Codex settings"
               className="interactive-agent-settings-button"
               onClick={() => setIsSettingsOpen((current) => !current)}
+              ref={settingsButtonRef}
               title="Codex settings"
               type="button"
               variant="ghost"
@@ -227,6 +231,7 @@ export function WorkspaceAgentComposer({
               }
               className="interactive-agent-details-toggle"
               onClick={() => setIsDetailsOpen((current) => !current)}
+              ref={detailsButtonRef}
               type="button"
               variant="ghost"
             >
@@ -247,9 +252,13 @@ export function WorkspaceAgentComposer({
           knowledgeLookup={directMode.knowledgeLookup}
           logs={directMode.logs}
           onDirectoryChange={directMode.onDirectoryChange}
+          onRequestCloseDetails={() => setIsDetailsOpen(false)}
+          onRequestCloseSettings={() => setIsSettingsOpen(false)}
           onSandboxChange={directMode.onSandboxChange}
           onSelectWorkspaceDirectory={directMode.onSelectWorkspaceDirectory}
           runId={directMode.runId}
+          runDetailsAnchorRef={detailsButtonRef}
+          settingsAnchorRef={settingsButtonRef}
           threadNotice={directMode.threadNotice}
           warning={directMode.warning}
         />
