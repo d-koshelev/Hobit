@@ -426,6 +426,11 @@ the local executor flow visible to operators.
   status, assignment, and future dependency model. Queue is for
   promoted/larger async work blocks, not every Workspace Agent idea or small
   operator action.
+- `docs/QUEUE_V2_PRODUCT_CONTRACT.md` - docs-only Queue Widget v2 product and
+  visual contract for a board-first operating console with lanes, capacity,
+  dependency, review, inspector, and activity-drawer guidance. It does not add
+  frontend behavior, backend/runtime behavior, storage/schema, scheduling,
+  dependency execution, Git mutation, or hidden automation.
 - `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` - manual assignment from
   Queue tasks to visible Agent Executor slots.
 - `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` - explicit manual run of an assigned
