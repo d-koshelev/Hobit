@@ -37,3 +37,5 @@ export {
   widgetV2Registry,
 } from "./widgetV2Registry";
 export type { WidgetV2Registry } from "./widgetV2Registry";
+
+export { QueueV2Widget } from "./queueV2";

@@ -12,10 +12,11 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
   {
     kind: "queue-v2",
     name: "QueueV2",
-    title: "Queue V2",
-    description: "Future board-first operating console for promoted async work.",
+    title: "Agent Queue v2",
+    description:
+      "Experimental board-first scaffold for promoted async work organization.",
     productRole:
-      "Organize promoted tasks, assignment, review, dependencies, and visible next actions.",
+      "Organize promoted tasks, assignment, review, dependencies, and visible next actions without replacing Agent Queue V1.",
     capabilities: [
       "render-primary-surface",
       "dispatch-typed-action",
@@ -33,11 +34,16 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
       "No Git mutation or Terminal launch.",
     ],
     requiredPanelSlots: ["header", "primary"],
-    optionalPanelSlots: ["toolbar", "right-inspector", "bottom-drawer"],
+    optionalPanelSlots: ["toolbar", "left-rail", "right-inspector", "bottom-drawer"],
     domainBoundary: "Queue-owned state and explicit typed actions only.",
     safeContextSummary: "Uses visible Queue state only.",
     runtimeLimitations: ["No durable worker runtime is granted by the manifest."],
-    nonGoals: ["No hidden execution.", "No automatic Queue item dispatch."],
+    nonGoals: [
+      "No Agent Queue V1 replacement.",
+      "No normal Widget Catalog availability.",
+      "No hidden execution.",
+      "No automatic Queue item dispatch.",
+    ],
   },
   {
     kind: "knowledge-v2",

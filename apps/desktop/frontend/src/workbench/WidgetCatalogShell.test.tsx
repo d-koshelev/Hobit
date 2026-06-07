@@ -207,6 +207,17 @@ describe("widgetCatalogTemplates", () => {
     );
   });
 
+  it("does not expose QueueV2 in the normal Widget Catalog", () => {
+    expect(
+      widgetCatalogTemplates.some(
+        (template) =>
+          template.id === "queue-v2" ||
+          template.futureWidgetDefinitionId === "queue-v2" ||
+          template.title === "Agent Queue v2",
+      ),
+    ).toBe(false);
+  });
+
   it("describes Terminal with the current MVP surface", () => {
     const terminalDescription = templateFor(
       TERMINAL_WIDGET_DEFINITION_ID,

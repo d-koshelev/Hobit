@@ -21,6 +21,16 @@ describe("Widget V2 registry", () => {
     expect(widgetV2Registry.size).toBe(widgetV2Manifests.length);
   });
 
+  it("defines QueueV2 as an experimental Agent Queue v2 manifest", () => {
+    expect(getWidgetV2Manifest("queue-v2")).toMatchObject({
+      kind: "queue-v2",
+      name: "QueueV2",
+      productOwnerDomain: "agent-queue",
+      status: "experimental",
+      title: "Agent Queue v2",
+    });
+  });
+
   it("keeps Widget V2 kinds unique", () => {
     const kinds = widgetV2Manifests.map((manifest) => manifest.kind);
 
@@ -35,7 +45,7 @@ describe("Widget V2 registry", () => {
   });
 
   it("returns manifests by kind without using the V1 widget registry", () => {
-    expect(getWidgetV2Manifest("queue-v2")?.title).toBe("Queue V2");
+    expect(getWidgetV2Manifest("queue-v2")?.title).toBe("Agent Queue v2");
     expect(getWidgetV2Manifest("notes-v2")?.productOwnerDomain).toBe("notes");
   });
 
