@@ -118,6 +118,16 @@ export function AgentQueuePlaceholderWidget({
     void selectTask(agentQueueItemOpenRequest.queueItemId);
   }, [agentQueueItemOpenRequest?.id]);
 
+  function openCreateTaskDialog() {
+    setCreateDraft(newTaskDialogDraft(selectedTask));
+    setCreateInsertPosition("bottom");
+    setCreateRunSetup(
+      selectedTask ? runSetupFromQueueRun(queue.run) : defaultCreateRunSetup(),
+    );
+    setCreateDialogError(null);
+    setIsCreateDialogOpen(true);
+  }
+
   const queueFrameActions = (
     <>
       <Button
@@ -129,15 +139,7 @@ export function AgentQueuePlaceholderWidget({
       </Button>
       <Button
         disabled={isCreating || isLoading || !apiAvailable}
-        onClick={() => {
-          setCreateDraft(newTaskDialogDraft(selectedTask));
-          setCreateInsertPosition("bottom");
-          setCreateRunSetup(
-            selectedTask ? runSetupFromQueueRun(queue.run) : defaultCreateRunSetup(),
-          );
-          setCreateDialogError(null);
-          setIsCreateDialogOpen(true);
-        }}
+        onClick={openCreateTaskDialog}
         variant="primary"
       >
         {isCreating ? "Creating" : "New task"}
@@ -321,8 +323,10 @@ export function AgentQueuePlaceholderWidget({
                     }
                     globalExecutionState={queue.foundation.globalExecutionState}
                     isSelecting={isSelecting}
+                    onRequestNewTask={openCreateTaskDialog}
                     onSelectTask={(queueItemId) => void selectTask(queueItemId)}
                     pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
+                    queue={queue}
                     selectedTask={selectedTask}
                     tasks={tasks}
                     workers={queue.foundation.workers}

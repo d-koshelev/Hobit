@@ -11,20 +11,18 @@ import type {
   QueueTaskViewModel,
 } from "../../queue/queueV2ViewModel";
 import type { QueueNextAction } from "../../queue/queueV2NextActionModel";
-
-type QueueV2DetailsTab =
-  | "overview"
-  | "prompt"
-  | "result"
-  | "agent-log"
-  | "context"
-  | "files-validation"
-  | "developer";
+import type { AgentQueueController } from "../../queue/details/agentQueueTaskDetailsTypes";
+import {
+  buildQueueV2TaskDetailsActions,
+  type QueueV2DetailsTab,
+} from "./queueV2TaskDetailsActions";
 
 type QueueV2TaskDetailsPopupProps = {
   inspector: QueueInspectorSnapshot | null;
   isOpen: boolean;
+  onRequestNewTask?: () => void;
   onRequestClose: () => void;
+  queue?: AgentQueueController;
   returnFocusRef?: RefObject<HTMLElement | null>;
   taskViewModel: QueueTaskViewModel | null;
 };
@@ -42,7 +40,9 @@ const TABS: { id: QueueV2DetailsTab; label: string }[] = [
 export function QueueV2TaskDetailsPopup({
   inspector,
   isOpen,
+  onRequestNewTask,
   onRequestClose,
+  queue,
   returnFocusRef,
   taskViewModel,
 }: QueueV2TaskDetailsPopupProps) {
@@ -54,6 +54,17 @@ export function QueueV2TaskDetailsPopup({
   const highLevelEvents = useMemo(
     () => highLevelTaskEvents(task, latestReport),
     [latestReport, task],
+  );
+  const detailActions = useMemo(
+    () =>
+      buildQueueV2TaskDetailsActions({
+        inspector,
+        onRequestNewTask,
+        onSelectTab: setActiveTab,
+        queue,
+        task,
+      }),
+    [inspector, onRequestNewTask, queue, task],
   );
 
   if (!task || !taskViewModel || !inspector) {
@@ -89,10 +100,34 @@ export function QueueV2TaskDetailsPopup({
         </header>
 
         <div className="queue-v2-task-details-actions">
-          <Button disabled title={primaryActionReason(inspector)} variant="primary">
-            {queueV2NextActionLabel(inspector.nextAction)}
-          </Button>
-          <span>{primaryActionReason(inspector)}</span>
+          <div>
+            <p className="queue-v2-task-details-action-kicker">Primary action</p>
+            <p className="queue-v2-task-details-action-title">
+              {queueV2NextActionLabel(inspector.nextAction)}
+            </p>
+            <span>{primaryActionReason(inspector, queue)}</span>
+          </div>
+          <div
+            aria-label="QueueV2 task explicit actions"
+            className="queue-v2-task-details-action-buttons"
+          >
+            {detailActions.map((action) => (
+              <span
+                className="queue-v2-task-details-action-item"
+                key={action.id}
+              >
+                <Button
+                  disabled={action.disabled}
+                  onClick={action.onClick}
+                  title={action.reason}
+                  variant={action.variant}
+                >
+                  {action.label}
+                </Button>
+                {action.disabled && action.reason ? <span>{action.reason}</span> : null}
+              </span>
+            ))}
+          </div>
         </div>
 
         <div
@@ -440,13 +475,20 @@ function summarizeText(value: string) {
   return normalized.length > 420 ? `${normalized.slice(0, 420)}...` : normalized;
 }
 
-function primaryActionReason(inspector: QueueInspectorSnapshot) {
+function primaryActionReason(
+  inspector: QueueInspectorSnapshot,
+  queue?: AgentQueueController,
+) {
   if (inspector.blockedReasons.length) {
     return inspector.blockedReasons[0]?.label ?? "A visible blocker must be resolved.";
   }
 
-  if (inspector.eligibility.eligibleNow) {
-    return "The task is eligible in the view model, but run wiring is intentionally disabled in this block.";
+  if (queue?.run.canStart) {
+    return "Run is available only through the explicit task action below.";
+  }
+
+  if (inspector.eligibility.eligibleNow && !queue) {
+    return "The task is eligible in the view model, but Queue actions are not wired in this view.";
   }
 
   if (inspector.reviewDecisionState === "review_open") {

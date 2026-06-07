@@ -17,13 +17,16 @@ import {
   QueueV2TaskDetailsPopup,
   queueV2NextActionLabel,
 } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
+import type { AgentQueueController } from "./queue/details/agentQueueTaskDetailsTypes";
 
 type AgentQueueV2BoardProps = {
   autorunArmed: boolean;
   globalExecutionState: QueueGlobalStatus;
   isSelecting: boolean;
   onSelectTask: (queueItemId: string) => void;
+  onRequestNewTask?: () => void;
   pausedQueueTagIds: ReadonlySet<string>;
+  queue?: AgentQueueController;
   selectedTask: AgentQueueTask | null;
   tasks: AgentQueueTask[];
   workers: AgentWorkerSummary[];
@@ -42,8 +45,10 @@ export function AgentQueueV2Board({
   autorunArmed,
   globalExecutionState,
   isSelecting,
+  onRequestNewTask,
   onSelectTask,
   pausedQueueTagIds,
+  queue,
   selectedTask,
   tasks,
   workers,
@@ -142,7 +147,9 @@ export function AgentQueueV2Board({
       <QueueV2TaskDetailsPopup
         inspector={detailsTaskId ? board.inspector : null}
         isOpen={detailsTaskId !== null}
+        onRequestNewTask={onRequestNewTask}
         onRequestClose={() => setDetailsTaskId(null)}
+        queue={queue}
         returnFocusRef={detailsReturnFocusRef}
         taskViewModel={detailTaskViewModel}
       />

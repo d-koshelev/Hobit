@@ -268,7 +268,7 @@ describe("QueueV2Board", () => {
     expect(developerDetails?.textContent).toContain("Raw / developer details");
   });
 
-  it("keeps popup action controls disabled and does not call selection again", async () => {
+  it("keeps unwired popup action controls disabled and does not call selection again", async () => {
     const onSelectedTaskChange = vi.fn();
 
     await render(
@@ -282,8 +282,11 @@ describe("QueueV2Board", () => {
     await click(cardDetailsButton("ready"));
     expect(onSelectedTaskChange).toHaveBeenCalledTimes(1);
 
-    const primaryAction = buttonWithText("Run now");
+    const primaryAction = buttonWithText("Run task");
     expect(primaryAction?.disabled).toBe(true);
+    expect(primaryAction?.parentElement?.textContent).toContain(
+      "Queue runtime actions are not wired in this view.",
+    );
     await click(primaryAction);
 
     expect(onSelectedTaskChange).toHaveBeenCalledTimes(1);
