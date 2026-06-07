@@ -1,0 +1,383 @@
+import { describe, expect, it } from "vitest";
+
+import type { AgentQueueTask } from "../../workspace/types";
+import type { AgentWorkerSummary } from "../agentQueueTaskUiModel";
+import {
+  queueV2ClosureStateForTask,
+  queueV2LifecycleForTask,
+  type QueueTaskLifecycle,
+} from "./queueV2LifecycleModel";
+import { selectQueueV2ViewModel } from "./queueV2ViewModel";
+
+describe("Queue v2 view model selectors", () => {
+  it("maps current statuses into conservative v2 lifecycles and lanes", () => {
+    const tasks = [
+      task({ queueItemId: "draft", status: "draft" }),
+      task({ queueItemId: "queued", status: "queued" }),
+      task({ queueItemId: "ready", status: "ready" }),
+      task({ queueItemId: "running", status: "running" }),
+      task({ queueItemId: "completed", status: "completed" }),
+      task({ queueItemId: "review", status: "review_needed" }),
+      task({ queueItemId: "failed", status: "failed" }),
+      task({ queueItemId: "cancelled", status: "cancelled" }),
+    ];
+    const viewModel = selectQueueV2ViewModel({
+      tasks,
+      workers: [worker()],
+    });
+
+    expect(lifecycleMap(viewModel.tasks)).toEqual({
+      cancelled: "cancelled",
+      completed: "report_ready",
+      draft: "draft",
+      failed: "failed",
+      queued: "queued",
+      ready: "ready",
+      review: "review_required",
+      running: "running",
+    } satisfies Record<string, QueueTaskLifecycle>);
+    expect(viewModel.lanes.intake_draft.map((item) => item.taskId)).toEqual([
+      "draft",
+    ]);
+    expect(viewModel.lanes.ready.map((item) => item.taskId)).toEqual([
+      "queued",
+      "ready",
+    ]);
+    expect(viewModel.lanes.running.map((item) => item.taskId)).toEqual([
+      "running",
+    ]);
+    expect(viewModel.lanes.review.map((item) => item.taskId)).toEqual([
+      "completed",
+      "review",
+    ]);
+    expect(viewModel.lanes.closed.map((item) => item.taskId)).toEqual([
+      "cancelled",
+    ]);
+    expect(viewModel.lanes.blocked.map((item) => item.taskId)).toEqual([
+      "failed",
+    ]);
+  });
+
+  it("keeps report-ready output out of finalized without explicit closure", () => {
+    const completedTask = task({
+      queueItemId: "done",
+      status: "completed",
+      workerExecutionReports: [report()],
+    });
+
+    expect(queueV2LifecycleForTask(completedTask)).toBe("report_ready");
+    expect(
+      queueV2LifecycleForTask({
+        ...completedTask,
+        closureState: "no_change_accepted",
+      }),
+    ).toBe("finalized");
+  });
+
+  it("keeps needs-changes in review without deriving request-changes closure", () => {
+    const needsChangesTask = task({
+      coordinatorStatus: "needs_changes",
+      queueItemId: "needs-changes",
+      status: "completed",
+      workerExecutionReports: [report()],
+    });
+    const viewModel = selectQueueV2ViewModel({
+      tasks: [needsChangesTask],
+      workers: [worker()],
+    });
+    const item = viewModel.tasks[0];
+
+    expect(queueV2ClosureStateForTask(needsChangesTask)).toBeNull();
+    expect(item).toMatchObject({
+      boardLane: "review",
+      closureState: null,
+      lifecycle: "review_required",
+      nextAction: "request_changes",
+    });
+    expect(viewModel.lanes.closed).toEqual([]);
+  });
+
+  it("keeps failed tasks out of rejected closure", () => {
+    const failedTask = task({
+      coordinatorStatus: "failed",
+      queueItemId: "failed-task",
+      status: "failed",
+    });
+    const viewModel = selectQueueV2ViewModel({
+      tasks: [failedTask],
+      workers: [worker()],
+    });
+    const item = viewModel.tasks[0];
+
+    expect(queueV2ClosureStateForTask(failedTask)).toBeNull();
+    expect(item).toMatchObject({
+      boardLane: "blocked",
+      closureState: null,
+      lifecycle: "failed",
+      nextAction: "retry_or_rerun",
+    });
+    expect(viewModel.lanes.closed).toEqual([]);
+  });
+
+  it("keeps closure-blocked tasks reviewable instead of finalized", () => {
+    const closureBlockedTask = task({
+      closureState: "closure_blocked",
+      coordinatorStatus: "blocked",
+      queueItemId: "closure-blocked",
+      status: "completed",
+      workerExecutionReports: [report()],
+    });
+    const viewModel = selectQueueV2ViewModel({
+      tasks: [closureBlockedTask],
+      workers: [worker()],
+    });
+    const item = viewModel.tasks[0];
+
+    expect(item).toMatchObject({
+      boardLane: "review",
+      closureState: "closure_blocked",
+      lifecycle: "review_required",
+    });
+    expect(viewModel.lanes.closed).toEqual([]);
+  });
+
+  it("keeps completed and report-ready tasks in review lane until closure", () => {
+    const viewModel = selectQueueV2ViewModel({
+      tasks: [
+        task({ queueItemId: "completed", status: "completed" }),
+        task({
+          queueItemId: "reported",
+          status: "queued",
+          workerExecutionReports: [report()],
+        }),
+      ],
+      workers: [worker()],
+    });
+
+    expect(viewModel.tasks.map((item) => [item.taskId, item.lifecycle])).toEqual([
+      ["completed", "report_ready"],
+      ["reported", "report_ready"],
+    ]);
+    expect(viewModel.lanes.review.map((item) => item.taskId)).toEqual([
+      "completed",
+      "reported",
+    ]);
+    expect(viewModel.lanes.closed).toEqual([]);
+  });
+
+  it("finalizes only with an explicit persisted closure outcome", () => {
+    const finalizedWithoutClosure = task({
+      coordinatorStatus: "finalized",
+      queueItemId: "status-only",
+      status: "completed",
+      workerExecutionReports: [report()],
+    });
+    const finalizedWithClosure = task({
+      closureState: "no_change_accepted",
+      coordinatorStatus: "finalized",
+      queueItemId: "explicit",
+      status: "completed",
+      workerExecutionReports: [report()],
+    });
+    const viewModel = selectQueueV2ViewModel({
+      tasks: [finalizedWithoutClosure, finalizedWithClosure],
+      workers: [worker()],
+    });
+
+    expect(viewModel.tasks.map((item) => [item.taskId, item.lifecycle])).toEqual([
+      ["status-only", "report_ready"],
+      ["explicit", "finalized"],
+    ]);
+    expect(viewModel.tasks.map((item) => [item.taskId, item.closureState])).toEqual([
+      ["status-only", null],
+      ["explicit", "no_change_accepted"],
+    ]);
+    expect(viewModel.lanes.review.map((item) => item.taskId)).toEqual([
+      "status-only",
+    ]);
+    expect(viewModel.lanes.closed.map((item) => item.taskId)).toEqual([
+      "explicit",
+    ]);
+  });
+
+  it("derives blocked reasons from dependencies and paused tags", () => {
+    const dependency = task({
+      queueItemId: "dependency",
+      status: "queued",
+      title: "Dependency task",
+    });
+    const dependent = task({
+      dependsOn: ["dependency"],
+      queueItemId: "dependent",
+      queueTagId: "tag-a",
+      queueTagName: "Tag A",
+      status: "ready",
+    });
+    const viewModel = selectQueueV2ViewModel({
+      pausedQueueTagIds: new Set(["tag-a"]),
+      tasks: [dependency, dependent],
+      workers: [worker({ scope: { kind: "queue_tag", queueTagId: "tag-a", queueTagName: "Tag A" } })],
+    });
+    const dependentView = viewModel.tasks.find(
+      (item) => item.taskId === "dependent",
+    );
+
+    expect(dependentView?.boardLane).toBe("blocked");
+    expect(dependentView?.blockedReasons.map((reason) => reason.code)).toEqual([
+      "dependency_open",
+      "tag_paused",
+    ]);
+  });
+
+  it("derives next actions from eligibility and blockers", () => {
+    const viewModel = selectQueueV2ViewModel({
+      tasks: [
+        task({ queueItemId: "draft", status: "draft" }),
+        task({ queueItemId: "ready", status: "ready" }),
+        task({ queueItemId: "no-capacity", status: "ready" }),
+        task({ queueItemId: "review", status: "completed" }),
+      ],
+      workers: [worker({ currentItemId: null, status: "idle" })],
+    });
+
+    expect(actionFor(viewModel, "draft")).toBe("edit_draft");
+    expect(actionFor(viewModel, "ready")).toBe("run_now");
+    expect(actionFor(viewModel, "review")).toBe("review_report");
+
+    const noCapacity = selectQueueV2ViewModel({
+      tasks: [task({ queueItemId: "no-capacity", status: "ready" })],
+      workers: [worker({ status: "running" })],
+    });
+
+    expect(actionFor(noCapacity, "no-capacity")).toBe("assign_worker");
+  });
+
+  it("derives counts, capacity, and selected-task inspector snapshot", () => {
+    const tasks = [
+      task({ queueItemId: "ready", status: "ready" }),
+      task({ queueItemId: "running", status: "running" }),
+      task({ queueItemId: "report", status: "completed" }),
+    ];
+    const viewModel = selectQueueV2ViewModel({
+      selectedTaskId: "ready",
+      tasks,
+      workers: [
+        worker({ workerId: "idle-worker" }),
+        worker({
+          currentItemId: "running",
+          status: "running",
+          workerId: "busy-worker",
+        }),
+      ],
+    });
+
+    expect(viewModel.counts).toEqual({
+      eligibleNow: 1,
+      reviewNeeded: 1,
+      running: 1,
+    });
+    expect(viewModel.capacity).toMatchObject({
+      availableSlots: 1,
+      runningSlots: 1,
+      totalSlots: 2,
+    });
+    expect(viewModel.inspector).toMatchObject({
+      boardLane: "ready",
+      lifecycle: "ready",
+      nextAction: "run_now",
+      taskId: "ready",
+    });
+  });
+
+  it("does not mutate input task array or task order", () => {
+    const tasks = [
+      task({ queueItemId: "b", priority: 1 }),
+      task({ queueItemId: "a", priority: 5 }),
+    ];
+    const originalOrder = tasks.map((item) => item.queueItemId);
+    const originalTasksJson = JSON.stringify(tasks);
+    const viewModel = selectQueueV2ViewModel({
+      tasks,
+      workers: [worker()],
+    });
+
+    expect(tasks.map((item) => item.queueItemId)).toEqual(originalOrder);
+    expect(JSON.stringify(tasks)).toBe(originalTasksJson);
+    expect(viewModel.tasks.map((item) => item.taskId)).toEqual(originalOrder);
+  });
+});
+
+function lifecycleMap(items: ReturnType<typeof selectQueueV2ViewModel>["tasks"]) {
+  return Object.fromEntries(
+    items.map((item) => [item.taskId, item.lifecycle]),
+  );
+}
+
+function actionFor(
+  viewModel: ReturnType<typeof selectQueueV2ViewModel>,
+  taskId: string,
+) {
+  return viewModel.tasks.find((item) => item.taskId === taskId)?.nextAction;
+}
+
+function task(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
+  return {
+    approvalPolicy: "never",
+    assignedExecutorWidgetId: null,
+    assignedWorkerId: null,
+    closureState: undefined,
+    codexExecutable: "codex",
+    context: undefined,
+    coordinatorStatus: "not_reported",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    dependsOn: [],
+    description: "Description",
+    executionPolicy: "manual",
+    executionWorkspace: "C:/work",
+    itemType: "implementation",
+    orderIndex: 0,
+    priority: 1,
+    prompt: "Do the work",
+    queueItemId: "task",
+    queueTagId: "default",
+    queueTagName: "Default",
+    sandbox: "danger_full_access",
+    status: "queued",
+    title: "Task",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    validationStatus: "not_started",
+    workerExecutionReports: [],
+    workspaceId: "workspace",
+    ...overrides,
+  };
+}
+
+function worker(overrides: Partial<AgentWorkerSummary> = {}): AgentWorkerSummary {
+  return {
+    currentItemId: null,
+    displayOrder: 0,
+    enabled: true,
+    lastReportSummary: null,
+    name: "Worker",
+    scope: { kind: "all" },
+    status: "idle",
+    workerId: "worker",
+    ...overrides,
+  };
+}
+
+function report() {
+  return {
+    changedFiles: [],
+    commandsRun: [],
+    createdAt: "2026-01-01T00:00:00.000Z",
+    errors: [],
+    itemId: "task",
+    reportId: "report",
+    reportStatus: "completed" as const,
+    summary: "Finished",
+    validationCommandsSuggested: [],
+    warnings: [],
+    workerId: "worker",
+  };
+}

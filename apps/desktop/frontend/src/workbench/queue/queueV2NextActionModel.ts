@@ -1,0 +1,90 @@
+import type { QueueTaskLifecycle } from "./queueV2LifecycleModel";
+
+export type QueueNextAction =
+  | "edit_draft"
+  | "queue_task"
+  | "validate_readiness"
+  | "run_now"
+  | "assign_worker"
+  | "wait_for_capacity"
+  | "resolve_dependency"
+  | "resolve_blocker"
+  | "review_report"
+  | "accept_result"
+  | "request_changes"
+  | "create_follow_up"
+  | "reject_result"
+  | "retry_or_rerun"
+  | "close_cancelled"
+  | "view_history";
+
+export type QueueV2NextActionInput = {
+  blockedReasonCodes: readonly string[];
+  eligibleNow: boolean;
+  hasAssignedWorker: boolean;
+  hasReviewableOutput: boolean;
+  lifecycle: QueueTaskLifecycle;
+  reviewActionHint?: "request_changes" | "create_follow_up" | null;
+};
+
+export function queueV2NextActionForTask({
+  blockedReasonCodes,
+  eligibleNow,
+  hasAssignedWorker,
+  hasReviewableOutput,
+  lifecycle,
+  reviewActionHint = null,
+}: QueueV2NextActionInput): QueueNextAction {
+  if (lifecycle === "draft") {
+    return "edit_draft";
+  }
+
+  if (eligibleNow) {
+    return "run_now";
+  }
+
+  if (lifecycle === "queued" || lifecycle === "ready") {
+    if (blockedReasonCodes.includes("dependency_open")) {
+      return "resolve_dependency";
+    }
+
+    if (
+      blockedReasonCodes.includes("capacity_unavailable") ||
+      blockedReasonCodes.includes("runtime_unavailable") ||
+      blockedReasonCodes.includes("worker_paused") ||
+      blockedReasonCodes.includes("tag_paused")
+    ) {
+      return hasAssignedWorker ? "wait_for_capacity" : "assign_worker";
+    }
+
+    return blockedReasonCodes.length > 0
+      ? "resolve_blocker"
+      : "validate_readiness";
+  }
+
+  if (lifecycle === "running") {
+    return "view_history";
+  }
+
+  if (lifecycle === "report_ready" || lifecycle === "review_required") {
+    return reviewActionHint ?? "review_report";
+  }
+
+  if (lifecycle === "failed") {
+    return hasReviewableOutput ? "review_report" : "retry_or_rerun";
+  }
+
+  if (lifecycle === "cancelled") {
+    return hasReviewableOutput ? "review_report" : "close_cancelled";
+  }
+
+  if (lifecycle === "finalized") {
+    return "view_history";
+  }
+
+  if (blockedReasonCodes.includes("dependency_open")) {
+    return "resolve_dependency";
+  }
+
+  return "resolve_blocker";
+}
