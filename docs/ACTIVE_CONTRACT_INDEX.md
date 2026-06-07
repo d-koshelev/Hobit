@@ -260,6 +260,12 @@ unless the task explicitly requests it.
   safe next migrations, blocked areas, and recommended implementation blocks.
   It does not override the active unification contract or current widget
   surface.
+- `docs/WIDGET_RUNTIME_CONTEXT_STATUS.md` - docs-only status record for the
+  Block 003 minimal WidgetRuntimeContext foundation and Knowledge / Skills
+  pilot. It records compatibility status, focused tests, remaining host/canvas/
+  API risks, and recommends the next Queue v2 runtime-context board-shell
+  pilot or a lower-risk WidgetInfo migration batch. It does not add behavior or
+  override the active unification contract or current widget surface.
 - `docs/AGENT_QUEUE_WIDGET_API_CONTRACT.md` - first concrete Workspace Widget
   API contract for Agent Queue. It defines the singleton Queue identity,
   snapshot, item shape, app-native actions, QueuePatch model, events,
