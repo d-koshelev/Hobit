@@ -254,6 +254,12 @@ unless the task explicitly requests it.
   frontend UI, backend/Tauri commands, storage/schema, WidgetHost rewrites,
   WorkbenchCanvas rewrites, Workspace API splits, runtime behavior, or broad
   visual redesign.
+- `docs/WIDGET_UNIFICATION_STATUS.md` - docs-only status record for the first
+  widget unification foundation block. It summarizes the unification contract,
+  shell/runtime audit, info/popup primitive pilot, WidgetRuntimeContext design,
+  safe next migrations, blocked areas, and recommended implementation blocks.
+  It does not override the active unification contract or current widget
+  surface.
 - `docs/AGENT_QUEUE_WIDGET_API_CONTRACT.md` - first concrete Workspace Widget
   API contract for Agent Queue. It defines the singleton Queue identity,
   snapshot, item shape, app-native actions, QueuePatch model, events,
