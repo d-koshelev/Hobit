@@ -3,20 +3,21 @@
 ## Purpose
 
 This contract defines how Knowledge Documents and Skills may be attached to
-Agent Queue tasks, including the current partial frontend-local behavior and
-the future durable Queue-owned model.
+Agent Queue tasks, including the current durable Queue-owned behavior and the
+remaining future Evidence/Context Pack model.
 
 This document does not add storage, schema, frontend UI, backend/Tauri
 commands, provider behavior, Queue execution, Workspace Agent behavior,
 Knowledge retrieval changes, Agent Executor prompt changes, audit emission, or
 automatic ingestion.
 
-Durability decision: `docs/QUEUE_KNOWLEDGE_CONTEXT_DURABILITY_DECISION.md`
-keeps Stable v0.1 Queue Knowledge / Skills context frontend-local and
-current-session. Durable Queue-owned context storage/API state is deferred
-until a future focused storage/API slice implements the full task-owned context
-model, warnings, token budget, materialized snapshots, and execution evidence
-references.
+Durability note: `docs/QUEUE_KNOWLEDGE_CONTEXT_DURABILITY_DECISION.md`
+recorded the earlier Stable v0.1 deferral. The production pack supersedes that
+deferral for current implementation: Queue task Knowledge / Skills context is
+now durable Queue-owned state mutated through typed attach/detach APIs. The
+future work that remains is not basic durability, but backend run hardening,
+separate immutable execution Evidence records, Context Pack semantics, and
+complete warning acknowledgement policy.
 
 ## Status
 
@@ -27,16 +28,17 @@ Current implemented behavior remains governed by
 and `docs/KNOWLEDGE_SKILLS_EVIDENCE_CONTRACT.md`.
 
 Current implemented behavior includes explicit operator attachment of saved
-Knowledge Documents and Skills to the selected Queue task as safe refs,
-bounded summaries/snapshots, warnings, token estimates, and visible
-materialized context prepended before explicit Queue execution prompts. Attach
-does not start work and does not create Queue tasks automatically.
+Knowledge Documents and Skills to the selected Queue task as durable safe refs,
+bounded summaries/snapshots, warnings, token estimates, materialized-at
+metadata, and visible materialized context prepended before explicit Queue
+execution prompts. Attach does not start work and does not create Queue tasks
+automatically.
 
-Current limitation and Stable v0.1 decision: this context
-attachment/materialization is frontend-local and current-session unless
-already represented indirectly in an explicit materialized prompt/run handoff.
-It is not durable Queue-owned storage/API state, not a backend scheduler input,
-and not a Context Pack or Evidence store.
+Current limitations: Queue context is durable task-owned state, but it is not a
+Context Pack, not an Evidence store, not a backend scheduler input, and not a
+permission grant. The backend materializer exists, but Queue run hardening must
+ensure every execution path uses backend-owned materialization rather than a
+caller-supplied materialized prompt override.
 
 ## Ownership Model
 
@@ -65,8 +67,8 @@ The Knowledge / Skills widget only sends explicit attach, detach, or replace
 actions selected by the operator. The widget does not transfer ownership of
 source records to Queue, does not create Queue tasks automatically, and does
 not silently attach active Knowledge or Skills to existing tasks. In the
-current implementation, those actions update frontend-local selected-task
-context state rather than durable Queue task records.
+current implementation, those actions update durable Queue task context through
+typed app/Tauri APIs.
 
 Queue must not mutate Knowledge Documents or Skills when attaching, detaching,
 materializing, running, completing, accepting, rejecting, or archiving a task.
@@ -75,8 +77,8 @@ or warning-bearing, but they do not silently rewrite historical task snapshots.
 
 ## Queue Task Context Shape
 
-Future durable Queue task context state should be modeled as a task-owned
-object:
+Current durable Queue task context state is modeled as a task-owned object with
+this vocabulary:
 
 ```ts
 type QueueTaskContext = {
@@ -89,12 +91,11 @@ type QueueTaskContext = {
 };
 ```
 
-This shape is vocabulary for future durable implementation. Current
-frontend-local Queue context uses compatible refs, snapshots, warnings, token
-estimates, and materialized prompt content where available, but field names and
-persistence are not a stable backend API. Field names may be refined when API
-and storage work starts, but the ownership and safety semantics in this
-contract must be preserved.
+This shape is the contract vocabulary for current Queue-owned context. Field
+names may still be refined by focused API/storage cleanup work, but the
+ownership and safety semantics in this contract must be preserved. Generic
+Queue task create/update APIs must not become arbitrary context injection
+paths; normal product mutation goes through typed attach/detach operations.
 
 ## Attached Knowledge Refs
 
@@ -220,11 +221,12 @@ severity. Queue may allow execution with warning-level context only after the
 warning is visible in the Queue task review surface and the operator makes the
 future required acknowledgement.
 
-Current implementation note: disabled and rejected Knowledge are blocked on
-attach, stale Knowledge is warning-bearing with visible confirmation, and
-draft/archived Knowledge are warning-bearing. These warnings are part of the
-frontend-local context state and materialized prompt review path, not durable
-Queue-owned policy records.
+Current implementation note: disabled, non-searchable, and rejected Knowledge
+are blocked on attach; deprecated Skills are blocked; stale Knowledge is
+warning-bearing with visible confirmation; and draft/archived Knowledge are
+warning-bearing. These warnings are part of durable Queue-owned context and the
+materialized prompt review path, but warning acknowledgement policy is not yet
+a separate durable approval record.
 
 ## Token Budget
 
@@ -232,9 +234,10 @@ Queue task context must have an explicit token budget before execution context
 is materialized.
 
 Current implementation note: Queue context materialization computes and shows
-bounded context, warnings, evidence refs, and token estimates before explicit
-Queue execution. This is current-session frontend behavior and does not create
-a durable Context Pack or evidence record.
+bounded context, warnings, evidence-style refs, token estimates, and
+materialized-at metadata before explicit Queue execution. The task context is
+durable, but materialization does not create a durable Context Pack or
+separate Evidence record.
 
 `contextTokenBudget` should include:
 
@@ -299,9 +302,10 @@ Later edits to Knowledge Documents, Skills, Queue task prompt text, or context
 attachments must not rewrite past execution evidence.
 
 Current implementation note: durable execution evidence is not implemented as
-a separate evidence store. The current run handoff can include visible
-materialized context and safe evidence-style refs in the task prompt path, but
-that does not satisfy the full future execution evidence model above.
+a separate evidence store or run metadata table. The current backend prompt
+materializer can include visible materialized context and a `Context used`
+section with safe evidence-style refs in the task prompt/report path, but that
+does not satisfy the full future execution evidence model above.
 
 ## Safety Rules
 
@@ -346,9 +350,9 @@ evidence model is implemented.
 
 This contract does not add:
 
-- Queue storage fields;
-- Knowledge storage fields;
-- SQLite migrations;
+- new Queue storage fields beyond the current durable context JSON/state;
+- new Knowledge storage fields beyond the current production-pack fields;
+- new SQLite migrations;
 - Tauri commands;
 - new frontend UI beyond the current partial attach/materialization surface;
 - Widget API methods;

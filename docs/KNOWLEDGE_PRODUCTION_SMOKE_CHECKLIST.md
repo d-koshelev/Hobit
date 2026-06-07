@@ -1,6 +1,6 @@
 # Knowledge Production Smoke Checklist
 
-Status record date: 2026-06-06
+Status record date: 2026-06-07
 
 ## Purpose
 
@@ -50,7 +50,8 @@ checklist does not claim those tests were run.
 
 1. Open a desktop Workspace and add or open Knowledge / Skills.
 2. Create a workspace-local Knowledge Document with title, quick summary,
-   content, tags, source label/kind/ref, active lifecycle, and enabled state.
+   content, tags, source label/kind/ref, structured source refs, structured
+   relations, active lifecycle, enabled state, and searchable state.
 3. Create a local-global Knowledge Document and confirm scope labeling.
 4. Import one explicit `.txt`, `.md`, or `.markdown` file.
 5. Search for text that appears in an enabled active document.
@@ -58,10 +59,14 @@ checklist does not claim those tests were run.
 7. Disable a matching document and confirm normal search/retrieval excludes it.
 8. Edit and save a document, then confirm the updated content appears after
    reload.
+9. Confirm version metadata increments after edit and the current record still
+   shows coherent source refs/relations and review/task/run metadata where
+   supplied.
 
-Expected current result: Pass for MVP behavior; Partial for production because
-there is no `searchable` flag, immutable version id, structured `sourceRefs[]`,
-or production secret warning policy.
+Expected current result: Pass for durable MVP/production-pack fields and
+searchable filtering. Partial for production if immutable version row ids are
+not visible in every search/materialized-context surface or if the production
+secret warning policy remains warning-only.
 
 ### Create, Edit, Import, And Attach Skill
 
@@ -89,8 +94,10 @@ Skills do not yet share the production lifecycle/version/source-ref model.
    activate Knowledge, or grant tools.
 
 Expected current result: Partial. Current behavior supports visible/manual task
-drafts and selected refs in prompt/task text, but durable structured
-`sourceRefs[]` and a dedicated generation runtime are future.
+drafts, selected refs, and structured Knowledge Document source refs after
+acceptance where supplied. A dedicated generation runtime and guaranteed
+durable typed source metadata for every generation task/source path remain
+future.
 
 ### Review Accept Or Reject
 
@@ -102,10 +109,14 @@ drafts and selected refs in prompt/task text, but durable structured
    accept.
 6. Confirm rejected content is not searchable, attachable, materialized, or
    treated as Knowledge after rejection.
+7. Refresh or reopen the app and confirm accepted/rejected draft review
+   decisions remain listed with Queue/run/source fingerprint metadata where
+   supplied.
 
 Expected current result: Partial. Accepted drafts can become durable Knowledge
-Documents with best-effort provenance. Rejected draft decisions are review-local
-and are not durable ledger records.
+Documents and accepted/rejected decisions are durable ledger records. Full
+production review vocabulary such as split, merged, and blocked, plus accepted
+version-row links, remains future.
 
 ### Version And Provenance Display
 
@@ -113,11 +124,13 @@ and are not durable ledger records.
 2. Confirm visible title, scope, source label/kind/ref, lifecycle/status,
    enabled state, quick summary, tags, and updated timestamp where shown.
 3. Confirm Queue materialization shows source labels, scopes, warnings, token
-   estimates, and bounded context.
+   estimates, bounded context, materialized-at metadata, and a `Context used`
+   section.
 
-Expected current result: Partial. Current provenance is visible but partial.
-Immutable versions, structured source refs, relations, created-by task/run
-fields, and replayable provenance are future.
+Expected current result: Partial. Current provenance includes durable
+structured Knowledge Document refs/relations and task/run/review metadata where
+supplied. Replayable provenance, immutable Evidence records, and visible
+version-row ids in every consuming surface remain future.
 
 ### Attach To Workspace Agent
 
@@ -129,19 +142,24 @@ fields, and replayable provenance are future.
    state, and hidden Workspace context are not searched or sent by this path.
 
 Expected current result: Pass for current boundary; Partial for production
-because durable context evidence and immutable Knowledge versions are future.
+because context-used evidence remains prompt/report text unless a future
+durable Evidence/run metadata table is added.
 
 ### Attach To Queue And Persist Across Refresh
 
 1. Attach a saved Knowledge Document and saved Skill to the selected Queue task.
-2. Confirm attached context is visible as current-session prepared context.
+2. Confirm attached context is visible as Queue-owned prepared context with
+   refs, bounded snapshots, warnings, token budget, and materialized timestamp
+   after materialization.
 3. Refresh or reopen the app.
-4. Confirm current Stable v0.1 does not claim durable Queue-owned context after
-   refresh.
+4. Confirm the Queue task still has its attached Knowledge and Skill context,
+   bounded snapshots, warnings, token budget, and materialized timestamp.
+5. Detach the Knowledge Document and Skill through the typed UI/API path,
+   refresh again, and confirm the detached context stays removed.
 
-Expected current result: Partial by design. Attach/materialization works for
-the current session. Durable Queue-owned context persistence across refresh is
-future and must not be claimed as implemented.
+Expected current result: Pass for durable Queue-owned context attach/detach
+persistence through typed app/Tauri paths. Partial for production because this
+is not a Context Pack or separate Evidence store.
 
 ### Materialize Context Into Queue Run
 
@@ -151,9 +169,14 @@ future and must not be claimed as implemented.
 4. Confirm materialized context appears before the task prompt or visible run
    handoff.
 5. Confirm raw full document bodies are not copied by default.
+6. Confirm the prompt includes a `Context used` section listing Queue task id,
+   refs/snapshots, warning ids, token estimate, scopes, sources, and
+   materialized-at metadata where available.
 
-Expected current result: Pass for current-session materialization; Partial for
-production because durable execution evidence refs are future.
+Expected current result: Partial. Backend materialization exists and should be
+the source of truth after prompt hardening, but context-used evidence remains
+prompt/report text rather than a separate immutable Evidence table or run
+metadata table.
 
 ### Disabled, Rejected, And Stale Behavior
 
@@ -203,12 +226,12 @@ violation.
 Knowledge can be called production-ready only after these Future/Partial areas
 are implemented and validated:
 
-- complete production item model with lifecycle, `searchable`, immutable
-  version, source refs, relations, reviewed-at, created-by task/run fields;
-- durable draft-review ledger;
-- durable Queue-owned context storage/API;
-- materialized context execution evidence;
-- structured source-ref and provenance display;
+- backend-owned Queue context materialization is the sole execution path after
+  prompt 001 / Queue run hardening;
+- complete draft-review vocabulary and accepted version-row links;
+- materialized context execution evidence beyond prompt/report text;
+- consistent structured source-ref and provenance display across every
+  generation/source path;
 - consistent stale/draft/archive/rejected policy;
 - secret warning/redaction policy;
 - automated and manual smoke evidence for no hidden context.

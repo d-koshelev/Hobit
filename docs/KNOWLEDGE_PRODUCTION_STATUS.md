@@ -1,6 +1,6 @@
 # Knowledge Production Status
 
-Status record date: 2026-06-06
+Status record date: 2026-06-07
 
 ## Purpose
 
@@ -18,14 +18,22 @@ by `docs/KNOWLEDGE_PRODUCTION_CONTRACT.md`.
 
 ## Summary
 
-Production Knowledge status: not production-ready yet.
+Production Knowledge status: production-pack mostly implemented, with hardening
+gaps.
 
-Knowledge / Skills is Ready / MVP for the current Stable v0.1 scope, but it is
-not the full production Knowledge Catalog architecture. It preserves the most
-important safety rule: Knowledge is explicit operator-controlled project memory,
-not hidden provider memory. The remaining production gaps are durable item
-versioning/provenance, a draft-review ledger, durable Queue-owned context,
-structured source refs, and a complete search/safety policy.
+Knowledge / Skills remains Ready / MVP for the current Stable v0.1 scope and
+now includes the production-pack foundations for durable Knowledge Document
+fields, immutable/version metadata, structured source refs and relations,
+durable draft review decisions, and durable Queue-owned context. It is still
+not the full production Knowledge Catalog architecture. The most important
+safety rule is preserved: Knowledge is explicit operator-controlled project
+memory, not hidden provider memory.
+
+The remaining hardening gaps are backend-owned Queue prompt materialization on
+every execution path, complete draft-review disposition vocabulary, Skill model
+alignment with production Knowledge items, durable execution Evidence records,
+and source-ref runtime hardening where prompt/report text is still used as a
+fallback.
 
 ## Implemented Production-Relevant Fields And APIs
 
@@ -37,69 +45,94 @@ Current Knowledge Documents implement a partial catalog-shaped model:
 - lifecycle/status;
 - source label;
 - source kind/ref;
+- structured source refs;
+- structured relations;
 - content;
 - tags;
 - enabled flag;
+- searchable flag;
 - workspace-local or local-global scope;
 - deterministic text chunks;
+- immutable version number and version snapshots;
+- reviewed-at timestamp where supplied;
+- created-by Queue task id where supplied;
+- created-from run id where supplied;
 - created and updated timestamps.
 
 Current Knowledge Document APIs support explicit operator-driven create, list,
 read, update, delete, import, and lexical search. Search is bounded,
-deterministic, workspace-aware, global-aware, and limited to enabled active
-documents.
+deterministic, workspace-aware, global-aware, and limited to active, enabled,
+searchable documents.
 
 Current Skills implement explicit workspace-local Skill records with title,
 when-to-use, prerequisites, steps, validation, risks, tags, review status, and
 created/updated timestamps. Skill APIs support create, list, read, update, and
 delete.
 
-Production gaps:
+Production gaps and caveats:
 
-- no `searchable` field separate from `enabled`;
-- no immutable version/snapshot table;
-- no structured `sourceRefs[]` or `relations[]`;
-- no `reviewedAt`, first-class `createdByTaskId`, or `createdFromRunId`;
 - Skills do not yet share the production Knowledge lifecycle model;
 - no production activation policy API.
+- Knowledge Document version rows exist, but Queue context snapshots may expose
+  updated timestamp/version labels rather than a first-class immutable version
+  row id.
+- Not every source path guarantees structured durable task/source metadata
+  before acceptance; prompt/report text may still be the context used when no
+  durable evidence/source table exists.
 
 ## Durable Draft Ledger Status
 
-Current status: not implemented.
+Current status: partially implemented.
 
-Stable v0.1 draft review is review-local except for accepted drafts. Accepted
-drafts can create durable Knowledge Documents through the explicit Knowledge /
-Skills acceptance path with best-effort current provenance fields. Rejected
-drafts do not become Knowledge, Evidence, audit records, or durable rejected
-Catalog records.
+Stable v0.1 has a durable draft review ledger for explicit accept/reject
+decisions. Accepted drafts can create durable Knowledge Documents through the
+explicit Knowledge / Skills acceptance path. Rejected drafts are recorded as
+review decisions but do not become Knowledge, Evidence records, active Catalog
+items, searchable content, or attachable context.
 
-Production requirement:
+Implemented ledger fields include draft pack/item/source fingerprint metadata,
+Queue task/run links, review action, review timestamp, accepted Knowledge or
+Skill id where applicable, and rejection reason where supplied.
 
-- durable draft-pack and draft-item identities;
-- accepted, rejected, edited, split, merged, and blocked dispositions;
-- Queue task/run links;
-- reviewer, timestamp, reason, source refs, generated-text hash where useful;
-- links from accepted dispositions to resulting item ids and versions.
+Remaining production gaps:
+
+- the service action vocabulary currently covers accepted,
+  edited-before-accept, and rejected paths, not the full split/merged/blocked
+  production vocabulary;
+- accepted ledger records do not yet link to immutable Knowledge version row
+  ids;
+- there is no separate Evidence or audit-event store for draft decisions.
 
 ## Durable Queue Context Status
 
-Current status: frontend-local/current-session only.
+Current status: durable Queue-owned context is implemented, with execution
+hardening caveats.
 
-Selected saved Knowledge Documents and Skills can attach to the selected Queue
-task as safe refs, bounded summaries/snapshots, warnings, token estimates, and
-visible materialized prompt context. This prepared context is not durable
-Queue-owned task state unless it is indirectly represented in an explicit
-materialized prompt or run handoff.
+Selected saved Knowledge Documents and Skills attach to the selected Queue
+task as durable task-owned safe refs, bounded snapshots, warnings, token
+budget data, and materialization metadata. Typed attach/detach APIs mutate the
+Queue task context; generic Queue create/update APIs do not expose arbitrary
+context JSON as a normal app/Tauri path.
 
-Production requirement:
+Implemented Queue context includes:
 
-- Queue-owned task context storage/API;
 - attached Knowledge and Skill refs;
-- bounded immutable snapshots;
-- warning and acknowledgement records;
+- bounded snapshots;
+- warning records;
 - token budget and overflow state;
-- materialized-at and run linkage;
-- execution evidence refs that record which versions/snapshots were used.
+- materialized-at metadata;
+- backend prompt materialization that prepends Knowledge / Skills context and
+  appends a `Context used` section.
+
+Remaining production gaps:
+
+- execution evidence is still prompt/report text, not a separate immutable
+  Evidence table or run metadata table;
+- one Queue start path can still accept caller-supplied materialized prompt
+  text, so backend materialization is not yet the sole source of truth for
+  every execution path;
+- low-level storage still contains raw context JSON plumbing, though app/Tauri
+  APIs use typed attach/detach flows.
 
 ## Generation Source Refs Status
 
@@ -110,13 +143,16 @@ Queue task text, selected safe refs, source label/kind/ref fields, and draft
 review/report text. Creating a generation task does not run analysis, scan the
 repository, activate Knowledge, or grant provider/tool permissions.
 
-Production gaps:
+Current implemented behavior and gaps:
 
-- no durable structured `sourceRefs[]`;
-- no source selectors, hashes, timestamps, selected-at/captured-at fields, cap
-  notes, or redaction notes as first-class records;
+- Knowledge Documents can persist structured `sourceRefs[]` and
+  `relations[]`, and draft acceptance maps pack refs into Knowledge refs;
+- generation Queue task refs may still fall back to visible prompt/task/report
+  text where durable typed source metadata is unavailable;
+- no complete source selector, hash, timestamp, selected-at/captured-at, cap
+  note, or redaction-note record for every source path;
 - no durable source snapshot/version replay;
-- no first-class relation graph or `createdByTaskId` Catalog field.
+- no first-class graph runtime, even though structured relations can be stored.
 
 ## Search And Safety Status
 
@@ -136,7 +172,6 @@ Current safety status:
 
 Production gaps:
 
-- no separate `active + enabled + searchable` policy across every surface;
 - no immutable version id in search results or materialized context;
 - no durable stale-warning acknowledgement policy;
 - no production secret warning/redaction policy before acceptance, attach, or
@@ -146,9 +181,12 @@ Production gaps:
 ## Current Limitations
 
 - Knowledge / Skills is an MVP, not a full Knowledge Catalog.
-- Queue context is current-session only.
-- Rejected draft review is not durable.
-- Source refs are partial string fields plus visible prompt/report text.
+- Queue context is durable through typed attach/detach APIs, but execution
+  evidence is not a separate durable Evidence record.
+- Rejected draft review decisions are durable ledger entries, but rejected
+  content is not Knowledge and is not searchable or attachable.
+- Source refs are structured for Knowledge Documents where supplied, but some
+  generation/runtime paths still rely on visible prompt/report text.
 - Full document bodies are stored as Knowledge source content, but raw full
   bodies are not copied into prompts by default.
 - Manual/import paths may leave quick summaries empty.

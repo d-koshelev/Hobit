@@ -913,14 +913,16 @@ v0.1 product widget.
 - Review statuses are `draft`, `needs_review`, `reviewed`, and `deprecated`.
 - Knowledge Documents are plain-text/Markdown reference records with title,
   quick summary, catalog-shaped item type, lifecycle/status, source label,
-  source kind/ref, content, tags, enabled flag, scope, and deterministic text
-  chunks. Workspace-scoped documents belong only to one Workspace. Global
+  source kind/ref, structured source refs, structured relations, content,
+  tags, enabled flag, searchable flag, scope, deterministic text chunks,
+  immutable version metadata, and review/task/run metadata fields where
+  supplied. Workspace-scoped documents belong only to one Workspace. Global
   documents are local-user/global records available across Workspaces in this
   desktop database. Import is limited to explicit single-file plain
   text/Markdown reads. The partial catalog-shaped fields do not implement a
-  standalone full Knowledge Catalog item store, first-class related
-  files/tasks/commits, created-by-task provenance fields, or graph relations.
-  No PDF/DOCX parsing, binary parsing, folder scan, watcher, hidden ingestion,
+  standalone full Knowledge Catalog item store, first-class graph runtime,
+  Evidence records, Context Packs, or a server/team Knowledge model. No
+  PDF/DOCX parsing, binary parsing, folder scan, watcher, hidden ingestion,
   embeddings, vector database, Evidence store, Context Pack builder,
   team/server sharing, server runtime, or RBAC is implemented.
 - Quick summary is the current preview field for scan, review, attach, and
@@ -928,11 +930,14 @@ v0.1 product widget.
   draft acceptance plus Notes promotion populate them, but manual/import paths
   may still leave summaries empty. Missing summaries remain a quality gap, not
   proof that the full Knowledge Catalog is implemented.
-- Current source refs are explicit but partial. Generation and refresh tasks
-  preserve source selection through visible prompt/task/report text, safe refs,
-  and existing source label/kind/ref fields where available. Durable
-  structured `sourceRefs`, full provenance replay, first-class
-  `createdByTaskId`, and graph relations remain future Catalog/generation
+- Current source refs are explicit and partly structured. Knowledge Documents
+  can persist structured `sourceRefs` and `relations`, and accepted draft
+  packs map visible source refs into Knowledge Document refs where supplied.
+  Generation and refresh tasks may still preserve source selection through
+  visible prompt/task/report text, safe refs, and existing source
+  label/kind/ref fields when durable typed task/source metadata is not
+  available. Full provenance replay, a first-class graph runtime, and a
+  separate Evidence/source snapshot table remain future Catalog/generation
   work.
 - Notes can be promoted to Knowledge only through an explicit operator action
   from a saved selected Note. Promotion creates a separate Knowledge Document
@@ -946,10 +951,12 @@ v0.1 product widget.
 - Queue worker report output can expose draft Knowledge packs for review in
   Knowledge / Skills. Accept/reject requires explicit operator action.
   Accepted drafts can create durable Knowledge Documents through the explicit
-  acceptance path with best-effort current provenance fields. Rejected draft
-  review is review-local for Stable v0.1; it is not a durable rejected
-  Knowledge record, audit record, Evidence record, or complete review replay
-  unless a future focused persistence slice adds that model.
+  acceptance path with current provenance fields. Accepted and rejected review
+  decisions are recorded in a durable draft review ledger with Queue/run/source
+  fingerprint metadata where supplied. Rejected draft content is not
+  searchable, attachable, materialized, or treated as Knowledge. The ledger is
+  not an Evidence store, audit store, complete review replay, or full
+  split/merge/blocked production workflow.
 - Knowledge / Skills is operator-authored. It is not Evidence,
   not a Context Pack, not a Runbook executor, not hidden AI memory, and not
   sent to Workspace Agent or provider prompts automatically.
@@ -968,12 +975,16 @@ v0.1 product widget.
   run. No disabled documents, Skills, Notes, files, logs, or hidden Workspace
   context are searched by this path.
 - Selected saved Knowledge Documents and Skills can attach to the selected
-  Queue task as safe refs/summaries with bounded snapshots, warnings, token
-  estimates, and visible prompt materialization before explicit Queue
-  execution. This Queue context behavior is frontend-local and current-session
-  unless already represented indirectly in an explicit materialized prompt/run
-  handoff; it is not durable Queue-owned context storage/API state, not a
-  Context Pack, and not an Evidence store.
+  Queue task as durable Queue-owned safe refs/summaries with bounded snapshots,
+  warnings, token estimates, and visible prompt materialization before explicit
+  Queue execution. Typed app/Tauri attach/detach APIs own normal Queue context
+  mutation, and generic Queue task create/update paths do not expose arbitrary
+  context JSON as the product API. Backend materialization can prepend
+  Knowledge / Skills context and append a `Context used` section with
+  refs/snapshots/warnings/token/source metadata. Context-used evidence remains
+  prompt/report text rather than a separate immutable Evidence table or run
+  metadata table, and one Queue start override path still needs hardening so
+  backend materialization is the only execution source of truth.
 - Knowledge / Skills does not implement a full Knowledge Catalog, full
   Knowledge Item store, Evidence links, Context Pack links, Artifact links,
   Runbook execution, tool execution, team/server sharing, RBAC,

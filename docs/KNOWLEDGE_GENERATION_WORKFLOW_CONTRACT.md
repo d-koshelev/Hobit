@@ -54,18 +54,24 @@ worker report output; and explicit accept/reject actions in Knowledge /
 Skills. Creating a task does not execute analysis, activate Knowledge, read
 hidden context, or create durable provider/tool permissions.
 
-Still future: structured durable `sourceRefs` on Queue tasks, a dedicated
-generation runtime, automatic source analysis, full Knowledge Catalog item
-creation, durable draft-review disposition records, durable rejected-draft
-history, vector search, folder watching, background indexing, and automatic
-activation.
+Current production-pack additions include durable Knowledge Document
+`sourceRefs`/`relations` fields where supplied, reviewed-at/task/run metadata
+where supplied, immutable version metadata, and a durable draft review ledger
+for accepted/rejected review decisions with Queue/run/source fingerprint
+metadata where available.
 
-Draft review persistence is governed by
-`docs/KNOWLEDGE_DRAFT_REVIEW_PERSISTENCE_DECISION.md`. Stable v0.1 may persist
-accepted drafts as Knowledge / Skills Knowledge Documents through the explicit
-acceptance path, but rejected draft decisions remain review-local unless the
-operator records them through an existing explicit Queue task/report/status
-surface.
+Still future: guaranteed structured durable `sourceRefs` on every Queue
+generation task/source path, a dedicated generation runtime, automatic source
+analysis, full Knowledge Catalog item creation, full split/merge/blocked draft
+review vocabulary, accepted-version-row links, vector search, folder watching,
+background indexing, and automatic activation.
+
+Draft review persistence is governed by the current production-pack behavior
+and the remaining caveats in `docs/KNOWLEDGE_PRODUCTION_STATUS.md`. Stable
+v0.1 persists accepted drafts as Knowledge Documents through the explicit
+acceptance path and records accepted/rejected review decisions in the durable
+draft review ledger. Rejected content does not become Knowledge, Evidence,
+active Catalog content, searchable content, or attachable context.
 
 ## Source Selection Rules
 
@@ -100,10 +106,12 @@ redaction
 visibility
 ```
 
-Current implementation note: current generation tasks preserve source
-selection primarily in visible prompt/task text and safe refs rather than a
-durable structured `sourceRefs` storage model. Future API/storage work should
-use the shape above without expanding source access beyond explicit operator
+Current implementation note: Knowledge Documents can persist structured
+`sourceRefs` and accepted draft packs can map visible source refs into those
+fields where supplied. Generation Queue tasks may still preserve source
+selection in visible prompt/task/report text and safe refs when typed durable
+source metadata is unavailable. Future source-ref hardening should use the
+shape above without expanding source access beyond explicit operator
 selection.
 
 Examples:
@@ -358,22 +366,22 @@ Acceptance must preserve:
 - accepted type/tags;
 - status or enabled flag appropriate to the target Knowledge surface.
 
-Current implementation note: Stable v0.1 acceptance preserves only the
-provenance and review metadata supported by the current Knowledge Document
-model and visible source/report text. It does not require a separate durable
-draft-review ledger, first-class `createdByTaskId` Catalog field, audit event,
-or Evidence record.
+Current implementation note: Stable v0.1 acceptance preserves provenance and
+review metadata supported by the current Knowledge Document model, structured
+source refs where supplied, visible source/report text, and the durable draft
+review ledger. It does not create a separate Evidence record, audit event,
+full review replay, or full production Catalog item.
 
 Acceptance does not grant provider context permission. Accepted Knowledge may
 be eligible for later explicit retrieval or selection only under the active
 Knowledge / Skills and future Knowledge Catalog context rules.
 
-Rejection is review-local for Stable v0.1. Rejecting a draft must not create
-active Knowledge, enable Knowledge, approve Evidence, mutate Queue execution
-state invisibly, or preserve hidden prompt/context memory. Durable
-rejected-draft history is deferred until a focused future storage/API slice
-defines draft-pack identity, review disposition records, source versioning,
-retention, audit readiness, and Evidence linkage.
+Rejected draft decisions are durable review ledger entries for Stable v0.1,
+but rejection must not create active Knowledge, enable Knowledge, approve
+Evidence, mutate Queue execution state invisibly, or preserve hidden
+prompt/context memory. Rejected content is not searchable, attachable, or
+materialized. Full rejected-draft replay, source versioning, retention policy,
+audit readiness, and Evidence linkage remain future.
 
 ## Queue State And Reporting
 
@@ -405,9 +413,10 @@ payloads are not copied into Knowledge by default.
 
 Queue task completion, worker success, and draft-pack availability do not imply
 Knowledge acceptance. Accepted Knowledge should record the source Queue task as
-best-effort provenance through existing source fields or visible content when
-available; rejected drafts do not require a durable Queue relation in Stable
-v0.1.
+provenance through current source fields, structured source refs, task/run
+metadata, or visible content when available. Accepted/rejected review decisions
+are durable ledger entries, but they are not Evidence records or complete
+review replay.
 
 ## Safety Rules
 
@@ -467,6 +476,8 @@ This contract is complete when:
   review actions;
 - operator review and acceptance are separate from generation;
 - Stable v0.1 draft-review persistence boundaries are explicit;
+- durable accepted/rejected draft review ledger behavior is recorded without
+  overclaiming full split/merge/blocked workflow, Evidence, or audit behavior;
 - non-goals rule out background ingestion, hidden memory, vector search, folder
   watch, and automatic activation;
 - no implementation behavior is added by this document.

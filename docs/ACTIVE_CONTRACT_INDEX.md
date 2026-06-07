@@ -327,17 +327,18 @@ unless the task explicitly requests it.
   while rejected draft decisions remain review-local unless recorded through an
   existing explicit Queue surface.
 - `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md` - read for Queue task Knowledge /
-  Skills attachment semantics. It records current frontend-local/current-session
-  attach and materialization behavior, and defines future durable Queue-owned
-  context refs, bounded materialized snapshots, warnings, token budget, right
-  rail visibility, and execution evidence requirements. It does not add
-  storage, schema, frontend UI, backend/Tauri commands, provider behavior,
-  Queue execution, hidden memory, or automatic context injection.
+  Skills attachment semantics. It records current durable Queue-owned attach /
+  detach context refs, bounded materialized snapshots, warnings, token budget,
+  prompt materialization, and remaining future execution evidence requirements.
+  It does not add new storage, schema, frontend UI, backend/Tauri commands,
+  provider behavior, Queue execution, hidden memory, or automatic context
+  injection.
 - `docs/QUEUE_KNOWLEDGE_CONTEXT_DURABILITY_DECISION.md` - read with
-  `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md` before proposing Queue Knowledge
-  context storage/API work. It decides that Stable v0.1 remains
-  frontend-local/current-session and defers durable Queue-owned context until a
-  focused future storage/API slice.
+  `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md` only for historical decision
+  context. Its original frontend-local/current-session deferral was superseded
+  by the Knowledge production pack; current behavior is governed by
+  `docs/KNOWLEDGE_QUEUE_CONTEXT_CONTRACT.md` and
+  `docs/CURRENT_WIDGET_SURFACE.md`.
 - `docs/KNOWLEDGE_SKILLS_WIDGET_AUDIT.md` - inspect-only audit for the current
   Knowledge / Skills implementation, Stable v0.1 MVP inclusion decision,
   known gaps, and recommended next blocks. Read before future Knowledge /
