@@ -21,22 +21,22 @@ afterEach(() => {
 });
 
 describe("QueueV2Widget scaffold", () => {
-  it("renders the experimental Widget V2 shell placeholders without run actions", async () => {
+  it("renders the experimental Widget V2 board without run actions", async () => {
     await render(<QueueV2Widget />);
 
     expect(headingWithText("Agent Queue v2")).not.toBeNull();
     expect(document.body.textContent).toContain("Experimental");
     expect(regionByRoleAndName("toolbar", "Agent Queue v2 command bar")).not.toBeNull();
-    expect(document.body.textContent).toContain("Command bar placeholder");
+    expect(document.body.textContent).toContain("Board preview");
     expect(
       regionByRoleAndName("complementary", "Agent Queue v2 left rail")?.textContent,
-    ).toContain("Left rail placeholder");
+    ).toContain("Workers: 0");
     expect(regionByRoleAndName("region", "Agent Queue v2 board")?.textContent).toContain(
-      "Board placeholder",
+      "Intake",
     );
     expect(
       regionByRoleAndName("region", "Agent Queue v2 closed and history")?.textContent,
-    ).toContain("Closed / history placeholder");
+    ).toContain("Activity / history");
     expect(document.querySelector("details")?.hasAttribute("open")).toBe(false);
     expect(buttonWithText("Run now")).toBeNull();
     expect(buttonWithText("Start")).toBeNull();

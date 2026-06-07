@@ -1,0 +1,278 @@
+.queue-v2-board {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--space-sm);
+}
+
+.queue-v2-board-summary {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.queue-v2-summary-item {
+  display: grid;
+  min-width: calc(72px * var(--ui-scale));
+  gap: var(--scaled-space-2xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface-raised);
+  padding: var(--scaled-space-2xs) var(--space-xs);
+}
+
+.queue-v2-summary-item span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+}
+
+.queue-v2-summary-item strong {
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-v2-lanes {
+  display: grid;
+  min-width: 980px;
+  min-height: 0;
+  grid-template-columns: repeat(6, minmax(148px, 1fr));
+  gap: var(--space-xs);
+}
+
+.queue-v2-lane {
+  display: grid;
+  min-width: 0;
+  min-height: 0;
+  align-content: start;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-xs);
+}
+
+.queue-v2-lane[data-queue-v2-lane="review"] {
+  border-color: var(--color-warning);
+}
+
+.queue-v2-lane[data-queue-v2-lane="blocked"] {
+  border-color: var(--color-error);
+}
+
+.queue-v2-lane-header,
+.queue-v2-closed-lane summary,
+.queue-v2-worker-header {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.queue-v2-lane-header span:first-child,
+.queue-v2-closed-lane summary span:first-child,
+.queue-v2-worker-header span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-v2-lane-header span:last-child,
+.queue-v2-closed-lane summary span:last-child,
+.queue-v2-worker-header span:last-child {
+  color: var(--color-text-muted);
+  font-weight: 650;
+}
+
+.queue-v2-card-stack,
+.queue-v2-worker-groups {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+}
+
+.queue-v2-lane-empty {
+  display: grid;
+  min-height: calc(58px * var(--ui-scale));
+  place-items: center;
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+  padding: var(--space-xs);
+  text-align: center;
+}
+
+.queue-v2-worker-group {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  padding: var(--space-xs);
+}
+
+.queue-v2-worker-header {
+  font-weight: 650;
+}
+
+.queue-v2-closed-lane {
+  align-content: start;
+}
+
+.queue-v2-closed-lane details {
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.queue-v2-closed-lane summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.queue-v2-closed-lane summary::-webkit-details-marker {
+  display: none;
+}
+
+.queue-v2-closed-lane details[open] summary {
+  margin-bottom: var(--space-xs);
+}
+
+.queue-v2-task-card {
+  position: relative;
+  display: grid;
+  width: 100%;
+  min-width: 0;
+  min-height: calc(86px * var(--ui-scale));
+  grid-template-columns: calc(4px * var(--ui-scale)) minmax(0, 1fr);
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface-raised);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: var(--space-xs);
+  text-align: left;
+}
+
+.queue-v2-task-card[data-tone="review"] {
+  border-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.queue-v2-task-card[data-tone="blocked"] {
+  border-color: var(--color-error);
+  background: var(--color-error-soft);
+}
+
+.queue-v2-task-card:not(:disabled):hover,
+.queue-v2-task-card:focus-visible,
+.queue-v2-task-card-selected {
+  border-color: var(--agent-queue-flow-tag-border);
+}
+
+.queue-v2-task-card:focus-visible {
+  outline: 2px solid var(--color-focus-ring);
+  outline-offset: 2px;
+}
+
+.queue-v2-card-stripe {
+  border-radius: 999px;
+  background: var(--agent-queue-flow-tag);
+}
+
+.queue-v2-card-main {
+  display: grid;
+  min-width: 0;
+  gap: var(--scaled-space-2xs);
+}
+
+.queue-v2-card-title-row,
+.queue-v2-card-tag,
+.queue-v2-card-run {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.queue-v2-card-title-row {
+  justify-content: space-between;
+}
+
+.queue-v2-card-title {
+  display: -webkit-box;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: 740;
+  line-height: var(--line-tight);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.queue-v2-card-menu {
+  flex: 0 0 auto;
+  color: var(--color-text-muted);
+  opacity: 0;
+}
+
+.queue-v2-task-card:hover .queue-v2-card-menu,
+.queue-v2-task-card:focus-visible .queue-v2-card-menu,
+.queue-v2-task-card-selected .queue-v2-card-menu {
+  opacity: 1;
+}
+
+.queue-v2-card-tag,
+.queue-v2-card-meta,
+.queue-v2-card-run {
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-v2-card-tag-dot {
+  width: calc(7px * var(--ui-scale));
+  height: calc(7px * var(--ui-scale));
+  flex: 0 0 auto;
+  border: 1px solid var(--agent-queue-flow-tag-border);
+  border-radius: 999px;
+  background: var(--agent-queue-flow-tag);
+}
+
+.queue-v2-card-action {
+  justify-self: start;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: var(--line-tight);
+  padding: calc(1px * var(--ui-scale)) calc(7px * var(--ui-scale));
+}
+
+.queue-v2-task-card[data-tone="review"] .queue-v2-card-action {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.queue-v2-task-card[data-tone="blocked"] .queue-v2-card-action {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
