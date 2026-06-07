@@ -267,6 +267,13 @@ unless the task explicitly requests it.
   does not add frontend UI, backend/Tauri commands, storage/schema,
   WidgetHost rewrites, WorkspaceApi splits, runtime behavior, or current widget
   migration.
+- `docs/WIDGET_V2_RUNTIME_INTENTS_CONTRACT.md` - docs-only Widget V2 action
+  intent and domain service boundary contract. It defines typed Widget V2
+  intents, QueueService, KnowledgeService, WorkspaceAgentService,
+  TerminalService, FinderService, and later internal WorkspaceGitService
+  boundaries. It does not add frontend UI, backend/Tauri commands,
+  storage/schema, WorkspaceApi splits, runtime behavior, current widget
+  migration, or new capabilities.
 - `docs/WIDGET_RUNTIME_CONTEXT_STATUS.md` - docs-only status record for the
   Block 003 minimal WidgetRuntimeContext foundation and Knowledge / Skills
   pilot. It records compatibility status, focused tests, remaining host/canvas/
