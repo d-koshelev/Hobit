@@ -17,8 +17,8 @@ Queue v2 remains a Workbench widget and a Workspace-level task surface. It is
 not a scheduler, hidden automation layer, Git automation layer, Terminal
 launcher, chat surface, or Agent Executor replacement.
 
-The product posture is operational: the board is the primary view, the
-selected-task inspector is secondary, and raw execution detail stays collapsed
+The product posture is operational: the board is the primary view, task details
+open in a secondary popup or drawer, and raw execution detail stays collapsed
 until the operator asks for it.
 
 ## 2. Layout model
@@ -30,15 +30,14 @@ Queue v2 uses one continuous widget surface with five zones:
 - Main Queue Board / Flow Map: the primary lane-based task operating surface.
 - Left filters/workers/capacity rail: filtering, worker availability, and
   capacity pressure without taking over the board.
-- Right selected-task inspector: details and one primary next action for the
-  selected task.
-- Bottom collapsible activity/log drawer: raw run links, lifecycle events,
-  worker messages, validation excerpts, and developer details hidden by
-  default.
+- Task details popup/drawer: details and one primary next action for the
+  selected task. This is not a permanent right inspector.
+- Bottom collapsible activity/history stream: high-level activity and history
+  by default, with lower-level detail hidden until requested.
 
-The board must remain usable when the left rail, right inspector, or bottom
-drawer are collapsed. The operator should never need the drawer to understand
-the next product action.
+The board must remain usable when the left rail, task details surface, or
+bottom stream are closed. The operator should never need the bottom stream to
+understand the next product action.
 
 ## 3. Task lifecycle lanes
 
@@ -112,7 +111,8 @@ Each card shows:
 
 Cards should not show raw prompts, full reports, full logs, complete
 dependency lists, large timestamps, duplicate state labels, or developer
-payloads. Those details belong in the inspector, drawer, or a popup.
+payloads. Those details belong in the task details popup/drawer or Developer
+tab.
 
 The next action label must be concrete, such as `Review report`, `Run now`,
 `Assign worker`, `Resolve blocker`, `Add missing input`, `Accept result`, or
@@ -122,9 +122,13 @@ Cards should use consistent height bands where possible. Long titles truncate
 or wrap within the card's reserved title area without resizing neighboring
 cards unpredictably.
 
-## 6. Selected-task inspector contract
+## 6. Task details popup/drawer contract
 
-The right inspector is the task decision surface.
+The task details popup/drawer is the task decision surface. It opens from a
+card or explicit details action instead of occupying a permanent right rail.
+Its default width should be around 55-65 percent of the Queue widget. If the
+shared popup shell supports movement and resizing, Queue details should use
+that shared behavior.
 
 It shows:
 
@@ -137,10 +141,15 @@ It shows:
 - run/report summary;
 - Knowledge, attachment, and source-reference summary;
 - review decision controls when report output exists;
-- links to raw detail in the bottom drawer or popup.
+- links to raw detail in the Developer tab or bottom stream.
 
 There must be one primary next action per selected task. Secondary actions must
-not compete visually with the primary action.
+not compete visually with the primary action and should be grouped under More.
+
+Required detail tabs are Overview, Prompt, Result, Agent Log, Context, Files /
+Validation, and Developer. Agent Log is high-level and readable by default; raw
+logs, bounded stdout/stderr previews, raw event previews, IDs, payload
+metadata, and diagnostic detail belong in Developer.
 
 Report-ready output can be reviewed, accepted, rejected, reopened, or closed
 only through explicit operator controls. Acceptance must be distinct from run
@@ -167,16 +176,18 @@ It may show:
 - Autorun armed/off state.
 
 The rail should use compact controls and counts. It must not duplicate the
-selected-task inspector, render full task cards, or expose raw execution logs.
+task details popup/drawer, render full task cards, or expose raw execution
+logs.
 
 Capacity indicators are descriptive unless the operator explicitly starts a
 manual run or arms Autorun.
 
-## 8. Activity/log drawer contract
+## 8. Activity/history stream contract
 
-The bottom drawer is collapsed by default.
+The bottom activity/history stream is collapsed by default.
 
-It contains lower-level detail such as:
+It shows high-level recent activity and history by default. When expanded or
+when linked from the Developer tab, it may contain lower-level detail such as:
 
 - task lifecycle events;
 - run links and executor history;
@@ -186,10 +197,10 @@ It contains lower-level detail such as:
 - bounded stdout/stderr or structured event previews when available;
 - developer/debug metadata.
 
-The drawer is for diagnosis and audit, not ordinary operation. The board and
-inspector must remain sufficient for normal queue management.
+The stream is for diagnosis and audit, not ordinary operation. The board and
+task details popup/drawer must remain sufficient for normal queue management.
 
-Drawer content must be bounded, clearly labeled, and safe to collapse without
+Stream content must be bounded, clearly labeled, and safe to collapse without
 losing the operator's place in the board.
 
 ## 9. Color/copy rules
@@ -199,7 +210,7 @@ Queue v2 uses restrained visual language.
 Rules:
 
 - Board first.
-- Inspector second.
+- Task details popup/drawer second.
 - Activity/logs hidden by default.
 - One primary next action per selected task.
 - No duplicate state text.
@@ -266,8 +277,8 @@ Recommended block sequence:
    over existing Queue data without changing runtime behavior.
 2. Lane mapping and compact cards: map current task statuses into the required
    lanes and define uniform card content.
-3. Selected-task inspector: move task decisions into the right inspector with
-   one primary next action.
+3. Task details popup/drawer: move task decisions into the secondary details
+   surface with one primary next action.
 4. Capacity rail: expose worker/provider capacity and ready-now counts without
    adding scheduling behavior.
 5. Dependency visualization: show blocked/dependent tasks and dependency

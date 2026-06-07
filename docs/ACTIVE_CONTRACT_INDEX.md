@@ -461,9 +461,17 @@ the local executor flow visible to operators.
   operator action.
 - `docs/QUEUE_V2_PRODUCT_CONTRACT.md` - docs-only Queue Widget v2 product and
   visual contract for a board-first operating console with lanes, capacity,
-  dependency, review, inspector, and activity-drawer guidance. It does not add
-  frontend behavior, backend/runtime behavior, storage/schema, scheduling,
-  dependency execution, Git mutation, or hidden automation.
+  dependency, review, task details popup/drawer, and collapsed
+  activity/history guidance. It does not add frontend behavior,
+  backend/runtime behavior, storage/schema, scheduling, dependency execution,
+  Git mutation, or hidden automation.
+- `docs/QUEUE_V2_VISUAL_TARGET.md` - docs-only Queue Widget v2 visual target
+  for the accepted board-first popup-details model. It defines the command
+  bar, left rail, board lanes, collapsed activity/history stream, task details
+  popup/drawer, compact card rules, tab model, and safety checklist before
+  implementation. It does not add frontend behavior, backend/runtime behavior,
+  storage/schema, scheduling, dependency execution, Git mutation, Terminal
+  launch, or hidden automation.
 - `docs/QUEUE_V2_STATE_MODEL.md` - docs-only Queue v2 lifecycle, closure,
   dependency, eligibility, worker capacity, parallel run group, next action,
   board lane, inspector snapshot, activity grouping, migration, and
