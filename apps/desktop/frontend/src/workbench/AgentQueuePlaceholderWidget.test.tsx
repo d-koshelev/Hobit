@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 describe("AgentQueuePlaceholderWidget single-surface UX", () => {
-  it("shows Queue Board v2 with selected-task run controls and keeps Flow Map available", async () => {
+  it("shows Queue Board v2 with popup details and keeps Flow Map run controls available", async () => {
     const task = queueTask();
     const onStartAssignedAgentQueueTask = vi.fn();
 
@@ -49,19 +49,28 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     expect(document.body.textContent).toContain("Queue Board");
     expect(document.querySelector("[aria-label='Agent Queue view mode']")).not.toBeNull();
     expect(document.querySelector("[aria-label='Queue v2 board']")).not.toBeNull();
+    expect(document.body.textContent).not.toContain("Actions and settings");
+    expect(document.body.textContent).not.toContain("Run selected task");
+    expect(document.querySelector("[aria-label='Resize selected item rail']")).toBeNull();
+
+    clickButton("Details");
+    await flushRender();
+
+    expect(document.querySelector(".queue-v2-task-details-shell")).not.toBeNull();
+    expect(document.body.textContent).toContain("QueueV2 task details");
     expect(document.body.textContent).toContain("Overview");
     expect(document.body.textContent).toContain("Prompt");
-    expect(document.body.textContent).toContain("Actions and settings");
-    expect(document.body.textContent).toContain("Run selected task");
-    expect(detailsBySummary("Execution settings")?.open).toBe(true);
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
 
+    clickButton("Close");
+    await flushRender();
     clickButton("Flow Map");
     await flushRender();
 
     expect(document.body.textContent).toContain("Flow map");
     expect(document.querySelector("[aria-label='Agent Queue flow map']")).not.toBeNull();
     expect(document.body.textContent).toContain("Run selected task");
+    expect(detailsBySummary("Execution settings")?.open).toBe(true);
   });
 
   it("renders Queue v2 lanes and compact cards from the view model", async () => {
@@ -167,7 +176,7 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     expect(boardCardIds()).toEqual(beforeOrder);
     expect(cardByTaskId("second-task")?.getAttribute("aria-current")).toBe("true");
     expect(document.body.textContent).toContain("Second task");
-    expect(document.body.textContent).toContain("Run selected task");
+    expect(document.body.textContent).not.toContain("Run selected task");
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
   });
 
@@ -177,6 +186,8 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     renderQueueWidget({
       onStartAssignedAgentQueueTask,
     });
+    await flushRender();
+    clickButton("Flow Map");
     await flushRender();
 
     const layout = document.querySelector<HTMLDivElement>(
@@ -251,6 +262,8 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
   it("preserves resized Queue rails across Queue widget remounts", async () => {
     renderQueueWidget();
     await flushRender();
+    clickButton("Flow Map");
+    await flushRender();
 
     let layout = document.querySelector<HTMLDivElement>(
       ".agent-queue-product-layout-flow",
@@ -301,6 +314,8 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     container = null;
 
     renderQueueWidget();
+    await flushRender();
+    clickButton("Flow Map");
     await flushRender();
 
     layout = document.querySelector<HTMLDivElement>(
@@ -402,6 +417,8 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
       onGetAgentQueueTask: async () => selectedTask,
       onListAgentQueueTasks: async () => [selectedTask],
     });
+    await flushRender();
+    clickButton("Flow Map");
     await flushRender();
 
     const acceptButton = buttonByText("Accept as Knowledge Document");
@@ -546,6 +563,8 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
     const createQueued = buttonByText("Create queued task");
     expect(createQueued?.disabled).toBe(false);
     clickButton("Create queued task");
+    await flushRender();
+    clickButton("Flow Map");
     await flushRender();
 
     expect(onCreateAgentQueueTask).toHaveBeenCalledWith(

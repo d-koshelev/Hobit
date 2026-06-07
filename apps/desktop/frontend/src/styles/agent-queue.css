@@ -121,6 +121,10 @@
   gap: var(--space-sm);
 }
 
+.agent-queue-product-layout-no-details {
+  grid-template-columns: minmax(180px, 220px) minmax(0, 1fr);
+}
+
 .agent-queue-product-layout-resizable {
   grid-template-columns:
     minmax(180px, 220px)
@@ -1749,25 +1753,49 @@
   border-radius: var(--radius-sm);
   background: var(--color-widget-surface-raised);
   color: var(--color-text-secondary);
-  cursor: pointer;
   padding: var(--space-xs);
   text-align: left;
 }
 
-.agent-queue-v2-card:not(:disabled):hover,
+.agent-queue-v2-card-select,
+.agent-queue-v2-card-details {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  padding: 0;
+  text-align: left;
+}
+
+.agent-queue-v2-card-select:disabled,
+.agent-queue-v2-card-details:disabled {
+  cursor: wait;
+  opacity: 0.72;
+}
+
+.agent-queue-v2-card-details {
+  justify-self: start;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: var(--line-tight);
+  padding: calc(1px * var(--ui-scale)) calc(6px * var(--ui-scale));
+}
+
+.agent-queue-v2-card:hover,
 .agent-queue-v2-card:focus-visible {
   border-color: var(--color-border);
   background: var(--color-widget-surface);
 }
 
-.agent-queue-v2-card:focus-visible {
+.agent-queue-v2-card-select:focus-visible,
+.agent-queue-v2-card-details:focus-visible {
   outline: 2px solid var(--color-focus-ring);
   outline-offset: 2px;
-}
-
-.agent-queue-v2-card:disabled {
-  cursor: wait;
-  opacity: 0.72;
 }
 
 .agent-queue-v2-card-selected {

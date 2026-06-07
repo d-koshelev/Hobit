@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import type { AgentQueueTask } from "../../../workspace/types";
 import {
@@ -13,6 +13,7 @@ import {
   type QueueWorkerSnapshot,
 } from "../../queue/queueV2ViewModel";
 import { QueueV2TaskCard } from "./QueueV2TaskCard";
+import { QueueV2TaskDetailsPopup } from "./QueueV2TaskDetailsPopup";
 
 type QueueV2BoardProps = {
   autorunArmed?: boolean;
@@ -46,13 +47,16 @@ export function QueueV2Board({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
     initialSelectedTaskId,
   );
+  const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
+  const detailsReturnFocusRef = useRef<HTMLButtonElement | null>(null);
+  const viewModelSelectedTaskId = detailsTaskId ?? selectedTaskId;
   const board = useMemo(
     () =>
       selectQueueV2ViewModel({
         autorunArmed,
         globalExecutionState,
         pausedQueueTagIds,
-        selectedTaskId,
+        selectedTaskId: viewModelSelectedTaskId,
         tasks,
         workers,
       }),
@@ -60,8 +64,8 @@ export function QueueV2Board({
       autorunArmed,
       globalExecutionState,
       pausedQueueTagIds,
-      selectedTaskId,
       tasks,
+      viewModelSelectedTaskId,
       workers,
     ],
   );
@@ -74,6 +78,18 @@ export function QueueV2Board({
     setSelectedTaskId(taskId);
     onSelectedTaskChange?.(taskId);
   }
+
+  function openTaskDetails(taskId: string, sourceButton: HTMLButtonElement | null) {
+    detailsReturnFocusRef.current = sourceButton;
+    setSelectedTaskId(taskId);
+    setDetailsTaskId(taskId);
+    onSelectedTaskChange?.(taskId);
+  }
+
+  const detailTaskViewModel =
+    detailsTaskId && board.inspector
+      ? board.tasks.find((item) => item.taskId === detailsTaskId) ?? null
+      : null;
 
   return (
     <section aria-label="Queue v2 board" className="queue-v2-board">
@@ -107,6 +123,7 @@ export function QueueV2Board({
             key={lane.id}
             label={lane.label}
             lane={lane.id}
+            onOpenTaskDetails={openTaskDetails}
             onSelectTask={selectTask}
             selectedTaskId={selectedTaskId}
           />
@@ -114,6 +131,7 @@ export function QueueV2Board({
 
         <QueueV2RunningLane
           groups={runningGroups}
+          onOpenTaskDetails={openTaskDetails}
           onSelectTask={selectTask}
           selectedTaskId={selectedTaskId}
         />
@@ -124,6 +142,7 @@ export function QueueV2Board({
             key={lane.id}
             label={lane.label}
             lane={lane.id}
+            onOpenTaskDetails={openTaskDetails}
             onSelectTask={selectTask}
             selectedTaskId={selectedTaskId}
           />
@@ -131,10 +150,18 @@ export function QueueV2Board({
 
         <QueueV2ClosedLane
           items={board.lanes.closed}
+          onOpenTaskDetails={openTaskDetails}
           onSelectTask={selectTask}
           selectedTaskId={selectedTaskId}
         />
       </div>
+      <QueueV2TaskDetailsPopup
+        inspector={detailsTaskId ? board.inspector : null}
+        isOpen={detailsTaskId !== null}
+        onRequestClose={() => setDetailsTaskId(null)}
+        returnFocusRef={detailsReturnFocusRef}
+        taskViewModel={detailTaskViewModel}
+      />
     </section>
   );
 }
@@ -158,12 +185,14 @@ function QueueV2Lane({
   items,
   label,
   lane,
+  onOpenTaskDetails,
   onSelectTask,
   selectedTaskId,
 }: {
   items: QueueTaskViewModel[];
   label: string;
   lane: QueueBoardLane;
+  onOpenTaskDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -178,6 +207,7 @@ function QueueV2Lane({
       <QueueV2CardStack
         emptyLabel="No tasks"
         items={items}
+        onOpenTaskDetails={onOpenTaskDetails}
         onSelectTask={onSelectTask}
         selectedTaskId={selectedTaskId}
       />
@@ -187,10 +217,12 @@ function QueueV2Lane({
 
 function QueueV2RunningLane({
   groups,
+  onOpenTaskDetails,
   onSelectTask,
   selectedTaskId,
 }: {
   groups: RunningTaskGroup[];
+  onOpenTaskDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -221,6 +253,7 @@ function QueueV2RunningLane({
               <QueueV2CardStack
                 emptyLabel="No tasks"
                 items={group.items}
+                onOpenTaskDetails={onOpenTaskDetails}
                 onSelectTask={onSelectTask}
                 selectedTaskId={selectedTaskId}
               />
@@ -234,10 +267,12 @@ function QueueV2RunningLane({
 
 function QueueV2ClosedLane({
   items,
+  onOpenTaskDetails,
   onSelectTask,
   selectedTaskId,
 }: {
   items: QueueTaskViewModel[];
+  onOpenTaskDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -266,6 +301,7 @@ function QueueV2ClosedLane({
           <QueueV2CardStack
             emptyLabel="No closed tasks"
             items={items}
+            onOpenTaskDetails={onOpenTaskDetails}
             onSelectTask={onSelectTask}
             selectedTaskId={selectedTaskId}
           />
@@ -293,11 +329,13 @@ function QueueV2LaneHeader({
 function QueueV2CardStack({
   emptyLabel,
   items,
+  onOpenTaskDetails,
   onSelectTask,
   selectedTaskId,
 }: {
   emptyLabel: string;
   items: QueueTaskViewModel[];
+  onOpenTaskDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -312,6 +350,7 @@ function QueueV2CardStack({
           isSelected={selectedTaskId === item.taskId}
           item={item}
           key={item.taskId}
+          onOpenDetails={onOpenTaskDetails}
           onSelect={onSelectTask}
         />
       ))}

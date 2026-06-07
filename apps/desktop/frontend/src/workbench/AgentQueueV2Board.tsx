@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import { Badge } from "../design-system/Badge";
 import type { AgentQueueTask } from "../workspace/types";
@@ -13,6 +13,10 @@ import {
   type QueueTaskViewModel,
 } from "./queue/queueV2ViewModel";
 import type { QueueNextAction } from "./queue/queueV2NextActionModel";
+import {
+  QueueV2TaskDetailsPopup,
+  queueV2NextActionLabel,
+} from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
 
 type AgentQueueV2BoardProps = {
   autorunArmed: boolean;
@@ -44,18 +48,21 @@ export function AgentQueueV2Board({
   tasks,
   workers,
 }: AgentQueueV2BoardProps) {
+  const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
+  const detailsReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const board = useMemo(
     () =>
       selectQueueV2ViewModel({
         autorunArmed,
         globalExecutionState,
         pausedQueueTagIds,
-        selectedTaskId: selectedTask?.queueItemId ?? null,
+        selectedTaskId: detailsTaskId ?? selectedTask?.queueItemId ?? null,
         tasks,
         workers,
       }),
     [
       autorunArmed,
+      detailsTaskId,
       globalExecutionState,
       pausedQueueTagIds,
       selectedTask?.queueItemId,
@@ -63,6 +70,16 @@ export function AgentQueueV2Board({
       workers,
     ],
   );
+  const detailTaskViewModel =
+    detailsTaskId && board.inspector
+      ? board.tasks.find((item) => item.taskId === detailsTaskId) ?? null
+      : null;
+
+  function openTaskDetails(taskId: string, sourceButton: HTMLButtonElement) {
+    detailsReturnFocusRef.current = sourceButton;
+    setDetailsTaskId(taskId);
+    onSelectTask(taskId);
+  }
 
   return (
     <section aria-label="Queue v2 board" className="agent-queue-v2-board-pane">
@@ -107,6 +124,7 @@ export function AgentQueueV2Board({
               items={board.lanes[lane.id]}
               key={lane.id}
               label={lane.label}
+              onOpenTaskDetails={openTaskDetails}
               onSelectTask={onSelectTask}
               selectedTaskId={selectedTask?.queueItemId ?? null}
             />
@@ -121,6 +139,13 @@ export function AgentQueueV2Board({
           the existing selected-task details path.
         </p>
       </details>
+      <QueueV2TaskDetailsPopup
+        inspector={detailsTaskId ? board.inspector : null}
+        isOpen={detailsTaskId !== null}
+        onRequestClose={() => setDetailsTaskId(null)}
+        returnFocusRef={detailsReturnFocusRef}
+        taskViewModel={detailTaskViewModel}
+      />
     </section>
   );
 }
@@ -129,12 +154,14 @@ function QueueV2Lane({
   isSelecting,
   items,
   label,
+  onOpenTaskDetails,
   onSelectTask,
   selectedTaskId,
 }: {
   isSelecting: boolean;
   items: QueueTaskViewModel[];
   label: string;
+  onOpenTaskDetails: (queueItemId: string, sourceButton: HTMLButtonElement) => void;
   onSelectTask: (queueItemId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -158,6 +185,7 @@ function QueueV2Lane({
               isSelecting={isSelecting}
               item={item}
               key={item.taskId}
+              onOpenTaskDetails={onOpenTaskDetails}
               onSelectTask={onSelectTask}
             />
           ))
@@ -171,11 +199,13 @@ function QueueV2Card({
   isSelected,
   isSelecting,
   item,
+  onOpenTaskDetails,
   onSelectTask,
 }: {
   isSelected: boolean;
   isSelecting: boolean;
   item: QueueTaskViewModel;
+  onOpenTaskDetails: (queueItemId: string, sourceButton: HTMLButtonElement) => void;
   onSelectTask: (queueItemId: string) => void;
 }) {
   const attachmentCount =
@@ -188,7 +218,7 @@ function QueueV2Card({
     (item.eligibility.blockedReasons[0]?.label || null);
 
   return (
-    <button
+    <article
       aria-current={isSelected ? "true" : undefined}
       className={[
         "agent-queue-v2-card",
@@ -198,12 +228,21 @@ function QueueV2Card({
         .join(" ")}
       data-queue-item-id={item.taskId}
       data-queue-v2-lane={item.boardLane}
-      disabled={isSelecting}
-      onClick={() => onSelectTask(item.taskId)}
+      onClick={() => {
+        if (!isSelecting) {
+          onSelectTask(item.taskId);
+        }
+      }}
       title={item.title}
-      type="button"
     >
-      <span className="agent-queue-v2-card-title">{item.title}</span>
+      <button
+        className="agent-queue-v2-card-select"
+        disabled={isSelecting}
+        onClick={() => onSelectTask(item.taskId)}
+        type="button"
+      >
+        <span className="agent-queue-v2-card-title">{item.title}</span>
+      </button>
       <span className="agent-queue-v2-card-line">
         <span>Next</span>
         <Badge variant={nextActionBadgeVariant(item.nextAction)}>
@@ -222,45 +261,23 @@ function QueueV2Card({
           {attachmentCount === 1 ? "" : "s"}
         </span>
       ) : null}
-    </button>
+      <button
+        className="agent-queue-v2-card-details"
+        disabled={isSelecting}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenTaskDetails(item.taskId, event.currentTarget);
+        }}
+        type="button"
+      >
+        Details
+      </button>
+    </article>
   );
 }
 
 function nextActionLabel(action: QueueNextAction) {
-  switch (action) {
-    case "edit_draft":
-      return "Edit draft";
-    case "queue_task":
-      return "Queue task";
-    case "validate_readiness":
-      return "Check readiness";
-    case "run_now":
-      return "Run now";
-    case "assign_worker":
-      return "Assign worker";
-    case "wait_for_capacity":
-      return "Wait for capacity";
-    case "resolve_dependency":
-      return "Resolve dependency";
-    case "resolve_blocker":
-      return "Resolve blocker";
-    case "review_report":
-      return "Review report";
-    case "accept_result":
-      return "Accept result";
-    case "request_changes":
-      return "Request changes";
-    case "create_follow_up":
-      return "Create follow-up";
-    case "reject_result":
-      return "Reject result";
-    case "retry_or_rerun":
-      return "Retry or rerun";
-    case "close_cancelled":
-      return "Close cancelled";
-    case "view_history":
-      return "View history";
-  }
+  return queueV2NextActionLabel(action);
 }
 
 function nextActionBadgeVariant(action: QueueNextAction) {

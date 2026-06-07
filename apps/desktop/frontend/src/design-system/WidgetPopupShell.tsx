@@ -6,6 +6,7 @@ type WidgetPopupShellVariant = "anchored" | "floating";
 type WidgetPopupShellProps = {
   anchorRef?: RefObject<HTMLElement | null>;
   children: ReactNode;
+  className?: string;
   id: string;
   isOpen: boolean;
   onRequestClose: () => void;
@@ -17,6 +18,7 @@ type WidgetPopupShellProps = {
 export function WidgetPopupShell({
   anchorRef,
   children,
+  className,
   id,
   isOpen,
   onRequestClose,
@@ -27,6 +29,7 @@ export function WidgetPopupShell({
   return (
     <PopupShell
       anchorRef={anchorRef}
+      className={className}
       id={id}
       isOpen={isOpen}
       labelId={titleId}

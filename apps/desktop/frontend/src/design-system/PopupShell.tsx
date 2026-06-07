@@ -14,6 +14,7 @@ type PopupShellVariant = "anchored" | "floating";
 type PopupShellProps = {
   anchorRef?: RefObject<HTMLElement | null>;
   children: ReactNode;
+  className?: string;
   id: string;
   isOpen: boolean;
   labelId: string;
@@ -45,6 +46,7 @@ const POPUP_MIN_MAX_HEIGHT = 180;
 export function PopupShell({
   anchorRef,
   children,
+  className,
   id,
   isOpen,
   labelId,
@@ -253,6 +255,7 @@ export function PopupShell({
         "popup-shell",
         `popup-shell-${variant}`,
         isDragging ? "popup-shell-dragging" : "",
+        className ?? "",
       ]
         .filter(Boolean)
         .join(" ")}

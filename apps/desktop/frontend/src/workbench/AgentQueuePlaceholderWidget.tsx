@@ -256,7 +256,7 @@ export function AgentQueuePlaceholderWidget({
           </div>
         ) : (
           <AgentQueueLayout
-            isFlowMapView
+            isFlowMapView={!isBoardView}
             layoutKey={instance.id}
             sidebar={
               <AgentQueueSidebar
@@ -265,26 +265,28 @@ export function AgentQueuePlaceholderWidget({
               />
             }
             detailsPanel={
-              <AgentQueueTaskDetailsPanel
-                agentExecutorSlots={queueOwnedExecutorSlots}
-                assignmentInputId={assignmentInputId}
-                descriptionInputId={descriptionInputId}
-                executionPolicyInputId={executionPolicyInputId}
-                priorityInputId={priorityInputId}
-                promptInputId={promptInputId}
-                presentation="full"
-                queue={queue}
-                onAttachContextToCoordinator={onAttachContextToCoordinator}
-                onCreateKnowledgeDocument={onCreateKnowledgeDocument}
-                onCreateSkill={onCreateSkill}
-                onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
-                onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
-                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-                onOpenAgentExecutorRun={onOpenAgentExecutorRun}
-                selectedTaskHint={selectedTaskHint}
-                statusInputId={statusInputId}
-                titleInputId={titleInputId}
-              />
+              isBoardView ? null : (
+                <AgentQueueTaskDetailsPanel
+                  agentExecutorSlots={queueOwnedExecutorSlots}
+                  assignmentInputId={assignmentInputId}
+                  descriptionInputId={descriptionInputId}
+                  executionPolicyInputId={executionPolicyInputId}
+                  priorityInputId={priorityInputId}
+                  promptInputId={promptInputId}
+                  presentation="full"
+                  queue={queue}
+                  onAttachContextToCoordinator={onAttachContextToCoordinator}
+                  onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+                  onCreateSkill={onCreateSkill}
+                  onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+                  onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
+                  onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+                  onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+                  selectedTaskHint={selectedTaskHint}
+                  statusInputId={statusInputId}
+                  titleInputId={titleInputId}
+                />
+              )
             }
             taskList={
               <div className="agent-queue-main-surface">

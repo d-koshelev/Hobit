@@ -9,7 +9,7 @@ import {
 } from "react";
 
 type AgentQueueLayoutProps = {
-  detailsPanel: ReactNode;
+  detailsPanel?: ReactNode;
   isFlowMapView?: boolean;
   layoutKey?: string;
   sidebar: ReactNode;
@@ -208,6 +208,7 @@ export function AgentQueueLayout({
   return (
     <div
       className={agentQueueLayoutClassName({
+        hasDetailsPanel: Boolean(detailsPanel),
         isFlowMapView,
         isResizing,
       })}
@@ -238,19 +239,25 @@ export function AgentQueueLayout({
           title="Drag to resize selected item rail. Double-click to reset columns."
         />
       ) : null}
-      {detailsPanel}
+      {detailsPanel ? detailsPanel : null}
     </div>
   );
 }
 
 function agentQueueLayoutClassName({
+  hasDetailsPanel,
   isFlowMapView,
   isResizing,
 }: {
+  hasDetailsPanel: boolean;
   isFlowMapView: boolean;
   isResizing: boolean;
 }) {
   const classNames = ["agent-queue-product-layout"];
+
+  if (!hasDetailsPanel) {
+    classNames.push("agent-queue-product-layout-no-details");
+  }
 
   if (isFlowMapView) {
     classNames.push("agent-queue-product-layout-flow");

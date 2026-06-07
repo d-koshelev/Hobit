@@ -1,9 +1,12 @@
 import { act } from "react";
 import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { AgentQueueTask } from "../../../workspace/types";
+import type {
+  AgentQueueTask,
+  AgentQueueWorkerExecutionReport,
+} from "../../../workspace/types";
 import type { AgentWorkerSummary } from "../../agentQueueTaskUiModel";
 import { QueueV2Board } from "./QueueV2Board";
 
@@ -200,6 +203,91 @@ describe("QueueV2Board", () => {
       "SECOND RAW PROMPT SHOULD NOT RENDER",
     );
   });
+
+  it("opens task details from the card Details action and closes with Escape", async () => {
+    await render(
+      <QueueV2Board
+        tasks={[task({ queueItemId: "ready", status: "ready", title: "Ready task" })]}
+        workers={[worker()]}
+      />,
+    );
+
+    await click(cardDetailsButton("ready"));
+
+    expect(dialogByName("Ready task")).not.toBeNull();
+    expect(document.querySelector(".queue-v2-task-details-shell")).not.toBeNull();
+    expect(document.body.textContent).toContain("Objective");
+    expect(document.body.textContent).toContain("Next action");
+
+    await keyDown("Escape");
+
+    expect(dialogByName("Ready task")).toBeNull();
+  });
+
+  it("renders details tabs with high-level Agent Log separate from collapsed Developer raw details", async () => {
+    await render(
+      <QueueV2Board
+        tasks={[
+          task({
+            queueItemId: "reported",
+            status: "completed",
+            title: "Reported task",
+            workerExecutionReports: [
+              report({
+                changedFiles: ["src/queue.ts"],
+                rawReportPreview: '{"raw":"developer payload"}',
+                summary: "Worker finished the report.",
+                validationResult: "passed",
+              }),
+            ],
+          }),
+        ]}
+        workers={[worker()]}
+      />,
+    );
+
+    await click(cardDetailsButton("reported"));
+    await click(buttonWithText("Prompt"));
+    expect(activePanel()?.textContent).toContain("Original prompt summary");
+    await click(buttonWithText("Result"));
+    expect(activePanel()?.textContent).toContain("Changed files");
+    expect(activePanel()?.textContent).toContain("passed");
+    await click(buttonWithText("Agent Log"));
+    expect(activePanel()?.textContent).toContain("High-level task timeline only");
+    expect(activePanel()?.textContent).not.toContain("developer payload");
+    await click(buttonWithText("Context"));
+    expect(activePanel()?.textContent).toContain("Context status");
+    await click(buttonWithText("Files / Validation"));
+    expect(activePanel()?.textContent).toContain("src/queue.ts");
+    await click(buttonWithText("Developer"));
+
+    const developerDetails = document.querySelector<HTMLDetailsElement>(
+      ".queue-v2-task-details-developer",
+    );
+    expect(developerDetails?.open).toBe(false);
+    expect(developerDetails?.textContent).toContain("Raw / developer details");
+  });
+
+  it("keeps popup action controls disabled and does not call selection again", async () => {
+    const onSelectedTaskChange = vi.fn();
+
+    await render(
+      <QueueV2Board
+        onSelectedTaskChange={onSelectedTaskChange}
+        tasks={[task({ queueItemId: "ready", status: "ready", title: "Ready task" })]}
+        workers={[worker()]}
+      />,
+    );
+
+    await click(cardDetailsButton("ready"));
+    expect(onSelectedTaskChange).toHaveBeenCalledTimes(1);
+
+    const primaryAction = buttonWithText("Run now");
+    expect(primaryAction?.disabled).toBe(true);
+    await click(primaryAction);
+
+    expect(onSelectedTaskChange).toHaveBeenCalledTimes(1);
+  });
 });
 
 async function render(element: ReactNode) {
@@ -228,6 +316,38 @@ function card(taskId: string) {
   return document.querySelector<HTMLElement>(
     `[data-queue-item-id='${taskId}']`,
   );
+}
+
+function cardDetailsButton(taskId: string) {
+  return card(taskId)?.querySelector<HTMLButtonElement>(
+    ".queue-v2-card-details",
+  ) ?? null;
+}
+
+function buttonWithText(text: string): HTMLButtonElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
+      (button) => button.textContent === text,
+    ) ?? null
+  );
+}
+
+function dialogByName(name: string): HTMLElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLElement>("[role='dialog']")).find(
+      (dialog) => dialog.textContent?.includes(name),
+    ) ?? null
+  );
+}
+
+function activePanel() {
+  return document.querySelector<HTMLElement>("[role='tabpanel']");
+}
+
+async function keyDown(key: string) {
+  await act(async () => {
+    document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key }));
+  });
 }
 
 function visibleCardOrder() {
@@ -297,7 +417,14 @@ function worker(overrides: Partial<AgentWorkerSummary> = {}): AgentWorkerSummary
   };
 }
 
-function report() {
+function report(overrides: Partial<AgentQueueWorkerExecutionReport> = {}) {
+  return {
+    ...baseReport(),
+    ...overrides,
+  };
+}
+
+function baseReport() {
   return {
     changedFiles: [],
     commandsRun: [],

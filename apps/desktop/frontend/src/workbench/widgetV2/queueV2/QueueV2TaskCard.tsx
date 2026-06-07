@@ -10,12 +10,14 @@ import type { QueueNextAction } from "../../queue/queueV2NextActionModel";
 type QueueV2TaskCardProps = {
   item: QueueTaskViewModel;
   isSelected: boolean;
+  onOpenDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
   onSelect: (taskId: string) => void;
 };
 
 export function QueueV2TaskCard({
   isSelected,
   item,
+  onOpenDetails,
   onSelect,
 }: QueueV2TaskCardProps) {
   const tag = normalizeQueueTag(item.task);
@@ -25,7 +27,7 @@ export function QueueV2TaskCard({
   const progressLabel = runningProgressLabel(item.task);
 
   return (
-    <button
+    <article
       aria-current={isSelected ? "true" : undefined}
       className={[
         "queue-v2-task-card",
@@ -43,15 +45,27 @@ export function QueueV2TaskCard({
       data-tone={accent}
       onClick={() => onSelect(item.taskId)}
       title={item.title}
-      type="button"
     >
       <span className="queue-v2-card-stripe" aria-hidden="true" />
       <span className="queue-v2-card-main">
         <span className="queue-v2-card-title-row">
-          <span className="queue-v2-card-title">{item.title}</span>
-          <span className="queue-v2-card-menu" aria-hidden="true">
-            ...
-          </span>
+          <button
+            className="queue-v2-card-select"
+            onClick={() => onSelect(item.taskId)}
+            type="button"
+          >
+            <span className="queue-v2-card-title">{item.title}</span>
+          </button>
+          <button
+            className="queue-v2-card-details"
+            onClick={(event) => {
+              event.stopPropagation();
+              onOpenDetails(item.taskId, event.currentTarget);
+            }}
+            type="button"
+          >
+            Details
+          </button>
         </span>
         <span className="queue-v2-card-tag">
           <span className="queue-v2-card-tag-dot" aria-hidden="true" />
@@ -68,7 +82,7 @@ export function QueueV2TaskCard({
           </span>
         ) : null}
       </span>
-    </button>
+    </article>
   );
 }
 
