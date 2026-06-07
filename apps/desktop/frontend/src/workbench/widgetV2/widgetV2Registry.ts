@@ -12,11 +12,11 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
   {
     kind: "queue-v2",
     name: "QueueV2",
-    title: "Agent Queue v2",
+    title: "Agent Queue",
     description:
-      "Experimental board-first scaffold for promoted async work organization.",
+      "Board-first Agent Queue implementation for promoted async work organization.",
     productRole:
-      "Organize promoted tasks, assignment, review, dependencies, and visible next actions without replacing Agent Queue V1.",
+      "Organize promoted tasks, assignment, review, dependencies, and visible next actions as the normal Agent Queue visual surface.",
     capabilities: [
       "render-primary-surface",
       "dispatch-typed-action",
@@ -26,7 +26,7 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
     ],
     layoutKind: "operational",
     supportedLayoutKinds: ["minimal", "operational"],
-    status: "experimental",
+    status: "available",
     productOwnerDomain: "agent-queue",
     safetyBoundaries: [
       "No hidden scheduler or backend dispatch.",
@@ -39,8 +39,8 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
     safeContextSummary: "Uses visible Queue state only.",
     runtimeLimitations: ["No durable worker runtime is granted by the manifest."],
     nonGoals: [
-      "No Agent Queue V1 replacement.",
-      "No normal Widget Catalog availability.",
+      "No separate Agent Queue widget id.",
+      "No standalone Widget Catalog entry outside the saved Agent Queue identity.",
       "No hidden execution.",
       "No automatic Queue item dispatch.",
     ],

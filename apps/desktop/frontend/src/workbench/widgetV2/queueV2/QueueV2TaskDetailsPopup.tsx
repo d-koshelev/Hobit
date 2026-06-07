@@ -3,6 +3,7 @@ import { useId, useMemo, useState, type RefObject } from "react";
 import { Button } from "../../../design-system/Button";
 import { WidgetPopupShell } from "../../../design-system/WidgetPopupShell";
 import type {
+  AgentQueueReportActionCard,
   AgentQueueTask,
   AgentQueueWorkerExecutionReport,
 } from "../../../workspace/types";
@@ -12,6 +13,9 @@ import type {
 } from "../../queue/queueV2ViewModel";
 import type { QueueNextAction } from "../../queue/queueV2NextActionModel";
 import type { AgentQueueController } from "../../queue/details/agentQueueTaskDetailsTypes";
+import { AgentQueueTaskContextSection } from "../../queue/details/AgentQueueTaskContextSection";
+import { AgentQueueTaskResultEvidenceSection } from "../../queue/details/AgentQueueTaskResultEvidenceSection";
+import type { WidgetRenderProps } from "../../types";
 import {
   buildQueueV2TaskDetailsActions,
   type QueueV2DetailsTab,
@@ -20,8 +24,15 @@ import {
 type QueueV2TaskDetailsPopupProps = {
   inspector: QueueInspectorSnapshot | null;
   isOpen: boolean;
+  onCreateKnowledgeDocument?: WidgetRenderProps["onCreateKnowledgeDocument"];
+  onCreateSkill?: WidgetRenderProps["onCreateSkill"];
+  onListKnowledgeDraftReviews?: WidgetRenderProps["onListKnowledgeDraftReviews"];
+  onRecordKnowledgeDraftReview?: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   onRequestNewTask?: () => void;
   onRequestClose: () => void;
+  onShowQueueReportInWorkspaceChat?: (
+    card: AgentQueueReportActionCard,
+  ) => void;
   queue?: AgentQueueController;
   returnFocusRef?: RefObject<HTMLElement | null>;
   taskViewModel: QueueTaskViewModel | null;
@@ -40,8 +51,13 @@ const TABS: { id: QueueV2DetailsTab; label: string }[] = [
 export function QueueV2TaskDetailsPopup({
   inspector,
   isOpen,
+  onCreateKnowledgeDocument,
+  onCreateSkill,
+  onListKnowledgeDraftReviews,
+  onRecordKnowledgeDraftReview,
   onRequestNewTask,
   onRequestClose,
+  onShowQueueReportInWorkspaceChat,
   queue,
   returnFocusRef,
   taskViewModel,
@@ -166,12 +182,33 @@ export function QueueV2TaskDetailsPopup({
           ) : null}
           {activeTab === "prompt" ? <PromptSection task={task} /> : null}
           {activeTab === "result" ? (
-            <ResultSection latestReport={latestReport} task={task} />
+            queue ? (
+              <AgentQueueTaskResultEvidenceSection
+                onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+                onCreateSkill={onCreateSkill}
+                onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+                onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
+                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+                queue={queue}
+                selectedTask={task}
+              />
+            ) : (
+              <ResultSection latestReport={latestReport} task={task} />
+            )
           ) : null}
           {activeTab === "agent-log" ? (
             <AgentLogSection events={highLevelEvents} />
           ) : null}
-          {activeTab === "context" ? <ContextSection task={task} /> : null}
+          {activeTab === "context" ? (
+            queue ? (
+              <AgentQueueTaskContextSection
+                onDetachContextRef={queue.knowledgeContext?.onDetachSelected}
+                selectedTask={task}
+              />
+            ) : (
+              <ContextSection task={task} />
+            )
+          ) : null}
           {activeTab === "files-validation" ? (
             <FilesValidationSection latestReport={latestReport} task={task} />
           ) : null}

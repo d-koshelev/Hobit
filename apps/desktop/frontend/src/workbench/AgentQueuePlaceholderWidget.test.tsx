@@ -15,6 +15,7 @@ import { widgetHostRenderProps } from "./widgetHostRenderProps";
 import {
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  getWidgetDefinition,
 } from "./widgetRegistry";
 
 let root: Root | null = null;
@@ -35,22 +36,31 @@ afterEach(() => {
 });
 
 describe("AgentQueuePlaceholderWidget single-surface UX", () => {
-  it("shows Queue Board v2 with popup details and keeps Flow Map run controls available", async () => {
+  it("uses the saved Agent Queue component key and renders QueueV2 without the V1 toggle", async () => {
     const task = queueTask();
+    const onCreateAgentQueueTask = vi.fn();
     const onStartAssignedAgentQueueTask = vi.fn();
 
     renderQueueWidget({
+      onCreateAgentQueueTask,
       onGetAgentQueueTask: async () => task,
       onListAgentQueueTasks: async () => [task],
       onStartAssignedAgentQueueTask,
     });
     await flushRender();
 
+    expect(getWidgetDefinition(AGENT_QUEUE_WIDGET_DEFINITION_ID)?.componentKey).toBe(
+      AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
+    );
     expect(document.body.textContent).toContain("Queue Board");
-    expect(document.querySelector("[aria-label='Agent Queue view mode']")).not.toBeNull();
     expect(document.querySelector("[aria-label='Queue v2 board']")).not.toBeNull();
+    expect(document.querySelector("[aria-label='Agent Queue view mode']")).toBeNull();
+    expect(document.querySelector("[aria-label='Agent Queue flow map']")).toBeNull();
+    expect(document.body.textContent).not.toContain("Board v2");
+    expect(document.body.textContent).not.toContain("Flow Map");
     expect(document.body.textContent).not.toContain("Actions and settings");
     expect(document.body.textContent).not.toContain("Run selected task");
+    expect(document.querySelector(".agent-queue-sidebar")).toBeNull();
     expect(document.querySelector("[aria-label='Resize selected item rail']")).toBeNull();
 
     clickButton("Details");
@@ -60,17 +70,9 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     expect(document.body.textContent).toContain("QueueV2 task details");
     expect(document.body.textContent).toContain("Overview");
     expect(document.body.textContent).toContain("Prompt");
+    expect(document.body.textContent).toContain("Run task");
+    expect(onCreateAgentQueueTask).not.toHaveBeenCalled();
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
-
-    clickButton("Close");
-    await flushRender();
-    clickButton("Flow Map");
-    await flushRender();
-
-    expect(document.body.textContent).toContain("Flow map");
-    expect(document.querySelector("[aria-label='Agent Queue flow map']")).not.toBeNull();
-    expect(document.body.textContent).toContain("Run selected task");
-    expect(detailsBySummary("Execution settings")?.open).toBe(true);
   });
 
   it("renders Queue v2 lanes and compact cards from the view model", async () => {
@@ -118,8 +120,6 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
       onListAgentQueueTasks: async () => tasks,
     });
     await flushRender();
-    clickButton("Enable");
-    await flushRender();
 
     for (const lane of [
       "Intake / Draft lane",
@@ -135,7 +135,8 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     expect(cardByTaskId("draft-task")?.textContent).toContain("Draft intake task");
     expect(cardByTaskId("draft-task")?.textContent).toContain("Edit draft");
     expect(cardByTaskId("ready-task")?.textContent).toContain("Ready task");
-    expect(cardByTaskId("ready-task")?.textContent).toContain("Run now");
+    expect(cardByTaskId("ready-task")?.textContent).toContain("Resolve blocker");
+    expect(cardByTaskId("ready-task")?.textContent).toContain("Queue is disabled");
     expect(cardByTaskId("ready-task")?.textContent).toContain(
       "3 Knowledge / attachments",
     );
@@ -180,131 +181,13 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
   });
 
-  it("resizes the Queue rails around the Flow Map without starting a run", async () => {
+  it("keeps the old Flow Map rails out of the normal render path", async () => {
     const onStartAssignedAgentQueueTask = vi.fn();
 
     renderQueueWidget({
       onStartAssignedAgentQueueTask,
     });
     await flushRender();
-    clickButton("Flow Map");
-    await flushRender();
-
-    const layout = document.querySelector<HTMLDivElement>(
-      ".agent-queue-product-layout-flow",
-    );
-    const leftHandle = document.querySelector<HTMLButtonElement>(
-      "[aria-label='Resize Queue controls rail']",
-    );
-    const rightHandle = document.querySelector<HTMLButtonElement>(
-      "[aria-label='Resize selected item rail']",
-    );
-
-    expect(layout).not.toBeNull();
-    expect(leftHandle).not.toBeNull();
-    expect(rightHandle).not.toBeNull();
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-left-rail-width: 220px",
-    );
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-right-rail-width: 320px",
-    );
-
-    vi.spyOn(layout!, "getBoundingClientRect").mockReturnValue(
-      rect({ width: 1400 }),
-    );
-
-    await act(async () => {
-      leftHandle?.dispatchEvent(pointerEvent("pointerdown", { clientX: 300 }));
-    });
-    await act(async () => {
-      window.dispatchEvent(pointerEvent("pointermove", { clientX: 380 }));
-    });
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-left-rail-width: 300px",
-    );
-
-    await act(async () => {
-      window.dispatchEvent(pointerEvent("pointerup", { clientX: 380 }));
-    });
-    await act(async () => {
-      leftHandle?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-    });
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-left-rail-width: 220px",
-    );
-
-    await act(async () => {
-      rightHandle?.dispatchEvent(pointerEvent("pointerdown", { clientX: 600 }));
-    });
-    await act(async () => {
-      window.dispatchEvent(pointerEvent("pointermove", { clientX: 520 }));
-    });
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-right-rail-width: 400px",
-    );
-
-    await act(async () => {
-      window.dispatchEvent(pointerEvent("pointerup", { clientX: 500 }));
-    });
-    await act(async () => {
-      rightHandle?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-    });
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-left-rail-width: 220px",
-    );
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-right-rail-width: 320px",
-    );
-    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
-  });
-
-  it("preserves resized Queue rails across Queue widget remounts", async () => {
-    renderQueueWidget();
-    await flushRender();
-    clickButton("Flow Map");
-    await flushRender();
-
-    let layout = document.querySelector<HTMLDivElement>(
-      ".agent-queue-product-layout-flow",
-    );
-    const leftHandle = document.querySelector<HTMLButtonElement>(
-      "[aria-label='Resize Queue controls rail']",
-    );
-    const rightHandle = document.querySelector<HTMLButtonElement>(
-      "[aria-label='Resize selected item rail']",
-    );
-
-    expect(layout).not.toBeNull();
-    vi.spyOn(layout!, "getBoundingClientRect").mockReturnValue(
-      rect({ width: 1400 }),
-    );
-
-    await act(async () => {
-      leftHandle?.dispatchEvent(pointerEvent("pointerdown", { clientX: 300 }));
-    });
-    await act(async () => {
-      window.dispatchEvent(pointerEvent("pointermove", { clientX: 380 }));
-    });
-    await act(async () => {
-      window.dispatchEvent(pointerEvent("pointerup", { clientX: 380 }));
-    });
-    await act(async () => {
-      rightHandle?.dispatchEvent(pointerEvent("pointerdown", { clientX: 600 }));
-    });
-    await act(async () => {
-      window.dispatchEvent(pointerEvent("pointermove", { clientX: 520 }));
-    });
-    await act(async () => {
-      window.dispatchEvent(pointerEvent("pointerup", { clientX: 500 }));
-    });
-
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-left-rail-width: 300px",
-    );
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-right-rail-width: 400px",
-    );
 
     act(() => {
       root?.unmount();
@@ -315,33 +198,12 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
 
     renderQueueWidget();
     await flushRender();
-    clickButton("Flow Map");
-    await flushRender();
 
-    layout = document.querySelector<HTMLDivElement>(
-      ".agent-queue-product-layout-flow",
-    );
-    const resetHandle = document.querySelector<HTMLButtonElement>(
-      "[aria-label='Resize Queue controls rail']",
-    );
-
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-left-rail-width: 300px",
-    );
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-right-rail-width: 400px",
-    );
-
-    await act(async () => {
-      resetHandle?.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-    });
-
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-left-rail-width: 220px",
-    );
-    expect(layout?.getAttribute("style")).toContain(
-      "--agent-queue-right-rail-width: 320px",
-    );
+    expect(document.querySelector(".agent-queue-product-layout-flow")).toBeNull();
+    expect(document.querySelector("[aria-label='Resize Queue controls rail']")).toBeNull();
+    expect(document.querySelector("[aria-label='Resize selected item rail']")).toBeNull();
+    expect(document.querySelector("[aria-label='Agent Queue flow map']")).toBeNull();
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
   });
 
   it("accepts Knowledge drafts from the real Agent Queue widget render props", async () => {
@@ -418,7 +280,9 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
       onListAgentQueueTasks: async () => [selectedTask],
     });
     await flushRender();
-    clickButton("Flow Map");
+    clickButton("Details");
+    await flushRender();
+    clickButton("Result");
     await flushRender();
 
     const acceptButton = buttonByText("Accept as Knowledge Document");
@@ -564,8 +428,6 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
     expect(createQueued?.disabled).toBe(false);
     clickButton("Create queued task");
     await flushRender();
-    clickButton("Flow Map");
-    await flushRender();
 
     expect(onCreateAgentQueueTask).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -582,18 +444,20 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
       }),
     );
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
-    expect(sectionText("Next action")).toContain("Run task");
-    expect(sectionText("Next action")).not.toContain("Set run settings");
-    expect(sectionText("Queue task execution")).not.toContain("Set task workspace");
-    expect(document.body.textContent).toContain("Run task");
+    expect(document.querySelector("[aria-label='Agent Queue flow map']")).toBeNull();
     expect(document.body.textContent).not.toContain("Promote to queued");
-    expect(inputByLabel("Task workspace").value).toBe("C:\\repo");
-    expect(inputByLabel("Codex executable").value).toBe("codex.cmd");
-    expect(selectByLabel("Sandbox").value).toBe("workspace_write");
-    expect(selectByLabel("Approval policy").value).toBe("never");
-    expect(detailsBySummary("Execution settings")?.open).toBe(false);
+    clickButton("Details");
+    await flushRender();
 
-    clickButton("Run task");
+    expect(document.body.textContent).toContain("QueueV2 task details");
+    expect(
+      document.querySelector("[aria-label='QueueV2 task explicit actions']")
+        ?.textContent,
+    ).toContain("Run task");
+    expect(document.body.textContent).not.toContain("Set run settings");
+    expect(document.body.textContent).not.toContain("Promote to queued");
+
+    await clickButtonAsync("Run task");
     await flushRender();
 
     expect(onStartAssignedAgentQueueTask).toHaveBeenCalledWith(
@@ -881,44 +745,6 @@ function fieldByLabel<T extends HTMLElement>(
   }
 
   return field as T;
-}
-
-function detailsBySummary(text: string) {
-  return Array.from(document.querySelectorAll<HTMLDetailsElement>("details")).find(
-    (details) => details.querySelector("summary")?.textContent === text,
-  );
-}
-
-function sectionText(label: string) {
-  const section = document.querySelector(`[aria-label="${label}"]`);
-
-  if (!section) {
-    throw new Error(`Section not found: ${label}`);
-  }
-
-  return section.textContent ?? "";
-}
-
-function pointerEvent(type: string, options: { clientX: number }) {
-  const event = new Event(type, { bubbles: true, cancelable: true });
-  Object.defineProperty(event, "button", { value: 0 });
-  Object.defineProperty(event, "clientX", { value: options.clientX });
-  Object.defineProperty(event, "isPrimary", { value: true });
-  return event;
-}
-
-function rect({ width }: { width: number }) {
-  return {
-    bottom: 0,
-    height: 0,
-    left: 0,
-    right: width,
-    top: 0,
-    width,
-    x: 0,
-    y: 0,
-    toJSON: () => ({}),
-  } as DOMRect;
 }
 
 function directWorkGitReviewHandoff(): DirectWorkGitReviewHandoff {

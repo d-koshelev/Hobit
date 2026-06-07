@@ -26,11 +26,14 @@ afterEach(() => {
 });
 
 describe("QueueV2Widget scaffold", () => {
-  it("renders the experimental Widget V2 board without run actions", async () => {
+  it("renders the current Widget V2 board shell without hidden run actions", async () => {
     await render(<QueueV2Widget />);
 
-    expect(headingWithText("Agent Queue v2")).not.toBeNull();
-    expect(document.body.textContent).toContain("Experimental");
+    expect(headingWithText("Agent Queue")).not.toBeNull();
+    expect(document.body.textContent).toContain("Current");
+    expect(document.body.textContent).toContain(
+      "Normal Queue actions are wired through the saved Agent Queue widget.",
+    );
     expect(regionByRoleAndName("toolbar", "Agent Queue v2 command bar")).not.toBeNull();
     expect(
       regionByRoleAndName("complementary", "Agent Queue v2 left rail")?.textContent,

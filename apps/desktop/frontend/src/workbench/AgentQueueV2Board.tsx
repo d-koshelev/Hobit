@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState } from "react";
 
 import { Badge } from "../design-system/Badge";
-import type { AgentQueueTask } from "../workspace/types";
+import type { AgentQueueReportActionCard, AgentQueueTask } from "../workspace/types";
 import {
   queueGlobalExecutionStateLabel,
   type AgentWorkerSummary,
   type QueueGlobalStatus,
 } from "./agentQueueTaskUiModel";
+import type { WidgetRenderProps } from "./types";
 import {
   selectQueueV2ViewModel,
   type QueueBoardLane,
@@ -23,8 +24,15 @@ type AgentQueueV2BoardProps = {
   autorunArmed: boolean;
   globalExecutionState: QueueGlobalStatus;
   isSelecting: boolean;
+  onCreateKnowledgeDocument?: WidgetRenderProps["onCreateKnowledgeDocument"];
+  onCreateSkill?: WidgetRenderProps["onCreateSkill"];
+  onListKnowledgeDraftReviews?: WidgetRenderProps["onListKnowledgeDraftReviews"];
+  onRecordKnowledgeDraftReview?: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   onSelectTask: (queueItemId: string) => void;
   onRequestNewTask?: () => void;
+  onShowQueueReportInWorkspaceChat?: (
+    card: AgentQueueReportActionCard,
+  ) => void;
   pausedQueueTagIds: ReadonlySet<string>;
   queue?: AgentQueueController;
   selectedTask: AgentQueueTask | null;
@@ -45,8 +53,13 @@ export function AgentQueueV2Board({
   autorunArmed,
   globalExecutionState,
   isSelecting,
+  onCreateKnowledgeDocument,
+  onCreateSkill,
+  onListKnowledgeDraftReviews,
+  onRecordKnowledgeDraftReview,
   onRequestNewTask,
   onSelectTask,
+  onShowQueueReportInWorkspaceChat,
   pausedQueueTagIds,
   queue,
   selectedTask,
@@ -147,8 +160,13 @@ export function AgentQueueV2Board({
       <QueueV2TaskDetailsPopup
         inspector={detailsTaskId ? board.inspector : null}
         isOpen={detailsTaskId !== null}
+        onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+        onCreateSkill={onCreateSkill}
+        onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+        onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
         onRequestNewTask={onRequestNewTask}
         onRequestClose={() => setDetailsTaskId(null)}
+        onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
         queue={queue}
         returnFocusRef={detailsReturnFocusRef}
         taskViewModel={detailTaskViewModel}

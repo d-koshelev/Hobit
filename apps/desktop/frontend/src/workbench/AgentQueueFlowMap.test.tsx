@@ -8,7 +8,6 @@ import {
   type QueueTagSummary,
 } from "./agentQueueTaskUiModel";
 import { AgentQueueFlowMap } from "./AgentQueueFlowMap";
-import { DEFAULT_AGENT_QUEUE_VIEW_MODE } from "./AgentQueuePlaceholderWidget";
 import { queueTagColorToken } from "./queue/agentQueueFlowMapModel";
 import { getAssignedWorkerRoutingStates } from "./queue/agentQueueRoutingModel";
 import {
@@ -33,10 +32,6 @@ afterEach(() => {
 });
 
 describe("AgentQueueFlowMap", () => {
-  it("is the default Agent Queue view mode", () => {
-    expect(DEFAULT_AGENT_QUEUE_VIEW_MODE).toBe("flow");
-  });
-
   it("renders queue tag groups, dependency barrier, executor lanes, and results", () => {
     renderFlowMap({
       tasks: [

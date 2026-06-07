@@ -2,14 +2,10 @@ import { useEffect, useId, useState } from "react";
 import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { AgentQueueTask } from "../workspace/types";
-import { AgentQueueFlowMap } from "./AgentQueueFlowMap";
-import { AgentQueueLayout } from "./AgentQueueLayout";
 import {
   AgentQueueNewTaskDialog,
   type AgentQueueNewTaskRunSetup,
 } from "./AgentQueueNewTaskDialog";
-import { AgentQueueSidebar } from "./AgentQueueSidebar";
-import { AgentQueueTaskDetailsPanel } from "./AgentQueueTaskDetailsPanel";
 import { AgentQueueV2Board } from "./AgentQueueV2Board";
 import { AgentQueueWidgetStatusBadge } from "./AgentQueueWidgetStatusBadge";
 import {
@@ -18,7 +14,6 @@ import {
   MIN_PRIORITY,
   normalizeQueueTag,
   queueSingleState,
-  taskPreview,
   validateDraft,
   type TaskDraft,
 } from "./agentQueueTaskUiModel";
@@ -33,10 +28,6 @@ import {
 } from "./queue/agentQueueRunSettingsDefaults";
 import type { WidgetRenderProps } from "./types";
 
-export const DEFAULT_AGENT_QUEUE_VIEW_MODE = "flow";
-const QUEUE_V2_BOARD_ENABLED = true;
-type AgentQueueViewMode = "board-v2" | "flow";
-
 export function AgentQueuePlaceholderWidget({
   frameActions,
   frameMoveEnabled,
@@ -44,26 +35,16 @@ export function AgentQueuePlaceholderWidget({
   instance,
   logRefreshToken,
   agentQueueItemOpenRequest,
-  agentExecutorSlots = [],
   agentQueueController,
   onLoadLogs,
-  onAttachContextToCoordinator,
   onCreateKnowledgeDocument,
   onCreateSkill,
   onListKnowledgeDraftReviews,
   onRecordKnowledgeDraftReview,
   onShowQueueReportInWorkspaceChat,
-  onOpenAgentExecutorRun,
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
-  const titleInputId = useId();
-  const descriptionInputId = useId();
-  const promptInputId = useId();
-  const statusInputId = useId();
-  const priorityInputId = useId();
-  const executionPolicyInputId = useId();
-  const assignmentInputId = useId();
   const createTitleInputId = useId();
   const createDescriptionInputId = useId();
   const createPromptInputId = useId();
@@ -86,11 +67,7 @@ export function AgentQueuePlaceholderWidget({
   const [createDialogError, setCreateDialogError] = useState<string | null>(
     null,
   );
-  const [viewMode, setViewMode] = useState<AgentQueueViewMode>(
-    QUEUE_V2_BOARD_ENABLED ? "board-v2" : DEFAULT_AGENT_QUEUE_VIEW_MODE,
-  );
   const queue = agentQueueController as AgentQueueController;
-  const queueOwnedExecutorSlots = agentQueueController?.agentExecutorSlots ?? agentExecutorSlots;
 
   const {
     apiAvailable,
@@ -151,8 +128,6 @@ export function AgentQueuePlaceholderWidget({
     isLoading,
     loadError,
   });
-  const selectedTaskHint = selectedTask ? taskPreview(selectedTask) : "";
-  const isBoardView = QUEUE_V2_BOARD_ENABLED && viewMode === "board-v2";
 
   function updateCreateDraft(nextDraft: Partial<TaskDraft>) {
     setCreateDraft((currentDraft) => ({
@@ -257,98 +232,29 @@ export function AgentQueuePlaceholderWidget({
             <p className="empty-state-text">{singleState.text}</p>
           </div>
         ) : (
-          <AgentQueueLayout
-            isFlowMapView={!isBoardView}
-            layoutKey={instance.id}
-            sidebar={
-              <AgentQueueSidebar
-                autonomous={queue.autonomous}
-                foundation={queue.foundation}
-              />
-            }
-            detailsPanel={
-              isBoardView ? null : (
-                <AgentQueueTaskDetailsPanel
-                  agentExecutorSlots={queueOwnedExecutorSlots}
-                  assignmentInputId={assignmentInputId}
-                  descriptionInputId={descriptionInputId}
-                  executionPolicyInputId={executionPolicyInputId}
-                  priorityInputId={priorityInputId}
-                  promptInputId={promptInputId}
-                  presentation="full"
-                  queue={queue}
-                  onAttachContextToCoordinator={onAttachContextToCoordinator}
-                  onCreateKnowledgeDocument={onCreateKnowledgeDocument}
-                  onCreateSkill={onCreateSkill}
-                  onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
-                  onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
-                  onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-                  onOpenAgentExecutorRun={onOpenAgentExecutorRun}
-                  selectedTaskHint={selectedTaskHint}
-                  statusInputId={statusInputId}
-                  titleInputId={titleInputId}
-                />
-              )
-            }
-            taskList={
-              <div className="agent-queue-main-surface">
-                {QUEUE_V2_BOARD_ENABLED ? (
-                  <div
-                    aria-label="Agent Queue view mode"
-                    className="agent-queue-view-toggle"
-                    role="group"
-                  >
-                    <Button
-                      aria-pressed={isBoardView}
-                      onClick={() => setViewMode("board-v2")}
-                      variant={isBoardView ? "primary" : "ghost"}
-                    >
-                      Board v2
-                    </Button>
-                    <Button
-                      aria-pressed={!isBoardView}
-                      onClick={() => setViewMode("flow")}
-                      variant={!isBoardView ? "primary" : "ghost"}
-                    >
-                      Flow Map
-                    </Button>
-                  </div>
-                ) : null}
-                {isBoardView ? (
-                  <AgentQueueV2Board
-                    autorunArmed={
-                      queue.autorun.snapshot?.isActive ??
-                      (queue.autonomous.status === "running" ||
-                        queue.autonomous.status === "stopping")
-                    }
-                    globalExecutionState={queue.foundation.globalExecutionState}
-                    isSelecting={isSelecting}
-                    onRequestNewTask={openCreateTaskDialog}
-                    onSelectTask={(queueItemId) => void selectTask(queueItemId)}
-                    pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
-                    queue={queue}
-                    selectedTask={selectedTask}
-                    tasks={tasks}
-                    workers={queue.foundation.workers}
-                  />
-                ) : (
-                  <AgentQueueFlowMap
-                    dependencyStates={queue.dependencyStates}
-                    embeddedExecutor={queue.foundation.embeddedExecutor}
-                    isSelecting={isSelecting}
-                    onSelectTask={(queueItemId) => void selectTask(queueItemId)}
-                    pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
-                    routingStates={queue.assignedWorkerRoutingStates}
-                    schedulerPlan={queue.foundation.schedulerPlan}
-                    selectedTask={selectedTask}
-                    tasks={tasks}
-                    queueTags={queue.foundation.queueTags}
-                    workers={queue.foundation.workers}
-                  />
-                )}
-              </div>
-            }
-          />
+          <div className="agent-queue-main-surface">
+            <AgentQueueV2Board
+              autorunArmed={
+                queue.autorun.snapshot?.isActive ??
+                (queue.autonomous.status === "running" ||
+                  queue.autonomous.status === "stopping")
+              }
+              globalExecutionState={queue.foundation.globalExecutionState}
+              isSelecting={isSelecting}
+              onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+              onCreateSkill={onCreateSkill}
+              onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+              onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
+              onRequestNewTask={openCreateTaskDialog}
+              onSelectTask={(queueItemId) => void selectTask(queueItemId)}
+              onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+              pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
+              queue={queue}
+              selectedTask={selectedTask}
+              tasks={tasks}
+              workers={queue.foundation.workers}
+            />
+          </div>
         )}
         {isCreateDialogOpen ? (
           <AgentQueueNewTaskDialog

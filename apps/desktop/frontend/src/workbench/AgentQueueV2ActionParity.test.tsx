@@ -115,7 +115,10 @@ describe("Agent QueueV2 action parity", () => {
 
     clickQueueV2Action("View report");
     expect(document.querySelector("[role='tabpanel']")?.textContent).toContain(
-      "Output summary",
+      "Result / Evidence",
+    );
+    expect(document.querySelector("[role='tabpanel']")?.textContent).toContain(
+      "No-change report ready for review.",
     );
 
     await clickQueueV2ActionAsync("Accept without commit");

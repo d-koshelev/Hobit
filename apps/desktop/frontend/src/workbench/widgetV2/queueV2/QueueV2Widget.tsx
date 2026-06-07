@@ -52,11 +52,11 @@ export function QueueV2Widget({
     <WidgetV2Shell
       status={{
         detail:
-          "Experimental Widget V2 board. It is not catalog-available and does not replace Agent Queue V1.",
-        label: "Experimental",
-        tone: "warning",
+          "QueueV2 is the normal Agent Queue visual surface through the saved Agent Queue widget identity.",
+        label: "Current",
+        tone: "ready",
       }}
-      subtitle="Frontend-only Queue v2 board. No task mutation or execution actions are wired."
+      subtitle="Frontend-only QueueV2 shell. Normal Queue actions are wired through the saved Agent Queue widget."
       title={queueV2Manifest?.title ?? "Agent Queue v2"}
     >
       <WidgetV2Toolbar label="Agent Queue v2 command bar">
