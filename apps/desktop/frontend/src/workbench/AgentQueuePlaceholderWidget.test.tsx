@@ -35,7 +35,7 @@ afterEach(() => {
 });
 
 describe("AgentQueuePlaceholderWidget single-surface UX", () => {
-  it("shows Flow Map as the only user-facing mode with selected-task run controls", async () => {
+  it("shows Queue Board v2 with selected-task run controls and keeps Flow Map available", async () => {
     const task = queueTask();
     const onStartAssignedAgentQueueTask = vi.fn();
 
@@ -46,14 +46,128 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     });
     await flushRender();
 
-    expect(document.body.textContent).toContain("Flow map");
-    expect(document.body.textContent).not.toContain("Table/list");
-    expect(document.body.textContent).not.toContain("Agent Queue view mode");
+    expect(document.body.textContent).toContain("Queue Board");
+    expect(document.querySelector("[aria-label='Agent Queue view mode']")).not.toBeNull();
+    expect(document.querySelector("[aria-label='Queue v2 board']")).not.toBeNull();
     expect(document.body.textContent).toContain("Overview");
     expect(document.body.textContent).toContain("Prompt");
     expect(document.body.textContent).toContain("Actions and settings");
     expect(document.body.textContent).toContain("Run selected task");
     expect(detailsBySummary("Execution settings")?.open).toBe(true);
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+
+    clickButton("Flow Map");
+    await flushRender();
+
+    expect(document.body.textContent).toContain("Flow map");
+    expect(document.querySelector("[aria-label='Agent Queue flow map']")).not.toBeNull();
+    expect(document.body.textContent).toContain("Run selected task");
+  });
+
+  it("renders Queue v2 lanes and compact cards from the view model", async () => {
+    const tasks = [
+      queueTask({
+        queueItemId: "draft-task",
+        status: "draft",
+        title: "Draft intake task",
+        prompt: "",
+      }),
+      queueTask({
+        queueItemId: "ready-task",
+        status: "ready",
+        title: "Ready task",
+        context: queueContext(2, 1),
+      }),
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        queueItemId: "running-task",
+        status: "running",
+        title: "Running task",
+      }),
+      queueTask({
+        queueItemId: "reported-task",
+        status: "completed",
+        title: "Report ready task",
+        workerExecutionReports: [workerReport({ summary: "Report is available." })],
+      }),
+      queueTask({
+        queueItemId: "blocked-task",
+        status: "failed",
+        title: "Blocked task",
+      }),
+      queueTask({
+        closureState: "no_change_accepted",
+        queueItemId: "closed-task",
+        status: "completed",
+        title: "Closed task",
+      }),
+    ];
+
+    renderQueueWidget({
+      onGetAgentQueueTask: async (queueItemId) =>
+        tasks.find((task) => task.queueItemId === queueItemId) ?? tasks[0],
+      onListAgentQueueTasks: async () => tasks,
+    });
+    await flushRender();
+    clickButton("Enable");
+    await flushRender();
+
+    for (const lane of [
+      "Intake / Draft lane",
+      "Ready lane",
+      "Running lane",
+      "Review lane",
+      "Blocked lane",
+      "Closed lane",
+    ]) {
+      expect(document.querySelector(`[aria-label="${lane}"]`)).not.toBeNull();
+    }
+
+    expect(cardByTaskId("draft-task")?.textContent).toContain("Draft intake task");
+    expect(cardByTaskId("draft-task")?.textContent).toContain("Edit draft");
+    expect(cardByTaskId("ready-task")?.textContent).toContain("Ready task");
+    expect(cardByTaskId("ready-task")?.textContent).toContain("Run now");
+    expect(cardByTaskId("ready-task")?.textContent).toContain(
+      "3 Knowledge / attachments",
+    );
+    expect(cardByTaskId("running-task")?.textContent).toContain("Worker executor-1");
+    expect(cardByTaskId("reported-task")?.getAttribute("data-queue-v2-lane")).toBe(
+      "review",
+    );
+    expect(cardByTaskId("reported-task")?.textContent).toContain("Review report");
+    expect(cardByTaskId("reported-task")?.textContent).not.toContain(
+      "Report is available.",
+    );
+    expect(
+      document.querySelector("[aria-label='Queue v2 board']")?.textContent,
+    ).not.toContain("Run the selected task from Queue.");
+  });
+
+  it("selects a Queue v2 card without reordering cards or starting work", async () => {
+    const tasks = [
+      queueTask({ queueItemId: "first-task", title: "First task" }),
+      queueTask({ queueItemId: "second-task", title: "Second task" }),
+      queueTask({ queueItemId: "third-task", title: "Third task" }),
+    ];
+    const onStartAssignedAgentQueueTask = vi.fn();
+
+    renderQueueWidget({
+      onGetAgentQueueTask: async (queueItemId) =>
+        tasks.find((task) => task.queueItemId === queueItemId) ?? tasks[0],
+      onListAgentQueueTasks: async () => tasks,
+      onStartAssignedAgentQueueTask,
+    });
+    await flushRender();
+
+    const beforeOrder = boardCardIds();
+    await clickCardAsync("second-task");
+    await flushRender();
+    await flushRender();
+
+    expect(boardCardIds()).toEqual(beforeOrder);
+    expect(cardByTaskId("second-task")?.getAttribute("aria-current")).toBe("true");
+    expect(document.body.textContent).toContain("Second task");
+    expect(document.body.textContent).toContain("Run selected task");
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
   });
 
@@ -641,6 +755,33 @@ function buttonByText(text: string) {
   );
 }
 
+function cardByTaskId(queueItemId: string) {
+  return document.querySelector<HTMLButtonElement>(
+    `[data-queue-item-id="${queueItemId}"]`,
+  );
+}
+
+function boardCardIds() {
+  return Array.from(
+    document.querySelectorAll<HTMLButtonElement>(
+      "[aria-label='Queue v2 board'] [data-queue-item-id]",
+    ),
+  ).map((card) => card.dataset.queueItemId);
+}
+
+async function clickCardAsync(queueItemId: string) {
+  const card = cardByTaskId(queueItemId);
+
+  if (!card || card.disabled) {
+    throw new Error(`Enabled card not found: ${queueItemId}`);
+  }
+
+  await act(async () => {
+    card.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 async function clickButtonAsync(text: string) {
   const button = buttonByText(text);
 
@@ -812,6 +953,42 @@ function widgetActions(
     updateWidgetState: vi.fn(),
     ...overrides,
   } as unknown as WorkbenchWidgetInstanceActions;
+}
+
+function queueContext(knowledgeCount: number, skillCount: number) {
+  return {
+    attachedKnowledgeRefs: Array.from({ length: knowledgeCount }, (_, index) =>
+      queueContextRef(`doc-${index + 1}`, "knowledge_document"),
+    ),
+    attachedSkillRefs: Array.from({ length: skillCount }, (_, index) =>
+      queueContextRef(`skill-${index + 1}`, "skill"),
+    ),
+    attachedKnowledgeSnapshots: [],
+    contextTokenBudget: {
+      estimatedTokens: 100,
+      maxTokens: 1600,
+      overBudget: false,
+    },
+    contextWarnings: [],
+    materializedAt: null,
+  } satisfies NonNullable<AgentQueueTask["context"]>;
+}
+
+function queueContextRef(
+  id: string,
+  kind: NonNullable<AgentQueueTask["context"]>["attachedKnowledgeRefs"][number]["kind"],
+) {
+  return {
+    attachedAt: "2026-05-22T10:00:00.000Z",
+    id,
+    kind,
+    quickSummary: "Context summary",
+    scope: "workspace",
+    source: "Workspace",
+    status: "active",
+    title: id,
+    version: "1",
+  };
 }
 
 function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {

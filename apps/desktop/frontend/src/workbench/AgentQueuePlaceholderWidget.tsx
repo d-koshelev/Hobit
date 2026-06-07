@@ -10,6 +10,7 @@ import {
 } from "./AgentQueueNewTaskDialog";
 import { AgentQueueSidebar } from "./AgentQueueSidebar";
 import { AgentQueueTaskDetailsPanel } from "./AgentQueueTaskDetailsPanel";
+import { AgentQueueV2Board } from "./AgentQueueV2Board";
 import { AgentQueueWidgetStatusBadge } from "./AgentQueueWidgetStatusBadge";
 import {
   emptyDraft,
@@ -33,6 +34,8 @@ import {
 import type { WidgetRenderProps } from "./types";
 
 export const DEFAULT_AGENT_QUEUE_VIEW_MODE = "flow";
+const QUEUE_V2_BOARD_ENABLED = true;
+type AgentQueueViewMode = "board-v2" | "flow";
 
 export function AgentQueuePlaceholderWidget({
   frameActions,
@@ -82,6 +85,9 @@ export function AgentQueuePlaceholderWidget({
     useState<AgentQueueNewTaskRunSetup>(() => defaultCreateRunSetup());
   const [createDialogError, setCreateDialogError] = useState<string | null>(
     null,
+  );
+  const [viewMode, setViewMode] = useState<AgentQueueViewMode>(
+    QUEUE_V2_BOARD_ENABLED ? "board-v2" : DEFAULT_AGENT_QUEUE_VIEW_MODE,
   );
   const queue = agentQueueController as AgentQueueController;
   const queueOwnedExecutorSlots = agentQueueController?.agentExecutorSlots ?? agentExecutorSlots;
@@ -144,6 +150,7 @@ export function AgentQueuePlaceholderWidget({
     loadError,
   });
   const selectedTaskHint = selectedTask ? taskPreview(selectedTask) : "";
+  const isBoardView = QUEUE_V2_BOARD_ENABLED && viewMode === "board-v2";
 
   function updateCreateDraft(nextDraft: Partial<TaskDraft>) {
     setCreateDraft((currentDraft) => ({
@@ -280,19 +287,60 @@ export function AgentQueuePlaceholderWidget({
               />
             }
             taskList={
-              <AgentQueueFlowMap
-                dependencyStates={queue.dependencyStates}
-                embeddedExecutor={queue.foundation.embeddedExecutor}
-                isSelecting={isSelecting}
-                onSelectTask={(queueItemId) => void selectTask(queueItemId)}
-                pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
-                routingStates={queue.assignedWorkerRoutingStates}
-                schedulerPlan={queue.foundation.schedulerPlan}
-                selectedTask={selectedTask}
-                tasks={tasks}
-                queueTags={queue.foundation.queueTags}
-                workers={queue.foundation.workers}
-              />
+              <div className="agent-queue-main-surface">
+                {QUEUE_V2_BOARD_ENABLED ? (
+                  <div
+                    aria-label="Agent Queue view mode"
+                    className="agent-queue-view-toggle"
+                    role="group"
+                  >
+                    <Button
+                      aria-pressed={isBoardView}
+                      onClick={() => setViewMode("board-v2")}
+                      variant={isBoardView ? "primary" : "ghost"}
+                    >
+                      Board v2
+                    </Button>
+                    <Button
+                      aria-pressed={!isBoardView}
+                      onClick={() => setViewMode("flow")}
+                      variant={!isBoardView ? "primary" : "ghost"}
+                    >
+                      Flow Map
+                    </Button>
+                  </div>
+                ) : null}
+                {isBoardView ? (
+                  <AgentQueueV2Board
+                    autorunArmed={
+                      queue.autorun.snapshot?.isActive ??
+                      (queue.autonomous.status === "running" ||
+                        queue.autonomous.status === "stopping")
+                    }
+                    globalExecutionState={queue.foundation.globalExecutionState}
+                    isSelecting={isSelecting}
+                    onSelectTask={(queueItemId) => void selectTask(queueItemId)}
+                    pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
+                    selectedTask={selectedTask}
+                    tasks={tasks}
+                    workers={queue.foundation.workers}
+                  />
+                ) : (
+                  <AgentQueueFlowMap
+                    dependencyStates={queue.dependencyStates}
+                    embeddedExecutor={queue.foundation.embeddedExecutor}
+                    isSelecting={isSelecting}
+                    onSelectTask={(queueItemId) => void selectTask(queueItemId)}
+                    pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
+                    routingStates={queue.assignedWorkerRoutingStates}
+                    schedulerPlan={queue.foundation.schedulerPlan}
+                    selectedTask={selectedTask}
+                    tasks={tasks}
+                    queueTags={queue.foundation.queueTags}
+                    workers={queue.foundation.workers}
+                  />
+                )}
+              </div>
             }
           />
         )}
