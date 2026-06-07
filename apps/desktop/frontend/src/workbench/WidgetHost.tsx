@@ -41,6 +41,10 @@ import type {
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
+import {
+  createWidgetRuntimeContext,
+  WidgetRuntimeContextProvider,
+} from "./widgetRuntimeContext";
 import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import {
   AGENT_ACTIVITY_COMPONENT_KEY,
@@ -254,6 +258,15 @@ export function WidgetHost({
     widgetActions,
     workspaceQueueApi,
   });
+  const runtimeContext = createWidgetRuntimeContext({
+    definition,
+    instance,
+    logs: {
+      load: loadLogs,
+      refreshToken: logRefreshToken,
+    },
+    workspaceId,
+  });
 
   if (!Component) {
     return (
@@ -277,19 +290,21 @@ export function WidgetHost({
   }
 
   return (
-    <Component
-      config={{ ...definition.defaultConfig, ...instance.config }}
-      definition={definition}
-      frameActions={frameActions}
-      frameMoveEnabled={canMoveDockedWidget}
-      frameStyle={frameStyle}
-      instance={instance}
-      logRefreshToken={logRefreshToken}
-      {...renderProps}
-      onStartFrameMove={startDockedDrag}
-      title={title}
-      workspaceId={workspaceId}
-    />
+    <WidgetRuntimeContextProvider runtime={runtimeContext}>
+      <Component
+        config={{ ...definition.defaultConfig, ...instance.config }}
+        definition={definition}
+        frameActions={frameActions}
+        frameMoveEnabled={canMoveDockedWidget}
+        frameStyle={frameStyle}
+        instance={instance}
+        logRefreshToken={logRefreshToken}
+        {...renderProps}
+        onStartFrameMove={startDockedDrag}
+        title={title}
+        workspaceId={workspaceId}
+      />
+    </WidgetRuntimeContextProvider>
   );
 }
 
