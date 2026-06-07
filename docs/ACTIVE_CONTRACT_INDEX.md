@@ -431,6 +431,12 @@ the local executor flow visible to operators.
   dependency, review, inspector, and activity-drawer guidance. It does not add
   frontend behavior, backend/runtime behavior, storage/schema, scheduling,
   dependency execution, Git mutation, or hidden automation.
+- `docs/QUEUE_V2_STATE_MODEL.md` - docs-only Queue v2 lifecycle, closure,
+  dependency, eligibility, worker capacity, parallel run group, next action,
+  board lane, inspector snapshot, activity grouping, migration, and
+  implementation-block model. It does not add frontend behavior,
+  backend/runtime behavior, storage/schema, scheduling, dependency execution,
+  Git mutation, Terminal launch, or hidden automation.
 - `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` - manual assignment from
   Queue tasks to visible Agent Executor slots.
 - `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` - explicit manual run of an assigned
