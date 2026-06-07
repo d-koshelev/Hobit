@@ -260,6 +260,13 @@ unless the task explicitly requests it.
   safe next migrations, blocked areas, and recommended implementation blocks.
   It does not override the active unification contract or current widget
   surface.
+- `docs/WIDGET_V2_PLATFORM_CONTRACT.md` - docs-only Widget V2 platform
+  contract for future ideal widgets. It defines Widget V2 as a clean new
+  architecture, not a current widget migration; existing widgets remain V1 /
+  compatibility surfaces, with QueueV2 recommended as the first V2 pilot. It
+  does not add frontend UI, backend/Tauri commands, storage/schema,
+  WidgetHost rewrites, WorkspaceApi splits, runtime behavior, or current widget
+  migration.
 - `docs/WIDGET_RUNTIME_CONTEXT_STATUS.md` - docs-only status record for the
   Block 003 minimal WidgetRuntimeContext foundation and Knowledge / Skills
   pilot. It records compatibility status, focused tests, remaining host/canvas/
