@@ -56,7 +56,11 @@ describe("WidgetFrame logs", () => {
     expect(document.body.textContent).toContain("Logs");
     expect(document.body.textContent).toContain("Widget state saved");
     expect(container?.textContent).not.toContain("Widget state saved");
-    expect(document.querySelector(".popup-shell")).not.toBeNull();
+    const dialog = document.querySelector<HTMLElement>("[role='dialog']");
+    expect(dialog).not.toBeNull();
+    expect(dialog?.id).toBe(buttonWithText("Logs").getAttribute("aria-controls"));
+    expect(buttonWithText("Logs").getAttribute("aria-expanded")).toBe("true");
+    expect(dialog?.style.maxHeight).not.toBe("");
   });
 
   it("closes the logs popup on Escape or outside press and returns focus", async () => {
@@ -100,6 +104,7 @@ describe("WidgetFrame logs", () => {
     });
 
     expect(document.querySelector(".popup-shell")).toBeNull();
+    expect(logsButton.getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(logsButton);
 
     await act(async () => {
@@ -118,7 +123,64 @@ describe("WidgetFrame logs", () => {
     });
 
     expect(document.querySelector(".popup-shell")).toBeNull();
+    expect(logsButton.getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(logsButton);
+  });
+
+  it("shows widget log empty and error states inside the popup", async () => {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <WidgetFrame onLoadLogs={async () => []} title="Test Widget">
+          <p>Widget body</p>
+        </WidgetFrame>,
+      );
+    });
+
+    await act(async () => {
+      buttonWithText("Logs").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain("No widget logs yet.");
+
+    await act(async () => {
+      buttonWithText("Logs").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      root?.render(
+        <WidgetFrame
+          onLoadLogs={async () => {
+            throw new Error("Widget logs failed");
+          }}
+          title="Test Widget"
+        >
+          <p>Widget body</p>
+        </WidgetFrame>,
+      );
+    });
+
+    await act(async () => {
+      buttonWithText("Logs").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector("[role='alert']")?.textContent).toBe(
+      "Widget logs failed",
+    );
   });
 });
 

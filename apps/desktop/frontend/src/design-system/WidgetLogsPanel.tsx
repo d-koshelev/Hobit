@@ -4,7 +4,7 @@ import {
   capArrayToLast,
   cappedPreviewText,
 } from "../renderMemoryGuards";
-import { PopupShell } from "./PopupShell";
+import { WidgetPopupShell } from "./WidgetPopupShell";
 
 export type WidgetLogsPanelLogEntry = {
   id: string;
@@ -79,13 +79,13 @@ export function WidgetLogsPanel({
   }, [isOpen, logRefreshToken]);
 
   return (
-    <PopupShell
+    <WidgetPopupShell
       anchorRef={anchorRef}
       id={id}
       isOpen={isOpen}
-      labelId={titleId}
       onRequestClose={onClose}
       returnFocusRef={anchorRef}
+      titleId={titleId}
     >
       <h3 className="widget-log-title" data-popup-drag-handle id={titleId}>
         Logs
@@ -95,7 +95,7 @@ export function WidgetLogsPanel({
         isLoading={isLoadingLogs}
         logs={logEntries}
       />
-    </PopupShell>
+    </WidgetPopupShell>
   );
 }
 
