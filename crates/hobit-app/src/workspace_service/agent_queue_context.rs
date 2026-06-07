@@ -6,7 +6,10 @@ use crate::WorkspaceServiceError;
 mod prompt;
 mod safety;
 
-use prompt::{capped_snapshots_for_prompt, prompt_context_section, prompt_evidence_section};
+use prompt::{
+    blocked_context_reason, capped_snapshots_for_prompt, prompt_context_section,
+    prompt_evidence_section,
+};
 use safety::knowledge_content_warnings;
 
 use super::{
@@ -178,17 +181,13 @@ pub(super) fn materialize_queue_task_context_prompt(
         return Ok(None);
     }
 
-    let blocked_warnings = context
-        .context_warnings
-        .iter()
-        .filter(|warning| warning.severity == "blocked")
-        .map(|warning| warning.id.as_str())
-        .collect::<Vec<_>>();
-    if !blocked_warnings.is_empty() {
-        return Err(format!(
-            "queue task context has blocked warnings: {}",
-            blocked_warnings.join(", ")
-        ));
+    if let Some(reason) = blocked_context_reason(
+        &context.attached_knowledge_refs,
+        &context.attached_skill_refs,
+        &context.attached_knowledge_snapshots,
+        &context.context_warnings,
+    ) {
+        return Err(reason);
     }
 
     let snapshots = capped_snapshots_for_prompt(&context.attached_knowledge_snapshots);

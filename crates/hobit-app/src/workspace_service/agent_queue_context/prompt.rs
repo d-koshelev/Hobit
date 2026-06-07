@@ -1,9 +1,55 @@
 use hobit_storage_sqlite::AgentQueueTaskRow;
 
 use super::{
-    bounded_text, estimate_tokens, visible_value, QueueTaskContextSnapshot,
+    bounded_text, estimate_tokens, visible_value, QueueTaskContextRef, QueueTaskContextSnapshot,
     QueueTaskContextWarning, CONTEXT_CHAR_BUDGET,
 };
+
+pub(super) fn blocked_context_reason(
+    knowledge_refs: &[QueueTaskContextRef],
+    skill_refs: &[QueueTaskContextRef],
+    snapshots: &[QueueTaskContextSnapshot],
+    warnings: &[QueueTaskContextWarning],
+) -> Option<String> {
+    let blocked_warnings = warnings
+        .iter()
+        .filter(|warning| warning.severity == "blocked")
+        .map(|warning| warning.id.as_str())
+        .collect::<Vec<_>>();
+    if !blocked_warnings.is_empty() {
+        return Some(format!(
+            "queue task context has blocked warnings: {}",
+            blocked_warnings.join(", ")
+        ));
+    }
+
+    let blocked_refs = knowledge_refs
+        .iter()
+        .chain(skill_refs.iter())
+        .filter(|ref_item| is_blocked_ref(ref_item))
+        .map(|ref_item| format!("{}:{}", ref_item.kind, ref_item.id))
+        .collect::<Vec<_>>();
+    if !blocked_refs.is_empty() {
+        return Some(format!(
+            "queue task context has blocked refs: {}",
+            blocked_refs.join(", ")
+        ));
+    }
+
+    let blocked_snapshots = snapshots
+        .iter()
+        .filter(|snapshot| is_blocked_snapshot(snapshot))
+        .map(|snapshot| snapshot.id.as_str())
+        .collect::<Vec<_>>();
+    if !blocked_snapshots.is_empty() {
+        return Some(format!(
+            "queue task context has blocked snapshots: {}",
+            blocked_snapshots.join(", ")
+        ));
+    }
+
+    None
+}
 
 pub(super) fn prompt_context_section(snapshots: &[QueueTaskContextSnapshot]) -> String {
     let skills = snapshots
@@ -28,6 +74,18 @@ pub(super) fn prompt_context_section(snapshots: &[QueueTaskContextSnapshot]) -> 
         sections.extend(knowledge.into_iter().map(snapshot_prompt_block));
     }
     sections.join("\n\n")
+}
+
+fn is_blocked_ref(ref_item: &QueueTaskContextRef) -> bool {
+    ref_item.status == "rejected"
+        || ref_item.status == "disabled"
+        || (ref_item.kind == "skill" && ref_item.status == "deprecated")
+}
+
+fn is_blocked_snapshot(snapshot: &QueueTaskContextSnapshot) -> bool {
+    snapshot.status == "rejected"
+        || snapshot.status == "disabled"
+        || (snapshot.kind == "skill" && snapshot.status == "deprecated")
 }
 
 pub(super) fn prompt_evidence_section(

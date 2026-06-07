@@ -17,7 +17,6 @@ import {
   type AgentWorkerSummary,
 } from "../agentQueueTaskUiModel";
 import type { AgentQueueTaskStartRequest } from "../agentQueueTaskWidgetActions";
-import { materializeQueueExecutionPrompt } from "../agentQueueKnowledgeContext";
 import type { WidgetRenderProps } from "../types";
 import {
   isQueueRunnerActive,
@@ -240,12 +239,6 @@ export function useAgentQueueSequentialRunner({
       const request: AgentQueueTaskStartRequest = {
         approvalPolicy,
         codexExecutable,
-        materializedOperatorPrompt:
-          task.context &&
-          (task.context.attachedKnowledgeRefs.length > 0 ||
-            task.context.attachedSkillRefs.length > 0)
-            ? materializeQueueExecutionPrompt(task).materializedPrompt
-            : null,
         queueItemId: task.queueItemId,
         repoRoot,
         sandbox,

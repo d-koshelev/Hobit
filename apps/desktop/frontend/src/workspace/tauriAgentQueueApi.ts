@@ -301,7 +301,6 @@ export async function startAssignedAgentQueueTask(
         workspace_id: request.workspaceId,
         queue_item_id: request.queueItemId,
         queue_owner_widget_instance_id: request.queueOwnerWidgetInstanceId ?? null,
-        materialized_operator_prompt: request.materializedOperatorPrompt ?? null,
         codex_executable: request.codexExecutable,
         repo_root: request.repoRoot,
         sandbox: request.sandbox,

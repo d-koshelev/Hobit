@@ -842,11 +842,13 @@ describe("tauri workspace api adapter", () => {
       {
         request: expect.objectContaining({
           approval_policy: "never",
-          materialized_operator_prompt: null,
           queue_item_id: "queue_1",
           repo_root: "C:/repo",
         }),
       },
+    );
+    expect(mocks.invoke.mock.calls[1][1].request).not.toHaveProperty(
+      "materialized_operator_prompt",
     );
 
     await expect(

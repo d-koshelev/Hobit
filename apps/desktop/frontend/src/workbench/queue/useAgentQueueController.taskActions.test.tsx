@@ -210,7 +210,6 @@ describe("useAgentQueueController task actions", () => {
       {
         approvalPolicy: "never",
         codexExecutable: "codex.cmd",
-        materializedOperatorPrompt: null,
         queueItemId: "queue-1",
         queueOwnerWidgetInstanceId: undefined,
         repoRoot: "C:\\repo",
@@ -222,7 +221,7 @@ describe("useAgentQueueController task actions", () => {
     hook.unmount();
   });
 
-  it("starts assigned tasks with visible materialized Queue context before the stored prompt", async () => {
+  it("starts assigned tasks without sending frontend-materialized Queue context", async () => {
     const taskWithContext = attachContextToQueueTask(
       queueTask({
         assignedExecutorWidgetId: "executor-1",
@@ -264,20 +263,20 @@ describe("useAgentQueueController task actions", () => {
     });
 
     expect(harness.startRequests).toHaveLength(1);
-    expect(harness.startRequests[0].queueItemId).toBe("queue-1");
-    const materializedPrompt =
-      harness.startRequests[0].materializedOperatorPrompt ?? "";
-    expect(materializedPrompt.includes("Visible Skill Instructions")).toBe(true);
+    expect(harness.startRequests[0]).toEqual({
+      approvalPolicy: "never",
+      codexExecutable: "codex.cmd",
+      queueItemId: "queue-1",
+      queueOwnerWidgetInstanceId: undefined,
+      repoRoot: "C:\\repo",
+      sandbox: "read_only",
+    });
     expect(
-      materializedPrompt.indexOf("Knowledge / Skills context") <
-        materializedPrompt.indexOf("Run this local Hobit task"),
-    ).toBe(true);
-    expect(materializedPrompt.includes("Context used")).toBe(true);
-    expect(
-      materializedPrompt.includes(
-        "Context storage: visible prepared Queue task context.",
+      Object.prototype.hasOwnProperty.call(
+        harness.startRequests[0],
+        "materializedOperatorPrompt",
       ),
-    ).toBe(true);
+    ).toBe(false);
 
     hook.unmount();
   });
@@ -347,15 +346,11 @@ describe("useAgentQueueController task actions", () => {
 
     expect(harness.startRequests).toHaveLength(1);
     expect(
-      harness.startRequests[0].materializedOperatorPrompt?.includes(
-        "Durable snapshot body can be prepared before a visible run.",
+      Object.prototype.hasOwnProperty.call(
+        harness.startRequests[0],
+        "materializedOperatorPrompt",
       ),
-    ).toBe(true);
-    expect(
-      harness.startRequests[0].materializedOperatorPrompt?.includes(
-        "Context storage: visible prepared Queue task context.",
-      ),
-    ).toBe(true);
+    ).toBe(false);
     expect(harness.attachKnowledgeRequests).toHaveLength(1);
     expect(harness.autorunStartRequests).toHaveLength(0);
 

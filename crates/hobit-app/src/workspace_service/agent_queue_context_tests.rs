@@ -170,6 +170,26 @@ fn disabled_knowledge_attach_is_blocked() {
 }
 
 #[test]
+fn rejected_knowledge_attach_is_blocked() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+    let task = create_task(&service, &workspace.id);
+    let document = create_document(&service, &workspace.id, true, "rejected");
+
+    let error = service
+        .attach_knowledge_to_queue_task(AttachKnowledgeToQueueTaskInput {
+            workspace_id: workspace.id,
+            queue_item_id: task.queue_item_id,
+            knowledge_id: document.knowledge_document_id,
+        })
+        .expect_err("rejected knowledge blocked");
+
+    assert!(error
+        .to_string()
+        .contains("rejected Knowledge cannot attach"));
+}
+
+#[test]
 fn reviewed_skill_attach_persists_and_deprecated_skill_is_blocked() {
     let service = initialized_service();
     let workspace = create_workspace(&service, "Queue workspace");
@@ -197,6 +217,65 @@ fn reviewed_skill_attach_persists_and_deprecated_skill_is_blocked() {
         })
         .expect_err("deprecated skill blocked");
     assert!(error.to_string().contains("deprecated Skill cannot attach"));
+}
+
+#[test]
+fn materialization_blocks_rejected_persisted_context() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+    let task = create_task(&service, &workspace.id);
+    let context_json = serde_json::json!({
+        "attachedKnowledgeRefs": [{
+            "attachedAt": "2026-06-04T10:00:00.000Z",
+            "id": "doc-rejected",
+            "kind": "knowledge_document",
+            "quickSummary": "Rejected summary.",
+            "scope": "workspace-local",
+            "source": "Workspace document",
+            "status": "rejected",
+            "title": "Rejected docs",
+            "version": "1"
+        }],
+        "attachedSkillRefs": [],
+        "attachedKnowledgeSnapshots": [{
+            "capped": false,
+            "content": "Rejected content must not be used.",
+            "id": "snapshot:knowledge_document:doc-rejected:2026-06-04T10:00:00.000Z",
+            "kind": "knowledge_document",
+            "materializedAt": "2026-06-04T10:00:00.000Z",
+            "scope": "workspace-local",
+            "source": "Workspace document",
+            "sourceRefId": "doc-rejected",
+            "status": "rejected",
+            "title": "Rejected docs",
+            "tokenEstimate": 8,
+            "version": "1"
+        }],
+        "contextWarnings": [],
+        "contextTokenBudget": {
+            "estimatedTokens": 8,
+            "maxTokens": 1600,
+            "overBudget": false
+        },
+        "materializedAt": "2026-06-04T10:00:00.000Z"
+    })
+    .to_string();
+
+    service
+        .store
+        .update_agent_queue_task_context(
+            &workspace.id,
+            &task.queue_item_id,
+            Some(&context_json),
+            Some("2026-06-04T10:00:00.000Z"),
+        )
+        .expect("inject internal context");
+
+    let error = service
+        .materialize_agent_queue_task_context_prompt(&workspace.id, &task.queue_item_id)
+        .expect_err("rejected context blocked");
+
+    assert!(error.to_string().contains("blocked refs"));
 }
 
 #[test]

@@ -331,7 +331,6 @@ export type StartAssignedAgentQueueTaskRequest = Omit<
   RunCodexDirectWorkRequest,
   "workbenchId" | "widgetInstanceId" | "operatorPrompt"
 > & {
-  materializedOperatorPrompt?: string | null;
   queueItemId: string;
   queueOwnerWidgetInstanceId?: string;
 };

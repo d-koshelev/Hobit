@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use hobit_app::{AssignAgentQueueTaskToExecutorInput, CreateAgentQueueTaskInput, WorkspaceService};
 use hobit_storage_sqlite::{SqliteStore, WidgetRunFinishUpdate};
 
+mod context_materialization;
 #[test]
 fn default_runner_snapshot_is_idle_without_active_session() {
     let registry = QueueRunnerSessionRegistry::default();

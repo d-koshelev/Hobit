@@ -15,7 +15,6 @@ import type {
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
 } from "../../workspace/types";
-import { materializeQueueExecutionPrompt } from "../agentQueueKnowledgeContext";
 import {
   errorToMessage,
   normalizeItemType,
@@ -349,12 +348,6 @@ export function useAgentQueueAutonomousRunner({
       const response = await onStartAssignedAgentQueueTask({
         approvalPolicy: taskApprovalPolicy,
         codexExecutable: taskCodexExecutable,
-        materializedOperatorPrompt:
-          task.context &&
-          (task.context.attachedKnowledgeRefs.length > 0 ||
-            task.context.attachedSkillRefs.length > 0)
-            ? materializeQueueExecutionPrompt(task).materializedPrompt
-            : null,
         queueItemId: task.queueItemId,
         queueOwnerWidgetInstanceId: queueWidgetInstanceId,
         repoRoot: taskRepoRoot,

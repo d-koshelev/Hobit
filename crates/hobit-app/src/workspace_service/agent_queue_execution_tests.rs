@@ -62,21 +62,37 @@ fn assigned_queue_task_start_creates_direct_work_run_and_marks_running() {
 }
 
 #[test]
-fn assigned_queue_task_start_uses_visible_materialized_prompt_override() {
+fn assigned_queue_task_start_materializes_durable_context_on_backend() {
     let service = initialized_service();
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
     let task = create_task(&service, &workspace_id, "queued", "Stored task prompt.");
     assign_task(&service, &workspace_id, &task.queue_item_id, &executor_id);
-    let mut input = start_input(&workspace_id, &task.queue_item_id);
-    input.materialized_operator_prompt = Some(
-        "Knowledge / Skills context\nVisible Skill Instructions\n\nStored task prompt.".to_owned(),
-    );
+    let skill = service
+        .create_skill(CreateSkillInput {
+            workspace_id: workspace_id.clone(),
+            title: "Queue execution skill".to_owned(),
+            when_to_use: "Use for Queue context tests.".to_owned(),
+            prerequisites: "Read visible context first.".to_owned(),
+            steps: "Use the attached instructions.".to_owned(),
+            validation: "Run targeted validation.".to_owned(),
+            risks: "Keep context bounded.".to_owned(),
+            tags: "queue".to_owned(),
+            review_status: "reviewed".to_owned(),
+        })
+        .expect("create skill");
+    service
+        .attach_skill_to_queue_task(AttachSkillToQueueTaskInput {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: task.queue_item_id.clone(),
+            skill_id: skill.skill_id,
+        })
+        .expect("attach skill context");
 
     let plan = service
-        .prepare_assigned_agent_queue_task_run(input.clone())
+        .prepare_assigned_agent_queue_task_run(start_input(&workspace_id, &task.queue_item_id))
         .expect("prepare queue task run");
     let start = service
-        .start_assigned_agent_queue_task(input)
+        .start_assigned_agent_queue_task(start_input(&workspace_id, &task.queue_item_id))
         .expect("start queue task");
     let stored_task = service
         .get_agent_queue_task(&workspace_id, &task.queue_item_id)
@@ -91,19 +107,35 @@ fn assigned_queue_task_start_uses_visible_materialized_prompt_override() {
         serde_json::from_str(run.command_payload.as_deref().expect("command payload"))
             .expect("command payload JSON");
 
-    assert_eq!(
-        plan.direct_work_input.operator_prompt,
-        "Knowledge / Skills context\nVisible Skill Instructions\n\nStored task prompt."
-    );
-    assert_eq!(
-        start.direct_work_input.operator_prompt,
-        "Knowledge / Skills context\nVisible Skill Instructions\n\nStored task prompt."
-    );
+    assert!(plan
+        .direct_work_input
+        .operator_prompt
+        .starts_with("Knowledge / Skills context"));
+    assert!(plan
+        .direct_work_input
+        .operator_prompt
+        .contains("Visible Skill Instructions"));
+    assert!(plan
+        .direct_work_input
+        .operator_prompt
+        .contains("Stored task prompt."));
+    assert!(plan
+        .direct_work_input
+        .operator_prompt
+        .contains("Context used"));
+    assert!(start
+        .direct_work_input
+        .operator_prompt
+        .starts_with("Knowledge / Skills context"));
+    assert!(start
+        .direct_work_input
+        .operator_prompt
+        .contains("Context storage: durable Queue task context."));
     assert_eq!(stored_task.prompt, "Stored task prompt.");
-    assert_eq!(
-        command_payload["operator_prompt"],
-        "Knowledge / Skills context\nVisible Skill Instructions\n\nStored task prompt."
-    );
+    assert!(command_payload["operator_prompt"]
+        .as_str()
+        .expect("operator prompt")
+        .contains("Skill refs used:"));
 }
 
 #[test]
@@ -536,7 +568,6 @@ fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQue
         workspace_id: workspace_id.to_owned(),
         queue_item_id: queue_item_id.to_owned(),
         queue_owner_widget_instance_id: None,
-        materialized_operator_prompt: None,
         codex_executable: "codex".to_owned(),
         repo_root: std::env::current_dir().expect("current dir"),
         sandbox: "workspace_write".to_owned(),
