@@ -455,7 +455,11 @@ function scrollToDeveloperDetails() {
     return;
   }
 
-  document
-    .getElementById("agent-queue-developer-details")
-    ?.scrollIntoView({ block: "nearest" });
+  const detailsButton = document.getElementById("agent-queue-developer-details");
+
+  detailsButton?.scrollIntoView({ block: "nearest" });
+
+  if (detailsButton instanceof HTMLButtonElement) {
+    detailsButton.click();
+  }
 }

@@ -267,11 +267,15 @@ describe("AgentQueueTaskRunPanel settings and readiness", () => {
 
     expect(document.body.textContent).toContain("Overview");
     expect(document.body.textContent).toContain("Expanded queue detail");
+
+    clickFirstButton("Developer details");
+
     expect(document.body.textContent).toContain("Implementation");
     expect(document.body.textContent).toContain("Priority");
     expect(document.body.textContent).toContain("P1");
     expect(document.body.textContent).toContain("Executor");
     expect(document.body.textContent).toContain("Submitted metadata");
+    expect(document.querySelector("#agent-queue-developer-details-popup")).not.toBeNull();
     expect(document.body.textContent).toContain("Prompt");
     expect(document.body.textContent).toContain("Expected plan of work");
     expect(document.body.textContent).toContain("Approx. 1,000-2,000 tokens");
@@ -302,7 +306,8 @@ describe("AgentQueueTaskRunPanel settings and readiness", () => {
     expect(evidenceIndex).toBeGreaterThan(contextIndex);
     expect(activityIndex).toBeGreaterThan(evidenceIndex);
     expect(developerIndex).toBeGreaterThan(activityIndex);
-    expect(detailsBySummary("Developer details")?.open).toBe(false);
+    expect(buttonByText("Developer details")).toBeDefined();
+    expect(document.querySelector("#agent-queue-developer-details-popup")).toBeNull();
   });
 
   it("explains that a new draft prompt item needs a ready state before execution", () => {
@@ -375,6 +380,8 @@ describe("AgentQueueTaskRunPanel settings and readiness", () => {
       tasks: [staleTask],
     });
 
+    clickFirstButton("Developer details");
+
     expect(document.body.textContent).toContain("Plan stale");
     expect(document.body.textContent).toContain("This plan is stale.");
 
@@ -386,6 +393,8 @@ describe("AgentQueueTaskRunPanel settings and readiness", () => {
       selectedTask: noPlanTask,
       tasks: [noPlanTask],
     });
+
+    clickFirstButton("Developer details");
 
     expect(document.body.textContent).toContain("No expected plan has been generated.");
     expect(document.body.textContent).toContain("Generate plan preview");

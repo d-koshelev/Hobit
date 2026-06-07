@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   autonomousController,
+  buttonByText,
+  clickFirstButton,
   detailsBySummary,
   executionSectionText,
   latestRunController,
@@ -186,7 +188,6 @@ describe("AgentQueueTaskRunPanel running state", () => {
     const overviewText = sectionText("Selected task overview");
     const activityText = sectionText("Activity");
     const resultText = sectionText("Result / Evidence");
-    const developerDetails = detailsBySummary("Developer details");
 
     expect(overviewText).toContain("Agent is working on this task.");
     expect(overviewText).toContain("Running");
@@ -211,7 +212,12 @@ describe("AgentQueueTaskRunPanel running state", () => {
     expect(overviewText).not.toContain("Local executor unavailable");
     expect(activityText).not.toContain("Local executor unavailable");
     expect(resultText).not.toContain("Local executor unavailable");
-    expect(developerDetails?.open).toBe(false);
-    expect(developerDetails?.textContent).toContain("Raw Direct Work events");
+    expect(buttonByText("Developer details")).toBeDefined();
+    expect(document.querySelector("#agent-queue-developer-details-popup")).toBeNull();
+
+    clickFirstButton("Developer details");
+
+    expect(document.querySelector("#agent-queue-developer-details-popup")).not.toBeNull();
+    expect(document.body.textContent).toContain("Raw Direct Work events");
   });
 });

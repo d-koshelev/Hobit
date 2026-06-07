@@ -657,8 +657,6 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     const resultText = sectionText("Result / Evidence");
     const nextActionText = sectionText("Next action");
     const fullResponse = detailsBySummary("Full response");
-    const rawDirectWorkDetails = detailsBySummary("Raw Direct Work details");
-    const developerDetails = detailsBySummary("Developer details");
     const overviewIndex = document.body.textContent?.indexOf("Overview") ?? -1;
     const nextActionIndex =
       document.body.textContent?.indexOf("Next action") ?? -1;
@@ -707,14 +705,87 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     expect(activityText).toContain("Completed - final response received.");
     expect(activityText).toContain("Completed");
     expect(fullResponse).toBeUndefined();
+    expect(buttonByText("Developer details")).toBeDefined();
+    expect(document.querySelector("#agent-queue-developer-details-popup")).toBeNull();
+
+    clickFirstButton("Developer details");
+
+    const rawDirectWorkDetails = detailsBySummary("Raw Direct Work details");
+
+    expect(document.querySelector("#agent-queue-developer-details-popup")).not.toBeNull();
     expect(rawDirectWorkDetails?.open).toBe(false);
-    expect(developerDetails?.open).toBe(false);
     expect(overviewIndex).toBeGreaterThanOrEqual(0);
     expect(nextActionIndex).toBeGreaterThan(overviewIndex);
     expect(contextIndex).toBeGreaterThan(nextActionIndex);
     expect(resultIndex).toBeGreaterThan(contextIndex);
     expect(activityIndex).toBeGreaterThan(resultIndex);
     expect(developerIndex).toBeGreaterThan(activityIndex);
+  });
+
+  it("opens Queue developer details in the shared popup shell with raw details collapsed", async () => {
+    const selectedTask = {
+      ...queueTask(),
+      assignedExecutorWidgetId: null,
+      coordinatorStatus: "awaiting_coordinator_review" as const,
+      status: "completed" as const,
+      workerExecutionReports: [],
+    };
+
+    renderDetailsPanel({
+      latestRun: latestRunController(runLink({
+        directWorkRunId: "run_done_123456",
+        executorWidgetId: "queue_owned_executor",
+        reviewStatus: "review_needed",
+        status: "completed",
+      })),
+      runEvidence: runEvidenceController(runDetail({
+        finalMessage: "Final Direct Work response visible to coordinator.",
+        resultPayload: JSON.stringify({
+          changed_files: [],
+          raw_payload_marker: "developer raw payload",
+          status: "completed",
+        }),
+      })),
+      selectedTask,
+      tasks: [selectedTask],
+      workerReport: workerReportController(null),
+    });
+
+    const detailsButton = document.getElementById(
+      "agent-queue-developer-details",
+    ) as HTMLButtonElement | null;
+
+    expect(detailsButton).not.toBeNull();
+    expect(document.querySelector(".popup-shell")).toBeNull();
+    expect(document.body.textContent).not.toContain("Raw Direct Work events");
+
+    act(() => {
+      detailsButton?.focus();
+      detailsButton?.click();
+    });
+
+    const popup = document.querySelector<HTMLElement>(
+      "#agent-queue-developer-details-popup",
+    );
+    const rawDirectWorkDetails = detailsBySummary("Raw Direct Work details");
+
+    expect(popup).not.toBeNull();
+    expect(popup?.classList.contains("popup-shell")).toBe(true);
+    expect(popup?.textContent).toContain("Raw Direct Work events");
+    expect(rawDirectWorkDetails?.open).toBe(false);
+    expect(rawDirectWorkDetails?.textContent).not.toContain(
+      "developer raw payload",
+    );
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }),
+      );
+      await new Promise((resolve) => window.setTimeout(resolve, 0));
+    });
+
+    expect(document.querySelector(".popup-shell")).toBeNull();
+    expect(document.activeElement).toBe(detailsButton);
   });
 
   it("shows a short Direct Work final response fully in Result / Evidence", () => {
@@ -900,7 +971,8 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
     expect(document.body.textContent).not.toContain("Coordinator decision");
     expect(buttonByText("Accept result")).toBeUndefined();
     expect(buttonByText("Create follow-up")).toBeDefined();
-    expect(detailsBySummary("Developer details")?.open).toBe(false);
+    expect(buttonByText("Developer details")).toBeDefined();
+    expect(document.querySelector("#agent-queue-developer-details-popup")).toBeNull();
   });
 
   it("renders worker report evidence without finalizing the task", () => {
@@ -928,6 +1000,8 @@ describe("AgentQueueTaskRunPanel result and evidence", () => {
       tasks: [selectedTask],
       workerReport: workerReportController(report, onAttachDemoReport),
     });
+
+    clickFirstButton("Developer details");
 
     expect(document.body.textContent).toContain("Worker execution report");
     expect(document.body.textContent).toContain("Reported");

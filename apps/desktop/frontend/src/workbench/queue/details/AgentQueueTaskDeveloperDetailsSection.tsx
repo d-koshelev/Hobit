@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from "react";
+import { useId, useRef, useState, type ReactNode } from "react";
 import {
   AgentQueueTaskRunAdvancedDetails,
 } from "../../AgentQueueTaskRunPanel";
 import { Badge } from "../../../design-system/Badge";
 import { Button } from "../../../design-system/Button";
+import { WidgetPopupShell } from "../../../design-system/WidgetPopupShell";
 import {
   displayTaskTitle,
   normalizeItemType,
@@ -71,57 +72,107 @@ export function AgentQueueTaskDeveloperDetailsSection({
   taskEditMetadata?: ReactNode;
 }) {
   const queueTag = normalizeQueueTag(selectedTask);
+  const detailsButtonRef = useRef<HTMLButtonElement | null>(null);
+  const detailsTitleId = useId();
+  const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   return (
-    <details
-      className="agent-queue-details agent-queue-secondary-details agent-queue-internal-details"
-      id="agent-queue-developer-details"
-    >
-      <summary>Developer details</summary>
-      {showDiffReviewLinkage ? (
-        <DiffReviewLinkagePanel
-          onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-          queue={queue}
-        />
-      ) : null}
-      {showWorkerExecutionReport ? (
-        <WorkerExecutionReportPanel
-          onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-          queue={queue}
-        />
-      ) : null}
-      <AgentQueueTaskRunAdvancedDetails
-        autorun={queue.autorun}
-        dependencyState={queue.dependencyStates.get(selectedTask.queueItemId)}
-        executorSlots={agentExecutorSlots}
-        executionPlan={queue.executionPlan}
-        latestRun={queue.latestRun}
-        onAttachContextToCoordinator={onAttachContextToCoordinator}
-        onOpenAgentExecutorRun={onOpenAgentExecutorRun}
-        queueTag={queueTag}
-        queueTagSummary={queue.foundation.queueTags.find(
-          (tag) => tag.queueTagId === queueTag.queueTagId,
-        )}
-        routingBlockedLabel={
-          queue.assignedWorkerRoutingStates.get(selectedTask.queueItemId)
-            ?.canTake === false
-            ? queue.assignedWorkerRoutingStates.get(selectedTask.queueItemId)
-                ?.blockedReasons[0]?.label ?? null
-            : null
-        }
-        routingState={queue.assignedWorkerRoutingStates.get(
-          selectedTask.queueItemId,
-        )}
-        run={queue.run}
-        runHistory={queue.runHistory}
-        runner={queue.runner}
-        selectedTask={selectedTask}
-        wrapInDetails={false}
-      />
-      <RawRunActivityDetails queue={queue} />
-      {showSubmittedMetadata ? <SubmittedMetadata queue={queue} /> : null}
-      {taskEditMetadata}
-    </details>
+    <div className="agent-queue-popup-launcher">
+      <Button
+        aria-controls="agent-queue-developer-details-popup"
+        aria-expanded={isDetailsOpen}
+        id="agent-queue-developer-details"
+        onClick={() => setIsDetailsOpen((current) => !current)}
+        ref={detailsButtonRef}
+        variant="ghost"
+      >
+        Developer details
+      </Button>
+      <p className="agent-queue-run-note">
+        Advanced run, activity, raw, and task metadata are available without
+        expanding the selected-task layout.
+      </p>
+      <WidgetPopupShell
+        anchorRef={detailsButtonRef}
+        id="agent-queue-developer-details-popup"
+        isOpen={isDetailsOpen}
+        onRequestClose={() => setIsDetailsOpen(false)}
+        returnFocusRef={detailsButtonRef}
+        titleId={detailsTitleId}
+      >
+        <div
+          aria-label="Agent Queue developer details"
+          className="agent-queue-developer-details-popup"
+        >
+          <div className="agent-queue-popup-header">
+            <div>
+              <h3
+                className="agent-queue-popup-title"
+                data-popup-drag-handle
+                id={detailsTitleId}
+              >
+                Developer details
+              </h3>
+              <p className="agent-queue-run-note">
+                Secondary Queue diagnostics for the selected task. Raw sections
+                remain collapsed and capped.
+              </p>
+            </div>
+            <Button onClick={() => setIsDetailsOpen(false)} variant="ghost">
+              Close
+            </Button>
+          </div>
+          <div className="agent-queue-developer-details-popup-body">
+            {showDiffReviewLinkage ? (
+              <DiffReviewLinkagePanel
+                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+                queue={queue}
+              />
+            ) : null}
+            {showWorkerExecutionReport ? (
+              <WorkerExecutionReportPanel
+                onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+                queue={queue}
+              />
+            ) : null}
+            <AgentQueueTaskRunAdvancedDetails
+              autorun={queue.autorun}
+              dependencyState={queue.dependencyStates.get(
+                selectedTask.queueItemId,
+              )}
+              executorSlots={agentExecutorSlots}
+              executionPlan={queue.executionPlan}
+              latestRun={queue.latestRun}
+              onAttachContextToCoordinator={onAttachContextToCoordinator}
+              onOpenAgentExecutorRun={onOpenAgentExecutorRun}
+              queueTag={queueTag}
+              queueTagSummary={queue.foundation.queueTags.find(
+                (tag) => tag.queueTagId === queueTag.queueTagId,
+              )}
+              routingBlockedLabel={
+                queue.assignedWorkerRoutingStates.get(selectedTask.queueItemId)
+                  ?.canTake === false
+                  ? queue.assignedWorkerRoutingStates.get(
+                      selectedTask.queueItemId,
+                    )?.blockedReasons[0]?.label ?? null
+                  : null
+              }
+              routingState={queue.assignedWorkerRoutingStates.get(
+                selectedTask.queueItemId,
+              )}
+              run={queue.run}
+              runHistory={queue.runHistory}
+              runner={queue.runner}
+              selectedTask={selectedTask}
+              wrapInDetails={false}
+            />
+            <RawRunActivityDetails queue={queue} />
+            {showSubmittedMetadata ? <SubmittedMetadata queue={queue} /> : null}
+            {taskEditMetadata}
+          </div>
+        </div>
+      </WidgetPopupShell>
+    </div>
   );
 }
 
