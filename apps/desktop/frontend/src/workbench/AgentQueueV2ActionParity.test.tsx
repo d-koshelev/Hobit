@@ -59,6 +59,7 @@ describe("Agent QueueV2 action parity", () => {
     await flushRender();
 
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+    expect(dialogByName("Selected runnable task")).not.toBeNull();
 
     clickButton("Details");
     await flushRender();
@@ -72,6 +73,137 @@ describe("Agent QueueV2 action parity", () => {
         repoRoot: "C:\\repo",
         sandbox: "workspace_write",
       }),
+    );
+  });
+
+  it("opens task details from Details and renders popup tabs", async () => {
+    renderQueueWidget({
+      onGetAgentQueueTask: async () => queueTask({ title: "Details task" }),
+      onListAgentQueueTasks: async () => [
+        queueTask({
+          prompt: "Prompt tab text",
+          title: "Details task",
+          workerExecutionReports: [
+            workerReport({
+              changedFiles: ["src/queue-v2.ts"],
+              rawReportPreview: "raw developer preview",
+              summary: "Result summary",
+            }),
+          ],
+        }),
+      ],
+    });
+    await flushRender();
+
+    clickButton("Details");
+    await flushRender();
+
+    expect(dialogByName("Details task")).not.toBeNull();
+    await clickButtonAsync("Prompt");
+    expect(activePanel()?.textContent).toContain("Prompt tab text");
+    await clickButtonAsync("Result");
+    expect(activePanel()?.textContent).toContain("Result / Evidence");
+    await clickButtonAsync("Agent Log");
+    expect(activePanel()?.textContent).toContain("High-level task timeline");
+    await clickButtonAsync("Context");
+    expect(activePanel()?.textContent).toContain("Context");
+    await clickButtonAsync("Files / Validation");
+    expect(activePanel()?.textContent).toContain("Validation");
+    await clickButtonAsync("Developer");
+    expect(activePanel()?.textContent).toContain("Raw / developer details");
+  });
+
+  it("card click opens details without running or mutating the task order", async () => {
+    const onStartAssignedAgentQueueTask = vi.fn();
+    const onUpdateAgentQueueTask = vi.fn(async () => queueTask());
+
+    renderQueueWidget({
+      onListAgentQueueTasks: async () => [
+        queueTask({ queueItemId: "first", title: "First task" }),
+        queueTask({ queueItemId: "second", title: "Second task" }),
+      ],
+      onStartAssignedAgentQueueTask,
+      onUpdateAgentQueueTask,
+    });
+    await flushRender();
+
+    const orderBefore = visibleCardOrder();
+    await clickCardAsync("second");
+    await flushRender();
+
+    expect(dialogByName("Second task")).not.toBeNull();
+    expect(visibleCardOrder()).toEqual(orderBefore);
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+    expect(onUpdateAgentQueueTask).not.toHaveBeenCalled();
+  });
+
+  it("caps large intake lanes with overflow and keeps Closed collapsed by default", async () => {
+    const intakeTasks = Array.from({ length: 10 }, (_, index) =>
+      queueTask({
+        queueItemId: `intake-${index.toString()}`,
+        status: "draft",
+        title: `Intake task ${index.toString()}`,
+      }),
+    );
+    const closedTask = queueTask({
+      closureState: "no_change_accepted",
+      queueItemId: "closed-task",
+      status: "completed",
+      title: "Closed task",
+    });
+
+    renderQueueWidget({
+      onListAgentQueueTasks: async () => [...intakeTasks, closedTask],
+    });
+    await flushRender();
+
+    expect(sectionByName("Intake / Draft lane")?.textContent).toContain("+ 4 more");
+    expect(card("intake-9")).toBeNull();
+    expect(sectionByName("Closed lane")?.textContent).toContain("Closed");
+    expect(sectionByName("Closed lane")?.textContent).toContain("1");
+    expect(card("closed-task")).toBeNull();
+
+    await clickButtonAsync("+ 4 more");
+    expect(card("intake-9")).not.toBeNull();
+
+    await clickSummaryAsync("Closed");
+    expect(card("closed-task")).not.toBeNull();
+  });
+
+  it("groups running tasks by worker in the saved Agent Queue surface", async () => {
+    renderQueueWidget({
+      agentExecutorSlots: [
+        {
+          label: "Worker A",
+          widgetInstanceId: "worker-a",
+        },
+        {
+          label: "Worker B",
+          widgetInstanceId: "worker-b",
+        },
+      ],
+      onListAgentQueueTasks: async () => [
+        queueTask({
+          assignedExecutorWidgetId: "worker-a",
+          queueItemId: "run-a",
+          status: "running",
+          title: "Running A",
+        }),
+        queueTask({
+          assignedExecutorWidgetId: "worker-b",
+          queueItemId: "run-b",
+          status: "running",
+          title: "Running B",
+        }),
+      ],
+    });
+    await flushRender();
+
+    expect(sectionByName("Worker A running group")?.textContent).toContain(
+      "Online / 1/1 active",
+    );
+    expect(sectionByName("Worker B running group")?.textContent).toContain(
+      "Online / 1/1 active",
     );
   });
 
@@ -356,6 +488,19 @@ function clickButton(text: string) {
   });
 }
 
+async function clickButtonAsync(text: string) {
+  const button = buttonByText(text);
+
+  if (!button) {
+    throw new Error(`Button not found: ${text}`);
+  }
+
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 function buttonByText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.textContent === text,
@@ -408,6 +553,48 @@ async function clickCardAsync(queueItemId: string) {
     card.dispatchEvent(new MouseEvent("click", { bubbles: true }));
     await Promise.resolve();
   });
+}
+
+async function clickSummaryAsync(text: string) {
+  const summary = Array.from(document.querySelectorAll("summary")).find((item) =>
+    item.textContent?.includes(text),
+  );
+
+  if (!summary) {
+    throw new Error(`Summary not found: ${text}`);
+  }
+
+  await act(async () => {
+    summary.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    await Promise.resolve();
+  });
+}
+
+function activePanel() {
+  return document.querySelector<HTMLElement>("[role='tabpanel']");
+}
+
+function card(queueItemId: string) {
+  return document.querySelector<HTMLElement>(
+    `[data-queue-item-id="${queueItemId}"]`,
+  );
+}
+
+function dialogByName(name: string) {
+  return Array.from(document.querySelectorAll<HTMLElement>("[role='dialog']")).find(
+    (dialog) => dialog.textContent?.includes(name),
+  );
+}
+
+function sectionByName(name: string) {
+  return Array.from(document.querySelectorAll<HTMLElement>("section")).find(
+    (section) => section.getAttribute("aria-label") === name,
+  );
+}
+
+function visibleCardOrder() {
+  return Array.from(document.querySelectorAll<HTMLElement>("[data-task-order-id]"))
+    .map((element) => element.dataset.taskOrderId);
 }
 
 function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
