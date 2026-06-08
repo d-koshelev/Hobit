@@ -3,7 +3,7 @@
 ## Purpose
 
 This document records the implementation status after the Queue v2 visual
-implementation block.
+implementation block and later Agent Queue V1 replacement.
 
 It is a docs-only status record. It does not add frontend behavior,
 backend/runtime behavior, tests, storage/schema changes, scheduling, dependency
@@ -12,13 +12,13 @@ automation.
 
 ## Status
 
-Queue v2 now has an experimental frontend visual scaffold and board-first
-surface over the existing Queue v2 read/view model.
+QueueV2 is now the normal Agent Queue widget surface through the existing
+saved-widget-compatible Agent Queue identity.
 
-The implementation is visual and conservative. It organizes current Queue task
-data into a V2 presentation model without making Queue v2 the default Queue,
-without changing Agent Queue v1 behavior, and without adding new runtime,
-scheduler, backend, storage, Rust, or Tauri behavior.
+The implementation remains visual and conservative. It organizes current Queue
+task data into a V2 board-first presentation model without changing Queue
+runtime, scheduler, backend, storage, Rust, Tauri, Agent Executor, Knowledge,
+or API behavior.
 
 ## Visual Target Contract
 
@@ -43,15 +43,15 @@ The target is a board-first operating console for promoted Workspace tasks:
 
 ## Implemented Visual Surface
 
-### QueueV2 manifest and scaffold
+### QueueV2 surface
 
-- A `queue-v2` Widget V2 manifest/scaffold exists as an experimental frontend
-  surface.
-- The scaffold renders through Widget V2 shell primitives and labels itself as
-  a frontend-only Queue v2 board.
-- The scaffold states that no task mutation or execution actions are wired.
-- Queue v2 remains experimental and is not promoted to the normal product
-  catalog or default Workspace surface by this status record.
+- QueueV2 renders as the normal Agent Queue surface through the existing
+  Agent Queue widget identity.
+- Existing saved Agent Queue widgets still load and render QueueV2.
+- QueueV2 is not a separate catalog widget, optional product mode, or
+  experimental toggle.
+- The old V1 Flow Map, Board v2 / Flow Map toggle, dense task list, and old
+  permanent sidebar/right-rail shell are no longer normal Agent Queue UI.
 
 ### Board lanes and cards
 
@@ -94,9 +94,10 @@ The target is a board-first operating console for promoted Workspace tasks:
   Context, Files / Validation, and Developer.
 - The popup shows one primary next action from the view model, with lower-level
   technical detail kept in the Developer-oriented surfaces.
-- The current popup is a visual/details surface only. Real action wiring,
-  confirmation flows, mutation intents, and durable review/finalization remain
-  future blocks.
+- The popup preserves explicit operator actions where currently wired, such as
+  selected-task run/review/finalize flows, Knowledge context review, logs, new
+  task, and refresh. Opening the popup remains review/navigation by itself and
+  does not start or finalize work.
 - Move and resize behavior should be improved if the shared popup shell does
   not yet provide the intended movable/resizable details experience.
 
@@ -115,14 +116,13 @@ The target is a board-first operating console for promoted Workspace tasks:
 
 ## Safety Status
 
-Queue v2 visual implementation preserves the current operator-control
-boundary:
+QueueV2 visual replacement preserves the current operator-control boundary:
 
-- Agent Queue v1 behavior is unchanged.
-- Queue v2 is not the default Queue.
-- Queue v2 is not exposed in the normal Widget Catalog by this block.
+- QueueV2 is the normal Agent Queue surface.
+- Existing saved Agent Queue widgets still load through the existing identity.
+- The old V1 Flow Map toggle is absent from the normal UI.
 - No runtime, scheduler, backend, storage, Rust, or Tauri API changes were
-  introduced by this visual status record.
+  introduced by this visual replacement status.
 - No hidden execution was added.
 - No hidden auto-run or unarmed dispatch was added.
 - No automatic acceptance or finalization was added.
@@ -136,9 +136,6 @@ boundary:
 
 Recommended next work should remain explicit and focused:
 
-- Experimental mount path: add or verify a clearly dev/experimental-only mount
-  path if a safe one is not already present. Do not make Queue v2 default and
-  do not expose it in the normal Widget Catalog without a separate request.
 - Real action wiring behind explicit intents: wire actions only through
   explicit operator intents, confirmation-aware UI, and the approved Widget V2
   runtime-intent boundary. Do not wire run, commit, push, finalize,
@@ -160,14 +157,14 @@ Recommended next work should remain explicit and focused:
 
 ## Manual Smoke Checklist
 
-Use this checklist for the current experimental Queue v2 surface after the
+Use this checklist for the current Agent Queue / QueueV2 surface after the
 normal app can be opened in a development build:
 
-- Open a Workspace without changing the default Workspace surface.
-- Confirm Agent Queue v1 remains available and behaves as before.
-- Reach Queue v2 only through the intended experimental/dev path, not through
-  the normal Widget Catalog unless a later block explicitly changes that.
-- Confirm the Queue v2 surface renders a top command bar, left rail, main
+- Load an existing Workspace with a saved Agent Queue widget.
+- Confirm the saved Agent Queue widget renders QueueV2 and does not require
+  migration.
+- Create a new Agent Queue widget if the current Widget Catalog supports it.
+- Confirm the QueueV2 surface renders a top command bar, left rail, main
   board, collapsed activity/history area, and task details popup path.
 - Confirm lanes render as Intake / Draft, Ready, Running, Review, Blocked, and
   Closed.
@@ -182,6 +179,8 @@ normal app can be opened in a development build:
 - Confirm the task details popup opens from a selected card and includes
   Overview, Prompt, Result, Agent Log, Context, Files / Validation, and
   Developer tabs.
+- Confirm selected-task run, review, accept/no-change, Knowledge context, logs,
+  new task, and refresh remain explicit operator actions where currently wired.
 - Confirm raw logs/payloads are not visible on cards or in the default board
   scan.
 - Confirm the top bar and left rail show counts/capacity/armed state without
@@ -189,6 +188,8 @@ normal app can be opened in a development build:
 - Confirm disabled placeholder controls do not mutate tasks.
 - Confirm Autorun remains explicit armed/off state only and is not armed or
   started by Queue v2 visuals.
+- Confirm the old Board v2 / Flow Map toggle and old V1 Flow Map are absent
+  from the normal Agent Queue UI.
 - Confirm no task run, Agent Executor launch, Terminal launch, commit, push,
   finalization, destructive action, backend call, storage write, or scheduler
   behavior occurs from visual Queue v2 interactions.
@@ -196,5 +197,5 @@ normal app can be opened in a development build:
 ## Contract Notes
 
 This status record does not make planned Queue v2 behavior current. It records
-the visual implementation status and preserves the existing Agent Queue v1
-runtime and product boundaries.
+the visual implementation and replacement status while preserving existing
+Agent Queue runtime, backend, storage, API, Knowledge, and product boundaries.

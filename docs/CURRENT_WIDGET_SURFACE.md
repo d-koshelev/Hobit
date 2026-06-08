@@ -603,6 +603,10 @@ v0.1 product widget.
   routing, worker assignment, tag pause/resume, priority/order, manual run,
   Knowledge context, report review, and Autorun controls remain explicit
   operator actions through the QueueV2/details path where currently wired.
+- `docs/QUEUE_V2_REPLACE_V1_STATUS.md` records the replacement status:
+  QueueV2 is the Agent Queue surface, saved Agent Queue widgets still load,
+  the V1 Flow Map toggle is absent from normal UI, and runtime/backend/storage
+  behavior is unchanged.
 - Selected Queue item details now include an expanded work-item detail header
   with title, queue tag, item type, priority/order, execution status,
   validation status, submitted-record metadata, prompt preview, latest Worker

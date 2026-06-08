@@ -487,6 +487,12 @@ the local executor flow visible to operators.
   UI, and old dense sidebar/right-rail UI. It does not add frontend behavior,
   backend/runtime behavior, storage/schema changes, scheduling, dependency
   execution, Git mutation, Terminal launch, or hidden automation.
+- `docs/QUEUE_V2_REPLACE_V1_STATUS.md` - docs-only status record that QueueV2
+  is now the Agent Queue surface through the existing saved-widget-compatible
+  Agent Queue identity. It records that saved widgets still load, the V1 Flow
+  Map toggle is absent from normal UI, runtime/backend/storage/API behavior is
+  unchanged, explicit run/review/finalize/Knowledge/log/new-task/refresh flows
+  are preserved where wired, and old V1 visual paths are removed or deferred.
 - `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` - manual assignment from
   Queue tasks to visible Agent Executor slots.
 - `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` - explicit manual run of an assigned
