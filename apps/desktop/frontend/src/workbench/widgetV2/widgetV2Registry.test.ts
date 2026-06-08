@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  getWidgetDefinition,
+  INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
+  INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+} from "../widgetRegistry";
+import {
   getAvailableWidgetV2Manifests,
   getWidgetV2Manifest,
   validateWidgetV2Registry,
@@ -46,6 +51,31 @@ describe("Widget V2 registry", () => {
         .filter((manifest) => manifest.kind !== "queue-v2")
         .every((manifest) => manifest.status !== "available"),
     ).toBe(true);
+  });
+
+  it("keeps WorkspaceAgentV2 experimental and outside available manifests", () => {
+    expect(getWidgetV2Manifest("workspace-agent-v2")).toMatchObject({
+      kind: "workspace-agent-v2",
+      name: "WorkspaceAgentV2",
+      productOwnerDomain: "workspace-agent",
+      status: "experimental",
+      title: "Workspace Agent v2",
+    });
+    expect(
+      getAvailableWidgetV2Manifests().some(
+        (manifest) => manifest.kind === "workspace-agent-v2",
+      ),
+    ).toBe(false);
+  });
+
+  it("leaves the V1 Workspace Agent registry identity unchanged", () => {
+    expect(getWidgetDefinition(INTERACTIVE_AGENT_WIDGET_DEFINITION_ID)).toMatchObject({
+      componentKey: INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
+      defaultTitle: "Workspace Agent",
+      id: "interactive-agent",
+      title: "Workspace Agent",
+    });
+    expect(getWidgetDefinition("workspace-agent-v2")).toBeUndefined();
   });
 
   it("returns manifests by kind without using the V1 widget registry", () => {

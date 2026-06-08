@@ -77,8 +77,9 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
   {
     kind: "workspace-agent-v2",
     name: "WorkspaceAgentV2",
-    title: "Workspace Agent V2",
-    description: "Future foreground conversation and proposal review surface.",
+    title: "Workspace Agent v2",
+    description:
+      "Experimental foreground conversation and proposal review surface scaffold.",
     productRole:
       "Support operator conversation, visible context review, provider responses, and explicit work promotion.",
     capabilities: [
@@ -90,7 +91,7 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
     ],
     layoutKind: "operational",
     supportedLayoutKinds: ["minimal", "operational"],
-    status: "planned",
+    status: "experimental",
     productOwnerDomain: "workspace-agent",
     safetyBoundaries: [
       "No hidden context access.",
@@ -102,8 +103,17 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
     optionalPanelSlots: ["toolbar", "right-inspector", "bottom-drawer", "overlay"],
     domainBoundary: "Workspace Agent-owned conversation state and safe proposal drafts.",
     safeContextSummary: "Visible current-session context only.",
-    runtimeLimitations: ["No runtime provider capability is granted by the manifest."],
-    nonGoals: ["No Terminal control.", "No Git mutation.", "No JDBC execution."],
+    runtimeLimitations: [
+      "No runtime provider capability is granted by the manifest.",
+      "Not a normal production catalog item.",
+    ],
+    nonGoals: [
+      "No replacement of the V1 interactive-agent compatibility surface.",
+      "No Terminal control.",
+      "No Git mutation.",
+      "No JDBC execution.",
+      "No Queue task creation.",
+    ],
   },
   {
     kind: "terminal-v2",

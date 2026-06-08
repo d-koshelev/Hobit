@@ -39,3 +39,4 @@ export {
 export type { WidgetV2Registry } from "./widgetV2Registry";
 
 export { QueueV2Widget } from "./queueV2";
+export { WorkspaceAgentV2Widget } from "./workspaceAgentV2";
