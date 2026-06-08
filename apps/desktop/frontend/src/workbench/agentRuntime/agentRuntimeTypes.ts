@@ -151,4 +151,5 @@ export type AgentRunResult = {
   metadata: AgentRunMetadata;
   runId: string;
   validationSuggestions: readonly AgentValidationSuggestion[];
+  warnings?: readonly string[];
 };

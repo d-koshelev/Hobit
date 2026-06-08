@@ -198,6 +198,7 @@ export function workspaceAgentV2ResultTranscriptMessage(
     },
     role: "result",
     title: "Direct Run result",
+    result,
   };
 }
 

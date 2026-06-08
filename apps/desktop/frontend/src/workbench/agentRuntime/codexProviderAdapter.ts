@@ -220,7 +220,8 @@ export function mapDirectWorkFinalEventToAgentRunResult({
       workspaceId: request.workspaceId,
     },
     runId: finalEvent.runId,
-    validationSuggestions: warningSuggestions(warnings ?? []),
+    validationSuggestions: [],
+    warnings: warnings ?? [],
   };
 }
 
@@ -383,17 +384,6 @@ function messageFromDirectWorkEvent(event: DirectWorkStreamEvent) {
   );
 }
 
-function warningSuggestions(
-  warnings: readonly string[],
-) {
-  return warnings.map((warning, index) => ({
-    id: `codex-warning-${index + 1}`,
-    label: "Capability warning",
-    reason: warning,
-    status: "skipped" as const,
-  }));
-}
-
 function unsupportedResult(
   request: AgentRunRequest,
   warnings: readonly string[],
@@ -411,6 +401,7 @@ function unsupportedResult(
       workspaceId: request.workspaceId,
     },
     runId: request.id,
-    validationSuggestions: warningSuggestions(warnings),
+    validationSuggestions: [],
+    warnings,
   };
 }

@@ -94,13 +94,8 @@ describe("codexProviderAdapter", () => {
       fileChanges: [],
       lifecycle: "completed",
       runId: "run-1",
-      validationSuggestions: [
-        {
-          label: "Capability warning",
-          reason: "Changed-file summaries are unavailable.",
-          status: "skipped",
-        },
-      ],
+      validationSuggestions: [],
+      warnings: ["Changed-file summaries are unavailable."],
     });
     expect(result.metadata.tokenUsage).toEqual({
       inputTokens: 10,

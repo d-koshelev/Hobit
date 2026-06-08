@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import type { AgentRunResult } from "../../agentRuntime";
+import { WorkspaceAgentV2ResultCard } from "./WorkspaceAgentV2ResultCard";
 
 export type WorkspaceAgentV2MessageRole = "assistant" | "result" | "user";
 
@@ -17,6 +19,7 @@ export type WorkspaceAgentV2TranscriptMessage = {
   readonly id: string;
   readonly metadata?: WorkspaceAgentV2MessageMetadata;
   readonly role: WorkspaceAgentV2MessageRole;
+  readonly result?: AgentRunResult;
   readonly title?: string;
 };
 
@@ -72,6 +75,7 @@ export function WorkspaceAgentV2Message({
     <article
       aria-label={`${roleLabel} message`}
       className="workspace-agent-v2-message"
+      data-result-status={message.result?.lifecycle}
       data-role={message.role}
     >
       <header className="workspace-agent-v2-message-header">
@@ -80,8 +84,16 @@ export function WorkspaceAgentV2Message({
           <span className="workspace-agent-v2-message-title">{message.title}</span>
         ) : null}
       </header>
-      <div className="workspace-agent-v2-message-body">{message.body}</div>
-      <WorkspaceAgentV2MessageMetadataRow metadata={message.metadata} />
+      <div className="workspace-agent-v2-message-body">
+        {message.result ? (
+          <WorkspaceAgentV2ResultCard result={message.result} />
+        ) : (
+          message.body
+        )}
+      </div>
+      {message.result ? null : (
+        <WorkspaceAgentV2MessageMetadataRow metadata={message.metadata} />
+      )}
     </article>
   );
 }

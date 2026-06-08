@@ -205,9 +205,7 @@ export function useWorkspaceAgentV2DirectRun({
             );
             setWarnings((existing) => [
               ...existing,
-              ...handleOrResult.validationSuggestions.map(
-                (suggestion) => suggestion.reason,
-              ),
+              ...(handleOrResult.warnings ?? []),
             ]);
             setControllerStatus("unsupported");
             return;
@@ -237,6 +235,7 @@ export function useWorkspaceAgentV2DirectRun({
           },
           runId: requestId,
           validationSuggestions: [],
+          warnings: [],
         };
         setCurrentRunId(requestId);
         appendResult(failedResult);

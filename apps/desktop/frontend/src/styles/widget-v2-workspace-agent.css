@@ -15,6 +15,14 @@
   gap: var(--space-sm);
 }
 
+.workspace-agent-v2-result-card,
+.workspace-agent-v2-result-section,
+.workspace-agent-v2-result-list {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+}
+
 .workspace-agent-v2-transcript {
   align-content: start;
 }
@@ -183,6 +191,17 @@
 .workspace-agent-v2-message[data-role="result"] {
   border-color: var(--color-success);
   background: var(--color-success-soft);
+}
+
+.workspace-agent-v2-message[data-result-status="failed"],
+.workspace-agent-v2-message[data-result-status="blocked"] {
+  border-color: var(--color-error);
+  background: var(--color-widget-surface-raised);
+}
+
+.workspace-agent-v2-message[data-result-status="cancelled"] {
+  border-color: var(--color-warning);
+  background: var(--color-widget-surface-raised);
 }
 
 .workspace-agent-v2-message-header,
@@ -397,6 +416,157 @@
 
 .workspace-agent-v2-message-body p {
   margin: 0;
+}
+
+.workspace-agent-v2-result-card {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-io-surface);
+  padding: var(--space-sm);
+}
+
+.workspace-agent-v2-result-card[data-status="completed"] {
+  border-color: var(--color-success);
+}
+
+.workspace-agent-v2-result-card[data-status="failed"],
+.workspace-agent-v2-result-card[data-status="blocked"] {
+  border-color: var(--color-error);
+}
+
+.workspace-agent-v2-result-card[data-status="cancelled"] {
+  border-color: var(--color-warning);
+}
+
+.workspace-agent-v2-result-card-header,
+.workspace-agent-v2-result-meta,
+.workspace-agent-v2-result-list li {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.workspace-agent-v2-result-card-header {
+  justify-content: space-between;
+}
+
+.workspace-agent-v2-result-card-header h4,
+.workspace-agent-v2-result-card-header p,
+.workspace-agent-v2-result-section h5,
+.workspace-agent-v2-result-section p,
+.workspace-agent-v2-result-meta,
+.workspace-agent-v2-result-meta dt,
+.workspace-agent-v2-result-meta dd,
+.workspace-agent-v2-result-list {
+  margin: 0;
+}
+
+.workspace-agent-v2-result-card-header h4,
+.workspace-agent-v2-result-section h5 {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 740;
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-v2-result-card-header p,
+.workspace-agent-v2-result-section p,
+.workspace-agent-v2-result-meta dt,
+.workspace-agent-v2-result-list span,
+.workspace-agent-v2-result-list em {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.workspace-agent-v2-result-status {
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-pill);
+  padding: var(--scaled-space-2xs) var(--space-xs);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 740;
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-v2-result-status[data-status="completed"] {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.workspace-agent-v2-result-status[data-status="failed"],
+.workspace-agent-v2-result-status[data-status="blocked"] {
+  border-color: var(--color-error);
+  color: var(--color-error);
+}
+
+.workspace-agent-v2-result-status[data-status="cancelled"] {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.workspace-agent-v2-result-meta {
+  flex-wrap: wrap;
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-xs);
+}
+
+.workspace-agent-v2-result-meta div {
+  display: inline-flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: calc(4px * var(--ui-scale));
+}
+
+.workspace-agent-v2-result-meta dd,
+.workspace-agent-v2-result-list strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-agent-v2-result-list {
+  padding-left: 0;
+  list-style: none;
+}
+
+.workspace-agent-v2-result-list li {
+  flex-wrap: wrap;
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--scaled-space-2xs);
+}
+
+.workspace-agent-v2-result-list em {
+  overflow-wrap: anywhere;
+}
+
+.workspace-agent-v2-result-queue-follow-up.button {
+  justify-self: start;
+}
+
+.workspace-agent-v2-result-developer-details {
+  min-width: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-xs);
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.workspace-agent-v2-result-developer-details pre {
+  max-height: calc(180px * var(--ui-scale));
+  margin: var(--space-xs) 0 0;
+  overflow: auto;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  white-space: pre-wrap;
 }
 
 .workspace-agent-v2-message-metadata {
