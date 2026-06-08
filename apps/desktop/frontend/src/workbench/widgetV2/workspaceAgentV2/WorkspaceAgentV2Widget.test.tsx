@@ -3,6 +3,13 @@ import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type {
+  AgentRunRequest,
+  CodexAgentRuntimeAdapter,
+  CodexAgentRuntimeLaunchOptions,
+  CodexAgentRuntimeRunHandle,
+} from "../../agentRuntime";
+import { createCodexProviderCapabilities } from "../../agentRuntime";
 import { WorkspaceAgentV2Widget } from "./WorkspaceAgentV2Widget";
 
 let root: Root | null = null;
@@ -21,8 +28,14 @@ afterEach(() => {
 });
 
 describe("WorkspaceAgentV2Widget scaffold", () => {
-  it("renders the inert Workspace Agent v2 shell", async () => {
-    await render(<WorkspaceAgentV2Widget />);
+  it("renders the Workspace Agent v2 shell with Direct Run preflight", async () => {
+    await render(
+      <WorkspaceAgentV2Widget
+        directRunSupported
+        initialPrompt="Review this block."
+        workingDirectory="C:/repo"
+      />,
+    );
 
     expect(headingWithText("Workspace Agent v2")).not.toBeNull();
     expect(document.body.textContent).toContain("Experimental");
@@ -32,6 +45,12 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(document.body.textContent).toContain("Activity");
     expect(document.body.textContent).toContain("Direct Run");
     expect(document.body.textContent).toContain("Queue Run");
+    expect(document.body.textContent).toContain("Direct Run preflight");
+    expect(document.body.textContent).toContain("Provider");
+    expect(document.body.textContent).toContain("Codex");
+    expect(document.body.textContent).toContain("Working directory");
+    expect(document.body.textContent).toContain("C:/repo");
+    expect(document.body.textContent).toContain("No Hobit tools allowed");
     expect(
       regionByRoleAndName("toolbar", "Workspace Agent v2 provider and mode row"),
     ).not.toBeNull();
@@ -41,19 +60,22 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(
       regionByRoleAndName("complementary", "Workspace Agent v2 activity pane")
         ?.textContent,
-    ).toContain("No provider execution, streaming, Queue dispatch, or backend runtime is wired.");
+    ).toContain("No run activity");
     expect(
       regionByRoleAndName("region", "Workspace Agent v2 composer")?.textContent,
     ).toContain("New thread");
   });
 
-  it("exposes only inert Direct Run and Queue Run controls", async () => {
+  it("disables Direct Run for an empty prompt", async () => {
     await render(<WorkspaceAgentV2Widget />);
 
     expect(buttonWithText("Send")).toBeNull();
     expect(buttonWithText("Create Queue task")).toBeNull();
-    expect(buttonWithText("Direct Run")).not.toBeNull();
-    expect(buttonWithText("Queue Run")).not.toBeNull();
+    expect(buttonWithText("Direct Run")?.disabled).toBe(true);
+    expect(buttonWithText("Direct Run")?.title).toBe(
+      "Enter a prompt before starting Direct Run.",
+    );
+    expect(buttonWithText("Queue Run")?.disabled).toBe(true);
     expect(inputByLabel("Workspace Agent v2 prompt")?.disabled).toBe(false);
   });
 
@@ -72,22 +94,103 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(onQueueTaskCreate).not.toHaveBeenCalled();
   });
 
-  it("clicking run controls calls only the injected callbacks", async () => {
+  it("clicking Direct Run calls the controller provider once", async () => {
+    const adapter = adapterFixture();
     const onRunRequest = vi.fn();
-    const onQueueTaskCreate = vi.fn();
 
     await render(
       <WorkspaceAgentV2Widget
-        onQueueTaskCreate={onQueueTaskCreate}
+        adapter={adapter}
+        initialPrompt="Run visible V2 prompt."
         onRunRequest={onRunRequest}
+        workingDirectory="C:/repo"
       />,
     );
 
     await click(buttonWithText("Direct Run"));
-    await click(buttonWithText("Queue Run"));
 
     expect(onRunRequest).toHaveBeenCalledTimes(1);
-    expect(onQueueTaskCreate).toHaveBeenCalledTimes(1);
+    expect(adapter.startRun).toHaveBeenCalledTimes(1);
+    const [request, launchOptions] = adapter.startRun.mock.calls[0] as [
+      AgentRunRequest,
+      CodexAgentRuntimeLaunchOptions,
+    ];
+    expect(request.prompt).toBe("Run visible V2 prompt.");
+    expect(launchOptions.executionWorkspace).toBe("C:/repo");
+    expect(document.body.textContent).toContain("Run visible V2 prompt.");
+    expect(document.body.textContent).toContain("Visible context materialized");
+  });
+
+  it("Queue Run remains visible but does not create a task", async () => {
+    const onQueueTaskCreate = vi.fn();
+
+    await render(
+      <WorkspaceAgentV2Widget
+        directRunSupported
+        initialPrompt="Queue this later."
+        onQueueTaskCreate={onQueueTaskCreate}
+        workingDirectory="C:/repo"
+      />,
+    );
+
+    expect(buttonWithText("Queue Run")).not.toBeNull();
+    expect(buttonWithText("Queue Run")?.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      "Queue Run is not implemented in this Workspace Agent v2 block; no Queue task will be created.",
+    );
+
+    await click(buttonWithText("Queue Run"));
+
+    expect(onQueueTaskCreate).not.toHaveBeenCalled();
+  });
+
+  it("running state disables duplicate Direct Run starts", async () => {
+    const adapter = adapterFixture({
+      startRun: vi.fn(
+        async (): Promise<CodexAgentRuntimeRunHandle> => ({
+          runId: "run-running",
+          stopListening: vi.fn(),
+          warnings: [],
+        }),
+      ),
+    });
+
+    await render(
+      <WorkspaceAgentV2Widget
+        adapter={adapter}
+        initialPrompt="Run once."
+        workingDirectory="C:/repo"
+      />,
+    );
+
+    await click(buttonWithText("Direct Run"));
+
+    expect(buttonWithText("Direct Run running")?.disabled).toBe(true);
+    await click(buttonWithText("Direct Run running"));
+
+    expect(adapter.startRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders provider errors visibly", async () => {
+    const adapter = adapterFixture({
+      startRun: vi.fn(async () => {
+        throw new Error("provider unavailable");
+      }),
+    });
+
+    await render(
+      <WorkspaceAgentV2Widget
+        adapter={adapter}
+        initialPrompt="Fail visibly."
+        workingDirectory="C:/repo"
+      />,
+    );
+
+    await click(buttonWithText("Direct Run"));
+
+    expect(document.body.textContent).toContain("provider unavailable");
+    expect(document.body.textContent).toContain("Direct Run result");
+    expect(document.body.textContent).toContain("Failed");
   });
 });
 
@@ -127,8 +230,14 @@ function inputByLabel(label: string): HTMLTextAreaElement | null {
 
 async function click(element: HTMLElement | null) {
   expect(element).not.toBeNull();
+  if (element instanceof HTMLButtonElement && element.disabled) {
+    return;
+  }
   await act(async () => {
     element?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
   });
 }
 
@@ -138,4 +247,25 @@ function regionByRoleAndName(role: string, name: string): HTMLElement | null {
       (element) => element.getAttribute("aria-label") === name,
     ) ?? null
   );
+}
+
+function adapterFixture({
+  startRun,
+}: {
+  readonly startRun?: CodexAgentRuntimeAdapter["startRun"];
+} = {}): CodexAgentRuntimeAdapter & {
+  startRun: ReturnType<typeof vi.fn>;
+} {
+  return {
+    capabilities: createCodexProviderCapabilities({ supportsCancellation: true }),
+    cancelRun: vi.fn(async () => ({ supported: true, warnings: [] })),
+    startRun: vi.fn(
+      startRun ??
+        (async (): Promise<CodexAgentRuntimeRunHandle> => ({
+          runId: "run-1",
+          stopListening: vi.fn(),
+          warnings: [],
+        })),
+    ),
+  };
 }

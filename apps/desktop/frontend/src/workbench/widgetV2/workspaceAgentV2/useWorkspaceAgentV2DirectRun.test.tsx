@@ -151,7 +151,8 @@ describe("useWorkspaceAgentV2DirectRun", () => {
     await click(buttonWithText("Start direct run"));
 
     expect(textByTestId("status")).toBe("completed");
-    expect(textByTestId("transcript-count")).toBe("1");
+    expect(textByTestId("transcript-count")).toBe("2");
+    expect(textByTestId("transcript")).toContain("Run from explicit button.");
     expect(textByTestId("transcript")).toContain("Completed once.");
   });
 

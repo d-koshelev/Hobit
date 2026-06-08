@@ -201,6 +201,27 @@ export function workspaceAgentV2ResultTranscriptMessage(
   };
 }
 
+export function workspaceAgentV2UserPromptTranscriptMessage({
+  prompt,
+  providerId,
+  requestId,
+}: {
+  readonly prompt: string;
+  readonly providerId: string;
+  readonly requestId: string;
+}): WorkspaceAgentV2TranscriptMessage {
+  return {
+    body: prompt,
+    id: `direct-run-user:${requestId}`,
+    metadata: {
+      provider: providerId,
+      status: "started",
+    },
+    role: "user",
+    title: "Direct Run prompt",
+  };
+}
+
 export function isWorkspaceAgentV2DirectRunBusy(
   status: WorkspaceAgentV2DirectRunStatus,
 ) {

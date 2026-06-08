@@ -101,16 +101,26 @@ describe("WorkspaceAgentV2Transcript", () => {
 
 describe("WorkspaceAgentV2Composer", () => {
   it("renders Direct Run and Queue Run as first-class controls", async () => {
-    await render(<WorkspaceAgentV2Composer />);
+    await render(
+      <WorkspaceAgentV2Composer
+        preflightItems={[
+          { label: "Provider", value: "Codex" },
+          { label: "Mode", value: "Direct Run" },
+        ]}
+      />,
+    );
 
     expect(buttonWithText("Direct Run")).not.toBeNull();
     expect(buttonWithText("Queue Run")).not.toBeNull();
+    expect(buttonWithText("Queue Run")?.disabled).toBe(true);
     expect(inputByLabel("Workspace Agent v2 prompt")).not.toBeNull();
     expect(inputByLabel("Workspace Agent v2 provider and mode")).not.toBeNull();
     expect(document.body.textContent).toContain("New thread");
+    expect(document.body.textContent).toContain("Direct Run preflight");
+    expect(document.body.textContent).toContain("Codex");
   });
 
-  it("calls provided no-op test callbacks only when inert buttons are clicked", async () => {
+  it("calls Direct Run callback and keeps Queue Run inert", async () => {
     const onDirectRun = vi.fn();
     const onQueueRun = vi.fn();
 
@@ -128,7 +138,21 @@ describe("WorkspaceAgentV2Composer", () => {
     await click(buttonWithText("Queue Run"));
 
     expect(onDirectRun).toHaveBeenCalledTimes(1);
-    expect(onQueueRun).toHaveBeenCalledTimes(1);
+    expect(onQueueRun).not.toHaveBeenCalled();
+  });
+
+  it("disables Direct Run when requested with a visible reason", async () => {
+    await render(
+      <WorkspaceAgentV2Composer
+        directRunDisabled
+        directRunDisabledReason="Enter a prompt before starting Direct Run."
+      />,
+    );
+
+    expect(buttonWithText("Direct Run")?.disabled).toBe(true);
+    expect(buttonWithText("Direct Run")?.title).toBe(
+      "Enter a prompt before starting Direct Run.",
+    );
   });
 });
 
@@ -144,6 +168,9 @@ async function render(element: ReactNode) {
 
 async function click(element: HTMLElement | null) {
   expect(element).not.toBeNull();
+  if (element instanceof HTMLButtonElement && element.disabled) {
+    return;
+  }
   await act(async () => {
     element?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });

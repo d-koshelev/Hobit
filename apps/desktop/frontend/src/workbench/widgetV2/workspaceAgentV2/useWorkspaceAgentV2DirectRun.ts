@@ -20,6 +20,7 @@ import {
   workspaceAgentV2ContextMaterializedEvent,
   workspaceAgentV2ResultEvent,
   workspaceAgentV2ResultTranscriptMessage,
+  workspaceAgentV2UserPromptTranscriptMessage,
   type WorkspaceAgentV2DirectRunStatus,
 } from "./workspaceAgentV2DirectRunModel";
 
@@ -166,6 +167,14 @@ export function useWorkspaceAgentV2DirectRun({
         return;
       }
 
+      setTranscriptMessages((messages) => [
+        ...messages,
+        workspaceAgentV2UserPromptTranscriptMessage({
+          prompt: built.request.prompt,
+          providerId: built.request.providerId,
+          requestId,
+        }),
+      ]);
       setControllerStatus("materializing_context");
       appendEvent(
         workspaceAgentV2ContextMaterializedEvent({

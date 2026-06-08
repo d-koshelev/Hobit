@@ -1,26 +1,49 @@
 import type { ChangeEvent } from "react";
 
 type WorkspaceAgentV2ComposerProps = {
+  readonly directRunDisabled?: boolean;
+  readonly directRunDisabledReason?: string;
+  readonly directRunLabel?: string;
+  readonly errorMessage?: string | null;
   readonly newThread?: boolean;
   readonly onDirectRun?: () => void;
   readonly onNewThreadChange?: (newThread: boolean) => void;
   readonly onPromptChange?: (prompt: string) => void;
   readonly onQueueRun?: () => void;
+  readonly preflightItems?: readonly WorkspaceAgentV2PreflightItem[];
   readonly prompt?: string;
+  readonly queueRunDisabledReason?: string;
+  readonly warnings?: readonly string[];
 };
 
 type WorkspaceAgentV2RunControlsProps = {
+  readonly directRunDisabled?: boolean;
+  readonly directRunDisabledReason?: string;
+  readonly directRunLabel?: string;
   readonly onDirectRun?: () => void;
   readonly onQueueRun?: () => void;
+  readonly queueRunDisabledReason?: string;
+};
+
+export type WorkspaceAgentV2PreflightItem = {
+  readonly label: string;
+  readonly value: string;
 };
 
 export function WorkspaceAgentV2Composer({
+  directRunDisabled = false,
+  directRunDisabledReason,
+  directRunLabel,
+  errorMessage,
   newThread = false,
   onDirectRun,
   onNewThreadChange,
   onPromptChange,
   onQueueRun,
+  preflightItems = [],
   prompt = "",
+  queueRunDisabledReason = "Queue Run is not implemented in Workspace Agent v2 yet.",
+  warnings = [],
 }: WorkspaceAgentV2ComposerProps) {
   function handlePromptChange(event: ChangeEvent<HTMLTextAreaElement>) {
     onPromptChange?.(event.currentTarget.value);
@@ -79,17 +102,31 @@ export function WorkspaceAgentV2Composer({
           </button>
         </div>
         <WorkspaceAgentV2RunControls
+          directRunDisabled={directRunDisabled}
+          directRunDisabledReason={directRunDisabledReason}
+          directRunLabel={directRunLabel}
           onDirectRun={onDirectRun}
           onQueueRun={onQueueRun}
+          queueRunDisabledReason={queueRunDisabledReason}
         />
       </div>
+      <WorkspaceAgentV2PreflightSummary
+        errorMessage={errorMessage}
+        items={preflightItems}
+        queueRunDisabledReason={queueRunDisabledReason}
+        warnings={warnings}
+      />
     </section>
   );
 }
 
 export function WorkspaceAgentV2RunControls({
+  directRunDisabled = false,
+  directRunDisabledReason,
+  directRunLabel = "Direct Run",
   onDirectRun,
   onQueueRun,
+  queueRunDisabledReason = "Queue Run is not implemented in Workspace Agent v2 yet.",
 }: WorkspaceAgentV2RunControlsProps) {
   return (
     <div
@@ -99,18 +136,64 @@ export function WorkspaceAgentV2RunControls({
     >
       <button
         className="button button-primary workspace-agent-v2-run-button"
+        disabled={directRunDisabled}
         onClick={onDirectRun}
+        title={directRunDisabledReason}
         type="button"
       >
-        Direct Run
+        {directRunLabel}
       </button>
       <button
         className="button button-primary workspace-agent-v2-run-button workspace-agent-v2-run-button-queue"
+        disabled
         onClick={onQueueRun}
+        title={queueRunDisabledReason}
         type="button"
       >
         Queue Run
       </button>
     </div>
+  );
+}
+
+function WorkspaceAgentV2PreflightSummary({
+  errorMessage,
+  items,
+  queueRunDisabledReason,
+  warnings,
+}: {
+  readonly errorMessage?: string | null;
+  readonly items: readonly WorkspaceAgentV2PreflightItem[];
+  readonly queueRunDisabledReason: string;
+  readonly warnings: readonly string[];
+}) {
+  return (
+    <section
+      aria-label="Workspace Agent v2 Direct Run preflight"
+      className="workspace-agent-v2-preflight"
+    >
+      <div className="workspace-agent-v2-preflight-header">
+        <h3>Direct Run preflight</h3>
+        <p>{queueRunDisabledReason}</p>
+      </div>
+      <dl className="workspace-agent-v2-preflight-grid">
+        {items.map((item) => (
+          <div key={item.label}>
+            <dt>{item.label}</dt>
+            <dd>{item.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {warnings.length > 0 ? (
+        <ul className="workspace-agent-v2-preflight-warnings">
+          {warnings.map((warning) => (
+            <li key={warning}>{warning}</li>
+          ))}
+        </ul>
+      ) : null}
+      {errorMessage ? (
+        <p className="workspace-agent-v2-preflight-error">{errorMessage}</p>
+      ) : null}
+    </section>
   );
 }
