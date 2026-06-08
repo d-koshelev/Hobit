@@ -29,3 +29,18 @@ export type {
   AgentRunMetadataSummary,
   AgentRunRequestValidation,
 } from "./agentRuntimeModel";
+export {
+  CODEX_AGENT_PROVIDER_ID,
+  codexProviderCapabilityWarnings,
+  createCodexAgentRuntimeAdapter,
+  createCodexProviderCapabilities,
+  mapAgentRunRequestToCodexDirectWorkRequest,
+  mapDirectWorkFinalEventToAgentRunResult,
+  mapDirectWorkStreamEventToAgentRunEvent,
+} from "./codexProviderAdapter";
+export type {
+  CodexAgentRuntimeActions,
+  CodexAgentRuntimeAdapter,
+  CodexAgentRuntimeLaunchOptions,
+  CodexAgentRuntimeRunHandle,
+} from "./codexProviderAdapter";
