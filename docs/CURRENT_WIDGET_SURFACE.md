@@ -590,25 +590,19 @@ v0.1 product widget.
   an item. It is explanation-only: it does not claim items, start workers,
   launch Agent Executor/Codex, persist live worker state, run a background
   scheduler, or finalize item status.
-- The Queue widget has a Flow Map view alongside the existing table/list and
-  selected-task detail controls. Flow Map is a visual overview of queue tags,
-  dependency layers/barriers, the embedded Agent Executor section,
-  max/spare/working executor facts, spare/working executor blocks, worker
-  scopes, dry-run next/idle labels from the scheduler plan, compact
-  presentation-only executor-info boxes on work-item blocks, capacity
-  recommendations, and final result/report blocks grouped by tag. The Agent Executor
-  section reflects global
-  stopped/kill-requested state: spare executor blocks show "Queue is stopped"
-  or "STOP + KILL RUNNING requested" instead of a next item, and already
-  running blocks can show termination-request/coordinator-review copy without
-  implying that any process was killed. Work-item blocks can be clicked to select the
-  existing task detail panel, but the view does not start work, claim items,
-  schedule workers, launch Agent Executor, finalize status, persist live worker
-  process state, or change Queue Autorun,
-  Sequential Runner, Codex Direct Work, Agent Executor, or Workspace Agent
-  runtime behavior. The table/list view and all existing edit, dependency,
+- The normal Queue widget surface is QueueV2 through the existing saved
+  Agent Queue widget identity. It shows a board-first lane view, compact task
+  cards, summary counts, explicit selected-task details popup actions, and a
+  collapsed activity/detail drawer. The old Flow Map view, Board v2 / Flow Map
+  toggle, dense task list, and permanent sidebar/right-rail shell are no longer
+  the normal Agent Queue render path. Board cards can be clicked to select or
+  open details, but selection does not start work, claim items, schedule
+  workers, launch Agent Executor, finalize status, persist live worker process
+  state, or change Queue Autorun, Sequential Runner, Codex Direct Work, Agent
+  Executor, or Workspace Agent runtime behavior. Existing edit, dependency,
   routing, worker assignment, tag pause/resume, priority/order, manual run,
-  and Autorun controls remain available.
+  Knowledge context, report review, and Autorun controls remain explicit
+  operator actions through the QueueV2/details path where currently wired.
 - Selected Queue item details now include an expanded work-item detail header
   with title, queue tag, item type, priority/order, execution status,
   validation status, submitted-record metadata, prompt preview, latest Worker
@@ -655,8 +649,7 @@ v0.1 product widget.
   Autorun arming, and Sequential Queue Runner selection, but pause/resume never
   starts or stops real execution by itself.
 - Selected Queue tasks can show a structured Worker execution plan preview in
-  the detail/run surface, task list, worker dry-run sidebar, and Flow Map
-  metadata. The current preview is generated locally with deterministic
+  the QueueV2/details surface and related explicit review/action surfaces. The current preview is generated locally with deterministic
   heuristics from the Queue task title/details/prompt/type/dependencies and
   worker assignment metadata. It includes approximate steps, estimated token
   and time ranges, expected validation commands, likely files or areas when
@@ -675,8 +668,8 @@ v0.1 product widget.
   result, optional commit/Git status, warnings, errors, follow-up and rollback
   recommendations, and a collapsed raw preview. The current Queue UI can attach
   a deterministic model-only demo report from the selected item/plan and then
-  shows "Reported" / "Awaiting coordinator review" in the task details, task
-  row, worker sidebar, and Flow Map result/report area. Attaching a report does
+  shows "Reported" / "Awaiting coordinator review" in QueueV2/detail report
+  surfaces. Attaching a report does
   not start a worker, claim an item, launch Agent Executor/Codex, call a
   provider, run validation, mutate Git, persist live worker process state,
   create a follow-up automatically, execute rollback, or finalize item status.
@@ -698,7 +691,7 @@ v0.1 product widget.
   discussion, or coordinator decision. The prompt does not include
   provider/model/thinking runtime config. Source implementation rows/details
   show a "Diff review requested" marker and simple link when a linked review
-  item exists; Diff Review rows/details/Flow Map blocks show source item,
+  item exists; Diff Review board/details surfaces show source item,
   report/commit, and review target summary when available.
 - Workspace Chat Queue report action cards can explicitly create queued
   follow-up/sub-block or Diff Review items from the card. These create

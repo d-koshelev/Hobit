@@ -11,7 +11,7 @@ describe("agent queue execution plan model", () => {
       generatedAt: "2026-05-30T10:00:00.000Z",
       task: queueTask({
         prompt:
-          "Update apps/desktop/frontend/src/workbench/AgentQueueTaskList.tsx and add focused tests. Run npm.cmd run test --prefix apps/desktop/frontend.",
+          "Update apps/desktop/frontend/src/workbench/AgentQueueV2Board.tsx and add focused tests. Run npm.cmd run test --prefix apps/desktop/frontend.",
       }),
       workerId: "worker-1",
     });
@@ -27,7 +27,7 @@ describe("agent queue execution plan model", () => {
     expect(plan.estimatedMinutesMax >= plan.estimatedMinutesMin).toBe(true);
     expect(
       plan.likelyFilesOrAreas.includes(
-        "apps/desktop/frontend/src/workbench/AgentQueueTaskList.tsx",
+        "apps/desktop/frontend/src/workbench/AgentQueueV2Board.tsx",
       ),
     ).toBe(true);
     expect(

@@ -53,6 +53,7 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
       AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
     );
     expect(document.body.textContent).toContain("Queue Board");
+    expect(document.querySelector(".agent-queue-main-surface")).not.toBeNull();
     expect(document.querySelector("[aria-label='Queue v2 board']")).not.toBeNull();
     expect(document.querySelector("[aria-label='Agent Queue view mode']")).toBeNull();
     expect(document.querySelector("[aria-label='Agent Queue flow map']")).toBeNull();
@@ -324,6 +325,8 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
     clickButton("New task");
 
     expect(document.body.textContent).toContain("Run setup");
+    expect(document.querySelector(".agent-queue-editor-grid")).not.toBeNull();
+    expect(document.querySelector(".agent-queue-create-run-grid")).not.toBeNull();
     expect(document.body.textContent).toContain("Task settings");
     expect(document.body.textContent).toContain("Task workspace");
     expect(document.body.textContent).toContain("Codex executable");

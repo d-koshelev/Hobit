@@ -84,8 +84,9 @@ terminal cancelled tasks in `closed` only when no reviewable output exists.
 - `AgentQueueV2Board` is implemented as a visible Queue Board pane.
 - The board renders a compact command summary, lane columns, compact task
   cards, selected-card state, and a collapsed activity drawer shell.
-- The board is wired into the existing Agent Queue widget while keeping the
-  existing Flow Map available.
+- The board is wired into the existing Agent Queue widget as the normal Agent
+  Queue surface; the old Flow Map is no longer available in the normal render
+  path.
 - Cards expose lane and task identifiers for focused UI tests.
 
 ### Inspector snapshot foundation
@@ -104,8 +105,9 @@ terminal cancelled tasks in `closed` only when no reviewable output exists.
   report-ready and review-required safety, explicit-closure-only finalization,
   dependency/tag blockers, next-action derivation, counts, capacity,
   selected-task inspector snapshot, and input immutability.
-- Agent Queue widget tests cover the Queue Board v2 shell, selected-task run
-  controls integration, Flow Map availability, and lane/card rendering checks.
+- Agent Queue widget tests cover the QueueV2 board shell, selected-task run
+  controls integration, absence of the old Flow Map/toggle path, and lane/card
+  rendering checks.
 
 ## Remaining Work
 
@@ -160,7 +162,7 @@ validation is healthy:
 - Open a Workspace with Agent Queue available.
 - Add or create tasks in draft, queued/ready, running, completed/review,
   failed/blocked, and cancelled-like states where the current UI permits it.
-- Confirm Queue Board is visible and Flow Map remains available.
+- Confirm Queue Board is visible and the old Flow Map/toggle path is absent.
 - Confirm task cards appear in the expected Queue v2 lanes:
   `Intake / Draft`, `Ready`, `Running`, `Review`, `Blocked`, and `Closed`.
 - Confirm completed/report-ready work appears in `Review`, not `Closed`, until

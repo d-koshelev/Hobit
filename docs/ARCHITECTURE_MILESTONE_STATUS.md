@@ -119,23 +119,18 @@ behavior, or Workspace Agent context wiring.
   dependencies unblock only after the prerequisite is completed and
   coordinator-finalized/accepted. Follow-up/sub-block creation is explicit and
   queued. Rollback required is a marker/recommendation only.
-  The Queue widget also has a Flow Map view that visualizes queue tags,
-  dependency layers/barriers, the embedded Agent Executor section with
-  max/spare/working facts, executor lanes, spare executors with scheduler
-  dry-run next/idle labels or global stopped/kill-requested messages, running
-  executor blocks with termination-request/coordinator-review copy when
-  STOP + KILL RUNNING is active, capacity recommendations, and final
-  result/report blocks grouped by tag. The Flow Map is
-  frontend/model visualization only; it selects existing tasks for the detail
-  panel and does not add claiming, scheduling, hidden execution, worker
-  process persistence, worker-owned finalization, rollback execution, Agent
-  Executor runtime changes, Codex Direct Work changes, or Workspace Agent
-  behavior changes.
+  The Queue widget now uses QueueV2 as the normal board-first Agent Queue
+  surface through the existing saved widget identity. QueueV2 visualizes queue
+  lifecycle lanes, compact task cards, capacity/review summaries, explicit
+  selected-task details, and collapsed activity/detail surfaces without adding
+  claiming, scheduling, hidden execution, worker process persistence,
+  worker-owned finalization, rollback execution, Agent Executor runtime
+  changes, Codex Direct Work changes, or Workspace Agent behavior changes.
   Queue item details now include an expanded work-item panel with submitted
   metadata, prompt preview, expected plan metadata, worker execution report
   evidence, execution/report metadata, validation/review status, and a compact
   executor-info box derived from existing state. The executor-info box is
-  presentation-only. Opening details, clicking compact Flow Map/list items,
+  presentation-only. Opening details or clicking compact QueueV2 board items,
   attaching report evidence, generating plan metadata, or applying coordinator
   finalization markers does not start workers, claim items, launch Agent
   Executor/Codex, call providers, run validation, execute rollback, kill

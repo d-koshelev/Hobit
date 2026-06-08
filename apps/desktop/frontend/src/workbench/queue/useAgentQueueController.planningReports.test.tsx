@@ -570,7 +570,7 @@ describe("useAgentQueueController planning and reports", () => {
       queueTask({
         assignedExecutorWidgetId: "executor-1",
         prompt:
-          "Update apps/desktop/frontend/src/workbench/AgentQueueTaskList.tsx and run npm.cmd run test --prefix apps/desktop/frontend.",
+          "Update apps/desktop/frontend/src/workbench/AgentQueueV2Board.tsx and run npm.cmd run test --prefix apps/desktop/frontend.",
         queueItemId: "queue-1",
         status: "ready",
       }),
