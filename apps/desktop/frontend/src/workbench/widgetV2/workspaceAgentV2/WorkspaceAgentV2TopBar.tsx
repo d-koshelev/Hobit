@@ -6,11 +6,15 @@ export function WorkspaceAgentV2TopBar() {
       <dl>
         <div>
           <dt>Provider</dt>
-          <dd>Not connected</dd>
+          <dd>Codex</dd>
         </div>
         <div>
           <dt>Mode</dt>
-          <dd>Review only</dd>
+          <dd>Codex Direct Run only</dd>
+        </div>
+        <div>
+          <dt>Status</dt>
+          <dd>Experimental</dd>
         </div>
         <div>
           <dt>Tools</dt>

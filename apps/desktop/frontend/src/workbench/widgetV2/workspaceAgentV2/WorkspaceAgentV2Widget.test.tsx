@@ -39,8 +39,8 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
 
     expect(headingWithText("Workspace Agent v2")).not.toBeNull();
     expect(document.body.textContent).toContain("Experimental");
-    expect(document.body.textContent).toContain("Not connected");
-    expect(document.body.textContent).toContain("Review only");
+    expect(document.body.textContent).toContain("Codex");
+    expect(document.body.textContent).toContain("Codex Direct Run only");
     expect(document.body.textContent).toContain("Transcript");
     expect(document.body.textContent).toContain("Activity");
     expect(document.body.textContent).toContain("Direct Run");

@@ -10,12 +10,14 @@ Current dev smoke files:
 - `apps/desktop/frontend/smoke/dev/coordinator-provider-product-smoke.html`
 - `apps/desktop/frontend/smoke/dev/jdbc-read-only-ui-smoke.html`
 - `apps/desktop/frontend/smoke/dev/queue-executor-ui-smoke.html`
+- `apps/desktop/frontend/smoke/dev/workspace-agent-v2-direct-run-smoke.html`
 
 Use these Vite dev URLs:
 
 - `/smoke/dev/coordinator-provider-product-smoke.html`
 - `/smoke/dev/jdbc-read-only-ui-smoke.html`
 - `/smoke/dev/queue-executor-ui-smoke.html`
+- `/smoke/dev/workspace-agent-v2-direct-run-smoke.html`
 
 Current product smoke checklists, smoke checklist discipline, and optional e2e
 automation are separate work. See:
