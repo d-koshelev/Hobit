@@ -244,28 +244,41 @@ function QueueV2ClosedLane({
       aria-label="Closed lane"
       className="queue-v2-lane queue-v2-closed-lane"
       data-queue-v2-lane="closed"
+      data-queue-v2-history-block={isExpanded ? "expanded" : "collapsed"}
       role="listitem"
     >
       <details
         open={isExpanded}
       >
         <summary
+          aria-label={
+            isExpanded
+              ? `Hide closed tasks, ${items.length.toString()} closed`
+              : `View closed tasks, ${items.length.toString()} closed`
+          }
           onClick={(event) => {
             event.preventDefault();
             setIsExpanded((current) => !current);
           }}
         >
-          <span>Closed</span>
-          <span>{items.length}</span>
+          <span className="queue-v2-closed-title">
+            Closed <strong>{items.length}</strong>
+          </span>
+          <span className="queue-v2-closed-action">
+            <span aria-hidden="true">{isExpanded ? "v" : ">"}</span>
+            {isExpanded ? "Hide closed" : "View closed"}
+          </span>
         </summary>
         {isExpanded ? (
-          <QueueV2CardStack
-            emptyLabel="No closed tasks"
-            items={items}
-            onOpenTaskDetails={onOpenTaskDetails}
-            onSelectTask={onSelectTask}
-            selectedTaskId={selectedTaskId}
-          />
+          <div className="queue-v2-closed-history">
+            <QueueV2CardStack
+              emptyLabel="No closed tasks"
+              items={items}
+              onOpenTaskDetails={onOpenTaskDetails}
+              onSelectTask={onSelectTask}
+              selectedTaskId={selectedTaskId}
+            />
+          </div>
         ) : null}
       </details>
     </section>

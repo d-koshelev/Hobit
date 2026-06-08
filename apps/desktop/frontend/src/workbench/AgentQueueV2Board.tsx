@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "../design-system/Badge";
 import type { AgentQueueReportActionCard, AgentQueueTask } from "../workspace/types";
@@ -72,6 +72,7 @@ export function AgentQueueV2Board({
   workers,
 }: AgentQueueV2BoardProps) {
   const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
+  const previousDetailsLaneRef = useRef<QueueBoardLane | null>(null);
   const detailsReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const board = useMemo(
     () =>
@@ -97,10 +98,38 @@ export function AgentQueueV2Board({
     detailsTaskId && board.inspector
       ? board.tasks.find((item) => item.taskId === detailsTaskId) ?? null
       : null;
+  const detailTaskLane = detailTaskViewModel?.boardLane ?? null;
   const runningGroups = useMemo(
     () => groupRunningTasks(board.lanes.running, board.capacity.workers),
     [board.capacity.workers, board.lanes.running],
   );
+
+  useEffect(() => {
+    if (!detailsTaskId) {
+      previousDetailsLaneRef.current = null;
+      return;
+    }
+
+    const previousLane = previousDetailsLaneRef.current;
+
+    if (!detailTaskViewModel) {
+      previousDetailsLaneRef.current = null;
+      setDetailsTaskId(null);
+      return;
+    }
+
+    if (
+      detailTaskLane === "closed" &&
+      previousLane !== null &&
+      previousLane !== "closed"
+    ) {
+      previousDetailsLaneRef.current = null;
+      setDetailsTaskId(null);
+      return;
+    }
+
+    previousDetailsLaneRef.current = detailTaskLane;
+  }, [detailTaskLane, detailTaskViewModel, detailsTaskId]);
 
   function openTaskDetails(taskId: string, sourceButton: HTMLButtonElement | null) {
     detailsReturnFocusRef.current = sourceButton;
@@ -322,28 +351,41 @@ function QueueV2ClosedLane({
     <section
       aria-label="Closed lane"
       className="agent-queue-v2-lane agent-queue-v2-closed-lane"
+      data-queue-v2-history-block={isExpanded ? "expanded" : "collapsed"}
       role="listitem"
     >
       <details open={isExpanded}>
         <summary
+          aria-label={
+            isExpanded
+              ? `Hide closed tasks, ${items.length.toString()} closed`
+              : `View closed tasks, ${items.length.toString()} closed`
+          }
           onClick={(event) => {
             event.preventDefault();
             setIsExpanded((current) => !current);
           }}
         >
-          <span>Closed</span>
-          <span>{items.length}</span>
+          <span className="agent-queue-v2-closed-title">
+            Closed <strong>{items.length}</strong>
+          </span>
+          <span className="agent-queue-v2-closed-action">
+            <span aria-hidden="true">{isExpanded ? "v" : ">"}</span>
+            {isExpanded ? "Hide closed" : "View closed"}
+          </span>
         </summary>
         {isExpanded ? (
-          <QueueV2CardStack
-            emptyLabel="No closed tasks."
-            isSelecting={isSelecting}
-            items={items}
-            limit={CLOSED_VISIBLE_CARD_LIMIT}
-            onOpenTaskDetails={onOpenTaskDetails}
-            onSelectTask={onSelectTask}
-            selectedTaskId={selectedTaskId}
-          />
+          <div className="agent-queue-v2-closed-history">
+            <QueueV2CardStack
+              emptyLabel="No closed tasks."
+              isSelecting={isSelecting}
+              items={items}
+              limit={CLOSED_VISIBLE_CARD_LIMIT}
+              onOpenTaskDetails={onOpenTaskDetails}
+              onSelectTask={onSelectTask}
+              selectedTaskId={selectedTaskId}
+            />
+          </div>
         ) : null}
       </details>
     </section>

@@ -161,13 +161,57 @@ describe("Agent QueueV2 action parity", () => {
     expect(card("intake-9")).toBeNull();
     expect(sectionByName("Closed lane")?.textContent).toContain("Closed");
     expect(sectionByName("Closed lane")?.textContent).toContain("1");
+    expect(sectionByName("Closed lane")?.textContent).toContain("View closed");
+    expect(sectionByName("Closed lane")?.dataset.queueV2HistoryBlock).toBe(
+      "collapsed",
+    );
+    expect(sectionByName("Closed lane")?.textContent).not.toContain(
+      "No closed tasks.",
+    );
     expect(card("closed-task")).toBeNull();
 
     await clickButtonAsync("+ 4 more");
     expect(card("intake-9")).not.toBeNull();
 
     await clickSummaryAsync("Closed");
+    expect(sectionByName("Closed lane")?.dataset.queueV2HistoryBlock).toBe(
+      "expanded",
+    );
     expect(card("closed-task")).not.toBeNull();
+  });
+
+  it("bounds expanded Closed history and exposes overflow", async () => {
+    const closedTasks = Array.from({ length: 7 }, (_, index) =>
+      queueTask({
+        closureState: "no_change_accepted",
+        queueItemId: `closed-${index.toString()}`,
+        status: "completed",
+        title: `Closed task ${index.toString()}`,
+      }),
+    );
+
+    renderQueueWidget({
+      onListAgentQueueTasks: async () => closedTasks,
+    });
+    await flushRender();
+
+    expect(sectionByName("Closed lane")?.textContent).toContain("Closed");
+    expect(sectionByName("Closed lane")?.textContent).toContain("7");
+    expect(card("closed-0")).toBeNull();
+
+    await clickSummaryAsync("View closed");
+
+    expect(card("closed-0")).not.toBeNull();
+    expect(card("closed-3")).not.toBeNull();
+    expect(card("closed-6")).toBeNull();
+    expect(sectionByName("Closed lane")?.textContent).toContain("+ 3 more");
+
+    await clickButtonAsync("+ 3 more");
+
+    expect(card("closed-6")).not.toBeNull();
+    expect(sectionByName("Closed lane")?.querySelector(
+      ".agent-queue-v2-closed-history",
+    )).not.toBeNull();
   });
 
   it("groups running tasks by worker in the saved Agent Queue surface", async () => {
@@ -254,6 +298,7 @@ describe("Agent QueueV2 action parity", () => {
     );
 
     await clickQueueV2ActionAsync("Accept without commit");
+    await flushRender();
 
     expect(updateRequests).toHaveLength(1);
     expect(updateRequests[0]).toMatchObject({
@@ -261,6 +306,18 @@ describe("Agent QueueV2 action parity", () => {
       status: "completed",
       validationStatus: "passed",
     });
+    expect(dialogByName("Selected runnable task")).toBeUndefined();
+    expect(sectionByName("Review lane")?.textContent).not.toContain(
+      "Selected runnable task",
+    );
+    expect(sectionByName("Closed lane")?.textContent).toContain("Closed");
+    expect(sectionByName("Closed lane")?.textContent).toContain("1");
+    expect(sectionByName("Closed lane")?.textContent).toContain("View closed");
+    expect(card("queue-1")).toBeNull();
+
+    await clickSummaryAsync("View closed");
+
+    expect(card("queue-1")).not.toBeNull();
   });
 
   it("creates follow-up and attaches reports without starting work", async () => {

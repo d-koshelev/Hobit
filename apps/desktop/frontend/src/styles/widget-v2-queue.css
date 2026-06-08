@@ -301,6 +301,10 @@
 
 .queue-v2-closed-lane {
   align-content: start;
+  align-self: start;
+  min-height: auto;
+  border-style: dashed;
+  background: var(--color-widget-surface-raised);
 }
 
 .queue-v2-closed-lane details {
@@ -311,6 +315,7 @@
 .queue-v2-closed-lane summary {
   cursor: pointer;
   list-style: none;
+  min-height: calc(28px * var(--ui-scale));
 }
 
 .queue-v2-closed-lane summary::-webkit-details-marker {
@@ -319,6 +324,33 @@
 
 .queue-v2-closed-lane details[open] summary {
   margin-bottom: var(--space-xs);
+}
+
+.queue-v2-closed-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(4px * var(--ui-scale));
+}
+
+.queue-v2-closed-title strong {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+}
+
+.queue-v2-closed-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: calc(4px * var(--ui-scale));
+  color: var(--color-text-muted);
+}
+
+.queue-v2-closed-history {
+  max-height: calc(360px * var(--ui-scale));
+  min-height: 0;
+  overflow: auto;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
 }
 
 .queue-v2-task-card {

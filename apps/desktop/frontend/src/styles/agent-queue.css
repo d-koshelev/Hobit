@@ -465,7 +465,11 @@
 }
 
 .agent-queue-v2-closed-lane {
+  align-self: start;
   grid-template-rows: auto;
+  min-height: auto;
+  border-style: dashed;
+  background: var(--color-widget-surface-raised);
 }
 
 .agent-queue-v2-closed-lane details {
@@ -476,6 +480,7 @@
 .agent-queue-v2-closed-lane summary {
   cursor: pointer;
   list-style: none;
+  min-height: calc(28px * var(--ui-scale));
 }
 
 .agent-queue-v2-closed-lane summary::-webkit-details-marker {
@@ -484,6 +489,33 @@
 
 .agent-queue-v2-closed-lane details[open] summary {
   margin-bottom: var(--space-xs);
+}
+
+.agent-queue-v2-closed-title {
+  display: inline-flex;
+  align-items: baseline;
+  gap: calc(4px * var(--ui-scale));
+}
+
+.agent-queue-v2-closed-title strong {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+}
+
+.agent-queue-v2-closed-action {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: calc(4px * var(--ui-scale));
+  color: var(--color-text-muted);
+}
+
+.agent-queue-v2-closed-history {
+  max-height: calc(360px * var(--ui-scale));
+  min-height: 0;
+  overflow: auto;
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
 }
 
 .agent-queue-v2-lane-empty {
