@@ -6,6 +6,8 @@ import {
   WidgetV2Toolbar,
 } from "../WidgetV2Shell";
 import { getWidgetV2Manifest } from "../widgetV2Registry";
+import type { AgentRunEvent } from "../../agentRuntime";
+import { WorkspaceAgentV2ActivityPane } from "./WorkspaceAgentV2ActivityPane";
 import { WorkspaceAgentV2Composer } from "./WorkspaceAgentV2Composer";
 import { WorkspaceAgentV2Transcript } from "./WorkspaceAgentV2Transcript";
 import { WorkspaceAgentV2TopBar } from "./WorkspaceAgentV2TopBar";
@@ -13,11 +15,15 @@ import { WorkspaceAgentV2TopBar } from "./WorkspaceAgentV2TopBar";
 const workspaceAgentV2Manifest = getWidgetV2Manifest("workspace-agent-v2");
 
 type WorkspaceAgentV2WidgetProps = {
+  readonly activityEvents?: readonly AgentRunEvent[];
+  readonly currentRunId?: string;
   readonly onQueueTaskCreate?: () => void;
   readonly onRunRequest?: () => void;
 };
 
 export function WorkspaceAgentV2Widget({
+  activityEvents,
+  currentRunId,
   onQueueTaskCreate,
   onRunRequest,
 }: WorkspaceAgentV2WidgetProps = {}) {
@@ -59,13 +65,10 @@ export function WorkspaceAgentV2Widget({
         primaryLabel="Workspace Agent v2 transcript"
         rightInspector={
           <WidgetV2RightInspector label="Workspace Agent v2 activity pane">
-            <section aria-label="Workspace Agent v2 activity placeholder">
-              <h3>Activity</h3>
-              <p>
-                Activity pane placeholder only. No provider, Queue, Terminal, Git,
-                JDBC, or backend runtime is invoked.
-              </p>
-            </section>
+            <WorkspaceAgentV2ActivityPane
+              currentRunId={currentRunId}
+              events={activityEvents}
+            />
           </WidgetV2RightInspector>
         }
       />

@@ -85,14 +85,7 @@ export type AgentRunRequest = {
 
 export type AgentRunEvent = {
   id: string;
-  kind:
-    | "lifecycle"
-    | "message"
-    | "proposal"
-    | "validation"
-    | "file-change"
-    | "metadata"
-    | "error";
+  kind: AgentRunEventKind;
   lifecycle: AgentRunLifecycle;
   message?: string;
   runId: string;
@@ -100,6 +93,17 @@ export type AgentRunEvent = {
   timestampMs: number;
   title: string;
 };
+
+export type AgentRunEventKind =
+  | "context_materialized"
+  | "provider_started"
+  | "tool_call"
+  | "file_change_detected"
+  | "response_received"
+  | "validation_suggested"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export type AgentTokenUsage = {
   inputTokens?: number;

@@ -41,7 +41,7 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(
       regionByRoleAndName("complementary", "Workspace Agent v2 activity pane")
         ?.textContent,
-    ).toContain("No provider, Queue, Terminal, Git, JDBC, or backend runtime is invoked.");
+    ).toContain("No provider execution, streaming, Queue dispatch, or backend runtime is wired.");
     expect(
       regionByRoleAndName("region", "Workspace Agent v2 composer")?.textContent,
     ).toContain("New thread");

@@ -105,7 +105,7 @@ describe("agentRuntimeModel", () => {
 function runEvent(overrides: Partial<AgentRunEvent> = {}): AgentRunEvent {
   return {
     id: "event-1",
-    kind: "lifecycle",
+    kind: "provider_started",
     lifecycle: "starting",
     runId: "run-1",
     sequence: 1,

@@ -1,4 +1,8 @@
 export {
+  WorkspaceAgentV2ActivityPane,
+  WorkspaceAgentV2RunActivityGroup,
+} from "./WorkspaceAgentV2ActivityPane";
+export {
   WorkspaceAgentV2Composer,
   WorkspaceAgentV2RunControls,
 } from "./WorkspaceAgentV2Composer";

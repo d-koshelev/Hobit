@@ -6,6 +6,7 @@ export type {
   AgentProviderCapabilities,
   AgentProviderId,
   AgentRunEvent,
+  AgentRunEventKind,
   AgentRunLifecycle,
   AgentRunMetadata,
   AgentRunMode,
