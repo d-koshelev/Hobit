@@ -7,6 +7,16 @@ export {
   WorkspaceAgentV2RunControls,
 } from "./WorkspaceAgentV2Composer";
 export {
+  WorkspaceAgentV2ContextCard,
+  WorkspaceAgentV2ContextChip,
+  WorkspaceAgentV2ContextStrip,
+} from "./WorkspaceAgentV2ContextStrip";
+export type {
+  WorkspaceAgentV2ContextItem,
+  WorkspaceAgentV2ContextItemType,
+  WorkspaceAgentV2ContextWarning,
+} from "./WorkspaceAgentV2ContextStrip";
+export {
   WorkspaceAgentV2Message,
   WorkspaceAgentV2Transcript,
 } from "./WorkspaceAgentV2Transcript";

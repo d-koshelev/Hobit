@@ -9,6 +9,10 @@ import { getWidgetV2Manifest } from "../widgetV2Registry";
 import type { AgentRunEvent } from "../../agentRuntime";
 import { WorkspaceAgentV2ActivityPane } from "./WorkspaceAgentV2ActivityPane";
 import { WorkspaceAgentV2Composer } from "./WorkspaceAgentV2Composer";
+import {
+  WorkspaceAgentV2ContextStrip,
+  type WorkspaceAgentV2ContextItem,
+} from "./WorkspaceAgentV2ContextStrip";
 import { WorkspaceAgentV2Transcript } from "./WorkspaceAgentV2Transcript";
 import { WorkspaceAgentV2TopBar } from "./WorkspaceAgentV2TopBar";
 
@@ -16,14 +20,20 @@ const workspaceAgentV2Manifest = getWidgetV2Manifest("workspace-agent-v2");
 
 type WorkspaceAgentV2WidgetProps = {
   readonly activityEvents?: readonly AgentRunEvent[];
+  readonly contextItems?: readonly WorkspaceAgentV2ContextItem[];
   readonly currentRunId?: string;
+  readonly onContextAddPlaceholder?: () => void;
+  readonly onContextRemove?: (itemId: string) => void;
   readonly onQueueTaskCreate?: () => void;
   readonly onRunRequest?: () => void;
 };
 
 export function WorkspaceAgentV2Widget({
   activityEvents,
+  contextItems,
   currentRunId,
+  onContextAddPlaceholder,
+  onContextRemove,
   onQueueTaskCreate,
   onRunRequest,
 }: WorkspaceAgentV2WidgetProps = {}) {
@@ -44,6 +54,11 @@ export function WorkspaceAgentV2Widget({
       <WidgetV2PanelLayout
         bottomDrawer={
           <WidgetV2BottomDrawer label="Workspace Agent v2 composer">
+            <WorkspaceAgentV2ContextStrip
+              items={contextItems}
+              onAddPlaceholder={onContextAddPlaceholder}
+              onRemoveItem={onContextRemove}
+            />
             <WorkspaceAgentV2Composer
               onDirectRun={onRunRequest}
               onQueueRun={onQueueTaskCreate}
