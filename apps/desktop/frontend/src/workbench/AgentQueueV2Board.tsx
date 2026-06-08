@@ -21,6 +21,7 @@ import {
   QueueV2TaskDetailsPopup,
   queueV2NextActionLabel,
 } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
+import { QueueV2CollapsibleLane } from "./widgetV2/queueV2/QueueV2CollapsibleLane";
 import type { AgentQueueController } from "./queue/details/agentQueueTaskDetailsTypes";
 
 type AgentQueueV2BoardProps = {
@@ -254,15 +255,11 @@ function QueueV2Lane({
   selectedTaskId: string | null;
 }) {
   return (
-    <section
-      aria-label={`${label} lane`}
+    <QueueV2CollapsibleLane
       className="agent-queue-v2-lane"
-      role="listitem"
+      count={items.length}
+      label={label}
     >
-      <div className="agent-queue-v2-lane-header">
-        <p>{label}</p>
-        <span>{items.length}</span>
-      </div>
       <QueueV2CardStack
         emptyLabel="No tasks."
         isSelecting={isSelecting}
@@ -272,7 +269,7 @@ function QueueV2Lane({
         onSelectTask={onSelectTask}
         selectedTaskId={selectedTaskId}
       />
-    </section>
+    </QueueV2CollapsibleLane>
   );
 }
 
@@ -292,15 +289,12 @@ function QueueV2RunningLane({
   const runningCount = groups.reduce((sum, group) => sum + group.items.length, 0);
 
   return (
-    <section
-      aria-label="Running lane"
+    <QueueV2CollapsibleLane
       className="agent-queue-v2-lane agent-queue-v2-running-lane"
-      role="listitem"
+      collapsedSummary={<QueueV2RunningCollapsedSummary groups={groups} />}
+      count={runningCount}
+      label="Running"
     >
-      <div className="agent-queue-v2-lane-header">
-        <p>Running</p>
-        <span>{runningCount}</span>
-      </div>
       {runningCount === 0 ? (
         <div className="agent-queue-v2-lane-empty">No running tasks.</div>
       ) : (
@@ -328,7 +322,7 @@ function QueueV2RunningLane({
           ))}
         </div>
       )}
-    </section>
+    </QueueV2CollapsibleLane>
   );
 }
 
@@ -345,50 +339,28 @@ function QueueV2ClosedLane({
   onSelectTask: (queueItemId: string) => void;
   selectedTaskId: string | null;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   return (
-    <section
-      aria-label="Closed lane"
+    <QueueV2CollapsibleLane
       className="agent-queue-v2-lane agent-queue-v2-closed-lane"
-      data-queue-v2-history-block={isExpanded ? "expanded" : "collapsed"}
-      role="listitem"
+      count={items.length}
+      dataAttributes={{
+        "queue-v2-history-block": "state",
+      }}
+      defaultExpanded={false}
+      label="Closed"
     >
-      <details open={isExpanded}>
-        <summary
-          aria-label={
-            isExpanded
-              ? `Hide closed tasks, ${items.length.toString()} closed`
-              : `View closed tasks, ${items.length.toString()} closed`
-          }
-          onClick={(event) => {
-            event.preventDefault();
-            setIsExpanded((current) => !current);
-          }}
-        >
-          <span className="agent-queue-v2-closed-title">
-            Closed <strong>{items.length}</strong>
-          </span>
-          <span className="agent-queue-v2-closed-action">
-            <span aria-hidden="true">{isExpanded ? "v" : ">"}</span>
-            {isExpanded ? "Hide closed" : "View closed"}
-          </span>
-        </summary>
-        {isExpanded ? (
-          <div className="agent-queue-v2-closed-history">
-            <QueueV2CardStack
-              emptyLabel="No closed tasks."
-              isSelecting={isSelecting}
-              items={items}
-              limit={CLOSED_VISIBLE_CARD_LIMIT}
-              onOpenTaskDetails={onOpenTaskDetails}
-              onSelectTask={onSelectTask}
-              selectedTaskId={selectedTaskId}
-            />
-          </div>
-        ) : null}
-      </details>
-    </section>
+      <div className="agent-queue-v2-closed-history">
+        <QueueV2CardStack
+          emptyLabel="No closed tasks."
+          isSelecting={isSelecting}
+          items={items}
+          limit={CLOSED_VISIBLE_CARD_LIMIT}
+          onOpenTaskDetails={onOpenTaskDetails}
+          onSelectTask={onSelectTask}
+          selectedTaskId={selectedTaskId}
+        />
+      </div>
+    </QueueV2CollapsibleLane>
   );
 }
 
@@ -451,6 +423,23 @@ function QueueV2CardStack({
           Show less
         </button>
       ) : null}
+    </div>
+  );
+}
+
+function QueueV2RunningCollapsedSummary({ groups }: { groups: RunningTaskGroup[] }) {
+  if (groups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="agent-queue-v2-lane-collapsed-lines">
+      {groups.slice(0, 2).map((group) => (
+        <span key={group.workerId}>
+          {group.label}: {groupSummary(group)}
+        </span>
+      ))}
+      {groups.length > 2 ? <span>+ {(groups.length - 2).toString()} workers</span> : null}
     </div>
   );
 }

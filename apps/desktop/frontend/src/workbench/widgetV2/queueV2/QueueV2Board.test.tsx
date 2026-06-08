@@ -39,6 +39,74 @@ describe("QueueV2Board", () => {
     expect(regionByName("Closed lane")).not.toBeNull();
   });
 
+  it("renders collapse affordances with active lanes expanded and Closed collapsed", async () => {
+    await render(
+      <QueueV2Board
+        tasks={[
+          task({ queueItemId: "intake", status: "draft" }),
+          task({ queueItemId: "ready", status: "ready" }),
+          task({ queueItemId: "running", status: "running" }),
+          task({ queueItemId: "review", status: "completed" }),
+          task({
+            coordinatorStatus: "blocked",
+            queueItemId: "blocked",
+            status: "queued",
+          }),
+          task({
+            closureState: "no_change_accepted",
+            queueItemId: "closed",
+            status: "completed",
+          }),
+        ]}
+        workers={[worker()]}
+      />,
+    );
+
+    for (const label of ["Intake", "Ready", "Running", "Review", "Blocked"]) {
+      expect(laneToggle(label)?.getAttribute("aria-expanded")).toBe("true");
+    }
+    expect(laneToggle("Closed")?.getAttribute("aria-expanded")).toBe("false");
+  });
+
+  it.each([
+    ["Intake", "intake", "draft", false],
+    ["Ready", "ready", "ready", false],
+    ["Running", "running", "running", false],
+    ["Review", "review", "review_needed", false],
+    ["Blocked", "blocked", "queued", true],
+  ] as const)(
+    "collapsing %s hides cards but keeps the count and expanding restores cards",
+    async (label, queueItemId, status, isBlocked) => {
+      await render(
+        <QueueV2Board
+          tasks={[
+            task({
+              coordinatorStatus: isBlocked ? "blocked" : "not_reported",
+              queueItemId,
+              status,
+              title: `${label} task`,
+            }),
+          ]}
+          workers={[worker()]}
+        />,
+      );
+
+      expect(card(queueItemId)).not.toBeNull();
+      expect(regionByName(`${label} lane`)?.textContent).toContain("1");
+
+      await click(laneToggle(label));
+
+      expect(laneToggle(label)?.getAttribute("aria-expanded")).toBe("false");
+      expect(regionByName(`${label} lane`)?.textContent).toContain("1");
+      expect(card(queueItemId)).toBeNull();
+
+      await click(laneToggle(label));
+
+      expect(laneToggle(label)?.getAttribute("aria-expanded")).toBe("true");
+      expect(card(queueItemId)).not.toBeNull();
+    },
+  );
+
   it("shows tag colors as compact group visual identity", async () => {
     await render(
       <QueueV2Board
@@ -143,9 +211,35 @@ describe("QueueV2Board", () => {
     expect(regionByName("Closed lane")?.textContent).toContain("1");
     expect(card("closed")).toBeNull();
 
-    await click(summaryWithText("Closed"));
+    await click(laneToggle("Closed"));
 
     expect(card("closed")).not.toBeNull();
+  });
+
+  it("keeps lane overflow bounded and does not mutate task order", async () => {
+    const tasks = Array.from({ length: 8 }, (_, index) =>
+      task({
+        queueItemId: `ready-${index.toString()}`,
+        orderIndex: index,
+        status: "ready",
+        title: `Ready task ${index.toString()}`,
+      }),
+    );
+
+    await render(<QueueV2Board tasks={tasks} workers={[worker()]} />);
+
+    const orderBefore = visibleCardOrder();
+    expect(card("ready-6")).toBeNull();
+    expect(regionByName("Ready lane")?.textContent).toContain("+ 2 more");
+
+    await click(buttonWithText("+ 2 more"));
+
+    expect(card("ready-6")).not.toBeNull();
+    expect(visibleCardOrder()).toEqual([
+      ...orderBefore,
+      "ready-6",
+      "ready-7",
+    ]);
   });
 
   it("places report-ready tasks in Review and explicit finalized tasks in Closed", async () => {
@@ -366,10 +460,14 @@ function regionByName(name: string): HTMLElement | null {
   );
 }
 
-function summaryWithText(text: string): HTMLElement | null {
+function laneToggle(label: string): HTMLButtonElement | null {
   return (
-    Array.from(document.querySelectorAll<HTMLElement>("summary")).find((element) =>
-      element.textContent?.includes(text),
+    Array.from(
+      document.querySelectorAll<HTMLButtonElement>(
+        ".queue-v2-collapsible-lane-header",
+      ),
+    ).find((element) =>
+      element.getAttribute("aria-label")?.includes(`${label} lane`),
     ) ?? null
   );
 }

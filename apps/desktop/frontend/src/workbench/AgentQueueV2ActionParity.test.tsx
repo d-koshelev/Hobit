@@ -161,7 +161,7 @@ describe("Agent QueueV2 action parity", () => {
     expect(card("intake-9")).toBeNull();
     expect(sectionByName("Closed lane")?.textContent).toContain("Closed");
     expect(sectionByName("Closed lane")?.textContent).toContain("1");
-    expect(sectionByName("Closed lane")?.textContent).toContain("View closed");
+    expect(laneToggle("Closed")?.getAttribute("aria-expanded")).toBe("false");
     expect(sectionByName("Closed lane")?.dataset.queueV2HistoryBlock).toBe(
       "collapsed",
     );
@@ -173,11 +173,75 @@ describe("Agent QueueV2 action parity", () => {
     await clickButtonAsync("+ 4 more");
     expect(card("intake-9")).not.toBeNull();
 
-    await clickSummaryAsync("Closed");
+    await clickLaneToggleAsync("Closed");
     expect(sectionByName("Closed lane")?.dataset.queueV2HistoryBlock).toBe(
       "expanded",
     );
     expect(card("closed-task")).not.toBeNull();
+  });
+
+  it("renders every lane affordance and collapses active lanes without mutating order", async () => {
+    renderQueueWidget({
+      onListAgentQueueTasks: async () => [
+        queueTask({ queueItemId: "intake", status: "draft", title: "Intake task" }),
+        queueTask({
+          assignedExecutorWidgetId: null,
+          queueItemId: "ready",
+          status: "ready",
+          title: "Ready task",
+        }),
+        queueTask({ queueItemId: "running", status: "running", title: "Running task" }),
+        queueTask({ queueItemId: "review", status: "review_needed", title: "Review task" }),
+        queueTask({
+          coordinatorStatus: "blocked",
+          queueItemId: "blocked",
+          status: "queued",
+          title: "Blocked task",
+        }),
+        queueTask({
+          closureState: "no_change_accepted",
+          queueItemId: "closed",
+          status: "completed",
+          title: "Closed task",
+        }),
+      ],
+    });
+    await flushRender();
+
+    for (const label of [
+      "Intake / Draft",
+      "Ready",
+      "Running",
+      "Review",
+      "Blocked",
+      "Closed",
+    ]) {
+      expect(laneToggle(label)).not.toBeNull();
+    }
+    for (const label of ["Intake / Draft", "Ready", "Running", "Review", "Blocked"]) {
+      expect(laneToggle(label)?.getAttribute("aria-expanded")).toBe("true");
+    }
+    expect(laneToggle("Closed")?.getAttribute("aria-expanded")).toBe("false");
+
+    const orderBefore = visibleCardOrder();
+
+    for (const [label, queueItemId] of [
+      ["Intake / Draft", "intake"],
+      ["Running", "running"],
+      ["Review", "review"],
+      ["Blocked", "blocked"],
+    ] as const) {
+      const countBeforeCollapse = laneCount(label);
+
+      await clickLaneToggleAsync(label);
+      expect(laneToggle(label)?.getAttribute("aria-expanded")).toBe("false");
+      expect(laneCount(label)).toBe(countBeforeCollapse);
+      expect(card(queueItemId)).toBeNull();
+      await clickLaneToggleAsync(label);
+      expect(card(queueItemId)).not.toBeNull();
+    }
+
+    expect(visibleCardOrder()).toEqual(orderBefore);
   });
 
   it("bounds expanded Closed history and exposes overflow", async () => {
@@ -199,7 +263,7 @@ describe("Agent QueueV2 action parity", () => {
     expect(sectionByName("Closed lane")?.textContent).toContain("7");
     expect(card("closed-0")).toBeNull();
 
-    await clickSummaryAsync("View closed");
+    await clickLaneToggleAsync("Closed");
 
     expect(card("closed-0")).not.toBeNull();
     expect(card("closed-3")).not.toBeNull();
@@ -312,10 +376,10 @@ describe("Agent QueueV2 action parity", () => {
     );
     expect(sectionByName("Closed lane")?.textContent).toContain("Closed");
     expect(sectionByName("Closed lane")?.textContent).toContain("1");
-    expect(sectionByName("Closed lane")?.textContent).toContain("View closed");
+    expect(laneToggle("Closed")?.getAttribute("aria-expanded")).toBe("false");
     expect(card("queue-1")).toBeNull();
 
-    await clickSummaryAsync("View closed");
+    await clickLaneToggleAsync("Closed");
 
     expect(card("queue-1")).not.toBeNull();
   });
@@ -612,17 +676,15 @@ async function clickCardAsync(queueItemId: string) {
   });
 }
 
-async function clickSummaryAsync(text: string) {
-  const summary = Array.from(document.querySelectorAll("summary")).find((item) =>
-    item.textContent?.includes(text),
-  );
+async function clickLaneToggleAsync(label: string) {
+  const toggle = laneToggle(label);
 
-  if (!summary) {
-    throw new Error(`Summary not found: ${text}`);
+  if (!toggle) {
+    throw new Error(`Lane toggle not found: ${label}`);
   }
 
   await act(async () => {
-    summary.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+    toggle.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
     await Promise.resolve();
   });
 }
@@ -647,6 +709,20 @@ function sectionByName(name: string) {
   return Array.from(document.querySelectorAll<HTMLElement>("section")).find(
     (section) => section.getAttribute("aria-label") === name,
   );
+}
+
+function laneToggle(label: string) {
+  return Array.from(
+    document.querySelectorAll<HTMLButtonElement>(
+      ".queue-v2-collapsible-lane-header",
+    ),
+  ).find((button) =>
+    button.getAttribute("aria-label")?.includes(`${label} lane`),
+  );
+}
+
+function laneCount(label: string) {
+  return laneToggle(label)?.querySelector("strong")?.textContent ?? null;
 }
 
 function visibleCardOrder() {

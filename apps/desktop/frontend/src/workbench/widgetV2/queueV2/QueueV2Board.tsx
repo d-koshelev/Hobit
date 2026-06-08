@@ -11,6 +11,7 @@ import {
   type QueueTaskViewModel,
   type QueueWorkerSnapshot,
 } from "../../queue/queueV2ViewModel";
+import { QueueV2CollapsibleLane } from "./QueueV2CollapsibleLane";
 import { QueueV2TaskCard } from "./QueueV2TaskCard";
 import { QueueV2TaskDetailsPopup } from "./QueueV2TaskDetailsPopup";
 
@@ -33,6 +34,10 @@ const TRAILING_BOARD_LANES: { id: QueueBoardLane; label: string }[] = [
   { id: "review", label: "Review" },
   { id: "blocked", label: "Blocked" },
 ];
+
+const DEFAULT_VISIBLE_CARD_LIMIT = 6;
+const RUNNING_VISIBLE_CARD_LIMIT = 4;
+const CLOSED_VISIBLE_CARD_LIMIT = 4;
 
 export function QueueV2Board({
   autorunArmed = false,
@@ -158,21 +163,21 @@ function QueueV2Lane({
   selectedTaskId: string | null;
 }) {
   return (
-    <section
-      aria-label={`${label} lane`}
+    <QueueV2CollapsibleLane
       className="queue-v2-lane"
-      data-queue-v2-lane={lane}
-      role="listitem"
+      count={items.length}
+      label={label}
+      laneKey={lane}
     >
-      <QueueV2LaneHeader count={items.length} label={label} />
       <QueueV2CardStack
         emptyLabel="No tasks"
         items={items}
+        limit={DEFAULT_VISIBLE_CARD_LIMIT}
         onOpenTaskDetails={onOpenTaskDetails}
         onSelectTask={onSelectTask}
         selectedTaskId={selectedTaskId}
       />
-    </section>
+    </QueueV2CollapsibleLane>
   );
 }
 
@@ -190,13 +195,13 @@ function QueueV2RunningLane({
   const runningCount = groups.reduce((sum, group) => sum + group.items.length, 0);
 
   return (
-    <section
-      aria-label="Running lane"
+    <QueueV2CollapsibleLane
       className="queue-v2-lane queue-v2-running-lane"
-      data-queue-v2-lane="running"
-      role="listitem"
+      collapsedSummary={<QueueV2RunningCollapsedSummary groups={groups} />}
+      count={runningCount}
+      label="Running"
+      laneKey="running"
     >
-      <QueueV2LaneHeader count={runningCount} label="Running" />
       {runningCount === 0 ? (
         <div className="queue-v2-lane-empty">No running tasks</div>
       ) : (
@@ -214,6 +219,7 @@ function QueueV2RunningLane({
               <QueueV2CardStack
                 emptyLabel="No tasks"
                 items={group.items}
+                limit={RUNNING_VISIBLE_CARD_LIMIT}
                 onOpenTaskDetails={onOpenTaskDetails}
                 onSelectTask={onSelectTask}
                 selectedTaskId={selectedTaskId}
@@ -222,7 +228,7 @@ function QueueV2RunningLane({
           ))}
         </div>
       )}
-    </section>
+    </QueueV2CollapsibleLane>
   );
 }
 
@@ -237,89 +243,61 @@ function QueueV2ClosedLane({
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   return (
-    <section
-      aria-label="Closed lane"
+    <QueueV2CollapsibleLane
       className="queue-v2-lane queue-v2-closed-lane"
-      data-queue-v2-lane="closed"
-      data-queue-v2-history-block={isExpanded ? "expanded" : "collapsed"}
-      role="listitem"
+      count={items.length}
+      dataAttributes={{
+        "queue-v2-history-block": "state",
+      }}
+      defaultExpanded={false}
+      label="Closed"
+      laneKey="closed"
     >
-      <details
-        open={isExpanded}
-      >
-        <summary
-          aria-label={
-            isExpanded
-              ? `Hide closed tasks, ${items.length.toString()} closed`
-              : `View closed tasks, ${items.length.toString()} closed`
-          }
-          onClick={(event) => {
-            event.preventDefault();
-            setIsExpanded((current) => !current);
-          }}
-        >
-          <span className="queue-v2-closed-title">
-            Closed <strong>{items.length}</strong>
-          </span>
-          <span className="queue-v2-closed-action">
-            <span aria-hidden="true">{isExpanded ? "v" : ">"}</span>
-            {isExpanded ? "Hide closed" : "View closed"}
-          </span>
-        </summary>
-        {isExpanded ? (
-          <div className="queue-v2-closed-history">
-            <QueueV2CardStack
-              emptyLabel="No closed tasks"
-              items={items}
-              onOpenTaskDetails={onOpenTaskDetails}
-              onSelectTask={onSelectTask}
-              selectedTaskId={selectedTaskId}
-            />
-          </div>
-        ) : null}
-      </details>
-    </section>
-  );
-}
-
-function QueueV2LaneHeader({
-  count,
-  label,
-}: {
-  count: number;
-  label: string;
-}) {
-  return (
-    <div className="queue-v2-lane-header">
-      <span>{label}</span>
-      <span>{count}</span>
-    </div>
+      <div className="queue-v2-closed-history">
+        <QueueV2CardStack
+          emptyLabel="No closed tasks"
+          items={items}
+          limit={CLOSED_VISIBLE_CARD_LIMIT}
+          onOpenTaskDetails={onOpenTaskDetails}
+          onSelectTask={onSelectTask}
+          selectedTaskId={selectedTaskId}
+        />
+      </div>
+    </QueueV2CollapsibleLane>
   );
 }
 
 function QueueV2CardStack({
   emptyLabel,
   items,
+  limit,
   onOpenTaskDetails,
   onSelectTask,
   selectedTaskId,
 }: {
   emptyLabel: string;
   items: QueueTaskViewModel[];
+  limit: number;
   onOpenTaskDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const visibleItems = isExpanded ? items : items.slice(0, limit);
+  const hiddenCount = Math.max(0, items.length - visibleItems.length);
+
   if (items.length === 0) {
-    return <div className="queue-v2-lane-empty">{emptyLabel}</div>;
+    return (
+      <div className="queue-v2-card-stack" role="list">
+        <div className="queue-v2-lane-empty">{emptyLabel}</div>
+      </div>
+    );
   }
 
   return (
     <div className="queue-v2-card-stack" role="list">
-      {items.map((item) => (
+      {visibleItems.map((item) => (
         <QueueV2TaskCard
           isSelected={selectedTaskId === item.taskId}
           item={item}
@@ -328,6 +306,41 @@ function QueueV2CardStack({
           onSelect={onSelectTask}
         />
       ))}
+      {hiddenCount > 0 ? (
+        <button
+          className="queue-v2-lane-overflow"
+          onClick={() => setIsExpanded(true)}
+          type="button"
+        >
+          + {hiddenCount.toString()} more
+        </button>
+      ) : null}
+      {isExpanded && items.length > limit ? (
+        <button
+          className="queue-v2-lane-overflow"
+          onClick={() => setIsExpanded(false)}
+          type="button"
+        >
+          Show less
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function QueueV2RunningCollapsedSummary({ groups }: { groups: RunningTaskGroup[] }) {
+  if (groups.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="queue-v2-lane-collapsed-lines">
+      {groups.slice(0, 2).map((group) => (
+        <span key={group.workerId}>
+          {group.label}: {groupSummary(group)}
+        </span>
+      ))}
+      {groups.length > 2 ? <span>+ {(groups.length - 2).toString()} workers</span> : null}
     </div>
   );
 }
