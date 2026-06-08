@@ -418,6 +418,13 @@ unless the task explicitly requests it.
   context strip scaffold, current limits, safety boundaries, recommended next
   implementation blocks, and manual visual smoke checklist. It does not add
   runtime behavior or replace Workspace Agent V1.
+- `docs/WORKSPACE_AGENT_V2_DIRECT_RUN_STATUS.md` - docs-only status record for
+  WorkspaceAgentV2 Direct Run Block 001. It records the Direct Run audit,
+  Codex provider adapter, Direct Run controller, UI wiring, result review
+  cards, experimental smoke path, what is real versus inert, safety boundaries,
+  manual smoke checklist, and recommended next blocks. It does not add runtime
+  behavior, Queue Run behavior, Claude/Amp providers, or replace Workspace
+  Agent V1.
 
 ## Active Domain Contracts
 
