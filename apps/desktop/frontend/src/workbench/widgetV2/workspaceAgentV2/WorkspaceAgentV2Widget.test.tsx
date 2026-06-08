@@ -28,9 +28,10 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(document.body.textContent).toContain("Experimental");
     expect(document.body.textContent).toContain("Not connected");
     expect(document.body.textContent).toContain("Review only");
-    expect(document.body.textContent).toContain("Main transcript");
+    expect(document.body.textContent).toContain("Transcript");
     expect(document.body.textContent).toContain("Activity");
-    expect(document.body.textContent).toContain("Composer");
+    expect(document.body.textContent).toContain("Direct Run");
+    expect(document.body.textContent).toContain("Queue Run");
     expect(
       regionByRoleAndName("toolbar", "Workspace Agent v2 provider and mode row"),
     ).not.toBeNull();
@@ -42,20 +43,18 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
         ?.textContent,
     ).toContain("No provider, Queue, Terminal, Git, JDBC, or backend runtime is invoked.");
     expect(
-      regionByRoleAndName("region", "Workspace Agent v2 composer placeholder")
-        ?.textContent,
-    ).toContain("No provider request, Direct Run, or Queue task creation");
+      regionByRoleAndName("region", "Workspace Agent v2 composer")?.textContent,
+    ).toContain("New thread");
   });
 
-  it("does not expose provider run or Queue creation controls", async () => {
+  it("exposes only inert Direct Run and Queue Run controls", async () => {
     await render(<WorkspaceAgentV2Widget />);
 
-    expect(buttonWithText("Run")).toBeNull();
     expect(buttonWithText("Send")).toBeNull();
     expect(buttonWithText("Create Queue task")).toBeNull();
-    expect(
-      inputByLabel("Workspace Agent v2 composer placeholder input")?.disabled,
-    ).toBe(true);
+    expect(buttonWithText("Direct Run")).not.toBeNull();
+    expect(buttonWithText("Queue Run")).not.toBeNull();
+    expect(inputByLabel("Workspace Agent v2 prompt")?.disabled).toBe(false);
   });
 
   it("does not invoke run callbacks on render", async () => {
@@ -71,6 +70,24 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
 
     expect(onRunRequest).not.toHaveBeenCalled();
     expect(onQueueTaskCreate).not.toHaveBeenCalled();
+  });
+
+  it("clicking run controls calls only the injected callbacks", async () => {
+    const onRunRequest = vi.fn();
+    const onQueueTaskCreate = vi.fn();
+
+    await render(
+      <WorkspaceAgentV2Widget
+        onQueueTaskCreate={onQueueTaskCreate}
+        onRunRequest={onRunRequest}
+      />,
+    );
+
+    await click(buttonWithText("Direct Run"));
+    await click(buttonWithText("Queue Run"));
+
+    expect(onRunRequest).toHaveBeenCalledTimes(1);
+    expect(onQueueTaskCreate).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -106,6 +123,13 @@ function inputByLabel(label: string): HTMLTextAreaElement | null {
       (input) => input.getAttribute("aria-label") === label,
     ) ?? null
   );
+}
+
+async function click(element: HTMLElement | null) {
+  expect(element).not.toBeNull();
+  await act(async () => {
+    element?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
 }
 
 function regionByRoleAndName(role: string, name: string): HTMLElement | null {

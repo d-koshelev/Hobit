@@ -6,6 +6,8 @@ import {
   WidgetV2Toolbar,
 } from "../WidgetV2Shell";
 import { getWidgetV2Manifest } from "../widgetV2Registry";
+import { WorkspaceAgentV2Composer } from "./WorkspaceAgentV2Composer";
+import { WorkspaceAgentV2Transcript } from "./WorkspaceAgentV2Transcript";
 import { WorkspaceAgentV2TopBar } from "./WorkspaceAgentV2TopBar";
 
 const workspaceAgentV2Manifest = getWidgetV2Manifest("workspace-agent-v2");
@@ -19,9 +21,6 @@ export function WorkspaceAgentV2Widget({
   onQueueTaskCreate,
   onRunRequest,
 }: WorkspaceAgentV2WidgetProps = {}) {
-  void onQueueTaskCreate;
-  void onRunRequest;
-
   return (
     <WidgetV2Shell
       status={{
@@ -38,31 +37,24 @@ export function WorkspaceAgentV2Widget({
       </WidgetV2Toolbar>
       <WidgetV2PanelLayout
         bottomDrawer={
-          <WidgetV2BottomDrawer label="Workspace Agent v2 composer placeholder">
-            <section aria-label="Workspace Agent v2 composer">
-              <h3>Composer</h3>
-              <p>
-                Message input placeholder only. No provider request, Direct Run,
-                or Queue task creation is available in this scaffold.
-              </p>
-              <textarea
-                aria-label="Workspace Agent v2 composer placeholder input"
-                className="input"
-                disabled
-                placeholder="Composer placeholder"
-                rows={3}
-              />
-            </section>
+          <WidgetV2BottomDrawer label="Workspace Agent v2 composer">
+            <WorkspaceAgentV2Composer
+              onDirectRun={onRunRequest}
+              onQueueRun={onQueueTaskCreate}
+            />
           </WidgetV2BottomDrawer>
         }
         primary={
-          <section aria-label="Workspace Agent v2 transcript placeholder">
-            <h3>Main transcript</h3>
-            <p>
-              Transcript placeholder for future visible conversation and proposal
-              review. No hidden context is read.
-            </p>
-          </section>
+          <WorkspaceAgentV2Transcript
+            emptyState={
+              <>
+                <h3>Transcript</h3>
+                <p>
+                  Visible conversation scaffold only. No hidden context is read.
+                </p>
+              </>
+            }
+          />
         }
         primaryLabel="Workspace Agent v2 transcript"
         rightInspector={

@@ -1,0 +1,223 @@
+.workspace-agent-v2-transcript,
+.workspace-agent-v2-composer,
+.workspace-agent-v2-composer-row,
+.workspace-agent-v2-prompt-field {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-sm);
+}
+
+.workspace-agent-v2-transcript {
+  align-content: start;
+}
+
+.workspace-agent-v2-empty {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-io-surface);
+  padding: var(--space-md);
+}
+
+.workspace-agent-v2-empty h3,
+.workspace-agent-v2-empty p {
+  margin: 0;
+}
+
+.workspace-agent-v2-empty h3 {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 740;
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-v2-empty p {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.workspace-agent-v2-message {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface-raised);
+  padding: var(--space-sm);
+}
+
+.workspace-agent-v2-message[data-role="user"] {
+  border-color: var(--color-primary-hairline);
+  background: var(--color-primary-soft);
+}
+
+.workspace-agent-v2-message[data-role="result"] {
+  border-color: var(--color-success);
+  background: var(--color-success-soft);
+}
+
+.workspace-agent-v2-message-header,
+.workspace-agent-v2-composer-footer,
+.workspace-agent-v2-composer-options,
+.workspace-agent-v2-run-controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.workspace-agent-v2-message-header,
+.workspace-agent-v2-composer-footer {
+  justify-content: space-between;
+}
+
+.workspace-agent-v2-message-role,
+.workspace-agent-v2-message-title,
+.workspace-agent-v2-prompt-field > span,
+.workspace-agent-v2-mode-select > span,
+.workspace-agent-v2-new-thread {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-v2-message-role {
+  flex: 0 0 auto;
+  color: var(--color-text-secondary);
+  font-weight: 740;
+}
+
+.workspace-agent-v2-message-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-agent-v2-message-body {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+}
+
+.workspace-agent-v2-message-body p {
+  margin: 0;
+}
+
+.workspace-agent-v2-message-metadata {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin: 0;
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-xs);
+}
+
+.workspace-agent-v2-message-metadata div {
+  display: inline-flex;
+  min-width: 0;
+  align-items: baseline;
+  gap: calc(4px * var(--ui-scale));
+}
+
+.workspace-agent-v2-message-metadata dt,
+.workspace-agent-v2-message-metadata dd {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-v2-message-metadata dt {
+  color: var(--color-text-muted);
+}
+
+.workspace-agent-v2-message-metadata dd {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-agent-v2-prompt-field,
+.workspace-agent-v2-mode-select {
+  min-width: 0;
+}
+
+.workspace-agent-v2-prompt {
+  min-height: calc(92px * var(--ui-scale));
+  padding-block: var(--space-sm);
+  line-height: var(--line-normal);
+  resize: vertical;
+}
+
+.workspace-agent-v2-composer-footer {
+  align-items: flex-end;
+  gap: var(--space-md);
+}
+
+.workspace-agent-v2-composer-options {
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.workspace-agent-v2-new-thread {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.workspace-agent-v2-new-thread input {
+  accent-color: var(--color-primary);
+}
+
+.workspace-agent-v2-mode-select {
+  display: grid;
+  gap: var(--scaled-space-2xs);
+}
+
+.workspace-agent-v2-mode-select .select {
+  min-width: min(212px, 100%);
+}
+
+.workspace-agent-v2-settings.button {
+  min-width: var(--control-height-md);
+  padding: 0;
+}
+
+.workspace-agent-v2-run-controls {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.workspace-agent-v2-run-button.button {
+  min-width: calc(116px * var(--ui-scale));
+}
+
+.workspace-agent-v2-run-button-queue.button {
+  border-color: var(--color-info);
+  background: var(--color-info);
+  color: var(--color-on-primary);
+}
+
+.workspace-agent-v2-run-button-queue.button:not(:disabled):hover {
+  border-color: var(--color-primary-strong);
+  background: var(--color-primary-strong);
+}
+
+@media (max-width: 760px) {
+  .workspace-agent-v2-composer-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .workspace-agent-v2-run-controls,
+  .workspace-agent-v2-run-button.button {
+    width: 100%;
+  }
+}
