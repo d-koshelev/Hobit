@@ -411,6 +411,13 @@ unless the task explicitly requests it.
 - `docs/AI_INTEGRATION_READINESS_CONTRACT.md` - read before Workspace Agent
   provider/runtime work; it defines the first provider slice boundary with
   explicit visible context only and `allowed_tools: []`.
+- `docs/WORKSPACE_AGENT_V2_FOUNDATION_STATUS.md` - docs-only status record for
+  the completed Workspace Agent v2 foundation scaffold. It records the
+  AgentRuntime provider types foundation, WorkspaceAgentV2 experimental
+  manifest/shell, transcript/composer scaffold, activity pane scaffold,
+  context strip scaffold, current limits, safety boundaries, recommended next
+  implementation blocks, and manual visual smoke checklist. It does not add
+  runtime behavior or replace Workspace Agent V1.
 
 ## Active Domain Contracts
 
