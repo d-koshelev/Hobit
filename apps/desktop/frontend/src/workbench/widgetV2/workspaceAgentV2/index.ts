@@ -27,3 +27,20 @@ export type {
 } from "./WorkspaceAgentV2Transcript";
 export { WorkspaceAgentV2TopBar } from "./WorkspaceAgentV2TopBar";
 export { WorkspaceAgentV2Widget } from "./WorkspaceAgentV2Widget";
+export { useWorkspaceAgentV2DirectRun } from "./useWorkspaceAgentV2DirectRun";
+export type {
+  WorkspaceAgentV2DirectRunController,
+  WorkspaceAgentV2DirectRunControllerOptions,
+} from "./useWorkspaceAgentV2DirectRun";
+export {
+  buildWorkspaceAgentV2DirectRunRequest,
+  isWorkspaceAgentV2DirectRunBusy,
+  workspaceAgentV2ContextMaterializedEvent,
+  workspaceAgentV2ResultEvent,
+  workspaceAgentV2ResultTranscriptMessage,
+} from "./workspaceAgentV2DirectRunModel";
+export type {
+  WorkspaceAgentV2DirectRunRequestBuild,
+  WorkspaceAgentV2DirectRunRequestInput,
+  WorkspaceAgentV2DirectRunStatus,
+} from "./workspaceAgentV2DirectRunModel";
