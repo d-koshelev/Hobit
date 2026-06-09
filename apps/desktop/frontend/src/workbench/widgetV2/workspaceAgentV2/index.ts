@@ -44,3 +44,20 @@ export type {
   WorkspaceAgentV2DirectRunRequestInput,
   WorkspaceAgentV2DirectRunStatus,
 } from "./workspaceAgentV2DirectRunModel";
+export {
+  buildQueueRunRequestFromComposer,
+  createQueueTaskFromAgentRequest,
+  mapQueueTaskCreatedResult,
+  WORKSPACE_AGENT_V2_QUEUE_RUN_SOURCE,
+} from "./workspaceAgentV2QueueRunService";
+export type {
+  WorkspaceAgentV2QueueRunBuildResult,
+  WorkspaceAgentV2QueueRunComposerInput,
+  WorkspaceAgentV2QueueRunContextRef,
+  WorkspaceAgentV2QueueRunCreatedResult,
+  WorkspaceAgentV2QueueRunDesiredStatus,
+  WorkspaceAgentV2QueueRunFailedResult,
+  WorkspaceAgentV2QueueRunRequest,
+  WorkspaceAgentV2QueueRunResult,
+  WorkspaceAgentV2QueueRunUnsupportedResult,
+} from "./workspaceAgentV2QueueRunService";
