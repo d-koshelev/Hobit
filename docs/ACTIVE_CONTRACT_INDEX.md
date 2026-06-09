@@ -163,6 +163,13 @@ of truth for their domains.
   smoke steps, and remaining import/action/full-replacement gaps. It does not
   add frontend behavior, backend/Rust/Tauri/storage/schema changes, or
   Knowledge data changes.
+- `docs/KNOWLEDGE_V2_BRIDGE_CLEANUP_STATUS.md` - docs-only status record for
+  KnowledgeV2 bridge completion and UX cleanup. It records bridge audit, data
+  bridge completion, compact partial-state UX, table/preview polish,
+  per-action availability cleanup, manual smoke steps, and remaining bridge,
+  file picker import, and legacy-removal gaps. It does not add frontend
+  behavior, backend/Rust/Tauri/storage/schema changes, Queue/Agent runtime
+  behavior, or Knowledge data changes.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
