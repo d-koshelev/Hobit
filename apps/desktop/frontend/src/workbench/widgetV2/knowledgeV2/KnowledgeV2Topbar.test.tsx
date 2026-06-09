@@ -1,0 +1,132 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { KnowledgeV2Widget } from "./KnowledgeV2Widget";
+import {
+  cleanupKnowledgeV2WidgetTestDom,
+  clickButtonInRegion,
+  dialogByName,
+  documentFixture,
+  regionByName,
+  render,
+  skillFixture,
+} from "./KnowledgeV2Widget.test-helpers";
+
+afterEach(() => {
+  cleanupKnowledgeV2WidgetTestDom();
+});
+
+describe("KnowledgeV2Widget topbar", () => {
+  it("groups view, primary, management, and filter controls separately", async () => {
+    const onNew = vi.fn();
+    const onImport = vi.fn();
+    const onDraftReview = vi.fn();
+    const onManageSkills = vi.fn();
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onDraftReview={onDraftReview}
+        onImport={onImport}
+        onManageSkills={onManageSkills}
+        onNew={onNew}
+        skills={[skillFixture()]}
+      />,
+    );
+
+    expect(
+      document.querySelector(".knowledge-v2-action-group[data-group='view']"),
+    ).not.toBeNull();
+    expect(
+      document.querySelector(".knowledge-v2-action-group[data-group='primary']"),
+    ).not.toBeNull();
+    expect(
+      document.querySelector(
+        ".knowledge-v2-action-group[data-group='management']",
+      ),
+    ).not.toBeNull();
+    expect(
+      document.querySelector(".knowledge-v2-action-group[data-group='more']"),
+    ).not.toBeNull();
+    expect(regionByName("KnowledgeV2 view switcher")?.textContent).toContain(
+      "List",
+    );
+    expect(regionByName("KnowledgeV2 view switcher")?.textContent).toContain(
+      "Cards",
+    );
+    expect(regionByName("KnowledgeV2 primary actions")?.textContent).toContain(
+      "New",
+    );
+    expect(regionByName("KnowledgeV2 primary actions")?.textContent).toContain(
+      "Import",
+    );
+    expect(
+      regionByName("KnowledgeV2 management actions")?.textContent,
+    ).toContain("Draft Review");
+    expect(
+      regionByName("KnowledgeV2 management actions")?.textContent,
+    ).toContain("Manage Skills");
+    expect(
+      regionByName("KnowledgeV2 management actions")?.textContent,
+    ).toContain("Help");
+    expect(
+      regionByName("Knowledge v2 search and filter row")?.textContent,
+    ).toContain("Sort");
+    expect(
+      regionByName("Knowledge v2 search and filter row")?.textContent,
+    ).toContain("More filters");
+    expect(onNew).not.toHaveBeenCalled();
+    expect(onImport).not.toHaveBeenCalled();
+    expect(onDraftReview).not.toHaveBeenCalled();
+    expect(onManageSkills).not.toHaveBeenCalled();
+  });
+
+  it("keeps secondary actions accessible through More without running callbacks", async () => {
+    const onNew = vi.fn();
+    const onImport = vi.fn();
+    const onDraftReview = vi.fn();
+    const onManageSkills = vi.fn();
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onDraftReview={onDraftReview}
+        onImport={onImport}
+        onManageSkills={onManageSkills}
+        onNew={onNew}
+        skills={[skillFixture()]}
+      />,
+    );
+
+    const moreGroup = regionByName("KnowledgeV2 collapsed management actions");
+    const managementGroup = regionByName("KnowledgeV2 management actions");
+
+    expect(moreGroup?.className).toContain("knowledge-v2-more-actions");
+    expect(managementGroup?.className).toContain(
+      "knowledge-v2-management-actions",
+    );
+    expect(managementGroup?.textContent).toContain("Draft Review");
+    expect(managementGroup?.textContent).toContain("Manage Skills");
+    expect(managementGroup?.textContent).toContain("Help");
+
+    await clickButtonInRegion(
+      "KnowledgeV2 collapsed management actions",
+      "More",
+    );
+
+    const moreMenu = regionByName("KnowledgeV2 More menu");
+    expect(moreMenu?.getAttribute("role")).toBe("menu");
+    expect(moreMenu?.textContent).toContain("Draft Review");
+    expect(moreMenu?.textContent).toContain("Manage Skills");
+    expect(moreMenu?.textContent).toContain("Help");
+    expect(onNew).not.toHaveBeenCalled();
+    expect(onImport).not.toHaveBeenCalled();
+    expect(onDraftReview).not.toHaveBeenCalled();
+    expect(onManageSkills).not.toHaveBeenCalled();
+
+    await clickButtonInRegion("KnowledgeV2 More menu", "Manage Skills");
+
+    expect(dialogByName("Manage Skills")?.textContent).toContain("Categories");
+    expect(regionByName("KnowledgeV2 More menu")).toBeNull();
+    expect(onManageSkills).not.toHaveBeenCalled();
+  });
+});

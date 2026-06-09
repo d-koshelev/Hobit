@@ -15,9 +15,57 @@
 
 .knowledge-v2-actions {
   display: flex;
+  container-type: inline-size;
+  position: relative;
   flex-wrap: wrap;
+  align-items: center;
   justify-content: flex-end;
+  gap: var(--space-sm);
+}
+
+.knowledge-v2-action-group {
+  display: inline-flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: var(--space-xs);
+}
+
+.knowledge-v2-primary-actions {
+  padding-left: var(--space-xs);
+}
+
+.knowledge-v2-management-actions {
+  padding-left: var(--space-sm);
+  border-left: 1px solid var(--color-border-subtle);
+}
+
+.knowledge-v2-more-actions {
+  position: relative;
+  display: none;
+}
+
+.knowledge-v2-more-menu {
+  position: absolute;
+  z-index: 6;
+  top: calc(100% + var(--space-xs));
+  right: 0;
+  display: grid;
+  width: max-content;
+  min-width: calc(180px * var(--ui-scale));
+  max-width: min(260px, calc(100vw - var(--space-xl)));
+  gap: var(--scaled-space-2xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface-raised);
+  box-shadow: var(--shadow-elevated);
+  padding: var(--space-xs);
+}
+
+.knowledge-v2-more-menu .button {
+  justify-content: flex-start;
+  width: 100%;
 }
 
 .knowledge-v2-action-badge {
@@ -26,9 +74,7 @@
 }
 
 .knowledge-v2-view-toggle {
-  display: inline-flex;
   gap: var(--scaled-space-2xs);
-  margin-right: var(--space-xs);
 }
 
 .knowledge-v2-toolbar {
@@ -1480,5 +1526,33 @@
 
   .knowledge-v2-row-actions {
     justify-content: flex-end;
+  }
+}
+
+@container (max-width: 500px) {
+  .knowledge-v2-actions {
+    gap: var(--space-xs);
+  }
+
+  .knowledge-v2-management-actions {
+    display: none;
+  }
+
+  .knowledge-v2-more-actions {
+    display: inline-flex;
+  }
+
+  .knowledge-v2-primary-actions {
+    padding-left: 0;
+  }
+}
+
+@media (max-width: 760px) {
+  .knowledge-v2-management-actions {
+    display: none;
+  }
+
+  .knowledge-v2-more-actions {
+    display: inline-flex;
   }
 }

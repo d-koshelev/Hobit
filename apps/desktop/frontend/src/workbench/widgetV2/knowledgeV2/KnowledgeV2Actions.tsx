@@ -8,6 +8,7 @@ import type {
 } from "../../../workspace/types/knowledgeDocuments";
 import type { Skill } from "../../../workspace/types/skills";
 import { KnowledgeV2ActionFooter } from "./KnowledgeV2ActionFooter";
+import { KnowledgeV2ActionButton } from "./KnowledgeV2ActionButton";
 
 export type KnowledgeV2ActionKind =
   | "draft-review"
@@ -75,8 +76,11 @@ export function KnowledgeV2Actions({
   const draftButtonRef = useRef<HTMLButtonElement | null>(null);
   const skillsButtonRef = useRef<HTMLButtonElement | null>(null);
   const helpButtonRef = useRef<HTMLButtonElement | null>(null);
+  const moreButtonRef = useRef<HTMLButtonElement | null>(null);
   const popupTitleId = useId();
   const popupId = useId();
+  const [isMoreOpen, setIsMoreOpen] = useState(false);
+  const [openedFromMore, setOpenedFromMore] = useState(false);
   const draftSummary = buildDraftSummary(documents, skills, draftReviews);
   const availability =
     actionAvailability ??
@@ -87,8 +91,9 @@ export function KnowledgeV2Actions({
       onNew,
     });
 
-  const activeButtonRef =
-    openAction === "new-knowledge"
+  const activeButtonRef = openedFromMore
+    ? moreButtonRef
+    : openAction === "new-knowledge"
       ? newButtonRef
       : openAction === "import-file"
         ? importButtonRef
@@ -99,6 +104,16 @@ export function KnowledgeV2Actions({
             : openAction === "help-legend"
               ? helpButtonRef
               : undefined;
+  const primaryActions = ACTIONS.filter((action) =>
+    ["new-knowledge", "import-file"].includes(action.kind));
+  const managementActions = ACTIONS.filter((action) =>
+    !["new-knowledge", "import-file"].includes(action.kind));
+
+  function openTopbarAction(action: KnowledgeV2ActionKind, fromMore = false) {
+    setOpenedFromMore(fromMore);
+    setOpenAction(action);
+    setIsMoreOpen(false);
+  }
 
   return (
     <>
@@ -106,7 +121,12 @@ export function KnowledgeV2Actions({
         aria-label="KnowledgeV2 explicit actions"
         className="knowledge-v2-actions"
       >
-        <div aria-label="KnowledgeV2 view mode" className="knowledge-v2-view-toggle">
+        <div
+          aria-label="KnowledgeV2 view switcher"
+          className="knowledge-v2-action-group knowledge-v2-view-toggle"
+          data-group="view"
+          role="group"
+        >
           <Button
             aria-pressed={viewMode === "list"}
             onClick={() => onViewModeChange?.("list")}
@@ -122,27 +142,88 @@ export function KnowledgeV2Actions({
             Cards
           </Button>
         </div>
-        {ACTIONS.map((action) => (
+        <div
+          aria-label="KnowledgeV2 primary actions"
+          className="knowledge-v2-action-group knowledge-v2-primary-actions"
+          data-group="primary"
+          role="group"
+        >
+          {primaryActions.map((action) => (
+            <KnowledgeV2ActionButton
+              badge={badgeForAction(action.kind, availability)}
+              buttonRef={buttonRefForAction(action.kind, {
+                draftButtonRef,
+                helpButtonRef,
+                importButtonRef,
+                newButtonRef,
+                skillsButtonRef,
+              })}
+              kind={action.kind}
+              key={action.kind}
+              label={action.label}
+              onOpen={() => openTopbarAction(action.kind)}
+            />
+          ))}
+        </div>
+        <div
+          aria-label="KnowledgeV2 management actions"
+          className="knowledge-v2-action-group knowledge-v2-management-actions"
+          data-group="management"
+          role="group"
+        >
+          {managementActions.map((action) => (
+            <KnowledgeV2ActionButton
+              badge={badgeForAction(action.kind, availability)}
+              buttonRef={buttonRefForAction(action.kind, {
+                draftButtonRef,
+                helpButtonRef,
+                importButtonRef,
+                newButtonRef,
+                skillsButtonRef,
+              })}
+              kind={action.kind}
+              key={action.kind}
+              label={action.label}
+              onOpen={() => openTopbarAction(action.kind)}
+            />
+          ))}
+        </div>
+        <div
+          aria-label="KnowledgeV2 collapsed management actions"
+          className="knowledge-v2-action-group knowledge-v2-more-actions"
+          data-group="more"
+          role="group"
+        >
           <Button
-            key={action.kind}
-            onClick={() => setOpenAction(action.kind)}
-            ref={buttonRefForAction(action.kind, {
-              draftButtonRef,
-              helpButtonRef,
-              importButtonRef,
-              newButtonRef,
-              skillsButtonRef,
-            })}
-            variant={action.kind === "new-knowledge" ? "primary" : "secondary"}
+            aria-controls="knowledge-v2-more-actions-menu"
+            aria-expanded={isMoreOpen}
+            onClick={() => setIsMoreOpen((current) => !current)}
+            ref={moreButtonRef}
+            variant="secondary"
           >
-            {action.label}
-            {badgeForAction(action.kind, availability) ? (
-              <span className="knowledge-v2-action-badge">
-                {badgeForAction(action.kind, availability)}
-              </span>
-            ) : null}
+            More
           </Button>
-        ))}
+          {isMoreOpen ? (
+            <div
+              aria-label="KnowledgeV2 More menu"
+              className="knowledge-v2-more-menu"
+              id="knowledge-v2-more-actions-menu"
+              role="menu"
+            >
+              {managementActions.map((action) => (
+                <KnowledgeV2ActionButton
+                  badge={badgeForAction(action.kind, availability)}
+                  kind={action.kind}
+                  key={action.kind}
+                  label={action.label}
+                  onOpen={() => openTopbarAction(action.kind, true)}
+                  role="menuitem"
+                  variant="secondary"
+                />
+              ))}
+            </div>
+          ) : null}
+        </div>
       </div>
       <WidgetPopupShell
         actions={
@@ -196,9 +277,7 @@ export function KnowledgeV2Actions({
               skillsCount={skills.length}
             />
           ) : null}
-          {openAction === "help-legend" ? (
-            <HelpLegendPopup />
-          ) : null}
+          {openAction === "help-legend" ? <HelpLegendPopup /> : null}
         </article>
       </WidgetPopupShell>
     </>
