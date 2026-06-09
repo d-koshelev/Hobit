@@ -6,7 +6,10 @@ import type { Skill } from "../../../workspace/types/skills";
 import type { WidgetRenderProps } from "../../types";
 import { WidgetV2Shell } from "../WidgetV2Shell";
 import { getWidgetV2Manifest } from "../widgetV2Registry";
-import { KnowledgeV2Actions } from "./KnowledgeV2Actions";
+import {
+  KnowledgeV2Actions,
+  type KnowledgeV2ActionAvailabilityMap,
+} from "./KnowledgeV2Actions";
 import { KnowledgeV2CatalogBrowser } from "./KnowledgeV2CatalogBrowser";
 
 const knowledgeV2Manifest = getWidgetV2Manifest("knowledge-v2");
@@ -68,9 +71,15 @@ export function KnowledgeV2Widget({
     <WidgetV2Shell
       actions={
         <KnowledgeV2Actions
+          actionAvailability={knowledgeV2ActionAvailability({
+            dataBridge,
+            onDraftReview,
+            onImport,
+            onManageSkills,
+            onNew,
+          })}
           documents={dataBridge.documents}
           draftReviews={dataBridge.draftReviews}
-          missingBridges={dataBridge.actionMissingBridges}
           onDraftReview={onDraftReview}
           onImport={onImport}
           onManageSkills={onManageSkills}
@@ -180,6 +189,7 @@ type KnowledgeV2DataBridge = {
   readonly loadError: string | null;
   readonly missingBridges: readonly string[];
   readonly skillBridgeAvailable: boolean;
+  readonly skillBridgeIssue: string | null;
   readonly skills: readonly Skill[];
   readonly status: "loading" | "partial" | "ready" | "unavailable";
 };
@@ -286,6 +296,12 @@ function useKnowledgeV2DataBridge({
         ? "Draft review item bridge is partial: the current list action requires a selected draft pack"
         : "Draft review item bridge",
   ].filter((bridge): bridge is string => Boolean(bridge));
+  const skillBridgeIssue =
+    !skillBridgeAvailable
+      ? "Skills list bridge is unavailable, so Manage Skills can only report the missing bridge."
+      : loadError?.includes("skills:")
+        ? `Skills list bridge failed: ${loadError}`
+        : null;
   const status =
     isLoading
       ? "loading"
@@ -305,8 +321,78 @@ function useKnowledgeV2DataBridge({
     loadError,
     missingBridges: dataMissingBridges,
     skillBridgeAvailable,
+    skillBridgeIssue,
     skills: skills ?? loadedSkills,
     status,
+  };
+}
+
+function knowledgeV2ActionAvailability({
+  dataBridge,
+  onDraftReview,
+  onImport,
+  onManageSkills,
+  onNew,
+}: {
+  readonly dataBridge: KnowledgeV2DataBridge;
+  readonly onDraftReview?: () => void;
+  readonly onImport?: () => void;
+  readonly onManageSkills?: () => void;
+  readonly onNew?: () => void;
+}): KnowledgeV2ActionAvailabilityMap {
+  return {
+    draftReview: !onDraftReview
+      ? {
+          reason:
+            "Draft review management is unavailable because KnowledgeV2 did not receive an explicit draft-review callback.",
+          state: "unavailable",
+        }
+      : dataBridge.draftReviewBridgeAvailable
+        ? { reason: null, state: "available" }
+        : {
+            details: dataBridge.actionMissingBridges,
+            reason: dataBridge.draftReviewListActionAvailable
+              ? "Draft Review is partial because the available list action requires a selected draft pack."
+              : "Draft Review is partial because no draft review item bridge was supplied.",
+            state: "partial",
+          },
+    importFile: !onImport
+      ? {
+          reason:
+            "Import is unavailable because KnowledgeV2 did not receive an explicit import-flow callback.",
+          state: "unavailable",
+        }
+      : {
+          details: [
+            "Direct KnowledgeV2 file picker is not wired.",
+            "Raw path import is not exposed in this popup.",
+          ],
+          reason:
+            "Import is partial: use the explicit existing import flow for single .txt, .md, or .markdown files.",
+          state: "partial",
+        },
+    manageSkills: !onManageSkills
+      ? {
+          details: dataBridge.skillBridgeIssue ? [dataBridge.skillBridgeIssue] : [],
+          reason:
+            "Skill management is unavailable because KnowledgeV2 did not receive an explicit Skill-management callback.",
+          state: "unavailable",
+        }
+      : dataBridge.skillBridgeIssue
+        ? {
+            details: [dataBridge.skillBridgeIssue],
+            reason:
+              "Manage Skills is partial because the Skill list bridge is not fully available in this KnowledgeV2 host.",
+            state: "partial",
+          }
+        : { reason: null, state: "available" },
+    newKnowledge: !onNew
+      ? {
+          reason:
+            "Creation is unavailable because KnowledgeV2 did not receive an explicit create-flow callback.",
+          state: "unavailable",
+        }
+      : { reason: null, state: "available" },
   };
 }
 

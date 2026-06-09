@@ -9,6 +9,9 @@ type KnowledgeV2CatalogListProps = {
   readonly items: readonly KnowledgeV2CatalogItem[];
   readonly mode?: "cards" | "list";
   readonly selectedItemId: string | null;
+  readonly getUseAsContextDisabledReason?: (
+    item: KnowledgeV2CatalogItem,
+  ) => string | null;
   readonly onClearFilters?: () => void;
   readonly onImport?: () => void;
   readonly onSelectItem: (itemId: string) => void;
@@ -19,6 +22,7 @@ export function KnowledgeV2CatalogList({
   hasItems,
   items,
   mode = "list",
+  getUseAsContextDisabledReason,
   onClearFilters,
   onImport,
   onSelectItem,
@@ -97,6 +101,7 @@ export function KnowledgeV2CatalogList({
         <KnowledgeV2CatalogRow
           item={item}
           key={item.id}
+          useAsContextDisabledReason={getUseAsContextDisabledReason?.(item) ?? null}
           onSelectItem={onSelectItem}
           onUseAsContext={onUseAsContext}
           selected={item.id === selectedItemId}
@@ -109,6 +114,7 @@ export function KnowledgeV2CatalogList({
 type KnowledgeV2CatalogRowProps = {
   readonly item: KnowledgeV2CatalogItem;
   readonly selected: boolean;
+  readonly useAsContextDisabledReason?: string | null;
   readonly onSelectItem: (itemId: string) => void;
   readonly onUseAsContext?: (itemId: string) => void;
 };
@@ -118,6 +124,7 @@ export function KnowledgeV2CatalogRow({
   onSelectItem,
   onUseAsContext,
   selected,
+  useAsContextDisabledReason = null,
 }: KnowledgeV2CatalogRowProps) {
   const warningCount = item.warnings.length;
   const statuses = knowledgeV2ItemStatuses(item);
@@ -190,8 +197,9 @@ export function KnowledgeV2CatalogRow({
         {onUseAsContext ? (
           <button
             aria-label={`Use ${item.title} as context`}
+            disabled={Boolean(useAsContextDisabledReason)}
             onClick={() => onUseAsContext(item.id)}
-            title={`Use ${item.title} as context`}
+            title={useAsContextDisabledReason ?? `Use ${item.title} as context`}
             type="button"
           >
             Use

@@ -16,9 +16,9 @@ type KnowledgeV2ActionKind =
   | "new-knowledge";
 
 type KnowledgeV2ActionsProps = {
+  readonly actionAvailability?: KnowledgeV2ActionAvailabilityMap;
   readonly documents: readonly KnowledgeDocument[];
   readonly draftReviews?: readonly KnowledgeDraftReviewDecision[];
-  readonly missingBridges?: readonly string[];
   readonly onDraftReview?: () => void;
   readonly onImport?: () => void;
   readonly onManageSkills?: () => void;
@@ -33,6 +33,19 @@ type ActionConfig = {
   readonly label: string;
 };
 
+export type KnowledgeV2ActionAvailability = {
+  readonly details?: readonly string[];
+  readonly reason: string | null;
+  readonly state: "available" | "partial" | "unavailable";
+};
+
+export type KnowledgeV2ActionAvailabilityMap = {
+  readonly draftReview: KnowledgeV2ActionAvailability;
+  readonly importFile: KnowledgeV2ActionAvailability;
+  readonly manageSkills: KnowledgeV2ActionAvailability;
+  readonly newKnowledge: KnowledgeV2ActionAvailability;
+};
+
 const ACTIONS: readonly ActionConfig[] = [
   { kind: "new-knowledge", label: "New" },
   { kind: "import-file", label: "Import" },
@@ -42,9 +55,9 @@ const ACTIONS: readonly ActionConfig[] = [
 ];
 
 export function KnowledgeV2Actions({
+  actionAvailability,
   documents,
   draftReviews = [],
-  missingBridges = [],
   onDraftReview,
   onImport,
   onManageSkills,
@@ -64,6 +77,14 @@ export function KnowledgeV2Actions({
   const popupTitleId = useId();
   const popupId = useId();
   const draftSummary = buildDraftSummary(documents, skills, draftReviews);
+  const availability =
+    actionAvailability ??
+    defaultActionAvailability({
+      onDraftReview,
+      onImport,
+      onManageSkills,
+      onNew,
+    });
 
   const activeButtonRef =
     openAction === "new-knowledge"
@@ -114,6 +135,11 @@ export function KnowledgeV2Actions({
             variant={action.kind === "new-knowledge" ? "primary" : "secondary"}
           >
             {action.label}
+            {badgeForAction(action.kind, availability) ? (
+              <span className="knowledge-v2-action-badge">
+                {badgeForAction(action.kind, availability)}
+              </span>
+            ) : null}
           </Button>
         ))}
       </div>
@@ -137,61 +163,27 @@ export function KnowledgeV2Actions({
             </Button>
           </header>
           {openAction === "new-knowledge" ? (
-            <NewKnowledgePopup onNew={onNew} />
+            <NewKnowledgePopup
+              availability={availability.newKnowledge}
+              onNew={onNew}
+            />
           ) : null}
           {openAction === "import-file" ? (
-            <ImportKnowledgePopup onImport={onImport} />
+            <ImportKnowledgePopup
+              availability={availability.importFile}
+              onImport={onImport}
+            />
           ) : null}
           {openAction === "draft-review" ? (
-            <section className="knowledge-v2-action-popup-body">
-              <p>
-                Draft review stays outside the default catalog browsing view.
-                This summary uses visible catalog records only.
-              </p>
-              <dl className="knowledge-v2-action-facts">
-                <div>
-                  <dt>Draft documents</dt>
-                  <dd>{draftSummary.documentDrafts.toString()}</dd>
-                </div>
-                <div>
-                  <dt>Draft skills</dt>
-                  <dd>{draftSummary.skillDrafts.toString()}</dd>
-                </div>
-                <div>
-                  <dt>Needs review</dt>
-                  <dd>{draftSummary.needsReviewSkills.toString()}</dd>
-                </div>
-                <div>
-                  <dt>Review decisions</dt>
-                  <dd>{draftSummary.reviewDecisions.toString()}</dd>
-                </div>
-              </dl>
-              {missingBridges.length > 0 ? (
-                <ul className="knowledge-v2-action-bridge-list">
-                  {missingBridges.map((bridge) => (
-                    <li key={bridge}>{bridge}</li>
-                  ))}
-                </ul>
-              ) : null}
-              <p className="knowledge-v2-action-note">
-                Full draft review and acceptance stay in the production
-                Knowledge / Skills review surface. Raw draft contents are not
-                shown in this catalog browser.
-              </p>
-              {onDraftReview ? (
-                <Button onClick={onDraftReview} variant="secondary">
-                  Open existing draft review flow
-                </Button>
-              ) : (
-                <UnavailableAction
-                  label="Open existing draft review flow"
-                  reason="Draft review management is unavailable because KnowledgeV2 did not receive an explicit draft-review callback."
-                />
-              )}
-            </section>
+            <DraftReviewPopup
+              availability={availability.draftReview}
+              draftSummary={draftSummary}
+              onDraftReview={onDraftReview}
+            />
           ) : null}
           {openAction === "manage-skills" ? (
             <ManageSkillsPopup
+              availability={availability.manageSkills}
               onManageSkills={onManageSkills}
               skillsCount={skills.length}
             />
@@ -205,9 +197,16 @@ export function KnowledgeV2Actions({
   );
 }
 
-function NewKnowledgePopup({ onNew }: { readonly onNew?: () => void }) {
+function NewKnowledgePopup({
+  availability,
+  onNew,
+}: {
+  readonly availability: KnowledgeV2ActionAvailability;
+  readonly onNew?: () => void;
+}) {
   return (
     <section className="knowledge-v2-action-popup-body">
+      <ActionAvailabilityPanel availability={availability} label="New" />
       <p>
         Opening this popup does not create a Knowledge item. Choose an explicit
         creation path when the existing production flow is available.
@@ -233,7 +232,7 @@ function NewKnowledgePopup({ onNew }: { readonly onNew?: () => void }) {
           title="New runbook/procedure"
         />
       </div>
-      {onNew ? (
+      {availability.state !== "unavailable" && onNew ? (
         <Button onClick={onNew} variant="secondary">
           Open existing create flow
         </Button>
@@ -247,9 +246,16 @@ function NewKnowledgePopup({ onNew }: { readonly onNew?: () => void }) {
   );
 }
 
-function ImportKnowledgePopup({ onImport }: { readonly onImport?: () => void }) {
+function ImportKnowledgePopup({
+  availability,
+  onImport,
+}: {
+  readonly availability: KnowledgeV2ActionAvailability;
+  readonly onImport?: () => void;
+}) {
   return (
     <section className="knowledge-v2-action-popup-body">
+      <ActionAvailabilityPanel availability={availability} label="Import" />
       <p>
         Import remains explicit and single-file only in the existing production
         Knowledge / Skills flow. Opening this popup does not read or import a
@@ -277,10 +283,11 @@ function ImportKnowledgePopup({ onImport }: { readonly onImport?: () => void }) 
         />
       </div>
       <p className="knowledge-v2-action-note">
-        Imported items are created through the current document create path;
-        KnowledgeV2 does not add draft creation on import in this block.
+        KnowledgeV2 has no direct file picker or raw path input in this popup
+        yet. Use the existing import flow when available; this popup never
+        reads a local file by itself.
       </p>
-      {onImport ? (
+      {availability.state !== "unavailable" && onImport ? (
         <Button onClick={onImport} variant="secondary">
           Open existing import flow
         </Button>
@@ -294,15 +301,74 @@ function ImportKnowledgePopup({ onImport }: { readonly onImport?: () => void }) 
   );
 }
 
+function DraftReviewPopup({
+  availability,
+  draftSummary,
+  onDraftReview,
+}: {
+  readonly availability: KnowledgeV2ActionAvailability;
+  readonly draftSummary: ReturnType<typeof buildDraftSummary>;
+  readonly onDraftReview?: () => void;
+}) {
+  return (
+    <section className="knowledge-v2-action-popup-body">
+      <ActionAvailabilityPanel availability={availability} label="Draft Review" />
+      <p>
+        Draft review stays outside the default catalog browsing view. This
+        summary uses visible catalog records only.
+      </p>
+      <dl className="knowledge-v2-action-facts">
+        <div>
+          <dt>Draft documents</dt>
+          <dd>{draftSummary.documentDrafts.toString()}</dd>
+        </div>
+        <div>
+          <dt>Draft skills</dt>
+          <dd>{draftSummary.skillDrafts.toString()}</dd>
+        </div>
+        <div>
+          <dt>Needs review</dt>
+          <dd>{draftSummary.needsReviewSkills.toString()}</dd>
+        </div>
+        <div>
+          <dt>Review decisions</dt>
+          <dd>{draftSummary.reviewDecisions.toString()}</dd>
+        </div>
+      </dl>
+      <p className="knowledge-v2-action-note">
+        Full draft review and acceptance stay in the production Knowledge /
+        Skills review surface. Raw draft contents are not shown in this catalog
+        browser.
+      </p>
+      {availability.state !== "unavailable" && onDraftReview ? (
+        <Button onClick={onDraftReview} variant="secondary">
+          Open existing draft review flow
+        </Button>
+      ) : (
+        <UnavailableAction
+          label="Open existing draft review flow"
+          reason={
+            availability.reason ??
+            "Draft review management is unavailable because KnowledgeV2 did not receive an explicit draft-review callback."
+          }
+        />
+      )}
+    </section>
+  );
+}
+
 function ManageSkillsPopup({
+  availability,
   onManageSkills,
   skillsCount,
 }: {
+  readonly availability: KnowledgeV2ActionAvailability;
   readonly onManageSkills?: () => void;
   readonly skillsCount: number;
 }) {
   return (
     <section className="knowledge-v2-action-popup-body">
+      <ActionAvailabilityPanel availability={availability} label="Manage Skills" />
       <p>
         KnowledgeV2 currently treats {skillsCount.toString()} Skill item
         {skillsCount === 1 ? "" : "s"} as catalog entries and filters. Skill
@@ -334,7 +400,7 @@ function ManageSkillsPopup({
           title="Validation"
         />
       </div>
-      {onManageSkills ? (
+      {availability.state !== "unavailable" && onManageSkills ? (
         <Button onClick={onManageSkills} variant="secondary">
           Open existing skills flow
         </Button>
@@ -344,6 +410,34 @@ function ManageSkillsPopup({
           reason="Skill management is unavailable because KnowledgeV2 did not receive an explicit Skill-management callback."
         />
       )}
+    </section>
+  );
+}
+
+function ActionAvailabilityPanel({
+  availability,
+  label,
+}: {
+  readonly availability: KnowledgeV2ActionAvailability;
+  readonly label: string;
+}) {
+  return (
+    <section
+      aria-label={`${label} availability`}
+      className="knowledge-v2-action-availability"
+      data-state={availability.state}
+    >
+      <span className="knowledge-v2-chip" data-tone={toneForAvailability(availability.state)}>
+        {labelForAvailability(availability.state)}
+      </span>
+      {availability.reason ? <p>{availability.reason}</p> : null}
+      {availability.details && availability.details.length > 0 ? (
+        <ul className="knowledge-v2-action-bridge-list">
+          {availability.details.map((detail) => (
+            <li key={detail}>{detail}</li>
+          ))}
+        </ul>
+      ) : null}
     </section>
   );
 }
@@ -363,6 +457,103 @@ function UnavailableAction({
       <p>{reason}</p>
     </div>
   );
+}
+
+function defaultActionAvailability({
+  onDraftReview,
+  onImport,
+  onManageSkills,
+  onNew,
+}: {
+  readonly onDraftReview?: () => void;
+  readonly onImport?: () => void;
+  readonly onManageSkills?: () => void;
+  readonly onNew?: () => void;
+}): KnowledgeV2ActionAvailabilityMap {
+  return {
+    draftReview: onDraftReview
+      ? available()
+      : unavailable(
+          "Draft review management is unavailable because KnowledgeV2 did not receive an explicit draft-review callback.",
+        ),
+    importFile: onImport
+      ? available()
+      : unavailable(
+          "Import is unavailable because KnowledgeV2 did not receive an explicit import-flow callback.",
+        ),
+    manageSkills: onManageSkills
+      ? available()
+      : unavailable(
+          "Skill management is unavailable because KnowledgeV2 did not receive an explicit Skill-management callback.",
+        ),
+    newKnowledge: onNew
+      ? available()
+      : unavailable(
+          "Creation is unavailable because KnowledgeV2 did not receive an explicit create-flow callback.",
+        ),
+  };
+}
+
+function available(): KnowledgeV2ActionAvailability {
+  return { reason: null, state: "available" };
+}
+
+function unavailable(
+  reason: string,
+  details: readonly string[] = [],
+): KnowledgeV2ActionAvailability {
+  return { details, reason, state: "unavailable" };
+}
+
+function badgeForAction(
+  kind: KnowledgeV2ActionKind,
+  availability: KnowledgeV2ActionAvailabilityMap,
+) {
+  const actionAvailability = availabilityForAction(kind, availability);
+  if (!actionAvailability || actionAvailability.state === "available") {
+    return null;
+  }
+  return labelForAvailability(actionAvailability.state);
+}
+
+function availabilityForAction(
+  kind: KnowledgeV2ActionKind,
+  availability: KnowledgeV2ActionAvailabilityMap,
+) {
+  switch (kind) {
+    case "new-knowledge":
+      return availability.newKnowledge;
+    case "import-file":
+      return availability.importFile;
+    case "draft-review":
+      return availability.draftReview;
+    case "manage-skills":
+      return availability.manageSkills;
+    case "help-legend":
+      return null;
+  }
+}
+
+function labelForAvailability(state: KnowledgeV2ActionAvailability["state"]) {
+  switch (state) {
+    case "available":
+      return "Available";
+    case "partial":
+      return "Partial";
+    case "unavailable":
+      return "Unavailable";
+  }
+}
+
+function toneForAvailability(state: KnowledgeV2ActionAvailability["state"]) {
+  switch (state) {
+    case "available":
+      return "ok";
+    case "partial":
+      return "warning";
+    case "unavailable":
+      return "unavailable";
+  }
 }
 
 function HelpLegendPopup() {

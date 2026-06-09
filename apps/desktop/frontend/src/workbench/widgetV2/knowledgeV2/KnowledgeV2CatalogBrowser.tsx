@@ -107,6 +107,18 @@ export function KnowledgeV2CatalogBrowser({
   const canCopyReference = Boolean(
     typeof navigator !== "undefined" && navigator.clipboard?.writeText,
   );
+  const selectedContextDisabledReason = selectedItem
+    ? useAsContextDisabledReason({
+        canAttachToQueueTask: Boolean(onAttachKnowledgeContextToQueueTask),
+        canAttachToWorkspaceAgent: Boolean(onAttachContextToCoordinator),
+        canCopyReference,
+        entry: {
+          affordanceSource,
+          affordanceState,
+          item: selectedItem,
+        },
+      })
+    : null;
 
   function selectItem(itemId: string) {
     setSelectedItemId(itemId);
@@ -118,10 +130,37 @@ export function KnowledgeV2CatalogBrowser({
   }
 
   function openContextPicker(itemId?: string) {
+    const requestedItem =
+      itemId !== undefined
+        ? pickerItems.find((entry) => entry.item.id === itemId) ?? null
+        : selectedItem
+          ? {
+              affordanceSource,
+              affordanceState,
+              item: selectedItem,
+            }
+          : null;
+    const disabledReason = requestedItem
+      ? useAsContextDisabledReason({
+          canAttachToQueueTask: Boolean(onAttachKnowledgeContextToQueueTask),
+          canAttachToWorkspaceAgent: Boolean(onAttachContextToCoordinator),
+          canCopyReference,
+          entry: requestedItem,
+        })
+      : "Select a usable Knowledge item before using it as context.";
+
     if (itemId) {
       setSelectedItemId(itemId);
     }
     setActionNotice(null);
+    if (disabledReason) {
+      setActionNotice({
+        message: disabledReason,
+        status: "blocked",
+      });
+      setIsContextPickerOpen(false);
+      return;
+    }
     setIsContextPickerOpen(true);
   }
 
@@ -267,6 +306,19 @@ export function KnowledgeV2CatalogBrowser({
           hasItems={viewModel.items.length > 0}
           items={viewModel.filteredItems}
           mode={viewMode}
+          getUseAsContextDisabledReason={(item) => {
+            const entry =
+              pickerItems.find((candidate) => candidate.item.id === item.id) ??
+              null;
+            return entry
+              ? useAsContextDisabledReason({
+                  canAttachToQueueTask: Boolean(onAttachKnowledgeContextToQueueTask),
+                  canAttachToWorkspaceAgent: Boolean(onAttachContextToCoordinator),
+                  canCopyReference,
+                  entry,
+                })
+              : "Source record is unavailable; this item cannot be attached.";
+          }}
           onClearFilters={clearFilters}
           onImport={onImport}
           onSelectItem={selectItem}
@@ -281,6 +333,7 @@ export function KnowledgeV2CatalogBrowser({
             canAttachToQueueTask={Boolean(onAttachKnowledgeContextToQueueTask)}
             canAttachToWorkspaceAgent={Boolean(onAttachContextToCoordinator)}
             canCopyReference={canCopyReference}
+            contextActionDisabledReason={selectedContextDisabledReason}
             contextItems={pickerItems}
             hasItems={viewModel.items.length > 0}
             isContextPickerOpen={isContextPickerOpen}
@@ -294,6 +347,36 @@ export function KnowledgeV2CatalogBrowser({
       </div>
     </>
   );
+}
+
+function useAsContextDisabledReason({
+  canAttachToQueueTask,
+  canAttachToWorkspaceAgent,
+  canCopyReference,
+  entry,
+}: {
+  readonly canAttachToQueueTask: boolean;
+  readonly canAttachToWorkspaceAgent: boolean;
+  readonly canCopyReference: boolean;
+  readonly entry: {
+    readonly affordanceSource: KnowledgeV2ContextAffordanceSource | null;
+    readonly affordanceState: ReturnType<typeof knowledgeV2ContextAffordanceState>;
+    readonly item: { readonly title: string };
+  };
+}) {
+  if (!entry.affordanceSource) {
+    return "Source record is unavailable; this item cannot be attached.";
+  }
+  if (!entry.affordanceState.canAttach) {
+    return (
+      entry.affordanceState.reason ??
+      `${entry.item.title} is unavailable for context use.`
+    );
+  }
+  if (!canAttachToWorkspaceAgent && !canAttachToQueueTask && !canCopyReference) {
+    return "Use as Context is unavailable because no Workspace Agent, Queue, or clipboard context bridge is connected.";
+  }
+  return null;
 }
 
 function KnowledgeV2BridgeNotice({

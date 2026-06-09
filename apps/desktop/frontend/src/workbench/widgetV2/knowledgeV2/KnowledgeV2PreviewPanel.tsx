@@ -29,6 +29,7 @@ type KnowledgeV2PreviewPanelProps = {
   readonly canAttachToQueueTask?: boolean;
   readonly canAttachToWorkspaceAgent?: boolean;
   readonly canCopyReference?: boolean;
+  readonly contextActionDisabledReason?: string | null;
   readonly contextItems?: readonly KnowledgeV2PickerItem[];
   readonly hasItems: boolean;
   readonly item: KnowledgeV2CatalogItem | null;
@@ -61,6 +62,7 @@ export function KnowledgeV2PreviewPanel({
   canAttachToQueueTask = false,
   canAttachToWorkspaceAgent = false,
   canCopyReference = false,
+  contextActionDisabledReason = null,
   contextItems = [],
   hasItems,
   isContextPickerOpen = false,
@@ -187,6 +189,7 @@ export function KnowledgeV2PreviewPanel({
           canAttachToQueueTask={canAttachToQueueTask}
           canAttachToWorkspaceAgent={canAttachToWorkspaceAgent}
           canCopyReference={canCopyReference}
+          contextActionDisabledReason={contextActionDisabledReason}
           contextItems={contextItems}
           isContextPickerOpen={isContextPickerOpen}
           item={item}
@@ -209,6 +212,7 @@ function KnowledgeV2OverviewTab({
   canAttachToQueueTask,
   canAttachToWorkspaceAgent,
   canCopyReference,
+  contextActionDisabledReason,
   contextItems,
   isContextPickerOpen,
   item,
@@ -222,6 +226,7 @@ function KnowledgeV2OverviewTab({
   readonly canAttachToQueueTask: boolean;
   readonly canAttachToWorkspaceAgent: boolean;
   readonly canCopyReference: boolean;
+  readonly contextActionDisabledReason: string | null;
   readonly contextItems: readonly KnowledgeV2PickerItem[];
   readonly isContextPickerOpen: boolean;
   readonly item: KnowledgeV2CatalogItem;
@@ -265,6 +270,7 @@ function KnowledgeV2OverviewTab({
         canAttachToQueueTask={canAttachToQueueTask}
         canAttachToWorkspaceAgent={canAttachToWorkspaceAgent}
         canCopyReference={canCopyReference}
+        contextActionDisabledReason={contextActionDisabledReason}
         contextItems={contextItems}
         isContextPickerOpen={isContextPickerOpen}
         item={item}
@@ -386,6 +392,7 @@ function KnowledgeV2ContextActions({
   canAttachToQueueTask,
   canAttachToWorkspaceAgent,
   canCopyReference,
+  contextActionDisabledReason,
   contextItems,
   isContextPickerOpen,
   item,
@@ -399,6 +406,7 @@ function KnowledgeV2ContextActions({
   readonly canAttachToQueueTask: boolean;
   readonly canAttachToWorkspaceAgent: boolean;
   readonly canCopyReference: boolean;
+  readonly contextActionDisabledReason: string | null;
   readonly contextItems: readonly KnowledgeV2PickerItem[];
   readonly isContextPickerOpen: boolean;
   readonly item: KnowledgeV2CatalogItem;
@@ -455,15 +463,19 @@ function KnowledgeV2ContextActions({
       ) : null}
       <div className="knowledge-v2-context-action-row">
         <ContextButton
-          disabledReason={null}
+          disabledReason={contextActionDisabledReason}
           label="Use as context"
           onClick={onOpenContextPicker}
         />
       </div>
+      {contextActionDisabledReason ? (
+        <p className="knowledge-v2-context-warning">
+          {contextActionDisabledReason}
+        </p>
+      ) : null}
       {attachableTargetCount === 0 ? (
         <p className="knowledge-v2-context-warning">
-          No attach target bridge is available. Open the picker to inspect
-          disabled targets and copy availability.
+          No attach target bridge is available.
         </p>
       ) : null}
       {workspaceReason || queueReason || !canCopyReference ? (

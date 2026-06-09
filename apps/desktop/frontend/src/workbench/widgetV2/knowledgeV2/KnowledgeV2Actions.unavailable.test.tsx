@@ -1,7 +1,7 @@
 import { act } from "react";
 import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { KnowledgeDocument } from "../../../workspace/types/knowledgeDocuments";
 import type { Skill } from "../../../workspace/types/skills";
@@ -49,6 +49,33 @@ describe("KnowledgeV2 unavailable actions", () => {
       "Open existing skills flow",
       "Skill management is unavailable because KnowledgeV2 did not receive an explicit Skill-management callback.",
     );
+  });
+
+  it("shows local partial details for Manage Skills when the Skill bridge is unavailable", async () => {
+    const onManageSkills = vi.fn();
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onManageSkills={onManageSkills}
+      />,
+    );
+
+    expect(buttonWithText("Manage Skills")?.textContent).toContain("Partial");
+
+    await clickButton("Manage Skills");
+
+    const dialog = dialogByName("Manage Skills");
+    expect(dialog?.textContent).toContain("Partial");
+    expect(dialog?.textContent).toContain(
+      "Manage Skills is partial because the Skill list bridge is not fully available in this KnowledgeV2 host.",
+    );
+    expect(dialog?.textContent).toContain("Skills list bridge is unavailable");
+    expect(onManageSkills).not.toHaveBeenCalled();
+
+    await clickButton("Open existing skills flow");
+
+    expect(onManageSkills).toHaveBeenCalledTimes(1);
   });
 });
 

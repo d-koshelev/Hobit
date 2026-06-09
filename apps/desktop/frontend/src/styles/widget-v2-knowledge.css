@@ -20,6 +20,11 @@
   gap: var(--space-xs);
 }
 
+.knowledge-v2-action-badge {
+  margin-left: var(--scaled-space-2xs);
+  opacity: 0.82;
+}
+
 .knowledge-v2-view-toggle {
   display: inline-flex;
   gap: var(--scaled-space-2xs);
@@ -474,6 +479,19 @@
   color: var(--color-text-secondary);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
+}
+
+.knowledge-v2-action-availability {
+  display: grid;
+  gap: var(--scaled-space-2xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-xs);
+}
+
+.knowledge-v2-action-availability p {
+  margin: 0;
 }
 
 .knowledge-v2-action-facts {
