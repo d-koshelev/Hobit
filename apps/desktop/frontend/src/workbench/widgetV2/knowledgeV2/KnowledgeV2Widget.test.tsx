@@ -11,6 +11,7 @@ import {
   changeSelect,
   chooseRadioByLabel,
   cleanupKnowledgeV2WidgetTestDom,
+  clickButtonByLabel,
   buttonWithText,
   clickButton,
   clickButtonInRegion,
@@ -101,12 +102,49 @@ describe("KnowledgeV2Widget browser", () => {
   it("shows an honest unavailable state when the experimental path has no data bridge", async () => {
     await render(<KnowledgeV2Widget />);
 
+    expect(text()).toContain("Data unavailable");
     expect(text()).toContain("Catalog data unavailable.");
     expect(text()).toContain("No production data is being faked.");
     expect(text()).toContain("Knowledge Documents list bridge");
     expect(text()).toContain("Skills list bridge");
     expect(text()).toContain("No catalog items yet.");
     expect(buttonWithText("Retry")).not.toBeNull();
+  });
+
+  it("replaces the normal partial bridge banner with compact data-source details", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onListKnowledgeDraftReviews={async () => []}
+        skills={undefined}
+      />,
+    );
+
+    expect(text()).toContain("Data sources: partial");
+    expect(text()).not.toContain("Some catalog bridges are unavailable.");
+    expect(
+      document.querySelector("[aria-label='KnowledgeV2 data bridge status']"),
+    ).toBeNull();
+    expect(text()).not.toContain(
+      "the current list action requires a selected draft pack",
+    );
+
+    await clickButtonByLabel("KnowledgeV2 information");
+    const details = dialogByName("KnowledgeV2");
+    expect(details?.textContent).toContain("Documents");
+    expect(details?.textContent).toContain("1 loaded");
+    expect(details?.textContent).toContain("Skills");
+    expect(details?.textContent).toContain("Unavailable");
+    expect(details?.textContent).toContain("Drafts");
+    expect(details?.textContent).toContain("Partial");
+    expect(details?.textContent).toContain("Skills list bridge");
+    expect(details?.textContent).toContain("Draft Review bridge details stay local");
+
+    await keyDown("Escape");
+    await clickButton("Draft Review");
+    expect(dialogByName("Draft Review")?.textContent).toContain(
+      "Draft review item bridge is partial: the current list action requires a selected draft pack",
+    );
   });
 
   it("shows service unavailable actions when bridge loading fails", async () => {
@@ -125,17 +163,20 @@ describe("KnowledgeV2Widget browser", () => {
     );
     await flush();
 
-    expect(text()).toContain("Some catalog bridges are unavailable.");
-    expect(text()).toContain("Load failed: documents: documents offline");
+    expect(text()).toContain("Data sources: partial");
+    expect(text()).not.toContain("Some catalog bridges are unavailable.");
+    expect(text()).not.toContain("Load failed: documents: documents offline");
     expect(text()).toContain("React review");
-    expect(buttonWithText("Retry")).not.toBeNull();
-    expect(buttonWithText("Import item")).not.toBeNull();
 
-    await clickButton("Retry");
+    await clickButtonByLabel("KnowledgeV2 information");
+    expect(dialogByName("KnowledgeV2")?.textContent).toContain(
+      "documents: documents offline",
+    );
+    expect(buttonWithText("Retry data bridge")).not.toBeNull();
+    await clickButton("Retry data bridge");
     await flush();
     expect(onListKnowledgeDocuments).toHaveBeenCalledTimes(2);
-    await clickButton("Import item");
-    expect(onImport).toHaveBeenCalledTimes(1);
+    expect(onImport).not.toHaveBeenCalled();
   });
 
   it("keeps draft items out of the default list until the draft filter is selected", async () => {

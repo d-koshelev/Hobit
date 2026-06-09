@@ -387,8 +387,51 @@
   gap: var(--space-xs);
 }
 
-.knowledge-v2-help-popover p {
+.knowledge-v2-help-popover p,
+.knowledge-v2-help-popover h4,
+.knowledge-v2-help-popover ul,
+.knowledge-v2-bridge-details,
+.knowledge-v2-bridge-details dd {
   margin: 0;
+}
+
+.knowledge-v2-bridge-details {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-xs);
+}
+
+.knowledge-v2-bridge-details div,
+.knowledge-v2-help-section {
+  display: grid;
+  min-width: 0;
+  gap: var(--scaled-space-2xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-xs);
+}
+
+.knowledge-v2-bridge-details dt,
+.knowledge-v2-help-section h4 {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 680;
+  line-height: var(--line-tight);
+}
+
+.knowledge-v2-bridge-details dd,
+.knowledge-v2-help-section p,
+.knowledge-v2-help-section li {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.knowledge-v2-help-section ul {
+  display: grid;
+  gap: var(--scaled-space-2xs);
+  padding-left: var(--space-md);
 }
 
 .knowledge-v2-action-popup {
@@ -1030,6 +1073,7 @@
   .knowledge-v2-context-picker-grid,
   .knowledge-v2-status-grid-compact,
   .knowledge-v2-action-facts,
+  .knowledge-v2-bridge-details,
   .knowledge-v2-action-option {
     grid-template-columns: 1fr;
   }

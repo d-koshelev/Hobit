@@ -309,7 +309,7 @@ function KnowledgeV2BridgeNotice({
   readonly onRetry?: () => void;
   readonly status: "loading" | "partial" | "ready" | "unavailable";
 }) {
-  if (status === "ready") {
+  if (status === "ready" || status === "partial") {
     return null;
   }
 
@@ -327,12 +327,6 @@ function KnowledgeV2BridgeNotice({
         <p>
           This experimental WidgetV2 path did not receive Knowledge / Skills
           list props or list actions. No production data is being faked.
-        </p>
-      ) : null}
-      {status === "partial" ? (
-        <p>
-          KnowledgeV2 is showing only data from available frontend bridges.
-          Missing bridges remain unavailable in this experimental path.
         </p>
       ) : null}
       {loadError ? <p>Load failed: {loadError}</p> : null}

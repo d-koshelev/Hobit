@@ -42,6 +42,14 @@ export async function clickButton(textContent: string) {
   });
 }
 
+export async function clickButtonByLabel(label: string) {
+  const button = buttonByLabel(label);
+  expect(button).not.toBeNull();
+  await act(async () => {
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
 export async function clickButtonInRegion(
   regionLabel: string,
   textContent: string,
@@ -135,6 +143,14 @@ export function buttonWithText(textContent: string): HTMLButtonElement | null {
   return (
     Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
       (button) => button.textContent?.includes(textContent),
+    ) ?? null
+  );
+}
+
+export function buttonByLabel(label: string): HTMLButtonElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
+      (button) => button.getAttribute("aria-label") === label,
     ) ?? null
   );
 }

@@ -59,6 +59,10 @@ export function KnowledgeV2Widget({
     () => knowledgeV2StatusForBridge(dataBridge),
     [dataBridge],
   );
+  const bridgeDetails = useMemo(
+    () => knowledgeV2BridgeDetails(dataBridge),
+    [dataBridge],
+  );
 
   return (
     <WidgetV2Shell
@@ -83,6 +87,47 @@ export function KnowledgeV2Widget({
               KnowledgeV2 is an experimental list-first catalog over existing
               Knowledge Documents and Skills data.
             </p>
+            <dl className="knowledge-v2-bridge-details">
+              <div>
+                <dt>Documents</dt>
+                <dd>{bridgeDetails.documents}</dd>
+              </div>
+              <div>
+                <dt>Skills</dt>
+                <dd>{bridgeDetails.skills}</dd>
+              </div>
+              <div>
+                <dt>Drafts</dt>
+                <dd>{bridgeDetails.drafts}</dd>
+              </div>
+            </dl>
+            {bridgeDetails.dataIssues.length > 0 ? (
+              <section className="knowledge-v2-help-section">
+                <h4>Unavailable data sources</h4>
+                <ul>
+                  {bridgeDetails.dataIssues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+            {dataBridge.loadError ? (
+              <section className="knowledge-v2-help-section">
+                <h4>Load issue</h4>
+                <p>{dataBridge.loadError}</p>
+                <button
+                  className="knowledge-v2-empty-action"
+                  onClick={() => setReloadKey((current) => current + 1)}
+                  type="button"
+                >
+                  Retry data bridge
+                </button>
+              </section>
+            ) : null}
+            <section className="knowledge-v2-help-section">
+              <h4>Follow-up</h4>
+              <p>{bridgeDetails.followUp}</p>
+            </section>
             <p>
               Selection only updates the preview. New, import, draft review,
               Skill management, and context use stay explicit.
@@ -127,10 +172,14 @@ type KnowledgeV2DataBridgeInput = {
 
 type KnowledgeV2DataBridge = {
   readonly actionMissingBridges: readonly string[];
+  readonly documentBridgeAvailable: boolean;
   readonly documents: readonly KnowledgeDocument[];
   readonly draftReviews: readonly KnowledgeDraftReviewDecision[];
+  readonly draftReviewBridgeAvailable: boolean;
+  readonly draftReviewListActionAvailable: boolean;
   readonly loadError: string | null;
   readonly missingBridges: readonly string[];
+  readonly skillBridgeAvailable: boolean;
   readonly skills: readonly Skill[];
   readonly status: "loading" | "partial" | "ready" | "unavailable";
 };
@@ -248,10 +297,14 @@ function useKnowledgeV2DataBridge({
 
   return {
     actionMissingBridges,
+    documentBridgeAvailable,
     documents: documents ?? loadedDocuments,
     draftReviews: draftReviews ?? [],
+    draftReviewBridgeAvailable,
+    draftReviewListActionAvailable,
     loadError,
     missingBridges: dataMissingBridges,
+    skillBridgeAvailable,
     skills: skills ?? loadedSkills,
     status,
   };
@@ -263,10 +316,11 @@ function errorMessage(error: unknown, label: string) {
 }
 
 function knowledgeV2StatusForBridge(dataBridge: KnowledgeV2DataBridge) {
+  const counts = knowledgeV2BridgeCountSummary(dataBridge);
+
   if (dataBridge.status === "loading") {
     return {
-      detail:
-        "KnowledgeV2 is loading through existing Knowledge / Skills frontend list actions.",
+      detail: `KnowledgeV2 is loading through existing Knowledge / Skills frontend list actions. ${counts}`,
       label: "Loading",
       tone: "neutral" as const,
     };
@@ -274,26 +328,56 @@ function knowledgeV2StatusForBridge(dataBridge: KnowledgeV2DataBridge) {
 
   if (dataBridge.status === "ready") {
     return {
-      detail:
-        "KnowledgeV2 is reading existing Knowledge / Skills frontend data. Current Knowledge / Skills remains the production surface.",
-      label: "Experimental",
+      detail: `KnowledgeV2 is reading existing Knowledge / Skills frontend data. ${counts}`,
+      label: "Data sources: ready",
       tone: "warning" as const,
     };
   }
 
   if (dataBridge.status === "partial") {
     return {
-      detail:
-        "KnowledgeV2 is using only available frontend bridges; unavailable bridges are reported in the catalog.",
-      label: "Partial bridge",
+      detail: `KnowledgeV2 is using only available frontend bridges. ${counts}`,
+      label: "Data sources: partial",
       tone: "warning" as const,
     };
   }
 
   return {
-    detail:
-      "KnowledgeV2 has no Knowledge / Skills data bridge in this experimental path. No production data is being faked.",
+    detail: `KnowledgeV2 has no Knowledge / Skills data bridge in this experimental path. ${counts} No production data is being faked.`,
     label: "Data unavailable",
     tone: "warning" as const,
+  };
+}
+
+function knowledgeV2BridgeCountSummary(dataBridge: KnowledgeV2DataBridge) {
+  const details = knowledgeV2BridgeDetails(dataBridge);
+  return `Documents: ${details.documents}; Skills: ${details.skills}; Drafts: ${details.drafts}.`;
+}
+
+function knowledgeV2BridgeDetails(dataBridge: KnowledgeV2DataBridge) {
+  const dataIssues = [
+    ...dataBridge.missingBridges,
+    ...(dataBridge.loadError ? [`Load failed: ${dataBridge.loadError}`] : []),
+  ];
+  const drafts =
+    dataBridge.draftReviewBridgeAvailable
+      ? `${dataBridge.draftReviews.length.toString()} review decisions`
+      : dataBridge.draftReviewListActionAvailable
+        ? "Partial; open Draft Review for the selected-pack bridge status"
+        : "Unavailable; open Draft Review for the action bridge status";
+
+  return {
+    dataIssues,
+    documents: dataBridge.documentBridgeAvailable
+      ? `${dataBridge.documents.length.toString()} loaded`
+      : "Unavailable",
+    drafts,
+    followUp:
+      dataIssues.length > 0
+        ? "Wire the missing list bridge or retry the failed list action. Draft Review bridge details stay local to the Draft Review popup."
+        : "Open Draft Review for draft bridge status. Keep using explicit popups for create, import, Skill management, and context actions.",
+    skills: dataBridge.skillBridgeAvailable
+      ? `${dataBridge.skills.length.toString()} loaded`
+      : "Unavailable",
   };
 }
