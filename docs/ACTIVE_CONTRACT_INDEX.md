@@ -142,6 +142,13 @@ of truth for their domains.
   surface, explicit action popups, partial data/action bridges, safe context
   affordances, limitations, smoke checklist, and next blocks. It does not add
   behavior or replace current Knowledge / Skills.
+- `docs/KNOWLEDGE_V2_VISUAL_TARGET_CONTRACT.md` - docs-only visual/product
+  target contract for future KnowledgeV2 UI hardening. It records the accepted
+  dark Hobit module surface, dense unified catalog list, selected-item preview,
+  explicit action popups, target-based context attach safety, catalog statuses,
+  and non-goals. It does not add frontend behavior, backend/storage/schema
+  changes, hidden context injection, auto-import/create/run behavior, or
+  replace current Knowledge / Skills.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
