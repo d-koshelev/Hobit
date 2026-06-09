@@ -52,6 +52,9 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(document.body.textContent).toContain("Direct Run");
     expect(document.body.textContent).toContain("Queue Run");
     expect(document.body.textContent).toContain("Direct Run preflight");
+    expect(document.body.textContent).toContain("Queue Run preflight");
+    expect(document.body.textContent).toContain("Queue task will be created, not run");
+    expect(document.body.textContent).toContain("Run later from Queue");
     expect(document.body.textContent).toContain("Provider");
     expect(document.body.textContent).toContain("Codex");
     expect(document.body.textContent).toContain("Working directory");
@@ -200,13 +203,16 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
   });
 
   it("clicking Queue Run creates a Queue task once through the supplied bridge", async () => {
+    const adapter = adapterFixture();
     const createItem = createItemMock();
+    const onOpenQueueTask = vi.fn();
     const onQueueTaskCreate = vi.fn();
 
     await render(
       <WorkspaceAgentV2Widget
-        directRunSupported
+        adapter={adapter}
         initialPrompt="Queue this later."
+        onOpenQueueTask={onOpenQueueTask}
         onQueueTaskCreate={onQueueTaskCreate}
         queueBridge={{ createItem }}
         workingDirectory="C:/repo"
@@ -228,9 +234,41 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     );
     expect(onQueueTaskCreate).toHaveBeenCalledTimes(1);
     expect(onQueueTaskCreate).toHaveBeenCalledWith("queue-item-1");
+    expect(adapter.startRun).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
       "Queue task created only. No Direct Run, Agent Executor run, Queue Autorun, Terminal command, Git action, validation, or finalization was started.",
     );
+    expect(document.body.textContent).toContain("Queue task created");
+    expect(document.body.textContent).toContain("queue-item-1");
+    expect(document.body.textContent).toContain("Queue this later.");
+    expect(document.body.textContent).toContain("Open Queue task");
+    expect(document.body.textContent).toContain("Run from Queue when ready.");
+    expect(document.body.textContent).toContain("Queue task created: Queue this later.");
+
+    await click(buttonWithText("Open Queue task"));
+
+    expect(onOpenQueueTask).toHaveBeenCalledTimes(1);
+    expect(onOpenQueueTask).toHaveBeenCalledWith("queue-item-1");
+  });
+
+  it("blocks duplicate Queue Run clicks while creation is pending", async () => {
+    const createItem = createPendingItemMock();
+
+    await render(
+      <WorkspaceAgentV2Widget
+        directRunSupported
+        initialPrompt="Queue this once."
+        queueBridge={{ createItem }}
+        workingDirectory="C:/repo"
+      />,
+    );
+
+    await clickWithoutFlush(buttonWithText("Queue Run"));
+
+    expect(buttonWithText("Queue Run creating")?.disabled).toBe(true);
+    await clickWithoutFlush(buttonWithText("Queue Run creating"));
+
+    expect(createItem).toHaveBeenCalledTimes(1);
   });
 
   it("running state disables duplicate Direct Run starts", async () => {
@@ -330,6 +368,17 @@ async function click(element: HTMLElement | null) {
   });
 }
 
+async function clickWithoutFlush(element: HTMLElement | null) {
+  expect(element).not.toBeNull();
+  if (element instanceof HTMLButtonElement && element.disabled) {
+    return;
+  }
+  await act(async () => {
+    element?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 function regionByRoleAndName(role: string, name: string): HTMLElement | null {
   return (
     Array.from(document.querySelectorAll<HTMLElement>(`[role='${role}']`)).find(
@@ -401,5 +450,12 @@ function createItemMock() {
       ok: true,
       safetyClass: "safe_create_update",
     }),
+  );
+}
+
+function createPendingItemMock() {
+  return vi.fn(
+    async (): Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>> =>
+      new Promise(() => undefined),
   );
 }

@@ -12,6 +12,7 @@ type WorkspaceAgentV2ComposerProps = {
   readonly onQueueRun?: () => void;
   readonly preflightItems?: readonly WorkspaceAgentV2PreflightItem[];
   readonly prompt?: string;
+  readonly queuePreflightItems?: readonly WorkspaceAgentV2PreflightItem[];
   readonly queueRunDisabled?: boolean;
   readonly queueRunDisabledReason?: string;
   readonly queueRunLabel?: string;
@@ -46,6 +47,7 @@ export function WorkspaceAgentV2Composer({
   onQueueRun,
   preflightItems = [],
   prompt = "",
+  queuePreflightItems = [],
   queueRunDisabled = true,
   queueRunDisabledReason = "Queue Run is not implemented in Workspace Agent v2 yet.",
   queueRunLabel,
@@ -121,6 +123,7 @@ export function WorkspaceAgentV2Composer({
       <WorkspaceAgentV2PreflightSummary
         errorMessage={errorMessage}
         items={preflightItems}
+        queueItems={queuePreflightItems}
         queueRunDisabledReason={queueRunDisabledReason}
         warnings={warnings}
       />
@@ -169,11 +172,13 @@ export function WorkspaceAgentV2RunControls({
 function WorkspaceAgentV2PreflightSummary({
   errorMessage,
   items,
+  queueItems,
   queueRunDisabledReason,
   warnings,
 }: {
   readonly errorMessage?: string | null;
   readonly items: readonly WorkspaceAgentV2PreflightItem[];
+  readonly queueItems: readonly WorkspaceAgentV2PreflightItem[];
   readonly queueRunDisabledReason: string;
   readonly warnings: readonly string[];
 }) {
@@ -203,6 +208,25 @@ function WorkspaceAgentV2PreflightSummary({
       ) : null}
       {errorMessage ? (
         <p className="workspace-agent-v2-preflight-error">{errorMessage}</p>
+      ) : null}
+      {queueItems.length > 0 ? (
+        <section
+          aria-label="Workspace Agent v2 Queue Run preflight"
+          className="workspace-agent-v2-preflight-mode"
+        >
+          <div className="workspace-agent-v2-preflight-header">
+            <h3>Queue Run preflight</h3>
+            <p>Run later from Queue.</p>
+          </div>
+          <dl className="workspace-agent-v2-preflight-grid">
+            {queueItems.map((item) => (
+              <div key={item.label}>
+                <dt>{item.label}</dt>
+                <dd>{item.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
       ) : null}
     </section>
   );

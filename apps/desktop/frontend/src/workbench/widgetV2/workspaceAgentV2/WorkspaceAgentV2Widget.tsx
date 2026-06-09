@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
   WidgetV2BottomDrawer,
@@ -34,7 +34,12 @@ import { WorkspaceAgentV2TopBar } from "./WorkspaceAgentV2TopBar";
 import { useWorkspaceAgentV2DirectRun } from "./useWorkspaceAgentV2DirectRun";
 import { isWorkspaceAgentV2DirectRunBusy } from "./workspaceAgentV2DirectRunModel";
 import { useWorkspaceAgentV2QueueRun } from "./useWorkspaceAgentV2QueueRun";
-import { isWorkspaceAgentV2QueueRunBusy } from "./workspaceAgentV2QueueRunModel";
+import {
+  isWorkspaceAgentV2QueueRunBusy,
+  workspaceAgentV2QueueRunCreatedEvent,
+  workspaceAgentV2QueueRunTranscriptMessage,
+  type WorkspaceAgentV2QueueRunControllerResult,
+} from "./workspaceAgentV2QueueRunModel";
 
 const workspaceAgentV2Manifest = getWidgetV2Manifest("workspace-agent-v2");
 
@@ -50,6 +55,7 @@ type WorkspaceAgentV2WidgetProps = {
   readonly onCancelCodexDirectWorkRun?: CodexAgentRuntimeActions["cancelCodexDirectWorkRun"];
   readonly onContextAddPlaceholder?: () => void;
   readonly onContextRemove?: (itemId: string) => void;
+  readonly onOpenQueueTask?: (queueItemId: string) => void;
   readonly onQueueTaskCreate?: (queueItemId?: string) => void;
   readonly onRunRequest?: () => void;
   readonly onStartCodexDirectWorkStream?: CodexAgentRuntimeActions["startCodexDirectWorkStream"];
@@ -75,6 +81,7 @@ export function WorkspaceAgentV2Widget({
   onCancelCodexDirectWorkRun,
   onContextAddPlaceholder,
   onContextRemove,
+  onOpenQueueTask,
   onQueueTaskCreate,
   onRunRequest,
   onStartCodexDirectWorkStream,
@@ -90,6 +97,13 @@ export function WorkspaceAgentV2Widget({
   const [newThread, setNewThread] = useState(false);
   const [prompt, setPrompt] = useState(initialPrompt);
   const [isActivityVisible, setIsActivityVisible] = useState(true);
+  const [queueActivityEvents, setQueueActivityEvents] = useState<
+    readonly AgentRunEvent[]
+  >([]);
+  const [queueTranscriptMessages, setQueueTranscriptMessages] = useState<
+    readonly ReturnType<typeof workspaceAgentV2QueueRunTranscriptMessage>[]
+  >([]);
+  const queueEventSequenceRef = useRef(0);
   const runtimeAdapter = useMemo(
     () =>
       adapter ??
@@ -118,6 +132,12 @@ export function WorkspaceAgentV2Widget({
     onResult: (result) => {
       if (result.status === "created") {
         onQueueTaskCreate?.(result.createdTask?.id);
+        appendQueueRunUiResult(result, {
+          onOpenQueueTask,
+          queueEventSequenceRef,
+          setQueueActivityEvents,
+          setQueueTranscriptMessages,
+        });
       }
     },
     priority: queueRunPriority,
@@ -165,6 +185,21 @@ export function WorkspaceAgentV2Widget({
         : `${runtimeAdapter.capabilities.toolPolicy.allowedTools.length.toString()} tool(s) requested`,
     workingDirectory,
   });
+  const queuePreflightItems = queueRunPreflightItems({
+    contextCount:
+      visibleContextSnapshot?.contextRefs.length ?? contextItems?.length ?? 0,
+    contextWarningCount: contextWarnings(contextItems).length,
+    isQueueCreateSupported: Boolean(queueBridge?.createItem),
+    targetStatus: "draft",
+  });
+  const transcriptMessages = useMemo(
+    () => [...controller.transcriptMessages, ...queueTranscriptMessages],
+    [controller.transcriptMessages, queueTranscriptMessages],
+  );
+  const activityPaneEvents = useMemo(
+    () => [...controller.activityEvents, ...queueActivityEvents],
+    [controller.activityEvents, queueActivityEvents],
+  );
 
   function handleDirectRun() {
     onRunRequest?.();
@@ -212,6 +247,7 @@ export function WorkspaceAgentV2Widget({
               onQueueRun={handleQueueRun}
               preflightItems={preflightItems}
               prompt={prompt}
+              queuePreflightItems={queuePreflightItems}
               queueRunDisabled={Boolean(queueRunDisabledReason)}
               queueRunDisabledReason={queueRunDisabledReason}
               queueRunLabel={isQueueBusy ? "Queue Run creating" : "Queue Run"}
@@ -229,7 +265,7 @@ export function WorkspaceAgentV2Widget({
                 </p>
               </>
             }
-            messages={controller.transcriptMessages}
+            messages={transcriptMessages}
           />
         }
         primaryLabel="Workspace Agent v2 transcript"
@@ -237,8 +273,12 @@ export function WorkspaceAgentV2Widget({
           isActivityVisible ? (
             <WidgetV2RightInspector label="Workspace Agent v2 activity pane">
               <WorkspaceAgentV2ActivityPane
-                currentRunId={controller.currentRunId ?? currentRunId}
-                events={controller.activityEvents}
+                currentRunId={
+                  controller.currentRunId ??
+                  currentRunId ??
+                  queueRunController.result?.createdTask?.id
+                }
+                events={activityPaneEvents}
                 onRequestHide={() => setIsActivityVisible(false)}
               />
             </WidgetV2RightInspector>
@@ -325,6 +365,80 @@ function directRunPreflightItems({
     { label: "Context", value: `${contextCount.toString()} visible item(s)` },
     { label: "Adapter", value: isAdapterSupported ? "Supported" : "Unsupported" },
   ];
+}
+
+function queueRunPreflightItems({
+  contextCount,
+  contextWarningCount,
+  isQueueCreateSupported,
+  targetStatus,
+}: {
+  readonly contextCount: number;
+  readonly contextWarningCount: number;
+  readonly isQueueCreateSupported: boolean;
+  readonly targetStatus: string;
+}): readonly WorkspaceAgentV2PreflightItem[] {
+  return [
+    { label: "Mode", value: "Queue Run" },
+    { label: "Action", value: "Queue task will be created, not run" },
+    { label: "Context", value: `${contextCount.toString()} visible item(s)` },
+    {
+      label: "Context warnings",
+      value:
+        contextWarningCount > 0
+          ? `${contextWarningCount.toString()} warning(s)`
+          : "None",
+    },
+    { label: "Target lane/status", value: targetStatus },
+    {
+      label: "Queue create",
+      value: isQueueCreateSupported ? "Supported" : "Unsupported",
+    },
+    { label: "Next step", value: "Run later from Queue" },
+  ];
+}
+
+function appendQueueRunUiResult(
+  result: WorkspaceAgentV2QueueRunControllerResult,
+  {
+    onOpenQueueTask,
+    queueEventSequenceRef,
+    setQueueActivityEvents,
+    setQueueTranscriptMessages,
+  }: {
+    readonly onOpenQueueTask?: (queueItemId: string) => void;
+    readonly queueEventSequenceRef: { current: number };
+    readonly setQueueActivityEvents: (
+      updater: (events: readonly AgentRunEvent[]) => readonly AgentRunEvent[],
+    ) => void;
+    readonly setQueueTranscriptMessages: (
+      updater: (
+        messages: readonly ReturnType<
+          typeof workspaceAgentV2QueueRunTranscriptMessage
+        >[],
+      ) => readonly ReturnType<typeof workspaceAgentV2QueueRunTranscriptMessage>[],
+    ) => void;
+  },
+) {
+  queueEventSequenceRef.current += 1;
+  const sequence = queueEventSequenceRef.current;
+
+  setQueueTranscriptMessages((messages) => [
+    ...messages,
+    workspaceAgentV2QueueRunTranscriptMessage({
+      onOpenTask: onOpenQueueTask,
+      result,
+      sequence,
+    }),
+  ]);
+  setQueueActivityEvents((events) => [
+    ...events,
+    workspaceAgentV2QueueRunCreatedEvent({
+      result,
+      sequence,
+      timestampMs: Date.now(),
+    }),
+  ]);
 }
 
 function contextWarnings(

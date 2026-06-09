@@ -227,6 +227,7 @@ const EVENT_KIND_LABELS: Record<AgentRunEventKind, string> = {
   failed: "Failed",
   file_change_detected: "File change detected",
   provider_started: "Provider started",
+  queue_task_created: "Queue task created",
   response_received: "Response received",
   tool_call: "Tool call",
   validation_suggested: "Validation suggested",

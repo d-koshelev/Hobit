@@ -96,6 +96,7 @@ export type AgentRunEvent = {
 
 export type AgentRunEventKind =
   | "context_materialized"
+  | "queue_task_created"
   | "provider_started"
   | "tool_call"
   | "file_change_detected"

@@ -1,6 +1,7 @@
-import type {
-  QueueWidgetItemSnapshot,
-} from "../../queue/agentQueueWidgetApiTypes";
+import { createElement } from "react";
+import type { AgentRunEvent } from "../../agentRuntime";
+import type { QueueWidgetItemSnapshot } from "../../queue/agentQueueWidgetApiTypes";
+import type { WorkspaceAgentV2TranscriptMessage } from "./WorkspaceAgentV2Transcript";
 import type {
   WorkspaceAgentV2QueueRunResult,
   WorkspaceAgentV2QueueRunUnsupportedResult,
@@ -122,6 +123,94 @@ export function isWorkspaceAgentV2QueueRunBusy(
     status === "attaching_context" ||
     status === "creating_task"
   );
+}
+
+export function workspaceAgentV2QueueRunTranscriptMessage({
+  onOpenTask,
+  result,
+  sequence,
+}: {
+  readonly onOpenTask?: (queueItemId: string) => void;
+  readonly result: WorkspaceAgentV2QueueRunControllerResult;
+  readonly sequence: number;
+}): WorkspaceAgentV2TranscriptMessage {
+  const createdTask = result.createdTask;
+
+  return {
+    body: createElement(
+      "section",
+      { "aria-label": "Queue task created card" },
+      createElement("h4", null, "Queue task created"),
+      createElement("p", null, result.message),
+      result.openTaskAction && onOpenTask
+        ? createElement(
+            "button",
+            {
+              className: "button button-secondary button-sm",
+              onClick: () => onOpenTask(result.openTaskAction?.queueItemId ?? ""),
+              type: "button",
+            },
+            "Open Queue task",
+          )
+        : null,
+      createdTask
+        ? createElement(
+            "dl",
+            null,
+            createDefinition("Task id", createdTask.id),
+            createDefinition("Title", createdTask.title),
+            createDefinition("Status", createdTask.status),
+          )
+        : null,
+      createElement(
+        "p",
+        null,
+        "Run from Queue when ready. No task was run automatically.",
+      ),
+    ),
+    id: `workspace-agent-v2-queue-run-created-${sequence.toString()}`,
+    metadata: {
+      status: result.status,
+      steps: `Context refs: ${result.attachedContextCount.toString()}`,
+    },
+    role: "assistant",
+    title: "Queue task created",
+  };
+}
+
+function createDefinition(label: string, value: string) {
+  return createElement(
+    "div",
+    { key: label },
+    createElement("dt", null, label),
+    createElement("dd", null, value),
+  );
+}
+
+export function workspaceAgentV2QueueRunCreatedEvent({
+  result,
+  sequence,
+  timestampMs,
+}: {
+  readonly result: WorkspaceAgentV2QueueRunControllerResult;
+  readonly sequence: number;
+  readonly timestampMs: number;
+}): AgentRunEvent {
+  const queueItemId = result.createdTask?.id ?? `queue-run-${sequence.toString()}`;
+
+  return {
+    id: `${queueItemId}:queue-task-created:${sequence.toString()}`,
+    kind: "queue_task_created",
+    lifecycle: "queued",
+    message:
+      "Queue task created only. Run later from Queue; no Direct Run or Queue execution started.",
+    runId: queueItemId,
+    sequence,
+    timestampMs,
+    title: result.createdTask
+      ? `Queue task created: ${result.createdTask.title}`
+      : "Queue task created",
+  };
 }
 
 function contextAttachmentWarnings(attachedContextCount: number) {

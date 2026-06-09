@@ -138,6 +138,23 @@ describe("useWorkspaceAgentV2QueueRun", () => {
     });
   });
 
+  it("ignores duplicate Queue Run starts while creating", async () => {
+    const createItem = createPendingItemMock();
+
+    await render(
+      <QueueRunHarness queueBridge={queueBridge({ createItem })} />,
+    );
+
+    await clickOneTick(buttonWithText("Start queue run"));
+    await clickOneTick(buttonWithText("Start queue run"));
+
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(textByTestId("status")).toBe("creating_task");
+    expect(textByTestId("warnings")).toContain(
+      "Queue Run is already creating a task; duplicate start was ignored.",
+    );
+  });
+
   it("Queue Run create path does not call run, start, or autorun actions", async () => {
     const createItem = createItemMock();
     const startAssignedAgentQueueTask = vi.fn();
@@ -234,6 +251,14 @@ async function click(element: HTMLElement | null) {
   });
 }
 
+async function clickOneTick(element: HTMLElement | null) {
+  expect(element).not.toBeNull();
+  await act(async () => {
+    element?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
 function buttonWithText(text: string): HTMLButtonElement | null {
   return (
     Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
@@ -276,6 +301,13 @@ function createItemMock(
         item: queueItem({ prompt: request.prompt, title: request.title }),
         ...overrides,
       }),
+  );
+}
+
+function createPendingItemMock() {
+  return vi.fn(
+    async (): Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>> =>
+      new Promise(() => undefined),
   );
 }
 
