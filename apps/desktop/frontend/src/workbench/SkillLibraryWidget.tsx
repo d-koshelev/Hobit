@@ -8,7 +8,7 @@ import {
 import type { WidgetRenderProps } from "./types";
 import { useWidgetRuntimeContext } from "./widgetRuntimeContext";
 
-export function SkillLibraryWidget({
+export function LegacyKnowledgeSkillsWidget({
   frameActions,
   frameMoveEnabled,
   frameStyle,
@@ -51,12 +51,13 @@ export function SkillLibraryWidget({
 
   const statusBadge = (
     <WidgetInfoPopover
-      label="Knowledge / Skills help"
-      title="Knowledge / Skills"
+      label="Legacy Knowledge / Skills compatibility information"
+      title="Legacy Knowledge / Skills"
     >
       <p>
-        Knowledge / Skills is a unified catalog of workspace and global
-        Knowledge Documents plus workspace Skill records.
+        Compatibility surface for the previous Knowledge / Skills UI. The
+        normal product route renders KnowledgeV2 through the saved-compatible
+        skill-library identity.
       </p>
       <p>
         Only enabled active documents are searched before Workspace Agent Codex
@@ -81,6 +82,10 @@ export function SkillLibraryWidget({
       title={title}
     >
       <div className="skill-library-shell">
+        <div className="skill-library-summary skill-library-summary-secondary">
+          <span>Legacy Knowledge / Skills</span>
+          <span>Compatibility surface</span>
+        </div>
         <SkillLibraryDocumentsPanel
           isActive={true}
           onAttachContextToCoordinator={onAttachContextToCoordinator}
@@ -106,3 +111,7 @@ export function SkillLibraryWidget({
     </WidgetFrame>
   );
 }
+
+// Compatibility export for focused legacy tests and dev-only fallback imports.
+// Normal saved workspace and Widget Catalog paths route through KnowledgeSkillsV2Widget.
+export const SkillLibraryWidget = LegacyKnowledgeSkillsWidget;

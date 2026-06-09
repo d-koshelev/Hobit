@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { KnowledgeDocument } from "../workspace/types/knowledgeDocuments";
 import type { Skill } from "../workspace/types/skills";
 import { widgetCatalogTemplates } from "./catalogTemplates";
-import { SkillLibraryWidget } from "./SkillLibraryWidget";
+import { LegacyKnowledgeSkillsWidget } from "./SkillLibraryWidget";
+import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WidgetHost } from "./WidgetHost";
 import type { CoordinatorAttachedContextInput, WidgetInstance } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
@@ -49,6 +50,18 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     });
   });
 
+  it("renders the normal Widget Catalog without a legacy Knowledge / Skills card", async () => {
+    await render(<WidgetCatalogShell isOpen={true} onClose={vi.fn()} />);
+
+    expect(text()).toContain("Knowledge / Skills");
+    expect(text()).toContain("Workspace and global documents plus reusable procedures.");
+    expect(text()).not.toContain("Legacy Knowledge / Skills");
+    expect(text()).not.toContain("Compatibility surface");
+    expect(
+      document.querySelector("[data-catalog-template-id='skill-library']"),
+    ).not.toBeNull();
+  });
+
   it("renders KnowledgeV2 for a normal Knowledge / Skills widget instance", async () => {
     const actions = widgetActions();
 
@@ -63,9 +76,11 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     expect(document.querySelector("[data-widget-v2-shell]")).not.toBeNull();
     expect(document.querySelector(".skill-library-shell")).toBeNull();
     expect(document.querySelector(".skill-library-layout")).toBeNull();
+    expect(text()).not.toContain("Legacy Knowledge / Skills");
+    expect(text()).not.toContain("Compatibility surface");
   });
 
-  it("does not call create or import actions on normal KnowledgeV2 render", async () => {
+  it("does not mutate Knowledge data on normal KnowledgeV2 render", async () => {
     const actions = widgetActions();
 
     await render(<WidgetHost {...widgetHostProps(actions)} />);
@@ -78,6 +93,10 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     expect(actions.readKnowledgeDocumentImportFile).not.toHaveBeenCalled();
     expect(actions.recordKnowledgeDraftReview).not.toHaveBeenCalled();
     expect(actions.createAgentQueueTask).not.toHaveBeenCalled();
+    expect(actions.updateKnowledgeDocument).not.toHaveBeenCalled();
+    expect(actions.updateSkill).not.toHaveBeenCalled();
+    expect(actions.deleteKnowledgeDocument).not.toHaveBeenCalled();
+    expect(actions.deleteSkill).not.toHaveBeenCalled();
   });
 
   it("opens existing Knowledge / Skills flows only from explicit KnowledgeV2 popup actions", async () => {
@@ -86,21 +105,23 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     await render(<WidgetHost {...widgetHostProps(actions)} />);
     await flush();
 
-    expect(regionByName("Knowledge / Skills existing flow")).toBeNull();
+    expect(regionByName("Legacy Knowledge / Skills existing flow")).toBeNull();
     expect(actions.createKnowledgeDocument).not.toHaveBeenCalled();
     expect(actions.createSkill).not.toHaveBeenCalled();
     expect(actions.readKnowledgeDocumentImportFile).not.toHaveBeenCalled();
 
     await clickButton("New");
     expect(dialogByName("New")?.textContent).toContain("New document");
-    expect(regionByName("Knowledge / Skills existing flow")).toBeNull();
+    expect(regionByName("Legacy Knowledge / Skills existing flow")).toBeNull();
     expect(actions.createKnowledgeDocument).not.toHaveBeenCalled();
 
     await clickButton("Open existing create flow");
     await flush();
 
-    expect(regionByName("Knowledge / Skills existing flow")).not.toBeNull();
+    expect(regionByName("Legacy Knowledge / Skills existing flow")).not.toBeNull();
     expect(regionByName("Catalog item editor")).not.toBeNull();
+    expect(text()).toContain("Legacy Knowledge / Skills");
+    expect(text()).toContain("Compatibility surface");
     expect(actions.createKnowledgeDocument).not.toHaveBeenCalled();
     expect(actions.createSkill).not.toHaveBeenCalled();
     expect(actions.readKnowledgeDocumentImportFile).not.toHaveBeenCalled();
@@ -135,7 +156,7 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
 
   it("keeps the legacy Knowledge / Skills component directly renderable", async () => {
     await render(
-      <SkillLibraryWidget
+      <LegacyKnowledgeSkillsWidget
         config={{}}
         definition={getWidgetDefinition(SKILL_LIBRARY_WIDGET_DEFINITION_ID)!}
         instance={knowledgeWidgetInstance()}
@@ -147,7 +168,8 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     );
     await flush();
 
-    expect(text()).toContain("Knowledge / Skills");
+    expect(text()).toContain("Legacy Knowledge / Skills");
+    expect(text()).toContain("Compatibility surface");
     expect(document.querySelector(".skill-library-shell")).not.toBeNull();
     expect(document.querySelector("[data-widget-v2-shell]")).toBeNull();
     expect(text()).not.toContain("Knowledge Catalog");

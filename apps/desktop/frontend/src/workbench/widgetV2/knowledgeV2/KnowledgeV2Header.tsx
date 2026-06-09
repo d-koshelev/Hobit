@@ -6,7 +6,7 @@ export function KnowledgeV2Header() {
     >
       <span>Experimental surface</span>
       <span>Frontend-only shell</span>
-      <span>Legacy Knowledge / Skills unchanged</span>
+      <span>Existing Knowledge data bridge</span>
     </div>
   );
 }

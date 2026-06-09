@@ -126,11 +126,12 @@ export function KnowledgeSkillsV2Widget({
       />
       {legacyFlow ? (
         <section
-          aria-label="Knowledge / Skills existing flow"
+          aria-label="Legacy Knowledge / Skills existing flow"
           className="skill-library-shell"
         >
           <div className="skill-library-summary skill-library-summary-secondary">
-            <span>Existing Knowledge / Skills flow</span>
+            <span>Legacy Knowledge / Skills</span>
+            <span>Compatibility surface</span>
             <Button onClick={() => setLegacyFlow(null)} variant="ghost">
               Close existing flow
             </Button>
