@@ -177,6 +177,14 @@ of truth for their domains.
   and remaining bridge, summary-generation, and legacy-removal gaps. It does
   not add frontend behavior, backend/Rust/Tauri/storage/schema changes,
   Queue/Agent runtime behavior, or Knowledge data changes.
+- `docs/KNOWLEDGE_V2_POPUP_ONLY_LAYOUT_STATUS.md` - docs-only status record
+  for the KnowledgeV2 popup-only layout transition. It records the default
+  removal/default-hiding of the permanent right preview, item details popup,
+  bounded Use as Context popup, shared popup header/body/footer behavior, row
+  action menu states, topbar spacing, manual smoke checklist, and remaining
+  follow-ups. It does not add frontend behavior, backend/Rust/Tauri/storage/
+  schema changes, Queue/Workspace Agent runtime behavior, automatic context
+  injection, or Knowledge data changes.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
