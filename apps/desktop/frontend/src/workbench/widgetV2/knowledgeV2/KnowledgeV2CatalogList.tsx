@@ -107,6 +107,17 @@ export function KnowledgeV2CatalogList({
           selected={item.id === selectedItemId}
         />
       ))}
+      {items.length <= 3 ? (
+        <div
+          aria-label="Knowledge catalog small list helper"
+          className="knowledge-v2-small-list-helper"
+          role="row"
+        >
+          <span role="cell">
+            {items.length} {items.length === 1 ? "item" : "items"} shown.
+          </span>
+        </div>
+      ) : null}
     </div>
   );
 }
