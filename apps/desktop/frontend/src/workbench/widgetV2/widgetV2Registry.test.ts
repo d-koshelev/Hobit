@@ -36,7 +36,7 @@ describe("Widget V2 registry", () => {
     });
   });
 
-  it("defines KnowledgeV2 as experimental without replacing Knowledge / Skills", () => {
+  it("defines KnowledgeV2 as the experimental Knowledge / Skills route target", () => {
     expect(getWidgetV2Manifest("knowledge-v2")).toMatchObject({
       kind: "knowledge-v2",
       name: "KnowledgeV2",

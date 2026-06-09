@@ -12,6 +12,8 @@ import { KnowledgeV2CatalogBrowser } from "./KnowledgeV2CatalogBrowser";
 const knowledgeV2Manifest = getWidgetV2Manifest("knowledge-v2");
 
 export type KnowledgeV2WidgetProps = {
+  readonly displaySubtitle?: string;
+  readonly displayTitle?: string;
   readonly draftReviews?: readonly KnowledgeDraftReviewDecision[];
   readonly documents?: readonly KnowledgeDocument[];
   readonly onAttachContextToCoordinator?: WidgetRenderProps["onAttachContextToCoordinator"];
@@ -27,6 +29,8 @@ export type KnowledgeV2WidgetProps = {
 };
 
 export function KnowledgeV2Widget({
+  displaySubtitle,
+  displayTitle,
   draftReviews,
   documents,
   onAttachContextToCoordinator,
@@ -89,8 +93,11 @@ export function KnowledgeV2Widget({
         title: "KnowledgeV2",
       }}
       status={status}
-      subtitle="Dense catalog review for Knowledge Documents and Skills. Production Knowledge / Skills remains unchanged."
-      title={knowledgeV2Manifest?.title ?? "Knowledge v2"}
+      subtitle={
+        displaySubtitle ??
+        "Dense catalog review for Knowledge Documents and Skills. Production Knowledge / Skills remains unchanged."
+      }
+      title={displayTitle ?? knowledgeV2Manifest?.title ?? "Knowledge v2"}
     >
       <KnowledgeV2CatalogBrowser
         documents={dataBridge.documents}

@@ -50,7 +50,7 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
     name: "KnowledgeV2",
     title: "Knowledge Catalog v2",
     description:
-      "Experimental catalog shell for explicit Knowledge and Skills review without replacing the current Knowledge / Skills surface.",
+      "Experimental catalog shell used by the Knowledge / Skills product route for explicit Knowledge and Skills review.",
     productRole:
       "Preview a future operator-controlled catalog surface for browsing, filtering, previewing, and explicitly managing Knowledge and Skills.",
     capabilities: [
@@ -66,7 +66,7 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
       "No hidden memory.",
       "No automatic ingestion or folder watching.",
       "No embeddings, vector search, or automatic prompt injection.",
-      "No replacement of the current skill-library Knowledge / Skills widget.",
+      "No backend, storage, schema, or persisted widget identity replacement.",
     ],
     requiredPanelSlots: ["header", "primary"],
     optionalPanelSlots: ["toolbar", "right-inspector"],
@@ -101,7 +101,7 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
       },
     ],
     domainBoundary:
-      "Frontend-only experimental catalog shell; current Knowledge / Skills remains owned by skill-library.",
+      "Frontend-only catalog shell over existing skill-library Knowledge / Skills data/action bridges.",
     safeContextSummary:
       "No Knowledge, Skills, Queue context, or Workspace Agent context is read by this shell.",
     runtimeLimitations: [
@@ -113,7 +113,7 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
       "No hidden ingestion.",
       "No automatic AI context injection.",
       "No backend, storage, or schema change.",
-      "No replacement of legacy Knowledge / Skills.",
+      "No deletion of the legacy Knowledge / Skills component.",
     ],
   },
   {

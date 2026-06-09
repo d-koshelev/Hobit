@@ -14,9 +14,9 @@ import { FinderWidget } from "./FinderWidget";
 import { GitPlaceholderWidget } from "./GitPlaceholderWidget";
 import { InteractiveAgentPlaceholderWidget } from "./InteractiveAgentPlaceholderWidget";
 import { JdbcConnectorWidget } from "./JdbcConnectorWidget";
+import { KnowledgeSkillsV2Widget } from "./KnowledgeSkillsV2Widget";
 import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
 import { RunbookPlaceholderWidget } from "./RunbookPlaceholderWidget";
-import { SkillLibraryWidget } from "./SkillLibraryWidget";
 import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
 import { WidgetRemoveAction } from "./WidgetRemoveAction";
 import type { AgentActivityEvent } from "./agentActivityModel";
@@ -75,7 +75,7 @@ const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
   [JDBC_WIDGET_COMPONENT_KEY]: JdbcConnectorWidget,
   [NOTES_PLACEHOLDER_COMPONENT_KEY]: NotesPlaceholderWidget,
   [RUNBOOK_PLACEHOLDER_COMPONENT_KEY]: RunbookPlaceholderWidget,
-  [SKILL_LIBRARY_COMPONENT_KEY]: SkillLibraryWidget,
+  [SKILL_LIBRARY_COMPONENT_KEY]: KnowledgeSkillsV2Widget,
   [TERMINAL_PLACEHOLDER_COMPONENT_KEY]: TerminalPlaceholderWidget,
 };
 
