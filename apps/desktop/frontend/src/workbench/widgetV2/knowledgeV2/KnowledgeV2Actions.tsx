@@ -2,7 +2,10 @@ import { useId, useRef, useState, type RefObject } from "react";
 
 import { Button } from "../../../design-system/Button";
 import { WidgetPopupShell } from "../../../design-system/WidgetPopupShell";
-import type { KnowledgeDocument } from "../../../workspace/types/knowledgeDocuments";
+import type {
+  KnowledgeDocument,
+  KnowledgeDraftReviewDecision,
+} from "../../../workspace/types/knowledgeDocuments";
 import type { Skill } from "../../../workspace/types/skills";
 
 type KnowledgeV2ActionKind =
@@ -13,6 +16,8 @@ type KnowledgeV2ActionKind =
 
 type KnowledgeV2ActionsProps = {
   readonly documents: readonly KnowledgeDocument[];
+  readonly draftReviews?: readonly KnowledgeDraftReviewDecision[];
+  readonly missingBridges?: readonly string[];
   readonly onDraftReview?: () => void;
   readonly onImport?: () => void;
   readonly onManageSkills?: () => void;
@@ -34,6 +39,8 @@ const ACTIONS: readonly ActionConfig[] = [
 
 export function KnowledgeV2Actions({
   documents,
+  draftReviews = [],
+  missingBridges = [],
   onDraftReview,
   onImport,
   onManageSkills,
@@ -49,7 +56,7 @@ export function KnowledgeV2Actions({
   const skillsButtonRef = useRef<HTMLButtonElement | null>(null);
   const popupTitleId = useId();
   const popupId = useId();
-  const draftSummary = buildDraftSummary(documents, skills);
+  const draftSummary = buildDraftSummary(documents, skills, draftReviews);
 
   const activeButtonRef =
     openAction === "new-knowledge"
@@ -138,7 +145,18 @@ export function KnowledgeV2Actions({
                   <dt>Needs review</dt>
                   <dd>{draftSummary.needsReviewSkills.toString()}</dd>
                 </div>
+                <div>
+                  <dt>Review decisions</dt>
+                  <dd>{draftSummary.reviewDecisions.toString()}</dd>
+                </div>
               </dl>
+              {missingBridges.length > 0 ? (
+                <ul className="knowledge-v2-action-bridge-list">
+                  {missingBridges.map((bridge) => (
+                    <li key={bridge}>{bridge}</li>
+                  ))}
+                </ul>
+              ) : null}
               <p className="knowledge-v2-action-note">
                 Full draft review and acceptance stay in the production
                 Knowledge / Skills review surface. Raw draft contents are not
@@ -199,6 +217,7 @@ function ActionUnavailable({
 function buildDraftSummary(
   documents: readonly KnowledgeDocument[],
   skills: readonly Skill[],
+  draftReviews: readonly KnowledgeDraftReviewDecision[],
 ) {
   return {
     documentDrafts: documents.filter(
@@ -207,6 +226,7 @@ function buildDraftSummary(
     needsReviewSkills: skills.filter(
       (skill) => skill.reviewStatus === "needs_review",
     ).length,
+    reviewDecisions: draftReviews.length,
     skillDrafts: skills.filter((skill) => skill.reviewStatus === "draft")
       .length,
   };

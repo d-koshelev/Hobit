@@ -3,7 +3,10 @@ import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type { KnowledgeDocument } from "../../../workspace/types/knowledgeDocuments";
+import type {
+  KnowledgeDocument,
+  KnowledgeDraftReviewDecision,
+} from "../../../workspace/types/knowledgeDocuments";
 import type { Skill } from "../../../workspace/types/skills";
 import {
   flush,
@@ -41,6 +44,39 @@ describe("KnowledgeV2Widget browser", () => {
     expect(text()).toContain("Document");
     expect(text()).toContain("Skill");
     expect(text()).toContain("2 / 2");
+  });
+
+  it("loads documents and skills from existing Knowledge / Skills list actions", async () => {
+    const onListKnowledgeDocuments = vi.fn(async () => [documentFixture()]);
+    const onListSkills = vi.fn(async () => [
+      skillFixture({ reviewStatus: "reviewed" }),
+    ]);
+
+    await render(
+      <KnowledgeV2Widget
+        draftReviews={[draftReviewFixture()]}
+        onListKnowledgeDocuments={onListKnowledgeDocuments}
+        onListSkills={onListSkills}
+      />,
+    );
+    await flush();
+
+    expect(onListKnowledgeDocuments).toHaveBeenCalledTimes(1);
+    expect(onListSkills).toHaveBeenCalledTimes(1);
+    expect(text()).toContain("Release guide");
+    expect(text()).toContain("React review");
+    expect(text()).toContain("2 / 2");
+    expect(text()).not.toContain("Catalog data unavailable.");
+  });
+
+  it("shows an honest unavailable state when the experimental path has no data bridge", async () => {
+    await render(<KnowledgeV2Widget />);
+
+    expect(text()).toContain("Catalog data unavailable.");
+    expect(text()).toContain("No production data is being faked.");
+    expect(text()).toContain("Knowledge Documents list bridge");
+    expect(text()).toContain("Skills list bridge");
+    expect(text()).toContain("No catalog items yet.");
   });
 
   it("changes visible items when filters change", async () => {
@@ -171,6 +207,28 @@ describe("KnowledgeV2Widget browser", () => {
     expect(onManageSkills).not.toHaveBeenCalled();
   });
 
+  it("does not call create or import callbacks while loading catalog data", async () => {
+    const onNew = vi.fn();
+    const onImport = vi.fn();
+    const onListKnowledgeDocuments = vi.fn(async () => [documentFixture()]);
+    const onListSkills = vi.fn(async () => [skillFixture()]);
+
+    await render(
+      <KnowledgeV2Widget
+        onImport={onImport}
+        onListKnowledgeDocuments={onListKnowledgeDocuments}
+        onListSkills={onListSkills}
+        onNew={onNew}
+      />,
+    );
+    await flush();
+
+    expect(onListKnowledgeDocuments).toHaveBeenCalledTimes(1);
+    expect(onListSkills).toHaveBeenCalledTimes(1);
+    expect(onNew).not.toHaveBeenCalled();
+    expect(onImport).not.toHaveBeenCalled();
+  });
+
   it("opens and closes KnowledgeV2 action popups", async () => {
     await render(
       <KnowledgeV2Widget
@@ -200,6 +258,7 @@ describe("KnowledgeV2Widget browser", () => {
   it("shows draft summary only inside Draft Review popup", async () => {
     await render(
       <KnowledgeV2Widget
+        draftReviews={[draftReviewFixture()]}
         documents={[
           documentFixture({
             knowledgeDocumentId: "draft_doc",
@@ -226,6 +285,8 @@ describe("KnowledgeV2Widget browser", () => {
     expect(popup?.textContent).toContain("Draft documents");
     expect(popup?.textContent).toContain("Draft skills");
     expect(popup?.textContent).toContain("Needs review");
+    expect(popup?.textContent).toContain("Review decisions");
+    expect(popup?.textContent).toContain("1");
     expect(popup?.textContent).toContain("Raw draft contents are not");
     expect(popup?.textContent).not.toContain("draft payload");
   });
@@ -438,6 +499,24 @@ function skillFixture(overrides: Partial<Skill> = {}): Skill {
     updatedAt: "2026-01-03T00:00:00.000Z",
     validation: "Run relevant tests.",
     whenToUse: "Use when reviewing React changes.",
+    workspaceId: "workspace_1",
+    ...overrides,
+  };
+}
+
+function draftReviewFixture(
+  overrides: Partial<KnowledgeDraftReviewDecision> = {},
+): KnowledgeDraftReviewDecision {
+  return {
+    action: "accepted",
+    createdAt: "2026-01-04T00:00:00.000Z",
+    draftPackId: "pack_1",
+    proposedItemId: "draft_1",
+    proposedItemKey: "document:draft_1",
+    reviewId: "review_1",
+    reviewedAt: "2026-01-04T00:00:00.000Z",
+    sourceFingerprint: "fingerprint_1",
+    updatedAt: "2026-01-04T00:00:00.000Z",
     workspaceId: "workspace_1",
     ...overrides,
   };
