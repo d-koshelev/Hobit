@@ -384,16 +384,21 @@
   z-index: 70;
   min-width: min(320px, calc(100vw - 24px));
   max-width: min(520px, calc(100vw - 24px));
-  min-height: 0;
-  overflow: auto;
+  min-height: min(180px, calc(100vh - 24px));
+  overflow: hidden;
   overscroll-behavior: contain;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   background: var(--color-overlay-surface);
   box-shadow: var(--shadow-elevated);
-  padding: var(--panel-padding);
+  padding: 0;
   scrollbar-color: var(--color-border-strong) transparent;
   scrollbar-width: thin;
+}
+
+.popup-shell:not(.popup-shell-with-layout) {
+  overflow: auto;
+  padding: var(--panel-padding);
 }
 
 .popup-shell:focus {
@@ -416,19 +421,97 @@
   transform: translate(-50%, -50%);
 }
 
+.popup-shell-layout {
+  display: grid;
+  min-height: inherit;
+  max-height: inherit;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.popup-shell-header {
+  display: flex;
+  min-width: 0;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-overlay-surface);
+  padding: var(--panel-padding);
+}
+
+.popup-shell-title-block {
+  display: grid;
+  min-width: 0;
+  gap: var(--scaled-space-2xs);
+}
+
+.popup-shell-eyebrow,
+.popup-shell-title {
+  margin: 0;
+}
+
+.popup-shell-eyebrow {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  line-height: var(--line-tight);
+}
+
+.popup-shell-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 740;
+  line-height: var(--line-tight);
+  overflow-wrap: anywhere;
+}
+
+.popup-shell-header-actions {
+  display: flex;
+  min-width: 0;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.popup-shell-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: var(--panel-padding);
+  scrollbar-color: var(--color-border-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.popup-shell-footer {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+  border-top: 1px solid var(--color-border-subtle);
+  background: var(--color-overlay-surface);
+  padding: var(--space-sm) var(--panel-padding);
+}
+
 .widget-content::-webkit-scrollbar,
-.popup-shell::-webkit-scrollbar {
+.popup-shell::-webkit-scrollbar,
+.popup-shell-body::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
 .widget-content::-webkit-scrollbar-track,
-.popup-shell::-webkit-scrollbar-track {
+.popup-shell::-webkit-scrollbar-track,
+.popup-shell-body::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .widget-content::-webkit-scrollbar-thumb,
-.popup-shell::-webkit-scrollbar-thumb {
+.popup-shell::-webkit-scrollbar-thumb,
+.popup-shell-body::-webkit-scrollbar-thumb {
   border: 3px solid transparent;
   border-radius: 999px;
   background: var(--color-border-strong);

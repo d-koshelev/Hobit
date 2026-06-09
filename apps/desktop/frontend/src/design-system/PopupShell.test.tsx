@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PopupShell } from "./PopupShell";
+import { WidgetPopupShell } from "./WidgetPopupShell";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -175,6 +176,34 @@ describe("PopupShell", () => {
     expect(popup?.style.transform).toBe("");
   });
 
+  it("renders standard widget popups with bounded body and sticky footer zones", async () => {
+    const onRequestClose = vi.fn();
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <StandardWidgetPopupFixture isOpen onRequestClose={onRequestClose} />,
+      );
+      await Promise.resolve();
+    });
+
+    const popup = document.querySelector<HTMLElement>(".popup-shell");
+    const header = document.querySelector<HTMLElement>(".popup-shell-header");
+    const body = document.querySelector<HTMLElement>("[data-popup-body]");
+    const footer = document.querySelector<HTMLElement>(".popup-shell-footer");
+
+    expect(popup).not.toBeNull();
+    expect(popup?.classList.contains("popup-shell-with-layout")).toBe(true);
+    expect(Number.parseFloat(popup?.style.maxHeight ?? "0")).toBeGreaterThan(0);
+    expect(header?.getAttribute("data-popup-drag-handle")).toBe("true");
+    expect(body?.textContent).toContain("Long popup line 39");
+    expect(footer?.textContent).toContain("Apply");
+    expect(body?.contains(footer)).toBe(false);
+  });
+
   it("keeps Close and Escape behavior working", async () => {
     const onRequestClose = vi.fn();
 
@@ -273,6 +302,63 @@ describe("PopupShell", () => {
     expect(reopenedPopup?.style.right).not.toBe("");
   });
 });
+
+function StandardWidgetPopupFixture({
+  isOpen,
+  onRequestClose,
+}: {
+  isOpen: boolean;
+  onRequestClose: () => void;
+}) {
+  const anchorRef = useRef<HTMLButtonElement | null>(null);
+
+  function bindAnchor(element: HTMLButtonElement | null) {
+    anchorRef.current = element;
+
+    if (element) {
+      element.getBoundingClientRect = () =>
+        ({
+          bottom: 80,
+          height: 24,
+          left: 40,
+          right: 120,
+          toJSON: () => ({}),
+          top: 56,
+          width: 80,
+          x: 40,
+          y: 56,
+        }) as DOMRect;
+    }
+  }
+
+  return (
+    <div className="widget-frame">
+      <button ref={bindAnchor} type="button">
+        Open
+      </button>
+      <WidgetPopupShell
+        actions={
+          <button data-popup-close onClick={onRequestClose} type="button">
+            Close
+          </button>
+        }
+        anchorRef={anchorRef}
+        footer={<button type="button">Apply</button>}
+        id="standard-widget-popup"
+        isOpen={isOpen}
+        onRequestClose={onRequestClose}
+        title="Standard popup"
+        titleId="standard-widget-popup-title"
+      >
+        {Array.from({ length: 40 }, (_, index) => (
+          <p data-popup-content key={index}>
+            Long popup line {index.toString()}
+          </p>
+        ))}
+      </WidgetPopupShell>
+    </div>
+  );
+}
 
 function AnchoredPopupFixture({
   isOpen,

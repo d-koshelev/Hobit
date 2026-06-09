@@ -706,6 +706,17 @@ describe("KnowledgeV2Widget browser", () => {
     expect(dialogByName("Import")?.textContent).toContain(
       "KnowledgeV2 has no direct file picker or raw path input in this popup yet.",
     );
+    const importPopup = dialogByName("Import");
+    expect(importPopup?.classList.contains("popup-shell-with-layout")).toBe(true);
+    expect(importPopup?.querySelector("[data-popup-body]")?.textContent).toContain(
+      "Choose or drop a text/Markdown file",
+    );
+    expect(
+      importPopup?.querySelector("[data-popup-body]")?.textContent,
+    ).not.toContain("Open existing import flow");
+    expect(importPopup?.querySelector(".popup-shell-footer")?.textContent).toContain(
+      "Open existing import flow",
+    );
     expect(text()).not.toContain("Choose Knowledge import file");
     expect(regionByName("Knowledge catalog items")?.textContent).toContain(
       "Release guide",

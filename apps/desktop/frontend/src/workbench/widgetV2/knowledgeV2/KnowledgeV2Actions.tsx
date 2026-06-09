@@ -7,8 +7,9 @@ import type {
   KnowledgeDraftReviewDecision,
 } from "../../../workspace/types/knowledgeDocuments";
 import type { Skill } from "../../../workspace/types/skills";
+import { KnowledgeV2ActionFooter } from "./KnowledgeV2ActionFooter";
 
-type KnowledgeV2ActionKind =
+export type KnowledgeV2ActionKind =
   | "draft-review"
   | "help-legend"
   | "import-file"
@@ -144,47 +145,54 @@ export function KnowledgeV2Actions({
         ))}
       </div>
       <WidgetPopupShell
+        actions={
+          <Button onClick={() => setOpenAction(null)} variant="ghost">
+            Close
+          </Button>
+        }
+        bodyClassName="knowledge-v2-action-popup-body"
         className="knowledge-v2-action-popup-shell"
+        eyebrow="KnowledgeV2 action"
+        footer={
+          openAction ? (
+            <KnowledgeV2ActionFooter
+              action={openAction}
+              availability={availability}
+              onDraftReview={onDraftReview}
+              onImport={onImport}
+              onManageSkills={onManageSkills}
+              onNew={onNew}
+            />
+          ) : null
+        }
         id={popupId}
         isOpen={openAction !== null}
         onRequestClose={() => setOpenAction(null)}
         returnFocusRef={activeButtonRef}
+        title={titleForAction(openAction)}
         titleId={popupTitleId}
         variant="floating"
       >
         <article className="knowledge-v2-action-popup">
-          <header className="knowledge-v2-action-popup-header" data-popup-drag-handle>
-            <div>
-              <p className="knowledge-v2-eyebrow">KnowledgeV2 action</p>
-              <h3 id={popupTitleId}>{titleForAction(openAction)}</h3>
-            </div>
-            <Button onClick={() => setOpenAction(null)} variant="ghost">
-              Close
-            </Button>
-          </header>
           {openAction === "new-knowledge" ? (
             <NewKnowledgePopup
               availability={availability.newKnowledge}
-              onNew={onNew}
             />
           ) : null}
           {openAction === "import-file" ? (
             <ImportKnowledgePopup
               availability={availability.importFile}
-              onImport={onImport}
             />
           ) : null}
           {openAction === "draft-review" ? (
             <DraftReviewPopup
               availability={availability.draftReview}
               draftSummary={draftSummary}
-              onDraftReview={onDraftReview}
             />
           ) : null}
           {openAction === "manage-skills" ? (
             <ManageSkillsPopup
               availability={availability.manageSkills}
-              onManageSkills={onManageSkills}
               skillsCount={skills.length}
             />
           ) : null}
@@ -199,13 +207,11 @@ export function KnowledgeV2Actions({
 
 function NewKnowledgePopup({
   availability,
-  onNew,
 }: {
   readonly availability: KnowledgeV2ActionAvailability;
-  readonly onNew?: () => void;
 }) {
   return (
-    <section className="knowledge-v2-action-popup-body">
+    <section className="knowledge-v2-action-popup-content">
       <ActionAvailabilityPanel availability={availability} label="New" />
       <p>
         Opening this popup does not create a Knowledge item. Choose an explicit
@@ -214,16 +220,12 @@ function NewKnowledgePopup({
       <div className="knowledge-v2-action-options">
         <ActionOption
           description="Create a plain-text or Markdown Knowledge Document through the current Knowledge / Skills editor."
-          status={
-            onNew ? "Available through existing flow" : "Unavailable in KnowledgeV2"
-          }
+          status={availabilityStatusText(availability)}
           title="New document"
         />
         <ActionOption
           description="Create a reusable Skill record through the current Knowledge / Skills editor."
-          status={
-            onNew ? "Available through existing flow" : "Unavailable in KnowledgeV2"
-          }
+          status={availabilityStatusText(availability)}
           title="New skill"
         />
         <ActionOption
@@ -232,29 +234,17 @@ function NewKnowledgePopup({
           title="New runbook/procedure"
         />
       </div>
-      {availability.state !== "unavailable" && onNew ? (
-        <Button onClick={onNew} variant="secondary">
-          Open existing create flow
-        </Button>
-      ) : (
-        <UnavailableAction
-          label="Open existing create flow"
-          reason="Creation is unavailable because KnowledgeV2 did not receive an explicit create-flow callback."
-        />
-      )}
     </section>
   );
 }
 
 function ImportKnowledgePopup({
   availability,
-  onImport,
 }: {
   readonly availability: KnowledgeV2ActionAvailability;
-  readonly onImport?: () => void;
 }) {
   return (
-    <section className="knowledge-v2-action-popup-body">
+    <section className="knowledge-v2-action-popup-content">
       <ActionAvailabilityPanel availability={availability} label="Import" />
       <p>
         Import remains explicit and single-file only in the existing production
@@ -269,11 +259,7 @@ function ImportKnowledgePopup({
         />
         <ActionOption
           description="Use the current Knowledge / Skills import path for an explicit .txt, .md, or .markdown file."
-          status={
-            onImport
-              ? "Available through existing flow"
-              : "Unavailable in KnowledgeV2"
-          }
+          status={availabilityStatusText(availability)}
           title="Existing single-file import"
         />
         <ActionOption
@@ -287,16 +273,6 @@ function ImportKnowledgePopup({
         yet. Use the existing import flow when available; this popup never
         reads a local file by itself.
       </p>
-      {availability.state !== "unavailable" && onImport ? (
-        <Button onClick={onImport} variant="secondary">
-          Open existing import flow
-        </Button>
-      ) : (
-        <UnavailableAction
-          label="Open existing import flow"
-          reason="Import is unavailable because KnowledgeV2 did not receive an explicit import-flow callback."
-        />
-      )}
     </section>
   );
 }
@@ -304,14 +280,12 @@ function ImportKnowledgePopup({
 function DraftReviewPopup({
   availability,
   draftSummary,
-  onDraftReview,
 }: {
   readonly availability: KnowledgeV2ActionAvailability;
   readonly draftSummary: ReturnType<typeof buildDraftSummary>;
-  readonly onDraftReview?: () => void;
 }) {
   return (
-    <section className="knowledge-v2-action-popup-body">
+    <section className="knowledge-v2-action-popup-content">
       <ActionAvailabilityPanel availability={availability} label="Draft Review" />
       <p>
         Draft review stays outside the default catalog browsing view. This
@@ -340,34 +314,19 @@ function DraftReviewPopup({
         Skills review surface. Raw draft contents are not shown in this catalog
         browser.
       </p>
-      {availability.state !== "unavailable" && onDraftReview ? (
-        <Button onClick={onDraftReview} variant="secondary">
-          Open existing draft review flow
-        </Button>
-      ) : (
-        <UnavailableAction
-          label="Open existing draft review flow"
-          reason={
-            availability.reason ??
-            "Draft review management is unavailable because KnowledgeV2 did not receive an explicit draft-review callback."
-          }
-        />
-      )}
     </section>
   );
 }
 
 function ManageSkillsPopup({
   availability,
-  onManageSkills,
   skillsCount,
 }: {
   readonly availability: KnowledgeV2ActionAvailability;
-  readonly onManageSkills?: () => void;
   readonly skillsCount: number;
 }) {
   return (
-    <section className="knowledge-v2-action-popup-body">
+    <section className="knowledge-v2-action-popup-content">
       <ActionAvailabilityPanel availability={availability} label="Manage Skills" />
       <p>
         KnowledgeV2 currently treats {skillsCount.toString()} Skill item
@@ -377,11 +336,7 @@ function ManageSkillsPopup({
       <div className="knowledge-v2-action-options">
         <ActionOption
           description="Skill CRUD is still owned by the current Knowledge / Skills widget."
-          status={
-            onManageSkills
-              ? "Available through existing flow"
-              : "Unavailable in KnowledgeV2"
-          }
+          status={availabilityStatusText(availability)}
           title="Skill records"
         />
         <ActionOption
@@ -400,16 +355,6 @@ function ManageSkillsPopup({
           title="Validation"
         />
       </div>
-      {availability.state !== "unavailable" && onManageSkills ? (
-        <Button onClick={onManageSkills} variant="secondary">
-          Open existing skills flow
-        </Button>
-      ) : (
-        <UnavailableAction
-          label="Open existing skills flow"
-          reason="Skill management is unavailable because KnowledgeV2 did not receive an explicit Skill-management callback."
-        />
-      )}
     </section>
   );
 }
@@ -439,23 +384,6 @@ function ActionAvailabilityPanel({
         </ul>
       ) : null}
     </section>
-  );
-}
-
-function UnavailableAction({
-  label,
-  reason,
-}: {
-  readonly label: string;
-  readonly reason: string;
-}) {
-  return (
-    <div className="knowledge-v2-action-status">
-      <Button disabled={true} title={reason} variant="secondary">
-        {label}
-      </Button>
-      <p>{reason}</p>
-    </div>
   );
 }
 
@@ -545,6 +473,17 @@ function labelForAvailability(state: KnowledgeV2ActionAvailability["state"]) {
   }
 }
 
+function availabilityStatusText(availability: KnowledgeV2ActionAvailability) {
+  switch (availability.state) {
+    case "available":
+      return "Available through existing flow";
+    case "partial":
+      return "Partially available";
+    case "unavailable":
+      return "Unavailable in KnowledgeV2";
+  }
+}
+
 function toneForAvailability(state: KnowledgeV2ActionAvailability["state"]) {
   switch (state) {
     case "available":
@@ -558,7 +497,7 @@ function toneForAvailability(state: KnowledgeV2ActionAvailability["state"]) {
 
 function HelpLegendPopup() {
   return (
-    <section className="knowledge-v2-action-popup-body">
+    <section className="knowledge-v2-action-popup-content">
       <p>
         This popup replaces persistent helper rails so the catalog and preview
         stay visible and stable.
