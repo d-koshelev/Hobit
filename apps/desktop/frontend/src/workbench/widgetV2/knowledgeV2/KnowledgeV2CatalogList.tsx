@@ -130,6 +130,7 @@ export function KnowledgeV2CatalogRow({
   const statuses = knowledgeV2ItemStatuses(item);
   const visibleTags = item.tags.slice(0, 2);
   const hiddenTagCount = item.tags.length - visibleTags.length;
+  const updatedDate = formatDate(item.updatedAt);
 
   return (
     <div
@@ -149,8 +150,10 @@ export function KnowledgeV2CatalogRow({
         <span title={item.title}>{item.title}</span>
         <small title={item.summary}>{item.summary}</small>
       </button>
-      <span role="cell" title={formatToken(item.type)}>
-        {formatToken(item.type)}
+      <span role="cell" title={formatTypeLabel(item.type)}>
+        <span className="knowledge-v2-type-badge">
+          {formatTypeBadge(item.type)}
+        </span>
       </span>
       <span role="cell">
         <span className="knowledge-v2-status-stack">
@@ -181,12 +184,20 @@ export function KnowledgeV2CatalogRow({
             ) : null}
           </span>
         ) : (
-          <span className="knowledge-v2-muted">None</span>
+          <span className="knowledge-v2-muted">No tags</span>
         )}
       </span>
-      <span role="cell">{formatDate(item.updatedAt)}</span>
+      <span role="cell">
+        <span
+          className={updatedDate.muted ? "knowledge-v2-muted" : undefined}
+          data-muted={updatedDate.muted ? "true" : "false"}
+        >
+          {updatedDate.label}
+        </span>
+      </span>
       <span className="knowledge-v2-row-actions" role="cell">
         <button
+          className="knowledge-v2-row-icon-button"
           aria-label={`Preview ${item.title}`}
           onClick={() => onSelectItem(item.id)}
           title={`Preview ${item.title}`}
@@ -196,6 +207,7 @@ export function KnowledgeV2CatalogRow({
         </button>
         {onUseAsContext ? (
           <button
+            className="knowledge-v2-row-use-button"
             aria-label={`Use ${item.title} as context`}
             disabled={Boolean(useAsContextDisabledReason)}
             onClick={() => onUseAsContext(item.id)}
@@ -206,7 +218,13 @@ export function KnowledgeV2CatalogRow({
           </button>
         ) : null}
         {warningCount > 0 ? (
-          <span title={`${warningCount.toString()} warnings`}>{warningCount}w</span>
+          <span
+            aria-label={`${warningCount.toString()} warnings`}
+            className="knowledge-v2-warning-badge"
+            title={`${warningCount.toString()} warnings`}
+          >
+            !
+          </span>
         ) : null}
       </span>
     </div>
@@ -245,7 +263,7 @@ export function KnowledgeV2CatalogCard({
         </span>
       </span>
       <span className="knowledge-v2-card-meta">
-        <span>{formatToken(item.type)}</span>
+        <span>{formatTypeLabel(item.type)}</span>
         <span>{formatScope(item.source.scope)}</span>
         {item.enabled === false ? <span>Disabled</span> : null}
         {item.searchable === false ? <span>Not searchable</span> : null}
@@ -275,22 +293,37 @@ function formatScope(scope: KnowledgeV2CatalogItem["source"]["scope"]) {
   return "No scope";
 }
 
-function formatToken(value: string) {
+function formatTypeLabel(value: string) {
   return value
     .split("_")
     .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
     .join(" ");
 }
 
+function formatTypeBadge(type: KnowledgeV2CatalogItem["type"]) {
+  switch (type) {
+    case "document":
+      return "DOC";
+    case "skill":
+      return "SKILL";
+    case "runbook":
+      return "RUNBOOK";
+    case "draft":
+      return "DRAFT";
+    default:
+      return "ITEM";
+  }
+}
+
 function formatDate(value?: string | null) {
   if (!value) {
-    return "Not available";
+    return { label: "Unknown", muted: true };
   }
 
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return "Unknown";
+    return { label: "Unknown", muted: true };
   }
 
-  return parsed.toISOString().slice(0, 10);
+  return { label: parsed.toISOString().slice(0, 10), muted: false };
 }

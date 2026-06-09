@@ -881,6 +881,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(
       row?.querySelector(".knowledge-v2-row-title span")?.getAttribute("title"),
     ).toBe(longTitle);
+    expect(titleButton?.className).toContain("knowledge-v2-row-title");
   });
 
   it("keeps action callbacks explicit inside popups", async () => {
