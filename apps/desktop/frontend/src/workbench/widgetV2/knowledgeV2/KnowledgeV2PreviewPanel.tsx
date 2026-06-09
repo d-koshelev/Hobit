@@ -138,7 +138,7 @@ export function KnowledgeV2PreviewPanel({
       </div>
 
       <p className="knowledge-v2-preview-summary">
-        {capText(item.summary || item.description, 260)}
+        {overviewSummaryText(item)}
       </p>
 
       <dl className="knowledge-v2-status-grid knowledge-v2-status-grid-compact">
@@ -241,11 +241,11 @@ function KnowledgeV2OverviewTab({
     <div className="knowledge-v2-tab-panel" role="tabpanel">
       <section className="knowledge-v2-preview-section">
         <h4>Summary</h4>
-        <p>{capText(item.summary, 420)}</p>
+        <p>{overviewSummaryText(item)}</p>
       </section>
       <section className="knowledge-v2-preview-section">
         <h4>What it does</h4>
-        <p>{capText(item.description || item.summary, 620)}</p>
+        <p>{overviewDescriptionText(item)}</p>
       </section>
       <section className="knowledge-v2-preview-section">
         <h4>Use cases</h4>
@@ -292,7 +292,34 @@ function KnowledgeV2DetailsTab({ item }: { readonly item: KnowledgeV2CatalogItem
           <StatusTerm label="Kind" value={item.source.kind || "Not available"} />
           <StatusTerm label="Ref" value={item.source.ref || "Not available"} />
           <StatusTerm label="Scope" value={formatScope(item.source.scope)} />
+          <StatusTerm
+            label="Source size"
+            value={formatSourceSize(item.sourcePreviewLength)}
+          />
+          <StatusTerm
+            label="Preview"
+            value={item.sourcePreviewCapped ? "Capped" : "Bounded"}
+          />
         </dl>
+      </section>
+      <section className="knowledge-v2-preview-section">
+        <h4>Source preview</h4>
+        <p>
+          {item.sourcePreview
+            ? item.sourcePreviewCapped
+              ? "Large source content is capped here. Use an explicit full-view/source action when one is available."
+              : "Bounded source preview from the selected Knowledge record."
+            : "No source content is available for this item."}
+        </p>
+        {item.sourcePreview ? (
+          <details
+            className="knowledge-v2-reference-details"
+            open={!item.sourcePreviewCapped}
+          >
+            <summary>{item.sourcePreviewCapped ? "View capped source preview" : "View source"}</summary>
+            <pre>{item.sourcePreview}</pre>
+          </details>
+        ) : null}
       </section>
       <section className="knowledge-v2-preview-section">
         <h4>Attachments and source refs</h4>
@@ -583,12 +610,42 @@ function useCaseText(item: KnowledgeV2CatalogItem) {
   return "Use case metadata is unavailable for this item.";
 }
 
+function overviewSummaryText(item: KnowledgeV2CatalogItem) {
+  const summary = item.summary.trim();
+  if (summary) {
+    return capText(summary, 420);
+  }
+  return item.source.kind === "import_file"
+    ? "Imported reference document. Source preview is available in Details."
+    : "No summary available yet.";
+}
+
+function overviewDescriptionText(item: KnowledgeV2CatalogItem) {
+  const description = item.description.trim();
+  if (description) {
+    return capText(description, 620);
+  }
+  return item.type === "document"
+    ? "Imported reference document. Source preview is available in Details."
+    : "No description available yet.";
+}
+
 function capText(value: string, maxLength: number) {
   const text = value.trim();
   if (text.length <= maxLength) {
     return text || "No preview text supplied.";
   }
   return `${text.slice(0, maxLength).trim()}...`;
+}
+
+function formatSourceSize(value: number) {
+  if (value <= 0) {
+    return "Not available";
+  }
+  if (value < 1_000) {
+    return `${value} chars`;
+  }
+  return `${Math.round(value / 1_000)}k chars`;
 }
 
 function formatScope(scope: KnowledgeV2CatalogItem["source"]["scope"]) {

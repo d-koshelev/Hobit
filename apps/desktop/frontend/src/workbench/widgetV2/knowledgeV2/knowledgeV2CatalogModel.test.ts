@@ -28,7 +28,8 @@ describe("knowledgeV2CatalogModel", () => {
     );
 
     expect(item).toMatchObject({
-      description: "Release process content.",
+      description:
+        "Runbook from Release docs. Source preview is available in Details.",
       documentSubtype: "runbook",
       enabled: true,
       id: "document:kdoc_1",
@@ -43,6 +44,9 @@ describe("knowledgeV2CatalogModel", () => {
         scope: "workspace",
       },
       sourceRefCount: 1,
+      sourcePreview: "Release process content.",
+      sourcePreviewCapped: false,
+      sourcePreviewLength: "Release process content.".length,
       summary: "Release procedure.",
       title: "Release guide",
       type: "runbook",

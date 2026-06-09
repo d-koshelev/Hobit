@@ -50,6 +50,9 @@ export type KnowledgeV2CatalogItem = {
   readonly summary: string;
   readonly description: string;
   readonly source: KnowledgeV2CatalogSource;
+  readonly sourcePreview: string;
+  readonly sourcePreviewCapped: boolean;
+  readonly sourcePreviewLength: number;
   readonly lifecycleState: KnowledgeV2CatalogLifecycleState;
   readonly reviewState?: SkillReviewStatus | KnowledgeLifecycleStatus;
   readonly enabled?: boolean;

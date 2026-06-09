@@ -11,6 +11,8 @@ import type {
   KnowledgeV2CatalogWarning,
 } from "./knowledgeV2CatalogTypes";
 
+const KNOWLEDGE_V2_SOURCE_PREVIEW_CHARS = 4_000;
+
 export type KnowledgeV2CatalogInput = {
   readonly documents: readonly KnowledgeDocument[];
   readonly skills: readonly Skill[];
@@ -58,16 +60,14 @@ export function normalizeKnowledgeV2DocumentItem(
 ): KnowledgeV2CatalogItem {
   const type = knowledgeV2TypeFromDocument(document);
   const tags = parseKnowledgeV2Tags(document.tags);
-  const summary =
-    document.quickSummary.trim() ||
-    firstUsefulLine(document.content) ||
-    "No quick summary yet.";
+  const summary = document.quickSummary.trim() || "No summary available yet.";
+  const sourcePreview = capKnowledgeV2SourcePreview(document.content);
   const sourceRefs = document.sourceRefs ?? [];
   const warnings = knowledgeV2DocumentWarnings(document, summary);
 
   return {
     createdAt: document.createdAt,
-    description: document.content.trim() || summary,
+    description: documentDescription(document, summary),
     documentSubtype: document.catalogItemType,
     enabled: document.enabled,
     id: `document:${document.knowledgeDocumentId}`,
@@ -94,6 +94,9 @@ export function normalizeKnowledgeV2DocumentItem(
       ref: document.sourceRef,
       scope: document.scope,
     },
+    sourcePreview: sourcePreview.text,
+    sourcePreviewCapped: sourcePreview.capped,
+    sourcePreviewLength: document.content.length,
     sourceRefCount: sourceRefs.length,
     sourceRefs: {
       count: sourceRefs.length,
@@ -123,6 +126,17 @@ export function normalizeKnowledgeV2SkillItem(
     firstUsefulLine(skill.steps) ||
     "No quick summary yet.";
   const warnings = knowledgeV2SkillWarnings(skill, summary);
+  const sourcePreview = capKnowledgeV2SourcePreview(
+    [
+      skill.whenToUse ? `When to use:\n${skill.whenToUse}` : "",
+      skill.prerequisites ? `Prerequisites:\n${skill.prerequisites}` : "",
+      skill.steps ? `Steps:\n${skill.steps}` : "",
+      skill.validation ? `Validation:\n${skill.validation}` : "",
+      skill.risks ? `Risks:\n${skill.risks}` : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  );
 
   return {
     createdAt: skill.createdAt,
@@ -151,6 +165,14 @@ export function normalizeKnowledgeV2SkillItem(
       label: "Workspace Skill",
       scope: "workspace",
     },
+    sourcePreview: sourcePreview.text,
+    sourcePreviewCapped: sourcePreview.capped,
+    sourcePreviewLength:
+      skill.whenToUse.length +
+      skill.prerequisites.length +
+      skill.steps.length +
+      skill.validation.length +
+      skill.risks.length,
     sourceRefCount: 0,
     sourceRefs: {
       count: 0,
@@ -339,10 +361,7 @@ function knowledgeV2DocumentWarnings(
       ? null
       : {
           code: "missing_quick_summary",
-          message:
-            summary === "No quick summary yet."
-              ? "Document has no quick summary or content preview."
-              : "Document has no quick summary; using the first content line.",
+          message: "Document has no quick summary yet.",
           severity: "info" as const,
         },
     document.enabled ? null : disabledWarning("Document is disabled."),
@@ -428,4 +447,48 @@ function firstUsefulLine(value: string) {
       .map((line) => line.trim())
       .find(Boolean) ?? ""
   );
+}
+
+function documentDescription(
+  document: KnowledgeDocument,
+  fallbackSummary: string,
+) {
+  const sourceKind = document.sourceKind.trim();
+  const sourceLabel = document.sourceLabel.trim();
+  const sourceRef = document.sourceRef.trim();
+
+  if (sourceKind === "import_file" || sourceKind === "import") {
+    return "Imported reference document. Source preview is available in Details.";
+  }
+
+  if (sourceLabel || sourceRef) {
+    return `${formatCatalogItemType(document.catalogItemType)} from ${
+      sourceLabel || sourceRef
+    }. Source preview is available in Details.`;
+  }
+
+  return fallbackSummary === "No summary available yet."
+    ? "Source preview is available in Details."
+    : fallbackSummary;
+}
+
+function capKnowledgeV2SourcePreview(value: string) {
+  const text = value.trim();
+
+  if (text.length <= KNOWLEDGE_V2_SOURCE_PREVIEW_CHARS) {
+    return { capped: false, text };
+  }
+
+  return {
+    capped: true,
+    text: `${text.slice(0, KNOWLEDGE_V2_SOURCE_PREVIEW_CHARS).trim()}...`,
+  };
+}
+
+function formatCatalogItemType(value: string) {
+  return value
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(" ");
 }
