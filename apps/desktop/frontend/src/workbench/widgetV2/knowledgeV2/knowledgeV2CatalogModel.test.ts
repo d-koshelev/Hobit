@@ -93,6 +93,38 @@ describe("knowledgeV2CatalogModel", () => {
     ]);
   });
 
+  it("hides draft documents and draft skills unless drafts are explicitly included", () => {
+    const items = normalizeKnowledgeV2CatalogItems({
+      documents: [
+        documentFixture({ knowledgeDocumentId: "active", title: "Active" }),
+        documentFixture({
+          knowledgeDocumentId: "draft_doc",
+          lifecycleStatus: "draft",
+          title: "Draft document",
+        }),
+      ],
+      skills: [
+        skillFixture({ reviewStatus: "reviewed", skillId: "reviewed" }),
+        skillFixture({
+          reviewStatus: "draft",
+          skillId: "draft_skill",
+          title: "Draft skill",
+        }),
+      ],
+    });
+
+    expect(filterKnowledgeV2CatalogItems(items).map((item) => item.id)).toEqual([
+      "document:active",
+      "skill:reviewed",
+    ]);
+    expect(
+      filterKnowledgeV2CatalogItems(items, {
+        includeDrafts: true,
+        lifecycleStates: ["draft"],
+      }).map((item) => item.id),
+    ).toEqual(["document:draft_doc", "skill:draft_skill"]);
+  });
+
   it("filters disabled and rejected items", () => {
     const items = normalizeKnowledgeV2CatalogItems({
       documents: [
@@ -218,7 +250,7 @@ function skillFixture(overrides: Partial<Skill> = {}): Skill {
   return {
     createdAt: "2026-01-01T00:00:00.000Z",
     prerequisites: "Know the changed files.",
-    reviewStatus: "draft",
+    reviewStatus: "reviewed",
     risks: "Missing regression coverage.",
     skillId: "skill_1",
     steps: "Read the diff.",

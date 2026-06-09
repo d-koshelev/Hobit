@@ -141,8 +141,8 @@ export function KnowledgeV2PreviewPanel({
 
       <dl className="knowledge-v2-status-grid knowledge-v2-status-grid-compact">
         <StatusTerm label="Scope" value={formatScope(item.source.scope)} />
-        <StatusTerm label="Source" value={item.source.label || "Unavailable"} />
-        <StatusTerm label="Version" value={item.version ? `v${item.version}` : "Unavailable"} />
+        <StatusTerm label="Source" value={item.source.label || sourceFallback(item)} />
+        <StatusTerm label="Version" value={item.version ? `v${item.version}` : "No version"} />
         <StatusTerm label="Updated" value={formatDate(item.updatedAt)} />
       </dl>
 
@@ -335,7 +335,7 @@ function KnowledgeV2VersionsTab({ item }: { readonly item: KnowledgeV2CatalogIte
       <section className="knowledge-v2-preview-section">
         <h4>Current version</h4>
         <dl className="knowledge-v2-source-list">
-          <StatusTerm label="Version" value={item.version ? `v${item.version}` : "Unavailable"} />
+          <StatusTerm label="Version" value={item.version ? `v${item.version}` : "No version"} />
           <StatusTerm label="Updated" value={formatDate(item.updatedAt)} />
           <StatusTerm label="Lifecycle" value={formatToken(item.lifecycleState)} />
           <StatusTerm label="Summary" value={item.versionSummary || "Unavailable"} />
@@ -587,10 +587,14 @@ function formatDate(value?: string | null) {
 
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return "Invalid";
+    return "Unknown";
   }
 
   return parsed.toISOString().slice(0, 10);
+}
+
+function sourceFallback(item: KnowledgeV2CatalogItem) {
+  return item.type === "skill" ? "Operator-authored Skill" : "No source label";
 }
 
 function formatToken(value: string) {

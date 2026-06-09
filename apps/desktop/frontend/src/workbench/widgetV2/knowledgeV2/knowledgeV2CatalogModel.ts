@@ -183,7 +183,7 @@ export function filterKnowledgeV2CatalogItems(
   );
 
   return items.filter((item) => {
-    if (!filters.includeDrafts && item.type === "draft") {
+    if (!filters.includeDrafts && isKnowledgeV2DraftLikeItem(item)) {
       return false;
     }
     if (types.size > 0 && !types.has(item.type)) {
@@ -234,6 +234,14 @@ export function filterKnowledgeV2CatalogItems(
 
     return true;
   });
+}
+
+function isKnowledgeV2DraftLikeItem(item: KnowledgeV2CatalogItem) {
+  return (
+    item.type === "draft" ||
+    item.lifecycleState === "draft" ||
+    item.reviewState === "draft"
+  );
 }
 
 export function sortKnowledgeV2CatalogItems(

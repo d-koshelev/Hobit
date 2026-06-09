@@ -66,7 +66,7 @@ export function KnowledgeV2Widget({
         <KnowledgeV2Actions
           documents={dataBridge.documents}
           draftReviews={dataBridge.draftReviews}
-          missingBridges={dataBridge.missingBridges}
+          missingBridges={dataBridge.actionMissingBridges}
           onDraftReview={onDraftReview}
           onImport={onImport}
           onManageSkills={onManageSkills}
@@ -126,6 +126,7 @@ type KnowledgeV2DataBridgeInput = {
 };
 
 type KnowledgeV2DataBridge = {
+  readonly actionMissingBridges: readonly string[];
   readonly documents: readonly KnowledgeDocument[];
   readonly draftReviews: readonly KnowledgeDraftReviewDecision[];
   readonly loadError: string | null;
@@ -183,37 +184,39 @@ function useKnowledgeV2DataBridge({
     setLoadError(null);
 
     async function loadBridgeData() {
-      try {
-        const [nextDocuments, nextSkills] = await Promise.all([
-          documents !== undefined
-            ? Promise.resolve(documents)
-            : onListKnowledgeDocuments
-              ? onListKnowledgeDocuments()
-              : Promise.resolve([]),
-          skills !== undefined
-            ? Promise.resolve(skills)
-            : onListSkills
-              ? onListSkills()
-              : Promise.resolve([]),
-        ]);
+      const [documentResult, skillResult] = await Promise.allSettled([
+        documents !== undefined
+          ? Promise.resolve(documents)
+          : onListKnowledgeDocuments
+            ? onListKnowledgeDocuments()
+            : Promise.resolve([]),
+        skills !== undefined
+          ? Promise.resolve(skills)
+          : onListSkills
+            ? onListSkills()
+            : Promise.resolve([]),
+      ]);
 
-        if (cancelled) {
-          return;
-        }
-
-        setLoadedDocuments(nextDocuments);
-        setLoadedSkills(nextSkills);
-      } catch (error) {
-        if (!cancelled) {
-          setLoadError(error instanceof Error ? error.message : String(error));
-          setLoadedDocuments(documents ?? []);
-          setLoadedSkills(skills ?? []);
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
+      if (cancelled) {
+        return;
       }
+
+      const errors: string[] = [];
+      if (documentResult.status === "fulfilled") {
+        setLoadedDocuments(documentResult.value);
+      } else {
+        errors.push(errorMessage(documentResult.reason, "documents"));
+        setLoadedDocuments(documents ?? []);
+      }
+      if (skillResult.status === "fulfilled") {
+        setLoadedSkills(skillResult.value);
+      } else {
+        errors.push(errorMessage(skillResult.reason, "skills"));
+        setLoadedSkills(skills ?? []);
+      }
+
+      setLoadError(errors.length > 0 ? errors.join("; ") : null);
+      setIsLoading(false);
     }
 
     void loadBridgeData();
@@ -223,9 +226,11 @@ function useKnowledgeV2DataBridge({
     };
   }, [documents, onListKnowledgeDocuments, onListSkills, reloadKey, skills]);
 
-  const missingBridges = [
+  const dataMissingBridges = [
     documentBridgeAvailable ? null : "Knowledge Documents list bridge",
     skillBridgeAvailable ? null : "Skills list bridge",
+  ].filter((bridge): bridge is string => Boolean(bridge));
+  const actionMissingBridges = [
     draftReviewBridgeAvailable
       ? null
       : draftReviewListActionAvailable
@@ -237,18 +242,24 @@ function useKnowledgeV2DataBridge({
       ? "loading"
       : !documentBridgeAvailable && !skillBridgeAvailable
         ? "unavailable"
-        : missingBridges.length > 0 || loadError
+        : dataMissingBridges.length > 0 || loadError
           ? "partial"
           : "ready";
 
   return {
+    actionMissingBridges,
     documents: documents ?? loadedDocuments,
     draftReviews: draftReviews ?? [],
     loadError,
-    missingBridges,
+    missingBridges: dataMissingBridges,
     skills: skills ?? loadedSkills,
     status,
   };
+}
+
+function errorMessage(error: unknown, label: string) {
+  const message = error instanceof Error ? error.message : String(error);
+  return `${label}: ${message}`;
 }
 
 function knowledgeV2StatusForBridge(dataBridge: KnowledgeV2DataBridge) {

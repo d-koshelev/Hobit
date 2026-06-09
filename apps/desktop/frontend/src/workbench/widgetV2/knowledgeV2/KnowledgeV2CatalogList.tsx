@@ -255,7 +255,7 @@ function formatDate(value?: string | null) {
 
   const parsed = new Date(value);
   if (Number.isNaN(parsed.getTime())) {
-    return "Invalid";
+    return "Unknown";
   }
 
   return parsed.toISOString().slice(0, 10);

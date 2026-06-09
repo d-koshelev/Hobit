@@ -391,5 +391,6 @@ function knowledgeV2CatalogFiltersFromValues(
     tags: values.tag.trim() ? [values.tag] : [],
     text: values.text,
     types: values.type === "all" ? [] : [values.type],
+    includeDrafts: values.lifecycle === "draft",
   };
 }

@@ -1,39 +1,55 @@
-import { act } from "react";
-import type { ComponentProps, ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
+import type { ComponentProps } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type {
-  KnowledgeDocument,
-  KnowledgeDraftReviewDecision,
-} from "../../../workspace/types/knowledgeDocuments";
-import type { Skill } from "../../../workspace/types/skills";
 import {
   flush,
   renderWidget as renderSkillLibraryWidget,
 } from "../../SkillLibraryWidget.test-helpers";
 import { KnowledgeV2Widget } from "./KnowledgeV2Widget";
-
-let root: Root | null = null;
-let container: HTMLDivElement | null = null;
+import {
+  changeInput,
+  changeSelect,
+  chooseRadioByLabel,
+  cleanupKnowledgeV2WidgetTestDom,
+  buttonWithText,
+  clickButton,
+  clickButtonInRegion,
+  clickCheckboxByLabel,
+  dialogByName,
+  documentFixture,
+  draftReviewFixture,
+  headingWithText,
+  inputByLabel,
+  keyDown,
+  regionByName,
+  render,
+  rowByTitle,
+  selectByLabel,
+  skillFixture,
+  text,
+} from "./KnowledgeV2Widget.test-helpers";
 
 afterEach(() => {
-  if (root && container) {
-    act(() => {
-      root?.unmount();
-    });
-    container.remove();
-  }
-  root = null;
-  container = null;
-  document.body.innerHTML = "";
+  cleanupKnowledgeV2WidgetTestDom();
 });
 
 describe("KnowledgeV2Widget browser", () => {
   it("renders documents and skills together", async () => {
     await render(
       <KnowledgeV2Widget
-        documents={[documentFixture()]}
+        documents={[
+          documentFixture(),
+          documentFixture({
+            knowledgeDocumentId: "global_doc",
+            scope: "global",
+            title: "Global API guide",
+          }),
+          documentFixture({
+            catalogItemType: "runbook",
+            knowledgeDocumentId: "runbook_doc",
+            title: "Release runbook",
+          }),
+        ]}
         skills={[skillFixture({ reviewStatus: "reviewed" })]}
       />,
     );
@@ -50,10 +66,13 @@ describe("KnowledgeV2Widget browser", () => {
     expect(text()).toContain("Updated");
     expect(text()).toContain("Actions");
     expect(text()).toContain("Release guide");
+    expect(text()).toContain("Global API guide");
+    expect(text()).toContain("Release runbook");
     expect(text()).toContain("React review");
     expect(text()).toContain("Document");
+    expect(text()).toContain("Runbook");
     expect(text()).toContain("Skill");
-    expect(text()).toContain("2 / 2");
+    expect(text()).toContain("4 / 4");
   });
 
   it("loads documents and skills from existing Knowledge / Skills list actions", async () => {
@@ -107,7 +126,8 @@ describe("KnowledgeV2Widget browser", () => {
     await flush();
 
     expect(text()).toContain("Some catalog bridges are unavailable.");
-    expect(text()).toContain("Load failed: documents offline");
+    expect(text()).toContain("Load failed: documents: documents offline");
+    expect(text()).toContain("React review");
     expect(buttonWithText("Retry")).not.toBeNull();
     expect(buttonWithText("Import item")).not.toBeNull();
 
@@ -116,6 +136,45 @@ describe("KnowledgeV2Widget browser", () => {
     expect(onListKnowledgeDocuments).toHaveBeenCalledTimes(2);
     await clickButton("Import item");
     expect(onImport).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps draft items out of the default list until the draft filter is selected", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture(),
+          documentFixture({
+            knowledgeDocumentId: "draft_doc",
+            lifecycleStatus: "draft",
+            quickSummary: "Generated draft summary.",
+            title: "Generated architecture draft",
+          }),
+        ]}
+        skills={[
+          skillFixture({ reviewStatus: "reviewed" }),
+          skillFixture({
+            reviewStatus: "draft",
+            skillId: "draft_skill",
+            whenToUse: "Use when reviewing generated Skill candidates.",
+            title: "Draft Skill candidate",
+          }),
+        ]}
+      />,
+    );
+
+    expect(text()).toContain("Release guide");
+    expect(text()).toContain("React review");
+    expect(text()).not.toContain("Generated architecture draft");
+    expect(text()).not.toContain("Draft Skill candidate");
+    expect(text()).toContain("2 / 4");
+
+    await changeSelect("Filter Knowledge catalog by status", "draft");
+
+    expect(text()).not.toContain("Release guide");
+    expect(text()).not.toContain("React review");
+    expect(text()).toContain("Generated architecture draft");
+    expect(text()).toContain("Draft Skill candidate");
+    expect(text()).toContain("2 / 4");
   });
 
   it("changes visible items when filters change", async () => {
@@ -415,7 +474,6 @@ describe("KnowledgeV2Widget browser", () => {
     const catalog = regionByName("Knowledge catalog items");
     for (const label of [
       "Published",
-      "Draft",
       "Archived",
       "Rejected",
       "Stale",
@@ -429,10 +487,13 @@ describe("KnowledgeV2Widget browser", () => {
     expect(regionByName("Knowledge preview")?.textContent).toContain(
       "Ready and usable as Knowledge context",
     );
+    await changeSelect("Filter Knowledge catalog by status", "draft");
+    expect(regionByName("Knowledge catalog items")?.textContent).toContain("Draft");
     await clickButton("Draft document");
     expect(regionByName("Knowledge preview")?.textContent).toContain(
       "In progress; review is needed",
     );
+    await changeSelect("Filter Knowledge catalog by status", "all");
     await clickButton("Archived document");
     expect(regionByName("Knowledge preview")?.textContent).toContain(
       "No longer active; context attach is blocked",
@@ -682,6 +743,7 @@ describe("KnowledgeV2Widget browser", () => {
 
     expect(text()).not.toContain("Draft documents");
     expect(text()).not.toContain("Raw draft contents");
+    expect(text()).not.toContain("Generated architecture draft");
 
     await clickButton("Draft Review");
 
@@ -693,6 +755,29 @@ describe("KnowledgeV2Widget browser", () => {
     expect(popup?.textContent).toContain("1");
     expect(popup?.textContent).toContain("Raw draft contents are not");
     expect(popup?.textContent).not.toContain("draft payload");
+  });
+
+  it("formats invalid metadata as unknown instead of invalid", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            updatedAt: "not-a-date",
+          }),
+        ]}
+        skills={[]}
+      />,
+    );
+
+    expect(text()).toContain("Unknown");
+    expect(text()).not.toContain("Invalid");
+
+    await clickButton("Release guide");
+
+    expect(regionByName("Knowledge preview")?.textContent).toContain("Unknown");
+    expect(regionByName("Knowledge preview")?.textContent).not.toContain(
+      "Invalid",
+    );
   });
 
   it("keeps action callbacks explicit inside popups", async () => {
@@ -967,228 +1052,3 @@ describe("KnowledgeV2Widget browser", () => {
     expect(text()).not.toContain("Experimental");
   });
 });
-
-async function render(element: ReactNode) {
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-
-  await act(async () => {
-    root?.render(element);
-  });
-}
-
-async function clickButton(textContent: string) {
-  const button = buttonWithText(textContent);
-  expect(button).not.toBeNull();
-  await act(async () => {
-    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-}
-
-async function clickButtonInRegion(regionLabel: string, textContent: string) {
-  const region = regionByName(regionLabel);
-  const button =
-    region
-      ? Array.from(region.querySelectorAll<HTMLButtonElement>("button")).find(
-          (candidate) => candidate.textContent?.includes(textContent),
-        ) ?? null
-      : null;
-  expect(button).not.toBeNull();
-  await act(async () => {
-    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-}
-
-async function changeInput(label: string, value: string) {
-  const input = inputByLabel(label);
-  expect(input).not.toBeNull();
-  await act(async () => {
-    if (input) {
-      setNativeValue(input, value);
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    }
-  });
-}
-
-async function changeSelect(label: string, value: string) {
-  const select = selectByLabel(label);
-  expect(select).not.toBeNull();
-  await act(async () => {
-    if (select) {
-      select.value = value;
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    }
-  });
-}
-
-async function chooseRadioByLabel(label: string) {
-  const radio = radioByLabel(label);
-  expect(radio).not.toBeNull();
-  await act(async () => {
-    radio?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-}
-
-async function clickCheckboxByLabel(label: string) {
-  const checkbox = checkboxByLabel(label);
-  expect(checkbox).not.toBeNull();
-  await act(async () => {
-    checkbox?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-  });
-}
-
-async function keyDown(key: string) {
-  await act(async () => {
-    document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key }));
-  });
-}
-
-function setNativeValue(element: HTMLInputElement, value: string) {
-  const valueSetter = Object.getOwnPropertyDescriptor(element, "value")?.set;
-  const prototype = Object.getPrototypeOf(element) as HTMLInputElement;
-  const prototypeValueSetter = Object.getOwnPropertyDescriptor(
-    prototype,
-    "value",
-  )?.set;
-
-  if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {
-    prototypeValueSetter.call(element, value);
-    return;
-  }
-
-  valueSetter?.call(element, value);
-}
-
-function text() {
-  return document.body.textContent ?? "";
-}
-
-function headingWithText(textContent: string): HTMLHeadingElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLHeadingElement>("h1,h2,h3")).find(
-      (heading) => heading.textContent === textContent,
-    ) ?? null
-  );
-}
-
-function buttonWithText(textContent: string): HTMLButtonElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
-      (button) => button.textContent?.includes(textContent),
-    ) ?? null
-  );
-}
-
-function inputByLabel(label: string): HTMLInputElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLInputElement>("input")).find(
-      (input) => input.getAttribute("aria-label") === label,
-    ) ?? null
-  );
-}
-
-function selectByLabel(label: string): HTMLSelectElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLSelectElement>("select")).find(
-      (select) => select.getAttribute("aria-label") === label,
-    ) ?? null
-  );
-}
-
-function radioByLabel(label: string): HTMLInputElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLInputElement>("input[type='radio']")).find(
-      (input) => input.closest("label")?.textContent?.includes(label),
-    ) ?? null
-  );
-}
-
-function checkboxByLabel(label: string): HTMLInputElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLInputElement>("input[type='checkbox']")).find(
-      (input) => input.closest("label")?.textContent?.includes(label),
-    ) ?? null
-  );
-}
-
-function regionByName(name: string): HTMLElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLElement>("[aria-label]")).find(
-      (element) => element.getAttribute("aria-label") === name,
-    ) ?? null
-  );
-}
-
-function dialogByName(name: string): HTMLElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLElement>("[role='dialog']")).find(
-      (element) => element.textContent?.includes(name),
-    ) ?? null
-  );
-}
-
-function rowByTitle(title: string): HTMLElement | null {
-  const titleButton = buttonWithText(title);
-  return titleButton?.closest<HTMLElement>(".knowledge-v2-row") ?? null;
-}
-
-function documentFixture(
-  overrides: Partial<KnowledgeDocument> = {},
-): KnowledgeDocument {
-  return {
-    catalogItemType: "documentation_knowledge",
-    content: "Release process content.",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    enabled: true,
-    knowledgeDocumentId: "kdoc_1",
-    lifecycleStatus: "active",
-    quickSummary: "Release guide summary.",
-    scope: "workspace",
-    searchable: true,
-    sourceKind: "docs_path",
-    sourceLabel: "Release docs",
-    sourceRef: "docs/release.md",
-    tags: "release",
-    title: "Release guide",
-    updatedAt: "2026-01-02T00:00:00.000Z",
-    workspaceId: "workspace_1",
-    ...overrides,
-  };
-}
-
-function skillFixture(overrides: Partial<Skill> = {}): Skill {
-  return {
-    createdAt: "2026-01-01T00:00:00.000Z",
-    prerequisites: "Know the changed files.",
-    reviewStatus: "draft",
-    risks: "Missing regression coverage.",
-    skillId: "skill_1",
-    steps: "Read the diff.",
-    tags: "review",
-    title: "React review",
-    updatedAt: "2026-01-03T00:00:00.000Z",
-    validation: "Run relevant tests.",
-    whenToUse: "Use when reviewing React changes.",
-    workspaceId: "workspace_1",
-    ...overrides,
-  };
-}
-
-function draftReviewFixture(
-  overrides: Partial<KnowledgeDraftReviewDecision> = {},
-): KnowledgeDraftReviewDecision {
-  return {
-    action: "accepted",
-    createdAt: "2026-01-04T00:00:00.000Z",
-    draftPackId: "pack_1",
-    proposedItemId: "draft_1",
-    proposedItemKey: "document:draft_1",
-    reviewId: "review_1",
-    reviewedAt: "2026-01-04T00:00:00.000Z",
-    sourceFingerprint: "fingerprint_1",
-    updatedAt: "2026-01-04T00:00:00.000Z",
-    workspaceId: "workspace_1",
-    ...overrides,
-  };
-}
