@@ -121,6 +121,8 @@ export function KnowledgeV2CatalogRow({
 }: KnowledgeV2CatalogRowProps) {
   const warningCount = item.warnings.length;
   const statuses = knowledgeV2ItemStatuses(item);
+  const visibleTags = item.tags.slice(0, 2);
+  const hiddenTagCount = item.tags.length - visibleTags.length;
 
   return (
     <div
@@ -130,15 +132,19 @@ export function KnowledgeV2CatalogRow({
       role="row"
     >
       <button
+        aria-label={`${item.title}. ${item.summary}`}
         className="knowledge-v2-row-title"
         onClick={() => onSelectItem(item.id)}
         role="cell"
+        title={`${item.title}\n${item.summary}`}
         type="button"
       >
-        <span>{item.title}</span>
-        <small>{item.summary}</small>
+        <span title={item.title}>{item.title}</span>
+        <small title={item.summary}>{item.summary}</small>
       </button>
-      <span role="cell">{formatToken(item.type)}</span>
+      <span role="cell" title={formatToken(item.type)}>
+        {formatToken(item.type)}
+      </span>
       <span role="cell">
         <span className="knowledge-v2-status-stack">
           {statuses.map((status) => (
@@ -149,14 +155,22 @@ export function KnowledgeV2CatalogRow({
       <span role="cell">{formatScope(item.source.scope)}</span>
       <span role="cell">
         {item.tags.length > 0 ? (
-          <span className="knowledge-v2-row-tags">
-            {item.tags.slice(0, 2).map((tag) => (
-              <span className="knowledge-v2-tag" key={tag}>
+          <span
+            aria-label={`${item.tags.length.toString()} tags: ${item.tags.join(", ")}`}
+            className="knowledge-v2-row-tags"
+          >
+            {visibleTags.map((tag) => (
+              <span className="knowledge-v2-tag" key={tag} title={tag}>
                 {tag}
               </span>
             ))}
-            {item.tags.length > 2 ? (
-              <span className="knowledge-v2-tag">+{item.tags.length - 2}</span>
+            {hiddenTagCount > 0 ? (
+              <span
+                className="knowledge-v2-tag"
+                title={item.tags.slice(2).join(", ")}
+              >
+                +{hiddenTagCount}
+              </span>
             ) : null}
           </span>
         ) : (
@@ -165,15 +179,27 @@ export function KnowledgeV2CatalogRow({
       </span>
       <span role="cell">{formatDate(item.updatedAt)}</span>
       <span className="knowledge-v2-row-actions" role="cell">
-        <button onClick={() => onSelectItem(item.id)} type="button">
-          Preview
+        <button
+          aria-label={`Preview ${item.title}`}
+          onClick={() => onSelectItem(item.id)}
+          title={`Preview ${item.title}`}
+          type="button"
+        >
+          ...
         </button>
         {onUseAsContext ? (
-          <button onClick={() => onUseAsContext(item.id)} type="button">
-            Use as context
+          <button
+            aria-label={`Use ${item.title} as context`}
+            onClick={() => onUseAsContext(item.id)}
+            title={`Use ${item.title} as context`}
+            type="button"
+          >
+            Use
           </button>
         ) : null}
-        {warningCount > 0 ? <span>{warningCount} warn</span> : null}
+        {warningCount > 0 ? (
+          <span title={`${warningCount.toString()} warnings`}>{warningCount}w</span>
+        ) : null}
       </span>
     </div>
   );
@@ -250,7 +276,7 @@ function formatToken(value: string) {
 
 function formatDate(value?: string | null) {
   if (!value) {
-    return "Not set";
+    return "Not available";
   }
 
   const parsed = new Date(value);

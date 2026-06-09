@@ -308,6 +308,7 @@ describe("KnowledgeV2Widget browser", () => {
     );
     expect(preview?.textContent).toContain("Release docs");
     expect(preview?.textContent).toContain("Context usability");
+    expect(preview?.textContent).not.toContain("Open source details");
 
     await clickButton("Details");
 
@@ -351,6 +352,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(preview?.textContent).toContain("release");
     expect(preview?.textContent).toContain("validation");
     expect(preview?.textContent).toContain("Context usability");
+    expect(preview?.textContent).not.toContain("Open source details");
     expect(preview?.textContent).toContain(
       "Available for explicit visible attach",
     );
@@ -396,6 +398,8 @@ describe("KnowledgeV2Widget browser", () => {
     expect(preview?.textContent).toContain("Queue Task 1");
     expect(preview?.textContent).toContain("Created from run");
     expect(preview?.textContent).toContain("Run 1");
+    expect(preview?.textContent).toContain("Reference text");
+    expect(preview?.textContent).toContain("Open source details");
   });
 
   it("renders unavailable Versions and Usage states without inventing history", async () => {
@@ -416,7 +420,7 @@ describe("KnowledgeV2Widget browser", () => {
 
     const versions = regionByName("Knowledge preview");
     expect(versions?.textContent).toContain("Current version");
-    expect(versions?.textContent).toContain("V3");
+    expect(versions?.textContent).toContain("v3");
     expect(versions?.textContent).toContain("Current summary only.");
     expect(versions?.textContent).toContain("Version history unavailable");
     expect(versions?.textContent).toContain(
@@ -819,6 +823,55 @@ describe("KnowledgeV2Widget browser", () => {
     expect(regionByName("Knowledge preview")?.textContent).not.toContain(
       "Invalid",
     );
+  });
+
+  it("collapses row tags and keeps dense list out of horizontal-scroll mode", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            tags: "release,validation,desktop,smoke",
+          }),
+        ]}
+        skills={[]}
+      />,
+    );
+
+    const catalog = regionByName("Knowledge catalog items");
+    const row = rowByTitle("Release guide");
+    expect(catalog?.className).not.toContain("horizontal-scroll");
+    expect(row?.textContent).toContain("release");
+    expect(row?.textContent).toContain("validation");
+    expect(row?.textContent).toContain("+2");
+    expect(row?.textContent).not.toContain("desktop");
+    expect(row?.textContent).not.toContain("smoke");
+  });
+
+  it("truncates long row titles accessibly", async () => {
+    const longTitle =
+      "Release readiness operating note with an intentionally long catalog title for normal widget width";
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            quickSummary: "Short usable summary for the long-title row.",
+            title: longTitle,
+          }),
+        ]}
+        skills={[]}
+      />,
+    );
+
+    const row = rowByTitle(longTitle);
+    const titleButton = row?.querySelector<HTMLButtonElement>(
+      ".knowledge-v2-row-title",
+    );
+    expect(titleButton?.getAttribute("aria-label")).toContain(longTitle);
+    expect(titleButton?.getAttribute("title")).toContain(longTitle);
+    expect(
+      row?.querySelector(".knowledge-v2-row-title span")?.getAttribute("title"),
+    ).toBe(longTitle);
   });
 
   it("keeps action callbacks explicit inside popups", async () => {

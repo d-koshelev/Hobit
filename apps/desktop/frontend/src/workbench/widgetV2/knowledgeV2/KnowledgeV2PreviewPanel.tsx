@@ -142,7 +142,7 @@ export function KnowledgeV2PreviewPanel({
       <dl className="knowledge-v2-status-grid knowledge-v2-status-grid-compact">
         <StatusTerm label="Scope" value={formatScope(item.source.scope)} />
         <StatusTerm label="Source" value={item.source.label || sourceFallback(item)} />
-        <StatusTerm label="Version" value={item.version ? `v${item.version}` : "No version"} />
+        <StatusTerm label="Version" value={formatVersion(item.version)} />
         <StatusTerm label="Updated" value={formatDate(item.updatedAt)} />
       </dl>
 
@@ -282,9 +282,9 @@ function KnowledgeV2DetailsTab({ item }: { readonly item: KnowledgeV2CatalogItem
       <section className="knowledge-v2-preview-section">
         <h4>Source</h4>
         <dl className="knowledge-v2-source-list">
-          <StatusTerm label="Label" value={item.source.label || "Unavailable"} />
-          <StatusTerm label="Kind" value={item.source.kind || "Unavailable"} />
-          <StatusTerm label="Ref" value={item.source.ref || "Unavailable"} />
+          <StatusTerm label="Label" value={item.source.label || "Not available"} />
+          <StatusTerm label="Kind" value={item.source.kind || "Not available"} />
+          <StatusTerm label="Ref" value={item.source.ref || "Not available"} />
           <StatusTerm label="Scope" value={formatScope(item.source.scope)} />
         </dl>
       </section>
@@ -309,9 +309,15 @@ function KnowledgeV2DetailsTab({ item }: { readonly item: KnowledgeV2CatalogItem
       <section className="knowledge-v2-preview-section">
         <h4>Ownership</h4>
         <dl className="knowledge-v2-source-list">
-          <StatusTerm label="Owner" value={item.createdBy || "Unavailable"} />
-          <StatusTerm label="Created by task" value={item.createdByTaskId || "Unavailable"} />
-          <StatusTerm label="Created from run" value={item.createdFromRunId || "Unavailable"} />
+          <StatusTerm label="Owner" value={item.createdBy || "Not available"} />
+          <StatusTerm
+            label="Created by task"
+            value={item.createdByTaskId || "Not available"}
+          />
+          <StatusTerm
+            label="Created from run"
+            value={item.createdFromRunId || "Not available"}
+          />
           <StatusTerm label="Created" value={formatDate(item.createdAt)} />
         </dl>
       </section>
@@ -321,9 +327,16 @@ function KnowledgeV2DetailsTab({ item }: { readonly item: KnowledgeV2CatalogItem
           <StatusTerm label="Enabled" value={item.enabled === false ? "No" : "Yes"} />
           <StatusTerm label="Searchable" value={item.searchable === false ? "No" : "Yes"} />
           <StatusTerm label="Lifecycle" value={formatToken(item.lifecycleState)} />
-          <StatusTerm label="Review" value={item.reviewState ?? "Unavailable"} />
+          <StatusTerm label="Review" value={item.reviewState ?? "Not available"} />
           <StatusTerm label="Reviewed" value={formatDate(item.reviewedAt)} />
         </dl>
+      </section>
+      <section className="knowledge-v2-preview-section">
+        <h4>Reference text</h4>
+        <details className="knowledge-v2-reference-details">
+          <summary>Open source details</summary>
+          <pre>{knowledgeV2ReferenceText(item)}</pre>
+        </details>
       </section>
     </div>
   );
@@ -335,10 +348,10 @@ function KnowledgeV2VersionsTab({ item }: { readonly item: KnowledgeV2CatalogIte
       <section className="knowledge-v2-preview-section">
         <h4>Current version</h4>
         <dl className="knowledge-v2-source-list">
-          <StatusTerm label="Version" value={item.version ? `v${item.version}` : "No version"} />
+          <StatusTerm label="Version" value={formatVersion(item.version)} />
           <StatusTerm label="Updated" value={formatDate(item.updatedAt)} />
           <StatusTerm label="Lifecycle" value={formatToken(item.lifecycleState)} />
-          <StatusTerm label="Summary" value={item.versionSummary || "Unavailable"} />
+          <StatusTerm label="Summary" value={item.versionSummary || "Not available"} />
         </dl>
       </section>
       <section className="knowledge-v2-preview-section knowledge-v2-unavailable-panel">
@@ -472,10 +485,6 @@ function KnowledgeV2ContextActions({
           onClose={onCloseContextPicker}
         />
       ) : null}
-      <details className="knowledge-v2-reference-details">
-        <summary>Open source details</summary>
-        <pre>{knowledgeV2ReferenceText(item)}</pre>
-      </details>
       {actionNotice ? (
         <p
           className="knowledge-v2-context-action-notice"
@@ -515,7 +524,7 @@ function StatusTerm({ label, value }: { readonly label: string; readonly value: 
   return (
     <div>
       <dt>{label}</dt>
-      <dd>{formatToken(value)}</dd>
+      <dd>{formatMetadataValue(value)}</dd>
     </div>
   );
 }
@@ -582,7 +591,7 @@ function formatScope(scope: KnowledgeV2CatalogItem["source"]["scope"]) {
 
 function formatDate(value?: string | null) {
   if (!value) {
-    return "Unavailable";
+    return "Not available";
   }
 
   const parsed = new Date(value);
@@ -591,6 +600,11 @@ function formatDate(value?: string | null) {
   }
 
   return parsed.toISOString().slice(0, 10);
+}
+
+function formatVersion(value?: string | null) {
+  const text = value?.trim();
+  return text ? `v${text.replace(/^v/i, "")}` : "Not available";
 }
 
 function sourceFallback(item: KnowledgeV2CatalogItem) {
@@ -602,4 +616,14 @@ function formatToken(value: string) {
     .split("_")
     .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function formatMetadataValue(value: string) {
+  if (value === "Not available" || value === "Unknown") {
+    return value;
+  }
+  if (/^v\d+/i.test(value)) {
+    return value.toLowerCase();
+  }
+  return formatToken(value);
 }
