@@ -37,6 +37,12 @@ export type KnowledgeV2ContextAffordanceState = {
   readonly warning: string | null;
 };
 
+export type KnowledgeV2ContextTarget =
+  | "copy_reference"
+  | "queue_selected_task"
+  | "workspace_agent_current"
+  | "workspace_agent_next";
+
 export function knowledgeV2ContextAffordanceSource(
   item: KnowledgeV2CatalogItem,
   documents: readonly KnowledgeDocument[],
@@ -99,32 +105,55 @@ export function knowledgeV2ContextAffordanceState(
     );
   }
   if (document.lifecycleStatus === "stale") {
-    return blocked(
-      "Knowledge Document is stale; refresh or mark it active before attaching from KnowledgeV2.",
-    );
+    return {
+      canAttach: true,
+      reason: null,
+      warning:
+        "Knowledge Document is stale; attach only after reviewing the visible warning.",
+    };
   }
 
   return {
     canAttach: true,
     reason: null,
-    warning: null,
+    warning:
+      document.content.length > 12_000
+        ? "Knowledge Document is large; only bounded visible context is attached."
+        : null,
   };
 }
 
 export function knowledgeV2WorkspaceAgentContextInput(
-  source: KnowledgeV2ContextAffordanceSource,
+  source: KnowledgeV2ContextAffordanceSource | readonly KnowledgeV2ContextAffordanceSource[],
 ): CoordinatorAttachedContextInput {
-  if (source.kind === "skill") {
+  const sources = Array.isArray(source) ? source : [source];
+  if (sources.length > 1) {
     return {
-      contextText: skillCoordinatorContextText(source.skill),
+      contextText: sources.map(knowledgeV2ContextText).join("\n\n---\n\n"),
+      sourceLabel: `KnowledgeV2 / ${sources.length.toString()} selected items`,
+    };
+  }
+
+  const [singleSource] = sources;
+  if (singleSource.kind === "skill") {
+    return {
+      contextText: skillCoordinatorContextText(singleSource.skill),
       sourceLabel: "KnowledgeV2 / Skill",
     };
   }
 
   return {
-    contextText: knowledgeDocumentWorkspaceAgentContextText(source.document),
+    contextText: knowledgeDocumentWorkspaceAgentContextText(singleSource.document),
     sourceLabel: "KnowledgeV2 / Knowledge Document",
   };
+}
+
+export function knowledgeV2ContextText(source: KnowledgeV2ContextAffordanceSource) {
+  if (source.kind === "skill") {
+    return skillCoordinatorContextText(source.skill);
+  }
+
+  return knowledgeDocumentWorkspaceAgentContextText(source.document);
 }
 
 export async function attachKnowledgeV2SourceToQueueTask(

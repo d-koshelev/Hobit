@@ -11,6 +11,8 @@ import {
   attachKnowledgeV2SourceToQueueTask,
   knowledgeV2ContextAffordanceSource,
   knowledgeV2ContextAffordanceState,
+  type KnowledgeV2ContextAffordanceSource,
+  type KnowledgeV2ContextTarget,
   knowledgeV2ReferenceText,
   knowledgeV2WorkspaceAgentContextInput,
   type KnowledgeV2ContextActionNotice,
@@ -59,6 +61,7 @@ export function KnowledgeV2CatalogBrowser({
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [actionNotice, setActionNotice] =
     useState<KnowledgeV2ContextActionNotice | null>(null);
+  const [isContextPickerOpen, setIsContextPickerOpen] = useState(false);
 
   const catalogFilters = useMemo(
     () => knowledgeV2CatalogFiltersFromValues(filters),
@@ -85,6 +88,18 @@ export function KnowledgeV2CatalogBrowser({
     ? knowledgeV2ContextAffordanceSource(selectedItem, documents, skills)
     : null;
   const affordanceState = knowledgeV2ContextAffordanceState(affordanceSource);
+  const pickerItems = useMemo(
+    () =>
+      viewModel.filteredItems.map((item) => {
+        const source = knowledgeV2ContextAffordanceSource(item, documents, skills);
+        return {
+          affordanceSource: source,
+          affordanceState: knowledgeV2ContextAffordanceState(source),
+          item,
+        };
+      }),
+    [documents, skills, viewModel.filteredItems],
+  );
   const canCopyReference = Boolean(
     typeof navigator !== "undefined" && navigator.clipboard?.writeText,
   );
@@ -94,55 +109,114 @@ export function KnowledgeV2CatalogBrowser({
     setActionNotice(null);
   }
 
-  function attachToWorkspaceAgent() {
-    if (!affordanceSource || !affordanceState.canAttach) {
+  function openContextPicker(itemId?: string) {
+    if (itemId) {
+      setSelectedItemId(itemId);
+    }
+    setActionNotice(null);
+    setIsContextPickerOpen(true);
+  }
+
+  async function attachContextPickerSelection(
+    target: KnowledgeV2ContextTarget,
+    selectedItemIds: readonly string[],
+  ) {
+    const selectedEntries = selectedItemIds
+      .map((itemId) => pickerItems.find((entry) => entry.item.id === itemId) ?? null)
+      .filter((entry): entry is (typeof pickerItems)[number] => Boolean(entry));
+    const selectedSources = selectedEntries
+      .map((entry) => entry.affordanceSource)
+      .filter(
+        (source): source is KnowledgeV2ContextAffordanceSource => Boolean(source),
+      );
+
+    if (selectedEntries.length === 0 || selectedSources.length === 0) {
       setActionNotice({
-        message:
-          affordanceState.reason ??
-          "This KnowledgeV2 item cannot be attached as context.",
+        message: "Select at least one attachable KnowledgeV2 item before attaching.",
         status: "blocked",
       });
       return;
     }
 
-    if (!onAttachContextToCoordinator) {
+    const blockedEntry = selectedEntries.find(
+      (entry) => !entry.affordanceState.canAttach,
+    );
+    if (blockedEntry) {
       setActionNotice({
         message:
-          "Workspace Agent attach is unavailable because no explicit context bridge is connected.",
+          blockedEntry.affordanceState.reason ??
+          `${blockedEntry.item.title} cannot be attached as context.`,
+        status: "blocked",
+      });
+      return;
+    }
+
+    if (target === "workspace_agent_current") {
+      if (!onAttachContextToCoordinator) {
+        setActionNotice({
+          message:
+            "Workspace Agent attach is unavailable because no explicit context bridge is connected.",
+          status: "unavailable",
+        });
+        return;
+      }
+      onAttachContextToCoordinator(
+        knowledgeV2WorkspaceAgentContextInput(selectedSources),
+      );
+      setActionNotice({
+        message:
+          selectedSources.length === 1
+            ? `${selectedSources[0].item.title} attached to Workspace Agent as visible current-session context.`
+            : `${selectedSources.length.toString()} KnowledgeV2 items attached to Workspace Agent as visible current-session context.`,
+        status: "attached",
+      });
+      setIsContextPickerOpen(false);
+      return;
+    }
+
+    if (target === "workspace_agent_next") {
+      setActionNotice({
+        message:
+          "Workspace Agent next-run context bridge is not wired in KnowledgeV2; nothing was attached.",
         status: "unavailable",
       });
       return;
     }
 
-    onAttachContextToCoordinator(
-      knowledgeV2WorkspaceAgentContextInput(affordanceSource),
-    );
-    setActionNotice({
-      message: `${affordanceSource.item.title} attached to Workspace Agent as visible current-session context.`,
-      status: "attached",
-    });
-  }
+    if (target === "queue_selected_task") {
+      if (!onAttachKnowledgeContextToQueueTask) {
+        setActionNotice({
+          message:
+            "Queue attach is unavailable because no selected Queue task bridge is connected.",
+          status: "unavailable",
+        });
+        return;
+      }
 
-  async function attachToQueueTask() {
-    if (!affordanceSource || !affordanceState.canAttach) {
-      setActionNotice({
-        message:
-          affordanceState.reason ??
-          "This KnowledgeV2 item cannot be attached as Queue context.",
-        status: "blocked",
-      });
+      let latestNotice: KnowledgeV2ContextActionNotice | null = null;
+      for (const source of selectedSources) {
+        latestNotice = await attachKnowledgeV2SourceToQueueTask(
+          source,
+          onAttachKnowledgeContextToQueueTask,
+        );
+        if (latestNotice.status !== "attached") {
+          setActionNotice(latestNotice);
+          return;
+        }
+      }
+      setActionNotice(
+        selectedSources.length === 1
+          ? latestNotice
+          : {
+              message: `${selectedSources.length.toString()} KnowledgeV2 items attached to the selected Queue task.`,
+              status: "attached",
+            },
+      );
+      setIsContextPickerOpen(false);
       return;
     }
 
-    const result = await attachKnowledgeV2SourceToQueueTask(
-      affordanceSource,
-      onAttachKnowledgeContextToQueueTask,
-    );
-    setActionNotice(result);
-  }
-
-  async function copyReference() {
-    if (!selectedItem || !canCopyReference) {
+    if (!canCopyReference) {
       setActionNotice({
         message: "Clipboard bridge is unavailable in this runtime.",
         status: "unavailable",
@@ -150,11 +224,17 @@ export function KnowledgeV2CatalogBrowser({
       return;
     }
 
-    await navigator.clipboard.writeText(knowledgeV2ReferenceText(selectedItem));
+    await navigator.clipboard.writeText(
+      selectedEntries.map((entry) => knowledgeV2ReferenceText(entry.item)).join("\n\n---\n\n"),
+    );
     setActionNotice({
-      message: `${selectedItem.title} reference copied.`,
+      message:
+        selectedEntries.length === 1
+          ? `${selectedEntries[0].item.title} reference copied.`
+          : `${selectedEntries.length.toString()} KnowledgeV2 references copied.`,
       status: "copied",
     });
+    setIsContextPickerOpen(false);
   }
 
   return (
@@ -178,6 +258,7 @@ export function KnowledgeV2CatalogBrowser({
           items={viewModel.filteredItems}
           mode={viewMode}
           onSelectItem={selectItem}
+          onUseAsContext={openContextPicker}
           selectedItemId={selectedItemId}
         />
         <WidgetV2RightInspector label="Knowledge v2 preview details">
@@ -188,11 +269,13 @@ export function KnowledgeV2CatalogBrowser({
             canAttachToQueueTask={Boolean(onAttachKnowledgeContextToQueueTask)}
             canAttachToWorkspaceAgent={Boolean(onAttachContextToCoordinator)}
             canCopyReference={canCopyReference}
+            contextItems={pickerItems}
             hasItems={viewModel.items.length > 0}
+            isContextPickerOpen={isContextPickerOpen}
             item={selectedItem}
-            onAttachToQueueTask={attachToQueueTask}
-            onAttachToWorkspaceAgent={attachToWorkspaceAgent}
-            onCopyReference={copyReference}
+            onAttachContextPicker={attachContextPickerSelection}
+            onCloseContextPicker={() => setIsContextPickerOpen(false)}
+            onOpenContextPicker={() => openContextPicker()}
             selectedItemId={selectedItemId}
           />
         </WidgetV2RightInspector>

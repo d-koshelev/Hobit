@@ -6,6 +6,7 @@ type KnowledgeV2CatalogListProps = {
   readonly mode?: "cards" | "list";
   readonly selectedItemId: string | null;
   readonly onSelectItem: (itemId: string) => void;
+  readonly onUseAsContext?: (itemId: string) => void;
 };
 
 export function KnowledgeV2CatalogList({
@@ -13,6 +14,7 @@ export function KnowledgeV2CatalogList({
   items,
   mode = "list",
   onSelectItem,
+  onUseAsContext,
   selectedItemId,
 }: KnowledgeV2CatalogListProps) {
   if (!hasItems) {
@@ -78,6 +80,7 @@ export function KnowledgeV2CatalogList({
           item={item}
           key={item.id}
           onSelectItem={onSelectItem}
+          onUseAsContext={onUseAsContext}
           selected={item.id === selectedItemId}
         />
       ))}
@@ -89,11 +92,13 @@ type KnowledgeV2CatalogRowProps = {
   readonly item: KnowledgeV2CatalogItem;
   readonly selected: boolean;
   readonly onSelectItem: (itemId: string) => void;
+  readonly onUseAsContext?: (itemId: string) => void;
 };
 
 export function KnowledgeV2CatalogRow({
   item,
   onSelectItem,
+  onUseAsContext,
   selected,
 }: KnowledgeV2CatalogRowProps) {
   const warningCount = item.warnings.length;
@@ -142,6 +147,11 @@ export function KnowledgeV2CatalogRow({
         <button onClick={() => onSelectItem(item.id)} type="button">
           Preview
         </button>
+        {onUseAsContext ? (
+          <button onClick={() => onUseAsContext(item.id)} type="button">
+            Use as context
+          </button>
+        ) : null}
         {warningCount > 0 ? <span>{warningCount} warn</span> : null}
       </span>
     </div>

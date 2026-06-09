@@ -582,11 +582,23 @@ describe("KnowledgeV2Widget browser", () => {
 
     await clickButton("Release guide");
 
-    expect(buttonWithText("Attach to Workspace Agent")?.disabled).toBe(false);
-    expect(buttonWithText("Attach to selected Queue task")?.disabled).toBe(false);
+    expect(buttonWithText("Use as context")?.disabled).toBe(false);
     expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
       "These controls only use explicit visible callbacks.",
     );
+
+    await clickButton("Use as context");
+
+    const picker = regionByName("KnowledgeV2 Use as Context picker");
+    expect(picker?.textContent).toContain("Selectable items");
+    expect(picker?.textContent).toContain("Selected items");
+    expect(picker?.textContent).toContain("1 selected");
+    expect(picker?.textContent).toContain("Estimated tokens");
+    expect(picker?.textContent).toContain("Estimated bytes");
+    expect(picker?.textContent).toContain("Workspace Agent current context");
+    expect(picker?.textContent).toContain("Workspace Agent next-run context bridge is not wired");
+    expect(picker?.textContent).toContain("Selected Queue task");
+    expect(picker?.textContent).toContain("Copy reference");
   });
 
   it("disables context attach for rejected or disabled KnowledgeV2 items with a reason", async () => {
@@ -616,11 +628,12 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("Rejected context item");
 
     const useAsContext = regionByName("KnowledgeV2 use as context");
-    expect(buttonWithText("Attach to Workspace Agent")?.disabled).toBe(true);
-    expect(buttonWithText("Attach to selected Queue task")?.disabled).toBe(true);
     expect(useAsContext?.textContent).toContain("Knowledge Document is disabled.");
 
-    await clickButton("Attach to selected Queue task");
+    await clickButton("Use as context");
+    const picker = regionByName("KnowledgeV2 Use as Context picker");
+    expect(picker?.textContent).toContain("Knowledge Document is disabled.");
+    expect(buttonWithText("Attach")?.disabled).toBe(true);
 
     expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
     expect(attachToQueueTask).not.toHaveBeenCalled();
@@ -645,7 +658,10 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("React review");
     expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
 
-    await clickButton("Attach to Workspace Agent");
+    await clickButton("Use as context");
+    expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
+
+    await clickButton("Attach");
 
     expect(attachToWorkspaceAgent).toHaveBeenCalledTimes(1);
     expect(attachToWorkspaceAgent).toHaveBeenCalledWith({
@@ -656,6 +672,42 @@ describe("KnowledgeV2Widget browser", () => {
     expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
       "React review attached to Workspace Agent as visible current-session context.",
     );
+  });
+
+  it("updates picker selection count and estimate without attaching on selection alone", async () => {
+    const attachToWorkspaceAgent = vi.fn();
+    const attachToQueueTask = vi.fn();
+    const createQueueTask = vi.fn();
+    const runQueueTask = vi.fn();
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onAttachContextToCoordinator={attachToWorkspaceAgent}
+        onAttachKnowledgeContextToQueueTask={attachToQueueTask}
+        skills={[skillFixture({ reviewStatus: "reviewed" })]}
+        {...({
+          onCreateAgentQueueTask: createQueueTask,
+          onStartAssignedAgentQueueTask: runQueueTask,
+        } as Partial<ComponentProps<typeof KnowledgeV2Widget>>)}
+      />,
+    );
+
+    await clickButton("Release guide");
+    await clickButtonInRegion("KnowledgeV2 use as context", "Use as context");
+
+    let picker = regionByName("KnowledgeV2 Use as Context picker");
+    expect(picker?.textContent).toContain("1 selected");
+    expect(picker?.textContent).not.toContain("Estimated tokensUnavailable");
+
+    await clickCheckboxByLabel("React review");
+
+    picker = regionByName("KnowledgeV2 Use as Context picker");
+    expect(picker?.textContent).toContain("2 selected");
+    expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
+    expect(attachToQueueTask).not.toHaveBeenCalled();
+    expect(createQueueTask).not.toHaveBeenCalled();
+    expect(runQueueTask).not.toHaveBeenCalled();
   });
 
   it("attaches selected Queue context without creating or running Queue work", async () => {
@@ -682,7 +734,9 @@ describe("KnowledgeV2Widget browser", () => {
     );
 
     await clickButton("Release guide");
-    await clickButton("Attach to selected Queue task");
+    await clickButton("Use as context");
+    await chooseRadioByLabel("Selected Queue task");
+    await clickButton("Attach");
     await flush();
 
     expect(attachToQueueTask).toHaveBeenCalledTimes(1);
@@ -709,8 +763,6 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("Release guide");
 
     const useAsContext = regionByName("KnowledgeV2 use as context");
-    expect(buttonWithText("Attach to Workspace Agent")?.disabled).toBe(true);
-    expect(buttonWithText("Attach to selected Queue task")?.disabled).toBe(true);
     expect(useAsContext?.textContent).toContain(
       "Workspace Agent attach bridge is unavailable",
     );
@@ -719,6 +771,15 @@ describe("KnowledgeV2Widget browser", () => {
     );
     expect(useAsContext?.textContent).not.toContain("attached to Workspace Agent");
     expect(useAsContext?.textContent).not.toContain("attached to selected task");
+
+    await clickButton("Use as context");
+    const picker = regionByName("KnowledgeV2 Use as Context picker");
+    expect(picker?.textContent).toContain(
+      "Workspace Agent current-context bridge is unavailable.",
+    );
+    expect(picker?.textContent).toContain(
+      "Selected Queue task attach bridge is unavailable.",
+    );
   });
 
   it("keeps the existing Knowledge / Skills surface available separately", async () => {
@@ -758,6 +819,20 @@ async function clickButton(textContent: string) {
   });
 }
 
+async function clickButtonInRegion(regionLabel: string, textContent: string) {
+  const region = regionByName(regionLabel);
+  const button =
+    region
+      ? Array.from(region.querySelectorAll<HTMLButtonElement>("button")).find(
+          (candidate) => candidate.textContent?.includes(textContent),
+        ) ?? null
+      : null;
+  expect(button).not.toBeNull();
+  await act(async () => {
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
 async function changeInput(label: string, value: string) {
   const input = inputByLabel(label);
   expect(input).not.toBeNull();
@@ -777,6 +852,22 @@ async function changeSelect(label: string, value: string) {
       select.value = value;
       select.dispatchEvent(new Event("change", { bubbles: true }));
     }
+  });
+}
+
+async function chooseRadioByLabel(label: string) {
+  const radio = radioByLabel(label);
+  expect(radio).not.toBeNull();
+  await act(async () => {
+    radio?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
+async function clickCheckboxByLabel(label: string) {
+  const checkbox = checkboxByLabel(label);
+  expect(checkbox).not.toBeNull();
+  await act(async () => {
+    checkbox?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
 }
 
@@ -834,6 +925,22 @@ function selectByLabel(label: string): HTMLSelectElement | null {
   return (
     Array.from(document.querySelectorAll<HTMLSelectElement>("select")).find(
       (select) => select.getAttribute("aria-label") === label,
+    ) ?? null
+  );
+}
+
+function radioByLabel(label: string): HTMLInputElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLInputElement>("input[type='radio']")).find(
+      (input) => input.closest("label")?.textContent?.includes(label),
+    ) ?? null
+  );
+}
+
+function checkboxByLabel(label: string): HTMLInputElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLInputElement>("input[type='checkbox']")).find(
+      (input) => input.closest("label")?.textContent?.includes(label),
     ) ?? null
   );
 }

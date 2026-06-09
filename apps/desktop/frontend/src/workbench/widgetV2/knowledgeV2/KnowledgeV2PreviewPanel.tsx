@@ -5,12 +5,17 @@ import type {
   KnowledgeV2ContextActionNotice,
   KnowledgeV2ContextAffordanceSource,
   KnowledgeV2ContextAffordanceState,
+  KnowledgeV2ContextTarget,
 } from "./knowledgeV2ContextAffordances";
 import {
   formatKnowledgeV2ContextUnavailableReason,
   knowledgeV2ReferenceText,
 } from "./knowledgeV2ContextAffordances";
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
+import {
+  KnowledgeV2ContextPicker,
+  type KnowledgeV2PickerItem,
+} from "./KnowledgeV2ContextPicker";
 
 type KnowledgeV2PreviewPanelProps = {
   readonly actionNotice?: KnowledgeV2ContextActionNotice | null;
@@ -19,11 +24,16 @@ type KnowledgeV2PreviewPanelProps = {
   readonly canAttachToQueueTask?: boolean;
   readonly canAttachToWorkspaceAgent?: boolean;
   readonly canCopyReference?: boolean;
+  readonly contextItems?: readonly KnowledgeV2PickerItem[];
   readonly hasItems: boolean;
   readonly item: KnowledgeV2CatalogItem | null;
-  readonly onAttachToQueueTask?: () => void;
-  readonly onAttachToWorkspaceAgent?: () => void;
-  readonly onCopyReference?: () => void;
+  readonly isContextPickerOpen?: boolean;
+  readonly onAttachContextPicker?: (
+    target: KnowledgeV2ContextTarget,
+    selectedItemIds: readonly string[],
+  ) => void;
+  readonly onCloseContextPicker?: () => void;
+  readonly onOpenContextPicker?: () => void;
   readonly selectedItemId: string | null;
 };
 
@@ -46,11 +56,13 @@ export function KnowledgeV2PreviewPanel({
   canAttachToQueueTask = false,
   canAttachToWorkspaceAgent = false,
   canCopyReference = false,
+  contextItems = [],
   hasItems,
+  isContextPickerOpen = false,
   item,
-  onAttachToQueueTask,
-  onAttachToWorkspaceAgent,
-  onCopyReference,
+  onAttachContextPicker,
+  onCloseContextPicker,
+  onOpenContextPicker,
   selectedItemId,
 }: KnowledgeV2PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<KnowledgeV2PreviewTab>("overview");
@@ -166,10 +178,12 @@ export function KnowledgeV2PreviewPanel({
           canAttachToQueueTask={canAttachToQueueTask}
           canAttachToWorkspaceAgent={canAttachToWorkspaceAgent}
           canCopyReference={canCopyReference}
+          contextItems={contextItems}
+          isContextPickerOpen={isContextPickerOpen}
           item={item}
-          onAttachToQueueTask={onAttachToQueueTask}
-          onAttachToWorkspaceAgent={onAttachToWorkspaceAgent}
-          onCopyReference={onCopyReference}
+          onAttachContextPicker={onAttachContextPicker}
+          onCloseContextPicker={onCloseContextPicker}
+          onOpenContextPicker={onOpenContextPicker}
         />
       ) : null}
       {activeTab === "details" ? <KnowledgeV2DetailsTab item={item} /> : null}
@@ -186,10 +200,12 @@ function KnowledgeV2OverviewTab({
   canAttachToQueueTask,
   canAttachToWorkspaceAgent,
   canCopyReference,
+  contextItems,
+  isContextPickerOpen,
   item,
-  onAttachToQueueTask,
-  onAttachToWorkspaceAgent,
-  onCopyReference,
+  onAttachContextPicker,
+  onCloseContextPicker,
+  onOpenContextPicker,
 }: {
   readonly actionNotice: KnowledgeV2ContextActionNotice | null;
   readonly affordanceSource: KnowledgeV2ContextAffordanceSource | null;
@@ -197,10 +213,15 @@ function KnowledgeV2OverviewTab({
   readonly canAttachToQueueTask: boolean;
   readonly canAttachToWorkspaceAgent: boolean;
   readonly canCopyReference: boolean;
+  readonly contextItems: readonly KnowledgeV2PickerItem[];
+  readonly isContextPickerOpen: boolean;
   readonly item: KnowledgeV2CatalogItem;
-  readonly onAttachToQueueTask?: () => void;
-  readonly onAttachToWorkspaceAgent?: () => void;
-  readonly onCopyReference?: () => void;
+  readonly onAttachContextPicker?: (
+    target: KnowledgeV2ContextTarget,
+    selectedItemIds: readonly string[],
+  ) => void;
+  readonly onCloseContextPicker?: () => void;
+  readonly onOpenContextPicker?: () => void;
 }) {
   return (
     <div className="knowledge-v2-tab-panel" role="tabpanel">
@@ -235,10 +256,12 @@ function KnowledgeV2OverviewTab({
         canAttachToQueueTask={canAttachToQueueTask}
         canAttachToWorkspaceAgent={canAttachToWorkspaceAgent}
         canCopyReference={canCopyReference}
+        contextItems={contextItems}
+        isContextPickerOpen={isContextPickerOpen}
         item={item}
-        onAttachToQueueTask={onAttachToQueueTask}
-        onAttachToWorkspaceAgent={onAttachToWorkspaceAgent}
-        onCopyReference={onCopyReference}
+        onAttachContextPicker={onAttachContextPicker}
+        onCloseContextPicker={onCloseContextPicker}
+        onOpenContextPicker={onOpenContextPicker}
       />
     </div>
   );
@@ -341,10 +364,12 @@ function KnowledgeV2ContextActions({
   canAttachToQueueTask,
   canAttachToWorkspaceAgent,
   canCopyReference,
+  contextItems,
+  isContextPickerOpen,
   item,
-  onAttachToQueueTask,
-  onAttachToWorkspaceAgent,
-  onCopyReference,
+  onAttachContextPicker,
+  onCloseContextPicker,
+  onOpenContextPicker,
 }: {
   readonly actionNotice: KnowledgeV2ContextActionNotice | null;
   readonly affordanceSource: KnowledgeV2ContextAffordanceSource | null;
@@ -352,10 +377,15 @@ function KnowledgeV2ContextActions({
   readonly canAttachToQueueTask: boolean;
   readonly canAttachToWorkspaceAgent: boolean;
   readonly canCopyReference: boolean;
+  readonly contextItems: readonly KnowledgeV2PickerItem[];
+  readonly isContextPickerOpen: boolean;
   readonly item: KnowledgeV2CatalogItem;
-  readonly onAttachToQueueTask?: () => void;
-  readonly onAttachToWorkspaceAgent?: () => void;
-  readonly onCopyReference?: () => void;
+  readonly onAttachContextPicker?: (
+    target: KnowledgeV2ContextTarget,
+    selectedItemIds: readonly string[],
+  ) => void;
+  readonly onCloseContextPicker?: () => void;
+  readonly onOpenContextPicker?: () => void;
 }) {
   const attachState =
     affordanceState ??
@@ -376,9 +406,11 @@ function KnowledgeV2ContextActions({
     attachState.reason,
     "Queue task",
   );
-  const copyReason = canCopyReference
-    ? null
-    : "Clipboard bridge is unavailable in this runtime.";
+  const attachableTargetCount = [
+    canAttachToWorkspaceAgent,
+    canAttachToQueueTask,
+    canCopyReference,
+  ].filter(Boolean).length;
 
   return (
     <section
@@ -401,28 +433,35 @@ function KnowledgeV2ContextActions({
       ) : null}
       <div className="knowledge-v2-context-action-row">
         <ContextButton
-          disabledReason={workspaceReason}
-          label="Attach to Workspace Agent"
-          onClick={onAttachToWorkspaceAgent}
-        />
-        <ContextButton
-          disabledReason={queueReason}
-          label="Attach to selected Queue task"
-          onClick={onAttachToQueueTask}
-        />
-        <ContextButton
-          disabledReason={copyReason}
-          label="Copy reference"
-          onClick={onCopyReference}
+          disabledReason={null}
+          label="Use as context"
+          onClick={onOpenContextPicker}
         />
       </div>
-      {workspaceReason || queueReason || copyReason ? (
+      {attachableTargetCount === 0 ? (
+        <p className="knowledge-v2-context-warning">
+          No attach target bridge is available. Open the picker to inspect
+          disabled targets and copy availability.
+        </p>
+      ) : null}
+      {workspaceReason || queueReason || !canCopyReference ? (
         <ul className="knowledge-v2-context-unavailable">
           {workspaceReason ? <li>{workspaceReason}</li> : null}
           {queueReason ? <li>{queueReason}</li> : null}
-          {copyReason ? <li>{copyReason}</li> : null}
+          {!canCopyReference ? <li>Clipboard bridge is unavailable in this runtime.</li> : null}
           {!affordanceSource ? <li>Open source details are read-only in this preview.</li> : null}
         </ul>
+      ) : null}
+      {isContextPickerOpen && onAttachContextPicker && onCloseContextPicker ? (
+        <KnowledgeV2ContextPicker
+          canAttachToQueueTask={canAttachToQueueTask}
+          canAttachToWorkspaceAgent={canAttachToWorkspaceAgent}
+          canCopyReference={canCopyReference}
+          initialSelectedItemId={item.id}
+          items={contextItems}
+          onAttach={onAttachContextPicker}
+          onClose={onCloseContextPicker}
+        />
       ) : null}
       <details className="knowledge-v2-reference-details">
         <summary>Open source details</summary>
