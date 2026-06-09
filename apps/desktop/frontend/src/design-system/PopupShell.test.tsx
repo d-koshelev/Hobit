@@ -118,6 +118,160 @@ describe("PopupShell", () => {
     expect(Number.parseFloat(popup?.style.left ?? "0")).toBeGreaterThan(0);
     expect(Number.parseFloat(popup?.style.top ?? "0")).toBeLessThan(700);
   });
+
+  it("does not start dragging from popup content or header buttons", async () => {
+    const onRequestClose = vi.fn();
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <AnchoredPopupFixture isOpen onRequestClose={onRequestClose} />,
+      );
+      await Promise.resolve();
+    });
+
+    const popup = document.querySelector<HTMLElement>(".popup-shell");
+    const content = document.querySelector<HTMLElement>("[data-popup-content]");
+    const closeButton = document.querySelector<HTMLElement>("[data-popup-close]");
+
+    expect(popup).not.toBeNull();
+    expect(content).not.toBeNull();
+    expect(closeButton).not.toBeNull();
+
+    await act(async () => {
+      content?.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          clientX: 730,
+          clientY: 704,
+        }),
+      );
+      window.dispatchEvent(
+        new MouseEvent("pointermove", {
+          clientX: 640,
+          clientY: 620,
+        }),
+      );
+      closeButton?.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          clientX: 770,
+          clientY: 704,
+        }),
+      );
+      window.dispatchEvent(
+        new MouseEvent("pointermove", {
+          clientX: 560,
+          clientY: 580,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(popup?.style.left).toBe("");
+    expect(popup?.style.transform).toBe("");
+  });
+
+  it("keeps Close and Escape behavior working", async () => {
+    const onRequestClose = vi.fn();
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <AnchoredPopupFixture isOpen onRequestClose={onRequestClose} />,
+      );
+      await Promise.resolve();
+    });
+
+    const closeButton = document.querySelector<HTMLElement>("[data-popup-close]");
+
+    await act(async () => {
+      closeButton?.dispatchEvent(
+        new MouseEvent("click", {
+          bubbles: true,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(onRequestClose).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      document.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          bubbles: true,
+          key: "Escape",
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(onRequestClose).toHaveBeenCalledTimes(2);
+  });
+
+  it("reopens at the initial anchored position after a previous drag", async () => {
+    const onRequestClose = vi.fn();
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <AnchoredPopupFixture isOpen onRequestClose={onRequestClose} />,
+      );
+      await Promise.resolve();
+    });
+
+    const title = document.querySelector<HTMLElement>("[data-popup-drag-handle]");
+
+    await act(async () => {
+      title?.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          clientX: 730,
+          clientY: 704,
+        }),
+      );
+      window.dispatchEvent(
+        new MouseEvent("pointermove", {
+          clientX: 640,
+          clientY: 620,
+        }),
+      );
+      window.dispatchEvent(new MouseEvent("pointerup"));
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector<HTMLElement>(".popup-shell")?.style.left).not.toBe(
+      "",
+    );
+
+    await act(async () => {
+      root?.render(
+        <AnchoredPopupFixture isOpen={false} onRequestClose={onRequestClose} />,
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      root?.render(
+        <AnchoredPopupFixture isOpen onRequestClose={onRequestClose} />,
+      );
+      await Promise.resolve();
+    });
+
+    const reopenedPopup = document.querySelector<HTMLElement>(".popup-shell");
+
+    expect(reopenedPopup?.style.left).toBe("");
+    expect(reopenedPopup?.style.right).not.toBe("");
+  });
 });
 
 function AnchoredPopupFixture({
@@ -163,8 +317,13 @@ function AnchoredPopupFixture({
         onRequestClose={onRequestClose}
         variant={variant}
       >
-        <h2 data-popup-drag-handle id="test-popup-title">Popup title</h2>
-        <p>Popup content</p>
+        <div data-popup-drag-handle>
+          <h2 id="test-popup-title">Popup title</h2>
+          <button data-popup-close onClick={onRequestClose} type="button">
+            Close
+          </button>
+        </div>
+        <p data-popup-content>Popup content</p>
       </PopupShell>
     </div>
   );

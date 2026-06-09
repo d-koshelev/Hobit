@@ -42,6 +42,22 @@ type ActiveDrag = {
 const POPUP_EDGE_GAP = 12;
 const POPUP_ANCHOR_GAP = 6;
 const POPUP_MIN_MAX_HEIGHT = 180;
+const POPUP_DRAG_IGNORE_SELECTOR = [
+  "a[href]",
+  "button",
+  "input",
+  "select",
+  "textarea",
+  "summary",
+  "[contenteditable='true']",
+  "[data-popup-no-drag]",
+  "[role='button']",
+  "[role='checkbox']",
+  "[role='link']",
+  "[role='radio']",
+  "[role='switch']",
+  "[role='tab']",
+].join(",");
 
 export function PopupShell({
   anchorRef,
@@ -59,6 +75,16 @@ export function PopupShell({
   const [position, setPosition] = useState<AnchoredPosition | null>(null);
   const [dragPosition, setDragPosition] = useState<DragPosition | null>(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      return;
+    }
+
+    activeDragRef.current = null;
+    setDragPosition(null);
+    setIsDragging(false);
+  }, [isOpen]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -225,6 +251,10 @@ export function PopupShell({
   }
 
   function startPopupDrag(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) {
+      return;
+    }
+
     if (!(event.target instanceof Element)) {
       return;
     }
@@ -232,6 +262,10 @@ export function PopupShell({
     const dragHandle = event.target.closest("[data-popup-drag-handle]");
 
     if (!dragHandle || !popupRef.current?.contains(dragHandle)) {
+      return;
+    }
+
+    if (isPopupDragIgnored(event.target, dragHandle)) {
       return;
     }
 
@@ -306,4 +340,10 @@ function popupStyle(
 
 function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
+}
+
+function isPopupDragIgnored(target: Element, dragHandle: Element) {
+  const ignoredTarget = target.closest(POPUP_DRAG_IGNORE_SELECTOR);
+
+  return Boolean(ignoredTarget && dragHandle.contains(ignoredTarget));
 }
