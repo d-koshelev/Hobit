@@ -30,12 +30,14 @@ export type WorkspaceAgentV2QueueRunOpenTaskAction = {
 
 export type WorkspaceAgentV2QueueRunControllerResult = {
   readonly attachedContextCount: number;
+  readonly contextSourceLabels: readonly string[];
   readonly createdTask?: WorkspaceAgentV2QueueRunCreatedTask;
   readonly errorCode?: string;
   readonly errorMessage?: string;
   readonly message: string;
   readonly ok: boolean;
   readonly openTaskAction?: WorkspaceAgentV2QueueRunOpenTaskAction;
+  readonly skippedContextCount: number;
   readonly status: Extract<
     WorkspaceAgentV2QueueRunStatus,
     "created" | "failed" | "unsupported"
@@ -48,7 +50,8 @@ export function workspaceAgentV2QueueRunResultFromService(
 ): WorkspaceAgentV2QueueRunControllerResult {
   if (result.status === "created") {
     return {
-      attachedContextCount: result.visibleContextRefs.length,
+      attachedContextCount: result.contextAttachmentReport.attached.length,
+      contextSourceLabels: result.contextAttachmentReport.sourceLabels,
       createdTask: {
         id: result.createdItem.id,
         status: result.createdItem.status,
@@ -61,23 +64,36 @@ export function workspaceAgentV2QueueRunResultFromService(
         queueItemId: result.createdItem.id,
         title: result.createdItem.title,
       },
+      skippedContextCount: result.contextAttachmentReport.skipped.length,
       status: "created",
       warnings: [
         result.safetyMessage,
-        ...contextAttachmentWarnings(result.visibleContextRefs.length),
+        ...contextAttachmentWarnings({
+          attachedContextCount: result.contextAttachmentReport.attached.length,
+          skippedContextCount: result.contextAttachmentReport.skipped.length,
+        }),
+        ...result.contextAttachmentReport.warnings,
       ],
     };
   }
 
   if (result.status === "failed") {
     return {
-      attachedContextCount: result.visibleContextRefs.length,
+      attachedContextCount: result.contextAttachmentReport.attached.length,
+      contextSourceLabels: result.contextAttachmentReport.sourceLabels,
       errorCode: result.errorCode,
       errorMessage: result.queueCreateResult.error?.message ?? result.message,
       message: result.message,
       ok: false,
+      skippedContextCount: result.contextAttachmentReport.skipped.length,
       status: "failed",
-      warnings: contextAttachmentWarnings(result.visibleContextRefs.length),
+      warnings: [
+        ...contextAttachmentWarnings({
+          attachedContextCount: result.contextAttachmentReport.attached.length,
+          skippedContextCount: result.contextAttachmentReport.skipped.length,
+        }),
+        ...result.contextAttachmentReport.warnings,
+      ],
     };
   }
 
@@ -89,10 +105,12 @@ export function unsupportedControllerResult(
 ): WorkspaceAgentV2QueueRunControllerResult {
   return {
     attachedContextCount: 0,
+    contextSourceLabels: [],
     errorCode: result.code,
     errorMessage: result.message,
     message: result.message,
     ok: false,
+    skippedContextCount: 0,
     status: "unsupported",
     warnings: [],
   };
@@ -107,11 +125,16 @@ export function failedControllerResult({
 }): WorkspaceAgentV2QueueRunControllerResult {
   return {
     attachedContextCount,
+    contextSourceLabels: [],
     errorMessage,
     message: errorMessage,
     ok: false,
+    skippedContextCount: 0,
     status: "failed",
-    warnings: contextAttachmentWarnings(attachedContextCount),
+    warnings: contextAttachmentWarnings({
+      attachedContextCount,
+      skippedContextCount: 0,
+    }),
   };
 }
 
@@ -160,6 +183,26 @@ export function workspaceAgentV2QueueRunTranscriptMessage({
             createDefinition("Task id", createdTask.id),
             createDefinition("Title", createdTask.title),
             createDefinition("Status", createdTask.status),
+            createDefinition(
+              "Attached context",
+              result.attachedContextCount.toString(),
+            ),
+            createDefinition(
+              "Skipped context",
+              result.skippedContextCount.toString(),
+            ),
+            result.contextSourceLabels.length > 0
+              ? createDefinition("Sources", result.contextSourceLabels.join(", "))
+              : null,
+          )
+        : null,
+      result.warnings.length > 0
+        ? createElement(
+            "ul",
+            { "aria-label": "Queue Run context warnings" },
+            result.warnings.map((warning) =>
+              createElement("li", { key: warning }, warning),
+            ),
           )
         : null,
       createElement(
@@ -171,7 +214,7 @@ export function workspaceAgentV2QueueRunTranscriptMessage({
     id: `workspace-agent-v2-queue-run-created-${sequence.toString()}`,
     metadata: {
       status: result.status,
-      steps: `Context refs: ${result.attachedContextCount.toString()}`,
+      steps: `Context attached: ${result.attachedContextCount.toString()}; skipped: ${result.skippedContextCount.toString()}`,
     },
     role: "assistant",
     title: "Queue task created",
@@ -213,12 +256,28 @@ export function workspaceAgentV2QueueRunCreatedEvent({
   };
 }
 
-function contextAttachmentWarnings(attachedContextCount: number) {
+function contextAttachmentWarnings({
+  attachedContextCount,
+  skippedContextCount,
+}: {
+  readonly attachedContextCount: number;
+  readonly skippedContextCount: number;
+}) {
+  const warnings: string[] = [];
+
   if (attachedContextCount > 0) {
-    return [
-      "Visible context refs were recorded on the Queue task description only; no hidden context was attached.",
-    ];
+    warnings.push(
+      `${attachedContextCount.toString()} visible context ref(s) were attached through durable Queue context APIs.`,
+    );
+  } else {
+    warnings.push("No visible context refs were attached to this Queue task.");
   }
 
-  return ["No visible context refs were attached to this Queue task."];
+  if (skippedContextCount > 0) {
+    warnings.push(
+      `${skippedContextCount.toString()} visible context ref(s) were skipped; no skipped context text was copied into the prompt.`,
+    );
+  }
+
+  return warnings;
 }

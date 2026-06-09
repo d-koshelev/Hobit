@@ -59,7 +59,10 @@ type WorkspaceAgentV2WidgetProps = {
   readonly onQueueTaskCreate?: (queueItemId?: string) => void;
   readonly onRunRequest?: () => void;
   readonly onStartCodexDirectWorkStream?: CodexAgentRuntimeActions["startCodexDirectWorkStream"];
-  readonly queueBridge?: Pick<WorkspaceAgentQueueBridge, "createItem"> | null;
+  readonly queueBridge?: Pick<
+    WorkspaceAgentQueueBridge,
+    "attachKnowledgeToQueueTask" | "attachSkillToQueueTask" | "createItem"
+  > | null;
   readonly queueRunPriority?: number;
   readonly queueRunTags?: readonly string[];
   readonly sandbox?: DirectWorkSandbox;

@@ -8,6 +8,11 @@ import type {
   QueueWidgetSnapshot,
 } from "./queue/agentQueueWidgetApiTypes";
 import type { AgentQueueTaskRunSettingsDefaults } from "./queue/agentQueueRunSettingsDefaults";
+import type {
+  AgentQueueTask,
+  AttachKnowledgeToQueueTaskRequest,
+  AttachSkillToQueueTaskRequest,
+} from "../workspace/types";
 
 export type WorkspaceAgentQueueAutonomousActionName =
   | "queue.runAutonomousQueue"
@@ -34,7 +39,22 @@ export type WorkspaceQueueStateAccess = {
   refreshAfterMutation: (queueItemId: string) => Promise<void> | void;
 };
 
+export type WorkspaceQueueContextActions = {
+  attachKnowledgeToQueueTask: (
+    request: AttachKnowledgeToQueueTaskRequest,
+  ) => Promise<AgentQueueTask>;
+  attachSkillToQueueTask: (
+    request: AttachSkillToQueueTaskRequest,
+  ) => Promise<AgentQueueTask>;
+};
+
 export type WorkspaceAgentQueueBridge = {
+  attachKnowledgeToQueueTask?: (
+    request: Omit<AttachKnowledgeToQueueTaskRequest, "workspaceId">,
+  ) => Promise<AgentQueueTask>;
+  attachSkillToQueueTask?: (
+    request: Omit<AttachSkillToQueueTaskRequest, "workspaceId">,
+  ) => Promise<AgentQueueTask>;
   createItem: (
     request: Omit<QueueCreateItemRequest, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>>;
@@ -51,16 +71,38 @@ export type WorkspaceAgentQueueBridge = {
 
 export function createWorkspaceAgentQueueBridge({
   autonomousActions,
+  contextActions,
   queueApi,
   queueState,
   workspaceId,
 }: {
   autonomousActions?: WorkspaceQueueAutonomousActions | null;
+  contextActions?: WorkspaceQueueContextActions | null;
   queueApi: AgentQueueWidgetApi;
   queueState?: WorkspaceQueueStateAccess | null;
   workspaceId: string;
 }): WorkspaceAgentQueueBridge {
   return {
+    attachKnowledgeToQueueTask: contextActions
+      ? async (request) => {
+          const task = await contextActions.attachKnowledgeToQueueTask({
+            ...request,
+            workspaceId,
+          });
+          await refreshQueueStateAfterContextMutation(queueState, task);
+          return task;
+        }
+      : undefined,
+    attachSkillToQueueTask: contextActions
+      ? async (request) => {
+          const task = await contextActions.attachSkillToQueueTask({
+            ...request,
+            workspaceId,
+          });
+          await refreshQueueStateAfterContextMutation(queueState, task);
+          return task;
+        }
+      : undefined,
     createItem: async (request) => {
       const result = await queueApi.createItem({
         ...request,
@@ -123,6 +165,17 @@ async function refreshQueueStateAfterMutation(
     await queueState?.refreshAfterMutation(result.item.id);
   } catch {
     // Queue CRUD already succeeded; refresh failures are non-mutating UI state.
+  }
+}
+
+async function refreshQueueStateAfterContextMutation(
+  queueState: WorkspaceQueueStateAccess | null | undefined,
+  task: AgentQueueTask,
+) {
+  try {
+    await queueState?.refreshAfterMutation(task.queueItemId);
+  } catch {
+    // Context attach succeeded; refresh failures are non-mutating UI state.
   }
 }
 

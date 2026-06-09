@@ -159,6 +159,10 @@ export function useWorkspaceQueueApi({
       stopAutonomousQueueAfterCurrent: () =>
         stopAutonomousQueueAfterCurrent(controller.autonomous),
     },
+    contextActions: {
+      attachKnowledgeToQueueTask: actions.attachKnowledgeToQueueTask,
+      attachSkillToQueueTask: actions.attachSkillToQueueTask,
+    },
     queueApi,
     queueState: {
       getRunSettingsDefaults: () =>

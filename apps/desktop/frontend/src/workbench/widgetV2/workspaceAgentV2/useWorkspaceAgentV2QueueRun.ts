@@ -23,7 +23,10 @@ export type WorkspaceAgentV2QueueRunControllerOptions = {
   readonly desiredStatus?: WorkspaceAgentV2QueueRunDesiredStatus;
   readonly onResult?: (result: WorkspaceAgentV2QueueRunControllerResult) => void;
   readonly priority?: number;
-  readonly queueBridge?: Pick<WorkspaceAgentQueueBridge, "createItem"> | null;
+  readonly queueBridge?: Pick<
+    WorkspaceAgentQueueBridge,
+    "attachKnowledgeToQueueTask" | "attachSkillToQueueTask" | "createItem"
+  > | null;
   readonly tags?: readonly string[];
   readonly visibleContextSnapshot?: AgentContextSnapshot;
 };
@@ -131,7 +134,7 @@ export function useWorkspaceAgentV2QueueRun({
           error instanceof Error ? error.message : "Queue task creation failed.";
         emitResult(
           failedControllerResult({
-            attachedContextCount: built.request.visibleContextRefs.length,
+            attachedContextCount: 0,
             errorMessage: message,
           }),
         );

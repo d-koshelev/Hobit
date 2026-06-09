@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentContextSnapshot } from "../../agentRuntime";
+import type { AgentQueueTask } from "../../../workspace/types";
 import type {
   QueueCreateItemRequest,
   QueueWidgetActionResult,
@@ -38,21 +39,28 @@ describe("useWorkspaceAgentV2QueueRun", () => {
     expect(createItem).not.toHaveBeenCalled();
   });
 
-  it("explicit Queue Run creates one Queue task from prompt and visible context", async () => {
+  it("explicit Queue Run creates one Queue task and reports context attach counts", async () => {
     const createItem = createItemMock();
+    const attachKnowledgeToQueueTask = vi.fn(async () => agentQueueTask());
 
     await render(
       <QueueRunHarness
         contextItems={[
           {
-            id: "context-chip-1",
-            label: "Visible chip",
+            id: "knowledge-doc-1",
+            label: "Visible docs",
+            source: "Knowledge / Skills",
+            type: "knowledge",
+          },
+          {
+            id: "manual-1",
+            label: "Visible manual note",
             source: "Context strip",
             type: "manual",
           },
         ]}
         prompt="Promote this explicit task."
-        queueBridge={queueBridge({ createItem })}
+        queueBridge={queueBridge({ attachKnowledgeToQueueTask, createItem })}
         visibleContextSnapshot={visibleContextSnapshot}
       />,
     );
@@ -69,15 +77,20 @@ describe("useWorkspaceAgentV2QueueRun", () => {
       }),
     );
     expect(firstCreateRequest(createItem).description).toContain(
-      "knowledge:knowledge-doc-1",
+      "Visible context refs selected: 2",
     );
-    expect(firstCreateRequest(createItem).description).toContain(
-      "manual:context-chip-1",
-    );
+    expect(attachKnowledgeToQueueTask).toHaveBeenCalledWith({
+      knowledgeId: "knowledge-doc-1",
+      queueItemId: "queue-item-1",
+    });
     expect(textByTestId("status")).toBe("created");
     expect(textByTestId("result")).toContain("queue-item-1");
     expect(textByTestId("result")).toContain("Promote this explicit task.");
-    expect(textByTestId("result")).toContain("2");
+    expect(textByTestId("result")).toContain("attached=1");
+    expect(textByTestId("result")).toContain("skipped=1");
+    expect(textByTestId("warnings")).toContain(
+      "Visible manual note: Notes/manual context cannot be durably attached",
+    );
   });
 
   it("empty prompt is rejected before Queue service call", async () => {
@@ -194,7 +207,10 @@ function QueueRunHarness({
   >[0]["contextItems"];
   readonly onResult?: (result: WorkspaceAgentV2QueueRunControllerResult) => void;
   readonly prompt?: string;
-  readonly queueBridge?: Pick<WorkspaceAgentQueueBridge, "createItem"> | null;
+  readonly queueBridge?: Pick<
+    WorkspaceAgentQueueBridge,
+    "attachKnowledgeToQueueTask" | "attachSkillToQueueTask" | "createItem"
+  > | null;
   readonly startAssignedAgentQueueTask?: () => void;
   readonly visibleContextSnapshot?: AgentContextSnapshot;
 }) {
@@ -220,7 +236,9 @@ function QueueRunHarness({
               controller.result.createdTask?.id,
               controller.result.createdTask?.title,
               controller.result.createdTask?.status,
-              controller.result.attachedContextCount,
+              `attached=${controller.result.attachedContextCount.toString()}`,
+              `skipped=${controller.result.skippedContextCount.toString()}`,
+              `sources=${controller.result.contextSourceLabels.join(",")}`,
               controller.result.openTaskAction?.action,
             ]
               .filter((value) => value !== undefined)
@@ -272,10 +290,14 @@ function textByTestId(testId: string) {
 }
 
 function queueBridge({
+  attachKnowledgeToQueueTask,
+  attachSkillToQueueTask,
   createItem,
   runAutonomousQueue,
   stopAutonomousQueueAfterCurrent,
 }: {
+  readonly attachKnowledgeToQueueTask?: WorkspaceAgentQueueBridge["attachKnowledgeToQueueTask"];
+  readonly attachSkillToQueueTask?: WorkspaceAgentQueueBridge["attachSkillToQueueTask"];
   readonly createItem: (
     request: Omit<QueueCreateItemRequest, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>>;
@@ -284,6 +306,8 @@ function queueBridge({
 }): Pick<WorkspaceAgentQueueBridge, "createItem"> &
   Partial<WorkspaceAgentQueueBridge> {
   return {
+    attachKnowledgeToQueueTask,
+    attachSkillToQueueTask,
     createItem,
     runAutonomousQueue,
     stopAutonomousQueueAfterCurrent,
@@ -365,6 +389,27 @@ function queueItem(
     sandbox: null,
     status: "draft",
     title: "Create a Queue task only.",
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
+}
+
+function agentQueueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
+  return {
+    approvalPolicy: null,
+    assignedExecutorWidgetId: null,
+    codexExecutable: null,
+    createdAt: "2026-06-09T10:00:00.000Z",
+    description: "",
+    executionPolicy: "manual",
+    executionWorkspace: null,
+    priority: 0,
+    prompt: "Create a Queue task only.",
+    queueItemId: "queue-item-1",
+    sandbox: null,
+    status: "draft",
+    title: "Create a Queue task only.",
+    updatedAt: "2026-06-09T10:00:00.000Z",
     workspaceId: "workspace-1",
     ...overrides,
   };
