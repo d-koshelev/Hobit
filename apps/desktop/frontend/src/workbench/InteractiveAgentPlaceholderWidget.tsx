@@ -854,6 +854,7 @@ export function InteractiveAgentPlaceholderWidget({
                   onSelectWorkspaceDirectory,
                   onStopDirectWork: () => void directWork.handleStopDirectWork(),
                   runId: directWork.directWorkRunId,
+                  runMetadata: directWork.directWorkRunMetadata,
                   status: directWork.directWorkStatus,
                   threadId: directWork.activeThreadId,
                   threadNotice: directWork.threadNotice,

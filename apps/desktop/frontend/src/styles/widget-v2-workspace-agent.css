@@ -58,6 +58,10 @@
   align-content: start;
 }
 
+.workspace-agent-v2-activity-groups {
+  align-content: start;
+}
+
 .workspace-agent-v2-activity-header,
 .workspace-agent-v2-run-activity-summary,
 .workspace-agent-v2-run-activity-meta {

@@ -97,6 +97,26 @@ export function runMetadataTokenLabel(
   return parts.length > 0 ? parts.join(", ") : null;
 }
 
+export function runMetadataCompactSummary(
+  metadata: WorkspaceAgentRunMetadata,
+) {
+  const parts = [
+    runMetadataStatusLabel(metadata.status),
+    `${metadata.stepCount.toString()} ${
+      metadata.stepCount === 1 ? "step" : "steps"
+    }`,
+    runMetadataDurationLabel(metadata.durationMs),
+    runMetadataThreadLabel(metadata.threadId)
+      ? `thread ${runMetadataThreadLabel(metadata.threadId)}`
+      : null,
+    runMetadataTokenLabel(metadata.tokenUsage)
+      ? `tokens ${runMetadataTokenLabel(metadata.tokenUsage)}`
+      : null,
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(" - ");
+}
+
 function usagePart(value: number | undefined, label: string) {
   return value === undefined ? null : `${formatCount(value)} ${label}`;
 }

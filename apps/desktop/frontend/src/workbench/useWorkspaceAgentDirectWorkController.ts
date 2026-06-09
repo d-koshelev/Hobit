@@ -98,6 +98,8 @@ export function useWorkspaceAgentDirectWorkController({
   );
   const [directWorkFinalResult, setDirectWorkFinalResult] =
     useState<string | null>(null);
+  const [directWorkRunMetadata, setDirectWorkRunMetadata] =
+    useState<WorkspaceAgentRunMetadata | null>(null);
   const [currentCodexThread, setCurrentCodexThread] =
     useState<CodexThreadScope | null>(null);
   const [codexThreadNotice, setCodexThreadNotice] = useState<string | null>(
@@ -222,6 +224,7 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkError(null);
     setDirectWorkWarning(null);
     setDirectWorkFinalResult(null);
+    setDirectWorkRunMetadata(null);
     updateDirectWorkActivitySummary(
       workspaceAgentActivitySummaryForLocalStart(
         resumeThreadId ? "Starting agent turn" : "Starting Codex thread",
@@ -344,6 +347,7 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkError(null);
     setDirectWorkWarning(null);
     setDirectWorkFinalResult(null);
+    setDirectWorkRunMetadata(null);
     onRemoveVisibleAttachedContext();
     appendDirectWorkLog("Codex thread reset.", "local");
   }
@@ -379,6 +383,7 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkError(null);
     setDirectWorkWarning(null);
     setDirectWorkFinalResult(null);
+    setDirectWorkRunMetadata(null);
     setCurrentCodexThread(null);
     setCodexThreadNotice(null);
     setDirectWorkLogs([]);
@@ -502,21 +507,24 @@ export function useWorkspaceAgentDirectWorkController({
     }
     stopDirectWorkEventListening();
 
+    const runMetadata: WorkspaceAgentRunMetadata = {
+      durationMs: event.elapsedMs >= 0 ? event.elapsedMs : null,
+      status:
+        finalStatus === "completed" || finalStatus === "cancelled"
+          ? finalStatus
+          : "failed",
+      stepCount: finalActivitySummary.stepCount,
+      threadId:
+        directWorkCapturedThreadIdRef.current ?? event.codexThreadId ?? null,
+      tokenUsage: directWorkTokenUsageRef.current,
+    };
+    setDirectWorkRunMetadata(runMetadata);
+
     onAppendAssistantTranscript(
       finalStatus,
       finalResult,
       Boolean(finalAgentMessage),
-      {
-        durationMs: event.elapsedMs >= 0 ? event.elapsedMs : null,
-        status:
-          finalStatus === "completed" || finalStatus === "cancelled"
-            ? finalStatus
-            : "failed",
-        stepCount: finalActivitySummary.stepCount,
-        threadId:
-          directWorkCapturedThreadIdRef.current ?? event.codexThreadId ?? null,
-        tokenUsage: directWorkTokenUsageRef.current,
-      },
+      runMetadata,
     );
     directWorkRunScopeRef.current = null;
   }
@@ -547,6 +555,7 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkError(reason);
     setDirectWorkWarning(null);
     setDirectWorkFinalResult(null);
+    setDirectWorkRunMetadata(null);
     setDirectWorkActivitySummary((currentSummary) => {
       const nextSummary = workspaceAgentActivitySummaryForLocalFailure(
         currentSummary,
@@ -583,6 +592,7 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkFinalResult,
     directWorkLogs,
     directWorkRunId,
+    directWorkRunMetadata,
     directWorkSandbox,
     directWorkStatus,
     directWorkWarning,

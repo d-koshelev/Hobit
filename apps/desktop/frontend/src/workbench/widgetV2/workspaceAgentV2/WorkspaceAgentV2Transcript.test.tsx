@@ -127,6 +127,13 @@ describe("WorkspaceAgentV2Transcript", () => {
                   status: "suggested",
                 },
               ],
+              metadata: {
+                ...resultFixture().metadata,
+                tokenUsage: {
+                  inputTokens: 33_576,
+                  outputTokens: 118,
+                },
+              },
             }),
             title: "Direct Run result",
           },
@@ -137,7 +144,12 @@ describe("WorkspaceAgentV2Transcript", () => {
     expect(document.body.textContent).toContain("Completed");
     expect(document.body.textContent).toContain("codex-direct-work");
     expect(document.body.textContent).toContain("1.2s");
-    expect(document.body.textContent).toContain("Implemented the requested card.");
+    expect(document.body.textContent).toContain(
+      "Completed - 1.2s - tokens 33,576 in, 118 out",
+    );
+    expect(document.body.textContent).not.toContain(
+      "Implemented the requested card.",
+    );
     expect(document.body.textContent).toContain("File changes");
     expect(document.body.textContent).toContain("WorkspaceAgentV2ResultCard.tsx");
     expect(document.body.textContent).toContain("Validation suggestions");
@@ -170,6 +182,8 @@ describe("WorkspaceAgentV2Transcript", () => {
 
     expect(document.body.textContent).toContain("Failed");
     expect(document.body.textContent).toContain("provider unavailable");
+    expect(document.body.textContent).toContain("1 error");
+    expect(document.body.textContent).toContain("1 warning");
     expect(document.body.textContent).toContain("Warnings / errors");
     expect(document.body.textContent).toContain(
       "Runtime returned a failed final status.",
@@ -240,6 +254,35 @@ describe("WorkspaceAgentV2Transcript", () => {
     expect(details?.querySelector("summary")?.textContent).toBe(
       "Developer details",
     );
+    expect(details?.textContent).not.toContain("Done.");
+
+    await click(details?.querySelector("summary") ?? null);
+
+    expect(details?.textContent).toContain("Done.");
+  });
+
+  it("does not invent Direct Run tokens when metadata has none", async () => {
+    await render(
+      <WorkspaceAgentV2Transcript
+        messages={[
+          {
+            body: "Done.",
+            id: "result-1",
+            role: "result",
+            result: resultFixture({
+              metadata: {
+                ...resultFixture().metadata,
+                tokenUsage: null,
+              },
+            }),
+            title: "Direct Run result",
+          },
+        ]}
+      />,
+    );
+
+    expect(document.body.textContent).toContain("Completed - 1.2s");
+    expect(document.body.textContent).not.toContain("tokens");
   });
 });
 

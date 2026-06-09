@@ -61,6 +61,9 @@ describe("WorkspaceAgentV2ActivityPane", () => {
     );
 
     expect(groups).toHaveLength(2);
+    expect(
+      document.querySelector(".workspace-agent-v2-activity-groups"),
+    ).not.toBeNull();
     expect(groups[0]?.textContent).toContain("Current run");
     expect(groups[0]?.textContent).toContain("run-current");
     expect(groups[0]?.textContent).toContain("2 events");

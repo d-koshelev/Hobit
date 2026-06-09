@@ -15,7 +15,6 @@ import {
 } from "../renderMemoryGuards";
 import type { DirectWorkSandbox } from "../workspace/types";
 import {
-  compactDirectWorkText,
   directWorkDirectoryResolutionText,
   directWorkScratchWorkspaceSuggestion,
   knowledgeScopeLabel,
@@ -24,6 +23,10 @@ import {
   type WorkspaceAgentActivitySummary,
   type WorkspaceKnowledgeLookup,
 } from "./workspaceAgentDirectWorkModel";
+import {
+  runMetadataCompactSummary,
+  type WorkspaceAgentRunMetadata,
+} from "./workspaceAgentRunMetadata";
 
 export function WorkspaceAgentDirectModePanel({
   activitySummary,
@@ -42,6 +45,7 @@ export function WorkspaceAgentDirectModePanel({
   onSelectWorkspaceDirectory,
   runId,
   runDetailsAnchorRef,
+  runMetadata,
   settingsAnchorRef,
   threadNotice,
   warning,
@@ -62,6 +66,7 @@ export function WorkspaceAgentDirectModePanel({
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
   runId: string | null;
   runDetailsAnchorRef: RefObject<HTMLButtonElement | null>;
+  runMetadata: WorkspaceAgentRunMetadata | null;
   settingsAnchorRef: RefObject<HTMLButtonElement | null>;
   threadNotice: string | null;
   warning: string | null;
@@ -83,8 +88,8 @@ export function WorkspaceAgentDirectModePanel({
   const resolutionText = directWorkDirectoryResolutionText(directWorkDirectory);
   const scratchSuggestion =
     directWorkScratchWorkspaceSuggestion(directWorkDirectory);
-  const compactResult = finalResult
-    ? compactDirectWorkText(finalResult)
+  const compactRunSummary = runMetadata
+    ? compactRunSummaryWithIssues(runMetadata, { error, warning })
     : null;
   const activityLabel = workspaceAgentActivityLabel(activitySummary.status);
   const activityText =
@@ -312,9 +317,9 @@ export function WorkspaceAgentDirectModePanel({
               Git mutations remain forbidden unless explicitly requested.
             </span>
           ) : null}
-          {compactResult ? (
+          {compactRunSummary ? (
             <span className="interactive-agent-direct-mode-result-line">
-              Final: {compactResult}
+              {compactRunSummary}
             </span>
           ) : null}
         </div>
@@ -440,6 +445,19 @@ function workspaceAgentActivityLabel(
 
 function pluralizeStep(count: number) {
   return count === 1 ? "step" : "steps";
+}
+
+function compactRunSummaryWithIssues(
+  metadata: WorkspaceAgentRunMetadata,
+  issues: { error: string | null; warning: string | null },
+) {
+  const issueParts = [
+    issues.error ? "1 error" : null,
+    issues.warning ? "1 warning" : null,
+  ].filter((part): part is string => Boolean(part));
+  const issueText = issueParts.length > 0 ? ` - ${issueParts.join(", ")}` : "";
+
+  return `${runMetadataCompactSummary(metadata)}${issueText}`;
 }
 
 function copyStatusClassName(message: string) {

@@ -49,7 +49,7 @@ export function AgentActivityPanel({
       return;
     }
 
-    scrollTimelineToBottom(timeline);
+    scrollTimelineToTop(timeline);
   }, [
     runGroups.length,
     isFollowingLatest,
@@ -60,9 +60,7 @@ export function AgentActivityPanel({
 
   function handleTimelineScroll(event: UIEvent<HTMLOListElement>) {
     const timeline = event.currentTarget;
-    const distanceFromBottom =
-      timeline.scrollHeight - timeline.scrollTop - timeline.clientHeight;
-    setIsFollowingLatest(distanceFromBottom <= FOLLOW_LATEST_THRESHOLD_PX);
+    setIsFollowingLatest(timeline.scrollTop <= FOLLOW_LATEST_THRESHOLD_PX);
   }
 
   if (events.length === 0) {
@@ -236,7 +234,7 @@ function groupActivityEventsByRun(
     .sort((first, second) =>
       first.timestamp === second.timestamp
         ? first.id.localeCompare(second.id)
-        : first.timestamp - second.timestamp,
+        : second.timestamp - first.timestamp,
     );
 }
 
@@ -414,14 +412,14 @@ function badgeVariant(tone: ReturnType<typeof runTone>) {
   return tone === "neutral" ? "neutral" : tone;
 }
 
-function scrollTimelineToBottom(timeline: HTMLOListElement) {
+function scrollTimelineToTop(timeline: HTMLOListElement) {
   if (typeof timeline.scrollTo === "function") {
     timeline.scrollTo({
       behavior: "auto",
-      top: timeline.scrollHeight,
+      top: 0,
     });
     return;
   }
 
-  timeline.scrollTop = timeline.scrollHeight;
+  timeline.scrollTop = 0;
 }

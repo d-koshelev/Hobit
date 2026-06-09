@@ -81,6 +81,41 @@ describe("AgentActivityPanel", () => {
     expect(document.querySelector(".agent-activity-event-details")).toBeNull();
   });
 
+  it("renders event rows in a top-aligned newest-first timeline", () => {
+    render(
+      <AgentActivityPanel
+        events={[
+          activityEvent({
+            id: "old-event",
+            runId: "run-old",
+            timestamp: 1_000,
+            timestampLabel: "1s",
+            title: "Started old run",
+          }),
+          activityEvent({
+            id: "current-event",
+            runId: "run-current",
+            timestamp: 2_000,
+            timestampLabel: "2s",
+            title: "Started current run",
+          }),
+        ]}
+      />,
+    );
+
+    const timeline = document.querySelector<HTMLOListElement>(
+      "[data-agent-activity-timeline]",
+    );
+    const rows = Array.from(
+      document.querySelectorAll<HTMLButtonElement>(".agent-activity-event-row"),
+    );
+
+    expect(timeline?.className).toContain("agent-activity-panel");
+    expect(rows).toHaveLength(2);
+    expect(rows[0]?.textContent).toContain("Started current run");
+    expect(rows[1]?.textContent).toContain("Started old run");
+  });
+
   it("keeps details and raw previews collapsed by default", () => {
     render(
       <AgentActivityPanel
@@ -160,28 +195,33 @@ describe("AgentActivityPanel", () => {
 
     const rows = Array.from(document.querySelectorAll(".agent-activity-event"));
 
-    expect(rows[0]?.className).toContain("agent-activity-event-status-running");
-    expect(rows[0]?.querySelector(".status-dot")?.className).toContain(
+    const runningRow = rows.find((row) =>
+      row.className.includes("agent-activity-event-status-running"),
+    );
+    const completedRow = rows.find((row) =>
+      row.className.includes("agent-activity-event-status-completed"),
+    );
+    const failedRow = rows.find((row) =>
+      row.className.includes("agent-activity-event-status-failed"),
+    );
+
+    expect(runningRow?.querySelector(".status-dot")?.className).toContain(
       "status-dot-info",
     );
-    expect(rows[0]?.textContent).toContain("Running");
+    expect(runningRow?.textContent).toContain("Running");
 
-    expect(rows[1]?.className).toContain(
-      "agent-activity-event-status-completed",
-    );
-    expect(rows[1]?.querySelector(".status-dot")?.className).toContain(
+    expect(completedRow?.querySelector(".status-dot")?.className).toContain(
       "status-dot-success",
     );
-    expect(rows[1]?.textContent).toContain("Completed");
+    expect(completedRow?.textContent).toContain("Completed");
 
-    expect(rows[2]?.className).toContain("agent-activity-event-status-failed");
-    expect(rows[2]?.querySelector(".status-dot")?.className).toContain(
+    expect(failedRow?.querySelector(".status-dot")?.className).toContain(
       "status-dot-error",
     );
-    expect(rows[2]?.textContent).toContain("Failed");
+    expect(failedRow?.textContent).toContain("Failed");
   });
 
-  it("auto-scrolls while following latest activity and pauses after scrolling away", () => {
+  it("auto-scrolls to the top while following latest activity and pauses after scrolling away", () => {
     const scrollTo = vi.fn();
     Object.defineProperty(HTMLElement.prototype, "scrollTo", {
       configurable: true,
@@ -220,7 +260,7 @@ describe("AgentActivityPanel", () => {
     setScrollMetrics(timeline!, {
       clientHeight: 200,
       scrollHeight: 1000,
-      scrollTop: 780,
+      scrollTop: 10,
     });
     dispatchScroll(timeline!);
     scrollTo.mockClear();
@@ -237,7 +277,7 @@ describe("AgentActivityPanel", () => {
 
     expect(scrollTo).toHaveBeenCalledWith({
       behavior: "auto",
-      top: 1000,
+      top: 0,
     });
   });
 });

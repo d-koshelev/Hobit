@@ -109,6 +109,7 @@ function ComposerFixture() {
         onSelectWorkspaceDirectory: vi.fn(async () => null),
         onStopDirectWork: vi.fn(),
         runId: null,
+        runMetadata: null,
         status: "idle",
         threadId: null,
         threadNotice: null,

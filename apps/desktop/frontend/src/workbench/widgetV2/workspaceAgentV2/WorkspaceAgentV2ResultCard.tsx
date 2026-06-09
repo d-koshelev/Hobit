@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type {
   AgentFileChangeSummary,
   AgentRunResult,
@@ -12,12 +14,10 @@ type WorkspaceAgentV2ResultCardProps = {
 export function WorkspaceAgentV2ResultCard({
   result,
 }: WorkspaceAgentV2ResultCardProps) {
+  const [showDeveloperDetails, setShowDeveloperDetails] = useState(false);
   const metadata = summarizeAgentRunMetadata(result.metadata);
-  const responseText =
-    result.assistantText ??
-    result.errorMessage ??
-    "Direct Run finished without a final response.";
   const warnings = result.warnings ?? [];
+  const compactSummary = directRunCompactSummary(result, metadata);
 
   return (
     <section
@@ -47,8 +47,8 @@ export function WorkspaceAgentV2ResultCard({
       </dl>
 
       <section className="workspace-agent-v2-result-section">
-        <h5>Response</h5>
-        <p>{responseText}</p>
+        <h5>Summary</h5>
+        <p>{compactSummary}</p>
       </section>
 
       <FileChangesSection fileChanges={result.fileChanges} />
@@ -66,11 +66,32 @@ export function WorkspaceAgentV2ResultCard({
       </button>
 
       <details className="workspace-agent-v2-result-developer-details">
-        <summary>Developer details</summary>
-        <pre>{JSON.stringify(result, null, 2)}</pre>
+        <summary onClick={() => setShowDeveloperDetails(true)}>
+          Developer details
+        </summary>
+        {showDeveloperDetails ? <pre>{JSON.stringify(result, null, 2)}</pre> : null}
       </details>
     </section>
   );
+}
+
+function directRunCompactSummary(
+  result: AgentRunResult,
+  metadata: ReturnType<typeof summarizeAgentRunMetadata>,
+) {
+  const parts = [
+    metadata.lifecycleLabel,
+    metadata.durationLabel,
+    metadata.tokenUsageLabel ? `tokens ${metadata.tokenUsageLabel}` : null,
+    result.errorMessage ? "1 error" : null,
+    result.warnings && result.warnings.length > 0
+      ? `${result.warnings.length.toString()} ${
+          result.warnings.length === 1 ? "warning" : "warnings"
+        }`
+      : null,
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(" - ");
 }
 
 function ResultMetaItem({

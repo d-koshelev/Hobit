@@ -1486,6 +1486,8 @@
 
 .agent-activity-panel {
   display: grid;
+  align-content: start;
+  align-self: start;
   max-height: min(520px, 64vh);
   min-width: 0;
   gap: 3px;

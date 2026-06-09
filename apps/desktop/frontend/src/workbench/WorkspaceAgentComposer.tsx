@@ -18,6 +18,7 @@ import {
 import { WorkspaceAgentDirectModePanel } from "./WorkspaceAgentDirectModePanel";
 import { WorkspaceAgentVisibleContextPanel } from "./WorkspaceAgentVisibleContextPanel";
 import type { WorkspaceAgentVisibleContext } from "./workspaceAgentVisibleContext";
+import type { WorkspaceAgentRunMetadata } from "./workspaceAgentRunMetadata";
 
 type WorkspaceAgentComposerDirectMode = {
   activitySummary: WorkspaceAgentActivitySummary;
@@ -30,6 +31,7 @@ type WorkspaceAgentComposerDirectMode = {
   isStopPending: boolean;
   knowledgeLookup: WorkspaceKnowledgeLookup;
   logs: CoordinatorDirectWorkLogEntry[];
+  runMetadata: WorkspaceAgentRunMetadata | null;
   onDirectoryChange: (value: string) => void;
   onSandboxChange: (value: DirectWorkSandbox) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
@@ -257,6 +259,7 @@ export function WorkspaceAgentComposer({
           onSandboxChange={directMode.onSandboxChange}
           onSelectWorkspaceDirectory={directMode.onSelectWorkspaceDirectory}
           runId={directMode.runId}
+          runMetadata={directMode.runMetadata}
           runDetailsAnchorRef={detailsButtonRef}
           settingsAnchorRef={settingsButtonRef}
           threadNotice={directMode.threadNotice}

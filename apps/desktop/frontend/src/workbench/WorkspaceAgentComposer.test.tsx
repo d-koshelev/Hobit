@@ -203,6 +203,7 @@ function ComposerHarness({
               onSelectWorkspaceDirectory: vi.fn(async () => null),
               onStopDirectWork: vi.fn(),
               runId: null,
+              runMetadata: null,
               status: "idle",
               threadId,
               threadNotice: null,

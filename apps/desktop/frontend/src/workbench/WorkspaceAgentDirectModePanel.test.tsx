@@ -246,6 +246,81 @@ describe("WorkspaceAgentDirectModePanel", () => {
     );
   });
 
+  it("renders compact completed run metadata instead of final text inline", () => {
+    renderPanel({
+      activitySummary: {
+        latestTitle: "Completed run",
+        severity: "success",
+        shortText: "Completed run",
+        status: "completed",
+        stepCount: 10,
+      },
+      finalResult: "Full assistant final response should stay in details.",
+      runMetadata: {
+        durationMs: 11_000,
+        status: "completed",
+        stepCount: 10,
+        threadId: "019ea9ad123456789",
+        tokenUsage: {
+          inputTokens: 33_576,
+          outputTokens: 118,
+        },
+      },
+    });
+
+    expect(document.body.textContent).toContain(
+      "Completed - 10 steps - 11s - thread 019ea9ad... - tokens 33,576 in, 118 out",
+    );
+    expect(document.body.textContent).not.toContain("Final:");
+    expect(document.body.textContent).not.toContain(
+      "Full assistant final response should stay in details.",
+    );
+  });
+
+  it("keeps Run details available for full final response and logs", () => {
+    renderPanel({
+      finalResult: "Full assistant final response in details.",
+      isDetailsOpen: true,
+      logs: [
+        {
+          id: "log-1",
+          kind: "final_message",
+          text: "Final: raw log text in details only.",
+        },
+      ],
+      runMetadata: {
+        durationMs: 1100,
+        status: "completed",
+        stepCount: 1,
+        threadId: null,
+        tokenUsage: null,
+      },
+    });
+
+    expect(document.body.textContent).toContain("Run details");
+    expect(document.body.textContent).toContain(
+      "Full assistant final response in details.",
+    );
+    expect(document.body.textContent).toContain(
+      "Final: raw log text in details only.",
+    );
+  });
+
+  it("does not invent token usage when token metadata is unavailable", () => {
+    renderPanel({
+      runMetadata: {
+        durationMs: 1100,
+        status: "completed",
+        stepCount: 1,
+        threadId: null,
+        tokenUsage: null,
+      },
+    });
+
+    expect(document.body.textContent).toContain("Completed - 1 step - 1.1s");
+    expect(document.body.textContent).not.toContain("tokens");
+  });
+
   it("does not render Agent Activity inside the Direct Work detail panel", () => {
     renderPanel();
 
@@ -277,6 +352,7 @@ function renderPanel(options: RenderPanelOptions = {}) {
       onSandboxChange={vi.fn()}
       onSelectWorkspaceDirectory={vi.fn(async () => null)}
       runId={null}
+      runMetadata={null}
       runDetailsAnchorRef={createRef<HTMLButtonElement>()}
       settingsAnchorRef={createRef<HTMLButtonElement>()}
       threadNotice={null}
