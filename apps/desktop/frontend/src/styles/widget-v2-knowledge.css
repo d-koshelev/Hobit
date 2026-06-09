@@ -1,0 +1,96 @@
+.knowledge-v2-toolbar,
+.knowledge-v2-list,
+.knowledge-v2-preview,
+.knowledge-v2-empty {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-sm);
+}
+
+.knowledge-v2-toolbar {
+  width: 100%;
+  grid-template-columns: minmax(220px, 1fr) minmax(120px, auto) minmax(120px, auto) auto;
+  align-items: end;
+}
+
+.knowledge-v2-search-field {
+  display: grid;
+  min-width: 0;
+  gap: var(--scaled-space-2xs);
+}
+
+.knowledge-v2-search-field span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 680;
+  line-height: var(--line-tight);
+}
+
+.knowledge-v2-toolbar input,
+.knowledge-v2-toolbar select {
+  min-width: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  color: var(--color-text-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+  padding: var(--space-xs);
+}
+
+.knowledge-v2-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+.knowledge-v2-header-summary {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.knowledge-v2-header-summary span {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface-raised);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+  padding: var(--scaled-space-2xs) var(--space-xs);
+}
+
+.knowledge-v2-empty,
+.knowledge-v2-preview {
+  align-content: start;
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-io-surface);
+  padding: var(--space-md);
+}
+
+.knowledge-v2-empty h3,
+.knowledge-v2-empty p,
+.knowledge-v2-preview h3,
+.knowledge-v2-preview p {
+  margin: 0;
+}
+
+.knowledge-v2-empty h3,
+.knowledge-v2-preview h3 {
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 740;
+  line-height: var(--line-tight);
+}
+
+.knowledge-v2-empty p,
+.knowledge-v2-preview p {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}

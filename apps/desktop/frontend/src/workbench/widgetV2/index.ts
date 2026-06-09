@@ -39,4 +39,6 @@ export {
 export type { WidgetV2Registry } from "./widgetV2Registry";
 
 export { QueueV2Widget } from "./queueV2";
+export { KnowledgeV2Header, KnowledgeV2Widget } from "./knowledgeV2";
+export type { KnowledgeV2WidgetProps } from "./knowledgeV2";
 export { WorkspaceAgentV2Widget } from "./workspaceAgentV2";

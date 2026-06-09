@@ -36,6 +36,28 @@ describe("Widget V2 registry", () => {
     });
   });
 
+  it("defines KnowledgeV2 as experimental without replacing Knowledge / Skills", () => {
+    expect(getWidgetV2Manifest("knowledge-v2")).toMatchObject({
+      kind: "knowledge-v2",
+      name: "KnowledgeV2",
+      productOwnerDomain: "knowledge",
+      status: "experimental",
+      title: "Knowledge Catalog v2",
+    });
+    expect(
+      getAvailableWidgetV2Manifests().some(
+        (manifest) => manifest.kind === "knowledge-v2",
+      ),
+    ).toBe(false);
+    expect(getWidgetDefinition("skill-library")).toMatchObject({
+      componentKey: "skill-library-widget",
+      defaultTitle: "Knowledge / Skills",
+      id: "skill-library",
+      title: "Knowledge / Skills",
+    });
+    expect(getWidgetDefinition("knowledge-v2")).toBeUndefined();
+  });
+
   it("keeps Widget V2 kinds unique", () => {
     const kinds = widgetV2Manifests.map((manifest) => manifest.kind);
 
