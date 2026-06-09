@@ -169,9 +169,15 @@ describe("KnowledgeV2Widget browser", () => {
     );
     expect(preview?.textContent).toContain("Release guide");
     expect(preview?.textContent).toContain(
-      "Desktop release body preview with validation notes.",
+      "Release checklist for desktop builds.",
     );
     expect(preview?.textContent).toContain("Release docs");
+    expect(preview?.textContent).toContain("Context usability");
+
+    await clickButton("Details");
+
+    const detailsPreview = regionByName("Knowledge preview");
+    expect(detailsPreview?.textContent).toContain("Attachments and source refs");
     expect(preview?.textContent).toContain("docs/release.md");
 
     await clickButton("React review");
@@ -183,6 +189,115 @@ describe("KnowledgeV2Widget browser", () => {
     expect(updatedPreview?.textContent).toContain("React review");
     expect(updatedPreview?.textContent).toContain("Use when reviewing React changes.");
     expect(updatedPreview?.textContent).toContain("Workspace Skill");
+  });
+
+  it("renders Overview summary, tags, and context state", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            quickSummary: "Release context summary.",
+            tags: "release,validation",
+          }),
+        ]}
+        onAttachContextToCoordinator={vi.fn()}
+        skills={[]}
+      />,
+    );
+
+    await clickButton("Release guide");
+
+    const preview = regionByName("Knowledge preview");
+    expect(preview?.textContent).toContain("Overview");
+    expect(preview?.textContent).toContain("Summary");
+    expect(preview?.textContent).toContain("Release context summary.");
+    expect(preview?.textContent).toContain("What it does");
+    expect(preview?.textContent).toContain("Use cases");
+    expect(preview?.textContent).toContain("release");
+    expect(preview?.textContent).toContain("validation");
+    expect(preview?.textContent).toContain("Context usability");
+    expect(preview?.textContent).toContain(
+      "Available for explicit visible attach",
+    );
+  });
+
+  it("renders Details source, scope, and attachments when present", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            createdByTaskId: "queue_task_1",
+            createdFromRunId: "run_1",
+            sourceRefs: [
+              {
+                kind: "docs_path",
+                label: "Release notes",
+                path: "docs/release.md",
+              },
+              {
+                kind: "queue_run",
+                label: "Draft run",
+                runId: "run_1",
+              },
+            ],
+          }),
+        ]}
+        skills={[]}
+      />,
+    );
+
+    await clickButton("Release guide");
+    await clickButton("Details");
+
+    const preview = regionByName("Knowledge preview");
+    expect(preview?.textContent).toContain("Source");
+    expect(preview?.textContent).toContain("Release docs");
+    expect(preview?.textContent).toContain("Docs Path");
+    expect(preview?.textContent).toContain("Workspace");
+    expect(preview?.textContent).toContain("2 source refs supplied.");
+    expect(preview?.textContent).toContain("Release notes");
+    expect(preview?.textContent).toContain("docs/release.md");
+    expect(preview?.textContent).toContain("Created by task");
+    expect(preview?.textContent).toContain("Queue Task 1");
+    expect(preview?.textContent).toContain("Created from run");
+    expect(preview?.textContent).toContain("Run 1");
+  });
+
+  it("renders unavailable Versions and Usage states without inventing history", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            version: 3,
+            versionSummary: "Current summary only.",
+          }),
+        ]}
+        skills={[]}
+      />,
+    );
+
+    await clickButton("Release guide");
+    await clickButton("Versions");
+
+    const versions = regionByName("Knowledge preview");
+    expect(versions?.textContent).toContain("Current version");
+    expect(versions?.textContent).toContain("V3");
+    expect(versions?.textContent).toContain("Current summary only.");
+    expect(versions?.textContent).toContain("Version history unavailable");
+    expect(versions?.textContent).toContain(
+      "Full version history is not wired",
+    );
+    expect(versions?.textContent).not.toContain("Previous version");
+
+    await clickButton("Usage");
+
+    const usage = regionByName("Knowledge preview");
+    expect(usage?.textContent).toContain("Usage tracking unavailable");
+    expect(usage?.textContent).toContain(
+      "No Workspace Agent, Queue, run, prompt, or widget usage data is being invented",
+    );
+    expect(usage?.textContent).not.toContain("Used by Workspace Agent");
+    expect(usage?.textContent).not.toContain("Used by Queue");
   });
 
   it("shows warning details for disabled and rejected items", async () => {

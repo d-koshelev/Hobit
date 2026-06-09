@@ -57,7 +57,13 @@ export type KnowledgeV2CatalogItem = {
   readonly tags: readonly string[];
   readonly sourceRefs: KnowledgeV2CatalogSourceRefs;
   readonly sourceRefCount: number;
+  readonly version?: string | null;
+  readonly versionSummary?: string | null;
   readonly createdAt?: string | null;
+  readonly createdBy?: string | null;
+  readonly createdByTaskId?: string | null;
+  readonly createdFromRunId?: string | null;
+  readonly reviewedAt?: string | null;
   readonly updatedAt?: string | null;
   readonly warnings: readonly KnowledgeV2CatalogWarning[];
   readonly searchableText: string;

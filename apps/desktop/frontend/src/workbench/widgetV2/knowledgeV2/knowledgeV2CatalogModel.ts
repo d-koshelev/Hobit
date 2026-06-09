@@ -103,6 +103,11 @@ export function normalizeKnowledgeV2DocumentItem(
     tags,
     title: document.title.trim() || "Untitled document",
     type,
+    version: document.version ? document.version.toString() : null,
+    versionSummary: document.versionSummary ?? null,
+    createdByTaskId: document.createdByTaskId ?? null,
+    createdFromRunId: document.createdFromRunId ?? null,
+    reviewedAt: document.reviewedAt ?? null,
     updatedAt: document.updatedAt,
     warnings,
   };
@@ -155,6 +160,9 @@ export function normalizeKnowledgeV2SkillItem(
     tags,
     title: skill.title.trim() || "Untitled skill",
     type: "skill",
+    version: null,
+    versionSummary: null,
+    reviewedAt: null,
     updatedAt: skill.updatedAt,
     warnings,
   };
