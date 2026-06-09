@@ -19,7 +19,10 @@ import {
   buildKnowledgeV2CatalogViewModel,
   defaultKnowledgeV2CatalogSelection,
 } from "./knowledgeV2CatalogModel";
-import type { KnowledgeV2CatalogFilters } from "./knowledgeV2CatalogTypes";
+import type {
+  KnowledgeV2CatalogFilters,
+  KnowledgeV2CatalogSort,
+} from "./knowledgeV2CatalogTypes";
 
 export type KnowledgeV2CatalogBrowserProps = {
   readonly documents: readonly KnowledgeDocument[];
@@ -29,11 +32,15 @@ export type KnowledgeV2CatalogBrowserProps = {
   readonly onAttachKnowledgeContextToQueueTask?: WidgetRenderProps["onAttachKnowledgeContextToQueueTask"];
   readonly skills: readonly Skill[];
   readonly status?: "loading" | "partial" | "ready" | "unavailable";
+  readonly viewMode?: "cards" | "list";
 };
 
 const defaultFilters: KnowledgeV2FilterValues = {
   availability: "all",
   lifecycle: "all",
+  scope: "all",
+  sort: "updated-desc",
+  tag: "",
   text: "",
   type: "all",
 };
@@ -46,6 +53,7 @@ export function KnowledgeV2CatalogBrowser({
   onAttachKnowledgeContextToQueueTask,
   skills,
   status = "ready",
+  viewMode = "list",
 }: KnowledgeV2CatalogBrowserProps) {
   const [filters, setFilters] = useState<KnowledgeV2FilterValues>(defaultFilters);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -66,8 +74,9 @@ export function KnowledgeV2CatalogBrowser({
           selectedItemId,
         },
         skills,
+        sort: filters.sort,
       }),
-    [catalogFilters, documents, selectedItemId, skills],
+    [catalogFilters, documents, filters.sort, selectedItemId, skills],
   );
 
   const selectedItem =
@@ -167,6 +176,7 @@ export function KnowledgeV2CatalogBrowser({
         <KnowledgeV2CatalogList
           hasItems={viewModel.items.length > 0}
           items={viewModel.filteredItems}
+          mode={viewMode}
           onSelectItem={selectItem}
           selectedItemId={selectedItemId}
         />
@@ -264,6 +274,8 @@ function knowledgeV2CatalogFiltersFromValues(
     lifecycleStates: values.lifecycle === "all" ? [] : [values.lifecycle],
     searchable:
       values.availability === "not_searchable" ? "not_searchable" : "all",
+    scopes: values.scope === "all" ? [] : [values.scope],
+    tags: values.tag.trim() ? [values.tag] : [],
     text: values.text,
     types: values.type === "all" ? [] : [values.type],
   };

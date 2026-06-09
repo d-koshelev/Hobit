@@ -39,6 +39,16 @@ describe("KnowledgeV2Widget browser", () => {
     );
 
     expect(headingWithText("Knowledge Catalog v2")).not.toBeNull();
+    expect(regionByName("Knowledge catalog items")?.getAttribute("role")).toBe(
+      "table",
+    );
+    expect(text()).toContain("Title");
+    expect(text()).toContain("Type");
+    expect(text()).toContain("Status");
+    expect(text()).toContain("Scope");
+    expect(text()).toContain("Tags");
+    expect(text()).toContain("Updated");
+    expect(text()).toContain("Actions");
     expect(text()).toContain("Release guide");
     expect(text()).toContain("React review");
     expect(text()).toContain("Document");
@@ -87,6 +97,14 @@ describe("KnowledgeV2Widget browser", () => {
       />,
     );
 
+    expect(inputByLabel("Search Knowledge catalog")).not.toBeNull();
+    expect(selectByLabel("Filter Knowledge catalog by type")).not.toBeNull();
+    expect(selectByLabel("Filter Knowledge catalog by status")).not.toBeNull();
+    expect(selectByLabel("Filter Knowledge catalog by scope")).not.toBeNull();
+    expect(inputByLabel("Filter Knowledge catalog by tag")).not.toBeNull();
+    expect(selectByLabel("Sort Knowledge catalog")).not.toBeNull();
+    expect(text()).toContain("More filters");
+
     await changeSelect("Filter Knowledge catalog by type", "skill");
 
     expect(text()).not.toContain("Release guide");
@@ -98,6 +116,29 @@ describe("KnowledgeV2Widget browser", () => {
     expect(text()).not.toContain("React review");
     expect(text()).toContain("No search results.");
     expect(text()).toContain("0 / 2");
+  });
+
+  it("toggles between default dense list and optional cards view", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        skills={[skillFixture()]}
+      />,
+    );
+
+    expect(regionByName("Knowledge catalog items")?.getAttribute("role")).toBe(
+      "table",
+    );
+    expect(buttonWithText("List")?.getAttribute("aria-pressed")).toBe("true");
+    expect(buttonWithText("Cards")?.getAttribute("aria-pressed")).toBe("false");
+
+    await clickButton("Cards");
+
+    expect(regionByName("Knowledge catalog items")?.getAttribute("role")).toBe(
+      "list",
+    );
+    expect(buttonWithText("List")?.getAttribute("aria-pressed")).toBe("false");
+    expect(buttonWithText("Cards")?.getAttribute("aria-pressed")).toBe("true");
   });
 
   it("updates the preview when an item is selected", async () => {
@@ -123,6 +164,9 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("Release guide");
 
     const preview = regionByName("Knowledge preview");
+    expect(rowByTitle("Release guide")?.getAttribute("data-selected")).toBe(
+      "true",
+    );
     expect(preview?.textContent).toContain("Release guide");
     expect(preview?.textContent).toContain(
       "Desktop release body preview with validation notes.",
@@ -133,6 +177,9 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("React review");
 
     const updatedPreview = regionByName("Knowledge preview");
+    expect(rowByTitle("React review")?.getAttribute("data-selected")).toBe(
+      "true",
+    );
     expect(updatedPreview?.textContent).toContain("React review");
     expect(updatedPreview?.textContent).toContain("Use when reviewing React changes.");
     expect(updatedPreview?.textContent).toContain("Workspace Skill");
@@ -185,9 +232,20 @@ describe("KnowledgeV2Widget browser", () => {
     expect(text()).not.toContain("Catalog list placeholder");
     expect(text()).not.toContain("Preview/details placeholder");
     expect(buttonWithText("New Knowledge")).not.toBeNull();
+    expect(buttonWithText("List")).not.toBeNull();
+    expect(buttonWithText("Cards")).not.toBeNull();
     expect(buttonWithText("Import file")).not.toBeNull();
     expect(buttonWithText("Draft Review")).not.toBeNull();
     expect(buttonWithText("Manage Skills")).not.toBeNull();
+    expect(
+      document.querySelector("[aria-label='KnowledgeV2 helper rail']"),
+    ).toBeNull();
+    expect(
+      document.querySelector("[aria-label='KnowledgeV2 legend rail']"),
+    ).toBeNull();
+    expect(
+      document.querySelector("[aria-label='KnowledgeV2 tips rail']"),
+    ).toBeNull();
     expect(text()).not.toContain("draft payload");
     expect(text()).not.toContain("Raw draft contents");
     expect(text()).not.toContain("file picker or path import form");
@@ -615,6 +673,11 @@ function dialogByName(name: string): HTMLElement | null {
       (element) => element.textContent?.includes(name),
     ) ?? null
   );
+}
+
+function rowByTitle(title: string): HTMLElement | null {
+  const titleButton = buttonWithText(title);
+  return titleButton?.closest<HTMLElement>(".knowledge-v2-row") ?? null;
 }
 
 function documentFixture(

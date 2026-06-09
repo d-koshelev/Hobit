@@ -22,7 +22,9 @@ type KnowledgeV2ActionsProps = {
   readonly onImport?: () => void;
   readonly onManageSkills?: () => void;
   readonly onNew?: () => void;
+  readonly onViewModeChange?: (mode: "cards" | "list") => void;
   readonly skills: readonly Skill[];
+  readonly viewMode?: "cards" | "list";
 };
 
 type ActionConfig = {
@@ -45,7 +47,9 @@ export function KnowledgeV2Actions({
   onImport,
   onManageSkills,
   onNew,
+  onViewModeChange,
   skills,
+  viewMode = "list",
 }: KnowledgeV2ActionsProps) {
   const [openAction, setOpenAction] = useState<KnowledgeV2ActionKind | null>(
     null,
@@ -75,6 +79,22 @@ export function KnowledgeV2Actions({
         aria-label="KnowledgeV2 explicit actions"
         className="knowledge-v2-actions"
       >
+        <div aria-label="KnowledgeV2 view mode" className="knowledge-v2-view-toggle">
+          <Button
+            aria-pressed={viewMode === "list"}
+            onClick={() => onViewModeChange?.("list")}
+            variant={viewMode === "list" ? "primary" : "secondary"}
+          >
+            List
+          </Button>
+          <Button
+            aria-pressed={viewMode === "cards"}
+            onClick={() => onViewModeChange?.("cards")}
+            variant={viewMode === "cards" ? "primary" : "secondary"}
+          >
+            Cards
+          </Button>
+        </div>
         {ACTIONS.map((action) => (
           <Button
             key={action.kind}

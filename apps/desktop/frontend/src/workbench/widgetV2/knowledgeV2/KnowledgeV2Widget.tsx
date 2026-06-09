@@ -40,6 +40,7 @@ export function KnowledgeV2Widget({
   onNew,
   skills,
 }: KnowledgeV2WidgetProps = {}) {
+  const [viewMode, setViewMode] = useState<"cards" | "list">("list");
   const dataBridge = useKnowledgeV2DataBridge({
     draftReviews,
     documents,
@@ -64,11 +65,29 @@ export function KnowledgeV2Widget({
           onImport={onImport}
           onManageSkills={onManageSkills}
           onNew={onNew}
+          onViewModeChange={setViewMode}
           skills={dataBridge.skills}
+          viewMode={viewMode}
         />
       }
+      info={{
+        content: (
+          <div className="knowledge-v2-help-popover">
+            <p>
+              KnowledgeV2 is an experimental list-first catalog over existing
+              Knowledge Documents and Skills data.
+            </p>
+            <p>
+              Selection only updates the preview. New, import, draft review,
+              Skill management, and context use stay explicit.
+            </p>
+          </div>
+        ),
+        label: "KnowledgeV2 information",
+        title: "KnowledgeV2",
+      }}
       status={status}
-      subtitle="Browse and preview passed Knowledge Documents and Skills. Creation, import, draft review, indexing, storage, and backend behavior stay outside this surface."
+      subtitle="Dense catalog review for Knowledge Documents and Skills. Production Knowledge / Skills remains unchanged."
       title={knowledgeV2Manifest?.title ?? "Knowledge v2"}
     >
       <KnowledgeV2CatalogBrowser
@@ -79,6 +98,7 @@ export function KnowledgeV2Widget({
         onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
         skills={dataBridge.skills}
         status={dataBridge.status}
+        viewMode={viewMode}
       />
     </WidgetV2Shell>
   );

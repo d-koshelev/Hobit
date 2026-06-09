@@ -70,7 +70,7 @@ export function KnowledgeV2PreviewPanel({
         className="knowledge-v2-preview knowledge-v2-empty"
       >
         <h3>Select an item.</h3>
-        <p>Choose a catalog card to inspect lifecycle, source, and warnings.</p>
+        <p>Choose a catalog row to inspect lifecycle, source, and warnings.</p>
       </section>
     );
   }

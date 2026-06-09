@@ -3,6 +3,7 @@ import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
 type KnowledgeV2CatalogListProps = {
   readonly hasItems: boolean;
   readonly items: readonly KnowledgeV2CatalogItem[];
+  readonly mode?: "cards" | "list";
   readonly selectedItemId: string | null;
   readonly onSelectItem: (itemId: string) => void;
 };
@@ -10,6 +11,7 @@ type KnowledgeV2CatalogListProps = {
 export function KnowledgeV2CatalogList({
   hasItems,
   items,
+  mode = "list",
   onSelectItem,
   selectedItemId,
 }: KnowledgeV2CatalogListProps) {
@@ -37,16 +39,111 @@ export function KnowledgeV2CatalogList({
     );
   }
 
+  if (mode === "cards") {
+    return (
+      <div
+        aria-label="Knowledge catalog items"
+        className="knowledge-v2-list knowledge-v2-card-list"
+        role="list"
+      >
+        {items.map((item) => (
+          <KnowledgeV2CatalogCard
+            item={item}
+            key={item.id}
+            onSelectItem={onSelectItem}
+            selected={item.id === selectedItemId}
+          />
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div aria-label="Knowledge catalog items" className="knowledge-v2-list" role="list">
+    <div
+      aria-label="Knowledge catalog items"
+      className="knowledge-v2-list knowledge-v2-dense-list"
+      role="table"
+    >
+      <div className="knowledge-v2-row knowledge-v2-row-header" role="row">
+        <span role="columnheader">Title</span>
+        <span role="columnheader">Type</span>
+        <span role="columnheader">Status</span>
+        <span role="columnheader">Scope</span>
+        <span role="columnheader">Tags</span>
+        <span role="columnheader">Updated</span>
+        <span role="columnheader">Actions</span>
+      </div>
       {items.map((item) => (
-        <KnowledgeV2CatalogCard
+        <KnowledgeV2CatalogRow
           item={item}
           key={item.id}
           onSelectItem={onSelectItem}
           selected={item.id === selectedItemId}
         />
       ))}
+    </div>
+  );
+}
+
+type KnowledgeV2CatalogRowProps = {
+  readonly item: KnowledgeV2CatalogItem;
+  readonly selected: boolean;
+  readonly onSelectItem: (itemId: string) => void;
+};
+
+export function KnowledgeV2CatalogRow({
+  item,
+  onSelectItem,
+  selected,
+}: KnowledgeV2CatalogRowProps) {
+  const warningCount = item.warnings.length;
+
+  return (
+    <div
+      aria-selected={selected}
+      className="knowledge-v2-row"
+      data-selected={selected ? "true" : "false"}
+      role="row"
+    >
+      <button
+        className="knowledge-v2-row-title"
+        onClick={() => onSelectItem(item.id)}
+        role="cell"
+        type="button"
+      >
+        <span>{item.title}</span>
+        <small>{item.summary}</small>
+      </button>
+      <span role="cell">{formatToken(item.type)}</span>
+      <span role="cell">
+        <span className="knowledge-v2-chip" data-tone={toneForLifecycle(item.lifecycleState)}>
+          {formatToken(item.lifecycleState)}
+        </span>
+      </span>
+      <span role="cell">{formatScope(item.source.scope)}</span>
+      <span role="cell">
+        {item.tags.length > 0 ? (
+          <span className="knowledge-v2-row-tags">
+            {item.tags.slice(0, 2).map((tag) => (
+              <span className="knowledge-v2-tag" key={tag}>
+                {tag}
+              </span>
+            ))}
+            {item.tags.length > 2 ? (
+              <span className="knowledge-v2-tag">+{item.tags.length - 2}</span>
+            ) : null}
+          </span>
+        ) : (
+          <span className="knowledge-v2-muted">None</span>
+        )}
+      </span>
+      <span role="cell">{formatDate(item.updatedAt)}</span>
+      <span className="knowledge-v2-row-actions" role="cell">
+        <button onClick={() => onSelectItem(item.id)} type="button">
+          Preview
+        </button>
+        {warningCount > 0 ? <span>{warningCount} warn</span> : null}
+      </span>
     </div>
   );
 }
@@ -115,6 +212,19 @@ function formatToken(value: string) {
     .split("_")
     .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function formatDate(value?: string | null) {
+  if (!value) {
+    return "Not set";
+  }
+
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) {
+    return "Invalid";
+  }
+
+  return parsed.toISOString().slice(0, 10);
 }
 
 function toneForLifecycle(value: KnowledgeV2CatalogItem["lifecycleState"]) {

@@ -1,6 +1,7 @@
 import type {
   KnowledgeV2CatalogItemType,
   KnowledgeV2CatalogLifecycleState,
+  KnowledgeV2CatalogSort,
 } from "./knowledgeV2CatalogTypes";
 
 export type KnowledgeV2FilterValues = {
@@ -8,6 +9,9 @@ export type KnowledgeV2FilterValues = {
   readonly type: "all" | KnowledgeV2CatalogItemType;
   readonly lifecycle: "all" | KnowledgeV2CatalogLifecycleState;
   readonly availability: "all" | "enabled" | "disabled" | "not_searchable";
+  readonly scope: "all" | "global" | "workspace";
+  readonly tag: string;
+  readonly sort: KnowledgeV2CatalogSort;
 };
 
 type KnowledgeV2FiltersProps = {
@@ -48,6 +52,26 @@ const availabilityOptions: ReadonlyArray<{
   { label: "Enabled", value: "enabled" },
   { label: "Disabled", value: "disabled" },
   { label: "Not searchable", value: "not_searchable" },
+];
+
+const scopeOptions: ReadonlyArray<{
+  readonly label: string;
+  readonly value: KnowledgeV2FilterValues["scope"];
+}> = [
+  { label: "Any scope", value: "all" },
+  { label: "Workspace", value: "workspace" },
+  { label: "Global", value: "global" },
+];
+
+const sortOptions: ReadonlyArray<{
+  readonly label: string;
+  readonly value: KnowledgeV2CatalogSort;
+}> = [
+  { label: "Updated desc", value: "updated-desc" },
+  { label: "Updated asc", value: "updated-asc" },
+  { label: "Title A-Z", value: "title-asc" },
+  { label: "Title Z-A", value: "title-desc" },
+  { label: "Type", value: "type-asc" },
 ];
 
 export function KnowledgeV2Filters({
@@ -93,9 +117,9 @@ export function KnowledgeV2Filters({
         </select>
       </label>
       <label className="knowledge-v2-select-field">
-        <span>Lifecycle</span>
+        <span>Status</span>
         <select
-          aria-label="Filter Knowledge catalog by lifecycle"
+          aria-label="Filter Knowledge catalog by status"
           onChange={(event) =>
             onChange({
               ...value,
@@ -113,19 +137,75 @@ export function KnowledgeV2Filters({
         </select>
       </label>
       <label className="knowledge-v2-select-field">
-        <span>Status</span>
+        <span>Scope</span>
         <select
-          aria-label="Filter Knowledge catalog by availability"
+          aria-label="Filter Knowledge catalog by scope"
           onChange={(event) =>
             onChange({
               ...value,
-              availability: event.currentTarget
-                .value as KnowledgeV2FilterValues["availability"],
+              scope: event.currentTarget.value as KnowledgeV2FilterValues["scope"],
             })
           }
-          value={value.availability}
+          value={value.scope}
         >
-          {availabilityOptions.map((option) => (
+          {scopeOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="knowledge-v2-search-field knowledge-v2-tag-field">
+        <span>Tags</span>
+        <input
+          aria-label="Filter Knowledge catalog by tag"
+          onChange={(event) =>
+            onChange({
+              ...value,
+              tag: event.currentTarget.value,
+            })
+          }
+          placeholder="tag"
+          type="search"
+          value={value.tag}
+        />
+      </label>
+      <details className="knowledge-v2-more-filters">
+        <summary>More filters</summary>
+        <label className="knowledge-v2-select-field">
+          <span>Availability</span>
+          <select
+            aria-label="Filter Knowledge catalog by availability"
+            onChange={(event) =>
+              onChange({
+                ...value,
+                availability: event.currentTarget
+                  .value as KnowledgeV2FilterValues["availability"],
+              })
+            }
+            value={value.availability}
+          >
+            {availabilityOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      </details>
+      <label className="knowledge-v2-select-field">
+        <span>Sort</span>
+        <select
+          aria-label="Sort Knowledge catalog"
+          onChange={(event) =>
+            onChange({
+              ...value,
+              sort: event.currentTarget.value as KnowledgeV2CatalogSort,
+            })
+          }
+          value={value.sort}
+        >
+          {sortOptions.map((option) => (
             <option key={option.value} value={option.value}>
               {option.label}
             </option>
