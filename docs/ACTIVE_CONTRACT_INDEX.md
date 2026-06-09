@@ -149,6 +149,13 @@ of truth for their domains.
   and non-goals. It does not add frontend behavior, backend/storage/schema
   changes, hidden context injection, auto-import/create/run behavior, or
   replace current Knowledge / Skills.
+- `docs/KNOWLEDGE_V2_VISUAL_HARDENING_STATUS.md` - docs-only status record
+  for KnowledgeV2 Visual Hardening Block 001. It records the completed visual
+  target alignment, dense catalog layout, preview details, action popups,
+  target-based context picker, lifecycle/empty/unavailable state polish,
+  manual smoke checklist, remaining bridge/import/draft-review gaps, and the
+  decision not to replace legacy Knowledge / Skills yet. It does not add
+  behavior or override current Knowledge / Skills.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
