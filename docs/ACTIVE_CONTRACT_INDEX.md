@@ -136,6 +136,12 @@ of truth for their domains.
   Queue context, context materialization/evidence, source refs, safety status,
   docs drift, maintainability risks, and remaining manual smoke. It does not
   add behavior or override current widget contracts.
+- `docs/KNOWLEDGE_V2_STATUS.md` - docs-only status record for KnowledgeV2
+  Foundation Block 001. It records the experimental frontend KnowledgeV2
+  manifest/shell, unified Documents plus Skills catalog model, browse/preview
+  surface, explicit action popups, partial data/action bridges, safe context
+  affordances, limitations, smoke checklist, and next blocks. It does not add
+  behavior or replace current Knowledge / Skills.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
