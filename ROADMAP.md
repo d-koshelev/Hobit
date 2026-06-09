@@ -2,16 +2,17 @@
 
 This roadmap defines the intended foundation order for Hobit. Early phases establish product contracts and repository structure, and current implementation work continues to exercise those contracts through the Workbench shell.
 
-## Coordinator-Centered Workbench Direction
+## Workspace Agent-Centered Workbench Direction
 
 The updated product model is defined in
 `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`.
 
-Coordinator Chat is the primary operator-facing AI surface. The operator uses
-Coordinator Chat to describe problems, explore solutions, and ask Hobit to use
+Workspace Agent is the primary operator-facing AI surface. The operator uses
+Workspace Agent to describe problems, explore solutions, and ask Hobit to use
 available widgets as controlled tools/proxies. Widgets expose controlled
-capabilities; Agent Queue organizes executable tasks; Agent Executors execute
-tasks and provide visibility; the operator controls autonomy and approvals.
+capabilities; Agent Queue organizes promoted async tasks and executor history;
+Agent Executor provides supporting Direct Work runtime/detail; the operator
+controls autonomy and approvals.
 The widget capability/tool boundary is defined in
 `docs/WIDGET_CAPABILITY_TOOL_CONTRACT.md`.
 The Evidence/Sources trust boundary is defined in
@@ -19,14 +20,14 @@ The Evidence/Sources trust boundary is defined in
 
 Near-term product direction:
 
-- keep the existing Interactive Agent implementation path repositioned as
-  Coordinator Chat
+- keep the existing `interactive-agent` implementation path as the Workspace
+  Agent compatibility foundation
 - do not keep separate freeform Interactive Agent plus Coordinator concepts
-- keep Agent Queue as task organization for Agent Executors, not the main chat
-  or global orchestrator
-- keep Agent Executor focused on task execution, live logs, result, diff,
-  validation, history, and stop/cancel
-- keep Runbook preview/minimal and deferred from active roadmap
+- keep Agent Queue as task organization and execution-follow-up, not the main
+  chat or global orchestrator
+- keep Agent Executor as supporting Direct Work runtime/detail for explicit
+  execution, live logs, result, diff, validation, history, and stop/cancel
+- keep Runbook as a Preview local/manual procedural surface
 - make JDBC/Database Connector a first-version scope candidate under
   `docs/JDBC_WIDGET_CONTRACT.md` and its read-only-by-default capability model;
   the current Preview widget manages connector metadata only
@@ -52,30 +53,31 @@ The near-term agent/work surface model is defined in
 The current post-cleanup widget inventory is summarized in
 `docs/CURRENT_WIDGET_SURFACE.md`.
 
-The model now separates Coordinator conversation/planning, Queue task
-organization, Executor execution visibility, and deferred procedural Runbook
+The model now separates Workspace Agent conversation/planning, Queue task
+organization, Executor execution visibility, and procedural Runbook preview
 work:
 
-- Agent Executor: run one task and show execution.
-- Agent Queue: organize tasks and executor history.
-- Coordinator Chat: understand, plan, propose widget actions, and interpret
+- Workspace Agent: understand, plan, propose widget actions, and interpret
   results.
-- Runbook: follow and manage procedural steps.
+- Agent Queue: organize tasks and executor history.
+- Agent Executor: run one explicit task and show execution detail.
+- Runbook Preview: follow and manage local/manual procedural steps.
 
-Interactive Agent future work is now Coordinator Chat compatibility work and
+Interactive Agent future work is now Workspace Agent compatibility work and
 must follow `docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md` and
 `docs/INTERACTIVE_AGENT_WIDGET_CONTRACT.md`: the existing local chat foundation
-is the Coordinator Chat placeholder rather than a second primary chat surface.
+is the Workspace Agent compatibility foundation rather than a second primary
+chat surface.
 
 Runbook future work must follow `docs/RUNBOOK_WIDGET_CONTRACT.md`: it is a
 step-based procedural widget, not Queue execution, Agent Executor dispatch,
-Coordinator Chat behavior, Terminal automation, Git
+Workspace Agent behavior, Terminal automation, Git
 mutation, or a hidden tool runner.
 
 Future Agent Queue task work is contract-gated by
 `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`: Agent Queue is a Workspace-level
 task and history surface with future dependencies, executor capacity, and
-manual assignment. Agent Queue is not Coordinator Chat, not a scheduler, and
+manual assignment. Agent Queue is not Workspace Agent, not a scheduler, and
 not a global orchestrator.
 Manual Queue-to-Executor assignment is contract-gated by
 `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md`; assignment is visible operator
@@ -103,8 +105,9 @@ one-shot Direct Work runner for an explicit execution workspace path and
 operator prompt. The app/Tauri boundary now exposes a focused one-shot
 `run_codex_direct_work` command that persists Direct Work widget run/log/result
 artifacts for an allowed Agent Executor (`agent-run`) widget instance.
-Direct Work / Codex is now surfaced as a Ready Widget Catalog surface while
-reusing the existing `agent-run` widget identity. The frontend lets the
+Direct Work / Codex is surfaced through Agent Executor supporting runtime/detail
+and explicit Queue execution paths while reusing the existing `agent-run`
+widget identity for compatibility. The frontend lets the
 operator paste a prompt, execution workspace, and Codex executable in Advanced; on
 Windows the backend resolver tries `codex`, `codex.exe`, `codex.cmd`, and
 `codex.bat` from PATH without invoking a shell. Direct Mode product integration
@@ -123,11 +126,11 @@ exist for Git Widget-owned local commit creation, but auto-commit, push,
 reset, and clean remain out of scope.
 
 Future Terminal PTY work is contract-gated by
-`docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. Current Terminal remains a bounded
-one-shot command runner until a later PTY/session implementation block adds an
-interactive shell foundation. The next PTY direction is staged as backend
-foundation, Tauri command/event bridge, frontend PTY UI, stop/kill hardening,
-smoke/manual verification, and optional one-shot `Run command` fallback
+`docs/TERMINAL_PTY_WIDGET_CONTRACT.md`. Current Terminal is a desktop PTY-first
+manual shell surface for persisted Terminal widget instances on supported
+desktop platforms, with the one-shot `Run command` path retained as an explicit
+collapsed compatibility fallback. Future Terminal work should focus on
+unsupported-platform gating, hardening, smoke/manual verification, and bounded
 integration polish.
 
 Future multi-note Notes work is contract-gated by

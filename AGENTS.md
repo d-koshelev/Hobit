@@ -121,7 +121,7 @@ Current foundation target:
 - In the Tauri desktop shell, workspace lifecycle/state loading, widget mutations/log reads, and explicit Git status reads use the Tauri workspace API bridge and local SQLite storage where applicable.
 - In browser/Vite development, workspace lifecycle/state loading uses an in-memory workspace API fallback.
 - Different problem = different Workspace. Different surface for the same problem = additional Workbench. Future multi-open Workspace UI and multi-Workbench UI must follow `docs/WORKSPACE_CONTRACT.md` and must not mix unrelated Workspace context, queues, runs, Git roots, notes, templates, logs, artifacts, or decisions.
-- Add Widget opens the Widget Catalog drawer. The Stable v0.1 product-facing widget set is Workspace Agent, Agent Queue, Terminal, Agent Activity, Notes, Knowledge / Skills, Database / JDBC, and Runbook. Finder is a required Stable v0.1 gap and is not implemented yet. Agent Executor and Git may remain implemented or insertable as supporting/compatibility surfaces, but they are not Stable v0.1 product widgets. Old Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, JIRA, Confluence, Image Edit, Finder implementation, and separate legacy Coordinator preview surfaces must not appear in the current catalog or workbench surface unless explicitly requested by a future implementation block.
+- Add Widget opens the Widget Catalog drawer. The Stable v0.1 product-facing widget set is Workspace Agent, Agent Queue, Terminal, Agent Activity, Notes, Knowledge / Skills, Finder, Database / JDBC Preview, and Runbook Preview. Agent Executor and Git may remain implemented or insertable as supporting/compatibility surfaces, but they are not Stable v0.1 product widgets. Old Agent Chat, Agent Monitoring, Template Library, Dock, Agent CLI, Script Runner, JIRA, Confluence, Image Edit, and separate legacy Coordinator preview surfaces must not appear in the current catalog or workbench surface unless explicitly requested by a future implementation block.
 - The near-term agent surface model is defined in `docs/AGENT_SURFACE_MODEL.md`: Workspace Agent is the primary foreground conversation/planning/coding/review surface; Agent Activity shows current-session readable run activity; Agent Queue organizes promoted async tasks and executor history; Agent Executor provides supporting Direct Work runtime/detail for explicit async/background tasks; Runbook is preview procedural step work.
 - Notes is a Ready / MVP workspace-local notes widget with list, filter,
   create, select, edit, explicit save, and pin flows through workspace Notes
@@ -158,7 +158,7 @@ Current foundation target:
   Knowledge / Skills does not implement hidden memory, team/server sharing,
   embeddings, binary parsing, folder scans, Evidence, Context Packs, or
   automatic Skill prompt injection.
-- The Runbook placeholder is a procedural step surface direction only. It has no edit mode, builder, Queue integration, step execution, or agent-assisted steps.
+- Runbook is a Preview local/manual procedural step surface. It has no edit mode, builder, Queue integration, step execution, or agent-assisted steps.
 - The supporting Git surface has a transient explicit repository-root input, manual
   desktop-only read-only status/changes/diff/history review backed by
   Git-widget Tauri commands, grouped changed files, bounded selected-file diff,
@@ -170,7 +170,7 @@ Current foundation target:
 - Direct Mode is the current explicit operator-controlled executor path for small approved Codex CLI work, with future executor kinds kept agent-agnostic. Hobit can start Direct Work runs from Agent Executor and through the explicit assigned Queue task path in the desktop shell. It does not auto-dispatch Queue items, auto-commit, auto-push, mutate Git, add an embedded PTY, or run hidden background agent work.
 - The Script Runner Widget is contract-only future work. It is not implemented, not available for widget insertion, and does not add script execution, backend execution, Tauri commands, storage, or runtime behavior.
 - Workbench widgets are movable and resizable by default. The optional frontend-only layout lock freezes docked widget movement and resize handles when enabled. Final docked position and size persist through `update_widget_instance_layout`. Snapping, collision detection, auto-reflow, floating overlay resize, true external Tauri/OS popout windows, persisted external popout geometry, always-on-top, and preset editing are not implemented yet. Widgets also have frontend-only floating widget mode with an in-app overlay, a ghost placeholder, and Dock back behavior.
-- Finder is a required Stable v0.1 product gap, not an implemented widget. Future Finder work must start contract-first and must not be added silently as a file browser, hidden workspace scanner, Git surface, Terminal launcher, or broad context ingestion path.
+- Finder is the current Stable v0.1 file/project navigation widget. It must remain rooted in explicit root approval, bounded file preview/edit flows, and explicit Finder Git review actions; future Finder work must not add hidden workspace scanning, Terminal launching, broad context ingestion, force push, push-all, branch management, or hidden Git mutation.
 - Future Dock and widget Full/Compact/Indicator view mode work must follow `docs/WIDGET_CONTRACT.md`. Dock rails, Compact view from Dock items, persisted widget presence zones, Indicator status providers, and drag-and-drop between Canvas, Dock, Float, and future external windows are not implemented yet.
 - Widget frames include a widget-local Logs panel backed by persisted widget logs. Existing widget add/state/layout mutations emit basic logs; Terminal one-shot fallback commands and Codex Direct Work runs emit bounded lifecycle logs. Terminal PTY output uses session-only frontend polling of the bounded backend buffer and is not persisted as widget logs/results. Event-streamed Terminal output is not implemented.
 - Widgets are first-class entities, not just React components.
@@ -243,7 +243,7 @@ Widgets must communicate through Workbench state/events, not by directly couplin
 - Preserve WidgetHost as the mapping layer from widget instance to React component.
 - Do not hardcode widget components directly into WorkbenchCanvas.
 - Do not add new real widgets unless explicitly requested.
-- Do not add widget insertion behavior beyond the current product-facing Workspace Agent, Agent Queue, Terminal, Agent Activity, Notes, Knowledge / Skills, Database / JDBC, and Runbook paths, plus supporting/compatibility Agent Executor and Git paths where they already exist, unless explicitly requested.
+- Do not add widget insertion behavior beyond the current product-facing Workspace Agent, Agent Queue, Terminal, Agent Activity, Notes, Knowledge / Skills, Finder, Database / JDBC Preview, and Runbook Preview paths, plus supporting/compatibility Agent Executor and Git paths where they already exist, unless explicitly requested.
 - Do not add UI frameworks or icon libraries unless explicitly requested.
 - Do not add drag-and-drop until explicitly requested.
 - Do not add real Dock UI, widget view mode behavior, presence-zone persistence, drag-and-drop, snapping, collision detection, auto-reflow, floating overlay resize, true external popout behavior, preset editing, or new persistence flows unless explicitly requested.
@@ -277,7 +277,7 @@ Do not add:
 - Runbook engine
 - Image Edit implementation
 - real widget implementation
-- additional widget insertion behavior beyond the current product-facing Workspace Agent, Agent Queue, Terminal, Agent Activity, Notes, Knowledge / Skills, Database / JDBC, and Runbook paths, plus supporting/compatibility Agent Executor and Git paths where they already exist
+- additional widget insertion behavior beyond the current product-facing Workspace Agent, Agent Queue, Terminal, Agent Activity, Notes, Knowledge / Skills, Finder, Database / JDBC Preview, and Runbook Preview paths, plus supporting/compatibility Agent Executor and Git paths where they already exist
 - full drag-and-drop layout editor
 - real Dock UI, widget view mode behavior, presence-zone persistence, snapping, collision detection, auto-reflow, floating overlay resize, true external popout behavior, or preset editor behavior
 - unplanned SQLite schema changes
