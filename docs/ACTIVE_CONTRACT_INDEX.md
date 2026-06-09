@@ -156,6 +156,13 @@ of truth for their domains.
   manual smoke checklist, remaining bridge/import/draft-review gaps, and the
   decision not to replace legacy Knowledge / Skills yet. It does not add
   behavior or override current Knowledge / Skills.
+- `docs/KNOWLEDGE_V2_EXPOSURE_STATUS.md` - docs-only status record for routing
+  the user-facing Knowledge / Skills product surface to KnowledgeV2 through
+  the saved-compatible `skill-library` identity. It records catalog/registry
+  routing, existing props/action bridge reuse, legacy containment, manual
+  smoke steps, and remaining import/action/full-replacement gaps. It does not
+  add frontend behavior, backend/Rust/Tauri/storage/schema changes, or
+  Knowledge data changes.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
