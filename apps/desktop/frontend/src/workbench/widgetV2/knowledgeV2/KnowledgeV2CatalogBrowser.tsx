@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 
 import type { KnowledgeDocument } from "../../../workspace/types/knowledgeDocuments";
 import type { Skill } from "../../../workspace/types/skills";
-import { Button } from "../../../design-system/Button";
 import { WidgetPopupShell } from "../../../design-system/WidgetPopupShell";
 import type { WidgetRenderProps } from "../../types";
 import { WidgetV2Toolbar } from "../WidgetV2Shell";
@@ -10,6 +9,13 @@ import { KnowledgeV2CatalogList } from "./KnowledgeV2CatalogList";
 import { KnowledgeV2ContextPicker } from "./KnowledgeV2ContextPicker";
 import { KnowledgeV2Filters, type KnowledgeV2FilterValues } from "./KnowledgeV2Filters";
 import { KnowledgeV2PreviewPanel } from "./KnowledgeV2PreviewPanel";
+import {
+  KnowledgeV2DeleteConfirmationPopup,
+  KnowledgeV2DetailsPopupFooter,
+  knowledgeV2ArchiveDisabledReason,
+  knowledgeV2ArchiveUpdateRequest,
+  knowledgeV2DeleteDisabledReason,
+} from "./KnowledgeV2ItemActions";
 import {
   attachKnowledgeV2SourceToQueueTask,
   knowledgeV2ContextAffordanceSource,
@@ -40,6 +46,7 @@ export type KnowledgeV2CatalogBrowserProps = {
   readonly onDeleteSkill?: WidgetRenderProps["onDeleteSkill"];
   readonly onImport?: () => void;
   readonly onRetry?: () => void;
+  readonly onUpdateKnowledgeDocument?: WidgetRenderProps["onUpdateKnowledgeDocument"];
   readonly skills: readonly Skill[];
   readonly status?: "loading" | "partial" | "ready" | "unavailable";
   readonly viewMode?: "cards" | "list";
@@ -65,6 +72,7 @@ export function KnowledgeV2CatalogBrowser({
   onDeleteSkill,
   onImport,
   onRetry,
+  onUpdateKnowledgeDocument,
   skills,
   status = "ready",
   viewMode = "list",
@@ -75,6 +83,8 @@ export function KnowledgeV2CatalogBrowser({
     useState<KnowledgeV2ContextActionNotice | null>(null);
   const [isContextPickerOpen, setIsContextPickerOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const catalogFilters = useMemo(
     () => knowledgeV2CatalogFiltersFromValues(filters),
@@ -97,6 +107,8 @@ export function KnowledgeV2CatalogBrowser({
 
   const selectedItem =
     viewModel.filteredItems.find((item) => item.id === selectedItemId) ?? null;
+  const deleteCandidate =
+    viewModel.items.find((item) => item.id === deleteCandidateId) ?? null;
   const affordanceSource = selectedItem
     ? knowledgeV2ContextAffordanceSource(selectedItem, documents, skills)
     : null;
@@ -143,6 +155,82 @@ export function KnowledgeV2CatalogBrowser({
   function closeDetailsPopup() {
     setIsDetailsOpen(false);
     setIsContextPickerOpen(false);
+  }
+
+  function requestDeleteItem(itemId?: string) {
+    const item =
+      itemId !== undefined
+        ? viewModel.items.find((candidate) => candidate.id === itemId) ?? null
+        : selectedItem;
+    const disabledReason = knowledgeV2DeleteDisabledReason({
+      item,
+      onDeleteKnowledgeDocument,
+      onDeleteSkill,
+    });
+
+    if (!item) {
+      setActionNotice({
+        message: disabledReason ?? "Select a KnowledgeV2 item before deleting.",
+        status: "blocked",
+      });
+      return;
+    }
+    if (disabledReason) {
+      setActionNotice({ message: disabledReason, status: "blocked" });
+      return;
+    }
+
+    setSelectedItemId(item.id);
+    setDeleteCandidateId(item.id);
+  }
+
+  async function archiveItem(itemId?: string) {
+    const item =
+      itemId !== undefined
+        ? viewModel.items.find((candidate) => candidate.id === itemId) ?? null
+        : selectedItem;
+    const disabledReason = knowledgeV2ArchiveDisabledReason({
+      item,
+      onUpdateKnowledgeDocument,
+    });
+
+    if (!item || disabledReason) {
+      setActionNotice({
+        message:
+          disabledReason ?? "Select a Knowledge Document before archiving.",
+        status: "blocked",
+      });
+      return;
+    }
+
+    const source = knowledgeV2ContextAffordanceSource(item, documents, skills);
+    if (!source || source.kind !== "knowledge_document") {
+      setActionNotice({
+        message: "Archive is unavailable because the source Knowledge Document is not loaded.",
+        status: "blocked",
+      });
+      return;
+    }
+
+    try {
+      await onUpdateKnowledgeDocument?.(
+        knowledgeV2ArchiveUpdateRequest(source.document),
+      );
+      setActionNotice({
+        message: `${item.title} archived through the existing Knowledge Document lifecycle update action.`,
+        status: "detached",
+      });
+      setIsDetailsOpen(false);
+      onRetry?.();
+    } catch (error) {
+      setActionNotice({
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to archive this Knowledge Document.",
+        status: "unavailable",
+      });
+    }
   }
 
   function openContextPicker(itemId?: string) {
@@ -304,38 +392,57 @@ export function KnowledgeV2CatalogBrowser({
     setIsDetailsOpen(true);
   }
 
-  async function deleteSelectedItem() {
-    if (!selectedItem) {
+  async function confirmDeleteItem() {
+    if (!deleteCandidate || isDeleting) {
       return;
     }
 
-    if (
-      !window.confirm(
-        `Delete "${selectedItem.title}"? This uses the existing Knowledge / Skills delete action.`,
-      )
-    ) {
+    const disabledReason = knowledgeV2DeleteDisabledReason({
+      item: deleteCandidate,
+      onDeleteKnowledgeDocument,
+      onDeleteSkill,
+    });
+    if (disabledReason) {
+      setActionNotice({ message: disabledReason, status: "blocked" });
       return;
     }
 
-    if (selectedItem.recordKind === "document" && onDeleteKnowledgeDocument) {
-      await onDeleteKnowledgeDocument({
-        knowledgeDocumentId: selectedItem.recordId,
-      });
+    setIsDeleting(true);
+    try {
+      if (deleteCandidate.recordKind === "document" && onDeleteKnowledgeDocument) {
+        await onDeleteKnowledgeDocument({
+          knowledgeDocumentId: deleteCandidate.recordId,
+        });
+        setActionNotice({
+          message: `${deleteCandidate.title} delete action completed.`,
+          status: "detached",
+        });
+        setIsDetailsOpen(false);
+        setDeleteCandidateId(null);
+        onRetry?.();
+        return;
+      }
+
+      if (deleteCandidate.recordKind === "skill" && onDeleteSkill) {
+        await onDeleteSkill({ skillId: deleteCandidate.recordId });
+        setActionNotice({
+          message: `${deleteCandidate.title} delete action completed.`,
+          status: "detached",
+        });
+        setIsDetailsOpen(false);
+        setDeleteCandidateId(null);
+        onRetry?.();
+      }
+    } catch (error) {
       setActionNotice({
-        message: `${selectedItem.title} delete action completed.`,
-        status: "detached",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Unable to delete this KnowledgeV2 item.",
+        status: "unavailable",
       });
-      setIsDetailsOpen(false);
-      return;
-    }
-
-    if (selectedItem.recordKind === "skill" && onDeleteSkill) {
-      await onDeleteSkill({ skillId: selectedItem.recordId });
-      setActionNotice({
-        message: `${selectedItem.title} delete action completed.`,
-        status: "detached",
-      });
-      setIsDetailsOpen(false);
+    } finally {
+      setIsDeleting(false);
     }
   }
 
@@ -361,6 +468,16 @@ export function KnowledgeV2CatalogBrowser({
           hasItems={viewModel.items.length > 0}
           items={viewModel.filteredItems}
           mode={viewMode}
+          getArchiveDisabledReason={(item) =>
+            knowledgeV2ArchiveDisabledReason({ item, onUpdateKnowledgeDocument })
+          }
+          getDeleteDisabledReason={(item) =>
+            knowledgeV2DeleteDisabledReason({
+              item,
+              onDeleteKnowledgeDocument,
+              onDeleteSkill,
+            })
+          }
           getUseAsContextDisabledReason={(item) => {
             const entry =
               pickerItems.find((candidate) => candidate.item.id === item.id) ??
@@ -374,8 +491,11 @@ export function KnowledgeV2CatalogBrowser({
                 })
               : "Source record is unavailable; this item cannot be attached.";
           }}
+          onArchive={archiveItem}
           onClearFilters={clearFilters}
+          onDelete={requestDeleteItem}
           onImport={onImport}
+          onOpenDetails={selectItem}
           onSelectItem={selectItem}
           onUseAsContext={openContextPicker}
           selectedItemId={selectedItemId}
@@ -385,13 +505,18 @@ export function KnowledgeV2CatalogBrowser({
           className="knowledge-v2-details-popup-shell"
           footer={
             <KnowledgeV2DetailsPopupFooter
-              deleteDisabledReason={deleteDisabledReason({
+              deleteDisabledReason={knowledgeV2DeleteDisabledReason({
                 item: selectedItem,
                 onDeleteKnowledgeDocument,
                 onDeleteSkill,
               })}
+              archiveDisabledReason={knowledgeV2ArchiveDisabledReason({
+                item: selectedItem,
+                onUpdateKnowledgeDocument,
+              })}
               onClose={closeDetailsPopup}
-              onDelete={deleteSelectedItem}
+              onArchive={() => archiveItem()}
+              onDelete={() => requestDeleteItem()}
               onUseAsContext={() => openContextPicker()}
               useAsContextDisabledReason={selectedContextDisabledReason}
             />
@@ -422,93 +547,19 @@ export function KnowledgeV2CatalogBrowser({
           onAttach={attachContextPickerSelection}
           onClose={() => setIsContextPickerOpen(false)}
         />
+        <KnowledgeV2DeleteConfirmationPopup
+          candidate={deleteCandidate}
+          isDeleting={isDeleting}
+          onCancel={() => {
+            if (!isDeleting) {
+              setDeleteCandidateId(null);
+            }
+          }}
+          onConfirm={confirmDeleteItem}
+        />
       </div>
     </>
   );
-}
-
-function KnowledgeV2DetailsPopupFooter({
-  deleteDisabledReason,
-  onClose,
-  onDelete,
-  onUseAsContext,
-  useAsContextDisabledReason,
-}: {
-  readonly deleteDisabledReason: string | null;
-  readonly onClose: () => void;
-  readonly onDelete: () => void;
-  readonly onUseAsContext: () => void;
-  readonly useAsContextDisabledReason: string | null;
-}) {
-  return (
-    <div
-      aria-label="KnowledgeV2 use as context"
-      className="knowledge-v2-details-footer-actions"
-    >
-      <Button
-        disabled={Boolean(useAsContextDisabledReason)}
-        onClick={onUseAsContext}
-        title={useAsContextDisabledReason ?? undefined}
-        variant="secondary"
-      >
-        Use as context
-      </Button>
-      <Button
-        disabled={true}
-        title="Archive is disabled because KnowledgeV2 has no existing safe archive action."
-        variant="secondary"
-      >
-        Archive
-      </Button>
-      <Button
-        disabled={Boolean(deleteDisabledReason)}
-        onClick={onDelete}
-        title={deleteDisabledReason ?? undefined}
-        variant="secondary"
-      >
-        Delete
-      </Button>
-      <Button onClick={onClose} variant="ghost">
-        Close
-      </Button>
-      <p className="knowledge-v2-details-footer-reasons">
-        {useAsContextDisabledReason
-          ? `Use as context disabled: ${useAsContextDisabledReason}`
-          : "Use as context opens explicit visible context targets only. These controls only use explicit visible callbacks."}
-        {" "}
-        Archive disabled: KnowledgeV2 has no existing safe archive action.
-        {" "}
-        {deleteDisabledReason
-          ? `Delete disabled: ${deleteDisabledReason}`
-          : "Delete uses an existing Knowledge / Skills delete action and asks for confirmation."}
-      </p>
-    </div>
-  );
-}
-
-function deleteDisabledReason({
-  item,
-  onDeleteKnowledgeDocument,
-  onDeleteSkill,
-}: {
-  readonly item: KnowledgeV2CatalogItem | null;
-  readonly onDeleteKnowledgeDocument?: WidgetRenderProps["onDeleteKnowledgeDocument"];
-  readonly onDeleteSkill?: WidgetRenderProps["onDeleteSkill"];
-}) {
-  if (!item) {
-    return "Select a KnowledgeV2 item before deleting.";
-  }
-  if (item.recordKind === "document") {
-    return onDeleteKnowledgeDocument
-      ? null
-      : "KnowledgeV2 did not receive the existing Knowledge Document delete action.";
-  }
-  if (item.recordKind === "skill") {
-    return onDeleteSkill
-      ? null
-      : "KnowledgeV2 did not receive the existing Skill delete action.";
-  }
-  return "This item type has no existing safe delete action.";
 }
 
 function useAsContextDisabledReason({

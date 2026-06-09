@@ -125,6 +125,7 @@ export function KnowledgeSkillsV2Widget({
         onListSkills={onListSkills}
         onManageSkills={() => setLegacyFlow("skills")}
         onNew={() => setLegacyFlow("new")}
+        onUpdateKnowledgeDocument={onUpdateKnowledgeDocument}
       />
       {legacyFlow ? (
         <section

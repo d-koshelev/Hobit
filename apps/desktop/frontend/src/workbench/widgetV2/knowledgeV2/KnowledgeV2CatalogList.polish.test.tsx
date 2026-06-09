@@ -2,9 +2,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { KnowledgeV2Widget } from "./KnowledgeV2Widget";
 import {
+  buttonWithText,
   cleanupKnowledgeV2WidgetTestDom,
   clickButton,
+  clickButtonByLabel,
+  dialogByName,
   documentFixture,
+  flushKnowledgeV2WidgetTest,
   regionByName,
   render,
   rowByTitle,
@@ -105,13 +109,125 @@ describe("KnowledgeV2 catalog row polish", () => {
     const actionCell = rowByTitle("Release runbook")?.querySelector(
       ".knowledge-v2-row-actions",
     );
-    expect(actionCell?.textContent).toBe("DetailsUse!");
+    expect(actionCell?.textContent).toBe("Actions!");
     expect(actionCell?.textContent).not.toContain("Use as context");
     expect(actionCell?.textContent).not.toContain("2w");
-    expect(
-      actionCell?.querySelector<HTMLButtonElement>(".knowledge-v2-row-use-button")
-        ?.textContent,
-    ).toBe("Use");
+  });
+
+  it("opens a compact row action menu with discoverable item actions", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onAttachContextToCoordinator={vi.fn()}
+        onDeleteKnowledgeDocument={vi.fn()}
+        onUpdateKnowledgeDocument={vi.fn()}
+        skills={[]}
+      />,
+    );
+
+    await clickButtonByLabel("Actions for Release guide");
+
+    const menu = regionByName("Action menu for Release guide");
+    expect(menu?.getAttribute("role")).toBe("menu");
+    expect(menu?.textContent).toContain("Open details");
+    expect(menu?.textContent).toContain("Use as context");
+    expect(menu?.textContent).toContain("Archive");
+    expect(menu?.textContent).toContain("Delete");
+  });
+
+  it("opens item details from the row action menu", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onDeleteKnowledgeDocument={vi.fn()}
+        onUpdateKnowledgeDocument={vi.fn()}
+        skills={[]}
+      />,
+    );
+
+    await clickButtonByLabel("Actions for Release guide");
+    await clickButton("Open details");
+
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Release guide",
+    );
+    expect(dialogByName("Release guide")).not.toBeNull();
+    expect(rowByTitle("Release guide")?.getAttribute("aria-selected")).toBe(
+      "true",
+    );
+  });
+
+  it("keeps delete behind confirmation and only calls the bridge after confirm", async () => {
+    const onDeleteKnowledgeDocument = vi.fn(async () => true);
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onDeleteKnowledgeDocument={onDeleteKnowledgeDocument}
+        onUpdateKnowledgeDocument={vi.fn()}
+        skills={[]}
+      />,
+    );
+
+    await clickButtonByLabel("Actions for Release guide");
+    await clickButton("Delete");
+
+    expect(regionByName("KnowledgeV2 delete confirmation")?.textContent).toContain(
+      'Delete "Release guide"?',
+    );
+    expect(onDeleteKnowledgeDocument).not.toHaveBeenCalled();
+
+    await clickButton("Cancel");
+    expect(regionByName("KnowledgeV2 delete confirmation")).toBeNull();
+    expect(onDeleteKnowledgeDocument).not.toHaveBeenCalled();
+
+    await clickButtonByLabel("Actions for Release guide");
+    await clickButton("Delete");
+    await clickButton("Delete");
+    await flushKnowledgeV2WidgetTest();
+
+    expect(onDeleteKnowledgeDocument).toHaveBeenCalledTimes(1);
+    expect(onDeleteKnowledgeDocument).toHaveBeenCalledWith({
+      knowledgeDocumentId: "kdoc_1",
+    });
+  });
+
+  it("shows missing delete bridge as a disabled action with a reason", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onUpdateKnowledgeDocument={vi.fn()}
+        skills={[]}
+      />,
+    );
+
+    await clickButtonByLabel("Actions for Release guide");
+
+    const menu = regionByName("Action menu for Release guide");
+    const deleteButton =
+      Array.from(menu?.querySelectorAll<HTMLButtonElement>("button") ?? []).find(
+        (button) => button.textContent === "Delete",
+      ) ?? null;
+    expect(deleteButton?.disabled).toBe(true);
+    expect(menu?.textContent).toContain(
+      "KnowledgeV2 did not receive the existing Knowledge Document delete action.",
+    );
+  });
+
+  it("does not call archive on render", async () => {
+    const onUpdateKnowledgeDocument = vi.fn();
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onDeleteKnowledgeDocument={vi.fn()}
+        onUpdateKnowledgeDocument={onUpdateKnowledgeDocument}
+        skills={[]}
+      />,
+    );
+
+    expect(onUpdateKnowledgeDocument).not.toHaveBeenCalled();
+    expect(buttonWithText("Actions")).not.toBeNull();
   });
 
   it("renders empty row tags as a muted product placeholder", async () => {

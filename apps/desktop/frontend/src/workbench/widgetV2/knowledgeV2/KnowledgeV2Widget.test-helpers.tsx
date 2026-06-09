@@ -111,6 +111,15 @@ export async function keyDown(key: string) {
   });
 }
 
+export async function flushKnowledgeV2WidgetTest() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
 function setNativeValue(element: HTMLInputElement, value: string) {
   const valueSetter = Object.getOwnPropertyDescriptor(element, "value")?.set;
   const prototype = Object.getPrototypeOf(element) as HTMLInputElement;

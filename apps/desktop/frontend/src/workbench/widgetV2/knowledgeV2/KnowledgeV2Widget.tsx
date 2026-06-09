@@ -30,6 +30,7 @@ export type KnowledgeV2WidgetProps = {
   readonly onListSkills?: WidgetRenderProps["onListSkills"];
   readonly onManageSkills?: () => void;
   readonly onNew?: () => void;
+  readonly onUpdateKnowledgeDocument?: WidgetRenderProps["onUpdateKnowledgeDocument"];
   readonly skills?: readonly Skill[];
 };
 
@@ -49,6 +50,7 @@ export function KnowledgeV2Widget({
   onImport,
   onManageSkills,
   onNew,
+  onUpdateKnowledgeDocument,
   skills,
 }: KnowledgeV2WidgetProps = {}) {
   const [viewMode, setViewMode] = useState<"cards" | "list">("list");
@@ -167,6 +169,7 @@ export function KnowledgeV2Widget({
         onDeleteSkill={onDeleteSkill}
         onImport={onImport}
         onRetry={() => setReloadKey((current) => current + 1)}
+        onUpdateKnowledgeDocument={onUpdateKnowledgeDocument}
         skills={dataBridge.skills}
         status={dataBridge.status}
         viewMode={viewMode}

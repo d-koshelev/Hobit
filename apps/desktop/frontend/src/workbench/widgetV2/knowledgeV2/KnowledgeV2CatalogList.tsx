@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
 import {
   KnowledgeV2StatusBadge,
@@ -9,11 +11,20 @@ type KnowledgeV2CatalogListProps = {
   readonly items: readonly KnowledgeV2CatalogItem[];
   readonly mode?: "cards" | "list";
   readonly selectedItemId: string | null;
+  readonly getArchiveDisabledReason?: (
+    item: KnowledgeV2CatalogItem,
+  ) => string | null;
+  readonly getDeleteDisabledReason?: (
+    item: KnowledgeV2CatalogItem,
+  ) => string | null;
   readonly getUseAsContextDisabledReason?: (
     item: KnowledgeV2CatalogItem,
   ) => string | null;
+  readonly onArchive?: (itemId: string) => void;
   readonly onClearFilters?: () => void;
+  readonly onDelete?: (itemId: string) => void;
   readonly onImport?: () => void;
+  readonly onOpenDetails: (itemId: string) => void;
   readonly onSelectItem: (itemId: string) => void;
   readonly onUseAsContext?: (itemId: string) => void;
 };
@@ -22,9 +33,14 @@ export function KnowledgeV2CatalogList({
   hasItems,
   items,
   mode = "list",
+  getArchiveDisabledReason,
+  getDeleteDisabledReason,
   getUseAsContextDisabledReason,
+  onArchive,
   onClearFilters,
+  onDelete,
   onImport,
+  onOpenDetails,
   onSelectItem,
   onUseAsContext,
   selectedItemId,
@@ -101,7 +117,12 @@ export function KnowledgeV2CatalogList({
         <KnowledgeV2CatalogRow
           item={item}
           key={item.id}
+          archiveDisabledReason={getArchiveDisabledReason?.(item) ?? null}
+          deleteDisabledReason={getDeleteDisabledReason?.(item) ?? null}
           useAsContextDisabledReason={getUseAsContextDisabledReason?.(item) ?? null}
+          onArchive={onArchive}
+          onDelete={onDelete}
+          onOpenDetails={onOpenDetails}
           onSelectItem={onSelectItem}
           onUseAsContext={onUseAsContext}
           selected={item.id === selectedItemId}
@@ -123,20 +144,31 @@ export function KnowledgeV2CatalogList({
 }
 
 type KnowledgeV2CatalogRowProps = {
+  readonly archiveDisabledReason?: string | null;
+  readonly deleteDisabledReason?: string | null;
   readonly item: KnowledgeV2CatalogItem;
   readonly selected: boolean;
   readonly useAsContextDisabledReason?: string | null;
+  readonly onArchive?: (itemId: string) => void;
+  readonly onDelete?: (itemId: string) => void;
+  readonly onOpenDetails: (itemId: string) => void;
   readonly onSelectItem: (itemId: string) => void;
   readonly onUseAsContext?: (itemId: string) => void;
 };
 
 export function KnowledgeV2CatalogRow({
+  archiveDisabledReason = null,
+  deleteDisabledReason = null,
   item,
+  onArchive,
+  onDelete,
+  onOpenDetails,
   onSelectItem,
   onUseAsContext,
   selected,
   useAsContextDisabledReason = null,
 }: KnowledgeV2CatalogRowProps) {
+  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const warningCount = item.warnings.length;
   const statuses = knowledgeV2ItemStatuses(item);
   const visibleTags = item.tags.slice(0, 2);
@@ -209,24 +241,26 @@ export function KnowledgeV2CatalogRow({
       <span className="knowledge-v2-row-actions" role="cell">
         <button
           className="knowledge-v2-row-icon-button"
-          aria-label={`Details for ${item.title}`}
-          onClick={() => onSelectItem(item.id)}
-          title={`Details for ${item.title}`}
+          aria-expanded={isActionMenuOpen}
+          aria-label={`Actions for ${item.title}`}
+          onClick={() => setIsActionMenuOpen((current) => !current)}
+          title={`Actions for ${item.title}`}
           type="button"
         >
-          Details
+          Actions
         </button>
-        {onUseAsContext ? (
-          <button
-            className="knowledge-v2-row-use-button"
-            aria-label={`Use ${item.title} as context`}
-            disabled={Boolean(useAsContextDisabledReason)}
-            onClick={() => onUseAsContext(item.id)}
-            title={useAsContextDisabledReason ?? `Use ${item.title} as context`}
-            type="button"
-          >
-            Use
-          </button>
+        {isActionMenuOpen ? (
+          <KnowledgeV2RowActionMenu
+            archiveDisabledReason={archiveDisabledReason}
+            deleteDisabledReason={deleteDisabledReason}
+            item={item}
+            onArchive={onArchive}
+            onDelete={onDelete}
+            onOpenDetails={onOpenDetails}
+            onRequestClose={() => setIsActionMenuOpen(false)}
+            onUseAsContext={onUseAsContext}
+            useAsContextDisabledReason={useAsContextDisabledReason}
+          />
         ) : null}
         {warningCount > 0 ? (
           <span
@@ -239,6 +273,107 @@ export function KnowledgeV2CatalogRow({
         ) : null}
       </span>
     </div>
+  );
+}
+
+function KnowledgeV2RowActionMenu({
+  archiveDisabledReason,
+  deleteDisabledReason,
+  item,
+  onArchive,
+  onDelete,
+  onOpenDetails,
+  onRequestClose,
+  onUseAsContext,
+  useAsContextDisabledReason,
+}: {
+  readonly archiveDisabledReason: string | null;
+  readonly deleteDisabledReason: string | null;
+  readonly item: KnowledgeV2CatalogItem;
+  readonly onArchive?: (itemId: string) => void;
+  readonly onDelete?: (itemId: string) => void;
+  readonly onOpenDetails: (itemId: string) => void;
+  readonly onRequestClose: () => void;
+  readonly onUseAsContext?: (itemId: string) => void;
+  readonly useAsContextDisabledReason: string | null;
+}) {
+  function run(action: () => void) {
+    action();
+    onRequestClose();
+  }
+
+  return (
+    <span
+      aria-label={`Action menu for ${item.title}`}
+      className="knowledge-v2-row-action-menu"
+      role="menu"
+    >
+      <button
+        onClick={() => run(() => onOpenDetails(item.id))}
+        role="menuitem"
+        type="button"
+      >
+        Open details
+      </button>
+      <KnowledgeV2RowActionMenuItem
+        disabledReason={
+          onUseAsContext
+            ? useAsContextDisabledReason
+            : "Use as Context is unavailable because no context action bridge is connected."
+        }
+        label="Use as context"
+        onClick={() => run(() => onUseAsContext?.(item.id))}
+      />
+      <KnowledgeV2RowActionMenuItem
+        disabledReason={
+          onArchive
+            ? archiveDisabledReason
+            : "Archive is unavailable because no safe archive bridge is connected."
+        }
+        label="Archive"
+        onClick={() => run(() => onArchive?.(item.id))}
+      />
+      <KnowledgeV2RowActionMenuItem
+        danger={true}
+        disabledReason={
+          onDelete
+            ? deleteDisabledReason
+            : "Delete is unavailable because no safe delete bridge is connected."
+        }
+        label="Delete"
+        onClick={() => run(() => onDelete?.(item.id))}
+      />
+    </span>
+  );
+}
+
+function KnowledgeV2RowActionMenuItem({
+  danger = false,
+  disabledReason,
+  label,
+  onClick,
+}: {
+  readonly danger?: boolean;
+  readonly disabledReason: string | null;
+  readonly label: string;
+  readonly onClick: () => void;
+}) {
+  return (
+    <span className="knowledge-v2-row-action-menu-item">
+      <button
+        className={danger ? "knowledge-v2-danger-action" : undefined}
+        disabled={Boolean(disabledReason)}
+        onClick={onClick}
+        role="menuitem"
+        title={disabledReason ?? undefined}
+        type="button"
+      >
+        {label}
+      </button>
+      {disabledReason ? (
+        <small className="knowledge-v2-row-action-reason">{disabledReason}</small>
+      ) : null}
+    </span>
   );
 }
 
