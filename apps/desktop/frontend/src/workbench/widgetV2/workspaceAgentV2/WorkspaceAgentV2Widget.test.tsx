@@ -10,6 +10,11 @@ import type {
   CodexAgentRuntimeRunHandle,
 } from "../../agentRuntime";
 import { createCodexProviderCapabilities } from "../../agentRuntime";
+import type {
+  QueueCreateItemRequest,
+  QueueWidgetActionResult,
+  QueueWidgetItemSnapshot,
+} from "../../queue/agentQueueWidgetApiTypes";
 import { WorkspaceAgentV2Widget } from "./WorkspaceAgentV2Widget";
 
 let root: Root | null = null;
@@ -171,7 +176,7 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(document.body.textContent).toContain("Visible context materialized");
   });
 
-  it("Queue Run remains visible but does not create a task", async () => {
+  it("Queue Run remains visible but unsupported without a Queue create bridge", async () => {
     const onQueueTaskCreate = vi.fn();
 
     await render(
@@ -186,12 +191,46 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(buttonWithText("Queue Run")).not.toBeNull();
     expect(buttonWithText("Queue Run")?.disabled).toBe(true);
     expect(document.body.textContent).toContain(
-      "Queue Run is not implemented in this Workspace Agent v2 block; no Queue task will be created.",
+      "Queue task creation is unavailable in this Workspace Agent v2 host.",
     );
 
     await click(buttonWithText("Queue Run"));
 
     expect(onQueueTaskCreate).not.toHaveBeenCalled();
+  });
+
+  it("clicking Queue Run creates a Queue task once through the supplied bridge", async () => {
+    const createItem = createItemMock();
+    const onQueueTaskCreate = vi.fn();
+
+    await render(
+      <WorkspaceAgentV2Widget
+        directRunSupported
+        initialPrompt="Queue this later."
+        onQueueTaskCreate={onQueueTaskCreate}
+        queueBridge={{ createItem }}
+        workingDirectory="C:/repo"
+      />,
+    );
+
+    expect(buttonWithText("Queue Run")?.disabled).toBe(false);
+
+    await click(buttonWithText("Queue Run"));
+
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: "workspace_agent",
+        prompt: "Queue this later.",
+        status: "draft",
+        title: "Queue this later.",
+      }),
+    );
+    expect(onQueueTaskCreate).toHaveBeenCalledTimes(1);
+    expect(onQueueTaskCreate).toHaveBeenCalledWith("queue-item-1");
+    expect(document.body.textContent).toContain(
+      "Queue task created only. No Direct Run, Agent Executor run, Queue Autorun, Terminal command, Git action, validation, or finalization was started.",
+    );
   });
 
   it("running state disables duplicate Direct Run starts", async () => {
@@ -318,4 +357,49 @@ function adapterFixture({
         })),
     ),
   };
+}
+
+function createItemMock() {
+  return vi.fn(
+    async (
+      request: Omit<QueueCreateItemRequest, "workspaceId">,
+    ): Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>> => ({
+      action: "queue.createItem",
+      events: [],
+      item: {
+        approvalPolicy: null,
+        blockers: [],
+        codexExecutable: null,
+        dependencies: [],
+        description: "",
+        evidenceSummary: {
+          runRefs: [],
+          status: "none",
+        },
+        executionPolicy: "manual",
+        executionStatus: "draft",
+        executionWorkspace: null,
+        id: "queue-item-1",
+        priority: 0,
+        prompt: request.prompt ?? "",
+        queueId: "workspace:workspace-1:agent-queue",
+        queueTag: {
+          id: null,
+          name: null,
+        },
+        reportSummary: {
+          status: "none",
+        },
+        runLinks: [],
+        sandbox: null,
+        status: "draft",
+        title: request.title,
+        workspaceId: "workspace-1",
+      },
+      message:
+        "Queue item created. No task execution, Agent Executor run, Queue Autorun, Terminal command, Git action, validation, or coordinator finalization was started.",
+      ok: true,
+      safetyClass: "safe_create_update",
+    }),
+  );
 }

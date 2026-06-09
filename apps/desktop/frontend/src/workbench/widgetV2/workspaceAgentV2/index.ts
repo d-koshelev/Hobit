@@ -28,10 +28,15 @@ export type {
 export { WorkspaceAgentV2TopBar } from "./WorkspaceAgentV2TopBar";
 export { WorkspaceAgentV2Widget } from "./WorkspaceAgentV2Widget";
 export { useWorkspaceAgentV2DirectRun } from "./useWorkspaceAgentV2DirectRun";
+export { useWorkspaceAgentV2QueueRun } from "./useWorkspaceAgentV2QueueRun";
 export type {
   WorkspaceAgentV2DirectRunController,
   WorkspaceAgentV2DirectRunControllerOptions,
 } from "./useWorkspaceAgentV2DirectRun";
+export type {
+  WorkspaceAgentV2QueueRunController,
+  WorkspaceAgentV2QueueRunControllerOptions,
+} from "./useWorkspaceAgentV2QueueRun";
 export {
   buildWorkspaceAgentV2DirectRunRequest,
   isWorkspaceAgentV2DirectRunBusy,
@@ -44,6 +49,18 @@ export type {
   WorkspaceAgentV2DirectRunRequestInput,
   WorkspaceAgentV2DirectRunStatus,
 } from "./workspaceAgentV2DirectRunModel";
+export {
+  failedControllerResult,
+  isWorkspaceAgentV2QueueRunBusy,
+  unsupportedControllerResult,
+  workspaceAgentV2QueueRunResultFromService,
+} from "./workspaceAgentV2QueueRunModel";
+export type {
+  WorkspaceAgentV2QueueRunControllerResult,
+  WorkspaceAgentV2QueueRunCreatedTask,
+  WorkspaceAgentV2QueueRunOpenTaskAction,
+  WorkspaceAgentV2QueueRunStatus,
+} from "./workspaceAgentV2QueueRunModel";
 export {
   buildQueueRunRequestFromComposer,
   createQueueTaskFromAgentRequest,

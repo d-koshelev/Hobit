@@ -15,6 +15,7 @@ import type {
   CodexAgentRuntimeAdapter,
 } from "../../agentRuntime";
 import { createCodexAgentRuntimeAdapter } from "../../agentRuntime";
+import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
 import type {
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
@@ -32,10 +33,10 @@ import { WorkspaceAgentV2Transcript } from "./WorkspaceAgentV2Transcript";
 import { WorkspaceAgentV2TopBar } from "./WorkspaceAgentV2TopBar";
 import { useWorkspaceAgentV2DirectRun } from "./useWorkspaceAgentV2DirectRun";
 import { isWorkspaceAgentV2DirectRunBusy } from "./workspaceAgentV2DirectRunModel";
+import { useWorkspaceAgentV2QueueRun } from "./useWorkspaceAgentV2QueueRun";
+import { isWorkspaceAgentV2QueueRunBusy } from "./workspaceAgentV2QueueRunModel";
 
 const workspaceAgentV2Manifest = getWidgetV2Manifest("workspace-agent-v2");
-const queueRunDisabledReason =
-  "Queue Run is not implemented in this Workspace Agent v2 block; no Queue task will be created.";
 
 type WorkspaceAgentV2WidgetProps = {
   readonly activityEvents?: readonly AgentRunEvent[];
@@ -49,9 +50,12 @@ type WorkspaceAgentV2WidgetProps = {
   readonly onCancelCodexDirectWorkRun?: CodexAgentRuntimeActions["cancelCodexDirectWorkRun"];
   readonly onContextAddPlaceholder?: () => void;
   readonly onContextRemove?: (itemId: string) => void;
-  readonly onQueueTaskCreate?: () => void;
+  readonly onQueueTaskCreate?: (queueItemId?: string) => void;
   readonly onRunRequest?: () => void;
   readonly onStartCodexDirectWorkStream?: CodexAgentRuntimeActions["startCodexDirectWorkStream"];
+  readonly queueBridge?: Pick<WorkspaceAgentQueueBridge, "createItem"> | null;
+  readonly queueRunPriority?: number;
+  readonly queueRunTags?: readonly string[];
   readonly sandbox?: DirectWorkSandbox;
   readonly visibleContextSnapshot?: AgentContextSnapshot;
   readonly widgetInstanceId?: string;
@@ -74,6 +78,9 @@ export function WorkspaceAgentV2Widget({
   onQueueTaskCreate,
   onRunRequest,
   onStartCodexDirectWorkStream,
+  queueBridge,
+  queueRunPriority,
+  queueRunTags,
   sandbox = "workspace_write",
   visibleContextSnapshot,
   widgetInstanceId = "workspace-agent-v2-widget",
@@ -105,10 +112,29 @@ export function WorkspaceAgentV2Widget({
     workingDirectory,
     workspaceId,
   });
+  const queueRunController = useWorkspaceAgentV2QueueRun({
+    contextItems,
+    createdFromRunId: controller.currentRunId ?? currentRunId ?? null,
+    onResult: (result) => {
+      if (result.status === "created") {
+        onQueueTaskCreate?.(result.createdTask?.id);
+      }
+    },
+    priority: queueRunPriority,
+    queueBridge,
+    tags: queueRunTags,
+    visibleContextSnapshot,
+  });
   const isBusy = isWorkspaceAgentV2DirectRunBusy(controller.status);
+  const isQueueBusy = isWorkspaceAgentV2QueueRunBusy(queueRunController.status);
   const directRunDisabledReason = directRunDisabledReasonFor({
     isAdapterSupported,
     isBusy,
+    prompt,
+  });
+  const queueRunDisabledReason = queueRunDisabledReasonFor({
+    isQueueBusy,
+    isQueueCreateSupported: Boolean(queueBridge?.createItem),
     prompt,
   });
   const directRunWarnings = useMemo(
@@ -117,8 +143,15 @@ export function WorkspaceAgentV2Widget({
         ...contextWarnings(contextItems),
         ...capabilityWarnings(runtimeAdapter, isAdapterSupported),
         ...controller.warnings,
+        ...queueRunController.warnings,
       ]),
-    [contextItems, controller.warnings, isAdapterSupported, runtimeAdapter],
+    [
+      contextItems,
+      controller.warnings,
+      isAdapterSupported,
+      queueRunController.warnings,
+      runtimeAdapter,
+    ],
   );
   const preflightItems = directRunPreflightItems({
     approvalPolicy,
@@ -138,6 +171,10 @@ export function WorkspaceAgentV2Widget({
     void controller.startDirectRun(prompt);
   }
 
+  function handleQueueRun() {
+    void queueRunController.startQueueRun(prompt);
+  }
+
   return (
     <WidgetV2Shell
       status={{
@@ -146,7 +183,7 @@ export function WorkspaceAgentV2Widget({
         label: isBusy ? "Running" : isAdapterSupported ? "Experimental" : "Unsupported",
         tone: isBusy ? "working" : isAdapterSupported ? "warning" : "error",
       }}
-      subtitle="Experimental V2 conversation shell. Direct Run can start Codex when supported; Queue Run remains disabled."
+      subtitle="Experimental V2 conversation shell. Direct Run can start Codex when supported; Queue Run can create a Queue task when the host supplies Queue create support."
       title={workspaceAgentV2Manifest?.title ?? "Workspace Agent v2"}
     >
       <WidgetV2Toolbar label="Workspace Agent v2 provider and mode row">
@@ -167,15 +204,17 @@ export function WorkspaceAgentV2Widget({
               directRunDisabled={Boolean(directRunDisabledReason)}
               directRunDisabledReason={directRunDisabledReason}
               directRunLabel={isBusy ? "Direct Run running" : "Direct Run"}
-              errorMessage={controller.errorMessage}
+              errorMessage={controller.errorMessage ?? queueRunController.errorMessage}
               newThread={newThread}
               onDirectRun={handleDirectRun}
               onNewThreadChange={setNewThread}
               onPromptChange={setPrompt}
-              onQueueRun={onQueueTaskCreate}
+              onQueueRun={handleQueueRun}
               preflightItems={preflightItems}
               prompt={prompt}
+              queueRunDisabled={Boolean(queueRunDisabledReason)}
               queueRunDisabledReason={queueRunDisabledReason}
+              queueRunLabel={isQueueBusy ? "Queue Run creating" : "Queue Run"}
               warnings={directRunWarnings}
             />
           </WidgetV2BottomDrawer>
@@ -208,6 +247,30 @@ export function WorkspaceAgentV2Widget({
       />
     </WidgetV2Shell>
   );
+}
+
+function queueRunDisabledReasonFor({
+  isQueueBusy,
+  isQueueCreateSupported,
+  prompt,
+}: {
+  readonly isQueueBusy: boolean;
+  readonly isQueueCreateSupported: boolean;
+  readonly prompt: string;
+}) {
+  if (!prompt.trim()) {
+    return "Enter a prompt before creating a Queue task.";
+  }
+
+  if (!isQueueCreateSupported) {
+    return "Queue task creation is unavailable in this Workspace Agent v2 host.";
+  }
+
+  if (isQueueBusy) {
+    return "Queue Run is already creating a task.";
+  }
+
+  return undefined;
 }
 
 function directRunDisabledReasonFor({

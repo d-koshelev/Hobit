@@ -12,7 +12,9 @@ type WorkspaceAgentV2ComposerProps = {
   readonly onQueueRun?: () => void;
   readonly preflightItems?: readonly WorkspaceAgentV2PreflightItem[];
   readonly prompt?: string;
+  readonly queueRunDisabled?: boolean;
   readonly queueRunDisabledReason?: string;
+  readonly queueRunLabel?: string;
   readonly warnings?: readonly string[];
 };
 
@@ -22,7 +24,9 @@ type WorkspaceAgentV2RunControlsProps = {
   readonly directRunLabel?: string;
   readonly onDirectRun?: () => void;
   readonly onQueueRun?: () => void;
+  readonly queueRunDisabled?: boolean;
   readonly queueRunDisabledReason?: string;
+  readonly queueRunLabel?: string;
 };
 
 export type WorkspaceAgentV2PreflightItem = {
@@ -42,7 +46,9 @@ export function WorkspaceAgentV2Composer({
   onQueueRun,
   preflightItems = [],
   prompt = "",
+  queueRunDisabled = true,
   queueRunDisabledReason = "Queue Run is not implemented in Workspace Agent v2 yet.",
+  queueRunLabel,
   warnings = [],
 }: WorkspaceAgentV2ComposerProps) {
   function handlePromptChange(event: ChangeEvent<HTMLTextAreaElement>) {
@@ -107,7 +113,9 @@ export function WorkspaceAgentV2Composer({
           directRunLabel={directRunLabel}
           onDirectRun={onDirectRun}
           onQueueRun={onQueueRun}
+          queueRunDisabled={queueRunDisabled}
           queueRunDisabledReason={queueRunDisabledReason}
+          queueRunLabel={queueRunLabel}
         />
       </div>
       <WorkspaceAgentV2PreflightSummary
@@ -126,7 +134,9 @@ export function WorkspaceAgentV2RunControls({
   directRunLabel = "Direct Run",
   onDirectRun,
   onQueueRun,
+  queueRunDisabled = true,
   queueRunDisabledReason = "Queue Run is not implemented in Workspace Agent v2 yet.",
+  queueRunLabel = "Queue Run",
 }: WorkspaceAgentV2RunControlsProps) {
   return (
     <div
@@ -145,12 +155,12 @@ export function WorkspaceAgentV2RunControls({
       </button>
       <button
         className="button button-primary workspace-agent-v2-run-button workspace-agent-v2-run-button-queue"
-        disabled
+        disabled={queueRunDisabled}
         onClick={onQueueRun}
         title={queueRunDisabledReason}
         type="button"
       >
-        Queue Run
+        {queueRunLabel}
       </button>
     </div>
   );
