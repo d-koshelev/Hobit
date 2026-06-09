@@ -87,6 +87,35 @@ describe("KnowledgeV2Widget browser", () => {
     expect(text()).toContain("Knowledge Documents list bridge");
     expect(text()).toContain("Skills list bridge");
     expect(text()).toContain("No catalog items yet.");
+    expect(buttonWithText("Retry")).not.toBeNull();
+  });
+
+  it("shows service unavailable actions when bridge loading fails", async () => {
+    const onImport = vi.fn();
+    const onListKnowledgeDocuments = vi.fn(async () => {
+      throw new Error("documents offline");
+    });
+    const onListSkills = vi.fn(async () => [skillFixture()]);
+
+    await render(
+      <KnowledgeV2Widget
+        onImport={onImport}
+        onListKnowledgeDocuments={onListKnowledgeDocuments}
+        onListSkills={onListSkills}
+      />,
+    );
+    await flush();
+
+    expect(text()).toContain("Some catalog bridges are unavailable.");
+    expect(text()).toContain("Load failed: documents offline");
+    expect(buttonWithText("Retry")).not.toBeNull();
+    expect(buttonWithText("Import item")).not.toBeNull();
+
+    await clickButton("Retry");
+    await flush();
+    expect(onListKnowledgeDocuments).toHaveBeenCalledTimes(2);
+    await clickButton("Import item");
+    expect(onImport).toHaveBeenCalledTimes(1);
   });
 
   it("changes visible items when filters change", async () => {
@@ -115,7 +144,13 @@ describe("KnowledgeV2Widget browser", () => {
 
     expect(text()).not.toContain("React review");
     expect(text()).toContain("No search results.");
+    expect(buttonWithText("Clear filters")).not.toBeNull();
     expect(text()).toContain("0 / 2");
+
+    await clickButton("Clear filters");
+    expect(text()).toContain("Release guide");
+    expect(text()).toContain("React review");
+    expect(text()).toContain("2 / 2");
   });
 
   it("toggles between default dense list and optional cards view", async () => {
@@ -320,11 +355,141 @@ describe("KnowledgeV2Widget browser", () => {
 
     const preview = regionByName("Knowledge preview");
     expect(preview?.textContent).toContain("Rejected safety note");
+    expect(preview?.textContent).toContain("Rejected");
+    expect(preview?.textContent).toContain("Unavailable");
+    expect(preview?.textContent).toContain("Not approved and cannot be attached.");
     expect(preview?.textContent).toContain("Document is disabled.");
     expect(preview?.textContent).toContain("Document is marked not searchable.");
     expect(preview?.textContent).toContain(
       "Rejected document is unavailable for normal catalog use.",
     );
+  });
+
+  it("renders all KnowledgeV2 lifecycle badges with labels and reasons", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            knowledgeDocumentId: "published",
+            lifecycleStatus: "active",
+            title: "Published document",
+          }),
+          documentFixture({
+            knowledgeDocumentId: "draft",
+            lifecycleStatus: "draft",
+            title: "Draft document",
+          }),
+          documentFixture({
+            knowledgeDocumentId: "archived",
+            lifecycleStatus: "archived",
+            title: "Archived document",
+          }),
+          documentFixture({
+            knowledgeDocumentId: "rejected",
+            lifecycleStatus: "rejected",
+            title: "Rejected document",
+          }),
+          documentFixture({
+            knowledgeDocumentId: "stale",
+            lifecycleStatus: "stale",
+            title: "Stale document",
+          }),
+          documentFixture({
+            content: "Large ".repeat(2_200),
+            knowledgeDocumentId: "large",
+            lifecycleStatus: "active",
+            title: "Large document",
+          }),
+          documentFixture({
+            enabled: false,
+            knowledgeDocumentId: "unavailable",
+            lifecycleStatus: "active",
+            searchable: false,
+            title: "Unavailable document",
+          }),
+        ]}
+        skills={[]}
+      />,
+    );
+
+    const catalog = regionByName("Knowledge catalog items");
+    for (const label of [
+      "Published",
+      "Draft",
+      "Archived",
+      "Rejected",
+      "Stale",
+      "Large",
+      "Unavailable",
+    ]) {
+      expect(catalog?.textContent).toContain(label);
+    }
+
+    await clickButton("Published document");
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Ready and usable as Knowledge context",
+    );
+    await clickButton("Draft document");
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "In progress; review is needed",
+    );
+    await clickButton("Archived document");
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "No longer active; context attach is blocked",
+    );
+    await clickButton("Rejected document");
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Not approved and cannot be attached",
+    );
+    await clickButton("Stale document");
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Update recommended; use with caution",
+    );
+    await clickButton("Large document");
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Review recommended; visible preview and context are bounded",
+    );
+    await clickButton("Unavailable document");
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Disabled item cannot be used as normal Knowledge context",
+    );
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Not searchable; context attach is blocked",
+    );
+  });
+
+  it("renders stale and large context warnings while keeping attach explicit", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            knowledgeDocumentId: "stale",
+            lifecycleStatus: "stale",
+            title: "Stale attach item",
+          }),
+          documentFixture({
+            content: "Large ".repeat(2_200),
+            knowledgeDocumentId: "large",
+            title: "Large attach item",
+          }),
+        ]}
+        onAttachContextToCoordinator={vi.fn()}
+        skills={[]}
+      />,
+    );
+
+    await clickButton("Stale attach item");
+    expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
+      "Knowledge Document is stale; attach only after reviewing the visible warning.",
+    );
+    expect(buttonWithText("Use as context")?.disabled).toBe(false);
+
+    await clickButton("Large attach item");
+    expect(regionByName("Knowledge preview")?.textContent).toContain("Large");
+    expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
+      "Knowledge Document is large; only bounded visible context is attached.",
+    );
+    expect(buttonWithText("Use as context")?.disabled).toBe(false);
   });
 
   it("renders explicit action buttons without showing action forms by default", async () => {
@@ -437,7 +602,7 @@ describe("KnowledgeV2Widget browser", () => {
 
     await clickButton("Help");
     expect(dialogByName("Help / Legend")?.textContent).toContain(
-      "Normal context candidate",
+      "Ready and usable",
     );
 
     await clickButton("Close");
@@ -489,6 +654,8 @@ describe("KnowledgeV2Widget browser", () => {
     expect(dialogByName("Help / Legend")?.textContent).toContain(
       "Context actions are always explicit",
     );
+    expect(dialogByName("Help / Legend")?.textContent).toContain("Archived");
+    expect(dialogByName("Help / Legend")?.textContent).toContain("Large");
     await keyDown("Escape");
   });
 

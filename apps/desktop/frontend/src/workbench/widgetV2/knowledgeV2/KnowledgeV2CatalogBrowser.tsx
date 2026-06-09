@@ -32,6 +32,8 @@ export type KnowledgeV2CatalogBrowserProps = {
   readonly missingBridges?: readonly string[];
   readonly onAttachContextToCoordinator?: WidgetRenderProps["onAttachContextToCoordinator"];
   readonly onAttachKnowledgeContextToQueueTask?: WidgetRenderProps["onAttachKnowledgeContextToQueueTask"];
+  readonly onImport?: () => void;
+  readonly onRetry?: () => void;
   readonly skills: readonly Skill[];
   readonly status?: "loading" | "partial" | "ready" | "unavailable";
   readonly viewMode?: "cards" | "list";
@@ -53,6 +55,8 @@ export function KnowledgeV2CatalogBrowser({
   missingBridges = [],
   onAttachContextToCoordinator,
   onAttachKnowledgeContextToQueueTask,
+  onImport,
+  onRetry,
   skills,
   status = "ready",
   viewMode = "list",
@@ -107,6 +111,10 @@ export function KnowledgeV2CatalogBrowser({
   function selectItem(itemId: string) {
     setSelectedItemId(itemId);
     setActionNotice(null);
+  }
+
+  function clearFilters() {
+    setFilters(defaultFilters);
   }
 
   function openContextPicker(itemId?: string) {
@@ -250,6 +258,8 @@ export function KnowledgeV2CatalogBrowser({
       <KnowledgeV2BridgeNotice
         loadError={loadError}
         missingBridges={missingBridges}
+        onImport={onImport}
+        onRetry={onRetry}
         status={status}
       />
       <div className="knowledge-v2-browser">
@@ -257,6 +267,8 @@ export function KnowledgeV2CatalogBrowser({
           hasItems={viewModel.items.length > 0}
           items={viewModel.filteredItems}
           mode={viewMode}
+          onClearFilters={clearFilters}
+          onImport={onImport}
           onSelectItem={selectItem}
           onUseAsContext={openContextPicker}
           selectedItemId={selectedItemId}
@@ -287,10 +299,14 @@ export function KnowledgeV2CatalogBrowser({
 function KnowledgeV2BridgeNotice({
   loadError,
   missingBridges,
+  onImport,
+  onRetry,
   status,
 }: {
   readonly loadError: string | null;
   readonly missingBridges: readonly string[];
+  readonly onImport?: () => void;
+  readonly onRetry?: () => void;
   readonly status: "loading" | "partial" | "ready" | "unavailable";
 }) {
   if (status === "ready") {
@@ -326,6 +342,20 @@ function KnowledgeV2BridgeNotice({
             <li key={bridge}>{bridge}</li>
           ))}
         </ul>
+      ) : null}
+      {status === "unavailable" || loadError ? (
+        <div className="knowledge-v2-empty-actions">
+          {onRetry ? (
+            <button className="knowledge-v2-empty-action" onClick={onRetry} type="button">
+              Retry
+            </button>
+          ) : null}
+          {onImport ? (
+            <button className="knowledge-v2-empty-action" onClick={onImport} type="button">
+              Import item
+            </button>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );

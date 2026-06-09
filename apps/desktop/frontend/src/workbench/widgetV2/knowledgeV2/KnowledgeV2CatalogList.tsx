@@ -1,10 +1,16 @@
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
+import {
+  KnowledgeV2StatusBadge,
+  knowledgeV2ItemStatuses,
+} from "./knowledgeV2ItemStatus";
 
 type KnowledgeV2CatalogListProps = {
   readonly hasItems: boolean;
   readonly items: readonly KnowledgeV2CatalogItem[];
   readonly mode?: "cards" | "list";
   readonly selectedItemId: string | null;
+  readonly onClearFilters?: () => void;
+  readonly onImport?: () => void;
   readonly onSelectItem: (itemId: string) => void;
   readonly onUseAsContext?: (itemId: string) => void;
 };
@@ -13,6 +19,8 @@ export function KnowledgeV2CatalogList({
   hasItems,
   items,
   mode = "list",
+  onClearFilters,
+  onImport,
   onSelectItem,
   onUseAsContext,
   selectedItemId,
@@ -22,9 +30,14 @@ export function KnowledgeV2CatalogList({
       <section aria-label="Knowledge catalog empty state" className="knowledge-v2-empty">
         <h3>No catalog items yet.</h3>
         <p>
-          Knowledge Documents and Skills will appear here after they are passed
-          into this preview surface.
+          Import or create Knowledge in the existing Knowledge / Skills flow,
+          then return here to review it in the experimental catalog.
         </p>
+        {onImport ? (
+          <button className="knowledge-v2-empty-action" onClick={onImport} type="button">
+            Import item
+          </button>
+        ) : null}
       </section>
     );
   }
@@ -37,6 +50,11 @@ export function KnowledgeV2CatalogList({
       >
         <h3>No search results.</h3>
         <p>Adjust search, type, lifecycle, or availability filters.</p>
+        {onClearFilters ? (
+          <button className="knowledge-v2-empty-action" onClick={onClearFilters} type="button">
+            Clear filters
+          </button>
+        ) : null}
       </section>
     );
   }
@@ -102,6 +120,7 @@ export function KnowledgeV2CatalogRow({
   selected,
 }: KnowledgeV2CatalogRowProps) {
   const warningCount = item.warnings.length;
+  const statuses = knowledgeV2ItemStatuses(item);
 
   return (
     <div
@@ -121,8 +140,10 @@ export function KnowledgeV2CatalogRow({
       </button>
       <span role="cell">{formatToken(item.type)}</span>
       <span role="cell">
-        <span className="knowledge-v2-chip" data-tone={toneForLifecycle(item.lifecycleState)}>
-          {formatToken(item.lifecycleState)}
+        <span className="knowledge-v2-status-stack">
+          {statuses.map((status) => (
+            <KnowledgeV2StatusBadge key={status.key} status={status} />
+          ))}
         </span>
       </span>
       <span role="cell">{formatScope(item.source.scope)}</span>
@@ -170,6 +191,7 @@ export function KnowledgeV2CatalogCard({
   selected,
 }: KnowledgeV2CatalogCardProps) {
   const warningCount = item.warnings.length;
+  const statuses = knowledgeV2ItemStatuses(item);
 
   return (
     <button
@@ -182,8 +204,10 @@ export function KnowledgeV2CatalogCard({
     >
       <span className="knowledge-v2-card-topline">
         <span className="knowledge-v2-card-title">{item.title}</span>
-        <span className="knowledge-v2-chip" data-tone={toneForLifecycle(item.lifecycleState)}>
-          {formatToken(item.lifecycleState)}
+        <span className="knowledge-v2-status-inline">
+          {statuses.map((status) => (
+            <KnowledgeV2StatusBadge key={status.key} status={status} />
+          ))}
         </span>
       </span>
       <span className="knowledge-v2-card-meta">
@@ -235,20 +259,4 @@ function formatDate(value?: string | null) {
   }
 
   return parsed.toISOString().slice(0, 10);
-}
-
-function toneForLifecycle(value: KnowledgeV2CatalogItem["lifecycleState"]) {
-  switch (value) {
-    case "active":
-    case "reviewed":
-      return "ok";
-    case "rejected":
-    case "deprecated":
-      return "blocked";
-    case "stale":
-    case "needs_review":
-      return "warning";
-    default:
-      return "neutral";
-  }
 }

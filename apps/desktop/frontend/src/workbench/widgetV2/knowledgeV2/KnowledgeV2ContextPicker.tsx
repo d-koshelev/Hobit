@@ -7,6 +7,10 @@ import type {
 } from "./knowledgeV2ContextAffordances";
 import { knowledgeV2ContextText, knowledgeV2ReferenceText } from "./knowledgeV2ContextAffordances";
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
+import {
+  KnowledgeV2StatusBadge,
+  knowledgeV2ItemStatuses,
+} from "./knowledgeV2ItemStatus";
 
 export type KnowledgeV2PickerItem = {
   readonly affordanceSource: KnowledgeV2ContextAffordanceSource | null;
@@ -122,6 +126,7 @@ export function KnowledgeV2ContextPicker({
             {items.map((entry) => {
               const disabledReason = itemDisabledReason(entry);
               const selected = selectedIds.includes(entry.item.id);
+              const statuses = knowledgeV2ItemStatuses(entry.item);
               return (
                 <li data-disabled={disabledReason ? "true" : "false"} key={entry.item.id}>
                   <label>
@@ -133,19 +138,16 @@ export function KnowledgeV2ContextPicker({
                     />
                     <span>
                       <strong>{entry.item.title}</strong>
-                      <span>{formatToken(entry.item.type)} / {formatToken(entry.item.lifecycleState)}</span>
+                      <span>{formatToken(entry.item.type)} / {statuses[0]?.label ?? "Unavailable"}</span>
                     </span>
                   </label>
                   <div className="knowledge-v2-picker-badges">
                     <span className="knowledge-v2-chip">{formatToken(entry.item.recordKind)}</span>
+                    {statuses.map((status) => (
+                      <KnowledgeV2StatusBadge key={status.key} status={status} />
+                    ))}
                     {entry.item.reviewState ? (
                       <span className="knowledge-v2-chip">{formatToken(entry.item.reviewState)}</span>
-                    ) : null}
-                    {entry.item.enabled === false ? (
-                      <span className="knowledge-v2-chip" data-tone="blocked">Disabled</span>
-                    ) : null}
-                    {entry.item.searchable === false ? (
-                      <span className="knowledge-v2-chip" data-tone="warning">Unavailable</span>
                     ) : null}
                   </div>
                   <p>{entry.item.summary}</p>

@@ -41,12 +41,14 @@ export function KnowledgeV2Widget({
   skills,
 }: KnowledgeV2WidgetProps = {}) {
   const [viewMode, setViewMode] = useState<"cards" | "list">("list");
+  const [reloadKey, setReloadKey] = useState(0);
   const dataBridge = useKnowledgeV2DataBridge({
     draftReviews,
     documents,
     onListKnowledgeDocuments,
     onListKnowledgeDraftReviews,
     onListSkills,
+    reloadKey,
     skills,
   });
   const status = useMemo(
@@ -96,6 +98,8 @@ export function KnowledgeV2Widget({
         missingBridges={dataBridge.missingBridges}
         onAttachContextToCoordinator={onAttachContextToCoordinator}
         onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
+        onImport={onImport}
+        onRetry={() => setReloadKey((current) => current + 1)}
         skills={dataBridge.skills}
         status={dataBridge.status}
         viewMode={viewMode}
@@ -110,6 +114,7 @@ type KnowledgeV2DataBridgeInput = {
   readonly onListKnowledgeDocuments?: WidgetRenderProps["onListKnowledgeDocuments"];
   readonly onListKnowledgeDraftReviews?: WidgetRenderProps["onListKnowledgeDraftReviews"];
   readonly onListSkills?: WidgetRenderProps["onListSkills"];
+  readonly reloadKey: number;
   readonly skills?: readonly Skill[];
 };
 
@@ -128,6 +133,7 @@ function useKnowledgeV2DataBridge({
   onListKnowledgeDocuments,
   onListKnowledgeDraftReviews,
   onListSkills,
+  reloadKey,
   skills,
 }: KnowledgeV2DataBridgeInput): KnowledgeV2DataBridge {
   const [loadedDocuments, setLoadedDocuments] = useState<
@@ -208,7 +214,7 @@ function useKnowledgeV2DataBridge({
     return () => {
       cancelled = true;
     };
-  }, [documents, onListKnowledgeDocuments, onListSkills, skills]);
+  }, [documents, onListKnowledgeDocuments, onListSkills, reloadKey, skills]);
 
   const missingBridges = [
     documentBridgeAvailable ? null : "Knowledge Documents list bridge",

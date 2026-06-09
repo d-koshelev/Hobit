@@ -13,6 +13,11 @@ import {
 } from "./knowledgeV2ContextAffordances";
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
 import {
+  KnowledgeV2StatusBadge,
+  KnowledgeV2StatusReasonList,
+  knowledgeV2ItemStatuses,
+} from "./knowledgeV2ItemStatus";
+import {
   KnowledgeV2ContextPicker,
   type KnowledgeV2PickerItem,
 } from "./KnowledgeV2ContextPicker";
@@ -74,7 +79,10 @@ export function KnowledgeV2PreviewPanel({
         className="knowledge-v2-preview knowledge-v2-empty"
       >
         <h3>Selected item unavailable.</h3>
-        <p>The selected catalog item is not visible with the current filters.</p>
+        <p>
+          The selected catalog item is no longer visible with the current
+          filters. Clear filters or select another item from the catalog.
+        </p>
       </section>
     );
   }
@@ -97,11 +105,13 @@ export function KnowledgeV2PreviewPanel({
         aria-label="Knowledge preview waiting"
         className="knowledge-v2-preview knowledge-v2-empty"
       >
-        <h3>Select an item.</h3>
+        <h3>No selected item.</h3>
         <p>Choose a catalog row to inspect lifecycle, source, and warnings.</p>
       </section>
     );
   }
+
+  const statuses = knowledgeV2ItemStatuses(item);
 
   return (
     <section aria-label="Knowledge preview" className="knowledge-v2-preview">
@@ -116,17 +126,11 @@ export function KnowledgeV2PreviewPanel({
           </div>
         </div>
         <div className="knowledge-v2-preview-badges" aria-label="Knowledge item states">
-          <span className="knowledge-v2-chip" data-tone={toneForLifecycle(item.lifecycleState)}>
-            {formatToken(item.lifecycleState)}
-          </span>
+          {statuses.map((status) => (
+            <KnowledgeV2StatusBadge key={status.key} status={status} />
+          ))}
           {item.reviewState ? (
             <span className="knowledge-v2-chip">{formatToken(item.reviewState)}</span>
-          ) : null}
-          {item.enabled === false ? (
-            <span className="knowledge-v2-chip" data-tone="blocked">Disabled</span>
-          ) : null}
-          {item.searchable === false ? (
-            <span className="knowledge-v2-chip" data-tone="warning">Not searchable</span>
           ) : null}
         </div>
       </div>
@@ -141,6 +145,11 @@ export function KnowledgeV2PreviewPanel({
         <StatusTerm label="Version" value={item.version ? `v${item.version}` : "Unavailable"} />
         <StatusTerm label="Updated" value={formatDate(item.updatedAt)} />
       </dl>
+
+      <section className="knowledge-v2-preview-section">
+        <h4>Status</h4>
+        <KnowledgeV2StatusReasonList statuses={statuses} />
+      </section>
 
       {item.warnings.length > 0 ? (
         <section className="knowledge-v2-preview-section">
@@ -589,20 +598,4 @@ function formatToken(value: string) {
     .split("_")
     .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
     .join(" ");
-}
-
-function toneForLifecycle(value: KnowledgeV2CatalogItem["lifecycleState"]) {
-  switch (value) {
-    case "active":
-    case "reviewed":
-      return "ok";
-    case "rejected":
-    case "deprecated":
-      return "blocked";
-    case "stale":
-    case "needs_review":
-      return "warning";
-    default:
-      return "neutral";
-  }
 }

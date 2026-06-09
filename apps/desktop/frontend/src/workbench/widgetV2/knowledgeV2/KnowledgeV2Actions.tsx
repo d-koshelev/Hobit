@@ -355,19 +355,31 @@ function HelpLegendPopup() {
       <dl className="knowledge-v2-action-facts knowledge-v2-action-facts-wide">
         <div>
           <dt>Published</dt>
-          <dd>Normal context candidate</dd>
+          <dd>Ready and usable</dd>
         </div>
         <div>
           <dt>Draft</dt>
-          <dd>Review before normal use</dd>
+          <dd>In progress / review needed</dd>
+        </div>
+        <div>
+          <dt>Archived</dt>
+          <dd>No longer active</dd>
         </div>
         <div>
           <dt>Rejected</dt>
-          <dd>Not attachable</dd>
+          <dd>Not approved / cannot attach</dd>
+        </div>
+        <div>
+          <dt>Stale</dt>
+          <dd>Update recommended</dd>
+        </div>
+        <div>
+          <dt>Large</dt>
+          <dd>Review recommended</dd>
         </div>
         <div>
           <dt>Unavailable</dt>
-          <dd>Bridge or policy blocked</dd>
+          <dd>Cannot be used</dd>
         </div>
       </dl>
       <p className="knowledge-v2-action-note">
