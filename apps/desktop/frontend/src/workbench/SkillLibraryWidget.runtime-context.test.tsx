@@ -120,7 +120,9 @@ describe("SkillLibraryWidget WidgetRuntimeContext", () => {
 
     expect(document.body.textContent).toContain("No catalog items yet.");
 
-    await clickButton("New item");
+    await clickButton("New");
+    await clickButton("Open existing create flow");
+    await flush();
     await changeInput('input[placeholder="Untitled document"]', "Host docs");
     await changeTextareaByLabel("Full content", "Host-rendered content.");
     await clickButton("Save document");

@@ -1,8 +1,16 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Button } from "../design-system/Button";
 import { WidgetInfoPopover } from "../design-system/WidgetInfoPopover";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import {
+  SkillLibraryDocumentsPanel,
+  type SkillLibraryDocumentsPanelHandle,
+} from "./SkillLibraryDocumentsPanel";
 import type { WidgetRenderProps } from "./types";
 import { useWidgetRuntimeContext } from "./widgetRuntimeContext";
 import { KnowledgeV2Widget } from "./widgetV2/knowledgeV2";
+
+type KnowledgeV2LegacyFlow = "drafts" | "import" | "new" | "skills";
 
 export function KnowledgeSkillsV2Widget({
   frameActions,
@@ -10,16 +18,31 @@ export function KnowledgeSkillsV2Widget({
   frameStyle,
   instance,
   logRefreshToken,
+  onCreateSkill,
+  onCreateAgentQueueTask,
+  onCreateKnowledgeDocument,
+  onDeleteKnowledgeDocument,
+  onDeleteSkill,
+  onGetKnowledgeDocument,
+  onGetSkill,
   onAttachContextToCoordinator,
   onAttachKnowledgeContextToQueueTask,
+  onReadKnowledgeDocumentImportFile,
   onListKnowledgeDocuments,
   onListKnowledgeDraftReviews,
   onListSkills,
   onLoadLogs,
+  onRecordKnowledgeDraftReview,
   onStartFrameMove,
+  onUpdateKnowledgeDocument,
+  onUpdateSkill,
   title,
 }: WidgetRenderProps) {
   const runtime = useWidgetRuntimeContext();
+  const legacyPanelRef = useRef<SkillLibraryDocumentsPanelHandle | null>(null);
+  const [legacyFlow, setLegacyFlow] = useState<KnowledgeV2LegacyFlow | null>(
+    null,
+  );
   const widgetInstanceId = runtime.identity.widgetInstanceId ?? instance.id;
   const loadLogs = runtime.logs.isAvailable
     ? runtime.logs.load
@@ -29,6 +52,33 @@ export function KnowledgeSkillsV2Widget({
   const effectiveLogRefreshToken = runtime.logs.isAvailable
     ? runtime.logs.refreshToken
     : logRefreshToken;
+  const onDocumentsToolbarStateChange = useCallback(() => undefined, []);
+
+  useEffect(() => {
+    if (!legacyFlow) {
+      return;
+    }
+
+    const panel = legacyPanelRef.current;
+    if (!panel) {
+      return;
+    }
+
+    switch (legacyFlow) {
+      case "drafts":
+        panel.openDraftReviewFlow();
+        return;
+      case "import":
+        panel.openImportFlow();
+        return;
+      case "new":
+        panel.startNewDocument();
+        return;
+      case "skills":
+        panel.openSkillsFlow();
+        return;
+    }
+  }, [legacyFlow]);
 
   const statusBadge = (
     <WidgetInfoPopover
@@ -66,10 +116,48 @@ export function KnowledgeSkillsV2Widget({
         displayTitle="Knowledge Catalog"
         onAttachContextToCoordinator={onAttachContextToCoordinator}
         onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
+        onDraftReview={() => setLegacyFlow("drafts")}
+        onImport={() => setLegacyFlow("import")}
         onListKnowledgeDocuments={onListKnowledgeDocuments}
         onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
         onListSkills={onListSkills}
+        onManageSkills={() => setLegacyFlow("skills")}
+        onNew={() => setLegacyFlow("new")}
       />
+      {legacyFlow ? (
+        <section
+          aria-label="Knowledge / Skills existing flow"
+          className="skill-library-shell"
+        >
+          <div className="skill-library-summary skill-library-summary-secondary">
+            <span>Existing Knowledge / Skills flow</span>
+            <Button onClick={() => setLegacyFlow(null)} variant="ghost">
+              Close existing flow
+            </Button>
+          </div>
+          <SkillLibraryDocumentsPanel
+            isActive={true}
+            onAttachContextToCoordinator={onAttachContextToCoordinator}
+            onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
+            onCreateAgentQueueTask={onCreateAgentQueueTask}
+            onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+            onCreateSkill={onCreateSkill}
+            onDeleteKnowledgeDocument={onDeleteKnowledgeDocument}
+            onDeleteSkill={onDeleteSkill}
+            onGetKnowledgeDocument={onGetKnowledgeDocument}
+            onGetSkill={onGetSkill}
+            onListKnowledgeDocuments={onListKnowledgeDocuments}
+            onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+            onListSkills={onListSkills}
+            onReadKnowledgeDocumentImportFile={onReadKnowledgeDocumentImportFile}
+            onToolbarStateChange={onDocumentsToolbarStateChange}
+            onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
+            onUpdateKnowledgeDocument={onUpdateKnowledgeDocument}
+            onUpdateSkill={onUpdateSkill}
+            ref={legacyPanelRef}
+          />
+        </section>
+      ) : null}
     </WidgetFrame>
   );
 }

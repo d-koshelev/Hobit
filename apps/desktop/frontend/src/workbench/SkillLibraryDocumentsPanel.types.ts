@@ -1,6 +1,9 @@
 import type { WidgetRenderProps } from "./types";
 
 export type SkillLibraryDocumentsPanelHandle = {
+  openDraftReviewFlow: () => void;
+  openImportFlow: () => void;
+  openSkillsFlow: () => void;
   startNewDocument: () => void;
 };
 

@@ -7,7 +7,7 @@ import type { Skill } from "../workspace/types/skills";
 import { widgetCatalogTemplates } from "./catalogTemplates";
 import { SkillLibraryWidget } from "./SkillLibraryWidget";
 import { WidgetHost } from "./WidgetHost";
-import type { WidgetInstance } from "./types";
+import type { CoordinatorAttachedContextInput, WidgetInstance } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import {
   SKILL_LIBRARY_COMPONENT_KEY,
@@ -80,6 +80,59 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     expect(actions.createAgentQueueTask).not.toHaveBeenCalled();
   });
 
+  it("opens existing Knowledge / Skills flows only from explicit KnowledgeV2 popup actions", async () => {
+    const actions = widgetActions();
+
+    await render(<WidgetHost {...widgetHostProps(actions)} />);
+    await flush();
+
+    expect(regionByName("Knowledge / Skills existing flow")).toBeNull();
+    expect(actions.createKnowledgeDocument).not.toHaveBeenCalled();
+    expect(actions.createSkill).not.toHaveBeenCalled();
+    expect(actions.readKnowledgeDocumentImportFile).not.toHaveBeenCalled();
+
+    await clickButton("New");
+    expect(dialogByName("New")?.textContent).toContain("New document");
+    expect(regionByName("Knowledge / Skills existing flow")).toBeNull();
+    expect(actions.createKnowledgeDocument).not.toHaveBeenCalled();
+
+    await clickButton("Open existing create flow");
+    await flush();
+
+    expect(regionByName("Knowledge / Skills existing flow")).not.toBeNull();
+    expect(regionByName("Catalog item editor")).not.toBeNull();
+    expect(actions.createKnowledgeDocument).not.toHaveBeenCalled();
+    expect(actions.createSkill).not.toHaveBeenCalled();
+    expect(actions.readKnowledgeDocumentImportFile).not.toHaveBeenCalled();
+  });
+
+  it("bridges Use as Context through the host callback once after click", async () => {
+    const actions = widgetActions();
+    const onAttachContextToCoordinator = vi.fn();
+
+    await render(
+      <WidgetHost
+        {...widgetHostProps(actions, { onAttachContextToCoordinator })}
+      />,
+    );
+    await flush();
+
+    expect(onAttachContextToCoordinator).not.toHaveBeenCalled();
+
+    await clickButton("Release guide");
+    await clickButton("Use as context");
+    expect(onAttachContextToCoordinator).not.toHaveBeenCalled();
+
+    await clickButton("Attach");
+
+    expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
+    expect(onAttachContextToCoordinator).toHaveBeenCalledWith({
+      contextText: expect.stringContaining("Release guide"),
+      sourceLabel: "KnowledgeV2 / Knowledge Document",
+    });
+    expect(actions.createAgentQueueTask).not.toHaveBeenCalled();
+  });
+
   it("keeps the legacy Knowledge / Skills component directly renderable", async () => {
     await render(
       <SkillLibraryWidget
@@ -132,7 +185,38 @@ function regionByName(name: string): HTMLElement | null {
   );
 }
 
-function widgetHostProps(actions: WorkbenchWidgetInstanceActions) {
+async function clickButton(textContent: string) {
+  const button = buttonWithText(textContent);
+  expect(button).not.toBeNull();
+  await act(async () => {
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
+function buttonWithText(textContent: string): HTMLButtonElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
+      (button) => button.textContent?.includes(textContent),
+    ) ?? null
+  );
+}
+
+function dialogByName(name: string): HTMLElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLElement>("[role='dialog']")).find(
+      (element) => element.textContent?.includes(name),
+    ) ?? null
+  );
+}
+
+function widgetHostProps(
+  actions: WorkbenchWidgetInstanceActions,
+  overrides: {
+    onAttachContextToCoordinator?: (
+      request: CoordinatorAttachedContextInput,
+    ) => void;
+  } = {},
+) {
   return {
     agentActivityEvents: [],
     agentExecutorRunOpenRequest: null,
@@ -145,6 +229,7 @@ function widgetHostProps(actions: WorkbenchWidgetInstanceActions) {
     instance: knowledgeWidgetInstance(),
     layoutMode: "editing" as const,
     onDockBack: vi.fn(),
+    onAttachContextToCoordinator: overrides.onAttachContextToCoordinator,
     onOpenAgentExecutorRun: vi.fn(),
     onPopOut: vi.fn(),
     onPublishAgentActivityEvents: vi.fn(),
@@ -163,6 +248,7 @@ function widgetHostProps(actions: WorkbenchWidgetInstanceActions) {
       queueExecutorSlots: [],
       queueId: "queue_workspace_1",
     } as never,
+    ...overrides,
   };
 }
 
@@ -224,7 +310,7 @@ function documentFixture(): KnowledgeDocument {
     sourceRef: "docs/release.md",
     tags: "release",
     title: "Release guide",
-    updatedAt: "2026-01-02T00:00:00.000Z",
+    updatedAt: "2026-01-04T00:00:00.000Z",
     workspaceId: "workspace_1",
   };
 }

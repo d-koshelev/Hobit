@@ -156,9 +156,7 @@ export const SkillLibraryDocumentsPanel = forwardRef<SkillLibraryDocumentsPanelH
       isNewDisabled: !documentApiAvailable || isLoadingDocuments,
     });
   }, [documentApiAvailable, isLoadingDocuments, onToolbarStateChange]);
-  useImperativeHandle(ref, () => ({
-    startNewDocument,
-  }));
+  useImperativeHandle(ref, () => ({ openDraftReviewFlow: () => setActiveUtilityPanel("drafts"), openImportFlow: () => setActiveUtilityPanel("import"), openSkillsFlow: () => setActiveUtilityPanel("skills"), startNewDocument }));
   async function loadDocuments(preferredDocumentId: string | null) {
     if (!documentApiAvailable && !skillApiAvailable) {
       setDocuments([]);

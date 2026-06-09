@@ -183,9 +183,10 @@ export function KnowledgeV2Actions({
                   Open existing draft review flow
                 </Button>
               ) : (
-                <p className="knowledge-v2-action-status">
-                  Draft review management is unavailable in KnowledgeV2.
-                </p>
+                <UnavailableAction
+                  label="Open existing draft review flow"
+                  reason="Draft review management is unavailable because KnowledgeV2 did not receive an explicit draft-review callback."
+                />
               )}
             </section>
           ) : null}
@@ -237,9 +238,10 @@ function NewKnowledgePopup({ onNew }: { readonly onNew?: () => void }) {
           Open existing create flow
         </Button>
       ) : (
-        <p className="knowledge-v2-action-status">
-          Creation is unavailable in the experimental KnowledgeV2 browser.
-        </p>
+        <UnavailableAction
+          label="Open existing create flow"
+          reason="Creation is unavailable because KnowledgeV2 did not receive an explicit create-flow callback."
+        />
       )}
     </section>
   );
@@ -283,9 +285,10 @@ function ImportKnowledgePopup({ onImport }: { readonly onImport?: () => void }) 
           Open existing import flow
         </Button>
       ) : (
-        <p className="knowledge-v2-action-status">
-          Import is unavailable in the experimental KnowledgeV2 browser.
-        </p>
+        <UnavailableAction
+          label="Open existing import flow"
+          reason="Import is unavailable because KnowledgeV2 did not receive an explicit import-flow callback."
+        />
       )}
     </section>
   );
@@ -336,12 +339,29 @@ function ManageSkillsPopup({
           Open existing skills flow
         </Button>
       ) : (
-        <p className="knowledge-v2-action-status">
-          Skill management is unavailable in the experimental KnowledgeV2
-          browser.
-        </p>
+        <UnavailableAction
+          label="Open existing skills flow"
+          reason="Skill management is unavailable because KnowledgeV2 did not receive an explicit Skill-management callback."
+        />
       )}
     </section>
+  );
+}
+
+function UnavailableAction({
+  label,
+  reason,
+}: {
+  readonly label: string;
+  readonly reason: string;
+}) {
+  return (
+    <div className="knowledge-v2-action-status">
+      <Button disabled={true} title={reason} variant="secondary">
+        {label}
+      </Button>
+      <p>{reason}</p>
+    </div>
   );
 }
 
