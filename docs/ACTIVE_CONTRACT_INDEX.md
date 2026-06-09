@@ -425,6 +425,13 @@ unless the task explicitly requests it.
   manual smoke checklist, and recommended next blocks. It does not add runtime
   behavior, Queue Run behavior, Claude/Amp providers, or replace Workspace
   Agent V1.
+- `docs/WORKSPACE_AGENT_V2_QUEUE_RUN_STATUS.md` - docs-only status record for
+  WorkspaceAgentV2 Queue Run Block 001. It records the Queue Run audit, typed
+  Queue Run service, Queue Run controller, UI wiring, visible context
+  attachment, created-task result card/open actions, exact no-auto-run
+  behavior, safety boundaries, manual smoke checklist, and recommended next
+  blocks. It does not add runtime behavior, Queue scheduler/Autorun behavior,
+  Direct Run behavior, Claude/Amp providers, or replace Workspace Agent V1.
 - `docs/WORKSPACE_AGENT_UI_POLISH_STATUS.md` - docs-only status record for
   movable popup, Agent Activity alignment, and compact Workspace Agent run
   summary polish. It records manual smoke steps, non-goals, and follow-ups
