@@ -7,6 +7,7 @@ import { WidgetPopupShell } from "../../../design-system/WidgetPopupShell";
 import type { WidgetRenderProps } from "../../types";
 import { WidgetV2Toolbar } from "../WidgetV2Shell";
 import { KnowledgeV2CatalogList } from "./KnowledgeV2CatalogList";
+import { KnowledgeV2ContextPicker } from "./KnowledgeV2ContextPicker";
 import { KnowledgeV2Filters, type KnowledgeV2FilterValues } from "./KnowledgeV2Filters";
 import { KnowledgeV2PreviewPanel } from "./KnowledgeV2PreviewPanel";
 import {
@@ -168,6 +169,7 @@ export function KnowledgeV2CatalogBrowser({
       setSelectedItemId(itemId);
     }
     setActionNotice(null);
+    setIsDetailsOpen(false);
     if (disabledReason) {
       setActionNotice({
         message: disabledReason,
@@ -233,6 +235,7 @@ export function KnowledgeV2CatalogBrowser({
         status: "attached",
       });
       setIsContextPickerOpen(false);
+      setIsDetailsOpen(true);
       return;
     }
 
@@ -275,6 +278,7 @@ export function KnowledgeV2CatalogBrowser({
             },
       );
       setIsContextPickerOpen(false);
+      setIsDetailsOpen(true);
       return;
     }
 
@@ -297,6 +301,7 @@ export function KnowledgeV2CatalogBrowser({
       status: "copied",
     });
     setIsContextPickerOpen(false);
+    setIsDetailsOpen(true);
   }
 
   async function deleteSelectedItem() {
@@ -402,18 +407,21 @@ export function KnowledgeV2CatalogBrowser({
           <KnowledgeV2PreviewPanel
             actionNotice={actionNotice}
             affordanceState={affordanceState}
-            canAttachToQueueTask={Boolean(onAttachKnowledgeContextToQueueTask)}
-            canAttachToWorkspaceAgent={Boolean(onAttachContextToCoordinator)}
-            canCopyReference={canCopyReference}
-            contextItems={pickerItems}
             hasItems={viewModel.items.length > 0}
-            isContextPickerOpen={isContextPickerOpen}
             item={selectedItem}
-            onAttachContextPicker={attachContextPickerSelection}
-            onCloseContextPicker={() => setIsContextPickerOpen(false)}
             selectedItemId={selectedItemId}
           />
         </WidgetPopupShell>
+        <KnowledgeV2ContextPicker
+          canAttachToQueueTask={Boolean(onAttachKnowledgeContextToQueueTask)}
+          canAttachToWorkspaceAgent={Boolean(onAttachContextToCoordinator)}
+          canCopyReference={canCopyReference}
+          initialSelectedItemId={selectedItemId}
+          isOpen={isContextPickerOpen}
+          items={pickerItems}
+          onAttach={attachContextPickerSelection}
+          onClose={() => setIsContextPickerOpen(false)}
+        />
       </div>
     </>
   );

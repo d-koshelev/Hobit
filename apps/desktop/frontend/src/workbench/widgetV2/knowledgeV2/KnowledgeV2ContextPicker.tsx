@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
+import { Button } from "../../../design-system/Button";
+import { WidgetPopupShell } from "../../../design-system/WidgetPopupShell";
 import type {
   KnowledgeV2ContextAffordanceSource,
   KnowledgeV2ContextAffordanceState,
@@ -23,6 +25,7 @@ type KnowledgeV2ContextPickerProps = {
   readonly canAttachToWorkspaceAgent: boolean;
   readonly canCopyReference: boolean;
   readonly initialSelectedItemId: string | null;
+  readonly isOpen: boolean;
   readonly items: readonly KnowledgeV2PickerItem[];
   readonly onAttach: (
     target: KnowledgeV2ContextTarget,
@@ -46,6 +49,7 @@ export function KnowledgeV2ContextPicker({
   canAttachToWorkspaceAgent,
   canCopyReference,
   initialSelectedItemId,
+  isOpen,
   items,
   onAttach,
   onClose,
@@ -64,8 +68,12 @@ export function KnowledgeV2ContextPicker({
       ? [initialSelectedItemId]
       : [],
   );
-  const [target, setTarget] = useState<KnowledgeV2ContextTarget>(
-    canAttachToWorkspaceAgent ? "workspace_agent_current" : "copy_reference",
+  const [target, setTarget] = useState<KnowledgeV2ContextTarget>(() =>
+    initialTarget({
+      canAttachToQueueTask,
+      canAttachToWorkspaceAgent,
+      canCopyReference,
+    }),
   );
 
   useEffect(() => {
@@ -73,6 +81,32 @@ export function KnowledgeV2ContextPicker({
       current.filter((itemId) => selectableIds.has(itemId)),
     );
   }, [selectableIds]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return;
+    }
+
+    setSelectedIds(
+      initialSelectedItemId && selectableIds.has(initialSelectedItemId)
+        ? [initialSelectedItemId]
+        : [],
+    );
+    setTarget(
+      initialTarget({
+        canAttachToQueueTask,
+        canAttachToWorkspaceAgent,
+        canCopyReference,
+      }),
+    );
+  }, [
+    canAttachToQueueTask,
+    canAttachToWorkspaceAgent,
+    canCopyReference,
+    initialSelectedItemId,
+    isOpen,
+    selectableIds,
+  ]);
 
   const selectedItems = selectedIds
     .map((itemId) => items.find((entry) => entry.item.id === itemId) ?? null)
@@ -102,23 +136,49 @@ export function KnowledgeV2ContextPicker({
   }
 
   return (
-    <section
-      aria-label="KnowledgeV2 Use as Context picker"
-      className="knowledge-v2-context-picker"
-    >
-      <div className="knowledge-v2-context-picker-header">
-        <div>
-          <h4>Use as context</h4>
-          <p>
-            Select items, choose a target, then attach explicitly. Selection
-            alone does not attach, run, or create Queue work.
-          </p>
-        </div>
-        <button className="knowledge-v2-context-button" onClick={onClose} type="button">
+    <WidgetPopupShell
+      actions={
+        <Button onClick={onClose} variant="ghost">
           Close
-        </button>
-      </div>
-
+        </Button>
+      }
+      bodyClassName="knowledge-v2-context-picker-popup-body"
+      className="knowledge-v2-context-picker-popup-shell"
+      footer={
+        <>
+          {attachDisabledReason ? (
+            <p className="knowledge-v2-context-picker-footer-reason">
+              {attachDisabledReason}
+            </p>
+          ) : null}
+          <Button onClick={onClose} variant="secondary">
+            Cancel
+          </Button>
+          <Button
+            disabled={Boolean(attachDisabledReason)}
+            onClick={() => onAttach(target, selectedIds)}
+            variant="primary"
+          >
+            Attach
+          </Button>
+        </>
+      }
+      footerClassName="knowledge-v2-context-picker-popup-footer"
+      id="knowledge-v2-use-as-context-popup"
+      isOpen={isOpen}
+      onRequestClose={onClose}
+      title="Use as context"
+      titleId="knowledge-v2-use-as-context-popup-title"
+      variant="floating"
+    >
+      <section
+        aria-label="KnowledgeV2 Use as Context picker"
+        className="knowledge-v2-context-picker"
+      >
+      <p className="knowledge-v2-context-picker-intro">
+        Select items, choose a target, then attach explicitly. Selection alone
+        does not attach, run, or create Queue work.
+      </p>
       <div className="knowledge-v2-context-picker-grid">
         <section aria-label="Selectable Knowledge items" className="knowledge-v2-picker-panel">
           <h5>Selectable items</h5>
@@ -186,9 +246,13 @@ export function KnowledgeV2ContextPicker({
             <p>Estimate unavailable because at least one source bridge is unavailable.</p>
           )}
           <ul className="knowledge-v2-picker-selected-list">
-            {selectedItems.map((entry) => (
-              <li key={entry.item.id}>{entry.item.title}</li>
-            ))}
+            {selectedItems.length > 0 ? (
+              selectedItems.map((entry) => (
+                <li key={entry.item.id}>{entry.item.title}</li>
+              ))
+            ) : (
+              <li>No items selected.</li>
+            )}
           </ul>
         </section>
       </div>
@@ -233,20 +297,30 @@ export function KnowledgeV2ContextPicker({
           </ul>
         </section>
       ) : null}
-
-      <div className="knowledge-v2-context-picker-footer">
-        {attachDisabledReason ? <p>{attachDisabledReason}</p> : null}
-        <button
-          className="knowledge-v2-context-button"
-          disabled={Boolean(attachDisabledReason)}
-          onClick={() => onAttach(target, selectedIds)}
-          type="button"
-        >
-          Attach
-        </button>
-      </div>
     </section>
+    </WidgetPopupShell>
   );
+}
+
+function initialTarget({
+  canAttachToQueueTask,
+  canAttachToWorkspaceAgent,
+  canCopyReference,
+}: {
+  readonly canAttachToQueueTask: boolean;
+  readonly canAttachToWorkspaceAgent: boolean;
+  readonly canCopyReference: boolean;
+}): KnowledgeV2ContextTarget {
+  if (canAttachToWorkspaceAgent) {
+    return "workspace_agent_current";
+  }
+  if (canAttachToQueueTask) {
+    return "queue_selected_task";
+  }
+  if (canCopyReference) {
+    return "copy_reference";
+  }
+  return "workspace_agent_current";
 }
 
 function itemDisabledReason(entry: KnowledgeV2PickerItem) {

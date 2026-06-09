@@ -4,12 +4,10 @@ import type { KnowledgeSourceRef } from "../../../workspace/types/knowledgeDocum
 import type {
   KnowledgeV2ContextActionNotice,
   KnowledgeV2ContextAffordanceState,
-  KnowledgeV2ContextTarget,
 } from "./knowledgeV2ContextAffordances";
 import { knowledgeV2ReferenceText } from "./knowledgeV2ContextAffordances";
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
 import { KnowledgeV2StatusBadge, knowledgeV2ItemStatuses } from "./knowledgeV2ItemStatus";
-import { KnowledgeV2ContextPicker, type KnowledgeV2PickerItem } from "./KnowledgeV2ContextPicker";
 import {
   KnowledgeV2CompactStatus,
   KnowledgeV2CompactStatusReason,
@@ -19,18 +17,8 @@ import {
 type KnowledgeV2PreviewPanelProps = {
   readonly actionNotice?: KnowledgeV2ContextActionNotice | null;
   readonly affordanceState?: KnowledgeV2ContextAffordanceState;
-  readonly canAttachToQueueTask?: boolean;
-  readonly canAttachToWorkspaceAgent?: boolean;
-  readonly canCopyReference?: boolean;
-  readonly contextItems?: readonly KnowledgeV2PickerItem[];
   readonly hasItems: boolean;
   readonly item: KnowledgeV2CatalogItem | null;
-  readonly isContextPickerOpen?: boolean;
-  readonly onAttachContextPicker?: (
-    target: KnowledgeV2ContextTarget,
-    selectedItemIds: readonly string[],
-  ) => void;
-  readonly onCloseContextPicker?: () => void;
   readonly selectedItemId: string | null;
 };
 
@@ -50,15 +38,8 @@ const previewTabs: ReadonlyArray<{
 export function KnowledgeV2PreviewPanel({
   actionNotice = null,
   affordanceState,
-  canAttachToQueueTask = false,
-  canAttachToWorkspaceAgent = false,
-  canCopyReference = false,
-  contextItems = [],
   hasItems,
-  isContextPickerOpen = false,
   item,
-  onAttachContextPicker,
-  onCloseContextPicker,
   selectedItemId,
 }: KnowledgeV2PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<KnowledgeV2PreviewTab>("overview");
@@ -171,17 +152,6 @@ export function KnowledgeV2PreviewPanel({
       {activeTab === "source" ? <KnowledgeV2SourceTab item={item} /> : null}
       {activeTab === "versions" ? <KnowledgeV2VersionsTab item={item} /> : null}
       {activeTab === "usage" ? <KnowledgeV2UsageTab /> : null}
-      {isContextPickerOpen && onAttachContextPicker && onCloseContextPicker ? (
-        <KnowledgeV2ContextPicker
-          canAttachToQueueTask={canAttachToQueueTask}
-          canAttachToWorkspaceAgent={canAttachToWorkspaceAgent}
-          canCopyReference={canCopyReference}
-          initialSelectedItemId={item.id}
-          items={contextItems}
-          onAttach={onAttachContextPicker}
-          onClose={onCloseContextPicker}
-        />
-      ) : null}
       {actionNotice ? (
         <p
           className="knowledge-v2-context-action-notice"
