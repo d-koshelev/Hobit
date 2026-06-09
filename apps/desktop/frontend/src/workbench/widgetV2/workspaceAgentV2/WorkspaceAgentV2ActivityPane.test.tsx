@@ -1,7 +1,7 @@
 import { act } from "react";
 import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentRunEvent } from "../../agentRuntime";
 import { WorkspaceAgentV2ActivityPane } from "./WorkspaceAgentV2ActivityPane";
@@ -106,7 +106,9 @@ describe("WorkspaceAgentV2ActivityPane", () => {
     expect(document.body.textContent).toContain("Cancelled");
   });
 
-  it("collapse hides event details while keeping the run summary", async () => {
+  it("can request hiding the Activity pane from the pane header", async () => {
+    const onRequestHide = vi.fn();
+
     await render(
       <WorkspaceAgentV2ActivityPane
         events={[
@@ -117,18 +119,19 @@ describe("WorkspaceAgentV2ActivityPane", () => {
             title: "Tool call summarized",
           }),
         ]}
+        onRequestHide={onRequestHide}
       />,
     );
 
     expect(document.body.textContent).toContain("run-collapse");
     expect(document.body.textContent).toContain("Tool call summarized");
+    expect(
+      document.querySelector("[aria-label='Activity events for run-collapse']"),
+    ).not.toBeNull();
 
-    await click(buttonWithText("Collapse activity"));
+    await click(buttonWithText("Hide activity"));
 
-    expect(document.body.textContent).toContain("run-collapse");
-    expect(document.body.textContent).toContain("1 event");
-    expect(document.body.textContent).toContain("Latest: Tool call summarized");
-    expect(document.querySelector("[aria-label='Activity events for run-collapse']")).toBeNull();
+    expect(onRequestHide).toHaveBeenCalledTimes(1);
   });
 
   it("does not show raw or developer details inline", async () => {

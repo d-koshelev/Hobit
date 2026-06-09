@@ -8,11 +8,15 @@ type BadgeVariant = "neutral" | "info" | "success" | "warning" | "error";
 
 export function WorkspaceAgentHeaderStatus({
   agentLabel = "Codex",
+  isActivityVisible,
+  onActivityToggle,
   onPromptExampleClick,
   promptExamples = [],
   status,
 }: {
   agentLabel?: string;
+  isActivityVisible?: boolean;
+  onActivityToggle?: () => void;
   onPromptExampleClick?: (prompt: string) => void;
   promptExamples?: WorkspaceAgentSuggestedPrompt[];
   status: CoordinatorDirectWorkStatus;
@@ -91,6 +95,21 @@ export function WorkspaceAgentHeaderStatus({
             </section>
           </WidgetPopupShell>
         </div>
+      ) : null}
+      {onActivityToggle ? (
+        <button
+          aria-expanded={Boolean(isActivityVisible)}
+          aria-label={
+            isActivityVisible
+              ? "Hide Workspace Agent Activity"
+              : "Show Workspace Agent Activity"
+          }
+          className="button button-secondary interactive-agent-activity-header-toggle"
+          onClick={onActivityToggle}
+          type="button"
+        >
+          {isActivityVisible ? "Hide activity" : "Show activity"}
+        </button>
       ) : null}
     </div>
   );

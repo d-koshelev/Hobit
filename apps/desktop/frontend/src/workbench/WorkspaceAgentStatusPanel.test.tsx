@@ -96,6 +96,36 @@ describe("WorkspaceAgentStatusPanel", () => {
     ).toBeNull();
   });
 
+  it("renders the Activity toggle next to prompt examples in the header row", () => {
+    const onActivityToggle = vi.fn();
+
+    render(
+      <WorkspaceAgentHeaderStatus
+        isActivityVisible={false}
+        onActivityToggle={onActivityToggle}
+        onPromptExampleClick={vi.fn()}
+        promptExamples={[
+          { label: "Make a plan", prompt: "Make a plan from visible text." },
+        ]}
+        status="idle"
+      />,
+    );
+
+    const header = document.querySelector(".interactive-agent-frame-status");
+    const examplesButton = buttonWithText("Examples");
+    const activityButton = buttonWithText("Show activity");
+
+    expect(header?.contains(examplesButton ?? null)).toBe(true);
+    expect(header?.contains(activityButton ?? null)).toBe(true);
+    expect(activityButton?.getAttribute("aria-expanded")).toBe("false");
+
+    act(() => {
+      activityButton?.click();
+    });
+
+    expect(onActivityToggle).toHaveBeenCalledTimes(1);
+  });
+
   it("uses the shared popup shell for prompt examples and closes with Escape", async () => {
     const onPromptExampleClick = vi.fn();
 

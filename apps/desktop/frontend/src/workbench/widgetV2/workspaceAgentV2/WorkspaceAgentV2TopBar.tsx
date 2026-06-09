@@ -1,7 +1,14 @@
-export function WorkspaceAgentV2TopBar() {
+export function WorkspaceAgentV2TopBar({
+  isActivityVisible,
+  onActivityToggle,
+}: {
+  readonly isActivityVisible?: boolean;
+  readonly onActivityToggle?: () => void;
+}) {
   return (
     <div
       aria-label="Workspace Agent v2 provider and mode placeholders"
+      className="workspace-agent-v2-topbar"
     >
       <dl>
         <div>
@@ -21,6 +28,21 @@ export function WorkspaceAgentV2TopBar() {
           <dd>Disabled</dd>
         </div>
       </dl>
+      {onActivityToggle ? (
+        <button
+          aria-expanded={Boolean(isActivityVisible)}
+          aria-label={
+            isActivityVisible
+              ? "Hide Workspace Agent v2 activity"
+              : "Show Workspace Agent v2 activity"
+          }
+          className="button button-secondary button-sm workspace-agent-v2-activity-toggle"
+          onClick={onActivityToggle}
+          type="button"
+        >
+          {isActivityVisible ? "Hide activity" : "Show activity"}
+        </button>
+      ) : null}
     </div>
   );
 }

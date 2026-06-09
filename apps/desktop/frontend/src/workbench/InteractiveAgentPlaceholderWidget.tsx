@@ -788,6 +788,10 @@ export function InteractiveAgentPlaceholderWidget({
       style={frameStyle}
       status={
         <WorkspaceAgentHeaderStatus
+          isActivityVisible={!isActivityPaneCollapsed}
+          onActivityToggle={() =>
+            setIsActivityPaneCollapsed((current) => !current)
+          }
           onPromptExampleClick={useSuggestedPrompt}
           promptExamples={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
           status={directWork.directWorkStatus}
@@ -881,11 +885,12 @@ export function InteractiveAgentPlaceholderWidget({
           textareaRef={textareaRef}
           visibleAttachedContext={visibleAttachedContext}
         />
-        <WorkspaceAgentActivitySidePane
-          collapsed={isActivityPaneCollapsed}
-          events={currentAgentActivityEvents}
-          onToggleCollapsed={() => setIsActivityPaneCollapsed((current) => !current)}
-        />
+        {isActivityPaneCollapsed ? null : (
+          <WorkspaceAgentActivitySidePane
+            events={currentAgentActivityEvents}
+            onRequestCollapse={() => setIsActivityPaneCollapsed(true)}
+          />
+        )}
       </div>
     </WidgetFrame>
   );

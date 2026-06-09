@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 import type {
   AgentRunEvent,
@@ -14,10 +14,10 @@ import {
 type WorkspaceAgentV2ActivityPaneProps = {
   readonly currentRunId?: string;
   readonly events?: readonly AgentRunEvent[];
+  readonly onRequestHide?: () => void;
 };
 
 type WorkspaceAgentV2RunActivityGroupProps = {
-  readonly collapsed: boolean;
   readonly group: AgentRunEventGroup;
   readonly prominent?: boolean;
 };
@@ -25,8 +25,8 @@ type WorkspaceAgentV2RunActivityGroupProps = {
 export function WorkspaceAgentV2ActivityPane({
   currentRunId,
   events = [],
+  onRequestHide,
 }: WorkspaceAgentV2ActivityPaneProps) {
-  const [collapsed, setCollapsed] = useState(false);
   const groups = useMemo(
     () => orderRunGroups(groupAgentRunEventsByRun(events), currentRunId),
     [currentRunId, events],
@@ -48,20 +48,22 @@ export function WorkspaceAgentV2ActivityPane({
             not persisted.
           </p>
         </div>
-        <button
-          className="button button-secondary button-sm"
-          onClick={() => setCollapsed((value) => !value)}
-          type="button"
-        >
-          {collapsed ? "Expand activity" : "Collapse activity"}
-        </button>
+        {onRequestHide ? (
+          <button
+            aria-label="Hide Workspace Agent v2 activity"
+            className="button button-secondary button-sm"
+            onClick={onRequestHide}
+            type="button"
+          >
+            Hide activity
+          </button>
+        ) : null}
       </div>
 
       {groups.length > 0 ? (
         <div className="workspace-agent-v2-activity-groups">
           {currentGroup ? (
             <WorkspaceAgentV2RunActivityGroup
-              collapsed={collapsed}
               group={currentGroup}
               prominent
             />
@@ -74,7 +76,6 @@ export function WorkspaceAgentV2ActivityPane({
               <h4>History</h4>
               {historyGroups.map((group) => (
                 <WorkspaceAgentV2RunActivityGroup
-                  collapsed={collapsed}
                   group={group}
                   key={group.runId}
                 />
@@ -101,7 +102,6 @@ export function WorkspaceAgentV2ActivityPane({
 }
 
 export function WorkspaceAgentV2RunActivityGroup({
-  collapsed,
   group,
   prominent = false,
 }: WorkspaceAgentV2RunActivityGroupProps) {
@@ -129,19 +129,17 @@ export function WorkspaceAgentV2RunActivityGroup({
         <span>{eventCountLabel(group.events.length)}</span>
         {latestEvent ? <span>Latest: {latestEvent.title}</span> : null}
       </div>
-      {!collapsed ? (
-        <ol
-          aria-label={`Activity events for ${group.runId}`}
-          className="workspace-agent-v2-run-events"
-        >
-          {group.events.map((event) => (
-            <li key={event.id}>
-              <span>{eventKindLabel(event.kind)}</span>
-              <strong>{event.title}</strong>
-            </li>
-          ))}
-        </ol>
-      ) : null}
+      <ol
+        aria-label={`Activity events for ${group.runId}`}
+        className="workspace-agent-v2-run-events"
+      >
+        {group.events.map((event) => (
+          <li key={event.id}>
+            <span>{eventKindLabel(event.kind)}</span>
+            <strong>{event.title}</strong>
+          </li>
+        ))}
+      </ol>
     </article>
   );
 }

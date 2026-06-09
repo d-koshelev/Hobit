@@ -15,6 +15,53 @@
   gap: var(--space-sm);
 }
 
+.workspace-agent-v2-topbar {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.workspace-agent-v2-topbar dl {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  margin: 0;
+}
+
+.workspace-agent-v2-topbar div {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: calc(var(--space-xs) / 2);
+}
+
+.workspace-agent-v2-topbar dt,
+.workspace-agent-v2-topbar dd {
+  margin: 0;
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-v2-topbar dt {
+  color: var(--color-text-muted);
+  font-weight: 680;
+}
+
+.workspace-agent-v2-topbar dd {
+  color: var(--color-text-secondary);
+  font-weight: 720;
+}
+
+.workspace-agent-v2-activity-toggle.button {
+  min-height: 26px;
+  padding: 0 var(--space-sm);
+  font-size: var(--text-xs);
+}
+
 .workspace-agent-v2-result-card,
 .workspace-agent-v2-result-section,
 .workspace-agent-v2-result-list {

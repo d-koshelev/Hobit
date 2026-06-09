@@ -900,7 +900,10 @@
 }
 
 .interactive-agent-chat-activity-collapsed {
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "transcript"
+    "composer";
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .interactive-agent-action-row {
@@ -1079,6 +1082,12 @@
 }
 
 .interactive-agent-examples-toggle.button {
+  min-height: 26px;
+  padding: 0 var(--space-sm);
+  font-size: var(--text-xs);
+}
+
+.interactive-agent-activity-header-toggle.button {
   min-height: 26px;
   padding: 0 var(--space-sm);
   font-size: var(--text-xs);
@@ -1927,13 +1936,6 @@
   padding: var(--space-sm);
 }
 
-.interactive-agent-activity-side-pane-collapsed {
-  width: max-content;
-  justify-self: end;
-  grid-template-rows: auto;
-  align-content: start;
-}
-
 .interactive-agent-activity-side-header {
   display: flex;
   min-width: 0;
@@ -1982,8 +1984,7 @@
     grid-template-rows: minmax(260px, 1fr) auto auto;
   }
 
-  .interactive-agent-activity-side-pane,
-  .interactive-agent-activity-side-pane-collapsed {
+  .interactive-agent-activity-side-pane {
     width: auto;
     justify-self: stretch;
   }

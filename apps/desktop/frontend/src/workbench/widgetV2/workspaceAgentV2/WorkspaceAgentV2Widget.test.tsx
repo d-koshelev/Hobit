@@ -43,6 +43,7 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(document.body.textContent).toContain("Codex Direct Run only");
     expect(document.body.textContent).toContain("Transcript");
     expect(document.body.textContent).toContain("Activity");
+    expect(buttonWithText("Hide activity")).not.toBeNull();
     expect(document.body.textContent).toContain("Direct Run");
     expect(document.body.textContent).toContain("Queue Run");
     expect(document.body.textContent).toContain("Direct Run preflight");
@@ -64,6 +65,55 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(
       regionByRoleAndName("region", "Workspace Agent v2 composer")?.textContent,
     ).toContain("New thread");
+  });
+
+  it("collapses and restores the Activity inspector from the top row without starting runs", async () => {
+    const adapter = adapterFixture();
+    const onRunRequest = vi.fn();
+
+    await render(
+      <WorkspaceAgentV2Widget
+        adapter={adapter}
+        initialPrompt="Keep this idle."
+        onRunRequest={onRunRequest}
+        workingDirectory="C:/repo"
+      />,
+    );
+
+    const toolbar = regionByRoleAndName(
+      "toolbar",
+      "Workspace Agent v2 provider and mode row",
+    );
+    expect(toolbar?.contains(buttonWithText("Hide activity"))).toBe(true);
+    expect(
+      regionByRoleAndName("complementary", "Workspace Agent v2 activity pane"),
+    ).not.toBeNull();
+    expect(
+      document.querySelector(".widget-v2-panel-layout")?.className,
+    ).toContain("widget-v2-panel-layout-has-right");
+
+    await click(buttonWithText("Hide activity"));
+
+    expect(toolbar?.contains(buttonWithText("Show activity"))).toBe(true);
+    expect(
+      regionByRoleAndName("complementary", "Workspace Agent v2 activity pane"),
+    ).toBeNull();
+    expect(
+      document.querySelector(".widget-v2-panel-layout")?.className,
+    ).not.toContain("widget-v2-panel-layout-has-right");
+    expect(onRunRequest).not.toHaveBeenCalled();
+    expect(adapter.startRun).not.toHaveBeenCalled();
+
+    await click(buttonWithText("Show activity"));
+
+    expect(
+      regionByRoleAndName("complementary", "Workspace Agent v2 activity pane"),
+    ).not.toBeNull();
+    expect(
+      document.querySelector(".widget-v2-panel-layout")?.className,
+    ).toContain("widget-v2-panel-layout-has-right");
+    expect(onRunRequest).not.toHaveBeenCalled();
+    expect(adapter.startRun).not.toHaveBeenCalled();
   });
 
   it("disables Direct Run for an empty prompt", async () => {

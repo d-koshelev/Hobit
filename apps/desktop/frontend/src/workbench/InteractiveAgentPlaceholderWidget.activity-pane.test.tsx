@@ -5,7 +5,7 @@ import {
 } from "./InteractiveAgentPlaceholderWidget.test-utils";
 
 describe("InteractiveAgentPlaceholderWidget Agent Activity side pane", () => {
-  it("renders Agent Activity as a permanent collapsible side pane", async () => {
+  it("collapses Agent Activity without leaving a side pane or restore rail", async () => {
     renderWidget({
       agentActivityEvents: [
         {
@@ -40,25 +40,48 @@ describe("InteractiveAgentPlaceholderWidget Agent Activity side pane", () => {
 
     expect(document.body.textContent).toContain("Agent Activity");
     expect(document.body.textContent).toContain("Read-only run lifecycle");
+    expect(
+      document.querySelector(".interactive-agent-activity-side-pane"),
+    ).not.toBeNull();
+    expect(
+      document.querySelector(".interactive-agent-chat")?.className,
+    ).not.toContain("interactive-agent-chat-activity-collapsed");
+    expect(buttonWithText("Hide activity")).not.toBeNull();
     expect(document.body.textContent).toContain("Agent run");
     expect(document.body.textContent).toContain(
       "1 step - latest: Running command",
     );
     expect(document.querySelector(".agent-activity-event-details")).toBeNull();
 
-    await clickButton("Collapse");
+    await clickButton("Hide activity");
 
-    expect(document.body.textContent).toContain("Activity");
+    expect(buttonWithText("Show activity")).not.toBeNull();
+    expect(
+      document.querySelector(".interactive-agent-chat")?.className,
+    ).toContain("interactive-agent-chat-activity-collapsed");
+    expect(
+      document.querySelector(".interactive-agent-activity-side-pane"),
+    ).toBeNull();
     expect(document.body.textContent).not.toContain("Read-only run lifecycle");
     expect(document.body.textContent).not.toContain(
       "1 step - latest: Running command",
     );
 
-    await clickButton("Activity");
+    await clickButton("Show activity");
 
+    expect(
+      document.querySelector(".interactive-agent-activity-side-pane"),
+    ).not.toBeNull();
     expect(document.body.textContent).toContain("Read-only run lifecycle");
     expect(document.body.textContent).toContain(
       "1 step - latest: Running command",
     );
   });
 });
+
+function buttonWithText(text: string): HTMLButtonElement | undefined {
+  return Array.from(document.querySelectorAll("button")).find(
+    (button): button is HTMLButtonElement =>
+      button.textContent?.trim() === text,
+  );
+}

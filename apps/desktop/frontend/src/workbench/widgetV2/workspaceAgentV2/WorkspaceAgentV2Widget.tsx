@@ -82,6 +82,7 @@ export function WorkspaceAgentV2Widget({
 }: WorkspaceAgentV2WidgetProps = {}) {
   const [newThread, setNewThread] = useState(false);
   const [prompt, setPrompt] = useState(initialPrompt);
+  const [isActivityVisible, setIsActivityVisible] = useState(true);
   const runtimeAdapter = useMemo(
     () =>
       adapter ??
@@ -149,7 +150,10 @@ export function WorkspaceAgentV2Widget({
       title={workspaceAgentV2Manifest?.title ?? "Workspace Agent v2"}
     >
       <WidgetV2Toolbar label="Workspace Agent v2 provider and mode row">
-        <WorkspaceAgentV2TopBar />
+        <WorkspaceAgentV2TopBar
+          isActivityVisible={isActivityVisible}
+          onActivityToggle={() => setIsActivityVisible((current) => !current)}
+        />
       </WidgetV2Toolbar>
       <WidgetV2PanelLayout
         bottomDrawer={
@@ -191,12 +195,15 @@ export function WorkspaceAgentV2Widget({
         }
         primaryLabel="Workspace Agent v2 transcript"
         rightInspector={
-          <WidgetV2RightInspector label="Workspace Agent v2 activity pane">
-            <WorkspaceAgentV2ActivityPane
-              currentRunId={controller.currentRunId ?? currentRunId}
-              events={controller.activityEvents}
-            />
-          </WidgetV2RightInspector>
+          isActivityVisible ? (
+            <WidgetV2RightInspector label="Workspace Agent v2 activity pane">
+              <WorkspaceAgentV2ActivityPane
+                currentRunId={controller.currentRunId ?? currentRunId}
+                events={controller.activityEvents}
+                onRequestHide={() => setIsActivityVisible(false)}
+              />
+            </WidgetV2RightInspector>
+          ) : null
         }
       />
     </WidgetV2Shell>
