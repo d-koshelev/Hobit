@@ -358,9 +358,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(preview?.textContent).toContain("validation");
     expect(preview?.textContent).toContain("Context usability");
     expect(preview?.textContent).not.toContain("Open source details");
-    expect(preview?.textContent).toContain(
-      "Available for explicit visible attach",
-    );
+    expect(preview?.textContent).toContain("Context usability: Usable");
   });
 
   it("renders Details source, scope, and attachments when present", async () => {
@@ -466,15 +464,23 @@ describe("KnowledgeV2Widget browser", () => {
     expect(preview?.textContent).toContain("Rejected safety note");
     expect(preview?.textContent).toContain("Rejected");
     expect(preview?.textContent).toContain("Unavailable");
-    expect(preview?.textContent).toContain("Not approved and cannot be attached.");
-    expect(preview?.textContent).toContain("Document is disabled.");
-    expect(preview?.textContent).toContain("Document is marked not searchable.");
+    expect(preview?.textContent).toContain("3 warnings");
+    expect(preview?.textContent).not.toContain("Document is marked not searchable.");
+
+    await clickButton("Show details");
+
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Document is disabled.",
+    );
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Document is marked not searchable.",
+    );
     expect(preview?.textContent).toContain(
       "Rejected document is unavailable for normal catalog use.",
     );
   });
 
-  it("renders all KnowledgeV2 lifecycle badges with labels and reasons", async () => {
+  it("renders all KnowledgeV2 lifecycle badges compactly", async () => {
     await render(
       <KnowledgeV2Widget
         documents={[
@@ -534,39 +540,41 @@ describe("KnowledgeV2Widget browser", () => {
     }
 
     await clickButton("Published document");
-    expect(regionByName("Knowledge preview")?.textContent).toContain(
-      "Ready and usable as Knowledge context",
+    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+      "Published",
+    );
+    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+      "Active",
     );
     await changeSelect("Filter Knowledge catalog by status", "draft");
     expect(regionByName("Knowledge catalog items")?.textContent).toContain("Draft");
     await clickButton("Draft document");
-    expect(regionByName("Knowledge preview")?.textContent).toContain(
-      "In progress; review is needed",
+    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+      "Draft",
     );
     await changeSelect("Filter Knowledge catalog by status", "all");
     await clickButton("Archived document");
-    expect(regionByName("Knowledge preview")?.textContent).toContain(
-      "No longer active; context attach is blocked",
+    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+      "Archived",
     );
     await clickButton("Rejected document");
-    expect(regionByName("Knowledge preview")?.textContent).toContain(
-      "Not approved and cannot be attached",
+    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+      "Rejected",
     );
     await clickButton("Stale document");
-    expect(regionByName("Knowledge preview")?.textContent).toContain(
-      "Update recommended; use with caution",
+    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+      "Context: Stale",
     );
     await clickButton("Large document");
-    expect(regionByName("Knowledge preview")?.textContent).toContain(
-      "Review recommended; visible preview and context are bounded",
+    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+      "Context: Large",
     );
+    expect(regionByName("Knowledge preview")?.textContent).toContain("1 warning: Large");
     await clickButton("Unavailable document");
-    expect(regionByName("Knowledge preview")?.textContent).toContain(
-      "Disabled item cannot be used as normal Knowledge context",
+    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+      "Context: Unavailable",
     );
-    expect(regionByName("Knowledge preview")?.textContent).toContain(
-      "Not searchable; context attach is blocked",
-    );
+    expect(regionByName("Knowledge preview")?.textContent).toContain("2 warnings");
   });
 
   it("renders stale and large context warnings while keeping attach explicit", async () => {

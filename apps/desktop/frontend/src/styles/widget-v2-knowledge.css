@@ -736,6 +736,44 @@
   padding-left: var(--space-xs);
 }
 
+.knowledge-v2-compact-status {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--scaled-space-2xs);
+  align-items: center;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface-raised);
+  padding: var(--space-xs);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+}
+
+.knowledge-v2-compact-status span {
+  overflow-wrap: anywhere;
+}
+
+.knowledge-v2-compact-status span:not(:last-child)::after {
+  margin-left: var(--scaled-space-2xs);
+  color: var(--color-text-muted);
+  content: "/";
+}
+
+.knowledge-v2-compact-status span[data-usability="Usable"] {
+  color: var(--color-success);
+}
+
+.knowledge-v2-compact-status span[data-usability="Stale"],
+.knowledge-v2-compact-status span[data-usability="Large"] {
+  color: var(--color-warning);
+}
+
+.knowledge-v2-compact-status span[data-usability="Unavailable"] {
+  color: var(--color-error);
+}
+
 .knowledge-v2-eyebrow,
 .knowledge-v2-preview h4,
 .knowledge-v2-status-grid dt,
@@ -771,6 +809,12 @@
 
 .knowledge-v2-preview-section {
   gap: var(--space-xs);
+}
+
+.knowledge-v2-preview-status-section p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
 }
 
 .knowledge-v2-preview-tabs {
@@ -818,6 +862,45 @@
   gap: var(--space-xs);
   padding: 0;
   list-style: none;
+}
+
+.knowledge-v2-warning-summary {
+  border-left: 2px solid var(--color-warning);
+  padding-left: var(--space-xs);
+}
+
+.knowledge-v2-warning-summary-row {
+  display: flex;
+  min-width: 0;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-xs);
+}
+
+.knowledge-v2-warning-summary-row p {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.knowledge-v2-link-button {
+  flex: 0 0 auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 680;
+  line-height: var(--line-tight);
+  padding: var(--scaled-space-2xs) var(--space-xs);
+}
+
+.knowledge-v2-link-button:hover,
+.knowledge-v2-link-button:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-text-primary);
 }
 
 .knowledge-v2-status-reasons li {

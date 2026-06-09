@@ -12,15 +12,13 @@ import {
   knowledgeV2ReferenceText,
 } from "./knowledgeV2ContextAffordances";
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
+import { KnowledgeV2StatusBadge, knowledgeV2ItemStatuses } from "./knowledgeV2ItemStatus";
+import { KnowledgeV2ContextPicker, type KnowledgeV2PickerItem } from "./KnowledgeV2ContextPicker";
 import {
-  KnowledgeV2StatusBadge,
-  KnowledgeV2StatusReasonList,
-  knowledgeV2ItemStatuses,
-} from "./knowledgeV2ItemStatus";
-import {
-  KnowledgeV2ContextPicker,
-  type KnowledgeV2PickerItem,
-} from "./KnowledgeV2ContextPicker";
+  KnowledgeV2CompactStatus,
+  KnowledgeV2CompactStatusReason,
+  KnowledgeV2WarningsSummary,
+} from "./KnowledgeV2PreviewStatus";
 
 type KnowledgeV2PreviewPanelProps = {
   readonly actionNotice?: KnowledgeV2ContextActionNotice | null;
@@ -73,6 +71,7 @@ export function KnowledgeV2PreviewPanel({
   selectedItemId,
 }: KnowledgeV2PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<KnowledgeV2PreviewTab>("overview");
+  const [isWarningDetailsOpen, setIsWarningDetailsOpen] = useState(false);
 
   if (selectedItemId && !item) {
     return (
@@ -141,6 +140,8 @@ export function KnowledgeV2PreviewPanel({
         {overviewSummaryText(item)}
       </p>
 
+      <KnowledgeV2CompactStatus affordanceState={affordanceState} item={item} statuses={statuses} />
+
       <dl className="knowledge-v2-status-grid knowledge-v2-status-grid-compact">
         <StatusTerm label="Scope" value={formatScope(item.source.scope)} />
         <StatusTerm label="Source" value={item.source.label || sourceFallback(item)} />
@@ -148,23 +149,12 @@ export function KnowledgeV2PreviewPanel({
         <StatusTerm label="Updated" value={formatDate(item.updatedAt)} />
       </dl>
 
-      <section className="knowledge-v2-preview-section">
+      <section className="knowledge-v2-preview-section knowledge-v2-preview-status-section">
         <h4>Status</h4>
-        <KnowledgeV2StatusReasonList statuses={statuses} />
+        <KnowledgeV2CompactStatusReason item={item} statuses={statuses} />
       </section>
 
-      {item.warnings.length > 0 ? (
-        <section className="knowledge-v2-preview-section">
-          <h4>Warnings</h4>
-          <ul className="knowledge-v2-warnings">
-            {item.warnings.map((warning) => (
-              <li data-severity={warning.severity} key={`${warning.code}-${warning.message}`}>
-                {warning.message}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <KnowledgeV2WarningsSummary isOpen={isWarningDetailsOpen} item={item} setIsOpen={setIsWarningDetailsOpen} />
 
       <div className="knowledge-v2-preview-tabs" role="tablist" aria-label="Knowledge preview tabs">
         {previewTabs.map((tab) => (
@@ -468,6 +458,13 @@ function KnowledgeV2ContextActions({
     canAttachToQueueTask,
     canCopyReference,
   ].filter(Boolean).length;
+  const usabilityState = attachState.canAttach
+    ? attachState.warning
+      ? attachState.warning.toLowerCase().includes("large")
+        ? "Large"
+        : "Stale"
+      : "Usable"
+    : "Unavailable";
 
   return (
     <section
@@ -475,11 +472,11 @@ function KnowledgeV2ContextActions({
       className="knowledge-v2-preview-section knowledge-v2-context-actions"
     >
       <h4>Use as context</h4>
-      <p>
-        Context usability:{" "}
+      <p className="knowledge-v2-context-usability">
+        Context usability: <strong>{usabilityState}</strong>
         {attachState.canAttach
-          ? "Available for explicit visible attach when a target bridge is connected."
-          : attachState.reason ?? "Unavailable."}
+          ? " - explicit visible attach only."
+          : ` - ${attachState.reason ?? "Unavailable."}`}
       </p>
       <p>
         These controls only use explicit visible callbacks. They do not inject

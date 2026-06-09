@@ -115,10 +115,16 @@ describe("KnowledgeV2PreviewPanel", () => {
 
     const overview = regionByName("Knowledge preview");
     expect(overview?.textContent).toContain("Large");
-    expect(overview?.textContent).toContain(
-      "Review recommended; visible preview and context are bounded.",
+    expect(overview?.textContent).toContain("2 warnings: Missing summary, Large");
+    expect(overview?.textContent).not.toContain(
+      "Large document preview is capped in this browser.",
     );
     expect(overview?.textContent).not.toContain("#region Assembly");
+
+    await clickButton("Show details");
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Large document preview is capped in this browser.",
+    );
 
     await clickButton("Details");
 
@@ -135,5 +141,59 @@ describe("KnowledgeV2PreviewPanel", () => {
     expect(sourcePreview).not.toContain("TAIL_SHOULD_NOT_RENDER");
     expect(sourcePreview.length).toBeLessThan(largeSource.length);
     expect(regionByName("Knowledge preview")?.textContent).toContain("Capped");
+  });
+
+  it("renders warning summaries by default and expands full warning text", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            enabled: false,
+            knowledgeDocumentId: "disabled",
+            lifecycleStatus: "rejected",
+            searchable: false,
+            title: "Rejected safety note",
+          }),
+        ]}
+        skills={[]}
+      />,
+    );
+
+    await clickButton("Rejected safety note");
+
+    const warnings = regionByName("Knowledge preview warnings");
+    expect(warnings?.textContent).toContain("3 warnings");
+    expect(warnings?.textContent).toContain("Unavailable");
+    expect(warnings?.textContent).toContain("Not searchable");
+    expect(warnings?.textContent).toContain("Rejected");
+    expect(warnings?.textContent).not.toContain(
+      "Rejected document is unavailable for normal catalog use.",
+    );
+
+    await clickButton("Show details");
+
+    expect(regionByName("Knowledge preview warnings")?.textContent).toContain(
+      "Rejected document is unavailable for normal catalog use.",
+    );
+    expect(regionByName("Knowledge preview warnings")?.textContent).toContain(
+      "Document is marked not searchable.",
+    );
+  });
+
+  it("renders published active status compactly with context usability", async () => {
+    await render(
+      <KnowledgeV2Widget documents={[documentFixture()]} skills={[]} />,
+    );
+
+    await clickButton("Release guide");
+
+    const compactStatus = regionByName("Knowledge preview compact status");
+    expect(compactStatus?.textContent).toContain("Published");
+    expect(compactStatus?.textContent).toContain("Active");
+    expect(compactStatus?.textContent).toContain("Searchable");
+    expect(compactStatus?.textContent).toContain("Context: Usable");
+    expect(regionByName("Knowledge preview")?.textContent).not.toContain(
+      "Ready and usable as Knowledge context",
+    );
   });
 });
