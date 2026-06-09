@@ -170,6 +170,13 @@ of truth for their domains.
   file picker import, and legacy-removal gaps. It does not add frontend
   behavior, backend/Rust/Tauri/storage/schema changes, Queue/Agent runtime
   behavior, or Knowledge data changes.
+- `docs/KNOWLEDGE_V2_SURFACE_POLISH_STATUS.md` - docs-only status record for
+  KnowledgeV2 final surface polish after manual screenshot review. It records
+  table row/action polish, clean Overview behavior, compact warning/status
+  presentation, small catalog/responsive layout polish, manual smoke steps,
+  and remaining bridge, summary-generation, and legacy-removal gaps. It does
+  not add frontend behavior, backend/Rust/Tauri/storage/schema changes,
+  Queue/Agent runtime behavior, or Knowledge data changes.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
