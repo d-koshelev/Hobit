@@ -1,5 +1,5 @@
 import { act } from "react";
-import type { ReactNode } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -327,6 +327,161 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("Manage Skills");
     await clickButton("Open existing skills flow");
     expect(onManageSkills).toHaveBeenCalledTimes(1);
+  });
+
+  it("enables context actions for an approved KnowledgeV2 item", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onAttachContextToCoordinator={vi.fn()}
+        onAttachKnowledgeContextToQueueTask={vi.fn(async () => ({
+          message: "Release guide attached to selected task.",
+          status: "attached" as const,
+          taskTitle: "Selected task",
+        }))}
+        skills={[]}
+      />,
+    );
+
+    await clickButton("Release guide");
+
+    expect(buttonWithText("Attach to Workspace Agent")?.disabled).toBe(false);
+    expect(buttonWithText("Attach to selected Queue task")?.disabled).toBe(false);
+    expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
+      "These controls only use explicit visible callbacks.",
+    );
+  });
+
+  it("disables context attach for rejected or disabled KnowledgeV2 items with a reason", async () => {
+    const attachToWorkspaceAgent = vi.fn();
+    const attachToQueueTask = vi.fn(async () => ({
+      message: "Should not attach.",
+      status: "attached" as const,
+    }));
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            enabled: false,
+            knowledgeDocumentId: "rejected_disabled",
+            lifecycleStatus: "rejected",
+            searchable: false,
+            title: "Rejected context item",
+          }),
+        ]}
+        onAttachContextToCoordinator={attachToWorkspaceAgent}
+        onAttachKnowledgeContextToQueueTask={attachToQueueTask}
+        skills={[]}
+      />,
+    );
+
+    await clickButton("Rejected context item");
+
+    const useAsContext = regionByName("KnowledgeV2 use as context");
+    expect(buttonWithText("Attach to Workspace Agent")?.disabled).toBe(true);
+    expect(buttonWithText("Attach to selected Queue task")?.disabled).toBe(true);
+    expect(useAsContext?.textContent).toContain("Knowledge Document is disabled.");
+
+    await clickButton("Attach to selected Queue task");
+
+    expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
+    expect(attachToQueueTask).not.toHaveBeenCalled();
+  });
+
+  it("calls the explicit Workspace Agent attach callback once only after click", async () => {
+    const attachToWorkspaceAgent = vi.fn();
+    const attachToQueueTask = vi.fn();
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[]}
+        onAttachContextToCoordinator={attachToWorkspaceAgent}
+        onAttachKnowledgeContextToQueueTask={attachToQueueTask}
+        skills={[skillFixture({ reviewStatus: "reviewed" })]}
+      />,
+    );
+
+    expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
+    expect(attachToQueueTask).not.toHaveBeenCalled();
+
+    await clickButton("React review");
+    expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
+
+    await clickButton("Attach to Workspace Agent");
+
+    expect(attachToWorkspaceAgent).toHaveBeenCalledTimes(1);
+    expect(attachToWorkspaceAgent).toHaveBeenCalledWith({
+      contextText: expect.stringContaining("Skill Library Skill"),
+      sourceLabel: "KnowledgeV2 / Skill",
+    });
+    expect(attachToQueueTask).not.toHaveBeenCalled();
+    expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
+      "React review attached to Workspace Agent as visible current-session context.",
+    );
+  });
+
+  it("attaches selected Queue context without creating or running Queue work", async () => {
+    const attachToQueueTask = vi.fn(async () => ({
+      message: "Release guide attached to selected task.",
+      status: "attached" as const,
+      taskTitle: "Selected task",
+    }));
+    const attachToWorkspaceAgent = vi.fn();
+    const createQueueTask = vi.fn();
+    const runQueueTask = vi.fn();
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onAttachContextToCoordinator={attachToWorkspaceAgent}
+        onAttachKnowledgeContextToQueueTask={attachToQueueTask}
+        skills={[]}
+        {...({
+          onCreateAgentQueueTask: createQueueTask,
+          onStartAssignedAgentQueueTask: runQueueTask,
+        } as Partial<ComponentProps<typeof KnowledgeV2Widget>>)}
+      />,
+    );
+
+    await clickButton("Release guide");
+    await clickButton("Attach to selected Queue task");
+    await flush();
+
+    expect(attachToQueueTask).toHaveBeenCalledTimes(1);
+    expect(attachToQueueTask).toHaveBeenCalledWith({
+      document: expect.objectContaining({
+        knowledgeDocumentId: "kdoc_1",
+        title: "Release guide",
+      }),
+      kind: "knowledge_document",
+    });
+    expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
+    expect(createQueueTask).not.toHaveBeenCalled();
+    expect(runQueueTask).not.toHaveBeenCalled();
+    expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
+      "Release guide attached to selected task.",
+    );
+  });
+
+  it("shows unavailable context bridges without pretending success", async () => {
+    await render(
+      <KnowledgeV2Widget documents={[documentFixture()]} skills={[]} />,
+    );
+
+    await clickButton("Release guide");
+
+    const useAsContext = regionByName("KnowledgeV2 use as context");
+    expect(buttonWithText("Attach to Workspace Agent")?.disabled).toBe(true);
+    expect(buttonWithText("Attach to selected Queue task")?.disabled).toBe(true);
+    expect(useAsContext?.textContent).toContain(
+      "Workspace Agent attach bridge is unavailable",
+    );
+    expect(useAsContext?.textContent).toContain(
+      "Queue task attach bridge is unavailable",
+    );
+    expect(useAsContext?.textContent).not.toContain("attached to Workspace Agent");
+    expect(useAsContext?.textContent).not.toContain("attached to selected task");
   });
 
   it("keeps the existing Knowledge / Skills surface available separately", async () => {

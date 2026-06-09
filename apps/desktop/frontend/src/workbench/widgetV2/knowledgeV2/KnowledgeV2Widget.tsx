@@ -14,6 +14,8 @@ const knowledgeV2Manifest = getWidgetV2Manifest("knowledge-v2");
 export type KnowledgeV2WidgetProps = {
   readonly draftReviews?: readonly KnowledgeDraftReviewDecision[];
   readonly documents?: readonly KnowledgeDocument[];
+  readonly onAttachContextToCoordinator?: WidgetRenderProps["onAttachContextToCoordinator"];
+  readonly onAttachKnowledgeContextToQueueTask?: WidgetRenderProps["onAttachKnowledgeContextToQueueTask"];
   readonly onDraftReview?: () => void;
   readonly onImport?: () => void;
   readonly onListKnowledgeDocuments?: WidgetRenderProps["onListKnowledgeDocuments"];
@@ -27,6 +29,8 @@ export type KnowledgeV2WidgetProps = {
 export function KnowledgeV2Widget({
   draftReviews,
   documents,
+  onAttachContextToCoordinator,
+  onAttachKnowledgeContextToQueueTask,
   onListKnowledgeDocuments,
   onListKnowledgeDraftReviews,
   onListSkills,
@@ -71,6 +75,8 @@ export function KnowledgeV2Widget({
         documents={dataBridge.documents}
         loadError={dataBridge.loadError}
         missingBridges={dataBridge.missingBridges}
+        onAttachContextToCoordinator={onAttachContextToCoordinator}
+        onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
         skills={dataBridge.skills}
         status={dataBridge.status}
       />

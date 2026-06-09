@@ -2,10 +2,19 @@ import { useMemo, useState } from "react";
 
 import type { KnowledgeDocument } from "../../../workspace/types/knowledgeDocuments";
 import type { Skill } from "../../../workspace/types/skills";
+import type { WidgetRenderProps } from "../../types";
 import { WidgetV2RightInspector, WidgetV2Toolbar } from "../WidgetV2Shell";
 import { KnowledgeV2CatalogList } from "./KnowledgeV2CatalogList";
 import { KnowledgeV2Filters, type KnowledgeV2FilterValues } from "./KnowledgeV2Filters";
 import { KnowledgeV2PreviewPanel } from "./KnowledgeV2PreviewPanel";
+import {
+  attachKnowledgeV2SourceToQueueTask,
+  knowledgeV2ContextAffordanceSource,
+  knowledgeV2ContextAffordanceState,
+  knowledgeV2ReferenceText,
+  knowledgeV2WorkspaceAgentContextInput,
+  type KnowledgeV2ContextActionNotice,
+} from "./knowledgeV2ContextAffordances";
 import {
   buildKnowledgeV2CatalogViewModel,
   defaultKnowledgeV2CatalogSelection,
@@ -16,6 +25,8 @@ export type KnowledgeV2CatalogBrowserProps = {
   readonly documents: readonly KnowledgeDocument[];
   readonly loadError?: string | null;
   readonly missingBridges?: readonly string[];
+  readonly onAttachContextToCoordinator?: WidgetRenderProps["onAttachContextToCoordinator"];
+  readonly onAttachKnowledgeContextToQueueTask?: WidgetRenderProps["onAttachKnowledgeContextToQueueTask"];
   readonly skills: readonly Skill[];
   readonly status?: "loading" | "partial" | "ready" | "unavailable";
 };
@@ -31,11 +42,15 @@ export function KnowledgeV2CatalogBrowser({
   documents,
   loadError = null,
   missingBridges = [],
+  onAttachContextToCoordinator,
+  onAttachKnowledgeContextToQueueTask,
   skills,
   status = "ready",
 }: KnowledgeV2CatalogBrowserProps) {
   const [filters, setFilters] = useState<KnowledgeV2FilterValues>(defaultFilters);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [actionNotice, setActionNotice] =
+    useState<KnowledgeV2ContextActionNotice | null>(null);
 
   const catalogFilters = useMemo(
     () => knowledgeV2CatalogFiltersFromValues(filters),
@@ -57,6 +72,81 @@ export function KnowledgeV2CatalogBrowser({
 
   const selectedItem =
     viewModel.filteredItems.find((item) => item.id === selectedItemId) ?? null;
+  const affordanceSource = selectedItem
+    ? knowledgeV2ContextAffordanceSource(selectedItem, documents, skills)
+    : null;
+  const affordanceState = knowledgeV2ContextAffordanceState(affordanceSource);
+  const canCopyReference = Boolean(
+    typeof navigator !== "undefined" && navigator.clipboard?.writeText,
+  );
+
+  function selectItem(itemId: string) {
+    setSelectedItemId(itemId);
+    setActionNotice(null);
+  }
+
+  function attachToWorkspaceAgent() {
+    if (!affordanceSource || !affordanceState.canAttach) {
+      setActionNotice({
+        message:
+          affordanceState.reason ??
+          "This KnowledgeV2 item cannot be attached as context.",
+        status: "blocked",
+      });
+      return;
+    }
+
+    if (!onAttachContextToCoordinator) {
+      setActionNotice({
+        message:
+          "Workspace Agent attach is unavailable because no explicit context bridge is connected.",
+        status: "unavailable",
+      });
+      return;
+    }
+
+    onAttachContextToCoordinator(
+      knowledgeV2WorkspaceAgentContextInput(affordanceSource),
+    );
+    setActionNotice({
+      message: `${affordanceSource.item.title} attached to Workspace Agent as visible current-session context.`,
+      status: "attached",
+    });
+  }
+
+  async function attachToQueueTask() {
+    if (!affordanceSource || !affordanceState.canAttach) {
+      setActionNotice({
+        message:
+          affordanceState.reason ??
+          "This KnowledgeV2 item cannot be attached as Queue context.",
+        status: "blocked",
+      });
+      return;
+    }
+
+    const result = await attachKnowledgeV2SourceToQueueTask(
+      affordanceSource,
+      onAttachKnowledgeContextToQueueTask,
+    );
+    setActionNotice(result);
+  }
+
+  async function copyReference() {
+    if (!selectedItem || !canCopyReference) {
+      setActionNotice({
+        message: "Clipboard bridge is unavailable in this runtime.",
+        status: "unavailable",
+      });
+      return;
+    }
+
+    await navigator.clipboard.writeText(knowledgeV2ReferenceText(selectedItem));
+    setActionNotice({
+      message: `${selectedItem.title} reference copied.`,
+      status: "copied",
+    });
+  }
 
   return (
     <>
@@ -77,13 +167,22 @@ export function KnowledgeV2CatalogBrowser({
         <KnowledgeV2CatalogList
           hasItems={viewModel.items.length > 0}
           items={viewModel.filteredItems}
-          onSelectItem={setSelectedItemId}
+          onSelectItem={selectItem}
           selectedItemId={selectedItemId}
         />
         <WidgetV2RightInspector label="Knowledge v2 preview details">
           <KnowledgeV2PreviewPanel
+            actionNotice={actionNotice}
+            affordanceSource={affordanceSource}
+            affordanceState={affordanceState}
+            canAttachToQueueTask={Boolean(onAttachKnowledgeContextToQueueTask)}
+            canAttachToWorkspaceAgent={Boolean(onAttachContextToCoordinator)}
+            canCopyReference={canCopyReference}
             hasItems={viewModel.items.length > 0}
             item={selectedItem}
+            onAttachToQueueTask={attachToQueueTask}
+            onAttachToWorkspaceAgent={attachToWorkspaceAgent}
+            onCopyReference={copyReference}
             selectedItemId={selectedItemId}
           />
         </WidgetV2RightInspector>
