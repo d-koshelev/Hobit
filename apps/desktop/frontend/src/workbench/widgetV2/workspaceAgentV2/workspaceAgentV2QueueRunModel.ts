@@ -149,10 +149,14 @@ export function isWorkspaceAgentV2QueueRunBusy(
 }
 
 export function workspaceAgentV2QueueRunTranscriptMessage({
+  onCreateAnother,
+  onOpenQueue,
   onOpenTask,
   result,
   sequence,
 }: {
+  readonly onCreateAnother?: () => void;
+  readonly onOpenQueue?: () => void;
   readonly onOpenTask?: (queueItemId: string) => void;
   readonly result: WorkspaceAgentV2QueueRunControllerResult;
   readonly sequence: number;
@@ -164,25 +168,64 @@ export function workspaceAgentV2QueueRunTranscriptMessage({
       "section",
       { "aria-label": "Queue task created card" },
       createElement("h4", null, "Queue task created"),
+      createElement("p", null, "Created, not started"),
       createElement("p", null, result.message),
-      result.openTaskAction && onOpenTask
-        ? createElement(
-            "button",
-            {
-              className: "button button-secondary button-sm",
-              onClick: () => onOpenTask(result.openTaskAction?.queueItemId ?? ""),
-              type: "button",
-            },
-            "Open Queue task",
-          )
-        : null,
+      createElement(
+        "div",
+        { className: "workspace-agent-v2-result-actions" },
+        onOpenQueue
+          ? createElement(
+              "button",
+              {
+                className: "button button-primary button-sm",
+                onClick: onOpenQueue,
+                type: "button",
+              },
+              "Open Queue",
+            )
+          : null,
+        result.openTaskAction && onOpenTask
+          ? createElement(
+              "button",
+              {
+                className: "button button-secondary button-sm",
+                onClick: () => onOpenTask(result.openTaskAction?.queueItemId ?? ""),
+                type: "button",
+              },
+              "Open Queue task",
+            )
+          : null,
+        createdTask
+          ? createElement(
+              "button",
+              {
+                className: "button button-secondary button-sm",
+                onClick: () => void copyTextToClipboard(createdTask.id),
+                type: "button",
+              },
+              "Copy task id",
+            )
+          : null,
+        onCreateAnother
+          ? createElement(
+              "button",
+              {
+                className: "button button-secondary button-sm",
+                onClick: onCreateAnother,
+                type: "button",
+              },
+              "Create another Queue task",
+            )
+          : null,
+      ),
       createdTask
         ? createElement(
             "dl",
             null,
             createDefinition("Task id", createdTask.id),
             createDefinition("Title", createdTask.title),
-            createDefinition("Status", createdTask.status),
+            createDefinition("Queue lane/status", createdTask.status),
+            createDefinition("Created status", "Created, not started"),
             createDefinition(
               "Attached context",
               result.attachedContextCount.toString(),
@@ -213,7 +256,7 @@ export function workspaceAgentV2QueueRunTranscriptMessage({
     ),
     id: `workspace-agent-v2-queue-run-created-${sequence.toString()}`,
     metadata: {
-      status: result.status,
+      status: "created, not started",
       steps: `Context attached: ${result.attachedContextCount.toString()}; skipped: ${result.skippedContextCount.toString()}`,
     },
     role: "assistant",
@@ -244,7 +287,7 @@ export function workspaceAgentV2QueueRunCreatedEvent({
   return {
     id: `${queueItemId}:queue-task-created:${sequence.toString()}`,
     kind: "queue_task_created",
-    lifecycle: "queued",
+    lifecycle: "draft",
     message:
       "Queue task created only. Run later from Queue; no Direct Run or Queue execution started.",
     runId: queueItemId,
@@ -280,4 +323,12 @@ function contextAttachmentWarnings({
   }
 
   return warnings;
+}
+
+async function copyTextToClipboard(value: string) {
+  if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+    return;
+  }
+
+  await navigator.clipboard.writeText(value);
 }

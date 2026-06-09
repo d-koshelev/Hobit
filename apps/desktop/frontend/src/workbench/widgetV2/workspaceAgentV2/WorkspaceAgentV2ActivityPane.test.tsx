@@ -154,6 +154,29 @@ describe("WorkspaceAgentV2ActivityPane", () => {
     expect(document.body.textContent).not.toContain("secret debug payload");
     expect(buttonWithText("Developer Details")?.disabled).toBe(true);
   });
+
+  it("shows Queue task creation as created and not as a provider run", async () => {
+    await render(
+      <WorkspaceAgentV2ActivityPane
+        currentRunId="queue-item-1"
+        events={[
+          runEvent({
+            id: "queue-item-1:created",
+            kind: "queue_task_created",
+            lifecycle: "draft",
+            runId: "queue-item-1",
+            title: "Queue task created: Queue this later.",
+          }),
+        ]}
+      />,
+    );
+
+    expect(document.body.textContent).toContain("Queue task created");
+    expect(document.body.textContent).toContain("Created, not started");
+    expect(document.body.textContent).toContain("queue-item-1");
+    expect(document.body.textContent).not.toContain("Provider started");
+    expect(document.body.textContent).not.toContain("Codex");
+  });
 });
 
 async function render(element: ReactNode) {

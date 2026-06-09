@@ -205,13 +205,17 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
   it("clicking Queue Run creates a Queue task once through the supplied bridge", async () => {
     const adapter = adapterFixture();
     const createItem = createItemMock();
+    const onOpenQueue = vi.fn();
     const onOpenQueueTask = vi.fn();
     const onQueueTaskCreate = vi.fn();
+    const writeText = vi.fn(async () => undefined);
+    stubClipboard(writeText);
 
     await render(
       <WorkspaceAgentV2Widget
         adapter={adapter}
         initialPrompt="Queue this later."
+        onOpenQueue={onOpenQueue}
         onOpenQueueTask={onOpenQueueTask}
         onQueueTaskCreate={onQueueTaskCreate}
         queueBridge={{ createItem }}
@@ -241,14 +245,32 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     expect(document.body.textContent).toContain("Queue task created");
     expect(document.body.textContent).toContain("queue-item-1");
     expect(document.body.textContent).toContain("Queue this later.");
+    expect(document.body.textContent).toContain("Created, not started");
+    expect(document.body.textContent).toContain("Queue lane/status");
+    expect(document.body.textContent).toContain("Attached context");
+    expect(document.body.textContent).toContain("Skipped context");
+    expect(document.body.textContent).toContain("Open Queue");
     expect(document.body.textContent).toContain("Open Queue task");
+    expect(document.body.textContent).toContain("Copy task id");
+    expect(document.body.textContent).toContain("Create another Queue task");
     expect(document.body.textContent).toContain("Run from Queue when ready.");
     expect(document.body.textContent).toContain("Queue task created: Queue this later.");
+    expect(document.body.textContent).not.toContain("Provider started");
+    expect(document.body.textContent).not.toContain("Codex run");
 
+    await click(buttonWithText("Open Queue"));
     await click(buttonWithText("Open Queue task"));
+    await click(buttonWithText("Copy task id"));
+    await click(buttonWithText("Create another Queue task"));
 
+    expect(onOpenQueue).toHaveBeenCalledTimes(1);
     expect(onOpenQueueTask).toHaveBeenCalledTimes(1);
     expect(onOpenQueueTask).toHaveBeenCalledWith("queue-item-1");
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect(writeText).toHaveBeenCalledWith("queue-item-1");
+    expect(inputByLabel("Workspace Agent v2 prompt")?.value).toBe("");
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(adapter.startRun).not.toHaveBeenCalled();
   });
 
   it("blocks duplicate Queue Run clicks while creation is pending", async () => {
@@ -458,4 +480,11 @@ function createPendingItemMock() {
     async (): Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>> =>
       new Promise(() => undefined),
   );
+}
+
+function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
+  Object.defineProperty(navigator, "clipboard", {
+    configurable: true,
+    value: { writeText },
+  });
 }

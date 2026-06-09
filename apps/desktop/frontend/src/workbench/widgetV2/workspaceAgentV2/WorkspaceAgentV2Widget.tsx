@@ -55,6 +55,7 @@ type WorkspaceAgentV2WidgetProps = {
   readonly onCancelCodexDirectWorkRun?: CodexAgentRuntimeActions["cancelCodexDirectWorkRun"];
   readonly onContextAddPlaceholder?: () => void;
   readonly onContextRemove?: (itemId: string) => void;
+  readonly onOpenQueue?: () => void;
   readonly onOpenQueueTask?: (queueItemId: string) => void;
   readonly onQueueTaskCreate?: (queueItemId?: string) => void;
   readonly onRunRequest?: () => void;
@@ -84,6 +85,7 @@ export function WorkspaceAgentV2Widget({
   onCancelCodexDirectWorkRun,
   onContextAddPlaceholder,
   onContextRemove,
+  onOpenQueue,
   onOpenQueueTask,
   onQueueTaskCreate,
   onRunRequest,
@@ -137,6 +139,8 @@ export function WorkspaceAgentV2Widget({
         onQueueTaskCreate?.(result.createdTask?.id);
         appendQueueRunUiResult(result, {
           onOpenQueueTask,
+          onOpenQueue,
+          onCreateAnotherQueueTask: () => setPrompt(""),
           queueEventSequenceRef,
           setQueueActivityEvents,
           setQueueTranscriptMessages,
@@ -404,12 +408,16 @@ function queueRunPreflightItems({
 function appendQueueRunUiResult(
   result: WorkspaceAgentV2QueueRunControllerResult,
   {
+    onCreateAnotherQueueTask,
+    onOpenQueue,
     onOpenQueueTask,
     queueEventSequenceRef,
     setQueueActivityEvents,
     setQueueTranscriptMessages,
   }: {
     readonly onOpenQueueTask?: (queueItemId: string) => void;
+    readonly onOpenQueue?: () => void;
+    readonly onCreateAnotherQueueTask?: () => void;
     readonly queueEventSequenceRef: { current: number };
     readonly setQueueActivityEvents: (
       updater: (events: readonly AgentRunEvent[]) => readonly AgentRunEvent[],
@@ -430,6 +438,8 @@ function appendQueueRunUiResult(
     ...messages,
     workspaceAgentV2QueueRunTranscriptMessage({
       onOpenTask: onOpenQueueTask,
+      onOpenQueue,
+      onCreateAnother: onCreateAnotherQueueTask,
       result,
       sequence,
     }),

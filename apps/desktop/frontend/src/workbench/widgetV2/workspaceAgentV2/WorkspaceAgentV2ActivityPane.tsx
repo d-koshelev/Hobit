@@ -105,8 +105,9 @@ export function WorkspaceAgentV2RunActivityGroup({
   group,
   prominent = false,
 }: WorkspaceAgentV2RunActivityGroupProps) {
-  const statusLabel = activityStatusLabel(group.latestLifecycle);
   const latestEvent = group.events[group.events.length - 1];
+  const isQueueTaskCreatedGroup = latestEvent?.kind === "queue_task_created";
+  const statusLabel = activityStatusLabel(group.latestLifecycle, latestEvent?.kind);
 
   return (
     <article
@@ -120,7 +121,9 @@ export function WorkspaceAgentV2RunActivityGroup({
         </div>
         <span
           className="workspace-agent-v2-run-status"
-          data-status={statusTone(group.latestLifecycle)}
+          data-status={
+            isQueueTaskCreatedGroup ? "neutral" : statusTone(group.latestLifecycle)
+          }
         >
           {statusLabel}
         </span>
@@ -176,7 +179,14 @@ function isActiveLifecycle(lifecycle: AgentRunLifecycle) {
   return lifecycle === "queued" || lifecycle === "starting" || lifecycle === "running";
 }
 
-function activityStatusLabel(lifecycle: AgentRunLifecycle) {
+function activityStatusLabel(
+  lifecycle: AgentRunLifecycle,
+  latestKind?: AgentRunEventKind,
+) {
+  if (latestKind === "queue_task_created") {
+    return "Created, not started";
+  }
+
   if (lifecycle === "failed") {
     return "Failed";
   }
