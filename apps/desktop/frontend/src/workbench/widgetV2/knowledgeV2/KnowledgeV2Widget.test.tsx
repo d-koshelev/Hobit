@@ -346,12 +346,13 @@ describe("KnowledgeV2Widget browser", () => {
 
     expect(text()).not.toContain("Catalog list placeholder");
     expect(text()).not.toContain("Preview/details placeholder");
-    expect(buttonWithText("New Knowledge")).not.toBeNull();
+    expect(buttonWithText("New")).not.toBeNull();
     expect(buttonWithText("List")).not.toBeNull();
     expect(buttonWithText("Cards")).not.toBeNull();
-    expect(buttonWithText("Import file")).not.toBeNull();
+    expect(buttonWithText("Import")).not.toBeNull();
     expect(buttonWithText("Draft Review")).not.toBeNull();
     expect(buttonWithText("Manage Skills")).not.toBeNull();
+    expect(buttonWithText("Help")).not.toBeNull();
     expect(
       document.querySelector("[aria-label='KnowledgeV2 helper rail']"),
     ).toBeNull();
@@ -363,13 +364,14 @@ describe("KnowledgeV2Widget browser", () => {
     ).toBeNull();
     expect(text()).not.toContain("draft payload");
     expect(text()).not.toContain("Raw draft contents");
-    expect(text()).not.toContain("file picker or path import form");
+    expect(text()).not.toContain("Choose or drop a text/Markdown file");
     expect(text()).not.toContain("Open existing import flow");
-    expect(text()).not.toContain("Create Knowledge");
+    expect(text()).not.toContain("New document");
     expect(text()).not.toContain("Open existing create flow");
+    expect(text()).not.toContain("Normal context candidate");
     expect(
       regionByName("Knowledge catalog items")?.textContent ?? "",
-    ).not.toContain("Import file");
+    ).not.toContain("Import");
     expect(
       regionByName("Knowledge preview")?.textContent ?? "",
     ).not.toContain("Draft Review");
@@ -402,7 +404,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(onImport).not.toHaveBeenCalled();
   });
 
-  it("opens and closes KnowledgeV2 action popups", async () => {
+  it("opens and closes KnowledgeV2 action popups while keeping the catalog stable", async () => {
     await render(
       <KnowledgeV2Widget
         documents={[documentFixture()]}
@@ -410,14 +412,20 @@ describe("KnowledgeV2Widget browser", () => {
       />,
     );
 
-    await clickButton("Import file");
-    expect(dialogByName("Import file")?.textContent).toContain(
-      "KnowledgeV2 does not wire a file picker or path import form.",
+    const catalogBefore = regionByName("Knowledge catalog items");
+    expect(catalogBefore?.textContent).toContain("Release guide");
+
+    await clickButton("Import");
+    expect(dialogByName("Import")?.textContent).toContain(
+      "Choose or drop a text/Markdown file",
     );
     expect(text()).not.toContain("Choose Knowledge import file");
+    expect(regionByName("Knowledge catalog items")?.textContent).toContain(
+      "Release guide",
+    );
 
     await clickButton("Close");
-    expect(dialogByName("Import file")).toBeNull();
+    expect(dialogByName("Import")).toBeNull();
 
     await clickButton("Draft Review");
     expect(dialogByName("Draft Review")?.textContent).toContain(
@@ -426,6 +434,62 @@ describe("KnowledgeV2Widget browser", () => {
 
     await keyDown("Escape");
     expect(dialogByName("Draft Review")).toBeNull();
+
+    await clickButton("Help");
+    expect(dialogByName("Help / Legend")?.textContent).toContain(
+      "Normal context candidate",
+    );
+
+    await clickButton("Close");
+    expect(dialogByName("Help / Legend")).toBeNull();
+  });
+
+  it("opens the correct explicit action popup without callbacks on open", async () => {
+    const onNew = vi.fn();
+    const onImport = vi.fn();
+    const onDraftReview = vi.fn();
+    const onManageSkills = vi.fn();
+
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        onDraftReview={onDraftReview}
+        onImport={onImport}
+        onManageSkills={onManageSkills}
+        onNew={onNew}
+        skills={[skillFixture()]}
+      />,
+    );
+
+    await clickButton("New");
+    expect(dialogByName("New")?.textContent).toContain("New document");
+    expect(dialogByName("New")?.textContent).toContain("New skill");
+    expect(dialogByName("New")?.textContent).toContain("New runbook/procedure");
+    expect(onNew).not.toHaveBeenCalled();
+    await keyDown("Escape");
+
+    await clickButton("Import");
+    expect(dialogByName("Import")?.textContent).toContain("Raw path fallback");
+    expect(onImport).not.toHaveBeenCalled();
+    await keyDown("Escape");
+
+    await clickButton("Draft Review");
+    expect(dialogByName("Draft Review")?.textContent).toContain("Review decisions");
+    expect(onDraftReview).not.toHaveBeenCalled();
+    await keyDown("Escape");
+
+    await clickButton("Manage Skills");
+    expect(dialogByName("Manage Skills")?.textContent).toContain("Categories");
+    expect(dialogByName("Manage Skills")?.textContent).toContain("Templates");
+    expect(dialogByName("Manage Skills")?.textContent).toContain("Validation");
+    expect(onManageSkills).not.toHaveBeenCalled();
+    await keyDown("Escape");
+
+    await clickButton("Help");
+    expect(dialogByName("Help / Legend")?.textContent).toContain(
+      "Context actions are always explicit",
+    );
+    await keyDown("Escape");
   });
 
   it("shows draft summary only inside Draft Review popup", async () => {
@@ -481,13 +545,13 @@ describe("KnowledgeV2Widget browser", () => {
       />,
     );
 
-    await clickButton("New Knowledge");
+    await clickButton("New");
     expect(onNew).not.toHaveBeenCalled();
     await clickButton("Open existing create flow");
     expect(onNew).toHaveBeenCalledTimes(1);
 
     await keyDown("Escape");
-    await clickButton("Import file");
+    await clickButton("Import");
     await clickButton("Open existing import flow");
     expect(onImport).toHaveBeenCalledTimes(1);
 
