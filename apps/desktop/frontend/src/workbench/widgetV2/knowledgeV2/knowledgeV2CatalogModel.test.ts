@@ -28,7 +28,7 @@ describe("knowledgeV2CatalogModel", () => {
     );
 
     expect(item).toMatchObject({
-      description: "Release procedure.",
+      description: "Release process content.",
       documentSubtype: "runbook",
       enabled: true,
       id: "document:kdoc_1",

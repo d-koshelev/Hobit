@@ -67,7 +67,7 @@ export function normalizeKnowledgeV2DocumentItem(
 
   return {
     createdAt: document.createdAt,
-    description: summary,
+    description: document.content.trim() || summary,
     documentSubtype: document.catalogItemType,
     enabled: document.enabled,
     id: `document:${document.knowledgeDocumentId}`,
@@ -340,6 +340,20 @@ function knowledgeV2DocumentWarnings(
           severity: "blocked" as const,
         }
       : null,
+    document.lifecycleStatus === "stale"
+      ? {
+          code: "stale",
+          message: "Stale document may need review before normal use.",
+          severity: "warning" as const,
+        }
+      : null,
+    document.content.length > 12_000
+      ? {
+          code: "large_content",
+          message: "Large document preview is capped in this browser.",
+          severity: "info" as const,
+        }
+      : null,
   ].filter((warning): warning is KnowledgeV2CatalogWarning => Boolean(warning));
 }
 
@@ -357,6 +371,13 @@ function knowledgeV2SkillWarnings(
       : null,
     skill.reviewStatus === "deprecated"
       ? disabledWarning("Deprecated Skill is unavailable for normal catalog use.")
+      : null,
+    skill.steps.length + skill.whenToUse.length + skill.validation.length > 8_000
+      ? {
+          code: "large_skill",
+          message: "Large Skill preview is capped in this browser.",
+          severity: "info" as const,
+        }
       : null,
   ].filter((warning): warning is KnowledgeV2CatalogWarning => Boolean(warning));
 }

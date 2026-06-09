@@ -3,6 +3,8 @@ import type { ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { KnowledgeDocument } from "../../../workspace/types/knowledgeDocuments";
+import type { Skill } from "../../../workspace/types/skills";
 import {
   flush,
   renderWidget as renderSkillLibraryWidget,
@@ -24,37 +26,110 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-describe("KnowledgeV2Widget shell", () => {
-  it("renders the experimental KnowledgeV2 shell placeholders", async () => {
-    await render(<KnowledgeV2Widget />);
+describe("KnowledgeV2Widget browser", () => {
+  it("renders documents and skills together", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        skills={[skillFixture({ reviewStatus: "reviewed" })]}
+      />,
+    );
 
     expect(headingWithText("Knowledge Catalog v2")).not.toBeNull();
-    expect(document.body.textContent).toContain("Experimental");
-    expect(document.body.textContent).toContain("Frontend-only shell");
-    expect(document.body.textContent).toContain("Legacy Knowledge / Skills unchanged");
-    expect(
-      regionByRoleAndName("toolbar", "Knowledge v2 search and action row"),
-    ).not.toBeNull();
-    expect(
-      inputByLabel("Knowledge v2 search placeholder")?.disabled,
-    ).toBe(true);
-    expect(
-      selectByLabel("Knowledge v2 item type filter placeholder")?.disabled,
-    ).toBe(true);
-    expect(
-      regionByRoleAndName("region", "Knowledge v2 catalog list")?.textContent,
-    ).toContain("Catalog list placeholder");
-    expect(
-      regionByRoleAndName("complementary", "Knowledge v2 preview details")
-        ?.textContent,
-    ).toContain("Preview/details placeholder");
-    expect(buttonWithText("New")?.disabled).toBe(true);
-    expect(buttonWithText("Import")?.disabled).toBe(true);
-    expect(buttonWithText("Draft Review")?.disabled).toBe(true);
-    expect(buttonWithText("Manage Skills")?.disabled).toBe(true);
+    expect(text()).toContain("Release guide");
+    expect(text()).toContain("React review");
+    expect(text()).toContain("Document");
+    expect(text()).toContain("Skill");
+    expect(text()).toContain("2 / 2");
   });
 
-  it("does not call create or import placeholder callbacks on render", async () => {
+  it("changes visible items when filters change", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[documentFixture()]}
+        skills={[skillFixture({ reviewStatus: "reviewed" })]}
+      />,
+    );
+
+    await changeSelect("Filter Knowledge catalog by type", "skill");
+
+    expect(text()).not.toContain("Release guide");
+    expect(text()).toContain("React review");
+    expect(text()).toContain("1 / 2");
+
+    await changeInput("Search Knowledge catalog", "missing item");
+
+    expect(text()).not.toContain("React review");
+    expect(text()).toContain("No search results.");
+    expect(text()).toContain("0 / 2");
+  });
+
+  it("updates the preview when an item is selected", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            content: "Desktop release body preview with validation notes.",
+            quickSummary: "Release checklist for desktop builds.",
+            sourceRefs: [
+              {
+                kind: "docs_path",
+                label: "Release notes",
+                path: "docs/release.md",
+              },
+            ],
+          }),
+        ]}
+        skills={[skillFixture()]}
+      />,
+    );
+
+    await clickButton("Release guide");
+
+    const preview = regionByName("Knowledge preview");
+    expect(preview?.textContent).toContain("Release guide");
+    expect(preview?.textContent).toContain(
+      "Desktop release body preview with validation notes.",
+    );
+    expect(preview?.textContent).toContain("Release docs");
+    expect(preview?.textContent).toContain("docs/release.md");
+
+    await clickButton("React review");
+
+    const updatedPreview = regionByName("Knowledge preview");
+    expect(updatedPreview?.textContent).toContain("React review");
+    expect(updatedPreview?.textContent).toContain("Use when reviewing React changes.");
+    expect(updatedPreview?.textContent).toContain("Workspace Skill");
+  });
+
+  it("shows warning details for disabled and rejected items", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            enabled: false,
+            knowledgeDocumentId: "disabled",
+            lifecycleStatus: "rejected",
+            searchable: false,
+            title: "Rejected safety note",
+          }),
+        ]}
+        skills={[]}
+      />,
+    );
+
+    await clickButton("Rejected safety note");
+
+    const preview = regionByName("Knowledge preview");
+    expect(preview?.textContent).toContain("Rejected safety note");
+    expect(preview?.textContent).toContain("Document is disabled.");
+    expect(preview?.textContent).toContain("Document is marked not searchable.");
+    expect(preview?.textContent).toContain(
+      "Rejected document is unavailable for normal catalog use.",
+    );
+  });
+
+  it("does not show a banner or draft/create/import forms by default", async () => {
     const onNew = vi.fn();
     const onImport = vi.fn();
     const onDraftReview = vi.fn();
@@ -62,13 +137,24 @@ describe("KnowledgeV2Widget shell", () => {
 
     await render(
       <KnowledgeV2Widget
+        documents={[documentFixture()]}
         onDraftReview={onDraftReview}
         onImport={onImport}
         onManageSkills={onManageSkills}
         onNew={onNew}
+        skills={[skillFixture()]}
       />,
     );
 
+    expect(text()).not.toContain("Catalog list placeholder");
+    expect(text()).not.toContain("Preview/details placeholder");
+    expect(text()).not.toContain("Draft Review");
+    expect(text()).not.toContain("Import");
+    expect(text()).not.toContain("New");
+    expect(text()).not.toContain("Manage Skills");
+    expect(text()).not.toContain("draft payload");
+    expect(text()).not.toContain("Create Knowledge");
+    expect(inputByLabel("Search Knowledge catalog")?.disabled).toBe(false);
     expect(onNew).not.toHaveBeenCalled();
     expect(onImport).not.toHaveBeenCalled();
     expect(onDraftReview).not.toHaveBeenCalled();
@@ -87,10 +173,10 @@ describe("KnowledgeV2Widget shell", () => {
 
     await flush();
 
-    expect(document.body.textContent).toContain("Knowledge / Skills");
-    expect(document.body.textContent).toContain("No catalog items yet.");
-    expect(document.body.textContent).not.toContain("Knowledge Catalog v2");
-    expect(document.body.textContent).not.toContain("Experimental");
+    expect(text()).toContain("Knowledge / Skills");
+    expect(text()).toContain("No catalog items yet.");
+    expect(text()).not.toContain("Knowledge Catalog v2");
+    expect(text()).not.toContain("Experimental");
   });
 });
 
@@ -104,18 +190,68 @@ async function render(element: ReactNode) {
   });
 }
 
-function headingWithText(text: string): HTMLHeadingElement | null {
+async function clickButton(textContent: string) {
+  const button = buttonWithText(textContent);
+  expect(button).not.toBeNull();
+  await act(async () => {
+    button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
+}
+
+async function changeInput(label: string, value: string) {
+  const input = inputByLabel(label);
+  expect(input).not.toBeNull();
+  await act(async () => {
+    if (input) {
+      setNativeValue(input, value);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+}
+
+async function changeSelect(label: string, value: string) {
+  const select = selectByLabel(label);
+  expect(select).not.toBeNull();
+  await act(async () => {
+    if (select) {
+      select.value = value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+  });
+}
+
+function setNativeValue(element: HTMLInputElement, value: string) {
+  const valueSetter = Object.getOwnPropertyDescriptor(element, "value")?.set;
+  const prototype = Object.getPrototypeOf(element) as HTMLInputElement;
+  const prototypeValueSetter = Object.getOwnPropertyDescriptor(
+    prototype,
+    "value",
+  )?.set;
+
+  if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {
+    prototypeValueSetter.call(element, value);
+    return;
+  }
+
+  valueSetter?.call(element, value);
+}
+
+function text() {
+  return document.body.textContent ?? "";
+}
+
+function headingWithText(textContent: string): HTMLHeadingElement | null {
   return (
     Array.from(document.querySelectorAll<HTMLHeadingElement>("h1,h2,h3")).find(
-      (heading) => heading.textContent === text,
+      (heading) => heading.textContent === textContent,
     ) ?? null
   );
 }
 
-function buttonWithText(text: string): HTMLButtonElement | null {
+function buttonWithText(textContent: string): HTMLButtonElement | null {
   return (
     Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
-      (button) => button.textContent === text,
+      (button) => button.textContent?.includes(textContent),
     ) ?? null
   );
 }
@@ -136,10 +272,52 @@ function selectByLabel(label: string): HTMLSelectElement | null {
   );
 }
 
-function regionByRoleAndName(role: string, name: string): HTMLElement | null {
+function regionByName(name: string): HTMLElement | null {
   return (
-    Array.from(document.querySelectorAll<HTMLElement>(`[role='${role}']`)).find(
+    Array.from(document.querySelectorAll<HTMLElement>("[aria-label]")).find(
       (element) => element.getAttribute("aria-label") === name,
     ) ?? null
   );
+}
+
+function documentFixture(
+  overrides: Partial<KnowledgeDocument> = {},
+): KnowledgeDocument {
+  return {
+    catalogItemType: "documentation_knowledge",
+    content: "Release process content.",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    enabled: true,
+    knowledgeDocumentId: "kdoc_1",
+    lifecycleStatus: "active",
+    quickSummary: "Release guide summary.",
+    scope: "workspace",
+    searchable: true,
+    sourceKind: "docs_path",
+    sourceLabel: "Release docs",
+    sourceRef: "docs/release.md",
+    tags: "release",
+    title: "Release guide",
+    updatedAt: "2026-01-02T00:00:00.000Z",
+    workspaceId: "workspace_1",
+    ...overrides,
+  };
+}
+
+function skillFixture(overrides: Partial<Skill> = {}): Skill {
+  return {
+    createdAt: "2026-01-01T00:00:00.000Z",
+    prerequisites: "Know the changed files.",
+    reviewStatus: "draft",
+    risks: "Missing regression coverage.",
+    skillId: "skill_1",
+    steps: "Read the diff.",
+    tags: "review",
+    title: "React review",
+    updatedAt: "2026-01-03T00:00:00.000Z",
+    validation: "Run relevant tests.",
+    whenToUse: "Use when reviewing React changes.",
+    workspaceId: "workspace_1",
+    ...overrides,
+  };
 }

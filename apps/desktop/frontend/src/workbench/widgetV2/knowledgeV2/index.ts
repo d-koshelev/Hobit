@@ -1,4 +1,10 @@
+export { KnowledgeV2CatalogBrowser } from "./KnowledgeV2CatalogBrowser";
+export type { KnowledgeV2CatalogBrowserProps } from "./KnowledgeV2CatalogBrowser";
+export { KnowledgeV2CatalogCard, KnowledgeV2CatalogList } from "./KnowledgeV2CatalogList";
+export { KnowledgeV2Filters } from "./KnowledgeV2Filters";
+export type { KnowledgeV2FilterValues } from "./KnowledgeV2Filters";
 export { KnowledgeV2Header } from "./KnowledgeV2Header";
+export { KnowledgeV2PreviewPanel } from "./KnowledgeV2PreviewPanel";
 export { KnowledgeV2Widget } from "./KnowledgeV2Widget";
 export type { KnowledgeV2WidgetProps } from "./KnowledgeV2Widget";
 export {
