@@ -116,6 +116,8 @@ export function KnowledgeSkillsV2Widget({
         displayTitle="Knowledge Catalog"
         onAttachContextToCoordinator={onAttachContextToCoordinator}
         onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
+        onDeleteKnowledgeDocument={onDeleteKnowledgeDocument}
+        onDeleteSkill={onDeleteSkill}
         onDraftReview={() => setLegacyFlow("drafts")}
         onImport={() => setLegacyFlow("import")}
         onListKnowledgeDocuments={onListKnowledgeDocuments}

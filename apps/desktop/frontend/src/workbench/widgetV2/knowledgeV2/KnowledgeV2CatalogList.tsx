@@ -209,12 +209,12 @@ export function KnowledgeV2CatalogRow({
       <span className="knowledge-v2-row-actions" role="cell">
         <button
           className="knowledge-v2-row-icon-button"
-          aria-label={`Preview ${item.title}`}
+          aria-label={`Details for ${item.title}`}
           onClick={() => onSelectItem(item.id)}
-          title={`Preview ${item.title}`}
+          title={`Details for ${item.title}`}
           type="button"
         >
-          ...
+          Details
         </button>
         {onUseAsContext ? (
           <button

@@ -17,7 +17,7 @@ afterEach(() => {
 });
 
 describe("KnowledgeV2 catalog row polish", () => {
-  it("keeps a two-item catalog as table plus preview without a helper rail", async () => {
+  it("keeps a two-item catalog as a table without a permanent helper or preview rail", async () => {
     await render(
       <KnowledgeV2Widget
         documents={[documentFixture()]}
@@ -31,7 +31,8 @@ describe("KnowledgeV2 catalog row polish", () => {
     expect(catalog?.textContent).toContain("Release guide");
     expect(catalog?.textContent).toContain("React review");
     expect(catalog?.textContent).toContain("2 items shown.");
-    expect(regionByName("Knowledge v2 preview details")).not.toBeNull();
+    expect(regionByName("Knowledge v2 preview details")).toBeNull();
+    expect(regionByName("Knowledge preview")).toBeNull();
     await clickButton("Release guide");
     expect(regionByName("Knowledge preview")).not.toBeNull();
     expect(
@@ -71,7 +72,8 @@ describe("KnowledgeV2 catalog row polish", () => {
     expect(catalog?.textContent).toContain("Release guide one");
     expect(catalog?.textContent).toContain("Release guide four");
     expect(catalog?.textContent).not.toContain("items shown.");
-    expect(regionByName("Knowledge v2 preview details")).not.toBeNull();
+    expect(regionByName("Knowledge v2 preview details")).toBeNull();
+    expect(regionByName("Knowledge preview")).toBeNull();
     await clickButton("Release guide one");
     expect(regionByName("Knowledge preview")).not.toBeNull();
   });
@@ -103,7 +105,7 @@ describe("KnowledgeV2 catalog row polish", () => {
     const actionCell = rowByTitle("Release runbook")?.querySelector(
       ".knowledge-v2-row-actions",
     );
-    expect(actionCell?.textContent).toBe("...Use!");
+    expect(actionCell?.textContent).toBe("DetailsUse!");
     expect(actionCell?.textContent).not.toContain("Use as context");
     expect(actionCell?.textContent).not.toContain("2w");
     expect(

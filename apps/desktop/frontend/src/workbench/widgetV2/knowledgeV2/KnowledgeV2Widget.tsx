@@ -21,6 +21,8 @@ export type KnowledgeV2WidgetProps = {
   readonly documents?: readonly KnowledgeDocument[];
   readonly onAttachContextToCoordinator?: WidgetRenderProps["onAttachContextToCoordinator"];
   readonly onAttachKnowledgeContextToQueueTask?: WidgetRenderProps["onAttachKnowledgeContextToQueueTask"];
+  readonly onDeleteKnowledgeDocument?: WidgetRenderProps["onDeleteKnowledgeDocument"];
+  readonly onDeleteSkill?: WidgetRenderProps["onDeleteSkill"];
   readonly onDraftReview?: () => void;
   readonly onImport?: () => void;
   readonly onListKnowledgeDocuments?: WidgetRenderProps["onListKnowledgeDocuments"];
@@ -38,6 +40,8 @@ export function KnowledgeV2Widget({
   documents,
   onAttachContextToCoordinator,
   onAttachKnowledgeContextToQueueTask,
+  onDeleteKnowledgeDocument,
+  onDeleteSkill,
   onListKnowledgeDocuments,
   onListKnowledgeDraftReviews,
   onListSkills,
@@ -159,6 +163,8 @@ export function KnowledgeV2Widget({
         missingBridges={dataBridge.missingBridges}
         onAttachContextToCoordinator={onAttachContextToCoordinator}
         onAttachKnowledgeContextToQueueTask={onAttachKnowledgeContextToQueueTask}
+        onDeleteKnowledgeDocument={onDeleteKnowledgeDocument}
+        onDeleteSkill={onDeleteSkill}
         onImport={onImport}
         onRetry={() => setReloadKey((current) => current + 1)}
         skills={dataBridge.skills}

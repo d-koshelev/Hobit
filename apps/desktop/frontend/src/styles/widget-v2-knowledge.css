@@ -49,7 +49,7 @@
   container-type: inline-size;
   min-height: 0;
   flex: 1;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 38%);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
 }
 
@@ -142,7 +142,7 @@
     76px
     96px
     74px
-    78px;
+    118px;
   align-items: center;
   border-bottom: 1px solid var(--color-border-subtle);
 }
@@ -262,7 +262,7 @@
 }
 
 .knowledge-v2-row-icon-button {
-  width: calc(24px * var(--ui-scale));
+  width: calc(54px * var(--ui-scale));
 }
 
 .knowledge-v2-row-use-button {
@@ -440,6 +440,38 @@
 
 .knowledge-v2-action-popup-shell {
   width: min(460px, calc(100vw - var(--space-xl)));
+}
+
+.knowledge-v2-details-popup-shell {
+  width: min(720px, calc(100vw - var(--space-xl)));
+}
+
+.knowledge-v2-details-popup-body {
+  max-height: min(68vh, calc(100vh - 180px));
+  overflow: auto;
+}
+
+.knowledge-v2-details-popup-footer {
+  align-items: start;
+}
+
+.knowledge-v2-details-footer-actions {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-xs);
+}
+
+.knowledge-v2-details-footer-reasons {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  text-align: right;
 }
 
 .knowledge-v2-help-popover {
@@ -1212,6 +1244,20 @@
   white-space: pre-wrap;
 }
 
+.knowledge-v2-source-content {
+  max-height: min(44vh, calc(360px * var(--ui-scale)));
+  overflow: auto;
+  margin: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  padding: var(--space-xs);
+  white-space: pre-wrap;
+}
+
 .knowledge-v2-context-action-notice {
   border-left: 2px solid var(--color-border-strong);
   padding-left: var(--space-xs);
@@ -1269,7 +1315,7 @@
       minmax(0, 1fr)
       84px
       78px
-      78px;
+      118px;
   }
 
   .knowledge-v2-row > span:nth-child(2),

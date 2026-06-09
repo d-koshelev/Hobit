@@ -4,6 +4,7 @@ import { KnowledgeV2Widget } from "./KnowledgeV2Widget";
 import {
   cleanupKnowledgeV2WidgetTestDom,
   clickButton,
+  clickButtonInRegion,
   documentFixture,
   regionByName,
   render,
@@ -45,7 +46,7 @@ describe("KnowledgeV2PreviewPanel", () => {
     expect(overview?.textContent).toContain("Vendor SDK reference");
     expect(overview?.textContent).toContain("No summary available yet.");
     expect(overview?.textContent).toContain(
-      "Imported reference document. Source preview is available in Details.",
+      "Imported reference document. Source content is available in Source.",
     );
     expect(overview?.textContent).not.toContain("#region Assembly");
     expect(overview?.textContent).not.toContain("public sealed class");
@@ -70,7 +71,7 @@ describe("KnowledgeV2PreviewPanel", () => {
     );
 
     await clickButton("Vendor SDK reference");
-    await clickButton("Details");
+    await clickButtonInRegion("Knowledge preview", "Details");
 
     const details = regionByName("Knowledge preview");
     expect(details?.textContent).toContain("Source");
@@ -78,10 +79,12 @@ describe("KnowledgeV2PreviewPanel", () => {
     expect(details?.textContent).toContain("Import File");
     expect(details?.textContent).toContain("Vendor.SDK.cs");
     expect(details?.textContent).toContain("Source size");
-    expect(details?.textContent).toContain("Source preview");
-    expect(details?.textContent).toContain("View source");
-    expect(details?.textContent).toContain("#region Assembly Vendor.SDK");
-    expect(details?.textContent).toContain("public sealed class Client");
+
+    await clickButtonInRegion("Knowledge preview", "Source");
+    const source = regionByName("Knowledge preview");
+    expect(source?.textContent).toContain("Source content");
+    expect(source?.textContent).toContain("#region Assembly Vendor.SDK");
+    expect(source?.textContent).toContain("public sealed class Client");
   });
 
   it("caps and collapses large source preview in Details", async () => {
@@ -126,17 +129,11 @@ describe("KnowledgeV2PreviewPanel", () => {
       "Large document preview is capped in this browser.",
     );
 
-    await clickButton("Details");
+    await clickButtonInRegion("Knowledge preview", "Source");
 
-    const sourceDetails = Array.from(
-      document.querySelectorAll<HTMLDetailsElement>("details"),
-    ).find((candidate) =>
-      candidate.textContent?.includes("View capped source preview"),
-    );
-    const sourcePreview = sourceDetails?.querySelector("pre")?.textContent ?? "";
+    const sourcePreview =
+      regionByName("KnowledgeV2 source content")?.textContent ?? "";
 
-    expect(sourceDetails).not.toBeNull();
-    expect(sourceDetails?.open).toBe(false);
     expect(sourcePreview).toContain("#region Assembly Vendor.SDK");
     expect(sourcePreview).not.toContain("TAIL_SHOULD_NOT_RENDER");
     expect(sourcePreview.length).toBeLessThan(largeSource.length);

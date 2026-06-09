@@ -3,14 +3,10 @@ import { useState } from "react";
 import type { KnowledgeSourceRef } from "../../../workspace/types/knowledgeDocuments";
 import type {
   KnowledgeV2ContextActionNotice,
-  KnowledgeV2ContextAffordanceSource,
   KnowledgeV2ContextAffordanceState,
   KnowledgeV2ContextTarget,
 } from "./knowledgeV2ContextAffordances";
-import {
-  formatKnowledgeV2ContextUnavailableReason,
-  knowledgeV2ReferenceText,
-} from "./knowledgeV2ContextAffordances";
+import { knowledgeV2ReferenceText } from "./knowledgeV2ContextAffordances";
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
 import { KnowledgeV2StatusBadge, knowledgeV2ItemStatuses } from "./knowledgeV2ItemStatus";
 import { KnowledgeV2ContextPicker, type KnowledgeV2PickerItem } from "./KnowledgeV2ContextPicker";
@@ -22,12 +18,10 @@ import {
 
 type KnowledgeV2PreviewPanelProps = {
   readonly actionNotice?: KnowledgeV2ContextActionNotice | null;
-  readonly affordanceSource?: KnowledgeV2ContextAffordanceSource | null;
   readonly affordanceState?: KnowledgeV2ContextAffordanceState;
   readonly canAttachToQueueTask?: boolean;
   readonly canAttachToWorkspaceAgent?: boolean;
   readonly canCopyReference?: boolean;
-  readonly contextActionDisabledReason?: string | null;
   readonly contextItems?: readonly KnowledgeV2PickerItem[];
   readonly hasItems: boolean;
   readonly item: KnowledgeV2CatalogItem | null;
@@ -37,11 +31,10 @@ type KnowledgeV2PreviewPanelProps = {
     selectedItemIds: readonly string[],
   ) => void;
   readonly onCloseContextPicker?: () => void;
-  readonly onOpenContextPicker?: () => void;
   readonly selectedItemId: string | null;
 };
 
-type KnowledgeV2PreviewTab = "overview" | "details" | "versions" | "usage";
+type KnowledgeV2PreviewTab = "overview" | "details" | "source" | "versions" | "usage";
 
 const previewTabs: ReadonlyArray<{
   readonly id: KnowledgeV2PreviewTab;
@@ -49,25 +42,23 @@ const previewTabs: ReadonlyArray<{
 }> = [
   { id: "overview", label: "Overview" },
   { id: "details", label: "Details" },
+  { id: "source", label: "Source" },
   { id: "versions", label: "Versions" },
   { id: "usage", label: "Usage" },
 ];
 
 export function KnowledgeV2PreviewPanel({
   actionNotice = null,
-  affordanceSource = null,
   affordanceState,
   canAttachToQueueTask = false,
   canAttachToWorkspaceAgent = false,
   canCopyReference = false,
-  contextActionDisabledReason = null,
   contextItems = [],
   hasItems,
   isContextPickerOpen = false,
   item,
   onAttachContextPicker,
   onCloseContextPicker,
-  onOpenContextPicker,
   selectedItemId,
 }: KnowledgeV2PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<KnowledgeV2PreviewTab>("overview");
@@ -173,59 +164,41 @@ export function KnowledgeV2PreviewPanel({
 
       {activeTab === "overview" ? (
         <KnowledgeV2OverviewTab
-          actionNotice={actionNotice}
-          affordanceSource={affordanceSource}
-          affordanceState={affordanceState}
-          canAttachToQueueTask={canAttachToQueueTask}
-          canAttachToWorkspaceAgent={canAttachToWorkspaceAgent}
-          canCopyReference={canCopyReference}
-          contextActionDisabledReason={contextActionDisabledReason}
-          contextItems={contextItems}
-          isContextPickerOpen={isContextPickerOpen}
           item={item}
-          onAttachContextPicker={onAttachContextPicker}
-          onCloseContextPicker={onCloseContextPicker}
-          onOpenContextPicker={onOpenContextPicker}
         />
       ) : null}
       {activeTab === "details" ? <KnowledgeV2DetailsTab item={item} /> : null}
+      {activeTab === "source" ? <KnowledgeV2SourceTab item={item} /> : null}
       {activeTab === "versions" ? <KnowledgeV2VersionsTab item={item} /> : null}
       {activeTab === "usage" ? <KnowledgeV2UsageTab /> : null}
+      {isContextPickerOpen && onAttachContextPicker && onCloseContextPicker ? (
+        <KnowledgeV2ContextPicker
+          canAttachToQueueTask={canAttachToQueueTask}
+          canAttachToWorkspaceAgent={canAttachToWorkspaceAgent}
+          canCopyReference={canCopyReference}
+          initialSelectedItemId={item.id}
+          items={contextItems}
+          onAttach={onAttachContextPicker}
+          onClose={onCloseContextPicker}
+        />
+      ) : null}
+      {actionNotice ? (
+        <p
+          className="knowledge-v2-context-action-notice"
+          data-status={actionNotice.status}
+          role={actionNotice.status === "attached" || actionNotice.status === "copied" ? "status" : "alert"}
+        >
+          {actionNotice.message}
+        </p>
+      ) : null}
     </section>
   );
 }
 
 function KnowledgeV2OverviewTab({
-  actionNotice,
-  affordanceSource,
-  affordanceState,
-  canAttachToQueueTask,
-  canAttachToWorkspaceAgent,
-  canCopyReference,
-  contextActionDisabledReason,
-  contextItems,
-  isContextPickerOpen,
   item,
-  onAttachContextPicker,
-  onCloseContextPicker,
-  onOpenContextPicker,
 }: {
-  readonly actionNotice: KnowledgeV2ContextActionNotice | null;
-  readonly affordanceSource: KnowledgeV2ContextAffordanceSource | null;
-  readonly affordanceState?: KnowledgeV2ContextAffordanceState;
-  readonly canAttachToQueueTask: boolean;
-  readonly canAttachToWorkspaceAgent: boolean;
-  readonly canCopyReference: boolean;
-  readonly contextActionDisabledReason: string | null;
-  readonly contextItems: readonly KnowledgeV2PickerItem[];
-  readonly isContextPickerOpen: boolean;
   readonly item: KnowledgeV2CatalogItem;
-  readonly onAttachContextPicker?: (
-    target: KnowledgeV2ContextTarget,
-    selectedItemIds: readonly string[],
-  ) => void;
-  readonly onCloseContextPicker?: () => void;
-  readonly onOpenContextPicker?: () => void;
 }) {
   return (
     <div className="knowledge-v2-tab-panel" role="tabpanel">
@@ -253,21 +226,6 @@ function KnowledgeV2OverviewTab({
           <p>No tags supplied.</p>
         )}
       </section>
-      <KnowledgeV2ContextActions
-        actionNotice={actionNotice}
-        affordanceSource={affordanceSource}
-        affordanceState={affordanceState}
-        canAttachToQueueTask={canAttachToQueueTask}
-        canAttachToWorkspaceAgent={canAttachToWorkspaceAgent}
-        canCopyReference={canCopyReference}
-        contextActionDisabledReason={contextActionDisabledReason}
-        contextItems={contextItems}
-        isContextPickerOpen={isContextPickerOpen}
-        item={item}
-        onAttachContextPicker={onAttachContextPicker}
-        onCloseContextPicker={onCloseContextPicker}
-        onOpenContextPicker={onOpenContextPicker}
-      />
     </div>
   );
 }
@@ -291,25 +249,6 @@ function KnowledgeV2DetailsTab({ item }: { readonly item: KnowledgeV2CatalogItem
             value={item.sourcePreviewCapped ? "Capped" : "Bounded"}
           />
         </dl>
-      </section>
-      <section className="knowledge-v2-preview-section">
-        <h4>Source preview</h4>
-        <p>
-          {item.sourcePreview
-            ? item.sourcePreviewCapped
-              ? "Large source content is capped here. Use an explicit full-view/source action when one is available."
-              : "Bounded source preview from the selected Knowledge record."
-            : "No source content is available for this item."}
-        </p>
-        {item.sourcePreview ? (
-          <details
-            className="knowledge-v2-reference-details"
-            open={!item.sourcePreviewCapped}
-          >
-            <summary>{item.sourcePreviewCapped ? "View capped source preview" : "View source"}</summary>
-            <pre>{item.sourcePreview}</pre>
-          </details>
-        ) : null}
       </section>
       <section className="knowledge-v2-preview-section">
         <h4>Attachments and source refs</h4>
@@ -365,6 +304,43 @@ function KnowledgeV2DetailsTab({ item }: { readonly item: KnowledgeV2CatalogItem
   );
 }
 
+function KnowledgeV2SourceTab({ item }: { readonly item: KnowledgeV2CatalogItem }) {
+  return (
+    <div className="knowledge-v2-tab-panel" role="tabpanel">
+      <section className="knowledge-v2-preview-section">
+        <h4>Source content</h4>
+        <p>
+          {item.sourcePreview
+            ? item.sourcePreviewCapped
+              ? "Large source content is capped in this bounded popup."
+              : "Bounded source content from the selected Knowledge record."
+            : "No source content is available for this item."}
+        </p>
+        {item.sourcePreview ? (
+          <p className="knowledge-v2-muted">
+            Preview: {item.sourcePreviewCapped ? "Capped" : "Bounded"}
+          </p>
+        ) : null}
+        {item.sourcePreview ? (
+          <pre
+            aria-label="KnowledgeV2 source content"
+            className="knowledge-v2-source-content"
+          >
+            {item.sourcePreview}
+          </pre>
+        ) : null}
+      </section>
+      <section className="knowledge-v2-preview-section">
+        <h4>Reference text</h4>
+        <details className="knowledge-v2-reference-details">
+          <summary>Open source details</summary>
+          <pre>{knowledgeV2ReferenceText(item)}</pre>
+        </details>
+      </section>
+    </div>
+  );
+}
+
 function KnowledgeV2VersionsTab({ item }: { readonly item: KnowledgeV2CatalogItem }) {
   return (
     <div className="knowledge-v2-tab-panel" role="tabpanel">
@@ -399,160 +375,6 @@ function KnowledgeV2UsageTab() {
         </p>
       </section>
     </div>
-  );
-}
-
-function KnowledgeV2ContextActions({
-  actionNotice,
-  affordanceSource,
-  affordanceState,
-  canAttachToQueueTask,
-  canAttachToWorkspaceAgent,
-  canCopyReference,
-  contextActionDisabledReason,
-  contextItems,
-  isContextPickerOpen,
-  item,
-  onAttachContextPicker,
-  onCloseContextPicker,
-  onOpenContextPicker,
-}: {
-  readonly actionNotice: KnowledgeV2ContextActionNotice | null;
-  readonly affordanceSource: KnowledgeV2ContextAffordanceSource | null;
-  readonly affordanceState?: KnowledgeV2ContextAffordanceState;
-  readonly canAttachToQueueTask: boolean;
-  readonly canAttachToWorkspaceAgent: boolean;
-  readonly canCopyReference: boolean;
-  readonly contextActionDisabledReason: string | null;
-  readonly contextItems: readonly KnowledgeV2PickerItem[];
-  readonly isContextPickerOpen: boolean;
-  readonly item: KnowledgeV2CatalogItem;
-  readonly onAttachContextPicker?: (
-    target: KnowledgeV2ContextTarget,
-    selectedItemIds: readonly string[],
-  ) => void;
-  readonly onCloseContextPicker?: () => void;
-  readonly onOpenContextPicker?: () => void;
-}) {
-  const attachState =
-    affordanceState ??
-    ({
-      canAttach: false,
-      reason: "Context eligibility could not be evaluated.",
-      warning: "Context eligibility could not be evaluated.",
-    } satisfies KnowledgeV2ContextAffordanceState);
-  const workspaceReason = formatKnowledgeV2ContextUnavailableReason(
-    attachState.canAttach,
-    canAttachToWorkspaceAgent,
-    attachState.reason,
-    "Workspace Agent",
-  );
-  const queueReason = formatKnowledgeV2ContextUnavailableReason(
-    attachState.canAttach,
-    canAttachToQueueTask,
-    attachState.reason,
-    "Queue task",
-  );
-  const attachableTargetCount = [
-    canAttachToWorkspaceAgent,
-    canAttachToQueueTask,
-    canCopyReference,
-  ].filter(Boolean).length;
-  const usabilityState = attachState.canAttach
-    ? attachState.warning
-      ? attachState.warning.toLowerCase().includes("large")
-        ? "Large"
-        : "Stale"
-      : "Usable"
-    : "Unavailable";
-
-  return (
-    <section
-      aria-label="KnowledgeV2 use as context"
-      className="knowledge-v2-preview-section knowledge-v2-context-actions"
-    >
-      <h4>Use as context</h4>
-      <p className="knowledge-v2-context-usability">
-        Context usability: <strong>{usabilityState}</strong>
-        {attachState.canAttach
-          ? " - explicit visible attach only."
-          : ` - ${attachState.reason ?? "Unavailable."}`}
-      </p>
-      <p>
-        These controls only use explicit visible callbacks. They do not inject
-        hidden context, create Queue tasks, or start runs.
-      </p>
-      {attachState.warning ? (
-        <p className="knowledge-v2-context-warning">{attachState.warning}</p>
-      ) : null}
-      <div className="knowledge-v2-context-action-row">
-        <ContextButton
-          disabledReason={contextActionDisabledReason}
-          label="Use as context"
-          onClick={onOpenContextPicker}
-        />
-      </div>
-      {contextActionDisabledReason ? (
-        <p className="knowledge-v2-context-warning">
-          {contextActionDisabledReason}
-        </p>
-      ) : null}
-      {attachableTargetCount === 0 ? (
-        <p className="knowledge-v2-context-warning">
-          No attach target bridge is available.
-        </p>
-      ) : null}
-      {workspaceReason || queueReason || !canCopyReference ? (
-        <ul className="knowledge-v2-context-unavailable">
-          {workspaceReason ? <li>{workspaceReason}</li> : null}
-          {queueReason ? <li>{queueReason}</li> : null}
-          {!canCopyReference ? <li>Clipboard bridge is unavailable in this runtime.</li> : null}
-          {!affordanceSource ? <li>Open source details are read-only in this preview.</li> : null}
-        </ul>
-      ) : null}
-      {isContextPickerOpen && onAttachContextPicker && onCloseContextPicker ? (
-        <KnowledgeV2ContextPicker
-          canAttachToQueueTask={canAttachToQueueTask}
-          canAttachToWorkspaceAgent={canAttachToWorkspaceAgent}
-          canCopyReference={canCopyReference}
-          initialSelectedItemId={item.id}
-          items={contextItems}
-          onAttach={onAttachContextPicker}
-          onClose={onCloseContextPicker}
-        />
-      ) : null}
-      {actionNotice ? (
-        <p
-          className="knowledge-v2-context-action-notice"
-          data-status={actionNotice.status}
-          role={actionNotice.status === "attached" || actionNotice.status === "copied" ? "status" : "alert"}
-        >
-          {actionNotice.message}
-        </p>
-      ) : null}
-    </section>
-  );
-}
-
-function ContextButton({
-  disabledReason,
-  label,
-  onClick,
-}: {
-  readonly disabledReason: string | null;
-  readonly label: string;
-  readonly onClick?: () => void;
-}) {
-  return (
-    <button
-      className="knowledge-v2-context-button"
-      disabled={Boolean(disabledReason) || !onClick}
-      onClick={onClick}
-      title={disabledReason ?? undefined}
-      type="button"
-    >
-      {label}
-    </button>
   );
 }
 
@@ -613,7 +435,7 @@ function overviewSummaryText(item: KnowledgeV2CatalogItem) {
     return capText(summary, 420);
   }
   return item.source.kind === "import_file"
-    ? "Imported reference document. Source preview is available in Details."
+    ? "Imported reference document. Source content is available in Source."
     : "No summary available yet.";
 }
 
@@ -623,7 +445,7 @@ function overviewDescriptionText(item: KnowledgeV2CatalogItem) {
     return capText(description, 620);
   }
   return item.type === "document"
-    ? "Imported reference document. Source preview is available in Details."
+    ? "Imported reference document. Source content is available in Source."
     : "No description available yet.";
 }
 

@@ -458,17 +458,17 @@ function documentDescription(
   const sourceRef = document.sourceRef.trim();
 
   if (sourceKind === "import_file" || sourceKind === "import") {
-    return "Imported reference document. Source preview is available in Details.";
+    return "Imported reference document. Source content is available in Source.";
   }
 
   if (sourceLabel || sourceRef) {
     return `${formatCatalogItemType(document.catalogItemType)} from ${
       sourceLabel || sourceRef
-    }. Source preview is available in Details.`;
+    }. Source content is available in Source.`;
   }
 
   return fallbackSummary === "No summary available yet."
-    ? "Source preview is available in Details."
+    ? "Source content is available in Source."
     : fallbackSummary;
 }
 

@@ -59,6 +59,8 @@ describe("KnowledgeV2Widget browser", () => {
     expect(regionByName("Knowledge catalog items")?.getAttribute("role")).toBe(
       "table",
     );
+    expect(regionByName("Knowledge v2 preview details")).toBeNull();
+    expect(regionByName("Knowledge preview")).toBeNull();
     expect(text()).toContain("Title");
     expect(text()).toContain("Type");
     expect(text()).toContain("Status");
@@ -312,14 +314,15 @@ describe("KnowledgeV2Widget browser", () => {
       "Release checklist for desktop builds.",
     );
     expect(preview?.textContent).toContain("Release docs");
-    expect(preview?.textContent).toContain("Context usability");
+    expect(preview?.textContent).toContain("Context: Usable");
     expect(preview?.textContent).not.toContain("Open source details");
+    expect(dialogByName("Release guide")).not.toBeNull();
 
-    await clickButton("Details");
+    await clickButtonInRegion("Knowledge preview", "Details");
 
     const detailsPreview = regionByName("Knowledge preview");
     expect(detailsPreview?.textContent).toContain("Attachments and source refs");
-    expect(preview?.textContent).toContain("docs/release.md");
+    expect(detailsPreview?.textContent).toContain("docs/release.md");
 
     await clickButton("React review");
 
@@ -356,9 +359,8 @@ describe("KnowledgeV2Widget browser", () => {
     expect(preview?.textContent).toContain("Use cases");
     expect(preview?.textContent).toContain("release");
     expect(preview?.textContent).toContain("validation");
-    expect(preview?.textContent).toContain("Context usability");
+    expect(preview?.textContent).toContain("Context: Usable");
     expect(preview?.textContent).not.toContain("Open source details");
-    expect(preview?.textContent).toContain("Context usability: Usable");
   });
 
   it("renders Details source, scope, and attachments when present", async () => {
@@ -387,7 +389,7 @@ describe("KnowledgeV2Widget browser", () => {
     );
 
     await clickButton("Release guide");
-    await clickButton("Details");
+    await clickButtonInRegion("Knowledge preview", "Details");
 
     const preview = regionByName("Knowledge preview");
     expect(preview?.textContent).toContain("Source");
@@ -401,8 +403,13 @@ describe("KnowledgeV2Widget browser", () => {
     expect(preview?.textContent).toContain("Queue Task 1");
     expect(preview?.textContent).toContain("Created from run");
     expect(preview?.textContent).toContain("Run 1");
-    expect(preview?.textContent).toContain("Reference text");
-    expect(preview?.textContent).toContain("Open source details");
+    await clickButtonInRegion("Knowledge preview", "Source");
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Reference text",
+    );
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
+      "Open source details",
+    );
   });
 
   it("renders unavailable Versions and Usage states without inventing history", async () => {
@@ -599,14 +606,14 @@ describe("KnowledgeV2Widget browser", () => {
 
     await clickButton("Stale attach item");
     expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
-      "Knowledge Document is stale; attach only after reviewing the visible warning.",
+      "Use as context opens explicit visible context targets only.",
     );
     expect(buttonWithText("Use as context")?.disabled).toBe(false);
 
     await clickButton("Large attach item");
     expect(regionByName("Knowledge preview")?.textContent).toContain("Large");
     expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
-      "Knowledge Document is large; only bounded visible context is attached.",
+      "Use as context opens explicit visible context targets only.",
     );
     expect(buttonWithText("Use as context")?.disabled).toBe(false);
   });
@@ -958,6 +965,9 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("Release guide");
 
     expect(buttonWithText("Use as context")?.disabled).toBe(false);
+    expect(buttonWithText("Archive")?.disabled).toBe(true);
+    expect(buttonWithText("Delete")?.disabled).toBe(true);
+    expect(buttonWithText("Close")?.disabled).toBe(false);
     expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
       "These controls only use explicit visible callbacks.",
     );
@@ -1043,7 +1053,7 @@ describe("KnowledgeV2Widget browser", () => {
       sourceLabel: "KnowledgeV2 / Skill",
     });
     expect(attachToQueueTask).not.toHaveBeenCalled();
-    expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
       "React review attached to Workspace Agent as visible current-session context.",
     );
   });
@@ -1124,7 +1134,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
     expect(createQueueTask).not.toHaveBeenCalled();
     expect(runQueueTask).not.toHaveBeenCalled();
-    expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
       "Release guide attached to selected task.",
     );
   });
@@ -1138,10 +1148,7 @@ describe("KnowledgeV2Widget browser", () => {
 
     const useAsContext = regionByName("KnowledgeV2 use as context");
     expect(useAsContext?.textContent).toContain(
-      "Workspace Agent attach bridge is unavailable",
-    );
-    expect(useAsContext?.textContent).toContain(
-      "Queue task attach bridge is unavailable",
+      "Use as Context is unavailable because no Workspace Agent, Queue, or clipboard context bridge is connected.",
     );
     expect(useAsContext?.textContent).not.toContain("attached to Workspace Agent");
     expect(useAsContext?.textContent).not.toContain("attached to selected task");

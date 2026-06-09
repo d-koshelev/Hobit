@@ -29,7 +29,7 @@ describe("knowledgeV2CatalogModel", () => {
 
     expect(item).toMatchObject({
       description:
-        "Runbook from Release docs. Source preview is available in Details.",
+        "Runbook from Release docs. Source content is available in Source.",
       documentSubtype: "runbook",
       enabled: true,
       id: "document:kdoc_1",
