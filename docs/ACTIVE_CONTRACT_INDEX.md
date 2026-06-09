@@ -425,6 +425,11 @@ unless the task explicitly requests it.
   manual smoke checklist, and recommended next blocks. It does not add runtime
   behavior, Queue Run behavior, Claude/Amp providers, or replace Workspace
   Agent V1.
+- `docs/WORKSPACE_AGENT_UI_POLISH_STATUS.md` - docs-only status record for
+  movable popup, Agent Activity alignment, and compact Workspace Agent run
+  summary polish. It records manual smoke steps, non-goals, and follow-ups
+  without adding frontend behavior, backend behavior, runtime behavior,
+  Queue scheduling behavior, automatic execution, or Git mutation.
 
 ## Active Domain Contracts
 
