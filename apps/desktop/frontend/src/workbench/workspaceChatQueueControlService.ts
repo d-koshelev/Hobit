@@ -7,6 +7,14 @@ import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
 } from "./queue/agentQueueWidgetApiTypes";
+import {
+  requestValidationForQueueItem,
+  type QueueValidationRunResult,
+} from "./queue/queueValidationEvidenceService";
+import type {
+  ValidationRunner,
+  ValidationRunRequest,
+} from "./validation";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import {
   EMPTY_WORKSPACE_AGENT_QUEUE_CREATE_DRAFT,
@@ -35,6 +43,7 @@ export type WorkspaceChatQueueAction =
     }
   | {
       kind: "request_validation";
+      request: ValidationRunRequest;
       queueItemId: string;
     }
   | {
@@ -58,6 +67,7 @@ export type WorkspaceChatQueueActionResult = {
   queueItemId?: string;
   reason?: string;
   status: WorkspaceChatQueueActionStatus;
+  validationResult?: QueueValidationRunResult;
   widgetResult?: QueueWidgetActionResult<QueueWidgetItemSnapshot>;
 };
 
@@ -71,12 +81,14 @@ export type WorkspaceChatQueueControlServiceOptions = {
   bridge?: WorkspaceAgentQueueBridge | null;
   onOpenQueueItem?: (queueItemId: string) => void;
   queue?: AgentQueueController | null;
+  validationRunner?: ValidationRunner | null;
 };
 
 export function createWorkspaceChatQueueControlService({
   bridge,
   onOpenQueueItem,
   queue,
+  validationRunner,
 }: WorkspaceChatQueueControlServiceOptions): WorkspaceChatQueueControlService {
   return {
     execute: (action) =>
@@ -84,6 +96,7 @@ export function createWorkspaceChatQueueControlService({
         bridge,
         onOpenQueueItem,
         queue,
+        validationRunner,
       }),
   };
 }
@@ -112,11 +125,7 @@ async function executeWorkspaceChatQueueAction(
           action.queueItemId,
         );
       case "request_validation":
-        return unavailable(
-          action.kind,
-          "Queue validation execution is not exposed to Workspace Chat. No validation was started.",
-          action.queueItemId,
-        );
+        return await requestValidation(action, options);
       case "create_diff_review":
         return unavailable(
           action.kind,
@@ -129,6 +138,60 @@ async function executeWorkspaceChatQueueAction(
   } catch (error) {
     return failed(action.kind, errorToMessage(error), actionQueueItemId(action));
   }
+}
+
+async function requestValidation(
+  action: Extract<WorkspaceChatQueueAction, { kind: "request_validation" }>,
+  options: WorkspaceChatQueueControlServiceOptions,
+): Promise<WorkspaceChatQueueActionResult> {
+  if (!options.validationRunner) {
+    return unavailable(
+      "request_validation",
+      "Validation runner is unavailable in this Workspace Chat surface. No validation was started.",
+      action.queueItemId,
+    );
+  }
+
+  if (!options.bridge) {
+    return unavailable(
+      "request_validation",
+      "Queue update bridge is unavailable, so validation evidence cannot be attached. No validation was started.",
+      action.queueItemId,
+    );
+  }
+
+  const result = await requestValidationForQueueItem({
+    queueApi: {
+      getSnapshot: (request) => {
+        const { workspaceId: _workspaceId, ...rest } = request ?? {};
+        return options.bridge!.getSnapshot(rest);
+      },
+      updateItem: (request) => {
+        const { workspaceId: _workspaceId, ...rest } = request;
+        return options.bridge!.updateItem(rest);
+      },
+    },
+    request: action.request,
+    runner: options.validationRunner,
+  });
+  const summary = result.runnerOutput.summary;
+  const status = result.runnerOutput.unavailable
+    ? "unavailable"
+    : summary.status === "passed"
+      ? "success"
+      : "failed";
+
+  return {
+    action: "request_validation",
+    message: result.runnerOutput.unavailable
+      ? `Validation unavailable: ${summary.summary || result.runnerOutput.result.errors[0] || "runner unavailable"}.`
+      : `Validation ${summary.status}: ${summary.summary || "no command summary available"}.`,
+    queueItemId: action.queueItemId,
+    reason: status === "success" ? undefined : summary.errors[0] ?? summary.warnings[0],
+    status,
+    validationResult: result,
+    widgetResult: result.attachment.updateResult ?? undefined,
+  };
 }
 
 async function createTask(

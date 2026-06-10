@@ -8,6 +8,11 @@ import type {
 } from "./queue/agentQueueWidgetApiTypes";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import {
+  createValidationRunner,
+  type ValidationCommandExecutor,
+  type ValidationExecutorResult,
+} from "./validation";
+import {
   createWorkspaceChatQueueControlService,
   emptyWorkspaceChatQueueTaskDraft,
 } from "./workspaceChatQueueControlService";
@@ -61,7 +66,7 @@ describe("workspace chat Queue control service", () => {
     });
   });
 
-  it("returns unavailable for unsupported validation actions", async () => {
+  it("returns unavailable for validation when no runner is available", async () => {
     const createItem = vi.fn();
     const service = createWorkspaceChatQueueControlService({
       bridge: queueBridge({ createItem }),
@@ -69,6 +74,7 @@ describe("workspace chat Queue control service", () => {
 
     const result = await service.execute({
       kind: "request_validation",
+      request: validationRunRequest(),
       queueItemId: "queue-1",
     });
 
@@ -77,8 +83,44 @@ describe("workspace chat Queue control service", () => {
       queueItemId: "queue-1",
       status: "unavailable",
     });
-    expect(result.reason).toContain("not exposed");
+    expect(result.reason).toContain("runner is unavailable");
     expect(createItem).not.toHaveBeenCalled();
+  });
+
+  it("runs explicit validation through the Queue evidence service once", async () => {
+    const updateItem = vi
+      .fn()
+      .mockResolvedValueOnce(itemResult({ validationStatus: "validating" }))
+      .mockResolvedValueOnce(itemResult({
+        reportSummary: {
+          status: "report_ready",
+          validationSummary: "Validation result: passed.",
+        },
+        validationStatus: "passed",
+      }));
+    const executor = validationExecutor();
+    const service = createWorkspaceChatQueueControlService({
+      bridge: queueBridge({ updateItem }),
+      validationRunner: createValidationRunner({ executor }),
+    });
+
+    const result = await service.execute({
+      kind: "request_validation",
+      request: validationRunRequest(),
+      queueItemId: "queue-1",
+    });
+
+    expect(executor.execute).toHaveBeenCalledTimes(1);
+    expect(updateItem).toHaveBeenCalledTimes(2);
+    expect(updateItem.mock.calls[0][0].patch.validationStatus).toBe("validating");
+    expect(updateItem.mock.calls[1][0].patch.validationStatus).toBe("passed");
+    expect(updateItem.mock.calls[1][0].patch.appendWorkerExecutionReport).toBeDefined();
+    expect(result).toMatchObject({
+      action: "request_validation",
+      queueItemId: "queue-1",
+      status: "success",
+    });
+    expect(result.validationResult?.runnerOutput.summary.passedCount).toBe(1);
   });
 
   it("does not fire actions on service construction", () => {
@@ -382,5 +424,54 @@ function itemResult(
     message: "Created",
     ok: true,
     safetyClass: "safe_create_update",
+  };
+}
+
+function validationRunRequest() {
+  return {
+    createdAt: "2026-06-10T12:00:00.000Z",
+    queueItemId: "queue-1",
+    requestedBySurface: "workspace_chat" as const,
+    runId: "validation-run-1",
+    suite: {
+      commands: [
+        {
+          args: ["run", "typecheck", "--prefix", "apps/desktop/frontend"],
+          cwd: "C:/repo",
+          executable: "npm.cmd",
+          id: "typecheck",
+          safetyCategory: "build_or_test" as const,
+          source: { kind: "manual" as const },
+          stderrCapBytes: 1_000,
+          stdoutCapBytes: 1_000,
+          title: "Typecheck",
+        },
+      ],
+      id: "queue-validation-suite",
+      source: { kind: "manual" as const },
+      stopOnFirstFailure: true,
+      title: "Queue validation suite",
+    },
+    workspaceId: "workspace-1",
+  };
+}
+
+function validationExecutor(
+  overrides: Partial<ValidationCommandExecutor> = {},
+): ValidationCommandExecutor {
+  return {
+    capabilities: {
+      available: true,
+      supportsCancellation: false,
+      supportsTimeout: true,
+    },
+    execute: vi.fn(async (): Promise<ValidationExecutorResult> => ({
+      durationMs: 32,
+      exitCode: 0,
+      status: "completed",
+      stderr: "",
+      stdout: "typecheck ok",
+    })),
+    ...overrides,
   };
 }

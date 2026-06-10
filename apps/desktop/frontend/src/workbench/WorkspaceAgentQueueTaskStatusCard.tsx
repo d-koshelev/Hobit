@@ -17,6 +17,10 @@ import {
 import type { AgentQueueController } from "./queue/useAgentQueueController";
 import { queueV2NextActionLabel } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
 import { selectQueueV2ViewModel } from "./queue/queueV2ViewModel";
+import type { ValidationRunner } from "./validation";
+import { WorkspaceAgentQueueValidationCard } from "./WorkspaceAgentQueueValidationCard";
+import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import { workspaceChatValidationAvailability } from "./workspaceChatQueueValidation";
 import {
   createWorkspaceChatQueueControlService,
   type WorkspaceChatQueueAction,
@@ -24,10 +28,13 @@ import {
 } from "./workspaceChatQueueControlService";
 
 type WorkspaceAgentQueueTaskStatusCardProps = {
+  manualValidationCommandInputSupported?: boolean;
   onOpenQueueItem?: (queueItemId: string) => void;
   onViewReport?: (queueItemId: string) => void;
   queue?: AgentQueueController | null;
+  validationRunner?: ValidationRunner | null;
   task: AgentQueueTask;
+  workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge | null;
 };
 
 type CardAction = {
@@ -38,14 +45,18 @@ type CardAction = {
 };
 
 export function WorkspaceAgentQueueTaskStatusCard({
+  manualValidationCommandInputSupported = true,
   onOpenQueueItem,
   onViewReport,
   queue,
+  validationRunner,
   task,
+  workspaceAgentQueueBridge,
 }: WorkspaceAgentQueueTaskStatusCardProps) {
   const [pendingAction, setPendingAction] = useState<
     WorkspaceChatQueueAction["kind"] | "view_report" | null
   >(null);
+  const [validationRequestOpen, setValidationRequestOpen] = useState(false);
   const [confirmationAction, setConfirmationAction] =
     useState<AgentQueueReportActionType | null>(null);
   const [actionResult, setActionResult] =
@@ -88,6 +99,15 @@ export function WorkspaceAgentQueueTaskStatusCard({
       }),
     onOpenQueueItem,
     onQueueAction: (action) => void executeQueueAction(action),
+    onRequestValidationReview: () => {
+      setValidationRequestOpen(true);
+      setActionResult({
+        action: "request_validation",
+        message: "Review selected validation commands, then click Run validation.",
+        queueItemId: displayedTask.queueItemId,
+        status: "success",
+      });
+    },
     onRequestCoordinatorConfirmation: (actionType) => {
       setConfirmationAction(actionType);
       setActionResult({
@@ -114,6 +134,12 @@ export function WorkspaceAgentQueueTaskStatusCard({
     pendingAction,
     queue,
     task: displayedTask,
+    validationDisabledReason: workspaceChatValidationAvailability({
+      manualCommandInputSupported: manualValidationCommandInputSupported,
+      queueBridgeAvailable: Boolean(workspaceAgentQueueBridge),
+      runnerAvailable: Boolean(validationRunner),
+      task: displayedTask,
+    }).disabledReason,
   });
 
   async function executeQueueAction(action: WorkspaceChatQueueAction) {
@@ -217,6 +243,16 @@ export function WorkspaceAgentQueueTaskStatusCard({
         </div>
       ) : null}
 
+      {validationRequestOpen ? (
+        <WorkspaceAgentQueueValidationCard
+          bridge={workspaceAgentQueueBridge}
+          manualCommandInputSupported={manualValidationCommandInputSupported}
+          onOpenQueueItem={onOpenQueueItem}
+          runner={validationRunner}
+          task={displayedTask}
+        />
+      ) : null}
+
       <div
         aria-label="Queue task status actions"
         className="workspace-agent-queue-task-status-actions"
@@ -266,11 +302,13 @@ function queueTaskCardActions({
   onOpenQueueItem,
   onConfirmCoordinatorAction,
   onQueueAction,
+  onRequestValidationReview,
   onRequestCoordinatorConfirmation,
   onViewReport,
   pendingAction,
   queue,
   task,
+  validationDisabledReason,
 }: {
   confirmationAction: AgentQueueReportActionType | null;
   canViewReport: boolean;
@@ -278,11 +316,13 @@ function queueTaskCardActions({
   onOpenQueueItem?: (queueItemId: string) => void;
   onConfirmCoordinatorAction: (actionType: AgentQueueReportActionType) => void;
   onQueueAction: (action: WorkspaceChatQueueAction) => void;
+  onRequestValidationReview: () => void;
   onRequestCoordinatorConfirmation: (actionType: AgentQueueReportActionType) => void;
   onViewReport: () => void;
   pendingAction: WorkspaceChatQueueAction["kind"] | "view_report" | null;
   queue?: AgentQueueController | null;
   task: AgentQueueTask;
+  validationDisabledReason: string | null;
 }): CardAction[] {
   const selectedTaskMismatch = Boolean(
     queue?.selectedTask && queue.selectedTask.queueItemId !== task.queueItemId,
@@ -363,13 +403,9 @@ function queueTaskCardActions({
       variant: "ghost",
     },
     {
-      disabledReason: "Queue validation execution is not exposed to Workspace Chat.",
+      disabledReason: validationDisabledReason,
       label: "Request validation",
-      onClick: () =>
-        onQueueAction({
-          kind: "request_validation",
-          queueItemId: task.queueItemId,
-        }),
+      onClick: onRequestValidationReview,
       variant: "ghost",
     },
     {

@@ -47,6 +47,7 @@ import type {
 } from "./workspaceAgentQueueActions";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type { AgentQueueController } from "./queue/useAgentQueueController";
+import type { ValidationRunner } from "./validation";
 import type {
   WorkspaceAgentQueueIntentDraft,
 } from "./workspaceAgentQueueIntent";
@@ -111,6 +112,7 @@ export function WorkspaceAgentTranscript({
   suggestedPrompts,
   transcriptRef,
   workspaceAgentQueueBridge,
+  workspaceChatValidationRunner,
 }: {
   creatingKnowledgeDocumentProposalIds: ReadonlySet<string>;
   creatingNoteProposalIds: ReadonlySet<string>;
@@ -171,6 +173,7 @@ export function WorkspaceAgentTranscript({
   suggestedPrompts: WorkspaceAgentSuggestedPrompt[];
   transcriptRef: Ref<HTMLDivElement>;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
+  workspaceChatValidationRunner?: ValidationRunner | null;
 }) {
   const renderedMessages = capArrayToLast(
     messages,
@@ -232,6 +235,8 @@ export function WorkspaceAgentTranscript({
               onViewReport={onViewQueueTaskReport}
               queue={queueController}
               task={message.queueTaskStatusCard}
+              validationRunner={workspaceChatValidationRunner}
+              workspaceAgentQueueBridge={workspaceAgentQueueBridge}
             />
           ) : null}
           {message.queueActionResultId &&

@@ -3,7 +3,18 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentQueueTask } from "../workspace/types";
+import type {
+  QueueWidgetActionResult,
+  QueueWidgetItemSnapshot,
+} from "./queue/agentQueueWidgetApiTypes";
 import type { AgentQueueController } from "./queue/useAgentQueueController";
+import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import {
+  createUnavailableValidationRunner,
+  createValidationRunner,
+  type ValidationCommandExecutor,
+  type ValidationExecutorResult,
+} from "./validation";
 import { WorkspaceAgentQueueTaskStatusCard } from "./WorkspaceAgentQueueTaskStatusCard";
 
 let root: Root | null = null;
@@ -206,13 +217,228 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
       "Selected-task stop/cancel is not exposed to Workspace Chat.",
     );
     expect(document.body.textContent).toContain(
-      "Queue validation execution is not exposed to Workspace Chat.",
+      "Validation runner is unavailable in this Workspace Chat surface.",
     );
     expect(document.body.textContent).toContain(
       "Diff Review task creation is not exposed as a Workspace Chat Queue control action.",
     );
     expect(document.body.textContent).toContain(
       "Rollback is not exposed as a Workspace Chat Queue control action.",
+    );
+  });
+
+  it("enables Request validation when a runner, Queue bridge, execution workspace, and validation commands are available", () => {
+    const task = queueTask({
+      executionWorkspace: "C:/repo",
+      prompt: promptPackPromptWithValidation(),
+      status: "ready",
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        validationRunner={createValidationRunner({ executor: validationExecutor() })}
+        workspaceAgentQueueBridge={queueBridge()}
+      />,
+    );
+
+    expect(buttonByText("Request validation")?.disabled).toBe(false);
+  });
+
+  it("disables Request validation with a reason when no commands are available and manual input is unsupported", () => {
+    const task = queueTask({
+      executionWorkspace: "C:/repo",
+      prompt: "No validation metadata.",
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        manualValidationCommandInputSupported={false}
+        queue={queueController({
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        validationRunner={createValidationRunner({ executor: validationExecutor() })}
+        workspaceAgentQueueBridge={queueBridge()}
+      />,
+    );
+
+    expect(buttonByText("Request validation")?.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      "No validation commands or suite are available for this Queue task.",
+    );
+  });
+
+  it("supports explicit manual validation input when no Queue suite is available", async () => {
+    const executor = validationExecutor();
+    const task = queueTask({
+      executionWorkspace: "C:/repo",
+      prompt: "No validation metadata.",
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        validationRunner={createValidationRunner({ executor })}
+        workspaceAgentQueueBridge={queueBridge()}
+      />,
+    );
+
+    expect(buttonByText("Request validation")?.disabled).toBe(false);
+
+    await clickButton("Request validation");
+    expect(buttonByText("Run validation")?.disabled).toBe(true);
+
+    await changeInput("Manual validation command", "npm.cmd run test -- --run Validation");
+    expect(buttonByText("Run validation")?.disabled).toBe(false);
+
+    await clickButton("Run validation");
+
+    expect(executor.execute).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain("Validation passed");
+  });
+
+  it("runs validation only after explicit Run validation and renders capped passed evidence", async () => {
+    const hiddenTail = "hidden-tail";
+    const stdout = `typecheck ok ${"x".repeat(4_000)} ${hiddenTail}`;
+    const executor = validationExecutor({
+      execute: vi.fn(async (): Promise<ValidationExecutorResult> => ({
+        durationMs: 41,
+        exitCode: 0,
+        status: "completed",
+        stderr: "",
+        stdout,
+      })),
+    });
+    const finalize = vi.fn();
+    const task = queueTask({
+      executionWorkspace: "C:/repo",
+      prompt: promptPackPromptWithValidation(),
+      status: "ready",
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        onOpenQueueItem={vi.fn()}
+        queue={queueController({
+          canAct: true,
+          onFinalize: finalize,
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        validationRunner={createValidationRunner({ executor })}
+        workspaceAgentQueueBridge={queueBridge()}
+      />,
+    );
+
+    expect(executor.execute).not.toHaveBeenCalled();
+
+    await clickButton("Request validation");
+
+    expect(document.body.textContent).toContain("Queue validation");
+    expect(document.body.textContent).toContain(
+      "npm.cmd run typecheck --prefix apps/desktop/frontend",
+    );
+    expect(executor.execute).not.toHaveBeenCalled();
+
+    await clickButton("Run validation");
+
+    expect(executor.execute).toHaveBeenCalledTimes(1);
+    expect(finalize).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Validation passed");
+    expect(document.body.textContent).toContain("Command count");
+    expect(document.body.textContent).toContain("Passed");
+    expect(document.body.textContent).toContain("Failed");
+    expect(document.body.textContent).toContain("41 ms");
+    expect(document.body.textContent).toContain("Exit codes");
+
+    await clickButton("View evidence");
+
+    expect(document.body.textContent).toContain("typecheck ok");
+    expect(document.body.textContent).not.toContain(hiddenTail);
+    expect(document.body.textContent).toContain("Output snippets are capped");
+    expect(document.body.textContent).toContain(
+      "This card does not finalize Queue tasks",
+    );
+  });
+
+  it("renders failed validation evidence without finalizing the Queue task", async () => {
+    const executor = validationExecutor({
+      execute: vi.fn(async (): Promise<ValidationExecutorResult> => ({
+        durationMs: 25,
+        exitCode: 1,
+        status: "completed",
+        stderr: "test failed",
+        stdout: "",
+      })),
+    });
+    const finalize = vi.fn();
+    const task = queueTask({
+      executionWorkspace: "C:/repo",
+      prompt: promptPackPromptWithValidation("npm.cmd run test -- --run Validation"),
+      status: "review_needed",
+      workerExecutionReports: [workerReport()],
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          canAct: true,
+          onFinalize: finalize,
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        validationRunner={createValidationRunner({ executor })}
+        workspaceAgentQueueBridge={queueBridge({ validationStatus: "failed" })}
+      />,
+    );
+
+    await clickButton("Request validation");
+    await clickButton("Run validation");
+    await clickButton("View evidence");
+
+    expect(document.body.textContent).toContain("Validation failed");
+    expect(document.body.textContent).toContain("test failed");
+    expect(document.body.textContent).toContain("Exit codes");
+    expect(finalize).not.toHaveBeenCalled();
+  });
+
+  it("shows unsupported runner state when the validation runner reports unavailable", async () => {
+    const task = queueTask({
+      executionWorkspace: "C:/repo",
+      prompt: promptPackPromptWithValidation(),
+      status: "ready",
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        validationRunner={createUnavailableValidationRunner("Desktop validation runner is not configured.")}
+        workspaceAgentQueueBridge={queueBridge({ validationStatus: "needs_review" })}
+      />,
+    );
+
+    await clickButton("Request validation");
+    await clickButton("Run validation");
+
+    expect(document.body.textContent).toContain("Unavailable");
+    expect(document.body.textContent).toContain(
+      "Desktop validation runner is not configured.",
     );
   });
 
@@ -302,6 +528,26 @@ async function clickButton(text: string) {
       throw new Error(`Button not found: ${text}`);
     }
     button.click();
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
+async function changeInput(label: string, value: string) {
+  await act(async () => {
+    const input = Array.from(document.querySelectorAll("input")).find(
+      (candidate) => candidate.getAttribute("aria-label") === label,
+    );
+    if (!input) {
+      throw new Error(`Input not found: ${label}`);
+    }
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      HTMLInputElement.prototype,
+      "value",
+    )?.set;
+    valueSetter?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
     await Promise.resolve();
     await Promise.resolve();
   });
@@ -428,4 +674,102 @@ function workerReport(): NonNullable<AgentQueueTask["workerExecutionReports"]>[n
     warnings: ["Follow-up may be needed."],
     workerId: "executor-1",
   };
+}
+
+function validationExecutor(
+  overrides: Partial<ValidationCommandExecutor> = {},
+): ValidationCommandExecutor {
+  return {
+    capabilities: {
+      available: true,
+      supportsCancellation: false,
+      supportsTimeout: true,
+    },
+    execute: vi.fn(async (): Promise<ValidationExecutorResult> => ({
+      durationMs: 32,
+      exitCode: 0,
+      status: "completed",
+      stderr: "",
+      stdout: "typecheck ok",
+    })),
+    ...overrides,
+  };
+}
+
+function queueBridge({
+  validationStatus = "passed",
+}: {
+  validationStatus?: QueueWidgetItemSnapshot["validationStatus"];
+} = {}): WorkspaceAgentQueueBridge {
+  return {
+    createItem: vi.fn(),
+    getSnapshot: vi.fn(),
+    updateItem: vi.fn(async (request) =>
+      itemResult({
+        id: request.itemId,
+        reportSummary: request.patch.appendWorkerExecutionReport
+          ? {
+              status: "report_ready",
+              validationSummary: `Validation result: ${validationStatus}.`,
+            }
+          : { status: "none" },
+        validationStatus: request.patch.validationStatus ?? validationStatus,
+      }),
+    ),
+  };
+}
+
+function itemResult(
+  overrides: Partial<QueueWidgetItemSnapshot> = {},
+): QueueWidgetActionResult<QueueWidgetItemSnapshot> {
+  const item: QueueWidgetItemSnapshot = {
+    blockers: [],
+    dependencies: [],
+    description: "",
+    evidenceSummary: {
+      runRefs: [],
+      status: "none",
+    },
+    executionPolicy: "manual",
+    executionStatus: "queued",
+    id: "queue-task-0001",
+    priority: 0,
+    prompt: "Prompt",
+    queueId: "queue",
+    queueTag: {
+      id: null,
+      name: null,
+    },
+    reportSummary: {
+      status: "none",
+    },
+    runLinks: [],
+    status: "queued",
+    title: "Queue task",
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
+
+  return {
+    action: "queue.updateItem",
+    events: [],
+    item,
+    message: "Updated",
+    ok: true,
+    safetyClass: "safe_create_update",
+  };
+}
+
+function promptPackPromptWithValidation(
+  command = "npm.cmd run typecheck --prefix apps/desktop/frontend",
+) {
+  return [
+    "Implement visible task.",
+    "",
+    "Prompt pack materialization metadata",
+    "Pack: Test pack (test-pack)",
+    "Block id: TEST-01",
+    "Validation commands",
+    `- ${command}`,
+  ].join("\n");
 }
