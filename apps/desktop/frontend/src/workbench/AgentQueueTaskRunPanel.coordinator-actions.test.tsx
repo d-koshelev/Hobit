@@ -110,16 +110,16 @@ describe("AgentQueueTaskRunPanel coordinator actions", () => {
       workerReport: workerReportController(report),
     });
 
-    const decisionText = sectionText("Coordinator decision");
+    const decisionText = sectionText("Next action");
 
-    expect(decisionText).toContain("Coordinator decision");
-    expect(decisionText).toContain("Ready for finalization");
-    expect(decisionText).toContain("Accept result");
+    expect(decisionText).toContain("Review report and make coordinator decision");
+    expect(decisionText).toContain("Closure required");
+    expect(decisionText).toContain("Mark ready for finalization");
+    expect(decisionText).toContain("Accept without commit");
+    expect(decisionText).toContain("Finalize / Accept");
     expect(decisionText).toContain("Request changes");
     expect(decisionText).toContain("Create follow-up");
-    expect(decisionText).toContain("More");
-    expect(decisionText).toContain("Mark rollback required");
-    expect(decisionText).not.toContain("Finalize / Accept item");
+    expect(decisionText).toContain("Follow-up required");
   });
 
   it("shows create diff review action and source linkage without starting execution", () => {
@@ -162,6 +162,8 @@ describe("AgentQueueTaskRunPanel coordinator actions", () => {
       workerReport: workerReportController(report),
     });
 
+    clickFirstButton("Developer details");
+
     expect(document.body.textContent).toContain("Create diff review item");
     expect(document.body.textContent).toContain("Diff review requested");
     expect(document.body.textContent).toContain(
@@ -201,6 +203,8 @@ describe("AgentQueueTaskRunPanel coordinator actions", () => {
       workerReport: workerReportController(report),
     });
 
+    clickFirstButton("Developer details");
+
     expect(document.body.textContent).toContain("Not shown in Chat");
 
     clickFirstButton("Show in Workspace Chat");
@@ -234,6 +238,8 @@ describe("AgentQueueTaskRunPanel coordinator actions", () => {
       selectedTask,
       tasks: [sourceTask, selectedTask],
     });
+
+    clickFirstButton("Developer details");
 
     expect(document.body.textContent).toContain("Diff review source");
     expect(document.body.textContent).toContain(

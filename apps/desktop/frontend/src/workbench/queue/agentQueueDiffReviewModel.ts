@@ -6,8 +6,11 @@ import type {
 import {
   displayTaskTitle,
   normalizeItemType,
-  normalizeQueueTag,
 } from "../agentQueueTaskUiModel";
+import {
+  buildDiffReviewPromptBody,
+  resolveDiffReviewInputSnapshot,
+} from "../diffReview";
 
 export type BuildDiffReviewPromptInput = {
   report?: AgentQueueWorkerExecutionReport | null;
@@ -51,72 +54,17 @@ export function buildDiffReviewPrompt({
   report,
   sourceTask,
 }: BuildDiffReviewPromptInput) {
-  const sourceTitle = displayTaskTitle(sourceTask);
-  const changedFiles = report?.changedFiles ?? [];
-  const commandsRun = report?.commandsRun ?? [];
-  const suggestedValidation = report?.validationCommandsSuggested ?? [];
-  const warnings = report?.warnings ?? [];
-  const errors = report?.errors ?? [];
+  const resolved = resolveDiffReviewInputSnapshot({ report, sourceTask });
 
-  return [
-    `Diff Review work item for: ${sourceTitle}`,
-    "",
-    "Purpose:",
-    "- Inspect the actual git diff for the source work item.",
-    "- Compare the diff to the worker execution report and declared scope.",
-    "- Verify changed files are within the intended scope.",
-    "- Check Hobit contracts and project instructions for violations.",
-    "- Identify missing work, mismatch, risky changes, or unexpected changes.",
-    "- Recommend follow-up, rollback discussion, or coordinator decision.",
-    "- Produce a structured report with findings, evidence, risk, and recommendation.",
-    "",
-    "Source work item:",
-    `- Source item id: ${sourceTask.queueItemId}`,
-    `- Title: ${sourceTitle}`,
-    `- Queue tag: ${normalizeQueueTag(sourceTask).queueTagName}`,
-    `- Status: ${sourceTask.status}`,
-    `- Coordinator status: ${sourceTask.coordinatorStatus ?? "not_reported"}`,
-    sourceTask.description.trim()
-      ? `- Declared scope: ${sourceTask.description.trim()}`
-      : "- Declared scope: not recorded",
-    "",
-    "Worker execution report:",
-    report
-      ? [
-          `- Report id: ${report.reportId}`,
-          `- Report status: ${report.reportStatus}`,
-          report.commitHash ? `- Commit: ${report.commitHash}` : null,
-          report.finalGitStatus ? `- Final git status: ${report.finalGitStatus}` : null,
-          `- Summary: ${safePromptText(report.summary)}`,
-          listBlock("Changed files reported", changedFiles),
-          listBlock("Commands reported", commandsRun),
-          listBlock("Suggested validation", suggestedValidation),
-          listBlock("Warnings", warnings),
-          listBlock("Errors", errors),
-          report.followUpRecommendation
-            ? `- Follow-up recommendation: ${safePromptText(report.followUpRecommendation)}`
-            : null,
-          report.rollbackRecommendation
-            ? `- Rollback recommendation: ${safePromptText(report.rollbackRecommendation)}`
-            : null,
-        ]
-          .filter(Boolean)
-          .join("\n")
-      : "- No worker report is attached. Review the source item scope and any available changed-file or coordinator-review context.",
-    "",
-    "Required output:",
-    "- Diff summary and changed-file scope check.",
-    "- Report-vs-diff comparison.",
-    "- Contract and safety findings.",
-    "- Missing work or unexpected-change findings.",
-    "- Validation gaps or commands to run separately.",
-    "- Recommendation: accept for coordinator review, request follow-up, request rollback discussion, or block finalization.",
-    "",
-    "Boundaries:",
-    "- Do not modify code by default.",
-    "- Do not finalize the source item.",
-    "- Do not launch Queue, Executor, Codex, Terminal, or external calls.",
-  ].join("\n");
+  return buildDiffReviewPromptBody({
+    createdAt: sourceTask.updatedAt,
+    inputSnapshot: resolved.inputSnapshot,
+    readonlyByDefault: true,
+    requestId: `diff-review-${sourceTask.queueItemId}`,
+    sourceTask: resolved.sourceTask,
+    state: "draft",
+    workspaceId: sourceTask.workspaceId,
+  });
 }
 
 export function linkedDiffReviewTasks(
@@ -170,20 +118,4 @@ function diffReviewTargetSummary({
   }
 
   return `${sourceTitle}; source item ${sourceTask.queueItemId}`;
-}
-
-function listBlock(title: string, values: string[]) {
-  if (values.length === 0) {
-    return `- ${title}: none reported`;
-  }
-
-  return [`- ${title}:`, ...values.map((value) => `  - ${safePromptText(value)}`)].join("\n");
-}
-
-function safePromptText(value: string) {
-  return value
-    .replace(/\bmodel-only\b/gi, "local preview")
-    .replace(/\bprovider\b/gi, "external")
-    .replace(/\bmodel\b/gi, "configuration")
-    .replace(/\bthinking\b/gi, "private reasoning");
 }

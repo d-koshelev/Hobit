@@ -98,11 +98,12 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(createQueueTask).not.toHaveBeenCalled();
     expect(startQueueAutorun).not.toHaveBeenCalled();
     expect(provider).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain("completed");
+    expect(document.body.textContent).toContain("Completed");
     expect(document.body.textContent).toContain("Implement this directly.");
     expect(document.body.textContent).toContain(
-      "Starting new Codex thread. Workspace knowledge not available. Starting Codex Direct Work from ~.",
+      "Codex thread not available. Next Codex run starts a new thread.",
     );
+    expect(document.body.textContent).toContain("Completed - 1 step");
     expect(document.body.textContent).toContain("Final foreground result.");
     expect(document.body.textContent).not.toContain("Codex Direct Mode completed.");
 

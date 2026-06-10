@@ -66,7 +66,16 @@ describe("diffReviewModel", () => {
         "missing_or_unpassed_validation",
       ]),
     );
-    expect(result.recommendation).toBe("blocked");
+    expect(result.findings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          detail: "diff unavailable, manual diff required",
+          id: "missing_actual_diff",
+          severity: "warning",
+        }),
+      ]),
+    );
+    expect(result.recommendation).toBe("validation_required");
   });
 
   it("generates a read-only no-code-change prompt by default", () => {

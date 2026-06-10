@@ -74,7 +74,9 @@ export interface DiffReviewSourceTaskRef {
 
 export interface DiffReviewInputSnapshot {
   actualDiffSummary?: string | null;
+  agentFinalResponse?: string | null;
   allowedScope?: string[];
+  expectedCommitTitle?: string | null;
   forbiddenFiles?: string[];
   reportedChangedFiles?: string[];
   reportSummary?: string | null;
@@ -221,6 +223,12 @@ export function buildDiffReviewPromptBody(request: DiffReviewRequest): string {
   return [
     `Diff Review request: ${request.sourceTask.title}`,
     "",
+    "Purpose:",
+    "- Inspect the actual git diff for the source work item.",
+    "- Compare the diff to the worker execution report and declared scope.",
+    "- Check Hobit contracts and project instructions for violations.",
+    "- Do not finalize the source item.",
+    "",
     "Review mode:",
     "- Read-only by default.",
     "- Do not modify code, create commits, push, rollback, finalize the source task, unblock dependents, run Terminal commands, or start Queue/Executor work.",
@@ -243,6 +251,7 @@ export function buildDiffReviewPromptBody(request: DiffReviewRequest): string {
     textLine("Actual diff summary", snapshot.actualDiffSummary),
     textLine("Worker report summary", snapshot.reportSummary),
     listBlock("Reported changed files", snapshot.reportedChangedFiles ?? []),
+    textLine("Agent final response", snapshot.agentFinalResponse),
     listBlock("Allowed scope", snapshot.allowedScope ?? metadata?.allowedScope ?? []),
     listBlock("Forbidden files", snapshot.forbiddenFiles ?? metadata?.forbiddenScope ?? []),
     listBlock(
@@ -261,6 +270,7 @@ export function buildDiffReviewPromptBody(request: DiffReviewRequest): string {
     }`,
     `- Block id: ${metadata?.blockId ?? request.sourceTask.promptPackBlockId ?? "not recorded"}`,
     listBlock("Dependencies", metadata?.dependencies ?? []),
+    listBlock("Unavailable review inputs", snapshot.unsupportedStates ?? []),
     "",
     "Checklist:",
     ...buildDefaultDiffReviewChecklist().map((item) => `- ${item.label}`),
@@ -283,9 +293,9 @@ function buildRequestFindings(request: DiffReviewRequest): DiffReviewFinding[] {
     findings.push(
       finding(
         "missing_actual_diff",
-        "blocker",
+        "warning",
         "Actual diff summary missing",
-        "Diff Review cannot confirm report-vs-diff alignment until an explicit read-only diff summary is available or marked unavailable.",
+        "diff unavailable, manual diff required",
         "report_matches_actual_diff",
       ),
     );
