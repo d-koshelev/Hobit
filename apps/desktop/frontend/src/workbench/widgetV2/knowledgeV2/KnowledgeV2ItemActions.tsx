@@ -3,10 +3,35 @@ import { WidgetPopupShell } from "../../../design-system/WidgetPopupShell";
 import type { KnowledgeDocument } from "../../../workspace/types/knowledgeDocuments";
 import type { WidgetRenderProps } from "../../types";
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
+import { KnowledgeV2StatusBadge, knowledgeV2ItemStatuses } from "./knowledgeV2ItemStatus";
 
 type KnowledgeDocumentUpdateInput = Parameters<
   NonNullable<WidgetRenderProps["onUpdateKnowledgeDocument"]>
 >[0];
+
+export function KnowledgeV2DetailsPopupHeaderActions({
+  item,
+}: {
+  readonly item: KnowledgeV2CatalogItem;
+}) {
+  const statuses = knowledgeV2ItemStatuses(item);
+
+  return (
+    <>
+      <span className="knowledge-v2-type-badge">{formatKnowledgeV2Token(item.type)}</span>
+      <div className="knowledge-v2-details-header-badges" aria-label="Knowledge item states">
+        {statuses.map((status) => (
+          <KnowledgeV2StatusBadge key={status.key} status={status} />
+        ))}
+        {item.reviewState ? (
+          <span className="knowledge-v2-chip">
+            {formatKnowledgeV2Token(item.reviewState)}
+          </span>
+        ) : null}
+      </div>
+    </>
+  );
+}
 
 export function KnowledgeV2DetailsPopupFooter({
   archiveDisabledReason,
@@ -57,19 +82,6 @@ export function KnowledgeV2DetailsPopupFooter({
       <Button onClick={onClose} variant="ghost">
         Close
       </Button>
-      <p className="knowledge-v2-details-footer-reasons">
-        {useAsContextDisabledReason
-          ? `Use as context disabled: ${useAsContextDisabledReason}`
-          : "Use as context opens explicit visible context targets only. These controls only use explicit visible callbacks."}
-        {" "}
-        {archiveDisabledReason
-          ? `Archive disabled: ${archiveDisabledReason}`
-          : "Archive uses the existing Knowledge Document lifecycle update action."}
-        {" "}
-        {deleteDisabledReason
-          ? `Delete disabled: ${deleteDisabledReason}`
-          : "Delete uses an existing Knowledge / Skills delete action and asks for confirmation."}
-      </p>
     </div>
   );
 }
@@ -200,4 +212,11 @@ export function knowledgeV2ArchiveUpdateRequest(
     title: document.title,
     versionSummary: document.versionSummary,
   };
+}
+
+function formatKnowledgeV2Token(value: string) {
+  return value
+    .split("_")
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(" ");
 }

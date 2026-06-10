@@ -11,6 +11,7 @@ import { KnowledgeV2Filters, type KnowledgeV2FilterValues } from "./KnowledgeV2F
 import { KnowledgeV2PreviewPanel } from "./KnowledgeV2PreviewPanel";
 import {
   KnowledgeV2DeleteConfirmationPopup,
+  KnowledgeV2DetailsPopupHeaderActions,
   KnowledgeV2DetailsPopupFooter,
   knowledgeV2ArchiveDisabledReason,
   knowledgeV2ArchiveUpdateRequest,
@@ -79,8 +80,7 @@ export function KnowledgeV2CatalogBrowser({
 }: KnowledgeV2CatalogBrowserProps) {
   const [filters, setFilters] = useState<KnowledgeV2FilterValues>(defaultFilters);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [actionNotice, setActionNotice] =
-    useState<KnowledgeV2ContextActionNotice | null>(null);
+  const [actionNotice, setActionNotice] = useState<KnowledgeV2ContextActionNotice | null>(null);
   const [isContextPickerOpen, setIsContextPickerOpen] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
@@ -195,11 +195,7 @@ export function KnowledgeV2CatalogBrowser({
     });
 
     if (!item || disabledReason) {
-      setActionNotice({
-        message:
-          disabledReason ?? "Select a Knowledge Document before archiving.",
-        status: "blocked",
-      });
+      setActionNotice({ message: disabledReason ?? "Select a Knowledge Document before archiving.", status: "blocked" });
       return;
     }
 
@@ -501,8 +497,15 @@ export function KnowledgeV2CatalogBrowser({
           selectedItemId={selectedItemId}
         />
         <WidgetPopupShell
+          actions={
+            selectedItem ? (
+              <KnowledgeV2DetailsPopupHeaderActions
+                item={selectedItem}
+              />
+            ) : null
+          }
           bodyClassName="knowledge-v2-details-popup-body"
-          className="knowledge-v2-details-popup-shell"
+          className="knowledge-v2-details-popup-shell knowledge-v2-product-detail-size"
           footer={
             <KnowledgeV2DetailsPopupFooter
               deleteDisabledReason={knowledgeV2DeleteDisabledReason({
@@ -534,6 +537,7 @@ export function KnowledgeV2CatalogBrowser({
             affordanceState={affordanceState}
             hasItems={viewModel.items.length > 0}
             item={selectedItem}
+            presentation="detailWindow"
             selectedItemId={selectedItemId}
           />
         </WidgetPopupShell>

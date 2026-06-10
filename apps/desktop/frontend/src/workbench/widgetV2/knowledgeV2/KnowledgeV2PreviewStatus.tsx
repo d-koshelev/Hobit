@@ -49,6 +49,28 @@ export function KnowledgeV2CompactStatusReason({
   );
 }
 
+export function KnowledgeV2ContextUsabilitySummary({
+  affordanceState,
+  item,
+  statuses,
+}: {
+  readonly affordanceState?: KnowledgeV2ContextAffordanceState;
+  readonly item: KnowledgeV2CatalogItem;
+  readonly statuses: readonly KnowledgeV2ItemStatus[];
+}) {
+  const contextUsability = knowledgeV2ContextUsability(
+    item,
+    statuses,
+    affordanceState,
+  );
+
+  return (
+    <p>
+      Context: {contextUsability.state}. {contextUsability.reason}
+    </p>
+  );
+}
+
 export function KnowledgeV2WarningsSummary({
   isOpen,
   item,

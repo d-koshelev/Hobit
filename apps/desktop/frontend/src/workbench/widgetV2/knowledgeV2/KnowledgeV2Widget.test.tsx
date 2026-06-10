@@ -309,11 +309,13 @@ describe("KnowledgeV2Widget browser", () => {
     expect(rowByTitle("Release guide")?.getAttribute("data-selected")).toBe(
       "true",
     );
-    expect(preview?.textContent).toContain("Release guide");
+    expect(
+      document.querySelector<HTMLElement>(".popup-shell-title")?.textContent,
+    ).toBe("Release guide");
     expect(preview?.textContent).toContain(
       "Release checklist for desktop builds.",
     );
-    expect(preview?.textContent).toContain("Release docs");
+    expect(preview?.textContent).not.toContain("Release docs");
     expect(preview?.textContent).toContain("Context: Usable");
     expect(preview?.textContent).not.toContain("Open source details");
     expect(dialogByName("Release guide")).not.toBeNull();
@@ -321,6 +323,7 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButtonInRegion("Knowledge preview", "Details");
 
     const detailsPreview = regionByName("Knowledge preview");
+    expect(detailsPreview?.textContent).toContain("Release docs");
     expect(detailsPreview?.textContent).toContain("Attachments and source refs");
     expect(detailsPreview?.textContent).toContain("docs/release.md");
 
@@ -330,9 +333,11 @@ describe("KnowledgeV2Widget browser", () => {
     expect(rowByTitle("React review")?.getAttribute("data-selected")).toBe(
       "true",
     );
-    expect(updatedPreview?.textContent).toContain("React review");
+    expect(
+      document.querySelector<HTMLElement>(".popup-shell-title")?.textContent,
+    ).toBe("React review");
     expect(updatedPreview?.textContent).toContain("Use when reviewing React changes.");
-    expect(updatedPreview?.textContent).toContain("Workspace Skill");
+    expect(updatedPreview?.textContent).not.toContain("Workspace Skill");
   });
 
   it("renders Overview summary, tags, and context state", async () => {
@@ -468,12 +473,15 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("Rejected safety note");
 
     const preview = regionByName("Knowledge preview");
-    expect(preview?.textContent).toContain("Rejected safety note");
+    expect(
+      document.querySelector<HTMLElement>(".popup-shell-title")?.textContent,
+    ).toBe("Rejected safety note");
     expect(preview?.textContent).toContain("Rejected");
     expect(preview?.textContent).toContain("Unavailable");
     expect(preview?.textContent).toContain("3 warnings");
     expect(preview?.textContent).not.toContain("Document is marked not searchable.");
 
+    await clickButtonInRegion("Knowledge preview", "Details");
     await clickButton("Show details");
 
     expect(regionByName("Knowledge preview")?.textContent).toContain(
@@ -547,38 +555,43 @@ describe("KnowledgeV2Widget browser", () => {
     }
 
     await clickButton("Published document");
-    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
-      "Published",
-    );
-    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
-      "Active",
-    );
+    expect(
+      document.querySelector<HTMLElement>(
+        ".knowledge-v2-details-header-badges",
+      )?.textContent,
+    ).toContain("Published");
     await changeSelect("Filter Knowledge catalog by status", "draft");
     expect(regionByName("Knowledge catalog items")?.textContent).toContain("Draft");
     await clickButton("Draft document");
-    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
-      "Draft",
-    );
+    expect(
+      document.querySelector<HTMLElement>(
+        ".knowledge-v2-details-header-badges",
+      )?.textContent,
+    ).toContain("Draft");
     await changeSelect("Filter Knowledge catalog by status", "all");
     await clickButton("Archived document");
-    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
-      "Archived",
-    );
+    expect(
+      document.querySelector<HTMLElement>(
+        ".knowledge-v2-details-header-badges",
+      )?.textContent,
+    ).toContain("Archived");
     await clickButton("Rejected document");
-    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
-      "Rejected",
-    );
+    expect(
+      document.querySelector<HTMLElement>(
+        ".knowledge-v2-details-header-badges",
+      )?.textContent,
+    ).toContain("Rejected");
     await clickButton("Stale document");
-    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
       "Context: Stale",
     );
     await clickButton("Large document");
-    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
       "Context: Large",
     );
     expect(regionByName("Knowledge preview")?.textContent).toContain("1 warning: Large");
     await clickButton("Unavailable document");
-    expect(regionByName("Knowledge preview compact status")?.textContent).toContain(
+    expect(regionByName("Knowledge preview")?.textContent).toContain(
       "Context: Unavailable",
     );
     expect(regionByName("Knowledge preview")?.textContent).toContain("2 warnings");
@@ -605,16 +618,10 @@ describe("KnowledgeV2Widget browser", () => {
     );
 
     await clickButton("Stale attach item");
-    expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
-      "Use as context opens explicit visible context targets only.",
-    );
     expect(buttonWithText("Use as context")?.disabled).toBe(false);
 
     await clickButton("Large attach item");
     expect(regionByName("Knowledge preview")?.textContent).toContain("Large");
-    expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
-      "Use as context opens explicit visible context targets only.",
-    );
     expect(buttonWithText("Use as context")?.disabled).toBe(false);
   });
 
@@ -854,6 +861,7 @@ describe("KnowledgeV2Widget browser", () => {
 
     await clickButton("Release guide");
 
+    await clickButtonInRegion("Knowledge preview", "Details");
     expect(regionByName("Knowledge preview")?.textContent).toContain("Unknown");
     expect(regionByName("Knowledge preview")?.textContent).not.toContain(
       "Invalid",
@@ -968,9 +976,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(buttonWithText("Archive")?.disabled).toBe(true);
     expect(buttonWithText("Delete")?.disabled).toBe(true);
     expect(buttonWithText("Close")?.disabled).toBe(false);
-    expect(regionByName("KnowledgeV2 use as context")?.textContent).toContain(
-      "These controls only use explicit visible callbacks.",
-    );
+    expect(regionByName("KnowledgeV2 use as context")?.querySelector("p")).toBeNull();
 
     await clickButton("Use as context");
 
@@ -1013,8 +1019,10 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("Rejected context item");
 
     const useAsContext = regionByName("KnowledgeV2 use as context");
-    expect(useAsContext?.textContent).toContain("Knowledge Document is disabled.");
-    expect(buttonWithText("Use as context")?.disabled).toBe(true);
+    const useAsContextButton = buttonWithText("Use as context");
+    expect(useAsContext?.querySelector("p")).toBeNull();
+    expect(useAsContextButton?.disabled).toBe(true);
+    expect(useAsContextButton?.title).toContain("Knowledge Document is disabled.");
 
     await clickButton("Use as context");
     expect(regionByName("KnowledgeV2 Use as Context picker")).toBeNull();
@@ -1147,7 +1155,7 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("Release guide");
 
     const useAsContext = regionByName("KnowledgeV2 use as context");
-    expect(useAsContext?.textContent).toContain(
+    expect(buttonWithText("Use as context")?.title).toContain(
       "Use as Context is unavailable because no Workspace Agent, Queue, or clipboard context bridge is connected.",
     );
     expect(useAsContext?.textContent).not.toContain("attached to Workspace Agent");

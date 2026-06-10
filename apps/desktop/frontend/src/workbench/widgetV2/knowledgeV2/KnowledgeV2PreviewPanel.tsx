@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 
 import type { KnowledgeSourceRef } from "../../../workspace/types/knowledgeDocuments";
 import type {
@@ -11,6 +11,7 @@ import { KnowledgeV2StatusBadge, knowledgeV2ItemStatuses } from "./knowledgeV2It
 import {
   KnowledgeV2CompactStatus,
   KnowledgeV2CompactStatusReason,
+  KnowledgeV2ContextUsabilitySummary,
   KnowledgeV2WarningsSummary,
 } from "./KnowledgeV2PreviewStatus";
 
@@ -19,6 +20,7 @@ type KnowledgeV2PreviewPanelProps = {
   readonly affordanceState?: KnowledgeV2ContextAffordanceState;
   readonly hasItems: boolean;
   readonly item: KnowledgeV2CatalogItem | null;
+  readonly presentation?: "preview" | "detailWindow";
   readonly selectedItemId: string | null;
 };
 
@@ -40,10 +42,16 @@ export function KnowledgeV2PreviewPanel({
   affordanceState,
   hasItems,
   item,
+  presentation = "preview",
   selectedItemId,
 }: KnowledgeV2PreviewPanelProps) {
   const [activeTab, setActiveTab] = useState<KnowledgeV2PreviewTab>("overview");
   const [isWarningDetailsOpen, setIsWarningDetailsOpen] = useState(false);
+
+  useEffect(() => {
+    setActiveTab("overview");
+    setIsWarningDetailsOpen(false);
+  }, [item?.id]);
 
   if (selectedItemId && !item) {
     return (
@@ -85,48 +93,65 @@ export function KnowledgeV2PreviewPanel({
   }
 
   const statuses = knowledgeV2ItemStatuses(item);
+  const isDetailWindow = presentation === "detailWindow";
 
   return (
-    <section aria-label="Knowledge preview" className="knowledge-v2-preview">
-      <div className="knowledge-v2-preview-heading">
-        <div className="knowledge-v2-preview-title-block">
-          <span className="knowledge-v2-type-icon" aria-hidden="true">
-            {typeIcon(item.type)}
-          </span>
-          <div>
-            <p className="knowledge-v2-eyebrow">{formatToken(item.type)}</p>
-            <h3>{item.title}</h3>
+    <section
+      aria-label="Knowledge preview"
+      className={[
+        "knowledge-v2-preview",
+        isDetailWindow ? "knowledge-v2-detail-window-body" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+    >
+      {!isDetailWindow ? (
+        <>
+          <div className="knowledge-v2-preview-heading">
+            <div className="knowledge-v2-preview-title-block">
+              <span className="knowledge-v2-type-icon" aria-hidden="true">
+                {typeIcon(item.type)}
+              </span>
+              <div>
+                <p className="knowledge-v2-eyebrow">{formatToken(item.type)}</p>
+                <h3>{item.title}</h3>
+              </div>
+            </div>
+            <div className="knowledge-v2-preview-badges" aria-label="Knowledge item states">
+              {statuses.map((status) => (
+                <KnowledgeV2StatusBadge key={status.key} status={status} />
+              ))}
+              {item.reviewState ? (
+                <span className="knowledge-v2-chip">{formatToken(item.reviewState)}</span>
+              ) : null}
+            </div>
           </div>
-        </div>
-        <div className="knowledge-v2-preview-badges" aria-label="Knowledge item states">
-          {statuses.map((status) => (
-            <KnowledgeV2StatusBadge key={status.key} status={status} />
-          ))}
-          {item.reviewState ? (
-            <span className="knowledge-v2-chip">{formatToken(item.reviewState)}</span>
-          ) : null}
-        </div>
-      </div>
 
-      <p className="knowledge-v2-preview-summary">
-        {overviewSummaryText(item)}
-      </p>
+          <p className="knowledge-v2-preview-summary">
+            {overviewSummaryText(item)}
+          </p>
+        </>
+      ) : null}
 
-      <KnowledgeV2CompactStatus affordanceState={affordanceState} item={item} statuses={statuses} />
+      {!isDetailWindow ? (
+        <>
+          <KnowledgeV2CompactStatus affordanceState={affordanceState} item={item} statuses={statuses} />
 
-      <dl className="knowledge-v2-status-grid knowledge-v2-status-grid-compact">
-        <StatusTerm label="Scope" value={formatScope(item.source.scope)} />
-        <StatusTerm label="Source" value={item.source.label || sourceFallback(item)} />
-        <StatusTerm label="Version" value={formatVersion(item.version)} />
-        <StatusTerm label="Updated" value={formatDate(item.updatedAt)} />
-      </dl>
+          <dl className="knowledge-v2-status-grid knowledge-v2-status-grid-compact">
+            <StatusTerm label="Scope" value={formatScope(item.source.scope)} />
+            <StatusTerm label="Source" value={item.source.label || sourceFallback(item)} />
+            <StatusTerm label="Version" value={formatVersion(item.version)} />
+            <StatusTerm label="Updated" value={formatDate(item.updatedAt)} />
+          </dl>
 
-      <section className="knowledge-v2-preview-section knowledge-v2-preview-status-section">
-        <h4>Status</h4>
-        <KnowledgeV2CompactStatusReason item={item} statuses={statuses} />
-      </section>
+          <section className="knowledge-v2-preview-section knowledge-v2-preview-status-section">
+            <h4>Status</h4>
+            <KnowledgeV2CompactStatusReason item={item} statuses={statuses} />
+          </section>
 
-      <KnowledgeV2WarningsSummary isOpen={isWarningDetailsOpen} item={item} setIsOpen={setIsWarningDetailsOpen} />
+          <KnowledgeV2WarningsSummary isOpen={isWarningDetailsOpen} item={item} setIsOpen={setIsWarningDetailsOpen} />
+        </>
+      ) : null}
 
       <div className="knowledge-v2-preview-tabs" role="tablist" aria-label="Knowledge preview tabs">
         {previewTabs.map((tab) => (
@@ -145,10 +170,20 @@ export function KnowledgeV2PreviewPanel({
 
       {activeTab === "overview" ? (
         <KnowledgeV2OverviewTab
+          affordanceState={affordanceState}
           item={item}
+          statuses={statuses}
         />
       ) : null}
-      {activeTab === "details" ? <KnowledgeV2DetailsTab item={item} /> : null}
+      {activeTab === "details" ? (
+        <KnowledgeV2DetailsTab
+          affordanceState={affordanceState}
+          isWarningDetailsOpen={isWarningDetailsOpen}
+          item={item}
+          setIsWarningDetailsOpen={setIsWarningDetailsOpen}
+          statuses={statuses}
+        />
+      ) : null}
       {activeTab === "source" ? <KnowledgeV2SourceTab item={item} /> : null}
       {activeTab === "versions" ? <KnowledgeV2VersionsTab item={item} /> : null}
       {activeTab === "usage" ? <KnowledgeV2UsageTab /> : null}
@@ -166,9 +201,13 @@ export function KnowledgeV2PreviewPanel({
 }
 
 function KnowledgeV2OverviewTab({
+  affordanceState,
   item,
+  statuses,
 }: {
+  readonly affordanceState?: KnowledgeV2ContextAffordanceState;
   readonly item: KnowledgeV2CatalogItem;
+  readonly statuses: ReturnType<typeof knowledgeV2ItemStatuses>;
 }) {
   return (
     <div className="knowledge-v2-tab-panel" role="tabpanel">
@@ -180,6 +219,23 @@ function KnowledgeV2OverviewTab({
         <h4>What it does</h4>
         <p>{overviewDescriptionText(item)}</p>
       </section>
+      <section className="knowledge-v2-preview-section">
+        <h4>Context use</h4>
+        <KnowledgeV2ContextUsabilitySummary
+          affordanceState={affordanceState}
+          item={item}
+          statuses={statuses}
+        />
+      </section>
+      {item.warnings.length > 0 ? (
+        <section
+          aria-label="Knowledge preview warnings"
+          className="knowledge-v2-preview-section knowledge-v2-warning-summary"
+        >
+          <h4>Warnings</h4>
+          <p>{warningSummaryText(item)}</p>
+        </section>
+      ) : null}
       <section className="knowledge-v2-preview-section">
         <h4>Use cases</h4>
         <p>{useCaseText(item)}</p>
@@ -200,26 +256,58 @@ function KnowledgeV2OverviewTab({
   );
 }
 
-function KnowledgeV2DetailsTab({ item }: { readonly item: KnowledgeV2CatalogItem }) {
+function KnowledgeV2DetailsTab({
+  affordanceState,
+  isWarningDetailsOpen,
+  item,
+  setIsWarningDetailsOpen,
+  statuses,
+}: {
+  readonly affordanceState?: KnowledgeV2ContextAffordanceState;
+  readonly isWarningDetailsOpen: boolean;
+  readonly item: KnowledgeV2CatalogItem;
+  readonly setIsWarningDetailsOpen: Dispatch<SetStateAction<boolean>>;
+  readonly statuses: ReturnType<typeof knowledgeV2ItemStatuses>;
+}) {
   return (
     <div className="knowledge-v2-tab-panel" role="tabpanel">
       <section className="knowledge-v2-preview-section">
-        <h4>Source</h4>
+        <h4>Metadata</h4>
         <dl className="knowledge-v2-source-list">
-          <StatusTerm label="Label" value={item.source.label || "Not available"} />
-          <StatusTerm label="Kind" value={item.source.kind || "Not available"} />
-          <StatusTerm label="Ref" value={item.source.ref || "Not available"} />
+          <StatusTerm label="Source" value={item.source.label || sourceFallback(item)} />
           <StatusTerm label="Scope" value={formatScope(item.source.scope)} />
-          <StatusTerm
-            label="Source size"
-            value={formatSourceSize(item.sourcePreviewLength)}
-          />
-          <StatusTerm
-            label="Preview"
-            value={item.sourcePreviewCapped ? "Capped" : "Bounded"}
-          />
+          <StatusTerm label="Version" value={formatVersion(item.version)} />
+          <StatusTerm label="Created" value={formatDate(item.createdAt)} />
+          <StatusTerm label="Updated" value={formatDate(item.updatedAt)} />
+          <StatusTerm label="Lifecycle" value={formatToken(item.lifecycleState)} />
+          <StatusTerm label="Status" value={statuses.map((status) => status.label).join(" - ")} />
+          <StatusTerm label="Enabled" value={item.enabled === false ? "No" : "Yes"} />
+          <StatusTerm label="Searchable" value={item.searchable === false ? "No" : "Yes"} />
         </dl>
       </section>
+      <section className="knowledge-v2-preview-section">
+        <h4>Source details</h4>
+        <dl className="knowledge-v2-source-list">
+          <StatusTerm label="Kind" value={item.source.kind || "Not available"} />
+          <StatusTerm label="Ref" value={item.source.ref || "Not available"} />
+          <StatusTerm label="Source size" value={formatSourceSize(item.sourcePreviewLength)} />
+          <StatusTerm label="Preview" value={item.sourcePreviewCapped ? "Capped" : "Bounded"} />
+        </dl>
+      </section>
+      <section className="knowledge-v2-preview-section knowledge-v2-preview-status-section">
+        <h4>Context usability</h4>
+        <KnowledgeV2ContextUsabilitySummary
+          affordanceState={affordanceState}
+          item={item}
+          statuses={statuses}
+        />
+        <KnowledgeV2CompactStatusReason item={item} statuses={statuses} />
+      </section>
+      <KnowledgeV2WarningsSummary
+        isOpen={isWarningDetailsOpen}
+        item={item}
+        setIsOpen={setIsWarningDetailsOpen}
+      />
       <section className="knowledge-v2-preview-section">
         <h4>Attachments and source refs</h4>
         <p>
@@ -252,23 +340,6 @@ function KnowledgeV2DetailsTab({ item }: { readonly item: KnowledgeV2CatalogItem
           />
           <StatusTerm label="Created" value={formatDate(item.createdAt)} />
         </dl>
-      </section>
-      <section className="knowledge-v2-preview-section">
-        <h4>Catalog flags</h4>
-        <dl className="knowledge-v2-source-list">
-          <StatusTerm label="Enabled" value={item.enabled === false ? "No" : "Yes"} />
-          <StatusTerm label="Searchable" value={item.searchable === false ? "No" : "Yes"} />
-          <StatusTerm label="Lifecycle" value={formatToken(item.lifecycleState)} />
-          <StatusTerm label="Review" value={item.reviewState ?? "Not available"} />
-          <StatusTerm label="Reviewed" value={formatDate(item.reviewedAt)} />
-        </dl>
-      </section>
-      <section className="knowledge-v2-preview-section">
-        <h4>Reference text</h4>
-        <details className="knowledge-v2-reference-details">
-          <summary>Open source details</summary>
-          <pre>{knowledgeV2ReferenceText(item)}</pre>
-        </details>
       </section>
     </div>
   );
@@ -394,7 +465,7 @@ function useCaseText(item: KnowledgeV2CatalogItem) {
     return item.description || "Use case unavailable for this Skill.";
   }
   if (item.documentSubtype) {
-    return `${formatToken(item.documentSubtype)} reference for ${formatScope(item.source.scope)} Knowledge review.`;
+    return `${formatToken(item.documentSubtype)} reference for Knowledge review.`;
   }
   return "Use case metadata is unavailable for this item.";
 }
@@ -409,14 +480,43 @@ function overviewSummaryText(item: KnowledgeV2CatalogItem) {
     : "No summary available yet.";
 }
 
+function warningSummaryText(item: KnowledgeV2CatalogItem) {
+  return `${item.warnings.length.toString()} warning${
+    item.warnings.length === 1 ? "" : "s"
+  }: ${item.warnings.map(warningSummaryLabel).join(", ")}`;
+}
+
+function warningSummaryLabel(warning: KnowledgeV2CatalogItem["warnings"][number]) {
+  switch (warning.code) {
+    case "large_content":
+    case "large_skill":
+      return "Large";
+    case "missing_quick_summary":
+    case "missing_skill_summary":
+      return "Missing summary";
+    case "rejected":
+      return "Rejected";
+    case "stale":
+      return "Stale";
+    case "unavailable":
+      return warning.message.includes("not searchable")
+        ? "Not searchable"
+        : "Unavailable";
+    default:
+      return formatToken(warning.code);
+  }
+}
+
 function overviewDescriptionText(item: KnowledgeV2CatalogItem) {
+  if (item.type === "document") {
+    return "Reference document. Source content is available in Source.";
+  }
+
   const description = item.description.trim();
   if (description) {
     return capText(description, 620);
   }
-  return item.type === "document"
-    ? "Imported reference document. Source content is available in Source."
-    : "No description available yet.";
+  return "No description available yet.";
 }
 
 function capText(value: string, maxLength: number) {
@@ -444,7 +544,7 @@ function formatScope(scope: KnowledgeV2CatalogItem["source"]["scope"]) {
   if (scope === "workspace") {
     return "Workspace";
   }
-  return "No scope";
+  return "Not available";
 }
 
 function formatDate(value?: string | null) {
@@ -466,7 +566,7 @@ function formatVersion(value?: string | null) {
 }
 
 function sourceFallback(item: KnowledgeV2CatalogItem) {
-  return item.type === "skill" ? "Operator-authored Skill" : "No source label";
+  return item.type === "skill" ? "Operator-authored Skill" : "Not available";
 }
 
 function formatToken(value: string) {
