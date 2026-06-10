@@ -14,6 +14,7 @@ import {
   queueV2NextActionForTask,
   type QueueNextAction,
 } from "./queueV2NextActionModel";
+import { diffReviewLinkageViewForTask, type DiffReviewLinkageView } from "./agentQueueDiffReviewModel";
 import {
   queueV2ClosureStateForTask,
   queueV2LifecycleForTask,
@@ -96,6 +97,7 @@ export type QueueTaskViewModel = {
   nextAction: QueueNextAction;
   blockedReasons: QueueBlockedReason[];
   eligibility: QueueTaskEligibility;
+  diffReview: DiffReviewLinkageView;
 };
 
 export type QueueInspectorSnapshot = {
@@ -206,6 +208,7 @@ export function selectQueueV2ViewModel({
       boardLane,
       blockedReasons,
       closureState,
+      diffReview: diffReviewLinkageViewForTask(task, tasks),
       eligibility,
       lifecycle,
       nextAction,

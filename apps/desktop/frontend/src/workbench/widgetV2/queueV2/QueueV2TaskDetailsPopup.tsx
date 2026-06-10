@@ -21,23 +21,20 @@ import type { AgentQueueController } from "../../queue/details/agentQueueTaskDet
 import { AgentQueueTaskContextSection } from "../../queue/details/AgentQueueTaskContextSection";
 import { AgentQueueTaskResultEvidenceSection } from "../../queue/details/AgentQueueTaskResultEvidenceSection";
 import type { WidgetRenderProps } from "../../types";
-import type {
-  QueueValidationRunResult,
-} from "../../queue/queueValidationEvidenceService";
+import type { QueueValidationRunResult } from "../../queue/queueValidationEvidenceService";
 import type { ValidationRunner } from "../../validation";
 import {
   buildQueueV2TaskDetailsActions,
   type QueueV2DetailsTab,
 } from "./queueV2TaskDetailsActions";
 import { QueueV2PromptPackImportSection } from "./QueueV2PromptPackImportSection";
-import {
-  queueV2ValidationEvidenceView,
-} from "./queueV2ValidationEvidence";
+import { queueV2ValidationEvidenceView } from "./queueV2ValidationEvidence";
 import {
   QueueV2FilesValidationSection,
   validationRequestDisabledReason,
   type QueueV2ValidationRequestState,
 } from "./QueueV2ValidationEvidenceSection";
+import { QueueV2DiffReviewSection } from "./QueueV2DiffReviewSection";
 
 type QueueV2TaskDetailsPopupProps = {
   inspector: QueueInspectorSnapshot | null;
@@ -51,6 +48,7 @@ type QueueV2TaskDetailsPopupProps = {
     task: AgentQueueTask,
     runner: ValidationRunner,
   ) => Promise<QueueValidationRunResult>;
+  onOpenLinkedTask?: (taskId: string) => void;
   onRequestClose: () => void;
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
@@ -81,6 +79,7 @@ export function QueueV2TaskDetailsPopup({
   onRecordKnowledgeDraftReview,
   onRequestNewTask,
   onRequestValidation,
+  onOpenLinkedTask,
   onRequestClose,
   onShowQueueReportInWorkspaceChat,
   onShowQueueTaskInWorkspaceChat,
@@ -280,7 +279,9 @@ export function QueueV2TaskDetailsPopup({
             <OverviewSection
               events={highLevelEvents}
               inspector={inspector}
+              onOpenLinkedTask={onOpenLinkedTask}
               promptPackMetadata={promptPackMetadata}
+              taskViewModel={taskViewModel}
               task={task}
             />
           ) : null}
@@ -339,13 +340,17 @@ export function QueueV2TaskDetailsPopup({
 function OverviewSection({
   events,
   inspector,
+  onOpenLinkedTask,
   promptPackMetadata,
   task,
+  taskViewModel,
 }: {
   events: string[];
   inspector: QueueInspectorSnapshot;
+  onOpenLinkedTask?: (taskId: string) => void;
   promptPackMetadata: QueuePromptPackImportMetadata | null;
   task: AgentQueueTask;
+  taskViewModel: QueueTaskViewModel;
 }) {
   return (
     <div className="queue-v2-task-details-section">
@@ -356,6 +361,10 @@ function OverviewSection({
         <DetailFact label="Next action" value={queueV2NextActionLabel(inspector.nextAction)} />
         <DetailFact label="Why available" value={primaryActionReason(inspector)} />
       </dl>
+      <QueueV2DiffReviewSection
+        onOpenLinkedTask={onOpenLinkedTask}
+        taskViewModel={taskViewModel}
+      />
       <div>
         <h3>Recent events</h3>
         <EventList events={events} />

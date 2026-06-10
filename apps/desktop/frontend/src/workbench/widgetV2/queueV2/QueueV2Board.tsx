@@ -101,6 +101,12 @@ export function QueueV2Board({
     onSelectedTaskChange?.(taskId);
   }
 
+  function openLinkedTaskDetails(taskId: string) {
+    setSelectedTaskId(taskId);
+    setDetailsTaskId(taskId);
+    onSelectedTaskChange?.(taskId);
+  }
+
   const detailTaskViewModel =
     detailsTaskId && board.inspector
       ? board.tasks.find((item) => item.taskId === detailsTaskId) ?? null
@@ -150,6 +156,7 @@ export function QueueV2Board({
       <QueueV2TaskDetailsPopup
         inspector={detailsTaskId ? board.inspector : null}
         isOpen={detailsTaskId !== null}
+        onOpenLinkedTask={openLinkedTaskDetails}
         onRequestValidation={onRequestValidation}
         onRequestClose={() => setDetailsTaskId(null)}
         returnFocusRef={detailsReturnFocusRef}

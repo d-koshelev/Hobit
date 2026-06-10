@@ -606,6 +606,182 @@ describe("QueueV2Board", () => {
     );
     expect(document.body.textContent).not.toContain('"items"');
   });
+
+  it("shows Diff Review not-requested and requested states for implementation task details", async () => {
+    await render(
+      <QueueV2Board
+        tasks={[
+          task({
+            queueItemId: "source-no-review",
+            status: "completed",
+            title: "Source without review",
+            workerExecutionReports: [
+              report({
+                changedFiles: ["src/source.ts"],
+                validationResult: "passed",
+              }),
+            ],
+          }),
+          task({
+            queueItemId: "source-with-review",
+            status: "completed",
+            title: "Source implementation",
+            workerExecutionReports: [
+              report({
+                changedFiles: ["src/impl.ts"],
+                warnings: ["Review warning from worker report."],
+              }),
+            ],
+          }),
+          task({
+            diffReview: {
+              reviewMode: "diff_vs_report",
+              reviewTargetSummary: "Source implementation; one file",
+              sourceItemId: "source-with-review",
+              sourceReportId: "report",
+            },
+            itemType: "diff_review",
+            queueItemId: "review-task",
+            status: "queued",
+            title: "Diff Review - Source implementation",
+          }),
+        ]}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(card("source-no-review")?.textContent).toContain(
+      "Diff review not requested",
+    );
+    expect(card("source-with-review")?.textContent).toContain(
+      "Diff review requested",
+    );
+
+    await openCardDetails("source-no-review");
+    expect(activePanel()?.textContent).toContain("Diff Review");
+    expect(activePanel()?.textContent).toContain("Not requested");
+    expect(activePanel()?.textContent).toContain(
+      "No linked Diff Review task is recorded",
+    );
+    await keyDown("Escape");
+
+    await openCardDetails("source-with-review");
+    expect(activePanel()?.textContent).toContain("Requested");
+    expect(activePanel()?.textContent).toContain(
+      "Diff Review - Source implementation",
+    );
+    expect(activePanel()?.textContent).toContain("Source report");
+    expect(activePanel()?.textContent).toContain("Diff / files");
+    expect(activePanel()?.textContent).toContain("Review warning from worker report.");
+  });
+
+  it("shows Diff Review task source link and read-only badge copy", async () => {
+    const onSelectedTaskChange = vi.fn();
+
+    await render(
+      <QueueV2Board
+        onSelectedTaskChange={onSelectedTaskChange}
+        tasks={[
+          task({
+            queueItemId: "source-task",
+            status: "completed",
+            title: "Source implementation",
+            workerExecutionReports: [
+              report({
+                changedFiles: ["src/impl.ts"],
+                validationResult: "passed",
+              }),
+            ],
+          }),
+          task({
+            diffReview: {
+              reviewMode: "contract_scope",
+              reviewTargetSummary: "Source implementation scope",
+              sourceItemId: "source-task",
+              sourceReportId: "report",
+            },
+            itemType: "diff_review",
+            queueItemId: "review-task",
+            status: "queued",
+            title: "Diff Review - Source implementation",
+          }),
+        ]}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(card("review-task")?.textContent).toContain("Source source-task");
+    expect(onSelectedTaskChange).not.toHaveBeenCalled();
+
+    await openCardDetails("review-task");
+    expect(onSelectedTaskChange).toHaveBeenCalledTimes(1);
+    expect(activePanel()?.textContent).toContain("Read-only Diff Review item");
+    expect(activePanel()?.textContent).toContain("Source implementation");
+    expect(activePanel()?.textContent).toContain("Contract/scope");
+    expect(onSelectedTaskChange).toHaveBeenLastCalledWith("review-task");
+
+    await click(buttonWithText("Open source task"));
+
+    expect(onSelectedTaskChange).toHaveBeenCalledTimes(2);
+    expect(onSelectedTaskChange).toHaveBeenLastCalledWith("source-task");
+    expect(dialogByName("Source implementation")).not.toBeNull();
+  });
+
+  it("does not trigger linked Diff Review callbacks until the explicit link click", async () => {
+    const onSelectedTaskChange = vi.fn();
+    const onRequestValidation = vi.fn();
+
+    await render(
+      <QueueV2Board
+        onRequestValidation={onRequestValidation}
+        onSelectedTaskChange={onSelectedTaskChange}
+        tasks={[
+          task({
+            queueItemId: "source-task",
+            status: "completed",
+            title: "Source implementation",
+            workerExecutionReports: [report({ changedFiles: ["src/impl.ts"] })],
+          }),
+          task({
+            diffReview: {
+              reviewMode: "diff_vs_report",
+              reviewTargetSummary: "Source implementation",
+              sourceItemId: "source-task",
+              sourceReportId: "report",
+            },
+            itemType: "diff_review",
+            queueItemId: "review-task",
+            status: "completed",
+            title: "Diff Review - Source implementation",
+            workerExecutionReports: [report({ reportId: "review-report" })],
+          }),
+        ]}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(onSelectedTaskChange).not.toHaveBeenCalled();
+    expect(onRequestValidation).not.toHaveBeenCalled();
+
+    await openCardDetails("source-task");
+    expect(onSelectedTaskChange).toHaveBeenCalledTimes(1);
+    expect(onSelectedTaskChange).toHaveBeenLastCalledWith("source-task");
+    expect(onRequestValidation).not.toHaveBeenCalled();
+
+    await click(buttonWithText("Open Diff Review"));
+
+    expect(onSelectedTaskChange).toHaveBeenCalledTimes(2);
+    expect(onSelectedTaskChange).toHaveBeenLastCalledWith("review-task");
+    expect(onRequestValidation).not.toHaveBeenCalled();
+    expect(buttonWithText("Finalize / Accept")?.disabled).toBe(true);
+    expect(buttonWithText("Accept without commit")?.disabled).toBe(true);
+
+    await click(buttonWithText("Finalize / Accept"));
+    await click(buttonWithText("Accept without commit"));
+
+    expect(onSelectedTaskChange).toHaveBeenCalledTimes(2);
+    expect(onRequestValidation).not.toHaveBeenCalled();
+  });
 });
 
 async function render(element: ReactNode) {

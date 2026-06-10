@@ -96,6 +96,13 @@ export function QueueV2TaskCard({
         >
           {validation.marker}
         </span>
+        <span
+          className="queue-v2-card-diff-review"
+          data-diff-review-status={item.diffReview.status}
+          title={diffReviewCardTitle(item)}
+        >
+          {diffReviewCardLabel(item)}
+        </span>
         {promptPackMetadata ? (
           <span
             aria-label="Prompt-pack import metadata"
@@ -122,6 +129,28 @@ export function QueueV2TaskCard({
       </span>
     </article>
   );
+}
+
+function diffReviewCardLabel(item: QueueTaskViewModel) {
+  if (item.diffReview.isDiffReviewTask) {
+    return item.diffReview.sourceTaskId
+      ? `Source ${item.diffReview.sourceTaskId}`
+      : "Read-only review";
+  }
+
+  return `Diff review ${item.diffReview.statusLabel.toLowerCase()}`;
+}
+
+function diffReviewCardTitle(item: QueueTaskViewModel) {
+  if (item.diffReview.isDiffReviewTask) {
+    return item.diffReview.sourceTaskTitle
+      ? `Read-only Diff Review for ${item.diffReview.sourceTaskTitle}. It does not change code by default.`
+      : "Read-only Diff Review item. Source task link is not recorded.";
+  }
+
+  return item.diffReview.linkedReviewTitle
+    ? `Linked Diff Review: ${item.diffReview.linkedReviewTitle}`
+    : "No linked Diff Review task is recorded.";
 }
 
 function dependencySummary(
