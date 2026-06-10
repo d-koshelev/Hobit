@@ -68,6 +68,14 @@ implementation blocks, and manual review checklist. It does not add frontend
 behavior, CSS, backend APIs, storage/schema, tests, validation automation, or
 new widgets.
 
+`docs/UI_STANDARDS_ENFORCEMENT_STATUS.md` is the docs-only status record for
+the project-level UI standards enforcement block. It records implementation
+audit status, spacing/token expectations, popup shell enforcement, topbar/action
+menu/confirmation normalization, high-traffic surface adoption, manual smoke
+checklists, and remaining enforcement follow-ups. It does not add frontend
+behavior, CSS, backend APIs, storage/schema, tests, validation automation, or
+new widgets.
+
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
 examples for planning vocabulary only; current Finder behavior is governed by
@@ -690,6 +698,9 @@ the local executor flow visible to operators.
 - `docs/UI_STANDARDS_STATUS.md` - docs-only status record for the completed
   project-level UI standards block, hard UI decisions, recommended next
   implementation blocks, and manual review checklist.
+- `docs/UI_STANDARDS_ENFORCEMENT_STATUS.md` - docs-only status record for the
+  project-level UI standards enforcement block, expected shared primitive/
+  token behavior, manual smoke checklist, and enforcement follow-ups.
 - `docs/PRODUCT_UI_VISUAL_CONTRACT.md` - current product visual direction.
 - `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md` - Minimal, Operational, and
   Full / Expert display-level guidance when a widget surface grows.
