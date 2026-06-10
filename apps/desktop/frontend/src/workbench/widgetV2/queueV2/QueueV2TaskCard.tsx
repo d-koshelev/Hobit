@@ -1,3 +1,7 @@
+import {
+  RowActionMenu,
+  type ActionMenuItem,
+} from "../../../design-system/ActionPrimitives";
 import type { AgentQueueTask } from "../../../workspace/types";
 import {
   normalizeQueueTag,
@@ -10,7 +14,7 @@ import type { QueueNextAction } from "../../queue/queueV2NextActionModel";
 type QueueV2TaskCardProps = {
   item: QueueTaskViewModel;
   isSelected: boolean;
-  onOpenDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
+  onOpenDetails: (taskId: string, sourceButton: HTMLButtonElement | null) => void;
   onSelect: (taskId: string) => void;
 };
 
@@ -25,6 +29,13 @@ export function QueueV2TaskCard({
   const accent = accentForTask(item);
   const workerLabel = runningWorkerLabel(item.task);
   const progressLabel = runningProgressLabel(item.task);
+  const actionItems: ActionMenuItem[] = [
+    {
+      id: "open-details",
+      label: "Open details",
+      onSelect: (sourceButton) => onOpenDetails(item.taskId, sourceButton ?? null),
+    },
+  ];
 
   return (
     <article
@@ -56,16 +67,14 @@ export function QueueV2TaskCard({
           >
             <span className="queue-v2-card-title">{item.title}</span>
           </button>
-          <button
-            className="queue-v2-card-details"
-            onClick={(event) => {
-              event.stopPropagation();
-              onOpenDetails(item.taskId, event.currentTarget);
-            }}
-            type="button"
-          >
-            Details
-          </button>
+          <RowActionMenu
+            buttonLabel="More"
+            className="queue-v2-card-actions"
+            items={actionItems}
+            label={`More actions for ${item.title}`}
+            menuClassName="queue-v2-card-action-menu"
+            triggerClassName="queue-v2-card-details"
+          />
         </span>
         <span className="queue-v2-card-tag">
           <span className="queue-v2-card-tag-dot" aria-hidden="true" />

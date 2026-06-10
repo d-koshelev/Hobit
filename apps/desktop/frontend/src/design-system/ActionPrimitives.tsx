@@ -3,6 +3,7 @@ import {
   type ReactNode,
   type RefObject,
   useId,
+  useRef,
   useState,
 } from "react";
 
@@ -14,7 +15,7 @@ export type ActionMenuItem = {
   readonly disabledReason?: string | null;
   readonly id: string;
   readonly label: string;
-  readonly onSelect: () => void;
+  readonly onSelect: (sourceButton?: HTMLButtonElement | null) => void;
 };
 
 type TopbarGroupProps = {
@@ -39,6 +40,7 @@ type ActionMenuProps = {
   readonly items: readonly ActionMenuItem[];
   readonly label: string;
   readonly onRequestClose?: () => void;
+  readonly sourceButton?: HTMLButtonElement | null;
 };
 
 type DestructiveConfirmationPopupProps = {
@@ -92,6 +94,7 @@ export function RowActionMenu({
 }: RowActionMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
   const menuId = useId();
+  const triggerRef = useRef<HTMLButtonElement | null>(null);
 
   return (
     <span className={["ui-row-actions", className ?? ""].filter(Boolean).join(" ")}>
@@ -102,6 +105,7 @@ export function RowActionMenu({
         className={["ui-row-action-trigger", triggerClassName ?? ""]
           .filter(Boolean)
           .join(" ")}
+        ref={triggerRef}
         onClick={(event) => {
           event.stopPropagation();
           setIsOpen((current) => !current);
@@ -117,6 +121,7 @@ export function RowActionMenu({
           items={items}
           label={label.replace(/^More actions/, "Action menu")}
           onRequestClose={() => setIsOpen(false)}
+          sourceButton={triggerRef.current}
         />
       ) : null}
     </span>
@@ -128,6 +133,7 @@ export function ActionMenu({
   items,
   label,
   onRequestClose,
+  sourceButton,
 }: ActionMenuProps) {
   return (
     <span
@@ -141,6 +147,7 @@ export function ActionMenu({
           item={item}
           key={item.id}
           onRequestClose={onRequestClose}
+          sourceButton={sourceButton}
         />
       ))}
     </span>
@@ -150,9 +157,11 @@ export function ActionMenu({
 function ActionMenuEntry({
   item,
   onRequestClose,
+  sourceButton,
 }: {
   readonly item: ActionMenuItem;
   readonly onRequestClose?: () => void;
+  readonly sourceButton?: HTMLButtonElement | null;
 }) {
   const disabled = Boolean(item.disabledReason);
 
@@ -165,7 +174,7 @@ function ActionMenuEntry({
           if (disabled) {
             return;
           }
-          item.onSelect();
+          item.onSelect(sourceButton);
           onRequestClose?.();
         }}
         role="menuitem"

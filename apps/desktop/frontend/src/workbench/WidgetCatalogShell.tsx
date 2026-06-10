@@ -143,18 +143,20 @@ function CatalogTemplateCard({
           </p>
         ) : null}
       </div>
-      <Button
-        disabled={!canAddTemplate}
-        onClick={() => {
-          void onAddTemplate?.(template);
-        }}
-        variant="secondary"
-      >
-        {unavailableMessage?.actionLabel ??
-          (template.availability === "available"
-            ? "Add widget"
-            : "Not available")}
-      </Button>
+      <div className="catalog-template-card-actions">
+        <Button
+          disabled={!canAddTemplate}
+          onClick={() => {
+            void onAddTemplate?.(template);
+          }}
+          variant="secondary"
+        >
+          {unavailableMessage?.actionLabel ??
+            (template.availability === "available"
+              ? "Add widget"
+              : "Not available")}
+        </Button>
+      </div>
     </article>
   );
 }

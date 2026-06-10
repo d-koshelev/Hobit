@@ -104,6 +104,11 @@ describe("WidgetCatalogShell", () => {
 
     expect(queueButton.textContent).toBe("Already added");
     expect(queueButton.disabled).toBe(true);
+    expect(
+      cardFor(AGENT_QUEUE_WIDGET_DEFINITION_ID)?.querySelector(
+        ".catalog-template-card-actions",
+      ),
+    ).not.toBeNull();
     expect(cardFor(AGENT_QUEUE_WIDGET_DEFINITION_ID)?.textContent).toContain(
       "One Agent Queue per workspace",
     );

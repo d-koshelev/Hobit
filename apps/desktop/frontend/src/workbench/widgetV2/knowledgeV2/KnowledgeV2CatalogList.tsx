@@ -2,6 +2,7 @@ import {
   RowActionMenu,
   type ActionMenuItem,
 } from "../../../design-system/ActionPrimitives";
+import { Button } from "../../../design-system/Button";
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
 import {
   KnowledgeV2StatusBadge,
@@ -56,9 +57,9 @@ export function KnowledgeV2CatalogList({
           then return here to review it in the experimental catalog.
         </p>
         {onImport ? (
-          <button className="knowledge-v2-empty-action" onClick={onImport} type="button">
+          <Button onClick={onImport} variant="secondary">
             Import item
-          </button>
+          </Button>
         ) : null}
       </section>
     );
@@ -73,9 +74,9 @@ export function KnowledgeV2CatalogList({
         <h3>No search results.</h3>
         <p>Adjust search, type, lifecycle, or availability filters.</p>
         {onClearFilters ? (
-          <button className="knowledge-v2-empty-action" onClick={onClearFilters} type="button">
+          <Button onClick={onClearFilters} variant="secondary">
             Clear filters
-          </button>
+          </Button>
         ) : null}
       </section>
     );

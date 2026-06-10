@@ -20,7 +20,7 @@
   min-width: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--control-group-gap-min);
 }
 
 .workspace-agent-v2-topbar dl {
@@ -28,7 +28,7 @@
   min-width: 0;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--control-group-gap-min);
   margin: 0;
 }
 
@@ -36,7 +36,7 @@
   display: inline-flex;
   min-width: 0;
   align-items: center;
-  gap: calc(var(--space-xs) / 2);
+  gap: var(--scaled-space-2xs);
 }
 
 .workspace-agent-v2-topbar dt,

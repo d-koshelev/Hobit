@@ -158,7 +158,10 @@ function QueueV2Lane({
   items: QueueTaskViewModel[];
   label: string;
   lane: QueueBoardLane;
-  onOpenTaskDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
+  onOpenTaskDetails: (
+    taskId: string,
+    sourceButton: HTMLButtonElement | null,
+  ) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -188,7 +191,10 @@ function QueueV2RunningLane({
   selectedTaskId,
 }: {
   groups: RunningTaskGroup[];
-  onOpenTaskDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
+  onOpenTaskDetails: (
+    taskId: string,
+    sourceButton: HTMLButtonElement | null,
+  ) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -239,7 +245,10 @@ function QueueV2ClosedLane({
   selectedTaskId,
 }: {
   items: QueueTaskViewModel[];
-  onOpenTaskDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
+  onOpenTaskDetails: (
+    taskId: string,
+    sourceButton: HTMLButtonElement | null,
+  ) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -279,7 +288,10 @@ function QueueV2CardStack({
   emptyLabel: string;
   items: QueueTaskViewModel[];
   limit: number;
-  onOpenTaskDetails: (taskId: string, sourceButton: HTMLButtonElement) => void;
+  onOpenTaskDetails: (
+    taskId: string,
+    sourceButton: HTMLButtonElement | null,
+  ) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {

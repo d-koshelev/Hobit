@@ -298,7 +298,7 @@ describe("QueueV2Board", () => {
     );
   });
 
-  it("opens task details from the card Details action and closes with Escape", async () => {
+  it("opens task details from the card action menu and closes with Escape", async () => {
     await render(
       <QueueV2Board
         tasks={[task({ queueItemId: "ready", status: "ready", title: "Ready task" })]}
@@ -306,7 +306,13 @@ describe("QueueV2Board", () => {
       />,
     );
 
-    await click(cardDetailsButton("ready"));
+    await click(cardActionsButton("ready"));
+
+    const menu = menuByName("Action menu for Ready task");
+    expect(menu?.textContent).toContain("Open details");
+    expect(dialogByName("Ready task")).toBeNull();
+
+    await click(buttonInRegion(menu, "Open details"));
 
     expect(dialogByName("Ready task")).not.toBeNull();
     expect(document.querySelector(".queue-v2-task-details-shell")).not.toBeNull();
@@ -340,7 +346,7 @@ describe("QueueV2Board", () => {
       />,
     );
 
-    await click(cardDetailsButton("reported"));
+    await openCardDetails("reported");
     await click(buttonWithText("Prompt"));
     expect(activePanel()?.textContent).toContain("Original prompt summary");
     await click(buttonWithText("Result"));
@@ -373,7 +379,7 @@ describe("QueueV2Board", () => {
       />,
     );
 
-    await click(cardDetailsButton("ready"));
+    await openCardDetails("ready");
     expect(onSelectedTaskChange).toHaveBeenCalledTimes(1);
 
     const primaryAction = buttonWithText("Run task");
@@ -415,10 +421,15 @@ function card(taskId: string) {
   );
 }
 
-function cardDetailsButton(taskId: string) {
+function cardActionsButton(taskId: string) {
   return card(taskId)?.querySelector<HTMLButtonElement>(
     ".queue-v2-card-details",
   ) ?? null;
+}
+
+async function openCardDetails(taskId: string) {
+  await click(cardActionsButton(taskId));
+  await click(buttonWithText("Open details"));
 }
 
 function buttonWithText(text: string): HTMLButtonElement | null {
@@ -433,6 +444,25 @@ function dialogByName(name: string): HTMLElement | null {
   return (
     Array.from(document.querySelectorAll<HTMLElement>("[role='dialog']")).find(
       (dialog) => dialog.textContent?.includes(name),
+    ) ?? null
+  );
+}
+
+function menuByName(name: string): HTMLElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLElement>("[role='menu']")).find(
+      (menu) => menu.getAttribute("aria-label") === name,
+    ) ?? null
+  );
+}
+
+function buttonInRegion(
+  region: Element | null,
+  text: string,
+): HTMLButtonElement | null {
+  return (
+    Array.from(region?.querySelectorAll<HTMLButtonElement>("button") ?? []).find(
+      (button) => button.textContent === text,
     ) ?? null
   );
 }

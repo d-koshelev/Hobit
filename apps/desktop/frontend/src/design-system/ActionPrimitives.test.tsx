@@ -78,6 +78,24 @@ describe("shared action primitives", () => {
     expect(onSelect).not.toHaveBeenCalled();
   });
 
+  it("passes the row menu trigger to selected item handlers", async () => {
+    const onSelect = vi.fn();
+
+    await render(
+      <RowActionMenu
+        items={[{ id: "details", label: "Open details", onSelect }]}
+        label="More actions for task"
+      />,
+    );
+
+    const trigger = buttonByText("More");
+    await click(trigger);
+    await click(buttonByText("Open details"));
+
+    expect(onSelect).toHaveBeenCalledTimes(1);
+    expect(onSelect.mock.calls[0]?.[0]).toBe(trigger);
+  });
+
   it("requires destructive confirmation and cancellation does not invoke action", async () => {
     const onCancel = vi.fn();
     const onConfirm = vi.fn();

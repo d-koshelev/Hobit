@@ -20,6 +20,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
 .queue-v2-top-bar-status,
@@ -452,8 +453,7 @@
   text-align: left;
 }
 
-.queue-v2-card-select,
-.queue-v2-card-details {
+.queue-v2-card-select {
   min-width: 0;
   border: 0;
   background: transparent;
@@ -469,16 +469,14 @@
   min-width: 0;
 }
 
-.queue-v2-card-details {
+.queue-v2-card-actions {
   flex: 0 0 auto;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: 999px;
-  color: var(--color-text-muted);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  line-height: var(--line-tight);
+  justify-self: end;
+}
+
+.queue-v2-card-details {
+  width: calc(52px * var(--ui-scale));
   opacity: 0;
-  padding: calc(1px * var(--ui-scale)) calc(6px * var(--ui-scale));
 }
 
 .queue-v2-task-card[data-tone="review"] {
@@ -545,6 +543,10 @@
   opacity: 1;
 }
 
+.queue-v2-card-action-menu {
+  right: 0;
+}
+
 .queue-v2-card-tag,
 .queue-v2-card-meta,
 .queue-v2-card-run {
@@ -600,6 +602,7 @@
   max-height: min(680px, calc(100vh - 96px));
   grid-template-rows: auto auto auto minmax(0, 1fr);
   gap: var(--space-sm);
+  padding: var(--popup-section-padding-min);
 }
 
 .queue-v2-task-details-header,
@@ -719,7 +722,7 @@
 .queue-v2-task-details-body {
   min-height: 0;
   overflow: auto;
-  padding-right: 2px;
+  padding: var(--space-xs);
   scrollbar-color: var(--color-border-strong) transparent;
   scrollbar-width: thin;
 }

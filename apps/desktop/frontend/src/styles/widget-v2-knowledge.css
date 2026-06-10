@@ -29,7 +29,7 @@
   flex: 0 0 auto;
   flex-wrap: nowrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--control-group-gap-min);
 }
 
 .knowledge-v2-action-group-spaced {
@@ -495,7 +495,7 @@
 .knowledge-v2-details-popup-body {
   max-height: min(72vh, calc(100vh - 168px));
   overflow: auto;
-  padding: 0;
+  padding: var(--popup-section-padding-min);
 }
 
 .knowledge-v2-context-picker-popup-body {

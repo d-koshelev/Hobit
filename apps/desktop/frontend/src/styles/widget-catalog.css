@@ -147,6 +147,16 @@
   padding: var(--compact-card-padding-min);
 }
 
+.catalog-template-card-actions {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--control-group-gap-min);
+  padding-top: var(--space-xs);
+  border-top: 1px solid var(--color-border-subtle);
+}
+
 .catalog-template-card-unavailable {
   background: var(--color-widget-surface);
 }
@@ -199,7 +209,7 @@
   color: var(--color-text-muted);
 }
 
-.catalog-template-card .button {
+.catalog-template-card-actions .button {
   justify-self: start;
 }
 
