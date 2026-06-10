@@ -48,18 +48,27 @@
   --ui-scale: 1;
   --ui-scale-percent: 100%;
 
-  --space-xs: 3px;
-  --space-sm: 5px;
-  --space-md: 7px;
-  --space-lg: 9px;
+  --space-2xs: 4px;
+  --space-xs: 4px;
+  --space-sm: 6px;
+  --space-md: 8px;
+  --space-lg: 10px;
   --space-xl: 12px;
   --space-2xl: 16px;
 
-  --scaled-space-xs: calc(3px * var(--ui-scale));
-  --scaled-space-sm: calc(5px * var(--ui-scale));
-  --scaled-space-md: calc(7px * var(--ui-scale));
-  --scaled-space-lg: calc(9px * var(--ui-scale));
+  --scaled-space-2xs: calc(4px * var(--ui-scale));
+  --scaled-space-xs: calc(4px * var(--ui-scale));
+  --scaled-space-sm: calc(6px * var(--ui-scale));
+  --scaled-space-md: calc(8px * var(--ui-scale));
+  --scaled-space-lg: calc(10px * var(--ui-scale));
   --scaled-space-xl: calc(12px * var(--ui-scale));
+
+  --surface-inset-min: var(--scaled-space-md);
+  --control-group-gap-min: var(--scaled-space-xs);
+  --table-list-cell-padding-min: var(--scaled-space-xs);
+  --popup-section-padding-min: var(--scaled-space-md);
+  --compact-card-padding-min: var(--scaled-space-md);
+  --compact-panel-padding-min: var(--scaled-space-md);
 
   --workbench-grid-step: 24px;
   --workbench-grid-dot:
@@ -72,10 +81,12 @@
   --radius-md: 7px;
   --radius-lg: 8px;
   --radius-xl: 10px;
+  --radius-pill: 999px;
 
   --shadow-surface: 0 0 0 1px var(--color-border-subtle) inset;
   --shadow-widget: 0 0 0 1px var(--color-border-subtle);
   --shadow-elevated: 0 0 0 1px var(--color-border);
+  --color-focus-ring: var(--color-primary-quiet);
   --focus-ring: 0 0 0 2px var(--color-primary-quiet);
 
   --font-size-xs: calc(12px * var(--ui-scale));
@@ -97,14 +108,38 @@
   --control-height-lg: calc(38px * var(--ui-scale));
   --control-padding-x: calc(10px * var(--ui-scale));
   --control-padding-x-sm: calc(7px * var(--ui-scale));
-  --panel-padding: calc(7px * var(--ui-scale));
-  --field-gap: calc(5px * var(--ui-scale));
+  --panel-padding: var(--compact-panel-padding-min);
+  --field-gap: var(--control-group-gap-min);
   --badge-height: calc(22px * var(--ui-scale));
   --widget-header-padding-x: calc(6px * var(--ui-scale));
   --widget-header-padding-y: calc(3px * var(--ui-scale));
 
   --line-tight: 1.2;
   --line-normal: 1.5;
+}
+
+.ui-surface-inset-min {
+  padding: var(--surface-inset-min);
+}
+
+.ui-control-group-gap-min {
+  gap: var(--control-group-gap-min);
+}
+
+.ui-table-list-cell-padding-min {
+  padding: var(--table-list-cell-padding-min);
+}
+
+.ui-popup-section-padding-min {
+  padding: var(--popup-section-padding-min);
+}
+
+.ui-compact-card-padding-min {
+  padding: var(--compact-card-padding-min);
+}
+
+.ui-compact-panel-padding-min {
+  padding: var(--compact-panel-padding-min);
 }
 
 :root[data-hobit-theme="discord-dark"] {

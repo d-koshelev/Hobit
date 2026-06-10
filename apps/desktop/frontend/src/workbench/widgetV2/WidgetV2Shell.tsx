@@ -101,7 +101,11 @@ export function WidgetV2Toolbar({
   label = "Widget actions",
 }: WidgetV2SlotProps) {
   return (
-    <div aria-label={label} className="widget-v2-toolbar" role="toolbar">
+    <div
+      aria-label={label}
+      className="widget-v2-toolbar ui-control-group-gap-min"
+      role="toolbar"
+    >
       {children}
     </div>
   );
@@ -128,7 +132,7 @@ export function WidgetV2PanelLayout({
         {leftRail}
         <section
           aria-label={primaryLabel}
-          className="widget-v2-primary-surface"
+          className="widget-v2-primary-surface ui-surface-inset-min"
           data-widget-v2-slot="primary"
           role="region"
         >
@@ -148,7 +152,7 @@ export function WidgetV2LeftRail({
   return (
     <aside
       aria-label={label}
-      className="widget-v2-left-rail"
+      className="widget-v2-left-rail ui-surface-inset-min"
       data-widget-v2-slot="left-rail"
       role="complementary"
     >
@@ -164,7 +168,7 @@ export function WidgetV2RightInspector({
   return (
     <aside
       aria-label={label}
-      className="widget-v2-right-inspector"
+      className="widget-v2-right-inspector ui-surface-inset-min"
       data-widget-v2-slot="right-inspector"
       role="complementary"
     >
@@ -180,7 +184,7 @@ export function WidgetV2BottomDrawer({
   return (
     <section
       aria-label={label}
-      className="widget-v2-bottom-drawer"
+      className="widget-v2-bottom-drawer ui-surface-inset-min"
       data-widget-v2-slot="bottom-drawer"
       role="region"
     >

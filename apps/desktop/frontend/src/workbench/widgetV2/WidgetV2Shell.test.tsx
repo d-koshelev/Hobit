@@ -45,7 +45,11 @@ describe("Widget V2 shell primitives", () => {
     expect(headingWithText("Queue V2")).not.toBeNull();
     expect(document.body.textContent).toContain("Ready");
     expect(buttonWithText("Review")).not.toBeNull();
-    expect(regionByRoleAndName("toolbar", "Widget actions")).not.toBeNull();
+    expect(
+      regionByRoleAndName("toolbar", "Widget actions")?.classList.contains(
+        "ui-control-group-gap-min",
+      ),
+    ).toBe(true);
     expect(buttonWithText("Create")).not.toBeNull();
   });
 
@@ -73,11 +77,26 @@ describe("Widget V2 shell primitives", () => {
       "Catalog",
     );
     expect(
+      regionByRoleAndName("complementary", "Catalog rail")?.classList.contains(
+        "ui-surface-inset-min",
+      ),
+    ).toBe(true);
+    expect(
       regionByRoleAndName("complementary", "Review inspector")?.textContent,
     ).toContain("Selection details");
+    expect(
+      regionByRoleAndName("complementary", "Review inspector")?.classList.contains(
+        "ui-surface-inset-min",
+      ),
+    ).toBe(true);
     expect(regionByRoleAndName("region", "Activity drawer")?.textContent).toContain(
       "Activity summary",
     );
+    expect(
+      regionByRoleAndName("region", "Activity drawer")?.classList.contains(
+        "ui-surface-inset-min",
+      ),
+    ).toBe(true);
   });
 
   it("keeps the primary surface visible", async () => {
@@ -93,6 +112,9 @@ describe("Widget V2 shell primitives", () => {
 
     expect(primarySurface).not.toBeNull();
     expect(primarySurface?.textContent).toContain("Visible primary action");
+    expect(primarySurface?.classList.contains("ui-surface-inset-min")).toBe(
+      true,
+    );
     expect(buttonWithText("Visible primary action")).not.toBeNull();
   });
 });

@@ -69,7 +69,11 @@ export function WidgetPopupShell({
         <div className="popup-shell-layout">
           {title !== undefined || eyebrow !== undefined || actions !== undefined ? (
             <header
-              className={["popup-shell-header", headerClassName ?? ""]
+              className={[
+                "popup-shell-header",
+                "ui-popup-section-padding-min",
+                headerClassName ?? "",
+              ]
                 .filter(Boolean)
                 .join(" ")}
               data-popup-drag-handle
@@ -90,7 +94,11 @@ export function WidgetPopupShell({
             </header>
           ) : null}
           <div
-            className={["popup-shell-body", bodyClassName ?? ""]
+            className={[
+              "popup-shell-body",
+              "ui-popup-section-padding-min",
+              bodyClassName ?? "",
+            ]
               .filter(Boolean)
               .join(" ")}
             data-popup-body
@@ -99,7 +107,12 @@ export function WidgetPopupShell({
           </div>
           {footer ? (
             <footer
-              className={["popup-shell-footer", footerClassName ?? ""]
+              className={[
+                "popup-shell-footer",
+                "ui-popup-section-padding-min",
+                "ui-control-group-gap-min",
+                footerClassName ?? "",
+              ]
                 .filter(Boolean)
                 .join(" ")}
               data-popup-no-drag

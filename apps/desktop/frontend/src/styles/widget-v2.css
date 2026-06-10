@@ -102,7 +102,7 @@
   flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--space-xs);
+  gap: var(--control-group-gap-min);
 }
 
 .widget-v2-shell-body {
@@ -118,7 +118,7 @@
   flex: 0 0 auto;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--control-group-gap-min);
   border-bottom: 1px solid var(--color-border-subtle);
   padding: var(--scaled-space-sm) var(--widget-header-padding-x);
 }
@@ -167,14 +167,14 @@
 .widget-v2-primary-surface {
   display: flex;
   flex-direction: column;
-  padding: var(--panel-padding);
+  padding: var(--surface-inset-min);
 }
 
 .widget-v2-left-rail,
 .widget-v2-right-inspector {
   border-color: var(--color-border-subtle);
   background: var(--color-widget-surface-raised);
-  padding: var(--panel-padding);
+  padding: var(--surface-inset-min);
 }
 
 .widget-v2-left-rail {
@@ -189,7 +189,7 @@
   max-height: min(220px, 42%);
   border-top: 1px solid var(--color-border-subtle);
   background: var(--color-widget-surface-raised);
-  padding: var(--panel-padding);
+  padding: var(--surface-inset-min);
 }
 
 .widget-v2-primary-surface::-webkit-scrollbar,

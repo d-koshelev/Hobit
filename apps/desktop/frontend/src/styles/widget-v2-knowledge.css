@@ -212,7 +212,7 @@
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-tight);
-  padding: var(--space-xs);
+  padding: var(--table-list-cell-padding-min);
   place-items: center start;
 }
 
@@ -230,7 +230,7 @@
 .knowledge-v2-row > span,
 .knowledge-v2-row-title {
   min-width: 0;
-  padding: var(--scaled-space-2xs) var(--space-xs);
+  padding: var(--table-list-cell-padding-min);
 }
 
 .knowledge-v2-row > span {
@@ -413,7 +413,7 @@
   color: inherit;
   cursor: pointer;
   font: inherit;
-  padding: var(--space-sm);
+  padding: var(--compact-card-padding-min);
   text-align: left;
 }
 
@@ -535,7 +535,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: var(--color-io-surface);
-  padding: var(--space-md);
+  padding: var(--compact-panel-padding-min);
 }
 
 .knowledge-v2-action-popup-shell {

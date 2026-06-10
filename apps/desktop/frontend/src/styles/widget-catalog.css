@@ -144,7 +144,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   background: var(--color-widget-surface-raised);
-  padding: var(--space-md);
+  padding: var(--compact-card-padding-min);
 }
 
 .catalog-template-card-unavailable {

@@ -231,7 +231,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: var(--color-widget-surface-raised);
-  padding: var(--space-sm);
+  padding: var(--compact-card-padding-min);
 }
 
 .workspace-agent-v2-message[data-role="user"] {
@@ -281,14 +281,14 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: var(--color-io-surface);
-  padding: var(--space-sm);
+  padding: var(--compact-panel-padding-min);
 }
 
 .workspace-agent-v2-preflight {
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: var(--color-io-surface);
-  padding: var(--space-sm);
+  padding: var(--compact-panel-padding-min);
 }
 
 .workspace-agent-v2-context-strip-header {
@@ -388,7 +388,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: var(--color-widget-surface-raised);
-  padding: var(--space-sm);
+  padding: var(--compact-card-padding-min);
 }
 
 .workspace-agent-v2-context-card[data-blocked="true"] {
@@ -473,7 +473,7 @@
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
   background: var(--color-io-surface);
-  padding: var(--space-sm);
+  padding: var(--compact-card-padding-min);
 }
 
 .workspace-agent-v2-result-card[data-status="completed"] {

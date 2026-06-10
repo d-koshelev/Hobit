@@ -199,8 +199,16 @@ describe("PopupShell", () => {
     expect(popup?.classList.contains("popup-shell-with-layout")).toBe(true);
     expect(Number.parseFloat(popup?.style.maxHeight ?? "0")).toBeGreaterThan(0);
     expect(header?.getAttribute("data-popup-drag-handle")).toBe("true");
+    expect(header?.classList.contains("ui-popup-section-padding-min")).toBe(
+      true,
+    );
+    expect(body?.classList.contains("ui-popup-section-padding-min")).toBe(true);
     expect(body?.textContent).toContain("Long popup line 39");
     expect(footer?.textContent).toContain("Apply");
+    expect(footer?.classList.contains("ui-popup-section-padding-min")).toBe(
+      true,
+    );
+    expect(footer?.classList.contains("ui-control-group-gap-min")).toBe(true);
     expect(body?.contains(footer)).toBe(false);
   });
 

@@ -398,7 +398,7 @@
 
 .popup-shell:not(.popup-shell-with-layout) {
   overflow: auto;
-  padding: var(--panel-padding);
+  padding: var(--popup-section-padding-min);
 }
 
 .popup-shell:focus {
@@ -436,7 +436,7 @@
   gap: var(--space-md);
   border-bottom: 1px solid var(--color-border-subtle);
   background: var(--color-overlay-surface);
-  padding: var(--panel-padding);
+  padding: var(--popup-section-padding-min);
 }
 
 .popup-shell-title-block {
@@ -477,7 +477,7 @@
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  padding: var(--panel-padding);
+  padding: var(--popup-section-padding-min);
   scrollbar-color: var(--color-border-strong) transparent;
   scrollbar-width: thin;
 }
@@ -493,7 +493,7 @@
   gap: var(--space-xs);
   border-top: 1px solid var(--color-border-subtle);
   background: var(--color-overlay-surface);
-  padding: var(--space-sm) var(--panel-padding);
+  padding: var(--control-group-gap-min) var(--popup-section-padding-min);
 }
 
 .widget-content::-webkit-scrollbar,
