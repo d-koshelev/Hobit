@@ -2,10 +2,15 @@ import type { CoordinatorActionProposal } from "./coordinatorActionProposalRegis
 import {
   knowledgeDocumentCreateRequestFromProposal,
   noteCreateRequestFromProposal,
+  proposalInputValue,
   queueTaskRequestFromProposal,
   skillCreateRequestFromProposal,
 } from "./coordinatorProposalHandoffs";
 import type { WidgetRenderProps } from "./types";
+import {
+  createWorkspaceChatQueueControlService,
+  emptyWorkspaceChatQueueTaskDraft,
+} from "./workspaceChatQueueControlService";
 import { errorToMessage } from "./workspaceAgentProviderGuards";
 import {
   canStartProposalCreation,
@@ -52,7 +57,8 @@ type RunProposalCreationActionInput<Result> = ProposalCreationActionInput & {
 };
 
 export type RunCreateQueueTaskProposalInput = ProposalCreationActionInput & {
-  onCreateAgentQueueTask: WidgetRenderProps["onCreateAgentQueueTask"];
+  currentWorkspaceRoot?: string | null;
+  workspaceAgentQueueBridge: WidgetRenderProps["workspaceAgentQueueBridge"];
 };
 
 export type RunCreateNoteProposalInput = ProposalCreationActionInput & {
@@ -69,23 +75,93 @@ export type RunCreateSkillProposalInput = ProposalCreationActionInput & {
 };
 
 export async function runCreateQueueTaskProposal({
-  onCreateAgentQueueTask,
-  ...input
+  currentWorkspaceRoot,
+  workspaceAgentQueueBridge,
+  pendingProposalIds,
+  proposalId,
+  proposals,
+  setPendingProposalIds,
+  setProposals,
 }: RunCreateQueueTaskProposalInput) {
-  await runProposalCreationAction({
-    ...input,
-    create: onCreateAgentQueueTask
-      ? (proposal) => onCreateAgentQueueTask(queueTaskRequestFromProposal(proposal))
-      : undefined,
-    failureFallback: "Unable to create Queue task.",
-    kind: "queueTask",
-    proposalTypeId: "create-agent-queue-task",
-    summarizeCreated: (task) => ({
-      id: task.queueItemId,
-      status: task.status,
-      title: task.title,
-    }),
-  });
+  if (pendingProposalIds.has(proposalId)) {
+    return;
+  }
+
+  const proposal = proposals[proposalId];
+  if (!proposal || proposal.typeId !== "create-agent-queue-task") {
+    return;
+  }
+
+  if (hasCreatedProposalForKind(proposal, "queueTask")) {
+    return;
+  }
+
+  if (!canStartProposalCreation(proposal, "queueTask")) {
+    patchProposal(
+      setProposals,
+      proposalId,
+      createNotApprovedFailurePatch("queueTask"),
+    );
+    return;
+  }
+
+  addPendingProposalId(setPendingProposalIds, proposalId);
+  patchProposal(setProposals, proposalId, proposalCreatingPatch("queueTask"));
+
+  try {
+    const request = queueTaskRequestFromProposal(proposal);
+    const service = createWorkspaceChatQueueControlService({
+      bridge: workspaceAgentQueueBridge,
+    });
+    const draftTitle = proposalInputValue(proposal, "Title");
+    const draftPrompt = proposalInputValue(proposal, "Prompt");
+    const result = await service.execute({
+      draft: {
+        ...emptyWorkspaceChatQueueTaskDraft(),
+        description: request.description ?? "",
+        executionPolicy: request.executionPolicy ?? "manual",
+        executionWorkspace: currentWorkspaceRoot?.trim() ?? "",
+        priority: (request.priority ?? 0).toString(),
+        prompt: draftPrompt,
+        status: request.status === "queued" ? "queued" : "draft",
+        title: draftTitle,
+      },
+      kind: "create_task",
+    });
+
+    if (result.status !== "success" || !result.widgetResult?.item) {
+      patchProposal(
+        setProposals,
+        proposalId,
+        failedProposalPatch(
+          "queueTask",
+          result.reason ?? result.message ?? "Unable to create Queue task.",
+        ),
+      );
+      return;
+    }
+
+    patchProposal(
+      setProposals,
+      proposalId,
+      proposalCreatedPatch("queueTask", {
+        id: result.widgetResult.item.id,
+        status: result.widgetResult.item.status,
+        title: result.widgetResult.item.title,
+      }),
+    );
+  } catch (error) {
+    patchProposal(
+      setProposals,
+      proposalId,
+      failedProposalPatch(
+        "queueTask",
+        errorToMessage(error, "Unable to create Queue task."),
+      ),
+    );
+  } finally {
+    removePendingProposalId(setPendingProposalIds, proposalId);
+  }
 }
 
 export async function runCreateNoteProposal({

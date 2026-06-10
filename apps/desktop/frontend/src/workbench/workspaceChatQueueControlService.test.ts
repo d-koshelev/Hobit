@@ -130,6 +130,42 @@ describe("workspace chat Queue control service", () => {
     expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
 
+  it("rejects empty create_task title or prompt before calling the bridge", async () => {
+    const createItem = vi.fn(async () => itemResult());
+    const service = createWorkspaceChatQueueControlService({
+      bridge: queueBridge({ createItem }),
+    });
+
+    const missingTitle = await service.execute({
+      draft: {
+        ...emptyWorkspaceChatQueueTaskDraft(),
+        prompt: "Create only.",
+        title: "",
+      },
+      kind: "create_task",
+    });
+    const missingPrompt = await service.execute({
+      draft: {
+        ...emptyWorkspaceChatQueueTaskDraft(),
+        prompt: "   ",
+        title: "Typed task",
+      },
+      kind: "create_task",
+    });
+
+    expect(missingTitle).toMatchObject({
+      action: "create_task",
+      status: "unavailable",
+    });
+    expect(missingTitle.reason).toContain("title is required");
+    expect(missingPrompt).toMatchObject({
+      action: "create_task",
+      status: "unavailable",
+    });
+    expect(missingPrompt.reason).toContain("prompt is required");
+    expect(createItem).not.toHaveBeenCalled();
+  });
+
   it("maps create errors to visible failed result objects", async () => {
     const createItem = vi.fn(async () => {
       throw new Error("Queue create failed");

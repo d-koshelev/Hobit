@@ -35,6 +35,7 @@ type CoordinatorActionProposalCardProps = {
   onCreateQueueTask?: (proposalId: string) => void;
   onCreateSkill?: (proposalId: string) => void;
   onEdit: (proposalId: string, patch: ProposalPatch) => void;
+  onOpenQueueTask?: (queueItemId: string) => void;
   onReject: (proposalId: string) => void;
   proposal: CoordinatorActionProposal;
 };
@@ -50,6 +51,7 @@ export function CoordinatorActionProposalCard({
   onCreateQueueTask,
   onCreateSkill,
   onEdit,
+  onOpenQueueTask,
   onReject,
   proposal,
 }: CoordinatorActionProposalCardProps) {
@@ -372,6 +374,19 @@ export function CoordinatorActionProposalCard({
                 {isQueueTaskCreationPending
                   ? "Creating Queue task"
                   : "Create Queue task"}
+              </Button>
+            ) : null}
+            {actions.hasCreatedQueueTask && proposal.createdQueueTaskId ? (
+              <Button
+                disabled={!onOpenQueueTask}
+                onClick={() =>
+                  proposal.createdQueueTaskId
+                    ? onOpenQueueTask?.(proposal.createdQueueTaskId)
+                    : undefined
+                }
+                variant="secondary"
+              >
+                Open task
               </Button>
             ) : null}
             {actions.canCreateKnowledgeDocument ||

@@ -345,7 +345,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
   });
 
 
-  it("creates a Queue task only after the explicit Create Queue task action", async () => {
+  it("shows a visible error when Queue task create is unavailable", async () => {
     const createQueueTask = vi.fn(async (request: CreateQueueTaskInput) => ({
       assignedExecutorWidgetId: null,
       createdAt: "2026-05-24T00:00:00Z",
@@ -370,23 +370,9 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     await clickButton("Approve");
     await clickButton("Create Queue task");
 
-    expect(createQueueTask).toHaveBeenCalledTimes(1);
-    expect(createQueueTask.mock.calls[0][0]).toMatchObject({
-      description:
-        "Drafted from visible Workspace Agent chat: Visible task using only chat",
-      executionPolicy: "manual",
-      priority: 0,
-      prompt: [
-        "Visible task using only chat",
-        "",
-        "Use only the task prompt and explicit operator-provided context. Do not run hidden tools, mutate Git, or assume hidden Workspace context.",
-      ].join("\n"),
-      status: "draft",
-      title: "Visible task using only chat",
-    });
-    expect(document.body.textContent).toContain("Queue task created");
+    expect(createQueueTask).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
-      "It was not assigned, dispatched, run, or handed to Agent Executor.",
+      "Workspace Agent Queue bridge is unavailable. No Queue task was created.",
     );
   });
 

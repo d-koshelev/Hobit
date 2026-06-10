@@ -47,7 +47,7 @@ const CREATING_SKILL_SUMMARY =
   "Creating a workspace-local Skill from the visible approved proposal inputs.";
 
 const QUEUE_TASK_CREATED_SUMMARY =
-  "Draft Queue task created. It was not assigned, dispatched, run, or handed to Agent Executor.";
+  "Created, not started. Draft Queue task created. It was not assigned, dispatched, run, or handed to Agent Executor.";
 
 const KNOWLEDGE_DOCUMENT_CREATED_SUMMARY =
   "Workspace-local Knowledge Document created from visible approved content only.";
@@ -207,7 +207,7 @@ export function proposalCreatedPatch(
       createdQueueTaskTitle: created.title,
       executionError: undefined,
       executionStatus: "Queue task created",
-      resultSummary: `${QUEUE_TASK_CREATED_SUMMARY} Created task "${created.title}" (${created.id}) with status ${created.status}.`,
+      resultSummary: `${QUEUE_TASK_CREATED_SUMMARY} Created task "${created.title}" (${created.id}) with lane/status ${created.status}.`,
     };
   }
 

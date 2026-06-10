@@ -131,6 +131,11 @@ async function createTask(
   draft: WorkspaceChatQueueTaskDraft,
   bridge: WorkspaceAgentQueueBridge | null | undefined,
 ): Promise<WorkspaceChatQueueActionResult> {
+  const validationReason = queueTaskDraftValidationReason(draft);
+  if (validationReason) {
+    return unavailable("create_task", validationReason);
+  }
+
   if (!bridge) {
     return unavailable(
       "create_task",
@@ -159,6 +164,20 @@ async function createTask(
     status: "success",
     widgetResult: result,
   };
+}
+
+function queueTaskDraftValidationReason(
+  draft: WorkspaceChatQueueTaskDraft,
+): string | null {
+  if (!draft.title.trim()) {
+    return "Queue task title is required. No Queue task was created.";
+  }
+
+  if (!draft.prompt.trim()) {
+    return "Queue task prompt is required. No Queue task was created.";
+  }
+
+  return null;
 }
 
 function openTask(

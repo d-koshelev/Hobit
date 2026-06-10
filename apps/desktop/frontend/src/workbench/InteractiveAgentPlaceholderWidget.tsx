@@ -736,12 +736,15 @@ export function InteractiveAgentPlaceholderWidget({
 
   async function createQueueTaskFromProposal(proposalId: string) {
     await runCreateQueueTaskProposal({
-      onCreateAgentQueueTask,
+      currentWorkspaceRoot: explicitQueueCommandWorkspaceRoot(
+        directWork.directWorkDirectory,
+      ),
       pendingProposalIds: creatingQueueProposalIds,
       proposalId,
       proposals,
       setPendingProposalIds: setCreatingQueueProposalIds,
       setProposals,
+      workspaceAgentQueueBridge,
     });
   }
 

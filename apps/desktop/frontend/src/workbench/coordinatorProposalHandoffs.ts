@@ -89,7 +89,7 @@ export function skillCreateRequestFromProposal(
   };
 }
 
-function proposalInputValue(
+export function proposalInputValue(
   proposal: CoordinatorActionProposal,
   label: string,
 ) {

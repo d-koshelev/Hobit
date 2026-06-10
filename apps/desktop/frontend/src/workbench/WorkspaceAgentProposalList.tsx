@@ -27,6 +27,7 @@ export function WorkspaceAgentProposalList({
   onCreateQueueTask,
   onCreateSkill,
   onEditProposal,
+  onOpenQueueTask,
   onRejectProposal,
   proposalIds,
   proposals,
@@ -45,6 +46,7 @@ export function WorkspaceAgentProposalList({
     proposalId: string,
     patch: WorkspaceAgentProposalPatch,
   ) => void;
+  onOpenQueueTask?: (queueItemId: string) => void;
   onRejectProposal: (proposalId: string) => void;
   proposalIds: string[];
   proposals: Record<string, CoordinatorActionProposal>;
@@ -76,6 +78,7 @@ export function WorkspaceAgentProposalList({
             onCreateQueueTask={onCreateQueueTask}
             onCreateSkill={onCreateSkill}
             onEdit={onEditProposal}
+            onOpenQueueTask={onOpenQueueTask}
             onReject={onRejectProposal}
             proposal={proposal}
           />

@@ -579,6 +579,100 @@ describe("InteractiveAgentPlaceholderWidget Queue API actions", () => {
     expect(document.body.textContent).not.toContain("validate.ps1");
   });
 
+  it("creates a Queue task from a Workspace Agent proposal through the typed bridge only after explicit create", async () => {
+    const createItem = vi.fn(
+      async (request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        itemResult("queue.createItem", {
+          executionPolicy: request.executionPolicy,
+          id: "queue-proposal-created",
+          priority: request.priority,
+          prompt: request.prompt,
+          status: request.status,
+          title: request.title,
+        }),
+    );
+    const legacyCreate = vi.fn();
+    const openQueueItem = vi.fn();
+    const runAutonomousQueue = vi.fn();
+    const bridge = queueBridge({ createItem, runAutonomousQueue });
+
+    renderWidget({
+      onCreateAgentQueueTask: legacyCreate,
+      onOpenAgentQueueItem: openQueueItem,
+      workspaceAgentQueueBridge: bridge,
+    });
+
+    await sendWorkspaceAgentMessage(
+      [
+        "Break this into Queue tasks from visible text only.",
+        "- Visible task using only chat",
+      ].join("\n"),
+    );
+
+    expect(document.body.textContent).toContain("Draft Queue task");
+    expect(buttonWithText("Create Queue task")).toBeUndefined();
+    expect(createItem).not.toHaveBeenCalled();
+
+    await clickButton("Approve");
+
+    expect(buttonWithText("Create Queue task")).toBeDefined();
+    expect(createItem).not.toHaveBeenCalled();
+
+    await clickButton("Create Queue task");
+
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        description:
+          "Drafted from visible Workspace Agent chat: Visible task using only chat",
+        executionPolicy: "manual",
+        priority: 0,
+        prompt: [
+          "Visible task using only chat",
+          "",
+          "Use only the task prompt and explicit operator-provided context. Do not run hidden tools, mutate Git, or assume hidden Workspace context.",
+        ].join("\n"),
+        status: "draft",
+        title: "Visible task using only chat",
+      }),
+    );
+    expect(legacyCreate).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Created Queue task");
+    expect(document.body.textContent).toContain("queue-proposal-created");
+    expect(document.body.textContent).toContain("Created, not started");
+    expect(document.body.textContent).toContain("lane/status draft");
+
+    await clickButton("Open task");
+
+    expect(openQueueItem).toHaveBeenCalledWith("queue-proposal-created");
+  });
+
+  it("rejects an empty Workspace Agent Queue proposal prompt without creating a task", async () => {
+    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const bridge = queueBridge({ createItem });
+
+    renderWidget({ workspaceAgentQueueBridge: bridge });
+
+    await sendWorkspaceAgentMessage(
+      [
+        "Break this into Queue tasks from visible text only.",
+        "- Visible task using only chat",
+      ].join("\n"),
+    );
+    await clickButton("Approve");
+    await clickButton("Edit");
+    await setProposalInputValue("Prompt", "   ");
+    await clickButton("Save changes");
+    await clickButton("Approve");
+    await clickButton("Create Queue task");
+
+    expect(createItem).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Queue task prompt is required. No Queue task was created.",
+    );
+  });
+
   it("renders a create Queue intent draft from visible Workspace Agent text", async () => {
     renderWidget({ workspaceAgentQueueBridge: queueBridge() });
 
@@ -895,6 +989,28 @@ async function sendWorkspaceAgentMessage(message: string, buttonText = "Send") {
   });
 
   await clickButton(buttonText);
+}
+
+async function setProposalInputValue(labelText: string, value: string) {
+  const label = Array.from(
+    document.querySelectorAll<HTMLLabelElement>(
+      ".coordinator-proposal-label",
+    ),
+  ).find(
+    (candidate) =>
+      candidate.childNodes[0]?.textContent?.trim() === labelText,
+  );
+  const field = label?.querySelector<HTMLTextAreaElement>("textarea");
+  if (!field) {
+    throw new Error(`Proposal input not found: ${labelText}`);
+  }
+
+  await act(async () => {
+    setNativeValue(field, value);
+    field.dispatchEvent(new Event("input", { bubbles: true }));
+    field.dispatchEvent(new Event("change", { bubbles: true }));
+    await Promise.resolve();
+  });
 }
 
 function queueIntentBlock(intent: Record<string, unknown>) {

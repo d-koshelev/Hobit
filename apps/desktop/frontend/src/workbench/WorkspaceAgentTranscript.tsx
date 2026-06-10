@@ -241,6 +241,7 @@ export function WorkspaceAgentTranscript({
               onCreateQueueTask={onCreateQueueTask}
               onCreateSkill={onCreateSkill}
               onEditProposal={onEditProposal}
+              onOpenQueueTask={onOpenAgentQueueItem}
               onRejectProposal={onRejectProposal}
               proposalIds={message.proposalIds}
               proposals={proposals}

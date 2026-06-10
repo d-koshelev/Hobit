@@ -1,7 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { CoordinatorActionProposal } from "./coordinatorActionProposalRegistry";
+import type {
+  QueueWidgetActionResult,
+  QueueWidgetItemSnapshot,
+} from "./queue/agentQueueWidgetApiTypes";
 import type { WidgetRenderProps } from "./types";
+import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import {
   runCreateKnowledgeDocumentProposal,
   runCreateNoteProposal,
@@ -21,25 +26,24 @@ describe("workspaceAgentProposalCreationActions", () => {
       ],
     });
     const state = proposalCreationState(proposal);
-    const deferred = createDeferred<Awaited<ReturnType<NonNullable<WidgetRenderProps["onCreateAgentQueueTask"]>>>>();
-    const onCreateAgentQueueTask: NonNullable<
-      WidgetRenderProps["onCreateAgentQueueTask"]
-    > = vi.fn(() => deferred.promise);
+    const deferred =
+      createDeferred<QueueWidgetActionResult<QueueWidgetItemSnapshot>>();
+    const createItem = vi.fn(() => deferred.promise);
 
     const run = runCreateQueueTaskProposal({
-      onCreateAgentQueueTask,
       pendingProposalIds: state.pendingIds,
       proposalId: proposal.id,
       proposals: state.proposals,
       setPendingProposalIds: state.setPendingIds,
       setProposals: state.setProposals,
+      workspaceAgentQueueBridge: queueBridge({ createItem }),
     });
 
     expect(state.pendingIds.has(proposal.id)).toBe(true);
     expect(state.proposals[proposal.id].executionStatus).toBe(
       "Creating Queue task",
     );
-    expect(onCreateAgentQueueTask).toHaveBeenCalledWith({
+    expect(createItem).toHaveBeenCalledWith({
       description: "Visible description",
       executionPolicy: "after_previous_success",
       priority: 3,
@@ -48,7 +52,7 @@ describe("workspaceAgentProposalCreationActions", () => {
       title: "Queue draft",
     });
 
-    deferred.resolve(queueTaskResult());
+    deferred.resolve(queueItemActionResult());
     await run;
 
     expect(state.pendingIds.has(proposal.id)).toBe(false);
@@ -121,9 +125,7 @@ describe("workspaceAgentProposalCreationActions", () => {
   it("refuses unavailable callbacks and wrong proposal families without running a create callback", async () => {
     const noteProposal = approvedProposal("create-note");
     const state = proposalCreationState(noteProposal);
-    const onCreateAgentQueueTask: NonNullable<
-      WidgetRenderProps["onCreateAgentQueueTask"]
-    > = vi.fn(async () => queueTaskResult());
+    const createItem = vi.fn(async () => queueItemActionResult());
 
     await runCreateKnowledgeDocumentProposal({
       onCreateKnowledgeDocument: undefined,
@@ -138,14 +140,14 @@ describe("workspaceAgentProposalCreationActions", () => {
     );
 
     await runCreateQueueTaskProposal({
-      onCreateAgentQueueTask,
       pendingProposalIds: state.pendingIds,
       proposalId: noteProposal.id,
       proposals: state.proposals,
       setPendingProposalIds: state.setPendingIds,
       setProposals: state.setProposals,
+      workspaceAgentQueueBridge: queueBridge({ createItem }),
     });
-    expect(onCreateAgentQueueTask).not.toHaveBeenCalled();
+    expect(createItem).not.toHaveBeenCalled();
 
     await runCreateNoteProposal({
       onCreateWorkspaceNote: undefined,
@@ -323,19 +325,55 @@ function readyStatus(typeId: CoordinatorActionProposal["typeId"]) {
   return "Not run";
 }
 
-function queueTaskResult() {
+function queueBridge(
+  overrides: Partial<WorkspaceAgentQueueBridge> = {},
+): WorkspaceAgentQueueBridge {
   return {
-    assignedExecutorWidgetId: null,
-    createdAt: "2026-01-01T00:00:00Z",
+    createItem: vi.fn(async () => queueItemActionResult()),
+    getSnapshot: vi.fn(),
+    updateItem: vi.fn(),
+    ...overrides,
+  } as WorkspaceAgentQueueBridge;
+}
+
+function queueItemActionResult(
+  overrides: Partial<QueueWidgetItemSnapshot> = {},
+): QueueWidgetActionResult<QueueWidgetItemSnapshot> {
+  const item: QueueWidgetItemSnapshot = {
+    blockers: [],
+    dependencies: [],
     description: "Visible description",
-    executionPolicy: "manual" as const,
+    evidenceSummary: {
+      runRefs: [],
+      status: "none",
+    },
+    executionPolicy: "manual",
+    executionStatus: "draft",
+    id: "queue_1",
     priority: 0,
     prompt: "Visible prompt",
-    queueItemId: "queue_1",
-    status: "draft" as const,
+    queueId: "queue",
+    queueTag: {
+      id: null,
+      name: null,
+    },
+    reportSummary: {
+      status: "none",
+    },
+    runLinks: [],
+    status: "draft",
     title: "Created Queue task",
-    updatedAt: "2026-01-01T00:00:00Z",
     workspaceId: "workspace_1",
+    ...overrides,
+  };
+
+  return {
+    action: "queue.createItem",
+    events: [],
+    item,
+    message: "Created Queue item. No task execution started.",
+    ok: true,
+    safetyClass: "safe_create_update",
   };
 }
 
