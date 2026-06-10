@@ -539,6 +539,17 @@ unless the task explicitly requests it.
   storage/schema changes, Queue scheduling, validation execution, diff review
   execution, rollback execution, Git mutation, Terminal launch, provider
   tools, or Workspace Agent/QueueV2/KnowledgeV2 replacement behavior.
+- `docs/VALIDATION_RUNNER_EVIDENCE_STATUS.md` - docs-only status record for
+  Validation Runner / Evidence Block 001. It records the validation audit,
+  typed command/evidence model, runner service/adapter, Queue evidence
+  attachment through existing Queue report state, Workspace Chat validation
+  controls/cards, QueueV2 evidence display, explicit-only run behavior,
+  output caps, unsupported states, manual smoke checklist, and remaining
+  durable evidence ledger, full log ref, cancellation/timeout, diff review,
+  and coordinator finalization gating gaps. It does not add frontend behavior,
+  backend/runtime behavior, storage/schema changes, Queue scheduling,
+  dependency execution, Git mutation, Terminal launch, provider tools, or
+  Workspace Agent/QueueV2 replacement behavior.
 - `docs/WORKSPACE_AGENT_UI_POLISH_STATUS.md` - docs-only status record for
   movable popup, Agent Activity alignment, and compact Workspace Agent run
   summary polish. It records manual smoke steps, non-goals, and follow-ups
