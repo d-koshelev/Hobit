@@ -550,6 +550,15 @@ unless the task explicitly requests it.
   backend/runtime behavior, storage/schema changes, Queue scheduling,
   dependency execution, Git mutation, Terminal launch, provider tools, or
   Workspace Agent/QueueV2 replacement behavior.
+- `docs/DIFF_REVIEW_WORKFLOW_STATUS.md` - docs-only status record for Diff
+  Review Item Workflow Block 001. It records the audit, model/checklist, input
+  snapshot resolver, explicit Queue item creation, Workspace Chat action/card,
+  QueueV2 display, expected no-auto-run/read-only behavior, manual smoke
+  checklist, remaining execution/report-parsing/finalization/rollback/live-diff
+  gaps, and recommended next blocks. It does not add frontend behavior,
+  backend/runtime behavior, storage/schema changes, Queue scheduling, Agent
+  Executor execution, Git mutation, Terminal launch, provider tools,
+  automatic finalization, commit, push, rollback, or dependency unblocking.
 - `docs/WORKSPACE_AGENT_UI_POLISH_STATUS.md` - docs-only status record for
   movable popup, Agent Activity alignment, and compact Workspace Agent run
   summary polish. It records manual smoke steps, non-goals, and follow-ups
