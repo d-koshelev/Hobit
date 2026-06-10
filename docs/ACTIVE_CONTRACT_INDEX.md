@@ -519,6 +519,16 @@ unless the task explicitly requests it.
   behavior, safety boundaries, manual smoke checklist, and recommended next
   blocks. It does not add runtime behavior, Queue scheduler/Autorun behavior,
   Direct Run behavior, Claude/Amp providers, or replace Workspace Agent V1.
+- `docs/WORKSPACE_CHAT_QUEUE_CONTROL_STATUS.md` - docs-only status record for
+  Workspace Chat -> Queue Control Block 001. It records the audit, typed Queue
+  action model/service, create-task-from-chat behavior, Queue status/report
+  cards, explicit Queue control actions, unsupported validation/diff review/
+  rollback states, unchanged Queue runtime/scheduler semantics, manual smoke
+  checklist, and recommended next functional blocks. It does not add frontend
+  behavior, backend/runtime behavior, storage/schema changes, Queue scheduling,
+  validation execution, diff review execution, rollback execution, Git
+  mutation, Terminal launch, provider tools, or Workspace Agent/KnowledgeV2
+  replacement behavior.
 - `docs/WORKSPACE_AGENT_UI_POLISH_STATUS.md` - docs-only status record for
   movable popup, Agent Activity alignment, and compact Workspace Agent run
   summary polish. It records manual smoke steps, non-goals, and follow-ups
