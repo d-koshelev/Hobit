@@ -16,6 +16,11 @@ Future UI work must preserve `docs/DESIGN_SYSTEM_CONTRACT.md`,
 cross-surface hard rules for spacing, layout, popups, lists, actions, status,
 context attachment, and agent-generated UI.
 
+For the current reuse inventory and high-traffic surface map, see
+`docs/UI_SHARED_PRIMITIVES_INDEX.md`. Future UI work must check that index
+before reimplementing local frames, popups, action groups, lists, tables,
+cards, badges, menus, confirmations, empty states, or context pickers.
+
 ## Core Principle
 
 Hobit UI is dense, operator-focused, and dark-theme-first, but never cramped,
