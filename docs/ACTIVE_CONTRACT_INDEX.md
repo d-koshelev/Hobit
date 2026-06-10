@@ -185,6 +185,15 @@ of truth for their domains.
   follow-ups. It does not add frontend behavior, backend/Rust/Tauri/storage/
   schema changes, Queue/Workspace Agent runtime behavior, automatic context
   injection, or Knowledge data changes.
+- `docs/KNOWLEDGE_V2_PRODUCT_SURFACE_CORRECTION_STATUS.md` - docs-only status
+  record for the KnowledgeV2 product-surface correction after popup-only
+  manual smoke. It records the catalog-only main surface, wide/bounded item
+  details popup, simplified copy and warnings, row actions product menu,
+  topbar/catalog layout correction, manual smoke checklist, and remaining
+  follow-ups. It does not add frontend behavior, backend/Rust/Tauri/storage/
+  schema changes, Queue/Workspace Agent runtime behavior, hidden context
+  injection, automatic create/import/attach/run behavior, or a route back to
+  the legacy Knowledge / Skills surface.
 - `docs/testing/DEV_SMOKE_ENTRYPOINTS.md` - dev-only Vite HTML smoke entry
   points under `apps/desktop/frontend/smoke/dev/`; these are not product
   routes, production widget surfaces, or e2e automation.
