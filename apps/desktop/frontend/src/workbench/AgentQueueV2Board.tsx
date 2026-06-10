@@ -37,6 +37,7 @@ type AgentQueueV2BoardProps = {
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
+  onShowQueueTaskInWorkspaceChat?: (task: AgentQueueTask) => void;
   pausedQueueTagIds: ReadonlySet<string>;
   queue?: AgentQueueController;
   selectedTask: AgentQueueTask | null;
@@ -66,6 +67,7 @@ export function AgentQueueV2Board({
   onRequestNewTask,
   onSelectTask,
   onShowQueueReportInWorkspaceChat,
+  onShowQueueTaskInWorkspaceChat,
   pausedQueueTagIds,
   queue,
   selectedTask,
@@ -231,6 +233,7 @@ export function AgentQueueV2Board({
         onRequestNewTask={onRequestNewTask}
         onRequestClose={() => setDetailsTaskId(null)}
         onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+        onShowQueueTaskInWorkspaceChat={onShowQueueTaskInWorkspaceChat}
         queue={queue}
         returnFocusRef={detailsReturnFocusRef}
         taskViewModel={detailTaskViewModel}

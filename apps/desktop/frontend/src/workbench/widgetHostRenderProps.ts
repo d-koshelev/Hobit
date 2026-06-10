@@ -16,6 +16,7 @@ import { terminalWidgetProps } from "./widgetProps/terminalWidgetProps";
 import { workspaceAgentWidgetProps } from "./widgetProps/workspaceAgentWidgetProps";
 import type {
   AgentQueueReportActionCard,
+  AgentQueueTask,
 } from "../workspace/types";
 import type {
   AgentExecutorRunOpenRequest,
@@ -25,6 +26,7 @@ import type {
   CoordinatorAttachedContextInput,
   CoordinatorAttachedContextRequest,
   WorkspaceAgentQueueReportActionCardRequest,
+  WorkspaceAgentQueueTaskStatusCardRequest,
   WidgetInstanceId,
   WidgetRenderProps,
 } from "./types";
@@ -50,6 +52,7 @@ type WidgetHostRenderPropsOptions = {
   componentKey: string;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
+  queueTaskStatusCardRequest: WorkspaceAgentQueueTaskStatusCardRequest | null;
   directWorkGitReview: DirectWorkGitReviewHandoff;
   directWorkRunHandoff: DirectWorkRunHandoffController;
   hasGitWidget: boolean;
@@ -60,6 +63,7 @@ type WidgetHostRenderPropsOptions = {
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
+  onShowQueueTaskInWorkspaceChat?: (task: AgentQueueTask) => void;
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onOpenAgentExecutorRun: (
     request: AgentExecutorRunOpenRequestInput,
@@ -77,12 +81,14 @@ export function widgetHostRenderProps({
   componentKey,
   coordinatorAttachedContextRequest,
   queueReportActionCardRequest,
+  queueTaskStatusCardRequest,
   directWorkGitReview,
   directWorkRunHandoff,
   hasGitWidget,
   instanceId,
   onAttachContextToCoordinator,
   onShowQueueReportInWorkspaceChat,
+  onShowQueueTaskInWorkspaceChat,
   onOpenAgentQueueItem,
   onOpenAgentExecutorRun,
   onPublishAgentActivityEvents,
@@ -108,6 +114,7 @@ export function widgetHostRenderProps({
         agentExecutorSlots: workspaceQueueApi.queueExecutorSlots,
         onAttachContextToCoordinator,
         onShowQueueReportInWorkspaceChat,
+        onShowQueueTaskInWorkspaceChat,
         onOpenAgentExecutorRun,
       }),
     };
@@ -156,6 +163,7 @@ export function widgetHostRenderProps({
         onOpenAgentQueueItem,
         onPublishAgentActivityEvents,
         queueReportActionCardRequest,
+        queueTaskStatusCardRequest,
         workspaceQueueApi,
       }),
     };

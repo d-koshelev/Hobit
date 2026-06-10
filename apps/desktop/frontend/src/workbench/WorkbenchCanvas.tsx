@@ -17,6 +17,7 @@ import { agentExecutorSlotsFromWidgets } from "./agentQueueTaskUiModel";
 import { coordinatorNotesWidgetsForCanvasWidth } from "./presets";
 import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
+import { useWorkspaceAgentQueueChatRequests } from "./useWorkspaceAgentQueueChatRequests";
 import { useWorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import {
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
@@ -31,12 +32,10 @@ import type {
   AgentQueueItemOpenRequest,
   CoordinatorAttachedContextInput,
   CoordinatorAttachedContextRequest,
-  WorkspaceAgentQueueReportActionCardRequest,
   WidgetInstanceId,
   WorkbenchLayoutMode,
   WorkbenchViewState,
 } from "./types";
-import type { AgentQueueReportActionCard } from "../workspace/types";
 import {
   clampPopoutPosition,
   defaultPopoutPosition,
@@ -96,11 +95,6 @@ export function WorkbenchCanvas({
     coordinatorAttachedContextRequest,
     setCoordinatorAttachedContextRequest,
   ] = useState<CoordinatorAttachedContextRequest | null>(null);
-  const queueReportActionCardRequestIdRef = useRef(0);
-  const [
-    queueReportActionCardRequest,
-    setQueueReportActionCardRequest,
-  ] = useState<WorkspaceAgentQueueReportActionCardRequest | null>(null);
   const userFacingWidgets = viewState.widgets.filter((widget) =>
     isUserFacingWidgetDefinition(widget.definitionId),
   );
@@ -125,6 +119,9 @@ export function WorkbenchCanvas({
     directWorkRunHandoff,
     queueWidgetInstanceId: queueWidget?.id ?? null,
     workspaceId: viewState.workspace.id,
+  });
+  const queueChatRequests = useWorkspaceAgentQueueChatRequests({
+    coordinatorWidgetId: coordinatorWidget?.id ?? null,
   });
   const canvasLabel = `${viewState.workbench.preset.title} canvas`;
   const isLayoutEditing = layoutMode === "editing";
@@ -432,31 +429,6 @@ export function WorkbenchCanvas({
     });
   }
 
-  function showQueueReportInWorkspaceChat(card: AgentQueueReportActionCard) {
-    if (!coordinatorWidget) {
-      return;
-    }
-
-    const target =
-      typeof document === "undefined"
-        ? null
-        : Array.from(
-            document.querySelectorAll<HTMLElement>("[data-widget-instance-id]"),
-          ).find(
-            (element) => element.dataset.widgetInstanceId === coordinatorWidget.id,
-          );
-
-    target?.scrollIntoView({
-      block: "nearest",
-      inline: "nearest",
-    });
-    setQueueReportActionCardRequest({
-      card,
-      id: ++queueReportActionCardRequestIdRef.current,
-      targetCoordinatorWidgetInstanceId: coordinatorWidget.id,
-    });
-  }
-
   function openAgentQueueItem(queueItemId: string) {
     if (!queueWidget) {
       return;
@@ -588,7 +560,10 @@ export function WorkbenchCanvas({
                             coordinatorAttachedContextRequest
                           }
                           queueReportActionCardRequest={
-                            queueReportActionCardRequest
+                            queueChatRequests.queueReportActionCardRequest
+                          }
+                          queueTaskStatusCardRequest={
+                            queueChatRequests.queueTaskStatusCardRequest
                           }
                           directWorkGitReview={directWorkGitReview}
                           directWorkRunHandoff={directWorkRunHandoff}
@@ -603,7 +578,12 @@ export function WorkbenchCanvas({
                           }
                           onShowQueueReportInWorkspaceChat={
                             coordinatorWidget
-                              ? showQueueReportInWorkspaceChat
+                              ? queueChatRequests.showQueueReportInWorkspaceChat
+                              : undefined
+                          }
+                          onShowQueueTaskInWorkspaceChat={
+                            coordinatorWidget
+                              ? queueChatRequests.showQueueTaskInWorkspaceChat
                               : undefined
                           }
                           onOpenAgentQueueItem={
@@ -636,7 +616,10 @@ export function WorkbenchCanvas({
                           coordinatorAttachedContextRequest
                         }
                         queueReportActionCardRequest={
-                          queueReportActionCardRequest
+                          queueChatRequests.queueReportActionCardRequest
+                        }
+                        queueTaskStatusCardRequest={
+                          queueChatRequests.queueTaskStatusCardRequest
                         }
                         dockedSize={dockedSize}
                         directWorkGitReview={directWorkGitReview}
@@ -652,7 +635,12 @@ export function WorkbenchCanvas({
                         }
                         onShowQueueReportInWorkspaceChat={
                           coordinatorWidget
-                            ? showQueueReportInWorkspaceChat
+                            ? queueChatRequests.showQueueReportInWorkspaceChat
+                            : undefined
+                        }
+                        onShowQueueTaskInWorkspaceChat={
+                          coordinatorWidget
+                            ? queueChatRequests.showQueueTaskInWorkspaceChat
                             : undefined
                         }
                         onOpenAgentQueueItem={

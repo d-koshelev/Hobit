@@ -24,6 +24,7 @@ import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff
 import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type {
   AgentQueueReportActionCard,
+  AgentQueueTask,
 } from "../workspace/types";
 import type {
   WidgetInstance,
@@ -38,6 +39,7 @@ import type {
   CoordinatorAttachedContextInput,
   CoordinatorAttachedContextRequest,
   WorkspaceAgentQueueReportActionCardRequest,
+  WorkspaceAgentQueueTaskStatusCardRequest,
 } from "./types";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
@@ -92,6 +94,7 @@ type WidgetHostProps = {
   agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
+  queueTaskStatusCardRequest: WorkspaceAgentQueueTaskStatusCardRequest | null;
   agentExecutorSlots: AgentExecutorSlot[];
   instance: WidgetInstance;
   layoutMode: WorkbenchLayoutMode;
@@ -106,6 +109,7 @@ type WidgetHostProps = {
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
+  onShowQueueTaskInWorkspaceChat?: (task: AgentQueueTask) => void;
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
   onStartDockedDrag: (
@@ -134,6 +138,7 @@ export function WidgetHost({
   agentQueueItemOpenRequest,
   coordinatorAttachedContextRequest,
   queueReportActionCardRequest,
+  queueTaskStatusCardRequest,
   agentExecutorSlots,
   instance,
   layoutMode,
@@ -141,6 +146,7 @@ export function WidgetHost({
   onOpenAgentExecutorRun,
   onAttachContextToCoordinator,
   onShowQueueReportInWorkspaceChat,
+  onShowQueueTaskInWorkspaceChat,
   onOpenAgentQueueItem,
   onPublishAgentActivityEvents,
   onStartDockedDrag,
@@ -246,12 +252,14 @@ export function WidgetHost({
     componentKey: definition.componentKey,
     coordinatorAttachedContextRequest,
     queueReportActionCardRequest,
+    queueTaskStatusCardRequest,
     directWorkGitReview,
     directWorkRunHandoff,
     hasGitWidget,
     instanceId: instance.id,
     onAttachContextToCoordinator,
     onShowQueueReportInWorkspaceChat,
+    onShowQueueTaskInWorkspaceChat,
     onOpenAgentQueueItem,
     onOpenAgentExecutorRun,
     onPublishAgentActivityEvents,

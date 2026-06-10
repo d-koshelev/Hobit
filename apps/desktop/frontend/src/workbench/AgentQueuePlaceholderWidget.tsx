@@ -42,6 +42,7 @@ export function AgentQueuePlaceholderWidget({
   onListKnowledgeDraftReviews,
   onRecordKnowledgeDraftReview,
   onShowQueueReportInWorkspaceChat,
+  onShowQueueTaskInWorkspaceChat,
   onStartFrameMove,
   title,
 }: WidgetRenderProps) {
@@ -248,6 +249,7 @@ export function AgentQueuePlaceholderWidget({
               onRequestNewTask={openCreateTaskDialog}
               onSelectTask={(queueItemId) => void selectTask(queueItemId)}
               onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+              onShowQueueTaskInWorkspaceChat={onShowQueueTaskInWorkspaceChat}
               pausedQueueTagIds={queue.foundation.pausedQueueTagIds}
               queue={queue}
               selectedTask={selectedTask}

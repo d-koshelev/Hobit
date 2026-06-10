@@ -1,5 +1,8 @@
 import type { GitRepositoryStatus } from "../workspace/types";
-import type { AgentQueueReportActionCard } from "../workspace/types";
+import type {
+  AgentQueueReportActionCard,
+  AgentQueueTask,
+} from "../workspace/types";
 
 export type WidgetCategory =
   | "observability"
@@ -242,6 +245,12 @@ export type WorkspaceAgentQueueReportActionCardRequest = {
   card: AgentQueueReportActionCard;
   id: number;
   targetCoordinatorWidgetInstanceId: WidgetInstanceId;
+};
+
+export type WorkspaceAgentQueueTaskStatusCardRequest = {
+  id: number;
+  targetCoordinatorWidgetInstanceId: WidgetInstanceId;
+  task: AgentQueueTask;
 };
 
 export type AgentQueueItemOpenRequest = {

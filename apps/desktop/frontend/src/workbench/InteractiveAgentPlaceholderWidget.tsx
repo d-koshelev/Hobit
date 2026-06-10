@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
 import type { CoordinatorActionProposal } from "./coordinatorActionProposalRegistry";
-import type { AgentQueueReportActionCard, AgentQueueReportActionType } from "../workspace/types";
+import type { AgentQueueReportActionCard, AgentQueueReportActionType, AgentQueueTask } from "../workspace/types";
 import {
   generateLocalCoordinatorProposals,
   type CoordinatorOutcomeReviewDraft,
@@ -62,6 +62,7 @@ import {
   runCreateSkillProposal,
 } from "./workspaceAgentProposalCreationActions";
 import { useWorkspaceAgentDirectWorkController } from "./useWorkspaceAgentDirectWorkController";
+import { useWorkspaceAgentQueueCardRequests } from "./useWorkspaceAgentQueueCardRequests";
 
 type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
 
@@ -72,6 +73,7 @@ export function InteractiveAgentPlaceholderWidget({
   frameMoveEnabled,
   frameStyle,
   instance,
+  agentQueueController,
   agentActivityEvents,
   logRefreshToken,
   onCreateAgentQueueTask,
@@ -90,6 +92,7 @@ export function InteractiveAgentPlaceholderWidget({
   onStartCodexDirectWorkStream,
   onUpdateAgentQueueTask,
   queueReportActionCardRequest,
+  queueTaskStatusCardRequest,
   workspaceAgentQueueBridge,
   onStartFrameMove,
   title,
@@ -185,36 +188,26 @@ export function InteractiveAgentPlaceholderWidget({
     window.setTimeout(() => textareaRef.current?.focus(), 0);
   }, [coordinatorAttachedContextRequest?.id]);
 
-  useEffect(() => {
-    if (!queueReportActionCardRequest) {
-      return;
-    }
-
-    const card = queueReportActionCardRequest.card;
-    setQueueReportCards((currentCards) => ({
-      ...currentCards,
-      [card.cardId]: card,
-    }));
-    setMessages((currentMessages) => [
-      ...currentMessages,
+  useWorkspaceAgentQueueCardRequests({
+    createMessage: (input) =>
       createLocalMessage(
         "assistant",
-        "Report received. Coordinator action required. No final status applied.",
+        input.body,
         undefined,
         undefined,
         undefined,
         undefined,
-        card.cardId,
+        input.queueReportCardId,
+        undefined,
+        undefined,
+        input.queueTaskStatusCard,
       ),
-    ]);
-    window.setTimeout(() => {
-      const messageList = messageListRef.current;
-
-      if (messageList) {
-        messageList.scrollTop = messageList.scrollHeight;
-      }
-    }, 0);
-  }, [queueReportActionCardRequest?.id]);
+    messageListRef,
+    queueReportActionCardRequest,
+    queueTaskStatusCardRequest,
+    setMessages,
+    setQueueReportCards,
+  });
   function createLocalMessage(
     role: InteractiveAgentMessage["role"],
     body: string,
@@ -225,6 +218,7 @@ export function InteractiveAgentPlaceholderWidget({
     queueReportCardId?: string,
     queueActionResultId?: string,
     queueIntentDraftIds?: string[],
+    queueTaskStatusCard?: AgentQueueTask,
   ): InteractiveAgentMessage {
     const id = `local-${nextMessageId.current}`;
     nextMessageId.current += 1;
@@ -237,6 +231,7 @@ export function InteractiveAgentPlaceholderWidget({
       queueActionResultId,
       queueIntentDraftIds,
       queueReportCardId,
+      queueTaskStatusCard,
       reviewId,
       role,
       body,
@@ -824,6 +819,7 @@ export function InteractiveAgentPlaceholderWidget({
           onPatchQueueIntentDraft={patchQueueIntentDraft}
           onQueueActionResult={recordQueueActionResult}
           onQueueReportActionResult={recordQueueReportActionResult}
+          onViewQueueTaskReport={onOpenAgentQueueItem}
           onRejectProposal={rejectProposal}
           onSuggestionClick={useSuggestedPrompt}
           onUpdateQueueTaskFromReportCard={onUpdateAgentQueueTask}
@@ -836,6 +832,7 @@ export function InteractiveAgentPlaceholderWidget({
           reviews={reviews}
           suggestedPrompts={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
           transcriptRef={messageListRef}
+          queueController={agentQueueController}
           workspaceAgentQueueBridge={workspaceAgentQueueBridge}
         />
 

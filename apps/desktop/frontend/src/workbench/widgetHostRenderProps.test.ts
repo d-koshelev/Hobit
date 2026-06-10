@@ -423,6 +423,7 @@ function renderPropsFor(
     componentKey,
     coordinatorAttachedContextRequest: null,
     queueReportActionCardRequest: null,
+    queueTaskStatusCardRequest: null,
     directWorkGitReview: directWorkGitReviewHandoff(),
     directWorkRunHandoff: directWorkRunHandoffController(),
     hasGitWidget: false,

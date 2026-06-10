@@ -259,6 +259,7 @@ function widgetHostProps(
     onStartPopoutDrag: vi.fn(),
     presentationMode: "docked" as const,
     queueReportActionCardRequest: null,
+    queueTaskStatusCardRequest: null,
     widgetActions: actions,
     workspaceId: "workspace_1",
     workspaceQueueApi: {

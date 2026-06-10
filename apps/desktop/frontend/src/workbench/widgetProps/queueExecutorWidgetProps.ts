@@ -3,6 +3,7 @@ import type { DirectWorkGitReviewHandoff } from "../useDirectWorkGitReviewHandof
 import type { DirectWorkRunHandoffController } from "../useDirectWorkRunHandoff";
 import type {
   AgentQueueReportActionCard,
+  AgentQueueTask,
 } from "../../workspace/types";
 import type {
   AgentExecutorRunOpenRequest,
@@ -48,6 +49,7 @@ type AgentQueueWidgetPropsOptions = {
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
+  onShowQueueTaskInWorkspaceChat?: (task: AgentQueueTask) => void;
   onOpenAgentExecutorRun: (
     request: AgentExecutorRunOpenRequestInput,
   ) => void;
@@ -73,6 +75,7 @@ export function agentQueueWidgetProps({
   agentExecutorSlots,
   onAttachContextToCoordinator,
   onShowQueueReportInWorkspaceChat,
+  onShowQueueTaskInWorkspaceChat,
   onOpenAgentExecutorRun,
 }: AgentQueueWidgetPropsOptions): Partial<WidgetRenderProps> {
   return {
@@ -85,6 +88,7 @@ export function agentQueueWidgetProps({
     onListKnowledgeDraftReviews: actions.listKnowledgeDraftReviews,
     onRecordKnowledgeDraftReview: actions.recordKnowledgeDraftReview,
     onShowQueueReportInWorkspaceChat,
+    onShowQueueTaskInWorkspaceChat,
     onOpenAgentExecutorRun,
   };
 }

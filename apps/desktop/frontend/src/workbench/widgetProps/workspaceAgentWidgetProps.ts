@@ -4,6 +4,7 @@ import type {
   WidgetInstanceId,
   WidgetRenderProps,
   WorkspaceAgentQueueReportActionCardRequest,
+  WorkspaceAgentQueueTaskStatusCardRequest,
 } from "../types";
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
 import type { WorkspaceQueueApi } from "../queue/useWorkspaceQueueApi";
@@ -31,6 +32,7 @@ type WorkspaceAgentWidgetPropsOptions = {
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
+  queueTaskStatusCardRequest: WorkspaceAgentQueueTaskStatusCardRequest | null;
   workspaceQueueApi: WorkspaceQueueApi;
 };
 
@@ -42,6 +44,7 @@ export function workspaceAgentWidgetProps({
   onOpenAgentQueueItem,
   onPublishAgentActivityEvents,
   queueReportActionCardRequest,
+  queueTaskStatusCardRequest,
   workspaceQueueApi,
 }: WorkspaceAgentWidgetPropsOptions): Partial<WidgetRenderProps> {
   return {
@@ -55,6 +58,11 @@ export function workspaceAgentWidgetProps({
       queueReportActionCardRequest?.targetCoordinatorWidgetInstanceId ===
       instanceId
         ? queueReportActionCardRequest
+        : undefined,
+    queueTaskStatusCardRequest:
+      queueTaskStatusCardRequest?.targetCoordinatorWidgetInstanceId ===
+      instanceId
+        ? queueTaskStatusCardRequest
         : undefined,
     onCancelCodexDirectWorkRun: actions.cancelCodexDirectWorkRun,
     onCreateAgentQueueTask: actions.createAgentQueueTask,
@@ -70,6 +78,7 @@ export function workspaceAgentWidgetProps({
     onSelectWorkspaceDirectory: actions.selectWorkspaceDirectory,
     onStartCodexDirectWorkStream: actions.startCodexDirectWorkStream,
     onUpdateAgentQueueTask: actions.updateAgentQueueTask,
+    agentQueueController: workspaceQueueApi.controller,
     workspaceAgentQueueBridge: workspaceQueueApi,
   };
 }

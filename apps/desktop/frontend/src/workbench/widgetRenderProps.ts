@@ -92,6 +92,7 @@ import type {
   CoordinatorAttachedContextInput,
   CoordinatorAttachedContextRequest,
   WorkspaceAgentQueueReportActionCardRequest,
+  WorkspaceAgentQueueTaskStatusCardRequest,
   DirectWorkGitReviewRequest,
   DirectWorkGitReviewRequestInput,
   DirectWorkGitReviewStatus,
@@ -121,6 +122,7 @@ export type WidgetRenderProps = {
   agentQueueItemOpenRequest?: AgentQueueItemOpenRequest | null;
   coordinatorAttachedContextRequest?: CoordinatorAttachedContextRequest | null;
   queueReportActionCardRequest?: WorkspaceAgentQueueReportActionCardRequest | null;
+  queueTaskStatusCardRequest?: WorkspaceAgentQueueTaskStatusCardRequest | null;
   frameActions?: ReactNode;
   frameMoveEnabled?: boolean;
   frameStyle?: CSSProperties;
@@ -388,6 +390,7 @@ export type WidgetRenderProps = {
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
+  onShowQueueTaskInWorkspaceChat?: (task: AgentQueueTask) => void;
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents?: (events: AgentActivityEvent[]) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;

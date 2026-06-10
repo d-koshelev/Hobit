@@ -33,6 +33,7 @@ import {
   type WorkspaceAgentQueueReportActionCardPatch,
   type WorkspaceAgentQueueReportActionResult,
 } from "./WorkspaceAgentQueueReportActionCard";
+import { WorkspaceAgentQueueTaskStatusCard } from "./WorkspaceAgentQueueTaskStatusCard";
 import {
   WorkspaceAgentQueueActionResultCard,
   WorkspaceAgentQueueIntentDraftCard,
@@ -41,6 +42,7 @@ import type {
   WorkspaceAgentQueueActionCardResult,
 } from "./workspaceAgentQueueActions";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import type { AgentQueueController } from "./queue/useAgentQueueController";
 import type {
   WorkspaceAgentQueueIntentDraft,
 } from "./workspaceAgentQueueIntent";
@@ -60,6 +62,7 @@ export type WorkspaceAgentTranscriptMessage = {
   queueActionResultId?: string;
   queueIntentDraftIds?: string[];
   queueReportCardId?: string;
+  queueTaskStatusCard?: AgentQueueTask;
   reviewId?: string;
   role: "operator" | "assistant";
   runMetadata?: WorkspaceAgentRunMetadata;
@@ -84,6 +87,7 @@ export function WorkspaceAgentTranscript({
   onPatchQueueIntentDraft,
   onQueueActionResult,
   onQueueReportActionResult,
+  onViewQueueTaskReport,
   onUpdateQueueTaskFromReportCard,
   onEditProposal,
   onRejectProposal,
@@ -94,6 +98,7 @@ export function WorkspaceAgentTranscript({
   queueIntentDrafts,
   queueReportActionResults,
   queueReportCards,
+  queueController,
   reviews,
   suggestedPrompts,
   transcriptRef,
@@ -128,6 +133,7 @@ export function WorkspaceAgentTranscript({
     actionType: AgentQueueReportActionType,
     result: WorkspaceAgentQueueReportActionResult,
   ) => void;
+  onViewQueueTaskReport?: (queueItemId: string) => void;
   onUpdateQueueTaskFromReportCard?: (
     request: Omit<UpdateAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<AgentQueueTask | null>;
@@ -146,6 +152,7 @@ export function WorkspaceAgentTranscript({
     Record<string, WorkspaceAgentQueueReportActionResult>
   >;
   queueReportCards: Record<string, AgentQueueReportActionCard>;
+  queueController?: AgentQueueController;
   reviews: Record<string, CoordinatorOutcomeReviewDraft>;
   suggestedPrompts: WorkspaceAgentSuggestedPrompt[];
   transcriptRef: Ref<HTMLDivElement>;
@@ -203,6 +210,14 @@ export function WorkspaceAgentTranscript({
               onPatchCard={onPatchQueueReportCard}
               onRecordActionResult={onQueueReportActionResult}
               onUpdateQueueTask={onUpdateQueueTaskFromReportCard}
+            />
+          ) : null}
+          {message.queueTaskStatusCard ? (
+            <WorkspaceAgentQueueTaskStatusCard
+              onOpenQueueItem={onOpenAgentQueueItem}
+              onViewReport={onViewQueueTaskReport}
+              queue={queueController}
+              task={message.queueTaskStatusCard}
             />
           ) : null}
           {message.queueActionResultId &&

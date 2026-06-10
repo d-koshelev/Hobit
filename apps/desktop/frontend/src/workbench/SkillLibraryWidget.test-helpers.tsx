@@ -115,6 +115,7 @@ export function renderWidgetThroughHost({
         onStartPopoutDrag={vi.fn()}
         presentationMode="docked"
         queueReportActionCardRequest={null}
+        queueTaskStatusCardRequest={null}
         widgetActions={actions}
         workspaceId="workspace_1"
         workspaceQueueApi={

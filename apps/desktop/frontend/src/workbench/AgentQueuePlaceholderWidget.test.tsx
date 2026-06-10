@@ -240,6 +240,7 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
       componentKey: AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
       coordinatorAttachedContextRequest: null,
       queueReportActionCardRequest: null,
+      queueTaskStatusCardRequest: null,
       directWorkGitReview: directWorkGitReviewHandoff(),
       directWorkRunHandoff: directWorkRunHandoffController(),
       hasGitWidget: false,

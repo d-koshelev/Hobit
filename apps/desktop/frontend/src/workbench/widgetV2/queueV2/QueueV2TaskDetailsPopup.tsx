@@ -34,6 +34,7 @@ type QueueV2TaskDetailsPopupProps = {
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
+  onShowQueueTaskInWorkspaceChat?: (task: AgentQueueTask) => void;
   queue?: AgentQueueController;
   returnFocusRef?: RefObject<HTMLElement | null>;
   taskViewModel: QueueTaskViewModel | null;
@@ -59,6 +60,7 @@ export function QueueV2TaskDetailsPopup({
   onRequestNewTask,
   onRequestClose,
   onShowQueueReportInWorkspaceChat,
+  onShowQueueTaskInWorkspaceChat,
   queue,
   returnFocusRef,
   taskViewModel,
@@ -125,6 +127,23 @@ export function QueueV2TaskDetailsPopup({
             aria-label="QueueV2 task explicit actions"
             className="queue-v2-task-details-action-buttons"
           >
+            <span className="queue-v2-task-details-action-item">
+              <Button
+                disabled={!onShowQueueTaskInWorkspaceChat}
+                onClick={() => onShowQueueTaskInWorkspaceChat?.(task)}
+                title={
+                  onShowQueueTaskInWorkspaceChat
+                    ? undefined
+                    : "Workspace Chat is unavailable in this Workbench."
+                }
+                variant="secondary"
+              >
+                Show in Chat
+              </Button>
+              {!onShowQueueTaskInWorkspaceChat ? (
+                <DisabledActionReason reason="Workspace Chat is unavailable in this Workbench." />
+              ) : null}
+            </span>
             {detailActions.map((action) => (
               <span
                 className="queue-v2-task-details-action-item"
