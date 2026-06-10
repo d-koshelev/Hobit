@@ -60,6 +60,14 @@ overflow behavior, action states, and manual smoke results. It does not add
 frontend behavior, CSS, backend APIs, storage/schema, tests, validation
 automation, or new widgets.
 
+`docs/UI_STANDARDS_STATUS.md` is the docs-only status record for the
+project-level UI standards block. It summarizes the UI current-state audit,
+design system contract, shared primitives index, agent UI implementation rules,
+review/self-test backlog, hard UI product decisions, recommended next
+implementation blocks, and manual review checklist. It does not add frontend
+behavior, CSS, backend APIs, storage/schema, tests, validation automation, or
+new widgets.
+
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
 examples for planning vocabulary only; current Finder behavior is governed by
@@ -679,6 +687,9 @@ the local executor flow visible to operators.
   rules for dense operator-focused dark-theme-first product surfaces,
   spacing, layout, popups, lists, actions, status, context attachment, and
   agent-generated UI.
+- `docs/UI_STANDARDS_STATUS.md` - docs-only status record for the completed
+  project-level UI standards block, hard UI decisions, recommended next
+  implementation blocks, and manual review checklist.
 - `docs/PRODUCT_UI_VISUAL_CONTRACT.md` - current product visual direction.
 - `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md` - Minimal, Operational, and
   Full / Expert display-level guidance when a widget surface grows.
