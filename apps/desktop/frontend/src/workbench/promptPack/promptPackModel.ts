@@ -27,7 +27,9 @@ export type PromptPackDiagnosticCode =
   | "missing_body"
   | "missing_item_id"
   | "numeric_dependency_suggestion"
+  | "no_selected_items"
   | "pack_metadata_missing"
+  | "unselected_dependency"
   | "unsupported_file"
   | "unresolved_dependency"
   | "dependency_cycle";
@@ -91,6 +93,54 @@ export type PromptPackImportPlan = {
   items: PromptPackImportItem[];
   pack: PromptPackMetadata;
   warnings: PromptPackDiagnostic[];
+};
+
+export type PromptPackDependencyGraphSummary = {
+  blockedSelectedItemCount: number;
+  edgeCount: number;
+  hasCycles: boolean;
+  leafItemCount: number;
+  maxDepth: number;
+  rootItemCount: number;
+  selectedItemCount: number;
+  totalItemCount: number;
+  unresolvedDependencyCount: number;
+};
+
+export type PromptPackModelRoute = {
+  itemIds: string[];
+  modelProfile: string;
+  reasoningEffort: string;
+  validatorProfile: string;
+};
+
+export type PromptPackImportPreviewModel = {
+  dependencyGraphSummary: PromptPackDependencyGraphSummary;
+  errors: PromptPackDiagnostic[];
+  expectedCommitTitles: string[];
+  importAvailable: boolean;
+  itemCount: number;
+  modelRouting: PromptPackModelRoute[];
+  pack: PromptPackMetadata;
+  selectedItemIds: string[];
+  selectedItems: PromptPackImportItem[];
+  sourceAdapter: PromptPackSourceAdapterStatus;
+  unselectedItems: PromptPackImportItem[];
+  unresolvedDependencies: PromptPackDiagnostic[];
+  validationCommands: string[];
+  warnings: PromptPackDiagnostic[];
+};
+
+export type PromptPackImportValidation = {
+  blockingErrors: PromptPackDiagnostic[];
+  canImport: boolean;
+  warnings: PromptPackDiagnostic[];
+};
+
+export type PromptPackSourceAdapterStatus = {
+  kind: "available" | "unavailable";
+  label: string;
+  message: string;
 };
 
 export type ParsePromptPackOptions = {
