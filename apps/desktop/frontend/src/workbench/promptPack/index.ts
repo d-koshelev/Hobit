@@ -9,6 +9,9 @@ export type {
   PromptPackImportPlan,
   PromptPackImportPreviewModel,
   PromptPackImportValidation,
+  PromptPackMaterializationDiagnostic,
+  PromptPackMaterializationDiagnosticCode,
+  PromptPackMaterializationResult,
   PromptPackMetadata,
   PromptPackModelRoute,
   PromptPackQueueDraft,
@@ -20,6 +23,10 @@ export {
   buildPromptPackImportPreview,
   validatePromptPackImportPlan,
 } from "./promptPackImportPreview";
+export {
+  materializePromptPackPreviewToQueue,
+  type MaterializePromptPackPreviewToQueueOptions,
+} from "./promptPackMaterialization";
 export { parsePromptPackImportPlan } from "./promptPackParser";
 export {
   PROMPT_PACK_FOLDER_OR_ZIP_SOURCE_STATUS,

@@ -56,6 +56,7 @@ export type PromptPackMetadata = {
 export type PromptPackImportItem = {
   allowedScope: string[];
   dependencies: string[];
+  executionWorkspace: string | null;
   expectedCommitTitle: string | null;
   forbiddenScope: string[];
   id: string;
@@ -78,6 +79,7 @@ export type PromptPackQueueDraft = {
   dependencies: string[];
   description: string;
   executionPolicy: AgentQueueTaskExecutionPolicy;
+  executionWorkspace?: string;
   itemType: AgentQueueTaskItemType;
   priority: number;
   prompt: string;
@@ -141,6 +143,46 @@ export type PromptPackSourceAdapterStatus = {
   kind: "available" | "unavailable";
   label: string;
   message: string;
+};
+
+export type PromptPackMaterializationDiagnosticCode =
+  | "dependency_link_failed"
+  | "dependency_link_skipped"
+  | "import_blocked"
+  | "item_create_failed"
+  | "metadata_preserved_in_prompt"
+  | "queue_blocked_status_unsupported"
+  | "queue_metadata_field_unsupported";
+
+export type PromptPackMaterializationDiagnostic = {
+  code: PromptPackMaterializationDiagnosticCode;
+  dependencyItemId?: string;
+  itemId?: string;
+  message: string;
+};
+
+export type PromptPackCreatedQueueTask = {
+  itemId: string;
+  queueItemId: string;
+  title: string;
+};
+
+export type PromptPackDependencyMaterializationLink = {
+  dependencyItemId: string;
+  dependencyQueueItemId?: string;
+  dependentItemId: string;
+  dependentQueueItemId?: string;
+  message?: string;
+  status: "created" | "skipped";
+};
+
+export type PromptPackMaterializationResult = {
+  createdTasks: PromptPackCreatedQueueTask[];
+  dependencyLinksCreated: PromptPackDependencyMaterializationLink[];
+  dependencyLinksSkipped: PromptPackDependencyMaterializationLink[];
+  errors: PromptPackMaterializationDiagnostic[];
+  ok: boolean;
+  warnings: PromptPackMaterializationDiagnostic[];
 };
 
 export type ParsePromptPackOptions = {

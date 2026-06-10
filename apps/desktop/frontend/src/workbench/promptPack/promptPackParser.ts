@@ -31,6 +31,7 @@ import {
 type ItemDraft = {
   allowedScope: string[];
   dependencies: string[];
+  executionWorkspace: string | null;
   expectedCommitTitle: string | null;
   forbiddenScope: string[];
   id: string | null;
@@ -53,6 +54,10 @@ const HEADER_ALIASES: Record<string, keyof ItemDraft> = {
   "block id": "id",
   "dependencies": "dependencies",
   "depends on": "dependencies",
+  "execution root": "executionWorkspace",
+  "execution workspace": "executionWorkspace",
+  "executionroot": "executionWorkspace",
+  "executionworkspace": "executionWorkspace",
   "expected commit title": "expectedCommitTitle",
   "expectedcommittitle": "expectedCommitTitle",
   "forbidden scope": "forbiddenScope",
@@ -63,8 +68,12 @@ const HEADER_ALIASES: Record<string, keyof ItemDraft> = {
   "modelprofile": "modelProfile",
   "model": "modelProfile",
   "priority": "priority",
+  "repository root": "executionWorkspace",
+  "repositoryroot": "executionWorkspace",
   "reasoning effort": "reasoningEffort",
   "reasoningeffort": "reasoningEffort",
+  "repo root": "executionWorkspace",
+  "reporoot": "executionWorkspace",
   "tags": "tags",
   "validation": "validationCommands",
   "validation commands": "validationCommands",
@@ -233,6 +242,19 @@ function manifestItems(
     return {
       allowedScope: stringList(item, ["allowedScope", "allowed_scope", "allowed"]),
       dependencies: stringList(item, ["dependencies", "dependsOn", "depends_on"]),
+      executionWorkspace:
+        stringValue(item, [
+          "executionWorkspace",
+          "execution_workspace",
+          "executionRoot",
+          "execution_root",
+          "repoRoot",
+          "repo_root",
+          "repositoryRoot",
+          "repository_root",
+          "workingDirectory",
+          "working_directory",
+        ]) ?? null,
       expectedCommitTitle:
         stringValue(item, ["expectedCommitTitle", "expected_commit_title"]) ?? null,
       forbiddenScope: stringList(item, [
@@ -296,6 +318,7 @@ function numberedMarkdownItems(
       return {
         allowedScope: headers.allowedScope,
         dependencies: headers.dependencies,
+        executionWorkspace: headers.executionWorkspace,
         expectedCommitTitle: headers.expectedCommitTitle,
         forbiddenScope: headers.forbiddenScope,
         id: headers.id ?? parts?.id ?? null,
@@ -387,6 +410,7 @@ function normalizeItems(
     const metadataText = promptPackMetadataSection(pack.id, id, {
       allowedScope: draft.allowedScope,
       dependencies,
+      executionWorkspace: draft.executionWorkspace,
       expectedCommitTitle: draft.expectedCommitTitle,
       forbiddenScope: draft.forbiddenScope,
       validationCommands: draft.validationCommands,
@@ -405,6 +429,7 @@ function normalizeItems(
     return {
       allowedScope: draft.allowedScope,
       dependencies,
+      executionWorkspace: draft.executionWorkspace,
       expectedCommitTitle: draft.expectedCommitTitle,
       forbiddenScope: draft.forbiddenScope,
       id,
@@ -417,6 +442,7 @@ function normalizeItems(
         dependencies,
         description,
         executionPolicy: "manual",
+        executionWorkspace: draft.executionWorkspace ?? undefined,
         itemType: "implementation",
         priority: draft.priority,
         prompt: `${draft.promptBody}${metadataText}`,
@@ -551,6 +577,7 @@ function assignHeader(
     return;
   }
   if (
+    key === "executionWorkspace" ||
     key === "expectedCommitTitle" ||
     key === "id" ||
     key === "modelProfile" ||
@@ -565,6 +592,7 @@ function emptyDraft(): ItemDraft {
   return {
     allowedScope: [],
     dependencies: [],
+    executionWorkspace: null,
     expectedCommitTitle: null,
     forbiddenScope: [],
     id: null,

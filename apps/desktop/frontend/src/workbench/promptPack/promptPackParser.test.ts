@@ -22,6 +22,7 @@ describe("prompt pack parser", () => {
               tags: ["queue", "parser"],
               priority: 4,
               dependencies: ["PROMPT-PACK-AUDIT-00"],
+              executionWorkspace: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
               expectedCommitTitle: "frontend: add prompt pack parser",
               validationCommands: ["npm.cmd run typecheck --prefix apps/desktop/frontend"],
               allowedScope: ["apps/desktop/frontend/src/workbench/promptPack"],
@@ -40,6 +41,7 @@ describe("prompt pack parser", () => {
     expect(plan.items[0]).toMatchObject({
       allowedScope: ["apps/desktop/frontend/src/workbench/promptPack"],
       dependencies: ["prompt-pack-audit-00"],
+      executionWorkspace: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
       expectedCommitTitle: "frontend: add prompt pack parser",
       forbiddenScope: ["backend storage"],
       id: "prompt-pack-parser-model-01",

@@ -11,6 +11,7 @@ export function promptPackMetadataSection(
   metadata: {
     allowedScope: string[];
     dependencies: string[];
+    executionWorkspace?: string | null;
     expectedCommitTitle: string | null;
     forbiddenScope: string[];
     validationCommands: string[];
@@ -24,6 +25,9 @@ export function promptPackMetadataSection(
     `Item id: ${itemId}`,
     metadata.dependencies.length > 0
       ? `Dependencies: ${metadata.dependencies.join(", ")}`
+      : null,
+    metadata.executionWorkspace
+      ? `Execution workspace: ${metadata.executionWorkspace}`
       : null,
     metadata.expectedCommitTitle
       ? `Expected commit title: ${metadata.expectedCommitTitle}`
