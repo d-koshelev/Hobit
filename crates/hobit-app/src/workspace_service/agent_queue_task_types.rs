@@ -77,6 +77,93 @@ pub struct DeleteAgentQueueTaskInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueValidationCommandSpecInput {
+    pub command_id: String,
+    pub title: String,
+    pub program: String,
+    pub args: Vec<String>,
+    pub cwd: std::path::PathBuf,
+    pub timeout_ms: Option<u64>,
+    pub stdout_cap_bytes: Option<usize>,
+    pub stderr_cap_bytes: Option<usize>,
+    pub allowed_exit_codes: Vec<i32>,
+    pub safety_category: String,
+    pub source: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RunAgentQueueValidationSuiteInput {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub requested_by_surface: String,
+    pub cwd: std::path::PathBuf,
+    pub commands: Vec<AgentQueueValidationCommandSpecInput>,
+    pub stop_on_first_failure: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueValidationCommandRunSummary {
+    pub command_id: String,
+    pub title: String,
+    pub status: String,
+    pub exit_code: Option<i32>,
+    pub allowed_exit_codes: Vec<i32>,
+    pub cwd: String,
+    pub stdout_preview: String,
+    pub stderr_preview: String,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
+    pub duration_ms: u128,
+    pub error_message: Option<String>,
+    pub command_summary: Vec<String>,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueValidationCommandEvidenceSummary {
+    pub evidence_id: String,
+    pub validation_run_id: String,
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub command_id: String,
+    pub command_label: String,
+    pub program: String,
+    pub args: Vec<String>,
+    pub cwd: String,
+    pub status: String,
+    pub exit_code: Option<i32>,
+    pub stdout_preview: String,
+    pub stderr_preview: String,
+    pub stdout_truncated: bool,
+    pub stderr_truncated: bool,
+    pub duration_ms: u128,
+    pub error_message: Option<String>,
+    pub command_summary: Vec<String>,
+    pub source: String,
+    pub no_git_mutations: bool,
+    pub no_commit_push: bool,
+    pub ai_context_status: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueValidationSuiteRunSummary {
+    pub validation_run_id: String,
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub requested_by_surface: String,
+    pub status: String,
+    pub task_validation_status: String,
+    pub command_results: Vec<AgentQueueValidationCommandRunSummary>,
+    pub evidence: Vec<AgentQueueValidationCommandEvidenceSummary>,
+    pub warnings: Vec<String>,
+    pub errors: Vec<String>,
+    pub duration_ms: u128,
+    pub no_git_mutations: bool,
+    pub no_commit_push: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StartAssignedAgentQueueTaskInput {
     pub workspace_id: String,
     pub queue_item_id: String,

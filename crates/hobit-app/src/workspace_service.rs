@@ -1,157 +1,160 @@
+use hobit_core::widgets::WidgetRunStatus;
+use hobit_storage_sqlite::SqliteStore;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use hobit_core::widgets::WidgetRunStatus;
-use hobit_storage_sqlite::SqliteStore;
-
-mod agent_ai_proposals;
-mod agent_executor_diff;
-mod agent_executor_history;
-mod agent_monitoring;
-mod agent_proposals;
-mod agent_queue;
-mod agent_queue_context;
-mod agent_queue_execution;
-mod agent_queue_lifecycle;
-mod agent_queue_run_links;
-mod agent_queue_task_types;
-mod agent_queue_tasks;
-mod agent_queue_workers;
-mod coordinator_provider;
-mod coordinator_provider_drafts;
-mod coordinator_provider_external;
-mod coordinator_provider_runtime;
-mod coordinator_provider_types;
-mod direct_work;
-mod direct_work_artifacts;
-mod direct_work_cancellation;
-mod direct_work_stream;
-mod direct_work_validation;
-mod git;
-mod git_artifacts;
-mod git_commit;
-mod git_push;
-mod jdbc_artifacts;
-mod jdbc_connection_profile_types;
-mod jdbc_connection_profiles;
-mod jdbc_connector_types;
-mod jdbc_connectors;
-mod jdbc_diagnostics;
-mod jdbc_query;
-mod jdbc_query_types;
-mod jdbc_runtime;
-mod jdbc_runtime_config;
-mod jdbc_sidecar_protocol;
-mod knowledge_document_search;
-mod knowledge_document_types;
-mod knowledge_documents;
-mod knowledge_draft_review_ledger;
-mod knowledge_draft_review_types;
-mod logs;
-mod mapping;
-mod notes;
-mod runs;
-mod skills;
-mod terminal;
-mod terminal_artifacts;
-mod terminal_pty;
-mod types;
-mod validation;
-mod widgets;
-mod workbenches;
-mod workspaces;
-
 #[cfg(test)]
 mod agent_ai_proposal_tests;
+mod agent_ai_proposals;
+mod agent_executor_diff;
 #[cfg(test)]
 mod agent_executor_diff_tests;
+mod agent_executor_history;
 #[cfg(test)]
 mod agent_executor_history_tests;
+mod agent_monitoring;
 #[cfg(test)]
 mod agent_monitoring_tests;
 #[cfg(test)]
 mod agent_proposal_tests;
+mod agent_proposals;
+mod agent_queue;
+mod agent_queue_context;
 #[cfg(test)]
 mod agent_queue_context_tests;
+mod agent_queue_execution;
 #[cfg(test)]
 mod agent_queue_execution_tests;
+mod agent_queue_lifecycle;
 #[cfg(test)]
 mod agent_queue_lifecycle_tests;
+mod agent_queue_run_links;
 #[cfg(test)]
 mod agent_queue_run_links_tests;
 #[cfg(test)]
 mod agent_queue_task_policy_tests;
+mod agent_queue_task_types;
+mod agent_queue_tasks;
 #[cfg(test)]
 mod agent_queue_tasks_tests;
 #[cfg(test)]
 mod agent_queue_tests;
+mod agent_queue_validation_runner;
+#[cfg(test)]
+mod agent_queue_validation_runner_tests;
+mod agent_queue_workers;
 #[cfg(test)]
 mod agent_queue_workers_tests;
+mod coordinator_provider;
+mod coordinator_provider_drafts;
+mod coordinator_provider_external;
+mod coordinator_provider_runtime;
 #[cfg(test)]
 mod coordinator_provider_tests;
+mod coordinator_provider_types;
+mod direct_work;
+mod direct_work_artifacts;
 #[cfg(test)]
 mod direct_work_artifacts_tests;
+mod direct_work_cancellation;
 #[cfg(test)]
 mod direct_work_cancellation_tests;
+mod direct_work_stream;
 #[cfg(test)]
 mod direct_work_stream_tests;
 #[cfg(test)]
 mod direct_work_tests;
+mod direct_work_validation;
 #[cfg(test)]
 mod direct_work_validation_tests;
+mod git;
+mod git_artifacts;
 #[cfg(test)]
 mod git_artifacts_tests;
+mod git_commit;
 #[cfg(test)]
 mod git_commit_tests;
+mod git_push;
+mod jdbc_artifacts;
 #[cfg(test)]
 mod jdbc_artifacts_tests;
+mod jdbc_connection_profile_types;
+mod jdbc_connection_profiles;
 #[cfg(test)]
 mod jdbc_connection_profiles_tests;
+mod jdbc_connector_types;
+mod jdbc_connectors;
 #[cfg(test)]
 mod jdbc_connectors_tests;
+mod jdbc_diagnostics;
 #[cfg(test)]
 mod jdbc_diagnostics_tests;
+mod jdbc_query;
 #[cfg(test)]
 mod jdbc_query_tests;
+mod jdbc_query_types;
+mod jdbc_runtime;
+mod jdbc_runtime_config;
 #[cfg(test)]
 mod jdbc_runtime_config_tests;
 #[cfg(test)]
 mod jdbc_runtime_tests;
+mod jdbc_sidecar_protocol;
 #[cfg(test)]
 mod jdbc_sidecar_protocol_tests;
+mod knowledge_document_search;
+mod knowledge_document_types;
+mod knowledge_documents;
 #[cfg(test)]
 mod knowledge_documents_tests;
+mod knowledge_draft_review_ledger;
 #[cfg(test)]
 mod knowledge_draft_review_ledger_tests;
+mod knowledge_draft_review_types;
+mod logs;
+mod mapping;
+mod notes;
 #[cfg(test)]
 mod notes_tests;
+mod runs;
+mod skills;
 #[cfg(test)]
 mod skills_tests;
+mod terminal;
+mod terminal_artifacts;
 #[cfg(test)]
 mod terminal_artifacts_tests;
+mod terminal_pty;
 #[cfg(test)]
 mod terminal_pty_tests;
 #[cfg(test)]
 mod terminal_tests;
 #[cfg(test)]
 mod tests;
+mod types;
+mod validation;
 #[cfg(test)]
 mod widget_deletion_tests;
 #[cfg(test)]
 mod widget_singleton_tests;
+mod widgets;
+mod workbenches;
 #[cfg(test)]
 mod workspace_deletion_tests;
-
+mod workspaces;
 pub use agent_queue_task_types::{
     AgentQueueTaskRunLink, AgentQueueTaskRunLinkId, AgentQueueTaskRunReviewStatus,
     AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AgentQueueTaskRunSummary,
-    AgentQueueTaskSummary, AgentQueueWorkerSummary, AssignAgentQueueTaskToExecutorInput,
-    AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary,
-    AttachKnowledgeToQueueTaskInput, AttachSkillToQueueTaskInput,
-    ClearAgentQueueTaskAssignmentInput, CreateAgentQueueTaskInput, CreateAgentQueueWorkerInput,
-    DeleteAgentQueueTaskInput, DeleteAgentQueueWorkerInput, DetachKnowledgeFromQueueTaskInput,
-    DetachSkillFromQueueTaskInput, FinishAssignedAgentQueueTaskRunInput,
-    RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
+    AgentQueueTaskSummary, AgentQueueValidationCommandEvidenceSummary,
+    AgentQueueValidationCommandRunSummary, AgentQueueValidationCommandSpecInput,
+    AgentQueueValidationSuiteRunSummary, AgentQueueWorkerSummary,
+    AssignAgentQueueTaskToExecutorInput, AssignedAgentQueueTaskRunPlan,
+    AssignedAgentQueueTaskStartSummary, AttachKnowledgeToQueueTaskInput,
+    AttachSkillToQueueTaskInput, ClearAgentQueueTaskAssignmentInput, CreateAgentQueueTaskInput,
+    CreateAgentQueueWorkerInput, DeleteAgentQueueTaskInput, DeleteAgentQueueWorkerInput,
+    DetachKnowledgeFromQueueTaskInput, DetachSkillFromQueueTaskInput,
+    FinishAssignedAgentQueueTaskRunInput, RecordAgentQueueTaskRunFinalStatusInput,
+    RecordAgentQueueTaskRunStartedInput, RunAgentQueueValidationSuiteInput,
     StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput, UpdateAgentQueueWorkerInput,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;
@@ -251,7 +254,6 @@ const AGENT_RUN_WIDGET_DEFINITION_ID: &str = "agent-run";
 const GIT_WIDGET_DEFINITION_ID: &str = "git";
 const JDBC_WIDGET_DEFINITION_ID: &str = "database-jdbc";
 const TERMINAL_WIDGET_DEFINITION_ID: &str = "terminal";
-
 pub struct WorkspaceService {
     store: SqliteStore,
     jdbc_runtime_config: JdbcRuntimeConfig,
@@ -263,7 +265,6 @@ impl WorkspaceService {
             jdbc_runtime_config: JdbcRuntimeConfig::default(),
         }
     }
-
     #[allow(dead_code)]
     fn new_with_jdbc_runtime_config(
         store: SqliteStore,
@@ -274,7 +275,6 @@ impl WorkspaceService {
             jdbc_runtime_config,
         }
     }
-
     #[cfg(test)]
     fn set_jdbc_runtime_config_for_tests(&mut self, jdbc_runtime_config: JdbcRuntimeConfig) {
         self.jdbc_runtime_config = jdbc_runtime_config;
@@ -285,7 +285,6 @@ fn placeholder_id(prefix: &str) -> String {
     let suffix = NEXT_ID_SUFFIX.fetch_add(1, Ordering::Relaxed);
     format!("{prefix}{}_{}", unix_nanos(), suffix)
 }
-
 fn placeholder_timestamp() -> String {
     match SystemTime::now().duration_since(UNIX_EPOCH) {
         Ok(duration) => format!("{}.{:09}", duration.as_secs(), duration.subsec_nanos()),

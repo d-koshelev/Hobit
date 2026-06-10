@@ -84,6 +84,8 @@ mod terminal_pty_tests;
 mod terminal_pty_unsupported;
 #[cfg(windows)]
 mod terminal_pty_windows;
+mod validation_runner_commands;
+mod validation_runner_dto;
 mod workspace_commands;
 mod workspace_dto;
 #[cfg(test)]
@@ -198,7 +200,8 @@ pub fn run() {
             agent_queue_execution_commands::list_agent_queue_task_run_links,
             agent_queue_runner_commands::start_agent_queue_runner_session,
             agent_queue_runner_commands::stop_agent_queue_runner_session,
-            agent_queue_runner_commands::get_agent_queue_runner_snapshot
+            agent_queue_runner_commands::get_agent_queue_runner_snapshot,
+            validation_runner_commands::run_queue_validation_suite
         ])
         .run(tauri::generate_context!())
         .expect("error while running Hobit desktop shell");
