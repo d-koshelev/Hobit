@@ -111,7 +111,7 @@ export function KnowledgeV2CatalogList({
         <span role="columnheader">Scope</span>
         <span role="columnheader">Tags</span>
         <span role="columnheader">Updated</span>
-        <span role="columnheader">Actions</span>
+        <span role="columnheader">More</span>
       </div>
       {items.map((item) => (
         <KnowledgeV2CatalogRow
@@ -123,7 +123,6 @@ export function KnowledgeV2CatalogList({
           onArchive={onArchive}
           onDelete={onDelete}
           onOpenDetails={onOpenDetails}
-          onSelectItem={onSelectItem}
           onUseAsContext={onUseAsContext}
           selected={item.id === selectedItemId}
         />
@@ -152,7 +151,6 @@ type KnowledgeV2CatalogRowProps = {
   readonly onArchive?: (itemId: string) => void;
   readonly onDelete?: (itemId: string) => void;
   readonly onOpenDetails: (itemId: string) => void;
-  readonly onSelectItem: (itemId: string) => void;
   readonly onUseAsContext?: (itemId: string) => void;
 };
 
@@ -163,13 +161,11 @@ export function KnowledgeV2CatalogRow({
   onArchive,
   onDelete,
   onOpenDetails,
-  onSelectItem,
   onUseAsContext,
   selected,
   useAsContextDisabledReason = null,
 }: KnowledgeV2CatalogRowProps) {
   const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
-  const warningCount = item.warnings.length;
   const statuses = knowledgeV2ItemStatuses(item);
   const visibleTags = item.tags.slice(0, 2);
   const hiddenTagCount = item.tags.length - visibleTags.length;
@@ -180,12 +176,16 @@ export function KnowledgeV2CatalogRow({
       aria-selected={selected}
       className="knowledge-v2-row"
       data-selected={selected ? "true" : "false"}
+      onClick={() => onOpenDetails(item.id)}
       role="row"
     >
       <button
         aria-label={`${item.title}. ${item.summary}`}
         className="knowledge-v2-row-title"
-        onClick={() => onSelectItem(item.id)}
+        onClick={(event) => {
+          event.stopPropagation();
+          onOpenDetails(item.id);
+        }}
         role="cell"
         title={`${item.title}\n${item.summary}`}
         type="button"
@@ -242,12 +242,15 @@ export function KnowledgeV2CatalogRow({
         <button
           className="knowledge-v2-row-icon-button"
           aria-expanded={isActionMenuOpen}
-          aria-label={`Actions for ${item.title}`}
-          onClick={() => setIsActionMenuOpen((current) => !current)}
-          title={`Actions for ${item.title}`}
+          aria-label={`More actions for ${item.title}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            setIsActionMenuOpen((current) => !current);
+          }}
+          title={`More actions for ${item.title}`}
           type="button"
         >
-          Actions
+          More
         </button>
         {isActionMenuOpen ? (
           <KnowledgeV2RowActionMenu
@@ -261,15 +264,6 @@ export function KnowledgeV2CatalogRow({
             onUseAsContext={onUseAsContext}
             useAsContextDisabledReason={useAsContextDisabledReason}
           />
-        ) : null}
-        {warningCount > 0 ? (
-          <span
-            aria-label={`${warningCount.toString()} warnings`}
-            className="knowledge-v2-warning-badge"
-            title={`${warningCount.toString()} warnings`}
-          >
-            !
-          </span>
         ) : null}
       </span>
     </div>
@@ -306,6 +300,7 @@ function KnowledgeV2RowActionMenu({
     <span
       aria-label={`Action menu for ${item.title}`}
       className="knowledge-v2-row-action-menu"
+      onClick={(event) => event.stopPropagation()}
       role="menu"
     >
       <button

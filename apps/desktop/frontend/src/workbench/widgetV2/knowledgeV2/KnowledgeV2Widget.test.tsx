@@ -67,7 +67,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(text()).toContain("Scope");
     expect(text()).toContain("Tags");
     expect(text()).toContain("Updated");
-    expect(text()).toContain("Actions");
+    expect(text()).toContain("More");
     expect(text()).toContain("Release guide");
     expect(text()).toContain("Global API guide");
     expect(text()).toContain("Release runbook");

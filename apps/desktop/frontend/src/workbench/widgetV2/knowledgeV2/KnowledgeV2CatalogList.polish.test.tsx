@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
 
 import { KnowledgeV2Widget } from "./KnowledgeV2Widget";
 import {
@@ -82,7 +83,7 @@ describe("KnowledgeV2 catalog row polish", () => {
     expect(regionByName("Knowledge preview")).not.toBeNull();
   });
 
-  it("renders compact row type badges and action labels", async () => {
+  it("renders compact row type badges and one clean row action affordance", async () => {
     await render(
       <KnowledgeV2Widget
         documents={[
@@ -109,8 +110,13 @@ describe("KnowledgeV2 catalog row polish", () => {
     const actionCell = rowByTitle("Release runbook")?.querySelector(
       ".knowledge-v2-row-actions",
     );
-    expect(actionCell?.textContent).toBe("Actions!");
+    expect(actionCell?.textContent).toBe("More");
+    expect(regionByName("Knowledge catalog items")?.textContent).toContain("More");
+    expect(regionByName("Knowledge catalog items")?.textContent).not.toContain(
+      "Actions",
+    );
     expect(actionCell?.textContent).not.toContain("Use as context");
+    expect(actionCell?.textContent).not.toContain("!");
     expect(actionCell?.textContent).not.toContain("2w");
   });
 
@@ -125,7 +131,7 @@ describe("KnowledgeV2 catalog row polish", () => {
       />,
     );
 
-    await clickButtonByLabel("Actions for Release guide");
+    await clickButtonByLabel("More actions for Release guide");
 
     const menu = regionByName("Action menu for Release guide");
     expect(menu?.getAttribute("role")).toBe("menu");
@@ -145,7 +151,7 @@ describe("KnowledgeV2 catalog row polish", () => {
       />,
     );
 
-    await clickButtonByLabel("Actions for Release guide");
+    await clickButtonByLabel("More actions for Release guide");
     await clickButton("Open details");
 
     expect(regionByName("Knowledge preview")?.textContent).toContain(
@@ -169,7 +175,7 @@ describe("KnowledgeV2 catalog row polish", () => {
       />,
     );
 
-    await clickButtonByLabel("Actions for Release guide");
+    await clickButtonByLabel("More actions for Release guide");
     await clickButton("Delete");
 
     expect(regionByName("KnowledgeV2 delete confirmation")?.textContent).toContain(
@@ -181,7 +187,7 @@ describe("KnowledgeV2 catalog row polish", () => {
     expect(regionByName("KnowledgeV2 delete confirmation")).toBeNull();
     expect(onDeleteKnowledgeDocument).not.toHaveBeenCalled();
 
-    await clickButtonByLabel("Actions for Release guide");
+    await clickButtonByLabel("More actions for Release guide");
     await clickButton("Delete");
     await clickButton("Delete");
     await flushKnowledgeV2WidgetTest();
@@ -201,7 +207,7 @@ describe("KnowledgeV2 catalog row polish", () => {
       />,
     );
 
-    await clickButtonByLabel("Actions for Release guide");
+    await clickButtonByLabel("More actions for Release guide");
 
     const menu = regionByName("Action menu for Release guide");
     const deleteButton =
@@ -214,20 +220,64 @@ describe("KnowledgeV2 catalog row polish", () => {
     );
   });
 
-  it("does not call archive on render", async () => {
+  it("shows unavailable context use as a disabled menu action with a reason", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            enabled: false,
+            knowledgeDocumentId: "disabled_doc",
+            title: "Disabled note",
+          }),
+        ]}
+        onDeleteKnowledgeDocument={vi.fn()}
+        onUpdateKnowledgeDocument={vi.fn()}
+        skills={[]}
+      />,
+    );
+
+    await clickButtonByLabel("More actions for Disabled note");
+
+    const menu = regionByName("Action menu for Disabled note");
+    const useButton =
+      Array.from(menu?.querySelectorAll<HTMLButtonElement>("button") ?? []).find(
+        (button) => button.textContent === "Use as context",
+      ) ?? null;
+    expect(useButton?.disabled).toBe(true);
+    expect(menu?.textContent).toContain("Knowledge Document is disabled.");
+  });
+
+  it("does not call item action callbacks on render or row details open", async () => {
+    const onAttachContextToCoordinator = vi.fn();
+    const onDeleteKnowledgeDocument = vi.fn();
     const onUpdateKnowledgeDocument = vi.fn();
 
     await render(
       <KnowledgeV2Widget
         documents={[documentFixture()]}
-        onDeleteKnowledgeDocument={vi.fn()}
+        onAttachContextToCoordinator={onAttachContextToCoordinator}
+        onDeleteKnowledgeDocument={onDeleteKnowledgeDocument}
         onUpdateKnowledgeDocument={onUpdateKnowledgeDocument}
         skills={[]}
       />,
     );
 
+    expect(onAttachContextToCoordinator).not.toHaveBeenCalled();
+    expect(onDeleteKnowledgeDocument).not.toHaveBeenCalled();
     expect(onUpdateKnowledgeDocument).not.toHaveBeenCalled();
-    expect(buttonWithText("Actions")).not.toBeNull();
+
+    await act(async () => {
+      rowByTitle("Release guide")?.dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+    });
+    await flushKnowledgeV2WidgetTest();
+
+    expect(regionByName("Knowledge preview")).not.toBeNull();
+    expect(onAttachContextToCoordinator).not.toHaveBeenCalled();
+    expect(onDeleteKnowledgeDocument).not.toHaveBeenCalled();
+    expect(onUpdateKnowledgeDocument).not.toHaveBeenCalled();
+    expect(buttonWithText("More")).not.toBeNull();
   });
 
   it("renders empty row tags as a muted product placeholder", async () => {
