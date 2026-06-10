@@ -529,6 +529,16 @@ unless the task explicitly requests it.
   validation execution, diff review execution, rollback execution, Git
   mutation, Terminal launch, provider tools, or Workspace Agent/KnowledgeV2
   replacement behavior.
+- `docs/PROMPT_PACK_IMPORT_QUEUE_STATUS.md` - docs-only status record for
+  Prompt Pack Import -> Queue Items Block 001. It records the prompt-pack
+  audit, frontend parser/model, preview service, confirmed Queue
+  materialization through existing Queue bridge actions, Workspace Chat import
+  card, QueueV2 prompt-pack metadata display, no-auto-run behavior, manual
+  smoke checklist, remaining limitations, and recommended next functional
+  blocks. It does not add frontend behavior, backend/runtime behavior,
+  storage/schema changes, Queue scheduling, validation execution, diff review
+  execution, rollback execution, Git mutation, Terminal launch, provider
+  tools, or Workspace Agent/QueueV2/KnowledgeV2 replacement behavior.
 - `docs/WORKSPACE_AGENT_UI_POLISH_STATUS.md` - docs-only status record for
   movable popup, Agent Activity alignment, and compact Workspace Agent run
   summary polish. It records manual smoke steps, non-goals, and follow-ups
