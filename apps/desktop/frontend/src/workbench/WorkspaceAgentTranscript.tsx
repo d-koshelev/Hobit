@@ -38,6 +38,10 @@ import {
   WorkspaceAgentQueueActionResultCard,
   WorkspaceAgentQueueIntentDraftCard,
 } from "./WorkspaceAgentQueueActionCards";
+import {
+  WorkspaceAgentPromptPackImportCard,
+  type WorkspaceAgentPromptPackImportState,
+} from "./promptPack";
 import type {
   WorkspaceAgentQueueActionCardResult,
 } from "./workspaceAgentQueueActions";
@@ -61,6 +65,7 @@ export type WorkspaceAgentTranscriptMessage = {
   providerMeta?: CoordinatorProviderMessageMeta;
   queueActionResultId?: string;
   queueIntentDraftIds?: string[];
+  promptPackImportId?: string;
   queueReportCardId?: string;
   queueTaskStatusCard?: AgentQueueTask;
   reviewId?: string;
@@ -85,6 +90,8 @@ export function WorkspaceAgentTranscript({
   onOpenAgentQueueItem,
   onPatchQueueReportCard,
   onPatchQueueIntentDraft,
+  onCancelPromptPackImport,
+  onPatchPromptPackImport = noopPromptPackPatch,
   onQueueActionResult,
   onQueueReportActionResult,
   onViewQueueTaskReport,
@@ -96,6 +103,7 @@ export function WorkspaceAgentTranscript({
   proposals,
   queueActionResults,
   queueIntentDrafts,
+  promptPackImports = {},
   queueReportActionResults,
   queueReportCards,
   queueController,
@@ -127,6 +135,11 @@ export function WorkspaceAgentTranscript({
     draftId: string,
     patch: Partial<WorkspaceAgentQueueIntentDraft>,
   ) => void;
+  onCancelPromptPackImport?: (importId: string) => void;
+  onPatchPromptPackImport?: (
+    importId: string,
+    patch: Partial<WorkspaceAgentPromptPackImportState>,
+  ) => void;
   onQueueActionResult: (result: WorkspaceAgentQueueActionCardResult) => void;
   onQueueReportActionResult: (
     cardId: string,
@@ -147,6 +160,7 @@ export function WorkspaceAgentTranscript({
   proposals: Record<string, CoordinatorActionProposal>;
   queueActionResults: Record<string, WorkspaceAgentQueueActionCardResult>;
   queueIntentDrafts: Record<string, WorkspaceAgentQueueIntentDraft>;
+  promptPackImports?: Record<string, WorkspaceAgentPromptPackImportState>;
   queueReportActionResults: Record<
     string,
     Record<string, WorkspaceAgentQueueReportActionResult>
@@ -224,6 +238,16 @@ export function WorkspaceAgentTranscript({
           queueActionResults[message.queueActionResultId] ? (
             <WorkspaceAgentQueueActionResultCard
               result={queueActionResults[message.queueActionResultId]}
+            />
+          ) : null}
+          {message.promptPackImportId &&
+          promptPackImports[message.promptPackImportId] ? (
+            <WorkspaceAgentPromptPackImportCard
+              bridge={workspaceAgentQueueBridge}
+              importState={promptPackImports[message.promptPackImportId]}
+              onCancel={onCancelPromptPackImport ?? noopPromptPackCancel}
+              onOpenQueueItem={onOpenAgentQueueItem}
+              onPatch={onPatchPromptPackImport}
             />
           ) : null}
           {message.queueIntentDraftIds
@@ -310,4 +334,10 @@ function WorkspaceAgentTranscriptEmptyState({
       </div>
     </div>
   );
+}
+
+function noopPromptPackCancel() {
+}
+
+function noopPromptPackPatch() {
 }

@@ -1,0 +1,383 @@
+import { useMemo, useState } from "react";
+
+import { Badge } from "../../design-system/Badge";
+import { Button } from "../../design-system/Button";
+import {
+  ActionFact,
+  QueueTextarea,
+} from "../WorkspaceAgentQueueActionCardShared";
+import type { WorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
+import {
+  buildPromptPackImportPreview,
+  PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER,
+  PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER,
+} from "./promptPackImportPreview";
+import {
+  materializePromptPackPreviewToQueue,
+} from "./promptPackMaterialization";
+import type {
+  PromptPackFileEntry,
+  PromptPackImportPreviewModel,
+  PromptPackMaterializationResult,
+} from "./promptPackModel";
+import { parsePromptPackImportPlan } from "./promptPackParser";
+import { PromptPackImportPreview } from "./promptPackImportPreviewComponent";
+
+export type WorkspaceAgentPromptPackImportState = {
+  readonly id: string;
+  readonly isCancelled?: boolean;
+  readonly result?: PromptPackMaterializationResult;
+  readonly sourceText: string;
+};
+
+type WorkspaceAgentPromptPackImportCardProps = {
+  bridge?: WorkspaceAgentQueueBridge;
+  importState: WorkspaceAgentPromptPackImportState;
+  onCancel: (importId: string) => void;
+  onOpenQueueItem?: (queueItemId: string) => void;
+  onPatch: (
+    importId: string,
+    patch: Partial<WorkspaceAgentPromptPackImportState>,
+  ) => void;
+};
+
+export function WorkspaceAgentPromptPackImportCard({
+  bridge,
+  importState,
+  onCancel,
+  onOpenQueueItem,
+  onPatch,
+}: WorkspaceAgentPromptPackImportCardProps) {
+  const [isCreating, setIsCreating] = useState(false);
+  const [copyStatus, setCopyStatus] = useState<string | null>(null);
+  const preview = useMemo(
+    () => promptPackPreviewFromSourceText(importState.sourceText),
+    [importState.sourceText],
+  );
+  const result = importState.result;
+  const firstCreatedTask = result?.createdTasks[0];
+  const canCreate =
+    Boolean(bridge) &&
+    Boolean(preview?.importAvailable) &&
+    !isCreating &&
+    !importState.isCancelled &&
+    !result;
+
+  async function createQueueItems() {
+    if (!preview || !canCreate) {
+      return;
+    }
+
+    setIsCreating(true);
+    setCopyStatus(null);
+    try {
+      const materialized = await materializePromptPackPreviewToQueue({
+        bridge,
+        confirmed: true,
+        preview,
+      });
+      onPatch(importState.id, { result: materialized });
+    } finally {
+      setIsCreating(false);
+    }
+  }
+
+  async function copyImportSummary() {
+    setCopyStatus(null);
+    const summary = promptPackImportSummary(preview, result);
+    if (!summary.trim()) {
+      setCopyStatus("No import summary to copy.");
+      return;
+    }
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setCopyStatus("Clipboard unavailable. No Queue action ran.");
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(summary);
+      setCopyStatus("Import summary copied. No Queue action ran.");
+    } catch {
+      setCopyStatus("Copy failed. No Queue action ran.");
+    }
+  }
+
+  return (
+    <section
+      aria-label="Workspace Chat prompt-pack import"
+      className="workspace-agent-queue-action-card workspace-agent-queue-intent-card"
+    >
+      <div className="workspace-agent-queue-action-card-header">
+        <div>
+          <p className="coordinator-proposal-kicker">queue.importPromptPack</p>
+          <h4 className="coordinator-proposal-title">Import prompt pack</h4>
+          <p className="coordinator-proposal-note">
+            Paste a prompt-batch JSON manifest or one numbered Markdown prompt.
+            Folder and zip readers are unavailable.
+          </p>
+        </div>
+        <Badge
+          variant={
+            importState.isCancelled
+              ? "neutral"
+              : result
+                ? result.ok
+                  ? "success"
+                  : "error"
+                : preview?.importAvailable
+                  ? "info"
+                  : "warning"
+          }
+        >
+          {importState.isCancelled
+            ? "Cancelled"
+            : result
+              ? result.ok
+                ? "Created"
+                : "Failed"
+              : preview?.importAvailable
+                ? "Preview ready"
+                : "Needs source"}
+        </Badge>
+      </div>
+
+      <dl className="workspace-agent-queue-action-card-facts">
+        <ActionFact label="Folder/zip source" value="Unavailable" />
+        <ActionFact
+          label="Unavailable reason"
+          value={PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER.message}
+        />
+        <ActionFact
+          label="Preview source"
+          value={
+            preview
+              ? PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER.label
+              : "No pasted source"
+          }
+        />
+        <ActionFact
+          label="Create behavior"
+          value="Creates draft Queue items only; no run, Autorun, validation, commit, or push starts."
+        />
+      </dl>
+
+      {result ? null : (
+        <QueueTextarea
+          label="Prompt-pack source"
+          onChange={(sourceText) => onPatch(importState.id, { sourceText })}
+          value={importState.sourceText}
+        />
+      )}
+
+      <PromptPackImportPreview preview={preview} />
+
+      {result ? (
+        <PromptPackImportResult
+          onCopyImportSummary={() => void copyImportSummary()}
+          onOpenQueueItem={onOpenQueueItem}
+          result={result}
+        />
+      ) : null}
+
+      <div className="coordinator-proposal-actions">
+        {result ? (
+          <>
+            <Button
+              disabled={!firstCreatedTask || !onOpenQueueItem}
+              onClick={() =>
+                firstCreatedTask
+                  ? onOpenQueueItem?.(firstCreatedTask.queueItemId)
+                  : undefined
+              }
+              variant="primary"
+            >
+              Open Queue
+            </Button>
+            <Button
+              disabled={!firstCreatedTask || !onOpenQueueItem}
+              onClick={() =>
+                firstCreatedTask
+                  ? onOpenQueueItem?.(firstCreatedTask.queueItemId)
+                  : undefined
+              }
+              variant="secondary"
+            >
+              Open created task
+            </Button>
+            <Button onClick={() => void copyImportSummary()} variant="ghost">
+              Copy import summary
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              disabled={!canCreate}
+              onClick={() => void createQueueItems()}
+              variant="primary"
+            >
+              {isCreating ? "Creating" : "Create Queue items"}
+            </Button>
+            <Button
+              disabled={Boolean(importState.isCancelled) || isCreating}
+              onClick={() => onCancel(importState.id)}
+              variant="ghost"
+            >
+              Cancel import
+            </Button>
+          </>
+        )}
+      </div>
+
+      {!bridge ? (
+        <p className="workspace-agent-queue-intent-validation">
+          Workspace Agent Queue bridge is unavailable. No Queue items can be
+          created from this import card.
+        </p>
+      ) : null}
+      {copyStatus ? (
+        <p className="coordinator-proposal-note" role="status">
+          {copyStatus}
+        </p>
+      ) : null}
+      <p className="coordinator-proposal-note">
+        Import is explicit. Preview, source editing, copying, and opening Queue
+        links do not create, run, assign, validate, finalize, commit, or push.
+      </p>
+    </section>
+  );
+}
+
+function PromptPackImportResult({
+  onCopyImportSummary,
+  onOpenQueueItem,
+  result,
+}: {
+  onCopyImportSummary: () => void;
+  onOpenQueueItem?: (queueItemId: string) => void;
+  result: PromptPackMaterializationResult;
+}) {
+  return (
+    <div
+      aria-label="Prompt-pack import result"
+      className="coordinator-proposal-section"
+    >
+      <p className="coordinator-proposal-section-label">Created Queue items</p>
+      {result.createdTasks.length ? (
+        <ul className="workspace-agent-queue-action-card-list">
+          {result.createdTasks.map((task) => (
+            <li key={task.queueItemId}>
+              {task.itemId}: {task.title} ({task.queueItemId}){" "}
+              <Button
+                disabled={!onOpenQueueItem}
+                onClick={() => onOpenQueueItem?.(task.queueItemId)}
+                variant="ghost"
+              >
+                Open task
+              </Button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="coordinator-proposal-note">
+          No Queue items were created.
+        </p>
+      )}
+      <PromptPackMaterializationDiagnostics
+        emptyLabel="No import warnings."
+        label="Warnings"
+        values={result.warnings.map((warning) => warning.message)}
+      />
+      <PromptPackMaterializationDiagnostics
+        emptyLabel="No import errors."
+        label="Errors"
+        values={result.errors.map((error) => error.message)}
+      />
+      <details className="workspace-agent-queue-action-details">
+        <summary>Import summary</summary>
+        <pre>{promptPackImportSummary(null, result)}</pre>
+        <Button onClick={onCopyImportSummary} variant="ghost">
+          Copy import summary
+        </Button>
+      </details>
+    </div>
+  );
+}
+
+function PromptPackMaterializationDiagnostics({
+  emptyLabel,
+  label,
+  values,
+}: {
+  emptyLabel: string;
+  label: string;
+  values: readonly string[];
+}) {
+  return (
+    <div className="coordinator-proposal-section">
+      <p className="coordinator-proposal-section-label">{label}</p>
+      {values.length ? (
+        <ul className="workspace-agent-queue-action-card-list">
+          {values.map((value) => (
+            <li key={value}>{value}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="coordinator-proposal-note">{emptyLabel}</p>
+      )}
+    </div>
+  );
+}
+
+function promptPackPreviewFromSourceText(
+  sourceText: string,
+): PromptPackImportPreviewModel | null {
+  const trimmed = sourceText.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const entry = promptPackFileEntryFromSourceText(trimmed);
+  return buildPromptPackImportPreview(parsePromptPackImportPlan([entry]), {
+    sourceAdapter: PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER,
+  });
+}
+
+function promptPackFileEntryFromSourceText(text: string): PromptPackFileEntry {
+  const path = text.startsWith("{") || text.startsWith("[")
+    ? "prompt-batch.json"
+    : "001-pasted-prompt.md";
+
+  return {
+    path,
+    source: "unknown",
+    text,
+  };
+}
+
+function promptPackImportSummary(
+  preview: PromptPackImportPreviewModel | null,
+  result: PromptPackMaterializationResult | undefined,
+) {
+  const lines = [
+    "Prompt-pack import summary",
+    preview ? `Pack: ${preview.pack.name} (${preview.pack.id})` : null,
+    preview ? `Preview items: ${preview.selectedItems.length.toString()}` : null,
+    result
+      ? `Created Queue items: ${result.createdTasks.length.toString()}`
+      : null,
+    ...((result?.createdTasks ?? []).map(
+      (task) => `- ${task.itemId}: ${task.title} (${task.queueItemId})`,
+    )),
+    result
+      ? `Dependency links created: ${result.dependencyLinksCreated.length.toString()}`
+      : null,
+    result
+      ? `Dependency links skipped: ${result.dependencyLinksSkipped.length.toString()}`
+      : null,
+    result ? `Warnings: ${result.warnings.length.toString()}` : null,
+    result ? `Errors: ${result.errors.length.toString()}` : null,
+    "No Queue run, Autorun, validation, commit, push, rollback, or Terminal action was started by import.",
+  ].filter((line): line is string => Boolean(line));
+
+  return lines.join("\n");
+}

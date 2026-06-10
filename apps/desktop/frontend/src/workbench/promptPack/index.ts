@@ -33,3 +33,7 @@ export {
   promptPackEntriesFromKnowledgeImportFiles,
 } from "./promptPackSourceAdapter";
 export { PromptPackImportPreview } from "./promptPackImportPreviewComponent";
+export {
+  WorkspaceAgentPromptPackImportCard,
+  type WorkspaceAgentPromptPackImportState,
+} from "./WorkspaceAgentPromptPackImportCard";

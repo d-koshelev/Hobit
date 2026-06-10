@@ -63,6 +63,8 @@ import {
 } from "./workspaceAgentProposalCreationActions";
 import { useWorkspaceAgentDirectWorkController } from "./useWorkspaceAgentDirectWorkController";
 import { useWorkspaceAgentQueueCardRequests } from "./useWorkspaceAgentQueueCardRequests";
+import { useWorkspaceAgentPromptPackImport } from "./useWorkspaceAgentPromptPackImport";
+import { explicitQueueCommandWorkspaceRoot } from "./workspaceAgentExplicitQueueRoot";
 
 type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
 
@@ -125,6 +127,11 @@ export function InteractiveAgentPlaceholderWidget({
   const sessionScopeKeyRef = useRef(sessionScopeKey);
   const trimmedDraftLength = draft.trim().length;
   const isQueueCommandDraft = Boolean(parseWorkspaceAgentQueueCommand(draft));
+  const promptPackImport = useWorkspaceAgentPromptPackImport({
+    messageListRef,
+    nextMessageId,
+    setMessages,
+  });
   const currentAgentActivityEvents = (agentActivityEvents ?? []).filter(
     (event) => event.sourceWidgetInstanceId === instance.id,
   );
@@ -219,6 +226,7 @@ export function InteractiveAgentPlaceholderWidget({
     queueActionResultId?: string,
     queueIntentDraftIds?: string[],
     queueTaskStatusCard?: AgentQueueTask,
+    promptPackImportId?: string,
   ): InteractiveAgentMessage {
     const id = `local-${nextMessageId.current}`;
     nextMessageId.current += 1;
@@ -228,6 +236,7 @@ export function InteractiveAgentPlaceholderWidget({
       planId,
       proposalIds,
       providerMeta,
+      promptPackImportId,
       queueActionResultId,
       queueIntentDraftIds,
       queueReportCardId,
@@ -496,6 +505,7 @@ export function InteractiveAgentPlaceholderWidget({
     setQueueReportActionResults({});
     setQueueActionResults({});
     setQueueIntentDrafts({});
+    promptPackImport.reset();
     setCreatingQueueProposalIds(new Set());
     setCreatingKnowledgeDocumentProposalIds(new Set());
     setCreatingNoteProposalIds(new Set());
@@ -790,6 +800,7 @@ export function InteractiveAgentPlaceholderWidget({
           onActivityToggle={() =>
             setIsActivityPaneCollapsed((current) => !current)
           }
+          onPromptPackImportClick={promptPackImport.start}
           onPromptExampleClick={useSuggestedPrompt}
           promptExamples={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
           status={directWork.directWorkStatus}
@@ -817,6 +828,8 @@ export function InteractiveAgentPlaceholderWidget({
           onDiscardQueueIntentDraft={discardQueueIntentDraft}
           onPatchQueueReportCard={patchQueueReportCard}
           onPatchQueueIntentDraft={patchQueueIntentDraft}
+          onCancelPromptPackImport={promptPackImport.cancel}
+          onPatchPromptPackImport={promptPackImport.patch}
           onQueueActionResult={recordQueueActionResult}
           onQueueReportActionResult={recordQueueReportActionResult}
           onViewQueueTaskReport={onOpenAgentQueueItem}
@@ -827,6 +840,7 @@ export function InteractiveAgentPlaceholderWidget({
           proposals={proposals}
           queueActionResults={queueActionResults}
           queueIntentDrafts={queueIntentDrafts}
+          promptPackImports={promptPackImport.imports}
           queueReportActionResults={queueReportActionResults}
           queueReportCards={queueReportCards}
           reviews={reviews}
@@ -894,13 +908,4 @@ export function InteractiveAgentPlaceholderWidget({
       </div>
     </WidgetFrame>
   );
-}
-
-function explicitQueueCommandWorkspaceRoot(value: string | null | undefined) {
-  const trimmed = value?.trim() ?? "";
-  if (!trimmed || trimmed === "~") {
-    return null;
-  }
-
-  return trimmed;
 }

@@ -10,6 +10,7 @@ export function WorkspaceAgentHeaderStatus({
   agentLabel = "Codex",
   isActivityVisible,
   onActivityToggle,
+  onPromptPackImportClick,
   onPromptExampleClick,
   promptExamples = [],
   status,
@@ -17,6 +18,7 @@ export function WorkspaceAgentHeaderStatus({
   agentLabel?: string;
   isActivityVisible?: boolean;
   onActivityToggle?: () => void;
+  onPromptPackImportClick?: () => void;
   onPromptExampleClick?: (prompt: string) => void;
   promptExamples?: WorkspaceAgentSuggestedPrompt[];
   status: CoordinatorDirectWorkStatus;
@@ -43,6 +45,16 @@ export function WorkspaceAgentHeaderStatus({
       <Badge variant={workspaceAgentStatusVariant(status)}>
         {workspaceAgentStatusLabel(status)}
       </Badge>
+      {onPromptPackImportClick ? (
+        <button
+          aria-label="Start prompt-pack import"
+          className="button button-secondary interactive-agent-examples-toggle"
+          onClick={onPromptPackImportClick}
+          type="button"
+        >
+          Import pack
+        </button>
+      ) : null}
       {showPromptExamples ? (
         <div className="interactive-agent-examples-menu">
           <button

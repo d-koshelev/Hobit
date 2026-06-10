@@ -126,6 +126,29 @@ describe("WorkspaceAgentStatusPanel", () => {
     expect(onActivityToggle).toHaveBeenCalledTimes(1);
   });
 
+  it("renders an explicit prompt-pack import action when provided", () => {
+    const onPromptPackImportClick = vi.fn();
+
+    render(
+      <WorkspaceAgentHeaderStatus
+        onPromptPackImportClick={onPromptPackImportClick}
+        status="idle"
+      />,
+    );
+
+    const button = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Start prompt-pack import"]',
+    );
+
+    expect(button?.textContent).toBe("Import pack");
+
+    act(() => {
+      button?.click();
+    });
+
+    expect(onPromptPackImportClick).toHaveBeenCalledTimes(1);
+  });
+
   it("uses the shared popup shell for prompt examples and closes with Escape", async () => {
     const onPromptExampleClick = vi.fn();
 
