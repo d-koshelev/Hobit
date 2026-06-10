@@ -222,6 +222,12 @@ Widgets must communicate through Workbench state/events, not by directly couplin
 
 ## UI/design rules
 
+- Future UI implementation or polish work must follow
+  `docs/AGENT_UI_IMPLEMENTATION_RULES.md` and
+  `docs/UI_DESIGN_SYSTEM_CONTRACT.md`: inspect shared primitives first, use
+  existing patterns where possible, and report shared primitive usage,
+  responsive behavior, overflow behavior, action states, and manual smoke
+  checks.
 - UI must be simple.
 - No clutter.
 - No duplicated information.

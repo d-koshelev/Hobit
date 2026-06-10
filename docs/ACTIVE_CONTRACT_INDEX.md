@@ -51,6 +51,15 @@ test, file/component budget, and out-of-scope planning before implementation.
 It does not add runtime behavior, frontend UI, backend APIs, storage/schema,
 semantic test runner behavior, or new widgets.
 
+`docs/AGENT_UI_IMPLEMENTATION_RULES.md` is the docs-only process contract for
+future agent UI implementation and polish work. It requires agents to read the
+UI design system contract, inspect shared primitives, identify the target
+surface and current pattern, run mandatory UI acceptance checks, use focused
+validation, and report shared primitive usage, CSS rationale, responsive and
+overflow behavior, action states, and manual smoke results. It does not add
+frontend behavior, CSS, backend APIs, storage/schema, tests, validation
+automation, or new widgets.
+
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
 examples for planning vocabulary only; current Finder behavior is governed by
@@ -207,6 +216,10 @@ of truth for their domains.
   implementation process, Definition of Ready/Done, Widget API, state machine,
   UI composition, semantic testing, block hygiene, and file/component budget
   rules for new widgets and major widget changes.
+- `docs/AGENT_UI_IMPLEMENTATION_RULES.md` - process contract for future agent
+  UI implementation and polish work, including shared primitive inspection,
+  mandatory acceptance checks, focused validation, and required UI task report
+  fields.
 - `docs/WIDGET_CONTRACT_TEMPLATE.md` - reusable widget contract template for
   planning purpose, user, scenario, Widget API shape, state machine, UI
   composition, safety, semantic tests, file plan, validation, acceptance, and
@@ -654,6 +667,11 @@ the local executor flow visible to operators.
 
 ### UI / Product
 
+- `docs/AGENT_UI_IMPLEMENTATION_RULES.md` - read before frontend UI,
+  widget UI, popup, visual polish, responsive layout, component, CSS, or
+  action-surface implementation work. It defines the agent workflow checklist,
+  mandatory UI acceptance checks, validation expectations, required UI report
+  section, and reusable prompt boilerplate.
 - `docs/PRODUCT_UI_DESIGN_CONTRACT.md` - product UI information hierarchy,
   debug detail boundaries, Queue right rail contract, state semantics, and UI
   review checklist.
@@ -745,6 +763,7 @@ These documents should not override the Workspace Agent model or
   `docs/WORKSPACE_WIDGET_API_CONTRACT.md`, and the affected Queue/Executor or
   widget/domain contract.
 - Frontend widget UI work: read the default set,
+  `docs/AGENT_UI_IMPLEMENTATION_RULES.md`,
   `docs/UI_DESIGN_SYSTEM_CONTRACT.md`,
   `docs/PRODUCT_UI_VISUAL_CONTRACT.md`, and the affected widget contract.
 - Backend/storage/API work: read the default set,
