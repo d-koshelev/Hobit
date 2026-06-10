@@ -112,6 +112,9 @@ export function KnowledgeV2ContextPicker({
     .map((itemId) => items.find((entry) => entry.item.id === itemId) ?? null)
     .filter((entry): entry is KnowledgeV2PickerItem => Boolean(entry));
   const estimate = estimateSelectedItems(selectedItems);
+  const selectedWarnings = selectedItems
+    .map((entry) => entry.affordanceState.warning)
+    .filter((warning): warning is string => Boolean(warning));
   const targetReason = targetDisabledReason({
     canAttachToQueueTask,
     canAttachToWorkspaceAgent,
@@ -175,10 +178,7 @@ export function KnowledgeV2ContextPicker({
         aria-label="KnowledgeV2 Use as Context picker"
         className="knowledge-v2-context-picker"
       >
-      <p className="knowledge-v2-context-picker-intro">
-        Select items, choose a target, then attach explicitly. Selection alone
-        does not attach, run, or create Queue work.
-      </p>
+      <p className="knowledge-v2-context-picker-intro">Explicit attach only.</p>
       <div className="knowledge-v2-context-picker-grid">
         <section aria-label="Selectable Knowledge items" className="knowledge-v2-picker-panel">
           <h5>Selectable items</h5>
@@ -213,7 +213,7 @@ export function KnowledgeV2ContextPicker({
                   <p>{entry.item.summary}</p>
                   {entry.affordanceState.warning ? (
                     <p className="knowledge-v2-context-warning">
-                      {entry.affordanceState.warning}
+                      {compactContextWarning(entry.affordanceState.warning)}
                     </p>
                   ) : null}
                   {disabledReason ? (
@@ -241,9 +241,9 @@ export function KnowledgeV2ContextPicker({
             </div>
           </dl>
           {estimate.available ? (
-            <p>Estimate is based on visible bounded context/reference text.</p>
+            <p>Bounded context estimate.</p>
           ) : (
-            <p>Estimate unavailable because at least one source bridge is unavailable.</p>
+            <p>Estimate unavailable.</p>
           )}
           <ul className="knowledge-v2-picker-selected-list">
             {selectedItems.length > 0 ? (
@@ -284,17 +284,22 @@ export function KnowledgeV2ContextPicker({
         </div>
       </section>
 
-      {selectedItems.some((entry) => entry.affordanceState.warning) ? (
+      {selectedWarnings.length > 0 ? (
         <section className="knowledge-v2-picker-warning-summary">
           <h5>Warnings</h5>
-          <ul>
-            {selectedItems
-              .map((entry) => entry.affordanceState.warning)
-              .filter((warning): warning is string => Boolean(warning))
-              .map((warning) => (
+          <p>
+            {selectedWarnings.length.toString()} warning
+            {selectedWarnings.length === 1 ? "" : "s"}:{" "}
+            {selectedWarnings.map(compactContextWarning).join(", ")}
+          </p>
+          <details>
+            <summary>Warning details</summary>
+            <ul>
+              {selectedWarnings.map((warning) => (
                 <li key={warning}>{warning}</li>
               ))}
-          </ul>
+            </ul>
+          </details>
         </section>
       ) : null}
     </section>
@@ -331,6 +336,28 @@ function itemDisabledReason(entry: KnowledgeV2PickerItem) {
     return entry.affordanceState.reason ?? "This item is unavailable for context use.";
   }
   return null;
+}
+
+function compactContextWarning(warning: string) {
+  if (warning.includes("Large item")) {
+    return "Large item: bounded context only";
+  }
+  if (warning.includes("stale") || warning.includes("Stale")) {
+    return "Stale item";
+  }
+  if (warning.includes("disabled")) {
+    return "Disabled";
+  }
+  if (warning.includes("rejected")) {
+    return "Rejected";
+  }
+  if (warning.includes("not searchable")) {
+    return "Not searchable";
+  }
+  if (warning.includes("review status")) {
+    return "Review required";
+  }
+  return warning;
 }
 
 function targetDisabledReason({

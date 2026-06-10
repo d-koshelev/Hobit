@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { act } from "react";
 
 import { KnowledgeV2Widget } from "./KnowledgeV2Widget";
 import {
@@ -179,6 +180,44 @@ describe("KnowledgeV2 Use as Context popup", () => {
       "Skill review status is Needs Review; only reviewed Skills can be attached as context.",
     );
   });
+
+  it("shows compact selected warning counts with expandable warning details", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            content: "Large context ".repeat(1_100),
+            knowledgeDocumentId: "large_context",
+            title: "Large context note",
+          }),
+        ]}
+        onAttachContextToCoordinator={vi.fn()}
+        skills={[]}
+      />,
+    );
+
+    await clickButton("Large context note");
+    await clickButton("Use as context");
+
+    const popup = dialogByName("Use as context");
+    expect(popup?.textContent).toContain("Explicit attach only.");
+    expect(popup?.textContent).toContain("1 warning: Large item: bounded context only");
+    expect(popup?.textContent).toContain("Warning details");
+    expect(popup?.textContent).not.toContain(
+      "Select items, choose a target, then attach explicitly.",
+    );
+    expect(buttonWithText("Attach")?.disabled).toBe(false);
+
+    const details = popup?.querySelector<HTMLDetailsElement>(
+      ".knowledge-v2-picker-warning-summary details",
+    );
+    expect(details?.open).toBe(false);
+
+    await clickSummary(details);
+
+    expect(details?.open).toBe(true);
+    expect(popup?.textContent).toContain("Large item: bounded context only.");
+  });
 });
 
 function buttonWithText(textContent: string): HTMLButtonElement | null {
@@ -187,4 +226,12 @@ function buttonWithText(textContent: string): HTMLButtonElement | null {
       (button) => button.textContent?.includes(textContent),
     ) ?? null
   );
+}
+
+async function clickSummary(details: HTMLDetailsElement | null | undefined) {
+  const summary = details?.querySelector("summary");
+  expect(summary).not.toBeNull();
+  await act(async () => {
+    summary?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+  });
 }

@@ -292,23 +292,20 @@ function NewKnowledgePopup({
   return (
     <section className="knowledge-v2-action-popup-content">
       <ActionAvailabilityPanel availability={availability} label="New" />
-      <p>
-        Opening this popup does not create a Knowledge item. Choose an explicit
-        creation path when the existing production flow is available.
-      </p>
+      <p>Create only through an explicit existing flow.</p>
       <div className="knowledge-v2-action-options">
         <ActionOption
-          description="Create a plain-text or Markdown Knowledge Document through the current Knowledge / Skills editor."
+          description="Plain-text or Markdown document."
           status={availabilityStatusText(availability)}
           title="New document"
         />
         <ActionOption
-          description="Create a reusable Skill record through the current Knowledge / Skills editor."
+          description="Reusable reviewed instruction."
           status={availabilityStatusText(availability)}
           title="New skill"
         />
         <ActionOption
-          description="Runbook/procedure authoring is not a current KnowledgeV2 model path."
+          description="Not a current KnowledgeV2 path."
           status="Coming soon"
           title="New runbook/procedure"
         />
@@ -325,33 +322,28 @@ function ImportKnowledgePopup({
   return (
     <section className="knowledge-v2-action-popup-content">
       <ActionAvailabilityPanel availability={availability} label="Import" />
-      <p>
-        Import remains explicit and single-file only in the existing production
-        Knowledge / Skills flow. Opening this popup does not read or import a
-        file.
-      </p>
+      <p>Explicit single-file import only.</p>
       <div className="knowledge-v2-action-options">
         <ActionOption
-          description="File picker and drag-drop import are not wired in the KnowledgeV2 shell yet."
+          description="Not wired here."
           status="Unavailable in KnowledgeV2"
           title="Choose or drop a text/Markdown file"
         />
         <ActionOption
-          description="Use the current Knowledge / Skills import path for an explicit .txt, .md, or .markdown file."
+          description=".txt, .md, or .markdown."
           status={availabilityStatusText(availability)}
           title="Existing single-file import"
         />
         <ActionOption
-          description="Raw path entry is not exposed by KnowledgeV2. Use it only where the current production flow already supports it."
+          description="Use existing flow only."
           status="Advanced fallback unavailable here"
           title="Raw path fallback"
         />
       </div>
-      <p className="knowledge-v2-action-note">
-        KnowledgeV2 has no direct file picker or raw path input in this popup
-        yet. Use the existing import flow when available; this popup never
-        reads a local file by itself.
-      </p>
+      <details className="knowledge-v2-action-note">
+        <summary>Safety details</summary>
+        <p>This popup never reads a local file by itself.</p>
+      </details>
     </section>
   );
 }
@@ -366,10 +358,7 @@ function DraftReviewPopup({
   return (
     <section className="knowledge-v2-action-popup-content">
       <ActionAvailabilityPanel availability={availability} label="Draft Review" />
-      <p>
-        Draft review stays outside the default catalog browsing view. This
-        summary uses visible catalog records only.
-      </p>
+      <p>Visible draft counts only.</p>
       <dl className="knowledge-v2-action-facts">
         <div>
           <dt>Draft documents</dt>
@@ -388,11 +377,10 @@ function DraftReviewPopup({
           <dd>{draftSummary.reviewDecisions.toString()}</dd>
         </div>
       </dl>
-      <p className="knowledge-v2-action-note">
-        Full draft review and acceptance stay in the production Knowledge /
-        Skills review surface. Raw draft contents are not shown in this catalog
-        browser.
-      </p>
+      <details className="knowledge-v2-action-note">
+        <summary>Review details</summary>
+        <p>Raw draft contents stay out of this catalog browser.</p>
+      </details>
     </section>
   );
 }
@@ -408,28 +396,27 @@ function ManageSkillsPopup({
     <section className="knowledge-v2-action-popup-content">
       <ActionAvailabilityPanel availability={availability} label="Manage Skills" />
       <p>
-        KnowledgeV2 currently treats {skillsCount.toString()} Skill item
-        {skillsCount === 1 ? "" : "s"} as catalog entries and filters. Skill
-        editing remains in the production Knowledge / Skills surface.
+        {skillsCount.toString()} Skill item{skillsCount === 1 ? "" : "s"} in
+        the catalog.
       </p>
       <div className="knowledge-v2-action-options">
         <ActionOption
-          description="Skill CRUD is still owned by the current Knowledge / Skills widget."
+          description="Existing editor."
           status={availabilityStatusText(availability)}
           title="Skill records"
         />
         <ActionOption
-          description="Skill categories are visible only as tags and filters in this experimental surface."
+          description="Tags and filters only."
           status="Placeholder"
           title="Categories"
         />
         <ActionOption
-          description="Reusable Skill templates are not implemented in KnowledgeV2."
+          description="Not implemented."
           status="Coming soon"
           title="Templates"
         />
         <ActionOption
-          description="Validation is shown from existing Skill text fields; no validator or execution path is added."
+          description="Text fields only."
           status="Read-only summary"
           title="Validation"
         />
@@ -454,13 +441,20 @@ function ActionAvailabilityPanel({
       <span className="knowledge-v2-chip" data-tone={toneForAvailability(availability.state)}>
         {labelForAvailability(availability.state)}
       </span>
-      {availability.reason ? <p>{availability.reason}</p> : null}
+      {availability.reason ? (
+        <span title={availability.reason}>
+          {shortAvailabilityReason(availability)}
+        </span>
+      ) : null}
       {availability.details && availability.details.length > 0 ? (
-        <ul className="knowledge-v2-action-bridge-list">
-          {availability.details.map((detail) => (
-            <li key={detail}>{detail}</li>
-          ))}
-        </ul>
+        <details className="knowledge-v2-action-bridge-list">
+          <summary>Bridge details</summary>
+          <ul>
+            {availability.details.map((detail) => (
+              <li key={detail}>{detail}</li>
+            ))}
+          </ul>
+        </details>
       ) : null}
     </section>
   );
@@ -563,6 +557,17 @@ function availabilityStatusText(availability: KnowledgeV2ActionAvailability) {
   }
 }
 
+function shortAvailabilityReason(availability: KnowledgeV2ActionAvailability) {
+  switch (availability.state) {
+    case "available":
+      return "Ready";
+    case "partial":
+      return "Some bridge details unavailable.";
+    case "unavailable":
+      return "Bridge unavailable.";
+  }
+}
+
 function toneForAvailability(state: KnowledgeV2ActionAvailability["state"]) {
   switch (state) {
     case "available":
@@ -577,10 +582,7 @@ function toneForAvailability(state: KnowledgeV2ActionAvailability["state"]) {
 function HelpLegendPopup() {
   return (
     <section className="knowledge-v2-action-popup-content">
-      <p>
-        This popup replaces persistent helper rails so the catalog and preview
-        stay visible and stable.
-      </p>
+      <p>Safety and status legend.</p>
       <dl className="knowledge-v2-action-facts knowledge-v2-action-facts-wide">
         <div>
           <dt>Published</dt>
@@ -611,11 +613,7 @@ function HelpLegendPopup() {
           <dd>Cannot be used</dd>
         </div>
       </dl>
-      <p className="knowledge-v2-action-note">
-        Context actions are always explicit and target-based. Selection,
-        filtering, previewing, and opening help do not attach, send, create, or
-        run anything.
-      </p>
+      <p className="knowledge-v2-action-note">Explicit attach only.</p>
     </section>
   );
 }

@@ -68,6 +68,9 @@ describe("KnowledgeV2 unavailable actions", () => {
     const dialog = dialogByName("Manage Skills");
     expect(dialog?.textContent).toContain("Partial");
     expect(dialog?.textContent).toContain(
+      "Some bridge details unavailable.",
+    );
+    expect(dialog?.textContent).not.toContain(
       "Manage Skills is partial because the Skill list bridge is not fully available in this KnowledgeV2 host.",
     );
     expect(dialog?.textContent).toContain("Skills list bridge is unavailable");
@@ -86,8 +89,13 @@ async function expectUnavailableAction(
 ) {
   await keyDown("Escape");
   await clickButton(actionLabel);
-  expect(buttonWithText(bridgeLabel)?.disabled).toBe(true);
-  expect(dialogByName(actionLabel)?.textContent).toContain(reason);
+  const footerButton = buttonWithText(bridgeLabel);
+  const dialog = dialogByName(actionLabel);
+  expect(footerButton?.disabled).toBe(true);
+  expect(footerButton?.title).toBe(reason);
+  expect(dialog?.textContent).toContain("Bridge unavailable.");
+  expect(dialog?.textContent).not.toContain(reason);
+  expect(dialog?.querySelector(".popup-shell-footer p")).toBeNull();
 }
 
 async function render(element: ReactNode) {

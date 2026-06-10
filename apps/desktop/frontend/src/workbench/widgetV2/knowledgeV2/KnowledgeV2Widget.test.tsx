@@ -147,6 +147,9 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("Draft Review");
     const draftReview = dialogByName("Draft Review");
     expect(draftReview?.textContent).toContain(
+      "Some bridge details unavailable.",
+    );
+    expect(draftReview?.textContent).not.toContain(
       "Draft Review is partial because the available list action requires a selected draft pack.",
     );
     expect(draftReview?.textContent).toContain(
@@ -717,7 +720,8 @@ describe("KnowledgeV2Widget browser", () => {
     expect(dialogByName("Import")?.textContent).toContain(
       "Choose or drop a text/Markdown file",
     );
-    expect(dialogByName("Import")?.textContent).toContain(
+    expect(dialogByName("Import")?.textContent).toContain("Safety details");
+    expect(dialogByName("Import")?.textContent).not.toContain(
       "KnowledgeV2 has no direct file picker or raw path input in this popup yet.",
     );
     const importPopup = dialogByName("Import");
@@ -800,7 +804,7 @@ describe("KnowledgeV2Widget browser", () => {
 
     await clickButton("Help");
     expect(dialogByName("Help / Legend")?.textContent).toContain(
-      "Context actions are always explicit",
+      "Explicit attach only.",
     );
     expect(dialogByName("Help / Legend")?.textContent).toContain("Archived");
     expect(dialogByName("Help / Legend")?.textContent).toContain("Large");
@@ -840,7 +844,10 @@ describe("KnowledgeV2Widget browser", () => {
     expect(popup?.textContent).toContain("Needs review");
     expect(popup?.textContent).toContain("Review decisions");
     expect(popup?.textContent).toContain("1");
-    expect(popup?.textContent).toContain("Raw draft contents are not");
+    expect(popup?.textContent).toContain("Review details");
+    expect(popup?.textContent).toContain(
+      "Raw draft contents stay out of this catalog browser.",
+    );
     expect(popup?.textContent).not.toContain("draft payload");
   });
 

@@ -84,7 +84,13 @@ function ActionFooterButton({
       <Button disabled={true} title={reason} variant="secondary">
         {label}
       </Button>
-      <p>{reason}</p>
+      <span
+        className="knowledge-v2-chip"
+        data-tone={availability.state === "partial" ? "warning" : "unavailable"}
+        title={reason}
+      >
+        {availability.state === "partial" ? "Partial" : "Unavailable"}
+      </span>
     </div>
   );
 }

@@ -108,8 +108,7 @@ export function knowledgeV2ContextAffordanceState(
     return {
       canAttach: true,
       reason: null,
-      warning:
-        "Knowledge Document is stale; attach only after reviewing the visible warning.",
+      warning: "Stale item: review warning first.",
     };
   }
 
@@ -118,7 +117,7 @@ export function knowledgeV2ContextAffordanceState(
     reason: null,
     warning:
       document.content.length > 12_000
-        ? "Knowledge Document is large; only bounded visible context is attached."
+        ? "Large item: bounded context only."
         : null,
   };
 }
