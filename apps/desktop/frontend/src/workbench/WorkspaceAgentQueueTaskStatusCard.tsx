@@ -17,6 +17,7 @@ import {
 import type { AgentQueueController } from "./queue/useAgentQueueController";
 import { queueV2NextActionLabel } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
 import { selectQueueV2ViewModel } from "./queue/queueV2ViewModel";
+import { canCreateDiffReviewItem } from "./queue/agentQueueDiffReviewModel";
 import type { ValidationRunner } from "./validation";
 import { WorkspaceAgentQueueValidationCard } from "./WorkspaceAgentQueueValidationCard";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
@@ -140,6 +141,11 @@ export function WorkspaceAgentQueueTaskStatusCard({
       runnerAvailable: Boolean(validationRunner),
       task: displayedTask,
     }).disabledReason,
+    diffReviewDisabledReason: diffReviewCreationDisabledReason({
+      bridgeAvailable: Boolean(workspaceAgentQueueBridge),
+      queueAvailable: Boolean(queue),
+      task: displayedTask,
+    }),
   });
 
   async function executeQueueAction(action: WorkspaceChatQueueAction) {
@@ -151,8 +157,10 @@ export function WorkspaceAgentQueueTaskStatusCard({
     setActionResult(null);
     try {
       const service = createWorkspaceChatQueueControlService({
+        bridge: workspaceAgentQueueBridge,
         onOpenQueueItem,
         queue,
+        validationRunner,
       });
       const result = await service.execute(action);
       setActionResult(result);
@@ -309,9 +317,11 @@ function queueTaskCardActions({
   queue,
   task,
   validationDisabledReason,
+  diffReviewDisabledReason,
 }: {
   confirmationAction: AgentQueueReportActionType | null;
   canViewReport: boolean;
+  diffReviewDisabledReason: string | null;
   hasReport: boolean;
   onOpenQueueItem?: (queueItemId: string) => void;
   onConfirmCoordinatorAction: (actionType: AgentQueueReportActionType) => void;
@@ -409,8 +419,7 @@ function queueTaskCardActions({
       variant: "ghost",
     },
     {
-      disabledReason:
-        "Diff Review task creation is not exposed as a Workspace Chat Queue control action.",
+      disabledReason: diffReviewDisabledReason,
       label: "Create diff review",
       onClick: () =>
         onQueueAction({
@@ -485,6 +494,30 @@ function queueTaskCardActions({
       variant: "ghost",
     },
   ];
+}
+
+function diffReviewCreationDisabledReason({
+  bridgeAvailable,
+  queueAvailable,
+  task,
+}: {
+  bridgeAvailable: boolean;
+  queueAvailable: boolean;
+  task: AgentQueueTask;
+}) {
+  if (!bridgeAvailable) {
+    return "Queue create bridge is unavailable in this Workspace Agent surface.";
+  }
+
+  if (!queueAvailable) {
+    return "Queue controller state is unavailable in this Workspace Agent surface.";
+  }
+
+  if (!canCreateDiffReviewItem(task)) {
+    return "Diff Review creation needs a report-ready or review-needed implementation task.";
+  }
+
+  return null;
 }
 
 function TaskFact({ label, value }: { label: string; value: string }) {

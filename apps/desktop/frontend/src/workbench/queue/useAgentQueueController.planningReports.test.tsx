@@ -133,7 +133,7 @@ describe("useAgentQueueController planning and reports", () => {
     expect(createdRequest.queueTagName).toBe("Default");
     expect(createdRequest.status).toBe("queued");
     expect(createdRequest.validationStatus).toBe("not_started");
-    expect(createdRequest.dependsOn).toBe(undefined);
+    expect(createdRequest.dependsOn).toEqual(["queue-1"]);
     expect(createdRequest.prompt.includes("Inspect the actual git diff")).toBe(
       true,
     );
@@ -153,7 +153,7 @@ describe("useAgentQueueController planning and reports", () => {
     ).toBe(false);
     expect(createdTask?.itemType).toBe("diff_review");
     expect(createdTask?.status).toBe("queued");
-    expect(createdTask?.dependsOn).toEqual([]);
+    expect(createdTask?.dependsOn).toEqual(["queue-1"]);
     expect(createdTask?.diffReview?.reviewMode).toBe("diff_vs_report");
     expect(createdTask?.diffReview?.sourceItemId).toBe("queue-1");
     expect(createdTask?.diffReview?.sourceReportId).toBe(sourceReport?.reportId);
@@ -164,7 +164,7 @@ describe("useAgentQueueController planning and reports", () => {
       hook.result.current.foundation.schedulerPlan.itemEligibility.find(
         (item) => item.queueItemId === createdTask?.queueItemId,
       )?.isSchedulable,
-    ).toBe(true);
+    ).toBe(false);
     expect(hook.result.current.tasks.find(
       (task) => task.queueItemId === sourceTask?.queueItemId,
     )?.status).toBe("queued");

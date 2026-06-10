@@ -267,8 +267,9 @@ export function WorkspaceAgentQueueReportActionCard({
     }
 
     const createdTask = await onCreateQueueTask({
+      dependsOn: [card.sourceItemId],
       description:
-        "Review the source implementation diff against the report, declared scope, and Hobit contracts.",
+        `Source task: ${card.sourceItemId}\nReview type: diff_review\nRead-only Diff Review item. No code changes, execution, finalization, or dependent unblock is requested by default.`,
       executionPolicy: "manual",
       itemType: "diff_review",
       priority: card.sourceItemPriority,
@@ -276,7 +277,7 @@ export function WorkspaceAgentQueueReportActionCard({
       queueTagId: card.sourceQueueTagId,
       queueTagName: card.sourceQueueTag,
       status: "queued",
-      title: `Diff review: ${card.sourceItemTitle}`,
+      title: `Diff Review - ${card.sourceItemTitle}`,
       validationStatus: "not_started",
     });
     onPatchCard(card.cardId, {

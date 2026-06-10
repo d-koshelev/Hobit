@@ -1,7 +1,4 @@
-import type {
-  AgentQueueReportActionType,
-  AgentQueueTask,
-} from "../../workspace/types";
+import type { AgentQueueReportActionType, AgentQueueTask } from "../../workspace/types";
 import { createWorkspaceGitCommit } from "../../workspace/workspaceGitApi";
 import {
   clamp,
@@ -37,10 +34,10 @@ import {
 import { staleExecutionPlanPreview } from "./agentQueueExecutionPlanModel";
 import {
   buildDiffReviewMetadata,
-  buildDiffReviewPrompt,
   canCreateDiffReviewItem,
   latestWorkerExecutionReport,
 } from "./agentQueueDiffReviewModel";
+import { buildDiffReviewQueueItemCreateRequest } from "../diffReview";
 
 export type { AgentQueueLocalTaskFields } from "./agentQueueTaskActionTypes";
 
@@ -198,10 +195,11 @@ export function createAgentQueueTaskActions({
       report,
       sourceTask: selectedTask,
     });
-    const prompt = buildDiffReviewPrompt({
+    const builtReviewRequest = buildDiffReviewQueueItemCreateRequest({
       report,
       sourceTask: selectedTask,
     });
+    const createRequest = builtReviewRequest.request;
 
     setIsCreating(true);
     setLoadError(null);
@@ -215,25 +213,25 @@ export function createAgentQueueTaskActions({
 
     try {
       const createdTask = await onCreateAgentQueueTask({
-        approvalPolicy: selectedTask.approvalPolicy ?? null,
-        codexExecutable: selectedTask.codexExecutable ?? null,
-        description:
-          "Review the source implementation diff against the worker report, declared scope, and Hobit contracts.",
+        approvalPolicy: createRequest.approvalPolicy ?? null,
+        codexExecutable: createRequest.codexExecutable ?? null,
+        dependsOn: createRequest.dependencies,
+        description: createRequest.description ?? "",
         executionPolicy: "manual",
-        executionWorkspace: selectedTask.executionWorkspace ?? null,
+        executionWorkspace: createRequest.executionWorkspace ?? null,
         itemType: "diff_review",
-        priority: selectedTask.priority,
-        prompt,
+        priority: createRequest.priority ?? selectedTask.priority,
+        prompt: createRequest.prompt ?? "",
         queueTagId: queueTag.queueTagId,
         queueTagName: queueTag.queueTagName,
-        sandbox: selectedTask.sandbox ?? null,
+        sandbox: createRequest.sandbox ?? null,
         status: "queued",
-        title: `Diff review: ${selectedTask.title.trim() || DEFAULT_TASK_TITLE}`,
+        title: createRequest.title,
         validationStatus: "not_started",
       });
       const taskFoundation = {
         coordinatorStatus: "not_reported" as const,
-        dependsOn: [],
+        dependsOn: normalizeTaskDependencies(createRequest.dependencies),
         diffReview: metadata,
         itemType: "diff_review" as const,
         orderIndex: nextOrderIndexForQueueTag({

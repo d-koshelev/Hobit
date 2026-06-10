@@ -11,6 +11,14 @@ import {
   requestValidationForQueueItem,
   type QueueValidationRunResult,
 } from "./queue/queueValidationEvidenceService";
+import {
+  canCreateDiffReviewItem,
+  latestWorkerExecutionReport,
+} from "./queue/agentQueueDiffReviewModel";
+import {
+  createDiffReviewQueueItem,
+  type DiffReviewQueueItemCreationResult,
+} from "./diffReview";
 import type {
   ValidationRunner,
   ValidationRunRequest,
@@ -127,17 +135,83 @@ async function executeWorkspaceChatQueueAction(
       case "request_validation":
         return await requestValidation(action, options);
       case "create_diff_review":
-        return unavailable(
-          action.kind,
-          "Diff Review task creation is not exposed as a Workspace Chat Queue control action. No review task was created.",
-          action.queueItemId,
-        );
+        return await createDiffReview(action, options);
       case "coordinator_decision":
         return await coordinatorDecision(action, options.queue);
     }
   } catch (error) {
     return failed(action.kind, errorToMessage(error), actionQueueItemId(action));
   }
+}
+
+async function createDiffReview(
+  action: Extract<WorkspaceChatQueueAction, { kind: "create_diff_review" }>,
+  options: WorkspaceChatQueueControlServiceOptions,
+): Promise<WorkspaceChatQueueActionResult> {
+  if (!options.bridge) {
+    return unavailable(
+      "create_diff_review",
+      "Workspace Agent Queue bridge is unavailable. No Diff Review Queue item was created.",
+      action.queueItemId,
+    );
+  }
+
+  const sourceTask = findQueueTask(action.queueItemId, options.queue);
+  if (!sourceTask) {
+    return unavailable(
+      "create_diff_review",
+      "Source Queue task is unavailable in the current Queue controller state. No Diff Review Queue item was created.",
+      action.queueItemId,
+    );
+  }
+
+  if (!canCreateDiffReviewItem(sourceTask)) {
+    return unavailable(
+      "create_diff_review",
+      "Source Queue task is not ready for Diff Review creation. No Diff Review Queue item was created.",
+      action.queueItemId,
+    );
+  }
+
+  const result = await createDiffReviewQueueItem({
+    createItem: options.bridge.createItem,
+    dependentTasks: (options.queue?.tasks ?? []).filter((task) =>
+      (task.dependsOn ?? []).includes(sourceTask.queueItemId),
+    ),
+    report: latestWorkerExecutionReport(sourceTask),
+    sourceTask,
+  });
+
+  return diffReviewCreationActionResult(result);
+}
+
+function diffReviewCreationActionResult(
+  result: DiffReviewQueueItemCreationResult,
+): WorkspaceChatQueueActionResult {
+  const warningSummary = result.warnings.length
+    ? ` Warnings: ${result.warnings.map((warning) => warning.message).join(" ")}`
+    : "";
+
+  if (result.status !== "created" || !result.createdReviewTaskId) {
+    return {
+      action: "create_diff_review",
+      message:
+        result.createResult.error?.message ??
+        `Diff Review Queue item could not be created.${warningSummary}`,
+      queueItemId: result.sourceTaskId,
+      reason: result.warnings[0]?.message ?? result.createResult.error?.message,
+      status: "failed",
+      widgetResult: result.createResult,
+    };
+  }
+
+  return {
+    action: "create_diff_review",
+    message: `Diff Review Queue item ${result.createdReviewTaskId} created. It was not run.${warningSummary}`,
+    queueItemId: result.createdReviewTaskId,
+    status: "success",
+    widgetResult: result.createResult,
+  };
 }
 
 async function requestValidation(
@@ -401,6 +475,17 @@ function coordinatorDecisionHandler(
 
 function isSelectedTask(task: AgentQueueTask | null, queueItemId: string) {
   return task?.queueItemId === queueItemId;
+}
+
+function findQueueTask(
+  queueItemId: string,
+  queue: AgentQueueController | null | undefined,
+) {
+  if (queue?.selectedTask?.queueItemId === queueItemId) {
+    return queue.selectedTask;
+  }
+
+  return queue?.tasks?.find((task) => task.queueItemId === queueItemId) ?? null;
 }
 
 function unavailable(

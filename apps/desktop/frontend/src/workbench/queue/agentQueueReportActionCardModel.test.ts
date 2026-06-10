@@ -94,12 +94,13 @@ describe("agentQueueReportActionCardModel", () => {
     expect(followUpTaskPromptFromReportCard(card)).toContain(
       "Follow-up/sub-block from report report-1",
     );
-    expect(diffReviewTaskPromptFromReportCard(card)).toContain(
-      "Do not finalize the source item",
-    );
-    expect(diffReviewTaskPromptFromReportCard(card)).not.toMatch(
-      /start executor|run codex|auto-run/i,
-    );
+    const diffReviewPrompt = diffReviewTaskPromptFromReportCard(card);
+    expect(diffReviewPrompt).toContain("Read-only by default.");
+    expect(diffReviewPrompt).toContain("Do not modify code");
+    expect(diffReviewPrompt).toContain("Source task report summary/ref:");
+    expect(diffReviewPrompt).toContain("Validation evidence summary/ref:");
+    expect(diffReviewPrompt).toContain("Expected recommendation format:");
+    expect(diffReviewPrompt).not.toMatch(/start executor|run codex|auto-run/i);
   });
 
   it("represents a diff review item as a report card linked to its source", () => {

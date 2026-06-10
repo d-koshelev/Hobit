@@ -277,39 +277,88 @@ describe("workspace chat Queue control service", () => {
     expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
 
-  it("returns unavailable for diff review and rollback control actions", async () => {
+  it("creates a Diff Review Queue item explicitly without running or finalizing", async () => {
+    const createItem = vi.fn(async (request) =>
+      itemResult({
+        dependencies: request.dependencies ?? [],
+        id: "review-1",
+        itemType: request.itemType,
+        prompt: request.prompt ?? "",
+        title: request.title,
+      }),
+    );
     const onCreateDiffReview = vi.fn();
+    const onRollback = vi.fn();
+    const onStartAssignedTask = vi.fn();
+    const sourceTask = queueTask({
+      queueItemId: "queue-1",
+      status: "review_needed",
+      title: "Source implementation",
+      workerExecutionReports: [workerReport()],
+    });
+    const service = createWorkspaceChatQueueControlService({
+      bridge: queueBridge({ createItem }),
+      queue: queueController({
+        canAct: true,
+        onCreateDiffReview,
+        onRollback,
+        onStartAssignedTask,
+        selectedTask: sourceTask,
+        tasks: [sourceTask],
+      }),
+    });
+
+    const result = await service.execute({
+      kind: "create_diff_review",
+      queueItemId: "queue-1",
+    });
+
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(createItem.mock.calls[0]?.[0]).toMatchObject({
+      dependencies: ["queue-1"],
+      executionPolicy: "manual",
+      itemType: "diff_review",
+      status: "queued",
+      title: "Diff Review - Source implementation",
+    });
+    expect(createItem.mock.calls[0]?.[0].prompt).toContain(
+      "Read-only by default.",
+    );
+    expect(createItem.mock.calls[0]?.[0].prompt).toContain(
+      "Expected recommendation format:",
+    );
+    expect(result).toMatchObject({
+      action: "create_diff_review",
+      queueItemId: "review-1",
+      status: "success",
+    });
+    expect(result.message).toContain("It was not run");
+    expect(onCreateDiffReview).not.toHaveBeenCalled();
+    expect(onStartAssignedTask).not.toHaveBeenCalled();
+    expect(onRollback).not.toHaveBeenCalled();
+  });
+
+  it("keeps rollback unavailable through Workspace Chat Queue control actions", async () => {
     const onRollback = vi.fn();
     const service = createWorkspaceChatQueueControlService({
       queue: queueController({
         canAct: true,
-        onCreateDiffReview,
         onRollback,
         selectedTask: queueTask({ queueItemId: "queue-1" }),
       }),
     });
 
-    const diffReviewResult = await service.execute({
-      kind: "create_diff_review",
-      queueItemId: "queue-1",
-    });
     const rollbackResult = await service.execute({
       actionType: "mark_rollback_required",
       kind: "coordinator_decision",
       queueItemId: "queue-1",
     });
 
-    expect(diffReviewResult).toMatchObject({
-      action: "create_diff_review",
-      queueItemId: "queue-1",
-      status: "unavailable",
-    });
     expect(rollbackResult).toMatchObject({
       action: "coordinator_decision",
       queueItemId: "queue-1",
       status: "unavailable",
     });
-    expect(onCreateDiffReview).not.toHaveBeenCalled();
     expect(onRollback).not.toHaveBeenCalled();
   });
 });
@@ -332,6 +381,7 @@ function queueController({
   onRollback = vi.fn(),
   onStartAssignedTask = vi.fn(),
   selectedTask,
+  tasks,
 }: {
   canAct?: boolean;
   canStart?: boolean;
@@ -339,6 +389,7 @@ function queueController({
   onRollback?: () => void;
   onStartAssignedTask?: () => void;
   selectedTask: AgentQueueTask | null;
+  tasks?: AgentQueueTask[];
 }): AgentQueueController {
   return {
     coordinatorFinalization: {
@@ -366,6 +417,7 @@ function queueController({
       readinessMessage: canStart ? null : "Run is unavailable.",
     },
     selectedTask,
+    tasks: tasks ?? (selectedTask ? [selectedTask] : []),
   } as unknown as AgentQueueController;
 }
 
@@ -384,6 +436,25 @@ function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
     workspaceId: "workspace-1",
     ...overrides,
   } as AgentQueueTask;
+}
+
+function workerReport() {
+  return {
+    changedFiles: ["src/source.ts"],
+    commandsRun: ["npm test"],
+    createdAt: "2026-06-10T11:30:00.000Z",
+    errors: [],
+    itemId: "queue-1",
+    rawReportPreview: "Source implementation finished.",
+    reportId: "report-1",
+    reportStatus: "completed" as const,
+    summary: "Source implementation report.",
+    validationCommandsRun: ["npm test"],
+    validationCommandsSuggested: ["npm test"],
+    validationResult: "passed" as const,
+    warnings: [],
+    workerId: "executor-1",
+  };
 }
 
 function itemResult(

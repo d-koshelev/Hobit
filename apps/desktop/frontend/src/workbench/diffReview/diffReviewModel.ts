@@ -247,22 +247,34 @@ export function buildDiffReviewPromptBody(request: DiffReviewRequest): string {
       "not recorded"
     }`,
     "",
-    "Review evidence snapshot:",
-    textLine("Actual diff summary", snapshot.actualDiffSummary),
+    "Source task report summary/ref:",
     textLine("Worker report summary", snapshot.reportSummary),
-    listBlock("Reported changed files", snapshot.reportedChangedFiles ?? []),
+    `- Source report ref: ${request.sourceTask.reportId ?? "not recorded"}`,
     textLine("Agent final response", snapshot.agentFinalResponse),
-    listBlock("Allowed scope", snapshot.allowedScope ?? metadata?.allowedScope ?? []),
-    listBlock("Forbidden files", snapshot.forbiddenFiles ?? metadata?.forbiddenScope ?? []),
-    listBlock(
-      "Validation commands",
-      snapshot.validationCommands ?? metadata?.validationCommands ?? [],
-    ),
+    "",
+    "Diff/file-change availability:",
+    textLine("Actual diff summary", snapshot.actualDiffSummary),
+    listBlock("Reported changed files", snapshot.reportedChangedFiles ?? []),
+    listBlock("Unavailable review inputs", snapshot.unsupportedStates ?? []),
+    "",
+    "Validation evidence summary/ref:",
     `- Validation evidence: ${
       snapshot.validationEvidenceSummary
         ? `${snapshot.validationEvidenceSummary.status}; ${snapshot.validationEvidenceSummary.summary}`
         : snapshot.validationResult ?? "not recorded"
     }`,
+    listBlock(
+      "Validation evidence refs",
+      snapshot.validationEvidenceSummary?.evidenceRefs.map(validationEvidenceRefLabel) ?? [],
+    ),
+    listBlock(
+      "Validation commands",
+      snapshot.validationCommands ?? metadata?.validationCommands ?? [],
+    ),
+    "",
+    "Declared scope:",
+    listBlock("Allowed scope", snapshot.allowedScope ?? metadata?.allowedScope ?? []),
+    listBlock("Forbidden files", snapshot.forbiddenFiles ?? metadata?.forbiddenScope ?? []),
     "",
     "Prompt-pack metadata:",
     `- Pack: ${metadata?.packName ?? "not recorded"}${
@@ -275,7 +287,7 @@ export function buildDiffReviewPromptBody(request: DiffReviewRequest): string {
     "Checklist:",
     ...buildDefaultDiffReviewChecklist().map((item) => `- ${item.label}`),
     "",
-    "Required output:",
+    "Expected recommendation format:",
     "- Findings with severity and evidence.",
     "- Recommendation: accept_ready, request_changes, validation_required, blocked, rollback_required, or manual_review_required.",
     "- Explicit dependent-task unblock statement: can be unblocked or cannot be unblocked.",
@@ -476,4 +488,18 @@ function listBlock(label: string, values: string[]) {
   }
 
   return [`- ${label}:`, ...values.map((value) => `  - ${value}`)].join("\n");
+}
+
+function validationEvidenceRefLabel(
+  ref: NonNullable<DiffReviewInputSnapshot["validationEvidenceSummary"]>["evidenceRefs"][number],
+) {
+  return [
+    ref.evidenceId,
+    `run ${ref.runId}`,
+    `command ${ref.commandId}`,
+    `status ${ref.status}`,
+    ref.fullLogRef ? `log ${ref.fullLogRef}` : null,
+  ]
+    .filter(Boolean)
+    .join("; ");
 }

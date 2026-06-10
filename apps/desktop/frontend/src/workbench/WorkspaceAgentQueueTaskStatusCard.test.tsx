@@ -220,7 +220,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
       "Validation runner is unavailable in this Workspace Chat surface.",
     );
     expect(document.body.textContent).toContain(
-      "Diff Review task creation is not exposed as a Workspace Chat Queue control action.",
+      "Queue create bridge is unavailable in this Workspace Agent surface.",
     );
     expect(document.body.textContent).toContain(
       "Rollback is not exposed as a Workspace Chat Queue control action.",
@@ -247,6 +247,60 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
     );
 
     expect(buttonByText("Request validation")?.disabled).toBe(false);
+  });
+
+  it("creates a Diff Review Queue item only after explicit click", async () => {
+    const run = vi.fn();
+    const onFinalize = vi.fn();
+    const createItem = vi.fn(async (request) =>
+      itemResult({
+        dependencies: request.dependencies ?? [],
+        id: "diff-review-1",
+        itemType: request.itemType,
+        prompt: request.prompt ?? "",
+        title: request.title,
+      }),
+    );
+    const task = queueTask({
+      status: "review_needed",
+      title: "Source implementation",
+      workerExecutionReports: [workerReport()],
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          onFinalize,
+          onRun: run,
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        workspaceAgentQueueBridge={queueBridge({ createItem })}
+      />,
+    );
+
+    expect(buttonByText("Create diff review")?.disabled).toBe(false);
+    expect(createItem).not.toHaveBeenCalled();
+
+    await clickButton("Create diff review");
+
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(createItem.mock.calls[0]?.[0]).toMatchObject({
+      dependencies: ["queue-task-0001"],
+      executionPolicy: "manual",
+      itemType: "diff_review",
+      status: "queued",
+      title: "Diff Review - Source implementation",
+    });
+    expect(createItem.mock.calls[0]?.[0].prompt).toContain(
+      "Read-only by default.",
+    );
+    expect(document.body.textContent).toContain(
+      "Diff Review Queue item diff-review-1 created. It was not run.",
+    );
+    expect(run).not.toHaveBeenCalled();
+    expect(onFinalize).not.toHaveBeenCalled();
   });
 
   it("disables Request validation with a reason when no commands are available and manual input is unsupported", () => {
@@ -697,12 +751,14 @@ function validationExecutor(
 }
 
 function queueBridge({
+  createItem = vi.fn(),
   validationStatus = "passed",
 }: {
+  createItem?: WorkspaceAgentQueueBridge["createItem"];
   validationStatus?: QueueWidgetItemSnapshot["validationStatus"];
 } = {}): WorkspaceAgentQueueBridge {
   return {
-    createItem: vi.fn(),
+    createItem,
     getSnapshot: vi.fn(),
     updateItem: vi.fn(async (request) =>
       itemResult({
