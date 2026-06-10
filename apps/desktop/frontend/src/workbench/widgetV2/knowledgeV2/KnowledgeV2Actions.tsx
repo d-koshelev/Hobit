@@ -123,7 +123,7 @@ export function KnowledgeV2Actions({
       >
         <div
           aria-label="KnowledgeV2 view switcher"
-          className="knowledge-v2-action-group knowledge-v2-view-toggle"
+          className="knowledge-v2-action-group knowledge-v2-view-toggle knowledge-v2-action-group-spaced"
           data-group="view"
           role="group"
         >
@@ -144,7 +144,7 @@ export function KnowledgeV2Actions({
         </div>
         <div
           aria-label="KnowledgeV2 primary actions"
-          className="knowledge-v2-action-group knowledge-v2-primary-actions"
+          className="knowledge-v2-action-group knowledge-v2-primary-actions knowledge-v2-action-group-spaced"
           data-group="primary"
           role="group"
         >
@@ -167,7 +167,7 @@ export function KnowledgeV2Actions({
         </div>
         <div
           aria-label="KnowledgeV2 management actions"
-          className="knowledge-v2-action-group knowledge-v2-management-actions"
+          className="knowledge-v2-action-group knowledge-v2-management-actions knowledge-v2-action-group-spaced"
           data-group="management"
           role="group"
         >
@@ -190,7 +190,7 @@ export function KnowledgeV2Actions({
         </div>
         <div
           aria-label="KnowledgeV2 collapsed management actions"
-          className="knowledge-v2-action-group knowledge-v2-more-actions"
+          className="knowledge-v2-action-group knowledge-v2-more-actions knowledge-v2-action-group-spaced"
           data-group="more"
           role="group"
         >

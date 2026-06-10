@@ -32,11 +32,18 @@
   gap: var(--space-xs);
 }
 
+.knowledge-v2-action-group-spaced {
+  gap: var(--space-xs);
+}
+
 .knowledge-v2-primary-actions {
+  margin-left: var(--space-xs);
   padding-left: var(--space-xs);
+  border-left: 1px solid var(--color-border-subtle);
 }
 
 .knowledge-v2-management-actions {
+  margin-left: var(--space-sm);
   padding-left: var(--space-sm);
   border-left: 1px solid var(--color-border-subtle);
 }
@@ -182,13 +189,13 @@
   display: grid;
   min-width: 0;
   grid-template-columns:
-    minmax(0, 1fr)
-    54px
-    84px
-    76px
-    96px
-    74px
-    118px;
+    minmax(180px, 1.7fr)
+    minmax(58px, 0.42fr)
+    minmax(92px, 0.72fr)
+    minmax(78px, 0.52fr)
+    minmax(86px, 0.72fr)
+    minmax(82px, 0.55fr)
+    minmax(76px, 0.5fr);
   align-items: center;
   border-bottom: 1px solid var(--color-border-subtle);
 }
@@ -200,13 +207,13 @@
 
 .knowledge-v2-small-list-helper {
   display: grid;
-  min-height: calc(84px * var(--ui-scale));
+  min-height: calc(72px * var(--ui-scale));
   border-top: 1px solid var(--color-border-subtle);
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-tight);
   padding: var(--space-xs);
-  place-items: start;
+  place-items: center start;
 }
 
 .knowledge-v2-row-header {
@@ -308,7 +315,7 @@
 }
 
 .knowledge-v2-row-icon-button {
-  width: calc(54px * var(--ui-scale));
+  width: calc(52px * var(--ui-scale));
 }
 
 .knowledge-v2-row-use-button {

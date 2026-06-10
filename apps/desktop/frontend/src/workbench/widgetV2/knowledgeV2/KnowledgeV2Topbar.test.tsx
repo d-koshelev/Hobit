@@ -37,11 +37,26 @@ describe("KnowledgeV2Widget topbar", () => {
       document.querySelector(".knowledge-v2-action-group[data-group='view']"),
     ).not.toBeNull();
     expect(
+      document.querySelector(
+        ".knowledge-v2-action-group-spaced[data-group='view']",
+      ),
+    ).not.toBeNull();
+    expect(
       document.querySelector(".knowledge-v2-action-group[data-group='primary']"),
     ).not.toBeNull();
     expect(
       document.querySelector(
+        ".knowledge-v2-action-group-spaced[data-group='primary']",
+      ),
+    ).not.toBeNull();
+    expect(
+      document.querySelector(
         ".knowledge-v2-action-group[data-group='management']",
+      ),
+    ).not.toBeNull();
+    expect(
+      document.querySelector(
+        ".knowledge-v2-action-group-spaced[data-group='management']",
       ),
     ).not.toBeNull();
     expect(
@@ -101,8 +116,12 @@ describe("KnowledgeV2Widget topbar", () => {
     const managementGroup = regionByName("KnowledgeV2 management actions");
 
     expect(moreGroup?.className).toContain("knowledge-v2-more-actions");
+    expect(moreGroup?.className).toContain("knowledge-v2-action-group-spaced");
     expect(managementGroup?.className).toContain(
       "knowledge-v2-management-actions",
+    );
+    expect(managementGroup?.className).toContain(
+      "knowledge-v2-action-group-spaced",
     );
     expect(managementGroup?.textContent).toContain("Draft Review");
     expect(managementGroup?.textContent).toContain("Manage Skills");

@@ -47,7 +47,7 @@ describe("KnowledgeV2 catalog row polish", () => {
     expect(text()).not.toContain("Catalog data unavailable.");
   });
 
-  it("does not show the small catalog helper for normal larger lists", async () => {
+  it("shows the small catalog helper for up to five catalog items", async () => {
     await render(
       <KnowledgeV2Widget
         documents={[
@@ -68,7 +68,7 @@ describe("KnowledgeV2 catalog row polish", () => {
             title: "Release guide four",
           }),
         ]}
-        skills={[]}
+        skills={[skillFixture({ skillId: "skill_1", title: "Review skill" })]}
       />,
     );
 
@@ -76,11 +76,54 @@ describe("KnowledgeV2 catalog row polish", () => {
     expect(catalog?.getAttribute("role")).toBe("table");
     expect(catalog?.textContent).toContain("Release guide one");
     expect(catalog?.textContent).toContain("Release guide four");
-    expect(catalog?.textContent).not.toContain("items shown.");
+    expect(catalog?.textContent).toContain("Review skill");
+    expect(catalog?.textContent).toContain("5 items shown.");
     expect(regionByName("Knowledge v2 preview details")).toBeNull();
     expect(regionByName("Knowledge preview")).toBeNull();
     await clickButton("Release guide one");
     expect(regionByName("Knowledge preview")).not.toBeNull();
+  });
+
+  it("does not show the small catalog helper for normal larger lists", async () => {
+    await render(
+      <KnowledgeV2Widget
+        documents={[
+          documentFixture({
+            knowledgeDocumentId: "doc_1",
+            title: "Release guide one",
+          }),
+          documentFixture({
+            knowledgeDocumentId: "doc_2",
+            title: "Release guide two",
+          }),
+          documentFixture({
+            knowledgeDocumentId: "doc_3",
+            title: "Release guide three",
+          }),
+          documentFixture({
+            knowledgeDocumentId: "doc_4",
+            title: "Release guide four",
+          }),
+          documentFixture({
+            knowledgeDocumentId: "doc_5",
+            title: "Release guide five",
+          }),
+          documentFixture({
+            knowledgeDocumentId: "doc_6",
+            title: "Release guide six",
+          }),
+        ]}
+        skills={[]}
+      />,
+    );
+
+    const catalog = regionByName("Knowledge catalog items");
+    expect(catalog?.getAttribute("role")).toBe("table");
+    expect(catalog?.textContent).toContain("Release guide one");
+    expect(catalog?.textContent).toContain("Release guide six");
+    expect(catalog?.textContent).not.toContain("items shown.");
+    expect(regionByName("Knowledge v2 preview details")).toBeNull();
+    expect(regionByName("Knowledge preview")).toBeNull();
   });
 
   it("renders compact row type badges and one clean row action affordance", async () => {

@@ -127,7 +127,7 @@ export function KnowledgeV2CatalogList({
           selected={item.id === selectedItemId}
         />
       ))}
-      {items.length <= 3 ? (
+      {items.length <= 5 ? (
         <div
           aria-label="Knowledge catalog small list helper"
           className="knowledge-v2-small-list-helper"
