@@ -81,15 +81,18 @@ export function WidgetLogsPanel({
   return (
     <WidgetPopupShell
       anchorRef={anchorRef}
+      footer={
+        <button className="button button-secondary" onClick={onClose} type="button">
+          Close
+        </button>
+      }
       id={id}
       isOpen={isOpen}
       onRequestClose={onClose}
       returnFocusRef={anchorRef}
+      title="Logs"
       titleId={titleId}
     >
-      <h3 className="widget-log-title" data-popup-drag-handle id={titleId}>
-        Logs
-      </h3>
       <WidgetLogPanelBody
         errorMessage={logErrorMessage}
         isLoading={isLoadingLogs}

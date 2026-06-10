@@ -17,7 +17,7 @@ type WidgetPopupShellProps = {
   isOpen: boolean;
   onRequestClose: () => void;
   returnFocusRef?: RefObject<HTMLElement | null>;
-  title?: ReactNode;
+  title: ReactNode;
   titleId: string;
   variant?: WidgetPopupShellVariant;
 };
@@ -40,22 +40,10 @@ export function WidgetPopupShell({
   titleId,
   variant = "anchored",
 }: WidgetPopupShellProps) {
-  const usesStandardLayout =
-    title !== undefined ||
-    eyebrow !== undefined ||
-    actions !== undefined ||
-    footer !== undefined ||
-    bodyClassName !== undefined ||
-    headerClassName !== undefined ||
-    footerClassName !== undefined;
-
   return (
     <PopupShell
       anchorRef={anchorRef}
-      className={[
-        usesStandardLayout ? "popup-shell-with-layout" : "",
-        className ?? "",
-      ]
+      className={["popup-shell-with-layout", className ?? ""]
         .filter(Boolean)
         .join(" ")}
       id={id}
@@ -65,65 +53,57 @@ export function WidgetPopupShell({
       returnFocusRef={returnFocusRef}
       variant={variant}
     >
-      {usesStandardLayout ? (
-        <div className="popup-shell-layout">
-          {title !== undefined || eyebrow !== undefined || actions !== undefined ? (
-            <header
-              className={[
-                "popup-shell-header",
-                "ui-popup-section-padding-min",
-                headerClassName ?? "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              data-popup-drag-handle
-            >
-              <div className="popup-shell-title-block">
-                {eyebrow ? <p className="popup-shell-eyebrow">{eyebrow}</p> : null}
-                {title !== undefined ? (
-                  <h3 className="popup-shell-title" id={titleId}>
-                    {title}
-                  </h3>
-                ) : null}
-              </div>
-              {actions ? (
-                <div className="popup-shell-header-actions" data-popup-no-drag>
-                  {actions}
-                </div>
-              ) : null}
-            </header>
+      <div className="popup-shell-layout">
+        <header
+          className={[
+            "popup-shell-header",
+            "ui-popup-section-padding-min",
+            headerClassName ?? "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          data-popup-drag-handle
+        >
+          <div className="popup-shell-title-block">
+            {eyebrow ? <p className="popup-shell-eyebrow">{eyebrow}</p> : null}
+            <h3 className="popup-shell-title" id={titleId}>
+              {title}
+            </h3>
+          </div>
+          {actions ? (
+            <div className="popup-shell-header-actions" data-popup-no-drag>
+              {actions}
+            </div>
           ) : null}
-          <div
+        </header>
+        <div
+          className={[
+            "popup-shell-body",
+            "ui-popup-section-padding-min",
+            bodyClassName ?? "",
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          data-popup-body
+        >
+          {children}
+        </div>
+        {footer ? (
+          <footer
             className={[
-              "popup-shell-body",
+              "popup-shell-footer",
               "ui-popup-section-padding-min",
-              bodyClassName ?? "",
+              "ui-control-group-gap-min",
+              footerClassName ?? "",
             ]
               .filter(Boolean)
               .join(" ")}
-            data-popup-body
+            data-popup-no-drag
           >
-            {children}
-          </div>
-          {footer ? (
-            <footer
-              className={[
-                "popup-shell-footer",
-                "ui-popup-section-padding-min",
-                "ui-control-group-gap-min",
-                footerClassName ?? "",
-              ]
-                .filter(Boolean)
-                .join(" ")}
-              data-popup-no-drag
-            >
-              {footer}
-            </footer>
-          ) : null}
-        </div>
-      ) : (
-        children
-      )}
+            {footer}
+          </footer>
+        ) : null}
+      </div>
     </PopupShell>
   );
 }

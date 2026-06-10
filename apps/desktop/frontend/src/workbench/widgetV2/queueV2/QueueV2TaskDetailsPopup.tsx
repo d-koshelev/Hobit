@@ -91,29 +91,26 @@ export function QueueV2TaskDetailsPopup({
 
   return (
     <WidgetPopupShell
+      actions={
+        <Button onClick={onRequestClose} variant="ghost">
+          Close
+        </Button>
+      }
+      bodyClassName="queue-v2-task-details-popup"
       className="queue-v2-task-details-shell"
+      eyebrow="QueueV2 task details"
       id={`queue-v2-task-details-${task.queueItemId}`}
       isOpen={isOpen}
       onRequestClose={onRequestClose}
       returnFocusRef={returnFocusRef}
+      title={inspector.title}
       titleId={titleId}
       variant="floating"
     >
-      <article className="queue-v2-task-details-popup">
-        <header className="queue-v2-task-details-header" data-popup-drag-handle>
-          <div>
-            <p className="queue-v2-task-details-kicker">QueueV2 task details</p>
-            <h2 className="queue-v2-task-details-title" id={titleId}>
-              {inspector.title}
-            </h2>
-            <p className="queue-v2-task-details-subtitle">
-              {laneLabel(inspector.boardLane)} / {lifecycleLabel(inspector.lifecycle)}
-            </p>
-          </div>
-          <Button onClick={onRequestClose} variant="ghost">
-            Close
-          </Button>
-        </header>
+      <article>
+        <p className="queue-v2-task-details-subtitle">
+          {laneLabel(inspector.boardLane)} / {lifecycleLabel(inspector.lifecycle)}
+        </p>
 
         <div className="queue-v2-task-details-actions">
           <div>

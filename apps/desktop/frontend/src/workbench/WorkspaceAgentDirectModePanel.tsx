@@ -160,26 +160,23 @@ export function WorkspaceAgentDirectModePanel({
       {isSettingsOpen ? (
         <WidgetPopupShell
           anchorRef={settingsAnchorRef}
+          actions={
+            <Button onClick={onRequestCloseSettings} variant="ghost">
+              Close
+            </Button>
+          }
+          bodyClassName="interactive-agent-direct-mode-settings"
           id="workspace-agent-codex-settings-popup"
           isOpen={isSettingsOpen}
           onRequestClose={onRequestCloseSettings}
           returnFocusRef={settingsAnchorRef}
+          title="Codex settings"
           titleId={settingsTitleId}
         >
           <section
             aria-label="Codex settings"
             aria-labelledby={settingsTitleId}
-            className="interactive-agent-direct-mode-settings"
           >
-            <div className="interactive-agent-popup-header">
-              <p
-                className="interactive-agent-popup-title"
-                data-popup-drag-handle
-                id={settingsTitleId}
-              >
-                Codex settings
-              </p>
-            </div>
             <div className="interactive-agent-direct-mode-working-row">
               <label
                 className="interactive-agent-direct-mode-field"
@@ -326,26 +323,23 @@ export function WorkspaceAgentDirectModePanel({
         {isDetailsOpen ? (
           <WidgetPopupShell
             anchorRef={runDetailsAnchorRef}
+            actions={
+              <Button onClick={onRequestCloseDetails} variant="ghost">
+                Close
+              </Button>
+            }
+            bodyClassName="interactive-agent-run-details-popup"
             id="workspace-agent-run-details-popup"
             isOpen={isDetailsOpen}
             onRequestClose={onRequestCloseDetails}
             returnFocusRef={runDetailsAnchorRef}
+            title="Run details"
             titleId={runDetailsTitleId}
           >
             <section
               aria-label="Workspace Agent run details"
               aria-labelledby={runDetailsTitleId}
-              className="interactive-agent-run-details-popup"
             >
-              <div className="interactive-agent-popup-header">
-                <p
-                  className="interactive-agent-popup-title"
-                  data-popup-drag-handle
-                  id={runDetailsTitleId}
-                >
-                  Run details
-                </p>
-              </div>
               <div className="interactive-agent-direct-mode-detail-body">
                 <p className="interactive-agent-direct-mode-help">
                   <span>{resolutionText}</span>

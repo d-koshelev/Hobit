@@ -57,26 +57,27 @@ export function WorkspaceAgentHeaderStatus({
           </button>
           <WidgetPopupShell
             anchorRef={promptExamplesButtonRef}
+            actions={
+              <button
+                className="button button-secondary"
+                onClick={() => setPromptExamplesOpen(false)}
+                type="button"
+              >
+                Close
+              </button>
+            }
+            bodyClassName="interactive-agent-examples-panel"
             id="workspace-agent-prompt-examples-popup"
             isOpen={promptExamplesOpen}
             onRequestClose={() => setPromptExamplesOpen(false)}
             returnFocusRef={promptExamplesButtonRef}
+            title="Prompt examples"
             titleId={promptExamplesTitleId}
           >
             <section
               aria-label="Workspace Agent prompt examples"
               aria-labelledby={promptExamplesTitleId}
-              className="interactive-agent-examples-panel"
             >
-              <div className="interactive-agent-popup-header">
-                <p
-                  className="interactive-agent-popup-title"
-                  data-popup-drag-handle
-                  id={promptExamplesTitleId}
-                >
-                  Prompt examples
-                </p>
-              </div>
               <div className="interactive-agent-suggestion-list">
                 {promptExamples.map((suggestion) => (
                   <button

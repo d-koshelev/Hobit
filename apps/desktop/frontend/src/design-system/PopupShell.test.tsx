@@ -203,6 +203,7 @@ describe("PopupShell", () => {
       true,
     );
     expect(body?.classList.contains("ui-popup-section-padding-min")).toBe(true);
+    expect(body?.getAttribute("data-popup-body")).toBe("true");
     expect(body?.textContent).toContain("Long popup line 39");
     expect(footer?.textContent).toContain("Apply");
     expect(footer?.classList.contains("ui-popup-section-padding-min")).toBe(
@@ -210,6 +211,41 @@ describe("PopupShell", () => {
     );
     expect(footer?.classList.contains("ui-control-group-gap-min")).toBe(true);
     expect(body?.contains(footer)).toBe(false);
+  });
+
+  it("enforces the shared widget popup layout even without custom footer actions", async () => {
+    const onRequestClose = vi.fn();
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <WidgetPopupShell
+          id="enforced-widget-popup"
+          isOpen
+          onRequestClose={onRequestClose}
+          title="Enforced popup"
+          titleId="enforced-widget-popup-title"
+          variant="floating"
+        >
+          <button type="button">Body action</button>
+          <p>Body content stays in the scroll zone.</p>
+        </WidgetPopupShell>,
+      );
+      await Promise.resolve();
+    });
+
+    const popup = document.querySelector<HTMLElement>(".popup-shell");
+    const header = popup?.querySelector<HTMLElement>(".popup-shell-header");
+    const body = popup?.querySelector<HTMLElement>("[data-popup-body]");
+
+    expect(popup?.classList.contains("popup-shell-with-layout")).toBe(true);
+    expect(header?.getAttribute("data-popup-drag-handle")).toBe("true");
+    expect(header?.textContent).toContain("Enforced popup");
+    expect(body?.textContent).toContain("Body content stays in the scroll zone.");
+    expect(body?.querySelector("button")?.textContent).toBe("Body action");
   });
 
   it("keeps Close and Escape behavior working", async () => {

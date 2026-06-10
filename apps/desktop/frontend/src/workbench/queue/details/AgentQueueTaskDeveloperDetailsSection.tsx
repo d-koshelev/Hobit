@@ -93,36 +93,28 @@ export function AgentQueueTaskDeveloperDetailsSection({
         expanding the selected-task layout.
       </p>
       <WidgetPopupShell
+        actions={
+          <Button onClick={() => setIsDetailsOpen(false)} variant="ghost">
+            Close
+          </Button>
+        }
         anchorRef={detailsButtonRef}
+        bodyClassName="agent-queue-developer-details-popup-body"
         id="agent-queue-developer-details-popup"
         isOpen={isDetailsOpen}
         onRequestClose={() => setIsDetailsOpen(false)}
         returnFocusRef={detailsButtonRef}
+        title="Developer details"
         titleId={detailsTitleId}
       >
         <div
           aria-label="Agent Queue developer details"
           className="agent-queue-developer-details-popup"
         >
-          <div className="agent-queue-popup-header">
-            <div>
-              <h3
-                className="agent-queue-popup-title"
-                data-popup-drag-handle
-                id={detailsTitleId}
-              >
-                Developer details
-              </h3>
-              <p className="agent-queue-run-note">
-                Secondary Queue diagnostics for the selected task. Raw sections
-                remain collapsed and capped.
-              </p>
-            </div>
-            <Button onClick={() => setIsDetailsOpen(false)} variant="ghost">
-              Close
-            </Button>
-          </div>
-          <div className="agent-queue-developer-details-popup-body">
+          <p className="agent-queue-run-note">
+            Secondary Queue diagnostics for the selected task. Raw sections
+            remain collapsed and capped.
+          </p>
             {showDiffReviewLinkage ? (
               <DiffReviewLinkagePanel
                 onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
@@ -169,7 +161,6 @@ export function AgentQueueTaskDeveloperDetailsSection({
             <RawRunActivityDetails queue={queue} />
             {showSubmittedMetadata ? <SubmittedMetadata queue={queue} /> : null}
             {taskEditMetadata}
-          </div>
         </div>
       </WidgetPopupShell>
     </div>
