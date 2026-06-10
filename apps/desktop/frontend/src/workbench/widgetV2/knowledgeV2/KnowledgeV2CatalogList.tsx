@@ -1,5 +1,7 @@
-import { useState } from "react";
-
+import {
+  RowActionMenu,
+  type ActionMenuItem,
+} from "../../../design-system/ActionPrimitives";
 import type { KnowledgeV2CatalogItem } from "./knowledgeV2CatalogTypes";
 import {
   KnowledgeV2StatusBadge,
@@ -165,11 +167,42 @@ export function KnowledgeV2CatalogRow({
   selected,
   useAsContextDisabledReason = null,
 }: KnowledgeV2CatalogRowProps) {
-  const [isActionMenuOpen, setIsActionMenuOpen] = useState(false);
   const statuses = knowledgeV2ItemStatuses(item);
   const visibleTags = item.tags.slice(0, 2);
   const hiddenTagCount = item.tags.length - visibleTags.length;
   const updatedDate = formatDate(item.updatedAt);
+  const actionItems: ActionMenuItem[] = [
+    {
+      id: "open-details",
+      label: "Open details",
+      onSelect: () => onOpenDetails(item.id),
+    },
+    {
+      disabledReason: onUseAsContext
+        ? useAsContextDisabledReason
+        : "Use as Context is unavailable because no context action bridge is connected.",
+      id: "use-context",
+      label: "Use as context",
+      onSelect: () => onUseAsContext?.(item.id),
+    },
+    {
+      disabledReason: onArchive
+        ? archiveDisabledReason
+        : "Archive is unavailable because no safe archive bridge is connected.",
+      id: "archive",
+      label: "Archive",
+      onSelect: () => onArchive?.(item.id),
+    },
+    {
+      danger: true,
+      disabledReason: onDelete
+        ? deleteDisabledReason
+        : "Delete is unavailable because no safe delete bridge is connected.",
+      id: "delete",
+      label: "Delete",
+      onSelect: () => onDelete?.(item.id),
+    },
+  ];
 
   return (
     <div
@@ -239,136 +272,15 @@ export function KnowledgeV2CatalogRow({
         </span>
       </span>
       <span className="knowledge-v2-row-actions" role="cell">
-        <button
-          className="knowledge-v2-row-icon-button"
-          aria-expanded={isActionMenuOpen}
-          aria-label={`More actions for ${item.title}`}
-          onClick={(event) => {
-            event.stopPropagation();
-            setIsActionMenuOpen((current) => !current);
-          }}
-          title={`More actions for ${item.title}`}
-          type="button"
-        >
-          More
-        </button>
-        {isActionMenuOpen ? (
-          <KnowledgeV2RowActionMenu
-            archiveDisabledReason={archiveDisabledReason}
-            deleteDisabledReason={deleteDisabledReason}
-            item={item}
-            onArchive={onArchive}
-            onDelete={onDelete}
-            onOpenDetails={onOpenDetails}
-            onRequestClose={() => setIsActionMenuOpen(false)}
-            onUseAsContext={onUseAsContext}
-            useAsContextDisabledReason={useAsContextDisabledReason}
-          />
-        ) : null}
+        <RowActionMenu
+          className="knowledge-v2-row-action-wrapper"
+          items={actionItems}
+          label={`More actions for ${item.title}`}
+          menuClassName="knowledge-v2-row-action-menu"
+          triggerClassName="knowledge-v2-row-icon-button"
+        />
       </span>
     </div>
-  );
-}
-
-function KnowledgeV2RowActionMenu({
-  archiveDisabledReason,
-  deleteDisabledReason,
-  item,
-  onArchive,
-  onDelete,
-  onOpenDetails,
-  onRequestClose,
-  onUseAsContext,
-  useAsContextDisabledReason,
-}: {
-  readonly archiveDisabledReason: string | null;
-  readonly deleteDisabledReason: string | null;
-  readonly item: KnowledgeV2CatalogItem;
-  readonly onArchive?: (itemId: string) => void;
-  readonly onDelete?: (itemId: string) => void;
-  readonly onOpenDetails: (itemId: string) => void;
-  readonly onRequestClose: () => void;
-  readonly onUseAsContext?: (itemId: string) => void;
-  readonly useAsContextDisabledReason: string | null;
-}) {
-  function run(action: () => void) {
-    action();
-    onRequestClose();
-  }
-
-  return (
-    <span
-      aria-label={`Action menu for ${item.title}`}
-      className="knowledge-v2-row-action-menu"
-      onClick={(event) => event.stopPropagation()}
-      role="menu"
-    >
-      <button
-        onClick={() => run(() => onOpenDetails(item.id))}
-        role="menuitem"
-        type="button"
-      >
-        Open details
-      </button>
-      <KnowledgeV2RowActionMenuItem
-        disabledReason={
-          onUseAsContext
-            ? useAsContextDisabledReason
-            : "Use as Context is unavailable because no context action bridge is connected."
-        }
-        label="Use as context"
-        onClick={() => run(() => onUseAsContext?.(item.id))}
-      />
-      <KnowledgeV2RowActionMenuItem
-        disabledReason={
-          onArchive
-            ? archiveDisabledReason
-            : "Archive is unavailable because no safe archive bridge is connected."
-        }
-        label="Archive"
-        onClick={() => run(() => onArchive?.(item.id))}
-      />
-      <KnowledgeV2RowActionMenuItem
-        danger={true}
-        disabledReason={
-          onDelete
-            ? deleteDisabledReason
-            : "Delete is unavailable because no safe delete bridge is connected."
-        }
-        label="Delete"
-        onClick={() => run(() => onDelete?.(item.id))}
-      />
-    </span>
-  );
-}
-
-function KnowledgeV2RowActionMenuItem({
-  danger = false,
-  disabledReason,
-  label,
-  onClick,
-}: {
-  readonly danger?: boolean;
-  readonly disabledReason: string | null;
-  readonly label: string;
-  readonly onClick: () => void;
-}) {
-  return (
-    <span className="knowledge-v2-row-action-menu-item">
-      <button
-        className={danger ? "knowledge-v2-danger-action" : undefined}
-        disabled={Boolean(disabledReason)}
-        onClick={onClick}
-        role="menuitem"
-        title={disabledReason ?? undefined}
-        type="button"
-      >
-        {label}
-      </button>
-      {disabledReason ? (
-        <small className="knowledge-v2-row-action-reason">{disabledReason}</small>
-      ) : null}
-    </span>
   );
 }
 

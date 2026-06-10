@@ -1,3 +1,4 @@
+import { DestructiveConfirmationPopup } from "../../../design-system/ActionPrimitives";
 import { Button } from "../../../design-system/Button";
 import { WidgetPopupShell } from "../../../design-system/WidgetPopupShell";
 import type { KnowledgeDocument } from "../../../workspace/types/knowledgeDocuments";
@@ -98,46 +99,32 @@ export function KnowledgeV2DeleteConfirmationPopup({
   readonly onConfirm: () => void;
 }) {
   return (
-    <WidgetPopupShell
-      bodyClassName="knowledge-v2-delete-popup-body"
-      className="knowledge-v2-delete-popup-shell"
-      footer={
-        <div className="knowledge-v2-delete-popup-footer">
-          <Button disabled={isDeleting} onClick={onCancel} variant="ghost">
-            Cancel
-          </Button>
-          <Button
-            className="knowledge-v2-danger-button"
-            disabled={isDeleting}
-            onClick={onConfirm}
-            variant="secondary"
-          >
-            {isDeleting ? "Deleting" : "Delete"}
-          </Button>
-        </div>
+    <DestructiveConfirmationPopup
+      ariaLabel="KnowledgeV2 delete confirmation"
+      body={
+        <>
+          <p>
+            <strong>
+              Delete {candidate ? `"${candidate.title}"` : "this item"}?
+            </strong>
+          </p>
+          <p>
+            This is permanent and uses only the existing Knowledge / Skills
+            delete bridge for this item type. No delete action runs until you
+            confirm here.
+          </p>
+        </>
       }
-      footerClassName="knowledge-v2-delete-popup-footer-shell"
+      className="knowledge-v2-delete-popup-shell"
+      confirmLabel="Delete"
       id="knowledge-v2-delete-confirmation-popup"
+      isConfirming={isDeleting}
       isOpen={Boolean(candidate)}
-      onRequestClose={onCancel}
+      onCancel={onCancel}
+      onConfirm={onConfirm}
       title="Delete catalog item"
       titleId="knowledge-v2-delete-confirmation-popup-title"
-      variant="floating"
-    >
-      <section
-        aria-label="KnowledgeV2 delete confirmation"
-        className="knowledge-v2-delete-confirmation"
-      >
-        <p className="knowledge-v2-delete-title">
-          Delete {candidate ? `"${candidate.title}"` : "this item"}?
-        </p>
-        <p>
-          This is permanent and uses only the existing Knowledge / Skills delete
-          bridge for this item type. No delete action runs until you confirm
-          here.
-        </p>
-      </section>
-    </WidgetPopupShell>
+    />
   );
 }
 

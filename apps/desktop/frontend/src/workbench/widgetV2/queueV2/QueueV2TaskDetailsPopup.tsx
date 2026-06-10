@@ -1,5 +1,6 @@
 import { useId, useMemo, useState, type RefObject } from "react";
 
+import { DisabledActionReason } from "../../../design-system/ActionPrimitives";
 import { Button } from "../../../design-system/Button";
 import { WidgetPopupShell } from "../../../design-system/WidgetPopupShell";
 import type {
@@ -137,7 +138,9 @@ export function QueueV2TaskDetailsPopup({
                 >
                   {action.label}
                 </Button>
-                {action.disabled && action.reason ? <span>{action.reason}</span> : null}
+                {action.disabled ? (
+                  <DisabledActionReason reason={action.reason} />
+                ) : null}
               </span>
             ))}
           </div>

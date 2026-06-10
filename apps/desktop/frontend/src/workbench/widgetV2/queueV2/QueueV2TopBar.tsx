@@ -1,3 +1,4 @@
+import { TopbarGroup } from "../../../design-system/ActionPrimitives";
 import {
   queueGlobalExecutionStateLabel,
   type QueueGlobalStatus,
@@ -18,24 +19,40 @@ export function QueueV2TopBar({
 
   return (
     <div className="queue-v2-top-bar" aria-label="Queue v2 top command bar">
-      <div className="queue-v2-top-bar-status">
+      <TopbarGroup
+        className="queue-v2-top-bar-status"
+        data-group="status"
+        label="Queue v2 status"
+      >
         <span>Queue mode</span>
         <strong>{queueGlobalExecutionStateLabel(globalExecutionState)}</strong>
-      </div>
-      <div className="queue-v2-top-bar-counts" aria-label="Queue v2 status counts">
+      </TopbarGroup>
+      <TopbarGroup
+        className="queue-v2-top-bar-counts"
+        data-group="metrics"
+        label="Queue v2 status counts"
+      >
         <QueueV2TopBarMetric label="Ready" value={readyCount} />
         <QueueV2TopBarMetric label="Running" value={viewModel.counts.running} />
         <QueueV2TopBarMetric label="Review" value={viewModel.counts.reviewNeeded} />
         <QueueV2TopBarMetric label="Blocked" value={blockedCount} />
-      </div>
-      <div className="queue-v2-top-bar-capacity" aria-label="Queue v2 capacity">
+      </TopbarGroup>
+      <TopbarGroup
+        className="queue-v2-top-bar-capacity"
+        data-group="capacity"
+        label="Queue v2 capacity"
+      >
         <span>Capacity</span>
         <strong>
           {viewModel.capacity.availableSlots.toString()} available /{" "}
           {viewModel.capacity.totalSlots.toString()} total
         </strong>
-      </div>
-      <div className="queue-v2-top-bar-placeholders">
+      </TopbarGroup>
+      <TopbarGroup
+        className="queue-v2-top-bar-placeholders"
+        data-group="secondary"
+        label="Queue v2 secondary controls"
+      >
         <input
           aria-label="Queue v2 search placeholder"
           disabled
@@ -48,7 +65,7 @@ export function QueueV2TopBar({
         <button disabled type="button">
           Settings
         </button>
-      </div>
+      </TopbarGroup>
     </div>
   );
 }

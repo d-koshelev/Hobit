@@ -1,5 +1,6 @@
 import { useId, useRef, useState, type RefObject } from "react";
 
+import { TopbarGroup } from "../../../design-system/ActionPrimitives";
 import { Button } from "../../../design-system/Button";
 import { WidgetPopupShell } from "../../../design-system/WidgetPopupShell";
 import type {
@@ -121,11 +122,10 @@ export function KnowledgeV2Actions({
         aria-label="KnowledgeV2 explicit actions"
         className="knowledge-v2-actions"
       >
-        <div
-          aria-label="KnowledgeV2 view switcher"
+        <TopbarGroup
           className="knowledge-v2-action-group knowledge-v2-view-toggle knowledge-v2-action-group-spaced"
           data-group="view"
-          role="group"
+          label="KnowledgeV2 view switcher"
         >
           <Button
             aria-pressed={viewMode === "list"}
@@ -141,12 +141,12 @@ export function KnowledgeV2Actions({
           >
             Cards
           </Button>
-        </div>
-        <div
-          aria-label="KnowledgeV2 primary actions"
+        </TopbarGroup>
+        <TopbarGroup
           className="knowledge-v2-action-group knowledge-v2-primary-actions knowledge-v2-action-group-spaced"
           data-group="primary"
-          role="group"
+          label="KnowledgeV2 primary actions"
+          priority="primary"
         >
           {primaryActions.map((action) => (
             <KnowledgeV2ActionButton
@@ -164,12 +164,11 @@ export function KnowledgeV2Actions({
               onOpen={() => openTopbarAction(action.kind)}
             />
           ))}
-        </div>
-        <div
-          aria-label="KnowledgeV2 management actions"
+        </TopbarGroup>
+        <TopbarGroup
           className="knowledge-v2-action-group knowledge-v2-management-actions knowledge-v2-action-group-spaced"
           data-group="management"
-          role="group"
+          label="KnowledgeV2 management actions"
         >
           {managementActions.map((action) => (
             <KnowledgeV2ActionButton
@@ -187,12 +186,11 @@ export function KnowledgeV2Actions({
               onOpen={() => openTopbarAction(action.kind)}
             />
           ))}
-        </div>
-        <div
-          aria-label="KnowledgeV2 collapsed management actions"
+        </TopbarGroup>
+        <TopbarGroup
           className="knowledge-v2-action-group knowledge-v2-more-actions knowledge-v2-action-group-spaced"
           data-group="more"
-          role="group"
+          label="KnowledgeV2 collapsed management actions"
         >
           <Button
             aria-controls="knowledge-v2-more-actions-menu"
@@ -223,7 +221,7 @@ export function KnowledgeV2Actions({
               ))}
             </div>
           ) : null}
-        </div>
+        </TopbarGroup>
       </div>
       <WidgetPopupShell
         actions={

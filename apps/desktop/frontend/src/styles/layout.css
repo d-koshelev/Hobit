@@ -3,6 +3,7 @@
 @import "./workbench-shell.css";
 @import "./widget-catalog.css";
 @import "./widget-frame.css";
+@import "./shared-actions.css";
 @import "./widget-v2.css";
 @import "./widget-v2-queue.css";
 @import "./widget-v2-knowledge.css";
