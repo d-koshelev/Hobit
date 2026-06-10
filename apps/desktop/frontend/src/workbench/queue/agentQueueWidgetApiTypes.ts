@@ -7,6 +7,7 @@ import type {
   AgentQueueTaskRunLinkSummary,
   AgentQueueTaskStatus,
   AgentQueueTaskValidationStatus,
+  AgentQueueWorkerExecutionReport,
   AgentQueueWorkerConfig,
   CreateAgentQueueTaskRequest,
   DirectWorkApprovalPolicy,
@@ -276,6 +277,8 @@ export type QueueUpdateItemPatch = Partial<{
   status: AgentQueueTaskStatus;
   title: string;
   validationStatus: AgentQueueTaskValidationStatus | null;
+  appendWorkerExecutionReport: AgentQueueWorkerExecutionReport;
+  workerExecutionReports: AgentQueueWorkerExecutionReport[];
 }>;
 
 export type QueueUpdateItemRequest = {

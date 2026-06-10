@@ -319,6 +319,7 @@ export type UpdateAgentQueueTaskRequest = {
   queueTagId?: string;
   queueTagName?: string;
   validationStatus?: AgentQueueTaskValidationStatus;
+  workerExecutionReports?: AgentQueueWorkerExecutionReport[];
 };
 
 export type AssignAgentQueueTaskToExecutorRequest = GetAgentQueueTaskRequest & {

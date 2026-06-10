@@ -472,6 +472,13 @@ function mergeUpdateRequest(
 
   const queueTag = normalizeQueueTag(currentTask);
   const patchQueueTag = patch.queueTag;
+  const workerExecutionReports = hasOwn(patch, "workerExecutionReports")
+    ? Array.isArray(patch.workerExecutionReports)
+      ? patch.workerExecutionReports
+      : currentTask.workerExecutionReports
+    : hasOwn(patch, "appendWorkerExecutionReport") && patch.appendWorkerExecutionReport
+      ? [...(currentTask.workerExecutionReports ?? []), patch.appendWorkerExecutionReport]
+      : currentTask.workerExecutionReports;
 
   return {
     value: {
@@ -505,6 +512,7 @@ function mergeUpdateRequest(
       status,
       title,
       validationStatus: validationStatus ?? undefined,
+      workerExecutionReports,
     },
   };
 }
