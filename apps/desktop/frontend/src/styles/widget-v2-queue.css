@@ -548,12 +548,32 @@
 }
 
 .queue-v2-card-tag,
+.queue-v2-card-prompt-pack,
 .queue-v2-card-meta,
 .queue-v2-card-run {
   overflow: hidden;
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-v2-card-prompt-pack {
+  display: flex;
+  min-width: 0;
+  gap: var(--scaled-space-2xs);
+}
+
+.queue-v2-card-prompt-pack span {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text-muted);
+  line-height: var(--line-tight);
+  padding: calc(1px * var(--ui-scale)) calc(6px * var(--ui-scale));
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -747,6 +767,14 @@
   margin: 0;
   color: var(--color-text-primary);
   font-size: var(--text-xs);
+  font-weight: 740;
+  line-height: var(--line-tight);
+}
+
+.queue-v2-task-details-section > h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
   font-weight: 740;
   line-height: var(--line-tight);
 }

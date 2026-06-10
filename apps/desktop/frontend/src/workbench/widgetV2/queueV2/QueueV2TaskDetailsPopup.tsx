@@ -8,6 +8,10 @@ import type {
   AgentQueueTask,
   AgentQueueWorkerExecutionReport,
 } from "../../../workspace/types";
+import {
+  getQueuePromptPackImportMetadata,
+  type QueuePromptPackImportMetadata,
+} from "../../promptPack/queuePromptPackMetadata";
 import type {
   QueueInspectorSnapshot,
   QueueTaskViewModel,
@@ -21,6 +25,7 @@ import {
   buildQueueV2TaskDetailsActions,
   type QueueV2DetailsTab,
 } from "./queueV2TaskDetailsActions";
+import { QueueV2PromptPackImportSection } from "./QueueV2PromptPackImportSection";
 
 type QueueV2TaskDetailsPopupProps = {
   inspector: QueueInspectorSnapshot | null;
@@ -70,6 +75,7 @@ export function QueueV2TaskDetailsPopup({
   const tabListId = useId();
   const task = taskViewModel?.task ?? null;
   const latestReport = latestTaskReport(task);
+  const promptPackMetadata = task ? getQueuePromptPackImportMetadata(task) : null;
   const highLevelEvents = useMemo(
     () => highLevelTaskEvents(task, latestReport),
     [latestReport, task],
@@ -196,6 +202,7 @@ export function QueueV2TaskDetailsPopup({
             <OverviewSection
               events={highLevelEvents}
               inspector={inspector}
+              promptPackMetadata={promptPackMetadata}
               task={task}
             />
           ) : null}
@@ -229,7 +236,11 @@ export function QueueV2TaskDetailsPopup({
             )
           ) : null}
           {activeTab === "files-validation" ? (
-            <FilesValidationSection latestReport={latestReport} task={task} />
+            <FilesValidationSection
+              latestReport={latestReport}
+              promptPackMetadata={promptPackMetadata}
+              task={task}
+            />
           ) : null}
           {activeTab === "developer" ? (
             <DeveloperSection
@@ -247,10 +258,12 @@ export function QueueV2TaskDetailsPopup({
 function OverviewSection({
   events,
   inspector,
+  promptPackMetadata,
   task,
 }: {
   events: string[];
   inspector: QueueInspectorSnapshot;
+  promptPackMetadata: QueuePromptPackImportMetadata | null;
   task: AgentQueueTask;
 }) {
   return (
@@ -266,6 +279,12 @@ function OverviewSection({
         <h3>Recent events</h3>
         <EventList events={events} />
       </div>
+      {promptPackMetadata ? (
+        <QueueV2PromptPackImportSection
+          metadata={promptPackMetadata}
+          task={task}
+        />
+      ) : null}
     </div>
   );
 }
@@ -373,9 +392,11 @@ function ContextSection({ task }: { task: AgentQueueTask }) {
 
 function FilesValidationSection({
   latestReport,
+  promptPackMetadata,
   task,
 }: {
   latestReport: AgentQueueWorkerExecutionReport | null;
+  promptPackMetadata: QueuePromptPackImportMetadata | null;
   task: AgentQueueTask;
 }) {
   return (
@@ -387,9 +408,19 @@ function FilesValidationSection({
       />
       <CompactList
         emptyLabel="No validation commands were run."
-        items={latestReport?.validationCommandsRun ?? latestReport?.commandsRun ?? []}
+        items={
+          promptPackMetadata?.validationCommands.length
+            ? promptPackMetadata.validationCommands
+            : latestReport?.validationCommandsRun ?? latestReport?.commandsRun ?? []
+        }
         label="Validation commands"
       />
+      {promptPackMetadata?.expectedCommitTitle ? (
+        <DetailBlock
+          label="Expected commit title"
+          value={promptPackMetadata.expectedCommitTitle}
+        />
+      ) : null}
       <DetailBlock label="Validation summary" value={validationSummary(task, latestReport)} />
     </div>
   );

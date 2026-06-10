@@ -3,6 +3,7 @@ import {
   type ActionMenuItem,
 } from "../../../design-system/ActionPrimitives";
 import type { AgentQueueTask } from "../../../workspace/types";
+import { getQueuePromptPackImportMetadata } from "../../promptPack/queuePromptPackMetadata";
 import {
   normalizeQueueTag,
   normalizeValidationStatus,
@@ -29,6 +30,7 @@ export function QueueV2TaskCard({
   const accent = accentForTask(item);
   const workerLabel = runningWorkerLabel(item.task);
   const progressLabel = runningProgressLabel(item.task);
+  const promptPackMetadata = getQueuePromptPackImportMetadata(item.task);
   const actionItems: ActionMenuItem[] = [
     {
       id: "open-details",
@@ -81,6 +83,20 @@ export function QueueV2TaskCard({
           <span>{tag.queueTagName}</span>
         </span>
         <span className="queue-v2-card-meta">{taskStatusText(item)}</span>
+        {promptPackMetadata ? (
+          <span
+            aria-label="Prompt-pack import metadata"
+            className="queue-v2-card-prompt-pack"
+          >
+            {promptPackMetadata.blockId ? (
+              <span>Block {promptPackMetadata.blockId}</span>
+            ) : null}
+            <span>{dependencySummary(item, promptPackMetadata.dependencies)}</span>
+            {promptPackMetadata.validationCommands.length > 0 ? (
+              <span>Validation required</span>
+            ) : null}
+          </span>
+        ) : null}
         <span className="queue-v2-card-action">
           {nextActionShortLabel(item.nextAction)}
         </span>
@@ -93,6 +109,27 @@ export function QueueV2TaskCard({
       </span>
     </article>
   );
+}
+
+function dependencySummary(
+  item: QueueTaskViewModel,
+  promptPackDependencies: readonly string[],
+) {
+  if (item.blockedReasons.some((reason) => reason.code.startsWith("dependency"))) {
+    return "Dependency blocked";
+  }
+
+  if (promptPackDependencies.length > 0) {
+    return `Depends on ${promptPackDependencies.slice(0, 2).join(", ")}${
+      promptPackDependencies.length > 2 ? ` +${(promptPackDependencies.length - 2).toString()}` : ""
+    }`;
+  }
+
+  if ((item.task.dependsOn?.length ?? 0) > 0) {
+    return "Dependencies linked";
+  }
+
+  return "No dependencies";
 }
 
 export function nextActionShortLabel(action: QueueNextAction) {

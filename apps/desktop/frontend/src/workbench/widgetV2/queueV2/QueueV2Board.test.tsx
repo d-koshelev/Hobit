@@ -391,6 +391,56 @@ describe("QueueV2Board", () => {
 
     expect(onSelectedTaskChange).toHaveBeenCalledTimes(1);
   });
+
+  it("shows imported prompt-pack metadata on compact cards and task details without raw JSON", async () => {
+    const onSelectedTaskChange = vi.fn();
+    const importedTask = task({
+      dependsOn: ["queue-setup"],
+      description: [
+        "Prompt pack: Core Pack (core-pack)",
+        "Prompt item: build",
+      ].join("\n"),
+      prompt: promptPackPrompt(),
+      queueItemId: "queue-build",
+      status: "draft",
+      title: "build: Build task",
+    });
+
+    await render(
+      <QueueV2Board
+        onSelectedTaskChange={onSelectedTaskChange}
+        tasks={[importedTask]}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(onSelectedTaskChange).not.toHaveBeenCalled();
+    expect(card("queue-build")?.textContent).toContain("build: Build task");
+    expect(card("queue-build")?.textContent).toContain("Block build");
+    expect(card("queue-build")?.textContent).toContain("Dependency blocked");
+    expect(card("queue-build")?.textContent).toContain("Validation required");
+    expect(document.body.textContent).not.toContain('"items"');
+
+    await openCardDetails("queue-build");
+
+    expect(onSelectedTaskChange).toHaveBeenCalledTimes(1);
+    expect(activePanel()?.textContent).toContain("Prompt-pack import");
+    expect(activePanel()?.textContent).toContain("Core Pack (core-pack)");
+    expect(activePanel()?.textContent).toContain("build");
+    expect(activePanel()?.textContent).toContain("setup");
+    expect(activePanel()?.textContent).toContain("queue-setup");
+    expect(activePanel()?.textContent).toContain("frontend only");
+    expect(activePanel()?.textContent).toContain("backend storage");
+
+    await click(buttonWithText("Files / Validation"));
+    expect(activePanel()?.textContent).toContain(
+      "npm.cmd run typecheck --prefix apps/desktop/frontend",
+    );
+    expect(activePanel()?.textContent).toContain(
+      "frontend: materialize prompt pack",
+    );
+    expect(document.body.textContent).not.toContain('"items"');
+  });
 });
 
 async function render(element: ReactNode) {
@@ -569,4 +619,24 @@ function baseReport() {
     warnings: [],
     workerId: "worker",
   };
+}
+
+function promptPackPrompt() {
+  return [
+    "Build prompt body.",
+    "",
+    "Prompt pack materialization metadata",
+    "Pack: Core Pack (core-pack)",
+    "Block id: build",
+    "Prompt-pack dependencies: setup",
+    "Expected commit title: frontend: materialize prompt pack",
+    "Validation commands",
+    "- npm.cmd run typecheck --prefix apps/desktop/frontend",
+    "Allowed scope",
+    "- frontend only",
+    "Forbidden scope",
+    "- backend storage",
+    'Raw prompt-pack JSON was {"items":[{"id":"build"}]} and must not be shown as metadata.',
+    "Imported Queue items must not auto-run.",
+  ].join("\n");
 }
