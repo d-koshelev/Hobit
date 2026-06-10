@@ -23,6 +23,14 @@ import {
 } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
 import { QueueV2CollapsibleLane } from "./widgetV2/queueV2/QueueV2CollapsibleLane";
 import type { AgentQueueController } from "./queue/details/agentQueueTaskDetailsTypes";
+import {
+  queueV2ValidationEvidenceView,
+  validationStatusDataAttribute,
+} from "./widgetV2/queueV2/queueV2ValidationEvidence";
+import type {
+  QueueValidationRunResult,
+} from "./queue/queueValidationEvidenceService";
+import type { ValidationRunner } from "./validation";
 
 type AgentQueueV2BoardProps = {
   autorunArmed: boolean;
@@ -34,6 +42,10 @@ type AgentQueueV2BoardProps = {
   onRecordKnowledgeDraftReview?: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   onSelectTask: (queueItemId: string) => void;
   onRequestNewTask?: () => void;
+  onRequestValidation?: (
+    task: AgentQueueTask,
+    runner: ValidationRunner,
+  ) => Promise<QueueValidationRunResult>;
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
@@ -42,6 +54,7 @@ type AgentQueueV2BoardProps = {
   queue?: AgentQueueController;
   selectedTask: AgentQueueTask | null;
   tasks: AgentQueueTask[];
+  validationRunner?: ValidationRunner | null;
   workers: AgentWorkerSummary[];
 };
 
@@ -65,6 +78,7 @@ export function AgentQueueV2Board({
   onListKnowledgeDraftReviews,
   onRecordKnowledgeDraftReview,
   onRequestNewTask,
+  onRequestValidation,
   onSelectTask,
   onShowQueueReportInWorkspaceChat,
   onShowQueueTaskInWorkspaceChat,
@@ -72,6 +86,7 @@ export function AgentQueueV2Board({
   queue,
   selectedTask,
   tasks,
+  validationRunner,
   workers,
 }: AgentQueueV2BoardProps) {
   const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
@@ -231,12 +246,14 @@ export function AgentQueueV2Board({
         onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
         onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
         onRequestNewTask={onRequestNewTask}
+        onRequestValidation={onRequestValidation}
         onRequestClose={() => setDetailsTaskId(null)}
         onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
         onShowQueueTaskInWorkspaceChat={onShowQueueTaskInWorkspaceChat}
         queue={queue}
         returnFocusRef={detailsReturnFocusRef}
         taskViewModel={detailTaskViewModel}
+        validationRunner={validationRunner}
       />
     </section>
   );
@@ -470,6 +487,7 @@ function QueueV2Card({
   const blockerSummary =
     item.blockedReasons[0]?.label ??
     (item.eligibility.blockedReasons[0]?.label || null);
+  const validation = queueV2ValidationEvidenceView(item.task);
 
   return (
     <article
@@ -484,6 +502,7 @@ function QueueV2Card({
       data-queue-item-id={item.taskId}
       data-queue-v2-lane={item.boardLane}
       data-queue-v2-tag-color={colorToken}
+      data-queue-v2-validation={validationStatusDataAttribute(item.task)}
       data-task-order-id={item.taskId}
       onClick={() => {
         if (!isSelecting) {
@@ -514,6 +533,12 @@ function QueueV2Card({
           {nextActionLabel(item.nextAction)}
         </Badge>
       </span>
+      <span className="agent-queue-v2-card-line">
+        <span>Validation</span>
+        <Badge variant={validationBadgeVariant(validation.markerTone)}>
+          {validation.marker}
+        </Badge>
+      </span>
       {blockerSummary ? (
         <span className="agent-queue-v2-card-note">{blockerSummary}</span>
       ) : null}
@@ -539,6 +564,23 @@ function QueueV2Card({
       </button>
     </article>
   );
+}
+
+function validationBadgeVariant(
+  tone: ReturnType<typeof queueV2ValidationEvidenceView>["markerTone"],
+) {
+  switch (tone) {
+    case "success":
+      return "success";
+    case "error":
+      return "error";
+    case "info":
+      return "info";
+    case "warning":
+      return "warning";
+    case "neutral":
+      return "neutral";
+  }
 }
 
 function nextActionLabel(action: QueueNextAction) {

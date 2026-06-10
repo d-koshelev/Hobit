@@ -549,6 +549,7 @@
 
 .queue-v2-card-tag,
 .queue-v2-card-prompt-pack,
+.queue-v2-card-validation,
 .queue-v2-card-meta,
 .queue-v2-card-run {
   overflow: hidden;
@@ -557,6 +558,36 @@
   line-height: var(--line-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.queue-v2-card-validation {
+  justify-self: start;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  background: var(--color-neutral-soft);
+  color: var(--color-text-muted);
+  line-height: var(--line-tight);
+  padding: calc(1px * var(--ui-scale)) calc(6px * var(--ui-scale));
+}
+
+.queue-v2-card-validation[data-validation-tone="info"] {
+  border-color: var(--color-info);
+  color: var(--color-info);
+}
+
+.queue-v2-card-validation[data-validation-tone="success"] {
+  border-color: var(--color-success);
+  color: var(--color-success);
+}
+
+.queue-v2-card-validation[data-validation-tone="warning"] {
+  border-color: var(--color-warning);
+  color: var(--color-warning);
+}
+
+.queue-v2-card-validation[data-validation-tone="error"] {
+  border-color: var(--color-error);
+  color: var(--color-error);
 }
 
 .queue-v2-card-prompt-pack {
@@ -850,6 +881,60 @@
 
 .queue-v2-task-details-mono {
   font-family: var(--font-mono);
+  white-space: pre-wrap;
+}
+
+.queue-v2-validation-command-list,
+.queue-v2-validation-command-evidence {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-xs);
+}
+
+.queue-v2-validation-command-evidence {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface-raised);
+  padding: var(--space-xs);
+}
+
+.queue-v2-validation-command-header {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xs);
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+}
+
+.queue-v2-validation-output {
+  display: grid;
+  min-width: 0;
+  gap: var(--scaled-space-2xs);
+}
+
+.queue-v2-validation-output p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+}
+
+.queue-v2-validation-output pre {
+  max-height: calc(120px * var(--ui-scale));
+  overflow: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  margin: 0;
+  padding: var(--space-xs);
   white-space: pre-wrap;
 }
 

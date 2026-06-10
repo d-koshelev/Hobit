@@ -21,11 +21,23 @@ import type { AgentQueueController } from "../../queue/details/agentQueueTaskDet
 import { AgentQueueTaskContextSection } from "../../queue/details/AgentQueueTaskContextSection";
 import { AgentQueueTaskResultEvidenceSection } from "../../queue/details/AgentQueueTaskResultEvidenceSection";
 import type { WidgetRenderProps } from "../../types";
+import type {
+  QueueValidationRunResult,
+} from "../../queue/queueValidationEvidenceService";
+import type { ValidationRunner } from "../../validation";
 import {
   buildQueueV2TaskDetailsActions,
   type QueueV2DetailsTab,
 } from "./queueV2TaskDetailsActions";
 import { QueueV2PromptPackImportSection } from "./QueueV2PromptPackImportSection";
+import {
+  queueV2ValidationEvidenceView,
+} from "./queueV2ValidationEvidence";
+import {
+  QueueV2FilesValidationSection,
+  validationRequestDisabledReason,
+  type QueueV2ValidationRequestState,
+} from "./QueueV2ValidationEvidenceSection";
 
 type QueueV2TaskDetailsPopupProps = {
   inspector: QueueInspectorSnapshot | null;
@@ -35,6 +47,10 @@ type QueueV2TaskDetailsPopupProps = {
   onListKnowledgeDraftReviews?: WidgetRenderProps["onListKnowledgeDraftReviews"];
   onRecordKnowledgeDraftReview?: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   onRequestNewTask?: () => void;
+  onRequestValidation?: (
+    task: AgentQueueTask,
+    runner: ValidationRunner,
+  ) => Promise<QueueValidationRunResult>;
   onRequestClose: () => void;
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
@@ -43,6 +59,7 @@ type QueueV2TaskDetailsPopupProps = {
   queue?: AgentQueueController;
   returnFocusRef?: RefObject<HTMLElement | null>;
   taskViewModel: QueueTaskViewModel | null;
+  validationRunner?: ValidationRunner | null;
 };
 
 const TABS: { id: QueueV2DetailsTab; label: string }[] = [
@@ -63,19 +80,32 @@ export function QueueV2TaskDetailsPopup({
   onListKnowledgeDraftReviews,
   onRecordKnowledgeDraftReview,
   onRequestNewTask,
+  onRequestValidation,
   onRequestClose,
   onShowQueueReportInWorkspaceChat,
   onShowQueueTaskInWorkspaceChat,
   queue,
   returnFocusRef,
   taskViewModel,
+  validationRunner,
 }: QueueV2TaskDetailsPopupProps) {
   const [activeTab, setActiveTab] = useState<QueueV2DetailsTab>("overview");
+  const [validationRequestState, setValidationRequestState] = useState<
+    QueueV2ValidationRequestState
+  >("idle");
+  const [validationRequestMessage, setValidationRequestMessage] =
+    useState<string | null>(null);
   const titleId = useId();
   const tabListId = useId();
   const task = taskViewModel?.task ?? null;
   const latestReport = latestTaskReport(task);
   const promptPackMetadata = task ? getQueuePromptPackImportMetadata(task) : null;
+  const validationEvidence = task ? queueV2ValidationEvidenceView(task) : null;
+  const validationDisabledReason = validationRequestDisabledReason({
+    onRequestValidation,
+    task,
+    validationRunner,
+  });
   const highLevelEvents = useMemo(
     () => highLevelTaskEvents(task, latestReport),
     [latestReport, task],
@@ -97,6 +127,38 @@ export function QueueV2TaskDetailsPopup({
   }
 
   const activePanelId = `queue-v2-details-${task.queueItemId}-${activeTab}`;
+
+  async function requestValidation() {
+    if (!task || !validationRunner || !onRequestValidation) {
+      setValidationRequestState("unavailable");
+      setValidationRequestMessage(
+        validationDisabledReason ?? "Validation request is unavailable.",
+      );
+      return;
+    }
+
+    setValidationRequestState("running");
+    setValidationRequestMessage(null);
+
+    try {
+      const result = await onRequestValidation(task, validationRunner);
+      const status = result.runnerOutput.unavailable
+        ? "unavailable"
+        : result.runnerOutput.summary.status === "passed"
+          ? "passed"
+          : "failed";
+
+      setValidationRequestState(status);
+      setValidationRequestMessage(result.attachment.summary.summary);
+    } catch (error) {
+      setValidationRequestState("failed");
+      setValidationRequestMessage(
+        error instanceof Error
+          ? error.message
+          : "Validation request failed before evidence could be attached.",
+      );
+    }
+  }
 
   return (
     <WidgetPopupShell
@@ -168,6 +230,22 @@ export function QueueV2TaskDetailsPopup({
                 ) : null}
               </span>
             ))}
+            <span className="queue-v2-task-details-action-item">
+              <Button
+                disabled={
+                  Boolean(validationDisabledReason) ||
+                  validationRequestState === "running"
+                }
+                onClick={() => void requestValidation()}
+                title={validationDisabledReason ?? undefined}
+                variant="secondary"
+              >
+                {validationRequestState === "running"
+                  ? "Requesting validation"
+                  : "Request validation"}
+              </Button>
+              <DisabledActionReason reason={validationDisabledReason} />
+            </span>
           </div>
         </div>
 
@@ -236,10 +314,13 @@ export function QueueV2TaskDetailsPopup({
             )
           ) : null}
           {activeTab === "files-validation" ? (
-            <FilesValidationSection
+            <QueueV2FilesValidationSection
               latestReport={latestReport}
               promptPackMetadata={promptPackMetadata}
               task={task}
+              validationEvidence={validationEvidence}
+              validationRequestMessage={validationRequestMessage}
+              validationRequestState={validationRequestState}
             />
           ) : null}
           {activeTab === "developer" ? (
@@ -386,42 +467,6 @@ function ContextSection({ task }: { task: AgentQueueTask }) {
         items={context?.contextWarnings.map((warning) => warning.message) ?? []}
         label="Warnings"
       />
-    </div>
-  );
-}
-
-function FilesValidationSection({
-  latestReport,
-  promptPackMetadata,
-  task,
-}: {
-  latestReport: AgentQueueWorkerExecutionReport | null;
-  promptPackMetadata: QueuePromptPackImportMetadata | null;
-  task: AgentQueueTask;
-}) {
-  return (
-    <div className="queue-v2-task-details-section">
-      <CompactList
-        emptyLabel="No changed files reported."
-        items={latestReport?.changedFiles ?? []}
-        label="Changed files"
-      />
-      <CompactList
-        emptyLabel="No validation commands were run."
-        items={
-          promptPackMetadata?.validationCommands.length
-            ? promptPackMetadata.validationCommands
-            : latestReport?.validationCommandsRun ?? latestReport?.commandsRun ?? []
-        }
-        label="Validation commands"
-      />
-      {promptPackMetadata?.expectedCommitTitle ? (
-        <DetailBlock
-          label="Expected commit title"
-          value={promptPackMetadata.expectedCommitTitle}
-        />
-      ) : null}
-      <DetailBlock label="Validation summary" value={validationSummary(task, latestReport)} />
     </div>
   );
 }

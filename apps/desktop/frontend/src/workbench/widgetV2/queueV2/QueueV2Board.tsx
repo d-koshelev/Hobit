@@ -1,6 +1,10 @@
 import { useMemo, useRef, useState } from "react";
 
 import type { AgentQueueTask } from "../../../workspace/types";
+import type {
+  QueueValidationRunResult,
+} from "../../queue/queueValidationEvidenceService";
+import type { ValidationRunner } from "../../validation";
 import {
   type AgentWorkerSummary,
   type QueueGlobalStatus,
@@ -20,8 +24,13 @@ type QueueV2BoardProps = {
   globalExecutionState?: QueueGlobalStatus;
   initialSelectedTaskId?: string | null;
   onSelectedTaskChange?: (taskId: string) => void;
+  onRequestValidation?: (
+    task: AgentQueueTask,
+    runner: ValidationRunner,
+  ) => Promise<QueueValidationRunResult>;
   pausedQueueTagIds?: ReadonlySet<string>;
   tasks: readonly AgentQueueTask[];
+  validationRunner?: ValidationRunner | null;
   workers?: readonly AgentWorkerSummary[];
 };
 
@@ -44,8 +53,10 @@ export function QueueV2Board({
   globalExecutionState = "started",
   initialSelectedTaskId = null,
   onSelectedTaskChange,
+  onRequestValidation,
   pausedQueueTagIds = new Set(),
   tasks,
+  validationRunner,
   workers = [],
 }: QueueV2BoardProps) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
@@ -139,9 +150,11 @@ export function QueueV2Board({
       <QueueV2TaskDetailsPopup
         inspector={detailsTaskId ? board.inspector : null}
         isOpen={detailsTaskId !== null}
+        onRequestValidation={onRequestValidation}
         onRequestClose={() => setDetailsTaskId(null)}
         returnFocusRef={detailsReturnFocusRef}
         taskViewModel={detailTaskViewModel}
+        validationRunner={validationRunner}
       />
     </section>
   );

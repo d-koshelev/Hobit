@@ -8,6 +8,8 @@ import type {
   AgentQueueWorkerExecutionReport,
 } from "../../../workspace/types";
 import type { AgentWorkerSummary } from "../../agentQueueTaskUiModel";
+import type { QueueValidationRunResult } from "../../queue/queueValidationEvidenceService";
+import type { ValidationRunner } from "../../validation";
 import { QueueV2Board } from "./QueueV2Board";
 
 let root: Root | null = null;
@@ -135,6 +137,47 @@ describe("QueueV2Board", () => {
     expect(document.body.textContent).toContain("Alpha");
     expect(document.body.textContent).toContain("Beta");
     expect(document.querySelectorAll(".queue-v2-card-tag-dot")).toHaveLength(2);
+  });
+
+  it("shows compact validation markers for passed, failed, and running cards", async () => {
+    await render(
+      <QueueV2Board
+        tasks={[
+          task({
+            queueItemId: "passed",
+            status: "ready",
+            title: "Passed task",
+            validationStatus: "passed",
+            workerExecutionReports: [
+              report({ validationResult: "passed", summary: "Validation passed." }),
+            ],
+          }),
+          task({
+            queueItemId: "failed",
+            status: "ready",
+            title: "Failed task",
+            validationStatus: "failed",
+            workerExecutionReports: [
+              report({ reportStatus: "failed", validationResult: "failed" }),
+            ],
+          }),
+          task({
+            queueItemId: "running",
+            status: "running",
+            title: "Running validation task",
+            validationStatus: "validating",
+          }),
+        ]}
+        workers={[worker({ currentItemId: "running", status: "running" })]}
+      />,
+    );
+
+    expect(card("passed")?.dataset.queueV2Validation).toBe("passed");
+    expect(card("passed")?.textContent).toContain("Validation passed");
+    expect(card("failed")?.dataset.queueV2Validation).toBe("failed");
+    expect(card("failed")?.textContent).toContain("Validation failed");
+    expect(card("running")?.dataset.queueV2Validation).toBe("running");
+    expect(card("running")?.textContent).toContain("Validation running");
   });
 
   it("groups running tasks by worker with online/offline summaries", async () => {
@@ -368,6 +411,128 @@ describe("QueueV2Board", () => {
     expect(developerDetails?.textContent).toContain("Raw / developer details");
   });
 
+  it("renders validation command evidence with capped output in Files / Validation", async () => {
+    await render(
+      <QueueV2Board
+        tasks={[
+          task({
+            queueItemId: "validated",
+            status: "completed",
+            title: "Validated task",
+            validationStatus: "passed",
+            workerExecutionReports: [
+              report({
+                createdAt: "2026-01-02T00:00:00.000Z",
+                rawReportPreview: validationRawPreview("A".repeat(1_500)),
+                validationCommandsRun: ["npm.cmd run test -- --run Validation"],
+                validationResult: "passed",
+                warnings: ["stdout was capped before Queue review."],
+              }),
+            ],
+          }),
+        ]}
+        workers={[worker()]}
+      />,
+    );
+
+    await openCardDetails("validated");
+    await click(buttonWithText("Files / Validation"));
+
+    const panelText = activePanel()?.textContent ?? "";
+    expect(panelText).toContain("Validation evidence");
+    expect(panelText).toContain("Evidence timestamp");
+    expect(panelText).toContain("2026-01-02T00:00:00.000Z");
+    expect(panelText).toContain("npm.cmd run test -- --run Validation");
+    expect(panelText).toContain("Exit");
+    expect(panelText).toContain("Duration");
+    expect(panelText).toContain("stdout snippet");
+    expect(panelText).toContain("stderr snippet");
+    expect(panelText).toContain("Preview capped");
+    expect(panelText).not.toContain("HUGE_LOG_SENTINEL");
+  });
+
+  it("keeps request validation explicit and reports unsupported runner state", async () => {
+    const onRequestValidation = vi.fn();
+
+    await render(
+      <QueueV2Board
+        onRequestValidation={onRequestValidation}
+        tasks={[
+          task({
+            queueItemId: "needs-validation",
+            status: "ready",
+            title: "Needs validation",
+          }),
+        ]}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(onRequestValidation).not.toHaveBeenCalled();
+    await openCardDetails("needs-validation");
+    expect(onRequestValidation).not.toHaveBeenCalled();
+
+    const requestButton = buttonWithText("Request validation");
+    expect(requestButton?.disabled).toBe(true);
+    expect(requestButton?.parentElement?.textContent).toContain(
+      "Validation runner is unavailable for this Queue surface.",
+    );
+    await click(requestButton);
+    expect(onRequestValidation).not.toHaveBeenCalled();
+  });
+
+  it("calls request validation only after the explicit details action", async () => {
+    const onRequestValidation = vi.fn(
+      async (
+        _task: AgentQueueTask,
+        _runner: ValidationRunner,
+      ): Promise<QueueValidationRunResult> => ({
+        attachment: {
+          summary: {
+            summary: "Validation passed: one command passed.",
+          },
+        } as QueueValidationRunResult["attachment"],
+        runnerOutput: {
+          summary: { status: "passed" },
+          unavailable: false,
+        } as QueueValidationRunResult["runnerOutput"],
+        started: true,
+        startUpdate: null,
+        warnings: [],
+      }),
+    );
+
+    await render(
+      <QueueV2Board
+        onRequestValidation={onRequestValidation}
+        tasks={[
+          task({
+            queueItemId: "needs-validation",
+            status: "ready",
+            title: "Needs validation",
+          }),
+        ]}
+        validationRunner={validationRunner()}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(onRequestValidation).not.toHaveBeenCalled();
+    await openCardDetails("needs-validation");
+    expect(onRequestValidation).not.toHaveBeenCalled();
+
+    await click(buttonWithText("Request validation"));
+    await flushAsync();
+    await click(buttonWithText("Files / Validation"));
+
+    expect(onRequestValidation).toHaveBeenCalledTimes(1);
+    const firstCall = onRequestValidation.mock.calls[0];
+    expect(firstCall?.[0].queueItemId).toBe("needs-validation");
+    expect(activePanel()?.textContent).toContain(
+      "Validation passed: one command passed.",
+    );
+  });
+
   it("keeps unwired popup action controls disabled and does not call selection again", async () => {
     const onSelectedTaskChange = vi.fn();
 
@@ -527,6 +692,12 @@ async function keyDown(key: string) {
   });
 }
 
+async function flushAsync() {
+  await act(async () => {
+    await Promise.resolve();
+  });
+}
+
 function visibleCardOrder() {
   return Array.from(document.querySelectorAll<HTMLElement>("[data-task-order-id]"))
     .map((element) => element.dataset.taskOrderId);
@@ -618,6 +789,33 @@ function baseReport() {
     validationCommandsSuggested: [],
     warnings: [],
     workerId: "worker",
+  };
+}
+
+function validationRawPreview(hugeOutput: string) {
+  return [
+    "Validation evidence",
+    "Run: validation-run-1",
+    "Queue item: validated",
+    "Suite: queue-validation",
+    "Status: passed",
+    "Summary: one command passed",
+    "",
+    "Command: npm.cmd run test -- --run Validation (validation-1)",
+    "Status: passed",
+    "Exit code: 0",
+    "Duration: 42 ms",
+    "Cwd: C:/work",
+    `Stdout preview:\n${hugeOutput}`,
+    "Stderr preview:\nempty",
+    "Warnings: stdout was capped before Queue review.",
+    "Full log ref: HUGE_LOG_SENTINEL",
+  ].join("\n");
+}
+
+function validationRunner(): ValidationRunner {
+  return {
+    run: vi.fn(),
   };
 }
 

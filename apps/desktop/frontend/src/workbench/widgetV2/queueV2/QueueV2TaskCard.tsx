@@ -11,6 +11,10 @@ import {
 import { queueTagColorToken } from "../../queue/agentQueueTagColors";
 import type { QueueTaskViewModel } from "../../queue/queueV2ViewModel";
 import type { QueueNextAction } from "../../queue/queueV2NextActionModel";
+import {
+  queueV2ValidationEvidenceView,
+  validationStatusDataAttribute,
+} from "./queueV2ValidationEvidence";
 
 type QueueV2TaskCardProps = {
   item: QueueTaskViewModel;
@@ -31,6 +35,7 @@ export function QueueV2TaskCard({
   const workerLabel = runningWorkerLabel(item.task);
   const progressLabel = runningProgressLabel(item.task);
   const promptPackMetadata = getQueuePromptPackImportMetadata(item.task);
+  const validation = queueV2ValidationEvidenceView(item.task);
   const actionItems: ActionMenuItem[] = [
     {
       id: "open-details",
@@ -54,6 +59,7 @@ export function QueueV2TaskCard({
       data-queue-v2-lane={item.boardLane}
       data-queue-v2-selected={isSelected ? "true" : "false"}
       data-queue-v2-tag-color={colorToken}
+      data-queue-v2-validation={validationStatusDataAttribute(item.task)}
       data-task-order-id={item.taskId}
       data-tone={accent}
       onClick={() => onSelect(item.taskId)}
@@ -83,6 +89,13 @@ export function QueueV2TaskCard({
           <span>{tag.queueTagName}</span>
         </span>
         <span className="queue-v2-card-meta">{taskStatusText(item)}</span>
+        <span
+          className="queue-v2-card-validation"
+          data-validation-tone={validation.markerTone}
+          title={validation.summary}
+        >
+          {validation.marker}
+        </span>
         {promptPackMetadata ? (
           <span
             aria-label="Prompt-pack import metadata"
