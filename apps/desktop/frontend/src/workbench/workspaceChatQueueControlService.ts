@@ -118,7 +118,11 @@ async function executeWorkspaceChatQueueAction(
           action.queueItemId,
         );
       case "create_diff_review":
-        return await createDiffReview(action.queueItemId, options.queue);
+        return unavailable(
+          action.kind,
+          "Diff Review task creation is not exposed as a Workspace Chat Queue control action. No review task was created.",
+          action.queueItemId,
+        );
       case "coordinator_decision":
         return await coordinatorDecision(action, options.queue);
     }
@@ -232,35 +236,6 @@ async function runTask(
   };
 }
 
-async function createDiffReview(
-  queueItemId: string,
-  queue: AgentQueueController | null | undefined,
-): Promise<WorkspaceChatQueueActionResult> {
-  const selectedCheck = selectedTaskActionCheck(queueItemId, queue);
-
-  if (selectedCheck) {
-    return selectedCheckFor("create_diff_review", selectedCheck);
-  }
-
-  if (!queue?.diffReview.canCreate) {
-    return unavailable(
-      "create_diff_review",
-      queue?.diffReview.message ??
-        "Diff Review task creation is unavailable for the selected Queue task.",
-      queueItemId,
-    );
-  }
-
-  queue.diffReview.onCreate();
-
-  return {
-    action: "create_diff_review",
-    message: `Diff Review Queue task creation requested for ${queueItemId}. It was not run.`,
-    queueItemId,
-    status: "success",
-  };
-}
-
 async function coordinatorDecision(
   action: Extract<WorkspaceChatQueueAction, { kind: "coordinator_decision" }>,
   queue: AgentQueueController | null | undefined,
@@ -355,7 +330,7 @@ function coordinatorDecisionHandler(
     case "mark_ready_for_finalization":
       return queue.coordinatorFinalization.onMarkReadyForFinalization;
     case "mark_rollback_required":
-      return queue.coordinatorFinalization.onMarkRollbackRequired;
+      return null;
     default:
       return null;
   }

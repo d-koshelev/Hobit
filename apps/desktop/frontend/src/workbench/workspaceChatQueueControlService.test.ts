@@ -234,6 +234,42 @@ describe("workspace chat Queue control service", () => {
     });
     expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
+
+  it("returns unavailable for diff review and rollback control actions", async () => {
+    const onCreateDiffReview = vi.fn();
+    const onRollback = vi.fn();
+    const service = createWorkspaceChatQueueControlService({
+      queue: queueController({
+        canAct: true,
+        onCreateDiffReview,
+        onRollback,
+        selectedTask: queueTask({ queueItemId: "queue-1" }),
+      }),
+    });
+
+    const diffReviewResult = await service.execute({
+      kind: "create_diff_review",
+      queueItemId: "queue-1",
+    });
+    const rollbackResult = await service.execute({
+      actionType: "mark_rollback_required",
+      kind: "coordinator_decision",
+      queueItemId: "queue-1",
+    });
+
+    expect(diffReviewResult).toMatchObject({
+      action: "create_diff_review",
+      queueItemId: "queue-1",
+      status: "unavailable",
+    });
+    expect(rollbackResult).toMatchObject({
+      action: "coordinator_decision",
+      queueItemId: "queue-1",
+      status: "unavailable",
+    });
+    expect(onCreateDiffReview).not.toHaveBeenCalled();
+    expect(onRollback).not.toHaveBeenCalled();
+  });
 });
 
 function queueBridge(
@@ -248,22 +284,38 @@ function queueBridge(
 }
 
 function queueController({
+  canAct = false,
   canStart = true,
+  onCreateDiffReview = vi.fn(),
+  onRollback = vi.fn(),
   onStartAssignedTask = vi.fn(),
   selectedTask,
 }: {
+  canAct?: boolean;
   canStart?: boolean;
+  onCreateDiffReview?: () => void;
+  onRollback?: () => void;
   onStartAssignedTask?: () => void;
   selectedTask: AgentQueueTask | null;
 }): AgentQueueController {
   return {
     coordinatorFinalization: {
-      canAct: false,
+      canAct,
       message: null,
+      onAcceptWithoutCommit: vi.fn(),
+      onCreateFollowUp: vi.fn(),
+      onFinalize: vi.fn(),
+      onMarkBlocked: vi.fn(),
+      onMarkFailedRejected: vi.fn(),
+      onMarkFollowUpRequired: vi.fn(),
+      onMarkNeedsChanges: vi.fn(),
+      onMarkReadyForFinalization: vi.fn(),
+      onMarkRollbackRequired: onRollback,
     },
     diffReview: {
       canCreate: false,
       message: null,
+      onCreate: onCreateDiffReview,
     },
     run: {
       canStart,

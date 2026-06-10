@@ -105,7 +105,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
     expect(stop).not.toHaveBeenCalled();
   });
 
-  it("clicking Open Queue calls only the open callback", () => {
+  it("clicking Open Queue calls only the open callback", async () => {
     const onOpenQueueItem = vi.fn();
     const onViewReport = vi.fn();
     const run = vi.fn();
@@ -124,14 +124,14 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
       />,
     );
 
-    clickButton("Open Queue");
+    await clickButton("Open Queue");
 
     expect(onOpenQueueItem).toHaveBeenCalledWith("queue-task-0001");
     expect(onViewReport).not.toHaveBeenCalled();
     expect(run).not.toHaveBeenCalled();
   });
 
-  it("clicking View report calls only the report callback", () => {
+  it("clicking View report calls only the report callback", async () => {
     const onOpenQueueItem = vi.fn();
     const onViewReport = vi.fn();
     const run = vi.fn();
@@ -153,11 +153,133 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
       />,
     );
 
-    clickButton("View report");
+    await clickButton("View report");
 
     expect(onViewReport).toHaveBeenCalledWith("queue-task-0001");
     expect(onOpenQueueItem).not.toHaveBeenCalled();
     expect(run).not.toHaveBeenCalled();
+  });
+
+  it("calls the Queue run callback exactly once only after explicit click", async () => {
+    const run = vi.fn();
+    const task = queueTask({ status: "ready" });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          onRun: run,
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+      />,
+    );
+
+    expect(run).not.toHaveBeenCalled();
+
+    await clickButton("Run");
+
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain(
+      "Explicit Queue run request sent for queue-task-0001.",
+    );
+  });
+
+  it("keeps unsupported validation, diff review, rollback, and stop controls disabled with reasons", () => {
+    const task = queueTask({ status: "running" });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+      />,
+    );
+
+    expect(buttonByText("Stop")?.disabled).toBe(true);
+    expect(buttonByText("Request validation")?.disabled).toBe(true);
+    expect(buttonByText("Create diff review")?.disabled).toBe(true);
+    expect(buttonByText("Rollback")?.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      "Selected-task stop/cancel is not exposed to Workspace Chat.",
+    );
+    expect(document.body.textContent).toContain(
+      "Queue validation execution is not exposed to Workspace Chat.",
+    );
+    expect(document.body.textContent).toContain(
+      "Diff Review task creation is not exposed as a Workspace Chat Queue control action.",
+    );
+    expect(document.body.textContent).toContain(
+      "Rollback is not exposed as a Workspace Chat Queue control action.",
+    );
+  });
+
+  it("requires explicit confirmation before accepting/finalizing a review task", async () => {
+    const finalize = vi.fn();
+    const task = queueTask({
+      coordinatorStatus: "ready_for_finalization",
+      status: "review_needed",
+      workerExecutionReports: [workerReport()],
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          canAct: true,
+          onFinalize: finalize,
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+      />,
+    );
+
+    await clickButton("Accept result");
+
+    expect(finalize).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Confirm Accept result to finalize this Queue item.",
+    );
+
+    await clickButton("Confirm accept");
+
+    expect(finalize).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain(
+      "Coordinator decision finalize_accept_item requested for queue-task-0001.",
+    );
+  });
+
+  it("creates a follow-up through the Queue action without running it", async () => {
+    const createFollowUp = vi.fn();
+    const run = vi.fn();
+    const task = queueTask({
+      coordinatorStatus: "follow_up_required",
+      status: "review_needed",
+      workerExecutionReports: [workerReport()],
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          canAct: true,
+          onCreateFollowUp: createFollowUp,
+          onRun: run,
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+      />,
+    );
+
+    await clickButton("Create follow-up");
+
+    expect(createFollowUp).toHaveBeenCalledTimes(1);
+    expect(run).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Coordinator decision create_follow_up requested for queue-task-0001.",
+    );
   });
 });
 
@@ -171,8 +293,8 @@ function render(node: ReactNode) {
   });
 }
 
-function clickButton(text: string) {
-  act(() => {
+async function clickButton(text: string) {
+  await act(async () => {
     const button = Array.from(document.querySelectorAll("button")).find(
       (candidate) => candidate.textContent === text,
     );
@@ -180,16 +302,36 @@ function clickButton(text: string) {
       throw new Error(`Button not found: ${text}`);
     }
     button.click();
+    await Promise.resolve();
+    await Promise.resolve();
   });
 }
 
+function buttonByText(text: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (candidate) => candidate.textContent === text,
+  );
+}
+
 function queueController({
+  canAct = false,
   onRun = vi.fn(),
   onStop = vi.fn(),
+  onCreateFollowUp = vi.fn(),
+  onFinalize = vi.fn(),
+  onMarkBlocked = vi.fn(),
+  onMarkFailedRejected = vi.fn(),
+  onMarkNeedsChanges = vi.fn(),
   runCanStart = true,
   selectedTask,
   tasks,
 }: {
+  canAct?: boolean;
+  onCreateFollowUp?: () => void;
+  onFinalize?: () => void;
+  onMarkBlocked?: () => void;
+  onMarkFailedRejected?: () => void;
+  onMarkNeedsChanges?: () => void;
   onRun?: () => void;
   onStop?: () => void;
   runCanStart?: boolean;
@@ -199,6 +341,27 @@ function queueController({
   return {
     autorun: {
       snapshot: null,
+    },
+    coordinatorFinalization: {
+      canAct,
+      message: canAct ? null : "Coordinator decision actions are unavailable.",
+      onAcceptWithoutCommit: vi.fn(),
+      onCommitResult: vi.fn(),
+      onCreateFollowUp,
+      onFinalize,
+      onMarkBlocked,
+      onMarkFailedRejected,
+      onMarkFollowUpRequired: vi.fn(),
+      onMarkNeedsChanges,
+      onMarkReadyForFinalization: vi.fn(),
+      onMarkRollbackRequired: vi.fn(),
+      status: selectedTask.coordinatorStatus ?? "not_reported",
+    },
+    diffReview: {
+      canCreate: false,
+      linkedReviewTasks: [],
+      message: "Diff review is unavailable.",
+      onCreate: vi.fn(),
     },
     foundation: {
       globalExecutionState: "started",

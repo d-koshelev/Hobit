@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { DisabledActionReason } from "../design-system/ActionPrimitives";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
+import type { AgentQueueReportActionType } from "../workspace/types";
 import type { AgentQueueTask } from "../workspace/types";
 import {
   coordinatorStatusBadgeVariant,
@@ -15,6 +17,11 @@ import {
 import type { AgentQueueController } from "./queue/useAgentQueueController";
 import { queueV2NextActionLabel } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
 import { selectQueueV2ViewModel } from "./queue/queueV2ViewModel";
+import {
+  createWorkspaceChatQueueControlService,
+  type WorkspaceChatQueueAction,
+  type WorkspaceChatQueueActionResult,
+} from "./workspaceChatQueueControlService";
 
 type WorkspaceAgentQueueTaskStatusCardProps = {
   onOpenQueueItem?: (queueItemId: string) => void;
@@ -26,7 +33,7 @@ type WorkspaceAgentQueueTaskStatusCardProps = {
 type CardAction = {
   disabledReason: string | null;
   label: string;
-  onClick: () => void;
+  onClick: () => void | Promise<void>;
   variant: "primary" | "secondary" | "ghost";
 };
 
@@ -36,6 +43,13 @@ export function WorkspaceAgentQueueTaskStatusCard({
   queue,
   task,
 }: WorkspaceAgentQueueTaskStatusCardProps) {
+  const [pendingAction, setPendingAction] = useState<
+    WorkspaceChatQueueAction["kind"] | "view_report" | null
+  >(null);
+  const [confirmationAction, setConfirmationAction] =
+    useState<AgentQueueReportActionType | null>(null);
+  const [actionResult, setActionResult] =
+    useState<WorkspaceChatQueueActionResult | null>(null);
   const viewModel = selectQueueV2ViewModel({
     autorunArmed: Boolean(queue?.autorun.snapshot?.isActive),
     globalExecutionState: queue?.foundation.globalExecutionState ?? "started",
@@ -63,12 +77,69 @@ export function WorkspaceAgentQueueTaskStatusCard({
   );
   const hasReport = Boolean(latestReport);
   const actions = queueTaskCardActions({
+    confirmationAction,
+    canViewReport: Boolean(onViewReport),
     hasReport,
+    onConfirmCoordinatorAction: (actionType) =>
+      void executeQueueAction({
+        actionType,
+        kind: "coordinator_decision",
+        queueItemId: displayedTask.queueItemId,
+      }),
     onOpenQueueItem,
-    onViewReport,
+    onQueueAction: (action) => void executeQueueAction(action),
+    onRequestCoordinatorConfirmation: (actionType) => {
+      setConfirmationAction(actionType);
+      setActionResult({
+        action: "coordinator_decision",
+        message: "Confirm Accept result to finalize this Queue item.",
+        queueItemId: displayedTask.queueItemId,
+        status: "unavailable",
+      });
+    },
+    onViewReport: () => {
+      if (!onViewReport) {
+        return;
+      }
+      setPendingAction("view_report");
+      onViewReport(displayedTask.queueItemId);
+      setPendingAction(null);
+      setActionResult({
+        action: "open_task",
+        message: `View report request sent for ${displayedTask.queueItemId}.`,
+        queueItemId: displayedTask.queueItemId,
+        status: "success",
+      });
+    },
+    pendingAction,
     queue,
     task: displayedTask,
   });
+
+  async function executeQueueAction(action: WorkspaceChatQueueAction) {
+    if (pendingAction) {
+      return;
+    }
+
+    setPendingAction(action.kind);
+    setActionResult(null);
+    try {
+      const service = createWorkspaceChatQueueControlService({
+        onOpenQueueItem,
+        queue,
+      });
+      const result = await service.execute(action);
+      setActionResult(result);
+      if (
+        action.kind === "coordinator_decision" &&
+        action.actionType === confirmationAction
+      ) {
+        setConfirmationAction(null);
+      }
+    } finally {
+      setPendingAction(null);
+    }
+  }
 
   return (
     <section
@@ -168,6 +239,18 @@ export function WorkspaceAgentQueueTaskStatusCard({
         ))}
       </div>
 
+      {actionResult ? (
+        <div className="workspace-agent-queue-action-card-results">
+          <p
+            className={`coordinator-proposal-result coordinator-proposal-result-${
+              actionResult.status === "failed" ? "error" : "success"
+            }`}
+          >
+            {actionResult.message}
+          </p>
+        </div>
+      ) : null}
+
       <p className="coordinator-proposal-note">
         Card actions are explicit. Rendering this card does not run, stop,
         refresh, validate, or update Queue work.
@@ -177,15 +260,27 @@ export function WorkspaceAgentQueueTaskStatusCard({
 }
 
 function queueTaskCardActions({
+  canViewReport,
+  confirmationAction,
   hasReport,
   onOpenQueueItem,
+  onConfirmCoordinatorAction,
+  onQueueAction,
+  onRequestCoordinatorConfirmation,
   onViewReport,
+  pendingAction,
   queue,
   task,
 }: {
+  confirmationAction: AgentQueueReportActionType | null;
+  canViewReport: boolean;
   hasReport: boolean;
   onOpenQueueItem?: (queueItemId: string) => void;
-  onViewReport?: (queueItemId: string) => void;
+  onConfirmCoordinatorAction: (actionType: AgentQueueReportActionType) => void;
+  onQueueAction: (action: WorkspaceChatQueueAction) => void;
+  onRequestCoordinatorConfirmation: (actionType: AgentQueueReportActionType) => void;
+  onViewReport: () => void;
+  pendingAction: WorkspaceChatQueueAction["kind"] | "view_report" | null;
   queue?: AgentQueueController | null;
   task: AgentQueueTask;
 }): CardAction[] {
@@ -204,6 +299,21 @@ function queueTaskCardActions({
         : queue.run.readinessMessage ??
           queue.run.preconditionMessages[0] ??
           "Queue run action is unavailable for this task.");
+  const coordinatorReason =
+    selectedTaskReason ??
+    (!queue
+      ? "Queue coordinator actions are unavailable in this chat surface."
+      : queue.coordinatorFinalization.canAct
+        ? null
+        : queue.coordinatorFinalization.message ??
+          "Coordinator decision actions are unavailable for this task.");
+  const acceptReason =
+    coordinatorReason ??
+    (!hasReport
+      ? "Accept result needs a visible report or review result."
+      : null);
+  const acceptNeedsConfirmation =
+    confirmationAction === "finalize_accept_item" && !acceptReason;
 
   return [
     {
@@ -211,23 +321,32 @@ function queueTaskCardActions({
         ? null
         : "Open Queue is unavailable in this Workspace Agent surface.",
       label: "Open Queue",
-      onClick: () => onOpenQueueItem?.(task.queueItemId),
+      onClick: () =>
+        onQueueAction({
+          kind: "open_task",
+          queueItemId: task.queueItemId,
+        }),
       variant: "secondary",
     },
     {
       disabledReason: hasReport
-        ? onViewReport
+        ? canViewReport
           ? null
           : "Report viewing is unavailable in this Workspace Agent surface."
         : "No report is ready for this task.",
       label: "View report",
-      onClick: () => onViewReport?.(task.queueItemId),
+      onClick: onViewReport,
       variant: "secondary",
     },
     {
       disabledReason: task.status === "running" ? "Task is already running." : runReason,
-      label: queue?.run.isStarting ? "Starting" : "Run",
-      onClick: () => queue?.run.onStartAssignedTask(),
+      label:
+        pendingAction === "run_task" || queue?.run.isStarting ? "Starting" : "Run",
+      onClick: () =>
+        onQueueAction({
+          kind: "run_task",
+          queueItemId: task.queueItemId,
+        }),
       variant: "primary",
     },
     {
@@ -236,7 +355,97 @@ function queueTaskCardActions({
           ? "Selected-task stop/cancel is not exposed to Workspace Chat. Use the Agent Executor run controls."
           : "Stop is only relevant while a task is running.",
       label: "Stop",
-      onClick: () => undefined,
+      onClick: () =>
+        onQueueAction({
+          kind: "stop_task",
+          queueItemId: task.queueItemId,
+        }),
+      variant: "ghost",
+    },
+    {
+      disabledReason: "Queue validation execution is not exposed to Workspace Chat.",
+      label: "Request validation",
+      onClick: () =>
+        onQueueAction({
+          kind: "request_validation",
+          queueItemId: task.queueItemId,
+        }),
+      variant: "ghost",
+    },
+    {
+      disabledReason:
+        "Diff Review task creation is not exposed as a Workspace Chat Queue control action.",
+      label: "Create diff review",
+      onClick: () =>
+        onQueueAction({
+          kind: "create_diff_review",
+          queueItemId: task.queueItemId,
+        }),
+      variant: "ghost",
+    },
+    {
+      disabledReason: acceptReason,
+      label: acceptNeedsConfirmation ? "Confirm accept" : "Accept result",
+      onClick: () =>
+        acceptNeedsConfirmation
+          ? onConfirmCoordinatorAction("finalize_accept_item")
+          : onRequestCoordinatorConfirmation("finalize_accept_item"),
+      variant: "primary",
+    },
+    {
+      disabledReason: coordinatorReason,
+      label: "Request changes",
+      onClick: () =>
+        onQueueAction({
+          actionType: "mark_needs_changes",
+          kind: "coordinator_decision",
+          queueItemId: task.queueItemId,
+        }),
+      variant: "secondary",
+    },
+    {
+      disabledReason: coordinatorReason,
+      label: "Create follow-up",
+      onClick: () =>
+        onQueueAction({
+          actionType: "create_follow_up",
+          kind: "coordinator_decision",
+          queueItemId: task.queueItemId,
+        }),
+      variant: "secondary",
+    },
+    {
+      disabledReason: coordinatorReason,
+      label: "Mark blocked",
+      onClick: () =>
+        onQueueAction({
+          actionType: "mark_blocked",
+          kind: "coordinator_decision",
+          queueItemId: task.queueItemId,
+        }),
+      variant: "secondary",
+    },
+    {
+      disabledReason: coordinatorReason,
+      label: "Mark failed",
+      onClick: () =>
+        onQueueAction({
+          actionType: "mark_failed_rejected",
+          kind: "coordinator_decision",
+          queueItemId: task.queueItemId,
+        }),
+      variant: "secondary",
+    },
+    {
+      disabledReason:
+        "Rollback is not exposed as a Workspace Chat Queue control action. No rollback, reset, clean, or process kill can run from this card.",
+      label: "Rollback",
+      onClick: () =>
+        onQueueAction({
+          actionType: "mark_rollback_required",
+          kind: "coordinator_decision",
+          queueItemId: task.queueItemId,
+        }),
       variant: "ghost",
     },
   ];
