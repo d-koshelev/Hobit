@@ -2790,6 +2790,16 @@
   overflow-wrap: anywhere;
 }
 
+.workspace-agent-queue-diff-review-preflight,
+.workspace-agent-queue-diff-review-result {
+  display: grid;
+  gap: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xs);
+  background: var(--color-io-surface);
+  padding: var(--space-xs);
+}
+
 .workspace-agent-queue-validation-card,
 .workspace-agent-queue-validation-result-card,
 .workspace-agent-queue-validation-evidence,

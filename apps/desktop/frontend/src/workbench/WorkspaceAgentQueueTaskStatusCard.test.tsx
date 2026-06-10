@@ -252,6 +252,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
   it("creates a Diff Review Queue item only after explicit click", async () => {
     const run = vi.fn();
     const onFinalize = vi.fn();
+    const onOpenQueueItem = vi.fn();
     const createItem = vi.fn(async (request) =>
       itemResult({
         dependencies: request.dependencies ?? [],
@@ -264,11 +265,13 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
     const task = queueTask({
       status: "review_needed",
       title: "Source implementation",
+      validationStatus: "needs_review",
       workerExecutionReports: [workerReport()],
     });
 
     render(
       <WorkspaceAgentQueueTaskStatusCard
+        onOpenQueueItem={onOpenQueueItem}
         queue={queueController({
           onFinalize,
           onRun: run,
@@ -280,8 +283,26 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
       />,
     );
 
+    expect(document.body.textContent).toContain("Create Diff Review preflight");
+    expect(document.body.textContent).toContain("Source task");
+    expect(document.body.textContent).toContain("queue-task-0001");
+    expect(document.body.textContent).toContain("Report");
+    expect(document.body.textContent).toContain("Available");
+    expect(document.body.textContent).toContain("Validation");
+    expect(document.body.textContent).toContain("Needs review; evidence available");
+    expect(document.body.textContent).toContain("Diff");
+    expect(document.body.textContent).toContain("Missing execution workspace");
+    expect(document.body.textContent).toContain("Commit title");
+    expect(document.body.textContent).toContain("Missing");
+    expect(document.body.textContent).toContain("Scope metadata");
+    expect(document.body.textContent).toContain("Missing");
+    expect(document.body.textContent).toContain(
+      "diff unavailable, manual diff required",
+    );
     expect(buttonByText("Create diff review")?.disabled).toBe(false);
     expect(createItem).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+    expect(onFinalize).not.toHaveBeenCalled();
 
     await clickButton("Create diff review");
 
@@ -299,8 +320,46 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
     expect(document.body.textContent).toContain(
       "Diff Review Queue item diff-review-1 created. It was not run.",
     );
+    expect(document.body.textContent).toContain("Diff Review result");
+    expect(document.body.textContent).toContain("Review task");
+    expect(document.body.textContent).toContain("diff-review-1");
+    expect(document.body.textContent).toContain("Source task");
+    expect(document.body.textContent).toContain("queue-task-0001");
+    expect(document.body.textContent).toContain(
+      "source task id and review type are preserved",
+    );
     expect(run).not.toHaveBeenCalled();
     expect(onFinalize).not.toHaveBeenCalled();
+
+    await clickButton("Open review task");
+
+    expect(onOpenQueueItem).toHaveBeenCalledWith("diff-review-1");
+    expect(run).not.toHaveBeenCalled();
+    expect(onFinalize).not.toHaveBeenCalled();
+  });
+
+  it("shows Diff Review unavailable reason when Queue create path is unavailable", () => {
+    const task = queueTask({
+      status: "review_needed",
+      workerExecutionReports: [workerReport()],
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+      />,
+    );
+
+    expect(buttonByText("Create diff review")?.disabled).toBe(true);
+    expect(document.body.textContent).toContain("Create Diff Review preflight");
+    expect(document.body.textContent).toContain("Unavailable");
+    expect(document.body.textContent).toContain(
+      "Queue create bridge is unavailable in this Workspace Agent surface.",
+    );
   });
 
   it("disables Request validation with a reason when no commands are available and manual input is unsupported", () => {

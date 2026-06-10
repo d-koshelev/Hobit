@@ -329,9 +329,17 @@ describe("workspace chat Queue control service", () => {
     );
     expect(result).toMatchObject({
       action: "create_diff_review",
+      diffReviewCreation: {
+        createdReviewTaskId: "review-1",
+        createdReviewTaskTitle: "Diff Review - Source implementation",
+        sourceTaskId: "queue-1",
+      },
       queueItemId: "review-1",
       status: "success",
     });
+    expect(result.diffReviewCreation?.warnings.map((warning) => warning.code)).toContain(
+      "missing_diff",
+    );
     expect(result.message).toContain("It was not run");
     expect(onCreateDiffReview).not.toHaveBeenCalled();
     expect(onStartAssignedTask).not.toHaveBeenCalled();

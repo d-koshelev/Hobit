@@ -17,6 +17,7 @@ import {
 } from "./queue/agentQueueDiffReviewModel";
 import {
   createDiffReviewQueueItem,
+  type DiffReviewQueueItemCreationWarning,
   type DiffReviewQueueItemCreationResult,
 } from "./diffReview";
 import type {
@@ -71,12 +72,20 @@ export type WorkspaceChatQueueActionStatus =
 
 export type WorkspaceChatQueueActionResult = {
   action: WorkspaceChatQueueAction["kind"];
+  diffReviewCreation?: WorkspaceChatDiffReviewCreationResult;
   message: string;
   queueItemId?: string;
   reason?: string;
   status: WorkspaceChatQueueActionStatus;
   validationResult?: QueueValidationRunResult;
   widgetResult?: QueueWidgetActionResult<QueueWidgetItemSnapshot>;
+};
+
+export type WorkspaceChatDiffReviewCreationResult = {
+  createdReviewTaskId: string | null;
+  createdReviewTaskTitle: string | null;
+  sourceTaskId: string;
+  warnings: DiffReviewQueueItemCreationWarning[];
 };
 
 export type WorkspaceChatQueueControlService = {
@@ -195,6 +204,12 @@ function diffReviewCreationActionResult(
   if (result.status !== "created" || !result.createdReviewTaskId) {
     return {
       action: "create_diff_review",
+      diffReviewCreation: {
+        createdReviewTaskId: result.createdReviewTaskId,
+        createdReviewTaskTitle: result.createdReviewTaskTitle,
+        sourceTaskId: result.sourceTaskId,
+        warnings: result.warnings,
+      },
       message:
         result.createResult.error?.message ??
         `Diff Review Queue item could not be created.${warningSummary}`,
@@ -207,6 +222,12 @@ function diffReviewCreationActionResult(
 
   return {
     action: "create_diff_review",
+    diffReviewCreation: {
+      createdReviewTaskId: result.createdReviewTaskId,
+      createdReviewTaskTitle: result.createdReviewTaskTitle,
+      sourceTaskId: result.sourceTaskId,
+      warnings: result.warnings,
+    },
     message: `Diff Review Queue item ${result.createdReviewTaskId} created. It was not run.${warningSummary}`,
     queueItemId: result.createdReviewTaskId,
     status: "success",

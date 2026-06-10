@@ -18,6 +18,10 @@ import type { AgentQueueController } from "./queue/useAgentQueueController";
 import { queueV2NextActionLabel } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
 import { selectQueueV2ViewModel } from "./queue/queueV2ViewModel";
 import { canCreateDiffReviewItem } from "./queue/agentQueueDiffReviewModel";
+import {
+  WorkspaceAgentQueueDiffReviewCreationResultCard,
+  WorkspaceAgentQueueDiffReviewPreflightCard,
+} from "./WorkspaceAgentQueueDiffReviewCards";
 import type { ValidationRunner } from "./validation";
 import { WorkspaceAgentQueueValidationCard } from "./WorkspaceAgentQueueValidationCard";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
@@ -88,6 +92,11 @@ export function WorkspaceAgentQueueTaskStatusCard({
     displayedTask.validationStatus,
   );
   const hasReport = Boolean(latestReport);
+  const diffReviewDisabledReason = diffReviewCreationDisabledReason({
+    bridgeAvailable: Boolean(workspaceAgentQueueBridge),
+    queueAvailable: Boolean(queue),
+    task: displayedTask,
+  });
   const actions = queueTaskCardActions({
     confirmationAction,
     canViewReport: Boolean(onViewReport),
@@ -141,11 +150,7 @@ export function WorkspaceAgentQueueTaskStatusCard({
       runnerAvailable: Boolean(validationRunner),
       task: displayedTask,
     }).disabledReason,
-    diffReviewDisabledReason: diffReviewCreationDisabledReason({
-      bridgeAvailable: Boolean(workspaceAgentQueueBridge),
-      queueAvailable: Boolean(queue),
-      task: displayedTask,
-    }),
+    diffReviewDisabledReason,
   });
 
   async function executeQueueAction(action: WorkspaceChatQueueAction) {
@@ -261,6 +266,13 @@ export function WorkspaceAgentQueueTaskStatusCard({
         />
       ) : null}
 
+      <WorkspaceAgentQueueDiffReviewPreflightCard
+        disabledReason={diffReviewDisabledReason}
+        report={latestReport}
+        task={displayedTask}
+        validationStatusLabelValue={validationStatusLabel(validationStatus)}
+      />
+
       <div
         aria-label="Queue task status actions"
         className="workspace-agent-queue-task-status-actions"
@@ -284,15 +296,23 @@ export function WorkspaceAgentQueueTaskStatusCard({
       </div>
 
       {actionResult ? (
-        <div className="workspace-agent-queue-action-card-results">
-          <p
-            className={`coordinator-proposal-result coordinator-proposal-result-${
-              actionResult.status === "failed" ? "error" : "success"
-            }`}
-          >
-            {actionResult.message}
-          </p>
-        </div>
+        actionResult.action === "create_diff_review" &&
+        actionResult.diffReviewCreation ? (
+          <WorkspaceAgentQueueDiffReviewCreationResultCard
+            onOpenQueueItem={onOpenQueueItem}
+            result={actionResult}
+          />
+        ) : (
+          <div className="workspace-agent-queue-action-card-results">
+            <p
+              className={`coordinator-proposal-result coordinator-proposal-result-${
+                actionResult.status === "failed" ? "error" : "success"
+              }`}
+            >
+              {actionResult.message}
+            </p>
+          </div>
+        )
       ) : null}
 
       <p className="coordinator-proposal-note">
