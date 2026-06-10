@@ -657,6 +657,10 @@ the local executor flow visible to operators.
 - `docs/PRODUCT_UI_DESIGN_CONTRACT.md` - product UI information hierarchy,
   debug detail boundaries, Queue right rail contract, state semantics, and UI
   review checklist.
+- `docs/UI_DESIGN_SYSTEM_CONTRACT.md` - project-level UI standards and hard
+  rules for dense operator-focused dark-theme-first product surfaces,
+  spacing, layout, popups, lists, actions, status, context attachment, and
+  agent-generated UI.
 - `docs/PRODUCT_UI_VISUAL_CONTRACT.md` - current product visual direction.
 - `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md` - Minimal, Operational, and
   Full / Expert display-level guidance when a widget surface grows.
@@ -741,6 +745,7 @@ These documents should not override the Workspace Agent model or
   `docs/WORKSPACE_WIDGET_API_CONTRACT.md`, and the affected Queue/Executor or
   widget/domain contract.
 - Frontend widget UI work: read the default set,
+  `docs/UI_DESIGN_SYSTEM_CONTRACT.md`,
   `docs/PRODUCT_UI_VISUAL_CONTRACT.md`, and the affected widget contract.
 - Backend/storage/API work: read the default set,
   `docs/WORKSPACE_CONTRACT.md`, and the affected domain contract.
