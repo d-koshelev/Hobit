@@ -12,17 +12,22 @@ import {
   type QueueCoordinatorFinalizationDecision,
 } from "./queue/queueCoordinatorFinalizationService";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
-import type { WorkspaceChatQueueActionResult } from "./workspaceChatQueueControlService";
+import type {
+  WorkspaceChatCoordinatorDecisionInput,
+  WorkspaceChatQueueActionResult,
+} from "./workspaceChatQueueControlService";
 
 export async function coordinatorDecisionThroughQueueBridge({
   actionType,
   bridge,
+  decisionInput,
   queueItemId,
   task,
   tasks,
 }: {
   actionType: AgentQueueReportActionType;
   bridge: WorkspaceAgentQueueBridge;
+  decisionInput?: WorkspaceChatCoordinatorDecisionInput;
   queueItemId: string;
   task: AgentQueueTask;
   tasks: AgentQueueTask[];
@@ -49,15 +54,22 @@ export async function coordinatorDecisionThroughQueueBridge({
           ...baseInput,
           commit: {
             noCommitReason:
+              decisionInput?.noCommitReason ??
               "Accepted explicitly from Workspace Chat without a Queue-created commit.",
           },
           decision: "accepted_without_commit",
+          operatorNote: decisionInput?.operatorNote,
         }),
+        decisionInput,
         queueItemId,
       );
     case "create_follow_up":
       return finalizationActionResult(
-        await createCoordinatorFollowUp(baseInput),
+        await createCoordinatorFollowUp({
+          ...baseInput,
+          operatorNote: decisionInput?.operatorNote,
+        }),
+        decisionInput,
         queueItemId,
       );
     case "finalize_accept_item":
@@ -66,15 +78,22 @@ export async function coordinatorDecisionThroughQueueBridge({
           ...baseInput,
           commit: commitForFinalizeAction({
             commitHash,
-            decision: decisionForFinalizeAction(task),
+            decisionInput,
+            decision: decisionForFinalizeAction(task, decisionInput),
           }),
-          decision: decisionForFinalizeAction(task),
+          decision: decisionForFinalizeAction(task, decisionInput),
+          operatorNote: decisionInput?.operatorNote,
         }),
+        decisionInput,
         queueItemId,
       );
     case "mark_blocked":
       return finalizationActionResult(
-        await markQueueItemBlockedByCoordinator(baseInput),
+        await markQueueItemBlockedByCoordinator({
+          ...baseInput,
+          operatorNote: decisionInput?.operatorNote,
+        }),
+        decisionInput,
         queueItemId,
       );
     case "mark_failed_rejected":
@@ -82,7 +101,9 @@ export async function coordinatorDecisionThroughQueueBridge({
         await finalizeQueueItemWithCoordinatorDecision({
           ...baseInput,
           decision: "failed",
+          operatorNote: decisionInput?.operatorNote,
         }),
+        decisionInput,
         queueItemId,
       );
     case "mark_follow_up_required":
@@ -90,17 +111,27 @@ export async function coordinatorDecisionThroughQueueBridge({
         await finalizeQueueItemWithCoordinatorDecision({
           ...baseInput,
           decision: "follow_up_required",
+          operatorNote: decisionInput?.operatorNote,
         }),
+        decisionInput,
         queueItemId,
       );
     case "mark_needs_changes":
       return finalizationActionResult(
-        await requestQueueItemChanges(baseInput),
+        await requestQueueItemChanges({
+          ...baseInput,
+          operatorNote: decisionInput?.operatorNote,
+        }),
+        decisionInput,
         queueItemId,
       );
     case "mark_rollback_required":
       return finalizationActionResult(
-        await markQueueItemRollbackRequired(baseInput),
+        await markQueueItemRollbackRequired({
+          ...baseInput,
+          operatorNote: decisionInput?.operatorNote,
+        }),
+        decisionInput,
         queueItemId,
       );
     default:
@@ -125,7 +156,16 @@ function queueFinalizationApiFromBridge(
 
 function decisionForFinalizeAction(
   task: AgentQueueTask,
+  decisionInput?: WorkspaceChatCoordinatorDecisionInput,
 ): QueueCoordinatorFinalizationDecision {
+  if (decisionInput?.decision === "accepted_with_commit") {
+    return "accepted_with_commit";
+  }
+
+  if (decisionInput?.decision === "accepted_without_commit") {
+    return "accepted_without_commit";
+  }
+
   const latestReport = latestReportForTask(task);
   if (latestReport?.commitHash) {
     return "accepted_with_commit";
@@ -138,23 +178,34 @@ function decisionForFinalizeAction(
 
 function commitForFinalizeAction({
   commitHash,
+  decisionInput,
   decision,
 }: {
   commitHash?: string;
+  decisionInput?: WorkspaceChatCoordinatorDecisionInput;
   decision: QueueCoordinatorFinalizationDecision;
 }) {
+  const resolvedCommitHash = decisionInput?.commitHash?.trim() || commitHash;
+
   return decision === "accepted_with_commit"
-    ? commitHash
-      ? { commitHash, verificationStatus: "unverified" as const }
+    ? resolvedCommitHash
+      ? {
+          commitHash: resolvedCommitHash,
+          commitTitle: decisionInput?.commitTitle?.trim() || undefined,
+          expectedCommitTitle:
+            decisionInput?.expectedCommitTitle?.trim() || undefined,
+          verificationStatus: "unverified" as const,
+        }
       : undefined
     : {
-        noCommitReason:
+        noCommitReason: decisionInput?.noCommitReason ??
           "Accepted explicitly from Workspace Chat as no-change work.",
       };
 }
 
 function finalizationActionResult(
   result: Awaited<ReturnType<typeof finalizeQueueItemWithCoordinatorDecision>>,
+  decisionInput: WorkspaceChatCoordinatorDecisionInput | undefined,
   queueItemId: string,
 ): WorkspaceChatQueueActionResult {
   const warningSummary = result.warnings.length
@@ -163,6 +214,19 @@ function finalizationActionResult(
 
   return {
     action: "coordinator_decision",
+    coordinatorFinalization: {
+      commitHash: result.report.commitHash ?? decisionInput?.commitHash ?? null,
+      commitTitle: decisionInput?.commitTitle ?? null,
+      decisionApplied: result.report.summary,
+      dependencyGateSummary: result.dependencyGate.summary,
+      dependents: result.dependencyGate.dependents.map((dependent) => ({
+        dependentItemId: dependent.dependentItemId,
+        ready: dependent.ready,
+        summary: dependent.summary,
+      })),
+      nextAction: nextActionForFinalizationResult(result),
+      warnings: result.warnings.map((warning) => warning.message),
+    },
     message: `${result.message}${warningSummary}`,
     queueItemId,
     reason: result.updateResult.ok
@@ -171,6 +235,30 @@ function finalizationActionResult(
     status: result.updateResult.ok ? "success" : "failed",
     widgetResult: result.updateResult,
   };
+}
+
+function nextActionForFinalizationResult(
+  result: Awaited<ReturnType<typeof finalizeQueueItemWithCoordinatorDecision>>,
+) {
+  if (!result.updateResult.ok) {
+    return "Review the visible Queue update failure and retry the decision.";
+  }
+
+  if (result.decisionState.coordinatorStatus === "finalized") {
+    return result.dependencyGate.dependents.length
+      ? "Review dependency-ready dependents manually; no dependent task was started."
+      : "No follow-up action is required by this Queue item.";
+  }
+
+  if (result.decisionState.coordinatorStatus === "needs_changes") {
+    return "Create or run a follow-up only through explicit Queue controls.";
+  }
+
+  if (result.decisionState.coordinatorStatus === "rollback_required") {
+    return "Plan rollback manually; this decision did not run rollback.";
+  }
+
+  return "Review the recorded coordinator state before starting more work.";
 }
 
 function latestReportForTask(task: AgentQueueTask) {

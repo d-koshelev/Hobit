@@ -2,7 +2,6 @@ import { useState } from "react";
 import { DisabledActionReason } from "../design-system/ActionPrimitives";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
-import type { AgentQueueReportActionType } from "../workspace/types";
 import type { AgentQueueTask } from "../workspace/types";
 import {
   coordinatorStatusBadgeVariant,
@@ -22,6 +21,7 @@ import {
   WorkspaceAgentQueueDiffReviewCreationResultCard,
   WorkspaceAgentQueueDiffReviewPreflightCard,
 } from "./WorkspaceAgentQueueDiffReviewCards";
+import { WorkspaceAgentQueueFinalizationCard } from "./WorkspaceAgentQueueFinalizationCard";
 import type { ValidationRunner } from "./validation";
 import { WorkspaceAgentQueueValidationCard } from "./WorkspaceAgentQueueValidationCard";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
@@ -62,8 +62,6 @@ export function WorkspaceAgentQueueTaskStatusCard({
     WorkspaceChatQueueAction["kind"] | "view_report" | null
   >(null);
   const [validationRequestOpen, setValidationRequestOpen] = useState(false);
-  const [confirmationAction, setConfirmationAction] =
-    useState<AgentQueueReportActionType | null>(null);
   const [actionResult, setActionResult] =
     useState<WorkspaceChatQueueActionResult | null>(null);
   const viewModel = selectQueueV2ViewModel({
@@ -97,16 +95,13 @@ export function WorkspaceAgentQueueTaskStatusCard({
     queueAvailable: Boolean(queue),
     task: displayedTask,
   });
+  const coordinatorDisabledReason = coordinatorFinalizationDisabledReason({
+    queue,
+    task: displayedTask,
+  });
   const actions = queueTaskCardActions({
-    confirmationAction,
     canViewReport: Boolean(onViewReport),
     hasReport,
-    onConfirmCoordinatorAction: (actionType) =>
-      void executeQueueAction({
-        actionType,
-        kind: "coordinator_decision",
-        queueItemId: displayedTask.queueItemId,
-      }),
     onOpenQueueItem,
     onQueueAction: (action) => void executeQueueAction(action),
     onRequestValidationReview: () => {
@@ -116,15 +111,6 @@ export function WorkspaceAgentQueueTaskStatusCard({
         message: "Review selected validation commands, then click Run validation.",
         queueItemId: displayedTask.queueItemId,
         status: "success",
-      });
-    },
-    onRequestCoordinatorConfirmation: (actionType) => {
-      setConfirmationAction(actionType);
-      setActionResult({
-        action: "coordinator_decision",
-        message: "Confirm Accept result to finalize this Queue item.",
-        queueItemId: displayedTask.queueItemId,
-        status: "unavailable",
       });
     },
     onViewReport: () => {
@@ -169,12 +155,6 @@ export function WorkspaceAgentQueueTaskStatusCard({
       });
       const result = await service.execute(action);
       setActionResult(result);
-      if (
-        action.kind === "coordinator_decision" &&
-        action.actionType === confirmationAction
-      ) {
-        setConfirmationAction(null);
-      }
     } finally {
       setPendingAction(null);
     }
@@ -273,6 +253,18 @@ export function WorkspaceAgentQueueTaskStatusCard({
         validationStatusLabelValue={validationStatusLabel(validationStatus)}
       />
 
+      <WorkspaceAgentQueueFinalizationCard
+        bridgeAvailable={Boolean(workspaceAgentQueueBridge)}
+        coordinatorDisabledReason={coordinatorDisabledReason}
+        latestReport={latestReport}
+        onOpenQueueItem={onOpenQueueItem}
+        onQueueAction={(action) => void executeQueueAction(action)}
+        pendingAction={pendingAction}
+        result={actionResult}
+        task={displayedTask}
+        tasks={queue?.tasks ?? [displayedTask]}
+      />
+
       <div
         aria-label="Queue task status actions"
         className="workspace-agent-queue-task-status-actions"
@@ -296,7 +288,7 @@ export function WorkspaceAgentQueueTaskStatusCard({
       </div>
 
       {actionResult ? (
-        actionResult.action === "create_diff_review" &&
+        actionResult.coordinatorFinalization ? null : actionResult.action === "create_diff_review" &&
         actionResult.diffReviewCreation ? (
           <WorkspaceAgentQueueDiffReviewCreationResultCard
             onOpenQueueItem={onOpenQueueItem}
@@ -325,13 +317,10 @@ export function WorkspaceAgentQueueTaskStatusCard({
 
 function queueTaskCardActions({
   canViewReport,
-  confirmationAction,
   hasReport,
   onOpenQueueItem,
-  onConfirmCoordinatorAction,
   onQueueAction,
   onRequestValidationReview,
-  onRequestCoordinatorConfirmation,
   onViewReport,
   pendingAction,
   queue,
@@ -339,15 +328,12 @@ function queueTaskCardActions({
   validationDisabledReason,
   diffReviewDisabledReason,
 }: {
-  confirmationAction: AgentQueueReportActionType | null;
   canViewReport: boolean;
   diffReviewDisabledReason: string | null;
   hasReport: boolean;
   onOpenQueueItem?: (queueItemId: string) => void;
-  onConfirmCoordinatorAction: (actionType: AgentQueueReportActionType) => void;
   onQueueAction: (action: WorkspaceChatQueueAction) => void;
   onRequestValidationReview: () => void;
-  onRequestCoordinatorConfirmation: (actionType: AgentQueueReportActionType) => void;
   onViewReport: () => void;
   pendingAction: WorkspaceChatQueueAction["kind"] | "view_report" | null;
   queue?: AgentQueueController | null;
@@ -369,22 +355,6 @@ function queueTaskCardActions({
         : queue.run.readinessMessage ??
           queue.run.preconditionMessages[0] ??
           "Queue run action is unavailable for this task.");
-  const coordinatorReason =
-    selectedTaskReason ??
-    (!queue
-      ? "Queue coordinator actions are unavailable in this chat surface."
-      : queue.coordinatorFinalization.canAct
-        ? null
-        : queue.coordinatorFinalization.message ??
-          "Coordinator decision actions are unavailable for this task.");
-  const acceptReason =
-    coordinatorReason ??
-    (!hasReport
-      ? "Accept result needs a visible report or review result."
-      : null);
-  const acceptNeedsConfirmation =
-    confirmationAction === "finalize_accept_item" && !acceptReason;
-
   return [
     {
       disabledReason: onOpenQueueItem
@@ -448,72 +418,32 @@ function queueTaskCardActions({
         }),
       variant: "ghost",
     },
-    {
-      disabledReason: acceptReason,
-      label: acceptNeedsConfirmation ? "Confirm accept" : "Accept result",
-      onClick: () =>
-        acceptNeedsConfirmation
-          ? onConfirmCoordinatorAction("finalize_accept_item")
-          : onRequestCoordinatorConfirmation("finalize_accept_item"),
-      variant: "primary",
-    },
-    {
-      disabledReason: coordinatorReason,
-      label: "Request changes",
-      onClick: () =>
-        onQueueAction({
-          actionType: "mark_needs_changes",
-          kind: "coordinator_decision",
-          queueItemId: task.queueItemId,
-        }),
-      variant: "secondary",
-    },
-    {
-      disabledReason: coordinatorReason,
-      label: "Create follow-up",
-      onClick: () =>
-        onQueueAction({
-          actionType: "create_follow_up",
-          kind: "coordinator_decision",
-          queueItemId: task.queueItemId,
-        }),
-      variant: "secondary",
-    },
-    {
-      disabledReason: coordinatorReason,
-      label: "Mark blocked",
-      onClick: () =>
-        onQueueAction({
-          actionType: "mark_blocked",
-          kind: "coordinator_decision",
-          queueItemId: task.queueItemId,
-        }),
-      variant: "secondary",
-    },
-    {
-      disabledReason: coordinatorReason,
-      label: "Mark failed",
-      onClick: () =>
-        onQueueAction({
-          actionType: "mark_failed_rejected",
-          kind: "coordinator_decision",
-          queueItemId: task.queueItemId,
-        }),
-      variant: "secondary",
-    },
-    {
-      disabledReason:
-        "Rollback is not exposed as a Workspace Chat Queue control action. No rollback, reset, clean, or process kill can run from this card.",
-      label: "Rollback",
-      onClick: () =>
-        onQueueAction({
-          actionType: "mark_rollback_required",
-          kind: "coordinator_decision",
-          queueItemId: task.queueItemId,
-        }),
-      variant: "ghost",
-    },
   ];
+}
+
+function coordinatorFinalizationDisabledReason({
+  queue,
+  task,
+}: {
+  queue?: AgentQueueController | null;
+  task: AgentQueueTask;
+}) {
+  if (!queue) {
+    return "Queue finalization path unavailable in this Workspace Chat surface.";
+  }
+
+  if (queue.selectedTask && queue.selectedTask.queueItemId !== task.queueItemId) {
+    return "Open this Queue task before applying coordinator finalization decisions.";
+  }
+
+  if (!queue.coordinatorFinalization.canAct) {
+    return (
+      queue.coordinatorFinalization.message ??
+      "Coordinator decision actions are unavailable for this task."
+    );
+  }
+
+  return null;
 }
 
 function diffReviewCreationDisabledReason({

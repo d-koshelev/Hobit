@@ -196,7 +196,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
     );
   });
 
-  it("keeps unsupported validation, diff review, rollback, and stop controls disabled with reasons", () => {
+  it("keeps unsupported validation, diff review, rollback-required, and stop controls disabled with reasons", () => {
     const task = queueTask({ status: "running" });
 
     render(
@@ -212,7 +212,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
     expect(buttonByText("Stop")?.disabled).toBe(true);
     expect(buttonByText("Request validation")?.disabled).toBe(true);
     expect(buttonByText("Create diff review")?.disabled).toBe(true);
-    expect(buttonByText("Rollback")?.disabled).toBe(true);
+    expect(buttonByText("Rollback required")?.disabled).toBe(true);
     expect(document.body.textContent).toContain(
       "Selected-task stop/cancel is not exposed to Workspace Chat.",
     );
@@ -223,7 +223,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
       "Queue create bridge is unavailable in this Workspace Agent surface.",
     );
     expect(document.body.textContent).toContain(
-      "Rollback is not exposed as a Workspace Chat Queue control action.",
+      "Coordinator decision actions are unavailable.",
     );
   });
 
@@ -555,11 +555,73 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
     );
   });
 
-  it("requires explicit confirmation before accepting/finalizing a review task", async () => {
-    const finalize = vi.fn();
+  it("renders coordinator finalization controls for an eligible task", () => {
+    const updateItem = vi.fn(async (request) =>
+      itemResult({
+        id: request.itemId,
+        reportSummary: { status: "report_ready" },
+      }),
+    );
     const task = queueTask({
       coordinatorStatus: "ready_for_finalization",
+      prompt: promptPackPromptWithExpectedTitle(),
       status: "review_needed",
+      validationStatus: "passed",
+      workerExecutionReports: [workerReport()],
+    });
+    const diffReviewTask = queueTask({
+      diffReview: {
+        reviewMode: "diff_vs_report",
+        reviewTargetSummary: "Queue task",
+        sourceItemId: task.queueItemId,
+        sourceReportId: "report-1",
+      },
+      itemType: "diff_review",
+      queueItemId: "diff-review-1",
+      status: "completed",
+      title: "Diff Review - Queue task",
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          canAct: true,
+          selectedTask: task,
+          tasks: [task, diffReviewTask],
+        })}
+        task={task}
+        workspaceAgentQueueBridge={queueBridge({ updateItem })}
+      />,
+    );
+
+    expect(document.body.textContent).toContain("Coordinator finalization");
+    expect(document.body.textContent).toContain("Task status");
+    expect(document.body.textContent).toContain("Validation");
+    expect(document.body.textContent).toContain("Diff Review");
+    expect(document.body.textContent).toContain("Expected commit title");
+    expect(document.body.textContent).toContain("frontend: add coordinator controls");
+    expect(document.body.textContent).toContain("Dependency gate");
+    expect(buttonByText("Accept without commit")?.disabled).toBe(false);
+    expect(buttonByText("Accept with commit hash")?.disabled).toBe(true);
+    expect(buttonByText("Request changes")?.disabled).toBe(false);
+    expect(buttonByText("Create follow-up")?.disabled).toBe(false);
+    expect(buttonByText("Mark blocked")?.disabled).toBe(false);
+    expect(buttonByText("Rollback required")?.disabled).toBe(false);
+    expect(updateItem).not.toHaveBeenCalled();
+  });
+
+  it("accept_with_commit requires a hash before the Queue service is called", async () => {
+    const updateItem = vi.fn(async (request) =>
+      itemResult({
+        id: request.itemId,
+        reportSummary: { status: "report_ready" },
+      }),
+    );
+    const task = queueTask({
+      coordinatorStatus: "ready_for_finalization",
+      prompt: promptPackPromptWithExpectedTitle(),
+      status: "review_needed",
+      validationStatus: "passed",
       workerExecutionReports: [workerReport()],
     });
 
@@ -567,31 +629,214 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
       <WorkspaceAgentQueueTaskStatusCard
         queue={queueController({
           canAct: true,
-          onFinalize: finalize,
           selectedTask: task,
           tasks: [task],
         })}
         task={task}
+        workspaceAgentQueueBridge={queueBridge({ updateItem })}
       />,
     );
 
-    await clickButton("Accept result");
-
-    expect(finalize).not.toHaveBeenCalled();
+    expect(buttonByText("Accept with commit hash")?.disabled).toBe(true);
     expect(document.body.textContent).toContain(
-      "Confirm Accept result to finalize this Queue item.",
+      "Accept with commit requires a commit hash.",
     );
 
-    await clickButton("Confirm accept");
+    expect(updateItem).not.toHaveBeenCalled();
+  });
 
-    expect(finalize).toHaveBeenCalledTimes(1);
-    expect(document.body.textContent).toContain(
-      "Coordinator decision finalize_accept_item requested for queue-task-0001.",
+  it("shows bad commit title validation before accept_with_commit can be confirmed", async () => {
+    const updateItem = vi.fn(async (request) =>
+      itemResult({
+        id: request.itemId,
+        reportSummary: { status: "report_ready" },
+      }),
     );
+    const task = queueTask({
+      coordinatorStatus: "ready_for_finalization",
+      prompt: promptPackPromptWithExpectedTitle(),
+      status: "review_needed",
+      validationStatus: "passed",
+      workerExecutionReports: [workerReport()],
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          canAct: true,
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        workspaceAgentQueueBridge={queueBridge({ updateItem })}
+      />,
+    );
+
+    await changeInput("Coordinator commit hash", "abc1234");
+    await changeInput("Coordinator commit title", "fix");
+
+    expect(document.body.textContent).toContain(
+      "Generic commit titles are not valid coordinator evidence.",
+    );
+    expect(buttonByText("Accept with commit hash")?.disabled).toBe(true);
+    expect(updateItem).not.toHaveBeenCalled();
+  });
+
+  it("requires explicit confirmation before accepting with commit metadata", async () => {
+    const updateItem = vi.fn(async (request) =>
+      itemResult({
+        id: request.itemId,
+        reportSummary: { status: "report_ready" },
+      }),
+    );
+    const task = queueTask({
+      coordinatorStatus: "ready_for_finalization",
+      prompt: promptPackPromptWithExpectedTitle(),
+      status: "review_needed",
+      validationStatus: "passed",
+      workerExecutionReports: [workerReport()],
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          canAct: true,
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        workspaceAgentQueueBridge={queueBridge({ updateItem })}
+      />,
+    );
+
+    await changeInput("Coordinator commit hash", "abc1234");
+    await changeInput(
+      "Coordinator commit title",
+      "frontend: add coordinator controls",
+    );
+    await clickButton("Accept with commit hash");
+
+    expect(updateItem).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Confirm accept with commit to apply this Queue decision.",
+    );
+    expect(buttonByText("Confirm accept with commit")?.disabled).toBe(false);
+
+    await clickButton("Confirm accept with commit");
+
+    expect(updateItem).toHaveBeenCalledTimes(1);
+    expect(updateItem.mock.calls[0]?.[0].patch.description).toContain(
+      "commit_hash: abc1234",
+    );
+    expect(updateItem.mock.calls[0]?.[0].patch.description).toContain(
+      "commit_title: frontend: add coordinator controls",
+    );
+    expect(document.body.textContent).toContain("Decision result");
+    expect(document.body.textContent).toContain("Accepted with existing commit abc1234.");
+    expect(document.body.textContent).toContain("Commit hash");
+    expect(document.body.textContent).toContain("abc1234");
+  });
+
+  it("request_changes does not unblock dependents or start them", async () => {
+    const updateItem = vi.fn(async (request) =>
+      itemResult({
+        id: request.itemId,
+        reportSummary: { status: "report_ready" },
+      }),
+    );
+    const run = vi.fn();
+    const task = queueTask({
+      coordinatorStatus: "ready_for_finalization",
+      queueItemId: "source-task",
+      status: "review_needed",
+      workerExecutionReports: [workerReport()],
+    });
+    const dependent = queueTask({
+      dependsOn: ["source-task"],
+      queueItemId: "dependent-task",
+      status: "ready",
+      title: "Dependent task",
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          canAct: true,
+          onRun: run,
+          selectedTask: task,
+          tasks: [task, dependent],
+        })}
+        task={task}
+        workspaceAgentQueueBridge={queueBridge({ updateItem })}
+      />,
+    );
+
+    await clickButton("Request changes");
+
+    expect(buttonByText("Request changes")?.disabled).toBe(false);
+    expect(updateItem).toHaveBeenCalledTimes(1);
+    expect(updateItem.mock.calls[0]?.[0].patch.status).toBe("review_needed");
+    expect(document.body.textContent).toContain(
+      "Requested changes; dependency gates remain blocked.",
+    );
+    expect(document.body.textContent).toContain("dependent-task: blocked");
+    expect(run).not.toHaveBeenCalled();
+  });
+
+  it("accept_without_commit requires confirmation before applying", async () => {
+    const updateItem = vi.fn(async (request) =>
+      itemResult({
+        id: request.itemId,
+        reportSummary: { status: "report_ready" },
+      }),
+    );
+    const task = queueTask({
+      coordinatorStatus: "ready_for_finalization",
+      status: "review_needed",
+      workerExecutionReports: [workerReport({ changedFiles: [] })],
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          canAct: true,
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        workspaceAgentQueueBridge={queueBridge({ updateItem })}
+      />,
+    );
+
+    await clickButton("Accept without commit");
+
+    expect(updateItem).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Confirm accept without commit to apply this Queue decision.",
+    );
+    expect(buttonByText("Confirm accept without commit")?.disabled).toBe(false);
+
+    await clickButton("Confirm accept without commit");
+
+    expect(updateItem).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain("Accepted without commit");
   });
 
   it("creates a follow-up through the Queue action without running it", async () => {
-    const createFollowUp = vi.fn();
+    const createFollowUp = vi.fn(async (request) =>
+      itemResult({
+        id: "follow-up-1",
+        itemType: request.itemType,
+        status: request.status,
+        title: request.title,
+      }),
+    );
+    const updateItem = vi.fn(async (request) =>
+      itemResult({
+        id: request.itemId,
+        reportSummary: { status: "report_ready" },
+      }),
+    );
     const run = vi.fn();
     const task = queueTask({
       coordinatorStatus: "follow_up_required",
@@ -603,22 +848,74 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
       <WorkspaceAgentQueueTaskStatusCard
         queue={queueController({
           canAct: true,
-          onCreateFollowUp: createFollowUp,
           onRun: run,
           selectedTask: task,
           tasks: [task],
         })}
         task={task}
+        workspaceAgentQueueBridge={queueBridge({
+          createItem: createFollowUp,
+          updateItem,
+        })}
       />,
     );
 
     await clickButton("Create follow-up");
 
     expect(createFollowUp).toHaveBeenCalledTimes(1);
+    expect(createFollowUp.mock.calls[0]?.[0]).toMatchObject({
+      executionPolicy: "manual",
+      itemType: "follow_up",
+      status: "queued",
+    });
     expect(run).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
-      "Coordinator decision create_follow_up requested for queue-task-0001.",
+      "Marked follow-up required; no follow-up was run automatically.",
     );
+  });
+
+  it("rollback required is confirmation-gated and does not run rollback", async () => {
+    const updateItem = vi.fn(async (request) =>
+      itemResult({
+        id: request.itemId,
+        reportSummary: { status: "report_ready" },
+      }),
+    );
+    const run = vi.fn();
+    const task = queueTask({
+      coordinatorStatus: "ready_for_finalization",
+      status: "review_needed",
+      workerExecutionReports: [workerReport()],
+    });
+
+    render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          canAct: true,
+          onRun: run,
+          selectedTask: task,
+          tasks: [task],
+        })}
+        task={task}
+        workspaceAgentQueueBridge={queueBridge({ updateItem })}
+      />,
+    );
+
+    await clickButton("Rollback required");
+
+    expect(updateItem).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Confirm rollback required to apply this Queue decision.",
+    );
+    expect(buttonByText("Confirm rollback required")?.disabled).toBe(false);
+
+    await clickButton("Confirm rollback required");
+
+    expect(updateItem).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain(
+      "Marked rollback required as a coordinator decision marker only.",
+    );
+    expect(run).not.toHaveBeenCalled();
   });
 });
 
@@ -667,9 +964,7 @@ async function changeInput(label: string, value: string) {
 }
 
 function buttonByText(text: string) {
-  return Array.from(document.querySelectorAll("button")).find(
-    (candidate) => candidate.textContent === text,
-  );
+  return Array.from(document.querySelectorAll("button")).find((candidate) => candidate.textContent === text);
 }
 
 function queueController({
@@ -772,7 +1067,11 @@ function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
   };
 }
 
-function workerReport(): NonNullable<AgentQueueTask["workerExecutionReports"]>[number] {
+function workerReport(
+  overrides: Partial<
+    NonNullable<AgentQueueTask["workerExecutionReports"]>[number]
+  > = {},
+): NonNullable<AgentQueueTask["workerExecutionReports"]>[number] {
   return {
     changedFiles: ["src/example.ts"],
     commandsRun: ["npm test"],
@@ -786,6 +1085,7 @@ function workerReport(): NonNullable<AgentQueueTask["workerExecutionReports"]>[n
     validationResult: "partial",
     warnings: ["Follow-up may be needed."],
     workerId: "executor-1",
+    ...overrides,
   };
 }
 
@@ -811,15 +1111,17 @@ function validationExecutor(
 
 function queueBridge({
   createItem = vi.fn(),
+  updateItem,
   validationStatus = "passed",
 }: {
   createItem?: WorkspaceAgentQueueBridge["createItem"];
+  updateItem?: WorkspaceAgentQueueBridge["updateItem"];
   validationStatus?: QueueWidgetItemSnapshot["validationStatus"];
 } = {}): WorkspaceAgentQueueBridge {
   return {
     createItem,
     getSnapshot: vi.fn(),
-    updateItem: vi.fn(async (request) =>
+    updateItem: updateItem ?? vi.fn(async (request) =>
       itemResult({
         id: request.itemId,
         reportSummary: request.patch.appendWorkerExecutionReport
@@ -887,4 +1189,11 @@ function promptPackPromptWithValidation(
     "Validation commands",
     `- ${command}`,
   ].join("\n");
+}
+
+function promptPackPromptWithExpectedTitle() {
+  return promptPackPromptWithValidation().replace(
+    "Block id: TEST-01",
+    "Block id: TEST-01\nExpected commit title: frontend: add coordinator controls",
+  );
 }

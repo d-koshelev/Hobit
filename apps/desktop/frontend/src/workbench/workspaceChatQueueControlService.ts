@@ -62,6 +62,7 @@ export type WorkspaceChatQueueAction =
     }
   | {
       actionType: AgentQueueReportActionType;
+      decisionInput?: WorkspaceChatCoordinatorDecisionInput;
       kind: "coordinator_decision";
       queueItemId: string;
     };
@@ -73,6 +74,7 @@ export type WorkspaceChatQueueActionStatus =
 
 export type WorkspaceChatQueueActionResult = {
   action: WorkspaceChatQueueAction["kind"];
+  coordinatorFinalization?: WorkspaceChatCoordinatorDecisionResult;
   diffReviewCreation?: WorkspaceChatDiffReviewCreationResult;
   message: string;
   queueItemId?: string;
@@ -80,6 +82,29 @@ export type WorkspaceChatQueueActionResult = {
   status: WorkspaceChatQueueActionStatus;
   validationResult?: QueueValidationRunResult;
   widgetResult?: QueueWidgetActionResult<QueueWidgetItemSnapshot>;
+};
+
+export type WorkspaceChatCoordinatorDecisionInput = {
+  commitHash?: string;
+  commitTitle?: string;
+  decision?: "accepted_with_commit" | "accepted_without_commit";
+  expectedCommitTitle?: string;
+  noCommitReason?: string;
+  operatorNote?: string;
+};
+
+export type WorkspaceChatCoordinatorDecisionResult = {
+  commitHash: string | null;
+  commitTitle: string | null;
+  decisionApplied: string;
+  dependencyGateSummary: string;
+  dependents: Array<{
+    dependentItemId: string;
+    ready: boolean;
+    summary: string;
+  }>;
+  nextAction: string;
+  warnings: string[];
 };
 
 export type WorkspaceChatDiffReviewCreationResult = {
@@ -412,6 +437,7 @@ async function coordinatorDecision(
       ? await coordinatorDecisionThroughQueueBridge({
           actionType: action.actionType,
           bridge,
+          decisionInput: action.decisionInput,
           queueItemId: action.queueItemId,
           task,
           tasks: queue?.tasks ?? [task],
