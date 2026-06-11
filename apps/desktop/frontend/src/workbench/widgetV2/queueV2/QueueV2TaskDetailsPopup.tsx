@@ -623,6 +623,13 @@ function primaryActionReason(
     return "Run is available only through the explicit task action below.";
   }
 
+  if (
+    queue?.selectedTask?.status === "draft" &&
+    queue.draftPromotion?.canPromote
+  ) {
+    return "Queue for run is available only through the explicit task action below.";
+  }
+
   if (inspector.eligibility.eligibleNow && !queue) {
     return "The task is eligible in the view model, but Queue actions are not wired in this view.";
   }
@@ -631,45 +638,39 @@ function primaryActionReason(
     return "A result is available and needs explicit operator review.";
   }
 
-  return "This popup is read-only in this block; no Queue runtime action is wired.";
+  if (queue) {
+    return (
+      queue.run.readinessMessage ??
+      queue.run.preconditionMessages[0] ??
+      "No supported Queue runtime action is currently available for this task state."
+    );
+  }
+
+  return "This popup is read-only in this view; Queue runtime actions are not wired here.";
 }
 
 export function queueV2NextActionLabel(action: QueueNextAction) {
-  switch (action) {
-    case "edit_draft":
-      return "Edit draft";
-    case "queue_task":
-      return "Queue task";
-    case "validate_readiness":
-      return "Check readiness";
-    case "run_now":
-      return "Run now";
-    case "assign_worker":
-      return "Assign worker";
-    case "wait_for_capacity":
-      return "Wait for capacity";
-    case "resolve_dependency":
-      return "Resolve dependency";
-    case "resolve_blocker":
-      return "Resolve blocker";
-    case "review_report":
-      return "Review report";
-    case "accept_result":
-      return "Accept result";
-    case "request_changes":
-      return "Request changes";
-    case "create_follow_up":
-      return "Create follow-up";
-    case "reject_result":
-      return "Reject result";
-    case "retry_or_rerun":
-      return "Retry or rerun";
-    case "close_cancelled":
-      return "Close cancelled";
-    case "view_history":
-      return "View history";
-  }
+  return QUEUE_V2_NEXT_ACTION_LABELS[action];
 }
+
+const QUEUE_V2_NEXT_ACTION_LABELS: Record<QueueNextAction, string> = {
+  accept_result: "Accept result",
+  assign_worker: "Assign worker",
+  close_cancelled: "Close cancelled",
+  create_follow_up: "Create follow-up",
+  edit_draft: "Edit draft",
+  queue_task: "Queue task",
+  reject_result: "Reject result",
+  request_changes: "Request changes",
+  resolve_blocker: "Resolve blocker",
+  resolve_dependency: "Resolve dependency",
+  retry_or_rerun: "Retry or rerun",
+  review_report: "Review report",
+  run_now: "Run now",
+  validate_readiness: "Check readiness",
+  view_history: "View history",
+  wait_for_capacity: "Wait for capacity",
+};
 
 function laneLabel(lane: QueueInspectorSnapshot["boardLane"]) {
   switch (lane) {

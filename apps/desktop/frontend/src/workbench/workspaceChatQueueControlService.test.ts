@@ -172,6 +172,60 @@ describe("workspace chat Queue control service", () => {
     expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
 
+  it("promotes a selected draft through the existing Queue draft-promotion callback only after execute", async () => {
+    const onPromote = vi.fn();
+    const onStartAssignedTask = vi.fn();
+    const service = createWorkspaceChatQueueControlService({
+      queue: queueController({
+        onPromote,
+        onStartAssignedTask,
+        selectedTask: queueTask({ queueItemId: "queue-draft", status: "draft" }),
+      }),
+    });
+
+    expect(onPromote).not.toHaveBeenCalled();
+    expect(onStartAssignedTask).not.toHaveBeenCalled();
+
+    const result = await service.execute({
+      kind: "promote_task",
+      queueItemId: "queue-draft",
+    });
+
+    expect(onPromote).toHaveBeenCalledTimes(1);
+    expect(onStartAssignedTask).not.toHaveBeenCalled();
+    expect(result).toMatchObject({
+      action: "promote_task",
+      queueItemId: "queue-draft",
+      status: "success",
+    });
+    expect(result.message).toContain("No task was started");
+  });
+
+  it("does not promote or run non-selected draft Queue tasks", async () => {
+    const onPromote = vi.fn();
+    const onStartAssignedTask = vi.fn();
+    const service = createWorkspaceChatQueueControlService({
+      queue: queueController({
+        onPromote,
+        onStartAssignedTask,
+        selectedTask: queueTask({ queueItemId: "queue-draft", status: "draft" }),
+      }),
+    });
+
+    const result = await service.execute({
+      kind: "promote_task",
+      queueItemId: "queue-other",
+    });
+
+    expect(result).toMatchObject({
+      action: "promote_task",
+      queueItemId: "queue-other",
+      status: "unavailable",
+    });
+    expect(onPromote).not.toHaveBeenCalled();
+    expect(onStartAssignedTask).not.toHaveBeenCalled();
+  });
+
   it("rejects empty create_task title or prompt before calling the bridge", async () => {
     const createItem = vi.fn(async () => itemResult());
     const service = createWorkspaceChatQueueControlService({
@@ -389,6 +443,7 @@ function queueController({
   canAct = false,
   canStart = true,
   onCreateDiffReview = vi.fn(),
+  onPromote = vi.fn(),
   onRollback = vi.fn(),
   onStartAssignedTask = vi.fn(),
   selectedTask,
@@ -397,6 +452,7 @@ function queueController({
   canAct?: boolean;
   canStart?: boolean;
   onCreateDiffReview?: () => void;
+  onPromote?: () => void;
   onRollback?: () => void;
   onStartAssignedTask?: () => void;
   selectedTask: AgentQueueTask | null;
@@ -420,6 +476,11 @@ function queueController({
       canCreate: false,
       message: null,
       onCreate: onCreateDiffReview,
+    },
+    draftPromotion: {
+      canPromote: selectedTask?.status === "draft",
+      isPromoting: false,
+      onPromote,
     },
     run: {
       canStart,

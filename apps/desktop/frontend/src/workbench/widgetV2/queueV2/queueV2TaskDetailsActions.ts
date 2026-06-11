@@ -19,6 +19,7 @@ export type QueueV2DetailsTab =
 type QueueV2TaskDetailsActionId =
   | "refresh"
   | "new-task"
+  | "promote"
   | "run"
   | "view-report"
   | "attach-report"
@@ -88,6 +89,28 @@ export function buildQueueV2TaskDetailsActions({
             ? "A task is already being created."
             : undefined,
       variant: "secondary",
+    });
+  }
+
+  if (task.status === "draft") {
+    actions.push({
+      disabled:
+        !hasQueueController ||
+        selectedTaskMismatch ||
+        !Boolean(queue?.draftPromotion?.canPromote),
+      id: "promote",
+      label: queue?.draftPromotion?.isPromoting
+        ? "Queuing"
+        : "Queue for run",
+      onClick: () => queue?.draftPromotion?.onPromote(),
+      reason:
+        selectionReason ??
+        (!hasQueueController
+          ? "Queue task update actions are not wired in this view."
+          : queue?.draftPromotion?.canPromote
+            ? undefined
+            : "Save or cancel task edits before queuing this draft."),
+      variant: "primary",
     });
   }
 

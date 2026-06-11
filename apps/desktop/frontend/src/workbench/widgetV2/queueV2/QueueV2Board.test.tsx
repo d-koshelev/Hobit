@@ -8,6 +8,7 @@ import type {
   AgentQueueWorkerExecutionReport,
 } from "../../../workspace/types";
 import type { AgentWorkerSummary } from "../../agentQueueTaskUiModel";
+import type { AgentQueueController } from "../../queue/details/agentQueueTaskDetailsTypes";
 import type { QueueValidationRunResult } from "../../queue/queueValidationEvidenceService";
 import type { ValidationRunner } from "../../validation";
 import { QueueV2Board } from "./QueueV2Board";
@@ -557,6 +558,131 @@ describe("QueueV2Board", () => {
     expect(onSelectedTaskChange).toHaveBeenCalledTimes(1);
   });
 
+  it("exposes imported draft promotion through QueueV2 details and fires only on click", async () => {
+    const onPromote = vi.fn();
+    const onRun = vi.fn();
+    const importedTask = task({
+      description: [
+        "Prompt pack: Core Pack (core-pack)",
+        "Prompt item: build",
+      ].join("\n"),
+      prompt: promptPackPrompt(),
+      queueItemId: "queue-build",
+      status: "draft",
+      title: "build: Build task",
+    });
+
+    await render(
+      <QueueV2Board
+        queue={queueController({
+          onPromote,
+          onRun,
+          selectedTask: importedTask,
+          tasks: [importedTask],
+        })}
+        tasks={[importedTask]}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(onPromote).not.toHaveBeenCalled();
+    expect(onRun).not.toHaveBeenCalled();
+
+    await openCardDetails("queue-build");
+
+    expect(onPromote).not.toHaveBeenCalled();
+    expect(onRun).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain(
+      "no Queue runtime action is wired",
+    );
+    const promoteButton = buttonWithText("Queue for run");
+    expect(promoteButton?.disabled).toBe(false);
+
+    await click(promoteButton);
+
+    expect(onPromote).toHaveBeenCalledTimes(1);
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
+  it("exposes ready task run through QueueV2 details and fires only on click", async () => {
+    const onRun = vi.fn();
+    const readyTask = task({
+      assignedExecutorWidgetId: "worker",
+      assignedWorkerId: "worker",
+      queueItemId: "ready-run",
+      status: "ready",
+      title: "Ready run task",
+    });
+
+    await render(
+      <QueueV2Board
+        queue={queueController({
+          onRun,
+          runCanStart: true,
+          selectedTask: readyTask,
+          tasks: [readyTask],
+        })}
+        tasks={[readyTask]}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(onRun).not.toHaveBeenCalled();
+    await openCardDetails("ready-run");
+
+    const runButton = buttonWithText("Run task");
+    expect(runButton?.disabled).toBe(false);
+    expect(onRun).not.toHaveBeenCalled();
+
+    await click(runButton);
+
+    expect(onRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps dependency-blocked tasks non-runnable in QueueV2 details", async () => {
+    const onRun = vi.fn();
+    const prerequisite = task({
+      queueItemId: "task-001",
+      status: "queued",
+      title: "Task 001",
+    });
+    const dependent = task({
+      assignedExecutorWidgetId: "worker",
+      assignedWorkerId: "worker",
+      dependsOn: ["task-001"],
+      queueItemId: "task-002",
+      status: "ready",
+      title: "Task 002",
+    });
+
+    await render(
+      <QueueV2Board
+        queue={queueController({
+          onRun,
+          readinessMessage: "Dependency is still open.",
+          runCanStart: false,
+          selectedTask: dependent,
+          tasks: [prerequisite, dependent],
+        })}
+        tasks={[prerequisite, dependent]}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(card("task-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
+    await openCardDetails("task-002");
+
+    const runButton = buttonWithText("Run task");
+    expect(runButton?.disabled).toBe(true);
+    expect(runButton?.parentElement?.textContent).toContain(
+      "Dependency is still open.",
+    );
+
+    await click(runButton);
+
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
   it("shows imported prompt-pack metadata on compact cards and task details without raw JSON", async () => {
     const onSelectedTaskChange = vi.fn();
     const importedTask = task({
@@ -994,6 +1120,45 @@ function validationRunner(): ValidationRunner {
   return {
     run: vi.fn(),
   };
+}
+
+function queueController({
+  onPromote = vi.fn(),
+  onRun = vi.fn(),
+  readinessMessage = null,
+  runCanStart = false,
+  selectedTask,
+  tasks,
+}: {
+  onPromote?: () => void;
+  onRun?: () => void;
+  readinessMessage?: string | null;
+  runCanStart?: boolean;
+  selectedTask: AgentQueueTask;
+  tasks: AgentQueueTask[];
+}): AgentQueueController {
+  return {
+    apiAvailable: true,
+    draftPromotion: {
+      canPromote: selectedTask.status === "draft",
+      isPromoting: false,
+      onPromote,
+    },
+    foundation: {
+      globalExecutionState: "started",
+      pausedQueueTagIds: new Set(),
+      workers: [worker()],
+    },
+    run: {
+      canStart: runCanStart,
+      isStarting: false,
+      onStartAssignedTask: onRun,
+      preconditionMessages: [],
+      readinessMessage,
+    },
+    selectedTask,
+    tasks,
+  } as unknown as AgentQueueController;
 }
 
 function promptPackPrompt() {

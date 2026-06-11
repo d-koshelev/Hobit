@@ -355,7 +355,16 @@ function queueTaskCardActions({
         : queue.run.readinessMessage ??
           queue.run.preconditionMessages[0] ??
           "Queue run action is unavailable for this task.");
-  return [
+  const promoteReason =
+    selectedTaskReason ??
+    (task.status !== "draft"
+      ? "Only draft Queue tasks can be queued through this action."
+      : !queue
+        ? "Queue draft promotion is unavailable in this chat surface."
+        : queue.draftPromotion?.canPromote
+          ? null
+          : "Queue draft promotion is unavailable for this task.");
+  const actions: CardAction[] = [
     {
       disabledReason: onOpenQueueItem
         ? null
@@ -378,6 +387,25 @@ function queueTaskCardActions({
       onClick: onViewReport,
       variant: "secondary",
     },
+  ];
+
+  if (task.status === "draft") {
+    actions.push({
+      disabledReason: promoteReason,
+      label:
+        pendingAction === "promote_task" || queue?.draftPromotion?.isPromoting
+          ? "Queuing"
+          : "Queue for run",
+      onClick: () =>
+        onQueueAction({
+          kind: "promote_task",
+          queueItemId: task.queueItemId,
+        }),
+      variant: "primary",
+    });
+  }
+
+  actions.push(
     {
       disabledReason: task.status === "running" ? "Task is already running." : runReason,
       label:
@@ -418,7 +446,9 @@ function queueTaskCardActions({
         }),
       variant: "ghost",
     },
-  ];
+  );
+
+  return actions;
 }
 
 function coordinatorFinalizationDisabledReason({

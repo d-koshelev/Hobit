@@ -44,6 +44,10 @@ export type WorkspaceChatQueueAction =
       queueItemId: string;
     }
   | {
+      kind: "promote_task";
+      queueItemId: string;
+    }
+  | {
       kind: "run_task";
       queueItemId: string;
     }
@@ -158,6 +162,8 @@ async function executeWorkspaceChatQueueAction(
         return await createTask(action.draft, options.bridge);
       case "open_task":
         return openTask(action.queueItemId, options.onOpenQueueItem);
+      case "promote_task":
+        return await promoteTask(action.queueItemId, options.queue);
       case "run_task":
         return await runTask(action.queueItemId, options.queue);
       case "stop_task":
@@ -354,6 +360,42 @@ async function createTask(
   };
 }
 
+async function promoteTask(
+  queueItemId: string,
+  queue: AgentQueueController | null | undefined,
+): Promise<WorkspaceChatQueueActionResult> {
+  const selectedCheck = selectedTaskActionCheck("promote_task", queueItemId, queue);
+
+  if (selectedCheck) {
+    return selectedCheck;
+  }
+
+  if (queue?.selectedTask?.status !== "draft") {
+    return unavailable(
+      "promote_task",
+      "Only draft Queue tasks can be queued through this action.",
+      queueItemId,
+    );
+  }
+
+  if (!queue.draftPromotion?.canPromote) {
+    return unavailable(
+      "promote_task",
+      "Queue draft promotion is unavailable for this task. Save or cancel edits before queuing it.",
+      queueItemId,
+    );
+  }
+
+  queue.draftPromotion.onPromote();
+
+  return {
+    action: "promote_task",
+    message: `Queue for run request sent for ${queueItemId}. No task was started.`,
+    queueItemId,
+    status: "success",
+  };
+}
+
 function queueTaskDraftValidationReason(
   draft: WorkspaceChatQueueTaskDraft,
 ): string | null {
@@ -394,7 +436,7 @@ async function runTask(
   queueItemId: string,
   queue: AgentQueueController | null | undefined,
 ): Promise<WorkspaceChatQueueActionResult> {
-  const selectedCheck = selectedTaskActionCheck(queueItemId, queue);
+  const selectedCheck = selectedTaskActionCheck("run_task", queueItemId, queue);
 
   if (selectedCheck) {
     return selectedCheck;
@@ -425,7 +467,11 @@ async function coordinatorDecision(
   options: WorkspaceChatQueueControlServiceOptions,
 ): Promise<WorkspaceChatQueueActionResult> {
   const { bridge, queue } = options;
-  const selectedCheck = selectedTaskActionCheck(action.queueItemId, queue);
+  const selectedCheck = selectedTaskActionCheck(
+    "coordinator_decision",
+    action.queueItemId,
+    queue,
+  );
 
   if (selectedCheck) {
     return selectedCheckFor("coordinator_decision", selectedCheck);
@@ -479,12 +525,13 @@ async function coordinatorDecision(
 }
 
 function selectedTaskActionCheck(
+  action: WorkspaceChatQueueAction["kind"],
   queueItemId: string,
   queue: AgentQueueController | null | undefined,
 ): WorkspaceChatQueueActionResult | null {
   if (!queue) {
     return unavailable(
-      "run_task",
+      action,
       "Queue controller actions are unavailable in this Workspace Agent surface.",
       queueItemId,
     );
@@ -492,7 +539,7 @@ function selectedTaskActionCheck(
 
   if (!isSelectedTask(queue.selectedTask, queueItemId)) {
     return unavailable(
-      "run_task",
+      action,
       "Select or open this Queue task before applying selected-task actions.",
       queueItemId,
     );
