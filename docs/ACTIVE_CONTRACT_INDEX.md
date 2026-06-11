@@ -569,6 +569,17 @@ unless the task explicitly requests it.
   backend/runtime behavior, storage/schema changes, Queue scheduling, Agent
   Executor execution, Git mutation, Terminal launch, provider tools,
   automatic finalization, commit, push, rollback, or dependency execution.
+- `docs/SELF_DEVELOPMENT_READINESS_STATUS.md` - docs-only readiness status
+  record after the self-development prompt-pack fixture, import-to-Queue
+  smoke, validation plus Diff Review smoke, coordinator finalization and
+  dependency gate smoke, and manual UI checklist definition. It records the
+  safe dogfooding boundary, manual operator confirmations, unsupported or
+  unverified areas, safety guarantees, recommended next work, and exact status
+  and focused frontend smoke commands. It does not add frontend behavior,
+  backend/runtime behavior, storage/schema changes, Queue scheduling, Agent
+  Executor execution, validation automation, Diff Review execution, Git
+  mutation, Terminal launch, provider tools, automatic finalization, commit,
+  push, rollback, or dependency execution.
 - `docs/WORKSPACE_AGENT_UI_POLISH_STATUS.md` - docs-only status record for
   movable popup, Agent Activity alignment, and compact Workspace Agent run
   summary polish. It records manual smoke steps, non-goals, and follow-ups
