@@ -5,8 +5,95 @@ import type { QueueWidgetItemSnapshot } from "../queue/agentQueueWidgetApiTypes"
 import { buildPromptPackImportPreview } from "./promptPackImportPreview";
 import { materializePromptPackPreviewToQueue } from "./promptPackMaterialization";
 import { parsePromptPackImportPlan } from "./promptPackParser";
+import { selfDevelopmentSmokePromptPackEntries } from "./selfDevelopmentSmokePromptPackFixture.test-fixtures";
 
 describe("prompt pack Queue materialization service", () => {
+  it("smokes self-development fixture import into Queue dependency items without starting runtime work", async () => {
+    const plan = parsePromptPackImportPlan(selfDevelopmentSmokePromptPackEntries);
+    const preview = buildPromptPackImportPreview(plan);
+    const runAutonomousQueue = vi.fn();
+    const startQueueItem = vi.fn();
+    const stopAutonomousQueueAfterCurrent = vi.fn();
+    const bridge = {
+      ...queueBridge({
+        runAutonomousQueue,
+        stopAutonomousQueueAfterCurrent,
+      }),
+      startQueueItem,
+    };
+
+    expect(plan.errors).toEqual([]);
+    expect(preview.importAvailable).toBe(true);
+    expect(preview.selectedItems).toHaveLength(2);
+    expect(preview.selectedItemIds).toEqual([
+      "001-safe-docs-noop",
+      "002-dependent-follow-up",
+    ]);
+
+    const firstTask = preview.selectedItems[0];
+    const secondTask = preview.selectedItems[1];
+    expect(secondTask.dependencies).toEqual([firstTask.id]);
+
+    const result = await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.createdTasks).toEqual([
+      {
+        itemId: "001-safe-docs-noop",
+        queueItemId: "queue-001-safe-docs-noop",
+        title: "001-safe-docs-noop: docs: smoke no-op readiness note",
+      },
+      {
+        itemId: "002-dependent-follow-up",
+        queueItemId: "queue-002-dependent-follow-up",
+        title: "002-dependent-follow-up: docs: verify dependent readiness gate",
+      },
+    ]);
+    expect(bridge.createItem).toHaveBeenCalledTimes(2);
+
+    const firstCreateRequest = bridge.createItem.mock.calls[0]?.[0];
+    const secondCreateRequest = bridge.createItem.mock.calls[1]?.[0];
+    expect(firstCreateRequest?.prompt).toContain(firstTask.promptBody);
+    expect(secondCreateRequest?.prompt).toContain(secondTask.promptBody);
+    expect(firstCreateRequest?.prompt).toContain(
+      "Expected commit title: docs: smoke no-op readiness note",
+    );
+    expect(secondCreateRequest?.prompt).toContain(
+      "Expected commit title: docs: verify dependent readiness gate",
+    );
+    for (const request of [firstCreateRequest, secondCreateRequest]) {
+      expect(request?.prompt).toContain("Validation commands");
+      expect(request?.prompt).toContain("- git status --short --branch");
+      expect(request?.prompt).toContain("- git diff --check");
+      expect(request?.executionPolicy).toBe("manual");
+      expect(request?.status).toBe("draft");
+    }
+
+    expect(bridge.updateItem).toHaveBeenCalledTimes(1);
+    expect(bridge.updateItem).toHaveBeenCalledWith({
+      itemId: "queue-002-dependent-follow-up",
+      patch: { dependencies: ["queue-001-safe-docs-noop"] },
+      reason:
+        "Materialize prompt-pack dependency links after creating all selected Queue items.",
+    });
+    expect(result.dependencyLinksCreated).toEqual([
+      {
+        dependencyItemId: "001-safe-docs-noop",
+        dependencyQueueItemId: "queue-001-safe-docs-noop",
+        dependentItemId: "002-dependent-follow-up",
+        dependentQueueItemId: "queue-002-dependent-follow-up",
+        status: "created",
+      },
+    ]);
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(startQueueItem).not.toHaveBeenCalled();
+    expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
+  });
+
   it("creates selected Queue tasks first, then links dependencies by created Queue ids", async () => {
     const preview = buildPromptPackImportPreview(
       parsePromptPackImportPlan([
