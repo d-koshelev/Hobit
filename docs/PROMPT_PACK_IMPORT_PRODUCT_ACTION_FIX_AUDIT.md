@@ -2,323 +2,373 @@
 
 ## Status
 
-Status: docs-only blocker audit after failed manual self-development smoke.
+Docs-only blocker audit for the failed manual prompt-pack import product smoke.
 
-This audit does not add frontend behavior, backend/Rust/Tauri commands,
-storage/schema changes, Queue runtime behavior, scheduler behavior, Autorun
-behavior, provider tools, validation execution, Diff Review execution,
-rollback execution, Git mutation, Terminal execution, automatic finalization,
-automatic commit, automatic push, or automatic rollback.
+No source code, tests, frontend behavior, backend behavior, Tauri commands,
+SQLite schema, Queue runtime behavior, scheduler behavior, Autorun behavior,
+Agent Executor behavior, validation execution, Git mutation, Terminal launch,
+provider tools, automatic finalization, automatic commit, push, rollback, or
+dependency execution is changed by this document.
 
-Current implemented widget behavior remains governed by
-`docs/CURRENT_WIDGET_SURFACE.md`. Queue and Workspace Agent action boundaries
-remain governed by `docs/AGENT_QUEUE_WIDGET_API_CONTRACT.md`,
-`docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`, and
-`docs/COORDINATOR_CENTERED_WORKBENCH_CONTRACT.md`.
+## Objective
 
-## Observed Failure
+Audit why the prompt-pack import preview could be shown during manual
+self-development smoke, but no actionable Queue item creation path was
+available from the real operator flow.
 
-The manual smoke proved the preview parser/model can recognize a two-item
-prompt pack and show dependency metadata such as `002 -> 001`, but the real UI
-path failed at the product action boundary:
+Observed failure:
 
-- preview appeared as plain Workspace Agent / Workspace Chat markdown text;
-- no actionable `Create Queue items` or `Cancel import` controls appeared;
-- the operator's textual confirmation was routed as a normal Workspace Agent
-  / Codex message;
-- the agent tried to infer product behavior by inspecting shell output,
-  SQLite, and repository text;
-- the agent correctly refused raw SQLite insertion because no typed product
-  action connector was exposed in that path;
+- prompt-pack import preview displayed 2 items and dependency `002 -> 001`;
+- preview appeared as plain Markdown/text in Workspace Agent / Workspace Chat
+  output rather than as a product action card;
+- no `Create Queue items` or `Cancel import` controls were rendered;
+- text confirmation was routed to Workspace Agent / Codex;
+- the agent then reverse-engineered shell/SQLite/grep paths and correctly
+  refused raw DB insertion because no typed product action bridge was exposed
+  in that path and live durable Queue dependency storage was missing;
 - no Queue items were created.
 
-## Inspected Paths
+## Inspected Areas
 
-- Workspace Agent transcript and card rendering:
-  `apps/desktop/frontend/src/workbench/InteractiveAgentPlaceholderWidget.tsx`,
-  `apps/desktop/frontend/src/workbench/WorkspaceAgentTranscript.tsx`,
-  `apps/desktop/frontend/src/workbench/useWorkspaceAgentPromptPackImport.ts`,
-  and
-  `apps/desktop/frontend/src/workbench/promptPack/WorkspaceAgentPromptPackImportCard.tsx`.
-- Prompt-pack parser, preview, and materialization:
-  `apps/desktop/frontend/src/workbench/promptPack/promptPackParser.ts`,
-  `promptPackImportPreview.ts`, `promptPackImportPreviewComponent.tsx`, and
-  `promptPackMaterialization.ts`.
-- Workspace Chat / Workspace Agent Queue bridge:
-  `apps/desktop/frontend/src/workbench/workspaceAgentQueueBridge.ts`,
-  `apps/desktop/frontend/src/workbench/queue/agentQueueWidgetApi.ts`, and
-  `apps/desktop/frontend/src/workbench/queue/useWorkspaceQueueApi.ts`.
-- Frontend Queue model and QueueV2 readiness/dependency display:
-  `apps/desktop/frontend/src/workspace/types/agentQueue.ts`,
-  `apps/desktop/frontend/src/workbench/queue/useAgentQueueController.dependencies.test.tsx`,
-  `apps/desktop/frontend/src/workbench/queue/queueV2LifecycleModel.ts`, and
-  `apps/desktop/frontend/src/workbench/widgetV2/queueV2/QueueV2PromptPackImportSection.tsx`.
-- Desktop/Tauri DTOs and commands:
-  `apps/desktop/frontend/src/workspace/tauriAgentQueueApi.ts`,
-  `apps/desktop/frontend/src/workspace/tauriAgentQueueDto.ts`,
-  `apps/desktop/src-tauri/src/agent_queue_task_dto.rs`, and
-  `apps/desktop/src-tauri/src/agent_queue_task_commands.rs`.
-- App service and SQLite storage:
-  `crates/hobit-app/src/workspace_service/agent_queue_task_types.rs`,
-  `crates/hobit-app/src/workspace_service/agent_queue_tasks.rs`,
-  `crates/hobit-app/src/workspace_service/mapping.rs`,
-  `crates/hobit-storage-sqlite/src/schema.rs`, and
+- Workspace Agent transcript rendering:
+  `apps/desktop/frontend/src/workbench/WorkspaceAgentTranscript.tsx`.
+- Workspace Agent import state entry:
+  `apps/desktop/frontend/src/workbench/useWorkspaceAgentPromptPackImport.ts`.
+- Workspace Agent widget orchestration:
+  `apps/desktop/frontend/src/workbench/InteractiveAgentPlaceholderWidget.tsx`.
+- Prompt-pack preview and card:
+  `apps/desktop/frontend/src/workbench/promptPack/promptPackImportPreview.ts`,
+  `apps/desktop/frontend/src/workbench/promptPack/promptPackImportPreviewComponent.tsx`,
+  and `apps/desktop/frontend/src/workbench/promptPack/WorkspaceAgentPromptPackImportCard.tsx`.
+- Prompt-pack materialization service:
+  `apps/desktop/frontend/src/workbench/promptPack/promptPackMaterialization.ts`.
+- Workspace Agent Queue bridge:
+  `apps/desktop/frontend/src/workbench/workspaceAgentQueueBridge.ts`.
+- Queue Widget API frontend adapter:
+  `apps/desktop/frontend/src/workbench/queue/agentQueueWidgetApi.ts` and
+  `apps/desktop/frontend/src/workbench/queue/agentQueueWidgetApiTypes.ts`.
+- Frontend Queue task/dependency model:
+  `apps/desktop/frontend/src/workspace/types/agentQueue.ts` and
+  `apps/desktop/frontend/src/workbench/agentQueueDependencyUi.ts`.
+- Tauri Queue task DTO:
+  `apps/desktop/src-tauri/src/agent_queue_task_dto.rs`.
+- App service Queue task model:
+  `crates/hobit-app/src/workspace_service/agent_queue_tasks.rs` and
+  `crates/hobit-app/src/workspace_service/mapping.rs`.
+- SQLite Queue task schema/store:
+  `crates/hobit-storage-sqlite/src/schema.rs`,
+  `crates/hobit-storage-sqlite/src/inputs.rs`,
+  `crates/hobit-storage-sqlite/src/rows.rs`, and
   `crates/hobit-storage-sqlite/src/store/agent_queue_tasks.rs`.
+- Existing status/audit docs:
+  `docs/PROMPT_PACK_IMPORT_QUEUE_STATUS.md`,
+  `docs/SELF_DEVELOPMENT_READINESS_STATUS.md`, and
+  `docs/COORDINATOR_FINALIZATION_COMMIT_HASH_AUDIT.md`.
 
 ## Root Cause
 
-The implementation split preview/action behavior across two different product
-paths.
+The failed smoke used a real Workspace Agent text path, but prompt-pack import
+creation is only wired to the typed import card path.
 
-The actionable path exists only when Workspace Agent creates a
-`promptPackImportId` message via the explicit `Import pack` header action. That
-message renders `WorkspaceAgentPromptPackImportCard`, which provides source
-editing, preview, `Create Queue items`, and `Cancel import` controls. Its
-create action calls `materializePromptPackPreviewToQueue`, which calls the
-typed `WorkspaceAgentQueueBridge.createItem` and `updateItem` methods.
+The typed path exists:
 
-The failed smoke used a different path: the preview was rendered as ordinary
-assistant markdown/text in the Workspace Agent transcript. A plain message body
-does not carry `promptPackImportId`, does not render
-`WorkspaceAgentPromptPackImportCard`, and therefore cannot expose the typed
-Queue import actions. A later textual confirmation is just another chat
-message, so it is routed to Workspace Agent / Codex instead of a product
-action handler.
+- `WorkspaceAgentHeaderStatus` exposes the `Import pack` button.
+- `useWorkspaceAgentPromptPackImport.start()` creates a transcript message
+  with `promptPackImportId`.
+- `WorkspaceAgentTranscript` renders
+  `WorkspaceAgentPromptPackImportCard` only when that message has a
+  `promptPackImportId` and matching import state.
+- `WorkspaceAgentPromptPackImportCard` renders the source textarea, preview,
+  `Create Queue items`, and `Cancel import`.
+- `Create Queue items` calls `materializePromptPackPreviewToQueue(...)` with
+  `confirmed: true`.
 
-In short: service-level prompt-pack import logic exists, but the preview shown
-in the failed real UI path was not connected to an actionable product card.
+The text path does not exist:
 
-## Why Tests Passed
+- plain assistant/provider/Codex text that looks like an import preview is
+  rendered by `WorkspaceAgentMessageBubble` as normal message body;
+- no parser promotes that text into a `promptPackImportId`;
+- no composer command intercepts "confirm import" and binds it to a specific
+  preview/card state;
+- no typed product action is available when the operator replies in natural
+  language;
+- therefore confirmation is sent through normal Workspace Agent/Codex handling
+  instead of calling a Queue import action.
 
-The focused tests cover the explicit-card path and service functions with fake
-or injected bridges:
-
-- `InteractiveAgentPromptPackImport.test.tsx` clicks `Import pack`, pastes
-  source into the card, and clicks `Create Queue items`.
-- `WorkspaceAgentPromptPackImportCard.test.tsx` mounts the card directly with
-  a fake `WorkspaceAgentQueueBridge`.
-- `promptPackMaterialization.test.ts` validates create/update calls at the
-  service boundary.
-
-Those tests do not cover the failed path where the preview is emitted as
-markdown/plain assistant text and the operator confirms by typing natural
-language. They also do not exercise the desktop Tauri/SQLite Queue dependency
-round trip.
+The real product path failed because the actionable action card was not the
+thing being previewed or confirmed.
 
 ## Product Path Gaps
 
-1. Plain-text preview is not an action surface.
+1. Actionable preview card is not the canonical import surface for all import
+   previews.
 
-   Workspace Agent message body markdown cannot become Queue items. It must
-   render a typed import state/card with explicit controls, or it must clearly
-   say import actions are unavailable from that message.
+   The import card exists and has the right controls, but only the header
+   `Import pack` action creates it. If a provider, Codex run, pasted transcript,
+   or manual chat flow emits a preview as text/Markdown, the transcript does
+   not attach an import state or action card.
 
-2. Text confirmation has no product-action binding.
+2. Confirmation is natural-language, not typed product action.
 
-   The current command parser can handle explicit Queue commands, but there is
-   no scoped pending import confirmation model that maps "create these" or a
-   similar reply to a specific prompt-pack preview. Routing that text to Codex
-   is expected under the current implementation, but it is wrong for a
-   rendered product preview that asks for confirmation.
+   `Create Queue items` is a button on `WorkspaceAgentPromptPackImportCard`.
+   The composer send path treats operator text as chat, queue command text, or
+   direct work. It does not map a confirmation phrase to a specific
+   pending import preview, and it should not rely on natural language for this
+   mutation.
 
-3. Workspace Agent lacks a typed import bridge for preview text produced by an
-   agent/provider.
+3. The Queue import bridge is generic and partial.
 
-   Provider or Codex output can draft text, but provider tools remain
-   `allowed_tools: []`. Product mutation must happen through a typed app
-   action, not through natural-language execution or storage inference.
+   Prompt-pack materialization calls generic `bridge.createItem` and then
+   `bridge.updateItem({ dependencies })`. This is good for an early service
+   test, but the product action should be a typed import bridge that creates
+   the batch and dependency edges as one explicit app action with visible
+   result semantics.
 
-4. Unsupported action states are not explicit enough.
+4. Result/open actions are current-session only.
 
-   If a prompt-pack preview is not attached to a typed card, the UI should not
-   imply that textual confirmation can create Queue items. It should expose a
-   visible "Open actionable import card" action or a visible unsupported state.
+   The card can show created ids and open created tasks when the frontend
+   callback exists, but there is no durable import record, batch id, logical
+   prompt-pack item to Queue item mapping, or reload-safe import result.
+
+5. Unsupported states are not forcefully product-visible in the failed path.
+
+   The card reports unavailable folder/zip readers and bridge absence. Plain
+   text previews do not get those typed disabled states, so the operator can
+   mistakenly treat the text as an actionable preview.
 
 ## Storage And Dependency Gaps
 
-Frontend Queue types and the first Widget API slice already contain dependency
-fields:
+Frontend Queue task types include dependency fields:
 
-- `CreateAgentQueueTaskRequest.dependsOn`;
-- `UpdateAgentQueueTaskRequest.dependsOn`;
-- `QueueCreateItemRequest.dependencies`;
-- `QueueUpdateItemPatch.dependencies`;
-- `AgentQueueTask.dependsOn`;
-- `QueueWidgetItemSnapshot.dependencies`.
+- `CreateAgentQueueTaskRequest.dependsOn?: string[]`;
+- `UpdateAgentQueueTaskRequest.dependsOn?: string[]`;
+- `AgentQueueTask.dependsOn?: string[]`;
+- Queue Widget API request patches use `dependencies: string[]`;
+- `agentQueueDependencyUi.ts` derives ready/blocked/invalid dependency states
+  from `task.dependsOn`.
 
-However the desktop durable path does not carry them:
+The durable Rust/Tauri/SQLite path does not persist them:
 
-- `tauriAgentQueueApi.ts` does not send `depends_on`;
-- `tauriAgentQueueDto.ts` does not define `depends_on`;
-- `agent_queue_task_dto.rs` does not accept or return dependencies;
+- `apps/desktop/src-tauri/src/agent_queue_task_dto.rs` create/update requests
+  and task DTOs have no dependency field;
 - `CreateAgentQueueTaskInput`, `UpdateAgentQueueTaskInput`, and
-  `AgentQueueTaskSummary` do not include dependency ids;
-- `agent_queue_tasks` SQLite schema has no dependency column or edge table;
-- storage create/list/get/update SQL has no dependency persistence;
-- app-service mapping cannot round-trip dependency data.
+  `AgentQueueTaskSummary` in the app service have no dependency field;
+- `NewAgentQueueTask`, `AgentQueueTaskUpdate`, and `AgentQueueTaskRow` in the
+  SQLite store have no dependency field;
+- `agent_queue_tasks` in `schema.rs` has no `depends_on` column and no
+  dependency edge table;
+- the storage mapper cannot return dependency refs because the row has none.
 
-The current QueueV2 dependency/readiness model can reason over `task.dependsOn`
-when it is present in frontend state, and controller tests prove that blocked
-dependencies should wait for accepted/finalized prerequisites. That does not
-make dependency links durable in the desktop product path.
+This means dependency behavior can pass frontend/mock service tests where the
+test bridge preserves `dependsOn`, but the desktop durable Queue path cannot
+authoritatively store or reload imported dependency edges.
 
-The failed smoke's "live SQLite schema did not show durable dependency
-field/table" observation is correct.
+QueueV2 readiness and dependency gating are currently frontend-derived. The
+rule is directionally correct: a dependent is blocked until the prerequisite
+is `completed` and `coordinatorStatus === "finalized"`. The blocker is that
+the dependency refs and coordinator/finalization fields are not durable
+authoritative data in the current Queue task DTO/storage shape.
 
-## Confirmation Routing Gap
+## Why Tests Passed
 
-Workspace Agent confirmation is currently card/action specific, not a general
-chat reply protocol. Approval and creation flows work when controls are
-rendered on proposal cards or Queue action cards. Prompt-pack import likewise
-works only when `WorkspaceAgentPromptPackImportCard` is present.
+The focused tests exercised frontend service and component boundaries, not the
+full desktop product path:
 
-When the preview is plain assistant text, the transcript has no pending
-`importId`, no typed preview object, no create/cancel handlers, and no
-confirmation target. The composer therefore treats the operator's confirmation
-as an ordinary message and, depending on mode, sends it through local parsing,
-provider drafting, or Codex Direct Work.
+- `WorkspaceAgentPromptPackImportCard.test.tsx` renders the card directly and
+  supplies a mock `WorkspaceAgentQueueBridge`.
+- `promptPackMaterialization.test.ts` supplies a mock bridge whose
+  `createItem` and `updateItem` accept dependency updates.
+- `InteractiveAgentPromptPackImport.test.tsx` clicks the header `Import pack`
+  action, so it follows the typed card path rather than a text preview path.
+- Queue tests commonly preserve `dependsOn` in frontend test helpers.
 
-This must not be fixed by teaching Codex to inspect SQLite and insert rows.
-The fix is a typed Workspace Agent product action that owns the preview,
-confirmation, creation, result, and unsupported states.
+Those tests prove that the typed card and frontend materialization service can
+work when they are invoked and when the bridge preserves dependencies. They do
+not prove that:
 
-## Guardrails Needed
+- a plain Workspace Agent text preview becomes an actionable product card;
+- text confirmation calls a typed import action;
+- dependencies persist through the Tauri/Rust/SQLite path;
+- a reload or real desktop Queue snapshot preserves imported dependency
+  edges.
 
-- Workspace Agent must not ask Codex, shell, or a provider to perform Queue
-  creation by reverse-engineering SQLite, local files, React state, DOM state,
-  or private component internals.
-- When a requested product action lacks a typed bridge, Workspace Agent should
-  stop with a visible unsupported action message and point to the required
-  product bridge.
-- Prompt-pack import confirmation must be button/action based for the first
-  fix. If a later text-confirmation flow is added, it must bind to a specific
-  pending import id and call the same typed app action.
-- Tests and manual smoke docs must assert that no raw SQLite insert, shell
-  storage mutation, Codex natural-language execution, Queue run, Autorun,
-  Terminal launch, Git mutation, finalization, commit, or push occurs.
+## Why Confirmation Went To Codex
+
+Workspace Agent has a normal composer send path. It checks explicit Queue
+commands and Knowledge commands, then records an operator message and drafts a
+local/provider response, or in Direct Work mode starts Codex.
+
+Prompt-pack import confirmation is not registered as a typed composer command,
+and the import preview state is not associated with plain message text. A
+reply such as "confirm" or "create the items" is therefore just another
+Workspace Agent message. That is the correct behavior for ordinary chat, but
+it is the wrong product path for a mutation that must be explicit, visible,
+and approval-aware.
+
+The fix is not to teach Codex to perform the import. The fix is to keep
+confirmation on a product action card or a typed app command that calls the
+Queue import bridge directly.
+
+## Raw Storage / Tool Loop Guardrails
+
+Agents must not reverse-engineer SQLite to perform product actions. The
+manual failure shows why: the agent spent excessive steps inspecting storage,
+correctly found no durable dependency model, and refused raw insertion. That
+refusal was right, but the product should prevent the loop earlier.
+
+Guardrails needed:
+
+- Workspace Agent import cards must show a disabled/unsupported product state
+  when the typed Queue bridge is unavailable.
+- The composer must not suggest natural-language confirmation for product
+  mutations. Confirmation must be a button/action on the card or a registered
+  typed command with a preview id.
+- Agent/system instructions for self-development must say: if a typed Queue
+  creation/import bridge is unavailable, stop and report the unsupported
+  product path; do not inspect or mutate SQLite.
+- Workspace Agent/Codex prompts for this workflow should explicitly forbid raw
+  SQLite inserts/updates, schema probing as a substitute for product APIs, and
+  command-line mutation of Queue records.
+- Smoke docs should define failure criteria: no `Create Queue items` button
+  means the import path is not wired; do not continue by asking Codex to
+  create records.
+- Future implementation should expose one typed app action for import so the
+  agent and UI never need to infer storage internals.
 
 ## Recommended Implementation Path
 
 ### Phase 1: Actionable Preview Card
 
-- Ensure every prompt-pack import preview shown in Workspace Agent is a typed
-  `WorkspaceAgentPromptPackImportCard` or an equivalent typed card state, not
-  markdown-only assistant text.
-- Add an explicit "Open import card" fallback if a provider/Codex response
-  includes prompt-pack preview text but no typed import state.
-- Keep display level Minimal: source, preview facts, blocking errors,
-  warnings, `Create Queue items`, `Cancel import`, and unsupported bridge
-  state.
+Make the actionable card the only accepted import preview surface.
 
-Acceptance:
-
-- The failed smoke path renders `Create Queue items` and `Cancel import`.
-- Typing "confirm" does not create items unless a future typed confirmation
-  handler is explicitly implemented.
+- Add or route an explicit "Import prompt pack" command/action that always
+  creates `WorkspaceAgentPromptPackImportState` and a transcript message with
+  `promptPackImportId`.
+- If provider/Codex text contains a recognizable import preview, render it as
+  inert text plus a visible "Open import card" action rather than treating the
+  text as confirmable.
+- Keep `Create Queue items` and `Cancel import` on the card.
+- Show bridge-unavailable and unsupported source states in the card, not only
+  in prose.
+- Do not auto-create, auto-run, assign, validate, finalize, commit, push, or
+  rollback.
 
 ### Phase 2: Typed Queue Import Bridge
 
-- Add a typed app-level import action that accepts one confirmed
-  `PromptPackImportPreviewModel` and calls Queue create/update through the
-  existing Queue Widget API.
-- Return structured created-task ids, skipped dependency links, errors,
-  warnings, and no-auto-run safety flags.
-- Keep provider and Codex tool access disabled; the bridge is a frontend/app
-  product action invoked by visible UI controls.
+Add a typed product action for prompt-pack import instead of relying on a loop
+of generic create/update calls from the card.
 
-Acceptance:
+Suggested frontend/app API shape:
 
-- Import creates only draft/manual Queue tasks.
-- Import result shows created ids and open actions.
-- Import does not assign, start, validate, finalize, commit, push, rollback,
-  launch Terminal, or arm Autorun.
+```text
+queue.importPromptPackPreview({
+  workspaceId,
+  previewId/importId,
+  pack,
+  selectedItems,
+  confirmed: true
+})
+```
+
+The bridge should:
+
+- validate the confirmed preview;
+- create all Queue draft/manual items;
+- preserve metadata in current visible fields and future first-class fields;
+- create dependency edges through typed dependency persistence when available;
+- return created task ids, skipped links, warnings, errors, and no-run safety
+  flags;
+- refresh/open Queue state after success.
+
+This action must not expose provider tools, raw SQL/SQLite, hidden context
+reads, Terminal commands, Git mutation, Executor start, Autorun arm/start, or
+validation execution.
 
 ### Phase 3: Durable Dependency Persistence And Gating
 
-- Add the minimal durable dependency model required by Queue:
-  either a validated `depends_on_json` column for small MVP lists or a
-  normalized `agent_queue_task_dependencies` edge table.
-- Prefer an edge table if dependency validation, reverse lookups, delete
-  blocking, and future cycle checks are part of the same implementation block.
-- Carry dependency ids through TypeScript Tauri requests/responses, Rust DTOs,
-  app-service inputs/summaries, storage inputs/rows/mappers, and Queue Widget
-  snapshots.
-- Validate same-workspace dependency ids, reject self-dependencies, reject
-  missing dependency ids where appropriate, and reject cycles before storing.
-- Preserve current Queue runtime semantics: dependencies affect readiness and
-  Autorun eligibility only; they do not execute dependents.
+Add the minimal typed dependency persistence required for Queue imports and
+QueueV2 gates.
 
-Acceptance:
+Recommended storage shape:
 
-- A desktop-created `002 depends on 001` import survives list/get/reload.
-- QueueV2 shows linked Queue dependencies, not only prompt-pack text metadata.
-- Queue run/readiness gates block dependent tasks until prerequisite tasks are
-  explicitly finalized/accepted according to current Queue rules.
+- a dedicated `agent_queue_task_dependencies` edge table with
+  `workspace_id`, `dependent_queue_item_id`, `dependency_queue_item_id`,
+  `created_at`, and `updated_at`;
+- foreign keys to `agent_queue_tasks(queue_item_id)` with cascade behavior
+  suitable for task deletion safeguards;
+- an index by workspace/dependent and workspace/dependency.
+
+Recommended API shape:
+
+- create/update Queue task accepts typed dependency refs only through Queue
+  task/dependency APIs;
+- app service validates same-workspace refs, missing refs, self-dependency,
+  and cycles;
+- Tauri DTOs include `depends_on`/`dependsOn` consistently;
+- frontend snapshots continue to derive ready/blocked/invalid state from
+  typed refs;
+- backend service prevents obviously invalid dependency graphs before storage.
+
+Do not add dependency execution, backend scheduler claiming, hidden Autorun,
+automatic dependent task start, or automatic acceptance.
 
 ### Phase 4: Import Result And Open Actions
 
-- After creation, show a result card with created Queue ids, dependency links
-  created/skipped, warnings, errors, and `Open Queue` / `Open task` actions.
-- Ensure open actions select/focus visible Queue state only; they must not run
-  tasks or mutate task state.
+Make import result navigation and review reliable.
 
-Acceptance:
+- Persist or reconstruct a batch result with pack id/name, import id, created
+  task ids, dependency links, skipped links, warnings, and errors.
+- Add explicit `Open Queue`, `Open first created task`, and per-task open
+  actions that work after Queue refresh.
+- In QueueV2, show imported dependency refs from typed Queue state, not only
+  parsed prompt text.
+- Keep unsupported metadata visible and honest until first-class prompt-pack
+  metadata fields exist.
 
-- Operator can jump from Workspace Agent import result to the created Queue
-  task.
-- Result copy/open actions remain non-mutating.
+### Phase 5: Raw-Storage / Tool-Loop Guard
 
-### Phase 5: Raw-Storage And Tool-Loop Guard
+Make the unsupported path explicit in product and docs.
 
-- Add Workspace Agent/Direct Work prompt and UI copy that product actions must
-  use typed app services/actions and must stop on missing bridges.
-- Add regression tests or smoke assertions that a failed/unsupported import
-  bridge reports an explicit unsupported result instead of sending the agent
-  into SQLite/schema reverse-engineering.
-- Keep `allowed_tools: []` for provider-backed Workspace Agent drafts.
-
-Acceptance:
-
-- No Workspace Agent product-action path instructs Codex to inspect or mutate
-  SQLite for Queue creation.
-- Unsupported import create shows a short actionable blocker.
+- Add manual smoke failure language: if the card controls are absent, the
+  product path failed; stop.
+- Add Workspace Agent workflow copy/instructions: Queue creation must use
+  typed app actions only.
+- Ensure future provider/system prompts for this workflow include
+  `allowed_tools: []` for drafting and no raw storage mutation language.
+- Consider a small docs-only guard section in self-development smoke docs that
+  bans SQLite/manual DB insertion as remediation.
 
 ### Phase 6: Regression And Manual Smoke Docs
 
-- Add/extend tests for the failed UI path:
-  markdown/plain preview cannot masquerade as confirmation-ready;
-  actionable preview card creates through the typed bridge;
-  Tauri DTO/storage dependency round trip succeeds;
-  QueueV2 readiness blocks dependency-gated tasks after reload.
-- Update manual smoke docs with exact desktop steps, expected controls,
-  expected no-auto-run safety checks, and unsupported states.
+Add regression coverage after implementation:
 
-Acceptance:
+- UI test for the real header/action path rendering `Create Queue items` and
+  `Cancel import`.
+- UI test that plain text "confirm" does not create Queue items and instead
+  points to the card/product action when a pending import exists.
+- Bridge test through real Queue frontend adapter proving dependency refs are
+  returned by the same task after create/update.
+- Tauri DTO/app/storage tests for create/list/get/update preserving
+  dependencies.
+- QueueV2 test after reload-shaped data proving the dependent task is blocked
+  until prerequisite finalization.
+- Manual desktop smoke checklist that records pass/fail for actionable card,
+  typed creation, dependency persistence, no auto-run, no Autorun arm, no
+  Git/Terminal mutation, and unsupported-state handling.
 
-- The self-development prompt-pack fixture imports two draft Queue tasks in
-  desktop UI.
-- `002` depends on the created Queue id for `001`.
-- No Queue task starts automatically.
-- The smoke records pass/fail with date, branch, and known unsupported states.
+## Acceptance Criteria For The Fix
 
-## Implementation Non-Goals
-
-- Do not add prompt-pack folder or zip readers in this blocker fix.
-- Do not add provider tools or let Codex execute Queue creation.
-- Do not add hidden Workspace context reads.
-- Do not add Queue scheduling, dependency execution, or durable background
-  runner behavior.
-- Do not auto-run imported tasks.
-- Do not auto-finalize, auto-commit, auto-push, auto-rollback, or mutate Git.
-- Do not use raw SQLite inserts as product behavior.
-
-## Conclusion
-
-The blocker is not a parser failure. It is a product-action wiring and
-durability failure.
-
-The correct fix is to make the real Workspace Agent preview path render an
-actionable typed import card, route creation through a typed Queue import
-bridge, and add minimal durable dependency persistence/gating through the
-Queue API/storage stack. Natural-language confirmation and raw SQLite
-reverse-engineering must remain outside product behavior.
+- The operator can start prompt-pack import from Workspace Agent and always
+  sees an actionable card, not only Markdown text.
+- `Create Queue items` is a typed product action and is disabled when the
+  bridge or preview is unavailable.
+- Natural-language confirmation in the composer does not create Queue items
+  and does not send Codex on a storage-reverse-engineering task.
+- Imported Queue items are created as draft/manual only.
+- Dependencies from the import are durably stored and visible after refresh.
+- QueueV2 blocks dependents based on typed dependencies and current
+  finalization gates.
+- No import path starts Executor, Queue Autorun, validation, Diff Review,
+  finalization, Git commit/push, rollback, Terminal, or provider tools.
+- If any capability is missing, the UI reports unsupported state rather than
+  faking success.
