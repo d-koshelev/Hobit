@@ -12,6 +12,18 @@ tools, automatic finalization, automatic commit, push, rollback, or dependency
 execution. Current implemented widget behavior remains governed by
 `docs/CURRENT_WIDGET_SURFACE.md`.
 
+Latest manual smoke status:
+
+- A manual smoke attempt reached a passing prompt-pack import preview, but the
+  actionable `Create Queue items` and `Cancel` controls were missing.
+- Text confirmation routed through Codex natural-language execution instead of
+  the typed product action path.
+- The attempt consumed 159 steps and approximately 3M input tokens, drifted
+  into raw SQLite/shell investigation, and created no Queue tasks.
+- No run, coordinator finalization, commit, or push occurred.
+- The expected fixed behavior and rerun steps are recorded in
+  `docs/PROMPT_PACK_IMPORT_PRODUCT_ACTION_FIX_STATUS.md`.
+
 ## Implemented Readiness Pieces
 
 - Prompt-pack fixture:
@@ -80,6 +92,9 @@ Unsupported or unverified:
 
 - full desktop manual smoke has not been recorded as passed in this status
   document;
+- the latest desktop manual smoke failed at the product-action wiring step:
+  preview passed, but create/cancel controls were unavailable and confirmation
+  routed to Codex text instead of typed Queue creation;
 - live Git diff snapshot support may be unavailable without an explicit repo
   root/execution workspace or where untracked patch previews are needed;
 - real Git commit lookup for supplied commit hashes remains a follow-up when
@@ -109,8 +124,10 @@ Unsupported or unverified:
 
 ## Recommended Next Work
 
-1. Run the manual smoke in the Tauri desktop shell and record date, branch,
-   Workspace, unavailable states, and pass/fail notes.
+1. Rerun the manual smoke in the Tauri desktop shell from a valid import
+   preview and verify the fixed product-action path: `Create Queue items`
+   calls typed Queue creation, result card lists created task ids, QueueV2
+   shows task 002 blocked by task 001, and no Codex/shell/SQLite path is used.
 2. Add rollback/follow-up hardening so rollback-required and requested-changes
    outcomes can create explicit follow-up records without executing rollback.
 3. Add live Git diff snapshot support where missing, using only explicit
@@ -150,3 +167,7 @@ The safe boundary is explicit, operator-driven Queue work on small Hobit
 doc/test tasks with visible validation and review evidence. The project should
 not treat this as autonomous self-development, durable scheduler readiness,
 automatic acceptance, rollback readiness, or Git automation readiness.
+
+The prompt-pack import product-action path remains the current manual smoke
+blocker until the rerun proves that Queue item creation and dependency
+persistence happen through typed app services/actions from the preview card.

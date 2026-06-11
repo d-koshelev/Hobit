@@ -539,6 +539,17 @@ unless the task explicitly requests it.
   storage/schema changes, Queue scheduling, validation execution, diff review
   execution, rollback execution, Git mutation, Terminal launch, provider
   tools, or Workspace Agent/QueueV2/KnowledgeV2 replacement behavior.
+- `docs/PROMPT_PACK_IMPORT_PRODUCT_ACTION_FIX_STATUS.md` - docs-only status
+  record for the failed self-development prompt-pack import manual smoke and
+  product-action wiring fix expectation. It records that preview passed but
+  create/cancel controls were missing, confirmation routed through Codex text,
+  no tasks were created, raw SQLite/shell investigation occurred, and no run,
+  finalization, commit, or push occurred. It also records the fixed expected
+  behavior, rerun procedure from import preview, pass/fail criteria, and next
+  work. It does not add frontend behavior, backend/runtime behavior,
+  storage/schema changes, Queue scheduling, dependency execution, Git
+  mutation, Terminal launch, provider tools, automatic finalization, commit,
+  push, rollback, or Workspace Agent/QueueV2 replacement behavior.
 - `docs/VALIDATION_RUNNER_EVIDENCE_STATUS.md` - docs-only status record for
   Validation Runner / Evidence Block 001. It records the validation audit,
   typed command/evidence model, runner service/adapter, Queue evidence

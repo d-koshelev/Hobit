@@ -12,6 +12,16 @@ Terminal launch, provider tools, automatic finalization, automatic commit,
 push, rollback, or dependency execution. Current implemented widget behavior
 remains governed by `docs/CURRENT_WIDGET_SURFACE.md`.
 
+Latest status note:
+
+- `docs/PROMPT_PACK_IMPORT_PRODUCT_ACTION_FIX_STATUS.md` records a failed
+  smoke where preview passed but the actionable create/cancel controls were
+  missing, confirmation routed through Codex text, raw SQLite/shell
+  investigation was needed, and no tasks were created.
+- Reruns must start from the valid import preview and verify the fixed
+  product-action path before continuing into QueueV2, validation, Diff Review,
+  or coordinator finalization checks.
+
 Use this checklist for the UI dogfooding path that cannot be fully covered by
 service-level tests. Record the run date, desktop build/branch, Workspace name,
 fixture source, operator choices, and any unavailable states.
@@ -93,6 +103,10 @@ desktop UI path end to end.
      edge, no cycles, and no unresolved dependency for the primary fixture.
    - Expected visible state: validation commands are shown as suggestions; they
      have not run.
+   - Expected visible state after the product-action wiring fix: the preview
+     card shows explicit `Create Queue items` and `Cancel` controls.
+   - Expected: confirming creation does not require typing natural-language
+     text to Workspace Agent or Codex.
    - Expected: preview does not create Queue items, assign workers, run tasks,
      finalize results, commit, push, roll back, or launch Terminal.
 
@@ -103,6 +117,9 @@ desktop UI path end to end.
    - Expected visible state: created list includes
      `001-safe-docs-noop` and `002-dependent-follow-up`, or equivalent local
      task ids.
+   - Expected: creation uses the typed Workspace/Queue bridge and not Codex
+     natural-language execution, shell commands, raw SQLite, or
+     reverse-engineered storage behavior.
    - Expected: created items are draft/manual Queue items through the existing
      Queue path.
    - Expected: no Queue run, Agent Executor run, validation run, coordinator
@@ -121,6 +138,9 @@ desktop UI path end to end.
      validation-required marker where available.
    - Expected visible state: task 002 is present and shows dependency blocked,
      `Depends on 001-safe-docs-noop`, or equivalent dependency/readiness cue.
+   - Expected visible state after the product-action wiring fix: the
+     dependency is durable across the normal Queue read path, not only inferred
+     from chat text or manual database inspection.
    - Expected: task 002 is not ready solely because task 001 exists.
    - Expected: no task is running unless the operator explicitly started it.
 
@@ -289,6 +309,14 @@ desktop UI path end to end.
 
 ## Failure Triage
 
+- Product action controls unavailable:
+  - Expected: the smoke fails if `Prompt-pack import preview` is valid but
+    `Create Queue items` or `Cancel` is missing.
+  - Action: do not confirm by typing text to Workspace Agent/Codex. Do not use
+    shell commands, raw SQLite, or manual storage edits to create tasks. Record
+    the failure against
+    `docs/PROMPT_PACK_IMPORT_PRODUCT_ACTION_FIX_STATUS.md`.
+
 - Prompt-pack source unavailable:
   - Expected: the UI shows folder/zip unavailable or source unavailable rather
     than pretending import succeeded.
@@ -324,10 +352,13 @@ The manual smoke passes only when all applicable UI states are visible and all
 safety boundaries hold:
 
 - Import preview happens before Queue creation.
+- A valid preview has explicit `Create Queue items` and `Cancel` controls.
 - Queue items are created only after explicit confirmation.
+- Queue creation uses typed app services/actions, not Codex text execution,
+  shell commands, raw SQLite, or storage reverse-engineering.
 - Task 001 and task 002 appear in QueueV2.
-- Task 002 dependency on task 001 is visible or an explicit unsupported state
-  is recorded.
+- Task 002 dependency on task 001 is visible and durable through the normal
+  Queue read path for the fixed prompt-pack product action path.
 - Validation evidence is requested only by explicit operator action, or the
   runner-unavailable state is visible.
 - Diff Review item creation is explicit and read-only by default.
@@ -338,6 +369,14 @@ safety boundaries hold:
 - No auto-run, auto-finalize, auto-commit, auto-push, rollback execution,
   Terminal launch, provider tool call, hidden context read, or hidden
   background execution occurs.
+
+## Fail Criteria
+
+The manual smoke fails immediately if preview confirmation routes through
+Workspace Agent/Codex natural-language text, if the operator must inspect or
+mutate raw SQLite/shell state to create or verify imported tasks, if no tasks
+are created after `Create Queue items`, if created task ids are absent from the
+result card, or if QueueV2 does not show task 002 blocked by task 001.
 
 Do not mark automated coverage as passing from this checklist. This checklist
 records manual UI evidence only.
