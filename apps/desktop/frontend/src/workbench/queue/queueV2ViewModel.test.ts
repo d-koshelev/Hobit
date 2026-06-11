@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import type { AgentQueueTask } from "../../workspace/types";
+import type {
+  AgentQueueTask,
+  AgentQueueWorkerExecutionReport,
+} from "../../workspace/types";
 import type { AgentWorkerSummary } from "../agentQueueTaskUiModel";
 import {
   queueV2ClosureStateForTask,
@@ -229,6 +232,85 @@ describe("Queue v2 view model selectors", () => {
     ]);
   });
 
+  it("keeps imported dependents blocked until prerequisite coordinator finalization", () => {
+    const prerequisiteWithValidation = task({
+      coordinatorStatus: "ready_for_finalization",
+      queueItemId: "queue-001",
+      status: "completed",
+      title: "001 Prerequisite",
+      validationStatus: "passed",
+      workerExecutionReports: [
+        report({
+          reportId: "validation-report-001",
+          summary: "Validation passed for prerequisite.",
+          validationResult: "passed",
+        }),
+        report({
+          reportId: "diff-review-report-001",
+          summary: "Diff Review passed for prerequisite.",
+          validationResult: "passed",
+        }),
+      ],
+    });
+    const dependent = task({
+      dependsOn: ["queue-001"],
+      executionPolicy: "auto",
+      queueItemId: "queue-002",
+      status: "ready",
+      title: "002 Dependent",
+    });
+    const blocked = selectQueueV2ViewModel({
+      tasks: [prerequisiteWithValidation, dependent],
+      workers: [worker()],
+    });
+    const blockedDependent = blocked.tasks.find(
+      (item) => item.taskId === "queue-002",
+    );
+
+    expect(blockedDependent).toMatchObject({
+      boardLane: "blocked",
+      nextAction: "resolve_dependency",
+    });
+    expect(blockedDependent?.eligibility).toMatchObject({
+      dependencyOk: false,
+      eligibleNow: false,
+    });
+    expect(blockedDependent?.blockedReasons.map((reason) => reason.code)).toContain(
+      "dependency_open",
+    );
+    expect(blocked.lanes.ready.map((item) => item.taskId)).not.toContain(
+      "queue-002",
+    );
+
+    const finalized = selectQueueV2ViewModel({
+      tasks: [
+        {
+          ...prerequisiteWithValidation,
+          closureState: "no_change_accepted",
+          coordinatorStatus: "finalized",
+          status: "completed",
+        },
+        dependent,
+      ],
+      workers: [worker()],
+    });
+    const readyDependent = finalized.tasks.find(
+      (item) => item.taskId === "queue-002",
+    );
+
+    expect(readyDependent).toMatchObject({
+      boardLane: "ready",
+      nextAction: "run_now",
+    });
+    expect(readyDependent?.eligibility).toMatchObject({
+      dependencyOk: true,
+      eligibleNow: true,
+    });
+    expect(finalized.lanes.ready.map((item) => item.taskId)).toContain(
+      "queue-002",
+    );
+  });
+
   it("derives next actions from eligibility and blockers", () => {
     const viewModel = selectQueueV2ViewModel({
       tasks: [
@@ -366,7 +448,14 @@ function worker(overrides: Partial<AgentWorkerSummary> = {}): AgentWorkerSummary
   };
 }
 
-function report() {
+function report(overrides: Partial<AgentQueueWorkerExecutionReport> = {}) {
+  return {
+    ...baseReport(),
+    ...overrides,
+  };
+}
+
+function baseReport(): AgentQueueWorkerExecutionReport {
   return {
     changedFiles: [],
     commandsRun: [],

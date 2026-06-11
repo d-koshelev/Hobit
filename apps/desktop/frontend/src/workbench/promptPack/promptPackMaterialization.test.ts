@@ -1,7 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type { WorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
+import { createWorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
+import { createAgentQueueWidgetApi } from "../queue/agentQueueWidgetApi";
 import type { QueueWidgetItemSnapshot } from "../queue/agentQueueWidgetApiTypes";
+import type {
+  AgentQueueTask,
+  CreateAgentQueueTaskRequest,
+  UpdateAgentQueueTaskRequest,
+} from "../../workspace/types";
 import { buildPromptPackImportPreview } from "./promptPackImportPreview";
 import { materializePromptPackPreviewToQueue } from "./promptPackMaterialization";
 import { parsePromptPackImportPlan } from "./promptPackParser";
@@ -92,6 +99,73 @@ describe("prompt pack Queue materialization service", () => {
     expect(runAutonomousQueue).not.toHaveBeenCalled();
     expect(startQueueItem).not.toHaveBeenCalled();
     expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
+  });
+
+  it("persists imported 002 -> 001 dependencies through the real Queue API model roundtrip", async () => {
+    const plan = parsePromptPackImportPlan(selfDevelopmentSmokePromptPackEntries);
+    const preview = buildPromptPackImportPreview(plan);
+    const harness = createDurableQueueApiHarness();
+    const bridge = createWorkspaceAgentQueueBridge({
+      queueApi: harness.api,
+      queueState: {
+        getRunSettingsDefaults: () => ({
+          approvalPolicy: "never",
+          codexExecutable: "codex.cmd",
+          executionWorkspace: "C:/repo",
+          sandbox: "read_only",
+        }),
+        refreshAfterMutation: harness.refreshAfterMutation,
+      },
+      workspaceId: "workspace-1",
+    });
+
+    const result = await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+    const reloadedSnapshot = await harness.reloadedApi.getSnapshot({
+      workspaceId: "workspace-1",
+    });
+    const first = harness.task("queue-001-safe-docs-noop");
+    const second = harness.task("queue-002-dependent-follow-up");
+
+    expect(result.ok).toBe(true);
+    expect(result.dependencyLinksCreated).toEqual([
+      expect.objectContaining({
+        dependencyQueueItemId: "queue-001-safe-docs-noop",
+        dependentQueueItemId: "queue-002-dependent-follow-up",
+        status: "created",
+      }),
+    ]);
+    expect(first?.dependsOn).toEqual([]);
+    expect(second?.dependsOn).toEqual(["queue-001-safe-docs-noop"]);
+    expect(harness.createRequests.map((request) => request.dependsOn)).toEqual([
+      [],
+      [],
+    ]);
+    expect(harness.updateRequests).toEqual([
+      expect.objectContaining({
+        dependsOn: ["queue-001-safe-docs-noop"],
+        queueItemId: "queue-002-dependent-follow-up",
+      }),
+    ]);
+    expect(reloadedSnapshot.ok).toBe(true);
+    expect(
+      reloadedSnapshot.snapshot?.items.find(
+        (item) => item.id === "queue-002-dependent-follow-up",
+      )?.dependencies,
+    ).toEqual(["queue-001-safe-docs-noop"]);
+    expect(
+      reloadedSnapshot.snapshot?.items.find(
+        (item) => item.id === "queue-002-dependent-follow-up",
+      )?.blockers.map((blocker) => blocker.code),
+    ).toContain("dependency_blocked");
+    expect(harness.startAssignedAgentQueueTask).not.toHaveBeenCalled();
+    expect(harness.runAutonomousQueue).not.toHaveBeenCalled();
+    expect(harness.refreshAfterMutation).toHaveBeenCalledWith(
+      "queue-002-dependent-follow-up",
+    );
   });
 
   it("creates selected Queue tasks first, then links dependencies by created Queue ids", async () => {
@@ -410,4 +484,118 @@ function queueItem(title: string): QueueWidgetItemSnapshot {
     id: `queue-${id}`,
     title,
   } as QueueWidgetItemSnapshot;
+}
+
+function createDurableQueueApiHarness() {
+  const tasks = new Map<string, AgentQueueTask>();
+  const createRequests: Array<Omit<CreateAgentQueueTaskRequest, "workspaceId">> =
+    [];
+  const updateRequests: Array<Omit<UpdateAgentQueueTaskRequest, "workspaceId">> =
+    [];
+  const refreshAfterMutation = vi.fn(async () => undefined);
+  const runAutonomousQueue = vi.fn();
+  const startAssignedAgentQueueTask = vi.fn();
+  const dependencies = {
+    createAgentQueueTask: async (
+      request: Omit<CreateAgentQueueTaskRequest, "workspaceId">,
+    ) => {
+      createRequests.push(request);
+      const id = `queue-${request.title.split(":")[0]?.trim() || tasks.size.toString()}`;
+      const task = durableTask({
+        approvalPolicy: request.approvalPolicy ?? null,
+        codexExecutable: request.codexExecutable ?? null,
+        dependsOn: request.dependsOn ?? [],
+        description: request.description,
+        executionPolicy: request.executionPolicy ?? "manual",
+        executionWorkspace: request.executionWorkspace ?? null,
+        itemType: request.itemType,
+        priority: request.priority,
+        prompt: request.prompt,
+        queueItemId: id,
+        queueTagId: request.queueTagId,
+        queueTagName: request.queueTagName,
+        sandbox: request.sandbox ?? null,
+        status: request.status,
+        title: request.title,
+        validationStatus: request.validationStatus,
+      });
+      tasks.set(task.queueItemId, task);
+      return task;
+    },
+    getAgentQueueTask: async (queueItemId: string) => tasks.get(queueItemId) ?? null,
+    listAgentQueueTaskRunLinks: async () => [],
+    listAgentQueueTasks: async () =>
+      Array.from(tasks.values()).map((task) => ({ ...task })),
+    now: () => "2026-06-11T10:00:00.000Z",
+    updateAgentQueueTask: async (
+      request: Omit<UpdateAgentQueueTaskRequest, "workspaceId">,
+    ) => {
+      updateRequests.push(request);
+      const current = tasks.get(request.queueItemId);
+      if (!current) {
+        return null;
+      }
+      const updated = {
+        ...current,
+        approvalPolicy: request.approvalPolicy ?? null,
+        codexExecutable: request.codexExecutable ?? null,
+        dependsOn: request.dependsOn ?? current.dependsOn ?? [],
+        description: request.description,
+        executionPolicy: request.executionPolicy ?? "manual",
+        executionWorkspace: request.executionWorkspace ?? null,
+        itemType: request.itemType,
+        priority: request.priority,
+        prompt: request.prompt,
+        queueTagId: request.queueTagId,
+        queueTagName: request.queueTagName,
+        sandbox: request.sandbox ?? null,
+        status: request.status,
+        title: request.title,
+        updatedAt: "2026-06-11T10:01:00.000Z",
+        validationStatus: request.validationStatus,
+        workerExecutionReports: request.workerExecutionReports ?? current.workerExecutionReports,
+      } satisfies AgentQueueTask;
+      tasks.set(updated.queueItemId, updated);
+      return updated;
+    },
+    workspaceId: "workspace-1",
+  };
+
+  return {
+    api: createAgentQueueWidgetApi(dependencies),
+    createRequests,
+    refreshAfterMutation,
+    reloadedApi: createAgentQueueWidgetApi(dependencies),
+    runAutonomousQueue,
+    startAssignedAgentQueueTask,
+    task: (queueItemId: string) => tasks.get(queueItemId),
+    updateRequests,
+  };
+}
+
+function durableTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
+  return {
+    approvalPolicy: "never",
+    assignedExecutorWidgetId: null,
+    codexExecutable: "codex.cmd",
+    createdAt: "2026-06-11T09:00:00.000Z",
+    dependsOn: [],
+    description: "",
+    executionPolicy: "manual",
+    executionWorkspace: "C:/repo",
+    itemType: "implementation",
+    priority: 0,
+    prompt: "",
+    queueItemId: "queue-task",
+    queueTagId: "default",
+    queueTagName: "Default",
+    sandbox: "read_only",
+    status: "draft",
+    title: "Queue task",
+    updatedAt: "2026-06-11T09:00:00.000Z",
+    validationStatus: "not_started",
+    workerExecutionReports: [],
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
 }
