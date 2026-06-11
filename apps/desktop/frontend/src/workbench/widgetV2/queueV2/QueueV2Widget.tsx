@@ -14,6 +14,7 @@ import type {
   AgentWorkerSummary,
   QueueGlobalStatus,
 } from "../../agentQueueTaskUiModel";
+import type { AgentQueueController } from "../../queue/details/agentQueueTaskDetailsTypes";
 import { selectQueueV2ViewModel } from "../../queue/queueV2ViewModel";
 import { QueueV2ActivityStream } from "./QueueV2ActivityStream";
 import { QueueV2LeftRail } from "./QueueV2LeftRail";
@@ -25,6 +26,7 @@ type QueueV2WidgetProps = {
   autorunArmed?: boolean;
   globalExecutionState?: QueueGlobalStatus;
   pausedQueueTagIds?: ReadonlySet<string>;
+  queue?: AgentQueueController;
   tasks?: readonly AgentQueueTask[];
   workers?: readonly AgentWorkerSummary[];
 };
@@ -33,6 +35,7 @@ export function QueueV2Widget({
   autorunArmed = false,
   globalExecutionState = "started",
   pausedQueueTagIds = new Set(),
+  queue,
   tasks = [],
   workers = [],
 }: QueueV2WidgetProps) {
@@ -85,6 +88,7 @@ export function QueueV2Widget({
             autorunArmed={autorunArmed}
             globalExecutionState={globalExecutionState}
             pausedQueueTagIds={pausedQueueTagIds}
+            queue={queue}
             tasks={tasks}
             workers={workers}
           />

@@ -11,6 +11,7 @@ export type QueueV2DetailsTab =
   | "prompt"
   | "result"
   | "agent-log"
+  | "coordinator"
   | "context"
   | "files-validation"
   | "developer";

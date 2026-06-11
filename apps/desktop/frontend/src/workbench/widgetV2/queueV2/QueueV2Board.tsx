@@ -9,6 +9,7 @@ import {
   type AgentWorkerSummary,
   type QueueGlobalStatus,
 } from "../../agentQueueTaskUiModel";
+import type { AgentQueueController } from "../../queue/details/agentQueueTaskDetailsTypes";
 import {
   selectQueueV2ViewModel,
   type QueueBoardLane,
@@ -29,6 +30,7 @@ type QueueV2BoardProps = {
     runner: ValidationRunner,
   ) => Promise<QueueValidationRunResult>;
   pausedQueueTagIds?: ReadonlySet<string>;
+  queue?: AgentQueueController;
   tasks: readonly AgentQueueTask[];
   validationRunner?: ValidationRunner | null;
   workers?: readonly AgentWorkerSummary[];
@@ -55,6 +57,7 @@ export function QueueV2Board({
   onSelectedTaskChange,
   onRequestValidation,
   pausedQueueTagIds = new Set(),
+  queue,
   tasks,
   validationRunner,
   workers = [],
@@ -159,6 +162,7 @@ export function QueueV2Board({
         onOpenLinkedTask={openLinkedTaskDetails}
         onRequestValidation={onRequestValidation}
         onRequestClose={() => setDetailsTaskId(null)}
+        queue={queue}
         returnFocusRef={detailsReturnFocusRef}
         taskViewModel={detailTaskViewModel}
         validationRunner={validationRunner}

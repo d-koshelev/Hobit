@@ -782,6 +782,7 @@ describe("QueueV2Board", () => {
     expect(onSelectedTaskChange).toHaveBeenCalledTimes(2);
     expect(onRequestValidation).not.toHaveBeenCalled();
   });
+
 });
 
 async function render(element: ReactNode) {

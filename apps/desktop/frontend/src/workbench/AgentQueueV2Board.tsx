@@ -27,6 +27,7 @@ import {
   queueV2ValidationEvidenceView,
   validationStatusDataAttribute,
 } from "./widgetV2/queueV2/queueV2ValidationEvidence";
+import { queueV2CoordinatorFinalizationView } from "./widgetV2/queueV2/queueV2CoordinatorFinalization";
 import type {
   QueueValidationRunResult,
 } from "./queue/queueValidationEvidenceService";
@@ -488,6 +489,7 @@ function QueueV2Card({
     item.blockedReasons[0]?.label ??
     (item.eligibility.blockedReasons[0]?.label || null);
   const validation = queueV2ValidationEvidenceView(item.task);
+  const coordinator = queueV2CoordinatorFinalizationView(item.task);
 
   return (
     <article
@@ -502,6 +504,7 @@ function QueueV2Card({
       data-queue-item-id={item.taskId}
       data-queue-v2-lane={item.boardLane}
       data-queue-v2-tag-color={colorToken}
+      data-queue-v2-coordinator={item.task.coordinatorStatus ?? "not_reported"}
       data-queue-v2-validation={validationStatusDataAttribute(item.task)}
       data-task-order-id={item.taskId}
       onClick={() => {
@@ -539,6 +542,20 @@ function QueueV2Card({
           {validation.marker}
         </Badge>
       </span>
+      <span className="agent-queue-v2-card-line">
+        <span>Coordinator</span>
+        <Badge variant={validationBadgeVariant(coordinator.cardMarkerTone)}>
+          {coordinator.cardMarker}
+        </Badge>
+      </span>
+      {coordinator.commitSaved ? (
+        <span className="agent-queue-v2-card-note">Commit saved</span>
+      ) : null}
+      {coordinator.blockedMarker ? (
+        <span className="agent-queue-v2-card-note">
+          {coordinator.blockedMarker}
+        </span>
+      ) : null}
       {blockerSummary ? (
         <span className="agent-queue-v2-card-note">{blockerSummary}</span>
       ) : null}

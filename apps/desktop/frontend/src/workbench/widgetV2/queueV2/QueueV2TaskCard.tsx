@@ -15,6 +15,7 @@ import {
   queueV2ValidationEvidenceView,
   validationStatusDataAttribute,
 } from "./queueV2ValidationEvidence";
+import { queueV2CoordinatorFinalizationView } from "./queueV2CoordinatorFinalization";
 
 type QueueV2TaskCardProps = {
   item: QueueTaskViewModel;
@@ -36,6 +37,7 @@ export function QueueV2TaskCard({
   const progressLabel = runningProgressLabel(item.task);
   const promptPackMetadata = getQueuePromptPackImportMetadata(item.task);
   const validation = queueV2ValidationEvidenceView(item.task);
+  const coordinator = queueV2CoordinatorFinalizationView(item.task);
   const actionItems: ActionMenuItem[] = [
     {
       id: "open-details",
@@ -59,6 +61,7 @@ export function QueueV2TaskCard({
       data-queue-v2-lane={item.boardLane}
       data-queue-v2-selected={isSelected ? "true" : "false"}
       data-queue-v2-tag-color={colorToken}
+      data-queue-v2-coordinator={item.task.coordinatorStatus ?? "not_reported"}
       data-queue-v2-validation={validationStatusDataAttribute(item.task)}
       data-task-order-id={item.taskId}
       data-tone={accent}
@@ -103,6 +106,23 @@ export function QueueV2TaskCard({
         >
           {diffReviewCardLabel(item)}
         </span>
+        <span
+          className="queue-v2-card-coordinator"
+          data-coordinator-tone={coordinator.cardMarkerTone}
+          title={coordinator.nextAction}
+        >
+          {coordinator.cardMarker}
+        </span>
+        {coordinator.commitSaved ? (
+          <span className="queue-v2-card-commit" title={coordinator.actualCommitHash ?? undefined}>
+            Commit saved
+          </span>
+        ) : null}
+        {coordinator.blockedMarker ? (
+          <span className="queue-v2-card-blocked-marker">
+            {coordinator.blockedMarker}
+          </span>
+        ) : null}
         {promptPackMetadata ? (
           <span
             aria-label="Prompt-pack import metadata"

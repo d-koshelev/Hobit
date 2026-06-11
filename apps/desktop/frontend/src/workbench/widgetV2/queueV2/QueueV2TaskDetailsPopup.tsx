@@ -35,6 +35,7 @@ import {
   type QueueV2ValidationRequestState,
 } from "./QueueV2ValidationEvidenceSection";
 import { QueueV2DiffReviewSection } from "./QueueV2DiffReviewSection";
+import { QueueV2CoordinatorSection } from "./QueueV2CoordinatorSection";
 
 type QueueV2TaskDetailsPopupProps = {
   inspector: QueueInspectorSnapshot | null;
@@ -65,6 +66,7 @@ const TABS: { id: QueueV2DetailsTab; label: string }[] = [
   { id: "prompt", label: "Prompt" },
   { id: "result", label: "Result" },
   { id: "agent-log", label: "Agent Log" },
+  { id: "coordinator", label: "Coordinator" },
   { id: "context", label: "Context" },
   { id: "files-validation", label: "Files / Validation" },
   { id: "developer", label: "Developer" },
@@ -304,6 +306,13 @@ export function QueueV2TaskDetailsPopup({
           {activeTab === "agent-log" ? (
             <AgentLogSection events={highLevelEvents} />
           ) : null}
+          {activeTab === "coordinator" ? (
+            <QueueV2CoordinatorSection
+              onOpenLinkedTask={onOpenLinkedTask}
+              queue={queue}
+              taskViewModel={taskViewModel}
+            />
+          ) : null}
           {activeTab === "context" ? (
             queue ? (
               <AgentQueueTaskContextSection
@@ -395,10 +404,7 @@ function PromptSection({ task }: { task: AgentQueueTask }) {
   );
 }
 
-function ResultSection({
-  latestReport,
-  task,
-}: {
+function ResultSection({ latestReport, task }: {
   latestReport: AgentQueueWorkerExecutionReport | null;
   task: AgentQueueTask;
 }) {
@@ -480,11 +486,7 @@ function ContextSection({ task }: { task: AgentQueueTask }) {
   );
 }
 
-function DeveloperSection({
-  inspector,
-  latestReport,
-  task,
-}: {
+function DeveloperSection({ inspector, latestReport, task }: {
   inspector: QueueInspectorSnapshot;
   latestReport: AgentQueueWorkerExecutionReport | null;
   task: AgentQueueTask;
@@ -516,11 +518,7 @@ function DeveloperSection({
   );
 }
 
-function DetailBlock({
-  label,
-  mono = false,
-  value,
-}: {
+function DetailBlock({ label, mono = false, value }: {
   label: string;
   mono?: boolean;
   value: string;
@@ -542,11 +540,7 @@ function DetailFact({ label, value }: { label: string; value: string }) {
   );
 }
 
-function CompactList({
-  emptyLabel,
-  items,
-  label,
-}: {
+function CompactList({ emptyLabel, items, label }: {
   emptyLabel: string;
   items: readonly string[];
   label: string;
