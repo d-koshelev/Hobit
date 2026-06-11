@@ -3,7 +3,7 @@ import type { PromptPackDependencyPolicy } from "./promptPackModel";
 export type UnknownRecord = Record<string, unknown>;
 
 export const NUMBERED_PROMPT_PATTERN =
-  /(?:^|\/)(?<order>\d{3}(?:\.\d{3})?)-(?<slug>[^/]+)\.(?:md|markdown)$/i;
+  /(?:^|\/)(?<order>\d{3}(?:\.\d{3})?)(?:-(?<slug>[^/]+))?\.(?:md|markdown)$/i;
 
 export function promptPackMetadataSection(
   packId: string,
@@ -66,7 +66,7 @@ export function numberedPromptParts(path: string) {
     return null;
   }
   const order = match.groups.order;
-  const slug = match.groups.slug;
+  const slug = match.groups.slug ?? order;
   return {
     id: order,
     numericOrder: Number.parseFloat(order),

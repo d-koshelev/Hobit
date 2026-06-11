@@ -21,6 +21,7 @@ type WorkspaceAgentActions = Pick<
   | "getKnowledgeDocument"
   | "searchKnowledgeDocuments"
   | "selectWorkspaceDirectory"
+  | "readPromptPackSource"
   | "startCodexDirectWorkStream"
   | "updateAgentQueueTask"
 >;
@@ -77,6 +78,7 @@ export function workspaceAgentWidgetProps({
     onPublishAgentActivityEvents,
     onSearchKnowledgeDocuments: actions.searchKnowledgeDocuments,
     onSelectWorkspaceDirectory: actions.selectWorkspaceDirectory,
+    onReadPromptPackSource: actions.readPromptPackSource,
     onStartCodexDirectWorkStream: actions.startCodexDirectWorkStream,
     onUpdateAgentQueueTask: actions.updateAgentQueueTask,
     createQueueItemsFromPromptPackPreview: (preview) =>

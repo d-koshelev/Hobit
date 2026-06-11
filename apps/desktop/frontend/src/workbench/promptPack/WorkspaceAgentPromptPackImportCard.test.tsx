@@ -29,22 +29,56 @@ afterEach(() => {
 });
 
 describe("WorkspaceAgentPromptPackImportCard", () => {
-  it("renders the import action card with unavailable folder and zip source state", () => {
+  it("renders the import action card with explicit folder/file preview controls", () => {
     const bridge = queueBridge();
 
     render(<PromptPackImportHarness bridge={bridge} />);
 
     expect(document.body.textContent).toContain("Import prompt pack");
-    expect(document.body.textContent).toContain("Folder/zip source");
-    expect(document.body.textContent).toContain(
-      "No safe prompt-pack folder or zip reader is wired.",
-    );
+    expect(document.body.textContent).toContain("Folder/file source");
+    expect(document.body.textContent).toContain("Zip source");
+    expect(document.body.textContent).toContain("Read source preview");
     expect(document.body.textContent).toContain("Prompt-pack preview unavailable");
     expect(bridge.createItem).not.toHaveBeenCalled();
   });
 
-  it("shows a visible unavailable path-source state and keeps create disabled", async () => {
+  it("reads an exact path source into preview entries and keeps Queue creation explicit", async () => {
     const bridge = queueBridge();
+    const readPromptPackSource = vi.fn(async () => [
+      {
+        path: "README.md",
+        source: "desktop-prompt-pack",
+        text: "# UI Import Pack",
+      },
+      {
+        path: "prompt-batch.json",
+        source: "desktop-prompt-pack",
+        text: JSON.stringify({
+          dependency_policy: "explicit",
+          id: "ui-import-pack",
+          items: [
+            { id: "001", path: "001.md", title: "One" },
+            {
+              dependencies: ["001"],
+              id: "002",
+              path: "002.md",
+              title: "Two",
+            },
+          ],
+          name: "UI Import Pack",
+        }),
+      },
+      {
+        path: "001.md",
+        source: "desktop-prompt-pack",
+        text: "# One\n\nFirst source body.",
+      },
+      {
+        path: "002.md",
+        source: "desktop-prompt-pack",
+        text: "# Two\n\nSecond source body.",
+      },
+    ]);
 
     render(
       <PromptPackImportHarness
@@ -54,13 +88,51 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
           sourcePath:
             "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
           sourceText: "",
-          sourceUnavailableReason:
-            "No safe prompt-pack folder or zip reader is wired.",
         }}
+        onReadPromptPackSource={readPromptPackSource}
       />,
     );
 
+    await clickButton("Read source preview");
+
+    expect(readPromptPackSource).toHaveBeenCalledWith({
+      path: "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+    });
+    expect(document.body.textContent).toContain("Prompt-pack import preview");
+    expect(document.body.textContent).toContain("001: One");
+    expect(document.body.textContent).toContain("002: Two");
+    expect(document.body.textContent).toContain("002: Depends on 001");
+    expect(buttonWithText("Create Queue items")?.hasAttribute("disabled")).toBe(
+      false,
+    );
+    expect(bridge.createItem).not.toHaveBeenCalled();
+  });
+
+  it("shows a visible path-source read error and keeps create disabled", async () => {
+    const bridge = queueBridge();
+    const readPromptPackSource = vi.fn(async () => {
+      throw new Error("Prompt-pack source path could not be read.");
+    });
+
+    render(
+      <PromptPackImportHarness
+        bridge={bridge}
+        initialState={{
+          id: "import-1",
+          sourcePath:
+            "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+          sourceText: "",
+        }}
+        onReadPromptPackSource={readPromptPackSource}
+      />,
+    );
+
+    await clickButton("Read source preview");
+
     expect(document.body.textContent).toContain("Preview-source unavailable");
+    expect(document.body.textContent).toContain(
+      "Prompt-pack source path could not be read.",
+    );
     expect(document.body.textContent).toContain(
       "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
     );
@@ -237,11 +309,15 @@ function PromptPackImportHarness({
   createQueueItemsFromPromptPackPreview,
   initialState,
   onOpenQueueItem,
+  onReadPromptPackSource,
 }: {
   bridge?: WorkspaceAgentQueueBridge;
   createQueueItemsFromPromptPackPreview?: CreateQueueItemsFromPromptPackPreview;
   initialState?: WorkspaceAgentPromptPackImportState;
   onOpenQueueItem?: (queueItemId: string) => void;
+  onReadPromptPackSource?: Parameters<
+    typeof WorkspaceAgentPromptPackImportCard
+  >[0]["onReadPromptPackSource"];
 }) {
   const [importState, setImportState] =
     useState<WorkspaceAgentPromptPackImportState>(initialState ?? {
@@ -274,6 +350,7 @@ function PromptPackImportHarness({
           current.id === importId ? { ...current, ...patch } : current,
         )
       }
+      onReadPromptPackSource={onReadPromptPackSource}
     />
   );
 }

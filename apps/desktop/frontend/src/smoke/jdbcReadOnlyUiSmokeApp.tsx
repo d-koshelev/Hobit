@@ -171,6 +171,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       runCodexDirectWork: this.unsupported,
       runDirectWorkValidation: this.unsupported,
       runTerminalCommand: this.unsupported,
+      readPromptPackSource: this.unsupported,
       selectWorkspaceDirectory: async () => null,
       startAssignedAgentQueueTask: this.unsupported,
       startAgentQueueRunnerSession: this.unsupported,

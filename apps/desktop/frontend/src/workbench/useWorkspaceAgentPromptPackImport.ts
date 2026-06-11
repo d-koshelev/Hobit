@@ -127,8 +127,8 @@ function promptPackImportStartMessage(
   }
 
   if (options.sourcePath?.trim()) {
-    return "Prompt-pack import preview started, but the requested path source is unavailable in the typed product path. Paste prompt-batch JSON or a numbered Markdown prompt in the card before creating Queue items.";
+    return "Prompt-pack import preview started from the requested path. Use Read source preview to load README.md, prompt-batch.json, and numbered Markdown prompts before creating Queue items.";
   }
 
-  return "Prompt-pack import started. Select an explicit source by pasting prompt-batch JSON or a numbered Markdown prompt, preview it, then confirm Queue item creation.";
+  return "Prompt-pack import started. Enter or browse for a local prompt-pack path, or paste prompt-batch JSON or a numbered Markdown prompt, preview it, then confirm Queue item creation.";
 }

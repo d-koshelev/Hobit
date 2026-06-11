@@ -92,7 +92,7 @@ export function InteractiveAgentPlaceholderWidget({
   onCancelCodexDirectWorkRun,
   onLoadLogs,
   onPublishAgentActivityEvents,
-  onSelectWorkspaceDirectory,
+  onSelectWorkspaceDirectory, onReadPromptPackSource,
   onStartCodexDirectWorkStream,
   onUpdateAgentQueueTask, createQueueItemsFromPromptPackPreview,
   queueReportActionCardRequest,
@@ -825,7 +825,7 @@ export function InteractiveAgentPlaceholderWidget({
           onPatchQueueReportCard={patchQueueReportCard}
           onPatchQueueIntentDraft={patchQueueIntentDraft}
           onCancelPromptPackImport={promptPackImport.cancel}
-          onPatchPromptPackImport={promptPackImport.patch}
+          onPatchPromptPackImport={promptPackImport.patch} onReadPromptPackSource={onReadPromptPackSource} onSelectPromptPackFolder={onSelectWorkspaceDirectory}
           onQueueActionResult={recordQueueActionResult}
           onQueueReportActionResult={recordQueueReportActionResult}
           onViewQueueTaskReport={onOpenAgentQueueItem}

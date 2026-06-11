@@ -129,14 +129,14 @@ describe("prompt pack import preview service", () => {
     });
   });
 
-  it("exposes unavailable folder or zip source status without faking import", () => {
+  it("exposes typed folder source status without creating Queue items", () => {
     const preview = buildPromptPackImportPreview(
       parsePromptPackImportPlan([{ path: "001-one.md", text: "one" }]),
       { sourceAdapter: PROMPT_PACK_FOLDER_OR_ZIP_SOURCE_STATUS },
     );
 
-    expect(preview.sourceAdapter.kind).toBe("unavailable");
-    expect(preview.sourceAdapter.message).toContain("No safe prompt-pack folder");
+    expect(preview.sourceAdapter.kind).toBe("available");
+    expect(preview.sourceAdapter.message).toContain("No Queue items are created");
   });
 
   it("adapts explicit Knowledge import file results into parser entries", () => {

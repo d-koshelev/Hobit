@@ -9,18 +9,22 @@ import {
 import {
   PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER,
   PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER,
+  promptPackPreviewFromFileEntries,
   promptPackPreviewFromSourceText,
 } from "./promptPackImportPreview";
 import type {
+  PromptPackFileEntry,
   PromptPackImportPreviewModel,
   PromptPackMaterializationResult,
 } from "./promptPackModel";
 import { PromptPackImportPreviewCard } from "./promptPackImportPreviewComponent";
+import { PROMPT_PACK_FOLDER_OR_ZIP_SOURCE_STATUS } from "./promptPackSourceAdapter";
 
 export type WorkspaceAgentPromptPackImportState = {
   readonly id: string;
   readonly isCancelled?: boolean;
   readonly result?: PromptPackMaterializationResult;
+  readonly sourceEntries?: readonly PromptPackFileEntry[];
   readonly sourcePath?: string;
   readonly sourceText: string;
   readonly sourceUnavailableReason?: string;
@@ -39,6 +43,10 @@ type WorkspaceAgentPromptPackImportCardProps = {
     importId: string,
     patch: Partial<WorkspaceAgentPromptPackImportState>,
   ) => void;
+  onReadPromptPackSource?: (request: {
+    path: string;
+  }) => Promise<readonly PromptPackFileEntry[]>;
+  onSelectPromptPackFolder?: () => Promise<string | null>;
 };
 
 export function WorkspaceAgentPromptPackImportCard({
@@ -47,12 +55,18 @@ export function WorkspaceAgentPromptPackImportCard({
   onCancel,
   onOpenQueueItem,
   onPatch,
+  onReadPromptPackSource,
+  onSelectPromptPackFolder,
 }: WorkspaceAgentPromptPackImportCardProps) {
   const [isCreating, setIsCreating] = useState(false);
+  const [isReadingSource, setIsReadingSource] = useState(false);
   const [copyStatus, setCopyStatus] = useState<string | null>(null);
   const preview = useMemo(
-    () => promptPackPreviewFromSourceText(importState.sourceText),
-    [importState.sourceText],
+    () =>
+      importState.sourceEntries
+        ? promptPackPreviewFromFileEntries(importState.sourceEntries)
+        : promptPackPreviewFromSourceText(importState.sourceText),
+    [importState.sourceEntries, importState.sourceText],
   );
   const result = importState.result;
   const firstCreatedTask = result?.createdTasks[0];
@@ -81,6 +95,66 @@ export function WorkspaceAgentPromptPackImportCard({
       });
     } finally {
       setIsCreating(false);
+    }
+  }
+
+  async function browsePromptPackFolder() {
+    if (!onSelectPromptPackFolder || result || importState.isCancelled) {
+      return;
+    }
+
+    setCopyStatus(null);
+    try {
+      const selectedPath = await onSelectPromptPackFolder();
+      if (!selectedPath) {
+        return;
+      }
+      onPatch(importState.id, {
+        sourceEntries: undefined,
+        sourcePath: selectedPath,
+        sourceUnavailableReason: undefined,
+      });
+    } catch (error) {
+      onPatch(importState.id, {
+        sourceEntries: undefined,
+        sourceUnavailableReason: errorToMessage(
+          error,
+          "Folder picker failed. No Queue items were created.",
+        ),
+      });
+    }
+  }
+
+  async function readPromptPackSource() {
+    const sourcePath = importState.sourcePath?.trim();
+    if (
+      !sourcePath ||
+      !onReadPromptPackSource ||
+      isReadingSource ||
+      result ||
+      importState.isCancelled
+    ) {
+      return;
+    }
+
+    setIsReadingSource(true);
+    setCopyStatus(null);
+    try {
+      const entries = await onReadPromptPackSource({ path: sourcePath });
+      onPatch(importState.id, {
+        sourceEntries: entries,
+        sourceUnavailableReason: undefined,
+      });
+    } catch (error) {
+      onPatch(importState.id, {
+        sourceEntries: undefined,
+        sourceUnavailableReason: errorToMessage(
+          error,
+          "Prompt-pack source could not be read. No Queue items were created.",
+        ),
+      });
+    } finally {
+      setIsReadingSource(false);
     }
   }
 
@@ -114,8 +188,8 @@ export function WorkspaceAgentPromptPackImportCard({
           <p className="coordinator-proposal-kicker">queue.importPromptPack</p>
           <h4 className="coordinator-proposal-title">Import prompt pack</h4>
           <p className="coordinator-proposal-note">
-            Paste a prompt-batch JSON manifest or one numbered Markdown prompt.
-            Folder and zip readers are unavailable.
+            Read a local folder/file source in desktop, or paste a prompt-batch
+            JSON manifest or one numbered Markdown prompt.
           </p>
         </div>
         <Badge
@@ -144,18 +218,27 @@ export function WorkspaceAgentPromptPackImportCard({
       </div>
 
       <dl className="workspace-agent-queue-action-card-facts">
-        <ActionFact label="Folder/zip source" value="Unavailable" />
         <ActionFact
-          label="Unavailable reason"
+          label="Folder/file source"
+          value={
+            onReadPromptPackSource
+              ? PROMPT_PACK_FOLDER_OR_ZIP_SOURCE_STATUS.label
+              : "Unavailable"
+          }
+        />
+        <ActionFact
+          label="Zip source"
           value={PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER.message}
         />
         <ActionFact
           label="Preview source"
           value={
             preview
-              ? PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER.label
+              ? importState.sourceEntries
+                ? `${PROMPT_PACK_FOLDER_OR_ZIP_SOURCE_STATUS.label} (${importState.sourceEntries.length.toString()} files)`
+                : PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER.label
               : importState.sourcePath
-                ? "Unavailable path source"
+                ? "Pending path source read"
                 : "No pasted source"
           }
         />
@@ -168,19 +251,97 @@ export function WorkspaceAgentPromptPackImportCard({
         />
       </dl>
 
-      {importState.sourcePath && !preview && !result && !importState.isCancelled ? (
+      {result || importState.isCancelled ? null : (
+        <div className="coordinator-proposal-section">
+          <label className="coordinator-proposal-section-label" htmlFor={`${importState.id}-source-path`}>
+            Prompt-pack folder/file path
+          </label>
+          <div className="coordinator-proposal-actions">
+            <input
+              aria-label="Prompt-pack folder/file path"
+              className="input"
+              id={`${importState.id}-source-path`}
+              onChange={(event) =>
+                onPatch(importState.id, {
+                  sourceEntries: undefined,
+                  sourcePath: event.target.value,
+                  sourceUnavailableReason: undefined,
+                })
+              }
+              placeholder="C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack"
+              type="text"
+              value={importState.sourcePath ?? ""}
+            />
+            <Button
+              disabled={!onSelectPromptPackFolder || isReadingSource}
+              onClick={() => void browsePromptPackFolder()}
+              title={
+                onSelectPromptPackFolder
+                  ? "Select a prompt-pack folder path. Reading still requires the separate preview action."
+                  : "Folder picker unavailable in this runtime."
+              }
+              variant="secondary"
+            >
+              Browse folder
+            </Button>
+            <Button
+              disabled={
+                !onReadPromptPackSource ||
+                !importState.sourcePath?.trim() ||
+                isReadingSource
+              }
+              onClick={() => void readPromptPackSource()}
+              title={readSourceDisabledReason({
+                importState,
+                isReadingSource,
+                readerAvailable: Boolean(onReadPromptPackSource),
+              })}
+              variant="primary"
+            >
+              {isReadingSource ? "Reading" : "Read source preview"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {importState.sourcePath &&
+      !preview &&
+      !result &&
+      !importState.isCancelled ? (
         <p className="workspace-agent-queue-intent-validation" role="status">
-          Preview-source unavailable: {importState.sourcePath} cannot be read
-          by the current typed prompt-pack import path.{" "}
+          Preview-source unavailable: {importState.sourcePath} has not produced
+          readable prompt-pack entries.{" "}
           {importState.sourceUnavailableReason ??
-            PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER.message}
+            readSourceDisabledReason({
+              importState,
+              isReadingSource,
+              readerAvailable: Boolean(onReadPromptPackSource),
+            })}
+        </p>
+      ) : null}
+
+      {importState.sourcePath &&
+      preview &&
+      importState.sourceEntries &&
+      !result &&
+      !importState.isCancelled ? (
+        <p className="coordinator-proposal-note" role="status">
+          Source preview loaded from {importState.sourcePath}. Prompt bodies are
+          available in memory only until Queue item creation is explicitly
+          confirmed.
         </p>
       ) : null}
 
       {result || importState.isCancelled ? null : (
         <QueueTextarea
           label="Prompt-pack source"
-          onChange={(sourceText) => onPatch(importState.id, { sourceText })}
+          onChange={(sourceText) =>
+            onPatch(importState.id, {
+              sourceEntries: undefined,
+              sourceText,
+              sourceUnavailableReason: undefined,
+            })
+          }
           value={importState.sourceText}
         />
       )}
@@ -261,6 +422,27 @@ export function WorkspaceAgentPromptPackImportCard({
       </p>
     </section>
   );
+}
+
+function readSourceDisabledReason({
+  importState,
+  isReadingSource,
+  readerAvailable,
+}: {
+  importState: WorkspaceAgentPromptPackImportState;
+  isReadingSource: boolean;
+  readerAvailable: boolean;
+}) {
+  if (isReadingSource) {
+    return "Prompt-pack source is being read.";
+  }
+  if (!readerAvailable) {
+    return "Typed prompt-pack folder/file reader is unavailable in this runtime.";
+  }
+  if (!importState.sourcePath?.trim()) {
+    return "Enter or browse for a prompt-pack folder/file path before reading preview.";
+  }
+  return "Read README.md, prompt-batch.json, and numbered Markdown prompts into the preview only.";
 }
 
 function promptPackImportCreateDisabledReason({

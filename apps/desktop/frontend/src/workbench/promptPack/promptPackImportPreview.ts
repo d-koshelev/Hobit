@@ -25,6 +25,13 @@ export const PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER: PromptPackSourceAdapterStatus
     "Preview is built from explicit text entries already supplied to the prompt-pack parser. No Queue items are created by preview.",
 };
 
+export const PROMPT_PACK_TYPED_FOLDER_SOURCE_ADAPTER: PromptPackSourceAdapterStatus = {
+  kind: "available",
+  label: "Typed local prompt-pack source",
+  message:
+    "Preview is built from a bounded typed local prompt-pack read. No Queue items are created by preview.",
+};
+
 export type BuildPromptPackImportPreviewOptions = {
   selectedItemIds?: readonly string[];
   sourceAdapter?: PromptPackSourceAdapterStatus;
@@ -87,6 +94,20 @@ export function promptPackPreviewFromSourceText(
       sourceAdapter: PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER,
     },
   );
+}
+
+export function promptPackPreviewFromFileEntries(
+  entries: readonly PromptPackFileEntry[],
+  options: BuildPromptPackImportPreviewOptions = {},
+): PromptPackImportPreviewModel | null {
+  if (entries.length === 0) {
+    return null;
+  }
+
+  return buildPromptPackImportPreview(parsePromptPackImportPlan(entries), {
+    sourceAdapter: PROMPT_PACK_TYPED_FOLDER_SOURCE_ADAPTER,
+    ...options,
+  });
 }
 
 function promptPackFileEntryFromSourceText(text: string): PromptPackFileEntry {

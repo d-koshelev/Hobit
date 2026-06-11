@@ -39,6 +39,7 @@ import {
   WorkspaceAgentQueueIntentDraftCard,
 } from "./WorkspaceAgentQueueActionCards";
 import type {
+  PromptPackFileEntry,
   PromptPackImportPreviewModel,
   PromptPackMaterializationResult,
 } from "./promptPack";
@@ -97,6 +98,8 @@ export function WorkspaceAgentTranscript({
   onPatchQueueIntentDraft,
   onCancelPromptPackImport,
   onPatchPromptPackImport = noopPromptPackPatch,
+  onReadPromptPackSource,
+  onSelectPromptPackFolder,
   createQueueItemsFromPromptPackPreview,
   onQueueActionResult,
   onQueueReportActionResult,
@@ -147,6 +150,10 @@ export function WorkspaceAgentTranscript({
     importId: string,
     patch: Partial<WorkspaceAgentPromptPackImportState>,
   ) => void;
+  onReadPromptPackSource?: (
+    request: { path: string },
+  ) => Promise<PromptPackFileEntry[]>;
+  onSelectPromptPackFolder?: () => Promise<string | null>;
   createQueueItemsFromPromptPackPreview?: (
     preview: PromptPackImportPreviewModel,
   ) => Promise<PromptPackMaterializationResult>;
@@ -263,6 +270,8 @@ export function WorkspaceAgentTranscript({
               onCancel={onCancelPromptPackImport ?? noopPromptPackCancel}
               onOpenQueueItem={onOpenAgentQueueItem}
               onPatch={onPatchPromptPackImport}
+              onReadPromptPackSource={onReadPromptPackSource}
+              onSelectPromptPackFolder={onSelectPromptPackFolder}
             />
           ) : null}
           {message.queueIntentDraftIds

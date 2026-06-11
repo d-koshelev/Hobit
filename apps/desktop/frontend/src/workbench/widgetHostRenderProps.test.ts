@@ -110,6 +110,7 @@ describe("widgetHostRenderProps", () => {
     expect(props.onSelectWorkspaceDirectory).toBe(
       actions.selectWorkspaceDirectory,
     );
+    expect(props.onReadPromptPackSource).toBe(actions.readPromptPackSource);
     expect(props.onStartCodexDirectWorkStream).toBe(
       actions.startCodexDirectWorkStream,
     );
@@ -578,6 +579,7 @@ function widgetActions(): WorkbenchWidgetInstanceActions {
     logRefreshTokens: {},
     probeJdbcDriver: vi.fn(),
     readKnowledgeDocumentImportFile: vi.fn(),
+    readPromptPackSource: vi.fn(),
     removeWidgetInstance: vi.fn(),
     resizeTerminalPtySession: vi.fn(),
     runCodexDirectWork: vi.fn(),

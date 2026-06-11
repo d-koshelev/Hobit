@@ -226,6 +226,7 @@ class CoordinatorProviderProductSmokeRuntime {
       runCodexDirectWork: this.executorUnsupported,
       runDirectWorkValidation: this.executorUnsupported,
       runTerminalCommand: this.terminalUnsupported,
+      readPromptPackSource: this.unsupported,
       selectWorkspaceDirectory: async () => null,
       startAssignedAgentQueueTask: async () => {
         this.startAssignedTaskCallCount += 1;

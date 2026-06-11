@@ -64,6 +64,10 @@ mod notes_commands;
 mod notes_dto;
 #[cfg(test)]
 mod notes_dto_tests;
+mod prompt_pack_import_commands;
+mod prompt_pack_import_dto;
+#[cfg(test)]
+mod prompt_pack_import_dto_tests;
 mod skills_commands;
 mod skills_dto;
 #[cfg(test)]
@@ -165,6 +169,7 @@ pub fn run() {
             knowledge_documents_commands::delete_knowledge_document,
             knowledge_documents_commands::search_knowledge_documents,
             knowledge_document_import_commands::read_knowledge_document_import_file,
+            prompt_pack_import_commands::read_prompt_pack_source,
             knowledge_draft_review_commands::record_knowledge_draft_review,
             knowledge_draft_review_commands::list_knowledge_draft_reviews,
             jdbc_connector_commands::create_jdbc_connector,

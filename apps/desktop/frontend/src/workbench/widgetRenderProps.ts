@@ -66,6 +66,7 @@ import type {
   RunTerminalCommandResponse,
   ResizeTerminalPtySessionRequest,
   ReadKnowledgeDocumentImportFileRequest,
+  ReadPromptPackSourceRequest,
   SearchKnowledgeDocumentsRequest,
   RecordKnowledgeDraftReviewRequest,
   StartAssignedAgentQueueTaskRequest,
@@ -86,6 +87,7 @@ import type {
 import type { AgentActivityEvent } from "./agentActivityModel";
 import type {
   PromptPackImportPreviewModel,
+  PromptPackFileEntry,
   PromptPackMaterializationResult,
 } from "./promptPack";
 import type {
@@ -398,6 +400,9 @@ export type WidgetRenderProps = {
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents?: (events: AgentActivityEvent[]) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
+  onReadPromptPackSource?: (
+    request: ReadPromptPackSourceRequest,
+  ) => Promise<PromptPackFileEntry[]>;
   createQueueItemsFromPromptPackPreview?: (
     preview: PromptPackImportPreviewModel,
   ) => Promise<PromptPackMaterializationResult>;

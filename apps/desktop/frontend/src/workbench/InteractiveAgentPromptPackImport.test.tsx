@@ -60,6 +60,7 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
 
     renderWidget({
       createQueueItemsFromPromptPackPreview: materializePromptPackPreview,
+      onReadPromptPackSource: vi.fn(async () => selfDevelopmentSmokePromptPackEntries),
       onRunTerminalCommand: runTerminalCommand,
       onStartCodexDirectWorkStream: startCodexDirectWork,
       workspaceAgentQueueBridge: {
@@ -73,7 +74,7 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
     await clickButton("Run with Codex");
 
     expect(document.body.textContent).toContain("Import prompt pack");
-    expect(document.body.textContent).toContain("Preview-source unavailable");
+    expect(document.body.textContent).toContain("Read source preview");
     expect(document.body.textContent).toContain("Create Queue items");
     expect(document.body.textContent).toContain("Cancel");
     expect(document.body.textContent).not.toContain(
@@ -139,9 +140,11 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
       stopListening: vi.fn(),
     }));
     const runTerminalCommand = vi.fn();
+    const readPromptPackSource = vi.fn(async () => selfDevelopmentSmokePromptPackEntries);
 
     renderWidget({
       createQueueItemsFromPromptPackPreview: materializePromptPackPreview,
+      onReadPromptPackSource: readPromptPackSource,
       onRunTerminalCommand: runTerminalCommand,
       onStartCodexDirectWorkStream: startCodexDirectWork,
       workspaceAgentQueueBridge: queueBridge({
@@ -164,12 +167,26 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
     expect(document.body.textContent).toContain(
       "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
     );
-    expect(document.body.textContent).toContain("Preview-source unavailable");
+    expect(document.body.textContent).toContain("Read source preview");
     expect(document.body.textContent).toContain("Create Queue items");
     expect(document.body.textContent).toContain("Cancel");
     expect(document.body.textContent).not.toContain(
       "there is no active prompt-pack import preview to confirm",
     );
+    expect(materializePromptPackPreview).not.toHaveBeenCalled();
+    expect(createItem).not.toHaveBeenCalled();
+    expect(startCodexDirectWork).not.toHaveBeenCalled();
+    expect(runTerminalCommand).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
+
+    await clickButton("Read source preview");
+
+    expect(readPromptPackSource).toHaveBeenCalledWith({
+      path: "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+    });
+    expect(document.body.textContent).toContain("001-safe-docs-noop");
+    expect(document.body.textContent).toContain("002-dependent-follow-up");
     expect(materializePromptPackPreview).not.toHaveBeenCalled();
     expect(createItem).not.toHaveBeenCalled();
     expect(startCodexDirectWork).not.toHaveBeenCalled();
@@ -251,7 +268,7 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
     await clickButton("Import pack");
 
     expect(document.body.textContent).toContain("Import prompt pack");
-    expect(document.body.textContent).toContain("Folder/zip source");
+    expect(document.body.textContent).toContain("Folder/file source");
     expect(createItem).not.toHaveBeenCalled();
 
     await setPromptPackSource(

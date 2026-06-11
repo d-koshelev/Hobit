@@ -6,6 +6,7 @@ import type {
 export type PromptPackFileSource =
   | "browser-file"
   | "desktop-file"
+  | "desktop-prompt-pack"
   | "drag-drop"
   | "test"
   | "unknown";

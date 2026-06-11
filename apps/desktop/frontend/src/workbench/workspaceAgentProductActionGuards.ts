@@ -1,6 +1,7 @@
 import type { DirectWorkStreamEvent } from "../workspace/types";
 import type { WorkspaceAgentPromptPackImportStartOptions } from "./useWorkspaceAgentPromptPackImport";
 import {
+  promptPackPreviewFromFileEntries,
   promptPackPreviewFromSourceText,
   type PromptPackMaterializationResult,
   type WorkspaceAgentPromptPackImportState,
@@ -119,7 +120,9 @@ export async function runWorkspaceAgentProductActionConfirmation(
     };
   }
 
-  const preview = promptPackPreviewFromSourceText(pendingImport.sourceText);
+  const preview = pendingImport.sourceEntries
+    ? promptPackPreviewFromFileEntries(pendingImport.sourceEntries)
+    : promptPackPreviewFromSourceText(pendingImport.sourceText);
   if (!preview) {
     return {
       body:
@@ -349,8 +352,6 @@ export function extractPromptPackImportStartSource(
   if (sourcePath) {
     return {
       sourcePath,
-      sourceUnavailableReason:
-        "No safe prompt-pack folder or zip reader is wired. Paste prompt-batch JSON or a numbered Markdown prompt in the import card.",
     };
   }
 

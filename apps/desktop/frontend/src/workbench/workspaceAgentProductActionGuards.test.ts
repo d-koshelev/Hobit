@@ -10,6 +10,7 @@ import {
   runWorkspaceAgentProductActionCancel,
   runWorkspaceAgentProductActionConfirmation,
 } from "./workspaceAgentProductActionGuards";
+import type { PromptPackImportPreviewModel } from "./promptPack";
 
 describe("workspaceAgentProductActionGuards", () => {
   it("classifies path-based prompt-pack import as start instead of confirm", () => {
@@ -130,6 +131,70 @@ describe("workspaceAgentProductActionGuards", () => {
     expect(patchImport).toHaveBeenCalledWith("prompt-pack-import-1", {
       result: expect.objectContaining({ ok: true }),
     });
+  });
+
+  it("routes folder-read prompt-pack entries through the same typed create action", async () => {
+    const createQueueItemsFromPromptPackPreview = vi.fn(
+      async (..._args: unknown[]) => ({
+        createdTasks: [
+          {
+            itemId: "002",
+            queueItemId: "queue-002",
+            title: "002: Two",
+          },
+        ],
+        dependencyLinksCreated: [],
+        dependencyLinksSkipped: [],
+        errors: [],
+        ok: true,
+        warnings: [],
+      }),
+    );
+
+    const result = await runWorkspaceAgentProductActionConfirmation({
+      createQueueItemsFromPromptPackPreview,
+      imports: {
+        "prompt-pack-import-1": {
+          id: "prompt-pack-import-1",
+          sourceEntries: [
+            {
+              path: "prompt-batch.json",
+              source: "desktop-prompt-pack",
+              text: JSON.stringify({
+                dependency_policy: "explicit",
+                items: [
+                  { id: "001", path: "001.md", title: "One" },
+                  {
+                    dependencies: ["001"],
+                    id: "002",
+                    path: "002.md",
+                    title: "Two",
+                  },
+                ],
+              }),
+            },
+            { path: "001.md", source: "desktop-prompt-pack", text: "One body." },
+            { path: "002.md", source: "desktop-prompt-pack", text: "Two body." },
+          ],
+          sourcePath:
+            "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+          sourceText: "",
+        },
+      },
+      onPatchPromptPackImport: vi.fn(),
+      text: "confirm import",
+    });
+
+    expect(result.handled).toBe(true);
+    expect(createQueueItemsFromPromptPackPreview).toHaveBeenCalledTimes(1);
+    expect(createQueueItemsFromPromptPackPreview.mock.calls[0]?.[0]).toMatchObject({
+      importAvailable: true,
+      selectedItemIds: ["001", "002"],
+    });
+    const folderPreview = createQueueItemsFromPromptPackPreview.mock.calls[0]?.[0] as
+      | PromptPackImportPreviewModel
+      | undefined;
+    expect(folderPreview?.selectedItems[1]?.dependencies).toEqual(["001"]);
   });
 
   it("cancels an active prompt-pack preview without materializing Queue items", () => {

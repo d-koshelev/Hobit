@@ -19,8 +19,10 @@ export type {
 } from "./promptPackModel";
 export {
   PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER,
+  PROMPT_PACK_TYPED_FOLDER_SOURCE_ADAPTER,
   PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER,
   buildPromptPackImportPreview,
+  promptPackPreviewFromFileEntries,
   promptPackPreviewFromSourceText,
   validatePromptPackImportPlan,
 } from "./promptPackImportPreview";
@@ -31,7 +33,10 @@ export {
 export { parsePromptPackImportPlan } from "./promptPackParser";
 export {
   PROMPT_PACK_FOLDER_OR_ZIP_SOURCE_STATUS,
+  promptPackEntriesFromImportSource,
   promptPackEntriesFromKnowledgeImportFiles,
+  readPromptPackEntriesFromLocalSource,
+  type ReadPromptPackSourceForImport,
 } from "./promptPackSourceAdapter";
 export {
   PromptPackImportPreview,
