@@ -4,11 +4,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { InteractiveAgentPlaceholderWidget } from "./InteractiveAgentPlaceholderWidget";
 import type { WidgetDefinition, WidgetInstance } from "./types";
+import type { AgentQueueTask } from "../workspace/types";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
 } from "./queue/agentQueueWidgetApiTypes";
+import { selectQueueV2ViewModel } from "./queue/queueV2ViewModel";
 import {
   materializePromptPackPreviewToQueue,
 } from "./promptPack/promptPackMaterialization";
@@ -16,6 +18,7 @@ import type {
   PromptPackImportPreviewModel,
   PromptPackMaterializationResult,
 } from "./promptPack";
+import { selfDevelopmentSmokePromptPackEntries } from "./promptPack/selfDevelopmentSmokePromptPackFixture.test-fixtures";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -34,6 +37,97 @@ afterEach(() => {
 });
 
 describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
+  it("pins the real manual-smoke import route from exact phrase through typed Queue creation", async () => {
+    const harness = createSelfDevelopmentQueueHarness();
+    const materializePromptPackPreview = vi.fn(
+      async (
+        preview: PromptPackImportPreviewModel,
+      ): Promise<PromptPackMaterializationResult> =>
+        materializePromptPackPreviewToQueue({
+          bridge: harness.bridge,
+          confirmed: true,
+          preview,
+        }),
+    );
+    const runAutonomousQueue = vi.fn();
+    const stopAutonomousQueueAfterCurrent = vi.fn();
+    const startCodexDirectWork = vi.fn(async (..._args: unknown[]) => ({
+      runId: "run-should-not-start",
+      status: "started",
+      stopListening: vi.fn(),
+    }));
+    const runTerminalCommand = vi.fn();
+
+    renderWidget({
+      createQueueItemsFromPromptPackPreview: materializePromptPackPreview,
+      onRunTerminalCommand: runTerminalCommand,
+      onStartCodexDirectWorkStream: startCodexDirectWork,
+      workspaceAgentQueueBridge: {
+        ...harness.bridge,
+        runAutonomousQueue,
+        stopAutonomousQueueAfterCurrent,
+      },
+    });
+
+    await setComposerDraft(exactManualSmokeImportPrompt());
+    await clickButton("Run with Codex");
+
+    expect(document.body.textContent).toContain("Import prompt pack");
+    expect(document.body.textContent).toContain("Preview-source unavailable");
+    expect(document.body.textContent).toContain("Create Queue items");
+    expect(document.body.textContent).toContain("Cancel");
+    expect(document.body.textContent).not.toContain(
+      "there is no active prompt-pack import preview to confirm",
+    );
+    expect(materializePromptPackPreview).not.toHaveBeenCalled();
+    expect(harness.createItem).not.toHaveBeenCalled();
+
+    await setPromptPackSource(selfDevelopmentPromptPackInlineSource());
+
+    expect(document.body.textContent).toContain("Prompt-pack import preview");
+    expect(document.body.textContent).toContain("001-safe-docs-noop");
+    expect(document.body.textContent).toContain("002-dependent-follow-up");
+    expect(document.body.textContent).toContain("Create Queue items");
+    expect(document.body.textContent).toContain("Cancel");
+
+    await clickButton("Create Queue items");
+
+    expect(materializePromptPackPreview).toHaveBeenCalledTimes(1);
+    expect(harness.createItem).toHaveBeenCalledTimes(2);
+    expect(harness.updateItem).toHaveBeenCalledWith({
+      itemId: "queue-002-dependent-follow-up",
+      patch: { dependencies: ["queue-001-safe-docs-noop"] },
+      reason:
+        "Materialize prompt-pack dependency links after creating all selected Queue items.",
+    });
+    expect(document.body.textContent).toContain("Created Queue items");
+    expect(document.body.textContent).toContain("queue-001-safe-docs-noop");
+    expect(document.body.textContent).toContain("queue-002-dependent-follow-up");
+    expect(document.body.textContent).toContain(
+      "002-dependent-follow-up -> 001-safe-docs-noop: created",
+    );
+
+    const viewModel = selectQueueV2ViewModel({
+      selectedTaskId: "queue-002-dependent-follow-up",
+      tasks: harness.tasks(),
+      workers: [worker()],
+    });
+    const dependent = viewModel.tasks.find(
+      (task) => task.taskId === "queue-002-dependent-follow-up",
+    );
+
+    expect(dependent?.boardLane).toBe("blocked");
+    expect(dependent?.eligibility.eligibleNow).toBe(false);
+    expect(dependent?.blockedReasons.map((reason) => reason.code)).toContain(
+      "dependency_open",
+    );
+    expect(document.body.textContent).not.toContain("node:sqlite");
+    expect(startCodexDirectWork).not.toHaveBeenCalled();
+    expect(runTerminalCommand).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
+  });
+
   it("starts a prompt-pack preview card from the exact path smoke phrase without confirming", async () => {
     const createItem = vi.fn();
     const materializePromptPackPreview = vi.fn();
@@ -500,6 +594,231 @@ function singleItemPromptPackSource() {
     ],
     name: "UI Import Pack",
   });
+}
+
+function exactManualSmokeImportPrompt() {
+  return [
+    "Import this prompt pack into Queue, show preview first, do not create Queue items until I confirm:",
+    "",
+    "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+  ].join("\n");
+}
+
+function selfDevelopmentPromptPackInlineSource() {
+  return JSON.stringify({
+    dependency_policy: "explicit",
+    items: [
+      {
+        allowed_scope: [
+          "docs/SELF_DEVELOPMENT_READINESS_SMOKE_AUDIT.md",
+          "apps/desktop/frontend/src/workbench/promptPack/fixtures/self-development-smoke-prompt-pack/**",
+        ],
+        dependencies: [],
+        expected_commit_title: "docs: smoke no-op readiness note",
+        forbidden_scope: [
+          "apps/desktop/frontend/src/workbench/**/*.tsx",
+          "apps/desktop/frontend/src/workbench/**/*.ts",
+          "crates/**",
+          "scripts/**",
+          "Cargo.toml",
+          "package.json",
+          "package-lock.json",
+        ],
+        id: "001-safe-docs-noop",
+        model_profile: "standard",
+        path: "001-safe-docs-noop.md",
+        prompt: fixtureText("001-safe-docs-noop.md"),
+        reasoning_effort: "medium",
+        tags: ["self-development", "smoke", "docs-only"],
+        title: "docs: smoke no-op readiness note",
+        validation_commands: [
+          "git status --short --branch",
+          "git diff --check",
+        ],
+        validator_profile: "standard",
+      },
+      {
+        allowed_scope: [
+          "docs/SELF_DEVELOPMENT_READINESS_SMOKE_AUDIT.md",
+          "apps/desktop/frontend/src/workbench/promptPack/fixtures/self-development-smoke-prompt-pack/**",
+        ],
+        dependencies: ["001-safe-docs-noop"],
+        expected_commit_title: "docs: verify dependent readiness gate",
+        forbidden_scope: [
+          "apps/desktop/frontend/src/workbench/**/*.tsx",
+          "apps/desktop/frontend/src/workbench/**/*.ts",
+          "crates/**",
+          "scripts/**",
+          "Cargo.toml",
+          "package.json",
+          "package-lock.json",
+        ],
+        id: "002-dependent-follow-up",
+        model_profile: "standard",
+        path: "002-dependent-follow-up.md",
+        prompt: fixtureText("002-dependent-follow-up.md"),
+        reasoning_effort: "medium",
+        tags: ["self-development", "smoke", "dependency"],
+        title: "docs: verify dependent readiness gate",
+        validation_commands: [
+          "git status --short --branch",
+          "git diff --check",
+        ],
+        validator_profile: "standard",
+      },
+    ],
+    name: "Hobit Self-Development Smoke",
+    pack_id: "hobit-self-development-smoke",
+  });
+}
+
+function fixtureText(path: string) {
+  const entry = selfDevelopmentSmokePromptPackEntries.find((candidate) =>
+    (candidate.path ?? "").endsWith(path),
+  );
+  if (!entry) {
+    throw new Error(`Missing self-development prompt-pack fixture: ${path}`);
+  }
+  return entry.text;
+}
+
+function createSelfDevelopmentQueueHarness() {
+  const taskMap = new Map<string, AgentQueueTask>();
+  const createItem = vi.fn(async (
+    request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0],
+  ) => {
+    const task = taskFromCreateRequest(request);
+    taskMap.set(task.queueItemId, task);
+    return itemResultFromTask(task);
+  });
+  const updateItem = vi.fn(async (
+    request: Parameters<WorkspaceAgentQueueBridge["updateItem"]>[0],
+  ) => {
+    const current = taskMap.get(request.itemId);
+    if (!current) {
+      return missingQueueItemResult(request.itemId);
+    }
+
+    const updated = {
+      ...current,
+      dependsOn: request.patch.dependencies ?? current.dependsOn ?? [],
+      updatedAt: "2026-06-11T10:01:00.000Z",
+    };
+    taskMap.set(updated.queueItemId, updated);
+    return itemResultFromTask(updated, "queue.updateItem");
+  });
+  const bridge = queueBridge({ createItem, updateItem });
+
+  return {
+    bridge,
+    createItem,
+    tasks: () => Array.from(taskMap.values()),
+    updateItem,
+  };
+}
+
+function taskFromCreateRequest(
+  request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0],
+): AgentQueueTask {
+  const id = request.title.split(":")[0]?.trim() || "created";
+  return {
+    approvalPolicy: request.approvalPolicy ?? "never",
+    assignedExecutorWidgetId: null,
+    assignedWorkerId: null,
+    closureState: undefined,
+    codexExecutable: request.codexExecutable ?? "codex",
+    context: undefined,
+    coordinatorStatus: "not_reported",
+    createdAt: "2026-06-11T10:00:00.000Z",
+    dependsOn: request.dependencies ?? [],
+    description: request.description ?? "",
+    executionPolicy: request.executionPolicy ?? "manual",
+    executionWorkspace: request.executionWorkspace ?? ".",
+    itemType: request.itemType ?? "implementation",
+    orderIndex: 0,
+    priority: request.priority ?? 0,
+    prompt: request.prompt ?? "",
+    queueItemId: `queue-${id}`,
+    queueTagId: request.queueTag?.id ?? request.queueTag?.name ?? "default",
+    queueTagName: request.queueTag?.name ?? "Default",
+    sandbox: request.sandbox ?? "danger_full_access",
+    status: request.status ?? "draft",
+    title: request.title,
+    updatedAt: "2026-06-11T10:00:00.000Z",
+    validationStatus: "not_started",
+    workerExecutionReports: [],
+    workspaceId: "workspace-1",
+  };
+}
+
+function itemResultFromTask(
+  task: AgentQueueTask,
+  action: "queue.createItem" | "queue.updateItem" = "queue.createItem",
+): QueueWidgetActionResult<QueueWidgetItemSnapshot> {
+  return {
+    action,
+    events: [],
+    item: {
+      assignedExecutorWidgetId: task.assignedExecutorWidgetId,
+      blockers: [],
+      coordinatorStatus: task.coordinatorStatus,
+      createdAt: task.createdAt,
+      dependencies: task.dependsOn ?? [],
+      description: task.description,
+      evidenceSummary: { runRefs: [], status: "none" },
+      executionPolicy: task.executionPolicy ?? "manual",
+      executionStatus: task.status,
+      executionWorkspace: task.executionWorkspace,
+      id: task.queueItemId,
+      itemType: task.itemType,
+      priority: task.priority,
+      prompt: task.prompt,
+      queueId: "agent-queue",
+      queueTag: {
+        id: task.queueTagId ?? null,
+        name: task.queueTagName ?? null,
+      },
+      reportSummary: { status: "none" },
+      runLinks: [],
+      status: task.status,
+      title: task.title,
+      updatedAt: task.updatedAt,
+      validationStatus: task.validationStatus,
+      workspaceId: task.workspaceId,
+    },
+    message: "Queue item saved. No task execution started.",
+    ok: true,
+    safetyClass: "safe_create_update",
+  };
+}
+
+function missingQueueItemResult(
+  itemId: string,
+): QueueWidgetActionResult<QueueWidgetItemSnapshot> {
+  return {
+    action: "queue.updateItem",
+    error: {
+      code: "missing_item",
+      message: `Queue item ${itemId} was not found.`,
+    },
+    events: [],
+    message: "Queue item not found.",
+    ok: false,
+    safetyClass: "safe_create_update",
+  };
+}
+
+function worker() {
+  return {
+    currentItemId: null,
+    displayOrder: 0,
+    enabled: true,
+    lastReportSummary: null,
+    name: "Smoke worker",
+    scope: { kind: "all" as const },
+    status: "idle" as const,
+    workerId: "smoke-worker",
+  };
 }
 
 function definition(): WidgetDefinition {
