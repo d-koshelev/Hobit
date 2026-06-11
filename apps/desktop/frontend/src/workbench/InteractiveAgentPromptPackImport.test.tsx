@@ -9,6 +9,13 @@ import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
 } from "./queue/agentQueueWidgetApiTypes";
+import {
+  materializePromptPackPreviewToQueue,
+} from "./promptPack/promptPackMaterialization";
+import type {
+  PromptPackImportPreviewModel,
+  PromptPackMaterializationResult,
+} from "./promptPack";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -28,22 +35,41 @@ afterEach(() => {
 
 describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
   it("starts prompt-pack import from Workspace Chat and creates draft Queue items only after confirmation", async () => {
-    const createItem = vi.fn(async () =>
+    const createItem = vi.fn(
+      async (request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
       itemResult({
-        id: "queue-import-one",
+        id: `queue-${request.title.split(":")[0]?.trim() ?? "created"}`,
         status: "draft",
-        title: "import-one: Import one",
+        title: request.title,
       }),
     );
     const updateItem = vi.fn(async () =>
-      itemResult({ id: "queue-import-one", title: "queue-import-one" }),
+      itemResult({ id: "queue-002", title: "queue-002" }),
+    );
+    const materializePromptPackPreview = vi.fn(
+      async (
+        preview: PromptPackImportPreviewModel,
+      ): Promise<PromptPackMaterializationResult> =>
+        materializePromptPackPreviewToQueue({
+          bridge: queueBridge({
+            createItem,
+            runAutonomousQueue,
+            stopAutonomousQueueAfterCurrent,
+            updateItem,
+          }),
+          confirmed: true,
+          preview,
+        }),
     );
     const runAutonomousQueue = vi.fn();
     const stopAutonomousQueueAfterCurrent = vi.fn();
     const startCodexDirectWork = vi.fn();
+    const runTerminalCommand = vi.fn();
 
     renderWidget({
+      createQueueItemsFromPromptPackPreview: materializePromptPackPreview,
       onStartCodexDirectWorkStream: startCodexDirectWork,
+      onRunTerminalCommand: runTerminalCommand,
       workspaceAgentQueueBridge: queueBridge({
         createItem,
         runAutonomousQueue,
@@ -63,9 +89,15 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
         id: "ui-import-pack",
         items: [
           {
-            id: "import-one",
-            prompt: "Create one draft Queue item.",
+            id: "001",
+            prompt: "Create first draft Queue item.",
             title: "Import one",
+          },
+          {
+            dependencies: ["001"],
+            id: "002",
+            prompt: "Create second draft Queue item.",
+            title: "Import two",
           },
         ],
         name: "UI Import Pack",
@@ -77,15 +109,37 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
 
     await clickButton("Create Queue items");
 
-    expect(createItem).toHaveBeenCalledTimes(1);
-    expect(createItem).toHaveBeenCalledWith(
+    expect(materializePromptPackPreview).toHaveBeenCalledTimes(1);
+    expect(
+      materializePromptPackPreview.mock.calls[0]?.[0].selectedItemIds,
+    ).toEqual(["001", "002"]);
+    expect(createItem).toHaveBeenCalledTimes(2);
+    expect(createItem).toHaveBeenNthCalledWith(
+      1,
       expect.objectContaining({
         status: "draft",
-        title: "import-one: Import one",
+        title: "001: Import one",
       }),
     );
-    expect(document.body.textContent).toContain("queue-import-one");
+    expect(createItem).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        status: "draft",
+        title: "002: Import two",
+      }),
+    );
+    expect(updateItem).toHaveBeenCalledWith({
+      itemId: "queue-002",
+      patch: { dependencies: ["queue-001"] },
+      reason:
+        "Materialize prompt-pack dependency links after creating all selected Queue items.",
+    });
+    expect(document.body.textContent).toContain("queue-001");
+    expect(document.body.textContent).toContain("queue-002");
+    expect(document.body.textContent).toContain("002 -> 001: created");
+    expect(document.body.textContent).toContain("No tasks started");
     expect(startCodexDirectWork).not.toHaveBeenCalled();
+    expect(runTerminalCommand).not.toHaveBeenCalled();
     expect(runAutonomousQueue).not.toHaveBeenCalled();
     expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
   });

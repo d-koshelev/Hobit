@@ -6,15 +6,11 @@ import {
   ActionFact,
   QueueTextarea,
 } from "../WorkspaceAgentQueueActionCardShared";
-import type { WorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
 import {
   buildPromptPackImportPreview,
   PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER,
   PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER,
 } from "./promptPackImportPreview";
-import {
-  materializePromptPackPreviewToQueue,
-} from "./promptPackMaterialization";
 import type {
   PromptPackFileEntry,
   PromptPackImportPreviewModel,
@@ -30,8 +26,12 @@ export type WorkspaceAgentPromptPackImportState = {
   readonly sourceText: string;
 };
 
+export type CreateQueueItemsFromPromptPackPreview = (
+  preview: PromptPackImportPreviewModel,
+) => Promise<PromptPackMaterializationResult>;
+
 type WorkspaceAgentPromptPackImportCardProps = {
-  bridge?: WorkspaceAgentQueueBridge;
+  createQueueItemsFromPromptPackPreview?: CreateQueueItemsFromPromptPackPreview;
   importState: WorkspaceAgentPromptPackImportState;
   onCancel: (importId: string) => void;
   onOpenQueueItem?: (queueItemId: string) => void;
@@ -42,7 +42,7 @@ type WorkspaceAgentPromptPackImportCardProps = {
 };
 
 export function WorkspaceAgentPromptPackImportCard({
-  bridge,
+  createQueueItemsFromPromptPackPreview,
   importState,
   onCancel,
   onOpenQueueItem,
@@ -57,7 +57,7 @@ export function WorkspaceAgentPromptPackImportCard({
   const result = importState.result;
   const firstCreatedTask = result?.createdTasks[0];
   const createDisabledReason = promptPackImportCreateDisabledReason({
-    bridgeAvailable: Boolean(bridge),
+    bridgeAvailable: Boolean(createQueueItemsFromPromptPackPreview),
     importState,
     isCreating,
     preview,
@@ -66,19 +66,19 @@ export function WorkspaceAgentPromptPackImportCard({
   const canCreate = !createDisabledReason;
 
   async function createQueueItems() {
-    if (!preview || !canCreate) {
+    if (!preview || !canCreate || !createQueueItemsFromPromptPackPreview) {
       return;
     }
 
     setIsCreating(true);
     setCopyStatus(null);
     try {
-      const materialized = await materializePromptPackPreviewToQueue({
-        bridge,
-        confirmed: true,
-        preview,
-      });
+      const materialized = await createQueueItemsFromPromptPackPreview(preview);
       onPatch(importState.id, { result: materialized });
+    } catch (error) {
+      onPatch(importState.id, {
+        result: promptPackImportActionFailureResult(error),
+      });
     } finally {
       setIsCreating(false);
     }
@@ -272,7 +272,7 @@ function promptPackImportCreateDisabledReason({
     return "Queue items are being created.";
   }
   if (!bridgeAvailable) {
-    return "Workspace Agent Queue bridge is unavailable. No Queue items can be created from this import card.";
+    return "Workspace Agent prompt-pack Queue create action is unavailable. No Queue items can be created from this import card.";
   }
   if (!preview) {
     return "Paste prompt-pack source before creating Queue items.";
@@ -301,6 +301,17 @@ function PromptPackImportResult({
       className="coordinator-proposal-section"
     >
       <p className="coordinator-proposal-section-label">Created Queue items</p>
+      <dl className="workspace-agent-queue-action-card-facts">
+        <ActionFact
+          label="Created count"
+          value={result.createdTasks.length.toString()}
+        />
+        <ActionFact
+          label="Dependency links"
+          value={dependencyLinkSummary(result)}
+        />
+        <ActionFact label="Run status" value="No tasks started" />
+      </dl>
       {result.createdTasks.length ? (
         <ul className="workspace-agent-queue-action-card-list">
           {result.createdTasks.map((task) => (
@@ -321,6 +332,22 @@ function PromptPackImportResult({
           No Queue items were created.
         </p>
       )}
+      <PromptPackMaterializationDiagnostics
+        emptyLabel="No dependency links were created."
+        label="Created dependency links"
+        values={result.dependencyLinksCreated.map(
+          (link) =>
+            `${link.dependentItemId} -> ${link.dependencyItemId}: created (${link.dependentQueueItemId ?? "unknown dependent Queue id"} depends on ${link.dependencyQueueItemId ?? "unknown dependency Queue id"})`,
+        )}
+      />
+      <PromptPackMaterializationDiagnostics
+        emptyLabel="No dependency links were skipped."
+        label="Skipped dependency links"
+        values={result.dependencyLinksSkipped.map(
+          (link) =>
+            `${link.dependentItemId} -> ${link.dependencyItemId}: ${link.message ?? "skipped"}`,
+        )}
+      />
       <PromptPackMaterializationDiagnostics
         emptyLabel="No import warnings."
         label="Warnings"
@@ -415,8 +442,46 @@ function promptPackImportSummary(
       : null,
     result ? `Warnings: ${result.warnings.length.toString()}` : null,
     result ? `Errors: ${result.errors.length.toString()}` : null,
+    "No tasks started.",
     "No Queue run, Autorun, validation, commit, push, rollback, or Terminal action was started by import.",
   ].filter((line): line is string => Boolean(line));
 
   return lines.join("\n");
+}
+
+function dependencyLinkSummary(result: PromptPackMaterializationResult) {
+  return `${result.dependencyLinksCreated.length.toString()} created, ${result.dependencyLinksSkipped.length.toString()} skipped`;
+}
+
+function promptPackImportActionFailureResult(
+  error: unknown,
+): PromptPackMaterializationResult {
+  return {
+    createdTasks: [],
+    dependencyLinksCreated: [],
+    dependencyLinksSkipped: [],
+    errors: [
+      {
+        code: "import_blocked",
+        message: errorToMessage(
+          error,
+          "Prompt-pack Queue creation failed before Queue items were created.",
+        ),
+      },
+    ],
+    ok: false,
+    warnings: [],
+  };
+}
+
+function errorToMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error;
+  }
+
+  return fallback;
 }

@@ -8,6 +8,7 @@ import type {
 } from "../types";
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
 import type { WorkspaceQueueApi } from "../queue/useWorkspaceQueueApi";
+import { materializePromptPackPreviewToQueue } from "../promptPack";
 
 type WorkspaceAgentActions = Pick<
   WorkbenchWidgetInstanceActions,
@@ -78,6 +79,12 @@ export function workspaceAgentWidgetProps({
     onSelectWorkspaceDirectory: actions.selectWorkspaceDirectory,
     onStartCodexDirectWorkStream: actions.startCodexDirectWorkStream,
     onUpdateAgentQueueTask: actions.updateAgentQueueTask,
+    createQueueItemsFromPromptPackPreview: (preview) =>
+      materializePromptPackPreviewToQueue({
+        bridge: workspaceQueueApi,
+        confirmed: true,
+        preview,
+      }),
     agentQueueController: workspaceQueueApi.controller,
     workspaceAgentQueueBridge: workspaceQueueApi,
   };

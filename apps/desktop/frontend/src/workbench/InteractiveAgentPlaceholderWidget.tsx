@@ -92,7 +92,7 @@ export function InteractiveAgentPlaceholderWidget({
   onPublishAgentActivityEvents,
   onSelectWorkspaceDirectory,
   onStartCodexDirectWorkStream,
-  onUpdateAgentQueueTask,
+  onUpdateAgentQueueTask, createQueueItemsFromPromptPackPreview,
   queueReportActionCardRequest,
   queueTaskStatusCardRequest,
   workspaceAgentQueueBridge,
@@ -847,9 +847,9 @@ export function InteractiveAgentPlaceholderWidget({
           suggestedPrompts={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
           transcriptRef={messageListRef}
           queueController={agentQueueController}
+          createQueueItemsFromPromptPackPreview={createQueueItemsFromPromptPackPreview}
           workspaceAgentQueueBridge={workspaceAgentQueueBridge}
         />
-
         <WorkspaceAgentComposer
           canSend={canSend}
           directMode={

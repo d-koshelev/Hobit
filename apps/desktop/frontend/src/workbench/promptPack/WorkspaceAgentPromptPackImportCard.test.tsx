@@ -9,8 +9,10 @@ import type {
 } from "../queue/agentQueueWidgetApiTypes";
 import {
   WorkspaceAgentPromptPackImportCard,
+  type CreateQueueItemsFromPromptPackPreview,
   type WorkspaceAgentPromptPackImportState,
 } from "./WorkspaceAgentPromptPackImportCard";
+import { materializePromptPackPreviewToQueue } from "./promptPackMaterialization";
 
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
@@ -85,7 +87,7 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
     );
     expect(buttonWithText("Cancel")).not.toBeNull();
     expect(document.body.textContent).toContain(
-      "Workspace Agent Queue bridge is unavailable",
+      "Workspace Agent prompt-pack Queue create action is unavailable",
     );
   });
 
@@ -111,10 +113,20 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
     });
     const bridge = queueBridge();
     const onOpenQueueItem = vi.fn();
+    const createQueueItemsFromPromptPackPreview = vi.fn(
+      async (...args: Parameters<CreateQueueItemsFromPromptPackPreview>) =>
+        materializePromptPackPreviewToQueue({
+          bridge,
+          confirmed: true,
+          preview: args[0],
+        }),
+    );
 
     render(
       <PromptPackImportHarness
-        bridge={bridge}
+        createQueueItemsFromPromptPackPreview={
+          createQueueItemsFromPromptPackPreview
+        }
         onOpenQueueItem={onOpenQueueItem}
       />,
     );
@@ -122,8 +134,16 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
     await setPromptPackSource(twoItemPack());
     await clickButton("Create Queue items");
 
+    expect(createQueueItemsFromPromptPackPreview).toHaveBeenCalledTimes(1);
+    expect(
+      createQueueItemsFromPromptPackPreview.mock.calls[0]?.[0].selectedItemIds,
+    ).toEqual(["first", "second"]);
     expect(document.body.textContent).toContain("first: First task");
     expect(document.body.textContent).toContain("second: Second task");
+    expect(document.body.textContent).toContain("Created count");
+    expect(document.body.textContent).toContain("No tasks started");
+    expect(document.body.textContent).toContain("second -> first: created");
+    expect(bridge.createItem).toHaveBeenCalledTimes(2);
     expect(bridge.updateItem).toHaveBeenCalledWith({
       itemId: "queue-second",
       patch: { dependencies: ["queue-first"] },
@@ -158,13 +178,36 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
     expect(runAutonomousQueue).not.toHaveBeenCalled();
     expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
   });
+
+  it("shows a visible error when the typed create action fails", async () => {
+    const createQueueItemsFromPromptPackPreview = vi.fn(async () => {
+      throw new Error("typed bridge failed");
+    });
+
+    render(
+      <PromptPackImportHarness
+        createQueueItemsFromPromptPackPreview={
+          createQueueItemsFromPromptPackPreview
+        }
+      />,
+    );
+    await setPromptPackSource(singleItemPack());
+    await clickButton("Create Queue items");
+
+    expect(createQueueItemsFromPromptPackPreview).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain("Failed");
+    expect(document.body.textContent).toContain("typed bridge failed");
+    expect(document.body.textContent).toContain("No Queue items were created.");
+  });
 });
 
 function PromptPackImportHarness({
   bridge,
+  createQueueItemsFromPromptPackPreview,
   onOpenQueueItem,
 }: {
   bridge?: WorkspaceAgentQueueBridge;
+  createQueueItemsFromPromptPackPreview?: CreateQueueItemsFromPromptPackPreview;
   onOpenQueueItem?: (queueItemId: string) => void;
 }) {
   const [importState, setImportState] =
@@ -175,7 +218,17 @@ function PromptPackImportHarness({
 
   return (
     <WorkspaceAgentPromptPackImportCard
-      bridge={bridge}
+      createQueueItemsFromPromptPackPreview={
+        createQueueItemsFromPromptPackPreview ??
+        (bridge
+          ? (preview) =>
+              materializePromptPackPreviewToQueue({
+                bridge,
+                confirmed: true,
+                preview,
+              })
+          : undefined)
+      }
       importState={importState}
       onCancel={(importId) =>
         setImportState((current) =>

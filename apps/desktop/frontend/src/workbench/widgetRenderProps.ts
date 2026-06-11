@@ -85,6 +85,10 @@ import type {
 } from "../workspace/types";
 import type { AgentActivityEvent } from "./agentActivityModel";
 import type {
+  PromptPackImportPreviewModel,
+  PromptPackMaterializationResult,
+} from "./promptPack";
+import type {
   AgentExecutorSlot,
   AgentQueueItemOpenRequest,
   AgentExecutorRunOpenRequest,
@@ -394,6 +398,9 @@ export type WidgetRenderProps = {
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents?: (events: AgentActivityEvent[]) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
+  createQueueItemsFromPromptPackPreview?: (
+    preview: PromptPackImportPreviewModel,
+  ) => Promise<PromptPackMaterializationResult>;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
   onStartAssignedAgentQueueTask?: (
     request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,

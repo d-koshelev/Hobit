@@ -88,6 +88,7 @@ describe("widgetHostRenderProps", () => {
     );
     expect(props.onGetKnowledgeDocument).toBe(actions.getKnowledgeDocument);
     expect(props.workspaceAgentQueueBridge).toBeDefined();
+    expect(props.createQueueItemsFromPromptPackPreview).toBeDefined();
     expect(props.workspaceAgentQueueBridge?.getRunSettingsDefaults?.()).toEqual(
       {
         approvalPolicy: "never",

@@ -38,6 +38,10 @@ import {
   WorkspaceAgentQueueActionResultCard,
   WorkspaceAgentQueueIntentDraftCard,
 } from "./WorkspaceAgentQueueActionCards";
+import type {
+  PromptPackImportPreviewModel,
+  PromptPackMaterializationResult,
+} from "./promptPack";
 import {
   WorkspaceAgentPromptPackImportCard,
   type WorkspaceAgentPromptPackImportState,
@@ -93,6 +97,7 @@ export function WorkspaceAgentTranscript({
   onPatchQueueIntentDraft,
   onCancelPromptPackImport,
   onPatchPromptPackImport = noopPromptPackPatch,
+  createQueueItemsFromPromptPackPreview,
   onQueueActionResult,
   onQueueReportActionResult,
   onViewQueueTaskReport,
@@ -142,6 +147,9 @@ export function WorkspaceAgentTranscript({
     importId: string,
     patch: Partial<WorkspaceAgentPromptPackImportState>,
   ) => void;
+  createQueueItemsFromPromptPackPreview?: (
+    preview: PromptPackImportPreviewModel,
+  ) => Promise<PromptPackMaterializationResult>;
   onQueueActionResult: (result: WorkspaceAgentQueueActionCardResult) => void;
   onQueueReportActionResult: (
     cardId: string,
@@ -248,7 +256,9 @@ export function WorkspaceAgentTranscript({
           {message.promptPackImportId &&
           promptPackImports[message.promptPackImportId] ? (
             <WorkspaceAgentPromptPackImportCard
-              bridge={workspaceAgentQueueBridge}
+              createQueueItemsFromPromptPackPreview={
+                createQueueItemsFromPromptPackPreview
+              }
               importState={promptPackImports[message.promptPackImportId]}
               onCancel={onCancelPromptPackImport ?? noopPromptPackCancel}
               onOpenQueueItem={onOpenAgentQueueItem}
