@@ -48,6 +48,7 @@ export type PromptPackDependencyPolicy =
   | "hard_numeric_order";
 
 export type PromptPackMetadata = {
+  description?: string | null;
   id: string;
   name: string;
   sourcePaths: string[];

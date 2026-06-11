@@ -31,6 +31,7 @@ mod agent_queue_lifecycle_tests;
 mod agent_queue_run_links;
 #[cfg(test)]
 mod agent_queue_run_links_tests;
+mod agent_queue_task_dependencies;
 #[cfg(test)]
 mod agent_queue_task_policy_tests;
 mod agent_queue_task_types;

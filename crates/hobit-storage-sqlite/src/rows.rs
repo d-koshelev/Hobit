@@ -133,6 +133,7 @@ pub struct AgentQueueTaskRow {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    pub depends_on: String,
     pub execution_policy: String,
     pub execution_workspace: Option<String>,
     pub codex_executable: Option<String>,

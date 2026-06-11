@@ -69,6 +69,7 @@ fn workspace_summary_includes_created_opened_and_safe_stats() {
             prompt: "Prompt stays out of summaries.".to_owned(),
             status: "draft".to_owned(),
             priority: 0,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,

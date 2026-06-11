@@ -66,13 +66,27 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
 
     render(<PromptPackImportHarness bridge={bridge} />);
     await setPromptPackSource(singleItemPack());
-    await clickButton("Cancel import");
+    await clickButton("Cancel");
+
+    expect(document.body.textContent).toContain("Cancelled");
+    expect(document.body.textContent).toContain(
+      "Import was cancelled. No Queue items were created.",
+    );
+    expect(buttonWithText("Create Queue items")).toBeUndefined();
+    expect(bridge.createItem).not.toHaveBeenCalled();
+  });
+
+  it("renders disabled create when the Queue bridge is missing", async () => {
+    render(<PromptPackImportHarness />);
+    await setPromptPackSource(singleItemPack());
 
     expect(buttonWithText("Create Queue items")?.hasAttribute("disabled")).toBe(
       true,
     );
-    expect(document.body.textContent).toContain("Cancelled");
-    expect(bridge.createItem).not.toHaveBeenCalled();
+    expect(buttonWithText("Cancel")).not.toBeNull();
+    expect(document.body.textContent).toContain(
+      "Workspace Agent Queue bridge is unavailable",
+    );
   });
 
   it("blocks create when preview errors are visible", async () => {

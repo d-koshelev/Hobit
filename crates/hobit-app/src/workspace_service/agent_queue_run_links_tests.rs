@@ -196,6 +196,7 @@ fn create_task(
             prompt: prompt.to_owned(),
             status: status.to_owned(),
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,

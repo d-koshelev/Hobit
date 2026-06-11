@@ -29,6 +29,7 @@ fn create_task(
             prompt: "Prompt".to_owned(),
             status: status.to_owned(),
             priority,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -74,6 +75,7 @@ fn create_list_get_and_update_agent_queue_task() {
     assert_eq!(task.prompt, "Prompt");
     assert_eq!(task.status, "queued");
     assert_eq!(task.priority, 3);
+    assert_eq!(task.depends_on, Vec::<String>::new());
     assert_eq!(task.execution_policy, "manual");
     assert_eq!(task.assigned_executor_widget_id, None);
     assert!(!task.created_at.is_empty());
@@ -101,6 +103,7 @@ fn create_list_get_and_update_agent_queue_task() {
             prompt: "Updated prompt".to_owned(),
             status: "running".to_owned(),
             priority: 4,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -115,9 +118,61 @@ fn create_list_get_and_update_agent_queue_task() {
     assert_eq!(updated.prompt, "Updated prompt");
     assert_eq!(updated.status, "running");
     assert_eq!(updated.priority, 4);
+    assert_eq!(updated.depends_on, Vec::<String>::new());
     assert_eq!(updated.execution_policy, "manual");
     assert_eq!(updated.assigned_executor_widget_id, None);
     assert_ne!(updated.updated_at, task.updated_at);
+}
+
+#[test]
+fn update_agent_queue_task_persists_dependencies_and_rejects_cycles() {
+    let service = initialized_service();
+    let workspace = create_workspace(&service, "Queue workspace");
+    let first = create_task(&service, &workspace.id, "First", "draft", 1);
+    let second = create_task(&service, &workspace.id, "Second", "draft", 1);
+
+    let updated = service
+        .update_agent_queue_task(UpdateAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: second.queue_item_id.clone(),
+            title: second.title.clone(),
+            description: second.description.clone(),
+            prompt: second.prompt.clone(),
+            status: second.status.clone(),
+            priority: second.priority,
+            depends_on: Some(vec![first.queue_item_id.clone()]),
+            execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
+        })
+        .expect("update dependencies")
+        .expect("updated task");
+
+    assert_eq!(updated.depends_on, vec![first.queue_item_id.clone()]);
+
+    let cycle_error = service
+        .update_agent_queue_task(UpdateAgentQueueTaskInput {
+            workspace_id: workspace.id,
+            queue_item_id: first.queue_item_id,
+            title: first.title,
+            description: first.description,
+            prompt: first.prompt,
+            status: first.status,
+            priority: first.priority,
+            depends_on: Some(vec![second.queue_item_id]),
+            execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
+        })
+        .expect_err("dependency cycle rejected");
+
+    assert!(cycle_error
+        .to_string()
+        .contains("queue task dependency would create a cycle"));
 }
 
 #[test]
@@ -132,6 +187,7 @@ fn create_agent_queue_task_rejects_unknown_workspace() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -179,6 +235,7 @@ fn get_and_update_agent_queue_task_reject_cross_workspace_access() {
             prompt: "Other prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -209,6 +266,7 @@ fn get_and_update_unknown_agent_queue_task_returns_none() {
             prompt: "".to_owned(),
             status: "draft".to_owned(),
             priority: 0,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -232,6 +290,7 @@ fn create_agent_queue_task_rejects_empty_title_invalid_status_and_priority() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -251,6 +310,7 @@ fn create_agent_queue_task_rejects_empty_title_invalid_status_and_priority() {
             prompt: "Prompt".to_owned(),
             status: "blocked".to_owned(),
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -270,6 +330,7 @@ fn create_agent_queue_task_rejects_empty_title_invalid_status_and_priority() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 9,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -295,6 +356,7 @@ fn non_draft_agent_queue_task_rejects_empty_prompt() {
             prompt: "  ".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -560,6 +622,7 @@ fn running_task_assignment_and_clear_assignment_are_rejected() {
             prompt: assigned_task.prompt,
             status: "running".to_owned(),
             priority: assigned_task.priority,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,

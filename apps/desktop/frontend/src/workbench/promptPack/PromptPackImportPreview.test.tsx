@@ -3,7 +3,10 @@ import type { ReactElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { PromptPackImportPreview } from "./promptPackImportPreviewComponent";
+import {
+  PromptPackImportPreview,
+  PromptPackImportPreviewCard,
+} from "./promptPackImportPreviewComponent";
 import { buildPromptPackImportPreview } from "./promptPackImportPreview";
 import { parsePromptPackImportPlan } from "./promptPackParser";
 
@@ -49,6 +52,9 @@ describe("PromptPackImportPreview", () => {
 
     render(<PromptPackImportPreview preview={preview} />);
 
+    expect(
+      document.querySelector('[aria-label="Prompt-pack import preview card"]'),
+    ).not.toBeNull();
     expect(document.body.textContent).toContain("Pack One");
     expect(document.body.textContent).toContain("Selected items");
     expect(document.body.textContent).toContain("frontend: one");
@@ -67,6 +73,123 @@ describe("PromptPackImportPreview", () => {
       "Local folder and zip import are unavailable",
     );
   });
+
+  it("renders product action buttons without firing create on render", () => {
+    const onCreateQueueItems = vi.fn();
+    const onCancel = vi.fn();
+    const preview = promptPackPreview();
+
+    render(
+      <PromptPackImportPreviewCard
+        actions={{
+          cancel: {
+            disabled: false,
+            label: "Cancel",
+            onClick: onCancel,
+          },
+          create: {
+            disabled: false,
+            label: "Create Queue items",
+            onClick: onCreateQueueItems,
+          },
+        }}
+        preview={preview}
+      />,
+    );
+
+    expect(buttonWithText("Create Queue items")).not.toBeNull();
+    expect(buttonWithText("Cancel")).not.toBeNull();
+    expect(onCreateQueueItems).not.toHaveBeenCalled();
+    expect(onCancel).not.toHaveBeenCalled();
+  });
+
+  it("keeps create disabled with a visible bridge reason", () => {
+    const onCreateQueueItems = vi.fn();
+
+    render(
+      <PromptPackImportPreviewCard
+        actions={{
+          cancel: {
+            disabled: false,
+            label: "Cancel",
+            onClick: vi.fn(),
+          },
+          create: {
+            disabled: true,
+            disabledReason:
+              "Workspace Agent Queue bridge is unavailable. No Queue items can be created from this import card.",
+            label: "Create Queue items",
+            onClick: onCreateQueueItems,
+          },
+        }}
+        preview={promptPackPreview()}
+      />,
+    );
+
+    expect(buttonWithText("Create Queue items")?.hasAttribute("disabled")).toBe(
+      true,
+    );
+    expect(document.body.textContent).toContain(
+      "Workspace Agent Queue bridge is unavailable",
+    );
+    expect(onCreateQueueItems).not.toHaveBeenCalled();
+  });
+
+  it("does not call create when cancel is clicked", async () => {
+    const onCreateQueueItems = vi.fn();
+    const onCancel = vi.fn();
+
+    render(
+      <PromptPackImportPreviewCard
+        actions={{
+          cancel: {
+            disabled: false,
+            label: "Cancel",
+            onClick: onCancel,
+          },
+          create: {
+            disabled: false,
+            label: "Create Queue items",
+            onClick: onCreateQueueItems,
+          },
+        }}
+        preview={promptPackPreview()}
+      />,
+    );
+
+    await clickButton("Cancel");
+
+    expect(onCancel).toHaveBeenCalledTimes(1);
+    expect(onCreateQueueItems).not.toHaveBeenCalled();
+  });
+
+  it("calls create only when the create button is clicked", async () => {
+    const onCreateQueueItems = vi.fn();
+
+    render(
+      <PromptPackImportPreviewCard
+        actions={{
+          cancel: {
+            disabled: false,
+            label: "Cancel",
+            onClick: vi.fn(),
+          },
+          create: {
+            disabled: false,
+            label: "Create Queue items",
+            onClick: onCreateQueueItems,
+          },
+        }}
+        preview={promptPackPreview()}
+      />,
+    );
+
+    expect(onCreateQueueItems).not.toHaveBeenCalled();
+
+    await clickButton("Create Queue items");
+
+    expect(onCreateQueueItems).toHaveBeenCalledTimes(1);
+  });
 });
 
 function render(element: ReactElement) {
@@ -77,4 +200,57 @@ function render(element: ReactElement) {
   act(() => {
     root?.render(element);
   });
+}
+
+async function clickButton(text: string) {
+  await act(async () => {
+    const button = buttonWithText(text);
+    if (!button) {
+      throw new Error(`Button not found: ${text}`);
+    }
+    button.click();
+    await Promise.resolve();
+  });
+}
+
+function buttonWithText(text: string) {
+  return Array.from(document.querySelectorAll("button")).find(
+    (button) => button.textContent === text,
+  );
+}
+
+function promptPackPreview() {
+  return buildPromptPackImportPreview(
+    parsePromptPackImportPlan([
+      {
+        path: "prompt-batch.json",
+        text: JSON.stringify({
+          description: "Preview pack description",
+          id: "pack-one",
+          items: [
+            {
+              allowedScope: ["apps/desktop/frontend/src/workbench/**"],
+              dependencies: ["setup"],
+              forbiddenScope: ["crates/**"],
+              id: "one",
+              priority: 2,
+              prompt: "one",
+              tags: ["frontend"],
+              title: "One",
+              validationCommands: [
+                "npm.cmd run typecheck --prefix apps/desktop/frontend",
+              ],
+            },
+            {
+              id: "setup",
+              prompt: "setup",
+              tags: ["queue"],
+              title: "Setup",
+            },
+          ],
+          name: "Pack One",
+        }),
+      },
+    ]),
+  );
 }

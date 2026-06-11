@@ -110,6 +110,7 @@ fn deleting_worker_assigned_to_queue_task_is_blocked() {
             prompt: "Do work".to_owned(),
             status: "queued".to_owned(),
             priority: 0,
+            depends_on: None,
             execution_policy: Some("manual".to_owned()),
             execution_workspace: None,
             codex_executable: None,

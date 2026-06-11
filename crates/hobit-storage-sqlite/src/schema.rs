@@ -118,6 +118,7 @@ CREATE TABLE IF NOT EXISTS agent_queue_tasks (
     prompt TEXT NOT NULL,
     status TEXT NOT NULL,
     priority INTEGER NOT NULL,
+    depends_on TEXT NOT NULL DEFAULT '[]',
     execution_policy TEXT NOT NULL DEFAULT 'manual',
     execution_workspace TEXT NULL,
     codex_executable TEXT NULL,
@@ -399,6 +400,9 @@ CREATE INDEX IF NOT EXISTS idx_widget_logs_widget_instance_created_at
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_tasks_assigned_executor_widget_id
     ON agent_queue_tasks(assigned_executor_widget_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_tasks_dependencies
+    ON agent_queue_tasks(workspace_id, depends_on);
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_task_run_links_task_started
     ON agent_queue_task_run_links(workspace_id, queue_task_id, started_at);

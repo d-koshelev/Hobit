@@ -49,6 +49,7 @@ export type TauriAgentQueueTask = {
   prompt: string;
   status: AgentQueueTaskStatus;
   priority: number;
+  depends_on?: string[] | null;
   execution_policy?: AgentQueueTaskExecutionPolicy | null;
   execution_workspace?: string | null;
   codex_executable?: string | null;

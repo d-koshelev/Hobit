@@ -45,6 +45,7 @@ fn create_workspace_task_and_executor(store: &SqliteStore) {
             prompt: "Prompt",
             status: "queued",
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,

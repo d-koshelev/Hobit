@@ -21,7 +21,7 @@ import type {
   PromptPackMaterializationResult,
 } from "./promptPackModel";
 import { parsePromptPackImportPlan } from "./promptPackParser";
-import { PromptPackImportPreview } from "./promptPackImportPreviewComponent";
+import { PromptPackImportPreviewCard } from "./promptPackImportPreviewComponent";
 
 export type WorkspaceAgentPromptPackImportState = {
   readonly id: string;
@@ -56,12 +56,14 @@ export function WorkspaceAgentPromptPackImportCard({
   );
   const result = importState.result;
   const firstCreatedTask = result?.createdTasks[0];
-  const canCreate =
-    Boolean(bridge) &&
-    Boolean(preview?.importAvailable) &&
-    !isCreating &&
-    !importState.isCancelled &&
-    !result;
+  const createDisabledReason = promptPackImportCreateDisabledReason({
+    bridgeAvailable: Boolean(bridge),
+    importState,
+    isCreating,
+    preview,
+    result,
+  });
+  const canCreate = !createDisabledReason;
 
   async function createQueueItems() {
     if (!preview || !canCreate) {
@@ -161,7 +163,7 @@ export function WorkspaceAgentPromptPackImportCard({
         />
       </dl>
 
-      {result ? null : (
+      {result || importState.isCancelled ? null : (
         <QueueTextarea
           label="Prompt-pack source"
           onChange={(sourceText) => onPatch(importState.id, { sourceText })}
@@ -169,7 +171,33 @@ export function WorkspaceAgentPromptPackImportCard({
         />
       )}
 
-      <PromptPackImportPreview preview={preview} />
+      {importState.isCancelled && !result ? (
+        <p className="workspace-agent-queue-intent-validation" role="status">
+          Import was cancelled. No Queue items were created.
+        </p>
+      ) : (
+        <PromptPackImportPreviewCard
+          actions={
+            result
+              ? undefined
+              : {
+                  cancel: {
+                    disabled: Boolean(importState.isCancelled) || isCreating,
+                    label: "Cancel",
+                    onClick: () => onCancel(importState.id),
+                  },
+                  create: {
+                    disabled: Boolean(createDisabledReason),
+                    disabledReason: createDisabledReason,
+                    isPending: isCreating,
+                    label: "Create Queue items",
+                    onClick: () => void createQueueItems(),
+                  },
+                }
+          }
+          preview={preview}
+        />
+      )}
 
       {result ? (
         <PromptPackImportResult
@@ -179,60 +207,34 @@ export function WorkspaceAgentPromptPackImportCard({
         />
       ) : null}
 
-      <div className="coordinator-proposal-actions">
-        {result ? (
-          <>
-            <Button
-              disabled={!firstCreatedTask || !onOpenQueueItem}
-              onClick={() =>
-                firstCreatedTask
-                  ? onOpenQueueItem?.(firstCreatedTask.queueItemId)
-                  : undefined
-              }
-              variant="primary"
-            >
-              Open Queue
-            </Button>
-            <Button
-              disabled={!firstCreatedTask || !onOpenQueueItem}
-              onClick={() =>
-                firstCreatedTask
-                  ? onOpenQueueItem?.(firstCreatedTask.queueItemId)
-                  : undefined
-              }
-              variant="secondary"
-            >
-              Open created task
-            </Button>
-            <Button onClick={() => void copyImportSummary()} variant="ghost">
-              Copy import summary
-            </Button>
-          </>
-        ) : (
-          <>
-            <Button
-              disabled={!canCreate}
-              onClick={() => void createQueueItems()}
-              variant="primary"
-            >
-              {isCreating ? "Creating" : "Create Queue items"}
-            </Button>
-            <Button
-              disabled={Boolean(importState.isCancelled) || isCreating}
-              onClick={() => onCancel(importState.id)}
-              variant="ghost"
-            >
-              Cancel import
-            </Button>
-          </>
-        )}
-      </div>
-
-      {!bridge ? (
-        <p className="workspace-agent-queue-intent-validation">
-          Workspace Agent Queue bridge is unavailable. No Queue items can be
-          created from this import card.
-        </p>
+      {result ? (
+        <div className="coordinator-proposal-actions">
+          <Button
+            disabled={!firstCreatedTask || !onOpenQueueItem}
+            onClick={() =>
+              firstCreatedTask
+                ? onOpenQueueItem?.(firstCreatedTask.queueItemId)
+                : undefined
+            }
+            variant="primary"
+          >
+            Open Queue
+          </Button>
+          <Button
+            disabled={!firstCreatedTask || !onOpenQueueItem}
+            onClick={() =>
+              firstCreatedTask
+                ? onOpenQueueItem?.(firstCreatedTask.queueItemId)
+                : undefined
+            }
+            variant="secondary"
+          >
+            Open created task
+          </Button>
+          <Button onClick={() => void copyImportSummary()} variant="ghost">
+            Copy import summary
+          </Button>
+        </div>
       ) : null}
       {copyStatus ? (
         <p className="coordinator-proposal-note" role="status">
@@ -245,6 +247,43 @@ export function WorkspaceAgentPromptPackImportCard({
       </p>
     </section>
   );
+}
+
+function promptPackImportCreateDisabledReason({
+  bridgeAvailable,
+  importState,
+  isCreating,
+  preview,
+  result,
+}: {
+  bridgeAvailable: boolean;
+  importState: WorkspaceAgentPromptPackImportState;
+  isCreating: boolean;
+  preview: PromptPackImportPreviewModel | null;
+  result: PromptPackMaterializationResult | undefined;
+}) {
+  if (result) {
+    return "Import already created Queue items.";
+  }
+  if (importState.isCancelled) {
+    return "Import was cancelled. No Queue items will be created.";
+  }
+  if (isCreating) {
+    return "Queue items are being created.";
+  }
+  if (!bridgeAvailable) {
+    return "Workspace Agent Queue bridge is unavailable. No Queue items can be created from this import card.";
+  }
+  if (!preview) {
+    return "Paste prompt-pack source before creating Queue items.";
+  }
+  if (!preview.importAvailable) {
+    return (
+      preview.errors[0]?.message ??
+      "Prompt-pack preview has blocking errors. No Queue items can be created."
+    );
+  }
+  return null;
 }
 
 function PromptPackImportResult({

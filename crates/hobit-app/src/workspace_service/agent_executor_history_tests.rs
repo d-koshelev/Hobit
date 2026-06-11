@@ -490,6 +490,7 @@ fn queue_run_links_keep_raw_executor_payload_owned_by_executor_detail() {
             prompt: "Review Executor output".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,

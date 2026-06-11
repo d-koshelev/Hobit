@@ -29,6 +29,7 @@ fn create_task(
             prompt: "Prompt",
             status: "queued",
             priority,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -89,6 +90,7 @@ fn create_agent_queue_task_stores_workspace_scoped_task() {
             prompt: "Check the patch for regressions",
             status: "queued",
             priority: 3,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -107,10 +109,65 @@ fn create_agent_queue_task_stores_workspace_scoped_task() {
     assert_eq!(task.prompt, "Check the patch for regressions");
     assert_eq!(task.status, "queued");
     assert_eq!(task.priority, 3);
+    assert_eq!(task.depends_on, "[]");
     assert_eq!(task.execution_policy, "manual");
     assert_eq!(task.assigned_executor_widget_id, None);
     assert_eq!(task.created_at, "1");
     assert_eq!(task.updated_at, "2");
+}
+
+#[test]
+fn agent_queue_task_dependencies_round_trip_through_create_and_update() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+
+    let task = store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: "task-2",
+            workspace_id: "workspace-1",
+            title: "Dependent task",
+            description: "Description",
+            prompt: "Prompt",
+            status: "draft",
+            priority: 1,
+            depends_on: Some(r#"["task-1"]"#),
+            execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
+            context_json: None,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create dependent queue task");
+
+    assert_eq!(task.depends_on, r#"["task-1"]"#);
+
+    let updated = store
+        .update_agent_queue_task(
+            "workspace-1",
+            "task-2",
+            AgentQueueTaskUpdate {
+                title: "Dependent task",
+                description: "Description",
+                prompt: "Prompt",
+                status: "draft",
+                priority: 1,
+                depends_on: Some(r#"["task-3","task-4"]"#),
+                execution_policy: None,
+                execution_workspace: None,
+                codex_executable: None,
+                sandbox: None,
+                approval_policy: None,
+                context_json: None,
+                updated_at: Some("2"),
+            },
+        )
+        .expect("update dependent queue task")
+        .expect("updated task");
+
+    assert_eq!(updated.depends_on, r#"["task-3","task-4"]"#);
 }
 
 #[test]
@@ -158,6 +215,7 @@ fn update_agent_queue_task_updates_fields_and_updated_at() {
                 prompt: "Updated prompt",
                 status: "completed",
                 priority: 4,
+                depends_on: None,
                 execution_policy: None,
                 execution_workspace: None,
                 codex_executable: None,
@@ -194,6 +252,7 @@ fn agent_queue_task_execution_policy_round_trips_and_update_preserves_when_omitt
             prompt: "Prompt",
             status: "queued",
             priority: 1,
+            depends_on: None,
             execution_policy: Some("auto"),
             execution_workspace: None,
             codex_executable: None,
@@ -217,6 +276,7 @@ fn agent_queue_task_execution_policy_round_trips_and_update_preserves_when_omitt
                 prompt: "Prompt",
                 status: "queued",
                 priority: 1,
+                depends_on: None,
                 execution_policy: None,
                 execution_workspace: None,
                 codex_executable: None,
@@ -241,6 +301,7 @@ fn agent_queue_task_execution_policy_round_trips_and_update_preserves_when_omitt
                 prompt: "Prompt",
                 status: "queued",
                 priority: 1,
+                depends_on: None,
                 execution_policy: Some("after_previous_success"),
                 execution_workspace: None,
                 codex_executable: None,
@@ -281,6 +342,7 @@ fn agent_queue_task_context_json_round_trips_and_update_preserves_when_omitted()
             prompt: "Prompt",
             status: "queued",
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -321,6 +383,7 @@ fn agent_queue_task_context_json_round_trips_and_update_preserves_when_omitted()
                 prompt: "Prompt",
                 status: "queued",
                 priority: 1,
+                depends_on: None,
                 execution_policy: None,
                 execution_workspace: None,
                 codex_executable: None,
@@ -345,6 +408,7 @@ fn agent_queue_task_context_json_round_trips_and_update_preserves_when_omitted()
                 prompt: "Prompt",
                 status: "queued",
                 priority: 1,
+                depends_on: None,
                 execution_policy: None,
                 execution_workspace: None,
                 codex_executable: None,
@@ -377,6 +441,7 @@ fn running_status_round_trips_through_create_update_get_and_list() {
             prompt: "Prompt",
             status: "running",
             priority: 2,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -400,6 +465,7 @@ fn running_status_round_trips_through_create_update_get_and_list() {
                 prompt: "Updated prompt",
                 status: "running",
                 priority: 3,
+                depends_on: None,
                 execution_policy: None,
                 execution_workspace: None,
                 codex_executable: None,
@@ -443,6 +509,7 @@ fn unknown_agent_queue_task_returns_none() {
                 prompt: "",
                 status: "draft",
                 priority: 0,
+                depends_on: None,
                 execution_policy: None,
                 execution_workspace: None,
                 codex_executable: None,
@@ -512,6 +579,7 @@ fn update_agent_queue_task_status_updates_status_and_updated_at() {
             prompt: "Prompt",
             status: "queued",
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,

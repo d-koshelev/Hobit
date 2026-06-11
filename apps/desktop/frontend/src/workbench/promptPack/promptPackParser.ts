@@ -210,11 +210,18 @@ function normalizePackMetadata({
   const readmeTitle = readmeText ? firstMarkdownHeading(readmeText) : null;
   const manifestId = stringValue(manifest, ["id", "packId", "pack_id"]);
   const manifestName = stringValue(manifest, ["name", "title", "packName"]);
+  const description = stringValue(manifest, [
+    "description",
+    "summary",
+    "packDescription",
+    "pack_description",
+  ]);
   const inferredName = readmeTitle ?? manifestName ?? parentDirectory(entries[0]?.path);
   const name = manifestName ?? inferredName ?? "Prompt Pack";
   const id = slugify(manifestId ?? name) || DEFAULT_PACK_ID;
 
   return {
+    description,
     id,
     name,
     sourcePaths: entries.map((entry) => entry.path),

@@ -261,6 +261,7 @@ pub(super) fn agent_queue_task_summary(row: AgentQueueTaskRow) -> AgentQueueTask
         prompt: row.prompt,
         status: row.status,
         priority: row.priority,
+        depends_on: parse_json_vec::<String>(&row.depends_on).unwrap_or_default(),
         execution_policy: row.execution_policy,
         execution_workspace: row.execution_workspace,
         codex_executable: row.codex_executable,

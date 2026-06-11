@@ -445,6 +445,7 @@ fn task_summary(
         status: status.to_owned(),
         context_json: None,
         priority: 0,
+        depends_on: vec![],
         execution_policy: execution_policy.to_owned(),
         execution_workspace: None,
         codex_executable: None,

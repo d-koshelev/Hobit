@@ -15,6 +15,8 @@ pub(crate) struct CreateAgentQueueTaskRequest {
     pub status: String,
     pub priority: i64,
     #[serde(default)]
+    pub depends_on: Vec<String>,
+    #[serde(default)]
     pub execution_policy: Option<String>,
     #[serde(default)]
     pub execution_workspace: Option<String>,
@@ -46,6 +48,8 @@ pub(crate) struct UpdateAgentQueueTaskRequest {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    #[serde(default)]
+    pub depends_on: Option<Vec<String>>,
     #[serde(default)]
     pub execution_policy: Option<String>,
     #[serde(default)]
@@ -114,6 +118,7 @@ pub(crate) struct AgentQueueTaskDto {
     pub prompt: String,
     pub status: String,
     pub priority: i64,
+    pub depends_on: Vec<String>,
     pub execution_policy: String,
     pub execution_workspace: Option<String>,
     pub codex_executable: Option<String>,
@@ -134,6 +139,7 @@ impl From<CreateAgentQueueTaskRequest> for CreateAgentQueueTaskInput {
             prompt: request.prompt,
             status: request.status,
             priority: request.priority,
+            depends_on: Some(request.depends_on),
             execution_policy: request.execution_policy,
             execution_workspace: request.execution_workspace,
             codex_executable: request.codex_executable,
@@ -153,6 +159,7 @@ impl From<UpdateAgentQueueTaskRequest> for UpdateAgentQueueTaskInput {
             prompt: request.prompt,
             status: request.status,
             priority: request.priority,
+            depends_on: request.depends_on,
             execution_policy: request.execution_policy,
             execution_workspace: request.execution_workspace,
             codex_executable: request.codex_executable,
@@ -240,6 +247,7 @@ impl From<AgentQueueTaskSummary> for AgentQueueTaskDto {
             prompt: summary.prompt,
             status: summary.status,
             priority: summary.priority,
+            depends_on: summary.depends_on,
             execution_policy: summary.execution_policy,
             execution_workspace: summary.execution_workspace,
             codex_executable: summary.codex_executable,

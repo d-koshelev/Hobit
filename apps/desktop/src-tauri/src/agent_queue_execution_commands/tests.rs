@@ -239,6 +239,7 @@ fn create_assigned_task(db_path: &Path, status: &str) -> (String, String, String
                 status.to_owned()
             },
             priority: 1,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -263,6 +264,7 @@ fn create_assigned_task(db_path: &Path, status: &str) -> (String, String, String
                 prompt: task.prompt,
                 status: "completed".to_owned(),
                 priority: task.priority,
+                depends_on: None,
                 execution_policy: None,
                 execution_workspace: None,
                 codex_executable: None,

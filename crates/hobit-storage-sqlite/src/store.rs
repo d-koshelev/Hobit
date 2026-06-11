@@ -154,6 +154,11 @@ impl SqliteStore {
         )?;
         self.ensure_column(
             "agent_queue_tasks",
+            "depends_on",
+            "depends_on TEXT NOT NULL DEFAULT '[]'",
+        )?;
+        self.ensure_column(
+            "agent_queue_tasks",
             "execution_workspace",
             "execution_workspace TEXT NULL",
         )?;

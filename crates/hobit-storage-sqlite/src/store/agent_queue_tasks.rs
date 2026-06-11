@@ -26,13 +26,15 @@ impl SqliteStore {
         let execution_policy = input
             .execution_policy
             .unwrap_or(DEFAULT_AGENT_QUEUE_TASK_EXECUTION_POLICY);
+        let depends_on = input.depends_on.unwrap_or("[]");
 
         self.connection.execute(
             "INSERT INTO agent_queue_tasks (
                 queue_item_id, workspace_id, title, description, prompt, status,
-                priority, execution_policy, execution_workspace, codex_executable,
-                sandbox, approval_policy, context_json, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)",
+                priority, depends_on, execution_policy, execution_workspace,
+                codex_executable, sandbox, approval_policy, context_json,
+                created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16)",
             params![
                 input.queue_item_id,
                 input.workspace_id,
@@ -41,6 +43,7 @@ impl SqliteStore {
                 input.prompt,
                 input.status,
                 input.priority,
+                depends_on,
                 execution_policy,
                 input.execution_workspace,
                 input.codex_executable,
@@ -59,8 +62,8 @@ impl SqliteStore {
     pub fn list_agent_queue_tasks(&self, workspace_id: &str) -> Result<Vec<AgentQueueTaskRow>> {
         let mut statement = self.connection.prepare(
             "SELECT queue_item_id, workspace_id, title, description, prompt, status,
-                priority, execution_policy, execution_workspace, codex_executable,
-                sandbox, approval_policy, context_json, assigned_executor_widget_id,
+                priority, depends_on, execution_policy, execution_workspace,
+                codex_executable, sandbox, approval_policy, context_json, assigned_executor_widget_id,
                 created_at, updated_at
              FROM agent_queue_tasks
              WHERE workspace_id = ?1
@@ -79,8 +82,8 @@ impl SqliteStore {
         self.connection
             .query_row(
                 "SELECT queue_item_id, workspace_id, title, description, prompt,
-                    status, priority, execution_policy, execution_workspace, codex_executable,
-                    sandbox, approval_policy, context_json, assigned_executor_widget_id,
+                    status, priority, depends_on, execution_policy, execution_workspace,
+                    codex_executable, sandbox, approval_policy, context_json, assigned_executor_widget_id,
                     created_at, updated_at
                  FROM agent_queue_tasks
                  WHERE workspace_id = ?1 AND queue_item_id = ?2",
@@ -97,8 +100,8 @@ impl SqliteStore {
         self.connection
             .query_row(
                 "SELECT queue_item_id, workspace_id, title, description, prompt,
-                    status, priority, execution_policy, execution_workspace, codex_executable,
-                    sandbox, approval_policy, context_json, assigned_executor_widget_id,
+                    status, priority, depends_on, execution_policy, execution_workspace,
+                    codex_executable, sandbox, approval_policy, context_json, assigned_executor_widget_id,
                     created_at, updated_at
                  FROM agent_queue_tasks
                  WHERE queue_item_id = ?1",
@@ -121,17 +124,19 @@ impl SqliteStore {
         let affected_rows = self.connection.execute(
             "UPDATE agent_queue_tasks
              SET title = ?1, description = ?2, prompt = ?3, status = ?4,
-                priority = ?5, execution_policy = COALESCE(?6, execution_policy),
-                execution_workspace = ?7, codex_executable = ?8, sandbox = ?9,
-                approval_policy = ?10, context_json = COALESCE(?11, context_json),
-                updated_at = ?12
-             WHERE workspace_id = ?13 AND queue_item_id = ?14",
+                priority = ?5, depends_on = COALESCE(?6, depends_on),
+                execution_policy = COALESCE(?7, execution_policy),
+                execution_workspace = ?8, codex_executable = ?9, sandbox = ?10,
+                approval_policy = ?11, context_json = COALESCE(?12, context_json),
+                updated_at = ?13
+             WHERE workspace_id = ?14 AND queue_item_id = ?15",
             params![
                 update.title,
                 update.description,
                 update.prompt,
                 update.status,
                 update.priority,
+                update.depends_on,
                 update.execution_policy,
                 update.execution_workspace,
                 update.codex_executable,

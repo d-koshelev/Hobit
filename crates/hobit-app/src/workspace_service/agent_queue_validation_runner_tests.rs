@@ -171,6 +171,7 @@ fn create_task_with_workspace(
             prompt: "Validate the work".to_owned(),
             status: "queued".to_owned(),
             priority: 2,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: Some(current_dir()),
             codex_executable: None,

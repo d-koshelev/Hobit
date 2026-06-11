@@ -14,6 +14,7 @@ fn maps_create_agent_queue_task_request_to_app_input() {
         prompt: "Prompt".to_owned(),
         status: "queued".to_owned(),
         priority: 3,
+        depends_on: vec!["task-a".to_owned()],
         execution_policy: Some("auto".to_owned()),
         execution_workspace: None,
         codex_executable: None,
@@ -29,6 +30,7 @@ fn maps_create_agent_queue_task_request_to_app_input() {
     assert_eq!(input.prompt, "Prompt");
     assert_eq!(input.status, "queued");
     assert_eq!(input.priority, 3);
+    assert_eq!(input.depends_on, Some(vec!["task-a".to_owned()]));
     assert_eq!(input.execution_policy.as_deref(), Some("auto"));
 }
 
@@ -42,6 +44,7 @@ fn maps_update_agent_queue_task_request_to_app_input() {
         prompt: "Updated prompt".to_owned(),
         status: "running".to_owned(),
         priority: 4,
+        depends_on: Some(vec!["task-a".to_owned()]),
         execution_policy: Some("after_previous_success".to_owned()),
         execution_workspace: None,
         codex_executable: None,
@@ -58,6 +61,7 @@ fn maps_update_agent_queue_task_request_to_app_input() {
     assert_eq!(input.prompt, "Updated prompt");
     assert_eq!(input.status, "running");
     assert_eq!(input.priority, 4);
+    assert_eq!(input.depends_on, Some(vec!["task-a".to_owned()]));
     assert_eq!(
         input.execution_policy.as_deref(),
         Some("after_previous_success")
@@ -115,6 +119,7 @@ fn maps_agent_queue_task_summary_to_dto() {
         prompt: "Prompt".to_owned(),
         status: "running".to_owned(),
         priority: 3,
+        depends_on: vec!["task-a".to_owned()],
         execution_policy: "manual".to_owned(),
         execution_workspace: None,
         codex_executable: None,
@@ -135,6 +140,7 @@ fn maps_agent_queue_task_summary_to_dto() {
     assert_eq!(dto.prompt, "Prompt");
     assert_eq!(dto.status, "running");
     assert_eq!(dto.priority, 3);
+    assert_eq!(dto.depends_on, vec!["task-a"]);
     assert_eq!(dto.execution_policy, "manual");
     assert_eq!(
         dto.context_json.as_deref(),

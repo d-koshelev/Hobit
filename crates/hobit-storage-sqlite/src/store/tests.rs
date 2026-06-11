@@ -509,6 +509,7 @@ fn list_workspace_summaries_includes_metadata_and_scoped_counts() {
             prompt: "Prompt",
             status: "draft",
             priority: 0,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,

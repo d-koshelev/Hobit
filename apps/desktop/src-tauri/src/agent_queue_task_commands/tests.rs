@@ -15,6 +15,7 @@ fn agent_queue_task_command_helpers_create_list_get_and_update() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 3,
+            depends_on: vec![],
             execution_policy: Some("auto".to_owned()),
             execution_workspace: None,
             codex_executable: None,
@@ -31,6 +32,7 @@ fn agent_queue_task_command_helpers_create_list_get_and_update() {
     assert_eq!(created.prompt, "Prompt");
     assert_eq!(created.status, "queued");
     assert_eq!(created.priority, 3);
+    assert_eq!(created.depends_on, Vec::<String>::new());
     assert_eq!(created.execution_policy, "auto");
     assert_eq!(created.context_json, None);
     assert_eq!(created.assigned_executor_widget_id, None);
@@ -65,6 +67,7 @@ fn agent_queue_task_command_helpers_create_list_get_and_update() {
             prompt: "Updated prompt".to_owned(),
             status: "running".to_owned(),
             priority: 4,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -102,6 +105,7 @@ fn create_agent_queue_task_command_helper_rejects_unknown_workspace() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: vec![],
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -129,6 +133,7 @@ fn get_agent_queue_task_command_helper_rejects_cross_workspace_access() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: vec![],
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -166,6 +171,7 @@ fn assignment_command_helpers_assign_and_clear_executor() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: vec![],
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -219,6 +225,7 @@ fn assignment_command_helper_rejects_non_executor_widget() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: vec![],
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -257,6 +264,7 @@ fn assignment_command_helper_rejects_running_task_assignment_changes() {
             prompt: "Prompt".to_owned(),
             status: "running".to_owned(),
             priority: 1,
+            depends_on: vec![],
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -286,6 +294,7 @@ fn assignment_command_helper_rejects_running_task_assignment_changes() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: vec![],
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -313,6 +322,7 @@ fn assignment_command_helper_rejects_running_task_assignment_changes() {
             prompt: queued.prompt,
             status: "running".to_owned(),
             priority: queued.priority,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -347,6 +357,7 @@ fn delete_agent_queue_task_command_helper_deletes_non_running_task() {
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
+            depends_on: vec![],
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,
@@ -391,6 +402,7 @@ fn delete_agent_queue_task_command_helper_rejects_running_task() {
             prompt: "Prompt".to_owned(),
             status: "running".to_owned(),
             priority: 1,
+            depends_on: vec![],
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,

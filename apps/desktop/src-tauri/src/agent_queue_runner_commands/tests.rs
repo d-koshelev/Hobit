@@ -1315,6 +1315,7 @@ fn create_task(
             prompt: prompt.to_owned(),
             status: status.to_owned(),
             priority,
+            depends_on: None,
             execution_policy: Some(execution_policy.to_owned()),
             execution_workspace: None,
             codex_executable: None,
@@ -1322,7 +1323,6 @@ fn create_task(
             approval_policy: None,
         })
         .expect("create queue task");
-
     if let Some(executor_widget_id) = executor_widget_id {
         service
             .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {

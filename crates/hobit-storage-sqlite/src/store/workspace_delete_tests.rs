@@ -150,6 +150,7 @@ fn create_workspace_graph(store: &SqliteStore, workspace_id: &str, suffix: &str)
             prompt: "Review the workspace",
             status: "queued",
             priority: 2,
+            depends_on: None,
             execution_policy: None,
             execution_workspace: None,
             codex_executable: None,

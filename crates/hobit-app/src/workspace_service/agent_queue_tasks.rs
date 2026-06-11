@@ -6,6 +6,10 @@ use crate::WorkspaceServiceError;
 
 use super::{
     agent_queue_lifecycle::{AgentQueueTaskExecutionPolicy, AgentQueueTaskLifecycleStatus},
+    agent_queue_task_dependencies::{
+        dependencies_json, normalize_optional_dependency_ids, validate_create_dependencies,
+        validate_dependency_update,
+    },
     mapping::agent_queue_task_summary,
     placeholder_id, placeholder_timestamp,
     validation::required_input,
@@ -35,6 +39,8 @@ impl WorkspaceService {
                     ));
                 }
 
+                validate_create_dependencies(store, &input.workspace_id, &input.depends_on)?;
+                let depends_on_json = dependencies_json(&input.depends_on)?;
                 let task = store.create_agent_queue_task(NewAgentQueueTask {
                     queue_item_id: &queue_item_id,
                     workspace_id: &input.workspace_id,
@@ -43,6 +49,7 @@ impl WorkspaceService {
                     prompt: &input.prompt,
                     status: &input.status,
                     priority: input.priority,
+                    depends_on: Some(&depends_on_json),
                     execution_policy: Some(&input.execution_policy),
                     execution_workspace: input.execution_workspace.as_deref(),
                     codex_executable: input.codex_executable.as_deref(),
@@ -104,6 +111,17 @@ impl WorkspaceService {
 
         let updated_at = placeholder_timestamp();
         let task = self.store.with_immediate_transaction(|store| {
+            validate_dependency_update(
+                store,
+                &input.workspace_id,
+                &input.queue_item_id,
+                input.depends_on.as_deref(),
+            )?;
+            let depends_on_json = input
+                .depends_on
+                .as_ref()
+                .map(|dependency_ids| dependencies_json(dependency_ids))
+                .transpose()?;
             let task = store.update_agent_queue_task(
                 &input.workspace_id,
                 &input.queue_item_id,
@@ -113,6 +131,7 @@ impl WorkspaceService {
                     prompt: &input.prompt,
                     status: &input.status,
                     priority: input.priority,
+                    depends_on: depends_on_json.as_deref(),
                     execution_policy: input.execution_policy.as_deref(),
                     execution_workspace: input.execution_workspace.as_deref(),
                     codex_executable: input.codex_executable.as_deref(),
@@ -266,6 +285,7 @@ struct NormalizedCreateAgentQueueTaskInput {
     prompt: String,
     status: String,
     priority: i64,
+    depends_on: Vec<String>,
     execution_policy: String,
     execution_workspace: Option<String>,
     codex_executable: Option<String>,
@@ -282,6 +302,7 @@ struct NormalizedUpdateAgentQueueTaskInput {
     prompt: String,
     status: String,
     priority: i64,
+    depends_on: Option<Vec<String>>,
     execution_policy: Option<String>,
     execution_workspace: Option<String>,
     codex_executable: Option<String>,
@@ -320,6 +341,7 @@ fn normalize_create_agent_queue_task_input(
         prompt,
         status,
         priority: normalize_priority(input.priority)?,
+        depends_on: normalize_optional_dependency_ids(input.depends_on)?.unwrap_or_default(),
         execution_policy: normalize_execution_policy(input.execution_policy)?,
         execution_workspace: normalize_optional_trimmed(input.execution_workspace),
         codex_executable: normalize_optional_trimmed(input.codex_executable),
@@ -341,6 +363,7 @@ fn normalize_update_agent_queue_task_input(
         prompt,
         status,
         priority: normalize_priority(input.priority)?,
+        depends_on: normalize_optional_dependency_ids(input.depends_on)?,
         execution_policy: normalize_optional_execution_policy(input.execution_policy)?,
         execution_workspace: normalize_optional_trimmed(input.execution_workspace),
         codex_executable: normalize_optional_trimmed(input.codex_executable),

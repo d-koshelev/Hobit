@@ -90,6 +90,7 @@ export async function createAgentQueueTask(
       prompt: request.prompt,
       status: request.status,
       priority: request.priority,
+      depends_on: request.dependsOn ?? [],
       execution_policy: request.executionPolicy ?? null,
       execution_workspace: request.executionWorkspace ?? null,
       codex_executable: request.codexExecutable ?? null,
@@ -143,6 +144,7 @@ export async function updateAgentQueueTask(
         prompt: request.prompt,
         status: request.status,
         priority: request.priority,
+        depends_on: request.dependsOn ?? null,
         execution_policy: request.executionPolicy ?? null,
         execution_workspace: request.executionWorkspace ?? null,
         codex_executable: request.codexExecutable ?? null,
@@ -444,6 +446,7 @@ function normalizeAgentQueueTask(task: TauriAgentQueueTask): AgentQueueTask {
     prompt: task.prompt,
     status: task.status,
     priority: task.priority,
+    dependsOn: normalizeDependsOn(task.depends_on),
     executionPolicy: normalizeExecutionPolicy(task.execution_policy),
     executionWorkspace: task.execution_workspace ?? null,
     codexExecutable: task.codex_executable ?? null,
@@ -454,6 +457,12 @@ function normalizeAgentQueueTask(task: TauriAgentQueueTask): AgentQueueTask {
     createdAt: task.created_at,
     updatedAt: task.updated_at,
   };
+}
+
+function normalizeDependsOn(dependsOn: string[] | null | undefined): string[] {
+  return Array.isArray(dependsOn)
+    ? dependsOn.filter((dependencyId) => typeof dependencyId === "string")
+    : [];
 }
 
 function normalizeAgentQueueTaskContext(

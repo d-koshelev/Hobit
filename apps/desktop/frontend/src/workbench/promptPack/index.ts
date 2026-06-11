@@ -32,7 +32,12 @@ export {
   PROMPT_PACK_FOLDER_OR_ZIP_SOURCE_STATUS,
   promptPackEntriesFromKnowledgeImportFiles,
 } from "./promptPackSourceAdapter";
-export { PromptPackImportPreview } from "./promptPackImportPreviewComponent";
+export {
+  PromptPackImportPreview,
+  PromptPackImportPreviewCard,
+  type PromptPackImportPreviewCardAction,
+  type PromptPackImportPreviewCardActions,
+} from "./promptPackImportPreviewComponent";
 export {
   WorkspaceAgentPromptPackImportCard,
   type WorkspaceAgentPromptPackImportState,
