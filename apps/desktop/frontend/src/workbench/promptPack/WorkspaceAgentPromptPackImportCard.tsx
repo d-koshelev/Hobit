@@ -21,7 +21,9 @@ export type WorkspaceAgentPromptPackImportState = {
   readonly id: string;
   readonly isCancelled?: boolean;
   readonly result?: PromptPackMaterializationResult;
+  readonly sourcePath?: string;
   readonly sourceText: string;
+  readonly sourceUnavailableReason?: string;
 };
 
 export type CreateQueueItemsFromPromptPackPreview = (
@@ -152,14 +154,28 @@ export function WorkspaceAgentPromptPackImportCard({
           value={
             preview
               ? PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER.label
-              : "No pasted source"
+              : importState.sourcePath
+                ? "Unavailable path source"
+                : "No pasted source"
           }
         />
+        {importState.sourcePath ? (
+          <ActionFact label="Requested source" value={importState.sourcePath} />
+        ) : null}
         <ActionFact
           label="Create behavior"
           value="Creates draft Queue items only; no run, Autorun, validation, commit, or push starts."
         />
       </dl>
+
+      {importState.sourcePath && !preview && !result && !importState.isCancelled ? (
+        <p className="workspace-agent-queue-intent-validation" role="status">
+          Preview-source unavailable: {importState.sourcePath} cannot be read
+          by the current typed prompt-pack import path.{" "}
+          {importState.sourceUnavailableReason ??
+            PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER.message}
+        </p>
+      ) : null}
 
       {result || importState.isCancelled ? null : (
         <QueueTextarea

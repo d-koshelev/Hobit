@@ -478,12 +478,20 @@ export function InteractiveAgentPlaceholderWidget({
     const result = await runWorkspaceAgentProductActionConfirmation({
       createQueueItemsFromPromptPackPreview,
       imports: promptPackImport.imports,
-      onPatchPromptPackImport: promptPackImport.patch,
+      onCancelPromptPackImport: promptPackImport.cancel, onPatchPromptPackImport: promptPackImport.patch,
+      onStartPromptPackImportPreview: promptPackImport.startFromOperatorMessage,
       text: trimmedDraft,
     });
 
     if (!result.handled) {
       return false;
+    }
+
+    if (result.transcriptHandled) {
+      setDraft("");
+      setVisibleAttachedContext(null);
+      window.setTimeout(() => textareaRef.current?.focus(), 0);
+      return true;
     }
 
     appendLocalExchange(trimmedDraft, result.body);

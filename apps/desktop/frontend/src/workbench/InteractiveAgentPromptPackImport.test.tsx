@@ -34,6 +34,82 @@ afterEach(() => {
 });
 
 describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
+  it("starts a prompt-pack preview card from the exact path smoke phrase without confirming", async () => {
+    const createItem = vi.fn();
+    const materializePromptPackPreview = vi.fn();
+    const runAutonomousQueue = vi.fn();
+    const stopAutonomousQueueAfterCurrent = vi.fn();
+    const startCodexDirectWork = vi.fn(async (..._args: unknown[]) => ({
+      runId: "run-should-not-start",
+      status: "started",
+      stopListening: vi.fn(),
+    }));
+    const runTerminalCommand = vi.fn();
+
+    renderWidget({
+      createQueueItemsFromPromptPackPreview: materializePromptPackPreview,
+      onRunTerminalCommand: runTerminalCommand,
+      onStartCodexDirectWorkStream: startCodexDirectWork,
+      workspaceAgentQueueBridge: queueBridge({
+        createItem,
+        runAutonomousQueue,
+        stopAutonomousQueueAfterCurrent,
+      }),
+    });
+
+    await setComposerDraft(
+      [
+        "Import this prompt pack into Queue, show preview first, do not create Queue items until I confirm:",
+        "",
+        "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+      ].join("\n"),
+    );
+    await clickButton("Run with Codex");
+
+    expect(document.body.textContent).toContain("Import prompt pack");
+    expect(document.body.textContent).toContain(
+      "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+    );
+    expect(document.body.textContent).toContain("Preview-source unavailable");
+    expect(document.body.textContent).toContain("Create Queue items");
+    expect(document.body.textContent).toContain("Cancel");
+    expect(document.body.textContent).not.toContain(
+      "there is no active prompt-pack import preview to confirm",
+    );
+    expect(materializePromptPackPreview).not.toHaveBeenCalled();
+    expect(createItem).not.toHaveBeenCalled();
+    expect(startCodexDirectWork).not.toHaveBeenCalled();
+    expect(runTerminalCommand).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
+  });
+
+  it("returns unavailable for confirmation without an active preview and does not launch Codex", async () => {
+    const startCodexDirectWork = vi.fn(async (..._args: unknown[]) => ({
+      runId: "run-should-not-start",
+      status: "started",
+      stopListening: vi.fn(),
+    }));
+    const runTerminalCommand = vi.fn();
+
+    renderWidget({
+      onRunTerminalCommand: runTerminalCommand,
+      onStartCodexDirectWorkStream: startCodexDirectWork,
+    });
+
+    await setComposerDraft("confirm import");
+    await clickButton("Run with Codex");
+
+    expect(document.body.textContent).toContain(
+      "there is no active prompt-pack import preview to confirm",
+    );
+    expect(document.body.textContent).toContain(
+      "typed product action unavailable",
+    );
+    expect(startCodexDirectWork).not.toHaveBeenCalled();
+    expect(runTerminalCommand).not.toHaveBeenCalled();
+  });
+
   it("starts prompt-pack import from Workspace Chat and creates draft Queue items only after confirmation", async () => {
     const createItem = vi.fn(
       async (request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
@@ -188,6 +264,41 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
     );
     expect(document.body.textContent).toContain("No Codex run");
     expect(document.body.textContent).toContain("No tasks started");
+  });
+
+  it("cancels an active prompt-pack preview from Workspace Chat without creating Queue items", async () => {
+    const createItem = vi.fn();
+    const materializePromptPackPreview = vi.fn();
+    const startCodexDirectWork = vi.fn(async (..._args: unknown[]) => ({
+      runId: "run-should-not-start",
+      status: "started",
+      stopListening: vi.fn(),
+    }));
+    const runTerminalCommand = vi.fn();
+
+    renderWidget({
+      createQueueItemsFromPromptPackPreview: materializePromptPackPreview,
+      onRunTerminalCommand: runTerminalCommand,
+      onStartCodexDirectWorkStream: startCodexDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ createItem }),
+    });
+
+    await clickButton("Import pack");
+    await setPromptPackSource(singleItemPromptPackSource());
+    await setComposerDraft("cancel prompt-pack import");
+    await clickButton("Run with Codex");
+
+    expect(document.body.textContent).toContain("Cancelled");
+    expect(document.body.textContent).toContain(
+      "Prompt-pack import preview was cancelled",
+    );
+    expect(document.body.textContent).toContain(
+      "Import was cancelled. No Queue items were created.",
+    );
+    expect(materializePromptPackPreview).not.toHaveBeenCalled();
+    expect(createItem).not.toHaveBeenCalled();
+    expect(startCodexDirectWork).not.toHaveBeenCalled();
+    expect(runTerminalCommand).not.toHaveBeenCalled();
   });
 
   it("shows typed product action unavailable when prompt-pack confirmation has no typed bridge", async () => {

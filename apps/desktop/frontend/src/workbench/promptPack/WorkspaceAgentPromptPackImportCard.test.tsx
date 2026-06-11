@@ -43,6 +43,37 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
     expect(bridge.createItem).not.toHaveBeenCalled();
   });
 
+  it("shows a visible unavailable path-source state and keeps create disabled", async () => {
+    const bridge = queueBridge();
+
+    render(
+      <PromptPackImportHarness
+        bridge={bridge}
+        initialState={{
+          id: "import-1",
+          sourcePath:
+            "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+          sourceText: "",
+          sourceUnavailableReason:
+            "No safe prompt-pack folder or zip reader is wired.",
+        }}
+      />,
+    );
+
+    expect(document.body.textContent).toContain("Preview-source unavailable");
+    expect(document.body.textContent).toContain(
+      "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+    );
+    expect(buttonWithText("Create Queue items")?.hasAttribute("disabled")).toBe(
+      true,
+    );
+
+    await clickButtonIfPresent("Create Queue items");
+
+    expect(bridge.createItem).not.toHaveBeenCalled();
+  });
+
+
   it("shows preview before creation and confirms Queue materialization once", async () => {
     const bridge = queueBridge();
 
@@ -204,14 +235,16 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
 function PromptPackImportHarness({
   bridge,
   createQueueItemsFromPromptPackPreview,
+  initialState,
   onOpenQueueItem,
 }: {
   bridge?: WorkspaceAgentQueueBridge;
   createQueueItemsFromPromptPackPreview?: CreateQueueItemsFromPromptPackPreview;
+  initialState?: WorkspaceAgentPromptPackImportState;
   onOpenQueueItem?: (queueItemId: string) => void;
 }) {
   const [importState, setImportState] =
-    useState<WorkspaceAgentPromptPackImportState>({
+    useState<WorkspaceAgentPromptPackImportState>(initialState ?? {
       id: "import-1",
       sourceText: "",
     });

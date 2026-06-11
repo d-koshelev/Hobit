@@ -1,4 +1,5 @@
 import type { DirectWorkStreamEvent } from "../workspace/types";
+import type { WorkspaceAgentPromptPackImportStartOptions } from "./useWorkspaceAgentPromptPackImport";
 import {
   promptPackPreviewFromSourceText,
   type PromptPackMaterializationResult,
@@ -19,12 +20,18 @@ export type WorkspaceAgentProductActionConfirmationInput = {
     importId: string,
     patch: Partial<WorkspaceAgentPromptPackImportState>,
   ) => void;
+  onCancelPromptPackImport?: (importId: string) => void;
+  onStartPromptPackImportPreview?: (
+    operatorBody: string,
+    options: WorkspaceAgentPromptPackImportStartOptions,
+  ) => void;
   text: string;
 };
 
 export type WorkspaceAgentProductActionConfirmationResult = {
   body: string;
   handled: boolean;
+  transcriptHandled?: boolean;
 };
 
 export type ProductActionToolLoopGuardState = {
@@ -40,6 +47,21 @@ export type ProductActionToolLoopGuardResult = {
   shouldStop: boolean;
 };
 
+export type PromptPackImportIntentKind =
+  | "start_prompt_pack_import_preview"
+  | "confirm_prompt_pack_import_preview"
+  | "cancel_prompt_pack_import_preview"
+  | "unknown";
+
+export type PromptPackImportIntent =
+  | {
+      kind: "start_prompt_pack_import_preview";
+      source: WorkspaceAgentPromptPackImportStartOptions;
+    }
+  | { kind: "confirm_prompt_pack_import_preview" }
+  | { kind: "cancel_prompt_pack_import_preview" }
+  | { kind: "unknown" };
+
 export async function runWorkspaceAgentProductActionConfirmation(
   input: WorkspaceAgentProductActionConfirmationInput,
 ): Promise<WorkspaceAgentProductActionConfirmationResult> {
@@ -48,10 +70,32 @@ export async function runWorkspaceAgentProductActionConfirmation(
     latestImport && !latestImport.result && !latestImport.isCancelled
       ? latestImport
       : null;
-  const isPromptPackConfirmation = isPromptPackImportConfirmationText(
-    input.text,
-    Boolean(pendingImport),
-  );
+  const promptPackIntent = classifyPromptPackImportIntent(input.text, {
+    hasPendingImport: Boolean(pendingImport),
+  });
+  if (promptPackIntent.kind === "start_prompt_pack_import_preview") {
+    if (!input.onStartPromptPackImportPreview) {
+      return {
+        body: unavailableProductActionMessage(
+          "prompt-pack import preview creation is not connected in this Workspace Agent surface",
+        ),
+        handled: true,
+      };
+    }
+    input.onStartPromptPackImportPreview(input.text, promptPackIntent.source);
+    return {
+      body: "",
+      handled: true,
+      transcriptHandled: true,
+    };
+  }
+
+  if (promptPackIntent.kind === "cancel_prompt_pack_import_preview") {
+    return cancelPromptPackImport(input, pendingImport);
+  }
+
+  const isPromptPackConfirmation =
+    promptPackIntent.kind === "confirm_prompt_pack_import_preview";
 
   if (!isPromptPackConfirmation && !isRawProductActionBypassText(input.text)) {
     return { body: "", handled: false };
@@ -66,7 +110,7 @@ export async function runWorkspaceAgentProductActionConfirmation(
     };
   }
 
-  if (!latestImport) {
+  if (!pendingImport) {
     return {
       body: unavailableProductActionMessage(
         "there is no active prompt-pack import preview to confirm",
@@ -75,23 +119,7 @@ export async function runWorkspaceAgentProductActionConfirmation(
     };
   }
 
-  if (latestImport.result) {
-    return {
-      body:
-        "Prompt-pack import is already complete. No Codex run, shell command, SQLite write, Queue Autorun, Terminal command, commit, or push was started.",
-      handled: true,
-    };
-  }
-
-  if (latestImport.isCancelled) {
-    return {
-      body:
-        "Prompt-pack import was cancelled. No Codex run, shell command, SQLite write, Queue Autorun, Terminal command, commit, or push was started.",
-      handled: true,
-    };
-  }
-
-  const preview = promptPackPreviewFromSourceText(latestImport.sourceText);
+  const preview = promptPackPreviewFromSourceText(pendingImport.sourceText);
   if (!preview) {
     return {
       body:
@@ -122,7 +150,7 @@ export async function runWorkspaceAgentProductActionConfirmation(
 
   try {
     const result = await input.createQueueItemsFromPromptPackPreview(preview);
-    input.onPatchPromptPackImport(latestImport.id, { result });
+    input.onPatchPromptPackImport(pendingImport.id, { result });
     return {
       body: promptPackTypedActionResultMessage(result),
       handled: true,
@@ -138,6 +166,25 @@ export async function runWorkspaceAgentProductActionConfirmation(
       handled: true,
     };
   }
+}
+
+export function runWorkspaceAgentProductActionCancel(
+  input: WorkspaceAgentProductActionConfirmationInput,
+): WorkspaceAgentProductActionConfirmationResult {
+  const latestImport = latestPromptPackImport(input.imports);
+  const pendingImport =
+    latestImport && !latestImport.result && !latestImport.isCancelled
+      ? latestImport
+      : null;
+  const promptPackIntent = classifyPromptPackImportIntent(input.text, {
+    hasPendingImport: Boolean(pendingImport),
+  });
+
+  if (promptPackIntent.kind !== "cancel_prompt_pack_import_preview") {
+    return { body: "", handled: false };
+  }
+
+  return cancelPromptPackImport(input, pendingImport);
 }
 
 export function createProductActionToolLoopGuardState(
@@ -188,33 +235,184 @@ export function isPromptPackImportConfirmationText(
   text: string,
   hasPendingImport: boolean,
 ) {
+  return (
+    classifyPromptPackImportIntent(text, { hasPendingImport }).kind ===
+    "confirm_prompt_pack_import_preview"
+  );
+}
+
+export function classifyPromptPackImportIntent(
+  text: string,
+  options: { hasPendingImport: boolean },
+): PromptPackImportIntent {
   const normalized = normalize(text);
   if (!normalized) {
-    return false;
+    return { kind: "unknown" };
   }
 
-  const shortGenericConfirmation =
-    normalized.length <= 80 &&
-    /^(?:yes|y|ok|okay|confirm|confirmed|proceed|go ahead|do it|create|create them|create items|import|import it|apply|looks good)$/.test(
-      normalized,
-    );
-  if (hasPendingImport && shortGenericConfirmation) {
-    return true;
+  if (isRawProductActionBypassText(text)) {
+    return { kind: "unknown" };
   }
 
+  if (isOrdinaryCodeImportPrompt(normalized)) {
+    return { kind: "unknown" };
+  }
+
+  const source = extractPromptPackImportStartSource(text);
   const mentionsPromptPack = /\bprompt[- ]?pack\b/.test(normalized);
   const mentionsImport = /\bimport\b/.test(normalized);
+  const mentionsPreview = /\bpreview\b/.test(normalized);
+  const mentionsPromptPackImportSubject =
+    mentionsPromptPack || /\bprompt[- ]?batch\b/.test(normalized);
   const mentionsQueueItems = /\bcreate (?:the )?queue items?\b/.test(
     normalized,
   );
-  const hasConfirmationVerb =
-    /\b(confirm|confirmed|create|import|proceed|go ahead|apply|yes|ok|okay)\b/.test(
+  const previewBeforeCreateCue =
+    /\b(show preview first|preview first|before creating|before create|until i confirm|wait for confirmation|do not create)\b/.test(
       normalized,
     );
+  const shortGenericConfirmation =
+    normalized.length <= 80 &&
+    /^(?:yes|y|ok|okay|confirm|confirmed|proceed|go ahead|do it|create|create them|create items|import it|apply|looks good)$/.test(
+      normalized,
+    );
+  if (options.hasPendingImport && shortGenericConfirmation) {
+    return { kind: "confirm_prompt_pack_import_preview" };
+  }
 
-  return (
+  const hasConfirmationVerb =
+    /\b(confirm|confirmed|create|proceed|go ahead|apply|yes|ok|okay)\b/.test(
+      normalized,
+    );
+  const preciseConfirmation =
+    hasConfirmationVerb &&
+    (mentionsPromptPack || mentionsQueueItems || /\bconfirm (?:the )?import\b/.test(normalized));
+  if (!previewBeforeCreateCue && preciseConfirmation) {
+    return { kind: "confirm_prompt_pack_import_preview" };
+  }
+
+  const startCue =
+    (/\b(start|begin|preview|show preview)\b/.test(normalized) &&
+      (mentionsPromptPackImportSubject || mentionsImport || mentionsPreview)) ||
+    (mentionsImport &&
+      (mentionsPromptPackImportSubject ||
+        mentionsPreview ||
+        Boolean(source.sourcePath) ||
+        Boolean(source.sourceText)));
+  const cancelCue = /\b(cancel|discard|stop)\b/.test(normalized);
+
+  if (
+    cancelCue &&
+    (options.hasPendingImport || mentionsPromptPack || mentionsImport || mentionsPreview)
+  ) {
+    return { kind: "cancel_prompt_pack_import_preview" };
+  }
+
+  if (
+    (startCue || previewBeforeCreateCue) &&
+    (mentionsPromptPackImportSubject || mentionsImport || mentionsPreview)
+  ) {
+    return {
+      kind: "start_prompt_pack_import_preview",
+      source,
+    };
+  }
+
+  if (
     hasConfirmationVerb &&
     (mentionsPromptPack || mentionsQueueItems || mentionsImport)
+  ) {
+    return { kind: "confirm_prompt_pack_import_preview" };
+  }
+
+  return { kind: "unknown" };
+}
+
+export function extractPromptPackImportStartSource(
+  text: string,
+): WorkspaceAgentPromptPackImportStartOptions {
+  const fencedSource = text.match(/```(?:json|markdown|md)?\s*\r?\n([\s\S]*?)```/i)?.[1];
+  if (fencedSource?.trim()) {
+    return { sourceText: fencedSource.trim() };
+  }
+
+  const blocks = text
+    .split(/\r?\n\s*\r?\n/g)
+    .map((block) => block.trim())
+    .filter(Boolean);
+  const trailingBlock = blocks.length > 1 ? blocks[blocks.length - 1] : "";
+  if (trailingBlock && looksLikePromptPackSourceText(trailingBlock)) {
+    return { sourceText: trailingBlock };
+  }
+
+  const sourcePath = extractSourcePath(text);
+  if (sourcePath) {
+    return {
+      sourcePath,
+      sourceUnavailableReason:
+        "No safe prompt-pack folder or zip reader is wired. Paste prompt-batch JSON or a numbered Markdown prompt in the import card.",
+    };
+  }
+
+  return {};
+}
+
+function cancelPromptPackImport(
+  input: WorkspaceAgentProductActionConfirmationInput,
+  pendingImport: WorkspaceAgentPromptPackImportState | null,
+): WorkspaceAgentProductActionConfirmationResult {
+  if (!pendingImport) {
+    return {
+      body: unavailableProductActionMessage(
+        "there is no active prompt-pack import preview to cancel",
+      ),
+      handled: true,
+    };
+  }
+
+  input.onCancelPromptPackImport?.(pendingImport.id);
+  return {
+    body:
+      "Prompt-pack import preview was cancelled. No Queue items were created. No Codex run, shell command, SQLite write, Queue Autorun, Terminal command, commit, or push was started.",
+    handled: true,
+  };
+}
+
+function looksLikePromptPackSourceText(text: string) {
+  const trimmed = text.trim();
+  return (
+    trimmed.startsWith("{") ||
+    trimmed.startsWith("[") ||
+    /^\d+[.)-]\s+\S/.test(trimmed) ||
+    /^#\s+\S/.test(trimmed)
+  );
+}
+
+function extractSourcePath(text: string) {
+  const windowsPath =
+    text.match(/[A-Za-z]:\\[^\r\n]+/)?.[0] ??
+    text.match(/["']([A-Za-z]:\\[^"'\r\n]+)["']/)?.[1];
+  if (windowsPath) {
+    return trimSourcePath(windowsPath);
+  }
+
+  const unixPath =
+    text.match(/(?:^|\s)(\/(?:[^/\s]+\/?)+[^\s.,;:]?)/)?.[1] ??
+    text.match(/["'](\/[^"'\r\n]+)["']/)?.[1];
+  return unixPath ? trimSourcePath(unixPath) : undefined;
+}
+
+function trimSourcePath(path: string) {
+  return path.trim().replace(/[.,;:]+$/, "");
+}
+
+function isOrdinaryCodeImportPrompt(normalized: string) {
+  return (
+    /^import\s+(?:[{*]|type\b)/.test(normalized) ||
+    /\bfrom\s+["'][^"']+["']/.test(normalized) ||
+    /\b(typescript|javascript|python|module|modules|dependency|dependencies|implementation|code|repo|source file)\b/.test(
+      normalized,
+    )
   );
 }
 

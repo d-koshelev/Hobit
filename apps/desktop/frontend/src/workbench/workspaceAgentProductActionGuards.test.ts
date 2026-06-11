@@ -2,14 +2,35 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { DirectWorkStreamEvent } from "../workspace/types";
 import {
+  classifyPromptPackImportIntent,
   createProductActionToolLoopGuardState,
   isPromptPackImportConfirmationText,
   PRODUCT_ACTION_TOOL_LOOP_ATTEMPT_LIMIT,
   recordProductActionToolLoopAttempt,
+  runWorkspaceAgentProductActionCancel,
   runWorkspaceAgentProductActionConfirmation,
 } from "./workspaceAgentProductActionGuards";
 
 describe("workspaceAgentProductActionGuards", () => {
+  it("classifies path-based prompt-pack import as start instead of confirm", () => {
+    const text = [
+      "Import this prompt pack into Queue, show preview first, do not create Queue items until I confirm:",
+      "",
+      "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+    ].join("\n");
+
+    expect(
+      classifyPromptPackImportIntent(text, { hasPendingImport: false }),
+    ).toEqual({
+      kind: "start_prompt_pack_import_preview",
+      source: expect.objectContaining({
+        sourcePath:
+          "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
+      }),
+    });
+    expect(isPromptPackImportConfirmationText(text, false)).toBe(false);
+  });
+
   it("recognizes prompt-pack import confirmation text only in product context", () => {
     expect(isPromptPackImportConfirmationText("confirm import", false)).toBe(
       true,
@@ -19,6 +40,42 @@ describe("workspaceAgentProductActionGuards", () => {
     expect(
       isPromptPackImportConfirmationText("create task read AGENTS.md", true),
     ).toBe(false);
+    expect(
+      classifyPromptPackImportIntent(
+        "Implement TypeScript import routing for source files.",
+        { hasPendingImport: true },
+      ).kind,
+    ).toBe("unknown");
+  });
+
+  it("classifies cancel only as active preview cancellation intent", () => {
+    expect(
+      classifyPromptPackImportIntent("cancel import", { hasPendingImport: true })
+        .kind,
+    ).toBe("cancel_prompt_pack_import_preview");
+    expect(
+      classifyPromptPackImportIntent("discard this preview", {
+        hasPendingImport: true,
+      }).kind,
+    ).toBe("cancel_prompt_pack_import_preview");
+  });
+
+  it("returns unavailable for prompt-pack confirmation without active preview", async () => {
+    const createQueueItemsFromPromptPackPreview = vi.fn();
+
+    const result = await runWorkspaceAgentProductActionConfirmation({
+      createQueueItemsFromPromptPackPreview,
+      imports: {},
+      onPatchPromptPackImport: vi.fn(),
+      text: "confirm import",
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.body).toContain(
+      "there is no active prompt-pack import preview to confirm",
+    );
+    expect(result.body).toContain("No Codex run");
+    expect(createQueueItemsFromPromptPackPreview).not.toHaveBeenCalled();
   });
 
   it("routes prompt-pack confirmation through the typed create action", async () => {
@@ -73,6 +130,33 @@ describe("workspaceAgentProductActionGuards", () => {
     expect(patchImport).toHaveBeenCalledWith("prompt-pack-import-1", {
       result: expect.objectContaining({ ok: true }),
     });
+  });
+
+  it("cancels an active prompt-pack preview without materializing Queue items", () => {
+    const cancelImport = vi.fn();
+    const createQueueItemsFromPromptPackPreview = vi.fn();
+
+    const result = runWorkspaceAgentProductActionCancel({
+      createQueueItemsFromPromptPackPreview,
+      imports: {
+        "prompt-pack-import-1": {
+          id: "prompt-pack-import-1",
+          sourceText: JSON.stringify({
+            id: "pack",
+            items: [{ id: "001", prompt: "Do one thing.", title: "Import one" }],
+            name: "Pack",
+          }),
+        },
+      },
+      onCancelPromptPackImport: cancelImport,
+      onPatchPromptPackImport: vi.fn(),
+      text: "cancel prompt-pack import",
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.body).toContain("was cancelled");
+    expect(cancelImport).toHaveBeenCalledWith("prompt-pack-import-1");
+    expect(createQueueItemsFromPromptPackPreview).not.toHaveBeenCalled();
   });
 
   it("returns unavailable without a typed prompt-pack create action", async () => {
