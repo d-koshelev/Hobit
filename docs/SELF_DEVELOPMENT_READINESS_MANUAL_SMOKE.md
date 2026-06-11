@@ -18,6 +18,10 @@ Latest status note:
   smoke where preview passed but the actionable create/cancel controls were
   missing, confirmation routed through Codex text, raw SQLite/shell
   investigation was needed, and no tasks were created.
+- `docs/PROMPT_PACK_IMPORT_INTENT_ROUTING_FIX_STATUS.md` records a second
+  failed smoke where the initial import prompt returned `typed product action
+  unavailable: no active preview`; no Codex/shell/SQLite/tool-loop occurred;
+  and the root cause was import-start intent being treated as confirm.
 - Reruns must start from the valid import preview and verify the fixed
   product-action path before continuing into QueueV2, validation, Diff Review,
   or coordinator finalization checks.
@@ -83,7 +87,29 @@ desktop UI path end to end.
    - Expected: no prompt-pack import starts before the operator supplies source
      text and uses the visible import action.
 
-4. Import the self-development smoke prompt pack fixture, or an equivalent
+4. Rerun the intent-routing import start.
+   - Restart Hobit before this rerun when validating the intent-routing fix.
+   - Paste this exact import prompt:
+
+     ```text
+     Import this prompt pack into Queue, show preview first, do not create Queue items until I confirm:
+
+     C:\Users\Dmitry\Documents\prj\hobit-realistic-dogfooding-smoke-pack
+     ```
+
+   - Expected visible state: an actionable prompt-pack import preview card
+     starts or opens.
+   - Expected visible state: if folder/path reading is unsupported, the card
+     states that explicitly and keeps the typed import surface available for
+     pasted source.
+   - Expected: this initial prompt is not treated as confirmation and does not
+     return `typed product action unavailable: no active preview`.
+   - Expected: no Codex run, shell command, raw SQLite/tool-loop, Queue run,
+     Queue Autorun, Terminal command, validation run, coordinator
+     finalization, commit, push, rollback, provider tool call, hidden context
+     read, or hidden mutation occurs.
+
+5. Import the self-development smoke prompt pack fixture, or an equivalent
    local prompt pack.
    - Use the primary fixture manifest content from `prompt-batch.json` when
      possible.
@@ -93,7 +119,7 @@ desktop UI path end to end.
      before creation and offers `Create Queue items` only after preview is
      valid.
 
-5. Preview import before creating Queue items.
+6. Preview import before creating Queue items.
    - Expected visible state: `Prompt-pack import preview` appears.
    - Expected visible state: preview shows pack name/id, `Items`, `Selected`,
      `Dependencies`, `Unresolved deps`, `Validation commands`, and `Model
@@ -107,10 +133,14 @@ desktop UI path end to end.
      card shows explicit `Create Queue items` and `Cancel` controls.
    - Expected: confirming creation does not require typing natural-language
      text to Workspace Agent or Codex.
+   - Expected: true confirmation text without an active preview fail-fasts
+     visibly instead of creating tasks or routing through Codex/shell/SQLite.
+   - Expected: `Cancel` clears/cancels the active preview without creating
+     Queue items.
    - Expected: preview does not create Queue items, assign workers, run tasks,
      finalize results, commit, push, roll back, or launch Terminal.
 
-6. Confirm creation of Queue items.
+7. Confirm creation of Queue items.
    - Click `Create Queue items`.
    - Expected visible state: Workspace Chat shows `Prompt-pack import result`
      / `Created Queue items`.
@@ -126,14 +156,14 @@ desktop UI path end to end.
      finalization, commit, push, rollback, Terminal command, provider call, or
      Autorun start occurs during creation.
 
-7. Open QueueV2.
+8. Open QueueV2.
    - Use `Open Queue`, `Open created task`, or the Agent Queue widget surface.
    - Expected visible state: QueueV2 is the normal Agent Queue surface.
    - Expected visible state: QueueV2 card markers are visible for lifecycle,
      validation, Diff Review, coordinator state, next action, and prompt-pack
      metadata where available.
 
-8. Verify task 001 and task 002.
+9. Verify task 001 and task 002.
    - Expected visible state: task 001 is present with prompt-pack metadata and
      validation-required marker where available.
    - Expected visible state: task 002 is present and shows dependency blocked,
@@ -144,7 +174,7 @@ desktop UI path end to end.
    - Expected: task 002 is not ready solely because task 001 exists.
    - Expected: no task is running unless the operator explicitly started it.
 
-9. Open task 001 details.
+10. Open task 001 details.
    - Expected visible state: `QueueV2 task details` popup opens.
    - Expected visible sections/tabs: `Overview`, `Prompt`, `Result`,
      `Agent Log`, `Coordinator`, `Context`, `Files / Validation`, and
@@ -152,7 +182,7 @@ desktop UI path end to end.
    - Expected visible state: the details popup shows primary action and
      explicit actions; opening details does not run or finalize anything.
 
-10. Verify validation section before running validation.
+11. Verify validation section before running validation.
     - Open `Files / Validation`.
     - Expected visible state: `Validation evidence` shows `Not requested`,
       `Unavailable`, or existing capped evidence if this Workspace already had
@@ -163,7 +193,7 @@ desktop UI path end to end.
       validation runner, Queue action bridge, and execution workspace are
       available. If disabled, the reason is visible.
 
-11. Request validation evidence.
+12. Request validation evidence.
     - Click `Request validation` only when the operator chooses to verify the
       local validation runner path.
     - Expected visible state when available: request state changes through
@@ -178,7 +208,7 @@ desktop UI path end to end.
       create commits, push, roll back, launch Terminal, call providers, start
       Agent Executor, or arm/start Autorun.
 
-12. Run or complete task 001 only if the operator explicitly chooses.
+13. Run or complete task 001 only if the operator explicitly chooses.
     - Optional: use the existing explicit Queue/Executor task action for task
       001 if this smoke run is intended to verify a real report-ready path.
     - Expected: any run uses existing visible Queue/Executor controls and is
@@ -189,7 +219,7 @@ desktop UI path end to end.
     - If the operator skips execution, continue with available report/mock
       evidence or record that Diff Review/finalization evidence is limited.
 
-13. Create a Diff Review item for task 001.
+14. Create a Diff Review item for task 001.
     - Use Workspace Chat report/action cards or QueueV2 selected-task details
       action when the source task has sufficient report/review state.
     - Expected visible state: Workspace Chat may show `Create Diff Review
@@ -201,7 +231,7 @@ desktop UI path end to end.
       run validation, finalize source work, unblock task 002, commit, push,
       roll back, launch Terminal, or call providers.
 
-14. Verify the Diff Review task is read-only.
+15. Verify the Diff Review task is read-only.
     - Open the Diff Review task details.
     - Expected visible state: the QueueV2 card/title identifies it as Diff
       Review or shows source-task linkage.
@@ -214,7 +244,7 @@ desktop UI path end to end.
     - Expected: no code edit, Git mutation, rollback, run, or finalization is
       performed by opening or creating the Diff Review item.
 
-15. Verify coordinator finalization details before acceptance.
+16. Verify coordinator finalization details before acceptance.
     - Reopen task 001 details and select `Coordinator`.
     - Expected visible state: `Coordinator` section states explicit
       finalization only.
@@ -227,7 +257,7 @@ desktop UI path end to end.
     - Expected: validation and Diff Review are shown as evidence, not automatic
       acceptance.
 
-16. Coordinator accept without commit.
+17. Coordinator accept without commit.
     - Use only for a no-change/status-only smoke outcome.
     - Click `Accept without commit` and provide/confirm an explicit reason if
       the current UI asks for it.
@@ -236,7 +266,7 @@ desktop UI path end to end.
     - Expected: no commit is created, no push occurs, no rollback executes, and
       no task starts as part of acceptance.
 
-17. Coordinator accept with commit hash.
+18. Coordinator accept with commit hash.
     - Use only when a real existing commit hash/title is intentionally supplied
       by the operator. The UI must not create the commit.
     - Click `Accept with commit hash` only when a valid existing commit hash
@@ -250,7 +280,7 @@ desktop UI path end to end.
       checkout, rollback, Terminal launch, provider call, or hidden Git lookup
       occurs.
 
-18. Verify task 002 readiness gate.
+19. Verify task 002 readiness gate.
     - Before coordinator finalization: task 002 remains blocked/not ready when
       task 001 is only created, completed, validated, or Diff Reviewed.
     - After coordinator finalization: task 002 readiness changes only because
@@ -262,7 +292,7 @@ desktop UI path end to end.
       impact or lack of blocker.
     - Expected: task 002 does not auto-run after becoming ready.
 
-19. Verify no hidden automation occurred.
+20. Verify no hidden automation occurred.
     - Expected: no Queue task auto-ran.
     - Expected: Queue Autorun was not armed or started by import, validation,
       Diff Review creation, or finalization.
@@ -317,6 +347,14 @@ desktop UI path end to end.
     the failure against
     `docs/PROMPT_PACK_IMPORT_PRODUCT_ACTION_FIX_STATUS.md`.
 
+- Import-start routed as confirmation:
+  - Expected: the smoke fails if the exact import prompt returns `typed
+    product action unavailable: no active preview`.
+  - Action: record the failure against
+    `docs/PROMPT_PACK_IMPORT_INTENT_ROUTING_FIX_STATUS.md`. Do not retry by
+    asking Codex to create tasks, using shell commands, inspecting raw SQLite,
+    or manually editing storage.
+
 - Prompt-pack source unavailable:
   - Expected: the UI shows folder/zip unavailable or source unavailable rather
     than pretending import succeeded.
@@ -352,7 +390,12 @@ The manual smoke passes only when all applicable UI states are visible and all
 safety boundaries hold:
 
 - Import preview happens before Queue creation.
+- The exact import-start prompt starts or opens the prompt-pack import preview
+  flow and is not treated as confirmation.
 - A valid preview has explicit `Create Queue items` and `Cancel` controls.
+- Confirm requires an active preview; confirm without preview fail-fasts
+  visibly.
+- Cancel clears/cancels the active preview without creating Queue items.
 - Queue items are created only after explicit confirmation.
 - Queue creation uses typed app services/actions, not Codex text execution,
   shell commands, raw SQLite, or storage reverse-engineering.
@@ -372,11 +415,13 @@ safety boundaries hold:
 
 ## Fail Criteria
 
-The manual smoke fails immediately if preview confirmation routes through
-Workspace Agent/Codex natural-language text, if the operator must inspect or
-mutate raw SQLite/shell state to create or verify imported tasks, if no tasks
-are created after `Create Queue items`, if created task ids are absent from the
-result card, or if QueueV2 does not show task 002 blocked by task 001.
+The manual smoke fails immediately if the exact import-start prompt returns
+`typed product action unavailable: no active preview`, if preview confirmation
+routes through Workspace Agent/Codex natural-language text, if the operator
+must inspect or mutate raw SQLite/shell state to create or verify imported
+tasks, if no tasks are created after `Create Queue items`, if created task ids
+are absent from the result card, or if QueueV2 does not show task 002 blocked
+by task 001.
 
 Do not mark automated coverage as passing from this checklist. This checklist
 records manual UI evidence only.

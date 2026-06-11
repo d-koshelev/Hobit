@@ -2,8 +2,9 @@
 
 ## Status
 
-Status: docs-only status record for the failed self-development manual smoke
-and the product-action wiring fix expectation.
+Status: docs-only status record for the failed self-development manual smoke,
+the product-action wiring fix expectation, and the follow-up intent-routing
+failure.
 
 This document records observed smoke facts, expected fixed behavior, and the
 exact rerun procedure. It does not add frontend behavior, backend/runtime
@@ -15,8 +16,8 @@ dependency execution. Current implemented widget behavior remains governed by
 
 ## Failed Manual Smoke Facts
 
-The failed smoke reached the prompt-pack import preview but did not complete
-the product action path.
+The first failed smoke reached the prompt-pack import preview but did not
+complete the product action path.
 
 - Preview passed: the prompt-pack import preview rendered and recognized the
   selected self-development fixture items.
@@ -34,15 +35,43 @@ the product action path.
 - No commit was created.
 - No push occurred.
 
+## Follow-Up Intent-Routing Failure
+
+The second failed smoke did not reach preview. The operator pasted this initial
+import-start prompt:
+
+```text
+Import this prompt pack into Queue, show preview first, do not create Queue items until I confirm:
+
+C:\Users\Dmitry\Documents\prj\hobit-realistic-dogfooding-smoke-pack
+```
+
+Workspace Agent returned `typed product action unavailable: no active
+preview`.
+
+- No Codex run occurred.
+- No shell command occurred.
+- No raw SQLite/tool-loop occurred.
+- No Queue item was created or run.
+- Root cause: import-start intent was treated as confirm, and confirm
+  correctly requires an active preview.
+- The expected fixed behavior and exact rerun instructions are recorded in
+  `docs/PROMPT_PACK_IMPORT_INTENT_ROUTING_FIX_STATUS.md`.
+
 ## Product-Action Fix Expected Behavior
 
 After the fix, prompt-pack import confirmation must stay inside the app-native
 product action path.
 
+- Import-start text with a path starts the preview flow instead of routing as
+  confirmation.
 - The import preview renders as an actionable preview card, not only as text
   for conversational confirmation.
 - The card includes an explicit `Create Queue items` action and a `Cancel`
   action when preview is valid and creation is available.
+- Confirm requires an active preview.
+- Cancel clears/cancels the active preview without creating Queue items.
+- True confirm without preview fail-fasts visibly.
 - Clicking `Create Queue items` calls the typed Workspace/Queue bridge for
   Queue item creation.
 - The dependency from `002-dependent-follow-up` to `001-safe-docs-noop` is
