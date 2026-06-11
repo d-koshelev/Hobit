@@ -559,6 +559,16 @@ unless the task explicitly requests it.
   backend/runtime behavior, storage/schema changes, Queue scheduling, Agent
   Executor execution, Git mutation, Terminal launch, provider tools,
   automatic finalization, commit, push, rollback, or dependency unblocking.
+- `docs/COORDINATOR_FINALIZATION_COMMIT_HASH_STATUS.md` - docs-only status
+  record for Coordinator Finalization + Commit Hash Workflow Block 001. It
+  records the audit, explicit coordinator decision and commit hash/title model,
+  Queue finalization service and dependency gates, Workspace Chat controls,
+  QueueV2 display/actions, manual smoke checklist, and remaining Git lookup,
+  rollback workflow, self-development readiness smoke, dependency graph
+  visualization, and durability gaps. It does not add frontend behavior,
+  backend/runtime behavior, storage/schema changes, Queue scheduling, Agent
+  Executor execution, Git mutation, Terminal launch, provider tools,
+  automatic finalization, commit, push, rollback, or dependency execution.
 - `docs/WORKSPACE_AGENT_UI_POLISH_STATUS.md` - docs-only status record for
   movable popup, Agent Activity alignment, and compact Workspace Agent run
   summary polish. It records manual smoke steps, non-goals, and follow-ups
