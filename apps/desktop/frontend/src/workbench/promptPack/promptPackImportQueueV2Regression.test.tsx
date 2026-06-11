@@ -1,20 +1,34 @@
-import { act, type ReactNode } from "react";
+import { act, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentQueueTask } from "../../workspace/types";
+import type { AgentQueueController } from "../queue/details/agentQueueTaskDetailsTypes";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
 } from "../queue/agentQueueWidgetApiTypes";
 import { selectQueueV2ViewModel } from "../queue/queueV2ViewModel";
+import {
+  createValidationRunner,
+  type ValidationCommandExecutor,
+  type ValidationExecutorResult,
+} from "../validation";
 import type { WorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
+import { WorkspaceAgentQueueTaskStatusCard } from "../WorkspaceAgentQueueTaskStatusCard";
 import { QueueV2Widget } from "../widgetV2/queueV2/QueueV2Widget";
 import { buildPromptPackImportPreview } from "./promptPackImportPreview";
 import { materializePromptPackPreviewToQueue } from "./promptPackMaterialization";
-import type { PromptPackMaterializationResult } from "./promptPackModel";
+import type {
+  PromptPackFileEntry,
+  PromptPackMaterializationResult,
+} from "./promptPackModel";
 import { parsePromptPackImportPlan } from "./promptPackParser";
-import { selfDevelopmentSmokePromptPackEntries } from "./selfDevelopmentSmokePromptPackFixture.test-fixtures";
+import {
+  realisticDogfoodingSmokePromptPackEntries,
+  realisticDogfoodingSmokePromptPackFixturePath,
+  selfDevelopmentSmokePromptPackEntries,
+} from "./selfDevelopmentSmokePromptPackFixture.test-fixtures";
 import { WorkspaceAgentPromptPackImportCard } from "./WorkspaceAgentPromptPackImportCard";
 
 let root: Root | null = null;
@@ -34,6 +48,166 @@ afterEach(() => {
 });
 
 describe("prompt-pack import result and QueueV2 regression", () => {
+  it("pins realistic folder import through QueueV2 ready/run and Workspace Agent validation availability", async () => {
+    const harness = createQueueHarness();
+    const onReadPromptPackSource = vi.fn(async ({ path }: { path: string }) => {
+      expect(path).toBe(realisticDogfoodingSmokePromptPackFixturePath);
+      return realisticDogfoodingSmokePromptPackEntries;
+    });
+    const codexRun = vi.fn();
+    const shellCommand = vi.fn();
+    const sqliteDirectAction = vi.fn();
+    const autoRun = vi.fn();
+    const autoFinalize = vi.fn();
+    const commitOrPush = vi.fn();
+    const validationExecutor = createMockValidationExecutor();
+
+    await render(
+      <PromptPackFolderImportHarness
+        bridge={harness.bridge}
+        onReadPromptPackSource={onReadPromptPackSource}
+      />,
+    );
+
+    expect(buttonWithText("Create Queue items")?.disabled).toBe(true);
+
+    await clickButton("Read source preview");
+
+    const previewText = elementByAriaLabel("Prompt-pack import preview card")
+      ?.textContent;
+    expect(previewText).toContain("Hobit Realistic Dogfooding Smoke");
+    expect(previewText).toContain("Items2");
+    expect(previewText).toContain("Selected2");
+    expect(previewText).toContain("001-add-dogfooding-smoke-result-doc");
+    expect(previewText).toContain("002-record-dependent-gate-result");
+    expect(previewText).toContain(
+      "002-record-dependent-gate-result: Depends on 001-add-dogfooding-smoke-result-doc",
+    );
+    expect(previewText).toContain("No blocking errors.");
+    expect(previewText).not.toContain("has no prompt body");
+    expect(buttonWithText("Create Queue items")?.disabled).toBe(false);
+    expect(harness.bridge.createItem).not.toHaveBeenCalled();
+
+    await clickButton("Create Queue items");
+
+    expect(harness.bridge.createItem).toHaveBeenCalledTimes(2);
+    expect(harness.bridge.updateItem).toHaveBeenCalledWith({
+      itemId: "queue-002-record-dependent-gate-result",
+      patch: { dependencies: ["queue-001-add-dogfooding-smoke-result-doc"] },
+      reason:
+        "Materialize prompt-pack dependency links after creating all selected Queue items.",
+    });
+    expect(document.body.textContent).toContain("Created Queue items");
+    expect(document.body.textContent).toContain(
+      "001-add-dogfooding-smoke-result-doc",
+    );
+    expect(document.body.textContent).toContain(
+      "002-record-dependent-gate-result",
+    );
+    expect(document.body.textContent).toContain("No tasks started");
+
+    const importedTasks = harness.tasks();
+    expect(importedTasks.map((task) => task.queueItemId).sort()).toEqual([
+      "queue-001-add-dogfooding-smoke-result-doc",
+      "queue-002-record-dependent-gate-result",
+    ]);
+    expect(
+      importedTasks.find(
+        (task) => task.queueItemId === "queue-002-record-dependent-gate-result",
+      )?.dependsOn,
+    ).toEqual(["queue-001-add-dogfooding-smoke-result-doc"]);
+
+    const importedViewModel = selectQueueV2ViewModel({
+      selectedTaskId: "queue-002-record-dependent-gate-result",
+      tasks: importedTasks,
+      workers: [worker()],
+    });
+    const dependent = importedViewModel.tasks.find(
+      (task) => task.taskId === "queue-002-record-dependent-gate-result",
+    );
+    expect(dependent?.boardLane).toBe("blocked");
+    expect(dependent?.blockedReasons.map((reason) => reason.code)).toContain(
+      "dependency_open",
+    );
+
+    cleanupRender();
+
+    const promoteTask = vi.fn();
+    const runTask = vi.fn();
+    await render(
+      <QueueV2ReadyRunHarness
+        initialTasks={importedTasks}
+        onPromoteTask={promoteTask}
+        onRunTask={runTask}
+      />,
+    );
+
+    await openDetailsForTask("queue-002-record-dependent-gate-result");
+    expect(
+      document.querySelector("#queue-v2-task-details-queue-002-record-dependent-gate-result")
+        ?.textContent,
+    ).toContain("Waiting on");
+    expect(runTask).not.toHaveBeenCalled();
+
+    await clickButton("Close");
+    await openDetailsForTask("queue-001-add-dogfooding-smoke-result-doc");
+    expect(buttonWithText("Queue for run")?.disabled).toBe(false);
+    expect(runTask).not.toHaveBeenCalled();
+
+    await clickButton("Queue for run");
+
+    expect(promoteTask).toHaveBeenCalledTimes(1);
+    expect(buttonWithText("Run task")?.disabled).toBe(false);
+    expect(runTask).not.toHaveBeenCalled();
+
+    cleanupRender();
+
+    const readyFirstTask = {
+      ...importedTasks.find(
+        (task) => task.queueItemId === "queue-001-add-dogfooding-smoke-result-doc",
+      )!,
+      status: "ready" as const,
+    };
+    const readyTasks = [
+      readyFirstTask,
+      importedTasks.find(
+        (task) => task.queueItemId === "queue-002-record-dependent-gate-result",
+      )!,
+    ];
+    await render(
+      <WorkspaceAgentQueueTaskStatusCard
+        queue={queueController({
+          onRun: runTask,
+          selectedTask: readyFirstTask,
+          tasks: readyTasks,
+        })}
+        task={readyFirstTask}
+        validationRunner={createValidationRunner({ executor: validationExecutor })}
+        workspaceAgentQueueBridge={harness.bridge}
+      />,
+    );
+
+    expect(buttonWithText("Request validation")?.disabled).toBe(false);
+
+    await clickButton("Request validation");
+
+    expect(document.body.textContent).toContain("Queue validation");
+    expect(document.body.textContent).toContain(
+      "npm.cmd run typecheck --prefix apps/desktop/frontend",
+    );
+    expect(document.body.textContent).toContain("Run validation");
+    expect(validationExecutor.execute).not.toHaveBeenCalled();
+
+    expect(codexRun).not.toHaveBeenCalled();
+    expect(shellCommand).not.toHaveBeenCalled();
+    expect(sqliteDirectAction).not.toHaveBeenCalled();
+    expect(autoRun).not.toHaveBeenCalled();
+    expect(autoFinalize).not.toHaveBeenCalled();
+    expect(commitOrPush).not.toHaveBeenCalled();
+    expect(runTask).not.toHaveBeenCalled();
+    expect(harness.startQueueItem).not.toHaveBeenCalled();
+  });
+
   it("shows the self-development smoke import result and keeps open callbacks explicit", async () => {
     const { result } = await materializeSelfDevelopmentSmokeFixture();
     const onOpenQueueItem = vi.fn();
@@ -310,6 +484,7 @@ function worker() {
 }
 
 async function render(element: ReactNode) {
+  cleanupRender();
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -317,6 +492,18 @@ async function render(element: ReactNode) {
   await act(async () => {
     root?.render(element);
   });
+}
+
+function cleanupRender() {
+  if (root && container) {
+    act(() => {
+      root?.unmount();
+    });
+    container.remove();
+  }
+  root = null;
+  container = null;
+  document.body.innerHTML = "";
 }
 
 async function clickButton(text: string) {
@@ -360,4 +547,158 @@ function elementByAriaLabel(name: string) {
   return Array.from(document.querySelectorAll<HTMLElement>("[aria-label]")).find(
     (element) => element.getAttribute("aria-label") === name,
   );
+}
+
+function PromptPackFolderImportHarness({
+  bridge,
+  onReadPromptPackSource,
+}: {
+  bridge: WorkspaceAgentQueueBridge;
+  onReadPromptPackSource: (request: {
+    path: string;
+  }) => Promise<readonly PromptPackFileEntry[]>;
+}) {
+  const [importState, setImportState] = useState({
+    id: "realistic-import",
+    sourcePath: realisticDogfoodingSmokePromptPackFixturePath,
+    sourceText: "",
+  });
+
+  return (
+    <WorkspaceAgentPromptPackImportCard
+      createQueueItemsFromPromptPackPreview={(preview) =>
+        materializePromptPackPreviewToQueue({
+          bridge,
+          confirmed: true,
+          preview,
+        })
+      }
+      importState={importState}
+      onCancel={vi.fn()}
+      onPatch={(_importId, patch) =>
+        setImportState((current) => ({ ...current, ...patch }))
+      }
+      onReadPromptPackSource={onReadPromptPackSource}
+    />
+  );
+}
+
+function QueueV2ReadyRunHarness({
+  initialTasks,
+  onPromoteTask,
+  onRunTask,
+}: {
+  initialTasks: AgentQueueTask[];
+  onPromoteTask: () => void;
+  onRunTask: () => void;
+}) {
+  const [tasks, setTasks] = useState(initialTasks);
+  const selectedTask =
+    tasks.find(
+      (task) => task.queueItemId === "queue-001-add-dogfooding-smoke-result-doc",
+    ) ?? tasks[0]!;
+  const queue = queueController({
+    onPromote: () => {
+      onPromoteTask();
+      setTasks((currentTasks) =>
+        currentTasks.map((task) =>
+          task.queueItemId === selectedTask.queueItemId
+            ? { ...task, status: "ready" }
+            : task,
+        ),
+      );
+    },
+    onRun: onRunTask,
+    selectedTask,
+    tasks,
+  });
+
+  return <QueueV2Widget queue={queue} tasks={tasks} workers={[worker()]} />;
+}
+
+function queueController({
+  onPromote = vi.fn(),
+  onRun = vi.fn(),
+  selectedTask,
+  tasks,
+}: {
+  onPromote?: () => void;
+  onRun?: () => void;
+  selectedTask: AgentQueueTask;
+  tasks: AgentQueueTask[];
+}): AgentQueueController {
+  return {
+    apiAvailable: true,
+    autorun: {
+      snapshot: null,
+    },
+    coordinatorFinalization: {
+      canAct: false,
+      message: "Coordinator decision actions are unavailable.",
+      onAcceptWithoutCommit: vi.fn(),
+      onCommitResult: vi.fn(),
+      onCreateFollowUp: vi.fn(),
+      onFinalize: vi.fn(),
+      onMarkBlocked: vi.fn(),
+      onMarkFailedRejected: vi.fn(),
+      onMarkFollowUpRequired: vi.fn(),
+      onMarkNeedsChanges: vi.fn(),
+      onMarkReadyForFinalization: vi.fn(),
+      onMarkRollbackRequired: vi.fn(),
+      status: selectedTask.coordinatorStatus ?? "not_reported",
+    },
+    diffReview: {
+      canCreate: false,
+      linkedReviewTasks: [],
+      message: "Diff review is unavailable.",
+      onCreate: vi.fn(),
+    },
+    draftPromotion: {
+      canPromote: selectedTask.status === "draft",
+      isPromoting: false,
+      onPromote,
+    },
+    foundation: {
+      globalExecutionState: "started",
+      onStopAndKillRunning: vi.fn(),
+      pausedQueueTagIds: new Set(),
+      workers: [worker()],
+    },
+    isCreating: false,
+    isLoading: false,
+    refreshTasks: vi.fn(),
+    run: {
+      canStart: selectedTask.status === "ready",
+      isStarting: false,
+      onStartAssignedTask: onRun,
+      preconditionMessages: [],
+      readinessMessage:
+        selectedTask.status === "ready" ? null : "Task is not ready to run.",
+    },
+    selectedTask,
+    tasks,
+    workerReport: {
+      canAttach: false,
+      latestReport: null,
+      message: null,
+      onAttachDemoReport: vi.fn(),
+    },
+  } as unknown as AgentQueueController;
+}
+
+function createMockValidationExecutor(): ValidationCommandExecutor {
+  return {
+    capabilities: {
+      available: true,
+      supportsCancellation: false,
+      supportsTimeout: true,
+    },
+    execute: vi.fn(async (): Promise<ValidationExecutorResult> => ({
+      durationMs: 12,
+      exitCode: 0,
+      status: "completed",
+      stderr: "",
+      stdout: "validation ok",
+    })),
+  };
 }

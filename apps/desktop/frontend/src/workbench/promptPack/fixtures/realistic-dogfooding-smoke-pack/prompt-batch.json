@@ -1,0 +1,76 @@
+{
+  "pack_id": "hobit-realistic-dogfooding-smoke",
+  "name": "Hobit Realistic Dogfooding Smoke",
+  "pack_name": "Hobit Realistic Dogfooding Smoke",
+  "dependency_policy": "explicit",
+  "items": [
+    {
+      "id": "001-add-dogfooding-smoke-result-doc",
+      "title": "docs: add dogfooding smoke result doc",
+      "path": "001-add-dogfooding-smoke-result-doc.md",
+      "priority": "normal",
+      "dependencies": [],
+      "model_profile": "standard",
+      "reasoning_effort": "high",
+      "validator_profile": "standard",
+      "execution_workspace": ".",
+      "validation_commands": [
+        "npm.cmd run typecheck --prefix apps/desktop/frontend",
+        "git diff --check"
+      ],
+      "expected_commit_title": "docs: add dogfooding smoke result doc",
+      "allowed_scope": [
+        "docs/SELF_DEVELOPMENT_READINESS_SMOKE_AUDIT.md",
+        "apps/desktop/frontend/src/workbench/promptPack/fixtures/realistic-dogfooding-smoke-pack/**"
+      ],
+      "forbidden_scope": [
+        "apps/desktop/frontend/src/workbench/**/*.tsx",
+        "crates/**",
+        "scripts/**",
+        "Cargo.toml",
+        "package.json",
+        "package-lock.json"
+      ],
+      "tags": [
+        "self-development",
+        "smoke",
+        "docs-only"
+      ]
+    },
+    {
+      "id": "002-record-dependent-gate-result",
+      "title": "docs: record dependent gate result",
+      "path": "002-record-dependent-gate-result.md",
+      "priority": "normal",
+      "dependencies": [
+        "001-add-dogfooding-smoke-result-doc"
+      ],
+      "model_profile": "standard",
+      "reasoning_effort": "high",
+      "validator_profile": "standard",
+      "execution_workspace": ".",
+      "validation_commands": [
+        "npm.cmd run typecheck --prefix apps/desktop/frontend",
+        "git diff --check"
+      ],
+      "expected_commit_title": "docs: record dependent gate result",
+      "allowed_scope": [
+        "docs/SELF_DEVELOPMENT_READINESS_SMOKE_AUDIT.md",
+        "apps/desktop/frontend/src/workbench/promptPack/fixtures/realistic-dogfooding-smoke-pack/**"
+      ],
+      "forbidden_scope": [
+        "apps/desktop/frontend/src/workbench/**/*.tsx",
+        "crates/**",
+        "scripts/**",
+        "Cargo.toml",
+        "package.json",
+        "package-lock.json"
+      ],
+      "tags": [
+        "self-development",
+        "smoke",
+        "dependency"
+      ]
+    }
+  ]
+}
