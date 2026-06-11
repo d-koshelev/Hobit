@@ -131,9 +131,8 @@ export function WorkspaceAgentQueueTaskStatusCard({
     queue,
     task: displayedTask,
     validationDisabledReason: workspaceChatValidationAvailability({
-      manualCommandInputSupported: manualValidationCommandInputSupported,
       queueBridgeAvailable: Boolean(workspaceAgentQueueBridge),
-      runnerAvailable: Boolean(validationRunner),
+      runner: validationRunner,
       task: displayedTask,
     }).disabledReason,
     diffReviewDisabledReason,

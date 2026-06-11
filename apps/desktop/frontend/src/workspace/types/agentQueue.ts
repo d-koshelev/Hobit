@@ -549,3 +549,85 @@ export type AgentQueueTask = {
   createdAt: string;
   updatedAt: string;
 };
+
+export type QueueValidationCommandSpecRequest = {
+  commandId: string;
+  title: string;
+  program: string;
+  args: string[];
+  cwd: string;
+  timeoutMs?: number | null;
+  stdoutCapBytes?: number | null;
+  stderrCapBytes?: number | null;
+  allowedExitCodes: number[];
+  safetyCategory: string;
+  source: string;
+};
+
+export type RunQueueValidationSuiteRequest = {
+  workspaceId: string;
+  queueItemId: string;
+  requestedBySurface: string;
+  cwd: string;
+  stopOnFirstFailure?: boolean;
+  commands: QueueValidationCommandSpecRequest[];
+};
+
+export type QueueValidationCommandRun = {
+  commandId: string;
+  title: string;
+  status: string;
+  exitCode: number | null;
+  allowedExitCodes: number[];
+  cwd: string;
+  stdoutPreview: string;
+  stderrPreview: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+  durationMs: number;
+  errorMessage: string | null;
+  commandSummary: string[];
+  warnings: string[];
+  errors: string[];
+};
+
+export type QueueValidationCommandEvidence = {
+  evidenceId: string;
+  validationRunId: string;
+  workspaceId: string;
+  queueItemId: string;
+  commandId: string;
+  commandLabel: string;
+  program: string;
+  args: string[];
+  cwd: string;
+  status: string;
+  exitCode: number | null;
+  stdoutPreview: string;
+  stderrPreview: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+  durationMs: number;
+  errorMessage: string | null;
+  commandSummary: string[];
+  source: string;
+  noGitMutations: boolean;
+  noCommitPush: boolean;
+  aiContextStatus: string;
+};
+
+export type QueueValidationSuiteRun = {
+  validationRunId: string;
+  workspaceId: string;
+  queueItemId: string;
+  requestedBySurface: string;
+  status: string;
+  taskValidationStatus: AgentQueueTaskValidationStatus;
+  commandResults: QueueValidationCommandRun[];
+  evidence: QueueValidationCommandEvidence[];
+  warnings: string[];
+  errors: string[];
+  durationMs: number;
+  noGitMutations: boolean;
+  noCommitPush: boolean;
+};

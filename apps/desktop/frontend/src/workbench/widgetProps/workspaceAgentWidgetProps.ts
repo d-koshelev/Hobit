@@ -88,6 +88,7 @@ export function workspaceAgentWidgetProps({
         preview,
       }),
     agentQueueController: workspaceQueueApi.controller,
+    queueValidationRunner: workspaceQueueApi.validationRunner,
     workspaceAgentQueueBridge: workspaceQueueApi,
   };
 }

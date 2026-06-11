@@ -106,6 +106,7 @@ import type {
   RunCodexDirectWorkResponse,
   RunDirectWorkValidationRequest,
   RunDirectWorkValidationResponse,
+  RunQueueValidationSuiteRequest,
   RunTerminalCommandRequest,
   RunTerminalCommandResponse,
   RecordKnowledgeDraftReviewRequest,
@@ -115,6 +116,7 @@ import type {
   StartAgentQueueRunnerSessionRequest,
   StartCodexDirectWorkStreamRequest,
   StartCodexDirectWorkStreamResponse,
+  QueueValidationSuiteRun,
   ResizeTerminalPtySessionRequest,
   TerminalPtySession,
   TerminalPtySessionActionRequest,
@@ -328,6 +330,9 @@ export type WorkspaceApi = {
   ) => Promise<AgentQueueRunnerSnapshot>;
   stopAgentQueueRunnerSession: () => Promise<AgentQueueRunnerSnapshot>;
   getAgentQueueRunnerSnapshot: () => Promise<AgentQueueRunnerSnapshot>;
+  runQueueValidationSuite: (
+    request: RunQueueValidationSuiteRequest,
+  ) => Promise<QueueValidationSuiteRun>;
   getGitRepositoryStatus: (
     request: GetGitRepositoryStatusRequest,
   ) => Promise<GitRepositoryStatus | null>;

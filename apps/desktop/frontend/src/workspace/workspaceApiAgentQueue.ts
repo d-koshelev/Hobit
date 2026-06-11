@@ -23,9 +23,11 @@ import type {
   ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
   ListAgentQueueWorkersRequest,
+  RunQueueValidationSuiteRequest,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartAgentQueueRunnerSessionRequest,
+  QueueValidationSuiteRun,
   UpdateAgentQueueTaskRequest,
   UpdateAgentQueueWorkerRequest,
 } from "./types";
@@ -162,4 +164,10 @@ export function stopAgentQueueRunnerSession(): Promise<AgentQueueRunnerSnapshot>
 
 export function getAgentQueueRunnerSnapshot(): Promise<AgentQueueRunnerSnapshot> {
   return getWorkspaceApi().getAgentQueueRunnerSnapshot();
+}
+
+export function runQueueValidationSuite(
+  request: RunQueueValidationSuiteRequest,
+): Promise<QueueValidationSuiteRun> {
+  return getWorkspaceApi().runQueueValidationSuite(request);
 }

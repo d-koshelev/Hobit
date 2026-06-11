@@ -130,7 +130,7 @@ export function QueueV2TaskDetailsPopup({
   const activePanelId = `queue-v2-details-${task.queueItemId}-${activeTab}`;
 
   async function requestValidation() {
-    if (!task || !validationRunner || !onRequestValidation) {
+    if (validationDisabledReason || !task || !validationRunner || !onRequestValidation) {
       setValidationRequestState("unavailable");
       setValidationRequestMessage(
         validationDisabledReason ?? "Validation request is unavailable.",

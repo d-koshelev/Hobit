@@ -170,6 +170,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       resizeTerminalPtySession: this.unsupported,
       runCodexDirectWork: this.unsupported,
       runDirectWorkValidation: this.unsupported,
+      runQueueValidationSuite: this.unsupported,
       runTerminalCommand: this.unsupported,
       readPromptPackSource: this.unsupported,
       selectWorkspaceDirectory: async () => null,

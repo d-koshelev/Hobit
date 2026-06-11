@@ -399,6 +399,13 @@ export const getAgentQueueRunnerSnapshot: WorkspaceApi["getAgentQueueRunnerSnaps
     );
   };
 
+export const runQueueValidationSuite: WorkspaceApi["runQueueValidationSuite"] =
+  async (_request) => {
+    throw new Error(
+      "Queue validation runner is only available in the Tauri desktop shell. Browser fallback cannot run local validation commands.",
+    );
+  };
+
 export const getGitRepositoryStatus: WorkspaceApi["getGitRepositoryStatus"] =
   async (_request) => {
     throw new Error(

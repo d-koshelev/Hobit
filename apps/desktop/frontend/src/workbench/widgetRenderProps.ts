@@ -114,6 +114,10 @@ import type {
 } from "./types";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type { AgentQueueController } from "./queue/useAgentQueueController";
+import type {
+  QueueValidationRunResult,
+} from "./queue/queueValidationEvidenceService";
+import type { ValidationRunner } from "./validation";
 
 export type WidgetRenderProps = {
   agentActivityEvents?: AgentActivityEvent[];
@@ -407,6 +411,11 @@ export type WidgetRenderProps = {
     preview: PromptPackImportPreviewModel,
   ) => Promise<PromptPackMaterializationResult>;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
+  queueValidationRunner?: ValidationRunner | null;
+  onRequestQueueValidation?: (
+    task: AgentQueueTask,
+    runner: ValidationRunner,
+  ) => Promise<QueueValidationRunResult>;
   onStartAssignedAgentQueueTask?: (
     request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
   ) => Promise<StartAssignedAgentQueueTaskResponse>;

@@ -97,7 +97,7 @@ export function InteractiveAgentPlaceholderWidget({
   onUpdateAgentQueueTask, createQueueItemsFromPromptPackPreview,
   queueReportActionCardRequest,
   queueTaskStatusCardRequest,
-  workspaceAgentQueueBridge,
+  queueValidationRunner, workspaceAgentQueueBridge,
   onStartFrameMove,
   title,
   workspaceId,
@@ -844,7 +844,7 @@ export function InteractiveAgentPlaceholderWidget({
           transcriptRef={messageListRef}
           queueController={agentQueueController}
           createQueueItemsFromPromptPackPreview={createQueueItemsFromPromptPackPreview}
-          workspaceAgentQueueBridge={workspaceAgentQueueBridge}
+          workspaceAgentQueueBridge={workspaceAgentQueueBridge} workspaceChatValidationRunner={queueValidationRunner}
         />
         <WorkspaceAgentComposer
           canSend={canSend}

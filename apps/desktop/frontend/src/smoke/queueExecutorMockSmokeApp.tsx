@@ -246,7 +246,7 @@ class QueueExecutorSmokeRuntime {
       removeWidgetInstance: async () => undefined,
       probeJdbcDriver: this.unsupported,
       runCodexDirectWork: async () => this.forbidden(null),
-      runDirectWorkValidation: async () => this.forbidden(null),
+      runDirectWorkValidation: async () => this.forbidden(null), runQueueValidationSuite: this.unsupported,
       runTerminalCommand: async () => {
         this.terminalRunCallCount += 1;
         return this.forbidden(null);

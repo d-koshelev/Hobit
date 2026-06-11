@@ -3,6 +3,9 @@ import { useCallback, useMemo } from "react";
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
 import type { DirectWorkRunHandoffController } from "../useDirectWorkRunHandoff";
 import type { AgentExecutorSlot, WidgetInstanceId } from "../types";
+import type { QueueValidationRunResult } from "./queueValidationEvidenceService";
+import type { ValidationRunner } from "../validation";
+import type { AgentQueueTask } from "../../workspace/types";
 import {
   createWorkspaceAgentQueueBridge,
   type WorkspaceAgentQueueAutonomousActionName,
@@ -20,6 +23,9 @@ import {
   useAgentQueueController,
   type AgentQueueController,
 } from "./useAgentQueueController";
+import { createQueueValidationRunner } from "./queueValidationRunnerAdapter";
+import { requestValidationForQueueItem } from "./queueValidationEvidenceService";
+import { buildQueueTaskValidationRunRequest } from "../workspaceChatQueueValidation";
 
 type WorkspaceQueueActions = Pick<
   WorkbenchWidgetInstanceActions,
@@ -41,6 +47,7 @@ type WorkspaceQueueActions = Pick<
   | "listAgentQueueTaskRunLinks"
   | "listAgentQueueTasks"
   | "listAgentQueueWorkers"
+  | "runQueueValidationSuite"
   | "startAgentQueueRunnerSession"
   | "startAssignedAgentQueueTask"
   | "stopAgentQueueRunnerSession"
@@ -52,6 +59,11 @@ export type WorkspaceQueueApi = WorkspaceAgentQueueBridge & {
   controller: AgentQueueController;
   queueExecutorSlots: AgentExecutorSlot[];
   queueId: string;
+  requestValidation: (
+    task: AgentQueueTask,
+    runner: ValidationRunner,
+  ) => Promise<QueueValidationRunResult>;
+  validationRunner: ValidationRunner;
 };
 
 export function useWorkspaceQueueApi({
@@ -153,6 +165,14 @@ export function useWorkspaceQueueApi({
       workspaceId,
     ],
   );
+  const validationRunner = useMemo(
+    () =>
+      createQueueValidationRunner({
+        available: isTauriDesktopRuntime(),
+        runQueueValidationSuite: actions.runQueueValidationSuite,
+      }),
+    [actions.runQueueValidationSuite],
+  );
   const bridge = createWorkspaceAgentQueueBridge({
     autonomousActions: {
       runAutonomousQueue: () => runAutonomousQueue(controller.autonomous),
@@ -173,13 +193,36 @@ export function useWorkspaceQueueApi({
     },
     workspaceId,
   });
+  const requestValidation = useCallback(
+    (task: AgentQueueTask, runner: ValidationRunner) =>
+      requestValidationForQueueItem({
+        queueApi,
+        request: buildQueueTaskValidationRunRequest({
+          createdAt: new Date().toISOString(),
+          requestedBySurface: "queue",
+          runId: `queue-validation-${task.queueItemId}-${Date.now().toString()}`,
+          task,
+        }),
+        runner,
+      }),
+    [queueApi],
+  );
 
   return {
     ...bridge,
     controller,
     queueExecutorSlots,
     queueId,
+    requestValidation,
+    validationRunner,
   };
+}
+
+function isTauriDesktopRuntime() {
+  return (
+    typeof window !== "undefined" &&
+    ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)
+  );
 }
 
 function runAutonomousQueue(

@@ -225,6 +225,7 @@ class CoordinatorProviderProductSmokeRuntime {
       resizeTerminalPtySession: this.terminalUnsupported,
       runCodexDirectWork: this.executorUnsupported,
       runDirectWorkValidation: this.executorUnsupported,
+      runQueueValidationSuite: this.queueDispatchUnsupported,
       runTerminalCommand: this.terminalUnsupported,
       readPromptPackSource: this.unsupported,
       selectWorkspaceDirectory: async () => null,

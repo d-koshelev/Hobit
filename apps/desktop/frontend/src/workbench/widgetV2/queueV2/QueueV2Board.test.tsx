@@ -476,7 +476,7 @@ describe("QueueV2Board", () => {
     const requestButton = buttonWithText("Request validation");
     expect(requestButton?.disabled).toBe(true);
     expect(requestButton?.parentElement?.textContent).toContain(
-      "Validation runner is unavailable for this Queue surface.",
+      "Validation runner is unavailable in this Queue surface.",
     );
     await click(requestButton);
     expect(onRequestValidation).not.toHaveBeenCalled();
@@ -511,6 +511,13 @@ describe("QueueV2Board", () => {
             queueItemId: "needs-validation",
             status: "ready",
             title: "Needs validation",
+            workerExecutionReports: [
+              report({
+                validationCommandsSuggested: [
+                  "npm.cmd run test -- --run Validation",
+                ],
+              }),
+            ],
           }),
         ]}
         validationRunner={validationRunner()}
@@ -1118,6 +1125,7 @@ function validationRawPreview(hugeOutput: string) {
 
 function validationRunner(): ValidationRunner {
   return {
+    available: true,
     run: vi.fn(),
   };
 }

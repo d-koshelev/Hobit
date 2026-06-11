@@ -54,7 +54,9 @@ export interface ValidationRunnerOutput {
 }
 
 export interface ValidationRunner {
+  available: boolean;
   run: (request: ValidationRunRequest) => Promise<ValidationRunnerOutput>;
+  unavailableReason?: string;
 }
 
 interface ValidationRunnerOptions {
@@ -70,6 +72,8 @@ export const createValidationRunner = ({
   now = () => new Date().toISOString(),
   nextEvidenceId = (_command, index) => `validation-evidence-${index + 1}`,
 }: ValidationRunnerOptions): ValidationRunner => ({
+  available: executor.capabilities.available,
+  unavailableReason: executor.capabilities.unavailableReason,
   run: async (request) => {
     if (!executor.capabilities.available) {
       return unavailableResult(request, executor.capabilities.unavailableReason, now, nextEvidenceId);

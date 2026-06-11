@@ -362,7 +362,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
     );
   });
 
-  it("disables Request validation with a reason when no commands are available and manual input is unsupported", () => {
+  it("disables Request validation with a reason when no commands are available", () => {
     const task = queueTask({
       executionWorkspace: "C:/repo",
       prompt: "No validation metadata.",
@@ -370,7 +370,6 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
 
     render(
       <WorkspaceAgentQueueTaskStatusCard
-        manualValidationCommandInputSupported={false}
         queue={queueController({
           selectedTask: task,
           tasks: [task],
@@ -387,7 +386,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
     );
   });
 
-  it("supports explicit manual validation input when no Queue suite is available", async () => {
+  it("does not request validation when no Queue suite is available", async () => {
     const executor = validationExecutor();
     const task = queueTask({
       executionWorkspace: "C:/repo",
@@ -406,18 +405,11 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
       />,
     );
 
-    expect(buttonByText("Request validation")?.disabled).toBe(false);
-
-    await clickButton("Request validation");
-    expect(buttonByText("Run validation")?.disabled).toBe(true);
-
-    await changeInput("Manual validation command", "npm.cmd run test -- --run Validation");
-    expect(buttonByText("Run validation")?.disabled).toBe(false);
-
-    await clickButton("Run validation");
-
-    expect(executor.execute).toHaveBeenCalledTimes(1);
-    expect(document.body.textContent).toContain("Validation passed");
+    expect(buttonByText("Request validation")?.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      "No validation commands or suite are available for this Queue task.",
+    );
+    expect(executor.execute).not.toHaveBeenCalled();
   });
 
   it("runs validation only after explicit Run validation and renders capped passed evidence", async () => {
@@ -527,7 +519,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
     expect(finalize).not.toHaveBeenCalled();
   });
 
-  it("shows unsupported runner state when the validation runner reports unavailable", async () => {
+  it("disables Request validation when the validation runner reports unavailable", async () => {
     const task = queueTask({
       executionWorkspace: "C:/repo",
       prompt: promptPackPromptWithValidation(),
@@ -546,10 +538,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
       />,
     );
 
-    await clickButton("Request validation");
-    await clickButton("Run validation");
-
-    expect(document.body.textContent).toContain("Unavailable");
+    expect(buttonByText("Request validation")?.disabled).toBe(true);
     expect(document.body.textContent).toContain(
       "Desktop validation runner is not configured.",
     );

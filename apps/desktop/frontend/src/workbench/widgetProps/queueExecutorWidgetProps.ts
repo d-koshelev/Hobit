@@ -16,6 +16,7 @@ import type {
 } from "../types";
 import type { AgentQueueController } from "../queue/useAgentQueueController";
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
+import type { WorkspaceQueueApi } from "../queue/useWorkspaceQueueApi";
 
 type AgentQueueKnowledgeActions = Pick<
   WorkbenchWidgetInstanceActions,
@@ -43,6 +44,7 @@ type AgentQueueWidgetPropsOptions = {
   agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   agentQueueController: AgentQueueController;
   agentExecutorSlots: AgentExecutorSlot[];
+  workspaceQueueApi: WorkspaceQueueApi;
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
@@ -73,6 +75,7 @@ export function agentQueueWidgetProps({
   agentQueueItemOpenRequest,
   agentQueueController,
   agentExecutorSlots,
+  workspaceQueueApi,
   onAttachContextToCoordinator,
   onShowQueueReportInWorkspaceChat,
   onShowQueueTaskInWorkspaceChat,
@@ -82,6 +85,8 @@ export function agentQueueWidgetProps({
     agentQueueItemOpenRequest,
     agentQueueController,
     agentExecutorSlots,
+    queueValidationRunner: workspaceQueueApi.validationRunner,
+    onRequestQueueValidation: workspaceQueueApi.requestValidation,
     onAttachContextToCoordinator,
     onCreateKnowledgeDocument: actions.createKnowledgeDocument,
     onCreateSkill: actions.createSkill,

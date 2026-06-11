@@ -10,6 +10,10 @@ import type {
   QueuePromptPackImportMetadata,
 } from "../../promptPack/queuePromptPackMetadata";
 import {
+  validationCommandTextsForQueueTask,
+  validationRunnerUnavailableReason,
+} from "../../workspaceChatQueueValidation";
+import {
   queueV2ValidationEvidenceView,
   type QueueV2ValidationCommandEvidence,
 } from "./queueV2ValidationEvidence";
@@ -100,16 +104,25 @@ export function validationRequestDisabledReason({
   task: AgentQueueTask | null;
   validationRunner?: ValidationRunner | null;
 }) {
-  if (!validationRunner) {
-    return "Validation runner is unavailable for this Queue surface.";
-  }
+  const runnerUnavailableReason = validationRunnerUnavailableReason(
+    validationRunner,
+    "Queue",
+  );
 
-  if (!onRequestValidation) {
-    return "Queue validation request action is not wired in this surface.";
+  if (runnerUnavailableReason) {
+    return runnerUnavailableReason;
   }
 
   if (!task?.executionWorkspace?.trim()) {
     return "Validation needs an execution workspace on the Queue task.";
+  }
+
+  if (validationCommandTextsForQueueTask(task).length === 0) {
+    return "No validation commands or suite are available for this Queue task.";
+  }
+
+  if (!onRequestValidation) {
+    return "Queue validation request action is not wired in this surface.";
   }
 
   return null;

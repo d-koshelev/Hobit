@@ -9,6 +9,10 @@ import {
   type AgentQueueTaskWidgetActions,
 } from "./agentQueueTaskWidgetActions";
 import {
+  createAgentQueueValidationActions,
+  type AgentQueueValidationWidgetActions,
+} from "./agentQueueValidationWidgetActions";
+import {
   createGitWidgetActions,
   type GitWidgetActions,
 } from "./gitWidgetActions";
@@ -54,6 +58,7 @@ export type WorkbenchWidgetActions = WorkspaceWidgetActions &
   WorkspaceNoteWidgetActions &
   WorkspaceSkillWidgetActions &
   AgentQueueTaskWidgetActions &
+  AgentQueueValidationWidgetActions &
   JdbcConnectorWidgetActions &
   CoordinatorProviderWidgetActions &
   AgentExecutorWidgetActions &
@@ -103,6 +108,7 @@ export function useWorkbenchWidgetActions({
     ...createWorkspaceNoteActions(viewState),
     ...createWorkspaceSkillActions(viewState),
     ...agentQueueTaskActions,
+    ...createAgentQueueValidationActions(viewState),
     ...createJdbcConnectorActions(viewState),
     ...createCoordinatorProviderActions(viewState),
     ...createAgentExecutorWidgetActions({

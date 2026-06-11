@@ -28,6 +28,7 @@ import {
   updateAgentQueueTask,
   updateAgentQueueWorker,
 } from "./tauriAgentQueueApi";
+import { runQueueValidationSuite } from "./tauriQueueValidationApi";
 import { getAgentExecutorDiffSummary } from "./tauriAgentExecutorDiffApi";
 import {
   getAgentExecutorRunDetail,
@@ -193,6 +194,7 @@ export const tauriWorkspaceApi: WorkspaceApi = {
   startAgentQueueRunnerSession,
   stopAgentQueueRunnerSession,
   getAgentQueueRunnerSnapshot,
+  runQueueValidationSuite,
   getGitRepositoryStatus,
   getGitFileDiff,
   getGitLog,

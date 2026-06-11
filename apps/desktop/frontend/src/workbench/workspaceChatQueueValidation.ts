@@ -2,6 +2,7 @@ import type { AgentQueueTask } from "../workspace/types";
 import { getQueuePromptPackImportMetadata } from "./promptPack/queuePromptPackMetadata";
 import type {
   ValidationCommandSpec,
+  ValidationRunner,
   ValidationRunRequest,
   ValidationSuiteSpec,
 } from "./validation";
@@ -19,23 +20,24 @@ export type WorkspaceChatValidationSuiteDraft = {
 };
 
 export function workspaceChatValidationAvailability({
-  manualCommandInputSupported = true,
   queueBridgeAvailable,
-  runnerAvailable,
+  runner,
   task,
 }: {
-  manualCommandInputSupported?: boolean;
   queueBridgeAvailable: boolean;
-  runnerAvailable: boolean;
+  runner?: ValidationRunner | null;
   task: AgentQueueTask;
 }): WorkspaceChatValidationAvailability {
   const hasKnownCommands = validationCommandTextsForQueueTask(task).length > 0;
+  const runnerUnavailableReason = validationRunnerUnavailableReason(
+    runner,
+    "Workspace Chat",
+  );
 
-  if (!runnerAvailable) {
+  if (runnerUnavailableReason) {
     return {
       canRequest: false,
-      disabledReason:
-        "Validation runner is unavailable in this Workspace Chat surface.",
+      disabledReason: runnerUnavailableReason,
       hasKnownCommands,
     };
   }
@@ -58,7 +60,7 @@ export function workspaceChatValidationAvailability({
     };
   }
 
-  if (!hasKnownCommands && !manualCommandInputSupported) {
+  if (!hasKnownCommands) {
     return {
       canRequest: false,
       disabledReason:
@@ -123,14 +125,54 @@ export function buildWorkspaceChatValidationRunRequest({
   runId: string;
   task: AgentQueueTask;
 }): ValidationRunRequest {
+  return buildQueueTaskValidationRunRequest({
+    createdAt,
+    manualCommand,
+    requestedBySurface: "workspace_chat",
+    runId,
+    task,
+  });
+}
+
+export function buildQueueTaskValidationRunRequest({
+  createdAt,
+  manualCommand,
+  requestedBySurface,
+  runId,
+  task,
+}: {
+  createdAt: string;
+  manualCommand?: string;
+  requestedBySurface: ValidationRunRequest["requestedBySurface"];
+  runId: string;
+  task: AgentQueueTask;
+}): ValidationRunRequest {
   return {
     createdAt,
     queueItemId: task.queueItemId,
-    requestedBySurface: "workspace_chat",
+    requestedBySurface,
     runId,
     suite: buildWorkspaceChatValidationSuiteDraft({ manualCommand, task }).suite,
     workspaceId: task.workspaceId,
   };
+}
+
+export function validationRunnerUnavailableReason(
+  runner: ValidationRunner | null | undefined,
+  surfaceLabel: string,
+) {
+  if (!runner) {
+    return `Validation runner is unavailable in this ${surfaceLabel} surface.`;
+  }
+
+  if (!runner.available) {
+    return (
+      runner.unavailableReason ??
+      `Validation runner is unavailable in this ${surfaceLabel} surface.`
+    );
+  }
+
+  return null;
 }
 
 export function validationCommandTextsForQueueTask(task: AgentQueueTask): string[] {

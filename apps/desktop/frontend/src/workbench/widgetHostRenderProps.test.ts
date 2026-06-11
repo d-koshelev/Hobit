@@ -5,6 +5,7 @@ import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
 import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
+import { createUnavailableValidationRunner } from "./validation";
 import {
   AGENT_ACTIVITY_COMPONENT_KEY,
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
@@ -454,9 +455,11 @@ function workspaceQueueApi(
     getSnapshot: vi.fn(),
     queueExecutorSlots: [],
     queueId: "workspace:workspace_1:agent-queue",
+    requestValidation: vi.fn(),
     runAutonomousQueue: vi.fn(),
     stopAutonomousQueueAfterCurrent: vi.fn(),
     updateItem: vi.fn(),
+    validationRunner: createUnavailableValidationRunner(),
     ...overrides,
   };
 }

@@ -112,6 +112,7 @@ export function widgetHostRenderProps({
         agentQueueItemOpenRequest,
         agentQueueController: workspaceQueueApi.controller,
         agentExecutorSlots: workspaceQueueApi.queueExecutorSlots,
+        workspaceQueueApi,
         onAttachContextToCoordinator,
         onShowQueueReportInWorkspaceChat,
         onShowQueueTaskInWorkspaceChat,

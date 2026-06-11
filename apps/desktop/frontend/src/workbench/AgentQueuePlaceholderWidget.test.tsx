@@ -11,6 +11,7 @@ import { workerReport } from "./AgentQueueTaskRunPanel.test-fixtures";
 import { useAgentQueueController } from "./queue/useAgentQueueController";
 import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import type { WidgetRenderProps } from "./types";
+import { createUnavailableValidationRunner } from "./validation";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
 import {
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
@@ -784,9 +785,11 @@ function workspaceQueueApi(
     getSnapshot: vi.fn(),
     queueExecutorSlots: [],
     queueId: "workspace:workspace-1:agent-queue",
+    requestValidation: vi.fn(),
     runAutonomousQueue: vi.fn(),
     stopAutonomousQueueAfterCurrent: vi.fn(),
     updateItem: vi.fn(),
+    validationRunner: createUnavailableValidationRunner(),
     ...overrides,
   };
 }

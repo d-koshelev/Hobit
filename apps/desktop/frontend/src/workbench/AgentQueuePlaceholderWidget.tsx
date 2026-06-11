@@ -41,9 +41,11 @@ export function AgentQueuePlaceholderWidget({
   onCreateSkill,
   onListKnowledgeDraftReviews,
   onRecordKnowledgeDraftReview,
+  onRequestQueueValidation,
   onShowQueueReportInWorkspaceChat,
   onShowQueueTaskInWorkspaceChat,
   onStartFrameMove,
+  queueValidationRunner,
   title,
 }: WidgetRenderProps) {
   const createTitleInputId = useId();
@@ -246,6 +248,7 @@ export function AgentQueuePlaceholderWidget({
               onCreateSkill={onCreateSkill}
               onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
               onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
+              onRequestValidation={onRequestQueueValidation}
               onRequestNewTask={openCreateTaskDialog}
               onSelectTask={(queueItemId) => void selectTask(queueItemId)}
               onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
@@ -254,6 +257,7 @@ export function AgentQueuePlaceholderWidget({
               queue={queue}
               selectedTask={selectedTask}
               tasks={tasks}
+              validationRunner={queueValidationRunner}
               workers={queue.foundation.workers}
             />
           </div>
