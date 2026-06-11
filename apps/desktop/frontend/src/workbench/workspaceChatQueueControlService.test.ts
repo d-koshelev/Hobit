@@ -346,12 +346,14 @@ describe("workspace chat Queue control service", () => {
     expect(onRollback).not.toHaveBeenCalled();
   });
 
-  it("keeps rollback unavailable through Workspace Chat Queue control actions", async () => {
+  it("marks rollback required through Workspace Chat Queue control actions", async () => {
     const onRollback = vi.fn();
+    const onStartAssignedTask = vi.fn();
     const service = createWorkspaceChatQueueControlService({
       queue: queueController({
         canAct: true,
         onRollback,
+        onStartAssignedTask,
         selectedTask: queueTask({ queueItemId: "queue-1" }),
       }),
     });
@@ -365,9 +367,10 @@ describe("workspace chat Queue control service", () => {
     expect(rollbackResult).toMatchObject({
       action: "coordinator_decision",
       queueItemId: "queue-1",
-      status: "unavailable",
+      status: "success",
     });
-    expect(onRollback).not.toHaveBeenCalled();
+    expect(onRollback).toHaveBeenCalledTimes(1);
+    expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
 });
 

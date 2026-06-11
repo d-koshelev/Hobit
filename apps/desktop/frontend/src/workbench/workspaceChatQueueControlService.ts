@@ -25,6 +25,7 @@ import type {
   ValidationRunRequest,
 } from "./validation";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import { coordinatorDecisionThroughQueueBridge } from "./workspaceChatQueueFinalizationActions";
 import {
   EMPTY_WORKSPACE_AGENT_QUEUE_CREATE_DRAFT,
   workspaceAgentQueueCreateRequestFromDraft,
@@ -146,7 +147,7 @@ async function executeWorkspaceChatQueueAction(
       case "create_diff_review":
         return await createDiffReview(action, options);
       case "coordinator_decision":
-        return await coordinatorDecision(action, options.queue);
+        return await coordinatorDecision(action, options);
     }
   } catch (error) {
     return failed(action.kind, errorToMessage(error), actionQueueItemId(action));
@@ -396,12 +397,30 @@ async function runTask(
 
 async function coordinatorDecision(
   action: Extract<WorkspaceChatQueueAction, { kind: "coordinator_decision" }>,
-  queue: AgentQueueController | null | undefined,
+  options: WorkspaceChatQueueControlServiceOptions,
 ): Promise<WorkspaceChatQueueActionResult> {
+  const { bridge, queue } = options;
   const selectedCheck = selectedTaskActionCheck(action.queueItemId, queue);
 
   if (selectedCheck) {
     return selectedCheckFor("coordinator_decision", selectedCheck);
+  }
+
+  if (bridge) {
+    const task = findQueueTask(action.queueItemId, queue);
+    const result = task
+      ? await coordinatorDecisionThroughQueueBridge({
+          actionType: action.actionType,
+          bridge,
+          queueItemId: action.queueItemId,
+          task,
+          tasks: queue?.tasks ?? [task],
+        })
+      : null;
+
+    if (result) {
+      return result;
+    }
   }
 
   if (!queue?.coordinatorFinalization.canAct) {
@@ -488,11 +507,12 @@ function coordinatorDecisionHandler(
     case "mark_ready_for_finalization":
       return queue.coordinatorFinalization.onMarkReadyForFinalization;
     case "mark_rollback_required":
-      return null;
+      return queue.coordinatorFinalization.onMarkRollbackRequired;
     default:
       return null;
   }
 }
+
 
 function isSelectedTask(task: AgentQueueTask | null, queueItemId: string) {
   return task?.queueItemId === queueItemId;
