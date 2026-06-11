@@ -1,12 +1,15 @@
 import type { AgentQueueTask } from "../../../workspace/types";
+import type { AgentQueueDependencyState } from "../../agentQueueTaskUiModel";
 import type { QueuePromptPackImportMetadata } from "../../promptPack/queuePromptPackMetadata";
 
 type QueueV2PromptPackImportSectionProps = {
+  dependencyState: AgentQueueDependencyState;
   metadata: QueuePromptPackImportMetadata;
   task: AgentQueueTask;
 };
 
 export function QueueV2PromptPackImportSection({
+  dependencyState,
   metadata,
   task,
 }: QueueV2PromptPackImportSectionProps) {
@@ -26,6 +29,10 @@ export function QueueV2PromptPackImportSection({
         <DetailFact
           label="Queue links"
           value={formatListSummary(task.dependsOn ?? [], "No linked Queue dependencies")}
+        />
+        <DetailFact
+          label="Dependency state"
+          value={formatDependencyState(dependencyState)}
         />
         <DetailFact
           label="Validation"
@@ -49,6 +56,11 @@ export function QueueV2PromptPackImportSection({
         emptyLabel="No forbidden-scope warnings."
         items={metadata.forbiddenScope}
         label="Forbidden scope"
+      />
+      <CompactList
+        emptyLabel="No validation command metadata."
+        items={metadata.validationCommands}
+        label="Validation commands"
       />
     </div>
   );
@@ -98,4 +110,22 @@ function formatPackLabel(name: string | null, id: string | null) {
 
 function formatListSummary(items: readonly string[], emptyLabel: string) {
   return items.length > 0 ? items.join(", ") : emptyLabel;
+}
+
+function formatDependencyState(dependencyState: AgentQueueDependencyState) {
+  if (dependencyState.status === "ready") {
+    return dependencyState.dependsOn.length > 0
+      ? "Dependencies satisfied"
+      : "No dependencies";
+  }
+
+  const blockers = dependencyState.blockedBy
+    .map((blocker) => blocker.title)
+    .join(", ");
+
+  return blockers
+    ? `Waiting on ${blockers}`
+    : dependencyState.status === "invalid"
+      ? "Dependency links need review"
+      : "Waiting on dependencies";
 }

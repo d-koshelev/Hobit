@@ -380,6 +380,7 @@ function OverviewSection({
       </div>
       {promptPackMetadata ? (
         <QueueV2PromptPackImportSection
+          dependencyState={inspector.dependencyState}
           metadata={promptPackMetadata}
           task={task}
         />
