@@ -21,6 +21,7 @@ export {
   PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER,
   PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER,
   buildPromptPackImportPreview,
+  promptPackPreviewFromSourceText,
   validatePromptPackImportPlan,
 } from "./promptPackImportPreview";
 export {

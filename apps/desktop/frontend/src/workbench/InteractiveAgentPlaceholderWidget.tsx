@@ -21,7 +21,8 @@ import {
 } from "./coordinatorProviderRequest";
 import { errorToMessage, providerResponseAllowsCatalogDrafts } from "./workspaceAgentProviderGuards";
 import type { WidgetRenderProps } from "./types";
-import { directWorkFailureTranscriptBody, type CoordinatorDirectWorkStatus } from "./workspaceAgentDirectWorkModel";
+import type { CoordinatorDirectWorkStatus } from "./workspaceAgentDirectWorkModel";
+import { appendWorkspaceAgentDirectWorkTranscript } from "./workspaceAgentDirectWorkTranscript";
 import type { WorkspaceAgentRunMetadata } from "./workspaceAgentRunMetadata";
 import { WorkspaceAgentActivitySidePane } from "./WorkspaceAgentActivitySidePane";
 import { WorkspaceAgentComposer } from "./WorkspaceAgentComposer";
@@ -61,6 +62,7 @@ import {
   runCreateQueueTaskProposal,
   runCreateSkillProposal,
 } from "./workspaceAgentProposalCreationActions";
+import { runWorkspaceAgentProductActionConfirmation } from "./workspaceAgentProductActionGuards";
 import { useWorkspaceAgentDirectWorkController } from "./useWorkspaceAgentDirectWorkController";
 import { useWorkspaceAgentQueueCardRequests } from "./useWorkspaceAgentQueueCardRequests";
 import { useWorkspaceAgentPromptPackImport } from "./useWorkspaceAgentPromptPackImport";
@@ -250,6 +252,10 @@ export function InteractiveAgentPlaceholderWidget({
   async function sendCoordinatorMessage() {
     const trimmedDraft = draft.trim();
     if (!trimmedDraft || isProviderPending) {
+      return;
+    }
+
+    if (await sendProductActionConfirmationFromDraft(trimmedDraft)) {
       return;
     }
 
@@ -460,19 +466,39 @@ export function InteractiveAgentPlaceholderWidget({
       return false;
     }
 
-    const operatorMessage = createLocalMessage("operator", trimmedDraft);
-    const assistantMessage = createLocalMessage("assistant", result.body);
+    appendLocalExchange(trimmedDraft, result.body);
+    return true;
+  }
 
+  async function sendProductActionConfirmationFromDraft(trimmedDraft: string) {
+    if (!trimmedDraft || isProviderPending) {
+      return false;
+    }
+
+    const result = await runWorkspaceAgentProductActionConfirmation({
+      createQueueItemsFromPromptPackPreview,
+      imports: promptPackImport.imports,
+      onPatchPromptPackImport: promptPackImport.patch,
+      text: trimmedDraft,
+    });
+
+    if (!result.handled) {
+      return false;
+    }
+
+    appendLocalExchange(trimmedDraft, result.body);
+    return true;
+  }
+
+  function appendLocalExchange(operatorBody: string, assistantBody: string) {
     setMessages((currentMessages) => [
       ...currentMessages,
-      operatorMessage,
-      assistantMessage,
+      createLocalMessage("operator", operatorBody),
+      createLocalMessage("assistant", assistantBody),
     ]);
     setDraft("");
     setVisibleAttachedContext(null);
     window.setTimeout(() => textareaRef.current?.focus(), 0);
-
-    return true;
   }
 
   async function sendKnowledgeCommandFromDraft(trimmedDraft: string) {
@@ -522,54 +548,16 @@ export function InteractiveAgentPlaceholderWidget({
     useDirectBody = false,
     runMetadata?: WorkspaceAgentRunMetadata,
   ) {
-    const body =
-      status === "completed" || useDirectBody
-        ? reason
-        : status === "failed"
-          ? directWorkFailureTranscriptBody(reason)
-          : reason;
-
-    const assistantMessage = {
-      ...createLocalMessage("assistant", body),
+    appendWorkspaceAgentDirectWorkTranscript({
+      createMessage: (role, body) => createLocalMessage(role, body),
+      reason,
       runMetadata,
-    };
-    const catalogProposals = catalogActionProposalsFromText(
-      body,
-      assistantMessage.id,
-    );
-    const queueIntentDraftsFromMessage =
-      workspaceAgentQueueIntentDraftsFromText(body, assistantMessage.id, {
-        source: "local_text",
-      });
-
-    if (catalogProposals.length > 0) {
-      setProposals((currentProposals) => ({
-        ...currentProposals,
-        ...Object.fromEntries(
-          catalogProposals.map((proposal) => [proposal.id, proposal]),
-        ),
-      }));
-      assistantMessage.proposalIds = catalogProposals.map(
-        (proposal) => proposal.id,
-      );
-    }
-
-    if (queueIntentDraftsFromMessage.length > 0) {
-      setQueueIntentDrafts((currentDrafts) => ({
-        ...currentDrafts,
-        ...Object.fromEntries(
-          queueIntentDraftsFromMessage.map((queueIntentDraft) => [
-            queueIntentDraft.id,
-            queueIntentDraft,
-          ]),
-        ),
-      }));
-      assistantMessage.queueIntentDraftIds = queueIntentDraftsFromMessage.map(
-        (queueIntentDraft) => queueIntentDraft.id,
-      );
-    }
-
-    setMessages((currentMessages) => [...currentMessages, assistantMessage]);
+      setMessages,
+      setProposals,
+      setQueueIntentDrafts,
+      status,
+      useDirectBody,
+    });
   }
 
   function useSuggestedPrompt(prompt: string) {
@@ -885,6 +873,10 @@ export function InteractiveAgentPlaceholderWidget({
           onMessageChange={setDraft}
           onRemoveVisibleContext={removeVisibleAttachedContext}
           onRunWithCodex={async ({ startNewThread } = {}) => {
+            if (await sendProductActionConfirmationFromDraft(draft.trim())) {
+              return;
+            }
+
             if (await sendQueueCommandFromDraft(draft.trim())) {
               return;
             }

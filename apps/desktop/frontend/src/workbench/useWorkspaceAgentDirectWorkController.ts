@@ -37,6 +37,12 @@ import {
   workspaceAgentActivitySummaryForLocalStart,
   workspaceAgentActivitySummaryFromEvent,
 } from "./workspaceAgentDirectWorkModel";
+import {
+  createProductActionToolLoopGuardState,
+  recordProductActionToolLoopAttempt,
+  TYPED_PRODUCT_ACTION_UNAVAILABLE,
+  type ProductActionToolLoopGuardState,
+} from "./workspaceAgentProductActionGuards";
 import { errorToMessage } from "./workspaceAgentProviderGuards";
 import {
   tokenUsageFromDirectWorkStreamEvent,
@@ -131,6 +137,8 @@ export function useWorkspaceAgentDirectWorkController({
     null,
   );
   const directWorkRunScopeRef = useRef<ActiveDirectWorkRunScope | null>(null);
+  const productActionLoopGuardRef =
+    useRef<ProductActionToolLoopGuardState | null>(null);
   const directWorkLogSequenceRef = useRef(0);
   const workspaceScopeId = workspaceId?.trim() || "__local_workspace__";
   const activeThreadId = codexThreadIdForScope(
@@ -193,6 +201,8 @@ export function useWorkspaceAgentDirectWorkController({
       workingDirectory: repoRoot,
       workspaceId: workspaceScopeId,
     };
+    productActionLoopGuardRef.current =
+      createProductActionToolLoopGuardState(operatorPrompt);
     const startNewThread = Boolean(options.startNewThread);
     const resumeThreadId = startNewThread
       ? null
@@ -296,6 +306,7 @@ export function useWorkspaceAgentDirectWorkController({
         directWorkActivitySummaryRef.current = nextSummary;
         return nextSummary;
       });
+      productActionLoopGuardRef.current = null;
       appendDirectWorkLog(message, "local");
       onAppendAssistantTranscript("failed", message);
     } finally {
@@ -375,6 +386,7 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkCapturedThreadIdRef.current = null;
     directWorkTokenUsageRef.current = null;
     directWorkRunScopeRef.current = null;
+    productActionLoopGuardRef.current = null;
     directWorkLogSequenceRef.current = 0;
     setDirectWorkDirectory("~");
     setDirectWorkSandbox("workspace_write");
@@ -394,6 +406,34 @@ export function useWorkspaceAgentDirectWorkController({
 
   function recordDirectWorkEvent(event: DirectWorkStreamEvent) {
     if (!directWorkEventBelongsToCurrentAgent(event, workspaceId, instanceId)) {
+      return;
+    }
+
+    const productActionLoopResult = productActionLoopGuardRef.current
+      ? recordProductActionToolLoopAttempt(
+          productActionLoopGuardRef.current,
+          event,
+        )
+      : null;
+    if (productActionLoopResult?.shouldStop) {
+      void onCancelCodexDirectWorkRun?.(instanceId, event.runId);
+      stopDirectWorkEventListening();
+      setDirectWorkStatus("failed");
+      setDirectWorkRunId(null);
+      setDirectWorkError(productActionLoopResult.message);
+      setDirectWorkWarning(null);
+      setDirectWorkFinalResult(null);
+      setDirectWorkRunMetadata(null);
+      updateDirectWorkActivitySummary(
+        workspaceAgentActivitySummaryForLocalFailure(
+          directWorkActivitySummaryRef.current,
+          TYPED_PRODUCT_ACTION_UNAVAILABLE,
+        ),
+      );
+      appendDirectWorkLog(productActionLoopResult.message, "local");
+      onAppendAssistantTranscript("failed", productActionLoopResult.message);
+      directWorkRunScopeRef.current = null;
+      productActionLoopGuardRef.current = null;
       return;
     }
 
@@ -527,6 +567,7 @@ export function useWorkspaceAgentDirectWorkController({
       runMetadata,
     );
     directWorkRunScopeRef.current = null;
+    productActionLoopGuardRef.current = null;
   }
 
   function appendDirectWorkLog(
@@ -564,6 +605,7 @@ export function useWorkspaceAgentDirectWorkController({
       directWorkActivitySummaryRef.current = nextSummary;
       return nextSummary;
     });
+    productActionLoopGuardRef.current = null;
     appendDirectWorkLog(reason, "local");
     onAppendAssistantTranscript("failed", reason);
   }

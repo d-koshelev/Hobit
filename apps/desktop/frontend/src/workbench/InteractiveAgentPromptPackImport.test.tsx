@@ -143,6 +143,125 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
     expect(runAutonomousQueue).not.toHaveBeenCalled();
     expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
   });
+
+  it("routes prompt-pack import confirmation text through the typed action path", async () => {
+    const createItem = vi.fn(
+      async (request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        itemResult({
+          id: `queue-${request.title.split(":")[0]?.trim() ?? "created"}`,
+          status: "draft",
+          title: request.title,
+        }),
+    );
+    const materializePromptPackPreview = vi.fn(
+      async (
+        preview: PromptPackImportPreviewModel,
+      ): Promise<PromptPackMaterializationResult> =>
+        materializePromptPackPreviewToQueue({
+          bridge: queueBridge({ createItem }),
+          confirmed: true,
+          preview,
+        }),
+    );
+    const startCodexDirectWork = vi.fn(async (..._args: unknown[]) => ({
+      runId: "run-should-not-start",
+      status: "started",
+      stopListening: vi.fn(),
+    }));
+
+    renderWidget({
+      createQueueItemsFromPromptPackPreview: materializePromptPackPreview,
+      onStartCodexDirectWorkStream: startCodexDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ createItem }),
+    });
+
+    await clickButton("Import pack");
+    await setPromptPackSource(singleItemPromptPackSource());
+    await setComposerDraft("confirm import");
+    await clickButton("Run with Codex");
+
+    expect(materializePromptPackPreview).toHaveBeenCalledTimes(1);
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(startCodexDirectWork).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "Prompt-pack import used the typed Queue action path.",
+    );
+    expect(document.body.textContent).toContain("No Codex run");
+    expect(document.body.textContent).toContain("No tasks started");
+  });
+
+  it("shows typed product action unavailable when prompt-pack confirmation has no typed bridge", async () => {
+    const startCodexDirectWork = vi.fn(async (..._args: unknown[]) => ({
+      runId: "run-should-not-start",
+      status: "started",
+      stopListening: vi.fn(),
+    }));
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startCodexDirectWork,
+    });
+
+    await clickButton("Import pack");
+    await setPromptPackSource(singleItemPromptPackSource());
+    await setComposerDraft("create queue items");
+    await clickButton("Run with Codex");
+
+    expect(startCodexDirectWork).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "typed product action unavailable",
+    );
+    expect(document.body.textContent).toContain("No Codex run");
+    expect(document.body.textContent).toContain("SQLite write");
+  });
+
+  it("does not schedule shell or SQLite work for raw product action prompts", async () => {
+    const startCodexDirectWork = vi.fn(async (..._args: unknown[]) => ({
+      runId: "run-should-not-start",
+      status: "started",
+      stopListening: vi.fn(),
+    }));
+    const runTerminalCommand = vi.fn();
+
+    renderWidget({
+      onRunTerminalCommand: runTerminalCommand,
+      onStartCodexDirectWorkStream: startCodexDirectWork,
+    });
+
+    await setComposerDraft(
+      "Use raw SQLite to create Queue item rows for this prompt-pack import.",
+    );
+    await clickButton("Run with Codex");
+
+    expect(startCodexDirectWork).not.toHaveBeenCalled();
+    expect(runTerminalCommand).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain(
+      "typed product action unavailable",
+    );
+    expect(document.body.textContent).toContain("raw SQLite");
+  });
+
+  it("preserves normal Direct Run for non-product prompts", async () => {
+    const startCodexDirectWork = vi.fn(async (..._args: unknown[]) => ({
+      runId: "run-normal",
+      status: "started",
+      stopListening: vi.fn(),
+    }));
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startCodexDirectWork,
+    });
+
+    await setComposerDraft("Review this normal code task.");
+    await clickButton("Run with Codex");
+
+    expect(startCodexDirectWork).toHaveBeenCalledTimes(1);
+    expect(startCodexDirectWork.mock.calls[0]?.[1]).toMatchObject({
+      operatorPrompt: "Review this normal code task.",
+    });
+    expect(document.body.textContent).not.toContain(
+      "typed product action unavailable",
+    );
+  });
 });
 
 function renderWidget(
@@ -174,6 +293,22 @@ async function setPromptPackSource(value: string) {
   );
   if (!textarea) {
     throw new Error("Prompt-pack source textarea not found.");
+  }
+
+  await act(async () => {
+    setNativeValue(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
+async function setComposerDraft(value: string) {
+  const textarea = document.querySelector<HTMLTextAreaElement>(
+    "textarea.interactive-agent-input",
+  );
+  if (!textarea) {
+    throw new Error("Workspace Agent composer textarea not found.");
   }
 
   await act(async () => {
@@ -240,6 +375,20 @@ function itemResult(
     ok: true,
     safetyClass: "safe_create_update",
   };
+}
+
+function singleItemPromptPackSource() {
+  return JSON.stringify({
+    id: "ui-import-pack",
+    items: [
+      {
+        id: "import-one",
+        prompt: "Create the imported Queue item.",
+        title: "Import one",
+      },
+    ],
+    name: "UI Import Pack",
+  });
 }
 
 function definition(): WidgetDefinition {

@@ -1,6 +1,7 @@
 import type {
   PromptPackDependencyGraphSummary,
   PromptPackDiagnostic,
+  PromptPackFileEntry,
   PromptPackImportItem,
   PromptPackImportPlan,
   PromptPackImportPreviewModel,
@@ -8,6 +9,7 @@ import type {
   PromptPackModelRoute,
   PromptPackSourceAdapterStatus,
 } from "./promptPackModel";
+import { parsePromptPackImportPlan } from "./promptPackParser";
 
 export const PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER: PromptPackSourceAdapterStatus = {
   kind: "unavailable",
@@ -68,6 +70,34 @@ export function buildPromptPackImportPreview(
       selectedItems.flatMap((item) => item.validationCommands),
     ),
     warnings: validation.warnings,
+  };
+}
+
+export function promptPackPreviewFromSourceText(
+  sourceText: string,
+): PromptPackImportPreviewModel | null {
+  const trimmed = sourceText.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return buildPromptPackImportPreview(
+    parsePromptPackImportPlan([promptPackFileEntryFromSourceText(trimmed)]),
+    {
+      sourceAdapter: PROMPT_PACK_IN_MEMORY_SOURCE_ADAPTER,
+    },
+  );
+}
+
+function promptPackFileEntryFromSourceText(text: string): PromptPackFileEntry {
+  const path = text.startsWith("{") || text.startsWith("[")
+    ? "prompt-batch.json"
+    : "001-pasted-prompt.md";
+
+  return {
+    path,
+    source: "unknown",
+    text,
   };
 }
 
