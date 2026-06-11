@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { parsePromptPackImportPlan } from "./promptPackParser";
 import type { PromptPackFileEntry } from "./promptPackModel";
+import { selfDevelopmentSmokePromptPackEntries } from "./selfDevelopmentSmokePromptPackFixture.test-fixtures";
 
 describe("prompt pack parser", () => {
   it("parses prompt-batch.json items into normalized import drafts", () => {
@@ -244,5 +245,61 @@ describe("prompt pack parser", () => {
     parsePromptPackImportPlan(entries);
 
     expect(JSON.stringify(entries)).toBe(snapshot);
+  });
+
+  it("parses the self-development smoke fixture with dependency and validation metadata", () => {
+    const plan = parsePromptPackImportPlan(selfDevelopmentSmokePromptPackEntries);
+
+    expect(plan.errors).toEqual([]);
+    expect(plan.pack).toMatchObject({
+      id: "hobit-self-development-smoke",
+      name: "Hobit Self-Development Smoke",
+    });
+    expect(plan.items.map((item) => item.id)).toEqual([
+      "001-safe-docs-noop",
+      "002-dependent-follow-up",
+    ]);
+
+    const first = plan.items[0];
+    expect(first).toMatchObject({
+      expectedCommitTitle: "docs: smoke no-op readiness note",
+      validationCommands: ["git status --short --branch", "git diff --check"],
+      executionWorkspace: ".",
+      modelProfile: "standard",
+      reasoningEffort: "medium",
+      validatorProfile: "standard",
+    });
+    expect(first.allowedScope).toContain(
+      "apps/desktop/frontend/src/workbench/promptPack/fixtures/self-development-smoke-prompt-pack/**",
+    );
+    expect(first.forbiddenScope).toEqual(
+      expect.arrayContaining([
+        "apps/desktop/frontend/src/workbench/**/*.tsx",
+        "apps/desktop/frontend/src/workbench/**/*.ts",
+        "crates/**",
+        "scripts/**",
+      ]),
+    );
+    expect(first.promptBody).toContain("No auto-commit.");
+    expect(first.promptBody).toContain("No auto-push.");
+    expect(first.promptBody).toContain("No destructive commands.");
+    expect(first.promptBody).toContain("No hidden execution.");
+    expect(first.queueDraft.executionPolicy).toBe("manual");
+
+    const second = plan.items[1];
+    expect(second.dependencies).toEqual(["001-safe-docs-noop"]);
+    expect(second.expectedCommitTitle).toBe(
+      "docs: verify dependent readiness gate",
+    );
+    expect(second.validationCommands).toEqual([
+      "git status --short --branch",
+      "git diff --check",
+    ]);
+    expect(second.promptBody).toContain("no auto-run expectation");
+    expect(second.promptBody).toContain("No auto-commit.");
+    expect(second.promptBody).toContain("No auto-push.");
+    expect(second.promptBody).toContain("No destructive commands.");
+    expect(second.promptBody).toContain("No hidden execution.");
+    expect(second.queueDraft.executionPolicy).toBe("manual");
   });
 });

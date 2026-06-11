@@ -1,0 +1,78 @@
+{
+  "pack_id": "hobit-self-development-smoke",
+  "name": "Hobit Self-Development Smoke",
+  "pack_name": "Hobit Self-Development Smoke",
+  "dependency_policy": "explicit",
+  "items": [
+    {
+      "id": "001-safe-docs-noop",
+      "title": "docs: smoke no-op readiness note",
+      "path": "001-safe-docs-noop.md",
+      "priority": "normal",
+      "dependencies": [],
+      "model_profile": "standard",
+      "reasoning_effort": "medium",
+      "validator_profile": "standard",
+      "execution_workspace": ".",
+      "validation_commands": [
+        "git status --short --branch",
+        "git diff --check"
+      ],
+      "expected_commit_title": "docs: smoke no-op readiness note",
+      "allowed_scope": [
+        "docs/SELF_DEVELOPMENT_READINESS_SMOKE_AUDIT.md",
+        "apps/desktop/frontend/src/workbench/promptPack/fixtures/self-development-smoke-prompt-pack/**"
+      ],
+      "forbidden_scope": [
+        "apps/desktop/frontend/src/workbench/**/*.tsx",
+        "apps/desktop/frontend/src/workbench/**/*.ts",
+        "crates/**",
+        "scripts/**",
+        "Cargo.toml",
+        "package.json",
+        "package-lock.json"
+      ],
+      "tags": [
+        "self-development",
+        "smoke",
+        "docs-only"
+      ]
+    },
+    {
+      "id": "002-dependent-follow-up",
+      "title": "docs: verify dependent readiness gate",
+      "path": "002-dependent-follow-up.md",
+      "priority": "normal",
+      "dependencies": [
+        "001-safe-docs-noop"
+      ],
+      "model_profile": "standard",
+      "reasoning_effort": "medium",
+      "validator_profile": "standard",
+      "execution_workspace": ".",
+      "validation_commands": [
+        "git status --short --branch",
+        "git diff --check"
+      ],
+      "expected_commit_title": "docs: verify dependent readiness gate",
+      "allowed_scope": [
+        "docs/SELF_DEVELOPMENT_READINESS_SMOKE_AUDIT.md",
+        "apps/desktop/frontend/src/workbench/promptPack/fixtures/self-development-smoke-prompt-pack/**"
+      ],
+      "forbidden_scope": [
+        "apps/desktop/frontend/src/workbench/**/*.tsx",
+        "apps/desktop/frontend/src/workbench/**/*.ts",
+        "crates/**",
+        "scripts/**",
+        "Cargo.toml",
+        "package.json",
+        "package-lock.json"
+      ],
+      "tags": [
+        "self-development",
+        "smoke",
+        "dependency"
+      ]
+    }
+  ]
+}
