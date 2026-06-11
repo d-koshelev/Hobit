@@ -550,6 +550,17 @@ unless the task explicitly requests it.
   storage/schema changes, Queue scheduling, dependency execution, Git
   mutation, Terminal launch, provider tools, automatic finalization, commit,
   push, rollback, or Workspace Agent/QueueV2 replacement behavior.
+- `docs/SELF_DEVELOPMENT_PRODUCT_PATH_FIX_STATUS.md` - docs-only status record
+  for the self-development product path blocker rerun after prompt-pack import
+  product-action and intent-routing fixes. It records observed blockers
+  including folder path source unavailable, missing prompt bodies after
+  `prompt-batch.json` parse, pasted Markdown importing one draft task, missing
+  ready/run action, and Queue validation unavailable; fixed expected behavior;
+  exact rerun steps; and pass/fail criteria. It does not add frontend
+  behavior, backend/runtime behavior, storage/schema changes, Queue
+  scheduling, Agent Executor execution, validation automation, Diff Review
+  execution, Git mutation, Terminal launch, provider tools, automatic
+  finalization, commit, push, rollback, or dependency execution.
 - `docs/VALIDATION_RUNNER_EVIDENCE_STATUS.md` - docs-only status record for
   Validation Runner / Evidence Block 001. It records the validation audit,
   typed command/evidence model, runner service/adapter, Queue evidence

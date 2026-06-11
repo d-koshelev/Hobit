@@ -14,15 +14,20 @@ execution. Current implemented widget behavior remains governed by
 
 Latest manual smoke status:
 
-- A manual smoke attempt reached a passing prompt-pack import preview, but the
-  actionable `Create Queue items` and `Cancel` controls were missing.
-- Text confirmation routed through Codex natural-language execution instead of
-  the typed product action path.
-- The attempt consumed 159 steps and approximately 3M input tokens, drifted
-  into raw SQLite/shell investigation, and created no Queue tasks.
-- No run, coordinator finalization, commit, or push occurred.
-- The expected fixed behavior and rerun steps are recorded in
-  `docs/PROMPT_PACK_IMPORT_PRODUCT_ACTION_FIX_STATUS.md`.
+- Earlier prompt-pack smoke attempts exposed product-action and
+  intent-routing failures: preview could pass without `Create Queue items` /
+  `Cancel`, text confirmation routed through Codex natural-language execution,
+  and the exact import-start prompt could return `typed product action
+  unavailable: no active preview`.
+- The remaining product-path blockers recorded after those fixes were: folder
+  path source unavailable; `prompt-batch.json` parsed but prompt bodies were
+  missing; pasted Markdown imported one draft task; the imported task had no
+  ready/run action; and validation was unavailable for the Queue surface.
+- No Queue task auto-run, Queue Autorun start, coordinator finalization,
+  commit, push, rollback, Terminal launch, provider tool call, or intended
+  hidden execution is accepted in this path.
+- The fixed expected behavior and exact rerun steps are recorded in
+  `docs/SELF_DEVELOPMENT_PRODUCT_PATH_FIX_STATUS.md`.
 
 ## Implemented Readiness Pieces
 
@@ -92,9 +97,11 @@ Unsupported or unverified:
 
 - full desktop manual smoke has not been recorded as passed in this status
   document;
-- the latest desktop manual smoke failed at the product-action wiring step:
-  preview passed, but create/cancel controls were unavailable and confirmation
-  routed to Codex text instead of typed Queue creation;
+- the latest product-path status still requires manual rerun evidence that
+  folder path import reads prompt-pack files, preview shows two tasks with
+  bodies and dependency, Queue creation creates two items, task 002 is blocked
+  by task 001, task 001 can be explicitly prepared/run, and validation can be
+  explicitly requested or reports a visible unavailable reason;
 - live Git diff snapshot support may be unavailable without an explicit repo
   root/execution workspace or where untracked patch previews are needed;
 - real Git commit lookup for supplied commit hashes remains a follow-up when
@@ -124,10 +131,14 @@ Unsupported or unverified:
 
 ## Recommended Next Work
 
-1. Rerun the manual smoke in the Tauri desktop shell from a valid import
-   preview and verify the fixed product-action path: `Create Queue items`
-   calls typed Queue creation, result card lists created task ids, QueueV2
-   shows task 002 blocked by task 001, and no Codex/shell/SQLite path is used.
+1. Rerun the manual smoke in the Tauri desktop shell from the exact import
+   prompt in `docs/SELF_DEVELOPMENT_PRODUCT_PATH_FIX_STATUS.md` and verify the
+   fixed product path: folder path import reads pack files, preview shows two
+   tasks with populated bodies and dependency, `Create Queue items` calls
+   typed Queue creation, result card lists both task ids, QueueV2 shows task
+   002 blocked by task 001, task 001 can be explicitly prepared/run, and
+   validation can be explicitly requested or shows a visible unavailable
+   reason.
 2. Add rollback/follow-up hardening so rollback-required and requested-changes
    outcomes can create explicit follow-up records without executing rollback.
 3. Add live Git diff snapshot support where missing, using only explicit
@@ -168,6 +179,8 @@ doc/test tasks with visible validation and review evidence. The project should
 not treat this as autonomous self-development, durable scheduler readiness,
 automatic acceptance, rollback readiness, or Git automation readiness.
 
-The prompt-pack import product-action path remains the current manual smoke
-blocker until the rerun proves that Queue item creation and dependency
-persistence happen through typed app services/actions from the preview card.
+The self-development product path remains the current manual smoke blocker
+until the rerun proves that folder path import, two-task preview/body
+resolution, Queue item creation, dependency blocking, explicit task 001
+prepare/run, and explicit validation request all work through typed visible
+product actions.

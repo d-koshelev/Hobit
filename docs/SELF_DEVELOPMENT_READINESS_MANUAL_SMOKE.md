@@ -22,9 +22,16 @@ Latest status note:
   failed smoke where the initial import prompt returned `typed product action
   unavailable: no active preview`; no Codex/shell/SQLite/tool-loop occurred;
   and the root cause was import-start intent being treated as confirm.
-- Reruns must start from the valid import preview and verify the fixed
-  product-action path before continuing into QueueV2, validation, Diff Review,
-  or coordinator finalization checks.
+- `docs/SELF_DEVELOPMENT_PRODUCT_PATH_FIX_STATUS.md` records the remaining
+  product-path blockers: folder path source unavailable; `prompt-batch.json`
+  parsed while prompt bodies were missing; pasted Markdown imported one draft
+  task; the imported task had no ready/run action; and validation was
+  unavailable for the Queue surface.
+- Reruns must start from the exact import prompt and verify folder path import,
+  two-task preview with bodies and dependency, typed Queue creation, task 002
+  blocked by task 001, explicit task 001 prepare/run, and explicit validation
+  request before continuing into Diff Review or coordinator finalization
+  checks.
 
 Use this checklist for the UI dogfooding path that cannot be fully covered by
 service-level tests. Record the run date, desktop build/branch, Workspace name,
@@ -97,11 +104,14 @@ desktop UI path end to end.
      C:\Users\Dmitry\Documents\prj\hobit-realistic-dogfooding-smoke-pack
      ```
 
-   - Expected visible state: an actionable prompt-pack import preview card
-     starts or opens.
-   - Expected visible state: if folder/path reading is unsupported, the card
+   - Expected visible state after the product-path fix: an actionable
+     prompt-pack import preview card starts or opens from the folder path.
+   - Expected visible state: folder/path reading uses the explicit operator
+     path and reads the prompt-pack files without Codex, shell, raw SQLite,
+     Terminal, provider tools, or hidden context.
+   - Expected visible state if folder/path reading is unsupported: the card
      states that explicitly and keeps the typed import surface available for
-     pasted source.
+     pasted source; this is a rerun failure for the fixed product path.
    - Expected: this initial prompt is not treated as confirmation and does not
      return `typed product action unavailable: no active preview`.
    - Expected: no Codex run, shell command, raw SQLite/tool-loop, Queue run,
@@ -125,6 +135,8 @@ desktop UI path end to end.
      `Dependencies`, `Unresolved deps`, `Validation commands`, and `Model
      routes`.
    - Expected visible state: selected items include task 001 and task 002.
+   - Expected visible state after the product-path fix: task 001 and task 002
+     both show populated prompt bodies from their referenced prompt-pack files.
    - Expected visible state: dependency graph summary shows one dependency
      edge, no cycles, and no unresolved dependency for the primary fixture.
    - Expected visible state: validation commands are shown as suggestions; they
@@ -168,6 +180,9 @@ desktop UI path end to end.
      validation-required marker where available.
    - Expected visible state: task 002 is present and shows dependency blocked,
      `Depends on 001-safe-docs-noop`, or equivalent dependency/readiness cue.
+   - Expected visible state: pasted Markdown fallback must not be needed for
+     the primary fixed path. If used, it must not collapse the two-task pack
+     into one draft task without a visible failure.
    - Expected visible state after the product-action wiring fix: the
      dependency is durable across the normal Queue read path, not only inferred
      from chat text or manual database inspection.
@@ -181,6 +196,9 @@ desktop UI path end to end.
      `Developer`.
    - Expected visible state: the details popup shows primary action and
      explicit actions; opening details does not run or finalize anything.
+   - Expected visible state after the product-path fix: task 001 exposes an
+     explicit prepare/run action when the Queue execution readiness path is
+     available. If unavailable, the reason is visible.
 
 11. Verify validation section before running validation.
     - Open `Files / Validation`.
@@ -356,11 +374,32 @@ desktop UI path end to end.
     or manually editing storage.
 
 - Prompt-pack source unavailable:
-  - Expected: the UI shows folder/zip unavailable or source unavailable rather
-    than pretending import succeeded.
+  - Expected: before the product-path fix, the UI shows folder/zip unavailable
+    or source unavailable rather than pretending import succeeded.
+  - Expected after the product-path fix: folder path source reads the
+    prompt-pack files. A source-unavailable state is a rerun failure unless it
+    is intentionally testing an unsupported source type.
   - Action: paste the fixture manifest into `Prompt-pack source`, or use an
     equivalent local prompt pack. If preview still fails, record the exact
     preview errors and do not create Queue items.
+
+- Prompt bodies missing:
+  - Expected after the product-path fix: `prompt-batch.json` references are
+    resolved and task bodies are populated from pack files.
+  - Action: fail the rerun if the manifest parses but task bodies are missing.
+    Do not create tasks by manually pasting bodies into storage.
+
+- Pasted Markdown collapsed to one task:
+  - Expected: pasted fallback content must preserve the intended two-task pack
+    or fail visibly.
+  - Action: fail the rerun if pasted Markdown imports only one draft task for
+    the two-task fixture.
+
+- Task ready/run action unavailable:
+  - Expected after the product-path fix: task 001 has an explicit prepare/run
+    action when Queue execution readiness is available.
+  - Action: record the visible unavailable reason. Do not start execution from
+    Terminal, shell commands, raw SQLite, provider tools, or hidden paths.
 
 - Validation runner unavailable:
   - Expected: `Request validation` is disabled or returns a visible
@@ -392,6 +431,8 @@ safety boundaries hold:
 - Import preview happens before Queue creation.
 - The exact import-start prompt starts or opens the prompt-pack import preview
   flow and is not treated as confirmation.
+- Folder path source reads the prompt-pack files for the primary fixed path.
+- Preview shows task 001 and task 002 with populated prompt bodies.
 - A valid preview has explicit `Create Queue items` and `Cancel` controls.
 - Confirm requires an active preview; confirm without preview fail-fasts
   visibly.
@@ -402,6 +443,8 @@ safety boundaries hold:
 - Task 001 and task 002 appear in QueueV2.
 - Task 002 dependency on task 001 is visible and durable through the normal
   Queue read path for the fixed prompt-pack product action path.
+- Task 001 exposes explicit prepare/run when Queue execution readiness is
+  available, or an unavailable reason is visible.
 - Validation evidence is requested only by explicit operator action, or the
   runner-unavailable state is visible.
 - Diff Review item creation is explicit and read-only by default.
@@ -421,7 +464,11 @@ routes through Workspace Agent/Codex natural-language text, if the operator
 must inspect or mutate raw SQLite/shell state to create or verify imported
 tasks, if no tasks are created after `Create Queue items`, if created task ids
 are absent from the result card, or if QueueV2 does not show task 002 blocked
-by task 001.
+by task 001. It also fails if folder path source remains unavailable for the
+fixed primary path, `prompt-batch.json` parses while prompt bodies are
+missing, pasted Markdown collapses the fixture to one draft task, task 001 has
+no visible ready/run path or unavailable reason, or validation is unavailable
+without a visible reason.
 
 Do not mark automated coverage as passing from this checklist. This checklist
 records manual UI evidence only.
