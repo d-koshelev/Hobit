@@ -18,7 +18,10 @@ import type {
   PromptPackImportPreviewModel,
   PromptPackMaterializationResult,
 } from "./promptPack";
-import { selfDevelopmentSmokePromptPackEntries } from "./promptPack/selfDevelopmentSmokePromptPackFixture.test-fixtures";
+import {
+  realisticDogfoodingSmokePromptPackEntries,
+  selfDevelopmentSmokePromptPackEntries,
+} from "./promptPack/selfDevelopmentSmokePromptPackFixture.test-fixtures";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -140,7 +143,7 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
       stopListening: vi.fn(),
     }));
     const runTerminalCommand = vi.fn();
-    const readPromptPackSource = vi.fn(async () => selfDevelopmentSmokePromptPackEntries);
+    const readPromptPackSource = vi.fn(async () => realisticDogfoodingSmokePromptPackEntries);
 
     renderWidget({
       createQueueItemsFromPromptPackPreview: materializePromptPackPreview,
@@ -185,8 +188,15 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
     expect(readPromptPackSource).toHaveBeenCalledWith({
       path: "C:\\Users\\Dmitry\\Documents\\prj\\hobit-realistic-dogfooding-smoke-pack",
     });
-    expect(document.body.textContent).toContain("001-safe-docs-noop");
-    expect(document.body.textContent).toContain("002-dependent-follow-up");
+    expect(document.body.textContent).toContain(
+      "001-add-dogfooding-smoke-result-doc",
+    );
+    expect(document.body.textContent).toContain(
+      "002-record-dependent-gate-result",
+    );
+    expect(document.body.textContent).toContain("Selected2");
+    expect(document.body.textContent).toContain("Unresolved deps0");
+    expect(document.body.textContent).toContain("No blocking errors.");
     expect(materializePromptPackPreview).not.toHaveBeenCalled();
     expect(createItem).not.toHaveBeenCalled();
     expect(startCodexDirectWork).not.toHaveBeenCalled();

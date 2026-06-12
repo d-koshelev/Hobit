@@ -113,12 +113,36 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
   });
 
   it("enables create for the realistic folder fixture without a stale manifest parse error", async () => {
-    const bridge = queueBridge();
+    const runAutonomousQueue = vi.fn();
+    const startQueueItem = vi.fn();
+    const stopAutonomousQueueAfterCurrent = vi.fn();
+    const codexCallback = vi.fn();
+    const shellCallback = vi.fn();
+    const sqliteCallback = vi.fn();
+    const terminalCallback = vi.fn();
+    const bridge = {
+      ...queueBridge({
+        runAutonomousQueue,
+        stopAutonomousQueueAfterCurrent,
+      }),
+      startQueueItem,
+    };
+    const createQueueItemsFromPromptPackPreview = vi.fn(
+      async (...args: Parameters<CreateQueueItemsFromPromptPackPreview>) =>
+        materializePromptPackPreviewToQueue({
+          bridge,
+          confirmed: true,
+          preview: args[0],
+        }),
+    );
     const readPromptPackSource = vi.fn(async () => realisticDogfoodingSmokePromptPackEntries);
 
     render(
       <PromptPackImportHarness
         bridge={bridge}
+        createQueueItemsFromPromptPackPreview={
+          createQueueItemsFromPromptPackPreview
+        }
         initialState={{
           id: "import-1",
           sourcePath: realisticDogfoodingSmokePromptPackFixturePath,
@@ -150,6 +174,49 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
       false,
     );
     expect(bridge.createItem).not.toHaveBeenCalled();
+
+    await clickButton("Create Queue items");
+
+    expect(createQueueItemsFromPromptPackPreview).toHaveBeenCalledTimes(1);
+    expect(
+      createQueueItemsFromPromptPackPreview.mock.calls[0]?.[0],
+    ).toMatchObject({
+      dependencyGraphSummary: {
+        edgeCount: 1,
+        selectedItemCount: 2,
+        unresolvedDependencyCount: 0,
+      },
+      importAvailable: true,
+      selectedItemIds: [
+        "001-add-dogfooding-smoke-result-doc",
+        "002-record-dependent-gate-result",
+      ],
+    });
+    expect(bridge.createItem).toHaveBeenCalledTimes(2);
+    expect(bridge.updateItem).toHaveBeenCalledWith({
+      itemId: "queue-002-record-dependent-gate-result",
+      patch: { dependencies: ["queue-001-add-dogfooding-smoke-result-doc"] },
+      reason:
+        "Materialize prompt-pack dependency links after creating all selected Queue items.",
+    });
+    expect(document.body.textContent).toContain("Created Queue items");
+    expect(document.body.textContent).toContain(
+      "001-add-dogfooding-smoke-result-doc: 001-add-dogfooding-smoke-result-doc: docs: add dogfooding smoke result doc (queue-001-add-dogfooding-smoke-result-doc)",
+    );
+    expect(document.body.textContent).toContain(
+      "002-record-dependent-gate-result: 002-record-dependent-gate-result: docs: record dependent gate result (queue-002-record-dependent-gate-result)",
+    );
+    expect(document.body.textContent).toContain(
+      "002-record-dependent-gate-result -> 001-add-dogfooding-smoke-result-doc: created",
+    );
+    expect(document.body.textContent).toContain("No tasks started");
+    expect(codexCallback).not.toHaveBeenCalled();
+    expect(shellCallback).not.toHaveBeenCalled();
+    expect(sqliteCallback).not.toHaveBeenCalled();
+    expect(terminalCallback).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(startQueueItem).not.toHaveBeenCalled();
+    expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
   });
 
   it("shows a visible path-source read error and keeps create disabled", async () => {

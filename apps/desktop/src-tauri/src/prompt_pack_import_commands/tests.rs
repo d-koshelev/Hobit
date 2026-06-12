@@ -43,6 +43,52 @@ fn reads_repo_self_development_fixture_entries() {
 }
 
 #[test]
+fn reads_repo_realistic_dogfooding_fixture_entries() {
+    let source_path = repo_root().join(
+        "apps/desktop/frontend/src/workbench/promptPack/fixtures/realistic-dogfooding-smoke-pack",
+    );
+
+    let source = read_prompt_pack_source_blocking(ReadPromptPackSourceRequest {
+        path: source_path.to_string_lossy().to_string(),
+    })
+    .expect("read realistic prompt-pack fixture");
+
+    let paths = source
+        .files
+        .iter()
+        .map(|file| file.relative_path.as_str())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        paths,
+        vec![
+            "001-add-dogfooding-smoke-result-doc.md",
+            "002-record-dependent-gate-result.md",
+            "README.md",
+            "prompt-batch.json",
+        ]
+    );
+    assert_eq!(source.source_kind, "folder");
+    assert!(source
+        .files
+        .iter()
+        .any(|file| file.relative_path == "README.md"
+            && file.text.contains("Realistic Dogfooding Smoke Pack")));
+    assert!(source
+        .files
+        .iter()
+        .any(|file| file.relative_path == "prompt-batch.json"
+            && file.text.contains("002-record-dependent-gate-result")));
+    assert!(source.files.iter().any(|file| file.relative_path
+        == "001-add-dogfooding-smoke-result-doc.md"
+        && file.text.contains("Do not start Codex")));
+    assert!(source.files.iter().any(|file| file.relative_path
+        == "002-record-dependent-gate-result.md"
+        && file
+            .text
+            .contains("Do not infer readiness from import alone.")));
+}
+
+#[test]
 fn reads_manifest_file_path_with_sibling_prompt_bodies() {
     let dir = unique_temp_dir();
     fs::write(dir.join("README.md"), "# Pack").expect("write readme");
