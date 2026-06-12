@@ -35,6 +35,7 @@ import type { ValidationRunner } from "./validation";
 
 type AgentQueueV2BoardProps = {
   autorunArmed: boolean;
+  currentWorkspaceRoot?: string | null;
   globalExecutionState: QueueGlobalStatus;
   isSelecting: boolean;
   onCreateKnowledgeDocument?: WidgetRenderProps["onCreateKnowledgeDocument"];
@@ -72,6 +73,7 @@ const CLOSED_VISIBLE_CARD_LIMIT = 4;
 
 export function AgentQueueV2Board({
   autorunArmed,
+  currentWorkspaceRoot = null,
   globalExecutionState,
   isSelecting,
   onCreateKnowledgeDocument,
@@ -240,6 +242,7 @@ export function AgentQueueV2Board({
         </p>
       </details>
       <QueueV2TaskDetailsPopup
+        currentWorkspaceRoot={currentWorkspaceRoot}
         inspector={detailsTaskId ? board.inspector : null}
         isOpen={detailsTaskId !== null}
         onCreateKnowledgeDocument={onCreateKnowledgeDocument}

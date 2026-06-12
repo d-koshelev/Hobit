@@ -38,6 +38,7 @@ import { QueueV2DiffReviewSection } from "./QueueV2DiffReviewSection";
 import { QueueV2CoordinatorSection } from "./QueueV2CoordinatorSection";
 
 type QueueV2TaskDetailsPopupProps = {
+  currentWorkspaceRoot?: string | null;
   inspector: QueueInspectorSnapshot | null;
   isOpen: boolean;
   onCreateKnowledgeDocument?: WidgetRenderProps["onCreateKnowledgeDocument"];
@@ -73,6 +74,7 @@ const TABS: { id: QueueV2DetailsTab; label: string }[] = [
 ];
 
 export function QueueV2TaskDetailsPopup({
+  currentWorkspaceRoot = null,
   inspector,
   isOpen,
   onCreateKnowledgeDocument,
@@ -114,13 +116,14 @@ export function QueueV2TaskDetailsPopup({
   const detailActions = useMemo(
     () =>
       buildQueueV2TaskDetailsActions({
+        currentWorkspaceRoot,
         inspector,
         onRequestNewTask,
         onSelectTab: setActiveTab,
         queue,
         task,
       }),
-    [inspector, onRequestNewTask, queue, task],
+    [currentWorkspaceRoot, inspector, onRequestNewTask, queue, task],
   );
 
   if (!task || !taskViewModel || !inspector) {

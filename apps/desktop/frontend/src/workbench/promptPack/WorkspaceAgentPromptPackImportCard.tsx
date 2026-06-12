@@ -32,6 +32,7 @@ export type WorkspaceAgentPromptPackImportState = {
 
 export type CreateQueueItemsFromPromptPackPreview = (
   preview: PromptPackImportPreviewModel,
+  options?: { currentWorkspaceRoot?: string | null },
 ) => Promise<PromptPackMaterializationResult>;
 
 type WorkspaceAgentPromptPackImportCardProps = {

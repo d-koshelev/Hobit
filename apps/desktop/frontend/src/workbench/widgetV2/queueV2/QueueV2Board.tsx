@@ -22,6 +22,7 @@ import { QueueV2TaskDetailsPopup } from "./QueueV2TaskDetailsPopup";
 
 type QueueV2BoardProps = {
   autorunArmed?: boolean;
+  currentWorkspaceRoot?: string | null;
   globalExecutionState?: QueueGlobalStatus;
   initialSelectedTaskId?: string | null;
   onSelectedTaskChange?: (taskId: string) => void;
@@ -52,6 +53,7 @@ const CLOSED_VISIBLE_CARD_LIMIT = 4;
 
 export function QueueV2Board({
   autorunArmed = false,
+  currentWorkspaceRoot = null,
   globalExecutionState = "started",
   initialSelectedTaskId = null,
   onSelectedTaskChange,
@@ -157,6 +159,7 @@ export function QueueV2Board({
         />
       </div>
       <QueueV2TaskDetailsPopup
+        currentWorkspaceRoot={currentWorkspaceRoot}
         inspector={detailsTaskId ? board.inspector : null}
         isOpen={detailsTaskId !== null}
         onOpenLinkedTask={openLinkedTaskDetails}

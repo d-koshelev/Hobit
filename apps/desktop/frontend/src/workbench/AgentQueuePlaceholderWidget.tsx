@@ -36,6 +36,7 @@ export function AgentQueuePlaceholderWidget({
   logRefreshToken,
   agentQueueItemOpenRequest,
   agentQueueController,
+  currentWorkspaceRoot,
   onLoadLogs,
   onCreateKnowledgeDocument,
   onCreateSkill,
@@ -242,6 +243,7 @@ export function AgentQueuePlaceholderWidget({
                 (queue.autonomous.status === "running" ||
                   queue.autonomous.status === "stopping")
               }
+              currentWorkspaceRoot={currentWorkspaceRoot}
               globalExecutionState={queue.foundation.globalExecutionState}
               isSelecting={isSelecting}
               onCreateKnowledgeDocument={onCreateKnowledgeDocument}

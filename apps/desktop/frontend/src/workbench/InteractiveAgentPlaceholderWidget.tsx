@@ -160,9 +160,9 @@ export function InteractiveAgentPlaceholderWidget({
     onStartCodexDirectWorkStream,
     workspaceId,
   });
+  const createQueueItemsFromPromptPackPreviewForCurrentWorkspace: typeof createQueueItemsFromPromptPackPreview = createQueueItemsFromPromptPackPreview ? (preview) => createQueueItemsFromPromptPackPreview(preview, { currentWorkspaceRoot: explicitQueueCommandWorkspaceRoot(directWork.directWorkDirectory) }) : undefined;
   const isDirectModeEnabled = directWork.isDirectModeEnabled;
-  const canSend =
-    !isDirectModeEnabled && trimmedDraftLength > 0 && !isProviderPending;
+  const canSend = !isDirectModeEnabled && trimmedDraftLength > 0 && !isProviderPending;
   useEffect(() => {
     const messageList = messageListRef.current;
     if (!messageList) {
@@ -476,7 +476,7 @@ export function InteractiveAgentPlaceholderWidget({
     }
 
     const result = await runWorkspaceAgentProductActionConfirmation({
-      createQueueItemsFromPromptPackPreview,
+      createQueueItemsFromPromptPackPreview: createQueueItemsFromPromptPackPreviewForCurrentWorkspace,
       imports: promptPackImport.imports,
       onCancelPromptPackImport: promptPackImport.cancel, onPatchPromptPackImport: promptPackImport.patch,
       onStartPromptPackImportPreview: promptPackImport.startFromOperatorMessage,
@@ -843,7 +843,7 @@ export function InteractiveAgentPlaceholderWidget({
           suggestedPrompts={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
           transcriptRef={messageListRef}
           queueController={agentQueueController}
-          createQueueItemsFromPromptPackPreview={createQueueItemsFromPromptPackPreview}
+          createQueueItemsFromPromptPackPreview={createQueueItemsFromPromptPackPreviewForCurrentWorkspace}
           workspaceAgentQueueBridge={workspaceAgentQueueBridge} workspaceChatValidationRunner={queueValidationRunner}
         />
         <WorkspaceAgentComposer

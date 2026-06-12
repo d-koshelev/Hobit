@@ -73,6 +73,7 @@ describe("validation evidence to Diff Review smoke", () => {
     const importResult = await materializePromptPackPreviewToQueue({
       bridge,
       confirmed: true,
+      currentWorkspaceRoot: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
       preview: preview!,
     });
     const sourceQueueItemId =
@@ -367,6 +368,7 @@ describe("validation evidence to Diff Review smoke", () => {
     const importResult = await materializePromptPackPreviewToQueue({
       bridge,
       confirmed: true,
+      currentWorkspaceRoot: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
       preview,
     });
     const sourceQueueItemId = importResult.createdTasks[0]?.queueItemId;

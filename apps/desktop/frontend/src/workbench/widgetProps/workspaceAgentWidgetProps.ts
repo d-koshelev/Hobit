@@ -81,10 +81,14 @@ export function workspaceAgentWidgetProps({
     onReadPromptPackSource: actions.readPromptPackSource,
     onStartCodexDirectWorkStream: actions.startCodexDirectWorkStream,
     onUpdateAgentQueueTask: actions.updateAgentQueueTask,
-    createQueueItemsFromPromptPackPreview: (preview) =>
+    createQueueItemsFromPromptPackPreview: (preview, options) =>
       materializePromptPackPreviewToQueue({
         bridge: workspaceQueueApi,
         confirmed: true,
+        currentWorkspaceRoot:
+          options?.currentWorkspaceRoot ??
+          workspaceQueueApi.getRunSettingsDefaults?.()?.executionWorkspace ??
+          null,
         preview,
       }),
     agentQueueController: workspaceQueueApi.controller,

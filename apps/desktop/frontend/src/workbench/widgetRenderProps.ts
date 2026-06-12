@@ -125,6 +125,7 @@ export type WidgetRenderProps = {
   agentExecutorSlots?: AgentExecutorSlot[];
   config: Record<string, unknown>;
   definition: WidgetDefinition;
+  currentWorkspaceRoot?: string | null;
   directWorkGitReviewRequest?: DirectWorkGitReviewRequest | null;
   directWorkGitReviewStatus?: DirectWorkGitReviewStatus | null;
   directWorkRunHandoff?: DirectWorkRunHandoff | null;
@@ -409,6 +410,7 @@ export type WidgetRenderProps = {
   ) => Promise<PromptPackFileEntry[]>;
   createQueueItemsFromPromptPackPreview?: (
     preview: PromptPackImportPreviewModel,
+    options?: { currentWorkspaceRoot?: string | null },
   ) => Promise<PromptPackMaterializationResult>;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
   queueValidationRunner?: ValidationRunner | null;

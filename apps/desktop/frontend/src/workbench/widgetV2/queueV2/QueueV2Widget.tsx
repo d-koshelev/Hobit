@@ -24,6 +24,7 @@ const queueV2Manifest = getWidgetV2Manifest("queue-v2");
 
 type QueueV2WidgetProps = {
   autorunArmed?: boolean;
+  currentWorkspaceRoot?: string | null;
   globalExecutionState?: QueueGlobalStatus;
   pausedQueueTagIds?: ReadonlySet<string>;
   queue?: AgentQueueController;
@@ -33,6 +34,7 @@ type QueueV2WidgetProps = {
 
 export function QueueV2Widget({
   autorunArmed = false,
+  currentWorkspaceRoot = null,
   globalExecutionState = "started",
   pausedQueueTagIds = new Set(),
   queue,
@@ -86,6 +88,7 @@ export function QueueV2Widget({
         primary={
           <QueueV2Board
             autorunArmed={autorunArmed}
+            currentWorkspaceRoot={currentWorkspaceRoot}
             globalExecutionState={globalExecutionState}
             pausedQueueTagIds={pausedQueueTagIds}
             queue={queue}

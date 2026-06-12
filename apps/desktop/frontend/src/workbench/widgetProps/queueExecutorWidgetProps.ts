@@ -85,6 +85,8 @@ export function agentQueueWidgetProps({
     agentQueueItemOpenRequest,
     agentQueueController,
     agentExecutorSlots,
+    currentWorkspaceRoot:
+      workspaceQueueApi.getRunSettingsDefaults?.()?.executionWorkspace ?? null,
     queueValidationRunner: workspaceQueueApi.validationRunner,
     onRequestQueueValidation: workspaceQueueApi.requestValidation,
     onAttachContextToCoordinator,

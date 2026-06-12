@@ -19,6 +19,7 @@ export type QueueV2DetailsTab =
 type QueueV2TaskDetailsActionId =
   | "refresh"
   | "new-task"
+  | "set-workspace"
   | "promote"
   | "run"
   | "view-report"
@@ -39,12 +40,14 @@ export type QueueV2TaskDetailsAction = {
 };
 
 export function buildQueueV2TaskDetailsActions({
+  currentWorkspaceRoot,
   inspector,
   onRequestNewTask,
   onSelectTab,
   queue,
   task,
 }: {
+  currentWorkspaceRoot?: string | null;
   inspector: QueueInspectorSnapshot | null;
   onRequestNewTask?: () => void;
   onSelectTab: (tab: QueueV2DetailsTab) => void;
@@ -114,6 +117,35 @@ export function buildQueueV2TaskDetailsActions({
     });
   }
 
+  if (!hasExecutionWorkspace(task)) {
+    const workspaceRoot = normalizedWorkspaceRoot(currentWorkspaceRoot);
+
+    actions.push({
+      disabled:
+        !hasQueueController ||
+        selectedTaskMismatch ||
+        !workspaceRoot ||
+        Boolean(queue?.run.isStarting),
+      id: "set-workspace",
+      label: "Set task workspace",
+      onClick: () => {
+        if (workspaceRoot) {
+          queue?.run.onRepoRootDraftChange(workspaceRoot);
+        }
+      },
+      reason:
+        selectionReason ??
+        (!hasQueueController
+          ? "Queue task update actions are not wired in this view."
+          : !workspaceRoot
+            ? "Current Workspace root is unavailable. Open a Workspace root before setting this task workspace."
+            : queue?.run.isStarting
+              ? "Queue task is currently starting."
+              : undefined),
+      variant: "secondary",
+    });
+  }
+
   if (isRunActionRelevant(task, inspector)) {
     actions.push({
       disabled:
@@ -177,6 +209,20 @@ export function buildQueueV2TaskDetailsActions({
   });
 
   return actions;
+}
+
+function hasExecutionWorkspace(task: AgentQueueTask) {
+  return Boolean(task.executionWorkspace?.trim());
+}
+
+function normalizedWorkspaceRoot(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }
 
 function coordinatorDecisionActions(

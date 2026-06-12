@@ -52,6 +52,11 @@ export type WorkspaceChatQueueAction =
       queueItemId: string;
     }
   | {
+      executionWorkspace: string;
+      kind: "set_task_workspace";
+      queueItemId: string;
+    }
+  | {
       kind: "stop_task" | "cancel_task";
       queueItemId: string;
     }
@@ -166,6 +171,8 @@ async function executeWorkspaceChatQueueAction(
         return await promoteTask(action.queueItemId, options.queue);
       case "run_task":
         return await runTask(action.queueItemId, options.queue);
+      case "set_task_workspace":
+        return await setTaskWorkspace(action, options.bridge);
       case "stop_task":
       case "cancel_task":
         return unavailable(
@@ -183,6 +190,53 @@ async function executeWorkspaceChatQueueAction(
   } catch (error) {
     return failed(action.kind, errorToMessage(error), actionQueueItemId(action));
   }
+}
+
+async function setTaskWorkspace(
+  action: Extract<WorkspaceChatQueueAction, { kind: "set_task_workspace" }>,
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+): Promise<WorkspaceChatQueueActionResult> {
+  const trimmedWorkspace = action.executionWorkspace.trim();
+  const executionWorkspace =
+    trimmedWorkspace && trimmedWorkspace !== "~" && trimmedWorkspace !== "."
+      ? trimmedWorkspace
+      : null;
+
+  if (!executionWorkspace) {
+    return unavailable("set_task_workspace", "Current Workspace root is unavailable. No Queue task was updated.", action.queueItemId);
+  }
+
+  if (!bridge) {
+    return unavailable("set_task_workspace", "Queue update bridge is unavailable in this Workspace Agent surface. No Queue task was updated.", action.queueItemId);
+  }
+
+  const result = await bridge.updateItem({
+    itemId: action.queueItemId,
+    patch: { executionWorkspace },
+    reason: "Set Queue task execution workspace from current Workspace root.",
+  });
+
+  if (!result.ok) {
+    const message =
+      result.error?.message ?? result.message ?? "Queue task workspace update failed.";
+
+    return {
+      action: "set_task_workspace",
+      message,
+      queueItemId: action.queueItemId,
+      reason: message,
+      status: "failed",
+      widgetResult: result,
+    };
+  }
+
+  return {
+    action: "set_task_workspace",
+    message: `Task workspace set for ${action.queueItemId}. No task was started.`,
+    queueItemId: action.queueItemId,
+    status: "success",
+    widgetResult: result,
+  };
 }
 
 async function createDiffReview(
@@ -585,7 +639,6 @@ function coordinatorDecisionHandler(
       return null;
   }
 }
-
 
 function isSelectedTask(task: AgentQueueTask | null, queueItemId: string) {
   return task?.queueItemId === queueItemId;

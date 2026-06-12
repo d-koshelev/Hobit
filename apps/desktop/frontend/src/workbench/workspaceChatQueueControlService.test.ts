@@ -172,6 +172,53 @@ describe("workspace chat Queue control service", () => {
     expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
 
+  it("sets task workspace through bridge update without running or finalizing", async () => {
+    const updateItem = vi.fn(async (request) =>
+      itemResult({
+        executionWorkspace: request.patch.executionWorkspace,
+        id: request.itemId,
+      }),
+    );
+    const onStartAssignedTask = vi.fn();
+    const onFinalize = vi.fn();
+    const task = queueTask({
+      executionWorkspace: null,
+      queueItemId: "queue-1",
+    });
+    const service = createWorkspaceChatQueueControlService({
+      bridge: queueBridge({ updateItem }),
+      queue: queueController({
+        canAct: true,
+        onFinalize,
+        onStartAssignedTask,
+        selectedTask: task,
+      }),
+    });
+
+    const result = await service.execute({
+      executionWorkspace: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+      kind: "set_task_workspace",
+      queueItemId: "queue-1",
+    });
+
+    expect(updateItem).toHaveBeenCalledTimes(1);
+    expect(updateItem).toHaveBeenCalledWith({
+      itemId: "queue-1",
+      patch: {
+        executionWorkspace: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+      },
+      reason: "Set Queue task execution workspace from current Workspace root.",
+    });
+    expect(result).toMatchObject({
+      action: "set_task_workspace",
+      queueItemId: "queue-1",
+      status: "success",
+    });
+    expect(result.message).toContain("No task was started");
+    expect(onStartAssignedTask).not.toHaveBeenCalled();
+    expect(onFinalize).not.toHaveBeenCalled();
+  });
+
   it("promotes a selected draft through the existing Queue draft-promotion callback only after execute", async () => {
     const onPromote = vi.fn();
     const onStartAssignedTask = vi.fn();
@@ -443,6 +490,7 @@ function queueController({
   canAct = false,
   canStart = true,
   onCreateDiffReview = vi.fn(),
+  onFinalize = vi.fn(),
   onPromote = vi.fn(),
   onRollback = vi.fn(),
   onStartAssignedTask = vi.fn(),
@@ -452,6 +500,7 @@ function queueController({
   canAct?: boolean;
   canStart?: boolean;
   onCreateDiffReview?: () => void;
+  onFinalize?: () => void;
   onPromote?: () => void;
   onRollback?: () => void;
   onStartAssignedTask?: () => void;
@@ -464,7 +513,7 @@ function queueController({
       message: null,
       onAcceptWithoutCommit: vi.fn(),
       onCreateFollowUp: vi.fn(),
-      onFinalize: vi.fn(),
+      onFinalize,
       onMarkBlocked: vi.fn(),
       onMarkFailedRejected: vi.fn(),
       onMarkFollowUpRequired: vi.fn(),

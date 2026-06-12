@@ -1,6 +1,6 @@
 export function explicitQueueCommandWorkspaceRoot(value: string | null | undefined) {
   const trimmed = value?.trim() ?? "";
-  if (!trimmed || trimmed === "~") {
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
     return null;
   }
 

@@ -65,6 +65,7 @@ describe("prompt-pack import result and QueueV2 regression", () => {
     await render(
       <PromptPackFolderImportHarness
         bridge={harness.bridge}
+        currentWorkspaceRoot="C:/Users/Dmitry/Documents/prj/Hobit_fixed"
         onReadPromptPackSource={onReadPromptPackSource}
       />,
     );
@@ -116,6 +117,16 @@ describe("prompt-pack import result and QueueV2 regression", () => {
         (task) => task.queueItemId === "queue-002-record-dependent-gate-result",
       )?.dependsOn,
     ).toEqual(["queue-001-add-dogfooding-smoke-result-doc"]);
+    expect(
+      importedTasks.find(
+        (task) => task.queueItemId === "queue-001-add-dogfooding-smoke-result-doc",
+      )?.executionWorkspace,
+    ).toBe("C:/Users/Dmitry/Documents/prj/Hobit_fixed");
+    expect(
+      importedTasks.find(
+        (task) => task.queueItemId === "queue-002-record-dependent-gate-result",
+      )?.executionWorkspace,
+    ).toBe("C:/Users/Dmitry/Documents/prj/Hobit_fixed");
 
     const importedViewModel = selectQueueV2ViewModel({
       selectedTaskId: "queue-002-record-dependent-gate-result",
@@ -327,6 +338,7 @@ async function materializeSelfDevelopmentSmokeFixture() {
   const result = await materializePromptPackPreviewToQueue({
     bridge: harness.bridge,
     confirmed: true,
+    currentWorkspaceRoot: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
     preview,
   });
 
@@ -415,7 +427,7 @@ function taskFromCreateRequest(
     dependsOn: request.dependencies ?? [],
     description: request.description ?? "",
     executionPolicy: request.executionPolicy ?? "manual",
-    executionWorkspace: request.executionWorkspace ?? ".",
+    executionWorkspace: request.executionWorkspace ?? null,
     itemType: request.itemType ?? "implementation",
     orderIndex: 0,
     priority: request.priority ?? 0,
@@ -559,9 +571,11 @@ function elementByAriaLabel(name: string) {
 
 function PromptPackFolderImportHarness({
   bridge,
+  currentWorkspaceRoot,
   onReadPromptPackSource,
 }: {
   bridge: WorkspaceAgentQueueBridge;
+  currentWorkspaceRoot?: string | null;
   onReadPromptPackSource: (request: {
     path: string;
   }) => Promise<readonly PromptPackFileEntry[]>;
@@ -578,6 +592,7 @@ function PromptPackFolderImportHarness({
         materializePromptPackPreviewToQueue({
           bridge,
           confirmed: true,
+          currentWorkspaceRoot,
           preview,
         })
       }

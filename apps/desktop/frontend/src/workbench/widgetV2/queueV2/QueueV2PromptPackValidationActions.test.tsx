@@ -1,4 +1,4 @@
-import { act, type ReactNode } from "react";
+import { act, useState, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -104,7 +104,96 @@ describe("QueueV2 prompt-pack validation actions", () => {
       "Validation passed: imported command completed.",
     );
   });
+
+  it("lets a missing-workspace imported task set workspace before validation without running", async () => {
+    const onRequestValidation = vi.fn();
+    const onRun = vi.fn();
+    const onSetWorkspace = vi.fn();
+    const importedTask = task({
+      description: [
+        "Prompt pack: Core Pack (core-pack)",
+        "Prompt item: build",
+      ].join("\n"),
+      executionWorkspace: null,
+      prompt: promptPackPrompt(),
+      queueItemId: "queue-build",
+      status: "ready",
+      title: "build: Build task",
+    });
+
+    await render(
+      <QueueV2WorkspaceSetterHarness
+        initialTask={importedTask}
+        onRequestValidation={onRequestValidation}
+        onRun={onRun}
+        onSetWorkspace={onSetWorkspace}
+      />,
+    );
+
+    await openCardDetails("queue-build");
+
+    expect(buttonWithText("Request validation")?.disabled).toBe(true);
+    expect(document.body.textContent).toContain(
+      "Validation needs an execution workspace on the Queue task.",
+    );
+    expect(buttonWithText("Set task workspace")?.disabled).toBe(false);
+
+    await click(buttonWithText("Set task workspace"));
+    await flushAsync();
+
+    expect(onSetWorkspace).toHaveBeenCalledTimes(1);
+    expect(onSetWorkspace).toHaveBeenCalledWith(
+      "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+    );
+    expect(onRequestValidation).not.toHaveBeenCalled();
+    expect(onRun).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain(
+      "Validation needs an execution workspace on the Queue task.",
+    );
+    expect(buttonWithText("Request validation")?.disabled).toBe(false);
+  });
 });
+
+function QueueV2WorkspaceSetterHarness({
+  initialTask,
+  onRequestValidation,
+  onRun,
+  onSetWorkspace,
+}: {
+  initialTask: AgentQueueTask;
+  onRequestValidation: (
+    task: AgentQueueTask,
+    runner: ValidationRunner,
+  ) => Promise<QueueValidationRunResult>;
+  onRun: () => void;
+  onSetWorkspace: (workspace: string) => void;
+}) {
+  const [selectedTask, setSelectedTask] = useState(initialTask);
+  const tasks = [selectedTask];
+
+  return (
+    <QueueV2Board
+      currentWorkspaceRoot="C:/Users/Dmitry/Documents/prj/Hobit_fixed"
+      onRequestValidation={onRequestValidation}
+      queue={queueController({
+        onPromote: vi.fn(),
+        onRun,
+        onSetWorkspace: (workspace) => {
+          onSetWorkspace(workspace);
+          setSelectedTask((current) => ({
+            ...current,
+            executionWorkspace: workspace,
+          }));
+        },
+        selectedTask,
+        tasks,
+      })}
+      tasks={tasks}
+      validationRunner={validationRunner()}
+      workers={[worker()]}
+    />
+  );
+}
 
 async function render(element: ReactNode) {
   container = document.createElement("div");
@@ -204,11 +293,13 @@ function worker(overrides: Partial<AgentWorkerSummary> = {}): AgentWorkerSummary
 function queueController({
   onPromote,
   onRun,
+  onSetWorkspace = vi.fn(),
   selectedTask,
   tasks,
 }: {
   onPromote: () => void;
   onRun: () => void;
+  onSetWorkspace?: (workspace: string) => void;
   selectedTask: AgentQueueTask;
   tasks: AgentQueueTask[];
 }): AgentQueueController {
@@ -227,6 +318,7 @@ function queueController({
     run: {
       canStart: false,
       isStarting: false,
+      onRepoRootDraftChange: onSetWorkspace,
       onStartAssignedTask: onRun,
       preconditionMessages: [],
       readinessMessage: "Task is not ready to run.",

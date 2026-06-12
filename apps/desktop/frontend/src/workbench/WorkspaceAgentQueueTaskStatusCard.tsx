@@ -99,8 +99,12 @@ export function WorkspaceAgentQueueTaskStatusCard({
     queue,
     task: displayedTask,
   });
+  const currentWorkspaceRoot = normalizedExecutionWorkspace(
+    workspaceAgentQueueBridge?.getRunSettingsDefaults?.()?.executionWorkspace,
+  );
   const actions = queueTaskCardActions({
     canViewReport: Boolean(onViewReport),
+    currentWorkspaceRoot,
     hasReport,
     onOpenQueueItem,
     onQueueAction: (action) => void executeQueueAction(action),
@@ -317,6 +321,7 @@ export function WorkspaceAgentQueueTaskStatusCard({
 function queueTaskCardActions({
   canViewReport,
   hasReport,
+  currentWorkspaceRoot,
   onOpenQueueItem,
   onQueueAction,
   onRequestValidationReview,
@@ -328,6 +333,7 @@ function queueTaskCardActions({
   diffReviewDisabledReason,
 }: {
   canViewReport: boolean;
+  currentWorkspaceRoot: string | null;
   diffReviewDisabledReason: string | null;
   hasReport: boolean;
   onOpenQueueItem?: (queueItemId: string) => void;
@@ -387,6 +393,25 @@ function queueTaskCardActions({
       variant: "secondary",
     },
   ];
+
+  if (!task.executionWorkspace?.trim()) {
+    actions.push({
+      disabledReason: currentWorkspaceRoot
+        ? null
+        : "Current Workspace root is unavailable. Open a Workspace root before setting this task workspace.",
+      label:
+        pendingAction === "set_task_workspace"
+          ? "Setting workspace"
+          : "Set task workspace",
+      onClick: () =>
+        onQueueAction({
+          executionWorkspace: currentWorkspaceRoot ?? "",
+          kind: "set_task_workspace",
+          queueItemId: task.queueItemId,
+        }),
+      variant: "secondary",
+    });
+  }
 
   if (task.status === "draft") {
     actions.push({
@@ -549,4 +574,14 @@ function reportStatusLabel(status: string) {
     default:
       return "Ready";
   }
+}
+
+function normalizedExecutionWorkspace(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }

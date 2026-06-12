@@ -44,6 +44,7 @@ describe("prompt pack Queue materialization service", () => {
     const result = await materializePromptPackPreviewToQueue({
       bridge,
       confirmed: true,
+      currentWorkspaceRoot: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
       preview,
     });
 
@@ -77,6 +78,9 @@ describe("prompt pack Queue materialization service", () => {
       expect(request?.prompt).toContain("- git status --short --branch");
       expect(request?.prompt).toContain("- git diff --check");
       expect(request?.executionPolicy).toBe("manual");
+      expect(request?.executionWorkspace).toBe(
+        "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+      );
       expect(request?.status).toBe("draft");
     }
 
@@ -122,6 +126,7 @@ describe("prompt pack Queue materialization service", () => {
     const result = await materializePromptPackPreviewToQueue({
       bridge,
       confirmed: true,
+      currentWorkspaceRoot: "C:/repo",
       preview,
     });
     const reloadedSnapshot = await harness.reloadedApi.getSnapshot({
@@ -139,7 +144,9 @@ describe("prompt pack Queue materialization service", () => {
       }),
     ]);
     expect(first?.dependsOn).toEqual([]);
+    expect(first?.executionWorkspace).toBe("C:/repo");
     expect(second?.dependsOn).toEqual(["queue-001-safe-docs-noop"]);
+    expect(second?.executionWorkspace).toBe("C:/repo");
     expect(harness.createRequests.map((request) => request.dependsOn)).toEqual([
       [],
       [],
@@ -161,6 +168,11 @@ describe("prompt pack Queue materialization service", () => {
         (item) => item.id === "queue-002-dependent-follow-up",
       )?.blockers.map((blocker) => blocker.code),
     ).toContain("dependency_blocked");
+    expect(
+      reloadedSnapshot.snapshot?.items.find(
+        (item) => item.id === "queue-001-safe-docs-noop",
+      )?.blockers.map((blocker) => blocker.code),
+    ).not.toContain("missing_execution_workspace");
     expect(harness.startAssignedAgentQueueTask).not.toHaveBeenCalled();
     expect(harness.runAutonomousQueue).not.toHaveBeenCalled();
     expect(harness.refreshAfterMutation).toHaveBeenCalledWith(
@@ -542,7 +554,7 @@ function createDurableQueueApiHarness() {
         dependsOn: request.dependsOn ?? current.dependsOn ?? [],
         description: request.description,
         executionPolicy: request.executionPolicy ?? "manual",
-        executionWorkspace: request.executionWorkspace ?? null,
+        executionWorkspace: request.executionWorkspace ?? current.executionWorkspace ?? null,
         itemType: request.itemType,
         priority: request.priority,
         prompt: request.prompt,

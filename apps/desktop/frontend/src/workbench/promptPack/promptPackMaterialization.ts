@@ -12,6 +12,7 @@ import type {
 export type MaterializePromptPackPreviewToQueueOptions = {
   bridge?: WorkspaceAgentQueueBridge | null;
   confirmed: boolean;
+  currentWorkspaceRoot?: string | null;
   preview: PromptPackImportPreviewModel;
 };
 
@@ -22,6 +23,7 @@ type CreatedTaskRecord = PromptPackCreatedQueueTask & {
 export async function materializePromptPackPreviewToQueue({
   bridge,
   confirmed,
+  currentWorkspaceRoot,
   preview,
 }: MaterializePromptPackPreviewToQueueOptions): Promise<PromptPackMaterializationResult> {
   const createdTasks: PromptPackCreatedQueueTask[] = [];
@@ -61,16 +63,19 @@ export async function materializePromptPackPreviewToQueue({
 
   for (const item of preview.selectedItems) {
     warnings.push(...unsupportedMetadataWarnings(item));
+    const executionWorkspace =
+      normalizedExecutionWorkspace(item.executionWorkspace) ??
+      normalizedExecutionWorkspace(currentWorkspaceRoot);
 
     try {
       const createResult = await bridge.createItem({
         dependencies: [],
         description: materializedDescription(preview.pack, item),
         executionPolicy: item.queueDraft.executionPolicy,
-        executionWorkspace: item.executionWorkspace,
+        executionWorkspace,
         itemType: item.itemType,
         priority: item.priority,
-        prompt: materializedPrompt(preview.pack, item),
+        prompt: materializedPrompt(preview.pack, item, executionWorkspace),
         queueTag: item.tags[0] ? { name: item.tags[0] } : undefined,
         status: "draft",
         title: materializedTitle(item),
@@ -263,7 +268,11 @@ function materializedDescription(
     .join("\n");
 }
 
-function materializedPrompt(pack: PromptPackMetadata, item: PromptPackImportItem) {
+function materializedPrompt(
+  pack: PromptPackMetadata,
+  item: PromptPackImportItem,
+  executionWorkspace: string | null,
+) {
   const lines = [
     "",
     "",
@@ -273,9 +282,7 @@ function materializedPrompt(pack: PromptPackMetadata, item: PromptPackImportItem
     item.sourcePath ? `Source path: ${item.sourcePath}` : null,
     `Priority: ${item.priority.toString()}`,
     item.tags.length > 0 ? `Tags: ${item.tags.join(", ")}` : null,
-    item.executionWorkspace
-      ? `Execution workspace: ${item.executionWorkspace}`
-      : null,
+    executionWorkspace ? `Execution workspace: ${executionWorkspace}` : null,
     item.modelProfile ? `Model profile: ${item.modelProfile}` : null,
     item.reasoningEffort ? `Reasoning effort: ${item.reasoningEffort}` : null,
     item.validatorProfile ? `Validator profile: ${item.validatorProfile}` : null,
@@ -296,6 +303,16 @@ function materializedPrompt(pack: PromptPackMetadata, item: PromptPackImportItem
   ].filter((line): line is string => line !== null);
 
   return `${item.promptBody}${lines.join("\n")}`;
+}
+
+function normalizedExecutionWorkspace(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }
 
 function unsupportedMetadataWarnings(
