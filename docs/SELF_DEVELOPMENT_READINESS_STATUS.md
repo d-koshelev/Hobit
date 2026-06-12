@@ -3,7 +3,7 @@
 ## Status
 
 Status: docs-only readiness record after the self-development smoke fixture,
-focused tests, and manual checklist definition.
+focused tests, manual checklist definition, and overnight hardening pack.
 
 This document does not add frontend behavior, backend/runtime behavior,
 storage/schema changes, Queue scheduling, Agent Executor execution, validation
@@ -28,6 +28,10 @@ Latest manual smoke status:
   hidden execution is accepted in this path.
 - The fixed expected behavior and exact rerun steps are recorded in
   `docs/SELF_DEVELOPMENT_PRODUCT_PATH_FIX_STATUS.md`.
+- The overnight hardening pack targeted the typed product path for folder
+  import, imported-task ready/run/validation wiring, e2e service smoke, and a
+  product-action guard that fails fast instead of routing product actions to
+  Codex exploration.
 
 ## Implemented Readiness Pieces
 
@@ -131,14 +135,13 @@ Unsupported or unverified:
 
 ## Recommended Next Work
 
-1. Rerun the manual smoke in the Tauri desktop shell from the exact import
-   prompt in `docs/SELF_DEVELOPMENT_PRODUCT_PATH_FIX_STATUS.md` and verify the
-   fixed product path: folder path import reads pack files, preview shows two
-   tasks with populated bodies and dependency, `Create Queue items` calls
-   typed Queue creation, result card lists both task ids, QueueV2 shows task
-   002 blocked by task 001, task 001 can be explicitly prepared/run, and
-   validation can be explicitly requested or shows a visible unavailable
-   reason.
+1. Restart Hobit and rerun the manual smoke in the Tauri desktop shell from
+   the exact folder import prompt in
+   `docs/SELF_DEVELOPMENT_PRODUCT_PATH_FIX_STATUS.md`: folder path import
+   reads pack files, preview shows two tasks with populated bodies and
+   dependency, and `Create Queue items` is enabled after preview. Continue
+   through QueueV2 ready/run/validation only if the automated checks passed.
+   Queue task run and validation must remain explicit typed actions.
 2. Add rollback/follow-up hardening so rollback-required and requested-changes
    outcomes can create explicit follow-up records without executing rollback.
 3. Add live Git diff snapshot support where missing, using only explicit
@@ -149,6 +152,12 @@ Unsupported or unverified:
    commit/push/run behavior.
 
 ## Relevant Commands
+
+Prompt-pack authoring standard:
+
+```text
+docs/PROMPT_PACK_AUTHORING_EFFICIENCY_RULES.md
+```
 
 Repository status and patch checks:
 
