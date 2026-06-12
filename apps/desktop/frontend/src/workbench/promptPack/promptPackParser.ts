@@ -96,13 +96,13 @@ export function parsePromptPackImportPlan(
     });
   }
 
-  const manifestEntry = entries.find((entry) =>
+  const manifestEntries = entries.filter((entry) =>
     basename(entry.path).toLowerCase() === "prompt-batch.json",
   );
   const readmeEntry = entries.find((entry) =>
     basename(entry.path).toLowerCase() === "readme.md",
   );
-  const manifest = parseManifest(manifestEntry, diagnostics);
+  const manifest = parseManifest(manifestEntries, diagnostics);
   const manifestDependencyPolicy = normalizeDependencyPolicy(
     stringValue(manifest, ["dependencyPolicy", "dependency_policy"]),
   );
@@ -177,25 +177,38 @@ function normalizeEntry(entry: PromptPackFileEntry) {
 }
 
 function parseManifest(
-  entry: ReturnType<typeof normalizeEntry> | undefined,
+  entries: Array<ReturnType<typeof normalizeEntry>>,
   diagnostics: PromptPackDiagnostic[],
 ) {
-  if (!entry) {
+  if (entries.length === 0) {
     return null;
   }
 
-  try {
-    const parsed = JSON.parse(entry.text) as unknown;
-    return isRecord(parsed) ? parsed : null;
-  } catch (error) {
-    diagnostics.push({
-      code: "invalid_json",
-      message: `prompt-batch.json could not be parsed: ${errorToMessage(error)}`,
-      path: entry.path,
-      severity: "error",
-    });
-    return null;
+  const parseErrors: PromptPackDiagnostic[] = [];
+  const parsedManifests = entries.flatMap((entry) => {
+    try {
+      const parsed = JSON.parse(entry.text) as unknown;
+      return isRecord(parsed) ? [{ entry, manifest: parsed }] : [];
+    } catch (error) {
+      parseErrors.push({
+        code: "invalid_json",
+        message: `prompt-batch.json could not be parsed: ${errorToMessage(error)}`,
+        path: entry.path,
+        severity: "error",
+      });
+      return [];
+    }
+  });
+
+  if (parsedManifests.length > 0) {
+    return (
+      parsedManifests.find(({ entry }) => !entry.path.includes("/")) ??
+      parsedManifests[0]
+    ).manifest;
   }
+
+  diagnostics.push(...parseErrors);
+  return null;
 }
 
 function normalizePackMetadata({

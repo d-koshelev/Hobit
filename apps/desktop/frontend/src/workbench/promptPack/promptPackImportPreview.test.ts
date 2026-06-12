@@ -5,6 +5,7 @@ import {
   PROMPT_PACK_FOLDER_OR_ZIP_SOURCE_STATUS,
   buildPromptPackImportPreview,
   promptPackEntriesFromKnowledgeImportFiles,
+  promptPackPreviewFromSourceText,
   validatePromptPackImportPlan,
 } from "./index";
 
@@ -137,6 +138,35 @@ describe("prompt pack import preview service", () => {
 
     expect(preview.sourceAdapter.kind).toBe("available");
     expect(preview.sourceAdapter.message).toContain("No Queue items are created");
+  });
+
+  it("keeps pasted prompt-batch JSON and pasted numbered Markdown previews working", () => {
+    const jsonPreview = promptPackPreviewFromSourceText(
+      JSON.stringify({
+        items: [{ id: "json-one", prompt: "JSON prompt body.", title: "JSON one" }],
+        name: "Pasted JSON Pack",
+      }),
+    );
+    const markdownPreview = promptPackPreviewFromSourceText(
+      "# Markdown one\n\nMarkdown prompt body.",
+    );
+
+    expect(jsonPreview).toMatchObject({
+      importAvailable: true,
+      itemCount: 1,
+      selectedItemIds: ["json-one"],
+    });
+    expect(jsonPreview?.selectedItems[0]?.promptBody).toContain(
+      "JSON prompt body.",
+    );
+    expect(markdownPreview).toMatchObject({
+      importAvailable: true,
+      itemCount: 1,
+      selectedItemIds: ["001"],
+    });
+    expect(markdownPreview?.selectedItems[0]?.promptBody).toContain(
+      "Markdown prompt body.",
+    );
   });
 
   it("adapts explicit Knowledge import file results into parser entries", () => {

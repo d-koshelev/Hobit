@@ -13,6 +13,10 @@ import {
   type WorkspaceAgentPromptPackImportState,
 } from "./WorkspaceAgentPromptPackImportCard";
 import { materializePromptPackPreviewToQueue } from "./promptPackMaterialization";
+import {
+  realisticDogfoodingSmokePromptPackEntries,
+  realisticDogfoodingSmokePromptPackFixturePath,
+} from "./selfDevelopmentSmokePromptPackFixture.test-fixtures";
 
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
@@ -102,6 +106,46 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
     expect(document.body.textContent).toContain("001: One");
     expect(document.body.textContent).toContain("002: Two");
     expect(document.body.textContent).toContain("002: Depends on 001");
+    expect(buttonWithText("Create Queue items")?.hasAttribute("disabled")).toBe(
+      false,
+    );
+    expect(bridge.createItem).not.toHaveBeenCalled();
+  });
+
+  it("enables create for the realistic folder fixture without a stale manifest parse error", async () => {
+    const bridge = queueBridge();
+    const readPromptPackSource = vi.fn(async () => realisticDogfoodingSmokePromptPackEntries);
+
+    render(
+      <PromptPackImportHarness
+        bridge={bridge}
+        initialState={{
+          id: "import-1",
+          sourcePath: realisticDogfoodingSmokePromptPackFixturePath,
+          sourceText: '{"name":"stale pasted JSON"},{"name":"not one manifest"}',
+        }}
+        onReadPromptPackSource={readPromptPackSource}
+      />,
+    );
+
+    await clickButton("Read source preview");
+
+    const previewText = document.body.textContent ?? "";
+    expect(readPromptPackSource).toHaveBeenCalledWith({
+      path: realisticDogfoodingSmokePromptPackFixturePath,
+    });
+    expect(previewText).toContain("Hobit Realistic Dogfooding Smoke");
+    expect(previewText).toContain("Items2");
+    expect(previewText).toContain("Selected2");
+    expect(previewText).toContain("Dependencies1");
+    expect(previewText).toContain("Unresolved deps0");
+    expect(previewText).toContain("No blocking errors.");
+    expect(previewText).not.toContain("prompt-batch.json could not be parsed");
+    expect(
+      realisticDogfoodingSmokePromptPackEntries
+        .filter((entry) => entry.path?.endsWith(".md") && entry.path !== "README.md")
+        .every((entry) => entry.text.trim().length > 0),
+    ).toBe(true);
     expect(buttonWithText("Create Queue items")?.hasAttribute("disabled")).toBe(
       false,
     );

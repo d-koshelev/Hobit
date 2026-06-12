@@ -173,6 +173,55 @@ describe("prompt pack parser", () => {
     );
   });
 
+  it("uses a valid folder manifest without keeping a stale duplicate parse error", () => {
+    const plan = parsePromptPackImportPlan([
+      {
+        path: "prompts/prompt-batch.json",
+        text: '{"name":"Bad duplicate"},{"name":"Not valid as one JSON document"}',
+      },
+      {
+        path: "prompt-batch.json",
+        text: JSON.stringify({
+          name: "Valid Folder Pack",
+          prompts: [
+            { file: "001.md", id: "001", title: "One" },
+            {
+              dependencies: ["001"],
+              file: "002.md",
+              id: "002",
+              title: "Two",
+            },
+          ],
+        }),
+      },
+      { path: "001.md", text: "# One\n\nFirst body." },
+      { path: "002.md", text: "# Two\n\nSecond body." },
+    ]);
+
+    expect(plan.items.map((item) => item.id)).toEqual(["001", "002"]);
+    expect(plan.items[1].dependencies).toEqual(["001"]);
+    expect(plan.errors).toEqual([]);
+    expect(plan.diagnostics.map((diagnostic) => diagnostic.message).join("\n")).not.toContain(
+      "prompt-batch.json could not be parsed",
+    );
+  });
+
+  it("still reports a parse error when every manifest candidate is invalid", () => {
+    const plan = parsePromptPackImportPlan([
+      {
+        path: "prompt-batch.json",
+        text: '{"name":"Invalid"},{"items":[]}',
+      },
+    ]);
+
+    expect(plan.errors).toContainEqual(
+      expect.objectContaining({
+        code: "invalid_json",
+        path: "prompt-batch.json",
+      }),
+    );
+  });
+
   it("resolves explicit dependencies and reports missing dependencies", () => {
     const plan = parsePromptPackImportPlan([
       {
