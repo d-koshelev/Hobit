@@ -20,6 +20,7 @@ export type QueueNextAction =
 
 export type QueueV2NextActionInput = {
   blockedReasonCodes: readonly string[];
+  canQueueDraft?: boolean;
   eligibleNow: boolean;
   hasAssignedWorker: boolean;
   hasReviewableOutput: boolean;
@@ -29,14 +30,19 @@ export type QueueV2NextActionInput = {
 
 export function queueV2NextActionForTask({
   blockedReasonCodes,
+  canQueueDraft = false,
   eligibleNow,
   hasAssignedWorker,
   hasReviewableOutput,
   lifecycle,
   reviewActionHint = null,
 }: QueueV2NextActionInput): QueueNextAction {
+  if (blockedReasonCodes.includes("dependency_open")) {
+    return "resolve_dependency";
+  }
+
   if (lifecycle === "draft") {
-    return "edit_draft";
+    return canQueueDraft ? "queue_task" : "edit_draft";
   }
 
   if (eligibleNow) {
@@ -44,10 +50,6 @@ export function queueV2NextActionForTask({
   }
 
   if (lifecycle === "queued" || lifecycle === "ready") {
-    if (blockedReasonCodes.includes("dependency_open")) {
-      return "resolve_dependency";
-    }
-
     if (
       blockedReasonCodes.includes("capacity_unavailable") ||
       blockedReasonCodes.includes("runtime_unavailable") ||

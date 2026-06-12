@@ -1,4 +1,5 @@
 import type { AgentQueueTask } from "../../workspace/types";
+import { getQueuePromptPackImportMetadata } from "../promptPack/queuePromptPackMetadata";
 import {
   displayTaskTitle,
   getQueueTaskDependencyState,
@@ -10,10 +11,7 @@ import {
   type AgentWorkerSummary,
   type QueueGlobalStatus,
 } from "../agentQueueTaskUiModel";
-import {
-  queueV2NextActionForTask,
-  type QueueNextAction,
-} from "./queueV2NextActionModel";
+import { queueV2NextActionForTask, type QueueNextAction } from "./queueV2NextActionModel";
 import { diffReviewLinkageViewForTask, type DiffReviewLinkageView } from "./agentQueueDiffReviewModel";
 import {
   queueV2ClosureStateForTask,
@@ -173,6 +171,7 @@ export function selectQueueV2ViewModel({
     const dependencyState = dependencyStates.get(task.queueItemId)!;
     const lifecycle = queueV2LifecycleForTask(task);
     const closureState = queueV2ClosureStateForTask(task);
+    const promptPackMetadata = getQueuePromptPackImportMetadata(task);
     const blockedReasons = queueV2BlockedReasonsForTask({
       dependencyState,
       lifecycle,
@@ -195,6 +194,7 @@ export function selectQueueV2ViewModel({
     });
     const nextAction = queueV2NextActionForTask({
       blockedReasonCodes: blockedReasons.map((reason) => reason.code),
+      canQueueDraft: Boolean(promptPackMetadata && task.prompt.trim()),
       eligibleNow: eligibility.eligibleNow,
       hasAssignedWorker: Boolean(
         task.assignedWorkerId ?? task.assignedExecutorWidgetId,

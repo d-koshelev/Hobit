@@ -599,6 +599,7 @@ describe("QueueV2Board", () => {
 
     expect(onPromote).not.toHaveBeenCalled();
     expect(onRun).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Queue task");
     expect(document.body.textContent).not.toContain(
       "no Queue runtime action is wired",
     );

@@ -334,6 +334,62 @@ describe("Queue v2 view model selectors", () => {
     expect(actionFor(noCapacity, "no-capacity")).toBe("assign_worker");
   });
 
+  it("derives prepare action for imported prompt-pack drafts while blocking dependents", () => {
+    const importedFirst = task({
+      description: [
+        "Prompt pack: Self Development (self-development)",
+        "Prompt item: 001",
+      ].join("\n"),
+      prompt: promptPackPrompt({
+        blockId: "001",
+        validationCommand: "npm.cmd run typecheck --prefix apps/desktop/frontend",
+      }),
+      queueItemId: "queue-001",
+      status: "draft",
+      title: "001: Imported first task",
+    });
+    const importedSecond = task({
+      dependsOn: ["queue-001"],
+      description: [
+        "Prompt pack: Self Development (self-development)",
+        "Prompt item: 002",
+      ].join("\n"),
+      prompt: promptPackPrompt({
+        blockId: "002",
+        dependency: "001",
+        validationCommand: "npm.cmd run typecheck --prefix apps/desktop/frontend",
+      }),
+      queueItemId: "queue-002",
+      status: "draft",
+      title: "002: Imported dependent task",
+    });
+    const ordinaryDraft = task({
+      queueItemId: "ordinary-draft",
+      status: "draft",
+      title: "Ordinary draft",
+    });
+    const viewModel = selectQueueV2ViewModel({
+      tasks: [importedFirst, importedSecond, ordinaryDraft],
+      workers: [worker()],
+    });
+
+    expect(actionFor(viewModel, "queue-001")).toBe("queue_task");
+    expect(actionFor(viewModel, "ordinary-draft")).toBe("edit_draft");
+
+    const dependent = viewModel.tasks.find((item) => item.taskId === "queue-002");
+    expect(dependent).toMatchObject({
+      boardLane: "blocked",
+      nextAction: "resolve_dependency",
+    });
+    expect(dependent?.eligibility).toMatchObject({
+      dependencyOk: false,
+      eligibleNow: false,
+    });
+    expect(dependent?.blockedReasons.map((reason) => reason.code)).toContain(
+      "dependency_open",
+    );
+  });
+
   it("derives counts, capacity, and selected-task inspector snapshot", () => {
     const tasks = [
       task({ queueItemId: "ready", status: "ready" }),
@@ -469,4 +525,28 @@ function baseReport(): AgentQueueWorkerExecutionReport {
     warnings: [],
     workerId: "worker",
   };
+}
+
+function promptPackPrompt({
+  blockId,
+  dependency,
+  validationCommand,
+}: {
+  blockId: string;
+  dependency?: string;
+  validationCommand: string;
+}) {
+  return [
+    `Imported prompt body for ${blockId}.`,
+    "",
+    "Prompt pack materialization metadata",
+    "Pack: Self Development (self-development)",
+    `Block id: ${blockId}`,
+    dependency ? `Prompt-pack dependencies: ${dependency}` : null,
+    "Validation commands",
+    `- ${validationCommand}`,
+    "Imported Queue items must not auto-run.",
+  ]
+    .filter((line): line is string => line !== null)
+    .join("\n");
 }

@@ -122,10 +122,18 @@ describe("prompt-pack import result and QueueV2 regression", () => {
       tasks: importedTasks,
       workers: [worker()],
     });
+    const firstImported = importedViewModel.tasks.find(
+      (task) => task.taskId === "queue-001-add-dogfooding-smoke-result-doc",
+    );
     const dependent = importedViewModel.tasks.find(
       (task) => task.taskId === "queue-002-record-dependent-gate-result",
     );
+    expect(firstImported).toMatchObject({
+      boardLane: "intake_draft",
+      nextAction: "queue_task",
+    });
     expect(dependent?.boardLane).toBe("blocked");
+    expect(dependent?.eligibility.eligibleNow).toBe(false);
     expect(dependent?.blockedReasons.map((reason) => reason.code)).toContain(
       "dependency_open",
     );
