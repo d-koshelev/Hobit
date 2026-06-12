@@ -861,7 +861,6 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     );
   });
 
-
   it("requires a working directory before starting Codex", async () => {
     const startDirectWork = vi.fn();
     renderWidget({ onStartCodexDirectWorkStream: startDirectWork });

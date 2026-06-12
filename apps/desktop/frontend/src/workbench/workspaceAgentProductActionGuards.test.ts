@@ -248,6 +248,40 @@ describe("workspaceAgentProductActionGuards", () => {
     expect(result.body).toContain("SQLite write");
   });
 
+  it("blocks raw rg/node:sqlite product-action reverse engineering as unavailable", async () => {
+    const createQueueItemsFromPromptPackPreview = vi.fn();
+
+    const result = await runWorkspaceAgentProductActionConfirmation({
+      createQueueItemsFromPromptPackPreview,
+      imports: {},
+      onPatchPromptPackImport: vi.fn(),
+      text:
+        "Use rg and node:sqlite to reverse engineer prompt-pack import storage and create Queue item rows.",
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.body).toContain("typed product action unavailable");
+    expect(result.body).toContain(
+      "raw SQLite, shell, or ad hoc storage mutation is not a product action connector",
+    );
+    expect(result.body).toContain("No Codex run");
+    expect(createQueueItemsFromPromptPackPreview).not.toHaveBeenCalled();
+  });
+
+  it("blocks Terminal-command product Queue writes as unavailable", async () => {
+    const result = await runWorkspaceAgentProductActionConfirmation({
+      imports: {},
+      onPatchPromptPackImport: vi.fn(),
+      text:
+        "Run a Terminal command with sqlite3 to manually add Agent Queue task rows.",
+    });
+
+    expect(result.handled).toBe(true);
+    expect(result.body).toContain("typed product action unavailable");
+    expect(result.body).toContain("No Codex run");
+    expect(result.body).toContain("Terminal command");
+  });
+
   it("caps failed raw shell/SQLite product-action attempts", () => {
     const state = createProductActionToolLoopGuardState(
       "Use raw SQLite to create Queue item rows.",
@@ -282,6 +316,17 @@ describe("workspaceAgentProductActionGuards", () => {
 
     expect(state.enabled).toBe(false);
     expect(result).toBeNull();
+  });
+
+  it("does not classify normal Direct Run code prompts as product-action bypasses", async () => {
+    const result = await runWorkspaceAgentProductActionConfirmation({
+      imports: {},
+      onPatchPromptPackImport: vi.fn(),
+      text:
+        "Implement a focused frontend regression test for Queue routing behavior.",
+    });
+
+    expect(result).toEqual({ body: "", handled: false });
   });
 });
 

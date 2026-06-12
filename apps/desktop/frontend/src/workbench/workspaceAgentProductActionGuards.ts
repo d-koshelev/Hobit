@@ -445,16 +445,28 @@ function promptPackTypedActionResultMessage(
 
 function isRawProductActionBypassText(text: string) {
   const normalized = normalize(text);
-  if (!normalized || /\b(implement|fix|test|tests|guard|code|frontend|runtime|source|repo|bug|blocker)\b/.test(normalized)) {
+  if (
+    !normalized ||
+    /\b(implement|fix|test|tests|guard|code|frontend|runtime|source|repo|bug|blocker)\b/.test(
+      normalized,
+    )
+  ) {
     return false;
   }
 
-  return (
-    /\b(insert|synthesize|synthesise|create|write|manually add|raw)\b/.test(
+  const productActionTarget =
+    /\b(queue item|queue row|queue task|agent queue|prompt[- ]?pack import|prompt[- ]?pack|product action)\b/.test(
       normalized,
-    ) &&
-    /\b(sqlite|database|db|node:sqlite|better-sqlite3)\b/.test(normalized) &&
-    /\b(queue item|queue row|queue task|agent queue|prompt[- ]?pack import)\b/.test(
+    );
+  const rawTooling =
+    /\b(sqlite|database|db|node:sqlite|better-sqlite3|sqlite3|terminal command|shell command|raw shell)\b/.test(
+      normalized,
+    ) || /^rg\b/.test(normalized) || /\brg\s+/.test(normalized);
+
+  return (
+    productActionTarget &&
+    rawTooling &&
+    /\b(insert|synthesize|synthesise|create|write|manually add|raw|reverse engineer|reverse-engineer|inspect|probe|query)\b/.test(
       normalized,
     )
   );
