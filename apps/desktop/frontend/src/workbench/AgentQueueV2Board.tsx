@@ -16,10 +16,12 @@ import {
   type QueueTaskViewModel,
   type QueueWorkerSnapshot,
 } from "./queue/queueV2ViewModel";
-import type { QueueNextAction } from "./queue/queueV2NextActionModel";
+import {
+  queueV2NextActionLabel,
+  type QueueNextAction,
+} from "./queue/queueV2NextActionModel";
 import {
   QueueV2TaskDetailsPopup,
-  queueV2NextActionLabel,
 } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
 import { QueueV2CollapsibleLane } from "./widgetV2/queueV2/QueueV2CollapsibleLane";
 import type { AgentQueueController } from "./queue/details/agentQueueTaskDetailsTypes";

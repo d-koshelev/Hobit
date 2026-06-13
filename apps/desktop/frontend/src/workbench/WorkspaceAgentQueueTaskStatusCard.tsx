@@ -14,7 +14,6 @@ import {
   validationStatusLabel,
 } from "./agentQueueTaskUiModel";
 import type { AgentQueueController } from "./queue/useAgentQueueController";
-import { queueV2NextActionLabel } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
 import { selectQueueV2ViewModel } from "./queue/queueV2ViewModel";
 import { canCreateDiffReviewItem } from "./queue/agentQueueDiffReviewModel";
 import {
@@ -25,6 +24,7 @@ import { WorkspaceAgentQueueFinalizationCard } from "./WorkspaceAgentQueueFinali
 import type { ValidationRunner } from "./validation";
 import { WorkspaceAgentQueueValidationCard } from "./WorkspaceAgentQueueValidationCard";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import { queueV2NextActionLabel } from "./queue/queueV2NextActionModel";
 import { workspaceChatValidationAvailability } from "./workspaceChatQueueValidation";
 import {
   createWorkspaceChatQueueControlService,

@@ -28,6 +28,29 @@ export type QueueV2NextActionInput = {
   reviewActionHint?: "request_changes" | "create_follow_up" | null;
 };
 
+export const QUEUE_V2_NEXT_ACTION_LABELS: Record<QueueNextAction, string> = {
+  accept_result: "Accept result",
+  assign_worker: "Assign worker",
+  close_cancelled: "Close cancelled",
+  create_follow_up: "Create follow-up",
+  edit_draft: "Edit draft",
+  queue_task: "Queue task",
+  reject_result: "Reject result",
+  request_changes: "Request changes",
+  resolve_blocker: "Resolve blocker",
+  resolve_dependency: "Resolve dependency",
+  retry_or_rerun: "Retry or rerun",
+  review_report: "Review report",
+  run_now: "Run now",
+  validate_readiness: "Check readiness",
+  view_history: "View history",
+  wait_for_capacity: "Wait for capacity",
+};
+
+export function queueV2NextActionLabel(action: QueueNextAction) {
+  return QUEUE_V2_NEXT_ACTION_LABELS[action];
+}
+
 export function queueV2NextActionForTask({
   blockedReasonCodes,
   canQueueDraft = false,

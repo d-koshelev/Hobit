@@ -1,4 +1,4 @@
-import { queueV2NextActionLabel } from "./QueueV2TaskDetailsPopup";
+import { queueV2NextActionLabel } from "../../queue/queueV2NextActionModel";
 import type { QueueV2ViewModel } from "../../queue/queueV2ViewModel";
 
 type QueueV2ActivityStreamProps = {

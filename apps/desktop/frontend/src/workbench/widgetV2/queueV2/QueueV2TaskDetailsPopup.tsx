@@ -16,13 +16,13 @@ import type {
   QueueInspectorSnapshot,
   QueueTaskViewModel,
 } from "../../queue/queueV2ViewModel";
-import type { QueueNextAction } from "../../queue/queueV2NextActionModel";
 import type { AgentQueueController } from "../../queue/details/agentQueueTaskDetailsTypes";
 import { AgentQueueTaskContextSection } from "../../queue/details/AgentQueueTaskContextSection";
 import { AgentQueueTaskResultEvidenceSection } from "../../queue/details/AgentQueueTaskResultEvidenceSection";
 import type { WidgetRenderProps } from "../../types";
 import type { QueueValidationRunResult } from "../../queue/queueValidationEvidenceService";
 import type { ValidationRunner } from "../../validation";
+import { queueV2NextActionLabel } from "../../queue/queueV2NextActionModel";
 import {
   buildQueueV2TaskDetailsActions,
   type QueueV2DetailsTab,
@@ -643,29 +643,6 @@ function summarizeText(value: string) {
 
   return normalized.length > 420 ? `${normalized.slice(0, 420)}...` : normalized;
 }
-
-export function queueV2NextActionLabel(action: QueueNextAction) {
-  return QUEUE_V2_NEXT_ACTION_LABELS[action];
-}
-
-const QUEUE_V2_NEXT_ACTION_LABELS: Record<QueueNextAction, string> = {
-  accept_result: "Accept result",
-  assign_worker: "Assign worker",
-  close_cancelled: "Close cancelled",
-  create_follow_up: "Create follow-up",
-  edit_draft: "Edit draft",
-  queue_task: "Queue task",
-  reject_result: "Reject result",
-  request_changes: "Request changes",
-  resolve_blocker: "Resolve blocker",
-  resolve_dependency: "Resolve dependency",
-  retry_or_rerun: "Retry or rerun",
-  review_report: "Review report",
-  run_now: "Run now",
-  validate_readiness: "Check readiness",
-  view_history: "View history",
-  wait_for_capacity: "Wait for capacity",
-};
 
 function laneLabel(lane: QueueInspectorSnapshot["boardLane"]) {
   switch (lane) {
