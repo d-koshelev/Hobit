@@ -24,11 +24,17 @@ It is docs-only and does not add UI behavior, runtime behavior, styling beyond e
 
 - Widget-specific product components live under
   `apps/desktop/frontend/src/workbench/widgetV2/<widget>/components`.
+- Widget-specific hooks and action orchestration helpers live under
+  `apps/desktop/frontend/src/workbench/widgetV2/<widget>/hooks` and
+  `apps/desktop/frontend/src/workbench/widgetV2/<widget>/actions`.
+- Widget-specific pure view/domain model and labels live under
+  `apps/desktop/frontend/src/workbench/widgetV2/<widget>/model`.
 - Widget-specific popups live under
   `apps/desktop/frontend/src/workbench/widgetV2/<widget>/popups`.
 - Widget-specific debug content lives under
   `apps/desktop/frontend/src/workbench/widgetV2/<widget>/debug`.
-- Pure shared domain model belongs under `apps/desktop/frontend/src/workbench/<domain>`.
+- Shared cross-widget domain model still belongs under `apps/desktop/frontend/src/workbench/<domain>` when it is not
+  widget-local.
 - Widget-domain CSS lives under `apps/desktop/frontend/src/styles/widgets`.
 - `apps/desktop/frontend/src/styles/components.css` is legacy/frozen for new shared UI styles.
 
@@ -63,4 +69,3 @@ Before frontend UI, popup, widget cleanup, shared primitive, and debug-surface w
 - `docs/UI_SHARED_PRIMITIVES_INDEX.md`
 - `docs/AGENT_UI_IMPLEMENTATION_RULES.md`
 - `docs/FRONTEND_STRUCTURE_CONTRACT.md`
-
