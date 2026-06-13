@@ -1,0 +1,13 @@
+/*
+ * Shared UI CSS namespace.
+ * styles/ui contains shared design-system primitive styles used across widgets.
+ * styles/components.css is legacy/frozen for new shared UI code.
+ */
+
+@import "./actions.css";
+@import "./feedback.css";
+@import "./forms.css";
+@import "./layout.css";
+@import "./overlays.css";
+@import "./widget.css";
+@import "./debug.css";

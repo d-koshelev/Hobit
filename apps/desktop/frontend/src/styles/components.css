@@ -1,3 +1,7 @@
+/*
+ * Legacy/frozen shared component styles.
+ * Keep existing styles here; add new shared UI styles under apps/desktop/frontend/src/styles/ui/.
+ */
 .button,
 .select,
 .input {
