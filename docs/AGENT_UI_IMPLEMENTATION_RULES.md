@@ -18,6 +18,7 @@ They are project-level rules, not a one-off KnowledgeV2 rule.
 
 Before changing UI, the agent must:
 
+- Read `docs/FRONTEND_STRUCTURE_CONTRACT.md`.
 - Read `docs/UI_DESIGN_SYSTEM_CONTRACT.md`.
 - Read the affected widget/domain contract named by
   `docs/ACTIVE_CONTRACT_INDEX.md`.

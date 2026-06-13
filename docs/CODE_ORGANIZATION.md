@@ -15,6 +15,8 @@ ownership, or file-size/refactor policy.
 - Rust domain contracts belong in `hobit-core`.
 - Storage, app orchestration, tools, agent support, and the Tauri shell remain
   separate crates or layers.
+- Frontend structure, placement, and import boundaries for new UI code must
+  follow `docs/FRONTEND_STRUCTURE_CONTRACT.md`.
 - Frontend widget rendering remains registry-driven through `WidgetHost`.
 - Workbench state, widget state, and workspace APIs should stay explicit and
   visible.

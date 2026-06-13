@@ -12,15 +12,18 @@ commands, storage/schema changes, widget behavior, tests, or new widgets.
 
 Authoritative UI rules remain in `docs/UI_DESIGN_SYSTEM_CONTRACT.md`,
 `docs/PRODUCT_UI_DESIGN_CONTRACT.md`,
-`docs/PRODUCT_UI_VISUAL_CONTRACT.md`, and current widget/domain contracts.
+`docs/PRODUCT_UI_VISUAL_CONTRACT.md`,
+`docs/FRONTEND_STRUCTURE_CONTRACT.md`, and current widget/domain contracts.
 This file is the reuse map for current frontend primitives and high-traffic
 surfaces.
 
 ## Fallback Rule
 
-Before adding UI, search for a shared primitive in
-`apps/desktop/frontend/src/design-system/`, `apps/desktop/frontend/src/workbench/widgetV2/`,
-and nearby high-traffic widget implementations.
+Before adding UI, check `docs/FRONTEND_STRUCTURE_CONTRACT.md` for canonical
+placement, then search for a shared primitive in
+`apps/desktop/frontend/src/design-system/`,
+`apps/desktop/frontend/src/workbench/widgetV2/`, and nearby high-traffic
+widget implementations.
 
 If a shared primitive exists, reuse it. Do not copy-paste local versions of
 frames, popups, buttons, badges, status chips, empty states, action groups, row

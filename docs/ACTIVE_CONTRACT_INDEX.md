@@ -236,6 +236,9 @@ of truth for their domains.
   UI implementation and polish work, including shared primitive inspection,
   mandatory acceptance checks, focused validation, and required UI task report
   fields.
+- `docs/FRONTEND_STRUCTURE_CONTRACT.md` - canonical frontend ownership and
+  placement model for shared primitives, widget-local components, popups,
+  and debug surfaces.
 - `docs/WIDGET_CONTRACT_TEMPLATE.md` - reusable widget contract template for
   planning purpose, user, scenario, Widget API shape, state machine, UI
   composition, safety, semantic tests, file plan, validation, acceptance, and
@@ -771,6 +774,9 @@ the local executor flow visible to operators.
   action-surface implementation work. It defines the agent workflow checklist,
   mandatory UI acceptance checks, validation expectations, required UI report
   section, and reusable prompt boilerplate.
+- `docs/FRONTEND_STRUCTURE_CONTRACT.md` - mandatory frontend placement and
+  import boundary model for shared primitives, widget components, popups,
+  and debug content.
 - `docs/PRODUCT_UI_DESIGN_CONTRACT.md` - product UI information hierarchy,
   debug detail boundaries, Queue right rail contract, state semantics, and UI
   review checklist.
@@ -869,6 +875,7 @@ These documents should not override the Workspace Agent model or
   widget/domain contract.
 - Frontend widget UI work: read the default set,
   `docs/AGENT_UI_IMPLEMENTATION_RULES.md`,
+  `docs/FRONTEND_STRUCTURE_CONTRACT.md`,
   `docs/UI_DESIGN_SYSTEM_CONTRACT.md`,
   `docs/PRODUCT_UI_VISUAL_CONTRACT.md`, and the affected widget contract.
 - Backend/storage/API work: read the default set,
