@@ -25,6 +25,15 @@ placement, then search for a shared primitive in
 `apps/desktop/frontend/src/workbench/widgetV2/`, and nearby high-traffic
 widget implementations.
 
+Implementation and import guidance:
+- New shared UI primitives should be added under canonical category folders under
+  `apps/desktop/frontend/src/design-system/` (for example `actions/`, `forms/`,
+  `feedback/`, `layout/`, `overlays/`, `widget/`).
+- New code should prefer importing shared UI from the canonical barrel
+  `apps/desktop/frontend/src/design-system/index.ts`.
+- Existing direct imports like `design-system/Button` and other root-level direct
+  primitive imports remain supported for compatibility.
+
 If a shared primitive exists, reuse it. Do not copy-paste local versions of
 frames, popups, buttons, badges, status chips, empty states, action groups, row
 actions, context pickers, tables, lists, cards, or confirmation flows.
