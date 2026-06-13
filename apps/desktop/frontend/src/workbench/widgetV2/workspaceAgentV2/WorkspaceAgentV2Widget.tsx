@@ -7,6 +7,7 @@ import {
   WidgetV2Shell,
   WidgetV2Toolbar,
 } from "../WidgetV2Shell";
+import type { WidgetV2StatusSummary } from "../widgetV2Types";
 import { getWidgetV2Manifest } from "../widgetV2Registry";
 import type {
   AgentContextSnapshot,
@@ -207,6 +208,15 @@ export function WorkspaceAgentV2Widget({
     () => [...controller.activityEvents, ...queueActivityEvents],
     [controller.activityEvents, queueActivityEvents],
   );
+  const shellStatus: WidgetV2StatusSummary | undefined = isBusy || !isAdapterSupported
+    ? {
+        detail: isBusy
+          ? "Direct Run is active."
+          : "Codex Direct Run is unsupported by this Workspace Agent v2 adapter.",
+        label: isBusy ? "Running" : "Unsupported",
+        tone: isBusy ? "working" : "error",
+      }
+    : undefined;
 
   function handleDirectRun() {
     onRunRequest?.();
@@ -219,13 +229,8 @@ export function WorkspaceAgentV2Widget({
 
   return (
     <WidgetV2Shell
-      status={{
-        detail:
-          "Experimental Workspace Agent v2. Direct Run uses the Codex adapter only when the host supplies runtime support.",
-        label: isBusy ? "Running" : isAdapterSupported ? "Experimental" : "Unsupported",
-        tone: isBusy ? "working" : isAdapterSupported ? "warning" : "error",
-      }}
-      subtitle="Experimental V2 conversation shell. Direct Run can start Codex when supported; Queue Run can create a Queue task when the host supplies Queue create support."
+      status={shellStatus}
+      subtitle="Workspace Agent v2 conversation shell. Direct Run can start Codex when supported; Queue Run can create a Queue task when the host supplies Queue create support."
       title={workspaceAgentV2Manifest?.title ?? "Workspace Agent v2"}
     >
       <WidgetV2Toolbar label="Workspace Agent v2 provider and mode row">

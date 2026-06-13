@@ -935,7 +935,6 @@ export function FinderWidget({
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
       style={frameStyle}
-      status={<Badge variant="info">Preview</Badge>}
       subtitle={root ? selectedPath : "Explicit root required"}
       title={title}
     >

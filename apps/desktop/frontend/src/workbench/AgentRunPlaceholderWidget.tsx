@@ -1,4 +1,3 @@
-import { Badge } from "../design-system/Badge";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { CodexDirectWorkPanel } from "./CodexDirectWorkPanel";
 import type { WidgetRenderProps } from "./types";
@@ -48,7 +47,6 @@ export function AgentRunPlaceholderWidget({
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
       style={frameStyle}
-      status={<Badge variant="info">Executor</Badge>}
       title={frameTitle}
     >
       <div className="agent-run-placeholder">

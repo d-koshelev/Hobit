@@ -55,12 +55,6 @@ export function QueueV2Widget({
 
   return (
     <WidgetV2Shell
-      status={{
-        detail:
-          "QueueV2 is the normal Agent Queue visual surface through the saved Agent Queue widget identity.",
-        label: "Current",
-        tone: "ready",
-      }}
       subtitle="Frontend-only QueueV2 shell. Normal Queue actions are wired through the saved Agent Queue widget."
       title={queueV2Manifest?.title ?? "Agent Queue v2"}
     >

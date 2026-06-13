@@ -25,7 +25,7 @@ export function AgentQueueWidgetStatusBadge({
   }
 
   if (loadError) {
-    return <Badge variant="warning">Unavailable</Badge>;
+    return <Badge variant="error">Error</Badge>;
   }
 
   if (isSaving) {
@@ -36,5 +36,5 @@ export function AgentQueueWidgetStatusBadge({
     return <Badge variant="warning">Unsaved</Badge>;
   }
 
-  return <Badge variant={selectedTask ? "success" : "neutral"}>Queue</Badge>;
+  return null;
 }

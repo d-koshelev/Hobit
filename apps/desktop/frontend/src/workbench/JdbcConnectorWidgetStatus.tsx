@@ -29,7 +29,7 @@ export function jdbcConnectorFrameStatus({
   }
 
   if (loadError) {
-    return <Badge variant="warning">Unavailable</Badge>;
+    return <Badge variant="error">Error</Badge>;
   }
 
   if (isSaving) {
@@ -41,7 +41,7 @@ export function jdbcConnectorFrameStatus({
   }
 
   return (
-    <Badge variant={selectedConnector ? "info" : "neutral"}>Preview</Badge>
+    null
   );
 }
 

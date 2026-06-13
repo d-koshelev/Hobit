@@ -1,5 +1,5 @@
-import { Badge } from "../design-system/Badge";
 import { WidgetFrame } from "../design-system/WidgetFrame";
+import { Badge } from "../design-system/Badge";
 import { AgentActivityPanel } from "./AgentActivityPanel";
 import type { WidgetRenderProps } from "./types";
 
@@ -27,7 +27,6 @@ export function AgentActivityWidget({
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
       style={frameStyle}
-      status={<Badge variant="success">MVP</Badge>}
       title={title}
     >
       <section aria-label="Agent Activity" className="agent-activity-widget">
