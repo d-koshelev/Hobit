@@ -333,6 +333,10 @@ function queueV2BlockedReasonsForTask({
       reasons.push(queueV2BlockedReason("missing_execution_workspace"));
     }
 
+    if (!task.codexExecutable?.trim()) {
+      reasons.push(queueV2BlockedReason("missing_codex_executable"));
+    }
+
     if (!queueEnabled) {
       reasons.push(queueV2BlockedReason("queue_disabled"));
     }
@@ -427,7 +431,8 @@ function queueV2EligibilityForTask({
     !blockedCodes.has("runtime_unavailable");
   const runSettingsOk =
     !blockedCodes.has("run_settings_invalid") &&
-    !blockedCodes.has("missing_execution_workspace");
+    !blockedCodes.has("missing_execution_workspace") &&
+    !blockedCodes.has("missing_codex_executable");
   const contextOk =
     !blockedCodes.has("context_missing") && !blockedCodes.has("context_invalid");
   const tagOrWorkerOk =

@@ -3,6 +3,7 @@ import type { QueueNextAction } from "./queueV2NextActionModel";
 
 export type QueueBlockedReasonCode =
   | "missing_execution_workspace"
+  | "missing_codex_executable"
   | "queue_disabled"
   | "not_ready_lifecycle"
   | "dependency_open"
@@ -104,6 +105,8 @@ function blockedReasonPriority(code: QueueBlockedReasonCode) {
   switch (code) {
     case "missing_execution_workspace":
       return 10;
+    case "missing_codex_executable":
+      return 15;
     case "queue_disabled":
       return 20;
     case "dependency_open":
@@ -133,6 +136,8 @@ function blockerCategory(code: QueueBlockedReasonCode): QueueBlockerCategory {
   switch (code) {
     case "missing_execution_workspace":
       return "workspace";
+    case "missing_codex_executable":
+      return "settings";
     case "queue_disabled":
       return "queue";
     case "dependency_open":
@@ -163,7 +168,6 @@ function blockerCategory(code: QueueBlockedReasonCode): QueueBlockerCategory {
 function blockerIsActionable(code: QueueBlockedReasonCode) {
   return ![
     "dependency_open",
-    "queue_disabled",
     "capacity_unavailable",
     "runtime_unavailable",
   ].includes(code);
@@ -176,6 +180,8 @@ function blockerNextAction(
   switch (code) {
     case "missing_execution_workspace":
       return "Set task workspace";
+    case "missing_codex_executable":
+      return "Set Codex executable";
     case "queue_disabled":
       return "Enable Queue";
     case "dependency_open":
@@ -264,6 +270,8 @@ function defaultBlockedReasonLabel(code: QueueBlockedReasonCode) {
   switch (code) {
     case "missing_execution_workspace":
       return "Missing execution workspace";
+    case "missing_codex_executable":
+      return "Missing Codex executable";
     case "queue_disabled":
       return "Queue disabled";
     case "not_ready_lifecycle":

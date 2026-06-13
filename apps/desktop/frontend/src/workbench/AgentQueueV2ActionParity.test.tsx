@@ -482,6 +482,58 @@ describe("Agent QueueV2 action parity", () => {
     expect(document.body.textContent).toContain("Run setup");
     expect(document.body.textContent).toContain("Create draft");
   });
+
+  it("enables the saved QueueV2 surface through the typed Queue control without starting dependent work", async () => {
+    const onStartAssignedAgentQueueTask = vi.fn();
+    const firstTask = queueTask({
+      assignedExecutorWidgetId: "executor-1",
+      codexExecutable: "codex.cmd",
+      executionWorkspace: "C:\\repo",
+      queueItemId: "queue-001",
+      status: "ready",
+      title: "001 Ready task",
+    });
+    const dependentTask = queueTask({
+      assignedExecutorWidgetId: "executor-1",
+      codexExecutable: "codex.cmd",
+      dependsOn: ["queue-001"],
+      executionWorkspace: "C:\\repo",
+      queueItemId: "queue-002",
+      status: "ready",
+      title: "002 Dependent task",
+    });
+    const tasks = [firstTask, dependentTask];
+
+    renderQueueWidget({
+      onGetAgentQueueTask: async (queueItemId) =>
+        tasks.find((task) => task.queueItemId === queueItemId) ?? firstTask,
+      onListAgentQueueTasks: async () => tasks,
+      onStartAssignedAgentQueueTask,
+    });
+    await flushRender();
+
+    expect(card("queue-001")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
+    expect(card("queue-001")?.textContent).toContain("Queue disabled");
+    expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
+    expect(card("queue-002")?.textContent).toContain("Resolve dependency");
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+
+    clickButton("Details");
+    await flushRender();
+
+    const enableButton = queueV2ActionButton("Enable Queue");
+    expect(enableButton?.disabled).toBe(false);
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+
+    await clickQueueV2ActionAsync("Enable Queue");
+    await flushRender();
+
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+    expect(card("queue-001")?.getAttribute("data-queue-v2-lane")).toBe("ready");
+    expect(card("queue-001")?.textContent).not.toContain("Queue disabled");
+    expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
+    expect(card("queue-002")?.textContent).toContain("Dependency is still open");
+  });
 });
 
 function renderQueueWidget(overrides: Partial<WidgetRenderProps> = {}) {

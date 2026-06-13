@@ -20,6 +20,7 @@ type QueueV2TaskDetailsActionId =
   | "refresh"
   | "new-task"
   | "set-workspace"
+  | "enable-queue"
   | "promote"
   | "run"
   | "view-report"
@@ -146,6 +147,31 @@ export function buildQueueV2TaskDetailsActions({
     });
   }
 
+  if (isEnableQueueActionRelevant(inspector)) {
+    const missingCodex = !hasCodexExecutable(task);
+
+    actions.push({
+      disabled:
+        !hasQueueController ||
+        selectedTaskMismatch ||
+        missingCodex ||
+        queue?.foundation.globalExecutionState === "started",
+      id: "enable-queue",
+      label: "Enable Queue",
+      onClick: () => queue?.foundation.onStartWorkers(),
+      reason:
+        selectionReason ??
+        (!hasQueueController
+          ? "Queue control actions are not wired in this view."
+          : missingCodex
+            ? "Set Codex executable before enabling Queue for this task."
+            : queue?.foundation.globalExecutionState === "started"
+              ? "Queue is already enabled."
+              : undefined),
+      variant: "primary",
+    });
+  }
+
   if (isRunActionRelevant(task, inspector)) {
     actions.push({
       disabled:
@@ -215,6 +241,10 @@ function hasExecutionWorkspace(task: AgentQueueTask) {
   return Boolean(task.executionWorkspace?.trim());
 }
 
+function hasCodexExecutable(task: AgentQueueTask) {
+  return Boolean(task.codexExecutable?.trim());
+}
+
 function normalizedWorkspaceRoot(value: string | null | undefined) {
   const trimmed = value?.trim() ?? "";
 
@@ -223,6 +253,10 @@ function normalizedWorkspaceRoot(value: string | null | undefined) {
   }
 
   return trimmed;
+}
+
+function isEnableQueueActionRelevant(inspector: QueueInspectorSnapshot) {
+  return inspector.blockedReasons.some((reason) => reason.code === "queue_disabled");
 }
 
 function coordinatorDecisionActions(

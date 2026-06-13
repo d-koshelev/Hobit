@@ -54,6 +54,112 @@ describe("QueueV2 blocker visibility", () => {
     expect(document.body.textContent).toContain("Enable Queue");
   });
 
+  it("renders Enable Queue as an explicit typed action and calls the Queue control once", async () => {
+    const onEnableQueue = vi.fn();
+    const onRun = vi.fn();
+    const runnableTask = task({
+      assignedExecutorWidgetId: "worker",
+      assignedWorkerId: "worker",
+      queueItemId: "queue-001",
+      status: "ready",
+      title: "001 Runnable task",
+    });
+    const dependentTask = task({
+      assignedExecutorWidgetId: "worker",
+      assignedWorkerId: "worker",
+      dependsOn: ["queue-001"],
+      queueItemId: "queue-002",
+      status: "ready",
+      title: "002 Dependent task",
+    });
+
+    await render(
+      <QueueV2Board
+        globalExecutionState="stopped"
+        queue={queueController({
+          globalExecutionState: "stopped",
+          onEnableQueue,
+          onRun,
+          selectedTask: runnableTask,
+          tasks: [runnableTask, dependentTask],
+        })}
+        tasks={[runnableTask, dependentTask]}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(onEnableQueue).not.toHaveBeenCalled();
+    expect(onRun).not.toHaveBeenCalled();
+    expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
+    expect(card("queue-002")?.textContent).toContain("Dependency");
+
+    await openCardDetails("queue-001");
+
+    expect(onEnableQueue).not.toHaveBeenCalled();
+    expect(onRun).not.toHaveBeenCalled();
+
+    const enableButton = buttonWithText("Enable Queue");
+    expect(enableButton).not.toBeNull();
+    expect(enableButton?.disabled).toBe(false);
+
+    await click(enableButton);
+
+    expect(onEnableQueue).toHaveBeenCalledTimes(1);
+    expect(onRun).not.toHaveBeenCalled();
+    expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
+    expect(card("queue-002")?.textContent).toContain("Dependency");
+  });
+
+  it("keeps Enable Queue unavailable with a visible reason when Codex executable is missing", async () => {
+    const onEnableQueue = vi.fn();
+    const onRun = vi.fn();
+    const missingCodexTask = task({
+      assignedExecutorWidgetId: "worker",
+      assignedWorkerId: "worker",
+      codexExecutable: "",
+      queueItemId: "missing-codex",
+      status: "ready",
+      title: "Missing Codex task",
+    });
+
+    await render(
+      <QueueV2Board
+        globalExecutionState="stopped"
+        queue={queueController({
+          globalExecutionState: "stopped",
+          onEnableQueue,
+          onRun,
+          selectedTask: missingCodexTask,
+          tasks: [missingCodexTask],
+        })}
+        tasks={[missingCodexTask]}
+        workers={[worker()]}
+      />,
+    );
+
+    expect(card("missing-codex")?.textContent).toContain(
+      "Blocked: Missing Codex executable",
+    );
+    expect(onEnableQueue).not.toHaveBeenCalled();
+    expect(onRun).not.toHaveBeenCalled();
+
+    await openCardDetails("missing-codex");
+
+    const blockers = sectionByName("QueueV2 task blockers");
+    expect(blockers?.textContent).toContain("Missing Codex executable");
+    expect(blockers?.textContent).toContain("Queue disabled");
+    expect(document.body.textContent).toContain("Set Codex executable");
+
+    const enableButton = buttonWithText("Enable Queue");
+    expect(enableButton?.disabled).toBe(true);
+    expect(enableButton?.parentElement?.textContent).toContain(
+      "Set Codex executable before enabling Queue for this task.",
+    );
+
+    expect(onEnableQueue).not.toHaveBeenCalled();
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
   it("shows missing execution workspace on cards and details with Set workspace available", async () => {
     const onSetWorkspace = vi.fn();
     const missingWorkspaceTask = task({
@@ -372,12 +478,16 @@ function validationRunner(): ValidationRunner {
 }
 
 function queueController({
+  globalExecutionState = "started",
+  onEnableQueue = vi.fn(),
   onPromote = vi.fn(),
   onRun = vi.fn(),
   onSetWorkspace = vi.fn(),
   selectedTask,
   tasks,
 }: {
+  globalExecutionState?: "started" | "stopped" | "stop_kill_requested";
+  onEnableQueue?: () => void;
   onPromote?: () => void;
   onRun?: () => void;
   onSetWorkspace?: (workspaceRoot: string) => void;
@@ -392,7 +502,8 @@ function queueController({
       onPromote,
     },
     foundation: {
-      globalExecutionState: "started",
+      globalExecutionState,
+      onStartWorkers: onEnableQueue,
       pausedQueueTagIds: new Set(),
       workers: [worker()],
     },

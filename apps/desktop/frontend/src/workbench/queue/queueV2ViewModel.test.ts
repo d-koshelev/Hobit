@@ -306,6 +306,40 @@ describe("Queue v2 view model selectors", () => {
     expect(ready?.eligibility.eligibleNow).toBe(true);
   });
 
+  it("treats missing Codex executable as a visible run-settings blocker", () => {
+    const viewModel = selectQueueV2ViewModel({
+      globalExecutionState: "stopped",
+      selectedTaskId: "missing-codex",
+      tasks: [
+        task({
+          codexExecutable: "",
+          queueItemId: "missing-codex",
+          status: "ready",
+        }),
+      ],
+      workers: [worker()],
+    });
+    const blocked = viewModel.tasks.find(
+      (item) => item.taskId === "missing-codex",
+    );
+
+    expect(blocked?.blockedReasons.map((reason) => reason.code)).toEqual([
+      "missing_codex_executable",
+      "queue_disabled",
+    ]);
+    expect(blocked?.blockerSummary).toMatchObject({
+      kind: "missing_codex_executable",
+      nextAction: "Set Codex executable",
+      primaryReason: "Missing Codex executable",
+      secondaryReasons: ["Queue disabled"],
+    });
+    expect(viewModel.inspector?.eligibility).toMatchObject({
+      eligibleNow: false,
+      queueEnabled: false,
+      runSettingsOk: false,
+    });
+  });
+
   it("keeps imported dependents blocked until prerequisite coordinator finalization", () => {
     const prerequisiteWithValidation = task({
       coordinatorStatus: "ready_for_finalization",
