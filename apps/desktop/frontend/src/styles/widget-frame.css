@@ -334,6 +334,10 @@
   cursor: grabbing;
 }
 
+.popup-shell-resizing {
+  user-select: none;
+}
+
 .widget-log-placeholder {
   margin-top: var(--space-xs);
   color: var(--color-text-muted);
@@ -394,6 +398,100 @@
   padding: 0;
   scrollbar-color: var(--color-border-strong) transparent;
   scrollbar-width: thin;
+}
+
+.popup-shell-resize-handle {
+  position: absolute;
+  z-index: 2;
+  border: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.popup-shell-resize-handle:focus {
+  outline: none;
+}
+
+.popup-shell-resize-n,
+.popup-shell-resize-s {
+  left: 12px;
+  width: calc(100% - 24px);
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.popup-shell-resize-e,
+.popup-shell-resize-w {
+  top: 12px;
+  width: 8px;
+  height: calc(100% - 24px);
+  cursor: ew-resize;
+}
+
+.popup-shell-resize-n {
+  top: 0;
+}
+
+.popup-shell-resize-e {
+  right: 0;
+}
+
+.popup-shell-resize-s {
+  bottom: 0;
+}
+
+.popup-shell-resize-w {
+  left: 0;
+}
+
+.popup-shell-resize-ne,
+.popup-shell-resize-se,
+.popup-shell-resize-sw,
+.popup-shell-resize-nw {
+  width: 16px;
+  height: 16px;
+}
+
+.popup-shell-resize-ne,
+.popup-shell-resize-sw {
+  cursor: nesw-resize;
+}
+
+.popup-shell-resize-se,
+.popup-shell-resize-nw {
+  cursor: nwse-resize;
+}
+
+.popup-shell-resize-ne {
+  top: 0;
+  right: 0;
+}
+
+.popup-shell-resize-se {
+  right: 0;
+  bottom: 0;
+}
+
+.popup-shell-resize-sw {
+  bottom: 0;
+  left: 0;
+}
+
+.popup-shell-resize-nw {
+  top: 0;
+  left: 0;
+}
+
+.popup-shell-resize-se::before {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid var(--color-border-strong);
+  border-bottom: 1px solid var(--color-border-strong);
+  content: "";
+  opacity: 0.85;
 }
 
 .popup-shell:not(.popup-shell-with-layout) {

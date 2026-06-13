@@ -213,6 +213,152 @@ describe("PopupShell", () => {
     expect(body?.contains(footer)).toBe(false);
   });
 
+  it("renders resize handles when a popup opts in", async () => {
+    const onRequestClose = vi.fn();
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <StandardWidgetPopupFixture
+          isOpen
+          onRequestClose={onRequestClose}
+          resizable
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const handles = document.querySelectorAll("[data-popup-resize-handle]");
+
+    expect(handles).toHaveLength(8);
+    expect(
+      document.querySelector("[data-popup-resize-handle='se']"),
+    ).not.toBeNull();
+  });
+
+  it("resizes from the corner without closing", async () => {
+    const onRequestClose = vi.fn();
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <StandardWidgetPopupFixture
+          isOpen
+          onRequestClose={onRequestClose}
+          resizable
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const popup = document.querySelector<HTMLElement>(".popup-shell");
+    const handle = document.querySelector<HTMLElement>(
+      "[data-popup-resize-handle='se']",
+    );
+
+    expect(popup).not.toBeNull();
+    expect(handle).not.toBeNull();
+
+    mockPopupRect(popup, {
+      height: 300,
+      left: 100,
+      top: 80,
+      width: 400,
+    });
+
+    await act(async () => {
+      handle?.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          clientX: 500,
+          clientY: 380,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MouseEvent("pointermove", {
+          clientX: 560,
+          clientY: 430,
+        }),
+      );
+      window.dispatchEvent(new MouseEvent("pointerup"));
+      await Promise.resolve();
+    });
+
+    expect(popup?.style.width).toBe("460px");
+    expect(popup?.style.height).toBe("350px");
+    expect(onRequestClose).not.toHaveBeenCalled();
+  });
+
+  it("enforces minimum popup resize dimensions", async () => {
+    const onRequestClose = vi.fn();
+
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <StandardWidgetPopupFixture
+          isOpen
+          onRequestClose={onRequestClose}
+          resizable
+        />,
+      );
+      await Promise.resolve();
+    });
+
+    const popup = document.querySelector<HTMLElement>(".popup-shell");
+    const handle = document.querySelector<HTMLElement>(
+      "[data-popup-resize-handle='nw']",
+    );
+
+    expect(popup).not.toBeNull();
+    expect(handle).not.toBeNull();
+
+    mockPopupRect(popup, {
+      height: 300,
+      left: 100,
+      top: 80,
+      width: 400,
+    });
+
+    await act(async () => {
+      handle?.dispatchEvent(
+        new MouseEvent("pointerdown", {
+          bubbles: true,
+          clientX: 100,
+          clientY: 80,
+        }),
+      );
+      await Promise.resolve();
+    });
+
+    await act(async () => {
+      window.dispatchEvent(
+        new MouseEvent("pointermove", {
+          clientX: 600,
+          clientY: 500,
+        }),
+      );
+      window.dispatchEvent(new MouseEvent("pointerup"));
+      await Promise.resolve();
+    });
+
+    expect(popup?.style.width).toBe("320px");
+    expect(popup?.style.height).toBe("180px");
+    expect(onRequestClose).not.toHaveBeenCalled();
+  });
+
   it("enforces the shared widget popup layout even without custom footer actions", async () => {
     const onRequestClose = vi.fn();
 
@@ -350,9 +496,11 @@ describe("PopupShell", () => {
 function StandardWidgetPopupFixture({
   isOpen,
   onRequestClose,
+  resizable = false,
 }: {
   isOpen: boolean;
   onRequestClose: () => void;
+  resizable?: boolean;
 }) {
   const anchorRef = useRef<HTMLButtonElement | null>(null);
 
@@ -391,6 +539,7 @@ function StandardWidgetPopupFixture({
         id="standard-widget-popup"
         isOpen={isOpen}
         onRequestClose={onRequestClose}
+        resizable={resizable}
         title="Standard popup"
         titleId="standard-widget-popup-title"
       >
@@ -402,6 +551,28 @@ function StandardWidgetPopupFixture({
       </WidgetPopupShell>
     </div>
   );
+}
+
+function mockPopupRect(
+  element: HTMLElement | null,
+  rect: { height: number; left: number; top: number; width: number },
+) {
+  if (!element) {
+    return;
+  }
+
+  element.getBoundingClientRect = () =>
+    ({
+      bottom: rect.top + rect.height,
+      height: rect.height,
+      left: rect.left,
+      right: rect.left + rect.width,
+      toJSON: () => ({}),
+      top: rect.top,
+      width: rect.width,
+      x: rect.left,
+      y: rect.top,
+    }) as DOMRect;
 }
 
 function AnchoredPopupFixture({

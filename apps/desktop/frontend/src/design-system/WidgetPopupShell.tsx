@@ -15,7 +15,10 @@ type WidgetPopupShellProps = {
   headerClassName?: string;
   id: string;
   isOpen: boolean;
+  minResizeHeight?: number;
+  minResizeWidth?: number;
   onRequestClose: () => void;
+  resizable?: boolean;
   returnFocusRef?: RefObject<HTMLElement | null>;
   title: ReactNode;
   titleId: string;
@@ -34,7 +37,10 @@ export function WidgetPopupShell({
   headerClassName,
   id,
   isOpen,
+  minResizeHeight,
+  minResizeWidth,
   onRequestClose,
+  resizable,
   returnFocusRef,
   title,
   titleId,
@@ -49,7 +55,10 @@ export function WidgetPopupShell({
       id={id}
       isOpen={isOpen}
       labelId={titleId}
+      minResizeHeight={minResizeHeight}
+      minResizeWidth={minResizeWidth}
       onRequestClose={onRequestClose}
+      resizable={resizable}
       returnFocusRef={returnFocusRef}
       variant={variant}
     >

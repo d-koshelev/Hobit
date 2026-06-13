@@ -179,6 +179,7 @@ export function QueueV2TaskDetailsPopup({
       id={`queue-v2-task-details-${task.queueItemId}`}
       isOpen={isOpen}
       onRequestClose={onRequestClose}
+      resizable
       returnFocusRef={returnFocusRef}
       title={inspector.title}
       titleId={titleId}

@@ -360,6 +360,11 @@ describe("QueueV2Board", () => {
 
     expect(dialogByName("Ready task")).not.toBeNull();
     expect(document.querySelector(".queue-v2-task-details-shell")).not.toBeNull();
+    expect(
+      document.querySelector(
+        ".queue-v2-task-details-shell [data-popup-resize-handle='se']",
+      ),
+    ).not.toBeNull();
     expect(document.body.textContent).toContain("Objective");
     expect(document.body.textContent).toContain("Next action");
 
