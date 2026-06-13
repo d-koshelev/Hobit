@@ -232,6 +232,80 @@ describe("Queue v2 view model selectors", () => {
     ]);
   });
 
+  it("derives a first-class blocker summary in priority order", () => {
+    const prerequisite = task({
+      queueItemId: "001",
+      status: "queued",
+      title: "001 Setup",
+    });
+    const blockedTask = task({
+      dependsOn: ["001"],
+      executionWorkspace: "",
+      queueItemId: "002",
+      status: "ready",
+      title: "002 Implementation",
+      validationStatus: "failed",
+    });
+    const viewModel = selectQueueV2ViewModel({
+      globalExecutionState: "stopped",
+      selectedTaskId: "002",
+      tasks: [prerequisite, blockedTask],
+      workers: [worker()],
+    });
+    const blocked = viewModel.tasks.find((item) => item.taskId === "002");
+
+    expect(blocked?.blockedReasons.map((reason) => reason.code)).toEqual([
+      "missing_execution_workspace",
+      "queue_disabled",
+      "dependency_open",
+      "validation_failed",
+    ]);
+    expect(blocked?.blockerSummary).toMatchObject({
+      category: "workspace",
+      kind: "missing_execution_workspace",
+      nextAction: "Set task workspace",
+      primaryReason: "Missing execution workspace",
+      secondaryReasons: ["Queue disabled", "Waiting for 001", "Validation failed"],
+    });
+    expect(blocked?.blockerSummary.dependencyBlockerSources).toEqual([
+      {
+        reason: "not_completed",
+        taskId: "001",
+        title: "001 Setup",
+      },
+    ]);
+    expect(viewModel.inspector?.blockerSummary.primaryReason).toBe(
+      "Missing execution workspace",
+    );
+    expect(viewModel.inspector?.eligibility).toMatchObject({
+      dependencyOk: false,
+      eligibleNow: false,
+      queueEnabled: false,
+      runSettingsOk: false,
+      safetyOk: false,
+    });
+  });
+
+  it("does not treat validation not requested as a QueueV2 blocker", () => {
+    const viewModel = selectQueueV2ViewModel({
+      tasks: [
+        task({
+          queueItemId: "ready",
+          status: "ready",
+          validationStatus: "not_started",
+        }),
+      ],
+      workers: [worker()],
+    });
+    const ready = viewModel.tasks.find((item) => item.taskId === "ready");
+
+    expect(ready?.blockedReasons.map((reason) => reason.code)).not.toContain(
+      "validation_failed",
+    );
+    expect(ready?.boardLane).toBe("ready");
+    expect(ready?.eligibility.eligibleNow).toBe(true);
+  });
+
   it("keeps imported dependents blocked until prerequisite coordinator finalization", () => {
     const prerequisiteWithValidation = task({
       coordinatorStatus: "ready_for_finalization",

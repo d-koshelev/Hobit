@@ -92,6 +92,11 @@ export function QueueV2TaskCard({
           <span>{tag.queueTagName}</span>
         </span>
         <span className="queue-v2-card-meta">{taskStatusText(item)}</span>
+        {blockerCardLine(item) ? (
+          <span className="queue-v2-card-blocker" title={blockerCardTitle(item)}>
+            {blockerCardLine(item)}
+          </span>
+        ) : null}
         <span
           className="queue-v2-card-validation"
           data-validation-tone={validation.markerTone}
@@ -248,7 +253,7 @@ function taskStatusText(item: QueueTaskViewModel) {
   const lifecycle = lifecycleLabel(item.lifecycle);
 
   if (item.boardLane === "blocked") {
-    return item.blockedReasons[0]?.label ?? lifecycle;
+    return lifecycle;
   }
 
   if (item.boardLane === "review") {
@@ -262,6 +267,25 @@ function taskStatusText(item: QueueTaskViewModel) {
   }
 
   return lifecycle;
+}
+
+function blockerCardLine(item: QueueTaskViewModel) {
+  const primaryReason = item.blockerSummary.primaryReason;
+
+  if (!primaryReason || (item.boardLane !== "blocked" && item.lifecycle !== "queued")) {
+    return null;
+  }
+
+  return `${item.boardLane === "blocked" ? "Blocked" : "Queued"}: ${primaryReason}`;
+}
+
+function blockerCardTitle(item: QueueTaskViewModel) {
+  return [
+    item.blockerSummary.primaryReason,
+    ...item.blockerSummary.secondaryReasons,
+  ]
+    .filter((reason): reason is string => Boolean(reason))
+    .join("; ");
 }
 
 function lifecycleLabel(lifecycle: QueueTaskViewModel["lifecycle"]) {

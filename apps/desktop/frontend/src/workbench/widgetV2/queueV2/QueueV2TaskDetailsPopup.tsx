@@ -36,6 +36,7 @@ import {
 } from "./QueueV2ValidationEvidenceSection";
 import { QueueV2DiffReviewSection } from "./QueueV2DiffReviewSection";
 import { QueueV2CoordinatorSection } from "./QueueV2CoordinatorSection";
+import { QueueV2TaskBlockersSection } from "./QueueV2TaskBlockersSection";
 
 type QueueV2TaskDetailsPopupProps = {
   currentWorkspaceRoot?: string | null;
@@ -125,6 +126,7 @@ export function QueueV2TaskDetailsPopup({
       }),
     [currentWorkspaceRoot, inspector, onRequestNewTask, queue, task],
   );
+  const runAction = detailActions.find((action) => action.id === "run") ?? null;
 
   if (!task || !taskViewModel || !inspector) {
     return null;
@@ -193,7 +195,29 @@ export function QueueV2TaskDetailsPopup({
             <p className="queue-v2-task-details-action-title">
               {queueV2NextActionLabel(inspector.nextAction)}
             </p>
-            <span>{primaryActionReason(inspector, queue)}</span>
+            <dl className="queue-v2-task-details-action-summary">
+              <DetailFact
+                label="Current state"
+                value={`${laneLabel(inspector.boardLane)} / ${lifecycleLabel(inspector.lifecycle)}`}
+              />
+              <DetailFact
+                label="Primary blocker"
+                value={inspector.blockerSummary.primaryReason ?? "None"}
+              />
+              <DetailFact
+                label="Next available action"
+                value={inspector.blockerSummary.nextAction}
+              />
+              {runAction?.disabled && runAction.reason ? (
+                <DetailFact label="Run disabled" value={runAction.reason} />
+              ) : null}
+              {validationDisabledReason ? (
+                <DetailFact
+                  label="Validation disabled"
+                  value={validationDisabledReason}
+                />
+              ) : null}
+            </dl>
           </div>
           <div
             aria-label="QueueV2 task explicit actions"
@@ -252,6 +276,8 @@ export function QueueV2TaskDetailsPopup({
             </span>
           </div>
         </div>
+
+        <QueueV2TaskBlockersSection inspector={inspector} />
 
         <div
           aria-label="QueueV2 task details tabs"
@@ -371,7 +397,10 @@ function OverviewSection({
         <DetailFact label="Priority" value={inspector.priority.toString()} />
         <DetailFact label="Status" value={task.status} />
         <DetailFact label="Next action" value={queueV2NextActionLabel(inspector.nextAction)} />
-        <DetailFact label="Why available" value={primaryActionReason(inspector)} />
+        <DetailFact
+          label="Primary blocker"
+          value={inspector.blockerSummary.primaryReason ?? "None"}
+        />
       </dl>
       <QueueV2DiffReviewSection
         onOpenLinkedTask={onOpenLinkedTask}
@@ -612,44 +641,6 @@ function summarizeText(value: string) {
   }
 
   return normalized.length > 420 ? `${normalized.slice(0, 420)}...` : normalized;
-}
-
-function primaryActionReason(
-  inspector: QueueInspectorSnapshot,
-  queue?: AgentQueueController,
-) {
-  if (inspector.blockedReasons.length) {
-    return inspector.blockedReasons[0]?.label ?? "A visible blocker must be resolved.";
-  }
-
-  if (queue?.run.canStart) {
-    return "Run is available only through the explicit task action below.";
-  }
-
-  if (
-    queue?.selectedTask?.status === "draft" &&
-    queue.draftPromotion?.canPromote
-  ) {
-    return "Queue for run is available only through the explicit task action below.";
-  }
-
-  if (inspector.eligibility.eligibleNow && !queue) {
-    return "The task is eligible in the view model, but Queue actions are not wired in this view.";
-  }
-
-  if (inspector.reviewDecisionState === "review_open") {
-    return "A result is available and needs explicit operator review.";
-  }
-
-  if (queue) {
-    return (
-      queue.run.readinessMessage ??
-      queue.run.preconditionMessages[0] ??
-      "No supported Queue runtime action is currently available for this task state."
-    );
-  }
-
-  return "This popup is read-only in this view; Queue runtime actions are not wired here.";
 }
 
 export function queueV2NextActionLabel(action: QueueNextAction) {

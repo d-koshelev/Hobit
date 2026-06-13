@@ -19,6 +19,14 @@ import {
   type QueueTaskClosureState,
   type QueueTaskLifecycle,
 } from "./queueV2LifecycleModel";
+import {
+  prioritizeQueueV2BlockedReasons,
+  queueV2BlockedReason,
+  queueV2BlockerSummaryForTask,
+  type QueueBlockedReasonCode,
+  type QueueBlockedReason,
+  type QueueBlockerSummary,
+} from "./queueV2BlockerSummary";
 
 export type QueueBoardLane =
   | "intake_draft"
@@ -27,20 +35,6 @@ export type QueueBoardLane =
   | "review"
   | "blocked"
   | "closed";
-
-export type QueueBlockedReasonCode =
-  | "queue_disabled" | "not_ready_lifecycle"
-  | "dependency_open" | "dependency_failed_or_rejected" | "dependency_graph_invalid"
-  | "capacity_unavailable" | "runtime_unavailable"
-  | "run_settings_invalid"
-  | "context_missing" | "context_invalid"
-  | "worker_paused" | "tag_paused" | "safety_blocker" | "operator_review_required";
-
-export type QueueBlockedReason = {
-  code: QueueBlockedReasonCode;
-  label: string;
-  source?: string;
-};
 
 export type QueueTaskEligibility = {
   taskId: string;
@@ -94,6 +88,7 @@ export type QueueTaskViewModel = {
   boardLane: QueueBoardLane;
   nextAction: QueueNextAction;
   blockedReasons: QueueBlockedReason[];
+  blockerSummary: QueueBlockerSummary;
   eligibility: QueueTaskEligibility;
   diffReview: DiffReviewLinkageView;
 };
@@ -111,6 +106,7 @@ export type QueueInspectorSnapshot = {
   dependencyState: AgentQueueDependencyState;
   eligibility: QueueTaskEligibility;
   blockedReasons: QueueBlockedReason[];
+  blockerSummary: QueueBlockerSummary;
   workerAssignment: {
     assignedWorkerId: string | null;
     assignedExecutorWidgetId: string | null;
@@ -203,9 +199,15 @@ export function selectQueueV2ViewModel({
       lifecycle,
       reviewActionHint: queueV2ReviewActionHintForTask(task),
     });
+    const blockerSummary = queueV2BlockerSummaryForTask({
+      blockedReasons,
+      dependencyState,
+      nextAction,
+    });
 
     return {
       boardLane,
+      blockerSummary,
       blockedReasons,
       closureState,
       diffReview: diffReviewLinkageViewForTask(task, tasks),
@@ -320,43 +322,56 @@ function queueV2BlockedReasonsForTask({
 }): QueueBlockedReason[] {
   const reasons: QueueBlockedReason[] = [];
 
-  if (!queueEnabled && (lifecycle === "queued" || lifecycle === "ready")) {
-    reasons.push(reason("queue_disabled"));
-  }
-
   if (dependencyState.status === "invalid") {
-    reasons.push(reason("dependency_graph_invalid"));
+    reasons.push(queueV2BlockedReason("dependency_graph_invalid"));
   } else if (dependencyState.status === "blocked") {
-    reasons.push(reason("dependency_open"));
+    reasons.push(queueV2BlockedReason("dependency_open"));
   }
 
   if (lifecycle === "queued" || lifecycle === "ready") {
-    if (!task.prompt.trim()) {
-      reasons.push(reason("run_settings_invalid", "Task prompt is empty"));
+    if (!task.executionWorkspace?.trim()) {
+      reasons.push(queueV2BlockedReason("missing_execution_workspace"));
     }
 
-    if (normalizeValidationStatus(task.validationStatus) === "validating") {
-      reasons.push(reason("operator_review_required", "Validation is running"));
+    if (!queueEnabled) {
+      reasons.push(queueV2BlockedReason("queue_disabled"));
+    }
+
+    if (!task.prompt.trim()) {
+      reasons.push(
+        queueV2BlockedReason("run_settings_invalid", "Task prompt is empty"),
+      );
+    }
+
+    const validationStatus = normalizeValidationStatus(task.validationStatus);
+    if (validationStatus === "validating") {
+      reasons.push(
+        queueV2BlockedReason("operator_review_required", "Validation is running"),
+      );
+    } else if (validationStatus === "failed") {
+      reasons.push(queueV2BlockedReason("validation_failed"));
     }
 
     const context = task.context;
     if (context?.contextTokenBudget.overBudget) {
-      reasons.push(reason("context_invalid", "Attached context is over budget"));
+      reasons.push(
+        queueV2BlockedReason("context_invalid", "Attached context is over budget"),
+      );
     }
     if (
       context?.contextWarnings.some((warning) => warning.severity === "blocked")
     ) {
-      reasons.push(reason("context_invalid"));
+      reasons.push(queueV2BlockedReason("context_invalid"));
     }
 
     const queueTag = normalizeQueueTag(task);
     if (pausedQueueTagIds.has(queueTag.queueTagId)) {
-      reasons.push(reason("tag_paused"));
+      reasons.push(queueV2BlockedReason("tag_paused"));
     }
 
     const compatibleWorkers = compatibleQueueV2Workers(task, workers);
     if (workers.length === 0) {
-      reasons.push(reason("runtime_unavailable"));
+      reasons.push(queueV2BlockedReason("runtime_unavailable"));
     } else if (compatibleWorkers.length === 0) {
       const hasPausedCompatibleWorker = workers.some(
         (worker) =>
@@ -365,24 +380,24 @@ function queueV2BlockedReasonsForTask({
       );
       reasons.push(
         hasPausedCompatibleWorker
-          ? reason("worker_paused")
-          : reason("capacity_unavailable"),
+          ? queueV2BlockedReason("worker_paused")
+          : queueV2BlockedReason("capacity_unavailable"),
       );
     }
   }
 
   if (lifecycle === "review_required") {
-    reasons.push(reason("operator_review_required"));
+    reasons.push(queueV2BlockedReason("operator_review_required"));
   }
 
   if (
     normalizeCoordinatorStatus(task.coordinatorStatus) === "blocked" ||
     task.closureState === "closure_blocked"
   ) {
-    reasons.push(reason("safety_blocker"));
+    reasons.push(queueV2BlockedReason("safety_blocker"));
   }
 
-  return dedupeReasons(reasons);
+  return prioritizeQueueV2BlockedReasons(dedupeReasons(reasons));
 }
 
 function queueV2EligibilityForTask({
@@ -410,14 +425,17 @@ function queueV2EligibilityForTask({
   const capacityOk =
     !blockedCodes.has("capacity_unavailable") &&
     !blockedCodes.has("runtime_unavailable");
-  const runSettingsOk = !blockedCodes.has("run_settings_invalid");
+  const runSettingsOk =
+    !blockedCodes.has("run_settings_invalid") &&
+    !blockedCodes.has("missing_execution_workspace");
   const contextOk =
     !blockedCodes.has("context_missing") && !blockedCodes.has("context_invalid");
   const tagOrWorkerOk =
     !blockedCodes.has("worker_paused") && !blockedCodes.has("tag_paused");
   const safetyOk =
     !blockedCodes.has("safety_blocker") &&
-    !blockedCodes.has("operator_review_required");
+    !blockedCodes.has("operator_review_required") &&
+    !blockedCodes.has("validation_failed");
 
   return {
     blockedReasons: [...blockedReasons],
@@ -525,6 +543,7 @@ function queueV2InspectorSnapshot(
       task.context?.attachedSkillRefs.length ?? 0
     } skills`,
     blockedReasons: viewModel.blockedReasons,
+    blockerSummary: viewModel.blockerSummary,
     boardLane: viewModel.boardLane,
     closureState: viewModel.closureState,
     contextSummary: {
@@ -644,13 +663,6 @@ function secondaryActionsForTask(
   return [];
 }
 
-function reason(
-  code: QueueBlockedReasonCode,
-  label = defaultBlockedReasonLabel(code),
-): QueueBlockedReason {
-  return { code, label };
-}
-
 function dedupeReasons(reasons: QueueBlockedReason[]) {
   const seen = new Set<QueueBlockedReasonCode>();
   const deduped: QueueBlockedReason[] = [];
@@ -663,37 +675,4 @@ function dedupeReasons(reasons: QueueBlockedReason[]) {
   }
 
   return deduped;
-}
-
-function defaultBlockedReasonLabel(code: QueueBlockedReasonCode) {
-  switch (code) {
-    case "queue_disabled":
-      return "Queue is disabled";
-    case "not_ready_lifecycle":
-      return "Task is not ready to run";
-    case "dependency_open":
-      return "Dependency is still open";
-    case "dependency_failed_or_rejected":
-      return "Dependency failed or was rejected";
-    case "dependency_graph_invalid":
-      return "Dependency graph is invalid";
-    case "capacity_unavailable":
-      return "No compatible worker capacity is available";
-    case "run_settings_invalid":
-      return "Run settings are incomplete";
-    case "context_missing":
-      return "Required context is missing";
-    case "context_invalid":
-      return "Attached context is blocked";
-    case "worker_paused":
-      return "Compatible worker is paused";
-    case "tag_paused":
-      return "Queue tag is paused";
-    case "safety_blocker":
-      return "Safety review blocks this task";
-    case "operator_review_required":
-      return "Operator review is required";
-    case "runtime_unavailable":
-      return "No visible worker runtime is available";
-  }
 }
