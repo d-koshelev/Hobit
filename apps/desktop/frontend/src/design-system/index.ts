@@ -20,6 +20,7 @@ export * from "./layout/Tabs";
 export * from "./layout/Panel";
 export * from "./feedback/InlineError";
 export * from "./overlays/PopupShell";
+export * from "./overlays/InfoTip";
 export * from "./overlays/WidgetInfoPopover";
 export * from "./overlays/WidgetPopupShell";
 export * from "./widget/WidgetFrame";

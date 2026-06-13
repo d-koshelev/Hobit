@@ -119,6 +119,36 @@ outside pointer by default. Flows with unsaved input, destructive choices, or
 active operations need a deliberate guard or confirmation layer rather than raw
 `PopupShell` defaults.
 
+Current guidance (InfoTip migration):
+
+- Use `Title + InfoTip` for short user-facing explanatory copy on titles,
+  labels, controls, and empty states.
+- `InfoTip` is the canonical short context primitive for persistent explanatory
+  text in these places; avoid using subtitle text as the primary explanatory
+  channel.
+- Keep implementation/debug text out of `InfoTip`; route it to dedicated debug
+  detail popups.
+
+### InfoTip
+
+Current primitive:
+
+- `InfoTip` in
+  `apps/desktop/frontend/src/design-system/overlays/InfoTip.tsx`
+
+Purpose: small, subtle, keyboard-reachable explanatory overlays for short
+operator-facing guidance.
+
+Use for:
+
+- title/label/helper context that should stay concise and easy to scan;
+- control hints, section helpers, and short empty-state guidance.
+
+Do not use for:
+
+- long technical payloads;
+- implementation/debug text that requires explicit developer detail context.
+
 ### Tabs
 
 Current primitives:

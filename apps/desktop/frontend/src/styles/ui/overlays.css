@@ -2,3 +2,69 @@
  * Shared UI category: overlays.
  * Add shared overlay/popup/backdrop styles here.
  */
+
+.ui-info-tip {
+  align-items: center;
+  display: inline-flex;
+}
+
+.ui-info-tip-trigger {
+  align-items: center;
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  justify-content: center;
+  height: calc(18px * var(--ui-scale));
+  line-height: 1;
+  min-width: calc(18px * var(--ui-scale));
+  width: calc(18px * var(--ui-scale));
+  padding: 0;
+}
+
+.ui-info-tip-trigger:hover,
+.ui-info-tip-trigger:focus-visible {
+  border-color: var(--color-border-strong);
+  color: var(--color-text-primary);
+  outline: none;
+}
+
+.ui-info-tip-shell {
+  min-width: min(240px, calc(100vw - 24px));
+  max-width: min(320px, calc(100vw - 24px));
+}
+
+.ui-info-tip-popover {
+  background: var(--color-overlay-surface);
+  display: grid;
+  gap: var(--space-2xs);
+  padding: var(--scaled-space-sm) var(--space-sm);
+}
+
+.ui-info-tip-title,
+.ui-info-tip-content {
+  color: var(--color-text-secondary);
+  line-height: var(--line-tight);
+  margin: 0;
+}
+
+.ui-info-tip-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+}
+
+.ui-info-tip-content {
+  display: grid;
+  gap: var(--space-2xs);
+  font-size: var(--text-xs);
+}
+
+.ui-info-tip-content p {
+  margin: 0;
+}

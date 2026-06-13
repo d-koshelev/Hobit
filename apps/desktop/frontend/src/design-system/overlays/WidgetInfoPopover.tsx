@@ -1,11 +1,8 @@
 import {
   forwardRef,
-  useId,
-  useRef,
-  useState,
   type ReactNode,
 } from "react";
-import { PopupShell } from "./PopupShell";
+import { InfoTip } from "./InfoTip";
 
 type WidgetInfoButtonProps = {
   "aria-label"?: string;
@@ -52,36 +49,11 @@ export function WidgetInfoPopover({
   label,
   title,
 }: WidgetInfoPopoverProps) {
-  const popupId = useId();
-  const titleId = useId();
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const [isOpen, setIsOpen] = useState(false);
-
   return (
-    <div className="widget-info" data-widget-header-drag-ignore>
-      <WidgetInfoButton
-        aria-controls={popupId}
-        aria-expanded={isOpen}
-        aria-label={label}
-        onClick={() => setIsOpen((current) => !current)}
-        title={label}
-        ref={buttonRef}
-      />
-      <PopupShell
-        anchorRef={buttonRef}
-        id={popupId}
-        isOpen={isOpen}
-        labelId={titleId}
-        onRequestClose={() => setIsOpen(false)}
-        returnFocusRef={buttonRef}
-      >
-        <section className="widget-info-popover">
-          <h3 data-popup-drag-handle id={titleId}>
-            {title}
-          </h3>
-          <div className="widget-info-popover-content">{children}</div>
-        </section>
-      </PopupShell>
+    <div className="widget-info">
+      <InfoTip label={label} title={title}>
+        {children}
+      </InfoTip>
     </div>
   );
 }
