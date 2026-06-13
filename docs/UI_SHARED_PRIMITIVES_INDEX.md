@@ -77,8 +77,9 @@ Do not use for small repeated row cards, inline controls, menu contents, or
 domain-specific detail sections that already live inside an owning widget
 shell. Do not hardcode widget components directly into Workbench canvas paths.
 
-Required behavior conceptually: title, optional subtitle/status, compact
-actions, body content, optional footer, theme-token styling, accessible labels,
+Required behavior conceptually: title, optional `info` explanatory text and
+compact status, body content, optional footer, theme-token styling, accessible
+labels,
 and no detached header block. `WidgetFrame` also owns widget logs and optional
 move start behavior. V2 shell owns display structure only; domain state and
 actions stay with the owning widget/controller.

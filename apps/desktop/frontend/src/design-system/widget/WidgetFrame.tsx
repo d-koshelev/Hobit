@@ -1,12 +1,15 @@
-import {
+﻿import {
+  isValidElement,
+  type CSSProperties,
+  type PointerEvent as ReactPointerEvent,
+  type ReactElement,
+  type ReactNode,
   useId,
   useRef,
   useState,
-  type CSSProperties,
-  type PointerEvent as ReactPointerEvent,
-  type ReactNode,
 } from "react";
 import { Button } from "../actions/Button";
+import { WidgetInfoPopover } from "../overlays/WidgetInfoPopover";
 import { Panel } from "../layout/Panel";
 import {
   WidgetLogsPanel,
@@ -19,6 +22,7 @@ type WidgetFrameProps = {
   actions?: ReactNode;
   children: ReactNode;
   footer?: ReactNode;
+  info?: string;
   logRefreshToken?: number;
   moveEnabled?: boolean;
   onMoveStart?: (pointerX: number, pointerY: number) => void;
@@ -33,6 +37,7 @@ export function WidgetFrame({
   actions,
   children,
   footer,
+  info,
   logRefreshToken,
   moveEnabled = false,
   onMoveStart,
@@ -46,6 +51,17 @@ export function WidgetFrame({
   const logPanelTitleId = useId();
   const logButtonRef = useRef<HTMLButtonElement | null>(null);
   const [isLogPanelOpen, setIsLogPanelOpen] = useState(false);
+  const resolvedInfo = info ?? subtitle;
+  const normalizedStatusText = extractText(status).trim().toLowerCase();
+  const normalizedTitle = normalizeText(title);
+  const normalizedInfo = normalizeText(resolvedInfo ?? "");
+  const shouldRenderStatus =
+    Boolean(status) &&
+    (!normalizedStatusText ||
+      ![
+        normalizedTitle,
+        normalizedInfo,
+      ].some((entry) => entry && normalizedStatusText === entry));
 
   function startMove(event: ReactPointerEvent<HTMLElement>) {
     if (
@@ -68,34 +84,40 @@ export function WidgetFrame({
   const headerClassName = moveEnabled
     ? "widget-header widget-header-movable"
     : "widget-header";
-  const titleHint = subtitle ? `${title} - ${subtitle}` : title;
-
   return (
     <Panel className={frameClassName} style={style}>
       <header className={headerClassName} onPointerDown={startMove}>
         <div className="widget-heading">
           <div className="widget-title-row">
-            <h2
-              aria-label={subtitle ? `${title}. ${subtitle}` : undefined}
-              className="widget-title"
-              title={titleHint}
-            >
+            <h2 className="widget-title" title={title}>
               {title}
             </h2>
-            {status ? <div className="widget-status">{status}</div> : null}
+            {resolvedInfo ? (
+              <WidgetInfoPopover label="Widget information" title={title}>
+                {resolvedInfo}
+              </WidgetInfoPopover>
+            ) : null}
+            {shouldRenderStatus ? (
+              <div className="widget-status">{status}</div>
+            ) : null}
           </div>
         </div>
         <div className="widget-actions">
           {actions}
-          <Button
-            aria-controls={logPanelId}
-            aria-expanded={isLogPanelOpen}
-            onClick={() => setIsLogPanelOpen((current) => !current)}
-            ref={logButtonRef}
-            variant={isLogPanelOpen ? "secondary" : "ghost"}
-          >
-            Logs
-          </Button>
+          {onLoadLogs ? (
+            <Button
+              aria-controls={logPanelId}
+              aria-label="Widget logs"
+              aria-expanded={isLogPanelOpen}
+              className="widget-icon-button"
+              onClick={() => setIsLogPanelOpen((current) => !current)}
+              ref={logButtonRef}
+              title="Widget debug details"
+              variant={isLogPanelOpen ? "secondary" : "ghost"}
+            >
+              ...
+            </Button>
+          ) : null}
         </div>
       </header>
       <div className="widget-content">{children}</div>
@@ -151,4 +173,30 @@ function isInteractiveHeaderTarget(target: EventTarget) {
       ].join(","),
     ),
   );
+}
+
+function normalizeText(value: string) {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+function extractText(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") {
+    return "";
+  }
+
+  if (typeof node === "number" || typeof node === "string") {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(extractText).join(" ");
+  }
+
+  if (isValidElement(node)) {
+    const element = node as ReactElement<{ children?: ReactNode }>;
+
+    return extractText(element.props.children);
+  }
+
+  return "";
 }

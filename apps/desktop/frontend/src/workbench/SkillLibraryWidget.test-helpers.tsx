@@ -195,6 +195,15 @@ export async function clickCatalogView(text: string) {
 }
 
 export function buttonWithText(text: string) {
+  if (text === "Logs") {
+    const logsButton = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Widget logs"]',
+    );
+    if (logsButton) {
+      return logsButton;
+    }
+  }
+
   return Array.from(document.querySelectorAll("button")).find(
     (candidate) => !isHidden(candidate) && candidate.textContent === text,
   );

@@ -19,6 +19,156 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
+describe("WidgetFrame header", () => {
+  it("renders title in the frame header", async () => {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <WidgetFrame onLoadLogs={async () => []} title="Cleaner Widget">
+          <p>Widget body</p>
+        </WidgetFrame>,
+      );
+    });
+
+    expect(document.body.textContent).toContain("Cleaner Widget");
+  });
+
+  it("renders subtitle only through InfoTip and keeps it out of the default header text", async () => {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <WidgetFrame
+          onLoadLogs={async () => []}
+          subtitle="Legacy explanatory subtitle"
+          title="Test Widget"
+        >
+          <p>Widget body</p>
+        </WidgetFrame>,
+      );
+    });
+
+    expect(document.body.textContent).not.toContain(
+      "Legacy explanatory subtitle",
+    );
+
+    const infoButton = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Widget information"]',
+    );
+
+    if (!infoButton) {
+      throw new Error("Widget information button not found.");
+    }
+
+    await act(async () => {
+      infoButton.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+
+    if (!document.querySelector(".popup-shell")) {
+      await act(async () => {
+        infoButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await Promise.resolve();
+      });
+    }
+
+    expect(document.body.textContent).toContain("Legacy explanatory subtitle");
+  });
+
+  it("renders the info prop through InfoTip", async () => {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <WidgetFrame
+          info="Widget info text"
+          onLoadLogs={async () => []}
+          title="Info Widget"
+        >
+          <p>Widget body</p>
+        </WidgetFrame>,
+      );
+    });
+
+    const infoButton = document.querySelector<HTMLButtonElement>(
+      'button[aria-label="Widget information"]',
+    );
+
+    if (!infoButton) {
+      throw new Error("Widget information button not found.");
+    }
+
+    await act(async () => {
+      infoButton.dispatchEvent(
+        new MouseEvent("mouseover", { bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+
+    expect(document.body.textContent).toContain("Widget info text");
+  });
+
+  it("renders meaningful status and filters duplicate status labels", async () => {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <WidgetFrame onLoadLogs={async () => []} status="Ready" title="Ready">
+          <p>Widget body</p>
+        </WidgetFrame>,
+      );
+    });
+
+    expect(document.querySelector(".widget-status")).toBeNull();
+
+    await act(async () => {
+      root?.render(
+        <WidgetFrame onLoadLogs={async () => []} status="Ready" title="Queue">
+          <p>Widget body</p>
+        </WidgetFrame>,
+      );
+    });
+
+    expect(document.querySelector(".widget-status")).not.toBeNull();
+  });
+
+  it("keeps logs debug access compact and secondary", async () => {
+    container = document.createElement("div");
+    document.body.append(container);
+    root = createRoot(container);
+
+    await act(async () => {
+      root?.render(
+        <WidgetFrame onLoadLogs={async () => []} title="Test Widget">
+          <p>Widget body</p>
+        </WidgetFrame>,
+      );
+    });
+
+    const logsButton = buttonWithAriaLabel("Widget logs");
+    expect(logsButton.textContent).toBe("...");
+    expect(logsButton.className).toContain("widget-icon-button");
+
+    await act(async () => {
+      logsButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector("[role='dialog']")).not.toBeNull();
+  });
+});
+
 describe("WidgetFrame logs", () => {
   it("keeps widget logs behind the Logs button", async () => {
     container = document.createElement("div");
@@ -46,20 +196,24 @@ describe("WidgetFrame logs", () => {
     expect(document.body.textContent).not.toContain("Widget state saved");
 
     await act(async () => {
-      buttonWithText("Logs").dispatchEvent(
+      buttonWithAriaLabel("Widget logs").dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
       await Promise.resolve();
       await Promise.resolve();
     });
 
-    expect(document.body.textContent).toContain("Logs");
+    expect(document.body.textContent).toContain("...");
     expect(document.body.textContent).toContain("Widget state saved");
     expect(container?.textContent).not.toContain("Widget state saved");
     const dialog = document.querySelector<HTMLElement>("[role='dialog']");
     expect(dialog).not.toBeNull();
-    expect(dialog?.id).toBe(buttonWithText("Logs").getAttribute("aria-controls"));
-    expect(buttonWithText("Logs").getAttribute("aria-expanded")).toBe("true");
+    expect(dialog?.id).toBe(
+      buttonWithAriaLabel("Widget logs").getAttribute("aria-controls"),
+    );
+    expect(buttonWithAriaLabel("Widget logs").getAttribute("aria-expanded")).toBe(
+      "true",
+    );
     expect(dialog?.style.maxHeight).not.toBe("");
   });
 
@@ -86,7 +240,7 @@ describe("WidgetFrame logs", () => {
       );
     });
 
-    const logsButton = buttonWithText("Logs");
+    const logsButton = buttonWithAriaLabel("Widget logs");
 
     await act(async () => {
       logsButton.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -141,7 +295,7 @@ describe("WidgetFrame logs", () => {
     });
 
     await act(async () => {
-      buttonWithText("Logs").dispatchEvent(
+      buttonWithAriaLabel("Widget logs").dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
       await Promise.resolve();
@@ -151,7 +305,7 @@ describe("WidgetFrame logs", () => {
     expect(document.body.textContent).toContain("No widget logs yet.");
 
     await act(async () => {
-      buttonWithText("Logs").dispatchEvent(
+      buttonWithAriaLabel("Widget logs").dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
       await Promise.resolve();
@@ -171,7 +325,7 @@ describe("WidgetFrame logs", () => {
     });
 
     await act(async () => {
-      buttonWithText("Logs").dispatchEvent(
+      buttonWithAriaLabel("Widget logs").dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
       await Promise.resolve();
@@ -245,13 +399,13 @@ describe("WidgetFrame move handle", () => {
   });
 });
 
-function buttonWithText(text: string) {
-  const button = Array.from(document.querySelectorAll("button")).find(
-    (candidate) => candidate.textContent === text,
+function buttonWithAriaLabel(label: string) {
+  const button = document.querySelector<HTMLButtonElement>(
+    `button[aria-label="${label}"]`,
   );
 
   if (!button) {
-    throw new Error(`Button not found: ${text}`);
+    throw new Error(`Button not found: ${label}`);
   }
 
   return button;
