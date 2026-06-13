@@ -1,6 +1,10 @@
-import type { ReactNode } from "react";
+import {
+  type ReactElement,
+  type ReactNode,
+  isValidElement,
+} from "react";
 
-import { WidgetInfoPopover } from "../../design-system/WidgetInfoPopover";
+import { InfoTip } from "../../design-system/overlays/InfoTip";
 import type { WidgetV2StatusSummary } from "./widgetV2Types";
 
 type WidgetV2HeaderInfo = {
@@ -10,6 +14,7 @@ type WidgetV2HeaderInfo = {
 };
 
 type WidgetV2HeaderProps = {
+  readonly developerActions?: ReactNode;
   readonly actions?: ReactNode;
   readonly info?: WidgetV2HeaderInfo;
   readonly status?: WidgetV2StatusSummary;
@@ -35,6 +40,7 @@ type WidgetV2PanelLayoutProps = {
 };
 
 export function WidgetV2Shell({
+  developerActions,
   actions,
   children,
   info,
@@ -45,6 +51,7 @@ export function WidgetV2Shell({
   return (
     <section className="widget-v2-shell" data-widget-v2-shell>
       <WidgetV2Header
+        developerActions={developerActions}
         actions={actions}
         info={info}
         status={status}
@@ -57,39 +64,52 @@ export function WidgetV2Shell({
 }
 
 export function WidgetV2Header({
+  developerActions,
   actions,
   info,
   status,
   subtitle,
   title,
 }: WidgetV2HeaderProps) {
-  const statusTone = status?.tone ?? "neutral";
+  const resolvedInfo = resolveHeaderInfo({ info, subtitle, title });
+  const shouldRenderStatus = shouldRenderStatusSummary({
+    info: resolvedInfo?.content,
+    status,
+    title,
+  });
 
   return (
     <header className="widget-v2-header">
       <div className="widget-v2-heading">
         <div className="widget-v2-title-row">
           <h2 className="widget-v2-title">{title}</h2>
-          {status ? (
+          {resolvedInfo ? (
+            <InfoTip label={resolvedInfo.label} title={resolvedInfo.title}>
+              {resolvedInfo.content}
+            </InfoTip>
+          ) : null}
+          {shouldRenderStatus && status ? (
             <span
               className="widget-v2-status"
-              data-tone={statusTone}
-              title={status.detail}
+              data-tone={status.tone}
+              aria-live="polite"
             >
               {status.label}
             </span>
           ) : null}
         </div>
-        {subtitle ? <div className="widget-v2-subtitle">{subtitle}</div> : null}
       </div>
-      {(info || actions) && (
+      {(resolvedInfo || actions || developerActions) && (
         <div className="widget-v2-header-actions">
-          {info ? (
-            <WidgetInfoPopover label={info.label} title={info.title}>
-              {info.content}
-            </WidgetInfoPopover>
-          ) : null}
           {actions}
+          {developerActions ? (
+            <span
+              aria-label="Widget developer actions"
+              className="widget-v2-developer-actions"
+            >
+              {developerActions}
+            </span>
+          ) : null}
         </div>
       )}
     </header>
@@ -191,4 +211,111 @@ export function WidgetV2BottomDrawer({
       {children}
     </section>
   );
+}
+
+function resolveHeaderInfo({
+  info,
+  subtitle,
+  title,
+}: {
+  readonly info?: WidgetV2HeaderInfo;
+  readonly subtitle?: ReactNode;
+  readonly title: string;
+}) {
+  if (info) {
+    return info;
+  }
+
+  if (!subtitle) {
+    return null;
+  }
+
+  return {
+    content: subtitle,
+    label: "Widget information",
+    title,
+  };
+}
+
+function shouldRenderStatusSummary({
+  info,
+  status,
+  title,
+}: {
+  readonly info?: ReactNode;
+  readonly status?: WidgetV2StatusSummary;
+  readonly title: string;
+}) {
+  if (!status?.label) {
+    return false;
+  }
+
+  const normalizedLabel = normalizeText(extractText(status.label));
+
+  if (!normalizedLabel || isStaticStatusLabel(normalizedLabel)) {
+    return false;
+  }
+
+  const normalizedTitle = normalizeText(title);
+  const normalizedInfo = normalizeText(extractText(info));
+
+  if (
+    normalizedLabel === normalizedTitle ||
+    (normalizedTitle && includesToken(normalizedLabel, normalizedTitle)) ||
+    (normalizedInfo && includesToken(normalizedLabel, normalizedInfo))
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+function isStaticStatusLabel(value: string) {
+  const words = value.split(/\s+/).filter(Boolean);
+  if (words.length === 0) {
+    return true;
+  }
+
+  const staticWords = new Set([
+    "current",
+    "experimental",
+    "executor",
+    "mvp",
+    "preview",
+  ]);
+
+  return words.every((word) => staticWords.has(word));
+}
+
+function includesToken(haystack: string, needle: string) {
+  if (!haystack || !needle) {
+    return false;
+  }
+
+  return haystack.includes(needle) || needle.includes(haystack);
+}
+
+function normalizeText(value: string) {
+  return value.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function extractText(node: ReactNode): string {
+  if (node == null || typeof node === "boolean") {
+    return "";
+  }
+
+  if (typeof node === "string" || typeof node === "number") {
+    return String(node);
+  }
+
+  if (Array.isArray(node)) {
+    return node.map(extractText).join(" ");
+  }
+
+  if (isValidElement(node)) {
+    const element = node as ReactElement<{ children?: ReactNode }>;
+    return extractText(element.props.children);
+  }
+
+  return "";
 }

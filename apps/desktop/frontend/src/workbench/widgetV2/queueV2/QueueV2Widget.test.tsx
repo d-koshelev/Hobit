@@ -30,8 +30,11 @@ describe("QueueV2Widget scaffold", () => {
     await render(<QueueV2Widget />);
 
     expect(headingWithText("Agent Queue")).not.toBeNull();
-    expect(document.body.textContent).toContain("Current");
+    expect(document.body.textContent).not.toContain("Current");
     expect(document.body.textContent).toContain(
+      "Agent Queue",
+    );
+    expect(document.body.textContent).not.toContain(
       "Normal Queue actions are wired through the saved Agent Queue widget.",
     );
     expect(regionByRoleAndName("toolbar", "Agent Queue v2 command bar")).not.toBeNull();
@@ -275,6 +278,7 @@ function sectionByName(name: string): HTMLElement | null {
     ) ?? null
   );
 }
+
 
 function task(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
   return {

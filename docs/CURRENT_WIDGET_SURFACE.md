@@ -54,6 +54,16 @@ Current preview surfaces:
 - Database / JDBC
 - Runbook
 
+WidgetV2 shell rendering note:
+
+- V2 widget surfaces keep `WidgetV2Shell` on a title + `InfoTip` model for short
+  explanatory copy.
+- Legacy `subtitle` content is routed to `InfoTip` in the same compatibility
+  path, not persistent header text.
+- Header status badges should remain semantic and current-state-only; default static
+  mode labels such as `Experimental`, `Preview`, `MVP`, `Executor`, or
+  `Current` should be removed from the normal shell header.
+
 Supporting / compatibility surfaces that may remain implemented for internal
 runtime detail, persisted compatibility, or focused transition work but are not
 Stable v0.1 product widgets or normal Widget Catalog entries:

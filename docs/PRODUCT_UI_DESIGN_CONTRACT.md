@@ -50,6 +50,11 @@ Primary UI should include:
 - Bounded error summaries with an actionable next step.
 - Approval state and risk when an action can mutate, execute, persist, or
   publish anything.
+- Explanatory copy should be short and rendered as compact `InfoTip` content near
+  the title, not as persistent subtitle blocks in the header.
+- Header status should be semantic state; avoid static mode labels like
+  `Experimental`, `Preview`, `MVP`, `Executor`, or `Current` unless that label
+  is the real current state.
 
 Primary UI must not include:
 

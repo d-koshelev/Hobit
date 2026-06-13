@@ -61,6 +61,11 @@ Current primitives:
 - `WidgetFrame` in `apps/desktop/frontend/src/design-system/WidgetFrame.tsx`
 - `WidgetV2Shell`, `WidgetV2Header`, `WidgetV2Toolbar`, and panel slots in
   `apps/desktop/frontend/src/workbench/widgetV2/WidgetV2Shell.tsx`
+- `WidgetV2Shell` uses title + `InfoTip` for short explanatory copy.
+  `subtitle` is a compatibility path and is routed to `InfoTip` when `info` is not
+  already supplied. Status chips are rendered only for current semantic state;
+  avoid static labels such as `Experimental`, `Preview`, `MVP`, `Executor`, or
+  `Current` as default header status.
 - `Panel` in `apps/desktop/frontend/src/design-system/Panel.tsx`
 - `WidgetHost` remains the registry/component mapping layer, not a visual
   primitive to bypass.

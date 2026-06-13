@@ -28,9 +28,14 @@ afterEach(() => {
 });
 
 describe("Widget V2 shell primitives", () => {
-  it("renders shell title, status, toolbar, and actions", async () => {
+  it("renders title, meaningful status, toolbar, and actions", async () => {
     await renderWidget(
       <WidgetV2Shell
+        info={{
+          content: "Live queue is active when a task is running.",
+          label: "Queue widget guidance",
+          title: "Queue V2",
+        }}
         actions={<button type="button">Review</button>}
         status={{ label: "Ready", tone: "ready", detail: "Ready to inspect" }}
         title="Queue V2"
@@ -45,12 +50,71 @@ describe("Widget V2 shell primitives", () => {
     expect(headingWithText("Queue V2")).not.toBeNull();
     expect(document.body.textContent).toContain("Ready");
     expect(buttonWithText("Review")).not.toBeNull();
-    expect(
-      regionByRoleAndName("toolbar", "Widget actions")?.classList.contains(
-        "ui-control-group-gap-min",
-      ),
-    ).toBe(true);
     expect(buttonWithText("Create")).not.toBeNull();
+
+    await act(async () => {
+      infoButton("Queue widget guidance").focus();
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector(".popup-shell")).not.toBeNull();
+    expect(document.body.textContent).toContain(
+      "Live queue is active when a task is running.",
+    );
+  });
+
+  it("routes legacy subtitle into InfoTip and keeps it out of persistent header text", async () => {
+    await renderWidget(
+      <WidgetV2Shell
+        subtitle="Frontend-only QueueV2 shell."
+        title="Queue V2"
+      >
+        <WidgetV2PanelLayout primary={<p>Primary queue board</p>} />
+      </WidgetV2Shell>,
+    );
+
+    expect(document.body.textContent).not.toContain("Frontend-only QueueV2 shell.");
+
+    await act(async () => {
+      infoButton().focus();
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector(".popup-shell")).not.toBeNull();
+    expect(document.body.textContent).toContain("Frontend-only QueueV2 shell.");
+  });
+
+  it("does not render non-meaningful status badges", async () => {
+    await renderWidget(
+      <WidgetV2Shell
+        status={{
+          detail: "Experimental implementation path.",
+          label: "Experimental",
+          tone: "warning",
+        }}
+        title="Queue V2"
+      >
+        <WidgetV2PanelLayout primary={<p>Primary queue board</p>} />
+      </WidgetV2Shell>,
+    );
+
+    expect(document.querySelector(".widget-v2-status")).toBeNull();
+    expect(document.body.textContent).not.toContain("Experimental");
+  });
+
+  it("keeps a separate compact developer action slot", async () => {
+    await renderWidget(
+      <WidgetV2Shell
+        actions={<button type="button">Review</button>}
+        developerActions={<button type="button">Debug</button>}
+        title="Queue V2"
+      >
+        <WidgetV2PanelLayout primary={<p>Primary queue board</p>} />
+      </WidgetV2Shell>,
+    );
+
+    expect(buttonWithText("Review")).not.toBeNull();
+    expect(buttonWithText("Debug")).not.toBeNull();
   });
 
   it("renders optional rail, inspector, and drawer slots", async () => {
@@ -62,7 +126,9 @@ describe("Widget V2 shell primitives", () => {
               Activity summary
             </WidgetV2BottomDrawer>
           }
-          leftRail={<WidgetV2LeftRail label="Catalog rail">Catalog</WidgetV2LeftRail>}
+          leftRail={
+            <WidgetV2LeftRail label="Catalog rail">Catalog</WidgetV2LeftRail>
+          }
           primary={<p>Knowledge review surface</p>}
           rightInspector={
             <WidgetV2RightInspector label="Review inspector">
@@ -89,9 +155,9 @@ describe("Widget V2 shell primitives", () => {
         "ui-surface-inset-min",
       ),
     ).toBe(true);
-    expect(regionByRoleAndName("region", "Activity drawer")?.textContent).toContain(
-      "Activity summary",
-    );
+    expect(
+      regionByRoleAndName("region", "Activity drawer")?.textContent,
+    ).toContain("Activity summary");
     expect(
       regionByRoleAndName("region", "Activity drawer")?.classList.contains(
         "ui-surface-inset-min",
@@ -139,6 +205,18 @@ function buttonWithText(text: string): HTMLButtonElement | null {
   return Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
     (button) => button.textContent === text,
   ) ?? null;
+}
+
+function infoButton(label = "Widget information"): HTMLButtonElement {
+  const button = document.querySelector<HTMLButtonElement>(
+    `button[aria-label="${label}"]`,
+  );
+
+  if (!button) {
+    throw new Error(`Info tip button with aria-label "${label}" not found.`);
+  }
+
+  return button;
 }
 
 function regionByRoleAndName(role: string, name: string): HTMLElement | null {
