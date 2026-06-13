@@ -129,6 +129,34 @@ Current guidance (InfoTip migration):
 - Keep implementation/debug text out of `InfoTip`; route it to dedicated debug
   detail popups.
 
+### Widget Debug Popup
+
+Current primitive:
+
+- `WidgetDebugPopup` in
+  `apps/desktop/frontend/src/design-system/widget/WidgetDebugPopup.tsx`
+
+Purpose: provide the shared widget-level shell for debug, runtime,
+developer, internal, raw, and diagnostic information that should not occupy
+the polished default widget surface.
+
+Use for widget-owned developer details, raw payload previews, runtime bridge
+diagnostics, internal action traces, troubleshooting metadata, bounded log/raw
+views, and copyable diagnostic bundles. The popup should be opened from a
+secondary or developer affordance, not from the primary workflow path.
+
+Do not show debug details in the default widget surface. Do not put raw JSON,
+stack traces, backend command names, internal IDs, bridge payloads, or
+developer-only runtime fields in product overview rows, headers, empty states,
+or primary action areas when `WidgetDebugPopup` can hold them instead.
+
+Required behavior conceptually: title, open/close state, composable body,
+optional footer, optional copy diagnostics action, consistent debug popup
+chrome, scrollable body, and bounded popup behavior inherited from
+`WidgetPopupShell`. The primitive must remain domain-agnostic and must not
+know about Queue, Knowledge, Workspace Agent, Terminal, Finder, or any
+widget-specific state.
+
 ### InfoTip
 
 Current primitive:

@@ -2,3 +2,48 @@
  * Shared UI category: debug.
  * Add shared debug visibility styles here when needed.
  */
+
+.widget-debug-popup {
+  width: min(720px, calc(100vw - var(--space-xl)));
+  max-height: calc(100vh - var(--space-xl));
+}
+
+.widget-debug-popup-actions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--control-group-gap-min);
+}
+
+.widget-debug-popup-body {
+  display: grid;
+  gap: var(--scaled-space-md);
+  max-height: min(62vh, calc(100vh - 180px));
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--line-normal);
+}
+
+.widget-debug-popup-body pre,
+.widget-debug-popup-body code {
+  font-family: var(--font-mono);
+}
+
+.widget-debug-popup-body pre {
+  min-width: 0;
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-io-surface);
+  color: var(--color-text-primary);
+  padding: var(--compact-panel-padding-min);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.widget-debug-popup-footer {
+  justify-content: flex-end;
+}
