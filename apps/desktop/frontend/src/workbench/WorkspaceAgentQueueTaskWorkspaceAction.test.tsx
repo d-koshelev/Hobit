@@ -165,10 +165,11 @@ function queueBridge(
 ): WorkspaceAgentQueueBridge {
   return {
     createItem: vi.fn(),
+    getCurrentWorkspaceRoot: () => "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
     getRunSettingsDefaults: () => ({
       approvalPolicy: "never",
       codexExecutable: "codex.cmd",
-      executionWorkspace: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+      executionWorkspace: "~",
       sandbox: "danger_full_access",
     }),
     getSnapshot: vi.fn(),

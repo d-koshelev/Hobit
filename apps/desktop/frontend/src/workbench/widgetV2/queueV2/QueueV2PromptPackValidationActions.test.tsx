@@ -120,10 +120,18 @@ describe("QueueV2 prompt-pack validation actions", () => {
       status: "ready",
       title: "build: Build task",
     });
+    const dependentTask = task({
+      dependsOn: ["queue-build"],
+      executionWorkspace: null,
+      queueItemId: "queue-follow-up",
+      status: "ready",
+      title: "follow-up: Dependent task",
+    });
 
     await render(
       <QueueV2WorkspaceSetterHarness
         initialTask={importedTask}
+        dependentTask={dependentTask}
         onRequestValidation={onRequestValidation}
         onRun={onRun}
         onSetWorkspace={onSetWorkspace}
@@ -151,15 +159,21 @@ describe("QueueV2 prompt-pack validation actions", () => {
       "Validation needs an execution workspace on the Queue task.",
     );
     expect(buttonWithText("Request validation")?.disabled).toBe(false);
+    expect(
+      document.querySelector("[data-queue-item-id='queue-follow-up']")
+        ?.textContent,
+    ).toContain("Dependency blocked");
   });
 });
 
 function QueueV2WorkspaceSetterHarness({
+  dependentTask,
   initialTask,
   onRequestValidation,
   onRun,
   onSetWorkspace,
 }: {
+  dependentTask?: AgentQueueTask;
   initialTask: AgentQueueTask;
   onRequestValidation: (
     task: AgentQueueTask,
@@ -169,7 +183,7 @@ function QueueV2WorkspaceSetterHarness({
   onSetWorkspace: (workspace: string) => void;
 }) {
   const [selectedTask, setSelectedTask] = useState(initialTask);
-  const tasks = [selectedTask];
+  const tasks = dependentTask ? [selectedTask, dependentTask] : [selectedTask];
 
   return (
     <QueueV2Board

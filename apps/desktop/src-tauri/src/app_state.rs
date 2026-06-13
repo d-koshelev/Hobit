@@ -12,15 +12,17 @@ use crate::terminal_pty::TerminalPtySessionManager;
 
 pub(crate) struct AppState {
     db_path: PathBuf,
+    workspace_root: Option<String>,
     direct_work_active_runs: DirectWorkActiveRunRegistry,
     queue_runner_sessions: QueueRunnerSessionRegistry,
     terminal_pty_sessions: TerminalPtySessionRegistry,
 }
 
 impl AppState {
-    fn new(db_path: PathBuf) -> Self {
+    fn new(db_path: PathBuf, workspace_root: Option<String>) -> Self {
         Self {
             db_path,
+            workspace_root,
             direct_work_active_runs: DirectWorkActiveRunRegistry::default(),
             queue_runner_sessions: QueueRunnerSessionRegistry::default(),
             terminal_pty_sessions: TerminalPtySessionRegistry::default(),
@@ -29,6 +31,10 @@ impl AppState {
 
     pub(crate) fn db_path(&self) -> &Path {
         &self.db_path
+    }
+
+    pub(crate) fn workspace_root(&self) -> Option<&str> {
+        self.workspace_root.as_deref()
     }
 
     pub(crate) fn direct_work_active_runs(&self) -> DirectWorkActiveRunRegistry {
@@ -184,8 +190,21 @@ pub(crate) fn initialize_app_state<R: tauri::Runtime>(
 ) -> Result<AppState, Box<dyn std::error::Error>> {
     let app_data_dir = app.path().app_data_dir()?;
     let database = initialize_database(&app_data_dir)?;
+    let workspace_root = std::env::current_dir()
+        .ok()
+        .and_then(|path| normalize_workspace_root(path.to_string_lossy().as_ref()));
 
-    Ok(AppState::new(database.path))
+    Ok(AppState::new(database.path, workspace_root))
+}
+
+fn normalize_workspace_root(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+
+    if trimmed.is_empty() || trimmed == "~" || trimmed == "." {
+        return None;
+    }
+
+    Some(trimmed.to_owned())
 }
 
 #[cfg(test)]

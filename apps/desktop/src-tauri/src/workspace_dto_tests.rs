@@ -22,6 +22,7 @@ use crate::workspace_dto::{
     WidgetLogDto, WorkspaceDeletionResponseDto, WorkspaceSessionSummaryDto, WorkspaceSummaryDto,
     WorkspaceWorkbenchStateDto,
 };
+use crate::workspace_root_dto as root_dto;
 
 #[test]
 fn maps_workspace_summary_to_dto() {
@@ -29,6 +30,7 @@ fn maps_workspace_summary_to_dto() {
         id: "ws_1".to_owned(),
         title: "Incident".to_owned(),
         description: Some("Investigate".to_owned()),
+        root_path: Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed".to_owned()),
         status: "active".to_owned(),
         created_at: "2026-05-25T10:00:00Z".to_owned(),
         updated_at: "2026-05-25T10:30:00Z".to_owned(),
@@ -50,6 +52,7 @@ fn maps_workspace_summary_to_dto() {
             id: "ws_1".to_owned(),
             title: "Incident".to_owned(),
             description: Some("Investigate".to_owned()),
+            root_path: Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed".to_owned()),
             status: "active".to_owned(),
             created_at: "2026-05-25T10:00:00Z".to_owned(),
             updated_at: "2026-05-25T10:30:00Z".to_owned(),
@@ -71,6 +74,7 @@ fn serializes_workspace_summary_with_stable_snake_case_metadata_fields() {
         id: "ws_1".to_owned(),
         title: "Incident".to_owned(),
         description: None,
+        root_path: Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed".to_owned()),
         status: "active".to_owned(),
         created_at: "2026-05-25T10:00:00Z".to_owned(),
         updated_at: "2026-05-25T10:30:00Z".to_owned(),
@@ -90,6 +94,7 @@ fn serializes_workspace_summary_with_stable_snake_case_metadata_fields() {
             "id": "ws_1",
             "title": "Incident",
             "description": null,
+            "root_path": "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
             "status": "active",
             "created_at": "2026-05-25T10:00:00Z",
             "updated_at": "2026-05-25T10:30:00Z",
@@ -102,6 +107,34 @@ fn serializes_workspace_summary_with_stable_snake_case_metadata_fields() {
             "queue_task_count": 5,
             "workbench_id": "wb_1"
         })
+    );
+}
+
+#[test]
+fn maps_workspace_summary_fallback_root_to_dto_root_path() {
+    let summary = WorkspaceSummary {
+        id: "ws_1".to_owned(),
+        title: "Incident".to_owned(),
+        description: None,
+        root_path: None,
+        status: "active".to_owned(),
+        created_at: "2026-05-25T10:00:00Z".to_owned(),
+        updated_at: "2026-05-25T10:30:00Z".to_owned(),
+        last_opened_at: None,
+        widget_count: 0,
+        workspace_agent_count: 0,
+        note_count: 0,
+        skill_count: 0,
+        knowledge_document_count: 0,
+        queue_task_count: 0,
+        workbench_id: Some("wb_1".to_owned()),
+    };
+
+    let dto = root_dto::summary(summary, Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed"));
+
+    assert_eq!(
+        dto.root_path.as_deref(),
+        Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed")
     );
 }
 
@@ -134,6 +167,7 @@ fn maps_workspace_workbench_state_to_dto() {
             id: "ws_1".to_owned(),
             title: "Incident".to_owned(),
             description: None,
+            root_path: Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed".to_owned()),
             status: "active".to_owned(),
             created_at: "2026-05-25T10:00:00Z".to_owned(),
             updated_at: "2026-05-25T10:30:00Z".to_owned(),
@@ -187,6 +221,10 @@ fn maps_workspace_workbench_state_to_dto() {
     let dto = WorkspaceWorkbenchStateDto::from(state);
 
     assert_eq!(dto.workspace.id, "ws_1");
+    assert_eq!(
+        dto.workspace.root_path.as_deref(),
+        Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed")
+    );
     assert_eq!(
         dto.workbench
             .as_ref()
@@ -274,6 +312,7 @@ fn maps_workspace_deletion_summary_to_dto() {
             id: "ws_keep".to_owned(),
             title: "Keep".to_owned(),
             description: None,
+            root_path: None,
             status: "active".to_owned(),
             created_at: "2026-05-25T10:00:00Z".to_owned(),
             updated_at: "2026-05-25T10:30:00Z".to_owned(),

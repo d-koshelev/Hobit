@@ -30,6 +30,7 @@ type WorkspaceAgentWidgetPropsOptions = {
   actions: WorkspaceAgentActions;
   agentActivityEvents: AgentActivityEvent[];
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
+  currentWorkspaceRoot?: string | null;
   instanceId: WidgetInstanceId;
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
@@ -42,6 +43,7 @@ export function workspaceAgentWidgetProps({
   actions,
   agentActivityEvents,
   coordinatorAttachedContextRequest,
+  currentWorkspaceRoot,
   instanceId,
   onOpenAgentQueueItem,
   onPublishAgentActivityEvents,
@@ -86,13 +88,26 @@ export function workspaceAgentWidgetProps({
         bridge: workspaceQueueApi,
         confirmed: true,
         currentWorkspaceRoot:
-          options?.currentWorkspaceRoot ??
-          workspaceQueueApi.getRunSettingsDefaults?.()?.executionWorkspace ??
-          null,
+          normalizedWorkspaceRoot(options?.currentWorkspaceRoot) ??
+          normalizedWorkspaceRoot(currentWorkspaceRoot) ??
+          normalizedWorkspaceRoot(workspaceQueueApi.getCurrentWorkspaceRoot?.()) ??
+          normalizedWorkspaceRoot(
+            workspaceQueueApi.getRunSettingsDefaults?.()?.executionWorkspace,
+          ),
         preview,
       }),
     agentQueueController: workspaceQueueApi.controller,
     queueValidationRunner: workspaceQueueApi.validationRunner,
     workspaceAgentQueueBridge: workspaceQueueApi,
   };
+}
+
+function normalizedWorkspaceRoot(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }

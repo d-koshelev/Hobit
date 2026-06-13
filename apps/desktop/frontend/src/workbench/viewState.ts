@@ -16,6 +16,7 @@ type WorkbenchSelectionViewInput = {
     id: string;
     title: string;
     description: string | null;
+    rootPath?: string | null;
     status: string;
     workbenchId: string | null;
   };
@@ -29,6 +30,7 @@ export function createWorkbenchViewStateFromSelection(
       id: selection.workspace.id,
       title: selection.workspace.title,
       description: selection.workspace.description,
+      rootPath: normalizedWorkspaceRoot(selection.workspace.rootPath),
       status: selection.workspace.status,
     },
     workbench: {
@@ -63,6 +65,7 @@ export function createWorkbenchViewStateFromWorkspaceState(
       id: state.workspace.id,
       title: state.workspace.title,
       description: state.workspace.description,
+      rootPath: normalizedWorkspaceRoot(state.workspace.rootPath),
       status: state.workspace.status,
     },
     workbench: {
@@ -187,4 +190,14 @@ function normalizeJsonRecord(value: string | null): Record<string, unknown> {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizedWorkspaceRoot(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }

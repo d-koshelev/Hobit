@@ -2,6 +2,7 @@ export type WorkspaceSummary = {
   id: string;
   title: string;
   description: string | null;
+  rootPath?: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;

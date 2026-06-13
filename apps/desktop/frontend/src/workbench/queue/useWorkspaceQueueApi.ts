@@ -69,16 +69,20 @@ export type WorkspaceQueueApi = WorkspaceAgentQueueBridge & {
 export function useWorkspaceQueueApi({
   actions,
   agentExecutorSlots,
+  currentWorkspaceRoot,
   directWorkRunHandoff,
   queueWidgetInstanceId,
   workspaceId,
 }: {
   actions: WorkspaceQueueActions;
   agentExecutorSlots: AgentExecutorSlot[];
+  currentWorkspaceRoot?: string | null;
   directWorkRunHandoff: DirectWorkRunHandoffController;
   queueWidgetInstanceId?: WidgetInstanceId | null;
   workspaceId: string;
 }): WorkspaceQueueApi {
+  const normalizedCurrentWorkspaceRoot =
+    normalizeWorkspaceRoot(currentWorkspaceRoot);
   const queueExecutorSlots = useMemo(
     () =>
       queueWidgetInstanceId
@@ -185,6 +189,7 @@ export function useWorkspaceQueueApi({
     },
     queueApi,
     queueState: {
+      getCurrentWorkspaceRoot: () => normalizedCurrentWorkspaceRoot,
       getRunSettingsDefaults: () =>
         agentQueueTaskRunSettingsDefaultsFromRun(controller.run) ??
         defaultAgentQueueTaskRunSettings(),
@@ -223,6 +228,16 @@ function isTauriDesktopRuntime() {
     typeof window !== "undefined" &&
     ("__TAURI_INTERNALS__" in window || "__TAURI__" in window)
   );
+}
+
+function normalizeWorkspaceRoot(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }
 
 function runAutonomousQueue(

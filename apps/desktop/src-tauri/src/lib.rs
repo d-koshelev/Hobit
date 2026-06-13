@@ -96,6 +96,7 @@ mod workspace_dto;
 mod workspace_dto_tests;
 mod workspace_git_dto;
 mod workspace_metadata_commands;
+mod workspace_root_dto;
 
 use app_state::initialize_app_state;
 use tauri::Manager;

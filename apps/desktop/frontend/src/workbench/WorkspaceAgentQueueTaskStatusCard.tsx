@@ -100,7 +100,8 @@ export function WorkspaceAgentQueueTaskStatusCard({
     task: displayedTask,
   });
   const currentWorkspaceRoot = normalizedExecutionWorkspace(
-    workspaceAgentQueueBridge?.getRunSettingsDefaults?.()?.executionWorkspace,
+    workspaceAgentQueueBridge?.getCurrentWorkspaceRoot?.() ??
+      workspaceAgentQueueBridge?.getRunSettingsDefaults?.()?.executionWorkspace,
   );
   const actions = queueTaskCardActions({
     canViewReport: Boolean(onViewReport),

@@ -5,6 +5,7 @@ use tauri::State;
 
 use crate::app_state::AppState;
 use crate::workspace_dto::WorkspaceSummaryDto;
+use crate::workspace_root_dto as root_dto;
 
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct UpdateWorkspaceRequest {
@@ -21,7 +22,7 @@ pub(crate) fn update_workspace(
         .map(WorkspaceService::new)
         .map_err(command_error)?
         .update_workspace_title(&request.workspace_id, request.title)
-        .map(|summary| summary.map(WorkspaceSummaryDto::from))
+        .map(|summary| root_dto::optional_summary(summary, state.workspace_root()))
         .map_err(command_error)
 }
 

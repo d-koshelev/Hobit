@@ -19,6 +19,7 @@ import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
 import { useWorkspaceAgentQueueChatRequests } from "./useWorkspaceAgentQueueChatRequests";
 import { useWorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
+import { currentWorkspaceRootFromViewState } from "./workspaceCurrentRoot";
 import {
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
@@ -113,9 +114,11 @@ export function WorkbenchCanvas({
   const agentExecutorSlots = useMemo(() => agentExecutorSlotsFromWidgets(viewState.widgets), [viewState.widgets]);
   const directWorkGitReview = useDirectWorkGitReviewHandoff();
   const directWorkRunHandoff = useDirectWorkRunHandoff();
+  const currentWorkspaceRoot = currentWorkspaceRootFromViewState(viewState);
   const workspaceQueueApi = useWorkspaceQueueApi({
     actions: widgetActions,
     agentExecutorSlots,
+    currentWorkspaceRoot,
     directWorkRunHandoff,
     queueWidgetInstanceId: queueWidget?.id ?? null,
     workspaceId: viewState.workspace.id,
@@ -559,6 +562,7 @@ export function WorkbenchCanvas({
                           coordinatorAttachedContextRequest={
                             coordinatorAttachedContextRequest
                           }
+                          currentWorkspaceRoot={currentWorkspaceRoot}
                           queueReportActionCardRequest={
                             queueChatRequests.queueReportActionCardRequest
                           }
@@ -615,6 +619,7 @@ export function WorkbenchCanvas({
                         coordinatorAttachedContextRequest={
                           coordinatorAttachedContextRequest
                         }
+                        currentWorkspaceRoot={currentWorkspaceRoot}
                         queueReportActionCardRequest={
                           queueChatRequests.queueReportActionCardRequest
                         }

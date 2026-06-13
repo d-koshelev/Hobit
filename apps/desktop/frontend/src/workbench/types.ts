@@ -87,6 +87,7 @@ export type WorkbenchWorkspaceView = {
   id: string;
   title: string;
   description: string | null;
+  rootPath?: string | null;
   status: string;
 };
 

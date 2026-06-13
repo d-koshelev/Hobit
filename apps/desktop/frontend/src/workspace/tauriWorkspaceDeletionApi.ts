@@ -9,6 +9,7 @@ type TauriWorkspaceSummary = {
   id: string;
   title: string;
   description: string | null;
+  root_path?: string | null;
   status: string;
   created_at: string;
   updated_at: string;
@@ -52,10 +53,13 @@ export async function deleteWorkspace(
 function normalizeWorkspaceSummary(
   workspace: TauriWorkspaceSummary,
 ): WorkspaceSummary {
+  const rootPath = normalizeWorkspaceRoot(workspace.root_path);
+
   return {
     id: workspace.id,
     title: workspace.title,
     description: workspace.description,
+    ...(rootPath ? { rootPath } : {}),
     status: workspace.status,
     createdAt: workspace.created_at,
     updatedAt: workspace.updated_at,
@@ -68,4 +72,14 @@ function normalizeWorkspaceSummary(
     queueTaskCount: workspace.queue_task_count,
     workbenchId: workspace.workbench_id,
   };
+}
+
+function normalizeWorkspaceRoot(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }

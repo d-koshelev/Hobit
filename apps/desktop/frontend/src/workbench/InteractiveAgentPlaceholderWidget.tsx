@@ -84,6 +84,7 @@ export function InteractiveAgentPlaceholderWidget({
   onCreateKnowledgeDocument,
   onCreateSkill,
   onCreateWorkspaceNote,
+  currentWorkspaceRoot,
   coordinatorAttachedContextRequest,
   onGenerateCoordinatorProviderResponse,
   onGetKnowledgeDocument,
@@ -160,7 +161,10 @@ export function InteractiveAgentPlaceholderWidget({
     onStartCodexDirectWorkStream,
     workspaceId,
   });
-  const createQueueItemsFromPromptPackPreviewForCurrentWorkspace: typeof createQueueItemsFromPromptPackPreview = createQueueItemsFromPromptPackPreview ? (preview) => createQueueItemsFromPromptPackPreview(preview, { currentWorkspaceRoot: explicitQueueCommandWorkspaceRoot(directWork.directWorkDirectory) }) : undefined;
+  const explicitWorkspaceRoot =
+    explicitQueueCommandWorkspaceRoot(currentWorkspaceRoot) ??
+    explicitQueueCommandWorkspaceRoot(directWork.directWorkDirectory);
+  const createQueueItemsFromPromptPackPreviewForCurrentWorkspace: typeof createQueueItemsFromPromptPackPreview = createQueueItemsFromPromptPackPreview ? (preview) => createQueueItemsFromPromptPackPreview(preview, { currentWorkspaceRoot: explicitWorkspaceRoot }) : undefined;
   const isDirectModeEnabled = directWork.isDirectModeEnabled;
   const canSend = !isDirectModeEnabled && trimmedDraftLength > 0 && !isProviderPending;
   useEffect(() => {
@@ -457,9 +461,7 @@ export function InteractiveAgentPlaceholderWidget({
 
     const result = await runWorkspaceAgentQueueCommand(trimmedDraft, {
       bridge: workspaceAgentQueueBridge,
-      currentWorkspaceRoot: explicitQueueCommandWorkspaceRoot(
-        directWork.directWorkDirectory,
-      ),
+      currentWorkspaceRoot: explicitWorkspaceRoot,
     });
 
     if (!result.handled) {
@@ -737,9 +739,7 @@ export function InteractiveAgentPlaceholderWidget({
 
   async function createQueueTaskFromProposal(proposalId: string) {
     await runCreateQueueTaskProposal({
-      currentWorkspaceRoot: explicitQueueCommandWorkspaceRoot(
-        directWork.directWorkDirectory,
-      ),
+      currentWorkspaceRoot: explicitWorkspaceRoot,
       pendingProposalIds: creatingQueueProposalIds,
       proposalId,
       proposals,

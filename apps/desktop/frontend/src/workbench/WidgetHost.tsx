@@ -93,6 +93,7 @@ type WidgetHostProps = {
   agentExecutorRunOpenRequest: AgentExecutorRunOpenRequest | null;
   agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
+  currentWorkspaceRoot?: string | null;
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
   queueTaskStatusCardRequest: WorkspaceAgentQueueTaskStatusCardRequest | null;
   agentExecutorSlots: AgentExecutorSlot[];
@@ -137,6 +138,7 @@ export function WidgetHost({
   agentExecutorRunOpenRequest,
   agentQueueItemOpenRequest,
   coordinatorAttachedContextRequest,
+  currentWorkspaceRoot,
   queueReportActionCardRequest,
   queueTaskStatusCardRequest,
   agentExecutorSlots,
@@ -251,6 +253,7 @@ export function WidgetHost({
     agentQueueItemOpenRequest,
     componentKey: definition.componentKey,
     coordinatorAttachedContextRequest,
+    currentWorkspaceRoot,
     queueReportActionCardRequest,
     queueTaskStatusCardRequest,
     directWorkGitReview,

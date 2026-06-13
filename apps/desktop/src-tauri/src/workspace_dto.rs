@@ -10,7 +10,6 @@ use hobit_app::{
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct CreateWorkspaceRequest {
     pub title: String,
@@ -136,6 +135,7 @@ pub(crate) struct WorkspaceSummaryDto {
     pub id: String,
     pub title: String,
     pub description: Option<String>,
+    pub root_path: Option<String>,
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
@@ -148,7 +148,6 @@ pub(crate) struct WorkspaceSummaryDto {
     pub queue_task_count: usize,
     pub workbench_id: Option<String>,
 }
-
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct WorkspaceDeletionResponseDto {
     pub deleted_workspace_id: String,
@@ -347,6 +346,7 @@ impl From<WorkspaceSummary> for WorkspaceSummaryDto {
             id: summary.id,
             title: summary.title,
             description: summary.description,
+            root_path: summary.root_path,
             status: summary.status,
             created_at: summary.created_at,
             updated_at: summary.updated_at,

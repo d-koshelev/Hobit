@@ -44,6 +44,7 @@ type AgentQueueWidgetPropsOptions = {
   agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   agentQueueController: AgentQueueController;
   agentExecutorSlots: AgentExecutorSlot[];
+  currentWorkspaceRoot?: string | null;
   workspaceQueueApi: WorkspaceQueueApi;
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
@@ -75,6 +76,7 @@ export function agentQueueWidgetProps({
   agentQueueItemOpenRequest,
   agentQueueController,
   agentExecutorSlots,
+  currentWorkspaceRoot,
   workspaceQueueApi,
   onAttachContextToCoordinator,
   onShowQueueReportInWorkspaceChat,
@@ -86,7 +88,11 @@ export function agentQueueWidgetProps({
     agentQueueController,
     agentExecutorSlots,
     currentWorkspaceRoot:
-      workspaceQueueApi.getRunSettingsDefaults?.()?.executionWorkspace ?? null,
+      normalizedWorkspaceRoot(currentWorkspaceRoot) ??
+      normalizedWorkspaceRoot(workspaceQueueApi.getCurrentWorkspaceRoot?.()) ??
+      normalizedWorkspaceRoot(
+        workspaceQueueApi.getRunSettingsDefaults?.()?.executionWorkspace,
+      ),
     queueValidationRunner: workspaceQueueApi.validationRunner,
     onRequestQueueValidation: workspaceQueueApi.requestValidation,
     onAttachContextToCoordinator,
@@ -98,6 +104,16 @@ export function agentQueueWidgetProps({
     onShowQueueTaskInWorkspaceChat,
     onOpenAgentExecutorRun,
   };
+}
+
+function normalizedWorkspaceRoot(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }
 
 export function agentExecutorWidgetProps({

@@ -5,6 +5,10 @@ import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
 import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
+import {
+  buildPromptPackImportPreview,
+  parsePromptPackImportPlan,
+} from "./promptPack";
 import { createUnavailableValidationRunner } from "./validation";
 import {
   AGENT_ACTIVITY_COMPONENT_KEY,
@@ -118,6 +122,80 @@ describe("widgetHostRenderProps", () => {
     expect(props.onAttachContextToCoordinator).toBeUndefined();
     expect(props.onGetWorkspaceNote).toBeUndefined();
     expect(props.onRunTerminalCommand).toBeUndefined();
+  });
+
+  it("passes current Workspace root to QueueV2 and prompt-pack materialization", async () => {
+    const createItem = vi.fn(async (request) => ({
+      action: "queue.createItem" as const,
+      events: [],
+      item: {
+        blockers: [],
+        dependencies: [],
+        description: request.description,
+        evidenceSummary: { runRefs: [], status: "none" as const },
+        executionPolicy: request.executionPolicy ?? "manual",
+        executionStatus: request.status ?? "draft",
+        id: "queue-001",
+        priority: request.priority,
+        prompt: request.prompt,
+        queueId: "queue",
+        queueTag: { id: null, name: request.queueTag?.name ?? null },
+        reportSummary: { status: "none" as const },
+        runLinks: [],
+        status: request.status ?? "draft",
+        title: request.title,
+        workspaceId: "workspace-1",
+      },
+      message: "created",
+      ok: true,
+      safetyClass: "safe_create_update" as const,
+    }));
+    const workspaceQueue = workspaceQueueApi({
+      createItem,
+      getCurrentWorkspaceRoot: () => "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+      getRunSettingsDefaults: () => ({
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        executionWorkspace: "~",
+        sandbox: "read_only",
+      }),
+    });
+    const queueProps = renderPropsFor(AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY, {
+      currentWorkspaceRoot: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+      workspaceQueueApi: workspaceQueue,
+    });
+    const agentProps = renderPropsFor(
+      INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
+      {
+        currentWorkspaceRoot: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+        workspaceQueueApi: workspaceQueue,
+      },
+    );
+    const preview = buildPromptPackImportPreview(
+      parsePromptPackImportPlan([
+        {
+          path: "001.md",
+          text: ["# 001", "", "Imported prompt body."].join("\n"),
+        },
+      ]),
+    );
+
+    expect(queueProps.currentWorkspaceRoot).toBe(
+      "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+    );
+
+    const result = await agentProps.createQueueItemsFromPromptPackPreview?.(
+      preview,
+    );
+
+    expect(result?.ok).toBe(true);
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(createItem.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({
+        executionWorkspace: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+        status: "draft",
+      }),
+    );
   });
 
   it("routes current-session Agent Activity events to Agent Activity and Workspace Agent", () => {
@@ -446,6 +524,7 @@ function workspaceQueueApi(
   return {
     controller: {} as WorkspaceQueueApi["controller"],
     createItem: vi.fn(),
+    getCurrentWorkspaceRoot: vi.fn(() => null),
     getRunSettingsDefaults: vi.fn(() => ({
       approvalPolicy: "never" as const,
       codexExecutable: "codex.cmd",

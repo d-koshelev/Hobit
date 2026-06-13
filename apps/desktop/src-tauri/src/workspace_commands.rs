@@ -53,6 +53,7 @@ use crate::workspace_git_dto::{
     WorkspaceGitFileDiffDto, WorkspaceGitLogDto, WorkspaceGitPushResponseDto,
     WorkspaceGitStatusDto,
 };
+use crate::workspace_root_dto as root_dto;
 
 #[tauri::command]
 pub(crate) fn create_workspace(
@@ -62,7 +63,7 @@ pub(crate) fn create_workspace(
     let service = workspace_service(state.db_path())?;
     service
         .create_empty_workspace(request.title, request.description)
-        .map(WorkspaceSummaryDto::from)
+        .map(|summary| root_dto::summary(summary, state.workspace_root()))
         .map_err(command_error)
 }
 
@@ -73,12 +74,7 @@ pub(crate) fn list_workspaces(
     let service = workspace_service(state.db_path())?;
     service
         .list_workspaces()
-        .map(|workspaces| {
-            workspaces
-                .into_iter()
-                .map(WorkspaceSummaryDto::from)
-                .collect()
-        })
+        .map(|workspaces| root_dto::summaries(workspaces, state.workspace_root()))
         .map_err(command_error)
 }
 
@@ -90,6 +86,7 @@ pub(crate) fn delete_workspace(
     delete_workspace_blocking(
         request,
         state.db_path().to_path_buf(),
+        state.workspace_root().map(str::to_owned),
         state.direct_work_active_runs(),
         state.terminal_pty_sessions(),
     )
@@ -98,6 +95,7 @@ pub(crate) fn delete_workspace(
 fn delete_workspace_blocking(
     request: DeleteWorkspaceRequest,
     db_path: PathBuf,
+    workspace_root: Option<String>,
     active_runs: DirectWorkActiveRunRegistry,
     terminal_pty_sessions: TerminalPtySessionRegistry,
 ) -> Result<WorkspaceDeletionResponseDto, String> {
@@ -117,7 +115,7 @@ fn delete_workspace_blocking(
     let service = workspace_service(&db_path)?;
     service
         .delete_workspace(&request.workspace_id)
-        .map(WorkspaceDeletionResponseDto::from)
+        .map(|summary| root_dto::deletion(summary, workspace_root.as_deref()))
         .map_err(command_error)
 }
 
@@ -129,7 +127,7 @@ pub(crate) fn get_workspace_summary(
     let service = workspace_service(state.db_path())?;
     service
         .get_workspace_summary(&workspace_id)
-        .map(|summary| summary.map(WorkspaceSummaryDto::from))
+        .map(|summary| root_dto::optional_summary(summary, state.workspace_root()))
         .map_err(command_error)
 }
 
@@ -153,7 +151,7 @@ pub(crate) fn get_workspace_workbench_state(
     let service = workspace_service(state.db_path())?;
     service
         .get_workspace_workbench_state(&workspace_id)
-        .map(|state| state.map(WorkspaceWorkbenchStateDto::from))
+        .map(|summary| root_dto::optional_workbench_state(summary, state.workspace_root()))
         .map_err(command_error)
 }
 
@@ -171,7 +169,7 @@ pub(crate) fn add_widget_instance_to_workbench(
             &request.title,
             &request.category,
         )
-        .map(|state| state.map(WorkspaceWorkbenchStateDto::from))
+        .map(|summary| root_dto::optional_workbench_state(summary, state.workspace_root()))
         .map_err(command_error)
 }
 
@@ -188,7 +186,7 @@ pub(crate) fn update_widget_instance_state(
             &request.widget_instance_id,
             &request.state,
         )
-        .map(|state| state.map(WorkspaceWorkbenchStateDto::from))
+        .map(|summary| root_dto::optional_workbench_state(summary, state.workspace_root()))
         .map_err(command_error)
 }
 
@@ -205,7 +203,7 @@ pub(crate) fn update_widget_instance_layout(
             &request.widget_instance_id,
             request.layout.into(),
         )
-        .map(|state| state.map(WorkspaceWorkbenchStateDto::from))
+        .map(|summary| root_dto::optional_workbench_state(summary, state.workspace_root()))
         .map_err(command_error)
 }
 
@@ -217,6 +215,7 @@ pub(crate) fn delete_widget_instance_from_workbench(
     delete_widget_instance_from_workbench_blocking(
         request,
         state.db_path().to_path_buf(),
+        state.workspace_root().map(str::to_owned),
         state.direct_work_active_runs(),
         state.terminal_pty_sessions(),
     )
@@ -225,6 +224,7 @@ pub(crate) fn delete_widget_instance_from_workbench(
 fn delete_widget_instance_from_workbench_blocking(
     request: DeleteWidgetInstanceFromWorkbenchRequest,
     db_path: PathBuf,
+    workspace_root: Option<String>,
     active_runs: DirectWorkActiveRunRegistry,
     terminal_pty_sessions: TerminalPtySessionRegistry,
 ) -> Result<Option<WorkspaceWorkbenchStateDto>, String> {
@@ -254,7 +254,7 @@ fn delete_widget_instance_from_workbench_blocking(
             &request.workbench_id,
             &request.widget_instance_id,
         )
-        .map(|state| state.map(WorkspaceWorkbenchStateDto::from))
+        .map(|summary| root_dto::optional_workbench_state(summary, workspace_root.as_deref()))
         .map_err(command_error)
 }
 

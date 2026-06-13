@@ -199,6 +199,7 @@ fn delete_widget_instance_from_workbench_blocking_returns_refreshed_state() {
             widget_instance_id: widget_id.clone(),
         },
         db_path.clone(),
+        Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed".to_owned()),
         DirectWorkActiveRunRegistry::default(),
         TerminalPtySessionRegistry::default(),
     )
@@ -213,6 +214,10 @@ fn delete_widget_instance_from_workbench_blocking_returns_refreshed_state() {
         .recent_events
         .iter()
         .any(|event| event.kind == "widget_instance_deleted"));
+    assert_eq!(
+        response.workspace.root_path.as_deref(),
+        Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed")
+    );
     remove_test_db_files(&db_path);
 }
 
@@ -236,6 +241,7 @@ fn delete_widget_instance_from_workbench_blocking_rejects_active_direct_work_wid
             widget_instance_id: widget_id,
         },
         db_path.clone(),
+        Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed".to_owned()),
         active_runs,
         TerminalPtySessionRegistry::default(),
     )
@@ -264,6 +270,7 @@ fn delete_workspace_blocking_returns_remaining_workspaces() {
             workspace_id: deleted_workspace.id.clone(),
         },
         db_path.clone(),
+        Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed".to_owned()),
         DirectWorkActiveRunRegistry::default(),
         TerminalPtySessionRegistry::default(),
     )
@@ -279,6 +286,9 @@ fn delete_workspace_blocking_returns_remaining_workspaces() {
         .remaining_workspaces
         .iter()
         .any(|workspace| workspace.id == kept_workspace.id));
+    assert!(response.remaining_workspaces.iter().all(|workspace| {
+        workspace.root_path.as_deref() == Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed")
+    }));
 
     let store = SqliteStore::open(&db_path).expect("reopen sqlite test store");
     assert!(store
@@ -310,6 +320,7 @@ fn delete_workspace_blocking_rejects_active_direct_work_run() {
             workspace_id: workspace_id.clone(),
         },
         db_path.clone(),
+        Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed".to_owned()),
         active_runs,
         TerminalPtySessionRegistry::default(),
     )

@@ -51,6 +51,7 @@ type WidgetHostRenderPropsOptions = {
   agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   componentKey: string;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
+  currentWorkspaceRoot?: string | null;
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
   queueTaskStatusCardRequest: WorkspaceAgentQueueTaskStatusCardRequest | null;
   directWorkGitReview: DirectWorkGitReviewHandoff;
@@ -80,6 +81,7 @@ export function widgetHostRenderProps({
   agentQueueItemOpenRequest,
   componentKey,
   coordinatorAttachedContextRequest,
+  currentWorkspaceRoot,
   queueReportActionCardRequest,
   queueTaskStatusCardRequest,
   directWorkGitReview,
@@ -113,6 +115,7 @@ export function widgetHostRenderProps({
         agentQueueController: workspaceQueueApi.controller,
         agentExecutorSlots: workspaceQueueApi.queueExecutorSlots,
         workspaceQueueApi,
+        currentWorkspaceRoot,
         onAttachContextToCoordinator,
         onShowQueueReportInWorkspaceChat,
         onShowQueueTaskInWorkspaceChat,
@@ -165,6 +168,7 @@ export function widgetHostRenderProps({
         onPublishAgentActivityEvents,
         queueReportActionCardRequest,
         queueTaskStatusCardRequest,
+        currentWorkspaceRoot,
         workspaceQueueApi,
       }),
     };

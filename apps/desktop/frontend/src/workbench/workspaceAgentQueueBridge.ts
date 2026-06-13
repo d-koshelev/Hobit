@@ -35,6 +35,7 @@ export type WorkspaceQueueAutonomousActions = {
 };
 
 export type WorkspaceQueueStateAccess = {
+  getCurrentWorkspaceRoot?: () => string | null;
   getRunSettingsDefaults: () => AgentQueueTaskRunSettingsDefaults;
   refreshAfterMutation: (queueItemId: string) => Promise<void> | void;
 };
@@ -58,6 +59,7 @@ export type WorkspaceAgentQueueBridge = {
   createItem: (
     request: Omit<QueueCreateItemRequest, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>>;
+  getCurrentWorkspaceRoot?: () => string | null;
   getRunSettingsDefaults?: () => AgentQueueTaskRunSettingsDefaults | null;
   getSnapshot: (
     request?: Omit<Partial<QueueGetSnapshotRequest>, "workspaceId">,
@@ -116,6 +118,8 @@ export function createWorkspaceAgentQueueBridge({
     },
     getRunSettingsDefaults: () =>
       queueState?.getRunSettingsDefaults() ?? null,
+    getCurrentWorkspaceRoot: () =>
+      queueState?.getCurrentWorkspaceRoot?.() ?? null,
     getSnapshot: (request = {}) =>
       queueApi.getSnapshot({
         ...request,

@@ -5,6 +5,7 @@ pub struct WorkspaceSummary {
     pub id: String,
     pub title: String,
     pub description: Option<String>,
+    pub root_path: Option<String>,
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
