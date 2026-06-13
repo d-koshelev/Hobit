@@ -78,18 +78,12 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       "Direct Work failed: codex executable not found",
     );
     expect(
-      document.querySelector<HTMLDetailsElement>(
-        ".interactive-agent-direct-mode-details",
-      )?.open,
-    ).toBe(false);
-    expect(
-      document.querySelector(".interactive-agent-direct-mode-details")
-        ?.textContent,
-    ).toContain("Run run_failed started.");
-    expect(
-      document.querySelector(".interactive-agent-direct-mode-details")
-        ?.textContent,
-    ).toContain("Run ended with failed.");
+      document.querySelector(".interactive-agent-direct-mode-details"),
+    ).toBeNull();
+    await clickButton("Run details");
+    const runDetails = document.querySelector(".interactive-agent-run-details-popup");
+    expect(runDetails?.textContent).toContain("Run run_failed started.");
+    expect(runDetails?.textContent).toContain("Run ended with failed.");
   });
 
 

@@ -870,6 +870,7 @@ export function InteractiveAgentPlaceholderWidget({
                   runId: directWork.directWorkRunId,
                   runMetadata: directWork.directWorkRunMetadata,
                   status: directWork.directWorkStatus,
+                  stopNotice: directWork.directWorkStopNotice,
                   threadId: directWork.activeThreadId,
                   threadNotice: directWork.threadNotice,
                   warning: directWork.directWorkWarning,

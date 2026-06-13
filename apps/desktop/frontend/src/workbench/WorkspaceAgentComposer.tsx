@@ -38,6 +38,7 @@ type WorkspaceAgentComposerDirectMode = {
   onStopDirectWork: () => void;
   runId: string | null;
   status: CoordinatorDirectWorkStatus;
+  stopNotice?: string | null;
   threadId: string | null;
   threadNotice: string | null;
   warning: string | null;
@@ -262,6 +263,7 @@ export function WorkspaceAgentComposer({
           runMetadata={directMode.runMetadata}
           runDetailsAnchorRef={detailsButtonRef}
           settingsAnchorRef={settingsButtonRef}
+          stopNotice={directMode.stopNotice}
           threadNotice={directMode.threadNotice}
           warning={directMode.warning}
         />

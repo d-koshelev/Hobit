@@ -47,6 +47,7 @@ export function WorkspaceAgentDirectModePanel({
   runDetailsAnchorRef,
   runMetadata,
   settingsAnchorRef,
+  stopNotice = null,
   threadNotice,
   warning,
 }: {
@@ -68,6 +69,7 @@ export function WorkspaceAgentDirectModePanel({
   runDetailsAnchorRef: RefObject<HTMLButtonElement | null>;
   runMetadata: WorkspaceAgentRunMetadata | null;
   settingsAnchorRef: RefObject<HTMLButtonElement | null>;
+  stopNotice?: string | null;
   threadNotice: string | null;
   warning: string | null;
 }) {
@@ -291,6 +293,7 @@ export function WorkspaceAgentDirectModePanel({
               {threadNotice}
             </span>
           ) : null}
+          {stopNotice ? <span>{stopNotice}</span> : null}
           {directoryBrowseError ? (
             <span className="interactive-agent-direct-mode-error">
               {directoryBrowseError}

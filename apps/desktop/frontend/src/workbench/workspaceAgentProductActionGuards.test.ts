@@ -49,6 +49,36 @@ describe("workspaceAgentProductActionGuards", () => {
     ).toBe("unknown");
   });
 
+  it("does not classify visible Executor preview context as a prompt-pack import", () => {
+    const text = [
+      "Visible attached context (Executor Final response preview)",
+      "Executor visible preview",
+      "Section: Final response preview",
+      "Preview:",
+      "Visible final response preview selected by button.",
+      "Only visible attached context is sent.",
+    ].join("\n");
+
+    expect(
+      classifyPromptPackImportIntent(text, { hasPendingImport: false }).kind,
+    ).toBe("unknown");
+  });
+
+  it("does not treat safety instructions plus a path as prompt-pack import", () => {
+    const text = [
+      "Use Agent Queue only. Do not execute directly.",
+      "Workspace:",
+      "C:\\Users\\Dmitry\\Documents\\prj\\Hobit_fixed",
+      "Prompt:",
+      "Do not create files.",
+      "Do not delete files.",
+    ].join("\n");
+
+    expect(
+      classifyPromptPackImportIntent(text, { hasPendingImport: false }).kind,
+    ).toBe("unknown");
+  });
+
   it("classifies cancel only as active preview cancellation intent", () => {
     expect(
       classifyPromptPackImportIntent("cancel import", { hasPendingImport: true })

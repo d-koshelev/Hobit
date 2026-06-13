@@ -267,6 +267,7 @@ export function classifyPromptPackImportIntent(
   const mentionsPreview = /\bpreview\b/.test(normalized);
   const mentionsPromptPackImportSubject =
     mentionsPromptPack || /\bprompt[- ]?batch\b/.test(normalized);
+  const hasImportSource = Boolean(source.sourcePath) || Boolean(source.sourceText);
   const mentionsQueueItems = /\bcreate (?:the )?queue items?\b/.test(
     normalized,
   );
@@ -296,12 +297,11 @@ export function classifyPromptPackImportIntent(
 
   const startCue =
     (/\b(start|begin|preview|show preview)\b/.test(normalized) &&
-      (mentionsPromptPackImportSubject || mentionsImport || mentionsPreview)) ||
+      (mentionsPromptPackImportSubject || mentionsImport)) ||
     (mentionsImport &&
       (mentionsPromptPackImportSubject ||
         mentionsPreview ||
-        Boolean(source.sourcePath) ||
-        Boolean(source.sourceText)));
+        hasImportSource));
   const cancelCue = /\b(cancel|discard|stop)\b/.test(normalized);
 
   if (
@@ -311,9 +311,11 @@ export function classifyPromptPackImportIntent(
     return { kind: "cancel_prompt_pack_import_preview" };
   }
 
+  const hasPromptPackImportContext = mentionsPromptPackImportSubject || mentionsImport;
+
   if (
-    (startCue || previewBeforeCreateCue) &&
-    (mentionsPromptPackImportSubject || mentionsImport || mentionsPreview)
+    (startCue && (hasPromptPackImportContext || hasImportSource)) ||
+    (previewBeforeCreateCue && hasPromptPackImportContext)
   ) {
     return {
       kind: "start_prompt_pack_import_preview",

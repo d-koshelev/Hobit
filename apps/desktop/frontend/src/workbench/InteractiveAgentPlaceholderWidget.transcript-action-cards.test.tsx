@@ -361,6 +361,8 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       "Visible final response preview selected by button.",
     );
     expect(provider).not.toHaveBeenCalled();
+    await setTextareaValue(textareaValue());
+    expect(buttonWithText("Send")?.disabled).toBe(false);
 
     await clickButton("Send");
 

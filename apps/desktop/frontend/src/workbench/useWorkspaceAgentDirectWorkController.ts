@@ -102,6 +102,9 @@ export function useWorkspaceAgentDirectWorkController({
   const [directWorkWarning, setDirectWorkWarning] = useState<string | null>(
     null,
   );
+  const [directWorkStopNotice, setDirectWorkStopNotice] = useState<string | null>(
+    null,
+  );
   const [directWorkFinalResult, setDirectWorkFinalResult] =
     useState<string | null>(null);
   const [directWorkRunMetadata, setDirectWorkRunMetadata] =
@@ -233,6 +236,7 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkRunId(null);
     setDirectWorkError(null);
     setDirectWorkWarning(null);
+    setDirectWorkStopNotice(null);
     setDirectWorkFinalResult(null);
     setDirectWorkRunMetadata(null);
     updateDirectWorkActivitySummary(
@@ -329,6 +333,7 @@ export function useWorkspaceAgentDirectWorkController({
     }
 
     setIsDirectWorkStopPending(true);
+    setDirectWorkStopNotice("Stop requested.");
     appendDirectWorkLog("Stop requested.", "local");
 
     try {
@@ -341,10 +346,12 @@ export function useWorkspaceAgentDirectWorkController({
         throw new Error("Stop command returned no response.");
       }
 
+      setDirectWorkStopNotice(response.message);
       appendDirectWorkLog(response.message, "local");
     } catch (error) {
       const message = errorToMessage(error, "Unable to stop Direct Work.");
       setDirectWorkError(message);
+      setDirectWorkStopNotice(null);
       appendDirectWorkLog(message, "local");
     } finally {
       setIsDirectWorkStopPending(false);
@@ -357,6 +364,7 @@ export function useWorkspaceAgentDirectWorkController({
     setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
     setDirectWorkError(null);
     setDirectWorkWarning(null);
+    setDirectWorkStopNotice(null);
     setDirectWorkFinalResult(null);
     setDirectWorkRunMetadata(null);
     onRemoveVisibleAttachedContext();
@@ -394,6 +402,7 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkRunId(null);
     setDirectWorkError(null);
     setDirectWorkWarning(null);
+    setDirectWorkStopNotice(null);
     setDirectWorkFinalResult(null);
     setDirectWorkRunMetadata(null);
     setCurrentCodexThread(null);
@@ -422,6 +431,7 @@ export function useWorkspaceAgentDirectWorkController({
       setDirectWorkRunId(null);
       setDirectWorkError(productActionLoopResult.message);
       setDirectWorkWarning(null);
+      setDirectWorkStopNotice(null);
       setDirectWorkFinalResult(null);
       setDirectWorkRunMetadata(null);
       updateDirectWorkActivitySummary(
@@ -528,6 +538,7 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkFinalResult(finalResult);
     setDirectWorkError(failureReason);
     setDirectWorkWarning(failureWarning);
+    setDirectWorkStopNotice(null);
     const finalActivitySummary = workspaceAgentActivitySummaryFromEvent(
       directWorkActivitySummaryRef.current,
       event,
@@ -595,6 +606,7 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkRunId(null);
     setDirectWorkError(reason);
     setDirectWorkWarning(null);
+    setDirectWorkStopNotice(null);
     setDirectWorkFinalResult(null);
     setDirectWorkRunMetadata(null);
     setDirectWorkActivitySummary((currentSummary) => {
@@ -637,6 +649,7 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkRunMetadata,
     directWorkSandbox,
     directWorkStatus,
+    directWorkStopNotice,
     directWorkWarning,
     handleNewThread,
     handleRunWithCodex,

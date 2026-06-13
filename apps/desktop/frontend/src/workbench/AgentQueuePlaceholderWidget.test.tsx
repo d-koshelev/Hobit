@@ -138,7 +138,9 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     expect(cardByTaskId("draft-task")?.textContent).toContain("Edit draft");
     expect(cardByTaskId("ready-task")?.textContent).toContain("Ready task");
     expect(cardByTaskId("ready-task")?.textContent).toContain("Resolve blocker");
-    expect(cardByTaskId("ready-task")?.textContent).toContain("Queue is disabled");
+    expect(cardByTaskId("ready-task")?.textContent).toContain(
+      "Missing execution workspace",
+    );
     expect(cardByTaskId("ready-task")?.textContent).toContain(
       "3 Knowledge / attachments",
     );

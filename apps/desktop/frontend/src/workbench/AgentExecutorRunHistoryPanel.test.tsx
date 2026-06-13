@@ -335,9 +335,7 @@ describe("AgentExecutorRunHistoryPanel open-run detail handoff", () => {
     expect(attachedPreview.length).toBeLessThanOrEqual(
       AGENT_EXECUTOR_SELECTED_EXCERPT_LIMIT,
     );
-    expect(attachedPreview).toContain(
-      "[Excerpt truncated to 4000 characters.]",
-    );
+    expect(attachedPreview).toContain("[Preview capped:");
     expect(attachedPreview).not.toContain(hiddenTail);
   });
 
