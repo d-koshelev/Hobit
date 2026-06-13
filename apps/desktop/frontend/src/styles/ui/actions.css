@@ -2,3 +2,17 @@
  * Shared UI category: actions.
  * Add shared action primitive styles here (menus, action groups, action variants).
  */
+
+.ui-toolbar {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--control-group-gap-min);
+  flex-wrap: wrap;
+}
+
+.ui-toolbar,
+.ui-toolbar-group {
+  margin: 0;
+}

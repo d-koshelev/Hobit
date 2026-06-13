@@ -2,3 +2,72 @@
  * Shared UI category: forms.
  * Add shared form primitive styles here (inputs, labels, validation helpers).
  */
+
+.ui-field {
+  --ui-field-gap: var(--field-gap);
+  display: grid;
+  min-width: 0;
+  gap: var(--ui-field-gap);
+}
+
+.ui-field-label-row {
+  min-width: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 680;
+  line-height: var(--line-tight);
+}
+
+.ui-field-label {
+  color: var(--color-text-secondary);
+}
+
+.ui-required-indicator {
+  color: var(--color-error);
+}
+
+.ui-field-control {
+  min-width: 0;
+}
+
+.ui-field-control .input,
+.ui-field-control .ui-textarea,
+.ui-field-control .select {
+  width: 100%;
+}
+
+.ui-field-help {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
+.ui-textarea {
+  min-height: 120px;
+  width: 100%;
+  padding-block: var(--space-sm);
+  line-height: var(--line-normal);
+  resize: vertical;
+}
+
+.ui-select-control {
+  width: 100%;
+}
+
+.ui-checkbox-field {
+  gap: var(--ui-field-gap);
+}
+
+.ui-checkbox-field .ui-field-label-row {
+  display: inline-flex;
+  min-width: 0;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+}
+
+.ui-checkbox-input {
+  margin: 0;
+  accent-color: var(--color-primary);
+}

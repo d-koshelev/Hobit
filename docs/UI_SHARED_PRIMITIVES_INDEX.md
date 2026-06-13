@@ -123,10 +123,10 @@ active operations need a deliberate guard or confirmation layer rather than raw
 
 Current primitives:
 
-- No project-wide shared tab component is established.
-- Local tab-like patterns exist in several surfaces, including Knowledge /
-  Skills documents/skills, Direct Work detail sections, Queue detail sections,
-  Git sections, and V2 target contracts.
+- `Tabs` in `apps/desktop/frontend/src/design-system/layout/Tabs.tsx`
+- Local tab-like patterns still exist in several domains (Knowledge / Skills
+  documents/skills, Direct Work detail sections, Queue detail sections, Git
+  sections), but new shared work should start from the shared control first.
 
 Purpose: switch between peer views inside one widget responsibility.
 
@@ -142,15 +142,51 @@ Required behavior conceptually: selected tab state, semantic labels, keyboard
 and focus behavior when implemented as real tabs, no action execution on tab
 change, and distinct empty/error states per tab.
 
-Known limitations and follow-ups: a shared tab primitive should be added before
-new tabbed surfaces are implemented. Until then, new work should avoid adding
-another local tab implementation unless the task explicitly scopes the shared
-primitive.
+Known limitations and follow-ups: domain-specific variations may still be needed
+for deeply customized surfaces, but they should remain local to a product
+surface and still follow `Tabs` accessibility patterns.
+
+### Form Fields
+
+Current primitives:
+
+- `Field` in `apps/desktop/frontend/src/design-system/forms/Field.tsx`
+- `Textarea` in `apps/desktop/frontend/src/design-system/forms/Textarea.tsx`
+- `CheckboxField` in `apps/desktop/frontend/src/design-system/forms/CheckboxField.tsx`
+- `SelectField` in `apps/desktop/frontend/src/design-system/forms/SelectField.tsx`
+
+Purpose: standardize compact field composition with shared labels, helper text,
+validation signaling, and control wiring.
+
+### Layout Containers
+
+Current primitives:
+
+- `Section` in `apps/desktop/frontend/src/design-system/layout/Section.tsx`
+- `SectionHeader` in `apps/desktop/frontend/src/design-system/layout/SectionHeader.tsx`
+- `KeyValueList` in `apps/desktop/frontend/src/design-system/layout/KeyValueList.tsx`
+- `MetaRow` in `apps/desktop/frontend/src/design-system/layout/MetaRow.tsx`
+
+Purpose: keep shared content containers, headers, and key/value metadata rows
+consistent and compact across widgets.
+
+### Feedback
+
+Current primitives:
+
+- `Notice` in `apps/desktop/frontend/src/design-system/feedback/Notice.tsx`
+- `InlineError` in
+  `apps/desktop/frontend/src/design-system/feedback/InlineError.tsx`
+
+Purpose: keep short status/error copy in a shared visual language with compact
+padding and semantic tone.
 
 ### Topbar / Action Group
 
 Current primitives:
 
+- `Toolbar` in `apps/desktop/frontend/src/design-system/actions/Toolbar.tsx`
+- `ToolbarGroup` in `apps/desktop/frontend/src/design-system/actions/ToolbarGroup.tsx`
 - `WidgetV2Toolbar` in `WidgetV2Shell.tsx`
 - `Button`, `Input`, and `Select` in `apps/desktop/frontend/src/design-system/`
 - Local topbars such as `WorkbenchTopBar`, `QueueV2TopBar`,
@@ -172,9 +208,8 @@ has one, quieter secondary actions, disabled reasons where needed, no touching
 controls, no hidden execution on render/selection, and theme-token button/input
 classes.
 
-Known limitations and follow-ups: there is no full shared action-group/menu-bar
-component yet. Future work should extract repeated topbar/action group patterns
-instead of adding more local command bars.
+Known limitations and follow-ups: reuse `Toolbar` + `ToolbarGroup` before
+introducing another local action row primitive.
 
 ### Table / List / Card Components
 
