@@ -50,6 +50,74 @@ export type QueueCoordinatorDecisionKind =
   | "drain_queue"
   | "stop_queue";
 
+export type WorkerStuckReportKind =
+  | "validation_failure"
+  | "exec_failure"
+  | "missing_context"
+  | "dirty_worktree"
+  | "dependency_failed";
+
+export type QueueCoordinatorDecisionAction =
+  | "retry_same"
+  | "retry_with_modified_prompt"
+  | "move_blocked"
+  | "mark_failed"
+  | "request_human_input"
+  | "request_workspace_agent_assistance"
+  | "rollback_proposal";
+
+export type QueueCoordinatorDecisionStatus =
+  | "needs_decision"
+  | "blocked"
+  | "failed"
+  | "assistance_requested";
+
+export type WorkerStuckReportFlags = {
+  canRetrySame?: boolean;
+  hasPromptModificationSuggestion?: boolean;
+  needsWorkspaceAgentAssistance?: boolean;
+  needsHumanInput?: boolean;
+  environmentOrToolIssue?: boolean;
+  retryCountExceeded?: boolean;
+  hasRollbackRecommendation?: boolean;
+};
+
+export type WorkerStuckReport = {
+  reportId: string;
+  workspaceId: string;
+  queueId: string;
+  batchId?: string;
+  taskId: string;
+  workerId?: string;
+  kind: WorkerStuckReportKind;
+  summary: string;
+  retryCount: number;
+  maxRetryCount: number;
+  dependencyTaskIds?: string[];
+  validationSummary?: string;
+  createdAt: string;
+  flags?: WorkerStuckReportFlags;
+};
+
+export type QueueCoordinatorDecision = {
+  decisionId: string;
+  workspaceId: string;
+  queueId: string;
+  batchId?: string;
+  taskId?: string;
+  action: QueueCoordinatorDecisionAction;
+  status: QueueCoordinatorDecisionStatus;
+  reason: string;
+  blockerKind?: SmartQueueBlockerKind;
+  assistanceRequest?: QueueAssistanceRequest;
+  retryCount: number;
+  maxRetryCount: number;
+  createdAt: string;
+  decidedBy: "queue_coordinator" | "human_operator";
+  requiresApproval: boolean;
+  approvedBy?: string;
+};
+
 export type QueueAssistanceResponseKind =
   | "explanation"
   | "options"
