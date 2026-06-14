@@ -14,9 +14,9 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
     name: "QueueV2",
     title: "Agent Queue",
     description:
-      "Board-first Agent Queue implementation for promoted async work organization.",
+      "Compatibility/smoke WidgetV2 shell for the board-first Agent Queue components.",
     productRole:
-      "Organize promoted tasks, assignment, review, dependencies, and visible next actions as the normal Agent Queue visual surface.",
+      "Retain smoke and regression coverage while current product rendering stays on the saved-compatible agent-queue WidgetHost route.",
     capabilities: [
       "render-primary-surface",
       "dispatch-typed-action",
@@ -41,6 +41,7 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
     nonGoals: [
       "No separate Agent Queue widget id.",
       "No standalone Widget Catalog entry outside the saved Agent Queue identity.",
+      "No product route switch from WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board.",
       "No hidden execution.",
       "No automatic Queue item dispatch.",
     ],

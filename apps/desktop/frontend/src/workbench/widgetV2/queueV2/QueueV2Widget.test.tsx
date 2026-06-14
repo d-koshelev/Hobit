@@ -25,8 +25,8 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-describe("QueueV2Widget scaffold", () => {
-  it("renders the current Widget V2 board shell without hidden run actions", async () => {
+describe("QueueV2Widget compatibility smoke scaffold", () => {
+  it("renders the Widget V2 smoke board shell without hidden run actions", async () => {
     await render(<QueueV2Widget />);
 
     expect(headingWithText("Agent Queue")).not.toBeNull();

@@ -22,6 +22,8 @@ import { QueueV2TopBar } from "./QueueV2TopBar";
 
 const queueV2Manifest = getWidgetV2Manifest("queue-v2");
 
+// Compatibility/smoke shell only. The active product Agent Queue route is the
+// saved-compatible agent-queue WidgetHost path that renders AgentQueueV2Board.
 type QueueV2WidgetProps = {
   autorunArmed?: boolean;
   currentWorkspaceRoot?: string | null;

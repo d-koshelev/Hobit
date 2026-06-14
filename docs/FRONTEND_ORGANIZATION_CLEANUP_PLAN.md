@@ -36,10 +36,13 @@ Do not use `--fail-on-warning` unless a later prompt explicitly requests it.
 
 ## Current Findings
 
-- Queue currently has parallel product surfaces. Active rendering appears to
-  route through `WidgetHost` to `AgentQueuePlaceholderWidget` to the root
-  `AgentQueueV2Board`, while a separate
-  `widgetV2/queueV2/QueueV2Widget` also exists and is exported.
+- Queue active surface decision is now documented. Active product rendering
+  routes through `WidgetHost` to `AgentQueuePlaceholderWidget` to the root
+  `AgentQueueV2Board`, preserving the saved-compatible `agent-queue`
+  definition id and `agent-queue-placeholder` component key. The separate
+  `widgetV2/queueV2/QueueV2Widget` is retained only for WidgetV2
+  compatibility, smoke, and regression coverage unless a later explicit
+  replacement block promotes it.
 - Queue CSS ownership is split between `.agent-queue-v2-*` and `.queue-v2-*`
   selector families.
 - The workbench root contains overloaded domain code that should be moved into
@@ -59,7 +62,9 @@ Do not use `--fail-on-warning` unless a later prompt explicitly requests it.
 
 ## Recommended Cleanup Order
 
-1. Queue active surface decision.
+1. Queue active surface decision. Completed: product route is
+   `WidgetHost` -> `AgentQueuePlaceholderWidget` -> root `AgentQueueV2Board`;
+   standalone `QueueV2Widget` is compatibility/smoke/regression only.
 2. Queue CSS ownership cleanup.
 3. Compatibility surface isolation.
 4. Shared confirmation primitive migration for active widgets.
@@ -72,10 +77,18 @@ Do not use `--fail-on-warning` unless a later prompt explicitly requests it.
 
 ### Queue Active Surface Decision
 
-Decide and document which Queue component is the active Agent Queue product
-surface before moving files or deleting exports. The decision must preserve the
-saved-widget-compatible Agent Queue identity and current Queue runtime,
-storage, IPC, and execution semantics.
+Completed for the current product route. The active Agent Queue surface remains
+the saved-widget-compatible `agent-queue` route:
+
+```text
+WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
+```
+
+The standalone `widgetV2/queueV2/QueueV2Widget` shell is quarantined as
+Compatibility / smoke / regression coverage for WidgetV2 composition. Do not
+delete it or promote it into product routing unless a later explicit block
+proves saved-widget compatibility and preserves current Queue runtime, storage,
+IPC, and execution semantics.
 
 ### Queue CSS Ownership Cleanup
 

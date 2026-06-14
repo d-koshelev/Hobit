@@ -34,6 +34,9 @@ import { WorkspaceAgentPromptPackImportCard } from "./WorkspaceAgentPromptPackIm
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
 
+// QueueV2Widget is exercised here as a compatibility/smoke shell. Product
+// Agent Queue rendering uses AgentQueuePlaceholderWidget -> AgentQueueV2Board.
+
 afterEach(() => {
   if (root && container) {
     act(() => {

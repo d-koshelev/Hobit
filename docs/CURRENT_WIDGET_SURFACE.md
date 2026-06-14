@@ -601,18 +601,26 @@ v0.1 product widget.
   launch Agent Executor/Codex, persist live worker state, run a background
   scheduler, or finalize item status.
 - The normal Queue widget surface is QueueV2 through the existing saved
-  Agent Queue widget identity. It shows a board-first lane view, compact task
-  cards, summary counts, explicit selected-task details popup actions, and a
-  collapsed activity/detail drawer. The old Flow Map view, Board v2 / Flow Map
-  toggle, dense task list, and permanent sidebar/right-rail shell are no longer
-  the normal Agent Queue render path. Board cards can be clicked to select or
-  open details, but selection does not start work, claim items, schedule
-  workers, launch Agent Executor, finalize status, persist live worker process
-  state, or change Queue Autorun, Sequential Runner, Codex Direct Work, Agent
-  Executor, or Workspace Agent runtime behavior. Existing edit, dependency,
-  routing, worker assignment, tag pause/resume, priority/order, manual run,
-  Knowledge context, report review, and Autorun controls remain explicit
-  operator actions through the QueueV2/details path where currently wired.
+  Agent Queue widget identity. The active product rendering path is
+  `WidgetHost` -> `AgentQueuePlaceholderWidget` -> root
+  `AgentQueueV2Board`, preserving the `agent-queue` widget definition id and
+  the `agent-queue-placeholder` component key for saved widget compatibility.
+  It shows a board-first lane view, compact task cards, summary counts,
+  explicit selected-task details popup actions, and a collapsed activity/detail
+  drawer. The old Flow Map view, Board v2 / Flow Map toggle, dense task list,
+  and permanent sidebar/right-rail shell are no longer the normal Agent Queue
+  render path. The standalone
+  `workbench/widgetV2/queueV2/QueueV2Widget` shell is retained as
+  Compatibility / smoke / regression coverage for WidgetV2 composition and is
+  not the current product-rendered Agent Queue widget. Board cards can be
+  clicked to select or open details, but selection does not start work, claim
+  items, schedule workers, launch Agent Executor, finalize status, persist live
+  worker process state, or change Queue Autorun, Sequential Runner, Codex
+  Direct Work, Agent Executor, or Workspace Agent runtime behavior. Existing
+  edit, dependency, routing, worker assignment, tag pause/resume,
+  priority/order, manual run, Knowledge context, report review, and Autorun
+  controls remain explicit operator actions through the QueueV2/details path
+  where currently wired.
 - `docs/QUEUE_V2_REPLACE_V1_STATUS.md` records the replacement status:
   QueueV2 is the Agent Queue surface, saved Agent Queue widgets still load,
   the V1 Flow Map toggle is absent from normal UI, and runtime/backend/storage

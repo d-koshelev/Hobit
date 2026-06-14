@@ -237,6 +237,7 @@ export function AgentQueuePlaceholderWidget({
           </div>
         ) : (
           <div className="agent-queue-main-surface">
+            {/* Active product route: WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board. */}
             <AgentQueueV2Board
               autorunArmed={
                 queue.autorun.snapshot?.isActive ??

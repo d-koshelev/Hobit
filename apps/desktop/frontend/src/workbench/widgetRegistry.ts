@@ -7,6 +7,9 @@ import type {
 export const AGENT_ACTIVITY_WIDGET_DEFINITION_ID = "agent-activity";
 export const AGENT_ACTIVITY_COMPONENT_KEY = "agent-activity-widget";
 export const AGENT_QUEUE_WIDGET_DEFINITION_ID = "agent-queue";
+// Saved-widget-compatible active Agent Queue product route. WidgetHost maps
+// this component key to AgentQueuePlaceholderWidget, which renders the root
+// AgentQueueV2Board surface.
 export const AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY =
   "agent-queue-placeholder";
 export const AGENT_RUN_WIDGET_DEFINITION_ID = "agent-run";
