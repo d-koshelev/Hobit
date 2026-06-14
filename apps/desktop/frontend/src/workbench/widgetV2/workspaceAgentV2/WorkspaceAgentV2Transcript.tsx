@@ -46,7 +46,7 @@ export function WorkspaceAgentV2Transcript({
           {emptyState ?? (
             <>
               <h3>Transcript</h3>
-              <p>No visible messages in this scaffold.</p>
+              <p>No visible messages yet.</p>
             </>
           )}
         </div>

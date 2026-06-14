@@ -288,23 +288,15 @@ describe("WorkspaceAgentV2Transcript", () => {
 
 describe("WorkspaceAgentV2Composer", () => {
   it("renders Direct Run and Queue Run as first-class controls", async () => {
-    await render(
-      <WorkspaceAgentV2Composer
-        preflightItems={[
-          { label: "Provider", value: "Codex" },
-          { label: "Mode", value: "Direct Run" },
-        ]}
-      />,
-    );
+    await render(<WorkspaceAgentV2Composer />);
 
     expect(buttonWithText("Direct Run")).not.toBeNull();
     expect(buttonWithText("Queue Run")).not.toBeNull();
     expect(buttonWithText("Queue Run")?.disabled).toBe(true);
     expect(inputByLabel("Workspace Agent v2 prompt")).not.toBeNull();
-    expect(inputByLabel("Workspace Agent v2 provider and mode")).not.toBeNull();
     expect(document.body.textContent).toContain("New thread");
-    expect(document.body.textContent).toContain("Direct Run preflight");
-    expect(document.body.textContent).toContain("Codex");
+    expect(document.body.textContent).not.toContain("Direct Run preflight");
+    expect(document.body.textContent).not.toContain("Provider / mode");
   });
 
   it("calls Direct Run callback and keeps Queue Run inert", async () => {

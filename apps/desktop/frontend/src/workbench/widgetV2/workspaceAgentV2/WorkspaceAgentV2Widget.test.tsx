@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type {
+  AgentRunEvent,
   AgentRunRequest,
   CodexAgentRuntimeAdapter,
   CodexAgentRuntimeLaunchOptions,
@@ -32,8 +33,8 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-describe("WorkspaceAgentV2Widget scaffold", () => {
-  it("renders the Workspace Agent v2 shell with Direct Run preflight", async () => {
+describe("WorkspaceAgentV2Widget", () => {
+  it("renders the clean Workspace Agent v2 product surface without moved diagnostics", async () => {
     await render(
       <WorkspaceAgentV2Widget
         directRunSupported
@@ -43,35 +44,54 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
     );
 
     expect(headingWithText("Workspace Agent v2")).not.toBeNull();
-    expect(document.body.textContent).toContain("Codex");
-    expect(document.body.textContent).toContain("Codex Direct Run only");
     expect(document.body.textContent).toContain("Transcript");
-    expect(document.body.textContent).toContain("Activity");
-    expect(buttonWithText("Hide activity")).not.toBeNull();
+    expect(document.body.textContent).not.toContain("Activity");
+    expect(buttonWithText("Hide activity")).toBeNull();
     expect(document.body.textContent).toContain("Direct Run");
     expect(document.body.textContent).toContain("Queue Run");
-    expect(document.body.textContent).toContain("Direct Run preflight");
-    expect(document.body.textContent).toContain("Queue Run preflight");
-    expect(document.body.textContent).toContain("Queue task will be created, not run");
-    expect(document.body.textContent).toContain("Run later from Queue");
-    expect(document.body.textContent).toContain("Provider");
-    expect(document.body.textContent).toContain("Codex");
-    expect(document.body.textContent).toContain("Working directory");
-    expect(document.body.textContent).toContain("C:/repo");
-    expect(document.body.textContent).toContain("No Hobit tools allowed");
+    expect(document.body.textContent).not.toContain("Direct Run preflight");
+    expect(document.body.textContent).not.toContain("Queue Run preflight");
+    expect(document.body.textContent).not.toContain("Queue task will be created, not run");
+    expect(document.body.textContent).not.toContain("Provider");
+    expect(document.body.textContent).not.toContain("Working directory");
+    expect(document.body.textContent).not.toContain("No Hobit tools allowed");
+    expect(document.body.textContent).not.toContain("Experimental");
+    expect(document.body.textContent).not.toContain("Tools Disabled");
+    expect(buttonWithText("Debug")).not.toBeNull();
     expect(
-      regionByRoleAndName("toolbar", "Workspace Agent v2 provider and mode row"),
+      regionByRoleAndName("toolbar", "Workspace Agent v2 controls"),
     ).not.toBeNull();
     expect(
       regionByRoleAndName("region", "Workspace Agent v2 transcript")?.textContent,
-    ).toContain("No hidden context is read.");
-    expect(
-      regionByRoleAndName("complementary", "Workspace Agent v2 activity pane")
-        ?.textContent,
-    ).toContain("No run activity");
+    ).toContain("explicitly attached context");
     expect(
       regionByRoleAndName("region", "Workspace Agent v2 composer")?.textContent,
     ).toContain("New thread");
+  });
+
+  it("renders moved diagnostics in the debug popup", async () => {
+    await render(
+      <WorkspaceAgentV2Widget
+        directRunSupported
+        initialPrompt="Review this block."
+        workingDirectory="C:/repo"
+      />,
+    );
+
+    expect(document.body.textContent).not.toContain("Preflight internals");
+
+    await click(buttonWithText("Debug"));
+
+    expect(document.body.textContent).toContain("Workspace Agent V2 diagnostics");
+    expect(document.body.textContent).toContain("Provider and runtime");
+    expect(document.body.textContent).toContain("Preflight internals");
+    expect(document.body.textContent).toContain("Codex executable and config");
+    expect(document.body.textContent).toContain("Queue bridge");
+    expect(document.body.textContent).toContain("Callback availability");
+    expect(document.body.textContent).toContain("Scaffold and runtime limitations");
+    expect(document.body.textContent).toContain("Workspace id");
+    expect(document.body.textContent).toContain("workspace-agent-v2-preview");
+    expect(document.body.textContent).toContain("C:/repo");
   });
 
   it("collapses and restores the Activity inspector from the top row without starting runs", async () => {
@@ -80,7 +100,14 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
 
     await render(
       <WorkspaceAgentV2Widget
+        activityEvents={[
+          runEvent({
+            runId: "run-activity",
+            title: "Provider started",
+          }),
+        ]}
         adapter={adapter}
+        currentRunId="run-activity"
         initialPrompt="Keep this idle."
         onRunRequest={onRunRequest}
         workingDirectory="C:/repo"
@@ -89,7 +116,7 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
 
     const toolbar = regionByRoleAndName(
       "toolbar",
-      "Workspace Agent v2 provider and mode row",
+      "Workspace Agent v2 controls",
     );
     expect(toolbar?.contains(buttonWithText("Hide activity"))).toBe(true);
     expect(
@@ -192,7 +219,7 @@ describe("WorkspaceAgentV2Widget scaffold", () => {
 
     expect(buttonWithText("Queue Run")).not.toBeNull();
     expect(buttonWithText("Queue Run")?.disabled).toBe(true);
-    expect(document.body.textContent).toContain(
+    expect(buttonWithText("Queue Run")?.title).toBe(
       "Queue task creation is unavailable in this Workspace Agent v2 host.",
     );
 
@@ -486,4 +513,17 @@ function stubClipboard(writeText: ReturnType<typeof vi.fn>) {
     configurable: true,
     value: { writeText },
   });
+}
+
+function runEvent(overrides: Partial<AgentRunEvent> = {}): AgentRunEvent {
+  return {
+    id: "event-1",
+    kind: "provider_started",
+    lifecycle: "running",
+    runId: "run-1",
+    sequence: 1,
+    timestampMs: 1_000,
+    title: "Provider started",
+    ...overrides,
+  };
 }

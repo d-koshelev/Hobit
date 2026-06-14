@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 
+import { WidgetDebugPopup } from "../../../design-system";
 import {
   WidgetV2BottomDrawer,
   WidgetV2PanelLayout,
@@ -22,16 +23,15 @@ import type {
   DirectWorkSandbox,
 } from "../../../workspace/types";
 import { WorkspaceAgentV2ActivityPane } from "./WorkspaceAgentV2ActivityPane";
-import {
-  WorkspaceAgentV2Composer,
-  type WorkspaceAgentV2PreflightItem,
-} from "./WorkspaceAgentV2Composer";
+import { WorkspaceAgentV2Composer } from "./WorkspaceAgentV2Composer";
 import {
   WorkspaceAgentV2ContextStrip,
   type WorkspaceAgentV2ContextItem,
 } from "./WorkspaceAgentV2ContextStrip";
 import { WorkspaceAgentV2Transcript } from "./WorkspaceAgentV2Transcript";
 import { WorkspaceAgentV2TopBar } from "./WorkspaceAgentV2TopBar";
+import { WorkspaceAgentV2DebugContent } from "./debug/WorkspaceAgentV2DebugContent";
+import { buildWorkspaceAgentV2DebugModel } from "./debug/workspaceAgentV2DebugModel";
 import { useWorkspaceAgentV2DirectRun } from "./useWorkspaceAgentV2DirectRun";
 import { isWorkspaceAgentV2DirectRunBusy } from "./workspaceAgentV2DirectRunModel";
 import { useWorkspaceAgentV2QueueRun } from "./useWorkspaceAgentV2QueueRun";
@@ -103,6 +103,7 @@ export function WorkspaceAgentV2Widget({
   const [newThread, setNewThread] = useState(false);
   const [prompt, setPrompt] = useState(initialPrompt);
   const [isActivityVisible, setIsActivityVisible] = useState(true);
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
   const [queueActivityEvents, setQueueActivityEvents] = useState<
     readonly AgentRunEvent[]
   >([]);
@@ -181,25 +182,6 @@ export function WorkspaceAgentV2Widget({
       runtimeAdapter,
     ],
   );
-  const preflightItems = directRunPreflightItems({
-    approvalPolicy,
-    contextCount:
-      visibleContextSnapshot?.contextRefs.length ?? contextItems?.length ?? 0,
-    isAdapterSupported,
-    sandbox,
-    toolPolicyLabel:
-      runtimeAdapter.capabilities.toolPolicy.allowedTools.length === 0
-        ? "No Hobit tools allowed"
-        : `${runtimeAdapter.capabilities.toolPolicy.allowedTools.length.toString()} tool(s) requested`,
-    workingDirectory,
-  });
-  const queuePreflightItems = queueRunPreflightItems({
-    contextCount:
-      visibleContextSnapshot?.contextRefs.length ?? contextItems?.length ?? 0,
-    contextWarningCount: contextWarnings(contextItems).length,
-    isQueueCreateSupported: Boolean(queueBridge?.createItem),
-    targetStatus: "draft",
-  });
   const transcriptMessages = useMemo(
     () => [...controller.transcriptMessages, ...queueTranscriptMessages],
     [controller.transcriptMessages, queueTranscriptMessages],
@@ -208,13 +190,93 @@ export function WorkspaceAgentV2Widget({
     () => [...controller.activityEvents, ...queueActivityEvents],
     [controller.activityEvents, queueActivityEvents],
   );
-  const shellStatus: WidgetV2StatusSummary | undefined = isBusy || !isAdapterSupported
+  const hasActivity = activityPaneEvents.length > 0;
+  const currentActivityRunId =
+    controller.currentRunId ?? currentRunId ?? queueRunController.result?.createdTask?.id;
+  const contextWarningCount = contextWarnings(contextItems).length;
+  const contextCount =
+    visibleContextSnapshot?.contextRefs.length ?? contextItems?.length ?? 0;
+  const shouldShowContextStrip =
+    Boolean(onContextAddPlaceholder) || Boolean(contextItems && contextItems.length > 0);
+  const debugModel = useMemo(
+    () =>
+      buildWorkspaceAgentV2DebugModel({
+        activityEventCount: activityPaneEvents.length,
+        approvalPolicy,
+        callbackAvailability: {
+          cancelRun: Boolean(onCancelCodexDirectWorkRun),
+          contextAddPlaceholder: Boolean(onContextAddPlaceholder),
+          contextRemove: Boolean(onContextRemove),
+          openQueue: Boolean(onOpenQueue),
+          openQueueTask: Boolean(onOpenQueueTask),
+          queueTaskCreate: Boolean(onQueueTaskCreate),
+          runRequest: Boolean(onRunRequest),
+          startRunStream: Boolean(onStartCodexDirectWorkStream),
+        },
+        codexExecutable,
+        contextCount,
+        contextWarningCount,
+        currentRunId: currentActivityRunId,
+        directRunDisabledReason,
+        directRunStatus: controller.status,
+        directRunSupported: isAdapterSupported,
+        directRunWarningCount: directRunWarnings.length,
+        queueBridgeState: {
+          attachKnowledgeToQueueTask: Boolean(queueBridge?.attachKnowledgeToQueueTask),
+          attachSkillToQueueTask: Boolean(queueBridge?.attachSkillToQueueTask),
+          createItem: Boolean(queueBridge?.createItem),
+        },
+        queueRunDisabledReason,
+        queueRunStatus: queueRunController.status,
+        sandbox,
+        toolPolicyAllowedCount:
+          runtimeAdapter.capabilities.toolPolicy.allowedTools.length,
+        visibleContextSnapshotId: visibleContextSnapshot?.id,
+        widgetInstanceId,
+        workingDirectory,
+        workspaceId,
+      }),
+    [
+      activityPaneEvents.length,
+      approvalPolicy,
+      codexExecutable,
+      contextCount,
+      contextWarningCount,
+      controller.status,
+      currentActivityRunId,
+      directRunDisabledReason,
+      directRunWarnings.length,
+      isAdapterSupported,
+      onCancelCodexDirectWorkRun,
+      onContextAddPlaceholder,
+      onContextRemove,
+      onOpenQueue,
+      onOpenQueueTask,
+      onQueueTaskCreate,
+      onRunRequest,
+      onStartCodexDirectWorkStream,
+      queueBridge?.attachKnowledgeToQueueTask,
+      queueBridge?.attachSkillToQueueTask,
+      queueBridge?.createItem,
+      queueRunController.status,
+      queueRunDisabledReason,
+      runtimeAdapter.capabilities.toolPolicy.allowedTools.length,
+      sandbox,
+      visibleContextSnapshot?.id,
+      widgetInstanceId,
+      workingDirectory,
+      workspaceId,
+    ],
+  );
+  const shellStatus: WidgetV2StatusSummary | undefined = isBusy || isQueueBusy || !isAdapterSupported
     ? {
         detail: isBusy
           ? "Direct Run is active."
+          : isQueueBusy
+            ? "Queue task creation is in progress."
           : "Codex Direct Run is unsupported by this Workspace Agent v2 adapter.",
-        label: isBusy ? "Running" : "Unsupported",
-        tone: isBusy ? "working" : "error",
+        label: isBusy || isQueueBusy ? "Running" : "Unsupported",
+        tone: isBusy || isQueueBusy ? "working" : "error",
       }
     : undefined;
 
@@ -227,26 +289,40 @@ export function WorkspaceAgentV2Widget({
     void queueRunController.startQueueRun(prompt);
   }
 
+  function copyDebugDiagnostics() {
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      return;
+    }
+
+    void navigator.clipboard.writeText(JSON.stringify(debugModel, null, 2));
+  }
+
   return (
-    <WidgetV2Shell
-      status={shellStatus}
-      subtitle="Workspace Agent v2 conversation shell. Direct Run can start Codex when supported; Queue Run can create a Queue task when the host supplies Queue create support."
-      title={workspaceAgentV2Manifest?.title ?? "Workspace Agent v2"}
-    >
-      <WidgetV2Toolbar label="Workspace Agent v2 provider and mode row">
+    <>
+      <WidgetV2Shell
+        status={shellStatus}
+        subtitle="Plan a visible Workspace Agent step, run it directly when configured, or create a draft Queue task for later."
+        title={workspaceAgentV2Manifest?.title ?? "Workspace Agent v2"}
+      >
+      <WidgetV2Toolbar label="Workspace Agent v2 controls">
         <WorkspaceAgentV2TopBar
           isActivityVisible={isActivityVisible}
-          onActivityToggle={() => setIsActivityVisible((current) => !current)}
+          onActivityToggle={
+            hasActivity ? () => setIsActivityVisible((current) => !current) : undefined
+          }
+          onDebugOpen={() => setIsDebugOpen(true)}
         />
       </WidgetV2Toolbar>
       <WidgetV2PanelLayout
         bottomDrawer={
           <WidgetV2BottomDrawer label="Workspace Agent v2 composer">
-            <WorkspaceAgentV2ContextStrip
-              items={contextItems}
-              onAddPlaceholder={onContextAddPlaceholder}
-              onRemoveItem={onContextRemove}
-            />
+            {shouldShowContextStrip ? (
+              <WorkspaceAgentV2ContextStrip
+                items={contextItems}
+                onAddPlaceholder={onContextAddPlaceholder}
+                onRemoveItem={onContextRemove}
+              />
+            ) : null}
             <WorkspaceAgentV2Composer
               directRunDisabled={Boolean(directRunDisabledReason)}
               directRunDisabledReason={directRunDisabledReason}
@@ -257,13 +333,10 @@ export function WorkspaceAgentV2Widget({
               onNewThreadChange={setNewThread}
               onPromptChange={setPrompt}
               onQueueRun={handleQueueRun}
-              preflightItems={preflightItems}
               prompt={prompt}
-              queuePreflightItems={queuePreflightItems}
               queueRunDisabled={Boolean(queueRunDisabledReason)}
               queueRunDisabledReason={queueRunDisabledReason}
               queueRunLabel={isQueueBusy ? "Queue Run creating" : "Queue Run"}
-              warnings={directRunWarnings}
             />
           </WidgetV2BottomDrawer>
         }
@@ -273,7 +346,8 @@ export function WorkspaceAgentV2Widget({
               <>
                 <h3>Transcript</h3>
                 <p>
-                  Visible conversation scaffold only. No hidden context is read.
+                  Start with a prompt. Only visible prompt text and explicitly
+                  attached context are used.
                 </p>
               </>
             }
@@ -282,14 +356,10 @@ export function WorkspaceAgentV2Widget({
         }
         primaryLabel="Workspace Agent v2 transcript"
         rightInspector={
-          isActivityVisible ? (
+          isActivityVisible && hasActivity ? (
             <WidgetV2RightInspector label="Workspace Agent v2 activity pane">
               <WorkspaceAgentV2ActivityPane
-                currentRunId={
-                  controller.currentRunId ??
-                  currentRunId ??
-                  queueRunController.result?.createdTask?.id
-                }
+                currentRunId={currentActivityRunId ?? undefined}
                 events={activityPaneEvents}
                 onRequestHide={() => setIsActivityVisible(false)}
               />
@@ -297,7 +367,16 @@ export function WorkspaceAgentV2Widget({
           ) : null
         }
       />
-    </WidgetV2Shell>
+      </WidgetV2Shell>
+      <WidgetDebugPopup
+        copyDiagnostics={{ label: "Copy diagnostics", onCopy: copyDebugDiagnostics }}
+        onClose={() => setIsDebugOpen(false)}
+        open={isDebugOpen}
+        title="Workspace Agent V2 diagnostics"
+      >
+        <WorkspaceAgentV2DebugContent model={debugModel} />
+      </WidgetDebugPopup>
+    </>
   );
 }
 
@@ -347,67 +426,6 @@ function directRunDisabledReasonFor({
   }
 
   return undefined;
-}
-
-function directRunPreflightItems({
-  approvalPolicy,
-  contextCount,
-  isAdapterSupported,
-  sandbox,
-  toolPolicyLabel,
-  workingDirectory,
-}: {
-  readonly approvalPolicy: DirectWorkApprovalPolicy;
-  readonly contextCount: number;
-  readonly isAdapterSupported: boolean;
-  readonly sandbox: DirectWorkSandbox;
-  readonly toolPolicyLabel: string;
-  readonly workingDirectory?: string | null;
-}): readonly WorkspaceAgentV2PreflightItem[] {
-  return [
-    { label: "Provider", value: "Codex" },
-    { label: "Mode", value: "Direct Run" },
-    {
-      label: "Working directory",
-      value: workingDirectory?.trim() || "Not configured",
-    },
-    { label: "Sandbox", value: sandbox },
-    { label: "Tool policy", value: toolPolicyLabel },
-    { label: "Approval policy", value: approvalPolicy },
-    { label: "Context", value: `${contextCount.toString()} visible item(s)` },
-    { label: "Adapter", value: isAdapterSupported ? "Supported" : "Unsupported" },
-  ];
-}
-
-function queueRunPreflightItems({
-  contextCount,
-  contextWarningCount,
-  isQueueCreateSupported,
-  targetStatus,
-}: {
-  readonly contextCount: number;
-  readonly contextWarningCount: number;
-  readonly isQueueCreateSupported: boolean;
-  readonly targetStatus: string;
-}): readonly WorkspaceAgentV2PreflightItem[] {
-  return [
-    { label: "Mode", value: "Queue Run" },
-    { label: "Action", value: "Queue task will be created, not run" },
-    { label: "Context", value: `${contextCount.toString()} visible item(s)` },
-    {
-      label: "Context warnings",
-      value:
-        contextWarningCount > 0
-          ? `${contextWarningCount.toString()} warning(s)`
-          : "None",
-    },
-    { label: "Target lane/status", value: targetStatus },
-    {
-      label: "Queue create",
-      value: isQueueCreateSupported ? "Supported" : "Unsupported",
-    },
-    { label: "Next step", value: "Run later from Queue" },
-  ];
 }
 
 function appendQueueRunUiResult(

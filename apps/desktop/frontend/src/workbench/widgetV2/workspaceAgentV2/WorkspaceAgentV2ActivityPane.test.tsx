@@ -148,11 +148,10 @@ describe("WorkspaceAgentV2ActivityPane", () => {
       />,
     );
 
-    expect(document.body.textContent).toContain("Developer Details");
     expect(document.body.textContent).toContain("Response received");
     expect(document.body.textContent).not.toContain("raw provider log");
     expect(document.body.textContent).not.toContain("secret debug payload");
-    expect(buttonWithText("Developer Details")?.disabled).toBe(true);
+    expect(buttonWithText("Developer Details")).toBeNull();
   });
 
   it("shows Queue task creation as created and not as a provider run", async () => {

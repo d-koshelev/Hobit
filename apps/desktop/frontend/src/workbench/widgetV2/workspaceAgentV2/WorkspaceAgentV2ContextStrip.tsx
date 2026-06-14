@@ -74,15 +74,17 @@ export function WorkspaceAgentV2ContextStrip({
       <div className="workspace-agent-v2-context-strip-header">
         <div>
           <h3>Visible context</h3>
-          <p>Review-only scaffold for Direct Run and Queue Run context.</p>
+          <p>Review attached context before running or creating Queue work.</p>
         </div>
-        <button
-          className="button button-ghost workspace-agent-v2-context-add"
-          onClick={onAddPlaceholder}
-          type="button"
-        >
-          Add placeholder
-        </button>
+        {onAddPlaceholder ? (
+          <button
+            className="button button-ghost workspace-agent-v2-context-add"
+            onClick={onAddPlaceholder}
+            type="button"
+          >
+            Add context
+          </button>
+        ) : null}
       </div>
       {items.length > 0 ? (
         <div className="workspace-agent-v2-context-items">
@@ -96,7 +98,7 @@ export function WorkspaceAgentV2ContextStrip({
         </div>
       ) : (
         <p className="workspace-agent-v2-context-empty">
-          No visible context selected. Nothing is attached automatically.
+          No visible context attached.
         </p>
       )}
     </section>

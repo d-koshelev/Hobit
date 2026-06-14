@@ -102,7 +102,7 @@ describe("WorkspaceAgentV2ContextStrip", () => {
     expect(onAddPlaceholder).not.toHaveBeenCalled();
   });
 
-  it("add placeholder callback is explicit and local only", async () => {
+  it("add context callback is explicit and local only", async () => {
     const onRemoveItem = vi.fn();
     const onAddPlaceholder = vi.fn();
 
@@ -114,7 +114,7 @@ describe("WorkspaceAgentV2ContextStrip", () => {
       />,
     );
 
-    await click(buttonWithText("Add placeholder"));
+    await click(buttonWithText("Add context"));
 
     expect(onAddPlaceholder).toHaveBeenCalledTimes(1);
     expect(onRemoveItem).not.toHaveBeenCalled();

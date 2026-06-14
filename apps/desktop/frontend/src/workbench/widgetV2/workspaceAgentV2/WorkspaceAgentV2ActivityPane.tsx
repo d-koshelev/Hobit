@@ -43,10 +43,6 @@ export function WorkspaceAgentV2ActivityPane({
       <div className="workspace-agent-v2-activity-header">
         <div>
           <h3>Activity</h3>
-          <p>
-            Grouped run scaffold only. Events are supplied by the caller and are
-            not persisted.
-          </p>
         </div>
         {onRequestHide ? (
           <button
@@ -86,17 +82,9 @@ export function WorkspaceAgentV2ActivityPane({
       ) : (
         <div className="workspace-agent-v2-activity-empty">
           <h4>No run activity</h4>
-          <p>No provider execution, streaming, Queue dispatch, or backend runtime is wired.</p>
+          <p>Activity appears after a Direct Run or Queue task creation.</p>
         </div>
       )}
-
-      <button
-        className="button button-secondary button-sm workspace-agent-v2-developer-details"
-        disabled
-        type="button"
-      >
-        Developer Details
-      </button>
     </section>
   );
 }
