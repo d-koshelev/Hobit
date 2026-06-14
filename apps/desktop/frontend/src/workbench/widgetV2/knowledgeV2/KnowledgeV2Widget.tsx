@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { Button, WidgetDebugPopup } from "../../../design-system";
 import type { KnowledgeDocument } from "../../../workspace/types/knowledgeDocuments";
 import type { KnowledgeDraftReviewDecision } from "../../../workspace/types/knowledgeDocuments";
 import type { Skill } from "../../../workspace/types/skills";
@@ -11,6 +12,8 @@ import {
   type KnowledgeV2ActionAvailabilityMap,
 } from "./KnowledgeV2Actions";
 import { KnowledgeV2CatalogBrowser } from "./KnowledgeV2CatalogBrowser";
+import { KnowledgeV2DebugContent } from "./debug/KnowledgeV2DebugContent";
+import { buildKnowledgeV2DebugModel } from "./debug/knowledgeV2DebugModel";
 
 const knowledgeV2Manifest = getWidgetV2Manifest("knowledge-v2");
 
@@ -55,6 +58,8 @@ export function KnowledgeV2Widget({
 }: KnowledgeV2WidgetProps = {}) {
   const [viewMode, setViewMode] = useState<"cards" | "list">("list");
   const [reloadKey, setReloadKey] = useState(0);
+  const [isDebugOpen, setIsDebugOpen] = useState(false);
+  const debugButtonRef = useRef<HTMLButtonElement | null>(null);
   const dataBridge = useKnowledgeV2DataBridge({
     draftReviews,
     documents,
@@ -68,68 +73,87 @@ export function KnowledgeV2Widget({
     () => knowledgeV2StatusForBridge(dataBridge),
     [dataBridge],
   );
-  const bridgeDetails = useMemo(
-    () => knowledgeV2BridgeDetails(dataBridge),
-    [dataBridge],
+  const actionAvailability = useMemo(
+    () =>
+      knowledgeV2ActionAvailability({
+        dataBridge,
+        onDraftReview,
+        onImport,
+        onManageSkills,
+        onNew,
+      }),
+    [dataBridge, onDraftReview, onImport, onManageSkills, onNew],
+  );
+  const debugModel = useMemo(
+    () =>
+      buildKnowledgeV2DebugModel({
+        actionAvailability,
+        bridgeState: dataBridge,
+        callbackState: {
+          onDraftReview: Boolean(onDraftReview),
+          onImport: Boolean(onImport),
+          onManageSkills: Boolean(onManageSkills),
+          onNew: Boolean(onNew),
+        },
+        documents: dataBridge.documents,
+        draftReviews: dataBridge.draftReviews,
+        skills: dataBridge.skills,
+      }),
+    [
+      actionAvailability,
+      dataBridge,
+      onDraftReview,
+      onImport,
+      onManageSkills,
+      onNew,
+    ],
   );
 
   return (
     <WidgetV2Shell
       actions={
-        <KnowledgeV2Actions
-          actionAvailability={knowledgeV2ActionAvailability({
-            dataBridge,
-            onDraftReview,
-            onImport,
-            onManageSkills,
-            onNew,
-          })}
-          documents={dataBridge.documents}
-          draftReviews={dataBridge.draftReviews}
-          onDraftReview={onDraftReview}
-          onImport={onImport}
-          onManageSkills={onManageSkills}
-          onNew={onNew}
-          onViewModeChange={setViewMode}
-          skills={dataBridge.skills}
-          viewMode={viewMode}
-        />
+        <>
+          <KnowledgeV2Actions
+            actionAvailability={actionAvailability}
+            documents={dataBridge.documents}
+            draftReviews={dataBridge.draftReviews}
+            onDraftReview={onDraftReview}
+            onImport={onImport}
+            onManageSkills={onManageSkills}
+            onNew={onNew}
+            onViewModeChange={setViewMode}
+            skills={dataBridge.skills}
+            viewMode={viewMode}
+          />
+          <Button
+            aria-label="KnowledgeV2 debug diagnostics"
+            onClick={() => setIsDebugOpen(true)}
+            ref={debugButtonRef}
+            variant="ghost"
+          >
+            Debug
+          </Button>
+          <WidgetDebugPopup
+            onClose={() => setIsDebugOpen(false)}
+            open={isDebugOpen}
+            returnFocusRef={debugButtonRef}
+            title="KnowledgeV2 diagnostics"
+          >
+            <KnowledgeV2DebugContent model={debugModel} />
+          </WidgetDebugPopup>
+        </>
       }
       info={{
         content: (
           <div className="knowledge-v2-help-popover">
             <p>
-              KnowledgeV2 is an experimental list-first catalog over existing
-              Knowledge Documents and Skills data.
+              Browse Knowledge Documents and Skills together. Create, import,
+              review, and context actions stay explicit.
             </p>
-            <dl className="knowledge-v2-bridge-details">
-              <div>
-                <dt>Documents</dt>
-                <dd>{bridgeDetails.documents}</dd>
-              </div>
-              <div>
-                <dt>Skills</dt>
-                <dd>{bridgeDetails.skills}</dd>
-              </div>
-              <div>
-                <dt>Drafts</dt>
-                <dd>{bridgeDetails.drafts}</dd>
-              </div>
-            </dl>
-            {bridgeDetails.dataIssues.length > 0 ? (
-              <section className="knowledge-v2-help-section">
-                <h4>Unavailable data sources</h4>
-                <ul>
-                  {bridgeDetails.dataIssues.map((issue) => (
-                    <li key={issue}>{issue}</li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
             {dataBridge.loadError ? (
               <section className="knowledge-v2-help-section">
-                <h4>Load issue</h4>
-                <p>{dataBridge.loadError}</p>
+                <h4>Data issue</h4>
+                <p>Some catalog data could not be loaded.</p>
                 <button
                   className="knowledge-v2-empty-action"
                   onClick={() => setReloadKey((current) => current + 1)}
@@ -139,24 +163,13 @@ export function KnowledgeV2Widget({
                 </button>
               </section>
             ) : null}
-            <section className="knowledge-v2-help-section">
-              <h4>Follow-up</h4>
-              <p>{bridgeDetails.followUp}</p>
-            </section>
-            <p>
-              Selection only updates the preview. New, import, draft review,
-              Skill management, and context use stay explicit.
-            </p>
           </div>
         ),
         label: "KnowledgeV2 information",
         title: "KnowledgeV2",
       }}
       status={status}
-      subtitle={
-        displaySubtitle ??
-        "Dense catalog review for Knowledge Documents and Skills. Production Knowledge / Skills remains unchanged."
-      }
+      subtitle={displaySubtitle}
       title={displayTitle ?? knowledgeV2Manifest?.title ?? "Knowledge v2"}
     >
       <KnowledgeV2CatalogBrowser
@@ -336,6 +349,10 @@ function useKnowledgeV2DataBridge({
   };
 }
 
+function productUnavailableReason(action: string) {
+  return `${action} is unavailable in this surface.`;
+}
+
 function knowledgeV2ActionAvailability({
   dataBridge,
   onDraftReview,
@@ -352,8 +369,8 @@ function knowledgeV2ActionAvailability({
   return {
     draftReview: !onDraftReview
       ? {
-          reason:
-            "Draft review management is unavailable because KnowledgeV2 did not receive an explicit draft-review callback.",
+          details: ["Missing onDraftReview callback."],
+          reason: productUnavailableReason("Draft Review"),
           state: "unavailable",
         }
       : dataBridge.draftReviewBridgeAvailable
@@ -361,14 +378,14 @@ function knowledgeV2ActionAvailability({
         : {
             details: dataBridge.actionMissingBridges,
             reason: dataBridge.draftReviewListActionAvailable
-              ? "Draft Review is partial because the available list action requires a selected draft pack."
-              : "Draft Review is partial because no draft review item bridge was supplied.",
-            state: "partial",
+              ? "Draft Review opens the existing review flow; item-level review details are limited here."
+              : "Draft Review opens the existing review flow.",
+            state: "available",
           },
     importFile: !onImport
       ? {
-          reason:
-            "Import is unavailable because KnowledgeV2 did not receive an explicit import-flow callback.",
+          details: ["Missing onImport callback."],
+          reason: productUnavailableReason("Import"),
           state: "unavailable",
         }
       : {
@@ -376,29 +393,29 @@ function knowledgeV2ActionAvailability({
             "Direct KnowledgeV2 file picker is not wired.",
             "Raw path import is not exposed in this popup.",
           ],
-          reason:
-            "Import is partial: use the explicit existing import flow for single .txt, .md, or .markdown files.",
-          state: "partial",
+          reason: null,
+          state: "available",
         },
     manageSkills: !onManageSkills
       ? {
-          details: dataBridge.skillBridgeIssue ? [dataBridge.skillBridgeIssue] : [],
-          reason:
-            "Skill management is unavailable because KnowledgeV2 did not receive an explicit Skill-management callback.",
+          details: [
+            "Missing onManageSkills callback.",
+            ...(dataBridge.skillBridgeIssue ? [dataBridge.skillBridgeIssue] : []),
+          ],
+          reason: productUnavailableReason("Manage Skills"),
           state: "unavailable",
         }
       : dataBridge.skillBridgeIssue
         ? {
             details: [dataBridge.skillBridgeIssue],
-            reason:
-              "Manage Skills is partial because the Skill list bridge is not fully available in this KnowledgeV2 host.",
-            state: "partial",
+            reason: "Manage Skills opens the existing Skill flow.",
+            state: "available",
           }
         : { reason: null, state: "available" },
     newKnowledge: !onNew
       ? {
-          reason:
-            "Creation is unavailable because KnowledgeV2 did not receive an explicit create-flow callback.",
+          details: ["Missing onNew callback."],
+          reason: productUnavailableReason("New"),
           state: "unavailable",
         }
       : { reason: null, state: "available" },
@@ -445,34 +462,5 @@ function knowledgeV2StatusForBridge(dataBridge: KnowledgeV2DataBridge) {
 }
 
 function knowledgeV2BridgeCountSummary(dataBridge: KnowledgeV2DataBridge) {
-  const details = knowledgeV2BridgeDetails(dataBridge);
-  return `Documents: ${details.documents}; Skills: ${details.skills}; Drafts: ${details.drafts}.`;
-}
-
-function knowledgeV2BridgeDetails(dataBridge: KnowledgeV2DataBridge) {
-  const dataIssues = [
-    ...dataBridge.missingBridges,
-    ...(dataBridge.loadError ? [`Load failed: ${dataBridge.loadError}`] : []),
-  ];
-  const drafts =
-    dataBridge.draftReviewBridgeAvailable
-      ? `${dataBridge.draftReviews.length.toString()} review decisions`
-      : dataBridge.draftReviewListActionAvailable
-        ? "Partial; open Draft Review for the selected-pack bridge status"
-        : "Unavailable; open Draft Review for the action bridge status";
-
-  return {
-    dataIssues,
-    documents: dataBridge.documentBridgeAvailable
-      ? `${dataBridge.documents.length.toString()} loaded`
-      : "Unavailable",
-    drafts,
-    followUp:
-      dataIssues.length > 0
-        ? "Wire the missing list bridge or retry the failed list action. Draft Review bridge details stay local to the Draft Review popup."
-        : "Open Draft Review for draft bridge status. Keep using explicit popups for create, import, Skill management, and context actions.",
-    skills: dataBridge.skillBridgeAvailable
-      ? `${dataBridge.skills.length.toString()} loaded`
-      : "Unavailable",
-  };
+  return `Documents: ${dataBridge.documents.length.toString()}; Skills: ${dataBridge.skills.length.toString()}; Drafts: ${dataBridge.draftReviews.length.toString()}.`;
 }

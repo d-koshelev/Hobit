@@ -82,7 +82,8 @@ describe("KnowledgeV2Widget topbar", () => {
     ).toContain("Manage Skills");
     expect(
       regionByName("KnowledgeV2 management actions")?.textContent,
-    ).toContain("Help");
+    ).not.toContain("Help");
+    expect(document.body.textContent).toContain("Debug");
     expect(
       regionByName("Knowledge v2 search and filter row")?.textContent,
     ).toContain("Sort");
@@ -125,7 +126,7 @@ describe("KnowledgeV2Widget topbar", () => {
     );
     expect(managementGroup?.textContent).toContain("Draft Review");
     expect(managementGroup?.textContent).toContain("Manage Skills");
-    expect(managementGroup?.textContent).toContain("Help");
+    expect(managementGroup?.textContent).not.toContain("Help");
 
     await clickButtonInRegion(
       "KnowledgeV2 collapsed management actions",
@@ -136,7 +137,7 @@ describe("KnowledgeV2Widget topbar", () => {
     expect(moreMenu?.getAttribute("role")).toBe("menu");
     expect(moreMenu?.textContent).toContain("Draft Review");
     expect(moreMenu?.textContent).toContain("Manage Skills");
-    expect(moreMenu?.textContent).toContain("Help");
+    expect(moreMenu?.textContent).not.toContain("Help");
     expect(onNew).not.toHaveBeenCalled();
     expect(onImport).not.toHaveBeenCalled();
     expect(onDraftReview).not.toHaveBeenCalled();
@@ -144,7 +145,8 @@ describe("KnowledgeV2Widget topbar", () => {
 
     await clickButtonInRegion("KnowledgeV2 More menu", "Manage Skills");
 
-    expect(dialogByName("Manage Skills")?.textContent).toContain("Categories");
+    expect(dialogByName("Manage Skills")?.textContent).toContain("Skill records");
+    expect(dialogByName("Manage Skills")?.textContent).not.toContain("Categories");
     expect(regionByName("KnowledgeV2 More menu")).toBeNull();
     expect(onManageSkills).not.toHaveBeenCalled();
   });

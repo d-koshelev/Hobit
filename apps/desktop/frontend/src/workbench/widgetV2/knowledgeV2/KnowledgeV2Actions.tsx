@@ -13,7 +13,6 @@ import { KnowledgeV2ActionButton } from "./KnowledgeV2ActionButton";
 
 export type KnowledgeV2ActionKind =
   | "draft-review"
-  | "help-legend"
   | "import-file"
   | "manage-skills"
   | "new-knowledge";
@@ -54,7 +53,6 @@ const ACTIONS: readonly ActionConfig[] = [
   { kind: "import-file", label: "Import" },
   { kind: "draft-review", label: "Draft Review" },
   { kind: "manage-skills", label: "Manage Skills" },
-  { kind: "help-legend", label: "Help" },
 ];
 
 export function KnowledgeV2Actions({
@@ -76,7 +74,6 @@ export function KnowledgeV2Actions({
   const importButtonRef = useRef<HTMLButtonElement | null>(null);
   const draftButtonRef = useRef<HTMLButtonElement | null>(null);
   const skillsButtonRef = useRef<HTMLButtonElement | null>(null);
-  const helpButtonRef = useRef<HTMLButtonElement | null>(null);
   const moreButtonRef = useRef<HTMLButtonElement | null>(null);
   const popupTitleId = useId();
   const popupId = useId();
@@ -92,6 +89,10 @@ export function KnowledgeV2Actions({
       onNew,
     });
 
+  const visibleActions = ACTIONS.filter(
+    (action) =>
+      availabilityForAction(action.kind, availability)?.state !== "unavailable",
+  );
   const activeButtonRef = openedFromMore
     ? moreButtonRef
     : openAction === "new-knowledge"
@@ -102,12 +103,10 @@ export function KnowledgeV2Actions({
           ? draftButtonRef
           : openAction === "manage-skills"
             ? skillsButtonRef
-            : openAction === "help-legend"
-              ? helpButtonRef
-              : undefined;
-  const primaryActions = ACTIONS.filter((action) =>
+            : undefined;
+  const primaryActions = visibleActions.filter((action) =>
     ["new-knowledge", "import-file"].includes(action.kind));
-  const managementActions = ACTIONS.filter((action) =>
+  const managementActions = visibleActions.filter((action) =>
     !["new-knowledge", "import-file"].includes(action.kind));
 
   function openTopbarAction(action: KnowledgeV2ActionKind, fromMore = false) {
@@ -153,7 +152,6 @@ export function KnowledgeV2Actions({
               badge={badgeForAction(action.kind, availability)}
               buttonRef={buttonRefForAction(action.kind, {
                 draftButtonRef,
-                helpButtonRef,
                 importButtonRef,
                 newButtonRef,
                 skillsButtonRef,
@@ -165,6 +163,7 @@ export function KnowledgeV2Actions({
             />
           ))}
         </TopbarGroup>
+        {managementActions.length > 0 ? (
         <TopbarGroup
           className="knowledge-v2-action-group knowledge-v2-management-actions knowledge-v2-action-group-spaced"
           data-group="management"
@@ -175,7 +174,6 @@ export function KnowledgeV2Actions({
               badge={badgeForAction(action.kind, availability)}
               buttonRef={buttonRefForAction(action.kind, {
                 draftButtonRef,
-                helpButtonRef,
                 importButtonRef,
                 newButtonRef,
                 skillsButtonRef,
@@ -187,6 +185,8 @@ export function KnowledgeV2Actions({
             />
           ))}
         </TopbarGroup>
+        ) : null}
+        {managementActions.length > 0 ? (
         <TopbarGroup
           className="knowledge-v2-action-group knowledge-v2-more-actions knowledge-v2-action-group-spaced"
           data-group="more"
@@ -222,6 +222,7 @@ export function KnowledgeV2Actions({
             </div>
           ) : null}
         </TopbarGroup>
+        ) : null}
       </div>
       <WidgetPopupShell
         actions={
@@ -275,7 +276,6 @@ export function KnowledgeV2Actions({
               skillsCount={skills.length}
             />
           ) : null}
-          {openAction === "help-legend" ? <HelpLegendPopup /> : null}
         </article>
       </WidgetPopupShell>
     </>
@@ -290,7 +290,7 @@ function NewKnowledgePopup({
   return (
     <section className="knowledge-v2-action-popup-content">
       <ActionAvailabilityPanel availability={availability} label="New" />
-      <p>Create only through an explicit existing flow.</p>
+      <p>Create a Knowledge Document or Skill through the existing create flow.</p>
       <div className="knowledge-v2-action-options">
         <ActionOption
           description="Plain-text or Markdown document."
@@ -301,11 +301,6 @@ function NewKnowledgePopup({
           description="Reusable reviewed instruction."
           status={availabilityStatusText(availability)}
           title="New skill"
-        />
-        <ActionOption
-          description="Not a current KnowledgeV2 path."
-          status="Coming soon"
-          title="New runbook/procedure"
         />
       </div>
     </section>
@@ -320,28 +315,14 @@ function ImportKnowledgePopup({
   return (
     <section className="knowledge-v2-action-popup-content">
       <ActionAvailabilityPanel availability={availability} label="Import" />
-      <p>Explicit single-file import only.</p>
+      <p>Import one plain text or Markdown file through the existing import flow.</p>
       <div className="knowledge-v2-action-options">
-        <ActionOption
-          description="Not wired here."
-          status="Unavailable in KnowledgeV2"
-          title="Choose or drop a text/Markdown file"
-        />
         <ActionOption
           description=".txt, .md, or .markdown."
           status={availabilityStatusText(availability)}
           title="Existing single-file import"
         />
-        <ActionOption
-          description="Use existing flow only."
-          status="Advanced fallback unavailable here"
-          title="Raw path fallback"
-        />
       </div>
-      <details className="knowledge-v2-action-note">
-        <summary>Safety details</summary>
-        <p>This popup never reads a local file by itself.</p>
-      </details>
     </section>
   );
 }
@@ -375,10 +356,6 @@ function DraftReviewPopup({
           <dd>{draftSummary.reviewDecisions.toString()}</dd>
         </div>
       </dl>
-      <details className="knowledge-v2-action-note">
-        <summary>Review details</summary>
-        <p>Raw draft contents stay out of this catalog browser.</p>
-      </details>
     </section>
   );
 }
@@ -402,21 +379,6 @@ function ManageSkillsPopup({
           description="Existing editor."
           status={availabilityStatusText(availability)}
           title="Skill records"
-        />
-        <ActionOption
-          description="Tags and filters only."
-          status="Placeholder"
-          title="Categories"
-        />
-        <ActionOption
-          description="Not implemented."
-          status="Coming soon"
-          title="Templates"
-        />
-        <ActionOption
-          description="Text fields only."
-          status="Read-only summary"
-          title="Validation"
         />
       </div>
     </section>
@@ -443,16 +405,6 @@ function ActionAvailabilityPanel({
         <span title={availability.reason}>
           {shortAvailabilityReason(availability)}
         </span>
-      ) : null}
-      {availability.details && availability.details.length > 0 ? (
-        <details className="knowledge-v2-action-bridge-list">
-          <summary>Bridge details</summary>
-          <ul>
-            {availability.details.map((detail) => (
-              <li key={detail}>{detail}</li>
-            ))}
-          </ul>
-        </details>
       ) : null}
     </section>
   );
@@ -528,8 +480,6 @@ function availabilityForAction(
       return availability.draftReview;
     case "manage-skills":
       return availability.manageSkills;
-    case "help-legend":
-      return null;
   }
 }
 
@@ -549,7 +499,7 @@ function availabilityStatusText(availability: KnowledgeV2ActionAvailability) {
     case "available":
       return "Available through existing flow";
     case "partial":
-      return "Partially available";
+      return "Available with limits";
     case "unavailable":
       return "Unavailable in KnowledgeV2";
   }
@@ -560,9 +510,9 @@ function shortAvailabilityReason(availability: KnowledgeV2ActionAvailability) {
     case "available":
       return "Ready";
     case "partial":
-      return "Some bridge details unavailable.";
+      return availability.reason ?? "Available with limits.";
     case "unavailable":
-      return "Bridge unavailable.";
+      return availability.reason ?? "Unavailable.";
   }
 }
 
@@ -575,45 +525,6 @@ function toneForAvailability(state: KnowledgeV2ActionAvailability["state"]) {
     case "unavailable":
       return "unavailable";
   }
-}
-
-function HelpLegendPopup() {
-  return (
-    <section className="knowledge-v2-action-popup-content">
-      <p>Safety and status legend.</p>
-      <dl className="knowledge-v2-action-facts knowledge-v2-action-facts-wide">
-        <div>
-          <dt>Published</dt>
-          <dd>Ready and usable</dd>
-        </div>
-        <div>
-          <dt>Draft</dt>
-          <dd>In progress / review needed</dd>
-        </div>
-        <div>
-          <dt>Archived</dt>
-          <dd>No longer active</dd>
-        </div>
-        <div>
-          <dt>Rejected</dt>
-          <dd>Not approved / cannot attach</dd>
-        </div>
-        <div>
-          <dt>Stale</dt>
-          <dd>Update recommended</dd>
-        </div>
-        <div>
-          <dt>Large</dt>
-          <dd>Review recommended</dd>
-        </div>
-        <div>
-          <dt>Unavailable</dt>
-          <dd>Cannot be used</dd>
-        </div>
-      </dl>
-      <p className="knowledge-v2-action-note">Explicit attach only.</p>
-    </section>
-  );
 }
 
 function ActionOption({
@@ -658,7 +569,6 @@ function buttonRefForAction(
   kind: KnowledgeV2ActionKind,
   refs: {
     readonly draftButtonRef: RefObject<HTMLButtonElement | null>;
-    readonly helpButtonRef: RefObject<HTMLButtonElement | null>;
     readonly importButtonRef: RefObject<HTMLButtonElement | null>;
     readonly newButtonRef: RefObject<HTMLButtonElement | null>;
     readonly skillsButtonRef: RefObject<HTMLButtonElement | null>;
@@ -673,8 +583,6 @@ function buttonRefForAction(
       return refs.draftButtonRef;
     case "manage-skills":
       return refs.skillsButtonRef;
-    case "help-legend":
-      return refs.helpButtonRef;
   }
 }
 
@@ -688,8 +596,6 @@ function titleForAction(action: KnowledgeV2ActionKind | null) {
       return "Draft Review";
     case "manage-skills":
       return "Manage Skills";
-    case "help-legend":
-      return "Help / Legend";
     default:
       return "KnowledgeV2 action";
   }

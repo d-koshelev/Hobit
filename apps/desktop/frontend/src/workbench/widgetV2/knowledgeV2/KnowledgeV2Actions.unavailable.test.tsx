@@ -21,7 +21,7 @@ afterEach(() => {
 });
 
 describe("KnowledgeV2 unavailable actions", () => {
-  it("shows disabled reasons when explicit action callbacks are absent", async () => {
+  it("hides callback-backed actions when explicit callbacks are absent", async () => {
     await render(
       <KnowledgeV2Widget
         documents={[documentFixture()]}
@@ -29,29 +29,21 @@ describe("KnowledgeV2 unavailable actions", () => {
       />,
     );
 
-    await expectUnavailableAction(
-      "New",
-      "Open existing create flow",
-      "Creation is unavailable because KnowledgeV2 did not receive an explicit create-flow callback.",
-    );
-    await expectUnavailableAction(
-      "Import",
-      "Open existing import flow",
-      "Import is unavailable because KnowledgeV2 did not receive an explicit import-flow callback.",
-    );
-    await expectUnavailableAction(
-      "Draft Review",
-      "Open existing draft review flow",
-      "Draft review management is unavailable because KnowledgeV2 did not receive an explicit draft-review callback.",
-    );
-    await expectUnavailableAction(
-      "Manage Skills",
-      "Open existing skills flow",
-      "Skill management is unavailable because KnowledgeV2 did not receive an explicit Skill-management callback.",
-    );
+    expect(buttonWithText("New")).toBeNull();
+    expect(buttonWithText("Import")).toBeNull();
+    expect(buttonWithText("Draft Review")).toBeNull();
+    expect(buttonWithText("Manage Skills")).toBeNull();
+
+    await clickButton("Debug");
+
+    const dialog = dialogByName("KnowledgeV2 diagnostics");
+    expect(dialog?.textContent).toContain("Callback Availability");
+    expect(dialog?.textContent).toContain("onNew");
+    expect(dialog?.textContent).toContain("callback missing");
+    expect(dialog?.textContent).toContain("Missing onImport callback.");
   });
 
-  it("shows local partial details for Manage Skills when the Skill bridge is unavailable", async () => {
+  it("keeps Manage Skills product-facing and moves bridge detail to debug", async () => {
     const onManageSkills = vi.fn();
 
     await render(
@@ -61,42 +53,27 @@ describe("KnowledgeV2 unavailable actions", () => {
       />,
     );
 
-    expect(buttonWithText("Manage Skills")?.textContent).toContain("Partial");
+    expect(buttonWithText("Manage Skills")?.textContent).not.toContain("Partial");
 
     await clickButton("Manage Skills");
 
     const dialog = dialogByName("Manage Skills");
-    expect(dialog?.textContent).toContain("Partial");
-    expect(dialog?.textContent).toContain(
-      "Some bridge details unavailable.",
-    );
-    expect(dialog?.textContent).not.toContain(
-      "Manage Skills is partial because the Skill list bridge is not fully available in this KnowledgeV2 host.",
-    );
-    expect(dialog?.textContent).toContain("Skills list bridge is unavailable");
+    expect(dialog?.textContent).toContain("Available");
+    expect(dialog?.textContent).not.toContain("Some bridge details unavailable.");
+    expect(dialog?.textContent).not.toContain("Skills list bridge is unavailable");
     expect(onManageSkills).not.toHaveBeenCalled();
 
     await clickButton("Open existing skills flow");
 
     expect(onManageSkills).toHaveBeenCalledTimes(1);
+
+    await keyDown("Escape");
+    await clickButton("Debug");
+    expect(dialogByName("KnowledgeV2 diagnostics")?.textContent).toContain(
+      "Skills list bridge is unavailable",
+    );
   });
 });
-
-async function expectUnavailableAction(
-  actionLabel: string,
-  bridgeLabel: string,
-  reason: string,
-) {
-  await keyDown("Escape");
-  await clickButton(actionLabel);
-  const footerButton = buttonWithText(bridgeLabel);
-  const dialog = dialogByName(actionLabel);
-  expect(footerButton?.disabled).toBe(true);
-  expect(footerButton?.title).toBe(reason);
-  expect(dialog?.textContent).toContain("Bridge unavailable.");
-  expect(dialog?.textContent).not.toContain(reason);
-  expect(dialog?.querySelector(".popup-shell-footer p")).toBeNull();
-}
 
 async function render(element: ReactNode) {
   container = document.createElement("div");

@@ -107,14 +107,16 @@
 }
 
 .knowledge-v2-search-field,
-.knowledge-v2-select-field {
+.knowledge-v2-select-field,
+.knowledge-v2-toolbar .ui-field {
   display: grid;
   min-width: 0;
   gap: var(--scaled-space-2xs);
 }
 
 .knowledge-v2-search-field span,
-.knowledge-v2-select-field span {
+.knowledge-v2-select-field span,
+.knowledge-v2-toolbar .ui-field-label {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   font-weight: 680;
@@ -122,7 +124,9 @@
 }
 
 .knowledge-v2-toolbar input,
+.knowledge-v2-toolbar .input,
 .knowledge-v2-toolbar select,
+.knowledge-v2-toolbar .ui-select-control,
 .knowledge-v2-more-filters {
   min-width: 0;
   border: 1px solid var(--color-border-subtle);
@@ -151,6 +155,18 @@
 }
 
 .knowledge-v2-more-filters[open] .knowledge-v2-select-field {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  width: min(220px, 76vw);
+  margin-top: var(--space-xs);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface-raised);
+  padding: var(--space-xs);
+}
+
+.knowledge-v2-more-filters[open] .ui-field {
   position: absolute;
   z-index: 3;
   right: 0;
@@ -746,6 +762,49 @@
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-normal);
+}
+
+.knowledge-v2-debug-content,
+.knowledge-v2-debug-section,
+.knowledge-v2-debug-section dl {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-sm);
+}
+
+.knowledge-v2-debug-section {
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-nested-surface);
+  padding: var(--space-sm);
+}
+
+.knowledge-v2-debug-section h4,
+.knowledge-v2-debug-section dl,
+.knowledge-v2-debug-section ul {
+  margin: 0;
+}
+
+.knowledge-v2-debug-section div {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.35fr) minmax(0, 1fr);
+  gap: var(--space-xs);
+}
+
+.knowledge-v2-debug-section dt {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 680;
+  line-height: var(--line-tight);
+}
+
+.knowledge-v2-debug-section dd,
+.knowledge-v2-debug-section li {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
 }
 
 .knowledge-v2-empty {

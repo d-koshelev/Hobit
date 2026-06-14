@@ -133,26 +133,29 @@ describe("KnowledgeV2Widget browser", () => {
     );
 
     await clickButtonByLabel("KnowledgeV2 information");
-    const details = dialogByName("KnowledgeV2");
-    expect(details?.textContent).toContain("Documents");
-    expect(details?.textContent).toContain("1 loaded");
-    expect(details?.textContent).toContain("Skills");
-    expect(details?.textContent).toContain("Unavailable");
-    expect(details?.textContent).toContain("Drafts");
-    expect(details?.textContent).toContain("Partial");
-    expect(details?.textContent).toContain("Skills list bridge");
-    expect(details?.textContent).toContain("Draft Review bridge details stay local");
+    const info = dialogByName("KnowledgeV2");
+    expect(info?.textContent).toContain("Browse Knowledge Documents and Skills together.");
+    expect(info?.textContent).not.toContain("Skills list bridge");
+
+    await keyDown("Escape");
+    await clickButton("Debug");
+    const details = dialogByName("KnowledgeV2 diagnostics");
+    expect(details?.textContent).toContain("Documents loaded");
+    expect(details?.textContent).toContain("1");
+    expect(details?.textContent).toContain("Skill list bridge");
+    expect(details?.textContent).toContain("missing");
+    expect(details?.textContent).toContain(
+      "Draft review item bridge is partial: the current list action requires a selected draft pack",
+    );
 
     await keyDown("Escape");
     await clickButton("Draft Review");
     const draftReview = dialogByName("Draft Review");
-    expect(draftReview?.textContent).toContain(
-      "Some bridge details unavailable.",
-    );
+    expect(draftReview?.textContent).toContain("Available");
     expect(draftReview?.textContent).not.toContain(
       "Draft Review is partial because the available list action requires a selected draft pack.",
     );
-    expect(draftReview?.textContent).toContain(
+    expect(draftReview?.textContent).not.toContain(
       "Draft review item bridge is partial: the current list action requires a selected draft pack",
     );
   });
@@ -179,7 +182,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(text()).toContain("React review");
 
     await clickButtonByLabel("KnowledgeV2 information");
-    expect(dialogByName("KnowledgeV2")?.textContent).toContain(
+    expect(dialogByName("KnowledgeV2")?.textContent).not.toContain(
       "documents: documents offline",
     );
     expect(buttonWithText("Retry data bridge")).not.toBeNull();
@@ -187,6 +190,12 @@ describe("KnowledgeV2Widget browser", () => {
     await flush();
     expect(onListKnowledgeDocuments).toHaveBeenCalledTimes(2);
     expect(onImport).not.toHaveBeenCalled();
+
+    await keyDown("Escape");
+    await clickButton("Debug");
+    expect(dialogByName("KnowledgeV2 diagnostics")?.textContent).toContain(
+      "documents: documents offline",
+    );
   });
 
   it("keeps draft items out of the default list until the draft filter is selected", async () => {
@@ -653,7 +662,8 @@ describe("KnowledgeV2Widget browser", () => {
     expect(buttonWithText("Import")).not.toBeNull();
     expect(buttonWithText("Draft Review")).not.toBeNull();
     expect(buttonWithText("Manage Skills")).not.toBeNull();
-    expect(buttonWithText("Help")).not.toBeNull();
+    expect(buttonWithText("Help")).toBeNull();
+    expect(buttonWithText("Debug")).not.toBeNull();
     expect(
       document.querySelector("[aria-label='KnowledgeV2 helper rail']"),
     ).toBeNull();
@@ -706,9 +716,14 @@ describe("KnowledgeV2Widget browser", () => {
   });
 
   it("opens and closes KnowledgeV2 action popups while keeping the catalog stable", async () => {
+    const onImport = vi.fn();
+    const onDraftReview = vi.fn();
+
     await render(
       <KnowledgeV2Widget
         documents={[documentFixture()]}
+        onDraftReview={onDraftReview}
+        onImport={onImport}
         skills={[skillFixture()]}
       />,
     );
@@ -718,16 +733,16 @@ describe("KnowledgeV2Widget browser", () => {
 
     await clickButton("Import");
     expect(dialogByName("Import")?.textContent).toContain(
-      "Choose or drop a text/Markdown file",
+      "Existing single-file import",
     );
-    expect(dialogByName("Import")?.textContent).toContain("Safety details");
+    expect(dialogByName("Import")?.textContent).not.toContain("Safety details");
     expect(dialogByName("Import")?.textContent).not.toContain(
       "KnowledgeV2 has no direct file picker or raw path input in this popup yet.",
     );
     const importPopup = dialogByName("Import");
     expect(importPopup?.classList.contains("popup-shell-with-layout")).toBe(true);
     expect(importPopup?.querySelector("[data-popup-body]")?.textContent).toContain(
-      "Choose or drop a text/Markdown file",
+      "Existing single-file import",
     );
     expect(
       importPopup?.querySelector("[data-popup-body]")?.textContent,
@@ -750,14 +765,6 @@ describe("KnowledgeV2Widget browser", () => {
 
     await keyDown("Escape");
     expect(dialogByName("Draft Review")).toBeNull();
-
-    await clickButton("Help");
-    expect(dialogByName("Help / Legend")?.textContent).toContain(
-      "Ready and usable",
-    );
-
-    await clickButton("Close");
-    expect(dialogByName("Help / Legend")).toBeNull();
   });
 
   it("opens the correct explicit action popup without callbacks on open", async () => {
@@ -780,13 +787,13 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("New");
     expect(dialogByName("New")?.textContent).toContain("New document");
     expect(dialogByName("New")?.textContent).toContain("New skill");
-    expect(dialogByName("New")?.textContent).toContain("New runbook/procedure");
+    expect(dialogByName("New")?.textContent).not.toContain("New runbook/procedure");
     expect(onNew).not.toHaveBeenCalled();
     await keyDown("Escape");
 
     await clickButton("Import");
-    expect(dialogByName("Import")?.textContent).toContain("Raw path fallback");
-    expect(dialogByName("Import")?.textContent).toContain("Partial");
+    expect(dialogByName("Import")?.textContent).not.toContain("Raw path fallback");
+    expect(dialogByName("Import")?.textContent).toContain("Available");
     expect(onImport).not.toHaveBeenCalled();
     await keyDown("Escape");
 
@@ -796,22 +803,21 @@ describe("KnowledgeV2Widget browser", () => {
     await keyDown("Escape");
 
     await clickButton("Manage Skills");
-    expect(dialogByName("Manage Skills")?.textContent).toContain("Categories");
-    expect(dialogByName("Manage Skills")?.textContent).toContain("Templates");
-    expect(dialogByName("Manage Skills")?.textContent).toContain("Validation");
+    expect(dialogByName("Manage Skills")?.textContent).toContain("Skill records");
+    expect(dialogByName("Manage Skills")?.textContent).not.toContain("Categories");
+    expect(dialogByName("Manage Skills")?.textContent).not.toContain("Templates");
     expect(onManageSkills).not.toHaveBeenCalled();
     await keyDown("Escape");
 
-    await clickButton("Help");
-    expect(dialogByName("Help / Legend")?.textContent).toContain(
-      "Explicit attach only.",
-    );
-    expect(dialogByName("Help / Legend")?.textContent).toContain("Archived");
-    expect(dialogByName("Help / Legend")?.textContent).toContain("Large");
-    await keyDown("Escape");
+    expect(buttonWithText("Help")).toBeNull();
+    expect(text()).not.toContain("Coming soon");
+    expect(text()).not.toContain("Placeholder");
+    expect(text()).not.toContain("Not wired here");
   });
 
   it("shows draft summary only inside Draft Review popup", async () => {
+    const onDraftReview = vi.fn();
+
     await render(
       <KnowledgeV2Widget
         draftReviews={[draftReviewFixture()]}
@@ -822,6 +828,7 @@ describe("KnowledgeV2Widget browser", () => {
             title: "Generated architecture draft",
           }),
         ]}
+        onDraftReview={onDraftReview}
         skills={[
           skillFixture({
             reviewStatus: "needs_review",
@@ -844,10 +851,8 @@ describe("KnowledgeV2Widget browser", () => {
     expect(popup?.textContent).toContain("Needs review");
     expect(popup?.textContent).toContain("Review decisions");
     expect(popup?.textContent).toContain("1");
-    expect(popup?.textContent).toContain("Review details");
-    expect(popup?.textContent).toContain(
-      "Raw draft contents stay out of this catalog browser.",
-    );
+    expect(popup?.textContent).not.toContain("Review details");
+    expect(popup?.textContent).not.toContain("Raw draft contents stay out of this catalog browser.");
     expect(popup?.textContent).not.toContain("draft payload");
   });
 

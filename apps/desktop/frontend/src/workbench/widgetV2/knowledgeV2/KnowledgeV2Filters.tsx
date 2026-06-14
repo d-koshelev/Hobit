@@ -1,3 +1,6 @@
+import type { ChangeEvent } from "react";
+
+import { Field, Input, Select } from "../../../design-system";
 import type {
   KnowledgeV2CatalogItemType,
   KnowledgeV2CatalogLifecycleState,
@@ -82,9 +85,8 @@ export function KnowledgeV2Filters({
 }: KnowledgeV2FiltersProps) {
   return (
     <div className="knowledge-v2-toolbar">
-      <label className="knowledge-v2-search-field">
-        <span>Search</span>
-        <input
+      <Field className="knowledge-v2-search-field" label="Search">
+        <Input
           aria-label="Search Knowledge catalog"
           onChange={(event) =>
             onChange({
@@ -96,12 +98,11 @@ export function KnowledgeV2Filters({
           type="search"
           value={value.text}
         />
-      </label>
-      <label className="knowledge-v2-select-field">
-        <span>Type</span>
-        <select
+      </Field>
+      <Field label="Type">
+        <Select
           aria-label="Filter Knowledge catalog by type"
-          onChange={(event) =>
+          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
             onChange({
               ...value,
               type: event.currentTarget.value as KnowledgeV2FilterValues["type"],
@@ -114,13 +115,12 @@ export function KnowledgeV2Filters({
               {option.label}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="knowledge-v2-select-field">
-        <span>Status</span>
-        <select
+        </Select>
+      </Field>
+      <Field label="Status">
+        <Select
           aria-label="Filter Knowledge catalog by status"
-          onChange={(event) =>
+          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
             onChange({
               ...value,
               lifecycle: event.currentTarget
@@ -134,13 +134,12 @@ export function KnowledgeV2Filters({
               {option.label}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="knowledge-v2-select-field">
-        <span>Scope</span>
-        <select
+        </Select>
+      </Field>
+      <Field label="Scope">
+        <Select
           aria-label="Filter Knowledge catalog by scope"
-          onChange={(event) =>
+          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
             onChange({
               ...value,
               scope: event.currentTarget.value as KnowledgeV2FilterValues["scope"],
@@ -153,11 +152,10 @@ export function KnowledgeV2Filters({
               {option.label}
             </option>
           ))}
-        </select>
-      </label>
-      <label className="knowledge-v2-search-field knowledge-v2-tag-field">
-        <span>Tags</span>
-        <input
+        </Select>
+      </Field>
+      <Field className="knowledge-v2-search-field knowledge-v2-tag-field" label="Tags">
+        <Input
           aria-label="Filter Knowledge catalog by tag"
           onChange={(event) =>
             onChange({
@@ -169,14 +167,13 @@ export function KnowledgeV2Filters({
           type="search"
           value={value.tag}
         />
-      </label>
+      </Field>
       <details className="knowledge-v2-more-filters">
         <summary>More filters</summary>
-        <label className="knowledge-v2-select-field">
-          <span>Availability</span>
-          <select
+        <Field label="Availability">
+          <Select
             aria-label="Filter Knowledge catalog by availability"
-            onChange={(event) =>
+            onChange={(event: ChangeEvent<HTMLSelectElement>) =>
               onChange({
                 ...value,
                 availability: event.currentTarget
@@ -190,14 +187,13 @@ export function KnowledgeV2Filters({
                 {option.label}
               </option>
             ))}
-          </select>
-        </label>
+          </Select>
+        </Field>
       </details>
-      <label className="knowledge-v2-select-field">
-        <span>Sort</span>
-        <select
+      <Field label="Sort">
+        <Select
           aria-label="Sort Knowledge catalog"
-          onChange={(event) =>
+          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
             onChange({
               ...value,
               sort: event.currentTarget.value as KnowledgeV2CatalogSort,
@@ -210,8 +206,8 @@ export function KnowledgeV2Filters({
               {option.label}
             </option>
           ))}
-        </select>
-      </label>
+        </Select>
+      </Field>
       <div aria-live="polite" className="knowledge-v2-result-count">
         {resultCount} / {totalCount}
       </div>

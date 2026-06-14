@@ -55,8 +55,6 @@ export function KnowledgeV2ActionFooter({
           onClick={onManageSkills}
         />
       );
-    case "help-legend":
-      return <p className="knowledge-v2-action-footer-note">Help is read-only.</p>;
   }
 }
 
