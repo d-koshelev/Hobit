@@ -76,12 +76,31 @@ other Queue-owned domain data.
 Queue data clearing is a distinct destructive domain action and must not be
 coupled to view removal or hidden in widget layout/presentation flows.
 
+## Current Add-View Behavior
+
+The normal frontend Widget Catalog / Workbench add path must enforce the
+registry singleton metadata before it asks the workspace API to create a widget
+instance. Adding Agent Queue when the Workspace already has the singleton Queue
+view must return the existing view path and must not create another
+`agent-queue` instance.
+
+If the existing singleton Queue view is hidden and the current product path can
+restore widget visibility through the existing layout update API, the add path
+restores that same widget instance. If the existing singleton Queue view is
+already visible, the current frontend treats the add action as successful and
+leaves the existing view in place. The current Workbench does not have a
+separate persisted selected-widget or focus/open API for catalog additions; a
+future focus affordance must reuse the existing singleton widget instance
+rather than creating an independent Queue view.
+
 ## Implementation Boundaries
 
 Allowed in this contract:
 
 - Typed widget registry metadata that marks `agent-queue` as a workspace
   singleton.
+- Frontend add/create/open flow enforcement that reuses or restores the
+  existing singleton Queue widget instead of creating a duplicate.
 - Tests that assert the singleton metadata and prevent compatibility/V2
   registry entries from becoming additional Queue surfaces.
 - Documentation updates that make this contract required reading for Queue and

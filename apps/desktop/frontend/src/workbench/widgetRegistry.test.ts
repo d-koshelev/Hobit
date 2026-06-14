@@ -10,6 +10,7 @@ import {
   NOTES_WIDGET_DEFINITION_ID,
   TERMINAL_WIDGET_DEFINITION_ID,
   compatibilityWidgetDefinitions,
+  findWorkspaceSingletonDefinition,
   getWidgetDefinition,
   getWidgetLayoutDefaults,
   internalCompatibilityWidgetDefinitionIds,
@@ -124,7 +125,22 @@ describe("widgetRegistry Queue singleton metadata", () => {
       expect(definition.singleton).toBeUndefined();
       expect(definition.singletonKey).toBeUndefined();
       expect(definition.singletonScope).toBeUndefined();
+      expect(findWorkspaceSingletonDefinition(definition.id)).toBeUndefined();
     }
+  });
+
+  it("resolves only Agent Queue through workspace singleton metadata", () => {
+    expect(
+      findWorkspaceSingletonDefinition(AGENT_QUEUE_WIDGET_DEFINITION_ID),
+    ).toMatchObject({
+      id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+      singletonKey: "workspace-queue",
+      singletonScope: "workspace",
+    });
+    expect(
+      findWorkspaceSingletonDefinition(INTERACTIVE_AGENT_WIDGET_DEFINITION_ID),
+    ).toBeUndefined();
+    expect(findWorkspaceSingletonDefinition("queue-v2")).toBeUndefined();
   });
 
   it("keeps exactly one workspace singleton definition", () => {

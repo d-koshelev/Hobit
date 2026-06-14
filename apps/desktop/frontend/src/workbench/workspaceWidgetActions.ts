@@ -25,6 +25,10 @@ import {
   type WidgetRemovalOptions,
 } from "./widgetDeletionAction";
 import { widgetLogEntryFromApi } from "./widgetLogEntryMapping";
+import {
+  findWorkspaceSingletonDefinition,
+  getWidgetDefinition,
+} from "./widgetRegistry";
 
 const CATALOG_WIDGET_PLACEMENT_GAP = 24;
 
@@ -69,6 +73,45 @@ export function createWorkspaceWidgetActions({
       return false;
     }
 
+    const definitionId = template.futureWidgetDefinitionId ?? template.id;
+    const existingSingletonWidget =
+      findExistingWorkspaceSingletonWidget(viewState, definitionId);
+
+    if (existingSingletonWidget) {
+      if (existingSingletonWidget.visible) {
+        return true;
+      }
+
+      const restoredWorkbenchState = await updateWidgetInstanceLayout({
+        workspaceId: viewState.workspace.id,
+        workbenchId: viewState.workbench.id,
+        widgetInstanceId: existingSingletonWidget.id,
+        layout: {
+          alwaysOnTop:
+            existingSingletonWidget.layout.mode === "popped-out"
+              ? (existingSingletonWidget.layout.popout?.alwaysOnTop ?? false)
+              : false,
+          dockHeight: existingSingletonWidget.layout.height,
+          dockWidth: existingSingletonWidget.layout.width,
+          dockX: existingSingletonWidget.layout.x,
+          dockY: existingSingletonWidget.layout.y,
+          isVisible: true,
+          layoutMode: persistedLayoutMode(existingSingletonWidget.layout.mode),
+          popoutHeight: existingSingletonWidget.layout.popout?.height ?? null,
+          popoutWidth: existingSingletonWidget.layout.popout?.width ?? null,
+          popoutX: existingSingletonWidget.layout.popout?.x ?? null,
+          popoutY: existingSingletonWidget.layout.popout?.y ?? null,
+        },
+      });
+
+      if (!restoredWorkbenchState) {
+        return false;
+      }
+
+      applyWorkbenchState(restoredWorkbenchState);
+      return true;
+    }
+
     try {
       const layout = catalogWidgetLayout(viewState, template);
       const existingWidgetIds = new Set(
@@ -77,7 +120,7 @@ export function createWorkspaceWidgetActions({
       const workbenchState = await addWidgetInstanceToWorkbench({
         workspaceId: viewState.workspace.id,
         workbenchId: viewState.workbench.id,
-        definitionId: template.futureWidgetDefinitionId ?? template.id,
+        definitionId,
         title: template.title,
         category: template.category,
       });
@@ -89,7 +132,7 @@ export function createWorkspaceWidgetActions({
       const createdWidget = findCreatedWidget(
         workbenchState,
         existingWidgetIds,
-        template.futureWidgetDefinitionId ?? template.id,
+        definitionId,
       );
 
       if (!createdWidget) {
@@ -239,6 +282,27 @@ export function createWorkspaceWidgetActions({
 
 function persistedLayoutMode(mode: WidgetLayout["mode"]) {
   return mode === "popped-out" ? "popped_out" : mode;
+}
+
+function findExistingWorkspaceSingletonWidget(
+  viewState: WorkbenchViewState,
+  definitionId: string,
+) {
+  const singletonDefinition = findWorkspaceSingletonDefinition(definitionId);
+
+  if (!singletonDefinition) {
+    return undefined;
+  }
+
+  return viewState.widgets.find((widget) => {
+    const widgetDefinition = getWidgetDefinition(widget.definitionId);
+
+    return (
+      widgetDefinition?.singleton === true &&
+      widgetDefinition.singletonScope === singletonDefinition.singletonScope &&
+      widgetDefinition.singletonKey === singletonDefinition.singletonKey
+    );
+  });
 }
 
 function catalogWidgetLayout(

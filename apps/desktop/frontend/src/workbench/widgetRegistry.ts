@@ -284,6 +284,20 @@ export function getWidgetDefinition(id: WidgetDefinitionId) {
   return widgetRegistry.find((definition) => definition.id === id);
 }
 
+export function findWorkspaceSingletonDefinition(id: WidgetDefinitionId) {
+  const definition = getWidgetDefinition(id);
+
+  if (
+    definition?.singleton !== true ||
+    definition.singletonScope !== "workspace" ||
+    !definition.singletonKey
+  ) {
+    return undefined;
+  }
+
+  return definition;
+}
+
 export function getWidgetLayoutDefaults(id: WidgetDefinitionId) {
   return widgetLayoutDefaultsByDefinitionId[id] ?? FALLBACK_WIDGET_LAYOUT_DEFAULTS;
 }

@@ -10,6 +10,7 @@ import type {
   AgentQueueTask,
 } from "../workspace/types";
 import {
+  AGENT_QUEUE_WIDGET_DEFINITION_ID,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   NOTES_WIDGET_DEFINITION_ID,
   SKILL_LIBRARY_WIDGET_DEFINITION_ID,
@@ -227,6 +228,11 @@ describe("WorkbenchShell workspace title", () => {
 
 describe("WorkbenchShell widget layout controls", () => {
   it.each([
+    [
+      "Agent Queue",
+      AGENT_QUEUE_WIDGET_DEFINITION_ID,
+      { width: 1160, height: 680 },
+    ],
     [
       "Workspace Agent",
       INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
