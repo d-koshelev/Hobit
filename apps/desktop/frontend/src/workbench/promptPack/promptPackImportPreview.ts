@@ -9,6 +9,7 @@ import type {
   PromptPackModelRoute,
   PromptPackSourceAdapterStatus,
 } from "./promptPackModel";
+import { buildSmartQueueMaterializationFromPromptPackPreview } from "../queue/smartQueuePromptPackPreviewAdapter";
 import { parsePromptPackImportPlan } from "./promptPackParser";
 
 export const PROMPT_PACK_UNAVAILABLE_SOURCE_ADAPTER: PromptPackSourceAdapterStatus = {
@@ -56,7 +57,7 @@ export function buildPromptPackImportPreview(
       diagnostic.code === "unselected_dependency",
   );
 
-  return {
+  const preview = {
     dependencyGraphSummary: buildDependencyGraphSummary(orderedItems, selectedItemIds),
     errors: validation.blockingErrors,
     expectedCommitTitles: uniqueSorted(
@@ -77,6 +78,12 @@ export function buildPromptPackImportPreview(
       selectedItems.flatMap((item) => item.validationCommands),
     ),
     warnings: validation.warnings,
+  } satisfies Omit<PromptPackImportPreviewModel, "smartQueueMaterialization">;
+
+  return {
+    ...preview,
+    smartQueueMaterialization:
+      buildSmartQueueMaterializationFromPromptPackPreview(preview),
   };
 }
 

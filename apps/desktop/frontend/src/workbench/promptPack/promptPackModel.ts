@@ -2,6 +2,7 @@ import type {
   AgentQueueTaskExecutionPolicy,
   AgentQueueTaskItemType,
 } from "../../workspace/types";
+import type { SmartQueueMaterializationPreview } from "../queue/smartQueuePromptPackMaterialization";
 
 export type PromptPackFileSource =
   | "browser-file"
@@ -128,6 +129,7 @@ export type PromptPackImportPreviewModel = {
   pack: PromptPackMetadata;
   selectedItemIds: string[];
   selectedItems: PromptPackImportItem[];
+  smartQueueMaterialization: SmartQueueMaterializationPreview;
   sourceAdapter: PromptPackSourceAdapterStatus;
   unselectedItems: PromptPackImportItem[];
   unresolvedDependencies: PromptPackDiagnostic[];

@@ -62,6 +62,7 @@ export function PromptPackImportPreviewCard({
   }
 
   const graph = preview.dependencyGraphSummary;
+  const smartQueue = preview.smartQueueMaterialization;
   const packDescription =
     preview.pack.description?.trim() ||
     "No pack description supplied by the prompt-pack manifest.";
@@ -96,12 +97,64 @@ export function PromptPackImportPreviewCard({
         <ActionFact label="Selected" value={preview.selectedItemIds.length.toString()} />
         <ActionFact label="Dependencies" value={graph.edgeCount.toString()} />
         <ActionFact
+          label="Queue graph"
+          value={`${smartQueue.summary.taskCount.toString()} tasks / ${smartQueue.summary.dependencyCount.toString()} dependencies`}
+        />
+        <ActionFact
           label="Unresolved deps"
           value={graph.unresolvedDependencyCount.toString()}
         />
         <ActionFact label="Validation commands" value={preview.validationCommands.length.toString()} />
         <ActionFact label="Model routes" value={preview.modelRouting.length.toString()} />
       </dl>
+
+      <PreviewSection label="Smart Queue preview">
+        <dl className="workspace-agent-queue-action-card-facts">
+          <ActionFact label="Queue target" value="Singleton Workspace Queue" />
+          <ActionFact label="Queue view" value="No Queue view created" />
+          <ActionFact label="Would start tasks" value={smartQueue.wouldStartTasks ? "Yes" : "No"} />
+          <ActionFact label="Ready" value={smartQueue.summary.readyTaskCount.toString()} />
+          <ActionFact
+            label="Waiting dependency"
+            value={smartQueue.summary.waitingDependencyCount.toString()}
+          />
+          <ActionFact label="Blocked" value={smartQueue.summary.blockedTaskCount.toString()} />
+        </dl>
+      </PreviewSection>
+
+      <PreviewSection label="Queue graph tasks">
+        {smartQueue.tasks.length ? (
+          <ul className="workspace-agent-queue-action-card-list">
+            {smartQueue.tasks.map((task) => (
+              <li key={task.taskId}>
+                {task.source.promptId}: {task.title} | {task.humanStatus.label} |
+                Dependencies: {smartQueueDependencySummary(task, smartQueue.tasks)} |
+                Settings: {smartQueueSettingsSummary(task.settings)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="coordinator-proposal-note">
+            No Queue tasks would be materialized.
+          </p>
+        )}
+      </PreviewSection>
+
+      <PreviewSection label="Materialization issues">
+        {smartQueue.issues.length ? (
+          <ul className="workspace-agent-queue-action-card-list">
+            {smartQueue.issues.map((issue) => (
+              <li key={`${issue.code}-${issue.sourcePromptId ?? ""}-${issue.message}`}>
+                {issue.reason}: {issue.message}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="coordinator-proposal-note">
+            No materialization issues.
+          </p>
+        )}
+      </PreviewSection>
 
       <PreviewSection label="Selected items">
         <ul className="workspace-agent-queue-action-card-list">
@@ -354,4 +407,49 @@ function dependencySummary(dependencies: readonly string[]) {
 
 function listSummary(values: readonly string[], emptyLabel: string) {
   return values.length ? values.join(", ") : emptyLabel;
+}
+
+function smartQueueDependencySummary(
+  task: PromptPackImportPreviewModel["smartQueueMaterialization"]["tasks"][number],
+  tasks: PromptPackImportPreviewModel["smartQueueMaterialization"]["tasks"],
+) {
+  if (!task.upstreamTaskIds.length) {
+    return "none";
+  }
+
+  return task.upstreamTaskIds
+    .map((taskId) => {
+      const upstream = tasks.find((candidate) => candidate.taskId === taskId);
+      return upstream?.source.promptId ?? taskId;
+    })
+    .join(", ");
+}
+
+function smartQueueSettingsSummary(
+  settings: PromptPackImportPreviewModel["smartQueueMaterialization"]["tasks"][number]["settings"],
+) {
+  const validationPolicy = settings.validationPolicy as
+    | { commands?: readonly string[]; profile?: string | null }
+    | undefined;
+  const commitPolicy = settings.commitPolicy as
+    | { expectedCommitTitle?: string | null; mode?: string | null }
+    | undefined;
+  const values = [
+    settings.model ? `Model ${String(settings.model)}` : null,
+    settings.reasoning ? `Reasoning ${String(settings.reasoning)}` : null,
+    settings.executionWorkspace
+      ? `Workspace ${String(settings.executionWorkspace)}`
+      : null,
+    settings.executionPolicy
+      ? `Run policy ${String(settings.executionPolicy)}`
+      : null,
+    validationPolicy?.profile
+      ? `Validation ${validationPolicy.profile}`
+      : validationPolicy?.commands?.length
+        ? `Validation ${validationPolicy.commands.length.toString()} commands`
+        : null,
+    commitPolicy?.expectedCommitTitle ? "Commit review" : null,
+  ].filter((value): value is string => Boolean(value));
+
+  return values.length ? values.join(", ") : "defaults";
 }

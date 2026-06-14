@@ -18,7 +18,8 @@ execution.
 Smart Queue has an implemented foundation for the singleton Queue surface,
 duplicate Queue view protection/repair, pure dependency and eligibility
 semantics, pure prompt-pack materialization, pure coordinator decision
-selection, and QueueV2 smart status presentation.
+selection, QueueV2 smart status presentation, and frontend prompt-pack import
+preview integration with Smart Queue materialization.
 
 The durable Smart Queue runtime is not implemented yet. Current Smart Queue
 modules are frontend/product-model foundations unless explicitly noted
@@ -96,6 +97,25 @@ Implemented as a pure preview/materialization model.
   workers, call Agent Executor, call Workspace Agent, mutate Git, or launch
   Terminal.
 
+### Prompt-pack import preview integration
+
+Implemented in the active frontend prompt-pack preview/import flow.
+
+- `apps/desktop/frontend/src/workbench/queue/smartQueuePromptPackPreviewAdapter.ts`
+  converts the existing prompt-pack preview shape into
+  `SmartQueuePromptPackInput`.
+- `apps/desktop/frontend/src/workbench/promptPack/promptPackImportPreview.ts`
+  attaches Smart Queue materialization output to the active prompt-pack import
+  preview model.
+- `apps/desktop/frontend/src/workbench/promptPack/promptPackImportPreviewComponent.tsx`
+  renders compact product-facing Smart Queue graph counts, Ready / Waiting
+  dependency / Blocked counts, materialization issues, task settings, the
+  singleton Workspace Queue target, and `wouldStartTasks: false`.
+- Preview integration does not create Queue tasks, create or request a Queue
+  widget/view, arm Queue Autorun, start workers, call Agent Executor, call
+  Workspace Agent, mutate Git, launch Terminal, or change persistence/runtime
+  semantics.
+
 ### Coordinator decision pure model
 
 Implemented as a pure decision/proposal model.
@@ -127,7 +147,6 @@ The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend/storage Smart Queue model
-- actual prompt-pack import wiring into persisted Queue tasks
 - Queue Active/Pause scheduler gate
 - worker stuck report integration
 - retry execution
@@ -135,6 +154,11 @@ as available from the foundation above:
 - Workspace Agent assistance runtime call
 - dependency failure propagation in durable runtime
 - actual auto-start of eligible tasks when Queue is Active
+
+The existing explicit prompt-pack `Create Queue items` action still creates
+current persisted Queue tasks through the pre-existing frontend Queue bridge;
+that import action is not a durable Smart Queue scheduler/runtime and does not
+auto-run tasks.
 
 ## Active Architecture Summary
 

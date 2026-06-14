@@ -57,6 +57,11 @@ describe("PromptPackImportPreview", () => {
     ).not.toBeNull();
     expect(document.body.textContent).toContain("Pack One");
     expect(document.body.textContent).toContain("Selected items");
+    expect(document.body.textContent).toContain("Smart Queue preview");
+    expect(document.body.textContent).toContain("Queue target");
+    expect(document.body.textContent).toContain("Singleton Workspace Queue");
+    expect(document.body.textContent).toContain("Would start tasks");
+    expect(document.body.textContent).toContain("No Queue view created");
     expect(document.body.textContent).toContain("frontend: one");
     expect(document.body.textContent).toContain("strong / medium / standard");
     expect(document.body.textContent).toContain(

@@ -106,6 +106,12 @@ describe("WorkspaceAgentPromptPackImportCard", () => {
     expect(document.body.textContent).toContain("001: One");
     expect(document.body.textContent).toContain("002: Two");
     expect(document.body.textContent).toContain("002: Depends on 001");
+    expect(document.body.textContent).toContain("Smart Queue preview");
+    expect(document.body.textContent).toContain("Queue target");
+    expect(document.body.textContent).toContain("Singleton Workspace Queue");
+    expect(document.body.textContent).toContain("Ready1");
+    expect(document.body.textContent).toContain("Waiting dependency1");
+    expect(document.body.textContent).toContain("Would start tasksNo");
     expect(buttonWithText("Create Queue items")?.hasAttribute("disabled")).toBe(
       false,
     );
