@@ -9,11 +9,9 @@ import type { QueueInspectorSnapshot } from "../../queue/queueV2ViewModel";
 export type QueueV2DetailsTab =
   | "overview"
   | "prompt"
-  | "result"
-  | "agent-log"
-  | "coordinator"
   | "context"
-  | "files-validation";
+  | "result"
+  | "activity";
 
 type QueueV2TaskDetailsActionId =
   | "refresh"
