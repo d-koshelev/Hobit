@@ -217,7 +217,7 @@ describe("QueueV2 blocker visibility", () => {
     expect(card("002")?.getAttribute("data-queue-v2-lane")).toBe(
       "waiting_dependency",
     );
-    expect(card("002")?.textContent).toContain("Waiting for: Task 001");
+    expect(card("002")?.textContent).toContain("Waiting dependency");
     expect(card("002")?.textContent).not.toContain("Blocked");
 
     await openCardDetails("002");

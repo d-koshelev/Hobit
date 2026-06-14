@@ -302,9 +302,7 @@ describe("prompt-pack import result and QueueV2 regression", () => {
     expect(secondCard?.textContent).toContain(
       "002-dependent-follow-up: docs: verify dependent readiness gate",
     );
-    expect(secondCard?.textContent).toContain(
-      "Waiting for: queue-001-safe-docs-noop",
-    );
+    expect(secondCard?.textContent).toContain("Waiting dependency");
     expect(secondCard?.textContent).toContain("Dependency");
     expect(firstCard?.textContent).toContain("Run now");
     expect(document.body.textContent).toContain("No running tasks");

@@ -98,6 +98,8 @@ describe("Queue UI surface ownership", () => {
     expect(QueueV2SmokeCompatWidget).toBe(
       queueV2Barrel.QueueV2SmokeCompatWidget,
     );
+    expect(activeQueueProductSurface.route).not.toContain("QueueV2Widget");
+    expect(activeQueueProductSurface.route).toContain("AgentQueueV2Board");
     expect("QueueV2Widget" in queueV2Barrel).toBe(false);
     expect(getWidgetV2Manifest(queueV2SmokeCompatSurface.widgetV2Kind)).toMatchObject({
       kind: queueV2SmokeCompatSurface.widgetV2Kind,

@@ -46,11 +46,12 @@ export function queueV2CardStatusDetail(item: QueueTaskViewModel) {
     item.humanStatus.status === "waiting_dependency" ||
     item.humanStatus.status === "needs_decision"
   ) {
-    return item.humanStatus.text;
+    return item.humanStatus.detail;
   }
 
-  if (item.humanStatus.text.startsWith("Blocked:")) {
+  if (item.humanStatus.label.startsWith("Blocked:")) {
     return (
+      item.humanStatus.detail ??
       queueV2BlockedByDependencyLabel(item.dependencySummary) ??
       item.blockerSummary.primaryReason ??
       item.blockedReasons[0]?.label ??

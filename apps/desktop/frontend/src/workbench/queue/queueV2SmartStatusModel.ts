@@ -4,6 +4,16 @@ import type {
   SmartQueueTaskHumanStatus,
 } from "../../workspace/types/smartQueue";
 import {
+  computeHumanQueueStatus,
+  type SmartQueueBlocker,
+  type SmartQueueDependencyGate as SmartQueueComputedDependencyGate,
+  type SmartQueueTaskLifecycle,
+} from "./smartQueueEligibility";
+import {
+  presentSmartQueueStatus,
+  type SmartQueueDependencyLabel,
+} from "./smartQueueStatusPresentation";
+import {
   displayTaskTitle,
   normalizeCoordinatorStatus,
   normalizeValidationStatus,
@@ -28,6 +38,8 @@ export type QueueTaskDependencySummary = {
 };
 
 export type QueueTaskHumanStatusView = {
+  detail: string | null;
+  label: string;
   status: SmartQueueTaskHumanStatus;
   text: string;
 };
@@ -47,24 +59,33 @@ export function queueV2HumanStatusForTask({
 }): QueueTaskHumanStatusView {
   const validationStatus = normalizeValidationStatus(task.validationStatus);
   const coordinatorStatus = normalizeCoordinatorStatus(task.coordinatorStatus);
+  const smartGate = smartDependencyGateFromSummary(dependencySummary);
+  const smartBlockers = smartQueueBlockersFromQueueV2Reasons(task, blockedReasons);
+  const smartTask = {
+    blockers: smartBlockers,
+    lifecycle: smartLifecycleForQueueV2(lifecycle),
+    taskId: task.queueItemId,
+    title: displayTaskTitle(task),
+  };
+  const dependencyLabels = dependencySummary.items.map(
+    (item): SmartQueueDependencyLabel => ({
+      label: item.title.trim() || formatQueueTaskId(item.taskId),
+      taskId: item.taskId,
+    }),
+  );
 
-  if (boardLane === "waiting_dependency") {
-    return {
-      status: "waiting_dependency",
-      text: `Waiting for: ${dependencyWaitingLabel(dependencySummary)}`,
-    };
-  }
-
-  if (dependencySummary.gate === "failed") {
-    return { status: "blocked", text: "Blocked: dependency failed" };
-  }
-
-  if (dependencySummary.gate === "blocked") {
-    return { status: "blocked", text: "Blocked: dependency blocked" };
-  }
-
-  if (validationStatus === "failed") {
-    return { status: "needs_decision", text: "Needs decision: validation failed" };
+  if (
+    boardLane === "waiting_dependency" ||
+    dependencySummary.gate === "failed" ||
+    dependencySummary.gate === "blocked" ||
+    validationStatus === "failed" ||
+    smartBlockers.some((blocker) => blocker.kind === "missing_config")
+  ) {
+    return presentSmartQueueStatus({
+      dependencyGate: smartGate,
+      dependencyLabels,
+      humanStatus: computeHumanQueueStatus(smartTask, smartGate),
+    });
   }
 
   if (
@@ -73,32 +94,146 @@ export function queueV2HumanStatusForTask({
     coordinatorStatus === "ready_for_finalization" ||
     coordinatorStatus === "worker_reported"
   ) {
-    return { status: "needs_decision", text: "Needs decision: coordinator review" };
+    return presentSmartQueueStatus({
+      humanStatus: {
+        label: "Needs decision: coordinator review",
+        status: "needs_decision",
+        text: "Needs decision: coordinator review",
+      },
+    });
   }
 
   if (boardLane === "blocked") {
-    return { status: "blocked", text: blockedHumanStatusText(blockedReasons) };
+    return presentation("blocked", blockedHumanStatusText(blockedReasons));
   }
 
   switch (lifecycle) {
     case "draft":
     case "queued":
     case "ready":
-      return { status: "ready", text: "Ready" };
+      return presentation("ready", "Ready");
     case "running":
-      return { status: "running", text: "Running" };
+      return presentation("running", "Running");
     case "report_ready":
     case "review_required":
-      return { status: "review", text: "Review" };
+      return presentation("review", "Review");
     case "finalized":
-      return { status: "closed", text: "Closed" };
+      return presentation("closed", "Closed");
     case "failed":
-      return { status: "failed", text: "Failed" };
+      return presentation("failed", "Failed");
     case "cancelled":
-      return { status: "cancelled", text: "Closed" };
+      return presentation("cancelled", "Closed");
   }
 
-  return { status: "blocked", text: "Blocked" };
+  return presentation("blocked", "Blocked");
+}
+
+function presentation(
+  status: SmartQueueTaskHumanStatus,
+  label: string,
+  detail: string | null = null,
+): QueueTaskHumanStatusView {
+  return {
+    detail,
+    label,
+    status,
+    text: label,
+  };
+}
+
+function smartLifecycleForQueueV2(
+  lifecycle: QueueTaskLifecycle,
+): SmartQueueTaskLifecycle {
+  switch (lifecycle) {
+    case "draft":
+      return "draft";
+    case "queued":
+      return "queued";
+    case "ready":
+      return "ready";
+    case "running":
+      return "running";
+    case "report_ready":
+    case "review_required":
+      return "review";
+    case "finalized":
+      return "closed";
+    case "failed":
+      return "failed";
+    case "cancelled":
+      return "cancelled";
+  }
+
+  return "blocked";
+}
+
+function smartQueueBlockersFromQueueV2Reasons(
+  task: AgentQueueTask,
+  blockedReasons: readonly QueueBlockedReason[],
+): SmartQueueBlocker[] {
+  const blockers: SmartQueueBlocker[] = [];
+  const reasonCodes = new Set(blockedReasons.map((reason) => reason.code));
+
+  if (reasonCodes.has("validation_failed")) {
+    blockers.push({
+      kind: "validation_requires_decision",
+      reason: "validation failed",
+      taskId: task.queueItemId,
+    });
+  }
+
+  if (
+    reasonCodes.has("missing_execution_workspace") ||
+    reasonCodes.has("missing_codex_executable")
+  ) {
+    blockers.push({
+      kind: "missing_config",
+      reason: "missing config",
+      taskId: task.queueItemId,
+    });
+  }
+
+  return blockers;
+}
+
+function smartDependencyGateFromSummary(
+  summary: QueueTaskDependencySummary,
+): SmartQueueComputedDependencyGate {
+  return {
+    blockedTaskIds: summary.items
+      .filter(
+        (item) =>
+          item.status === "blocked" ||
+          item.status === "invalid" ||
+          item.status === "missing",
+      )
+      .map((item) => item.taskId),
+    failedTaskIds: summary.items
+      .filter((item) => item.status === "failed")
+      .map((item) => item.taskId),
+    gate: summary.gate,
+    missingTaskIds: summary.items
+      .filter((item) => item.status === "missing")
+      .map((item) => item.taskId),
+    rootBlockedTaskIds: summary.items
+      .filter(
+        (item) =>
+          item.status === "blocked" ||
+          item.status === "invalid" ||
+          item.status === "missing",
+      )
+      .map((item) => item.taskId),
+    rootFailedTaskIds: summary.items
+      .filter((item) => item.status === "failed")
+      .map((item) => item.taskId),
+    satisfiedTaskIds: summary.items
+      .filter((item) => item.status === "satisfied")
+      .map((item) => item.taskId),
+    upstreamTaskIds: summary.items.map((item) => item.taskId),
+    waitingTaskIds: summary.items
+      .filter((item) => item.status === "waiting" || item.status === "missing")
+      .map((item) => item.taskId),
+  };
 }
 
 function blockedHumanStatusText(blockedReasons: readonly QueueBlockedReason[]) {
@@ -261,7 +396,9 @@ function dependencyWaitingLabel(summary: Pick<QueueTaskDependencySummary, "items
   );
   const sources = waitingItems.length > 0 ? waitingItems : summary.items;
 
-  return sources.map((item) => formatQueueTaskId(item.taskId)).join(", ");
+  return sources
+    .map((item) => item.title.trim() || formatQueueTaskId(item.taskId))
+    .join(", ");
 }
 
 export function queueV2BlockedByDependencyLabel(

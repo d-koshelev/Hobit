@@ -798,7 +798,7 @@ describe("QueueV2Board", () => {
     expect(card("task-002")?.getAttribute("data-queue-v2-lane")).toBe(
       "waiting_dependency",
     );
-    expect(card("task-002")?.textContent).toContain("Waiting for: Task 001");
+    expect(card("task-002")?.textContent).toContain("Waiting dependency");
     expect(card("task-002")?.textContent).not.toContain("Blocked");
     await openCardDetails("task-002");
 
@@ -863,7 +863,7 @@ describe("QueueV2Board", () => {
     expect(card("task-004")?.getAttribute("data-queue-v2-lane")).toBe(
       "waiting_dependency",
     );
-    expect(card("task-004")?.textContent).toContain("Waiting for: Task 003");
+    expect(card("task-004")?.textContent).toContain("Waiting dependency");
     expect(card("task-004")?.textContent).not.toContain("Blocked");
 
     expect(card("task-006")?.getAttribute("data-queue-v2-lane")).toBe("blocked");

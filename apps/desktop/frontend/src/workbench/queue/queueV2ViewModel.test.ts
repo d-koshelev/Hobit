@@ -267,7 +267,7 @@ describe("Queue v2 view model selectors", () => {
     });
     expect(blocked?.dependencySummary).toMatchObject({
       gate: "waiting",
-      message: "Waiting for: Task 001",
+      message: "Waiting for: 001 Setup",
     });
     expect(viewModel.inspector?.blockerSummary.primaryReason).toBe(
       "Missing execution workspace",
@@ -373,8 +373,10 @@ describe("Queue v2 view model selectors", () => {
     expect(blockedDependent).toMatchObject({
       boardLane: "waiting_dependency",
       humanStatus: {
+        detail: "Waiting for: 001 Prerequisite",
+        label: "Waiting dependency",
         status: "waiting_dependency",
-        text: "Waiting for: Task 001",
+        text: "Waiting dependency",
       },
       nextAction: "resolve_dependency",
     });

@@ -8,6 +8,8 @@ import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
 import { workerReport } from "./AgentQueueTaskRunPanel.test-fixtures";
+import { computeTaskEligibility } from "./queue/smartQueueEligibility";
+import { presentSmartQueueStatus } from "./queue/smartQueueStatusPresentation";
 import { useAgentQueueController } from "./queue/useAgentQueueController";
 import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import type { WidgetRenderProps } from "./types";
@@ -204,6 +206,23 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
         validationStatus: "failed",
       }),
       queueTask({
+        codexExecutable: "codex",
+        coordinatorStatus: "blocked",
+        executionWorkspace: "C:/repo",
+        queueItemId: "task-009",
+        status: "ready",
+        title: "Task 009 blocked upstream",
+      }),
+      queueTask({
+        assignedExecutorWidgetId: null,
+        codexExecutable: "codex",
+        dependsOn: ["task-009"],
+        executionWorkspace: "C:/repo",
+        queueItemId: "task-010",
+        status: "ready",
+        title: "Task 010 blocked downstream",
+      }),
+      queueTask({
         closureState: "no_change_accepted",
         codexExecutable: "codex",
         coordinatorStatus: "finalized",
@@ -229,9 +248,32 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
       "waiting_dependency",
     );
     expect(cardByTaskId("task-004")?.textContent).toContain(
-      "Waiting for: Task 003",
+      "Waiting dependency",
+    );
+    expect(cardByTaskId("task-004")?.textContent).toContain(
+      "Waiting for: Task 003 setup",
     );
     expect(cardByTaskId("task-004")?.textContent).not.toContain("Blocked");
+    expect(cardByTaskId("task-004")?.textContent).toContain(
+      presentSmartQueueStatus({
+        dependencyLabels: [{ label: "Task 003 setup", taskId: "task-003" }],
+        eligibility: computeTaskEligibility(
+          { lifecycle: "ready", taskId: "task-004" },
+          [
+            { lifecycle: "running", taskId: "task-003" },
+            { lifecycle: "ready", taskId: "task-004" },
+          ],
+          [
+            {
+              downstreamTaskId: "task-004",
+              kind: "blocks_start",
+              upstreamTaskId: "task-003",
+            },
+          ],
+          { capacityAvailable: true, queueState: "active" },
+        ),
+      }).label,
+    );
     expect(cardByTaskId("task-006")?.getAttribute("data-queue-v2-lane")).toBe(
       "blocked",
     );
@@ -239,7 +281,13 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
       "Blocked: dependency failed",
     );
     expect(cardByTaskId("task-006")?.textContent).toContain(
-      "Blocked by: Task 005",
+      "Blocked by: Task 005 failed",
+    );
+    expect(cardByTaskId("task-010")?.textContent).toContain(
+      "Blocked: dependency blocked",
+    );
+    expect(cardByTaskId("task-010")?.textContent).toContain(
+      "Blocked by: Task 009 blocked upstream",
     );
     expect(cardByTaskId("task-007")?.textContent).toContain(
       "Needs decision: validation failed",
@@ -251,7 +299,7 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
 
     expect(document.body.textContent).toContain("Dependencies summary");
     expect(document.body.textContent).toContain("Blocked: dependency failed");
-    expect(document.body.textContent).toContain("Blocked by: Task 005");
+    expect(document.body.textContent).toContain("Blocked by: Task 005 failed");
     expect(document.body.textContent).toContain("Coordinator decision");
 
     clickButton("Close");

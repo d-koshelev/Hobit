@@ -574,7 +574,7 @@ function QueueV2Card({
       <span className="agent-queue-v2-card-line">
         <span>Status</span>
         <Badge variant={queueV2HumanStatusBadgeVariant(item.humanStatus.status)}>
-          {item.humanStatus.text}
+          {item.humanStatus.label}
         </Badge>
       </span>
       <span className="agent-queue-v2-card-line">

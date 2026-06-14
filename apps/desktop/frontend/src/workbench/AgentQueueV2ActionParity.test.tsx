@@ -543,7 +543,7 @@ describe("Agent QueueV2 action parity", () => {
     expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe(
       "waiting_dependency",
     );
-    expect(card("queue-002")?.textContent).toContain("Waiting for: Task 001");
+    expect(card("queue-002")?.textContent).toContain("Waiting for: 001 Ready task");
   });
 
   it("keeps disabled Enable Queue visible with a short product reason", async () => {
