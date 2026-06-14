@@ -26,10 +26,40 @@ describe("WorkspaceAgentStatusPanel", () => {
     expect(document.body.textContent).toContain("Provider");
     expect(document.body.textContent).not.toContain("Agent");
     expect(document.body.textContent).toContain("Codex");
+    expect(document.body.textContent).toContain("Claude: Not connected");
+    expect(document.body.textContent).toContain("Amp: Not connected");
+    expect(document.body.textContent).toContain("Model");
+    expect(document.body.textContent).toContain("gpt-5.5");
+    expect(document.body.textContent).toContain("Reasoning");
+    expect(document.body.textContent).toContain("medium");
     expect(document.body.textContent).toContain("Ready");
-    expect(workspaceAgentPicker()?.getAttribute("aria-label")).toBe(
-      "Workspace Agent picker",
+    expect(
+      document.querySelector('[aria-label="Workspace Agent run configuration"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('[aria-label="Workspace Agent provider options"]'),
+    ).not.toBeNull();
+  });
+
+  it("keeps unsupported providers visible but not runnable", () => {
+    render(<WorkspaceAgentHeaderStatus status="idle" />);
+
+    expect(providerOption("Codex")?.getAttribute("aria-current")).toBe("true");
+    expect(providerOption("Codex")?.getAttribute("aria-disabled")).toBe(
+      "false",
     );
+    expect(
+      providerOption("Claude: Not connected")?.getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(
+      providerOption("Amp: Not connected")?.getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(providerOption("Claude: Not connected")?.title).toBe(
+      "Claude is unavailable: Not connected.",
+    );
+    expect(
+      document.querySelector("button.workspace-agent-provider-option"),
+    ).toBeNull();
   });
 
   it("renders Running and Failed states", () => {
@@ -200,12 +230,16 @@ function render(node: ReactNode) {
   });
 }
 
-function workspaceAgentPicker() {
-  return document.querySelector('select[aria-label="Workspace Agent picker"]');
-}
-
 function buttonWithText(text: string): HTMLButtonElement | undefined {
   return Array.from(document.querySelectorAll("button")).find(
     (button): button is HTMLButtonElement => button.textContent === text,
   );
+}
+
+function providerOption(text: string): HTMLElement | undefined {
+  return Array.from(
+    document.querySelectorAll<HTMLElement>(
+      ".workspace-agent-provider-option",
+    ),
+  ).find((option) => option.textContent === text);
 }

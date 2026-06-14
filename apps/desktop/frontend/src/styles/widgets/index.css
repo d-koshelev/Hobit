@@ -2,3 +2,4 @@
  * Widget-domain CSS namespace.
  * styles/widgets hosts widget-specific styles that are not shared design-system primitives.
  */
+@import "./workspace-agent.css";

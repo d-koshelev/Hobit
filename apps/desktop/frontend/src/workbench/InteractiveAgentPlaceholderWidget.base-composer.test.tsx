@@ -7,7 +7,6 @@ import {
   clickButtonIn,
   directWorkEvent,
   expectedCoordinatorCodexExecutable,
-  agentPicker,
   InteractiveAgentPlaceholderWidget,
   knowledgeDocumentFixture,
   knowledgeResult,
@@ -46,14 +45,27 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(document.body.textContent).not.toContain("Codex Direct Mode");
     expect(checkboxWithLabel("Direct Mode")).toBeUndefined();
     expect(
-      document.querySelector(".interactive-agent-agent-picker span")
-        ?.textContent,
-    ).toBe("Provider");
+      document.querySelector('[aria-label="Workspace Agent run configuration"]'),
+    ).not.toBeNull();
     expect(document.body.textContent).toContain("Codex");
+    expect(document.body.textContent).toContain("Claude: Not connected");
+    expect(document.body.textContent).toContain("Amp: Not connected");
     expect(document.body.textContent).toContain("Status");
     expect(document.body.textContent).toContain("Ready");
-    expect(agentPicker()?.value).toBe("codex");
-    expect(agentPicker()?.disabled).toBe(true);
+    expect(document.body.textContent).toContain("Model");
+    expect(document.body.textContent).toContain("gpt-5.5");
+    expect(document.body.textContent).toContain("Reasoning");
+    expect(document.body.textContent).toContain("medium");
+    expect(providerOption("Codex")?.getAttribute("aria-current")).toBe("true");
+    expect(providerOption("Codex")?.getAttribute("aria-disabled")).toBe(
+      "false",
+    );
+    expect(
+      providerOption("Claude: Not connected")?.getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(
+      providerOption("Amp: Not connected")?.getAttribute("aria-disabled"),
+    ).toBe("true");
     expect(document.body.textContent).toContain("Make a plan");
     expect(document.body.textContent).toContain("Break into Queue tasks");
     expect(document.body.textContent).not.toContain("Draft tasks for this goal");
@@ -345,3 +357,11 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
   });
 
 });
+
+function providerOption(text: string): HTMLElement | undefined {
+  return Array.from(
+    document.querySelectorAll<HTMLElement>(
+      ".workspace-agent-provider-option",
+    ),
+  ).find((option) => option.textContent === text);
+}

@@ -316,6 +316,7 @@ export function WorkspaceAgentV2Widget({
             hasActivity ? () => setIsActivityVisible((current) => !current) : undefined
           }
           onDebugOpen={() => setIsDebugOpen(true)}
+          status={controller.status}
         />
       </WidgetV2Toolbar>
       <WidgetV2PanelLayout

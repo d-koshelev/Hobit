@@ -23,7 +23,7 @@
   gap: var(--control-group-gap-min);
 }
 
-.workspace-agent-v2-topbar div {
+.workspace-agent-v2-topbar > div {
   display: inline-flex;
   min-width: 0;
   align-items: center;

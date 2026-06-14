@@ -52,7 +52,15 @@ describe("WorkspaceAgentV2Widget", () => {
     expect(document.body.textContent).not.toContain("Direct Run preflight");
     expect(document.body.textContent).not.toContain("Queue Run preflight");
     expect(document.body.textContent).not.toContain("Queue task will be created, not run");
-    expect(document.body.textContent).not.toContain("Provider");
+    expect(document.body.textContent).toContain("Status");
+    expect(document.body.textContent).toContain("Provider");
+    expect(document.body.textContent).toContain("Codex");
+    expect(document.body.textContent).toContain("Claude: Not connected");
+    expect(document.body.textContent).toContain("Amp: Not connected");
+    expect(document.body.textContent).toContain("Model");
+    expect(document.body.textContent).toContain("gpt-5.5");
+    expect(document.body.textContent).toContain("Reasoning");
+    expect(document.body.textContent).toContain("medium");
     expect(document.body.textContent).not.toContain("Working directory");
     expect(document.body.textContent).not.toContain("No Hobit tools allowed");
     expect(document.body.textContent).not.toContain("Experimental");
@@ -67,6 +75,34 @@ describe("WorkspaceAgentV2Widget", () => {
     expect(
       regionByRoleAndName("region", "Workspace Agent v2 composer")?.textContent,
     ).toContain("New thread");
+  });
+
+  it("shows unavailable provider options without enabling unsupported runs", async () => {
+    await render(
+      <WorkspaceAgentV2Widget
+        directRunSupported
+        initialPrompt="Use Codex only."
+        workingDirectory="C:/repo"
+      />,
+    );
+
+    expect(providerOption("Codex")?.getAttribute("aria-current")).toBe("true");
+    expect(providerOption("Codex")?.getAttribute("aria-disabled")).toBe(
+      "false",
+    );
+    expect(
+      providerOption("Claude: Not connected")?.getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(
+      providerOption("Amp: Not connected")?.getAttribute("aria-disabled"),
+    ).toBe("true");
+    expect(providerOption("Amp: Not connected")?.title).toBe(
+      "Amp is unavailable: Not connected.",
+    );
+    expect(
+      document.querySelector("button.workspace-agent-provider-option"),
+    ).toBeNull();
+    expect(buttonWithText("Direct Run")?.disabled).toBe(false);
   });
 
   it("renders moved diagnostics in the debug popup", async () => {
@@ -392,6 +428,16 @@ function buttonWithText(text: string): HTMLButtonElement | null {
     Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
       (button) => button.textContent === text,
     ) ?? null
+  );
+}
+
+function providerOption(text: string): HTMLElement | null {
+  return (
+    Array.from(
+      document.querySelectorAll<HTMLElement>(
+        ".workspace-agent-provider-option",
+      ),
+    ).find((option) => option.textContent === text) ?? null
   );
 }
 

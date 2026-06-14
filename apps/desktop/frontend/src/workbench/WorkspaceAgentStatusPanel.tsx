@@ -1,13 +1,12 @@
 import { useId, useRef, useState } from "react";
-import { Badge } from "../design-system/Badge";
 import { WidgetPopupShell } from "../design-system/WidgetPopupShell";
 import type { WorkspaceAgentSuggestedPrompt } from "./workspaceAgentSuggestedPrompts";
 import type { CoordinatorDirectWorkStatus } from "./workspaceAgentDirectWorkModel";
-
-type BadgeVariant = "neutral" | "info" | "success" | "warning" | "error";
+import { WorkspaceAgentRunConfigStrip } from "./WorkspaceAgentRunConfigStrip";
+import type { WorkspaceAgentRunConfig } from "./workspaceAgentRunConfig";
 
 export function WorkspaceAgentHeaderStatus({
-  agentLabel = "Codex",
+  runConfig,
   isActivityVisible,
   onActivityToggle,
   onPromptPackImportClick,
@@ -15,7 +14,7 @@ export function WorkspaceAgentHeaderStatus({
   promptExamples = [],
   status,
 }: {
-  agentLabel?: string;
+  runConfig?: WorkspaceAgentRunConfig;
   isActivityVisible?: boolean;
   onActivityToggle?: () => void;
   onPromptPackImportClick?: () => void;
@@ -30,21 +29,7 @@ export function WorkspaceAgentHeaderStatus({
 
   return (
     <div className="interactive-agent-frame-status">
-      <label className="interactive-agent-agent-picker">
-        <span>Provider</span>
-        <select
-          aria-label="Workspace Agent picker"
-          className="input interactive-agent-agent-select"
-          defaultValue="codex"
-          disabled
-        >
-          <option value="codex">{agentLabel}</option>
-        </select>
-      </label>
-      <span className="interactive-agent-frame-status-label">Status</span>
-      <Badge variant={workspaceAgentStatusVariant(status)}>
-        {workspaceAgentStatusLabel(status)}
-      </Badge>
+      <WorkspaceAgentRunConfigStrip config={runConfig} status={status} />
       {onPromptPackImportClick ? (
         <button
           aria-label="Start prompt-pack import"
@@ -126,32 +111,4 @@ export function WorkspaceAgentHeaderStatus({
       ) : null}
     </div>
   );
-}
-
-function workspaceAgentStatusLabel(
-  status: CoordinatorDirectWorkStatus,
-): string {
-  if (status === "running") {
-    return "Running";
-  }
-
-  if (status === "failed") {
-    return "Failed";
-  }
-
-  return "Ready";
-}
-
-function workspaceAgentStatusVariant(
-  status: CoordinatorDirectWorkStatus,
-): BadgeVariant {
-  if (status === "running") {
-    return "info";
-  }
-
-  if (status === "failed") {
-    return "error";
-  }
-
-  return "success";
 }
