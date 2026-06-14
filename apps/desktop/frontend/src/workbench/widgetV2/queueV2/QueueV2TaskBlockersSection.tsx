@@ -1,4 +1,5 @@
 import type { QueueInspectorSnapshot } from "../../queue/queueV2ViewModel";
+import { queueV2BlockedByDependencyLabel } from "../../queue/queueV2SmartStatusModel";
 
 export function QueueV2TaskBlockersSection({
   inspector,
@@ -9,6 +10,7 @@ export function QueueV2TaskBlockersSection({
     inspector.blockerSummary.primaryReason,
     ...inspector.blockerSummary.secondaryReasons,
   ].filter((reason): reason is string => Boolean(reason));
+  const blockedBy = queueV2BlockedByDependencyLabel(inspector.dependencySummary);
 
   return (
     <section
@@ -30,6 +32,7 @@ export function QueueV2TaskBlockersSection({
       ) : (
         <p>No current blockers.</p>
       )}
+      <p>Dependencies summary: {inspector.dependencySummary.message}</p>
       <div className="queue-v2-task-blocker-sources">
         <span>Dependencies</span>
         {inspector.dependencySummary.items.length ? (
@@ -45,10 +48,11 @@ export function QueueV2TaskBlockersSection({
         )}
       </div>
       {inspector.dependencySummary.gate === "failed" ? (
-        <p>Blocked by failed dependency.</p>
+        <p>Blocked: dependency failed.</p>
       ) : null}
+      {blockedBy ? <p>{blockedBy}</p> : null}
       {inspector.humanStatus.status === "needs_decision" ? (
-        <p>Coordinator decision required.</p>
+        <p>Coordinator decision: {inspector.humanStatus.text}</p>
       ) : null}
       {inspector.blockerSummary.dependencyBlockerSources.length ? (
         <div className="queue-v2-task-blocker-sources">

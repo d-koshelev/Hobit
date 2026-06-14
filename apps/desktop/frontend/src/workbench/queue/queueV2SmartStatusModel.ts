@@ -9,6 +9,7 @@ import {
   normalizeValidationStatus,
 } from "../agentQueueTaskUiModel";
 import type { QueueBoardLane } from "./queueV2ViewModel";
+import type { QueueBlockedReason } from "./queueV2BlockerSummary";
 import {
   queueV2LifecycleForTask,
   type QueueTaskLifecycle,
@@ -33,11 +34,13 @@ export type QueueTaskHumanStatusView = {
 
 export function queueV2HumanStatusForTask({
   boardLane,
+  blockedReasons = [],
   dependencySummary,
   lifecycle,
   task,
 }: {
   boardLane: QueueBoardLane;
+  blockedReasons?: readonly QueueBlockedReason[];
   dependencySummary: QueueTaskDependencySummary;
   lifecycle: QueueTaskLifecycle;
   task: AgentQueueTask;
@@ -56,6 +59,10 @@ export function queueV2HumanStatusForTask({
     return { status: "blocked", text: "Blocked: dependency failed" };
   }
 
+  if (dependencySummary.gate === "blocked") {
+    return { status: "blocked", text: "Blocked: dependency blocked" };
+  }
+
   if (validationStatus === "failed") {
     return { status: "needs_decision", text: "Needs decision: validation failed" };
   }
@@ -66,7 +73,11 @@ export function queueV2HumanStatusForTask({
     coordinatorStatus === "ready_for_finalization" ||
     coordinatorStatus === "worker_reported"
   ) {
-    return { status: "needs_decision", text: "Needs decision" };
+    return { status: "needs_decision", text: "Needs decision: coordinator review" };
+  }
+
+  if (boardLane === "blocked") {
+    return { status: "blocked", text: blockedHumanStatusText(blockedReasons) };
   }
 
   switch (lifecycle) {
@@ -85,9 +96,47 @@ export function queueV2HumanStatusForTask({
       return { status: "failed", text: "Failed" };
     case "cancelled":
       return { status: "cancelled", text: "Closed" };
-    case "blocked":
-      return { status: "blocked", text: "Blocked" };
   }
+
+  return { status: "blocked", text: "Blocked" };
+}
+
+function blockedHumanStatusText(blockedReasons: readonly QueueBlockedReason[]) {
+  const reasonCodes = new Set(blockedReasons.map((reason) => reason.code));
+
+  if (
+    reasonCodes.has("missing_execution_workspace") ||
+    reasonCodes.has("missing_codex_executable")
+  ) {
+    return "Blocked: missing config";
+  }
+
+  if (reasonCodes.has("run_settings_invalid")) {
+    return "Blocked: missing prompt";
+  }
+
+  if (reasonCodes.has("queue_disabled")) {
+    return "Blocked: Queue disabled";
+  }
+
+  if (
+    reasonCodes.has("runtime_unavailable") ||
+    reasonCodes.has("capacity_unavailable") ||
+    reasonCodes.has("worker_paused") ||
+    reasonCodes.has("tag_paused")
+  ) {
+    return "Blocked: worker unavailable";
+  }
+
+  if (reasonCodes.has("context_missing") || reasonCodes.has("context_invalid")) {
+    return "Blocked: context issue";
+  }
+
+  if (reasonCodes.has("safety_blocker")) {
+    return "Blocked: safety review";
+  }
+
+  return "Blocked";
 }
 
 export function queueV2DependencySummaryForTask(
@@ -213,6 +262,26 @@ function dependencyWaitingLabel(summary: Pick<QueueTaskDependencySummary, "items
   const sources = waitingItems.length > 0 ? waitingItems : summary.items;
 
   return sources.map((item) => formatQueueTaskId(item.taskId)).join(", ");
+}
+
+export function queueV2BlockedByDependencyLabel(
+  summary: QueueTaskDependencySummary,
+) {
+  const blockedItems = summary.items.filter(
+    (item) =>
+      item.status === "failed" ||
+      item.status === "blocked" ||
+      item.status === "missing" ||
+      item.status === "invalid",
+  );
+
+  if (blockedItems.length === 0) {
+    return null;
+  }
+
+  return `Blocked by: ${blockedItems
+    .map((item) => formatQueueTaskId(item.taskId))
+    .join(", ")}`;
 }
 
 function formatQueueTaskId(taskId: string) {

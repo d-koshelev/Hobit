@@ -158,6 +158,112 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     ).not.toContain("Run the selected task from Queue.");
   });
 
+  it("renders Smart Queue human statuses in the active singleton Queue surface", async () => {
+    const tasks = [
+      queueTask({
+        assignedExecutorWidgetId: "executor-1",
+        codexExecutable: "codex",
+        executionWorkspace: "C:/repo",
+        queueItemId: "task-003",
+        status: "running",
+        title: "Task 003 setup",
+      }),
+      queueTask({
+        assignedExecutorWidgetId: null,
+        codexExecutable: "codex",
+        dependsOn: ["task-003"],
+        executionWorkspace: "C:/repo",
+        queueItemId: "task-004",
+        status: "ready",
+        title: "Task 004 waits",
+      }),
+      queueTask({
+        codexExecutable: "codex",
+        coordinatorStatus: "failed",
+        executionWorkspace: "C:/repo",
+        queueItemId: "task-005",
+        status: "failed",
+        title: "Task 005 failed",
+      }),
+      queueTask({
+        assignedExecutorWidgetId: null,
+        codexExecutable: "codex",
+        dependsOn: ["task-005"],
+        executionWorkspace: "C:/repo",
+        queueItemId: "task-006",
+        status: "ready",
+        title: "Task 006 blocked downstream",
+      }),
+      queueTask({
+        assignedExecutorWidgetId: null,
+        codexExecutable: "codex",
+        executionWorkspace: "C:/repo",
+        queueItemId: "task-007",
+        status: "ready",
+        title: "Task 007 validation decision",
+        validationStatus: "failed",
+      }),
+      queueTask({
+        closureState: "no_change_accepted",
+        codexExecutable: "codex",
+        coordinatorStatus: "finalized",
+        executionWorkspace: "C:/repo",
+        queueItemId: "task-008",
+        status: "completed",
+        title: "Task 008 closed",
+      }),
+    ];
+
+    renderQueueWidget({
+      onGetAgentQueueTask: async (queueItemId) =>
+        tasks.find((task) => task.queueItemId === queueItemId) ?? tasks[0],
+      onListAgentQueueTasks: async () => tasks,
+    });
+    await flushRender();
+
+    clickButton("Enable Queue");
+    await flushRender();
+
+    expect(document.querySelectorAll("[aria-label='Queue v2 board']")).toHaveLength(1);
+    expect(cardByTaskId("task-004")?.getAttribute("data-queue-v2-lane")).toBe(
+      "waiting_dependency",
+    );
+    expect(cardByTaskId("task-004")?.textContent).toContain(
+      "Waiting for: Task 003",
+    );
+    expect(cardByTaskId("task-004")?.textContent).not.toContain("Blocked");
+    expect(cardByTaskId("task-006")?.getAttribute("data-queue-v2-lane")).toBe(
+      "blocked",
+    );
+    expect(cardByTaskId("task-006")?.textContent).toContain(
+      "Blocked: dependency failed",
+    );
+    expect(cardByTaskId("task-006")?.textContent).toContain(
+      "Blocked by: Task 005",
+    );
+    expect(cardByTaskId("task-007")?.textContent).toContain(
+      "Needs decision: validation failed",
+    );
+    expect(cardByTaskId("task-007")?.textContent).not.toContain("Blocked");
+
+    await clickCardAsync("task-006");
+    await flushRender();
+
+    expect(document.body.textContent).toContain("Dependencies summary");
+    expect(document.body.textContent).toContain("Blocked: dependency failed");
+    expect(document.body.textContent).toContain("Blocked by: Task 005");
+    expect(document.body.textContent).toContain("Coordinator decision");
+
+    clickButton("Close");
+    await flushRender();
+    await clickCardAsync("task-007");
+    await flushRender();
+
+    expect(document.body.textContent).toContain(
+      "Coordinator decision: Needs decision: validation failed",
+    );
+  });
+
   it("selects a Queue v2 card without reordering cards or starting work", async () => {
     const tasks = [
       queueTask({ queueItemId: "first-task", title: "First task" }),

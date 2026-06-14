@@ -205,6 +205,7 @@ export function selectQueueV2ViewModel({
     });
     const humanStatus = queueV2HumanStatusForTask({
       boardLane,
+      blockedReasons,
       dependencySummary,
       lifecycle,
       task,

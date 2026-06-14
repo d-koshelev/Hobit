@@ -1,6 +1,7 @@
 import type { BadgeVariant } from "../agentQueueFormatting";
 import type { QueueNextAction } from "./queueV2NextActionModel";
 import type { QueueTaskViewModel } from "./queueV2ViewModel";
+import { queueV2BlockedByDependencyLabel } from "./queueV2SmartStatusModel";
 
 type QueueMarkerTone = "success" | "error" | "info" | "warning" | "neutral";
 
@@ -49,7 +50,12 @@ export function queueV2CardStatusDetail(item: QueueTaskViewModel) {
   }
 
   if (item.humanStatus.text.startsWith("Blocked:")) {
-    return item.humanStatus.text;
+    return (
+      queueV2BlockedByDependencyLabel(item.dependencySummary) ??
+      item.blockerSummary.primaryReason ??
+      item.blockedReasons[0]?.label ??
+      null
+    );
   }
 
   return (
