@@ -86,6 +86,7 @@ describe("Smart Queue workflow exported types", () => {
   it("models assistance as request/response requiring coordinator decision", () => {
     const request = {
       allowedResponseKinds: ["options", "decision_recommendation"],
+      availableActions: ["move_blocked", "request_human_input"],
       createdAt: "2026-06-14T00:00:00.000Z",
       question: "Should this task retry or block?",
       queueId: "workspace-queue",

@@ -53,9 +53,12 @@ export type QueueCoordinatorDecisionKind =
 export type WorkerStuckReportKind =
   | "validation_failure"
   | "exec_failure"
+  | "missing_config"
+  | "missing_prompt"
   | "missing_context"
   | "dirty_worktree"
-  | "dependency_failed";
+  | "dependency_failed"
+  | "dependency_blocked";
 
 export type QueueCoordinatorDecisionAction =
   | "retry_same"
@@ -64,7 +67,9 @@ export type QueueCoordinatorDecisionAction =
   | "mark_failed"
   | "request_human_input"
   | "request_workspace_agent_assistance"
-  | "rollback_proposal";
+  | "rollback_attempt"
+  | "split_followup_task"
+  | "accept_dependency_anyway";
 
 export type QueueCoordinatorDecisionStatus =
   | "needs_decision"
@@ -84,6 +89,7 @@ export type WorkerStuckReportFlags = {
 
 export type WorkerStuckReport = {
   reportId: string;
+  attemptId?: string;
   workspaceId: string;
   queueId: string;
   batchId?: string;
@@ -95,6 +101,7 @@ export type WorkerStuckReport = {
   maxRetryCount: number;
   dependencyTaskIds?: string[];
   validationSummary?: string;
+  evidence?: string[];
   createdAt: string;
   flags?: WorkerStuckReportFlags;
 };
@@ -110,6 +117,9 @@ export type QueueCoordinatorDecision = {
   reason: string;
   blockerKind?: SmartQueueBlockerKind;
   assistanceRequest?: QueueAssistanceRequest;
+  sourceReportId?: string;
+  sourceAttemptId?: string;
+  proposedPrompt?: string;
   retryCount: number;
   maxRetryCount: number;
   createdAt: string;
@@ -135,6 +145,7 @@ export type QueueAssistanceVisibleContext = {
   workerReportPreview?: string;
   validationSummary?: string;
   blockerSummary?: string;
+  evidence?: string[];
 };
 
 export type QueueAssistanceRequest = {
@@ -143,12 +154,14 @@ export type QueueAssistanceRequest = {
   queueId: string;
   batchId?: string;
   taskId?: string;
+  attemptId?: string;
   requestedBy: "queue_coordinator" | "human_operator";
   target: QueueAssistanceRequestTarget;
   reason: SmartQueueBlockerKind;
   question: string;
   visibleContext: QueueAssistanceVisibleContext;
   allowedResponseKinds: QueueAssistanceResponseKind[];
+  availableActions: QueueCoordinatorDecisionAction[];
   createdAt: string;
 };
 
