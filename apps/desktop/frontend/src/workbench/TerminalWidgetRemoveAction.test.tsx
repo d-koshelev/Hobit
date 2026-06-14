@@ -93,6 +93,22 @@ describe("Terminal widget removal", () => {
     ).resolves.toEqual({ kind: "terminal-active-sessions" });
   });
 
+  it("does not remove an active Terminal widget without explicit force kill", async () => {
+    workspaceApiMocks.listTerminalPtySessions.mockResolvedValue([
+      terminalSession({ sessionId: "pty_running", status: "running" }),
+    ]);
+
+    await expect(
+      removeWidgetInstanceFromWorkbenchView(
+        workbenchViewState({ widgets: [terminalWidget()] }),
+        "terminal_1",
+      ),
+    ).rejects.toThrow("Terminal PTY sessions are still running");
+
+    expect(workspaceApiMocks.killTerminalPtySession).not.toHaveBeenCalled();
+    expect(workspaceApiMocks.deleteWidgetInstanceFromWorkbench).not.toHaveBeenCalled();
+  });
+
   it("force kills every active session owned by the removed Terminal widget", async () => {
     workspaceApiMocks.listTerminalPtySessions.mockResolvedValue([
       terminalSession({ sessionId: "pty_owned_primary", status: "running" }),
@@ -131,6 +147,11 @@ describe("Terminal widget removal", () => {
         widgetInstanceId: "terminal_1",
       }),
     );
+    expect(
+      workspaceApiMocks.killTerminalPtySession.mock.calls.some(
+        ([request]) => request.sessionId === "pty_other",
+      ),
+    ).toBe(false);
   });
 
   it("does not remove the Terminal widget when force kill fails", async () => {
@@ -184,11 +205,28 @@ describe("WidgetRemoveAction Terminal force kill confirmation", () => {
     );
     expect(buttonWithText("Cancel")).not.toBeNull();
 
-    await clickButton("Force kill sessions and remove");
+    await clickButton("Force kill and remove");
 
     expect(onRemove).toHaveBeenCalledWith({
       forceKillTerminalSessions: true,
     });
+  });
+
+  it("cancel leaves the widget and running sessions intact", async () => {
+    const onRemove = vi.fn().mockResolvedValue(undefined);
+
+    renderRemoveAction({
+      getRemovalConfirmation: async () => ({ kind: "terminal-active-sessions" }),
+      onRemove,
+    });
+
+    await clickButton("Remove");
+    await clickButton("Cancel");
+
+    expect(onRemove).not.toHaveBeenCalled();
+    expect(
+      document.querySelector("[aria-label='Remove widget confirmation']"),
+    ).toBeNull();
   });
 
   it("keeps the confirmation open with product-facing feedback when force kill fails", async () => {
@@ -204,13 +242,13 @@ describe("WidgetRemoveAction Terminal force kill confirmation", () => {
     });
 
     await clickButton("Remove");
-    await clickButton("Force kill sessions and remove");
+    await clickButton("Force kill and remove");
 
     expect(document.body.textContent).toContain(
       "Terminal sessions could not be force killed. The widget was not removed.",
     );
     expect(buttonWithText("Cancel")).not.toBeNull();
-    expect(buttonWithText("Force kill sessions and remove")).not.toBeNull();
+    expect(buttonWithText("Force kill and remove")).not.toBeNull();
     expect(onRemove).toHaveBeenCalledTimes(1);
   });
 

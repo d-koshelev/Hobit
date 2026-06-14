@@ -141,7 +141,7 @@ function removalButtonLabel(
   isRemoving: boolean,
 ) {
   if (confirmation?.kind === "terminal-active-sessions") {
-    return isRemoving ? "Force killing..." : "Force kill sessions and remove";
+    return isRemoving ? "Force killing..." : "Force kill and remove";
   }
 
   return isRemoving ? "Removing..." : "Remove widget";
