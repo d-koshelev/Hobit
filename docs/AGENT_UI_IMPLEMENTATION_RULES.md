@@ -71,6 +71,10 @@ Required validation expectations:
 - Run typecheck, build, and diff checks appropriate to the block.
 - Run the repo file-size check when available, especially when adding or
   expanding frontend component files.
+- Run the UI surface hygiene check for frontend surface work:
+  `python scripts/hobit/check-ui-surface-hygiene.py`. It reports warnings for
+  obvious product/debug separation regressions and supports local inline allow
+  comments for deliberate product copy exceptions.
 - Use Hobit Toolbelt validation profiles when they fit the block, and do not
   silently weaken required final validation.
 

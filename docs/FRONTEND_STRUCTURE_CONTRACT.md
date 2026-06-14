@@ -57,6 +57,23 @@ It is docs-only and does not add UI behavior, runtime behavior, styling beyond e
 - Duplicate or static badges are not allowed.
 - Debug/runtime/internal details must be moved to `WidgetDebugPopup` or an equivalent debug surface.
 
+## UI surface hygiene check
+
+Use the Toolbelt hygiene check when changing frontend surfaces or reviewing UI
+surface cleanup:
+
+```sh
+python scripts/hobit/check-ui-surface-hygiene.py
+```
+
+The check is intentionally lightweight and warning-first. It scans frontend
+source for obvious regressions such as `WidgetFrame`/`WidgetV2Shell` subtitle
+usage, visible implementation/debug copy, static badge-like labels,
+placeholder disabled controls, new additions to `styles/components.css`, and
+helper exports from component/popup files. Intentional exceptions must stay
+local and documented with an inline allow comment such as
+`// hobit-ui-hygiene: allow-line visible-dev-copy - product state label`.
+
 ## Required reading set (frontend/frontend widget/design-system work)
 
 Before frontend UI, popup, widget cleanup, shared primitive, and debug-surface work, agents must read:

@@ -21,6 +21,10 @@ ownership, or file-size/refactor policy.
 - Workbench state, widget state, and workspace APIs should stay explicit and
   visible.
 - Compatibility names and persistence IDs must not be renamed casually.
+- Frontend surface hygiene warnings are available through
+  `python scripts/hobit/check-ui-surface-hygiene.py`; use the check rather than
+  ad-hoc searches when reviewing subtitle, placeholder, static badge,
+  product/debug copy, shared CSS, or component-helper export regressions.
 
 ## Phase 1 Rule
 

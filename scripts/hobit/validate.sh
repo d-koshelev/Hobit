@@ -10,8 +10,8 @@ Use this wrapper for Unix/Linux development validation. It does not perform
 Linux desktop UI smoke or packaging validation.
 
 Profiles:
-  fast     Quick iteration: frontend typecheck, cargo check, changed file sizes, git diff --check.
-  changed  Git-changed-file based checks plus changed file sizes and git diff --check.
+  fast     Quick iteration: frontend typecheck, cargo check, UI hygiene warnings, changed file sizes, git diff --check.
+  changed  Git-changed-file based checks plus UI hygiene warnings, changed file sizes, and git diff --check.
   full     Full validation sequence. This is the default when no profile is passed.
 
 Exit codes: 0 ok, 1 validation/check failed, 2 usage/environment error.
@@ -247,6 +247,7 @@ run_fast_profile() {
   ensure_frontend_dependencies
   run_step "npm typecheck" npm run typecheck --prefix apps/desktop/frontend
   run_step "cargo check" cargo check --workspace
+  run_step "ui surface hygiene changed-only" "$PYTHON_CMD" scripts/hobit/check-ui-surface-hygiene.py --changed-only
   run_step "check-file-sizes changed-only" "$PYTHON_CMD" scripts/hobit/check-file-sizes.py --changed-only
   run_step "git diff --check" git diff --check
 }
@@ -309,6 +310,7 @@ EOF
     fi
   fi
 
+  run_step "ui surface hygiene changed-only" "$PYTHON_CMD" scripts/hobit/check-ui-surface-hygiene.py --changed-only
   run_step "check-file-sizes changed-only" "$PYTHON_CMD" scripts/hobit/check-file-sizes.py --changed-only
   run_step "git diff --check" git diff --check
 }
@@ -320,6 +322,7 @@ run_full_profile() {
   run_step "cargo fmt" cargo fmt --all
   run_step "cargo check" cargo check --workspace
   run_step "cargo test workspace" cargo test --workspace
+  run_step "ui surface hygiene" "$PYTHON_CMD" scripts/hobit/check-ui-surface-hygiene.py
   run_step "check-file-sizes" "$PYTHON_CMD" scripts/hobit/check-file-sizes.py
   run_step "git diff --check" git diff --check
   run_step "git status" git status --short --branch

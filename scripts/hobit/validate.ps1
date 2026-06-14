@@ -16,8 +16,8 @@ function Show-Help {
     Write-Host "Runs a Hobit validation profile from the repository root."
     Write-Host ""
     Write-Host "Profiles:"
-    Write-Host "  fast     Quick iteration: frontend typecheck, cargo check, changed file sizes, git diff --check."
-    Write-Host "  changed  Git-changed-file based checks plus changed file sizes and git diff --check."
+    Write-Host "  fast     Quick iteration: frontend typecheck, cargo check, UI hygiene warnings, changed file sizes, git diff --check."
+    Write-Host "  changed  Git-changed-file based checks plus UI hygiene warnings, changed file sizes, and git diff --check."
     Write-Host "  full     Full validation sequence. This is the default when no profile is passed."
     Write-Host ""
     Write-Host "Exit codes: 0 ok, 1 validation/check failed, 2 usage/environment error."
@@ -306,6 +306,7 @@ function Get-RustPackageForPath {
 function Invoke-FastProfile {
     Invoke-Step "npm typecheck" { Invoke-FrontendNpmScript "typecheck" }
     Invoke-Step "cargo check" { cargo check --workspace }
+    Invoke-Step "ui surface hygiene changed-only" { & $PythonCommand scripts/hobit/check-ui-surface-hygiene.py --changed-only }
     Invoke-Step "check-file-sizes changed-only" { & $PythonCommand scripts/hobit/check-file-sizes.py --changed-only }
     Invoke-Step "git diff --check" { git diff --check }
 }
@@ -360,6 +361,7 @@ function Invoke-ChangedProfile {
         }
     }
 
+    Invoke-Step "ui surface hygiene changed-only" { & $PythonCommand scripts/hobit/check-ui-surface-hygiene.py --changed-only }
     Invoke-Step "check-file-sizes changed-only" { & $PythonCommand scripts/hobit/check-file-sizes.py --changed-only }
     Invoke-Step "git diff --check" { git diff --check }
 }
@@ -370,6 +372,7 @@ function Invoke-FullProfile {
     Invoke-Step "cargo fmt" { cargo fmt --all }
     Invoke-Step "cargo check" { cargo check --workspace }
     Invoke-Step "cargo test workspace" { cargo test --workspace }
+    Invoke-Step "ui surface hygiene" { & $PythonCommand scripts/hobit/check-ui-surface-hygiene.py }
     Invoke-Step "check-file-sizes" { & $PythonCommand scripts/hobit/check-file-sizes.py }
     Invoke-Step "git diff --check" { git diff --check }
     Invoke-Step "git status" { git status --short --branch }
