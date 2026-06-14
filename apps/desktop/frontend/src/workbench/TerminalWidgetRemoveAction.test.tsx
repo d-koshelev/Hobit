@@ -93,9 +93,10 @@ describe("Terminal widget removal", () => {
     ).resolves.toEqual({ kind: "terminal-active-sessions" });
   });
 
-  it("force kills only active sessions owned by the removed Terminal widget", async () => {
+  it("force kills every active session owned by the removed Terminal widget", async () => {
     workspaceApiMocks.listTerminalPtySessions.mockResolvedValue([
-      terminalSession({ sessionId: "pty_owned", status: "running" }),
+      terminalSession({ sessionId: "pty_owned_primary", status: "running" }),
+      terminalSession({ sessionId: "pty_owned_split", status: "stopping" }),
       terminalSession({ sessionId: "pty_inactive", status: "exited" }),
       terminalSession({
         sessionId: "pty_other",
@@ -112,12 +113,18 @@ describe("Terminal widget removal", () => {
       { forceKillTerminalSessions: true },
     );
 
-    expect(workspaceApiMocks.killTerminalPtySession).toHaveBeenCalledTimes(1);
-    expect(workspaceApiMocks.killTerminalPtySession).toHaveBeenCalledWith({
+    expect(workspaceApiMocks.killTerminalPtySession).toHaveBeenCalledTimes(2);
+    expect(workspaceApiMocks.killTerminalPtySession).toHaveBeenNthCalledWith(1, {
       workspaceId: "workspace_1",
       workbenchId: "workbench_1",
       widgetInstanceId: "terminal_1",
-      sessionId: "pty_owned",
+      sessionId: "pty_owned_primary",
+    });
+    expect(workspaceApiMocks.killTerminalPtySession).toHaveBeenNthCalledWith(2, {
+      workspaceId: "workspace_1",
+      workbenchId: "workbench_1",
+      widgetInstanceId: "terminal_1",
+      sessionId: "pty_owned_split",
     });
     expect(workspaceApiMocks.deleteWidgetInstanceFromWorkbench).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -182,6 +189,29 @@ describe("WidgetRemoveAction Terminal force kill confirmation", () => {
     expect(onRemove).toHaveBeenCalledWith({
       forceKillTerminalSessions: true,
     });
+  });
+
+  it("keeps the confirmation open with product-facing feedback when force kill fails", async () => {
+    const onRemove = vi
+      .fn()
+      .mockRejectedValue(
+        new Error("Terminal PTY sessions could not be force killed. kill failed"),
+      );
+
+    renderRemoveAction({
+      getRemovalConfirmation: async () => ({ kind: "terminal-active-sessions" }),
+      onRemove,
+    });
+
+    await clickButton("Remove");
+    await clickButton("Force kill sessions and remove");
+
+    expect(document.body.textContent).toContain(
+      "Terminal sessions could not be force killed. The widget was not removed.",
+    );
+    expect(buttonWithText("Cancel")).not.toBeNull();
+    expect(buttonWithText("Force kill sessions and remove")).not.toBeNull();
+    expect(onRemove).toHaveBeenCalledTimes(1);
   });
 
   it("keeps normal widget confirmation copy for non-running removal", async () => {
