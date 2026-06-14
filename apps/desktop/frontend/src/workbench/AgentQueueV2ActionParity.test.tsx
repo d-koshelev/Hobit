@@ -450,7 +450,7 @@ describe("Agent QueueV2 action parity", () => {
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
   });
 
-  it("shows disabled action reasons and opens the existing New task dialog", async () => {
+  it("shows disabled action reasons and opens the shared New task popup shell", async () => {
     renderQueueWidget({
       onGetAgentQueueTask: async () =>
         queueTask({
@@ -480,6 +480,14 @@ describe("Agent QueueV2 action parity", () => {
 
     expect(document.body.textContent).toContain("Run setup");
     expect(document.body.textContent).toContain("Create draft");
+    const popup = dialogByName("New task");
+    expect(popup?.className).toContain("popup-shell");
+    expect(popup?.querySelector("[data-popup-drag-handle]")).not.toBeNull();
+    expect(popup?.querySelector(".popup-shell-resize-se")).not.toBeNull();
+    expect(document.querySelector(".agent-queue-create-dialog-body")).not.toBeNull();
+    expect(document.body.textContent).not.toContain(
+      "Create a draft, or create a queued task with task run settings already saved.",
+    );
   });
 
   it("enables the saved QueueV2 surface through the typed Queue control without starting dependent work", async () => {
@@ -516,6 +524,8 @@ describe("Agent QueueV2 action parity", () => {
     expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
     expect(card("queue-002")?.textContent).toContain("Resolve dependency");
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+    expect(document.body.textContent).toContain("Disabled");
+    expect(buttonByText("Enable Queue")?.disabled).toBe(false);
 
     clickButton("Details");
     await flushRender();
@@ -532,6 +542,66 @@ describe("Agent QueueV2 action parity", () => {
     expect(card("queue-001")?.textContent).not.toContain("Queue disabled");
     expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
     expect(card("queue-002")?.textContent).toContain("Dependency is still open");
+  });
+
+  it("keeps disabled Enable Queue visible with a short product reason", async () => {
+    renderQueueWidget({
+      onGetAgentQueueTask: async () =>
+        queueTask({
+          codexExecutable: "",
+          status: "ready",
+        }),
+      onListAgentQueueTasks: async () => [
+        queueTask({
+          codexExecutable: "",
+          status: "ready",
+        }),
+      ],
+    });
+    await flushRender();
+
+    const enableQueue = buttonByText("Enable Queue");
+
+    expect(enableQueue).not.toBeNull();
+    expect(enableQueue?.disabled).toBe(true);
+    expect(document.body.textContent).toContain("Set Codex executable first");
+    expect(document.body.textContent).not.toContain("callbacks");
+    expect(document.body.textContent).not.toContain("runtime bridge");
+  });
+
+  it("submits and cancels New task from the shared popup footer", async () => {
+    const onCreateAgentQueueTask = vi.fn(async (request) =>
+      queueTask({
+        queueItemId: "created-draft",
+        status: request.status,
+        title: request.title,
+      }),
+    );
+
+    renderQueueWidget({ onCreateAgentQueueTask });
+    await flushRender();
+
+    clickButton("New task");
+    await flushRender();
+
+    const firstPopup = dialogByName("New task");
+    expect(firstPopup?.className).toContain("popup-shell");
+    await clickButtonAsync("Cancel");
+    expect(dialogByName("New task")).toBeUndefined();
+
+    clickButton("New task");
+    await flushRender();
+    setInputByLabel("Title", "Popup created task");
+    await clickButtonAsync("Create draft");
+    await flushRender();
+
+    expect(onCreateAgentQueueTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "draft",
+        title: "Popup created task",
+      }),
+    );
+    expect(dialogByName("New task")).toBeUndefined();
   });
 });
 
@@ -677,6 +747,34 @@ function buttonByText(text: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.textContent === text,
   );
+}
+
+function inputByLabel(label: string) {
+  const labels = Array.from(document.querySelectorAll<HTMLLabelElement>("label"));
+  const labelElement = labels.find((item) => item.textContent === label);
+  const inputId = labelElement?.getAttribute("for");
+
+  return inputId
+    ? document.getElementById(inputId) as HTMLInputElement | HTMLTextAreaElement | null
+    : null;
+}
+
+function setInputByLabel(label: string, value: string) {
+  const input = inputByLabel(label);
+
+  if (!input) {
+    throw new Error(`Input not found: ${label}`);
+  }
+
+  act(() => {
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      Object.getPrototypeOf(input),
+      "value",
+    )?.set;
+    valueSetter?.call(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 }
 
 function queueV2ActionButton(text: string) {

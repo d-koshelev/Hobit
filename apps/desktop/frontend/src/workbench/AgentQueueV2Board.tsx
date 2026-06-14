@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "../design-system/Badge";
+import { Button } from "../design-system/Button";
 import type { AgentQueueReportActionCard, AgentQueueTask } from "../workspace/types";
 import {
   normalizeQueueTag,
-  queueGlobalExecutionStateLabel,
   type AgentWorkerSummary,
   type QueueGlobalStatus,
 } from "./agentQueueTaskUiModel";
@@ -20,10 +20,12 @@ import {
   queueV2NextActionLabel,
   type QueueNextAction,
 } from "./queue/queueV2NextActionModel";
-import {
-  QueueV2TaskDetailsPopup,
-} from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
+import { QueueV2TaskDetailsPopup } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
 import { QueueV2CollapsibleLane } from "./widgetV2/queueV2/QueueV2CollapsibleLane";
+import {
+  queueV2EnableState,
+  queueV2StateBadge,
+} from "./widgetV2/queueV2/model/queueV2StateBadge";
 import type { AgentQueueController } from "./queue/details/agentQueueTaskDetailsTypes";
 import {
   queueV2ValidationEvidenceView,
@@ -46,10 +48,7 @@ type AgentQueueV2BoardProps = {
   onRecordKnowledgeDraftReview?: WidgetRenderProps["onRecordKnowledgeDraftReview"];
   onSelectTask: (queueItemId: string) => void;
   onRequestNewTask?: () => void;
-  onRequestValidation?: (
-    task: AgentQueueTask,
-    runner: ValidationRunner,
-  ) => Promise<QueueValidationRunResult>;
+  onRequestValidation?: (task: AgentQueueTask, runner: ValidationRunner) => Promise<QueueValidationRunResult>;
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
@@ -126,6 +125,21 @@ export function AgentQueueV2Board({
     () => groupRunningTasks(board.lanes.running, board.capacity.workers),
     [board.capacity.workers, board.lanes.running],
   );
+  const queueState = queueV2StateBadge({
+    apiAvailable: queue?.apiAvailable ?? false,
+    availableSlots: board.capacity.availableSlots,
+    blockedCount: board.lanes.blocked.length,
+    globalExecutionState,
+    hasQueueControls: Boolean(queue?.foundation?.onStartWorkers),
+    runningCount: board.counts.running,
+    totalSlots: board.capacity.totalSlots,
+  });
+  const enableState = queueV2EnableState({
+    apiAvailable: queue?.apiAvailable ?? false,
+    globalExecutionState,
+    hasCodexExecutable: tasks.some((task) => Boolean(task.codexExecutable?.trim())),
+    hasQueueControls: Boolean(queue?.foundation?.onStartWorkers),
+  });
 
   useEffect(() => {
     if (!detailsTaskId) {
@@ -169,11 +183,29 @@ export function AgentQueueV2Board({
             {tasks.length === 1 ? "1 task" : `${tasks.length.toString()} tasks`}
           </p>
         </div>
+        <div className="agent-queue-v2-state-actions" aria-label="Queue state">
+          <Badge
+            aria-label={`Queue state: ${queueState.label}`}
+            title={queueState.title}
+            variant={queueState.variant}
+          >
+            {queueState.label}
+          </Badge>
+          {globalExecutionState !== "started" ? (
+            <Button
+              disabled={enableState.disabled}
+              onClick={() => queue?.foundation.onStartWorkers()}
+              title={enableState.reason}
+              variant="primary"
+            >
+              Enable Queue
+            </Button>
+          ) : null}
+          {globalExecutionState !== "started" && enableState.reason ? (
+            <span>{enableState.reason}</span>
+          ) : null}
+        </div>
         <dl className="agent-queue-v2-command-facts" aria-label="Queue v2 summary">
-          <div>
-            <dt>Queue</dt>
-            <dd>{queueGlobalExecutionStateLabel(globalExecutionState)}</dd>
-          </div>
           <div>
             <dt>Ready now</dt>
             <dd>{board.counts.eligibleNow}</dd>
@@ -237,25 +269,25 @@ export function AgentQueueV2Board({
       </div>
 
       <details className="agent-queue-v2-activity-drawer">
-        <summary>Activity and raw execution detail</summary>
+        <summary>Activity and execution detail</summary>
         <p>
-          Raw run links, logs, reports, and developer detail remain collapsed in
-          the existing selected-task details path.
+          Run links, logs, reports, and developer detail remain available from
+          the selected-task details path.
         </p>
       </details>
       <QueueV2TaskDetailsPopup
         currentWorkspaceRoot={currentWorkspaceRoot}
         inspector={detailsTaskId ? board.inspector : null}
         isOpen={detailsTaskId !== null}
-        onCreateKnowledgeDocument={onCreateKnowledgeDocument}
-        onCreateSkill={onCreateSkill}
-        onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
-        onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
+          onCreateKnowledgeDocument={onCreateKnowledgeDocument}
+          onCreateSkill={onCreateSkill}
+          onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
+          onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
         onRequestNewTask={onRequestNewTask}
         onRequestValidation={onRequestValidation}
         onRequestClose={() => setDetailsTaskId(null)}
-        onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-        onShowQueueTaskInWorkspaceChat={onShowQueueTaskInWorkspaceChat}
+          onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+          onShowQueueTaskInWorkspaceChat={onShowQueueTaskInWorkspaceChat}
         queue={queue}
         returnFocusRef={detailsReturnFocusRef}
         taskViewModel={detailTaskViewModel}
@@ -538,7 +570,7 @@ function QueueV2Card({
       <span className="agent-queue-v2-card-line">
         <span>Next</span>
         <Badge variant={nextActionBadgeVariant(item.nextAction)}>
-          {nextActionLabel(item.nextAction)}
+          {queueV2NextActionLabel(item.nextAction)}
         </Badge>
       </span>
       <span className="agent-queue-v2-card-line">
@@ -605,16 +637,9 @@ function validationBadgeVariant(
   }
 }
 
-function nextActionLabel(action: QueueNextAction) {
-  return queueV2NextActionLabel(action);
-}
-
 type RunningTaskGroup = {
-  items: QueueTaskViewModel[];
-  label: string;
-  status: "online" | "offline";
-  worker: QueueWorkerSnapshot | null;
-  workerId: string;
+  items: QueueTaskViewModel[]; label: string; status: "online" | "offline";
+  worker: QueueWorkerSnapshot | null; workerId: string;
 };
 
 function groupRunningTasks(

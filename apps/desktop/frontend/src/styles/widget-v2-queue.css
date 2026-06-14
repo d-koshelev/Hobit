@@ -37,6 +37,24 @@
   flex: 0 0 auto;
 }
 
+.queue-v2-top-bar-state-row {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.queue-v2-top-bar-action-reason {
+  max-width: calc(180px * var(--ui-scale));
+  overflow: hidden;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .queue-v2-top-bar-counts {
   display: flex;
   min-width: 0;

@@ -65,6 +65,7 @@ export function QueueV2Widget({
       <WidgetV2Toolbar label="Agent Queue v2 command bar">
         <QueueV2TopBar
           globalExecutionState={globalExecutionState}
+          queue={queue}
           viewModel={viewModel}
         />
       </WidgetV2Toolbar>

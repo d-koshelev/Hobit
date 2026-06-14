@@ -1,4 +1,4 @@
-import { Button } from "../design-system/Button";
+import { Button, InfoTip, WidgetPopupShell } from "../design-system";
 import {
   EXECUTION_POLICY_OPTIONS,
   isAgentQueueTaskExecutionPolicy,
@@ -73,34 +73,56 @@ export function AgentQueueNewTaskDialog({
   runSetup,
 }: AgentQueueNewTaskDialogProps) {
   const queuedCreateReady = canCreateQueuedTask(createDraft, runSetup);
+  const primaryCreateLabel =
+    createDraft.status === "queued" ? "Create queued task" : "Create draft";
+  const primaryCreateDisabled =
+    createDraft.status === "queued"
+      ? isCreating || !apiAvailable || !queuedCreateReady
+      : isCreating || !apiAvailable || !createDraft.title.trim();
+  const primaryCreateAction =
+    createDraft.status === "queued" ? onConfirmQueued : onConfirmDraft;
 
   return (
-    <div className="agent-queue-create-dialog-layer" data-widget-header-drag-ignore>
-      <div
-        aria-labelledby={createDialogTitleId}
-        aria-modal="true"
-        className="agent-queue-create-dialog"
-        role="dialog"
-      >
-        <div className="agent-queue-create-dialog-header">
-          <div>
-            <h3
-              className="agent-queue-create-dialog-title"
-              id={createDialogTitleId}
-            >
-              New task
-            </h3>
-            <p className="agent-queue-create-dialog-copy">
-              Create a draft, or create a queued task with task run settings
-              already saved.
-            </p>
-          </div>
+    <WidgetPopupShell
+      actions={
+        <Button disabled={isCreating} onClick={() => onCancel()} variant="ghost">
+          Close
+        </Button>
+      }
+      bodyClassName="agent-queue-create-dialog-body"
+      className="agent-queue-create-dialog"
+      footer={
+        <>
           <Button disabled={isCreating} onClick={() => onCancel()} variant="ghost">
             Cancel
           </Button>
-        </div>
-
-        <div className="agent-queue-create-dialog-body">
+          <Button
+            disabled={primaryCreateDisabled}
+            onClick={() => primaryCreateAction()}
+            variant="primary"
+          >
+            {isCreating ? "Creating" : primaryCreateLabel}
+          </Button>
+        </>
+      }
+      id="agent-queue-new-task-popup"
+      isOpen
+      minResizeHeight={420}
+      minResizeWidth={420}
+      onRequestClose={onCancel}
+      resizable
+      title={
+        <span className="agent-queue-create-dialog-title-inline">
+          New task
+          <InfoTip label="New task information" title="New task">
+            Create a draft, or set the initial state to queued and save task run
+            settings for a later explicit run.
+          </InfoTip>
+        </span>
+      }
+      titleId={createDialogTitleId}
+      variant="floating"
+    >
           <section className="agent-queue-create-section" aria-label="Basic">
             <p className="agent-queue-create-section-title">Basic</p>
             <div className="agent-queue-editor-field">
@@ -390,29 +412,7 @@ export function AgentQueueNewTaskDialog({
               {createDialogError}
             </p>
           ) : null}
-        </div>
-
-        <div className="agent-queue-create-dialog-actions">
-          <Button disabled={isCreating} onClick={() => onCancel()} variant="ghost">
-            Cancel
-          </Button>
-          <Button
-            disabled={isCreating || !apiAvailable || !createDraft.title.trim()}
-            onClick={() => onConfirmDraft()}
-            variant="secondary"
-          >
-            {isCreating ? "Creating" : "Create draft"}
-          </Button>
-          <Button
-            disabled={isCreating || !apiAvailable || !queuedCreateReady}
-            onClick={() => onConfirmQueued()}
-            variant="primary"
-          >
-            {isCreating ? "Creating" : "Create queued task"}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </WidgetPopupShell>
   );
 }
 

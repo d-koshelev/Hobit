@@ -341,7 +341,8 @@ describe("AgentQueuePlaceholderWidget new task dialog", () => {
     expect(inputByLabel("Codex executable").value).toBe("codex.cmd");
     expect(selectByLabel("Sandbox").value).toBe("read_only");
     expect(selectByLabel("Approval policy").value).toBe("never");
-    expect(buttonByText("Create queued task")?.disabled).toBe(true);
+    expect(buttonByText("Create draft")?.disabled).toBe(false);
+    expect(buttonByText("Create queued task")).toBeUndefined();
   });
 
   it("creates a draft task without starting execution", async () => {

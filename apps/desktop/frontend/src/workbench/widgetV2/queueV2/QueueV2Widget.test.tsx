@@ -96,7 +96,8 @@ describe("QueueV2Widget scaffold", () => {
 
     const topBar = regionByRoleAndName("toolbar", "Agent Queue v2 command bar");
 
-    expect(topBar?.textContent).toContain("Queue mode");
+    expect(topBar?.textContent).toContain("Queue state");
+    expect(topBar?.textContent).not.toContain("Queue mode");
     expect(topBar?.textContent).toContain("Ready1");
     expect(topBar?.textContent).toContain("Running1");
     expect(topBar?.textContent).toContain("Review1");
@@ -104,6 +105,54 @@ describe("QueueV2Widget scaffold", () => {
     expect(topBar?.textContent).toContain("1 available / 2 total");
     expect(inputByLabel("Queue v2 search placeholder")).toBeNull();
     expect(buttonWithText("Settings")).toBeNull();
+  });
+
+  it("shows a meaningful Queue state badge and disabled Enable Queue reason", async () => {
+    await render(<QueueV2Widget globalExecutionState="stopped" />);
+
+    const topBar = regionByRoleAndName("toolbar", "Agent Queue v2 command bar");
+    const enableQueue = buttonWithText("Enable Queue");
+
+    expect(topBar?.textContent).toContain("Controls unavailable");
+    expect(enableQueue).not.toBeNull();
+    expect(enableQueue?.disabled).toBe(true);
+    expect(topBar?.textContent).toContain("Queue controls unavailable");
+    expect(topBar?.textContent).not.toContain("Queue v2");
+  });
+
+  it("shows enabled and running Queue state badges from live state", async () => {
+    await render(
+      <QueueV2Widget
+        globalExecutionState="started"
+        queue={
+          {
+            apiAvailable: true,
+            foundation: { onStartWorkers: () => undefined },
+          } as never
+        }
+        tasks={[
+          task({
+            assignedWorkerId: "worker-running",
+            queueItemId: "running",
+            status: "running",
+            title: "Running task",
+          }),
+        ]}
+        workers={[
+          worker({
+            currentItemId: "running",
+            status: "running",
+            workerId: "worker-running",
+          }),
+        ]}
+      />,
+    );
+
+    const topBar = regionByRoleAndName("toolbar", "Agent Queue v2 command bar");
+
+    expect(topBar?.textContent).toContain("Running");
+    expect(topBar?.textContent).not.toContain("V2");
+    expect(buttonWithText("Enable Queue")).toBeNull();
   });
 
   it("renders tag legend colors and counts", async () => {
