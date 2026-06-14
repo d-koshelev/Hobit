@@ -285,6 +285,142 @@ describe("NotesPlaceholderWidget empty state", () => {
     expect(document.body.textContent).toContain("Saved");
   });
 
+  it("keeps Markdown source editable and disables browser spellcheck for the note body", async () => {
+    const selectedNote = note({
+      body: "# Release note\n\n- Check `api`",
+      noteId: "note_42",
+      title: "Falcon deployment note",
+    });
+    const onCreateWorkspaceNote = vi.fn();
+    const onGetWorkspaceNote = vi.fn(async () => selectedNote);
+    const onListWorkspaceNotes = vi.fn(async () => [selectedNote]);
+    const onUpdateWorkspaceNote = vi.fn();
+
+    renderWidget({
+      onCreateWorkspaceNote,
+      onGetWorkspaceNote,
+      onListWorkspaceNotes,
+      onUpdateWorkspaceNote,
+    });
+    await flushEffects();
+
+    const textarea =
+      document.querySelector<HTMLTextAreaElement>(".notes-body-input");
+
+    expect(textarea).not.toBeNull();
+    expect(textarea?.value).toBe(selectedNote.body);
+    expect(textarea?.getAttribute("spellcheck")).toBe("false");
+
+    changeTextarea(".notes-body-input", "# Release note\n\nUpdated body.");
+
+    expect(textareaValue(".notes-body-input")).toBe(
+      "# Release note\n\nUpdated body.",
+    );
+    expect(document.body.textContent).toContain("Unsaved");
+  });
+
+  it("renders a compact Markdown preview without changing the saved source", async () => {
+    const selectedNote = note({
+      body: "# Release note\n\n- Check `api`\n- Ship **carefully**",
+      noteId: "note_42",
+      title: "Falcon deployment note",
+    });
+    const onCreateWorkspaceNote = vi.fn();
+    const onGetWorkspaceNote = vi.fn(async () => selectedNote);
+    const onListWorkspaceNotes = vi.fn(async () => [selectedNote]);
+    const onUpdateWorkspaceNote = vi.fn();
+
+    renderWidget({
+      onCreateWorkspaceNote,
+      onGetWorkspaceNote,
+      onListWorkspaceNotes,
+      onUpdateWorkspaceNote,
+    });
+    await flushEffects();
+
+    await clickButton("Preview");
+
+    expect(document.querySelector(".notes-body-input")).toBeNull();
+    expect(document.querySelector(".notes-markdown-preview")).not.toBeNull();
+    expect(document.querySelector("h1")?.textContent).toBe("Release note");
+    expect(document.querySelector(".notes-inline-code")?.textContent).toBe(
+      "api",
+    );
+    expect(document.querySelectorAll(".notes-markdown-list li")).toHaveLength(
+      2,
+    );
+    expect(onUpdateWorkspaceNote).not.toHaveBeenCalled();
+  });
+
+  it("renders fenced JSON blocks with JSON token styling", async () => {
+    const selectedNote = note({
+      body: '```json\n{"name":"Falcon","count":2,"ok":true}\n```',
+      noteId: "note_42",
+      title: "Falcon deployment note",
+    });
+    const onCreateWorkspaceNote = vi.fn();
+    const onGetWorkspaceNote = vi.fn(async () => selectedNote);
+    const onListWorkspaceNotes = vi.fn(async () => [selectedNote]);
+    const onUpdateWorkspaceNote = vi.fn();
+
+    renderWidget({
+      onCreateWorkspaceNote,
+      onGetWorkspaceNote,
+      onListWorkspaceNotes,
+      onUpdateWorkspaceNote,
+    });
+    await flushEffects();
+
+    await clickButton("Preview");
+
+    expect(document.querySelector(".notes-json-code-block")).not.toBeNull();
+    expect(document.querySelector(".notes-json-key")?.textContent).toBe(
+      '"name"',
+    );
+    expect(document.querySelector(".notes-json-string")?.textContent).toBe(
+      '"Falcon"',
+    );
+    expect(document.querySelector(".notes-json-number")?.textContent).toBe("2");
+    expect(document.querySelector(".notes-json-boolean")?.textContent).toBe(
+      "true",
+    );
+  });
+
+  it("renders whole-note JSON as formatted preview and preserves Pretty JSON explicit formatting", async () => {
+    const selectedNote = note({
+      body: '{"b":2,"a":[1]}',
+      noteId: "note_42",
+      title: "Falcon deployment note",
+    });
+    const onCreateWorkspaceNote = vi.fn();
+    const onGetWorkspaceNote = vi.fn(async () => selectedNote);
+    const onListWorkspaceNotes = vi.fn(async () => [selectedNote]);
+    const onUpdateWorkspaceNote = vi.fn();
+
+    renderWidget({
+      onCreateWorkspaceNote,
+      onGetWorkspaceNote,
+      onListWorkspaceNotes,
+      onUpdateWorkspaceNote,
+    });
+    await flushEffects();
+
+    await clickButton("Preview");
+
+    expect(document.querySelector(".notes-json-code-block")?.textContent).toBe(
+      '{\n  "b": 2,\n  "a": [\n    1\n  ]\n}',
+    );
+    expect(onUpdateWorkspaceNote).not.toHaveBeenCalled();
+
+    await clickButton("Edit");
+    await clickButton("Format");
+
+    expect(textareaValue(".notes-body-input")).toBe(
+      '{\n  "b": 2,\n  "a": [\n    1\n  ]\n}',
+    );
+    expect(onUpdateWorkspaceNote).not.toHaveBeenCalled();
+  });
+
   it("pretty formats JSON explicitly and saves the formatted dirty note", async () => {
     const selectedNote = note({
       body: '{"b":2,"a":[1]}',

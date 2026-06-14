@@ -1,4 +1,4 @@
-import { Button } from "../../design-system/Button";
+import { Button, InfoTip } from "../../design-system";
 import { useEffect, useState, type KeyboardEvent } from "react";
 import type { KnowledgeDocument, WorkspaceNote } from "../../workspace/types";
 import {
@@ -11,7 +11,10 @@ import {
   formatNoteBody,
   type NotesFormatAction,
 } from "./notesFormatters";
+import { NotesMarkdownPreview } from "./NotesMarkdownPreview";
 import { DEFAULT_NOTE_TITLE } from "./useWorkspaceNotesController";
+
+type NotesEditorMode = "edit" | "preview";
 
 const NOTE_FORMAT_ACTIONS: Array<{
   action: NotesFormatAction;
@@ -108,11 +111,13 @@ export function NotesEditor({
   validationMessage: string | null;
 }) {
   const [formatError, setFormatError] = useState<string | null>(null);
+  const [editorMode, setEditorMode] = useState<NotesEditorMode>("edit");
   const [selectedFormatAction, setSelectedFormatAction] =
     useState<NotesFormatAction>("pretty-json");
 
   useEffect(() => {
     setFormatError(null);
+    setEditorMode("edit");
   }, [selectedNote?.noteId]);
 
   function saveFromKeyboard(event: KeyboardEvent<HTMLElement>) {
@@ -179,14 +184,47 @@ export function NotesEditor({
             placeholder={DEFAULT_NOTE_TITLE}
             value={draftTitle}
           />
-          <textarea
-            aria-label="Note body"
-            className="input notes-body-input"
-            id={bodyInputId}
-            onChange={(event) => updateDraftBody(event.currentTarget.value)}
-            placeholder="Write note…"
-            value={draftBody}
-          />
+          <div className="notes-editor-mode-row">
+            <span
+              aria-label="Note editor mode"
+              className="notes-editor-mode-toggle"
+              role="group"
+            >
+              <Button
+                aria-pressed={editorMode === "edit"}
+                className="notes-editor-mode-button"
+                onClick={() => setEditorMode("edit")}
+                variant={editorMode === "edit" ? "secondary" : "ghost"}
+              >
+                Edit
+              </Button>
+              <Button
+                aria-pressed={editorMode === "preview"}
+                className="notes-editor-mode-button"
+                onClick={() => setEditorMode("preview")}
+                variant={editorMode === "preview" ? "secondary" : "ghost"}
+              >
+                Preview
+              </Button>
+            </span>
+            <InfoTip label="Notes Markdown help" title="Markdown preview">
+              Preview renders basic Markdown, fenced code, and JSON blocks.
+              Source text stays unchanged unless Format is clicked.
+            </InfoTip>
+          </div>
+          {editorMode === "preview" ? (
+            <NotesMarkdownPreview body={draftBody} />
+          ) : (
+            <textarea
+              aria-label="Note body"
+              className="input notes-body-input"
+              id={bodyInputId}
+              onChange={(event) => updateDraftBody(event.currentTarget.value)}
+              placeholder="Write note..."
+              spellCheck={false}
+              value={draftBody}
+            />
+          )}
           <div
             aria-label="Note body formatting actions"
             className="notes-format-toolbar"
