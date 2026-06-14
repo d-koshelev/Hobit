@@ -655,6 +655,12 @@ the local executor flow visible to operators.
 
 ### Agent Queue
 
+- `docs/QUEUE_SINGLETON_CONTRACT.md` - current strict Workspace Queue
+  singleton invariant. Read before Queue, Smart Queue, prompt-pack import,
+  Queue registry metadata, Queue view insertion/focus, or Queue surface work.
+  It requires exactly one logical Queue and exactly one Queue UI view per
+  Workspace. `agent-queue` is the saved-compatible singleton Queue widget
+  identity, and `queue-v2` must not become a second Queue widget/view.
 - `docs/AGENT_QUEUE_WIDGET_API_CONTRACT.md` - first concrete Workspace Widget
   API contract for Agent Queue. Read for Queue app-native API identity,
   snapshots, actions, events, evidence, state machine, QueuePatch proposals,
@@ -915,9 +921,12 @@ These documents should not override the Workspace Agent model or
   `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`; add `docs/GIT_WIDGET_CONTRACT.md`
   only when changing current Git behavior, Git plugin API, or Git mutation
   boundaries.
-- Queue work: read `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
+- Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md` and
+  `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
+- Smart Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md` before any Queue
+  surface, registry, import, focus/open, or Queue-domain modeling work.
 - Queue-based Knowledge generation work: read
   `docs/KNOWLEDGE_PRODUCTION_CONTRACT.md`,
   `docs/KNOWLEDGE_GENERATION_WORKFLOW_CONTRACT.md`,

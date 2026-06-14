@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AGENT_QUEUE_WIDGET_DEFINITION_ID,
   getWidgetDefinition,
   INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
@@ -34,6 +35,13 @@ describe("Widget V2 registry", () => {
       status: "available",
       title: "Agent Queue",
     });
+    expect(getWidgetDefinition(AGENT_QUEUE_WIDGET_DEFINITION_ID)).toMatchObject({
+      id: "agent-queue",
+      singleton: true,
+      singletonKey: "workspace-queue",
+      singletonScope: "workspace",
+    });
+    expect(getWidgetDefinition("queue-v2")).toBeUndefined();
   });
 
   it("defines KnowledgeV2 as the experimental Knowledge / Skills route target", () => {

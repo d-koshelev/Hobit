@@ -62,6 +62,9 @@ export type WidgetDefinition = {
   defaultConfig: Record<string, unknown>;
   layoutDefaults?: WidgetLayoutDefaults;
   componentKey: string;
+  singleton?: boolean;
+  singletonScope?: "workspace";
+  singletonKey?: string;
 };
 
 export type WidgetState = Record<string, unknown>;

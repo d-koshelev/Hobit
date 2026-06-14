@@ -136,6 +136,9 @@ export const productWidgetDefinitions: WidgetDefinition[] = [
     layoutDefaults:
       widgetLayoutDefaultsByDefinitionId[AGENT_QUEUE_WIDGET_DEFINITION_ID],
     componentKey: AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
+    singleton: true,
+    singletonScope: "workspace",
+    singletonKey: "workspace-queue",
   },
   {
     id: INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,

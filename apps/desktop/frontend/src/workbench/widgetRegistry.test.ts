@@ -1,10 +1,14 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  AGENT_QUEUE_WIDGET_DEFINITION_ID,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_WIDGET_DEFINITION_ID,
   GIT_PLACEHOLDER_COMPONENT_KEY,
   GIT_WIDGET_DEFINITION_ID,
+  INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+  NOTES_WIDGET_DEFINITION_ID,
+  TERMINAL_WIDGET_DEFINITION_ID,
   compatibilityWidgetDefinitions,
   getWidgetDefinition,
   getWidgetLayoutDefaults,
@@ -85,5 +89,59 @@ describe("widgetRegistry compatibility isolation", () => {
       minHeight: 456,
       minWidth: 576,
     });
+  });
+});
+
+describe("widgetRegistry Queue singleton metadata", () => {
+  it("marks Agent Queue as the workspace singleton Queue surface", () => {
+    expect(getWidgetDefinition(AGENT_QUEUE_WIDGET_DEFINITION_ID)).toMatchObject({
+      id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+      singleton: true,
+      singletonKey: "workspace-queue",
+      singletonScope: "workspace",
+      title: "Agent Queue",
+    });
+  });
+
+  it("does not mark expected multi-instance widgets as singleton", () => {
+    for (const id of [
+      INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
+      NOTES_WIDGET_DEFINITION_ID,
+      TERMINAL_WIDGET_DEFINITION_ID,
+    ]) {
+      const definition = getWidgetDefinition(id);
+
+      expect(definition?.id).toBe(id);
+      expect(definition?.singleton).toBeUndefined();
+      expect(definition?.singletonKey).toBeUndefined();
+      expect(definition?.singletonScope).toBeUndefined();
+    }
+  });
+
+  it("does not turn compatibility or deprecated widgets into Queue surfaces", () => {
+    for (const definition of compatibilityWidgetDefinitions) {
+      expect(definition.id).not.toBe(AGENT_QUEUE_WIDGET_DEFINITION_ID);
+      expect(definition.singleton).toBeUndefined();
+      expect(definition.singletonKey).toBeUndefined();
+      expect(definition.singletonScope).toBeUndefined();
+    }
+  });
+
+  it("keeps exactly one workspace singleton definition", () => {
+    expect(
+      widgetRegistry
+        .filter((definition) => definition.singleton === true)
+        .map((definition) => ({
+          id: definition.id,
+          singletonKey: definition.singletonKey,
+          singletonScope: definition.singletonScope,
+        })),
+    ).toEqual([
+      {
+        id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+        singletonKey: "workspace-queue",
+        singletonScope: "workspace",
+      },
+    ]);
   });
 });

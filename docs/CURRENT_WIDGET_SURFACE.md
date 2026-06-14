@@ -491,7 +491,23 @@ v0.1 product widget.
   the Queue handoff block. Further Queue feature development should stop in
   this chat and resume only from a new product-scenario/design-first thread
   with approved contracts, Queue plans, and acceptance criteria.
-- Uses the `agent-queue` widget definition id.
+- `docs/QUEUE_SINGLETON_CONTRACT.md` is required reading for Queue, Smart
+  Queue, prompt-pack import, Queue registry metadata, Queue view
+  insertion/focus, and Queue surface work.
+- Uses the `agent-queue` widget definition id. This is the saved-compatible
+  singleton Queue widget identity for the Workspace Queue, with registry
+  metadata `singleton: true`, `singletonScope: "workspace"`, and
+  `singletonKey: "workspace-queue"`.
+- A Workspace has exactly one logical Queue and exactly one Queue UI
+  view/widget. The Queue widget is the single canonical control surface for
+  the Workspace Queue. Creating a second Queue widget/view in one Workspace is
+  a critical bug, including a second view that points at the same Queue state.
+- Prompt-pack imports target the singleton Workspace Queue and should focus or
+  open the singleton Queue view when a view is needed; they must not create a
+  second Queue widget/view.
+- Queue Active/Pause state belongs to the singleton Workspace Queue, not local
+  widget state. Removing or hiding the Queue view must not delete Queue domain
+  data; clearing Queue data must be a separate explicit destructive action.
 - Intended for promoted/larger work blocks that need async organization,
   assignment, sequencing, or later review. It is not the default destination
   for every Workspace Agent idea, small decision, or quick operator action.
@@ -612,7 +628,8 @@ v0.1 product widget.
   render path. The standalone
   `workbench/widgetV2/queueV2/QueueV2Widget` shell is retained as
   Compatibility / smoke / regression coverage for WidgetV2 composition and is
-  not the current product-rendered Agent Queue widget. Board cards can be
+  not the current product-rendered Agent Queue widget and must not become a
+  second Queue widget/view. Board cards can be
   clicked to select or open details, but selection does not start work, claim
   items, schedule workers, launch Agent Executor, finalize status, persist live
   worker process state, or change Queue Autorun, Sequential Runner, Codex
