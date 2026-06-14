@@ -1,23 +1,8 @@
-import type {
-  ComponentType,
-  CSSProperties,
-  PointerEvent as ReactPointerEvent,
-} from "react";
+import type { CSSProperties, PointerEvent as ReactPointerEvent } from "react";
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
 import { EmptyState } from "../design-system/EmptyState";
 import { WidgetFrame } from "../design-system/WidgetFrame";
-import { AgentActivityWidget } from "./AgentActivityWidget";
-import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
-import { AgentRunPlaceholderWidget } from "./AgentRunPlaceholderWidget";
-import { FinderWidget } from "./FinderWidget";
-import { GitPlaceholderWidget } from "./GitPlaceholderWidget";
-import { InteractiveAgentPlaceholderWidget } from "./InteractiveAgentPlaceholderWidget";
-import { JdbcConnectorWidget } from "./JdbcConnectorWidget";
-import { KnowledgeSkillsV2Widget } from "./KnowledgeSkillsV2Widget";
-import { NotesPlaceholderWidget } from "./NotesPlaceholderWidget";
-import { RunbookPlaceholderWidget } from "./RunbookPlaceholderWidget";
-import { TerminalPlaceholderWidget } from "./TerminalPlaceholderWidget";
 import { WidgetRemoveAction } from "./WidgetRemoveAction";
 import type { AgentActivityEvent } from "./agentActivityModel";
 import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
@@ -30,7 +15,6 @@ import type {
   WidgetInstance,
   WidgetDefinition,
   WidgetPresentationMode,
-  WidgetRenderProps,
   WorkbenchLayoutMode,
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
@@ -49,37 +33,12 @@ import {
 } from "./widgetRuntimeContext";
 import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import {
-  AGENT_ACTIVITY_COMPONENT_KEY,
-  AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
-  AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_WIDGET_DEFINITION_ID,
-  FINDER_WIDGET_COMPONENT_KEY,
-  GIT_PLACEHOLDER_COMPONENT_KEY,
   getWidgetDefinition,
-  INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY,
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
-  JDBC_WIDGET_COMPONENT_KEY,
-  NOTES_PLACEHOLDER_COMPONENT_KEY,
-  RUNBOOK_PLACEHOLDER_COMPONENT_KEY,
-  SKILL_LIBRARY_COMPONENT_KEY,
   SKILL_LIBRARY_WIDGET_DEFINITION_ID,
-  TERMINAL_PLACEHOLDER_COMPONENT_KEY,
 } from "./widgetRegistry";
-
-const widgetComponents: Record<string, ComponentType<WidgetRenderProps>> = {
-  [AGENT_ACTIVITY_COMPONENT_KEY]: AgentActivityWidget,
-  [AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY]: AgentQueuePlaceholderWidget,
-  [AGENT_RUN_PLACEHOLDER_COMPONENT_KEY]: AgentRunPlaceholderWidget,
-  [FINDER_WIDGET_COMPONENT_KEY]: FinderWidget,
-  [GIT_PLACEHOLDER_COMPONENT_KEY]: GitPlaceholderWidget,
-  [INTERACTIVE_AGENT_PLACEHOLDER_COMPONENT_KEY]:
-    InteractiveAgentPlaceholderWidget,
-  [JDBC_WIDGET_COMPONENT_KEY]: JdbcConnectorWidget,
-  [NOTES_PLACEHOLDER_COMPONENT_KEY]: NotesPlaceholderWidget,
-  [RUNBOOK_PLACEHOLDER_COMPONENT_KEY]: RunbookPlaceholderWidget,
-  [SKILL_LIBRARY_COMPONENT_KEY]: KnowledgeSkillsV2Widget,
-  [TERMINAL_PLACEHOLDER_COMPONENT_KEY]: TerminalPlaceholderWidget,
-};
+import { getWidgetHostComponent } from "./widgetHostComponents";
 
 type WidgetHostProps = {
   directWorkGitReview: DirectWorkGitReviewHandoff;
@@ -249,7 +208,7 @@ export function WidgetHost({
     );
   }
 
-  const Component = widgetComponents[definition.componentKey];
+  const Component = getWidgetHostComponent(definition.componentKey);
   const title = frameTitle;
   const renderProps = widgetHostRenderProps({
     agentActivityEvents,

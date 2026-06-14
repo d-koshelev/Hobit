@@ -113,7 +113,7 @@ export const widgetLayoutDefaultsByDefinitionId: Record<
   },
 };
 
-export const widgetRegistry: WidgetDefinition[] = [
+export const productWidgetDefinitions: WidgetDefinition[] = [
   {
     id: AGENT_ACTIVITY_WIDGET_DEFINITION_ID,
     title: "Agent Activity",
@@ -124,18 +124,6 @@ export const widgetRegistry: WidgetDefinition[] = [
     layoutDefaults:
       widgetLayoutDefaultsByDefinitionId[AGENT_ACTIVITY_WIDGET_DEFINITION_ID],
     componentKey: AGENT_ACTIVITY_COMPONENT_KEY,
-  },
-  {
-    id: AGENT_RUN_WIDGET_DEFINITION_ID,
-    title: "Agent Executor",
-    category: "core",
-    description:
-      "Secondary compatibility/debug surface for explicit Direct Work runs, logs, results, changed files, and validation.",
-    defaultTitle: "Agent Executor",
-    defaultConfig: {},
-    layoutDefaults:
-      widgetLayoutDefaultsByDefinitionId[AGENT_RUN_WIDGET_DEFINITION_ID],
-    componentKey: AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   },
   {
     id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
@@ -199,18 +187,6 @@ export const widgetRegistry: WidgetDefinition[] = [
     componentKey: FINDER_WIDGET_COMPONENT_KEY,
   },
   {
-    id: GIT_WIDGET_DEFINITION_ID,
-    title: "Git",
-    category: "codebase",
-    description:
-      "Internal/deprecated compatibility surface. Workspace Git APIs own current Git functionality.",
-    defaultTitle: "Git",
-    defaultConfig: {},
-    layoutDefaults:
-      widgetLayoutDefaultsByDefinitionId[GIT_WIDGET_DEFINITION_ID],
-    componentKey: GIT_PLACEHOLDER_COMPONENT_KEY,
-  },
-  {
     id: JDBC_WIDGET_DEFINITION_ID,
     title: "Database / JDBC",
     category: "database",
@@ -245,6 +221,41 @@ export const widgetRegistry: WidgetDefinition[] = [
       widgetLayoutDefaultsByDefinitionId[NOTES_WIDGET_DEFINITION_ID],
     componentKey: NOTES_PLACEHOLDER_COMPONENT_KEY,
   },
+];
+
+// Compatibility definitions stay registered only so persisted widget instances
+// and old workspace data can resolve. They are excluded from normal product
+// catalog insertion and the current product canvas path.
+export const compatibilityWidgetDefinitions: WidgetDefinition[] = [
+  {
+    id: AGENT_RUN_WIDGET_DEFINITION_ID,
+    title: "Agent Executor",
+    category: "core",
+    description:
+      "Compatibility-only supporting Direct Work detail surface for existing agent-run instances.",
+    defaultTitle: "Agent Executor",
+    defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[AGENT_RUN_WIDGET_DEFINITION_ID],
+    componentKey: AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
+  },
+  {
+    id: GIT_WIDGET_DEFINITION_ID,
+    title: "Git",
+    category: "codebase",
+    description:
+      "Internal/deprecated compatibility surface. Workspace Git APIs own current Git functionality.",
+    defaultTitle: "Git",
+    defaultConfig: {},
+    layoutDefaults:
+      widgetLayoutDefaultsByDefinitionId[GIT_WIDGET_DEFINITION_ID],
+    componentKey: GIT_PLACEHOLDER_COMPONENT_KEY,
+  },
+];
+
+export const widgetRegistry: WidgetDefinition[] = [
+  ...productWidgetDefinitions,
+  ...compatibilityWidgetDefinitions,
 ];
 
 export const internalDeprecatedWidgetDefinitionIds = new Set<WidgetDefinitionId>([
