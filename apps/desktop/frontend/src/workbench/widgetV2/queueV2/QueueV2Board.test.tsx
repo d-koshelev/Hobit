@@ -1,32 +1,33 @@
-import { act } from "react";
-import type { ReactNode } from "react";
-import { createRoot, type Root } from "react-dom/client";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import type {
-  AgentQueueTask,
-  AgentQueueWorkerExecutionReport,
-} from "../../../workspace/types";
-import type { AgentWorkerSummary } from "../../agentQueueTaskUiModel";
-import type { AgentQueueController } from "../../queue/details/agentQueueTaskDetailsTypes";
+import type { AgentQueueTask } from "../../../workspace/types";
 import type { QueueValidationRunResult } from "../../queue/queueValidationEvidenceService";
 import type { ValidationRunner } from "../../validation";
 import { QueueV2Board } from "./QueueV2Board";
-
-let root: Root | null = null;
-let container: HTMLDivElement | null = null;
-
-afterEach(() => {
-  if (root && container) {
-    act(() => {
-      root?.unmount();
-    });
-    container.remove();
-  }
-  root = null;
-  container = null;
-  document.body.innerHTML = "";
-});
+import {
+  activePanel,
+  buttonInRegion,
+  buttonWithText,
+  card,
+  cardActionsButton,
+  click,
+  dialogByName,
+  flushAsync,
+  keyDown,
+  laneToggle,
+  menuByName,
+  openCardDetails,
+  promptPackPrompt,
+  queueController,
+  regionByName,
+  render,
+  report,
+  task,
+  validationRawPreview,
+  validationRunner,
+  visibleCardOrder,
+  worker,
+} from "./QueueV2Board.testUtils";
 
 describe("QueueV2Board", () => {
   it("renders the required board lanes", async () => {
@@ -373,7 +374,103 @@ describe("QueueV2Board", () => {
     expect(dialogByName("Ready task")).toBeNull();
   });
 
-  it("renders details tabs with high-level Agent Log separate from collapsed Developer raw details", async () => {
+  it("opens debug popup from the row menu and closes it", async () => {
+    await render(
+      <QueueV2Board
+        tasks={[task({ queueItemId: "ready", status: "ready", title: "Ready task" })]}
+        workers={[worker()]}
+      />,
+    );
+
+    await click(cardActionsButton("ready"));
+
+    const menu = menuByName("Action menu for Ready task");
+    expect(menu?.textContent).toContain("Debug details");
+
+    await click(buttonInRegion(menu, "Debug details"));
+
+    const debugDialog = dialogByName("Ready task - Queue runtime details");
+    expect(debugDialog).not.toBeNull();
+    expect(document.querySelector(".widget-debug-popup")).not.toBeNull();
+    expect(document.body.textContent).toContain("Queue bridge state");
+
+    await click(buttonWithText("Close"));
+
+    expect(dialogByName("Ready task - Queue runtime details")).toBeNull();
+  });
+
+  it("renders debug content with Queue diagnostics sections", async () => {
+    await render(
+      <QueueV2Board
+        queue={queueController({
+          onRun: vi.fn(),
+          readinessMessage: null,
+          runCanStart: true,
+          selectedTask: task({
+            queueItemId: "ready",
+            status: "ready",
+            title: "Ready task",
+            workerExecutionReports: [
+              report({
+                changedFiles: ["src/queue.ts"],
+                reportId: "report-1",
+                summary: "Worker finished.",
+              }),
+            ],
+          }),
+          tasks: [
+            task({
+              queueItemId: "ready",
+              status: "ready",
+              title: "Ready task",
+              workerExecutionReports: [
+                report({
+                  changedFiles: ["src/queue.ts"],
+                  reportId: "report-1",
+                  summary: "Worker finished.",
+                  rawReportPreview: '{"raw":"diagnostic"}',
+                }),
+              ],
+            }),
+          ],
+        })}
+        tasks={[
+          task({
+            queueItemId: "ready",
+            status: "ready",
+            title: "Ready task",
+            workerExecutionReports: [
+              report({
+                changedFiles: ["src/queue.ts"],
+                reportId: "report-1",
+                summary: "Worker finished.",
+                rawReportPreview: '{"raw":"diagnostic"}',
+              }),
+            ],
+          }),
+        ]}
+        workers={[worker()]}
+      />,
+    );
+
+    await click(cardActionsButton("ready"));
+    await click(buttonInRegion(menuByName("Action menu for Ready task"), "Debug details"));
+
+    expect(document.body.textContent).toContain("Queue bridge state");
+    expect(document.body.textContent).toContain("Callback availability");
+    expect(document.body.textContent).toContain("Provider / runtime details");
+    expect(document.body.textContent).toContain("Action availability diagnostics");
+    expect(document.body.textContent).toContain("Raw IDs");
+    expect(document.body.textContent).toContain("Task diagnostics");
+    expect(document.body.textContent).toContain("Run diagnostics");
+    expect(document.body.textContent).toContain(
+      "Implementation notes moved from default UI",
+    );
+    expect(document.body.textContent).toContain("Task logs");
+    expect(document.body.textContent).toContain("report-previews: 1");
+  });
+
+  it("renders details tabs without Developer details and keeps raw items in Debug", async () => {
     await render(
       <QueueV2Board
         tasks={[
@@ -396,6 +493,7 @@ describe("QueueV2Board", () => {
     );
 
     await openCardDetails("reported");
+    expect(document.body.textContent).not.toContain("Raw / developer details");
     await click(buttonWithText("Prompt"));
     expect(activePanel()?.textContent).toContain("Original prompt summary");
     await click(buttonWithText("Result"));
@@ -408,13 +506,8 @@ describe("QueueV2Board", () => {
     expect(activePanel()?.textContent).toContain("Context status");
     await click(buttonWithText("Files / Validation"));
     expect(activePanel()?.textContent).toContain("src/queue.ts");
-    await click(buttonWithText("Developer"));
-
-    const developerDetails = document.querySelector<HTMLDetailsElement>(
-      ".queue-v2-task-details-developer",
-    );
-    expect(developerDetails?.open).toBe(false);
-    expect(developerDetails?.textContent).toContain("Raw / developer details");
+    expect(dialogByName("Reported task")?.textContent).not.toContain("Raw report preview");
+    expect(dialogByName("Reported task")?.textContent).not.toContain("Raw / developer details");
   });
 
   it("renders validation command evidence with capped output in Files / Validation", async () => {
@@ -923,274 +1016,3 @@ describe("QueueV2Board", () => {
   });
 
 });
-
-async function render(element: ReactNode) {
-  container = document.createElement("div");
-  document.body.append(container);
-  root = createRoot(container);
-
-  await act(async () => {
-    root?.render(element);
-  });
-}
-
-async function click(element: Element | null) {
-  if (!element) {
-    throw new Error("Expected element to click.");
-  }
-
-  await act(async () => {
-    element.dispatchEvent(
-      new MouseEvent("click", { bubbles: true, cancelable: true }),
-    );
-  });
-}
-
-function card(taskId: string) {
-  return document.querySelector<HTMLElement>(
-    `[data-queue-item-id='${taskId}']`,
-  );
-}
-
-function cardActionsButton(taskId: string) {
-  return card(taskId)?.querySelector<HTMLButtonElement>(
-    ".queue-v2-card-details",
-  ) ?? null;
-}
-
-async function openCardDetails(taskId: string) {
-  await click(cardActionsButton(taskId));
-  await click(buttonWithText("Open details"));
-}
-
-function buttonWithText(text: string): HTMLButtonElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLButtonElement>("button")).find(
-      (button) => button.textContent === text,
-    ) ?? null
-  );
-}
-
-function dialogByName(name: string): HTMLElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLElement>("[role='dialog']")).find(
-      (dialog) => dialog.textContent?.includes(name),
-    ) ?? null
-  );
-}
-
-function menuByName(name: string): HTMLElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLElement>("[role='menu']")).find(
-      (menu) => menu.getAttribute("aria-label") === name,
-    ) ?? null
-  );
-}
-
-function buttonInRegion(
-  region: Element | null,
-  text: string,
-): HTMLButtonElement | null {
-  return (
-    Array.from(region?.querySelectorAll<HTMLButtonElement>("button") ?? []).find(
-      (button) => button.textContent === text,
-    ) ?? null
-  );
-}
-
-function activePanel() {
-  return document.querySelector<HTMLElement>("[role='tabpanel']");
-}
-
-async function keyDown(key: string) {
-  await act(async () => {
-    document.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key }));
-  });
-}
-
-async function flushAsync() {
-  await act(async () => {
-    await Promise.resolve();
-  });
-}
-
-function visibleCardOrder() {
-  return Array.from(document.querySelectorAll<HTMLElement>("[data-task-order-id]"))
-    .map((element) => element.dataset.taskOrderId);
-}
-
-function regionByName(name: string): HTMLElement | null {
-  return (
-    Array.from(document.querySelectorAll<HTMLElement>("section")).find(
-      (element) => element.getAttribute("aria-label") === name,
-    ) ?? null
-  );
-}
-
-function laneToggle(label: string): HTMLButtonElement | null {
-  return (
-    Array.from(
-      document.querySelectorAll<HTMLButtonElement>(
-        ".queue-v2-collapsible-lane-header",
-      ),
-    ).find((element) =>
-      element.getAttribute("aria-label")?.includes(`${label} lane`),
-    ) ?? null
-  );
-}
-
-function task(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
-  return {
-    approvalPolicy: "never",
-    assignedExecutorWidgetId: null,
-    assignedWorkerId: null,
-    closureState: undefined,
-    codexExecutable: "codex",
-    context: undefined,
-    coordinatorStatus: "not_reported",
-    createdAt: "2026-01-01T00:00:00.000Z",
-    dependsOn: [],
-    description: "Description",
-    executionPolicy: "manual",
-    executionWorkspace: "C:/work",
-    itemType: "implementation",
-    orderIndex: 0,
-    priority: 1,
-    prompt: "Do the work",
-    queueItemId: "task",
-    queueTagId: "default",
-    queueTagName: "Default",
-    sandbox: "danger_full_access",
-    status: "queued",
-    title: "Task",
-    updatedAt: "2026-01-01T00:00:00.000Z",
-    validationStatus: "not_started",
-    workerExecutionReports: [],
-    workspaceId: "workspace",
-    ...overrides,
-  };
-}
-
-function worker(overrides: Partial<AgentWorkerSummary> = {}): AgentWorkerSummary {
-  return {
-    currentItemId: null,
-    displayOrder: 0,
-    enabled: true,
-    lastReportSummary: null,
-    name: "Worker",
-    scope: { kind: "all" },
-    status: "idle",
-    workerId: "worker",
-    ...overrides,
-  };
-}
-
-function report(overrides: Partial<AgentQueueWorkerExecutionReport> = {}) {
-  return {
-    ...baseReport(),
-    ...overrides,
-  };
-}
-
-function baseReport() {
-  return {
-    changedFiles: [],
-    commandsRun: [],
-    createdAt: "2026-01-01T00:00:00.000Z",
-    errors: [],
-    itemId: "task",
-    reportId: "report",
-    reportStatus: "completed" as const,
-    summary: "Finished",
-    validationCommandsSuggested: [],
-    warnings: [],
-    workerId: "worker",
-  };
-}
-
-function validationRawPreview(hugeOutput: string) {
-  return [
-    "Validation evidence",
-    "Run: validation-run-1",
-    "Queue item: validated",
-    "Suite: queue-validation",
-    "Status: passed",
-    "Summary: one command passed",
-    "",
-    "Command: npm.cmd run test -- --run Validation (validation-1)",
-    "Status: passed",
-    "Exit code: 0",
-    "Duration: 42 ms",
-    "Cwd: C:/work",
-    `Stdout preview:\n${hugeOutput}`,
-    "Stderr preview:\nempty",
-    "Warnings: stdout was capped before Queue review.",
-    "Full log ref: HUGE_LOG_SENTINEL",
-  ].join("\n");
-}
-
-function validationRunner(): ValidationRunner {
-  return {
-    available: true,
-    run: vi.fn(),
-  };
-}
-
-function queueController({
-  onPromote = vi.fn(),
-  onRun = vi.fn(),
-  readinessMessage = null,
-  runCanStart = false,
-  selectedTask,
-  tasks,
-}: {
-  onPromote?: () => void;
-  onRun?: () => void;
-  readinessMessage?: string | null;
-  runCanStart?: boolean;
-  selectedTask: AgentQueueTask;
-  tasks: AgentQueueTask[];
-}): AgentQueueController {
-  return {
-    apiAvailable: true,
-    draftPromotion: {
-      canPromote: selectedTask.status === "draft",
-      isPromoting: false,
-      onPromote,
-    },
-    foundation: {
-      globalExecutionState: "started",
-      pausedQueueTagIds: new Set(),
-      workers: [worker()],
-    },
-    run: {
-      canStart: runCanStart,
-      isStarting: false,
-      onStartAssignedTask: onRun,
-      preconditionMessages: [],
-      readinessMessage,
-    },
-    selectedTask,
-    tasks,
-  } as unknown as AgentQueueController;
-}
-
-function promptPackPrompt() {
-  return [
-    "Build prompt body.",
-    "",
-    "Prompt pack materialization metadata",
-    "Pack: Core Pack (core-pack)",
-    "Block id: build",
-    "Prompt-pack dependencies: setup",
-    "Expected commit title: frontend: materialize prompt pack",
-    "Validation commands",
-    "- npm.cmd run typecheck --prefix apps/desktop/frontend",
-    "Allowed scope",
-    "- frontend only",
-    "Forbidden scope",
-    "- backend storage",
-    'Raw prompt-pack JSON was {"items":[{"id":"build"}]} and must not be shown as metadata.',
-    "Imported Queue items must not auto-run.",
-  ].join("\n");
-}

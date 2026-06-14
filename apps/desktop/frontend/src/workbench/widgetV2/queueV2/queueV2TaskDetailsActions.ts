@@ -13,8 +13,7 @@ export type QueueV2DetailsTab =
   | "agent-log"
   | "coordinator"
   | "context"
-  | "files-validation"
-  | "developer";
+  | "files-validation";
 
 type QueueV2TaskDetailsActionId =
   | "refresh"
@@ -28,8 +27,7 @@ type QueueV2TaskDetailsActionId =
   | "accept-without-commit"
   | "finalize"
   | "request-changes"
-  | "create-follow-up"
-  | "developer";
+  | "create-follow-up";
 
 export type QueueV2TaskDetailsAction = {
   disabled: boolean;
@@ -37,6 +35,7 @@ export type QueueV2TaskDetailsAction = {
   label: string;
   onClick: () => void;
   reason: string | undefined;
+  technicalReason?: string | undefined;
   variant: "primary" | "secondary" | "ghost";
 };
 
@@ -66,6 +65,9 @@ export function buildQueueV2TaskDetailsActions({
   const selectionReason = selectedTaskMismatch
     ? "Select this task to enable Queue actions."
     : undefined;
+  const selectionTechnicalReason = selectedTaskMismatch
+    ? "The selected task does not match the task driving controller actions."
+    : undefined;
   const actions: QueueV2TaskDetailsAction[] = [
     {
       disabled: !queue?.apiAvailable,
@@ -75,6 +77,9 @@ export function buildQueueV2TaskDetailsActions({
       reason: queue?.apiAvailable
         ? undefined
         : "Queue API is unavailable in this runtime.",
+      technicalReason: queue?.apiAvailable
+        ? undefined
+        : "Queue API bridge callbacks are not injected, so refresh is unavailable in this surface.",
       variant: "ghost",
     },
   ];
@@ -91,6 +96,13 @@ export function buildQueueV2TaskDetailsActions({
           ? "Queue tasks are still loading."
           : queue?.isCreating
             ? "A task is already being created."
+            : undefined,
+      technicalReason: !queue?.apiAvailable
+        ? "Task creation callbacks are not wired in this Queue surface."
+        : queue?.isLoading
+          ? "Queue task list loading has not completed yet."
+          : queue?.isCreating
+            ? "A create action is already in-flight."
             : undefined,
       variant: "secondary",
     });
@@ -114,6 +126,13 @@ export function buildQueueV2TaskDetailsActions({
           : queue?.draftPromotion?.canPromote
             ? undefined
             : "Save or cancel task edits before queuing this draft."),
+      technicalReason:
+        selectionTechnicalReason ??
+        (!hasQueueController
+          ? "Draft promotion requires the Queue task update bridge."
+          : queue?.draftPromotion?.canPromote
+            ? undefined
+            : "Current task draft is not editable into queue state yet."),
       variant: "primary",
     });
   }
@@ -143,6 +162,15 @@ export function buildQueueV2TaskDetailsActions({
             : queue?.run.isStarting
               ? "Queue task is currently starting."
               : undefined),
+      technicalReason:
+        selectionTechnicalReason ??
+        (!hasQueueController
+          ? "Task update actions require queue run controller callbacks."
+          : !workspaceRoot
+            ? "The popup lacks a usable workspace root to set this task field."
+            : queue?.run.isStarting
+              ? "Queue run state indicates startup flow in progress."
+              : undefined),
       variant: "secondary",
     });
   }
@@ -168,6 +196,15 @@ export function buildQueueV2TaskDetailsActions({
             : queue?.foundation.globalExecutionState === "started"
               ? "Queue is already enabled."
               : undefined),
+      technicalReason:
+        selectionTechnicalReason ??
+        (!hasQueueController
+          ? "Foundation queue control callbacks are not wired."
+          : missingCodex
+            ? "Task-level execution settings are missing codex executable."
+            : queue?.foundation.globalExecutionState === "started"
+              ? "Foundation already reports running scheduler state."
+              : undefined),
       variant: "primary",
     });
   }
@@ -190,6 +227,15 @@ export function buildQueueV2TaskDetailsActions({
             : queue?.run.readinessMessage ??
               queue?.run.preconditionMessages[0] ??
               "Run is unavailable for the selected task state."),
+      technicalReason:
+        selectionTechnicalReason ??
+        (!hasQueueController
+          ? "Run callbacks are not available for this task in this surface."
+          : queue?.run.canStart
+            ? undefined
+            : queue?.run.readinessMessage ??
+              queue?.run.preconditionMessages[0] ??
+              "Runtime checks in the controller blocked direct run."),
       variant: "primary",
     });
   }
@@ -207,32 +253,31 @@ export function buildQueueV2TaskDetailsActions({
       disabled:
         !hasQueueController ||
         selectedTaskMismatch ||
-        !Boolean(queue?.workerReport.canAttach),
+        !Boolean(queue?.workerReport?.canAttach),
       id: "attach-report",
       label: "Attach report",
-      onClick: () => queue?.workerReport.onAttachDemoReport(),
+      onClick: () => queue?.workerReport?.onAttachDemoReport(),
       reason:
         selectionReason ??
         (!hasQueueController
           ? "Queue report attachment is not wired in this view."
-          : queue?.workerReport.canAttach
+          : queue?.workerReport?.canAttach
             ? undefined
-            : queue?.workerReport.message ??
+            : queue?.workerReport?.message ??
               "Attach report is unavailable until report evidence exists."),
+      technicalReason:
+        selectionReason ??
+        (!hasQueueController
+          ? "Report attachment depends on a live Queue worker report controller bridge."
+          : queue?.workerReport?.canAttach
+            ? undefined
+            : queue?.workerReport?.message ??
+              "Report attachment is blocked until a worker report is attached to this task."),
       variant: "secondary",
     });
 
     actions.push(...coordinatorDecisionActions(queue, selectionReason));
   }
-
-  actions.push({
-    disabled: false,
-    id: "developer",
-    label: "Developer details",
-    onClick: () => onSelectTab("developer"),
-    reason: undefined,
-    variant: "ghost",
-  });
 
   return actions;
 }
@@ -264,47 +309,61 @@ function coordinatorDecisionActions(
   selectionReason: string | undefined,
 ): QueueV2TaskDetailsAction[] {
   const disabled =
-    !queue || Boolean(selectionReason) || !queue.coordinatorFinalization.canAct;
+    !queue ||
+    Boolean(selectionReason) ||
+    !queue.coordinatorFinalization?.canAct;
   const reason =
     selectionReason ??
     (!queue
       ? "Queue coordinator actions are not wired in this view."
-      : queue.coordinatorFinalization.canAct
+      : queue.coordinatorFinalization?.canAct
         ? undefined
-        : queue.coordinatorFinalization.message ??
+        : queue.coordinatorFinalization?.message ??
           "Coordinator decision actions are unavailable while the task is editing, saving, or creating.");
+  const technicalReason =
+    selectionReason ??
+    (!queue
+      ? "Coordinator decision controls are unavailable in this Queue runtime bridge."
+      : queue.coordinatorFinalization?.canAct
+        ? undefined
+        : queue.coordinatorFinalization?.message ??
+          "Coordinator state machine is currently blocked by edit or validation gates.");
 
   return [
     {
       disabled,
       id: "accept-without-commit",
       label: "Accept without commit",
-      onClick: () => queue?.coordinatorFinalization.onAcceptWithoutCommit(),
+      onClick: () => queue?.coordinatorFinalization?.onAcceptWithoutCommit(),
       reason,
+      technicalReason,
       variant: "secondary",
     },
     {
       disabled,
       id: "finalize",
       label: "Finalize / Accept",
-      onClick: () => queue?.coordinatorFinalization.onFinalize(),
+      onClick: () => queue?.coordinatorFinalization?.onFinalize(),
       reason,
+      technicalReason,
       variant: "secondary",
     },
     {
       disabled,
       id: "request-changes",
       label: "Request changes",
-      onClick: () => queue?.coordinatorFinalization.onMarkNeedsChanges(),
+      onClick: () => queue?.coordinatorFinalization?.onMarkNeedsChanges(),
       reason,
+      technicalReason,
       variant: "secondary",
     },
     {
       disabled,
       id: "create-follow-up",
       label: "Create follow-up",
-      onClick: () => queue?.coordinatorFinalization.onCreateFollowUp(),
+      onClick: () => queue?.coordinatorFinalization?.onCreateFollowUp(),
       reason,
+      technicalReason,
       variant: "secondary",
     },
   ];

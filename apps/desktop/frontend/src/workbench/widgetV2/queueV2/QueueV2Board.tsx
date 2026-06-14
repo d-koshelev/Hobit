@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { WidgetDebugPopup } from "../../../design-system/widget/WidgetDebugPopup";
 
 import type { AgentQueueTask } from "../../../workspace/types";
 import type {
@@ -17,8 +18,14 @@ import {
   type QueueWorkerSnapshot,
 } from "../../queue/queueV2ViewModel";
 import { QueueV2CollapsibleLane } from "./QueueV2CollapsibleLane";
+import { buildQueueV2DebugModel } from "./debug/queueV2DebugModel";
+import { QueueV2DebugContent } from "./debug/QueueV2DebugContent";
 import { QueueV2TaskCard } from "./QueueV2TaskCard";
 import { QueueV2TaskDetailsPopup } from "./QueueV2TaskDetailsPopup";
+import { buildQueueV2TaskDetailsActions } from "./queueV2TaskDetailsActions";
+import {
+  validationRequestDisabledReason,
+} from "./QueueV2ValidationEvidenceSection";
 
 type QueueV2BoardProps = {
   autorunArmed?: boolean;
@@ -68,7 +75,9 @@ export function QueueV2Board({
     initialSelectedTaskId,
   );
   const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
+  const [debugTaskId, setDebugTaskId] = useState<string | null>(null);
   const detailsReturnFocusRef = useRef<HTMLButtonElement | null>(null);
+  const debugReturnFocusRef = useRef<HTMLButtonElement | null>(null);
   const viewModelSelectedTaskId = detailsTaskId ?? selectedTaskId;
   const board = useMemo(
     () =>
@@ -106,6 +115,13 @@ export function QueueV2Board({
     onSelectedTaskChange?.(taskId);
   }
 
+  function openTaskDebug(taskId: string, sourceButton: HTMLButtonElement | null) {
+    debugReturnFocusRef.current = sourceButton;
+    setSelectedTaskId(taskId);
+    setDebugTaskId(taskId);
+    onSelectedTaskChange?.(taskId);
+  }
+
   function openLinkedTaskDetails(taskId: string) {
     setSelectedTaskId(taskId);
     setDetailsTaskId(taskId);
@@ -116,6 +132,41 @@ export function QueueV2Board({
     detailsTaskId && board.inspector
       ? board.tasks.find((item) => item.taskId === detailsTaskId) ?? null
       : null;
+  const debugTaskViewModel =
+    debugTaskId && board.inspector
+      ? board.tasks.find((item) => item.taskId === debugTaskId) ?? null
+      : null;
+  const debugActions = useMemo(
+    () =>
+      buildQueueV2TaskDetailsActions({
+        currentWorkspaceRoot,
+        inspector: board.inspector,
+        onRequestNewTask: undefined,
+        onSelectTab: () => undefined,
+        queue,
+        task: debugTaskViewModel?.task ?? null,
+      }),
+    [board.inspector, currentWorkspaceRoot, debugTaskViewModel?.task, queue],
+  );
+  const debugModel =
+    debugTaskViewModel && board.inspector
+      ? buildQueueV2DebugModel({
+          currentWorkspaceRoot,
+          inspector: board.inspector,
+          queue,
+          task: debugTaskViewModel.task,
+          taskActions: debugActions,
+          validationDisabledReason: validationRequestDisabledReason({
+            onRequestValidation,
+            task: debugTaskViewModel.task,
+            validationRunner,
+          }),
+        })
+      : null;
+
+  function closeDebugPopup() {
+    setDebugTaskId(null);
+  }
 
   return (
     <section aria-label="Queue v2 board" className="queue-v2-board">
@@ -127,6 +178,7 @@ export function QueueV2Board({
             label={lane.label}
             lane={lane.id}
             onOpenTaskDetails={openTaskDetails}
+            onOpenTaskDebug={openTaskDebug}
             onSelectTask={selectTask}
             selectedTaskId={selectedTaskId}
           />
@@ -134,6 +186,7 @@ export function QueueV2Board({
 
         <QueueV2RunningLane
           groups={runningGroups}
+          onOpenTaskDebug={openTaskDebug}
           onOpenTaskDetails={openTaskDetails}
           onSelectTask={selectTask}
           selectedTaskId={selectedTaskId}
@@ -146,6 +199,7 @@ export function QueueV2Board({
             label={lane.label}
             lane={lane.id}
             onOpenTaskDetails={openTaskDetails}
+            onOpenTaskDebug={openTaskDebug}
             onSelectTask={selectTask}
             selectedTaskId={selectedTaskId}
           />
@@ -154,6 +208,7 @@ export function QueueV2Board({
         <QueueV2ClosedLane
           items={board.lanes.closed}
           onOpenTaskDetails={openTaskDetails}
+          onOpenTaskDebug={openTaskDebug}
           onSelectTask={selectTask}
           selectedTaskId={selectedTaskId}
         />
@@ -170,6 +225,18 @@ export function QueueV2Board({
         taskViewModel={detailTaskViewModel}
         validationRunner={validationRunner}
       />
+      <WidgetDebugPopup
+        open={debugTaskId !== null}
+        returnFocusRef={debugReturnFocusRef}
+        onClose={closeDebugPopup}
+        title={
+          debugTaskViewModel
+            ? `${debugTaskViewModel.task.title} - Queue runtime details`
+            : "Queue runtime details"
+        }
+      >
+        {debugModel ? <QueueV2DebugContent model={debugModel} /> : null}
+      </WidgetDebugPopup>
     </section>
   );
 }
@@ -179,6 +246,7 @@ function QueueV2Lane({
   label,
   lane,
   onOpenTaskDetails,
+  onOpenTaskDebug,
   onSelectTask,
   selectedTaskId,
 }: {
@@ -189,6 +257,7 @@ function QueueV2Lane({
     taskId: string,
     sourceButton: HTMLButtonElement | null,
   ) => void;
+  onOpenTaskDebug: (taskId: string, sourceButton: HTMLButtonElement | null) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -204,6 +273,7 @@ function QueueV2Lane({
         items={items}
         limit={DEFAULT_VISIBLE_CARD_LIMIT}
         onOpenTaskDetails={onOpenTaskDetails}
+        onOpenTaskDebug={onOpenTaskDebug}
         onSelectTask={onSelectTask}
         selectedTaskId={selectedTaskId}
       />
@@ -214,6 +284,7 @@ function QueueV2Lane({
 function QueueV2RunningLane({
   groups,
   onOpenTaskDetails,
+  onOpenTaskDebug,
   onSelectTask,
   selectedTaskId,
 }: {
@@ -222,6 +293,7 @@ function QueueV2RunningLane({
     taskId: string,
     sourceButton: HTMLButtonElement | null,
   ) => void;
+  onOpenTaskDebug: (taskId: string, sourceButton: HTMLButtonElement | null) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -254,6 +326,7 @@ function QueueV2RunningLane({
                 items={group.items}
                 limit={RUNNING_VISIBLE_CARD_LIMIT}
                 onOpenTaskDetails={onOpenTaskDetails}
+                onOpenTaskDebug={onOpenTaskDebug}
                 onSelectTask={onSelectTask}
                 selectedTaskId={selectedTaskId}
               />
@@ -268,6 +341,7 @@ function QueueV2RunningLane({
 function QueueV2ClosedLane({
   items,
   onOpenTaskDetails,
+  onOpenTaskDebug,
   onSelectTask,
   selectedTaskId,
 }: {
@@ -276,6 +350,7 @@ function QueueV2ClosedLane({
     taskId: string,
     sourceButton: HTMLButtonElement | null,
   ) => void;
+  onOpenTaskDebug: (taskId: string, sourceButton: HTMLButtonElement | null) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -292,13 +367,14 @@ function QueueV2ClosedLane({
     >
       <div className="queue-v2-closed-history">
         <QueueV2CardStack
-          emptyLabel="No closed tasks"
-          items={items}
-          limit={CLOSED_VISIBLE_CARD_LIMIT}
-          onOpenTaskDetails={onOpenTaskDetails}
-          onSelectTask={onSelectTask}
-          selectedTaskId={selectedTaskId}
-        />
+        emptyLabel="No closed tasks"
+        items={items}
+        limit={CLOSED_VISIBLE_CARD_LIMIT}
+        onOpenTaskDetails={onOpenTaskDetails}
+        onOpenTaskDebug={onOpenTaskDebug}
+        onSelectTask={onSelectTask}
+        selectedTaskId={selectedTaskId}
+      />
       </div>
     </QueueV2CollapsibleLane>
   );
@@ -309,6 +385,7 @@ function QueueV2CardStack({
   items,
   limit,
   onOpenTaskDetails,
+  onOpenTaskDebug,
   onSelectTask,
   selectedTaskId,
 }: {
@@ -319,6 +396,7 @@ function QueueV2CardStack({
     taskId: string,
     sourceButton: HTMLButtonElement | null,
   ) => void;
+  onOpenTaskDebug: (taskId: string, sourceButton: HTMLButtonElement | null) => void;
   onSelectTask: (taskId: string) => void;
   selectedTaskId: string | null;
 }) {
@@ -341,6 +419,7 @@ function QueueV2CardStack({
           isSelected={selectedTaskId === item.taskId}
           item={item}
           key={item.taskId}
+          onOpenDebug={onOpenTaskDebug}
           onOpenDetails={onOpenTaskDetails}
           onSelect={onSelectTask}
         />

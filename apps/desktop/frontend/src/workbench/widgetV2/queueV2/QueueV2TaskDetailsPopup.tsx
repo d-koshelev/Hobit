@@ -71,7 +71,6 @@ const TABS: { id: QueueV2DetailsTab; label: string }[] = [
   { id: "coordinator", label: "Coordinator" },
   { id: "context", label: "Context" },
   { id: "files-validation", label: "Files / Validation" },
-  { id: "developer", label: "Developer" },
 ];
 
 export function QueueV2TaskDetailsPopup({
@@ -363,13 +362,6 @@ export function QueueV2TaskDetailsPopup({
               validationRequestState={validationRequestState}
             />
           ) : null}
-          {activeTab === "developer" ? (
-            <DeveloperSection
-              inspector={inspector}
-              latestReport={latestReport}
-              task={task}
-            />
-          ) : null}
         </section>
       </article>
     </WidgetPopupShell>
@@ -467,7 +459,7 @@ function AgentLogSection({ events }: { events: string[] }) {
   return (
     <div className="queue-v2-task-details-section">
       <p className="queue-v2-task-details-note">
-        High-level task timeline only. Raw events and payloads are kept in Developer.
+        High-level task timeline only. Raw events and payloads are shown in Debug.
       </p>
       <EventList events={events} />
     </div>
@@ -516,38 +508,6 @@ function ContextSection({ task }: { task: AgentQueueTask }) {
         items={context?.contextWarnings.map((warning) => warning.message) ?? []}
         label="Warnings"
       />
-    </div>
-  );
-}
-
-function DeveloperSection({ inspector, latestReport, task }: {
-  inspector: QueueInspectorSnapshot;
-  latestReport: AgentQueueWorkerExecutionReport | null;
-  task: AgentQueueTask;
-}) {
-  return (
-    <div className="queue-v2-task-details-section">
-      <details className="queue-v2-task-details-developer">
-        <summary>Raw / developer details</summary>
-        <dl className="queue-v2-task-details-facts">
-          <DetailFact label="Task id" value={task.queueItemId} />
-          <DetailFact label="Workspace id" value={task.workspaceId} />
-          <DetailFact label="Latest report id" value={latestReport?.reportId ?? "None"} />
-          <DetailFact
-            label="Compatible workers"
-            value={
-              inspector.workerAssignment.compatibleWorkerIds.length
-                ? inspector.workerAssignment.compatibleWorkerIds.join(", ")
-                : "None"
-            }
-          />
-        </dl>
-        <DetailBlock
-          label="Raw report preview"
-          value={latestReport?.rawReportPreview ?? "No raw report preview recorded."}
-          mono
-        />
-      </details>
     </div>
   );
 }

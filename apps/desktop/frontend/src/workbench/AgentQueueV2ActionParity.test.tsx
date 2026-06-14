@@ -109,8 +109,7 @@ describe("Agent QueueV2 action parity", () => {
     expect(activePanel()?.textContent).toContain("Context");
     await clickButtonAsync("Files / Validation");
     expect(activePanel()?.textContent).toContain("Validation");
-    await clickButtonAsync("Developer");
-    expect(activePanel()?.textContent).toContain("Raw / developer details");
+    expect(dialogByName("Details task")?.textContent).not.toContain("Raw / developer details");
   });
 
   it("card click opens details without running or mutating the task order", async () => {

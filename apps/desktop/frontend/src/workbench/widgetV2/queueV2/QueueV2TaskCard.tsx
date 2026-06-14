@@ -20,6 +20,7 @@ import { queueV2CoordinatorFinalizationView } from "./queueV2CoordinatorFinaliza
 type QueueV2TaskCardProps = {
   item: QueueTaskViewModel;
   isSelected: boolean;
+  onOpenDebug: (taskId: string, sourceButton: HTMLButtonElement | null) => void;
   onOpenDetails: (taskId: string, sourceButton: HTMLButtonElement | null) => void;
   onSelect: (taskId: string) => void;
 };
@@ -27,6 +28,7 @@ type QueueV2TaskCardProps = {
 export function QueueV2TaskCard({
   isSelected,
   item,
+  onOpenDebug,
   onOpenDetails,
   onSelect,
 }: QueueV2TaskCardProps) {
@@ -43,6 +45,11 @@ export function QueueV2TaskCard({
       id: "open-details",
       label: "Open details",
       onSelect: (sourceButton) => onOpenDetails(item.taskId, sourceButton ?? null),
+    },
+    {
+      id: "open-debug",
+      label: "Debug details",
+      onSelect: (sourceButton) => onOpenDebug(item.taskId, sourceButton ?? null),
     },
   ];
 
