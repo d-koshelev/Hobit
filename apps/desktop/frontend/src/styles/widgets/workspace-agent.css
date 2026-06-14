@@ -1,7 +1,7 @@
 .workspace-agent-run-config {
   display: flex;
   min-width: 0;
-  flex: 1 1 420px;
+  flex: 0 1 auto;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
@@ -12,14 +12,11 @@
   min-width: 0;
   align-items: center;
   gap: var(--scaled-space-2xs);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--radius-sm);
-  background: var(--color-io-surface);
-  padding: var(--scaled-space-2xs) var(--space-xs);
+  min-height: calc(22px * var(--ui-scale));
 }
 
 .workspace-agent-run-config-provider {
-  flex: 1 1 260px;
+  flex: 0 0 auto;
 }
 
 .workspace-agent-run-config-label {
@@ -33,7 +30,7 @@
 .workspace-agent-run-config-value {
   min-width: 0;
   overflow: hidden;
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-size: var(--text-xs);
   font-weight: 740;
   line-height: var(--line-tight);
@@ -41,46 +38,31 @@
   white-space: nowrap;
 }
 
-.workspace-agent-provider-options {
-  display: inline-flex;
-  min-width: 0;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--scaled-space-2xs);
-}
-
-.workspace-agent-provider-option {
-  min-height: 22px;
-  max-width: 180px;
-  overflow: hidden;
+.workspace-agent-provider-select.select {
+  min-width: calc(96px * var(--ui-scale));
+  width: auto;
+  max-width: calc(170px * var(--ui-scale));
+  min-height: calc(22px * var(--ui-scale));
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--color-text-muted);
-  cursor: default;
-  padding: 0 var(--space-xs);
+  background: var(--color-widget-surface-raised);
+  color: var(--color-text-primary);
+  padding: 0 calc(6px * var(--ui-scale));
   font-size: var(--text-xs);
   font-weight: 700;
   line-height: var(--line-tight);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
-.workspace-agent-provider-option[data-active="true"] {
-  border-color: var(--color-selected-border);
-  background: var(--color-selected-surface);
-  color: var(--color-text-primary);
-}
-
-.workspace-agent-provider-option[data-runnable="false"] {
-  opacity: 0.72;
+.workspace-agent-run-config-readonly {
+  cursor: default;
 }
 
 @media (max-width: 760px) {
-  .workspace-agent-run-config,
-  .workspace-agent-run-config-item,
-  .workspace-agent-run-config-provider,
-  .workspace-agent-provider-options {
+  .workspace-agent-run-config {
     width: 100%;
+  }
+
+  .workspace-agent-run-config-provider {
+    flex: 1 1 auto;
   }
 }

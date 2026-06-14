@@ -44,24 +44,28 @@ export const WORKSPACE_AGENT_DEFAULT_RUN_CONFIG: WorkspaceAgentRunConfig = {
 export function workspaceAgentStatusLabel(
   status: CoordinatorDirectWorkStatus | WorkspaceAgentV2Status,
 ): string {
-  if (status === "preparing" || status === "materializing_context") {
-    return "Starting";
-  }
-
-  if (status === "running") {
+  if (
+    status === "preparing" ||
+    status === "materializing_context" ||
+    status === "running"
+  ) {
     return "Running";
   }
 
+  if (status === "completed") {
+    return "Completed";
+  }
+
   if (status === "failed") {
-    return "Failed";
+    return "Error";
+  }
+
+  if (status === "unsupported") {
+    return "Blocked";
   }
 
   if (status === "cancelled") {
     return "Cancelled";
-  }
-
-  if (status === "unsupported") {
-    return "Unsupported";
   }
 
   return "Ready";

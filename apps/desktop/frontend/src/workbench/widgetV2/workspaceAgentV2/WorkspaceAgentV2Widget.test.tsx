@@ -55,8 +55,8 @@ describe("WorkspaceAgentV2Widget", () => {
     expect(document.body.textContent).toContain("Status");
     expect(document.body.textContent).toContain("Provider");
     expect(document.body.textContent).toContain("Codex");
-    expect(document.body.textContent).toContain("Claude: Not connected");
-    expect(document.body.textContent).toContain("Amp: Not connected");
+    expect(document.body.textContent).toContain("Claude Not connected");
+    expect(document.body.textContent).toContain("Amp Not connected");
     expect(document.body.textContent).toContain("Model");
     expect(document.body.textContent).toContain("gpt-5.5");
     expect(document.body.textContent).toContain("Reasoning");
@@ -86,17 +86,11 @@ describe("WorkspaceAgentV2Widget", () => {
       />,
     );
 
-    expect(providerOption("Codex")?.getAttribute("aria-current")).toBe("true");
-    expect(providerOption("Codex")?.getAttribute("aria-disabled")).toBe(
-      "false",
-    );
-    expect(
-      providerOption("Claude: Not connected")?.getAttribute("aria-disabled"),
-    ).toBe("true");
-    expect(
-      providerOption("Amp: Not connected")?.getAttribute("aria-disabled"),
-    ).toBe("true");
-    expect(providerOption("Amp: Not connected")?.title).toBe(
+    expect(providerSelect()?.value).toBe("codex");
+    expect(providerOption("Codex")?.disabled).toBe(false);
+    expect(providerOption("Claude Not connected")?.disabled).toBe(true);
+    expect(providerOption("Amp Not connected")?.disabled).toBe(true);
+    expect(providerOption("Amp Not connected")?.title).toBe(
       "Amp is unavailable: Not connected.",
     );
     expect(
@@ -431,11 +425,17 @@ function buttonWithText(text: string): HTMLButtonElement | null {
   );
 }
 
-function providerOption(text: string): HTMLElement | null {
+function providerSelect(): HTMLSelectElement | null {
+  return document.querySelector<HTMLSelectElement>(
+    'select[aria-label="Workspace Agent provider"]',
+  );
+}
+
+function providerOption(text: string): HTMLOptionElement | null {
   return (
     Array.from(
-      document.querySelectorAll<HTMLElement>(
-        ".workspace-agent-provider-option",
+      document.querySelectorAll<HTMLOptionElement>(
+        'select[aria-label="Workspace Agent provider"] option',
       ),
     ).find((option) => option.textContent === text) ?? null
   );

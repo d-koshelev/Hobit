@@ -26,8 +26,8 @@ describe("WorkspaceAgentStatusPanel", () => {
     expect(document.body.textContent).toContain("Provider");
     expect(document.body.textContent).not.toContain("Agent");
     expect(document.body.textContent).toContain("Codex");
-    expect(document.body.textContent).toContain("Claude: Not connected");
-    expect(document.body.textContent).toContain("Amp: Not connected");
+    expect(document.body.textContent).toContain("Claude Not connected");
+    expect(document.body.textContent).toContain("Amp Not connected");
     expect(document.body.textContent).toContain("Model");
     expect(document.body.textContent).toContain("gpt-5.5");
     expect(document.body.textContent).toContain("Reasoning");
@@ -37,24 +37,20 @@ describe("WorkspaceAgentStatusPanel", () => {
       document.querySelector('[aria-label="Workspace Agent run configuration"]'),
     ).not.toBeNull();
     expect(
-      document.querySelector('[aria-label="Workspace Agent provider options"]'),
+      document.querySelector('[aria-label="Workspace Agent provider"]'),
     ).not.toBeNull();
   });
 
   it("keeps unsupported providers visible but not runnable", () => {
     render(<WorkspaceAgentHeaderStatus status="idle" />);
 
-    expect(providerOption("Codex")?.getAttribute("aria-current")).toBe("true");
-    expect(providerOption("Codex")?.getAttribute("aria-disabled")).toBe(
-      "false",
-    );
-    expect(
-      providerOption("Claude: Not connected")?.getAttribute("aria-disabled"),
-    ).toBe("true");
-    expect(
-      providerOption("Amp: Not connected")?.getAttribute("aria-disabled"),
-    ).toBe("true");
-    expect(providerOption("Claude: Not connected")?.title).toBe(
+    const provider = providerSelect();
+
+    expect(provider?.value).toBe("codex");
+    expect(providerOption("Codex")?.disabled).toBe(false);
+    expect(providerOption("Claude Not connected")?.disabled).toBe(true);
+    expect(providerOption("Amp Not connected")?.disabled).toBe(true);
+    expect(providerOption("Claude Not connected")?.title).toBe(
       "Claude is unavailable: Not connected.",
     );
     expect(
@@ -62,12 +58,71 @@ describe("WorkspaceAgentStatusPanel", () => {
     ).toBeNull();
   });
 
-  it("renders Running and Failed states", () => {
+  it("renders Running, Completed, Blocked, and Error states", () => {
     render(<WorkspaceAgentHeaderStatus status="running" />);
     expect(document.body.textContent).toContain("Running");
 
+    render(<WorkspaceAgentHeaderStatus status="completed" />);
+    expect(document.body.textContent).toContain("Completed");
+
+    render(<WorkspaceAgentHeaderStatus status="unsupported" />);
+    expect(document.body.textContent).toContain("Blocked");
+
     render(<WorkspaceAgentHeaderStatus status="failed" />);
-    expect(document.body.textContent).toContain("Failed");
+    expect(document.body.textContent).toContain("Error");
+  });
+
+  it("shows model and reasoning as read-only header settings", () => {
+    render(<WorkspaceAgentHeaderStatus status="idle" />);
+
+    expect(setting("model")?.textContent).toContain("Model:gpt-5.5");
+    expect(setting("reasoning")?.textContent).toContain("Reasoning:medium");
+    expect(setting("model")?.getAttribute("aria-readonly")).toBe("true");
+    expect(setting("reasoning")?.getAttribute("aria-readonly")).toBe("true");
+    expect(
+      document.querySelector(
+        'button[aria-label="Workspace Agent model setting"]',
+      ),
+    ).toBeNull();
+    expect(
+      document.querySelector(
+        'button[aria-label="Workspace Agent reasoning setting"]',
+      ),
+    ).toBeNull();
+  });
+
+  it("updates reasoning when the next run config changes", () => {
+    render(<WorkspaceAgentHeaderStatus status="idle" />);
+    expect(setting("reasoning")?.textContent).toContain("medium");
+
+    render(
+      <WorkspaceAgentHeaderStatus
+        runConfig={{
+          model: "gpt-5.5",
+          providerId: "codex",
+          providers: [
+            { id: "codex", label: "Codex", runnable: true },
+            {
+              id: "claude",
+              label: "Claude",
+              productReason: "Not connected",
+              runnable: false,
+            },
+            {
+              id: "amp",
+              label: "Amp",
+              productReason: "Not connected",
+              runnable: false,
+            },
+          ],
+          reasoning: "high",
+        }}
+        status="idle"
+      />,
+    );
+
+    expect(setting("reasoning")?.textContent).toContain("high");
+    expect(setting("reasoning")?.textContent).not.toContain("medium");
   });
 
   it("does not render normal-view Agent details diagnostics", () => {
@@ -236,10 +291,22 @@ function buttonWithText(text: string): HTMLButtonElement | undefined {
   );
 }
 
-function providerOption(text: string): HTMLElement | undefined {
+function providerSelect(): HTMLSelectElement | null {
+  return document.querySelector<HTMLSelectElement>(
+    'select[aria-label="Workspace Agent provider"]',
+  );
+}
+
+function providerOption(text: string): HTMLOptionElement | undefined {
   return Array.from(
-    document.querySelectorAll<HTMLElement>(
-      ".workspace-agent-provider-option",
+    document.querySelectorAll<HTMLOptionElement>(
+      'select[aria-label="Workspace Agent provider"] option',
     ),
   ).find((option) => option.textContent === text);
+}
+
+function setting(name: "model" | "reasoning"): HTMLElement | null {
+  return document.querySelector<HTMLElement>(
+    `[aria-label="Workspace Agent ${name} setting"]`,
+  );
 }

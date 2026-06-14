@@ -20,7 +20,7 @@ export function WorkspaceAgentHeaderStatus({
   onPromptPackImportClick?: () => void;
   onPromptExampleClick?: (prompt: string) => void;
   promptExamples?: WorkspaceAgentSuggestedPrompt[];
-  status: CoordinatorDirectWorkStatus;
+  status: CoordinatorDirectWorkStatus | WorkspaceAgentStatusValue;
 }) {
   const promptExamplesButtonRef = useRef<HTMLButtonElement | null>(null);
   const promptExamplesTitleId = useId();
@@ -112,3 +112,8 @@ export function WorkspaceAgentHeaderStatus({
     </div>
   );
 }
+
+type WorkspaceAgentStatusValue =
+  | "preparing"
+  | "materializing_context"
+  | "unsupported";

@@ -1,4 +1,6 @@
+import { useId } from "react";
 import { Badge } from "../design-system/Badge";
+import { Select } from "../design-system";
 import type { CoordinatorDirectWorkStatus } from "./workspaceAgentDirectWorkModel";
 import {
   WORKSPACE_AGENT_DEFAULT_RUN_CONFIG,
@@ -14,6 +16,8 @@ export function WorkspaceAgentRunConfigStrip({
   readonly config?: WorkspaceAgentRunConfig;
   readonly status: CoordinatorDirectWorkStatus | WorkspaceAgentV2Status;
 }) {
+  const providerSelectId = useId();
+
   return (
     <div
       aria-label="Workspace Agent run configuration"
@@ -26,38 +30,41 @@ export function WorkspaceAgentRunConfigStrip({
         </Badge>
       </div>
       <div className="workspace-agent-run-config-item workspace-agent-run-config-provider">
-        <span className="workspace-agent-run-config-label">Provider</span>
-        <div
-          aria-label="Workspace Agent provider options"
-          className="workspace-agent-provider-options"
-          role="list"
+        <label
+          className="workspace-agent-run-config-label"
+          htmlFor={providerSelectId}
+        >
+          Provider
+        </label>
+        <Select
+          aria-label="Workspace Agent provider"
+          className="workspace-agent-provider-select"
+          id={providerSelectId}
+          onChange={() => undefined}
+          value={config.providerId}
         >
           {config.providers.map((provider) => {
-            const isActive = provider.id === config.providerId;
             const label = provider.runnable
               ? provider.label
-              : `${provider.label}: ${provider.productReason ?? "Unavailable"}`;
+              : `${provider.label} ${provider.productReason ?? "unavailable"}`;
 
             return (
-              <span
+              <option
                 aria-disabled={!provider.runnable}
-                aria-current={isActive ? "true" : undefined}
-                className="workspace-agent-provider-option"
-                data-active={isActive ? "true" : "false"}
-                data-runnable={provider.runnable ? "true" : "false"}
+                disabled={!provider.runnable}
                 key={provider.id}
-                role="listitem"
                 title={
                   provider.runnable
                     ? `${provider.label} is the active Workspace Agent provider.`
                     : `${provider.label} is unavailable: ${provider.productReason ?? "Unavailable"}.`
                 }
+                value={provider.id}
               >
                 {label}
-              </span>
+              </option>
             );
           })}
-        </div>
+        </Select>
       </div>
       <ConfigValue label="Model" value={config.model} />
       <ConfigValue label="Reasoning" value={config.reasoning} />
@@ -73,8 +80,13 @@ function ConfigValue({
   readonly value: string;
 }) {
   return (
-    <div className="workspace-agent-run-config-item">
-      <span className="workspace-agent-run-config-label">{label}</span>
+    <div
+      aria-label={`Workspace Agent ${label.toLowerCase()} setting`}
+      aria-readonly="true"
+      className="workspace-agent-run-config-item workspace-agent-run-config-readonly"
+      title={`${label} is read-only in this header. Run details show the active configuration.`}
+    >
+      <span className="workspace-agent-run-config-label">{label}:</span>
       <span className="workspace-agent-run-config-value">{value}</span>
     </div>
   );
