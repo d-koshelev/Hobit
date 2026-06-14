@@ -97,6 +97,16 @@ Queue product styles have one clear selector namespace and one clear file
 home. This should be a structure/style-ownership cleanup, not a visual
 redesign.
 
+Current ownership after cleanup:
+
+- `apps/desktop/frontend/src/styles/agent-queue.css` owns the active Agent
+  Queue product namespaces: `.agent-queue-*` and `.agent-queue-v2-*`.
+- `apps/desktop/frontend/src/styles/widget-v2-queue.css` owns the
+  compatibility/smoke WidgetV2 Queue namespace: `.queue-v2-*`.
+- Active product CSS may reference `.queue-v2-*` only as a scoped adapter under
+  an `.agent-queue-v2-*` parent when `AgentQueueV2Board` intentionally reuses a
+  WidgetV2 Queue component such as `QueueV2CollapsibleLane`.
+
 ### Compatibility Surface Isolation
 
 Move compatibility and deprecated widget wiring behind explicit compatibility

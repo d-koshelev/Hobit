@@ -1,3 +1,18 @@
+/*
+ * Active Agent Queue product styles.
+ *
+ * The saved-compatible product route is:
+ * WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board.
+ *
+ * This file owns the active Queue product namespace:
+ * .agent-queue-* and .agent-queue-v2-*.
+ *
+ * The .queue-v2-* namespace is owned by widget-v2-queue.css for the
+ * WidgetV2 compatibility/smoke surface. Keep any .queue-v2-* selector here
+ * scoped under an .agent-queue-v2-* parent only when the active product board
+ * intentionally reuses a WidgetV2 Queue component.
+ */
+
 .agent-queue-product-shell {
   display: grid;
   flex: 1 1 auto;
@@ -537,6 +552,13 @@
   scrollbar-width: thin;
 }
 
+/*
+ * Active product scoped adapter for QueueV2CollapsibleLane.
+ * QueueV2CollapsibleLane emits internal .queue-v2-collapsible-lane-* classes;
+ * AgentQueueV2Board provides the owning .agent-queue-v2-lane parent and this
+ * file controls the active product appearance without taking over the wider
+ * .queue-v2-* compatibility namespace.
+ */
 .agent-queue-v2-lane .queue-v2-collapsible-lane-header {
   display: flex;
   width: 100%;

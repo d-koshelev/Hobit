@@ -1,3 +1,17 @@
+/*
+ * WidgetV2 Queue compatibility/smoke styles.
+ *
+ * This file owns the .queue-v2-* namespace used by
+ * workbench/widgetV2/queueV2/QueueV2Widget and related smoke/regression
+ * coverage. The active Agent Queue product route uses AgentQueueV2Board and
+ * keeps product-owned .agent-queue-v2-* styles in agent-queue.css.
+ *
+ * Shared QueueV2 components may still be imported by the active product board.
+ * When that happens, active product overrides must stay scoped under an
+ * .agent-queue-v2-* parent in agent-queue.css rather than adding unscoped
+ * active product rules here.
+ */
+
 .queue-v2-board {
   display: grid;
   min-width: 0;
