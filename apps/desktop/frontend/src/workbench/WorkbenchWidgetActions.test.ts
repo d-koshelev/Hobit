@@ -6,8 +6,11 @@ import type { WidgetInstance, WorkbenchViewState } from "./types";
 import { createWorkspaceWidgetActions } from "./workspaceWidgetActions";
 import {
   canCreateWidgetInstance,
+  computeDuplicateQueueViewRepair,
+  identifyQueueViews,
   isQueueWidgetDefinition,
   resolveSingletonWidgetCreate,
+  selectCanonicalQueueView,
 } from "./workspaceSingletonWidgets";
 import {
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
@@ -107,6 +110,63 @@ describe("workspace singleton widget create resolution", () => {
     expect(
       canCreateWidgetInstance([notesWidget()], NOTES_WIDGET_DEFINITION_ID),
     ).toBe(true);
+  });
+
+  it("detects and repairs duplicate persisted Queue views without touching other widgets", () => {
+    const queueDomainState = { selectedTaskId: "task_1" };
+    const canonicalQueue = queueWidget({
+      id: "queue_canonical",
+      order: 1,
+      state: queueDomainState,
+    });
+    const duplicateQueue = queueWidget({
+      id: "queue_duplicate",
+      order: 2,
+      state: { selectedTaskId: "task_2" },
+    });
+    const notes = notesWidget();
+
+    const repair = computeDuplicateQueueViewRepair([
+      duplicateQueue,
+      notes,
+      canonicalQueue,
+    ]);
+
+    expect(identifyQueueViews(repair.repairedWidgets)).toHaveLength(2);
+    expect(repair.canonicalQueueView).toBe(canonicalQueue);
+    expect(repair.duplicateQueueViewIds).toEqual(["queue_duplicate"]);
+    expect(repair.repairedWidgets).toEqual([
+      expect.objectContaining({ id: "queue_duplicate", visible: false }),
+      notes,
+      expect.objectContaining({ id: "queue_canonical", visible: true }),
+    ]);
+    expect(repair.repairedWidgets[2].state).toBe(queueDomainState);
+  });
+
+  it("selects the canonical Queue view deterministically from visible/order/geometry/id", () => {
+    const hiddenEarly = queueWidget({
+      id: "queue_hidden",
+      order: 0,
+      visible: false,
+      x: 0,
+      y: 0,
+    });
+    const visibleLater = queueWidget({
+      id: "queue_b",
+      order: 2,
+      x: 0,
+      y: 0,
+    });
+    const visibleEarlier = queueWidget({
+      id: "queue_a",
+      order: 2,
+      x: 0,
+      y: 0,
+    });
+
+    expect(
+      selectCanonicalQueueView([hiddenEarly, visibleLater, visibleEarlier]),
+    ).toBe(visibleEarlier);
   });
 });
 
@@ -465,6 +525,7 @@ function workbenchViewState(
 function queueWidget(
   overrides: Partial<WidgetInstance> & {
     order?: number;
+    state?: WidgetInstance["state"];
     visible?: boolean;
     x?: number;
     y?: number;
@@ -474,6 +535,7 @@ function queueWidget(
     definitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
     id: overrides.id ?? "widget_queue_1",
     order: overrides.order,
+    state: overrides.state,
     title: "Agent Queue",
     visible: overrides.visible,
     x: overrides.x,
@@ -501,12 +563,14 @@ function widget({
   definitionId,
   id,
   order = 0,
+  state = {},
   title,
   visible = true,
   x = 0,
   y = 0,
 }: Pick<WidgetInstance, "definitionId" | "id" | "title"> & {
   order?: number;
+  state?: WidgetInstance["state"];
   visible?: boolean;
   x?: number;
   y?: number;
@@ -524,7 +588,7 @@ function widget({
       x,
       y,
     },
-    state: {},
+    state,
     title,
     visible,
   };

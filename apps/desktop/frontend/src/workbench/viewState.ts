@@ -1,6 +1,5 @@
 import type { WorkspaceWorkbenchState } from "../workspace/types";
 import { workbenchPresetForOriginOrWidgets } from "./presets";
-import { computeDuplicateQueueViewRepair } from "./queue/queueSingletonViewRepair";
 import type {
   WidgetGeometry,
   WidgetLayout,
@@ -9,6 +8,7 @@ import type {
   WorkbenchPresetId,
   WorkbenchViewState,
 } from "./types";
+import { computeDuplicateQueueViewRepair } from "./workspaceSingletonWidgets";
 import { getWidgetLayoutDefaults } from "./widgetRegistry";
 
 type WorkbenchSelectionViewInput = {

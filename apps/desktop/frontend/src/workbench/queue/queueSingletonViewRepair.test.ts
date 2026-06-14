@@ -4,9 +4,12 @@ import {
   computeDuplicateQueueViewRepair,
   identifyQueueViews,
   selectCanonicalQueueView,
-} from "./queueSingletonViewRepair";
+} from "../workspaceSingletonWidgets";
 
 type TestWidget = {
+  createdAt?: string | null;
+  dockX?: number | null;
+  dockY?: number | null;
   definitionId: string;
   id: string;
   isVisible: boolean;
@@ -101,19 +104,65 @@ describe("Queue singleton view repair", () => {
   });
 
   it("selects the canonical Queue view with stable deterministic ordering", () => {
+    const hiddenWithEarlierLayout = widget({
+      definitionId: "agent-queue",
+      id: "queue_hidden",
+      isVisible: false,
+      order: 0,
+    });
+    const laterCreated = widget({
+      definitionId: "agent-queue",
+      id: "queue_b",
+      createdAt: "2026-06-14T10:02:00.000Z",
+      dockX: 0,
+      dockY: 0,
+      order: 2,
+    });
+    const earlierCreated = widget({
+      definitionId: "agent-queue",
+      id: "queue_c",
+      createdAt: "2026-06-14T10:01:00.000Z",
+      dockX: 10,
+      dockY: 10,
+      order: 1,
+    });
+
+    expect(
+      selectCanonicalQueueView([
+        hiddenWithEarlierLayout,
+        laterCreated,
+        earlierCreated,
+      ]),
+    ).toBe(earlierCreated);
+    expect(
+      selectCanonicalQueueView([
+        earlierCreated,
+        hiddenWithEarlierLayout,
+        laterCreated,
+      ]),
+    ).toBe(earlierCreated);
+  });
+
+  it("uses layout order, dock geometry, and id as stable fallback tiebreakers", () => {
     const laterLayout = widget({
       definitionId: "agent-queue",
       id: "queue_b",
+      dockX: 0,
+      dockY: 0,
       order: 2,
     });
     const earlierLayout = widget({
       definitionId: "agent-queue",
       id: "queue_c",
+      dockX: 10,
+      dockY: 10,
       order: 1,
     });
     const idTieBreaker = widget({
       definitionId: "agent-queue",
       id: "queue_a",
+      dockX: 10,
+      dockY: 10,
       order: 1,
     });
 
@@ -123,6 +172,18 @@ describe("Queue singleton view repair", () => {
     expect(
       selectCanonicalQueueView([idTieBreaker, laterLayout, earlierLayout]),
     ).toBe(idTieBreaker);
+  });
+
+  it("identifies duplicate Queue views without rewriting models that lack a visibility field", () => {
+    const widgets = [
+      viewOnlyWidget({ definitionId: "agent-queue", id: "queue_a" }),
+      viewOnlyWidget({ definitionId: "agent-queue", id: "queue_b" }),
+    ];
+    const repair = computeDuplicateQueueViewRepair(widgets);
+
+    expect(repair.repairKind).toBe("identify-only");
+    expect(repair.duplicateQueueViewIds).toEqual(["queue_b"]);
+    expect(repair.repairedWidgets).toEqual(widgets);
   });
 
   it("does not touch Queue task domain data fixtures during view repair", () => {
@@ -191,21 +252,44 @@ describe("Queue singleton view repair", () => {
 });
 
 function widget({
+  createdAt,
   definitionId,
+  dockX,
+  dockY,
   id,
   isVisible = true,
   order = 0,
 }: {
+  createdAt?: string | null;
   definitionId: string;
+  dockX?: number | null;
+  dockY?: number | null;
   id: string;
   isVisible?: boolean;
   order?: number;
 }): TestWidget {
   return {
+    ...(createdAt !== undefined ? { createdAt } : {}),
     definitionId,
+    ...(dockX !== undefined ? { dockX } : {}),
+    ...(dockY !== undefined ? { dockY } : {}),
     id,
     isVisible,
     layout: { order },
+    title: id,
+  };
+}
+
+function viewOnlyWidget({
+  definitionId,
+  id,
+}: {
+  definitionId: string;
+  id: string;
+}) {
+  return {
+    definitionId,
+    id,
     title: id,
   };
 }

@@ -88,7 +88,7 @@ import {
   recordKnowledgeDraftReview as unsupportedRecordKnowledgeDraftReview,
   searchKnowledgeDocuments as unsupportedSearchKnowledgeDocuments,
 } from "./memoryUnsupportedWorkspaceApi";
-import { computeDuplicateQueueViewRepair } from "../workbench/queue/queueSingletonViewRepair";
+import { computeDuplicateQueueViewRepair } from "../workbench/workspaceSingletonWidgets";
 import {
   createKnowledgeDocument as createMemoryKnowledgeDocument,
   deleteKnowledgeDocument as deleteMemoryKnowledgeDocument,

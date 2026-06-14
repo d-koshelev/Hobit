@@ -1,6 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
-import { computeDuplicateQueueViewRepair } from "../workbench/queue/queueSingletonViewRepair";
+import { computeDuplicateQueueViewRepair } from "../workbench/workspaceSingletonWidgets";
 import { generateAgentChatAiProposal } from "./tauriAgentChatAiApi";
 import { persistAgentChatProposal } from "./tauriAgentChatProposalPersistenceApi";
 import { getAgentMonitoringSnapshot } from "./tauriAgentMonitoringApi";
