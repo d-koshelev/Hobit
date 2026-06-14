@@ -624,14 +624,19 @@ unless the task explicitly requests it.
   push, rollback, or dependency execution.
 - `docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md` - docs-only implementation
   status record for the current Smart Queue foundation. It records the
-  test-backed singleton Queue invariant, active Queue surface, duplicate Queue
-  create guard, persisted duplicate repair, dependency/eligibility pure model,
-  prompt-pack materialization model, coordinator decision MVP, QueueV2 Smart
-  status UI, test references, and deferred durable storage, scheduler, retry,
-  rollback, Workspace Agent assistance execution, and server/headless work. It
-  does not add frontend behavior, backend/runtime behavior, storage/schema
-  changes, Queue scheduling, Agent Executor execution, Finder behavior, Git
-  mutation, Terminal launch, provider tools, or automatic execution.
+  Queue UI singleton create guard, persisted duplicate Queue view repair,
+  active Queue product surface ownership, dependency/eligibility pure model,
+  prompt-pack materialization pure model, coordinator decision pure model,
+  QueueV2 Smart status presentation, Smart Queue runtime direction, and the
+  recommended next implementation order. It also records that durable
+  backend/storage Smart Queue models, prompt-pack persistence wiring,
+  Active/Pause scheduler gates, worker stuck report integration, retry,
+  rollback, Workspace Agent assistance runtime calls, durable dependency
+  failure propagation, and actual auto-start are not implemented. It does not
+  add frontend behavior, backend/runtime behavior, storage/schema changes,
+  Queue scheduling, Agent Executor execution, Finder behavior, Git mutation,
+  Terminal launch, provider tools, automatic finalization, commit, push,
+  rollback, or dependency execution.
 - `docs/WORKSPACE_AGENT_UI_POLISH_STATUS.md` - docs-only status record for
   movable popup, Agent Activity alignment, and compact Workspace Agent run
   summary polish. It records manual smoke steps, non-goals, and follow-ups
