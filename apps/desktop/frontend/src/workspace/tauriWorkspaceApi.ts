@@ -1,5 +1,6 @@
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
+import { computeDuplicateQueueViewRepair } from "../workbench/queue/queueSingletonViewRepair";
 import { generateAgentChatAiProposal } from "./tauriAgentChatAiApi";
 import { persistAgentChatProposal } from "./tauriAgentChatProposalPersistenceApi";
 import { getAgentMonitoringSnapshot } from "./tauriAgentMonitoringApi";
@@ -546,16 +547,8 @@ function normalizeWorkspaceSessionSummary(
 function normalizeWorkspaceWorkbenchState(
   state: TauriWorkspaceWorkbenchState,
 ): WorkspaceWorkbenchState {
-  return {
-    workspace: normalizeWorkspaceSummary(state.workspace),
-    workbench: state.workbench
-      ? {
-          id: state.workbench.id,
-          workspaceId: state.workbench.workspace_id,
-          presetOriginId: state.workbench.preset_origin_id,
-        }
-      : null,
-    widgetInstances: state.widget_instances.map((widgetInstance) => ({
+  const widgetInstances = computeDuplicateQueueViewRepair(
+    state.widget_instances.map((widgetInstance) => ({
       id: widgetInstance.id,
       definitionId: widgetInstance.definition_id,
       title: widgetInstance.title,
@@ -574,6 +567,18 @@ function normalizeWorkspaceWorkbenchState(
       config: widgetInstance.config ?? null,
       state: widgetInstance.state ?? null,
     })),
+  ).repairedWidgets;
+
+  return {
+    workspace: normalizeWorkspaceSummary(state.workspace),
+    workbench: state.workbench
+      ? {
+          id: state.workbench.id,
+          workspaceId: state.workbench.workspace_id,
+          presetOriginId: state.workbench.preset_origin_id,
+        }
+      : null,
+    widgetInstances,
     sharedStateObjects: state.shared_state_objects.map((stateObject) => ({
       id: stateObject.id,
       key: stateObject.key,

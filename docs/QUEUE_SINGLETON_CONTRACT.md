@@ -76,6 +76,34 @@ other Queue-owned domain data.
 Queue data clearing is a distinct destructive domain action and must not be
 coupled to view removal or hidden in widget layout/presentation flows.
 
+## Persisted Duplicate View Repair
+
+Persisted Workbench state may contain duplicate `agent-queue` widget/view
+instances from earlier bugs. Frontend workspace/widget normalization must detect
+these duplicate views and quarantine them before rendering the Workbench.
+
+Canonical Queue view selection is deterministic:
+
+- Prefer a currently visible Queue view over a hidden one.
+- Then prefer the earliest `createdAt` timestamp when the widget model exposes
+  one.
+- Then prefer the lowest persisted layout order when the view model exposes
+  one.
+- Then prefer the lowest docked `y` and `x` coordinates when only persisted
+  dock geometry is available.
+- Finally, use widget instance id lexical order as the stable tiebreaker.
+
+The repair keeps the canonical Queue view and hides duplicate Queue views when
+the current widget model exposes a safe visibility field such as `visible` or
+`isVisible`. If a future model has no safe visibility/quarantine field, the
+repair must identify duplicates without deleting or rewriting Queue domain data,
+and the exact integration gap must be documented in code and this contract.
+
+Duplicate Queue view repair must never delete Queue tasks, run links, worker
+config, reports, tags, context attachments, Queue validation data, Executor run
+history, widget logs/results, or other Queue-owned domain data. Persisted view
+repair is limited to widget/view presentation state.
+
 ## Current Add-View Behavior
 
 The normal frontend Widget Catalog / Workbench add path must enforce the

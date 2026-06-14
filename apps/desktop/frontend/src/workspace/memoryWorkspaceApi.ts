@@ -88,6 +88,7 @@ import {
   recordKnowledgeDraftReview as unsupportedRecordKnowledgeDraftReview,
   searchKnowledgeDocuments as unsupportedSearchKnowledgeDocuments,
 } from "./memoryUnsupportedWorkspaceApi";
+import { computeDuplicateQueueViewRepair } from "../workbench/queue/queueSingletonViewRepair";
 import {
   createKnowledgeDocument as createMemoryKnowledgeDocument,
   deleteKnowledgeDocument as deleteMemoryKnowledgeDocument,
@@ -641,10 +642,14 @@ function cloneWorkspaceSummary(workspace: WorkspaceSummary): WorkspaceSummary {
 function cloneWorkspaceWorkbenchState(
   state: WorkspaceWorkbenchState,
 ): WorkspaceWorkbenchState {
+  const widgetInstances = computeDuplicateQueueViewRepair(
+    state.widgetInstances.map((widget) => ({ ...widget })),
+  ).repairedWidgets;
+
   return {
     workspace: cloneWorkspaceSummary(state.workspace),
     workbench: state.workbench ? { ...state.workbench } : null,
-    widgetInstances: state.widgetInstances.map((widget) => ({ ...widget })),
+    widgetInstances,
     sharedStateObjects: state.sharedStateObjects.map((stateObject) => ({
       ...stateObject,
     })),

@@ -1,5 +1,6 @@
 import type { WorkspaceWorkbenchState } from "../workspace/types";
 import { workbenchPresetForOriginOrWidgets } from "./presets";
+import { computeDuplicateQueueViewRepair } from "./queue/queueSingletonViewRepair";
 import type {
   WidgetGeometry,
   WidgetLayout,
@@ -25,6 +26,9 @@ type WorkbenchSelectionViewInput = {
 export function createWorkbenchViewStateFromSelection(
   selection: WorkbenchSelectionViewInput,
 ): WorkbenchViewState {
+  const widgets = computeDuplicateQueueViewRepair(selection.preset.widgets)
+    .repairedWidgets;
+
   return {
     workspace: {
       id: selection.workspace.id,
@@ -41,7 +45,7 @@ export function createWorkbenchViewStateFromSelection(
         description: selection.preset.description,
       },
     },
-    widgets: selection.preset.widgets.map((widget) => ({
+    widgets: widgets.map((widget) => ({
       ...widget,
       layout: widgetLayoutWithDefaults(widget.definitionId, widget.layout),
     })),
@@ -53,9 +57,12 @@ export function createWorkbenchViewStateFromSelection(
 export function createWorkbenchViewStateFromWorkspaceState(
   state: WorkspaceWorkbenchState,
 ): WorkbenchViewState {
+  const widgetInstances = computeDuplicateQueueViewRepair(
+    state.widgetInstances,
+  ).repairedWidgets;
   const preset = workbenchPresetForOriginOrWidgets({
     presetOriginId: state.workbench?.presetOriginId,
-    widgetDefinitionIds: state.widgetInstances.map(
+    widgetDefinitionIds: widgetInstances.map(
       (widgetInstance) => widgetInstance.definitionId,
     ),
   });
@@ -76,7 +83,7 @@ export function createWorkbenchViewStateFromWorkspaceState(
         description: preset.description,
       },
     },
-    widgets: state.widgetInstances.map((widgetInstance, index) => {
+    widgets: widgetInstances.map((widgetInstance, index) => {
       const mode = normalizeWidgetLayoutMode(widgetInstance.layoutMode);
       const layoutDefaults = getWidgetLayoutDefaults(
         widgetInstance.definitionId,

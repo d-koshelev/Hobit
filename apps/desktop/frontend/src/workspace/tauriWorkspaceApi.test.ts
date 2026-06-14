@@ -221,6 +221,46 @@ describe("tauri workspace api adapter", () => {
     });
   });
 
+  it("quarantines duplicate persisted Queue views while preserving Queue domain counts", async () => {
+    mocks.invoke.mockResolvedValueOnce(
+      tauriWorkbenchState({
+        queueTaskCount: 3,
+        widgetInstances: [
+          tauriWidget({
+            definitionId: "agent-queue",
+            dockY: 20,
+            id: "queue_b",
+            isVisible: true,
+          }),
+          tauriWidget({
+            definitionId: "notes",
+            id: "notes_1",
+            isVisible: true,
+          }),
+          tauriWidget({
+            definitionId: "agent-queue",
+            dockY: 10,
+            id: "queue_a",
+            isVisible: true,
+          }),
+        ],
+      }),
+    );
+
+    await expect(
+      tauriWorkspaceApi.getWorkspaceWorkbenchState("ws_1"),
+    ).resolves.toMatchObject({
+      widgetInstances: [
+        expect.objectContaining({ definitionId: "agent-queue", isVisible: false }),
+        expect.objectContaining({ definitionId: "notes", isVisible: true }),
+        expect.objectContaining({ definitionId: "agent-queue", isVisible: true }),
+      ],
+      workspace: {
+        queueTaskCount: 3,
+      },
+    });
+  });
+
   it("keeps Git review command names and request shapes separate from commit", async () => {
     mocks.invoke
       .mockResolvedValueOnce(null)
@@ -1069,5 +1109,73 @@ function tauriTerminalSession() {
       dropped_bytes: 2,
       cap_bytes: 65536,
     },
+  };
+}
+
+function tauriWorkbenchState({
+  queueTaskCount = 0,
+  widgetInstances = [],
+}: {
+  queueTaskCount?: number;
+  widgetInstances?: ReturnType<typeof tauriWidget>[];
+} = {}) {
+  return {
+    workspace: {
+      id: "ws_1",
+      title: "Workspace",
+      description: null,
+      root_path: null,
+      status: "active",
+      created_at: "2026-06-14T00:00:00Z",
+      updated_at: "2026-06-14T00:00:00Z",
+      last_opened_at: null,
+      widget_count: widgetInstances.length,
+      workspace_agent_count: 0,
+      note_count: 0,
+      skill_count: 0,
+      knowledge_document_count: 0,
+      queue_task_count: queueTaskCount,
+      workbench_id: "wb_1",
+    },
+    workbench: {
+      id: "wb_1",
+      workspace_id: "ws_1",
+      preset_origin_id: null,
+    },
+    widget_instances: widgetInstances,
+    shared_state_objects: [],
+    recent_events: [],
+  };
+}
+
+function tauriWidget({
+  definitionId,
+  dockY = 0,
+  id,
+  isVisible = true,
+}: {
+  definitionId: string;
+  dockY?: number;
+  id: string;
+  isVisible?: boolean;
+}) {
+  return {
+    id,
+    definition_id: definitionId,
+    title: definitionId,
+    category: "workflow",
+    layout_mode: "docked",
+    dock_x: 0,
+    dock_y: dockY,
+    dock_width: 360,
+    dock_height: 240,
+    popout_x: null,
+    popout_y: null,
+    popout_width: null,
+    popout_height: null,
+    always_on_top: false,
+    is_visible: isVisible,
+    config: "{}",
+    state: "{}",
   };
 }
