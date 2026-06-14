@@ -71,3 +71,34 @@
   margin: 0;
   accent-color: var(--color-primary);
 }
+
+.select,
+.input {
+  min-height: var(--control-height-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-widget-surface-raised);
+  color: var(--color-text-primary);
+  padding: 0 var(--control-padding-x);
+  font-size: var(--text-xs);
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    color 120ms ease,
+    opacity 120ms ease;
+}
+
+.select {
+  min-width: 212px;
+  color: var(--color-text-secondary);
+}
+
+.input {
+  width: 100%;
+  background: var(--color-input-surface);
+  font: inherit;
+}
+
+.input::placeholder {
+  color: var(--color-text-disabled);
+}

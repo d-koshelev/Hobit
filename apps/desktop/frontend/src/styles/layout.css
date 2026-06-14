@@ -8,6 +8,7 @@
 @import "./widget-v2-queue.css";
 @import "./widget-v2-knowledge.css";
 @import "./widget-v2-workspace-agent.css";
+@import "./ui/index.css";
 @import "./components.css";
 @import "./terminal.css";
 @import "./notes.css";
@@ -15,6 +16,5 @@
 @import "./agent-queue.css";
 @import "./jdbc.css";
 @import "./skills.css";
-@import "./responsive.css";
-@import "./ui/index.css";
 @import "./widgets/index.css";
+@import "./responsive.css";

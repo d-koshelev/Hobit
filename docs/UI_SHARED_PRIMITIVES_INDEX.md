@@ -52,6 +52,47 @@ Local one-off CSS is allowed only when it is scoped to domain content, not when
 it recreates shared chrome, popup, list, table, button, badge, status, or empty
 state behavior.
 
+## Shared CSS Ownership
+
+Shared primitive CSS belongs under `apps/desktop/frontend/src/styles/ui/`:
+
+- `actions.css`: shared action controls such as `.button` variants and toolbar
+  grouping.
+- `forms.css`: shared `.input`, `.select`, textarea, field, and form-control
+  composition.
+- `feedback.css`: shared `.badge`, `.status-dot`, `.empty-state`, notices, and
+  inline errors.
+- `layout.css`: shared sections, metadata rows, and tabs.
+- `overlays.css`: shared overlay/popover styles, including the app theme picker
+  overlay.
+- `widget.css` and `debug.css`: shared widget/debug shell support.
+
+Widget-domain CSS belongs under `apps/desktop/frontend/src/styles/widgets/` or
+an existing widget stylesheet such as `terminal.css`, `notes.css`, `finder.css`,
+`jdbc.css`, `skills.css`, `agent-queue.css`, or the WidgetV2 stylesheets.
+
+`components.css` is legacy/frozen mixed CSS. Current inventory after the first
+cleanup pass:
+
+- shared UI: moved out for buttons, form controls, badges, status dots, empty
+  states, and theme picker overlay.
+- actions/forms/overlays/widget chrome: owned by `styles/ui`, `widget-frame.css`,
+  `widget-v2.css`, and related shared stylesheets for new work.
+- terminal: Terminal one-shot/fallback styles moved to `terminal.css`; PTY
+  styles were already there.
+- codex/direct agent: still in `components.css` under
+  `.codex-direct-work-*` and `.agent-executor-*`.
+- workspace agent/coordinator: still in `components.css` under
+  `.interactive-agent-*`, `.workspace-agent-*`, and `.coordinator-*`.
+- agent activity: still in `components.css` under `.agent-activity-*`.
+- git: still in `components.css` under `.git-*`.
+- runbook: still in `components.css` under `.runbook-*`.
+- notes/other: small compatibility selectors such as `.notes-textarea` remain
+  in `components.css`.
+- queue, knowledge, jdbc: mostly owned outside `components.css` by existing
+  `agent-queue.css`, WidgetV2 queue/knowledge stylesheets, `skills.css`, and
+  `jdbc.css`.
+
 ## Current Shared Primitive Inventory
 
 ### Shell / Module / Widget Frame
