@@ -213,7 +213,12 @@ export function WidgetHost({
       {presentationAction}
       {canRemoveWidget ? (
         <WidgetRemoveAction
-          onRemove={() => widgetActions.removeWidgetInstance(instance.id)}
+          getRemovalConfirmation={() =>
+            widgetActions.getWidgetRemovalConfirmation(instance.id)
+          }
+          onRemove={(options) =>
+            widgetActions.removeWidgetInstance(instance.id, options)
+          }
           widgetTitle={frameTitle}
         />
       ) : null}

@@ -149,6 +149,7 @@ class JdbcReadOnlyUiSmokeRuntime {
       },
       getSkill: this.unsupported,
       getTerminalPtySession: this.unsupported,
+      getWidgetRemovalConfirmation: async () => ({ kind: "normal" }),
       getWorkspaceNote: this.unsupported,
       killTerminalPtySession: this.unsupported,
       listAgentExecutorRuns: this.unsupported,

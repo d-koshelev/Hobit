@@ -646,6 +646,7 @@ function widgetActions(): WorkbenchWidgetInstanceActions {
     getKnowledgeDocument: vi.fn(),
     getSkill: vi.fn(),
     getTerminalPtySession: vi.fn(),
+    getWidgetRemovalConfirmation: vi.fn(),
     getWorkspaceNote: vi.fn(),
     killTerminalPtySession: vi.fn(),
     listAgentExecutorRuns: vi.fn(),

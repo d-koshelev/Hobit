@@ -103,7 +103,6 @@ class QueueExecutorSmokeRuntime {
   >();
   private task: AgentQueueTask;
   private readonly extraTasks: AgentQueueTask[];
-
   constructor(
     readonly scenario: SmokeScenario,
     readonly viewMode: SmokeViewMode,
@@ -210,6 +209,7 @@ class QueueExecutorSmokeRuntime {
       getJdbcConnector: this.unsupported,
       getSkill: this.unsupported,
       getTerminalPtySession: async () => this.forbidden(null),
+      getWidgetRemovalConfirmation: async () => ({ kind: "normal" }),
       getWorkspaceNote: async () => null,
       killTerminalPtySession: async () => this.forbidden(null),
       listAgentExecutorRuns: async () => {

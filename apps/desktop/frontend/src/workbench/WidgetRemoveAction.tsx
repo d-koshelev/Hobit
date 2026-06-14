@@ -1,23 +1,49 @@
 import { useId, useState } from "react";
 import { Button } from "../design-system/Button";
+import type {
+  WidgetRemovalConfirmation,
+  WidgetRemovalOptions,
+} from "./widgetDeletionAction";
 
 type WidgetRemoveActionProps = {
-  onRemove: () => Promise<void>;
+  getRemovalConfirmation?: () => Promise<WidgetRemovalConfirmation>;
+  onRemove: (options?: WidgetRemovalOptions) => Promise<void>;
   widgetTitle: string;
 };
 
 export function WidgetRemoveAction({
+  getRemovalConfirmation,
   onRemove,
   widgetTitle,
 }: WidgetRemoveActionProps) {
   const confirmationId = useId();
+  const [confirmation, setConfirmation] =
+    useState<WidgetRemovalConfirmation | null>(null);
+  const [isInspecting, setIsInspecting] = useState(false);
   const [isConfirming, setIsConfirming] = useState(false);
   const [isRemoving, setIsRemoving] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  function openConfirmation() {
+  async function openConfirmation() {
+    if (isInspecting || isRemoving) {
+      return;
+    }
+
     setErrorMessage(null);
-    setIsConfirming(true);
+    setIsInspecting(true);
+
+    try {
+      setConfirmation(
+        getRemovalConfirmation
+          ? await getRemovalConfirmation()
+          : { kind: "normal" },
+      );
+      setIsConfirming(true);
+    } catch (error) {
+      setErrorMessage(formatWidgetRemovalInspectionError(error));
+    } finally {
+      setIsInspecting(false);
+    }
   }
 
   function closeConfirmation() {
@@ -30,7 +56,7 @@ export function WidgetRemoveAction({
   }
 
   async function confirmRemoval() {
-    if (isRemoving) {
+    if (isRemoving || !confirmation) {
       return;
     }
 
@@ -38,7 +64,10 @@ export function WidgetRemoveAction({
     setErrorMessage(null);
 
     try {
-      await onRemove();
+      await onRemove({
+        forceKillTerminalSessions:
+          confirmation.kind === "terminal-active-sessions",
+      });
       setIsConfirming(false);
     } catch (error) {
       setErrorMessage(formatWidgetRemovalError(error));
@@ -53,12 +82,12 @@ export function WidgetRemoveAction({
         aria-expanded={isConfirming}
         aria-controls={confirmationId}
         className="widget-remove-button"
-        disabled={isRemoving}
-        onClick={openConfirmation}
+        disabled={isInspecting || isRemoving}
+        onClick={() => void openConfirmation()}
         title={`Remove ${widgetTitle}`}
         variant="ghost"
       >
-        Remove
+        {isInspecting ? "Checking..." : "Remove"}
       </Button>
       {isConfirming ? (
         <div
@@ -68,11 +97,14 @@ export function WidgetRemoveAction({
           role="alertdialog"
         >
           <p className="widget-remove-title">
-            Remove this widget from the workbench?
+            {confirmation?.kind === "terminal-active-sessions"
+              ? "Remove Terminal widget?"
+              : "Remove this widget from the workbench?"}
           </p>
           <p className="widget-remove-text">
-            This removes the widget and its local runs/logs/results. The
-            workspace and other widgets are preserved. This cannot be undone.
+            {confirmation?.kind === "terminal-active-sessions"
+              ? "This Terminal has running sessions. Force kill them before removing the widget?"
+              : "This removes the widget and its local runs/logs/results. The workspace and other widgets are preserved. This cannot be undone."}
           </p>
           {errorMessage ? (
             <p className="widget-remove-error" role="alert">
@@ -85,7 +117,9 @@ export function WidgetRemoveAction({
               onClick={closeConfirmation}
               variant="ghost"
             >
-              Keep
+              {confirmation?.kind === "terminal-active-sessions"
+                ? "Cancel"
+                : "Keep"}
             </Button>
             <Button
               className="widget-remove-confirm-button"
@@ -93,7 +127,7 @@ export function WidgetRemoveAction({
               onClick={confirmRemoval}
               variant="secondary"
             >
-              {isRemoving ? "Removing..." : "Remove widget"}
+              {removalButtonLabel(confirmation, isRemoving)}
             </Button>
           </div>
         </div>
@@ -102,9 +136,32 @@ export function WidgetRemoveAction({
   );
 }
 
+function removalButtonLabel(
+  confirmation: WidgetRemovalConfirmation | null,
+  isRemoving: boolean,
+) {
+  if (confirmation?.kind === "terminal-active-sessions") {
+    return isRemoving ? "Force killing..." : "Force kill sessions and remove";
+  }
+
+  return isRemoving ? "Removing..." : "Remove widget";
+}
+
+function formatWidgetRemovalInspectionError(error: unknown) {
+  return `Widget removal could not check current session state. ${errorToString(error)}`;
+}
+
 function formatWidgetRemovalError(error: unknown) {
   const rawError = errorToString(error);
   const lowerError = rawError.toLowerCase();
+
+  if (lowerError.includes("terminal pty sessions could not be force killed")) {
+    return `Terminal sessions could not be force killed. The widget was not removed. ${rawError}`;
+  }
+
+  if (lowerError.includes("terminal pty sessions are still running")) {
+    return `Force kill running Terminal sessions before removing this widget. ${rawError}`;
+  }
 
   if (lowerError.includes("direct work run is active")) {
     return `Stop or cancel the active Direct Work run before removing this widget. ${rawError}`;

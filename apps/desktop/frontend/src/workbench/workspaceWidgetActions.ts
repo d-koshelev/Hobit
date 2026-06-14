@@ -18,18 +18,29 @@ import {
   requireWidget,
   type WidgetLogRefreshTokenBumper,
 } from "./workbenchWidgetActionContext";
-import { removeWidgetInstanceFromWorkbenchView } from "./widgetDeletionAction";
+import {
+  getWidgetRemovalConfirmation,
+  removeWidgetInstanceFromWorkbenchView,
+  type WidgetRemovalConfirmation,
+  type WidgetRemovalOptions,
+} from "./widgetDeletionAction";
 import { widgetLogEntryFromApi } from "./widgetLogEntryMapping";
 
 const CATALOG_WIDGET_PLACEMENT_GAP = 24;
 
 export type WorkspaceWidgetActions = {
   addWidgetTemplate: (template: WidgetCatalogTemplate) => Promise<boolean>;
+  getWidgetRemovalConfirmation: (
+    widgetInstanceId: WidgetInstanceId,
+  ) => Promise<WidgetRemovalConfirmation>;
   listWidgetLogs: (
     widgetInstanceId: WidgetInstanceId,
   ) => Promise<WidgetLogEntry[]>;
   logRefreshTokens: Partial<Record<WidgetInstanceId, number>>;
-  removeWidgetInstance: (widgetInstanceId: WidgetInstanceId) => Promise<void>;
+  removeWidgetInstance: (
+    widgetInstanceId: WidgetInstanceId,
+    options?: WidgetRemovalOptions,
+  ) => Promise<void>;
   updateWidgetLayout: (
     widgetInstanceId: WidgetInstanceId,
     layout: WidgetLayout,
@@ -181,10 +192,18 @@ export function createWorkspaceWidgetActions({
     bumpWidgetLogRefreshToken(widgetInstanceId);
   }
 
-  async function removeWidgetInstance(widgetInstanceId: WidgetInstanceId) {
+  async function prepareWidgetRemoval(widgetInstanceId: WidgetInstanceId) {
+    return getWidgetRemovalConfirmation(viewState, widgetInstanceId);
+  }
+
+  async function removeWidgetInstance(
+    widgetInstanceId: WidgetInstanceId,
+    options: WidgetRemovalOptions = {},
+  ) {
     const workbenchState = await removeWidgetInstanceFromWorkbenchView(
       viewState,
       widgetInstanceId,
+      options,
     );
     applyWorkbenchState(workbenchState);
   }
@@ -209,6 +228,7 @@ export function createWorkspaceWidgetActions({
 
   return {
     addWidgetTemplate,
+    getWidgetRemovalConfirmation: prepareWidgetRemoval,
     listWidgetLogs: loadWidgetLogs,
     logRefreshTokens,
     removeWidgetInstance,

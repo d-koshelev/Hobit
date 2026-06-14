@@ -195,6 +195,7 @@ class CoordinatorProviderProductSmokeRuntime {
       getJdbcConnector: this.jdbcUnsupported,
       getSkill: this.unsupported,
       getTerminalPtySession: this.terminalUnsupported,
+      getWidgetRemovalConfirmation: async () => ({ kind: "normal" }),
       getWorkspaceNote: async () => {
         this.noteReadCallCount += 1;
         return null;
