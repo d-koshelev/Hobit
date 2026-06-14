@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import type {
+  AgentQueueGlobalExecutionState,
   AgentExecutorRunDetail,
   AgentQueueTask,
   AgentQueueWorkerExecutionReport,
@@ -65,6 +66,7 @@ type UseAgentQueueAutonomousRunnerOptions = {
   codexExecutable: string;
   codexExecutableDraft: string;
   currentWorkspaceRoot: string | null;
+  globalExecutionState: AgentQueueGlobalExecutionState;
   hasOpenTaskEdit: boolean;
   isStarting: boolean;
   loadTasks: LoadTasks;
@@ -106,6 +108,7 @@ export function useAgentQueueAutonomousRunner({
   codexExecutable,
   codexExecutableDraft,
   currentWorkspaceRoot,
+  globalExecutionState,
   hasOpenTaskEdit,
   isStarting,
   loadTasks,
@@ -162,11 +165,13 @@ export function useAgentQueueAutonomousRunner({
     () =>
       autonomousPreconditionMessages({
         apiAvailable,
+        globalExecutionState,
         isStarting: isStarting || inFlightRef.current || autonomousActive,
       }),
     [
       apiAvailable,
       autonomousActive,
+      globalExecutionState,
       isStarting,
     ],
   );
@@ -243,6 +248,7 @@ export function useAgentQueueAutonomousRunner({
     try {
       const preflightOptions = {
         hasOpenTaskEdit,
+        globalExecutionState,
         tasks: tasksRef.current,
       };
       const setupBlockers = autonomousSetupBlockerMessages(preflightOptions);
@@ -256,6 +262,7 @@ export function useAgentQueueAutonomousRunner({
       const decision = selectNextAutonomousTask(
         tasksRef.current,
         startedQueueItemIdsRef.current,
+        globalExecutionState,
       );
 
       if (!decision.task) {
@@ -295,6 +302,7 @@ export function useAgentQueueAutonomousRunner({
     const decision = selectNextAutonomousTask(
       tasksRef.current,
       startedQueueItemIdsRef.current,
+      globalExecutionState,
     );
     setCounters((current) => ({
       ...current,
@@ -735,6 +743,7 @@ export function useAgentQueueAutonomousRunner({
       remainingEligibleCount: countRemainingAutonomousEligibleTasks(
         tasksRef.current,
         startedQueueItemIdsRef.current,
+        globalExecutionState,
       ),
       sandbox,
       skippedBlockedCount: counters.skippedBlocked,

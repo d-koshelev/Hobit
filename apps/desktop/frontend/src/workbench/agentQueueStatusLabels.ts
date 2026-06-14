@@ -105,10 +105,10 @@ export const DEFAULT_QUEUE_GLOBAL_EXECUTION_STATE =
 
 export function queueGlobalExecutionStateLabel(
   state: AgentQueueGlobalExecutionState,
-): "Enabled" | "Disabled" | "STOP + KILL RUNNING" {
+): "Active" | "Disabled" | "STOP + KILL RUNNING" {
   switch (state) {
     case "started":
-      return "Enabled";
+      return "Active";
     case "stop_kill_requested":
       return "STOP + KILL RUNNING";
     case "stopped":

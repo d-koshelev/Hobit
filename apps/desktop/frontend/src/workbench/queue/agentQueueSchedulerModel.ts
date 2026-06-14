@@ -22,7 +22,7 @@ export type AgentQueueSchedulerGlobalState = {
   affectedRunningItemIds: string[];
   code: QueueGlobalStatus;
   explanation: string;
-  label: "Enabled" | "Disabled" | "STOP + KILL RUNNING";
+  label: "Active" | "Disabled" | "STOP + KILL RUNNING";
   runningItemCount: number;
 };
 

@@ -545,6 +545,7 @@ export function useAgentQueueController({
     codexExecutable,
     codexExecutableDraft,
     currentWorkspaceRoot: null,
+    globalExecutionState,
     hasOpenTaskEdit,
     isStarting,
     loadTasks,

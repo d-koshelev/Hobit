@@ -113,7 +113,7 @@ describe("useAgentQueueController execution state", () => {
     hook.unmount();
   });
 
-  it("allows Autonomous Queue preflight while normal Queue is disabled", async () => {
+  it("prevents Autonomous Queue from starting while normal Queue is disabled", async () => {
     const harness = createQueueHarness([
       queueTask({
         approvalPolicy: "on_request",
@@ -132,20 +132,18 @@ describe("useAgentQueueController execution state", () => {
     await flushControllerLoad();
 
     expect(hook.result.current.foundation.globalStatus).toBe("stopped");
-    expect(hook.result.current.autonomous.canStart).toBe(true);
+    expect(hook.result.current.autonomous.canStart).toBe(false);
+    expect(hook.result.current.autonomous.preconditionMessages).toEqual([
+      "Queue is disabled",
+    ]);
 
     await act(async () => {
       hook.result.current.autonomous.onStart();
       await flushHookEffects();
     });
 
-    expect(harness.startRequests).toHaveLength(1);
-    expect(harness.startRequests[0].queueItemId).toBe("queue-1");
-    expect(harness.startRequests[0].approvalPolicy).toBe("on_request");
-    expect(harness.startRequests[0].codexExecutable).toBe("codex-custom");
-    expect(harness.startRequests[0].repoRoot).toBe("/repo");
-    expect(harness.startRequests[0].sandbox).toBe("workspace_write");
-    expect(hook.result.current.autonomous.status).toBe("running");
+    expect(harness.startRequests).toHaveLength(0);
+    expect(hook.result.current.autonomous.status).toBe("idle");
 
     hook.unmount();
   });
@@ -174,6 +172,10 @@ describe("useAgentQueueController execution state", () => {
     const hook = renderQueueController(harness);
 
     await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+    });
 
     await act(async () => {
       hook.result.current.autonomous.onStart();
@@ -204,6 +206,10 @@ describe("useAgentQueueController execution state", () => {
     const hook = renderQueueController(harness);
 
     await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+    });
 
     expect(hook.result.current.autonomous.canStart).toBe(true);
 
@@ -237,6 +243,10 @@ describe("useAgentQueueController execution state", () => {
 
     await flushControllerLoad();
 
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+    });
+
     await act(async () => {
       hook.result.current.autonomous.onStart();
       await flushHookEffects();
@@ -263,6 +273,10 @@ describe("useAgentQueueController execution state", () => {
     const hook = renderQueueController(harness);
 
     await flushControllerLoad();
+
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+    });
 
     await act(async () => {
       hook.result.current.autonomous.onStart();
@@ -295,6 +309,10 @@ describe("useAgentQueueController execution state", () => {
       const hook = renderQueueController(harness);
 
       await flushControllerLoad();
+
+      act(() => {
+        hook.result.current.foundation.onStartWorkers();
+      });
 
       await act(async () => {
         hook.result.current.autonomous.onStart();
@@ -383,6 +401,10 @@ describe("useAgentQueueController execution state", () => {
 
       await flushControllerLoad();
 
+      act(() => {
+        hook.result.current.foundation.onStartWorkers();
+      });
+
       await act(async () => {
         hook.result.current.autonomous.onStart();
         await flushHookEffects();
@@ -452,6 +474,10 @@ describe("useAgentQueueController execution state", () => {
 
     await flushControllerLoad();
 
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+    });
+
     await act(async () => {
       hook.result.current.autonomous.onStart();
       await flushHookEffects();
@@ -518,6 +544,10 @@ describe("useAgentQueueController execution state", () => {
       const hook = renderQueueController(harness);
 
       await flushControllerLoad();
+
+      act(() => {
+        hook.result.current.foundation.onStartWorkers();
+      });
 
       await act(async () => {
         hook.result.current.autonomous.onStart();
@@ -602,6 +632,10 @@ describe("useAgentQueueController execution state", () => {
       const hook = renderQueueController(harness);
 
       await flushControllerLoad();
+
+      act(() => {
+        hook.result.current.foundation.onStartWorkers();
+      });
 
       await act(async () => {
         hook.result.current.autonomous.onStart();
@@ -689,6 +723,10 @@ describe("useAgentQueueController execution state", () => {
 
     await flushControllerLoad();
 
+    act(() => {
+      hook.result.current.foundation.onStartWorkers();
+    });
+
     await act(async () => {
       hook.result.current.autonomous.onStart();
       await flushHookEffects();
@@ -756,6 +794,10 @@ describe("useAgentQueueController execution state", () => {
       const hook = renderQueueController(harness);
 
       await flushControllerLoad();
+
+      act(() => {
+        hook.result.current.foundation.onStartWorkers();
+      });
 
       await act(async () => {
         hook.result.current.autonomous.onStart();
@@ -838,6 +880,10 @@ describe("useAgentQueueController execution state", () => {
 
       await flushControllerLoad();
 
+      act(() => {
+        hook.result.current.foundation.onStartWorkers();
+      });
+
       await act(async () => {
         hook.result.current.autonomous.onStart();
         await flushHookEffects();
@@ -901,6 +947,7 @@ describe("useAgentQueueController execution state", () => {
     await flushControllerLoad();
 
     act(() => {
+      hook.result.current.foundation.onStartWorkers();
       hook.result.current.run.onRepoRootDraftChange("/repo");
     });
     await act(async () => {

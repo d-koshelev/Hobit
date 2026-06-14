@@ -72,6 +72,33 @@ describe("Autonomous Queue runner model", () => {
     });
   });
 
+  it("does not select Ready tasks while the singleton Queue is disabled", () => {
+    expect(
+      autonomousPreconditionMessages({
+        apiAvailable: true,
+        globalExecutionState: "stopped",
+        isStarting: false,
+      }),
+    ).toEqual(["Queue is disabled"]);
+    expect(
+      autonomousPreflightBlockerMessages({
+        globalExecutionState: "stopped",
+        hasOpenTaskEdit: false,
+        tasks: [queueTask({ status: "ready" })],
+      }),
+    ).toEqual(["Queue is disabled", NO_ELIGIBLE_TASK_BLOCKER]);
+    expect(
+      selectNextAutonomousTask(
+        [queueTask({ status: "ready" })],
+        new Set(),
+        "stopped",
+      ),
+    ).toEqual({
+      skippedCount: 0,
+      task: null,
+    });
+  });
+
   it("counts remaining eligible tasks without including already-started tasks", () => {
     expect(
       countRemainingAutonomousEligibleTasks(

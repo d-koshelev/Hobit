@@ -1,4 +1,5 @@
 import type {
+  AgentQueueGlobalExecutionState,
   AgentExecutorRunDetail,
   AgentQueueTask,
   AgentQueueWorkerExecutionReport,
@@ -9,6 +10,16 @@ import {
   normalizeValidationStatus,
   sortQueueTasksForDisplay,
 } from "../agentQueueTaskUiModel";
+import {
+  canStartTaskNow,
+  queueExecutionModeFromGlobalState,
+} from "./smartQueueExecutionGate";
+import type {
+  SmartQueueBlocker,
+  SmartQueueDependency,
+  SmartQueueTaskInput,
+  SmartQueueTaskLifecycle,
+} from "./smartQueueEligibility";
 
 export const NO_ELIGIBLE_TASK_BLOCKER = "No eligible queued tasks.";
 export const DEPENDENCY_BLOCKER =
@@ -26,15 +37,22 @@ export const AUTONOMOUS_REPORT_READY_NOTE =
 
 export function autonomousPreconditionMessages({
   apiAvailable,
+  globalExecutionState = "started",
   isStarting,
 }: {
   apiAvailable: boolean;
+  globalExecutionState?: AgentQueueGlobalExecutionState;
   isStarting: boolean;
 }) {
   const messages: string[] = [];
+  const queueMode = queueExecutionModeFromGlobalState(globalExecutionState);
 
   if (!apiAvailable) {
     messages.push("Autonomous Queue is only available in the Tauri desktop shell.");
+  }
+
+  if (queueMode.reason) {
+    messages.push(queueMode.reason);
   }
 
   if (isStarting) {
@@ -45,19 +63,30 @@ export function autonomousPreconditionMessages({
 }
 
 export function autonomousPreflightBlockerMessages({
+  globalExecutionState = "started",
   hasOpenTaskEdit,
   tasks,
 }: {
+  globalExecutionState?: AgentQueueGlobalExecutionState;
   hasOpenTaskEdit: boolean;
   tasks: AgentQueueTask[];
 }) {
   const messages: string[] = [];
+  const queueMode = queueExecutionModeFromGlobalState(globalExecutionState);
 
   if (hasOpenTaskEdit) {
     messages.push(SAVE_TASK_EDITS_SETUP);
   }
 
-  const scan = scanAutonomousTasks(tasks, new Set());
+  if (queueMode.reason) {
+    messages.push(queueMode.reason);
+  }
+
+  const scan = scanAutonomousTasks({
+    globalExecutionState,
+    startedQueueItemIds: new Set(),
+    tasks,
+  });
   const missingSettingsTask = scan.firstSetupBlockedTask;
   if (!scan.nextTask && missingSettingsTask) {
     const setupMessage = autonomousTaskSetupMessage(missingSettingsTask);
@@ -102,20 +131,33 @@ export function isAutonomousSetupBlocker(message: string) {
 export function selectNextAutonomousTask(
   tasks: AgentQueueTask[],
   startedQueueItemIds: ReadonlySet<string>,
+  globalExecutionState: AgentQueueGlobalExecutionState = "started",
 ) {
-  const scan = scanAutonomousTasks(tasks, startedQueueItemIds);
+  const scan = scanAutonomousTasks({
+    globalExecutionState,
+    startedQueueItemIds,
+    tasks,
+  });
 
   return { skippedCount: scan.dependencyBlockedCount, task: scan.nextTask };
 }
 
-function scanAutonomousTasks(
-  tasks: AgentQueueTask[],
-  startedQueueItemIds: ReadonlySet<string>,
-) {
+function scanAutonomousTasks({
+  globalExecutionState,
+  startedQueueItemIds,
+  tasks,
+}: {
+  globalExecutionState: AgentQueueGlobalExecutionState;
+  startedQueueItemIds: ReadonlySet<string>;
+  tasks: AgentQueueTask[];
+}) {
   let dependencyBlockedCount = 0;
   let eligibleCount = 0;
   let firstSetupBlockedTask: AgentQueueTask | null = null;
   let nextTask: AgentQueueTask | null = null;
+  const queueMode = queueExecutionModeFromGlobalState(globalExecutionState);
+  const smartTasks = tasks.map(smartTaskInputForQueueTask);
+  const smartDependencies = smartQueueDependenciesForTasks(tasks);
 
   for (const task of sortQueueTasksForDisplay(tasks)) {
     if (startedQueueItemIds.has(task.queueItemId)) {
@@ -135,6 +177,21 @@ function scanAutonomousTasks(
     }
 
     if (coordinatorStatusBlocksAutonomousTask(coordinatorStatus)) {
+      continue;
+    }
+
+    const gate = canStartTaskNow({
+      capacityAvailable: true,
+      dependencies: smartDependencies,
+      queueState: queueMode.queueState,
+      task: smartTaskInputForQueueTask(task),
+      tasks: smartTasks,
+    });
+
+    if (!gate.canStartTaskNow) {
+      if (gate.dependencyReason) {
+        dependencyBlockedCount += 1;
+      }
       continue;
     }
 
@@ -158,8 +215,13 @@ function scanAutonomousTasks(
 export function countRemainingAutonomousEligibleTasks(
   tasks: AgentQueueTask[],
   startedQueueItemIds: ReadonlySet<string>,
+  globalExecutionState: AgentQueueGlobalExecutionState = "started",
 ) {
-  return scanAutonomousTasks(tasks, startedQueueItemIds).eligibleCount;
+  return scanAutonomousTasks({
+    globalExecutionState,
+    startedQueueItemIds,
+    tasks,
+  }).eligibleCount;
 }
 
 export function autonomousTaskSetupMessage(task: AgentQueueTask) {
@@ -182,12 +244,6 @@ export function autonomousTaskSetupMessage(task: AgentQueueTask) {
   return null;
 }
 
-function firstRunnableCandidateMissingSetup(tasks: AgentQueueTask[]) {
-  return sortQueueTasksForDisplay(tasks).find((task) =>
-    taskIsRunnableCandidate(task) && Boolean(autonomousTaskSetupMessage(task)),
-  );
-}
-
 function taskIsRunnableCandidate(task: AgentQueueTask) {
   const status = normalizeTaskStatus(task.status);
   const coordinatorStatus = task.coordinatorStatus ?? "not_reported";
@@ -207,6 +263,73 @@ function coordinatorStatusBlocksAutonomousTask(coordinatorStatus: string) {
     coordinatorStatus === "blocked" ||
     coordinatorStatus === "failed"
   );
+}
+
+function smartTaskInputForQueueTask(task: AgentQueueTask): SmartQueueTaskInput {
+  return {
+    blockers: smartQueueBlockersForQueueTask(task),
+    lifecycle: smartLifecycleForQueueTask(task),
+    taskId: task.queueItemId,
+    title: task.title,
+  };
+}
+
+function smartLifecycleForQueueTask(
+  task: AgentQueueTask,
+): SmartQueueTaskLifecycle {
+  const status = normalizeTaskStatus(task.status);
+  const coordinatorStatus = task.coordinatorStatus ?? "not_reported";
+
+  if (status === "completed" && coordinatorStatus === "finalized") {
+    return "closed";
+  }
+
+  if (status === "completed" || status === "review_needed") {
+    return "review";
+  }
+
+  if (status === "queued") {
+    return "ready";
+  }
+
+  return status;
+}
+
+function smartQueueDependenciesForTasks(
+  tasks: AgentQueueTask[],
+): SmartQueueDependency[] {
+  return tasks.flatMap((task) =>
+    (task.dependsOn ?? [])
+      .map((upstreamTaskId) => upstreamTaskId.trim())
+      .filter(Boolean)
+      .map((upstreamTaskId) => ({
+        downstreamTaskId: task.queueItemId,
+        kind: "blocks_start" as const,
+        upstreamTaskId,
+      })),
+  );
+}
+
+function smartQueueBlockersForQueueTask(task: AgentQueueTask) {
+  const blockers: SmartQueueBlocker[] = [];
+
+  if (!task.prompt.trim()) {
+    blockers.push({
+      kind: "missing_prompt",
+      reason: "missing prompt",
+      taskId: task.queueItemId,
+    });
+  }
+
+  if (normalizeValidationStatus(task.validationStatus) === "failed") {
+    blockers.push({
+      kind: "validation_requires_decision",
+      reason: "validation failed",
+      taskId: task.queueItemId,
+    });
+  }
+
+  return blockers;
 }
 
 function sanitizeTaskTitleForMessage(title: string) {

@@ -162,19 +162,36 @@ Implemented for Smart Queue status presentation in the QueueV2 foundation.
 - This is presentation/model logic only. It does not change Queue lifecycle,
   run scheduling, worker execution, validation, finalization, or persistence.
 
+### Active/Pause execution gate
+
+Implemented for the current frontend Queue controller execution path.
+
+- `apps/desktop/frontend/src/workbench/queue/smartQueueExecutionGate.ts`
+  adapts the current singleton Queue global state into Smart Queue
+  `active`/`paused` execution mode and centralizes the startability check.
+- The existing autonomous Queue task picker now uses the gate before selecting
+  a Ready task for execution.
+- Queue Disabled/Paused prevents Ready tasks from being picked. Active permits
+  only eligible Ready tasks with satisfied dependencies and no blockers.
+- Waiting dependency, blocked dependency, needs-decision, failed, closed, and
+  cancelled tasks are not startable through the gate.
+- This is frontend/controller gate integration only. It is not a durable
+  backend scheduler, worker runtime redesign, storage model, IPC contract, or
+  persistence migration.
+
 ## Not Implemented Yet
 
 The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend/storage Smart Queue model
-- Queue Active/Pause scheduler gate
 - worker stuck report integration
 - retry execution
 - rollback execution
 - Workspace Agent assistance runtime call
 - dependency failure propagation in durable runtime
-- actual auto-start of eligible tasks when Queue is Active
+- durable backend scheduler/worker auto-start of eligible tasks when Queue is
+  Active
 - durable Smart Queue batch/dependency storage beyond the current Queue task
   compatibility fields
 
@@ -216,8 +233,9 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 ## Recommended Next Implementation Order
 
-1. Add Queue Active/Pause domain state if not already durable.
-2. Add scheduler eligibility gate using `smartQueueEligibility`.
+1. Add durable Queue Active/Pause domain state if needed beyond the current
+   frontend/controller mapping.
+2. Add durable scheduler/worker runtime pickup if explicitly requested.
 3. Add worker stuck report capture.
 4. Add coordinator decision record / UI card.
 5. Add retry same / retry with modified prompt.
@@ -234,6 +252,7 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 - `apps/desktop/frontend/src/workbench/queue/smartQueuePromptPackMaterialization.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueCoordinatorDecision.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueStatusPresentation.ts`
+- `apps/desktop/frontend/src/workbench/queue/smartQueueExecutionGate.ts`
 - `apps/desktop/frontend/src/workbench/queue/queueV2SmartStatusModel.ts`
 
 ## Guardrails

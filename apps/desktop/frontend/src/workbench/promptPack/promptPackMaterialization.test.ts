@@ -19,6 +19,7 @@ import {
 import {
   materializeSmartQueuePromptPack,
 } from "../queue/smartQueuePromptPackMaterialization";
+import { selectNextAutonomousTask } from "../queue/agentQueueAutonomousRunnerModel";
 
 describe("prompt pack Queue materialization service", () => {
   it("uses Smart Queue materialization output as the Queue creation source", async () => {
@@ -726,6 +727,47 @@ describe("prompt pack Queue materialization service", () => {
     expect(bridge.updateItem).not.toHaveBeenCalled();
     expect(runAutonomousQueue).not.toHaveBeenCalled();
     expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
+  });
+
+  it("does not let created Queue items bypass the disabled Queue execution gate", async () => {
+    const preview = buildPromptPackImportPreview(
+      parsePromptPackImportPlan([{ path: "001-one.md", text: "One body." }]),
+    );
+    const bridge = queueBridge();
+
+    await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    const request = bridge.createItem.mock.calls[0]?.[0];
+    expect(request).toMatchObject({
+      status: "queued",
+    });
+
+    const createdTask = durableTask({
+      approvalPolicy: request?.approvalPolicy ?? "never",
+      codexExecutable: request?.codexExecutable ?? "codex.cmd",
+      description: request?.description ?? "",
+      executionWorkspace: request?.executionWorkspace ?? "C:/repo",
+      prompt: request?.prompt ?? "",
+      queueItemId: "queue-001",
+      sandbox: request?.sandbox ?? "read_only",
+      status: request?.status ?? "queued",
+      title: request?.title ?? "Queue task",
+    });
+
+    expect(
+      selectNextAutonomousTask([createdTask], new Set(), "stopped"),
+    ).toEqual({
+      skippedCount: 0,
+      task: null,
+    });
+    expect(
+      selectNextAutonomousTask([createdTask], new Set(), "started").task
+        ?.queueItemId,
+    ).toBe("queue-001");
   });
 
   it("blocks invalid prompt-pack prompts before creating Queue items", async () => {

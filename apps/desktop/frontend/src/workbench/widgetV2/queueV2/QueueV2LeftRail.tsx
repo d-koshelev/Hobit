@@ -28,7 +28,7 @@ export function QueueV2LeftRail({
         <RailLine label="Blocked" value={viewModel.lanes.blocked.length.toString()} />
         <RailLine
           label="Queue"
-          value={globalExecutionState === "started" ? "Enabled" : "Paused"}
+          value={globalExecutionState === "started" ? "Active" : "Paused"}
         />
       </section>
 
