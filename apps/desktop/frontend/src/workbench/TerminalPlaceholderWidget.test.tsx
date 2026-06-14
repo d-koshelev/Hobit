@@ -191,6 +191,30 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     );
   });
 
+  it("renders responsive tab and pane structure with a reachable new-tab action", async () => {
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({ status: "running", workingDirectory: "C:\\repo" }),
+    );
+
+    renderWidget({ onCreateTerminalPtySession });
+    await settleTerminalStartup();
+
+    const tabStrip = document.querySelector(".terminal-tabs");
+    expect(tabStrip).not.toBeNull();
+    expect(tabStrip?.querySelector(".terminal-tab-list")).not.toBeNull();
+    expect(tabStrip?.querySelector('[aria-label="New terminal tab"]')).not.toBeNull();
+    expect(document.querySelector(".terminal-pane-grid-columns")).not.toBeNull();
+    expect(document.querySelector(".terminal-shell-output-panel")).not.toBeNull();
+    expect(
+      document.querySelector('[aria-label="Terminal PTY output"]'),
+    ).not.toBeNull();
+  });
+
   it("auto-starts one default PTY session in StrictMode and does not run fallback commands", async () => {
     const onCreateTerminalPtySession = vi.fn<
       (
@@ -823,6 +847,28 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     expect(
       buttonsWithLabel("Split pane down").every((button) => button.disabled),
     ).toBe(true);
+    expect(document.querySelector(".terminal-pane-grid-grid")).not.toBeNull();
+    expect(document.querySelectorAll(".terminal-pane")).toHaveLength(4);
+  });
+
+  it("keeps pane headers compact by exposing secondary controls through More", async () => {
+    const onCreateTerminalPtySession = vi.fn<
+      (
+        widgetInstanceId: string,
+        request: CreatePtyInput,
+      ) => Promise<TerminalPtySession>
+    >(async () =>
+      terminalSession({ status: "running", workingDirectory: "C:\\repo" }),
+    );
+
+    renderWidget({ onCreateTerminalPtySession });
+    await settleTerminalStartup();
+
+    expect(document.querySelectorAll(".terminal-shell-action-secondary")).toHaveLength(3);
+    expect(document.querySelectorAll(".terminal-pane-compact-action")).toHaveLength(3);
+    expect(document.querySelector(".terminal-pane-more")?.textContent).toContain(
+      "More",
+    );
   });
 
   it("routes xterm input only from the active pane session", async () => {

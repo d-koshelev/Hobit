@@ -198,56 +198,62 @@ export function TerminalPtySessionPanel({
 
   return (
     <section aria-label="Terminal session" className="terminal-pty-panel">
-      <div className="terminal-tabs" role="tablist" aria-label="Terminal tabs">
-        {tabs.map((tab) => {
-          const tabActive = tab.id === activeTabId;
-          const tabRunning = tab.paneIds.some((paneId) => paneActivity[paneId]);
-          const closeDisabled = tabs.length === 1 || tabRunning;
-          const displayTitle = tab.title.trim() || "Untitled";
-          return (
-            <span
-              className={
-                tabActive
-                  ? "terminal-tab terminal-tab-active"
-                  : "terminal-tab"
-              }
-              key={tab.id}
-              role="tab"
-              aria-selected={tabActive}
-            >
-              <input
-                aria-label={`Rename ${displayTitle}`}
-                className="terminal-tab-name-input"
-                onBlur={() => commitTabRename(tab.id)}
-                onChange={(event) => renameTab(tab.id, event.target.value)}
-                onFocus={() => setActiveTabId(tab.id)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") {
-                    event.currentTarget.blur();
-                  }
-                }}
-                spellCheck={false}
-                title={displayTitle}
-                type="text"
-                value={tab.title}
-              />
-              <button
-                aria-label={`Close ${displayTitle}`}
-                className="terminal-tab-close"
-                disabled={closeDisabled}
-                onClick={() => closeTab(tab.id)}
-                title={
-                  tabRunning
-                    ? "Stop or kill running panes before closing this tab."
-                    : undefined
+      <div className="terminal-tabs">
+        <div
+          className="terminal-tab-list"
+          role="tablist"
+          aria-label="Terminal tabs"
+        >
+          {tabs.map((tab) => {
+            const tabActive = tab.id === activeTabId;
+            const tabRunning = tab.paneIds.some((paneId) => paneActivity[paneId]);
+            const closeDisabled = tabs.length === 1 || tabRunning;
+            const displayTitle = tab.title.trim() || "Untitled";
+            return (
+              <span
+                className={
+                  tabActive
+                    ? "terminal-tab terminal-tab-active"
+                    : "terminal-tab"
                 }
-                type="button"
+                key={tab.id}
+                role="tab"
+                aria-selected={tabActive}
               >
-                x
-              </button>
-            </span>
-          );
-        })}
+                <input
+                  aria-label={`Rename ${displayTitle}`}
+                  className="terminal-tab-name-input"
+                  onBlur={() => commitTabRename(tab.id)}
+                  onChange={(event) => renameTab(tab.id, event.target.value)}
+                  onFocus={() => setActiveTabId(tab.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.currentTarget.blur();
+                    }
+                  }}
+                  spellCheck={false}
+                  title={displayTitle}
+                  type="text"
+                  value={tab.title}
+                />
+                <button
+                  aria-label={`Close ${displayTitle}`}
+                  className="terminal-tab-close"
+                  disabled={closeDisabled}
+                  onClick={() => closeTab(tab.id)}
+                  title={
+                    tabRunning
+                      ? "Stop or kill running panes before closing this tab."
+                      : undefined
+                  }
+                  type="button"
+                >
+                  x
+                </button>
+              </span>
+            );
+          })}
+        </div>
         <Button
           aria-label="New terminal tab"
           className="terminal-tab-new"

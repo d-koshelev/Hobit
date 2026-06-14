@@ -222,6 +222,7 @@
 }
 
 .terminal-pty-panel {
+  container: terminal-pty / inline-size;
   display: flex;
   flex: 1;
   min-height: 0;
@@ -236,12 +237,24 @@
   min-width: 0;
   align-items: center;
   gap: 4px;
-  overflow-x: auto;
+  overflow: hidden;
   padding-bottom: 1px;
+}
+
+.terminal-tab-list {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
 }
 
 .terminal-tab {
   display: inline-flex;
+  flex: 0 1 150px;
   max-width: min(150px, 36vw);
   min-height: 22px;
   min-width: 74px;
@@ -297,6 +310,7 @@
 }
 
 .terminal-tab-new {
+  flex: 0 0 auto;
   min-height: 22px;
   padding: 1px 7px;
   white-space: nowrap;
@@ -327,7 +341,7 @@
 }
 
 .terminal-pane-grid-columns {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(220px, 100%), 1fr));
 }
 
 .terminal-pane-grid-rows {
@@ -336,7 +350,7 @@
 }
 
 .terminal-pane-grid-grid {
-  grid-template-columns: repeat(2, minmax(180px, 1fr));
+  grid-template-columns: repeat(2, minmax(min(220px, 100%), 1fr));
 }
 
 .terminal-pane-split {
@@ -496,6 +510,10 @@
   line-height: var(--line-tight);
 }
 
+.terminal-pane-compact-action {
+  display: none;
+}
+
 .terminal-shell-context {
   display: flex;
   flex: 1 1 auto;
@@ -518,7 +536,7 @@
 }
 
 .terminal-shell-context-value {
-  max-width: min(22vw, 180px);
+  max-width: min(20cqw, 180px);
   color: var(--color-text-secondary);
 }
 
@@ -531,7 +549,7 @@
 
 .terminal-shell-context-path {
   flex: 1 1 auto;
-  max-width: min(36vw, 340px);
+  max-width: min(34cqw, 340px);
 }
 
 .terminal-shell-context-status {
@@ -816,5 +834,101 @@
   .terminal-xterm-shell,
   .terminal-xterm-surface {
     min-height: 0;
+  }
+}
+
+@container terminal-pty (max-width: 640px) {
+  .terminal-tab {
+    flex-basis: 120px;
+    max-width: 120px;
+    min-width: 68px;
+  }
+
+  .terminal-tab-new {
+    max-width: 64px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .terminal-pane-grid-columns,
+  .terminal-pane-grid-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .terminal-pane-grid {
+    grid-auto-rows: minmax(180px, 1fr);
+  }
+
+  .terminal-shell-action-secondary {
+    display: none;
+  }
+
+  .terminal-pane-compact-action {
+    display: inline-flex;
+  }
+
+  .terminal-shell-context-value {
+    max-width: min(26cqw, 140px);
+  }
+
+  .terminal-shell-context-path {
+    max-width: min(34cqw, 180px);
+  }
+}
+
+@container terminal-pty (max-width: 420px) {
+  .terminal-tabs {
+    flex-basis: 26px;
+  }
+
+  .terminal-tab {
+    flex-basis: 96px;
+    max-width: 96px;
+    min-width: 58px;
+  }
+
+  .terminal-tab-name-input {
+    padding-inline: 4px;
+  }
+
+  .terminal-tab-close {
+    padding-inline: 5px;
+  }
+
+  .terminal-shell-header {
+    gap: 4px;
+    padding-inline: 4px;
+  }
+
+  .terminal-pane-title {
+    max-width: 54px;
+    min-width: 40px;
+  }
+
+  .terminal-pane-active-indicator,
+  .terminal-shell-context-value::before,
+  .terminal-shell-context-status::before {
+    display: none;
+  }
+
+  .terminal-shell-context {
+    gap: 4px;
+  }
+
+  .terminal-shell-context-value {
+    max-width: 54px;
+  }
+
+  .terminal-shell-context-path {
+    max-width: min(34cqw, 112px);
+  }
+
+  .terminal-shell-context-status {
+    max-width: 72px;
+  }
+
+  .terminal-shell-actions .button,
+  .terminal-pane-more > summary {
+    padding-inline: 5px;
   }
 }

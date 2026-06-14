@@ -13,6 +13,7 @@ import {
   TerminalRunCommandPanel,
 } from "./TerminalRunCommandPanel";
 import type { TerminalPtySessionPanelProps } from "./TerminalPtySessionTypes";
+import { TerminalPtyKillControl } from "./TerminalPtyKillControl";
 import {
   isTerminalPtyActive,
   TerminalPtySessionSummary,
@@ -138,17 +139,32 @@ export function TerminalShellHeader({
           </Button>
         ) : null}
         {hasOpenSession ? (
-          <Button disabled={!canRefresh} onClick={onRefresh} variant="secondary">
+          <Button
+            className="terminal-shell-action-secondary"
+            disabled={!canRefresh}
+            onClick={onRefresh}
+            variant="secondary"
+          >
             {isRefreshing ? "Refreshing..." : "Refresh"}
           </Button>
         ) : null}
         {hasOpenSession ? (
-          <Button disabled={!canCopy} onClick={onCopy} variant="secondary">
+          <Button
+            className="terminal-shell-action-secondary"
+            disabled={!canCopy}
+            onClick={onCopy}
+            variant="secondary"
+          >
             Copy
           </Button>
         ) : null}
         {hasOpenSession ? (
-          <Button disabled={!canClear} onClick={onClear} variant="secondary">
+          <Button
+            className="terminal-shell-action-secondary"
+            disabled={!canClear}
+            onClick={onClear}
+            variant="secondary"
+          >
             Clear
           </Button>
         ) : null}
@@ -165,6 +181,36 @@ export function TerminalShellHeader({
         <details className="terminal-pane-more">
           <summary aria-label={`${paneLabel} more actions`}>More</summary>
           <div className="terminal-pane-more-menu">
+            {hasOpenSession ? (
+              <Button
+                className="terminal-pane-compact-action"
+                disabled={!canRefresh}
+                onClick={onRefresh}
+                variant="secondary"
+              >
+                {isRefreshing ? "Refreshing..." : "Refresh"}
+              </Button>
+            ) : null}
+            {hasOpenSession ? (
+              <Button
+                className="terminal-pane-compact-action"
+                disabled={!canCopy}
+                onClick={onCopy}
+                variant="secondary"
+              >
+                Copy
+              </Button>
+            ) : null}
+            {hasOpenSession ? (
+              <Button
+                className="terminal-pane-compact-action"
+                disabled={!canClear}
+                onClick={onClear}
+                variant="secondary"
+              >
+                Clear
+              </Button>
+            ) : null}
             <Button
               aria-label="Split pane right"
               disabled={!canSplitPane}
@@ -193,7 +239,7 @@ export function TerminalShellHeader({
               Settings
             </Button>
             {activeSession ? (
-              <TerminalKillControl
+              <TerminalPtyKillControl
                 canKill={canKill}
                 isKilling={isKilling}
                 killConfirmOpen={killConfirmOpen}
@@ -529,59 +575,6 @@ function TerminalSettingsSafety() {
         input is sent directly to the active PTY session.
       </p>
     </div>
-  );
-}
-
-function TerminalKillControl({
-  canKill,
-  isKilling,
-  killConfirmOpen,
-  onCancelKill,
-  onKill,
-  onOpenKillConfirm,
-}: {
-  canKill: boolean;
-  isKilling: boolean;
-  killConfirmOpen: boolean;
-  onCancelKill: () => void;
-  onKill: () => void;
-  onOpenKillConfirm: () => void;
-}) {
-  return (
-    <span className="terminal-pty-kill-action">
-      <Button
-        className="terminal-pty-kill-button"
-        disabled={!canKill}
-        onClick={onOpenKillConfirm}
-        variant="secondary"
-      >
-        Kill
-      </Button>
-      {killConfirmOpen ? (
-        <span className="terminal-pty-kill-confirm" role="alert">
-          <span className="terminal-run-notice-title">
-            Force terminate session?
-          </span>
-          <span className="terminal-run-notice-text">
-            Kill stops only the owned shell process. File changes already
-            written by commands are not rolled back.
-          </span>
-          <span className="terminal-pty-kill-confirm-actions">
-            <Button
-              className="terminal-pty-kill-button"
-              disabled={isKilling}
-              onClick={onKill}
-              variant="secondary"
-            >
-              {isKilling ? "Killing..." : "Confirm kill"}
-            </Button>
-            <Button disabled={isKilling} onClick={onCancelKill} variant="ghost">
-              Cancel
-            </Button>
-          </span>
-        </span>
-      ) : null}
-    </span>
   );
 }
 
