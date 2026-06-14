@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 
 import { AgentRunPlaceholderWidget } from "./AgentRunPlaceholderWidget";
+import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
 import { GitPlaceholderWidget } from "./GitPlaceholderWidget";
 import {
+  AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
   GIT_PLACEHOLDER_COMPONENT_KEY,
   TERMINAL_PLACEHOLDER_COMPONENT_KEY,
@@ -14,6 +16,18 @@ import {
 } from "./widgetHostComponents";
 
 describe("WidgetHost compatibility renderer registry", () => {
+  it("routes the product Agent Queue key to the active singleton Queue surface", () => {
+    expect(productWidgetComponents[AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY]).toBe(
+      AgentQueuePlaceholderWidget,
+    );
+    expect(getWidgetHostComponent(AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY)).toBe(
+      AgentQueuePlaceholderWidget,
+    );
+    expect(
+      compatibilityWidgetComponents[AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY],
+    ).toBeUndefined();
+  });
+
   it("keeps persisted compatibility component keys renderable", () => {
     expect(
       compatibilityWidgetComponents[AGENT_RUN_PLACEHOLDER_COMPONENT_KEY],

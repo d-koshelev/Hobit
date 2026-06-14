@@ -26,7 +26,7 @@ export const widgetV2Manifests: readonly WidgetV2Manifest[] = [
     ],
     layoutKind: "operational",
     supportedLayoutKinds: ["minimal", "operational"],
-    status: "available",
+    status: "experimental",
     productOwnerDomain: "agent-queue",
     safetyBoundaries: [
       "No hidden scheduler or backend dispatch.",

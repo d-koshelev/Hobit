@@ -627,9 +627,10 @@ v0.1 product widget.
   and permanent sidebar/right-rail shell are no longer the normal Agent Queue
   render path. The standalone
   `workbench/widgetV2/queueV2/QueueV2Widget` shell is retained as
-  Compatibility / smoke / regression coverage for WidgetV2 composition and is
-  not the current product-rendered Agent Queue widget and must not become a
-  second Queue widget/view. Board cards can be
+  Compatibility / smoke / regression coverage for WidgetV2 composition. The
+  root WidgetV2 barrel exposes it only through the explicit
+  `QueueV2SmokeCompatWidget` alias. It is not the current product-rendered
+  Agent Queue widget and must not become a second Queue widget/view. Board cards can be
   clicked to select or open details, but selection does not start work, claim
   items, schedule workers, launch Agent Executor, finalize status, persist live
   worker process state, or change Queue Autorun, Sequential Runner, Codex

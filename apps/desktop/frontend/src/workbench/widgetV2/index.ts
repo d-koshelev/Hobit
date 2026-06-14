@@ -38,9 +38,10 @@ export {
 } from "./widgetV2Registry";
 export type { WidgetV2Registry } from "./widgetV2Registry";
 
-// QueueV2Widget is retained for WidgetV2 smoke/compat coverage. Product Agent
-// Queue rendering stays on the saved-compatible agent-queue WidgetHost route.
-export { QueueV2Widget } from "./queueV2";
+// Smoke/compat export only. Product Agent Queue rendering stays on the
+// saved-compatible agent-queue WidgetHost route:
+// WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board.
+export { QueueV2Widget as QueueV2SmokeCompatWidget } from "./queueV2";
 export { KnowledgeV2Header, KnowledgeV2Widget } from "./knowledgeV2";
 export type { KnowledgeV2WidgetProps } from "./knowledgeV2";
 export { WorkspaceAgentV2Widget } from "./workspaceAgentV2";

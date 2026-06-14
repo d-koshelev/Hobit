@@ -27,12 +27,12 @@ describe("Widget V2 registry", () => {
     expect(widgetV2Registry.size).toBe(widgetV2Manifests.length);
   });
 
-  it("defines QueueV2 as the available Agent Queue visual manifest", () => {
+  it("defines QueueV2 as compatibility smoke metadata, not a widget registry id", () => {
     expect(getWidgetV2Manifest("queue-v2")).toMatchObject({
       kind: "queue-v2",
       name: "QueueV2",
       productOwnerDomain: "agent-queue",
-      status: "available",
+      status: "experimental",
       title: "Agent Queue",
     });
     expect(getWidgetDefinition(AGENT_QUEUE_WIDGET_DEFINITION_ID)).toMatchObject({
@@ -72,14 +72,10 @@ describe("Widget V2 registry", () => {
     expect(new Set(kinds).size).toBe(kinds.length);
   });
 
-  it("keeps only QueueV2 available while future V2 widgets remain unavailable", () => {
-    expect(getAvailableWidgetV2Manifests().map((manifest) => manifest.kind)).toEqual([
-      "queue-v2",
-    ]);
+  it("keeps WidgetV2 manifests out of available product insertion paths", () => {
+    expect(getAvailableWidgetV2Manifests().map((manifest) => manifest.kind)).toEqual([]);
     expect(
-      widgetV2Manifests
-        .filter((manifest) => manifest.kind !== "queue-v2")
-        .every((manifest) => manifest.status !== "available"),
+      widgetV2Manifests.every((manifest) => manifest.status !== "available"),
     ).toBe(true);
   });
 

@@ -51,6 +51,15 @@ QueueV2 is the current Agent Queue visual implementation through the existing
 saved-compatible `agent-queue` widget identity. `queue-v2` is not a separate
 insertable Queue widget id and must not become a second Queue UI surface.
 
+The active user-facing Queue product route is:
+
+```text
+WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
+```
+
+This route preserves the `agent-queue` widget definition id and the
+`agent-queue-placeholder` component key for saved workspace compatibility.
+
 The retained WidgetV2 Queue shell may exist for compatibility, smoke, and
 regression coverage, but it must route conceptually to the same singleton
 Workspace Queue and must not introduce a second product Queue view.
