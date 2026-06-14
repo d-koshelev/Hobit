@@ -162,7 +162,7 @@ describe("QueueV2 prompt-pack validation actions", () => {
     expect(
       document.querySelector("[data-queue-item-id='queue-follow-up']")
         ?.textContent,
-    ).toContain("Dependency blocked");
+    ).toContain("Waiting for: queue-build");
   });
 });
 

@@ -27,15 +27,25 @@ import {
   type QueueBlockedReason,
   type QueueBlockerSummary,
 } from "./queueV2BlockerSummary";
+import {
+  queueV2ReviewActionHintForTask,
+  secondaryActionsForTask,
+} from "./queueV2ReviewActionModel";
+import {
+  queueV2DependencySummaryForTask,
+  queueV2HumanStatusForTask,
+  type QueueTaskDependencySummary,
+  type QueueTaskHumanStatusView,
+} from "./queueV2SmartStatusModel";
 
 export type QueueBoardLane =
   | "intake_draft"
   | "ready"
+  | "waiting_dependency"
   | "running"
   | "review"
   | "blocked"
   | "closed";
-
 export type QueueTaskEligibility = {
   taskId: string;
   eligibleNow: boolean;
@@ -51,7 +61,6 @@ export type QueueTaskEligibility = {
   blockedReasons: QueueBlockedReason[];
   dryRunPosition: number | null;
 };
-
 export type QueueWorkerSnapshot = {
   workerId: string;
   label: string;
@@ -64,7 +73,6 @@ export type QueueWorkerSnapshot = {
   compatibleTags: string[];
   currentTaskIds: string[];
 };
-
 export type QueueWorkerCapacity = {
   queueEnabled: boolean;
   autorunArmed: boolean;
@@ -78,7 +86,6 @@ export type QueueWorkerCapacity = {
   eligibleNowCount: number;
   reviewNeededCount: number;
 };
-
 export type QueueTaskViewModel = {
   task: AgentQueueTask;
   taskId: string;
@@ -87,6 +94,8 @@ export type QueueTaskViewModel = {
   closureState: QueueTaskClosureState | null;
   boardLane: QueueBoardLane;
   nextAction: QueueNextAction;
+  humanStatus: QueueTaskHumanStatusView;
+  dependencySummary: QueueTaskDependencySummary;
   blockedReasons: QueueBlockedReason[];
   blockerSummary: QueueBlockerSummary;
   eligibility: QueueTaskEligibility;
@@ -102,6 +111,8 @@ export type QueueInspectorSnapshot = {
   boardLane: QueueBoardLane;
   priority: number;
   nextAction: QueueNextAction;
+  humanStatus: QueueTaskHumanStatusView;
+  dependencySummary: QueueTaskDependencySummary;
   secondaryActions: QueueNextAction[];
   dependencyState: AgentQueueDependencyState;
   eligibility: QueueTaskEligibility;
@@ -165,11 +176,13 @@ export function selectQueueV2ViewModel({
 
   const firstPass = tasks.map((task) => {
     const dependencyState = dependencyStates.get(task.queueItemId)!;
+    const dependencySummary = queueV2DependencySummaryForTask(task, tasks);
     const lifecycle = queueV2LifecycleForTask(task);
     const closureState = queueV2ClosureStateForTask(task);
     const promptPackMetadata = getQueuePromptPackImportMetadata(task);
     const blockedReasons = queueV2BlockedReasonsForTask({
       dependencyState,
+      dependencySummary,
       lifecycle,
       pausedQueueTagIds,
       queueEnabled,
@@ -178,6 +191,7 @@ export function selectQueueV2ViewModel({
     });
     const eligibility = queueV2EligibilityForTask({
       blockedReasons,
+      dependencySummary,
       lifecycle,
       queueEnabled,
       task,
@@ -185,20 +199,30 @@ export function selectQueueV2ViewModel({
     });
     const boardLane = queueV2BoardLaneForTask({
       blockedReasons,
+      dependencySummary,
       hasReviewableOutput: taskHasReviewableOutput(task),
       lifecycle,
     });
-    const nextAction = queueV2NextActionForTask({
-      blockedReasonCodes: blockedReasons.map((reason) => reason.code),
-      canQueueDraft: Boolean(promptPackMetadata && task.prompt.trim()),
-      eligibleNow: eligibility.eligibleNow,
-      hasAssignedWorker: Boolean(
-        task.assignedWorkerId ?? task.assignedExecutorWidgetId,
-      ),
-      hasReviewableOutput: taskHasReviewableOutput(task),
+    const humanStatus = queueV2HumanStatusForTask({
+      boardLane,
+      dependencySummary,
       lifecycle,
-      reviewActionHint: queueV2ReviewActionHintForTask(task),
+      task,
     });
+    const nextAction =
+      dependencySummary.gate === "waiting"
+        ? "resolve_dependency"
+        : queueV2NextActionForTask({
+            blockedReasonCodes: blockedReasons.map((reason) => reason.code),
+            canQueueDraft: Boolean(promptPackMetadata && task.prompt.trim()),
+            eligibleNow: eligibility.eligibleNow,
+            hasAssignedWorker: Boolean(
+              task.assignedWorkerId ?? task.assignedExecutorWidgetId,
+            ),
+            hasReviewableOutput: taskHasReviewableOutput(task),
+            lifecycle,
+            reviewActionHint: queueV2ReviewActionHintForTask(task),
+          });
     const blockerSummary = queueV2BlockerSummaryForTask({
       blockedReasons,
       dependencyState,
@@ -210,8 +234,10 @@ export function selectQueueV2ViewModel({
       blockerSummary,
       blockedReasons,
       closureState,
+      dependencySummary,
       diffReview: diffReviewLinkageViewForTask(task, tasks),
       eligibility,
+      humanStatus,
       lifecycle,
       nextAction,
       task,
@@ -271,10 +297,12 @@ export function selectQueueV2ViewModel({
 
 export function queueV2BoardLaneForTask({
   blockedReasons,
+  dependencySummary,
   hasReviewableOutput,
   lifecycle,
 }: {
   blockedReasons: readonly QueueBlockedReason[];
+  dependencySummary: QueueTaskDependencySummary;
   hasReviewableOutput: boolean;
   lifecycle: QueueTaskLifecycle;
 }): QueueBoardLane {
@@ -289,6 +317,13 @@ export function queueV2BoardLaneForTask({
   }
   if (lifecycle === "failed") {
     return hasReviewableOutput ? "review" : "blocked";
+  }
+  if (
+    dependencySummary.gate === "waiting" &&
+    blockedReasons.length === 0 &&
+    (lifecycle === "queued" || lifecycle === "ready" || lifecycle === "draft")
+  ) {
+    return "waiting_dependency";
   }
   if (blockedReasons.length > 0 || lifecycle === "blocked") {
     return "blocked";
@@ -307,6 +342,7 @@ export function queueV2BoardLaneForTask({
 
 function queueV2BlockedReasonsForTask({
   dependencyState,
+  dependencySummary,
   lifecycle,
   pausedQueueTagIds,
   queueEnabled,
@@ -314,6 +350,7 @@ function queueV2BlockedReasonsForTask({
   workers,
 }: {
   dependencyState: AgentQueueDependencyState;
+  dependencySummary: QueueTaskDependencySummary;
   lifecycle: QueueTaskLifecycle;
   pausedQueueTagIds: ReadonlySet<string>;
   queueEnabled: boolean;
@@ -324,8 +361,10 @@ function queueV2BlockedReasonsForTask({
 
   if (dependencyState.status === "invalid") {
     reasons.push(queueV2BlockedReason("dependency_graph_invalid"));
-  } else if (dependencyState.status === "blocked") {
-    reasons.push(queueV2BlockedReason("dependency_open"));
+  } else if (dependencySummary.gate === "failed") {
+    reasons.push(queueV2BlockedReason("dependency_failed_or_rejected"));
+  } else if (dependencySummary.gate === "blocked") {
+    reasons.push(queueV2BlockedReason("dependency_blocked"));
   }
 
   if (lifecycle === "queued" || lifecycle === "ready") {
@@ -406,12 +445,14 @@ function queueV2BlockedReasonsForTask({
 
 function queueV2EligibilityForTask({
   blockedReasons,
+  dependencySummary,
   lifecycle,
   queueEnabled,
   task,
   workers,
 }: {
   blockedReasons: readonly QueueBlockedReason[];
+  dependencySummary: QueueTaskDependencySummary;
   lifecycle: QueueTaskLifecycle;
   queueEnabled: boolean;
   task: AgentQueueTask;
@@ -423,7 +464,9 @@ function queueV2EligibilityForTask({
     (worker) => worker.workerId,
   );
   const dependencyOk =
+    (dependencySummary.gate === "none" || dependencySummary.gate === "satisfied") &&
     !blockedCodes.has("dependency_open") &&
+    !blockedCodes.has("dependency_blocked") &&
     !blockedCodes.has("dependency_failed_or_rejected") &&
     !blockedCodes.has("dependency_graph_invalid");
   const capacityOk =
@@ -551,6 +594,7 @@ function queueV2InspectorSnapshot(
     blockerSummary: viewModel.blockerSummary,
     boardLane: viewModel.boardLane,
     closureState: viewModel.closureState,
+    dependencySummary: viewModel.dependencySummary,
     contextSummary: {
       attachedKnowledgeCount: task.context?.attachedKnowledgeRefs.length ?? 0,
       attachedSkillCount: task.context?.attachedSkillRefs.length ?? 0,
@@ -561,6 +605,7 @@ function queueV2InspectorSnapshot(
       dependencyStates.get(task.queueItemId) ??
       getQueueTaskDependencyState(task, [task]),
     eligibility: viewModel.eligibility,
+    humanStatus: viewModel.humanStatus,
     lifecycle: viewModel.lifecycle,
     nextAction: viewModel.nextAction,
     objective: task.description.trim() || task.prompt.trim(),
@@ -594,6 +639,7 @@ function groupQueueV2TasksByLane(taskViewModels: QueueTaskViewModel[]) {
     ready: [],
     review: [],
     running: [],
+    waiting_dependency: [],
   };
 
   for (const taskViewModel of taskViewModels) {
@@ -636,36 +682,6 @@ function taskHasReviewableOutput(task: AgentQueueTask) {
     task.status === "completed" ||
     task.status === "review_needed"
   );
-}
-
-function queueV2ReviewActionHintForTask(
-  task: AgentQueueTask,
-): "request_changes" | "create_follow_up" | null {
-  switch (normalizeCoordinatorStatus(task.coordinatorStatus)) {
-    case "needs_changes":
-      return "request_changes";
-    case "follow_up_required":
-      return "create_follow_up";
-    default:
-      return null;
-  }
-}
-
-function secondaryActionsForTask(
-  viewModel: QueueTaskViewModel,
-): QueueNextAction[] {
-  if (
-    viewModel.lifecycle === "report_ready" ||
-    viewModel.lifecycle === "review_required"
-  ) {
-    return ["accept_result", "request_changes", "create_follow_up", "reject_result"];
-  }
-
-  if (viewModel.lifecycle === "failed") {
-    return ["review_report", "retry_or_rerun"];
-  }
-
-  return [];
 }
 
 function dedupeReasons(reasons: QueueBlockedReason[]) {

@@ -7,6 +7,7 @@ export type QueueBlockedReasonCode =
   | "queue_disabled"
   | "not_ready_lifecycle"
   | "dependency_open"
+  | "dependency_blocked"
   | "dependency_failed_or_rejected"
   | "dependency_graph_invalid"
   | "capacity_unavailable"
@@ -110,6 +111,7 @@ function blockedReasonPriority(code: QueueBlockedReasonCode) {
     case "queue_disabled":
       return 20;
     case "dependency_open":
+    case "dependency_blocked":
     case "dependency_failed_or_rejected":
     case "dependency_graph_invalid":
       return 30;
@@ -141,6 +143,7 @@ function blockerCategory(code: QueueBlockedReasonCode): QueueBlockerCategory {
     case "queue_disabled":
       return "queue";
     case "dependency_open":
+    case "dependency_blocked":
     case "dependency_failed_or_rejected":
     case "dependency_graph_invalid":
       return "dependency";
@@ -186,6 +189,8 @@ function blockerNextAction(
       return "Enable Queue";
     case "dependency_open":
       return "Open dependency task";
+    case "dependency_blocked":
+      return "Review blocked dependency";
     case "dependency_failed_or_rejected":
     case "dependency_graph_invalid":
       return "Review dependency state";
@@ -278,8 +283,10 @@ function defaultBlockedReasonLabel(code: QueueBlockedReasonCode) {
       return "Task is not ready to run";
     case "dependency_open":
       return "Dependency is still open";
+    case "dependency_blocked":
+      return "Dependency is blocked";
     case "dependency_failed_or_rejected":
-      return "Dependency failed or was rejected";
+      return "Dependency failed";
     case "dependency_graph_invalid":
       return "Dependency graph is invalid";
     case "capacity_unavailable":

@@ -37,7 +37,12 @@ export function QueueV2TaskDetailsOverview({
           compact
           items={[
             { label: "Priority", value: inspector.priority.toString() },
+            { label: "Status", value: inspector.humanStatus.text },
             { label: "Next action", value: queueV2NextActionLabel(inspector.nextAction) },
+            {
+              label: "Dependencies",
+              value: inspector.dependencySummary.message,
+            },
             {
               label: "Primary blocker",
               value: inspector.blockerSummary.primaryReason ?? "None",

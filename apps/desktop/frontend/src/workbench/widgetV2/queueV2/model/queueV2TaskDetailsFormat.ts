@@ -49,6 +49,8 @@ export function laneLabel(lane: QueueInspectorSnapshot["boardLane"]) {
       return "Intake";
     case "ready":
       return "Ready";
+    case "waiting_dependency":
+      return "Waiting dependency";
     case "running":
       return "Running";
     case "review":

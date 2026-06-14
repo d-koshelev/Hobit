@@ -30,6 +30,26 @@ export function QueueV2TaskBlockersSection({
       ) : (
         <p>No current blockers.</p>
       )}
+      <div className="queue-v2-task-blocker-sources">
+        <span>Dependencies</span>
+        {inspector.dependencySummary.items.length ? (
+          <ul>
+            {inspector.dependencySummary.items.map((dependency) => (
+              <li key={dependency.taskId}>
+                {dependency.title}: {dependencyStatusLabel(dependency.status)}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No dependencies.</p>
+        )}
+      </div>
+      {inspector.dependencySummary.gate === "failed" ? (
+        <p>Blocked by failed dependency.</p>
+      ) : null}
+      {inspector.humanStatus.status === "needs_decision" ? (
+        <p>Coordinator decision required.</p>
+      ) : null}
       {inspector.blockerSummary.dependencyBlockerSources.length ? (
         <div className="queue-v2-task-blocker-sources">
           <span>Dependency sources</span>
@@ -44,4 +64,23 @@ export function QueueV2TaskBlockersSection({
       ) : null}
     </section>
   );
+}
+
+function dependencyStatusLabel(
+  status: QueueInspectorSnapshot["dependencySummary"]["items"][number]["status"],
+) {
+  switch (status) {
+    case "satisfied":
+      return "satisfied";
+    case "waiting":
+      return "waiting";
+    case "failed":
+      return "failed";
+    case "blocked":
+      return "blocked";
+    case "missing":
+      return "missing";
+    case "invalid":
+      return "needs review";
+  }
 }

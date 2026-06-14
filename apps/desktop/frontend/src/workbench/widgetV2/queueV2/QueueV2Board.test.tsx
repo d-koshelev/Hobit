@@ -37,6 +37,7 @@ describe("QueueV2Board", () => {
 
     expect(regionByName("Intake lane")).not.toBeNull();
     expect(regionByName("Ready lane")).not.toBeNull();
+    expect(regionByName("Waiting dependency lane")).not.toBeNull();
     expect(regionByName("Running lane")).not.toBeNull();
     expect(regionByName("Review lane")).not.toBeNull();
     expect(regionByName("Blocked lane")).not.toBeNull();
@@ -66,7 +67,14 @@ describe("QueueV2Board", () => {
       />,
     );
 
-    for (const label of ["Intake", "Ready", "Running", "Review", "Blocked"]) {
+    for (const label of [
+      "Intake",
+      "Ready",
+      "Waiting dependency",
+      "Running",
+      "Review",
+      "Blocked",
+    ]) {
       expect(laneToggle(label)?.getAttribute("aria-expanded")).toBe("true");
     }
     expect(laneToggle("Closed")?.getAttribute("aria-expanded")).toBe("false");
@@ -75,6 +83,7 @@ describe("QueueV2Board", () => {
   it.each([
     ["Intake", "intake", "draft", false],
     ["Ready", "ready", "ready", false],
+    ["Waiting dependency", "waiting", "ready", false],
     ["Running", "running", "running", false],
     ["Review", "review", "review_needed", false],
     ["Blocked", "blocked", "queued", true],
@@ -86,10 +95,21 @@ describe("QueueV2Board", () => {
           tasks={[
             task({
               coordinatorStatus: isBlocked ? "blocked" : "not_reported",
+              dependsOn:
+                label === "Waiting dependency" ? ["dependency-task"] : [],
               queueItemId,
               status,
               title: `${label} task`,
             }),
+            ...(label === "Waiting dependency"
+              ? [
+                  task({
+                    queueItemId: "dependency-task",
+                    status: "running",
+                    title: "Dependency task",
+                  }),
+                ]
+              : []),
           ]}
           workers={[worker()]}
         />,
@@ -775,7 +795,11 @@ describe("QueueV2Board", () => {
       />,
     );
 
-    expect(card("task-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
+    expect(card("task-002")?.getAttribute("data-queue-v2-lane")).toBe(
+      "waiting_dependency",
+    );
+    expect(card("task-002")?.textContent).toContain("Waiting for: Task 001");
+    expect(card("task-002")?.textContent).not.toContain("Blocked");
     await openCardDetails("task-002");
 
     const runButton = buttonWithText("Run task");
@@ -787,6 +811,76 @@ describe("QueueV2Board", () => {
     await click(runButton);
 
     expect(onRun).not.toHaveBeenCalled();
+  });
+
+  it("renders Smart Queue status copy without raw internal status strings on cards", async () => {
+    await render(
+      <QueueV2Board
+        tasks={[
+          task({
+            queueItemId: "task-003",
+            status: "running",
+            title: "Task 003",
+          }),
+          task({
+            dependsOn: ["task-003"],
+            queueItemId: "task-004",
+            status: "ready",
+            title: "Task 004 waits",
+          }),
+          task({
+            queueItemId: "task-005",
+            status: "failed",
+            title: "Task 005 failed",
+          }),
+          task({
+            dependsOn: ["task-005"],
+            queueItemId: "task-006",
+            status: "ready",
+            title: "Task 006 blocked downstream",
+          }),
+          task({
+            queueItemId: "task-007",
+            status: "ready",
+            title: "Task 007 validation decision",
+            validationStatus: "failed",
+          }),
+          task({
+            closureState: "no_change_accepted",
+            coordinatorStatus: "finalized",
+            queueItemId: "task-008",
+            status: "completed",
+            title: "Task 008 closed",
+          }),
+        ]}
+        workers={[
+          worker({ currentItemId: "task-003", status: "running" }),
+          worker({ workerId: "idle-worker" }),
+        ]}
+      />,
+    );
+
+    expect(card("task-004")?.getAttribute("data-queue-v2-lane")).toBe(
+      "waiting_dependency",
+    );
+    expect(card("task-004")?.textContent).toContain("Waiting for: Task 003");
+    expect(card("task-004")?.textContent).not.toContain("Blocked");
+
+    expect(card("task-006")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
+    expect(card("task-006")?.textContent).toContain(
+      "Blocked: dependency failed",
+    );
+    expect(card("task-007")?.textContent).toContain(
+      "Needs decision: validation failed",
+    );
+    expect(card("task-007")?.textContent).not.toContain("Blocked");
+
+    await click(laneToggle("Closed"));
+    expect(card("task-008")?.textContent).toContain("Closed");
+    expect(card("task-008")?.textContent).not.toContain("no_change_accepted");
+    expect(document.body.textContent).not.toContain("waiting_dependency");
+    expect(document.body.textContent).not.toContain("dependency_failed_or_rejected");
+    expect(document.body.textContent).not.toContain("validation_failed");
   });
 
   it("shows imported prompt-pack metadata on compact cards and task details without raw JSON", async () => {

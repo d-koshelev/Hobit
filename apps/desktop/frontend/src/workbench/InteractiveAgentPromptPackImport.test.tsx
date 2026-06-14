@@ -120,9 +120,9 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
       (task) => task.taskId === "queue-002-dependent-follow-up",
     );
 
-    expect(dependent?.boardLane).toBe("blocked");
+    expect(dependent?.boardLane).toBe("waiting_dependency");
     expect(dependent?.eligibility.eligibleNow).toBe(false);
-    expect(dependent?.blockedReasons.map((reason) => reason.code)).toContain(
+    expect(dependent?.blockedReasons.map((reason) => reason.code)).not.toContain(
       "dependency_open",
     );
     expect(document.body.textContent).not.toContain("node:sqlite");

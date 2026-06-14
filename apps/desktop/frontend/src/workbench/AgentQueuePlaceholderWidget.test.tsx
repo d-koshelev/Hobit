@@ -126,6 +126,7 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     for (const lane of [
       "Intake / Draft lane",
       "Ready lane",
+      "Waiting dependency lane",
       "Running lane",
       "Review lane",
       "Blocked lane",

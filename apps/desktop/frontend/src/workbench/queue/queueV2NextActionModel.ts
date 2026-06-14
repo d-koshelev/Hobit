@@ -60,7 +60,11 @@ export function queueV2NextActionForTask({
   lifecycle,
   reviewActionHint = null,
 }: QueueV2NextActionInput): QueueNextAction {
-  if (blockedReasonCodes.includes("dependency_open")) {
+  if (
+    blockedReasonCodes.includes("dependency_open") ||
+    blockedReasonCodes.includes("dependency_blocked") ||
+    blockedReasonCodes.includes("dependency_failed_or_rejected")
+  ) {
     return "resolve_dependency";
   }
 

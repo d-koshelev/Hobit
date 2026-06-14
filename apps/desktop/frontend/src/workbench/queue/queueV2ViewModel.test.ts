@@ -227,7 +227,6 @@ describe("Queue v2 view model selectors", () => {
 
     expect(dependentView?.boardLane).toBe("blocked");
     expect(dependentView?.blockedReasons.map((reason) => reason.code)).toEqual([
-      "dependency_open",
       "tag_paused",
     ]);
   });
@@ -257,7 +256,6 @@ describe("Queue v2 view model selectors", () => {
     expect(blocked?.blockedReasons.map((reason) => reason.code)).toEqual([
       "missing_execution_workspace",
       "queue_disabled",
-      "dependency_open",
       "validation_failed",
     ]);
     expect(blocked?.blockerSummary).toMatchObject({
@@ -265,15 +263,12 @@ describe("Queue v2 view model selectors", () => {
       kind: "missing_execution_workspace",
       nextAction: "Set task workspace",
       primaryReason: "Missing execution workspace",
-      secondaryReasons: ["Queue disabled", "Waiting for 001", "Validation failed"],
+      secondaryReasons: ["Queue disabled", "Validation failed"],
     });
-    expect(blocked?.blockerSummary.dependencyBlockerSources).toEqual([
-      {
-        reason: "not_completed",
-        taskId: "001",
-        title: "001 Setup",
-      },
-    ]);
+    expect(blocked?.dependencySummary).toMatchObject({
+      gate: "waiting",
+      message: "Waiting for: Task 001",
+    });
     expect(viewModel.inspector?.blockerSummary.primaryReason).toBe(
       "Missing execution workspace",
     );
@@ -340,7 +335,7 @@ describe("Queue v2 view model selectors", () => {
     });
   });
 
-  it("keeps imported dependents blocked until prerequisite coordinator finalization", () => {
+  it("keeps imported dependents waiting until prerequisite coordinator finalization", () => {
     const prerequisiteWithValidation = task({
       coordinatorStatus: "ready_for_finalization",
       queueItemId: "queue-001",
@@ -376,17 +371,24 @@ describe("Queue v2 view model selectors", () => {
     );
 
     expect(blockedDependent).toMatchObject({
-      boardLane: "blocked",
+      boardLane: "waiting_dependency",
+      humanStatus: {
+        status: "waiting_dependency",
+        text: "Waiting for: Task 001",
+      },
       nextAction: "resolve_dependency",
     });
     expect(blockedDependent?.eligibility).toMatchObject({
       dependencyOk: false,
       eligibleNow: false,
     });
-    expect(blockedDependent?.blockedReasons.map((reason) => reason.code)).toContain(
+    expect(blockedDependent?.blockedReasons.map((reason) => reason.code)).not.toContain(
       "dependency_open",
     );
     expect(blocked.lanes.ready.map((item) => item.taskId)).not.toContain(
+      "queue-002",
+    );
+    expect(blocked.lanes.waiting_dependency.map((item) => item.taskId)).toContain(
       "queue-002",
     );
 
@@ -486,14 +488,14 @@ describe("Queue v2 view model selectors", () => {
 
     const dependent = viewModel.tasks.find((item) => item.taskId === "queue-002");
     expect(dependent).toMatchObject({
-      boardLane: "blocked",
+      boardLane: "waiting_dependency",
       nextAction: "resolve_dependency",
     });
     expect(dependent?.eligibility).toMatchObject({
       dependencyOk: false,
       eligibleNow: false,
     });
-    expect(dependent?.blockedReasons.map((reason) => reason.code)).toContain(
+    expect(dependent?.blockedReasons.map((reason) => reason.code)).not.toContain(
       "dependency_open",
     );
   });

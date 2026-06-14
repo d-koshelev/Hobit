@@ -1,6 +1,6 @@
 import { Badge, KeyValueList } from "../../../../../design-system";
 import type { QueueInspectorSnapshot } from "../../../../queue/queueV2ViewModel";
-import { lifecycleLabel, laneLabel } from "../../model/queueV2TaskDetailsFormat";
+import { laneLabel } from "../../model/queueV2TaskDetailsFormat";
 
 export function QueueV2TaskDetailsHeader({
   inspector,
@@ -13,9 +13,11 @@ export function QueueV2TaskDetailsHeader({
     <div className="queue-v2-task-details-product-header" aria-label="Task status summary">
       <div className="queue-v2-task-details-status-line">
         <Badge variant={statusVariant(inspector.boardLane)}>
-          {laneLabel(inspector.boardLane)}
+          {inspector.humanStatus.status === "needs_decision"
+            ? "Needs decision"
+            : laneLabel(inspector.boardLane)}
         </Badge>
-        <span>{lifecycleLabel(inspector.lifecycle)}</span>
+        <span>{inspector.humanStatus.text}</span>
       </div>
       <KeyValueList
         compact
@@ -42,6 +44,8 @@ function statusVariant(lane: QueueInspectorSnapshot["boardLane"]) {
       return "warning";
     case "running":
       return "info";
+    case "waiting_dependency":
+      return "warning";
     case "closed":
       return "success";
     default:

@@ -146,9 +146,9 @@ describe("prompt-pack import result and QueueV2 regression", () => {
       boardLane: "intake_draft",
       nextAction: "queue_task",
     });
-    expect(dependent?.boardLane).toBe("blocked");
+    expect(dependent?.boardLane).toBe("waiting_dependency");
     expect(dependent?.eligibility.eligibleNow).toBe(false);
-    expect(dependent?.blockedReasons.map((reason) => reason.code)).toContain(
+    expect(dependent?.blockedReasons.map((reason) => reason.code)).not.toContain(
       "dependency_open",
     );
 
@@ -272,7 +272,7 @@ describe("prompt-pack import result and QueueV2 regression", () => {
     expect(onOpenQueueItem).toHaveBeenCalledWith("queue-001-safe-docs-noop");
   });
 
-  it("renders imported QueueV2 tasks with dependency blocking and prompt-pack metadata", async () => {
+  it("renders imported QueueV2 tasks with dependency waiting and prompt-pack metadata", async () => {
     const { startQueueItem, tasks } = await materializeSelfDevelopmentSmokeFixture();
     const viewModel = selectQueueV2ViewModel({
       selectedTaskId: "queue-002-dependent-follow-up",
@@ -283,9 +283,9 @@ describe("prompt-pack import result and QueueV2 regression", () => {
       (item) => item.taskId === "queue-002-dependent-follow-up",
     );
 
-    expect(dependent?.boardLane).toBe("blocked");
+    expect(dependent?.boardLane).toBe("waiting_dependency");
     expect(dependent?.eligibility.eligibleNow).toBe(false);
-    expect(dependent?.blockedReasons.map((reason) => reason.code)).toContain(
+    expect(dependent?.blockedReasons.map((reason) => reason.code)).not.toContain(
       "dependency_open",
     );
 
@@ -299,11 +299,15 @@ describe("prompt-pack import result and QueueV2 regression", () => {
     );
     expect(firstCard?.textContent).toContain("Block 001-safe-docs-noop");
     expect(firstCard?.textContent).toContain("Validation required");
-    expect(secondCard?.getAttribute("data-queue-v2-lane")).toBe("blocked");
+    expect(secondCard?.getAttribute("data-queue-v2-lane")).toBe(
+      "waiting_dependency",
+    );
     expect(secondCard?.textContent).toContain(
       "002-dependent-follow-up: docs: verify dependent readiness gate",
     );
-    expect(secondCard?.textContent).toContain("Dependency blocked");
+    expect(secondCard?.textContent).toContain(
+      "Waiting for: queue-001-safe-docs-noop",
+    );
     expect(secondCard?.textContent).toContain("Dependency");
     expect(document.body.textContent).not.toContain("Run now");
     expect(document.body.textContent).toContain("No running tasks");

@@ -522,7 +522,7 @@ describe("Agent QueueV2 action parity", () => {
     expect(card("queue-001")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
     expect(card("queue-001")?.textContent).toContain("Queue disabled");
     expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
-    expect(card("queue-002")?.textContent).toContain("Resolve dependency");
+    expect(card("queue-002")?.textContent).toContain("Queue disabled");
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain("Disabled");
     expect(buttonByText("Enable Queue")?.disabled).toBe(false);
@@ -540,8 +540,10 @@ describe("Agent QueueV2 action parity", () => {
     expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
     expect(card("queue-001")?.getAttribute("data-queue-v2-lane")).toBe("ready");
     expect(card("queue-001")?.textContent).not.toContain("Queue disabled");
-    expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
-    expect(card("queue-002")?.textContent).toContain("Dependency is still open");
+    expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe(
+      "waiting_dependency",
+    );
+    expect(card("queue-002")?.textContent).toContain("Waiting for: Task 001");
   });
 
   it("keeps disabled Enable Queue visible with a short product reason", async () => {

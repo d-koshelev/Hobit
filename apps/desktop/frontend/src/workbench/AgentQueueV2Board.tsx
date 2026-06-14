@@ -18,8 +18,13 @@ import {
 } from "./queue/queueV2ViewModel";
 import {
   queueV2NextActionLabel,
-  type QueueNextAction,
 } from "./queue/queueV2NextActionModel";
+import {
+  queueV2CardStatusDetail,
+  queueV2HumanStatusBadgeVariant,
+  queueV2MarkerBadgeVariant,
+  queueV2NextActionBadgeVariant,
+} from "./queue/queueV2CardStatusUi";
 import { QueueV2TaskDetailsPopup } from "./widgetV2/queueV2/QueueV2TaskDetailsPopup";
 import { QueueV2CollapsibleLane } from "./widgetV2/queueV2/QueueV2CollapsibleLane";
 import {
@@ -64,6 +69,7 @@ type AgentQueueV2BoardProps = {
 const BOARD_LANES: { id: QueueBoardLane; label: string }[] = [
   { id: "intake_draft", label: "Intake / Draft" },
   { id: "ready", label: "Ready" },
+  { id: "waiting_dependency", label: "Waiting dependency" },
   { id: "review", label: "Review" },
   { id: "blocked", label: "Blocked" },
 ];
@@ -229,7 +235,7 @@ export function AgentQueueV2Board({
 
       <div className="agent-queue-v2-board-scroll">
         <div className="agent-queue-v2-lanes" role="list">
-          {BOARD_LANES.slice(0, 2).map((lane) => (
+          {BOARD_LANES.slice(0, 3).map((lane) => (
             <QueueV2Lane
               isSelecting={isSelecting}
               items={board.lanes[lane.id]}
@@ -247,7 +253,7 @@ export function AgentQueueV2Board({
             onSelectTask={onSelectTask}
             selectedTaskId={selectedTask?.queueItemId ?? null}
           />
-          {BOARD_LANES.slice(2).map((lane) => (
+          {BOARD_LANES.slice(3).map((lane) => (
             <QueueV2Lane
               isSelecting={isSelecting}
               items={board.lanes[lane.id]}
@@ -522,9 +528,7 @@ function QueueV2Card({
     (item.task.context?.attachedSkillRefs.length ?? 0);
   const workerLabel =
     item.task.assignedWorkerId ?? item.task.assignedExecutorWidgetId ?? null;
-  const blockerSummary =
-    item.blockedReasons[0]?.label ??
-    (item.eligibility.blockedReasons[0]?.label || null);
+  const blockerSummary = queueV2CardStatusDetail(item);
   const validation = queueV2ValidationEvidenceView(item.task);
   const coordinator = queueV2CoordinatorFinalizationView(item.task);
 
@@ -568,20 +572,26 @@ function QueueV2Card({
         <span>{tag.queueTagName}</span>
       </span>
       <span className="agent-queue-v2-card-line">
+        <span>Status</span>
+        <Badge variant={queueV2HumanStatusBadgeVariant(item.humanStatus.status)}>
+          {item.humanStatus.text}
+        </Badge>
+      </span>
+      <span className="agent-queue-v2-card-line">
         <span>Next</span>
-        <Badge variant={nextActionBadgeVariant(item.nextAction)}>
+        <Badge variant={queueV2NextActionBadgeVariant(item.nextAction)}>
           {queueV2NextActionLabel(item.nextAction)}
         </Badge>
       </span>
       <span className="agent-queue-v2-card-line">
         <span>Validation</span>
-        <Badge variant={validationBadgeVariant(validation.markerTone)}>
+        <Badge variant={queueV2MarkerBadgeVariant(validation.markerTone)}>
           {validation.marker}
         </Badge>
       </span>
       <span className="agent-queue-v2-card-line">
         <span>Coordinator</span>
-        <Badge variant={validationBadgeVariant(coordinator.cardMarkerTone)}>
+        <Badge variant={queueV2MarkerBadgeVariant(coordinator.cardMarkerTone)}>
           {coordinator.cardMarker}
         </Badge>
       </span>
@@ -618,23 +628,6 @@ function QueueV2Card({
       </button>
     </article>
   );
-}
-
-function validationBadgeVariant(
-  tone: ReturnType<typeof queueV2ValidationEvidenceView>["markerTone"],
-) {
-  switch (tone) {
-    case "success":
-      return "success";
-    case "error":
-      return "error";
-    case "info":
-      return "info";
-    case "warning":
-      return "warning";
-    case "neutral":
-      return "neutral";
-  }
 }
 
 type RunningTaskGroup = {
@@ -679,22 +672,4 @@ function groupSummary(group: RunningTaskGroup) {
     : group.items.length.toString();
 
   return `${state} / ${capacity} active`;
-}
-
-function nextActionBadgeVariant(action: QueueNextAction) {
-  switch (action) {
-    case "review_report":
-    case "accept_result":
-    case "request_changes":
-    case "create_follow_up":
-    case "reject_result":
-      return "warning";
-    case "resolve_dependency":
-    case "resolve_blocker":
-    case "wait_for_capacity":
-    case "assign_worker":
-      return "info";
-    default:
-      return "neutral";
-  }
 }

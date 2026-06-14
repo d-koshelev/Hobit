@@ -47,6 +47,7 @@ type QueueV2BoardProps = {
 const LEADING_BOARD_LANES: { id: QueueBoardLane; label: string }[] = [
   { id: "intake_draft", label: "Intake" },
   { id: "ready", label: "Ready" },
+  { id: "waiting_dependency", label: "Waiting dependency" },
 ];
 
 const TRAILING_BOARD_LANES: { id: QueueBoardLane; label: string }[] = [

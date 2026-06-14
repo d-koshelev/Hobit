@@ -91,7 +91,7 @@ describe("QueueV2 blocker visibility", () => {
     expect(onEnableQueue).not.toHaveBeenCalled();
     expect(onRun).not.toHaveBeenCalled();
     expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
-    expect(card("queue-002")?.textContent).toContain("Dependency");
+    expect(card("queue-002")?.textContent).toContain("Queue disabled");
 
     await openCardDetails("queue-001");
 
@@ -107,7 +107,7 @@ describe("QueueV2 blocker visibility", () => {
     expect(onEnableQueue).toHaveBeenCalledTimes(1);
     expect(onRun).not.toHaveBeenCalled();
     expect(card("queue-002")?.getAttribute("data-queue-v2-lane")).toBe("blocked");
-    expect(card("queue-002")?.textContent).toContain("Dependency");
+    expect(card("queue-002")?.textContent).toContain("Queue disabled");
   });
 
   it("keeps Enable Queue unavailable with a visible reason when Codex executable is missing", async () => {
@@ -197,7 +197,7 @@ describe("QueueV2 blocker visibility", () => {
     expect(onSetWorkspace).not.toHaveBeenCalled();
   });
 
-  it("shows dependency blocker source tasks on cards and details", async () => {
+  it("shows dependency waiting tasks on cards and details", async () => {
     const prerequisite = task({
       queueItemId: "001",
       status: "queued",
@@ -214,14 +214,18 @@ describe("QueueV2 blocker visibility", () => {
       <QueueV2Board tasks={[prerequisite, dependent]} workers={[worker()]} />,
     );
 
-    expect(card("002")?.textContent).toContain("Blocked: Waiting for 001");
+    expect(card("002")?.getAttribute("data-queue-v2-lane")).toBe(
+      "waiting_dependency",
+    );
+    expect(card("002")?.textContent).toContain("Waiting for: Task 001");
+    expect(card("002")?.textContent).not.toContain("Blocked");
 
     await openCardDetails("002");
 
     const blockers = sectionByName("QueueV2 task blockers");
-    expect(blockers?.textContent).toContain("Waiting for 001");
-    expect(blockers?.textContent).toContain("Dependency sources");
-    expect(blockers?.textContent).toContain("001: 001 Workspace setup");
+    expect(blockers?.textContent).toContain("No current blockers");
+    expect(blockers?.textContent).toContain("Dependencies");
+    expect(blockers?.textContent).toContain("001 Workspace setup: waiting");
   });
 
   it("shows multiple blockers in details priority order", async () => {
@@ -252,15 +256,12 @@ describe("QueueV2 blocker visibility", () => {
     const blockersText = sectionByName("QueueV2 task blockers")?.textContent ?? "";
     expect(blockersText).toContain("Missing execution workspace");
     expect(blockersText).toContain("Queue disabled");
-    expect(blockersText).toContain("Waiting for 001");
     expect(blockersText).toContain("Validation failed");
+    expect(blockersText).toContain("001 Setup: waiting");
     expect(blockersText.indexOf("Missing execution workspace")).toBeLessThan(
       blockersText.indexOf("Queue disabled"),
     );
     expect(blockersText.indexOf("Queue disabled")).toBeLessThan(
-      blockersText.indexOf("Waiting for 001"),
-    );
-    expect(blockersText.indexOf("Waiting for 001")).toBeLessThan(
       blockersText.indexOf("Validation failed"),
     );
   });

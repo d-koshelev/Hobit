@@ -4,10 +4,7 @@ import {
 } from "../../../design-system/ActionPrimitives";
 import type { AgentQueueTask } from "../../../workspace/types";
 import { getQueuePromptPackImportMetadata } from "../../promptPack/queuePromptPackMetadata";
-import {
-  normalizeQueueTag,
-  normalizeValidationStatus,
-} from "../../agentQueueTaskUiModel";
+import { normalizeQueueTag } from "../../agentQueueTaskUiModel";
 import { queueTagColorToken } from "../../queue/agentQueueTagColors";
 import type { QueueTaskViewModel } from "../../queue/queueV2ViewModel";
 import type { QueueNextAction } from "../../queue/queueV2NextActionModel";
@@ -193,6 +190,10 @@ function dependencySummary(
     return "Dependency blocked";
   }
 
+  if (item.dependencySummary.gate === "waiting") {
+    return item.dependencySummary.message;
+  }
+
   if (promptPackDependencies.length > 0) {
     return `Depends on ${promptPackDependencies.slice(0, 2).join(", ")}${
       promptPackDependencies.length > 2 ? ` +${(promptPackDependencies.length - 2).toString()}` : ""
@@ -248,7 +249,7 @@ function accentForTask(item: QueueTaskViewModel) {
     return "blocked";
   }
 
-  if (item.boardLane === "review") {
+  if (item.boardLane === "review" || item.boardLane === "waiting_dependency") {
     return "review";
   }
 
@@ -256,28 +257,19 @@ function accentForTask(item: QueueTaskViewModel) {
 }
 
 function taskStatusText(item: QueueTaskViewModel) {
-  const validationStatus = normalizeValidationStatus(item.task.validationStatus);
-  const lifecycle = lifecycleLabel(item.lifecycle);
-
-  if (item.boardLane === "blocked") {
-    return lifecycle;
-  }
-
-  if (item.boardLane === "review") {
-    return item.task.workerExecutionReports?.length
-      ? "Report ready"
-      : lifecycle;
-  }
-
-  if (validationStatus !== "not_started" && item.boardLane !== "closed") {
-    return `${lifecycle} / ${validationStatusLabel(validationStatus)}`;
-  }
-
-  return lifecycle;
+  return item.humanStatus.text;
 }
 
 function blockerCardLine(item: QueueTaskViewModel) {
   const primaryReason = item.blockerSummary.primaryReason;
+
+  if (item.humanStatus.status === "waiting_dependency") {
+    return item.humanStatus.text;
+  }
+
+  if (item.humanStatus.status === "needs_decision") {
+    return item.humanStatus.text;
+  }
 
   if (!primaryReason || (item.boardLane !== "blocked" && item.lifecycle !== "queued")) {
     return null;
@@ -293,46 +285,6 @@ function blockerCardTitle(item: QueueTaskViewModel) {
   ]
     .filter((reason): reason is string => Boolean(reason))
     .join("; ");
-}
-
-function lifecycleLabel(lifecycle: QueueTaskViewModel["lifecycle"]) {
-  switch (lifecycle) {
-    case "draft":
-      return "Draft";
-    case "queued":
-      return "Queued";
-    case "ready":
-      return "Ready";
-    case "running":
-      return "Running";
-    case "report_ready":
-      return "Report ready";
-    case "review_required":
-      return "Review required";
-    case "finalized":
-      return "Finalized";
-    case "blocked":
-      return "Blocked";
-    case "failed":
-      return "Failed";
-    case "cancelled":
-      return "Cancelled";
-  }
-}
-
-function validationStatusLabel(status: NonNullable<AgentQueueTask["validationStatus"]>) {
-  switch (status) {
-    case "validating":
-      return "validating";
-    case "passed":
-      return "passed";
-    case "failed":
-      return "validation failed";
-    case "needs_review":
-      return "validation review";
-    case "not_started":
-      return "not started";
-  }
 }
 
 function runningWorkerLabel(task: AgentQueueTask) {

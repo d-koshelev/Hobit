@@ -28,6 +28,7 @@ export function QueueV2TaskDetailsSummary({
         compact
         items={[
           { label: "Stage", value: laneLabel(inspector.boardLane) },
+          { label: "Status", value: inspector.humanStatus.text },
           {
             label: "Next action",
             value: queueV2NextActionLabel(inspector.nextAction),
@@ -40,7 +41,15 @@ export function QueueV2TaskDetailsSummary({
           { label: "Workspace / worker", value: workspaceWorkerLabel(task, worker) },
         ]}
       />
-      {inspector.blockerSummary.primaryReason ? (
+      {inspector.humanStatus.status === "waiting_dependency" ? (
+        <Notice variant="warning" title="Waiting dependency">
+          {inspector.dependencySummary.message}
+        </Notice>
+      ) : inspector.humanStatus.status === "needs_decision" ? (
+        <Notice variant="warning" title="Coordinator decision required">
+          {inspector.humanStatus.text}
+        </Notice>
+      ) : inspector.blockerSummary.primaryReason ? (
         <Notice variant="warning" title="Blocked">
           {inspector.blockerSummary.nextAction}
         </Notice>
