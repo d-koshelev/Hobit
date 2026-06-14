@@ -25,10 +25,7 @@ import {
   type WidgetRemovalOptions,
 } from "./widgetDeletionAction";
 import { widgetLogEntryFromApi } from "./widgetLogEntryMapping";
-import {
-  findWorkspaceSingletonDefinition,
-  getWidgetDefinition,
-} from "./widgetRegistry";
+import { findWorkspaceSingletonWidget } from "./workspaceSingletonWidgets";
 
 const CATALOG_WIDGET_PLACEMENT_GAP = 24;
 
@@ -288,21 +285,7 @@ function findExistingWorkspaceSingletonWidget(
   viewState: WorkbenchViewState,
   definitionId: string,
 ) {
-  const singletonDefinition = findWorkspaceSingletonDefinition(definitionId);
-
-  if (!singletonDefinition) {
-    return undefined;
-  }
-
-  return viewState.widgets.find((widget) => {
-    const widgetDefinition = getWidgetDefinition(widget.definitionId);
-
-    return (
-      widgetDefinition?.singleton === true &&
-      widgetDefinition.singletonScope === singletonDefinition.singletonScope &&
-      widgetDefinition.singletonKey === singletonDefinition.singletonKey
-    );
-  });
+  return findWorkspaceSingletonWidget(viewState.widgets, definitionId);
 }
 
 function catalogWidgetLayout(

@@ -100,6 +100,64 @@ describe("createWorkspaceWidgetActions Queue singleton add flow", () => {
     expect(applyWorkbenchState).toHaveBeenCalledTimes(1);
   });
 
+  it("targets the visible canonical Queue view when a hidden duplicate appears first", async () => {
+    const hiddenDuplicate = queueWidget({
+      id: "widget_queue_hidden_duplicate",
+      order: 0,
+      visible: false,
+    });
+    const visibleCanonical = queueWidget({
+      id: "widget_queue_visible_canonical",
+      order: 1,
+      visible: true,
+    });
+    const actions = widgetActions(
+      workbenchViewState({
+        widgets: [hiddenDuplicate, visibleCanonical],
+      }),
+    );
+
+    await expect(actions.addWidgetTemplate(queueTemplate())).resolves.toBe(true);
+
+    expect(workspaceApiMocks.addWidgetInstanceToWorkbench).not.toHaveBeenCalled();
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).not.toHaveBeenCalled();
+  });
+
+  it("restores the deterministic canonical hidden Queue view when duplicates are hidden", async () => {
+    const laterHiddenDuplicate = queueWidget({
+      id: "widget_queue_later",
+      order: 2,
+      visible: false,
+    });
+    const earlierHiddenCanonical = queueWidget({
+      id: "widget_queue_earlier",
+      order: 1,
+      visible: false,
+    });
+    const actions = widgetActions(
+      workbenchViewState({
+        widgets: [laterHiddenDuplicate, earlierHiddenCanonical],
+      }),
+    );
+
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+      workspaceWorkbenchState([AGENT_QUEUE_WIDGET_DEFINITION_ID]),
+    );
+
+    await expect(actions.addWidgetTemplate(queueTemplate())).resolves.toBe(true);
+
+    expect(workspaceApiMocks.addWidgetInstanceToWorkbench).not.toHaveBeenCalled();
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          isVisible: true,
+          layoutMode: "docked",
+        }),
+        widgetInstanceId: earlierHiddenCanonical.id,
+      }),
+    );
+  });
+
   it("keeps non-singleton widget creation multi-instance", async () => {
     const actions = widgetActions(
       workbenchViewState({
@@ -233,11 +291,22 @@ function workbenchViewState(
   };
 }
 
-function queueWidget(): WidgetInstance {
+function queueWidget(
+  overrides: Partial<WidgetInstance> & {
+    order?: number;
+    visible?: boolean;
+    x?: number;
+    y?: number;
+  } = {},
+): WidgetInstance {
   return widget({
     definitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
-    id: "widget_queue_1",
+    id: overrides.id ?? "widget_queue_1",
+    order: overrides.order,
     title: "Agent Queue",
+    visible: overrides.visible,
+    x: overrides.x,
+    y: overrides.y,
   });
 }
 
@@ -260,8 +329,17 @@ function agentRunWidget(): WidgetInstance {
 function widget({
   definitionId,
   id,
+  order = 0,
   title,
-}: Pick<WidgetInstance, "definitionId" | "id" | "title">): WidgetInstance {
+  visible = true,
+  x = 0,
+  y = 0,
+}: Pick<WidgetInstance, "definitionId" | "id" | "title"> & {
+  order?: number;
+  visible?: boolean;
+  x?: number;
+  y?: number;
+}): WidgetInstance {
   return {
     config: {},
     definitionId,
@@ -270,14 +348,14 @@ function widget({
       area: "main",
       height: 240,
       mode: "docked",
-      order: 0,
+      order,
       width: 360,
-      x: 0,
-      y: 0,
+      x,
+      y,
     },
     state: {},
     title,
-    visible: true,
+    visible,
   };
 }
 

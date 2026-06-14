@@ -19,6 +19,7 @@ import { useDirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
 import { useWorkspaceAgentQueueChatRequests } from "./useWorkspaceAgentQueueChatRequests";
 import { useWorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
+import { findWorkspaceSingletonWidget } from "./workspaceSingletonWidgets";
 import { currentWorkspaceRootFromViewState } from "./workspaceCurrentRoot";
 import {
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
@@ -108,8 +109,9 @@ export function WorkbenchCanvas({
   const coordinatorWidget = visibleWidgets.find(
     (widget) => widget.definitionId === INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   );
-  const queueWidget = visibleWidgets.find(
-    (widget) => widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  const queueWidget = findWorkspaceSingletonWidget(
+    visibleWidgets,
+    AGENT_QUEUE_WIDGET_DEFINITION_ID,
   );
   const agentExecutorSlots = useMemo(() => agentExecutorSlotsFromWidgets(viewState.widgets), [viewState.widgets]);
   const directWorkGitReview = useDirectWorkGitReviewHandoff();

@@ -124,6 +124,12 @@ instance. Adding Agent Queue when the Workspace already has the singleton Queue
 view must return the existing view path and must not create another
 `agent-queue` instance.
 
+Frontend create/open helpers that need the Queue view must resolve the existing
+singleton view through the same registry singleton metadata. They must not
+choose a duplicate view by raw array order, and they must not create a second
+Queue widget/view as a way to satisfy an open/focus request from prompt-pack
+imports, Workspace Agent result cards, or catalog additions.
+
 If the existing singleton Queue view is hidden and the current product path can
 restore widget visibility through the existing layout update API, the add path
 restores that same widget instance. If the existing singleton Queue view is
