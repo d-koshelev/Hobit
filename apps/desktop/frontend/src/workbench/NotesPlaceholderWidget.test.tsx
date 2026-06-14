@@ -154,7 +154,7 @@ describe("NotesPlaceholderWidget empty state", () => {
     );
   });
 
-  it("keeps the notes list and editor in a split layout with a collapsible list rail", async () => {
+  it("keeps the notes list and editor in a resizable split layout with a collapsible divider", async () => {
     const selectedNote = note({
       body: "Keep this selected.",
       noteId: "note_42",
@@ -175,7 +175,44 @@ describe("NotesPlaceholderWidget empty state", () => {
 
     expect(document.querySelector(".notes-product-shell")).not.toBeNull();
     expect(document.querySelector(".notes-list-pane")).not.toBeNull();
-    expect(document.querySelector(".notes-pane-rail")).not.toBeNull();
+    expect(resizeSeparator()).toBeDefined();
+    expect(document.querySelector(".notes-editor-pane")).not.toBeNull();
+    expect(resizeSeparator()?.getAttribute("aria-orientation")).toBe(
+      "vertical",
+    );
+
+    const shell = document.querySelector<HTMLElement>(".notes-product-shell");
+    if (!shell) {
+      throw new Error("Notes product shell not found.");
+    }
+    Object.defineProperty(shell, "clientWidth", {
+      configurable: true,
+      value: 640,
+    });
+    shell.getBoundingClientRect = () =>
+      ({
+        bottom: 400,
+        height: 400,
+        left: 10,
+        right: 650,
+        top: 0,
+        width: 640,
+        x: 10,
+        y: 0,
+        toJSON: () => ({}),
+      }) as DOMRect;
+
+    const separator = resizeSeparator();
+    if (!separator) {
+      throw new Error("Resize separator not found.");
+    }
+    separator.setPointerCapture = vi.fn();
+    separator.releasePointerCapture = vi.fn();
+
+    await dragSeparator(separator, 206, 260);
+
+    expect(shell.style.getPropertyValue("--notes-list-width")).toBe("250px");
+    expect(separator.getAttribute("aria-valuenow")).toBe("250");
     expect(document.querySelector(".notes-editor-pane")).not.toBeNull();
 
     await clickButtonWithLabel("Collapse notes list");
@@ -187,6 +224,7 @@ describe("NotesPlaceholderWidget empty state", () => {
 
     await clickButtonWithLabel("Expand notes list");
     expect(document.querySelector(".notes-list-pane")).not.toBeNull();
+    expect(shell.style.getPropertyValue("--notes-list-width")).toBe("250px");
   });
 
   it("saves a dirty focused note with Ctrl+S and clears the dirty state", async () => {
@@ -475,6 +513,44 @@ function buttonWithText(text: string) {
 function buttonWithLabel(label: string) {
   return Array.from(document.querySelectorAll("button")).find(
     (button) => button.getAttribute("aria-label") === label,
+  );
+}
+
+function resizeSeparator() {
+  return document.querySelector<HTMLElement>('[role="separator"]');
+}
+
+async function dragSeparator(
+  separator: HTMLElement,
+  startClientX: number,
+  endClientX: number,
+) {
+  await act(async () => {
+    dispatchPointer(separator, "pointerdown", startClientX);
+    await Promise.resolve();
+  });
+  await act(async () => {
+    dispatchPointer(separator, "pointermove", endClientX);
+    await Promise.resolve();
+  });
+  await act(async () => {
+    dispatchPointer(separator, "pointerup", endClientX);
+    await Promise.resolve();
+  });
+}
+
+function dispatchPointer(
+  element: HTMLElement,
+  type: "pointerdown" | "pointermove" | "pointerup",
+  clientX: number,
+) {
+  const PointerEventConstructor = window.PointerEvent ?? MouseEvent;
+  element.dispatchEvent(
+    new PointerEventConstructor(type, {
+      bubbles: true,
+      clientX,
+      pointerId: 1,
+    } as PointerEventInit),
   );
 }
 

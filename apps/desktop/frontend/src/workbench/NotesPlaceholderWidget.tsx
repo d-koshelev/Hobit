@@ -1,4 +1,11 @@
-import { useId, useState } from "react";
+import {
+  useCallback,
+  useId,
+  useRef,
+  useState,
+  type CSSProperties,
+  type PointerEvent,
+} from "react";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { NotesEditor } from "./notes/NotesEditor";
 import { NotesEmptyState, notesSingleState } from "./notes/NotesEmptyState";
@@ -7,6 +14,11 @@ import { NotesFrameStatusBadge } from "./notes/NotesStatusMessage";
 import { NotesToolbar } from "./notes/NotesToolbar";
 import { useWorkspaceNotesController } from "./notes/useWorkspaceNotesController";
 import type { WidgetRenderProps } from "./types";
+
+const DEFAULT_NOTES_LIST_WIDTH = 196;
+const MIN_NOTES_LIST_WIDTH = 132;
+const MAX_NOTES_LIST_WIDTH = 320;
+const MIN_NOTES_EDITOR_WIDTH = 220;
 
 export function NotesPlaceholderWidget({
   frameActions,
@@ -26,7 +38,13 @@ export function NotesPlaceholderWidget({
   const searchInputId = useId();
   const titleInputId = useId();
   const bodyInputId = useId();
+  const shellRef = useRef<HTMLDivElement | null>(null);
   const [isListCollapsed, setIsListCollapsed] = useState(false);
+  const [listWidth, setListWidth] = useState(DEFAULT_NOTES_LIST_WIDTH);
+  const [restoreListWidth, setRestoreListWidth] = useState(
+    DEFAULT_NOTES_LIST_WIDTH,
+  );
+  const [isResizingList, setIsResizingList] = useState(false);
   const {
     apiAvailable,
     cancelKnowledgePromotion,
@@ -102,6 +120,81 @@ export function NotesPlaceholderWidget({
     loadError,
     noteCount: notes.length,
   });
+  const clampListWidth = useCallback((nextWidth: number) => {
+    const shellWidth = shellRef.current?.clientWidth ?? 0;
+    const maxWidthFromShell =
+      shellWidth > 0
+        ? Math.max(
+            MIN_NOTES_LIST_WIDTH,
+            Math.min(MAX_NOTES_LIST_WIDTH, shellWidth - MIN_NOTES_EDITOR_WIDTH),
+          )
+        : MAX_NOTES_LIST_WIDTH;
+
+    return Math.min(
+      Math.max(nextWidth, MIN_NOTES_LIST_WIDTH),
+      maxWidthFromShell,
+    );
+  }, []);
+  const updateListWidthFromPointer = useCallback(
+    (clientX: number) => {
+      const shellRect = shellRef.current?.getBoundingClientRect();
+
+      if (!shellRect) {
+        return;
+      }
+
+      setListWidth(clampListWidth(clientX - shellRect.left));
+    },
+    [clampListWidth],
+  );
+  const startListResize = (event: PointerEvent<HTMLDivElement>) => {
+    if (isListCollapsed) {
+      return;
+    }
+
+    if ((event.target as Element).closest(".notes-pane-divider-button")) {
+      return;
+    }
+
+    event.preventDefault();
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId) === false) {
+      event.currentTarget.setPointerCapture(event.pointerId);
+    }
+    setIsResizingList(true);
+    updateListWidthFromPointer(event.clientX);
+  };
+  const resizeList = (event: PointerEvent<HTMLDivElement>) => {
+    if (!isResizingList) {
+      return;
+    }
+
+    updateListWidthFromPointer(event.clientX);
+  };
+  const stopListResize = (event: PointerEvent<HTMLDivElement>) => {
+    if (!isResizingList) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture?.(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setRestoreListWidth(clampListWidth(listWidth));
+    setIsResizingList(false);
+  };
+  const toggleListCollapsed = () => {
+    setIsListCollapsed((current) => {
+      if (current) {
+        setListWidth(clampListWidth(restoreListWidth));
+        return false;
+      }
+
+      setRestoreListWidth(clampListWidth(listWidth));
+      return true;
+    });
+  };
+  const productShellStyle = {
+    "--notes-list-width": `${clampListWidth(listWidth)}px`,
+  } as CSSProperties;
 
   return (
     <WidgetFrame
@@ -128,8 +221,12 @@ export function NotesPlaceholderWidget({
           className={
             isListCollapsed
               ? "notes-product-shell notes-product-shell-list-collapsed"
-              : "notes-product-shell"
+              : isResizingList
+                ? "notes-product-shell notes-product-shell-resizing"
+                : "notes-product-shell"
           }
+          ref={shellRef}
+          style={productShellStyle}
         >
           {isListCollapsed ? null : (
             <NotesList
@@ -149,13 +246,26 @@ export function NotesPlaceholderWidget({
             />
           )}
 
-          <div className="notes-pane-rail">
+          <div
+            aria-label="Resize notes list"
+            aria-orientation="vertical"
+            aria-valuemax={MAX_NOTES_LIST_WIDTH}
+            aria-valuemin={MIN_NOTES_LIST_WIDTH}
+            aria-valuenow={Math.round(clampListWidth(listWidth))}
+            className="notes-pane-divider"
+            onPointerCancel={stopListResize}
+            onPointerDown={startListResize}
+            onPointerMove={resizeList}
+            onPointerUp={stopListResize}
+            role="separator"
+            title="Drag to resize notes list"
+          >
             <button
               aria-label={
                 isListCollapsed ? "Expand notes list" : "Collapse notes list"
               }
-              className="notes-pane-rail-button"
-              onClick={() => setIsListCollapsed((current) => !current)}
+              className="notes-pane-divider-button"
+              onClick={toggleListCollapsed}
               title={
                 isListCollapsed ? "Expand notes list" : "Collapse notes list"
               }
