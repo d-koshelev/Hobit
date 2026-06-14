@@ -314,7 +314,7 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
     expect(createItem).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        status: "draft",
+        status: "queued",
         title: "001: Import one",
       }),
     );

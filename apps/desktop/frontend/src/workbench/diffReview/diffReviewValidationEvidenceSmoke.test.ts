@@ -98,7 +98,7 @@ describe("validation evidence to Diff Review smoke", () => {
     ]);
     expect(harness.createRequests).toHaveLength(2);
     expect(harness.createRequests.map((request) => request.status)).toEqual([
-      "draft",
+      "queued",
       "draft",
     ]);
     expect(

@@ -193,7 +193,7 @@ describe("widgetHostRenderProps", () => {
     expect(createItem.mock.calls[0]?.[0]).toEqual(
       expect.objectContaining({
         executionWorkspace: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
-        status: "draft",
+        status: "queued",
       }),
     );
   });

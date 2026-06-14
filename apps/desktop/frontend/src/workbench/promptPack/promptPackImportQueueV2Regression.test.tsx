@@ -143,8 +143,8 @@ describe("prompt-pack import result and QueueV2 regression", () => {
       (task) => task.taskId === "queue-002-record-dependent-gate-result",
     );
     expect(firstImported).toMatchObject({
-      boardLane: "intake_draft",
-      nextAction: "queue_task",
+      boardLane: "ready",
+      nextAction: "run_now",
     });
     expect(dependent?.boardLane).toBe("waiting_dependency");
     expect(dependent?.eligibility.eligibleNow).toBe(false);
@@ -173,13 +173,10 @@ describe("prompt-pack import result and QueueV2 regression", () => {
 
     await clickButton("Close");
     await openDetailsForTask("queue-001-add-dogfooding-smoke-result-doc");
-    expect(buttonWithText("Queue for run")?.disabled).toBe(false);
+    expect(buttonWithText("Queue for run")).toBeUndefined();
+    expect(buttonWithText("Run task")?.disabled).toBe(true);
     expect(runTask).not.toHaveBeenCalled();
-
-    await clickButton("Queue for run");
-
-    expect(promoteTask).toHaveBeenCalledTimes(1);
-    expect(buttonWithText("Run task")?.disabled).toBe(false);
+    expect(promoteTask).not.toHaveBeenCalled();
     expect(runTask).not.toHaveBeenCalled();
 
     cleanupRender();
@@ -309,7 +306,7 @@ describe("prompt-pack import result and QueueV2 regression", () => {
       "Waiting for: queue-001-safe-docs-noop",
     );
     expect(secondCard?.textContent).toContain("Dependency");
-    expect(document.body.textContent).not.toContain("Run now");
+    expect(firstCard?.textContent).toContain("Run now");
     expect(document.body.textContent).toContain("No running tasks");
     expect(startQueueItem).not.toHaveBeenCalled();
 

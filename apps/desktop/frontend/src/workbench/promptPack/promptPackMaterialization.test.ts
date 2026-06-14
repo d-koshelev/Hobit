@@ -81,8 +81,9 @@ describe("prompt pack Queue materialization service", () => {
       expect(request?.executionWorkspace).toBe(
         "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
       );
-      expect(request?.status).toBe("draft");
     }
+    expect(firstCreateRequest?.status).toBe("queued");
+    expect(secondCreateRequest?.status).toBe("draft");
 
     expect(bridge.updateItem).toHaveBeenCalledTimes(1);
     expect(bridge.updateItem).toHaveBeenCalledWith({
@@ -144,12 +145,21 @@ describe("prompt pack Queue materialization service", () => {
       }),
     ]);
     expect(first?.dependsOn).toEqual([]);
+    expect(first?.status).toBe("queued");
     expect(first?.executionWorkspace).toBe("C:/repo");
+    expect(first?.approvalPolicy).toBe("never");
+    expect(first?.codexExecutable).toBe("codex.cmd");
+    expect(first?.sandbox).toBe("read_only");
     expect(second?.dependsOn).toEqual(["queue-001-safe-docs-noop"]);
+    expect(second?.status).toBe("draft");
     expect(second?.executionWorkspace).toBe("C:/repo");
     expect(harness.createRequests.map((request) => request.dependsOn)).toEqual([
       [],
       [],
+    ]);
+    expect(harness.createRequests.map((request) => request.status)).toEqual([
+      "queued",
+      "draft",
     ]);
     expect(harness.updateRequests).toEqual([
       expect.objectContaining({
@@ -233,7 +243,7 @@ describe("prompt pack Queue materialization service", () => {
         dependencies: [],
         priority: 4,
         queueTag: { name: "frontend" },
-        status: "draft",
+        status: "queued",
         title: "setup: Setup task",
       }),
     );
@@ -334,6 +344,38 @@ describe("prompt pack Queue materialization service", () => {
     expect(bridge.updateItem).not.toHaveBeenCalled();
     expect(runAutonomousQueue).not.toHaveBeenCalled();
     expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
+  });
+
+  it("blocks invalid prompt-pack prompts before creating Queue items", async () => {
+    const preview = buildPromptPackImportPreview(
+      parsePromptPackImportPlan([
+        {
+          path: "prompt-batch.json",
+          text: JSON.stringify({
+            id: "invalid-pack",
+            items: [{ id: "empty", prompt: "" }],
+          }),
+        },
+      ]),
+    );
+    const bridge = queueBridge();
+
+    const result = await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.createdTasks).toEqual([]);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: "import_blocked",
+        message: expect.stringContaining("has no prompt body"),
+      }),
+    );
+    expect(bridge.createItem).not.toHaveBeenCalled();
+    expect(bridge.updateItem).not.toHaveBeenCalled();
   });
 
   it("reports partial failure and skipped dependency links visibly", async () => {

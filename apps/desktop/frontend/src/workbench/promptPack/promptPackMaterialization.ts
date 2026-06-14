@@ -1,4 +1,9 @@
 import type { WorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
+import {
+  WORKSPACE_QUEUE_SINGLETON_ID,
+  buildQueueBatchMaterializationResult,
+  type QueueTaskDraft,
+} from "../queue/queuePromptPackMaterializationModel";
 import type {
   PromptPackCreatedQueueTask,
   PromptPackDependencyMaterializationLink,
@@ -32,6 +37,24 @@ export async function materializePromptPackPreviewToQueue({
   const dependencyLinksSkipped: PromptPackDependencyMaterializationLink[] = [];
   const warnings: PromptPackMaterializationDiagnostic[] = [];
   const errors: PromptPackMaterializationDiagnostic[] = [];
+  const queueDefaults = bridge?.getRunSettingsDefaults?.() ?? null;
+  const materialization = buildQueueBatchMaterializationResult({
+    defaults: {
+      approvalPolicy: queueDefaults?.approvalPolicy ?? null,
+      executionWorkspace:
+        normalizedExecutionWorkspace(currentWorkspaceRoot) ??
+        normalizedExecutionWorkspace(queueDefaults?.executionWorkspace),
+      sandbox: queueDefaults?.sandbox ?? null,
+    },
+    preview,
+    queue: {
+      id: WORKSPACE_QUEUE_SINGLETON_ID,
+      state: "paused",
+    },
+  });
+  const taskDraftByItemId = new Map(
+    materialization.batch.tasks.map((task) => [task.source.itemId, task]),
+  );
 
   if (!confirmed) {
     errors.push({
@@ -52,6 +75,18 @@ export async function materializePromptPackPreviewToQueue({
     return result({ createdTasks, dependencyLinksCreated, dependencyLinksSkipped, errors, warnings });
   }
 
+  const blockedImportTask = materialization.blockedTasks[0];
+  if (blockedImportTask) {
+    errors.push({
+      code: "import_blocked",
+      itemId: blockedImportTask.source.itemId,
+      message:
+        blockedImportTask.blocker?.message ??
+        `Prompt-pack item "${blockedImportTask.source.itemId}" cannot be imported.`,
+    });
+    return result({ createdTasks, dependencyLinksCreated, dependencyLinksSkipped, errors, warnings });
+  }
+
   if (!bridge) {
     errors.push({
       code: "import_blocked",
@@ -63,21 +98,27 @@ export async function materializePromptPackPreviewToQueue({
 
   for (const item of preview.selectedItems) {
     warnings.push(...unsupportedMetadataWarnings(item));
+    const taskDraft = taskDraftByItemId.get(item.id);
     const executionWorkspace =
+      normalizedExecutionWorkspace(taskDraft?.settings.executionWorkspace) ??
       normalizedExecutionWorkspace(item.executionWorkspace) ??
-      normalizedExecutionWorkspace(currentWorkspaceRoot);
+      normalizedExecutionWorkspace(currentWorkspaceRoot) ??
+      normalizedExecutionWorkspace(queueDefaults?.executionWorkspace);
 
     try {
       const createResult = await bridge.createItem({
+        approvalPolicy: taskDraft?.settings.approvalPolicy ?? null,
+        codexExecutable: queueDefaults?.codexExecutable ?? null,
         dependencies: [],
         description: materializedDescription(preview.pack, item),
-        executionPolicy: item.queueDraft.executionPolicy,
+        executionPolicy: taskDraft?.settings.executionPolicy ?? item.queueDraft.executionPolicy,
         executionWorkspace,
         itemType: item.itemType,
         priority: item.priority,
         prompt: materializedPrompt(preview.pack, item, executionWorkspace),
         queueTag: item.tags[0] ? { name: item.tags[0] } : undefined,
-        status: "draft",
+        sandbox: taskDraft?.settings.sandbox ?? null,
+        status: queueCreateStatusForTask(taskDraft),
         title: materializedTitle(item),
       });
 
@@ -228,6 +269,12 @@ export async function materializePromptPackPreviewToQueue({
     errors,
     warnings,
   });
+}
+
+function queueCreateStatusForTask(taskDraft: QueueTaskDraft | undefined) {
+  return taskDraft?.humanStatus === "ready"
+    ? ("queued" as const)
+    : ("draft" as const);
 }
 
 function result({
