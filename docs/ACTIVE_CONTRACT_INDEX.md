@@ -84,6 +84,15 @@ documents warning-only file-size validation policy for that follow-up track. It
 does not add frontend behavior, CSS, backend APIs, storage/schema, runtime
 behavior, validation automation, or new widgets.
 
+`docs/FRONTEND_ORGANIZATION_CLEANUP_PLAN.md` is the docs-only checkpoint for
+the frontend organization cleanup track from the static audit. It records the
+Queue active-surface and CSS ownership findings, workbench root overload,
+compatibility-surface isolation, shared confirmation migration, design-system
+barrel import policy, active Workspace Agent path audit, Queue root-file split,
+warning-only dead-code audit direction, and explicit Finder exclusion. It does
+not add frontend behavior, CSS, backend APIs, storage/schema, runtime behavior,
+validation automation, widget id changes, or new widgets.
+
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
 examples for planning vocabulary only; current Finder behavior is governed by
@@ -785,6 +794,13 @@ the local executor flow visible to operators.
 - `docs/FRONTEND_STRUCTURE_CONTRACT.md` - mandatory frontend placement and
   import boundary model for shared primitives, widget components, popups,
   and debug content.
+- `docs/FRONTEND_ORGANIZATION_CLEANUP_PLAN.md` - docs-only frontend
+  organization cleanup plan from the static audit. Read before implementing
+  Queue active-surface cleanup, Queue CSS ownership cleanup, compatibility
+  surface isolation, confirmation primitive migration, design-system barrel
+  import migration, Workspace Agent path audit, Queue root-file extraction, or
+  dead-code audit blocks. Preserve its explicit Finder exclusion unless a
+  later prompt scopes Finder work.
 - `docs/PRODUCT_UI_DESIGN_CONTRACT.md` - product UI information hierarchy,
   debug detail boundaries, Queue right rail contract, state semantics, and UI
   review checklist.
