@@ -26,8 +26,8 @@ type WorkbenchSelectionViewInput = {
 export function createWorkbenchViewStateFromSelection(
   selection: WorkbenchSelectionViewInput,
 ): WorkbenchViewState {
-  const widgets = computeDuplicateQueueViewRepair(selection.preset.widgets)
-    .repairedWidgets;
+  const queueRepair = computeDuplicateQueueViewRepair(selection.preset.widgets);
+  const widgets = queueRepair.repairedWidgets;
 
   return {
     workspace: {
@@ -57,9 +57,8 @@ export function createWorkbenchViewStateFromSelection(
 export function createWorkbenchViewStateFromWorkspaceState(
   state: WorkspaceWorkbenchState,
 ): WorkbenchViewState {
-  const widgetInstances = computeDuplicateQueueViewRepair(
-    state.widgetInstances,
-  ).repairedWidgets;
+  const queueRepair = computeDuplicateQueueViewRepair(state.widgetInstances);
+  const widgetInstances = queueRepair.repairedWidgets;
   const preset = workbenchPresetForOriginOrWidgets({
     presetOriginId: state.workbench?.presetOriginId,
     widgetDefinitionIds: widgetInstances.map(
@@ -117,13 +116,50 @@ export function createWorkbenchViewStateFromWorkspaceState(
       value: stateObject.value,
       valueKind: stateObject.valueKind,
     })),
-    recentEvents: state.recentEvents.map((event) => ({
-      id: event.id,
-      kind: event.kind,
-      summary: event.summary,
-      createdAt: event.createdAt,
-    })),
+    recentEvents: withQueueViewRepairNote(
+      state.recentEvents.map((event) => ({
+        id: event.id,
+        kind: event.kind,
+        summary: event.summary,
+        createdAt: event.createdAt,
+      })),
+      queueRepair,
+    ),
   };
+}
+
+function withQueueViewRepairNote(
+  recentEvents: WorkbenchViewState["recentEvents"],
+  queueRepair: ReturnType<typeof computeDuplicateQueueViewRepair>,
+): WorkbenchViewState["recentEvents"] {
+  if (queueRepair.duplicateQueueViewIds.length === 0) {
+    return recentEvents;
+  }
+  const repairEventId = queueViewRepairEventId(queueRepair);
+
+  if (recentEvents.some((event) => event.id === repairEventId)) {
+    return recentEvents;
+  }
+
+  return [
+    ...recentEvents,
+    {
+      createdAt: new Date().toISOString(),
+      id: repairEventId,
+      kind: "queue_view_repair",
+      summary:
+        "Duplicate Agent Queue views were quarantined. Queue tasks were preserved.",
+    },
+  ];
+}
+
+function queueViewRepairEventId(
+  queueRepair: ReturnType<typeof computeDuplicateQueueViewRepair>,
+) {
+  const canonicalId = queueRepair.canonicalQueueView?.id ?? "none";
+  const duplicateIds = [...queueRepair.duplicateQueueViewIds].sort().join("_");
+
+  return `queue-view-repair:${canonicalId}:${duplicateIds}`;
 }
 
 function normalizeWidgetLayoutMode(layoutMode: string): WidgetLayoutMode {

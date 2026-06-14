@@ -105,11 +105,23 @@ Canonical Queue view selection is deterministic:
   dock geometry is available.
 - Finally, use widget instance id lexical order as the stable tiebreaker.
 
-The repair keeps the canonical Queue view and hides duplicate Queue views when
-the current widget model exposes a safe visibility field such as `visible` or
-`isVisible`. If a future model has no safe visibility/quarantine field, the
-repair must identify duplicates without deleting or rewriting Queue domain data,
-and the exact integration gap must be documented in code and this contract.
+The repair keeps one canonical Queue view active and hides duplicate Queue
+views when the current widget model exposes a safe visibility field such as
+`visible` or `isVisible`. If duplicate persisted Queue views are all hidden,
+the repair restores the canonical view to visible and keeps the duplicates
+hidden so the Workbench still has one active Queue control surface. If a future
+model has no safe visibility/quarantine field, the repair must identify
+duplicates without deleting or rewriting Queue domain data, and the exact
+integration gap must be documented in code and this contract.
+
+Current frontend repair runs at the Tauri DTO/browser memory normalization and
+Workbench view-state conversion boundaries before widgets render. It is
+presentation-only: duplicate Queue widget rows may remain in persisted storage
+as hidden/quarantined compatibility records, but only the canonical Queue view
+is visible/active in the Workbench. The Workbench view-state conversion adds a
+single product-safe recent-activity note when duplicate Queue views are
+quarantined; it must not expose duplicate ids or debug/runtime details in the
+primary UI.
 
 Duplicate Queue view repair must never delete Queue tasks, run links, worker
 config, reports, tags, context attachments, Queue validation data, Executor run

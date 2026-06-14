@@ -70,6 +70,36 @@ describe("Queue singleton view repair", () => {
     ]);
   });
 
+  it("restores one canonical Queue view when all persisted duplicates are hidden", () => {
+    const laterHiddenDuplicate = widget({
+      definitionId: "agent-queue",
+      id: "queue_b",
+      isVisible: false,
+      order: 2,
+    });
+    const earlierHiddenCanonical = widget({
+      definitionId: "agent-queue",
+      id: "queue_a",
+      isVisible: false,
+      order: 1,
+    });
+
+    const repair = computeDuplicateQueueViewRepair([
+      laterHiddenDuplicate,
+      earlierHiddenCanonical,
+    ]);
+    const visibleQueueViews = repair.repairedWidgets.filter(
+      (candidate) =>
+        candidate.definitionId === "agent-queue" && candidate.isVisible,
+    );
+
+    expect(repair.canonicalQueueView).toBe(earlierHiddenCanonical);
+    expect(repair.duplicateQueueViewIds).toEqual(["queue_b"]);
+    expect(visibleQueueViews).toEqual([
+      expect.objectContaining({ id: "queue_a" }),
+    ]);
+  });
+
   it("selects the canonical Queue view with stable deterministic ordering", () => {
     const laterLayout = widget({
       definitionId: "agent-queue",
@@ -135,6 +165,28 @@ describe("Queue singleton view repair", () => {
     expect(repair.repairedWidgets[2]).toEqual(
       expect.objectContaining({ id: "queue_2", isVisible: false }),
     );
+  });
+
+  it("does not treat compatibility or malformed Queue-looking ids as Queue views", () => {
+    const queue = widget({ definitionId: "agent-queue", id: "queue_1" });
+    const queueV2Smoke = widget({
+      definitionId: "queue-v2",
+      id: "queue_v2_smoke",
+    });
+    const agentRun = widget({
+      definitionId: "agent-run",
+      id: "agent_run_1",
+    });
+
+    const repair = computeDuplicateQueueViewRepair([
+      queue,
+      queueV2Smoke,
+      agentRun,
+    ]);
+
+    expect(repair.queueViews).toEqual([queue]);
+    expect(repair.repairKind).toBe("none");
+    expect(repair.repairedWidgets).toEqual([queue, queueV2Smoke, agentRun]);
   });
 });
 

@@ -72,19 +72,31 @@ export function computeDuplicateQueueViewRepair<
   const duplicateQueueViewIds = new Set(
     duplicateQueueViews.map((widget) => widget.id),
   );
-  const canHideDuplicates = duplicateQueueViews.every(canHideQueueView);
+  const canRepairVisibility = [canonicalQueueView, ...duplicateQueueViews].every(
+    canSetQueueViewVisibility,
+  );
 
   return {
     canonicalQueueView,
     duplicateQueueViewIds: [...duplicateQueueViewIds],
     duplicateQueueViews,
     queueViews,
-    repairKind: canHideDuplicates ? "hide-duplicates" : "identify-only",
-    repairedWidgets: widgets.map((widget) =>
-      duplicateQueueViewIds.has(widget.id) && canHideDuplicates
-        ? hideQueueView(widget)
-        : widget,
-    ),
+    repairKind: canRepairVisibility ? "hide-duplicates" : "identify-only",
+    repairedWidgets: widgets.map((widget) => {
+      if (!canRepairVisibility) {
+        return widget;
+      }
+
+      if (widget.id === canonicalQueueView.id) {
+        return setQueueViewVisibility(widget, true);
+      }
+
+      if (duplicateQueueViewIds.has(widget.id)) {
+        return setQueueViewVisibility(widget, false);
+      }
+
+      return widget;
+    }),
   };
 }
 
@@ -103,17 +115,20 @@ function compareQueueViewRank<T extends QueueSingletonRepairWidget>(
   );
 }
 
-function canHideQueueView(widget: QueueSingletonRepairWidget) {
+function canSetQueueViewVisibility(widget: QueueSingletonRepairWidget) {
   return (
     typeof widget.isVisible === "boolean" || typeof widget.visible === "boolean"
   );
 }
 
-function hideQueueView<T extends QueueSingletonRepairWidget>(widget: T): T {
+function setQueueViewVisibility<T extends QueueSingletonRepairWidget>(
+  widget: T,
+  visible: boolean,
+): T {
   return {
     ...widget,
-    ...(typeof widget.isVisible === "boolean" ? { isVisible: false } : {}),
-    ...(typeof widget.visible === "boolean" ? { visible: false } : {}),
+    ...(typeof widget.isVisible === "boolean" ? { isVisible: visible } : {}),
+    ...(typeof widget.visible === "boolean" ? { visible } : {}),
   } as T;
 }
 
