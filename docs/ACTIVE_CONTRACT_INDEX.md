@@ -76,6 +76,14 @@ checklists, and remaining enforcement follow-ups. It does not add frontend
 behavior, CSS, backend APIs, storage/schema, tests, validation automation, or
 new widgets.
 
+`docs/MANUAL_SMOKE_UI_FOLLOWUP_PLAN.md` is the docs-only checkpoint for current
+manual smoke UI follow-up findings and exclusions. It records the next
+QueueV2, Workspace Agent, Knowledge / Skills, Notes, Terminal, and
+Coordinator/agents UI direction, explicitly keeps Finder out of scope, and
+documents warning-only file-size validation policy for that follow-up track. It
+does not add frontend behavior, CSS, backend APIs, storage/schema, runtime
+behavior, validation automation, or new widgets.
+
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
 examples for planning vocabulary only; current Finder behavior is governed by
@@ -790,6 +798,11 @@ the local executor flow visible to operators.
 - `docs/UI_STANDARDS_ENFORCEMENT_STATUS.md` - docs-only status record for the
   project-level UI standards enforcement block, expected shared primitive/
   token behavior, manual smoke checklist, and enforcement follow-ups.
+- `docs/MANUAL_SMOKE_UI_FOLLOWUP_PLAN.md` - docs-only manual smoke UI
+  follow-up checkpoint. Read before implementing the recorded QueueV2,
+  Workspace Agent, Knowledge / Skills, Notes, Terminal, or Coordinator/agents
+  follow-up blocks, and preserve its explicit Finder exclusion unless a later
+  prompt scopes Finder work.
 - `docs/PRODUCT_UI_VISUAL_CONTRACT.md` - current product visual direction.
 - `docs/WIDGET_PROGRESSIVE_DISCLOSURE_CONTRACT.md` - Minimal, Operational, and
   Full / Expert display-level guidance when a widget surface grows.
