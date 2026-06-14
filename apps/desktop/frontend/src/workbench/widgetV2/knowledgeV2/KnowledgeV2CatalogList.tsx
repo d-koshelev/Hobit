@@ -53,8 +53,8 @@ export function KnowledgeV2CatalogList({
       <section aria-label="Knowledge catalog empty state" className="knowledge-v2-empty">
         <h3>No catalog items yet.</h3>
         <p>
-          Import or create Knowledge in the existing Knowledge / Skills flow,
-          then return here to review it in the experimental catalog.
+          Create or import a document or Skill to start building reusable
+          workspace knowledge.
         </p>
         {onImport ? (
           <Button onClick={onImport} variant="secondary">

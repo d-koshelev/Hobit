@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { Button, WidgetDebugPopup } from "../../../design-system";
+import { WidgetDebugPopup } from "../../../design-system";
 import type { KnowledgeDocument } from "../../../workspace/types/knowledgeDocuments";
 import type { KnowledgeDraftReviewDecision } from "../../../workspace/types/knowledgeDocuments";
 import type { Skill } from "../../../workspace/types/skills";
 import type { WidgetRenderProps } from "../../types";
 import { WidgetV2Shell } from "../WidgetV2Shell";
-import { getWidgetV2Manifest } from "../widgetV2Registry";
 import {
   KnowledgeV2Actions,
   type KnowledgeV2ActionAvailabilityMap,
@@ -14,8 +13,6 @@ import {
 import { KnowledgeV2CatalogBrowser } from "./KnowledgeV2CatalogBrowser";
 import { KnowledgeV2DebugContent } from "./debug/KnowledgeV2DebugContent";
 import { buildKnowledgeV2DebugModel } from "./debug/knowledgeV2DebugModel";
-
-const knowledgeV2Manifest = getWidgetV2Manifest("knowledge-v2");
 
 export type KnowledgeV2WidgetProps = {
   readonly displaySubtitle?: string;
@@ -121,18 +118,12 @@ export function KnowledgeV2Widget({
             onImport={onImport}
             onManageSkills={onManageSkills}
             onNew={onNew}
+            onOpenDebug={() => setIsDebugOpen(true)}
             onViewModeChange={setViewMode}
+            debugButtonRef={debugButtonRef}
             skills={dataBridge.skills}
             viewMode={viewMode}
           />
-          <Button
-            aria-label="KnowledgeV2 debug diagnostics"
-            onClick={() => setIsDebugOpen(true)}
-            ref={debugButtonRef}
-            variant="ghost"
-          >
-            Debug
-          </Button>
           <WidgetDebugPopup
             onClose={() => setIsDebugOpen(false)}
             open={isDebugOpen}
@@ -166,11 +157,11 @@ export function KnowledgeV2Widget({
             ) : null}
           </div>
         ),
-        label: "KnowledgeV2 information",
-        title: "KnowledgeV2",
+        label: "Knowledge / Skills information",
+        title: "Knowledge / Skills",
       }}
       status={status}
-      title={displayTitle ?? knowledgeV2Manifest?.title ?? "Knowledge v2"}
+      title={displayTitle ?? "Knowledge / Skills"}
     >
       <KnowledgeV2CatalogBrowser
         documents={dataBridge.documents}
@@ -432,7 +423,7 @@ function knowledgeV2StatusForBridge(dataBridge: KnowledgeV2DataBridge) {
 
   if (dataBridge.status === "loading") {
     return {
-      detail: `KnowledgeV2 is loading through existing Knowledge / Skills frontend list actions. ${counts}`,
+      detail: `Loading Knowledge / Skills data through existing list actions. ${counts}`,
       label: "Loading",
       tone: "neutral" as const,
     };
@@ -440,22 +431,22 @@ function knowledgeV2StatusForBridge(dataBridge: KnowledgeV2DataBridge) {
 
   if (dataBridge.status === "ready") {
     return {
-      detail: `KnowledgeV2 is reading existing Knowledge / Skills frontend data. ${counts}`,
-      label: "Data sources: ready",
-      tone: "warning" as const,
+      detail: `Knowledge / Skills data sources are ready. ${counts}`,
+      label: "Data sources ready",
+      tone: "neutral" as const,
     };
   }
 
   if (dataBridge.status === "partial") {
     return {
-      detail: `KnowledgeV2 is using only available frontend bridges. ${counts}`,
-      label: "Data sources: partial",
+      detail: `Knowledge / Skills is using available data sources only. ${counts}`,
+      label: "Data sources partial",
       tone: "warning" as const,
     };
   }
 
   return {
-    detail: `KnowledgeV2 has no Knowledge / Skills data bridge in this experimental path. ${counts} No production data is being faked.`,
+    detail: `Knowledge / Skills has no connected data source here. ${counts} No production data is being faked.`,
     label: "Data unavailable",
     tone: "warning" as const,
   };

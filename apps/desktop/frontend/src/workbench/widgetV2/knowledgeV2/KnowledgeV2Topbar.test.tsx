@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { KnowledgeV2Widget } from "./KnowledgeV2Widget";
 import {
   cleanupKnowledgeV2WidgetTestDom,
+  buttonWithText,
   clickButtonInRegion,
   dialogByName,
   documentFixture,
@@ -16,7 +17,7 @@ afterEach(() => {
 });
 
 describe("KnowledgeV2Widget topbar", () => {
-  it("groups view, primary, management, and filter controls separately", async () => {
+  it("groups view, primary, secondary, and filter controls separately", async () => {
     const onNew = vi.fn();
     const onImport = vi.fn();
     const onDraftReview = vi.fn();
@@ -53,12 +54,7 @@ describe("KnowledgeV2Widget topbar", () => {
       document.querySelector(
         ".knowledge-v2-action-group[data-group='management']",
       ),
-    ).not.toBeNull();
-    expect(
-      document.querySelector(
-        ".knowledge-v2-action-group-spaced[data-group='management']",
-      ),
-    ).not.toBeNull();
+    ).toBeNull();
     expect(
       document.querySelector(".knowledge-v2-action-group[data-group='more']"),
     ).not.toBeNull();
@@ -75,15 +71,12 @@ describe("KnowledgeV2Widget topbar", () => {
       "Import",
     );
     expect(
-      regionByName("KnowledgeV2 management actions")?.textContent,
-    ).toContain("Draft Review");
+      regionByName("KnowledgeV2 primary actions")?.textContent,
+    ).not.toContain("Draft Review");
     expect(
-      regionByName("KnowledgeV2 management actions")?.textContent,
-    ).toContain("Manage Skills");
-    expect(
-      regionByName("KnowledgeV2 management actions")?.textContent,
-    ).not.toContain("Help");
-    expect(document.body.textContent).toContain("Debug");
+      regionByName("KnowledgeV2 primary actions")?.textContent,
+    ).not.toContain("Manage Skills");
+    expect(buttonWithText("Debug")).toBeNull();
     expect(
       regionByName("Knowledge v2 search and filter row")?.textContent,
     ).toContain("Sort");
@@ -113,23 +106,18 @@ describe("KnowledgeV2Widget topbar", () => {
       />,
     );
 
-    const moreGroup = regionByName("KnowledgeV2 collapsed management actions");
+    const moreGroup = regionByName("KnowledgeV2 secondary actions");
     const managementGroup = regionByName("KnowledgeV2 management actions");
 
     expect(moreGroup?.className).toContain("knowledge-v2-more-actions");
     expect(moreGroup?.className).toContain("knowledge-v2-action-group-spaced");
-    expect(managementGroup?.className).toContain(
-      "knowledge-v2-management-actions",
-    );
-    expect(managementGroup?.className).toContain(
-      "knowledge-v2-action-group-spaced",
-    );
-    expect(managementGroup?.textContent).toContain("Draft Review");
-    expect(managementGroup?.textContent).toContain("Manage Skills");
-    expect(managementGroup?.textContent).not.toContain("Help");
+    expect(managementGroup).toBeNull();
+    expect(moreGroup?.textContent).not.toContain("Draft Review");
+    expect(moreGroup?.textContent).not.toContain("Manage Skills");
+    expect(moreGroup?.textContent).not.toContain("Debug");
 
     await clickButtonInRegion(
-      "KnowledgeV2 collapsed management actions",
+      "KnowledgeV2 secondary actions",
       "More",
     );
 
@@ -137,6 +125,7 @@ describe("KnowledgeV2Widget topbar", () => {
     expect(moreMenu?.getAttribute("role")).toBe("menu");
     expect(moreMenu?.textContent).toContain("Draft Review");
     expect(moreMenu?.textContent).toContain("Manage Skills");
+    expect(moreMenu?.textContent).toContain("Debug");
     expect(moreMenu?.textContent).not.toContain("Help");
     expect(onNew).not.toHaveBeenCalled();
     expect(onImport).not.toHaveBeenCalled();

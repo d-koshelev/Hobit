@@ -50,7 +50,9 @@
 
 .knowledge-v2-more-actions {
   position: relative;
-  display: none;
+  margin-left: var(--space-xs);
+  padding-left: var(--space-xs);
+  border-left: 1px solid var(--color-border-subtle);
 }
 
 .knowledge-v2-more-menu {
@@ -808,7 +810,9 @@
 }
 
 .knowledge-v2-empty {
-  border-style: dashed;
+  border: 0;
+  background: transparent;
+  padding: var(--space-sm) 0;
 }
 
 .knowledge-v2-empty-actions {
@@ -1508,25 +1512,7 @@
     gap: var(--space-xs);
   }
 
-  .knowledge-v2-management-actions {
-    display: none;
-  }
-
-  .knowledge-v2-more-actions {
-    display: inline-flex;
-  }
-
   .knowledge-v2-primary-actions {
     padding-left: 0;
-  }
-}
-
-@media (max-width: 760px) {
-  .knowledge-v2-management-actions {
-    display: none;
-  }
-
-  .knowledge-v2-more-actions {
-    display: inline-flex;
   }
 }

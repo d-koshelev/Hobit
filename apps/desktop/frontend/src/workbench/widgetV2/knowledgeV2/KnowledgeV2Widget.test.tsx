@@ -34,6 +34,11 @@ afterEach(() => {
   cleanupKnowledgeV2WidgetTestDom();
 });
 
+async function openMoreAction(label: string) {
+  await clickButtonInRegion("KnowledgeV2 secondary actions", "More");
+  await clickButtonInRegion("KnowledgeV2 More menu", label);
+}
+
 describe("KnowledgeV2Widget browser", () => {
   it("renders documents and skills together", async () => {
     await render(
@@ -55,7 +60,8 @@ describe("KnowledgeV2Widget browser", () => {
       />,
     );
 
-    expect(headingWithText("Knowledge Catalog v2")).not.toBeNull();
+    expect(headingWithText("Knowledge / Skills")).not.toBeNull();
+    expect(headingWithText("Knowledge Catalog v2")).toBeNull();
     expect(regionByName("Knowledge catalog items")?.getAttribute("role")).toBe(
       "table",
     );
@@ -123,7 +129,7 @@ describe("KnowledgeV2Widget browser", () => {
       />,
     );
 
-    expect(text()).toContain("Data sources: partial");
+    expect(text()).toContain("Data sources partial");
     expect(text()).not.toContain("Some catalog bridges are unavailable.");
     expect(
       document.querySelector("[aria-label='KnowledgeV2 data bridge status']"),
@@ -132,13 +138,13 @@ describe("KnowledgeV2Widget browser", () => {
       "the current list action requires a selected draft pack",
     );
 
-    await clickButtonByLabel("KnowledgeV2 information");
-    const info = dialogByName("KnowledgeV2");
+    await clickButtonByLabel("Knowledge / Skills information");
+    const info = dialogByName("Knowledge / Skills");
     expect(info?.textContent).toContain("Browse Knowledge Documents and Skills together.");
     expect(info?.textContent).not.toContain("Skills list bridge");
 
     await keyDown("Escape");
-    await clickButton("Debug");
+    await openMoreAction("Debug");
     const details = dialogByName("KnowledgeV2 diagnostics");
     expect(details?.textContent).toContain("Documents loaded");
     expect(details?.textContent).toContain("1");
@@ -149,7 +155,7 @@ describe("KnowledgeV2Widget browser", () => {
     );
 
     await keyDown("Escape");
-    await clickButton("Draft Review");
+    await openMoreAction("Draft Review");
     const draftReview = dialogByName("Draft Review");
     expect(draftReview?.textContent).toContain("Available");
     expect(draftReview?.textContent).not.toContain(
@@ -176,13 +182,13 @@ describe("KnowledgeV2Widget browser", () => {
     );
     await flush();
 
-    expect(text()).toContain("Data sources: partial");
+    expect(text()).toContain("Data sources partial");
     expect(text()).not.toContain("Some catalog bridges are unavailable.");
     expect(text()).not.toContain("Load failed: documents: documents offline");
     expect(text()).toContain("React review");
 
-    await clickButtonByLabel("KnowledgeV2 information");
-    expect(dialogByName("KnowledgeV2")?.textContent).not.toContain(
+    await clickButtonByLabel("Knowledge / Skills information");
+    expect(dialogByName("Knowledge / Skills")?.textContent).not.toContain(
       "documents: documents offline",
     );
     expect(buttonWithText("Retry data bridge")).not.toBeNull();
@@ -192,7 +198,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(onImport).not.toHaveBeenCalled();
 
     await keyDown("Escape");
-    await clickButton("Debug");
+    await openMoreAction("Debug");
     expect(dialogByName("KnowledgeV2 diagnostics")?.textContent).toContain(
       "documents: documents offline",
     );
@@ -656,30 +662,21 @@ describe("KnowledgeV2Widget browser", () => {
 
     expect(text()).not.toContain("Catalog list placeholder");
     expect(text()).not.toContain("Preview/details placeholder");
-    expect(buttonWithText("New")).not.toBeNull();
-    expect(buttonWithText("List")).not.toBeNull();
-    expect(buttonWithText("Cards")).not.toBeNull();
-    expect(buttonWithText("Import")).not.toBeNull();
-    expect(buttonWithText("Draft Review")).not.toBeNull();
-    expect(buttonWithText("Manage Skills")).not.toBeNull();
+    ["New", "List", "Cards", "Import"].forEach((label) =>
+      expect(buttonWithText(label)).not.toBeNull(),
+    );
+    expect(buttonWithText("Draft Review")).toBeNull();
+    expect(buttonWithText("Manage Skills")).toBeNull();
     expect(buttonWithText("Help")).toBeNull();
-    expect(buttonWithText("Debug")).not.toBeNull();
-    expect(
-      document.querySelector("[aria-label='KnowledgeV2 helper rail']"),
-    ).toBeNull();
-    expect(
-      document.querySelector("[aria-label='KnowledgeV2 legend rail']"),
-    ).toBeNull();
-    expect(
-      document.querySelector("[aria-label='KnowledgeV2 tips rail']"),
-    ).toBeNull();
-    expect(text()).not.toContain("draft payload");
-    expect(text()).not.toContain("Raw draft contents");
-    expect(text()).not.toContain("Choose or drop a text/Markdown file");
-    expect(text()).not.toContain("Open existing import flow");
-    expect(text()).not.toContain("New document");
-    expect(text()).not.toContain("Open existing create flow");
-    expect(text()).not.toContain("Normal context candidate");
+    expect(buttonWithText("Debug")).toBeNull();
+    await clickButtonInRegion("KnowledgeV2 secondary actions", "More");
+    const moreMenuText = regionByName("KnowledgeV2 More menu")?.textContent;
+    expect(moreMenuText).toContain("Draft Review");
+    expect(moreMenuText).toContain("Manage Skills");
+    expect(moreMenuText).toContain("Debug");
+    await clickButtonInRegion("KnowledgeV2 secondary actions", "More");
+    expect(["KnowledgeV2 helper rail", "KnowledgeV2 legend rail", "KnowledgeV2 tips rail"].some((label) => document.querySelector(`[aria-label='${label}']`))).toBe(false);
+    ["draft payload", "Raw draft contents", "Choose or drop a text/Markdown file", "Open existing import flow", "New document", "Open existing create flow", "Normal context candidate"].forEach((copy) => expect(text()).not.toContain(copy));
     expect(
       regionByName("Knowledge catalog items")?.textContent ?? "",
     ).not.toContain("Import");
@@ -758,7 +755,7 @@ describe("KnowledgeV2Widget browser", () => {
     await clickButton("Close");
     expect(dialogByName("Import")).toBeNull();
 
-    await clickButton("Draft Review");
+    await openMoreAction("Draft Review");
     expect(dialogByName("Draft Review")?.textContent).toContain(
       "Draft documents",
     );
@@ -797,12 +794,12 @@ describe("KnowledgeV2Widget browser", () => {
     expect(onImport).not.toHaveBeenCalled();
     await keyDown("Escape");
 
-    await clickButton("Draft Review");
+    await openMoreAction("Draft Review");
     expect(dialogByName("Draft Review")?.textContent).toContain("Review decisions");
     expect(onDraftReview).not.toHaveBeenCalled();
     await keyDown("Escape");
 
-    await clickButton("Manage Skills");
+    await openMoreAction("Manage Skills");
     expect(dialogByName("Manage Skills")?.textContent).toContain("Skill records");
     expect(dialogByName("Manage Skills")?.textContent).not.toContain("Categories");
     expect(dialogByName("Manage Skills")?.textContent).not.toContain("Templates");
@@ -843,7 +840,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(text()).not.toContain("Raw draft contents");
     expect(text()).not.toContain("Generated architecture draft");
 
-    await clickButton("Draft Review");
+    await openMoreAction("Draft Review");
 
     const popup = dialogByName("Draft Review");
     expect(popup?.textContent).toContain("Draft documents");
@@ -958,12 +955,12 @@ describe("KnowledgeV2Widget browser", () => {
     expect(onImport).toHaveBeenCalledTimes(1);
 
     await keyDown("Escape");
-    await clickButton("Draft Review");
+    await openMoreAction("Draft Review");
     await clickButton("Open existing draft review flow");
     expect(onDraftReview).toHaveBeenCalledTimes(1);
 
     await keyDown("Escape");
-    await clickButton("Manage Skills");
+    await openMoreAction("Manage Skills");
     await clickButton("Open existing skills flow");
     expect(onManageSkills).toHaveBeenCalledTimes(1);
   });

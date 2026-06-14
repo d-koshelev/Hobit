@@ -34,7 +34,7 @@ describe("KnowledgeV2 unavailable actions", () => {
     expect(buttonWithText("Draft Review")).toBeNull();
     expect(buttonWithText("Manage Skills")).toBeNull();
 
-    await clickButton("Debug");
+    await openMoreAction("Debug");
 
     const dialog = dialogByName("KnowledgeV2 diagnostics");
     expect(dialog?.textContent).toContain("Callback Availability");
@@ -53,9 +53,9 @@ describe("KnowledgeV2 unavailable actions", () => {
       />,
     );
 
-    expect(buttonWithText("Manage Skills")?.textContent).not.toContain("Partial");
+    expect(buttonWithText("Manage Skills")).toBeNull();
 
-    await clickButton("Manage Skills");
+    await openMoreAction("Manage Skills");
 
     const dialog = dialogByName("Manage Skills");
     expect(dialog?.textContent).toContain("Available");
@@ -68,12 +68,17 @@ describe("KnowledgeV2 unavailable actions", () => {
     expect(onManageSkills).toHaveBeenCalledTimes(1);
 
     await keyDown("Escape");
-    await clickButton("Debug");
+    await openMoreAction("Debug");
     expect(dialogByName("KnowledgeV2 diagnostics")?.textContent).toContain(
       "Skills list bridge is unavailable",
     );
   });
 });
+
+async function openMoreAction(label: string) {
+  await clickButton("More");
+  await clickButton(label);
+}
 
 async function render(element: ReactNode) {
   container = document.createElement("div");

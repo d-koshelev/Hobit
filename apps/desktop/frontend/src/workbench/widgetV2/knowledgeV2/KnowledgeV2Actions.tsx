@@ -22,10 +22,12 @@ type KnowledgeV2ActionsProps = {
   readonly documents: readonly KnowledgeDocument[];
   readonly draftReviews?: readonly KnowledgeDraftReviewDecision[];
   readonly onDraftReview?: () => void;
+  readonly onOpenDebug?: () => void;
   readonly onImport?: () => void;
   readonly onManageSkills?: () => void;
   readonly onNew?: () => void;
   readonly onViewModeChange?: (mode: "cards" | "list") => void;
+  readonly debugButtonRef?: RefObject<HTMLButtonElement | null>;
   readonly skills: readonly Skill[];
   readonly viewMode?: "cards" | "list";
 };
@@ -60,10 +62,12 @@ export function KnowledgeV2Actions({
   documents,
   draftReviews = [],
   onDraftReview,
+  onOpenDebug,
   onImport,
   onManageSkills,
   onNew,
   onViewModeChange,
+  debugButtonRef,
   skills,
   viewMode = "list",
 }: KnowledgeV2ActionsProps) {
@@ -106,7 +110,7 @@ export function KnowledgeV2Actions({
             : undefined;
   const primaryActions = visibleActions.filter((action) =>
     ["new-knowledge", "import-file"].includes(action.kind));
-  const managementActions = visibleActions.filter((action) =>
+  const secondaryActions = visibleActions.filter((action) =>
     !["new-knowledge", "import-file"].includes(action.kind));
 
   function openTopbarAction(action: KnowledgeV2ActionKind, fromMore = false) {
@@ -163,34 +167,10 @@ export function KnowledgeV2Actions({
             />
           ))}
         </TopbarGroup>
-        {managementActions.length > 0 ? (
-        <TopbarGroup
-          className="knowledge-v2-action-group knowledge-v2-management-actions knowledge-v2-action-group-spaced"
-          data-group="management"
-          label="KnowledgeV2 management actions"
-        >
-          {managementActions.map((action) => (
-            <KnowledgeV2ActionButton
-              badge={badgeForAction(action.kind, availability)}
-              buttonRef={buttonRefForAction(action.kind, {
-                draftButtonRef,
-                importButtonRef,
-                newButtonRef,
-                skillsButtonRef,
-              })}
-              kind={action.kind}
-              key={action.kind}
-              label={action.label}
-              onOpen={() => openTopbarAction(action.kind)}
-            />
-          ))}
-        </TopbarGroup>
-        ) : null}
-        {managementActions.length > 0 ? (
         <TopbarGroup
           className="knowledge-v2-action-group knowledge-v2-more-actions knowledge-v2-action-group-spaced"
           data-group="more"
-          label="KnowledgeV2 collapsed management actions"
+          label="KnowledgeV2 secondary actions"
         >
           <Button
             aria-controls="knowledge-v2-more-actions-menu"
@@ -208,7 +188,7 @@ export function KnowledgeV2Actions({
               id="knowledge-v2-more-actions-menu"
               role="menu"
             >
-              {managementActions.map((action) => (
+              {secondaryActions.map((action) => (
                 <KnowledgeV2ActionButton
                   badge={badgeForAction(action.kind, availability)}
                   kind={action.kind}
@@ -219,10 +199,23 @@ export function KnowledgeV2Actions({
                   variant="secondary"
                 />
               ))}
+              {onOpenDebug ? (
+                <Button
+                  aria-label="KnowledgeV2 debug diagnostics"
+                  onClick={() => {
+                    setIsMoreOpen(false);
+                    onOpenDebug();
+                  }}
+                  ref={debugButtonRef}
+                  role="menuitem"
+                  variant="secondary"
+                >
+                  Debug
+                </Button>
+              ) : null}
             </div>
           ) : null}
         </TopbarGroup>
-        ) : null}
       </div>
       <WidgetPopupShell
         actions={

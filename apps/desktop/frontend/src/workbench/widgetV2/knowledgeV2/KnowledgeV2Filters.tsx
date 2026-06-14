@@ -168,6 +168,24 @@ export function KnowledgeV2Filters({
           value={value.tag}
         />
       </Field>
+      <Field label="Sort">
+        <Select
+          aria-label="Sort Knowledge catalog"
+          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
+            onChange({
+              ...value,
+              sort: event.currentTarget.value as KnowledgeV2CatalogSort,
+            })
+          }
+          value={value.sort}
+        >
+          {sortOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
+      </Field>
       <details className="knowledge-v2-more-filters">
         <summary>More filters</summary>
         <Field label="Availability">
@@ -190,24 +208,6 @@ export function KnowledgeV2Filters({
           </Select>
         </Field>
       </details>
-      <Field label="Sort">
-        <Select
-          aria-label="Sort Knowledge catalog"
-          onChange={(event: ChangeEvent<HTMLSelectElement>) =>
-            onChange({
-              ...value,
-              sort: event.currentTarget.value as KnowledgeV2CatalogSort,
-            })
-          }
-          value={value.sort}
-        >
-          {sortOptions.map((option) => (
-            <option key={option.value} value={option.value}>
-              {option.label}
-            </option>
-          ))}
-        </Select>
-      </Field>
       <div aria-live="polite" className="knowledge-v2-result-count">
         {resultCount} / {totalCount}
       </div>

@@ -621,12 +621,12 @@ function KnowledgeV2BridgeNotice({
     >
       <h3>{titleForBridgeStatus(status)}</h3>
       {status === "loading" ? (
-        <p>Loading Knowledge Documents and Skills through existing frontend list actions.</p>
+        <p>Loading Knowledge Documents and Skills.</p>
       ) : null}
       {status === "unavailable" ? (
         <p>
-          This experimental WidgetV2 path did not receive Knowledge / Skills
-          list props or list actions. No production data is being faked.
+          Knowledge / Skills did not receive document or Skill data sources.
+          No production data is being faked.
         </p>
       ) : null}
       {loadError ? <p>Load failed: {loadError}</p> : null}
