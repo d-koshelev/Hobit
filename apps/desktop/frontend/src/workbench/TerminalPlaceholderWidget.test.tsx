@@ -149,13 +149,19 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
 
     expect(document.body.textContent).toContain("Terminal");
     expect(document.body.textContent).toContain("Not started");
-    expect(document.body.textContent).toContain("cwd");
+    expect(document.body.textContent).toContain("Pane 1");
     expect(document.body.textContent).toContain("~");
-    expect(document.body.textContent).toContain("shell");
-    expect(document.body.textContent).toContain("state");
-    expect(document.body.textContent).toContain("not started");
-    expect(document.body.textContent).toContain("exit");
-    expect(document.body.textContent).toContain("none");
+    expect(document.querySelector(".terminal-shell-meta-label")).toBeNull();
+    expect(document.body.textContent).not.toContain("cwd");
+    expect(document.body.textContent).not.toContain("state");
+    expect(document.body.textContent).not.toContain("exit");
+    expect(document.querySelector(".terminal-icon-button")).toBeNull();
+    expect(buttonWithText("R")).toBeUndefined();
+    expect(buttonWithText("D")).toBeUndefined();
+    expect(buttonWithText("S")).toBeUndefined();
+    expect(document.querySelector(".terminal-pane-more")?.textContent).toContain(
+      "More",
+    );
     expect(document.body.textContent).toContain(
       "Starting default shell...",
     );
@@ -236,6 +242,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
   it("keeps PTY settings and legacy fallback accessible inside settings", async () => {
     renderWidget();
 
+    await clickText("More");
     await clickButtonByLabel("Terminal pane settings");
 
     expect(document.body.textContent).toContain("Working directory");
@@ -329,6 +336,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
     await settleTerminalStartup();
 
     await clickButton("Close");
+    await clickText("More");
     await clickButtonByLabel("Terminal pane settings");
     await changeInputByLabel("Working directory", "C:\\repo");
     await clickButton("Restart");
@@ -344,7 +352,7 @@ describe("TerminalPlaceholderWidget xterm surface", () => {
       workingDirectory: "C:\\repo",
     });
     expect(document.body.textContent).toContain("Running");
-    expect(document.querySelector(".terminal-shell")?.textContent).not.toContain(
+    expect(document.querySelector(".terminal-shell")?.textContent).toContain(
       "Running",
     );
     expect(buttonWithText("Stop")).not.toBeNull();

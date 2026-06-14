@@ -132,7 +132,7 @@ export function TerminalPtyPanePanel({
   const shellLabel = session?.shell || shell || DEFAULT_SHELL_LABEL;
   const workingDirectoryLabel =
     session?.workingDirectory || workingDirectory || "Not selected";
-  const sessionStateLabel = session?.status ?? statusView.label.toLowerCase();
+  const sessionStateLabel = statusView.label;
   const exitCodeLabel = session
     ? session.exitCode === null
       ? "none"

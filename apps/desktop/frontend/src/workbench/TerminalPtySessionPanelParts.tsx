@@ -99,7 +99,7 @@ export function TerminalShellHeader({
 }) {
   return (
     <div className="terminal-shell-header">
-      <div className="terminal-shell-meta" aria-label="Terminal context">
+      <div className="terminal-shell-context" aria-label="Terminal context">
         <button
           aria-pressed={isActivePane}
           className="terminal-pane-title"
@@ -111,42 +111,27 @@ export function TerminalShellHeader({
             <span className="terminal-pane-active-indicator">Active</span>
           ) : null}
         </button>
-        <TerminalShellMetaItem label="cwd" value={workingDirectoryLabel} />
-        <TerminalShellMetaItem label="shell" value={shellLabel} />
-        <TerminalShellMetaItem label="state" value={sessionStateLabel} />
-        <TerminalShellMetaItem label="exit" value={exitCodeLabel} />
+        <span className="terminal-shell-context-value" title={shellLabel}>
+          {shellLabel}
+        </span>
+        <span
+          className="terminal-shell-context-value terminal-shell-context-path"
+          title={workingDirectoryLabel}
+        >
+          {workingDirectoryLabel}
+        </span>
+        <span
+          className="terminal-shell-context-status"
+          title={
+            exitCodeLabel === "none"
+              ? sessionStateLabel
+              : `${sessionStateLabel}; exit code ${exitCodeLabel}`
+          }
+        >
+          {sessionStateLabel}
+        </span>
       </div>
       <div className="terminal-shell-actions">
-        <Button
-          aria-label="Split pane right"
-          className="terminal-icon-button"
-          disabled={!canSplitPane}
-          onClick={onSplitRight}
-          title="Split right"
-          variant="secondary"
-        >
-          R
-        </Button>
-        <Button
-          aria-label="Split pane down"
-          className="terminal-icon-button"
-          disabled={!canSplitPane}
-          onClick={onSplitDown}
-          title="Split down"
-          variant="secondary"
-        >
-          D
-        </Button>
-        <Button
-          aria-label="Terminal pane settings"
-          aria-expanded={settingsOpen}
-          className="terminal-icon-button"
-          onClick={onToggleSettings}
-          title="Terminal settings"
-          variant="secondary"
-        >
-          S
-        </Button>
         {!hasOpenSession ? (
           <Button disabled={!canStart} onClick={onRestart} variant="secondary">
             {isStarting ? "Starting..." : "Restart"}
@@ -172,54 +157,68 @@ export function TerminalShellHeader({
             {isStopping ? "Stopping..." : "Stop"}
           </Button>
         ) : null}
-        {activeSession ? (
-          <TerminalKillControl
-            canKill={canKill}
-            isKilling={isKilling}
-            killConfirmOpen={killConfirmOpen}
-            onCancelKill={onCancelKill}
-            onKill={onKill}
-            onOpenKillConfirm={onOpenKillConfirm}
-          />
-        ) : null}
         {canClose ? (
           <Button disabled={!canClose} onClick={onClose} variant="secondary">
             {isClosing ? "Closing..." : "Close"}
           </Button>
         ) : null}
-        <Button
-          aria-label="Close pane"
-          className="terminal-icon-button"
-          disabled={!canRemovePane}
-          onClick={onClosePane}
-          title={
-            hasOpenSession
-              ? "Close the session before removing this pane."
-              : "Close pane"
-          }
-          variant="secondary"
-        >
-          x
-        </Button>
+        <details className="terminal-pane-more">
+          <summary aria-label={`${paneLabel} more actions`}>More</summary>
+          <div className="terminal-pane-more-menu">
+            <Button
+              aria-label="Split pane right"
+              disabled={!canSplitPane}
+              onClick={onSplitRight}
+              title="Split this pane to the right"
+              variant="secondary"
+            >
+              Split right
+            </Button>
+            <Button
+              aria-label="Split pane down"
+              disabled={!canSplitPane}
+              onClick={onSplitDown}
+              title="Split this pane below"
+              variant="secondary"
+            >
+              Split down
+            </Button>
+            <Button
+              aria-label="Terminal pane settings"
+              aria-expanded={settingsOpen}
+              onClick={onToggleSettings}
+              title="Terminal settings"
+              variant="secondary"
+            >
+              Settings
+            </Button>
+            {activeSession ? (
+              <TerminalKillControl
+                canKill={canKill}
+                isKilling={isKilling}
+                killConfirmOpen={killConfirmOpen}
+                onCancelKill={onCancelKill}
+                onKill={onKill}
+                onOpenKillConfirm={onOpenKillConfirm}
+              />
+            ) : null}
+            <Button
+              aria-label="Close pane"
+              disabled={!canRemovePane}
+              onClick={onClosePane}
+              title={
+                hasOpenSession
+                  ? "Close the session before removing this pane."
+                  : "Close pane"
+              }
+              variant="secondary"
+            >
+              Close pane
+            </Button>
+          </div>
+        </details>
       </div>
     </div>
-  );
-}
-
-function TerminalShellMetaItem({
-  label,
-  value,
-}: {
-  label: string;
-  value: string;
-}) {
-  return (
-    <span className="terminal-shell-meta-item">
-      <span className="terminal-shell-meta-label">{label}</span>
-      <span className="terminal-shell-meta-value" title={value}>
-        {value}
-      </span>
-    </span>
   );
 }
 
