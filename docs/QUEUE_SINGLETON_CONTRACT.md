@@ -59,6 +59,10 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 This route preserves the `agent-queue` widget definition id and the
 `agent-queue-placeholder` component key for saved workspace compatibility.
+The frontend route and compat boundary are also recorded in
+`apps/desktop/frontend/src/workbench/queue/queueSurfaceOwnership.ts`; tests that
+touch Queue catalog/registry/WidgetHost behavior should assert against that
+ownership artifact.
 
 The retained WidgetV2 Queue shell may exist for compatibility, smoke, and
 regression coverage, but it must route conceptually to the same singleton

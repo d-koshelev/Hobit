@@ -35,6 +35,11 @@ It is docs-only and does not add UI behavior, runtime behavior, styling beyond e
   `apps/desktop/frontend/src/workbench/widgetV2/<widget>/debug`.
 - Shared cross-widget domain model still belongs under `apps/desktop/frontend/src/workbench/<domain>` when it is not
   widget-local.
+- Queue surface ownership is a current exception during the saved-widget
+  compatibility transition: the active product Queue route remains
+  `WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board`, while
+  `workbench/widgetV2/queueV2/QueueV2Widget` is compat/smoke-only. Keep that
+  boundary explicit in `workbench/queue/queueSurfaceOwnership.ts`.
 - Widget-domain CSS lives under `apps/desktop/frontend/src/styles/widgets`.
 - `apps/desktop/frontend/src/styles/components.css` is legacy/frozen for new shared UI styles.
 

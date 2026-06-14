@@ -621,6 +621,10 @@ v0.1 product widget.
   `WidgetHost` -> `AgentQueuePlaceholderWidget` -> root
   `AgentQueueV2Board`, preserving the `agent-queue` widget definition id and
   the `agent-queue-placeholder` component key for saved widget compatibility.
+  Frontend ownership is codified in
+  `apps/desktop/frontend/src/workbench/queue/queueSurfaceOwnership.ts` and
+  covered by `queueSurfaceOwnership.test.ts`; Smart Queue work must extend this
+  product route rather than introducing another user-creatable Queue surface.
   It shows a board-first lane view, compact task cards, summary counts,
   explicit selected-task details popup actions, and a collapsed activity/detail
   drawer. The old Flow Map view, Board v2 / Flow Map toggle, dense task list,
