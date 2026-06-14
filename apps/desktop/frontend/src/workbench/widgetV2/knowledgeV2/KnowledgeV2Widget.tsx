@@ -150,6 +150,7 @@ export function KnowledgeV2Widget({
               Browse Knowledge Documents and Skills together. Create, import,
               review, and context actions stay explicit.
             </p>
+            {displaySubtitle ? <p>{displaySubtitle}</p> : null}
             {dataBridge.loadError ? (
               <section className="knowledge-v2-help-section">
                 <h4>Data issue</h4>
@@ -169,7 +170,6 @@ export function KnowledgeV2Widget({
         title: "KnowledgeV2",
       }}
       status={status}
-      subtitle={displaySubtitle}
       title={displayTitle ?? knowledgeV2Manifest?.title ?? "Knowledge v2"}
     >
       <KnowledgeV2CatalogBrowser

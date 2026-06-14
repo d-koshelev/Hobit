@@ -291,7 +291,7 @@ function KnowledgeV2DetailsTab({
           <StatusTerm label="Kind" value={item.source.kind || "Not available"} />
           <StatusTerm label="Ref" value={item.source.ref || "Not available"} />
           <StatusTerm label="Source size" value={formatSourceSize(item.sourcePreviewLength)} />
-          <StatusTerm label="Preview" value={item.sourcePreviewCapped ? "Capped" : "Bounded"} />
+          <StatusTerm label="Source text" value={item.sourcePreviewCapped ? "Capped" : "Bounded"} />
         </dl>
       </section>
       <section className="knowledge-v2-preview-section knowledge-v2-preview-status-section">

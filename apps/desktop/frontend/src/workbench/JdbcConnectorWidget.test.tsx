@@ -53,7 +53,7 @@ describe("JdbcConnectorWidget", () => {
       "No hidden Workspace Agent SQL execution",
     );
     expect(document.body.textContent).toContain("Query editor");
-    expect(document.body.textContent).toContain("Experimental sidecar runtime");
+    expect(document.body.textContent).toContain("Real JDBC sidecar settings");
     expect(document.body.textContent).toContain("Runtime diagnostics");
     expect(document.body.textContent).toContain("Connection profiles");
     expect(document.body.textContent).toContain("Check sidecar");
@@ -177,13 +177,13 @@ describe("JdbcConnectorWidget", () => {
     expect(onExecute).not.toHaveBeenCalled();
   });
 
-  it("keeps Boundary Finder execution disabled and not wired to Workspace Agent", async () => {
+  it("keeps Boundary Finder execution unavailable and not wired to Workspace Agent", async () => {
     const onExecute = vi.fn(async () => completedResult());
     await renderJdbcWidget({
       onExecuteJdbcReadOnlyQuery: onExecute,
     });
 
-    expect(buttonWithText("Run boundary search")?.disabled).toBe(true);
+    expect(buttonWithText("Run boundary search")).toBeUndefined();
     expect(document.body.textContent).toContain(
       "No Boundary Finder probes, JDBC queries, sidecar calls, Queue tasks, Agent Executor runs, or Workspace Agent actions",
     );
@@ -436,10 +436,7 @@ describe("JdbcConnectorWidget", () => {
       onValidateJdbcReadOnlySql: onValidate,
     });
 
-    await setCheckboxByLabel(
-      "Enable experimental real JDBC sidecar for the next Run",
-      true,
-    );
+    await setCheckboxByLabel("Enable real JDBC sidecar for the next Run", true);
     await changeInputByLabel("Sidecar classpath or classes dir", "target/jdbc/classes");
     await changeInputByLabel("Driver JAR path", "C:\\drivers\\postgres.jar");
     await changeInputByLabel("Driver class", "org.postgresql.Driver");
@@ -479,7 +476,7 @@ describe("JdbcConnectorWidget", () => {
       timeoutMs: 10000,
     });
     expect(document.body.textContent).toContain("Completed");
-    expect(document.body.textContent).toContain("Experimental sidecar");
+    expect(document.body.textContent).toContain("Sidecar");
     expect(document.body.textContent).not.toContain("Attach to Workspace Agent");
   });
 

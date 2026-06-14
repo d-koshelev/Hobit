@@ -1,6 +1,6 @@
 import { Badge, KeyValueList } from "../../../../../design-system";
 import type { QueueInspectorSnapshot } from "../../../../queue/queueV2ViewModel";
-import { lifecycleLabel, laneLabel } from "./queueV2TaskDetailsFormat";
+import { lifecycleLabel, laneLabel } from "../../model/queueV2TaskDetailsFormat";
 
 export function QueueV2TaskDetailsHeader({
   inspector,

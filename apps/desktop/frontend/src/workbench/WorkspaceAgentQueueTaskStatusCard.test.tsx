@@ -450,7 +450,7 @@ describe("WorkspaceAgentQueueTaskStatusCard", () => {
 
     await clickButton("Request validation");
 
-    expect(document.body.textContent).toContain("Queue validation");
+    expect(document.body.textContent).toContain("Validation request");
     expect(document.body.textContent).toContain(
       "npm.cmd run typecheck --prefix apps/desktop/frontend",
     );

@@ -1,8 +1,8 @@
 import type {
   AgentQueueTask,
   AgentQueueWorkerExecutionReport,
-} from "../../../../../workspace/types";
-import type { QueueInspectorSnapshot } from "../../../../queue/queueV2ViewModel";
+} from "../../../../workspace/types";
+import type { QueueInspectorSnapshot } from "../../../queue/queueV2ViewModel";
 
 export function latestTaskReport(task: AgentQueueTask | null) {
   return task?.workerExecutionReports?.[task.workerExecutionReports.length - 1] ?? null;

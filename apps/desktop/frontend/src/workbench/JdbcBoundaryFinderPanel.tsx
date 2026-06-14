@@ -1,6 +1,4 @@
 import { useEffect, useId, useMemo, useState } from "react";
-import { Badge } from "../design-system/Badge";
-import { Button } from "../design-system/Button";
 import {
   JDBC_BOUNDARY_FINDER_SAMPLE_PRESETS,
   errorToMessage,
@@ -75,7 +73,6 @@ export function JdbcBoundaryFinderPanel({
               No Boundary Finder presets are available in this frontend build.
             </p>
           </div>
-          <Badge variant="warning">Preview only</Badge>
         </div>
       </section>
     );
@@ -110,10 +107,6 @@ export function JdbcBoundaryFinderPanel({
             Preset-driven SQL preview for typed filters and a sample probe
             value. Boundary execution is not wired in this block.
           </p>
-        </div>
-        <div className="jdbc-summary-badges">
-          <Badge variant="info">Preset UI</Badge>
-          <Badge variant="warning">Preview only</Badge>
         </div>
       </div>
 
@@ -221,13 +214,6 @@ export function JdbcBoundaryFinderPanel({
               Finder template renderer.
             </p>
           </div>
-          <Button
-            disabled
-            title="Boundary Finder execution is planned and not wired in this block."
-            variant="secondary"
-          >
-            Run boundary search
-          </Button>
         </div>
         <pre aria-label="Boundary Finder SQL preview">
           {preview.sql ?? "Fix validation errors to render the SQL preview."}

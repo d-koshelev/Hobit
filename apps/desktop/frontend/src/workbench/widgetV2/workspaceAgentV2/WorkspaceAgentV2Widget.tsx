@@ -300,8 +300,13 @@ export function WorkspaceAgentV2Widget({
   return (
     <>
       <WidgetV2Shell
+        info={{
+          content:
+            "Plan a visible Workspace Agent step, run it directly when configured, or create a draft Queue task for later.",
+          label: "Workspace Agent information",
+          title: "Workspace Agent",
+        }}
         status={shellStatus}
-        subtitle="Plan a visible Workspace Agent step, run it directly when configured, or create a draft Queue task for later."
         title={workspaceAgentV2Manifest?.title ?? "Workspace Agent v2"}
       >
       <WidgetV2Toolbar label="Workspace Agent v2 controls">

@@ -90,7 +90,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
 
     await sendMessage("Make a plan for stabilizing the visible frontend task");
 
-    expect(document.body.textContent).toContain("Workspace Agent plan");
+    expect(document.body.textContent).toContain("Plan draft");
     expect(document.body.textContent).toContain("Plan draft");
     expect(document.body.textContent).toContain(
       "stabilizing the visible frontend task",

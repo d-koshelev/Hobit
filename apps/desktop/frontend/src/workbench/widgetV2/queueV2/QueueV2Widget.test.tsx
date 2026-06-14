@@ -102,8 +102,8 @@ describe("QueueV2Widget scaffold", () => {
     expect(topBar?.textContent).toContain("Review1");
     expect(topBar?.textContent).toContain("Blocked1");
     expect(topBar?.textContent).toContain("1 available / 2 total");
-    expect(inputByLabel("Queue v2 search placeholder")?.disabled).toBe(true);
-    expect(buttonWithText("Settings")?.disabled).toBe(true);
+    expect(inputByLabel("Queue v2 search placeholder")).toBeNull();
+    expect(buttonWithText("Settings")).toBeNull();
   });
 
   it("renders tag legend colors and counts", async () => {
@@ -224,8 +224,8 @@ describe("QueueV2Widget scaffold", () => {
     expect(buttonWithText("Start task")).toBeNull();
     expect(buttonWithText("Arm")).toBeNull();
     expect(buttonWithText("Finalize")).toBeNull();
-    expect(buttonWithText("Filters")?.disabled).toBe(true);
-    expect(buttonWithText("Settings")?.disabled).toBe(true);
+    expect(buttonWithText("Filters")).toBeNull();
+    expect(buttonWithText("Settings")).toBeNull();
   });
 });
 

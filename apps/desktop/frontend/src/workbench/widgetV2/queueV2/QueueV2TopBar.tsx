@@ -48,24 +48,6 @@ export function QueueV2TopBar({
           {viewModel.capacity.totalSlots.toString()} total
         </strong>
       </TopbarGroup>
-      <TopbarGroup
-        className="queue-v2-top-bar-placeholders"
-        data-group="secondary"
-        label="Queue v2 secondary controls"
-      >
-        <input
-          aria-label="Queue v2 search placeholder"
-          disabled
-          placeholder="Search tasks"
-          type="search"
-        />
-        <button disabled type="button">
-          Filters
-        </button>
-        <button disabled type="button">
-          Settings
-        </button>
-      </TopbarGroup>
     </div>
   );
 }

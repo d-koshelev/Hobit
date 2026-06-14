@@ -37,7 +37,7 @@ import { QueueV2TaskDetailsTabs } from "./QueueV2TaskDetailsTabs";
 import {
   highLevelTaskEvents,
   latestTaskReport,
-} from "./queueV2TaskDetailsFormat";
+} from "../../model/queueV2TaskDetailsFormat";
 
 export type QueueV2TaskDetailsPopupProps = {
   currentWorkspaceRoot?: string | null;

@@ -111,7 +111,7 @@ export function WorkspaceStartScreen({
                   <span className="preset-choice-text">
                     {isEmptyPreset
                       ? "Advanced manual mode with no default widgets. Use the Widget Catalog after opening."
-                      : "Creates Workspace Agent and Notes as the default MVP workspace."}
+                      : "Creates Workspace Agent and Notes as the default workspace."}
                   </span>
                 </span>
                 <Badge
@@ -209,7 +209,6 @@ export function WorkspaceStartScreen({
           </div>
           <div className="workspace-start-header-actions">
             <ThemePicker theme={theme} />
-            <Badge variant="neutral">Workspace Shell</Badge>
           </div>
         </header>
 

@@ -165,9 +165,7 @@ export function JdbcQueryEditorPanel({
         </div>
         <div className="jdbc-summary-badges">
           <Badge variant={experimentalRuntime.enabled ? "warning" : "info"}>
-            {experimentalRuntime.enabled
-              ? "Experimental sidecar"
-              : "Mock execution"}
+            {experimentalRuntime.enabled ? "Sidecar selected" : "Mock execution"}
           </Badge>
           <Badge variant="success">Read-only</Badge>
         </div>
@@ -256,7 +254,7 @@ export function JdbcQueryEditorPanel({
 
       <details className="jdbc-experimental-runtime">
         <summary>
-          <span>Experimental sidecar runtime</span>
+          <span>Real JDBC sidecar settings</span>
         </summary>
         <div className="jdbc-experimental-copy">
           <p>
@@ -267,7 +265,7 @@ export function JdbcQueryEditorPanel({
           </p>
         </div>
         <section
-          aria-label="Experimental JDBC connection profiles"
+          aria-label="JDBC connection profiles"
           className="jdbc-profile-panel"
         >
           <div className="jdbc-profile-header">
@@ -369,7 +367,7 @@ export function JdbcQueryEditorPanel({
             }
             type="checkbox"
           />
-          Enable experimental real JDBC sidecar for the next Run
+          Enable real JDBC sidecar for the next Run
         </label>
         <div className="jdbc-experimental-grid">
           <label className="jdbc-field" htmlFor={javaProgramInputId}>

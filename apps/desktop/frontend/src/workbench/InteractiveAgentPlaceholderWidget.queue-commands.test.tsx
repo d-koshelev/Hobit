@@ -66,7 +66,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       queueReportActionCardRequest: queueReportCardRequest(queueReportCard()),
     });
 
-    expect(document.body.textContent).toContain("Queue report action card");
+    expect(document.body.textContent).toContain("Report action");
     expect(document.body.textContent).toContain("Source Queue item");
     expect(document.body.textContent).toContain("Implementation");
     expect(document.body.textContent).toContain("needs_follow_up");

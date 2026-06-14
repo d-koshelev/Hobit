@@ -59,7 +59,7 @@ export function AgentQueueTaskOverviewSection({
             ].join(" ")}
             title={executorInfo.detail}
           >
-            <span>Executor</span>
+            <span>Runner</span>
             <strong>{executorInfo.label}</strong>
           </div>
         )}

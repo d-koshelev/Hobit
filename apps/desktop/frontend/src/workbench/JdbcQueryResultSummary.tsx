@@ -45,7 +45,7 @@ export function JdbcReadOnlyQueryResultView({
           <span>{result.connectorDisplayName ?? result.connectorId}</span>
           <span>{result.statementKind ?? "read-only"}</span>
           <Badge variant={result.mockExecution ? "info" : "warning"}>
-            {result.mockExecution ? "Mock" : "Experimental sidecar"}
+            {result.mockExecution ? "Mock" : "Sidecar"}
           </Badge>
           {result.noSecretsReturned ? (
             <Badge variant="neutral">No secrets</Badge>

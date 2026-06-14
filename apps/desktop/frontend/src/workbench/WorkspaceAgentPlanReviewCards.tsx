@@ -71,7 +71,7 @@ export function CoordinatorPlanCard({ plan }: { plan: CoordinatorPlanDraft }) {
     >
       <div className="coordinator-plan-header">
         <div className="coordinator-plan-title-copy">
-          <p className="coordinator-plan-kicker">Workspace Agent plan</p>
+          <p className="coordinator-plan-kicker">Plan draft</p>
           <h4 className="coordinator-plan-title">{plan.title}</h4>
           <div className="coordinator-plan-goal-block">
             <p className="coordinator-plan-section-label">Goal</p>

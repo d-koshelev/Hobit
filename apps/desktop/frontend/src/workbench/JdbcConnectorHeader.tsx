@@ -4,7 +4,7 @@ export function JdbcConnectorHeader() {
   return (
     <section className="jdbc-summary">
       <div className="jdbc-summary-copy">
-        <p className="jdbc-eyebrow">Database / JDBC Preview</p>
+        <p className="jdbc-eyebrow">Database / JDBC</p>
         <p className="jdbc-summary-text">
           Create an explicit workspace-local connection profile, review the
           visible SQL, and run only bounded read-only mock queries from this
@@ -13,7 +13,6 @@ export function JdbcConnectorHeader() {
         </p>
       </div>
       <div className="jdbc-summary-badges">
-        <Badge variant="neutral">Preview</Badge>
         <Badge variant="info">Mock read-only</Badge>
         <Badge variant="warning">No secrets</Badge>
       </div>

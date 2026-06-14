@@ -10,8 +10,8 @@ import { AgentQueueTaskResultEvidenceSection } from "../../../../queue/details/A
 import type { QueuePromptPackImportMetadata } from "../../../../promptPack/queuePromptPackMetadata";
 import { QueueV2FilesValidationSection } from "../../QueueV2ValidationEvidenceSection";
 import { QueueV2CoordinatorSection } from "../../QueueV2CoordinatorSection";
-import { CompactList, DetailBlock } from "./QueueV2TaskDetailsShared";
-import { validationSummary } from "./queueV2TaskDetailsFormat";
+import { CompactList, DetailBlock } from "../../QueueV2TaskDetailsBlocks";
+import { validationSummary } from "../../model/queueV2TaskDetailsFormat";
 import type { QueueV2ValidationRequestState } from "../../QueueV2ValidationEvidenceSection";
 import type { queueV2ValidationEvidenceView } from "../../queueV2ValidationEvidence";
 import type { QueueTaskViewModel } from "../../../../queue/queueV2ViewModel";

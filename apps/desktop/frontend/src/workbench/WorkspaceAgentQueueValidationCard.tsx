@@ -118,7 +118,7 @@ export function WorkspaceAgentQueueValidationCard({
     >
       <div className="workspace-agent-queue-action-card-header">
         <div>
-          <p className="coordinator-proposal-kicker">Queue validation</p>
+          <p className="coordinator-proposal-kicker">Validation request</p>
           <h4 className="coordinator-proposal-title">{task.title}</h4>
         </div>
         <Badge variant={badgeVariantForRunnerState(runnerState)}>

@@ -2,7 +2,7 @@ import { KeyValueList, Notice } from "../../../../../design-system";
 import type { AgentQueueTask } from "../../../../../workspace/types";
 import { AgentQueueTaskContextSection } from "../../../../queue/details/AgentQueueTaskContextSection";
 import type { AgentQueueController } from "../../../../queue/details/agentQueueTaskDetailsTypes";
-import { CompactList, DetailBlock } from "./QueueV2TaskDetailsShared";
+import { CompactList, DetailBlock } from "../../QueueV2TaskDetailsBlocks";
 
 export function QueueV2TaskDetailsContext({
   queue,

@@ -1,5 +1,5 @@
 import { Notice, Section } from "../../../../../design-system";
-import { EventList } from "./QueueV2TaskDetailsShared";
+import { EventList } from "../../QueueV2TaskDetailsBlocks";
 
 export function QueueV2TaskDetailsActivity({
   events,

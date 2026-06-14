@@ -55,7 +55,11 @@ export function QueueV2Widget({
 
   return (
     <WidgetV2Shell
-      subtitle="Frontend-only QueueV2 shell. Normal Queue actions are wired through the saved Agent Queue widget."
+      info={{
+        content: "Review Queue tasks, capacity, current activity, and closed history.",
+        label: "Agent Queue information",
+        title: "Agent Queue",
+      }}
       title={queueV2Manifest?.title ?? "Agent Queue v2"}
     >
       <WidgetV2Toolbar label="Agent Queue v2 command bar">

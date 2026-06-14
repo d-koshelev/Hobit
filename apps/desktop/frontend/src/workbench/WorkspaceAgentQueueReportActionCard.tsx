@@ -384,7 +384,7 @@ export function WorkspaceAgentQueueReportActionCard({
     >
       <div className="workspace-agent-report-card-header">
         <div>
-          <p className="coordinator-proposal-kicker">Queue report action card</p>
+          <p className="coordinator-proposal-kicker">Report action</p>
           <h4 className="coordinator-proposal-title">{card.sourceItemTitle}</h4>
         </div>
         <div className="coordinator-proposal-badges">

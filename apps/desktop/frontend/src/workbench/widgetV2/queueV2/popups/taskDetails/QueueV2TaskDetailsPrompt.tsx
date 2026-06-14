@@ -1,6 +1,6 @@
 import type { AgentQueueTask } from "../../../../../workspace/types";
-import { DetailBlock } from "./QueueV2TaskDetailsShared";
-import { summarizeText } from "./queueV2TaskDetailsFormat";
+import { DetailBlock } from "../../QueueV2TaskDetailsBlocks";
+import { summarizeText } from "../../model/queueV2TaskDetailsFormat";
 
 export function QueueV2TaskDetailsPrompt({ task }: { task: AgentQueueTask }) {
   return (

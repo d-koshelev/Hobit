@@ -1,12 +1,12 @@
 export function KnowledgeV2Header() {
   return (
     <div
-      aria-label="Knowledge v2 experimental summary"
+      aria-label="Knowledge catalog summary"
       className="knowledge-v2-header-summary"
     >
-      <span>Experimental surface</span>
-      <span>Frontend-only shell</span>
-      <span>Existing Knowledge data bridge</span>
+      <span>Documents and Skills</span>
+      <span>Explicit context use</span>
+      <span>Workspace-local review</span>
     </div>
   );
 }

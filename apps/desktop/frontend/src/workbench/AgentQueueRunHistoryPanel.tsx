@@ -290,7 +290,7 @@ function LatestRunSummary({
           <dd>{runSourceLabel(link.source)}</dd>
         </div>
         <div>
-          <dt>Executor</dt>
+          <dt>Runner</dt>
           <dd>{executorLabel}</dd>
         </div>
         <div>
@@ -374,7 +374,7 @@ function queueRunAttachedContextText({
   return [
     "Queue run metadata",
     `Queue task: ${displayTaskTitle(selectedTask)} (${selectedTask.queueItemId})`,
-    `Executor: ${executorLabel} (${link.executorWidgetId})`,
+    `Runner: ${executorLabel} (${link.executorWidgetId})`,
     `Run: ${link.directWorkRunId}`,
     `Run link: ${link.linkId}`,
     `Source: ${runSourceLabel(link.source)}`,

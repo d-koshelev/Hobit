@@ -9,7 +9,7 @@ import type { QueuePromptPackImportMetadata } from "../../../../promptPack/queue
 import { QueueV2DiffReviewSection } from "../../QueueV2DiffReviewSection";
 import { QueueV2PromptPackImportSection } from "../../QueueV2PromptPackImportSection";
 import { QueueV2TaskBlockersSection } from "../../QueueV2TaskBlockersSection";
-import { EventList, DetailBlock } from "./QueueV2TaskDetailsShared";
+import { DetailBlock, EventList } from "../../QueueV2TaskDetailsBlocks";
 
 export function QueueV2TaskDetailsOverview({
   events,

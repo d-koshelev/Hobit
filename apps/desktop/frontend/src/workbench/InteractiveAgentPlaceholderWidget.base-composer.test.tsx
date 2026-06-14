@@ -184,7 +184,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
 
     expect(startDirectWork).not.toHaveBeenCalled();
     expect(provider).toHaveBeenCalledTimes(1);
-    expect(document.body.textContent).toContain("Workspace Agent plan");
+    expect(document.body.textContent).toContain("Plan draft");
   });
 
 

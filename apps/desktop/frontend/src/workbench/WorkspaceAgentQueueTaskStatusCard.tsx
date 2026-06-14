@@ -171,7 +171,7 @@ export function WorkspaceAgentQueueTaskStatusCard({
     >
       <div className="workspace-agent-queue-action-card-header">
         <div>
-          <p className="coordinator-proposal-kicker">Queue task status</p>
+          <p className="coordinator-proposal-kicker">Task status</p>
           <h4 className="coordinator-proposal-title">
             {displayTaskTitle(displayedTask)}
           </h4>
