@@ -661,6 +661,22 @@ the local executor flow visible to operators.
   It requires exactly one logical Queue and exactly one Queue UI view per
   Workspace. `agent-queue` is the saved-compatible singleton Queue widget
   identity, and `queue-v2` must not become a second Queue widget/view.
+- `docs/SMART_QUEUE_WORKFLOW_CONTRACT.md` - planned Smart Queue prompt-pack
+  workflow contract. Read before prompt-pack driven QueueBatch/QueueTask
+  modeling, Smart Queue eligibility, Queue lifecycle state, or role-boundary
+  work. It separates Queue Importer, Queue Coordinator, Queue Scheduler,
+  Worker Agent, Workspace Agent assistance, and human/operator approval.
+- `docs/QUEUE_COORDINATOR_CONTRACT.md` - planned Queue Coordinator decision
+  contract. Read before retry/block/fail/review/close/drain/stop decision
+  modeling or Workspace Agent assistance escalation work. Queue Coordinator
+  owns Queue lifecycle; Workspace Agent assists only when asked.
+- `docs/QUEUE_DEPENDENCY_STATE_CONTRACT.md` - planned dependency state
+  contract. Read before dependency gate, downstream blocker, or dependent task
+  semantics work. Structural dependency, Waiting dependency, and Blocked are
+  distinct states.
+- `docs/QUEUE_ASSISTANCE_PROTOCOL_CONTRACT.md` - planned assistance protocol
+  contract. Read before adding request/response models for Queue Coordinator
+  assistance from Workspace Agent or human/operator review.
 - `docs/AGENT_QUEUE_WIDGET_API_CONTRACT.md` - first concrete Workspace Widget
   API contract for Agent Queue. Read for Queue app-native API identity,
   snapshots, actions, events, evidence, state machine, QueuePatch proposals,
@@ -925,8 +941,13 @@ These documents should not override the Workspace Agent model or
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
-- Smart Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md` before any Queue
-  surface, registry, import, focus/open, or Queue-domain modeling work.
+- Smart Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md`,
+  `docs/SMART_QUEUE_WORKFLOW_CONTRACT.md`,
+  `docs/QUEUE_COORDINATOR_CONTRACT.md`,
+  `docs/QUEUE_DEPENDENCY_STATE_CONTRACT.md`, and
+  `docs/QUEUE_ASSISTANCE_PROTOCOL_CONTRACT.md` before any Queue surface,
+  registry, import, focus/open, dependency, coordinator, assistance, or
+  Queue-domain modeling work.
 - Queue-based Knowledge generation work: read
   `docs/KNOWLEDGE_PRODUCTION_CONTRACT.md`,
   `docs/KNOWLEDGE_GENERATION_WORKFLOW_CONTRACT.md`,

@@ -8,5 +8,6 @@ export * from "./types/knowledgeDocuments";
 export * from "./types/notes";
 export * from "./types/promptPackImport";
 export * from "./types/skills";
+export * from "./types/smartQueue";
 export * from "./types/terminal";
 export * from "./jdbcQueryTypes";
