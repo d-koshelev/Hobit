@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import { AgentRunPlaceholderWidget } from "./AgentRunPlaceholderWidget";
 import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
 import { GitPlaceholderWidget } from "./GitPlaceholderWidget";
+import { QueueV2SmokeCompatWidget } from "./widgetV2";
+import * as queueV2CompatExports from "./widgetV2/queueV2";
 import {
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
   AGENT_RUN_PLACEHOLDER_COMPONENT_KEY,
@@ -26,6 +28,16 @@ describe("WidgetHost compatibility renderer registry", () => {
     expect(
       compatibilityWidgetComponents[AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY],
     ).toBeUndefined();
+    expect(getWidgetHostComponent("queue-v2")).toBeUndefined();
+  });
+
+  it("exports the inactive QueueV2 shell only as a smoke/compat scaffold", () => {
+    expect(QueueV2SmokeCompatWidget).toBe(
+      queueV2CompatExports.QueueV2SmokeCompatWidget,
+    );
+    expect("QueueV2Widget" in queueV2CompatExports).toBe(false);
+    expect(productWidgetComponents["queue-v2"]).toBeUndefined();
+    expect(compatibilityWidgetComponents["queue-v2"]).toBeUndefined();
   });
 
   it("keeps persisted compatibility component keys renderable", () => {

@@ -62,7 +62,10 @@ This route preserves the `agent-queue` widget definition id and the
 
 The retained WidgetV2 Queue shell may exist for compatibility, smoke, and
 regression coverage, but it must route conceptually to the same singleton
-Workspace Queue and must not introduce a second product Queue view.
+Workspace Queue and must not introduce a second product Queue view. Barrel
+exports for that shell must use smoke/compat naming such as
+`QueueV2SmokeCompatWidget`; they must not expose `QueueV2Widget` as an
+ordinary product-looking widget export.
 
 ## Prompt-Pack Imports
 

@@ -41,7 +41,7 @@ export type { WidgetV2Registry } from "./widgetV2Registry";
 // Smoke/compat export only. Product Agent Queue rendering stays on the
 // saved-compatible agent-queue WidgetHost route:
 // WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board.
-export { QueueV2Widget as QueueV2SmokeCompatWidget } from "./queueV2";
+export { QueueV2SmokeCompatWidget } from "./queueV2";
 export { KnowledgeV2Header, KnowledgeV2Widget } from "./knowledgeV2";
 export type { KnowledgeV2WidgetProps } from "./knowledgeV2";
 export { WorkspaceAgentV2Widget } from "./workspaceAgentV2";

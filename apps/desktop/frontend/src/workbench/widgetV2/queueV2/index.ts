@@ -7,4 +7,3 @@ export { QueueV2LeftRail } from "./QueueV2LeftRail";
 export { QueueV2TaskCard } from "./QueueV2TaskCard";
 export { QueueV2TopBar } from "./QueueV2TopBar";
 export { QueueV2Widget as QueueV2SmokeCompatWidget } from "./QueueV2Widget";
-export { QueueV2Widget } from "./QueueV2Widget";
