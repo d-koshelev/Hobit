@@ -42,7 +42,11 @@ describe("queueV2EligibilityModel", () => {
 
   it("makes B ready and eligible when A is closed and Queue is Active", () => {
     const tasks = [
-      task({ queueItemId: "task-001", status: "completed" }),
+      task({
+        coordinatorStatus: "finalized",
+        queueItemId: "task-001",
+        status: "completed",
+      }),
       task({ queueItemId: "task-002", dependsOn: ["task-001"] }),
     ];
     const graphState = graphFor(tasks[1], tasks);

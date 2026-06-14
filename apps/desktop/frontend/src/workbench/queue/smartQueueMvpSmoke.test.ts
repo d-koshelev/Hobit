@@ -15,7 +15,7 @@ import {
   computeHumanQueueTaskStatus,
   computeTaskEligibility,
   type QueueTaskGraphState,
-} from "../widgetV2/queueV2/model/queueV2EligibilityModel";
+} from "./queueDependencyEligibilityModel";
 
 describe("Smart Queue MVP smoke", () => {
   it("covers prompt-pack import, pause/active eligibility, dependency closure, failure blocking, and coordinator validation decisions", () => {
