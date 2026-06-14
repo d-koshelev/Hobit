@@ -4,9 +4,33 @@ import type {
   WidgetInstance,
 } from "./types";
 import {
+  AGENT_QUEUE_WIDGET_DEFINITION_ID,
   findWorkspaceSingletonDefinition,
   getWidgetDefinition,
 } from "./widgetRegistry";
+
+export type SingletonWidgetCreateResolution =
+  | {
+      canCreate: true;
+      existingWidget: null;
+      existingWidgetId: null;
+      kind: "create";
+    }
+  | {
+      canCreate: false;
+      existingWidget: WidgetInstance;
+      existingWidgetId: WidgetInstance["id"];
+      kind: "restore-existing" | "reuse-existing";
+    };
+
+export function isQueueWidgetDefinition(definitionId: WidgetDefinitionId) {
+  const singletonDefinition = findWorkspaceSingletonDefinition(definitionId);
+
+  return (
+    singletonDefinition?.id === AGENT_QUEUE_WIDGET_DEFINITION_ID &&
+    singletonDefinition.singletonKey === "workspace-queue"
+  );
+}
 
 export function findWorkspaceSingletonWidget(
   widgets: readonly WidgetInstance[],
@@ -21,6 +45,36 @@ export function findWorkspaceSingletonWidget(
   return widgets
     .filter((widget) => isWidgetInSingletonGroup(widget, singletonDefinition))
     .sort(compareSingletonWidgetRank)[0];
+}
+
+export function canCreateWidgetInstance(
+  widgets: readonly WidgetInstance[],
+  definitionId: WidgetDefinitionId,
+) {
+  return resolveSingletonWidgetCreate(widgets, definitionId).canCreate;
+}
+
+export function resolveSingletonWidgetCreate(
+  widgets: readonly WidgetInstance[],
+  definitionId: WidgetDefinitionId,
+): SingletonWidgetCreateResolution {
+  const existingWidget = findWorkspaceSingletonWidget(widgets, definitionId);
+
+  if (!existingWidget) {
+    return {
+      canCreate: true,
+      existingWidget: null,
+      existingWidgetId: null,
+      kind: "create",
+    };
+  }
+
+  return {
+    canCreate: false,
+    existingWidget,
+    existingWidgetId: existingWidget.id,
+    kind: existingWidget.visible ? "reuse-existing" : "restore-existing",
+  };
 }
 
 function isWidgetInSingletonGroup(

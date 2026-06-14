@@ -25,7 +25,7 @@ import {
   type WidgetRemovalOptions,
 } from "./widgetDeletionAction";
 import { widgetLogEntryFromApi } from "./widgetLogEntryMapping";
-import { findWorkspaceSingletonWidget } from "./workspaceSingletonWidgets";
+import { resolveSingletonWidgetCreate } from "./workspaceSingletonWidgets";
 
 const CATALOG_WIDGET_PLACEMENT_GAP = 24;
 
@@ -71,11 +71,16 @@ export function createWorkspaceWidgetActions({
     }
 
     const definitionId = template.futureWidgetDefinitionId ?? template.id;
-    const existingSingletonWidget =
-      findExistingWorkspaceSingletonWidget(viewState, definitionId);
+    const singletonCreateResolution = resolveSingletonWidgetCreate(
+      viewState.widgets,
+      definitionId,
+    );
 
-    if (existingSingletonWidget) {
-      if (existingSingletonWidget.visible) {
+    if (!singletonCreateResolution.canCreate) {
+      const existingSingletonWidget =
+        singletonCreateResolution.existingWidget;
+
+      if (singletonCreateResolution.kind === "reuse-existing") {
         return true;
       }
 
@@ -279,13 +284,6 @@ export function createWorkspaceWidgetActions({
 
 function persistedLayoutMode(mode: WidgetLayout["mode"]) {
   return mode === "popped-out" ? "popped_out" : mode;
-}
-
-function findExistingWorkspaceSingletonWidget(
-  viewState: WorkbenchViewState,
-  definitionId: string,
-) {
-  return findWorkspaceSingletonWidget(viewState.widgets, definitionId);
 }
 
 function catalogWidgetLayout(

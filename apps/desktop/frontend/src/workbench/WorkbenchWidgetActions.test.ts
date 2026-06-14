@@ -5,8 +5,14 @@ import type { WidgetCatalogTemplate } from "./catalogTemplates";
 import type { WidgetInstance, WorkbenchViewState } from "./types";
 import { createWorkspaceWidgetActions } from "./workspaceWidgetActions";
 import {
+  canCreateWidgetInstance,
+  isQueueWidgetDefinition,
+  resolveSingletonWidgetCreate,
+} from "./workspaceSingletonWidgets";
+import {
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
   AGENT_RUN_WIDGET_DEFINITION_ID,
+  INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   NOTES_WIDGET_DEFINITION_ID,
 } from "./widgetRegistry";
 
@@ -28,6 +34,80 @@ vi.mock("../workspace/workspaceApi", async (importOriginal) => {
     updateWidgetInstanceLayout: workspaceApiMocks.updateWidgetInstanceLayout,
     updateWidgetInstanceState: workspaceApiMocks.updateWidgetInstanceState,
   };
+});
+
+describe("workspace singleton widget create resolution", () => {
+  it("identifies only the saved-compatible Agent Queue definition as the Queue singleton", () => {
+    expect(isQueueWidgetDefinition(AGENT_QUEUE_WIDGET_DEFINITION_ID)).toBe(true);
+    expect(isQueueWidgetDefinition("queue-v2")).toBe(false);
+    expect(isQueueWidgetDefinition(AGENT_RUN_WIDGET_DEFINITION_ID)).toBe(false);
+    expect(isQueueWidgetDefinition(INTERACTIVE_AGENT_WIDGET_DEFINITION_ID)).toBe(
+      false,
+    );
+  });
+
+  it("allows Queue creation only when the workspace has no existing Queue view", () => {
+    expect(
+      resolveSingletonWidgetCreate([], AGENT_QUEUE_WIDGET_DEFINITION_ID),
+    ).toMatchObject({
+      canCreate: true,
+      existingWidgetId: null,
+      kind: "create",
+    });
+    expect(canCreateWidgetInstance([], AGENT_QUEUE_WIDGET_DEFINITION_ID)).toBe(
+      true,
+    );
+
+    const existingQueue = queueWidget({ id: "queue_existing" });
+    const resolution = resolveSingletonWidgetCreate(
+      [existingQueue],
+      AGENT_QUEUE_WIDGET_DEFINITION_ID,
+    );
+
+    expect(resolution).toMatchObject({
+      canCreate: false,
+      existingWidgetId: "queue_existing",
+      kind: "reuse-existing",
+    });
+    expect(resolution.existingWidget).toBe(existingQueue);
+    expect(
+      canCreateWidgetInstance(
+        [existingQueue],
+        AGENT_QUEUE_WIDGET_DEFINITION_ID,
+      ),
+    ).toBe(false);
+  });
+
+  it("returns the existing hidden Queue id so the add path can restore it", () => {
+    const hiddenQueue = queueWidget({
+      id: "queue_hidden",
+      visible: false,
+    });
+
+    expect(
+      resolveSingletonWidgetCreate(
+        [hiddenQueue],
+        AGENT_QUEUE_WIDGET_DEFINITION_ID,
+      ),
+    ).toMatchObject({
+      canCreate: false,
+      existingWidgetId: "queue_hidden",
+      kind: "restore-existing",
+    });
+  });
+
+  it("does not block non-singleton widget creation", () => {
+    expect(
+      resolveSingletonWidgetCreate([notesWidget()], NOTES_WIDGET_DEFINITION_ID),
+    ).toMatchObject({
+      canCreate: true,
+      existingWidgetId: null,
+      kind: "create",
+    });
+    expect(
+      canCreateWidgetInstance([notesWidget()], NOTES_WIDGET_DEFINITION_ID),
+    ).toBe(true);
+  });
 });
 
 describe("createWorkspaceWidgetActions Queue singleton add flow", () => {
@@ -55,6 +135,44 @@ describe("createWorkspaceWidgetActions Queue singleton add flow", () => {
     );
   });
 
+  it("adding Agent Queue twice leaves exactly one Queue widget/view", async () => {
+    const appliedWorkbenchStates: WorkspaceWorkbenchState[] = [];
+    const actions = widgetActions(workbenchViewState(), (state) =>
+      appliedWorkbenchStates.push(state),
+    );
+
+    workspaceApiMocks.addWidgetInstanceToWorkbench.mockResolvedValue(
+      workspaceWorkbenchState([AGENT_QUEUE_WIDGET_DEFINITION_ID]),
+    );
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValue(
+      workspaceWorkbenchState([AGENT_QUEUE_WIDGET_DEFINITION_ID]),
+    );
+
+    await expect(actions.addWidgetTemplate(queueTemplate())).resolves.toBe(true);
+
+    const appliedWorkbenchState =
+      appliedWorkbenchStates[appliedWorkbenchStates.length - 1];
+
+    expect(
+      appliedWorkbenchState?.widgetInstances.filter(
+        (widget) => widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
+      ),
+    ).toHaveLength(1);
+
+    const secondAddActions = widgetActions(
+      workbenchViewState({
+        widgets: [queueWidget({ id: "widget_1" })],
+      }),
+    );
+
+    await expect(secondAddActions.addWidgetTemplate(queueTemplate())).resolves.toBe(
+      true,
+    );
+
+    expect(workspaceApiMocks.addWidgetInstanceToWorkbench).not.toHaveBeenCalled();
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).not.toHaveBeenCalled();
+  });
+
   it("does not create a duplicate Agent Queue widget when the singleton view already exists", async () => {
     const actions = widgetActions(
       workbenchViewState({
@@ -66,6 +184,34 @@ describe("createWorkspaceWidgetActions Queue singleton add flow", () => {
 
     expect(workspaceApiMocks.addWidgetInstanceToWorkbench).not.toHaveBeenCalled();
     expect(workspaceApiMocks.updateWidgetInstanceLayout).not.toHaveBeenCalled();
+  });
+
+  it("does not duplicate a persisted existing Queue view from catalog add", async () => {
+    const persistedQueue = queueWidget({
+      id: "persisted_queue_widget",
+      order: 4,
+      x: 48,
+      y: 96,
+    });
+    const actions = widgetActions(
+      workbenchViewState({
+        widgets: [notesWidget(), persistedQueue],
+      }),
+    );
+
+    await expect(actions.addWidgetTemplate(queueTemplate())).resolves.toBe(true);
+
+    expect(workspaceApiMocks.addWidgetInstanceToWorkbench).not.toHaveBeenCalled();
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).not.toHaveBeenCalled();
+    expect(
+      resolveSingletonWidgetCreate(
+        [notesWidget(), persistedQueue],
+        AGENT_QUEUE_WIDGET_DEFINITION_ID,
+      ),
+    ).toMatchObject({
+      existingWidgetId: "persisted_queue_widget",
+      kind: "reuse-existing",
+    });
   });
 
   it("restores the existing hidden Agent Queue view instead of creating a duplicate", async () => {
@@ -98,6 +244,31 @@ describe("createWorkspaceWidgetActions Queue singleton add flow", () => {
       }),
     );
     expect(applyWorkbenchState).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not clear or reset Queue task domain data when the singleton guard reuses the existing view", async () => {
+    const queueDomainData = {
+      tasks: [
+        {
+          prompt: "Preserve this queued work",
+          queueItemId: "task_1",
+          status: "draft",
+        },
+      ],
+    };
+    const beforeDomainData = structuredClone(queueDomainData);
+    const actions = widgetActions(
+      workbenchViewState({
+        widgets: [queueWidget({ id: "queue_with_domain_data" })],
+      }),
+    );
+
+    await expect(actions.addWidgetTemplate(queueTemplate())).resolves.toBe(true);
+
+    expect(queueDomainData).toEqual(beforeDomainData);
+    expect(workspaceApiMocks.addWidgetInstanceToWorkbench).not.toHaveBeenCalled();
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).not.toHaveBeenCalled();
+    expect(workspaceApiMocks.updateWidgetInstanceState).not.toHaveBeenCalled();
   });
 
   it("targets the visible canonical Queue view when a hidden duplicate appears first", async () => {
