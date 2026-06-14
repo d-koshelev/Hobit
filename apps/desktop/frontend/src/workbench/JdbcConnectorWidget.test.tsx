@@ -43,11 +43,9 @@ afterEach(() => {
 });
 
 describe("JdbcConnectorWidget", () => {
-  it("renders honest Preview, read-only, mock runtime, and query editor status", async () => {
+  it("renders honest read-only mock runtime and query editor status", async () => {
     await renderJdbcWidget();
 
-    expect(document.body.textContent).toContain("Database / JDBC Preview");
-    expect(document.body.textContent).toContain("Mock read-only");
     expect(document.body.textContent).toContain(
       "No production database connection",
     );
@@ -62,6 +60,8 @@ describe("JdbcConnectorWidget", () => {
     expect(document.body.textContent).toContain("Probe driver");
     expect(document.body.textContent).toContain("Password env var name");
     expect(document.body.textContent).toContain("password value");
+    expect(document.body.textContent).not.toContain("Database / JDBC Preview");
+    expect(document.body.textContent).not.toContain("Mock read-only");
     expect(
       document.querySelector('[aria-label="Read-only safety notice"]'),
     ).not.toBeNull();

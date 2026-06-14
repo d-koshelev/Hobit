@@ -1,4 +1,5 @@
-import { Badge } from "../design-system/Badge";
+import { useState } from "react";
+import { Badge, Button, WidgetDebugPopup } from "../design-system";
 import type { JdbcConnector } from "../workspace/jdbcConnectorTypes";
 
 export function JdbcRuntimeStatusPanel({
@@ -6,6 +7,8 @@ export function JdbcRuntimeStatusPanel({
 }: {
   selectedConnector: JdbcConnector | null;
 }) {
+  const [isRuntimeDetailsOpen, setIsRuntimeDetailsOpen] = useState(false);
+
   return (
     <section
       aria-label="Connection / Runtime status"
@@ -14,16 +17,17 @@ export function JdbcRuntimeStatusPanel({
       <div className="jdbc-sql-header">
         <div>
           <p className="jdbc-pane-title">Connection / Runtime status</p>
-          <p className="jdbc-pane-subtitle">
-            A selected connection profile is required. The current product
-            runtime is the bounded mock read-only adapter.
-          </p>
         </div>
         <div className="jdbc-summary-badges">
           <Badge variant={selectedConnector ? "success" : "warning"}>
             {selectedConnector ? "Profile selected" : "No profile"}
           </Badge>
-          <Badge variant="info">Mock active</Badge>
+          <Button
+            onClick={() => setIsRuntimeDetailsOpen(true)}
+            variant="ghost"
+          >
+            Runtime details
+          </Button>
         </div>
       </div>
 
@@ -52,8 +56,11 @@ export function JdbcRuntimeStatusPanel({
         </div>
       </div>
 
-      <details className="jdbc-runtime-details">
-        <summary>Runtime details</summary>
+      <WidgetDebugPopup
+        onClose={() => setIsRuntimeDetailsOpen(false)}
+        open={isRuntimeDetailsOpen}
+        title="JDBC runtime details"
+      >
         <p>
           The desktop path validates ownership of this Database / JDBC widget,
           validates conservative read-only SQL, and then uses the mock adapter
@@ -61,7 +68,7 @@ export function JdbcRuntimeStatusPanel({
           configured for product use in this slice; visible runtime errors such
           as not_configured or unsupported_driver are shown in the result area.
         </p>
-      </details>
+      </WidgetDebugPopup>
     </section>
   );
 }

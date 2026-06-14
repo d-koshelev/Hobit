@@ -21,6 +21,7 @@ import type {
   GitPushResponse,
   GitRepositoryStatus,
 } from "../workspace/types";
+import { WidgetInfoPopover } from "../design-system";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { WidgetRenderProps } from "./types";
 import {
@@ -935,7 +936,11 @@ export function FinderWidget({
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
       onMoveStart={onStartFrameMove}
       style={frameStyle}
-      subtitle={root ? selectedPath : "Explicit root required"}
+      info={
+        root
+          ? `Current selection: ${selectedPath}`
+          : "Open an explicit root before browsing files."
+      }
       title={title}
     >
       <div
@@ -993,7 +998,7 @@ export function FinderWidget({
             onMinimize={() => setPaneState("columns", "minimized")}
             onRestore={() => setPaneState("columns", "normal")}
             state={paneStates.columns}
-            subtitle={
+            info={
               columns.length > 0
                 ? `${columns.length} visible folder columns`
                 : "Approves and lists one root at a time"
@@ -1044,7 +1049,7 @@ export function FinderWidget({
               onMinimize={() => setPaneState("git", "minimized")}
               onRestore={() => setPaneState("git", "normal")}
               state={paneStates.git}
-              subtitle={
+              info={
                 gitStatus.status
                   ? `${changedFiles.length} changed files in latest snapshot`
                   : "Read-only status for the approved root"
@@ -1068,7 +1073,7 @@ export function FinderWidget({
               onMinimize={() => setPaneState("commit", "minimized")}
               onRestore={() => setPaneState("commit", "normal")}
               state={paneStates.commit}
-              subtitle="Explicit selected-file commit controls"
+              info="Commit controls use the selected changed file and require explicit confirmation."
               title="Commit panel"
             >
               <FinderGitManualCommitPanel
@@ -1090,7 +1095,7 @@ export function FinderWidget({
               onMinimize={() => setPaneState("history", "minimized")}
               onRestore={() => setPaneState("history", "normal")}
               state={paneStates.history}
-              subtitle={
+              info={
                 gitHistory.log
                   ? `${gitHistory.log.entries.length} commits loaded`
                   : "Read-only recent commit history"
@@ -1147,7 +1152,7 @@ function FinderPaneShell({
   onMinimize,
   onRestore,
   state,
-  subtitle,
+  info,
   title,
 }: {
   children: ReactNode;
@@ -1156,7 +1161,7 @@ function FinderPaneShell({
   onMinimize: () => void;
   onRestore: () => void;
   state: FinderPaneState;
-  subtitle: string;
+  info: string;
   title: string;
 }) {
   const isMinimized = state === "minimized";
@@ -1171,11 +1176,14 @@ function FinderPaneShell({
     >
       <header className="finder-pane-header">
         <div className="finder-scope-copy">
-          <p className="finder-title">{title}</p>
-          <p className="finder-text">{subtitle}</p>
+          <div className="finder-title-row">
+            <p className="finder-title">{title}</p>
+            <WidgetInfoPopover label={`${title} information`} title={title}>
+              {info}
+            </WidgetInfoPopover>
+          </div>
         </div>
         <div className="finder-pane-actions">
-          <Badge variant="neutral">{finderPaneStateLabel(state)}</Badge>
           {isMinimized ? (
             <Button
               aria-label={`Restore ${title}`}
@@ -1482,7 +1490,6 @@ function FinderSelectedActionsPanel({
         <Badge variant={selectedItem ? "info" : "neutral"}>
           {selectedItem ? selectedKindLabel : "No selection"}
         </Badge>
-        <Badge variant="neutral">Manual Queue</Badge>
         <Button
           disabled={Boolean(blocker) || isCreating}
           onClick={onCreateTask}
@@ -1497,17 +1504,6 @@ function FinderSelectedActionsPanel({
       {error ? <p className="finder-preview-error">{error}</p> : null}
     </section>
   );
-}
-
-function finderPaneStateLabel(state: FinderPaneState) {
-  switch (state) {
-    case "maximized":
-      return "Maximized";
-    case "minimized":
-      return "Minimized";
-    case "normal":
-      return "Normal";
-  }
 }
 
 function readPersistedFinderRoot(
@@ -1800,15 +1796,6 @@ function FinderGitStatusPanel({
         <FinderGitCommitFact label="Ahead" value={formatGitCount(status?.branch?.ahead)} />
         <FinderGitCommitFact label="Behind" value={formatGitCount(status?.branch?.behind)} />
       </div>
-      <div className="finder-git-flow" aria-label="Finder Git manual flow">
-        <Badge variant="neutral">Refresh status</Badge>
-        <Badge variant={changedFiles.length > 0 ? "warning" : "neutral"}>
-          Select changed file
-        </Badge>
-        <Badge variant="neutral">View diff</Badge>
-        <Badge variant="neutral">Commit selected</Badge>
-        <Badge variant="neutral">Push manually</Badge>
-      </div>
       {error ? <p className="finder-preview-error">{error}</p> : null}
       {changedFiles.length > 0 ? (
         <div className="finder-changed-file-list" role="list">
@@ -1994,7 +1981,6 @@ function FinderGitManualCommitPanel({
           </p>
         </div>
         <div className="finder-git-commit-actions">
-          <Badge variant="warning">Local only</Badge>
           {repositoryRoot && candidates.length > 0 ? (
             <Button
               disabled={isCommitting}

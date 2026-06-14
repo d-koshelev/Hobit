@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "../design-system/Button";
-import { WidgetInfoPopover } from "../design-system/WidgetInfoPopover";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import {
   SkillLibraryDocumentsPanel,
@@ -80,34 +79,14 @@ export function KnowledgeSkillsV2Widget({
     }
   }, [legacyFlow]);
 
-  const statusBadge = (
-    <WidgetInfoPopover
-      label="Knowledge / Skills help"
-      title="Knowledge / Skills"
-    >
-      <p>
-        Knowledge / Skills opens the Knowledge Catalog surface over existing
-        Knowledge Documents and Skill records.
-      </p>
-      <p>
-        Catalog data is loaded through the existing Knowledge / Skills frontend
-        actions. Creating, importing, reviewing, and attaching remain explicit.
-      </p>
-      <p>
-        This route does not add hidden ingestion, backend behavior, storage
-        changes, schema changes, or automatic context use.
-      </p>
-    </WidgetInfoPopover>
-  );
-
   return (
     <WidgetFrame
       actions={frameActions}
+      info="Knowledge / Skills opens explicit document and skill review, creation, import, draft review, and attach flows."
       logRefreshToken={effectiveLogRefreshToken}
       moveEnabled={frameMoveEnabled}
       onLoadLogs={loadLogs}
       onMoveStart={onStartFrameMove}
-      status={statusBadge}
       style={frameStyle}
       title={title}
     >
@@ -133,8 +112,6 @@ export function KnowledgeSkillsV2Widget({
           className="skill-library-shell"
         >
           <div className="skill-library-summary skill-library-summary-secondary">
-            <span>Legacy Knowledge / Skills</span>
-            <span>Compatibility surface</span>
             <Button onClick={() => setLegacyFlow(null)} variant="ghost">
               Close existing flow
             </Button>

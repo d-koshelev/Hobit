@@ -96,6 +96,7 @@ export function RunbookPlaceholderWidget({
   return (
     <WidgetFrame
       actions={frameActions}
+      info="Manual procedural steps with local step state and notes. It does not execute tools or create Queue work."
       logRefreshToken={logRefreshToken}
       moveEnabled={frameMoveEnabled}
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
@@ -104,20 +105,6 @@ export function RunbookPlaceholderWidget({
       title={title}
     >
       <div className="runbook-widget">
-        <section
-          aria-label="Runbook local-only status"
-          className="runbook-status"
-        >
-          <div className="runbook-status-copy">
-            <p className="runbook-title">Manual procedural steps.</p>
-            <p className="runbook-text">
-              Local-only MVP. No agent, tool, Queue, Executor, Terminal, Git, or
-              file actions are available in this version.
-            </p>
-          </div>
-          <Badge variant="neutral">Local only</Badge>
-        </section>
-
         <div className="runbook-layout">
           <section aria-label="Runbook steps" className="runbook-step-panel">
             <p className="runbook-section-title">Steps</p>

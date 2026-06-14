@@ -226,9 +226,8 @@ describe("FinderWidget", () => {
     expect(document.body.textContent).toContain("2 changed");
     expect(document.body.textContent).toContain("Repository root: project");
     expect(document.body.textContent).toContain("Refresh status");
-    expect(document.body.textContent).toContain("Select changed file");
-    expect(document.body.textContent).toContain("Commit selected");
-    expect(document.body.textContent).toContain("Push manually");
+    expect(document.body.textContent).not.toContain("Select changed file");
+    expect(document.body.textContent).not.toContain("Push manually");
     expect(document.body.textContent).toContain("Modified");
     expect(document.body.textContent).toContain("Added");
     expect(document.body.textContent).toContain("finder: add history");

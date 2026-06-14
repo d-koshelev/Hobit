@@ -120,8 +120,7 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
 
     expect(regionByName("Legacy Knowledge / Skills existing flow")).not.toBeNull();
     expect(regionByName("Catalog item editor")).not.toBeNull();
-    expect(text()).toContain("Legacy Knowledge / Skills");
-    expect(text()).toContain("Compatibility surface");
+    expect(text()).not.toContain("Compatibility surface");
     expect(actions.createKnowledgeDocument).not.toHaveBeenCalled();
     expect(actions.createSkill).not.toHaveBeenCalled();
     expect(actions.readKnowledgeDocumentImportFile).not.toHaveBeenCalled();
@@ -168,8 +167,7 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     );
     await flush();
 
-    expect(text()).toContain("Legacy Knowledge / Skills");
-    expect(text()).toContain("Compatibility surface");
+    expect(text()).not.toContain("Compatibility surface");
     expect(document.querySelector(".skill-library-shell")).not.toBeNull();
     expect(document.querySelector("[data-widget-v2-shell]")).toBeNull();
     expect(text()).not.toContain("Knowledge Catalog");

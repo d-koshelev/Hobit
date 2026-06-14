@@ -23,7 +23,7 @@ import {
 } from "./SkillLibraryWidget.test-helpers";
 
 describe("SkillLibraryWidget", () => {
-  it("keeps legacy Knowledge / Skills compatibility explanation behind the shared info popup", async () => {
+  it("keeps Knowledge / Skills explanation behind the shared info popup", async () => {
     renderWidget({
       onListSkills: vi.fn(async () => []),
       onGetSkill: vi.fn(),
@@ -34,11 +34,11 @@ describe("SkillLibraryWidget", () => {
 
     expect(document.querySelector(".popup-shell")).toBeNull();
     expect(document.body.textContent).not.toContain(
-      "Compatibility surface for the previous Knowledge / Skills UI.",
+      "Knowledge / Skills supports explicit document and skill management.",
     );
 
     const infoButton = document.querySelector<HTMLButtonElement>(
-      'button[aria-label="Legacy Knowledge / Skills compatibility information"]',
+      'button[aria-label="Widget information"]',
     );
 
     expect(infoButton).not.toBeNull();
@@ -53,13 +53,7 @@ describe("SkillLibraryWidget", () => {
 
     expect(popup).not.toBeNull();
     expect(popup?.textContent).toContain(
-      "Compatibility surface for the previous Knowledge / Skills UI.",
-    );
-    expect(popup?.textContent).toContain(
-      "normal product route renders KnowledgeV2",
-    );
-    expect(popup?.textContent).toContain(
-      "Folder ingestion, hidden memory, and vector search are not implemented.",
+      "Knowledge / Skills supports explicit document and skill management.",
     );
   });
 

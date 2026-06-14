@@ -3,7 +3,6 @@ import { Button } from "../design-system/Button";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import type { JdbcConnector, JdbcConnectorStatus, JdbcDatabaseKind, JdbcDriverKind } from "../workspace/jdbcConnectorTypes";
 import { JdbcBoundaryFinderPanel } from "./JdbcBoundaryFinderPanel";
-import { JdbcConnectorHeader } from "./JdbcConnectorHeader";
 import { JdbcReadOnlyQueryPanel } from "./JdbcReadOnlyQueryPanel";
 import { JdbcRuntimeStatusPanel } from "./JdbcRuntimeStatusPanel";
 import {
@@ -376,6 +375,7 @@ export function JdbcConnectorWidget({
   return (
     <WidgetFrame
       actions={jdbcFrameActions}
+      info="Create non-secret connector metadata and run bounded read-only SQL through the current mock adapter."
       logRefreshToken={logRefreshToken}
       moveEnabled={frameMoveEnabled}
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
@@ -392,8 +392,6 @@ export function JdbcConnectorWidget({
       title={title}
     >
       <div className="jdbc-widget-shell">
-        <JdbcConnectorHeader />
-
         <JdbcRuntimeStatusPanel selectedConnector={selectedConnector} />
 
         <div className="jdbc-layout">

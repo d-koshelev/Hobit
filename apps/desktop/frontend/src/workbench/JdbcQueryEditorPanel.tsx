@@ -257,7 +257,6 @@ export function JdbcQueryEditorPanel({
       <details className="jdbc-experimental-runtime">
         <summary>
           <span>Experimental sidecar runtime</span>
-          <Badge variant="warning">Preview</Badge>
         </summary>
         <div className="jdbc-experimental-copy">
           <p>
@@ -274,10 +273,6 @@ export function JdbcQueryEditorPanel({
           <div className="jdbc-profile-header">
             <div>
               <p className="jdbc-pane-title">Connection profiles</p>
-              <p className="jdbc-pane-subtitle">
-                Selecting a profile only fills the fields below. It does not
-                connect, probe, or run SQL.
-              </p>
             </div>
             <Badge variant={selectedProfileDirty ? "warning" : "neutral"}>
               {selectedProfileDirty ? "Unsaved changes" : "No auto-run"}
@@ -505,12 +500,6 @@ export function JdbcQueryEditorPanel({
           <div className="jdbc-sql-header">
             <div>
               <p className="jdbc-pane-title">Runtime diagnostics</p>
-              <p className="jdbc-pane-subtitle">
-                Explicit checks only. HealthCheck and DriverProbe do not run SQL.
-              </p>
-            </div>
-            <div className="jdbc-summary-badges">
-              <Badge variant="neutral">Not automatic</Badge>
             </div>
           </div>
           <div className="jdbc-diagnostic-actions">

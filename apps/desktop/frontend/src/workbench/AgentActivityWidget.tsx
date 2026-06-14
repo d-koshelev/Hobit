@@ -22,6 +22,7 @@ export function AgentActivityWidget({
   return (
     <WidgetFrame
       actions={frameActions}
+      info="Current-session activity from Workspace Agent and Agent Executor runs while Hobit is open."
       logRefreshToken={logRefreshToken}
       moveEnabled={frameMoveEnabled}
       onLoadLogs={onLoadLogs ? () => onLoadLogs(instance.id) : undefined}
@@ -35,9 +36,6 @@ export function AgentActivityWidget({
             <h3 className="agent-activity-widget-title">
               Current-session timeline
             </h3>
-            <p className="agent-activity-widget-text">
-              Compact activity rows auto-follow while Hobit is open.
-            </p>
           </div>
           <Badge variant="neutral">{scopedEvents.length} events</Badge>
         </div>
