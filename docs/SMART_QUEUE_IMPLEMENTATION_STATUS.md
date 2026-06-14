@@ -18,8 +18,9 @@ execution.
 Smart Queue has an implemented foundation for the singleton Queue surface,
 duplicate Queue view protection/repair, pure dependency and eligibility
 semantics, pure prompt-pack materialization, pure coordinator decision
-selection, QueueV2 smart status presentation, and frontend prompt-pack import
-preview integration with Smart Queue materialization.
+selection, QueueV2 smart status presentation, frontend prompt-pack import
+preview integration with Smart Queue materialization, and explicit
+prompt-pack Create Queue items wiring from the Smart Queue materialized graph.
 
 The durable Smart Queue runtime is not implemented yet. Current Smart Queue
 modules are frontend/product-model foundations unless explicitly noted
@@ -116,6 +117,26 @@ Implemented in the active frontend prompt-pack preview/import flow.
   Workspace Agent, mutate Git, launch Terminal, or change persistence/runtime
   semantics.
 
+### Prompt-pack explicit Queue task creation
+
+Implemented in the existing explicit `Create Queue items` action.
+
+- `apps/desktop/frontend/src/workbench/promptPack/promptPackMaterialization.ts`
+  now uses the preview's `smartQueueMaterialization` tasks and dependency
+  edges as the Queue creation source of truth.
+- Created Queue tasks preserve prompt title/body, source pack and prompt
+  metadata, materialized settings where the current Queue task API has fields,
+  and remaining prompt-pack metadata in the Queue prompt body.
+- Materialized dependency edges are represented through the current Queue
+  compatibility dependency field (`dependsOn` / `dependencies`) after all
+  selected tasks are created.
+- Blocking Smart Queue materialization issues prevent Queue task creation with
+  a short product-facing error.
+- Creation targets the singleton Workspace Queue through the existing
+  workspace-scoped Queue bridge. It does not create a Queue widget/view, create
+  another Queue, arm Queue Autorun, start workers, launch Agent Executor, launch
+  Terminal, mutate Git, or implement scheduler runtime behavior.
+
 ### Coordinator decision pure model
 
 Implemented as a pure decision/proposal model.
@@ -154,11 +175,13 @@ as available from the foundation above:
 - Workspace Agent assistance runtime call
 - dependency failure propagation in durable runtime
 - actual auto-start of eligible tasks when Queue is Active
+- durable Smart Queue batch/dependency storage beyond the current Queue task
+  compatibility fields
 
-The existing explicit prompt-pack `Create Queue items` action still creates
-current persisted Queue tasks through the pre-existing frontend Queue bridge;
-that import action is not a durable Smart Queue scheduler/runtime and does not
-auto-run tasks.
+The existing explicit prompt-pack `Create Queue items` action creates current
+persisted Queue tasks through the pre-existing frontend Queue bridge using the
+Smart Queue materialized graph. That import action is not a durable Smart Queue
+scheduler/runtime and does not auto-run tasks.
 
 ## Active Architecture Summary
 
@@ -179,7 +202,9 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 ## Smart Queue Runtime Direction
 
-- Prompt pack import creates a Queue graph only.
+- Prompt pack import preview creates a materialized Queue graph only.
+- Explicit Create Queue items creates current Queue tasks from that materialized
+  graph only after operator confirmation.
 - Materialization must not auto-run tasks.
 - Queue Active/Pause gate controls execution.
 - Waiting dependency is not Blocked.
@@ -191,14 +216,13 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 ## Recommended Next Implementation Order
 
-1. Wire prompt-pack materialization into actual Queue task creation preview/import flow.
-2. Add Queue Active/Pause domain state if not already durable.
-3. Add scheduler eligibility gate using `smartQueueEligibility`.
-4. Add worker stuck report capture.
-5. Add coordinator decision record / UI card.
-6. Add retry same / retry with modified prompt.
-7. Add Workspace Agent assistance request protocol wiring.
-8. Add rollback proposal only, then safe rollback later.
+1. Add Queue Active/Pause domain state if not already durable.
+2. Add scheduler eligibility gate using `smartQueueEligibility`.
+3. Add worker stuck report capture.
+4. Add coordinator decision record / UI card.
+5. Add retry same / retry with modified prompt.
+6. Add Workspace Agent assistance request protocol wiring.
+7. Add rollback proposal only, then safe rollback later.
 
 ## Implementation References
 

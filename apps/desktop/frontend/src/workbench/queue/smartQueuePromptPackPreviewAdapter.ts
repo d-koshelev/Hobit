@@ -61,6 +61,7 @@ function promptPackItemSettings(
   item: PromptPackImportItem,
 ): SmartQueuePromptPackSettings {
   return withoutUndefined({
+    allowedScope: item.allowedScope,
     commitPolicy: item.expectedCommitTitle
       ? {
           expectedCommitTitle: item.expectedCommitTitle,
@@ -69,6 +70,7 @@ function promptPackItemSettings(
       : undefined,
     executionPolicy: item.queueDraft.executionPolicy,
     executionWorkspace: item.executionWorkspace ?? undefined,
+    forbiddenScope: item.forbiddenScope,
     itemType: item.itemType,
     model: item.modelProfile ?? undefined,
     priority: item.priority,

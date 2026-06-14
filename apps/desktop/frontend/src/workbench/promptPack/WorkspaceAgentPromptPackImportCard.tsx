@@ -480,7 +480,18 @@ function promptPackImportCreateDisabledReason({
       "Prompt-pack preview has blocking errors. No Queue items can be created."
     );
   }
+  const materializationIssue = preview.smartQueueMaterialization.issues[0];
+  if (materializationIssue) {
+    return `Cannot create Queue items: ${smartQueueIssueShortReason(materializationIssue.reason)}`;
+  }
   return null;
+}
+
+function smartQueueIssueShortReason(reason: string) {
+  return reason
+    .replace(/^Blocked:\s*/i, "")
+    .trim()
+    .toLowerCase();
 }
 
 function PromptPackImportResult({

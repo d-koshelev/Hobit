@@ -13,8 +13,390 @@ import { buildPromptPackImportPreview } from "./promptPackImportPreview";
 import { materializePromptPackPreviewToQueue } from "./promptPackMaterialization";
 import { parsePromptPackImportPlan } from "./promptPackParser";
 import { selfDevelopmentSmokePromptPackEntries } from "./selfDevelopmentSmokePromptPackFixture.test-fixtures";
+import {
+  buildSmartQueueMaterializationFromPromptPackPreview,
+} from "../queue/smartQueuePromptPackPreviewAdapter";
+import {
+  materializeSmartQueuePromptPack,
+} from "../queue/smartQueuePromptPackMaterialization";
 
 describe("prompt pack Queue materialization service", () => {
+  it("uses Smart Queue materialization output as the Queue creation source", async () => {
+    const preview = withSmartQueueMaterialization(
+      buildPromptPackImportPreview(
+        parsePromptPackImportPlan([
+          {
+            path: "prompt-batch.json",
+            text: JSON.stringify({
+              id: "smart-source-pack",
+              items: [
+                {
+                  id: "import-one",
+                  prompt: "Legacy selected item prompt.",
+                  title: "Legacy title",
+                },
+              ],
+            }),
+          },
+        ]),
+      ),
+      (materialization) => ({
+        ...materialization,
+        tasks: materialization.tasks.map((task) => ({
+          ...task,
+          prompt: "Smart Queue materialized prompt.",
+          settings: {
+            ...task.settings,
+            executionPolicy: "auto",
+            priority: 9,
+            tags: ["smart-queue"],
+          },
+          title: "Smart Queue title",
+        })),
+      }),
+    );
+    const bridge = queueBridge();
+
+    const result = await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    const request = bridge.createItem.mock.calls[0]?.[0];
+    expect(result.ok).toBe(true);
+    expect(request).toMatchObject({
+      executionPolicy: "auto",
+      priority: 9,
+      queueTag: { name: "smart-queue" },
+      title: "import-one: Smart Queue title",
+    });
+    expect(request?.prompt).toContain("Smart Queue materialized prompt.");
+    expect(request?.prompt).not.toContain("Legacy selected item prompt.");
+  });
+
+  it("creates one materialized prompt as one Queue task", async () => {
+    const preview = buildPromptPackImportPreview(
+      parsePromptPackImportPlan([
+        {
+          path: "prompt-batch.json",
+          text: JSON.stringify({
+            id: "single-pack",
+            items: [{ id: "one", prompt: "One prompt.", title: "One task" }],
+          }),
+        },
+      ]),
+    );
+    const bridge = queueBridge();
+
+    const result = await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.createdTasks).toEqual([
+      { itemId: "one", queueItemId: "queue-one", title: "one: One task" },
+    ]);
+    expect(bridge.createItem).toHaveBeenCalledTimes(1);
+    expect(bridge.updateItem).not.toHaveBeenCalled();
+  });
+
+  it("creates three sequential materialized prompts and preserves dependency edges", async () => {
+    const preview = buildPromptPackImportPreview(
+      parsePromptPackImportPlan([
+        {
+          path: "prompt-batch.json",
+          text: JSON.stringify({
+            dependencyPolicy: "explicit_only",
+            id: "chain-pack",
+            items: [
+              { id: "first", prompt: "First.", title: "First" },
+              {
+                dependencies: ["first"],
+                id: "second",
+                prompt: "Second.",
+                title: "Second",
+              },
+              {
+                dependencies: ["second"],
+                id: "third",
+                prompt: "Third.",
+                title: "Third",
+              },
+            ],
+          }),
+        },
+      ]),
+    );
+    const bridge = queueBridge();
+
+    const result = await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.createdTasks.map((task) => task.queueItemId)).toEqual([
+      "queue-first",
+      "queue-second",
+      "queue-third",
+    ]);
+    expect(result.dependencyLinksCreated).toEqual([
+      expect.objectContaining({
+        dependencyItemId: "first",
+        dependencyQueueItemId: "queue-first",
+        dependentItemId: "second",
+        dependentQueueItemId: "queue-second",
+      }),
+      expect.objectContaining({
+        dependencyItemId: "second",
+        dependencyQueueItemId: "queue-second",
+        dependentItemId: "third",
+        dependentQueueItemId: "queue-third",
+      }),
+    ]);
+    expect(bridge.updateItem).toHaveBeenNthCalledWith(1, {
+      itemId: "queue-second",
+      patch: { dependencies: ["queue-first"] },
+      reason:
+        "Materialize prompt-pack dependency links after creating all selected Queue items.",
+    });
+    expect(bridge.updateItem).toHaveBeenNthCalledWith(2, {
+      itemId: "queue-third",
+      patch: { dependencies: ["queue-second"] },
+      reason:
+        "Materialize prompt-pack dependency links after creating all selected Queue items.",
+    });
+  });
+
+  it("passes Smart Queue pack default settings to created Queue tasks", async () => {
+    const basePreview = buildPromptPackImportPreview(
+      parsePromptPackImportPlan([
+        {
+          path: "prompt-batch.json",
+          text: JSON.stringify({
+            id: "settings-pack",
+            items: [{ id: "one", prompt: "One prompt.", title: "One task" }],
+          }),
+        },
+      ]),
+    );
+    const preview = withSmartQueueMaterialization(
+      basePreview,
+      () =>
+        buildSmartQueueMaterializationFromPromptPackPreview(basePreview, {
+          defaultSettings: {
+            approvalPolicy: "on-request",
+            executionWorkspace: "C:/smart-default",
+            model: "default-model",
+            reasoning: "high",
+            sandbox: "workspace-write",
+            validationPolicy: {
+              commands: ["npm.cmd run test -- --run smartQueue"],
+              profile: "smart-default",
+            },
+          },
+        }),
+    );
+    const bridge = queueBridge();
+
+    await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    const request = bridge.createItem.mock.calls[0]?.[0];
+    expect(request).toMatchObject({
+      approvalPolicy: "on_request",
+      executionWorkspace: "C:/smart-default",
+      sandbox: "workspace_write",
+    });
+    expect(request?.prompt).toContain("Model profile: default-model");
+    expect(request?.prompt).toContain("Reasoning effort: high");
+    expect(request?.prompt).toContain("Validator profile: smart-default");
+    expect(request?.prompt).toContain(
+      "- npm.cmd run test -- --run smartQueue",
+    );
+  });
+
+  it("lets per-prompt Smart Queue settings override defaults in created tasks", async () => {
+    const basePreview = buildPromptPackImportPreview(
+      parsePromptPackImportPlan([
+        {
+          path: "prompt-batch.json",
+          text: JSON.stringify({
+            id: "settings-pack",
+            items: [
+              {
+                id: "override",
+                modelProfile: "prompt-model",
+                prompt: "Prompt override.",
+                reasoningEffort: "medium",
+                title: "Override",
+                validationCommands: ["npm.cmd run typecheck"],
+                validatorProfile: "strict",
+              },
+            ],
+          }),
+        },
+      ]),
+    );
+    const preview = withSmartQueueMaterialization(
+      basePreview,
+      () =>
+        buildSmartQueueMaterializationFromPromptPackPreview(basePreview, {
+          defaultSettings: {
+            model: "default-model",
+            reasoning: "high",
+            validationPolicy: {
+              commands: ["npm.cmd run test"],
+              profile: "default",
+            },
+          },
+        }),
+    );
+    const bridge = queueBridge();
+
+    await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    const request = bridge.createItem.mock.calls[0]?.[0];
+    expect(request?.prompt).toContain("Model profile: prompt-model");
+    expect(request?.prompt).toContain("Reasoning effort: medium");
+    expect(request?.prompt).toContain("Validator profile: strict");
+    expect(request?.prompt).toContain("- npm.cmd run typecheck");
+    expect(request?.prompt).not.toContain("Model profile: default-model");
+    expect(request?.prompt).not.toContain("Validator profile: default");
+  });
+
+  it("preserves source pack and source prompt metadata from Smart Queue materialization", async () => {
+    const preview = buildPromptPackImportPreview(
+      parsePromptPackImportPlan([
+        {
+          path: "prompt-batch.json",
+          text: JSON.stringify({
+            id: "source-pack",
+            items: [
+              {
+                id: "source-task",
+                path: "001-source-task.md",
+                prompt: "Source prompt.",
+                title: "Source task",
+              },
+            ],
+            name: "Source Pack",
+          }),
+        },
+      ]),
+    );
+    const bridge = queueBridge();
+
+    await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    const request = bridge.createItem.mock.calls[0]?.[0];
+    expect(request?.description).toContain("Prompt pack: Source Pack (source-pack)");
+    expect(request?.description).toContain("Prompt item: source-task");
+    expect(request?.description).toContain("Prompt number: 1");
+    expect(request?.description).toContain("Source path: 001-source-task.md");
+    expect(request?.prompt).toContain("Block id: source-task");
+    expect(request?.prompt).toContain("Smart Queue task id:");
+  });
+
+  it("blocks invalid Smart Queue materializations before creating Queue items", async () => {
+    const preview = withSmartQueueMaterialization(
+      buildPromptPackImportPreview(
+        parsePromptPackImportPlan([
+          {
+            path: "prompt-batch.json",
+            text: JSON.stringify({
+              id: "legacy-valid-pack",
+              items: [{ id: "one", prompt: "One prompt.", title: "One" }],
+            }),
+          },
+        ]),
+      ),
+      () =>
+        materializeSmartQueuePromptPack({
+          prompts: [
+            {
+              body: "Dependent prompt.",
+              dependencies: ["missing"],
+              promptId: "dependent",
+              title: "Dependent",
+            },
+          ],
+          sourcePackId: "invalid-smart-pack",
+          sourceName: "Invalid Smart Pack",
+        }),
+    );
+    const bridge = queueBridge();
+
+    const result = await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        code: "import_blocked",
+        itemId: "dependent",
+        message: "Cannot create Queue items: missing dependency",
+      }),
+    );
+    expect(bridge.createItem).not.toHaveBeenCalled();
+    expect(bridge.updateItem).not.toHaveBeenCalled();
+  });
+
+  it("does not start workers or create/open Queue views while targeting the singleton Queue", async () => {
+    const preview = buildPromptPackImportPreview(
+      parsePromptPackImportPlan([
+        {
+          path: "prompt-batch.json",
+          text: JSON.stringify({
+            id: "singleton-pack",
+            items: [{ id: "one", prompt: "One prompt.", title: "One" }],
+          }),
+        },
+      ]),
+    );
+    const runAutonomousQueue = vi.fn();
+    const startQueueItem = vi.fn();
+    const stopAutonomousQueueAfterCurrent = vi.fn();
+    const bridge = {
+      ...queueBridge({ runAutonomousQueue, stopAutonomousQueueAfterCurrent }),
+      startQueueItem,
+    };
+
+    await materializePromptPackPreviewToQueue({
+      bridge,
+      confirmed: true,
+      preview,
+    });
+
+    expect(preview.smartQueueMaterialization.queue).toMatchObject({
+      queueId: "workspace-queue",
+      singleton: true,
+      singletonKey: "workspace-queue",
+    });
+    expect(bridge.getSnapshot).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(startQueueItem).not.toHaveBeenCalled();
+    expect(stopAutonomousQueueAfterCurrent).not.toHaveBeenCalled();
+  });
+
   it("smokes self-development fixture import into Queue dependency items without starting runtime work", async () => {
     const plan = parsePromptPackImportPlan(selfDevelopmentSmokePromptPackEntries);
     const preview = buildPromptPackImportPreview(plan);
@@ -489,6 +871,20 @@ describe("prompt pack Queue materialization service", () => {
     expect(bridge.createItem).not.toHaveBeenCalled();
   });
 });
+
+function withSmartQueueMaterialization(
+  preview: ReturnType<typeof buildPromptPackImportPreview>,
+  build: (
+    materialization: ReturnType<
+      typeof buildPromptPackImportPreview
+    >["smartQueueMaterialization"],
+  ) => ReturnType<typeof buildPromptPackImportPreview>["smartQueueMaterialization"],
+) {
+  return {
+    ...preview,
+    smartQueueMaterialization: build(preview.smartQueueMaterialization),
+  };
+}
 
 function queueBridge(
   overrides: Partial<WorkspaceAgentQueueBridge> = {},
