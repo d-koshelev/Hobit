@@ -13,6 +13,11 @@ safe self-tests and expected evidence, but a full agent-executed smoke UI or
 app smoke runtime is not claimed by this checklist. Future smoke should be
 agent-executed through peer/widget self-tests where available.
 
+The current Agent API Smoke Runner is not a Queue smoke. It checks only the
+implemented in-app agent runtime APIs for status, bounded history, messaging,
+capabilities, and peer self-test. Agent-executed Queue smoke comes later after
+a real Queue app capability adapter exists behind the Action Broker.
+
 ## Setup
 
 - Start Hobit from `C:\Users\Dmitry\Documents\prj\Hobit_fixed`.

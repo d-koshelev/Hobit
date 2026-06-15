@@ -57,6 +57,13 @@ restricted capabilities for explicit workspace/code execution requests only.
   and typed message APIs. This is the foundation for future agent-executed
   smoke through peer and widget self-tests, not a UI, broker execution path,
   Queue adapter, Codex run, shell command, or app-control action.
+- Agent API Smoke Runner: first pure frontend agent-executed smoke layer over
+  implemented agent runtime APIs only: `agent.status.read`,
+  `agent.history.read`, `agent.message.send`, `agent.capabilities.read`, and
+  `agent.selfTest.run`. It produces a structured product-facing report and
+  hidden-side-effect assertions without Queue mutation, Codex/shell use,
+  Terminal launch, Git mutation, rollback execution, worker start, widget/view
+  creation, backend calls, or real app API execution.
 
 ## Module Ownership
 
@@ -159,6 +166,13 @@ history, model-level capability manifest, and typed message receipt, then the
 roles can be reversed. The peer report is product-facing and explicitly asserts
 no Codex/shell usage, no Queue mutation, no Terminal launch, no Git mutation,
 no rollback execution, and no hidden worker start.
+
+The Agent API Smoke Runner is the first smoke layer built on this foundation.
+It asks one agent to check another agent's implemented runtime API surface
+using safe model checks for status, history, capabilities, messaging, and peer
+self-test. It does not test Queue app behavior. Queue app capability smoke
+requires a later real Queue adapter behind the Action Broker and remains out of
+scope for the current runner.
 
 The initial Widget Agent Contract registry lives under
 `apps/desktop/frontend/src/workbench/agents/widgets/`. Initial active examples

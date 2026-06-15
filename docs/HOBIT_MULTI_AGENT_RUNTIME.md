@@ -120,6 +120,41 @@ Queue mutation, Terminal launch, Git mutation, rollback execution, hidden
 worker start, Action Broker execution, or app control action. Codex and shell
 are not used by agent-to-agent self-tests.
 
+## Agent API Smoke Runner
+
+The Agent API Smoke Runner MVP is a pure frontend model under
+`apps/desktop/frontend/src/workbench/agents/selfTest/`. It is the first
+agent-executed smoke layer over implemented agent runtime APIs. A tester agent
+receives a safe smoke instruction, lists the target agent capability manifest,
+creates smoke cases only for supported `agent.*` APIs, runs safe model checks,
+and returns a structured product-facing report.
+
+Current coverage is limited to the implemented runtime APIs:
+
+- `agent.status.read`
+- `agent.history.read`
+- `agent.message.send`
+- `agent.capabilities.read`
+- `agent.selfTest.run`
+
+The smoke runner reads target status, reads bounded history, reads the
+capability manifest, sends one typed `self_test` message, verifies bounded
+target-history evidence for that message, and invokes the peer self-test helper
+when the target exposes `agent.selfTest.run`. Results are `passed`, `failed`,
+`skipped`, or `blocked`; normal smoke failures return structured results
+instead of throwing.
+
+The report includes report id, instruction id, tester/target agent ids,
+checked capabilities, per-case results, summary counts, product-facing
+summary, created timestamp, and hidden-side-effect assertions. Those assertions
+cover no Codex run, shell command, Queue mutation, Terminal launch, Git
+mutation, rollback execution, worker start, or widget/view creation.
+
+Capabilities outside the implemented agent runtime API set are not smoke
+targets. If a future `agent.*` capability is present but no safe smoke case
+exists yet, it is marked `skipped`. Queue app capability smoke is later adapter
+work and is not covered by this runner.
+
 ## Capability Broker Boundary
 
 App control outside the pure peer-runtime model must happen through:

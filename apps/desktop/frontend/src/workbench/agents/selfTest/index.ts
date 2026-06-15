@@ -35,3 +35,21 @@ export {
   runAgentPeerSelfTest,
   summarizeAgentPeerSelfTestReport,
 } from "./hobitAgentPeerSelfTest";
+export type {
+  HobitAgentApiSmokeCase,
+  HobitAgentApiSmokeHiddenSideEffectFlags,
+  HobitAgentApiSmokeInstruction,
+  HobitAgentApiSmokeReport,
+  HobitAgentApiSmokeRequest,
+  HobitAgentApiSmokeResult,
+  HobitAgentApiSmokeRunResult,
+  HobitAgentApiSmokeStatus,
+} from "./hobitAgentApiSmokeRunner";
+export {
+  createAgentApiSmokeCases,
+  createAgentApiSmokeInstruction,
+  createAgentApiSmokeRequest,
+  HOBIT_AGENT_API_SMOKE_REQUIRED_CAPABILITIES,
+  runAgentApiSmoke,
+  summarizeAgentApiSmokeReport,
+} from "./hobitAgentApiSmokeRunner";
