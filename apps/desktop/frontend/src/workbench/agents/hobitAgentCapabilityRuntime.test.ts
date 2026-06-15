@@ -43,6 +43,7 @@ import {
   buildWorkspaceAgentCapabilityContext,
   buildWorkspaceAgentCapabilityRuntimeSeam,
   createWorkspaceAgentCapabilityInstructionBlock,
+  createWorkspaceAgentPromptWithCapabilityContext,
   getWorkspaceAgentCapabilityManifest,
 } from "./workspaceAgentCapabilityContext";
 
@@ -114,7 +115,7 @@ describe("hobitAgentCapabilityRuntime module structure", () => {
         currentPrompt: "Plan Queue work.",
         workspaceId: "workspace-1",
       }),
-    ).toContain("Available capabilities:");
+    ).toContain("Compact capability manifest:");
     expect(INITIAL_CAPABILITIES_FROM_PUBLIC_INDEX).toBe(
       INITIAL_CAPABILITIES_FROM_CAPABILITIES_INDEX,
     );
@@ -214,6 +215,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
     });
     expect(context.surface).toMatchObject({
       surfaceId: "workspace-agent",
+      title: "Workspace Agent",
       widgetDefinitionId: "interactive-agent",
       widgetInstanceId: "agent-1",
     });
@@ -227,10 +229,26 @@ describe("hobitAgentCapabilityRuntime context", () => {
     const instructionBlock = createCapabilityInstructionBlock(context);
 
     expect(instructionBlock).toContain("You are inside Hobit");
-    expect(instructionBlock).toContain("Available capabilities:");
+    expect(instructionBlock).toContain(
+      "You are operating from the Workspace Agent surface.",
+    );
+    expect(instructionBlock).toContain(
+      "operational brain and product-action orchestrator",
+    );
+    expect(instructionBlock).toContain("Compact capability manifest:");
+    expect(instructionBlock).toContain("queue.targetSingletonQueue");
     expect(instructionBlock).toContain("queue.createItems");
+    expect(instructionBlock).toContain("queue.preparePromptPackPreview");
     expect(instructionBlock).toContain("queue.importPromptPack");
+    expect(instructionBlock).toContain("queue.selfTest");
+    expect(instructionBlock).toContain("agent.status.read");
+    expect(instructionBlock).toContain("agent.history.read");
+    expect(instructionBlock).toContain("agent.message.send");
+    expect(instructionBlock).toContain("agent.capabilities.read");
+    expect(instructionBlock).toContain("agent.selfTest.run");
     expect(instructionBlock).toContain("codex.runTask");
+    expect(instructionBlock).toContain("workspace.shell.runCommand");
+    expect(instructionBlock).toContain("availability=unavailable");
     expect(instructionBlock).toContain(
       "Use typed Hobit app capabilities before Codex or shell.",
     );
@@ -249,6 +267,9 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain(
       "Codex and shell are restricted capabilities",
     );
+    expect(instructionBlock.length).toBeLessThan(5000);
+    expect(instructionBlock).not.toContain('"capabilities"');
+    expect(instructionBlock).not.toContain("{");
   });
 
   it("builds the Workspace Agent capability runtime seam without broker execution", () => {
@@ -258,6 +279,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
       workbenchId: "workbench-1",
       workspaceId: "workspace-1",
       workspaceName: "Capability seam",
+      workspaceRoot: "C:/repo",
     });
 
     expect(seam.appContext.currentPrompt).toBe(
@@ -268,6 +290,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
       workbenchId: "workbench-1",
       workspaceId: "workspace-1",
       workspaceName: "Capability seam",
+      workspaceRoot: "C:/repo",
     });
     expect(seam.appContext.surface).toMatchObject({
       surfaceId: "workspace-agent",
@@ -281,6 +304,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(seam.instructionBlock).toContain("You are inside Hobit");
     expect(seam.instructionBlock).toContain("queue.createItems");
     expect(seam.instructionBlock).toContain("codex.runTask");
+    expect(seam.instructionBlock).toContain("Workspace root: C:/repo.");
   });
 
   it("exposes Workspace Agent context helpers over the capability manifest", () => {
@@ -301,8 +325,42 @@ describe("hobitAgentCapabilityRuntime context", () => {
         (capability) => capability.id,
       ),
     ).toContain("queue.createItem");
-    expect(instructionBlock).toContain("Available capabilities:");
+    expect(
+      context.capabilityManifest.capabilities.map(
+        (capability) => capability.id,
+      ),
+    ).toEqual(
+      expect.arrayContaining([
+        "agent.status.read",
+        "agent.history.read",
+        "agent.message.send",
+        "agent.capabilities.read",
+        "agent.selfTest.run",
+      ]),
+    );
+    expect(instructionBlock).toContain("Compact capability manifest:");
     expect(instructionBlock).toContain("Codex and shell are restricted capabilities");
+  });
+
+  it("wraps Direct Work prompts with Hobit capability context without executing broker actions", () => {
+    const prompt = createWorkspaceAgentPromptWithCapabilityContext({
+      currentPrompt: "Refactor the Workspace Agent prompt path.",
+      widgetInstanceId: "agent-1",
+      workspaceId: "workspace-1",
+      workspaceRoot: "C:/repo",
+    });
+
+    expect(prompt).toContain("[Hobit capability context]");
+    expect(prompt).toContain("You are inside Hobit");
+    expect(prompt).toContain("Use typed Hobit app capabilities before Codex or shell.");
+    expect(prompt).toContain("Queue item creation is a Queue capability.");
+    expect(prompt).toContain("Do not inspect source files for product actions.");
+    expect(prompt).toContain("codex.runTask (restricted)");
+    expect(prompt).toContain("workspace.shell.runCommand (restricted)");
+    expect(prompt).toContain("broker action parsing/execution is not wired");
+    expect(prompt).toContain("User request:\nRefactor the Workspace Agent prompt path.");
+    expect(prompt.length).toBeLessThan(5500);
+    expect(prompt).not.toContain('"capabilityManifest"');
   });
 });
 
@@ -358,6 +416,29 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
         "queue_autorun",
       ]),
     ).toBe(true);
+  });
+
+  it("declares agent runtime APIs as typed model capabilities", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const agentCapabilities = registry.capabilities
+      .filter((capability) => capability.id.startsWith("agent."))
+      .map((capability) => capability.id);
+
+    expect(agentCapabilities).toEqual([
+      "agent.capabilities.read",
+      "agent.history.read",
+      "agent.message.send",
+      "agent.selfTest.run",
+      "agent.status.read",
+    ]);
+    for (const capabilityId of agentCapabilities) {
+      const capability = requiredCapability(registry, capabilityId);
+
+      expect(capability.ownerSurface).toBe("Multi-Agent Runtime");
+      expect(capability.defaultForProductActions).toBe(false);
+      expect(capability.allowedAgentRoles).toContain("workspace_agent");
+      expect(capability.restricted).toBe(false);
+    }
   });
 
   it("declares Codex and shell as restricted execute capabilities, not default app-action paths", () => {

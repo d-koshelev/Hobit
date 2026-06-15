@@ -137,6 +137,7 @@ export function InteractiveAgentPlaceholderWidget({
     (event) => event.sourceWidgetInstanceId === instance.id,
   );
   const directWork = useWorkspaceAgentDirectWorkController({
+    currentWorkspaceRoot,
     draft,
     instanceId: instance.id,
     isProviderPending,

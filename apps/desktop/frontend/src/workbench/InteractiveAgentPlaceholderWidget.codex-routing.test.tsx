@@ -99,11 +99,35 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     await clickButton("Run with Codex");
 
     expect(startDirectWork).toHaveBeenCalledTimes(1);
-    expect(startDirectWork.mock.calls[0][1]).toMatchObject({
+    const request = startDirectWork.mock.calls[0][1] as {
+      operatorPrompt: string;
+    };
+    expect(request).toMatchObject({
       codexThreadId: null,
-      operatorPrompt: "Make a plan while Codex is active",
+      operatorPrompt: expect.stringContaining(
+        "User request:\nMake a plan while Codex is active",
+      ),
       skipGitRepoCheck: true,
     });
+    expect(request.operatorPrompt).toContain("[Hobit capability context]");
+    expect(request.operatorPrompt).toContain("You are inside Hobit");
+    expect(request.operatorPrompt).toContain(
+      "Use typed Hobit app capabilities before Codex or shell.",
+    );
+    expect(request.operatorPrompt).toContain(
+      "Queue item creation is a Queue capability.",
+    );
+    expect(request.operatorPrompt).toContain(
+      "Do not inspect source files for product actions.",
+    );
+    expect(request.operatorPrompt).toContain("codex.runTask (restricted)");
+    expect(request.operatorPrompt).toContain(
+      "workspace.shell.runCommand (restricted)",
+    );
+    expect(request.operatorPrompt).toContain("agent.capabilities.read");
+    expect(request.operatorPrompt).toContain("Compact capability manifest:");
+    expect(request.operatorPrompt).not.toContain('"capabilityManifest"');
+    expect(request.operatorPrompt.length).toBeLessThan(5500);
     expect(provider).not.toHaveBeenCalled();
     expect(document.body.textContent).toContain(
       "Runs with Codex from the selected working directory.",
@@ -291,11 +315,15 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(startDirectWork).toHaveBeenCalledTimes(2);
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
       codexThreadId: null,
-      operatorPrompt: "I have 5 apples, you have 2.",
+      operatorPrompt: expect.stringContaining(
+        "User request:\nI have 5 apples, you have 2.",
+      ),
     });
     expect(startDirectWork.mock.calls[1][1]).toMatchObject({
       codexThreadId: "thread_stateful_123456",
-      operatorPrompt: "How many apples do you have?",
+      operatorPrompt: expect.stringContaining(
+        "User request:\nHow many apples do you have?",
+      ),
     });
     expect(
       JSON.stringify(startDirectWork.mock.calls[1][1]),
@@ -360,15 +388,17 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(startDirectWork).toHaveBeenCalledTimes(3);
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
       codexThreadId: null,
-      operatorPrompt: "First run.",
+      operatorPrompt: expect.stringContaining("User request:\nFirst run."),
     });
     expect(startDirectWork.mock.calls[1][1]).toMatchObject({
       codexThreadId: null,
-      operatorPrompt: "Fresh run.",
+      operatorPrompt: expect.stringContaining("User request:\nFresh run."),
     });
     expect(startDirectWork.mock.calls[2][1]).toMatchObject({
       codexThreadId: "thread_checkbox_forced_new_123456",
-      operatorPrompt: "Follow up after fresh run.",
+      operatorPrompt: expect.stringContaining(
+        "User request:\nFollow up after fresh run.",
+      ),
     });
     expect(checkboxWithLabel("New Thread")?.checked).toBe(false);
   });
@@ -450,19 +480,19 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(startDirectWork).toHaveBeenCalledTimes(4);
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
       codexThreadId: null,
-      operatorPrompt: "Agent A first run.",
+      operatorPrompt: expect.stringContaining("User request:\nAgent A first run."),
     });
     expect(startDirectWork.mock.calls[1][1]).toMatchObject({
       codexThreadId: null,
-      operatorPrompt: "Agent B first run.",
+      operatorPrompt: expect.stringContaining("User request:\nAgent B first run."),
     });
     expect(startDirectWork.mock.calls[2][1]).toMatchObject({
       codexThreadId: "thread_agent_a_123456",
-      operatorPrompt: "Agent A follow-up.",
+      operatorPrompt: expect.stringContaining("User request:\nAgent A follow-up."),
     });
     expect(startDirectWork.mock.calls[3][1]).toMatchObject({
       codexThreadId: "thread_agent_b_123456",
-      operatorPrompt: "Agent B follow-up.",
+      operatorPrompt: expect.stringContaining("User request:\nAgent B follow-up."),
     });
   });
 
@@ -524,7 +554,9 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(startDirectWork).toHaveBeenCalledTimes(2);
     expect(startDirectWork.mock.calls[1][1]).toMatchObject({
       codexThreadId: null,
-      operatorPrompt: "Workspace B first run.",
+      operatorPrompt: expect.stringContaining(
+        "User request:\nWorkspace B first run.",
+      ),
     });
   });
 
@@ -587,7 +619,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(startDirectWork.mock.calls[1][0]).toBe("coordinator_widget_b");
     expect(startDirectWork.mock.calls[1][1]).toMatchObject({
       codexThreadId: null,
-      operatorPrompt: "Widget B first run.",
+      operatorPrompt: expect.stringContaining("User request:\nWidget B first run."),
     });
   });
 
@@ -641,7 +673,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(startDirectWork).toHaveBeenCalledTimes(2);
     expect(startDirectWork.mock.calls[1][1]).toMatchObject({
       codexThreadId: null,
-      operatorPrompt: "Start over.",
+      operatorPrompt: expect.stringContaining("User request:\nStart over."),
     });
     expect(document.body.textContent).toContain("Remember this.");
     expect(checkboxWithLabel("New Thread")).toBeDefined();
@@ -691,7 +723,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(
       (startDirectWork.mock.calls[0][1] as { operatorPrompt: string })
         .operatorPrompt,
-    ).toBe("What is the Falcon smoke code?");
+    ).toContain("User request:\nWhat is the Falcon smoke code?");
 
     await rerenderWidget({
       coordinatorAttachedContextRequest: attachedContextRequest({
@@ -716,8 +748,8 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       operatorPrompt: string;
     };
     expect(nextRequest.codexThreadId).toBeNull();
-    expect(nextRequest.operatorPrompt).toBe(
-      "Ask again without workspace knowledge.",
+    expect(nextRequest.operatorPrompt).toContain(
+      "User request:\nAsk again without workspace knowledge.",
     );
     expect(nextRequest.operatorPrompt).not.toContain("BLUE-RAVEN-42");
   });
@@ -1040,7 +1072,9 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
 
     expect(searchKnowledge).not.toHaveBeenCalled();
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
-      operatorPrompt: "No document should match.",
+      operatorPrompt: expect.stringContaining(
+        "User request:\nNo document should match.",
+      ),
     });
     await clickButton("Run details");
     expect(document.body.textContent).toContain(
@@ -1115,8 +1149,8 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
       operatorPrompt: string;
     };
     expect(workspaceBRequest.codexThreadId).toBeNull();
-    expect(workspaceBRequest.operatorPrompt).toBe(
-      "What is the Falcon smoke code?",
+    expect(workspaceBRequest.operatorPrompt).toContain(
+      "User request:\nWhat is the Falcon smoke code?",
     );
     expect(workspaceBRequest.operatorPrompt).not.toContain("BLUE-RAVEN-42");
   });

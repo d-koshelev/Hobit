@@ -29,6 +29,12 @@ handler boundary with an injected Queue adapter API:
 Full Workspace Agent UI broker execution remains later unless a future block
 explicitly implements it.
 
+Workspace Agent Codex Direct Work now receives Hobit capability context before
+execution. The context tells the agent it is inside Hobit, operating from the
+Workspace Agent surface, should use typed Hobit capabilities for app/product
+actions, and should treat Codex/shell as restricted execution capabilities.
+This does not wire full broker execution or automatic Queue mutation.
+
 ## Setup
 
 - Start Hobit from `C:\Users\Dmitry\Documents\prj\Hobit_fixed`.
@@ -139,6 +145,15 @@ During the smoke, verify these product labels appear where applicable:
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback
       proposal preparation.
+
+19. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
+    log details where available.
+    - Expected: the prompt sent to Codex includes Hobit capability context,
+      compact Queue/agent capability names, and policy rules before the user
+      request.
+    - Expected: no broker action request is parsed or executed, no Queue item
+      is created, no duplicate Queue view is created, and no worker starts
+      merely because context was injected.
 
 ## Failure Capture
 

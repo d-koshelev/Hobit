@@ -64,6 +64,11 @@ restricted capabilities for explicit workspace/code execution requests only.
   hidden-side-effect assertions without Queue mutation, Codex/shell use,
   Terminal launch, Git mutation, rollback execution, worker start, widget/view
   creation, backend calls, or real app API execution.
+- Workspace Agent Capability Context Injection: the active Workspace Agent
+  Codex Direct Work prompt path now attaches Hobit app context, Workspace
+  Agent role instructions, a compact capability manifest, and policy rules
+  before Codex execution. This is context injection only. It does not parse or
+  execute broker action requests.
 
 ## Module Ownership
 
@@ -254,6 +259,13 @@ Each capability has:
 
 Current honest foundation capabilities:
 
+- `agent.status.read`: model-level in-app agent status read.
+- `agent.history.read`: model-level bounded in-app agent history read.
+- `agent.message.send`: typed in-app agent message send through the pure
+  Multi-Agent Runtime model.
+- `agent.capabilities.read`: model-level in-app agent capability manifest
+  read.
+- `agent.selfTest.run`: safe model-level in-app agent self-test.
 - `queue.createItem`: in-app Queue item creation through the singleton
   Workspace Queue path; write side effect; no duplicate Queue view; no worker
   start.

@@ -19,5 +19,6 @@ export {
   buildWorkspaceAgentCapabilityContext,
   buildWorkspaceAgentCapabilityRuntimeSeam,
   createWorkspaceAgentCapabilityInstructionBlock,
+  createWorkspaceAgentPromptWithCapabilityContext,
   getWorkspaceAgentCapabilityManifest,
 } from "./workspaceAgentCapabilityContext";

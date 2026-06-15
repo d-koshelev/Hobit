@@ -123,7 +123,9 @@ describe("InteractiveAgentPlaceholderWidget product-action guard", () => {
     expect(createItem).not.toHaveBeenCalled();
     expect(startDirectWork).toHaveBeenCalledTimes(1);
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
-      operatorPrompt: "add example queue items to queue",
+      operatorPrompt: expect.stringContaining(
+        "User request:\nadd example queue items to queue",
+      ),
     });
     expect(provider).not.toHaveBeenCalled();
     expect(getSnapshot).not.toHaveBeenCalled();

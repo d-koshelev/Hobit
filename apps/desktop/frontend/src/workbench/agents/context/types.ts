@@ -17,6 +17,7 @@ export type HobitAgentWorkspaceContext = {
   queueSingletonKey: "workspace-queue";
   workspaceId: string;
   workspaceName?: string | null;
+  workspaceRoot?: string | null;
   workbenchId?: string | null;
 };
 

@@ -8,6 +8,7 @@ import {
   cappedPreviewText,
 } from "../renderMemoryGuards";
 import type { DirectWorkSandbox, DirectWorkStreamEvent } from "../workspace/types";
+import { createWorkspaceAgentPromptWithCapabilityContext } from "./agents/context";
 import { agentActivityEventFromDirectWorkStreamEvent } from "./agentActivityModel";
 import {
   CODEX_THREAD_NOT_AVAILABLE_MESSAGE,
@@ -52,6 +53,7 @@ import {
 import type { WidgetRenderProps } from "./types";
 
 type UseWorkspaceAgentDirectWorkControllerOptions = {
+  currentWorkspaceRoot?: string | null;
   draft: string;
   instanceId: string;
   isProviderPending: boolean;
@@ -78,6 +80,7 @@ type RunWithCodexOptions = {
 };
 
 export function useWorkspaceAgentDirectWorkController({
+  currentWorkspaceRoot,
   draft,
   instanceId,
   isProviderPending,
@@ -229,6 +232,13 @@ export function useWorkspaceAgentDirectWorkController({
     const threadStartText = resumeThreadId
       ? `Continuing Codex thread ${shortCodexThreadId(resumeThreadId)}.`
       : "Starting new Codex thread.";
+    const promptWithCapabilityContext =
+      createWorkspaceAgentPromptWithCapabilityContext({
+        currentPrompt: operatorPrompt,
+        widgetInstanceId: instanceId,
+        workspaceId: workspaceScopeId,
+        workspaceRoot: currentWorkspaceRoot?.trim() || repoRoot,
+      });
     onAppendOperatorTranscript(operatorPrompt);
     onClearDraft();
     onClearVisibleAttachedContext();
@@ -248,7 +258,7 @@ export function useWorkspaceAgentDirectWorkController({
       {
         id: "direct-local-starting",
         kind: "local",
-        text: `${threadStartText} Knowledge is not searched automatically; only visible composer text is sent. Starting Codex Direct Work from ${repoRoot}.`,
+        text: `${threadStartText} Hobit capability context attached. Capability manifest attached. Knowledge is not searched automatically; only visible composer text plus capability instructions are sent. Starting Codex Direct Work from ${repoRoot}.`,
       },
     ]);
 
@@ -259,7 +269,7 @@ export function useWorkspaceAgentDirectWorkController({
           approvalPolicy: "never",
           codexExecutable: defaultCoordinatorCodexExecutable(),
           codexThreadId: resumeThreadId,
-          operatorPrompt,
+          operatorPrompt: promptWithCapabilityContext,
           repoRoot,
           sandbox: directWorkSandbox,
           skipGitRepoCheck: true,

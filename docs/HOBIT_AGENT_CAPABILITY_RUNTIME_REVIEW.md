@@ -23,8 +23,10 @@ full Workspace Agent behavior.
   broker boundary, not as `user text -> regex -> Queue action`.
 - Codex/direct-run routing: `useWorkspaceAgentDirectWorkController.ts` starts
   Workspace Agent Codex Direct Work through `onStartCodexDirectWorkStream`.
-  `WorkspaceAgentDirectModePanel.tsx` exposes explicit working directory and
-  sandbox controls.
+  The active request path now prepends Hobit capability context, Workspace
+  Agent role instructions, compact capability metadata, and policy rules to
+  the Codex operator prompt. `WorkspaceAgentDirectModePanel.tsx` exposes
+  explicit working directory and sandbox controls.
 - Product action cards/actions: proposal and card flows live in
   `WorkspaceAgentProposalList.tsx`, `WorkspaceAgentQueueActionCards.tsx`,
   `WorkspaceAgentQueueCreateDraftCard.tsx`, `WorkspaceAgentQueueTaskStatusCard.tsx`,
@@ -103,9 +105,10 @@ call Codex or shell and do not mutate app state.
 - Widget-level self-test coverage is only beginning: Agent Queue and Workspace
   Agent have initial contract/self-test metadata, while Knowledge / Skills,
   Notes, Terminal, and other widgets still need complete contracts.
-- Agents do not receive app role, current Workspace/surface/widget context,
-  capability list, policy constraints, and self-test instructions as structured
-  runtime data.
+- Workspace Agent Codex Direct Work now receives app role, current
+  Workspace/surface/widget context, compact capability list, and policy
+  constraints as prompt context. Structured broker action request parsing and
+  execution remains later.
 
 ## Proposed Architecture
 
@@ -133,7 +136,9 @@ call Codex or shell and do not mutate app state.
 2. Register Queue capabilities over the existing typed Queue API and
    prompt-pack materialization paths.
 3. Provide Workspace Agent with capability manifest, role instructions,
-   context, and policy constraints.
+   context, and policy constraints. Completed for the active Workspace Agent
+   Codex Direct Work prompt/context path; broker action parsing/execution is
+   not wired.
 4. Add the pure Action Broker MVP with typed request validation, policy
    results, audit/activity events, deterministic test handlers, and Queue
    dry-run preview only. Completed for the frontend model.

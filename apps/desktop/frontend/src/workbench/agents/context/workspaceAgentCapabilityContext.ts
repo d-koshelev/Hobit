@@ -14,6 +14,7 @@ export type WorkspaceAgentCapabilityContextInput = {
   workbenchId?: string | null;
   workspaceId: string;
   workspaceName?: string | null;
+  workspaceRoot?: string | null;
 };
 
 export type WorkspaceAgentCapabilityRuntimeSeam = {
@@ -38,6 +39,7 @@ export function buildWorkspaceAgentCapabilityContext({
   workbenchId = null,
   workspaceId,
   workspaceName = null,
+  workspaceRoot = null,
 }: WorkspaceAgentCapabilityContextInput): HobitAgentAppContext {
   return createWorkspaceAgentAppContext({
     capabilityRegistry: getWorkspaceAgentCapabilityManifest(capabilityRegistry),
@@ -47,6 +49,7 @@ export function buildWorkspaceAgentCapabilityContext({
       workbenchId,
       workspaceId,
       workspaceName,
+      workspaceRoot,
     },
   });
 }
@@ -74,6 +77,24 @@ export function buildWorkspaceAgentCapabilityRuntimeSeam(
     },
     instructionBlock: createWorkspaceAgentCapabilityInstructionBlock(appContext),
   };
+}
+
+export function createWorkspaceAgentPromptWithCapabilityContext(
+  input: WorkspaceAgentCapabilityContextInput,
+): string {
+  const seam = buildWorkspaceAgentCapabilityRuntimeSeam(input);
+
+  return [
+    "[Hobit capability context]",
+    seam.instructionBlock,
+    "",
+    "Broker execution boundary:",
+    "Workspace Agent broker action parsing/execution is not wired in this block.",
+    "Do not execute capabilities from this prompt. Use this context to choose or request typed capabilities where supported.",
+    "",
+    "User request:",
+    input.currentPrompt.trim(),
+  ].join("\n");
 }
 
 function isHobitAgentAppContext(

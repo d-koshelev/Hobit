@@ -17,7 +17,6 @@ import {
   createAgentRuntimeState,
   HOBIT_TEST_AGENT_A,
   HOBIT_TEST_AGENT_B,
-  HOBIT_TEST_AGENT_CAPABILITIES,
   registerAgent,
 } from "../runtime";
 import {
@@ -93,7 +92,7 @@ describe("hobitAgentActionBroker validation and policy", () => {
   it("blocks an agent role that is not allowed by capability policy", () => {
     const result = createTestBroker().invoke(
       actionRequest({
-        agentRoleId: "workspace_agent",
+        agentRoleId: "queue_coordinator",
         capabilityId: "agent.status.read",
         input: { targetAgentId: "test.agentB" },
       }),
@@ -105,7 +104,7 @@ describe("hobitAgentActionBroker validation and policy", () => {
       status: "policy_blocked",
     });
     expect(result.result.policyReasons.join(" ")).toContain(
-      "Role workspace_agent cannot use agent.status.read.",
+      "Role queue_coordinator cannot use agent.status.read.",
     );
   });
 
@@ -343,7 +342,7 @@ describe("hobitAgentActionBroker handler model", () => {
     });
     const result = broker.invoke(
       actionRequest({
-        agentRoleId: "workspace_agent",
+        agentRoleId: "queue_coordinator",
         capabilityId: "agent.status.read",
         input: { targetAgentId: "test.agentB" },
       }),
@@ -479,10 +478,7 @@ function createTestBroker(state = registerTestAgents()) {
 }
 
 function createTestRegistry() {
-  return createHobitAgentCapabilityRegistry([
-    ...HOBIT_TEST_AGENT_CAPABILITIES,
-    ...HOBIT_AGENT_INITIAL_CAPABILITIES,
-  ]);
+  return createHobitAgentCapabilityRegistry(HOBIT_AGENT_INITIAL_CAPABILITIES);
 }
 
 function actionRequest({

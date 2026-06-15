@@ -488,7 +488,9 @@ describe("InteractiveAgentPlaceholderWidget prompt-pack import", () => {
 
     expect(startCodexDirectWork).toHaveBeenCalledTimes(1);
     expect(startCodexDirectWork.mock.calls[0]?.[1]).toMatchObject({
-      operatorPrompt: "Review this normal code task.",
+      operatorPrompt: expect.stringContaining(
+        "User request:\nReview this normal code task.",
+      ),
     });
     expect(document.body.textContent).not.toContain(
       "typed product action unavailable",

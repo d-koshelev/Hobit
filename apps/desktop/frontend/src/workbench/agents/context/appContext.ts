@@ -46,6 +46,7 @@ export function createDefaultHobitAgentAppContext({
       workbenchId: workspace.workbenchId ?? null,
       workspaceId: workspace.workspaceId,
       workspaceName: workspace.workspaceName ?? null,
+      workspaceRoot: workspace.workspaceRoot ?? null,
     },
   };
 }

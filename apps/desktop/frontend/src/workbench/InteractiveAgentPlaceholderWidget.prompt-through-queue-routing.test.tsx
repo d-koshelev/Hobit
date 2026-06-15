@@ -90,7 +90,9 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(startDirectWork.mock.calls[0][1]).toMatchObject({
       approvalPolicy: "never",
       codexExecutable: expectedCoordinatorCodexExecutable(),
-      operatorPrompt: "Implement this directly.",
+      operatorPrompt: expect.stringContaining(
+        "User request:\nImplement this directly.",
+      ),
       repoRoot: "~",
       sandbox: "workspace_write",
       skipGitRepoCheck: true,
