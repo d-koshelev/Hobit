@@ -2,6 +2,9 @@ import type { AgentQueueTask } from "../../workspace/types";
 import {
   latestSmartQueueFailurePayloadForTask,
 } from "./smartQueueWorkerReportIntegration";
+import {
+  canApplySmartQueueRetrySame,
+} from "./smartQueueRetrySameAction";
 import type {
   SmartQueueCoordinatorDecision,
   SmartQueueCoordinatorDecisionAction,
@@ -16,6 +19,8 @@ export type QueueCoordinatorDecisionCardViewModel = {
   readonly recommendedActionLabel: string;
   readonly requiresApproval: boolean;
   readonly requiresApprovalLabel: string;
+  readonly retrySameAvailable: boolean;
+  readonly retrySameLabel: "Retry";
   readonly statusLabel: string;
   readonly taskId: string;
 };
@@ -40,7 +45,9 @@ export function queueCoordinatorDecisionCardViewModel(
 
   return {
     actionAvailability: "Action unavailable",
-    allowedActionLabels: decision.availableActions.map(actionLabel),
+    allowedActionLabels: decision.availableActions
+      .filter((action) => action !== "retry_same")
+      .map(actionLabel),
     destructive: decision.destructive,
     destructiveLabel: decision.destructive
       ? "Destructive action proposed"
@@ -51,6 +58,8 @@ export function queueCoordinatorDecisionCardViewModel(
     requiresApprovalLabel: decision.requiresOperatorApproval
       ? "Operator approval required"
       : "No operator approval required",
+    retrySameAvailable: canApplySmartQueueRetrySame(decision),
+    retrySameLabel: "Retry",
     statusLabel: productText(decision.productLabel, "Needs decision"),
     taskId: decision.taskId,
   };

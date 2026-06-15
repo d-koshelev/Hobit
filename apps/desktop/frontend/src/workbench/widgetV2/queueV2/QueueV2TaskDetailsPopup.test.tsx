@@ -184,6 +184,37 @@ describe("QueueV2TaskDetailsPopup", () => {
     expect(card?.textContent).toContain("Action unavailable");
   });
 
+  it("renders a real Retry button when validation failure decision allows Retry same", async () => {
+    const onRetrySame = vi.fn();
+    const selectedTask = smartFailureTask({
+      evidenceSummary: "Validation failed after a transient environment issue.",
+      failureKind: "validation_failure",
+      includeRetrySame: true,
+      maxRetries: 2,
+      queueItemId: "validation-retry-task",
+      reason: "Validation failed.",
+      retryCount: 0,
+    });
+
+    await renderDecisionPopup(selectedTask, {
+      queue: queueController({
+        onRetrySame,
+        selectedTask,
+        tasks: [selectedTask],
+      }),
+    });
+
+    const retryButton = buttonWithText("Retry");
+
+    expect(retryButton).not.toBeNull();
+    expect(retryButton?.disabled).toBe(false);
+    expect(coordinatorDecisionCard()?.textContent).not.toContain("retry_same");
+
+    await click(retryButton);
+
+    expect(onRetrySame).toHaveBeenCalledTimes(1);
+  });
+
   it("shows product-facing execution failure decision", async () => {
     await renderDecisionPopup(
       smartFailureTask({
@@ -236,16 +267,21 @@ describe("QueueV2TaskDetailsPopup", () => {
   });
 
   it("shows timeout retry limit reached decision", async () => {
-    await renderDecisionPopup(
-      smartFailureTask({
+    const selectedTask = smartFailureTask({
         evidenceSummary: "The attempt timed out after the final retry.",
         failureKind: "timeout",
         maxRetries: 1,
         queueItemId: "retry-limit-task",
         reason: "Run timed out.",
         retryCount: 1,
+    });
+
+    await renderDecisionPopup(selectedTask, {
+      queue: queueController({
+        selectedTask,
+        tasks: [selectedTask],
       }),
-    );
+    });
 
     expect(coordinatorDecisionCard()?.textContent).toContain(
       "Retry limit reached",
@@ -253,6 +289,7 @@ describe("QueueV2TaskDetailsPopup", () => {
     expect(coordinatorDecisionCard()?.textContent).toContain(
       "Request human input",
     );
+    expect(buttonWithText("Retry")).toBeNull();
   });
 
   it("shows rollback proposal as destructive and approval required without executing rollback", async () => {
@@ -264,7 +301,12 @@ describe("QueueV2TaskDetailsPopup", () => {
       reason: "Validation failed after file changes.",
     });
 
-    await renderDecisionPopup(taskWithRollback);
+    await renderDecisionPopup(taskWithRollback, {
+      queue: queueController({
+        selectedTask: taskWithRollback,
+        tasks: [taskWithRollback],
+      }),
+    });
 
     const card = coordinatorDecisionCard();
 
@@ -273,6 +315,7 @@ describe("QueueV2TaskDetailsPopup", () => {
     expect(card?.textContent).toContain("Operator approval required");
     expect(card?.textContent).toContain("Destructive action proposed");
     expect(card?.textContent).toContain("Destructive");
+    expect(buttonWithText("Retry")).toBeNull();
     expect(buttonWithText("Rollback proposal")).toBeNull();
   });
 
@@ -360,7 +403,7 @@ async function renderDecisionPopup(
   selectedTask: AgentQueueTask,
   overrides: Pick<
     ComponentProps<typeof QueueV2TaskDetailsPopup>,
-    "onShowQueueTaskInWorkspaceChat"
+    "onShowQueueTaskInWorkspaceChat" | "queue"
   > = {},
 ) {
   const popup = popupModel([selectedTask], selectedTask.queueItemId);
@@ -391,10 +434,12 @@ function smartFailureTask({
   queueItemId,
   reason,
   retryCount,
+  includeRetrySame,
 }: {
   decision?: "rollback";
   evidenceSummary: string;
   failureKind: Parameters<typeof buildSmartQueueWorkerFailureIntegration>[0]["failureKind"];
+  includeRetrySame?: boolean;
   maxRetries?: number;
   queueItemId: string;
   reason: string;
@@ -428,7 +473,20 @@ function smartFailureTask({
           report: integration.workerReport,
           retryCount: retryCount ?? 1,
         })
-      : integration.coordinatorDecision;
+      : includeRetrySame
+        ? {
+            ...integration.coordinatorDecision,
+            availableActions: [
+              "retry_same",
+              ...integration.coordinatorDecision.availableActions,
+            ],
+            retryPolicy: {
+              canRetry: true,
+              maxRetries: maxRetries ?? 1,
+              retryCount: retryCount ?? 0,
+            },
+          }
+        : integration.coordinatorDecision;
   const payload = {
     attempt: integration.attempt,
     coordinatorDecision,

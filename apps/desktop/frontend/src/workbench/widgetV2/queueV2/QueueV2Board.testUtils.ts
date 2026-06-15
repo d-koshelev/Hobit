@@ -245,6 +245,7 @@ export function validationRunner(): ValidationRunner {
 
 export function queueController({
   onPromote = vi.fn(),
+  onRetrySame = vi.fn(),
   onRun = vi.fn(),
   readinessMessage = null,
   runCanStart = false,
@@ -252,6 +253,7 @@ export function queueController({
   tasks,
 }: {
   onPromote?: () => void;
+  onRetrySame?: () => void;
   onRun?: () => void;
   readinessMessage?: string | null;
   runCanStart?: boolean;
@@ -276,6 +278,13 @@ export function queueController({
       onStartAssignedTask: onRun,
       preconditionMessages: [],
       readinessMessage,
+    },
+    smartQueueRetry: {
+      canRetrySame: true,
+      error: null,
+      isRetrying: false,
+      message: null,
+      onRetrySame,
     },
     selectedTask,
     tasks,

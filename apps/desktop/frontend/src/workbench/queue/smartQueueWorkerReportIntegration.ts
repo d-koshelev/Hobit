@@ -61,6 +61,26 @@ export type SmartQueueWorkerFailurePayload = {
   };
 };
 
+export type SmartQueueRetrySamePayload = {
+  readonly kind: "smart_queue_retry_same_record";
+  readonly version: 1;
+  readonly acceptedAction: "retry_same";
+  readonly acceptedAt: string;
+  readonly previousAttemptId?: string;
+  readonly previousDecisionId: string;
+  readonly retryAttempt: SmartQueueAttempt;
+  readonly taskId: string;
+  readonly sideEffects: {
+    readonly wouldCallWorkspaceAgent: false;
+    readonly wouldExecuteRetry: false;
+    readonly wouldExecuteRollback: false;
+    readonly wouldLaunchTerminal: false;
+    readonly wouldMutateGit: false;
+    readonly wouldMutateQueue: true;
+    readonly wouldStartWorker: false;
+  };
+};
+
 export type SmartQueueFailureIntegrationResult =
   SmartQueueWorkerFailurePayload & {
     readonly taskPatch: SmartQueueFailureTaskPatch;
@@ -223,12 +243,47 @@ export function parseSmartQueueWorkerFailurePayload(
   }
 }
 
+export function parseSmartQueueRetrySamePayload(
+  rawReportPreview: string | null | undefined,
+): SmartQueueRetrySamePayload | null {
+  if (!rawReportPreview?.trim()) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawReportPreview) as Partial<SmartQueueRetrySamePayload>;
+
+    if (
+      parsed.kind !== "smart_queue_retry_same_record" ||
+      parsed.version !== 1 ||
+      parsed.acceptedAction !== "retry_same" ||
+      !parsed.previousDecisionId ||
+      !parsed.retryAttempt ||
+      !parsed.taskId
+    ) {
+      return null;
+    }
+
+    return parsed as SmartQueueRetrySamePayload;
+  } catch {
+    return null;
+  }
+}
+
 export function latestSmartQueueFailurePayloadForTask(
   task: Pick<AgentQueueTask, "workerExecutionReports">,
 ): SmartQueueWorkerFailurePayload | null {
   const reports = task.workerExecutionReports ?? [];
 
   for (let index = reports.length - 1; index >= 0; index -= 1) {
+    const retryPayload = parseSmartQueueRetrySamePayload(
+      reports[index]?.rawReportPreview,
+    );
+
+    if (retryPayload) {
+      return null;
+    }
+
     const payload = parseSmartQueueWorkerFailurePayload(
       reports[index]?.rawReportPreview,
     );

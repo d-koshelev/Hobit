@@ -345,6 +345,8 @@ export function createQueueHarness(initialTasks: AgentQueueTask[]) {
         status: request.status,
         title: request.title,
         validationStatus: request.validationStatus ?? task.validationStatus,
+        workerExecutionReports:
+          request.workerExecutionReports ?? task.workerExecutionReports,
         updatedAt: "2026-05-20T10:01:00.000Z",
       };
       tasks.set(updatedTask.queueItemId, updatedTask);

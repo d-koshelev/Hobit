@@ -40,6 +40,7 @@ import type {
   AgentQueueRunEvidenceController,
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
+  AgentQueueSmartRetryController,
   AgentQueueWorkerReportController,
   UseAgentQueueControllerOptions,
 } from "./agentQueueControllerTypes";
@@ -103,6 +104,7 @@ type AgentQueueControllerViewModelInput = Pick<
   isRunEvidenceLoading: boolean;
   isSaving: boolean;
   isSelecting: boolean;
+  isSmartRetrying: boolean;
   isStarting: boolean;
   latestRunLink: AgentQueueLatestRunLinkController["link"];
   latestRunLinkError: string | null;
@@ -127,6 +129,7 @@ type AgentQueueControllerViewModelInput = Pick<
     link: AgentQueueLatestRunLinkController["link"],
     options?: { silent?: boolean },
   ) => Promise<void>;
+  retrySelectedTaskSame: () => Promise<boolean>;
   runActions: ReturnType<typeof createAgentQueueRunActions>;
   runActivitySnapshot: AgentQueueRunActivitySnapshot;
   runActivityState: AgentQueueRunActivityState;
@@ -139,6 +142,8 @@ type AgentQueueControllerViewModelInput = Pick<
   selectedExecutorSelection: ReturnType<typeof selectBestAvailableExecutorForTask>;
   selectedExecutorWidgetId: string;
   selectedTask: AgentQueueTask | null;
+  smartRetryError: string | null;
+  smartRetryMessage: string | null;
   selectedTaskApprovalPolicy: DirectWorkApprovalPolicy | "";
   selectedTaskCodexExecutable: string;
   selectedTaskExecutionWorkspace: string;
@@ -209,6 +214,7 @@ export function buildAgentQueueControllerViewModel({
   isRunEvidenceLoading,
   isSaving,
   isSelecting,
+  isSmartRetrying,
   isStarting,
   latestRunLink,
   latestRunLinkError,
@@ -231,6 +237,7 @@ export function buildAgentQueueControllerViewModel({
   refreshAfterExternalMutation,
   refreshLatestRunLink,
   refreshRunEvidence,
+  retrySelectedTaskSame,
   runActions,
   runActivitySnapshot,
   runActivityState,
@@ -243,6 +250,8 @@ export function buildAgentQueueControllerViewModel({
   selectedExecutorSelection,
   selectedExecutorWidgetId,
   selectedTask,
+  smartRetryError,
+  smartRetryMessage,
   selectedTaskApprovalPolicy,
   selectedTaskCodexExecutable,
   selectedTaskExecutionWorkspace,
@@ -430,6 +439,15 @@ export function buildAgentQueueControllerViewModel({
         void applyCoordinatorFinalization("mark_rollback_required"),
       status: selectedTask?.coordinatorStatus ?? "not_reported",
     } satisfies AgentQueueCoordinatorFinalizationController,
+    smartQueueRetry: {
+      canRetrySame: Boolean(
+        selectedTask && !isEditing && !isSaving && !isCreating && !isSmartRetrying,
+      ),
+      error: smartRetryError,
+      isRetrying: isSmartRetrying,
+      message: smartRetryMessage,
+      onRetrySame: () => void retrySelectedTaskSame(),
+    } satisfies AgentQueueSmartRetryController,
     run: {
       approvalPolicy: selectedTaskApprovalPolicy,
       canStart,

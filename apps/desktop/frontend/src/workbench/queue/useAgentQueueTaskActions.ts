@@ -38,7 +38,6 @@ import {
   latestWorkerExecutionReport,
 } from "./agentQueueDiffReviewModel";
 import { buildDiffReviewQueueItemCreateRequest } from "../diffReview";
-
 export type { AgentQueueLocalTaskFields } from "./agentQueueTaskActionTypes";
 
 export function createAgentQueueTaskActions({

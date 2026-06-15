@@ -249,9 +249,9 @@ Implemented for the active frontend Queue controller/model path.
   `Retry limit reached`.
 - Needs-decision and blocked tasks remain ineligible for autonomous selection.
 - This is frontend controller/model integration only. Durable backend
-  persistence for Smart Queue attempts/decisions is not implemented. Retry
-  execution is not implemented. Rollback execution is not implemented.
-  Workspace Agent assistance runtime calls are not implemented.
+  persistence for Smart Queue attempts/decisions is not implemented. Automatic
+  retry execution / worker start is not implemented. Rollback execution is not
+  implemented. Workspace Agent assistance runtime calls are not implemented.
 
 ### QueueV2 Coordinator Decision card UI
 
@@ -261,16 +261,27 @@ Implemented for the active Queue product details path.
   the selected task has a structured Smart Queue worker failure/coordinator
   decision payload.
 - The card shows what happened, why a decision is needed, the recommended
-  action, allowed next actions as non-executing labels, approval requirement,
-  destructive-action status, and an honest unavailable action state.
+  action, allowed next actions, approval requirement, destructive-action
+  status, and an honest unavailable action state for actions that are not yet
+  wired.
 - Legacy tasks without structured Smart Queue decision payloads render existing
   details unchanged.
 - The card is enabled only on the active Queue route
   `WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board`; the
   WidgetV2 Queue smoke/compat path does not opt into this product card.
-- Retry execution is not implemented.
+- Retry same UI/controller action is implemented when a structured Smart Queue
+  coordinator decision explicitly allows `retry_same` and retry budget remains.
+  Accepting Retry same records a new pending frontend attempt/retry metadata
+  record, preserves previous failed report evidence, clears the current
+  needs-decision state for the task, and returns it to Ready without starting
+  a worker. Queue Active/Pause, dependency, blocker, retry-budget, and worker
+  gates still control any later pickup.
+- Retry with modified prompt is not implemented.
 - Rollback execution is not implemented.
 - Workspace Agent assistance runtime calls are not implemented.
+- Durable backend attempt persistence is not implemented; retry attempt history
+  is carried through the current frontend Queue task worker-report payloads and
+  update path where that model supports report history.
 
 ## Not Implemented Yet
 
@@ -279,7 +290,7 @@ as available from the foundation above:
 
 - durable backend/storage Smart Queue model
 - durable backend attempt persistence
-- retry execution
+- automatic retry execution / worker start
 - rollback execution
 - Workspace Agent assistance runtime call
 - dependency failure propagation in durable runtime
@@ -287,6 +298,7 @@ as available from the foundation above:
   Active
 - durable Smart Queue batch/dependency storage beyond the current Queue task
   compatibility fields
+- retry with modified prompt
 
 The existing explicit prompt-pack `Create Queue items` action creates current
 persisted Queue tasks through the pre-existing frontend Queue bridge using the

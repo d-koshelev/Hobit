@@ -243,6 +243,14 @@ export type AgentQueueCoordinatorFinalizationController = {
   status: AgentQueueCoordinatorStatus;
 };
 
+export type AgentQueueSmartRetryController = {
+  canRetrySame: boolean;
+  error: string | null;
+  isRetrying: boolean;
+  message: string | null;
+  onRetrySame: () => void;
+};
+
 export type AgentQueueOrderingController = {
   canMoveDown: boolean;
   canMoveToBottom: boolean;

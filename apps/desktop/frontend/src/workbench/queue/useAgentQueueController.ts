@@ -38,6 +38,9 @@ import { useAgentQueueRunMetadata } from "./useAgentQueueRunMetadata";
 import { useAgentQueueRunSettings } from "./useAgentQueueRunSettings";
 import { useAgentQueueWorkerState } from "./useAgentQueueWorkerState";
 import { useAgentQueueReportActionCards } from "./useAgentQueueReportActionCards";
+import {
+  createAgentQueueSmartRetryActions,
+} from "./agentQueueSmartRetryActions";
 
 export type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
 export type { QueueTaskInsertPosition } from "./agentQueueOrderingActions";
@@ -195,6 +198,9 @@ export function useAgentQueueController({
   );
   const [coordinatorFinalizationMessage, setCoordinatorFinalizationMessage] =
     useState<string | null>(null);
+  const [isSmartRetrying, setIsSmartRetrying] = useState(false);
+  const [smartRetryMessage, setSmartRetryMessage] = useState<string | null>(null);
+  const [smartRetryError, setSmartRetryError] = useState<string | null>(null);
   const EDIT_PAUSE_MESSAGE =
     "Editing paused this queue tag until coordinator review.";
   const selectionModel = createAgentQueueSelectionModel({
@@ -703,6 +709,24 @@ export function useAgentQueueController({
     tasksRef,
     workerScopes,
   });
+  const smartRetryActions = createAgentQueueSmartRetryActions({
+    applyUpdatedTask,
+    isCreating,
+    isEditing,
+    isSaving,
+    isSmartRetrying,
+    localTaskFieldsRef,
+    onUpdateAgentQueueTask,
+    selectedTask,
+    setEditorError,
+    setIsSmartRetrying,
+    setLocalTaskFields,
+    setSaveStateText,
+    setSelectedDraft,
+    setSmartRetryError,
+    setSmartRetryMessage,
+    setValidationMessage,
+  });
   const planningActions = createAgentQueuePlanningActions({
     applyUpdatedTask,
     hasOpenTaskEdit,
@@ -843,6 +867,7 @@ export function useAgentQueueController({
     isRunEvidenceLoading,
     isSaving,
     isSelecting,
+    isSmartRetrying,
     isStarting,
     latestRunLink,
     latestRunLinkError,
@@ -879,6 +904,9 @@ export function useAgentQueueController({
     selectedExecutorSelection,
     selectedExecutorWidgetId,
     selectedTask,
+    retrySelectedTaskSame: smartRetryActions.retrySelectedTaskSame,
+    smartRetryError,
+    smartRetryMessage,
     selectedTaskApprovalPolicy,
     selectedTaskCodexExecutable,
     selectedTaskExecutionWorkspace,

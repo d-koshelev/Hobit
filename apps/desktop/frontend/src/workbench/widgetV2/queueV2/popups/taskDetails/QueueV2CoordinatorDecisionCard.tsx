@@ -1,17 +1,29 @@
-import { Badge, KeyValueList, Notice, Section } from "../../../../../design-system";
+import {
+  Badge,
+  Button,
+  KeyValueList,
+  Notice,
+  Section,
+} from "../../../../../design-system";
 import type { AgentQueueTask } from "../../../../../workspace/types";
 import {
   queueCoordinatorDecisionCardViewModelForTask,
 } from "../../../../queue/queueCoordinatorDecisionViewModel";
+import type { AgentQueueController } from "../../../../queue/details/agentQueueTaskDetailsTypes";
 
 type QueueV2CoordinatorDecisionCardProps = {
+  readonly queue?: AgentQueueController;
   readonly task: AgentQueueTask;
 };
 
 export function QueueV2CoordinatorDecisionCard({
+  queue,
   task,
 }: QueueV2CoordinatorDecisionCardProps) {
   const model = queueCoordinatorDecisionCardViewModelForTask(task);
+  const showRetrySameButton = Boolean(
+    model?.retrySameAvailable && queue?.smartQueueRetry,
+  );
 
   if (!model) {
     return null;
@@ -44,9 +56,31 @@ export function QueueV2CoordinatorDecisionCard({
           },
           { label: "Approval", value: model.requiresApprovalLabel },
           { label: "Destructive", value: model.destructiveLabel },
-          { label: "Action availability", value: model.actionAvailability },
+          ...(showRetrySameButton
+            ? []
+            : [{ label: "Action availability", value: model.actionAvailability }]),
         ]}
       />
+      {showRetrySameButton && queue?.smartQueueRetry ? (
+        <div className="queue-v2-coordinator-decision-controls">
+          <Button
+            disabled={
+              !queue.smartQueueRetry.canRetrySame ||
+              queue.smartQueueRetry.isRetrying
+            }
+            onClick={() => queue.smartQueueRetry.onRetrySame()}
+            variant="secondary"
+          >
+            {queue.smartQueueRetry.isRetrying ? "Retrying" : model.retrySameLabel}
+          </Button>
+          {queue?.smartQueueRetry?.message ? (
+            <span>{queue.smartQueueRetry.message}</span>
+          ) : null}
+          {queue?.smartQueueRetry?.error ? (
+            <span>{queue.smartQueueRetry.error}</span>
+          ) : null}
+        </div>
+      ) : null}
       <div className="queue-v2-coordinator-decision-flags">
         {model.requiresApproval ? (
           <Badge variant="warning">Approval required</Badge>
@@ -59,9 +93,11 @@ export function QueueV2CoordinatorDecisionCard({
           <Badge variant="neutral">Not destructive</Badge>
         )}
       </div>
-      <Notice variant="info" title="Decision proposal only">
-        Queue shows this proposal for review. No retry, rollback, Workspace
-        Agent request, Git change, or worker start runs from this card.
+      <Notice variant="info" title="Decision proposal">
+        Queue shows this proposal for review. Retry only returns the task to
+        Ready through the Queue controller; rollback, Workspace Agent requests,
+        Git changes, Terminal commands, and worker starts do not run from this
+        card.
       </Notice>
     </Section>
   );

@@ -873,12 +873,19 @@
 }
 
 .queue-v2-coordinator-decision-actions,
+.queue-v2-coordinator-decision-controls,
 .queue-v2-coordinator-decision-flags {
   display: flex;
   min-width: 0;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
+}
+
+.queue-v2-coordinator-decision-controls span {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
 }
 
 .queue-v2-task-details-tab-aliases {

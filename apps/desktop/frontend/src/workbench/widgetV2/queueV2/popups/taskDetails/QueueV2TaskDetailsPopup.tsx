@@ -210,7 +210,7 @@ export function QueueV2TaskDetailsPopup({
           validationRequestRunning={validationRequestState === "running"}
         />
         {showCoordinatorDecisionCard ? (
-          <QueueV2CoordinatorDecisionCard task={task} />
+          <QueueV2CoordinatorDecisionCard queue={queue} task={task} />
         ) : null}
         <div className="queue-v2-task-details-body">
           <QueueV2TaskDetailsTabs
