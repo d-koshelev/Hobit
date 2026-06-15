@@ -342,7 +342,8 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
       "Validation failed in the active Queue controller path.",
     );
     expect(card?.textContent).toContain("Operator approval required");
-    expect(card?.textContent).toContain("Action unavailable");
+    expect(card?.textContent).toContain("Retry with changes");
+    expect(card?.textContent).not.toContain("Action unavailable");
   });
 
   it("selects a Queue v2 card without reordering cards or starting work", async () => {

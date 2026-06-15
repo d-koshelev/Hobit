@@ -486,7 +486,131 @@ describe("QueueV2TaskDetailsPopup", () => {
 
     expect(card?.textContent).toContain("Ask Workspace Agent");
     expect(card?.textContent).toContain("Action unavailable");
+    expect(buttonWithText("Ask Workspace Agent")).toBeNull();
     expect(onShowQueueTaskInWorkspaceChat).not.toHaveBeenCalled();
+  });
+
+  it("renders real Ask Workspace Agent action only with an assistance handler", async () => {
+    const onAskWorkspaceAgent = vi.fn().mockResolvedValue({
+      changedFiles: [],
+      coordinatorDecisionId: "decision-1",
+      createdAt: "2026-06-15T12:00:00.000Z",
+      currentRunnablePrompt: "Run the task",
+      failureSummary: "The task needs visible product context.",
+      originalPrompt: "Run the task",
+      reason: "missing context",
+      recommendedPrompt: [
+        "Please review why the Queue task \"assistance-task\" is stuck or failed.",
+        "Failure summary: The task needs visible product context.",
+        "Inspect the likely cause and propose one next step.",
+      ].join("\n"),
+      requestId: "assistance-1",
+      status: "Ask Workspace Agent",
+      taskId: "assistance-task",
+      taskTitle: "assistance-task",
+    });
+    const selectedTask = smartFailureTask({
+      evidenceSummary: "The task needs visible product context.",
+      failureKind: "missing_context",
+      queueItemId: "assistance-task",
+      reason: "Context needed.",
+    });
+
+    await renderDecisionPopup(selectedTask, {
+      queue: queueController({
+        onAskWorkspaceAgent,
+        selectedTask,
+        tasks: [selectedTask],
+      }),
+    });
+
+    const askButton = buttonWithText("Ask Workspace Agent");
+
+    expect(askButton).not.toBeNull();
+    expect(coordinatorDecisionCard()?.textContent).not.toContain(
+      "request_workspace_agent_assistance",
+    );
+
+    await click(askButton);
+
+    expect(onAskWorkspaceAgent).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain("Assistance request prepared");
+    expect(document.body.textContent).toContain("Handoff prompt");
+    expect(
+      document.querySelector<HTMLTextAreaElement>(
+        "textarea[aria-label='Workspace Agent handoff prompt']",
+      )?.value,
+    ).toContain("The task needs visible product context.");
+    expect(buttonWithText("Select prompt")).not.toBeNull();
+  });
+
+  it("does not render a fake Ask Workspace Agent action when the handler is missing", async () => {
+    const selectedTask = smartFailureTask({
+      evidenceSummary: "The task needs visible product context.",
+      failureKind: "missing_context",
+      queueItemId: "assistance-no-handler-task",
+      reason: "Context needed.",
+    });
+    const controller = queueController({
+      selectedTask,
+      tasks: [selectedTask],
+    });
+
+    (controller as Partial<typeof controller>).smartQueueAssistance = undefined;
+
+    await renderDecisionPopup(selectedTask, { queue: controller });
+
+    expect(coordinatorDecisionCard()?.textContent).toContain(
+      "Ask Workspace Agent",
+    );
+    expect(buttonWithText("Ask Workspace Agent")).toBeNull();
+  });
+
+  it("keeps raw enum names and raw JSON out of the assistance handoff", async () => {
+    const onAskWorkspaceAgent = vi.fn().mockResolvedValue({
+      changedFiles: [],
+      coordinatorDecisionId: "decision-1",
+      createdAt: "2026-06-15T12:00:00.000Z",
+      currentRunnablePrompt: "Run validation",
+      failureSummary: "Validation command failed.",
+      originalPrompt: "Run validation",
+      reason: "validation failed",
+      recommendedPrompt: [
+        "Please review why the Queue task \"handoff-task\" is stuck or failed.",
+        "Failure summary: Validation command failed.",
+        "Inspect the likely cause and propose one next step.",
+      ].join("\n"),
+      requestId: "assistance-1",
+      status: "Needs decision",
+      taskId: "handoff-task",
+      taskTitle: "handoff-task",
+    });
+    const selectedTask = smartFailureTask({
+      evidenceSummary:
+        '{"kind":"smart_queue_worker_failure_report","failureKind":"validation_failure"}',
+      failureKind: "missing_context",
+      queueItemId: "handoff-task",
+      reason: "Context needed.",
+    });
+
+    await renderDecisionPopup(selectedTask, {
+      queue: queueController({
+        onAskWorkspaceAgent,
+        selectedTask,
+        tasks: [selectedTask],
+      }),
+    });
+    await click(buttonWithText("Ask Workspace Agent"));
+
+    const prompt =
+      document.querySelector<HTMLTextAreaElement>(
+        "textarea[aria-label='Workspace Agent handoff prompt']",
+      )?.value ?? "";
+
+    expect(prompt).toContain("Validation command failed.");
+    expect(prompt).not.toContain("validation_failure");
+    expect(prompt).not.toContain("smart_queue_worker_failure_report");
+    expect(prompt).not.toContain('{"');
   });
 
   it("does not render the decision card for legacy tasks without Smart Queue decision payload", async () => {

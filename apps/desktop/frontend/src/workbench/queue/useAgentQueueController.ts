@@ -41,6 +41,9 @@ import { useAgentQueueReportActionCards } from "./useAgentQueueReportActionCards
 import {
   createAgentQueueSmartRetryActions,
 } from "./agentQueueSmartRetryActions";
+import {
+  createAgentQueueSmartAssistanceActions,
+} from "./agentQueueSmartAssistanceActions";
 
 export type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
 export type { QueueTaskInsertPosition } from "./agentQueueOrderingActions";
@@ -201,6 +204,12 @@ export function useAgentQueueController({
   const [isSmartRetrying, setIsSmartRetrying] = useState(false);
   const [smartRetryMessage, setSmartRetryMessage] = useState<string | null>(null);
   const [smartRetryError, setSmartRetryError] = useState<string | null>(null);
+  const [isRequestingSmartAssistance, setIsRequestingSmartAssistance] =
+    useState(false);
+  const [smartAssistanceMessage, setSmartAssistanceMessage] =
+    useState<string | null>(null);
+  const [smartAssistanceError, setSmartAssistanceError] =
+    useState<string | null>(null);
   const EDIT_PAUSE_MESSAGE =
     "Editing paused this queue tag until coordinator review.";
   const selectionModel = createAgentQueueSelectionModel({
@@ -727,6 +736,24 @@ export function useAgentQueueController({
     setSmartRetryMessage,
     setValidationMessage,
   });
+  const smartAssistanceActions = createAgentQueueSmartAssistanceActions({
+    applyUpdatedTask,
+    isCreating,
+    isEditing,
+    isRequestingAssistance: isRequestingSmartAssistance,
+    isSaving,
+    localTaskFieldsRef,
+    onUpdateAgentQueueTask,
+    selectedTask,
+    setEditorError,
+    setIsRequestingAssistance: setIsRequestingSmartAssistance,
+    setLocalTaskFields,
+    setSaveStateText,
+    setSelectedDraft,
+    setSmartAssistanceError,
+    setSmartAssistanceMessage,
+    setValidationMessage,
+  });
   const planningActions = createAgentQueuePlanningActions({
     applyUpdatedTask,
     hasOpenTaskEdit,
@@ -867,6 +894,7 @@ export function useAgentQueueController({
     isRunEvidenceLoading,
     isSaving,
     isSelecting,
+    isRequestingSmartAssistance,
     isSmartRetrying,
     isStarting,
     latestRunLink,
@@ -904,6 +932,10 @@ export function useAgentQueueController({
     selectedExecutorSelection,
     selectedExecutorWidgetId,
     selectedTask,
+    requestWorkspaceAgentAssistance:
+      smartAssistanceActions.askWorkspaceAgentAssistance,
+    smartAssistanceError,
+    smartAssistanceMessage,
     retrySelectedTaskSame: smartRetryActions.retrySelectedTaskSame,
     retrySelectedTaskWithModifiedPrompt:
       smartRetryActions.retrySelectedTaskWithModifiedPrompt,

@@ -13,6 +13,9 @@ import type { AgentQueueTask } from "../../../../../workspace/types";
 import {
   queueCoordinatorDecisionCardViewModelForTask,
 } from "../../../../queue/queueCoordinatorDecisionViewModel";
+import type {
+  AgentQueueSmartAssistanceRequest,
+} from "../../../../queue/agentQueueSmartAssistanceActions";
 import type { AgentQueueController } from "../../../../queue/details/agentQueueTaskDetailsTypes";
 
 type QueueV2CoordinatorDecisionCardProps = {
@@ -32,17 +35,24 @@ export function QueueV2CoordinatorDecisionCard({
     model?.retryWithModifiedPromptAvailable &&
       queue?.smartQueueRetry?.onRetryWithModifiedPrompt,
   );
+  const showAskWorkspaceAgentButton = Boolean(
+    model?.askWorkspaceAgentAvailable &&
+      queue?.smartQueueAssistance?.available,
+  );
   const [isModifiedPromptEditorOpen, setIsModifiedPromptEditorOpen] =
     useState(false);
   const [modifiedPromptDraft, setModifiedPromptDraft] = useState(task.prompt);
   const [modifiedPromptError, setModifiedPromptError] = useState<string | null>(
     null,
   );
+  const [assistanceRequest, setAssistanceRequest] =
+    useState<AgentQueueSmartAssistanceRequest | null>(null);
 
   useEffect(() => {
     setIsModifiedPromptEditorOpen(false);
     setModifiedPromptDraft(task.prompt);
     setModifiedPromptError(null);
+    setAssistanceRequest(null);
   }, [task.queueItemId, task.prompt]);
 
   if (!model) {
@@ -50,11 +60,14 @@ export function QueueV2CoordinatorDecisionCard({
   }
 
   const unavailableActionLabels = model.allowedActionLabels.filter((label) => {
-    if (showRetryWithModifiedPromptButton) {
-      return label !== model.retryWithModifiedPromptLabel;
+    if (
+      showRetryWithModifiedPromptButton &&
+      label === model.retryWithModifiedPromptLabel
+    ) {
+      return false;
     }
 
-    return true;
+    return !(showAskWorkspaceAgentButton && label === model.askWorkspaceAgentLabel);
   });
 
   async function submitModifiedPromptRetry() {
@@ -72,6 +85,15 @@ export function QueueV2CoordinatorDecisionCard({
 
     if (accepted) {
       setIsModifiedPromptEditorOpen(false);
+    }
+  }
+
+  async function prepareWorkspaceAgentAssistance() {
+    const request =
+      (await queue?.smartQueueAssistance?.onAskWorkspaceAgent()) ?? null;
+
+    if (request) {
+      setAssistanceRequest(request);
     }
   }
 
@@ -139,6 +161,22 @@ export function QueueV2CoordinatorDecisionCard({
           </Button>
         </div>
       ) : null}
+      {showAskWorkspaceAgentButton && queue?.smartQueueAssistance ? (
+        <div className="queue-v2-coordinator-decision-controls">
+          <Button
+            disabled={
+              !queue.smartQueueAssistance.canAskWorkspaceAgent ||
+              queue.smartQueueAssistance.isRequesting
+            }
+            onClick={() => void prepareWorkspaceAgentAssistance()}
+            variant="secondary"
+          >
+            {queue.smartQueueAssistance.isRequesting
+              ? "Preparing request"
+              : model.askWorkspaceAgentLabel}
+          </Button>
+        </div>
+      ) : null}
       {isModifiedPromptEditorOpen && queue?.smartQueueRetry ? (
         <div
           aria-label="Retry with modified prompt editor"
@@ -200,6 +238,49 @@ export function QueueV2CoordinatorDecisionCard({
           {queue.smartQueueRetry.error}
         </span>
       ) : null}
+      {queue?.smartQueueAssistance?.message ? (
+        <span className="queue-v2-coordinator-decision-message">
+          {queue.smartQueueAssistance.message}
+        </span>
+      ) : null}
+      {queue?.smartQueueAssistance?.error ? (
+        <span className="queue-v2-coordinator-decision-message">
+          {queue.smartQueueAssistance.error}
+        </span>
+      ) : null}
+      {assistanceRequest ? (
+        <div
+          aria-label="Workspace Agent assistance handoff"
+          className="queue-v2-coordinator-decision-editor"
+        >
+          <Notice variant="success" title="Assistance request prepared">
+            Handoff prompt is ready.
+          </Notice>
+          <Field label="Handoff prompt">
+            <Textarea
+              aria-label="Workspace Agent handoff prompt"
+              className="input queue-v2-coordinator-decision-handoff"
+              readOnly
+              rows={8}
+              value={assistanceRequest.recommendedPrompt}
+            />
+          </Field>
+          <div className="queue-v2-coordinator-decision-editor-actions">
+            <Button
+              onClick={() => {
+                const prompt = document.querySelector<HTMLTextAreaElement>(
+                  "textarea[aria-label='Workspace Agent handoff prompt']",
+                );
+                prompt?.focus();
+                prompt?.select();
+              }}
+              variant="secondary"
+            >
+              Select prompt
+            </Button>
+          </div>
+        </div>
+      ) : null}
       <div className="queue-v2-coordinator-decision-flags">
         {model.requiresApproval ? (
           <Badge variant="warning">Approval required</Badge>
@@ -214,9 +295,9 @@ export function QueueV2CoordinatorDecisionCard({
       </div>
       <Notice variant="info" title="Decision proposal">
         Queue shows this proposal for review. Retry only returns the task to
-        Ready through the Queue controller; rollback, Workspace Agent requests,
-        Git changes, Terminal commands, and worker starts do not run from this
-        card.
+        Ready through the Queue controller; Workspace Agent requests prepare a
+        handoff only. Rollback, Git changes, Terminal commands, and worker
+        starts do not run from this card.
       </Notice>
     </Section>
   );

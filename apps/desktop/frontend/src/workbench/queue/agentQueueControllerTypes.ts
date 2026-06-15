@@ -29,6 +29,9 @@ import type {
   AgentQueueRunActivitySnapshot,
   AgentQueueRunActivityState,
 } from "./agentQueueRunActivity";
+import type {
+  AgentQueueSmartAssistanceRequest,
+} from "./agentQueueSmartAssistanceActions";
 
 export type UseAgentQueueControllerOptions = Pick<
   WidgetRenderProps,
@@ -251,6 +254,15 @@ export type AgentQueueSmartRetryController = {
   message: string | null;
   onRetrySame: () => void;
   onRetryWithModifiedPrompt: (modifiedPrompt: string) => Promise<boolean>;
+};
+
+export type AgentQueueSmartAssistanceController = {
+  available: boolean;
+  canAskWorkspaceAgent: boolean;
+  error: string | null;
+  isRequesting: boolean;
+  message: string | null;
+  onAskWorkspaceAgent: () => Promise<AgentQueueSmartAssistanceRequest | null>;
 };
 
 export type AgentQueueOrderingController = {

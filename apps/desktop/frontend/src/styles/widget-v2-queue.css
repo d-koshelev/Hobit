@@ -902,6 +902,11 @@
   max-height: 220px;
 }
 
+.queue-v2-coordinator-decision-handoff {
+  min-height: 180px;
+  white-space: pre-wrap;
+}
+
 .queue-v2-coordinator-decision-editor-actions {
   justify-content: flex-end;
 }

@@ -8,6 +8,9 @@ import type {
 } from "../../../workspace/types";
 import type { AgentWorkerSummary } from "../../agentQueueTaskUiModel";
 import type { AgentQueueController } from "../../queue/details/agentQueueTaskDetailsTypes";
+import type {
+  AgentQueueSmartAssistanceRequest,
+} from "../../queue/agentQueueSmartAssistanceActions";
 import type { ValidationRunner } from "../../validation";
 
 let root: Root | null = null;
@@ -245,6 +248,7 @@ export function validationRunner(): ValidationRunner {
 
 export function queueController({
   onPromote = vi.fn(),
+  onAskWorkspaceAgent = vi.fn(),
   onRetrySame = vi.fn(),
   onRetryWithModifiedPrompt = vi.fn(),
   onRun = vi.fn(),
@@ -254,6 +258,10 @@ export function queueController({
   tasks,
 }: {
   onPromote?: () => void;
+  onAskWorkspaceAgent?: () =>
+    | Promise<AgentQueueSmartAssistanceRequest | null>
+    | AgentQueueSmartAssistanceRequest
+    | null;
   onRetrySame?: () => void;
   onRetryWithModifiedPrompt?: (modifiedPrompt: string) => Promise<boolean> | boolean;
   onRun?: () => void;
@@ -290,6 +298,14 @@ export function queueController({
       onRetrySame,
       onRetryWithModifiedPrompt: async (modifiedPrompt: string) =>
         Boolean(await onRetryWithModifiedPrompt(modifiedPrompt)),
+    },
+    smartQueueAssistance: {
+      available: true,
+      canAskWorkspaceAgent: true,
+      error: null,
+      isRequesting: false,
+      message: null,
+      onAskWorkspaceAgent: async () => onAskWorkspaceAgent(),
     },
     selectedTask,
     tasks,

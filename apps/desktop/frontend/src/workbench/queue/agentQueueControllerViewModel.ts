@@ -40,6 +40,7 @@ import type {
   AgentQueueRunEvidenceController,
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
+  AgentQueueSmartAssistanceController,
   AgentQueueSmartRetryController,
   AgentQueueWorkerReportController,
   UseAgentQueueControllerOptions,
@@ -131,6 +132,7 @@ type AgentQueueControllerViewModelInput = Pick<
   ) => Promise<void>;
   retrySelectedTaskSame: () => Promise<boolean>;
   retrySelectedTaskWithModifiedPrompt: (modifiedPrompt: string) => Promise<boolean>;
+  requestWorkspaceAgentAssistance: AgentQueueSmartAssistanceController["onAskWorkspaceAgent"];
   runActions: ReturnType<typeof createAgentQueueRunActions>;
   runActivitySnapshot: AgentQueueRunActivitySnapshot;
   runActivityState: AgentQueueRunActivityState;
@@ -143,6 +145,9 @@ type AgentQueueControllerViewModelInput = Pick<
   selectedExecutorSelection: ReturnType<typeof selectBestAvailableExecutorForTask>;
   selectedExecutorWidgetId: string;
   selectedTask: AgentQueueTask | null;
+  smartAssistanceError: string | null;
+  smartAssistanceMessage: string | null;
+  isRequestingSmartAssistance: boolean;
   smartRetryError: string | null;
   smartRetryMessage: string | null;
   selectedTaskApprovalPolicy: DirectWorkApprovalPolicy | "";
@@ -240,6 +245,7 @@ export function buildAgentQueueControllerViewModel({
   refreshRunEvidence,
   retrySelectedTaskSame,
   retrySelectedTaskWithModifiedPrompt,
+  requestWorkspaceAgentAssistance,
   runActions,
   runActivitySnapshot,
   runActivityState,
@@ -252,6 +258,9 @@ export function buildAgentQueueControllerViewModel({
   selectedExecutorSelection,
   selectedExecutorWidgetId,
   selectedTask,
+  smartAssistanceError,
+  smartAssistanceMessage,
+  isRequestingSmartAssistance,
   smartRetryError,
   smartRetryMessage,
   selectedTaskApprovalPolicy,
@@ -454,6 +463,27 @@ export function buildAgentQueueControllerViewModel({
       onRetrySame: () => void retrySelectedTaskSame(),
       onRetryWithModifiedPrompt: retrySelectedTaskWithModifiedPrompt,
     } satisfies AgentQueueSmartRetryController,
+    smartQueueAssistance: {
+      available: Boolean(
+        selectedTask &&
+          onUpdateAgentQueueTask &&
+          !isEditing &&
+          !isSaving &&
+          !isCreating,
+      ),
+      canAskWorkspaceAgent: Boolean(
+        selectedTask &&
+          onUpdateAgentQueueTask &&
+          !isEditing &&
+          !isSaving &&
+          !isCreating &&
+          !isRequestingSmartAssistance,
+      ),
+      error: smartAssistanceError,
+      isRequesting: isRequestingSmartAssistance,
+      message: smartAssistanceMessage,
+      onAskWorkspaceAgent: requestWorkspaceAgentAssistance,
+    } satisfies AgentQueueSmartAssistanceController,
     run: {
       approvalPolicy: selectedTaskApprovalPolicy,
       canStart,

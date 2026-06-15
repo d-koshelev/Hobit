@@ -6,6 +6,9 @@ import {
   canApplySmartQueueRetrySame,
   canApplySmartQueueRetryWithModifiedPrompt,
 } from "./smartQueueRetrySameAction";
+import {
+  canApplySmartQueueWorkspaceAgentAssistance,
+} from "./smartQueueAssistanceRequest";
 import type {
   SmartQueueCoordinatorDecision,
   SmartQueueCoordinatorDecisionAction,
@@ -17,6 +20,8 @@ export type QueueCoordinatorDecisionCardViewModel = {
   readonly destructive: boolean;
   readonly destructiveLabel: string;
   readonly evidenceSummary: string;
+  readonly askWorkspaceAgentAvailable: boolean;
+  readonly askWorkspaceAgentLabel: "Ask Workspace Agent";
   readonly recommendedActionLabel: string;
   readonly requiresApproval: boolean;
   readonly requiresApprovalLabel: string;
@@ -56,6 +61,9 @@ export function queueCoordinatorDecisionCardViewModel(
       ? "Destructive action proposed"
       : "No destructive action proposed",
     evidenceSummary: productEvidenceSummary(decision.evidenceSummary),
+    askWorkspaceAgentAvailable:
+      canApplySmartQueueWorkspaceAgentAssistance(decision),
+    askWorkspaceAgentLabel: "Ask Workspace Agent",
     recommendedActionLabel: actionLabel(recommended),
     requiresApproval: decision.requiresOperatorApproval,
     requiresApprovalLabel: decision.requiresOperatorApproval

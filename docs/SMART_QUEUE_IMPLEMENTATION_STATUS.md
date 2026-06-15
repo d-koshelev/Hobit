@@ -287,6 +287,17 @@ Implemented for the active Queue product details path.
   and returns the task to Ready without starting a worker. Queue Active/Pause,
   dependency, blocker, retry-budget, and worker gates still control any later
   pickup.
+- Ask Workspace Agent assistance request UI/controller action is implemented
+  when a structured Smart Queue coordinator decision explicitly allows
+  `request_workspace_agent_assistance`. The active Queue task details card
+  shows a real Ask Workspace Agent action only when the Queue controller
+  handler exists. Accepting the action records a bounded frontend assistance
+  request/handoff report, preserves previous failed report evidence and
+  attempts, keeps the task blocked or awaiting coordinator review, and shows a
+  product-facing handoff prompt for the operator to send to Workspace Agent.
+  This handoff preparation does not start Workspace Agent, start a worker,
+  queue retry execution, execute rollback, mutate Git, launch Terminal, clear
+  dependency blockers, or create another Queue view.
 - Rollback execution is not implemented.
 - Workspace Agent assistance runtime calls are not implemented.
 - Durable backend attempt persistence is not implemented; retry attempt history
