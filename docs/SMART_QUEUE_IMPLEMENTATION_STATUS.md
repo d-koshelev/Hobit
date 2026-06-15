@@ -15,18 +15,35 @@ execution.
 
 ## Current Status
 
-Smart Queue has an implemented foundation for the singleton Queue surface,
-duplicate Queue view protection/repair, pure dependency and eligibility
-semantics, pure prompt-pack materialization, pure coordinator decision
-selection, QueueV2 smart status presentation, frontend prompt-pack import
-preview integration with Smart Queue materialization, and explicit
-prompt-pack Create Queue items wiring from the Smart Queue materialized graph.
+Smart Queue has an implemented frontend foundation for singleton Queue view
+safety, prompt-pack materialization, dependency-aware eligibility,
+frontend/controller execution gating, attempt and coordinator decision
+presentation, explicit retry/handoff/proposal actions, and focused smoke
+coverage.
 
-The durable Smart Queue runtime is not implemented yet. Current Smart Queue
-modules are frontend/product-model foundations unless explicitly noted
+The durable Smart Queue backend/runtime is not implemented yet. Current Smart
+Queue modules are frontend/product-model foundations unless explicitly noted
 otherwise.
 
-## Implemented
+## Implemented Frontend Behavior
+
+The current implemented frontend behavior is:
+
+- singleton Queue view guard;
+- persisted duplicate Queue UI-view repair;
+- active Queue route ownership;
+- prompt-pack materialization preview;
+- explicit Create Queue items from the Smart Queue materialized graph;
+- Active/Pause execution gate;
+- dependency propagation/recovery;
+- Smart Queue attempt model;
+- worker failure/stuck report to coordinator decision integration;
+- QueueV2 Coordinator Decision Card;
+- Retry same action;
+- Retry with changes action;
+- Ask Workspace Agent assistance request preparation;
+- rollback proposal-only preparation;
+- Smart Queue frontend smoke coverage.
 
 ### Queue UI singleton create guard
 
@@ -337,30 +354,21 @@ Implemented as focused frontend smoke/regression coverage.
   and No rollback executed, while rejecting raw internal action/blocker enum
   names in the rendered decision card.
 
-Remaining non-goals:
-
-- durable backend persistence
-- backend scheduler
-- actual rollback execution
-- Workspace Agent runtime auto-call
-- Git/file mutation
-- Terminal launch
-
 ## Not Implemented Yet
 
 The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
-- durable backend/storage Smart Queue model
-- durable backend attempt persistence
-- automatic retry execution / worker start
-- rollback execution
-- Workspace Agent assistance runtime call
-- dependency failure propagation in durable runtime
-- durable backend scheduler/worker auto-start of eligible tasks when Queue is
-  Active
-- durable Smart Queue batch/dependency storage beyond the current Queue task
-  compatibility fields
+- durable backend Smart Queue persistence;
+- backend scheduler/runner ownership;
+- durable attempt persistence;
+- durable coordinator decision persistence;
+- actual rollback execution;
+- Workspace Agent runtime auto-call;
+- Git/file mutation actions;
+- Terminal launch/actions;
+- remote/server/enterprise queue runtime;
+- backend migrations or storage schema changes.
 
 The existing explicit prompt-pack `Create Queue items` action creates current
 persisted Queue tasks through the pre-existing frontend Queue bridge using the
@@ -398,18 +406,14 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 - Worker Agent executes and reports, but does not decide retry, block, fail, or
   rollback.
 
-## Recommended Next Implementation Order
+## Next Engineering Blocks
 
-1. Add durable Queue Active/Pause domain state if needed beyond the current
-   frontend/controller mapping.
-2. Add durable scheduler/worker runtime pickup if explicitly requested.
-3. Add worker stuck report capture.
-4. Add coordinator decision record / UI card.
-5. Add any future retry expansion only through explicit Queue Coordinator
-   decisions and the existing Active/Pause, dependency, blocker, and retry
-   budget gates.
-6. Add Workspace Agent assistance request protocol wiring.
-7. Add rollback proposal only, then safe rollback later.
+1. Fix issues found during manual Smart Queue desktop smoke.
+2. Design durable backend Smart Queue persistence.
+3. Design backend scheduler/runtime ownership.
+4. Add durable attempt and coordinator decision persistence.
+5. Add safe Workspace Agent handoff integration.
+6. Design rollback execution only after the approval/safety contract is ready.
 
 ## Implementation References
 
