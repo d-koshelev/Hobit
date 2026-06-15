@@ -64,6 +64,18 @@ full Workspace Agent behavior.
   `InteractiveAgentPlaceholderWidget.test-utils.tsx`, Queue controller test
   helpers, and Workspace Agent routing/card tests.
 
+## Current Runtime Module Layout
+
+The frontend capability runtime foundation now has stable ownership folders
+under `apps/desktop/frontend/src/workbench/agents/`: `context/`,
+`capabilities/`, `broker/`, `runtime/`, `messaging/`, `selfTest/`, `widgets/`,
+and `adapters/`. The old public files
+`hobitAgentCapabilityRuntime.ts`, `hobitAgentCapabilityManifest.ts`,
+`hobitAgentSelfTestRuntime.ts`, and `workspaceAgentCapabilityContext.ts` are
+compatibility re-export facades. Future broker execution, app adapters,
+multi-agent runtime, widget contracts, and message/history work should land in
+the owned folders instead of Workspace Agent UI components.
+
 ## Architectural Problems
 
 - Regex/text intent routing mixes product behavior into the Workspace Agent UI

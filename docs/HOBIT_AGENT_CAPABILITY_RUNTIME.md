@@ -48,6 +48,42 @@ restricted capabilities for explicit workspace/code execution requests only.
 - SelfTest Runtime: safe test harness that checks capability availability and
   policy without hidden mutation.
 
+## Module Ownership
+
+Frontend agent runtime foundation code lives under
+`apps/desktop/frontend/src/workbench/agents/`. New agent infrastructure must
+land in the owned module folder that matches its responsibility:
+
+- `context/`: Hobit app, Workspace, surface, role, prompt, policy-context
+  models, Workspace Agent context helpers, and instruction block generation.
+- `capabilities/`: typed capability metadata, capability ids, capability
+  registries, the initial honest manifest, availability helpers, and policy
+  helper functions.
+- `broker/`: action request/result/audit/broker result contracts and small
+  result-construction helpers. Action Broker execution is a later block.
+- `runtime/`: future agent instance, status, and runtime-state models. This
+  folder must not become a hidden multi-agent runtime without an explicit
+  implementation block.
+- `messaging/`: future agent message and history models. This folder does not
+  implement a message bus yet.
+- `selfTest/`: self-test instructions, requests, cases, results, reports, and
+  report summary helpers.
+- `widgets/`: future Widget Agent Contract models. It does not implement widget
+  contracts yet.
+- `adapters/`: future Queue, Workspace Agent, Codex, Shell, or app adapters.
+  It does not implement real app adapter execution yet.
+
+Workspace Agent UI components must not become the owner of agent runtime
+logic. The UI may render context, proposal, and review surfaces, but typed
+capability selection, policy contracts, broker request/result shapes, and
+self-test models belong in the agent runtime modules above.
+
+Regex routing is not the architecture. Do not implement product behavior as
+`user text -> regex classifier -> product action`. Product actions must flow
+through raw prompt plus Hobit app context, capability manifest, policy
+constraints, future broker validation, internal app API invocation, and
+structured result/activity output.
+
 ## Capability Metadata
 
 Each capability has:

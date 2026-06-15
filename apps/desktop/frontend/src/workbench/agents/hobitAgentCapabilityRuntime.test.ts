@@ -1,8 +1,24 @@
 // @ts-expect-error Node types are intentionally absent from the frontend tsconfig; this test reads repo docs and source in Vitest only.
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "fs";
 
 import { describe, expect, it } from "vitest";
 
+import {
+  createHobitAgentCapabilityRegistry as createRegistryFromPublicIndex,
+  createSelfTestInstruction as createSelfTestInstructionFromPublicIndex,
+  createWorkspaceAgentCapabilityInstructionBlock as createInstructionBlockFromPublicIndex,
+  HOBIT_AGENT_INITIAL_CAPABILITIES as INITIAL_CAPABILITIES_FROM_PUBLIC_INDEX,
+} from "./index";
+import {
+  createHobitAgentCapabilityRegistry as createRegistryFromCapabilitiesIndex,
+  HOBIT_AGENT_INITIAL_CAPABILITIES as INITIAL_CAPABILITIES_FROM_CAPABILITIES_INDEX,
+} from "./capabilities";
+import { createActionRequest as createActionRequestFromBrokerIndex } from "./broker";
+import {
+  buildWorkspaceAgentCapabilityContext as buildContextFromContextIndex,
+} from "./context";
+import { createSelfTestReport as createSelfTestReportFromSelfTestIndex } from "./selfTest";
+import { HOBIT_AGENT_INITIAL_CAPABILITIES as INITIAL_CAPABILITIES_FROM_COMPAT_MANIFEST } from "./hobitAgentCapabilityManifest";
 import {
   HOBIT_WORKSPACE_AGENT_ROLE,
   assertCapabilityDoesNotAllowForbiddenSideEffects,
@@ -37,10 +53,114 @@ describe("hobitAgentCapabilityRuntime docs", () => {
     expect(reviewDoc).toContain("queue/agentQueueWidgetApi.ts");
     expect(reviewDoc).toContain("promptPack/promptPackMaterialization.ts");
     expect(contractDoc).toContain("Capability Registry");
+    expect(contractDoc).toContain("Module Ownership");
+    expect(contractDoc).toContain("context/");
+    expect(contractDoc).toContain("capabilities/");
+    expect(contractDoc).toContain("broker/");
     expect(contractDoc).toContain("queue.createItems");
     expect(contractDoc).toContain("codex.runTask");
+    expect(contractDoc).toContain("Action Broker execution is a later block");
     expect(contractDoc).not.toMatch(/durable backend runtime is implemented/i);
     expect(contractDoc).not.toMatch(/backend scheduler is implemented/i);
+  });
+});
+
+describe("hobitAgentCapabilityRuntime module structure", () => {
+  it("exposes public runtime helpers from the new agent barrel and module barrels", () => {
+    const registry = createRegistryFromPublicIndex();
+    const capabilityRegistry = createRegistryFromCapabilitiesIndex();
+    const context = buildContextFromContextIndex({
+      currentPrompt: "Create Queue work.",
+      workspaceId: "workspace-1",
+    });
+    const request = createActionRequestFromBrokerIndex({
+      agentRoleId: "workspace_agent",
+      capabilityId: "queue.createItems",
+      dryRun: true,
+    });
+    const report = createSelfTestReportFromSelfTestIndex({
+      request: {
+        agentRoleId: "workspace_agent",
+        capabilityIds: ["queue.selfTest"],
+        dryRun: true,
+        requestId: "self-test",
+      },
+      results: [],
+    });
+
+    expect(registry.version).toBe("hobit-agent-capability-runtime.v0");
+    expect(capabilityRegistry.capabilities.map((capability) => capability.id)).toContain(
+      "queue.createItems",
+    );
+    expect(context.surface.widgetDefinitionId).toBe("interactive-agent");
+    expect(request).toMatchObject({
+      agentRoleId: "workspace_agent",
+      capabilityId: "queue.createItems",
+    });
+    expect(report.summary.total).toBe(0);
+    expect(createSelfTestInstructionFromPublicIndex().id).toBe(
+      "hobit.agent.selfTest",
+    );
+    expect(
+      createInstructionBlockFromPublicIndex({
+        currentPrompt: "Plan Queue work.",
+        workspaceId: "workspace-1",
+      }),
+    ).toContain("Available capabilities:");
+    expect(INITIAL_CAPABILITIES_FROM_PUBLIC_INDEX).toBe(
+      INITIAL_CAPABILITIES_FROM_CAPABILITIES_INDEX,
+    );
+    expect(INITIAL_CAPABILITIES_FROM_COMPAT_MANIFEST).toBe(
+      INITIAL_CAPABILITIES_FROM_CAPABILITIES_INDEX,
+    );
+  });
+
+  it("keeps compatibility runtime imports wired to the split modules", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const publicRegistry = createRegistryFromPublicIndex();
+
+    expect(registry).toEqual(publicRegistry);
+    expect(getWorkspaceAgentCapabilityManifest()).toEqual(publicRegistry);
+    expect(findCapability(registry, "queue.createItem")).toMatchObject({
+      ownerSurface: "Agent Queue",
+      sideEffectLevel: "write",
+    });
+  });
+
+  it("keeps future runtime homes as module-owned placeholders without product execution", () => {
+    expect(frontendFileExists("workbench/agents/runtime/index.ts")).toBe(true);
+    expect(frontendFileExists("workbench/agents/messaging/index.ts")).toBe(true);
+    expect(frontendFileExists("workbench/agents/widgets/index.ts")).toBe(true);
+    expect(frontendFileExists("workbench/agents/adapters/index.ts")).toBe(true);
+
+    expect(frontendSource("workbench/agents/runtime/index.ts").trim()).toBe(
+      "export {};",
+    );
+    expect(frontendSource("workbench/agents/adapters/index.ts").trim()).toBe(
+      "export {};",
+    );
+  });
+
+  it("does not add regex routing modules under the agent runtime structure", () => {
+    const agentFiles = collectFrontendFiles("workbench/agents")
+      .filter((path) => !path.endsWith(".test.ts"))
+      .filter((path) => !path.includes("hobitAgentCapabilityRuntime.test"));
+    const suspiciousFiles = agentFiles.filter((path) =>
+      /regex|route|routing|classifier|parser/i.test(path),
+    );
+    const suspiciousSource = agentFiles.filter((path) => {
+      const source = frontendSource(path);
+
+      return (
+        source.includes("new RegExp") ||
+        source.includes("classifyWorkspaceAgentProductIntent") ||
+        source.includes("parseWorkspaceAgentQueueCommand") ||
+        source.includes("workspaceAgentProductIntentRouting")
+      );
+    });
+
+    expect(suspiciousFiles).toEqual([]);
+    expect(suspiciousSource).toEqual([]);
   });
 });
 
@@ -367,4 +487,28 @@ function frontendFileExists(path: string) {
   ).process.cwd();
 
   return existsSync(`${cwd}/src/${path}`);
+}
+
+function collectFrontendFiles(path: string): string[] {
+  const cwd = (
+    globalThis as unknown as { process: { cwd: () => string } }
+  ).process.cwd();
+  const root = `${cwd}/src/${path}`;
+
+  return collectFiles(root).map((file) =>
+    file.replace(`${cwd}/src/`, "").replace(/\\/g, "/"),
+  );
+}
+
+function collectFiles(path: string): string[] {
+  const cwd = (
+    globalThis as unknown as { process: { cwd: () => string } }
+  ).process.cwd();
+
+  return (readdirSync(path) as string[]).flatMap((entry: string) => {
+    const fullPath = `${path}/${entry}`;
+    const stat = statSync(fullPath);
+
+    return stat.isDirectory() ? collectFiles(fullPath) : [fullPath];
+  }).filter((file: string) => file.startsWith(`${cwd}/src/`));
 }
