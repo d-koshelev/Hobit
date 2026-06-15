@@ -298,11 +298,25 @@ Implemented for the active Queue product details path.
   This handoff preparation does not start Workspace Agent, start a worker,
   queue retry execution, execute rollback, mutate Git, launch Terminal, clear
   dependency blockers, or create another Queue view.
+- Rollback proposal preparation UI/controller action is implemented when a
+  structured Smart Queue coordinator decision explicitly allows
+  `rollback_attempt_proposal`. The active Queue task details card shows a real
+  Prepare rollback proposal action only when the Queue controller handler
+  exists. Accepting the action records bounded frontend rollback proposal
+  metadata, preserves previous failed report evidence and attempts, keeps the
+  task blocked or awaiting coordinator review, and shows approval-required,
+  destructive, affected-file, base-revision, reason/evidence, and
+  no-rollback-executed state inside the existing task details popup. This
+  proposal preparation does not execute rollback, mutate Git or files, start a
+  worker, create a retry attempt, call Workspace Agent, launch Terminal, clear
+  dependency blockers, or create another Queue view.
 - Rollback execution is not implemented.
+- Git/file mutation for rollback is not implemented.
 - Workspace Agent assistance runtime calls are not implemented.
 - Durable backend attempt persistence is not implemented; retry attempt history
-  is carried through the current frontend Queue task worker-report payloads and
-  update path where that model supports report history.
+  and rollback proposal metadata are carried through the current frontend Queue
+  task worker-report payloads and update path where that model supports report
+  history.
 
 ## Not Implemented Yet
 

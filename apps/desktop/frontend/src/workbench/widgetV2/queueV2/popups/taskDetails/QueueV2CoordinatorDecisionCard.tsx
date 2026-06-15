@@ -16,6 +16,9 @@ import {
 import type {
   AgentQueueSmartAssistanceRequest,
 } from "../../../../queue/agentQueueSmartAssistanceActions";
+import type {
+  AgentQueueSmartRollbackProposal,
+} from "../../../../queue/agentQueueSmartRollbackActions";
 import type { AgentQueueController } from "../../../../queue/details/agentQueueTaskDetailsTypes";
 
 type QueueV2CoordinatorDecisionCardProps = {
@@ -39,6 +42,10 @@ export function QueueV2CoordinatorDecisionCard({
     model?.askWorkspaceAgentAvailable &&
       queue?.smartQueueAssistance?.available,
   );
+  const showRollbackProposalButton = Boolean(
+    model?.rollbackProposalAvailable &&
+      queue?.smartQueueRollback?.available,
+  );
   const [isModifiedPromptEditorOpen, setIsModifiedPromptEditorOpen] =
     useState(false);
   const [modifiedPromptDraft, setModifiedPromptDraft] = useState(task.prompt);
@@ -47,12 +54,15 @@ export function QueueV2CoordinatorDecisionCard({
   );
   const [assistanceRequest, setAssistanceRequest] =
     useState<AgentQueueSmartAssistanceRequest | null>(null);
+  const [rollbackProposal, setRollbackProposal] =
+    useState<AgentQueueSmartRollbackProposal | null>(null);
 
   useEffect(() => {
     setIsModifiedPromptEditorOpen(false);
     setModifiedPromptDraft(task.prompt);
     setModifiedPromptError(null);
     setAssistanceRequest(null);
+    setRollbackProposal(null);
   }, [task.queueItemId, task.prompt]);
 
   if (!model) {
@@ -67,7 +77,11 @@ export function QueueV2CoordinatorDecisionCard({
       return false;
     }
 
-    return !(showAskWorkspaceAgentButton && label === model.askWorkspaceAgentLabel);
+    if (showAskWorkspaceAgentButton && label === model.askWorkspaceAgentLabel) {
+      return false;
+    }
+
+    return !(showRollbackProposalButton && label === "Rollback proposal");
   });
 
   async function submitModifiedPromptRetry() {
@@ -97,6 +111,21 @@ export function QueueV2CoordinatorDecisionCard({
     }
   }
 
+  async function prepareRollbackProposal() {
+    const proposal =
+      (await queue?.smartQueueRollback?.onPrepareProposal()) ?? null;
+
+    if (proposal) {
+      setRollbackProposal(proposal);
+    }
+  }
+
+  const hasRealAction =
+    showRetrySameButton ||
+    showRetryWithModifiedPromptButton ||
+    showAskWorkspaceAgentButton ||
+    showRollbackProposalButton;
+
   return (
     <Section
       aria-label="Coordinator Decision card"
@@ -124,7 +153,7 @@ export function QueueV2CoordinatorDecisionCard({
           },
           { label: "Approval", value: model.requiresApprovalLabel },
           { label: "Destructive", value: model.destructiveLabel },
-          ...(showRetrySameButton || showRetryWithModifiedPromptButton
+          ...(hasRealAction
             ? []
             : [{ label: "Action availability", value: model.actionAvailability }]),
         ]}
@@ -174,6 +203,22 @@ export function QueueV2CoordinatorDecisionCard({
             {queue.smartQueueAssistance.isRequesting
               ? "Preparing request"
               : model.askWorkspaceAgentLabel}
+          </Button>
+        </div>
+      ) : null}
+      {showRollbackProposalButton && queue?.smartQueueRollback ? (
+        <div className="queue-v2-coordinator-decision-controls">
+          <Button
+            disabled={
+              !queue.smartQueueRollback.canPrepareProposal ||
+              queue.smartQueueRollback.isPreparing
+            }
+            onClick={() => void prepareRollbackProposal()}
+            variant="secondary"
+          >
+            {queue.smartQueueRollback.isPreparing
+              ? "Preparing proposal"
+              : model.rollbackProposalLabel}
           </Button>
         </div>
       ) : null}
@@ -248,6 +293,16 @@ export function QueueV2CoordinatorDecisionCard({
           {queue.smartQueueAssistance.error}
         </span>
       ) : null}
+      {queue?.smartQueueRollback?.message ? (
+        <span className="queue-v2-coordinator-decision-message">
+          {queue.smartQueueRollback.message}
+        </span>
+      ) : null}
+      {queue?.smartQueueRollback?.error ? (
+        <span className="queue-v2-coordinator-decision-message">
+          {queue.smartQueueRollback.error}
+        </span>
+      ) : null}
       {assistanceRequest ? (
         <div
           aria-label="Workspace Agent assistance handoff"
@@ -279,6 +334,50 @@ export function QueueV2CoordinatorDecisionCard({
               Select prompt
             </Button>
           </div>
+        </div>
+      ) : null}
+      {rollbackProposal ? (
+        <div
+          aria-label="Rollback proposal prepared"
+          className="queue-v2-coordinator-decision-editor"
+        >
+          <Notice variant="warning" title="Rollback proposal prepared">
+            No rollback executed
+          </Notice>
+          <KeyValueList
+            compact
+            items={[
+              { label: "Approval", value: "Approval required" },
+              { label: "Action type", value: "Destructive" },
+              {
+                label: "Affected files",
+                value: `Affected files: ${rollbackProposal.changedFilesCount.toString()}`,
+              },
+              {
+                label: "Base revision",
+                value:
+                  rollbackProposal.baseRevision ?? "Base revision unavailable",
+              },
+              {
+                label: "Reason",
+                value:
+                  rollbackProposal.failureSummary ??
+                  rollbackProposal.validationSummary ??
+                  rollbackProposal.reason,
+              },
+              { label: "Status", value: "No rollback executed" },
+            ]}
+          />
+          {rollbackProposal.changedFiles.length > 0 &&
+          rollbackProposal.changedFiles.length <= 8 ? (
+            <div className="queue-v2-coordinator-decision-files">
+              {rollbackProposal.changedFiles.map((changedFile) => (
+                <Badge key={changedFile} variant="neutral">
+                  {changedFile}
+                </Badge>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
       <div className="queue-v2-coordinator-decision-flags">

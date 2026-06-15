@@ -11,6 +11,9 @@ import type { AgentQueueController } from "../../queue/details/agentQueueTaskDet
 import type {
   AgentQueueSmartAssistanceRequest,
 } from "../../queue/agentQueueSmartAssistanceActions";
+import type {
+  AgentQueueSmartRollbackProposal,
+} from "../../queue/agentQueueSmartRollbackActions";
 import type { ValidationRunner } from "../../validation";
 
 let root: Root | null = null;
@@ -249,6 +252,7 @@ export function validationRunner(): ValidationRunner {
 export function queueController({
   onPromote = vi.fn(),
   onAskWorkspaceAgent = vi.fn(),
+  onPrepareRollbackProposal = vi.fn(),
   onRetrySame = vi.fn(),
   onRetryWithModifiedPrompt = vi.fn(),
   onRun = vi.fn(),
@@ -261,6 +265,10 @@ export function queueController({
   onAskWorkspaceAgent?: () =>
     | Promise<AgentQueueSmartAssistanceRequest | null>
     | AgentQueueSmartAssistanceRequest
+    | null;
+  onPrepareRollbackProposal?: () =>
+    | Promise<AgentQueueSmartRollbackProposal | null>
+    | AgentQueueSmartRollbackProposal
     | null;
   onRetrySame?: () => void;
   onRetryWithModifiedPrompt?: (modifiedPrompt: string) => Promise<boolean> | boolean;
@@ -306,6 +314,14 @@ export function queueController({
       isRequesting: false,
       message: null,
       onAskWorkspaceAgent: async () => onAskWorkspaceAgent(),
+    },
+    smartQueueRollback: {
+      available: true,
+      canPrepareProposal: true,
+      error: null,
+      isPreparing: false,
+      message: null,
+      onPrepareProposal: async () => onPrepareRollbackProposal(),
     },
     selectedTask,
     tasks,

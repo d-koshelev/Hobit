@@ -441,8 +441,28 @@ describe("QueueV2TaskDetailsPopup", () => {
     expect(buttonWithText("Retry")).toBeNull();
   });
 
-  it("shows rollback proposal as destructive and approval required without executing rollback", async () => {
+  it("renders real rollback proposal action only when rollback proposal is allowed", async () => {
+    const onPrepareRollbackProposal = vi.fn().mockResolvedValue({
+      approvalRequired: true,
+      attemptId: "smart-attempt:rollback-task:rollback-task-run",
+      baseRevision: "base-rev-1",
+      changedFiles: ["src/workbench/queue.ts"],
+      changedFilesCount: 1,
+      coordinatorDecisionId:
+        "smart-queue-decision:rollback-task:smart-attempt:rollback-task:rollback-task-run:validation_failure",
+      createdAt: "2026-06-15T12:00:00.000Z",
+      destructive: true,
+      executableNow: false,
+      failureSummary: "Attempt changed files that may need operator rollback.",
+      planText: "No rollback executed.",
+      proposalId: "rollback-proposal-1",
+      reason: "rollback proposal",
+      riskSummary: "Destructive rollback needs operator approval before any action.",
+      status: "Needs decision: rollback proposal",
+      taskId: "rollback-task",
+    });
     const taskWithRollback = smartFailureTask({
+      changedFiles: ["src/workbench/queue.ts"],
       decision: "rollback",
       evidenceSummary: "Attempt changed files that may need operator rollback.",
       failureKind: "validation_failure",
@@ -452,6 +472,7 @@ describe("QueueV2TaskDetailsPopup", () => {
 
     await renderDecisionPopup(taskWithRollback, {
       queue: queueController({
+        onPrepareRollbackProposal,
         selectedTask: taskWithRollback,
         tasks: [taskWithRollback],
       }),
@@ -467,6 +488,40 @@ describe("QueueV2TaskDetailsPopup", () => {
     expect(buttonWithText("Retry")).toBeNull();
     expect(buttonWithText("Retry with changes")).toBeNull();
     expect(buttonWithText("Rollback proposal")).toBeNull();
+    expect(buttonWithText("Prepare rollback proposal")).not.toBeNull();
+
+    await click(buttonWithText("Prepare rollback proposal"));
+
+    expect(onPrepareRollbackProposal).toHaveBeenCalledTimes(1);
+    expect(document.body.textContent).toContain("Rollback proposal prepared");
+    expect(document.body.textContent).toContain("Approval required");
+    expect(document.body.textContent).toContain("Destructive");
+    expect(document.body.textContent).toContain("Affected files: 1");
+    expect(document.body.textContent).toContain("src/workbench/queue.ts");
+    expect(document.body.textContent).toContain("Base revision");
+    expect(document.body.textContent).toContain("base-rev-1");
+    expect(document.body.textContent).toContain("No rollback executed");
+  });
+
+  it("does not render a fake rollback proposal action when the handler is missing", async () => {
+    const taskWithRollback = smartFailureTask({
+      decision: "rollback",
+      evidenceSummary: "Attempt changed files that may need operator rollback.",
+      failureKind: "validation_failure",
+      queueItemId: "rollback-no-handler-task",
+      reason: "Validation failed after file changes.",
+    });
+    const controller = queueController({
+      selectedTask: taskWithRollback,
+      tasks: [taskWithRollback],
+    });
+
+    (controller as Partial<typeof controller>).smartQueueRollback = undefined;
+
+    await renderDecisionPopup(taskWithRollback, { queue: controller });
+
+    expect(coordinatorDecisionCard()?.textContent).toContain("Rollback proposal");
+    expect(buttonWithText("Prepare rollback proposal")).toBeNull();
   });
 
   it("shows Workspace Agent assistance proposal without calling runtime", async () => {
@@ -631,6 +686,7 @@ describe("QueueV2TaskDetailsPopup", () => {
     expect(coordinatorDecisionCard()).toBeNull();
     expect(document.body.textContent).toContain("Legacy report task");
     expect(buttonWithText("Retry with changes")).toBeNull();
+    expect(buttonWithText("Prepare rollback proposal")).toBeNull();
   });
 
   it("keeps raw enum names and raw JSON out of the decision card", async () => {
@@ -737,6 +793,7 @@ function setNativeValue(
 }
 
 function smartFailureTask({
+  changedFiles,
   decision,
   evidenceSummary,
   failureKind,
@@ -747,6 +804,7 @@ function smartFailureTask({
   includeRetrySame,
   prompt,
 }: {
+  changedFiles?: readonly string[];
   decision?: "rollback";
   evidenceSummary: string;
   failureKind: Parameters<typeof buildSmartQueueWorkerFailureIntegration>[0]["failureKind"];
@@ -770,6 +828,7 @@ function smartFailureTask({
       failureKind === "validation_failure" ? "failed" : "needs_review",
   });
   const integration = buildSmartQueueWorkerFailureIntegration({
+    changedFiles,
     createdAt: "2026-01-01T00:00:00.000Z",
     evidenceSummary,
     failureKind,
@@ -801,7 +860,14 @@ function smartFailureTask({
           }
         : integration.coordinatorDecision;
   const payload = {
-    attempt: integration.attempt,
+    attempt:
+      decision === "rollback"
+        ? {
+            ...integration.attempt,
+            baseRevision: "base-rev-1",
+            changedFiles: changedFiles ?? [],
+          }
+        : integration.attempt,
     coordinatorDecision,
     kind: "smart_queue_worker_failure_report",
     queueDetail: integration.queueDetail,
@@ -818,6 +884,9 @@ function smartFailureTask({
     workerExecutionReports: [
       {
         ...integration.taskPatch.workerExecutionReport,
+        changedFiles: changedFiles
+          ? [...changedFiles]
+          : integration.taskPatch.workerExecutionReport.changedFiles,
         rawReportPreview: JSON.stringify(payload),
         summary: coordinatorDecision.productLabel,
       },

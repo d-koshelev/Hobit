@@ -32,6 +32,9 @@ import type {
 import type {
   AgentQueueSmartAssistanceRequest,
 } from "./agentQueueSmartAssistanceActions";
+import type {
+  AgentQueueSmartRollbackProposal,
+} from "./agentQueueSmartRollbackActions";
 
 export type UseAgentQueueControllerOptions = Pick<
   WidgetRenderProps,
@@ -263,6 +266,15 @@ export type AgentQueueSmartAssistanceController = {
   isRequesting: boolean;
   message: string | null;
   onAskWorkspaceAgent: () => Promise<AgentQueueSmartAssistanceRequest | null>;
+};
+
+export type AgentQueueSmartRollbackController = {
+  available: boolean;
+  canPrepareProposal: boolean;
+  error: string | null;
+  isPreparing: boolean;
+  message: string | null;
+  onPrepareProposal: () => Promise<AgentQueueSmartRollbackProposal | null>;
 };
 
 export type AgentQueueOrderingController = {

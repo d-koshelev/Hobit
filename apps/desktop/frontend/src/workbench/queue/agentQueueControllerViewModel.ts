@@ -41,6 +41,7 @@ import type {
   AgentQueueRunHistoryController,
   AgentQueueRunnerController,
   AgentQueueSmartAssistanceController,
+  AgentQueueSmartRollbackController,
   AgentQueueSmartRetryController,
   AgentQueueWorkerReportController,
   UseAgentQueueControllerOptions,
@@ -133,6 +134,7 @@ type AgentQueueControllerViewModelInput = Pick<
   retrySelectedTaskSame: () => Promise<boolean>;
   retrySelectedTaskWithModifiedPrompt: (modifiedPrompt: string) => Promise<boolean>;
   requestWorkspaceAgentAssistance: AgentQueueSmartAssistanceController["onAskWorkspaceAgent"];
+  prepareRollbackProposal: AgentQueueSmartRollbackController["onPrepareProposal"];
   runActions: ReturnType<typeof createAgentQueueRunActions>;
   runActivitySnapshot: AgentQueueRunActivitySnapshot;
   runActivityState: AgentQueueRunActivityState;
@@ -148,8 +150,11 @@ type AgentQueueControllerViewModelInput = Pick<
   smartAssistanceError: string | null;
   smartAssistanceMessage: string | null;
   isRequestingSmartAssistance: boolean;
+  isPreparingSmartRollbackProposal: boolean;
   smartRetryError: string | null;
   smartRetryMessage: string | null;
+  smartRollbackError: string | null;
+  smartRollbackMessage: string | null;
   selectedTaskApprovalPolicy: DirectWorkApprovalPolicy | "";
   selectedTaskCodexExecutable: string;
   selectedTaskExecutionWorkspace: string;
@@ -246,6 +251,7 @@ export function buildAgentQueueControllerViewModel({
   retrySelectedTaskSame,
   retrySelectedTaskWithModifiedPrompt,
   requestWorkspaceAgentAssistance,
+  prepareRollbackProposal,
   runActions,
   runActivitySnapshot,
   runActivityState,
@@ -261,8 +267,11 @@ export function buildAgentQueueControllerViewModel({
   smartAssistanceError,
   smartAssistanceMessage,
   isRequestingSmartAssistance,
+  isPreparingSmartRollbackProposal,
   smartRetryError,
   smartRetryMessage,
+  smartRollbackError,
+  smartRollbackMessage,
   selectedTaskApprovalPolicy,
   selectedTaskCodexExecutable,
   selectedTaskExecutionWorkspace,
@@ -484,6 +493,27 @@ export function buildAgentQueueControllerViewModel({
       message: smartAssistanceMessage,
       onAskWorkspaceAgent: requestWorkspaceAgentAssistance,
     } satisfies AgentQueueSmartAssistanceController,
+    smartQueueRollback: {
+      available: Boolean(
+        selectedTask &&
+          onUpdateAgentQueueTask &&
+          !isEditing &&
+          !isSaving &&
+          !isCreating,
+      ),
+      canPrepareProposal: Boolean(
+        selectedTask &&
+          onUpdateAgentQueueTask &&
+          !isEditing &&
+          !isSaving &&
+          !isCreating &&
+          !isPreparingSmartRollbackProposal,
+      ),
+      error: smartRollbackError,
+      isPreparing: isPreparingSmartRollbackProposal,
+      message: smartRollbackMessage,
+      onPrepareProposal: prepareRollbackProposal,
+    } satisfies AgentQueueSmartRollbackController,
     run: {
       approvalPolicy: selectedTaskApprovalPolicy,
       canStart,

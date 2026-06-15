@@ -44,6 +44,9 @@ import {
 import {
   createAgentQueueSmartAssistanceActions,
 } from "./agentQueueSmartAssistanceActions";
+import {
+  createAgentQueueSmartRollbackActions,
+} from "./agentQueueSmartRollbackActions";
 
 export type { AgentQueueRunnerStatus } from "./agentQueueControllerHelpers";
 export type { QueueTaskInsertPosition } from "./agentQueueOrderingActions";
@@ -209,6 +212,12 @@ export function useAgentQueueController({
   const [smartAssistanceMessage, setSmartAssistanceMessage] =
     useState<string | null>(null);
   const [smartAssistanceError, setSmartAssistanceError] =
+    useState<string | null>(null);
+  const [isPreparingSmartRollbackProposal, setIsPreparingSmartRollbackProposal] =
+    useState(false);
+  const [smartRollbackMessage, setSmartRollbackMessage] =
+    useState<string | null>(null);
+  const [smartRollbackError, setSmartRollbackError] =
     useState<string | null>(null);
   const EDIT_PAUSE_MESSAGE =
     "Editing paused this queue tag until coordinator review.";
@@ -754,6 +763,24 @@ export function useAgentQueueController({
     setSmartAssistanceMessage,
     setValidationMessage,
   });
+  const smartRollbackActions = createAgentQueueSmartRollbackActions({
+    applyUpdatedTask,
+    isCreating,
+    isEditing,
+    isPreparingRollbackProposal: isPreparingSmartRollbackProposal,
+    isSaving,
+    localTaskFieldsRef,
+    onUpdateAgentQueueTask,
+    selectedTask,
+    setEditorError,
+    setIsPreparingRollbackProposal: setIsPreparingSmartRollbackProposal,
+    setLocalTaskFields,
+    setSaveStateText,
+    setSelectedDraft,
+    setSmartRollbackError,
+    setSmartRollbackMessage,
+    setValidationMessage,
+  });
   const planningActions = createAgentQueuePlanningActions({
     applyUpdatedTask,
     hasOpenTaskEdit,
@@ -934,13 +961,18 @@ export function useAgentQueueController({
     selectedTask,
     requestWorkspaceAgentAssistance:
       smartAssistanceActions.askWorkspaceAgentAssistance,
+    prepareRollbackProposal:
+      smartRollbackActions.prepareRollbackProposal,
     smartAssistanceError,
     smartAssistanceMessage,
+    isPreparingSmartRollbackProposal,
     retrySelectedTaskSame: smartRetryActions.retrySelectedTaskSame,
     retrySelectedTaskWithModifiedPrompt:
       smartRetryActions.retrySelectedTaskWithModifiedPrompt,
     smartRetryError,
     smartRetryMessage,
+    smartRollbackError,
+    smartRollbackMessage,
     selectedTaskApprovalPolicy,
     selectedTaskCodexExecutable,
     selectedTaskExecutionWorkspace,

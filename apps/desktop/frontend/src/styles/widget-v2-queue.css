@@ -875,6 +875,7 @@
 .queue-v2-coordinator-decision-actions,
 .queue-v2-coordinator-decision-controls,
 .queue-v2-coordinator-decision-editor-actions,
+.queue-v2-coordinator-decision-files,
 .queue-v2-coordinator-decision-flags {
   display: flex;
   min-width: 0;

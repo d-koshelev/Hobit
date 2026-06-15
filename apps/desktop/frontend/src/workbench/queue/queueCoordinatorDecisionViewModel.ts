@@ -9,6 +9,9 @@ import {
 import {
   canApplySmartQueueWorkspaceAgentAssistance,
 } from "./smartQueueAssistanceRequest";
+import {
+  canPrepareSmartQueueRollbackProposal,
+} from "./smartQueueRollbackProposal";
 import type {
   SmartQueueCoordinatorDecision,
   SmartQueueCoordinatorDecisionAction,
@@ -25,6 +28,8 @@ export type QueueCoordinatorDecisionCardViewModel = {
   readonly recommendedActionLabel: string;
   readonly requiresApproval: boolean;
   readonly requiresApprovalLabel: string;
+  readonly rollbackProposalAvailable: boolean;
+  readonly rollbackProposalLabel: "Prepare rollback proposal";
   readonly retrySameAvailable: boolean;
   readonly retrySameLabel: "Retry";
   readonly retryWithModifiedPromptAvailable: boolean;
@@ -69,6 +74,8 @@ export function queueCoordinatorDecisionCardViewModel(
     requiresApprovalLabel: decision.requiresOperatorApproval
       ? "Operator approval required"
       : "No operator approval required",
+    rollbackProposalAvailable: canPrepareSmartQueueRollbackProposal(decision),
+    rollbackProposalLabel: "Prepare rollback proposal",
     retrySameAvailable: canApplySmartQueueRetrySame(decision),
     retrySameLabel: "Retry",
     retryWithModifiedPromptAvailable:
