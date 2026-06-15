@@ -23,6 +23,9 @@ import {
   normalizeCoordinatorStatus,
   normalizeValidationStatus,
 } from "../agentQueueTaskUiModel";
+import {
+  latestSmartQueueFailurePayloadForTask,
+} from "./smartQueueWorkerReportIntegration";
 import type { QueueBoardLane } from "./queueV2ViewModel";
 import type { QueueBlockedReason } from "./queueV2BlockerSummary";
 import {
@@ -64,6 +67,7 @@ export function queueV2HumanStatusForTask({
 }): QueueTaskHumanStatusView {
   const validationStatus = normalizeValidationStatus(task.validationStatus);
   const coordinatorStatus = normalizeCoordinatorStatus(task.coordinatorStatus);
+  const smartFailurePayload = latestSmartQueueFailurePayloadForTask(task);
   const smartGate = smartDependencyGateFromSummary(dependencySummary);
   const smartBlockers = smartQueueBlockersFromQueueV2Reasons(task, blockedReasons);
   const smartTask = {
@@ -78,6 +82,14 @@ export function queueV2HumanStatusForTask({
       taskId: item.taskId,
     }),
   );
+
+  if (smartFailurePayload) {
+    return presentSmartQueueStatus({
+      coordinatorDecision: smartFailurePayload.coordinatorDecision,
+      dependencyGate: smartGate,
+      dependencyLabels,
+    });
+  }
 
   if (
     boardLane === "waiting_dependency" ||

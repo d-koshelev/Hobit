@@ -47,6 +47,7 @@ import {
   autonomousTaskSetupMessage,
   buildAutonomousWorkerReport,
   countRemainingAutonomousEligibleTasks,
+  selectFirstAutonomousSetupBlockedTask,
   selectNextAutonomousTask,
 } from "./agentQueueAutonomousRunnerModel";
 import {
@@ -55,6 +56,11 @@ import {
   taskHasReportReadyState,
   taskReleasesAutonomousRunner,
 } from "./agentQueueAutonomousRunnerState";
+import {
+  buildSmartQueueWorkerFailureIntegration,
+  classifySmartQueueFailure,
+  type SmartQueueFailureIntegrationInput,
+} from "./smartQueueWorkerReportIntegration";
 
 type LoadTasks = (
   preferredTaskId?: string | null,
@@ -254,7 +260,21 @@ export function useAgentQueueAutonomousRunner({
       const setupBlockers = autonomousSetupBlockerMessages(preflightOptions);
 
       if (setupBlockers.length > 0) {
-        needsSetup(setupBlockers[0] ?? "Set autonomous setup before running.");
+        const setupBlocker = setupBlockers[0] ?? "Set autonomous setup before running.";
+        const setupBlockedTask = selectFirstAutonomousSetupBlockedTask(
+          tasksRef.current,
+          startedQueueItemIdsRef.current,
+          globalExecutionState,
+        );
+        if (setupBlockedTask) {
+          await recordSmartQueueFailure(setupBlockedTask, {
+            failureKind: "missing_config",
+            reason: setupBlocker,
+            runId: "setup",
+            stage: "environment",
+          });
+        }
+        needsSetup(setupBlocker);
         return;
       }
 
@@ -343,7 +363,14 @@ export function useAgentQueueAutonomousRunner({
     const taskApprovalPolicy = task.approvalPolicy;
 
     if (!taskRepoRoot || !taskCodexExecutable || !taskSandbox || !taskApprovalPolicy) {
-      needsSetup(setupMessage ?? `Task ${task.title} is missing execution settings.`);
+      const reason = setupMessage ?? `Task ${task.title} is missing execution settings.`;
+      await recordSmartQueueFailure(task, {
+        failureKind: "missing_config",
+        reason,
+        runId: "setup",
+        stage: "environment",
+      });
+      needsSetup(reason);
       return;
     }
 
@@ -387,6 +414,11 @@ export function useAgentQueueAutonomousRunner({
       setMessage(`Waiting for "${task.title}" to finish.`);
     } catch (caughtError) {
       const startErrorMessage = queueRunStartErrorMessage(caughtError);
+      await recordSmartQueueFailure(task, {
+        failureKind: classifySmartQueueFailure(startErrorMessage),
+        reason: startErrorMessage,
+        runId: "start",
+      });
 
       if (isRunReadinessBlocker(startErrorMessage)) {
         block(startErrorMessage);
@@ -428,7 +460,9 @@ export function useAgentQueueAutonomousRunner({
 
       const success = assessAutonomousSuccess(detail, finalStatus);
       if (!success.ok || !detail) {
-        addFailureEvidence(activeRun.queueItemId, activeRun.runId, success.reason);
+        await addFailureEvidence(activeRun.queueItemId, activeRun.runId, success.reason, {
+          finalStatus,
+        });
         fail(success.reason);
         return;
       }
@@ -488,6 +522,11 @@ export function useAgentQueueAutonomousRunner({
     ) {
       activeRunRef.current = null;
       lastDependencyWaitQueueSignatureRef.current = null;
+      await recordSmartQueueFailure(currentTask, {
+        finalStatus: taskStatus,
+        reason: `Active task ${currentTask.title} ended with ${taskStatus}.`,
+        runId: activeRun.runId,
+      });
       fail(`Active task ${currentTask.title} ended with ${taskStatus}.`);
       return;
     }
@@ -579,46 +618,89 @@ export function useAgentQueueAutonomousRunner({
     );
   }
 
-  function addFailureEvidence(queueItemId: string, runId: string, reason: string) {
+  async function addFailureEvidence(
+    queueItemId: string,
+    runId: string,
+    reason: string,
+    options?: Pick<SmartQueueFailureIntegrationInput, "finalStatus">,
+  ) {
     const currentTask = taskById(queueItemId);
     if (!currentTask) {
       return;
     }
 
-    const report: AgentQueueWorkerExecutionReport = {
-      changedFiles: [],
-      commandsRun: [],
-      createdAt: new Date().toISOString(),
-      errors: [reason],
-      itemId: queueItemId,
-      rawReportPreview: reason,
-      reportId: `autonomous_failure_${runId}`,
-      reportStatus: "failed",
-      summary: `Autonomous Queue stopped: ${reason}`,
-      validationCommandsRun: [],
-      validationCommandsSuggested: [],
-      validationResult: "failed",
-      warnings: [],
+    await recordSmartQueueFailure(currentTask, {
+      finalStatus: options?.finalStatus,
+      reason,
+      runId,
+    });
+  }
+
+  async function recordSmartQueueFailure(
+    task: AgentQueueTask,
+    input: Omit<SmartQueueFailureIntegrationInput, "task" | "workerId">,
+  ) {
+    const integration = buildSmartQueueWorkerFailureIntegration({
+      ...input,
+      task,
       workerId:
         queueWidgetInstanceId ??
-        currentTask.assignedWorkerId ??
-        currentTask.assignedExecutorWidgetId ??
+        task.assignedWorkerId ??
+        task.assignedExecutorWidgetId ??
         "agent-queue",
-    };
+    });
+    const report: AgentQueueWorkerExecutionReport =
+      integration.taskPatch.workerExecutionReport;
     const failedTask: AgentQueueTask = {
-      ...currentTask,
-      coordinatorStatus: "failed",
-      workerExecutionReports: [...(currentTask.workerExecutionReports ?? []), report],
+      ...task,
+      coordinatorStatus: integration.taskPatch.coordinatorStatus,
+      status: integration.taskPatch.status,
+      validationStatus: integration.taskPatch.validationStatus,
+      workerExecutionReports: [...(task.workerExecutionReports ?? []), report],
     };
+
+    if (onUpdateAgentQueueTask) {
+      try {
+        const updatedTask = await onUpdateAgentQueueTask({
+          approvalPolicy: task.approvalPolicy ?? null,
+          codexExecutable: task.codexExecutable ?? null,
+          dependsOn: task.dependsOn,
+          description: task.description,
+          executionPolicy: normalizeTaskExecutionPolicy(task.executionPolicy),
+          executionWorkspace: task.executionWorkspace ?? null,
+          itemType: normalizeItemType(task.itemType),
+          priority: task.priority,
+          prompt: task.prompt,
+          queueItemId: task.queueItemId,
+          queueTagId: normalizeQueueTag(task).queueTagId,
+          queueTagName: normalizeQueueTag(task).queueTagName,
+          sandbox: task.sandbox ?? null,
+          status: integration.taskPatch.status,
+          title: task.title,
+          validationStatus: integration.taskPatch.validationStatus,
+          workerExecutionReports: failedTask.workerExecutionReports,
+        });
+
+        if (updatedTask) {
+          failedTask.assignedExecutorWidgetId =
+            updatedTask.assignedExecutorWidgetId;
+          failedTask.updatedAt = updatedTask.updatedAt;
+        }
+      } catch {
+        // The local frontend state still carries the visible failure evidence.
+      }
+    }
+
     tasksRef.current = replaceQueueTask(tasksRef.current, failedTask);
     setTasks(tasksRef.current);
     if (selectedTask?.queueItemId === failedTask.queueItemId) {
       setSelectedTask(failedTask);
     }
     setLocalTaskFields((current) =>
-      new Map(current).set(queueItemId, {
-        ...(current.get(queueItemId) ?? {}),
-        coordinatorStatus: "failed",
+      new Map(current).set(task.queueItemId, {
+        ...(current.get(task.queueItemId) ?? {}),
+        coordinatorStatus: failedTask.coordinatorStatus,
+        validationStatus: failedTask.validationStatus,
         workerExecutionReports: failedTask.workerExecutionReports,
       }),
     );

@@ -11,6 +11,9 @@ import {
   type QueueTaskLifecycle,
 } from "./queueV2LifecycleModel";
 import { selectQueueV2ViewModel } from "./queueV2ViewModel";
+import {
+  buildSmartQueueWorkerFailureIntegration,
+} from "./smartQueueWorkerReportIntegration";
 
 describe("Queue v2 view model selectors", () => {
   it("maps current statuses into conservative v2 lifecycles and lanes", () => {
@@ -299,6 +302,45 @@ describe("Queue v2 view model selectors", () => {
     );
     expect(ready?.boardLane).toBe("ready");
     expect(ready?.eligibility.eligibleNow).toBe(true);
+  });
+
+  it("presents structured Smart Queue failure report decisions on Queue cards", () => {
+    const execFailure = smartFailureReportTask({
+      failureKind: "execution_failure",
+      queueItemId: "exec-failure",
+      reason: "Direct Work run failed.",
+    });
+    const retryAvailable = smartFailureReportTask({
+      failureKind: "timeout",
+      maxRetries: 2,
+      queueItemId: "retry-available",
+      reason: "Run timed out.",
+      retryCount: 0,
+    });
+    const viewModel = selectQueueV2ViewModel({
+      tasks: [execFailure, retryAvailable],
+      workers: [worker()],
+    });
+
+    expect(viewModel.tasks.find((item) => item.taskId === "exec-failure"))
+      .toMatchObject({
+        humanStatus: {
+          label: "Blocked: exec failure",
+          status: "blocked",
+          text: "Blocked: exec failure",
+        },
+      });
+    expect(viewModel.tasks.find((item) => item.taskId === "retry-available"))
+      .toMatchObject({
+        humanStatus: {
+          label: "Retry available",
+          status: "needs_decision",
+          text: "Retry available",
+        },
+      });
+    expect(
+      viewModel.tasks.map((item) => item.humanStatus.text).join(" "),
+    ).not.toContain("execution_failure");
   });
 
   it("treats missing Codex executable as a visible run-settings blocker", () => {
@@ -766,6 +808,45 @@ function report(overrides: Partial<AgentQueueWorkerExecutionReport> = {}) {
   return {
     ...baseReport(),
     ...overrides,
+  };
+}
+
+function smartFailureReportTask({
+  failureKind,
+  maxRetries,
+  queueItemId,
+  reason,
+  retryCount,
+}: {
+  failureKind: Parameters<typeof buildSmartQueueWorkerFailureIntegration>[0]["failureKind"];
+  maxRetries?: number;
+  queueItemId: string;
+  reason: string;
+  retryCount?: number;
+}) {
+  const baseTask = task({
+    coordinatorStatus:
+      failureKind === "execution_failure" ? "blocked" : "awaiting_coordinator_review",
+    queueItemId,
+    status: "review_needed",
+    title: queueItemId,
+    validationStatus: "needs_review",
+  });
+  const integration = buildSmartQueueWorkerFailureIntegration({
+    createdAt: "2026-01-01T00:00:00.000Z",
+    failureKind,
+    maxRetries,
+    reason,
+    retryCount,
+    runId: `${queueItemId}-run`,
+    task: baseTask,
+  });
+
+  return {
+    ...baseTask,
+    coordinatorStatus: integration.taskPatch.coordinatorStatus,
+    validationStatus: integration.taskPatch.validationStatus,
+    workerExecutionReports: [integration.taskPatch.workerExecutionReport],
   };
 }
 

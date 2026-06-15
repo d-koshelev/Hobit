@@ -225,6 +225,34 @@ Implemented as a pure frontend model foundation.
   storage/schema migration, Tauri/IPC behavior, Git mutation, or Terminal
   launch.
 
+### Frontend worker failure/stuck report integration
+
+Implemented for the active frontend Queue controller/model path.
+
+- `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerReportIntegration.ts`
+  converts current Queue execution, validation, setup, timeout/tool, dirty
+  workspace, and unknown failure signals into Smart Queue failed attempt
+  evidence, worker reports, Queue Coordinator decision proposals, and short
+  product-facing Queue statuses.
+- The autonomous Queue controller records structured failure evidence on
+  missing task config, Direct Work start failure, failed/timed-out execution
+  completion, validation failure evidence, and active-run terminal failure
+  reconciliation.
+- Worker failure handling now reports failure/stuck evidence and stores a
+  Coordinator proposal in the existing frontend report/local task model. The
+  worker path does not silently decide retry, rollback, final failure, or
+  acceptance.
+- QueueV2 status presentation can read the structured Smart Queue failure
+  payload from the latest worker report and show product-facing labels such as
+  `Needs decision: validation failed`, `Blocked: exec failure`,
+  `Blocked: missing config`, `Blocked: dirty workspace`, `Retry available`, and
+  `Retry limit reached`.
+- Needs-decision and blocked tasks remain ineligible for autonomous selection.
+- This is frontend controller/model integration only. Durable backend
+  persistence for Smart Queue attempts/decisions is not implemented. Retry
+  execution is not implemented. Rollback execution is not implemented.
+  Workspace Agent assistance runtime calls are not implemented.
+
 ## Not Implemented Yet
 
 The following features are not current implementation and must not be claimed
@@ -232,7 +260,6 @@ as available from the foundation above:
 
 - durable backend/storage Smart Queue model
 - durable backend attempt persistence
-- worker stuck report integration
 - retry execution
 - rollback execution
 - Workspace Agent assistance runtime call

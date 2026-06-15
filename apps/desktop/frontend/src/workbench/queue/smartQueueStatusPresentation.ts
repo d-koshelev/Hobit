@@ -176,6 +176,10 @@ function needsDecisionLabel(
     return candidate;
   }
 
+  if (candidate === "Retry available") {
+    return candidate;
+  }
+
   const reason = cleanReason(source.reason ?? source.text);
 
   if (reason) {

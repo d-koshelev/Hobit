@@ -219,6 +219,32 @@ describe("Autonomous Queue runner model", () => {
     ).toBe("eligible");
   });
 
+  it("does not pick tasks that need coordinator decision or are blocked", () => {
+    const needsDecision = queueTask({
+      coordinatorStatus: "awaiting_coordinator_review",
+      queueItemId: "needs-decision",
+    });
+    const blocked = queueTask({
+      coordinatorStatus: "blocked",
+      queueItemId: "blocked",
+    });
+    const eligible = queueTask({
+      orderIndex: 10,
+      queueItemId: "eligible",
+    });
+
+    expect(
+      selectNextAutonomousTask([needsDecision, blocked], new Set()),
+    ).toEqual({
+      skippedCount: 0,
+      task: null,
+    });
+    expect(
+      selectNextAutonomousTask([needsDecision, blocked, eligible], new Set())
+        .task?.queueItemId,
+    ).toBe("eligible");
+  });
+
   it("does not let setup blockers for one candidate hide a later independent eligible task", () => {
     expect(
       autonomousPreflightBlockerMessages({

@@ -224,7 +224,19 @@ describe("useAgentQueueController execution state", () => {
     );
     expect(hook.result.current.autonomous.failedCount).toBe(0);
     expect(harness.startRequests).toHaveLength(0);
-    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.updateRequests).toHaveLength(1);
+    expect(harness.updateRequests[0]?.queueItemId).toBe("queue-1");
+    expect(harness.updateRequests[0]?.status).toBe("ready");
+    expect(harness.updateRequests[0]?.validationStatus).toBe("needs_review");
+    expect(hook.result.current.selectedTask?.coordinatorStatus).toBe("blocked");
+    const reports = hook.result.current.selectedTask?.workerExecutionReports ?? [];
+    const latestReport = reports[reports.length - 1];
+    expect(latestReport?.summary).toBe("Blocked: missing config");
+    expect(
+      latestReport?.rawReportPreview?.includes(
+        "smart_queue_worker_failure_report",
+      ),
+    ).toBe(true);
 
     hook.unmount();
   });
@@ -370,6 +382,182 @@ describe("useAgentQueueController execution state", () => {
       expect(reports[reports.length - 1]?.summary).toBe(
         "Execution complete. Report ready. Awaiting coordinator review.",
       );
+
+      hook.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("records Smart Queue validation failure evidence without retrying or rolling back", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const harness = createQueueHarness([
+        queueTask({
+          executionPolicy: "auto",
+          prompt: "Run this",
+          queueItemId: "queue-1",
+          status: "ready",
+        }),
+      ]);
+      harness.options.onGetAgentExecutorRunDetail = async () => ({
+        ...runDetail({ validationStatus: "failed" }),
+        validationStatus: "failed",
+      });
+      const hook = renderQueueController(harness);
+
+      await flushControllerLoad();
+
+      act(() => {
+        hook.result.current.foundation.onStartWorkers();
+      });
+
+      await act(async () => {
+        hook.result.current.autonomous.onStart();
+        await flushHookEffects();
+      });
+
+      expect(harness.startRequests).toHaveLength(1);
+
+      act(() => {
+        harness.replaceTask(
+          queueTask({
+            executionPolicy: "auto",
+            prompt: "Run this",
+            queueItemId: "queue-1",
+            status: "completed",
+          }),
+        );
+        harness.options.queueTaskAutoRefreshRequest = {
+          completedAt: "2026-05-20T10:02:00.000Z",
+          executorWidgetInstanceId: "executor-1",
+          finalStatus: "completed",
+          id: 1,
+          queueItemId: "queue-1",
+          repoRoot: "/repo",
+          runId: "run-1",
+          startedAt: "2026-05-20T10:01:00.000Z",
+          taskTitle: "Queue task",
+          workbenchId: "workbench-1",
+          workspaceId: "workspace-1",
+        };
+      });
+      hook.rerender(undefined);
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+        await flushHookEffects();
+      });
+      await flushControllerLoad();
+
+      expect(hook.result.current.autonomous.status).toBe("failed");
+      expect(harness.startRequests).toHaveLength(1);
+      const lastUpdateRequest =
+        harness.updateRequests[harness.updateRequests.length - 1];
+      expect(lastUpdateRequest?.queueItemId).toBe("queue-1");
+      expect(lastUpdateRequest?.status).toBe("review_needed");
+      expect(lastUpdateRequest?.validationStatus).toBe("failed");
+      expect(hook.result.current.selectedTask?.coordinatorStatus).toBe(
+        "awaiting_coordinator_review",
+      );
+      const reports = hook.result.current.selectedTask?.workerExecutionReports ?? [];
+      const latestReport = reports[reports.length - 1];
+      expect(latestReport?.summary).toBe(
+        "Needs decision: validation failed",
+      );
+      expect(
+        latestReport?.rawReportPreview?.includes("\"wouldExecuteRetry\":false"),
+      ).toBe(true);
+      expect(
+        latestReport?.rawReportPreview?.includes(
+          "\"wouldExecuteRollback\":false",
+        ),
+      ).toBe(true);
+
+      hook.unmount();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("records Smart Queue execution failure as blocked and does not start the next task", async () => {
+    vi.useFakeTimers();
+
+    try {
+      const harness = createQueueHarness([
+        queueTask({
+          executionPolicy: "auto",
+          prompt: "Run first",
+          queueItemId: "queue-1",
+          status: "ready",
+        }),
+        queueTask({
+          executionPolicy: "auto",
+          prompt: "Run second",
+          queueItemId: "queue-2",
+          status: "ready",
+          title: "Second task",
+        }),
+      ]);
+      harness.options.onGetAgentExecutorRunDetail = async () =>
+        runDetail({ status: "failed" });
+      const hook = renderQueueController(harness);
+
+      await flushControllerLoad();
+
+      act(() => {
+        hook.result.current.foundation.onStartWorkers();
+      });
+
+      await act(async () => {
+        hook.result.current.autonomous.onStart();
+        await flushHookEffects();
+      });
+
+      act(() => {
+        harness.replaceTask(
+          queueTask({
+            executionPolicy: "auto",
+            prompt: "Run first",
+            queueItemId: "queue-1",
+            status: "failed",
+          }),
+        );
+        harness.options.queueTaskAutoRefreshRequest = {
+          completedAt: "2026-05-20T10:02:00.000Z",
+          executorWidgetInstanceId: "executor-1",
+          finalStatus: "failed",
+          id: 1,
+          queueItemId: "queue-1",
+          repoRoot: "/repo",
+          runId: "run-1",
+          startedAt: "2026-05-20T10:01:00.000Z",
+          taskTitle: "Queue task",
+          workbenchId: "workbench-1",
+          workspaceId: "workspace-1",
+        };
+      });
+      hook.rerender(undefined);
+      await act(async () => {
+        vi.advanceTimersByTime(500);
+        await flushHookEffects();
+      });
+      await flushControllerLoad();
+
+      expect(hook.result.current.autonomous.status).toBe("failed");
+      expect(harness.startRequests).toHaveLength(1);
+      expect(hook.result.current.selectedTask?.coordinatorStatus).toBe("blocked");
+      const reports = hook.result.current.selectedTask?.workerExecutionReports ?? [];
+      const latestReport = reports[reports.length - 1];
+      expect(latestReport?.summary).toBe("Blocked: exec failure");
+      expect(
+        latestReport?.rawReportPreview?.includes("\"wouldExecuteRetry\":false"),
+      ).toBe(true);
+      expect(
+        latestReport?.rawReportPreview?.includes(
+          "\"wouldExecuteRollback\":false",
+        ),
+      ).toBe(true);
 
       hook.unmount();
     } finally {

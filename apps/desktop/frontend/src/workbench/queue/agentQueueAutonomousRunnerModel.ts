@@ -142,6 +142,18 @@ export function selectNextAutonomousTask(
   return { skippedCount: scan.dependencyBlockedCount, task: scan.nextTask };
 }
 
+export function selectFirstAutonomousSetupBlockedTask(
+  tasks: AgentQueueTask[],
+  startedQueueItemIds: ReadonlySet<string> = new Set(),
+  globalExecutionState: AgentQueueGlobalExecutionState = "started",
+) {
+  return scanAutonomousTasks({
+    globalExecutionState,
+    startedQueueItemIds,
+    tasks,
+  }).firstSetupBlockedTask;
+}
+
 function scanAutonomousTasks({
   globalExecutionState,
   startedQueueItemIds,
