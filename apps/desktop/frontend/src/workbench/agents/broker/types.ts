@@ -85,9 +85,13 @@ export type HobitAgentActionHandlerContext = {
   request: HobitAgentActionRequest;
 };
 
+export type HobitAgentActionHandlerResult<TOutput = unknown> =
+  | HobitAgentActionResult<TOutput>
+  | Promise<HobitAgentActionResult<TOutput>>;
+
 export type HobitAgentActionHandler<TOutput = unknown> = (
   context: HobitAgentActionHandlerContext,
-) => HobitAgentActionResult<TOutput>;
+) => HobitAgentActionHandlerResult<TOutput>;
 
 export type HobitAgentActionHandlerMap = Partial<
   Record<HobitAgentCapabilityId, HobitAgentActionHandler>
@@ -108,4 +112,7 @@ export type HobitAgentActionBroker = {
   invoke<TOutput = unknown>(
     request: HobitAgentActionRequest,
   ): HobitAgentBrokerResult<TOutput>;
+  invokeAsync<TOutput = unknown>(
+    request: HobitAgentActionRequest,
+  ): Promise<HobitAgentBrokerResult<TOutput>>;
 };

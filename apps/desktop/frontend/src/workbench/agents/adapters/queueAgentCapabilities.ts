@@ -24,6 +24,7 @@ import {
   type QueueAgentCreateItemInput,
   type QueueAgentCreateItemsInput,
   type QueueAgentCreateItemsRequest,
+  type QueueAgentMaybePromise,
   type QueueAgentNormalizedCreateItem,
   type QueueAgentPromptPackInput,
   type QueueAgentPromptPackPreview,
@@ -34,6 +35,10 @@ import {
 type ValidationResult<T> =
   | { ok: true; value: T }
   | { ok: false; message: string };
+
+type QueueAgentActionHandlerResult =
+  | HobitAgentActionResult
+  | Promise<HobitAgentActionResult>;
 
 export function createQueueAgentActionHandlers(
   adapterApi: QueueAgentAdapterApi,
@@ -111,8 +116,8 @@ export function createDefaultQueueAgentAdapterApi(): QueueAgentAdapterApi {
 function handleTargetSingletonQueue(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
-): HobitAgentActionResult {
-  return actionResultFromAdapter({
+): QueueAgentActionHandlerResult {
+  return actionResultFromMaybeAdapter({
     adapterResult: adapterApi.getSingletonQueueTarget(),
     capabilityId: request.capabilityId,
     defaultMessage: "Queue target resolved",
@@ -124,7 +129,7 @@ function handleTargetSingletonQueue(
 function handleCreateItem(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
-): HobitAgentActionResult {
+): QueueAgentActionHandlerResult {
   const input = isRecord(request.input)
     ? { items: [request.input as QueueAgentCreateItemInput] }
     : null;
@@ -139,7 +144,7 @@ function handleCreateItem(
 function handleCreateItems(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
-): HobitAgentActionResult {
+): QueueAgentActionHandlerResult {
   if (!isRecord(request.input)) {
     return invalidInput(request, "Queue items input is required.");
   }
@@ -157,7 +162,7 @@ function runCreateItems(
   request: HobitAgentActionRequest,
   input: QueueAgentCreateItemsInput,
   invokeMessage: string,
-): HobitAgentActionResult {
+): QueueAgentActionHandlerResult {
   const validation = normalizeCreateItemsInput(input);
   if (!validation.ok) {
     return invalidInput(request, validation.message);
@@ -170,46 +175,50 @@ function runCreateItems(
     );
   }
 
-  const targetResult = adapterApi.getSingletonQueueTarget();
-  if (targetResult.status !== "succeeded" || !targetResult.output) {
-    return actionResultFromAdapter({
-      adapterResult: targetResult,
-      capabilityId: request.capabilityId,
-      defaultMessage: "Queue item creation unavailable",
-      dryRun: request.dryRun,
-      requestId: request.requestId,
-    });
-  }
+  return withAdapterResult(
+    adapterApi.getSingletonQueueTarget(),
+    (targetResult) => {
+      if (targetResult.status !== "succeeded" || !targetResult.output) {
+        return actionResultFromAdapter({
+          adapterResult: targetResult,
+          capabilityId: request.capabilityId,
+          defaultMessage: "Queue item creation unavailable",
+          dryRun: request.dryRun,
+          requestId: request.requestId,
+        });
+      }
 
-  const adapterRequest = {
-    ...validation.value,
-    target: targetResult.output,
-  };
-  const adapterResult = request.dryRun
-    ? adapterApi.previewCreateItems(adapterRequest)
-    : adapterApi.createItems(adapterRequest);
+      const adapterRequest = {
+        ...validation.value,
+        target: targetResult.output,
+      };
+      const adapterResult = request.dryRun
+        ? adapterApi.previewCreateItems(adapterRequest)
+        : adapterApi.createItems(adapterRequest);
 
-  return actionResultFromAdapter({
-    adapterResult,
-    capabilityId: request.capabilityId,
-    defaultMessage: request.dryRun
-      ? "Queue items preview prepared"
-      : invokeMessage,
-    dryRun: request.dryRun,
-    requestId: request.requestId,
-  });
+      return actionResultFromMaybeAdapter({
+        adapterResult,
+        capabilityId: request.capabilityId,
+        defaultMessage: request.dryRun
+          ? "Queue items preview prepared"
+          : invokeMessage,
+        dryRun: request.dryRun,
+        requestId: request.requestId,
+      });
+    },
+  );
 }
 
 function handlePreparePromptPackPreview(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
-): HobitAgentActionResult {
+): QueueAgentActionHandlerResult {
   const validation = normalizePromptPackInput(request.input);
   if (!validation.ok) {
     return invalidInput(request, validation.message);
   }
 
-  return actionResultFromAdapter({
+  return actionResultFromMaybeAdapter({
     adapterResult: adapterApi.previewPromptPack(validation.value),
     capabilityId: request.capabilityId,
     defaultMessage: "Queue items preview prepared",
@@ -221,153 +230,186 @@ function handlePreparePromptPackPreview(
 function handleImportPromptPack(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
-): HobitAgentActionResult {
+): QueueAgentActionHandlerResult {
   const validation = normalizePromptPackInput(request.input);
   if (!validation.ok) {
     return invalidInput(request, validation.message);
   }
 
-  const previewResult = adapterApi.previewPromptPack(validation.value);
-  if (request.dryRun || previewResult.status !== "succeeded" || !previewResult.output) {
-    return actionResultFromAdapter({
-      adapterResult: previewResult,
-      capabilityId: request.capabilityId,
-      defaultMessage: "Queue items preview prepared",
-      dryRun: request.dryRun,
-      requestId: request.requestId,
-    });
-  }
+  return withAdapterResult(
+    adapterApi.previewPromptPack(validation.value),
+    (previewResult) => {
+      if (
+        request.dryRun ||
+        previewResult.status !== "succeeded" ||
+        !previewResult.output
+      ) {
+        return actionResultFromAdapter({
+          adapterResult: previewResult,
+          capabilityId: request.capabilityId,
+          defaultMessage: "Queue items preview prepared",
+          dryRun: request.dryRun,
+          requestId: request.requestId,
+        });
+      }
 
-  if (!previewResult.output.importAvailable) {
-    return invalidInput(
-      request,
-      "Prompt-pack input has blocking validation errors.",
-    );
-  }
+      if (!previewResult.output.importAvailable) {
+        return invalidInput(
+          request,
+          "Prompt-pack input has blocking validation errors.",
+        );
+      }
 
-  const createValidation = createItemsFromPromptPackPreview(previewResult.output);
-  if (!createValidation.ok) {
-    return invalidInput(request, createValidation.message);
-  }
+      const createValidation = createItemsFromPromptPackPreview(
+        previewResult.output,
+      );
+      if (!createValidation.ok) {
+        return invalidInput(request, createValidation.message);
+      }
 
-  if (!adapterApi.supportsDependencyEdges && hasDependencyEdges(createValidation.value.items)) {
-    return failed(
-      request,
-      "Queue item creation unavailable: dependency edges are not supported by this Queue adapter.",
-    );
-  }
+      if (
+        !adapterApi.supportsDependencyEdges &&
+        hasDependencyEdges(createValidation.value.items)
+      ) {
+        return failed(
+          request,
+          "Queue item creation unavailable: dependency edges are not supported by this Queue adapter.",
+        );
+      }
 
-  const targetResult = adapterApi.getSingletonQueueTarget();
-  if (targetResult.status !== "succeeded" || !targetResult.output) {
-    return actionResultFromAdapter({
-      adapterResult: targetResult,
-      capabilityId: request.capabilityId,
-      defaultMessage: "Queue item creation unavailable",
-      dryRun: request.dryRun,
-      requestId: request.requestId,
-    });
-  }
+      return withAdapterResult(
+        adapterApi.getSingletonQueueTarget(),
+        (targetResult) => {
+          if (targetResult.status !== "succeeded" || !targetResult.output) {
+            return actionResultFromAdapter({
+              adapterResult: targetResult,
+              capabilityId: request.capabilityId,
+              defaultMessage: "Queue item creation unavailable",
+              dryRun: request.dryRun,
+              requestId: request.requestId,
+            });
+          }
 
-  return actionResultFromAdapter({
-    adapterResult: adapterApi.importPromptPack(validation.value, {
-      ...createValidation.value,
-      target: targetResult.output,
-    }),
-    capabilityId: request.capabilityId,
-    defaultMessage: "Queue items created",
-    dryRun: request.dryRun,
-    requestId: request.requestId,
-  });
+          return actionResultFromMaybeAdapter({
+            adapterResult: adapterApi.importPromptPack(validation.value, {
+              ...createValidation.value,
+              target: targetResult.output,
+            }),
+            capabilityId: request.capabilityId,
+            defaultMessage: "Queue items created",
+            dryRun: request.dryRun,
+            requestId: request.requestId,
+          });
+        },
+      );
+    },
+  );
 }
 
 function handleSelfTest(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
-): HobitAgentActionResult {
+): QueueAgentActionHandlerResult {
   const adapterResult =
     adapterApi.runQueueSelfTest?.() ?? runDefaultQueueSelfTest(adapterApi);
 
-  return actionResultFromAdapter({
-    adapterResult,
-    capabilityId: request.capabilityId,
-    defaultMessage:
-      adapterResult.output?.status === "blocked"
-        ? "Queue self-test blocked"
-        : "Queue self-test passed",
-    dryRun: request.dryRun,
-    requestId: request.requestId,
-  });
+  return withAdapterResult(adapterResult, (resolvedResult) =>
+    actionResultFromAdapter({
+      adapterResult: resolvedResult,
+      capabilityId: request.capabilityId,
+      defaultMessage:
+        resolvedResult.output?.status === "blocked"
+          ? "Queue self-test blocked"
+          : "Queue self-test passed",
+      dryRun: request.dryRun,
+      requestId: request.requestId,
+    }),
+  );
 }
 
 function runDefaultQueueSelfTest(
   adapterApi: QueueAgentAdapterApi,
-): QueueAgentAdapterResult<QueueAgentSelfTestReport> {
+): QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentSelfTestReport>> {
   const cases: QueueAgentSelfTestCaseResult[] = [];
-  const target = adapterApi.getSingletonQueueTarget();
-  cases.push({
-    caseId: "queue:singleton-target",
-    evidence: [target.message],
-    message:
-      target.status === "succeeded"
-        ? "Singleton Queue target is discoverable."
-        : "Singleton Queue target is unavailable.",
-    status: target.status === "succeeded" ? "passed" : "blocked",
-  });
+  return withAdapterResult(
+    adapterApi.getSingletonQueueTarget(),
+    (target) => {
+      cases.push({
+        caseId: "queue:singleton-target",
+        evidence: [target.message],
+        message:
+          target.status === "succeeded"
+            ? "Singleton Queue target is discoverable."
+            : "Singleton Queue target is unavailable.",
+        status: target.status === "succeeded" ? "passed" : "blocked",
+      });
 
-  const previewInput = normalizeCreateItemsInput({
-    items: [{ id: "self-test-item", prompt: "Self-test prompt.", title: "Self-test item" }],
-  });
-  const preview =
-    previewInput.ok && target.output
-      ? adapterApi.previewCreateItems({
-          ...previewInput.value,
-          target: target.output,
-        })
-      : null;
-  cases.push({
-    caseId: "queue:create-items-dry-run",
-    evidence: [
-      preview?.message ?? "Create-items preview input could not be prepared.",
-    ],
-    message:
-      preview?.status === "succeeded"
-        ? "Create-items dry-run preview works."
-        : "Create-items dry-run preview is blocked.",
-    status: preview?.status === "succeeded" ? "passed" : "blocked",
-  });
+      const previewInput = normalizeCreateItemsInput({
+        items: [
+          {
+            id: "self-test-item",
+            prompt: "Self-test prompt.",
+            title: "Self-test item",
+          },
+        ],
+      });
+      const preview =
+        previewInput.ok && target.output
+          ? adapterApi.previewCreateItems({
+              ...previewInput.value,
+              target: target.output,
+            })
+          : null;
 
-  cases.push({
-    caseId: "queue:no-hidden-side-effects",
-    evidence: [
-      "No Codex, shell, Terminal, Git, rollback, worker, Autorun, or duplicate Queue view side effects are represented.",
-    ],
-    message: "Hidden side-effect assertions are false.",
-    status: "passed",
-  });
+      return withNullableAdapterResult(preview, (resolvedPreview) => {
+        cases.push({
+          caseId: "queue:create-items-dry-run",
+          evidence: [
+            resolvedPreview?.message ??
+              "Create-items preview input could not be prepared.",
+          ],
+          message:
+            resolvedPreview?.status === "succeeded"
+              ? "Create-items dry-run preview works."
+              : "Create-items dry-run preview is blocked.",
+          status: resolvedPreview?.status === "succeeded" ? "passed" : "blocked",
+        });
 
-  cases.push({
-    caseId: "queue:safe-mutation-sandbox",
-    evidence: [
-      adapterApi.supportsSafeMutationSandbox
-        ? "Safe adapter mutation sandbox is available."
-        : "No safe mutation sandbox is available; mutation self-test is skipped.",
-    ],
-    message: adapterApi.supportsSafeMutationSandbox
-      ? "Safe mutation sandbox is available."
-      : "Mutation self-test skipped because no safe sandbox is available.",
-    status: adapterApi.supportsSafeMutationSandbox ? "passed" : "skipped",
-  });
+        cases.push({
+          caseId: "queue:no-hidden-side-effects",
+          evidence: [
+            "No Codex, shell, Terminal, Git, rollback, worker, Autorun, or duplicate Queue view side effects are represented.",
+          ],
+          message: "Hidden side-effect assertions are false.",
+          status: "passed",
+        });
 
-  const report = createQueueSelfTestReport(cases);
-  return {
-    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.selfTest],
-    message:
-      report.status === "blocked"
-        ? "Queue self-test blocked"
-        : "Queue self-test passed",
-    output: report,
-    status: report.status === "blocked" ? "failed" : "succeeded",
-  };
+        cases.push({
+          caseId: "queue:safe-mutation-sandbox",
+          evidence: [
+            adapterApi.supportsSafeMutationSandbox
+              ? "Safe adapter mutation sandbox is available."
+              : "No safe mutation sandbox is available; mutation self-test is skipped.",
+          ],
+          message: adapterApi.supportsSafeMutationSandbox
+            ? "Safe mutation sandbox is available."
+            : "Mutation self-test skipped because no safe sandbox is available.",
+          status: adapterApi.supportsSafeMutationSandbox ? "passed" : "skipped",
+        });
+
+        const report = createQueueSelfTestReport(cases);
+        return {
+          activityEventNames: [...QUEUE_ACTIVITY_EVENTS.selfTest],
+          message:
+            report.status === "blocked"
+              ? "Queue self-test blocked"
+              : "Queue self-test passed",
+          output: report,
+          status: report.status === "blocked" ? "failed" : "succeeded",
+        };
+      });
+    },
+  );
 }
 
 function previewPromptPack(
@@ -643,6 +685,52 @@ function actionResultFromAdapter<TOutput>({
   });
 }
 
+function actionResultFromMaybeAdapter<TOutput>({
+  adapterResult,
+  capabilityId,
+  defaultMessage,
+  dryRun,
+  requestId,
+}: {
+  adapterResult: QueueAgentMaybePromise<QueueAgentAdapterResult<TOutput>>;
+  capabilityId: string;
+  defaultMessage: string;
+  dryRun: boolean;
+  requestId: string;
+}): QueueAgentActionHandlerResult {
+  return withAdapterResult(adapterResult, (resolvedResult) =>
+    actionResultFromAdapter({
+      adapterResult: resolvedResult,
+      capabilityId,
+      defaultMessage,
+      dryRun,
+      requestId,
+    }),
+  );
+}
+
+function withAdapterResult<TValue, TResult>(
+  value: QueueAgentMaybePromise<TValue>,
+  mapper: (resolvedValue: TValue) => TResult,
+): TResult | Promise<Awaited<TResult>> {
+  return isPromiseLike(value)
+    ? (value.then((resolvedValue) => mapper(resolvedValue)) as Promise<
+        Awaited<TResult>
+      >)
+    : mapper(value);
+}
+
+function withNullableAdapterResult<TValue, TResult>(
+  value: QueueAgentMaybePromise<TValue> | null,
+  mapper: (resolvedValue: TValue | null) => TResult,
+): TResult | Promise<Awaited<TResult>> {
+  if (!value) {
+    return mapper(null);
+  }
+
+  return withAdapterResult(value, mapper);
+}
+
 function invalidInput(
   request: HobitAgentActionRequest,
   message: string,
@@ -681,4 +769,13 @@ function hasDependencyEdges(items: readonly QueueAgentNormalizedCreateItem[]) {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isPromiseLike<T>(value: T | Promise<T>): value is Promise<T> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof value.then === "function"
+  );
 }

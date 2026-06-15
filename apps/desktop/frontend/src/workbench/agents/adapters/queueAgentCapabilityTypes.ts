@@ -174,22 +174,24 @@ export type QueueAgentAdapterResult<TOutput> = {
   status: QueueAgentCapabilityStatus;
 };
 
+export type QueueAgentMaybePromise<T> = T | Promise<T>;
+
 export type QueueAgentAdapterApi = {
-  getSingletonQueueTarget: () => QueueAgentAdapterResult<QueueAgentSingletonTarget>;
+  getSingletonQueueTarget: () => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentSingletonTarget>>;
   previewCreateItems: (
     request: QueueAgentCreateItemsRequest,
-  ) => QueueAgentAdapterResult<QueueAgentCreateItemsPreview>;
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentCreateItemsPreview>>;
   createItems: (
     request: QueueAgentCreateItemsRequest,
-  ) => QueueAgentAdapterResult<QueueAgentCreateItemsResult>;
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentCreateItemsResult>>;
   previewPromptPack: (
     input: QueueAgentPromptPackInput,
-  ) => QueueAgentAdapterResult<QueueAgentPromptPackPreview>;
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentPromptPackPreview>>;
   importPromptPack: (
     input: QueueAgentPromptPackInput,
     request: QueueAgentCreateItemsRequest,
-  ) => QueueAgentAdapterResult<QueueAgentPromptPackImportResult>;
-  runQueueSelfTest?: () => QueueAgentAdapterResult<QueueAgentSelfTestReport>;
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentPromptPackImportResult>>;
+  runQueueSelfTest?: () => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentSelfTestReport>>;
   supportsDependencyEdges: boolean;
   supportsSafeMutationSandbox?: boolean;
 };

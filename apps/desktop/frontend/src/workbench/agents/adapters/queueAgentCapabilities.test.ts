@@ -25,6 +25,9 @@ import {
   createQueueAgentActionHandlers,
 } from "./queueAgentCapabilities";
 import {
+  createWorkspaceAgentQueueBridgeAdapterApi,
+} from "./workspaceAgentQueueBridgeAdapter";
+import {
   QUEUE_AGENT_CAPABILITY_IDS,
   type QueueAgentAdapterApi,
   type QueueAgentCreateItemsRequest,
@@ -32,6 +35,12 @@ import {
   type QueueAgentPromptPackInput,
   type QueueAgentSelfTestReport,
 } from "./queueAgentCapabilityTypes";
+import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
+import type {
+  QueueWidgetActionResult,
+  QueueWidgetItemSnapshot,
+  QueueWidgetSnapshot,
+} from "../../queue/agentQueueWidgetApiTypes";
 
 describe("queueAgentCapabilities discovery and broker separation", () => {
   it("exports Queue handlers and keeps capabilities present in the manifest", () => {
@@ -221,6 +230,73 @@ describe("queueAgentCapabilities invoke", () => {
     expect(adapter.lastCreateRequest?.sourceMetadata).toEqual({ packId: "pack-1" });
   });
 
+  it("uses the injected Workspace Agent Queue bridge for createItems", async () => {
+    const createItem = vi.fn(
+      async (input: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        queueBridgeItemResult({
+          dependencies: input.dependencies ?? [],
+          id: `created-${input.title}`,
+          prompt: input.prompt,
+          status: input.status,
+          title: input.title,
+        }),
+    );
+    const runAutonomousQueue = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createItem, runAutonomousQueue }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+    const result = await broker.invokeAsync<{
+      createdItems: unknown[];
+      wouldAutoRunWorkers: boolean;
+      wouldCreateDuplicateQueueView: boolean;
+      wouldTargetSingletonQueue: boolean;
+    }>(
+      request({
+        capabilityId: "queue.createItems",
+        input: {
+          items: [
+            {
+              dependencies: ["first"],
+              id: "second",
+              prompt: "Second prompt.",
+              status: "queued",
+              title: "Second",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(createItem).toHaveBeenCalledTimes(1);
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dependencies: ["first"],
+        prompt: "Second prompt.",
+        status: "queued",
+        title: "Second",
+      }),
+    );
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      wouldAutoRunWorkers: false,
+      wouldCreateDuplicateQueueView: false,
+      wouldTargetSingletonQueue: true,
+    });
+    expect(result.result.output?.createdItems).toHaveLength(1);
+  });
+
   it("returns failed when dependencies cannot be represented by the injected adapter", () => {
     const result = createQueueBroker(
       fakeQueueAdapter({ supportsDependencyEdges: false }),
@@ -339,7 +415,7 @@ describe("queueAgentCapabilities self-test and architecture safety", () => {
     expect(result.result.output?.productSummary).toBe("Queue self-test passed");
   });
 
-  it("does not introduce regex routing or Workspace Agent UI broker wiring in the adapter", () => {
+  it("does not introduce regex routing or direct Workspace Agent broker construction in the adapter", () => {
     const source = frontendSource(
       "workbench/agents/adapters/queueAgentCapabilities.ts",
     );
@@ -478,6 +554,53 @@ function promptPackSourceText() {
       },
     ],
   });
+}
+
+function queueBridge(
+  overrides: Partial<WorkspaceAgentQueueBridge> = {},
+): WorkspaceAgentQueueBridge {
+  return {
+    createItem: vi.fn(async () => queueBridgeItemResult()),
+    getSnapshot: vi.fn(async () => queueBridgeSnapshotResult()),
+    updateItem: vi.fn(async () => queueBridgeItemResult()),
+    ...overrides,
+  };
+}
+
+function queueBridgeItemResult(
+  overrides: Partial<QueueWidgetItemSnapshot> = {},
+): QueueWidgetActionResult<QueueWidgetItemSnapshot> {
+  return {
+    action: "queue.createItem",
+    events: [],
+    item: {
+      dependencies: [],
+      id: "queue-created",
+      prompt: "Prompt",
+      status: "queued",
+      title: "Queue item",
+      ...overrides,
+    } as QueueWidgetItemSnapshot,
+    message: "Queue item created. No task execution started.",
+    ok: true,
+    safetyClass: "safe_create_update",
+  };
+}
+
+function queueBridgeSnapshotResult(): QueueWidgetActionResult<QueueWidgetSnapshot> {
+  return {
+    action: "queue.getSnapshot",
+    events: [],
+    message: "Queue snapshot returned.",
+    ok: true,
+    safetyClass: "safe_read",
+    snapshot: {
+      items: [],
+      queueId: "workspace:workspace-1:agent-queue",
+      widgetType: "agent-queue",
+      workspaceId: "workspace-1",
+    } as unknown as QueueWidgetSnapshot,
+  };
 }
 
 function frontendSource(path: string) {

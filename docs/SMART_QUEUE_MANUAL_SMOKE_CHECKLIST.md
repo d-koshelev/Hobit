@@ -18,7 +18,8 @@ implemented in-app agent runtime APIs for status, bounded history, messaging,
 capabilities, and peer self-test.
 
 Queue capability adapter smoke can now include the frontend Action Broker
-handler boundary with an injected Queue adapter API:
+handler boundary with an injected Queue adapter API and Workspace Agent
+structured action-request path:
 
 - `queue.targetSingletonQueue` resolves the singleton Queue target.
 - `queue.createItems` dry-run returns a preview with no task creation.
@@ -26,14 +27,13 @@ handler boundary with an injected Queue adapter API:
   mutation.
 - `queue.selfTest` reports singleton/dry-run/no-hidden-side-effect evidence.
 
-Full Workspace Agent UI broker execution remains later unless a future block
-explicitly implements it.
-
 Workspace Agent Codex Direct Work now receives Hobit capability context before
 execution. The context tells the agent it is inside Hobit, operating from the
 Workspace Agent surface, should use typed Hobit capabilities for app/product
 actions, and should treat Codex/shell as restricted execution capabilities.
-This does not wire full broker execution or automatic Queue mutation.
+When the agent emits a valid `hobit.action.request` envelope, the frontend
+Action Broker validates policy/schema/side effects and invokes Queue adapter
+handlers. Natural-language Queue phrases are not regex-routed into actions.
 
 ## Setup
 
@@ -123,15 +123,18 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: Queue item creation is represented by Queue capabilities such
       as `queue.createItem` / `queue.createItems` in the capability manifest
       and broker handlers supplied by `createQueueAgentActionHandlers`.
-      Workspace Agent UI broker execution is not expected in this checklist
-      until a later explicit wiring block.
+    - Expected: Workspace Agent Queue action smoke uses an agent-emitted
+      structured envelope such as
+      `{"type":"hobit.action.request","capabilityId":"queue.createItems","dryRun":false,"input":{"items":[...]}}`.
     - Expected: Typing phrases such as `add example queue items to queue`,
       `create queue items`, or `add tasks to queue` must not be treated as
       `user text -> regex -> Queue action`.
-    - Expected: No Codex run, shell command, Terminal action, Queue Autorun,
-      worker start, Git action, or duplicate Queue view is created as a hidden
-      product-action workaround. Codex/shell remain restricted capabilities for
-      explicit workspace/code execution requests only.
+    - Expected: Queue item creation targets the singleton Queue; no duplicate
+      Queue view is created; no Queue Autorun, worker start, shell command,
+      extra Codex run, Terminal action, Git action, or rollback execution is
+      created as a hidden product-action workaround. Codex/shell remain
+      restricted capabilities for explicit workspace/code execution requests
+      only.
 
 17. Run Queue adapter dry-run/self-test coverage.
     - Expected: `queue.createItems` dry-run reports `wouldCreateItems`,
@@ -151,9 +154,11 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: the prompt sent to Codex includes Hobit capability context,
       compact Queue/agent capability names, and policy rules before the user
       request.
-    - Expected: no broker action request is parsed or executed, no Queue item
-      is created, no duplicate Queue view is created, and no worker starts
-      merely because context was injected.
+    - Expected: no Queue item is created, no duplicate Queue view is created,
+      and no worker starts merely because context was injected or because the
+      user prompt contains Queue words.
+    - Expected: Queue item creation happens only when the agent emits a valid
+      structured Hobit action request and the broker allows it.
 
 ## Failure Capture
 

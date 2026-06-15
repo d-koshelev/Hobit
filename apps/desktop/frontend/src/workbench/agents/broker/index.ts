@@ -3,6 +3,7 @@ export type {
   HobitAgentActionHandler,
   HobitAgentActionHandlerContext,
   HobitAgentActionHandlerMap,
+  HobitAgentActionHandlerResult,
   HobitAgentActionRequest,
   HobitAgentActionRequestValidation,
   HobitAgentActionResult,
@@ -37,3 +38,12 @@ export {
 export type { HobitAgentTestActionHandlerInput } from "./hobitAgentTestActionHandlers";
 export { createHobitAgentTestActionHandlers } from "./hobitAgentTestActionHandlers";
 export type { HobitAgentPolicyDecision } from "../capabilities/policy";
+export type {
+  HobitAgentActionRequestEnvelope,
+  HobitAgentActionRequestEnvelopeReadResult,
+} from "./hobitAgentActionRequestEnvelope";
+export {
+  createHobitAgentActionRequestFromEnvelope,
+  HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+  readHobitAgentActionRequestEnvelope,
+} from "./hobitAgentActionRequestEnvelope";

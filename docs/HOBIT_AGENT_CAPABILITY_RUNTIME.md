@@ -6,7 +6,7 @@ Define the target runtime contract for in-app Hobit agents. This is a
 frontend architecture foundation and contract. It does not implement backend
 runtime, storage schema, Tauri/IPC commands, scheduler behavior, workers,
 Terminal launch, Git mutation, Finder changes, or full Workspace Agent
-behavior.
+behavior beyond the current frontend structured action-request boundary.
 
 ## Agent Role
 
@@ -67,8 +67,10 @@ restricted capabilities for explicit workspace/code execution requests only.
 - Workspace Agent Capability Context Injection: the active Workspace Agent
   Codex Direct Work prompt path now attaches Hobit app context, Workspace
   Agent role instructions, a compact capability manifest, and policy rules
-  before Codex execution. This is context injection only. It does not parse or
-  execute broker action requests.
+  before Codex execution. When the agent returns a valid
+  `hobit.action.request` envelope, the frontend parses that structured machine
+  request, invokes the Action Broker, and renders a compact product-facing
+  result. Normal assistant prose remains prose.
 
 ## Module Ownership
 
@@ -96,7 +98,8 @@ land in the owned module folder that matches its responsibility:
   contracts yet.
 - `adapters/`: typed app-module adapters. The Queue Capability Adapter MVP
   lives here as the first real app-module adapter behind the Action Broker.
-  Workspace Agent broker execution and additional app adapters remain later.
+  Workspace Agent broker execution is wired for structured Queue action
+  requests; additional app adapters remain later.
 
 Workspace Agent UI components must not become the owner of agent runtime
 logic. The UI may render context, proposal, and review surfaces, but typed
@@ -115,7 +118,28 @@ The frontend Action Broker MVP lives under
 `apps/desktop/frontend/src/workbench/agents/broker/`. It is a pure model layer
 and does not add UI, backend/Tauri/IPC commands, storage/schema changes, Queue
 runtime behavior, Terminal launch, Git mutation, rollback execution, scheduler
-behavior, worker runtime, or Workspace Agent broker execution.
+behavior, worker runtime, or hidden Workspace Agent execution.
+
+The Workspace Agent structured action-request protocol is implemented in the
+frontend direct-run result path. Agents may emit a minimal JSON envelope:
+
+```json
+{
+  "type": "hobit.action.request",
+  "capabilityId": "queue.createItems",
+  "dryRun": false,
+  "input": {},
+  "reason": "optional",
+  "requestId": "optional",
+  "confirmationToken": "optional"
+}
+```
+
+Only this structured envelope is parsed as an app action request. User prompt
+text and ordinary assistant prose are not classified or regex-routed into
+product actions. Invalid envelopes produce a product-facing invalid action
+request result. Unknown capabilities still go through the broker and return
+structured unavailable results.
 
 Agents are expected to produce typed capability action requests with request
 id, agent id, agent role, capability id, input, dry-run state, optional
@@ -194,8 +218,11 @@ view, and no hidden side effects. If a production adapter has no safe mutation
 sandbox, mutation checks are skipped or blocked with a product-facing reason
 rather than performing real Queue mutation.
 
-Workspace Agent UI broker execution is still later. The current Workspace
-Agent surface is not wired to invoke these broker handlers.
+The current Workspace Agent direct-run result path can invoke these Queue
+handlers through the Action Broker when the agent emits a valid structured
+Hobit action request envelope. The Queue bridge adapter targets the singleton
+Queue, does not create duplicate Queue views, and does not start workers,
+Codex, shell, Terminal, Git, or rollback behavior.
 
 ## Widget Agent Contracts
 
@@ -224,9 +251,9 @@ no rollback execution, and no hidden worker start.
 The Agent API Smoke Runner is the first smoke layer built on this foundation.
 It asks one agent to check another agent's implemented runtime API surface
 using safe model checks for status, history, capabilities, messaging, and peer
-self-test. It does not test Queue app behavior. Queue app capability smoke
-requires a later real Queue adapter behind the Action Broker and remains out of
-scope for the current runner.
+self-test. It does not test Queue app behavior. Queue app capability smoke is
+covered separately by the Queue adapter and Workspace Agent structured
+action-request tests.
 
 The initial Widget Agent Contract registry lives under
 `apps/desktop/frontend/src/workbench/agents/widgets/`. Initial active examples

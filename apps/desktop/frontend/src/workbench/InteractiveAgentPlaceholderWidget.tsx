@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { WidgetFrame } from "../design-system/WidgetFrame";
 import { catalogActionProposalsFromText } from "./coordinatorCatalogActionDrafts";
 import type { CoordinatorActionProposal } from "./coordinatorActionProposalRegistry";
@@ -66,6 +66,7 @@ import { useWorkspaceAgentDirectWorkController } from "./useWorkspaceAgentDirect
 import { useWorkspaceAgentQueueCardRequests } from "./useWorkspaceAgentQueueCardRequests";
 import { useWorkspaceAgentPromptPackImport } from "./useWorkspaceAgentPromptPackImport";
 import { explicitQueueCommandWorkspaceRoot } from "./workspaceAgentExplicitQueueRoot";
+import { createWorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
 
 type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
 
@@ -136,11 +137,19 @@ export function InteractiveAgentPlaceholderWidget({
   const currentAgentActivityEvents = (agentActivityEvents ?? []).filter(
     (event) => event.sourceWidgetInstanceId === instance.id,
   );
+  const invokeHobitAgentActionRequest = useMemo(
+    () =>
+      createWorkspaceAgentHobitActionInvoker({
+        workspaceAgentQueueBridge,
+      }),
+    [workspaceAgentQueueBridge],
+  );
   const directWork = useWorkspaceAgentDirectWorkController({
     currentWorkspaceRoot,
     draft,
     instanceId: instance.id,
     isProviderPending,
+    onAppendAssistantActionTranscript: appendCoordinatorBrokerActionTranscript,
     onAppendAssistantTranscript: appendCoordinatorDirectWorkTranscript,
     onAppendOperatorTranscript: (body) => {
       setMessages((currentMessages) => [
@@ -154,6 +163,7 @@ export function InteractiveAgentPlaceholderWidget({
     onFocusComposer: () => {
       window.setTimeout(() => textareaRef.current?.focus(), 0);
     },
+    onInvokeHobitAgentActionRequest: invokeHobitAgentActionRequest,
     onPublishAgentActivityEvents,
     onRemoveVisibleAttachedContext: removeVisibleAttachedContext,
     onSearchKnowledgeDocuments,
@@ -552,6 +562,19 @@ export function InteractiveAgentPlaceholderWidget({
       status,
       useDirectBody,
     });
+  }
+
+  function appendCoordinatorBrokerActionTranscript(
+    body: string,
+    runMetadata?: WorkspaceAgentRunMetadata,
+  ) {
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      {
+        ...createLocalMessage("assistant", body),
+        runMetadata,
+      },
+    ]);
   }
 
   function useSuggestedPrompt(prompt: string) {

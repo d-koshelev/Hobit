@@ -9,7 +9,18 @@ import {
 } from "../renderMemoryGuards";
 import type { DirectWorkSandbox, DirectWorkStreamEvent } from "../workspace/types";
 import { createWorkspaceAgentPromptWithCapabilityContext } from "./agents/context";
+import {
+  createHobitAgentActionRequestFromEnvelope,
+  readHobitAgentActionRequestEnvelope,
+  type HobitAgentActionRequest,
+  type HobitAgentActionResult,
+} from "./agents/broker";
 import { agentActivityEventFromDirectWorkStreamEvent } from "./agentActivityModel";
+import type {
+  AgentActivityEvent,
+  AgentActivitySeverity,
+  AgentActivityStatus,
+} from "./agentActivityModel";
 import {
   CODEX_THREAD_NOT_AVAILABLE_MESSAGE,
   DIRECT_WORK_DIRECTORY_ACCESS_DENIED_WARNING,
@@ -50,6 +61,12 @@ import {
   type WorkspaceAgentRunMetadata,
   type WorkspaceAgentRunTokenUsage,
 } from "./workspaceAgentRunMetadata";
+import {
+  workspaceAgentHobitActionActivityTitle,
+  workspaceAgentHobitActionResultMessage,
+  workspaceAgentInvalidActionRequestMessage,
+  type WorkspaceAgentHobitActionInvoker,
+} from "./workspaceAgentBrokerActionRuntime";
 import type { WidgetRenderProps } from "./types";
 
 type UseWorkspaceAgentDirectWorkControllerOptions = {
@@ -63,11 +80,16 @@ type UseWorkspaceAgentDirectWorkControllerOptions = {
     useDirectBody?: boolean,
     runMetadata?: WorkspaceAgentRunMetadata,
   ) => void;
+  onAppendAssistantActionTranscript?: (
+    body: string,
+    runMetadata?: WorkspaceAgentRunMetadata,
+  ) => void;
   onAppendOperatorTranscript: (body: string) => void;
   onCancelCodexDirectWorkRun?: WidgetRenderProps["onCancelCodexDirectWorkRun"];
   onClearDraft: () => void;
   onClearVisibleAttachedContext: () => void;
   onFocusComposer: () => void;
+  onInvokeHobitAgentActionRequest?: WorkspaceAgentHobitActionInvoker;
   onPublishAgentActivityEvents?: WidgetRenderProps["onPublishAgentActivityEvents"];
   onRemoveVisibleAttachedContext: () => void;
   onSearchKnowledgeDocuments?: WidgetRenderProps["onSearchKnowledgeDocuments"];
@@ -85,11 +107,13 @@ export function useWorkspaceAgentDirectWorkController({
   instanceId,
   isProviderPending,
   onAppendAssistantTranscript,
+  onAppendAssistantActionTranscript,
   onAppendOperatorTranscript,
   onCancelCodexDirectWorkRun,
   onClearDraft,
   onClearVisibleAttachedContext,
   onFocusComposer,
+  onInvokeHobitAgentActionRequest,
   onPublishAgentActivityEvents,
   onRemoveVisibleAttachedContext,
   onStartCodexDirectWorkStream,
@@ -581,6 +605,20 @@ export function useWorkspaceAgentDirectWorkController({
     };
     setDirectWorkRunMetadata(runMetadata);
 
+    if (
+      handleFinalHobitActionRequest({
+        finalAgentMessage,
+        finalResult,
+        finalStatus,
+        runId: event.runId,
+        runMetadata,
+      })
+    ) {
+      directWorkRunScopeRef.current = null;
+      productActionLoopGuardRef.current = null;
+      return;
+    }
+
     onAppendAssistantTranscript(
       finalStatus,
       finalResult,
@@ -589,6 +627,235 @@ export function useWorkspaceAgentDirectWorkController({
     );
     directWorkRunScopeRef.current = null;
     productActionLoopGuardRef.current = null;
+  }
+
+  function handleFinalHobitActionRequest({
+    finalAgentMessage,
+    finalResult,
+    finalStatus,
+    runId,
+    runMetadata,
+  }: {
+    finalAgentMessage: string | null;
+    finalResult: string;
+    finalStatus: CoordinatorDirectWorkStatus;
+    runId: string;
+    runMetadata: WorkspaceAgentRunMetadata;
+  }) {
+    if (finalStatus !== "completed") {
+      return false;
+    }
+
+    const envelopeRead = readHobitAgentActionRequestEnvelope(
+      finalAgentMessage ?? finalResult,
+    );
+
+    if (envelopeRead.status === "none") {
+      return false;
+    }
+
+    if (envelopeRead.status === "invalid") {
+      const message = workspaceAgentInvalidActionRequestMessage(
+        envelopeRead.reasons,
+      );
+      recordHobitActionResultTranscript({
+        activityRunId: runId,
+        message,
+        runMetadata,
+        severity: "error",
+        status: "failed",
+        title: "Invalid Hobit action request",
+      });
+      return true;
+    }
+
+    const actionRequest = createHobitAgentActionRequestFromEnvelope({
+      agentId: `workspace-agent:${instanceId}`,
+      createdAt: new Date().toISOString(),
+      envelope: envelopeRead.envelope,
+    });
+    publishHobitActionActivityEvent({
+      runId: actionRequest.requestId,
+      severity: "info",
+      status: "running",
+      summary: actionRequest.reason ?? actionRequest.capabilityId,
+      title: "Hobit action requested",
+    });
+    setDirectWorkFinalResult("Hobit action requested.");
+    appendDirectWorkLog("Hobit action requested.", "local");
+
+    if (!onInvokeHobitAgentActionRequest) {
+      recordHobitActionResultTranscript({
+        activityRunId: actionRequest.requestId,
+        message:
+          "Action unavailable. Workspace Agent Action Broker is unavailable.",
+        runMetadata,
+        severity: "warning",
+        status: "failed",
+        title: "Action unavailable",
+      });
+      return true;
+    }
+
+    void invokeWorkspaceAgentHobitActionRequest(actionRequest, runMetadata);
+    return true;
+  }
+
+  async function invokeWorkspaceAgentHobitActionRequest(
+    request: HobitAgentActionRequest,
+    runMetadata: WorkspaceAgentRunMetadata,
+  ) {
+    try {
+      const brokerResult = await onInvokeHobitAgentActionRequest?.(request);
+      if (!brokerResult || !isMountedRef.current) {
+        return;
+      }
+
+      const message = workspaceAgentHobitActionResultMessage(
+        brokerResult.result,
+      );
+      recordHobitActionResultTranscript({
+        activityRunId: request.requestId,
+        message,
+        result: brokerResult.result,
+        runMetadata,
+      });
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      const message = errorToMessage(error, "Hobit action failed.");
+      recordHobitActionResultTranscript({
+        activityRunId: request.requestId,
+        message,
+        runMetadata,
+        severity: "error",
+        status: "failed",
+        title: "Hobit action failed",
+      });
+    }
+  }
+
+  function recordHobitActionResultTranscript({
+    activityRunId,
+    message,
+    result,
+    runMetadata,
+    severity,
+    status,
+    title,
+  }: {
+    activityRunId: string;
+    message: string;
+    result?: HobitAgentActionResult;
+    runMetadata: WorkspaceAgentRunMetadata;
+    severity?: AgentActivitySeverity;
+    status?: AgentActivityStatus;
+    title?: string;
+  }) {
+    setDirectWorkFinalResult(message);
+    appendDirectWorkLog(message, "local");
+    publishHobitActionActivityEvent({
+      runId: activityRunId,
+      severity: severity ?? activitySeverityForHobitActionResult(result),
+      status: status ?? activityStatusForHobitActionResult(result),
+      summary: message,
+      title:
+        title ??
+        workspaceAgentHobitActionActivityTitle(
+          result?.status ?? "failed",
+          result?.capabilityId,
+          result?.dryRun ?? false,
+        ),
+    });
+    appendAssistantActionTranscript(message, runMetadata);
+  }
+
+  function appendAssistantActionTranscript(
+    body: string,
+    runMetadata?: WorkspaceAgentRunMetadata,
+  ) {
+    if (onAppendAssistantActionTranscript) {
+      onAppendAssistantActionTranscript(body, runMetadata);
+      return;
+    }
+
+    onAppendAssistantTranscript("completed", body, true, runMetadata);
+  }
+
+  function publishHobitActionActivityEvent({
+    runId,
+    severity,
+    status,
+    summary,
+    title,
+  }: {
+    runId: string;
+    severity: AgentActivitySeverity;
+    status: AgentActivityStatus;
+    summary?: string;
+    title: string;
+  }) {
+    const event: AgentActivityEvent = {
+      id: `${workspaceScopeId}:${instanceId}:hobit-action:${runId}:${status}:${title}`,
+      runId,
+      severity,
+      sourceKind: "workspace-agent",
+      sourceLabel: "Workspace Agent",
+      sourceWidgetInstanceId: instanceId,
+      status,
+      summary,
+      timestamp: Date.now(),
+      timestampLabel: "0s",
+      title,
+      workspaceId: workspaceScopeId,
+    };
+
+    onPublishAgentActivityEvents?.([event]);
+  }
+
+  function activityStatusForHobitActionResult(
+    result: HobitAgentActionResult | undefined,
+  ): AgentActivityStatus {
+    if (!result) {
+      return "failed";
+    }
+
+    if (result.status === "succeeded") {
+      return "completed";
+    }
+
+    if (
+      result.status === "needs_confirmation" ||
+      result.status === "dry_run_required"
+    ) {
+      return "pending";
+    }
+
+    return "failed";
+  }
+
+  function activitySeverityForHobitActionResult(
+    result: HobitAgentActionResult | undefined,
+  ): AgentActivitySeverity {
+    if (!result) {
+      return "error";
+    }
+
+    if (result.status === "succeeded") {
+      return "success";
+    }
+
+    if (
+      result.status === "needs_confirmation" ||
+      result.status === "dry_run_required" ||
+      result.status === "unavailable"
+    ) {
+      return "warning";
+    }
+
+    return "error";
   }
 
   function appendDirectWorkLog(

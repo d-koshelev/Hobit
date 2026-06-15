@@ -267,12 +267,12 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain(
       "Codex and shell are restricted capabilities",
     );
+    expect(instructionBlock).toContain('"type":"hobit.action.request"');
     expect(instructionBlock.length).toBeLessThan(5000);
     expect(instructionBlock).not.toContain('"capabilities"');
-    expect(instructionBlock).not.toContain("{");
   });
 
-  it("builds the Workspace Agent capability runtime seam without broker execution", () => {
+  it("builds the Workspace Agent capability runtime seam with structured broker action requests", () => {
     const seam = buildWorkspaceAgentCapabilityRuntimeSeam({
       currentPrompt: "Create Queue items from this visible prompt.",
       widgetInstanceId: "agent-1",
@@ -298,8 +298,8 @@ describe("hobitAgentCapabilityRuntime context", () => {
       widgetInstanceId: "agent-1",
     });
     expect(seam.brokerBoundary).toEqual({
-      expectedRequest: "typed_hobit_capability_request",
-      status: "not_implemented",
+      expectedRequest: "structured_hobit_action_request",
+      status: "implemented",
     });
     expect(seam.instructionBlock).toContain("You are inside Hobit");
     expect(seam.instructionBlock).toContain("queue.createItems");
@@ -342,7 +342,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain("Codex and shell are restricted capabilities");
   });
 
-  it("wraps Direct Work prompts with Hobit capability context without executing broker actions", () => {
+  it("wraps Direct Work prompts with Hobit capability context and action request instructions", () => {
     const prompt = createWorkspaceAgentPromptWithCapabilityContext({
       currentPrompt: "Refactor the Workspace Agent prompt path.",
       widgetInstanceId: "agent-1",
@@ -353,11 +353,13 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain("[Hobit capability context]");
     expect(prompt).toContain("You are inside Hobit");
     expect(prompt).toContain("Use typed Hobit app capabilities before Codex or shell.");
+    expect(prompt).toContain('"type":"hobit.action.request"');
+    expect(prompt).toContain("When a Hobit app capability is needed");
     expect(prompt).toContain("Queue item creation is a Queue capability.");
     expect(prompt).toContain("Do not inspect source files for product actions.");
+    expect(prompt).toContain("Do not execute app actions through shell, Codex");
     expect(prompt).toContain("codex.runTask (restricted)");
     expect(prompt).toContain("workspace.shell.runCommand (restricted)");
-    expect(prompt).toContain("broker action parsing/execution is not wired");
     expect(prompt).toContain("User request:\nRefactor the Workspace Agent prompt path.");
     expect(prompt.length).toBeLessThan(5500);
     expect(prompt).not.toContain('"capabilityManifest"');

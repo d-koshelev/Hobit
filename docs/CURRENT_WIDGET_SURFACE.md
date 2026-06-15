@@ -150,10 +150,12 @@ behavior below.
 The Hobit Agent Capability Runtime foundation is documented in
 `docs/HOBIT_AGENT_CAPABILITY_RUNTIME.md` and reviewed in
 `docs/HOBIT_AGENT_CAPABILITY_RUNTIME_REVIEW.md`. That foundation is a pure
-frontend model and contract for future typed app capabilities, policy,
-brokered actions, audit/activity events, and self-tests. It does not change
-current Workspace Agent runtime behavior or add backend, durable worker,
-Terminal, Git, Finder, storage, scheduler, or IPC behavior.
+frontend model and contract for typed app capabilities, policy, brokered
+actions, audit/activity events, and self-tests. The current Workspace Agent
+direct-run result path can process structured `hobit.action.request`
+envelopes through the frontend Action Broker for Queue capabilities. It does
+not add backend, durable worker, Terminal, Git, Finder, storage, scheduler, or
+IPC behavior.
 
 Workspace Agent plus Agent Queue form the Stable v0.1 dogfooding loop:
 Workspace Agent is the foreground interactive surface, and Queue is the

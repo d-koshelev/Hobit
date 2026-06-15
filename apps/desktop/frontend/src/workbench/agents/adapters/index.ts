@@ -9,6 +9,7 @@ export type {
   QueueAgentCreateItemsRequest,
   QueueAgentCreateItemsResult,
   QueueAgentCreatedItem,
+  QueueAgentMaybePromise,
   QueueAgentNormalizedCreateItem,
   QueueAgentPromptPackImportResult,
   QueueAgentPromptPackInput,
@@ -25,3 +26,4 @@ export {
   createQueueAgentActionHandlers,
 } from "./queueAgentCapabilities";
 export { QUEUE_AGENT_CAPABILITY_IDS } from "./queueAgentCapabilityTypes";
+export { createWorkspaceAgentQueueBridgeAdapterApi } from "./workspaceAgentQueueBridgeAdapter";

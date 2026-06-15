@@ -6,7 +6,8 @@ Review the current Workspace Agent and Queue action boundaries before adding
 the Hobit Agent Capability Runtime foundation. This is an architecture review
 only; it does not add backend runtime, Tauri commands, storage schema,
 scheduler behavior, workers, Terminal launch, Git mutation, Finder changes, or
-full Workspace Agent behavior.
+Workspace Agent behavior beyond the current structured broker action-request
+boundary.
 
 ## Current Workspace Agent Architecture
 
@@ -19,13 +20,15 @@ full Workspace Agent behavior.
   `workspaceAgentProductIntentRouting.ts` and
   `workspaceAgentQueueCommandParser.ts` path has been removed from the active
   Workspace Agent runtime path. Queue item creation must be represented as a
-  typed Queue capability selected through the capability manifest and future
-  broker boundary, not as `user text -> regex -> Queue action`.
+  typed Queue capability selected through the capability manifest and broker
+  boundary, not as `user text -> regex -> Queue action`.
 - Codex/direct-run routing: `useWorkspaceAgentDirectWorkController.ts` starts
   Workspace Agent Codex Direct Work through `onStartCodexDirectWorkStream`.
   The active request path now prepends Hobit capability context, Workspace
   Agent role instructions, compact capability metadata, and policy rules to
-  the Codex operator prompt. `WorkspaceAgentDirectModePanel.tsx` exposes
+  the Codex operator prompt. The final agent result path parses only valid
+  `hobit.action.request` envelopes, invokes the Action Broker, and renders
+  compact product-facing results. `WorkspaceAgentDirectModePanel.tsx` exposes
   explicit working directory and sandbox controls.
 - Product action cards/actions: proposal and card flows live in
   `WorkspaceAgentProposalList.tsx`, `WorkspaceAgentQueueActionCards.tsx`,
@@ -38,7 +41,8 @@ full Workspace Agent behavior.
   `promptPack/promptPackMaterialization.ts`. These remain transitional product
   bridges for the visible Workspace Agent card flows. The Queue Capability
   Adapter MVP is now the architecture source for brokered agent-selected Queue
-  product actions, but Workspace Agent UI broker execution is not wired yet.
+  product actions, and the Workspace Agent structured action-request path uses
+  it through broker dependency injection.
 - Activity/log events: Agent Activity reads Direct Work stream events through
   `agentActivityModel.ts`; Queue widget API returns Queue events; widget
   add/state/layout and Direct Work paths emit widget-local logs through
@@ -108,7 +112,7 @@ call Codex or shell and do not mutate app state.
 - Workspace Agent Codex Direct Work now receives app role, current
   Workspace/surface/widget context, compact capability list, and policy
   constraints as prompt context. Structured broker action request parsing and
-  execution remains later.
+  execution is implemented for frontend Queue capability requests.
 
 ## Proposed Architecture
 
@@ -137,14 +141,14 @@ call Codex or shell and do not mutate app state.
    prompt-pack materialization paths.
 3. Provide Workspace Agent with capability manifest, role instructions,
    context, and policy constraints. Completed for the active Workspace Agent
-   Codex Direct Work prompt/context path; broker action parsing/execution is
-   not wired.
+   Codex Direct Work prompt/context path and structured action-request result
+   path.
 4. Add the pure Action Broker MVP with typed request validation, policy
    results, audit/activity events, deterministic test handlers, and Queue
    dry-run preview only. Completed for the frontend model.
 5. Wire real Queue adapter invocation behind the broker instead of regex-decided
    UI/controller behavior. Completed for the frontend Queue Capability Adapter
-   MVP handler boundary; Workspace Agent UI execution remains later.
+   MVP handler boundary and the Workspace Agent structured broker request path.
 6. Add a self-test runner that exercises safe/dry-run capabilities and reports
    passed, failed, skipped, and blocked.
 7. Add Knowledge, Notes, and Terminal capabilities only after their boundaries

@@ -20,8 +20,8 @@ export type WorkspaceAgentCapabilityContextInput = {
 export type WorkspaceAgentCapabilityRuntimeSeam = {
   appContext: HobitAgentAppContext;
   brokerBoundary: {
-    expectedRequest: "typed_hobit_capability_request";
-    status: "not_implemented";
+    expectedRequest: "structured_hobit_action_request";
+    status: "implemented";
   };
   instructionBlock: string;
 };
@@ -72,8 +72,8 @@ export function buildWorkspaceAgentCapabilityRuntimeSeam(
   return {
     appContext,
     brokerBoundary: {
-      expectedRequest: "typed_hobit_capability_request",
-      status: "not_implemented",
+      expectedRequest: "structured_hobit_action_request",
+      status: "implemented",
     },
     instructionBlock: createWorkspaceAgentCapabilityInstructionBlock(appContext),
   };
@@ -89,8 +89,10 @@ export function createWorkspaceAgentPromptWithCapabilityContext(
     seam.instructionBlock,
     "",
     "Broker execution boundary:",
-    "Workspace Agent broker action parsing/execution is not wired in this block.",
-    "Do not execute capabilities from this prompt. Use this context to choose or request typed capabilities where supported.",
+    "When a Hobit app capability is needed, emit the structured Hobit action request envelope.",
+    "The Hobit app validates policy, schema, and side effects before invoking broker handlers.",
+    "Do not execute app actions through shell, Codex, or source-file inspection.",
+    "Use normal explanation text when no Hobit app action is needed.",
     "",
     "User request:",
     input.currentPrompt.trim(),

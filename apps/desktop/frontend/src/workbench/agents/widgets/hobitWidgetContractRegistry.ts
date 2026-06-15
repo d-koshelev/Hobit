@@ -327,7 +327,7 @@ export const WORKSPACE_AGENT_WIDGET_AGENT_CONTRACT = createWidgetAgentContract({
       capabilityId: "workspaceAgent.message.submit",
       confirmationRequirement: "recommended",
       description:
-        "Submit a visible operator message to the Workspace Agent surface. Future product actions must be selected as typed capabilities and brokered, not regex-routed.",
+        "Submit a visible operator message to the Workspace Agent surface. Product actions must be selected as typed capabilities and brokered, not regex-routed.",
       forbiddenSideEffects: [
         "regex_product_action_routing",
         "codex_run_as_default_product_action",

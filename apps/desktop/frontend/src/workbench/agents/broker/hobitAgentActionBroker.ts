@@ -148,13 +148,45 @@ export function createHobitAgentActionBroker({
       }
 
       try {
-        const result = handler({
+        const handlerResult = handler({
           auditEvents,
           capability: policyDecision.capability,
           policyDecision,
           registry,
           request,
         });
+        if (isPromiseLike(handlerResult)) {
+          const message = `${request.capabilityId} uses an async handler and must be invoked with invokeAsync.`;
+          const result = createActionResult({
+            auditEvents: [
+              createBrokerAuditEvent({
+                eventName: "capability.invoke.completed",
+                message,
+                request,
+                sideEffectLevel: policyDecision.capability.sideEffectLevel,
+              }),
+            ],
+            capabilityId: request.capabilityId,
+            dryRun: request.dryRun,
+            message,
+            policyDecision,
+            policyReasons: [message],
+            requestId: request.requestId,
+            status: "failed",
+          });
+
+          return {
+            policyDecision,
+            request,
+            result: {
+              ...result,
+              auditEvents: [...auditEvents, ...result.auditEvents],
+            },
+            status: "failed",
+          } as HobitAgentBrokerResult<TOutput>;
+        }
+
+        const result = handlerResult;
         const completedEvent = createBrokerAuditEvent({
           eventName: request.dryRun
             ? "capability.dryRun.completed"
@@ -212,7 +244,191 @@ export function createHobitAgentActionBroker({
         } as HobitAgentBrokerResult<TOutput>;
       }
     },
+    invokeAsync<TOutput = unknown>(
+      request: HobitAgentActionRequest,
+    ): Promise<HobitAgentBrokerResult<TOutput>> {
+      return invokeHobitAgentActionBrokerAsync({
+        handlers,
+        policyOptions,
+        registry,
+        request,
+      });
+    },
   };
+}
+
+async function invokeHobitAgentActionBrokerAsync<TOutput = unknown>({
+  handlers,
+  policyOptions,
+  registry,
+  request,
+}: {
+  handlers: HobitAgentActionHandlerMap;
+  policyOptions: Required<HobitAgentActionBrokerPolicyOptions>;
+  registry: HobitAgentCapabilityRegistry;
+  request: HobitAgentActionRequest;
+}): Promise<HobitAgentBrokerResult<TOutput>> {
+  const validationEvents = [
+    createBrokerAuditEvent({
+      eventName: "capability.validation.started",
+      message: `Validating ${request.capabilityId}.`,
+      request,
+      sideEffectLevel: "read",
+    }),
+  ];
+  const validation = validateActionRequest(request);
+
+  if (!validation.ok) {
+    return createBrokerInvalidInputResult({
+      auditEvents: [
+        ...validationEvents,
+        createBrokerAuditEvent({
+          eventName: "capability.policy.blocked",
+          message: validation.reasons[0] ?? "Action request is invalid.",
+          request,
+          sideEffectLevel: "read",
+        }),
+      ],
+      reasons: validation.reasons,
+      request,
+    }) as HobitAgentBrokerResult<TOutput>;
+  }
+
+  const policyDecision = evaluateBrokerPolicy(
+    registry,
+    request,
+    policyOptions,
+  );
+  const policyEvent = createBrokerAuditEvent({
+    eventName: policyDecision.allowed
+      ? "capability.policy.allowed"
+      : "capability.policy.blocked",
+    message: policyDecision.allowed
+      ? `${request.capabilityId} was allowed by broker policy.`
+      : policyDecision.reasons[0] ??
+        `${request.capabilityId} was blocked by broker policy.`,
+    request,
+    sideEffectLevel: policyDecision.capability?.sideEffectLevel ?? "read",
+  });
+  const auditEvents = [...validationEvents, policyEvent];
+
+  if (policyDecision.status === "unavailable") {
+    return createBrokerUnavailableResult({
+      auditEvents,
+      policyDecision,
+      reason:
+        policyDecision.reasons[0] ??
+        `${request.capabilityId} is unavailable.`,
+      request,
+    }) as HobitAgentBrokerResult<TOutput>;
+  }
+
+  if (policyDecision.status === "requires_confirmation") {
+    return createBrokerNeedsConfirmationResult({
+      auditEvents,
+      policyDecision,
+      request,
+    }) as HobitAgentBrokerResult<TOutput>;
+  }
+
+  if (policyDecision.status === "requires_dry_run") {
+    return createBrokerDryRunRequiredResult({
+      auditEvents,
+      policyDecision,
+      request,
+    }) as HobitAgentBrokerResult<TOutput>;
+  }
+
+  if (policyDecision.status === "blocked" || !policyDecision.allowed) {
+    return createBrokerPolicyBlockedResult({
+      auditEvents,
+      policyDecision,
+      request,
+    }) as HobitAgentBrokerResult<TOutput>;
+  }
+
+  const handler = handlers[request.capabilityId];
+  if (!handler || !policyDecision.capability) {
+    return createBrokerUnavailableResult({
+      auditEvents: [
+        ...auditEvents,
+        createBrokerAuditEvent({
+          eventName: "capability.invoke.unavailable",
+          message: `${request.capabilityId} has no broker handler in this frontend model.`,
+          request,
+          sideEffectLevel: policyDecision.capability?.sideEffectLevel ?? "read",
+        }),
+      ],
+      policyDecision,
+      reason: `${request.capabilityId} is not implemented by this Action Broker MVP.`,
+      request,
+    }) as HobitAgentBrokerResult<TOutput>;
+  }
+
+  try {
+    const result = await handler({
+      auditEvents,
+      capability: policyDecision.capability,
+      policyDecision,
+      registry,
+      request,
+    });
+    const completedEvent = createBrokerAuditEvent({
+      eventName: request.dryRun
+        ? "capability.dryRun.completed"
+        : "capability.invoke.completed",
+      message: result.message,
+      request,
+      sideEffectLevel: policyDecision.capability.sideEffectLevel,
+    });
+
+    return {
+      policyDecision,
+      request,
+      result: {
+        ...result,
+        auditEvents: [
+          ...auditEvents,
+          ...result.auditEvents,
+          completedEvent,
+        ],
+        policyDecision,
+      } as HobitAgentActionResult<TOutput>,
+      status: result.status,
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : "Action handler failed unexpectedly.";
+    const result = createActionResult({
+      auditEvents: [
+        createBrokerAuditEvent({
+          eventName: "capability.invoke.completed",
+          message,
+          request,
+          sideEffectLevel: policyDecision.capability.sideEffectLevel,
+        }),
+      ],
+      capabilityId: request.capabilityId,
+      dryRun: request.dryRun,
+      message,
+      policyDecision,
+      policyReasons: [message],
+      requestId: request.requestId,
+      status: "failed",
+    });
+
+    return {
+      policyDecision,
+      request,
+      result: {
+        ...result,
+        auditEvents: [...auditEvents, ...result.auditEvents],
+      },
+      status: "failed",
+    } as HobitAgentBrokerResult<TOutput>;
+  }
 }
 
 export function validateActionRequest(
@@ -564,4 +780,13 @@ function requiredStringReason(value: unknown, fieldName: string): string | null 
   return typeof value === "string" && value.trim()
     ? null
     : `${fieldName} is required.`;
+}
+
+function isPromiseLike<T>(value: T | Promise<T>): value is Promise<T> {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "then" in value &&
+    typeof value.then === "function"
+  );
 }
