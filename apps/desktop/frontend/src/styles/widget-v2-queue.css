@@ -773,12 +773,13 @@
   display: grid;
   min-width: 0;
   min-height: 0;
-  grid-template-rows: auto auto auto minmax(0, 1fr);
+  grid-template-rows: auto auto auto auto minmax(0, 1fr);
   gap: var(--space-sm);
 }
 
 .queue-v2-task-details-product-header,
 .queue-v2-task-details-summary,
+.queue-v2-coordinator-decision-card,
 .queue-v2-task-details-section,
 .queue-v2-task-details-block,
 .queue-v2-task-details-developer[open] {
@@ -864,6 +865,20 @@
   display: grid;
   min-width: 0;
   gap: var(--scaled-space-2xs);
+}
+
+.queue-v2-coordinator-decision-card {
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding-bottom: var(--space-sm);
+}
+
+.queue-v2-coordinator-decision-actions,
+.queue-v2-coordinator-decision-flags {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
 }
 
 .queue-v2-task-details-tab-aliases {

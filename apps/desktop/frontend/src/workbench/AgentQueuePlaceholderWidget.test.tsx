@@ -9,6 +9,9 @@ import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions
 import { AgentQueuePlaceholderWidget } from "./AgentQueuePlaceholderWidget";
 import { workerReport } from "./AgentQueueTaskRunPanel.test-fixtures";
 import { computeTaskEligibility } from "./queue/smartQueueEligibility";
+import {
+  buildSmartQueueWorkerFailureIntegration,
+} from "./queue/smartQueueWorkerReportIntegration";
 import { presentSmartQueueStatus } from "./queue/smartQueueStatusPresentation";
 import { useAgentQueueController } from "./queue/useAgentQueueController";
 import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
@@ -310,6 +313,36 @@ describe("AgentQueuePlaceholderWidget single-surface UX", () => {
     expect(document.body.textContent).toContain(
       "Coordinator decision: Needs decision: validation failed",
     );
+  });
+
+  it("renders the Coordinator Decision card in the active QueueV2 task details path", async () => {
+    const selectedTask = activeSmartFailureTask({
+      evidenceSummary: "Validation failed in the active Queue controller path.",
+      failureKind: "validation_failure",
+      queueItemId: "active-decision-task",
+      reason: "Validation failed.",
+    });
+
+    renderQueueWidget({
+      onGetAgentQueueTask: async () => selectedTask,
+      onListAgentQueueTasks: async () => [selectedTask],
+    });
+    await flushRender();
+
+    clickButton("Details");
+    await flushRender();
+
+    const card = document.querySelector(
+      "[aria-label='Coordinator Decision card']",
+    );
+
+    expect(card?.textContent).toContain("Coordinator decision");
+    expect(card?.textContent).toContain("Needs decision: validation failed");
+    expect(card?.textContent).toContain(
+      "Validation failed in the active Queue controller path.",
+    );
+    expect(card?.textContent).toContain("Operator approval required");
+    expect(card?.textContent).toContain("Action unavailable");
   });
 
   it("selects a Queue v2 card without reordering cards or starting work", async () => {
@@ -1015,5 +1048,41 @@ function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
     updatedAt: "2026-05-22T10:00:00.000Z",
     workspaceId: "workspace-1",
     ...overrides,
+  };
+}
+
+function activeSmartFailureTask({
+  evidenceSummary,
+  failureKind,
+  queueItemId,
+  reason,
+}: {
+  evidenceSummary: string;
+  failureKind: Parameters<typeof buildSmartQueueWorkerFailureIntegration>[0]["failureKind"];
+  queueItemId: string;
+  reason: string;
+}) {
+  const baseTask = queueTask({
+    coordinatorStatus: "awaiting_coordinator_review",
+    queueItemId,
+    status: "review_needed",
+    title: "Active decision task",
+    validationStatus:
+      failureKind === "validation_failure" ? "failed" : "needs_review",
+  });
+  const integration = buildSmartQueueWorkerFailureIntegration({
+    createdAt: "2026-06-15T10:00:00.000Z",
+    evidenceSummary,
+    failureKind,
+    reason,
+    runId: `${queueItemId}-run`,
+    task: baseTask,
+  });
+
+  return {
+    ...baseTask,
+    coordinatorStatus: integration.taskPatch.coordinatorStatus,
+    validationStatus: integration.taskPatch.validationStatus,
+    workerExecutionReports: [integration.taskPatch.workerExecutionReport],
   };
 }

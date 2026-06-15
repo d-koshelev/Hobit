@@ -8,6 +8,9 @@ import type {
   AgentQueueWorkerExecutionReport,
 } from "../../../workspace/types";
 import type { AgentWorkerSummary } from "../../agentQueueTaskUiModel";
+import {
+  buildSmartQueueWorkerFailureIntegration,
+} from "../../queue/smartQueueWorkerReportIntegration";
 import { QueueV2Widget } from "./QueueV2Widget";
 
 let root: Root | null = null;
@@ -276,6 +279,31 @@ describe("QueueV2Widget compatibility smoke scaffold", () => {
     expect(buttonWithText("Filters")).toBeNull();
     expect(buttonWithText("Settings")).toBeNull();
   });
+
+  it("does not render the Coordinator Decision card in the WidgetV2 Queue compatibility path", async () => {
+    await render(
+      <QueueV2Widget
+        tasks={[
+          smartFailureTask({
+            evidenceSummary: "Validation failed in compat path.",
+            failureKind: "validation_failure",
+            queueItemId: "compat-decision",
+            reason: "Validation failed.",
+          }),
+        ]}
+        workers={[worker()]}
+      />,
+    );
+
+    await clickButton("More");
+    await clickButton("Open details");
+
+    expect(document.body.textContent).toContain("QueueV2 task details");
+    expect(
+      document.querySelector("[aria-label='Coordinator Decision card']"),
+    ).toBeNull();
+    expect(document.body.textContent).not.toContain("Action unavailable");
+  });
 });
 
 async function render(element: ReactNode) {
@@ -302,6 +330,19 @@ function buttonWithText(text: string): HTMLButtonElement | null {
       (button) => button.textContent === text,
     ) ?? null
   );
+}
+
+async function clickButton(text: string) {
+  const button = buttonWithText(text);
+
+  if (!button) {
+    throw new Error(`Button not found: ${text}`);
+  }
+
+  await act(async () => {
+    button.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
 }
 
 function inputByLabel(label: string): HTMLInputElement | null {
@@ -389,5 +430,41 @@ function report(overrides: Partial<AgentQueueWorkerExecutionReport> = {}) {
     warnings: [],
     workerId: "worker",
     ...overrides,
+  };
+}
+
+function smartFailureTask({
+  evidenceSummary,
+  failureKind,
+  queueItemId,
+  reason,
+}: {
+  evidenceSummary: string;
+  failureKind: Parameters<typeof buildSmartQueueWorkerFailureIntegration>[0]["failureKind"];
+  queueItemId: string;
+  reason: string;
+}) {
+  const baseTask = task({
+    coordinatorStatus: "awaiting_coordinator_review",
+    queueItemId,
+    status: "review_needed",
+    title: "Compat decision task",
+    validationStatus:
+      failureKind === "validation_failure" ? "failed" : "needs_review",
+  });
+  const integration = buildSmartQueueWorkerFailureIntegration({
+    createdAt: "2026-06-15T10:00:00.000Z",
+    evidenceSummary,
+    failureKind,
+    reason,
+    runId: `${queueItemId}-run`,
+    task: baseTask,
+  });
+
+  return {
+    ...baseTask,
+    coordinatorStatus: integration.taskPatch.coordinatorStatus,
+    validationStatus: integration.taskPatch.validationStatus,
+    workerExecutionReports: [integration.taskPatch.workerExecutionReport],
   };
 }

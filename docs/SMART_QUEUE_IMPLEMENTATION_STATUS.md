@@ -253,6 +253,25 @@ Implemented for the active frontend Queue controller/model path.
   execution is not implemented. Rollback execution is not implemented.
   Workspace Agent assistance runtime calls are not implemented.
 
+### QueueV2 Coordinator Decision card UI
+
+Implemented for the active Queue product details path.
+
+- Active Queue task details can render a compact Coordinator Decision card when
+  the selected task has a structured Smart Queue worker failure/coordinator
+  decision payload.
+- The card shows what happened, why a decision is needed, the recommended
+  action, allowed next actions as non-executing labels, approval requirement,
+  destructive-action status, and an honest unavailable action state.
+- Legacy tasks without structured Smart Queue decision payloads render existing
+  details unchanged.
+- The card is enabled only on the active Queue route
+  `WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board`; the
+  WidgetV2 Queue smoke/compat path does not opt into this product card.
+- Retry execution is not implemented.
+- Rollback execution is not implemented.
+- Workspace Agent assistance runtime calls are not implemented.
+
 ## Not Implemented Yet
 
 The following features are not current implementation and must not be claimed

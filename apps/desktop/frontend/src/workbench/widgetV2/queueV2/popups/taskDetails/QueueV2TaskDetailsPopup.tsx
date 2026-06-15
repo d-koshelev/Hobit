@@ -28,6 +28,7 @@ import { queueV2ValidationEvidenceView } from "../../queueV2ValidationEvidence";
 import { QueueV2TaskDetailsActions } from "./QueueV2TaskDetailsActions";
 import { QueueV2TaskDetailsActivity } from "./QueueV2TaskDetailsActivity";
 import { QueueV2TaskDetailsContext } from "./QueueV2TaskDetailsContext";
+import { QueueV2CoordinatorDecisionCard } from "./QueueV2CoordinatorDecisionCard";
 import { QueueV2TaskDetailsHeader } from "./QueueV2TaskDetailsHeader";
 import { QueueV2TaskDetailsOverview } from "./QueueV2TaskDetailsOverview";
 import { QueueV2TaskDetailsPrompt } from "./QueueV2TaskDetailsPrompt";
@@ -60,6 +61,7 @@ export type QueueV2TaskDetailsPopupProps = {
   onShowQueueTaskInWorkspaceChat?: (task: AgentQueueTask) => void;
   queue?: AgentQueueController;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  showCoordinatorDecisionCard?: boolean;
   taskViewModel: QueueTaskViewModel | null;
   validationRunner?: ValidationRunner | null;
 };
@@ -80,6 +82,7 @@ export function QueueV2TaskDetailsPopup({
   onShowQueueTaskInWorkspaceChat,
   queue,
   returnFocusRef,
+  showCoordinatorDecisionCard = false,
   taskViewModel,
   validationRunner,
 }: QueueV2TaskDetailsPopupProps) {
@@ -206,6 +209,9 @@ export function QueueV2TaskDetailsPopup({
           validationDisabledReason={validationDisabledReason}
           validationRequestRunning={validationRequestState === "running"}
         />
+        {showCoordinatorDecisionCard ? (
+          <QueueV2CoordinatorDecisionCard task={task} />
+        ) : null}
         <div className="queue-v2-task-details-body">
           <QueueV2TaskDetailsTabs
             activeTab={activeTab}

@@ -296,6 +296,7 @@ export function AgentQueueV2Board({
           onShowQueueTaskInWorkspaceChat={onShowQueueTaskInWorkspaceChat}
         queue={queue}
         returnFocusRef={detailsReturnFocusRef}
+        showCoordinatorDecisionCard
         taskViewModel={detailTaskViewModel}
         validationRunner={validationRunner}
       />
