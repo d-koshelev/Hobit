@@ -90,7 +90,14 @@ During the smoke, verify these product labels appear where applicable:
 15. Recheck Queue view count.
     - Expected: no duplicate Queue view exists.
 
-16. Check for side effects.
+16. In Workspace Agent, type `add example queue items to queue`.
+    - Expected: Workspace Agent detects a Queue intent and creates or prepares
+      draft Queue items through the in-app Agent Queue action path. The items
+      are visible in the existing Agent Queue surface. No Codex run, shell
+      command, Terminal action, Queue Autorun, worker start, Git action, or
+      duplicate Queue view is created.
+
+17. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback

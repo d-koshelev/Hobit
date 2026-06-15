@@ -34,6 +34,10 @@ export type WorkspaceAgentQueueCommand =
     }
   | { type: "runAutonomousQueue" }
   | { type: "stopAutonomousQueueAfterCurrent" }
+  | {
+      reason: "missing_task_content";
+      type: "queueCreationNeedsInput";
+    }
   | { type: "unsupportedQueueCommand" };
 
 export type WorkspaceAgentQueueCommandHandlerOptions = {

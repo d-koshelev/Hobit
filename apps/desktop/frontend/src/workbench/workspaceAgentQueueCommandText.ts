@@ -6,9 +6,14 @@ import type {
 import { startsWithAnyPhrase } from "./workspaceAgentQueueCommandUtils";
 
 export const CREATE_PHRASES = [
+  "add example queue items to queue",
+  "add example queue items to the queue",
+  "create example queue items",
+  "create queue items",
   "create queue item",
   "create queue task",
   "create a queue task",
+  "create tasks in agent queue",
   "create queued queue task",
   "create queued task",
   "create queued tasks",
@@ -19,8 +24,11 @@ export const CREATE_PHRASES = [
   "create separate queued tasks",
   "add queue task",
   "add queue tasks",
+  "add tasks to queue",
+  "add tasks to the queue",
   "add these tasks to queue",
   "add these tasks to the queue",
+  "make queue items from this",
   "create task",
   "\u0441\u043e\u0437\u0434\u0430\u0439 \u0437\u0430\u0434\u0430\u0447\u0443",
   "\u0434\u043e\u0431\u0430\u0432\u044c \u0437\u0430\u0434\u0430\u0447\u0443",
@@ -106,6 +114,8 @@ const QUEUE_ONLY_PATTERNS = [
 ];
 
 const QUEUE_CONTROL_PATTERNS = [
+  /\badd\s+example\s+queue\s+items?\s+to\s+(?:the\s+)?queue\b/i,
+  /\bcreate\s+queue\s+items?\b/i,
   /\bcreate\s+(?:\w+\s+){0,4}(?:queued\s+)?(?:queue\s+)?tasks?\b/i,
   /\badd\s+(?:these\s+)?tasks?\s+to\s+(?:the\s+)?queue\b/i,
   /\b(?:run|execute)\s+th(?:is|ese)\s+prompts?\s+through\s+queue\b/i,

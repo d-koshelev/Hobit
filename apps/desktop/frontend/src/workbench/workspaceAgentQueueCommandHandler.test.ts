@@ -151,6 +151,95 @@ describe("workspaceAgentQueueCommandHandler", () => {
     });
   });
 
+  it("creates example Queue draft items through the typed Queue bridge without starting workers", async () => {
+    const createItem = vi.fn(async (request) =>
+      itemResult("queue.createItem", {
+        executionPolicy: request.executionPolicy,
+        id: `Q-EXAMPLE-${createItem.mock.calls.length.toString()}`,
+        prompt: request.prompt,
+        queueTag: request.queueTag,
+        status: request.status,
+        title: request.title,
+      }),
+    );
+    const runAutonomousQueue = vi.fn(async () =>
+      autonomousResult("queue.runAutonomousQueue"),
+    );
+    const getSnapshot = vi.fn(async () => snapshotResult(queueSnapshot()));
+
+    const result = await runWorkspaceAgentQueueCommand(
+      "add example queue items to queue",
+      {
+        bridge: queueBridge({
+          createItem,
+          getSnapshot,
+          runAutonomousQueue,
+        }),
+        currentWorkspaceRoot: "C:/repo",
+      },
+    );
+
+    expect(result.handled).toBe(true);
+    expect(createItem).toHaveBeenCalledTimes(2);
+    expect(createItem).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        executionPolicy: "manual",
+        priority: 0,
+        queueTag: { name: "Examples" },
+        status: "draft",
+        title: "Example: review Queue intent routing",
+      }),
+    );
+    expect(createItem).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        executionPolicy: "manual",
+        priority: 0,
+        queueTag: { name: "Examples" },
+        status: "draft",
+        title: "Example: verify Queue draft visibility",
+      }),
+    );
+    expect(createItem.mock.calls[0]?.[0].prompt).toContain(
+      "No Codex run, shell command, Terminal command, Git action, or worker start",
+    );
+    expect(createItem.mock.calls[0]?.[0].queueId).toBeUndefined();
+    expect(createItem.mock.calls[1]?.[0].queueId).toBeUndefined();
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(result.body).toContain("Created 2 draft Queue items in Agent Queue.");
+    expect(result.body).toContain("No Queue Autorun, worker, Codex run");
+  });
+
+  it.each([
+    "create queue items",
+    "add tasks to queue",
+    "create a queue task",
+    "break this into queue tasks",
+    "make queue items from this",
+  ])("asks for task content for empty Queue creation intent: %s", async (prompt) => {
+    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const runAutonomousQueue = vi.fn(async () =>
+      autonomousResult("queue.runAutonomousQueue"),
+    );
+
+    const result = await runWorkspaceAgentQueueCommand(prompt, {
+      bridge: queueBridge({
+        createItem,
+        runAutonomousQueue,
+      }),
+      currentWorkspaceRoot: "C:/repo",
+    });
+
+    expect(result.handled).toBe(true);
+    expect(createItem).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(result.body).toContain("Queue intent detected");
+    expect(result.body).toContain("I need task content to create Queue items");
+    expect(result.body).toContain("No Codex run, shell command");
+  });
+
   it("covers exact prompt-through-Queue smoke prompt with implicit workspace fallback", async () => {
     const createItem = vi.fn(async (request) =>
       itemResult("queue.createItem", {

@@ -115,8 +115,22 @@ export function parseWorkspaceAgentQueueCommand(
     return { type: "stopAutonomousQueueAfterCurrent" };
   }
 
+  if (isQueueCreationIntentMissingContent(visibleText)) {
+    return {
+      reason: "missing_task_content",
+      type: "queueCreationNeedsInput",
+    };
+  }
+
   const createBody = stripLeadingPhrase(visibleText, CREATE_PHRASES);
   if (createBody !== null) {
+    if (!stripFenceBlocks(createBody).trim() && !fencedPrompt(visibleText)) {
+      return {
+        reason: "missing_task_content",
+        type: "queueCreationNeedsInput",
+      };
+    }
+
     const explicitPrompt = fencedPrompt(visibleText);
     const createPrompt = explicitPrompt
       ? {
@@ -150,6 +164,23 @@ function isHistoryKnowledgeGenerationIntent(text: string) {
   return HISTORY_KNOWLEDGE_GENERATION_PATTERNS.some((pattern) =>
     pattern.test(text),
   );
+}
+
+function isQueueCreationIntentMissingContent(text: string) {
+  const normalized = text.trim().toLowerCase().replace(/\s+/g, " ");
+
+  return [
+    "add tasks to queue",
+    "add tasks to the queue",
+    "break this into queue tasks",
+    "create a queue task",
+    "create queue items",
+    "create queue item",
+    "create queue task",
+    "create queue tasks",
+    "create tasks in agent queue",
+    "make queue items from this",
+  ].includes(normalized);
 }
 
 function forcedLocalQueueCommand(

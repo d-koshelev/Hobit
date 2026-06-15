@@ -17,6 +17,22 @@ import { structuredCreateQueueTaskPrompt } from "./workspaceAgentQueuePromptTemp
 export function parseBatchQueueCommand(
   text: string,
 ): WorkspaceAgentQueueCommand | null {
+  if (isExampleQueueItemsIntent(text)) {
+    return {
+      commands: exampleQueueItemIntents().map((intent) => ({
+        description: intent.description,
+        executionPolicy: "manual",
+        prompt: intent.prompt,
+        queueTagName: "Examples",
+        status: "draft",
+        title: intent.title,
+        type: "createItem",
+      })),
+      forceLocal: true,
+      type: "batch",
+    };
+  }
+
   if (!isMultiTaskQueueCreateIntent(text)) {
     return null;
   }
@@ -124,6 +140,43 @@ function isMultiTaskQueueCreateIntent(text: string) {
     ) ||
     /\badd\s+these\s+tasks\s+to\s+(?:the\s+)?queue\b/i.test(text)
   );
+}
+
+function isExampleQueueItemsIntent(text: string) {
+  return /\b(?:add|create|prepare|make)\s+example\s+queue\s+items?\s+(?:to|in|for)\s+(?:the\s+)?queue\b/i.test(
+    text,
+  );
+}
+
+function exampleQueueItemIntents() {
+  return [
+    {
+      description:
+        "Example draft Queue item created from a Workspace Agent in-app Queue intent.",
+      prompt: [
+        "Review the Workspace Agent Queue intent routing smoke.",
+        "",
+        "Confirm from visible product behavior only:",
+        "* Queue creation requests are handled as in-app Agent Queue actions.",
+        "* No Codex run, shell command, Terminal command, Git action, or worker start is triggered by item creation.",
+        "* Created Queue items remain drafts until an operator explicitly prepares or runs them.",
+      ].join("\n"),
+      title: "Example: review Queue intent routing",
+    },
+    {
+      description:
+        "Example draft Queue item for checking Queue visibility and no auto-run behavior.",
+      prompt: [
+        "Check that this draft item is visible in the singleton Agent Queue.",
+        "",
+        "Report:",
+        "* whether the item appears in the Queue surface",
+        "* whether Queue Autorun stayed off",
+        "* any missing product-facing feedback",
+      ].join("\n"),
+      title: "Example: verify Queue draft visibility",
+    },
+  ];
 }
 
 function numberedTaskIntents(text: string) {

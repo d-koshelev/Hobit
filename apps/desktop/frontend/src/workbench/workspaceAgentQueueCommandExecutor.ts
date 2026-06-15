@@ -78,6 +78,15 @@ export async function runWorkspaceAgentQueueCommand(
         body: await stopAutonomousQueueAfterCurrent(options.bridge),
         handled: true,
       };
+    case "queueCreationNeedsInput":
+      return {
+        body: [
+          "Queue intent detected. I need task content to create Queue items.",
+          "Add one or more task titles, prompts, or bullet points, then send the request again.",
+          "No Codex run, shell command, Queue Autorun, Terminal command, Git action, or worker start was triggered.",
+        ].join(" "),
+        handled: true,
+      };
     case "unsupportedQueueCommand":
       return {
         body: "Queue action failed: no supported Queue command was recognized.",
@@ -214,9 +223,12 @@ async function runQueueCommandBatch(
   }
 
   if (createdItems.length > 0) {
-    return `Created ${createdItems.length.toString()} Queue item${
+    const allDraft = createdItems.every((item) => item.status === "draft");
+    return `Created ${createdItems.length.toString()} ${
+      allDraft ? "draft " : ""
+    }Queue item${
       createdItems.length === 1 ? "" : "s"
-    }.`;
+    } in Agent Queue. No Queue Autorun, worker, Codex run, shell command, Terminal command, Git action, validation, or finalization was started.`;
   }
 
   return autonomousMessage || "Queue action completed.";
