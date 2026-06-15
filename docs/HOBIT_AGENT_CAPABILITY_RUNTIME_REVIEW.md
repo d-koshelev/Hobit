@@ -34,7 +34,7 @@ full Workspace Agent behavior.
   `workspaceAgentQueueBridge.ts`, `queue/agentQueueWidgetApi.ts`, visible
   Queue/proposal card apply flows, and prompt-pack materialization in
   `promptPack/promptPackMaterialization.ts`. These are transitional product
-  bridges until the Action Broker invokes typed capabilities directly; they
+  bridges until a real Queue adapter is wired behind the Action Broker; they
   are not the architecture source of truth for agent-selected product actions.
 - Activity/log events: Agent Activity reads Direct Work stream events through
   `agentActivityModel.ts`; Queue widget API returns Queue events; widget
@@ -74,12 +74,14 @@ and `adapters/`. The old public files
 `hobitAgentSelfTestRuntime.ts`, and `workspaceAgentCapabilityContext.ts` are
 compatibility re-export facades. The `widgets/` folder now owns the pure Widget
 Agent Contract model and initial Agent Queue / Workspace Agent registry
-entries. Future broker execution, app adapters, additional widget contracts,
-and message-bus work should land in the owned folders instead of Workspace
-Agent UI components. The Multi-Agent Runtime MVP now owns pure frontend agent
-instance/status models under `runtime/` and typed bounded message/history
-models under `messaging/`; it does not execute broker actions, call Codex or
-shell, or mutate app state.
+entries. The pure frontend Action Broker MVP now lives under `broker/` with
+typed request/result/audit contracts, policy validation, deterministic model
+handlers, and safe dry-run placeholders. Real product adapters, additional
+widget contracts, and message-bus work should land in the owned folders
+instead of Workspace Agent UI components. The Multi-Agent Runtime MVP now owns
+pure frontend agent instance/status models under `runtime/` and typed bounded
+message/history models under `messaging/`; peer runtime tests do not call Codex
+or shell and do not mutate app state.
 
 ## Architectural Problems
 
@@ -110,8 +112,8 @@ shell, or mutate app state.
   self-test support.
 - `HobitAgentCapabilityRegistry`: deterministic registry and manifest listing
   only available/declared capabilities.
-- `HobitAgentActionBroker`: the future typed invocation boundary from agent
-  action requests to app APIs.
+- `HobitAgentActionBroker`: the typed invocation boundary from agent action
+  requests to policy-checked handlers and future app APIs.
 - `HobitAgentPolicyEngine`: central capability policy for role access,
   availability, side effects, confirmation, dry-run, scope, and restrictions.
 - `HobitAgentActionRequest` / `HobitAgentActionResult`: structured request and
@@ -128,11 +130,14 @@ shell, or mutate app state.
    prompt-pack materialization paths.
 3. Provide Workspace Agent with capability manifest, role instructions,
    context, and policy constraints.
-4. Add an action broker that invokes typed Queue APIs instead of regex-decided
+4. Add the pure Action Broker MVP with typed request validation, policy
+   results, audit/activity events, deterministic test handlers, and Queue
+   dry-run preview only. Completed for the frontend model.
+5. Wire real Queue adapter invocation behind the broker instead of regex-decided
    UI/controller behavior.
-5. Add a self-test runner that exercises safe/dry-run capabilities and reports
+6. Add a self-test runner that exercises safe/dry-run capabilities and reports
    passed, failed, skipped, and blocked.
-6. Add Knowledge, Notes, and Terminal capabilities only after their boundaries
+7. Add Knowledge, Notes, and Terminal capabilities only after their boundaries
    are explicit and safe.
-7. Evaluate backend, durable runtime, scheduler, audit persistence, and server
+8. Evaluate backend, durable runtime, scheduler, audit persistence, and server
    needs after the frontend contract proves useful.

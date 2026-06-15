@@ -22,7 +22,7 @@ state changes, or app navigation.
 
 Regex routing must not be used as the Workspace Agent product-action
 architecture. Product actions must flow through raw prompt plus Hobit app
-context, capability manifest, policy constraints, future broker validation,
+context, capability manifest, policy constraints, Action Broker validation,
 internal app API invocation, and structured result/activity output. Queue item
 creation is a Queue capability, not a phrase route. Codex and shell remain
 restricted capabilities for explicit workspace/code execution requests only.
@@ -33,8 +33,9 @@ restricted capabilities for explicit workspace/code execution requests only.
   policy context supplied to the agent.
 - Capability Registry: typed manifest of app capabilities available to the
   agent in the current context.
-- Action Broker: future invocation boundary that maps typed action requests to
-  app APIs.
+- Action Broker: typed invocation boundary that validates action requests,
+  capability availability, policy, confirmation, dry-run requirements, and
+  side-effect constraints before any handler can run.
 - Policy Layer: central enforcement for role, availability, permission,
   confirmation, dry-run, scope, and side-effect constraints.
 - Preview/Dry-run: safe capability mode for planning, import preview, and
@@ -68,8 +69,10 @@ land in the owned module folder that matches its responsibility:
 - `capabilities/`: typed capability metadata, capability ids, capability
   registries, the initial honest manifest, availability helpers, and policy
   helper functions.
-- `broker/`: action request/result/audit/broker result contracts and small
-  result-construction helpers. Action Broker execution is a later block.
+- `broker/`: action request/result/audit/broker result contracts, policy
+  validation helpers, deterministic test handlers, and the pure frontend
+  Action Broker MVP. Real product adapters and Workspace Agent broker
+  execution are later blocks.
 - `runtime/`: pure frontend agent instance, status, runtime-state, snapshot,
   and deterministic test-agent models for the Multi-Agent Runtime MVP.
 - `messaging/`: pure frontend typed agent message, bounded history, delivery,
@@ -90,8 +93,48 @@ self-test models belong in the agent runtime modules above.
 Regex routing is not the architecture. Do not implement product behavior as
 `user text -> regex classifier -> product action`. Product actions must flow
 through raw prompt plus Hobit app context, capability manifest, policy
-constraints, future broker validation, internal app API invocation, and
+constraints, Action Broker validation, internal app API invocation, and
 structured result/activity output.
+
+## Action Broker MVP
+
+The frontend Action Broker MVP lives under
+`apps/desktop/frontend/src/workbench/agents/broker/`. It is a pure model layer
+and does not add UI, backend/Tauri/IPC commands, storage/schema changes, Queue
+runtime behavior, Terminal launch, Git mutation, rollback execution, scheduler
+behavior, worker runtime, or Workspace Agent broker execution.
+
+Agents are expected to produce typed capability action requests with request
+id, agent id, agent role, capability id, input, dry-run state, optional
+confirmation token, reason, and creation timestamp. The broker validates the
+request shape, looks up the capability in the registry, evaluates role access,
+availability, restricted execution policy, confirmation requirements, dry-run
+requirements, and side-effect constraints, then returns a structured action
+result.
+
+Broker results include success, failure, unavailable, policy-blocked,
+needs-confirmation, dry-run-required, and invalid-input outcomes. Results carry
+a product-facing message, structured output when available, the policy
+decision, stable audit/activity events, and hidden-side-effect flags asserting
+that safe model handlers did not run shell, Codex, Queue mutation, Terminal,
+Git, rollback, or workers.
+
+The MVP includes deterministic frontend test handlers only:
+
+- `agent.status.read`
+- `agent.capabilities.read`
+- `agent.message.send` dry-run
+- `queue.createItems` dry-run placeholder
+
+The `queue.createItems` dry-run placeholder returns preview-like evidence such
+as `wouldCreateItems`, singleton Queue targeting, no worker autorun, and no
+duplicate Queue view. It does not mutate Queue and is not the real Queue
+adapter. Real Queue invocation remains a later explicit adapter block.
+
+Codex and shell capabilities remain restricted execute capabilities. They are
+not default Hobit app-action paths, and the broker MVP blocks restricted
+execute invocation unless a future explicit policy/adaptor slice deliberately
+opens that path.
 
 ## Widget Agent Contracts
 

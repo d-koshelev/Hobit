@@ -63,7 +63,8 @@ describe("hobitAgentCapabilityRuntime docs", () => {
     expect(contractDoc).toContain("broker/");
     expect(contractDoc).toContain("queue.createItems");
     expect(contractDoc).toContain("codex.runTask");
-    expect(contractDoc).toContain("Action Broker execution is a later block");
+    expect(contractDoc).toContain("Action Broker MVP");
+    expect(contractDoc).toContain("Real Queue invocation remains a later explicit adapter block");
     expect(contractDoc).not.toMatch(/durable backend runtime is implemented/i);
     expect(contractDoc).not.toMatch(/backend scheduler is implemented/i);
   });

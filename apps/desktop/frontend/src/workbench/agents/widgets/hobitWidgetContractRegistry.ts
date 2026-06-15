@@ -413,7 +413,7 @@ export const WORKSPACE_AGENT_WIDGET_AGENT_CONTRACT = createWidgetAgentContract({
       capabilityId: "workspaceAgent.selfTest",
       caseId: "workspace-agent:no-regex-routing",
       expectedResultDescription:
-        "Product action architecture is typed capability selection plus future broker validation, not text regex routing.",
+        "Product action architecture is typed capability selection plus Action Broker validation, not text regex routing.",
       hiddenSideEffectAssertions: ["no_regex_product_action_routing"],
       title: "No Regex Routing",
     },

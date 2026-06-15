@@ -1,13 +1,39 @@
 export type {
+  HobitAgentActionBroker,
+  HobitAgentActionHandler,
+  HobitAgentActionHandlerContext,
+  HobitAgentActionHandlerMap,
   HobitAgentActionRequest,
+  HobitAgentActionRequestValidation,
   HobitAgentActionResult,
   HobitAgentActionStatus,
   HobitAgentAuditEvent,
   HobitAgentBrokerResult,
+  HobitAgentBrokerStatus,
+  HobitAgentHiddenSideEffectFlags,
 } from "./types";
 export {
   createActionRequest,
   createActionResult,
+  createNoHiddenSideEffectFlags,
   createPolicyBlockedActionResult,
   createUnavailableActionResult,
 } from "./results";
+export type {
+  HobitAgentActionBrokerInput,
+  HobitAgentActionBrokerPolicyOptions,
+} from "./hobitAgentActionBroker";
+export {
+  createBrokerDryRunRequiredResult,
+  createBrokerInvalidInputResult,
+  createBrokerNeedsConfirmationResult,
+  createBrokerPolicyBlockedResult,
+  createBrokerSuccessResult,
+  createBrokerUnavailableResult,
+  createHobitAgentActionBroker,
+  evaluateBrokerPolicy,
+  validateActionRequest,
+} from "./hobitAgentActionBroker";
+export type { HobitAgentTestActionHandlerInput } from "./hobitAgentTestActionHandlers";
+export { createHobitAgentTestActionHandlers } from "./hobitAgentTestActionHandlers";
+export type { HobitAgentPolicyDecision } from "../capabilities/policy";

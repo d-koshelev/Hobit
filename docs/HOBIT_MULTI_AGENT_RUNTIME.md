@@ -6,7 +6,7 @@ Define the frontend-only Multi-Agent Runtime MVP for Hobit in-app agents. This
 model lets one Workspace host multiple addressable agent instances, inspect
 agent status/history/capabilities, and exchange typed internal messages.
 
-This contract does not implement LLM calls, Action Broker execution, Queue
+This contract does not implement LLM calls, Workspace Agent broker execution, Queue
 capability adapters, app control actions, self-test UI, backend/Tauri/IPC
 commands, storage/schema changes, shell execution, Codex execution, Terminal
 runtime changes, Git behavior, scheduler behavior, worker behavior, rollback,
@@ -122,11 +122,11 @@ are not used by agent-to-agent self-tests.
 
 ## Capability Broker Boundary
 
-Future app control must happen through:
+App control outside the pure peer-runtime model must happen through:
 
 `user prompt + Hobit app context + capability manifest -> typed capability selection -> Action Broker policy/schema/side-effect validation -> internal app API -> structured result/activity/audit`
 
-Future app control must not be implemented as:
+App control must not be implemented as:
 
 `user text -> regex classifier -> product action`
 
