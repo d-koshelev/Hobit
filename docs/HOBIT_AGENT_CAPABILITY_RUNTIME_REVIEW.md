@@ -1,0 +1,111 @@
+# Hobit Agent Capability Runtime Review
+
+## Purpose
+
+Review the current Workspace Agent and Queue action boundaries before adding
+the Hobit Agent Capability Runtime foundation. This is an architecture review
+only; it does not add backend runtime, Tauri commands, storage schema,
+scheduler behavior, workers, Terminal launch, Git mutation, Finder changes, or
+full Workspace Agent behavior.
+
+## Current Workspace Agent Architecture
+
+- User prompt entry: `InteractiveAgentPlaceholderWidget.tsx` owns the current
+  `interactive-agent` compatibility surface, composer state, transcript state,
+  proposal cards, Queue cards, prompt-pack import cards, provider routing, and
+  Codex Direct Work controls.
+- Product intent routing: `workspaceAgentProductIntentRouting.ts` classifies
+  prompt text into Queue action, prompt-pack import, or `codex_or_provider`.
+  It delegates Queue parsing to `workspaceAgentQueueCommandParser.ts`.
+- Codex/direct-run routing: `useWorkspaceAgentDirectWorkController.ts` starts
+  Workspace Agent Codex Direct Work through `onStartCodexDirectWorkStream`.
+  `WorkspaceAgentDirectModePanel.tsx` exposes explicit working directory and
+  sandbox controls.
+- Product action cards/actions: proposal and card flows live in
+  `WorkspaceAgentProposalList.tsx`, `WorkspaceAgentQueueActionCards.tsx`,
+  `WorkspaceAgentQueueCreateDraftCard.tsx`, `WorkspaceAgentQueueTaskStatusCard.tsx`,
+  `WorkspaceAgentQueueReportActionCard.tsx`, and prompt-pack cards under
+  `workbench/promptPack/`.
+- Queue creation actions: typed Queue creation currently lives behind
+  `workspaceAgentQueueBridge.ts`, `workspaceAgentQueueCommandExecutor.ts`,
+  `queue/agentQueueWidgetApi.ts`, and prompt-pack materialization in
+  `promptPack/promptPackMaterialization.ts`.
+- Activity/log events: Agent Activity reads Direct Work stream events through
+  `agentActivityModel.ts`; Queue widget API returns Queue events; widget
+  add/state/layout and Direct Work paths emit widget-local logs through
+  existing workbench/widget APIs.
+
+## Existing Reusable Boundaries
+
+- Queue action/controller APIs: `queue/agentQueueWidgetApi.ts`,
+  `queue/agentQueueWidgetApiTypes.ts`, `queue/useAgentQueueController.ts`, and
+  Queue action hooks under `workbench/queue/`.
+- Prompt-pack import/materialization: `promptPack/promptPackImportPreview.ts`,
+  `promptPack/promptPackMaterialization.ts`, and
+  `queue/smartQueuePromptPackMaterialization.ts`.
+- Smart Queue models: eligibility, dependency propagation, coordinator
+  decisions, retry, rollback-proposal, assistance, worker report, and smoke
+  harness modules under `workbench/queue/`.
+- Widget action bridges: `workspaceAgentQueueBridge.ts`,
+  `workspaceWidgetActions.ts`, and Workspace API wrappers under
+  `workspace/workspaceApi`.
+- Activity/audit/log models: `agentActivityModel.ts`, Queue widget events, and
+  widget-local log mapping in `widgetLogEntryMapping.ts`.
+- Confirmation patterns: proposal approval cards, prompt-pack preview confirm,
+  widget removal confirmation, Git local commit confirmation, and rollback
+  proposal-only cards.
+- Test utilities: Queue API harnesses, Smart Queue smoke tests,
+  `InteractiveAgentPlaceholderWidget.test-utils.tsx`, Queue controller test
+  helpers, and Workspace Agent routing/card tests.
+
+## Architectural Problems
+
+- Regex/text intent routing mixes product behavior into the Workspace Agent UI
+  and controller path. It should remain temporary compatibility/test fixture
+  behavior, not the final decision layer.
+- Codex/shell execution is too close to the fallback route for product actions.
+  Product actions need typed app capabilities first.
+- App capabilities are not exposed as a first-class manifest for the agent.
+- Policy, permissions, availability, confirmation, dry-run, and side-effect
+  rules are not centralized at the capability boundary.
+- There is no self-test capability contract for agents to verify available
+  app APIs safely.
+- Agents do not receive app role, current Workspace/surface/widget context,
+  capability list, policy constraints, and self-test instructions as structured
+  runtime data.
+
+## Proposed Architecture
+
+- `HobitAgentAppContext`: raw prompt plus Hobit app, Workspace, surface/widget,
+  role, policy, and runtime context.
+- `HobitAgentCapability`: typed metadata for one app capability, including
+  schemas, side-effect level, confirmation, dry-run, availability, audit, and
+  self-test support.
+- `HobitAgentCapabilityRegistry`: deterministic registry and manifest listing
+  only available/declared capabilities.
+- `HobitAgentActionBroker`: the future typed invocation boundary from agent
+  action requests to app APIs.
+- `HobitAgentPolicyEngine`: central capability policy for role access,
+  availability, side effects, confirmation, dry-run, scope, and restrictions.
+- `HobitAgentActionRequest` / `HobitAgentActionResult`: structured request and
+  result contract, including unavailable and policy-blocked outcomes.
+- `HobitAgentActivity` / audit event contract: every capability call produces
+  structured activity/audit events.
+- `HobitAgentSelfTest`: safe/dry-run self-test contract over available
+  capabilities, without hidden side effects.
+
+## Implementation Sequence
+
+1. Add pure frontend models, initial manifest, docs, and tests.
+2. Register Queue capabilities over the existing typed Queue API and
+   prompt-pack materialization paths.
+3. Provide Workspace Agent with capability manifest, role instructions,
+   context, and policy constraints.
+4. Add an action broker that invokes typed Queue APIs instead of regex-decided
+   UI/controller behavior.
+5. Add a self-test runner that exercises safe/dry-run capabilities and reports
+   passed, failed, skipped, and blocked.
+6. Add Knowledge, Notes, and Terminal capabilities only after their boundaries
+   are explicit and safe.
+7. Evaluate backend, durable runtime, scheduler, audit persistence, and server
+   needs after the frontend contract proves useful.

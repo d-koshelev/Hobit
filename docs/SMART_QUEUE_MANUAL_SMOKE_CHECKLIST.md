@@ -96,6 +96,9 @@ During the smoke, verify these product labels appear where applicable:
       are visible in the existing Agent Queue surface. No Codex run, shell
       command, Terminal action, Queue Autorun, worker start, Git action, or
       duplicate Queue view is created.
+    - Future check: Workspace Agent Queue checks should use the Hobit Agent
+      Capability Runtime. Queue item creation is an app capability, not
+      shell/Codex/codebase inspection.
 
 17. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
