@@ -167,6 +167,73 @@ describe("queue dependency eligibility model", () => {
     });
   });
 
+  it("propagates transitive failed dependency as dependency_blocked", () => {
+    const tasks = [
+      task({ coordinatorStatus: "failed", queueItemId: "task-001", status: "failed" }),
+      task({ dependsOn: ["task-001"], queueItemId: "task-002" }),
+      task({ dependsOn: ["task-002"], queueItemId: "task-003" }),
+    ];
+
+    expect(computeHumanQueueStatus(tasks[1], activeQueue(), graphFor(tasks[1], tasks))).toEqual({
+      status: "blocked",
+      text: "Blocked: dependency failed",
+    });
+    expect(computeHumanQueueStatus(tasks[2], activeQueue(), graphFor(tasks[2], tasks))).toEqual({
+      status: "blocked",
+      text: "Blocked: dependency blocked",
+    });
+    expect(computeTaskBlockers(tasks[2], graphFor(tasks[2], tasks))).toContainEqual({
+      kind: "dependency_blocked",
+      message: "Dependency task-002 is blocked.",
+      taskId: "task-003",
+      upstreamTaskId: "task-002",
+    });
+  });
+
+  it("keeps a recovered task waiting when another dependency is unfinished", () => {
+    const tasks = [
+      task({
+        closureState: "commit_created",
+        coordinatorStatus: "finalized",
+        queueItemId: "task-001",
+        status: "completed",
+      }),
+      task({ queueItemId: "task-002", status: "running" }),
+      task({ dependsOn: ["task-001", "task-002"], queueItemId: "task-003" }),
+    ];
+
+    expect(computeHumanQueueStatus(tasks[2], activeQueue(), graphFor(tasks[2], tasks))).toEqual({
+      status: "waiting_dependency",
+      text: "Waiting for Task 002",
+    });
+  });
+
+  it("keeps a recovered task blocked by its own non-dependency blocker", () => {
+    const tasks = [
+      task({
+        closureState: "commit_created",
+        coordinatorStatus: "finalized",
+        queueItemId: "task-001",
+        status: "completed",
+      }),
+      task({
+        dependsOn: ["task-001"],
+        queueItemId: "task-002",
+        validationStatus: "needs_review",
+      }),
+    ];
+
+    expect(computeHumanQueueStatus(tasks[1], activeQueue(), graphFor(tasks[1], tasks))).toEqual({
+      status: "needs_decision",
+      text: "Needs decision",
+    });
+    expect(computeTaskEligibility(tasks[1], activeQueue(), graphFor(tasks[1], tasks), capacity())).toMatchObject({
+      canAutoStart: false,
+      dependencyGate: "satisfied",
+      humanStatus: "needs_decision",
+    });
+  });
+
   it("summarizes multiple waiting and blocked dependencies for operators", () => {
     const waitingTasks = [
       task({ queueItemId: "task-001", status: "running" }),

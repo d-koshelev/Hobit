@@ -180,7 +180,7 @@ describe("smartQueueEligibility", () => {
     });
   });
 
-  it("propagates transitive dependency failure to downstream waiting tasks", () => {
+  it("propagates transitive dependency failure as a blocked dependency", () => {
     const upstream = task("task-a", "failed");
     const middle = task("task-b");
     const downstream = task("task-c");
@@ -195,12 +195,12 @@ describe("smartQueueEligibility", () => {
     ).toMatchObject({
       autoEligibleToStart: false,
       dependencyGate: {
-        failedTaskIds: ["task-b"],
-        gate: "failed",
-        rootFailedTaskIds: ["task-a"],
+        blockedTaskIds: ["task-b"],
+        gate: "blocked",
+        rootBlockedTaskIds: ["task-b"],
       },
       humanStatus: {
-        label: "Blocked: dependency failed",
+        label: "Blocked: dependency blocked",
         status: "blocked",
       },
     });
@@ -210,8 +210,8 @@ describe("smartQueueEligibility", () => {
         "task-b": [{ kind: "dependency_failed", upstreamTaskId: "task-a" }],
         "task-c": [
           {
-            kind: "dependency_failed",
-            rootCauseTaskIds: ["task-a"],
+            kind: "dependency_blocked",
+            rootCauseTaskIds: ["task-b"],
             upstreamTaskId: "task-b",
           },
         ],

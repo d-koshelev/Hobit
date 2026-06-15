@@ -179,6 +179,28 @@ Implemented for the current frontend Queue controller execution path.
   backend scheduler, worker runtime redesign, storage model, IPC contract, or
   persistence migration.
 
+### Frontend dependency failure propagation and recovery
+
+Implemented for the active frontend Queue controller/model path.
+
+- `apps/desktop/frontend/src/workbench/queue/smartQueueDependencyPropagation.ts`
+  computes reversible dependency state from the current task graph without
+  mutating downstream task status.
+- Direct dependencies distinguish normal Waiting dependency from
+  `Blocked: dependency failed` and `Blocked: dependency blocked`.
+- Transitive failed dependencies now block grandchildren as
+  `Blocked: dependency blocked` because their direct upstream is blocked by
+  dependency state.
+- QueueV2 status, lane placement, details summaries, autonomous task
+  selection, and prompt-pack created dependency chains consume the recomputed
+  frontend dependency state.
+- Recovery is recomputed from current upstream state: closing a recovered
+  upstream clears dependency-derived blockers while preserving other unfinished
+  dependencies or non-dependency blockers.
+- This is frontend/controller/model propagation only. It is not durable backend
+  propagation, a storage/schema migration, backend scheduler behavior, retry
+  execution, or worker runtime redesign.
+
 ## Not Implemented Yet
 
 The following features are not current implementation and must not be claimed

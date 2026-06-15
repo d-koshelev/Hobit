@@ -4,6 +4,11 @@ import type {
   SmartQueueState,
   SmartQueueTaskHumanStatus,
 } from "../../workspace/types/smartQueue";
+import {
+  computeSmartQueueDependencyGate,
+  dependencyBlockersForGate,
+  isDependencyBlocker,
+} from "./smartQueueDependencyPropagation";
 
 export type SmartQueueTaskLifecycle =
   | "draft"
@@ -76,12 +81,6 @@ export type SmartQueueDependencyFailurePropagation = {
   readonly gatesByTaskId: Readonly<Record<string, SmartQueueDependencyGate>>;
 };
 
-type EffectiveDependencyState = {
-  readonly state: Exclude<SmartQueueDependencyGateValue, "none">;
-  readonly rootFailedTaskIds: readonly string[];
-  readonly rootBlockedTaskIds: readonly string[];
-};
-
 const DECISION_BLOCKER_KINDS = new Set<SmartQueueBlockerKindValue>([
   "validation_requires_decision",
   "requires_human_input",
@@ -92,41 +91,17 @@ export function computeDependencyGate(
   tasks: readonly SmartQueueTaskInput[],
   dependencies: readonly SmartQueueDependency[] = [],
 ): SmartQueueDependencyGate {
-  return computeDependencyGateInternal(
-    task.taskId,
-    taskMap(tasks),
-    dependencyMap(dependencies),
-    new Set(),
-  );
+  return computeSmartQueueDependencyGate(task, tasks, dependencies);
 }
 
 export function computeTaskBlockers(
   task: SmartQueueTaskInput,
   dependencyGate: SmartQueueDependencyGate,
 ): readonly SmartQueueBlocker[] {
-  const blockers: SmartQueueBlocker[] = [];
-
-  for (const upstreamTaskId of dependencyGate.failedTaskIds) {
-    blockers.push({
-      kind: "dependency_failed",
-      reason: "dependency failed",
-      rootCauseTaskIds: dependencyGate.rootFailedTaskIds,
-      taskId: task.taskId,
-      upstreamTaskId,
-    });
-  }
-
-  for (const upstreamTaskId of dependencyGate.blockedTaskIds) {
-    blockers.push({
-      kind: "dependency_blocked",
-      reason: "dependency blocked",
-      rootCauseTaskIds: dependencyGate.rootBlockedTaskIds,
-      taskId: task.taskId,
-      upstreamTaskId,
-    });
-  }
-
-  return [...blockers, ...(task.blockers ?? [])];
+  return [
+    ...dependencyBlockersForGate(task.taskId, dependencyGate),
+    ...(task.blockers ?? []),
+  ];
 }
 
 export function computeHumanQueueStatus(
@@ -282,9 +257,7 @@ export function computeDependencyFailurePropagation(
   for (const task of tasks) {
     const gate = computeDependencyGate(task, tasks, dependencies);
     const blockers = computeTaskBlockers(task, gate).filter(
-      (blocker) =>
-        blocker.kind === "dependency_failed" ||
-        blocker.kind === "dependency_blocked",
+      isDependencyBlocker,
     );
 
     if (blockers.length > 0) {
@@ -298,233 +271,6 @@ export function computeDependencyFailurePropagation(
     affectedTaskIds,
     blockersByTaskId,
     gatesByTaskId,
-  };
-}
-
-function computeDependencyGateInternal(
-  taskId: string,
-  tasksById: ReadonlyMap<string, SmartQueueTaskInput>,
-  upstreamIdsByTaskId: ReadonlyMap<string, readonly string[]>,
-  visiting: ReadonlySet<string>,
-): SmartQueueDependencyGate {
-  const upstreamTaskIds = [...(upstreamIdsByTaskId.get(taskId) ?? [])];
-
-  if (upstreamTaskIds.length === 0) {
-    return emptyDependencyGate("none", upstreamTaskIds);
-  }
-
-  const waitingTaskIds: string[] = [];
-  const satisfiedTaskIds: string[] = [];
-  const failedTaskIds: string[] = [];
-  const blockedTaskIds: string[] = [];
-  const missingTaskIds: string[] = [];
-  const rootFailedTaskIds = new Set<string>();
-  const rootBlockedTaskIds = new Set<string>();
-
-  for (const upstreamTaskId of upstreamTaskIds) {
-    const upstreamTask = tasksById.get(upstreamTaskId);
-
-    if (!upstreamTask) {
-      missingTaskIds.push(upstreamTaskId);
-      blockedTaskIds.push(upstreamTaskId);
-      rootBlockedTaskIds.add(upstreamTaskId);
-      continue;
-    }
-
-    const effectiveState = effectiveDependencyState(
-      upstreamTask,
-      tasksById,
-      upstreamIdsByTaskId,
-      visiting,
-    );
-
-    switch (effectiveState.state) {
-      case "satisfied":
-        satisfiedTaskIds.push(upstreamTaskId);
-        break;
-      case "failed":
-        failedTaskIds.push(upstreamTaskId);
-        for (const rootId of effectiveState.rootFailedTaskIds) {
-          rootFailedTaskIds.add(rootId);
-        }
-        break;
-      case "blocked":
-        blockedTaskIds.push(upstreamTaskId);
-        for (const rootId of effectiveState.rootBlockedTaskIds) {
-          rootBlockedTaskIds.add(rootId);
-        }
-        break;
-      case "waiting":
-        waitingTaskIds.push(upstreamTaskId);
-        break;
-    }
-  }
-
-  if (failedTaskIds.length > 0) {
-    return {
-      blockedTaskIds,
-      failedTaskIds,
-      gate: "failed",
-      missingTaskIds,
-      rootBlockedTaskIds: [...rootBlockedTaskIds],
-      rootFailedTaskIds: [...rootFailedTaskIds],
-      satisfiedTaskIds,
-      upstreamTaskIds,
-      waitingTaskIds,
-    };
-  }
-
-  if (blockedTaskIds.length > 0) {
-    return {
-      blockedTaskIds,
-      failedTaskIds,
-      gate: "blocked",
-      missingTaskIds,
-      rootBlockedTaskIds: [...rootBlockedTaskIds],
-      rootFailedTaskIds: [...rootFailedTaskIds],
-      satisfiedTaskIds,
-      upstreamTaskIds,
-      waitingTaskIds,
-    };
-  }
-
-  if (waitingTaskIds.length > 0) {
-    return {
-      blockedTaskIds,
-      failedTaskIds,
-      gate: "waiting",
-      missingTaskIds,
-      rootBlockedTaskIds: [],
-      rootFailedTaskIds: [],
-      satisfiedTaskIds,
-      upstreamTaskIds,
-      waitingTaskIds,
-    };
-  }
-
-  return {
-    blockedTaskIds,
-    failedTaskIds,
-    gate: "satisfied",
-    missingTaskIds,
-    rootBlockedTaskIds: [],
-    rootFailedTaskIds: [],
-    satisfiedTaskIds,
-    upstreamTaskIds,
-    waitingTaskIds,
-  };
-}
-
-function effectiveDependencyState(
-  upstreamTask: SmartQueueTaskInput,
-  tasksById: ReadonlyMap<string, SmartQueueTaskInput>,
-  upstreamIdsByTaskId: ReadonlyMap<string, readonly string[]>,
-  visiting: ReadonlySet<string>,
-): EffectiveDependencyState {
-  if (upstreamTask.lifecycle === "closed") {
-    return {
-      rootBlockedTaskIds: [],
-      rootFailedTaskIds: [],
-      state: "satisfied",
-    };
-  }
-
-  if (upstreamTask.lifecycle === "failed" || upstreamTask.lifecycle === "cancelled") {
-    return {
-      rootBlockedTaskIds: [],
-      rootFailedTaskIds: [upstreamTask.taskId],
-      state: "failed",
-    };
-  }
-
-  if (upstreamTask.lifecycle === "blocked") {
-    return {
-      rootBlockedTaskIds: [upstreamTask.taskId],
-      rootFailedTaskIds: [],
-      state: "blocked",
-    };
-  }
-
-  if (visiting.has(upstreamTask.taskId)) {
-    return {
-      rootBlockedTaskIds: [upstreamTask.taskId],
-      rootFailedTaskIds: [],
-      state: "blocked",
-    };
-  }
-
-  const nextVisiting = new Set(visiting);
-  nextVisiting.add(upstreamTask.taskId);
-
-  const upstreamGate = computeDependencyGateInternal(
-    upstreamTask.taskId,
-    tasksById,
-    upstreamIdsByTaskId,
-    nextVisiting,
-  );
-
-  if (upstreamGate.gate === "failed") {
-    return {
-      rootBlockedTaskIds: upstreamGate.rootBlockedTaskIds,
-      rootFailedTaskIds: upstreamGate.rootFailedTaskIds,
-      state: "failed",
-    };
-  }
-
-  if (upstreamGate.gate === "blocked") {
-    return {
-      rootBlockedTaskIds: upstreamGate.rootBlockedTaskIds,
-      rootFailedTaskIds: upstreamGate.rootFailedTaskIds,
-      state: "blocked",
-    };
-  }
-
-  return {
-    rootBlockedTaskIds: [],
-    rootFailedTaskIds: [],
-    state: "waiting",
-  };
-}
-
-function taskMap(tasks: readonly SmartQueueTaskInput[]) {
-  return new Map(tasks.map((task) => [task.taskId, task]));
-}
-
-function dependencyMap(dependencies: readonly SmartQueueDependency[]) {
-  const upstreamIdsByTaskId = new Map<string, string[]>();
-
-  for (const dependency of dependencies) {
-    if (dependency.kind !== "blocks_start") {
-      continue;
-    }
-
-    const upstreamIds =
-      upstreamIdsByTaskId.get(dependency.downstreamTaskId) ?? [];
-
-    if (!upstreamIds.includes(dependency.upstreamTaskId)) {
-      upstreamIds.push(dependency.upstreamTaskId);
-    }
-
-    upstreamIdsByTaskId.set(dependency.downstreamTaskId, upstreamIds);
-  }
-
-  return upstreamIdsByTaskId;
-}
-
-function emptyDependencyGate(
-  gate: SmartQueueDependencyGateValue,
-  upstreamTaskIds: readonly string[],
-): SmartQueueDependencyGate {
-  return {
-    blockedTaskIds: [],
-    failedTaskIds: [],
-    gate,
-    missingTaskIds: [],
-    rootBlockedTaskIds: [],
-    rootFailedTaskIds: [],
-    satisfiedTaskIds: [],
-    upstreamTaskIds,
-    waitingTaskIds: [],
   };
 }
 

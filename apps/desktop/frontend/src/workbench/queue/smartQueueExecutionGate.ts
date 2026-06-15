@@ -109,5 +109,7 @@ function dependencyUnavailableReason(eligibility: SmartQueueEligibility) {
     case "none":
     case "satisfied":
       return null;
+    default:
+      return null;
   }
 }

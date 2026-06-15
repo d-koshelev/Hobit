@@ -183,6 +183,42 @@ describe("Autonomous Queue runner model", () => {
     ).toEqual([DEPENDENCY_BLOCKER]);
   });
 
+  it("does not pick tasks blocked by failed or transitive blocked dependencies", () => {
+    const failedUpstream = queueTask({
+      coordinatorStatus: "failed",
+      queueItemId: "failed-upstream",
+      status: "failed",
+    });
+    const blockedDownstream = queueTask({
+      dependsOn: ["failed-upstream"],
+      queueItemId: "blocked-downstream",
+    });
+    const transitiveBlocked = queueTask({
+      dependsOn: ["blocked-downstream"],
+      queueItemId: "transitive-blocked",
+    });
+    const eligible = queueTask({
+      orderIndex: 10,
+      queueItemId: "eligible",
+    });
+
+    expect(
+      selectNextAutonomousTask(
+        [failedUpstream, blockedDownstream, transitiveBlocked],
+        new Set(),
+      ),
+    ).toEqual({
+      skippedCount: 2,
+      task: null,
+    });
+    expect(
+      selectNextAutonomousTask(
+        [failedUpstream, blockedDownstream, transitiveBlocked, eligible],
+        new Set(),
+      ).task?.queueItemId,
+    ).toBe("eligible");
+  });
+
   it("does not let setup blockers for one candidate hide a later independent eligible task", () => {
     expect(
       autonomousPreflightBlockerMessages({

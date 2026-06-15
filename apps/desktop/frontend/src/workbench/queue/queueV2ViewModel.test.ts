@@ -423,6 +423,152 @@ describe("Queue v2 view model selectors", () => {
     );
   });
 
+  it("propagates failed and blocked dependency states through active QueueV2 statuses", () => {
+    const viewModel = selectQueueV2ViewModel({
+      tasks: [
+        task({
+          coordinatorStatus: "failed",
+          queueItemId: "task-a",
+          status: "failed",
+          title: "Task A failed",
+        }),
+        task({
+          dependsOn: ["task-a"],
+          queueItemId: "task-b",
+          status: "ready",
+          title: "Task B downstream",
+        }),
+        task({
+          dependsOn: ["task-b"],
+          queueItemId: "task-c",
+          status: "ready",
+          title: "Task C grandchild",
+        }),
+      ],
+      workers: [worker()],
+    });
+    const taskB = viewModel.tasks.find((item) => item.taskId === "task-b");
+    const taskC = viewModel.tasks.find((item) => item.taskId === "task-c");
+
+    expect(taskB).toMatchObject({
+      boardLane: "blocked",
+      dependencySummary: { gate: "failed" },
+      humanStatus: {
+        label: "Blocked: dependency failed",
+        status: "blocked",
+      },
+    });
+    expect(taskB?.blockedReasons.map((reason) => reason.code)).toContain(
+      "dependency_failed_or_rejected",
+    );
+    expect(taskC).toMatchObject({
+      boardLane: "blocked",
+      dependencySummary: { gate: "blocked" },
+      humanStatus: {
+        label: "Blocked: dependency blocked",
+        status: "blocked",
+      },
+    });
+    expect(taskC?.blockedReasons.map((reason) => reason.code)).toContain(
+      "dependency_blocked",
+    );
+  });
+
+  it("recomputes recovered dependencies without permanent downstream blockers", () => {
+    const downstream = task({
+      dependsOn: ["task-a"],
+      queueItemId: "task-b",
+      status: "ready",
+      title: "Task B",
+    });
+    const failed = selectQueueV2ViewModel({
+      tasks: [
+        task({
+          coordinatorStatus: "failed",
+          queueItemId: "task-a",
+          status: "failed",
+          title: "Task A",
+        }),
+        downstream,
+      ],
+      workers: [worker()],
+    });
+    const recovered = selectQueueV2ViewModel({
+      tasks: [
+        task({
+          closureState: "no_change_accepted",
+          coordinatorStatus: "finalized",
+          queueItemId: "task-a",
+          status: "completed",
+          title: "Task A",
+        }),
+        downstream,
+      ],
+      workers: [worker()],
+    });
+
+    expect(failed.tasks.find((item) => item.taskId === "task-b")).toMatchObject({
+      boardLane: "blocked",
+      humanStatus: { label: "Blocked: dependency failed" },
+    });
+    expect(recovered.tasks.find((item) => item.taskId === "task-b")).toMatchObject({
+      boardLane: "ready",
+      dependencySummary: { gate: "satisfied" },
+      humanStatus: { label: "Ready", status: "ready" },
+    });
+  });
+
+  it("keeps recovered tasks waiting or needing decision when other gates remain", () => {
+    const waiting = selectQueueV2ViewModel({
+      tasks: [
+        task({
+          closureState: "no_change_accepted",
+          coordinatorStatus: "finalized",
+          queueItemId: "task-a",
+          status: "completed",
+        }),
+        task({ queueItemId: "task-b", status: "running" }),
+        task({
+          dependsOn: ["task-a", "task-b"],
+          queueItemId: "task-c",
+          status: "ready",
+        }),
+      ],
+      workers: [worker({ currentItemId: "task-b", status: "running" })],
+    });
+    const needsDecision = selectQueueV2ViewModel({
+      tasks: [
+        task({
+          closureState: "no_change_accepted",
+          coordinatorStatus: "finalized",
+          queueItemId: "task-a",
+          status: "completed",
+        }),
+        task({
+          dependsOn: ["task-a"],
+          queueItemId: "task-c",
+          status: "ready",
+          validationStatus: "failed",
+        }),
+      ],
+      workers: [worker()],
+    });
+
+    expect(waiting.tasks.find((item) => item.taskId === "task-c")).toMatchObject({
+      boardLane: "waiting_dependency",
+      dependencySummary: { gate: "waiting" },
+      humanStatus: { label: "Waiting dependency" },
+    });
+    expect(needsDecision.tasks.find((item) => item.taskId === "task-c")).toMatchObject({
+      boardLane: "blocked",
+      dependencySummary: { gate: "satisfied" },
+      humanStatus: {
+        label: "Needs decision: validation failed",
+        status: "needs_decision",
+      },
+    });
+  });
+
   it("derives next actions from eligibility and blockers", () => {
     const viewModel = selectQueueV2ViewModel({
       tasks: [

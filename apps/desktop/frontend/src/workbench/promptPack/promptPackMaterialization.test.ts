@@ -4,6 +4,7 @@ import type { WorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
 import { createWorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
 import { createAgentQueueWidgetApi } from "../queue/agentQueueWidgetApi";
 import type { QueueWidgetItemSnapshot } from "../queue/agentQueueWidgetApiTypes";
+import type { AgentWorkerSummary } from "../agentQueueTaskUiModel";
 import type {
   AgentQueueTask,
   CreateAgentQueueTaskRequest,
@@ -20,6 +21,7 @@ import {
   materializeSmartQueuePromptPack,
 } from "../queue/smartQueuePromptPackMaterialization";
 import { selectNextAutonomousTask } from "../queue/agentQueueAutonomousRunnerModel";
+import { selectQueueV2ViewModel } from "../queue/queueV2ViewModel";
 
 describe("prompt pack Queue materialization service", () => {
   it("uses Smart Queue materialization output as the Queue creation source", async () => {
@@ -170,6 +172,64 @@ describe("prompt pack Queue materialization service", () => {
       patch: { dependencies: ["queue-second"] },
       reason:
         "Materialize prompt-pack dependency links after creating all selected Queue items.",
+    });
+  });
+
+  it("uses prompt-pack dependency chains for propagated Queue status after state changes", async () => {
+    const first = durableTask({
+      prompt: "Run first.",
+      queueItemId: "queue-first",
+      status: "failed",
+      title: "first: First",
+    });
+    const second = durableTask({
+      dependsOn: ["queue-first"],
+      prompt: "Run second.",
+      queueItemId: "queue-second",
+      status: "ready",
+      title: "second: Second",
+    });
+    const third = durableTask({
+      dependsOn: ["queue-second"],
+      prompt: "Run third.",
+      queueItemId: "queue-third",
+      status: "ready",
+      title: "third: Third",
+    });
+    const failedView = selectQueueV2ViewModel({
+      tasks: [first, second, third],
+      workers: [queueWorker()],
+    });
+    const recoveredView = selectQueueV2ViewModel({
+      tasks: [
+        {
+          ...first,
+          closureState: "no_change_accepted",
+          coordinatorStatus: "finalized",
+          status: "completed",
+        },
+        second,
+        third,
+      ],
+      workers: [queueWorker()],
+    });
+
+    expect(failedView.tasks.find((item) => item.taskId === "queue-second")).toMatchObject({
+      boardLane: "blocked",
+      humanStatus: { label: "Blocked: dependency failed" },
+    });
+    expect(failedView.tasks.find((item) => item.taskId === "queue-third")).toMatchObject({
+      boardLane: "blocked",
+      humanStatus: { label: "Blocked: dependency blocked" },
+    });
+    expect(recoveredView.tasks.find((item) => item.taskId === "queue-second")).toMatchObject({
+      boardLane: "ready",
+      dependencySummary: { gate: "satisfied" },
+    });
+    expect(recoveredView.tasks.find((item) => item.taskId === "queue-third")).toMatchObject({
+      boardLane: "waiting_dependency",
+      dependencySummary: { gate: "waiting" },
+      humanStatus: { label: "Waiting dependency" },
     });
   });
 
@@ -1088,6 +1148,20 @@ function durableTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
     validationStatus: "not_started",
     workerExecutionReports: [],
     workspaceId: "workspace-1",
+    ...overrides,
+  };
+}
+
+function queueWorker(overrides: Partial<AgentWorkerSummary> = {}): AgentWorkerSummary {
+  return {
+    currentItemId: null,
+    displayOrder: 0,
+    enabled: true,
+    lastReportSummary: null,
+    name: "Worker",
+    scope: { kind: "all" },
+    status: "idle",
+    workerId: "worker",
     ...overrides,
   };
 }

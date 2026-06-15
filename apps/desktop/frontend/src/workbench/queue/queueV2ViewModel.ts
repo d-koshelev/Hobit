@@ -321,7 +321,7 @@ export function queueV2BoardLaneForTask({
   }
   if (
     dependencySummary.gate === "waiting" &&
-    blockedReasons.length === 0 &&
+    !hasMaterialBlockerWhileWaiting(blockedReasons) &&
     (lifecycle === "queued" || lifecycle === "ready" || lifecycle === "draft")
   ) {
     return "waiting_dependency";
@@ -339,6 +339,17 @@ export function queueV2BoardLaneForTask({
     return hasReviewableOutput ? "review" : "closed";
   }
   return "blocked";
+}
+
+function hasMaterialBlockerWhileWaiting(
+  blockedReasons: readonly QueueBlockedReason[],
+) {
+  const nonMaterialWhileWaiting = new Set<QueueBlockedReasonCode>([
+    "capacity_unavailable",
+    "runtime_unavailable",
+  ]);
+
+  return blockedReasons.some((reason) => !nonMaterialWhileWaiting.has(reason.code));
 }
 
 function queueV2BlockedReasonsForTask({
