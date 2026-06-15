@@ -51,6 +51,11 @@ restricted capabilities for explicit workspace/code execution requests only.
   typed message, and model self-test foundation documented in
   `docs/HOBIT_MULTI_AGENT_RUNTIME.md`. It does not execute broker actions or
   call shell/Codex for agent-to-agent communication.
+- Agent-to-Agent SelfTest: pure model peer checks where Agent A can test Agent
+  B and Agent B can test Agent A through status, history, capability manifest,
+  and typed message APIs. This is the foundation for future agent-executed
+  smoke through peer and widget self-tests, not a UI, broker execution path,
+  Queue adapter, Codex run, shell command, or app-control action.
 
 ## Module Ownership
 
@@ -104,6 +109,13 @@ or `blocked` with structured evidence and no hidden side effects. Side-effecting
 capabilities must use dry-run/model evidence or an explicit safe test sandbox;
 missing or unavailable capabilities must be skipped or blocked instead of
 treated as silent success.
+
+The peer self-test foundation extends this model to multiple in-app agents:
+one registered agent can check another registered agent's status, bounded
+history, model-level capability manifest, and typed message receipt, then the
+roles can be reversed. The peer report is product-facing and explicitly asserts
+no Codex/shell usage, no Queue mutation, no Terminal launch, no Git mutation,
+no rollback execution, and no hidden worker start.
 
 The initial Widget Agent Contract registry lives under
 `apps/desktop/frontend/src/workbench/agents/widgets/`. Initial active examples

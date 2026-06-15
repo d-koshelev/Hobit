@@ -7,13 +7,11 @@ checklist does not claim durable backend Smart Queue runtime, scheduler,
 rollback execution, Git/file mutation, Terminal launch, Workspace Agent
 runtime auto-call, backend migrations, or storage schema changes.
 
-Queue manual smoke should move toward the Queue Widget Agent Contract
-self-test model under `apps/desktop/frontend/src/workbench/agents/widgets/`.
-That contract can describe safe Queue self-tests and expected evidence, but a
-full agent-executed smoke UI/runtime is not claimed by this checklist.
-Future smoke should be agent-executed through agent self-test APIs. The
-Multi-Agent Runtime foundation supports status, history, capability/API, and
-message checks for safe model-level smoke without Codex or shell.
+Queue manual smoke should move toward peer and widget self-test models under
+`apps/desktop/frontend/src/workbench/agents/`. Those contracts can describe
+safe self-tests and expected evidence, but a full agent-executed smoke UI or
+app smoke runtime is not claimed by this checklist. Future smoke should be
+agent-executed through peer/widget self-tests where available.
 
 ## Setup
 

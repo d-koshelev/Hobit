@@ -86,6 +86,40 @@ runtime registration, status reads, bounded history reads, capability manifest
 reads, and typed message exchange. They must report structured evidence and
 must not create product side effects.
 
+## Agent-To-Agent SelfTest
+
+The Agent-to-Agent SelfTest MVP is a pure frontend model under
+`apps/desktop/frontend/src/workbench/agents/selfTest/`. It lets Agent A test
+Agent B and Agent B test Agent A through typed internal agent APIs only.
+
+Each peer self-test performs the same deterministic checks:
+
+- read the target agent status;
+- read the target capability manifest;
+- verify the target exposes only the required model-level peer capabilities:
+  `agent.status.read`, `agent.history.read`, `agent.message.send`,
+  `agent.capabilities.read`, and `agent.selfTest.run`;
+- send one typed internal `self_test` message to the target;
+- mark delivery through the pure messaging helper;
+- verify the target bounded history contains the received message.
+
+The peer self-test report includes the report id, tester agent id, target
+agent id, instruction id, checked capabilities, created message id when one was
+created, status/capability/message/history check results, final status,
+product-facing summary, hidden-side-effect flags, and created timestamp. The
+final status is one of `passed`, `failed`, `skipped`, or `blocked`.
+
+Expected non-happy paths are structured results, not thrown errors. A missing
+target agent reports `blocked`; a missing required capability reports
+`failed`; message delivery failure reports `failed`; missing target-history
+evidence for a delivered message reports `failed`; policy or unavailable
+conditions report `blocked` or `skipped` with the product-facing reason.
+
+Peer self-tests assert no hidden side effects: no Codex run, shell command,
+Queue mutation, Terminal launch, Git mutation, rollback execution, hidden
+worker start, Action Broker execution, or app control action. Codex and shell
+are not used by agent-to-agent self-tests.
+
 ## Capability Broker Boundary
 
 Future app control must happen through:
