@@ -130,6 +130,7 @@ type AgentQueueControllerViewModelInput = Pick<
     options?: { silent?: boolean },
   ) => Promise<void>;
   retrySelectedTaskSame: () => Promise<boolean>;
+  retrySelectedTaskWithModifiedPrompt: (modifiedPrompt: string) => Promise<boolean>;
   runActions: ReturnType<typeof createAgentQueueRunActions>;
   runActivitySnapshot: AgentQueueRunActivitySnapshot;
   runActivityState: AgentQueueRunActivityState;
@@ -238,6 +239,7 @@ export function buildAgentQueueControllerViewModel({
   refreshLatestRunLink,
   refreshRunEvidence,
   retrySelectedTaskSame,
+  retrySelectedTaskWithModifiedPrompt,
   runActions,
   runActivitySnapshot,
   runActivityState,
@@ -443,10 +445,14 @@ export function buildAgentQueueControllerViewModel({
       canRetrySame: Boolean(
         selectedTask && !isEditing && !isSaving && !isCreating && !isSmartRetrying,
       ),
+      canRetryWithModifiedPrompt: Boolean(
+        selectedTask && !isEditing && !isSaving && !isCreating && !isSmartRetrying,
+      ),
       error: smartRetryError,
       isRetrying: isSmartRetrying,
       message: smartRetryMessage,
       onRetrySame: () => void retrySelectedTaskSame(),
+      onRetryWithModifiedPrompt: retrySelectedTaskWithModifiedPrompt,
     } satisfies AgentQueueSmartRetryController,
     run: {
       approvalPolicy: selectedTaskApprovalPolicy,

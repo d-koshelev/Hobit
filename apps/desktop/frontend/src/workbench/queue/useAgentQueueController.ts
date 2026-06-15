@@ -905,6 +905,8 @@ export function useAgentQueueController({
     selectedExecutorWidgetId,
     selectedTask,
     retrySelectedTaskSame: smartRetryActions.retrySelectedTaskSame,
+    retrySelectedTaskWithModifiedPrompt:
+      smartRetryActions.retrySelectedTaskWithModifiedPrompt,
     smartRetryError,
     smartRetryMessage,
     selectedTaskApprovalPolicy,

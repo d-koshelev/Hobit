@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { ComponentProps } from "react";
+import { act, type ComponentProps } from "react";
 
 import type { AgentQueueTask } from "../../../workspace/types";
 import { selectQueueV2ViewModel } from "../../queue/queueV2ViewModel";
@@ -215,6 +215,155 @@ describe("QueueV2TaskDetailsPopup", () => {
     expect(onRetrySame).toHaveBeenCalledTimes(1);
   });
 
+  it("renders Retry with changes only when the decision allows modified-prompt retry", async () => {
+    const onRetryWithModifiedPrompt = vi.fn();
+    const selectedTask = smartFailureTask({
+      evidenceSummary: "Validation failed and needs a prompt adjustment.",
+      failureKind: "validation_failure",
+      maxRetries: 2,
+      queueItemId: "modified-retry-task",
+      reason: "Validation failed.",
+      retryCount: 0,
+    });
+
+    await renderDecisionPopup(selectedTask, {
+      queue: queueController({
+        onRetryWithModifiedPrompt,
+        selectedTask,
+        tasks: [selectedTask],
+      }),
+    });
+
+    expect(buttonWithText("Retry with changes")).not.toBeNull();
+    expect(coordinatorDecisionCard()?.textContent).not.toContain(
+      "retry_with_modified_prompt",
+    );
+  });
+
+  it("does not render Retry with changes when retry budget is exhausted", async () => {
+    const selectedTask = smartFailureTask({
+      evidenceSummary: "Validation failed after final retry.",
+      failureKind: "validation_failure",
+      maxRetries: 1,
+      queueItemId: "modified-retry-limit-task",
+      reason: "Validation failed.",
+      retryCount: 1,
+    });
+
+    await renderDecisionPopup(selectedTask, {
+      queue: queueController({
+        selectedTask,
+        tasks: [selectedTask],
+      }),
+    });
+
+    expect(coordinatorDecisionCard()?.textContent).toContain(
+      "Needs decision: validation failed",
+    );
+    expect(coordinatorDecisionCard()?.textContent).toContain(
+      "Action unavailable",
+    );
+    expect(buttonWithText("Retry with changes")).toBeNull();
+  });
+
+  it("opens a compact modified prompt editor with the current prompt", async () => {
+    const selectedTask = smartFailureTask({
+      evidenceSummary: "Validation failed and needs a prompt adjustment.",
+      failureKind: "validation_failure",
+      maxRetries: 2,
+      prompt: "Original prompt for retry",
+      queueItemId: "modified-editor-task",
+      reason: "Validation failed.",
+      retryCount: 0,
+    });
+
+    await renderDecisionPopup(selectedTask, {
+      queue: queueController({
+        selectedTask,
+        tasks: [selectedTask],
+      }),
+    });
+
+    await click(buttonWithText("Retry with changes"));
+
+    const editor = document.querySelector<HTMLElement>(
+      "[aria-label='Retry with modified prompt editor']",
+    );
+    const modifiedPrompt = document.querySelector<HTMLTextAreaElement>(
+      "textarea[aria-label='Modified retry prompt']",
+    );
+
+    expect(editor?.textContent).toContain("Current prompt");
+    expect(editor?.textContent).toContain("Modified prompt");
+    expect(document.body.textContent).toContain("Original prompt for retry");
+    expect(modifiedPrompt?.value).toBe("Original prompt for retry");
+  });
+
+  it("rejects an empty modified prompt with product-facing error", async () => {
+    const onRetryWithModifiedPrompt = vi.fn();
+    const selectedTask = smartFailureTask({
+      evidenceSummary: "Validation failed and needs a prompt adjustment.",
+      failureKind: "validation_failure",
+      maxRetries: 2,
+      prompt: "Original prompt for retry",
+      queueItemId: "modified-empty-task",
+      reason: "Validation failed.",
+      retryCount: 0,
+    });
+
+    await renderDecisionPopup(selectedTask, {
+      queue: queueController({
+        onRetryWithModifiedPrompt,
+        selectedTask,
+        tasks: [selectedTask],
+      }),
+    });
+
+    await click(buttonWithText("Retry with changes"));
+    await setTextareaValue("Modified retry prompt", "   ");
+    await click(buttonWithText("Queue retry"));
+
+    expect(document.body.textContent).toContain(
+      "Enter a modified prompt before queueing retry.",
+    );
+    expect(onRetryWithModifiedPrompt).not.toHaveBeenCalled();
+  });
+
+  it("submits the modified prompt through the Queue controller without starting work", async () => {
+    const onRetryWithModifiedPrompt = vi.fn().mockResolvedValue(true);
+    const onRun = vi.fn();
+    const selectedTask = smartFailureTask({
+      evidenceSummary: "Validation failed and needs a prompt adjustment.",
+      failureKind: "validation_failure",
+      maxRetries: 2,
+      prompt: "Original prompt for retry",
+      queueItemId: "modified-submit-task",
+      reason: "Validation failed.",
+      retryCount: 0,
+    });
+
+    await renderDecisionPopup(selectedTask, {
+      queue: queueController({
+        onRetryWithModifiedPrompt,
+        onRun,
+        selectedTask,
+        tasks: [selectedTask],
+      }),
+    });
+
+    await click(buttonWithText("Retry with changes"));
+    await setTextareaValue(
+      "Modified retry prompt",
+      "Modified prompt for next attempt",
+    );
+    await click(buttonWithText("Queue retry"));
+
+    expect(onRetryWithModifiedPrompt).toHaveBeenCalledWith(
+      "Modified prompt for next attempt",
+    );
+    expect(onRun).not.toHaveBeenCalled();
+  });
+
   it("shows product-facing execution failure decision", async () => {
     await renderDecisionPopup(
       smartFailureTask({
@@ -316,6 +465,7 @@ describe("QueueV2TaskDetailsPopup", () => {
     expect(card?.textContent).toContain("Destructive action proposed");
     expect(card?.textContent).toContain("Destructive");
     expect(buttonWithText("Retry")).toBeNull();
+    expect(buttonWithText("Retry with changes")).toBeNull();
     expect(buttonWithText("Rollback proposal")).toBeNull();
   });
 
@@ -356,6 +506,7 @@ describe("QueueV2TaskDetailsPopup", () => {
 
     expect(coordinatorDecisionCard()).toBeNull();
     expect(document.body.textContent).toContain("Legacy report task");
+    expect(buttonWithText("Retry with changes")).toBeNull();
   });
 
   it("keeps raw enum names and raw JSON out of the decision card", async () => {
@@ -426,6 +577,41 @@ function coordinatorDecisionCard() {
   );
 }
 
+async function setTextareaValue(label: string, value: string) {
+  const textarea = document.querySelector<HTMLTextAreaElement>(
+    `textarea[aria-label="${label}"]`,
+  );
+
+  if (!textarea) {
+    throw new Error(`Textarea ${label} not found.`);
+  }
+
+  await act(async () => {
+    setNativeValue(textarea, value);
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    textarea.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+function setNativeValue(
+  element: HTMLInputElement | HTMLTextAreaElement,
+  value: string,
+) {
+  const valueSetter = Object.getOwnPropertyDescriptor(element, "value")?.set;
+  const prototype = Object.getPrototypeOf(element) as HTMLInputElement;
+  const prototypeValueSetter = Object.getOwnPropertyDescriptor(
+    prototype,
+    "value",
+  )?.set;
+
+  if (prototypeValueSetter && valueSetter !== prototypeValueSetter) {
+    prototypeValueSetter.call(element, value);
+    return;
+  }
+
+  valueSetter?.call(element, value);
+}
+
 function smartFailureTask({
   decision,
   evidenceSummary,
@@ -435,12 +621,14 @@ function smartFailureTask({
   reason,
   retryCount,
   includeRetrySame,
+  prompt,
 }: {
   decision?: "rollback";
   evidenceSummary: string;
   failureKind: Parameters<typeof buildSmartQueueWorkerFailureIntegration>[0]["failureKind"];
   includeRetrySame?: boolean;
   maxRetries?: number;
+  prompt?: string;
   queueItemId: string;
   reason: string;
   retryCount?: number;
@@ -451,6 +639,7 @@ function smartFailureTask({
         ? "blocked"
         : "awaiting_coordinator_review",
     queueItemId,
+    ...(prompt !== undefined ? { prompt } : {}),
     status: "review_needed",
     title: queueItemId,
     validationStatus:

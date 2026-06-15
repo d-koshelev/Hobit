@@ -874,6 +874,7 @@
 
 .queue-v2-coordinator-decision-actions,
 .queue-v2-coordinator-decision-controls,
+.queue-v2-coordinator-decision-editor-actions,
 .queue-v2-coordinator-decision-flags {
   display: flex;
   min-width: 0;
@@ -882,10 +883,27 @@
   gap: var(--space-xs);
 }
 
+.queue-v2-coordinator-decision-message,
 .queue-v2-coordinator-decision-controls span {
   color: var(--color-text-muted);
   font-size: var(--text-xs);
   line-height: var(--line-tight);
+}
+
+.queue-v2-coordinator-decision-editor {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-sm);
+  border-top: 1px solid var(--color-border-subtle);
+  padding-top: var(--space-sm);
+}
+
+.queue-v2-coordinator-decision-editor .ui-textarea {
+  max-height: 220px;
+}
+
+.queue-v2-coordinator-decision-editor-actions {
+  justify-content: flex-end;
 }
 
 .queue-v2-task-details-tab-aliases {

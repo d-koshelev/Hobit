@@ -1,9 +1,13 @@
+import { useEffect, useState } from "react";
+
 import {
   Badge,
   Button,
+  Field,
   KeyValueList,
   Notice,
   Section,
+  Textarea,
 } from "../../../../../design-system";
 import type { AgentQueueTask } from "../../../../../workspace/types";
 import {
@@ -24,9 +28,51 @@ export function QueueV2CoordinatorDecisionCard({
   const showRetrySameButton = Boolean(
     model?.retrySameAvailable && queue?.smartQueueRetry,
   );
+  const showRetryWithModifiedPromptButton = Boolean(
+    model?.retryWithModifiedPromptAvailable &&
+      queue?.smartQueueRetry?.onRetryWithModifiedPrompt,
+  );
+  const [isModifiedPromptEditorOpen, setIsModifiedPromptEditorOpen] =
+    useState(false);
+  const [modifiedPromptDraft, setModifiedPromptDraft] = useState(task.prompt);
+  const [modifiedPromptError, setModifiedPromptError] = useState<string | null>(
+    null,
+  );
+
+  useEffect(() => {
+    setIsModifiedPromptEditorOpen(false);
+    setModifiedPromptDraft(task.prompt);
+    setModifiedPromptError(null);
+  }, [task.queueItemId, task.prompt]);
 
   if (!model) {
     return null;
+  }
+
+  const unavailableActionLabels = model.allowedActionLabels.filter((label) => {
+    if (showRetryWithModifiedPromptButton) {
+      return label !== model.retryWithModifiedPromptLabel;
+    }
+
+    return true;
+  });
+
+  async function submitModifiedPromptRetry() {
+    const cleanPrompt = modifiedPromptDraft.trim();
+
+    if (!cleanPrompt) {
+      setModifiedPromptError("Enter a modified prompt before queueing retry.");
+      return;
+    }
+
+    setModifiedPromptError(null);
+    const accepted =
+      (await queue?.smartQueueRetry?.onRetryWithModifiedPrompt(cleanPrompt)) ??
+      false;
+
+    if (accepted) {
+      setIsModifiedPromptEditorOpen(false);
+    }
   }
 
   return (
@@ -46,7 +92,7 @@ export function QueueV2CoordinatorDecisionCard({
             label: "Allowed next actions",
             value: (
               <span className="queue-v2-coordinator-decision-actions">
-                {model.allowedActionLabels.map((label) => (
+                {unavailableActionLabels.map((label) => (
                   <Badge key={label} variant="neutral">
                     {label}
                   </Badge>
@@ -56,7 +102,7 @@ export function QueueV2CoordinatorDecisionCard({
           },
           { label: "Approval", value: model.requiresApprovalLabel },
           { label: "Destructive", value: model.destructiveLabel },
-          ...(showRetrySameButton
+          ...(showRetrySameButton || showRetryWithModifiedPromptButton
             ? []
             : [{ label: "Action availability", value: model.actionAvailability }]),
         ]}
@@ -73,13 +119,86 @@ export function QueueV2CoordinatorDecisionCard({
           >
             {queue.smartQueueRetry.isRetrying ? "Retrying" : model.retrySameLabel}
           </Button>
-          {queue?.smartQueueRetry?.message ? (
-            <span>{queue.smartQueueRetry.message}</span>
-          ) : null}
-          {queue?.smartQueueRetry?.error ? (
-            <span>{queue.smartQueueRetry.error}</span>
-          ) : null}
         </div>
+      ) : null}
+      {showRetryWithModifiedPromptButton && queue?.smartQueueRetry ? (
+        <div className="queue-v2-coordinator-decision-controls">
+          <Button
+            disabled={
+              !queue.smartQueueRetry.canRetryWithModifiedPrompt ||
+              queue.smartQueueRetry.isRetrying
+            }
+            onClick={() => {
+              setModifiedPromptDraft(task.prompt);
+              setModifiedPromptError(null);
+              setIsModifiedPromptEditorOpen(true);
+            }}
+            variant="secondary"
+          >
+            {model.retryWithModifiedPromptLabel}
+          </Button>
+        </div>
+      ) : null}
+      {isModifiedPromptEditorOpen && queue?.smartQueueRetry ? (
+        <div
+          aria-label="Retry with modified prompt editor"
+          className="queue-v2-coordinator-decision-editor"
+        >
+          <Field label="Current prompt">
+            <Textarea className="input" readOnly rows={4} value={task.prompt} />
+          </Field>
+          <Field
+            error={modifiedPromptError}
+            helperText="This becomes the runnable prompt for the next attempt."
+            label="Modified prompt"
+            required
+          >
+            <Textarea
+              aria-label="Modified retry prompt"
+              className="input"
+              onChange={(event) => {
+                setModifiedPromptDraft(event.currentTarget.value);
+                if (modifiedPromptError) {
+                  setModifiedPromptError(null);
+                }
+              }}
+              rows={6}
+              value={modifiedPromptDraft}
+            />
+          </Field>
+          <div className="queue-v2-coordinator-decision-editor-actions">
+            <Button
+              disabled={queue.smartQueueRetry.isRetrying}
+              onClick={() => {
+                setIsModifiedPromptEditorOpen(false);
+                setModifiedPromptDraft(task.prompt);
+                setModifiedPromptError(null);
+              }}
+              variant="ghost"
+            >
+              Cancel
+            </Button>
+            <Button
+              disabled={queue.smartQueueRetry.isRetrying}
+              onClick={() => void submitModifiedPromptRetry()}
+              variant="primary"
+            >
+              {queue.smartQueueRetry.isRetrying
+                ? "Queueing retry"
+                : "Queue retry"}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+      {queue?.smartQueueRetry?.message ? (
+        <span className="queue-v2-coordinator-decision-message">
+          {queue.smartQueueRetry.message}
+        </span>
+      ) : null}
+      {queue?.smartQueueRetry?.error ? (
+        <span className="queue-v2-coordinator-decision-message">
+          {queue.smartQueueRetry.error}
+        </span>
       ) : null}
       <div className="queue-v2-coordinator-decision-flags">
         {model.requiresApproval ? (

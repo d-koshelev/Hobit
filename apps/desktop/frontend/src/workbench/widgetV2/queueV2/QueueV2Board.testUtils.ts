@@ -246,6 +246,7 @@ export function validationRunner(): ValidationRunner {
 export function queueController({
   onPromote = vi.fn(),
   onRetrySame = vi.fn(),
+  onRetryWithModifiedPrompt = vi.fn(),
   onRun = vi.fn(),
   readinessMessage = null,
   runCanStart = false,
@@ -254,6 +255,7 @@ export function queueController({
 }: {
   onPromote?: () => void;
   onRetrySame?: () => void;
+  onRetryWithModifiedPrompt?: (modifiedPrompt: string) => Promise<boolean> | boolean;
   onRun?: () => void;
   readinessMessage?: string | null;
   runCanStart?: boolean;
@@ -281,10 +283,13 @@ export function queueController({
     },
     smartQueueRetry: {
       canRetrySame: true,
+      canRetryWithModifiedPrompt: true,
       error: null,
       isRetrying: false,
       message: null,
       onRetrySame,
+      onRetryWithModifiedPrompt: async (modifiedPrompt: string) =>
+        Boolean(await onRetryWithModifiedPrompt(modifiedPrompt)),
     },
     selectedTask,
     tasks,

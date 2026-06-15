@@ -81,6 +81,28 @@ export type SmartQueueRetrySamePayload = {
   };
 };
 
+export type SmartQueueRetryModifiedPromptPayload = {
+  readonly kind: "smart_queue_retry_modified_prompt_record";
+  readonly version: 1;
+  readonly acceptedAction: "retry_with_modified_prompt";
+  readonly acceptedAt: string;
+  readonly modifiedPrompt: string;
+  readonly originalPrompt: string;
+  readonly previousAttemptId?: string;
+  readonly previousDecisionId: string;
+  readonly retryAttempt: SmartQueueAttempt;
+  readonly taskId: string;
+  readonly sideEffects: {
+    readonly wouldCallWorkspaceAgent: false;
+    readonly wouldExecuteRetry: false;
+    readonly wouldExecuteRollback: false;
+    readonly wouldLaunchTerminal: false;
+    readonly wouldMutateGit: false;
+    readonly wouldMutateQueue: true;
+    readonly wouldStartWorker: false;
+  };
+};
+
 export type SmartQueueFailureIntegrationResult =
   SmartQueueWorkerFailurePayload & {
     readonly taskPatch: SmartQueueFailureTaskPatch;
@@ -270,17 +292,50 @@ export function parseSmartQueueRetrySamePayload(
   }
 }
 
+export function parseSmartQueueRetryModifiedPromptPayload(
+  rawReportPreview: string | null | undefined,
+): SmartQueueRetryModifiedPromptPayload | null {
+  if (!rawReportPreview?.trim()) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(rawReportPreview) as Partial<SmartQueueRetryModifiedPromptPayload>;
+
+    if (
+      parsed.kind !== "smart_queue_retry_modified_prompt_record" ||
+      parsed.version !== 1 ||
+      parsed.acceptedAction !== "retry_with_modified_prompt" ||
+      !parsed.previousDecisionId ||
+      !parsed.retryAttempt ||
+      !parsed.taskId ||
+      !parsed.modifiedPrompt?.trim()
+    ) {
+      return null;
+    }
+
+    return parsed as SmartQueueRetryModifiedPromptPayload;
+  } catch {
+    return null;
+  }
+}
+
+export function parseSmartQueueRetryRecordPayload(
+  rawReportPreview: string | null | undefined,
+) {
+  return (
+    parseSmartQueueRetrySamePayload(rawReportPreview) ??
+    parseSmartQueueRetryModifiedPromptPayload(rawReportPreview)
+  );
+}
+
 export function latestSmartQueueFailurePayloadForTask(
   task: Pick<AgentQueueTask, "workerExecutionReports">,
 ): SmartQueueWorkerFailurePayload | null {
   const reports = task.workerExecutionReports ?? [];
 
   for (let index = reports.length - 1; index >= 0; index -= 1) {
-    const retryPayload = parseSmartQueueRetrySamePayload(
-      reports[index]?.rawReportPreview,
-    );
-
-    if (retryPayload) {
+    if (parseSmartQueueRetryRecordPayload(reports[index]?.rawReportPreview)) {
       return null;
     }
 

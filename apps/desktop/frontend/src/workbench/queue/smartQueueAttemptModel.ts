@@ -48,6 +48,17 @@ export type SmartQueueAttemptRollbackScope = {
   readonly wouldExecuteRollback: false;
 };
 
+export type SmartQueueAttemptRetrySource =
+  | "retry_same"
+  | "retry_with_modified_prompt";
+
+export type SmartQueueAttemptPromptOverride = {
+  readonly kind: "operator_modified_retry_prompt";
+  readonly originalPrompt: string;
+  readonly modifiedPrompt: string;
+  readonly runnablePromptField: "task.prompt";
+};
+
 export type SmartQueueAttempt = {
   readonly attemptId: string;
   readonly taskId: string;
@@ -63,6 +74,8 @@ export type SmartQueueAttempt = {
   readonly failureKind?: SmartQueueAttemptFailureKind;
   readonly shortReason?: string;
   readonly coordinatorDecisionId?: string;
+  readonly retrySource?: SmartQueueAttemptRetrySource;
+  readonly promptOverride?: SmartQueueAttemptPromptOverride;
 };
 
 export type SmartQueueAttemptHistory = {
@@ -101,7 +114,10 @@ export type SmartQueueAttemptCreateInput = {
 export type SmartQueueAttemptAppendInput = Omit<
   SmartQueueAttemptCreateInput,
   "attemptNumber" | "taskId"
->;
+> & {
+  readonly promptOverride?: SmartQueueAttemptPromptOverride;
+  readonly retrySource?: SmartQueueAttemptRetrySource;
+};
 
 export type SmartQueueAttemptWorkerReportInput = {
   readonly attempt: SmartQueueAttempt;
@@ -269,7 +285,14 @@ export function appendAttempt(
 
   return {
     taskId: history.taskId,
-    attempts: [...history.attempts, attempt],
+    attempts: [
+      ...history.attempts,
+      {
+        ...attempt,
+        promptOverride: input.promptOverride,
+        retrySource: input.retrySource,
+      },
+    ],
   };
 }
 

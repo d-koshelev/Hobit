@@ -276,7 +276,17 @@ Implemented for the active Queue product details path.
   needs-decision state for the task, and returns it to Ready without starting
   a worker. Queue Active/Pause, dependency, blocker, retry-budget, and worker
   gates still control any later pickup.
-- Retry with modified prompt is not implemented.
+- Retry with modified prompt UI/controller action is implemented when a
+  structured Smart Queue coordinator decision explicitly allows
+  `retry_with_modified_prompt` and retry budget remains. The active Queue task
+  details card opens a compact operator editor with the current prompt and an
+  editable modified prompt. Accepting the retry records a new pending frontend
+  attempt/retry metadata record, preserves previous failed report evidence,
+  stores the original and modified prompt in retry metadata, updates only the
+  task's next runnable prompt field, clears the current needs-decision state,
+  and returns the task to Ready without starting a worker. Queue Active/Pause,
+  dependency, blocker, retry-budget, and worker gates still control any later
+  pickup.
 - Rollback execution is not implemented.
 - Workspace Agent assistance runtime calls are not implemented.
 - Durable backend attempt persistence is not implemented; retry attempt history
@@ -298,7 +308,6 @@ as available from the foundation above:
   Active
 - durable Smart Queue batch/dependency storage beyond the current Queue task
   compatibility fields
-- retry with modified prompt
 
 The existing explicit prompt-pack `Create Queue items` action creates current
 persisted Queue tasks through the pre-existing frontend Queue bridge using the
@@ -343,7 +352,9 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 2. Add durable scheduler/worker runtime pickup if explicitly requested.
 3. Add worker stuck report capture.
 4. Add coordinator decision record / UI card.
-5. Add retry same / retry with modified prompt.
+5. Add any future retry expansion only through explicit Queue Coordinator
+   decisions and the existing Active/Pause, dependency, blocker, and retry
+   budget gates.
 6. Add Workspace Agent assistance request protocol wiring.
 7. Add rollback proposal only, then safe rollback later.
 

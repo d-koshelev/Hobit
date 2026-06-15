@@ -4,6 +4,7 @@ import {
 } from "./smartQueueWorkerReportIntegration";
 import {
   canApplySmartQueueRetrySame,
+  canApplySmartQueueRetryWithModifiedPrompt,
 } from "./smartQueueRetrySameAction";
 import type {
   SmartQueueCoordinatorDecision,
@@ -21,6 +22,8 @@ export type QueueCoordinatorDecisionCardViewModel = {
   readonly requiresApprovalLabel: string;
   readonly retrySameAvailable: boolean;
   readonly retrySameLabel: "Retry";
+  readonly retryWithModifiedPromptAvailable: boolean;
+  readonly retryWithModifiedPromptLabel: "Retry with changes";
   readonly statusLabel: string;
   readonly taskId: string;
 };
@@ -60,6 +63,9 @@ export function queueCoordinatorDecisionCardViewModel(
       : "No operator approval required",
     retrySameAvailable: canApplySmartQueueRetrySame(decision),
     retrySameLabel: "Retry",
+    retryWithModifiedPromptAvailable:
+      canApplySmartQueueRetryWithModifiedPrompt(decision),
+    retryWithModifiedPromptLabel: "Retry with changes",
     statusLabel: productText(decision.productLabel, "Needs decision"),
     taskId: decision.taskId,
   };

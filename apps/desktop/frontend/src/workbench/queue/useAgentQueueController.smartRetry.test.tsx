@@ -10,6 +10,7 @@ import {
 } from "./useAgentQueueControllerTestHelpers";
 import {
   buildSmartQueueWorkerFailureIntegration,
+  parseSmartQueueRetryModifiedPromptPayload,
   parseSmartQueueRetrySamePayload,
 } from "./smartQueueWorkerReportIntegration";
 
@@ -88,9 +89,102 @@ describe("useAgentQueueController Smart Queue Retry same", () => {
 
     hook.unmount();
   });
+
+  it("records a modified-prompt retry attempt and updates only the runnable task prompt", async () => {
+    const failedTask = smartFailureTaskForRetry({
+      failureKind: "validation_failure",
+      prompt: "Original runnable prompt",
+    });
+    const harness = createQueueHarness([failedTask]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      await hook.result.current.smartQueueRetry.onRetryWithModifiedPrompt(
+        "Modified runnable prompt",
+      );
+      await flushHookEffects();
+    });
+
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.updateRequests).toHaveLength(1);
+    expect(harness.updateRequests[0]?.queueItemId).toBe("queue-1");
+    expect(harness.updateRequests[0]?.prompt).toBe("Modified runnable prompt");
+    expect(harness.updateRequests[0]?.status).toBe("ready");
+    expect(harness.updateRequests[0]?.validationStatus).toBe("not_started");
+    expect(harness.updateRequests[0]?.workerExecutionReports).toHaveLength(2);
+    expect(hook.result.current.smartQueueRetry.message).toBe(
+      "Retry with changes queued",
+    );
+    expect(hook.result.current.smartQueueRetry.error).toBeNull();
+    expect(hook.result.current.selectedTask?.prompt).toBe(
+      "Modified runnable prompt",
+    );
+    expect(hook.result.current.selectedTask?.coordinatorStatus).toBe(
+      "not_reported",
+    );
+    expect(hook.result.current.selectedTask?.status).toBe("ready");
+
+    const retryReport =
+      hook.result.current.selectedTask?.workerExecutionReports?.[1] ?? null;
+    const retryPayload = parseSmartQueueRetryModifiedPromptPayload(
+      retryReport?.rawReportPreview,
+    );
+
+    expect(retryPayload?.retryAttempt.attemptNumber).toBe(2);
+    expect(retryPayload?.retryAttempt.status).toBe("pending");
+    expect(retryPayload?.retryAttempt.promptOverride).toEqual({
+      kind: "operator_modified_retry_prompt",
+      modifiedPrompt: "Modified runnable prompt",
+      originalPrompt: "Original runnable prompt",
+      runnablePromptField: "task.prompt",
+    });
+    expect(retryPayload?.originalPrompt).toBe("Original runnable prompt");
+    expect(retryPayload?.modifiedPrompt).toBe("Modified runnable prompt");
+    expect(retryPayload?.sideEffects.wouldCallWorkspaceAgent).toBe(false);
+    expect(retryPayload?.sideEffects.wouldExecuteRetry).toBe(false);
+    expect(retryPayload?.sideEffects.wouldExecuteRollback).toBe(false);
+    expect(retryPayload?.sideEffects.wouldLaunchTerminal).toBe(false);
+    expect(retryPayload?.sideEffects.wouldMutateGit).toBe(false);
+    expect(retryPayload?.sideEffects.wouldStartWorker).toBe(false);
+
+    hook.unmount();
+  });
+
+  it("rejects an empty modified prompt before updating the task", async () => {
+    const failedTask = smartFailureTaskForRetry({
+      failureKind: "validation_failure",
+    });
+    const harness = createQueueHarness([failedTask]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    await act(async () => {
+      await hook.result.current.smartQueueRetry.onRetryWithModifiedPrompt("   ");
+      await flushHookEffects();
+    });
+
+    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(hook.result.current.smartQueueRetry.error).toBe(
+      "Enter a modified prompt before queueing retry.",
+    );
+    expect(hook.result.current.selectedTask?.prompt).toBe("Run this");
+
+    hook.unmount();
+  });
 });
 
-function smartFailureTaskForRetry() {
+function smartFailureTaskForRetry(
+  overrides: Partial<AgentQueueTask> & {
+    failureKind?: Parameters<
+      typeof buildSmartQueueWorkerFailureIntegration
+    >[0]["failureKind"];
+  } = {},
+) {
+  const { failureKind = "timeout", ...taskOverrides } = overrides;
   const baseTask = queueTask({
     assignedExecutorWidgetId: "executor-1",
     executionPolicy: "auto",
@@ -98,11 +192,12 @@ function smartFailureTaskForRetry() {
     queueItemId: "queue-1",
     status: "review_needed",
     validationStatus: "needs_review",
+    ...taskOverrides,
   });
   const integration = buildSmartQueueWorkerFailureIntegration({
     createdAt: "2026-06-15T10:00:00.000Z",
     evidenceSummary: "The worker timed out.",
-    failureKind: "timeout",
+    failureKind,
     maxRetries: 2,
     reason: "Run timed out.",
     retryCount: 0,

@@ -174,6 +174,32 @@ describe("smartQueueAttemptModel", () => {
     expect(nextHistory.attempts).toHaveLength(2);
   });
 
+  it("records modified prompt retry metadata on the new pending attempt", () => {
+    const nextHistory = appendAttempt(history([initialAttempt()]), {
+      attemptId: "attempt-2",
+      promptOverride: {
+        kind: "operator_modified_retry_prompt",
+        modifiedPrompt: "Run task with narrower scope.",
+        originalPrompt: "Run task",
+        runnablePromptField: "task.prompt",
+      },
+      retrySource: "retry_with_modified_prompt",
+    });
+
+    expect(nextHistory.attempts[1]).toMatchObject({
+      attemptId: "attempt-2",
+      attemptNumber: 2,
+      promptOverride: {
+        kind: "operator_modified_retry_prompt",
+        modifiedPrompt: "Run task with narrower scope.",
+        originalPrompt: "Run task",
+        runnablePromptField: "task.prompt",
+      },
+      retrySource: "retry_with_modified_prompt",
+      status: "pending",
+    });
+  });
+
   it("keeps terminal attempts immutable from lifecycle helpers", () => {
     const completed = finishAttemptSuccess(initialAttempt(), {
       finishedAt: "2026-06-15T08:30:00.000Z",

@@ -5,13 +5,16 @@ import {
   selectNextAutonomousTask,
 } from "./agentQueueAutonomousRunnerModel";
 import {
+  applySmartQueueRetryWithModifiedPromptActionToTask,
   applySmartQueueRetrySameActionToTask,
+  canApplySmartQueueRetryWithModifiedPrompt,
   canApplySmartQueueRetrySame,
   smartQueueAttemptHistoryForTask,
 } from "./smartQueueRetrySameAction";
 import {
   buildSmartQueueWorkerFailureIntegration,
   latestSmartQueueFailurePayloadForTask,
+  parseSmartQueueRetryModifiedPromptPayload,
   parseSmartQueueRetrySamePayload,
 } from "./smartQueueWorkerReportIntegration";
 
@@ -126,6 +129,192 @@ describe("smartQueueRetrySameAction", () => {
       task: smartFailureTask({
         assignedExecutorWidgetId: "executor-1",
         failureKind: "timeout",
+        maxRetries: 2,
+        retryCount: 0,
+      }),
+    });
+
+    expect(retried.ok).toBe(true);
+    if (!retried.ok) {
+      return;
+    }
+
+    expect(selectNextAutonomousTask([retried.task], new Set(), "stopped")).toEqual({
+      skippedCount: 0,
+      task: null,
+    });
+    expect(
+      selectNextAutonomousTask([retried.task], new Set(), "started").task
+        ?.queueItemId,
+    ).toBe("queue-1");
+
+    const failedDependency = queueTask({
+      coordinatorStatus: "failed",
+      queueItemId: "upstream",
+      status: "failed",
+    });
+    const dependencyBlockedTask = {
+      ...retried.task,
+      dependsOn: ["upstream"],
+      queueItemId: "queue-1",
+    };
+
+    expect(
+      selectNextAutonomousTask(
+        [failedDependency, dependencyBlockedTask],
+        new Set(),
+        "started",
+      ),
+    ).toEqual({
+      skippedCount: 1,
+      task: null,
+    });
+  });
+
+  it("creates a pending modified-prompt retry attempt and preserves the failed attempt report", () => {
+    const failedTask = smartFailureTask({
+      failureKind: "validation_failure",
+      maxRetries: 2,
+      retryCount: 0,
+    });
+    const result = applySmartQueueRetryWithModifiedPromptActionToTask({
+      acceptedAt: "2026-06-15T10:10:00.000Z",
+      attemptId: "retry-attempt-2",
+      modifiedPrompt: "Run task with the validation failure fixed.",
+      task: failedTask,
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    expect(result.retryAttempt).toMatchObject({
+      attemptId: "retry-attempt-2",
+      attemptNumber: 2,
+      promptOverride: {
+        modifiedPrompt: "Run task with the validation failure fixed.",
+        originalPrompt: "Run task",
+        runnablePromptField: "task.prompt",
+      },
+      retrySource: "retry_with_modified_prompt",
+      status: "pending",
+    });
+    expect(result.task).toMatchObject({
+      coordinatorStatus: "not_reported",
+      prompt: "Run task with the validation failure fixed.",
+      status: "ready",
+      validationStatus: "not_started",
+    });
+    expect(result.task.workerExecutionReports).toHaveLength(2);
+    expect(result.task.workerExecutionReports?.[0]?.summary).toBe(
+      "Needs decision: validation failed",
+    );
+    expect(result.report.summary).toBe("Retry with changes queued");
+    expect(smartQueueAttemptHistoryForTask(result.task).attempts).toHaveLength(2);
+    expect(latestSmartQueueFailurePayloadForTask(result.task)).toBeNull();
+  });
+
+  it("records modified-prompt retry metadata without runtime, rollback, Git, Terminal, or Workspace Agent side effects", () => {
+    const result = applySmartQueueRetryWithModifiedPromptActionToTask({
+      acceptedAt: "2026-06-15T10:10:00.000Z",
+      attemptId: "retry-attempt-2",
+      modifiedPrompt: "Run task with narrower validation instructions.",
+      task: smartFailureTask({
+        failureKind: "missing_context",
+        maxRetries: 2,
+        retryCount: 0,
+      }),
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+
+    const retryPayload = parseSmartQueueRetryModifiedPromptPayload(
+      result.report.rawReportPreview,
+    );
+
+    expect(retryPayload).toMatchObject({
+      acceptedAction: "retry_with_modified_prompt",
+      modifiedPrompt: "Run task with narrower validation instructions.",
+      originalPrompt: "Run task",
+    });
+    expect(retryPayload?.sideEffects).toEqual({
+      wouldCallWorkspaceAgent: false,
+      wouldExecuteRetry: false,
+      wouldExecuteRollback: false,
+      wouldLaunchTerminal: false,
+      wouldMutateGit: false,
+      wouldMutateQueue: true,
+      wouldStartWorker: false,
+    });
+  });
+
+  it("does not retry modified prompts for empty prompts, exhausted, rollback-only, or legacy tasks", () => {
+    const retryable = smartFailureTask({
+      failureKind: "validation_failure",
+      maxRetries: 2,
+      retryCount: 0,
+    });
+    const exhausted = smartFailureTask({
+      failureKind: "validation_failure",
+      maxRetries: 1,
+      retryCount: 1,
+    });
+    const rollbackOnly = smartFailureTask({
+      failureKind: "validation_failure",
+      maxRetries: 2,
+      retryCount: 0,
+    });
+    const rollbackPayload = latestSmartQueueFailurePayloadForTask(rollbackOnly);
+
+    expect(
+      applySmartQueueRetryWithModifiedPromptActionToTask({
+        modifiedPrompt: "   ",
+        task: retryable,
+      }),
+    ).toMatchObject({
+      message: "Cannot retry task",
+      ok: false,
+      reason: "Enter a modified prompt before queueing retry.",
+    });
+    expect(
+      applySmartQueueRetryWithModifiedPromptActionToTask({
+        modifiedPrompt: "Try again with changes.",
+        task: exhausted,
+      }),
+    ).toMatchObject({
+      message: "Cannot retry task",
+      ok: false,
+    });
+    expect(rollbackPayload).not.toBeNull();
+    expect(
+      canApplySmartQueueRetryWithModifiedPrompt({
+        ...rollbackPayload!.coordinatorDecision,
+        availableActions: ["rollback_attempt_proposal"],
+        destructive: true,
+      }),
+    ).toBe(false);
+    expect(
+      applySmartQueueRetryWithModifiedPromptActionToTask({
+        modifiedPrompt: "Try again with changes.",
+        task: queueTask(),
+      }),
+    ).toMatchObject({
+      message: "Cannot retry task",
+      ok: false,
+    });
+  });
+
+  it("keeps Queue Paused and dependency gates in control after modified-prompt retry", () => {
+    const retried = applySmartQueueRetryWithModifiedPromptActionToTask({
+      attemptId: "retry-attempt-2",
+      modifiedPrompt: "Run task with new instructions.",
+      task: smartFailureTask({
+        assignedExecutorWidgetId: "executor-1",
+        failureKind: "validation_failure",
         maxRetries: 2,
         retryCount: 0,
       }),

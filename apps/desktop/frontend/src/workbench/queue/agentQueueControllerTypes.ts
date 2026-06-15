@@ -245,10 +245,12 @@ export type AgentQueueCoordinatorFinalizationController = {
 
 export type AgentQueueSmartRetryController = {
   canRetrySame: boolean;
+  canRetryWithModifiedPrompt: boolean;
   error: string | null;
   isRetrying: boolean;
   message: string | null;
   onRetrySame: () => void;
+  onRetryWithModifiedPrompt: (modifiedPrompt: string) => Promise<boolean>;
 };
 
 export type AgentQueueOrderingController = {
