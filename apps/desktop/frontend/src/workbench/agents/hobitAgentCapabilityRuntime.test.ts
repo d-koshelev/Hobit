@@ -1,5 +1,5 @@
-// @ts-expect-error Node types are intentionally absent from the frontend tsconfig; this test reads repo docs in Vitest only.
-import { readFileSync } from "fs";
+// @ts-expect-error Node types are intentionally absent from the frontend tsconfig; this test reads repo docs and source in Vitest only.
+import { existsSync, readFileSync } from "fs";
 
 import { describe, expect, it } from "vitest";
 
@@ -19,6 +19,12 @@ import {
   listAvailableCapabilities,
   requiresConfirmation,
 } from "./hobitAgentCapabilityRuntime";
+import {
+  buildWorkspaceAgentCapabilityContext,
+  buildWorkspaceAgentCapabilityRuntimeSeam,
+  createWorkspaceAgentCapabilityInstructionBlock,
+  getWorkspaceAgentCapabilityManifest,
+} from "./workspaceAgentCapabilityContext";
 
 describe("hobitAgentCapabilityRuntime docs", () => {
   it("keeps the capability runtime docs present and honest about current boundaries", () => {
@@ -26,7 +32,7 @@ describe("hobitAgentCapabilityRuntime docs", () => {
     const contractDoc = doc("HOBIT_AGENT_CAPABILITY_RUNTIME.md");
 
     expect(reviewDoc).toContain("Current Workspace Agent Architecture");
-    expect(reviewDoc).toContain("workspaceAgentProductIntentRouting.ts");
+    expect(reviewDoc).toContain("regex routing must not be used");
     expect(reviewDoc).toContain("workspaceAgentQueueBridge.ts");
     expect(reviewDoc).toContain("queue/agentQueueWidgetApi.ts");
     expect(reviewDoc).toContain("promptPack/promptPackMaterialization.ts");
@@ -84,14 +90,98 @@ describe("hobitAgentCapabilityRuntime context", () => {
       "Use typed Hobit app capabilities before Codex or shell.",
     );
     expect(instructionBlock).toContain(
-      "Product actions must not inspect source files",
+      "App and product actions must use typed Hobit capabilities.",
     );
     expect(instructionBlock).toContain(
-      "Queue item creation should use queue.createItem",
+      "Do not use shell or Codex for product actions.",
+    );
+    expect(instructionBlock).toContain(
+      "Do not inspect source files for product actions.",
+    );
+    expect(instructionBlock).toContain(
+      "Queue item creation is a Queue capability.",
     );
     expect(instructionBlock).toContain(
       "Codex and shell are restricted capabilities",
     );
+  });
+
+  it("builds the Workspace Agent capability runtime seam without broker execution", () => {
+    const seam = buildWorkspaceAgentCapabilityRuntimeSeam({
+      currentPrompt: "Create Queue items from this visible prompt.",
+      widgetInstanceId: "agent-1",
+      workbenchId: "workbench-1",
+      workspaceId: "workspace-1",
+      workspaceName: "Capability seam",
+    });
+
+    expect(seam.appContext.currentPrompt).toBe(
+      "Create Queue items from this visible prompt.",
+    );
+    expect(seam.appContext.workspace).toMatchObject({
+      queueSingletonKey: "workspace-queue",
+      workbenchId: "workbench-1",
+      workspaceId: "workspace-1",
+      workspaceName: "Capability seam",
+    });
+    expect(seam.appContext.surface).toMatchObject({
+      surfaceId: "workspace-agent",
+      widgetDefinitionId: "interactive-agent",
+      widgetInstanceId: "agent-1",
+    });
+    expect(seam.brokerBoundary).toEqual({
+      expectedRequest: "typed_hobit_capability_request",
+      status: "not_implemented",
+    });
+    expect(seam.instructionBlock).toContain("You are inside Hobit");
+    expect(seam.instructionBlock).toContain("queue.createItems");
+    expect(seam.instructionBlock).toContain("codex.runTask");
+  });
+
+  it("exposes Workspace Agent context helpers over the capability manifest", () => {
+    const manifest = getWorkspaceAgentCapabilityManifest();
+    const context = buildWorkspaceAgentCapabilityContext({
+      capabilityRegistry: manifest,
+      currentPrompt: "Add Queue work.",
+      workspaceId: "workspace-1",
+    });
+    const instructionBlock =
+      createWorkspaceAgentCapabilityInstructionBlock(context);
+
+    expect(context.capabilityManifest.version).toBe(
+      "hobit-agent-capability-runtime.v0",
+    );
+    expect(
+      context.capabilityManifest.capabilities.map(
+        (capability) => capability.id,
+      ),
+    ).toContain("queue.createItem");
+    expect(instructionBlock).toContain("Available capabilities:");
+    expect(instructionBlock).toContain("Codex and shell are restricted capabilities");
+  });
+});
+
+describe("Workspace Agent active path cleanup", () => {
+  it("does not import the deleted regex product routing or Queue command parser", () => {
+    const source = frontendSource("workbench/InteractiveAgentPlaceholderWidget.tsx");
+
+    expect(source).not.toContain("workspaceAgentProductIntentRouting");
+    expect(source).not.toContain("workspaceAgentQueueCommandHandler");
+    expect(source).not.toContain("classifyWorkspaceAgentProductIntent");
+    expect(source).not.toContain("runWorkspaceAgentQueueCommand");
+    expect(source).not.toContain("parseWorkspaceAgentQueueCommand");
+  });
+
+  it("removes the phrase-routing modules instead of preserving regex classification", () => {
+    expect(frontendFileExists("workbench/workspaceAgentProductIntentRouting.ts")).toBe(
+      false,
+    );
+    expect(frontendFileExists("workbench/workspaceAgentQueueCommandParser.ts")).toBe(
+      false,
+    );
+    expect(
+      frontendFileExists("workbench/workspaceAgentQueueCommandHandler.ts"),
+    ).toBe(false);
   });
 });
 
@@ -261,4 +351,20 @@ function doc(name: string) {
   ).process.cwd();
 
   return readFileSync(`${cwd}/../../../docs/${name}`, "utf8");
+}
+
+function frontendSource(path: string) {
+  const cwd = (
+    globalThis as unknown as { process: { cwd: () => string } }
+  ).process.cwd();
+
+  return readFileSync(`${cwd}/src/${path}`, "utf8");
+}
+
+function frontendFileExists(path: string) {
+  const cwd = (
+    globalThis as unknown as { process: { cwd: () => string } }
+  ).process.cwd();
+
+  return existsSync(`${cwd}/src/${path}`);
 }

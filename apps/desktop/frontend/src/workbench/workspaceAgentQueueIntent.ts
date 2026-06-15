@@ -9,6 +9,9 @@ import type {
   QueueUpdateItemRequest,
 } from "./queue/agentQueueWidgetApiTypes";
 
+// Transitional visible-card parser only. This is not the Workspace Agent
+// product-action architecture; future product actions must use the Hobit Agent
+// Capability Runtime manifest plus broker boundary.
 export type WorkspaceAgentQueueIntentType = "createItem" | "updateItem";
 
 export type WorkspaceAgentQueueCreateIntentDraft = {

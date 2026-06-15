@@ -2,15 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   clickButton,
-  directWorkEvent,
   providerResponse,
   renderWidget,
   setTextareaValue,
 } from "./InteractiveAgentPlaceholderWidget.test-utils";
-import {
-  itemResult,
-  queueBridge,
-} from "./workspaceAgentQueueCommandHandler.testHelpers";
+import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 
 describe("InteractiveAgentPlaceholderWidget product-action guard", () => {
   it("routes path-based prompt-pack import through preview instead of Codex", async () => {
@@ -92,32 +88,14 @@ describe("InteractiveAgentPlaceholderWidget product-action guard", () => {
     );
   });
 
-  it("routes example Queue item creation through Agent Queue instead of Codex or shell", async () => {
+  it("does not route example Queue item creation through regex before explicit Codex", async () => {
     const provider = vi.fn(async () => providerResponse());
-    const startDirectWork = vi.fn(
-      async (
-        _widgetInstanceId: string,
-        _request: unknown,
-        onEvent: (event: ReturnType<typeof directWorkEvent>) => void,
-      ) => {
-        onEvent(directWorkEvent({ eventKind: "started" }));
-        return {
-          runId: "run_unexpected",
-          status: "started",
-          stopListening: vi.fn(),
-        };
-      },
-    );
-    const createItem = vi.fn(async (request) =>
-      itemResult("queue.createItem", {
-        executionPolicy: request.executionPolicy,
-        id: `Q-EXAMPLE-${createItem.mock.calls.length.toString()}`,
-        prompt: request.prompt,
-        queueTag: request.queueTag,
-        status: request.status,
-        title: request.title,
-      }),
-    );
+    const startDirectWork = vi.fn(async (..._args: unknown[]) => ({
+      runId: "run_explicit_codex",
+      status: "started",
+      stopListening: vi.fn(),
+    }));
+    const createItem = vi.fn();
     const runAutonomousQueue = vi.fn();
     const getSnapshot = vi.fn();
     const readPromptPackSource = vi.fn();
@@ -142,58 +120,32 @@ describe("InteractiveAgentPlaceholderWidget product-action guard", () => {
     await setTextareaValue("add example queue items to queue");
     await clickButton("Run with Codex");
 
-    expect(createItem).toHaveBeenCalledTimes(2);
-    expect(createItem).toHaveBeenNthCalledWith(
-      1,
-      expect.objectContaining({
-        executionPolicy: "manual",
-        queueTag: { name: "Examples" },
-        status: "draft",
-        title: "Example: review Queue intent routing",
-      }),
-    );
-    expect(createItem).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        executionPolicy: "manual",
-        queueTag: { name: "Examples" },
-        status: "draft",
-        title: "Example: verify Queue draft visibility",
-      }),
-    );
-    expect(startDirectWork).not.toHaveBeenCalled();
+    expect(createItem).not.toHaveBeenCalled();
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    expect(startDirectWork.mock.calls[0][1]).toMatchObject({
+      operatorPrompt: "add example queue items to queue",
+    });
     expect(provider).not.toHaveBeenCalled();
     expect(getSnapshot).not.toHaveBeenCalled();
     expect(readPromptPackSource).not.toHaveBeenCalled();
     expect(selectWorkspaceDirectory).not.toHaveBeenCalled();
     expect(runAutonomousQueue).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain("Queue intent detected");
-    expect(document.body.textContent).toContain(
-      "Queue item creation completed through Agent Queue",
+    expect(publishActivityEvents).not.toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({ title: "Queue intent detected" }),
+      ]),
     );
-    expect(document.body.textContent).toContain(
-      "Created 2 draft Queue items in Agent Queue",
-    );
-    expect(document.body.textContent).not.toContain("Get-ChildItem");
-    expect(document.body.textContent).not.toContain("PowerShell");
-
-    const publishedEvents = publishActivityEvents.mock.calls.flatMap(
-      (call) => call[0],
-    );
-    expect(publishedEvents.map((event) => event.title)).toEqual([
-      "Queue intent detected",
-      "Queue creation request prepared",
-      "Queue item creation completed",
-    ]);
-    expect(
-      publishedEvents.some((event) => event.command || event.outputPreview),
-    ).toBe(false);
+    expect(document.body.textContent).not.toContain("Queue intent detected");
   });
 
-  it("asks for Queue task content in-app without starting Codex", async () => {
+  it("does not treat Queue creation phrases as an active regex decision layer", async () => {
     const provider = vi.fn(async () => providerResponse());
-    const startDirectWork = vi.fn();
-    const createItem = vi.fn(async () => itemResult("queue.createItem"));
+    const startDirectWork = vi.fn(async (..._args: unknown[]) => ({
+      runId: "run_explicit_codex",
+      status: "started",
+      stopListening: vi.fn(),
+    }));
+    const createItem = vi.fn();
     const runAutonomousQueue = vi.fn();
     const publishActivityEvents = vi.fn();
 
@@ -213,20 +165,23 @@ describe("InteractiveAgentPlaceholderWidget product-action guard", () => {
 
     expect(createItem).not.toHaveBeenCalled();
     expect(runAutonomousQueue).not.toHaveBeenCalled();
-    expect(startDirectWork).not.toHaveBeenCalled();
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
     expect(provider).not.toHaveBeenCalled();
-    expect(document.body.textContent).toContain("Queue intent detected");
-    expect(document.body.textContent).toContain(
+    expect(publishActivityEvents).not.toHaveBeenCalled();
+    expect(document.body.textContent).not.toContain("Queue intent detected");
+    expect(document.body.textContent).not.toContain(
       "I need task content to create Queue items",
     );
-    expect(
-      publishActivityEvents.mock.calls
-        .flatMap((call) => call[0])
-        .map((event) => event.title),
-    ).toEqual([
-      "Queue intent detected",
-      "Queue creation request prepared",
-      "Queue item creation needs input",
-    ]);
   });
 });
+
+function queueBridge(
+  overrides: Partial<WorkspaceAgentQueueBridge> = {},
+): WorkspaceAgentQueueBridge {
+  return {
+    createItem: vi.fn(),
+    getSnapshot: vi.fn(),
+    updateItem: vi.fn(),
+    ...overrides,
+  } as WorkspaceAgentQueueBridge;
+}

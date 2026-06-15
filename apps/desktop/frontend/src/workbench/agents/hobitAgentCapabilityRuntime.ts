@@ -181,6 +181,7 @@ export function createDefaultHobitAgentAppContext({
       "App actions before Codex or shell.",
       "Product actions must use typed app capabilities.",
       "Product actions must not inspect source files.",
+      "Do not use shell or Codex for product actions.",
       "Queue item creation must use Queue capabilities.",
       "Codex and shell are restricted capabilities.",
     ],
@@ -219,9 +220,14 @@ export function createCapabilityInstructionBlock(
   );
   const lines = [
     `You are inside ${context.appName}, an AI Workbench.`,
+    "You are an in-app product-action orchestrator first.",
     `Role: ${context.role.title}. Primary duty: product-action orchestrator first.`,
     "Use typed Hobit app capabilities before Codex or shell.",
+    "App and product actions must use typed Hobit capabilities.",
+    "Do not use shell or Codex for product actions.",
+    "Do not inspect source files for product actions.",
     "Product actions must not inspect source files to discover or mutate product state.",
+    "Queue item creation is a Queue capability.",
     "Queue item creation should use queue.createItem, queue.createItems, queue.preparePromptPackPreview, or queue.importPromptPack.",
     "Codex and shell are restricted capabilities and are not default app-action paths.",
     "Available capabilities:",

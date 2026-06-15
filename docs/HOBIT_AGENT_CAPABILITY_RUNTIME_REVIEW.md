@@ -14,9 +14,13 @@ full Workspace Agent behavior.
   `interactive-agent` compatibility surface, composer state, transcript state,
   proposal cards, Queue cards, prompt-pack import cards, provider routing, and
   Codex Direct Work controls.
-- Product intent routing: `workspaceAgentProductIntentRouting.ts` classifies
-  prompt text into Queue action, prompt-pack import, or `codex_or_provider`.
-  It delegates Queue parsing to `workspaceAgentQueueCommandParser.ts`.
+- Product intent routing: regex routing must not be used as the Workspace
+  Agent product-action architecture. The old active
+  `workspaceAgentProductIntentRouting.ts` and
+  `workspaceAgentQueueCommandParser.ts` path has been removed from the active
+  Workspace Agent runtime path. Queue item creation must be represented as a
+  typed Queue capability selected through the capability manifest and future
+  broker boundary, not as `user text -> regex -> Queue action`.
 - Codex/direct-run routing: `useWorkspaceAgentDirectWorkController.ts` starts
   Workspace Agent Codex Direct Work through `onStartCodexDirectWorkStream`.
   `WorkspaceAgentDirectModePanel.tsx` exposes explicit working directory and
@@ -27,9 +31,11 @@ full Workspace Agent behavior.
   `WorkspaceAgentQueueReportActionCard.tsx`, and prompt-pack cards under
   `workbench/promptPack/`.
 - Queue creation actions: typed Queue creation currently lives behind
-  `workspaceAgentQueueBridge.ts`, `workspaceAgentQueueCommandExecutor.ts`,
-  `queue/agentQueueWidgetApi.ts`, and prompt-pack materialization in
-  `promptPack/promptPackMaterialization.ts`.
+  `workspaceAgentQueueBridge.ts`, `queue/agentQueueWidgetApi.ts`, visible
+  Queue/proposal card apply flows, and prompt-pack materialization in
+  `promptPack/promptPackMaterialization.ts`. These are transitional product
+  bridges until the Action Broker invokes typed capabilities directly; they
+  are not the architecture source of truth for agent-selected product actions.
 - Activity/log events: Agent Activity reads Direct Work stream events through
   `agentActivityModel.ts`; Queue widget API returns Queue events; widget
   add/state/layout and Direct Work paths emit widget-local logs through
@@ -63,6 +69,9 @@ full Workspace Agent behavior.
 - Regex/text intent routing mixes product behavior into the Workspace Agent UI
   and controller path. It should remain temporary compatibility/test fixture
   behavior, not the final decision layer.
+- The active Workspace Agent path must not classify Queue phrases such as
+  `add example queue items to queue`, `create queue items`, or
+  `add tasks to queue` through regex as a product-action decision layer.
 - Codex/shell execution is too close to the fallback route for product actions.
   Product actions need typed app capabilities first.
 - App capabilities are not exposed as a first-class manifest for the agent.

@@ -42,7 +42,6 @@ import {
   workspaceAgentQueueIntentDraftsFromText,
   type WorkspaceAgentQueueIntentDraft,
 } from "./workspaceAgentQueueIntent";
-import { runWorkspaceAgentQueueCommand } from "./workspaceAgentQueueCommandHandler";
 import { sendWorkspaceAgentKnowledgeCommandFromDraft } from "./workspaceAgentKnowledgeCommands";
 import type {
   WorkspaceAgentQueueReportActionCardPatch,
@@ -63,11 +62,6 @@ import {
   runCreateSkillProposal,
 } from "./workspaceAgentProposalCreationActions";
 import { runWorkspaceAgentProductActionConfirmation } from "./workspaceAgentProductActionGuards";
-import type { AgentActivityEvent } from "./agentActivityModel";
-import {
-  classifyWorkspaceAgentProductIntent,
-  type WorkspaceAgentProductIntent,
-} from "./workspaceAgentProductIntentRouting";
 import { useWorkspaceAgentDirectWorkController } from "./useWorkspaceAgentDirectWorkController";
 import { useWorkspaceAgentQueueCardRequests } from "./useWorkspaceAgentQueueCardRequests";
 import { useWorkspaceAgentPromptPackImport } from "./useWorkspaceAgentPromptPackImport";
@@ -170,10 +164,6 @@ export function InteractiveAgentPlaceholderWidget({
     explicitQueueCommandWorkspaceRoot(directWork.directWorkDirectory);
   const createQueueItemsFromPromptPackPreviewForCurrentWorkspace: typeof createQueueItemsFromPromptPackPreview = createQueueItemsFromPromptPackPreview ? (preview) => createQueueItemsFromPromptPackPreview(preview, { currentWorkspaceRoot: explicitWorkspaceRoot }) : undefined;
   const isDirectModeEnabled = directWork.isDirectModeEnabled;
-  const currentProductIntent = classifyWorkspaceAgentProductIntent(draft, {
-    hasPendingPromptPackImport: hasPendingPromptPackImport(),
-  });
-  const isQueueCommandDraft = currentProductIntent.kind === "queue_action";
   const canSend = !isDirectModeEnabled && trimmedDraftLength > 0 && !isProviderPending;
   useEffect(() => {
     const messageList = messageListRef.current;
@@ -268,10 +258,6 @@ export function InteractiveAgentPlaceholderWidget({
     }
 
     if (await sendProductActionConfirmationFromDraft(trimmedDraft)) {
-      return;
-    }
-
-    if (await sendQueueCommandFromDraft(trimmedDraft)) {
       return;
     }
 
@@ -462,56 +448,6 @@ export function InteractiveAgentPlaceholderWidget({
     }
   }
 
-  async function sendQueueCommandFromDraft(
-    trimmedDraft: string,
-    productIntent = classifyWorkspaceAgentProductIntent(trimmedDraft, {
-      hasPendingPromptPackImport: hasPendingPromptPackImport(),
-    }),
-    options: { forceHandleWithoutBridge?: boolean } = {},
-  ) {
-    if (!trimmedDraft || isProviderPending) {
-      return false;
-    }
-
-    if (productIntent.kind !== "queue_action") {
-      return false;
-    }
-
-    if (
-      !workspaceAgentQueueBridge &&
-      !options.forceHandleWithoutBridge &&
-      (productIntent.queueAction === "create_items" ||
-        productIntent.queueAction === "needs_input")
-    ) {
-      return false;
-    }
-
-    const activityRunId = queueProductActivityRunId(
-      workspaceScopeId,
-      instance.id,
-    );
-    publishQueueProductActivity("detected", productIntent, activityRunId);
-    const result = await runWorkspaceAgentQueueCommand(trimmedDraft, {
-      bridge: workspaceAgentQueueBridge,
-      currentWorkspaceRoot: explicitWorkspaceRoot,
-    });
-
-    if (!result.handled) {
-      return false;
-    }
-
-    publishQueueProductActivity("prepared", productIntent, activityRunId);
-    publishQueueProductActivity(
-      queueActionNeedsInput(result.body) || queueActionFailed(result.body)
-        ? "blocked"
-        : "completed",
-      productIntent,
-      activityRunId,
-    );
-    appendLocalExchange(trimmedDraft, queueProductTranscriptBody(result.body));
-    return true;
-  }
-
   async function sendProductActionConfirmationFromDraft(trimmedDraft: string) {
     if (!trimmedDraft || isProviderPending) {
       return false;
@@ -556,22 +492,6 @@ export function InteractiveAgentPlaceholderWidget({
       (promptPackImportState) =>
         !promptPackImportState.result && !promptPackImportState.isCancelled,
     );
-  }
-
-  function publishQueueProductActivity(
-    phase: "blocked" | "completed" | "detected" | "prepared",
-    productIntent: Extract<WorkspaceAgentProductIntent, { kind: "queue_action" }>,
-    runId: string,
-  ) {
-    onPublishAgentActivityEvents?.([
-      queueProductActivityEvent({
-        instanceId: instance.id,
-        phase,
-        productIntent,
-        runId,
-        workspaceId: workspaceScopeId,
-      }),
-    ]);
   }
 
   async function sendKnowledgeCommandFromDraft(trimmedDraft: string) {
@@ -915,9 +835,7 @@ export function InteractiveAgentPlaceholderWidget({
             isDirectModeEnabled
               ? {
                   activitySummary: directWork.directWorkActivitySummary,
-                  canStartDirectWork:
-                    directWork.canStartDirectWork ||
-                    (isQueueCommandDraft && !isProviderPending),
+                  canStartDirectWork: directWork.canStartDirectWork,
                   canStopDirectWork: directWork.canStopDirectWork,
                   directWorkDirectory: directWork.directWorkDirectory,
                   directWorkSandbox: directWork.directWorkSandbox,
@@ -949,14 +867,6 @@ export function InteractiveAgentPlaceholderWidget({
               return;
             }
 
-            if (
-              await sendQueueCommandFromDraft(draft.trim(), undefined, {
-                forceHandleWithoutBridge: true,
-              })
-            ) {
-              return;
-            }
-
             if (await sendKnowledgeCommandFromDraft(draft.trim())) {
               return;
             }
@@ -976,109 +886,4 @@ export function InteractiveAgentPlaceholderWidget({
       </div>
     </WidgetFrame>
   );
-}
-
-function queueActionNeedsInput(body: string) {
-  return /\bneed task content\b/i.test(body);
-}
-
-function queueActionFailed(body: string) {
-  return /\b(?:could not|failed|unavailable)\b/i.test(body);
-}
-
-function queueProductTranscriptBody(body: string) {
-  if (/^Queue intent detected\./i.test(body)) {
-    return body;
-  }
-
-  if (/^Created\b/i.test(body)) {
-    return [
-      "Queue intent detected.",
-      "Queue item creation completed through Agent Queue.",
-      body,
-    ].join("\n");
-  }
-
-  return ["Queue intent detected.", body].join("\n");
-}
-
-function queueProductActivityRunId(workspaceId: string, instanceId: string) {
-  return `queue-product:${workspaceId}:${instanceId}:${Date.now().toString()}`;
-}
-
-function queueProductActivityEvent({
-  instanceId,
-  phase,
-  productIntent,
-  runId,
-  workspaceId,
-}: {
-  instanceId: string;
-  phase: "blocked" | "completed" | "detected" | "prepared";
-  productIntent: Extract<WorkspaceAgentProductIntent, { kind: "queue_action" }>;
-  runId: string;
-  workspaceId: string;
-}): AgentActivityEvent {
-  const timestamp = Date.now();
-  const phaseCopy = queueProductActivityCopy(phase, productIntent);
-
-  return {
-    id: `${runId}:${phase}`,
-    runId,
-    severity: phaseCopy.severity,
-    sourceKind: "workspace-agent",
-    sourceLabel: "Workspace Agent",
-    sourceWidgetInstanceId: instanceId,
-    status: phaseCopy.status,
-    summary: phaseCopy.summary,
-    timestamp,
-    timestampLabel: "now",
-    title: phaseCopy.title,
-    workspaceId,
-  };
-}
-
-function queueProductActivityCopy(
-  phase: "blocked" | "completed" | "detected" | "prepared",
-  productIntent: Extract<WorkspaceAgentProductIntent, { kind: "queue_action" }>,
-): Pick<AgentActivityEvent, "severity" | "status" | "summary" | "title"> {
-  if (phase === "detected") {
-    return {
-      severity: "info",
-      status: "running",
-      summary:
-        "Workspace Agent routed this as an in-app Agent Queue product action.",
-      title: "Queue intent detected",
-    };
-  }
-
-  if (phase === "prepared") {
-    return {
-      severity: "info",
-      status: "running",
-      summary:
-        productIntent.queueAction === "needs_input"
-          ? "Queue item creation request needs task content before creation."
-          : "Queue item creation request prepared for the singleton Agent Queue.",
-      title: "Queue creation request prepared",
-    };
-  }
-
-  if (phase === "blocked") {
-    return {
-      severity: "warning",
-      status: "failed",
-      summary:
-        "Queue item creation needs task content or an available Agent Queue bridge. No Codex or shell action was started.",
-      title: "Queue item creation needs input",
-    };
-  }
-
-  return {
-    severity: "success",
-    status: "completed",
-    summary:
-      "Queue items were added to Agent Queue. No Queue Autorun, worker, Codex, shell, Terminal, or Git action was started.",
-    title: "Queue item creation completed",
-  };
 }

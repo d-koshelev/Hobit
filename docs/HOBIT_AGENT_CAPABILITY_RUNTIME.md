@@ -20,6 +20,13 @@ capabilities. They are not the default path for product actions such as Queue
 item creation, prompt-pack import, Notes changes, Knowledge actions, widget
 state changes, or app navigation.
 
+Regex routing must not be used as the Workspace Agent product-action
+architecture. Product actions must flow through raw prompt plus Hobit app
+context, capability manifest, policy constraints, future broker validation,
+internal app API invocation, and structured result/activity output. Queue item
+creation is a Queue capability, not a phrase route. Codex and shell remain
+restricted capabilities for explicit workspace/code execution requests only.
+
 ## Runtime Components
 
 - App Context: structured Hobit, Workspace, surface, widget, role, prompt, and
