@@ -201,12 +201,32 @@ Implemented for the active frontend Queue controller/model path.
   propagation, a storage/schema migration, backend scheduler behavior, retry
   execution, or worker runtime redesign.
 
+### Attempt history pure model
+
+Implemented as a pure frontend model foundation.
+
+- `apps/desktop/frontend/src/workbench/queue/smartQueueAttemptModel.ts`
+  models explicit Queue task attempt records, attempt history, current-attempt
+  selection, retry-number foundation, coordinator decision attachment,
+  validation/failure summaries, changed-file counts, and rollback-scope
+  metadata.
+- The first attempt is numbered 1. Appended retry foundation attempts use the
+  previous maximum attempt number plus 1 while preserving previous attempts.
+- Attempt summaries are product-facing and do not expose internal enum names.
+- Rollback scope is metadata only: changed files, base revision, attempt id,
+  approval requirement, and a false execution flag.
+- This is not durable backend attempt persistence, actual retry execution,
+  actual rollback execution, scheduler behavior, worker runtime behavior,
+  storage/schema migration, Tauri/IPC behavior, Git mutation, or Terminal
+  launch.
+
 ## Not Implemented Yet
 
 The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend/storage Smart Queue model
+- durable backend attempt persistence
 - worker stuck report integration
 - retry execution
 - rollback execution
