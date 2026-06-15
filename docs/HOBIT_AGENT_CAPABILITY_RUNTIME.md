@@ -84,6 +84,31 @@ through raw prompt plus Hobit app context, capability manifest, policy
 constraints, future broker validation, internal app API invocation, and
 structured result/activity output.
 
+## Widget Agent Contracts
+
+Every Hobit widget or module must expose an agent-readable Widget Agent
+Contract before it is considered complete. The contract describes product
+functionality, typed agent-facing capabilities, input/output schema
+descriptions, side-effect levels, confirmation and dry-run/preview
+requirements, forbidden side effects, availability and unavailable reasons,
+audit/activity event names, safe self-test capabilities, and the agent
+self-test instruction.
+
+Manual smoke is moving toward agent-executed smoke through widget self-tests.
+The self-test contract must let an agent report `passed`, `failed`, `skipped`,
+or `blocked` with structured evidence and no hidden side effects. Side-effecting
+capabilities must use dry-run/model evidence or an explicit safe test sandbox;
+missing or unavailable capabilities must be skipped or blocked instead of
+treated as silent success.
+
+The initial Widget Agent Contract registry lives under
+`apps/desktop/frontend/src/workbench/agents/widgets/`. Initial active examples
+are Agent Queue / QueueV2 and Workspace Agent. Knowledge / Skills, Notes, and
+Terminal are next contract targets and may appear only as unavailable/skipped
+placeholders until their full contracts exist. Finder is out of scope for the
+current Widget Agent Contract foundation and is not included in the active
+contract registry.
+
 ## Capability Metadata
 
 Each capability has:

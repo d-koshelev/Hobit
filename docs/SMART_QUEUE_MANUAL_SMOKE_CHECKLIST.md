@@ -7,6 +7,11 @@ checklist does not claim durable backend Smart Queue runtime, scheduler,
 rollback execution, Git/file mutation, Terminal launch, Workspace Agent
 runtime auto-call, backend migrations, or storage schema changes.
 
+Queue manual smoke should move toward the Queue Widget Agent Contract
+self-test model under `apps/desktop/frontend/src/workbench/agents/widgets/`.
+That contract can describe safe Queue self-tests and expected evidence, but a
+full agent-executed smoke UI/runtime is not claimed by this checklist.
+
 ## Setup
 
 - Start Hobit from `C:\Users\Dmitry\Documents\prj\Hobit_fixed`.

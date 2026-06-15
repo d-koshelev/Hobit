@@ -8,6 +8,7 @@ import {
   createSelfTestInstruction as createSelfTestInstructionFromPublicIndex,
   createWorkspaceAgentCapabilityInstructionBlock as createInstructionBlockFromPublicIndex,
   HOBIT_AGENT_INITIAL_CAPABILITIES as INITIAL_CAPABILITIES_FROM_PUBLIC_INDEX,
+  listWidgetContracts as listWidgetContractsFromPublicIndex,
 } from "./index";
 import {
   createHobitAgentCapabilityRegistry as createRegistryFromCapabilitiesIndex,
@@ -98,6 +99,9 @@ describe("hobitAgentCapabilityRuntime module structure", () => {
       capabilityId: "queue.createItems",
     });
     expect(report.summary.total).toBe(0);
+    expect(
+      listWidgetContractsFromPublicIndex().map((contract) => contract.widgetId),
+    ).toEqual(["agent-queue", "interactive-agent"]);
     expect(createSelfTestInstructionFromPublicIndex().id).toBe(
       "hobit.agent.selfTest",
     );

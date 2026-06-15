@@ -72,9 +72,11 @@ under `apps/desktop/frontend/src/workbench/agents/`: `context/`,
 and `adapters/`. The old public files
 `hobitAgentCapabilityRuntime.ts`, `hobitAgentCapabilityManifest.ts`,
 `hobitAgentSelfTestRuntime.ts`, and `workspaceAgentCapabilityContext.ts` are
-compatibility re-export facades. Future broker execution, app adapters,
-multi-agent runtime, widget contracts, and message/history work should land in
-the owned folders instead of Workspace Agent UI components.
+compatibility re-export facades. The `widgets/` folder now owns the pure Widget
+Agent Contract model and initial Agent Queue / Workspace Agent registry
+entries. Future broker execution, app adapters, multi-agent runtime, additional
+widget contracts, and message/history work should land in the owned folders
+instead of Workspace Agent UI components.
 
 ## Architectural Problems
 
@@ -89,8 +91,9 @@ the owned folders instead of Workspace Agent UI components.
 - App capabilities are not exposed as a first-class manifest for the agent.
 - Policy, permissions, availability, confirmation, dry-run, and side-effect
   rules are not centralized at the capability boundary.
-- There is no self-test capability contract for agents to verify available
-  app APIs safely.
+- Widget-level self-test coverage is only beginning: Agent Queue and Workspace
+  Agent have initial contract/self-test metadata, while Knowledge / Skills,
+  Notes, Terminal, and other widgets still need complete contracts.
 - Agents do not receive app role, current Workspace/surface/widget context,
   capability list, policy constraints, and self-test instructions as structured
   runtime data.
