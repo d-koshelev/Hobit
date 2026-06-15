@@ -11,6 +11,9 @@ Queue manual smoke should move toward the Queue Widget Agent Contract
 self-test model under `apps/desktop/frontend/src/workbench/agents/widgets/`.
 That contract can describe safe Queue self-tests and expected evidence, but a
 full agent-executed smoke UI/runtime is not claimed by this checklist.
+Future smoke should be agent-executed through agent self-test APIs. The
+Multi-Agent Runtime foundation supports status, history, capability/API, and
+message checks for safe model-level smoke without Codex or shell.
 
 ## Setup
 

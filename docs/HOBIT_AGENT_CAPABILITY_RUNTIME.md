@@ -47,6 +47,10 @@ restricted capabilities for explicit workspace/code execution requests only.
   unavailable, blocked, dry-run-required, or confirmation-required results.
 - SelfTest Runtime: safe test harness that checks capability availability and
   policy without hidden mutation.
+- Multi-Agent Runtime: frontend-only agent instance, status, bounded history,
+  typed message, and model self-test foundation documented in
+  `docs/HOBIT_MULTI_AGENT_RUNTIME.md`. It does not execute broker actions or
+  call shell/Codex for agent-to-agent communication.
 
 ## Module Ownership
 
@@ -61,11 +65,11 @@ land in the owned module folder that matches its responsibility:
   helper functions.
 - `broker/`: action request/result/audit/broker result contracts and small
   result-construction helpers. Action Broker execution is a later block.
-- `runtime/`: future agent instance, status, and runtime-state models. This
-  folder must not become a hidden multi-agent runtime without an explicit
-  implementation block.
-- `messaging/`: future agent message and history models. This folder does not
-  implement a message bus yet.
+- `runtime/`: pure frontend agent instance, status, runtime-state, snapshot,
+  and deterministic test-agent models for the Multi-Agent Runtime MVP.
+- `messaging/`: pure frontend typed agent message, bounded history, delivery,
+  and failure-result models. This folder does not implement a backend message
+  bus, broker execution, or app control.
 - `selfTest/`: self-test instructions, requests, cases, results, reports, and
   report summary helpers.
 - `widgets/`: future Widget Agent Contract models. It does not implement widget

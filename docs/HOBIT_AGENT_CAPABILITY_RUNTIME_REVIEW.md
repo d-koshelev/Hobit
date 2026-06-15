@@ -74,9 +74,12 @@ and `adapters/`. The old public files
 `hobitAgentSelfTestRuntime.ts`, and `workspaceAgentCapabilityContext.ts` are
 compatibility re-export facades. The `widgets/` folder now owns the pure Widget
 Agent Contract model and initial Agent Queue / Workspace Agent registry
-entries. Future broker execution, app adapters, multi-agent runtime, additional
-widget contracts, and message/history work should land in the owned folders
-instead of Workspace Agent UI components.
+entries. Future broker execution, app adapters, additional widget contracts,
+and message-bus work should land in the owned folders instead of Workspace
+Agent UI components. The Multi-Agent Runtime MVP now owns pure frontend agent
+instance/status models under `runtime/` and typed bounded message/history
+models under `messaging/`; it does not execute broker actions, call Codex or
+shell, or mutate app state.
 
 ## Architectural Problems
 

@@ -7,7 +7,10 @@ import {
   createHobitAgentCapabilityRegistry as createRegistryFromPublicIndex,
   createSelfTestInstruction as createSelfTestInstructionFromPublicIndex,
   createWorkspaceAgentCapabilityInstructionBlock as createInstructionBlockFromPublicIndex,
+  HOBIT_TEST_AGENT_A as TEST_AGENT_A_FROM_PUBLIC_INDEX,
   HOBIT_AGENT_INITIAL_CAPABILITIES as INITIAL_CAPABILITIES_FROM_PUBLIC_INDEX,
+  createAgentMessage as createAgentMessageFromPublicIndex,
+  createAgentRuntimeState as createAgentRuntimeStateFromPublicIndex,
   listWidgetContracts as listWidgetContractsFromPublicIndex,
 } from "./index";
 import {
@@ -131,15 +134,32 @@ describe("hobitAgentCapabilityRuntime module structure", () => {
     });
   });
 
-  it("keeps future runtime homes as module-owned placeholders without product execution", () => {
+  it("exposes runtime and messaging homes without product execution", () => {
+    const state = createAgentRuntimeStateFromPublicIndex({
+      workspaceId: "workspace-1",
+    });
+    const message = createAgentMessageFromPublicIndex({
+      body: "status",
+      createdAt: "2026-01-01T00:00:00.000Z",
+      fromAgentId: "test.agentA",
+      messageId: "message-1",
+      toAgentId: "test.agentB",
+    });
+
     expect(frontendFileExists("workbench/agents/runtime/index.ts")).toBe(true);
     expect(frontendFileExists("workbench/agents/messaging/index.ts")).toBe(true);
     expect(frontendFileExists("workbench/agents/widgets/index.ts")).toBe(true);
     expect(frontendFileExists("workbench/agents/adapters/index.ts")).toBe(true);
-
-    expect(frontendSource("workbench/agents/runtime/index.ts").trim()).toBe(
-      "export {};",
-    );
+    expect(state).toMatchObject({
+      agents: [],
+      workspaceId: "workspace-1",
+    });
+    expect(TEST_AGENT_A_FROM_PUBLIC_INDEX.agentId).toBe("test.agentA");
+    expect(message).toMatchObject({
+      fromAgentId: "test.agentA",
+      messageId: "message-1",
+      toAgentId: "test.agentB",
+    });
     expect(frontendSource("workbench/agents/adapters/index.ts").trim()).toBe(
       "export {};",
     );
