@@ -1,3 +1,8 @@
+import type {
+  SmartQueueWorkerReport,
+  SmartQueueWorkerReportStage,
+} from "./smartQueueCoordinatorDecision";
+
 export type SmartQueueAttemptStatus =
   | "pending"
   | "running"
@@ -98,6 +103,12 @@ export type SmartQueueAttemptAppendInput = Omit<
   "attemptNumber" | "taskId"
 >;
 
+export type SmartQueueAttemptWorkerReportInput = {
+  readonly attempt: SmartQueueAttempt;
+  readonly stage?: SmartQueueWorkerReportStage;
+  readonly evidenceSummary?: string;
+};
+
 export type SmartQueueAttemptSummaryRow = {
   readonly attemptId: string;
   readonly attemptNumber: number;
@@ -153,6 +164,10 @@ export function startAttempt(
   attempt: SmartQueueAttempt,
   input: SmartQueueAttemptStartInput,
 ): SmartQueueAttempt {
+  if (isTerminalAttempt(attempt)) {
+    return attempt;
+  }
+
   return {
     ...attempt,
     baseRevision: input.baseRevision ?? attempt.baseRevision,
@@ -169,6 +184,10 @@ export function finishAttemptSuccess(
   attempt: SmartQueueAttempt,
   input: SmartQueueAttemptFinishInput,
 ): SmartQueueAttempt {
+  if (isTerminalAttempt(attempt)) {
+    return attempt;
+  }
+
   return {
     ...attempt,
     changedFiles: input.changedFiles ?? attempt.changedFiles,
@@ -187,6 +206,10 @@ export function finishAttemptFailure(
   attempt: SmartQueueAttempt,
   input: SmartQueueAttemptFailureInput,
 ): SmartQueueAttempt {
+  if (isTerminalAttempt(attempt)) {
+    return attempt;
+  }
+
   return {
     ...attempt,
     changedFiles: input.changedFiles ?? attempt.changedFiles,
@@ -205,6 +228,10 @@ export function cancelAttempt(
   attempt: SmartQueueAttempt,
   input: Pick<SmartQueueAttemptFinishInput, "coordinatorDecisionId" | "finishedAt">,
 ): SmartQueueAttempt {
+  if (isTerminalAttempt(attempt)) {
+    return attempt;
+  }
+
   return {
     ...attempt,
     coordinatorDecisionId:
@@ -218,6 +245,10 @@ export function markAttemptValidation(
   attempt: SmartQueueAttempt,
   validationResult: SmartQueueAttemptValidationResult = { status: "running" },
 ): SmartQueueAttempt {
+  if (isTerminalAttempt(attempt)) {
+    return attempt;
+  }
+
   return {
     ...attempt,
     status: "validation",
@@ -249,6 +280,33 @@ export function attachCoordinatorDecisionToAttempt(
   return {
     ...attempt,
     coordinatorDecisionId,
+  };
+}
+
+export function createWorkerReportFromAttemptFailure({
+  attempt,
+  evidenceSummary,
+  stage,
+}: SmartQueueAttemptWorkerReportInput): SmartQueueWorkerReport | undefined {
+  if (attempt.status !== "failed") {
+    return undefined;
+  }
+
+  const failureKind = attempt.failureKind ?? "unknown";
+
+  return {
+    attemptId: attempt.attemptId,
+    evidenceSummary: cleanText(
+      evidenceSummary ?? attemptFailureEvidenceSummary(attempt),
+      "Attempt failed.",
+    ),
+    failureKind,
+    shortReason: cleanText(
+      attempt.shortReason,
+      defaultFailureReason(failureKind),
+    ),
+    stage: stage ?? workerReportStageForFailureKind(failureKind),
+    taskId: attempt.taskId,
   };
 }
 
@@ -310,6 +368,14 @@ export function computeAttemptRollbackScope(
 
 export function getSmartQueueAttemptModelSideEffects(): SmartQueueAttemptSideEffectFlags {
   return NO_SIDE_EFFECTS;
+}
+
+export function isTerminalAttempt(attempt: SmartQueueAttempt) {
+  return (
+    attempt.status === "succeeded" ||
+    attempt.status === "failed" ||
+    attempt.status === "cancelled"
+  );
 }
 
 function nextAttemptNumber(attempts: readonly SmartQueueAttempt[]) {
@@ -425,6 +491,36 @@ function defaultFailureReason(kind: SmartQueueAttemptFailureKind | undefined) {
     default:
       return "attempt failed";
   }
+}
+
+function workerReportStageForFailureKind(
+  kind: SmartQueueAttemptFailureKind,
+): SmartQueueWorkerReportStage {
+  switch (kind) {
+    case "validation_failure":
+      return "validation";
+    case "dependency_failed":
+    case "dependency_blocked":
+      return "dependency";
+    case "missing_config":
+    case "missing_context":
+    case "dirty_worktree":
+      return "environment";
+    case "execution_failure":
+    case "timeout":
+    case "tool_failure":
+    case "unknown":
+      return "execution";
+  }
+}
+
+function attemptFailureEvidenceSummary(attempt: SmartQueueAttempt) {
+  return (
+    attempt.validationResult?.summary ??
+    attempt.result?.summary ??
+    attempt.shortReason ??
+    defaultFailureReason(attempt.failureKind)
+  );
 }
 
 function cleanText(value: string | undefined, fallback: string) {

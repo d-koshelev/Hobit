@@ -7,15 +7,18 @@ import {
   computeAttemptRollbackScope,
   computeAttemptSummary,
   createInitialAttempt,
+  createWorkerReportFromAttemptFailure,
   finishAttemptFailure,
   finishAttemptSuccess,
   getSmartQueueAttemptModelSideEffects,
+  isTerminalAttempt,
   markAttemptValidation,
   selectCurrentAttempt,
   startAttempt,
   type SmartQueueAttempt,
   type SmartQueueAttemptHistory,
 } from "./smartQueueAttemptModel";
+import { decideSmartQueueCoordinatorAction } from "./smartQueueCoordinatorDecision";
 
 describe("smartQueueAttemptModel", () => {
   it("creates the initial pending attempt with attemptNumber 1", () => {
@@ -171,6 +174,39 @@ describe("smartQueueAttemptModel", () => {
     expect(nextHistory.attempts).toHaveLength(2);
   });
 
+  it("keeps terminal attempts immutable from lifecycle helpers", () => {
+    const completed = finishAttemptSuccess(initialAttempt(), {
+      finishedAt: "2026-06-15T08:30:00.000Z",
+      result: { summary: "Completed." },
+    });
+
+    expect(isTerminalAttempt(completed)).toBe(true);
+    expect(
+      startAttempt(completed, {
+        startedAt: "2026-06-15T09:00:00.000Z",
+        workerId: "worker-2",
+      }),
+    ).toBe(completed);
+    expect(
+      finishAttemptFailure(completed, {
+        failureKind: "execution_failure",
+        finishedAt: "2026-06-15T09:10:00.000Z",
+        shortReason: "late failure",
+      }),
+    ).toBe(completed);
+    expect(
+      cancelAttempt(completed, {
+        finishedAt: "2026-06-15T09:15:00.000Z",
+      }),
+    ).toBe(completed);
+    expect(
+      markAttemptValidation(completed, {
+        status: "failed",
+        summary: "late validation",
+      }),
+    ).toBe(completed);
+  });
+
   it("selects the current attempt deterministically by highest attemptNumber then attemptId", () => {
     const selected = selectCurrentAttempt(
       history([
@@ -255,6 +291,71 @@ describe("smartQueueAttemptModel", () => {
     expect(computeAttemptSummary(history([first, second]))).toMatchObject({
       changedFilesCount: 3,
       changedFilesText: "Changed files: 3",
+    });
+  });
+
+  it("creates a pure coordinator worker report from a failed attempt", () => {
+    const failed = finishAttemptFailure(initialAttempt(), {
+      failureKind: "validation_failure",
+      finishedAt: "2026-06-15T08:10:00.000Z",
+      shortReason: "validation failed",
+      validationResult: {
+        status: "failed",
+        summary: "Unit tests failed.",
+      },
+    });
+    const report = createWorkerReportFromAttemptFailure({ attempt: failed });
+
+    expect(report).toEqual({
+      attemptId: "attempt-1",
+      evidenceSummary: "Unit tests failed.",
+      failureKind: "validation_failure",
+      shortReason: "validation failed",
+      stage: "validation",
+      taskId: "task-1",
+    });
+    expect(
+      createWorkerReportFromAttemptFailure({ attempt: initialAttempt() }),
+    ).toBeUndefined();
+  });
+
+  it("lets coordinator decisions attach back to failed attempts by attemptId", () => {
+    const failed = finishAttemptFailure(initialAttempt(), {
+      failureKind: "validation_failure",
+      finishedAt: "2026-06-15T08:10:00.000Z",
+      shortReason: "validation failed",
+      validationResult: {
+        status: "failed",
+        summary: "Unit tests failed.",
+      },
+    });
+    const report = createWorkerReportFromAttemptFailure({ attempt: failed });
+
+    expect(report).toBeDefined();
+
+    const decision = decideSmartQueueCoordinatorAction({
+      decisionId: "decision-1",
+      maxRetries: 2,
+      report: report!,
+      retryCount: 1,
+    });
+    const decidedAttempt = attachCoordinatorDecisionToAttempt(
+      failed,
+      decision.decisionId,
+    );
+
+    expect(decision).toMatchObject({
+      attemptId: "attempt-1",
+      evidenceSummary: "Unit tests failed.",
+      humanStatus: {
+        label: "Needs decision: validation failed",
+      },
+      taskId: "task-1",
+    });
+    expect(decidedAttempt).toMatchObject({
+      attemptId: "attempt-1",
+      coordinatorDecisionId: "decision-1",
+      status: "failed",
     });
   });
 

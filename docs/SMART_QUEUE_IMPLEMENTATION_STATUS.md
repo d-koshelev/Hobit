@@ -212,6 +212,11 @@ Implemented as a pure frontend model foundation.
   metadata.
 - The first attempt is numbered 1. Appended retry foundation attempts use the
   previous maximum attempt number plus 1 while preserving previous attempts.
+- Terminal attempt lifecycle helpers preserve completed, failed, and cancelled
+  attempt records instead of rewriting their execution history.
+- Failed attempts can be converted into a pure coordinator worker-report shape
+  that references `taskId` and `attemptId` and carries product-facing evidence
+  summaries for coordinator decisions.
 - Attempt summaries are product-facing and do not expose internal enum names.
 - Rollback scope is metadata only: changed files, base revision, attempt id,
   approval requirement, and a false execution flag.
