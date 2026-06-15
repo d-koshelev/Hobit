@@ -78,8 +78,8 @@ land in the owned module folder that matches its responsibility:
   helper functions.
 - `broker/`: action request/result/audit/broker result contracts, policy
   validation helpers, deterministic test handlers, and the pure frontend
-  Action Broker MVP. Real product adapters and Workspace Agent broker
-  execution are later blocks.
+  Action Broker MVP. The broker validates and invokes typed handlers; app
+  module behavior belongs in adapters, not the generic broker layer.
 - `runtime/`: pure frontend agent instance, status, runtime-state, snapshot,
   and deterministic test-agent models for the Multi-Agent Runtime MVP.
 - `messaging/`: pure frontend typed agent message, bounded history, delivery,
@@ -89,8 +89,9 @@ land in the owned module folder that matches its responsibility:
   report summary helpers.
 - `widgets/`: future Widget Agent Contract models. It does not implement widget
   contracts yet.
-- `adapters/`: future Queue, Workspace Agent, Codex, Shell, or app adapters.
-  It does not implement real app adapter execution yet.
+- `adapters/`: typed app-module adapters. The Queue Capability Adapter MVP
+  lives here as the first real app-module adapter behind the Action Broker.
+  Workspace Agent broker execution and additional app adapters remain later.
 
 Workspace Agent UI components must not become the owner of agent runtime
 logic. The UI may render context, proposal, and review surfaces, but typed
@@ -126,22 +127,70 @@ decision, stable audit/activity events, and hidden-side-effect flags asserting
 that safe model handlers did not run shell, Codex, Queue mutation, Terminal,
 Git, rollback, or workers.
 
-The MVP includes deterministic frontend test handlers only:
+The broker MVP includes deterministic frontend test handlers only for pure
+agent model APIs:
 
 - `agent.status.read`
 - `agent.capabilities.read`
 - `agent.message.send` dry-run
-- `queue.createItems` dry-run placeholder
 
-The `queue.createItems` dry-run placeholder returns preview-like evidence such
-as `wouldCreateItems`, singleton Queue targeting, no worker autorun, and no
-duplicate Queue view. It does not mutate Queue and is not the real Queue
-adapter. Real Queue invocation remains a later explicit adapter block.
+Queue-specific behavior does not live in the generic broker layer. Queue
+handlers are supplied by the Queue Capability Adapter through
+`createQueueAgentActionHandlers(adapterApi)`.
 
 Codex and shell capabilities remain restricted execute capabilities. They are
 not default Hobit app-action paths, and the broker MVP blocks restricted
 execute invocation unless a future explicit policy/adaptor slice deliberately
 opens that path.
+
+## Queue Capability Adapter MVP
+
+The Queue Capability Adapter MVP is the first real app-module adapter for the
+Hobit Agent Capability Runtime. It lives under
+`apps/desktop/frontend/src/workbench/agents/adapters/` and exposes typed Queue
+capability handlers for the Action Broker through dependency injection.
+
+Supported Queue capabilities:
+
+- `queue.targetSingletonQueue`
+- `queue.createItem`
+- `queue.createItems`
+- `queue.preparePromptPackPreview`
+- `queue.importPromptPack`
+- `queue.selfTest`
+
+The adapter boundary is typed and injected. It does not import React hooks,
+mutate global UI state directly, create widgets/views directly, couple to the
+Workspace Agent UI, route natural language, call Codex, call shell, launch
+Terminal, mutate Git, execute rollback, start workers, arm Queue Autorun, or
+create duplicate Queue views.
+
+Dry-run Queue creation returns a structured preview with:
+
+- `wouldCreateItems`
+- `wouldTargetSingletonQueue: true`
+- `wouldAutoRunWorkers: false`
+- `wouldCreateDuplicateQueueView: false`
+
+Invoke Queue creation uses the injected Queue adapter API and targets the
+singleton Workspace Queue. It preserves title, prompt/body, source metadata,
+and dependency edges where the adapter supports them. If dependency edges
+cannot be represented, the handler returns a structured failed/unsupported
+result instead of silently dropping them.
+
+Prompt-pack preview uses existing prompt-pack and Smart Queue materialization
+models where practical and does not create Queue tasks. Prompt-pack import
+creates Queue items only through the injected adapter API after valid input and
+policy approval, and it does not auto-run workers after import.
+
+Queue self-test runs safe target and dry-run checks through the adapter. It
+verifies singleton targeting, createItems preview, no auto-run, no duplicate
+view, and no hidden side effects. If a production adapter has no safe mutation
+sandbox, mutation checks are skipped or blocked with a product-facing reason
+rather than performing real Queue mutation.
+
+Workspace Agent UI broker execution is still later. The current Workspace
+Agent surface is not wired to invoke these broker handlers.
 
 ## Widget Agent Contracts
 

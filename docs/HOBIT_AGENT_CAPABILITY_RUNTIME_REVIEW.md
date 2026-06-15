@@ -33,9 +33,10 @@ full Workspace Agent behavior.
 - Queue creation actions: typed Queue creation currently lives behind
   `workspaceAgentQueueBridge.ts`, `queue/agentQueueWidgetApi.ts`, visible
   Queue/proposal card apply flows, and prompt-pack materialization in
-  `promptPack/promptPackMaterialization.ts`. These are transitional product
-  bridges until a real Queue adapter is wired behind the Action Broker; they
-  are not the architecture source of truth for agent-selected product actions.
+  `promptPack/promptPackMaterialization.ts`. These remain transitional product
+  bridges for the visible Workspace Agent card flows. The Queue Capability
+  Adapter MVP is now the architecture source for brokered agent-selected Queue
+  product actions, but Workspace Agent UI broker execution is not wired yet.
 - Activity/log events: Agent Activity reads Direct Work stream events through
   `agentActivityModel.ts`; Queue widget API returns Queue events; widget
   add/state/layout and Direct Work paths emit widget-local logs through
@@ -75,13 +76,16 @@ and `adapters/`. The old public files
 compatibility re-export facades. The `widgets/` folder now owns the pure Widget
 Agent Contract model and initial Agent Queue / Workspace Agent registry
 entries. The pure frontend Action Broker MVP now lives under `broker/` with
-typed request/result/audit contracts, policy validation, deterministic model
-handlers, and safe dry-run placeholders. Real product adapters, additional
-widget contracts, and message-bus work should land in the owned folders
-instead of Workspace Agent UI components. The Multi-Agent Runtime MVP now owns
-pure frontend agent instance/status models under `runtime/` and typed bounded
-message/history models under `messaging/`; peer runtime tests do not call Codex
-or shell and do not mutate app state.
+typed request/result/audit contracts, policy validation, and deterministic
+model handlers. Queue-specific behavior is no longer a generic broker
+placeholder; the broker composes Queue handlers from the Queue adapter when
+supplied. The `adapters/` folder now owns the Queue Capability Adapter MVP
+through `createQueueAgentActionHandlers(adapterApi)`. Additional product
+adapters, widget contracts, and message-bus work should land in the owned
+folders instead of Workspace Agent UI components. The Multi-Agent Runtime MVP
+now owns pure frontend agent instance/status models under `runtime/` and typed
+bounded message/history models under `messaging/`; peer runtime tests do not
+call Codex or shell and do not mutate app state.
 
 ## Architectural Problems
 
@@ -134,7 +138,8 @@ or shell and do not mutate app state.
    results, audit/activity events, deterministic test handlers, and Queue
    dry-run preview only. Completed for the frontend model.
 5. Wire real Queue adapter invocation behind the broker instead of regex-decided
-   UI/controller behavior.
+   UI/controller behavior. Completed for the frontend Queue Capability Adapter
+   MVP handler boundary; Workspace Agent UI execution remains later.
 6. Add a self-test runner that exercises safe/dry-run capabilities and reports
    passed, failed, skipped, and blocked.
 7. Add Knowledge, Notes, and Terminal capabilities only after their boundaries

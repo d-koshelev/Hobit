@@ -119,24 +119,6 @@ export function createHobitAgentTestActionHandlers({
         requestId: request.requestId,
       });
     },
-    "queue.createItems": ({ request }) => {
-      const items = readArrayInput(request.input, "items");
-
-      return createActionResult({
-        auditEvents: [],
-        capabilityId: request.capabilityId,
-        dryRun: request.dryRun,
-        message:
-          "Dry-run Queue item creation preview. No Queue mutation or worker start is represented.",
-        output: {
-          wouldAutoRunWorkers: false,
-          wouldCreateDuplicateQueueView: false,
-          wouldCreateItems: items.length,
-          wouldTargetSingletonQueue: true,
-        },
-        requestId: request.requestId,
-      });
-    },
   };
 }
 
@@ -179,14 +161,6 @@ function readStringInput(input: unknown, key: string): string | null {
 
   const value = input[key].trim();
   return value ? value : null;
-}
-
-function readArrayInput(input: unknown, key: string): unknown[] {
-  if (!isRecord(input) || !Array.isArray(input[key])) {
-    return [];
-  }
-
-  return [...input[key]];
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

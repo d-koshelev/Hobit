@@ -10,6 +10,10 @@ import {
   type HobitAgentCapability,
 } from "../capabilities";
 import {
+  createDefaultQueueAgentAdapterApi,
+  createQueueAgentActionHandlers,
+} from "../adapters";
+import {
   createAgentRuntimeState,
   HOBIT_TEST_AGENT_A,
   HOBIT_TEST_AGENT_B,
@@ -239,7 +243,7 @@ describe("hobitAgentActionBroker dry-run behavior", () => {
 
     expect(JSON.stringify(state)).toBe(before);
     expect(result.status).toBe("succeeded");
-    expect(result.result.output).toEqual({
+    expect(result.result.output).toMatchObject({
       wouldAutoRunWorkers: false,
       wouldCreateDuplicateQueueView: false,
       wouldCreateItems: 2,
@@ -466,7 +470,10 @@ describe("hobitAgentActionBroker restricted capabilities and safety", () => {
 
 function createTestBroker(state = registerTestAgents()) {
   return createHobitAgentActionBroker({
-    handlers: createHobitAgentTestActionHandlers({ runtimeState: state }),
+    handlers: {
+      ...createHobitAgentTestActionHandlers({ runtimeState: state }),
+      ...createQueueAgentActionHandlers(createDefaultQueueAgentAdapterApi()),
+    },
     registry: createTestRegistry(),
   });
 }

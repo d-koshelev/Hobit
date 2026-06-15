@@ -29,3 +29,4 @@ export {
 export * from "./messaging";
 export * from "./selfTest";
 export * from "./widgets";
+export * from "./adapters";

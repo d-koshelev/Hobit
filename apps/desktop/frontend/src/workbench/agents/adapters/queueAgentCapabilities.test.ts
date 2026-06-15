@@ -1,0 +1,489 @@
+// @ts-expect-error Node types are intentionally absent from the frontend tsconfig; this test reads source in Vitest only.
+import { readFileSync } from "fs";
+
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  createHobitAgentActionBroker,
+  createHobitAgentTestActionHandlers,
+  createActionRequest,
+} from "../broker";
+import {
+  createHobitAgentCapabilityRegistry,
+  findCapability,
+  HOBIT_AGENT_INITIAL_CAPABILITIES,
+} from "../capabilities";
+import {
+  createAgentRuntimeState,
+  HOBIT_TEST_AGENT_A,
+  HOBIT_TEST_AGENT_B,
+  HOBIT_TEST_AGENT_CAPABILITIES,
+  registerAgent,
+} from "../runtime";
+import {
+  createDefaultQueueAgentAdapterApi,
+  createQueueAgentActionHandlers,
+} from "./queueAgentCapabilities";
+import {
+  QUEUE_AGENT_CAPABILITY_IDS,
+  type QueueAgentAdapterApi,
+  type QueueAgentCreateItemsRequest,
+  type QueueAgentNormalizedCreateItem,
+  type QueueAgentPromptPackInput,
+  type QueueAgentSelfTestReport,
+} from "./queueAgentCapabilityTypes";
+
+describe("queueAgentCapabilities discovery and broker separation", () => {
+  it("exports Queue handlers and keeps capabilities present in the manifest", () => {
+    const adapter = fakeQueueAdapter();
+    const handlers = createQueueAgentActionHandlers(adapter);
+    const registry = createHobitAgentCapabilityRegistry();
+
+    expect(Object.keys(handlers).sort()).toEqual([...QUEUE_AGENT_CAPABILITY_IDS].sort());
+    for (const capabilityId of QUEUE_AGENT_CAPABILITY_IDS) {
+      expect(findCapability(registry, capabilityId)).toMatchObject({
+        availability: { status: "available" },
+        ownerSurface: "Agent Queue",
+      });
+    }
+  });
+
+  it("lets the broker discover and invoke Queue handlers when provided", () => {
+    const broker = createQueueBroker(fakeQueueAdapter());
+    const result = broker.invoke<{ queueId: string }>(
+      request({
+        capabilityId: "queue.targetSingletonQueue",
+        dryRun: true,
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.message).toBe("Queue target resolved");
+    expect(result.result.output).toMatchObject({
+      queueId: "workspace-queue",
+      wouldCreateDuplicateQueueView: false,
+    });
+  });
+
+  it("keeps Queue createItems behavior out of generic broker test handlers", () => {
+    const genericHandlers = createHobitAgentTestActionHandlers({
+      runtimeState: registerTestAgents(),
+    });
+    const source = frontendSource(
+      "workbench/agents/broker/hobitAgentTestActionHandlers.ts",
+    );
+
+    expect(genericHandlers["queue.createItems"]).toBeUndefined();
+    expect(source).not.toContain('"queue.createItems"');
+    expect(source).not.toContain("wouldCreateItems");
+  });
+});
+
+describe("queueAgentCapabilities dry-run", () => {
+  it("returns a createItems preview without Queue mutation, view creation, workers, shell, Codex, Terminal, Git, or rollback", () => {
+    const adapter = fakeQueueAdapter();
+    const beforeCreated = adapter.createdItems.length;
+    const result = createQueueBroker(adapter).invoke<{
+      wouldAutoRunWorkers: boolean;
+      wouldCreateDuplicateQueueView: boolean;
+      wouldCreateItems: number;
+      wouldTargetSingletonQueue: boolean;
+    }>(
+      request({
+        capabilityId: "queue.createItems",
+        dryRun: true,
+        input: {
+          items: [
+            { id: "a", prompt: "Prompt A", title: "Task A" },
+            { dependencies: ["a"], id: "b", prompt: "Prompt B", title: "Task B" },
+          ],
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.message).toBe("Queue items preview prepared");
+    expect(result.result.output).toMatchObject({
+      wouldAutoRunWorkers: false,
+      wouldCreateDuplicateQueueView: false,
+      wouldCreateItems: 2,
+      wouldTargetSingletonQueue: true,
+    });
+    expect(adapter.createdItems).toHaveLength(beforeCreated);
+    expect(adapter.operations).toMatchObject({
+      codexRuns: 0,
+      duplicateQueueViews: 0,
+      gitMutations: 0,
+      rollbackExecutions: 0,
+      shellCommands: 0,
+      terminalLaunches: 0,
+      workerStarts: 0,
+    });
+    expect(result.result.hiddenSideEffectFlags).toEqual({
+      noCodexRun: false,
+      noGitMutation: false,
+      noQueueMutation: false,
+      noRollbackExecution: false,
+      noShellCommand: false,
+      noTerminalLaunch: false,
+      noWorkerStart: false,
+    });
+  });
+
+  it("returns invalid_input instead of throwing for invalid createItems input", () => {
+    const result = createQueueBroker(fakeQueueAdapter()).invoke(
+      request({
+        capabilityId: "queue.createItems",
+        dryRun: true,
+        input: { items: [{ prompt: "Missing title" }] },
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toBe("Queue item title is required.");
+  });
+});
+
+describe("queueAgentCapabilities invoke", () => {
+  it("creates one Queue item through the injected adapter API", () => {
+    const adapter = fakeQueueAdapter();
+    const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          id: "one",
+          prompt: "Implement one task.",
+          source: { proposalId: "proposal-1" },
+          status: "ready",
+          title: "One task",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.message).toBe("Queue items created");
+    expect(adapter.createdItems).toEqual([
+      expect.objectContaining({
+        id: "one",
+        prompt: "Implement one task.",
+        sourceMetadata: { proposalId: "proposal-1" },
+        status: "queued",
+        title: "One task",
+      }),
+    ]);
+    expect(adapter.lastCreateRequest?.target).toMatchObject({
+      queueId: "workspace-queue",
+      singleton: true,
+    });
+    expect(adapter.operations.duplicateQueueViews).toBe(0);
+    expect(adapter.operations.workerStarts).toBe(0);
+  });
+
+  it("creates multiple Queue items and preserves source metadata and dependency edges", () => {
+    const adapter = fakeQueueAdapter();
+    const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke<{
+      dependencyEdgesPreserved: boolean;
+    }>(
+      request({
+        capabilityId: "queue.createItems",
+        input: {
+          source: { packId: "pack-1" },
+          items: [
+            {
+              id: "first",
+              prompt: "First prompt.",
+              sourceMetadata: { promptId: "001" },
+              title: "First",
+            },
+            {
+              dependencies: ["first"],
+              id: "second",
+              prompt: "Second prompt.",
+              sourceMetadata: { promptId: "002" },
+              title: "Second",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output).toMatchObject({
+      dependencyEdgesPreserved: true,
+      wouldAutoRunWorkers: false,
+      wouldCreateDuplicateQueueView: false,
+    });
+    expect(adapter.createdItems.map((item) => item.id)).toEqual([
+      "first",
+      "second",
+    ]);
+    expect(adapter.createdItems[1]?.dependencies).toEqual(["first"]);
+    expect(adapter.lastCreateRequest?.sourceMetadata).toEqual({ packId: "pack-1" });
+  });
+
+  it("returns failed when dependencies cannot be represented by the injected adapter", () => {
+    const result = createQueueBroker(
+      fakeQueueAdapter({ supportsDependencyEdges: false }),
+      { allowWriteInvoke: true },
+    ).invoke(
+      request({
+        capabilityId: "queue.createItems",
+        input: {
+          items: [
+            { id: "a", prompt: "A", title: "A" },
+            { dependencies: ["a"], id: "b", prompt: "B", title: "B" },
+          ],
+        },
+      }),
+    );
+
+    expect(result.status).toBe("failed");
+    expect(result.result.message).toContain("dependency edges are not supported");
+  });
+});
+
+describe("queueAgentCapabilities prompt pack", () => {
+  it("prepares a prompt-pack preview without mutation", () => {
+    const adapter = fakeQueueAdapter();
+    const result = createQueueBroker(adapter).invoke<{
+      importAvailable: boolean;
+      selectedItemCount: number;
+      wouldCreateItems: number;
+    }>(
+      request({
+        capabilityId: "queue.preparePromptPackPreview",
+        dryRun: true,
+        input: { sourceText: promptPackSourceText() },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output).toMatchObject({
+      importAvailable: true,
+      selectedItemCount: 2,
+      wouldCreateItems: 2,
+      wouldTargetSingletonQueue: true,
+    });
+    expect(adapter.createdItems).toEqual([]);
+  });
+
+  it("returns invalid_input for missing prompt-pack input", () => {
+    const result = createQueueBroker(fakeQueueAdapter()).invoke(
+      request({
+        capabilityId: "queue.preparePromptPackPreview",
+        dryRun: true,
+        input: {},
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toBe("Prompt-pack input is required.");
+  });
+
+  it("imports a prompt pack through the injected Queue adapter without auto-running workers", () => {
+    const adapter = fakeQueueAdapter();
+    const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke(
+      request({
+        capabilityId: "queue.importPromptPack",
+        confirmationToken: "confirmed",
+        input: { sourceText: promptPackSourceText() },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.message).toBe("Queue items created");
+    expect(adapter.createdItems).toHaveLength(2);
+    expect(adapter.operations.workerStarts).toBe(0);
+    expect(adapter.operations.codexRuns).toBe(0);
+    expect(adapter.operations.shellCommands).toBe(0);
+    expect(adapter.lastImportInput).toMatchObject({
+      sourceText: promptPackSourceText(),
+    });
+  });
+});
+
+describe("queueAgentCapabilities self-test and architecture safety", () => {
+  it("passes Queue self-test with a safe fake adapter", () => {
+    const result = createQueueBroker(
+      fakeQueueAdapter({ supportsSafeMutationSandbox: true }),
+    ).invoke<{ summary: { passed: number }; productSummary: string }>(
+      request({
+        capabilityId: "queue.selfTest",
+        dryRun: true,
+        input: {},
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.message).toBe("Queue self-test passed");
+    expect(result.result.output?.productSummary).toBe("Queue self-test passed");
+    expect(result.result.output?.summary.passed).toBeGreaterThan(0);
+  });
+
+  it("skips unsafe mutation checks when no safe adapter sandbox is available", () => {
+    const result = createQueueBroker(fakeQueueAdapter()).invoke<QueueAgentSelfTestReport>(
+      request({
+        capabilityId: "queue.selfTest",
+        dryRun: true,
+        input: {},
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output?.cases).toContainEqual(
+      expect.objectContaining({
+        caseId: "queue:safe-mutation-sandbox",
+        status: "skipped",
+      }),
+    );
+    expect(result.result.output?.productSummary).toBe("Queue self-test passed");
+  });
+
+  it("does not introduce regex routing or Workspace Agent UI broker wiring in the adapter", () => {
+    const source = frontendSource(
+      "workbench/agents/adapters/queueAgentCapabilities.ts",
+    );
+    const workspaceAgentSource = frontendSource(
+      "workbench/InteractiveAgentPlaceholderWidget.tsx",
+    );
+
+    expect(source).not.toContain("new RegExp");
+    expect(source).not.toContain(".match(");
+    expect(source).not.toContain("classify");
+    expect(workspaceAgentSource).not.toContain("createQueueAgentActionHandlers");
+    expect(workspaceAgentSource).not.toContain("createHobitAgentActionBroker");
+  });
+});
+
+function createQueueBroker(
+  adapter: FakeQueueAdapter,
+  { allowWriteInvoke = false }: { allowWriteInvoke?: boolean } = {},
+) {
+  return createHobitAgentActionBroker({
+    handlers: createQueueAgentActionHandlers(adapter),
+    policy: {
+      requireDryRunBeforeSideEffectingInvoke: !allowWriteInvoke,
+    },
+    registry: createHobitAgentCapabilityRegistry([
+      ...HOBIT_TEST_AGENT_CAPABILITIES,
+      ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+    ]),
+  });
+}
+
+type FakeQueueAdapter = QueueAgentAdapterApi & {
+  createdItems: QueueAgentNormalizedCreateItem[];
+  lastCreateRequest: QueueAgentCreateItemsRequest | null;
+  lastImportInput: QueueAgentPromptPackInput | null;
+  operations: {
+    codexRuns: number;
+    duplicateQueueViews: number;
+    gitMutations: number;
+    rollbackExecutions: number;
+    shellCommands: number;
+    terminalLaunches: number;
+    workerStarts: number;
+  };
+};
+
+function fakeQueueAdapter({
+  supportsDependencyEdges = true,
+  supportsSafeMutationSandbox = false,
+}: {
+  supportsDependencyEdges?: boolean;
+  supportsSafeMutationSandbox?: boolean;
+} = {}): FakeQueueAdapter {
+  const base = createDefaultQueueAgentAdapterApi();
+  const adapter: FakeQueueAdapter = {
+    ...base,
+    createdItems: [],
+    lastCreateRequest: null,
+    lastImportInput: null,
+    operations: {
+      codexRuns: 0,
+      duplicateQueueViews: 0,
+      gitMutations: 0,
+      rollbackExecutions: 0,
+      shellCommands: 0,
+      terminalLaunches: 0,
+      workerStarts: 0,
+    },
+    supportsDependencyEdges,
+    supportsSafeMutationSandbox,
+  };
+
+  adapter.createItems = vi.fn((request: QueueAgentCreateItemsRequest) => {
+    adapter.lastCreateRequest = request;
+    adapter.createdItems.push(...request.items);
+    return base.createItems(request);
+  });
+  adapter.importPromptPack = vi.fn(
+    (input: QueueAgentPromptPackInput, request: QueueAgentCreateItemsRequest) => {
+      adapter.lastImportInput = input;
+      adapter.lastCreateRequest = request;
+      adapter.createdItems.push(...request.items);
+      return base.importPromptPack(input, request);
+    },
+  );
+  return adapter;
+}
+
+function request({
+  capabilityId,
+  confirmationToken = null,
+  dryRun = false,
+  input = {},
+}: {
+  capabilityId: string;
+  confirmationToken?: string | null;
+  dryRun?: boolean;
+  input?: unknown;
+}) {
+  return createActionRequest({
+    agentId: "test.agentA",
+    agentRoleId: "test_harness",
+    capabilityId,
+    confirmationToken,
+    createdAt: "2026-06-15T10:00:00.000Z",
+    dryRun,
+    input,
+    requestId: `request-${capabilityId}`,
+  });
+}
+
+function registerTestAgents() {
+  const empty = createAgentRuntimeState({ workspaceId: "workspace-1" });
+  const withA = registerAgent(empty, HOBIT_TEST_AGENT_A);
+  if (!withA.ok) {
+    throw new Error(withA.error.message);
+  }
+  const withB = registerAgent(withA.state, HOBIT_TEST_AGENT_B);
+  if (!withB.ok) {
+    throw new Error(withB.error.message);
+  }
+  return withB.state;
+}
+
+function promptPackSourceText() {
+  return JSON.stringify({
+    dependencyPolicy: "explicit_only",
+    id: "adapter-pack",
+    items: [
+      { id: "first", prompt: "First prompt.", title: "First task" },
+      {
+        dependencies: ["first"],
+        id: "second",
+        prompt: "Second prompt.",
+        title: "Second task",
+      },
+    ],
+  });
+}
+
+function frontendSource(path: string) {
+  const cwd = (
+    globalThis as unknown as { process: { cwd: () => string } }
+  ).process.cwd();
+
+  return readFileSync(`${cwd}/src/${path}`, "utf8");
+}

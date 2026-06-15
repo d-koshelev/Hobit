@@ -64,7 +64,7 @@ describe("hobitAgentCapabilityRuntime docs", () => {
     expect(contractDoc).toContain("queue.createItems");
     expect(contractDoc).toContain("codex.runTask");
     expect(contractDoc).toContain("Action Broker MVP");
-    expect(contractDoc).toContain("Real Queue invocation remains a later explicit adapter block");
+    expect(contractDoc).toContain("Queue Capability Adapter MVP");
     expect(contractDoc).not.toMatch(/durable backend runtime is implemented/i);
     expect(contractDoc).not.toMatch(/backend scheduler is implemented/i);
   });
@@ -161,8 +161,8 @@ describe("hobitAgentCapabilityRuntime module structure", () => {
       messageId: "message-1",
       toAgentId: "test.agentB",
     });
-    expect(frontendSource("workbench/agents/adapters/index.ts").trim()).toBe(
-      "export {};",
+    expect(frontendSource("workbench/agents/adapters/index.ts")).toContain(
+      "createQueueAgentActionHandlers",
     );
   });
 

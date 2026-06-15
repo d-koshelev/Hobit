@@ -15,8 +15,19 @@ agent-executed through peer/widget self-tests where available.
 
 The current Agent API Smoke Runner is not a Queue smoke. It checks only the
 implemented in-app agent runtime APIs for status, bounded history, messaging,
-capabilities, and peer self-test. Agent-executed Queue smoke comes later after
-a real Queue app capability adapter exists behind the Action Broker.
+capabilities, and peer self-test.
+
+Queue capability adapter smoke can now include the frontend Action Broker
+handler boundary with an injected Queue adapter API:
+
+- `queue.targetSingletonQueue` resolves the singleton Queue target.
+- `queue.createItems` dry-run returns a preview with no task creation.
+- `queue.preparePromptPackPreview` returns Smart Queue materialization without
+  mutation.
+- `queue.selfTest` reports singleton/dry-run/no-hidden-side-effect evidence.
+
+Full Workspace Agent UI broker execution remains later unless a future block
+explicitly implements it.
 
 ## Setup
 
@@ -101,20 +112,29 @@ During the smoke, verify these product labels appear where applicable:
 15. Recheck Queue view count.
     - Expected: no duplicate Queue view exists.
 
-16. In Workspace Agent, test Queue item creation through the Hobit Agent
-    Capability Runtime direction, not a phrase route.
+16. In the Queue capability adapter smoke, test Queue item creation through the
+    Hobit Agent Capability Runtime handler boundary, not a phrase route.
     - Expected: Queue item creation is represented by Queue capabilities such
       as `queue.createItem` / `queue.createItems` in the capability manifest
-      and future broker boundary. Typing phrases such as
-      `add example queue items to queue`, `create queue items`, or
-      `add tasks to queue` must not be treated as
+      and broker handlers supplied by `createQueueAgentActionHandlers`.
+      Workspace Agent UI broker execution is not expected in this checklist
+      until a later explicit wiring block.
+    - Expected: Typing phrases such as `add example queue items to queue`,
+      `create queue items`, or `add tasks to queue` must not be treated as
       `user text -> regex -> Queue action`.
     - Expected: No Codex run, shell command, Terminal action, Queue Autorun,
       worker start, Git action, or duplicate Queue view is created as a hidden
       product-action workaround. Codex/shell remain restricted capabilities for
       explicit workspace/code execution requests only.
 
-17. Check for side effects.
+17. Run Queue adapter dry-run/self-test coverage.
+    - Expected: `queue.createItems` dry-run reports `wouldCreateItems`,
+      singleton targeting, no duplicate Queue view, and no worker auto-run.
+    - Expected: `queue.selfTest` reports product-facing passed/skipped/blocked
+      evidence without creating tasks, creating views, starting workers,
+      launching Codex/shell/Terminal, mutating Git, or executing rollback.
+
+18. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback
