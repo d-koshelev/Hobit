@@ -318,6 +318,34 @@ Implemented for the active Queue product details path.
   task worker-report payloads and update path where that model supports report
   history.
 
+### Smart Queue frontend smoke coverage
+
+Implemented as focused frontend smoke/regression coverage.
+
+- `apps/desktop/frontend/src/workbench/queue/smartQueueEndToEndSmoke.test.tsx`
+  covers prompt-pack import to the singleton Queue, dependency edge
+  materialization, no-view/no-worker import safety, Queue Active/Pause
+  eligibility, dependency failure propagation and recovery, worker validation
+  failure evidence to the active QueueV2 Coordinator Decision card, Retry same,
+  Retry with changes, Workspace Agent assistance request handoff preparation,
+  rollback proposal-only preparation, active product route rendering, WidgetV2
+  Queue compat non-opt-in behavior, singleton view safety, and hidden side-effect
+  guards.
+- The smoke coverage asserts product-facing labels such as Ready, Waiting
+  dependency, Blocked: dependency failed, Blocked: dependency blocked, Needs
+  decision: validation failed, Retry available, Approval required, Destructive,
+  and No rollback executed, while rejecting raw internal action/blocker enum
+  names in the rendered decision card.
+
+Remaining non-goals:
+
+- durable backend persistence
+- backend scheduler
+- actual rollback execution
+- Workspace Agent runtime auto-call
+- Git/file mutation
+- Terminal launch
+
 ## Not Implemented Yet
 
 The following features are not current implementation and must not be claimed
