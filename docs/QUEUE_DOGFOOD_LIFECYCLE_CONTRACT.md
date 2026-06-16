@@ -15,13 +15,15 @@ routing.
 ## Status
 
 Current as a frontend pure model foundation with frontend controller/view-model
-adapter integration, typed frontend Action Broker capability access, and a
-broker-driven fake dogfooding loop self-test.
+adapter integration, typed frontend Action Broker capability access, a
+frontend Queue worker evidence bundle model, and a broker-driven fake
+dogfooding loop self-test.
 
 The implemented model and adapter layer live under:
 
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle*.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycleController.ts`
+- `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts`
 
 The model is not yet persisted and is not yet wired as the authoritative
 runtime Queue lifecycle. The controller/view-model adapter is an overlay for
@@ -88,6 +90,8 @@ Review message records include:
 - final agent message
 - validation summary when available
 - changed files summary when available
+- frontend worker evidence summary when available
+- normalized frontend worker evidence bundle when available
 - created timestamp
 
 ACK records include:
@@ -115,6 +119,41 @@ The pure model records coordinator decision placeholders for:
 
 These records are model state only. They do not call Workspace APIs, workers,
 Codex, shell, Git, Terminal, rollback, or storage.
+
+## Worker Evidence Bundle
+
+The frontend worker evidence bundle model can normalize structured output from
+existing frontend run/result shapes or fake worker reports into Queue lifecycle
+input. It can carry task, attempt, run, thread, worker, provider, started and
+completed timestamps, outcome, final agent message, changed-file evidence,
+validation summary/output/exit code, failure or stuck reason, log reference,
+and raw provider summary when those fields are available.
+
+The implemented outcome values map directly to lifecycle review outcomes:
+
+- `completed`
+- `not_completed`
+- `failed`
+
+Bundle validation is pure frontend validation:
+
+- `completed` requires a final agent message or final report equivalent.
+- `failed` requires a failure reason or final agent message.
+- `not_completed` requires a final agent message or stuck reason.
+- changed-file evidence and validation output previews are bounded for display.
+- missing run id, thread id, worker id, and provider id are accepted.
+- task id mismatch between action input and evidence bundle is invalid.
+- attempt id mismatch is invalid when both are supplied.
+
+Product-facing bundle summaries use labels such as `Agent completed`, `Agent
+did not complete`, `Agent failed`, `N changed files`, `Validation passed`,
+`Validation failed`, `Validation not run`, `Final report available`, `Logs
+available`, and `Frontend evidence only - not durable`.
+
+This model is not backend durability and is not evidence execution. It does
+not read the filesystem, start Direct Work, call Codex, call shell, run
+validation, inspect Git, execute commits, launch Terminal, start Queue workers,
+or persist evidence.
 
 ## Follow-Up Prompts
 
@@ -213,6 +252,23 @@ These capabilities are frontend/controller lifecycle capabilities only. They
 validate structured inputs, enforce broker policy, support dry-run previews,
 return compact lifecycle results, and emit compact activity/audit labels.
 
+`queue.lifecycle.agentFinished` accepts the existing explicit fields and can
+also accept an optional normalized or raw `evidenceBundle`. When evidence is
+valid, it can supply `taskId`, `attemptId`, `threadId`, `outcome`,
+`finalAgentMessage`, `validationSummary`, and `changedFilesSummary` to the
+lifecycle transition. Explicit display fields may override bundle display
+fields for the broker result and review handoff, but task id, attempt id,
+outcome, and thread id mismatches are rejected. Invalid evidence returns
+`invalid_input`. Dry-run with evidence previews the transition without
+mutating lifecycle overlay state.
+
+`queue.review.createMessage` can include the normalized evidence summary in
+the review message when evidence is supplied. `queue.review.getEvidenceBundle`
+returns the normalized frontend bundle stored in the fake/controller overlay
+when one is available, and reports that the bundle is frontend-only and not
+durable. Review message creation and evidence reads still work when no bundle
+exists.
+
 Dry-run:
 
 - previews the intended lifecycle transition;
@@ -249,6 +305,14 @@ Human-facing helpers return labels such as:
 - Agent completed
 - Agent not completed
 - Agent failed
+- Agent did not complete
+- N changed files
+- Validation passed
+- Validation failed
+- Validation not run
+- Final report available
+- Logs available
+- Frontend evidence only - not durable
 - Follow-up prompt running
 - Review acknowledged
 - Waiting for coordinator review
@@ -264,6 +328,7 @@ covering:
 - queue task
 - start run
 - agent completes
+- normalize worker evidence bundle
 - create review message
 - coordinator ACK
 - approve validation
@@ -301,6 +366,15 @@ the same item to `running` with agent/prompt state
 `additional_prompt_running` and increments `additionalPromptCount`, plus a
 failure branch that keeps dependent work ineligible.
 
+The main success path invokes `queue.lifecycle.agentFinished` with a fake
+frontend worker evidence bundle instead of only loose final-agent fields. That
+bundle includes task id, attempt id, thread id, completed outcome, final agent
+message, changed files, validation summary/output preview, and a fake log
+reference. The self-test asserts the broker consumes the bundle, the review
+message includes the product-facing evidence summary, `queue.review.getEvidenceBundle`
+returns the normalized frontend bundle when available, mark done still does not
+execute Git, and dependent unblocking remains gated on dogfood `done`.
+
 The broker self-test is explicitly fake/model/controller/broker-level only. It
 reports backend durability as skipped and real worker execution, real
 validation execution, and real Git commit execution as blocked/not covered. It
@@ -316,8 +390,10 @@ This contract does not implement:
 - SQLite migrations
 - Tauri or IPC APIs
 - real worker execution changes
+- real worker result event integration
 - scheduler redesign
 - real validation execution changes
+- durable validation evidence execution or persistence
 - real Git commit execution
 - rollback execution
 - Queue UI redesign

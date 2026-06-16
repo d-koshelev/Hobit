@@ -33,24 +33,34 @@ const AGENT_FINISHED_SCHEMA: HobitAgentCapabilityInputSchema = {
     "outcome",
     "finalAgentMessage",
     "attemptId",
+    "threadId",
     "validationSummary",
     "changedFilesSummary",
     "finishedAt",
+    "evidenceBundle",
   ],
   fieldDescriptions: {
     attemptId: "Optional current worker attempt id.",
     changedFilesSummary:
-      "Optional changed files summary as a string or string array.",
-    finalAgentMessage: "Required final agent report text.",
+      "Optional changed files summary as a string or string array. Overrides evidence summary display when evidenceBundle is supplied.",
+    evidenceBundle:
+      "Optional normalized Queue worker evidence bundle. Supplies taskId, attemptId, threadId, outcome, finalAgentMessage, validation, changed files, logs, and frontend-only evidence summary.",
+    finalAgentMessage:
+      "Required final agent report text unless supplied by evidenceBundle. Explicit value overrides bundle display text.",
     finishedAt: "Optional ISO timestamp; broker request time is used by default.",
-    outcome: "Required agent outcome: completed, not_completed, or failed.",
-    taskId: "Required Queue item id.",
-    validationSummary: "Optional validation summary text.",
+    outcome:
+      "Required agent outcome unless supplied by evidenceBundle. If both are supplied, it must match the evidence bundle outcome.",
+    taskId:
+      "Required Queue item id unless supplied by evidenceBundle. If both are supplied, it must match the evidence bundle taskId.",
+    threadId:
+      "Optional worker thread id. If both this and evidenceBundle.threadId are supplied, they must match.",
+    validationSummary:
+      "Optional validation summary text. Overrides evidence summary display when evidenceBundle is supplied.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
-  requiredFields: ["taskId", "outcome", "finalAgentMessage"],
+  requiredFields: ["taskId or evidenceBundle.taskId"],
   shape:
-    '{"taskId":"string required","outcome":"completed|not_completed|failed required","finalAgentMessage":"string required","attemptId":"string optional","validationSummary":"string optional","changedFilesSummary":"string|string[] optional"}',
+    '{"taskId":"string required unless evidenceBundle.taskId","outcome":"completed|not_completed|failed required unless evidenceBundle.outcome","finalAgentMessage":"string required unless evidenceBundle final report/failure/stuck evidence","attemptId":"string optional","threadId":"string optional","evidenceBundle":{"kind":"queue_worker_evidence_bundle","version":1,"taskId":"string","outcome":"completed|not_completed|failed"} optional}',
 };
 
 const REVIEW_CREATE_SCHEMA: HobitAgentCapabilityInputSchema = {
@@ -60,6 +70,7 @@ const REVIEW_CREATE_SCHEMA: HobitAgentCapabilityInputSchema = {
     "messageId",
     "createdAt",
     "attemptId",
+    "evidenceBundle",
     "finalAgentMessage",
     "validationSummary",
     "changedFilesSummary",
@@ -70,6 +81,8 @@ const REVIEW_CREATE_SCHEMA: HobitAgentCapabilityInputSchema = {
       "Optional changed files summary as a string or string array.",
     coordinatorAgentId: "Required target coordinator or Workspace Agent id.",
     createdAt: "Optional ISO timestamp; broker request time is used by default.",
+    evidenceBundle:
+      "Optional normalized Queue worker evidence bundle. Review message uses its bounded product evidence summary when supplied.",
     finalAgentMessage:
       "Optional final report override; current lifecycle report is used by default.",
     messageId: "Optional review message id.",
@@ -244,6 +257,25 @@ const AGENT_FINISHED_EXAMPLE = {
   validationSummary: "typecheck passed",
 } as const;
 
+const AGENT_FINISHED_EVIDENCE_EXAMPLE = {
+  evidenceBundle: {
+    attemptId: "attempt-id",
+    changedFiles: [
+      { path: "apps/desktop/frontend/src/workbench/queue/example.ts" },
+    ],
+    finalAgentMessage: "Implemented the requested changes.",
+    kind: "queue_worker_evidence_bundle",
+    logReference: "frontend://self-test/logs/attempt-id",
+    outcome: "completed",
+    taskId: "task-id",
+    threadId: "thread-id",
+    validationOutputPreview: "typecheck passed",
+    validationStatus: "passed",
+    validationSummary: "typecheck passed",
+    version: 1,
+  },
+} as const;
+
 const REVIEW_ACK_EXAMPLE = {
   coordinatorAgentId: "workspace-agent",
   messageId: "review-message-id",
@@ -276,6 +308,11 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
         "Record agent completion and prepare the item for review.",
         "queue.lifecycle.agentFinished",
         AGENT_FINISHED_EXAMPLE,
+      ),
+      envelopeExample(
+        "Record agent completion from a normalized worker evidence bundle.",
+        "queue.lifecycle.agentFinished",
+        AGENT_FINISHED_EVIDENCE_EXAMPLE,
       ),
     ],
     id: "queue.lifecycle.agentFinished",

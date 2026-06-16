@@ -4,6 +4,7 @@ import type {
   SmartQueueReviewMessage,
   SmartQueueLifecycleTransitionResult,
 } from "./smartQueueDogfoodLifecycleTypes";
+import type { QueueWorkerEvidenceBundle } from "./smartQueueWorkerEvidenceBundle";
 import { reviewOutcomeLabel } from "./smartQueueDogfoodLifecycleLabels";
 import {
   assertTicketState,
@@ -19,9 +20,11 @@ export type CreateReviewMessageInput = {
   readonly toCoordinatorAgentId: string;
   readonly createdAt: string;
   readonly attemptId?: string;
+  readonly evidenceSummary?: string;
   readonly finalAgentMessage?: string;
   readonly validationSummary?: string;
   readonly changedFilesSummary?: string;
+  readonly workerEvidenceBundle?: QueueWorkerEvidenceBundle;
 };
 
 export type AcknowledgeReviewMessageInput = {
@@ -77,16 +80,26 @@ export function createReviewMessage(
       input.changedFilesSummary ?? item.changedFilesSummary,
     ),
     createdAt: input.createdAt,
+    evidenceSummary: cleanOptionalText(
+      input.evidenceSummary ?? item.workerEvidenceSummary?.humanSummary,
+    ),
     finalAgentMessage,
     fromQueueItemId: item.taskId,
     messageId: input.messageId,
-    productSummary: `${reviewOutcomeLabel(item.reviewOutcome)}: ${finalAgentMessage}`,
+    productSummary: productSummaryForReviewMessage({
+      evidenceSummary: cleanOptionalText(
+        input.evidenceSummary ?? item.workerEvidenceSummary?.humanSummary,
+      ),
+      finalAgentMessage,
+      reviewOutcome: item.reviewOutcome,
+    }),
     reviewOutcome: item.reviewOutcome,
     taskId: item.taskId,
     toCoordinatorAgentId: input.toCoordinatorAgentId,
     validationSummary: cleanOptionalText(
       input.validationSummary ?? item.validationSummary,
     ),
+    workerEvidenceBundle: input.workerEvidenceBundle ?? item.workerEvidenceBundle,
   };
 
   return success(
@@ -97,6 +110,20 @@ export function createReviewMessage(
     },
     message,
   );
+}
+
+function productSummaryForReviewMessage({
+  evidenceSummary,
+  finalAgentMessage,
+  reviewOutcome,
+}: {
+  readonly evidenceSummary?: string;
+  readonly finalAgentMessage: string;
+  readonly reviewOutcome: SmartQueueReviewMessage["reviewOutcome"];
+}) {
+  const base = `${reviewOutcomeLabel(reviewOutcome)}: ${finalAgentMessage}`;
+
+  return evidenceSummary ? `${base}. Evidence: ${evidenceSummary}` : base;
 }
 
 export function acknowledgeReviewMessage(

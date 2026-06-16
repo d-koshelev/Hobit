@@ -183,11 +183,7 @@ describe("Queue dogfood broker capability calls", () => {
     const result = store.invoke<QueueAgentLifecycleTransitionOutput>(
       "queue.lifecycle.agentFinished",
       {
-        attemptId: store.fakeAttemptId,
-        finalAgentMessage: store.finalAgentMessage,
-        outcome: "completed",
-        taskId: store.taskId,
-        validationSummary: store.validationSummary,
+        evidenceBundle: store.evidenceBundle,
       },
       { dryRun: true },
     );
@@ -215,11 +211,7 @@ describe("Queue dogfood broker capability calls", () => {
     const result = store.invoke<QueueAgentLifecycleTransitionOutput>(
       "queue.lifecycle.agentFinished",
       {
-        attemptId: store.fakeAttemptId,
-        finalAgentMessage: store.finalAgentMessage,
-        outcome: "completed",
-        taskId: store.taskId,
-        validationSummary: store.validationSummary,
+        evidenceBundle: store.evidenceBundle,
       },
     );
     const output = lifecycleOutput(result);
@@ -239,6 +231,10 @@ describe("Queue dogfood broker capability calls", () => {
     });
     expect(after).toMatchObject({
       finalAgentMessage: store.finalAgentMessage,
+      workerEvidenceBundle: {
+        taskId: store.taskId,
+        threadId: store.fakeThreadId,
+      },
       ticketState: "awaiting_review",
     });
   });

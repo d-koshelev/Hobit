@@ -26,6 +26,9 @@ import {
   type SmartQueueDogfoodLifecycleItem,
   type SmartQueueLifecycleTransitionResult,
 } from "../../queue/smartQueueDogfoodLifecycle";
+import {
+  createQueueWorkerEvidenceBundle,
+} from "../../queue/smartQueueWorkerEvidenceBundle";
 import { createDefaultQueueAgentAdapterApi } from "./queueAgentCapabilities";
 import { createQueueAgentActionHandlers } from "./queueAgentActionHandlers";
 import { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
@@ -109,8 +112,10 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
         "taskId",
         "outcome",
         "finalAgentMessage",
+        "evidenceBundle",
+        "threadId",
       ]),
-      requiredFields: ["taskId", "outcome", "finalAgentMessage"],
+      requiredFields: ["taskId or evidenceBundle.taskId"],
     });
     expect(
       requiredCapability(registry, "queue.review.ack").inputSchema,
@@ -217,6 +222,91 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     });
   });
 
+  it("applies agentFinished from a worker evidence bundle and stores normalized evidence", () => {
+    const evidenceBundle = createQueueWorkerEvidenceBundle({
+      attemptId: "attempt-1",
+      changedFiles: ["apps/desktop/frontend/src/workbench/queue/evidence.ts"],
+      finalAgentMessage: "Implemented the requested changes.",
+      logReference: "frontend://logs/attempt-1",
+      outcome: "completed",
+      taskId: "task-1",
+      threadId: "thread-1",
+      validationOutputPreview: "typecheck passed",
+      validationStatus: "passed",
+      validationSummary: "typecheck passed",
+    });
+    const broker = lifecycleBroker({
+      initialLifecycles: [runningItem()],
+    });
+
+    const result = broker.invoke(
+      request({
+        capabilityId: "queue.lifecycle.agentFinished",
+        input: { evidenceBundle },
+      }),
+    );
+
+    expect(result.status, result.result.message).toBe("succeeded");
+    expect(result.result.output).toMatchObject({
+      reviewOutcome: "completed",
+      ticketState: "awaiting_review",
+    });
+    expect(outputOf(result).lifecycle).toMatchObject({
+      currentThreadId: "thread-1",
+      finalAgentMessage: "Implemented the requested changes.",
+      workerEvidenceBundle: {
+        logReference: "frontend://logs/attempt-1",
+        taskId: "task-1",
+        threadId: "thread-1",
+      },
+      workerEvidenceSummary: {
+        outcomeLabel: "Agent completed",
+        validationLabel: "Validation passed",
+      },
+    });
+  });
+
+  it("rejects invalid or mismatched worker evidence bundles before lifecycle mutation", () => {
+    const broker = lifecycleBroker({
+      initialLifecycles: [runningItem()],
+    });
+    const mismatched = createQueueWorkerEvidenceBundle({
+      attemptId: "attempt-1",
+      changedFiles: [],
+      finalAgentMessage: "Done.",
+      outcome: "completed",
+      taskId: "task-other",
+    });
+
+    const result = broker.invoke(
+      request({
+        capabilityId: "queue.lifecycle.agentFinished",
+        input: {
+          evidenceBundle: mismatched,
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toBe(
+      "Evidence bundle taskId does not match the action input taskId.",
+    );
+    expect(
+      outputOf(
+        broker.invoke(
+          request({
+            capabilityId: "queue.lifecycle.get",
+            dryRun: true,
+            input: { taskId: "task-1" },
+          }),
+        ),
+      ).lifecycle,
+    ).toMatchObject({
+      ticketState: "running",
+    });
+  });
+
   it("creates review messages only from awaiting review", () => {
     const runningBroker = lifecycleBroker({
       initialLifecycles: [runningItem()],
@@ -255,6 +345,68 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
         finalAgentMessage: "Implemented the requested changes.",
         messageId: "review-message-1",
         toCoordinatorAgentId: "workspace-agent",
+      },
+    });
+  });
+
+  it("includes worker evidence summary in review messages and evidence bundle reads", () => {
+    const evidenceBundle = createQueueWorkerEvidenceBundle({
+      attemptId: "attempt-1",
+      changedFiles: ["apps/desktop/frontend/src/workbench/queue/evidence.ts"],
+      finalAgentMessage: "Implemented the requested changes.",
+      logReference: "frontend://logs/attempt-1",
+      outcome: "completed",
+      taskId: "task-1",
+      threadId: "thread-1",
+      validationStatus: "passed",
+      validationSummary: "typecheck passed",
+    });
+    const broker = lifecycleBroker({
+      initialLifecycles: [runningItem()],
+    });
+
+    broker.invoke(
+      request({
+        capabilityId: "queue.lifecycle.agentFinished",
+        input: { evidenceBundle },
+      }),
+    );
+    const created = broker.invoke(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: {
+          coordinatorAgentId: "workspace-agent",
+          messageId: "review-message-1",
+          taskId: "task-1",
+        },
+      }),
+    );
+    const evidence = broker.invoke(
+      request({
+        capabilityId: "queue.review.getEvidenceBundle",
+        dryRun: true,
+        input: { taskId: "task-1" },
+      }),
+    );
+
+    expect(created.status).toBe("succeeded");
+    expect(outputOf(created).value).toMatchObject({
+      evidenceSummary: expect.stringContaining("Evidence bundle is frontend-only"),
+      workerEvidenceBundle: {
+        taskId: "task-1",
+        threadId: "thread-1",
+      },
+    });
+    expect(evidence.status).toBe("succeeded");
+    expect(evidence.result.output).toMatchObject({
+      evidenceBundle: {
+        logReference: "frontend://logs/attempt-1",
+        taskId: "task-1",
+      },
+      evidenceBundlePersistence: "frontend_only_not_durable",
+      evidenceSummary: {
+        outcomeLabel: "Agent completed",
+        validationLabel: "Validation passed",
       },
     });
   });

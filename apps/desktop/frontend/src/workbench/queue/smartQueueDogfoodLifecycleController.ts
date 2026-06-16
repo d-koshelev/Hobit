@@ -44,6 +44,7 @@ import type {
   SmartQueueTaskLifecycle,
 } from "./smartQueueEligibility";
 import type { QueueTaskLifecycle } from "./queueV2LifecycleModel";
+import type { QueueWorkerEvidenceBundle } from "./smartQueueWorkerEvidenceBundle";
 
 export type QueueTaskDogfoodLifecycleSource =
   | ReadonlyMap<string, SmartQueueDogfoodLifecycleItem>
@@ -115,7 +116,9 @@ export type ApplyAgentFinishedInput = {
   readonly finalAgentMessage: string;
   readonly finishedAt: string;
   readonly outcome: SmartQueueDogfoodReviewOutcome;
+  readonly threadId?: string;
   readonly validationSummary?: string;
+  readonly workerEvidenceBundle?: QueueWorkerEvidenceBundle;
 };
 
 export type ApplyValidationApprovalInput = {
@@ -356,7 +359,9 @@ export function applyAgentFinishedToQueueLifecycle(
         changedFilesSummary: input.changedFilesSummary,
         completedAt: input.finishedAt,
         finalAgentMessage: input.finalAgentMessage,
+        threadId: input.threadId,
         validationSummary: input.validationSummary,
+        workerEvidenceBundle: input.workerEvidenceBundle,
       });
     case "not_completed":
       return markAgentPromptNotCompleted(item, {
@@ -364,7 +369,9 @@ export function applyAgentFinishedToQueueLifecycle(
         changedFilesSummary: input.changedFilesSummary,
         completedAt: input.finishedAt,
         finalAgentMessage: input.finalAgentMessage,
+        threadId: input.threadId,
         validationSummary: input.validationSummary,
+        workerEvidenceBundle: input.workerEvidenceBundle,
       });
     case "failed":
       return failAgentPrompt(item, {
@@ -372,7 +379,9 @@ export function applyAgentFinishedToQueueLifecycle(
         changedFilesSummary: input.changedFilesSummary,
         failedAt: input.finishedAt,
         finalAgentMessage: input.finalAgentMessage,
+        threadId: input.threadId,
         validationSummary: input.validationSummary,
+        workerEvidenceBundle: input.workerEvidenceBundle,
       });
   }
 }

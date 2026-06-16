@@ -10,6 +10,11 @@ import type {
   SmartQueueMaterializationPreview,
   SmartQueuePromptPackInput,
 } from "../../queue/smartQueuePromptPackMaterialization";
+import type {
+  QueueWorkerEvidenceBundle,
+  QueueWorkerEvidenceBundleInput,
+  QueueWorkerEvidenceSummary,
+} from "../../queue/smartQueueWorkerEvidenceBundle";
 
 export const QUEUE_AGENT_CAPABILITY_IDS = [
   "queue.createItem",
@@ -192,10 +197,12 @@ export type QueueAgentPromptPackImportResult = QueueAgentPromptPackPreview & {
 export type QueueAgentLifecycleAgentFinishedInput = {
   attemptId?: string;
   changedFilesSummary?: readonly string[] | string;
+  evidenceBundle?: QueueWorkerEvidenceBundleInput | QueueWorkerEvidenceBundle;
   finalAgentMessage?: string;
   finishedAt?: string;
   outcome?: SmartQueueDogfoodReviewOutcome;
   taskId?: string;
+  threadId?: string;
   validationSummary?: string;
 };
 
@@ -204,6 +211,7 @@ export type QueueAgentReviewCreateMessageInput = {
   changedFilesSummary?: readonly string[] | string;
   coordinatorAgentId?: string;
   createdAt?: string;
+  evidenceBundle?: QueueWorkerEvidenceBundleInput | QueueWorkerEvidenceBundle;
   finalAgentMessage?: string;
   messageId?: string;
   taskId?: string;
@@ -329,6 +337,9 @@ export type QueueAgentLifecycleGetOutput = {
 
 export type QueueAgentReviewEvidenceBundleOutput = {
   changedFilesSummary?: string;
+  evidenceBundle: QueueWorkerEvidenceBundle | null;
+  evidenceBundlePersistence: "frontend_only_not_durable";
+  evidenceSummary?: QueueWorkerEvidenceSummary;
   finalAgentMessage?: string;
   latestReviewMessage: SmartQueueReviewMessage | null;
   lifecycle: SmartQueueDogfoodLifecycleItem;

@@ -68,10 +68,12 @@ restricted capabilities for explicit workspace/code execution requests only.
   under `selfTest/` that combines Agent API smoke, peer self-test evidence,
   active Widget Agent Contract checks, brokered Queue `queue.selfTest`
   dry-run evidence through the injected Queue adapter, the fake Queue dogfood
-  broker loop, and hidden-side-effect assertions. Queue rows cover singleton
-  targeting, createItems preview, prompt-pack preview, no real Queue mutation,
-  no worker start, and no Queue view creation. Queue dogfood broker rows cover
-  agent finished, review message, ACK, validation approval, mark done,
+  broker loop, worker evidence bundle readback, and hidden-side-effect
+  assertions. Queue rows cover singleton targeting, createItems preview,
+  prompt-pack preview, no real Queue mutation, no worker start, and no Queue
+  view creation. Queue dogfood broker rows cover agent finished with a
+  frontend worker evidence bundle, review message evidence summary, ACK,
+  validation approval, mark done,
   done-gated dependent unblock, follow-up prompt return to running, failure
   dependent blocking, and honest backend/worker/validation/Git not-covered
   rows. It is the foundation for replacing parts of manual smoke with
@@ -290,12 +292,29 @@ rollback, or modify backend/storage/schema.
 
 Queue dogfood lifecycle capabilities are typed frontend/controller overlay
 capabilities. They let Workspace Agent or Coordinator Agent report an agent
-finish, create and ACK review messages, record validation approval
+finish with explicit fields or a structured frontend worker evidence bundle,
+create and ACK review messages, record validation approval
 placeholders, add follow-up prompts, mark an item done, block/fail an item,
 and read lifecycle/evidence data through structured `hobit.action.request`
 envelopes. They do not parse user prompts, route natural-language phrases,
 start workers, run validation, execute Git commits, launch Terminal, execute
 rollback, call shell, call Codex, create Queue views, or persist backend state.
+
+The optional `queue.lifecycle.agentFinished` evidence bundle is normalized in
+frontend code only. It can supply task id, attempt id, thread id, outcome,
+final agent message, changed files summary, validation summary, validation
+output preview, failure or stuck reason, and log reference when available.
+Task, attempt, outcome, or thread mismatches between explicit fields and the
+bundle are rejected as invalid input. Product-facing summaries are bounded and
+use labels such as `Agent completed`, `Agent did not complete`, `Agent failed`,
+`N changed files`, `Validation passed`, `Validation failed`, `Validation not
+run`, `Final report available`, `Logs available`, and `Frontend evidence only -
+not durable`.
+
+`queue.review.createMessage` can include the normalized evidence summary, and
+`queue.review.getEvidenceBundle` can return the normalized bundle from the
+current frontend/controller fake store when one exists. This is not a backend
+evidence store and does not claim durable persistence.
 
 Lifecycle dry-runs preview the intended transition and do not mutate the
 frontend lifecycle overlay. Lifecycle invocation with `dryRun: false` mutates
@@ -314,13 +333,16 @@ Codex, shell, Terminal, Git, or rollback behavior.
 `apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.ts`
 now runs the full fake dogfooding loop through the real Action Broker and
 registered Queue lifecycle handlers. It is fake/model/controller/broker-level
-only and explicitly reports backend durability as skipped plus real worker
-execution, real validation execution, and real Git commit execution as blocked
-or not covered.
+only. The main success path now feeds a fake frontend worker evidence bundle to
+`queue.lifecycle.agentFinished`, asserts review message evidence summary and
+normalized evidence readback through `queue.review.getEvidenceBundle`, and
+explicitly reports backend durability as skipped plus real worker execution,
+real validation execution, and real Git commit execution as blocked or not
+covered.
 
 Backend durability for lifecycle records, real worker lifecycle integration,
-real validation evidence execution, and real Git commit execution remain
-future work.
+durable worker evidence, real validation evidence execution, and real Git
+commit execution remain future work.
 
 ## Widget Agent Contracts
 
@@ -459,10 +481,10 @@ Current honest foundation capabilities:
   not a product-action default.
 
 No brokered Knowledge / Skills, Notes, Terminal-open, backend scheduler,
-durable worker, Git mutation, or Finder capability is claimed by the initial
-global capability manifest. Knowledge / Skills, Notes, and Terminal now have
-Widget Agent Contracts and metadata-only self-tests, but their real adapters
-and execution paths remain future blocks.
+durable worker, durable worker evidence store, Git mutation, or Finder
+capability is claimed by the initial global capability manifest. Knowledge /
+Skills, Notes, and Terminal now have Widget Agent Contracts and metadata-only
+self-tests, but their real adapters and execution paths remain future blocks.
 
 ## Policy Rules
 

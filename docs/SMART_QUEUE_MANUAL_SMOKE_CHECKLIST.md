@@ -82,6 +82,14 @@ During the smoke, verify these product labels appear where applicable:
 - `Follow-up prompt running`
 - `Review acknowledged`
 - `Waiting for coordinator review`
+- `Agent did not complete`
+- `N changed files`
+- `Validation passed`
+- `Validation failed`
+- `Validation not run`
+- `Final report available`
+- `Logs available`
+- `Frontend evidence only - not durable`
 - `Queue dogfood broker loop`
 - `Agent finished - awaiting review`
 - `Review message created`
@@ -224,6 +232,11 @@ During the smoke, verify these product labels appear where applicable:
       `Coordinator ACK - in review`, `Validation approved`, `Mark done`,
       `Dependent unblocked after done`, `Follow-up prompt returns to running`,
       and `No hidden side effects` as passed fake broker-level checks.
+    - Expected: the broker loop evidence rows show that
+      `queue.lifecycle.agentFinished` consumed a frontend worker evidence
+      bundle, the review message includes a bounded evidence summary,
+      `queue.review.getEvidenceBundle` returns normalized frontend evidence
+      when available, and the evidence is labeled frontend-only / not durable.
     - Expected: Queue dogfood backend durability is skipped, and real worker
       execution, real validation execution, and real Git commit execution are
       blocked/not covered with explicit reasons.
@@ -263,6 +276,12 @@ During the smoke, verify these product labels appear where applicable:
       `hobit.action.request` envelope for `queue.lifecycle.agentFinished`,
       `queue.review.ack`, `queue.coordinator.addFollowUpPrompt`, or
       `queue.item.markDone`.
+    - Expected: `queue.lifecycle.agentFinished` accepts either explicit fields
+      or a structured `evidenceBundle` carrying task id, attempt id, thread id,
+      outcome, final agent message, changed files, validation summary/output
+      preview, and log reference when available.
+    - Expected: invalid evidence, task id mismatch, and attempt id mismatch are
+      rejected as typed invalid input before lifecycle mutation.
     - Expected: the Action Broker validates the typed input schema, invokes the
       injected frontend Queue lifecycle adapter where available, and renders a
       compact product-facing result such as `Queue lifecycle agent finished.`
@@ -284,6 +303,10 @@ During the smoke, verify these product labels appear where applicable:
       including dry-run immutability, real fake-store execution mutation,
       wrong ACK target failure, mark-done review-state gating, failure-dependent
       blocking, and the honest skipped/blocked runtime gaps.
+    - Expected: the main success path uses a fake frontend worker evidence
+      bundle rather than only loose final-agent fields, and the test asserts
+      broker consumption, review summary inclusion, normalized evidence
+      readback, no Git execution, and done-gated dependent unblocking.
     - Expected: the self-test does not create backend records, launch workers,
       run validation, execute Git commits, call Codex/shell, launch Terminal,
       execute rollback, create Queue views, or parse prose into actions.
@@ -320,9 +343,11 @@ For every failed smoke step, capture:
 
 ## Next Engineering Blocks
 
-1. Durable backend persistence design.
-2. Backend scheduler/runtime ownership design.
-3. Durable attempt/coordinator decision/review ACK persistence.
-4. Worker, validation evidence, and commit result integration.
-5. Safe Workspace Agent handoff integration.
-6. Rollback execution design only after the approval/safety contract.
+1. Audit whether to connect real worker result events to the frontend evidence
+   bundle path next or to add durable persistence first.
+2. Durable backend persistence design.
+3. Backend scheduler/runtime ownership design.
+4. Durable attempt/coordinator decision/review ACK/evidence persistence.
+5. Worker result, validation evidence, and commit result integration.
+6. Safe Workspace Agent handoff integration.
+7. Rollback execution design only after the approval/safety contract.

@@ -17,6 +17,11 @@ import {
   type SmartQueueDogfoodLifecycleItem,
   type SmartQueueLifecycleTransitionResult,
 } from "../../queue/smartQueueDogfoodLifecycle";
+import {
+  toReviewMessageEvidenceInput,
+  type QueueWorkerEvidenceBundle,
+  type QueueWorkerReviewMessageEvidenceInput,
+} from "../../queue/smartQueueWorkerEvidenceBundle";
 import type {
   QueueAgentAdapterResult,
   QueueAgentAddFollowUpPromptInput,
@@ -251,7 +256,9 @@ export function createInMemoryQueueDogfoodLifecycleAdapterApi({
               input.changedFilesSummary,
             ),
             finalAgentMessage: input.finalAgentMessage,
+            threadId: input.threadId,
             validationSummary: input.validationSummary,
+            workerEvidenceBundle: normalizedEvidenceBundle(input.evidenceBundle),
           };
 
           switch (input.outcome) {
@@ -304,20 +311,28 @@ export function createInMemoryQueueDogfoodLifecycleAdapterApi({
         input,
         context,
         "Queue review message created",
-        (item) =>
-          createReviewMessage(item, {
-            attemptId: input.attemptId,
-            changedFilesSummary: normalizeChangedFilesSummary(
-              input.changedFilesSummary,
-            ),
+        (item) => {
+          const evidence = reviewEvidenceInput(
+            normalizedEvidenceBundle(input.evidenceBundle),
+          );
+
+          return createReviewMessage(item, {
+            ...evidence,
+            attemptId: input.attemptId ?? evidence.attemptId,
+            changedFilesSummary:
+              normalizeChangedFilesSummary(input.changedFilesSummary) ??
+              evidence.changedFilesSummary,
             createdAt: input.createdAt ?? context.requestedAt,
-            finalAgentMessage: input.finalAgentMessage,
+            finalAgentMessage:
+              input.finalAgentMessage ?? evidence.finalAgentMessage,
             messageId:
               input.messageId ??
               idFromParts("review-message", input.taskId, context.requestId),
             toCoordinatorAgentId: input.coordinatorAgentId,
-            validationSummary: input.validationSummary,
-          }),
+            validationSummary:
+              input.validationSummary ?? evidence.validationSummary,
+          });
+        },
       ),
     failItem: (input: RequiredFailInput, context) =>
       applyTransition(input, context, "Queue item failed", (item) =>
@@ -346,6 +361,9 @@ export function createInMemoryQueueDogfoodLifecycleAdapterApi({
         const reviewMessages = [...lifecycle.reviewMessages];
         return success("Queue review evidence bundle loaded.", {
           changedFilesSummary: lifecycle.changedFilesSummary,
+          evidenceBundle: lifecycle.workerEvidenceBundle ?? null,
+          evidenceBundlePersistence: "frontend_only_not_durable",
+          evidenceSummary: lifecycle.workerEvidenceSummary,
           finalAgentMessage: lifecycle.finalAgentMessage,
           latestReviewMessage:
             reviewMessages[reviewMessages.length - 1] ?? null,
@@ -547,6 +565,26 @@ function normalizeChangedFilesSummary(value: readonly string[] | string | undefi
   }
 
   return typeof value === "string" ? value.trim() || undefined : undefined;
+}
+
+function reviewEvidenceInput(
+  evidenceBundle: QueueWorkerEvidenceBundle | undefined,
+): Partial<QueueWorkerReviewMessageEvidenceInput> {
+  return evidenceBundle ? toReviewMessageEvidenceInput(evidenceBundle) : {};
+}
+
+function normalizedEvidenceBundle(
+  evidenceBundle:
+    | QueueAgentLifecycleAgentFinishedInput["evidenceBundle"]
+    | QueueAgentReviewCreateMessageInput["evidenceBundle"],
+): QueueWorkerEvidenceBundle | undefined {
+  return evidenceBundle &&
+    "kind" in evidenceBundle &&
+    "version" in evidenceBundle &&
+    evidenceBundle.kind === "queue_worker_evidence_bundle" &&
+    evidenceBundle.version === 1
+    ? evidenceBundle
+    : undefined;
 }
 
 function success<TOutput>(

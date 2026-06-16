@@ -1,3 +1,8 @@
+import type {
+  QueueWorkerEvidenceBundle,
+  QueueWorkerEvidenceSummary,
+} from "./smartQueueWorkerEvidenceBundle";
+
 export type SmartQueueDogfoodTicketState =
   | "draft"
   | "queued"
@@ -53,8 +58,10 @@ export type SmartQueueReviewMessage = {
   readonly toCoordinatorAgentId: string;
   readonly reviewOutcome: SmartQueueDogfoodReviewOutcome;
   readonly finalAgentMessage: string;
+  readonly evidenceSummary?: string;
   readonly validationSummary?: string;
   readonly changedFilesSummary?: string;
+  readonly workerEvidenceBundle?: QueueWorkerEvidenceBundle;
   readonly createdAt: string;
   readonly productSummary: string;
 };
@@ -134,6 +141,8 @@ export type SmartQueueDogfoodLifecycleItem = {
   readonly finalAgentMessage?: string;
   readonly validationSummary?: string;
   readonly changedFilesSummary?: string;
+  readonly workerEvidenceBundle?: QueueWorkerEvidenceBundle;
+  readonly workerEvidenceSummary?: QueueWorkerEvidenceSummary;
   readonly blockedReason?: string;
   readonly failureReason?: string;
   readonly followUpPrompts: readonly SmartQueueFollowUpPrompt[];

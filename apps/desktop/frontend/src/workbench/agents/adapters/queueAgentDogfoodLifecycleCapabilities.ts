@@ -1,4 +1,9 @@
 import { createActionResult } from "../broker/results";
+import {
+  normalizeQueueWorkerEvidenceBundle,
+  toLifecycleAgentFinishedInput,
+  type QueueWorkerEvidenceBundle,
+} from "../../queue/smartQueueWorkerEvidenceBundle";
 import type {
   HobitAgentActionHandlerMap,
   HobitAgentActionRequest,
@@ -35,6 +40,17 @@ type ValidationResult<T> =
 
 const AGENT_OUTCOMES = new Set(["completed", "not_completed", "failed"]);
 
+type NormalizedAgentFinishedInput = Required<
+  Pick<
+    QueueAgentLifecycleAgentFinishedInput,
+    "finalAgentMessage" | "outcome" | "taskId"
+  >
+> &
+  Omit<
+    QueueAgentLifecycleAgentFinishedInput,
+    "finalAgentMessage" | "outcome" | "taskId"
+  >;
+
 export function createQueueAgentDogfoodLifecycleActionHandlers(
   adapterApi: QueueAgentAdapterApi,
 ): HobitAgentActionHandlerMap {
@@ -61,41 +77,31 @@ function handleAgentFinished(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
 ): QueueDogfoodLifecycleHandlerResult {
-  const validation = readInput<QueueAgentLifecycleAgentFinishedInput>(
+  const validation = readOptionalInput<QueueAgentLifecycleAgentFinishedInput>(
     request,
-    ["taskId", "outcome", "finalAgentMessage"],
     [
       "taskId",
       "outcome",
       "finalAgentMessage",
       "attemptId",
+      "threadId",
       "validationSummary",
       "changedFilesSummary",
       "finishedAt",
+      "evidenceBundle",
     ],
   );
   if (!validation.ok) {
     return invalidInput(request, validation.message);
   }
 
-  const outcome = validation.value.outcome ?? "";
-  if (!AGENT_OUTCOMES.has(outcome)) {
-    return invalidInput(
-      request,
-      "Queue lifecycle outcome must be completed, not_completed, or failed.",
-    );
+  const normalized = normalizeAgentFinishedInput(validation.value);
+  if (!normalized.ok) {
+    return invalidInput(request, normalized.message);
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
-    lifecycle.agentFinished(
-      {
-        ...validation.value,
-        finalAgentMessage: validation.value.finalAgentMessage as string,
-        outcome: outcome as "completed" | "not_completed" | "failed",
-        taskId: validation.value.taskId as string,
-      },
-      context,
-    ),
+    lifecycle.agentFinished(normalized.value, context),
   );
 }
 
@@ -112,6 +118,7 @@ function handleCreateReviewMessage(
       "messageId",
       "createdAt",
       "attemptId",
+      "evidenceBundle",
       "finalAgentMessage",
       "validationSummary",
       "changedFilesSummary",
@@ -121,11 +128,21 @@ function handleCreateReviewMessage(
     return invalidInput(request, validation.message);
   }
 
+  const evidence = normalizeOptionalEvidenceBundle({
+    attemptId: validation.value.attemptId,
+    evidenceBundle: validation.value.evidenceBundle,
+    taskId: validation.value.taskId,
+  });
+  if (!evidence.ok) {
+    return invalidInput(request, evidence.message);
+  }
+
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
     lifecycle.createReviewMessage(
       {
         ...validation.value,
         coordinatorAgentId: validation.value.coordinatorAgentId as string,
+        evidenceBundle: evidence.value,
         taskId: validation.value.taskId as string,
       },
       context,
@@ -356,6 +373,145 @@ function handleGetEvidenceBundle(
   );
 }
 
+function normalizeAgentFinishedInput(
+  input: QueueAgentLifecycleAgentFinishedInput,
+): ValidationResult<NormalizedAgentFinishedInput> {
+  const evidence = normalizeOptionalEvidenceBundle({
+    attemptId: input.attemptId,
+    evidenceBundle: input.evidenceBundle,
+    taskId: input.taskId,
+  });
+  if (!evidence.ok) {
+    return evidence;
+  }
+
+  const evidenceBundle = evidence.value;
+  if (evidenceBundle) {
+    const explicitOutcome = cleanString(input.outcome);
+    if (explicitOutcome && !AGENT_OUTCOMES.has(explicitOutcome)) {
+      return {
+        message:
+          "Queue lifecycle outcome must be completed, not_completed, or failed.",
+        ok: false,
+      };
+    }
+
+    if (explicitOutcome && explicitOutcome !== evidenceBundle.outcome) {
+      return {
+        message:
+          "Queue lifecycle outcome does not match the evidence bundle outcome.",
+        ok: false,
+      };
+    }
+
+    const explicitThreadId = cleanString(input.threadId);
+    if (
+      explicitThreadId &&
+      evidenceBundle.threadId &&
+      explicitThreadId !== evidenceBundle.threadId
+    ) {
+      return {
+        message:
+          "Queue lifecycle threadId does not match the evidence bundle threadId.",
+        ok: false,
+      };
+    }
+
+    const lifecycleInput = toLifecycleAgentFinishedInput(evidenceBundle, {
+      attemptId: cleanString(input.attemptId) ?? undefined,
+      changedFilesSummary: normalizeActionChangedFilesSummary(
+        input.changedFilesSummary,
+      ),
+      finalAgentMessage: cleanString(input.finalAgentMessage) ?? undefined,
+      finishedAt: cleanString(input.finishedAt) ?? undefined,
+      outcome: explicitOutcome
+        ? (explicitOutcome as QueueWorkerEvidenceBundle["outcome"])
+        : undefined,
+      taskId: cleanString(input.taskId) ?? undefined,
+      threadId: explicitThreadId ?? undefined,
+      validationSummary: cleanString(input.validationSummary) ?? undefined,
+    });
+
+    return {
+      ok: true,
+      value: {
+        ...input,
+        attemptId: lifecycleInput.attemptId,
+        changedFilesSummary: lifecycleInput.changedFilesSummary,
+        evidenceBundle,
+        finalAgentMessage: lifecycleInput.finalAgentMessage,
+        finishedAt: lifecycleInput.finishedAt,
+        outcome: lifecycleInput.outcome,
+        taskId: lifecycleInput.taskId,
+        threadId: lifecycleInput.threadId,
+        validationSummary: lifecycleInput.validationSummary,
+      },
+    };
+  }
+
+  const taskId = cleanString(input.taskId);
+  const outcome = cleanString(input.outcome);
+  const finalAgentMessage = cleanString(input.finalAgentMessage);
+
+  if (!taskId) {
+    return { message: "taskId is required.", ok: false };
+  }
+
+  if (!outcome) {
+    return { message: "outcome is required.", ok: false };
+  }
+
+  if (!AGENT_OUTCOMES.has(outcome)) {
+    return {
+      message:
+        "Queue lifecycle outcome must be completed, not_completed, or failed.",
+      ok: false,
+    };
+  }
+
+  if (!finalAgentMessage) {
+    return { message: "finalAgentMessage is required.", ok: false };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...input,
+      finalAgentMessage,
+      outcome: outcome as QueueWorkerEvidenceBundle["outcome"],
+      taskId,
+    },
+  };
+}
+
+function normalizeOptionalEvidenceBundle({
+  attemptId,
+  evidenceBundle,
+  taskId,
+}: {
+  readonly attemptId?: string;
+  readonly evidenceBundle?: QueueAgentLifecycleAgentFinishedInput["evidenceBundle"];
+  readonly taskId?: string;
+}): ValidationResult<QueueWorkerEvidenceBundle | undefined> {
+  if (evidenceBundle === undefined) {
+    return { ok: true, value: undefined };
+  }
+
+  const validation = normalizeQueueWorkerEvidenceBundle(evidenceBundle, {
+    expectedAttemptId: cleanString(attemptId) ?? undefined,
+    expectedTaskId: cleanString(taskId) ?? undefined,
+  });
+
+  if (!validation.ok) {
+    return {
+      message: validation.reasons[0] ?? "Evidence bundle is invalid.",
+      ok: false,
+    };
+  }
+
+  return { ok: true, value: validation.bundle };
+}
+
 function invokeLifecycle<TOutput>(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
@@ -529,6 +685,23 @@ function readOptionalInput<T extends object>(
   }
 
   return { ok: true, value: request.input as T };
+}
+
+function normalizeActionChangedFilesSummary(
+  value: readonly string[] | string | undefined,
+) {
+  if (Array.isArray(value)) {
+    const changedFiles = value
+      .map((item) => item.trim())
+      .filter(Boolean);
+    return changedFiles.length > 0 ? changedFiles.join(", ") : undefined;
+  }
+
+  return cleanString(value) ?? undefined;
+}
+
+function cleanString(value: unknown) {
+  return typeof value === "string" ? value.trim() || null : null;
 }
 
 function invalidInput(

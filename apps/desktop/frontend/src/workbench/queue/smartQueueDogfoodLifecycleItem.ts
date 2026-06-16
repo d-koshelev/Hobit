@@ -4,6 +4,7 @@ import type {
   SmartQueueDogfoodReviewOutcome,
   SmartQueueLifecycleTransitionResult,
 } from "./smartQueueDogfoodLifecycleTypes";
+import type { QueueWorkerEvidenceBundle } from "./smartQueueWorkerEvidenceBundle";
 import {
   NO_DOGFOOD_LIFECYCLE_SIDE_EFFECTS,
   assertTicketState,
@@ -30,18 +31,22 @@ export type StartQueueItemRunInput = {
 
 export type CompleteAgentPromptInput = {
   readonly attemptId?: string;
+  readonly threadId?: string;
   readonly finalAgentMessage: string;
   readonly validationSummary?: string;
   readonly changedFilesSummary?: string;
   readonly completedAt: string;
+  readonly workerEvidenceBundle?: QueueWorkerEvidenceBundle;
 };
 
 export type FailAgentPromptInput = {
   readonly attemptId?: string;
+  readonly threadId?: string;
   readonly finalAgentMessage: string;
   readonly validationSummary?: string;
   readonly changedFilesSummary?: string;
   readonly failedAt: string;
+  readonly workerEvidenceBundle?: QueueWorkerEvidenceBundle;
 };
 
 type FinishAgentPromptInput = {
@@ -54,8 +59,10 @@ type FinishAgentPromptInput = {
   readonly finalAgentMessage: string;
   readonly finishedAt: string;
   readonly reviewOutcome: SmartQueueDogfoodReviewOutcome;
+  readonly threadId?: string;
   readonly transitionAction: string;
   readonly validationSummary?: string;
+  readonly workerEvidenceBundle?: QueueWorkerEvidenceBundle;
 };
 
 export function createDogfoodLifecycleItem(
@@ -149,8 +156,10 @@ export function completeAgentPrompt(
     finishedAt: input.completedAt,
     finalAgentMessage: input.finalAgentMessage,
     reviewOutcome: "completed",
+    threadId: input.threadId,
     transitionAction: "completeAgentPrompt",
     validationSummary: input.validationSummary,
+    workerEvidenceBundle: input.workerEvidenceBundle,
   });
 }
 
@@ -165,8 +174,10 @@ export function markAgentPromptNotCompleted(
     finishedAt: input.completedAt,
     finalAgentMessage: input.finalAgentMessage,
     reviewOutcome: "not_completed",
+    threadId: input.threadId,
     transitionAction: "markAgentPromptNotCompleted",
     validationSummary: input.validationSummary,
+    workerEvidenceBundle: input.workerEvidenceBundle,
   });
 }
 
@@ -181,8 +192,10 @@ export function failAgentPrompt(
     finishedAt: input.failedAt,
     finalAgentMessage: input.finalAgentMessage,
     reviewOutcome: "failed",
+    threadId: input.threadId,
     transitionAction: "failAgentPrompt",
     validationSummary: input.validationSummary,
+    workerEvidenceBundle: input.workerEvidenceBundle,
   });
 }
 
@@ -223,10 +236,13 @@ function finishAgentPrompt(
     agentPromptState: input.agentPromptState,
     changedFilesSummary: cleanOptionalText(input.changedFilesSummary),
     currentAttemptId: input.attemptId ?? item.currentAttemptId,
+    currentThreadId: input.threadId ?? item.currentThreadId,
     finalAgentMessage,
     reviewOutcome: input.reviewOutcome,
     ticketState: "awaiting_review",
     updatedAt: input.finishedAt,
     validationSummary: cleanOptionalText(input.validationSummary),
+    workerEvidenceBundle: input.workerEvidenceBundle,
+    workerEvidenceSummary: input.workerEvidenceBundle?.summary,
   });
 }

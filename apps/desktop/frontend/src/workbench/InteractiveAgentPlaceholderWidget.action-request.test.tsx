@@ -403,7 +403,9 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(operatorPrompt).toContain('"capabilityId":"queue.createItem"');
     expect(operatorPrompt).toContain('"capabilityId":"queue.createItems"');
     expect(operatorPrompt).toContain("Queue lifecycle schemas:");
-    expect(operatorPrompt).toContain("agentFinished(taskId,outcome,finalAgentMessage)");
+    expect(operatorPrompt).toContain(
+      "agentFinished(evidenceBundle or taskId,outcome,finalAgentMessage)",
+    );
     expect(operatorPrompt).toContain("ack(taskId,messageId,coordinatorAgentId)");
     expect(operatorPrompt).toContain("addFollowUpPrompt(taskId,coordinatorAgentId,prompt)");
     expect(operatorPrompt).toContain(

@@ -1,5 +1,6 @@
 import type { AgentQueueTask } from "../../../workspace/types";
 import type { SmartQueueDogfoodLifecycleItem } from "../../queue/smartQueueDogfoodLifecycle";
+import type { QueueWorkerEvidenceBundle } from "../../queue/smartQueueWorkerEvidenceBundle";
 import type { HobitAgentBrokerResult } from "../broker";
 
 export const QUEUE_DOGFOOD_BROKER_SELF_TEST_REQUIRED_CAPABILITY_IDS = [
@@ -58,7 +59,9 @@ export type QueueDogfoodBrokerSelfTestFakeStore = {
   readonly coordinatorAgentId: string;
   readonly dependentTaskId: string;
   readonly exercisedCapabilityIds: string[];
+  readonly evidenceBundle: QueueWorkerEvidenceBundle;
   readonly fakeAttemptId: string;
+  readonly fakeThreadId: string;
   readonly fakeCommit: {
     readonly commitHash: string;
     readonly commitResultId: string;
@@ -69,11 +72,13 @@ export type QueueDogfoodBrokerSelfTestFakeStore = {
   readonly finalAgentMessage: string;
   readonly followUpPrompt: string;
   readonly followUpTaskId: string;
+  readonly logReference: string;
   readonly queueId: "workspace-queue";
   readonly reviewMessageId: string;
   readonly taskId: string;
   readonly tasks: readonly AgentQueueTask[];
   readonly validationSummary: string;
+  readonly validationOutputPreview: string;
   canDependentStart(dependentTaskId: string): boolean;
   invoke<TOutput = unknown>(
     capabilityId: string,
@@ -93,15 +98,18 @@ export type BrokerSelfTestFixture = {
   readonly createdAt: string;
   readonly dependentTaskId: string;
   readonly fakeAttemptId: string;
+  readonly fakeThreadId: string;
   readonly fakeCommit: QueueDogfoodBrokerSelfTestFakeStore["fakeCommit"];
   readonly failureDependentTaskId: string;
   readonly failureTaskId: string;
   readonly finalAgentMessage: string;
   readonly followUpPrompt: string;
   readonly followUpTaskId: string;
+  readonly logReference: string;
   readonly reviewMessageId: string;
   readonly taskId: string;
   readonly validationSummary: string;
+  readonly validationOutputPreview: string;
 };
 
 export const QUEUE_DOGFOOD_BROKER_COVERAGE_BOUNDARY =
@@ -114,6 +122,7 @@ export const DEFAULT_QUEUE_DOGFOOD_BROKER_FIXTURE: BrokerSelfTestFixture = {
   createdAt: "2026-06-16T12:00:00.000Z",
   dependentTaskId: "queue-dogfood-dependent",
   fakeAttemptId: "attempt-upstream-1",
+  fakeThreadId: "thread-upstream-1",
   fakeCommit: {
     commitHash: "fake-broker-loop-hash",
     commitResultId: "fake-commit-result-upstream",
@@ -126,7 +135,9 @@ export const DEFAULT_QUEUE_DOGFOOD_BROKER_FIXTURE: BrokerSelfTestFixture = {
   followUpPrompt:
     "Continue the same Queue item with one narrower follow-up prompt.",
   followUpTaskId: "queue-dogfood-follow-up",
+  logReference: "frontend://queue-dogfood-broker-self-test/logs/upstream",
   reviewMessageId: "review-message-upstream-1",
   taskId: "queue-dogfood-upstream",
+  validationOutputPreview: "Fake validation output preview: typecheck passed.",
   validationSummary: "Fake validation summary: typecheck passed.",
 };

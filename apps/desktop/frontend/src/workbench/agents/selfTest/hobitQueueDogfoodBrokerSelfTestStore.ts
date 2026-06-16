@@ -2,6 +2,9 @@ import type { AgentQueueTask } from "../../../workspace/types";
 import {
   canQueueTaskStartByDogfoodLifecycleGate,
 } from "../../queue/smartQueueDogfoodLifecycleController";
+import {
+  createQueueWorkerEvidenceBundle,
+} from "../../queue/smartQueueWorkerEvidenceBundle";
 import type { SmartQueueDogfoodLifecycleItem } from "../../queue/smartQueueDogfoodLifecycle";
 import {
   createDefaultQueueAgentAdapterApi,
@@ -36,6 +39,32 @@ export function createQueueDogfoodBrokerSelfTestFakeStore(
     },
   };
   const tasks = fakeQueueTasks(resolved);
+  const evidenceBundle = createQueueWorkerEvidenceBundle({
+    attemptId: resolved.fakeAttemptId,
+    changedFiles: [
+      {
+        path: "apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.ts",
+      },
+      {
+        path: "apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts",
+      },
+    ],
+    changedFilesSummary: resolved.changedFilesSummary,
+    completedAt: resolved.createdAt,
+    finalAgentMessage: resolved.finalAgentMessage,
+    logReference: resolved.logReference,
+    outcome: "completed",
+    providerId: "fake-broker-provider",
+    rawProviderSummary: "Fake provider summary for Queue dogfood evidence.",
+    runId: "fake-run-upstream-1",
+    startedAt: "2026-06-16T11:30:00.000Z",
+    taskId: resolved.taskId,
+    threadId: resolved.fakeThreadId,
+    validationOutputPreview: resolved.validationOutputPreview,
+    validationStatus: "passed",
+    validationSummary: resolved.validationSummary,
+    workerId: "fake-worker:self-test",
+  });
   const brokerResults: HobitAgentBrokerResult[] = [];
   const exercisedCapabilityIds: string[] = [];
   let requestSequence = 0;
@@ -58,18 +87,22 @@ export function createQueueDogfoodBrokerSelfTestFakeStore(
     changedFilesSummary: resolved.changedFilesSummary,
     coordinatorAgentId: resolved.coordinatorAgentId,
     dependentTaskId: resolved.dependentTaskId,
+    evidenceBundle,
     exercisedCapabilityIds,
     fakeAttemptId: resolved.fakeAttemptId,
+    fakeThreadId: resolved.fakeThreadId,
     fakeCommit: resolved.fakeCommit,
     failureDependentTaskId: resolved.failureDependentTaskId,
     failureTaskId: resolved.failureTaskId,
     finalAgentMessage: resolved.finalAgentMessage,
     followUpPrompt: resolved.followUpPrompt,
     followUpTaskId: resolved.followUpTaskId,
+    logReference: resolved.logReference,
     queueId: "workspace-queue",
     reviewMessageId: resolved.reviewMessageId,
     taskId: resolved.taskId,
     tasks,
+    validationOutputPreview: resolved.validationOutputPreview,
     validationSummary: resolved.validationSummary,
     canDependentStart: (dependentTaskId) => {
       const dependentTask = tasks.find(

@@ -36,6 +36,13 @@ export type {
   QueueAgentSingletonTarget,
   QueueAgentSourceMetadata,
 } from "./queueAgentCapabilityTypes";
+export type {
+  QueueWorkerEvidenceBundle,
+  QueueWorkerEvidenceBundleInput,
+  QueueWorkerEvidenceBundleValidationResult,
+  QueueWorkerEvidenceOutcome,
+  QueueWorkerEvidenceSummary,
+} from "../../queue/smartQueueWorkerEvidenceBundle";
 export {
   createDefaultQueueAgentAdapterApi,
 } from "./queueAgentCapabilities";

@@ -20,7 +20,8 @@ safety, prompt-pack materialization, dependency-aware eligibility,
 frontend/controller execution gating, attempt and coordinator decision
 presentation, explicit retry/handoff/proposal actions, typed Queue dogfood
 lifecycle broker capabilities, a full fake broker-driven Queue dogfood loop
-self-test, and focused smoke coverage.
+self-test, a frontend Queue worker evidence bundle model/adapter path, and
+focused smoke coverage.
 
 The durable Smart Queue backend/runtime is not implemented yet. Current Smart
 Queue modules are frontend/product-model foundations unless explicitly noted
@@ -43,6 +44,8 @@ The current implemented frontend behavior is:
   controller overlays;
 - full fake Queue dogfood broker-loop self-test through those typed broker
   capabilities;
+- frontend Queue worker evidence bundle model, validation, summaries, and
+  adapters for existing/fake frontend run result shapes;
 - worker failure/stuck report to coordinator decision integration;
 - QueueV2 Coordinator Decision Card;
 - Retry same action;
@@ -307,13 +310,30 @@ adapter integration and typed frontend Action Broker capability access.
   approval, mark done with fake commit metadata, done-gated dependent unblock,
   follow-up prompt returning to running, failure-dependent blocking, and no
   hidden side effects.
+- `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts`
+  defines the frontend Queue worker evidence bundle model, outcome mapping,
+  validation, bounded display summaries, lifecycle/review adapters, and pure
+  adapters from existing frontend Direct Work, Agent Executor, Workspace Agent,
+  and Queue worker report shapes where those shapes are clear.
+- `queue.lifecycle.agentFinished` accepts either the existing explicit fields
+  or an optional structured evidence bundle. A valid bundle can supply task,
+  attempt, thread, outcome, final agent message, validation summary, and
+  changed-files summary. Task, attempt, outcome, or thread mismatches are
+  rejected as invalid input.
+- Review message creation can attach the bundle's bounded product-facing
+  evidence summary, and `queue.review.getEvidenceBundle` can return the
+  normalized frontend bundle from the controller/fake store when available.
+- The fake broker-loop success path now sends a fake worker evidence bundle
+  into `queue.lifecycle.agentFinished` and asserts broker consumption, review
+  message evidence summary, normalized evidence readback, no Git execution on
+  mark done, and done-gated dependent unblocking.
 - Lifecycle capability dry-runs preview transitions without mutating state.
   Real invocation mutates only frontend/controller overlay state where an
   injected lifecycle adapter or Queue bridge task seed is available.
 - This is not durable backend lifecycle persistence, real worker execution,
-  scheduler redesign, validation execution, Git commit execution, rollback,
-  storage/schema migration, Tauri/IPC behavior, Queue UI redesign, or Finder
-  behavior.
+  real worker result event integration, scheduler redesign, validation
+  execution, Git commit execution, rollback, storage/schema migration,
+  Tauri/IPC behavior, Queue UI redesign, or Finder behavior.
 
 ### Frontend worker failure/stuck report integration
 
@@ -437,8 +457,10 @@ as available from the foundation above:
 - durable attempt persistence;
 - durable coordinator decision persistence;
 - durable dogfood lifecycle persistence;
-- real worker integration with the dogfood lifecycle model;
-- real validation evidence attachment to the dogfood lifecycle model;
+- real worker result event integration with the dogfood lifecycle model;
+- durable worker evidence bundle persistence;
+- real validation evidence execution or durable attachment to the dogfood
+  lifecycle model;
 - real commit execution or durable commit metadata attachment;
 - actual rollback execution;
 - Workspace Agent runtime auto-call;
@@ -485,17 +507,20 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 ## Next Engineering Blocks
 
-1. Design durable backend Smart Queue persistence for attempts, lifecycle,
-   review messages, ACKs, decisions, validation evidence, and commit metadata.
+1. Audit whether the next block should connect real worker result events into
+   the frontend evidence bundle path or design durable backend persistence for
+   attempts, lifecycle, review messages, ACKs, decisions, worker evidence,
+   validation evidence, and commit metadata.
 2. Design backend scheduler/runtime ownership.
 3. Integrate real worker reports, validation evidence, and explicit commit
    approval/results with the dogfood lifecycle model.
 4. Add safe Workspace Agent handoff integration.
 5. Design rollback execution only after the approval/safety contract is ready.
 
-The next major block should be durable/backend lifecycle persistence or worker
-evidence integration. Broad Queue UI polish is not the blocker for proving the
-current fake broker loop.
+The next major block should connect real worker result events to the normalized
+evidence bundle path or add durable persistence, depending on audit results.
+Broad Queue UI polish is not the blocker for proving the current fake broker
+loop.
 
 ## Implementation References
 
@@ -509,6 +534,7 @@ current fake broker loop.
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle*.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycleController.ts`
+- `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts`
 - `apps/desktop/frontend/src/workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts`
 - `apps/desktop/frontend/src/workbench/agents/adapters/queueAgentDogfoodLifecycleController.ts`
 - `apps/desktop/frontend/src/workbench/agents/capabilities/queueDogfoodLifecycleCapabilityManifest.ts`

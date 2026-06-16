@@ -124,12 +124,7 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
   const agentFinished = store.invoke<QueueAgentLifecycleTransitionOutput>(
     "queue.lifecycle.agentFinished",
     {
-      attemptId: store.fakeAttemptId,
-      changedFilesSummary: store.changedFilesSummary,
-      finalAgentMessage: store.finalAgentMessage,
-      outcome: "completed",
-      taskId: store.taskId,
-      validationSummary: store.validationSummary,
+      evidenceBundle: store.evidenceBundle,
     },
   );
   const agentFinishedOutput = lifecycleOutput(agentFinished);
@@ -183,12 +178,19 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
     reviewMessage?.finalAgentMessage === store.finalAgentMessage &&
     reviewMessage.validationSummary === store.validationSummary &&
     reviewMessage.changedFilesSummary === store.changedFilesSummary &&
+    reviewMessage.evidenceSummary === store.evidenceBundle.summary.humanSummary &&
+    reviewMessage.workerEvidenceBundle?.taskId === store.taskId &&
     evidence?.finalAgentMessage === store.finalAgentMessage &&
     evidence.validationSummary === store.validationSummary &&
-    evidence.changedFilesSummary === store.changedFilesSummary;
+    evidence.changedFilesSummary === store.changedFilesSummary &&
+    evidence.evidenceBundle?.taskId === store.taskId &&
+    evidence.evidenceBundle?.threadId === store.fakeThreadId &&
+    evidence.evidenceBundlePersistence === "frontend_only_not_durable";
   const agentFinishedPassed =
     agentFinished.status === "succeeded" &&
-    agentFinishedOutput?.ticketState === "awaiting_review";
+    agentFinishedOutput?.ticketState === "awaiting_review" &&
+    agentFinishedOutput.lifecycle.workerEvidenceBundle?.taskId === store.taskId &&
+    agentFinishedOutput.lifecycle.currentThreadId === store.fakeThreadId;
   const reviewCreatedPassed =
     reviewCreated.status === "succeeded" && reviewMessageHasEvidence;
   const ackPassed =
@@ -217,7 +219,9 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
         evidence: [
           brokerEvidence(agentFinished),
           `ticketState: ${agentFinishedOutput?.ticketState ?? "unknown"}.`,
-          "Broker invoked queue.lifecycle.agentFinished.",
+          `Evidence bundle task: ${agentFinishedOutput?.lifecycle.workerEvidenceBundle?.taskId ?? "missing"}.`,
+          `Evidence thread: ${agentFinishedOutput?.lifecycle.currentThreadId ?? "missing"}.`,
+          "Broker invoked queue.lifecycle.agentFinished with a worker evidence bundle.",
         ],
         message: agentFinishedPassed
           ? "Agent finished - awaiting review."
@@ -237,6 +241,8 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
           `Final agent message: ${evidence?.finalAgentMessage ?? "missing"}.`,
           `Validation summary: ${evidence?.validationSummary ?? "missing"}.`,
           `Changed files summary: ${evidence?.changedFilesSummary ?? "missing"}.`,
+          `Evidence summary: ${evidence?.evidenceSummary?.humanSummary ?? "missing"}.`,
+          `Evidence persistence: ${evidence?.evidenceBundlePersistence ?? "missing"}.`,
         ],
         message: reviewCreatedPassed
           ? "Review message created."

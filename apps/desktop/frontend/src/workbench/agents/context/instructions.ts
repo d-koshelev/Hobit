@@ -90,7 +90,7 @@ function createQueueLifecycleCapabilityInstructionLines(
   );
   const requiredInputLine = [
     presentCapabilityIds.has("queue.lifecycle.agentFinished")
-      ? "agentFinished(taskId,outcome,finalAgentMessage)"
+      ? "agentFinished(evidenceBundle or taskId,outcome,finalAgentMessage)"
       : null,
     presentCapabilityIds.has("queue.review.createMessage")
       ? "createMessage(taskId,coordinatorAgentId)"
