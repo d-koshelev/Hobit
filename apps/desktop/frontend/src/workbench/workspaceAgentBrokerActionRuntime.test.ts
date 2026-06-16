@@ -1,0 +1,198 @@
+import { describe, expect, it, vi } from "vitest";
+
+import {
+  createHobitAgentActionRequestFromEnvelope,
+  readHobitAgentActionRequestEnvelope,
+} from "./agents/broker";
+import {
+  createWorkspaceAgentHobitActionInvoker,
+  workspaceAgentHobitActionResultMessage,
+} from "./workspaceAgentBrokerActionRuntime";
+import runtimeSource from "./workspaceAgentBrokerActionRuntime.ts?raw";
+import envelopeSource from "./agents/broker/hobitAgentActionRequestEnvelope.ts?raw";
+import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import type {
+  QueueWidgetActionResult,
+  QueueWidgetItemSnapshot,
+  QueueWidgetSnapshot,
+} from "./queue/agentQueueWidgetApiTypes";
+
+describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
+  it("invokes a valid Queue lifecycle envelope through the Workspace Agent broker runtime", async () => {
+    const getSnapshot = vi.fn(async () =>
+      snapshotResult({
+        items: [snapshotItem({ id: "task-1", status: "running" })],
+        selectedItem: snapshotItem({ id: "task-1", status: "running" }),
+        selectedItemId: "task-1",
+      }),
+    );
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentQueueBridge: queueBridge({ getSnapshot }),
+    });
+    const parsed = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "queue.lifecycle.agentFinished",
+        dryRun: false,
+        input: {
+          attemptId: "attempt-1",
+          finalAgentMessage: "Implemented the requested changes.",
+          outcome: "completed",
+          taskId: "task-1",
+          validationSummary: "typecheck passed",
+        },
+        requestId: "runtime-lifecycle-valid",
+        type: "hobit.action.request",
+      }),
+    );
+
+    expect(parsed.status).toBe("valid");
+    if (parsed.status !== "valid") {
+      throw new Error("Expected valid lifecycle envelope.");
+    }
+
+    const result = await invoker(
+      createHobitAgentActionRequestFromEnvelope({
+        agentId: "workspace-agent",
+        createdAt: "2026-06-16T12:00:00.000Z",
+        envelope: parsed.envelope,
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output).toMatchObject({
+      queueMutation: "frontend_controller_overlay",
+      ticketState: "awaiting_review",
+      wouldStartWorkers: false,
+    });
+    expect(workspaceAgentHobitActionResultMessage(result.result)).toBe(
+      "Queue lifecycle agent finished.",
+    );
+    expect(getSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedItemId: "task-1" }),
+    );
+  });
+
+  it("returns compact invalid_input for an invalid lifecycle envelope", async () => {
+    const getSnapshot = vi.fn();
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentQueueBridge: queueBridge({ getSnapshot }),
+    });
+    const parsed = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "queue.lifecycle.agentFinished",
+        dryRun: false,
+        input: {
+          outcome: "completed",
+          taskId: "task-1",
+        },
+        type: "hobit.action.request",
+      }),
+    );
+
+    expect(parsed.status).toBe("valid");
+    if (parsed.status !== "valid") {
+      throw new Error("Expected valid envelope with invalid capability input.");
+    }
+
+    const result = await invoker(
+      createHobitAgentActionRequestFromEnvelope({
+        agentId: "workspace-agent",
+        createdAt: "2026-06-16T12:00:00.000Z",
+        envelope: parsed.envelope,
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(workspaceAgentHobitActionResultMessage(result.result)).toBe(
+      "Invalid Hobit action request. finalAgentMessage is required.",
+    );
+    expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("keeps prose-only assistant responses as prose", () => {
+    expect(
+      readHobitAgentActionRequestEnvelope(
+        "Normal assistant response without app action.",
+      ),
+    ).toEqual({ status: "none" });
+  });
+
+  it("does not add natural-language routing in the Workspace Agent broker runtime", () => {
+    for (const source of [runtimeSource, envelopeSource]) {
+      expect(source).not.toContain("new RegExp");
+      expect(source).not.toContain(".match(");
+      expect(source).not.toContain("classifyUserIntent");
+      expect(source).not.toContain(["user text", " -> regex"].join(""));
+    }
+  });
+});
+
+function queueBridge(
+  overrides: Partial<WorkspaceAgentQueueBridge> = {},
+): WorkspaceAgentQueueBridge {
+  return {
+    createItem: vi.fn(async () => itemResult()),
+    getSnapshot: vi.fn(async () => snapshotResult()),
+    updateItem: vi.fn(async () => itemResult()),
+    ...overrides,
+  };
+}
+
+function itemResult(
+  overrides: Partial<QueueWidgetItemSnapshot> = {},
+): QueueWidgetActionResult<QueueWidgetItemSnapshot> {
+  const item = {
+    dependencies: [],
+    id: "queue-created",
+    prompt: "Prompt",
+    status: "queued",
+    title: "Queue item",
+    ...overrides,
+  } as QueueWidgetItemSnapshot;
+
+  return {
+    action: "queue.createItem",
+    events: [],
+    item,
+    message: "Queue item created. No task execution started.",
+    ok: true,
+    safetyClass: "safe_create_update",
+  };
+}
+
+function snapshotResult(
+  overrides: Partial<QueueWidgetSnapshot> = {},
+): QueueWidgetActionResult<QueueWidgetSnapshot> {
+  const snapshot = {
+    items: [],
+    queueId: "workspace:workspace_1:agent-queue",
+    selectedItem: null,
+    selectedItemId: null,
+    widgetType: "agent-queue",
+    workspaceId: "workspace_1",
+    ...overrides,
+  } as unknown as QueueWidgetSnapshot;
+
+  return {
+    action: "queue.getSnapshot",
+    events: [],
+    message: "Queue snapshot returned.",
+    ok: true,
+    safetyClass: "safe_read",
+    snapshot,
+  };
+}
+
+function snapshotItem(
+  overrides: Partial<QueueWidgetItemSnapshot> = {},
+): QueueWidgetItemSnapshot {
+  return {
+    dependencies: [],
+    id: "task-1",
+    prompt: "Implement the request.",
+    status: "queued",
+    title: "Queue item",
+    workspaceId: "workspace_1",
+    ...overrides,
+  } as QueueWidgetItemSnapshot;
+}

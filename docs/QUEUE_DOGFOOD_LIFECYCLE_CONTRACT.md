@@ -15,7 +15,8 @@ routing.
 ## Status
 
 Current as a frontend pure model foundation with frontend controller/view-model
-adapter integration and typed frontend Action Broker capability access.
+adapter integration, typed frontend Action Broker capability access, and a
+broker-driven fake dogfooding loop self-test.
 
 The implemented model and adapter layer live under:
 
@@ -279,6 +280,33 @@ Broker adapter tests also cover lifecycle dry-runs, real frontend overlay
 transitions, wrong-message ACK failure, validation approval placeholders,
 follow-up prompt state, done-gated dependents, unavailable dependencies, and
 Workspace Agent structured action-request invocation.
+
+`apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.ts`
+adds a full fake broker-driven dogfooding loop through the real Action Broker
+and registered Queue lifecycle handlers. It uses a deterministic in-memory
+frontend lifecycle/controller store and invokes:
+
+- `queue.lifecycle.agentFinished`
+- `queue.review.createMessage`
+- `queue.review.ack`
+- `queue.coordinator.approveValidation`
+- `queue.item.markDone`
+- `queue.coordinator.addFollowUpPrompt`
+
+The broker self-test verifies the main success path from agent finished to
+awaiting review, review message creation, coordinator ACK to in review,
+model-only validation approval, fake commit metadata on mark done, and
+done-gated dependent unblocking. It also verifies the follow-up branch returns
+the same item to `running` with agent/prompt state
+`additional_prompt_running` and increments `additionalPromptCount`, plus a
+failure branch that keeps dependent work ineligible.
+
+The broker self-test is explicitly fake/model/controller/broker-level only. It
+reports backend durability as skipped and real worker execution, real
+validation execution, and real Git commit execution as blocked/not covered. It
+does not call Codex, shell, Terminal, Git, rollback, backend storage, Tauri/IPC,
+or a real Queue worker, and it does not create duplicate Queue views or add
+natural-language prompt routing.
 
 ## Non-Goals
 

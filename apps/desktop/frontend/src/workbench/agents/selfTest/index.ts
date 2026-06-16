@@ -87,3 +87,15 @@ export {
   statusLabel,
   summarizeSelfTestRows,
 } from "./hobitAgentSelfTestReportViewModel";
+export type {
+  QueueDogfoodBrokerSelfTestCase,
+  QueueDogfoodBrokerSelfTestReport,
+  QueueDogfoodBrokerSelfTestSideEffectAssertion,
+  QueueDogfoodBrokerSelfTestStatus,
+} from "./hobitQueueDogfoodBrokerSelfTest";
+export {
+  createQueueDogfoodBrokerSelfTestFakeStore,
+  QUEUE_DOGFOOD_BROKER_SELF_TEST_REQUIRED_CAPABILITY_IDS,
+  runQueueDogfoodBrokerSelfTest,
+  summarizeQueueDogfoodBrokerSelfTestCases,
+} from "./hobitQueueDogfoodBrokerSelfTest";

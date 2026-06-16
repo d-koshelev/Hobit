@@ -39,6 +39,12 @@ describe("hobitAgentSelfTestReportViewModel", () => {
         "queue.createItems",
         "queue.preparePromptPackPreview",
         "queue.selfTest",
+        "queue.lifecycle.agentFinished",
+        "queue.review.createMessage",
+        "queue.review.ack",
+        "queue.coordinator.approveValidation",
+        "queue.coordinator.addFollowUpPrompt",
+        "queue.item.markDone",
         "codex.runTask",
         "workspace.shell.runCommand",
       ]),
@@ -108,6 +114,53 @@ describe("hobitAgentSelfTestReportViewModel", () => {
     expect(row(report, "queue:no-mutation")).toMatchObject({
       message: "No Queue mutation.",
       status: "passed",
+    });
+    expect(row(report, "queue-dogfood-broker:summary")).toMatchObject({
+      component: "Queue dogfood broker loop",
+      message: "Queue dogfood broker loop passed.",
+      status: "passed",
+      widgetId: "agent-queue",
+    });
+    expect(
+      row(report, "queue-dogfood-broker:agent-finished-awaiting-review"),
+    ).toMatchObject({
+      capabilityId: "queue.lifecycle.agentFinished",
+      message: "Agent finished - awaiting review.",
+      status: "passed",
+    });
+    expect(row(report, "queue-dogfood-broker:review-message-created")).toMatchObject({
+      capabilityId: "queue.review.createMessage",
+      message: "Review message created.",
+      status: "passed",
+    });
+    expect(row(report, "queue-dogfood-broker:coordinator-ack-in-review")).toMatchObject({
+      capabilityId: "queue.review.ack",
+      message: "Coordinator ACK - in review.",
+      status: "passed",
+    });
+    expect(row(report, "queue-dogfood-broker:validation-approved")).toMatchObject({
+      capabilityId: "queue.coordinator.approveValidation",
+      message: "Validation approved.",
+      status: "passed",
+    });
+    expect(row(report, "queue-dogfood-broker:mark-done")).toMatchObject({
+      capabilityId: "queue.item.markDone",
+      message: "Mark done.",
+      status: "passed",
+    });
+    expect(row(report, "queue-dogfood-broker:follow-up-running")).toMatchObject({
+      capabilityId: "queue.coordinator.addFollowUpPrompt",
+      message: "Follow-up prompt returns to running.",
+      status: "passed",
+    });
+    expect(row(report, "queue-dogfood-broker:backend-durability")).toMatchObject({
+      message: "Backend durability is not covered.",
+      reason: "Frontend fake broker self-test only",
+      status: "skipped",
+    });
+    expect(row(report, "queue-dogfood-broker:real-worker-execution")).toMatchObject({
+      message: "Real worker execution is not covered.",
+      status: "blocked",
     });
   });
 

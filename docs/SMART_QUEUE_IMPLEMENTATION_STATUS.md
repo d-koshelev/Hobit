@@ -18,8 +18,9 @@ execution.
 Smart Queue has an implemented frontend foundation for singleton Queue view
 safety, prompt-pack materialization, dependency-aware eligibility,
 frontend/controller execution gating, attempt and coordinator decision
-presentation, explicit retry/handoff/proposal actions, and focused smoke
-coverage.
+presentation, explicit retry/handoff/proposal actions, typed Queue dogfood
+lifecycle broker capabilities, a full fake broker-driven Queue dogfood loop
+self-test, and focused smoke coverage.
 
 The durable Smart Queue backend/runtime is not implemented yet. Current Smart
 Queue modules are frontend/product-model foundations unless explicitly noted
@@ -40,6 +41,8 @@ The current implemented frontend behavior is:
 - Queue dogfood lifecycle model and frontend controller/view-model integration;
 - typed frontend Action Broker capabilities for Queue dogfood lifecycle
   controller overlays;
+- full fake Queue dogfood broker-loop self-test through those typed broker
+  capabilities;
 - worker failure/stuck report to coordinator decision integration;
 - QueueV2 Coordinator Decision Card;
 - Retry same action;
@@ -298,6 +301,12 @@ adapter integration and typed frontend Action Broker capability access.
 - Workspace Agent can invoke those capabilities only by emitting structured
   `hobit.action.request` envelopes. User prompt regex routing is not
   implemented.
+- `apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.ts`
+  now proves a fake full dogfooding loop through the real broker and registered
+  Queue lifecycle handlers: agent finished, review message, ACK, validation
+  approval, mark done with fake commit metadata, done-gated dependent unblock,
+  follow-up prompt returning to running, failure-dependent blocking, and no
+  hidden side effects.
 - Lifecycle capability dry-runs preview transitions without mutating state.
   Real invocation mutates only frontend/controller overlay state where an
   injected lifecycle adapter or Queue bridge task seed is available.
@@ -431,7 +440,6 @@ as available from the foundation above:
 - real worker integration with the dogfood lifecycle model;
 - real validation evidence attachment to the dogfood lifecycle model;
 - real commit execution or durable commit metadata attachment;
-- a full broker self-test fake dogfood loop;
 - actual rollback execution;
 - Workspace Agent runtime auto-call;
 - Git/file mutation actions;
@@ -477,16 +485,17 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 ## Next Engineering Blocks
 
-1. Add a full broker self-test fake dogfood loop covering agent-finished,
-   review message, ACK, validation approval, follow-up prompt, done, block/fail,
-   and no hidden execution.
-2. Design durable backend Smart Queue persistence for attempts, lifecycle,
+1. Design durable backend Smart Queue persistence for attempts, lifecycle,
    review messages, ACKs, decisions, validation evidence, and commit metadata.
-3. Design backend scheduler/runtime ownership.
-4. Integrate real worker reports, validation evidence, and explicit commit
+2. Design backend scheduler/runtime ownership.
+3. Integrate real worker reports, validation evidence, and explicit commit
    approval/results with the dogfood lifecycle model.
-5. Add safe Workspace Agent handoff integration.
-6. Design rollback execution only after the approval/safety contract is ready.
+4. Add safe Workspace Agent handoff integration.
+5. Design rollback execution only after the approval/safety contract is ready.
+
+The next major block should be durable/backend lifecycle persistence or worker
+evidence integration. Broad Queue UI polish is not the blocker for proving the
+current fake broker loop.
 
 ## Implementation References
 

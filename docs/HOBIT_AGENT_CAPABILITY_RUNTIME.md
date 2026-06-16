@@ -67,10 +67,14 @@ restricted capabilities for explicit workspace/code execution requests only.
 - Agent-executed Smoke Report Foundation: shared pure frontend aggregation
   under `selfTest/` that combines Agent API smoke, peer self-test evidence,
   active Widget Agent Contract checks, brokered Queue `queue.selfTest`
-  dry-run evidence through the injected Queue adapter, and hidden-side-effect
-  assertions. Queue rows cover singleton targeting, createItems preview,
-  prompt-pack preview, no Queue mutation, no worker start, and no Queue view
-  creation. It is the foundation for replacing parts of manual smoke with
+  dry-run evidence through the injected Queue adapter, the fake Queue dogfood
+  broker loop, and hidden-side-effect assertions. Queue rows cover singleton
+  targeting, createItems preview, prompt-pack preview, no real Queue mutation,
+  no worker start, and no Queue view creation. Queue dogfood broker rows cover
+  agent finished, review message, ACK, validation approval, mark done,
+  done-gated dependent unblock, follow-up prompt return to running, failure
+  dependent blocking, and honest backend/worker/validation/Git not-covered
+  rows. It is the foundation for replacing parts of manual smoke with
   structured agent-executed smoke reports. It does not add natural-language
   routing, backend/Tauri/IPC/storage behavior, real Terminal command
   execution, Git mutation, rollback execution, worker dispatch, Queue view
@@ -80,9 +84,9 @@ restricted capabilities for explicit workspace/code execution requests only.
   agent-executed smoke report foundation over the safe agent API smoke runner,
   peer self-test, Workspace Agent capability-context checks, capability
   manifest checks, active Widget Agent Contract checks, Queue
-  `queue.selfTest` dry-run checks through the Action Broker, and restricted
-  Codex/shell capability assertions. It renders a structured report instead of
-  raw JSON.
+  `queue.selfTest` dry-run checks through the Action Broker, the fake Queue
+  dogfood broker-loop self-test, and restricted Codex/shell capability
+  assertions. It renders a structured report instead of raw JSON.
 - Workspace Agent Capability Context Injection: the active Workspace Agent
   Codex Direct Work prompt path now attaches Hobit app context, Workspace
   Agent role instructions, a compact capability manifest, and policy rules
@@ -307,9 +311,16 @@ Hobit action request envelope. The Queue bridge adapter targets the singleton
 Queue, does not create duplicate Queue views, and does not start workers,
 Codex, shell, Terminal, Git, or rollback behavior.
 
+`apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.ts`
+now runs the full fake dogfooding loop through the real Action Broker and
+registered Queue lifecycle handlers. It is fake/model/controller/broker-level
+only and explicitly reports backend durability as skipped plus real worker
+execution, real validation execution, and real Git commit execution as blocked
+or not covered.
+
 Backend durability for lifecycle records, real worker lifecycle integration,
-real validation evidence execution, real Git commit execution, and a full
-broker self-test fake dogfood loop remain future work.
+real validation evidence execution, and real Git commit execution remain
+future work.
 
 ## Widget Agent Contracts
 
@@ -346,11 +357,12 @@ The Agent-executed Smoke Report foundation is the unified report layer above
 those pieces. It creates a product-facing smoke instruction and plan, then
 aggregates Agent API smoke, peer self-test evidence, active Widget Agent
 Contract checks, Queue singleton/create-items/prompt-pack dry-run rows through
-the brokered Queue self-test, skipped or blocked metadata-only execution
-checks, and hidden-side-effect assertions. Knowledge / Skills, Notes, and
-Terminal execution adapters remain future work; their contracts can pass while
-adapter/runtime execution reports `Adapter not implemented yet`,
-`Runtime execution not implemented yet`, or `Restricted capability`.
+the brokered Queue self-test, fake Queue dogfood broker-loop rows, skipped or
+blocked metadata-only execution checks, and hidden-side-effect assertions.
+Knowledge / Skills, Notes, and Terminal execution adapters remain future work;
+their contracts can pass while adapter/runtime execution reports
+`Adapter not implemented yet`, `Runtime execution not implemented yet`, or
+`Restricted capability`.
 
 The smoke report does not perform hidden side effects. It does not call Codex,
 run shell commands, mutate Queue, start Queue workers, create Queue views,

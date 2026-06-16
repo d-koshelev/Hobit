@@ -82,6 +82,18 @@ During the smoke, verify these product labels appear where applicable:
 - `Follow-up prompt running`
 - `Review acknowledged`
 - `Waiting for coordinator review`
+- `Queue dogfood broker loop`
+- `Agent finished - awaiting review`
+- `Review message created`
+- `Coordinator ACK - in review`
+- `Validation approved`
+- `Mark done`
+- `Dependent unblocked after done`
+- `Follow-up prompt returns to running`
+- `Backend durability is not covered`
+- `Real worker execution is not covered`
+- `Real validation execution is not covered`
+- `Real Git commit execution is not covered`
 
 ## Smoke Flow
 
@@ -195,11 +207,11 @@ During the smoke, verify these product labels appear where applicable:
       context, capability manifest, Agent Queue / QueueV2 and Workspace Agent
       widget contracts, Knowledge / Skills, Notes, and Terminal widget
       contracts, Queue singleton/create-items dry-run/self-test checks when a
-      safe injected path is available, Queue prompt-pack preview dry-run, no
-      Queue mutation, no Queue worker start, no Queue view creation, skipped or
-      blocked adapter/execution checks for Knowledge / Skills, Notes, and
-      Terminal, Finder excluded from active smoke scope, restricted Codex/shell
-      capabilities, and `No hidden side effects`.
+      safe injected path is available, Queue prompt-pack preview dry-run, the
+      fake Queue dogfood broker loop, no Queue mutation, no Queue worker start,
+      no Queue view creation, skipped or blocked adapter/execution checks for
+      Knowledge / Skills, Notes, and Terminal, Finder excluded from active smoke
+      scope, restricted Codex/shell capabilities, and `No hidden side effects`.
     - Expected: the report uses `Passed`, `Failed`, `Skipped`, and `Blocked`
       counts plus per-check product-facing reasons such as `Capability
       unavailable`, `Adapter not implemented yet`, `Dry-run unavailable`,
@@ -207,6 +219,14 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: Knowledge / Skills, Notes, and Terminal contract checks can
       pass while unsupported adapter/runtime execution remains skipped or
       blocked until adapters exist.
+    - Expected: Queue dogfood broker loop rows show
+      `Agent finished - awaiting review`, `Review message created`,
+      `Coordinator ACK - in review`, `Validation approved`, `Mark done`,
+      `Dependent unblocked after done`, `Follow-up prompt returns to running`,
+      and `No hidden side effects` as passed fake broker-level checks.
+    - Expected: Queue dogfood backend durability is skipped, and real worker
+      execution, real validation execution, and real Git commit execution are
+      blocked/not covered with explicit reasons.
     - Expected: after Run Agent Self-Test completes, Agent Activity must not
       show a stale duplicate `Running` row for that self-test run.
     - Expected: no raw JSON appears in the default report; Queue checks are
@@ -257,13 +277,24 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: ordinary prose remains prose, and Queue lifecycle product
       actions are not triggered by natural-language phrase matching.
 
-21. Check for side effects.
+21. Run the Queue dogfood broker-loop automated self-test.
+    - Expected:
+      `apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.test.ts`
+      proves the fake dogfooding loop through Action Broker capability calls,
+      including dry-run immutability, real fake-store execution mutation,
+      wrong ACK target failure, mark-done review-state gating, failure-dependent
+      blocking, and the honest skipped/blocked runtime gaps.
+    - Expected: the self-test does not create backend records, launch workers,
+      run validation, execute Git commits, call Codex/shell, launch Terminal,
+      execute rollback, create Queue views, or parse prose into actions.
+
+22. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback
       proposal preparation.
 
-22. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
+23. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
     log details where available.
     - Expected: the prompt sent to Codex includes Hobit capability context,
       compact Queue/agent capability names, and policy rules before the user
@@ -289,12 +320,9 @@ For every failed smoke step, capture:
 
 ## Next Engineering Blocks
 
-1. Add typed broker lifecycle capabilities for agent-finished, review message,
-   ACK, validation approval, follow-up prompt, done, and failure/block
-   decisions.
-2. Durable backend persistence design.
-3. Backend scheduler/runtime ownership design.
-4. Durable attempt/coordinator decision/review ACK persistence.
-5. Worker, validation evidence, and commit result integration.
-6. Safe Workspace Agent handoff integration.
-7. Rollback execution design only after the approval/safety contract.
+1. Durable backend persistence design.
+2. Backend scheduler/runtime ownership design.
+3. Durable attempt/coordinator decision/review ACK persistence.
+4. Worker, validation evidence, and commit result integration.
+5. Safe Workspace Agent handoff integration.
+6. Rollback execution design only after the approval/safety contract.

@@ -52,6 +52,12 @@ describe("hobitAgentSmokeRunner instruction and plan", () => {
         "queue.createItems",
         "queue.preparePromptPackPreview",
         "queue.selfTest",
+        "queue.lifecycle.agentFinished",
+        "queue.review.createMessage",
+        "queue.review.ack",
+        "queue.coordinator.approveValidation",
+        "queue.coordinator.addFollowUpPrompt",
+        "queue.item.markDone",
       ]),
     );
     expect(plan.cases.map((item) => item.caseId)).toEqual(
@@ -64,6 +70,20 @@ describe("hobitAgentSmokeRunner instruction and plan", () => {
         "queue:prompt-pack-preview-dry-run",
         "queue:no-mutation",
         "queue:no-hidden-side-effects",
+        "queue-dogfood-broker:summary",
+        "queue-dogfood-broker:agent-finished-awaiting-review",
+        "queue-dogfood-broker:review-message-created",
+        "queue-dogfood-broker:coordinator-ack-in-review",
+        "queue-dogfood-broker:validation-approved",
+        "queue-dogfood-broker:mark-done",
+        "queue-dogfood-broker:dependent-unblocked-after-done",
+        "queue-dogfood-broker:follow-up-running",
+        "queue-dogfood-broker:failure-dependent-blocked",
+        "queue-dogfood-broker:no-hidden-side-effects",
+        "queue-dogfood-broker:backend-durability",
+        "queue-dogfood-broker:real-worker-execution",
+        "queue-dogfood-broker:real-validation-execution",
+        "queue-dogfood-broker:real-git-commit-execution",
       ]),
     );
     expect(widgetIds(plan.cases)).toEqual(
@@ -115,11 +135,11 @@ describe("hobitAgentSmokeRunner aggregation", () => {
 
     expect(report.overallStatus).toBe("passed");
     expect(report.summary).toEqual({
-      blocked: 1,
+      blocked: 4,
       failed: 0,
-      passed: 25,
-      skipped: 3,
-      total: 29,
+      passed: 35,
+      skipped: 4,
+      total: 43,
     });
     expect(summarizeHobitAgentSmokeResults(report)).toEqual(report.summary);
     expect(result(report, "agent.apiSmoke:status.read")).toMatchObject({
@@ -188,6 +208,92 @@ describe("hobitAgentSmokeRunner aggregation", () => {
       message: "No Queue mutation.",
       status: "passed",
     });
+    expect(result(report, "queue-dogfood-broker:summary")).toMatchObject({
+      message: "Queue dogfood broker loop passed.",
+      status: "passed",
+      widgetId: "agent-queue",
+    });
+    expect(
+      result(report, "queue-dogfood-broker:agent-finished-awaiting-review"),
+    ).toMatchObject({
+      capabilityId: "queue.lifecycle.agentFinished",
+      message: "Agent finished - awaiting review.",
+      status: "passed",
+    });
+    expect(result(report, "queue-dogfood-broker:review-message-created")).toMatchObject({
+      capabilityId: "queue.review.createMessage",
+      message: "Review message created.",
+      status: "passed",
+    });
+    expect(result(report, "queue-dogfood-broker:coordinator-ack-in-review")).toMatchObject({
+      capabilityId: "queue.review.ack",
+      message: "Coordinator ACK - in review.",
+      status: "passed",
+    });
+    expect(result(report, "queue-dogfood-broker:validation-approved")).toMatchObject({
+      capabilityId: "queue.coordinator.approveValidation",
+      message: "Validation approved.",
+      status: "passed",
+    });
+    expect(result(report, "queue-dogfood-broker:mark-done")).toMatchObject({
+      capabilityId: "queue.item.markDone",
+      message: "Mark done.",
+      status: "passed",
+    });
+    expect(
+      result(report, "queue-dogfood-broker:dependent-unblocked-after-done"),
+    ).toMatchObject({
+      capabilityId: "queue.item.markDone",
+      message: "Dependent unblocked after done.",
+      status: "passed",
+    });
+    expect(result(report, "queue-dogfood-broker:follow-up-running")).toMatchObject({
+      capabilityId: "queue.coordinator.addFollowUpPrompt",
+      message: "Follow-up prompt returns to running.",
+      status: "passed",
+    });
+    expect(
+      result(report, "queue-dogfood-broker:failure-dependent-blocked"),
+    ).toMatchObject({
+      capabilityId: "queue.item.fail",
+      message: "Failure keeps dependent blocked.",
+      status: "passed",
+    });
+    expect(result(report, "queue-dogfood-broker:backend-durability")).toMatchObject({
+      message: "Backend durability is not covered.",
+      reason: "Frontend fake broker self-test only",
+      status: "skipped",
+    });
+    expect(result(report, "queue-dogfood-broker:real-worker-execution")).toMatchObject({
+      message: "Real worker execution is not covered.",
+      status: "blocked",
+    });
+    expect(
+      result(report, "queue-dogfood-broker:real-validation-execution"),
+    ).toMatchObject({
+      message: "Real validation execution is not covered.",
+      status: "blocked",
+    });
+    expect(
+      result(report, "queue-dogfood-broker:real-git-commit-execution"),
+    ).toMatchObject({
+      message: "Real Git commit execution is not covered.",
+      status: "blocked",
+    });
+    expect(
+      result(report, "queue-dogfood-broker:no-hidden-side-effects"),
+    ).toMatchObject({
+      message: "No hidden side effects.",
+      status: "passed",
+    });
+    expect(
+      result(report, "queue-dogfood-broker:agent-finished-awaiting-review")
+        .hiddenSideEffectAssertions,
+    ).toHaveLength(0);
+    expect(
+      result(report, "queue-dogfood-broker:no-hidden-side-effects")
+        .hiddenSideEffectAssertions,
+    ).toEqual(expect.arrayContaining(["No Codex run", "No Git mutation"]));
     expect(result(report, "hidden-side-effects:no-hidden-side-effects")).toMatchObject({
       message: "No hidden side effects",
       status: "passed",
@@ -198,6 +304,8 @@ describe("hobitAgentSmokeRunner aggregation", () => {
         "Agent Peer SelfTest",
         "Widget Agent Contracts",
         "Agent Queue safe checks",
+        "Queue dogfood broker loop",
+        "Queue dogfood broker runtime gaps",
         "Hidden side-effect assertions",
       ]),
     );

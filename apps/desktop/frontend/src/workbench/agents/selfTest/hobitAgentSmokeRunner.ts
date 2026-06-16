@@ -52,6 +52,10 @@ import {
   noHiddenSideEffectAssertions,
   resultFromSmokeCase,
 } from "./hobitAgentSmokeReport";
+import {
+  runQueueDogfoodBrokerSelfTest,
+  type QueueDogfoodBrokerSelfTestCase,
+} from "./hobitQueueDogfoodBrokerSelfTest";
 
 export type {
   HobitAgentSmokeCase,
@@ -179,6 +183,11 @@ export async function runHobitAgentSmoke({
       registry,
       request,
     })),
+    ...queueDogfoodBrokerSelfTestResults({
+      createdAt,
+      plan,
+      request,
+    }),
     ...restrictedCapabilityResults({ plan, registry, request }),
     hiddenSideEffectResult(plan),
   ];
@@ -563,6 +572,43 @@ function queueCaseResult(
       (item.status === "skipped"
         ? HOBIT_AGENT_SMOKE_PRODUCT_LABELS.safeCheckSkipped
         : undefined),
+    status: item.status,
+    caseId: item.caseId,
+  });
+}
+
+function queueDogfoodBrokerSelfTestResults({
+  createdAt,
+  plan,
+  request,
+}: {
+  createdAt: string;
+  plan: HobitAgentSmokePlan;
+  request: HobitAgentSmokeRequest;
+}): HobitAgentSmokeResult[] {
+  const report = runQueueDogfoodBrokerSelfTest({
+    createdAt,
+    reportId: `${request.requestId}:queue-dogfood-broker`,
+  });
+
+  return report.cases.map((item) =>
+    queueDogfoodBrokerSelfTestResult(plan, item),
+  );
+}
+
+function queueDogfoodBrokerSelfTestResult(
+  plan: HobitAgentSmokePlan,
+  item: QueueDogfoodBrokerSelfTestCase,
+): HobitAgentSmokeResult {
+  return resultFromSmokeCase({
+    evidence: item.evidence,
+    hiddenSideEffectAssertions:
+      item.caseId === "queue-dogfood-broker:no-hidden-side-effects"
+        ? item.evidence
+        : [],
+    message: item.message,
+    plan,
+    reason: item.reason,
     status: item.status,
     caseId: item.caseId,
   });
