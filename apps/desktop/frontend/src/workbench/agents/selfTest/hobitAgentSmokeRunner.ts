@@ -475,7 +475,7 @@ async function queueCapabilitySmokeResults({
   );
   const report = brokerResult.result.output;
 
-  if (brokerResult.status === "succeeded" && report) {
+  if (report) {
     return [
       queueSelfTestSummaryResult(plan, report),
       ...report.cases.map((item) => queueCaseResult(plan, item)),
@@ -523,11 +523,14 @@ function queueSelfTestSummaryResult(
       "No Git mutation",
       "No rollback execution",
     ],
-    message: `${report.productSummary}. ${HOBIT_AGENT_SMOKE_PRODUCT_LABELS.dryRunOnly}.`,
+    message:
+      report.status === "passed"
+        ? `${HOBIT_AGENT_SMOKE_PRODUCT_LABELS.queueSelfTestPassed}. ${HOBIT_AGENT_SMOKE_PRODUCT_LABELS.dryRunOnly}.`
+        : `${report.productSummary}. ${HOBIT_AGENT_SMOKE_PRODUCT_LABELS.dryRunOnly}.`,
     plan,
     reason:
       report.summary.skipped > 0
-        ? HOBIT_AGENT_SMOKE_PRODUCT_LABELS.dryRunOnly
+        ? HOBIT_AGENT_SMOKE_PRODUCT_LABELS.safeCheckSkipped
         : undefined,
     status,
     caseId: "queue:self-test-dry-run",
@@ -538,8 +541,6 @@ function queueCaseResult(
   plan: HobitAgentSmokePlan,
   item: QueueAgentSelfTestCaseResult,
 ): HobitAgentSmokeResult {
-  const caseId = queueCaseId(item.caseId);
-
   return resultFromSmokeCase({
     evidence: item.evidence,
     hiddenSideEffectAssertions: [
@@ -558,11 +559,12 @@ function queueCaseResult(
         : item.message,
     plan,
     reason:
-      item.status === "skipped"
-        ? HOBIT_AGENT_SMOKE_PRODUCT_LABELS.dryRunOnly
-        : undefined,
+      item.reason ??
+      (item.status === "skipped"
+        ? HOBIT_AGENT_SMOKE_PRODUCT_LABELS.safeCheckSkipped
+        : undefined),
     status: item.status,
-    caseId,
+    caseId: item.caseId,
   });
 }
 
@@ -638,18 +640,6 @@ function hiddenSideEffectResult(
     status: "passed",
     caseId: "hidden-side-effects:no-hidden-side-effects",
   });
-}
-
-function queueCaseId(caseId: string): string {
-  if (caseId === "queue:safe-mutation-sandbox") {
-    return "queue:safe-mutation-sandbox";
-  }
-
-  if (caseId === "queue:no-hidden-side-effects") {
-    return "queue:no-hidden-side-effects";
-  }
-
-  return caseId;
 }
 
 function queueBrokerBlockedStatus(status: string): HobitAgentSmokeStatus {

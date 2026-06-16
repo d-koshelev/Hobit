@@ -21,9 +21,11 @@ import {
   singletonQueueTarget,
   type QueueAgentAdapterApi,
   type QueueAgentAdapterResult,
+  type QueueAgentCapabilityStatus,
   type QueueAgentCreateItemInput,
   type QueueAgentCreateItemsInput,
   type QueueAgentCreateItemsRequest,
+  type QueueAgentCreateItemsPreview,
   type QueueAgentMaybePromise,
   type QueueAgentNormalizedCreateItem,
   type QueueAgentPromptPackInput,
@@ -331,20 +333,17 @@ function runDefaultQueueSelfTest(
   adapterApi: QueueAgentAdapterApi,
 ): QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentSelfTestReport>> {
   const cases: QueueAgentSelfTestCaseResult[] = [];
+
   return withAdapterResult(
     adapterApi.getSingletonQueueTarget(),
-    (target) => {
-      cases.push({
-        caseId: "queue:singleton-target",
-        evidence: [target.message],
-        message:
-          target.status === "succeeded"
-            ? "Singleton Queue target is discoverable."
-            : "Singleton Queue target is unavailable.",
-        status: target.status === "succeeded" ? "passed" : "blocked",
-      });
+    (targetResult) => {
+      const target =
+        targetResult.status === "succeeded" && targetResult.output
+          ? targetResult.output
+          : singletonQueueTarget();
+      cases.push(singletonTargetSelfTestCase(targetResult));
 
-      const previewInput = normalizeCreateItemsInput({
+      const createItemsInput = normalizeCreateItemsInput({
         items: [
           {
             id: "self-test-item",
@@ -353,63 +352,304 @@ function runDefaultQueueSelfTest(
           },
         ],
       });
-      const preview =
-        previewInput.ok && target.output
-          ? adapterApi.previewCreateItems({
-              ...previewInput.value,
-              target: target.output,
-            })
-          : null;
 
-      return withNullableAdapterResult(preview, (resolvedPreview) => {
+      if (!createItemsInput.ok) {
         cases.push({
           caseId: "queue:create-items-dry-run",
-          evidence: [
-            resolvedPreview?.message ??
-              "Create-items preview input could not be prepared.",
-          ],
-          message:
-            resolvedPreview?.status === "succeeded"
-              ? "Create-items dry-run preview works."
-              : "Create-items dry-run preview is blocked.",
-          status: resolvedPreview?.status === "succeeded" ? "passed" : "blocked",
+          evidence: [createItemsInput.message],
+          message: "Queue dry-run preview could not be prepared.",
+          reason: "Safe check skipped",
+          status: "blocked",
         });
+        return queueSelfTestAdapterResult(cases);
+      }
 
-        cases.push({
-          caseId: "queue:no-hidden-side-effects",
-          evidence: [
-            "No Codex, shell, Terminal, Git, rollback, worker, Autorun, or duplicate Queue view side effects are represented.",
-          ],
-          message: "Hidden side-effect assertions are false.",
-          status: "passed",
-        });
+      return withAdapterResult(
+        adapterApi.previewCreateItems({
+          ...createItemsInput.value,
+          target,
+        }),
+        (createItemsPreviewResult) => {
+          const createItemsPreview = createItemsPreviewResult.output ?? null;
+          cases.push(createItemsDryRunSelfTestCase(createItemsPreviewResult));
+          cases.push(
+            createItemsPreviewAssertionCase({
+              actual:
+                createItemsPreviewResult.status === "succeeded" &&
+                createItemsPreview?.wouldTargetSingletonQueue === true,
+              blockedMessage: "Queue dry-run target check could not run.",
+              caseId: "queue:dry-run-target-singleton",
+              evidenceLabel: "wouldTargetSingletonQueue",
+              failedMessage:
+                "Queue dry-run preview did not target the singleton Queue.",
+              passedMessage: "Singleton Queue target verified.",
+              previewResult: createItemsPreviewResult,
+            }),
+          );
+          cases.push(
+            createItemsPreviewAssertionCase({
+              actual:
+                createItemsPreviewResult.status === "succeeded" &&
+                createItemsPreview?.wouldAutoRunWorkers === false,
+              blockedMessage: "Queue worker-start check could not run.",
+              caseId: "queue:no-auto-run",
+              evidenceLabel: "wouldAutoRunWorkers",
+              failedMessage:
+                "Queue dry-run preview would start Queue workers.",
+              passedMessage: "No Queue worker start.",
+              previewResult: createItemsPreviewResult,
+            }),
+          );
+          cases.push(
+            createItemsPreviewAssertionCase({
+              actual:
+                createItemsPreviewResult.status === "succeeded" &&
+                createItemsPreview?.wouldCreateDuplicateQueueView === false,
+              blockedMessage: "Queue view creation check could not run.",
+              caseId: "queue:no-duplicate-view",
+              evidenceLabel: "wouldCreateDuplicateQueueView",
+              failedMessage:
+                "Queue dry-run preview would create a duplicate Queue view.",
+              passedMessage: "No Queue view creation.",
+              previewResult: createItemsPreviewResult,
+            }),
+          );
 
-        cases.push({
-          caseId: "queue:safe-mutation-sandbox",
-          evidence: [
-            adapterApi.supportsSafeMutationSandbox
-              ? "Safe adapter mutation sandbox is available."
-              : "No safe mutation sandbox is available; mutation self-test is skipped.",
-          ],
-          message: adapterApi.supportsSafeMutationSandbox
-            ? "Safe mutation sandbox is available."
-            : "Mutation self-test skipped because no safe sandbox is available.",
-          status: adapterApi.supportsSafeMutationSandbox ? "passed" : "skipped",
-        });
+          return withAdapterResult(
+            adapterApi.previewPromptPack(queueSelfTestPromptPackInput()),
+            (promptPackPreviewResult) => {
+              cases.push(promptPackPreviewSelfTestCase(promptPackPreviewResult));
+              cases.push({
+                caseId: "queue:no-mutation",
+                evidence: [
+                  "queue.createItems was checked through previewCreateItems.",
+                  "Prompt-pack materialization was checked through previewPromptPack.",
+                  "No Queue mutation.",
+                ],
+                message: "No Queue mutation.",
+                status: "passed",
+              });
+              cases.push({
+                caseId: "queue:no-hidden-side-effects",
+                evidence: [
+                  "No Codex run.",
+                  "No shell command.",
+                  "No Queue mutation.",
+                  "No Queue worker start.",
+                  "No Queue view creation.",
+                  "No Terminal launch.",
+                  "No Git mutation.",
+                  "No rollback execution.",
+                ],
+                message: "No hidden side effects.",
+                status: "passed",
+              });
 
-        const report = createQueueSelfTestReport(cases);
-        return {
-          activityEventNames: [...QUEUE_ACTIVITY_EVENTS.selfTest],
-          message:
-            report.status === "blocked"
-              ? "Queue self-test blocked"
-              : "Queue self-test passed",
-          output: report,
-          status: report.status === "blocked" ? "failed" : "succeeded",
-        };
-      });
+              return queueSelfTestAdapterResult(cases);
+            },
+          );
+        },
+      );
     },
   );
+}
+
+function queueSelfTestAdapterResult(
+  cases: readonly QueueAgentSelfTestCaseResult[],
+): QueueAgentAdapterResult<QueueAgentSelfTestReport> {
+  const report = createQueueSelfTestReport(cases);
+
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.selfTest],
+    message: report.productSummary,
+    output: report,
+    status: report.summary.failed > 0 ? "failed" : "succeeded",
+  };
+}
+
+function singletonTargetSelfTestCase(
+  targetResult: QueueAgentAdapterResult<unknown>,
+): QueueAgentSelfTestCaseResult {
+  if (targetResult.status !== "succeeded") {
+    return adapterUnavailableSelfTestCase({
+      blockedMessage: "Singleton Queue target check could not run.",
+      caseId: "queue:singleton-target",
+      evidence: [
+        targetResult.message,
+        "Represented the singleton Workspace Queue target safely for dry-run-only checks.",
+      ],
+      status: targetResult.status,
+    });
+  }
+
+  const target = targetResult.output;
+  const passed =
+    isRecord(target) &&
+    target.queueId === "workspace-queue" &&
+    target.singleton === true &&
+    target.singletonKey === "workspace-queue" &&
+    target.widgetDefinitionId === "agent-queue" &&
+    target.wouldCreateDuplicateQueueView === false;
+
+  return {
+    caseId: "queue:singleton-target",
+    evidence: [
+      targetResult.message,
+      "Queue target: singleton Workspace Queue.",
+      "No Queue view creation.",
+    ],
+    message: passed
+      ? "Singleton Queue target verified."
+      : "Singleton Queue target did not match the Workspace Queue singleton contract.",
+    status: passed ? "passed" : "failed",
+  };
+}
+
+function createItemsDryRunSelfTestCase(
+  previewResult: QueueAgentAdapterResult<QueueAgentCreateItemsPreview>,
+): QueueAgentSelfTestCaseResult {
+  if (previewResult.status !== "succeeded" || !previewResult.output) {
+    return adapterUnavailableSelfTestCase({
+      blockedMessage: "Queue createItems dry-run could not run.",
+      caseId: "queue:create-items-dry-run",
+      evidence: [previewResult.message],
+      status: previewResult.status,
+    });
+  }
+
+  return {
+    caseId: "queue:create-items-dry-run",
+    evidence: [
+      previewResult.message,
+      `Would create ${previewResult.output.wouldCreateItems.toString()} Queue item.`,
+      "Dry-run only.",
+    ],
+    message: "Queue dry-run preview prepared.",
+    status: "passed",
+  };
+}
+
+function createItemsPreviewAssertionCase({
+  actual,
+  blockedMessage,
+  caseId,
+  evidenceLabel,
+  failedMessage,
+  passedMessage,
+  previewResult,
+}: {
+  actual: boolean;
+  blockedMessage: string;
+  caseId: string;
+  evidenceLabel: keyof Pick<
+    QueueAgentCreateItemsPreview,
+    | "wouldAutoRunWorkers"
+    | "wouldCreateDuplicateQueueView"
+    | "wouldTargetSingletonQueue"
+  >;
+  failedMessage: string;
+  passedMessage: string;
+  previewResult: QueueAgentAdapterResult<QueueAgentCreateItemsPreview>;
+}): QueueAgentSelfTestCaseResult {
+  if (previewResult.status !== "succeeded" || !previewResult.output) {
+    return adapterUnavailableSelfTestCase({
+      blockedMessage,
+      caseId,
+      evidence: [previewResult.message],
+      status: previewResult.status,
+    });
+  }
+
+  return {
+    caseId,
+    evidence: [
+      `${evidenceLabel}: ${String(previewResult.output[evidenceLabel])}.`,
+      "Dry-run only.",
+    ],
+    message: actual ? passedMessage : failedMessage,
+    status: actual ? "passed" : "failed",
+  };
+}
+
+function promptPackPreviewSelfTestCase(
+  previewResult: QueueAgentAdapterResult<QueueAgentPromptPackPreview>,
+): QueueAgentSelfTestCaseResult {
+  if (previewResult.status !== "succeeded" || !previewResult.output) {
+    return adapterUnavailableSelfTestCase({
+      blockedMessage: "Queue prompt-pack preview dry-run could not run.",
+      caseId: "queue:prompt-pack-preview-dry-run",
+      evidence: [previewResult.message],
+      status: previewResult.status,
+    });
+  }
+
+  const passed =
+    previewResult.output.wouldTargetSingletonQueue === true &&
+    previewResult.output.wouldAutoRunWorkers === false &&
+    previewResult.output.wouldCreateDuplicateQueueView === false &&
+    previewResult.output.wouldStartWorkers === false &&
+    previewResult.output.smartQueueMaterialization.wouldStartTasks === false;
+
+  return {
+    caseId: "queue:prompt-pack-preview-dry-run",
+    evidence: [
+      previewResult.message,
+      `Would create ${previewResult.output.wouldCreateItems.toString()} Queue item.`,
+      "Dry-run only.",
+      "No Queue worker start.",
+      "No Queue view creation.",
+    ],
+    message: passed
+      ? "Queue dry-run preview prepared."
+      : "Queue prompt-pack preview did not satisfy dry-run safety assertions.",
+    status: passed ? "passed" : "failed",
+  };
+}
+
+function adapterUnavailableSelfTestCase({
+  blockedMessage,
+  caseId,
+  evidence,
+  status,
+}: {
+  blockedMessage: string;
+  caseId: string;
+  evidence: readonly string[];
+  status: QueueAgentCapabilityStatus;
+}): QueueAgentSelfTestCaseResult {
+  if (status === "unavailable") {
+    return {
+      caseId,
+      evidence: [...evidence],
+      message: "Safe check skipped.",
+      reason: "Adapter not available",
+      status: "skipped",
+    };
+  }
+
+  return {
+    caseId,
+    evidence: [...evidence],
+    message: blockedMessage,
+    reason: "Safe check skipped",
+    status: "blocked",
+  };
+}
+
+function queueSelfTestPromptPackInput(): QueueAgentPromptPackInput {
+  return {
+    smartQueuePromptPack: {
+      prompts: [
+        {
+          body: "Self-test prompt-pack root task.",
+          promptId: "root",
+          title: "Self-test prompt-pack task",
+        },
+      ],
+      sourceName: "Queue self-test prompt pack",
+      sourcePackId: "queue-self-test-pack",
+    },
+  };
 }
 
 function previewPromptPack(
@@ -718,17 +958,6 @@ function withAdapterResult<TValue, TResult>(
         Awaited<TResult>
       >)
     : mapper(value);
-}
-
-function withNullableAdapterResult<TValue, TResult>(
-  value: QueueAgentMaybePromise<TValue> | null,
-  mapper: (resolvedValue: TValue | null) => TResult,
-): TResult | Promise<Awaited<TResult>> {
-  if (!value) {
-    return mapper(null);
-  }
-
-  return withAdapterResult(value, mapper);
 }
 
 function invalidInput(

@@ -66,9 +66,11 @@ restricted capabilities for explicit workspace/code execution requests only.
   creation, backend calls, or real app API execution.
 - Agent-executed Smoke Report Foundation: shared pure frontend aggregation
   under `selfTest/` that combines Agent API smoke, peer self-test evidence,
-  active Widget Agent Contract checks, safe Queue dry-run/self-test evidence
-  when an injected safe adapter path is available, and hidden-side-effect
-  assertions. It is the foundation for replacing parts of manual smoke with
+  active Widget Agent Contract checks, brokered Queue `queue.selfTest`
+  dry-run evidence through the injected Queue adapter, and hidden-side-effect
+  assertions. Queue rows cover singleton targeting, createItems preview,
+  prompt-pack preview, no Queue mutation, no worker start, and no Queue view
+  creation. It is the foundation for replacing parts of manual smoke with
   structured agent-executed smoke reports. It does not add natural-language
   routing, backend/Tauri/IPC/storage behavior, real Terminal command
   execution, Git mutation, rollback execution, worker dispatch, Queue view
@@ -229,11 +231,21 @@ models where practical and does not create Queue tasks. Prompt-pack import
 creates Queue items only through the injected adapter API after valid input and
 policy approval, and it does not auto-run workers after import.
 
-Queue self-test runs safe target and dry-run checks through the adapter. It
-verifies singleton targeting, createItems preview, no auto-run, no duplicate
-view, and no hidden side effects. If a production adapter has no safe mutation
-sandbox, mutation checks are skipped or blocked with a product-facing reason
-rather than performing real Queue mutation.
+Queue self-test through the Action Broker and Queue adapter is implemented as a
+safe dry-run/model check. The broker invokes the typed `queue.selfTest`
+capability handler supplied by `createQueueAgentActionHandlers(adapterApi)`;
+the default handler calls only `getSingletonQueueTarget`, `previewCreateItems`,
+and `previewPromptPack`. It verifies singleton targeting, createItems preview,
+`wouldTargetSingletonQueue: true`, `wouldAutoRunWorkers: false`,
+`wouldCreateDuplicateQueueView: false`, prompt-pack preview materialization,
+no Queue mutation, no worker start, no duplicate Queue view, and no hidden
+side effects. If real target inspection is unavailable, that specific
+sub-check is reported as skipped or blocked with a product-facing reason such
+as `Adapter not available`, while safe dry-run/model-level checks still run
+against the represented singleton Queue target. Queue self-test does not call
+Queue create/import APIs, create Queue tasks, create Queue views, enable or
+auto-run Queue workers, call Codex/shell, launch Terminal, mutate Git, execute
+rollback, or modify backend/storage/schema.
 
 The current Workspace Agent direct-run result path can invoke these Queue
 handlers through the Action Broker when the agent emits a valid structured
@@ -275,8 +287,8 @@ action-request tests.
 The Agent-executed Smoke Report foundation is the unified report layer above
 those pieces. It creates a product-facing smoke instruction and plan, then
 aggregates Agent API smoke, peer self-test evidence, active Widget Agent
-Contract checks, Queue singleton/create-items dry-run/self-test checks where a
-safe injected adapter path exists, skipped or blocked metadata-only execution
+Contract checks, Queue singleton/create-items/prompt-pack dry-run rows through
+the brokered Queue self-test, skipped or blocked metadata-only execution
 checks, and hidden-side-effect assertions. Knowledge / Skills, Notes, and
 Terminal execution adapters remain future work; their contracts can pass while
 adapter/runtime execution reports `Adapter not implemented yet`,
@@ -367,7 +379,8 @@ Current honest foundation capabilities:
   auto-run workers.
 - `queue.targetSingletonQueue`: read-only capability that resolves the single
   Workspace Queue target and forbids duplicate Queue views.
-- `queue.selfTest`: safe Queue capability self-test surface.
+- `queue.selfTest`: safe dry-run Queue capability self-test surface through
+  the Action Broker and injected Queue adapter.
 - `workspaceAgent.selfTest`: safe Workspace Agent capability self-test surface.
 - `codex.runTask`: restricted execute capability for explicit Codex Direct
   Work; not a product-action default.

@@ -69,45 +69,39 @@ export function WorkspaceAgentSelfTestReportCard({
                 {row.statusLabel}
               </Badge>
               <strong className="workspace-agent-self-test-row-title">
-                {row.title}
+                {productizeSelfTestText(row.title)}
               </strong>
             </div>
             <dl className="workspace-agent-self-test-row-meta">
               {row.capabilityId ? (
                 <div>
                   <dt>Capability</dt>
-                  <dd>{row.capabilityId}</dd>
+                  <dd>{capabilityProductLabel(row.capabilityId)}</dd>
                 </div>
               ) : null}
               {row.widgetId ? (
                 <div>
                   <dt>Widget</dt>
-                  <dd>{row.widgetId}</dd>
+                  <dd>{widgetProductLabel(row.widgetId)}</dd>
                 </div>
               ) : null}
               {row.component ? (
                 <div>
                   <dt>Component</dt>
-                  <dd>{row.component}</dd>
+                  <dd>{productizeSelfTestText(row.component)}</dd>
                 </div>
               ) : null}
               <div>
                 <dt>Source</dt>
-                <dd>{row.source}</dd>
+                <dd>{productizeSelfTestText(row.source)}</dd>
               </div>
             </dl>
             <p className="workspace-agent-self-test-row-message">
-              {row.message}
+              {productizeSelfTestText(row.message)}
             </p>
             {row.reason ? (
               <p className="workspace-agent-self-test-row-reason">
-                {row.reason}
-              </p>
-            ) : null}
-            {row.hiddenSideEffectAssertions.length > 0 ? (
-              <p className="workspace-agent-self-test-row-assertions">
-                Hidden side-effect assertions:{" "}
-                {row.hiddenSideEffectAssertions.join(", ")}
+                {productizeSelfTestText(row.reason)}
               </p>
             ) : null}
           </article>
@@ -141,3 +135,58 @@ function badgeVariantForStatus(status: HobitAgentSelfTestReportRowStatus) {
 
   return "neutral";
 }
+
+function capabilityProductLabel(capabilityId: string) {
+  return capabilityLabelMap[capabilityId] ?? productizeSelfTestText(capabilityId);
+}
+
+function widgetProductLabel(widgetId: string) {
+  return widgetLabelMap[widgetId] ?? productizeSelfTestText(widgetId);
+}
+
+function productizeSelfTestText(text: string) {
+  return productTextReplacements.reduce(
+    (current, [raw, label]) => current.split(raw).join(label),
+    text,
+  );
+}
+
+const capabilityLabelMap: Record<string, string> = {
+  "agent.capabilities.read": "Agent capability manifest",
+  "agent.history.read": "Agent history read",
+  "agent.message.send": "Agent self-test message",
+  "agent.selfTest.run": "Agent peer self-test",
+  "agent.status.read": "Agent status read",
+  "codex.runTask": "Codex capability",
+  "queue.createItems": "Queue create-items dry-run",
+  "queue.preparePromptPackPreview": "Queue prompt-pack preview",
+  "queue.selfTest": "Queue self-test",
+  "queue.targetSingletonQueue": "Queue singleton target",
+  "workspace.shell.runCommand": "Shell capability",
+};
+
+const widgetLabelMap: Record<string, string> = {
+  "agent-queue": "Agent Queue",
+  finder: "Finder",
+  "interactive-agent": "Workspace Agent",
+  notes: "Notes",
+  "skill-library": "Knowledge / Skills",
+  terminal: "Terminal",
+};
+
+const productTextReplacements = [
+  ["agent.capabilities.read", "Agent capability manifest"],
+  ["agent.history.read", "Agent history read"],
+  ["agent.message.send", "Agent self-test message"],
+  ["agent.selfTest.run", "Agent peer self-test"],
+  ["agent.status.read", "Agent status read"],
+  ["codex.runTask", "Codex capability"],
+  ["queue.createItems", "Queue create-items dry-run"],
+  ["queue.preparePromptPackPreview", "Queue prompt-pack preview"],
+  ["queue.selfTest", "Queue self-test"],
+  ["queue.targetSingletonQueue", "Queue singleton target"],
+  ["workspace.shell.runCommand", "Shell capability"],
+  ["agent-queue", "Agent Queue"],
+  ["interactive-agent", "Workspace Agent"],
+  ["skill-library", "Knowledge / Skills"],
+] as const;

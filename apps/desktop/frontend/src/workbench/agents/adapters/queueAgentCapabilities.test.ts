@@ -380,9 +380,8 @@ describe("queueAgentCapabilities prompt pack", () => {
 
 describe("queueAgentCapabilities self-test and architecture safety", () => {
   it("passes Queue self-test with a safe fake adapter", () => {
-    const result = createQueueBroker(
-      fakeQueueAdapter({ supportsSafeMutationSandbox: true }),
-    ).invoke<{ summary: { passed: number }; productSummary: string }>(
+    const adapter = fakeQueueAdapter();
+    const result = createQueueBroker(adapter).invoke<QueueAgentSelfTestReport>(
       request({
         capabilityId: "queue.selfTest",
         dryRun: true,
@@ -393,11 +392,66 @@ describe("queueAgentCapabilities self-test and architecture safety", () => {
     expect(result.status).toBe("succeeded");
     expect(result.result.message).toBe("Queue self-test passed");
     expect(result.result.output?.productSummary).toBe("Queue self-test passed");
-    expect(result.result.output?.summary.passed).toBeGreaterThan(0);
+    expect(result.result.output?.summary).toEqual({
+      blocked: 0,
+      failed: 0,
+      passed: 8,
+      skipped: 0,
+      total: 8,
+    });
+    expect(selfTestCase(result.result.output, "queue:singleton-target")).toMatchObject({
+      message: "Singleton Queue target verified.",
+      status: "passed",
+    });
+    expect(selfTestCase(result.result.output, "queue:create-items-dry-run")).toMatchObject({
+      message: "Queue dry-run preview prepared.",
+      status: "passed",
+    });
+    expect(selfTestCase(result.result.output, "queue:dry-run-target-singleton")).toMatchObject({
+      message: "Singleton Queue target verified.",
+      status: "passed",
+    });
+    expect(selfTestCase(result.result.output, "queue:no-auto-run")).toMatchObject({
+      message: "No Queue worker start.",
+      status: "passed",
+    });
+    expect(selfTestCase(result.result.output, "queue:no-duplicate-view")).toMatchObject({
+      message: "No Queue view creation.",
+      status: "passed",
+    });
+    expect(selfTestCase(result.result.output, "queue:prompt-pack-preview-dry-run")).toMatchObject({
+      message: "Queue dry-run preview prepared.",
+      status: "passed",
+    });
+    expect(selfTestCase(result.result.output, "queue:no-mutation")).toMatchObject({
+      message: "No Queue mutation.",
+      status: "passed",
+    });
+    expect(selfTestCase(result.result.output, "queue:no-hidden-side-effects")).toMatchObject({
+      message: "No hidden side effects.",
+      status: "passed",
+    });
+    expect(result.result.output?.hiddenSideEffectFlags).toMatchObject({
+      didAutoRunWorkers: false,
+      didCreateDuplicateQueueView: false,
+      didMutateQueue: false,
+      didStartWorkers: false,
+    });
+    expect(adapter.createdItems).toEqual([]);
+    expect(adapter.previewCreateItems).toHaveBeenCalledTimes(1);
+    expect(adapter.previewPromptPack).toHaveBeenCalledTimes(1);
+    expect(adapter.createItems).not.toHaveBeenCalled();
+    expect(adapter.importPromptPack).not.toHaveBeenCalled();
   });
 
-  it("skips unsafe mutation checks when no safe adapter sandbox is available", () => {
-    const result = createQueueBroker(fakeQueueAdapter()).invoke<QueueAgentSelfTestReport>(
+  it("skips only unavailable Queue target inspection while dry-run model checks still pass", () => {
+    const adapter = fakeQueueAdapter();
+    adapter.getSingletonQueueTarget = vi.fn(() => ({
+      message: "Queue adapter is not available.",
+      reasons: ["Workspace Queue bridge is unavailable."],
+      status: "unavailable" as const,
+    }));
+    const result = createQueueBroker(adapter).invoke<QueueAgentSelfTestReport>(
       request({
         capabilityId: "queue.selfTest",
         dryRun: true,
@@ -406,12 +460,19 @@ describe("queueAgentCapabilities self-test and architecture safety", () => {
     );
 
     expect(result.status).toBe("succeeded");
-    expect(result.result.output?.cases).toContainEqual(
-      expect.objectContaining({
-        caseId: "queue:safe-mutation-sandbox",
-        status: "skipped",
-      }),
-    );
+    expect(selfTestCase(result.result.output, "queue:singleton-target")).toMatchObject({
+      reason: "Adapter not available",
+      status: "skipped",
+    });
+    expect(selfTestCase(result.result.output, "queue:create-items-dry-run")).toMatchObject({
+      status: "passed",
+    });
+    expect(selfTestCase(result.result.output, "queue:no-auto-run")).toMatchObject({
+      status: "passed",
+    });
+    expect(selfTestCase(result.result.output, "queue:no-duplicate-view")).toMatchObject({
+      status: "passed",
+    });
     expect(result.result.output?.productSummary).toBe("Queue self-test passed");
   });
 
@@ -460,6 +521,11 @@ type FakeQueueAdapter = QueueAgentAdapterApi & {
     terminalLaunches: number;
     workerStarts: number;
   };
+  createItems: ReturnType<typeof vi.fn>;
+  getSingletonQueueTarget: ReturnType<typeof vi.fn>;
+  importPromptPack: ReturnType<typeof vi.fn>;
+  previewCreateItems: ReturnType<typeof vi.fn>;
+  previewPromptPack: ReturnType<typeof vi.fn>;
 };
 
 function fakeQueueAdapter({
@@ -470,7 +536,7 @@ function fakeQueueAdapter({
   supportsSafeMutationSandbox?: boolean;
 } = {}): FakeQueueAdapter {
   const base = createDefaultQueueAgentAdapterApi();
-  const adapter: FakeQueueAdapter = {
+  const adapter = {
     ...base,
     createdItems: [],
     lastCreateRequest: null,
@@ -486,13 +552,14 @@ function fakeQueueAdapter({
     },
     supportsDependencyEdges,
     supportsSafeMutationSandbox,
-  };
+  } as unknown as FakeQueueAdapter;
 
   adapter.createItems = vi.fn((request: QueueAgentCreateItemsRequest) => {
     adapter.lastCreateRequest = request;
     adapter.createdItems.push(...request.items);
     return base.createItems(request);
   });
+  adapter.getSingletonQueueTarget = vi.fn(base.getSingletonQueueTarget);
   adapter.importPromptPack = vi.fn(
     (input: QueueAgentPromptPackInput, request: QueueAgentCreateItemsRequest) => {
       adapter.lastImportInput = input;
@@ -501,7 +568,21 @@ function fakeQueueAdapter({
       return base.importPromptPack(input, request);
     },
   );
+  adapter.previewCreateItems = vi.fn(base.previewCreateItems);
+  adapter.previewPromptPack = vi.fn(base.previewPromptPack);
+
   return adapter;
+}
+
+function selfTestCase(
+  report: QueueAgentSelfTestReport | undefined,
+  caseId: string,
+) {
+  const item = report?.cases.find((candidate) => candidate.caseId === caseId);
+  if (!item) {
+    throw new Error(`Missing Queue self-test case: ${caseId}`);
+  }
+  return item;
 }
 
 function request({

@@ -50,7 +50,20 @@ describe("hobitAgentSmokeRunner instruction and plan", () => {
         "agent.selfTest.run",
         "queue.targetSingletonQueue",
         "queue.createItems",
+        "queue.preparePromptPackPreview",
         "queue.selfTest",
+      ]),
+    );
+    expect(plan.cases.map((item) => item.caseId)).toEqual(
+      expect.arrayContaining([
+        "queue:singleton-target",
+        "queue:create-items-dry-run",
+        "queue:dry-run-target-singleton",
+        "queue:no-auto-run",
+        "queue:no-duplicate-view",
+        "queue:prompt-pack-preview-dry-run",
+        "queue:no-mutation",
+        "queue:no-hidden-side-effects",
       ]),
     );
     expect(widgetIds(plan.cases)).toEqual(
@@ -104,9 +117,9 @@ describe("hobitAgentSmokeRunner aggregation", () => {
     expect(report.summary).toEqual({
       blocked: 1,
       failed: 0,
-      passed: 21,
+      passed: 25,
       skipped: 3,
-      total: 25,
+      total: 29,
     });
     expect(summarizeHobitAgentSmokeResults(report)).toEqual(report.summary);
     expect(result(report, "agent.apiSmoke:status.read")).toMatchObject({
@@ -145,12 +158,34 @@ describe("hobitAgentSmokeRunner aggregation", () => {
       capabilityId: "queue.createItems",
       status: "passed",
     });
+    expect(result(report, "queue:dry-run-target-singleton")).toMatchObject({
+      capabilityId: "queue.createItems",
+      message: "Singleton Queue target verified.",
+      status: "passed",
+    });
+    expect(result(report, "queue:no-auto-run")).toMatchObject({
+      capabilityId: "queue.createItems",
+      message: "No Queue worker start.",
+      status: "passed",
+    });
+    expect(result(report, "queue:no-duplicate-view")).toMatchObject({
+      capabilityId: "queue.createItems",
+      message: "No Queue view creation.",
+      status: "passed",
+    });
     expect(result(report, "queue:self-test-dry-run")).toMatchObject({
       capabilityId: "queue.selfTest",
       message: expect.stringContaining("Dry-run only"),
       status: "passed",
     });
-    expect(result(report, "queue:safe-mutation-sandbox")).toMatchObject({
+    expect(result(report, "queue:prompt-pack-preview-dry-run")).toMatchObject({
+      capabilityId: "queue.preparePromptPackPreview",
+      message: "Queue dry-run preview prepared.",
+      status: "passed",
+    });
+    expect(result(report, "queue:no-mutation")).toMatchObject({
+      capabilityId: "queue.selfTest",
+      message: "No Queue mutation.",
       status: "passed",
     });
     expect(result(report, "hidden-side-effects:no-hidden-side-effects")).toMatchObject({
@@ -230,11 +265,50 @@ describe("hobitAgentSmokeRunner aggregation", () => {
     expect(adapter.createItems).not.toHaveBeenCalled();
     expect(adapter.importPromptPack).not.toHaveBeenCalled();
     expect(adapter.previewCreateItems).toHaveBeenCalled();
-    expect(result(report, "queue:safe-mutation-sandbox")).toMatchObject({
-      reason: "Dry-run only",
-      status: "skipped",
+    expect(adapter.previewPromptPack).toHaveBeenCalled();
+    expect(result(report, "queue:no-mutation")).toMatchObject({
+      message: "No Queue mutation.",
+      status: "passed",
     });
     expect(report.overallStatus).toBe("passed");
+  });
+
+  it("keeps Queue safe sub-checks visible when target adapter inspection is unavailable", async () => {
+    const adapter = safeFakeQueueAdapter();
+    adapter.getSingletonQueueTarget = vi.fn(() => ({
+      message: "Queue adapter is not available.",
+      reasons: ["Workspace Queue bridge is unavailable."],
+      status: "unavailable" as const,
+    }));
+
+    const report = (
+      await runHobitAgentSmoke({
+        queueAdapterApi: adapter,
+        request: createHobitAgentSmokeRequest({
+          requestId: "queue-target-unavailable-smoke",
+          workspaceId: "workspace_1",
+        }),
+      })
+    ).report;
+
+    expect(result(report, "queue:singleton-target")).toMatchObject({
+      reason: "Adapter not available",
+      status: "skipped",
+    });
+    expect(result(report, "queue:create-items-dry-run")).toMatchObject({
+      status: "passed",
+    });
+    expect(result(report, "queue:no-auto-run")).toMatchObject({
+      status: "passed",
+    });
+    expect(result(report, "queue:no-duplicate-view")).toMatchObject({
+      status: "passed",
+    });
+    expect(result(report, "queue:prompt-pack-preview-dry-run")).toMatchObject({
+      status: "passed",
+    });
+    expect(adapter.createItems).not.toHaveBeenCalled();
+    expect(adapter.importPromptPack).not.toHaveBeenCalled();
   });
 });
 
@@ -296,16 +370,20 @@ function safeFakeQueueAdapter({
   return {
     ...base,
     createItems: vi.fn(base.createItems),
+    getSingletonQueueTarget: vi.fn(base.getSingletonQueueTarget),
     importPromptPack: vi.fn(base.importPromptPack),
     previewCreateItems: vi.fn(base.previewCreateItems),
+    previewPromptPack: vi.fn(base.previewPromptPack),
     supportsSafeMutationSandbox,
   };
 }
 
 type SafeFakeQueueAdapter = QueueAgentAdapterApi & {
   createItems: ReturnType<typeof vi.fn>;
+  getSingletonQueueTarget: ReturnType<typeof vi.fn>;
   importPromptPack: ReturnType<typeof vi.fn>;
   previewCreateItems: ReturnType<typeof vi.fn>;
+  previewPromptPack: ReturnType<typeof vi.fn>;
 };
 
 function source(path: string) {

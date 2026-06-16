@@ -476,16 +476,23 @@ v0.1 product widget.
   Agent capability context, capability manifest, implemented `agent.*` smoke
   APIs, peer self-test evidence, Agent Queue / QueueV2 and Workspace Agent
   widget contracts, Knowledge / Skills, Notes, and Terminal widget contracts,
-  Queue singleton/create-items dry-run/self-test evidence where a safe injected
-  path is available, skipped or blocked adapter/execution checks for
-  metadata-only contracts, Finder exclusion from active smoke scope, and
-  restricted Codex/shell assertions. It renders a compact structured
-  passed/failed/skipped/blocked Agent-executed Smoke Report with `No hidden
-  side effects`. It does not call Codex, call shell, mutate Queue, start Queue
-  workers, create Queue views, launch Terminal, run Terminal commands, mutate
-  Git, execute rollback, create or update Notes/Knowledge, attach context, add
-  widget adapters, or change provider, model, transcript, Queue, or active
-  Direct Work settings.
+  Queue singleton/create-items dry-run/self-test evidence through the Action
+  Broker and injected Queue adapter, Queue prompt-pack preview dry-run,
+  skipped or blocked adapter/execution checks for metadata-only contracts,
+  Finder exclusion from active smoke scope, and restricted Codex/shell
+  assertions. Queue checks render as individual product-facing rows such as
+  `Queue self-test passed`, `Queue dry-run preview prepared`,
+  `Singleton Queue target verified`, `No Queue mutation`,
+  `No Queue worker start`, and `No Queue view creation`; unavailable unsafe
+  adapter checks are skipped or blocked individually instead of collapsing the
+  Queue section into one opaque blocked result. It renders a compact
+  structured passed/failed/skipped/blocked Agent-executed Smoke Report with
+  `No hidden side effects` and no default raw JSON. It does not call Codex,
+  call shell, mutate Queue, start Queue workers, create Queue views, enable
+  Queue, launch Terminal, run Terminal commands, mutate Git, execute rollback,
+  create or update Notes/Knowledge, attach context, add widget adapters, modify
+  backend/storage/schema, or change provider, model, transcript, Queue, or
+  active Direct Work settings.
 - Provider/local drafts are validated before rendering. Queue task creation and
   Note creation require approval plus a separate explicit create action.
   Knowledge Document and Skill creation require approval plus separate explicit

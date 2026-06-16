@@ -226,7 +226,7 @@ export const AGENT_QUEUE_WIDGET_AGENT_CONTRACT = createWidgetAgentContract({
     },
     {
       capabilityId: "queue.preparePromptPackPreview",
-      caseId: "queue:prompt-pack-preview",
+      caseId: "queue:prompt-pack-preview-dry-run",
       expectedResultDescription:
         "Prompt-pack preview returns materialization evidence without creating Queue items.",
       hiddenSideEffectAssertions: ["no_queue_item_create"],

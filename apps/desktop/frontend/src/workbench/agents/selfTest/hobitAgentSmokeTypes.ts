@@ -7,15 +7,23 @@ export type HobitAgentSmokeStatus = HobitAgentSelfTestStatus;
 
 export const HOBIT_AGENT_SMOKE_PRODUCT_LABELS = {
   adapterNotImplemented: "Adapter not implemented yet",
+  adapterNotAvailable: "Adapter not available",
   blocked: "Blocked",
   dryRunOnly: "Dry-run only",
   failed: "Failed",
   finderExcluded: "Finder excluded",
   noHiddenSideEffects: "No hidden side effects",
+  noQueueMutation: "No Queue mutation",
+  noQueueViewCreation: "No Queue view creation",
+  noQueueWorkerStart: "No Queue worker start",
   passed: "Passed",
+  queueDryRunPreviewPrepared: "Queue dry-run preview prepared",
+  queueSelfTestPassed: "Queue self-test passed",
   restrictedCapability: "Restricted capability",
   runtimeExecutionNotImplemented: "Runtime execution not implemented yet",
+  safeCheckSkipped: "Safe check skipped",
   skipped: "Skipped",
+  singletonQueueTargetVerified: "Singleton Queue target verified",
 } as const;
 
 export function hobitAgentSmokeStatusLabel(

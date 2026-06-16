@@ -36,6 +36,8 @@ describe("hobitAgentSelfTestReportViewModel", () => {
         "agent.message.send",
         "agent.capabilities.read",
         "agent.selfTest.run",
+        "queue.createItems",
+        "queue.preparePromptPackPreview",
         "queue.selfTest",
         "codex.runTask",
         "workspace.shell.runCommand",
@@ -78,6 +80,34 @@ describe("hobitAgentSelfTestReportViewModel", () => {
       message: "Finder excluded.",
       reason: "Finder excluded",
       status: "skipped",
+    });
+    expect(row(report, "queue:singleton-target")).toMatchObject({
+      message: "Singleton Queue target verified.",
+      status: "passed",
+    });
+    expect(row(report, "queue:create-items-dry-run")).toMatchObject({
+      message: "Queue dry-run preview prepared.",
+      status: "passed",
+    });
+    expect(row(report, "queue:dry-run-target-singleton")).toMatchObject({
+      message: "Singleton Queue target verified.",
+      status: "passed",
+    });
+    expect(row(report, "queue:no-auto-run")).toMatchObject({
+      message: "No Queue worker start.",
+      status: "passed",
+    });
+    expect(row(report, "queue:no-duplicate-view")).toMatchObject({
+      message: "No Queue view creation.",
+      status: "passed",
+    });
+    expect(row(report, "queue:prompt-pack-preview-dry-run")).toMatchObject({
+      message: "Queue dry-run preview prepared.",
+      status: "passed",
+    });
+    expect(row(report, "queue:no-mutation")).toMatchObject({
+      message: "No Queue mutation.",
+      status: "passed",
     });
   });
 
@@ -135,6 +165,10 @@ describe("hobitAgentSelfTestReportViewModel", () => {
     expect(row(report, "queue:self-test-dry-run")).toMatchObject({
       capabilityId: "queue.selfTest",
       message: expect.stringContaining("Dry-run only"),
+      status: "passed",
+    });
+    expect(row(report, "queue:no-mutation")).toMatchObject({
+      message: "No Queue mutation.",
       status: "passed",
     });
     expect(row(report, "capability:codex-restricted")).toMatchObject({

@@ -46,6 +46,7 @@ export type QueueAgentSideEffectFlags = {
   didLaunchShell: false;
   didLaunchTerminal: false;
   didMutateGit: false;
+  didMutateQueue: false;
   didStartWorkers: false;
 };
 
@@ -149,6 +150,7 @@ export type QueueAgentSelfTestCaseResult = {
   caseId: string;
   evidence: string[];
   message: string;
+  reason?: string;
   status: QueueAgentSelfTestCaseStatus;
 };
 
@@ -215,6 +217,7 @@ export function queueSideEffectFlags(): QueueAgentSideEffectFlags {
     didLaunchShell: false,
     didLaunchTerminal: false,
     didMutateGit: false,
+    didMutateQueue: false,
     didStartWorkers: false,
   };
 }
@@ -271,14 +274,16 @@ export function createQueueSelfTestReport(
     cases: [...cases],
     hiddenSideEffectFlags: queueSideEffectFlags(),
     productSummary:
-      summary.blocked > 0 || summary.failed > 0
-        ? "Queue self-test blocked"
-        : "Queue self-test passed",
+      summary.failed > 0
+        ? "Queue self-test failed"
+        : summary.blocked > 0
+          ? "Queue self-test blocked"
+          : "Queue self-test passed",
     status:
-      summary.blocked > 0
-        ? "blocked"
-        : summary.failed > 0
-          ? "failed"
+      summary.failed > 0
+        ? "failed"
+        : summary.blocked > 0
+          ? "blocked"
           : "passed",
     summary,
   };

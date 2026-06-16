@@ -31,7 +31,10 @@ structured action-request path:
 - `queue.createItems` dry-run returns a preview with no task creation.
 - `queue.preparePromptPackPreview` returns Smart Queue materialization without
   mutation.
-- `queue.selfTest` reports singleton/dry-run/no-hidden-side-effect evidence.
+- `queue.selfTest` runs through the Action Broker and injected Queue adapter,
+  reports singleton target, createItems dry-run, prompt-pack preview dry-run,
+  no Queue mutation, no Queue worker start, no Queue view creation, and no
+  hidden-side-effect evidence as separate rows.
 
 Workspace Agent Codex Direct Work now receives Hobit capability context before
 execution. The context tells the agent it is inside Hobit, operating from the
@@ -60,6 +63,15 @@ During the smoke, verify these product labels appear where applicable:
 - `Approval required`
 - `Destructive`
 - `No rollback executed`
+- `Queue self-test passed`
+- `Queue dry-run preview prepared`
+- `Singleton Queue target verified`
+- `No Queue mutation`
+- `No Queue worker start`
+- `No Queue view creation`
+- `Dry-run only`
+- `Adapter not available`
+- `Safe check skipped`
 
 ## Smoke Flow
 
@@ -145,9 +157,20 @@ During the smoke, verify these product labels appear where applicable:
 17. Run Queue adapter dry-run/self-test coverage.
     - Expected: `queue.createItems` dry-run reports `wouldCreateItems`,
       singleton targeting, no duplicate Queue view, and no worker auto-run.
+    - Expected: prompt-pack preview dry-run reports Smart Queue materialization
+      without creating Queue items.
     - Expected: `queue.selfTest` reports product-facing passed/skipped/blocked
-      evidence without creating tasks, creating views, starting workers,
-      launching Codex/shell/Terminal, mutating Git, or executing rollback.
+      rows for `Queue self-test passed`, `Queue dry-run preview prepared`,
+      `Singleton Queue target verified`, `No Queue mutation`,
+      `No Queue worker start`, `No Queue view creation`, `Dry-run only`, and
+      `No hidden side effects`.
+    - Expected: unavailable unsafe adapter checks are skipped or blocked
+      individually with product-facing reasons such as `Adapter not available`
+      or `Safe check skipped`; the report does not collapse safe Queue dry-run
+      checks into one opaque blocked Queue row.
+    - Expected: self-test does not create tasks, create views, start workers,
+      enable Queue, launch Codex/shell/Terminal, mutate Git, execute rollback,
+      or modify backend/storage/schema.
 
 18. In Workspace Agent, click `Run Agent Self-Test`.
     - Expected: a compact structured Agent-executed Smoke Report appears in
@@ -155,10 +178,11 @@ During the smoke, verify these product labels appear where applicable:
       context, capability manifest, Agent Queue / QueueV2 and Workspace Agent
       widget contracts, Knowledge / Skills, Notes, and Terminal widget
       contracts, Queue singleton/create-items dry-run/self-test checks when a
-      safe injected path is available, skipped or blocked adapter/execution
-      checks for Knowledge / Skills, Notes, and Terminal, Finder excluded from
-      active smoke scope, restricted Codex/shell capabilities, and `No hidden
-      side effects`.
+      safe injected path is available, Queue prompt-pack preview dry-run, no
+      Queue mutation, no Queue worker start, no Queue view creation, skipped or
+      blocked adapter/execution checks for Knowledge / Skills, Notes, and
+      Terminal, Finder excluded from active smoke scope, restricted Codex/shell
+      capabilities, and `No hidden side effects`.
     - Expected: the report uses `Passed`, `Failed`, `Skipped`, and `Blocked`
       counts plus per-check product-facing reasons such as `Capability
       unavailable`, `Adapter not implemented yet`, `Dry-run unavailable`,
@@ -168,6 +192,8 @@ During the smoke, verify these product labels appear where applicable:
       blocked until adapters exist.
     - Expected: after Run Agent Self-Test completes, Agent Activity must not
       show a stale duplicate `Running` row for that self-test run.
+    - Expected: no raw JSON appears in the default report; Queue checks are
+      product-facing rows rather than one opaque blocked result.
     - Expected: this does not replace all manual Queue UI smoke until widget
       execution adapters and broader Queue widget self-test coverage exist.
 
