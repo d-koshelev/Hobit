@@ -24,6 +24,7 @@ export type HobitWidgetContractAvailability =
 export type HobitWidgetCapabilityPolicy = {
   confirmationRequirement: HobitWidgetConfirmationRequirement;
   forbiddenSideEffects: string[];
+  restricted: boolean;
   sideEffectLevel: HobitWidgetCapabilitySideEffect;
   supportsDryRun: boolean;
   supportsPreview: boolean;

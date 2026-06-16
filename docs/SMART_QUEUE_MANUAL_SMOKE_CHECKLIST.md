@@ -147,12 +147,18 @@ During the smoke, verify these product labels appear where applicable:
 18. In Workspace Agent, click `Run Agent Self-Test`.
     - Expected: a compact structured report appears in Workspace Agent showing
       agent APIs, capability context, capability manifest, Agent Queue and
-      Workspace Agent widget contracts, skipped Knowledge / Skills, Notes, and
-      Terminal placeholders, Finder outside active contract scope, restricted
-      Codex/shell capabilities, and `No hidden side effects`.
+      Workspace Agent widget contracts, Knowledge / Skills, Notes, and
+      Terminal widget contracts, skipped or blocked adapter/execution checks
+      for Knowledge / Skills, Notes, and Terminal, Finder outside active
+      contract scope, restricted Codex/shell capabilities, and `No hidden side
+      effects`.
     - Expected: the report uses `Passed`, `Failed`, `Skipped`, and `Blocked`
       counts plus per-check product-facing reasons such as `Capability
-      unavailable`, `Dry-run only`, and `Not implemented yet`.
+      unavailable`, `Adapter not implemented yet`, `Dry-run unavailable`,
+      `Restricted capability`, and `Self-test metadata only`.
+    - Expected: Knowledge / Skills, Notes, and Terminal contract checks can
+      pass while unsupported adapter/runtime execution remains skipped or
+      blocked until adapters exist.
     - Expected: this does not replace all manual Queue UI smoke unless full
       Queue widget self-test coverage exists.
 

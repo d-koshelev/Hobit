@@ -277,18 +277,22 @@ is unavailable, the UI reports that check as blocked or skipped and does not
 auto-confirm it.
 
 Queue and Widget smoke expansion is incremental. The MVP checks the current
-Agent API smoke runner, active Agent Queue and Workspace Agent widget
-contracts, skipped Knowledge / Skills, Notes, and Terminal placeholders, and
+Agent API smoke runner, active Agent Queue, Workspace Agent, Knowledge /
+Skills, Notes, and Terminal widget contracts, adapter-unavailable or
+restricted execution checks for Knowledge / Skills, Notes, and Terminal, and
 Finder exclusion from active contract scope. It does not yet replace full
 manual Queue UI smoke until broader Queue widget self-test coverage exists.
 
 The initial Widget Agent Contract registry lives under
-`apps/desktop/frontend/src/workbench/agents/widgets/`. Initial active examples
-are Agent Queue / QueueV2 and Workspace Agent. Knowledge / Skills, Notes, and
-Terminal are next contract targets and may appear only as unavailable/skipped
-placeholders until their full contracts exist. Finder is out of scope for the
-current Widget Agent Contract foundation and is not included in the active
-contract registry.
+`apps/desktop/frontend/src/workbench/agents/widgets/`. Active contracts are
+Agent Queue / QueueV2, Workspace Agent, Knowledge / Skills, Notes, and
+Terminal. Knowledge / Skills, Notes, and Terminal contracts are metadata-only
+in this block: their widget product behavior is described honestly, their safe
+self-test instructions exist, and their non-self-test agent actions remain
+unavailable or restricted until explicit adapters/execution blocks are
+implemented. Terminal execute/destructive capabilities are restricted, require
+confirmation where declared, and must never be default product-action paths.
+Finder is out of scope for the current active Widget Agent Contract registry.
 
 ## Capability Metadata
 
@@ -302,6 +306,7 @@ Each capability has:
 - `outputSchemaDescription`
 - `sideEffectLevel`: `read | write | execute | destructive`
 - `confirmationRequirement`: `none | recommended | required`
+- `restricted`
 - `supportsDryRun`
 - `allowedAgentRoles`
 - `forbiddenSideEffects`
@@ -342,8 +347,11 @@ Current honest foundation capabilities:
   shell command execution where a future safe shell capability is available;
   not a product-action default.
 
-No Knowledge, Notes, Terminal-open, backend scheduler, durable worker, Git
-mutation, or Finder capability is claimed by this foundation.
+No brokered Knowledge / Skills, Notes, Terminal-open, backend scheduler,
+durable worker, Git mutation, or Finder capability is claimed by the initial
+global capability manifest. Knowledge / Skills, Notes, and Terminal now have
+Widget Agent Contracts and metadata-only self-tests, but their real adapters
+and execution paths remain future blocks.
 
 ## Policy Rules
 

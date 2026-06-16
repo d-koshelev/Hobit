@@ -474,13 +474,15 @@ v0.1 product widget.
   Agent header controls. The action runs safe frontend self-tests over Hobit
   app context, Workspace Agent capability context, capability manifest,
   implemented `agent.*` smoke APIs, Agent Queue and Workspace Agent widget
-  contracts, skipped Knowledge / Skills, Notes, and Terminal placeholders,
-  Finder exclusion from active contract scope, Queue `queue.selfTest` dry-run,
-  and restricted Codex/shell assertions. It renders a compact structured
+  contracts, Knowledge / Skills, Notes, and Terminal widget contracts, skipped
+  or blocked adapter/execution checks for those metadata-only contracts, Finder
+  exclusion from active contract scope, Queue `queue.selfTest` dry-run, and
+  restricted Codex/shell assertions. It renders a compact structured
   passed/failed/skipped/blocked report with `No hidden side effects`. It does
   not call Codex, call shell, mutate Queue, start Queue workers, create Queue
-  views, launch Terminal, mutate Git, execute rollback, or change provider,
-  model, transcript, Queue, or active Direct Work settings.
+  views, launch Terminal, run Terminal commands, mutate Git, execute rollback,
+  create or update Notes/Knowledge, attach context, or change provider, model,
+  transcript, Queue, or active Direct Work settings.
 - Provider/local drafts are validated before rendering. Queue task creation and
   Note creation require approval plus a separate explicit create action.
   Knowledge Document and Skill creation require approval plus separate explicit

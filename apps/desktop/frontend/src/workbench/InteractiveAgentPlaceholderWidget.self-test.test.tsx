@@ -66,7 +66,7 @@ describe("InteractiveAgentPlaceholderWidget Agent Self-Test Runner", () => {
     expect(reportText).toContain("Notes");
     expect(reportText).toContain("Terminal");
     expect(reportText).toContain("Capability unavailable");
-    expect(reportText).toContain("Not implemented yet");
+    expect(reportText).toContain("not implemented yet");
     expect(reportText).toContain("Dry-run only");
     expect(reportText).toContain("No hidden side effects");
     expect(reportText).not.toContain("{");

@@ -58,27 +58,57 @@ describe("hobitAgentSelfTestReportViewModel", () => {
       status: "passed",
       widgetId: "interactive-agent",
     });
+    expect(row(report, "widget-contract:skill-library")).toMatchObject({
+      message: "Knowledge / Skills contract is available.",
+      status: "passed",
+      widgetId: "skill-library",
+    });
+    expect(row(report, "widget-contract:notes")).toMatchObject({
+      message: "Notes contract is available.",
+      status: "passed",
+      widgetId: "notes",
+    });
+    expect(row(report, "widget-contract:terminal")).toMatchObject({
+      message: "Terminal contract is available.",
+      status: "passed",
+      widgetId: "terminal",
+    });
     expect(row(report, "widget-contract:finder-active-scope")).toMatchObject({
       message: "Finder is not in active contract scope.",
       status: "skipped",
     });
   });
 
-  it("shows unavailable placeholder widgets with product-facing skipped reasons", async () => {
+  it("shows Knowledge, Notes, and Terminal adapter execution as skipped or blocked", async () => {
     const report = await runWorkspaceAgentSelfTestReport({
-      reportId: "placeholder-report",
+      reportId: "adapter-report",
       widgetInstanceId: "workspace-agent-1",
       workspaceId: "workspace_1",
     });
 
-    for (const widgetId of ["skill-library", "notes", "terminal"]) {
-      expect(row(report, `widget-contract:${widgetId}`)).toMatchObject({
-        message: "Capability unavailable.",
-        reason: "Capability unavailable. Not implemented yet.",
-        status: "skipped",
-        widgetId,
-      });
-    }
+    expect(row(report, "widget-contract:skill-library:adapter")).toMatchObject({
+      message:
+        "Knowledge / Skills adapter execution is not implemented yet. Self-test metadata only.",
+      reason:
+        "Adapter not implemented yet. Dry-run unavailable for real Knowledge / Skills APIs.",
+      status: "skipped",
+      widgetId: "skill-library",
+    });
+    expect(row(report, "widget-contract:notes:adapter")).toMatchObject({
+      message:
+        "Notes adapter execution is not implemented yet. Self-test metadata only.",
+      reason: "Adapter not implemented yet. Dry-run unavailable for real Notes APIs.",
+      status: "skipped",
+      widgetId: "notes",
+    });
+    expect(row(report, "widget-contract:terminal:adapter")).toMatchObject({
+      message:
+        "Terminal adapter execution is restricted and not implemented yet. Self-test does not execute commands.",
+      reason:
+        "Restricted capability. Adapter not implemented yet. Dry-run unavailable for Terminal execution.",
+      status: "blocked",
+      widgetId: "terminal",
+    });
   });
 
   it("keeps Queue self-test dry-run free of mutations and restricted execution", async () => {

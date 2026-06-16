@@ -10,13 +10,22 @@ import {
 } from "./hobitWidgetContractRegistry";
 
 describe("hobitWidgetContractRegistry", () => {
-  it("returns Queue and Workspace Agent contracts from the active registry", () => {
+  it("returns the active widget contracts from the active registry", () => {
     const contracts = listWidgetContracts();
     const ids = contracts.map((contract) => contract.widgetId);
 
-    expect(ids).toEqual(["agent-queue", "interactive-agent"]);
+    expect(ids).toEqual([
+      "agent-queue",
+      "interactive-agent",
+      "notes",
+      "skill-library",
+      "terminal",
+    ]);
     expect(findWidgetContract("agent-queue").status).toBe("found");
     expect(findWidgetContract("interactive-agent").status).toBe("found");
+    expect(findWidgetContract("skill-library").status).toBe("found");
+    expect(findWidgetContract("notes").status).toBe("found");
+    expect(findWidgetContract("terminal").status).toBe("found");
   });
 
   it("discovers the Agent Queue / QueueV2 contract honestly", () => {
@@ -135,6 +144,137 @@ describe("hobitWidgetContractRegistry", () => {
     expect(serialized).not.toContain("default codex");
   });
 
+  it("discovers the Knowledge / Skills contract with honest adapter availability", () => {
+    const lookup = findWidgetContract("skill-library");
+    expect(lookup.status).toBe("found");
+    if (lookup.status !== "found") {
+      return;
+    }
+
+    const contract = lookup.contract;
+    const capabilityIds = contract.capabilities.map(
+      (capability) => capability.capabilityId,
+    );
+    const list = requiredCapability(contract, "knowledge.list");
+    const search = requiredCapability(contract, "knowledge.search");
+    const importFile = requiredCapability(contract, "knowledge.importFile");
+    const createDraft = requiredCapability(contract, "knowledge.createDraft");
+    const useAsContext = requiredCapability(contract, "knowledge.useAsContext");
+    const selfTest = requiredCapability(contract, "knowledge.selfTest");
+
+    expect(contract.productDescription).toContain("browse and filter");
+    expect(contract.productDescription).toContain("import one plain text or Markdown file");
+    expect(contract.productDescription).toContain("metadata-only");
+    expect(capabilityIds).toEqual(
+      expect.arrayContaining([
+        "knowledge.list",
+        "knowledge.search",
+        "knowledge.previewItem",
+        "knowledge.useAsContext",
+        "knowledge.importFile",
+        "knowledge.createDraft",
+        "knowledge.selfTest",
+      ]),
+    );
+    expect(list.sideEffectLevel).toBe("read");
+    expect(search.sideEffectLevel).toBe("read");
+    expect(list.availability.status).toBe("unavailable");
+    expect(search.availability.status).toBe("unavailable");
+    expect(unavailableReason(list)).toContain("adapter is not implemented");
+    expect(importFile.sideEffectLevel).toBe("write");
+    expect(importFile.confirmationRequirement).toBe("required");
+    expect(importFile.supportsDryRun).toBe(true);
+    expect(importFile.availability.status).toBe("unavailable");
+    expect(createDraft.confirmationRequirement).toBe("required");
+    expect(useAsContext.confirmationRequirement).toBe("recommended");
+    expect(useAsContext.forbiddenSideEffects).toContain("hidden_context_attach");
+    expect(selfTest.availability.status).toBe("available");
+    expect(contract.selfTestInstruction.body).toContain("Do not import files");
+    expect(contract.hiddenSideEffectAssertions).toContain("no_hidden_context_read");
+    expect(contract.hiddenSideEffectAssertions).toContain("no_shell_command");
+  });
+
+  it("discovers the Notes contract with read declarations and mutation gating", () => {
+    const lookup = findWidgetContract("notes");
+    expect(lookup.status).toBe("found");
+    if (lookup.status !== "found") {
+      return;
+    }
+
+    const contract = lookup.contract;
+    const list = requiredCapability(contract, "notes.list");
+    const read = requiredCapability(contract, "notes.read");
+    const create = requiredCapability(contract, "notes.create");
+    const update = requiredCapability(contract, "notes.update");
+    const preview = requiredCapability(contract, "notes.previewMarkdown");
+    const selfTest = requiredCapability(contract, "notes.selfTest");
+
+    expect(contract.productDescription).toContain("workspace-local Notes");
+    expect(contract.productDescription).toContain("basic Markdown");
+    expect(contract.productDescription).toContain("metadata-only");
+    expect(list.sideEffectLevel).toBe("read");
+    expect(read.sideEffectLevel).toBe("read");
+    expect(list.availability.status).toBe("unavailable");
+    expect(read.availability.status).toBe("unavailable");
+    expect(create.sideEffectLevel).toBe("write");
+    expect(update.sideEffectLevel).toBe("write");
+    expect(create.confirmationRequirement).toBe("required");
+    expect(update.confirmationRequirement).toBe("required");
+    expect(create.supportsDryRun).toBe(true);
+    expect(update.supportsDryRun).toBe(true);
+    expect(preview.sideEffectLevel).toBe("read");
+    expect(preview.description).toContain("basic Markdown");
+    expect(selfTest.availability.status).toBe("available");
+    expect(contract.selfTestInstruction.body).toContain("do not mutate real notes");
+    expect(contract.hiddenSideEffectAssertions).toContain("no_note_mutation");
+    expect(contract.hiddenSideEffectAssertions).toContain("no_hidden_note_read");
+  });
+
+  it("discovers the Terminal contract with restricted execute safety", () => {
+    const lookup = findWidgetContract("terminal");
+    expect(lookup.status).toBe("found");
+    if (lookup.status !== "found") {
+      return;
+    }
+
+    const contract = lookup.contract;
+    const listSessions = requiredCapability(contract, "terminal.listSessions");
+    const readStatus = requiredCapability(contract, "terminal.readSessionStatus");
+    const runCommand = requiredCapability(contract, "terminal.runCommand");
+    const forceKill = requiredCapability(contract, "terminal.forceKillSession");
+    const selfTest = requiredCapability(contract, "terminal.selfTest");
+
+    expect(contract.productDescription).toContain("PTY-first session UI");
+    expect(contract.productDescription).toContain("collapsed legacy one-shot command fallback");
+    expect(contract.productDescription).toContain("metadata-only");
+    expect(listSessions.sideEffectLevel).toBe("read");
+    expect(readStatus.sideEffectLevel).toBe("read");
+    expect(listSessions.availability.status).toBe("unavailable");
+    expect(readStatus.availability.status).toBe("unavailable");
+    expect(runCommand.sideEffectLevel).toBe("execute");
+    expect(runCommand.restricted).toBe(true);
+    expect(runCommand.confirmationRequirement).toBe("required");
+    expect(runCommand.supportsDryRun).toBe(false);
+    expect(runCommand.availability.status).toBe("unavailable");
+    expect(runCommand.description).toContain("never a default Hobit product-action path");
+    expect(runCommand.forbiddenSideEffects).toContain(
+      "product_action_default_path",
+    );
+    expect(runCommand.forbiddenSideEffects).toContain("hidden_command_execution");
+    expect(forceKill.sideEffectLevel).toBe("destructive");
+    expect(forceKill.restricted).toBe(true);
+    expect(forceKill.confirmationRequirement).toBe("required");
+    expect(forceKill.description).toContain("never rolls back filesystem effects");
+    expect(selfTest.availability.status).toBe("available");
+    expect(contract.selfTestInstruction.body).toContain("Do not open sessions");
+    expect(contract.hiddenSideEffectAssertions).toContain(
+      "no_terminal_command_run",
+    );
+    expect(contract.hiddenSideEffectAssertions).toContain(
+      "no_terminal_force_kill",
+    );
+  });
+
   it("returns unavailable self-test evidence for a missing widget contract", () => {
     const lookup = findWidgetContract("missing-widget");
 
@@ -165,27 +305,16 @@ describe("hobitWidgetContractRegistry", () => {
     expect(findWidgetContract("finder").status).toBe("unavailable");
   });
 
-  it("marks future placeholder widgets as skipped and not implemented", () => {
-    expect(FUTURE_WIDGET_AGENT_CONTRACT_PLACEHOLDERS.map((item) => item.widgetId)).toEqual([
-      "skill-library",
-      "notes",
-      "terminal",
-    ]);
+  it("has replaced future placeholders with active contracts for Knowledge, Notes, and Terminal", () => {
+    expect(FUTURE_WIDGET_AGENT_CONTRACT_PLACEHOLDERS.map((item) => item.widgetId)).toEqual([]);
 
-    for (const placeholder of FUTURE_WIDGET_AGENT_CONTRACT_PLACEHOLDERS) {
-      expect(placeholder.availability.status).toBe("unavailable");
-      expect(placeholder.availability.unavailableReason).toContain(
-        "not implemented",
-      );
-      expect(placeholder.selfTestCases[0]?.expectedResultDescription).toContain(
-        "Skipped",
-      );
-    }
-
-    const lookup = findWidgetContract("notes", { includePlaceholders: true });
-    expect(lookup.status).toBe("unavailable");
-    if (lookup.status === "unavailable") {
-      expect(lookup.selfTestReport.results[0]?.status).toBe("skipped");
+    for (const widgetId of ["skill-library", "notes", "terminal"]) {
+      const lookup = findWidgetContract(widgetId, { includePlaceholders: true });
+      expect(lookup.status).toBe("found");
+      if (lookup.status === "found") {
+        expect(lookup.contract.availability.status).toBe("available");
+        expect(lookup.contract.selfTestInstruction.body).toContain("self-test");
+      }
     }
   });
 
@@ -226,6 +355,16 @@ function requiredCapability(
     throw new Error(`Missing capability ${capabilityId}`);
   }
   return capability;
+}
+
+function unavailableReason(
+  capability: ReturnType<typeof requiredCapability>,
+) {
+  if (capability.availability.status !== "unavailable") {
+    throw new Error(`${capability.capabilityId} is not unavailable`);
+  }
+
+  return capability.availability.unavailableReason;
 }
 
 function collectAgentWidgetSources() {

@@ -1,13 +1,18 @@
 import {
   createUnavailableWidgetContractLookupResult,
   createWidgetAgentContract,
-  createWidgetCapabilityContract,
   createWidgetSelfTestInstruction,
   type HobitWidgetAgentContract,
-  type HobitWidgetCapabilityContract,
   type HobitWidgetContractLookupResult,
   type HobitWidgetId,
 } from "./hobitWidgetAgentContract";
+import { KNOWLEDGE_SKILLS_WIDGET_AGENT_CONTRACT } from "./knowledgeSkillsWidgetAgentContract";
+import { NOTES_WIDGET_AGENT_CONTRACT } from "./notesWidgetAgentContract";
+import { TERMINAL_WIDGET_AGENT_CONTRACT } from "./terminalWidgetAgentContract";
+import {
+  widgetCapability,
+  type WidgetCapabilityInput,
+} from "./widgetAgentContractHelpers";
 
 const queueSelfTestInstruction = createWidgetSelfTestInstruction({
   body: [
@@ -365,6 +370,7 @@ export const WORKSPACE_AGENT_WIDGET_AGENT_CONTRACT = createWidgetAgentContract({
         "Explicit operator prompt, working directory, sandbox, approval policy, and Codex executable.",
       outputSchemaDescription:
         "Direct Work run status, capped activity/log/result metadata, and visible failure/unavailable states.",
+      restricted: true,
       sideEffectLevel: "execute",
       supportsDryRun: false,
       supportsPreview: false,
@@ -423,11 +429,14 @@ export const WORKSPACE_AGENT_WIDGET_AGENT_CONTRACT = createWidgetAgentContract({
   widgetId: "interactive-agent",
 });
 
-export const FUTURE_WIDGET_AGENT_CONTRACT_PLACEHOLDERS =
-  createFutureWidgetPlaceholders();
+export const FUTURE_WIDGET_AGENT_CONTRACT_PLACEHOLDERS: HobitWidgetAgentContract[] =
+  [];
 
 const ACTIVE_WIDGET_AGENT_CONTRACTS = [
   AGENT_QUEUE_WIDGET_AGENT_CONTRACT,
+  KNOWLEDGE_SKILLS_WIDGET_AGENT_CONTRACT,
+  NOTES_WIDGET_AGENT_CONTRACT,
+  TERMINAL_WIDGET_AGENT_CONTRACT,
   WORKSPACE_AGENT_WIDGET_AGENT_CONTRACT,
 ] as const;
 
@@ -478,22 +487,12 @@ export function findWidgetContract(
   return { contract, status: "found" };
 }
 
-function queueCapability(
-  capability: Omit<HobitWidgetCapabilityContract, "availability">,
-) {
-  return createWidgetCapabilityContract({
-    ...capability,
-    availability: { status: "available" },
-  });
+function queueCapability(capability: WidgetCapabilityInput) {
+  return widgetCapability(capability);
 }
 
-function workspaceAgentCapability(
-  capability: Omit<HobitWidgetCapabilityContract, "availability">,
-) {
-  return createWidgetCapabilityContract({
-    ...capability,
-    availability: { status: "available" },
-  });
+function workspaceAgentCapability(capability: WidgetCapabilityInput) {
+  return widgetCapability(capability);
 }
 
 function queueCreateForbiddenSideEffects() {
@@ -523,52 +522,4 @@ function workspaceAgentForbiddenSideEffects() {
     "terminal_launch",
     "git_mutation",
   ];
-}
-
-function createFutureWidgetPlaceholders(): HobitWidgetAgentContract[] {
-  return [
-    futurePlaceholder("skill-library", "Knowledge / Skills"),
-    futurePlaceholder("notes", "Notes"),
-    futurePlaceholder("terminal", "Terminal"),
-  ];
-}
-
-function futurePlaceholder(
-  widgetId: HobitWidgetId,
-  title: string,
-): HobitWidgetAgentContract {
-  const instruction = createWidgetSelfTestInstruction({
-    body: `${title} widget contract is not implemented in this foundation block. Return skipped self-test evidence and do not infer capabilities.`,
-    id: `${widgetId}.selfTest.placeholder`,
-    title: `${title} placeholder self-test`,
-  });
-
-  return createWidgetAgentContract({
-    availability: {
-      status: "unavailable",
-      unavailableReason:
-        "Widget Agent Contract is not implemented yet; this placeholder is skipped.",
-    },
-    capabilities: [],
-    expectedResultDescription:
-      "Self-test is skipped until the widget exposes a complete agent-readable contract.",
-    hiddenSideEffectAssertions: ["no_capability_inference"],
-    ownerModule: "apps/desktop/frontend/src/workbench/agents/widgets",
-    ownerSurface: title,
-    productDescription:
-      `${title} is a future Widget Agent Contract target. This placeholder does not claim product capability completeness.`,
-    selfTestCases: [
-      {
-        capabilityId: `${widgetId}.selfTest`,
-        caseId: `${widgetId}:placeholder-skipped`,
-        expectedResultDescription:
-          "Skipped because the widget contract is not implemented yet.",
-        hiddenSideEffectAssertions: ["no_capability_inference"],
-        title: "Placeholder Skipped",
-      },
-    ],
-    selfTestInstruction: instruction,
-    title,
-    widgetId,
-  });
 }

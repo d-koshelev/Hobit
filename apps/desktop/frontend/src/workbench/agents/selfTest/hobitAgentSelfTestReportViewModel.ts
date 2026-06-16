@@ -293,9 +293,66 @@ function widgetContractRows(): HobitAgentSelfTestReportRow[] {
       "interactive-agent",
       "Workspace Agent widget contract exists",
     ),
-    placeholderWidgetRow("skill-library", "Knowledge / Skills placeholder"),
-    placeholderWidgetRow("notes", "Notes placeholder"),
-    placeholderWidgetRow("terminal", "Terminal placeholder"),
+    widgetContractExistsRow(
+      "skill-library",
+      "Knowledge / Skills widget contract exists",
+    ),
+    widgetContractExistsRow("notes", "Notes widget contract exists"),
+    widgetContractExistsRow("terminal", "Terminal widget contract exists"),
+    widgetAdapterUnavailableRow({
+      checkId: "widget-contract:skill-library:adapter",
+      component: "Knowledge / Skills",
+      hiddenSideEffectAssertions: [
+        "no_knowledge_mutation",
+        "no_context_attach",
+        "no_shell_command",
+        "no_codex_run",
+        "no_terminal_launch",
+        "no_git_mutation",
+      ],
+      message:
+        "Knowledge / Skills adapter execution is not implemented yet. Self-test metadata only.",
+      reason: "Adapter not implemented yet. Dry-run unavailable for real Knowledge / Skills APIs.",
+      title: "Knowledge / Skills adapter execution",
+      widgetId: "skill-library",
+    }),
+    widgetAdapterUnavailableRow({
+      checkId: "widget-contract:notes:adapter",
+      component: "Notes",
+      hiddenSideEffectAssertions: [
+        "no_note_mutation",
+        "no_hidden_note_read",
+        "no_shell_command",
+        "no_codex_run",
+        "no_terminal_launch",
+        "no_git_mutation",
+      ],
+      message:
+        "Notes adapter execution is not implemented yet. Self-test metadata only.",
+      reason: "Adapter not implemented yet. Dry-run unavailable for real Notes APIs.",
+      title: "Notes adapter execution",
+      widgetId: "notes",
+    }),
+    widgetAdapterUnavailableRow({
+      checkId: "widget-contract:terminal:adapter",
+      component: "Terminal",
+      hiddenSideEffectAssertions: [
+        "no_terminal_session_create",
+        "no_terminal_command_run",
+        "no_terminal_force_kill",
+        "no_shell_command",
+        "no_codex_run",
+        "no_git_mutation",
+        "no_rollback_execution",
+      ],
+      message:
+        "Terminal adapter execution is restricted and not implemented yet. Self-test does not execute commands.",
+      reason:
+        "Restricted capability. Adapter not implemented yet. Dry-run unavailable for Terminal execution.",
+      status: "blocked",
+      title: "Terminal adapter execution",
+      widgetId: "terminal",
+    }),
   ];
 
   rows.push(
@@ -341,32 +398,13 @@ function widgetContractExistsRow(
   return unavailableWidgetRow(lookup, title);
 }
 
-function placeholderWidgetRow(
-  widgetId: string,
-  title: string,
-): HobitAgentSelfTestReportRow {
-  const lookup = findWidgetContract(widgetId, { includePlaceholders: true });
-  if (lookup.status === "found") {
-    return failedRow({
-      checkId: `widget-contract:${widgetId}:placeholder`,
-      component: lookup.contract.title,
-      message: `${lookup.contract.title} placeholder unexpectedly resolved as active.`,
-      source: "Widget Agent Contract registry",
-      title,
-      widgetId,
-    });
-  }
-
-  return unavailableWidgetRow(lookup, title);
-}
-
 function unavailableWidgetRow(
   lookup: Extract<HobitWidgetContractLookupResult, { status: "unavailable" }>,
   title: string,
 ): HobitAgentSelfTestReportRow {
   return skippedRow({
     checkId: `widget-contract:${lookup.widgetId}`,
-    component: title.replace(" placeholder", ""),
+    component: title,
     hiddenSideEffectAssertions: ["no_capability_inference"],
     message: "Capability unavailable.",
     reason: productUnavailableReason(lookup.unavailableReason),
@@ -374,6 +412,22 @@ function unavailableWidgetRow(
     title,
     widgetId: lookup.widgetId,
   });
+}
+
+function widgetAdapterUnavailableRow({
+  status = "skipped",
+  ...input
+}: Omit<SelfTestRowInput, "source" | "status"> & {
+  status?: "skipped" | "blocked";
+}): HobitAgentSelfTestReportRow {
+  const rowInput = {
+    ...input,
+    source: "Widget Agent Contract registry",
+  };
+
+  return status === "blocked"
+    ? blockedRow(rowInput)
+    : skippedRow(rowInput);
 }
 
 async function queueSelfTestRow({
@@ -581,6 +635,12 @@ function failedRow(
   input: Omit<SelfTestRowInput, "status">,
 ): HobitAgentSelfTestReportRow {
   return row({ ...input, status: "failed" });
+}
+
+function blockedRow(
+  input: Omit<SelfTestRowInput, "status">,
+): HobitAgentSelfTestReportRow {
+  return row({ ...input, status: "blocked" });
 }
 
 function skippedRow(

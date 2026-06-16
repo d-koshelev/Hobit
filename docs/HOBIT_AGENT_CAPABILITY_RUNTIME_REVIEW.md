@@ -106,9 +106,12 @@ call Codex or shell and do not mutate app state.
 - App capabilities are not exposed as a first-class manifest for the agent.
 - Policy, permissions, availability, confirmation, dry-run, and side-effect
   rules are not centralized at the capability boundary.
-- Widget-level self-test coverage is only beginning: Agent Queue and Workspace
-  Agent have initial contract/self-test metadata, while Knowledge / Skills,
-  Notes, Terminal, and other widgets still need complete contracts.
+- Widget-level self-test coverage is still incremental: Agent Queue,
+  Workspace Agent, Knowledge / Skills, Notes, and Terminal now have
+  contract/self-test metadata. Knowledge / Skills, Notes, and Terminal
+  adapters/execution remain unavailable or restricted future blocks, so their
+  self-test rows report skipped or blocked execution rather than performing
+  real app API calls.
 - Workspace Agent Codex Direct Work now receives app role, current
   Workspace/surface/widget context, compact capability list, and policy
   constraints as prompt context. Structured broker action request parsing and
@@ -151,7 +154,8 @@ call Codex or shell and do not mutate app state.
    MVP handler boundary and the Workspace Agent structured broker request path.
 6. Add a self-test runner that exercises safe/dry-run capabilities and reports
    passed, failed, skipped, and blocked.
-7. Add Knowledge, Notes, and Terminal capabilities only after their boundaries
-   are explicit and safe.
+7. Add Knowledge, Notes, and Terminal widget contracts only after their
+   boundaries are explicit and safe. Completed for metadata-only contracts and
+   safe self-test instructions; real adapters/execution remain future blocks.
 8. Evaluate backend, durable runtime, scheduler, audit persistence, and server
    needs after the frontend contract proves useful.

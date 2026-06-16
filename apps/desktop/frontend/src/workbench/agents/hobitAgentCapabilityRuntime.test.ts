@@ -106,7 +106,13 @@ describe("hobitAgentCapabilityRuntime module structure", () => {
     expect(report.summary.total).toBe(0);
     expect(
       listWidgetContractsFromPublicIndex().map((contract) => contract.widgetId),
-    ).toEqual(["agent-queue", "interactive-agent"]);
+    ).toEqual([
+      "agent-queue",
+      "interactive-agent",
+      "notes",
+      "skill-library",
+      "terminal",
+    ]);
     expect(createSelfTestInstructionFromPublicIndex().id).toBe(
       "hobit.agent.selfTest",
     );
