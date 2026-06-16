@@ -1,4 +1,5 @@
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
+import { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
 import { createDefaultQueueAgentAdapterApi } from "./queueAgentCapabilities";
 import {
   createQueueAgentItemsPreview,
@@ -9,6 +10,7 @@ import {
   type QueueAgentCreateItemsRequest,
   type QueueAgentCreateItemsResult,
   type QueueAgentCreatedItem,
+  type QueueAgentLifecycleTaskSeed,
   type QueueAgentPromptPackInput,
 } from "./queueAgentCapabilityTypes";
 
@@ -20,6 +22,11 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
   return {
     ...defaultAdapter,
     createItems: (request) => createQueueItemsThroughBridge(bridge, request),
+    dogfoodLifecycle: bridge
+      ? createInMemoryQueueDogfoodLifecycleAdapterApi({
+          getTaskSeed: (taskId) => getLifecycleTaskSeed(bridge, taskId),
+        })
+      : undefined,
     importPromptPack: async (input, request) => {
       const preview = await defaultAdapter.previewPromptPack(input);
       if (preview.status !== "succeeded" || !preview.output) {
@@ -54,6 +61,60 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
     },
     supportsDependencyEdges: true,
     supportsSafeMutationSandbox: false,
+  };
+}
+
+async function getLifecycleTaskSeed(
+  bridge: WorkspaceAgentQueueBridge,
+  taskId: string,
+): Promise<QueueAgentAdapterResult<QueueAgentLifecycleTaskSeed>> {
+  const snapshotResult = await bridge.getSnapshot({
+    includeSelectedItem: true,
+    itemLimit: 200,
+    selectedItemId: taskId,
+  });
+  if (!snapshotResult.ok || !snapshotResult.snapshot) {
+    return {
+      activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleGet],
+      message:
+        snapshotResult.error?.message ??
+        snapshotResult.message ??
+        "Queue snapshot is unavailable.",
+      reasons: [
+        snapshotResult.error?.message ??
+          snapshotResult.message ??
+          "Queue snapshot is unavailable.",
+      ],
+      status: "unavailable",
+    };
+  }
+
+  const item =
+    snapshotResult.snapshot.selectedItem?.id === taskId
+      ? snapshotResult.snapshot.selectedItem
+      : snapshotResult.snapshot.items.find((candidate) => candidate.id === taskId);
+
+  if (!item) {
+    return {
+      activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleGet],
+      message: `Queue item "${taskId}" was not found.`,
+      reasons: [`Queue item "${taskId}" was not found.`],
+      status: "failed",
+    };
+  }
+
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleGet],
+    message: "Queue dogfood lifecycle task seed loaded.",
+    output: {
+      createdAt: item.createdAt,
+      prompt: item.prompt,
+      status: item.status,
+      taskId: item.id,
+      title: item.title,
+      updatedAt: item.updatedAt,
+    },
+    status: "succeeded",
   };
 }
 

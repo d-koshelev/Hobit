@@ -3,6 +3,7 @@ import type {
   HobitAgentCapabilityExample,
   HobitAgentCapabilityInputSchema,
 } from "./types";
+import { QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES } from "./queueDogfoodLifecycleCapabilityManifest";
 
 const QUEUE_CREATE_ITEM_EXAMPLE_INPUT = {
   prompt: "Review the current workspace state and report one safe next step.",
@@ -329,6 +330,7 @@ export const HOBIT_AGENT_INITIAL_CAPABILITIES: HobitAgentCapability[] = [
     supportsSelfTest: true,
     title: "Queue Self-Test",
   },
+  ...QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES,
   {
     allowedAgentRoles: ["workspace_agent", "test_harness"],
     auditEventNames: [

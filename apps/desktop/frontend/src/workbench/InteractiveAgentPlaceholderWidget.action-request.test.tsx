@@ -120,6 +120,70 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     );
   });
 
+  it("invokes queue.lifecycle.agentFinished through the broker and Queue lifecycle adapter", async () => {
+    const createItem = vi.fn();
+    const getSnapshot = vi.fn(async () =>
+      snapshotResult({
+        items: [snapshotItem({ id: "task-1", status: "running" })],
+        selectedItem: snapshotItem({ id: "task-1", status: "running" }),
+        selectedItemId: "task-1",
+      }),
+    );
+    const publishActivityEvents = vi.fn();
+    const runAutonomousQueue = vi.fn();
+    const runTerminal = vi.fn();
+    const createGitCommit = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalText(
+      actionEnvelope({
+        capabilityId: "queue.lifecycle.agentFinished",
+        dryRun: false,
+        input: {
+          attemptId: "attempt-1",
+          changedFilesSummary: ["apps/desktop/frontend/src/..."],
+          finalAgentMessage: "Implemented the requested changes.",
+          outcome: "completed",
+          taskId: "task-1",
+          validationSummary: "typecheck passed",
+        },
+      }),
+    );
+
+    renderWidget({
+      onCreateGitCommit: createGitCommit,
+      onPublishAgentActivityEvents: publishActivityEvents,
+      onRunTerminalCommand: runTerminal,
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({
+        createItem,
+        getSnapshot,
+        runAutonomousQueue,
+      }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Record finished Queue work.");
+    await flushAsync();
+
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    expect(getSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({ selectedItemId: "task-1" }),
+    );
+    expect(createItem).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+    expect(runTerminal).not.toHaveBeenCalled();
+    expect(createGitCommit).not.toHaveBeenCalled();
+    expect(lastAssistantMessageText()).toBe("Queue lifecycle agent finished.");
+    expect(lastAssistantMessageText()).not.toContain("hobit.action.request");
+    expect(
+      publishActivityEvents.mock.calls.flatMap((call) => call[0]),
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ title: "Hobit action requested" }),
+        expect.objectContaining({ title: "Queue lifecycle agent finished" }),
+      ]),
+    );
+  });
+
   it("returns invalid_input for invalid Queue action input", async () => {
     const createItem = vi.fn();
     const startDirectWork = startDirectWorkWithFinalText(
@@ -145,6 +209,36 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     );
     expect(lastAssistantMessageText()).toContain(
       "Queue createItems requires at least one item.",
+    );
+  });
+
+  it("returns compact invalid_input for invalid Queue lifecycle action input", async () => {
+    const createItem = vi.fn();
+    const getSnapshot = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalText(
+      actionEnvelope({
+        capabilityId: "queue.lifecycle.agentFinished",
+        dryRun: false,
+        input: {
+          outcome: "completed",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ createItem, getSnapshot }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Record invalid finished Queue work.");
+    await flushAsync();
+
+    expect(createItem).not.toHaveBeenCalled();
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(lastAssistantMessageText()).toBe(
+      "Invalid Hobit action request. finalAgentMessage is required.",
     );
   });
 
@@ -308,6 +402,16 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(operatorPrompt).toContain("ask a concise clarification");
     expect(operatorPrompt).toContain('"capabilityId":"queue.createItem"');
     expect(operatorPrompt).toContain('"capabilityId":"queue.createItems"');
+    expect(operatorPrompt).toContain("Queue lifecycle schemas:");
+    expect(operatorPrompt).toContain("agentFinished(taskId,outcome,finalAgentMessage)");
+    expect(operatorPrompt).toContain("ack(taskId,messageId,coordinatorAgentId)");
+    expect(operatorPrompt).toContain("addFollowUpPrompt(taskId,coordinatorAgentId,prompt)");
+    expect(operatorPrompt).toContain(
+      "markDone(taskId,coordinatorAgentId,validationApproved:true)",
+    );
+    expect(operatorPrompt).toContain(
+      '"capabilityId":"queue.lifecycle.agentFinished"',
+    );
     expect(operatorPrompt).toContain(
       '"prompt":"Review the current workspace state and report one safe next step."',
     );
@@ -423,18 +527,45 @@ function itemResult(
   };
 }
 
-function snapshotResult(): QueueWidgetActionResult<QueueWidgetSnapshot> {
+function snapshotResult(
+  overrides: Partial<QueueWidgetSnapshot> = {},
+): QueueWidgetActionResult<QueueWidgetSnapshot> {
+  return snapshotResultWith(overrides);
+}
+
+function snapshotResultWith(
+  overrides: Partial<QueueWidgetSnapshot> = {},
+): QueueWidgetActionResult<QueueWidgetSnapshot> {
+  const snapshot = {
+    items: [],
+    queueId: "workspace:workspace_1:agent-queue",
+    selectedItem: null,
+    selectedItemId: null,
+    widgetType: "agent-queue",
+    workspaceId: "workspace_1",
+    ...overrides,
+  } as unknown as QueueWidgetSnapshot;
+
   return {
     action: "queue.getSnapshot",
     events: [],
     message: "Queue snapshot returned.",
     ok: true,
     safetyClass: "safe_read",
-    snapshot: {
-      items: [],
-      queueId: "workspace:workspace_1:agent-queue",
-      widgetType: "agent-queue",
-      workspaceId: "workspace_1",
-    } as unknown as QueueWidgetSnapshot,
+    snapshot,
   };
+}
+
+function snapshotItem(
+  overrides: Partial<QueueWidgetItemSnapshot> = {},
+): QueueWidgetItemSnapshot {
+  return {
+    dependencies: [],
+    id: "task-1",
+    prompt: "Implement the request.",
+    status: "queued",
+    title: "Queue item",
+    workspaceId: "workspace_1",
+    ...overrides,
+  } as QueueWidgetItemSnapshot;
 }

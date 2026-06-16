@@ -90,8 +90,8 @@ restricted capabilities for explicit workspace/code execution requests only.
   `hobit.action.request` envelope, the frontend parses that structured machine
   request, invokes the Action Broker, and renders a compact product-facing
   result. The compact manifest includes field-level schema and examples for
-  Queue create action requests without dumping the raw registry. Normal
-  assistant prose remains prose.
+  Queue create action requests and Queue dogfood lifecycle action requests
+  without dumping the raw registry. Normal assistant prose remains prose.
 
 ## Module Ownership
 
@@ -216,6 +216,16 @@ Supported Queue capabilities:
 - `queue.preparePromptPackPreview`
 - `queue.importPromptPack`
 - `queue.selfTest`
+- `queue.lifecycle.agentFinished`
+- `queue.review.createMessage`
+- `queue.review.ack`
+- `queue.coordinator.approveValidation`
+- `queue.coordinator.addFollowUpPrompt`
+- `queue.item.markDone`
+- `queue.item.block`
+- `queue.item.fail`
+- `queue.lifecycle.get`
+- `queue.review.getEvidenceBundle`
 
 The adapter boundary is typed and injected. It does not import React hooks,
 mutate global UI state directly, create widgets/views directly, couple to the
@@ -274,11 +284,32 @@ Queue create/import APIs, create Queue tasks, create Queue views, enable or
 auto-run Queue workers, call Codex/shell, launch Terminal, mutate Git, execute
 rollback, or modify backend/storage/schema.
 
+Queue dogfood lifecycle capabilities are typed frontend/controller overlay
+capabilities. They let Workspace Agent or Coordinator Agent report an agent
+finish, create and ACK review messages, record validation approval
+placeholders, add follow-up prompts, mark an item done, block/fail an item,
+and read lifecycle/evidence data through structured `hobit.action.request`
+envelopes. They do not parse user prompts, route natural-language phrases,
+start workers, run validation, execute Git commits, launch Terminal, execute
+rollback, call shell, call Codex, create Queue views, or persist backend state.
+
+Lifecycle dry-runs preview the intended transition and do not mutate the
+frontend lifecycle overlay. Lifecycle invocation with `dryRun: false` mutates
+only the current frontend/controller overlay when the injected lifecycle
+adapter or Queue bridge can provide the task seed. `queue.item.markDone` may
+attach model-only validation approval and fake commit result metadata to
+satisfy the pure lifecycle gate, but no Git command or commit capability is
+implemented in this block.
+
 The current Workspace Agent direct-run result path can invoke these Queue
 handlers through the Action Broker when the agent emits a valid structured
 Hobit action request envelope. The Queue bridge adapter targets the singleton
 Queue, does not create duplicate Queue views, and does not start workers,
 Codex, shell, Terminal, Git, or rollback behavior.
+
+Backend durability for lifecycle records, real worker lifecycle integration,
+real validation evidence execution, real Git commit execution, and a full
+broker self-test fake dogfood loop remain future work.
 
 ## Widget Agent Contracts
 

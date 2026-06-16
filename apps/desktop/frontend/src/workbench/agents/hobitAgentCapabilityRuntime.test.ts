@@ -436,10 +436,20 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       .map((capability) => capability.id);
 
     expect(queueCapabilities).toEqual([
+      "queue.coordinator.addFollowUpPrompt",
+      "queue.coordinator.approveValidation",
       "queue.createItem",
       "queue.createItems",
       "queue.importPromptPack",
+      "queue.item.block",
+      "queue.item.fail",
+      "queue.item.markDone",
+      "queue.lifecycle.agentFinished",
+      "queue.lifecycle.get",
       "queue.preparePromptPackPreview",
+      "queue.review.ack",
+      "queue.review.createMessage",
+      "queue.review.getEvidenceBundle",
       "queue.selfTest",
       "queue.targetSingletonQueue",
     ]);
@@ -454,6 +464,13 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
         "auto_run_workers",
         "queue_autorun",
       ]),
+    ).toBe(true);
+
+    expect(
+      assertCapabilityDoesNotAllowForbiddenSideEffects(
+        requiredCapability(registry, "queue.lifecycle.agentFinished"),
+        ["git_mutation", "worker_start", "validation_execution"],
+      ),
     ).toBe(true);
   });
 

@@ -79,6 +79,11 @@ export function workspaceAgentHobitActionActivityTitle(
       return "Queue target resolved";
     }
 
+    const lifecycleTitle = queueLifecycleActivityTitle(capabilityId);
+    if (lifecycleTitle) {
+      return lifecycleTitle;
+    }
+
     if (
       capabilityId === "queue.preparePromptPackPreview" ||
       ((capabilityId === "queue.createItem" ||
@@ -128,6 +133,14 @@ function succeededActionMessage(result: HobitAgentActionResult) {
     return "Queue target resolved.";
   }
 
+  const lifecycleMessage = queueLifecycleSucceededMessage(
+    result.capabilityId,
+    result.dryRun,
+  );
+  if (lifecycleMessage) {
+    return lifecycleMessage;
+  }
+
   if (
     result.capabilityId === "queue.preparePromptPackPreview" ||
     (result.capabilityId === "queue.createItems" && result.dryRun) ||
@@ -156,6 +169,39 @@ function succeededActionMessage(result: HobitAgentActionResult) {
   }
 
   return result.message || "Hobit action completed.";
+}
+
+function queueLifecycleActivityTitle(capabilityId?: string) {
+  switch (capabilityId) {
+    case "queue.lifecycle.agentFinished":
+      return "Queue lifecycle agent finished";
+    case "queue.review.createMessage":
+      return "Queue review message created";
+    case "queue.review.ack":
+      return "Queue review acknowledged";
+    case "queue.coordinator.approveValidation":
+      return "Queue validation approved";
+    case "queue.coordinator.addFollowUpPrompt":
+      return "Queue follow-up prompt added";
+    case "queue.item.markDone":
+      return "Queue item marked done";
+    case "queue.item.block":
+      return "Queue item blocked";
+    case "queue.item.fail":
+      return "Queue item failed";
+    case "queue.lifecycle.get":
+      return "Queue lifecycle read";
+    case "queue.review.getEvidenceBundle":
+      return "Queue review evidence bundle read";
+    default:
+      return null;
+  }
+}
+
+function queueLifecycleSucceededMessage(capabilityId: string, dryRun: boolean) {
+  const title = queueLifecycleActivityTitle(capabilityId);
+
+  return title ? `${title}${dryRun ? " preview prepared" : ""}.` : null;
 }
 
 function withReason(prefix: string, result: HobitAgentActionResult) {

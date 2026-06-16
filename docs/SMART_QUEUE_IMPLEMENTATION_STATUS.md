@@ -38,6 +38,8 @@ The current implemented frontend behavior is:
 - dependency propagation/recovery;
 - Smart Queue attempt model;
 - Queue dogfood lifecycle model and frontend controller/view-model integration;
+- typed frontend Action Broker capabilities for Queue dogfood lifecycle
+  controller overlays;
 - worker failure/stuck report to coordinator decision integration;
 - QueueV2 Coordinator Decision Card;
 - Retry same action;
@@ -246,7 +248,7 @@ Implemented as a pure frontend model foundation.
 ### Queue dogfood lifecycle pure model and frontend controller adapters
 
 Implemented as a pure frontend model foundation with controller/view-model
-adapter integration.
+adapter integration and typed frontend Action Broker capability access.
 
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle*.ts`
   separates dogfooding ticket state from agent/prompt state.
@@ -287,6 +289,18 @@ adapter integration.
   QueueV2 presentation integration, done-gated frontend dependency eligibility,
   fake full lifecycle self-test, follow-up prompt branch, and hidden-side-effect
   guards.
+- `queue.lifecycle.agentFinished`, `queue.review.createMessage`,
+  `queue.review.ack`, `queue.coordinator.approveValidation`,
+  `queue.coordinator.addFollowUpPrompt`, `queue.item.markDone`,
+  `queue.item.block`, `queue.item.fail`, `queue.lifecycle.get`, and
+  `queue.review.getEvidenceBundle` are exposed as typed Action Broker
+  capabilities for frontend/controller lifecycle overlays.
+- Workspace Agent can invoke those capabilities only by emitting structured
+  `hobit.action.request` envelopes. User prompt regex routing is not
+  implemented.
+- Lifecycle capability dry-runs preview transitions without mutating state.
+  Real invocation mutates only frontend/controller overlay state where an
+  injected lifecycle adapter or Queue bridge task seed is available.
 - This is not durable backend lifecycle persistence, real worker execution,
   scheduler redesign, validation execution, Git commit execution, rollback,
   storage/schema migration, Tauri/IPC behavior, Queue UI redesign, or Finder
@@ -417,6 +431,7 @@ as available from the foundation above:
 - real worker integration with the dogfood lifecycle model;
 - real validation evidence attachment to the dogfood lifecycle model;
 - real commit execution or durable commit metadata attachment;
+- a full broker self-test fake dogfood loop;
 - actual rollback execution;
 - Workspace Agent runtime auto-call;
 - Git/file mutation actions;
@@ -462,9 +477,9 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 ## Next Engineering Blocks
 
-1. Add typed broker lifecycle capabilities for agent-finished, review message,
-   ACK, validation approval, follow-up prompt, done, and failure/block
-   decisions without adding hidden execution.
+1. Add a full broker self-test fake dogfood loop covering agent-finished,
+   review message, ACK, validation approval, follow-up prompt, done, block/fail,
+   and no hidden execution.
 2. Design durable backend Smart Queue persistence for attempts, lifecycle,
    review messages, ACKs, decisions, validation evidence, and commit metadata.
 3. Design backend scheduler/runtime ownership.
@@ -485,6 +500,9 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle*.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycleController.ts`
+- `apps/desktop/frontend/src/workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts`
+- `apps/desktop/frontend/src/workbench/agents/adapters/queueAgentDogfoodLifecycleController.ts`
+- `apps/desktop/frontend/src/workbench/agents/capabilities/queueDogfoodLifecycleCapabilityManifest.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueStatusPresentation.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueExecutionGate.ts`
 - `apps/desktop/frontend/src/workbench/queue/queueV2SmartStatusModel.ts`

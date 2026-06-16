@@ -9,6 +9,11 @@ export function createCapabilityInstructionBlock(
   );
   const queueCreateInstructionLines =
     createQueueCreateCapabilityInstructionLines(capabilities);
+  const queueLifecycleInstructionLines =
+    createQueueLifecycleCapabilityInstructionLines(capabilities);
+  const compactManifestCapabilities = capabilities.filter(
+    (capability) => !isQueueLifecycleCapabilityId(capability.id),
+  );
   const lines = [
     `You are inside ${context.appName}, an AI Workbench.`,
     `You are operating from the ${context.surface.title} surface.`,
@@ -31,16 +36,100 @@ export function createCapabilityInstructionBlock(
     "Queue item creation should use queue.createItems.",
     "Prompt-pack Queue flows should use queue.preparePromptPackPreview or queue.importPromptPack.",
     ...queueCreateInstructionLines,
+    ...queueLifecycleInstructionLines,
     "Codex and shell are restricted capabilities and are not default app-action paths.",
     "Destructive and execute capabilities are controlled by policy and confirmation.",
     "Compact capability manifest:",
-    ...capabilities.map(
+    ...compactManifestCapabilities.map(
       (capability) =>
-        `- ${capability.id}${capability.restricted ? " (restricted)" : ""}: ${capability.title}; sideEffect=${capability.sideEffectLevel}; availability=${capability.availability.status}; confirmation=${capability.confirmationRequirement}; dryRun=${String(capability.supportsDryRun)}`,
+        `- ${capability.id}${capability.restricted ? " (restricted)" : ""}; availability=${capability.availability.status}`,
     ),
   ].filter((line): line is string => Boolean(line));
 
   return lines.join("\n");
+}
+
+function isQueueLifecycleCapabilityId(capabilityId: string) {
+  return (
+    capabilityId.startsWith("queue.coordinator.") ||
+    capabilityId.startsWith("queue.item.") ||
+    capabilityId.startsWith("queue.lifecycle.") ||
+    capabilityId.startsWith("queue.review.")
+  );
+}
+
+function createQueueLifecycleCapabilityInstructionLines(
+  capabilities: readonly HobitAgentCapability[],
+) {
+  const lifecycleIds = [
+    "queue.lifecycle.agentFinished",
+    "queue.review.createMessage",
+    "queue.review.ack",
+    "queue.coordinator.approveValidation",
+    "queue.coordinator.addFollowUpPrompt",
+    "queue.item.markDone",
+    "queue.item.block",
+    "queue.item.fail",
+    "queue.lifecycle.get",
+    "queue.review.getEvidenceBundle",
+  ];
+  const lifecycleCapabilities = lifecycleIds
+    .map((capabilityId) =>
+      capabilities.find((capability) => capability.id === capabilityId),
+    )
+    .filter((capability): capability is HobitAgentCapability =>
+      Boolean(capability),
+    );
+
+  if (lifecycleCapabilities.length === 0) {
+    return [];
+  }
+
+  const presentCapabilityIds = new Set(
+    lifecycleCapabilities.map((capability) => capability.id),
+  );
+  const requiredInputLine = [
+    presentCapabilityIds.has("queue.lifecycle.agentFinished")
+      ? "agentFinished(taskId,outcome,finalAgentMessage)"
+      : null,
+    presentCapabilityIds.has("queue.review.createMessage")
+      ? "createMessage(taskId,coordinatorAgentId)"
+      : null,
+    presentCapabilityIds.has("queue.review.ack")
+      ? "ack(taskId,messageId,coordinatorAgentId)"
+      : null,
+    presentCapabilityIds.has("queue.coordinator.approveValidation")
+      ? "approveValidation(taskId,coordinatorAgentId)"
+      : null,
+    presentCapabilityIds.has("queue.coordinator.addFollowUpPrompt")
+      ? "addFollowUpPrompt(taskId,coordinatorAgentId,prompt)"
+      : null,
+    presentCapabilityIds.has("queue.item.markDone")
+      ? "markDone(taskId,coordinatorAgentId,validationApproved:true)"
+      : null,
+    presentCapabilityIds.has("queue.item.block")
+      ? "block(taskId,coordinatorAgentId,reason)"
+      : null,
+    presentCapabilityIds.has("queue.item.fail")
+      ? "fail(taskId,coordinatorAgentId,reason)"
+      : null,
+    presentCapabilityIds.has("queue.lifecycle.get") ? "get(taskId?)" : null,
+    presentCapabilityIds.has("queue.review.getEvidenceBundle")
+      ? "getEvidenceBundle(taskId)"
+      : null,
+  ].filter((item): item is string => Boolean(item)).join("; ");
+  const agentFinishedExample = lifecycleCapabilities
+    .find((capability) => capability.id === "queue.lifecycle.agentFinished")
+    ?.examples?.[0]?.exampleActionRequest;
+
+  return [
+    "Queue lifecycle actions: typed only, no natural-language routing; dryRun previews; dryRun=false mutates frontend overlay only; no backend, worker, validation, Git, Terminal, rollback, shell, or Codex.",
+    "Queue lifecycle schemas:",
+    requiredInputLine,
+    agentFinishedExample
+      ? `Queue lifecycle example: ${JSON.stringify(agentFinishedExample)}`
+      : null,
+  ].filter((line): line is string => Boolean(line));
 }
 
 function createQueueCreateCapabilityInstructionLines(

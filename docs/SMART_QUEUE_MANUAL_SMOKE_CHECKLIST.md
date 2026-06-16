@@ -237,13 +237,33 @@ During the smoke, verify these product labels appear where applicable:
       execution, real commit execution, and backend scheduler dependency
       enforcement remain not implemented.
 
-20. Check for side effects.
+20. In Workspace Agent, test a structured Queue dogfood lifecycle action
+    request.
+    - Expected: Workspace Agent can emit a valid
+      `hobit.action.request` envelope for `queue.lifecycle.agentFinished`,
+      `queue.review.ack`, `queue.coordinator.addFollowUpPrompt`, or
+      `queue.item.markDone`.
+    - Expected: the Action Broker validates the typed input schema, invokes the
+      injected frontend Queue lifecycle adapter where available, and renders a
+      compact product-facing result such as `Queue lifecycle agent finished.`
+    - Expected: dry-run lifecycle requests preview the transition and do not
+      change lifecycle overlay state, create review messages, mark done/fail,
+      start workers, run validation, call Git, launch Terminal, execute
+      rollback, call shell, or call Codex.
+    - Expected: real lifecycle requests mutate only the frontend/controller
+      overlay. Backend durability, real worker execution, real validation
+      execution, real Git commit execution, rollback execution, and durable
+      scheduler integration remain not implemented.
+    - Expected: ordinary prose remains prose, and Queue lifecycle product
+      actions are not triggered by natural-language phrase matching.
+
+21. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback
       proposal preparation.
 
-21. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
+22. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
     log details where available.
     - Expected: the prompt sent to Codex includes Hobit capability context,
       compact Queue/agent capability names, and policy rules before the user

@@ -22,8 +22,8 @@ import {
 } from "../runtime";
 import {
   createDefaultQueueAgentAdapterApi,
-  createQueueAgentActionHandlers,
 } from "./queueAgentCapabilities";
+import { createQueueAgentActionHandlers } from "./queueAgentActionHandlers";
 import {
   createWorkspaceAgentQueueBridgeAdapterApi,
 } from "./workspaceAgentQueueBridgeAdapter";

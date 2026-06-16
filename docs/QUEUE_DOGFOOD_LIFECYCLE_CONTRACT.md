@@ -15,7 +15,7 @@ routing.
 ## Status
 
 Current as a frontend pure model foundation with frontend controller/view-model
-adapter integration.
+adapter integration and typed frontend Action Broker capability access.
 
 The implemented model and adapter layer live under:
 
@@ -25,7 +25,8 @@ The implemented model and adapter layer live under:
 The model is not yet persisted and is not yet wired as the authoritative
 runtime Queue lifecycle. The controller/view-model adapter is an overlay for
 frontend Queue controller helpers, QueueV2 presentation, fake lifecycle tests,
-and future broker capability preparation.
+and broker capability handlers. Broker capability execution mutates only this
+frontend/controller overlay where dependencies are available.
 
 ## State Dimensions
 
@@ -191,6 +192,48 @@ This adapter does not persist lifecycle state, start workers, call Codex or
 shell, launch Terminal, mutate Git, execute rollback, call Tauri/IPC, or change
 real scheduler/runtime semantics.
 
+## Action Broker Capabilities
+
+The frontend Action Broker can expose the dogfood lifecycle through structured
+`hobit.action.request` envelopes. Supported typed capability ids are:
+
+- `queue.lifecycle.agentFinished`
+- `queue.review.createMessage`
+- `queue.review.ack`
+- `queue.coordinator.approveValidation`
+- `queue.coordinator.addFollowUpPrompt`
+- `queue.item.markDone`
+- `queue.item.block`
+- `queue.item.fail`
+- `queue.lifecycle.get`
+- `queue.review.getEvidenceBundle`
+
+These capabilities are frontend/controller lifecycle capabilities only. They
+validate structured inputs, enforce broker policy, support dry-run previews,
+return compact lifecycle results, and emit compact activity/audit labels.
+
+Dry-run:
+
+- previews the intended lifecycle transition;
+- does not mutate lifecycle overlay state;
+- does not create review messages;
+- does not mark done, blocked, or failed;
+- does not start workers, run validation, call Git, launch Terminal, execute
+  rollback, call shell, or call Codex.
+
+Real invocation:
+
+- mutates only the frontend/controller lifecycle overlay when the Queue bridge
+  or injected lifecycle adapter can provide the current task;
+- may attach model-only validation approval and fake commit result metadata as
+  required by the pure model;
+- does not claim backend durability;
+- does not run workers, run validation, execute a Git commit, launch Terminal,
+  execute rollback, call shell, or call Codex.
+
+No commit execution capability exists in this block. Any commit-like data is a
+fake commit result placeholder with `noGitMutationPerformed: true`.
+
 ## Product Labels
 
 Human-facing helpers return labels such as:
@@ -232,6 +275,10 @@ covering:
 
 The self-test asserts no Codex, shell, worker start, Terminal launch, Git
 mutation, rollback execution, Workspace API call, or persistence side effects.
+Broker adapter tests also cover lifecycle dry-runs, real frontend overlay
+transitions, wrong-message ACK failure, validation approval placeholders,
+follow-up prompt state, done-gated dependents, unavailable dependencies, and
+Workspace Agent structured action-request invocation.
 
 ## Non-Goals
 
