@@ -146,6 +146,7 @@ export function AgentActivityPanel({
 type AgentActivityRunGroup = {
   events: AgentActivityEvent[];
   id: string;
+  runKind?: AgentActivityEvent["runKind"];
   runId: string;
   severity: AgentActivityEvent["severity"];
   sourceKind: AgentActivityEvent["sourceKind"];
@@ -247,6 +248,12 @@ function activityRunGroup(
       ? first.id.localeCompare(second.id)
       : first.timestamp - second.timestamp,
   );
+  const runKind = groupRunKind(sortedEvents);
+
+  if (runKind === "workspace-agent-self-test") {
+    return selfTestActivityRunGroup(id, sortedEvents);
+  }
+
   const latestEvent = sortedEvents[sortedEvents.length - 1]!;
   const finalRunEvent = [...sortedEvents].reverse().find(isRunFinalEvent);
   const status = finalRunEvent?.status ?? groupStatus(sortedEvents);
@@ -257,6 +264,7 @@ function activityRunGroup(
   return {
     events: sortedEvents,
     id,
+    runKind,
     runId: latestEvent.runId,
     severity,
     sourceKind: latestEvent.sourceKind,
@@ -273,7 +281,45 @@ function activityRunGroup(
   };
 }
 
+function selfTestActivityRunGroup(
+  id: string,
+  sortedEvents: AgentActivityEvent[],
+): AgentActivityRunGroup {
+  const latestEvent = sortedEvents[sortedEvents.length - 1]!;
+  const finalEvent = [...sortedEvents].reverse().find(isTerminalLifecycleEvent);
+  const displayEvent = finalEvent ?? latestEvent;
+  const status = finalEvent?.status ?? groupStatus(sortedEvents);
+  const severity = finalEvent?.severity ?? groupSeverity(sortedEvents, status);
+
+  return {
+    events: sortedEvents,
+    id,
+    runKind: "workspace-agent-self-test",
+    runId: displayEvent.runId,
+    severity,
+    sourceKind: displayEvent.sourceKind,
+    sourceLabel: displayEvent.sourceLabel,
+    sourceWidgetInstanceId: displayEvent.sourceWidgetInstanceId,
+    status,
+    summary: displayEvent.summary ?? statusLabel(status),
+    timestamp: displayEvent.timestamp,
+    timestampLabel: displayEvent.timestampLabel,
+    title: displayEvent.title,
+    workspaceId: displayEvent.workspaceId,
+  };
+}
+
+function groupRunKind(
+  events: AgentActivityEvent[],
+): AgentActivityEvent["runKind"] {
+  return events.find((event) => event.runKind)?.runKind;
+}
+
 function isRunFinalEvent(event: AgentActivityEvent) {
+  if (isTerminalLifecycleEvent(event)) {
+    return true;
+  }
+
   return (
     event.title === "Completed run" ||
     event.title === "Failed run" ||
@@ -317,12 +363,24 @@ function groupSeverity(
 }
 
 function isStepEvent(event: AgentActivityEvent) {
+  if (event.lifecycleStage === "started" || isTerminalLifecycleEvent(event)) {
+    return false;
+  }
+
   return ![
     "Started run",
     "Completed run",
     "Failed run",
     "Cancelled run",
   ].includes(event.title);
+}
+
+function isTerminalLifecycleEvent(event: AgentActivityEvent) {
+  return (
+    event.lifecycleStage === "completed" ||
+    event.lifecycleStage === "failed" ||
+    event.lifecycleStage === "cancelled"
+  );
 }
 
 function DetailBlock({ label, value }: { label: string; value: string }) {

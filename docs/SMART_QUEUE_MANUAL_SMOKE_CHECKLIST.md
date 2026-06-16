@@ -166,6 +166,8 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: Knowledge / Skills, Notes, and Terminal contract checks can
       pass while unsupported adapter/runtime execution remains skipped or
       blocked until adapters exist.
+    - Expected: after Run Agent Self-Test completes, Agent Activity must not
+      show a stale duplicate `Running` row for that self-test run.
     - Expected: this does not replace all manual Queue UI smoke until widget
       execution adapters and broader Queue widget self-test coverage exist.
 

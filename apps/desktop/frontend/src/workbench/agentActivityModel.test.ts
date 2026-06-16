@@ -9,6 +9,8 @@ import {
 describe("agentActivityModel", () => {
   it("maps Direct Work lifecycle events to readable activity", () => {
     expect(activityFromEvent(directWorkEvent({ eventKind: "started" }))).toMatchObject({
+      lifecycleStage: "started",
+      runKind: "direct-work",
       status: "running",
       summary: "Direct Work accepted.",
       title: "Started run",
@@ -44,6 +46,8 @@ describe("agentActivityModel", () => {
         }),
       ),
     ).toMatchObject({
+      lifecycleStage: "completed",
+      runKind: "direct-work",
       severity: "success",
       status: "completed",
       title: "Completed run",

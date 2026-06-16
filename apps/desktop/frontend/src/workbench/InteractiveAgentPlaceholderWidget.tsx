@@ -47,6 +47,7 @@ import {
 } from "./agents/selfTest";
 import type {
   AgentActivityEvent,
+  AgentActivityLifecycleStage,
   AgentActivitySeverity,
   AgentActivityStatus,
 } from "./agentActivityModel";
@@ -285,10 +286,11 @@ export function InteractiveAgentPlaceholderWidget({
       return;
     }
 
-    const reportId = `agent-self-test-${Date.now().toString()}`;
+    const selfTestRunId = `agent-self-test-${Date.now().toString()}`;
     setIsSelfTestRunning(true);
     publishSelfTestActivity({
-      reportId,
+      lifecycleStage: "started",
+      runId: selfTestRunId,
       severity: "info",
       status: "running",
       summary: "Safe self-test checks started.",
@@ -303,7 +305,7 @@ export function InteractiveAgentPlaceholderWidget({
       const report = await runWorkspaceAgentSelfTestReport({
         queueAdapterApi:
           createWorkspaceAgentQueueBridgeAdapterApi(workspaceAgentQueueBridge),
-        reportId,
+        reportId: selfTestRunId,
         widgetInstanceId: instance.id,
         workspaceId: workspaceScopeId,
         workspaceRoot: currentWorkspaceRoot ?? directWork.directWorkDirectory,
@@ -331,7 +333,9 @@ export function InteractiveAgentPlaceholderWidget({
         ),
       ]);
       publishSelfTestActivity({
-        reportId: report.reportId,
+        lifecycleStage:
+          report.overallStatus === "failed" ? "failed" : "completed",
+        runId: selfTestRunId,
         severity:
           report.overallStatus === "failed"
             ? "error"
@@ -352,7 +356,8 @@ export function InteractiveAgentPlaceholderWidget({
         createLocalMessage("assistant", `Agent self-test failed. ${message}`),
       ]);
       publishSelfTestActivity({
-        reportId,
+        lifecycleStage: "failed",
+        runId: selfTestRunId,
         severity: "error",
         status: "failed",
         summary: message,
@@ -650,21 +655,25 @@ export function InteractiveAgentPlaceholderWidget({
   }
 
   function publishSelfTestActivity({
-    reportId,
+    lifecycleStage,
+    runId,
     severity,
     status,
     summary,
     title,
   }: {
-    reportId: string;
+    lifecycleStage: AgentActivityLifecycleStage;
+    runId: string;
     severity: AgentActivitySeverity;
     status: AgentActivityStatus;
     summary: string;
     title: string;
   }) {
     const event: AgentActivityEvent = {
-      id: `${workspaceScopeId}:${instance.id}:${reportId}:${status}:${title}`,
-      runId: reportId,
+      id: `${workspaceScopeId}:${instance.id}:${runId}:${lifecycleStage}:${status}:${title}`,
+      lifecycleStage,
+      runKind: "workspace-agent-self-test",
+      runId,
       severity,
       sourceKind: "workspace-agent",
       sourceLabel: "Workspace Agent",

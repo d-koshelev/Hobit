@@ -81,6 +81,116 @@ describe("AgentActivityPanel", () => {
     expect(document.querySelector(".agent-activity-event-details")).toBeNull();
   });
 
+  it("renders one completed Workspace Agent self-test lifecycle row without stale Running", () => {
+    render(
+      <AgentActivityPanel
+        events={[
+          activityEvent({
+            id: "self-test-started",
+            lifecycleStage: "started",
+            runId: "self-test-run-1",
+            runKind: "workspace-agent-self-test",
+            severity: "info",
+            status: "running",
+            summary: "Safe self-test checks started.",
+            timestamp: 1_000,
+            timestampLabel: "0s",
+            title: "Agent self-test started",
+          }),
+          activityEvent({
+            id: "self-test-completed",
+            lifecycleStage: "completed",
+            runId: "self-test-run-1",
+            runKind: "workspace-agent-self-test",
+            severity: "success",
+            status: "completed",
+            summary:
+              "Agent-executed smoke completed: 20 passed, 0 failed, 4 skipped, 1 blocked. No hidden side effects.",
+            timestamp: 2_000,
+            timestampLabel: "1s",
+            title: "Agent self-test completed",
+          }),
+        ]}
+      />,
+    );
+
+    const rows = activityRows();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain("Agent self-test completed");
+    expect(rows[0]?.textContent).toContain("Completed");
+    expect(rows[0]?.textContent).toContain("1s");
+    expect(rows[0]?.textContent).not.toContain("Running");
+    expect(document.body.textContent).not.toContain("Agent run");
+  });
+
+  it("renders one failed Workspace Agent self-test lifecycle row without stale Running", () => {
+    render(
+      <AgentActivityPanel
+        events={[
+          activityEvent({
+            id: "self-test-started",
+            lifecycleStage: "started",
+            runId: "self-test-run-2",
+            runKind: "workspace-agent-self-test",
+            severity: "info",
+            status: "running",
+            summary: "Safe self-test checks started.",
+            timestamp: 1_000,
+            timestampLabel: "0s",
+            title: "Agent self-test started",
+          }),
+          activityEvent({
+            id: "self-test-failed",
+            lifecycleStage: "failed",
+            runId: "self-test-run-2",
+            runKind: "workspace-agent-self-test",
+            severity: "error",
+            status: "failed",
+            summary: "Self-test runner failed.",
+            timestamp: 2_000,
+            timestampLabel: "1s",
+            title: "Agent self-test failed",
+          }),
+        ]}
+      />,
+    );
+
+    const rows = activityRows();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain("Agent self-test failed");
+    expect(rows[0]?.textContent).toContain("Failed");
+    expect(rows[0]?.textContent).not.toContain("Running");
+    expect(document.body.textContent).not.toContain("Agent run");
+  });
+
+  it("keeps Direct Work running activity grouped as the existing Agent run row", () => {
+    render(
+      <AgentActivityPanel
+        events={[
+          activityEvent({
+            id: "direct-work-started",
+            lifecycleStage: "started",
+            runId: "direct-work-run-1",
+            runKind: "direct-work",
+            severity: "info",
+            status: "running",
+            summary: "Direct Work accepted.",
+            title: "Started run",
+          }),
+        ]}
+      />,
+    );
+
+    const rows = activityRows();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain("Agent run");
+    expect(rows[0]?.textContent).toContain("Running");
+    expect(rows[0]?.textContent).not.toContain("Agent self-test");
+  });
+
   it("renders event rows in a top-aligned newest-first timeline", () => {
     render(
       <AgentActivityPanel
@@ -352,6 +462,12 @@ function render(element: ReactNode) {
       });
     },
   };
+}
+
+function activityRows() {
+  return Array.from(
+    document.querySelectorAll<HTMLButtonElement>(".agent-activity-event-row"),
+  );
 }
 
 function clickRow(text: string) {

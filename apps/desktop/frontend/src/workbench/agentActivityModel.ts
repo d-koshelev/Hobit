@@ -19,12 +19,25 @@ export type AgentActivitySeverity =
   | "warning"
   | "error";
 
+export type AgentActivityRunKind =
+  | "direct-work"
+  | "workspace-agent-self-test";
+
+export type AgentActivityLifecycleStage =
+  | "started"
+  | "step"
+  | "completed"
+  | "cancelled"
+  | "failed";
+
 export type AgentActivityEvent = {
   command?: string;
   details?: string;
   id: string;
+  lifecycleStage?: AgentActivityLifecycleStage;
   outputPreview?: string;
   rawPreview?: string;
+  runKind?: AgentActivityRunKind;
   runId: string;
   severity: AgentActivitySeverity;
   sourceKind: AgentActivitySourceKind;
@@ -65,7 +78,9 @@ export function agentActivityEventFromDirectWorkStreamEvent({
   return {
     ...readable,
     id: agentActivityEventId(event, readable.title),
+    lifecycleStage: directWorkLifecycleStage(event, readable.status),
     rawPreview: rawPreviewForEvent(event),
+    runKind: "direct-work",
     runId: event.runId,
     sourceKind,
     sourceLabel,
@@ -98,6 +113,29 @@ export function mergeAgentActivityEvents(
         : first.timestamp - second.timestamp,
     )
     .slice(-limit);
+}
+
+function directWorkLifecycleStage(
+  event: DirectWorkStreamEvent,
+  readableStatus: AgentActivityStatus,
+): AgentActivityLifecycleStage {
+  if (event.eventKind === "started") {
+    return "started";
+  }
+
+  if (event.isFinal) {
+    if (readableStatus === "cancelled") {
+      return "cancelled";
+    }
+
+    if (readableStatus === "failed") {
+      return "failed";
+    }
+
+    return "completed";
+  }
+
+  return "step";
 }
 
 function readableDirectWorkActivity(

@@ -1,14 +1,22 @@
-import { act } from "react";
+import { act, useState } from "react";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   buttonWithText,
   clickButton,
+  definition,
   directWorkEvent,
+  instance,
+  InteractiveAgentPlaceholderWidget,
+  renderWidgetTree,
   renderWidget,
   setTextareaValue,
   type DirectWorkStreamEvent,
 } from "./InteractiveAgentPlaceholderWidget.test-utils";
+import {
+  mergeAgentActivityEvents,
+  type AgentActivityEvent,
+} from "./agentActivityModel";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type {
   QueueWidgetActionResult,
@@ -17,6 +25,58 @@ import type {
 } from "./queue/agentQueueWidgetApiTypes";
 
 describe("InteractiveAgentPlaceholderWidget Agent Self-Test Runner", () => {
+  it("updates one visible self-test activity lifecycle from Running to Completed", async () => {
+    const publishActivityEvents = vi.fn();
+
+    renderWidgetTree(
+      <SelfTestActivityHarness onPublishEvents={publishActivityEvents} />,
+    );
+
+    const selfTestButton = buttonWithText("Run Agent Self-Test");
+    expect(selfTestButton).toBeDefined();
+
+    act(() => {
+      selfTestButton?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+
+    let rows = activityRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain("Agent self-test started");
+    expect(rows[0]?.textContent).toContain("Running");
+
+    await flushAsync();
+
+    rows = activityRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain("Agent self-test completed");
+    expect(rows[0]?.textContent).toContain("Completed");
+    expect(rows[0]?.textContent).not.toContain("Running");
+    expect(selfTestReportCard().textContent).toContain(
+      "Agent Self-Test Report",
+    );
+
+    const selfTestEvents = publishActivityEvents.mock.calls
+      .flatMap((call) => call[0] as AgentActivityEvent[])
+      .filter((event) => event.runKind === "workspace-agent-self-test");
+
+    expect(selfTestEvents).toHaveLength(2);
+    expect(new Set(selfTestEvents.map((event) => event.runId)).size).toBe(1);
+    expect(selfTestEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          lifecycleStage: "started",
+          status: "running",
+          title: "Agent self-test started",
+        }),
+        expect.objectContaining({
+          lifecycleStage: "completed",
+          status: "completed",
+          title: "Agent self-test completed",
+        }),
+      ]),
+    );
+  });
+
   it("shows Run Agent Self-Test as a visible header action and renders a compact report", async () => {
     const publishActivityEvents = vi.fn();
 
@@ -74,6 +134,7 @@ describe("InteractiveAgentPlaceholderWidget Agent Self-Test Runner", () => {
   });
 
   it("runs self-test without Codex, shell, Queue mutation, workers, Terminal, Git, or rollback execution", async () => {
+    const cancelDirectWork = vi.fn();
     const startDirectWork = vi.fn();
     const runCodexDirectWork = vi.fn();
     const runTerminal = vi.fn();
@@ -87,6 +148,7 @@ describe("InteractiveAgentPlaceholderWidget Agent Self-Test Runner", () => {
     renderWidget({
       onCreateGitCommit: createGitCommit,
       onCreateTerminalPtySession: createTerminalPtySession,
+      onCancelCodexDirectWorkRun: cancelDirectWork,
       onRunCodexDirectWork: runCodexDirectWork,
       onRunTerminalCommand: runTerminal,
       onStartCodexDirectWorkStream: startDirectWork,
@@ -104,6 +166,7 @@ describe("InteractiveAgentPlaceholderWidget Agent Self-Test Runner", () => {
 
     expect(startDirectWork).not.toHaveBeenCalled();
     expect(runCodexDirectWork).not.toHaveBeenCalled();
+    expect(cancelDirectWork).not.toHaveBeenCalled();
     expect(runTerminal).not.toHaveBeenCalled();
     expect(createTerminalPtySession).not.toHaveBeenCalled();
     expect(createGitCommit).not.toHaveBeenCalled();
@@ -169,12 +232,44 @@ describe("InteractiveAgentPlaceholderWidget Agent Self-Test Runner", () => {
   });
 });
 
+function SelfTestActivityHarness({
+  onPublishEvents,
+}: {
+  onPublishEvents: (events: AgentActivityEvent[]) => void;
+}) {
+  const [events, setEvents] = useState<AgentActivityEvent[]>([]);
+
+  return (
+    <InteractiveAgentPlaceholderWidget
+      agentActivityEvents={events}
+      config={{}}
+      definition={definition()}
+      instance={instance()}
+      onPublishAgentActivityEvents={(nextEvents) => {
+        onPublishEvents(nextEvents);
+        setEvents((currentEvents) =>
+          mergeAgentActivityEvents(currentEvents, nextEvents),
+        );
+      }}
+      title="Workspace Agent"
+      workspaceAgentQueueBridge={queueBridge()}
+      workspaceId="workspace_1"
+    />
+  );
+}
+
 async function flushAsync() {
   await act(async () => {
     await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
   });
+}
+
+function activityRows() {
+  return Array.from(
+    document.querySelectorAll<HTMLButtonElement>(".agent-activity-event-row"),
+  );
 }
 
 function selfTestReportCard() {
