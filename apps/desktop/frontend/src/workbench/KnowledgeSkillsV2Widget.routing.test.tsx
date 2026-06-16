@@ -10,7 +10,24 @@ import {
   KnowledgeWidget,
   buildKnowledgeCatalogViewModel,
 } from "./knowledge";
-import { LegacyKnowledgeSkillsWidget } from "./SkillLibraryWidget";
+import { SkillLibraryDocumentImportControls as LegacySkillLibraryDocumentImportControls } from "./knowledge/legacySkillLibrary/SkillLibraryDocumentImportControls";
+import { SkillLibraryDocumentsPanel as LegacySkillLibraryDocumentsPanel } from "./knowledge/legacySkillLibrary/SkillLibraryDocumentsPanel";
+import { SkillLibraryDraftReviewPanel as LegacySkillLibraryDraftReviewPanel } from "./knowledge/legacySkillLibrary/SkillLibraryDraftReviewPanel";
+import { SkillLibrarySkillsPanel as LegacySkillLibrarySkillsPanel } from "./knowledge/legacySkillLibrary/SkillLibrarySkillsPanel";
+import {
+  LegacyKnowledgeSkillsWidget as LegacyKnowledgeSkillsWidgetImplementation,
+  SkillLibraryWidget as LegacySkillLibraryWidget,
+} from "./knowledge/legacySkillLibrary/SkillLibraryWidget";
+import { DEFAULT_DOCUMENT_TITLE as LegacyDefaultDocumentTitle } from "./knowledge/legacySkillLibrary/skillLibraryModel";
+import { SkillLibraryDocumentImportControls as RootSkillLibraryDocumentImportControls } from "./SkillLibraryDocumentImportControls";
+import { SkillLibraryDocumentsPanel as RootSkillLibraryDocumentsPanel } from "./SkillLibraryDocumentsPanel";
+import { SkillLibraryDraftReviewPanel as RootSkillLibraryDraftReviewPanel } from "./SkillLibraryDraftReviewPanel";
+import { SkillLibrarySkillsPanel as RootSkillLibrarySkillsPanel } from "./SkillLibrarySkillsPanel";
+import {
+  LegacyKnowledgeSkillsWidget as RootLegacyKnowledgeSkillsWidget,
+  SkillLibraryWidget as RootSkillLibraryWidget,
+} from "./SkillLibraryWidget";
+import { DEFAULT_DOCUMENT_TITLE as RootDefaultDocumentTitle } from "./skillLibraryModel";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WidgetHost } from "./WidgetHost";
 import type { CoordinatorAttachedContextInput, WidgetInstance } from "./types";
@@ -127,6 +144,24 @@ describe("Knowledge / Skills compatibility routing", () => {
     expect(buildKnowledgeV2CatalogViewModel).toBe(buildKnowledgeCatalogViewModel);
   });
 
+  it("keeps old SkillLibrary root exports as compatibility facades", () => {
+    expect(RootSkillLibraryWidget).toBe(LegacySkillLibraryWidget);
+    expect(RootLegacyKnowledgeSkillsWidget).toBe(
+      LegacyKnowledgeSkillsWidgetImplementation,
+    );
+    expect(RootSkillLibraryDocumentsPanel).toBe(
+      LegacySkillLibraryDocumentsPanel,
+    );
+    expect(RootSkillLibrarySkillsPanel).toBe(LegacySkillLibrarySkillsPanel);
+    expect(RootSkillLibraryDraftReviewPanel).toBe(
+      LegacySkillLibraryDraftReviewPanel,
+    );
+    expect(RootSkillLibraryDocumentImportControls).toBe(
+      LegacySkillLibraryDocumentImportControls,
+    );
+    expect(RootDefaultDocumentTitle).toBe(LegacyDefaultDocumentTitle);
+  });
+
   it("does not mutate Knowledge data on normal Knowledge render", async () => {
     const actions = widgetActions();
 
@@ -171,6 +206,53 @@ describe("Knowledge / Skills compatibility routing", () => {
     expect(actions.createKnowledgeDocument).not.toHaveBeenCalled();
     expect(actions.createSkill).not.toHaveBeenCalled();
     expect(actions.readKnowledgeDocumentImportFile).not.toHaveBeenCalled();
+  });
+
+  it("keeps the existing import flow reachable from the active Knowledge route", async () => {
+    const actions = widgetActions();
+
+    await render(<WidgetHost {...widgetHostProps(actions)} />);
+    await flush();
+
+    await openKnowledgeAction("Import", "Open existing import flow");
+
+    expect(regionByName("Legacy Knowledge / Skills existing flow")).not.toBeNull();
+    expect(regionByName("Knowledge import")).not.toBeNull();
+    expect(
+      document.querySelector('input[aria-label="Choose Knowledge import file"]'),
+    ).not.toBeNull();
+    expect(actions.readKnowledgeDocumentImportFile).not.toHaveBeenCalled();
+    expectProductTextDoesNotExposeV2();
+  });
+
+  it("keeps the existing draft review flow reachable from the active Knowledge route", async () => {
+    const actions = widgetActions();
+
+    await render(<WidgetHost {...widgetHostProps(actions)} />);
+    await flush();
+
+    await openKnowledgeAction("Draft Review", "Open existing draft review flow");
+
+    expect(regionByName("Legacy Knowledge / Skills existing flow")).not.toBeNull();
+    expect(regionByName("Queue Knowledge draft review")).not.toBeNull();
+    expect(text()).toContain("Review Queue result drafts");
+    expect(actions.recordKnowledgeDraftReview).not.toHaveBeenCalled();
+    expectProductTextDoesNotExposeV2();
+  });
+
+  it("keeps the existing Manage Skills flow reachable from the active Knowledge route", async () => {
+    const actions = widgetActions();
+
+    await render(<WidgetHost {...widgetHostProps(actions)} />);
+    await flush();
+
+    await openKnowledgeAction("Manage Skills", "Open existing skills flow");
+
+    expect(regionByName("Legacy Knowledge / Skills existing flow")).not.toBeNull();
+    expect(regionByName("Skill editor")).not.toBeNull();
+    expect(text()).toContain("Skill records are listed in the unified catalog.");
+    expect(actions.createSkill).not.toHaveBeenCalled();
+    expectProductTextDoesNotExposeV2();
   });
 
   it("bridges Use as Context through the host callback once after click", async () => {
@@ -223,7 +305,7 @@ describe("Knowledge / Skills compatibility routing", () => {
 
   it("keeps the legacy Knowledge / Skills component directly renderable", async () => {
     await render(
-      <LegacyKnowledgeSkillsWidget
+      <RootLegacyKnowledgeSkillsWidget
         config={{}}
         definition={getWidgetDefinition(SKILL_LIBRARY_WIDGET_DEFINITION_ID)!}
         instance={knowledgeWidgetInstance()}
@@ -283,6 +365,17 @@ async function clickButton(textContent: string) {
   await act(async () => {
     button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
   });
+}
+
+async function openKnowledgeAction(actionLabel: string, footerLabel: string) {
+  if (!buttonWithText(actionLabel)) {
+    await clickButton("More");
+  }
+
+  await clickButton(actionLabel);
+  expect(regionByName("Legacy Knowledge / Skills existing flow")).toBeNull();
+  await clickButton(footerLabel);
+  await flush();
 }
 
 function buttonWithText(textContent: string): HTMLButtonElement | null {

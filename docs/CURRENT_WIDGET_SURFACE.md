@@ -957,10 +957,13 @@ v0.1 product widget.
   widget. It uses the existing `skill-library` widget identity for persisted
   compatibility. The active frontend source lives under
   `apps/desktop/frontend/src/workbench/knowledge/*`; KnowledgeV2 source paths
-  remain compatibility re-exports/wrappers and SkillLibrary legacy flow names
-  remain where retained. Cleanup sequencing and compatibility constraints are
-  recorded in `docs/KNOWLEDGE_MODULE_CLEANUP_AUDIT.md`. Product-facing copy
-  should use Knowledge or Knowledge / Skills terminology, not V2 naming.
+  remain compatibility re-exports/wrappers, retained SkillLibrary legacy flow
+  implementation lives under
+  `apps/desktop/frontend/src/workbench/knowledge/legacySkillLibrary/*`, and
+  old root SkillLibrary paths remain compatibility facades. Cleanup sequencing
+  and compatibility constraints are recorded in
+  `docs/KNOWLEDGE_MODULE_CLEANUP_AUDIT.md`. Product-facing copy should use
+  Knowledge or Knowledge / Skills terminology, not V2 naming.
 - Provides explicit operator-authored Skill record create, list, read, update,
   delete, review-status, and tags flows through workspace Skill APIs.
 - Provides explicit Knowledge Document create, list, read, update, delete, and

@@ -10,7 +10,7 @@ import {
 import {
   draftRiskNotes,
   sourceNotesForDraft,
-} from "./SkillLibraryDocumentsPanel.helpers";
+} from "./knowledge/legacySkillLibrary/SkillLibraryDocumentsPanel.helpers";
 import type { WidgetRenderProps } from "./types";
 
 type AcceptKnowledgeDraftItemParams = {

@@ -3,7 +3,7 @@ import type { Skill } from "../../../workspace/types/skills";
 import {
   knowledgeDocumentWorkspaceAgentContextText,
   skillCoordinatorContextText,
-} from "../../skillLibraryModel";
+} from "../legacySkillLibrary/skillLibraryModel";
 import type { CoordinatorAttachedContextInput, WidgetRenderProps } from "../../types";
 import type { KnowledgeV2CatalogItem } from "../model/knowledgeCatalogTypes";
 

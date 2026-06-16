@@ -35,6 +35,11 @@ behavior, or Knowledge data changes.
   `apps/desktop/frontend/src/workbench/knowledge/*`.
 - Old `apps/desktop/frontend/src/workbench/widgetV2/knowledgeV2/*` source paths
   remain as compatibility re-exports/wrappers.
+- Legacy SkillLibrary implementation home after Block 004:
+  `apps/desktop/frontend/src/workbench/knowledge/legacySkillLibrary/*`.
+- Old root `apps/desktop/frontend/src/workbench/SkillLibrary*`,
+  `useSkillLibrary*`, and `skillLibraryModel*` paths remain compatibility
+  facades.
 
 The current product route is therefore Knowledge through the saved-compatible
 `skill-library` identity, while the active source/component route still uses
@@ -244,6 +249,10 @@ imports compiling during the transition.
 
 - Move retained legacy flows behind `workbench/knowledge/legacySkillLibrary`.
 - Keep New, Import, Draft Review, and Manage Skills behavior working.
+- Status: completed in Block 004. Legacy SkillLibrary implementation now lives
+  under `apps/desktop/frontend/src/workbench/knowledge/legacySkillLibrary/*`.
+  Root SkillLibrary, useSkillLibrary, and skillLibraryModel paths remain thin
+  compatibility facades. No legacy flows were deleted.
 
 005 remove dead legacy pieces after usage proof:
 

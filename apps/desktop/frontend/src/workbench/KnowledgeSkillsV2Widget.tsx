@@ -4,7 +4,7 @@ import { WidgetFrame } from "../design-system/WidgetFrame";
 import {
   SkillLibraryDocumentsPanel,
   type SkillLibraryDocumentsPanelHandle,
-} from "./SkillLibraryDocumentsPanel";
+} from "./knowledge/legacySkillLibrary/SkillLibraryDocumentsPanel";
 import { KnowledgeWidget } from "./knowledge";
 import type { WidgetRenderProps } from "./types";
 import { useWidgetRuntimeContext } from "./widgetRuntimeContext";
