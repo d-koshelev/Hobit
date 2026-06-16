@@ -688,6 +688,13 @@ the local executor flow visible to operators.
   modeling, Smart Queue eligibility, Queue lifecycle state, or role-boundary
   work. It separates Queue Importer, Queue Coordinator, Queue Scheduler,
   Worker Agent, Workspace Agent assistance, and human/operator approval.
+- `docs/QUEUE_DOGFOOD_LIFECYCLE_CONTRACT.md` - current frontend pure model
+  contract for the dogfooding Queue lifecycle. Read before implementing
+  ticket state, agent/prompt state, awaiting review, in review, review
+  message/ACK, coordinator decision, follow-up prompt, validation approval,
+  fake commit result, or done-gated dependency model work. It does not add
+  backend durability, storage/schema, real worker execution, scheduler
+  redesign, Git commit execution, rollback, or UI redesign.
 - `docs/QUEUE_COORDINATOR_CONTRACT.md` - planned Queue Coordinator decision
   contract. Read before retry/block/fail/review/close/drain/stop decision
   modeling or Workspace Agent assistance escalation work. Queue Coordinator
@@ -965,6 +972,7 @@ These documents should not override the Workspace Agent model or
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
 - Smart Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md`,
   `docs/SMART_QUEUE_WORKFLOW_CONTRACT.md`,
+  `docs/QUEUE_DOGFOOD_LIFECYCLE_CONTRACT.md`,
   `docs/QUEUE_COORDINATOR_CONTRACT.md`,
   `docs/QUEUE_DEPENDENCY_STATE_CONTRACT.md`, and
   `docs/QUEUE_ASSISTANCE_PROTOCOL_CONTRACT.md` before any Queue surface,

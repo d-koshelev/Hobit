@@ -72,6 +72,16 @@ During the smoke, verify these product labels appear where applicable:
 - `Dry-run only`
 - `Adapter not available`
 - `Safe check skipped`
+- `Awaiting review`
+- `In review`
+- `Done`
+- `Failure`
+- `Agent completed`
+- `Agent not completed`
+- `Agent failed`
+- `Follow-up prompt running`
+- `Review acknowledged`
+- `Waiting for coordinator review`
 
 ## Smoke Flow
 
@@ -204,13 +214,26 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: this does not replace all manual Queue UI smoke until widget
       execution adapters and broader Queue widget self-test coverage exist.
 
-19. Check for side effects.
+19. Run the pure Queue dogfood lifecycle model self-test through automated
+    frontend tests.
+    - Expected: `smartQueueDogfoodLifecycle.test.ts` covers create, queue,
+      start, agent completion, review message, coordinator ACK, validation
+      approval, fake commit result attachment, done, and dependent startability
+      only after done.
+    - Expected: the follow-up branch returns the same item to `Running`,
+      reports `Follow-up prompt running`, increments `additionalPromptCount`,
+      and does not mark the ticket done.
+    - Expected: the self-test is model-only; it does not start workers, call
+      Codex or shell, launch Terminal, mutate Git, execute rollback, create
+      Queue views, or write backend/storage/schema state.
+
+20. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback
       proposal preparation.
 
-20. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
+21. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
     log details where available.
     - Expected: the prompt sent to Codex includes Hobit capability context,
       compact Queue/agent capability names, and policy rules before the user
@@ -236,9 +259,10 @@ For every failed smoke step, capture:
 
 ## Next Engineering Blocks
 
-1. Manual smoke fixes first.
+1. Wire the pure dogfood lifecycle model into controller/UI adapters.
 2. Durable backend persistence design.
 3. Backend scheduler/runtime ownership design.
-4. Durable attempt/coordinator decision persistence.
-5. Safe Workspace Agent handoff integration.
-6. Rollback execution design only after the approval/safety contract.
+4. Durable attempt/coordinator decision/review ACK persistence.
+5. Worker, validation evidence, and commit result integration.
+6. Safe Workspace Agent handoff integration.
+7. Rollback execution design only after the approval/safety contract.
