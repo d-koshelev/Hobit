@@ -42,31 +42,31 @@ export const updateWorkspaceNote: WorkspaceApi["updateWorkspaceNote"] = async (
 
 export const createSkill: WorkspaceApi["createSkill"] = async (_request) => {
   throw new Error(
-    "Skill Library persistence is only available in the Tauri desktop shell. Browser fallback cannot persist skills.",
+    "Knowledge / Skills persistence is only available in the Tauri desktop shell. Browser fallback cannot persist skills.",
   );
 };
 
 export const listSkills: WorkspaceApi["listSkills"] = async (_request) => {
   throw new Error(
-    "Skill Library persistence is only available in the Tauri desktop shell. Browser fallback cannot read skills.",
+    "Knowledge / Skills persistence is only available in the Tauri desktop shell. Browser fallback cannot read skills.",
   );
 };
 
 export const getSkill: WorkspaceApi["getSkill"] = async (_request) => {
   throw new Error(
-    "Skill Library persistence is only available in the Tauri desktop shell. Browser fallback cannot read skills.",
+    "Knowledge / Skills persistence is only available in the Tauri desktop shell. Browser fallback cannot read skills.",
   );
 };
 
 export const updateSkill: WorkspaceApi["updateSkill"] = async (_request) => {
   throw new Error(
-    "Skill Library persistence is only available in the Tauri desktop shell. Browser fallback cannot update skills.",
+    "Knowledge / Skills persistence is only available in the Tauri desktop shell. Browser fallback cannot update skills.",
   );
 };
 
 export const deleteSkill: WorkspaceApi["deleteSkill"] = async (_request) => {
   throw new Error(
-    "Skill Library persistence is only available in the Tauri desktop shell. Browser fallback cannot delete skills.",
+    "Knowledge / Skills persistence is only available in the Tauri desktop shell. Browser fallback cannot delete skills.",
   );
 };
 

@@ -957,7 +957,8 @@ v0.1 product widget.
   widget. It uses the existing `skill-library` widget identity for persisted
   compatibility. The active implementation still carries KnowledgeV2 and
   SkillLibrary source names; cleanup sequencing and compatibility constraints
-  are recorded in `docs/KNOWLEDGE_MODULE_CLEANUP_AUDIT.md`.
+  are recorded in `docs/KNOWLEDGE_MODULE_CLEANUP_AUDIT.md`. Product-facing
+  copy should use Knowledge or Knowledge / Skills terminology, not V2 naming.
 - Provides explicit operator-authored Skill record create, list, read, update,
   delete, review-status, and tags flows through workspace Skill APIs.
 - Provides explicit Knowledge Document create, list, read, update, delete, and
@@ -1083,7 +1084,8 @@ v0.1 product widget.
   user-facing name for this surface. Do not rename the id in cleanup tasks.
 - `skill-library` remains the internal Knowledge / Skills definition id and
   component key for persisted compatibility. Skill Library was the earlier
-  user-facing title for this surface. Do not rename the id in cleanup tasks.
+  user-facing title for this surface; saved instances may normalize that title
+  to Knowledge / Skills. Do not rename the id in cleanup tasks.
 - Placeholder-named components such as `AgentRunPlaceholderWidget`,
   `AgentQueuePlaceholderWidget`, `InteractiveAgentPlaceholderWidget`, and
   `NotesPlaceholderWidget` may contain current product UI. The names are

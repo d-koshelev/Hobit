@@ -170,7 +170,7 @@ export function KnowledgeV2CatalogBrowser({
 
     if (!item) {
       setActionNotice({
-        message: disabledReason ?? "Select a KnowledgeV2 item before deleting.",
+        message: disabledReason ?? "Select a Knowledge item before deleting.",
         status: "blocked",
       });
       return;
@@ -280,7 +280,7 @@ export function KnowledgeV2CatalogBrowser({
 
     if (selectedEntries.length === 0 || selectedSources.length === 0) {
       setActionNotice({
-        message: "Select at least one attachable KnowledgeV2 item before attaching.",
+        message: "Select at least one attachable Knowledge item before attaching.",
         status: "blocked",
       });
       return;
@@ -315,7 +315,7 @@ export function KnowledgeV2CatalogBrowser({
         message:
           selectedSources.length === 1
             ? `${selectedSources[0].item.title} attached to Workspace Agent as visible current-session context.`
-            : `${selectedSources.length.toString()} KnowledgeV2 items attached to Workspace Agent as visible current-session context.`,
+            : `${selectedSources.length.toString()} Knowledge items attached to Workspace Agent as visible current-session context.`,
         status: "attached",
       });
       setIsContextPickerOpen(false);
@@ -326,7 +326,7 @@ export function KnowledgeV2CatalogBrowser({
     if (target === "workspace_agent_next") {
       setActionNotice({
         message:
-          "Workspace Agent next-run context bridge is not wired in KnowledgeV2; nothing was attached.",
+          "Workspace Agent next-run context bridge is not wired in Knowledge; nothing was attached.",
         status: "unavailable",
       });
       return;
@@ -357,7 +357,7 @@ export function KnowledgeV2CatalogBrowser({
         selectedSources.length === 1
           ? latestNotice
           : {
-              message: `${selectedSources.length.toString()} KnowledgeV2 items attached to the selected Queue task.`,
+              message: `${selectedSources.length.toString()} Knowledge items attached to the selected Queue task.`,
               status: "attached",
             },
       );
@@ -381,7 +381,7 @@ export function KnowledgeV2CatalogBrowser({
       message:
         selectedEntries.length === 1
           ? `${selectedEntries[0].item.title} reference copied.`
-          : `${selectedEntries.length.toString()} KnowledgeV2 references copied.`,
+          : `${selectedEntries.length.toString()} Knowledge references copied.`,
       status: "copied",
     });
     setIsContextPickerOpen(false);
@@ -434,7 +434,7 @@ export function KnowledgeV2CatalogBrowser({
         message:
           error instanceof Error
             ? error.message
-            : "Unable to delete this KnowledgeV2 item.",
+            : "Unable to delete this Knowledge item.",
         status: "unavailable",
       });
     } finally {
@@ -444,7 +444,7 @@ export function KnowledgeV2CatalogBrowser({
 
   return (
     <>
-      <WidgetV2Toolbar label="Knowledge v2 search and filter row">
+      <WidgetV2Toolbar label="Knowledge search and filter row">
         <KnowledgeV2Filters
           onChange={setFilters}
           resultCount={viewModel.filteredItems.length}
@@ -615,7 +615,7 @@ function KnowledgeV2BridgeNotice({
 
   return (
     <section
-      aria-label="KnowledgeV2 data bridge status"
+      aria-label="Knowledge data bridge status"
       className="knowledge-v2-bridge-notice"
       data-status={status}
     >

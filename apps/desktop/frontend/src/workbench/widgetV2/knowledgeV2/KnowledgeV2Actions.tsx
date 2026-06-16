@@ -122,13 +122,13 @@ export function KnowledgeV2Actions({
   return (
     <>
       <div
-        aria-label="KnowledgeV2 explicit actions"
+        aria-label="Knowledge explicit actions"
         className="knowledge-v2-actions"
       >
         <TopbarGroup
           className="knowledge-v2-action-group knowledge-v2-view-toggle knowledge-v2-action-group-spaced"
           data-group="view"
-          label="KnowledgeV2 view switcher"
+          label="Knowledge view switcher"
         >
           <Button
             aria-pressed={viewMode === "list"}
@@ -148,7 +148,7 @@ export function KnowledgeV2Actions({
         <TopbarGroup
           className="knowledge-v2-action-group knowledge-v2-primary-actions knowledge-v2-action-group-spaced"
           data-group="primary"
-          label="KnowledgeV2 primary actions"
+          label="Knowledge primary actions"
           priority="primary"
         >
           {primaryActions.map((action) => (
@@ -170,7 +170,7 @@ export function KnowledgeV2Actions({
         <TopbarGroup
           className="knowledge-v2-action-group knowledge-v2-more-actions knowledge-v2-action-group-spaced"
           data-group="more"
-          label="KnowledgeV2 secondary actions"
+          label="Knowledge secondary actions"
         >
           <Button
             aria-controls="knowledge-v2-more-actions-menu"
@@ -183,7 +183,7 @@ export function KnowledgeV2Actions({
           </Button>
           {isMoreOpen ? (
             <div
-              aria-label="KnowledgeV2 More menu"
+              aria-label="Knowledge More menu"
               className="knowledge-v2-more-menu"
               id="knowledge-v2-more-actions-menu"
               role="menu"
@@ -201,7 +201,7 @@ export function KnowledgeV2Actions({
               ))}
               {onOpenDebug ? (
                 <Button
-                  aria-label="KnowledgeV2 debug diagnostics"
+                  aria-label="Knowledge diagnostics"
                   onClick={() => {
                     setIsMoreOpen(false);
                     onOpenDebug();
@@ -225,7 +225,7 @@ export function KnowledgeV2Actions({
         }
         bodyClassName="knowledge-v2-action-popup-body"
         className="knowledge-v2-action-popup-shell"
-        eyebrow="KnowledgeV2 action"
+        eyebrow="Knowledge action"
         footer={
           openAction ? (
             <KnowledgeV2ActionFooter
@@ -418,22 +418,22 @@ function defaultActionAvailability({
     draftReview: onDraftReview
       ? available()
       : unavailable(
-          "Draft review management is unavailable because KnowledgeV2 did not receive an explicit draft-review callback.",
+          "Draft review management is unavailable because Knowledge did not receive an explicit draft-review callback.",
         ),
     importFile: onImport
       ? available()
       : unavailable(
-          "Import is unavailable because KnowledgeV2 did not receive an explicit import-flow callback.",
+          "Import is unavailable because Knowledge did not receive an explicit import-flow callback.",
         ),
     manageSkills: onManageSkills
       ? available()
       : unavailable(
-          "Skill management is unavailable because KnowledgeV2 did not receive an explicit Skill-management callback.",
+          "Skill management is unavailable because Knowledge did not receive an explicit Skill-management callback.",
         ),
     newKnowledge: onNew
       ? available()
       : unavailable(
-          "Creation is unavailable because KnowledgeV2 did not receive an explicit create-flow callback.",
+          "Creation is unavailable because Knowledge did not receive an explicit create-flow callback.",
         ),
   };
 }
@@ -494,7 +494,7 @@ function availabilityStatusText(availability: KnowledgeV2ActionAvailability) {
     case "partial":
       return "Available with limits";
     case "unavailable":
-      return "Unavailable in KnowledgeV2";
+      return "Unavailable in Knowledge";
   }
 }
 
@@ -590,6 +590,6 @@ function titleForAction(action: KnowledgeV2ActionKind | null) {
     case "manage-skills":
       return "Manage Skills";
     default:
-      return "KnowledgeV2 action";
+      return "Knowledge action";
   }
 }

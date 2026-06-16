@@ -128,7 +128,7 @@ export function KnowledgeV2Widget({
             onClose={() => setIsDebugOpen(false)}
             open={isDebugOpen}
             returnFocusRef={debugButtonRef}
-            title="KnowledgeV2 diagnostics"
+            title="Knowledge diagnostics"
           >
             <KnowledgeV2DebugContent model={debugModel} />
           </WidgetDebugPopup>
@@ -379,9 +379,9 @@ function knowledgeV2ActionAvailability({
           reason: productUnavailableReason("Import"),
           state: "unavailable",
         }
-      : {
+        : {
           details: [
-            "Direct KnowledgeV2 file picker is not wired.",
+            "Direct Knowledge file picker is not wired.",
             "Raw path import is not exposed in this popup.",
           ],
           reason: null,

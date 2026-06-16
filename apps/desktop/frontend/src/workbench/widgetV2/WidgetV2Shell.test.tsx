@@ -119,7 +119,7 @@ describe("Widget V2 shell primitives", () => {
 
   it("renders optional rail, inspector, and drawer slots", async () => {
     await renderWidget(
-      <WidgetV2Shell title="Knowledge V2">
+      <WidgetV2Shell title="Knowledge">
         <WidgetV2PanelLayout
           bottomDrawer={
             <WidgetV2BottomDrawer label="Activity drawer">

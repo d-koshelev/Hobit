@@ -45,8 +45,8 @@ describe("SkillLibraryWidget Workspace Agent Skill attach", () => {
 
     expect(attachToCoordinator).toHaveBeenCalledTimes(1);
     const request = attachToCoordinator.mock.calls[0][0];
-    expect(request.sourceLabel).toBe("Skill Library / Skill");
-    expect(request.contextText).toContain("Skill Library Skill");
+    expect(request.sourceLabel).toBe("Knowledge / Skills / Skill");
+    expect(request.contextText).toContain("Knowledge / Skills Skill");
     expect(request.contextText).toContain("Title: Frontend review");
     expect(request.contextText).toContain(
       "When to use:\nBefore merging frontend changes",
@@ -73,7 +73,7 @@ describe("SkillLibraryWidget Workspace Agent Skill attach", () => {
     const skill = skillFixture({
       skillId: "skill_saved",
       title: "Saved Skill",
-      whenToUse: "Use from the Skill Library only",
+      whenToUse: "Use from Knowledge / Skills only",
     });
 
     renderWidget({

@@ -364,7 +364,7 @@ function KnowledgeV2SourceTab({ item }: { readonly item: KnowledgeV2CatalogItem 
         ) : null}
         {item.sourcePreview ? (
           <pre
-            aria-label="KnowledgeV2 source content"
+            aria-label="Knowledge source content"
             className="knowledge-v2-source-content"
           >
             {item.sourcePreview}
@@ -397,7 +397,7 @@ function KnowledgeV2VersionsTab({ item }: { readonly item: KnowledgeV2CatalogIte
       <section className="knowledge-v2-preview-section knowledge-v2-unavailable-panel">
         <h4>Version history unavailable</h4>
         <p>
-          Full version history is not wired in KnowledgeV2. This panel shows
+          Full version history is not wired in Knowledge. This panel shows
           only current item metadata already present on the selected record.
         </p>
       </section>
@@ -411,7 +411,7 @@ function KnowledgeV2UsageTab() {
       <section className="knowledge-v2-preview-section knowledge-v2-unavailable-panel">
         <h4>Usage tracking unavailable</h4>
         <p>
-          Where-used tracking is not wired in KnowledgeV2. No Workspace Agent,
+          Where-used tracking is not wired in Knowledge. No Workspace Agent,
           Queue, run, prompt, or widget usage data is being invented here.
         </p>
       </section>

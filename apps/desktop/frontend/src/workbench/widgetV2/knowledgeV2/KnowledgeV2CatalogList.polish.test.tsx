@@ -36,12 +36,12 @@ describe("KnowledgeV2 catalog row polish", () => {
     expect(catalog?.textContent).toContain("Release guide");
     expect(catalog?.textContent).toContain("React review");
     expect(catalog?.textContent).toContain("2 items shown.");
-    expect(regionByName("Knowledge v2 preview details")).toBeNull();
+    expect(regionByName("Knowledge preview details")).toBeNull();
     expect(regionByName("Knowledge preview")).toBeNull();
     await clickButton("Release guide");
     expect(regionByName("Knowledge preview")).not.toBeNull();
     expect(
-      document.querySelector("[aria-label='KnowledgeV2 helper rail']"),
+      document.querySelector("[aria-label='Knowledge helper rail']"),
     ).toBeNull();
     expect(text()).not.toContain("Some catalog bridges are unavailable.");
     expect(text()).not.toContain("Catalog data unavailable.");
@@ -78,7 +78,7 @@ describe("KnowledgeV2 catalog row polish", () => {
     expect(catalog?.textContent).toContain("Release guide four");
     expect(catalog?.textContent).toContain("Review skill");
     expect(catalog?.textContent).toContain("5 items shown.");
-    expect(regionByName("Knowledge v2 preview details")).toBeNull();
+    expect(regionByName("Knowledge preview details")).toBeNull();
     expect(regionByName("Knowledge preview")).toBeNull();
     await clickButton("Release guide one");
     expect(regionByName("Knowledge preview")).not.toBeNull();
@@ -122,7 +122,7 @@ describe("KnowledgeV2 catalog row polish", () => {
     expect(catalog?.textContent).toContain("Release guide one");
     expect(catalog?.textContent).toContain("Release guide six");
     expect(catalog?.textContent).not.toContain("items shown.");
-    expect(regionByName("Knowledge v2 preview details")).toBeNull();
+    expect(regionByName("Knowledge preview details")).toBeNull();
     expect(regionByName("Knowledge preview")).toBeNull();
   });
 
@@ -221,13 +221,13 @@ describe("KnowledgeV2 catalog row polish", () => {
     await clickButtonByLabel("More actions for Release guide");
     await clickButton("Delete");
 
-    expect(regionByName("KnowledgeV2 delete confirmation")?.textContent).toContain(
+    expect(regionByName("Knowledge delete confirmation")?.textContent).toContain(
       'Delete "Release guide"?',
     );
     expect(onDeleteKnowledgeDocument).not.toHaveBeenCalled();
 
     await clickButton("Cancel");
-    expect(regionByName("KnowledgeV2 delete confirmation")).toBeNull();
+    expect(regionByName("Knowledge delete confirmation")).toBeNull();
     expect(onDeleteKnowledgeDocument).not.toHaveBeenCalled();
 
     await clickButtonByLabel("More actions for Release guide");
@@ -259,7 +259,7 @@ describe("KnowledgeV2 catalog row polish", () => {
       ) ?? null;
     expect(deleteButton?.disabled).toBe(true);
     expect(menu?.textContent).toContain(
-      "KnowledgeV2 did not receive the existing Knowledge Document delete action.",
+      "Knowledge did not receive the existing Knowledge Document delete action.",
     );
   });
 

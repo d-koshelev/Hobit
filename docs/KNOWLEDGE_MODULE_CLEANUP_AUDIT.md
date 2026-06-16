@@ -220,6 +220,10 @@ imports compiling during the transition.
 - Replace normal UI/debug-visible product labels that say KnowledgeV2 with
   Knowledge language.
 - Keep persisted ids and compatibility exports.
+- Status: completed for active product-facing copy in Block 002. Source
+  symbols, file names, CSS selectors, compatibility aliases, and WidgetV2
+  smoke/metadata identities may still carry V2 naming until later cleanup
+  blocks.
 
 003 move active source into `workbench/knowledge` with compatibility exports:
 

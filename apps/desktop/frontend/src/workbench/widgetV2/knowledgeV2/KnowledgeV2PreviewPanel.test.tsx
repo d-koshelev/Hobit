@@ -142,7 +142,7 @@ describe("KnowledgeV2PreviewPanel", () => {
     await clickButtonInRegion("Knowledge preview", "Source");
 
     const sourcePreview =
-      regionByName("KnowledgeV2 source content")?.textContent ?? "";
+      regionByName("Knowledge source content")?.textContent ?? "";
 
     expect(sourcePreview).toContain("#region Assembly Vendor.SDK");
     expect(sourcePreview).not.toContain("TAIL_SHOULD_NOT_RENDER");

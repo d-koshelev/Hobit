@@ -69,7 +69,7 @@ export function knowledgeV2ContextAffordanceState(
   source: KnowledgeV2ContextAffordanceSource | null,
 ): KnowledgeV2ContextAffordanceState {
   if (!source) {
-    return blocked("Source record is unavailable in this KnowledgeV2 view.");
+    return blocked("Source record is unavailable in this Knowledge view.");
   }
 
   if (source.kind === "skill") {
@@ -129,7 +129,7 @@ export function knowledgeV2WorkspaceAgentContextInput(
   if (sources.length > 1) {
     return {
       contextText: sources.map(knowledgeV2ContextText).join("\n\n---\n\n"),
-      sourceLabel: `KnowledgeV2 / ${sources.length.toString()} selected items`,
+      sourceLabel: `Knowledge / Skills / ${sources.length.toString()} selected items`,
     };
   }
 
@@ -137,13 +137,13 @@ export function knowledgeV2WorkspaceAgentContextInput(
   if (singleSource.kind === "skill") {
     return {
       contextText: skillCoordinatorContextText(singleSource.skill),
-      sourceLabel: "KnowledgeV2 / Skill",
+      sourceLabel: "Knowledge / Skills / Skill",
     };
   }
 
   return {
     contextText: knowledgeDocumentWorkspaceAgentContextText(singleSource.document),
-    sourceLabel: "KnowledgeV2 / Knowledge Document",
+    sourceLabel: "Knowledge / Skills / Knowledge Document",
   };
 }
 
@@ -186,7 +186,7 @@ export async function attachKnowledgeV2SourceToQueueTask(
       message:
         error instanceof Error
           ? error.message
-          : "Unable to attach this KnowledgeV2 item to the selected Queue task.",
+          : "Unable to attach this Knowledge item to the selected Queue task.",
       status: "unavailable",
     };
   }
@@ -194,7 +194,7 @@ export async function attachKnowledgeV2SourceToQueueTask(
 
 export function knowledgeV2ReferenceText(item: KnowledgeV2CatalogItem) {
   return [
-    `KnowledgeV2 reference: ${item.title}`,
+    `Knowledge reference: ${item.title}`,
     `Kind: ${formatToken(item.recordKind)}`,
     `Type: ${formatToken(item.type)}`,
     `Record id: ${item.recordId}`,
@@ -218,7 +218,7 @@ export function formatKnowledgeV2ContextUnavailableReason(
     return reason ?? "This item is not approved for context use.";
   }
   if (!bridgeAvailable) {
-    return `${bridgeLabel} attach bridge is unavailable in this KnowledgeV2 path.`;
+    return `${bridgeLabel} attach bridge is unavailable in this Knowledge path.`;
   }
   return null;
 }

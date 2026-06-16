@@ -75,7 +75,7 @@ function ActionFooterButton({
     );
   }
 
-  const reason = availability.reason ?? `${label} is unavailable in KnowledgeV2.`;
+  const reason = availability.reason ?? `${label} is unavailable in Knowledge.`;
 
   return (
     <div className="knowledge-v2-action-status">

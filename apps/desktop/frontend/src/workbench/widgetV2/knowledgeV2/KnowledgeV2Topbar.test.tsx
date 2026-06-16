@@ -58,30 +58,30 @@ describe("KnowledgeV2Widget topbar", () => {
     expect(
       document.querySelector(".knowledge-v2-action-group[data-group='more']"),
     ).not.toBeNull();
-    expect(regionByName("KnowledgeV2 view switcher")?.textContent).toContain(
+    expect(regionByName("Knowledge view switcher")?.textContent).toContain(
       "List",
     );
-    expect(regionByName("KnowledgeV2 view switcher")?.textContent).toContain(
+    expect(regionByName("Knowledge view switcher")?.textContent).toContain(
       "Cards",
     );
-    expect(regionByName("KnowledgeV2 primary actions")?.textContent).toContain(
+    expect(regionByName("Knowledge primary actions")?.textContent).toContain(
       "New",
     );
-    expect(regionByName("KnowledgeV2 primary actions")?.textContent).toContain(
+    expect(regionByName("Knowledge primary actions")?.textContent).toContain(
       "Import",
     );
     expect(
-      regionByName("KnowledgeV2 primary actions")?.textContent,
+      regionByName("Knowledge primary actions")?.textContent,
     ).not.toContain("Draft Review");
     expect(
-      regionByName("KnowledgeV2 primary actions")?.textContent,
+      regionByName("Knowledge primary actions")?.textContent,
     ).not.toContain("Manage Skills");
     expect(buttonWithText("Debug")).toBeNull();
     expect(
-      regionByName("Knowledge v2 search and filter row")?.textContent,
+      regionByName("Knowledge search and filter row")?.textContent,
     ).toContain("Sort");
     expect(
-      regionByName("Knowledge v2 search and filter row")?.textContent,
+      regionByName("Knowledge search and filter row")?.textContent,
     ).toContain("More filters");
     expect(onNew).not.toHaveBeenCalled();
     expect(onImport).not.toHaveBeenCalled();
@@ -106,8 +106,8 @@ describe("KnowledgeV2Widget topbar", () => {
       />,
     );
 
-    const moreGroup = regionByName("KnowledgeV2 secondary actions");
-    const managementGroup = regionByName("KnowledgeV2 management actions");
+    const moreGroup = regionByName("Knowledge secondary actions");
+    const managementGroup = regionByName("Knowledge management actions");
 
     expect(moreGroup?.className).toContain("knowledge-v2-more-actions");
     expect(moreGroup?.className).toContain("knowledge-v2-action-group-spaced");
@@ -117,11 +117,11 @@ describe("KnowledgeV2Widget topbar", () => {
     expect(moreGroup?.textContent).not.toContain("Debug");
 
     await clickButtonInRegion(
-      "KnowledgeV2 secondary actions",
+      "Knowledge secondary actions",
       "More",
     );
 
-    const moreMenu = regionByName("KnowledgeV2 More menu");
+    const moreMenu = regionByName("Knowledge More menu");
     expect(moreMenu?.getAttribute("role")).toBe("menu");
     expect(moreMenu?.textContent).toContain("Draft Review");
     expect(moreMenu?.textContent).toContain("Manage Skills");
@@ -132,11 +132,11 @@ describe("KnowledgeV2Widget topbar", () => {
     expect(onDraftReview).not.toHaveBeenCalled();
     expect(onManageSkills).not.toHaveBeenCalled();
 
-    await clickButtonInRegion("KnowledgeV2 More menu", "Manage Skills");
+    await clickButtonInRegion("Knowledge More menu", "Manage Skills");
 
     expect(dialogByName("Manage Skills")?.textContent).toContain("Skill records");
     expect(dialogByName("Manage Skills")?.textContent).not.toContain("Categories");
-    expect(regionByName("KnowledgeV2 More menu")).toBeNull();
+    expect(regionByName("Knowledge More menu")).toBeNull();
     expect(onManageSkills).not.toHaveBeenCalled();
   });
 });

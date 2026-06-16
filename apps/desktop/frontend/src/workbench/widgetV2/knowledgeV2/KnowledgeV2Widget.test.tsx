@@ -35,8 +35,8 @@ afterEach(() => {
 });
 
 async function openMoreAction(label: string) {
-  await clickButtonInRegion("KnowledgeV2 secondary actions", "More");
-  await clickButtonInRegion("KnowledgeV2 More menu", label);
+  await clickButtonInRegion("Knowledge secondary actions", "More");
+  await clickButtonInRegion("Knowledge More menu", label);
 }
 
 describe("KnowledgeV2Widget browser", () => {
@@ -65,7 +65,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(regionByName("Knowledge catalog items")?.getAttribute("role")).toBe(
       "table",
     );
-    expect(regionByName("Knowledge v2 preview details")).toBeNull();
+    expect(regionByName("Knowledge preview details")).toBeNull();
     expect(regionByName("Knowledge preview")).toBeNull();
     expect(text()).toContain("Title");
     expect(text()).toContain("Type");
@@ -132,7 +132,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(text()).toContain("Data sources partial");
     expect(text()).not.toContain("Some catalog bridges are unavailable.");
     expect(
-      document.querySelector("[aria-label='KnowledgeV2 data bridge status']"),
+      document.querySelector("[aria-label='Knowledge data bridge status']"),
     ).toBeNull();
     expect(text()).not.toContain(
       "the current list action requires a selected draft pack",
@@ -145,7 +145,7 @@ describe("KnowledgeV2Widget browser", () => {
 
     await keyDown("Escape");
     await openMoreAction("Debug");
-    const details = dialogByName("KnowledgeV2 diagnostics");
+    const details = dialogByName("Knowledge diagnostics");
     expect(details?.textContent).toContain("Documents loaded");
     expect(details?.textContent).toContain("1");
     expect(details?.textContent).toContain("Skill list bridge");
@@ -199,7 +199,7 @@ describe("KnowledgeV2Widget browser", () => {
 
     await keyDown("Escape");
     await openMoreAction("Debug");
-    expect(dialogByName("KnowledgeV2 diagnostics")?.textContent).toContain(
+    expect(dialogByName("Knowledge diagnostics")?.textContent).toContain(
       "documents: documents offline",
     );
   });
@@ -669,13 +669,13 @@ describe("KnowledgeV2Widget browser", () => {
     expect(buttonWithText("Manage Skills")).toBeNull();
     expect(buttonWithText("Help")).toBeNull();
     expect(buttonWithText("Debug")).toBeNull();
-    await clickButtonInRegion("KnowledgeV2 secondary actions", "More");
-    const moreMenuText = regionByName("KnowledgeV2 More menu")?.textContent;
+    await clickButtonInRegion("Knowledge secondary actions", "More");
+    const moreMenuText = regionByName("Knowledge More menu")?.textContent;
     expect(moreMenuText).toContain("Draft Review");
     expect(moreMenuText).toContain("Manage Skills");
     expect(moreMenuText).toContain("Debug");
-    await clickButtonInRegion("KnowledgeV2 secondary actions", "More");
-    expect(["KnowledgeV2 helper rail", "KnowledgeV2 legend rail", "KnowledgeV2 tips rail"].some((label) => document.querySelector(`[aria-label='${label}']`))).toBe(false);
+    await clickButtonInRegion("Knowledge secondary actions", "More");
+    expect(["Knowledge helper rail", "Knowledge legend rail", "Knowledge tips rail"].some((label) => document.querySelector(`[aria-label='${label}']`))).toBe(false);
     ["draft payload", "Raw draft contents", "Choose or drop a text/Markdown file", "Open existing import flow", "New document", "Open existing create flow", "Normal context candidate"].forEach((copy) => expect(text()).not.toContain(copy));
     expect(
       regionByName("Knowledge catalog items")?.textContent ?? "",
@@ -712,7 +712,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(onImport).not.toHaveBeenCalled();
   });
 
-  it("opens and closes KnowledgeV2 action popups while keeping the catalog stable", async () => {
+  it("opens and closes Knowledge action popups while keeping the catalog stable", async () => {
     const onImport = vi.fn();
     const onDraftReview = vi.fn();
 
@@ -734,7 +734,7 @@ describe("KnowledgeV2Widget browser", () => {
     );
     expect(dialogByName("Import")?.textContent).not.toContain("Safety details");
     expect(dialogByName("Import")?.textContent).not.toContain(
-      "KnowledgeV2 has no direct file picker or raw path input in this popup yet.",
+      "Knowledge has no direct file picker or raw path input in this popup yet.",
     );
     const importPopup = dialogByName("Import");
     expect(importPopup?.classList.contains("popup-shell-with-layout")).toBe(true);
@@ -965,7 +965,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(onManageSkills).toHaveBeenCalledTimes(1);
   });
 
-  it("enables context actions for an approved KnowledgeV2 item", async () => {
+  it("enables context actions for an approved Knowledge item", async () => {
     await render(
       <KnowledgeV2Widget
         documents={[documentFixture()]}
@@ -985,11 +985,11 @@ describe("KnowledgeV2Widget browser", () => {
     expect(buttonWithText("Archive")?.disabled).toBe(true);
     expect(buttonWithText("Delete")?.disabled).toBe(true);
     expect(buttonWithText("Close")?.disabled).toBe(false);
-    expect(regionByName("KnowledgeV2 use as context")?.querySelector("p")).toBeNull();
+    expect(regionByName("Knowledge use as context")?.querySelector("p")).toBeNull();
 
     await clickButton("Use as context");
 
-    const picker = regionByName("KnowledgeV2 Use as Context picker");
+    const picker = regionByName("Knowledge Use as Context picker");
     expect(picker?.textContent).toContain("Selectable items");
     expect(picker?.textContent).toContain("Selected items");
     expect(picker?.textContent).toContain("1 selected");
@@ -1001,7 +1001,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(picker?.textContent).toContain("Copy reference");
   });
 
-  it("disables context attach for rejected or disabled KnowledgeV2 items with a reason", async () => {
+  it("disables context attach for rejected or disabled Knowledge items with a reason", async () => {
     const attachToWorkspaceAgent = vi.fn();
     const attachToQueueTask = vi.fn(async () => ({
       message: "Should not attach.",
@@ -1027,14 +1027,14 @@ describe("KnowledgeV2Widget browser", () => {
 
     await clickButton("Rejected context item");
 
-    const useAsContext = regionByName("KnowledgeV2 use as context");
+    const useAsContext = regionByName("Knowledge use as context");
     const useAsContextButton = buttonWithText("Use as context");
     expect(useAsContext?.querySelector("p")).toBeNull();
     expect(useAsContextButton?.disabled).toBe(true);
     expect(useAsContextButton?.title).toContain("Knowledge Document is disabled.");
 
     await clickButton("Use as context");
-    expect(regionByName("KnowledgeV2 Use as Context picker")).toBeNull();
+    expect(regionByName("Knowledge Use as Context picker")).toBeNull();
 
     expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
     expect(attachToQueueTask).not.toHaveBeenCalled();
@@ -1066,8 +1066,8 @@ describe("KnowledgeV2Widget browser", () => {
 
     expect(attachToWorkspaceAgent).toHaveBeenCalledTimes(1);
     expect(attachToWorkspaceAgent).toHaveBeenCalledWith({
-      contextText: expect.stringContaining("Skill Library Skill"),
-      sourceLabel: "KnowledgeV2 / Skill",
+      contextText: expect.stringContaining("Knowledge / Skills Skill"),
+      sourceLabel: "Knowledge / Skills / Skill",
     });
     expect(attachToQueueTask).not.toHaveBeenCalled();
     expect(regionByName("Knowledge preview")?.textContent).toContain(
@@ -1095,15 +1095,15 @@ describe("KnowledgeV2Widget browser", () => {
     );
 
     await clickButton("Release guide");
-    await clickButtonInRegion("KnowledgeV2 use as context", "Use as context");
+    await clickButtonInRegion("Knowledge use as context", "Use as context");
 
-    let picker = regionByName("KnowledgeV2 Use as Context picker");
+    let picker = regionByName("Knowledge Use as Context picker");
     expect(picker?.textContent).toContain("1 selected");
     expect(picker?.textContent).not.toContain("Estimated tokensUnavailable");
 
     await clickCheckboxByLabel("React review");
 
-    picker = regionByName("KnowledgeV2 Use as Context picker");
+    picker = regionByName("Knowledge Use as Context picker");
     expect(picker?.textContent).toContain("2 selected");
     expect(attachToWorkspaceAgent).not.toHaveBeenCalled();
     expect(attachToQueueTask).not.toHaveBeenCalled();
@@ -1163,7 +1163,7 @@ describe("KnowledgeV2Widget browser", () => {
 
     await clickButton("Release guide");
 
-    const useAsContext = regionByName("KnowledgeV2 use as context");
+    const useAsContext = regionByName("Knowledge use as context");
     expect(buttonWithText("Use as context")?.title).toContain(
       "Use as Context is unavailable because no Workspace Agent, Queue, or clipboard context bridge is connected.",
     );
@@ -1172,7 +1172,7 @@ describe("KnowledgeV2Widget browser", () => {
     expect(buttonWithText("Use as context")?.disabled).toBe(true);
 
     await clickButton("Use as context");
-    expect(regionByName("KnowledgeV2 Use as Context picker")).toBeNull();
+    expect(regionByName("Knowledge Use as Context picker")).toBeNull();
   });
 
   it("keeps the existing Knowledge / Skills surface available separately", async () => {

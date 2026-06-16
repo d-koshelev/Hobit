@@ -152,7 +152,7 @@ export const SkillLibrarySkillsPanel = forwardRef<
     if (!apiAvailable || !onListSkills || !onGetSkill) {
       setSkills([]);
       clearDraft();
-      setError("Skill Library API is not available in this runtime.");
+      setError("Knowledge / Skills API is not available in this runtime.");
       setIsLoading(false);
       return;
     }
@@ -349,7 +349,7 @@ export const SkillLibrarySkillsPanel = forwardRef<
 
     onAttachContextToCoordinator({
       contextText: skillCoordinatorContextText(selectedSkill),
-      sourceLabel: "Skill Library / Skill",
+      sourceLabel: "Knowledge / Skills / Skill",
     });
     setMessage("Skill attached to Workspace Agent as visible context.");
     setError(null);

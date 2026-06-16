@@ -175,7 +175,7 @@ export function KnowledgeV2ContextPicker({
       variant="floating"
     >
       <section
-        aria-label="KnowledgeV2 Use as Context picker"
+        aria-label="Knowledge Use as Context picker"
         className="knowledge-v2-context-picker"
       >
       <p className="knowledge-v2-context-picker-intro">Explicit attach only.</p>
@@ -377,7 +377,7 @@ function targetDisabledReason({
         ? null
         : "Workspace Agent current-context bridge is unavailable.";
     case "workspace_agent_next":
-      return "Workspace Agent next-run context bridge is not wired in KnowledgeV2.";
+      return "Workspace Agent next-run context bridge is not wired in Knowledge.";
     case "queue_selected_task":
       return canAttachToQueueTask
         ? null

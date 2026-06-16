@@ -53,7 +53,7 @@ export function KnowledgeV2DetailsPopupFooter({
 }) {
   return (
     <div
-      aria-label="KnowledgeV2 use as context"
+      aria-label="Knowledge use as context"
       className="knowledge-v2-details-footer-actions"
     >
       <Button
@@ -100,7 +100,7 @@ export function KnowledgeV2DeleteConfirmationPopup({
 }) {
   return (
     <DestructiveConfirmationPopup
-      ariaLabel="KnowledgeV2 delete confirmation"
+      ariaLabel="Knowledge delete confirmation"
       body={
         <>
           <p>
@@ -142,7 +142,7 @@ export function knowledgeV2ArchiveDisabledReason({
     return "Archive is unavailable because this item type has no existing lifecycle archive bridge.";
   }
   if (!onUpdateKnowledgeDocument) {
-    return "Archive is unavailable because KnowledgeV2 did not receive the existing Knowledge Document update action.";
+    return "Archive is unavailable because Knowledge did not receive the existing Knowledge Document update action.";
   }
   if (item.lifecycleState === "archived") {
     return "This Knowledge Document is already archived.";
@@ -160,17 +160,17 @@ export function knowledgeV2DeleteDisabledReason({
   readonly onDeleteSkill?: WidgetRenderProps["onDeleteSkill"];
 }) {
   if (!item) {
-    return "Select a KnowledgeV2 item before deleting.";
+    return "Select a Knowledge item before deleting.";
   }
   if (item.recordKind === "document") {
     return onDeleteKnowledgeDocument
       ? null
-      : "KnowledgeV2 did not receive the existing Knowledge Document delete action.";
+      : "Knowledge did not receive the existing Knowledge Document delete action.";
   }
   if (item.recordKind === "skill") {
     return onDeleteSkill
       ? null
-      : "KnowledgeV2 did not receive the existing Skill delete action.";
+      : "Knowledge did not receive the existing Skill delete action.";
   }
   return "This item type has no existing safe delete action.";
 }

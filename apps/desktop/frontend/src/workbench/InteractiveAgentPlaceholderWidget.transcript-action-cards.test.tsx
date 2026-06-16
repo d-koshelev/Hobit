@@ -266,7 +266,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     renderWidget({
       coordinatorAttachedContextRequest: attachedContextRequest({
         contextText: [
-          "Skill Library Skill",
+          "Knowledge / Skills Skill",
           "Title: Frontend review",
           "When to use:",
           "Before merging frontend changes",
@@ -282,15 +282,15 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
           "Tags: frontend, review",
           "Review status: Reviewed",
         ].join("\n"),
-        sourceLabel: "Skill Library / Skill",
+        sourceLabel: "Knowledge / Skills / Skill",
       }),
       onGenerateCoordinatorProviderResponse: provider,
     });
 
     expect(document.body.textContent).toContain("Visible attached context");
-    expect(document.body.textContent).toContain("Skill Library / Skill");
+    expect(document.body.textContent).toContain("Knowledge / Skills / Skill");
     expect(textareaValue()).toContain(
-      "Visible attached context (Skill Library / Skill)",
+      "Visible attached context (Knowledge / Skills / Skill)",
     );
     expect(textareaValue()).toContain("Title: Frontend review");
     expect(textareaValue()).toContain("Steps:\nRun typecheck\nRun focused tests");
@@ -301,9 +301,9 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
     expect(provider).toHaveBeenCalledTimes(1);
     const request = provider.mock.calls[0][1];
     expect(request.operatorMessage).toContain(
-      "Visible attached context (Skill Library / Skill)",
+      "Visible attached context (Knowledge / Skills / Skill)",
     );
-    expect(request.operatorMessage).toContain("Skill Library Skill");
+    expect(request.operatorMessage).toContain("Knowledge / Skills Skill");
     expect(request.operatorMessage).toContain("Review status: Reviewed");
     expect(request.visibleConversation).toEqual([
       {

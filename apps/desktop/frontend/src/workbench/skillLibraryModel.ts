@@ -350,7 +350,7 @@ export function skillCoordinatorContextText(
   >,
 ) {
   return [
-    "Skill Library Skill",
+    "Knowledge / Skills Skill",
     `Title: ${visibleSkillValue(skill.title)}`,
     "When to use:",
     visibleSkillValue(skill.whenToUse),

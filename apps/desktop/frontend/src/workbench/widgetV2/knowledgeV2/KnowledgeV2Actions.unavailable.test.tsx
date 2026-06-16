@@ -36,7 +36,7 @@ describe("KnowledgeV2 unavailable actions", () => {
 
     await openMoreAction("Debug");
 
-    const dialog = dialogByName("KnowledgeV2 diagnostics");
+    const dialog = dialogByName("Knowledge diagnostics");
     expect(dialog?.textContent).toContain("Callback Availability");
     expect(dialog?.textContent).toContain("onNew");
     expect(dialog?.textContent).toContain("callback missing");
@@ -69,7 +69,7 @@ describe("KnowledgeV2 unavailable actions", () => {
 
     await keyDown("Escape");
     await openMoreAction("Debug");
-    expect(dialogByName("KnowledgeV2 diagnostics")?.textContent).toContain(
+    expect(dialogByName("Knowledge diagnostics")?.textContent).toContain(
       "Skills list bridge is unavailable",
     );
   });

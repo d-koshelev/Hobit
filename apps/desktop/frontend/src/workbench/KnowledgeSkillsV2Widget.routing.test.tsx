@@ -31,7 +31,7 @@ afterEach(() => {
   document.body.innerHTML = "";
 });
 
-describe("Knowledge / Skills KnowledgeV2 routing", () => {
+describe("Knowledge / Skills compatibility routing", () => {
   it("keeps the Widget Catalog card on the saved-compatible Knowledge / Skills id", () => {
     const template = widgetCatalogTemplates.find(
       (candidate) =>
@@ -62,7 +62,7 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     ).not.toBeNull();
   });
 
-  it("renders KnowledgeV2 for a normal Knowledge / Skills widget instance", async () => {
+  it("renders the active Knowledge product surface for a normal Knowledge / Skills widget instance", async () => {
     const actions = widgetActions();
 
     await render(<WidgetHost {...widgetHostProps(actions)} />);
@@ -78,9 +78,10 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     expect(document.querySelector(".skill-library-layout")).toBeNull();
     expect(text()).not.toContain("Legacy Knowledge / Skills");
     expect(text()).not.toContain("Compatibility surface");
+    expectProductTextDoesNotExposeV2();
   });
 
-  it("does not mutate Knowledge data on normal KnowledgeV2 render", async () => {
+  it("does not mutate Knowledge data on normal Knowledge render", async () => {
     const actions = widgetActions();
 
     await render(<WidgetHost {...widgetHostProps(actions)} />);
@@ -99,7 +100,7 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     expect(actions.deleteSkill).not.toHaveBeenCalled();
   });
 
-  it("opens existing Knowledge / Skills flows only from explicit KnowledgeV2 popup actions", async () => {
+  it("opens existing Knowledge / Skills flows only from explicit Knowledge popup actions", async () => {
     const actions = widgetActions();
 
     await render(<WidgetHost {...widgetHostProps(actions)} />);
@@ -148,9 +149,30 @@ describe("Knowledge / Skills KnowledgeV2 routing", () => {
     expect(onAttachContextToCoordinator).toHaveBeenCalledTimes(1);
     expect(onAttachContextToCoordinator).toHaveBeenCalledWith({
       contextText: expect.stringContaining("Release guide"),
-      sourceLabel: "KnowledgeV2 / Knowledge Document",
+      sourceLabel: "Knowledge / Skills / Knowledge Document",
     });
     expect(actions.createAgentQueueTask).not.toHaveBeenCalled();
+    expectProductTextDoesNotExposeV2();
+  });
+
+  it("normalizes a saved Skill Library title to the current Knowledge / Skills product title", async () => {
+    const actions = widgetActions();
+
+    await render(
+      <WidgetHost
+        {...widgetHostProps(actions, {
+          instance: {
+            ...knowledgeWidgetInstance(),
+            title: "Skill Library",
+          },
+        })}
+      />,
+    );
+    await flush();
+
+    expect(text()).toContain("Knowledge / Skills");
+    expect(text()).not.toContain("Skill Library");
+    expectProductTextDoesNotExposeV2();
   });
 
   it("keeps the legacy Knowledge / Skills component directly renderable", async () => {
@@ -197,6 +219,10 @@ function text() {
   return document.body.textContent ?? "";
 }
 
+function expectProductTextDoesNotExposeV2() {
+  expect(text()).not.toMatch(/\bKnowledgeV2\b|Knowledge V2|\bV2\b/);
+}
+
 function regionByName(name: string): HTMLElement | null {
   return (
     Array.from(document.querySelectorAll<HTMLElement>("[aria-label]")).find(
@@ -232,6 +258,7 @@ function dialogByName(name: string): HTMLElement | null {
 function widgetHostProps(
   actions: WorkbenchWidgetInstanceActions,
   overrides: {
+    instance?: WidgetInstance;
     onAttachContextToCoordinator?: (
       request: CoordinatorAttachedContextInput,
     ) => void;
@@ -246,7 +273,7 @@ function widgetHostProps(
     directWorkGitReview: {} as never,
     directWorkRunHandoff: {} as never,
     hasGitWidget: false,
-    instance: knowledgeWidgetInstance(),
+    instance: overrides.instance ?? knowledgeWidgetInstance(),
     layoutMode: "editing" as const,
     onDockBack: vi.fn(),
     onAttachContextToCoordinator: overrides.onAttachContextToCoordinator,

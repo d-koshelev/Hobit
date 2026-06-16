@@ -86,7 +86,7 @@ export function primaryKnowledgeV2ItemStatus(
       return {
         key: "archived",
         label: "Archived",
-        reason: "No longer active; context attach is blocked in KnowledgeV2.",
+        reason: "No longer active; context attach is blocked in Knowledge.",
         tone: "neutral",
       };
     case "rejected":
@@ -107,7 +107,7 @@ export function primaryKnowledgeV2ItemStatus(
       return {
         key: "unavailable",
         label: "Unavailable",
-        reason: "Cannot be used in this KnowledgeV2 state.",
+        reason: "Cannot be used in this Knowledge state.",
         tone: "unavailable",
       };
   }

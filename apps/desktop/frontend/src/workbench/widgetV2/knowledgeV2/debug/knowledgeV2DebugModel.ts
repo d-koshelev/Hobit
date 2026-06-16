@@ -99,7 +99,7 @@ export function buildKnowledgeV2DebugModel({
       callbackEntry("onManageSkills", callbackState.onManageSkills),
     ],
     implementationNotes: [
-      "KnowledgeV2 is a frontend WidgetV2 surface over existing Knowledge / Skills data and callbacks.",
+      "Knowledge is a frontend catalog surface over existing Knowledge / Skills data and callbacks.",
       "The main surface intentionally hides callback names, bridge names, raw ids, and not-wired implementation notes.",
       "No direct file picker, raw path import, automatic context injection, hidden ingestion, or standalone Knowledge Catalog runtime is implemented here.",
     ],

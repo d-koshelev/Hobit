@@ -56,7 +56,7 @@ export function renderWidget(
         onUpdateKnowledgeDocument={vi.fn(async (request) =>
           knowledgeDocumentFixture(request),
         )}
-        title="Skill Library"
+        title="Knowledge / Skills"
         {...overrides}
       />
     );
@@ -424,10 +424,10 @@ function definition(): WidgetDefinition {
     category: "knowledge",
     componentKey: "skill-library-widget",
     defaultConfig: {},
-    defaultTitle: "Skill Library",
-    description: "Skill Library",
+    defaultTitle: "Knowledge / Skills",
+    description: "Knowledge / Skills",
     id: "skill-library",
-    title: "Skill Library",
+    title: "Knowledge / Skills",
   };
 }
 
@@ -446,7 +446,7 @@ function instance(): WidgetInstance {
       y: 0,
     },
     state: {},
-    title: "Skill Library",
+    title: "Knowledge / Skills",
     visible: true,
   };
 }

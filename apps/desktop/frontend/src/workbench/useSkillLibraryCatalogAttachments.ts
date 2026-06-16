@@ -37,7 +37,7 @@ export function useSkillLibraryCatalogAttachments({
 
     onAttachContextToCoordinator({
       contextText: skillCoordinatorContextText(selectedSkill),
-      sourceLabel: "Skill Library / Skill",
+      sourceLabel: "Knowledge / Skills / Skill",
     });
     rememberCatalogAttachment(`skill:${selectedSkill.skillId}`, {
       workspaceAgentContextAttached: true,
