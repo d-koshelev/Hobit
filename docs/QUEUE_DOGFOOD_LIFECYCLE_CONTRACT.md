@@ -16,14 +16,15 @@ routing.
 
 Current as a frontend pure model foundation with frontend controller/view-model
 adapter integration, typed frontend Action Broker capability access, a
-frontend Queue worker evidence bundle model, and a broker-driven fake
-dogfooding loop self-test.
+frontend Queue worker evidence bundle model, a frontend Queue worker evidence
+ingestion bridge, and a broker-driven fake dogfooding loop self-test.
 
 The implemented model and adapter layer live under:
 
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle*.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycleController.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts`
+- `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceIngestion.ts`
 
 The model is not yet persisted and is not yet wired as the authoritative
 runtime Queue lifecycle. The controller/view-model adapter is an overlay for
@@ -154,6 +155,44 @@ This model is not backend durability and is not evidence execution. It does
 not read the filesystem, start Direct Work, call Codex, call shell, run
 validation, inspect Git, execute commits, launch Terminal, start Queue workers,
 or persist evidence.
+
+## Worker Evidence Ingestion Bridge
+
+`apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceIngestion.ts`
+is the frontend ingestion bridge from an explicitly Queue-linked worker,
+Direct Work, Workspace Agent, Agent Executor, or Queue worker report
+completion shape into the typed Action Broker lifecycle path.
+
+The bridge:
+
+- requires an explicit `taskId` Queue link;
+- never infers `taskId` from prompt text, final-message text, file paths, task
+  title, or other natural-language content;
+- builds or normalizes a `QueueWorkerEvidenceBundle`;
+- validates task id, attempt id, outcome, and final report/evidence
+  requirements before broker invocation;
+- invokes only `queue.lifecycle.agentFinished` through the Action Broker when
+  broker dependencies are available;
+- supports dry-run preview without lifecycle mutation;
+- returns a structured ingestion result that preserves broker status and
+  exposes product-facing labels such as `Queue worker evidence ingested`,
+  `Queue item awaiting review`, `Queue evidence ingestion failed`, and `Queue
+  evidence ingestion skipped`.
+
+Successful real ingestion moves the frontend/controller lifecycle overlay for
+the linked running Queue task to `awaiting_review` and stores normalized
+frontend-only evidence where the current controller supports it. The evidence
+is then readable through `queue.review.getEvidenceBundle`, and an explicit
+later `queue.review.createMessage` can include the bounded evidence summary.
+
+The bridge does not auto-create review messages, ACK review messages, approve
+validation, mark done, fail or block tickets, start dependents, start workers,
+run validation, run Git/commit commands, execute rollback, launch Terminal,
+call shell/Codex, create Queue views, or persist backend state.
+
+Broad automatic real worker event wiring is not implemented in this bridge.
+Existing controller/runtime code must call the bridge only when a run carries
+an explicit Queue task link.
 
 ## Follow-Up Prompts
 
@@ -313,6 +352,10 @@ Human-facing helpers return labels such as:
 - Final report available
 - Logs available
 - Frontend evidence only - not durable
+- Queue worker evidence ingested
+- Queue item awaiting review
+- Queue evidence ingestion failed
+- Queue evidence ingestion skipped
 - Follow-up prompt running
 - Review acknowledged
 - Waiting for coordinator review
@@ -375,6 +418,15 @@ message includes the product-facing evidence summary, `queue.review.getEvidenceB
 returns the normalized frontend bundle when available, mark done still does not
 execute Git, and dependent unblocking remains gated on dogfood `done`.
 
+`apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceIngestion.test.ts`
+adds a focused broker-ingestion test group for Queue-linked frontend
+completion shapes. It proves dry-run immutability, real broker mutation to
+`awaiting_review`, explicit task-link failures, task/attempt mismatch
+failures, invalid evidence failures, unavailable controller handling,
+Direct Work / Workspace Agent / Agent Executor / Queue worker report adapter
+wrappers, explicit review-message evidence summary readback, non-linked Direct
+Work skip behavior, done-gated dependents, and hidden-side-effect guards.
+
 The broker self-test is explicitly fake/model/controller/broker-level only. It
 reports backend durability as skipped and real worker execution, real
 validation execution, and real Git commit execution as blocked/not covered. It
@@ -390,7 +442,7 @@ This contract does not implement:
 - SQLite migrations
 - Tauri or IPC APIs
 - real worker execution changes
-- real worker result event integration
+- broad automatic real worker result event integration
 - scheduler redesign
 - real validation execution changes
 - durable validation evidence execution or persistence

@@ -316,6 +316,24 @@ not durable`.
 current frontend/controller fake store when one exists. This is not a backend
 evidence store and does not claim durable persistence.
 
+`apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceIngestion.ts`
+adds a frontend ingestion bridge for explicitly Queue-linked completion shapes.
+It requires a `taskId`, builds or normalizes a `QueueWorkerEvidenceBundle`,
+validates task/attempt/outcome/final-report requirements, and invokes
+`queue.lifecycle.agentFinished` through the Action Broker. It can adapt
+explicit fake/frontend Direct Work, Workspace Agent, Agent Executor, and Queue
+worker report results where those shapes are clear. Non-linked Direct Work
+results are skipped instead of routed by prompt text or final-message text.
+The bridge exposes product-facing labels such as `Queue worker evidence
+ingested`, `Queue item awaiting review`, `Queue evidence ingestion failed`, and
+`Queue evidence ingestion skipped`.
+
+The ingestion bridge does not auto-create review messages, ACK review,
+approve validation, mark done, start dependents, start workers, run validation,
+execute Git/commit, execute rollback, launch Terminal, call shell/Codex,
+create Queue views, or persist backend state. Broad automatic real worker
+event wiring remains future work.
+
 Lifecycle dry-runs preview the intended transition and do not mutate the
 frontend lifecycle overlay. Lifecycle invocation with `dryRun: false` mutates
 only the current frontend/controller overlay when the injected lifecycle

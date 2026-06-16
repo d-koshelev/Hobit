@@ -90,6 +90,10 @@ During the smoke, verify these product labels appear where applicable:
 - `Final report available`
 - `Logs available`
 - `Frontend evidence only - not durable`
+- `Queue worker evidence ingested`
+- `Queue item awaiting review`
+- `Queue evidence ingestion failed`
+- `Queue evidence ingestion skipped`
 - `Queue dogfood broker loop`
 - `Agent finished - awaiting review`
 - `Review message created`
@@ -311,13 +315,38 @@ During the smoke, verify these product labels appear where applicable:
       run validation, execute Git commits, call Codex/shell, launch Terminal,
       execute rollback, create Queue views, or parse prose into actions.
 
-22. Check for side effects.
+22. Run the Queue worker evidence ingestion bridge automated test.
+    - Expected:
+      `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceIngestion.test.ts`
+      proves an explicitly Queue-linked fake/frontend completion result builds
+      a normalized evidence bundle and invokes `queue.lifecycle.agentFinished`
+      through the Action Broker.
+    - Expected: dry-run produces a preview and leaves the lifecycle overlay in
+      `Running`; real ingestion moves the linked item to `Awaiting review` and
+      returns `Queue worker evidence ingested` / `Queue item awaiting review`.
+    - Expected: `queue.review.getEvidenceBundle` returns normalized
+      frontend-only evidence after ingestion.
+    - Expected: review-message creation is still an explicit next action; after
+      explicit `queue.review.createMessage`, the review message includes the
+      evidence summary.
+    - Expected: missing task id, task id mismatch, attempt id mismatch, invalid
+      evidence, unavailable controller, and non-linked Direct Work completion
+      return structured failure or skipped statuses. No task id is inferred from
+      prompt text or final-message text.
+    - Expected: ingestion does not ACK review, approve validation, mark done,
+      start dependents, start workers, run validation, execute Git/commit,
+      execute rollback, call Codex/shell, launch Terminal, create Queue views,
+      or persist backend/storage/schema state.
+    - Expected: broad automatic real worker event wiring is not covered by this
+      test and remains future work.
+
+23. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback
       proposal preparation.
 
-23. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
+24. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
     log details where available.
     - Expected: the prompt sent to Codex includes Hobit capability context,
       compact Queue/agent capability names, and policy rules before the user
@@ -343,8 +372,8 @@ For every failed smoke step, capture:
 
 ## Next Engineering Blocks
 
-1. Audit whether to connect real worker result events to the frontend evidence
-   bundle path next or to add durable persistence first.
+1. Audit whether to connect real worker result events to the explicit frontend
+   ingestion bridge next or to add durable persistence first.
 2. Durable backend persistence design.
 3. Backend scheduler/runtime ownership design.
 4. Durable attempt/coordinator decision/review ACK/evidence persistence.
