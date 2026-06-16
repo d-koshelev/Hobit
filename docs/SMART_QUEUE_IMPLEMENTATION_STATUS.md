@@ -21,7 +21,8 @@ frontend/controller execution gating, attempt and coordinator decision
 presentation, explicit retry/handoff/proposal actions, typed Queue dogfood
 lifecycle broker capabilities, a full fake broker-driven Queue dogfood loop
 self-test, a frontend Queue worker evidence bundle model/adapter path, and
-a frontend Queue worker evidence ingestion bridge, and focused smoke coverage.
+a frontend Queue worker evidence ingestion bridge, a Queue-linked Direct Work
+metadata seam, and focused smoke coverage.
 
 The durable Smart Queue backend/runtime is not implemented yet. Current Smart
 Queue modules are frontend/product-model foundations unless explicitly noted
@@ -48,6 +49,9 @@ The current implemented frontend behavior is:
   adapters for existing/fake frontend run result shapes;
 - frontend Queue worker evidence ingestion bridge from explicitly Queue-linked
   frontend completion shapes into `queue.lifecycle.agentFinished`;
+- Queue-linked Direct Work metadata seam carrying explicit Queue item, run,
+  executor, source, optional future attempt, and current-session idempotency
+  identity for later evidence wiring;
 - worker failure/stuck report to coordinator decision integration;
 - QueueV2 Coordinator Decision Card;
 - Retry same action;
@@ -338,6 +342,20 @@ adapter integration and typed frontend Action Broker capability access.
   data where those shapes are clear. Non-linked Direct Work completion returns
   an explicit skipped/not-linked result instead of inferring the task from
   text.
+- `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkMetadata.ts`
+  defines the frontend-only Queue-linked Direct Work metadata seam. Queue start
+  handoffs can carry explicit Queue item id, Direct Work run id, Agent Executor
+  widget id, source, optional future attempt id, linked/completed timestamps
+  where available, and a stable current-session idempotency key.
+- The metadata seam validates handoff identity and finalization identity
+  without calling the ingestion bridge. Agent Executor run detail or final
+  stream events must match the explicit run id before a valid completion
+  identity can be produced. Final stream events alone do not create Queue
+  evidence without an explicit Queue handoff.
+- The idempotency key uses only explicit link fields: workspace id when
+  available, Queue item id, run id, and attempt id when available. It does not
+  use prompt text, task title, repository path, final agent message, changed
+  files, validation output, or other natural-language content.
 - The fake broker-loop success path now sends a fake worker evidence bundle
   into `queue.lifecycle.agentFinished` and asserts broker consumption, review
   message evidence summary, normalized evidence readback, no Git execution on
@@ -480,6 +498,7 @@ as available from the foundation above:
 - broad automatic real worker result event integration with the dogfood
   lifecycle model;
 - durable worker evidence bundle persistence;
+- automatic ingestion from the Queue-linked Direct Work metadata seam;
 - real validation evidence execution or durable attachment to the dogfood
   lifecycle model;
 - real commit execution or durable commit metadata attachment;
@@ -528,20 +547,24 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 ## Next Engineering Blocks
 
-1. Audit whether the next block should connect explicit real worker result
-   events into the frontend ingestion bridge or design durable backend
-   persistence for attempts, lifecycle, review messages, ACKs, decisions,
-   worker evidence, validation evidence, and commit metadata.
-2. Design backend scheduler/runtime ownership.
-3. Integrate real worker reports, validation evidence, and explicit commit
+1. Wire explicit Queue-linked Direct Work completion identities into the
+   frontend ingestion bridge with idempotency guards, without touching raw
+   Workspace Agent final events, raw Direct Work final events, Agent Activity,
+   or standalone Executor history.
+2. Design durable backend persistence for attempts, lifecycle, review
+   messages, ACKs, decisions, worker evidence, validation evidence, and commit
+   metadata.
+3. Design backend scheduler/runtime ownership.
+4. Integrate real worker reports, validation evidence, and explicit commit
    approval/results with the dogfood lifecycle model.
-4. Add safe Workspace Agent handoff integration.
-5. Design rollback execution only after the approval/safety contract is ready.
+5. Add safe Workspace Agent handoff integration.
+6. Design rollback execution only after the approval/safety contract is ready.
 
-The next major block should connect real worker result events to the explicit
-frontend ingestion bridge or add durable persistence, depending on audit
-results. Broad Queue UI polish is not the blocker for proving the current fake
-broker loop.
+The next major block should connect only explicit Queue-linked Direct Work
+completion identities to the frontend ingestion bridge. Backend durability,
+real validation evidence execution, and real Git commit execution remain
+separate later blocks. Broad Queue UI polish is not the blocker for proving the
+current fake broker loop.
 
 ## Implementation References
 
@@ -557,6 +580,9 @@ broker loop.
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycleController.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceIngestion.ts`
+- `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkMetadata.ts`
+- `apps/desktop/frontend/src/workbench/useDirectWorkRunHandoff.ts`
+- `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`
 - `apps/desktop/frontend/src/workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts`
 - `apps/desktop/frontend/src/workbench/agents/adapters/queueAgentDogfoodLifecycleController.ts`
 - `apps/desktop/frontend/src/workbench/agents/capabilities/queueDogfoodLifecycleCapabilityManifest.ts`

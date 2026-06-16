@@ -204,9 +204,60 @@ export type DirectWorkGitReviewStatus = {
   state: "pending" | "completed" | "failed";
 };
 
+export type QueueLinkedDirectWorkSource =
+  | "queue_handoff"
+  | "queue_manual_start"
+  | "queue_sequential_start"
+  | "queue_autonomous_start"
+  | "queue_autorun_start"
+  | "recovered_handoff";
+
+export type QueueLinkedDirectWorkMetadata = {
+  attemptId: string | null;
+  completedAt?: string | null;
+  durable: false;
+  executorWidgetId: WidgetInstanceId;
+  frontendOnly: true;
+  idempotencyKey: string;
+  ingestionId: string;
+  kind: "queue_linked_direct_work_metadata";
+  linkedAt: string;
+  queueItemId: string;
+  runId: string;
+  source: QueueLinkedDirectWorkSource;
+  version: 1;
+  workbenchId?: string | null;
+  workspaceId?: string | null;
+};
+
+export type QueueLinkedDirectWorkCompletionIdentity = {
+  attemptId: string | null;
+  completedAt: string | null;
+  detailRunId: string | null;
+  durable: false;
+  executorWidgetId: WidgetInstanceId;
+  finalStatus: string | null;
+  frontendOnly: true;
+  idempotencyKey: string;
+  ingestionId: string;
+  kind: "queue_linked_direct_work_completion_identity";
+  linkedAt: string;
+  metadata: QueueLinkedDirectWorkMetadata;
+  queueItemId: string;
+  runId: string;
+  source: QueueLinkedDirectWorkSource;
+  streamRunId: string | null;
+  version: 1;
+  workbenchId?: string | null;
+  workspaceId?: string | null;
+};
+
 export type DirectWorkRunHandoff = {
+  attemptId?: string | null;
   executorWidgetInstanceId: WidgetInstanceId;
   id: number;
+  queueLinkedMetadata?: QueueLinkedDirectWorkMetadata;
+  queueLinkedSource?: QueueLinkedDirectWorkSource;
   queueItemId: string;
   repoRoot: string;
   runId: string;

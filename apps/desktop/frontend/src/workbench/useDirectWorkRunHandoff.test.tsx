@@ -1,8 +1,10 @@
 import { act } from "react";
+import { describe, expect, it } from "vitest";
 
 import { renderHook } from "./test-utils/renderHook";
 import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
 import type { DirectWorkRunHandoff } from "./types";
+import handoffSource from "./useDirectWorkRunHandoff.ts?raw";
 
 const baseHandoff: DirectWorkRunHandoff = {
   executorWidgetInstanceId: "executor-1",
@@ -30,6 +32,15 @@ describe("useDirectWorkRunHandoff", () => {
     expect(firstRequest?.runId).toBe("run-1");
     expect(firstRequest?.finalStatus).toBe("completed");
     expect(firstRequest?.id).toBe(1);
+    expect(firstRequest?.queueLinkedMetadata).toMatchObject({
+      durable: false,
+      executorWidgetId: "executor-1",
+      frontendOnly: true,
+      queueItemId: "queue-1",
+      runId: "run-1",
+      source: "queue_handoff",
+      workspaceId: "workspace-1",
+    });
 
     act(() => {
       hook.result.current.recordFinalState(baseHandoff, "completed");
@@ -56,6 +67,14 @@ describe("useDirectWorkRunHandoff", () => {
     });
 
     expect(hook.result.current.handoffs["executor-1"]?.runId).toBe("run-1");
+    expect(
+      hook.result.current.handoffs["executor-1"]?.queueLinkedMetadata,
+    ).toMatchObject({
+      executorWidgetId: "executor-1",
+      queueItemId: "queue-1",
+      runId: "run-1",
+      source: "queue_handoff",
+    });
     expect(hook.result.current.queueTaskAutoRefreshRequest).toBeNull();
 
     hook.unmount();
@@ -113,5 +132,15 @@ describe("useDirectWorkRunHandoff", () => {
     expect(hook.result.current.queueTaskAutoRefreshRequest).toBeNull();
 
     hook.unmount();
+  });
+
+  it("does not call Queue worker evidence ingestion from the metadata seam", () => {
+    expect(handoffSource).not.toContain("smartQueueWorkerEvidenceIngestion");
+    expect(handoffSource).not.toContain("queue.lifecycle.agentFinished");
+    expect(handoffSource).not.toContain("createGitCommit");
+    expect(handoffSource).not.toContain("rollback");
+    expect(handoffSource).not.toContain("Terminal");
+    expect(handoffSource).not.toContain("new RegExp");
+    expect(handoffSource).not.toContain(".match(");
   });
 });

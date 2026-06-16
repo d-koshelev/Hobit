@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { act } from "react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type {
   AgentExecutorRunDetail,
@@ -17,6 +18,7 @@ import {
   renderHook,
 } from "./test-utils/renderHook";
 import { useCodexDirectWorkQueueHandoff } from "./useCodexDirectWorkQueueHandoff";
+import queueHandoffSource from "./useCodexDirectWorkQueueHandoff.ts?raw";
 
 const baseHandoff: DirectWorkRunHandoff = {
   executorWidgetInstanceId: "executor-1",
@@ -300,6 +302,12 @@ describe("useCodexDirectWorkQueueHandoff", () => {
     expect(state.recordedEvents).toHaveLength(2);
     expect(state.finalStates).toHaveLength(1);
     expect(state.finalStates[0].finalStatus).toBe("completed");
+    expect(state.finalStates[0].handoff.queueLinkedMetadata).toMatchObject({
+      executorWidgetId: "executor-1",
+      queueItemId: "queue-1",
+      runId: "run-1",
+      source: "queue_handoff",
+    });
 
     hook.unmount();
   });
@@ -338,6 +346,12 @@ describe("useCodexDirectWorkQueueHandoff", () => {
 
     expect(state.finalStates).toHaveLength(1);
     expect(state.finalStates[0].finalStatus).toBe("completed");
+    expect(state.finalStates[0].handoff.queueLinkedMetadata).toMatchObject({
+      executorWidgetId: "executor-1",
+      queueItemId: "queue-1",
+      runId: "run-1",
+      source: "recovered_handoff",
+    });
     expect(hook.result.current.liveRun?.status).toBe("completed");
     expect(hook.result.current.isRunning).toBe(false);
     expect(hook.result.current.activeStreamingRunId).toBeNull();
@@ -379,6 +393,16 @@ describe("useCodexDirectWorkQueueHandoff", () => {
     expect(hook.result.current.activeStreamingRunId).toBe("run-1");
 
     hook.unmount();
+  });
+
+  it("does not call Queue evidence ingestion from the handoff metadata seam", () => {
+    expect(queueHandoffSource).not.toContain("smartQueueWorkerEvidenceIngestion");
+    expect(queueHandoffSource).not.toContain("queue.lifecycle.agentFinished");
+    expect(queueHandoffSource).not.toContain("createGitCommit");
+    expect(queueHandoffSource).not.toContain("rollback");
+    expect(queueHandoffSource).not.toContain("Terminal");
+    expect(queueHandoffSource).not.toContain("new RegExp");
+    expect(queueHandoffSource).not.toContain(".match(");
   });
 });
 

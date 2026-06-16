@@ -257,6 +257,7 @@ export function useAgentQueueSequentialRunner({
       onDirectWorkRunHandoffStarted?.({
         executorWidgetInstanceId: response.executorWidgetInstanceId,
         queueItemId: response.queueItemId,
+        queueLinkedSource: "queue_sequential_start",
         repoRoot: request.repoRoot,
         runId: response.runId,
         startedAt: new Date().toISOString(),

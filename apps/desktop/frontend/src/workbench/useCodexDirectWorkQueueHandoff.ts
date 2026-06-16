@@ -23,6 +23,7 @@ import type {
   CodexDirectWorkStreamSession,
 } from "./CodexDirectWorkTypes";
 import type { DirectWorkRunHandoff, WidgetInstanceId } from "./types";
+import { createQueueLinkedDirectWorkCompletionIdentity } from "./queueLinkedDirectWorkMetadata";
 
 const QUEUE_HANDOFF_RECOVERY_DELAY_MS = 1500;
 
@@ -278,7 +279,18 @@ export function useCodexDirectWorkQueueHandoff({
     requestGitReviewForRepositoryRoot(repositoryRoot);
     activeRequestRef.current = null;
     refreshRunHistory();
-    onQueueRunFinalState?.(handoff, detail.summary.status);
+    const identityResult = createQueueLinkedDirectWorkCompletionIdentity({
+      handoff,
+      runDetail: detail,
+      source: "recovered_handoff",
+    });
+
+    if (identityResult.status === "valid") {
+      onQueueRunFinalState?.(
+        identityResult.handoff ?? handoff,
+        detail.summary.status,
+      );
+    }
     setRunInfoNotice({
       message:
         "The Queue-started run had already reached a final state; Agent Executor loaded its stored result.",
@@ -313,9 +325,13 @@ export function useCodexDirectWorkQueueHandoff({
     }
 
     const finalStatus = finalStreamEventStatus(event);
+    const identityResult = createQueueLinkedDirectWorkCompletionIdentity({
+      handoff,
+      streamEvent: event,
+    });
 
-    if (finalStatus) {
-      onQueueRunFinalState?.(handoff, finalStatus);
+    if (finalStatus && identityResult.status === "valid") {
+      onQueueRunFinalState?.(identityResult.handoff ?? handoff, finalStatus);
     }
   }
 

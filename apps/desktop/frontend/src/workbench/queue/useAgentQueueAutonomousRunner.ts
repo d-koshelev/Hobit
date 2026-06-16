@@ -400,6 +400,7 @@ export function useAgentQueueAutonomousRunner({
       onDirectWorkRunHandoffStarted?.({
         executorWidgetInstanceId: response.executorWidgetInstanceId,
         queueItemId: response.queueItemId,
+        queueLinkedSource: "queue_autonomous_start",
         repoRoot: taskRepoRoot,
         runId: response.runId,
         startedAt: new Date().toISOString(),

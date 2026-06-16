@@ -6,6 +6,10 @@ import type {
   DirectWorkRunHandoffInput,
   WidgetInstanceId,
 } from "./types";
+import {
+  createQueueLinkedDirectWorkCompletionIdentity,
+  withQueueLinkedDirectWorkMetadata,
+} from "./queueLinkedDirectWorkMetadata";
 
 export type DirectWorkRunHandoffController = {
   handoffs: Partial<Record<WidgetInstanceId, DirectWorkRunHandoff>>;
@@ -35,15 +39,16 @@ export function useDirectWorkRunHandoff(): DirectWorkRunHandoffController {
       return;
     }
 
-    const nextHandoff: DirectWorkRunHandoff = {
+    const nextHandoff = withQueueLinkedDirectWorkMetadata({
       ...handoff,
       executorWidgetInstanceId,
       id: ++handoffIdRef.current,
+      queueItemId: handoff.queueItemId.trim(),
       repoRoot: handoff.repoRoot.trim(),
       runId,
       startedAt: handoff.startedAt ?? new Date().toISOString(),
       taskTitle: handoff.taskTitle.trim() || "Queue task",
-    };
+    });
 
     setHandoffs((currentHandoffs) => ({
       ...currentHandoffs,
@@ -55,23 +60,33 @@ export function useDirectWorkRunHandoff(): DirectWorkRunHandoffController {
     handoff: DirectWorkRunHandoff,
     finalStatus: string,
   ) {
-    const queueItemId = handoff.queueItemId.trim();
-    const runId = handoff.runId.trim();
-    const runKey = `${queueItemId}:${runId}`;
+    const completedAt = new Date().toISOString();
+    const identityResult = createQueueLinkedDirectWorkCompletionIdentity({
+      completedAt,
+      handoff,
+    });
 
-    if (!queueItemId || !runId || autoRefreshRunKeysRef.current.has(runKey)) {
+    if (
+      identityResult.status !== "valid" ||
+      autoRefreshRunKeysRef.current.has(identityResult.identity.idempotencyKey)
+    ) {
       return;
     }
 
+    const { identity } = identityResult;
+    const runKey = identity.idempotencyKey;
     autoRefreshRunKeysRef.current.add(runKey);
     setQueueTaskAutoRefreshRequest({
-      completedAt: new Date().toISOString(),
-      executorWidgetInstanceId: handoff.executorWidgetInstanceId,
+      attemptId: identity.attemptId,
+      completedAt,
+      executorWidgetInstanceId: identity.executorWidgetId,
       finalStatus,
       id: ++autoRefreshIdRef.current,
-      queueItemId,
+      queueItemId: identity.queueItemId,
+      queueLinkedMetadata: identity.metadata,
+      queueLinkedSource: identity.metadata.source,
       repoRoot: handoff.repoRoot,
-      runId,
+      runId: identity.runId,
       startedAt: handoff.startedAt,
       taskTitle: handoff.taskTitle,
       workbenchId: handoff.workbenchId,

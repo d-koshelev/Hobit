@@ -17,7 +17,8 @@ routing.
 Current as a frontend pure model foundation with frontend controller/view-model
 adapter integration, typed frontend Action Broker capability access, a
 frontend Queue worker evidence bundle model, a frontend Queue worker evidence
-ingestion bridge, and a broker-driven fake dogfooding loop self-test.
+ingestion bridge, a Queue-linked Direct Work metadata seam, and a broker-driven
+fake dogfooding loop self-test.
 
 The implemented model and adapter layer live under:
 
@@ -25,6 +26,7 @@ The implemented model and adapter layer live under:
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycleController.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceIngestion.ts`
+- `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkMetadata.ts`
 
 The model is not yet persisted and is not yet wired as the authoritative
 runtime Queue lifecycle. The controller/view-model adapter is an overlay for
@@ -193,6 +195,32 @@ call shell/Codex, create Queue views, or persist backend state.
 Broad automatic real worker event wiring is not implemented in this bridge.
 Existing controller/runtime code must call the bridge only when a run carries
 an explicit Queue task link.
+
+## Queue-Linked Direct Work Metadata Seam
+
+`apps/desktop/frontend/src/workbench/queueLinkedDirectWorkMetadata.ts` defines
+the frontend-only metadata seam for Queue-launched Direct Work. It carries the
+explicit Queue item id, Direct Work run id, Agent Executor widget id, optional
+future attempt id, handoff source, linked/completed timestamps where available,
+and a current-session idempotency key for future ingestion wiring.
+
+The seam is populated from the existing Queue-to-Direct-Work handoff path and
+finalization checks can compare the handoff with Agent Executor run detail or
+final stream events. Mismatched run ids, missing Queue item ids, missing run
+ids, and missing executor widget ids are rejected as structured non-ingestion
+states.
+
+The idempotency key is derived only from explicit link fields: workspace id
+when available, Queue item id, run id, and attempt id when available. It never
+uses prompt text, task title, repository path, final agent message, changed
+files, validation output, or other natural-language content.
+
+This seam does not call the evidence ingestion bridge, does not call
+`queue.lifecycle.agentFinished`, does not move a Queue item to
+`awaiting_review`, and does not create review messages. It does not add backend
+durability, SQLite schema, Tauri/IPC behavior, worker execution changes,
+validation execution, Git/commit execution, rollback execution, Terminal
+launch, or natural-language prompt routing.
 
 ## Follow-Up Prompts
 

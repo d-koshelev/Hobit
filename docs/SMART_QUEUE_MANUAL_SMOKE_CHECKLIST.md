@@ -340,13 +340,34 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: broad automatic real worker event wiring is not covered by this
       test and remains future work.
 
-23. Check for side effects.
+23. Run the Queue-linked Direct Work metadata seam automated tests.
+    - Expected:
+      `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkMetadata.test.ts`,
+      `apps/desktop/frontend/src/workbench/useDirectWorkRunHandoff.test.tsx`,
+      and `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.test.tsx`
+      prove Queue-linked handoffs carry explicit Queue item id, Direct Work run
+      id, Agent Executor widget id, source, optional future attempt id, and a
+      stable current-session idempotency key.
+    - Expected: missing Queue item id, missing run id, missing executor widget
+      id, mismatched Agent Executor run detail, and mismatched final stream
+      events are rejected without ingestion.
+    - Expected: no task id is inferred from prompt text, task title, repository
+      path, final agent message, changed files, validation output, or other
+      natural-language content.
+    - Expected: this seam does not call the Queue worker evidence ingestion
+      bridge, does not invoke `queue.lifecycle.agentFinished`, does not move a
+      task to `Awaiting review`, does not create a review message, and does not
+      add backend durability.
+    - Expected: real worker event wiring, real validation execution, and real
+      Git commit execution remain not implemented.
+
+24. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback
       proposal preparation.
 
-24. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
+25. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
     log details where available.
     - Expected: the prompt sent to Codex includes Hobit capability context,
       compact Queue/agent capability names, and policy rules before the user
@@ -372,8 +393,8 @@ For every failed smoke step, capture:
 
 ## Next Engineering Blocks
 
-1. Audit whether to connect real worker result events to the explicit frontend
-   ingestion bridge next or to add durable persistence first.
+1. Wire explicit Queue-linked Direct Work completion identities into the
+   frontend ingestion bridge with idempotency guards.
 2. Durable backend persistence design.
 3. Backend scheduler/runtime ownership design.
 4. Durable attempt/coordinator decision/review ACK/evidence persistence.

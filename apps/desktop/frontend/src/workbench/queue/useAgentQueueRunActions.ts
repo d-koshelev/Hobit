@@ -333,6 +333,7 @@ export function createAgentQueueRunActions({
       onDirectWorkRunHandoffStarted?.({
         executorWidgetInstanceId: response.executorWidgetInstanceId,
         queueItemId: response.queueItemId,
+        queueLinkedSource: "queue_manual_start",
         repoRoot: request.repoRoot,
         runId: response.runId,
         startedAt: new Date().toISOString(),
