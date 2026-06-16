@@ -1,0 +1,400 @@
+import {
+  listWidgetContracts,
+  type HobitWidgetAgentContract,
+} from "../widgets";
+import {
+  HOBIT_AGENT_SMOKE_PRODUCT_LABELS,
+  type HobitAgentSmokeCase,
+  type HobitAgentSmokeInstruction,
+  type HobitAgentSmokePlan,
+  type HobitAgentSmokeRequest,
+} from "./hobitAgentSmokeTypes";
+
+export function createHobitAgentSmokePlan({
+  createdAt,
+  instruction,
+  request,
+}: {
+  createdAt?: string;
+  instruction: HobitAgentSmokeInstruction;
+  request: HobitAgentSmokeRequest;
+}): HobitAgentSmokePlan {
+  const resolvedCreatedAt =
+    createdAt ?? request.createdAt ?? "2026-01-01T00:00:00.000Z";
+  const cases = [
+    ...workspaceAgentContextPlanCases(),
+    ...agentRuntimePlanCases(),
+    ...widgetContractPlanCases(),
+    ...queueCapabilityPlanCases(),
+    ...widgetExecutionUnavailablePlanCases(),
+    finderExcludedPlanCase(),
+    ...restrictedCapabilityPlanCases(),
+    hiddenSideEffectPlanCase(),
+  ];
+
+  return {
+    cases,
+    componentIds: componentIdsForCases(cases),
+    createdAt: resolvedCreatedAt,
+    instruction,
+    requestId: request.requestId,
+    runnerAgentId: request.runnerAgentId,
+    ...(request.workspaceId ? { workspaceId: request.workspaceId } : {}),
+  };
+}
+
+function workspaceAgentContextPlanCases(): HobitAgentSmokeCase[] {
+  return [
+    smokeCase({
+      caseId: "app-context:hobit",
+      componentId: "workspace-agent-context",
+      componentTitle: "Workspace Agent context",
+      expectedResultDescription:
+        "The Workspace Agent smoke context identifies Hobit and the current Workspace scope.",
+      kind: "workspace-agent-context",
+      required: true,
+      safeMode: "read",
+      source: "Workspace Agent capability context",
+      title: "Hobit app context",
+    }),
+    smokeCase({
+      caseId: "workspace-agent:capability-context",
+      componentId: "workspace-agent-context",
+      componentTitle: "Workspace Agent context",
+      expectedResultDescription:
+        "Workspace Agent capability context includes broker instructions and capability manifest text.",
+      kind: "workspace-agent-context",
+      required: true,
+      safeMode: "read",
+      source: "Workspace Agent capability context",
+      title: "Capability context",
+    }),
+    smokeCase({
+      caseId: "capability-manifest:available",
+      componentId: "capability-manifest",
+      componentTitle: "Capability manifest",
+      expectedResultDescription:
+        "The typed Hobit capability manifest is available for structured action selection.",
+      kind: "capability-manifest",
+      required: true,
+      safeMode: "read",
+      source: "Capability Registry",
+      title: "Capability manifest",
+    }),
+  ];
+}
+
+function agentRuntimePlanCases(): HobitAgentSmokeCase[] {
+  return [
+    smokeCase({
+      capabilityId: "agent.status.read",
+      caseId: "agent.apiSmoke:status.read",
+      componentId: "agent-api-smoke",
+      componentTitle: "Agent API smoke",
+      expectedResultDescription:
+        "The runner can read target agent status through the in-app agent runtime API.",
+      kind: "agent-api",
+      required: true,
+      safeMode: "read",
+      source: "Agent API Smoke Runner",
+      title: "agent.status.read available",
+    }),
+    smokeCase({
+      capabilityId: "agent.history.read",
+      caseId: "agent.apiSmoke:history.read",
+      componentId: "agent-api-smoke",
+      componentTitle: "Agent API smoke",
+      expectedResultDescription:
+        "The runner can read bounded target history after a safe self-test message.",
+      kind: "agent-api",
+      required: true,
+      safeMode: "read",
+      source: "Agent API Smoke Runner",
+      title: "agent.history.read available",
+    }),
+    smokeCase({
+      capabilityId: "agent.message.send",
+      caseId: "agent.apiSmoke:message.send",
+      componentId: "agent-api-smoke",
+      componentTitle: "Agent API smoke",
+      expectedResultDescription:
+        "The runner can send one typed self-test message through the in-app agent messaging model.",
+      kind: "agent-api",
+      required: true,
+      safeMode: "dry-run",
+      source: "Agent API Smoke Runner",
+      title: "agent.message.send available",
+    }),
+    smokeCase({
+      capabilityId: "agent.capabilities.read",
+      caseId: "agent.apiSmoke:capabilities.read",
+      componentId: "agent-api-smoke",
+      componentTitle: "Agent API smoke",
+      expectedResultDescription:
+        "The runner can read the target agent capability manifest.",
+      kind: "agent-api",
+      required: true,
+      safeMode: "read",
+      source: "Agent API Smoke Runner",
+      title: "agent.capabilities.read available",
+    }),
+    smokeCase({
+      capabilityId: "agent.selfTest.run",
+      caseId: "agent.apiSmoke:selfTest.run",
+      componentId: "agent-peer-self-test",
+      componentTitle: "Agent Peer SelfTest",
+      expectedResultDescription:
+        "The runner can use the peer self-test helper as part of agent API smoke.",
+      kind: "agent-peer-self-test",
+      required: true,
+      safeMode: "dry-run",
+      source: "Agent Peer SelfTest",
+      title: "agent.selfTest.run peer self-test",
+    }),
+  ];
+}
+
+function widgetContractPlanCases(): HobitAgentSmokeCase[] {
+  return listWidgetContracts().map((contract) =>
+    smokeCase({
+      caseId: `widget-contract:${contract.widgetId}`,
+      componentId: "widget-contracts",
+      componentTitle: "Widget Agent Contracts",
+      expectedResultDescription:
+        `${contract.title} contract exists with capabilities, self-test cases, and hidden side-effect assertions.`,
+      kind: "widget-contract",
+      required: true,
+      safeMode: "metadata-only",
+      source: "Widget Agent Contract registry",
+      title: widgetContractTitle(contract),
+      widgetId: contract.widgetId,
+    }),
+  );
+}
+
+function queueCapabilityPlanCases(): HobitAgentSmokeCase[] {
+  return [
+    smokeCase({
+      capabilityId: "queue.targetSingletonQueue",
+      caseId: "queue:singleton-target",
+      componentId: "queue-safe-smoke",
+      componentTitle: "Agent Queue safe checks",
+      expectedResultDescription:
+        "The smoke can resolve the singleton Queue target without creating a Queue view.",
+      kind: "capability-dry-run",
+      required: true,
+      safeMode: "dry-run",
+      source: "Action Broker queue.selfTest",
+      title: "Queue singleton target",
+      widgetId: "agent-queue",
+    }),
+    smokeCase({
+      capabilityId: "queue.createItems",
+      caseId: "queue:create-items-dry-run",
+      componentId: "queue-safe-smoke",
+      componentTitle: "Agent Queue safe checks",
+      expectedResultDescription:
+        "Queue create-items smoke runs only as a safe dry-run/fake check and does not create tasks.",
+      kind: "capability-dry-run",
+      required: true,
+      safeMode: "dry-run",
+      source: "Action Broker queue.selfTest",
+      title: "Queue createItems dry-run",
+      widgetId: "agent-queue",
+    }),
+    smokeCase({
+      capabilityId: "queue.selfTest",
+      caseId: "queue:self-test-dry-run",
+      componentId: "queue-safe-smoke",
+      componentTitle: "Agent Queue safe checks",
+      expectedResultDescription:
+        "Queue self-test reports singleton, dry-run, and hidden side-effect evidence.",
+      kind: "capability-dry-run",
+      required: true,
+      safeMode: "dry-run",
+      source: "Action Broker queue.selfTest",
+      title: "Queue self-test dry-run",
+      widgetId: "agent-queue",
+    }),
+    smokeCase({
+      capabilityId: "queue.selfTest",
+      caseId: "queue:no-hidden-side-effects",
+      componentId: "queue-safe-smoke",
+      componentTitle: "Agent Queue safe checks",
+      expectedResultDescription:
+        "Queue self-test asserts no hidden Codex, shell, Terminal, Git, rollback, worker, Autorun, or duplicate Queue view side effects.",
+      kind: "capability-dry-run",
+      required: true,
+      safeMode: "dry-run",
+      source: "Action Broker queue.selfTest",
+      title: "Queue hidden side-effect assertions",
+      widgetId: "agent-queue",
+    }),
+    smokeCase({
+      capabilityId: "queue.createItems",
+      caseId: "queue:safe-mutation-sandbox",
+      componentId: "queue-safe-smoke",
+      componentTitle: "Agent Queue safe checks",
+      expectedResultDescription:
+        "Queue mutation self-test runs only when a safe fake or injected sandbox is available.",
+      kind: "capability-dry-run",
+      plannedStatus: "skipped",
+      productFacingReason: HOBIT_AGENT_SMOKE_PRODUCT_LABELS.dryRunOnly,
+      required: false,
+      safeMode: "dry-run",
+      source: "Action Broker queue.selfTest",
+      title: "Queue safe mutation sandbox",
+      widgetId: "agent-queue",
+    }),
+  ];
+}
+
+function widgetExecutionUnavailablePlanCases(): HobitAgentSmokeCase[] {
+  return [
+    smokeCase({
+      caseId: "widget-contract:skill-library:adapter",
+      componentId: "widget-adapter-execution",
+      componentTitle: "Widget adapter execution",
+      expectedResultDescription:
+        "Knowledge / Skills adapter execution is not implemented and must not be simulated as success.",
+      kind: "widget-contract",
+      plannedStatus: "skipped",
+      productFacingReason: HOBIT_AGENT_SMOKE_PRODUCT_LABELS.adapterNotImplemented,
+      required: false,
+      safeMode: "metadata-only",
+      source: "Widget Agent Contract registry",
+      title: "Knowledge / Skills adapter execution",
+      widgetId: "skill-library",
+    }),
+    smokeCase({
+      caseId: "widget-contract:notes:adapter",
+      componentId: "widget-adapter-execution",
+      componentTitle: "Widget adapter execution",
+      expectedResultDescription:
+        "Notes adapter execution is not implemented and must not be simulated as success.",
+      kind: "widget-contract",
+      plannedStatus: "skipped",
+      productFacingReason: HOBIT_AGENT_SMOKE_PRODUCT_LABELS.adapterNotImplemented,
+      required: false,
+      safeMode: "metadata-only",
+      source: "Widget Agent Contract registry",
+      title: "Notes adapter execution",
+      widgetId: "notes",
+    }),
+    smokeCase({
+      caseId: "widget-contract:terminal:adapter",
+      componentId: "widget-adapter-execution",
+      componentTitle: "Widget adapter execution",
+      expectedResultDescription:
+        "Terminal adapter/runtime execution is restricted and not implemented for agent smoke.",
+      kind: "widget-contract",
+      plannedStatus: "blocked",
+      productFacingReason: HOBIT_AGENT_SMOKE_PRODUCT_LABELS.restrictedCapability,
+      required: false,
+      safeMode: "restricted",
+      source: "Widget Agent Contract registry",
+      title: "Terminal adapter execution",
+      widgetId: "terminal",
+    }),
+  ];
+}
+
+function finderExcludedPlanCase(): HobitAgentSmokeCase {
+  return smokeCase({
+    caseId: "widget-contract:finder-active-scope",
+    componentId: "finder-excluded",
+    componentTitle: "Finder",
+    expectedResultDescription:
+      "Finder is explicitly excluded from this active agent-executed smoke scope.",
+    kind: "excluded-scope",
+    plannedStatus: "skipped",
+    productFacingReason: HOBIT_AGENT_SMOKE_PRODUCT_LABELS.finderExcluded,
+    required: false,
+    safeMode: "excluded",
+    source: "Widget Agent Contract registry",
+    title: "Finder excluded",
+    widgetId: "finder",
+  });
+}
+
+function restrictedCapabilityPlanCases(): HobitAgentSmokeCase[] {
+  return [
+    smokeCase({
+      capabilityId: "codex.runTask",
+      caseId: "capability:codex-restricted",
+      componentId: "restricted-capabilities",
+      componentTitle: "Restricted capabilities",
+      expectedResultDescription:
+        "Codex run is a restricted explicit execution capability, not a default smoke path.",
+      kind: "restricted-capability",
+      required: true,
+      safeMode: "restricted",
+      source: "Capability policy",
+      title: "Codex capability restricted",
+    }),
+    smokeCase({
+      capabilityId: "workspace.shell.runCommand",
+      caseId: "capability:shell-restricted",
+      componentId: "restricted-capabilities",
+      componentTitle: "Restricted capabilities",
+      expectedResultDescription:
+        "Shell command execution is restricted and unavailable for agent-executed smoke.",
+      kind: "restricted-capability",
+      required: true,
+      safeMode: "restricted",
+      source: "Capability Registry",
+      title: "Shell capability restricted",
+    }),
+  ];
+}
+
+function hiddenSideEffectPlanCase(): HobitAgentSmokeCase {
+  return smokeCase({
+    caseId: "hidden-side-effects:no-hidden-side-effects",
+    componentId: "hidden-side-effect-assertions",
+    componentTitle: "Hidden side-effect assertions",
+    expectedResultDescription:
+      "Smoke asserts no Codex run, shell command, Queue mutation, worker start, Queue view creation, Terminal launch, Git mutation, or rollback execution.",
+    kind: "hidden-side-effect",
+    required: true,
+    safeMode: "read",
+    source: "Self-Test Runner",
+    title: "Hidden side-effect assertions",
+  });
+}
+
+function widgetContractTitle(contract: HobitWidgetAgentContract): string {
+  if (contract.widgetId === "agent-queue") {
+    return "Agent Queue / QueueV2 widget contract";
+  }
+
+  if (contract.widgetId === "interactive-agent") {
+    return "Workspace Agent widget contract";
+  }
+
+  if (contract.widgetId === "skill-library") {
+    return "Knowledge / Skills widget contract";
+  }
+
+  if (contract.widgetId === "notes") {
+    return "Notes widget contract";
+  }
+
+  if (contract.widgetId === "terminal") {
+    return "Terminal widget contract";
+  }
+
+  return `${contract.title} widget contract`;
+}
+
+function componentIdsForCases(
+  cases: readonly Pick<HobitAgentSmokeCase, "componentId">[],
+): string[] {
+  return [...new Set(cases.map((item) => item.componentId))].sort((left, right) =>
+    left.localeCompare(right),
+  );
+}
+
+function smokeCase(input: HobitAgentSmokeCase): HobitAgentSmokeCase {
+  return input;
+}

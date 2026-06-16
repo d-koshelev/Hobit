@@ -64,12 +64,23 @@ restricted capabilities for explicit workspace/code execution requests only.
   hidden-side-effect assertions without Queue mutation, Codex/shell use,
   Terminal launch, Git mutation, rollback execution, worker start, widget/view
   creation, backend calls, or real app API execution.
+- Agent-executed Smoke Report Foundation: shared pure frontend aggregation
+  under `selfTest/` that combines Agent API smoke, peer self-test evidence,
+  active Widget Agent Contract checks, safe Queue dry-run/self-test evidence
+  when an injected safe adapter path is available, and hidden-side-effect
+  assertions. It is the foundation for replacing parts of manual smoke with
+  structured agent-executed smoke reports. It does not add natural-language
+  routing, backend/Tauri/IPC/storage behavior, real Terminal command
+  execution, Git mutation, rollback execution, worker dispatch, Queue view
+  creation, or new Knowledge / Skills, Notes, or Terminal adapters.
 - Agent Self-Test Runner UI MVP: implemented as a visible secondary Workspace
-  Agent action, `Run Agent Self-Test`. It orchestrates the safe agent API
-  smoke runner, Workspace Agent capability-context checks, capability manifest
-  checks, active Widget Agent Contract checks, Queue `queue.selfTest` dry-run
-  checks through the Action Broker, and restricted Codex/shell capability
-  assertions. It renders a structured report instead of raw JSON.
+  Agent action, `Run Agent Self-Test`. It uses the aggregate
+  agent-executed smoke report foundation over the safe agent API smoke runner,
+  peer self-test, Workspace Agent capability-context checks, capability
+  manifest checks, active Widget Agent Contract checks, Queue
+  `queue.selfTest` dry-run checks through the Action Broker, and restricted
+  Codex/shell capability assertions. It renders a structured report instead of
+  raw JSON.
 - Workspace Agent Capability Context Injection: the active Workspace Agent
   Codex Direct Work prompt path now attaches Hobit app context, Workspace
   Agent role instructions, a compact capability manifest, and policy rules
@@ -260,6 +271,23 @@ using safe model checks for status, history, capabilities, messaging, and peer
 self-test. It does not test Queue app behavior. Queue app capability smoke is
 covered separately by the Queue adapter and Workspace Agent structured
 action-request tests.
+
+The Agent-executed Smoke Report foundation is the unified report layer above
+those pieces. It creates a product-facing smoke instruction and plan, then
+aggregates Agent API smoke, peer self-test evidence, active Widget Agent
+Contract checks, Queue singleton/create-items dry-run/self-test checks where a
+safe injected adapter path exists, skipped or blocked metadata-only execution
+checks, and hidden-side-effect assertions. Knowledge / Skills, Notes, and
+Terminal execution adapters remain future work; their contracts can pass while
+adapter/runtime execution reports `Adapter not implemented yet`,
+`Runtime execution not implemented yet`, or `Restricted capability`.
+
+The smoke report does not perform hidden side effects. It does not call Codex,
+run shell commands, mutate Queue, start Queue workers, create Queue views,
+launch Terminal, run Terminal commands, mutate Git, execute rollback, create
+or update Notes/Knowledge, attach context, add adapters, or parse user prompts
+with natural-language regex routing. Any product action path remains
+structured action request plus Action Broker validation.
 
 The Workspace Agent `Run Agent Self-Test` UI action now exposes this smoke
 foundation in-product. The visible report uses `Passed`, `Failed`, `Skipped`,

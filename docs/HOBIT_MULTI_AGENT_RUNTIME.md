@@ -163,6 +163,16 @@ also layers current capability-context, manifest, widget-contract, Queue
 dry-run, and restricted Codex/shell checks outside this pure multi-agent
 runtime model.
 
+## Agent-Executed Smoke Inputs
+
+The unified Agent-executed Smoke Report foundation may use this runtime's
+agent APIs and peer self-test as safe inputs. It can read agent status,
+bounded history, capability manifests, send typed internal self-test messages,
+and invoke the peer self-test helper as model evidence. These inputs remain
+pure frontend checks: they do not execute broker actions, call shell or Codex,
+mutate Queue, launch Terminal, mutate Git, execute rollback, start workers, or
+parse user prompts through natural-language regex routing.
+
 ## Capability Broker Boundary
 
 App control outside the pure peer-runtime model must happen through:

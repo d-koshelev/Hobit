@@ -7,16 +7,21 @@ checklist does not claim durable backend Smart Queue runtime, scheduler,
 rollback execution, Git/file mutation, Terminal launch, Workspace Agent
 runtime auto-call, backend migrations, or storage schema changes.
 
-Queue manual smoke should move toward peer and widget self-test models under
-`apps/desktop/frontend/src/workbench/agents/`. Those contracts can describe
-safe self-tests and expected evidence. Workspace Agent now exposes a narrow
-visible `Run Agent Self-Test` action for safe agent/runtime/widget checks, but
-full Queue UI smoke is still manual until broader Queue widget self-test
-coverage exists.
+Queue manual smoke should move toward peer, widget, and agent-executed smoke
+models under `apps/desktop/frontend/src/workbench/agents/`. Those contracts can
+describe safe self-tests and expected evidence. Workspace Agent now exposes a
+visible `Run Agent Self-Test` action backed by the Agent-executed Smoke Report
+foundation. It aggregates agent API smoke, peer self-test evidence, active
+Widget Agent Contracts, Queue safe dry-run/self-test checks when available,
+and hidden-side-effect assertions. Full Queue UI smoke is still manual until
+broader Queue widget adapters and self-test coverage exist.
 
-The current Agent API Smoke Runner is not a Queue smoke. It checks only the
-implemented in-app agent runtime APIs for status, bounded history, messaging,
-capabilities, and peer self-test.
+The current Agent API Smoke Runner remains only one input to the aggregate
+report. By itself it checks only the implemented in-app agent runtime APIs for
+status, bounded history, messaging, capabilities, and peer self-test. Queue,
+Workspace Agent, Knowledge / Skills, Notes, Terminal, Finder exclusion, and no
+hidden side effects are reported by the aggregate Workspace Agent self-test
+surface.
 
 Queue capability adapter smoke can now include the frontend Action Broker
 handler boundary with an injected Queue adapter API and Workspace Agent
@@ -145,13 +150,15 @@ During the smoke, verify these product labels appear where applicable:
       launching Codex/shell/Terminal, mutating Git, or executing rollback.
 
 18. In Workspace Agent, click `Run Agent Self-Test`.
-    - Expected: a compact structured report appears in Workspace Agent showing
-      agent APIs, capability context, capability manifest, Agent Queue and
-      Workspace Agent widget contracts, Knowledge / Skills, Notes, and
-      Terminal widget contracts, skipped or blocked adapter/execution checks
-      for Knowledge / Skills, Notes, and Terminal, Finder outside active
-      contract scope, restricted Codex/shell capabilities, and `No hidden side
-      effects`.
+    - Expected: a compact structured Agent-executed Smoke Report appears in
+      Workspace Agent showing agent APIs, peer self-test evidence, capability
+      context, capability manifest, Agent Queue / QueueV2 and Workspace Agent
+      widget contracts, Knowledge / Skills, Notes, and Terminal widget
+      contracts, Queue singleton/create-items dry-run/self-test checks when a
+      safe injected path is available, skipped or blocked adapter/execution
+      checks for Knowledge / Skills, Notes, and Terminal, Finder excluded from
+      active smoke scope, restricted Codex/shell capabilities, and `No hidden
+      side effects`.
     - Expected: the report uses `Passed`, `Failed`, `Skipped`, and `Blocked`
       counts plus per-check product-facing reasons such as `Capability
       unavailable`, `Adapter not implemented yet`, `Dry-run unavailable`,
@@ -159,8 +166,8 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: Knowledge / Skills, Notes, and Terminal contract checks can
       pass while unsupported adapter/runtime execution remains skipped or
       blocked until adapters exist.
-    - Expected: this does not replace all manual Queue UI smoke unless full
-      Queue widget self-test coverage exists.
+    - Expected: this does not replace all manual Queue UI smoke until widget
+      execution adapters and broader Queue widget self-test coverage exist.
 
 19. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime

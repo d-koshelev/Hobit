@@ -54,12 +54,34 @@ export {
   summarizeAgentApiSmokeReport,
 } from "./hobitAgentApiSmokeRunner";
 export type {
+  HobitAgentSmokeCase,
+  HobitAgentSmokeComponentResult,
+  HobitAgentSmokeHiddenSideEffectAssertion,
+  HobitAgentSmokeInstruction,
+  HobitAgentSmokePlan,
+  HobitAgentSmokeReport,
+  HobitAgentSmokeRequest,
+  HobitAgentSmokeResult,
+  HobitAgentSmokeRunResult,
+  HobitAgentSmokeStatus,
+} from "./hobitAgentSmokeRunner";
+export {
+  createHobitAgentSmokeInstruction,
+  createHobitAgentSmokePlan,
+  createHobitAgentSmokeRequest,
+  HOBIT_AGENT_SMOKE_PRODUCT_LABELS,
+  hobitAgentSmokeStatusLabel,
+  runHobitAgentSmoke,
+  summarizeHobitAgentSmokeResults,
+} from "./hobitAgentSmokeRunner";
+export type {
   HobitAgentSelfTestHiddenSideEffectAssertion,
   HobitAgentSelfTestReportRow,
   HobitAgentSelfTestReportRowStatus,
   HobitAgentSelfTestReportViewModel,
 } from "./hobitAgentSelfTestReportViewModel";
 export {
+  createSelfTestViewModelFromSmokeReport,
   createSelfTestViewModel,
   runWorkspaceAgentSelfTestReport,
   statusLabel,

@@ -20,6 +20,7 @@ describe("hobitAgentSelfTestReportViewModel", () => {
 
     expect(report.summary.total).toBeGreaterThan(10);
     expect(report.summary.failed).toBe(0);
+    expect(report.overallStatus).toBe("passed");
     expect(report.productSummary).toContain("passed");
     expect(report.productSummary).toContain("skipped");
     expect(report.productSummary).toContain("blocked");
@@ -74,7 +75,8 @@ describe("hobitAgentSelfTestReportViewModel", () => {
       widgetId: "terminal",
     });
     expect(row(report, "widget-contract:finder-active-scope")).toMatchObject({
-      message: "Finder is not in active contract scope.",
+      message: "Finder excluded.",
+      reason: "Finder excluded",
       status: "skipped",
     });
   });
@@ -105,7 +107,7 @@ describe("hobitAgentSelfTestReportViewModel", () => {
       message:
         "Terminal adapter execution is restricted and not implemented yet. Self-test does not execute commands.",
       reason:
-        "Restricted capability. Adapter not implemented yet. Dry-run unavailable for Terminal execution.",
+        "Restricted capability. Runtime execution not implemented yet. Dry-run unavailable for Terminal execution.",
       status: "blocked",
       widgetId: "terminal",
     });
@@ -146,7 +148,7 @@ describe("hobitAgentSelfTestReportViewModel", () => {
       status: "passed",
     });
     expect(row(report, "hidden-side-effects:no-hidden-side-effects")).toMatchObject({
-      message: "No hidden side effects.",
+      message: "No hidden side effects",
       status: "passed",
     });
   });

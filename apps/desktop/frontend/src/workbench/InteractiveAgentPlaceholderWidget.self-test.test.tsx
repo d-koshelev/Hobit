@@ -60,7 +60,7 @@ describe("InteractiveAgentPlaceholderWidget Agent Self-Test Runner", () => {
     expect(reportText).toContain("agent.message.send");
     expect(reportText).toContain("agent.capabilities.read");
     expect(reportText).toContain("agent.selfTest.run");
-    expect(reportText).toContain("Queue widget contract");
+    expect(reportText).toContain("Agent Queue / QueueV2 widget contract");
     expect(reportText).toContain("Workspace Agent widget contract");
     expect(reportText).toContain("Knowledge / Skills");
     expect(reportText).toContain("Notes");

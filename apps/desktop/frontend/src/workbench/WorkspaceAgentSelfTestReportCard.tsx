@@ -20,7 +20,7 @@ export function WorkspaceAgentSelfTestReportCard({
             Agent Self-Test Report
           </p>
           <h3 className="workspace-agent-self-test-title">
-            Run Agent Self-Test
+            Agent-executed Smoke Report
           </h3>
         </div>
         <Badge variant={badgeVariantForStatus(report.overallStatus)}>
@@ -91,6 +91,10 @@ export function WorkspaceAgentSelfTestReportCard({
                   <dd>{row.component}</dd>
                 </div>
               ) : null}
+              <div>
+                <dt>Source</dt>
+                <dd>{row.source}</dd>
+              </div>
             </dl>
             <p className="workspace-agent-self-test-row-message">
               {row.message}
