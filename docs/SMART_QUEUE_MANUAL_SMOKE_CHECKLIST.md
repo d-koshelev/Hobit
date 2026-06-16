@@ -143,7 +143,14 @@ During the smoke, verify these product labels appear where applicable:
       and broker handlers supplied by `createQueueAgentActionHandlers`.
     - Expected: Workspace Agent Queue action smoke uses an agent-emitted
       structured envelope such as
-      `{"type":"hobit.action.request","capabilityId":"queue.createItems","dryRun":false,"input":{"items":[...]}}`.
+      `{"type":"hobit.action.request","capabilityId":"queue.createItems","dryRun":false,"input":{"items":[{"title":"Test Queue item","prompt":"Review the current workspace state and report one safe next step.","status":"draft"}]}}`.
+    - Expected: In Workspace Agent, prompts such as `create test queue item`
+      or `create dummy prompt` can produce a structured Queue action request
+      with both `title` and runnable `prompt`, or ask for missing real task
+      content when the request is not explicitly test/dummy/example.
+    - Expected: the successful structured request creates the Queue item
+      through the broker with no shell fallback, no Codex fallback, no worker
+      start, and no duplicate Queue view.
     - Expected: Typing phrases such as `add example queue items to queue`,
       `create queue items`, or `add tasks to queue` must not be treated as
       `user text -> regex -> Queue action`.

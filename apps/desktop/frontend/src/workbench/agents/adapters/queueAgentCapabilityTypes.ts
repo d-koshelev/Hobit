@@ -62,6 +62,9 @@ export type QueueAgentSourceMetadata = {
   [key: string]: unknown;
 };
 
+// Raw structured input from a Hobit action request before adapter validation.
+// title and prompt stay optional here so invalid envelopes can be represented
+// and rejected by normalizeCreateItemsInput without weakening validation.
 export type QueueAgentCreateItemInput = {
   dependencies?: readonly string[];
   description?: string | null;

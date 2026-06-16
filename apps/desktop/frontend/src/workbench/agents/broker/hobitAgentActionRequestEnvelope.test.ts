@@ -4,6 +4,11 @@ import { readFileSync } from "fs";
 import { describe, expect, it } from "vitest";
 
 import {
+  createHobitAgentCapabilityRegistry,
+  findCapability,
+  type HobitAgentCapability,
+} from "../capabilities";
+import {
   createHobitAgentActionRequestFromEnvelope,
   HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
   readHobitAgentActionRequestEnvelope,
@@ -151,6 +156,27 @@ describe("hobitAgentActionRequestEnvelope", () => {
     });
   });
 
+  it("parses Queue capability manifest action-request examples", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+
+    for (const capabilityId of ["queue.createItem", "queue.createItems"]) {
+      const capability = requiredCapability(registry, capabilityId);
+      const example = requiredMutationExample(capability);
+      const result = readHobitAgentActionRequestEnvelope(
+        JSON.stringify(example.exampleActionRequest),
+      );
+
+      expect(result).toMatchObject({
+        envelope: {
+          capabilityId,
+          dryRun: false,
+          type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+        },
+        status: "valid",
+      });
+    }
+  });
+
   it("does not implement product-intent regex routing", () => {
     const source = frontendSource(
       "workbench/agents/broker/hobitAgentActionRequestEnvelope.ts",
@@ -170,4 +196,27 @@ function frontendSource(path: string) {
   ).process.cwd();
 
   return readFileSync(`${cwd}/src/${path}`, "utf8");
+}
+
+function requiredCapability(
+  registry: ReturnType<typeof createHobitAgentCapabilityRegistry>,
+  capabilityId: string,
+) {
+  const capability = findCapability(registry, capabilityId);
+  if (!capability) {
+    throw new Error(`Missing capability ${capabilityId}`);
+  }
+  return capability;
+}
+
+function requiredMutationExample(capability: HobitAgentCapability) {
+  const example = capability.examples?.find(
+    (candidate) => !candidate.exampleActionRequest.dryRun,
+  );
+
+  if (!example) {
+    throw new Error(`Missing mutation example for ${capability.id}`);
+  }
+
+  return example;
 }

@@ -23,6 +23,30 @@ export type HobitAgentCapabilityAvailability =
       reason: string;
     };
 
+export type HobitAgentCapabilityInputSchema = {
+  acceptedFields: readonly string[];
+  fieldDescriptions: Readonly<Record<string, string>>;
+  invalidInputGuidance?: readonly string[];
+  requiredFields: readonly string[];
+  shape: string;
+};
+
+export type HobitAgentCapabilityActionRequestExample = {
+  capabilityId: HobitAgentCapabilityId;
+  confirmationToken?: string | null;
+  dryRun: boolean;
+  input: unknown;
+  reason?: string | null;
+  requestId?: string | null;
+  type: "hobit.action.request";
+};
+
+export type HobitAgentCapabilityExample = {
+  description: string;
+  exampleActionRequest: HobitAgentCapabilityActionRequestExample;
+  exampleInput: unknown;
+};
+
 export type HobitAgentCapability = {
   allowedAgentRoles: HobitAgentRoleId[];
   auditEventNames: string[];
@@ -33,6 +57,8 @@ export type HobitAgentCapability = {
   forbiddenSideEffects: string[];
   id: HobitAgentCapabilityId;
   inputSchemaDescription: string;
+  inputSchema?: HobitAgentCapabilityInputSchema;
+  examples?: readonly HobitAgentCapabilityExample[];
   outputSchemaDescription: string;
   ownerSurface: string;
   restricted: boolean;

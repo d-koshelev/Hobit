@@ -5,6 +5,7 @@ import {
   clickButton,
   directWorkEvent,
   lastAssistantMessageText,
+  lastOperatorMessageText,
   renderWidget,
   setTextareaValue,
   type DirectWorkStreamEvent,
@@ -275,6 +276,47 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(lastAssistantMessageText()).toBe(
       "I can help plan those Queue items.",
     );
+  });
+
+  it("sends Queue schemas and examples to Direct Work without exposing them in the transcript", async () => {
+    const createItem = vi.fn();
+    const runAutonomousQueue = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalText(
+      "I can create a test Queue item when you confirm the action request.",
+    );
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({
+        createItem,
+        runAutonomousQueue,
+      }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("create test queue item");
+    await flushAsync();
+
+    const directWorkRequest = startDirectWork.mock.calls[0]?.[1] as {
+      operatorPrompt?: string;
+    };
+    const operatorPrompt = directWorkRequest.operatorPrompt ?? "";
+
+    expect(operatorPrompt).toContain("Queue item prompt is required");
+    expect(operatorPrompt).toContain("runnable task instruction");
+    expect(operatorPrompt).toContain("test, dummy, or example Queue item");
+    expect(operatorPrompt).toContain("ask a concise clarification");
+    expect(operatorPrompt).toContain('"capabilityId":"queue.createItem"');
+    expect(operatorPrompt).toContain('"capabilityId":"queue.createItems"');
+    expect(operatorPrompt).toContain(
+      '"prompt":"Review the current workspace state and report one safe next step."',
+    );
+    expect(operatorPrompt).not.toContain('"input":{}');
+    expect(lastOperatorMessageText()).toBe("create test queue item");
+    expect(lastOperatorMessageText()).not.toContain("Queue create action schemas");
+    expect(lastAssistantMessageText()).not.toContain("hobit.action.request");
+    expect(createItem).not.toHaveBeenCalled();
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
   });
 });
 

@@ -89,7 +89,9 @@ restricted capabilities for explicit workspace/code execution requests only.
   before Codex execution. When the agent returns a valid
   `hobit.action.request` envelope, the frontend parses that structured machine
   request, invokes the Action Broker, and renders a compact product-facing
-  result. Normal assistant prose remains prose.
+  result. The compact manifest includes field-level schema and examples for
+  Queue create action requests without dumping the raw registry. Normal
+  assistant prose remains prose.
 
 ## Module Ownership
 
@@ -147,7 +149,15 @@ frontend direct-run result path. Agents may emit a minimal JSON envelope:
   "type": "hobit.action.request",
   "capabilityId": "queue.createItems",
   "dryRun": false,
-  "input": {},
+  "input": {
+    "items": [
+      {
+        "title": "Test Queue item",
+        "prompt": "Review the current workspace state and report one safe next step.",
+        "status": "draft"
+      }
+    ]
+  },
   "reason": "optional",
   "requestId": "optional",
   "confirmationToken": "optional"
@@ -213,6 +223,23 @@ Workspace Agent UI, route natural language, call Codex, call shell, launch
 Terminal, mutate Git, execute rollback, start workers, arm Queue Autorun, or
 create duplicate Queue views.
 
+Queue create action input is intentionally strict at the adapter boundary.
+`queue.createItem` requires `title` and `prompt`. `queue.createItems` requires
+a non-empty `items` array, and every item requires `title` and `prompt`. The
+`prompt` field is the runnable task instruction, not a display-only
+description. Optional adapter fields are `status`, `description`,
+`dependencies`, `source`, `sourceMetadata`, and `id`; unsupported aliases such
+as `body`, `text`, `content`, `operatorPrompt`, `initialState`, `dependsOn`,
+`queueTag`, and `priority` do not satisfy Queue create input.
+
+Workspace Agent capability instructions may tell the model that explicit
+test, dummy, or example Queue item requests can use a safe placeholder prompt,
+for example "Review the current workspace state and report one safe next
+step." If a user asks to create a real Queue item without providing runnable
+task content, the agent should ask a concise clarification instead of emitting
+an invalid action request. This is model guidance in the capability context,
+not app-side natural-language routing.
+
 Dry-run Queue creation returns a structured preview with:
 
 - `wouldCreateItems`
@@ -221,7 +248,7 @@ Dry-run Queue creation returns a structured preview with:
 - `wouldCreateDuplicateQueueView: false`
 
 Invoke Queue creation uses the injected Queue adapter API and targets the
-singleton Workspace Queue. It preserves title, prompt/body, source metadata,
+singleton Workspace Queue. It preserves title, prompt, source metadata,
 and dependency edges where the adapter supports them. If dependency edges
 cannot be represented, the handler returns a structured failed/unsupported
 result instead of silently dropping them.

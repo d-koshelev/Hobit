@@ -17,7 +17,10 @@ import {
   createHobitAgentCapabilityRegistry as createRegistryFromCapabilitiesIndex,
   HOBIT_AGENT_INITIAL_CAPABILITIES as INITIAL_CAPABILITIES_FROM_CAPABILITIES_INDEX,
 } from "./capabilities";
-import { createActionRequest as createActionRequestFromBrokerIndex } from "./broker";
+import {
+  createActionRequest as createActionRequestFromBrokerIndex,
+  readHobitAgentActionRequestEnvelope,
+} from "./broker";
 import {
   buildWorkspaceAgentCapabilityContext as buildContextFromContextIndex,
 } from "./context";
@@ -66,6 +69,12 @@ describe("hobitAgentCapabilityRuntime docs", () => {
     expect(contractDoc).toContain("codex.runTask");
     expect(contractDoc).toContain("Action Broker MVP");
     expect(contractDoc).toContain("Queue Capability Adapter MVP");
+    expect(contractDoc).toContain(
+      "Queue create action input is intentionally strict",
+    );
+    expect(contractDoc).toContain(
+      "test, dummy, or example Queue item requests can use a safe placeholder prompt",
+    );
     expect(contractDoc).not.toMatch(/durable backend runtime is implemented/i);
     expect(contractDoc).not.toMatch(/backend scheduler is implemented/i);
   });
@@ -270,11 +279,30 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain(
       "Queue item creation is a Queue capability.",
     );
+    expect(instructionBlock).toContain("Queue create action schemas:");
+    expect(instructionBlock).toContain("required=title,prompt");
+    expect(instructionBlock).toContain(
+      "Queue item prompt is required",
+    );
+    expect(instructionBlock).toContain("runnable task instruction");
+    expect(instructionBlock).toContain(
+      "test, dummy, or example Queue item",
+    );
+    expect(instructionBlock).toContain("ask a concise clarification");
+    expect(instructionBlock).toContain(
+      '"capabilityId":"queue.createItem"',
+    );
+    expect(instructionBlock).toContain(
+      '"capabilityId":"queue.createItems"',
+    );
+    expect(instructionBlock).toContain('"prompt":"Review the current workspace state and report one safe next step."');
     expect(instructionBlock).toContain(
       "Codex and shell are restricted capabilities",
     );
     expect(instructionBlock).toContain('"type":"hobit.action.request"');
-    expect(instructionBlock.length).toBeLessThan(5000);
+    expect(instructionBlock).not.toContain('"input":{}');
+    expect(instructionBlock).not.toContain('"allowedAgentRoles"');
+    expect(instructionBlock.length).toBeLessThan(7500);
     expect(instructionBlock).not.toContain('"capabilities"');
   });
 
@@ -362,12 +390,15 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain('"type":"hobit.action.request"');
     expect(prompt).toContain("When a Hobit app capability is needed");
     expect(prompt).toContain("Queue item creation is a Queue capability.");
+    expect(prompt).toContain("Queue item prompt is required");
+    expect(prompt).toContain('"capabilityId":"queue.createItem"');
+    expect(prompt).toContain('"capabilityId":"queue.createItems"');
     expect(prompt).toContain("Do not inspect source files for product actions.");
     expect(prompt).toContain("Do not execute app actions through shell, Codex");
     expect(prompt).toContain("codex.runTask (restricted)");
     expect(prompt).toContain("workspace.shell.runCommand (restricted)");
     expect(prompt).toContain("User request:\nRefactor the Workspace Agent prompt path.");
-    expect(prompt.length).toBeLessThan(5500);
+    expect(prompt.length).toBeLessThan(8000);
     expect(prompt).not.toContain('"capabilityManifest"');
   });
 });
@@ -424,6 +455,87 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
         "queue_autorun",
       ]),
     ).toBe(true);
+  });
+
+  it("declares exact Queue create schemas and valid action-request examples", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const queueCreateItem = requiredCapability(registry, "queue.createItem");
+    const queueCreateItems = requiredCapability(registry, "queue.createItems");
+    const createItemExample = requiredMutationExample(queueCreateItem);
+    const createItemsExample = requiredMutationExample(queueCreateItems);
+
+    expect(queueCreateItem.inputSchema?.requiredFields).toEqual([
+      "title",
+      "prompt",
+    ]);
+    expect(queueCreateItem.inputSchema?.acceptedFields).toEqual([
+      "title",
+      "prompt",
+      "status",
+      "description",
+      "dependencies",
+      "source",
+      "sourceMetadata",
+      "id",
+    ]);
+    expect(queueCreateItems.inputSchema?.requiredFields).toEqual([
+      "items",
+      "items[].title",
+      "items[].prompt",
+    ]);
+    expect(queueCreateItems.inputSchema?.acceptedFields).toContain(
+      "items[].title",
+    );
+    expect(queueCreateItems.inputSchema?.acceptedFields).toContain(
+      "items[].prompt",
+    );
+    expect(createItemExample.exampleActionRequest).toMatchObject({
+      capabilityId: "queue.createItem",
+      dryRun: false,
+      input: {
+        prompt:
+          "Review the current workspace state and report one safe next step.",
+        status: "draft",
+        title: "Test Queue item",
+      },
+      type: "hobit.action.request",
+    });
+    expect(createItemsExample.exampleActionRequest).toMatchObject({
+      capabilityId: "queue.createItems",
+      dryRun: false,
+      input: {
+        items: [
+          expect.objectContaining({
+            prompt:
+              "Review the current workspace state and report one safe next step.",
+            title: "Test Queue item",
+          }),
+        ],
+      },
+      type: "hobit.action.request",
+    });
+    expect(
+      Array.isArray(
+        (
+          createItemsExample.exampleActionRequest.input as {
+            items?: unknown;
+          }
+        ).items,
+      ),
+    ).toBe(true);
+
+    for (const example of [createItemExample, createItemsExample]) {
+      const serializedExample = JSON.stringify(example.exampleActionRequest);
+
+      expect(serializedExample).toContain('"prompt"');
+      expect(serializedExample).not.toContain('"body"');
+      expect(serializedExample).not.toContain('"text"');
+      expect(serializedExample).not.toContain('"content"');
+      expect(serializedExample).not.toContain('"operatorPrompt"');
+      expect(readHobitAgentActionRequestEnvelope(serializedExample)).toMatchObject({
+        status: "valid",
+      });
+    }
   });
 
   it("declares agent runtime APIs as typed model capabilities", () => {
@@ -577,6 +689,20 @@ function requiredCapability(
     throw new Error(`Missing capability ${capabilityId}`);
   }
   return capability;
+}
+
+function requiredMutationExample(
+  capability: ReturnType<typeof requiredCapability>,
+) {
+  const example = capability.examples?.find(
+    (candidate) => !candidate.exampleActionRequest.dryRun,
+  );
+
+  if (!example) {
+    throw new Error(`Missing mutation example for ${capability.id}`);
+  }
+
+  return example;
 }
 
 function doc(name: string) {

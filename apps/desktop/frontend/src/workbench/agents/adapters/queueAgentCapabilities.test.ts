@@ -151,9 +151,123 @@ describe("queueAgentCapabilities dry-run", () => {
     expect(result.status).toBe("invalid_input");
     expect(result.result.message).toBe("Queue item title is required.");
   });
+
+  it("keeps Queue item prompt required for createItem and createItems", () => {
+    const createItemResult = createQueueBroker(fakeQueueAdapter()).invoke(
+      request({
+        capabilityId: "queue.createItem",
+        dryRun: true,
+        input: { title: "Missing prompt" },
+      }),
+    );
+    const createItemsResult = createQueueBroker(fakeQueueAdapter()).invoke(
+      request({
+        capabilityId: "queue.createItems",
+        dryRun: true,
+        input: { items: [{ title: "Missing item prompt" }] },
+      }),
+    );
+
+    expect(createItemResult.status).toBe("invalid_input");
+    expect(createItemResult.result.message).toBe(
+      "Queue item prompt is required.",
+    );
+    expect(createItemsResult.status).toBe("invalid_input");
+    expect(createItemsResult.result.message).toBe(
+      "Queue item prompt is required.",
+    );
+  });
+
+  it("does not accept description or prompt aliases as Queue item prompt", () => {
+    for (const alias of [
+      "description",
+      "body",
+      "text",
+      "content",
+      "operatorPrompt",
+    ]) {
+      const result = createQueueBroker(fakeQueueAdapter()).invoke(
+        request({
+          capabilityId: "queue.createItem",
+          dryRun: true,
+          input: {
+            [alias]: "Run this task.",
+            title: `Alias ${alias}`,
+          },
+        }),
+      );
+
+      expect(result.status).toBe("invalid_input");
+      expect(result.result.message).toBe("Queue item prompt is required.");
+    }
+  });
 });
 
 describe("queueAgentCapabilities invoke", () => {
+  it("accepts Queue create action-request examples from the capability manifest", () => {
+    for (const capabilityId of ["queue.createItem", "queue.createItems"]) {
+      const capability = requiredCapability(
+        createHobitAgentCapabilityRegistry(),
+        capabilityId,
+      );
+      const example = requiredMutationExample(capability);
+      const adapter = fakeQueueAdapter();
+      const result = createQueueBroker(adapter, {
+        allowWriteInvoke: true,
+      }).invoke(
+        request({
+          capabilityId: example.exampleActionRequest.capabilityId,
+          dryRun: example.exampleActionRequest.dryRun,
+          input: example.exampleActionRequest.input,
+        }),
+      );
+
+      expect(result.status).toBe("succeeded");
+      expect(adapter.createdItems).toEqual([
+        expect.objectContaining({
+          prompt:
+            "Review the current workspace state and report one safe next step.",
+          status: "draft",
+          title: "Test Queue item",
+        }),
+      ]);
+      expect(adapter.operations.workerStarts).toBe(0);
+      expect(adapter.operations.duplicateQueueViews).toBe(0);
+    }
+  });
+
+  it("accepts Queue create dry-run examples from the capability manifest without mutation", () => {
+    for (const capabilityId of ["queue.createItem", "queue.createItems"]) {
+      const capability = requiredCapability(
+        createHobitAgentCapabilityRegistry(),
+        capabilityId,
+      );
+      const example = requiredDryRunExample(capability);
+      const adapter = fakeQueueAdapter();
+      const result = createQueueBroker(adapter).invoke<{
+        wouldAutoRunWorkers: boolean;
+        wouldCreateDuplicateQueueView: boolean;
+        wouldCreateItems: number;
+      }>(
+        request({
+          capabilityId: example.exampleActionRequest.capabilityId,
+          dryRun: example.exampleActionRequest.dryRun,
+          input: example.exampleActionRequest.input,
+        }),
+      );
+
+      expect(result.status).toBe("succeeded");
+      expect(result.result.output).toMatchObject({
+        wouldAutoRunWorkers: false,
+        wouldCreateDuplicateQueueView: false,
+        wouldCreateItems: 1,
+      });
+      expect(adapter.createdItems).toEqual([]);
+      expect(adapter.operations.workerStarts).toBe(0);
+      expect(adapter.operations.duplicateQueueViews).toBe(0);
+    }
+  });
+
   it("creates one Queue item through the injected adapter API", () => {
     const adapter = fakeQueueAdapter();
     const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke(
@@ -583,6 +697,45 @@ function selfTestCase(
     throw new Error(`Missing Queue self-test case: ${caseId}`);
   }
   return item;
+}
+
+function requiredCapability(
+  registry: ReturnType<typeof createHobitAgentCapabilityRegistry>,
+  capabilityId: string,
+) {
+  const capability = findCapability(registry, capabilityId);
+  if (!capability) {
+    throw new Error(`Missing capability ${capabilityId}`);
+  }
+  return capability;
+}
+
+function requiredMutationExample(
+  capability: ReturnType<typeof requiredCapability>,
+) {
+  const example = capability.examples?.find(
+    (candidate) => !candidate.exampleActionRequest.dryRun,
+  );
+
+  if (!example) {
+    throw new Error(`Missing mutation example for ${capability.id}`);
+  }
+
+  return example;
+}
+
+function requiredDryRunExample(
+  capability: ReturnType<typeof requiredCapability>,
+) {
+  const example = capability.examples?.find(
+    (candidate) => candidate.exampleActionRequest.dryRun,
+  );
+
+  if (!example) {
+    throw new Error(`Missing dry-run example for ${capability.id}`);
+  }
+
+  return example;
 }
 
 function request({
