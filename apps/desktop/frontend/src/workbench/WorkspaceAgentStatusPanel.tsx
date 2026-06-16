@@ -6,17 +6,23 @@ import { WorkspaceAgentRunConfigStrip } from "./WorkspaceAgentRunConfigStrip";
 import type { WorkspaceAgentRunConfig } from "./workspaceAgentRunConfig";
 
 export function WorkspaceAgentHeaderStatus({
+  agentSelfTestDisabledReason = null,
+  isAgentSelfTestRunning = false,
   runConfig,
   isActivityVisible,
   onActivityToggle,
+  onAgentSelfTestClick,
   onPromptPackImportClick,
   onPromptExampleClick,
   promptExamples = [],
   status,
 }: {
+  agentSelfTestDisabledReason?: string | null;
+  isAgentSelfTestRunning?: boolean;
   runConfig?: WorkspaceAgentRunConfig;
   isActivityVisible?: boolean;
   onActivityToggle?: () => void;
+  onAgentSelfTestClick?: () => void;
   onPromptPackImportClick?: () => void;
   onPromptExampleClick?: (prompt: string) => void;
   promptExamples?: WorkspaceAgentSuggestedPrompt[];
@@ -30,6 +36,34 @@ export function WorkspaceAgentHeaderStatus({
   return (
     <div className="interactive-agent-frame-status">
       <WorkspaceAgentRunConfigStrip config={runConfig} status={status} />
+      {onAgentSelfTestClick ? (
+        <div className="interactive-agent-self-test-action">
+          <button
+            aria-label={
+              agentSelfTestDisabledReason
+                ? `Run Agent Self-Test unavailable: ${agentSelfTestDisabledReason}`
+                : "Run Agent Self-Test"
+            }
+            className="button button-secondary interactive-agent-self-test-toggle"
+            disabled={
+              isAgentSelfTestRunning || Boolean(agentSelfTestDisabledReason)
+            }
+            onClick={onAgentSelfTestClick}
+            title={
+              agentSelfTestDisabledReason ??
+              "Run safe Workspace Agent self-test"
+            }
+            type="button"
+          >
+            {isAgentSelfTestRunning ? "Running self-test" : "Run Agent Self-Test"}
+          </button>
+          {agentSelfTestDisabledReason ? (
+            <span className="interactive-agent-self-test-disabled-reason">
+              {agentSelfTestDisabledReason}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
       {onPromptPackImportClick ? (
         <button
           aria-label="Start prompt-pack import"

@@ -39,6 +39,18 @@ import {
   type WorkspaceAgentQueueActionCardResult,
 } from "./workspaceAgentQueueActions";
 import {
+  createWorkspaceAgentQueueBridgeAdapterApi,
+} from "./agents/adapters";
+import {
+  runWorkspaceAgentSelfTestReport,
+  type HobitAgentSelfTestReportViewModel,
+} from "./agents/selfTest";
+import type {
+  AgentActivityEvent,
+  AgentActivitySeverity,
+  AgentActivityStatus,
+} from "./agentActivityModel";
+import {
   workspaceAgentQueueIntentDraftsFromText,
   type WorkspaceAgentQueueIntentDraft,
 } from "./workspaceAgentQueueIntent";
@@ -114,6 +126,7 @@ export function InteractiveAgentPlaceholderWidget({
   const [queueReportActionResults, setQueueReportActionResults] = useState<Record<string, Record<string, WorkspaceAgentQueueReportActionResult>>>({});
   const [queueActionResults, setQueueActionResults] = useState<Record<string, WorkspaceAgentQueueActionCardResult>>({});
   const [queueIntentDrafts, setQueueIntentDrafts] = useState<Record<string, WorkspaceAgentQueueIntentDraft>>({});
+  const [selfTestReports, setSelfTestReports] = useState<Record<string, HobitAgentSelfTestReportViewModel>>({});
   const [creatingQueueProposalIds, setCreatingQueueProposalIds] = useState<ReadonlySet<string>>(() => new Set());
   const [
     creatingKnowledgeDocumentProposalIds,
@@ -125,6 +138,7 @@ export function InteractiveAgentPlaceholderWidget({
   const [isActivityPaneCollapsed, setIsActivityPaneCollapsed] = useState(false);
   const [visibleAttachedContext, setVisibleAttachedContext] = useState<WorkspaceAgentVisibleContext | null>(null);
   const [isProviderPending, setIsProviderPending] = useState(false);
+  const [isSelfTestRunning, setIsSelfTestRunning] = useState(false);
   const workspaceScopeId = workspaceId?.trim() || "__local_workspace__";
   const sessionScopeKey = `${workspaceScopeId}\u0000${instance.id}`;
   const sessionScopeKeyRef = useRef(sessionScopeKey);
@@ -176,6 +190,8 @@ export function InteractiveAgentPlaceholderWidget({
   const createQueueItemsFromPromptPackPreviewForCurrentWorkspace: typeof createQueueItemsFromPromptPackPreview = createQueueItemsFromPromptPackPreview ? (preview) => createQueueItemsFromPromptPackPreview(preview, { currentWorkspaceRoot: explicitWorkspaceRoot }) : undefined;
   const isDirectModeEnabled = directWork.isDirectModeEnabled;
   const canSend = !isDirectModeEnabled && trimmedDraftLength > 0 && !isProviderPending;
+  const agentSelfTestDisabledReason =
+    directWork.directWorkStatus === "running" ? "Agent is running" : null;
   useEffect(() => {
     const messageList = messageListRef.current;
     if (!messageList) {
@@ -242,6 +258,7 @@ export function InteractiveAgentPlaceholderWidget({
     queueIntentDraftIds?: string[],
     queueTaskStatusCard?: AgentQueueTask,
     promptPackImportId?: string,
+    selfTestReportId?: string,
   ): InteractiveAgentMessage {
     const id = `local-${nextMessageId.current}`;
     nextMessageId.current += 1;
@@ -258,8 +275,92 @@ export function InteractiveAgentPlaceholderWidget({
       queueTaskStatusCard,
       reviewId,
       role,
+      selfTestReportId,
       body,
     };
+  }
+
+  async function runAgentSelfTest() {
+    if (isSelfTestRunning || agentSelfTestDisabledReason) {
+      return;
+    }
+
+    const reportId = `agent-self-test-${Date.now().toString()}`;
+    setIsSelfTestRunning(true);
+    publishSelfTestActivity({
+      reportId,
+      severity: "info",
+      status: "running",
+      summary: "Safe self-test checks started.",
+      title: "Agent self-test started",
+    });
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      createLocalMessage("assistant", "Agent self-test started."),
+    ]);
+
+    try {
+      const report = await runWorkspaceAgentSelfTestReport({
+        queueAdapterApi:
+          createWorkspaceAgentQueueBridgeAdapterApi(workspaceAgentQueueBridge),
+        reportId,
+        widgetInstanceId: instance.id,
+        workspaceId: workspaceScopeId,
+        workspaceRoot: currentWorkspaceRoot ?? directWork.directWorkDirectory,
+      });
+
+      setSelfTestReports((currentReports) => ({
+        ...currentReports,
+        [report.reportId]: report,
+      }));
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        createLocalMessage(
+          "assistant",
+          `Agent self-test completed. ${report.productSummary}`,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          report.reportId,
+        ),
+      ]);
+      publishSelfTestActivity({
+        reportId: report.reportId,
+        severity:
+          report.overallStatus === "failed"
+            ? "error"
+            : report.overallStatus === "blocked"
+              ? "warning"
+              : "success",
+        status: report.overallStatus === "failed" ? "failed" : "completed",
+        summary: report.productSummary,
+        title:
+          report.overallStatus === "failed"
+            ? "Agent self-test failed"
+            : "Agent self-test completed",
+      });
+    } catch (error) {
+      const message = errorToMessage(error, "Agent self-test failed.");
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        createLocalMessage("assistant", `Agent self-test failed. ${message}`),
+      ]);
+      publishSelfTestActivity({
+        reportId,
+        severity: "error",
+        status: "failed",
+        summary: message,
+        title: "Agent self-test failed",
+      });
+    } finally {
+      setIsSelfTestRunning(false);
+    }
   }
 
   async function sendCoordinatorMessage() {
@@ -535,6 +636,7 @@ export function InteractiveAgentPlaceholderWidget({
     setQueueReportActionResults({});
     setQueueActionResults({});
     setQueueIntentDrafts({});
+    setSelfTestReports({});
     promptPackImport.reset();
     setCreatingQueueProposalIds(new Set());
     setCreatingKnowledgeDocumentProposalIds(new Set());
@@ -543,7 +645,38 @@ export function InteractiveAgentPlaceholderWidget({
     setDraft("");
     setVisibleAttachedContext(null);
     setIsProviderPending(false);
+    setIsSelfTestRunning(false);
     directWork.resetDirectWorkSession();
+  }
+
+  function publishSelfTestActivity({
+    reportId,
+    severity,
+    status,
+    summary,
+    title,
+  }: {
+    reportId: string;
+    severity: AgentActivitySeverity;
+    status: AgentActivityStatus;
+    summary: string;
+    title: string;
+  }) {
+    const event: AgentActivityEvent = {
+      id: `${workspaceScopeId}:${instance.id}:${reportId}:${status}:${title}`,
+      runId: reportId,
+      severity,
+      sourceKind: "workspace-agent",
+      sourceLabel: "Workspace Agent",
+      sourceWidgetInstanceId: instance.id,
+      status,
+      summary,
+      timestamp: Date.now(),
+      timestampLabel: "0s",
+      title,
+      workspaceId: workspaceScopeId,
+    };
+    onPublishAgentActivityEvents?.([event]);
   }
 
   function appendCoordinatorDirectWorkTranscript(
@@ -800,9 +933,12 @@ export function InteractiveAgentPlaceholderWidget({
       status={
         <WorkspaceAgentHeaderStatus
           isActivityVisible={!isActivityPaneCollapsed}
+          agentSelfTestDisabledReason={agentSelfTestDisabledReason}
+          isAgentSelfTestRunning={isSelfTestRunning}
           onActivityToggle={() =>
             setIsActivityPaneCollapsed((current) => !current)
           }
+          onAgentSelfTestClick={() => void runAgentSelfTest()}
           onPromptPackImportClick={promptPackImport.start}
           onPromptExampleClick={useSuggestedPrompt}
           promptExamples={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
@@ -847,6 +983,7 @@ export function InteractiveAgentPlaceholderWidget({
           queueReportActionResults={queueReportActionResults}
           queueReportCards={queueReportCards}
           reviews={reviews}
+          selfTestReports={selfTestReports}
           suggestedPrompts={WORKSPACE_AGENT_SUGGESTED_PROMPTS}
           transcriptRef={messageListRef}
           queueController={agentQueueController}

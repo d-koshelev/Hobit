@@ -59,6 +59,10 @@ import type {
 import type {
   WorkspaceAgentSuggestedPrompt,
 } from "./workspaceAgentSuggestedPrompts";
+import type {
+  HobitAgentSelfTestReportViewModel,
+} from "./agents/selfTest";
+import { WorkspaceAgentSelfTestReportCard } from "./WorkspaceAgentSelfTestReportCard";
 
 export type {
   WorkspaceAgentSuggestedPrompt,
@@ -77,6 +81,7 @@ export type WorkspaceAgentTranscriptMessage = {
   reviewId?: string;
   role: "operator" | "assistant";
   runMetadata?: WorkspaceAgentRunMetadata;
+  selfTestReportId?: string;
   body: string;
 };
 
@@ -117,6 +122,7 @@ export function WorkspaceAgentTranscript({
   queueReportCards,
   queueController,
   reviews,
+  selfTestReports = {},
   suggestedPrompts,
   transcriptRef,
   workspaceAgentQueueBridge,
@@ -185,6 +191,7 @@ export function WorkspaceAgentTranscript({
   queueReportCards: Record<string, AgentQueueReportActionCard>;
   queueController?: AgentQueueController;
   reviews: Record<string, CoordinatorOutcomeReviewDraft>;
+  selfTestReports?: Record<string, HobitAgentSelfTestReportViewModel>;
   suggestedPrompts: WorkspaceAgentSuggestedPrompt[];
   transcriptRef: Ref<HTMLDivElement>;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
@@ -272,6 +279,12 @@ export function WorkspaceAgentTranscript({
               onPatch={onPatchPromptPackImport}
               onReadPromptPackSource={onReadPromptPackSource}
               onSelectPromptPackFolder={onSelectPromptPackFolder}
+            />
+          ) : null}
+          {message.selfTestReportId &&
+          selfTestReports[message.selfTestReportId] ? (
+            <WorkspaceAgentSelfTestReportCard
+              report={selfTestReports[message.selfTestReportId]}
             />
           ) : null}
           {message.queueIntentDraftIds

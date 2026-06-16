@@ -64,6 +64,12 @@ restricted capabilities for explicit workspace/code execution requests only.
   hidden-side-effect assertions without Queue mutation, Codex/shell use,
   Terminal launch, Git mutation, rollback execution, worker start, widget/view
   creation, backend calls, or real app API execution.
+- Agent Self-Test Runner UI MVP: implemented as a visible secondary Workspace
+  Agent action, `Run Agent Self-Test`. It orchestrates the safe agent API
+  smoke runner, Workspace Agent capability-context checks, capability manifest
+  checks, active Widget Agent Contract checks, Queue `queue.selfTest` dry-run
+  checks through the Action Broker, and restricted Codex/shell capability
+  assertions. It renders a structured report instead of raw JSON.
 - Workspace Agent Capability Context Injection: the active Workspace Agent
   Codex Direct Work prompt path now attaches Hobit app context, Workspace
   Agent role instructions, a compact capability manifest, and policy rules
@@ -254,6 +260,27 @@ using safe model checks for status, history, capabilities, messaging, and peer
 self-test. It does not test Queue app behavior. Queue app capability smoke is
 covered separately by the Queue adapter and Workspace Agent structured
 action-request tests.
+
+The Workspace Agent `Run Agent Self-Test` UI action now exposes this smoke
+foundation in-product. The visible report uses `Passed`, `Failed`, `Skipped`,
+and `Blocked` statuses, summary counts, per-check rows, product-facing skipped
+or blocked reasons, and a `No hidden side effects` assertion summary. Hidden
+side-effect assertions cover no Codex run, shell command, Queue mutation,
+Queue worker start, Queue view creation, Terminal launch, Git mutation, or
+rollback execution.
+
+This UI runner is safe/dry-run only. It does not call Codex, call shell,
+launch Terminal, mutate Git, execute rollback, start Queue workers, auto-run
+Queue, create Queue views, or perform unsupported widget APIs. If a brokered
+self-test path requires confirmation, requires dry-run, is policy blocked, or
+is unavailable, the UI reports that check as blocked or skipped and does not
+auto-confirm it.
+
+Queue and Widget smoke expansion is incremental. The MVP checks the current
+Agent API smoke runner, active Agent Queue and Workspace Agent widget
+contracts, skipped Knowledge / Skills, Notes, and Terminal placeholders, and
+Finder exclusion from active contract scope. It does not yet replace full
+manual Queue UI smoke until broader Queue widget self-test coverage exists.
 
 The initial Widget Agent Contract registry lives under
 `apps/desktop/frontend/src/workbench/agents/widgets/`. Initial active examples

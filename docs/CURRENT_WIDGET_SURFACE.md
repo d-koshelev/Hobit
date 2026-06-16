@@ -470,6 +470,17 @@ v0.1 product widget.
   the visible assistant response. Workspace Agent Codex runs support Stop when
   the Direct Work cancellation path is available and does not create Queue
   tasks.
+- Shows a visible secondary `Run Agent Self-Test` action in the Workspace
+  Agent header controls. The action runs safe frontend self-tests over Hobit
+  app context, Workspace Agent capability context, capability manifest,
+  implemented `agent.*` smoke APIs, Agent Queue and Workspace Agent widget
+  contracts, skipped Knowledge / Skills, Notes, and Terminal placeholders,
+  Finder exclusion from active contract scope, Queue `queue.selfTest` dry-run,
+  and restricted Codex/shell assertions. It renders a compact structured
+  passed/failed/skipped/blocked report with `No hidden side effects`. It does
+  not call Codex, call shell, mutate Queue, start Queue workers, create Queue
+  views, launch Terminal, mutate Git, execute rollback, or change provider,
+  model, transcript, Queue, or active Direct Work settings.
 - Provider/local drafts are validated before rendering. Queue task creation and
   Note creation require approval plus a separate explicit create action.
   Knowledge Document and Skill creation require approval plus separate explicit

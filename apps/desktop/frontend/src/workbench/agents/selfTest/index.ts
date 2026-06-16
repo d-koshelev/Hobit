@@ -53,3 +53,15 @@ export {
   runAgentApiSmoke,
   summarizeAgentApiSmokeReport,
 } from "./hobitAgentApiSmokeRunner";
+export type {
+  HobitAgentSelfTestHiddenSideEffectAssertion,
+  HobitAgentSelfTestReportRow,
+  HobitAgentSelfTestReportRowStatus,
+  HobitAgentSelfTestReportViewModel,
+} from "./hobitAgentSelfTestReportViewModel";
+export {
+  createSelfTestViewModel,
+  runWorkspaceAgentSelfTestReport,
+  statusLabel,
+  summarizeSelfTestRows,
+} from "./hobitAgentSelfTestReportViewModel";

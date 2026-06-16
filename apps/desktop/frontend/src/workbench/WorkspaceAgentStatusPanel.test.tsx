@@ -234,6 +234,29 @@ describe("WorkspaceAgentStatusPanel", () => {
     expect(onPromptPackImportClick).toHaveBeenCalledTimes(1);
   });
 
+  it("renders the Agent Self-Test action as a normal header action with disabled reason", () => {
+    const onAgentSelfTestClick = vi.fn();
+
+    render(
+      <WorkspaceAgentHeaderStatus
+        agentSelfTestDisabledReason="Agent is running"
+        onAgentSelfTestClick={onAgentSelfTestClick}
+        status="running"
+      />,
+    );
+
+    const button = buttonWithText("Run Agent Self-Test");
+    const header = document.querySelector(".interactive-agent-frame-status");
+
+    expect(header?.contains(button ?? null)).toBe(true);
+    expect(button?.disabled).toBe(true);
+    expect(button?.getAttribute("aria-label")).toBe(
+      "Run Agent Self-Test unavailable: Agent is running",
+    );
+    expect(document.body.textContent).toContain("Agent is running");
+    expect(document.body.textContent).not.toContain("Debug");
+  });
+
   it("uses the shared popup shell for prompt examples and closes with Escape", async () => {
     const onPromptExampleClick = vi.fn();
 

@@ -6,11 +6,13 @@ Define the frontend-only Multi-Agent Runtime MVP for Hobit in-app agents. This
 model lets one Workspace host multiple addressable agent instances, inspect
 agent status/history/capabilities, and exchange typed internal messages.
 
-This contract does not implement LLM calls, Workspace Agent broker execution, Queue
-capability adapters, app control actions, self-test UI, backend/Tauri/IPC
+This runtime contract does not implement LLM calls, Workspace Agent broker
+execution, Queue capability adapters, app control actions, backend/Tauri/IPC
 commands, storage/schema changes, shell execution, Codex execution, Terminal
 runtime changes, Git behavior, scheduler behavior, worker behavior, rollback,
-or Finder work.
+or Finder work. The Workspace Agent UI can expose safe reports produced from
+these runtime helpers, but the multi-agent runtime remains a pure frontend
+model layer.
 
 ## Runtime Model
 
@@ -154,6 +156,12 @@ Capabilities outside the implemented agent runtime API set are not smoke
 targets. If a future `agent.*` capability is present but no safe smoke case
 exists yet, it is marked `skipped`. Queue app capability smoke is later adapter
 work and is not covered by this runner.
+
+The Workspace Agent `Run Agent Self-Test` action now makes the peer/API smoke
+foundation visible through a structured Workspace Agent report. That UI action
+also layers current capability-context, manifest, widget-contract, Queue
+dry-run, and restricted Codex/shell checks outside this pure multi-agent
+runtime model.
 
 ## Capability Broker Boundary
 

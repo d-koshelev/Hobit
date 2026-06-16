@@ -9,9 +9,10 @@ runtime auto-call, backend migrations, or storage schema changes.
 
 Queue manual smoke should move toward peer and widget self-test models under
 `apps/desktop/frontend/src/workbench/agents/`. Those contracts can describe
-safe self-tests and expected evidence, but a full agent-executed smoke UI or
-app smoke runtime is not claimed by this checklist. Future smoke should be
-agent-executed through peer/widget self-tests where available.
+safe self-tests and expected evidence. Workspace Agent now exposes a narrow
+visible `Run Agent Self-Test` action for safe agent/runtime/widget checks, but
+full Queue UI smoke is still manual until broader Queue widget self-test
+coverage exists.
 
 The current Agent API Smoke Runner is not a Queue smoke. It checks only the
 implemented in-app agent runtime APIs for status, bounded history, messaging,
@@ -143,13 +144,25 @@ During the smoke, verify these product labels appear where applicable:
       evidence without creating tasks, creating views, starting workers,
       launching Codex/shell/Terminal, mutating Git, or executing rollback.
 
-18. Check for side effects.
+18. In Workspace Agent, click `Run Agent Self-Test`.
+    - Expected: a compact structured report appears in Workspace Agent showing
+      agent APIs, capability context, capability manifest, Agent Queue and
+      Workspace Agent widget contracts, skipped Knowledge / Skills, Notes, and
+      Terminal placeholders, Finder outside active contract scope, restricted
+      Codex/shell capabilities, and `No hidden side effects`.
+    - Expected: the report uses `Passed`, `Failed`, `Skipped`, and `Blocked`
+      counts plus per-check product-facing reasons such as `Capability
+      unavailable`, `Dry-run only`, and `Not implemented yet`.
+    - Expected: this does not replace all manual Queue UI smoke unless full
+      Queue widget self-test coverage exists.
+
+19. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback
       proposal preparation.
 
-19. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
+20. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
     log details where available.
     - Expected: the prompt sent to Codex includes Hobit capability context,
       compact Queue/agent capability names, and policy rules before the user

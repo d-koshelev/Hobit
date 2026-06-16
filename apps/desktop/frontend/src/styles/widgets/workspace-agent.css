@@ -57,6 +57,192 @@
   cursor: default;
 }
 
+.interactive-agent-self-test-action {
+  display: inline-flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.interactive-agent-self-test-toggle.button {
+  min-height: 26px;
+  padding: 0 var(--space-sm);
+  font-size: var(--text-xs);
+}
+
+.interactive-agent-self-test-disabled-reason {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  font-weight: 680;
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-self-test-card {
+  display: grid;
+  gap: var(--space-sm);
+  min-width: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-widget-surface-raised);
+  padding: var(--space-sm);
+}
+
+.workspace-agent-self-test-card-passed {
+  border-left: 2px solid var(--color-success);
+}
+
+.workspace-agent-self-test-card-failed {
+  border-left: 2px solid var(--color-error);
+}
+
+.workspace-agent-self-test-card-blocked {
+  border-left: 2px solid var(--color-warning);
+}
+
+.workspace-agent-self-test-header,
+.workspace-agent-self-test-row-header,
+.workspace-agent-self-test-hidden-effects,
+.workspace-agent-self-test-row-assertions {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.workspace-agent-self-test-header {
+  justify-content: space-between;
+}
+
+.workspace-agent-self-test-title-copy {
+  display: grid;
+  min-width: 0;
+  gap: var(--scaled-space-2xs);
+}
+
+.workspace-agent-self-test-kicker,
+.workspace-agent-self-test-title,
+.workspace-agent-self-test-summary-text,
+.workspace-agent-self-test-row-message,
+.workspace-agent-self-test-row-reason,
+.workspace-agent-self-test-row-assertions {
+  margin: 0;
+}
+
+.workspace-agent-self-test-kicker {
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-self-test-title {
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-self-test-summary-text,
+.workspace-agent-self-test-row-message,
+.workspace-agent-self-test-row-reason,
+.workspace-agent-self-test-row-assertions,
+.workspace-agent-self-test-hidden-effect {
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+}
+
+.workspace-agent-self-test-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(calc(92px * var(--ui-scale)), 1fr));
+  gap: var(--space-xs);
+  margin: 0;
+}
+
+.workspace-agent-self-test-summary div {
+  display: grid;
+  gap: var(--scaled-space-2xs);
+  min-width: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface);
+  padding: var(--space-xs);
+}
+
+.workspace-agent-self-test-summary dt {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-self-test-summary dd {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 760;
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-self-test-rows {
+  display: grid;
+  gap: var(--space-xs);
+  max-height: min(calc(420px * var(--ui-scale)), 42vh);
+  overflow: auto;
+}
+
+.workspace-agent-self-test-row {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--color-widget-surface);
+  padding: var(--space-xs);
+}
+
+.workspace-agent-self-test-row-title {
+  min-width: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-xs);
+  line-height: var(--line-tight);
+  overflow-wrap: anywhere;
+}
+
+.workspace-agent-self-test-row-meta {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: var(--scaled-space-2xs) var(--space-sm);
+  margin: 0;
+}
+
+.workspace-agent-self-test-row-meta div {
+  display: inline-grid;
+  min-width: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--scaled-space-2xs);
+}
+
+.workspace-agent-self-test-row-meta dt {
+  margin: 0;
+  color: var(--color-text-disabled);
+  font-size: var(--text-xs);
+  font-weight: 720;
+  line-height: var(--line-tight);
+}
+
+.workspace-agent-self-test-row-meta dd {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+  overflow-wrap: anywhere;
+}
+
 @media (max-width: 760px) {
   .workspace-agent-run-config {
     width: 100%;
