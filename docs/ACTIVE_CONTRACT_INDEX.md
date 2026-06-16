@@ -178,6 +178,13 @@ of truth for their domains.
   Queue context, context materialization/evidence, source refs, safety status,
   docs drift, maintainability risks, and remaining manual smoke. It does not
   add behavior or override current widget contracts.
+- `docs/KNOWLEDGE_MODULE_CLEANUP_AUDIT.md` - docs-only reference cleanup
+  contract for the current Knowledge module route, compatibility constraints,
+  legacy/V2 inventory, API/storage map, agent capability direction, regex
+  routing warning, target source structure, and ordered cleanup blocks. It is
+  not a product runtime contract and does not add frontend behavior,
+  backend/Rust/Tauri/storage/schema changes, widget id changes, Queue behavior,
+  Workspace Agent behavior, or Knowledge data changes.
 - `docs/KNOWLEDGE_V2_STATUS.md` - docs-only status record for KnowledgeV2
   Foundation Block 001. It records the experimental frontend KnowledgeV2
   manifest/shell, unified Documents plus Skills catalog model, browse/preview

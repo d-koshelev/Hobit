@@ -953,9 +953,11 @@ v0.1 product widget.
 
 ### Knowledge / Skills
 
-- Current Ready / MVP Knowledge / Skills widget. It uses the
-  existing `skill-library` widget identity for persistence compatibility and
-  provides Skills plus a Documents tab.
+- Current Ready / MVP Knowledge module exposed as the Knowledge / Skills
+  widget. It uses the existing `skill-library` widget identity for persisted
+  compatibility. The active implementation still carries KnowledgeV2 and
+  SkillLibrary source names; cleanup sequencing and compatibility constraints
+  are recorded in `docs/KNOWLEDGE_MODULE_CLEANUP_AUDIT.md`.
 - Provides explicit operator-authored Skill record create, list, read, update,
   delete, review-status, and tags flows through workspace Skill APIs.
 - Provides explicit Knowledge Document create, list, read, update, delete, and
