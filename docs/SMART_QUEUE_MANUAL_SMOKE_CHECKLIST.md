@@ -214,18 +214,28 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: this does not replace all manual Queue UI smoke until widget
       execution adapters and broader Queue widget self-test coverage exist.
 
-19. Run the pure Queue dogfood lifecycle model self-test through automated
-    frontend tests.
+19. Run the Queue dogfood lifecycle model and frontend controller/view-model
+    self-tests through automated frontend tests.
     - Expected: `smartQueueDogfoodLifecycle.test.ts` covers create, queue,
       start, agent completion, review message, coordinator ACK, validation
       approval, fake commit result attachment, done, and dependent startability
       only after done.
+    - Expected: `smartQueueDogfoodLifecycleController.test.ts` covers applying
+      the model to existing Queue task objects, preserving legacy task status,
+      distinct ticket and agent/prompt states, controller ACK from
+      `Awaiting review` to `In review`, controller follow-up returning to
+      `Running`, `additionalPromptCount`, QueueV2 lifecycle/status
+      presentation, and frontend dependency eligibility only after dogfood
+      `Done`.
     - Expected: the follow-up branch returns the same item to `Running`,
       reports `Follow-up prompt running`, increments `additionalPromptCount`,
       and does not mark the ticket done.
     - Expected: the self-test is model-only; it does not start workers, call
       Codex or shell, launch Terminal, mutate Git, execute rollback, create
       Queue views, or write backend/storage/schema state.
+    - Expected: backend durability, real worker integration, real validation
+      execution, real commit execution, and backend scheduler dependency
+      enforcement remain not implemented.
 
 20. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
@@ -259,7 +269,9 @@ For every failed smoke step, capture:
 
 ## Next Engineering Blocks
 
-1. Wire the pure dogfood lifecycle model into controller/UI adapters.
+1. Add typed broker lifecycle capabilities for agent-finished, review message,
+   ACK, validation approval, follow-up prompt, done, and failure/block
+   decisions.
 2. Durable backend persistence design.
 3. Backend scheduler/runtime ownership design.
 4. Durable attempt/coordinator decision/review ACK persistence.

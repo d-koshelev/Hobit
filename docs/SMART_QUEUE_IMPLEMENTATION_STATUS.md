@@ -37,7 +37,7 @@ The current implemented frontend behavior is:
 - Active/Pause execution gate;
 - dependency propagation/recovery;
 - Smart Queue attempt model;
-- Queue dogfood lifecycle model;
+- Queue dogfood lifecycle model and frontend controller/view-model integration;
 - worker failure/stuck report to coordinator decision integration;
 - QueueV2 Coordinator Decision Card;
 - Retry same action;
@@ -243,12 +243,16 @@ Implemented as a pure frontend model foundation.
   storage/schema migration, Tauri/IPC behavior, Git mutation, or Terminal
   launch.
 
-### Queue dogfood lifecycle pure model
+### Queue dogfood lifecycle pure model and frontend controller adapters
 
-Implemented as a pure frontend model foundation.
+Implemented as a pure frontend model foundation with controller/view-model
+adapter integration.
 
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle*.ts`
   separates dogfooding ticket state from agent/prompt state.
+- `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycleController.ts`
+  adapts dogfood lifecycle overlays to existing Queue task objects without
+  renaming or removing legacy Queue task statuses.
 - Ticket states are `draft`, `queued`, `blocked`, `running`,
   `awaiting_review`, `in_review`, `done`, and `failure`.
 - Agent/prompt states are `idle`, `running`, `completed`, `not_completed`,
@@ -262,12 +266,27 @@ Implemented as a pure frontend model foundation.
 - Dependents are startable only after the upstream ticket reaches `done`, not
   merely after agent completion, awaiting review, in review, validation
   approval, or fake commit result attachment.
+- The controller adapter exposes pure helpers for lifecycle creation/derivation,
+  agent-finished transitions, coordinator ACK, done/follow-up decisions,
+  dependency done gates, and product-facing lifecycle presentation.
+- QueueV2 view-model helpers can consume an explicit dogfood lifecycle overlay
+  to show `Awaiting review`, `In review`, `Done`, `Failure`, `Agent completed`,
+  `Agent not completed`, `Agent failed`, `Follow-up prompt running`,
+  `Review acknowledged`, `Waiting for coordinator review`, and `Additional
+  prompts: N` without redesigning Queue cards.
+- Frontend dependency summaries can use the dogfood overlay so dependents stay
+  waiting while upstream is agent-completed, awaiting review, or in review, and
+  become eligible only when upstream is dogfood `done`.
 - Product-facing helpers emit labels such as `Awaiting review`, `In review`,
   `Agent completed`, `Follow-up prompt running`, `Review acknowledged`, and
   `Waiting for coordinator review`.
 - `smartQueueDogfoodLifecycle.test.ts` covers the fake full lifecycle,
   follow-up branch, invalid transitions, terminal states, ACK targeting,
   fake commit attachment, done-gated dependencies, and no hidden side effects.
+- `smartQueueDogfoodLifecycleController.test.ts` covers controller overlays,
+  QueueV2 presentation integration, done-gated frontend dependency eligibility,
+  fake full lifecycle self-test, follow-up prompt branch, and hidden-side-effect
+  guards.
 - This is not durable backend lifecycle persistence, real worker execution,
   scheduler redesign, validation execution, Git commit execution, rollback,
   storage/schema migration, Tauri/IPC behavior, Queue UI redesign, or Finder
@@ -443,8 +462,9 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 ## Next Engineering Blocks
 
-1. Wire controller/UI adapters to the pure dogfood lifecycle model without
-   changing backend/runtime behavior.
+1. Add typed broker lifecycle capabilities for agent-finished, review message,
+   ACK, validation approval, follow-up prompt, done, and failure/block
+   decisions without adding hidden execution.
 2. Design durable backend Smart Queue persistence for attempts, lifecycle,
    review messages, ACKs, decisions, validation evidence, and commit metadata.
 3. Design backend scheduler/runtime ownership.
@@ -464,6 +484,7 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 - `apps/desktop/frontend/src/workbench/queue/smartQueueCoordinatorDecision.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle*.ts`
+- `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycleController.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueStatusPresentation.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueExecutionGate.ts`
 - `apps/desktop/frontend/src/workbench/queue/queueV2SmartStatusModel.ts`

@@ -37,6 +37,13 @@ import {
   type QueueTaskDependencySummary,
   type QueueTaskHumanStatusView,
 } from "./queueV2SmartStatusModel";
+import {
+  createDogfoodLifecycleOverlayForQueueTask,
+  findDogfoodLifecycleForTask,
+  queueV2LifecycleForDogfoodLifecycle,
+  type QueueTaskDogfoodLifecyclePresentation,
+  type QueueTaskDogfoodLifecycleSource,
+} from "./smartQueueDogfoodLifecycleController";
 
 export type QueueBoardLane =
   | "intake_draft"
@@ -100,6 +107,7 @@ export type QueueTaskViewModel = {
   blockerSummary: QueueBlockerSummary;
   eligibility: QueueTaskEligibility;
   diffReview: DiffReviewLinkageView;
+  dogfoodLifecycle: QueueTaskDogfoodLifecyclePresentation | null;
 };
 
 export type QueueInspectorSnapshot = {
@@ -112,6 +120,7 @@ export type QueueInspectorSnapshot = {
   priority: number;
   nextAction: QueueNextAction;
   humanStatus: QueueTaskHumanStatusView;
+  dogfoodLifecycle: QueueTaskDogfoodLifecyclePresentation | null;
   dependencySummary: QueueTaskDependencySummary;
   secondaryActions: QueueNextAction[];
   dependencyState: AgentQueueDependencyState;
@@ -156,10 +165,12 @@ export type QueueV2ViewModelInput = {
   globalExecutionState?: QueueGlobalStatus;
   autorunArmed?: boolean;
   pausedQueueTagIds?: ReadonlySet<string>;
+  dogfoodLifecycles?: QueueTaskDogfoodLifecycleSource | null;
 };
 
 export function selectQueueV2ViewModel({
   autorunArmed = false,
+  dogfoodLifecycles = null,
   globalExecutionState = "started",
   pausedQueueTagIds = new Set(),
   selectedTaskId = null,
@@ -176,8 +187,18 @@ export function selectQueueV2ViewModel({
 
   const firstPass = tasks.map((task) => {
     const dependencyState = dependencyStates.get(task.queueItemId)!;
-    const dependencySummary = queueV2DependencySummaryForTask(task, tasks);
-    const lifecycle = queueV2LifecycleForTask(task);
+    const explicitDogfoodLifecycle = dogfoodLifecycles
+      ? findDogfoodLifecycleForTask(task.queueItemId, dogfoodLifecycles)
+      : null;
+    const dogfoodLifecycle = explicitDogfoodLifecycle
+      ? createDogfoodLifecycleOverlayForQueueTask(task, [explicitDogfoodLifecycle])
+      : null;
+    const dependencySummary = queueV2DependencySummaryForTask(task, tasks, {
+      dogfoodLifecycles,
+    });
+    const lifecycle = dogfoodLifecycle
+      ? queueV2LifecycleForDogfoodLifecycle(dogfoodLifecycle.lifecycle)
+      : queueV2LifecycleForTask(task);
     const closureState = queueV2ClosureStateForTask(task);
     const promptPackMetadata = getQueuePromptPackImportMetadata(task);
     const blockedReasons = queueV2BlockedReasonsForTask({
@@ -207,6 +228,7 @@ export function selectQueueV2ViewModel({
       boardLane,
       blockedReasons,
       dependencySummary,
+      dogfoodLifecycle: dogfoodLifecycle?.presentation ?? null,
       lifecycle,
       task,
     });
@@ -237,6 +259,7 @@ export function selectQueueV2ViewModel({
       closureState,
       dependencySummary,
       diffReview: diffReviewLinkageViewForTask(task, tasks),
+      dogfoodLifecycle: dogfoodLifecycle?.presentation ?? null,
       eligibility,
       humanStatus,
       lifecycle,
@@ -607,6 +630,7 @@ function queueV2InspectorSnapshot(
     boardLane: viewModel.boardLane,
     closureState: viewModel.closureState,
     dependencySummary: viewModel.dependencySummary,
+    dogfoodLifecycle: viewModel.dogfoodLifecycle,
     contextSummary: {
       attachedKnowledgeCount: task.context?.attachedKnowledgeRefs.length ?? 0,
       attachedSkillCount: task.context?.attachedSkillRefs.length ?? 0,

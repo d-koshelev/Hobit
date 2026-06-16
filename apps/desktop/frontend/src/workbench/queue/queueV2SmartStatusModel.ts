@@ -32,6 +32,12 @@ import {
   queueV2LifecycleForTask,
   type QueueTaskLifecycle,
 } from "./queueV2LifecycleModel";
+import {
+  findDogfoodLifecycleForTask,
+  smartQueueTaskInputForQueueTaskDogfoodLifecycle,
+  type QueueTaskDogfoodLifecyclePresentation,
+  type QueueTaskDogfoodLifecycleSource,
+} from "./smartQueueDogfoodLifecycleController";
 
 export type QueueTaskDependencyDetail = {
   taskId: string;
@@ -56,12 +62,14 @@ export function queueV2HumanStatusForTask({
   boardLane,
   blockedReasons = [],
   dependencySummary,
+  dogfoodLifecycle = null,
   lifecycle,
   task,
 }: {
   boardLane: QueueBoardLane;
   blockedReasons?: readonly QueueBlockedReason[];
   dependencySummary: QueueTaskDependencySummary;
+  dogfoodLifecycle?: QueueTaskDogfoodLifecyclePresentation | null;
   lifecycle: QueueTaskLifecycle;
   task: AgentQueueTask;
 }): QueueTaskHumanStatusView {
@@ -82,6 +90,10 @@ export function queueV2HumanStatusForTask({
       taskId: item.taskId,
     }),
   );
+
+  if (dogfoodLifecycle) {
+    return dogfoodLifecycle.humanStatus;
+  }
 
   if (smartFailurePayload) {
     return presentSmartQueueStatus({
@@ -294,6 +306,9 @@ function blockedHumanStatusText(blockedReasons: readonly QueueBlockedReason[]) {
 export function queueV2DependencySummaryForTask(
   task: AgentQueueTask,
   tasks: readonly AgentQueueTask[],
+  options: {
+    readonly dogfoodLifecycles?: QueueTaskDogfoodLifecycleSource | null;
+  } = {},
 ): QueueTaskDependencySummary {
   const dependencyIds = [...(task.dependsOn ?? [])]
     .map((dependencyId) => dependencyId.trim())
@@ -304,10 +319,12 @@ export function queueV2DependencySummaryForTask(
   }
 
   const tasksById = new Map(tasks.map((candidate) => [candidate.queueItemId, candidate]));
-  const smartTasks = tasks.map(smartTaskInputForQueueTask);
+  const smartTasks = tasks.map((candidate) =>
+    smartTaskInputForQueueTaskWithDogfoodLifecycle(candidate, options.dogfoodLifecycles),
+  );
   const smartTask =
     smartTasks.find((candidate) => candidate.taskId === task.queueItemId) ??
-    smartTaskInputForQueueTask(task);
+    smartTaskInputForQueueTaskWithDogfoodLifecycle(task, options.dogfoodLifecycles);
   const smartGate = computeSmartQueueDependencyGate(
     smartTask,
     smartTasks,
@@ -351,13 +368,25 @@ export function queueV2DependencySummaryForTask(
     };
   });
 
-  const gate = dependencyGateForItems(items);
-
   return {
     gate: smartGate.gate,
     items,
     message: dependencyMessage(smartGate.gate, items),
   };
+}
+
+function smartTaskInputForQueueTaskWithDogfoodLifecycle(
+  task: AgentQueueTask,
+  lifecycles?: QueueTaskDogfoodLifecycleSource | null,
+): SmartQueueTaskInput {
+  if (!lifecycles) {
+    return smartTaskInputForQueueTask(task);
+  }
+
+  return smartQueueTaskInputForQueueTaskDogfoodLifecycle(
+    task,
+    findDogfoodLifecycleForTask(task.queueItemId, lifecycles),
+  );
 }
 
 function smartTaskInputForQueueTask(task: AgentQueueTask): SmartQueueTaskInput {
@@ -439,35 +468,6 @@ function smartQueueDependenciesForTasks(
         upstreamTaskId,
       })),
   );
-}
-
-function dependencyGateForItems(
-  items: readonly QueueTaskDependencyDetail[],
-): SmartQueueDependencyGate {
-  if (items.length === 0) {
-    return "none";
-  }
-
-  if (items.some((item) => item.status === "failed")) {
-    return "failed";
-  }
-
-  if (
-    items.some(
-      (item) =>
-        item.status === "blocked" ||
-        item.status === "missing" ||
-        item.status === "invalid",
-    )
-  ) {
-    return "blocked";
-  }
-
-  if (items.some((item) => item.status === "waiting")) {
-    return "waiting";
-  }
-
-  return "satisfied";
 }
 
 function dependencyMessage(

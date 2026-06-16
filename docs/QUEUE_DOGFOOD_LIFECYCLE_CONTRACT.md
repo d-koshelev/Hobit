@@ -14,14 +14,18 @@ routing.
 
 ## Status
 
-Current as a frontend pure model foundation.
+Current as a frontend pure model foundation with frontend controller/view-model
+adapter integration.
 
-The implemented model lives under:
+The implemented model and adapter layer live under:
 
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycle*.ts`
+- `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycleController.ts`
 
 The model is not yet persisted and is not yet wired as the authoritative
-runtime Queue lifecycle.
+runtime Queue lifecycle. The controller/view-model adapter is an overlay for
+frontend Queue controller helpers, QueueV2 presentation, fake lifecycle tests,
+and future broker capability preparation.
 
 ## State Dimensions
 
@@ -162,6 +166,31 @@ The following are not enough to unblock a dependent task:
 - validation approved without done
 - commit result attached without done
 
+The frontend controller/view-model adapter can apply this gate to current Queue
+task objects through a model overlay. This gate is currently frontend/model
+logic only; backend scheduler dependency enforcement is not implemented.
+
+## Frontend Controller And View-Model Adapter
+
+The frontend adapter layer can:
+
+- create or derive a dogfood lifecycle overlay for an existing Queue task
+  without renaming or removing the legacy task status;
+- apply model transitions for agent completion, coordinator ACK, validation
+  approval, fake commit result attachment, done, block/fail, and follow-up
+  prompt decisions;
+- answer whether the item is awaiting review, in review, done-gated for
+  dependents, or running a follow-up prompt;
+- expose `additionalPromptCount` and review outcome for presentation;
+- map dogfood lifecycle states into QueueV2 view-model lifecycle and
+  human-status presentation when an explicit lifecycle overlay is supplied;
+- use the existing Smart Queue dependency propagation model so dependents stay
+  blocked until upstream dogfood `done`.
+
+This adapter does not persist lifecycle state, start workers, call Codex or
+shell, launch Terminal, mutate Git, execute rollback, call Tauri/IPC, or change
+real scheduler/runtime semantics.
+
 ## Product Labels
 
 Human-facing helpers return labels such as:
@@ -184,7 +213,8 @@ Product UI should use these labels rather than raw enum names.
 
 ## Self-Test
 
-The pure model includes a fake lifecycle self-test helper covering:
+The pure model and controller adapter include fake lifecycle self-test helpers
+covering:
 
 - create task
 - queue task
@@ -197,6 +227,8 @@ The pure model includes a fake lifecycle self-test helper covering:
 - mark done
 - dependent startability only after done
 - follow-up prompt branch returning the same item to running
+- QueueV2/controller-level presentation for awaiting review, in review, done,
+  and follow-up prompt states
 
 The self-test asserts no Codex, shell, worker start, Terminal launch, Git
 mutation, rollback execution, Workspace API call, or persistence side effects.
