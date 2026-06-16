@@ -955,10 +955,12 @@ v0.1 product widget.
 
 - Current Ready / MVP Knowledge module exposed as the Knowledge / Skills
   widget. It uses the existing `skill-library` widget identity for persisted
-  compatibility. The active implementation still carries KnowledgeV2 and
-  SkillLibrary source names; cleanup sequencing and compatibility constraints
-  are recorded in `docs/KNOWLEDGE_MODULE_CLEANUP_AUDIT.md`. Product-facing
-  copy should use Knowledge or Knowledge / Skills terminology, not V2 naming.
+  compatibility. The active frontend source lives under
+  `apps/desktop/frontend/src/workbench/knowledge/*`; KnowledgeV2 source paths
+  remain compatibility re-exports/wrappers and SkillLibrary legacy flow names
+  remain where retained. Cleanup sequencing and compatibility constraints are
+  recorded in `docs/KNOWLEDGE_MODULE_CLEANUP_AUDIT.md`. Product-facing copy
+  should use Knowledge or Knowledge / Skills terminology, not V2 naming.
 - Provides explicit operator-authored Skill record create, list, read, update,
   delete, review-status, and tags flows through workspace Skill APIs.
 - Provides explicit Knowledge Document create, list, read, update, delete, and

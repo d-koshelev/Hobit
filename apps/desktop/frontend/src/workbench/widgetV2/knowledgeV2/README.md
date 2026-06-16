@@ -1,8 +1,7 @@
-# Widget domain folder layout
+# KnowledgeV2 Compatibility Folder
 
-- components: product UI components
-- model: pure view/domain model and labels
-- hooks: React hooks
-- ctions: action item construction and availability
-- popups: widget-specific product popups
-- debug: widget-specific debug/developer content
+The active Knowledge implementation now lives under `workbench/knowledge/*`.
+
+Files in this folder are compatibility re-exports for old KnowledgeV2 imports,
+WidgetV2 smoke coverage, and focused tests. Do not add new active Knowledge
+implementation here.

@@ -27,10 +27,14 @@ behavior, or Knowledge data changes.
 - Persisted widget id: `skill-library`.
 - Component key: `skill-library-widget`.
 - Active host route: `skill-library-widget -> KnowledgeSkillsV2Widget ->
-  KnowledgeV2Widget`.
+  KnowledgeWidget`.
 - Legacy wrapper: `SkillLibraryWidget = LegacyKnowledgeSkillsWidget`.
 - `knowledge-v2` is a smoke/WidgetV2 metadata identity, not the persisted
   product widget id.
+- Active source home after Block 003:
+  `apps/desktop/frontend/src/workbench/knowledge/*`.
+- Old `apps/desktop/frontend/src/workbench/widgetV2/knowledgeV2/*` source paths
+  remain as compatibility re-exports/wrappers.
 
 The current product route is therefore Knowledge through the saved-compatible
 `skill-library` identity, while the active source/component route still uses
@@ -56,12 +60,14 @@ frontend host routing, desktop IPC, local SQLite data, and Queue task context.
 Active required:
 
 - `KnowledgeSkillsV2Widget`.
-- `KnowledgeV2*`.
-- `apps/desktop/frontend/src/workbench/widgetV2/knowledgeV2/*`.
+- `KnowledgeWidget`.
+- `apps/desktop/frontend/src/workbench/knowledge/*`.
 - `apps/desktop/frontend/src/styles/widget-v2-knowledge.css`.
 
 Compatibility required:
 
+- `KnowledgeV2*` exports.
+- `apps/desktop/frontend/src/workbench/widgetV2/knowledgeV2/*` wrappers.
 - `SkillLibraryWidget`.
 - `SkillLibraryWidget = LegacyKnowledgeSkillsWidget`.
 - `skill-library` definition id.
@@ -229,6 +235,10 @@ imports compiling during the transition.
 
 - Rehome active Knowledge catalog components/model/API wrappers.
 - Preserve old import paths through aliases.
+- Status: completed for active frontend source organization in Block 003.
+  Persisted `skill-library` / `skill-library-widget` identities, `knowledge-v2`
+  smoke metadata, backend/Tauri/API/storage behavior, and legacy SkillLibrary
+  flows are unchanged.
 
 004 isolate SkillLibrary legacy code:
 

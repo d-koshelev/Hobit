@@ -5,6 +5,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { KnowledgeDocument } from "../workspace/types/knowledgeDocuments";
 import type { Skill } from "../workspace/types/skills";
 import { widgetCatalogTemplates } from "./catalogTemplates";
+import { KnowledgeSkillsV2Widget } from "./KnowledgeSkillsV2Widget";
+import {
+  KnowledgeWidget,
+  buildKnowledgeCatalogViewModel,
+} from "./knowledge";
 import { LegacyKnowledgeSkillsWidget } from "./SkillLibraryWidget";
 import { WidgetCatalogShell } from "./WidgetCatalogShell";
 import { WidgetHost } from "./WidgetHost";
@@ -15,6 +20,10 @@ import {
   SKILL_LIBRARY_WIDGET_DEFINITION_ID,
   getWidgetDefinition,
 } from "./widgetRegistry";
+import {
+  KnowledgeV2Widget,
+  buildKnowledgeV2CatalogViewModel,
+} from "./widgetV2/knowledgeV2";
 
 let root: Root | null = null;
 let container: HTMLDivElement | null = null;
@@ -79,6 +88,43 @@ describe("Knowledge / Skills compatibility routing", () => {
     expect(text()).not.toContain("Legacy Knowledge / Skills");
     expect(text()).not.toContain("Compatibility surface");
     expectProductTextDoesNotExposeV2();
+  });
+
+  it("keeps the KnowledgeSkillsV2 compatibility wrapper on the active Knowledge module", async () => {
+    const actions = widgetActions();
+
+    await render(<KnowledgeSkillsV2Widget {...knowledgeRenderProps(actions)} />);
+    await flush();
+
+    expect(text()).toContain("Knowledge / Skills");
+    expect(text()).toContain("Knowledge Catalog");
+    expect(text()).toContain("Release guide");
+    expect(text()).toContain("React review");
+    expect(regionByName("Knowledge catalog items")).not.toBeNull();
+    expect(document.querySelector("[data-widget-v2-shell]")).not.toBeNull();
+    expect(document.querySelector(".skill-library-shell")).toBeNull();
+    expectProductTextDoesNotExposeV2();
+  });
+
+  it("renders the active Knowledge surface from the new Knowledge module", async () => {
+    await render(
+      <KnowledgeWidget
+        documents={[documentFixture()]}
+        skills={[skillFixture()]}
+      />,
+    );
+
+    expect(text()).toContain("Knowledge / Skills");
+    expect(text()).toContain("Release guide");
+    expect(text()).toContain("React review");
+    expect(regionByName("Knowledge catalog items")).not.toBeNull();
+    expect(document.querySelector("[data-widget-v2-shell]")).not.toBeNull();
+    expectProductTextDoesNotExposeV2();
+  });
+
+  it("keeps old KnowledgeV2 exports as compatibility aliases", () => {
+    expect(KnowledgeV2Widget).toBe(KnowledgeWidget);
+    expect(buildKnowledgeV2CatalogViewModel).toBe(buildKnowledgeCatalogViewModel);
   });
 
   it("does not mutate Knowledge data on normal Knowledge render", async () => {
@@ -320,6 +366,33 @@ function widgetActions(): WorkbenchWidgetInstanceActions {
     updateKnowledgeDocument: vi.fn(),
     updateSkill: vi.fn(),
   } as unknown as WorkbenchWidgetInstanceActions;
+}
+
+function knowledgeRenderProps(actions: WorkbenchWidgetInstanceActions) {
+  const definition = getWidgetDefinition(SKILL_LIBRARY_WIDGET_DEFINITION_ID)!;
+
+  return {
+    config: {},
+    definition,
+    instance: knowledgeWidgetInstance(),
+    onAttachKnowledgeContextToQueueTask: vi.fn(),
+    onCreateAgentQueueTask: actions.createAgentQueueTask,
+    onCreateKnowledgeDocument: actions.createKnowledgeDocument,
+    onCreateSkill: actions.createSkill,
+    onDeleteKnowledgeDocument: actions.deleteKnowledgeDocument,
+    onDeleteSkill: actions.deleteSkill,
+    onGetKnowledgeDocument: actions.getKnowledgeDocument,
+    onGetSkill: actions.getSkill,
+    onListKnowledgeDocuments: actions.listKnowledgeDocuments,
+    onListKnowledgeDraftReviews: actions.listKnowledgeDraftReviews,
+    onListSkills: actions.listSkills,
+    onLoadLogs: actions.listWidgetLogs,
+    onReadKnowledgeDocumentImportFile: actions.readKnowledgeDocumentImportFile,
+    onRecordKnowledgeDraftReview: actions.recordKnowledgeDraftReview,
+    onUpdateKnowledgeDocument: actions.updateKnowledgeDocument,
+    onUpdateSkill: actions.updateSkill,
+    title: "Knowledge / Skills",
+  };
 }
 
 function knowledgeWidgetInstance(): WidgetInstance {

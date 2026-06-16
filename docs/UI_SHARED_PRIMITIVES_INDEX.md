@@ -464,7 +464,7 @@ action, and details while preserving compact layout.
 Current primitives:
 
 - `KnowledgeV2ContextPicker` in
-  `apps/desktop/frontend/src/workbench/widgetV2/knowledgeV2/KnowledgeV2ContextPicker.tsx`
+  `apps/desktop/frontend/src/workbench/knowledge/context/KnowledgeContextPicker.tsx`
   is the current concrete context-picker pattern.
 - Workspace Agent visible context panels and Queue task context sections are
   related target/review surfaces, not a generic picker.

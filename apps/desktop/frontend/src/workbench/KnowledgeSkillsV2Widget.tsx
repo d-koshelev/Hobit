@@ -5,9 +5,9 @@ import {
   SkillLibraryDocumentsPanel,
   type SkillLibraryDocumentsPanelHandle,
 } from "./SkillLibraryDocumentsPanel";
+import { KnowledgeWidget } from "./knowledge";
 import type { WidgetRenderProps } from "./types";
 import { useWidgetRuntimeContext } from "./widgetRuntimeContext";
-import { KnowledgeV2Widget } from "./widgetV2/knowledgeV2";
 
 type KnowledgeV2LegacyFlow = "drafts" | "import" | "new" | "skills";
 
@@ -90,7 +90,7 @@ export function KnowledgeSkillsV2Widget({
       style={frameStyle}
       title={title}
     >
-      <KnowledgeV2Widget
+      <KnowledgeWidget
         displaySubtitle="Dense catalog review for existing Knowledge Documents and Skills."
         displayTitle="Knowledge Catalog"
         onAttachContextToCoordinator={onAttachContextToCoordinator}
