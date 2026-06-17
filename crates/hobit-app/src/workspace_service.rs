@@ -19,6 +19,9 @@ mod agent_monitoring_tests;
 mod agent_proposal_tests;
 mod agent_proposals;
 mod agent_queue;
+mod agent_queue_aggregate;
+#[cfg(test)]
+mod agent_queue_aggregate_tests;
 mod agent_queue_context;
 #[cfg(test)]
 mod agent_queue_context_tests;
@@ -143,6 +146,14 @@ mod workbenches;
 #[cfg(test)]
 mod workspace_deletion_tests;
 mod workspaces;
+pub use agent_queue_aggregate::{
+    QueueItemAggregate, QueueItemAggregateBlocker, QueueItemAggregateCommitState,
+    QueueItemAggregateDependencyState, QueueItemAggregateDurableFlags,
+    QueueItemAggregateEvidenceState, QueueItemAggregateEvidenceSummary,
+    QueueItemAggregateLatestRun, QueueItemAggregateNextAction, QueueItemAggregateReviewState,
+    QueueItemAggregateRunSettings, QueueItemAggregateTicketState,
+    QueueItemAggregateValidationState, QueueItemAggregateWorkerRunState,
+};
 pub use agent_queue_task_types::{
     AgentQueueTaskRunLink, AgentQueueTaskRunLinkId, AgentQueueTaskRunReviewStatus,
     AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AgentQueueTaskRunSummary,

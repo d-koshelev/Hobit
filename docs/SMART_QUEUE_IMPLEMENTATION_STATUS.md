@@ -15,8 +15,9 @@ execution.
 
 ## Current Status
 
-Smart Queue has an implemented frontend foundation for singleton Queue view
-safety, prompt-pack materialization, dependency-aware eligibility,
+Smart Queue has an implemented backend/domain read-model foundation plus a
+frontend foundation for singleton Queue view safety, prompt-pack
+materialization, dependency-aware eligibility,
 frontend/controller execution gating, attempt and coordinator decision
 presentation, explicit retry/handoff/proposal actions, typed Queue dogfood
 lifecycle broker capabilities, a full fake broker-driven Queue dogfood loop
@@ -30,9 +31,37 @@ and explicit Draft-to-queued promotion through the existing Queue task update
 path, plus a minimal active Queue details review/evidence UI for explicit
 broker-driven coordinator review actions.
 
-The durable Smart Queue backend/runtime is not implemented yet. Current Smart
-Queue modules are frontend/product-model foundations unless explicitly noted
-otherwise.
+The full durable Smart Queue backend/runtime is not implemented yet. Current
+Smart Queue modules are frontend/product-model foundations unless explicitly
+noted otherwise. The implemented backend exception is the read-only
+`QueueItemAggregate` contract over existing durable Queue task rows and run
+links; it is not a scheduler, transition command set, or review/evidence
+storage migration.
+
+## Implemented Backend Read Model
+
+The backend/domain layer now exposes a read-only Queue aggregate contract:
+
+- `crates/hobit-app/src/workspace_service/agent_queue_aggregate.rs` defines
+  `QueueItemAggregate`, explicit ticket/worker/review/evidence/validation/
+  commit/dependency state enums, bounded blockers, next actions, run settings,
+  latest run summary, evidence summary, and durability flags.
+- `WorkspaceService::list_queue_item_aggregates` and
+  `WorkspaceService::get_queue_item_aggregate` build aggregates from durable
+  task rows, compatibility dependency ids, latest run links, and existing
+  widget run summary metadata only.
+- `apps/desktop/src-tauri/src/agent_queue_aggregate_dto.rs` and
+  `apps/desktop/src-tauri/src/agent_queue_aggregate_commands.rs` expose
+  read-only desktop commands for aggregate list/get.
+- The read model is deterministic and non-mutating. It does not start workers,
+  run validation, mutate Git, execute rollback, launch Terminal, call Codex, or
+  read frontend overlays.
+- Successful worker completion maps to `awaiting_review`; it does not mark the
+  Queue item `done`. Dependency satisfaction still requires a future durable
+  accepted completion state.
+- Review messages, ACKs, full evidence bundles, validation decisions, commit
+  decisions, durable scheduler state, and frontend/broker/UI migration to the
+  aggregate remain future work.
 
 ## Implemented Frontend Behavior
 
@@ -632,6 +661,8 @@ The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend Smart Queue persistence;
+- durable Queue lifecycle transition commands beyond the current read-only
+  aggregate DTO;
 - backend scheduler/runner ownership;
 - durable attempt persistence;
 - durable coordinator decision persistence;

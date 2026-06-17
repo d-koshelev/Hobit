@@ -267,6 +267,15 @@ Supported Queue capabilities:
 - `queue.lifecycle.get`
 - `queue.review.getEvidenceBundle`
 
+Backend/domain aggregate note: the desktop backend now exposes a read-only
+`QueueItemAggregate` DTO over durable Queue task rows and run links. It is the
+authoritative read-model contract for future Queue card/details/broker
+migration, but the current frontend Queue Capability Adapter still uses the
+existing injected bridge and transitional lifecycle overlay for dogfood review
+actions until that migration is implemented. The aggregate read commands do
+not run workers, validation, Git, rollback, Terminal, shell, or Codex, and do
+not infer task ids from natural language.
+
 The adapter boundary is typed and injected. It does not import React hooks,
 mutate global UI state directly, create widgets/views directly, couple to the
 Workspace Agent UI, route natural language, call shell, launch Terminal, mutate

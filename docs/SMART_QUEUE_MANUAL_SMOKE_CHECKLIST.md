@@ -308,9 +308,10 @@ During the smoke, verify these product labels appear where applicable:
       bundle, the review message includes a bounded evidence summary,
       `queue.review.getEvidenceBundle` returns normalized frontend evidence
       when available, and the evidence is labeled frontend-only / not durable.
-    - Expected: Queue dogfood backend durability is skipped, and real worker
-      execution, real validation execution, and real Git commit execution are
-      blocked/not covered with explicit reasons.
+    - Expected: Queue backend aggregate read-model coverage is available for
+      durable task/run-link state, while dogfood review/evidence persistence is
+      still skipped. Real worker execution, real validation execution, and real
+      Git commit execution are blocked/not covered with explicit reasons.
     - Expected: after Run Agent Self-Test completes, Agent Activity must not
       show a stale duplicate `Running` row for that self-test run.
     - Expected: no raw JSON appears in the default report; Queue checks are
@@ -337,11 +338,31 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: the self-test is model-only; it does not start workers, call
       Codex or shell, launch Terminal, mutate Git, execute rollback, create
       Queue views, or write backend/storage/schema state.
-    - Expected: backend durability, real worker integration, real validation
-      execution, real commit execution, and backend scheduler dependency
-      enforcement remain not implemented.
+    - Expected: backend aggregate read-model tests cover durable task/run-link
+      state separately. Full review/evidence durability, real worker
+      integration, real validation execution, real commit execution, and
+      backend scheduler dependency enforcement remain not implemented.
 
-20. In Workspace Agent, test a structured Queue dogfood lifecycle action
+20. Run the backend Queue aggregate read-model automated tests.
+    - Expected:
+      `crates/hobit-app/src/workspace_service/agent_queue_aggregate_tests.rs`
+      proves aggregate state is derived from durable Queue task rows,
+      compatibility dependency ids, latest run links, and widget run summaries.
+    - Expected: Draft tasks report Draft with missing-setting blockers; queued
+      tasks with settings expose `start_run`; running run links report Running;
+      successful worker completion reports `awaiting_review` and not `done`;
+      failed runs report failure; completed worker state does not unblock
+      dependents; aggregate reads do not mutate task or run-link state.
+    - Expected:
+      `apps/desktop/src-tauri/src/agent_queue_aggregate_dto_tests.rs` and
+      `apps/desktop/src-tauri/src/agent_queue_aggregate_commands/tests.rs`
+      prove stable DTO serialization, explicit workspace/task identity, and
+      read-only command behavior without launching the frontend UI.
+    - Expected: aggregate reads do not start work, run validation, mutate Git,
+      execute rollback, launch Terminal, call shell/Codex, read frontend
+      overlays, or infer task ids from prompt text.
+
+21. In Workspace Agent, test a structured Queue dogfood lifecycle action
     request.
     - Expected: Workspace Agent can emit a valid
       `hobit.action.request` envelope for `queue.lifecycle.agentFinished`,
@@ -367,7 +388,7 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: ordinary prose remains prose, and Queue lifecycle product
       actions are not triggered by natural-language phrase matching.
 
-21. Run the Queue dogfood broker-loop automated self-test.
+22. Run the Queue dogfood broker-loop automated self-test.
     - Expected:
       `apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.test.ts`
       proves the fake dogfooding loop through Action Broker capability calls,
@@ -386,7 +407,7 @@ During the smoke, verify these product labels appear where applicable:
       Work ingestion is blocked/skipped, duplicate completion ingestion is
       guarded, and backend durability is still skipped/not covered.
 
-22. Run the Queue worker evidence ingestion bridge automated test.
+23. Run the Queue worker evidence ingestion bridge automated test.
     - Expected:
       `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceIngestion.test.ts`
       proves an explicitly Queue-linked fake/frontend completion result builds
@@ -411,7 +432,7 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: broad automatic real worker event wiring is not covered by this
       test and remains future work.
 
-23. Run the Queue-linked Direct Work metadata seam and evidence event wiring
+24. Run the Queue-linked Direct Work metadata seam and evidence event wiring
     automated tests.
     - Expected:
       `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkMetadata.test.ts`,
@@ -449,7 +470,7 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: backend durability, real validation execution, real Git commit
       execution, and full app restart recovery remain not implemented.
 
-24. Inspect the minimal Queue review/evidence UI for a task that reached
+25. Inspect the minimal Queue review/evidence UI for a task that reached
     `Awaiting review` or `In review` through explicit Queue-linked evidence.
     - Expected: the active QueueV2 task details Result tab shows a compact
       `Dogfood review` section only for relevant review/evidence state.
@@ -473,13 +494,13 @@ During the smoke, verify these product labels appear where applicable:
       validation execution, real Git commit execution, and restart recovery
       remain future work.
 
-25. Check for side effects.
+26. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback
       proposal preparation.
 
-26. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
+27. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
     log details where available.
     - Expected: the prompt sent to Codex includes Hobit capability context,
       compact Queue/agent capability names, and policy rules before the user

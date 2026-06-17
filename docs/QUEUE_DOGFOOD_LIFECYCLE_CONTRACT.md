@@ -7,10 +7,14 @@ lifecycle. It separates Queue ticket state from agent/prompt state so Hobit can
 model review gates before later durability, worker, validation, and commit
 integration blocks.
 
-This contract does not add backend durability, SQLite schema, Tauri commands,
-real worker execution, scheduler redesign, Git commit execution, rollback
-execution, Terminal launch, Finder behavior, or natural-language prompt
-routing.
+This frontend lifecycle contract does not add full backend lifecycle
+durability, SQLite schema migrations, real worker execution, scheduler
+redesign, Git commit execution, rollback execution, Terminal launch, Finder
+behavior, or natural-language prompt routing. A first backend/domain
+`QueueItemAggregate` read model now exists separately as the authoritative
+durable read path over existing Queue task rows and run links; it does not
+persist review messages, ACKs, evidence bundles, validation decisions, commit
+decisions, or scheduler state yet.
 
 ## Status
 
@@ -39,6 +43,23 @@ runtime Queue lifecycle. The controller/view-model adapter is an overlay for
 frontend Queue controller helpers, QueueV2 presentation, fake lifecycle tests,
 and broker capability handlers. Broker capability execution mutates only this
 frontend/controller overlay where dependencies are available.
+
+Backend/domain read-model foundation:
+
+- `crates/hobit-app/src/workspace_service/agent_queue_aggregate.rs` builds a
+  read-only `QueueItemAggregate` from durable Queue task rows, dependency ids,
+  latest Queue run links, and available widget run summary metadata.
+- `apps/desktop/src-tauri/src/agent_queue_aggregate_dto.rs` and
+  `apps/desktop/src-tauri/src/agent_queue_aggregate_commands.rs` expose
+  read-only aggregate list/get commands to the desktop bridge.
+- The aggregate treats raw `task.status` as legacy input, not final product
+  truth. A successful worker completion maps to `awaiting_review`, not `done`.
+  Dependency satisfaction is not granted by worker completion alone.
+- Where review/evidence/validation/commit durability is not implemented, the
+  aggregate returns honest `not_durable`, `unknown`, or unavailable next-action
+  reasons instead of reading frontend overlays.
+- Queue UI and broker migration to this DTO is a later phase; the frontend
+  overlay remains transitional compatibility behavior until that migration.
 
 ## State Dimensions
 

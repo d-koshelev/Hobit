@@ -8,6 +8,10 @@ mod agent_executor_diff_dto_tests;
 mod agent_executor_history_dto;
 #[cfg(test)]
 mod agent_executor_history_dto_tests;
+mod agent_queue_aggregate_commands;
+mod agent_queue_aggregate_dto;
+#[cfg(test)]
+mod agent_queue_aggregate_dto_tests;
 mod agent_queue_dto;
 #[cfg(test)]
 mod agent_queue_dto_tests;
@@ -197,6 +201,8 @@ pub fn run() {
             agent_queue_task_commands::assign_agent_queue_task_to_executor,
             agent_queue_task_commands::clear_agent_queue_task_assignment,
             agent_queue_task_commands::delete_agent_queue_task,
+            agent_queue_aggregate_commands::list_agent_queue_item_aggregates,
+            agent_queue_aggregate_commands::get_agent_queue_item_aggregate,
             agent_queue_worker_commands::list_agent_queue_workers,
             agent_queue_worker_commands::create_agent_queue_worker,
             agent_queue_worker_commands::update_agent_queue_worker,
