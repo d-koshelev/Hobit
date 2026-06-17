@@ -60,6 +60,10 @@ The current implemented frontend behavior is:
 - Queue-linked Direct Work completion event wiring from valid explicit
   Queue-linked metadata plus matching final Agent Executor run detail into the
   existing evidence ingestion bridge and Action Broker path;
+- typed Workspace Agent `queue.item.startRun` accepted-start reconciliation:
+  Queue task state and latest run-link metadata refresh after a real run id is
+  returned, and Queue-owned final detail can feed the existing evidence
+  ingestion bridge;
 - active Queue V2 Codex executable setup affordance for existing tasks through
   the existing task update/run-settings bridge;
 - active Queue V2 Draft readiness explanation for existing Draft tasks and
@@ -420,13 +424,15 @@ adapter integration and typed frontend Action Broker capability access.
   available, Queue item id, run id, and attempt id when available. It does not
   use prompt text, task title, repository path, final agent message, changed
   files, validation output, or other natural-language content.
-- `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`
-  and `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`
-  wire the safe first automatic ingestion point: Queue-started Direct Work
-  completion with valid explicit metadata and matching final
-  `AgentExecutorRunDetail`. The hook calls only the injected ingestion bridge
-  callback, which then invokes `queue.lifecycle.agentFinished` through the
-  Action Broker.
+- `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`,
+  `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`, and
+  `apps/desktop/frontend/src/workbench/queue/useAgentQueueRunMetadata.ts` wire
+  safe automatic ingestion points for Queue-started Direct Work completion
+  with valid explicit metadata and matching final `AgentExecutorRunDetail`.
+  Agent Executor-owned runs use the handoff/final-detail path; Queue-owned
+  runs reconcile from the selected task's latest run link and final detail. The
+  hooks call only the injected ingestion bridge callback, which then invokes
+  `queue.lifecycle.agentFinished` through the Action Broker.
 - Queue-linked evidence event wiring is current-session frontend-only and
   idempotent by the metadata key. Stream final event and recovered final detail
   for the same Queue item/run are ignored after the first bridge attempt.
@@ -676,10 +682,11 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 5. Design rollback execution only after the approval/safety contract is ready.
 
 Queue-linked Direct Work completion evidence wiring is now available only for
-explicit Queue handoffs with matching final Agent Executor run detail. Backend
-durability, restart recovery, real validation evidence execution, and real Git
-commit execution remain separate later blocks. Broad Queue UI polish is not
-the blocker for proving the current fake broker loop.
+explicit Queue handoffs or Queue-owned run links with matching final Agent
+Executor run detail. Backend durability, restart recovery, real validation
+evidence execution, and real Git commit execution remain separate later
+blocks. Broad Queue UI polish is not the blocker for proving the current fake
+broker loop.
 
 ## Implementation References
 

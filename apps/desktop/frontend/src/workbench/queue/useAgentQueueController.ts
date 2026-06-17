@@ -87,6 +87,7 @@ export function useAgentQueueController({
   onGetAgentQueueTask,
   onGetAgentQueueTaskLatestRunLink,
   onGetAgentQueueRunnerSnapshot,
+  onIngestQueueLinkedDirectWorkEvidence,
   onListenToDirectWorkStreamEvents,
   onListAgentQueueTaskRunLinks,
   onListAgentQueueTasks,
@@ -444,8 +445,10 @@ export function useAgentQueueController({
     loadTasks,
     onGetAgentExecutorRunDetail,
     onGetAgentQueueTaskLatestRunLink,
+    onIngestQueueLinkedDirectWorkEvidence,
     onListenToDirectWorkStreamEvents,
     onListAgentQueueTaskRunLinks,
+    queueWidgetInstanceId: queueWidgetInstanceId ?? null,
     selectedTask,
   });
 
@@ -538,11 +541,13 @@ export function useAgentQueueController({
 
   const refreshAfterExternalMutation = useCallback(
     async (queueItemId?: string | null) => {
-      await loadTasks(queueItemId ?? selectedTask?.queueItemId ?? null, {
+      const refreshedQueueItemId = queueItemId ?? selectedTask?.queueItemId ?? null;
+      await loadTasks(refreshedQueueItemId, {
         preserveCurrentOnError: true,
       });
+      await refreshLatestRunLink(refreshedQueueItemId, { silent: true });
     },
-    [loadTasks, selectedTask?.queueItemId],
+    [loadTasks, refreshLatestRunLink, selectedTask?.queueItemId],
   );
   const queueRunner = useAgentQueueSequentialRunner({
     approvalPolicy,

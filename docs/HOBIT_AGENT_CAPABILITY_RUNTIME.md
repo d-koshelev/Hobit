@@ -222,6 +222,11 @@ Supported Queue capabilities:
 - `queue.preparePromptPackPreview`
 - `queue.importPromptPack`
 - `queue.selfTest`
+- `queue.items.list`
+- `queue.item.updateRunSettings`
+- `queue.item.promoteDraft`
+- `queue.enable`
+- `queue.item.startRun`
 - `queue.lifecycle.agentFinished`
 - `queue.review.createMessage`
 - `queue.review.ack`
@@ -235,9 +240,12 @@ Supported Queue capabilities:
 
 The adapter boundary is typed and injected. It does not import React hooks,
 mutate global UI state directly, create widgets/views directly, couple to the
-Workspace Agent UI, route natural language, call Codex, call shell, launch
-Terminal, mutate Git, execute rollback, start workers, arm Queue Autorun, or
-create duplicate Queue views.
+Workspace Agent UI, route natural language, call shell, launch Terminal, mutate
+Git, execute rollback, arm Queue Autorun, or create duplicate Queue views.
+Only the explicit `queue.item.startRun` capability may request a Queue-linked
+Direct Work start through the injected Queue bridge, and that path must return
+blocked/unavailable instead of claiming success when the bridge cannot accept a
+real start.
 
 Queue create action input is intentionally strict at the adapter boundary.
 `queue.createItem` requires `title` and `prompt`. `queue.createItems` requires
@@ -273,6 +281,15 @@ Prompt-pack preview uses existing prompt-pack and Smart Queue materialization
 models where practical and does not create Queue tasks. Prompt-pack import
 creates Queue items only through the injected adapter API after valid input and
 policy approval, and it does not auto-run workers after import.
+
+Queue run-control capabilities are typed bridge actions. `queue.item.startRun`
+requires explicit `taskId` and `executorWidgetId`, never infers task identity
+from prompt text, and returns success only when the injected Queue bridge
+accepts a real Queue-linked Direct Work start and returns a run id. Blocked or
+unavailable start dependencies return blocked/unavailable capability results
+with compact reasons. After an accepted start, the frontend Queue controller
+refreshes task state and latest run-link metadata so the selected Queue item,
+board lane, and returned run id converge with the backend run state.
 
 Queue self-test through the Action Broker and Queue adapter is implemented as a
 safe dry-run/model check. The broker invokes the typed `queue.selfTest`
@@ -328,15 +345,18 @@ The bridge exposes product-facing labels such as `Queue worker evidence
 ingested`, `Queue item awaiting review`, `Queue evidence ingestion failed`, and
 `Queue evidence ingestion skipped`.
 
-`apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`
-and `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`
-now wire the first safe automatic ingestion point: a Queue-started Direct Work
-completion with valid explicit Queue-linked metadata and matching final
-`AgentExecutorRunDetail`. The wiring calls only the existing ingestion bridge,
-which then invokes `queue.lifecycle.agentFinished` through the Action Broker.
-It is current-session frontend wiring with a metadata idempotency key; repeated
-final stream events or recovered final detail for the same Queue item/run do
-not duplicate bridge calls.
+`apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`,
+`apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`, and
+the active Queue run-metadata hook now wire safe automatic ingestion points for
+Queue-started Direct Work completion with valid explicit Queue-linked metadata
+and matching final `AgentExecutorRunDetail`. Agent Executor-owned handoffs use
+the existing Executor handoff/final-detail path. Queue-owned starts use the
+latest Queue run link plus final detail owned by the Agent Queue widget. The
+wiring calls only the existing ingestion bridge, which then invokes
+`queue.lifecycle.agentFinished` through the Action Broker. It is
+current-session frontend wiring with a metadata idempotency key; repeated final
+stream events, rerenders, or recovered final detail for the same Queue item/run
+do not duplicate bridge calls.
 
 Raw Workspace Agent final events, raw Direct Work final events without Queue
 metadata, Agent Activity events, standalone Executor history, and task-id

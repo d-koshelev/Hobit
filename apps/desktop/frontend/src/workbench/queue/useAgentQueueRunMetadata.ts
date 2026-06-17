@@ -7,7 +7,15 @@ import type {
   DirectWorkStreamEvent,
 } from "../../workspace/types";
 import { errorToMessage } from "../agentQueueTaskUiModel";
-import type { WidgetRenderProps } from "../types";
+import {
+  ingestQueueLinkedDirectWorkCompletionEvidence,
+  type QueueLinkedDirectWorkEvidenceIngestionCallback,
+} from "../queueLinkedDirectWorkEvidenceWiring";
+import type {
+  DirectWorkRunHandoff,
+  QueueLinkedDirectWorkSource,
+  WidgetRenderProps,
+} from "../types";
 import { refreshAgentQueueRunLinks } from "./agentQueueLoadHelpers";
 import {
   appendAgentQueueRunActivityEvent,
@@ -19,6 +27,7 @@ type UseAgentQueueRunMetadataInput = Pick<
   WidgetRenderProps,
   | "onGetAgentExecutorRunDetail"
   | "onGetAgentQueueTaskLatestRunLink"
+  | "onIngestQueueLinkedDirectWorkEvidence"
   | "onListenToDirectWorkStreamEvents"
   | "onListAgentQueueTaskRunLinks"
 > & {
@@ -26,6 +35,7 @@ type UseAgentQueueRunMetadataInput = Pick<
     preferredTaskId?: string | null,
     options?: { preserveCurrentOnError?: boolean },
   ) => Promise<string | null>;
+  queueWidgetInstanceId?: string | null;
   selectedTask: AgentQueueTask | null;
 };
 
@@ -33,8 +43,10 @@ export function useAgentQueueRunMetadata({
   loadTasks,
   onGetAgentExecutorRunDetail,
   onGetAgentQueueTaskLatestRunLink,
+  onIngestQueueLinkedDirectWorkEvidence,
   onListenToDirectWorkStreamEvents,
   onListAgentQueueTaskRunLinks,
+  queueWidgetInstanceId,
   selectedTask,
 }: UseAgentQueueRunMetadataInput) {
   const [latestRunLink, setLatestRunLink] =
@@ -52,6 +64,7 @@ export function useAgentQueueRunMetadata({
   const [isRunEvidenceLoading, setIsRunEvidenceLoading] = useState(false);
   const selectedRunEventRefreshInFlightRef = useRef(false);
   const runEvidenceRequestKeyRef = useRef<string | null>(null);
+  const handledQueueOwnedEvidenceIngestionKeysRef = useRef(new Set<string>());
   const [runActivityState, setRunActivityState] = useState(
     emptyAgentQueueRunActivityState,
   );
@@ -204,6 +217,15 @@ export function useAgentQueueRunMetadata({
         }
         setRunEvidenceDetail(detail);
         setRunEvidenceError(detail ? null : "Direct Work result was not found.");
+        await ingestQueueOwnedRunEvidenceIfReady({
+          detail,
+          handledIngestionKeys:
+            handledQueueOwnedEvidenceIngestionKeysRef.current,
+          link,
+          onIngestQueueLinkedDirectWorkEvidence,
+          queueWidgetInstanceId,
+          selectedTask,
+        });
       } catch (error) {
         if (runEvidenceRequestKeyRef.current !== requestKey) {
           return;
@@ -218,7 +240,12 @@ export function useAgentQueueRunMetadata({
         }
       }
     },
-    [onGetAgentExecutorRunDetail],
+    [
+      onGetAgentExecutorRunDetail,
+      onIngestQueueLinkedDirectWorkEvidence,
+      queueWidgetInstanceId,
+      selectedTask,
+    ],
   );
 
   useEffect(() => {
@@ -276,4 +303,92 @@ function isSelectedQueueRunStreamEvent(
     event.runId === selectedRun.runId &&
     event.widgetInstanceId === selectedRun.widgetInstanceId
   );
+}
+
+async function ingestQueueOwnedRunEvidenceIfReady({
+  detail,
+  handledIngestionKeys,
+  link,
+  onIngestQueueLinkedDirectWorkEvidence,
+  queueWidgetInstanceId,
+  selectedTask,
+}: {
+  detail: AgentExecutorRunDetail | null;
+  handledIngestionKeys: Set<string>;
+  link: AgentQueueTaskRunLinkSummary;
+  onIngestQueueLinkedDirectWorkEvidence:
+    | QueueLinkedDirectWorkEvidenceIngestionCallback
+    | undefined;
+  queueWidgetInstanceId: string | null | undefined;
+  selectedTask: AgentQueueTask | null;
+}) {
+  const queueOwnerWidgetId = cleanText(queueWidgetInstanceId);
+
+  if (
+    !detail ||
+    !queueOwnerWidgetId ||
+    !selectedTask ||
+    link.executorWidgetId !== queueOwnerWidgetId ||
+    link.queueTaskId !== selectedTask.queueItemId ||
+    detail.summary.runId !== link.directWorkRunId ||
+    !isFinalRunDetailStatus(detail.summary.status)
+  ) {
+    return;
+  }
+
+  const source = queueLinkedSourceForRunLink(link.source);
+  const handoff: DirectWorkRunHandoff = {
+    executorWidgetInstanceId: link.executorWidgetId,
+    id: 0,
+    queueItemId: link.queueTaskId,
+    queueLinkedSource: source,
+    repoRoot:
+      cleanText(detail.summary.repoRoot) ??
+      cleanText(selectedTask.executionWorkspace) ??
+      "",
+    runId: link.directWorkRunId,
+    startedAt: cleanText(link.startedAt) ?? detail.summary.startedAt,
+    taskTitle: cleanText(selectedTask.title) ?? "Queue task",
+    workbenchId: "",
+    workspaceId: cleanText(link.workspaceId) ?? selectedTask.workspaceId,
+  };
+
+  await ingestQueueLinkedDirectWorkCompletionEvidence({
+    finalStatus: detail.summary.status,
+    handledIngestionKeys,
+    handoff,
+    ingestEvidence: onIngestQueueLinkedDirectWorkEvidence,
+    runDetail: detail,
+    source,
+  });
+}
+
+function queueLinkedSourceForRunLink(
+  source: AgentQueueTaskRunLinkSummary["source"],
+): QueueLinkedDirectWorkSource {
+  switch (source) {
+    case "autorun":
+      return "queue_autorun_start";
+    case "sequential_runner":
+      return "queue_sequential_start";
+    case "manual":
+      return "queue_manual_start";
+    default:
+      return "queue_handoff";
+  }
+}
+
+function isFinalRunDetailStatus(status: string) {
+  return (
+    status === "completed" ||
+    status === "failed" ||
+    status === "timed_out" ||
+    status === "cancelled" ||
+    status === "canceled"
+  );
+}
+
+function cleanText(value: string | null | undefined) {
+  const text = value?.trim() ?? "";
+  return text || null;
 }

@@ -230,9 +230,10 @@ launch, or natural-language prompt routing.
 
 ## Queue-Linked Direct Work Evidence Event Wiring
 
-`apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`
-and `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`
-define the first automatic Queue worker evidence event wiring path.
+`apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`,
+`apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`, and
+the active Queue run-metadata hook define the first automatic Queue worker
+evidence event wiring paths.
 
 The wiring is current-session frontend/controller wiring only. It runs only
 for Queue-started Direct Work handoffs that have a valid explicit
@@ -260,6 +261,12 @@ validation/log-reference fields to the bridge. Successful ingestion moves the
 linked frontend lifecycle overlay to `awaiting_review` and keeps evidence
 available for explicit `queue.review.getEvidenceBundle` and later explicit
 `queue.review.createMessage`.
+
+Queue-owned Direct Work starts, where the Agent Queue widget is the Direct Work
+owner, reconcile through the selected task's latest run link and final
+`AgentExecutorRunDetail`. That path builds the same explicit Queue-linked
+handoff identity from stored run-link fields and only ingests when the run id,
+Queue item id, executor widget id, and final detail match.
 
 The wiring is idempotent only for the current UI session. Repeated final stream
 events, recovered final detail, or rerendered final notifications for the same

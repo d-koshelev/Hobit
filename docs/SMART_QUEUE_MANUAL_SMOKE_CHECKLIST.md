@@ -475,6 +475,57 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: Queue item creation happens only when the agent emits a valid
       structured Hobit action request and the broker allows it.
 
+## Typed StartRun Reconciliation Smoke
+
+1. In Workspace Agent, ask the agent to use typed Queue capabilities and emit
+   `hobit.action.request` envelopes only.
+   - Expected: ordinary prose is not routed by regex or phrase matching.
+
+2. Invoke `queue.items.list` and identify one explicit task id.
+   - Expected: the item summary includes the selected task id, current status,
+     readiness, and available executor targets.
+
+3. Invoke `queue.item.updateRunSettings` for that exact `taskId` with
+   `workspaceRoot`, `codexExecutable`, `sandbox`, and `approvalPolicy` where
+   needed.
+   - Expected: readiness moves toward `ready_to_queue`; no worker starts.
+
+4. Invoke `queue.item.promoteDraft` for the same exact `taskId` when readiness
+   permits.
+   - Expected: status becomes `queued`; no worker starts.
+
+5. Invoke `queue.enable`.
+   - Expected: Queue is enabled; no Queue Autorun, shell, Terminal, Git,
+     validation, rollback, or dependent task start is triggered.
+
+6. Invoke `queue.item.startRun` with the same exact `taskId` and an explicit
+   `executorWidgetId`.
+   - Expected on accepted start: the result includes `taskId`,
+     `executorWidgetId`, and `runId`; the Queue task refreshes to `running` or
+     the latest backend final state; latest run-link metadata shows the
+     returned run id; the board/details do not remain stale as Ready/Queued.
+   - Expected when start cannot actually run: the capability returns blocked
+     or unavailable with a compact blocker such as local executor unavailable
+     and does not claim `Queue-linked run started`.
+
+7. If the run completes or fails while Hobit is open, refresh the task and
+   result evidence.
+   - Expected: matching final `AgentExecutorRunDetail` plus explicit Queue
+     run-link metadata ingests frontend-only evidence and moves the dogfood
+     lifecycle overlay to `Awaiting review`.
+   - Expected: no evidence is shown before completion/final detail exists.
+
+8. Inspect `queue.review.getEvidenceBundle` and the Queue details Result tab.
+   - Expected: normalized frontend-only evidence is available when ingestion
+     succeeded; review-message creation, ACK, validation approval, mark done,
+     and dependent starts remain explicit separate actions.
+
+9. Check side effects.
+   - Expected: no raw `codex.runTask` fallback, shell invocation, Terminal
+     launch, Git mutation, validation execution, rollback execution, duplicate
+     Queue view, task-id inference, auto-review, auto-ACK, auto-done, or
+     dependent auto-start occurred.
+
 ## Failure Capture
 
 For every failed smoke step, capture:

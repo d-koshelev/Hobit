@@ -578,6 +578,136 @@ describe("queueAgentCapabilities invoke", () => {
     });
   });
 
+  it("keeps queued runnable items out of the final-status blocker path", async () => {
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getAvailableExecutorTargets: () => [
+              {
+                label: "Local executor ready",
+                ownerKind: "agent_queue",
+                widgetInstanceId: "executor-1",
+              },
+            ],
+            getSnapshot: vi.fn(async () =>
+              queueBridgeSnapshotResult({
+                itemCounts: { total: 2 } as QueueWidgetSnapshot["itemCounts"],
+                items: [
+                  queueBridgeSnapshotItem({
+                    approvalPolicy: "never",
+                    codexExecutable: "codex.cmd",
+                    executionWorkspace: "C:/repo",
+                    id: "queued-task",
+                    sandbox: "workspace_write",
+                    status: "queued",
+                  }),
+                  queueBridgeSnapshotItem({
+                    approvalPolicy: "never",
+                    codexExecutable: "codex.cmd",
+                    executionWorkspace: "C:/repo",
+                    id: "completed-task",
+                    sandbox: "workspace_write",
+                    status: "completed",
+                  }),
+                ],
+              }),
+            ),
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const listResult = await broker.invokeAsync<{
+      items: Array<{
+        blockerReasons: string[];
+        canStart: boolean;
+        nextSuggestedCapability?: string | null;
+        readinessState: string;
+        taskId: string;
+      }>;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    const queuedItem = listResult.result.output?.items.find(
+      (item) => item.taskId === "queued-task",
+    );
+    const completedItem = listResult.result.output?.items.find(
+      (item) => item.taskId === "completed-task",
+    );
+
+    expect(listResult.status).toBe("succeeded");
+    expect(queuedItem).toMatchObject({
+      canStart: true,
+      nextSuggestedCapability: "queue.item.startRun",
+      readinessState: "runnable",
+    });
+    expect(queuedItem?.blockerReasons).not.toContain(
+      "Final-status Queue items cannot be started.",
+    );
+    expect(completedItem).toMatchObject({
+      canStart: false,
+      readinessState: "final",
+    });
+    expect(completedItem?.blockerReasons).toContain(
+      "Final-status Queue items cannot be started.",
+    );
+  });
+
+  it("returns a blocked start result without claiming success when the bridge cannot start", async () => {
+    const startQueueLinkedRun = vi.fn(async () => ({
+      blockerReasons: ["Local executor unavailable."],
+      message: "Local executor unavailable.",
+      ok: false,
+      status: "blocked" as const,
+    }));
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ startQueueLinkedRun }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: "confirmed",
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("failed");
+    expect(result.result.message).toBe("Local executor unavailable.");
+    expect(result.result.output).not.toMatchObject({
+      startedDirectWork: true,
+    });
+    expect(result.result.policyReasons).toEqual([
+      "Local executor unavailable.",
+    ]);
+  });
+
   it("rejects invalid Queue run-control inputs before bridge mutation or start", async () => {
     const updateItem = vi.fn();
     const startQueueLinkedRun = vi.fn();

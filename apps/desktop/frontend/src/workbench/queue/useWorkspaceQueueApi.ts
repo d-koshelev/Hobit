@@ -232,6 +232,7 @@ export function useWorkspaceQueueApi({
     onGetAgentQueueRunnerSnapshot: actions.getAgentQueueRunnerSnapshot,
     onGetAgentQueueTask: actions.getAgentQueueTask,
     onGetAgentQueueTaskLatestRunLink: getAgentQueueTaskLatestRunLink,
+    onIngestQueueLinkedDirectWorkEvidence: ingestQueueLinkedDirectWorkEvidence,
     onListenToDirectWorkStreamEvents: actions.listenToDirectWorkStreamEvents,
     onListAgentQueueTaskRunLinks: listAgentQueueTaskRunLinks,
     onListAgentQueueTasks: actions.listAgentQueueTasks,

@@ -54,6 +54,7 @@ export type UseAgentQueueControllerOptions = Pick<
   | "onGetAgentQueueTask"
   | "onGetAgentQueueTaskLatestRunLink"
   | "onGetAgentQueueRunnerSnapshot"
+  | "onIngestQueueLinkedDirectWorkEvidence"
   | "onListenToDirectWorkStreamEvents"
   | "onListAgentQueueTaskRunLinks"
   | "onListAgentQueueTasks"
