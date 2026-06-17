@@ -12,7 +12,9 @@ import type {
   AgentQueueTask,
   AttachKnowledgeToQueueTaskRequest,
   AttachSkillToQueueTaskRequest,
+  StartAssignedAgentQueueTaskResponse,
 } from "../workspace/types";
+import type { AgentExecutorSlot } from "./types";
 
 export type WorkspaceAgentQueueAutonomousActionName =
   | "queue.runAutonomousQueue"
@@ -32,6 +34,52 @@ export type WorkspaceAgentQueueAutonomousActionResult = {
 export type WorkspaceQueueAutonomousActions = {
   runAutonomousQueue: () => Promise<WorkspaceAgentQueueAutonomousActionResult>;
   stopAutonomousQueueAfterCurrent: () => Promise<WorkspaceAgentQueueAutonomousActionResult>;
+};
+
+export type WorkspaceAgentQueueEnableRequest = {
+  dryRun: boolean;
+};
+
+export type WorkspaceAgentQueueEnableResult = {
+  blockerReasons?: string[];
+  didAutoRunWorkers: false;
+  didStartWorkers: false;
+  globalExecutionState?: string;
+  message: string;
+  ok: boolean;
+  queueEnabled: boolean;
+  status: "blocked" | "enabled" | "preview" | "unavailable";
+};
+
+export type WorkspaceAgentQueueStartRunRequest = {
+  dryRun: boolean;
+  executorWidgetId: string;
+  queueId?: string;
+  taskId: string;
+};
+
+export type WorkspaceAgentQueueStartRunResult = {
+  blockerReasons?: string[];
+  executorWidgetId?: string;
+  message: string;
+  ok: boolean;
+  response?: StartAssignedAgentQueueTaskResponse;
+  status:
+    | "blocked"
+    | "confirmation_required"
+    | "preview"
+    | "started"
+    | "unavailable";
+};
+
+export type WorkspaceQueueControlActions = {
+  enableQueue: (
+    request: WorkspaceAgentQueueEnableRequest,
+  ) => Promise<WorkspaceAgentQueueEnableResult>;
+  getAvailableExecutorTargets?: () => AgentExecutorSlot[];
+  startQueueLinkedRun: (
+    request: WorkspaceAgentQueueStartRunRequest,
+  ) => Promise<WorkspaceAgentQueueStartRunResult>;
 };
 
 export type WorkspaceQueueStateAccess = {
@@ -61,6 +109,7 @@ export type WorkspaceAgentQueueBridge = {
   ) => Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>>;
   getCurrentWorkspaceRoot?: () => string | null;
   getRunSettingsDefaults?: () => AgentQueueTaskRunSettingsDefaults | null;
+  getAvailableExecutorTargets?: () => AgentExecutorSlot[];
   getSnapshot: (
     request?: Omit<Partial<QueueGetSnapshotRequest>, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetSnapshot>>;
@@ -68,18 +117,26 @@ export type WorkspaceAgentQueueBridge = {
     request: Omit<QueueUpdateItemRequest, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>>;
   runAutonomousQueue?: () => Promise<WorkspaceAgentQueueAutonomousActionResult>;
+  enableQueue?: (
+    request: WorkspaceAgentQueueEnableRequest,
+  ) => Promise<WorkspaceAgentQueueEnableResult>;
+  startQueueLinkedRun?: (
+    request: WorkspaceAgentQueueStartRunRequest,
+  ) => Promise<WorkspaceAgentQueueStartRunResult>;
   stopAutonomousQueueAfterCurrent?: () => Promise<WorkspaceAgentQueueAutonomousActionResult>;
 };
 
 export function createWorkspaceAgentQueueBridge({
   autonomousActions,
   contextActions,
+  controlActions,
   queueApi,
   queueState,
   workspaceId,
 }: {
   autonomousActions?: WorkspaceQueueAutonomousActions | null;
   contextActions?: WorkspaceQueueContextActions | null;
+  controlActions?: WorkspaceQueueControlActions | null;
   queueApi: AgentQueueWidgetApi;
   queueState?: WorkspaceQueueStateAccess | null;
   workspaceId: string;
@@ -118,6 +175,8 @@ export function createWorkspaceAgentQueueBridge({
     },
     getRunSettingsDefaults: () =>
       queueState?.getRunSettingsDefaults() ?? null,
+    getAvailableExecutorTargets: () =>
+      controlActions?.getAvailableExecutorTargets?.() ?? [],
     getCurrentWorkspaceRoot: () =>
       queueState?.getCurrentWorkspaceRoot?.() ?? null,
     getSnapshot: (request = {}) =>
@@ -145,6 +204,22 @@ export function createWorkspaceAgentQueueBridge({
               "Queue autonomous controls are unavailable.",
             ),
           ),
+    enableQueue: (request) =>
+      controlActions
+        ? controlActions.enableQueue(request)
+        : Promise.resolve(
+            unavailableQueueEnableResult(
+              "Queue enable controls are unavailable.",
+            ),
+          ),
+    startQueueLinkedRun: (request) =>
+      controlActions
+        ? controlActions.startQueueLinkedRun(request)
+        : Promise.resolve(
+            unavailableQueueStartResult(
+              "Queue-linked start controls are unavailable.",
+            ),
+          ),
     stopAutonomousQueueAfterCurrent: () =>
       autonomousActions
         ? autonomousActions.stopAutonomousQueueAfterCurrent()
@@ -154,6 +229,31 @@ export function createWorkspaceAgentQueueBridge({
               "Queue autonomous controls are unavailable.",
             ),
           ),
+  };
+}
+
+function unavailableQueueEnableResult(
+  message: string,
+): WorkspaceAgentQueueEnableResult {
+  return {
+    blockerReasons: [message],
+    didAutoRunWorkers: false,
+    didStartWorkers: false,
+    message,
+    ok: false,
+    queueEnabled: false,
+    status: "unavailable",
+  };
+}
+
+function unavailableQueueStartResult(
+  message: string,
+): WorkspaceAgentQueueStartRunResult {
+  return {
+    blockerReasons: [message],
+    message,
+    ok: false,
+    status: "unavailable",
   };
 }
 

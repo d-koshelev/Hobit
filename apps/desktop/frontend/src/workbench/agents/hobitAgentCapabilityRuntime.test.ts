@@ -295,14 +295,30 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain(
       '"capabilityId":"queue.createItems"',
     );
+    expect(instructionBlock).toContain("Run-control fields:");
+    expect(instructionBlock).toContain(
+      "never infer taskId or executorWidgetId",
+    );
+    expect(instructionBlock).toContain(
+      '"capabilityId":"queue.items.list"',
+    );
+    expect(instructionBlock).toContain(
+      '"capabilityId":"queue.item.updateRunSettings"',
+    );
+    expect(instructionBlock).toContain(
+      '"capabilityId":"queue.item.promoteDraft"',
+    );
+    expect(instructionBlock).toContain('"capabilityId":"queue.enable"');
+    expect(instructionBlock).toContain(
+      '"capabilityId":"queue.item.startRun"',
+    );
     expect(instructionBlock).toContain('"prompt":"Review the current workspace state and report one safe next step."');
     expect(instructionBlock).toContain(
       "Codex and shell are restricted capabilities",
     );
     expect(instructionBlock).toContain('"type":"hobit.action.request"');
-    expect(instructionBlock).not.toContain('"input":{}');
     expect(instructionBlock).not.toContain('"allowedAgentRoles"');
-    expect(instructionBlock.length).toBeLessThan(7500);
+    expect(instructionBlock.length).toBeLessThan(11000);
     expect(instructionBlock).not.toContain('"capabilities"');
   });
 
@@ -440,10 +456,15 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       "queue.coordinator.approveValidation",
       "queue.createItem",
       "queue.createItems",
+      "queue.enable",
       "queue.importPromptPack",
       "queue.item.block",
       "queue.item.fail",
       "queue.item.markDone",
+      "queue.item.promoteDraft",
+      "queue.item.startRun",
+      "queue.item.updateRunSettings",
+      "queue.items.list",
       "queue.lifecycle.agentFinished",
       "queue.lifecycle.get",
       "queue.preparePromptPackPreview",
@@ -458,6 +479,24 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
     expect(queueCreateItems.defaultForProductActions).toBe(true);
     expect(queueCreateItems.supportsDryRun).toBe(true);
     expect(queueCreateItems.description).toContain("typed in-app Queue APIs");
+    expect(requiredCapability(registry, "queue.items.list")).toMatchObject({
+      confirmationRequirement: "none",
+      sideEffectLevel: "read",
+    });
+    expect(
+      requiredCapability(registry, "queue.item.updateRunSettings").inputSchema
+        ?.requiredFields,
+    ).toEqual(["taskId"]);
+    expect(
+      requiredCapability(registry, "queue.item.startRun").inputSchema
+        ?.requiredFields,
+    ).toEqual(["taskId", "executorWidgetId"]);
+    expect(requiredCapability(registry, "queue.item.startRun")).toMatchObject({
+      confirmationRequirement: "required",
+      restricted: false,
+      sideEffectLevel: "execute",
+      supportsDryRun: false,
+    });
     expect(
       assertCapabilityDoesNotAllowForbiddenSideEffects(queueCreateItems, [
         "duplicate_queue_view",
@@ -549,6 +588,47 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       expect(serializedExample).not.toContain('"text"');
       expect(serializedExample).not.toContain('"content"');
       expect(serializedExample).not.toContain('"operatorPrompt"');
+      expect(readHobitAgentActionRequestEnvelope(serializedExample)).toMatchObject({
+        status: "valid",
+      });
+    }
+  });
+
+  it("declares Queue run-control schemas and valid action-request examples", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const list = requiredCapability(registry, "queue.items.list");
+    const settings = requiredCapability(
+      registry,
+      "queue.item.updateRunSettings",
+    );
+    const promote = requiredCapability(registry, "queue.item.promoteDraft");
+    const enable = requiredCapability(registry, "queue.enable");
+    const start = requiredCapability(registry, "queue.item.startRun");
+
+    expect(list.inputSchema?.acceptedFields).toEqual(["limit", "taskId"]);
+    expect(settings.inputSchema?.acceptedFields).toEqual([
+      "taskId",
+      "codexExecutable",
+      "workspaceRoot",
+      "sandbox",
+      "approvalPolicy",
+    ]);
+    expect(promote.inputSchema?.acceptedFields).toEqual(["taskId"]);
+    expect(enable.inputSchema?.acceptedFields).toEqual([]);
+    expect(start.inputSchema?.acceptedFields).toEqual([
+      "taskId",
+      "executorWidgetId",
+      "queueId",
+    ]);
+    expect(settings.inputSchema?.acceptedFields).not.toContain("dependsOn");
+    expect(start.inputSchema?.acceptedFields).not.toContain("operatorPrompt");
+
+    for (const capability of [list, settings, promote, enable, start]) {
+      const serializedExample = JSON.stringify(
+        capability.examples?.[0]?.exampleActionRequest,
+      );
+
+      expect(serializedExample).toContain('"type":"hobit.action.request"');
       expect(readHobitAgentActionRequestEnvelope(serializedExample)).toMatchObject({
         status: "valid",
       });

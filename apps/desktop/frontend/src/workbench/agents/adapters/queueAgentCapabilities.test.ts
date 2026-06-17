@@ -404,11 +404,225 @@ describe("queueAgentCapabilities invoke", () => {
     );
     expect(runAutonomousQueue).not.toHaveBeenCalled();
     expect(result.result.output).toMatchObject({
+      createdItemCount: 1,
+      createdTaskIds: ["created-Second"],
       wouldAutoRunWorkers: false,
       wouldCreateDuplicateQueueView: false,
       wouldTargetSingletonQueue: true,
     });
     expect(result.result.output?.createdItems).toHaveLength(1);
+  });
+
+  it("invokes typed Queue run-control capabilities through the injected bridge", async () => {
+    const getSnapshot = vi.fn(async () =>
+      queueBridgeSnapshotResult({
+        itemCounts: { total: 1 } as QueueWidgetSnapshot["itemCounts"],
+        items: [
+          queueBridgeSnapshotItem({
+            approvalPolicy: "on_request",
+            codexExecutable: "codex.cmd",
+            executionWorkspace: "C:/repo",
+            id: "task-1",
+            sandbox: "workspace_write",
+            status: "draft",
+          }),
+        ],
+        selectedItem: queueBridgeSnapshotItem({
+          approvalPolicy: "on_request",
+          codexExecutable: "codex.cmd",
+          executionWorkspace: "C:/repo",
+          id: "task-1",
+          sandbox: "workspace_write",
+          status: "draft",
+        }),
+        selectedItemId: "task-1",
+      }),
+    );
+    const updateItem = vi.fn(
+      async (input: Parameters<WorkspaceAgentQueueBridge["updateItem"]>[0]) =>
+        queueBridgeItemResult({
+          approvalPolicy: "on_request",
+          codexExecutable: "codex.cmd",
+          executionWorkspace: "C:/repo",
+          id: input.itemId,
+          sandbox: "workspace_write",
+          status: input.patch.status === "queued" ? "queued" : "draft",
+        }),
+    );
+    const enableQueue = vi.fn(async () => ({
+      didAutoRunWorkers: false as const,
+      didStartWorkers: false as const,
+      globalExecutionState: "started",
+      message: "Queue enabled.",
+      ok: true,
+      queueEnabled: true,
+      status: "enabled" as const,
+    }));
+    const startQueueLinkedRun = vi.fn(async () => ({
+      executorWidgetId: "executor-1",
+      message: "Queue-linked Direct Work run started.",
+      ok: true,
+      response: {
+        executorWidgetInstanceId: "executor-1",
+        queueItemId: "task-1",
+        runId: "run-1",
+        status: "running",
+        workbenchId: "workbench-1",
+        workspaceId: "workspace-1",
+      },
+      status: "started" as const,
+    }));
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            enableQueue,
+            getAvailableExecutorTargets: () => [
+              {
+                label: "Local executor ready",
+                ownerKind: "agent_queue",
+                widgetInstanceId: "executor-1",
+              },
+            ],
+            getSnapshot,
+            startQueueLinkedRun,
+            updateItem,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const listResult = await broker.invokeAsync<{
+      availableExecutors: unknown[];
+      items: unknown[];
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+    const updateResult = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.updateRunSettings",
+        input: {
+          codexExecutable: "codex.cmd",
+          taskId: "task-1",
+        },
+      }),
+    );
+    const promoteResult = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.promoteDraft",
+        input: { taskId: "task-1" },
+      }),
+    );
+    const enableResult = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.enable",
+        input: {},
+      }),
+    );
+    const startResult = await broker.invokeAsync<{
+      executorWidgetId: string;
+      queueItemId: string;
+      runId: string;
+    }>(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: "confirmed",
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(listResult.status).toBe("succeeded");
+    expect(listResult.result.output?.items).toHaveLength(1);
+    expect(listResult.result.output?.availableExecutors).toEqual([
+      expect.objectContaining({ executorWidgetId: "executor-1" }),
+    ]);
+    expect(updateResult.status).toBe("succeeded");
+    expect(updateItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: "task-1",
+        patch: { codexExecutable: "codex.cmd" },
+      }),
+    );
+    expect(promoteResult.status).toBe("succeeded");
+    expect(updateItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        itemId: "task-1",
+        patch: { status: "queued" },
+      }),
+    );
+    expect(enableResult.status).toBe("succeeded");
+    expect(enableQueue).toHaveBeenCalledWith({ dryRun: false });
+    expect(startResult.status).toBe("succeeded");
+    expect(startResult.result.output).toMatchObject({
+      executorWidgetId: "executor-1",
+      queueItemId: "task-1",
+      runId: "run-1",
+    });
+    expect(startQueueLinkedRun).toHaveBeenCalledWith({
+      dryRun: false,
+      executorWidgetId: "executor-1",
+      taskId: "task-1",
+    });
+  });
+
+  it("rejects invalid Queue run-control inputs before bridge mutation or start", async () => {
+    const updateItem = vi.fn();
+    const startQueueLinkedRun = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ startQueueLinkedRun, updateItem }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const whitespaceExecutable = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.updateRunSettings",
+        input: {
+          codexExecutable: "   ",
+          taskId: "task-1",
+        },
+      }),
+    );
+    const missingTaskId = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: "confirmed",
+        input: { executorWidgetId: "executor-1" },
+      }),
+    );
+
+    expect(whitespaceExecutable.status).toBe("invalid_input");
+    expect(whitespaceExecutable.result.message).toContain(
+      "codexExecutable must be a non-empty string",
+    );
+    expect(missingTaskId.status).toBe("invalid_input");
+    expect(missingTaskId.result.message).toBe(
+      "queue.item.startRun requires taskId.",
+    );
+    expect(updateItem).not.toHaveBeenCalled();
+    expect(startQueueLinkedRun).not.toHaveBeenCalled();
   });
 
   it("returns failed when dependencies cannot be represented by the injected adapter", () => {
@@ -821,7 +1035,9 @@ function queueBridgeItemResult(
   };
 }
 
-function queueBridgeSnapshotResult(): QueueWidgetActionResult<QueueWidgetSnapshot> {
+function queueBridgeSnapshotResult(
+  overrides: Partial<QueueWidgetSnapshot> = {},
+): QueueWidgetActionResult<QueueWidgetSnapshot> {
   return {
     action: "queue.getSnapshot",
     events: [],
@@ -833,8 +1049,41 @@ function queueBridgeSnapshotResult(): QueueWidgetActionResult<QueueWidgetSnapsho
       queueId: "workspace:workspace-1:agent-queue",
       widgetType: "agent-queue",
       workspaceId: "workspace-1",
+      ...overrides,
     } as unknown as QueueWidgetSnapshot,
   };
+}
+
+function queueBridgeSnapshotItem(
+  overrides: Partial<QueueWidgetItemSnapshot> = {},
+): QueueWidgetItemSnapshot {
+  return {
+    approvalPolicy: null,
+    assignedExecutorWidgetId: null,
+    blockers: [],
+    codexExecutable: null,
+    dependencies: [],
+    description: "",
+    evidenceSummary: {
+      runRefs: [],
+      status: "none",
+    },
+    executionPolicy: "manual",
+    executionWorkspace: null,
+    id: "task-1",
+    priority: 0,
+    prompt: "Implement the task.",
+    queueId: "workspace:workspace-1:agent-queue",
+    queueTag: { id: null, name: null },
+    reportSummary: { status: "none" },
+    runLinks: [],
+    sandbox: null,
+    status: "draft",
+    title: "Queue task",
+    validationStatus: "not_started",
+    workspaceId: "workspace-1",
+    ...overrides,
+  } as QueueWidgetItemSnapshot;
 }
 
 function frontendSource(path: string) {

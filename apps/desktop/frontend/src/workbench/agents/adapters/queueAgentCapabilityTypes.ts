@@ -19,12 +19,17 @@ import type {
 export const QUEUE_AGENT_CAPABILITY_IDS = [
   "queue.createItem",
   "queue.createItems",
+  "queue.enable",
   "queue.coordinator.addFollowUpPrompt",
   "queue.coordinator.approveValidation",
   "queue.importPromptPack",
   "queue.item.block",
   "queue.item.fail",
   "queue.item.markDone",
+  "queue.item.promoteDraft",
+  "queue.item.startRun",
+  "queue.item.updateRunSettings",
+  "queue.items.list",
   "queue.lifecycle.agentFinished",
   "queue.lifecycle.get",
   "queue.preparePromptPackPreview",
@@ -38,10 +43,12 @@ export const QUEUE_AGENT_CAPABILITY_IDS = [
 export const QUEUE_ACTIVITY_EVENTS = {
   createItem: ["hobit.agent.capability.queue.createItem.requested", "queue.itemCreated"],
   createItems: ["hobit.agent.capability.queue.createItems.requested", "queue.itemCreated"],
+  enable: ["hobit.agent.capability.queue.enable.requested"],
   importPromptPack: [
     "hobit.agent.capability.queue.importPromptPack.requested",
     "queue.itemCreated",
   ],
+  itemsList: ["hobit.agent.capability.queue.items.list.requested"],
   lifecycleAgentFinished: [
     "hobit.agent.capability.queue.lifecycle.agentFinished.requested",
   ],
@@ -53,6 +60,10 @@ export const QUEUE_ACTIVITY_EVENTS = {
   lifecycleItemMarkDone: [
     "hobit.agent.capability.queue.item.markDone.requested",
   ],
+  promoteDraft: [
+    "hobit.agent.capability.queue.item.promoteDraft.requested",
+  ],
+  startRun: ["hobit.agent.capability.queue.item.startRun.requested"],
   lifecycleReviewAck: [
     "hobit.agent.capability.queue.review.ack.requested",
   ],
@@ -74,6 +85,9 @@ export const QUEUE_ACTIVITY_EVENTS = {
   selfTest: ["hobit.agent.capability.queue.selfTest.requested"],
   targetSingletonQueue: [
     "hobit.agent.capability.queue.targetSingletonQueue.requested",
+  ],
+  updateRunSettings: [
+    "hobit.agent.capability.queue.item.updateRunSettings.requested",
   ],
 } as const;
 
@@ -159,15 +173,138 @@ export type QueueAgentCreateItemsPreview = {
 export type QueueAgentCreatedItem = {
   dependencies: string[];
   id: string;
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
   prompt: string;
+  readiness?: QueueAgentTaskReadiness;
   sourceMetadata: QueueAgentSourceMetadata | null;
   status: "draft" | "queued";
   title: string;
 };
 
 export type QueueAgentCreateItemsResult = QueueAgentCreateItemsPreview & {
+  createdItemCount: number;
   createdItems: QueueAgentCreatedItem[];
+  createdTaskIds: string[];
   dependencyEdgesPreserved: boolean;
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
+};
+
+export type QueueAgentRunSandbox =
+  | "danger_full_access"
+  | "read_only"
+  | "workspace_write";
+
+export type QueueAgentRunApprovalPolicy =
+  | "never"
+  | "on_request"
+  | "untrusted";
+
+export type QueueAgentTaskReadinessState =
+  | "blocked"
+  | "final"
+  | "not_ready"
+  | "ready_to_queue"
+  | "running"
+  | "runnable";
+
+export type QueueAgentTaskReadiness = {
+  blockerReasons: string[];
+  canPromote: boolean;
+  canStart: boolean;
+  draftState: "draft" | "not_draft";
+  hasApprovalPolicy: boolean;
+  hasCodexExecutable: boolean;
+  hasPrompt: boolean;
+  hasSandbox: boolean;
+  hasWorkspace: boolean;
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
+  readinessState: QueueAgentTaskReadinessState;
+};
+
+export type QueueAgentTaskSummary = QueueAgentTaskReadiness & {
+  assignedExecutorWidgetId?: string | null;
+  latestRunId?: string | null;
+  status: string;
+  taskId: string;
+  title: string;
+};
+
+export type QueueAgentExecutorTarget = {
+  executorWidgetId: string;
+  label: string;
+  ownerKind: "agent_executor" | "agent_queue";
+};
+
+export type QueueAgentListItemsInput = {
+  limit?: number;
+  taskId?: string;
+};
+
+export type QueueAgentListItemsResult = {
+  availableExecutors: QueueAgentExecutorTarget[];
+  capped: boolean;
+  itemCount: number;
+  items: QueueAgentTaskSummary[];
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
+};
+
+export type QueueAgentUpdateRunSettingsInput = {
+  approvalPolicy?: QueueAgentRunApprovalPolicy | null;
+  codexExecutable?: string | null;
+  sandbox?: QueueAgentRunSandbox | null;
+  taskId?: string;
+  workspaceRoot?: string | null;
+};
+
+export type QueueAgentUpdateRunSettingsResult = {
+  appliedFields: string[];
+  item: QueueAgentTaskSummary;
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
+  taskId: string;
+};
+
+export type QueueAgentPromoteDraftInput = {
+  taskId?: string;
+};
+
+export type QueueAgentPromoteDraftResult = {
+  item: QueueAgentTaskSummary;
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
+  previousStatus: string;
+  taskId: string;
+  wouldPromote: boolean;
+};
+
+export type QueueAgentEnableInput = Record<string, never>;
+
+export type QueueAgentEnableResult = {
+  blockerReasons: string[];
+  didAutoRunWorkers: false;
+  didStartWorkers: false;
+  globalExecutionState?: string;
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
+  queueEnabled: boolean;
+};
+
+export type QueueAgentStartRunInput = {
+  executorWidgetId?: string;
+  queueId?: string;
+  taskId?: string;
+};
+
+export type QueueAgentStartRunResult = {
+  executorWidgetId: string;
+  queueItemId: string;
+  queueLinkedMetadata: {
+    executorWidgetId: string;
+    queueItemId: string;
+    runId: string;
+    source: "queue_manual_start";
+    workspaceId?: string | null;
+  };
+  runId: string;
+  startedDirectWork: true;
+  taskId: string;
 };
 
 export type QueueAgentPromptPackInput = {
@@ -190,8 +327,11 @@ export type QueueAgentPromptPackPreview = {
 };
 
 export type QueueAgentPromptPackImportResult = QueueAgentPromptPackPreview & {
+  createdItemCount: number;
   createdItems: QueueAgentCreatedItem[];
+  createdTaskIds: string[];
   dependencyEdgesPreserved: boolean;
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
 };
 
 export type QueueAgentLifecycleAgentFinishedInput = {
@@ -441,7 +581,15 @@ export type QueueAgentMaybePromise<T> = T | Promise<T>;
 
 export type QueueAgentAdapterApi = {
   dogfoodLifecycle?: QueueAgentDogfoodLifecycleAdapterApi;
+  enableQueue?: (
+    input: QueueAgentEnableInput,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentEnableResult>>;
   getSingletonQueueTarget: () => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentSingletonTarget>>;
+  listItems?: (
+    input: QueueAgentListItemsInput,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentListItemsResult>>;
   previewCreateItems: (
     request: QueueAgentCreateItemsRequest,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentCreateItemsPreview>>;
@@ -455,9 +603,23 @@ export type QueueAgentAdapterApi = {
     input: QueueAgentPromptPackInput,
     request: QueueAgentCreateItemsRequest,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentPromptPackImportResult>>;
+  promoteDraft?: (
+    input: Required<Pick<QueueAgentPromoteDraftInput, "taskId">>,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentPromoteDraftResult>>;
   runQueueSelfTest?: () => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentSelfTestReport>>;
+  startQueueLinkedRun?: (
+    input: Required<Pick<QueueAgentStartRunInput, "executorWidgetId" | "taskId">> &
+      Omit<QueueAgentStartRunInput, "executorWidgetId" | "taskId">,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentStartRunResult>>;
   supportsDependencyEdges: boolean;
   supportsSafeMutationSandbox?: boolean;
+  updateRunSettings?: (
+    input: Required<Pick<QueueAgentUpdateRunSettingsInput, "taskId">> &
+      Omit<QueueAgentUpdateRunSettingsInput, "taskId">,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentUpdateRunSettingsResult>>;
 };
 
 export function singletonQueueTarget(): QueueAgentSingletonTarget {
@@ -514,7 +676,23 @@ export function queueAgentCreatedItem(
   return {
     dependencies: [...item.dependencies],
     id: item.id,
+    nextSuggestedCapability: "queue.item.updateRunSettings",
     prompt: item.prompt,
+    readiness: {
+      blockerReasons: [
+        "Workspace, Codex executable, sandbox, and approval policy may still be required before this task can be queued or started.",
+      ],
+      canPromote: false,
+      canStart: false,
+      draftState: item.status === "draft" ? "draft" : "not_draft",
+      hasApprovalPolicy: false,
+      hasCodexExecutable: false,
+      hasPrompt: Boolean(item.prompt.trim()),
+      hasSandbox: false,
+      hasWorkspace: false,
+      nextSuggestedCapability: "queue.item.updateRunSettings",
+      readinessState: "not_ready",
+    },
     sourceMetadata: item.sourceMetadata,
     status: item.status,
     title: item.title,

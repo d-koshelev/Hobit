@@ -491,10 +491,7 @@ export function evaluateBrokerPolicy(
     };
   }
 
-  if (
-    (capability.restricted || capability.sideEffectLevel === "execute") &&
-    !policyOptions.allowRestrictedExecuteCapabilities
-  ) {
+  if (capability.restricted && !policyOptions.allowRestrictedExecuteCapabilities) {
     return {
       allowed: false,
       capability,

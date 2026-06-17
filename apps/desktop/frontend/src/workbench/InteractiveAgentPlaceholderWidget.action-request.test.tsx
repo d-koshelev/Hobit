@@ -79,8 +79,12 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(runAutonomousQueue).not.toHaveBeenCalled();
     expect(runTerminal).not.toHaveBeenCalled();
     expect(createGitCommit).not.toHaveBeenCalled();
-    expect(lastAssistantMessageText()).toBe(
+    expect(lastAssistantMessageText()).toContain(
       "Queue items created. Created 1 Queue item.",
+    );
+    expect(lastAssistantMessageText()).toContain("Task id: created-task-a.");
+    expect(lastAssistantMessageText()).toContain(
+      "Next: queue.item.updateRunSettings.",
     );
     expect(lastAssistantMessageText()).not.toContain("hobit.action.request");
     expect(
@@ -240,6 +244,152 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(lastAssistantMessageText()).toBe(
       "Invalid Hobit action request. finalAgentMessage is required.",
     );
+  });
+
+  it("invokes Queue run-control envelopes through the Workspace Agent broker", async () => {
+    const task = snapshotItem({
+      approvalPolicy: "on_request",
+      blockers: [],
+      codexExecutable: "codex.cmd",
+      executionWorkspace: "C:/repo",
+      id: "task-1",
+      runLinks: [],
+      sandbox: "workspace_write",
+      status: "draft",
+    });
+    const getSnapshot = vi.fn(async () =>
+      snapshotResult({
+        itemCounts: { total: 1 } as QueueWidgetSnapshot["itemCounts"],
+        items: [task],
+        selectedItem: task,
+        selectedItemId: "task-1",
+      }),
+    );
+    const updateItem = vi.fn(
+      async (request: Parameters<WorkspaceAgentQueueBridge["updateItem"]>[0]) =>
+        itemResult({
+          approvalPolicy: "on_request",
+          blockers: [],
+          codexExecutable: "codex.cmd",
+          executionWorkspace: "C:/repo",
+          id: request.itemId,
+          runLinks: [],
+          sandbox: "workspace_write",
+          status: request.patch.status === "queued" ? "queued" : "draft",
+        }),
+    );
+    const enableQueue = vi.fn(async () => ({
+      didAutoRunWorkers: false as const,
+      didStartWorkers: false as const,
+      globalExecutionState: "started",
+      message: "Queue enabled.",
+      ok: true,
+      queueEnabled: true,
+      status: "enabled" as const,
+    }));
+    const startQueueLinkedRun = vi.fn(async () => ({
+      executorWidgetId: "executor-1",
+      message: "Queue-linked Direct Work run started.",
+      ok: true,
+      response: {
+        executorWidgetInstanceId: "executor-1",
+        queueItemId: "task-1",
+        runId: "run-1",
+        status: "running",
+        workbenchId: "workbench-1",
+        workspaceId: "workspace_1",
+      },
+      status: "started" as const,
+    }));
+    const runTerminal = vi.fn();
+    const createGitCommit = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalTexts([
+      actionEnvelope({
+        capabilityId: "queue.items.list",
+        dryRun: false,
+        input: { limit: 10 },
+        requestId: "request-list",
+      }),
+      actionEnvelope({
+        capabilityId: "queue.item.updateRunSettings",
+        dryRun: false,
+        input: { codexExecutable: "codex.cmd", taskId: "task-1" },
+        requestId: "request-settings",
+      }),
+      actionEnvelope({
+        capabilityId: "queue.item.promoteDraft",
+        dryRun: false,
+        input: { taskId: "task-1" },
+        requestId: "request-promote",
+      }),
+      actionEnvelope({
+        capabilityId: "queue.enable",
+        dryRun: false,
+        input: {},
+        requestId: "request-enable",
+      }),
+      actionEnvelope({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: "confirmed",
+        dryRun: false,
+        input: { executorWidgetId: "executor-1", taskId: "task-1" },
+        requestId: "request-start",
+      }),
+    ]);
+
+    renderWidget({
+      onCreateGitCommit: createGitCommit,
+      onRunTerminalCommand: runTerminal,
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({
+        enableQueue,
+        getAvailableExecutorTargets: () => [
+          {
+            label: "Local executor ready",
+            ownerKind: "agent_queue",
+            widgetInstanceId: "executor-1",
+          },
+        ],
+        getSnapshot,
+        startQueueLinkedRun,
+        updateItem,
+      }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("List Queue tasks.");
+    await flushAsync();
+    expect(lastAssistantMessageText()).toContain("Task id: task-1.");
+    expect(lastAssistantMessageText()).toContain(
+      "Executor widget id: executor-1.",
+    );
+
+    await runDirectWork("Update Queue run settings.");
+    await flushAsync();
+    expect(lastAssistantMessageText()).toContain(
+      "Queue run settings updated.",
+    );
+
+    await runDirectWork("Promote Queue Draft.");
+    await flushAsync();
+    expect(lastAssistantMessageText()).toContain("Queue draft promoted.");
+
+    await runDirectWork("Enable Queue.");
+    await flushAsync();
+    expect(lastAssistantMessageText()).toContain("Queue enabled.");
+
+    await runDirectWork("Start Queue task.");
+    await flushAsync();
+    expect(lastAssistantMessageText()).toContain("Run id: run-1.");
+    expect(updateItem).toHaveBeenCalled();
+    expect(enableQueue).toHaveBeenCalledWith({ dryRun: false });
+    expect(startQueueLinkedRun).toHaveBeenCalledWith({
+      dryRun: false,
+      executorWidgetId: "executor-1",
+      taskId: "task-1",
+    });
+    expect(runTerminal).not.toHaveBeenCalled();
+    expect(createGitCommit).not.toHaveBeenCalled();
   });
 
   it("returns unavailable for an unknown capability without executing side effects", async () => {
@@ -417,7 +567,6 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(operatorPrompt).toContain(
       '"prompt":"Review the current workspace state and report one safe next step."',
     );
-    expect(operatorPrompt).not.toContain('"input":{}');
     expect(lastOperatorMessageText()).toBe("create test queue item");
     expect(lastOperatorMessageText()).not.toContain("Queue create action schemas");
     expect(lastAssistantMessageText()).not.toContain("hobit.action.request");
@@ -456,6 +605,43 @@ function startDirectWorkWithFinalText(text: string) {
       _request: unknown,
       onEvent: (event: DirectWorkStreamEvent) => void,
     ) => {
+      onEvent(
+        directWorkEvent({
+          eventKind: "final_message",
+          isFinal: false,
+          runId: "run_action_request",
+          text,
+        }),
+      );
+      onEvent(
+        directWorkEvent({
+          elapsedMs: 100,
+          eventKind: "completed",
+          finalStatus: "completed",
+          isFinal: true,
+          runId: "run_action_request",
+        }),
+      );
+
+      return {
+        runId: "run_action_request",
+        status: "started",
+        stopListening: vi.fn(),
+      };
+    },
+  );
+}
+
+function startDirectWorkWithFinalTexts(texts: string[]) {
+  let index = 0;
+  return vi.fn(
+    async (
+      _widgetInstanceId: string,
+      _request: unknown,
+      onEvent: (event: DirectWorkStreamEvent) => void,
+    ) => {
+      const text = texts[Math.min(index, texts.length - 1)] ?? "";
+      index += 1;
       onEvent(
         directWorkEvent({
           eventKind: "final_message",

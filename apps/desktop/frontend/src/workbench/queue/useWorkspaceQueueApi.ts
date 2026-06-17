@@ -5,12 +5,19 @@ import type { DirectWorkRunHandoffController } from "../useDirectWorkRunHandoff"
 import type { AgentExecutorSlot, WidgetInstanceId } from "../types";
 import type { QueueValidationRunResult } from "./queueValidationEvidenceService";
 import type { ValidationRunner } from "../validation";
-import type { AgentQueueTask } from "../../workspace/types";
+import type {
+  AgentQueueTask,
+  DirectWorkApprovalPolicy,
+  DirectWorkSandbox,
+} from "../../workspace/types";
 import {
   createWorkspaceAgentQueueBridge,
   type WorkspaceAgentQueueAutonomousActionName,
   type WorkspaceAgentQueueAutonomousActionResult,
   type WorkspaceAgentQueueBridge,
+  type WorkspaceAgentQueueEnableResult,
+  type WorkspaceAgentQueueStartRunRequest,
+  type WorkspaceAgentQueueStartRunResult,
 } from "../workspaceAgentQueueBridge";
 import {
   agentQueueTaskRunSettingsDefaultsFromRun,
@@ -100,8 +107,21 @@ export function useWorkspaceQueueApi({
         latestBridgeRef.current?.getCurrentWorkspaceRoot?.() ?? null,
       getRunSettingsDefaults: () =>
         latestBridgeRef.current?.getRunSettingsDefaults?.() ?? null,
+      getAvailableExecutorTargets: () =>
+        latestBridgeRef.current?.getAvailableExecutorTargets?.() ?? [],
       getSnapshot: (request) =>
         requiredBridge(latestBridgeRef).getSnapshot(request),
+      enableQueue: (request) =>
+        latestBridgeRef.current?.enableQueue?.(request) ??
+        Promise.resolve(
+          queueEnableResult({
+            blockerReasons: ["Queue enable controls are unavailable."],
+            message: "Queue enable controls are unavailable.",
+            ok: false,
+            queueEnabled: false,
+            status: "unavailable",
+          }),
+        ),
       runAutonomousQueue: () =>
         latestBridgeRef.current?.runAutonomousQueue?.() ??
         Promise.resolve(
@@ -120,6 +140,16 @@ export function useWorkspaceQueueApi({
             action: "queue.stopAutonomousQueueAfterCurrent",
             code: "autonomous_controls_unavailable",
             message: "Queue autonomous controls are unavailable.",
+            ok: false,
+            status: "unavailable",
+          }),
+        ),
+      startQueueLinkedRun: (request) =>
+        latestBridgeRef.current?.startQueueLinkedRun?.(request) ??
+        Promise.resolve(
+          queueStartRunResult({
+            blockerReasons: ["Queue-linked start controls are unavailable."],
+            message: "Queue-linked start controls are unavailable.",
             ok: false,
             status: "unavailable",
           }),
@@ -261,6 +291,21 @@ export function useWorkspaceQueueApi({
     contextActions: {
       attachKnowledgeToQueueTask: actions.attachKnowledgeToQueueTask,
       attachSkillToQueueTask: actions.attachSkillToQueueTask,
+    },
+    controlActions: {
+      enableQueue: (request) =>
+        enableQueueForWorkspaceAgent(controller, request.dryRun),
+      getAvailableExecutorTargets: () => queueExecutorSlots,
+      startQueueLinkedRun: (request) =>
+        startQueueLinkedRunForWorkspaceAgent({
+          actions,
+          controller,
+          directWorkRunHandoff,
+          queueExecutorSlots,
+          queueId,
+          request,
+          workspaceId,
+        }),
     },
     queueApi,
     queueState: {
@@ -425,4 +470,339 @@ function autonomousQueueResult({
     ok,
     status,
   };
+}
+
+function enableQueueForWorkspaceAgent(
+  controller: AgentQueueController,
+  dryRun: boolean,
+): Promise<WorkspaceAgentQueueEnableResult> {
+  if (dryRun) {
+    return Promise.resolve(
+      queueEnableResult({
+        message:
+          "Queue enable preview prepared. No task execution or worker start was requested.",
+        ok: true,
+        queueEnabled: controller.foundation.globalExecutionState === "started",
+        status: "preview",
+        globalExecutionState: controller.foundation.globalExecutionState,
+      }),
+    );
+  }
+
+  const hasTaskWithCodexExecutable = controller.tasks.some((task) =>
+    Boolean(task.codexExecutable?.trim()),
+  );
+  if (!hasTaskWithCodexExecutable) {
+    return Promise.resolve(
+      queueEnableResult({
+        blockerReasons: [
+          "Set a Codex executable on at least one Queue task before enabling Queue scheduling.",
+        ],
+        message:
+          "Set a Codex executable on at least one Queue task before enabling Queue scheduling.",
+        ok: false,
+        queueEnabled: false,
+        status: "blocked",
+        globalExecutionState: controller.foundation.globalExecutionState,
+      }),
+    );
+  }
+
+  if (controller.foundation.globalExecutionState !== "started") {
+    controller.foundation.onStartWorkers();
+  }
+
+  return Promise.resolve(
+    queueEnableResult({
+      message:
+        "Queue enabled. No task execution, Queue Autorun, shell command, Terminal launch, Git action, validation, or rollback was started.",
+      ok: true,
+      queueEnabled: true,
+      status: "enabled",
+      globalExecutionState: "started",
+    }),
+  );
+}
+
+async function startQueueLinkedRunForWorkspaceAgent({
+  actions,
+  controller,
+  directWorkRunHandoff,
+  queueExecutorSlots,
+  queueId,
+  request,
+}: {
+  actions: WorkspaceQueueActions;
+  controller: AgentQueueController;
+  directWorkRunHandoff: DirectWorkRunHandoffController;
+  queueExecutorSlots: AgentExecutorSlot[];
+  queueId: string;
+  request: WorkspaceAgentQueueStartRunRequest;
+  workspaceId: string;
+}): Promise<WorkspaceAgentQueueStartRunResult> {
+  if (request.dryRun) {
+    return queueStartRunResult({
+      blockerReasons: [
+        "queue.item.startRun does not support dry-run because successful output must include a real Direct Work run id.",
+      ],
+      message:
+        "queue.item.startRun does not support dry-run because successful output must include a real Direct Work run id.",
+      ok: false,
+      status: "blocked",
+    });
+  }
+
+  if (request.queueId && request.queueId !== queueId) {
+    return queueStartRunResult({
+      blockerReasons: [
+        "Queue id does not match the singleton Workspace Queue target.",
+      ],
+      message: "Queue id does not match the singleton Workspace Queue target.",
+      ok: false,
+      status: "blocked",
+    });
+  }
+
+  if (controller.foundation.globalExecutionState !== "started") {
+    return queueStartRunResult({
+      blockerReasons: ["Enable queue before starting a Queue-linked run."],
+      message: "Enable queue before starting a Queue-linked run.",
+      ok: false,
+      status: "blocked",
+    });
+  }
+
+  const task = await actions.getAgentQueueTask(request.taskId);
+  if (!task) {
+    return queueStartRunResult({
+      blockerReasons: [`Queue item "${request.taskId}" was not found.`],
+      message: `Queue item "${request.taskId}" was not found.`,
+      ok: false,
+      status: "blocked",
+    });
+  }
+
+  const blockers = queueLinkedStartBlockers({
+    executorWidgetId: request.executorWidgetId,
+    queueExecutorSlots,
+    task,
+  });
+  const dependencyState = controller.dependencyStates.get(task.queueItemId);
+  if (dependencyState && dependencyState.status !== "ready") {
+    blockers.push("Resolve dependencies before starting this Queue item.");
+  }
+
+  if (blockers.length > 0) {
+    return queueStartRunResult({
+      blockerReasons: blockers,
+      message: blockers[0] ?? "Queue-linked run is blocked.",
+      ok: false,
+      status: "blocked",
+    });
+  }
+
+  const selectedExecutorSlot = queueExecutorSlots.find(
+    (slot) => slot.widgetInstanceId === request.executorWidgetId,
+  );
+  const selectedExecutorIsQueueOwned =
+    selectedExecutorSlot?.ownerKind === "agent_queue";
+  const repoRoot = task.executionWorkspace?.trim() ?? "";
+  const codexExecutable = task.codexExecutable?.trim() ?? "";
+  const sandbox = task.sandbox as DirectWorkSandbox;
+  const approvalPolicy = task.approvalPolicy as DirectWorkApprovalPolicy;
+
+  try {
+    const response = await actions.startAssignedAgentQueueTask({
+      approvalPolicy,
+      codexExecutable,
+      queueItemId: task.queueItemId,
+      queueOwnerWidgetInstanceId: selectedExecutorIsQueueOwned
+        ? request.executorWidgetId
+        : undefined,
+      repoRoot,
+      sandbox,
+    });
+    directWorkRunHandoff.recordHandoff({
+      executorWidgetInstanceId: response.executorWidgetInstanceId,
+      queueItemId: response.queueItemId,
+      queueLinkedSource: "queue_manual_start",
+      repoRoot,
+      runId: response.runId,
+      startedAt: new Date().toISOString(),
+      taskTitle: task.title,
+      workbenchId: response.workbenchId,
+      workspaceId: response.workspaceId,
+    });
+    await controller.refreshAfterExternalMutation(response.queueItemId);
+
+    return queueStartRunResult({
+      executorWidgetId: response.executorWidgetInstanceId,
+      message: "Queue-linked Direct Work run started.",
+      ok: true,
+      response,
+      status: "started",
+    });
+  } catch (error) {
+    const message = errorToMessage(
+      error,
+      "Unable to start Queue-linked Direct Work run.",
+    );
+
+    return queueStartRunResult({
+      blockerReasons: [message],
+      message,
+      ok: false,
+      status: "blocked",
+    });
+  }
+}
+
+function queueLinkedStartBlockers({
+  executorWidgetId,
+  queueExecutorSlots,
+  task,
+}: {
+  executorWidgetId: string;
+  queueExecutorSlots: AgentExecutorSlot[];
+  task: AgentQueueTask;
+}) {
+  const blockers: string[] = [];
+  const selectedExecutorSlot = queueExecutorSlots.find(
+    (slot) => slot.widgetInstanceId === executorWidgetId,
+  );
+  const selectedExecutorIsQueueOwned =
+    selectedExecutorSlot?.ownerKind === "agent_queue";
+
+  if (!isRunnableQueueStatus(task.status)) {
+    blockers.push(
+      task.status === "draft"
+        ? "Draft tasks must be promoted before starting."
+        : isFinalQueueStatus(task.status)
+          ? "Final-status Queue items cannot be started."
+          : `Queue item status cannot be started: ${task.status}.`,
+    );
+  }
+
+  if (!task.prompt.trim()) {
+    blockers.push("Add a task prompt before starting.");
+  }
+
+  if (!task.executionWorkspace?.trim()) {
+    blockers.push("Set workspace before starting.");
+  }
+
+  if (!task.codexExecutable?.trim()) {
+    blockers.push("Set Codex executable before starting.");
+  }
+
+  if (!isSupportedSandbox(task.sandbox)) {
+    blockers.push("Set sandbox before starting.");
+  }
+
+  if (!isSupportedApprovalPolicy(task.approvalPolicy)) {
+    blockers.push("Set approval policy before starting.");
+  }
+
+  if (
+    task.assignedExecutorWidgetId !== executorWidgetId &&
+    !selectedExecutorIsQueueOwned
+  ) {
+    blockers.push(
+      "Queue item is not assigned to the supplied executorWidgetId.",
+    );
+  }
+
+  if (!selectedExecutorSlot && task.assignedExecutorWidgetId !== executorWidgetId) {
+    blockers.push("Supplied executorWidgetId is not available.");
+  }
+
+  return blockers;
+}
+
+function queueEnableResult({
+  blockerReasons = [],
+  globalExecutionState,
+  message,
+  ok,
+  queueEnabled,
+  status,
+}: {
+  blockerReasons?: string[];
+  globalExecutionState?: string;
+  message: string;
+  ok: boolean;
+  queueEnabled: boolean;
+  status: WorkspaceAgentQueueEnableResult["status"];
+}): WorkspaceAgentQueueEnableResult {
+  return {
+    blockerReasons,
+    didAutoRunWorkers: false,
+    didStartWorkers: false,
+    globalExecutionState,
+    message,
+    ok,
+    queueEnabled,
+    status,
+  };
+}
+
+function queueStartRunResult({
+  blockerReasons = [],
+  executorWidgetId,
+  message,
+  ok,
+  response,
+  status,
+}: {
+  blockerReasons?: string[];
+  executorWidgetId?: string;
+  message: string;
+  ok: boolean;
+  response?: WorkspaceAgentQueueStartRunResult["response"];
+  status: WorkspaceAgentQueueStartRunResult["status"];
+}): WorkspaceAgentQueueStartRunResult {
+  return {
+    blockerReasons,
+    executorWidgetId,
+    message,
+    ok,
+    response,
+    status,
+  };
+}
+
+function isRunnableQueueStatus(status: string) {
+  return status === "queued" || status === "ready" || status === "review_needed";
+}
+
+function isFinalQueueStatus(status: string) {
+  return status === "completed" || status === "failed" || status === "cancelled";
+}
+
+function isSupportedSandbox(
+  value: string | null | undefined,
+): value is DirectWorkSandbox {
+  return (
+    value === "danger_full_access" ||
+    value === "read_only" ||
+    value === "workspace_write"
+  );
+}
+
+function isSupportedApprovalPolicy(
+  value: string | null | undefined,
+): value is DirectWorkApprovalPolicy {
+  return value === "never" || value === "on_request" || value === "untrusted";
+}
+
+function errorToMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  if (typeof error === "string" && error.trim()) {
+    return error;
+  }
+
+  return fallback;
 }
