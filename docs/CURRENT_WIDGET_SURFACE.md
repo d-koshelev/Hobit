@@ -1158,6 +1158,7 @@ Known smoke entry points include:
 
 - `apps/desktop/frontend/smoke/dev/coordinator-provider-product-smoke.html`
 - `apps/desktop/frontend/smoke/dev/jdbc-read-only-ui-smoke.html`
+- `apps/desktop/frontend/smoke/dev/module-shell-visual-preview.html`
 - `apps/desktop/frontend/smoke/dev/queue-executor-ui-smoke.html`
 
 Use them through Vite dev URLs under `/smoke/dev/`.
