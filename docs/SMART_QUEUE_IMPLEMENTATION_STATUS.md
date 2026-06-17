@@ -59,9 +59,74 @@ The backend/domain layer now exposes a read-only Queue aggregate contract:
 - Successful worker completion maps to `awaiting_review`; it does not mark the
   Queue item `done`. Dependency satisfaction still requires a future durable
   accepted completion state.
+- Backend headless contract tests now prove list/get, draft readiness, queued
+  startability, running/completed/failed run-link state, dependency waiting and
+  failed-upstream state, read-only query behavior, explicit task identity,
+  no prompt regex routing, and honest `not_durable` / `unknown` states without
+  launching the frontend.
+- Tauri aggregate command tests now prove the desktop list/get command helpers
+  serialize ticket, worker, review, evidence, validation, commit, dependency,
+  blocker, next-action, latest-run, and durability fields from the backend
+  aggregate, remain read-only, and do not call Codex, shell, Git, validation,
+  rollback, Terminal, or frontend code.
 - Review messages, ACKs, full evidence bundles, validation decisions, commit
   decisions, durable scheduler state, and frontend/broker/UI migration to the
   aggregate remain future work.
+
+### Headless Queue API readiness
+
+Current backend/domain ready operations:
+
+- create/update Queue task rows through `WorkspaceService`;
+- update task-scoped run settings through task update fields;
+- promote a draft by updating the task status to `queued` when required fields
+  are present;
+- assign and clear visible Executor ownership;
+- create/list/get Queue run links and record final run-link status;
+- inspect dependency eligibility through aggregate list/get;
+- inspect aggregate list/get for durable task, run-link, blocker, next-action,
+  dependency, review, evidence, validation, and commit state.
+
+Current Tauri/API ready operations:
+
+- create/list/get/update/delete Queue tasks;
+- assign/clear Executor ownership;
+- start an explicitly assigned task through the existing Queue execution
+  command path;
+- list/get Queue task run links;
+- list/get Queue item aggregates through authoritative read-only DTOs.
+
+Frontend-only transitional operations:
+
+- Queue dogfood review message creation and ACK;
+- approve validation placeholder;
+- add follow-up prompt;
+- mark done;
+- block/fail through dogfood lifecycle overlay;
+- frontend worker evidence bundle storage/readback;
+- Queue-linked Direct Work evidence ingestion and current-session idempotency;
+- Queue enable/active/pause and Autorun arming in the active Queue surface.
+
+Missing backend commands:
+
+- dedicated typed draft-promotion command;
+- durable Queue enable/arm command;
+- durable review message create / ACK commands;
+- durable validation approval command;
+- durable follow-up command;
+- durable mark-done command;
+- durable fail/block command;
+- durable evidence attachment/finalization command;
+- durable commit approval/result command.
+
+Missing durability:
+
+- accepted completion / done state;
+- review message and ACK ledger;
+- worker evidence bundle store;
+- validation decision/evidence state beyond run-link status strings;
+- commit decision/result state;
+- durable Queue scheduler/runner state and restart recovery.
 
 ## Implemented Frontend Behavior
 

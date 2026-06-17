@@ -348,6 +348,13 @@ During the smoke, verify these product labels appear where applicable:
       `crates/hobit-app/src/workspace_service/agent_queue_aggregate_tests.rs`
       proves aggregate state is derived from durable Queue task rows,
       compatibility dependency ids, latest run links, and widget run summaries.
+    - Expected:
+      `crates/hobit-app/src/workspace_service/agent_queue_headless_contract_tests.rs`
+      proves Queue aggregate/read-model behavior headlessly through backend
+      APIs and storage fixtures, including draft readiness, queued startability,
+      running/completed/failed run links, dependency waiting/failed-upstream
+      state, read-only queries, explicit task identity, no prompt regex routing,
+      and explicit `not_durable` / `unknown` states.
     - Expected: Draft tasks report Draft with missing-setting blockers; queued
       tasks with settings expose `start_run`; running run links report Running;
       successful worker completion reports `awaiting_review` and not `done`;
@@ -358,9 +365,17 @@ During the smoke, verify these product labels appear where applicable:
       `apps/desktop/src-tauri/src/agent_queue_aggregate_commands/tests.rs`
       prove stable DTO serialization, explicit workspace/task identity, and
       read-only command behavior without launching the frontend UI.
+    - Expected automated commands include
+      `cargo test -p hobit-app agent_queue_headless_contract_tests` and
+      `cargo test -p hobit-desktop agent_queue_aggregate_commands`, with the
+      broader root `cargo test` remaining the final validation gate for this
+      backend/API contract.
     - Expected: aggregate reads do not start work, run validation, mutate Git,
       execute rollback, launch Terminal, call shell/Codex, read frontend
       overlays, or infer task ids from prompt text.
+    - Expected: UI overlays are treated as transitional compatibility state;
+      Queue UI should render the authoritative aggregate DTO and send typed
+      commands only after the migration phase.
 
 21. In Workspace Agent, test a structured Queue dogfood lifecycle action
     request.

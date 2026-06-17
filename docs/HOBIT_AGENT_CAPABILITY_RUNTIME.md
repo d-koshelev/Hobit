@@ -274,7 +274,13 @@ migration, but the current frontend Queue Capability Adapter still uses the
 existing injected bridge and transitional lifecycle overlay for dogfood review
 actions until that migration is implemented. The aggregate read commands do
 not run workers, validation, Git, rollback, Terminal, shell, or Codex, and do
-not infer task ids from natural language.
+not infer task ids from natural language. Backend and Tauri headless contract
+tests now prove aggregate list/get, lifecycle/readiness inspection, run-link
+state, dependency waiting/failed-upstream state, read-only behavior, explicit
+task identity, and honest `not_durable` / `unknown` states without launching
+the frontend. Workspace Agent and broker Queue reads should migrate to this
+typed backend aggregate/API surface instead of reading frontend lifecycle
+overlays as product truth.
 
 The adapter boundary is typed and injected. It does not import React hooks,
 mutate global UI state directly, create widgets/views directly, couple to the

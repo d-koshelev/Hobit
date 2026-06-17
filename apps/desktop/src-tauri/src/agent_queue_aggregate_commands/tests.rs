@@ -5,7 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_app::{
     AssignAgentQueueTaskToExecutorInput, CreateAgentQueueTaskInput,
-    StartAssignedAgentQueueTaskInput, WorkspaceService,
+    FinishAssignedAgentQueueTaskRunInput, StartAssignedAgentQueueTaskInput, WorkspaceService,
 };
 use hobit_storage_sqlite::SqliteStore;
 
@@ -127,6 +127,91 @@ fn aggregate_command_helper_reads_latest_run_link_after_start() {
         start.run_id
     );
     remove_test_db_files(&db_path);
+}
+
+#[test]
+fn aggregate_command_helper_serializes_completed_run_as_awaiting_review_read_model() {
+    let db_path = unique_test_db_path();
+    let service = initialized_service(&db_path);
+    let workspace = service
+        .create_empty_workspace("Queue aggregate command test", None)
+        .expect("create workspace");
+    let executor_widget_id = add_widget(&service, &workspace.id, "agent-run", "Agent Executor");
+    let task = create_task(&service, &workspace.id);
+    assign_task(
+        &service,
+        &workspace.id,
+        &task.queue_item_id,
+        &executor_widget_id,
+    );
+    let start = service
+        .start_assigned_agent_queue_task(start_input(&workspace.id, &task.queue_item_id))
+        .expect("start task");
+    service
+        .finish_assigned_agent_queue_task_run(FinishAssignedAgentQueueTaskRunInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: task.queue_item_id.clone(),
+            executor_widget_instance_id: executor_widget_id.clone(),
+            run_id: start.run_id.clone(),
+            direct_work_status: "completed".to_owned(),
+        })
+        .expect("finish queue run");
+    drop(service);
+
+    let aggregate = get_agent_queue_item_aggregate_blocking(
+        GetQueueItemAggregateRequest {
+            workspace_id: workspace.id,
+            task_id: task.queue_item_id,
+        },
+        db_path.clone(),
+    )
+    .expect("get aggregate")
+    .expect("aggregate");
+
+    assert_eq!(aggregate.ticket_state, "awaiting_review");
+    assert_eq!(aggregate.worker_run_state, "completed");
+    assert_eq!(aggregate.review_state, "awaiting_review");
+    assert_eq!(aggregate.evidence_state, "available");
+    assert_eq!(aggregate.validation_state, "not_requested");
+    assert_eq!(aggregate.commit_state, "none");
+    assert_eq!(aggregate.dependency_state, "none");
+    assert_eq!(
+        aggregate.latest_run.as_ref().expect("latest run").run_id,
+        start.run_id
+    );
+    assert_eq!(aggregate.next_actions[0].code, "create_review_message");
+    assert!(!aggregate.next_actions[0].available);
+    assert_eq!(
+        aggregate.next_actions[0].unavailable_reason.as_deref(),
+        Some("backend_review_command_not_implemented")
+    );
+    assert!(aggregate.durable_flags.task_row);
+    assert!(aggregate.durable_flags.latest_run_link);
+    assert!(!aggregate.durable_flags.frontend_overlay_used);
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn aggregate_command_source_stays_read_only_and_headless() {
+    let source = include_str!("../agent_queue_aggregate_commands.rs");
+
+    for forbidden in [
+        "run_codex",
+        "run_direct_work",
+        "start_assigned_agent_queue_task",
+        "run_queue_validation",
+        "validation_runner",
+        "get_git_",
+        "create_git_",
+        "terminal_",
+        "rollback",
+        "shell",
+    ] {
+        assert!(
+            !source.contains(forbidden),
+            "aggregate commands must not call {forbidden}"
+        );
+    }
 }
 
 fn initialized_service(db_path: &Path) -> WorkspaceService {

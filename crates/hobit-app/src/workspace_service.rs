@@ -28,6 +28,8 @@ mod agent_queue_context_tests;
 mod agent_queue_execution;
 #[cfg(test)]
 mod agent_queue_execution_tests;
+#[cfg(test)]
+mod agent_queue_headless_contract_tests;
 mod agent_queue_lifecycle;
 #[cfg(test)]
 mod agent_queue_lifecycle_tests;

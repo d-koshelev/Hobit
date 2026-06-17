@@ -52,14 +52,27 @@ Backend/domain read-model foundation:
 - `apps/desktop/src-tauri/src/agent_queue_aggregate_dto.rs` and
   `apps/desktop/src-tauri/src/agent_queue_aggregate_commands.rs` expose
   read-only aggregate list/get commands to the desktop bridge.
+- `crates/hobit-app/src/workspace_service/agent_queue_headless_contract_tests.rs`
+  proves the backend/domain contract headlessly through `WorkspaceService` and
+  storage fixtures, without launching the frontend.
+- `apps/desktop/src-tauri/src/agent_queue_aggregate_commands/tests.rs` proves
+  the Tauri list/get commands serialize the authoritative aggregate DTO and
+  remain read-only without starting workers.
 - The aggregate treats raw `task.status` as legacy input, not final product
   truth. A successful worker completion maps to `awaiting_review`, not `done`.
   Dependency satisfaction is not granted by worker completion alone.
 - Where review/evidence/validation/commit durability is not implemented, the
   aggregate returns honest `not_durable`, `unknown`, or unavailable next-action
   reasons instead of reading frontend overlays.
-- Queue UI and broker migration to this DTO is a later phase; the frontend
-  overlay remains transitional compatibility behavior until that migration.
+- Queue UI, broker, and Workspace Agent migration to this DTO is a later phase;
+  the frontend overlay remains transitional compatibility behavior until that
+  migration.
+
+The backend aggregate is now the authoritative Queue read model for durable
+task/run-link/dependency inspection. Queue correctness for those states is
+testable with Rust backend and Tauri command tests without opening or launching
+the frontend. Queue UI must render this authoritative DTO and send typed
+commands only; frontend overlays must not become product truth.
 
 ## State Dimensions
 
