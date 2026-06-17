@@ -169,6 +169,53 @@ describe("useAgentQueueController task actions", () => {
     hook.unmount();
   });
 
+  it("blocks draft promotion until required run settings are present", async () => {
+    const harness = createQueueHarness([
+      queueTask({
+        approvalPolicy: null,
+        codexExecutable: "",
+        executionWorkspace: null,
+        prompt: "",
+        queueItemId: "queue-1",
+        sandbox: null,
+        status: "draft",
+      }),
+    ]);
+    const hook = renderQueueController(harness);
+
+    await flushControllerLoad();
+
+    expect(hook.result.current.draftPromotion.canPromote).toBe(false);
+    expect(
+      hook.result.current.draftPromotion.disabledReason?.includes(
+        "Missing prompt",
+      ),
+    ).toBe(true);
+
+    await act(async () => {
+      hook.result.current.draftPromotion.onPromote();
+      await flushHookEffects();
+    });
+
+    expect(harness.updateRequests).toHaveLength(0);
+    expect(harness.startRequests).toHaveLength(0);
+    expect(harness.autorunStartRequests).toHaveLength(0);
+    expect(hook.result.current.selectedTask?.status).toBe("draft");
+    expect(
+      hook.result.current.validationMessage?.includes("Missing prompt"),
+    ).toBe(true);
+    expect(
+      hook.result.current.validationMessage?.includes("Missing workspace"),
+    ).toBe(true);
+    expect(
+      hook.result.current.validationMessage?.includes(
+        "Missing Codex executable",
+      ),
+    ).toBe(true);
+
+    hook.unmount();
+  });
+
   it("treats an assigned visible idle executor slot as available even when worker configs omit it", async () => {
     const harness = createQueueHarness([
       queueTask({

@@ -614,7 +614,8 @@ describe("Queue v2 view model selectors", () => {
   it("derives next actions from eligibility and blockers", () => {
     const viewModel = selectQueueV2ViewModel({
       tasks: [
-        task({ queueItemId: "draft", status: "draft" }),
+        task({ prompt: "", queueItemId: "draft", status: "draft" }),
+        task({ queueItemId: "valid-draft", status: "draft" }),
         task({ queueItemId: "ready", status: "ready" }),
         task({ queueItemId: "no-capacity", status: "ready" }),
         task({ queueItemId: "review", status: "completed" }),
@@ -623,6 +624,7 @@ describe("Queue v2 view model selectors", () => {
     });
 
     expect(actionFor(viewModel, "draft")).toBe("edit_draft");
+    expect(actionFor(viewModel, "valid-draft")).toBe("queue_task");
     expect(actionFor(viewModel, "ready")).toBe("run_now");
     expect(actionFor(viewModel, "review")).toBe("review_report");
 
@@ -664,6 +666,7 @@ describe("Queue v2 view model selectors", () => {
       title: "002: Imported dependent task",
     });
     const ordinaryDraft = task({
+      prompt: "",
       queueItemId: "ordinary-draft",
       status: "draft",
       title: "Ordinary draft",
@@ -688,6 +691,54 @@ describe("Queue v2 view model selectors", () => {
     expect(dependent?.blockedReasons.map((reason) => reason.code)).not.toContain(
       "dependency_open",
     );
+  });
+
+  it("presents Draft readiness without raw internal blocker names", () => {
+    const viewModel = selectQueueV2ViewModel({
+      selectedTaskId: "draft",
+      tasks: [
+        task({
+          approvalPolicy: null,
+          codexExecutable: "",
+          executionWorkspace: null,
+          prompt: "",
+          queueItemId: "draft",
+          sandbox: null,
+          status: "draft",
+        }),
+      ],
+      workers: [worker()],
+    });
+    const draft = viewModel.tasks.find((item) => item.taskId === "draft");
+
+    expect(draft).toMatchObject({
+      boardLane: "intake_draft",
+      draftReadiness: {
+        missingFields: [
+          "Missing prompt",
+          "Missing workspace",
+          "Missing Codex executable",
+          "Missing sandbox",
+          "Missing approval policy",
+        ],
+        readyToQueue: false,
+        summary: "Not runnable yet",
+      },
+      humanStatus: {
+        label: "Draft",
+        text: "Draft",
+      },
+      nextAction: "edit_draft",
+    });
+    expect(viewModel.inspector?.draftReadiness.disabledReason).toContain(
+      "Missing prompt",
+    );
+    expect(
+      JSON.stringify({
+        disabledReason: viewModel.inspector?.draftReadiness.disabledReason,
+        humanStatus: draft?.humanStatus,
+      }),
+    ).not.toContain("missing_codex_executable");
   });
 
   it("derives counts, capacity, and selected-task inspector snapshot", () => {

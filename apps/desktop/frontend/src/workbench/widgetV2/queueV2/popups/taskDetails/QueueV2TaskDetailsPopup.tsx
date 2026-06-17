@@ -38,6 +38,7 @@ import { QueueV2TaskDetailsActions } from "./QueueV2TaskDetailsActions";
 import { QueueV2TaskDetailsActivity } from "./QueueV2TaskDetailsActivity";
 import { QueueV2TaskDetailsContext } from "./QueueV2TaskDetailsContext";
 import { QueueV2TaskCodexSetup } from "./QueueV2TaskCodexSetup";
+import { QueueV2TaskDraftReadiness } from "./QueueV2TaskDraftReadiness";
 import { QueueV2CoordinatorDecisionCard } from "./QueueV2CoordinatorDecisionCard";
 import { QueueV2TaskDetailsHeader } from "./QueueV2TaskDetailsHeader";
 import { QueueV2TaskDetailsOverview } from "./QueueV2TaskDetailsOverview";
@@ -233,6 +234,7 @@ export function QueueV2TaskDetailsPopup({
           validationDisabledReason={validationDisabledReason}
           validationRequestRunning={validationRequestState === "running"}
         />
+        <QueueV2TaskDraftReadiness readiness={inspector.draftReadiness} />
         {(!task.codexExecutable?.trim() || codexSetupRequested) ? (
           <QueueV2TaskCodexSetup queue={queue} task={task} />
         ) : null}

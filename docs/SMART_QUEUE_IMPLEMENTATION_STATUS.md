@@ -24,8 +24,10 @@ self-test, a frontend Queue worker evidence bundle model/adapter path, and
 a frontend Queue worker evidence ingestion bridge, a Queue-linked Direct Work
 metadata seam, Queue-linked Direct Work evidence event wiring, and focused
 smoke coverage, an active Queue V2 Codex executable setup affordance for
-existing tasks, plus a minimal active Queue details review/evidence UI for
-explicit broker-driven coordinator review actions.
+existing tasks, active Queue V2 Draft readiness discoverability and explicit
+Draft-to-queued promotion through the existing Queue task update path, plus a
+minimal active Queue details review/evidence UI for explicit broker-driven
+coordinator review actions.
 
 The durable Smart Queue backend/runtime is not implemented yet. Current Smart
 Queue modules are frontend/product-model foundations unless explicitly noted
@@ -60,6 +62,9 @@ The current implemented frontend behavior is:
   existing evidence ingestion bridge and Action Broker path;
 - active Queue V2 Codex executable setup affordance for existing tasks through
   the existing task update/run-settings bridge;
+- active Queue V2 Draft readiness explanation for existing Draft tasks and
+  explicit queued promotion for Draft tasks that already have required run
+  fields;
 - minimal active Queue details review/evidence presentation and explicit
   broker-action controls for awaiting-review / in-review dogfood items;
 - worker failure/stuck report to coordinator decision integration;
@@ -243,6 +248,32 @@ Implemented for the active Queue product route only.
   run validation, call Git, launch Terminal, call shell/Codex, execute
   rollback, or add backend durability.
 - Draft tasks still need readiness/queueing separately before they can run.
+
+### Active Queue V2 Draft readiness and explicit queueing
+
+Implemented for the active Queue product route through the existing frontend
+Queue view-model and controller/update path.
+
+- Draft task cards and details now show compact product-facing readiness copy:
+  `Draft task`, `Not runnable yet`, missing prompt, missing workspace, missing
+  Codex executable, missing sandbox, missing approval policy, or
+  `Ready to queue`.
+- The active task details popup exposes the existing `Queue for run` promotion
+  action only when the selected Draft has the required fields. Missing fields
+  keep the action disabled with a compact blocker reason.
+- Promotion uses the existing Queue task update controller to change the
+  selected task from `draft` to `queued`. It does not create a parallel Queue
+  state machine.
+- The same readiness gate protects the controller callback, so stale UI or
+  typed callers cannot promote an incomplete Draft through
+  `draftPromotion.onPromote`.
+- Saving the task-scoped Codex executable updates readiness but leaves the task
+  in Draft until the operator explicitly queues it.
+- Queueing a Draft does not enable Queue, start workers, start Direct Work,
+  run validation, call Git, launch Terminal, execute rollback, create
+  review/evidence actions, or change dogfood lifecycle review state.
+- Backend durability, validation execution, Git/commit integration, rollback,
+  scheduler/runtime redesign, and broader Queue UI redesign remain future work.
 
 ### Frontend dependency failure propagation and recovery
 
@@ -673,6 +704,7 @@ the blocker for proving the current fake broker loop.
 - `apps/desktop/frontend/src/workbench/queue/smartQueueStatusPresentation.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueExecutionGate.ts`
 - `apps/desktop/frontend/src/workbench/queue/queueV2SmartStatusModel.ts`
+- `apps/desktop/frontend/src/workbench/queue/queueV2DraftReadiness.ts`
 
 ## Guardrails
 

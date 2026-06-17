@@ -1,5 +1,4 @@
 import type { AgentQueueTask } from "../../workspace/types";
-import { getQueuePromptPackImportMetadata } from "../promptPack/queuePromptPackMetadata";
 import {
   displayTaskTitle,
   getQueueTaskDependencyState,
@@ -44,6 +43,10 @@ import {
   type QueueTaskDogfoodLifecyclePresentation,
   type QueueTaskDogfoodLifecycleSource,
 } from "./smartQueueDogfoodLifecycleController";
+import {
+  queueV2DraftReadinessForTask,
+  type QueueV2DraftReadiness,
+} from "./queueV2DraftReadiness";
 
 export type QueueBoardLane =
   | "intake_draft"
@@ -108,6 +111,7 @@ export type QueueTaskViewModel = {
   eligibility: QueueTaskEligibility;
   diffReview: DiffReviewLinkageView;
   dogfoodLifecycle: QueueTaskDogfoodLifecyclePresentation | null;
+  draftReadiness: QueueV2DraftReadiness;
 };
 
 export type QueueInspectorSnapshot = {
@@ -121,6 +125,7 @@ export type QueueInspectorSnapshot = {
   nextAction: QueueNextAction;
   humanStatus: QueueTaskHumanStatusView;
   dogfoodLifecycle: QueueTaskDogfoodLifecyclePresentation | null;
+  draftReadiness: QueueV2DraftReadiness;
   dependencySummary: QueueTaskDependencySummary;
   secondaryActions: QueueNextAction[];
   dependencyState: AgentQueueDependencyState;
@@ -200,7 +205,7 @@ export function selectQueueV2ViewModel({
       ? queueV2LifecycleForDogfoodLifecycle(dogfoodLifecycle.lifecycle)
       : queueV2LifecycleForTask(task);
     const closureState = queueV2ClosureStateForTask(task);
-    const promptPackMetadata = getQueuePromptPackImportMetadata(task);
+    const draftReadiness = queueV2DraftReadinessForTask(task);
     const blockedReasons = queueV2BlockedReasonsForTask({
       dependencyState,
       dependencySummary,
@@ -237,7 +242,7 @@ export function selectQueueV2ViewModel({
         ? "resolve_dependency"
         : queueV2NextActionForTask({
             blockedReasonCodes: blockedReasons.map((reason) => reason.code),
-            canQueueDraft: Boolean(promptPackMetadata && task.prompt.trim()),
+            canQueueDraft: draftReadiness.readyToQueue,
             eligibleNow: eligibility.eligibleNow,
             hasAssignedWorker: Boolean(
               task.assignedWorkerId ?? task.assignedExecutorWidgetId,
@@ -260,6 +265,7 @@ export function selectQueueV2ViewModel({
       dependencySummary,
       diffReview: diffReviewLinkageViewForTask(task, tasks),
       dogfoodLifecycle: dogfoodLifecycle?.presentation ?? null,
+      draftReadiness,
       eligibility,
       humanStatus,
       lifecycle,
@@ -631,6 +637,7 @@ function queueV2InspectorSnapshot(
     closureState: viewModel.closureState,
     dependencySummary: viewModel.dependencySummary,
     dogfoodLifecycle: viewModel.dogfoodLifecycle,
+    draftReadiness: viewModel.draftReadiness,
     contextSummary: {
       attachedKnowledgeCount: task.context?.attachedKnowledgeRefs.length ?? 0,
       attachedSkillCount: task.context?.attachedSkillRefs.length ?? 0,

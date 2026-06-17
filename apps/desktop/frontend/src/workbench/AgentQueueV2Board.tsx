@@ -29,6 +29,9 @@ import {
   queueV2NextActionLabel,
 } from "./queue/queueV2NextActionModel";
 import {
+  queueV2DraftReadinessCardLine,
+} from "./queue/queueV2DraftReadiness";
+import {
   queueV2CardStatusDetail,
   queueV2HumanStatusBadgeVariant,
   queueV2MarkerBadgeVariant,
@@ -760,6 +763,9 @@ function QueueV2Card({
   const workerLabel =
     item.task.assignedWorkerId ?? item.task.assignedExecutorWidgetId ?? null;
   const blockerSummary = queueV2CardStatusDetail(item);
+  const draftReadinessLine = queueV2DraftReadinessCardLine(
+    item.draftReadiness,
+  );
   const validation = queueV2ValidationEvidenceView(item.task);
   const coordinator = queueV2CoordinatorFinalizationView(item.task);
 
@@ -836,6 +842,9 @@ function QueueV2Card({
       ) : null}
       {blockerSummary ? (
         <span className="agent-queue-v2-card-note">{blockerSummary}</span>
+      ) : null}
+      {draftReadinessLine ? (
+        <span className="agent-queue-v2-card-note">{draftReadinessLine}</span>
       ) : null}
       {item.boardLane === "running" && workerLabel ? (
         <span className="agent-queue-v2-card-note">Worker {workerLabel}</span>

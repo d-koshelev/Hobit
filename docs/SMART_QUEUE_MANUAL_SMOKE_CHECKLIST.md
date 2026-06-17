@@ -97,6 +97,15 @@ During the smoke, verify these product labels appear where applicable:
 - `Set Codex executable`
 - `Codex executable saved`
 - `Queue needs a Codex executable on at least one task.`
+- `Draft task`
+- `Not runnable yet`
+- `Missing prompt`
+- `Missing workspace`
+- `Missing Codex executable`
+- `Missing sandbox`
+- `Missing approval policy`
+- `Ready to queue`
+- `Queue for run`
 - `Queue-linked evidence event wiring available`
 - `Raw non-Queue Direct Work ingestion is blocked`
 - `Duplicate Queue-linked completion ingestion is guarded`
@@ -151,8 +160,22 @@ During the smoke, verify these product labels appear where applicable:
    - Expected: saving Codex executable does not enable Queue automatically,
      start a worker, promote a Draft task, run validation, call Git, launch
      Terminal, execute rollback, or create review/evidence actions.
-   - Expected: Draft tasks still need to be queued/readied separately before
-     they can run.
+   - If an existing Queue item is in `Intake / Draft`, open its details.
+   - Expected: Draft details show `Draft task` and either `Not runnable yet`
+     with compact blockers such as `Missing prompt`, `Missing workspace`,
+     `Missing Codex executable`, `Missing sandbox`, and
+     `Missing approval policy`, or `Ready to queue` when required fields are
+     present.
+   - Expected: missing Codex setup continues to use the task-scoped
+     `Set Codex executable` / `Save Codex executable` affordance; saving it
+     updates readiness but the task remains Draft.
+   - Expected: a valid Draft exposes `Queue for run`; clicking it promotes the
+     task through the existing Queue update path and does not enable Queue,
+     start a worker, run validation, call Git, launch Terminal, execute
+     rollback, create review/evidence actions, or change dogfood lifecycle
+     review state.
+   - Expected: invalid Draft tasks keep `Queue for run` disabled or
+     unavailable with compact missing-field reasons.
 
 6. Set Queue to Paused or keep it paused.
    - Expected: Paused prevents task pickup.

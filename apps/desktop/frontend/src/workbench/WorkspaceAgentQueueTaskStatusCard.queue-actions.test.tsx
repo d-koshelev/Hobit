@@ -3,6 +3,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AgentQueueTask } from "../workspace/types";
+import { queueV2DraftReadinessForTask } from "./queue/queueV2DraftReadiness";
 import type { AgentQueueController } from "./queue/useAgentQueueController";
 import { WorkspaceAgentQueueTaskStatusCard } from "./WorkspaceAgentQueueTaskStatusCard";
 
@@ -125,6 +126,11 @@ function queueController({
   selectedTask: AgentQueueTask;
   tasks: AgentQueueTask[];
 }): AgentQueueController {
+  const draftReadiness =
+    selectedTask.status === "draft"
+      ? queueV2DraftReadinessForTask(selectedTask)
+      : null;
+
   return {
     autorun: { snapshot: null },
     coordinatorFinalization: {
@@ -149,9 +155,11 @@ function queueController({
       onCreate: vi.fn(),
     },
     draftPromotion: {
-      canPromote: selectedTask.status === "draft",
+      canPromote: Boolean(draftReadiness?.readyToQueue),
+      disabledReason: draftReadiness?.disabledReason ?? undefined,
       isPromoting: false,
       onPromote,
+      readiness: draftReadiness,
     },
     foundation: {
       globalExecutionState: "started",
@@ -173,17 +181,21 @@ function queueController({
 
 function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
   return {
+    approvalPolicy: "never",
     assignedExecutorWidgetId: "executor-1",
     assignedWorkerId: "executor-1",
+    codexExecutable: "codex.cmd",
     createdAt: "2026-06-10T10:00:00.000Z",
     description: "Review visible task state.",
     executionPolicy: "manual",
+    executionWorkspace: "C:/repo",
     priority: 1,
     prompt: "Do this Queue task from visible instructions.",
     queueItemId: "queue-task-0001",
     queueTagId: "implementation",
     queueTagName: "Implementation",
     status: "ready",
+    sandbox: "workspace_write",
     title: "Queue task",
     updatedAt: "2026-06-10T10:00:00.000Z",
     validationStatus: "not_started",

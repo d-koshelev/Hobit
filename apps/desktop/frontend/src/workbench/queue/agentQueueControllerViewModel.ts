@@ -54,6 +54,7 @@ import type { createAgentQueueTagActions } from "./useAgentQueueTagActions";
 import type { createAgentQueueTaskActions } from "./useAgentQueueTaskActions";
 import type { createAgentQueueWorkerActions } from "./useAgentQueueWorkerActions";
 import type { AgentQueueRunActivitySnapshot, AgentQueueRunActivityState } from "./agentQueueRunActivity";
+import { queueV2DraftReadinessForTask } from "./queueV2DraftReadiness";
 
 type AgentQueueControllerViewModelInput = Pick<
   UseAgentQueueControllerOptions,
@@ -142,6 +143,7 @@ type AgentQueueControllerViewModelInput = Pick<
   runEvidenceError: string | null;
   runHistoryLinks: AgentQueueRunHistoryController["links"];
   runnerController: AgentQueueRunnerController;
+  saveSelectedTaskCodexExecutable: AgentQueueRunController["onSaveTaskCodexExecutable"];
   saveStateText: string;
   schedulerPlan: AgentQueueSchedulerPlan;
   selectedExecutorSelection: ReturnType<typeof selectBestAvailableExecutorForTask>;
@@ -259,6 +261,7 @@ export function buildAgentQueueControllerViewModel({
   runEvidenceError,
   runHistoryLinks,
   runnerController,
+  saveSelectedTaskCodexExecutable,
   saveStateText,
   schedulerPlan,
   selectedExecutorSelection,
@@ -346,6 +349,19 @@ export function buildAgentQueueControllerViewModel({
     renameWorker,
     setWorkerEnabled,
   } = workerActions;
+  const selectedDraftReadiness =
+    selectedTask?.status === "draft"
+      ? queueV2DraftReadinessForTask(selectedTask)
+      : null;
+  const draftPromotionDisabledReason = selectedDraftReadiness
+    ? draftPromotionUnavailableReason({
+        hasOpenTaskEdit,
+        isCreating,
+        isSaving,
+        readiness: selectedDraftReadiness,
+        updateAvailable: Boolean(onUpdateAgentQueueTask),
+      })
+    : undefined;
 
   return {
     agentExecutorSlots,
@@ -396,13 +412,16 @@ export function buildAgentQueueControllerViewModel({
     draftPromotion: {
       canPromote: Boolean(
         selectedTask?.status === "draft" &&
+          selectedDraftReadiness?.readyToQueue &&
           onUpdateAgentQueueTask &&
           !hasOpenTaskEdit &&
           !isSaving &&
           !isCreating,
       ),
+      disabledReason: draftPromotionDisabledReason,
       isPromoting: Boolean(selectedTask?.status === "draft" && isSaving),
       onPromote: () => void promoteSelectedDraftToQueued(),
+      readiness: selectedDraftReadiness,
     },
     executionPlan: {
       canGenerate: Boolean(selectedTask && !hasOpenTaskEdit && !isSaving),
@@ -516,6 +535,7 @@ export function buildAgentQueueControllerViewModel({
     } satisfies AgentQueueSmartRollbackController,
     run: {
       approvalPolicy: selectedTaskApprovalPolicy,
+      canUpdateTaskSettings: Boolean(selectedTask && onUpdateAgentQueueTask),
       canStart,
       codexExecutableDraft: selectedTaskCodexExecutable,
       hasUnsavedTaskSettings,
@@ -524,6 +544,7 @@ export function buildAgentQueueControllerViewModel({
       onCodexExecutableDraftChange: updateSelectedTaskCodexExecutable,
       onRepoRootDraftChange: updateSelectedTaskExecutionWorkspace,
       onSandboxChange: updateSelectedTaskSandbox,
+      onSaveTaskCodexExecutable: saveSelectedTaskCodexExecutable,
       onSaveTaskSettings: () => void saveTask(),
       onStartAssignedTask: () => void startAssignedTask(),
       preconditionMessages,
@@ -641,6 +662,38 @@ export function buildAgentQueueControllerViewModel({
     assignSelectedTask,
     clearSelectedTaskAssignment,
   };
+}
+
+function draftPromotionUnavailableReason({
+  hasOpenTaskEdit,
+  isCreating,
+  isSaving,
+  readiness,
+  updateAvailable,
+}: {
+  hasOpenTaskEdit: boolean;
+  isCreating: boolean;
+  isSaving: boolean;
+  readiness: ReturnType<typeof queueV2DraftReadinessForTask>;
+  updateAvailable: boolean;
+}) {
+  if (!readiness.readyToQueue) {
+    return readiness.disabledReason ?? "Complete draft before queuing.";
+  }
+
+  if (!updateAvailable) {
+    return "Queue task updates are unavailable in this runtime.";
+  }
+
+  if (hasOpenTaskEdit) {
+    return "Save or cancel task edits before queuing this draft.";
+  }
+
+  if (isSaving || isCreating) {
+    return "Queue task update is already in progress.";
+  }
+
+  return undefined;
 }
 
 function executorSelectionMessage({

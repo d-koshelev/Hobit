@@ -8,6 +8,7 @@ import type {
 } from "../../../workspace/types";
 import type { AgentWorkerSummary } from "../../agentQueueTaskUiModel";
 import type { AgentQueueController } from "../../queue/details/agentQueueTaskDetailsTypes";
+import { queueV2DraftReadinessForTask } from "../../queue/queueV2DraftReadiness";
 import type {
   AgentQueueSmartAssistanceRequest,
 } from "../../queue/agentQueueSmartAssistanceActions";
@@ -280,12 +281,19 @@ export function queueController({
   selectedTask: AgentQueueTask;
   tasks: AgentQueueTask[];
 }): AgentQueueController {
+  const draftReadiness =
+    selectedTask.status === "draft"
+      ? queueV2DraftReadinessForTask(selectedTask)
+      : null;
+
   return {
     apiAvailable: true,
     draftPromotion: {
-      canPromote: selectedTask.status === "draft",
+      canPromote: Boolean(draftReadiness?.readyToQueue),
+      disabledReason: draftReadiness?.disabledReason ?? undefined,
       isPromoting: false,
       onPromote,
+      readiness: draftReadiness,
     },
     foundation: {
       globalExecutionState: "started",

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AgentQueueTask } from "../workspace/types";
 import type { AgentQueueController } from "./queue/useAgentQueueController";
+import { queueV2DraftReadinessForTask } from "./queue/queueV2DraftReadiness";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -246,6 +247,41 @@ describe("workspace chat Queue control service", () => {
       status: "success",
     });
     expect(result.message).toContain("No task was started");
+  });
+
+  it("does not promote an incomplete selected draft through the typed action", async () => {
+    const onPromote = vi.fn();
+    const onStartAssignedTask = vi.fn();
+    const service = createWorkspaceChatQueueControlService({
+      queue: queueController({
+        onPromote,
+        onStartAssignedTask,
+        selectedTask: queueTask({
+          approvalPolicy: null,
+          codexExecutable: "",
+          executionWorkspace: null,
+          prompt: "",
+          queueItemId: "queue-draft",
+          sandbox: null,
+          status: "draft",
+        }),
+      }),
+    });
+
+    const result = await service.execute({
+      kind: "promote_task",
+      queueItemId: "queue-draft",
+    });
+
+    expect(result).toMatchObject({
+      action: "promote_task",
+      queueItemId: "queue-draft",
+      status: "unavailable",
+    });
+    expect(result.reason).toContain("Missing prompt");
+    expect(result.reason).toContain("Missing Codex executable");
+    expect(onPromote).not.toHaveBeenCalled();
+    expect(onStartAssignedTask).not.toHaveBeenCalled();
   });
 
   it("does not promote or run non-selected draft Queue tasks", async () => {
@@ -507,6 +543,11 @@ function queueController({
   selectedTask: AgentQueueTask | null;
   tasks?: AgentQueueTask[];
 }): AgentQueueController {
+  const draftReadiness =
+    selectedTask?.status === "draft"
+      ? queueV2DraftReadinessForTask(selectedTask)
+      : null;
+
   return {
     coordinatorFinalization: {
       canAct,
@@ -527,9 +568,11 @@ function queueController({
       onCreate: onCreateDiffReview,
     },
     draftPromotion: {
-      canPromote: selectedTask?.status === "draft",
+      canPromote: Boolean(draftReadiness?.readyToQueue),
+      disabledReason: draftReadiness?.disabledReason ?? undefined,
       isPromoting: false,
       onPromote,
+      readiness: draftReadiness,
     },
     run: {
       canStart,
@@ -544,13 +587,17 @@ function queueController({
 
 function queueTask(overrides: Partial<AgentQueueTask> = {}): AgentQueueTask {
   return {
+    approvalPolicy: "never",
     assignedExecutorWidgetId: null,
+    codexExecutable: "codex.cmd",
     createdAt: "2026-01-01T00:00:00.000Z",
     description: "",
     executionPolicy: "manual",
+    executionWorkspace: "C:/repo",
     priority: 0,
     prompt: "Prompt",
     queueItemId: "queue-1",
+    sandbox: "read_only",
     status: "queued",
     title: "Queue task",
     updatedAt: "2026-01-01T00:00:00.000Z",

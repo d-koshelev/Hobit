@@ -38,6 +38,7 @@ import {
   latestWorkerExecutionReport,
 } from "./agentQueueDiffReviewModel";
 import { buildDiffReviewQueueItemCreateRequest } from "../diffReview";
+import { queueV2DraftReadinessForTask } from "./queueV2DraftReadiness";
 export type { AgentQueueLocalTaskFields } from "./agentQueueTaskActionTypes";
 
 export function createAgentQueueTaskActions({
@@ -732,27 +733,36 @@ export function createAgentQueueTaskActions({
       return false;
     }
 
+    const readiness = queueV2DraftReadinessForTask(selectedTask);
+
+    if (!readiness.readyToQueue) {
+      setValidationMessage(
+        readiness.disabledReason ?? "Complete draft before queuing.",
+      );
+      return false;
+    }
+
     const queueTag = normalizeQueueTag(selectedTask);
     const validationStatus = normalizeValidationStatus(
       selectedTask.validationStatus,
     );
-      const nextDraft: TaskDraft = {
-        dependsOn: normalizeTaskDependencies(selectedTask.dependsOn),
-        approvalPolicy: selectedTask.approvalPolicy ?? "",
-        codexExecutable: selectedTask.codexExecutable ?? "",
-        description: selectedTask.description,
-        executionPolicy: normalizeTaskExecutionPolicy(
-          selectedTask.executionPolicy,
-        ),
-        executionWorkspace: selectedTask.executionWorkspace ?? "",
-        itemType: normalizeItemType(selectedTask.itemType),
-        priority: selectedTask.priority,
-        prompt: selectedTask.prompt,
-        queueTagName: queueTag.queueTagName,
-        sandbox: selectedTask.sandbox ?? "",
-        status: "queued",
-        title: selectedTask.title,
-        validationStatus,
+    const nextDraft: TaskDraft = {
+      dependsOn: normalizeTaskDependencies(selectedTask.dependsOn),
+      approvalPolicy: selectedTask.approvalPolicy ?? "",
+      codexExecutable: selectedTask.codexExecutable ?? "",
+      description: selectedTask.description,
+      executionPolicy: normalizeTaskExecutionPolicy(
+        selectedTask.executionPolicy,
+      ),
+      executionWorkspace: selectedTask.executionWorkspace ?? "",
+      itemType: normalizeItemType(selectedTask.itemType),
+      priority: selectedTask.priority,
+      prompt: selectedTask.prompt,
+      queueTagName: queueTag.queueTagName,
+      sandbox: selectedTask.sandbox ?? "",
+      status: "queued",
+      title: selectedTask.title,
+      validationStatus,
     };
     const validationError = validateDraft(nextDraft);
 

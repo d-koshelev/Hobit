@@ -138,6 +138,7 @@ export function queueV2HumanStatusForTask({
 
   switch (lifecycle) {
     case "draft":
+      return presentation("ready", "Draft");
     case "queued":
     case "ready":
       return presentation("ready", "Ready");

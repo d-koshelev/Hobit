@@ -8,6 +8,7 @@ import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
 } from "../queue/agentQueueWidgetApiTypes";
+import { queueV2DraftReadinessForTask } from "../queue/queueV2DraftReadiness";
 import { selectQueueV2ViewModel } from "../queue/queueV2ViewModel";
 import {
   createValidationRunner,
@@ -652,6 +653,11 @@ function queueController({
   selectedTask: AgentQueueTask;
   tasks: AgentQueueTask[];
 }): AgentQueueController {
+  const draftReadiness =
+    selectedTask.status === "draft"
+      ? queueV2DraftReadinessForTask(selectedTask)
+      : null;
+
   return {
     apiAvailable: true,
     autorun: {
@@ -679,9 +685,11 @@ function queueController({
       onCreate: vi.fn(),
     },
     draftPromotion: {
-      canPromote: selectedTask.status === "draft",
+      canPromote: Boolean(draftReadiness?.readyToQueue),
+      disabledReason: draftReadiness?.disabledReason ?? undefined,
       isPromoting: false,
       onPromote,
+      readiness: draftReadiness,
     },
     foundation: {
       globalExecutionState: "started",

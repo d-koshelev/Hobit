@@ -110,30 +110,39 @@ export function buildQueueV2TaskDetailsActions({
   }
 
   if (task.status === "draft") {
+    const draftReadiness = inspector.draftReadiness;
+    const draftPromotionReason =
+      selectionReason ??
+      (!hasQueueController
+        ? "Queue task update actions are not wired in this view."
+        : !draftReadiness.readyToQueue
+          ? draftReadiness.disabledReason ?? "Complete draft before queuing."
+          : queue?.draftPromotion?.canPromote
+            ? undefined
+            : queue?.draftPromotion?.disabledReason ??
+              "Save or cancel task edits before queuing this draft.");
+
     actions.push({
       disabled:
         !hasQueueController ||
         selectedTaskMismatch ||
+        !draftReadiness.readyToQueue ||
         !Boolean(queue?.draftPromotion?.canPromote),
       id: "promote",
       label: queue?.draftPromotion?.isPromoting
         ? "Queuing"
         : "Queue for run",
       onClick: () => queue?.draftPromotion?.onPromote(),
-      reason:
-        selectionReason ??
-        (!hasQueueController
-          ? "Queue task update actions are not wired in this view."
-          : queue?.draftPromotion?.canPromote
-            ? undefined
-            : "Save or cancel task edits before queuing this draft."),
+      reason: draftPromotionReason,
       technicalReason:
         selectionTechnicalReason ??
         (!hasQueueController
           ? "Draft promotion requires the Queue task update bridge."
-          : queue?.draftPromotion?.canPromote
+          : draftReadiness.readyToQueue && queue?.draftPromotion?.canPromote
             ? undefined
-            : "Current task draft is not editable into queue state yet."),
+            : queue?.draftPromotion?.disabledReason ??
+              draftReadiness.disabledReason ??
+              "Current task draft is not editable into queue state yet."),
       variant: "primary",
     });
   }

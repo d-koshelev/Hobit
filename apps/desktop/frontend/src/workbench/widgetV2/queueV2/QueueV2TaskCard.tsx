@@ -8,6 +8,7 @@ import { normalizeQueueTag } from "../../agentQueueTaskUiModel";
 import { queueTagColorToken } from "../../queue/agentQueueTagColors";
 import type { QueueTaskViewModel } from "../../queue/queueV2ViewModel";
 import type { QueueNextAction } from "../../queue/queueV2NextActionModel";
+import { queueV2DraftReadinessCardLine } from "../../queue/queueV2DraftReadiness";
 import {
   queueV2ValidationEvidenceView,
   validationStatusDataAttribute,
@@ -37,6 +38,7 @@ export function QueueV2TaskCard({
   const promptPackMetadata = getQueuePromptPackImportMetadata(item.task);
   const validation = queueV2ValidationEvidenceView(item.task);
   const coordinator = queueV2CoordinatorFinalizationView(item.task);
+  const draftReadinessLine = queueV2DraftReadinessCardLine(item.draftReadiness);
   const actionItems: ActionMenuItem[] = [
     {
       id: "open-details",
@@ -100,6 +102,9 @@ export function QueueV2TaskCard({
           <span className="queue-v2-card-blocker" title={blockerCardTitle(item)}>
             {blockerCardLine(item)}
           </span>
+        ) : null}
+        {draftReadinessLine ? (
+          <span className="queue-v2-card-meta">{draftReadinessLine}</span>
         ) : null}
         <span
           className="queue-v2-card-validation"

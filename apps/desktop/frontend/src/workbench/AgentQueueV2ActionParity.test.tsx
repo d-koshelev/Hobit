@@ -566,9 +566,189 @@ describe("Agent QueueV2 action parity", () => {
 
     expect(enableQueue).not.toBeNull();
     expect(enableQueue?.disabled).toBe(true);
-    expect(document.body.textContent).toContain("Set Codex executable first");
+    expect(document.body.textContent).toContain(
+      "Queue needs a Codex executable on at least one task.",
+    );
+    expect(buttonByText("Set Codex executable")).not.toBeNull();
     expect(document.body.textContent).not.toContain("callbacks");
     expect(document.body.textContent).not.toContain("runtime bridge");
+  });
+
+  it("shows Draft readiness blockers on the active QueueV2 path without starting work", async () => {
+    const onStartAssignedAgentQueueTask = vi.fn();
+    const onUpdateAgentQueueTask = vi.fn(async () => queueTask());
+    const draftTask = queueTask({
+      approvalPolicy: null,
+      codexExecutable: "",
+      executionWorkspace: null,
+      prompt: "",
+      queueItemId: "draft-blocked",
+      sandbox: null,
+      status: "draft",
+      title: "Blocked draft",
+    });
+
+    renderQueueWidget({
+      onGetAgentQueueTask: async () => draftTask,
+      onListAgentQueueTasks: async () => [draftTask],
+      onStartAssignedAgentQueueTask,
+      onUpdateAgentQueueTask,
+    });
+    await flushRender();
+
+    expect(card("draft-blocked")?.textContent).toContain("StatusDraft");
+    expect(card("draft-blocked")?.textContent).toContain("Not runnable yet");
+
+    clickButton("Details");
+    await flushRender();
+
+    const dialogText = dialogByName("Blocked draft")?.textContent ?? "";
+    expect(dialogText).toContain("Draft task");
+    expect(dialogText).toContain("Not runnable yet");
+    expect(dialogText).toContain("Missing prompt");
+    expect(dialogText).toContain("Missing workspace");
+    expect(dialogText).toContain("Missing Codex executable");
+    expect(dialogText).toContain("Missing sandbox");
+    expect(dialogText).toContain("Missing approval policy");
+    expect(dialogText).not.toContain("missing_codex_executable");
+    expect(dialogText).not.toContain("run_settings_invalid");
+
+    const queueButton = queueV2ActionButton("Queue for run");
+    expect(queueButton?.disabled).toBe(true);
+    expect(queueButton?.parentElement?.textContent).toContain(
+      "Complete draft before queuing",
+    );
+
+    await clickButtonAsync("Queue for run");
+    await flushRender();
+
+    expect(onUpdateAgentQueueTask).not.toHaveBeenCalled();
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+  });
+
+  it("queues a valid Draft from active QueueV2 details without enabling or running", async () => {
+    const onStartAssignedAgentQueueTask = vi.fn();
+    const updateRequests: unknown[] = [];
+    const draftTask = queueTask({
+      approvalPolicy: "never",
+      assignedExecutorWidgetId: "executor-1",
+      codexExecutable: "codex.cmd",
+      executionWorkspace: "C:\\repo",
+      prompt: "Queue this valid draft.",
+      queueItemId: "draft-ready",
+      sandbox: "workspace_write",
+      status: "draft",
+      title: "Ready draft",
+    });
+    const onUpdateAgentQueueTask = vi.fn(async (request) => {
+      updateRequests.push(request);
+      return queueTask({
+        approvalPolicy: request.approvalPolicy ?? null,
+        assignedExecutorWidgetId: "executor-1",
+        codexExecutable: request.codexExecutable ?? null,
+        executionWorkspace: request.executionWorkspace ?? null,
+        prompt: request.prompt,
+        queueItemId: request.queueItemId,
+        sandbox: request.sandbox ?? null,
+        status: request.status,
+        title: request.title,
+      });
+    });
+
+    renderQueueWidget({
+      onGetAgentQueueTask: async () => draftTask,
+      onListAgentQueueTasks: async () => [draftTask],
+      onStartAssignedAgentQueueTask,
+      onUpdateAgentQueueTask,
+    });
+    await flushRender();
+
+    expect(card("draft-ready")?.textContent).toContain("Ready to queue");
+    expect(onUpdateAgentQueueTask).not.toHaveBeenCalled();
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+
+    clickButton("Details");
+    await flushRender();
+
+    const queueButton = queueV2ActionButton("Queue for run");
+    expect(queueButton?.disabled).toBe(false);
+    expect(dialogByName("Ready draft")?.textContent).toContain("Ready to queue");
+
+    await clickQueueV2ActionAsync("Queue for run");
+    await flushRender();
+
+    expect(updateRequests).toHaveLength(1);
+    expect(updateRequests[0]).toMatchObject({
+      approvalPolicy: "never",
+      codexExecutable: "codex.cmd",
+      executionWorkspace: "C:\\repo",
+      queueItemId: "draft-ready",
+      sandbox: "workspace_write",
+      status: "queued",
+    });
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
+    expect(buttonByText("Enable Queue")?.disabled).toBe(false);
+    expect(card("draft-ready")?.textContent).not.toContain("StatusDraft");
+  });
+
+  it("sets Codex executable on an existing draft without enabling Queue or starting work", async () => {
+    const onStartAssignedAgentQueueTask = vi.fn();
+    const onUpdateAgentQueueTask = vi.fn(async (request) =>
+      queueTask({
+        approvalPolicy: request.approvalPolicy ?? null,
+        assignedExecutorWidgetId: "executor-1",
+        codexExecutable: request.codexExecutable ?? null,
+        executionWorkspace: request.executionWorkspace ?? null,
+        prompt: request.prompt,
+        queueItemId: request.queueItemId,
+        sandbox: request.sandbox ?? null,
+        status: request.status,
+        title: request.title,
+      }),
+    );
+    const draftTask = queueTask({
+      assignedExecutorWidgetId: "executor-1",
+      approvalPolicy: "never",
+      codexExecutable: "",
+      executionWorkspace: "C:\\repo",
+      prompt: "Keep this draft in planning.",
+      queueItemId: "draft-codex",
+      sandbox: "workspace_write",
+      status: "draft",
+      title: "Draft needs Codex",
+    });
+
+    renderQueueWidget({
+      onGetAgentQueueTask: async () => draftTask,
+      onListAgentQueueTasks: async () => [draftTask],
+      onStartAssignedAgentQueueTask,
+      onUpdateAgentQueueTask,
+    });
+    await flushRender();
+
+    expect(buttonByText("Enable Queue")?.disabled).toBe(true);
+    expect(buttonByText("Set Codex executable")).not.toBeNull();
+
+    await clickButtonAsync("Set Codex executable");
+    await flushRender();
+
+    expect(dialogByName("Draft needs Codex")).not.toBeNull();
+    setInputByLabel("Codex executable", "codex.cmd");
+    await clickButtonAsync("Save Codex executable");
+    await flushRender();
+
+    expect(onUpdateAgentQueueTask).toHaveBeenCalledWith(
+      expect.objectContaining({
+        codexExecutable: "codex.cmd",
+        queueItemId: "draft-codex",
+        status: "draft",
+      }),
+    );
+    expect(buttonByText("Enable Queue")?.disabled).toBe(false);
+    expect(card("draft-codex")?.textContent).toContain("Draft");
+    expect(card("draft-codex")?.textContent).toContain("Ready to queue");
+    expect(card("draft-codex")?.textContent).not.toContain("Queued");
+    expect(onStartAssignedAgentQueueTask).not.toHaveBeenCalled();
   });
 
   it("submits and cancels New task from the shared popup footer", async () => {

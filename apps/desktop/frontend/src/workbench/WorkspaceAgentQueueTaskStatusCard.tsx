@@ -369,7 +369,8 @@ function queueTaskCardActions({
         ? "Queue draft promotion is unavailable in this chat surface."
         : queue.draftPromotion?.canPromote
           ? null
-          : "Queue draft promotion is unavailable for this task.");
+          : queue.draftPromotion?.disabledReason ??
+            "Queue draft promotion is unavailable for this task.");
   const actions: CardAction[] = [
     {
       disabledReason: onOpenQueueItem

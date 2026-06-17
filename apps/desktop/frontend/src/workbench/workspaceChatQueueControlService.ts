@@ -435,7 +435,8 @@ async function promoteTask(
   if (!queue.draftPromotion?.canPromote) {
     return unavailable(
       "promote_task",
-      "Queue draft promotion is unavailable for this task. Save or cancel edits before queuing it.",
+      queue.draftPromotion?.disabledReason ??
+        "Queue draft promotion is unavailable for this task. Save or cancel edits before queuing it.",
       queueItemId,
     );
   }
