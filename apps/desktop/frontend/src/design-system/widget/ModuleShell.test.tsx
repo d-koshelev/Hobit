@@ -132,10 +132,63 @@ describe("ModuleShell", () => {
     expect(document.body.textContent).toContain("Completed");
     expect(group("right").textContent).toContain("Primary");
     expect(group("right").textContent).toContain("Activity");
+    expect(group("right").textContent).toContain("Settings");
     expect(group("right").textContent).toContain("More");
+    expect(headerActionLabels()).toEqual([
+      "Primary",
+      "Activity",
+      "Settings",
+      "More",
+      "Collapse module body",
+    ]);
     expect(document.querySelector(".module-header-state-completed")).not.toBeNull();
 
     expectForbiddenImports(moduleShellExampleSource);
+  });
+
+  it("opens and closes the dummy settings popup from the header action", async () => {
+    await render(<ModuleShellExample />);
+
+    expect(settingsPopup()).toBeNull();
+
+    await click(buttonWithText("Settings"));
+
+    const popup = settingsPopup();
+    expect(popup).not.toBeNull();
+    expect(popup?.textContent).toContain("Settings");
+    expect(popup?.textContent).toContain("Settings surface");
+    expect(
+      document.querySelector<HTMLButtonElement>(
+        'button[aria-expanded="true"][aria-controls="module-shell-example-settings-popup"]',
+      ),
+    ).not.toBeNull();
+
+    await click(buttonWithAriaLabel("Close settings"));
+
+    expect(settingsPopup()).toBeNull();
+  });
+
+  it("renders the dummy body as two regions split by one rail", async () => {
+    await render(<ModuleShellExample />);
+
+    const rail = document.querySelector("[data-module-body-rail='true']");
+    const primaryRegion = document.querySelector<HTMLElement>(
+      '[aria-label="Primary surface region"]',
+    );
+    const detailRegion = document.querySelector<HTMLElement>(
+      '[aria-label="Detail stack region"]',
+    );
+
+    expect(rail).not.toBeNull();
+    expect(primaryRegion?.textContent).toContain("Primary surface");
+    expect(primaryRegion?.textContent).toContain(
+      "Static clean canvas content for the shared module shell.",
+    );
+    expect(detailRegion?.textContent).toContain("Detail stack");
+    expect(detailRegion?.textContent).toContain(
+      "Neutral placeholder content inside the module body.",
+    );
+    expect(document.querySelector(".module-shell-example-zone")).toBeNull();
   });
 
   it("keeps ModuleShell source imports domain-free", () => {
@@ -171,6 +224,30 @@ function buttonWithAriaLabel(label: string) {
   }
 
   return button;
+}
+
+function buttonWithText(label: string) {
+  const button = Array.from(document.querySelectorAll("button")).find(
+    (candidate) => candidate.textContent?.trim() === label,
+  );
+
+  if (!button) {
+    throw new Error(`Button not found: ${label}`);
+  }
+
+  return button;
+}
+
+function headerActionLabels() {
+  return Array.from(group("right").querySelectorAll("button")).map(
+    (button) => button.textContent?.trim() || button.getAttribute("aria-label"),
+  );
+}
+
+function settingsPopup() {
+  return document.querySelector<HTMLElement>(
+    "#module-shell-example-settings-popup[role='dialog']",
+  );
 }
 
 function group(side: "left" | "right") {

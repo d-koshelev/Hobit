@@ -31,9 +31,11 @@ describe("ModuleShell visual preview smoke app", () => {
     expect(document.querySelector(".module-shell")).not.toBeNull();
     expect(document.body.textContent).toContain("Dummy Module");
     expect(document.body.textContent).toContain("Completed");
+    expect(document.body.textContent).toContain("Settings");
     expect(document.body.textContent).toContain(
       "Static clean canvas content for the shared module shell.",
     );
+    expect(document.querySelector("[data-module-body-rail='true']")).not.toBeNull();
   });
 
   it("keeps the preview entrypoint isolated from product modules and runtime APIs", () => {

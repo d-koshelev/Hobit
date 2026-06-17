@@ -211,7 +211,11 @@ export function ModuleHeaderMinimize({
         .join(" ")}
       title={title ?? defaultLabel}
     >
-      {collapsed ? "+" : "-"}
+      <span
+        aria-hidden="true"
+        className="module-header-minimize-mark"
+        data-collapsed={collapsed ? "true" : "false"}
+      />
     </ModuleHeaderAction>
   );
 }
