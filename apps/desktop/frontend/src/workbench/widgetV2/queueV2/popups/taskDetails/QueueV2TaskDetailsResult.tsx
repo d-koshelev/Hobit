@@ -7,6 +7,16 @@ import type {
 import type { WidgetRenderProps } from "../../../../types";
 import type { AgentQueueController } from "../../../../queue/details/agentQueueTaskDetailsTypes";
 import { AgentQueueTaskResultEvidenceSection } from "../../../../queue/details/AgentQueueTaskResultEvidenceSection";
+import {
+  AgentQueueTaskReviewEvidenceSection,
+  type QueueReviewEvidenceActionState,
+} from "../../../../queue/details/AgentQueueTaskReviewEvidenceSection";
+import type {
+  QueueReviewEvidenceBrokerAction,
+} from "../../../../queue/queueReviewEvidenceActions";
+import type {
+  QueueAgentReviewEvidenceBundleOutput,
+} from "../../../../agents/adapters/queueAgentCapabilityTypes";
 import type { QueuePromptPackImportMetadata } from "../../../../promptPack/queuePromptPackMetadata";
 import { QueueV2FilesValidationSection } from "../../QueueV2ValidationEvidenceSection";
 import { QueueV2CoordinatorSection } from "../../QueueV2CoordinatorSection";
@@ -23,8 +33,13 @@ export function QueueV2TaskDetailsResult({
   onListKnowledgeDraftReviews,
   onRecordKnowledgeDraftReview,
   onShowQueueReportInWorkspaceChat,
+  onRefreshReviewEvidence,
+  onReviewEvidenceAction,
   promptPackMetadata,
   queue,
+  reviewEvidenceActionState,
+  reviewEvidenceLoading,
+  reviewEvidenceOutput,
   task,
   validationEvidence,
   validationRequestMessage,
@@ -40,8 +55,15 @@ export function QueueV2TaskDetailsResult({
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
+  onRefreshReviewEvidence?: () => Promise<void> | void;
+  onReviewEvidenceAction?: (
+    action: QueueReviewEvidenceBrokerAction,
+  ) => Promise<void> | void;
   promptPackMetadata: QueuePromptPackImportMetadata | null;
   queue?: AgentQueueController;
+  reviewEvidenceActionState?: QueueReviewEvidenceActionState;
+  reviewEvidenceLoading?: boolean;
+  reviewEvidenceOutput?: QueueAgentReviewEvidenceBundleOutput | null;
   task: AgentQueueTask;
   validationEvidence: ReturnType<typeof queueV2ValidationEvidenceView> | null;
   validationRequestMessage: string | null;
@@ -53,6 +75,14 @@ export function QueueV2TaskDetailsResult({
 
   return (
     <div className="queue-v2-task-details-section">
+      <AgentQueueTaskReviewEvidenceSection
+        actionState={reviewEvidenceActionState}
+        evidenceOutput={reviewEvidenceOutput}
+        isLoading={reviewEvidenceLoading}
+        onRefreshReviewEvidence={onRefreshReviewEvidence}
+        onReviewAction={onReviewEvidenceAction}
+        taskViewModel={taskViewModel}
+      />
       {queue && hasResultEvidenceBridge ? (
         <AgentQueueTaskResultEvidenceSection
           onCreateKnowledgeDocument={onCreateKnowledgeDocument}

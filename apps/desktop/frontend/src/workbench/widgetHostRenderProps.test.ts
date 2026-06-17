@@ -155,6 +155,7 @@ describe("widgetHostRenderProps", () => {
       ok: true,
       safetyClass: "safe_create_update" as const,
     }));
+    const invokeHobitAgentActionRequest = vi.fn();
     const workspaceQueue = workspaceQueueApi({
       createItem,
       getCurrentWorkspaceRoot: () => "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
@@ -164,6 +165,7 @@ describe("widgetHostRenderProps", () => {
         executionWorkspace: "~",
         sandbox: "read_only",
       }),
+      invokeHobitAgentActionRequest,
     });
     const queueProps = renderPropsFor(AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY, {
       currentWorkspaceRoot: "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
@@ -187,6 +189,9 @@ describe("widgetHostRenderProps", () => {
 
     expect(queueProps.currentWorkspaceRoot).toBe(
       "C:/Users/Dmitry/Documents/prj/Hobit_fixed",
+    );
+    expect(queueProps.onInvokeHobitAgentActionRequest).toBe(
+      invokeHobitAgentActionRequest,
     );
 
     const result = await agentProps.createQueueItemsFromPromptPackPreview?.(

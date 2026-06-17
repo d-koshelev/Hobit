@@ -23,7 +23,8 @@ lifecycle broker capabilities, a full fake broker-driven Queue dogfood loop
 self-test, a frontend Queue worker evidence bundle model/adapter path, and
 a frontend Queue worker evidence ingestion bridge, a Queue-linked Direct Work
 metadata seam, Queue-linked Direct Work evidence event wiring, and focused
-smoke coverage.
+smoke coverage, plus a minimal active Queue details review/evidence UI for
+explicit broker-driven coordinator review actions.
 
 The durable Smart Queue backend/runtime is not implemented yet. Current Smart
 Queue modules are frontend/product-model foundations unless explicitly noted
@@ -56,6 +57,8 @@ The current implemented frontend behavior is:
 - Queue-linked Direct Work completion event wiring from valid explicit
   Queue-linked metadata plus matching final Agent Executor run detail into the
   existing evidence ingestion bridge and Action Broker path;
+- minimal active Queue details review/evidence presentation and explicit
+  broker-action controls for awaiting-review / in-review dogfood items;
 - worker failure/stuck report to coordinator decision integration;
 - QueueV2 Coordinator Decision Card;
 - Retry same action;
@@ -288,8 +291,8 @@ adapter integration and typed frontend Action Broker capability access.
   agent-finished transitions, coordinator ACK, done/follow-up decisions,
   dependency done gates, and product-facing lifecycle presentation.
 - QueueV2 view-model helpers can consume an explicit dogfood lifecycle overlay
-  to show `Awaiting review`, `In review`, `Done`, `Failure`, `Agent completed`,
-  `Agent not completed`, `Agent failed`, `Follow-up prompt running`,
+  to show `Awaiting review`, `In review`, `Done`, `Failed`, `Agent completed`,
+  `Agent did not complete`, `Agent failed`, `Follow-up prompt running`,
   `Review acknowledged`, `Waiting for coordinator review`, and `Additional
   prompts: N` without redesigning Queue cards.
 - Frontend dependency summaries can use the dogfood overlay so dependents stay
@@ -397,6 +400,38 @@ adapter integration and typed frontend Action Broker capability access.
   broad automatic real worker result event integration, scheduler redesign, validation
   execution, Git commit execution, rollback, storage/schema migration,
   Tauri/IPC behavior, Queue UI redesign, or Finder behavior.
+
+### Queue review/evidence minimal UI
+
+Implemented in the active Queue product details path.
+
+- `apps/desktop/frontend/src/workbench/queue/queueReviewEvidenceViewModel.ts`
+  maps dogfood lifecycle/evidence state into bounded product-facing labels and
+  previews for the current Queue details surface.
+- `apps/desktop/frontend/src/workbench/queue/queueReviewEvidenceActions.ts`
+  builds structured `hobit.action.request` envelopes for explicit review
+  actions. It does not parse user prompt text or infer task ids.
+- `apps/desktop/frontend/src/workbench/queue/details/AgentQueueTaskReviewEvidenceSection.tsx`
+  renders a compact `Dogfood review` section in the active QueueV2 task details
+  Result tab only when evidence, awaiting-review, in-review, dogfood overlay,
+  or follow-up prompt state is relevant.
+- The section shows lifecycle status, agent outcome, final agent message
+  preview, changed-file count and capped filenames, validation summary/output
+  preview, run/log references when available, and the frontend-only/not durable
+  evidence label.
+- Explicit review actions are wired through the Action Broker dependency where
+  available: create review message, acknowledge review, approve validation,
+  add follow-up prompt, mark done, mark failed, block, refresh evidence, and
+  lifecycle reads.
+- If the broker dependency is unavailable, the UI shows compact unavailable
+  state and does not fake success.
+- Follow-up prompt and fail/block inputs are small bounded text inputs with
+  required-field validation.
+- The section does not run validation, call Git, attach a real commit, execute
+  rollback, launch Terminal, call shell/Codex, start workers, auto-start
+  dependents, auto-create review messages, auto-ACK, auto-mark done, create a
+  duplicate Queue view, persist backend state, redesign the Queue board/cards,
+  or add Finder/Knowledge behavior.
 
 ### Frontend worker failure/stuck report integration
 
@@ -523,6 +558,9 @@ as available from the foundation above:
 - broad automatic real worker result event integration with the dogfood
   lifecycle model;
 - durable worker evidence bundle persistence;
+- durable Queue review message/ACK/decision persistence;
+- restart recovery for dogfood lifecycle/evidence review state;
+- full Queue review/evidence UI redesign or polish;
 - real validation evidence execution or durable attachment to the dogfood
   lifecycle model;
 - real commit execution or durable commit metadata attachment;

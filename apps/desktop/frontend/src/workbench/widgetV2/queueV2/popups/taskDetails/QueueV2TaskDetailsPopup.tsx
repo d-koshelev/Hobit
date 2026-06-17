@@ -16,6 +16,15 @@ import type { AgentQueueController } from "../../../../queue/details/agentQueueT
 import type { WidgetRenderProps } from "../../../../types";
 import type { QueueValidationRunResult } from "../../../../queue/queueValidationEvidenceService";
 import type { ValidationRunner } from "../../../../validation";
+import type {
+  QueueAgentReviewEvidenceBundleOutput,
+} from "../../../../agents/adapters/queueAgentCapabilityTypes";
+import type {
+  QueueReviewEvidenceBrokerAction,
+} from "../../../../queue/queueReviewEvidenceActions";
+import type {
+  QueueReviewEvidenceActionState,
+} from "../../../../queue/details/AgentQueueTaskReviewEvidenceSection";
 import {
   buildQueueV2TaskDetailsActions,
   type QueueV2DetailsTab,
@@ -55,11 +64,18 @@ export type QueueV2TaskDetailsPopupProps = {
   ) => Promise<QueueValidationRunResult>;
   onOpenLinkedTask?: (taskId: string) => void;
   onRequestClose: () => void;
+  onRefreshReviewEvidence?: (taskId: string) => Promise<void> | void;
+  onReviewEvidenceAction?: (
+    action: QueueReviewEvidenceBrokerAction,
+  ) => Promise<void> | void;
   onShowQueueReportInWorkspaceChat?: (
     card: AgentQueueReportActionCard,
   ) => void;
   onShowQueueTaskInWorkspaceChat?: (task: AgentQueueTask) => void;
   queue?: AgentQueueController;
+  reviewEvidenceActionState?: QueueReviewEvidenceActionState;
+  reviewEvidenceLoadingTaskId?: string | null;
+  reviewEvidenceOutput?: QueueAgentReviewEvidenceBundleOutput | null;
   returnFocusRef?: RefObject<HTMLElement | null>;
   showCoordinatorDecisionCard?: boolean;
   taskViewModel: QueueTaskViewModel | null;
@@ -78,9 +94,14 @@ export function QueueV2TaskDetailsPopup({
   onRequestValidation,
   onOpenLinkedTask,
   onRequestClose,
+  onRefreshReviewEvidence,
+  onReviewEvidenceAction,
   onShowQueueReportInWorkspaceChat,
   onShowQueueTaskInWorkspaceChat,
   queue,
+  reviewEvidenceActionState,
+  reviewEvidenceLoadingTaskId = null,
+  reviewEvidenceOutput,
   returnFocusRef,
   showCoordinatorDecisionCard = false,
   taskViewModel,
@@ -239,11 +260,20 @@ export function QueueV2TaskDetailsPopup({
                 onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
                 promptPackMetadata={promptPackMetadata}
                 queue={queue}
+                reviewEvidenceActionState={reviewEvidenceActionState}
+                reviewEvidenceLoading={reviewEvidenceLoadingTaskId === task.queueItemId}
+                reviewEvidenceOutput={reviewEvidenceOutput}
                 task={task}
                 validationEvidence={validationEvidence}
                 validationRequestMessage={validationRequestMessage}
                 validationRequestState={validationRequestState}
                 onOpenLinkedTask={onOpenLinkedTask}
+                onRefreshReviewEvidence={
+                  onRefreshReviewEvidence
+                    ? () => onRefreshReviewEvidence(task.queueItemId)
+                    : undefined
+                }
+                onReviewEvidenceAction={onReviewEvidenceAction}
                 taskViewModel={taskViewModel}
               />
             }

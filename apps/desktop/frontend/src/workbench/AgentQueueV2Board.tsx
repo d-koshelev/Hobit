@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Badge } from "../design-system/Badge";
 import { Button } from "../design-system/Button";
@@ -16,6 +16,15 @@ import {
   type QueueTaskViewModel,
   type QueueWorkerSnapshot,
 } from "./queue/queueV2ViewModel";
+import {
+  invokeQueueReviewEvidenceBrokerAction,
+  readKnownQueueDogfoodLifecycles,
+  readQueueReviewEvidenceBundle,
+  type QueueReviewEvidenceBrokerAction,
+} from "./queue/queueReviewEvidenceActions";
+import {
+  queueReviewEvidenceOutputIsRelevant,
+} from "./queue/queueReviewEvidenceViewModel";
 import {
   queueV2NextActionLabel,
 } from "./queue/queueV2NextActionModel";
@@ -41,6 +50,15 @@ import type {
   QueueValidationRunResult,
 } from "./queue/queueValidationEvidenceService";
 import type { ValidationRunner } from "./validation";
+import type {
+  SmartQueueDogfoodLifecycleItem,
+} from "./queue/smartQueueDogfoodLifecycle";
+import type {
+  QueueAgentReviewEvidenceBundleOutput,
+} from "./agents/adapters/queueAgentCapabilityTypes";
+import type {
+  QueueReviewEvidenceActionState,
+} from "./queue/details/AgentQueueTaskReviewEvidenceSection";
 
 type AgentQueueV2BoardProps = {
   autorunArmed: boolean;
@@ -51,6 +69,7 @@ type AgentQueueV2BoardProps = {
   onCreateSkill?: WidgetRenderProps["onCreateSkill"];
   onListKnowledgeDraftReviews?: WidgetRenderProps["onListKnowledgeDraftReviews"];
   onRecordKnowledgeDraftReview?: WidgetRenderProps["onRecordKnowledgeDraftReview"];
+  onInvokeHobitAgentActionRequest?: WidgetRenderProps["onInvokeHobitAgentActionRequest"];
   onSelectTask: (queueItemId: string) => void;
   onRequestNewTask?: () => void;
   onRequestValidation?: (task: AgentQueueTask, runner: ValidationRunner) => Promise<QueueValidationRunResult>;
@@ -87,6 +106,7 @@ export function AgentQueueV2Board({
   onCreateSkill,
   onListKnowledgeDraftReviews,
   onRecordKnowledgeDraftReview,
+  onInvokeHobitAgentActionRequest,
   onRequestNewTask,
   onRequestValidation,
   onSelectTask,
@@ -100,12 +120,167 @@ export function AgentQueueV2Board({
   workers,
 }: AgentQueueV2BoardProps) {
   const [detailsTaskId, setDetailsTaskId] = useState<string | null>(null);
+  const [dogfoodLifecycles, setDogfoodLifecycles] = useState<
+    SmartQueueDogfoodLifecycleItem[]
+  >([]);
+  const [reviewEvidenceByTaskId, setReviewEvidenceByTaskId] = useState<
+    Record<string, QueueAgentReviewEvidenceBundleOutput>
+  >({});
+  const [reviewEvidenceLoadingTaskId, setReviewEvidenceLoadingTaskId] =
+    useState<string | null>(null);
+  const [reviewEvidenceActionState, setReviewEvidenceActionState] =
+    useState<QueueReviewEvidenceActionState>({
+      loading: false,
+      message: null,
+      status: "idle",
+    });
   const previousDetailsLaneRef = useRef<QueueBoardLane | null>(null);
   const detailsReturnFocusRef = useRef<HTMLButtonElement | null>(null);
+  const mergeDogfoodLifecycles = useCallback(
+    (nextLifecycles: readonly SmartQueueDogfoodLifecycleItem[]) => {
+      if (nextLifecycles.length === 0) {
+        return;
+      }
+
+      setDogfoodLifecycles((current) => {
+        const merged = new Map(current.map((item) => [item.taskId, item]));
+        for (const lifecycle of nextLifecycles) {
+          merged.set(lifecycle.taskId, lifecycle);
+        }
+
+        return [...merged.values()];
+      });
+    },
+    [],
+  );
+  const refreshReviewEvidence = useCallback(
+    async (taskId: string) => {
+      if (!onInvokeHobitAgentActionRequest) {
+        setReviewEvidenceActionState({
+          loading: false,
+          message: "Review evidence unavailable.",
+          status: "error",
+        });
+        return;
+      }
+
+      setReviewEvidenceLoadingTaskId(taskId);
+      try {
+        const result = await readQueueReviewEvidenceBundle(
+          {
+            invokeHobitAgentActionRequest: onInvokeHobitAgentActionRequest,
+          },
+          taskId,
+        );
+
+        if (result.output && queueReviewEvidenceOutputIsRelevant(result.output)) {
+          setReviewEvidenceByTaskId((current) => ({
+            ...current,
+            [taskId]: result.output!,
+          }));
+          mergeDogfoodLifecycles([result.output.lifecycle]);
+        }
+
+        if (!result.ok) {
+          setReviewEvidenceActionState({
+            loading: false,
+            message: result.message,
+            status: "error",
+          });
+        }
+      } catch (error) {
+        setReviewEvidenceActionState({
+          loading: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Review evidence could not be loaded.",
+          status: "error",
+        });
+      } finally {
+        setReviewEvidenceLoadingTaskId(null);
+      }
+    },
+    [mergeDogfoodLifecycles, onInvokeHobitAgentActionRequest],
+  );
+  const refreshKnownDogfoodLifecycles = useCallback(async () => {
+    if (!onInvokeHobitAgentActionRequest) {
+      return;
+    }
+
+    try {
+      const result = await readKnownQueueDogfoodLifecycles({
+        invokeHobitAgentActionRequest: onInvokeHobitAgentActionRequest,
+      });
+      if (result.ok) {
+        mergeDogfoodLifecycles(result.lifecycles);
+      }
+    } catch {
+      // Known lifecycle refresh is opportunistic; selected-task evidence load
+      // reports actionable errors in the details section.
+    }
+  }, [mergeDogfoodLifecycles, onInvokeHobitAgentActionRequest]);
+  const runReviewEvidenceAction = useCallback(
+    async (action: QueueReviewEvidenceBrokerAction) => {
+      if (!onInvokeHobitAgentActionRequest) {
+        setReviewEvidenceActionState({
+          loading: false,
+          message: "Review actions unavailable.",
+          status: "error",
+        });
+        return;
+      }
+
+      setReviewEvidenceActionState({
+        loading: true,
+        message: null,
+        status: "idle",
+      });
+
+      try {
+        const result = await invokeQueueReviewEvidenceBrokerAction(
+          {
+            invokeHobitAgentActionRequest: onInvokeHobitAgentActionRequest,
+          },
+          action,
+        );
+
+        if (result.lifecycle) {
+          mergeDogfoodLifecycles([result.lifecycle]);
+        }
+
+        setReviewEvidenceActionState({
+          loading: false,
+          message: result.message,
+          status: result.ok ? "success" : "error",
+        });
+
+        if (result.ok) {
+          await refreshReviewEvidence(action.taskId);
+        }
+      } catch (error) {
+        setReviewEvidenceActionState({
+          loading: false,
+          message:
+            error instanceof Error
+              ? error.message
+              : "Review action failed.",
+          status: "error",
+        });
+      }
+    },
+    [
+      mergeDogfoodLifecycles,
+      onInvokeHobitAgentActionRequest,
+      refreshReviewEvidence,
+    ],
+  );
   const board = useMemo(
     () =>
       selectQueueV2ViewModel({
         autorunArmed,
+        dogfoodLifecycles:
+          dogfoodLifecycles.length > 0 ? dogfoodLifecycles : null,
         globalExecutionState,
         pausedQueueTagIds,
         selectedTaskId: detailsTaskId ?? selectedTask?.queueItemId ?? null,
@@ -115,6 +290,7 @@ export function AgentQueueV2Board({
     [
       autorunArmed,
       detailsTaskId,
+      dogfoodLifecycles,
       globalExecutionState,
       pausedQueueTagIds,
       selectedTask?.queueItemId,
@@ -146,6 +322,18 @@ export function AgentQueueV2Board({
     hasCodexExecutable: tasks.some((task) => Boolean(task.codexExecutable?.trim())),
     hasQueueControls: Boolean(queue?.foundation?.onStartWorkers),
   });
+
+  useEffect(() => {
+    void refreshKnownDogfoodLifecycles();
+  }, [refreshKnownDogfoodLifecycles, tasks.length]);
+
+  useEffect(() => {
+    if (!detailsTaskId || !onInvokeHobitAgentActionRequest) {
+      return;
+    }
+
+    void refreshReviewEvidence(detailsTaskId);
+  }, [detailsTaskId, onInvokeHobitAgentActionRequest, refreshReviewEvidence]);
 
   useEffect(() => {
     if (!detailsTaskId) {
@@ -292,9 +480,20 @@ export function AgentQueueV2Board({
         onRequestNewTask={onRequestNewTask}
         onRequestValidation={onRequestValidation}
         onRequestClose={() => setDetailsTaskId(null)}
-          onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
-          onShowQueueTaskInWorkspaceChat={onShowQueueTaskInWorkspaceChat}
+        onRefreshReviewEvidence={
+          onInvokeHobitAgentActionRequest ? refreshReviewEvidence : undefined
+        }
+        onReviewEvidenceAction={
+          onInvokeHobitAgentActionRequest ? runReviewEvidenceAction : undefined
+        }
+        onShowQueueReportInWorkspaceChat={onShowQueueReportInWorkspaceChat}
+        onShowQueueTaskInWorkspaceChat={onShowQueueTaskInWorkspaceChat}
         queue={queue}
+        reviewEvidenceActionState={reviewEvidenceActionState}
+        reviewEvidenceLoadingTaskId={reviewEvidenceLoadingTaskId}
+        reviewEvidenceOutput={
+          detailsTaskId ? reviewEvidenceByTaskId[detailsTaskId] ?? null : null
+        }
         returnFocusRef={detailsReturnFocusRef}
         showCoordinatorDecisionCard
         taskViewModel={detailTaskViewModel}

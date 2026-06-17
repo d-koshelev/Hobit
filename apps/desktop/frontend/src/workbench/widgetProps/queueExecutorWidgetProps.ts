@@ -99,6 +99,8 @@ export function agentQueueWidgetProps({
     onAttachContextToCoordinator,
     onCreateKnowledgeDocument: actions.createKnowledgeDocument,
     onCreateSkill: actions.createSkill,
+    onInvokeHobitAgentActionRequest:
+      workspaceQueueApi.invokeHobitAgentActionRequest,
     onListKnowledgeDraftReviews: actions.listKnowledgeDraftReviews,
     onRecordKnowledgeDraftReview: actions.recordKnowledgeDraftReview,
     onShowQueueReportInWorkspaceChat,

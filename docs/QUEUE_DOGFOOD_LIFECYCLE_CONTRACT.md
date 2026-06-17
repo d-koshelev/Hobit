@@ -19,7 +19,8 @@ adapter integration, typed frontend Action Broker capability access, a
 frontend Queue worker evidence bundle model, a frontend Queue worker evidence
 ingestion bridge, a Queue-linked Direct Work metadata seam, and a broker-driven
 Queue-linked Direct Work evidence event wiring path, and a broker-driven fake
-dogfooding loop self-test.
+dogfooding loop self-test, plus a minimal active Queue details review/evidence
+surface for explicit coordinator review actions.
 
 The implemented model and adapter layer live under:
 
@@ -27,6 +28,8 @@ The implemented model and adapter layer live under:
 - `apps/desktop/frontend/src/workbench/queue/smartQueueDogfoodLifecycleController.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceIngestion.ts`
+- `apps/desktop/frontend/src/workbench/queue/queueReviewEvidence*.ts`
+- `apps/desktop/frontend/src/workbench/queue/details/AgentQueueTaskReviewEvidenceSection.tsx`
 - `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkMetadata.ts`
 - `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`
 - `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`
@@ -276,6 +279,46 @@ validation, mark done, start dependents, start workers, run validation, run
 Git/commit commands, execute rollback, launch Terminal, call shell/Codex,
 create Queue views, or persist backend state.
 
+## Minimal Queue Review/Evidence Surface
+
+The active Queue product route now has a minimal details Result-tab section for
+dogfood review/evidence. It is intentionally bounded and does not redesign the
+Queue board, global task cards, sidebar, popup system, Agent Activity,
+Workspace Agent transcript, Finder, or Knowledge / Skills.
+
+The section renders only when review/evidence state is relevant: frontend
+worker evidence exists, a linked item is awaiting review or in review, a
+dogfood lifecycle overlay exists, or a follow-up prompt is running. It shows
+product-facing labels such as `Awaiting review`, `In review`, `Done`, `Failed`,
+`Agent completed`, `Agent did not complete`, `Agent failed`, `Evidence
+available`, `Waiting for coordinator review`, and `Follow-up prompt running`.
+It caps final agent messages, changed-file previews, and validation output
+previews. It does not render raw lifecycle enum names, raw huge JSON, or huge
+logs inline.
+
+The section uses typed Action Broker capabilities for explicit review actions
+where the broker dependency is injected into the current Queue surface:
+
+- `queue.review.createMessage`
+- `queue.review.ack`
+- `queue.coordinator.approveValidation`
+- `queue.coordinator.addFollowUpPrompt`
+- `queue.item.markDone`
+- `queue.item.fail`
+- `queue.item.block`
+- `queue.review.getEvidenceBundle`
+- `queue.lifecycle.get`
+
+If broker access is unavailable, the section shows a compact unavailable state
+instead of fake-working buttons or fake success. Follow-up prompts and fail/block
+reasons require bounded explicit text.
+
+This UI remains frontend-only/current-session overlay behavior. It does not add
+backend durability, restart recovery, schema changes, validation execution, Git
+commit execution, rollback execution, hidden worker start, hidden dependent
+start, auto-ACK, auto-review-message creation, auto-done, task id inference, or
+natural-language product-action routing.
+
 ## Follow-Up Prompts
 
 Follow-up prompt records include:
@@ -422,9 +465,8 @@ Human-facing helpers return labels such as:
 - Awaiting review
 - In review
 - Done
-- Failure
+- Failed
 - Agent completed
-- Agent not completed
 - Agent failed
 - Agent did not complete
 - N changed files

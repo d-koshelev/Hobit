@@ -40,6 +40,7 @@ export function AgentQueuePlaceholderWidget({
   onLoadLogs,
   onCreateKnowledgeDocument,
   onCreateSkill,
+  onInvokeHobitAgentActionRequest,
   onListKnowledgeDraftReviews,
   onRecordKnowledgeDraftReview,
   onRequestQueueValidation,
@@ -249,6 +250,7 @@ export function AgentQueuePlaceholderWidget({
               isSelecting={isSelecting}
               onCreateKnowledgeDocument={onCreateKnowledgeDocument}
               onCreateSkill={onCreateSkill}
+              onInvokeHobitAgentActionRequest={onInvokeHobitAgentActionRequest}
               onListKnowledgeDraftReviews={onListKnowledgeDraftReviews}
               onRecordKnowledgeDraftReview={onRecordKnowledgeDraftReview}
               onRequestValidation={onRequestQueueValidation}

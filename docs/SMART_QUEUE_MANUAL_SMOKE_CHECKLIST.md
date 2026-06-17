@@ -75,9 +75,9 @@ During the smoke, verify these product labels appear where applicable:
 - `Awaiting review`
 - `In review`
 - `Done`
-- `Failure`
+- `Failed`
 - `Agent completed`
-- `Agent not completed`
+- `Agent did not complete`
 - `Agent failed`
 - `Follow-up prompt running`
 - `Review acknowledged`
@@ -103,6 +103,12 @@ During the smoke, verify these product labels appear where applicable:
 - `Coordinator ACK - in review`
 - `Validation approved`
 - `Mark done`
+- `Create review message`
+- `Acknowledge review`
+- `Approve validation`
+- `Add follow-up prompt`
+- `Mark failed`
+- `Block`
 - `Dependent unblocked after done`
 - `Follow-up prompt returns to running`
 - `Backend durability is not covered`
@@ -388,13 +394,37 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: backend durability, real validation execution, real Git commit
       execution, and full app restart recovery remain not implemented.
 
-24. Check for side effects.
+24. Inspect the minimal Queue review/evidence UI for a task that reached
+    `Awaiting review` or `In review` through explicit Queue-linked evidence.
+    - Expected: the active QueueV2 task details Result tab shows a compact
+      `Dogfood review` section only for relevant review/evidence state.
+    - Expected: the section shows product-facing lifecycle status, agent
+      outcome, evidence availability, bounded final agent message, changed-file
+      count with a capped filename preview, validation summary/output preview,
+      run/log reference when available, and a compact frontend-only/not durable
+      evidence label.
+    - Expected: explicit review actions use broker capabilities where wired:
+      `Create review message`, `Acknowledge review`, `Approve validation`,
+      `Add follow-up prompt`, `Mark done`, `Mark failed`, and `Block`.
+    - Expected: follow-up prompt and fail/block reason inputs reject empty text
+      with product-facing validation messages.
+    - Expected: if broker access is unavailable, the section shows a compact
+      unavailable state and does not show fake success.
+    - Expected: the UI does not auto-create a review message, auto-ACK, approve
+      validation by itself, mark done by itself, start dependents, start
+      workers, run validation, call Git, execute rollback, launch Terminal,
+      call shell/Codex, create another Queue view, or add backend durability.
+    - Expected: full review/evidence UI polish, backend persistence, real
+      validation execution, real Git commit execution, and restart recovery
+      remain future work.
+
+25. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
       call, rollback execution, or hidden worker start happened during preview,
       creation, retry preparation, assistance preparation, or rollback
       proposal preparation.
 
-25. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
+26. Run a Workspace Agent Direct Work prompt and inspect Direct Work request or
     log details where available.
     - Expected: the prompt sent to Codex includes Hobit capability context,
       compact Queue/agent capability names, and policy rules before the user
