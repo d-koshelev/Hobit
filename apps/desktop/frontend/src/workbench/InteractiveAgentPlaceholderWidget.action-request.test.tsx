@@ -11,6 +11,7 @@ import {
   type DirectWorkStreamEvent,
 } from "./InteractiveAgentPlaceholderWidget.test-utils";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import type { AgentQueueItemAggregate } from "../workspace/types";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -256,6 +257,12 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
         selectedItemId: task?.id ?? null,
       }),
     );
+    const listItemAggregates = vi.fn(async () =>
+      task ? [aggregateFromSnapshotItem(task)] : [],
+    );
+    const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>
+      task && task.id === taskId ? aggregateFromSnapshotItem(task) : null,
+    );
     const createItem = vi.fn(
       async (request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) => {
         const createdTask = snapshotItem({
@@ -405,7 +412,9 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
             widgetInstanceId: "executor-1",
           },
         ],
+        getItemAggregate,
         getSnapshot,
+        listItemAggregates,
         startQueueLinkedRun,
         updateItem,
       }),
@@ -430,6 +439,8 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
       executorWidgetId: "executor-1",
       taskId: "task-smoke",
     });
+    expect(listItemAggregates).toHaveBeenCalled();
+    expect(getItemAggregate).toHaveBeenCalledWith({ taskId: "task-smoke" });
     expect(runTerminal).not.toHaveBeenCalled();
     expect(createGitCommit).not.toHaveBeenCalled();
     expect(lastOperatorMessageText()).toBe("Run the Queue dogfooding smoke.");
@@ -529,6 +540,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
 
   it("stops before invoking a repeated request id during continuation", async () => {
     const getSnapshot = vi.fn(async () => snapshotResult());
+    const listItemAggregates = vi.fn(async () => []);
     const startDirectWork = startDirectWorkWithFinalTexts(
       [
         actionEnvelope({
@@ -549,7 +561,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
 
     renderWidget({
       onStartCodexDirectWorkStream: startDirectWork,
-      workspaceAgentQueueBridge: queueBridge({ getSnapshot }),
+      workspaceAgentQueueBridge: queueBridge({ getSnapshot, listItemAggregates }),
       workspaceId: "workspace_1",
     });
 
@@ -557,7 +569,8 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     await flushAsync();
 
     expect(startDirectWork).toHaveBeenCalledTimes(2);
-    expect(getSnapshot).toHaveBeenCalledTimes(1);
+    expect(listItemAggregates).toHaveBeenCalledTimes(1);
+    expect(getSnapshot).not.toHaveBeenCalled();
     expect(lastAssistantMessageText()).toContain(
       "Action 2/16: queue.items.list",
     );
@@ -568,6 +581,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
 
   it("derives missing and blank request ids during continuation without false repeated-id stops", async () => {
     const getSnapshot = vi.fn(async () => snapshotResult());
+    const listItemAggregates = vi.fn(async () => []);
     const startDirectWork = startDirectWorkWithFinalTexts(
       [
         actionEnvelope({
@@ -589,7 +603,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
 
     renderWidget({
       onStartCodexDirectWorkStream: startDirectWork,
-      workspaceAgentQueueBridge: queueBridge({ getSnapshot }),
+      workspaceAgentQueueBridge: queueBridge({ getSnapshot, listItemAggregates }),
       workspaceId: "workspace_1",
     });
 
@@ -597,7 +611,8 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     await flushAsync();
 
     expect(startDirectWork).toHaveBeenCalledTimes(3);
-    expect(getSnapshot).toHaveBeenCalledTimes(2);
+    expect(listItemAggregates).toHaveBeenCalledTimes(2);
+    expect(getSnapshot).not.toHaveBeenCalled();
     expect(allAssistantMessageText()).toEqual(
       expect.arrayContaining([
         expect.stringContaining("Action 1/16: queue.items.list"),
@@ -612,6 +627,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
 
   it("stops at the broker continuation action budget", async () => {
     const getSnapshot = vi.fn(async () => snapshotResult());
+    const listItemAggregates = vi.fn(async () => []);
     const startDirectWork = startDirectWorkWithFinalTexts(
       Array.from({ length: 17 }, (_value, index) =>
         actionEnvelope({
@@ -626,7 +642,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
 
     renderWidget({
       onStartCodexDirectWorkStream: startDirectWork,
-      workspaceAgentQueueBridge: queueBridge({ getSnapshot }),
+      workspaceAgentQueueBridge: queueBridge({ getSnapshot, listItemAggregates }),
       workspaceId: "workspace_1",
     });
 
@@ -634,7 +650,8 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     await flushAsync(160);
 
     expect(startDirectWork).toHaveBeenCalledTimes(16);
-    expect(getSnapshot).toHaveBeenCalledTimes(16);
+    expect(listItemAggregates).toHaveBeenCalledTimes(16);
+    expect(getSnapshot).not.toHaveBeenCalled();
     expect(lastAssistantMessageText()).toContain(
       "Action 16/16: queue.items.list",
     );
@@ -1034,4 +1051,101 @@ function snapshotItem(
     workspaceId: "workspace_1",
     ...overrides,
   } as QueueWidgetItemSnapshot;
+}
+
+function aggregateFromSnapshotItem(
+  item: QueueWidgetItemSnapshot,
+): AgentQueueItemAggregate {
+  const latestRun = item.runLinks?.[0]
+    ? {
+        completedAt: item.runLinks[0].completedAt ?? null,
+        executorWidgetId: item.runLinks[0].executorWidgetId,
+        finalDetailAvailable: true,
+        reviewStatus: item.runLinks[0].reviewStatus ?? null,
+        runId: item.runLinks[0].directWorkRunId,
+        runLinkId: item.runLinks[0].linkId,
+        source: item.runLinks[0].source,
+        startedAt: item.runLinks[0].startedAt,
+        status: item.runLinks[0].status,
+        validationStatus: item.runLinks[0].validationStatus ?? null,
+      }
+    : null;
+  const blockers = (item.blockers ?? []).map((blocker) => ({
+    code: blocker.code,
+    message: blocker.message,
+  }));
+
+  return {
+    blockers,
+    commitState: "none",
+    dependencyState: item.dependencies.length > 0 ? "waiting" : "none",
+    durableFlags: {
+      commitState: false,
+      dependencyState: true,
+      evidenceState: false,
+      frontendOverlayUsed: false,
+      latestRunLink: Boolean(latestRun),
+      reviewState: false,
+      taskRow: true,
+      validationState: true,
+    },
+    evidenceState: latestRun ? "available" : "none",
+    evidenceSummary: latestRun
+      ? {
+          available: true,
+          notDurableReason: null,
+          source: "latest_run_link",
+          summary: "Latest run evidence available.",
+        }
+      : null,
+    latestRun,
+    nextActions: nextActionsForSnapshotItem(item, blockers),
+    reviewState: "not_requested",
+    runSettings: {
+      approvalPolicy: item.approvalPolicy ?? null,
+      assignedExecutorWidgetId: item.assignedExecutorWidgetId ?? null,
+      codexExecutable: item.codexExecutable ?? null,
+      executionPolicy: item.executionPolicy ?? "manual",
+      executionWorkspace: item.executionWorkspace ?? null,
+      sandbox: item.sandbox ?? null,
+    },
+    taskId: item.id,
+    ticketState: item.status,
+    title: item.title,
+    updatedAt: item.updatedAt ?? "2026-06-17T10:00:00.000Z",
+    validationState: item.validationStatus ?? "not_requested",
+    workerRunState: latestRun?.status ?? (item.status === "running" ? "running" : "not_started"),
+    workspaceId: item.workspaceId ?? "workspace_1",
+  };
+}
+
+function nextActionsForSnapshotItem(
+  item: QueueWidgetItemSnapshot,
+  blockers: readonly { code: string; message: string }[],
+): AgentQueueItemAggregate["nextActions"] {
+  if (item.status === "draft") {
+    const available = blockers.length === 0;
+    return [
+      {
+        available,
+        code: "promote_draft",
+        label: "Promote draft",
+        unavailableReason: available ? null : "Draft readiness is incomplete.",
+      },
+    ];
+  }
+
+  if (item.status === "queued" || item.status === "ready") {
+    const available = blockers.length === 0;
+    return [
+      {
+        available,
+        code: "start_run",
+        label: "Start run",
+        unavailableReason: available ? null : "Queue item is blocked.",
+      },
+    ];
+  }
+
+  return [];
 }

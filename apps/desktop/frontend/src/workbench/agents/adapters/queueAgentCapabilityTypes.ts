@@ -1,5 +1,12 @@
 import type { PromptPackFileEntry, PromptPackImportPreviewModel } from "../../promptPack";
 import type {
+  AgentQueueItemAggregateBlocker,
+  AgentQueueItemAggregateDurableFlags,
+  AgentQueueItemAggregateEvidenceSummary,
+  AgentQueueItemAggregateLatestRun,
+  AgentQueueItemAggregateNextAction,
+} from "../../../workspace/types";
+import type {
   SmartQueueDogfoodLifecycleItem,
   SmartQueueDogfoodReviewOutcome,
   SmartQueueFollowUpPrompt,
@@ -221,12 +228,34 @@ export type QueueAgentTaskReadiness = {
   readinessState: QueueAgentTaskReadinessState;
 };
 
+export type QueueAgentAggregateSource = "tauri_queue_item_aggregate";
+
+export type QueueAgentAggregateNextAction =
+  AgentQueueItemAggregateNextAction & {
+    suggestedCapability?: QueueAgentCapabilityId | null;
+  };
+
 export type QueueAgentTaskSummary = QueueAgentTaskReadiness & {
+  aggregateSource?: QueueAgentAggregateSource;
   assignedExecutorWidgetId?: string | null;
+  authoritativeBackendAggregate?: boolean;
+  blockers?: AgentQueueItemAggregateBlocker[];
+  commitState?: string;
+  dependencyState?: string;
+  durableFlags?: AgentQueueItemAggregateDurableFlags;
+  evidenceState?: string;
+  evidenceSummary?: AgentQueueItemAggregateEvidenceSummary | null;
   latestRunId?: string | null;
+  latestRun?: AgentQueueItemAggregateLatestRun | null;
+  nextActions?: QueueAgentAggregateNextAction[];
+  reviewState?: string;
   status: string;
   taskId: string;
+  ticketState?: string;
   title: string;
+  updatedAt?: string;
+  validationState?: string;
+  workerRunState?: string;
 };
 
 export type QueueAgentExecutorTarget = {
@@ -241,6 +270,8 @@ export type QueueAgentListItemsInput = {
 };
 
 export type QueueAgentListItemsResult = {
+  aggregateSource?: QueueAgentAggregateSource;
+  authoritativeBackendAggregate?: boolean;
   availableExecutors: QueueAgentExecutorTarget[];
   capped: boolean;
   itemCount: number;
@@ -471,8 +502,27 @@ export type QueueAgentLifecycleTransitionOutput = {
 };
 
 export type QueueAgentLifecycleGetOutput = {
+  aggregate?: QueueAgentTaskSummary;
+  aggregateSource?: QueueAgentAggregateSource;
+  authoritativeBackendAggregate?: boolean;
+  blockerReasons?: string[];
+  blockers?: AgentQueueItemAggregateBlocker[];
+  commitState?: string;
+  dependencyState?: string;
+  durableFlags?: AgentQueueItemAggregateDurableFlags;
+  evidenceState?: string;
+  evidenceSummary?: AgentQueueItemAggregateEvidenceSummary | null;
+  latestRun?: AgentQueueItemAggregateLatestRun | null;
   lifecycle: SmartQueueDogfoodLifecycleItem | null;
   lifecycles?: SmartQueueDogfoodLifecycleItem[];
+  nextActions?: QueueAgentAggregateNextAction[];
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
+  reviewState?: string;
+  taskId?: string;
+  ticketState?: string;
+  updatedAt?: string;
+  validationState?: string;
+  workerRunState?: string;
 };
 
 export type QueueAgentReviewEvidenceBundleOutput = {

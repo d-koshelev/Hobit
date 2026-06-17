@@ -1,6 +1,7 @@
 export type { WorkspaceApi } from "./workspaceApiTypes";
 export { getWorkspaceApi } from "./workspaceApiRuntime";
 export * from "./workspaceApiAgentChat";
+export * from "./tauriAgentQueueAggregateApi";
 export * from "./workspaceApiAgentExecutor";
 export * from "./workspaceApiAgentQueue";
 export * from "./workspaceApiCore";

@@ -551,8 +551,14 @@ During the smoke, verify these product labels appear where applicable:
      action lists are rejected.
 
 2. Invoke `queue.items.list` and identify one explicit task id.
-   - Expected: the item summary includes the selected task id, current status,
-     readiness, and available executor targets.
+   - Expected: the item summary comes from the backend/Tauri authoritative
+     Queue aggregate DTO, not Queue board state, selected task details,
+     frontend overlays, UI hooks, or local broker lifecycle maps.
+   - Expected: the item summary includes the selected task id, title,
+     ticket/worker/review/evidence/validation/commit/dependency states,
+     blockers, nextActions, latestRun when available, durable flags including
+     honest `not_durable` / `unknown` state, readiness compatibility fields,
+     and available executor targets.
    - Expected with continuation: the next action uses task ids and executor ids
      returned in `hobit.action.result`, not ids inferred from task titles,
      final messages, paths, repo roots, or the operator prompt.
@@ -591,6 +597,11 @@ During the smoke, verify these product labels appear where applicable:
    - Expected: normalized frontend-only evidence is available when ingestion
      succeeded; review-message creation, ACK, validation approval, mark done,
      and dependent starts remain explicit separate actions.
+   - Expected: `queue.lifecycle.get` requires the explicit task id and reads
+     the backend/Tauri aggregate DTO for lifecycle/effective state, blockers,
+     nextActions, latestRun, evidenceSummary, durable flags, and
+     `authoritativeBackendAggregate=true`; it does not read frontend lifecycle
+     overlays or broker-local lifecycle maps as truth.
 
 9. Check side effects.
    - Expected: no raw `codex.runTask` fallback, shell invocation, Terminal

@@ -36,6 +36,7 @@ import {
   type QueueAgentSelfTestReport,
 } from "./queueAgentCapabilityTypes";
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
+import type { AgentQueueItemAggregate } from "../../../workspace/types";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -413,6 +414,270 @@ describe("queueAgentCapabilities invoke", () => {
     expect(result.result.output?.createdItems).toHaveLength(1);
   });
 
+  it("reads queue.items.list from backend aggregate API instead of Queue snapshots", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        blockers: [{ code: "missing_codex_executable", message: "Missing Codex executable." }],
+        codexExecutable: null,
+        evidenceState: "not_durable",
+        latestRun: {
+          completedAt: "2026-06-15T10:05:00.000Z",
+          executorWidgetId: "executor-1",
+          finalDetailAvailable: true,
+          reviewStatus: "review_needed",
+          runId: "run-1",
+          runLinkId: "link-1",
+          source: "manual",
+          startedAt: "2026-06-15T10:00:00.000Z",
+          status: "completed",
+          validationStatus: "passed",
+        },
+        nextActions: [
+          {
+            available: false,
+            code: "update_run_settings",
+            label: "Update run settings",
+            unavailableReason: "Codex executable is missing.",
+          },
+        ],
+        taskId: "task-aggregate",
+        validationState: "unknown",
+      }),
+    ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getSnapshot, listItemAggregates }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      aggregateSource: string;
+      authoritativeBackendAggregate: boolean;
+      items: Array<{
+        authoritativeBackendAggregate: boolean;
+        blockerReasons: string[];
+        blockers: unknown[];
+        durableFlags: { evidenceState: boolean; frontendOverlayUsed: boolean };
+        evidenceState: string;
+        latestRun: { runId: string; status: string };
+        nextActions: Array<{
+          code: string;
+          suggestedCapability?: string | null;
+        }>;
+        taskId: string;
+        validationState: string;
+      }>;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(listItemAggregates).toHaveBeenCalledTimes(1);
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      aggregateSource: "tauri_queue_item_aggregate",
+      authoritativeBackendAggregate: true,
+      items: [
+        {
+          authoritativeBackendAggregate: true,
+          blockerReasons: ["Missing Codex executable."],
+          evidenceState: "not_durable",
+          latestRun: { runId: "run-1", status: "completed" },
+          nextActions: [
+            {
+              code: "update_run_settings",
+              suggestedCapability: "queue.item.updateRunSettings",
+            },
+          ],
+          taskId: "task-aggregate",
+          validationState: "unknown",
+        },
+      ],
+    });
+    expect(result.result.output?.items[0]?.durableFlags).toMatchObject({
+      evidenceState: false,
+      frontendOverlayUsed: false,
+    });
+  });
+
+  it("reads queue.lifecycle.get from backend aggregate API with explicit taskId", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>
+      queueAggregate({
+        blockers: [
+          { code: "review_not_durable", message: "Review state is not durable yet." },
+        ],
+        dependencyState: "unknown",
+        evidenceState: "not_durable",
+        nextActions: [
+          {
+            available: false,
+            code: "create_review_message",
+            label: "Create review message",
+            unavailableReason: "Review command is not durable yet.",
+          },
+        ],
+        taskId,
+        ticketState: "awaiting_review",
+        validationState: "unknown",
+        workerRunState: "completed",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getItemAggregate, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      aggregateSource: string;
+      authoritativeBackendAggregate: boolean;
+      blockerReasons: string[];
+      durableFlags: { evidenceState: boolean; frontendOverlayUsed: boolean };
+      evidenceState: string;
+      lifecycle: null;
+      nextActions: Array<{ code: string; suggestedCapability?: string | null }>;
+      taskId: string;
+      ticketState: string;
+      validationState: string;
+    }>(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-aggregate" },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(getItemAggregate).toHaveBeenCalledWith({ taskId: "task-aggregate" });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      aggregateSource: "tauri_queue_item_aggregate",
+      authoritativeBackendAggregate: true,
+      blockerReasons: ["Review state is not durable yet."],
+      evidenceState: "not_durable",
+      lifecycle: null,
+      nextActions: [
+        {
+          code: "create_review_message",
+          suggestedCapability: "queue.review.createMessage",
+        },
+      ],
+      taskId: "task-aggregate",
+      ticketState: "awaiting_review",
+      validationState: "unknown",
+    });
+    expect(result.result.output?.durableFlags).toMatchObject({
+      evidenceState: false,
+      frontendOverlayUsed: false,
+    });
+  });
+
+  it("rejects missing queue.lifecycle.get taskId before aggregate or snapshot reads", async () => {
+    const getItemAggregate = vi.fn();
+    const getSnapshot = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getItemAggregate, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: {},
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toBe("taskId is required.");
+    expect(getItemAggregate).not.toHaveBeenCalled();
+    expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("handles aggregate read not found and unavailable states cleanly", async () => {
+    const notFoundBroker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getItemAggregate: vi.fn(async () => null) }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+    const unavailableBroker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            listItemAggregates: vi.fn(async () => {
+              throw new Error("Aggregate command unavailable.");
+            }),
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const notFound = await notFoundBroker.invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "missing-task" },
+      }),
+    );
+    const unavailable = await unavailableBroker.invokeAsync(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(notFound.status).toBe("failed");
+    expect(notFound.result.message).toBe('Queue item "missing-task" was not found.');
+    expect(unavailable.status).toBe("unavailable");
+    expect(unavailable.result.message).toBe("Aggregate command unavailable.");
+  });
+
   it("invokes typed Queue run-control capabilities through the injected bridge", async () => {
     const getSnapshot = vi.fn(async () =>
       queueBridgeSnapshotResult({
@@ -449,6 +714,23 @@ describe("queueAgentCapabilities invoke", () => {
           status: input.patch.status === "queued" ? "queued" : "draft",
         }),
     );
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        executionWorkspace: "C:/repo",
+        nextActions: [
+          {
+            available: true,
+            code: "promote_draft",
+            label: "Promote draft",
+            unavailableReason: null,
+          },
+        ],
+        sandbox: "workspace_write",
+        taskId: "task-1",
+      }),
+    ]);
     const enableQueue = vi.fn(async () => ({
       didAutoRunWorkers: false as const,
       didStartWorkers: false as const,
@@ -485,6 +767,7 @@ describe("queueAgentCapabilities invoke", () => {
               },
             ],
             getSnapshot,
+            listItemAggregates,
             startQueueLinkedRun,
             updateItem,
           }),
@@ -579,6 +862,40 @@ describe("queueAgentCapabilities invoke", () => {
   });
 
   it("keeps queued runnable items out of the final-status blocker path", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        executionWorkspace: "C:/repo",
+        nextActions: [
+          {
+            available: true,
+            code: "start_run",
+            label: "Start run",
+            unavailableReason: null,
+          },
+        ],
+        sandbox: "workspace_write",
+        taskId: "queued-task",
+        ticketState: "queued",
+      }),
+      queueAggregate({
+        approvalPolicy: "never",
+        blockers: [
+          {
+            code: "final_status",
+            message: "Final-status Queue items cannot be started.",
+          },
+        ],
+        codexExecutable: "codex.cmd",
+        executionWorkspace: "C:/repo",
+        nextActions: [],
+        sandbox: "workspace_write",
+        taskId: "completed-task",
+        ticketState: "completed",
+      }),
+    ]);
     const broker = createHobitAgentActionBroker({
       handlers: createQueueAgentActionHandlers(
         createWorkspaceAgentQueueBridgeAdapterApi(
@@ -590,29 +907,8 @@ describe("queueAgentCapabilities invoke", () => {
                 widgetInstanceId: "executor-1",
               },
             ],
-            getSnapshot: vi.fn(async () =>
-              queueBridgeSnapshotResult({
-                itemCounts: { total: 2 } as QueueWidgetSnapshot["itemCounts"],
-                items: [
-                  queueBridgeSnapshotItem({
-                    approvalPolicy: "never",
-                    codexExecutable: "codex.cmd",
-                    executionWorkspace: "C:/repo",
-                    id: "queued-task",
-                    sandbox: "workspace_write",
-                    status: "queued",
-                  }),
-                  queueBridgeSnapshotItem({
-                    approvalPolicy: "never",
-                    codexExecutable: "codex.cmd",
-                    executionWorkspace: "C:/repo",
-                    id: "completed-task",
-                    sandbox: "workspace_write",
-                    status: "completed",
-                  }),
-                ],
-              }),
-            ),
+            getSnapshot,
+            listItemAggregates,
           }),
         ),
       ),
@@ -663,6 +959,8 @@ describe("queueAgentCapabilities invoke", () => {
     expect(completedItem?.blockerReasons).toContain(
       "Final-status Queue items cannot be started.",
     );
+    expect(listItemAggregates).toHaveBeenCalledTimes(1);
+    expect(getSnapshot).not.toHaveBeenCalled();
   });
 
   it("returns a blocked start result without claiming success when the bridge cannot start", async () => {
@@ -1214,6 +1512,83 @@ function queueBridgeSnapshotItem(
     workspaceId: "workspace-1",
     ...overrides,
   } as QueueWidgetItemSnapshot;
+}
+
+function queueAggregate({
+  approvalPolicy = "on_request",
+  assignedExecutorWidgetId = null,
+  blockers = [],
+  codexExecutable = "codex.cmd",
+  commitState = "none",
+  dependencyState = "none",
+  durableFlags,
+  evidenceState = "none",
+  evidenceSummary = null,
+  executionPolicy = "manual",
+  executionWorkspace = "C:/repo",
+  latestRun = null,
+  nextActions = [
+    {
+      available: true,
+      code: "start_run",
+      label: "Start run",
+      unavailableReason: null,
+    },
+  ],
+  reviewState = "not_requested",
+  sandbox = "workspace_write",
+  taskId = "task-1",
+  ticketState = "queued",
+  title = "Queue task",
+  updatedAt = "2026-06-15T10:00:00.000Z",
+  validationState = "not_requested",
+  workerRunState = "not_started",
+  workspaceId = "workspace-1",
+}: Partial<
+  AgentQueueItemAggregate & {
+    approvalPolicy: string | null;
+    assignedExecutorWidgetId: string | null;
+    codexExecutable: string | null;
+    executionPolicy: string;
+    executionWorkspace: string | null;
+    sandbox: string | null;
+  }
+> = {}): AgentQueueItemAggregate {
+  return {
+    blockers,
+    commitState,
+    dependencyState,
+    durableFlags: durableFlags ?? {
+      commitState: commitState !== "not_durable",
+      dependencyState: dependencyState !== "unknown",
+      evidenceState: evidenceState !== "not_durable",
+      frontendOverlayUsed: false,
+      latestRunLink: Boolean(latestRun),
+      reviewState: reviewState !== "not_durable",
+      taskRow: true,
+      validationState: validationState !== "unknown",
+    },
+    evidenceState,
+    evidenceSummary,
+    latestRun,
+    nextActions,
+    reviewState,
+    runSettings: {
+      approvalPolicy,
+      assignedExecutorWidgetId,
+      codexExecutable,
+      executionPolicy,
+      executionWorkspace,
+      sandbox,
+    },
+    taskId,
+    ticketState,
+    title,
+    updatedAt,
+    validationState,
+    workerRunState,
+    workspaceId,
+  };
 }
 
 function frontendSource(path: string) {

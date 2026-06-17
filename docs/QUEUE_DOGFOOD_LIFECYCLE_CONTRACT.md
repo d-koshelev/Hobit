@@ -64,15 +64,18 @@ Backend/domain read-model foundation:
 - Where review/evidence/validation/commit durability is not implemented, the
   aggregate returns honest `not_durable`, `unknown`, or unavailable next-action
   reasons instead of reading frontend overlays.
-- Queue UI, broker, and Workspace Agent migration to this DTO is a later phase;
-  the frontend overlay remains transitional compatibility behavior until that
-  migration.
+- Workspace Agent / broker read wiring for `queue.items.list` and
+  `queue.lifecycle.get` now uses this aggregate DTO through the typed frontend
+  bridge. Queue UI rendering migration to the aggregate DTO remains a later
+  phase, and the frontend overlay remains transitional compatibility behavior
+  for write/review/evidence capabilities until durable commands exist.
 
 The backend aggregate is now the authoritative Queue read model for durable
-task/run-link/dependency inspection. Queue correctness for those states is
-testable with Rust backend and Tauri command tests without opening or launching
-the frontend. Queue UI must render this authoritative DTO and send typed
-commands only; frontend overlays must not become product truth.
+task/run-link/dependency inspection and Workspace Agent/Broker read
+capabilities. Queue correctness for those states is testable with Rust backend
+and Tauri command tests without opening or launching the frontend. Queue UI
+must later render this authoritative DTO and send typed commands only;
+frontend overlays must not become product truth.
 
 ## State Dimensions
 
@@ -453,9 +456,16 @@ The frontend Action Broker can expose the dogfood lifecycle through structured
 - `queue.lifecycle.get`
 - `queue.review.getEvidenceBundle`
 
-These capabilities are frontend/controller lifecycle capabilities only. They
-validate structured inputs, enforce broker policy, support dry-run previews,
-return compact lifecycle results, and emit compact activity/audit labels.
+`queue.lifecycle.get` is the read exception in this group: it requires an
+explicit `taskId`, reads the backend/Tauri authoritative aggregate DTO, and
+returns ticket/worker/review/evidence/validation/commit/dependency states,
+blockers, nextActions, latestRun, evidenceSummary, durable flags, and
+`authoritativeBackendAggregate=true`.
+
+The remaining lifecycle write/review/evidence capabilities are
+frontend/controller lifecycle capabilities only. They validate structured
+inputs, enforce broker policy, support dry-run previews, return compact
+lifecycle results, and emit compact activity/audit labels.
 
 Workspace Agent can now continue across multiple frontend broker actions by
 feeding compact structured `hobit.action.result` context back into the same

@@ -133,6 +133,12 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       ]),
       requiredFields: ["taskId", "coordinatorAgentId", "validationApproved"],
     });
+    expect(
+      requiredCapability(registry, "queue.lifecycle.get").inputSchema,
+    ).toMatchObject({
+      acceptedFields: ["taskId"],
+      requiredFields: ["taskId"],
+    });
 
     for (const capabilityId of LIFECYCLE_CAPABILITY_IDS) {
       const acceptedFields =

@@ -11,6 +11,7 @@ import {
 import runtimeSource from "./workspaceAgentBrokerActionRuntime.ts?raw";
 import envelopeSource from "./agents/broker/hobitAgentActionRequestEnvelope.ts?raw";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import type { AgentQueueItemAggregate } from "../workspace/types";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -109,6 +110,63 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     expect(getSnapshot).not.toHaveBeenCalled();
   });
 
+  it("invokes queue.lifecycle.get through backend aggregate reads without Queue snapshots", async () => {
+    const getSnapshot = vi.fn();
+    const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>
+      queueAggregate({
+        blockers: [
+          {
+            code: "evidence_not_durable",
+            message: "Evidence is not durable yet.",
+          },
+        ],
+        evidenceState: "not_durable",
+        taskId,
+        ticketState: "awaiting_review",
+        workerRunState: "completed",
+      }),
+    );
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentQueueBridge: queueBridge({ getItemAggregate, getSnapshot }),
+    });
+    const parsed = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "queue.lifecycle.get",
+        dryRun: false,
+        input: {
+          taskId: "task-1",
+        },
+        requestId: "runtime-lifecycle-get",
+        type: "hobit.action.request",
+      }),
+    );
+
+    expect(parsed.status).toBe("valid");
+    if (parsed.status !== "valid") {
+      throw new Error("Expected valid lifecycle get envelope.");
+    }
+
+    const result = await invoker(
+      createHobitAgentActionRequestFromEnvelope({
+        agentId: "workspace-agent",
+        createdAt: "2026-06-16T12:00:00.000Z",
+        envelope: parsed.envelope,
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(getItemAggregate).toHaveBeenCalledWith({ taskId: "task-1" });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      authoritativeBackendAggregate: true,
+      blockerReasons: ["Evidence is not durable yet."],
+      evidenceState: "not_durable",
+      lifecycle: null,
+      taskId: "task-1",
+      ticketState: "awaiting_review",
+    });
+  });
+
   it("keeps prose-only assistant responses as prose", () => {
     expect(
       readHobitAgentActionRequestEnvelope(
@@ -195,4 +253,45 @@ function snapshotItem(
     workspaceId: "workspace_1",
     ...overrides,
   } as QueueWidgetItemSnapshot;
+}
+
+function queueAggregate(
+  overrides: Partial<AgentQueueItemAggregate> = {},
+): AgentQueueItemAggregate {
+  return {
+    blockers: [],
+    commitState: "none",
+    dependencyState: "none",
+    durableFlags: {
+      commitState: true,
+      dependencyState: true,
+      evidenceState: overrides.evidenceState !== "not_durable",
+      frontendOverlayUsed: false,
+      latestRunLink: false,
+      reviewState: true,
+      taskRow: true,
+      validationState: true,
+    },
+    evidenceState: "none",
+    evidenceSummary: null,
+    latestRun: null,
+    nextActions: [],
+    reviewState: "not_requested",
+    runSettings: {
+      approvalPolicy: "on_request",
+      assignedExecutorWidgetId: null,
+      codexExecutable: "codex.cmd",
+      executionPolicy: "manual",
+      executionWorkspace: "C:/repo",
+      sandbox: "workspace_write",
+    },
+    taskId: "task-1",
+    ticketState: "queued",
+    title: "Queue item",
+    updatedAt: "2026-06-16T12:00:00.000Z",
+    validationState: "not_requested",
+    workerRunState: "not_started",
+    workspaceId: "workspace_1",
+    ...overrides,
+  };
 }

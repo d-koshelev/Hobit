@@ -286,6 +286,87 @@ export type GetAgentQueueTaskRequest = {
   queueItemId: string;
 };
 
+export type ListAgentQueueItemAggregatesRequest = {
+  workspaceId: string;
+};
+
+export type GetAgentQueueItemAggregateRequest = {
+  workspaceId: string;
+  taskId: string;
+};
+
+export type AgentQueueItemAggregateRunSettings = {
+  approvalPolicy: string | null;
+  assignedExecutorWidgetId: string | null;
+  codexExecutable: string | null;
+  executionPolicy: string;
+  executionWorkspace: string | null;
+  sandbox: string | null;
+};
+
+export type AgentQueueItemAggregateLatestRun = {
+  completedAt: string | null;
+  executorWidgetId: string;
+  finalDetailAvailable: boolean;
+  reviewStatus: string | null;
+  runId: string;
+  runLinkId: string;
+  source: string;
+  startedAt: string;
+  status: string;
+  validationStatus: string | null;
+};
+
+export type AgentQueueItemAggregateEvidenceSummary = {
+  available: boolean;
+  notDurableReason: string | null;
+  source: string;
+  summary: string | null;
+};
+
+export type AgentQueueItemAggregateBlocker = {
+  code: string;
+  message: string;
+};
+
+export type AgentQueueItemAggregateNextAction = {
+  available: boolean;
+  code: string;
+  label: string;
+  unavailableReason: string | null;
+};
+
+export type AgentQueueItemAggregateDurableFlags = {
+  commitState: boolean;
+  dependencyState: boolean;
+  evidenceState: boolean;
+  frontendOverlayUsed: boolean;
+  latestRunLink: boolean;
+  reviewState: boolean;
+  taskRow: boolean;
+  validationState: boolean;
+};
+
+export type AgentQueueItemAggregate = {
+  blockers: AgentQueueItemAggregateBlocker[];
+  commitState: string;
+  dependencyState: string;
+  durableFlags: AgentQueueItemAggregateDurableFlags;
+  evidenceState: string;
+  evidenceSummary: AgentQueueItemAggregateEvidenceSummary | null;
+  latestRun: AgentQueueItemAggregateLatestRun | null;
+  nextActions: AgentQueueItemAggregateNextAction[];
+  reviewState: string;
+  runSettings: AgentQueueItemAggregateRunSettings;
+  taskId: string;
+  ticketState: string;
+  title: string;
+  updatedAt: string;
+  validationState: string;
+  workerRunState: string;
+  workspaceId: string;
+};
+
 export type DeleteAgentQueueTaskRequest = GetAgentQueueTaskRequest;
 
 export type AttachKnowledgeToQueueTaskRequest = GetAgentQueueTaskRequest & {

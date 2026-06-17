@@ -36,6 +36,7 @@ export function createCapabilityInstructionBlock(
     "Queue item creation is a Queue capability.",
     "Queue item creation should use queue.createItems.",
     "Prompt-pack flows use queue.preparePromptPackPreview or queue.importPromptPack.",
+    "Queue reads use backend aggregates.",
     ...queueCreateInstructionLines,
     ...queueRunControlInstructionLines,
     ...queueLifecycleInstructionLines,
@@ -120,7 +121,7 @@ function createQueueLifecycleCapabilityInstructionLines(
     presentCapabilityIds.has("queue.item.fail")
       ? "fail(taskId,coordinatorAgentId,reason)"
       : null,
-    presentCapabilityIds.has("queue.lifecycle.get") ? "get(taskId?)" : null,
+    presentCapabilityIds.has("queue.lifecycle.get") ? "get(taskId)" : null,
     presentCapabilityIds.has("queue.review.getEvidenceBundle")
       ? "getEvidenceBundle(taskId)"
       : null,

@@ -338,15 +338,22 @@ function handleGetLifecycle(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
 ): QueueDogfoodLifecycleHandlerResult {
-  const validation = readOptionalInput<QueueAgentLifecycleGetInput>(request, [
-    "taskId",
-  ]);
+  const validation = readInput<QueueAgentLifecycleGetInput>(
+    request,
+    ["taskId"],
+    ["taskId"],
+  );
   if (!validation.ok) {
     return invalidInput(request, validation.message);
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
-    lifecycle.getLifecycle(validation.value, context),
+    lifecycle.getLifecycle(
+      {
+        taskId: validation.value.taskId as string,
+      },
+      context,
+    ),
   );
 }
 

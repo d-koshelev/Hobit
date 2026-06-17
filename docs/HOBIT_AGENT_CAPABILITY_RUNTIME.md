@@ -269,18 +269,19 @@ Supported Queue capabilities:
 
 Backend/domain aggregate note: the desktop backend now exposes a read-only
 `QueueItemAggregate` DTO over durable Queue task rows and run links. It is the
-authoritative read-model contract for future Queue card/details/broker
-migration, but the current frontend Queue Capability Adapter still uses the
-existing injected bridge and transitional lifecycle overlay for dogfood review
-actions until that migration is implemented. The aggregate read commands do
-not run workers, validation, Git, rollback, Terminal, shell, or Codex, and do
-not infer task ids from natural language. Backend and Tauri headless contract
-tests now prove aggregate list/get, lifecycle/readiness inspection, run-link
-state, dependency waiting/failed-upstream state, read-only behavior, explicit
-task identity, and honest `not_durable` / `unknown` states without launching
-the frontend. Workspace Agent and broker Queue reads should migrate to this
-typed backend aggregate/API surface instead of reading frontend lifecycle
-overlays as product truth.
+authoritative read-model contract for Queue state reads. `queue.items.list`
+and `queue.lifecycle.get` now call typed frontend bridge methods backed by the
+Tauri aggregate list/get commands and return task state dimensions, blockers,
+nextActions, latestRun, evidenceSummary, and durable flags from that DTO. They
+do not read Queue board snapshots, selected task detail, frontend lifecycle or
+evidence overlays, UI hooks, or broker-local lifecycle maps as product truth.
+The aggregate read commands do not run workers, validation, Git, rollback,
+Terminal, shell, or Codex, and do not infer task ids from natural language.
+Backend and Tauri headless contract tests now prove aggregate list/get,
+lifecycle/readiness inspection, run-link state, dependency
+waiting/failed-upstream state, read-only behavior, explicit task identity, and
+honest `not_durable` / `unknown` states without launching the frontend. Queue
+card/details rendering migration to the aggregate DTO remains a later phase.
 
 The adapter boundary is typed and injected. It does not import React hooks,
 mutate global UI state directly, create widgets/views directly, couple to the
@@ -351,19 +352,22 @@ Queue create/import APIs, create Queue tasks, create Queue views, enable or
 auto-run Queue workers, call Codex/shell, launch Terminal, mutate Git, execute
 rollback, or modify backend/storage/schema.
 
-Queue dogfood lifecycle capabilities are typed frontend/controller overlay
-capabilities. They let Workspace Agent or Coordinator Agent report an agent
-finish with explicit fields or a structured frontend worker evidence bundle,
-create and ACK review messages, record validation approval
-placeholders, add follow-up prompts, mark an item done, block/fail an item,
-and read lifecycle/evidence data through structured `hobit.action.request`
-envelopes. They do not parse user prompts, route natural-language phrases,
-start workers, run validation, execute Git commits, launch Terminal, execute
-rollback, call shell, call Codex, create Queue views, or persist backend state.
-The read-only `queue.lifecycle.get` capability is safe for broker
-auto-continuation after success. The continuation action budget remains 16,
-and confirmation, unavailable, policy, failed, invalid, restricted, repeated
-fingerprint, and safety stops are unchanged.
+Queue dogfood lifecycle write/review/evidence capabilities are typed
+frontend/controller overlay capabilities. They let Workspace Agent or
+Coordinator Agent report an agent finish with explicit fields or a structured
+frontend worker evidence bundle, create and ACK review messages, record
+validation approval placeholders, add follow-up prompts, mark an item done,
+and block/fail an item through structured `hobit.action.request` envelopes.
+Those transitional writes still do not persist durable review/evidence/
+validation/commit state. The read-only `queue.lifecycle.get` capability is
+separate: it requires explicit `taskId`, reads the backend aggregate DTO, and
+is safe for broker auto-continuation after success. These capabilities do not
+parse user prompts, route natural-language phrases, start workers, run
+validation, execute Git commits, launch Terminal, execute rollback, call
+shell, call Codex, create Queue views, or persist backend write state. The
+continuation action budget remains 16, and confirmation, unavailable, policy,
+failed, invalid, restricted, repeated fingerprint, and safety stops are
+unchanged.
 
 The optional `queue.lifecycle.agentFinished` evidence bundle is normalized in
 frontend code only. It can supply task id, attempt id, thread id, outcome,

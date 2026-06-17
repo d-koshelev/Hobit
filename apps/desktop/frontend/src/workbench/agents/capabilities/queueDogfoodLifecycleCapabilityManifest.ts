@@ -22,7 +22,8 @@ const LIFECYCLE_FORBIDDEN_SIDE_EFFECTS = [
 
 const COMPACT_GUIDANCE = [
   "Use only the documented fields.",
-  "These capabilities mutate only the frontend/controller Queue dogfood lifecycle overlay when dryRun=false.",
+  "queue.lifecycle.get is a backend-authoritative aggregate read and requires taskId.",
+  "Write/review/evidence lifecycle capabilities remain transitional frontend/controller overlay operations when dryRun=false.",
   "Dry-run previews must not mutate lifecycle state or create review messages.",
   "Do not run workers, validation, Git, Terminal, rollback, shell, or Codex from these capabilities.",
 ] as const;
@@ -231,11 +232,11 @@ const FAIL_SCHEMA: HobitAgentCapabilityInputSchema = {
 const GET_SCHEMA: HobitAgentCapabilityInputSchema = {
   acceptedFields: ["taskId"],
   fieldDescriptions: {
-    taskId: "Optional Queue item id. Omit to list available frontend lifecycle overlays.",
+    taskId: "Required explicit Queue item id. Do not infer it from task title, prompt text, file paths, final message, or natural-language content.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
-  requiredFields: [],
-  shape: '{"taskId":"string optional"}',
+  requiredFields: ["taskId"],
+  shape: '{"taskId":"string required"}',
 };
 
 const EVIDENCE_SCHEMA: HobitAgentCapabilityInputSchema = {
@@ -410,10 +411,11 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
   lifecycleCapability({
     auditLabel: "Queue lifecycle read",
     description:
-      "Read the frontend/controller Queue dogfood lifecycle overlay where available.",
+      "Read one Queue item lifecycle/effective state from the backend/Tauri authoritative aggregate DTO.",
     id: "queue.lifecycle.get",
     inputSchema: GET_SCHEMA,
-    output: "Current frontend lifecycle overlay for one task or known overlays.",
+    output:
+      "Backend aggregate state dimensions, blockers, nextActions, latestRun, evidenceSummary, durable flags, and authoritativeBackendAggregate=true.",
     sideEffectLevel: "read",
     title: "Read Queue Lifecycle",
   }),

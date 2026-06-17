@@ -29,7 +29,11 @@ structured action-request chains, an active Queue V2 Codex executable setup
 affordance for existing tasks, active Queue V2 Draft readiness discoverability
 and explicit Draft-to-queued promotion through the existing Queue task update
 path, plus a minimal active Queue details review/evidence UI for explicit
-broker-driven coordinator review actions.
+broker-driven coordinator review actions. Workspace Agent/Broker read
+capabilities `queue.items.list` and `queue.lifecycle.get` now read
+backend/Tauri authoritative Queue item aggregate DTOs instead of Queue board
+snapshots, selected task detail, frontend lifecycle/evidence overlays, UI
+hooks, or broker-local lifecycle maps.
 
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly
@@ -69,9 +73,10 @@ The backend/domain layer now exposes a read-only Queue aggregate contract:
   blocker, next-action, latest-run, and durability fields from the backend
   aggregate, remain read-only, and do not call Codex, shell, Git, validation,
   rollback, Terminal, or frontend code.
-- Review messages, ACKs, full evidence bundles, validation decisions, commit
-  decisions, durable scheduler state, and frontend/broker/UI migration to the
-  aggregate remain future work.
+- Workspace Agent/Broker aggregate read wiring is implemented for
+  `queue.items.list` and `queue.lifecycle.get`. Queue UI rendering migration,
+  review messages, ACKs, full evidence bundles, validation decisions, commit
+  decisions, and durable scheduler state remain future work.
 
 ### Headless Queue API readiness
 
@@ -95,6 +100,8 @@ Current Tauri/API ready operations:
   command path;
 - list/get Queue task run links;
 - list/get Queue item aggregates through authoritative read-only DTOs.
+- Workspace Agent/Broker reads of Queue item summaries and lifecycle/effective
+  state through those aggregate DTOs.
 
 Frontend-only transitional operations:
 
@@ -170,7 +177,11 @@ The current implemented frontend behavior is:
   continuation chain id, action index, and capability id so runtime-generated
   fallback ids do not falsely repeat;
 - read-only `queue.lifecycle.get` is allowed to participate in safe broker
-  auto-continuation after success;
+  auto-continuation after success and reads backend aggregate state for one
+  explicit `taskId`;
+- read-only `queue.items.list` returns backend aggregate task summaries with
+  ticket/worker/review/evidence/validation/commit/dependency states,
+  blockers, nextActions, latestRun, evidenceSummary, and durable flags;
 - active Queue V2 Codex executable setup affordance for existing tasks through
   the existing task update/run-settings bridge;
 - active Queue V2 Draft readiness explanation for existing Draft tasks and

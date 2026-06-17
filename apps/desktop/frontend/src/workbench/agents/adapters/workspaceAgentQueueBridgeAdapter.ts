@@ -1,4 +1,5 @@
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
+import type { AgentQueueItemAggregate } from "../../../workspace/types";
 import { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
 import { createDefaultQueueAgentAdapterApi } from "./queueAgentCapabilities";
 import {
@@ -7,6 +8,7 @@ import {
   QUEUE_ACTIVITY_EVENTS,
   type QueueAgentAdapterApi,
   type QueueAgentAdapterResult,
+  type QueueAgentAggregateNextAction,
   type QueueAgentCreateItemsRequest,
   type QueueAgentCreateItemsResult,
   type QueueAgentCreatedItem,
@@ -14,6 +16,8 @@ import {
   type QueueAgentEnableResult,
   type QueueAgentExecutorTarget,
   type QueueAgentLifecycleTaskSeed,
+  type QueueAgentLifecycleGetInput,
+  type QueueAgentLifecycleGetOutput,
   type QueueAgentListItemsInput,
   type QueueAgentListItemsResult,
   type QueueAgentPromoteDraftResult,
@@ -37,16 +41,23 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
   bridge: WorkspaceAgentQueueBridge | null | undefined,
 ): QueueAgentAdapterApi {
   const defaultAdapter = createDefaultQueueAgentAdapterApi();
+  const transitionalDogfoodLifecycle = bridge
+    ? createInMemoryQueueDogfoodLifecycleAdapterApi({
+        getTaskSeed: (taskId) => getLifecycleTaskSeed(bridge, taskId),
+      })
+    : undefined;
 
   return {
     ...defaultAdapter,
     createItems: (request) => createQueueItemsThroughBridge(bridge, request),
     enableQueue: (input, context) =>
       enableQueueThroughBridge(bridge, input, context),
-    dogfoodLifecycle: bridge
-      ? createInMemoryQueueDogfoodLifecycleAdapterApi({
-          getTaskSeed: (taskId) => getLifecycleTaskSeed(bridge, taskId),
-        })
+    dogfoodLifecycle: transitionalDogfoodLifecycle
+      ? {
+          ...transitionalDogfoodLifecycle,
+          getLifecycle: (input, context) =>
+            getLifecycleThroughAggregate(bridge, input, context),
+        }
       : undefined,
     importPromptPack: async (input, request) => {
       const preview = await defaultAdapter.previewPromptPack(input);
@@ -92,6 +103,79 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
     supportsSafeMutationSandbox: false,
     updateRunSettings: (input, context) =>
       updateRunSettingsThroughBridge(bridge, input, context.dryRun),
+  };
+}
+
+async function getLifecycleThroughAggregate(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: QueueAgentLifecycleGetInput,
+  _context: unknown,
+): Promise<QueueAgentAdapterResult<QueueAgentLifecycleGetOutput>> {
+  const taskId = input.taskId?.trim() ?? "";
+  if (!taskId) {
+    return {
+      activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleGet],
+      message: "queue.lifecycle.get requires taskId.",
+      reasons: ["queue.lifecycle.get requires taskId."],
+      status: "invalid_input",
+    };
+  }
+
+  if (!bridge?.getItemAggregate) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.lifecycleGet,
+      "Queue aggregate lifecycle read API is unavailable.",
+    );
+  }
+
+  let aggregate: AgentQueueItemAggregate | null;
+  try {
+    aggregate = await bridge.getItemAggregate({ taskId });
+  } catch (error) {
+    return aggregateReadUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.lifecycleGet,
+      error,
+      "Queue aggregate lifecycle read API is unavailable.",
+    );
+  }
+
+  if (!aggregate) {
+    return {
+      activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleGet],
+      message: `Queue item "${taskId}" was not found.`,
+      reasons: [`Queue item "${taskId}" was not found.`],
+      status: "failed",
+    };
+  }
+
+  const summary = queueTaskSummaryFromAggregate(aggregate);
+
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleGet],
+    message: "Queue lifecycle read from backend aggregate.",
+    output: {
+      aggregate: summary,
+      aggregateSource: AGGREGATE_SOURCE,
+      authoritativeBackendAggregate: true,
+      blockerReasons: summary.blockerReasons,
+      blockers: summary.blockers ?? [],
+      commitState: summary.commitState,
+      dependencyState: summary.dependencyState,
+      durableFlags: summary.durableFlags,
+      evidenceState: summary.evidenceState,
+      evidenceSummary: summary.evidenceSummary ?? null,
+      latestRun: summary.latestRun ?? null,
+      lifecycle: null,
+      nextActions: summary.nextActions ?? [],
+      nextSuggestedCapability: summary.nextSuggestedCapability,
+      reviewState: summary.reviewState,
+      taskId: summary.taskId,
+      ticketState: summary.ticketState,
+      updatedAt: summary.updatedAt,
+      validationState: summary.validationState,
+      workerRunState: summary.workerRunState,
+    },
+    status: "succeeded",
   };
 }
 
@@ -160,37 +244,37 @@ async function listQueueItemsThroughBridge(
     );
   }
 
-  const limit = boundedItemLimit(input.limit);
-  const snapshotResult = await bridge.getSnapshot({
-    includeSelectedItem: Boolean(input.taskId),
-    itemLimit: input.taskId ? Math.max(limit, 200) : limit,
-    runLinkLimitPerItem: 1,
-    selectedItemId: input.taskId,
-  });
-  const snapshot = validSnapshotOrResult(
-    snapshotResult,
-    QUEUE_ACTIVITY_EVENTS.itemsList,
-  );
-  if (snapshot.status !== "succeeded" || !snapshot.output) {
-    return adapterFailure(snapshot);
+  if (!bridge.listItemAggregates) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.itemsList,
+      "Queue aggregate list read API is unavailable.",
+    );
   }
-  const queueSnapshot = snapshot.output;
+
+  const limit = boundedItemLimit(input.limit);
+  let aggregates: AgentQueueItemAggregate[];
+  try {
+    aggregates = await bridge.listItemAggregates();
+  } catch (error) {
+    return aggregateReadUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.itemsList,
+      error,
+      "Queue aggregate list read API is unavailable.",
+    );
+  }
 
   const availableExecutors = executorTargets(bridge);
   const sourceItems = input.taskId
-    ? [
-        queueSnapshot.selectedItem?.id === input.taskId
-          ? queueSnapshot.selectedItem
-          : queueSnapshot.items.find((item) => item.id === input.taskId) ??
-            null,
-      ].filter((item): item is QueueWidgetItemSnapshot => Boolean(item))
-    : queueSnapshot.items;
+    ? aggregates.filter((item) => item.taskId === input.taskId)
+    : aggregates;
 
   if (input.taskId && sourceItems.length === 0) {
     return {
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.itemsList],
       message: `Queue item "${input.taskId}" was not found.`,
       output: {
+        aggregateSource: AGGREGATE_SOURCE,
+        authoritativeBackendAggregate: true,
         availableExecutors,
         capped: false,
         itemCount: 0,
@@ -204,17 +288,18 @@ async function listQueueItemsThroughBridge(
 
   const items = sourceItems
     .slice(0, limit)
-    .map((item) => queueTaskSummaryFromSnapshot(item, availableExecutors));
+    .map((item) => queueTaskSummaryFromAggregate(item));
 
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.itemsList],
-    message: input.taskId ? "Queue item read." : "Queue items listed.",
+    message: input.taskId
+      ? "Queue item read from backend aggregate."
+      : "Queue items listed from backend aggregate.",
     output: {
+      aggregateSource: AGGREGATE_SOURCE,
+      authoritativeBackendAggregate: true,
       availableExecutors,
-      capped:
-        !input.taskId &&
-        (queueSnapshot.itemCounts?.total ?? queueSnapshot.items.length) >
-          items.length,
+      capped: !input.taskId && sourceItems.length > items.length,
       itemCount: items.length,
       items,
       nextSuggestedCapability: nextCapabilityForSummaries(items),
@@ -572,6 +657,169 @@ async function createQueueItemsThroughBridge(
   };
 }
 
+const AGGREGATE_SOURCE = "tauri_queue_item_aggregate" as const;
+
+function queueTaskSummaryFromAggregate(
+  aggregate: AgentQueueItemAggregate,
+): QueueAgentTaskSummary {
+  const readiness = queueTaskReadinessFromAggregate(aggregate);
+  const nextActions = aggregate.nextActions.map(nextActionFromAggregate);
+
+  return {
+    ...readiness,
+    aggregateSource: AGGREGATE_SOURCE,
+    assignedExecutorWidgetId:
+      aggregate.runSettings.assignedExecutorWidgetId ?? null,
+    authoritativeBackendAggregate: true,
+    blockers: aggregate.blockers,
+    commitState: aggregate.commitState,
+    dependencyState: aggregate.dependencyState,
+    durableFlags: aggregate.durableFlags,
+    evidenceState: aggregate.evidenceState,
+    evidenceSummary: aggregate.evidenceSummary,
+    latestRun: aggregate.latestRun,
+    latestRunId: aggregate.latestRun?.runId ?? null,
+    nextActions,
+    reviewState: aggregate.reviewState,
+    status: aggregate.ticketState,
+    taskId: aggregate.taskId,
+    ticketState: aggregate.ticketState,
+    title: aggregate.title,
+    updatedAt: aggregate.updatedAt,
+    validationState: aggregate.validationState,
+    workerRunState: aggregate.workerRunState,
+  };
+}
+
+function queueTaskReadinessFromAggregate(
+  aggregate: AgentQueueItemAggregate,
+): QueueAgentTaskReadiness {
+  const blockerReasons = aggregate.blockers.map((blocker) => blocker.message);
+  const hasPrompt = !aggregate.blockers.some(
+    (blocker) => blocker.code === "missing_prompt",
+  );
+  const hasWorkspace = Boolean(aggregate.runSettings.executionWorkspace?.trim());
+  const hasCodexExecutable = Boolean(aggregate.runSettings.codexExecutable?.trim());
+  const hasSandbox = isSupportedSandbox(aggregate.runSettings.sandbox);
+  const hasApprovalPolicy = isSupportedApprovalPolicy(
+    aggregate.runSettings.approvalPolicy,
+  );
+  const canPromote = aggregate.nextActions.some(
+    (action) => action.code === "promote_draft" && action.available,
+  );
+  const canStart = aggregate.nextActions.some(
+    (action) => action.code === "start_run" && action.available,
+  );
+
+  if (aggregate.ticketState === "draft") {
+    return {
+      blockerReasons,
+      canPromote,
+      canStart: false,
+      draftState: "draft",
+      hasApprovalPolicy,
+      hasCodexExecutable,
+      hasPrompt,
+      hasSandbox,
+      hasWorkspace,
+      nextSuggestedCapability: canPromote
+        ? "queue.item.promoteDraft"
+        : nextSuggestedCapabilityFromAggregate(aggregate),
+      readinessState: canPromote ? "ready_to_queue" : "not_ready",
+    };
+  }
+
+  if (
+    aggregate.ticketState === "running" ||
+    aggregate.workerRunState === "running"
+  ) {
+    return {
+      blockerReasons,
+      canPromote: false,
+      canStart: false,
+      draftState: "not_draft",
+      hasApprovalPolicy,
+      hasCodexExecutable,
+      hasPrompt,
+      hasSandbox,
+      hasWorkspace,
+      readinessState: "running",
+    };
+  }
+
+  if (isFinalStatus(aggregate.ticketState)) {
+    return {
+      blockerReasons,
+      canPromote: false,
+      canStart: false,
+      draftState: "not_draft",
+      hasApprovalPolicy,
+      hasCodexExecutable,
+      hasPrompt,
+      hasSandbox,
+      hasWorkspace,
+      readinessState: "final",
+    };
+  }
+
+  return {
+    blockerReasons,
+    canPromote: false,
+    canStart,
+    draftState: "not_draft",
+    hasApprovalPolicy,
+    hasCodexExecutable,
+    hasPrompt,
+    hasSandbox,
+    hasWorkspace,
+    nextSuggestedCapability: canStart
+      ? "queue.item.startRun"
+      : nextSuggestedCapabilityFromAggregate(aggregate),
+    readinessState: canStart ? "runnable" : "blocked",
+  };
+}
+
+function nextActionFromAggregate(
+  action: AgentQueueItemAggregate["nextActions"][number],
+): QueueAgentAggregateNextAction {
+  return {
+    ...action,
+    suggestedCapability: nextActionSuggestedCapability(action.code),
+  };
+}
+
+function nextSuggestedCapabilityFromAggregate(
+  aggregate: AgentQueueItemAggregate,
+) {
+  const mappedAvailableAction = aggregate.nextActions.find(
+    (action) => action.available && nextActionSuggestedCapability(action.code),
+  );
+  if (mappedAvailableAction) {
+    return nextActionSuggestedCapability(mappedAvailableAction.code);
+  }
+
+  const mappedAction = aggregate.nextActions.find((action) =>
+    nextActionSuggestedCapability(action.code),
+  );
+
+  return mappedAction ? nextActionSuggestedCapability(mappedAction.code) : null;
+}
+
+function nextActionSuggestedCapability(code: string) {
+  switch (code) {
+    case "create_review_message":
+      return "queue.review.createMessage";
+    case "promote_draft":
+      return "queue.item.promoteDraft";
+    case "start_run":
+      return "queue.item.startRun";
+    case "update_run_settings":
+      return "queue.item.updateRunSettings";
+    default:
+      return null;
+  }
+}
+
 function queueTaskSummaryFromSnapshot(
   item: QueueWidgetItemSnapshot,
   availableExecutors: readonly QueueAgentExecutorTarget[] = [],
@@ -869,6 +1117,20 @@ function bridgeUnavailableResult<TOutput>(
   activityEventNames: readonly string[],
   message: string,
 ): QueueAgentAdapterResult<TOutput> {
+  return {
+    activityEventNames: [...activityEventNames],
+    message,
+    reasons: [message],
+    status: "unavailable",
+  };
+}
+
+function aggregateReadUnavailableResult<TOutput>(
+  activityEventNames: readonly string[],
+  error: unknown,
+  fallbackMessage: string,
+): QueueAgentAdapterResult<TOutput> {
+  const message = error instanceof Error ? error.message : fallbackMessage;
   return {
     activityEventNames: [...activityEventNames],
     message,

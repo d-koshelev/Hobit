@@ -10,6 +10,9 @@ import type {
 import type { AgentQueueTaskRunSettingsDefaults } from "./queue/agentQueueRunSettingsDefaults";
 import type {
   AgentQueueTask,
+  AgentQueueItemAggregate,
+  GetAgentQueueItemAggregateRequest,
+  ListAgentQueueItemAggregatesRequest,
   AttachKnowledgeToQueueTaskRequest,
   AttachSkillToQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
@@ -97,6 +100,15 @@ export type WorkspaceQueueContextActions = {
   ) => Promise<AgentQueueTask>;
 };
 
+export type WorkspaceQueueAggregateReadActions = {
+  getAgentQueueItemAggregate: (
+    request: GetAgentQueueItemAggregateRequest,
+  ) => Promise<AgentQueueItemAggregate | null>;
+  listAgentQueueItemAggregates: (
+    request: ListAgentQueueItemAggregatesRequest,
+  ) => Promise<AgentQueueItemAggregate[]>;
+};
+
 export type WorkspaceAgentQueueBridge = {
   attachKnowledgeToQueueTask?: (
     request: Omit<AttachKnowledgeToQueueTaskRequest, "workspaceId">,
@@ -113,6 +125,10 @@ export type WorkspaceAgentQueueBridge = {
   getSnapshot: (
     request?: Omit<Partial<QueueGetSnapshotRequest>, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetSnapshot>>;
+  getItemAggregate?: (
+    request: Omit<GetAgentQueueItemAggregateRequest, "workspaceId">,
+  ) => Promise<AgentQueueItemAggregate | null>;
+  listItemAggregates?: () => Promise<AgentQueueItemAggregate[]>;
   updateItem: (
     request: Omit<QueueUpdateItemRequest, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>>;
@@ -128,6 +144,7 @@ export type WorkspaceAgentQueueBridge = {
 
 export function createWorkspaceAgentQueueBridge({
   autonomousActions,
+  aggregateReadActions,
   contextActions,
   controlActions,
   queueApi,
@@ -135,6 +152,7 @@ export function createWorkspaceAgentQueueBridge({
   workspaceId,
 }: {
   autonomousActions?: WorkspaceQueueAutonomousActions | null;
+  aggregateReadActions?: WorkspaceQueueAggregateReadActions | null;
   contextActions?: WorkspaceQueueContextActions | null;
   controlActions?: WorkspaceQueueControlActions | null;
   queueApi: AgentQueueWidgetApi;
@@ -184,6 +202,16 @@ export function createWorkspaceAgentQueueBridge({
         ...request,
         workspaceId,
       }),
+    getItemAggregate: aggregateReadActions
+      ? (request) =>
+          aggregateReadActions.getAgentQueueItemAggregate({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    listItemAggregates: aggregateReadActions
+      ? () => aggregateReadActions.listAgentQueueItemAggregates({ workspaceId })
+      : undefined,
     updateItem: async (request) => {
       const result = await queueApi.updateItem({
         ...request,

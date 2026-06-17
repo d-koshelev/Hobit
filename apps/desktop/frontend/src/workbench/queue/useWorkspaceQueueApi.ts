@@ -11,6 +11,10 @@ import type {
   DirectWorkSandbox,
 } from "../../workspace/types";
 import {
+  getAgentQueueItemAggregate,
+  listAgentQueueItemAggregates,
+} from "../../workspace/tauriAgentQueueAggregateApi";
+import {
   createWorkspaceAgentQueueBridge,
   type WorkspaceAgentQueueAutonomousActionName,
   type WorkspaceAgentQueueAutonomousActionResult,
@@ -111,6 +115,12 @@ export function useWorkspaceQueueApi({
         latestBridgeRef.current?.getAvailableExecutorTargets?.() ?? [],
       getSnapshot: (request) =>
         requiredBridge(latestBridgeRef).getSnapshot(request),
+      getItemAggregate: (request) =>
+        latestBridgeRef.current?.getItemAggregate?.(request) ??
+        Promise.reject(new Error("Queue aggregate read API is unavailable.")),
+      listItemAggregates: () =>
+        latestBridgeRef.current?.listItemAggregates?.() ??
+        Promise.reject(new Error("Queue aggregate read API is unavailable.")),
       enableQueue: (request) =>
         latestBridgeRef.current?.enableQueue?.(request) ??
         Promise.resolve(
@@ -288,6 +298,10 @@ export function useWorkspaceQueueApi({
       runAutonomousQueue: () => runAutonomousQueue(controller.autonomous),
       stopAutonomousQueueAfterCurrent: () =>
         stopAutonomousQueueAfterCurrent(controller.autonomous),
+    },
+    aggregateReadActions: {
+      getAgentQueueItemAggregate,
+      listAgentQueueItemAggregates,
     },
     contextActions: {
       attachKnowledgeToQueueTask: actions.attachKnowledgeToQueueTask,

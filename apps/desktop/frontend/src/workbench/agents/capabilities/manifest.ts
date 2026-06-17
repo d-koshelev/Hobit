@@ -143,8 +143,9 @@ const QUEUE_CREATE_ITEMS_EXAMPLES: HobitAgentCapabilityExample[] = [
 const QUEUE_ITEMS_LIST_SCHEMA: HobitAgentCapabilityInputSchema = {
   acceptedFields: ["limit", "taskId"],
   fieldDescriptions: {
-    limit: "Optional maximum number of Queue task summaries to return. Range: 1-50.",
-    taskId: "Optional explicit Queue task id to read one task.",
+    limit:
+      "Optional maximum number of backend aggregate Queue task summaries to return. Range: 1-50.",
+    taskId: "Optional explicit Queue task id to filter one aggregate item.",
   },
   invalidInputGuidance: [
     "Use taskId only when an explicit Queue task id is already available from a prior typed result.",
@@ -395,7 +396,7 @@ export const HOBIT_AGENT_INITIAL_CAPABILITIES: HobitAgentCapability[] = [
     confirmationRequirement: "none",
     defaultForProductActions: true,
     description:
-      "Read bounded singleton Workspace Queue task summaries with explicit task ids, readiness, blockers, and available executor ids.",
+      "Read bounded singleton Workspace Queue task summaries from backend/Tauri authoritative aggregate DTOs with explicit task ids, state dimensions, blockers, nextActions, latest run, durability, and available executor ids.",
     forbiddenSideEffects: [
       "queue_mutation",
       "queue_item_create",
@@ -411,11 +412,11 @@ export const HOBIT_AGENT_INITIAL_CAPABILITIES: HobitAgentCapability[] = [
     ],
     id: "queue.items.list",
     inputSchemaDescription:
-      "Optional limit and optional explicit taskId. Returns bounded product-facing task summaries, not raw internal JSON.",
+      "Optional limit and optional explicit taskId. Returns bounded product-facing backend aggregate summaries, not raw internal JSON or frontend Queue board state.",
     inputSchema: QUEUE_ITEMS_LIST_SCHEMA,
     examples: QUEUE_RUN_CONTROL_EXAMPLES["queue.items.list"],
     outputSchemaDescription:
-      "Bounded Queue task summaries with taskId, title, status, readiness, blockers, and available executor widget ids.",
+      "Bounded backend aggregate Queue task summaries with taskId, title, ticket/worker/review/evidence/validation/commit/dependency states, blockers, nextActions, latestRun, durableFlags, and available executor widget ids.",
     ownerSurface: "Agent Queue",
     restricted: false,
     sideEffectLevel: "read",
