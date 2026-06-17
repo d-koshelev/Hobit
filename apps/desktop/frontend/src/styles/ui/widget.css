@@ -9,7 +9,7 @@
   min-width: 0;
   min-height: 0;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--module-shell-border-color);
   border-radius: var(--module-shell-radius);
   background: var(--module-shell-background);
@@ -218,20 +218,42 @@
   opacity: 1;
 }
 
+.module-shell-floating-layer {
+  position: absolute;
+  z-index: var(--module-popup-z-index);
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
 .module-settings-popup {
   position: absolute;
-  z-index: 4;
-  top: calc(var(--module-header-height) + var(--space-md));
-  right: var(--space-md);
+  z-index: 1;
+  top:
+    var(
+      --module-settings-popup-y,
+      calc(var(--module-header-height) + var(--module-popup-offset-y))
+    );
+  right: auto;
+  left:
+    var(
+      --module-settings-popup-x,
+      calc(100% - var(--module-popup-width) - var(--space-xl))
+    );
   display: grid;
-  width: min(264px, calc(100% - var(--space-2xl)));
-  max-height: calc(100% - var(--module-header-height) - var(--space-2xl));
+  width: min(var(--module-popup-width), calc(100% - var(--space-2xl)));
+  max-height: min(320px, calc(100vh - var(--space-2xl)));
   overflow: hidden;
   border: 1px solid var(--module-popup-border-color);
   border-radius: var(--radius-2xs);
   background: var(--module-popup-background);
-  box-shadow: 0 18px 32px var(--module-popup-shadow-color);
+  box-shadow: var(--module-popup-shadow);
   color: var(--module-text-primary);
+  pointer-events: auto;
+}
+
+.module-settings-popup[data-module-popup-moving="true"] {
+  cursor: grabbing;
 }
 
 .module-settings-popup::before {
@@ -252,6 +274,14 @@
   justify-content: space-between;
   border-bottom: 1px solid var(--module-popup-border-color);
   background: var(--module-header-background);
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.module-settings-popup[data-module-popup-moving="true"]
+  .module-settings-popup-header {
+  cursor: grabbing;
 }
 
 .module-settings-popup-header-group {
@@ -333,16 +363,7 @@
     minmax(0, 1.45fr) var(--module-body-rail-width)
     minmax(180px, 0.85fr);
   align-items: stretch;
-  background-color: var(--module-body-background);
-  background-image:
-    radial-gradient(
-      circle,
-      var(--module-body-canvas-dot) 1px,
-      var(--module-body-background) 1px
-    );
-  background-position: 0 0;
-  background-size:
-    var(--workbench-grid-step) var(--workbench-grid-step);
+  background: var(--module-body-background);
 }
 
 .module-shell-example-region {
@@ -380,14 +401,14 @@
 .module-shell-example-line {
   display: block;
   width: 92%;
-  height: calc(8px * var(--ui-scale));
+  height: calc(6px * var(--ui-scale));
   border-radius: var(--radius-2xs);
   background: var(--module-body-placeholder-muted);
 }
 
 .module-shell-example-line-strong {
   width: 76%;
-  height: calc(10px * var(--ui-scale));
+  height: calc(8px * var(--ui-scale));
   background: var(--module-body-placeholder-strong);
 }
 

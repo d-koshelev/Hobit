@@ -2,7 +2,7 @@
   display: grid;
   min-height: 100vh;
   place-items: center;
-  overflow: auto;
+  overflow: visible;
   background-color: var(--module-preview-app-background);
   background-image:
     radial-gradient(
@@ -17,10 +17,12 @@
 }
 
 .module-shell-visual-preview__stage {
+  position: relative;
   display: grid;
   width: min(960px, 100%);
   align-items: start;
   justify-items: stretch;
+  overflow: visible;
   min-height: min(420px, calc(100vh - 112px));
 }
 

@@ -23,6 +23,15 @@ The visual model is:
 
 Everything below the separator line is module body content.
 
+The module body is an opaque base canvas. Dotted grid texture may belong to the
+Workbench canvas or a dev preview stage, but it must not show through the core
+module body or make the module read as a transparent overlay.
+
+The ModuleShell base palette is graphite / charcoal. Base surfaces, body
+regions, popups, rails, borders, skeletons, and preview-stage dots must not use
+blue/navy as their foundation. Blue is reserved only for explicit
+focus/selection/active accents in later product-ready states.
+
 `WidgetFrame` remains the single active outer shell for current product widgets.
 `ModuleShell` and `ModuleHeader` are presentational primitives only. They do
 not replace `WidgetFrame`, bypass `WidgetHost`, or create another production
@@ -65,6 +74,15 @@ State tones are visual-only and domain-free:
 - error;
 - draft;
 - disabled.
+
+Module-owned popups should follow the same minimal header/body visual model:
+solid opaque surface, 2px radius, calm border, quiet separation from the header
+action area, and no glass or heavy shadow treatment.
+
+Module-owned popups are floating mini-module surfaces above the module canvas.
+Opening from a header action must not make the popup part of the header layout
+or a glued dropdown. Movement, when demonstrated in the dummy example, is
+local, non-persistent visual state only.
 
 ## Minimize Behavior
 

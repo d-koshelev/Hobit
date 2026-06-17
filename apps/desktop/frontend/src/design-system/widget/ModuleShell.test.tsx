@@ -17,6 +17,8 @@ import {
 
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
+const SETTINGS_POPUP_MARGIN = 12;
+const SETTINGS_POPUP_WIDTH = 264;
 
 afterEach(() => {
   if (container && root) {
@@ -156,7 +158,7 @@ describe("ModuleShell", () => {
     const popup = settingsPopup();
     expect(popup).not.toBeNull();
     expect(popup?.textContent).toContain("Settings");
-    expect(popup?.textContent).toContain("Settings surface");
+    expect(popup?.textContent).toContain("Placeholder surface");
     expect(
       document.querySelector<HTMLButtonElement>(
         'button[aria-expanded="true"][aria-controls="module-shell-example-settings-popup"]',
@@ -166,6 +168,87 @@ describe("ModuleShell", () => {
     await click(buttonWithAriaLabel("Close settings"));
 
     expect(settingsPopup()).toBeNull();
+  });
+
+  it("renders the dummy settings popup as a floating overlay outside header and body layout", async () => {
+    await render(<ModuleShellExample />);
+
+    await click(buttonWithText("Settings"));
+
+    const popup = settingsPopup();
+    const layer = document.querySelector("[data-module-floating-layer='true']");
+    const body = document.querySelector("#module-shell-example-body");
+
+    expect(popup).not.toBeNull();
+    expect(layer).not.toBeNull();
+    expect(popup?.dataset.modulePopupFloating).toBe("true");
+    expect(layer?.classList.contains("module-shell-floating-layer")).toBe(true);
+    expect(layer?.parentElement?.classList.contains("module-shell")).toBe(true);
+    expect(layer?.contains(popup)).toBe(true);
+    expect(popup?.closest(".module-header")).toBeNull();
+    expect(popup?.closest(".module-body")).toBeNull();
+    expect(body?.contains(popup)).toBe(false);
+  });
+
+  it("constrains the dummy settings popup initial position inside the module width", async () => {
+    const moduleWidth = 700;
+    const restoreModuleShellBounds = mockModuleShellBounds(moduleWidth);
+
+    try {
+      await render(<ModuleShellExample />);
+
+      await click(buttonWithText("Settings"));
+
+      const popup = settingsPopupOrThrow();
+      const initialX = popupCoordinate(popup, "--module-settings-popup-x");
+      const initialY = popupCoordinate(popup, "--module-settings-popup-y");
+
+      expect(initialX).toBeGreaterThanOrEqual(SETTINGS_POPUP_MARGIN);
+      expect(initialX + SETTINGS_POPUP_WIDTH).toBeLessThanOrEqual(
+        moduleWidth - SETTINGS_POPUP_MARGIN,
+      );
+      expect(initialY).toBeGreaterThanOrEqual(SETTINGS_POPUP_MARGIN);
+    } finally {
+      restoreModuleShellBounds();
+    }
+  });
+
+  it("exposes the dummy settings popup header as a local drag handle", async () => {
+    await render(<ModuleShellExample />);
+
+    await click(buttonWithText("Settings"));
+
+    const handle = settingsPopupDragHandle();
+
+    expect(handle.getAttribute("aria-label")).toBe("Move settings popup");
+    expect(handle.getAttribute("title")).toBe("Drag settings popup");
+  });
+
+  it("moves the dummy settings popup with pointer drag using local style state", async () => {
+    await render(<ModuleShellExample />);
+
+    await click(buttonWithText("Settings"));
+
+    const initialPopup = settingsPopupOrThrow();
+    const initialX = popupCoordinate(initialPopup, "--module-settings-popup-x");
+    const initialY = popupCoordinate(initialPopup, "--module-settings-popup-y");
+
+    await drag(settingsPopupDragHandle(), {
+      endX: 150,
+      endY: 90,
+      startX: 100,
+      startY: 60,
+    });
+
+    const movedPopup = settingsPopupOrThrow();
+
+    expect(movedPopup.dataset.modulePopupMoving).toBe("false");
+    expect(popupCoordinate(movedPopup, "--module-settings-popup-x")).toBe(
+      initialX + 50,
+    );
+    expect(popupCoordinate(movedPopup, "--module-settings-popup-y")).toBe(
+      initialY + 30,
+    );
   });
 
   it("renders the dummy body as two regions split by one rail", async () => {
@@ -214,6 +297,42 @@ async function click(element: HTMLElement) {
   });
 }
 
+async function drag(
+  element: HTMLElement,
+  options: {
+    readonly endX: number;
+    readonly endY: number;
+    readonly startX: number;
+    readonly startY: number;
+  },
+) {
+  await act(async () => {
+    element.dispatchEvent(
+      new MouseEvent("pointerdown", {
+        bubbles: true,
+        button: 0,
+        clientX: options.startX,
+        clientY: options.startY,
+      }),
+    );
+    window.dispatchEvent(
+      new MouseEvent("pointermove", {
+        bubbles: true,
+        clientX: options.endX,
+        clientY: options.endY,
+      }),
+    );
+    window.dispatchEvent(
+      new MouseEvent("pointerup", {
+        bubbles: true,
+        clientX: options.endX,
+        clientY: options.endY,
+      }),
+    );
+    await Promise.resolve();
+  });
+}
+
 function buttonWithAriaLabel(label: string) {
   const button = document.querySelector<HTMLButtonElement>(
     `button[aria-label="${label}"]`,
@@ -248,6 +367,69 @@ function settingsPopup() {
   return document.querySelector<HTMLElement>(
     "#module-shell-example-settings-popup[role='dialog']",
   );
+}
+
+function settingsPopupOrThrow() {
+  const popup = settingsPopup();
+
+  if (!popup) {
+    throw new Error("Settings popup not found.");
+  }
+
+  return popup;
+}
+
+function settingsPopupDragHandle() {
+  const handle = document.querySelector<HTMLElement>(
+    "[data-module-popup-drag-handle='true']",
+  );
+
+  if (!handle) {
+    throw new Error("Settings popup drag handle not found.");
+  }
+
+  return handle;
+}
+
+function popupCoordinate(popup: HTMLElement, propertyName: string) {
+  const value = popup.style.getPropertyValue(propertyName);
+  const coordinate = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(coordinate)) {
+    throw new Error(`Invalid popup coordinate ${propertyName}: ${value}`);
+  }
+
+  return coordinate;
+}
+
+function mockModuleShellBounds(width: number) {
+  const originalGetBoundingClientRect =
+    HTMLElement.prototype.getBoundingClientRect;
+
+  HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect(
+    this: HTMLElement,
+  ) {
+    if (this.classList.contains("module-shell")) {
+      return {
+        bottom: 420,
+        height: 420,
+        left: 0,
+        right: width,
+        top: 0,
+        width,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    }
+
+    return originalGetBoundingClientRect.call(this);
+  };
+
+  return () => {
+    HTMLElement.prototype.getBoundingClientRect =
+      originalGetBoundingClientRect;
+  };
 }
 
 function group(side: "left" | "right") {

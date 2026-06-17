@@ -1,7 +1,8 @@
-import type {
-  ButtonHTMLAttributes,
-  HTMLAttributes,
-  ReactNode,
+import {
+  forwardRef,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type ReactNode,
 } from "react";
 
 export type ModuleHeaderStateTone =
@@ -59,22 +60,23 @@ type ModuleBodyProps = HTMLAttributes<HTMLDivElement> & {
   readonly collapsed?: boolean;
 };
 
-export function ModuleShell({
-  bodyCollapsed = false,
-  children,
-  className,
-  ...props
-}: ModuleShellProps) {
-  return (
-    <section
-      {...props}
-      className={["module-shell", className].filter(Boolean).join(" ")}
-      data-module-body-collapsed={bodyCollapsed ? "true" : "false"}
-    >
-      {children}
-    </section>
-  );
-}
+export const ModuleShell = forwardRef<HTMLElement, ModuleShellProps>(
+  function ModuleShell(
+    { bodyCollapsed = false, children, className, ...props },
+    ref,
+  ) {
+    return (
+      <section
+        {...props}
+        className={["module-shell", className].filter(Boolean).join(" ")}
+        data-module-body-collapsed={bodyCollapsed ? "true" : "false"}
+        ref={ref}
+      >
+        {children}
+      </section>
+    );
+  },
+);
 
 export function ModuleHeader({
   className,

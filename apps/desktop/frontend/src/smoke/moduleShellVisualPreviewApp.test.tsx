@@ -38,6 +38,26 @@ describe("ModuleShell visual preview smoke app", () => {
     expect(document.querySelector("[data-module-body-rail='true']")).not.toBeNull();
   });
 
+  it("opens the settings popup in the local preview overlay layer", async () => {
+    await render(<ModuleShellVisualPreviewApp />);
+
+    await click(buttonWithText("Settings"));
+
+    const popup = document.querySelector(
+      "#module-shell-example-settings-popup[role='dialog']",
+    );
+    const layer = document.querySelector("[data-module-floating-layer='true']");
+    const stage = document.querySelector(".module-shell-visual-preview__stage");
+
+    expect(popup).not.toBeNull();
+    expect(layer).not.toBeNull();
+    expect(stage?.contains(layer)).toBe(true);
+    expect(layer?.classList.contains("module-shell-floating-layer")).toBe(true);
+    expect(layer?.contains(popup)).toBe(true);
+    expect(popup?.closest(".module-header")).toBeNull();
+    expect(popup?.closest(".module-body")).toBeNull();
+  });
+
   it("keeps the preview entrypoint isolated from product modules and runtime APIs", () => {
     const imports = extractImportText(previewSource);
 
@@ -78,6 +98,25 @@ async function render(element: ReactNode) {
     root?.render(element);
     await Promise.resolve();
   });
+}
+
+async function click(element: HTMLElement) {
+  await act(async () => {
+    element.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    await Promise.resolve();
+  });
+}
+
+function buttonWithText(label: string) {
+  const button = Array.from(document.querySelectorAll("button")).find(
+    (candidate) => candidate.textContent?.trim() === label,
+  );
+
+  if (!button) {
+    throw new Error(`Button not found: ${label}`);
+  }
+
+  return button;
 }
 
 function extractImportText(source: string) {
