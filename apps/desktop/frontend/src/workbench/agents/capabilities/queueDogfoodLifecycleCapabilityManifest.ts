@@ -484,6 +484,7 @@ function envelopeExample(
       capabilityId,
       dryRun: false,
       input,
+      requestId: `${capabilityId}:example-1`,
       type: "hobit.action.request",
     },
     exampleInput: input,

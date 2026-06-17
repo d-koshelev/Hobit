@@ -20,6 +20,7 @@ const AUTO_CONTINUATION_ALLOWED_CAPABILITIES = new Set([
   "queue.item.updateRunSettings",
   "queue.item.promoteDraft",
   "queue.enable",
+  "queue.lifecycle.get",
 ]);
 
 const RESTRICTED_CAPABILITY_IDS = new Set([
@@ -131,7 +132,10 @@ export function evaluateWorkspaceAgentBrokerContinuationAttempt(
     };
   }
 
-  if (state.seenRequestIds.includes(request.requestId)) {
+  if (
+    request.requestIdSource !== "derived" &&
+    state.seenRequestIds.includes(request.requestId)
+  ) {
     return {
       actionIndex,
       ok: false,
@@ -154,6 +158,18 @@ export function evaluateWorkspaceAgentBrokerContinuationAttempt(
     fingerprint,
     ok: true,
   };
+}
+
+export function deriveWorkspaceAgentBrokerContinuationRequestId({
+  actionIndex,
+  capabilityId,
+  chainId,
+}: {
+  actionIndex: number;
+  capabilityId: string;
+  chainId: string;
+}): string {
+  return `${chainId}:action-${actionIndex.toString()}:${capabilityId}`;
 }
 
 export function recordWorkspaceAgentBrokerContinuationAttempt(
@@ -361,7 +377,7 @@ export function formatWorkspaceAgentBrokerContinuationPrompt({
       "The app executed the typed Hobit action and returned this compact structured result.",
       "Continue the same user request from this result.",
       "Emit exactly one hobit.action.request envelope when another Hobit app action is needed, or final prose when the task is done.",
-      "Do not emit action lists. Do not repeat a previous request id or same capability/input. Use returned taskIds, executorWidgetIds, runId, blockers, and nextSuggestedCapability.",
+      "Do not emit action lists. Use a fresh requestId for each envelope. Do not repeat a previous request id or same capability/input. Use returned taskIds, executorWidgetIds, runId, blockers, and nextSuggestedCapability.",
       "If the result is blocked, unavailable, confirmation_required, failed, invalid, or policy blocked, stop and report that plainly.",
       "Never infer taskId or executorWidgetId from prose, titles, paths, final messages, or source text.",
       "Do not use shell, raw Codex, Git, validation, rollback, Terminal, or hidden execution for Hobit product actions.",

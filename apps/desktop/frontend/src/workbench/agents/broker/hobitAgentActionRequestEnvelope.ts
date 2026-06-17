@@ -16,9 +16,15 @@ export type HobitAgentActionRequestEnvelope = {
   type: typeof HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE;
 };
 
+export type HobitAgentActionRequestEnvelopeRequestIdSource =
+  | "blank"
+  | "explicit"
+  | "missing";
+
 export type HobitAgentActionRequestEnvelopeReadResult =
   | {
       envelope: HobitAgentActionRequestEnvelope;
+      requestIdSource: HobitAgentActionRequestEnvelopeRequestIdSource;
       source: "direct_json" | "embedded_json" | "fenced_json";
       status: "valid";
     }
@@ -67,6 +73,7 @@ export function readHobitAgentActionRequestEnvelope(
     if (validation.status === "valid") {
       return {
         envelope: validation.envelope,
+        requestIdSource: validation.requestIdSource,
         source: candidate.source,
         status: "valid",
       };
@@ -84,13 +91,19 @@ export function createHobitAgentActionRequestFromEnvelope({
   agentId,
   agentRoleId = "workspace_agent",
   createdAt,
+  derivedRequestId,
   envelope,
 }: {
   agentId: HobitAgentId;
   agentRoleId?: HobitAgentRoleId;
   createdAt: string;
+  derivedRequestId?: string | null;
   envelope: HobitAgentActionRequestEnvelope;
 }): HobitAgentActionRequest {
+  const explicitRequestId = envelope.requestId?.trim() || null;
+  const fallbackRequestId =
+    derivedRequestId?.trim() || `${envelope.capabilityId}:workspace-agent-action`;
+
   return createActionRequest({
     agentId,
     agentRoleId,
@@ -100,9 +113,9 @@ export function createHobitAgentActionRequestFromEnvelope({
     dryRun: envelope.dryRun,
     input: envelope.input,
     reason: envelope.reason ?? null,
-    requestId:
-      envelope.requestId?.trim() ||
-      `${envelope.capabilityId}:workspace-agent-action`,
+    rawRequestId: envelope.requestId ?? null,
+    requestId: explicitRequestId ?? fallbackRequestId,
+    requestIdSource: explicitRequestId ? "explicit" : "derived",
   });
 }
 
@@ -234,6 +247,7 @@ function validateHobitActionRequestEnvelope(
   const capabilityId =
     typeof value.capabilityId === "string" ? value.capabilityId.trim() : "";
   const dryRun = typeof value.dryRun === "boolean" ? value.dryRun : false;
+  const requestIdSource = requestIdSourceForEnvelope(value);
 
   return {
     envelope: {
@@ -245,6 +259,7 @@ function validateHobitActionRequestEnvelope(
       requestId: optionalTrimmed(value.requestId),
       type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
     },
+    requestIdSource,
     source: "direct_json",
     status: "valid",
   };
@@ -379,6 +394,18 @@ function optionalString(value: unknown, fieldName: string) {
 
 function optionalTrimmed(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function requestIdSourceForEnvelope(
+  value: Record<string, unknown>,
+): HobitAgentActionRequestEnvelopeRequestIdSource {
+  if (!Object.prototype.hasOwnProperty.call(value, "requestId")) {
+    return "missing";
+  }
+
+  return typeof value.requestId === "string" && value.requestId.trim()
+    ? "explicit"
+    : "blank";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

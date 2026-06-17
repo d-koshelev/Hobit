@@ -38,6 +38,7 @@ describe("hobitAgentActionRequestEnvelope", () => {
         type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
       },
       source: "direct_json",
+      requestIdSource: "explicit",
       status: "valid",
     });
   });
@@ -62,6 +63,7 @@ describe("hobitAgentActionRequestEnvelope", () => {
         capabilityId: "queue.preparePromptPackPreview",
         dryRun: true,
       },
+      requestIdSource: "missing",
       source: "fenced_json",
       status: "valid",
     });
@@ -180,7 +182,79 @@ describe("hobitAgentActionRequestEnvelope", () => {
       capabilityId: "queue.createItems",
       dryRun: false,
       input: envelope.input,
+      rawRequestId: "queue-request-1",
       requestId: "queue-request-1",
+      requestIdSource: "explicit",
+    });
+  });
+
+  it("derives a runtime request id when the envelope omits requestId", () => {
+    const result = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "queue.items.list",
+        dryRun: false,
+        input: { limit: 10 },
+        type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+      }),
+    );
+
+    expect(result).toMatchObject({
+      requestIdSource: "missing",
+      status: "valid",
+    });
+    if (result.status !== "valid") {
+      throw new Error("Expected valid envelope.");
+    }
+
+    const request = createHobitAgentActionRequestFromEnvelope({
+      agentId: "workspace-agent:coordinator",
+      createdAt: "2026-06-15T10:00:00.000Z",
+      derivedRequestId: "chain-1:action-1:queue.items.list",
+      envelope: result.envelope,
+    });
+
+    expect(request).toMatchObject({
+      capabilityId: "queue.items.list",
+      rawRequestId: null,
+      requestId: "chain-1:action-1:queue.items.list",
+      requestIdSource: "derived",
+    });
+  });
+
+  it("derives a runtime request id when the envelope requestId is blank", () => {
+    const result = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "queue.items.list",
+        dryRun: false,
+        input: { limit: 25 },
+        requestId: "   ",
+        type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+      }),
+    );
+
+    expect(result).toMatchObject({
+      envelope: {
+        requestId: null,
+      },
+      requestIdSource: "blank",
+      status: "valid",
+    });
+    if (result.status !== "valid") {
+      throw new Error("Expected valid envelope.");
+    }
+
+    const request = createHobitAgentActionRequestFromEnvelope({
+      agentId: "workspace-agent:coordinator",
+      createdAt: "2026-06-15T10:00:00.000Z",
+      derivedRequestId: "chain-1:action-2:queue.items.list",
+      envelope: result.envelope,
+    });
+
+    expect(request).toMatchObject({
+      capabilityId: "queue.items.list",
+      rawRequestId: null,
+      requestId: "chain-1:action-2:queue.items.list",
+      requestIdSource: "derived",
     });
   });
 
@@ -198,8 +272,10 @@ describe("hobitAgentActionRequestEnvelope", () => {
         envelope: {
           capabilityId,
           dryRun: false,
+          requestId: expect.any(String),
           type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
         },
+        requestIdSource: "explicit",
         status: "valid",
       });
     }

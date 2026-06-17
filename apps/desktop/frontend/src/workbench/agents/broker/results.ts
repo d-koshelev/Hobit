@@ -32,8 +32,10 @@ export function createActionRequest({
   dryRun = false,
   input = {},
   reason = null,
+  rawRequestId,
   requestedAt = null,
   requestId,
+  requestIdSource,
 }: {
   agentId?: HobitAgentId;
   agentRole?: HobitAgentRoleId;
@@ -44,10 +46,13 @@ export function createActionRequest({
   dryRun?: boolean;
   input?: unknown;
   reason?: string | null;
+  rawRequestId?: string | null;
   requestedAt?: string | null;
   requestId?: string;
+  requestIdSource?: HobitAgentActionRequest["requestIdSource"];
 }): HobitAgentActionRequest {
   const resolvedAgentRole = agentRole ?? agentRoleId;
+  const resolvedRequestId = requestId ?? `${capabilityId}:request`;
 
   return {
     agentId,
@@ -59,8 +64,10 @@ export function createActionRequest({
     dryRun,
     input,
     reason,
+    ...(rawRequestId !== undefined ? { rawRequestId } : {}),
     requestedAt: requestedAt ?? createdAt,
-    requestId: requestId ?? `${capabilityId}:request`,
+    requestId: resolvedRequestId,
+    ...(requestIdSource ? { requestIdSource } : {}),
   };
 }
 

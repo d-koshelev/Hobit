@@ -71,6 +71,12 @@ The current implemented frontend behavior is:
   `hobit.action.request` or final prose, with a 16-action cap and stops for
   confirmation, policy, unavailable, dry-run-required, failed, invalid,
   repeated, unsupported, restricted, or missing-thread cases;
+- continuation request ids preserve replay safety: explicit duplicate
+  requestIds hard-stop, while missing or blank requestIds are derived from the
+  continuation chain id, action index, and capability id so runtime-generated
+  fallback ids do not falsely repeat;
+- read-only `queue.lifecycle.get` is allowed to participate in safe broker
+  auto-continuation after success;
 - active Queue V2 Codex executable setup affordance for existing tasks through
   the existing task update/run-settings bridge;
 - active Queue V2 Draft readiness explanation for existing Draft tasks and

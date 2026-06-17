@@ -319,6 +319,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain('"type":"hobit.action.request"');
     expect(instructionBlock).toContain("do not emit action lists");
     expect(instructionBlock).toContain("After hobit.action.result");
+    expect(instructionBlock).toContain("fresh requestId");
     expect(instructionBlock).toContain("never infer missing ids");
     expect(instructionBlock).not.toContain('"allowedAgentRoles"');
     expect(instructionBlock.length).toBeLessThan(11000);
@@ -407,6 +408,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain("You are inside Hobit");
     expect(prompt).toContain("Use typed Hobit app capabilities before Codex or shell.");
     expect(prompt).toContain('"type":"hobit.action.request"');
+    expect(prompt).toContain("Use a fresh requestId");
     expect(prompt).toContain("After hobit.action.result");
     expect(prompt).toContain("When a Hobit app capability is needed");
     expect(prompt).toContain("Queue item creation is a Queue capability.");
@@ -558,6 +560,7 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
         status: "draft",
         title: "Test Queue item",
       },
+      requestId: expect.any(String),
       type: "hobit.action.request",
     });
     expect(createItemsExample.exampleActionRequest).toMatchObject({
@@ -572,6 +575,7 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
           }),
         ],
       },
+      requestId: expect.any(String),
       type: "hobit.action.request",
     });
     expect(
@@ -588,11 +592,13 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       const serializedExample = JSON.stringify(example.exampleActionRequest);
 
       expect(serializedExample).toContain('"prompt"');
+      expect(serializedExample).toContain('"requestId"');
       expect(serializedExample).not.toContain('"body"');
       expect(serializedExample).not.toContain('"text"');
       expect(serializedExample).not.toContain('"content"');
       expect(serializedExample).not.toContain('"operatorPrompt"');
       expect(readHobitAgentActionRequestEnvelope(serializedExample)).toMatchObject({
+        requestIdSource: "explicit",
         status: "valid",
       });
     }
@@ -633,7 +639,9 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       );
 
       expect(serializedExample).toContain('"type":"hobit.action.request"');
+      expect(serializedExample).toContain('"requestId"');
       expect(readHobitAgentActionRequestEnvelope(serializedExample)).toMatchObject({
+        requestIdSource: "explicit",
         status: "valid",
       });
     }

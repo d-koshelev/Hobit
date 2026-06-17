@@ -109,7 +109,9 @@ restricted capabilities for explicit workspace/code execution requests only.
   missing same-thread continuation state. It does not accept action lists,
   regex-route user prompts, infer task ids, or add backend durability,
   validation execution, Git mutation, rollback, Terminal, shell, or raw Codex
-  automation.
+  automation. Missing or blank request ids are derived per continuation action
+  from the chain id, action index, and capability id; explicit duplicate
+  request ids still stop as the replay guard.
 
 ## Module Ownership
 
@@ -343,6 +345,10 @@ and read lifecycle/evidence data through structured `hobit.action.request`
 envelopes. They do not parse user prompts, route natural-language phrases,
 start workers, run validation, execute Git commits, launch Terminal, execute
 rollback, call shell, call Codex, create Queue views, or persist backend state.
+The read-only `queue.lifecycle.get` capability is safe for broker
+auto-continuation after success. The continuation action budget remains 16,
+and confirmation, unavailable, policy, failed, invalid, restricted, repeated
+fingerprint, and safety stops are unchanged.
 
 The optional `queue.lifecycle.agentFinished` evidence bundle is normalized in
 frontend code only. It can supply task id, attempt id, thread id, outcome,

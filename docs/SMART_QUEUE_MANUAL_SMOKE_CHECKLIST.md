@@ -50,6 +50,11 @@ confirmation, policy, unavailable, dry-run-required, failed, invalid, repeated,
 unsupported, restricted, or missing-thread cases. Natural-language Queue
 phrases are not regex-routed into actions, and task ids or executor ids are
 not inferred from prose.
+Each emitted envelope should use a fresh requestId. If the model omits or
+blanks requestId, the frontend derives a per-chain/per-action id; explicit
+duplicate requestIds still stop as a replay guard. Read-only
+`queue.lifecycle.get` can continue safely after success. The continuation
+budget remains 16 actions and the existing safety stops are unchanged.
 
 ## Setup
 
@@ -488,10 +493,15 @@ During the smoke, verify these product labels appear where applicable:
       thread id is available, the next Direct Work request uses compact
       `hobit.action.result` context in the same thread, not a new visible
       operator turn or pasted prompt.
+    - Expected: missing or blank model requestId values are replaced with a
+      unique derived continuation id, while explicitly repeated requestIds
+      still stop before duplicate execution.
     - Expected: transcript/activity show compact action-chain rows such as
       `Action 1/16: queue.targetSingletonQueue` and
       `Action 2/16: queue.items.list`; they do not dump raw JSON, logs, secrets,
       or stack traces.
+    - Expected: `queue.lifecycle.get` can appear in the continuation chain and
+      proceed to the next envelope or final prose after a successful read.
     - Expected: the chain stops with a visible reason on confirmation,
       policy-blocked, unavailable, dry-run-required, failed, invalid input,
       repeated request id, repeated capability/input, unsupported envelope,

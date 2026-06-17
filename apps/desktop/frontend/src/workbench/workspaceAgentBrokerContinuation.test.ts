@@ -5,6 +5,7 @@ import {
   classifyWorkspaceAgentBrokerContinuationCapability,
   createWorkspaceAgentBrokerActionResultContext,
   createWorkspaceAgentBrokerContinuationState,
+  deriveWorkspaceAgentBrokerContinuationRequestId,
   evaluateWorkspaceAgentBrokerContinuationAttempt,
   formatWorkspaceAgentBrokerContinuationPrompt,
   recordWorkspaceAgentBrokerContinuationAttempt,
@@ -107,6 +108,80 @@ describe("workspaceAgentBrokerContinuation", () => {
     });
   });
 
+  it("derives unique continuation ids for runtime-generated request ids without weakening fingerprint stops", () => {
+    let state = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-derived",
+    });
+    const first = requestFor(
+      "queue.items.list",
+      { limit: 10 },
+      deriveWorkspaceAgentBrokerContinuationRequestId({
+        actionIndex: 1,
+        capabilityId: "queue.items.list",
+        chainId: state.chainId,
+      }),
+      null,
+      "derived",
+    );
+    const firstAttempt = evaluateWorkspaceAgentBrokerContinuationAttempt(
+      state,
+      first,
+    );
+
+    expect(firstAttempt).toMatchObject({
+      ok: true,
+    });
+    if (!firstAttempt.ok) {
+      throw new Error("Expected derived first attempt to be accepted.");
+    }
+    state = recordWorkspaceAgentBrokerContinuationAttempt(
+      state,
+      first,
+      firstAttempt.fingerprint,
+    );
+
+    const secondDifferentInput = requestFor(
+      "queue.items.list",
+      { limit: 25 },
+      deriveWorkspaceAgentBrokerContinuationRequestId({
+        actionIndex: 2,
+        capabilityId: "queue.items.list",
+        chainId: state.chainId,
+      }),
+      null,
+      "derived",
+    );
+    expect(
+      evaluateWorkspaceAgentBrokerContinuationAttempt(
+        state,
+        secondDifferentInput,
+      ),
+    ).toMatchObject({
+      ok: true,
+    });
+
+    const sameFingerprintWithDerivedId = requestFor(
+      "queue.items.list",
+      { limit: 10 },
+      deriveWorkspaceAgentBrokerContinuationRequestId({
+        actionIndex: 3,
+        capabilityId: "queue.items.list",
+        chainId: state.chainId,
+      }),
+      null,
+      "derived",
+    );
+    expect(
+      evaluateWorkspaceAgentBrokerContinuationAttempt(
+        state,
+        sameFingerprintWithDerivedId,
+      ),
+    ).toMatchObject({
+      ok: false,
+      stopReason: "repeated_request_fingerprint",
+    });
+  });
+
   it("stops at the configured max action count", () => {
     let state = createWorkspaceAgentBrokerContinuationState({
       chainId: "chain-max",
@@ -127,6 +202,34 @@ describe("workspaceAgentBrokerContinuation", () => {
       ok: false,
       stopReason: "max_action_count_reached",
     });
+  });
+
+  it("allows queue.lifecycle.get to continue after successful read-only results", () => {
+    const request = requestFor(
+      "queue.lifecycle.get",
+      { taskId: "task-1" },
+      "request-lifecycle-get",
+    );
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-lifecycle-get",
+      }),
+      request,
+    );
+
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability("queue.lifecycle.get")
+        .kind,
+    ).toBe("allowed");
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request,
+        result: resultFor("queue.lifecycle.get", {
+          lifecycle: { taskId: "task-1", ticketState: "awaiting_review" },
+        }),
+        state,
+      }),
+    ).toEqual({ shouldContinue: true });
   });
 
   it("blocks shell, raw Codex, Git, Terminal, rollback, and validation capabilities from auto-continuation", () => {
@@ -255,6 +358,7 @@ function requestFor(
   input: unknown,
   requestId = `${capabilityId}:request`,
   confirmationToken: string | null = null,
+  requestIdSource?: "derived" | "explicit",
 ) {
   return createActionRequest({
     agentId: "workspace-agent:test",
@@ -265,6 +369,7 @@ function requestFor(
     dryRun: false,
     input,
     requestId,
+    requestIdSource,
   });
 }
 

@@ -27,7 +27,7 @@ export function createCapabilityInstructionBlock(
       : null,
     "Use typed Hobit app capabilities before Codex or shell.",
     "App and product actions must use typed Hobit capabilities.",
-    'When needed emit one JSON envelope: {"type":"hobit.action.request","capabilityId":"<id>","dryRun":false,"input":{...}}.',
+    'When needed emit one JSON envelope with a fresh requestId: {"type":"hobit.action.request","requestId":"action-1","capabilityId":"<id>","dryRun":false,"input":{...}}.',
     "One envelope only; do not emit action lists.",
     "After hobit.action.result, continue with returned taskId/runId/executorWidgetId or final prose; never infer missing ids.",
     "Stop on blocked, unavailable, confirmation_required, policy_blocked, failed, invalid, repeated, or max actions.",
@@ -128,7 +128,7 @@ function createQueueLifecycleCapabilityInstructionLines(
   return [
     "Queue lifecycle schemas:",
     requiredInputLine,
-    'Lifecycle example: {"type":"hobit.action.request","capabilityId":"queue.lifecycle.agentFinished","dryRun":false,"input":{"taskId":"queue-task-id","outcome":"completed","finalAgentMessage":"Done."}}',
+    'Lifecycle example: {"type":"hobit.action.request","requestId":"lifecycle-agent-finished-1","capabilityId":"queue.lifecycle.agentFinished","dryRun":false,"input":{"taskId":"queue-task-id","outcome":"completed","finalAgentMessage":"Done."}}',
   ].filter((line): line is string => Boolean(line));
 }
 

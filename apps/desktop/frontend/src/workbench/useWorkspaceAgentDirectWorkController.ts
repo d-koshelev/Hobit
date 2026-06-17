@@ -71,6 +71,7 @@ import {
 import {
   createWorkspaceAgentBrokerActionResultContext,
   createWorkspaceAgentBrokerContinuationState,
+  deriveWorkspaceAgentBrokerContinuationRequestId,
   evaluateWorkspaceAgentBrokerContinuationAttempt,
   formatWorkspaceAgentBrokerActionTranscript,
   formatWorkspaceAgentBrokerContinuationPrompt,
@@ -789,17 +790,26 @@ export function useWorkspaceAgentDirectWorkController({
       return true;
     }
 
-    const actionRequest = createHobitAgentActionRequestFromEnvelope({
-      agentId: `workspace-agent:${instanceId}`,
-      createdAt: new Date().toISOString(),
-      envelope: envelopeRead.envelope,
-    });
     const state =
       brokerContinuationStateRef.current ??
       createWorkspaceAgentBrokerContinuationState({
         chainId: `workspace-agent-action-chain-${runId}`,
       });
     brokerContinuationStateRef.current = state;
+    const actionIndex = state.actionCount + 1;
+    const actionRequest = createHobitAgentActionRequestFromEnvelope({
+      agentId: `workspace-agent:${instanceId}`,
+      createdAt: new Date().toISOString(),
+      derivedRequestId:
+        envelopeRead.requestIdSource === "explicit"
+          ? null
+          : deriveWorkspaceAgentBrokerContinuationRequestId({
+              actionIndex,
+              capabilityId: envelopeRead.envelope.capabilityId,
+              chainId: state.chainId,
+            }),
+      envelope: envelopeRead.envelope,
+    });
     const attempt = evaluateWorkspaceAgentBrokerContinuationAttempt(
       state,
       actionRequest,

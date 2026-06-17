@@ -39,7 +39,9 @@ export type HobitAgentActionRequest = {
   dryRun: boolean;
   input: unknown;
   reason?: string | null;
+  rawRequestId?: string | null;
   requestId: string;
+  requestIdSource?: "derived" | "explicit";
   requestedAt?: string | null;
 };
 

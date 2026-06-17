@@ -379,6 +379,12 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
           input: { executorWidgetId: "executor-1", taskId: "task-smoke" },
           requestId: "request-start",
         }),
+        actionEnvelope({
+          capabilityId: "queue.lifecycle.get",
+          dryRun: false,
+          input: { taskId: "task-smoke" },
+          requestId: " ",
+        }),
         "Queue dogfooding smoke started.",
       ],
       { codexThreadId: "thread-queue-smoke" },
@@ -409,7 +415,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     await runDirectWork("Run the Queue dogfooding smoke.");
     await flushAsync(80);
 
-    expect(startDirectWork).toHaveBeenCalledTimes(8);
+    expect(startDirectWork).toHaveBeenCalledTimes(9);
     expect(createItem).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: "Run the Queue dogfooding smoke through Workspace Agent.",
@@ -437,6 +443,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
         expect.stringContaining("Action 5/16: queue.item.promoteDraft"),
         expect.stringContaining("Action 6/16: queue.enable"),
         expect.stringContaining("Action 7/16: queue.item.startRun"),
+        expect.stringContaining("Action 8/16: queue.lifecycle.get"),
       ]),
     );
     const continuationRequests = startDirectWork.mock.calls
@@ -477,6 +484,10 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
         expect.objectContaining({
           runKind: "workspace-agent-broker-continuation",
           title: "Queue-linked run started",
+        }),
+        expect.objectContaining({
+          runKind: "workspace-agent-broker-continuation",
+          title: "Queue lifecycle read",
         }),
       ]),
     );
@@ -551,6 +562,50 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
       "Action 2/16: queue.items.list",
     );
     expect(lastAssistantMessageText()).toContain(
+      "Stopped: repeated request id.",
+    );
+  });
+
+  it("derives missing and blank request ids during continuation without false repeated-id stops", async () => {
+    const getSnapshot = vi.fn(async () => snapshotResult());
+    const startDirectWork = startDirectWorkWithFinalTexts(
+      [
+        actionEnvelope({
+          capabilityId: "queue.items.list",
+          dryRun: false,
+          input: { limit: 10 },
+          omitRequestId: true,
+        }),
+        actionEnvelope({
+          capabilityId: "queue.items.list",
+          dryRun: false,
+          input: { limit: 25 },
+          requestId: " ",
+        }),
+        "Derived request ids completed.",
+      ],
+      { codexThreadId: "thread-derived-request-id" },
+    );
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ getSnapshot }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("List Queue items with runtime-derived ids.");
+    await flushAsync();
+
+    expect(startDirectWork).toHaveBeenCalledTimes(3);
+    expect(getSnapshot).toHaveBeenCalledTimes(2);
+    expect(allAssistantMessageText()).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Action 1/16: queue.items.list"),
+        expect.stringContaining("Action 2/16: queue.items.list"),
+      ]),
+    );
+    expect(lastAssistantMessageText()).toBe("Derived request ids completed.");
+    expect(allAssistantMessageText().join("\n")).not.toContain(
       "Stopped: repeated request id.",
     );
   });
@@ -776,22 +831,29 @@ function actionEnvelope({
   confirmationToken,
   dryRun,
   input,
+  omitRequestId = false,
   requestId = "request-action",
 }: {
   capabilityId: string;
   confirmationToken?: string;
   dryRun: boolean;
   input: unknown;
+  omitRequestId?: boolean;
   requestId?: string;
 }) {
-  return JSON.stringify({
+  const envelope: Record<string, unknown> = {
     capabilityId,
     confirmationToken,
     dryRun,
     input,
-    requestId,
     type: "hobit.action.request",
-  });
+  };
+
+  if (!omitRequestId) {
+    envelope.requestId = requestId;
+  }
+
+  return JSON.stringify(envelope);
 }
 
 function allAssistantMessageText() {
