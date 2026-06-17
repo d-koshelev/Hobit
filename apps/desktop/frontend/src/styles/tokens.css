@@ -76,6 +76,7 @@
   --workbench-canvas-padding-x: var(--space-sm);
   --workbench-canvas-padding-y: var(--space-xs);
 
+  --radius-2xs: 2px;
   --radius-xs: 3px;
   --radius-sm: 5px;
   --radius-md: 7px;
@@ -113,6 +114,44 @@
   --badge-height: calc(22px * var(--ui-scale));
   --widget-header-padding-x: calc(6px * var(--ui-scale));
   --widget-header-padding-y: calc(3px * var(--ui-scale));
+
+  --module-shell-radius: var(--radius-2xs);
+  --module-header-radius: var(--radius-2xs);
+  --module-header-height: var(--control-height-sm);
+  --module-header-padding-x: 0;
+  --module-header-padding-y: 0;
+  --module-header-gap: 0;
+  --module-header-group-gap: 0;
+  --module-header-segment-gap: 0;
+  --module-header-separator-width: 1px;
+  --module-header-separator-color: var(--color-border-subtle);
+  --module-header-background: var(--color-widget-surface);
+  --module-body-background: var(--color-widget-surface);
+  --module-body-padding: var(--panel-padding);
+  --module-body-gap: var(--space-sm);
+  --module-header-segment-separator-width: 1px;
+  --module-header-segment-border-color: var(--color-border-subtle);
+  --module-header-segment-padding-x: var(--control-padding-x-sm);
+  --module-header-segment-hover-background: var(--color-widget-surface-raised);
+  --module-header-segment-active-background: var(--color-primary-soft);
+  --module-header-segment-disabled-background: transparent;
+  --module-header-segment-disabled-color: var(--color-text-disabled);
+  --module-state-idle-color: var(--color-text-muted);
+  --module-state-idle-background: var(--color-neutral-soft);
+  --module-state-active-color: var(--color-primary);
+  --module-state-active-background: var(--color-primary-soft);
+  --module-state-running-color: var(--color-info);
+  --module-state-running-background: var(--color-info-soft);
+  --module-state-completed-color: var(--color-success);
+  --module-state-completed-background: var(--color-success-soft);
+  --module-state-blocked-color: var(--color-warning);
+  --module-state-blocked-background: var(--color-warning-soft);
+  --module-state-error-color: var(--color-error);
+  --module-state-error-background: var(--color-error-soft);
+  --module-state-draft-color: var(--color-neutral);
+  --module-state-draft-background: var(--color-neutral-soft);
+  --module-state-disabled-color: var(--color-text-disabled);
+  --module-state-disabled-background: var(--color-widget-surface-raised);
 
   --line-tight: 1.2;
   --line-normal: 1.5;
