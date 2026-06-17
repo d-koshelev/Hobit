@@ -25,5 +25,6 @@ export * from "./overlays/WidgetInfoPopover";
 export * from "./overlays/WidgetPopupShell";
 export * from "./widget/WidgetFrame";
 export * from "./widget/ModuleShell";
+export * from "./widget/ModuleSplit";
 export * from "./widget/WidgetDebugPopup";
 export * from "./widget/WidgetLogsPanel";

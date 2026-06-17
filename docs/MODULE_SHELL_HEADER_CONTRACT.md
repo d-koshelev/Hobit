@@ -84,6 +84,30 @@ Opening from a header action must not make the popup part of the header layout
 or a glued dropdown. Movement, when demonstrated in the dummy example, is
 local, non-persistent visual state only.
 
+## Movable Rail Primitive
+
+Module-owned rails are reusable presentational splitters for module body
+regions. They are visual-system primitives only.
+
+Supported orientations:
+
+- vertical rail: splits left and right regions and resizes horizontally;
+- horizontal rail: splits top and bottom regions and resizes vertically.
+
+Rail sizing state is local React state owned by the primitive. It must not
+persist layout, call backend/Tauri APIs, integrate with Workbench layout,
+create an app-wide drag manager, migrate real widgets, or mutate widget
+instances.
+
+Rails expose separator semantics with `role="separator"` and matching
+`aria-orientation`. Pointer dragging may clamp local primary and secondary
+region sizes so module regions do not collapse below configured minimums.
+Keyboard resizing can be added later, but this visual-system block does not
+require it.
+
+Rail styling must stay thin and calm, use module/theme tokens, and avoid
+blue/navy base colors, glow, heavy borders, or card-in-card composition.
+
 ## Minimize Behavior
 
 The minimize control lives in the right header group.
@@ -108,6 +132,10 @@ presence-zone behavior are later product decisions only.
 The example must use static content only. It must not import or depend on real
 Workspace Agent, Agent Queue, Knowledge / Skills, Terminal, Notes, Agent
 Activity, scheduler, runtime, backend, Tauri, storage, or Workbench modules.
+
+The example may demonstrate the movable rail primitive with one vertical split
+and one nested horizontal split, using local state only and static placeholder
+content.
 
 The dummy example must not be added to the normal widget catalog or wired into
 production Workbench flows.

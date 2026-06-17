@@ -163,8 +163,15 @@
   --module-body-padding: var(--panel-padding);
   --module-body-gap: var(--space-sm);
   --module-body-region-padding: var(--space-xl);
-  --module-body-rail-width: 1px;
-  --module-body-rail-color: var(--module-palette-rail);
+  --module-rail-color: var(--module-palette-rail);
+  --module-rail-hover-color: var(--module-palette-rail-strong);
+  --module-rail-active-color: var(--module-palette-active);
+  --module-rail-thickness: 1px;
+  --module-rail-hit-area: 10px;
+  --module-rail-inset: var(--space-sm);
+  --module-region-min-visual-spacing: var(--space-md);
+  --module-body-rail-width: var(--module-rail-thickness);
+  --module-body-rail-color: var(--module-rail-color);
   --module-header-segment-separator-width: 1px;
   --module-header-segment-border-color:
     var(--module-palette-header-separator);

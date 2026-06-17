@@ -35,7 +35,12 @@ describe("ModuleShell visual preview smoke app", () => {
     expect(document.body.textContent).toContain(
       "Static clean canvas content for the shared module shell.",
     );
-    expect(document.querySelector("[data-module-body-rail='true']")).not.toBeNull();
+    expect(
+      document.querySelector('[data-module-rail-orientation="vertical"]'),
+    ).not.toBeNull();
+    expect(
+      document.querySelector('[data-module-rail-orientation="horizontal"]'),
+    ).not.toBeNull();
   });
 
   it("opens the settings popup in the local preview overlay layer", async () => {

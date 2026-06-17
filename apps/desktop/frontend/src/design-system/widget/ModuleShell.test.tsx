@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import moduleShellSource from "./ModuleShell.tsx?raw";
 import { ModuleShellExample } from "./ModuleShellExample";
 import moduleShellExampleSource from "./ModuleShellExample.tsx?raw";
+import moduleSplitSource from "./ModuleSplit.tsx?raw";
 import {
   ModuleBody,
   ModuleHeader,
@@ -12,7 +13,11 @@ import {
   ModuleHeaderMinimize,
   ModuleHeaderState,
   ModuleHeaderTitle,
+  ModuleRail,
   ModuleShell,
+  ModuleSplit,
+  ModuleSplitRegion,
+  type ModuleRailOrientation,
 } from "./ModuleShell";
 
 let container: HTMLDivElement | null = null;
@@ -125,6 +130,113 @@ describe("ModuleShell", () => {
       "Collapsible Module",
     );
     expect(buttonWithAriaLabel("Expand module body")).not.toBeNull();
+  });
+
+  it("renders a vertical rail with separator orientation", async () => {
+    await render(<SplitFixture orientation="vertical" />);
+
+    const rail = railByOrientation("vertical");
+
+    expect(rail.getAttribute("role")).toBe("separator");
+    expect(rail.getAttribute("aria-orientation")).toBe("vertical");
+    expect(rail.getAttribute("aria-valuenow")).toBe("240");
+    expect(splitByOrientation("vertical").style.getPropertyValue(
+      "--module-split-primary-size",
+    )).toBe("240px");
+  });
+
+  it("renders a horizontal rail with separator orientation", async () => {
+    await render(<SplitFixture orientation="horizontal" />);
+
+    const rail = railByOrientation("horizontal");
+
+    expect(rail.getAttribute("role")).toBe("separator");
+    expect(rail.getAttribute("aria-orientation")).toBe("horizontal");
+    expect(rail.getAttribute("aria-valuenow")).toBe("240");
+    expect(splitByOrientation("horizontal").style.getPropertyValue(
+      "--module-split-primary-size",
+    )).toBe("240px");
+  });
+
+  it("dragging a vertical rail changes the primary region size", async () => {
+    const restoreSplitBounds = mockModuleSplitBounds({
+      height: 420,
+      width: 640,
+    });
+
+    try {
+      await render(<SplitFixture orientation="vertical" />);
+
+      await drag(railByOrientation("vertical"), {
+        endX: 320,
+        endY: 24,
+        startX: 240,
+        startY: 24,
+      });
+
+      expect(splitPrimarySize("vertical")).toBe(320);
+    } finally {
+      restoreSplitBounds();
+    }
+  });
+
+  it("dragging a horizontal rail changes the primary region size", async () => {
+    const restoreSplitBounds = mockModuleSplitBounds({
+      height: 520,
+      width: 640,
+    });
+
+    try {
+      await render(<SplitFixture orientation="horizontal" />);
+
+      await drag(railByOrientation("horizontal"), {
+        endX: 24,
+        endY: 310,
+        startX: 24,
+        startY: 240,
+      });
+
+      expect(splitPrimarySize("horizontal")).toBe(310);
+    } finally {
+      restoreSplitBounds();
+    }
+  });
+
+  it("clamps rail dragging to the primary and secondary minimum sizes", async () => {
+    const restoreSplitBounds = mockModuleSplitBounds({
+      height: 420,
+      width: 520,
+    });
+
+    try {
+      await render(
+        <SplitFixture
+          minPrimarySize={180}
+          minSecondarySize={210}
+          orientation="vertical"
+        />,
+      );
+
+      await drag(railByOrientation("vertical"), {
+        endX: 20,
+        endY: 24,
+        startX: 240,
+        startY: 24,
+      });
+
+      expect(splitPrimarySize("vertical")).toBe(180);
+
+      await drag(railByOrientation("vertical"), {
+        endX: 620,
+        endY: 24,
+        startX: 180,
+        startY: 24,
+      });
+
+      expect(splitPrimarySize("vertical")).toBe(310);
+    } finally {
+      restoreSplitBounds();
+    }
   });
 
   it("renders the dummy example without product dependencies", async () => {
@@ -251,33 +363,78 @@ describe("ModuleShell", () => {
     );
   });
 
-  it("renders the dummy body as two regions split by one rail", async () => {
+  it("renders the dummy body with vertical and horizontal movable rails", async () => {
     await render(<ModuleShellExample />);
 
-    const rail = document.querySelector("[data-module-body-rail='true']");
+    const rails = Array.from(
+      document.querySelectorAll<HTMLElement>("[data-module-rail]"),
+    );
     const primaryRegion = document.querySelector<HTMLElement>(
       '[aria-label="Primary surface region"]',
     );
     const detailRegion = document.querySelector<HTMLElement>(
       '[aria-label="Detail stack region"]',
     );
+    const topRegion = document.querySelector<HTMLElement>(
+      '[aria-label="Quiet placeholder top region"]',
+    );
+    const bottomRegion = document.querySelector<HTMLElement>(
+      '[aria-label="Quiet placeholder bottom region"]',
+    );
 
-    expect(rail).not.toBeNull();
+    expect(rails.map((rail) => rail.dataset.moduleRailOrientation)).toEqual([
+      "vertical",
+      "horizontal",
+    ]);
     expect(primaryRegion?.textContent).toContain("Primary surface");
     expect(primaryRegion?.textContent).toContain(
       "Static clean canvas content for the shared module shell.",
     );
     expect(detailRegion?.textContent).toContain("Detail stack");
-    expect(detailRegion?.textContent).toContain(
+    expect(topRegion?.textContent).toContain("Quiet placeholder");
+    expect(topRegion?.textContent).toContain(
       "Neutral placeholder content inside the module body.",
+    );
+    expect(bottomRegion?.textContent).toContain("Secondary placeholder");
+    expect(bottomRegion?.textContent).toContain(
+      "Static lower detail content for horizontal rail review.",
     );
     expect(document.querySelector(".module-shell-example-zone")).toBeNull();
   });
 
-  it("keeps ModuleShell source imports domain-free", () => {
+  it("keeps ModuleShell primitive source imports domain-free", () => {
     expectForbiddenImports(moduleShellSource);
+    expectForbiddenImports(moduleSplitSource);
   });
 });
+
+function SplitFixture({
+  minPrimarySize = 160,
+  minSecondarySize = 160,
+  orientation,
+}: {
+  readonly minPrimarySize?: number;
+  readonly minSecondarySize?: number;
+  readonly orientation: ModuleRailOrientation;
+}) {
+  return (
+    <ModuleSplit
+      aria-label={`${orientation} split fixture`}
+      defaultPrimarySize={240}
+      minPrimarySize={minPrimarySize}
+      minSecondarySize={minSecondarySize}
+      orientation={orientation}
+    >
+      <ModuleSplitRegion region="primary">
+        <p>Primary fixture region</p>
+      </ModuleSplitRegion>
+      <ModuleRail aria-label={`Resize ${orientation} fixture regions`} />
+      <ModuleSplitRegion region="secondary">
+        <p>Secondary fixture region</p>
+      </ModuleSplitRegion>
+    </ModuleSplit>
+  );
+}
 
 async function render(element: ReactNode) {
   container = document.createElement("div");
@@ -400,6 +557,79 @@ function popupCoordinate(popup: HTMLElement, propertyName: string) {
   }
 
   return coordinate;
+}
+
+function railByOrientation(orientation: ModuleRailOrientation) {
+  const rail = document.querySelector<HTMLElement>(
+    `[data-module-rail-orientation="${orientation}"]`,
+  );
+
+  if (!rail) {
+    throw new Error(`Module rail not found: ${orientation}`);
+  }
+
+  return rail;
+}
+
+function splitByOrientation(orientation: ModuleRailOrientation) {
+  const split = document.querySelector<HTMLElement>(
+    `[data-module-split-orientation="${orientation}"]`,
+  );
+
+  if (!split) {
+    throw new Error(`Module split not found: ${orientation}`);
+  }
+
+  return split;
+}
+
+function splitPrimarySize(orientation: ModuleRailOrientation) {
+  const value = splitByOrientation(orientation).style.getPropertyValue(
+    "--module-split-primary-size",
+  );
+  const primarySize = Number.parseInt(value, 10);
+
+  if (!Number.isFinite(primarySize)) {
+    throw new Error(`Invalid split primary size ${orientation}: ${value}`);
+  }
+
+  return primarySize;
+}
+
+function mockModuleSplitBounds({
+  height,
+  width,
+}: {
+  readonly height: number;
+  readonly width: number;
+}) {
+  const originalGetBoundingClientRect =
+    HTMLElement.prototype.getBoundingClientRect;
+
+  HTMLElement.prototype.getBoundingClientRect = function getBoundingClientRect(
+    this: HTMLElement,
+  ) {
+    if (this.classList.contains("module-split")) {
+      return {
+        bottom: height,
+        height,
+        left: 0,
+        right: width,
+        top: 0,
+        width,
+        x: 0,
+        y: 0,
+        toJSON: () => ({}),
+      } as DOMRect;
+    }
+
+    return originalGetBoundingClientRect.call(this);
+  };
+
+  return () => {
+    HTMLElement.prototype.getBoundingClientRect =
+      originalGetBoundingClientRect;
+  };
 }
 
 function mockModuleShellBounds(width: number) {

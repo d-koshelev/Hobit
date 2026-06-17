@@ -242,3 +242,9 @@ export function ModuleBody({
     </div>
   );
 }
+
+export { ModuleRail, ModuleSplit, ModuleSplitRegion } from "./ModuleSplit";
+export type {
+  ModuleRailOrientation,
+  ModuleSplitRegionKind,
+} from "./ModuleSplit";

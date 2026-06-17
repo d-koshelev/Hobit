@@ -13,7 +13,10 @@ import {
   ModuleHeaderMinimize,
   ModuleHeaderState,
   ModuleHeaderTitle,
+  ModuleRail,
   ModuleShell,
+  ModuleSplit,
+  ModuleSplitRegion,
 } from "./ModuleShell";
 
 type PopupPosition = {
@@ -217,13 +220,18 @@ export function ModuleShellExample() {
         </div>
       ) : null}
       <ModuleBody collapsed={bodyCollapsed} id="module-shell-example-body">
-        <div
+        <ModuleSplit
           aria-label="Neutral static module canvas"
           className="module-shell-example-content"
+          defaultPrimarySize={392}
+          minPrimarySize={220}
+          minSecondarySize={240}
+          orientation="vertical"
         >
-          <section
+          <ModuleSplitRegion
             aria-label="Primary surface region"
             className="module-shell-example-region module-shell-example-region-primary"
+            region="primary"
           >
             <span className="module-shell-example-region-label">
               Primary surface
@@ -232,25 +240,52 @@ export function ModuleShellExample() {
             <span className="module-shell-example-line module-shell-example-line-strong" />
             <span className="module-shell-example-line" />
             <span className="module-shell-example-line module-shell-example-line-short" />
-          </section>
-          <div
-            aria-hidden="true"
-            className="module-shell-example-rail"
-            data-module-body-rail="true"
-          />
-          <section
+          </ModuleSplitRegion>
+          <ModuleRail aria-label="Resize primary and detail regions" />
+          <ModuleSplitRegion
             aria-label="Detail stack region"
             className="module-shell-example-region module-shell-example-region-detail"
+            region="secondary"
           >
             <span className="module-shell-example-region-label">
               Detail stack
             </span>
-            <p>Neutral placeholder content inside the module body.</p>
-            <span className="module-shell-example-line module-shell-example-line-strong" />
-            <span className="module-shell-example-line" />
-            <span className="module-shell-example-line module-shell-example-line-short" />
-          </section>
-        </div>
+            <ModuleSplit
+              aria-label="Nested quiet placeholder split"
+              className="module-shell-example-detail-split"
+              defaultPrimarySize={142}
+              minPrimarySize={96}
+              minSecondarySize={96}
+              orientation="horizontal"
+            >
+              <ModuleSplitRegion
+                aria-label="Quiet placeholder top region"
+                className="module-shell-example-detail-pane"
+                region="primary"
+              >
+                <span className="module-shell-example-region-label">
+                  Quiet placeholder
+                </span>
+                <p>Neutral placeholder content inside the module body.</p>
+                <span className="module-shell-example-line module-shell-example-line-strong" />
+                <span className="module-shell-example-line" />
+              </ModuleSplitRegion>
+              <ModuleRail aria-label="Resize quiet placeholder regions" />
+              <ModuleSplitRegion
+                aria-label="Quiet placeholder bottom region"
+                className="module-shell-example-detail-pane"
+                region="secondary"
+              >
+                <span className="module-shell-example-region-label">
+                  Secondary placeholder
+                </span>
+                <p>Static lower detail content for horizontal rail review.</p>
+                <span className="module-shell-example-line" />
+                <span className="module-shell-example-line module-shell-example-line-short" />
+              </ModuleSplitRegion>
+            </ModuleSplit>
+          </ModuleSplitRegion>
+        </ModuleSplit>
       </ModuleBody>
     </ModuleShell>
   );
