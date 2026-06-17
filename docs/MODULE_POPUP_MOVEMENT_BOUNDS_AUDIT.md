@@ -19,6 +19,16 @@ Recommended next implementation: move the popup layer out of the
 keeping local React state only. Do not add persistence, backend calls,
 Workbench integration, a global popup manager, or real widget migration.
 
+## Implementation Outcome
+
+The follow-up visual-system implementation uses Option B. In the dev visual
+preview, `ModuleShellExample` renders `ModuleShell` and `ModulePopup` as
+siblings, so `.module-shell-visual-preview__stage` owns the popup floating
+layer containing block instead of `.module-shell`. Popup placement now uses the
+local `x/y` state directly; the old CSS container-width clamp based on `100%`
+of the module-local layer was removed. The historical findings below describe
+the pre-fix behavior that led to this change.
+
 ## Current Rendering And Positioning Model
 
 Inspected files:

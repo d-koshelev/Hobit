@@ -23,8 +23,7 @@ import {
 
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
-const SETTINGS_POPUP_MARGIN = 12;
-const SETTINGS_POPUP_WIDTH = 264;
+const NARROW_MODULE_WIDTH = 360;
 
 afterEach(() => {
   if (container && root) {
@@ -293,36 +292,47 @@ describe("ModuleShell", () => {
     const popup = settingsPopup();
     const layer = document.querySelector("[data-module-floating-layer='true']");
     const body = document.querySelector("#module-shell-example-body");
+    const shell = document.querySelector(".module-shell");
 
     expect(popup).not.toBeNull();
     expect(layer).not.toBeNull();
     expect(popup?.dataset.modulePopupFloating).toBe("true");
     expect(layer?.classList.contains("module-shell-floating-layer")).toBe(true);
-    expect(layer?.parentElement?.classList.contains("module-shell")).toBe(true);
     expect(layer?.contains(popup)).toBe(true);
+    expect(layer?.closest(".module-shell")).toBeNull();
+    expect(shell?.contains(layer)).toBe(false);
     expect(popup?.closest(".module-header")).toBeNull();
     expect(popup?.closest(".module-body")).toBeNull();
     expect(body?.contains(popup)).toBe(false);
   });
 
-  it("places the dummy settings popup initial position inside the module width", async () => {
-    const moduleWidth = 700;
-    const restoreModuleShellBounds = mockModuleShellBounds(moduleWidth);
+  it("allows the dummy settings popup to move beyond the parent module width", async () => {
+    const restoreModuleShellBounds = mockModuleShellBounds(NARROW_MODULE_WIDTH);
 
     try {
       await render(<ModuleShellExample />);
 
       await click(buttonWithText("Settings"));
 
-      const popup = settingsPopupOrThrow();
-      const initialX = popupCoordinate(popup, "--module-popup-x");
-      const initialY = popupCoordinate(popup, "--module-popup-y");
+      const initialPopup = settingsPopupOrThrow();
 
-      expect(initialX).toBeGreaterThanOrEqual(SETTINGS_POPUP_MARGIN);
-      expect(initialX + SETTINGS_POPUP_WIDTH).toBeLessThanOrEqual(
-        moduleWidth - SETTINGS_POPUP_MARGIN,
+      expect(
+        popupCoordinate(initialPopup, "--module-popup-x"),
+      ).toBeGreaterThan(NARROW_MODULE_WIDTH);
+
+      await drag(settingsPopupDragHandle(), {
+        endX: 380,
+        endY: 90,
+        startX: 100,
+        startY: 60,
+      });
+
+      const movedPopup = settingsPopupOrThrow();
+
+      expect(popupCoordinate(movedPopup, "--module-popup-x")).toBeGreaterThan(
+        NARROW_MODULE_WIDTH,
       );
-      expect(initialY).toBeGreaterThanOrEqual(SETTINGS_POPUP_MARGIN);
+      expect(popupCoordinate(movedPopup, "--module-popup-y")).toBe(74);
     } finally {
       restoreModuleShellBounds();
     }
@@ -697,6 +707,12 @@ function expectForbiddenImports(source: string) {
     "backend",
     "tauri",
     "workbench",
+    "widgethost",
+    "widgetregistry",
+    "widgetframe",
+    "widgetv2shell",
+    "storage",
+    "schema",
   ]) {
     expect(imports).not.toContain(term);
   }

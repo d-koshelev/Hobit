@@ -102,6 +102,14 @@ settings, Workspace Agent, Queue, Knowledge, Terminal, Notes, Finder, backend,
 storage, runtime, registry, or real widget migration logic. Real modules may
 adopt it later only in a dedicated migration phase with explicit scope.
 
+When a dummy example demonstrates `ModulePopup` movement, the popup/floating
+layer belongs in the local stage or Workbench overlay coordinate space, not as
+a descendant constrained by the parent `ModuleShell` rectangle. The popup must
+not be clipped or width-clamped by the module shell or module body. Any future
+movement bounds should use only the local stage or visible app viewport safe
+margins, remain local React state, and must not add persistence, Workbench
+layout integration, or an app-wide popup manager.
+
 ## Movable Rail Primitive
 
 Module-owned rails are reusable presentational splitters for module body

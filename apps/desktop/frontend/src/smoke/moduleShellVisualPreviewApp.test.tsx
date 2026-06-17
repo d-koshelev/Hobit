@@ -53,12 +53,16 @@ describe("ModuleShell visual preview smoke app", () => {
     );
     const layer = document.querySelector("[data-module-floating-layer='true']");
     const stage = document.querySelector(".module-shell-visual-preview__stage");
+    const shell = document.querySelector(".module-shell");
 
     expect(popup).not.toBeNull();
     expect(layer).not.toBeNull();
+    expect(layer?.parentElement).toBe(stage);
     expect(stage?.contains(layer)).toBe(true);
+    expect(shell?.contains(layer)).toBe(false);
     expect(layer?.classList.contains("module-shell-floating-layer")).toBe(true);
     expect(layer?.contains(popup)).toBe(true);
+    expect(popup?.closest(".module-shell")).toBeNull();
     expect(popup?.closest(".module-header")).toBeNull();
     expect(popup?.closest(".module-body")).toBeNull();
   });
@@ -72,6 +76,8 @@ describe("ModuleShell visual preview smoke app", () => {
       "workbenchcanvas",
       "widgetregistry",
       "widgethost",
+      "widgetframe",
+      "widgetv2shell",
       "queue",
       "workspaceagent",
       "workspace-agent",

@@ -133,6 +133,40 @@ describe("ModulePopup", () => {
     expect(popupCoordinate(movedPopup, "--module-popup-y")).toBe(55);
   });
 
+  it("keeps dragged position state beyond a narrow local layer", async () => {
+    await render(
+      <div className="narrow-popup-stage" style={{ width: 120 }}>
+        <ModulePopup
+          defaultPosition={{ x: 20, y: 30 }}
+          id="test-module-popup"
+          onClose={() => undefined}
+          open={true}
+          title="Test popup"
+        >
+          <p>Quiet popup body</p>
+        </ModulePopup>
+      </div>,
+    );
+
+    const layer = document.querySelector("[data-module-floating-layer='true']");
+
+    expect(layer?.parentElement?.classList.contains("narrow-popup-stage")).toBe(
+      true,
+    );
+
+    await drag(modulePopupDragHandle(), {
+      endX: 520,
+      endY: 80,
+      startX: 100,
+      startY: 60,
+    });
+
+    expect(popupCoordinate(modulePopupOrThrow(), "--module-popup-x")).toBe(440);
+    expect(
+      popupCoordinate(modulePopupOrThrow(), "--module-popup-x"),
+    ).toBeGreaterThan(120);
+  });
+
   it("uses domain-free imports only", () => {
     expectForbiddenImports(modulePopupSource);
   });
@@ -260,6 +294,12 @@ function expectForbiddenImports(source: string) {
     "backend",
     "tauri",
     "workbench",
+    "widgethost",
+    "widgetregistry",
+    "widgetframe",
+    "widgetv2shell",
+    "storage",
+    "schema",
   ]) {
     expect(imports).not.toContain(term);
   }

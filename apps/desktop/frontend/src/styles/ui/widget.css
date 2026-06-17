@@ -230,31 +230,16 @@
   position: absolute;
   z-index: 1;
   top:
-    max(
-      var(--space-xl),
-      var(
-        --module-popup-y,
-        calc(var(--module-header-height) + var(--module-popup-offset-y))
-      )
+    var(
+      --module-popup-y,
+      calc(var(--module-header-height) + var(--module-popup-offset-y))
     );
   right: auto;
-  left:
-    max(
-      var(--space-xl),
-      min(
-        var(
-          --module-popup-x,
-          calc(100% - var(--module-popup-width) - var(--space-xl))
-        ),
-        max(
-          var(--space-xl),
-          calc(100% - var(--module-popup-width) - var(--space-xl))
-        )
-      )
-    );
+  left: var(--module-popup-x, var(--space-xl));
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
-  width: min(var(--module-popup-width), calc(100% - var(--space-2xl)));
+  width: var(--module-popup-width);
+  max-width: calc(100vw - var(--space-2xl));
   max-height: min(var(--module-popup-max-height), calc(100vh - var(--space-2xl)));
   overflow: hidden;
   border: 1px solid var(--module-popup-border-color);
