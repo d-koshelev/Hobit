@@ -4,7 +4,7 @@ import type {
 } from "./agents/broker";
 import type { HobitAgentCapability } from "./agents/capabilities";
 
-export const WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS = 8;
+export const WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS = 16;
 
 const CONTINUATION_CONTEXT_CHAR_LIMIT = 2600;
 const CONTINUATION_PROMPT_CHAR_LIMIT = 3600;

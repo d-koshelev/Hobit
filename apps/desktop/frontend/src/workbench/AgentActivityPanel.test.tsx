@@ -176,7 +176,7 @@ describe("AgentActivityPanel", () => {
             runKind: "workspace-agent-broker-continuation",
             severity: "info",
             status: "running",
-            summary: "Action 1/8: queue.targetSingletonQueue",
+            summary: "Action 1/16: queue.targetSingletonQueue",
             timestamp: 1_000,
             timestampLabel: "0s",
             title: "Hobit action requested",
@@ -188,7 +188,8 @@ describe("AgentActivityPanel", () => {
             runKind: "workspace-agent-broker-continuation",
             severity: "success",
             status: "completed",
-            summary: "Action 1/8: queue.targetSingletonQueue\nQueue target resolved.",
+            summary:
+              "Action 1/16: queue.targetSingletonQueue\nQueue target resolved.",
             timestamp: 2_000,
             timestampLabel: "1s",
             title: "Queue target resolved",

@@ -134,8 +134,8 @@ During the smoke, verify these product labels appear where applicable:
 - `Real worker execution is not covered`
 - `Real validation execution is not covered`
 - `Real Git commit execution is not covered`
-- `Action 1/8`
-- `Action 2/8`
+- `Action 1/16`
+- `Action 2/16`
 - `Workspace Agent action chain`
 
 ## Smoke Flow
@@ -489,8 +489,8 @@ During the smoke, verify these product labels appear where applicable:
       `hobit.action.result` context in the same thread, not a new visible
       operator turn or pasted prompt.
     - Expected: transcript/activity show compact action-chain rows such as
-      `Action 1/8: queue.targetSingletonQueue` and
-      `Action 2/8: queue.items.list`; they do not dump raw JSON, logs, secrets,
+      `Action 1/16: queue.targetSingletonQueue` and
+      `Action 2/16: queue.items.list`; they do not dump raw JSON, logs, secrets,
       or stack traces.
     - Expected: the chain stops with a visible reason on confirmation,
       policy-blocked, unavailable, dry-run-required, failed, invalid input,

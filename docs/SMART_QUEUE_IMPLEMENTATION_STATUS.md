@@ -68,7 +68,7 @@ The current implemented frontend behavior is:
 - Workspace Agent broker-action continuation: after an eligible successful
   structured broker result, the frontend feeds a compact `hobit.action.result`
   back into the same Codex thread so the model can emit the next single
-  `hobit.action.request` or final prose, with an eight-action cap and stops for
+  `hobit.action.request` or final prose, with a 16-action cap and stops for
   confirmation, policy, unavailable, dry-run-required, failed, invalid,
   repeated, unsupported, restricted, or missing-thread cases;
 - active Queue V2 Codex executable setup affordance for existing tasks through

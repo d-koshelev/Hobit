@@ -102,7 +102,7 @@ restricted capabilities for explicit workspace/code execution requests only.
   broker action, the frontend appends a compact structured
   `hobit.action.result` context back to the same Codex thread and lets the
   model emit the next single `hobit.action.request` envelope or final prose.
-  The loop is frontend-only, capped at eight actions, grouped in transcript
+  The loop is frontend-only, capped at 16 actions, grouped in transcript
   and activity, and stops on confirmation-required, policy-blocked,
   unavailable, dry-run-required, failed, invalid-input, repeated request,
   repeated capability/input, unsupported envelope, restricted capability, or

@@ -430,13 +430,13 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(lastAssistantMessageText()).toBe("Queue dogfooding smoke started.");
     expect(allAssistantMessageText()).toEqual(
       expect.arrayContaining([
-        expect.stringContaining("Action 1/8: queue.targetSingletonQueue"),
-        expect.stringContaining("Action 2/8: queue.items.list"),
-        expect.stringContaining("Action 3/8: queue.createItem"),
-        expect.stringContaining("Action 4/8: queue.item.updateRunSettings"),
-        expect.stringContaining("Action 5/8: queue.item.promoteDraft"),
-        expect.stringContaining("Action 6/8: queue.enable"),
-        expect.stringContaining("Action 7/8: queue.item.startRun"),
+        expect.stringContaining("Action 1/16: queue.targetSingletonQueue"),
+        expect.stringContaining("Action 2/16: queue.items.list"),
+        expect.stringContaining("Action 3/16: queue.createItem"),
+        expect.stringContaining("Action 4/16: queue.item.updateRunSettings"),
+        expect.stringContaining("Action 5/16: queue.item.promoteDraft"),
+        expect.stringContaining("Action 6/16: queue.enable"),
+        expect.stringContaining("Action 7/16: queue.item.startRun"),
       ]),
     );
     const continuationRequests = startDirectWork.mock.calls
@@ -508,7 +508,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(startQueueLinkedRun).not.toHaveBeenCalled();
     expect(startDirectWork).toHaveBeenCalledTimes(1);
     expect(lastAssistantMessageText()).toContain(
-      "Action 1/8: queue.item.startRun",
+      "Action 1/16: queue.item.startRun",
     );
     expect(lastAssistantMessageText()).toContain("Action needs confirmation.");
     expect(lastAssistantMessageText()).toContain(
@@ -548,7 +548,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(startDirectWork).toHaveBeenCalledTimes(2);
     expect(getSnapshot).toHaveBeenCalledTimes(1);
     expect(lastAssistantMessageText()).toContain(
-      "Action 2/8: queue.items.list",
+      "Action 2/16: queue.items.list",
     );
     expect(lastAssistantMessageText()).toContain(
       "Stopped: repeated request id.",
@@ -558,7 +558,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
   it("stops at the broker continuation action budget", async () => {
     const getSnapshot = vi.fn(async () => snapshotResult());
     const startDirectWork = startDirectWorkWithFinalTexts(
-      Array.from({ length: 9 }, (_value, index) =>
+      Array.from({ length: 17 }, (_value, index) =>
         actionEnvelope({
           capabilityId: "queue.items.list",
           dryRun: false,
@@ -576,12 +576,12 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     });
 
     await runDirectWork("Keep listing Queue items.");
-    await flushAsync(80);
+    await flushAsync(160);
 
-    expect(startDirectWork).toHaveBeenCalledTimes(8);
-    expect(getSnapshot).toHaveBeenCalledTimes(8);
+    expect(startDirectWork).toHaveBeenCalledTimes(16);
+    expect(getSnapshot).toHaveBeenCalledTimes(16);
     expect(lastAssistantMessageText()).toContain(
-      "Action 8/8: queue.items.list",
+      "Action 16/16: queue.items.list",
     );
     expect(lastAssistantMessageText()).toContain(
       "Stopped: maximum action count reached.",

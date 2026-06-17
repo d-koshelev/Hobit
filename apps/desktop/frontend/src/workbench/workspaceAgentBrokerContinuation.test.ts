@@ -13,6 +13,15 @@ import {
 } from "./workspaceAgentBrokerContinuation";
 
 describe("workspaceAgentBrokerContinuation", () => {
+  it("defaults the broker continuation budget to 16 actions", () => {
+    const state = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-default-budget",
+    });
+
+    expect(WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS).toBe(16);
+    expect(state.maxActions).toBe(16);
+  });
+
   it("allows safe Queue control-plane success results to continue", () => {
     const request = requestFor("queue.items.list", { limit: 10 });
     const state = recordAttempt(
