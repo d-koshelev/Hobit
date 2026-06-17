@@ -45,6 +45,11 @@ type FencedBlock = {
 export function readHobitAgentActionRequestEnvelope(
   text: string,
 ): HobitAgentActionRequestEnvelopeReadResult {
+  const actionListValidation = rejectTopLevelActionList(text);
+  if (actionListValidation) {
+    return actionListValidation;
+  }
+
   const candidates = collectJsonCandidates(text);
 
   for (const candidate of candidates) {
@@ -142,6 +147,31 @@ function collectJsonCandidates(text: string): JsonCandidate[] {
   }
 
   return candidates;
+}
+
+function rejectTopLevelActionList(
+  text: string,
+): Extract<HobitAgentActionRequestEnvelopeReadResult, { status: "invalid" }> | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (
+      Array.isArray(parsed) &&
+      parsed.some((item) => recordHasHobitActionType(item))
+    ) {
+      return invalidEnvelope([
+        "Action lists are not supported. Emit exactly one hobit.action.request envelope.",
+      ]);
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 function addCandidate(

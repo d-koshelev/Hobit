@@ -317,6 +317,9 @@ describe("hobitAgentCapabilityRuntime context", () => {
       "Codex and shell are restricted capabilities",
     );
     expect(instructionBlock).toContain('"type":"hobit.action.request"');
+    expect(instructionBlock).toContain("do not emit action lists");
+    expect(instructionBlock).toContain("After hobit.action.result");
+    expect(instructionBlock).toContain("never infer missing ids");
     expect(instructionBlock).not.toContain('"allowedAgentRoles"');
     expect(instructionBlock.length).toBeLessThan(11000);
     expect(instructionBlock).not.toContain('"capabilities"');
@@ -404,6 +407,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain("You are inside Hobit");
     expect(prompt).toContain("Use typed Hobit app capabilities before Codex or shell.");
     expect(prompt).toContain('"type":"hobit.action.request"');
+    expect(prompt).toContain("After hobit.action.result");
     expect(prompt).toContain("When a Hobit app capability is needed");
     expect(prompt).toContain("Queue item creation is a Queue capability.");
     expect(prompt).toContain("Queue item prompt is required");

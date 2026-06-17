@@ -165,6 +165,64 @@ describe("AgentActivityPanel", () => {
     expect(document.body.textContent).not.toContain("Agent run");
   });
 
+  it("renders one Workspace Agent broker continuation chain row", () => {
+    render(
+      <AgentActivityPanel
+        events={[
+          activityEvent({
+            id: "broker-action-1-requested",
+            lifecycleStage: "step",
+            runId: "broker-chain-1",
+            runKind: "workspace-agent-broker-continuation",
+            severity: "info",
+            status: "running",
+            summary: "Action 1/8: queue.targetSingletonQueue",
+            timestamp: 1_000,
+            timestampLabel: "0s",
+            title: "Hobit action requested",
+          }),
+          activityEvent({
+            id: "broker-action-1-completed",
+            lifecycleStage: "step",
+            runId: "broker-chain-1",
+            runKind: "workspace-agent-broker-continuation",
+            severity: "success",
+            status: "completed",
+            summary: "Action 1/8: queue.targetSingletonQueue\nQueue target resolved.",
+            timestamp: 2_000,
+            timestampLabel: "1s",
+            title: "Queue target resolved",
+          }),
+          activityEvent({
+            id: "broker-action-2-completed",
+            lifecycleStage: "completed",
+            runId: "broker-chain-1",
+            runKind: "workspace-agent-broker-continuation",
+            severity: "success",
+            status: "completed",
+            summary:
+              "Workspace Agent completed the action chain. Stopped: final answer received.",
+            timestamp: 3_000,
+            timestampLabel: "2s",
+            title: "Broker action chain completed",
+          }),
+        ]}
+      />,
+    );
+
+    const rows = activityRows();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain("Workspace Agent action chain");
+    expect(rows[0]?.textContent).toContain("Completed");
+    expect(rows[0]?.textContent).toContain("2s");
+    expect(rows[0]?.textContent).toContain(
+      "Workspace Agent completed the action chain.",
+    );
+    expect(rows[0]?.textContent).not.toContain("Agent run");
+    expect(rows[0]?.textContent).not.toContain("Running");
+  });
+
   it("keeps Direct Work running activity grouped as the existing Agent run row", () => {
     render(
       <AgentActivityPanel

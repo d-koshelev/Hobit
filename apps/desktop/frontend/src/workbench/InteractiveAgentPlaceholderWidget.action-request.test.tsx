@@ -119,7 +119,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     await flushAsync();
 
     expect(createItem).not.toHaveBeenCalled();
-    expect(lastAssistantMessageText()).toBe(
+    expect(lastAssistantMessageText()).toContain(
       "Queue items preview prepared. Would create 1 Queue item.",
     );
   });
@@ -176,7 +176,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(runAutonomousQueue).not.toHaveBeenCalled();
     expect(runTerminal).not.toHaveBeenCalled();
     expect(createGitCommit).not.toHaveBeenCalled();
-    expect(lastAssistantMessageText()).toBe("Queue lifecycle agent finished.");
+    expect(lastAssistantMessageText()).toContain("Queue lifecycle agent finished.");
     expect(lastAssistantMessageText()).not.toContain("hobit.action.request");
     expect(
       publishActivityEvents.mock.calls.flatMap((call) => call[0]),
@@ -241,42 +241,62 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
 
     expect(createItem).not.toHaveBeenCalled();
     expect(getSnapshot).not.toHaveBeenCalled();
-    expect(lastAssistantMessageText()).toBe(
+    expect(lastAssistantMessageText()).toContain(
       "Invalid Hobit action request. finalAgentMessage is required.",
     );
   });
 
-  it("invokes Queue run-control envelopes through the Workspace Agent broker", async () => {
-    const task = snapshotItem({
-      approvalPolicy: "on_request",
-      blockers: [],
-      codexExecutable: "codex.cmd",
-      executionWorkspace: "C:/repo",
-      id: "task-1",
-      runLinks: [],
-      sandbox: "workspace_write",
-      status: "draft",
-    });
+  it("continues a Queue smoke chain through broker results in one Workspace Agent run", async () => {
+    let task: QueueWidgetItemSnapshot | null = null;
     const getSnapshot = vi.fn(async () =>
       snapshotResult({
-        itemCounts: { total: 1 } as QueueWidgetSnapshot["itemCounts"],
-        items: [task],
+        itemCounts: { total: task ? 1 : 0 } as QueueWidgetSnapshot["itemCounts"],
+        items: task ? [task] : [],
         selectedItem: task,
-        selectedItemId: "task-1",
+        selectedItemId: task?.id ?? null,
       }),
     );
-    const updateItem = vi.fn(
-      async (request: Parameters<WorkspaceAgentQueueBridge["updateItem"]>[0]) =>
-        itemResult({
-          approvalPolicy: "on_request",
+    const createItem = vi.fn(
+      async (request: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) => {
+        const createdTask = snapshotItem({
+          approvalPolicy: null,
           blockers: [],
-          codexExecutable: "codex.cmd",
-          executionWorkspace: "C:/repo",
+          codexExecutable: null,
+          executionWorkspace: null,
+          id: "task-smoke",
+          prompt: request.prompt,
+          runLinks: [],
+          sandbox: null,
+          status: request.status ?? "draft",
+          title: request.title,
+        });
+        task = createdTask;
+        return itemResult(createdTask);
+      },
+    );
+    const updateItem = vi.fn(
+      async (request: Parameters<WorkspaceAgentQueueBridge["updateItem"]>[0]) => {
+        const updatedTask = snapshotItem({
+          ...(task ?? {}),
+          ...(request.patch.approvalPolicy !== undefined
+            ? { approvalPolicy: request.patch.approvalPolicy }
+            : {}),
+          ...(request.patch.codexExecutable !== undefined
+            ? { codexExecutable: request.patch.codexExecutable }
+            : {}),
+          ...(request.patch.executionWorkspace !== undefined
+            ? { executionWorkspace: request.patch.executionWorkspace }
+            : {}),
+          ...(request.patch.sandbox !== undefined
+            ? { sandbox: request.patch.sandbox }
+            : {}),
           id: request.itemId,
           runLinks: [],
-          sandbox: "workspace_write",
           status: request.patch.status === "queued" ? "queued" : "draft",
-        }),
+        });
+        task = updatedTask;
+        return itemResult(updatedTask);
+      },
     );
     const enableQueue = vi.fn(async () => ({
       didAutoRunWorkers: false as const,
@@ -293,7 +313,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
       ok: true,
       response: {
         executorWidgetInstanceId: "executor-1",
-        queueItemId: "task-1",
+        queueItemId: "task-smoke",
         runId: "run-1",
         status: "running",
         workbenchId: "workbench-1",
@@ -303,45 +323,74 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     }));
     const runTerminal = vi.fn();
     const createGitCommit = vi.fn();
-    const startDirectWork = startDirectWorkWithFinalTexts([
-      actionEnvelope({
-        capabilityId: "queue.items.list",
-        dryRun: false,
-        input: { limit: 10 },
-        requestId: "request-list",
-      }),
-      actionEnvelope({
-        capabilityId: "queue.item.updateRunSettings",
-        dryRun: false,
-        input: { codexExecutable: "codex.cmd", taskId: "task-1" },
-        requestId: "request-settings",
-      }),
-      actionEnvelope({
-        capabilityId: "queue.item.promoteDraft",
-        dryRun: false,
-        input: { taskId: "task-1" },
-        requestId: "request-promote",
-      }),
-      actionEnvelope({
-        capabilityId: "queue.enable",
-        dryRun: false,
-        input: {},
-        requestId: "request-enable",
-      }),
-      actionEnvelope({
-        capabilityId: "queue.item.startRun",
-        confirmationToken: "confirmed",
-        dryRun: false,
-        input: { executorWidgetId: "executor-1", taskId: "task-1" },
-        requestId: "request-start",
-      }),
-    ]);
+    const publishActivityEvents = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalTexts(
+      [
+        actionEnvelope({
+          capabilityId: "queue.targetSingletonQueue",
+          dryRun: false,
+          input: {},
+          requestId: "request-target",
+        }),
+        actionEnvelope({
+          capabilityId: "queue.items.list",
+          dryRun: false,
+          input: { limit: 10 },
+          requestId: "request-list",
+        }),
+        actionEnvelope({
+          capabilityId: "queue.createItem",
+          dryRun: false,
+          input: {
+            prompt: "Run the Queue dogfooding smoke through Workspace Agent.",
+            status: "draft",
+            title: "Workspace Agent Queue smoke",
+          },
+          requestId: "request-create",
+        }),
+        actionEnvelope({
+          capabilityId: "queue.item.updateRunSettings",
+          dryRun: false,
+          input: {
+            approvalPolicy: "on_request",
+            codexExecutable: "codex.cmd",
+            sandbox: "workspace_write",
+            taskId: "task-smoke",
+            workspaceRoot: "C:/repo",
+          },
+          requestId: "request-settings",
+        }),
+        actionEnvelope({
+          capabilityId: "queue.item.promoteDraft",
+          dryRun: false,
+          input: { taskId: "task-smoke" },
+          requestId: "request-promote",
+        }),
+        actionEnvelope({
+          capabilityId: "queue.enable",
+          dryRun: false,
+          input: {},
+          requestId: "request-enable",
+        }),
+        actionEnvelope({
+          capabilityId: "queue.item.startRun",
+          confirmationToken: "confirmed",
+          dryRun: false,
+          input: { executorWidgetId: "executor-1", taskId: "task-smoke" },
+          requestId: "request-start",
+        }),
+        "Queue dogfooding smoke started.",
+      ],
+      { codexThreadId: "thread-queue-smoke" },
+    );
 
     renderWidget({
       onCreateGitCommit: createGitCommit,
+      onPublishAgentActivityEvents: publishActivityEvents,
       onRunTerminalCommand: runTerminal,
       onStartCodexDirectWorkStream: startDirectWork,
       workspaceAgentQueueBridge: queueBridge({
+        createItem,
         enableQueue,
         getAvailableExecutorTargets: () => [
           {
@@ -357,39 +406,186 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
       workspaceId: "workspace_1",
     });
 
-    await runDirectWork("List Queue tasks.");
-    await flushAsync();
-    expect(lastAssistantMessageText()).toContain("Task id: task-1.");
-    expect(lastAssistantMessageText()).toContain(
-      "Executor widget id: executor-1.",
+    await runDirectWork("Run the Queue dogfooding smoke.");
+    await flushAsync(80);
+
+    expect(startDirectWork).toHaveBeenCalledTimes(8);
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: "Run the Queue dogfooding smoke through Workspace Agent.",
+        status: "draft",
+        title: "Workspace Agent Queue smoke",
+      }),
     );
-
-    await runDirectWork("Update Queue run settings.");
-    await flushAsync();
-    expect(lastAssistantMessageText()).toContain(
-      "Queue run settings updated.",
-    );
-
-    await runDirectWork("Promote Queue Draft.");
-    await flushAsync();
-    expect(lastAssistantMessageText()).toContain("Queue draft promoted.");
-
-    await runDirectWork("Enable Queue.");
-    await flushAsync();
-    expect(lastAssistantMessageText()).toContain("Queue enabled.");
-
-    await runDirectWork("Start Queue task.");
-    await flushAsync();
-    expect(lastAssistantMessageText()).toContain("Run id: run-1.");
     expect(updateItem).toHaveBeenCalled();
     expect(enableQueue).toHaveBeenCalledWith({ dryRun: false });
     expect(startQueueLinkedRun).toHaveBeenCalledWith({
       dryRun: false,
       executorWidgetId: "executor-1",
-      taskId: "task-1",
+      taskId: "task-smoke",
     });
     expect(runTerminal).not.toHaveBeenCalled();
     expect(createGitCommit).not.toHaveBeenCalled();
+    expect(lastOperatorMessageText()).toBe("Run the Queue dogfooding smoke.");
+    expect(lastAssistantMessageText()).toBe("Queue dogfooding smoke started.");
+    expect(allAssistantMessageText()).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Action 1/8: queue.targetSingletonQueue"),
+        expect.stringContaining("Action 2/8: queue.items.list"),
+        expect.stringContaining("Action 3/8: queue.createItem"),
+        expect.stringContaining("Action 4/8: queue.item.updateRunSettings"),
+        expect.stringContaining("Action 5/8: queue.item.promoteDraft"),
+        expect.stringContaining("Action 6/8: queue.enable"),
+        expect.stringContaining("Action 7/8: queue.item.startRun"),
+      ]),
+    );
+    const continuationRequests = startDirectWork.mock.calls
+      .slice(1)
+      .map(
+        (call) =>
+          call[1] as { codexThreadId?: string; operatorPrompt?: string },
+      );
+    expect(continuationRequests).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ codexThreadId: "thread-queue-smoke" }),
+      ]),
+    );
+    expect(continuationRequests[0]?.operatorPrompt).toContain(
+      '"type":"hobit.action.result"',
+    );
+    expect(continuationRequests[2]?.operatorPrompt).toContain(
+      '"taskIds":["task-smoke"]',
+    );
+    expect(continuationRequests[1]?.operatorPrompt).toContain(
+      '"executorWidgetIds":["executor-1"]',
+    );
+    const activityEvents = publishActivityEvents.mock.calls.flatMap(
+      (call) => call[0],
+    );
+    expect(
+      new Set(
+        activityEvents
+          .filter(
+            (event) =>
+              event.runKind === "workspace-agent-broker-continuation",
+          )
+          .map((event) => event.runId),
+      ).size,
+    ).toBe(1);
+    expect(activityEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          runKind: "workspace-agent-broker-continuation",
+          title: "Queue-linked run started",
+        }),
+      ]),
+    );
+  });
+
+  it("stops continuation on queue.item.startRun confirmation_required", async () => {
+    const startQueueLinkedRun = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalTexts(
+      [
+        actionEnvelope({
+          capabilityId: "queue.item.startRun",
+          dryRun: false,
+          input: { executorWidgetId: "executor-1", taskId: "task-1" },
+          requestId: "request-start-needs-confirmation",
+        }),
+      ],
+      { codexThreadId: "thread-confirmation" },
+    );
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ startQueueLinkedRun }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Start the Queue task if the model requests it.");
+    await flushAsync();
+
+    expect(startQueueLinkedRun).not.toHaveBeenCalled();
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    expect(lastAssistantMessageText()).toContain(
+      "Action 1/8: queue.item.startRun",
+    );
+    expect(lastAssistantMessageText()).toContain("Action needs confirmation.");
+    expect(lastAssistantMessageText()).toContain(
+      "Stopped: confirmation required.",
+    );
+  });
+
+  it("stops before invoking a repeated request id during continuation", async () => {
+    const getSnapshot = vi.fn(async () => snapshotResult());
+    const startDirectWork = startDirectWorkWithFinalTexts(
+      [
+        actionEnvelope({
+          capabilityId: "queue.items.list",
+          dryRun: false,
+          input: { limit: 10 },
+          requestId: "request-repeat",
+        }),
+        actionEnvelope({
+          capabilityId: "queue.items.list",
+          dryRun: false,
+          input: { limit: 25 },
+          requestId: "request-repeat",
+        }),
+      ],
+      { codexThreadId: "thread-repeat" },
+    );
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ getSnapshot }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("List Queue items repeatedly.");
+    await flushAsync();
+
+    expect(startDirectWork).toHaveBeenCalledTimes(2);
+    expect(getSnapshot).toHaveBeenCalledTimes(1);
+    expect(lastAssistantMessageText()).toContain(
+      "Action 2/8: queue.items.list",
+    );
+    expect(lastAssistantMessageText()).toContain(
+      "Stopped: repeated request id.",
+    );
+  });
+
+  it("stops at the broker continuation action budget", async () => {
+    const getSnapshot = vi.fn(async () => snapshotResult());
+    const startDirectWork = startDirectWorkWithFinalTexts(
+      Array.from({ length: 9 }, (_value, index) =>
+        actionEnvelope({
+          capabilityId: "queue.items.list",
+          dryRun: false,
+          input: { limit: index + 1 },
+          requestId: `request-budget-${index.toString()}`,
+        }),
+      ),
+      { codexThreadId: "thread-budget" },
+    );
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ getSnapshot }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Keep listing Queue items.");
+    await flushAsync(80);
+
+    expect(startDirectWork).toHaveBeenCalledTimes(8);
+    expect(getSnapshot).toHaveBeenCalledTimes(8);
+    expect(lastAssistantMessageText()).toContain(
+      "Action 8/8: queue.items.list",
+    );
+    expect(lastAssistantMessageText()).toContain(
+      "Stopped: maximum action count reached.",
+    );
   });
 
   it("returns unavailable for an unknown capability without executing side effects", async () => {
@@ -598,6 +794,18 @@ function actionEnvelope({
   });
 }
 
+function allAssistantMessageText() {
+  return Array.from(
+    document.querySelectorAll(
+      '[data-testid="interactive-agent-message-assistant"]',
+    ),
+  ).map(
+    (message) =>
+      message.querySelector(".interactive-agent-message-body")?.textContent ??
+      "",
+  );
+}
+
 function startDirectWorkWithFinalText(text: string) {
   return vi.fn(
     async (
@@ -609,12 +817,14 @@ function startDirectWorkWithFinalText(text: string) {
         directWorkEvent({
           eventKind: "final_message",
           isFinal: false,
+          codexThreadId: null,
           runId: "run_action_request",
           text,
         }),
       );
       onEvent(
         directWorkEvent({
+          codexThreadId: null,
           elapsedMs: 100,
           eventKind: "completed",
           finalStatus: "completed",
@@ -632,7 +842,10 @@ function startDirectWorkWithFinalText(text: string) {
   );
 }
 
-function startDirectWorkWithFinalTexts(texts: string[]) {
+function startDirectWorkWithFinalTexts(
+  texts: string[],
+  options: { codexThreadId?: string | null } = {},
+) {
   let index = 0;
   return vi.fn(
     async (
@@ -641,27 +854,30 @@ function startDirectWorkWithFinalTexts(texts: string[]) {
       onEvent: (event: DirectWorkStreamEvent) => void,
     ) => {
       const text = texts[Math.min(index, texts.length - 1)] ?? "";
+      const runId = `run_action_request_${(index + 1).toString()}`;
       index += 1;
       onEvent(
         directWorkEvent({
+          codexThreadId: options.codexThreadId ?? null,
           eventKind: "final_message",
           isFinal: false,
-          runId: "run_action_request",
+          runId,
           text,
         }),
       );
       onEvent(
         directWorkEvent({
+          codexThreadId: options.codexThreadId ?? null,
           elapsedMs: 100,
           eventKind: "completed",
           finalStatus: "completed",
           isFinal: true,
-          runId: "run_action_request",
+          runId,
         }),
       );
 
       return {
-        runId: "run_action_request",
+        runId,
         status: "started",
         stopListening: vi.fn(),
       };
@@ -674,11 +890,11 @@ async function runDirectWork(prompt: string) {
   await clickButton("Run with Codex");
 }
 
-async function flushAsync() {
+async function flushAsync(cycles = 12) {
   await act(async () => {
-    await Promise.resolve();
-    await Promise.resolve();
-    await Promise.resolve();
+    for (let index = 0; index < cycles; index += 1) {
+      await Promise.resolve();
+    }
   });
 }
 

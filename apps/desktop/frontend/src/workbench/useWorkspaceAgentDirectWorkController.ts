@@ -18,6 +18,7 @@ import {
 import { agentActivityEventFromDirectWorkStreamEvent } from "./agentActivityModel";
 import type {
   AgentActivityEvent,
+  AgentActivityLifecycleStage,
   AgentActivitySeverity,
   AgentActivityStatus,
 } from "./agentActivityModel";
@@ -67,6 +68,19 @@ import {
   workspaceAgentInvalidActionRequestMessage,
   type WorkspaceAgentHobitActionInvoker,
 } from "./workspaceAgentBrokerActionRuntime";
+import {
+  createWorkspaceAgentBrokerActionResultContext,
+  createWorkspaceAgentBrokerContinuationState,
+  evaluateWorkspaceAgentBrokerContinuationAttempt,
+  formatWorkspaceAgentBrokerActionTranscript,
+  formatWorkspaceAgentBrokerContinuationPrompt,
+  recordWorkspaceAgentBrokerContinuationAttempt,
+  shouldContinueWorkspaceAgentBrokerAction,
+  stopReasonLabel,
+  WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+  type WorkspaceAgentBrokerContinuationState,
+  type WorkspaceAgentBrokerContinuationStopReason,
+} from "./workspaceAgentBrokerContinuation";
 import type { WidgetRenderProps } from "./types";
 
 type UseWorkspaceAgentDirectWorkControllerOptions = {
@@ -169,6 +183,9 @@ export function useWorkspaceAgentDirectWorkController({
   const directWorkRunScopeRef = useRef<ActiveDirectWorkRunScope | null>(null);
   const productActionLoopGuardRef =
     useRef<ProductActionToolLoopGuardState | null>(null);
+  const brokerContinuationStateRef =
+    useRef<WorkspaceAgentBrokerContinuationState | null>(null);
+  const activeBrokerContinuationChainIdRef = useRef<string | null>(null);
   const directWorkLogSequenceRef = useRef(0);
   const workspaceScopeId = workspaceId?.trim() || "__local_workspace__";
   const activeThreadId = codexThreadIdForScope(
@@ -220,6 +237,64 @@ export function useWorkspaceAgentDirectWorkController({
       return;
     }
 
+    const chainId = `workspace-agent-action-chain-${Date.now().toString()}`;
+    brokerContinuationStateRef.current =
+      createWorkspaceAgentBrokerContinuationState({ chainId });
+    activeBrokerContinuationChainIdRef.current = null;
+    await startDirectWorkTurn({
+      appendOperatorTranscript: true,
+      attachCapabilityContext: true,
+      clearDraftAndVisibleContext: true,
+      operatorPrompt,
+      repoRoot,
+      startNewThread: Boolean(options.startNewThread),
+    });
+  }
+
+  async function startDirectWorkTurn({
+    appendOperatorTranscript,
+    attachCapabilityContext,
+    brokerContinuationChainId = null,
+    clearDraftAndVisibleContext,
+    operatorPrompt,
+    repoRoot,
+    resumeThreadIdOverride,
+    startNewThread = false,
+  }: {
+    appendOperatorTranscript: boolean;
+    attachCapabilityContext: boolean;
+    brokerContinuationChainId?: string | null;
+    clearDraftAndVisibleContext: boolean;
+    operatorPrompt: string;
+    repoRoot: string;
+    resumeThreadIdOverride?: string | null;
+    startNewThread?: boolean;
+  }) {
+    const startCodexDirectWorkStream = onStartCodexDirectWorkStream;
+    if (!startCodexDirectWorkStream) {
+      if (brokerContinuationChainId) {
+        recordBrokerContinuationStop({
+          message:
+            "Workspace Agent Direct Work is unavailable for broker continuation.",
+          runMetadata: {
+            durationMs: null,
+            status: "failed",
+            stepCount: 0,
+            threadId: null,
+            tokenUsage: null,
+          },
+          severity: "error",
+          status: "failed",
+          stopReason: "unavailable",
+        });
+        clearBrokerContinuationState();
+        return;
+      }
+
+      recordDirectWorkLocalFailure(DIRECT_WORK_UNAVAILABLE_MESSAGE);
+      return;
+    }
+
     stopDirectWorkEventListening();
     directWorkCompletedDuringStartRef.current = false;
     directWorkFinalMessageRef.current = null;
@@ -233,15 +308,18 @@ export function useWorkspaceAgentDirectWorkController({
     };
     productActionLoopGuardRef.current =
       createProductActionToolLoopGuardState(operatorPrompt);
-    const startNewThread = Boolean(options.startNewThread);
-    const resumeThreadId = startNewThread
-      ? null
-      : codexThreadIdForScope(
-          currentCodexThread,
-          workspaceScopeId,
-          instanceId,
-          repoRoot,
-        );
+    activeBrokerContinuationChainIdRef.current = brokerContinuationChainId;
+    const resumeThreadId =
+      resumeThreadIdOverride !== undefined
+        ? resumeThreadIdOverride
+        : startNewThread
+          ? null
+          : codexThreadIdForScope(
+              currentCodexThread,
+              workspaceScopeId,
+              instanceId,
+              repoRoot,
+            );
     if (startNewThread && currentCodexThread) {
       setCurrentCodexThread(null);
       setCodexThreadNotice("Starting a new Codex thread.");
@@ -256,16 +334,21 @@ export function useWorkspaceAgentDirectWorkController({
     const threadStartText = resumeThreadId
       ? `Continuing Codex thread ${shortCodexThreadId(resumeThreadId)}.`
       : "Starting new Codex thread.";
-    const promptWithCapabilityContext =
-      createWorkspaceAgentPromptWithCapabilityContext({
-        currentPrompt: operatorPrompt,
-        widgetInstanceId: instanceId,
-        workspaceId: workspaceScopeId,
-        workspaceRoot: currentWorkspaceRoot?.trim() || repoRoot,
-      });
-    onAppendOperatorTranscript(operatorPrompt);
-    onClearDraft();
-    onClearVisibleAttachedContext();
+    const promptWithCapabilityContext = attachCapabilityContext
+      ? createWorkspaceAgentPromptWithCapabilityContext({
+          currentPrompt: operatorPrompt,
+          widgetInstanceId: instanceId,
+          workspaceId: workspaceScopeId,
+          workspaceRoot: currentWorkspaceRoot?.trim() || repoRoot,
+        })
+      : operatorPrompt;
+    if (appendOperatorTranscript) {
+      onAppendOperatorTranscript(operatorPrompt);
+    }
+    if (clearDraftAndVisibleContext) {
+      onClearDraft();
+      onClearVisibleAttachedContext();
+    }
     setDirectWorkStatus("running");
     setDirectWorkRunId(null);
     setDirectWorkError(null);
@@ -275,19 +358,26 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkRunMetadata(null);
     updateDirectWorkActivitySummary(
       workspaceAgentActivitySummaryForLocalStart(
-        resumeThreadId ? "Starting agent turn" : "Starting Codex thread",
+        brokerContinuationChainId
+          ? "Continuing broker action chain"
+          : resumeThreadId
+            ? "Starting agent turn"
+            : "Starting Codex thread",
       ),
     );
+    const contextLogText = attachCapabilityContext
+      ? "Hobit capability context attached. Capability manifest attached. Knowledge is not searched automatically; only visible composer text plus capability instructions are sent."
+      : "Compact Hobit action result context attached for same-thread continuation. No manual user turn was added.";
     setDirectWorkLogs([
       {
         id: "direct-local-starting",
         kind: "local",
-        text: `${threadStartText} Hobit capability context attached. Capability manifest attached. Knowledge is not searched automatically; only visible composer text plus capability instructions are sent. Starting Codex Direct Work from ${repoRoot}.`,
+        text: `${threadStartText} ${contextLogText} Starting Codex Direct Work from ${repoRoot}.`,
       },
     ]);
 
     try {
-      const session = await onStartCodexDirectWorkStream(
+      const session = await startCodexDirectWorkStream(
         instanceId,
         {
           approvalPolicy: "never",
@@ -345,6 +435,7 @@ export function useWorkspaceAgentDirectWorkController({
         return nextSummary;
       });
       productActionLoopGuardRef.current = null;
+      clearBrokerContinuationState();
       appendDirectWorkLog(message, "local");
       onAppendAssistantTranscript("failed", message);
     } finally {
@@ -429,6 +520,8 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkTokenUsageRef.current = null;
     directWorkRunScopeRef.current = null;
     productActionLoopGuardRef.current = null;
+    brokerContinuationStateRef.current = null;
+    activeBrokerContinuationChainIdRef.current = null;
     directWorkLogSequenceRef.current = 0;
     setDirectWorkDirectory("~");
     setDirectWorkSandbox("workspace_write");
@@ -478,6 +571,7 @@ export function useWorkspaceAgentDirectWorkController({
       onAppendAssistantTranscript("failed", productActionLoopResult.message);
       directWorkRunScopeRef.current = null;
       productActionLoopGuardRef.current = null;
+      clearBrokerContinuationState();
       return;
     }
 
@@ -487,7 +581,17 @@ export function useWorkspaceAgentDirectWorkController({
       sourceLabel: "Workspace Agent",
     });
     if (activityEvent) {
-      onPublishAgentActivityEvents?.([activityEvent]);
+      const brokerChainId = activeBrokerContinuationChainIdRef.current;
+      onPublishAgentActivityEvents?.([
+        brokerChainId
+          ? {
+              ...activityEvent,
+              id: `${activityEvent.id}:broker-chain:${brokerChainId}`,
+              runId: brokerChainId,
+              runKind: "workspace-agent-broker-continuation",
+            }
+          : activityEvent,
+      ]);
     }
     const tokenUsage = tokenUsageFromDirectWorkStreamEvent(event);
     if (tokenUsage) {
@@ -651,6 +755,16 @@ export function useWorkspaceAgentDirectWorkController({
     );
 
     if (envelopeRead.status === "none") {
+      if (activeBrokerContinuationChainIdRef.current) {
+        recordBrokerContinuationStop({
+          message: "Workspace Agent completed the action chain.",
+          runMetadata,
+          severity: "success",
+          status: "completed",
+          stopReason: "final_prose",
+        });
+      }
+      clearBrokerContinuationState();
       return false;
     }
 
@@ -658,14 +772,20 @@ export function useWorkspaceAgentDirectWorkController({
       const message = workspaceAgentInvalidActionRequestMessage(
         envelopeRead.reasons,
       );
+      const state = brokerContinuationStateRef.current;
+      const actionIndex = state ? state.actionCount + 1 : 1;
       recordHobitActionResultTranscript({
-        activityRunId: runId,
+        activityRunId: state?.chainId ?? runId,
+        actionIndex,
+        capabilityId: "invalid",
         message,
         runMetadata,
         severity: "error",
         status: "failed",
+        stopReason: "invalid_or_unsupported_envelope",
         title: "Invalid Hobit action request",
       });
+      clearBrokerContinuationState();
       return true;
     }
 
@@ -674,11 +794,48 @@ export function useWorkspaceAgentDirectWorkController({
       createdAt: new Date().toISOString(),
       envelope: envelopeRead.envelope,
     });
+    const state =
+      brokerContinuationStateRef.current ??
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: `workspace-agent-action-chain-${runId}`,
+      });
+    brokerContinuationStateRef.current = state;
+    const attempt = evaluateWorkspaceAgentBrokerContinuationAttempt(
+      state,
+      actionRequest,
+    );
+    if (!attempt.ok) {
+      const message = `Broker action continuation stopped. ${stopReasonLabel(
+        attempt.stopReason,
+      )}.`;
+      recordHobitActionResultTranscript({
+        activityRunId: state.chainId,
+        actionIndex: attempt.actionIndex,
+        capabilityId: actionRequest.capabilityId,
+        message,
+        runMetadata,
+        severity: "warning",
+        status: "failed",
+        stopReason: attempt.stopReason,
+        title: "Broker action continuation stopped",
+      });
+      clearBrokerContinuationState();
+      return true;
+    }
+
+    const nextState = recordWorkspaceAgentBrokerContinuationAttempt(
+      state,
+      actionRequest,
+      attempt.fingerprint,
+    );
+    brokerContinuationStateRef.current = nextState;
     publishHobitActionActivityEvent({
-      runId: actionRequest.requestId,
+      actionIndex: attempt.actionIndex,
+      lifecycleStage: "step",
+      runId: nextState.chainId,
       severity: "info",
       status: "running",
-      summary: actionRequest.reason ?? actionRequest.capabilityId,
+      summary: `Action ${attempt.actionIndex.toString()}/${nextState.maxActions.toString()}: ${actionRequest.capabilityId}`,
       title: "Hobit action requested",
     });
     setDirectWorkFinalResult("Hobit action requested.");
@@ -686,25 +843,38 @@ export function useWorkspaceAgentDirectWorkController({
 
     if (!onInvokeHobitAgentActionRequest) {
       recordHobitActionResultTranscript({
-        activityRunId: actionRequest.requestId,
+        activityRunId: nextState.chainId,
+        actionIndex: attempt.actionIndex,
+        capabilityId: actionRequest.capabilityId,
         message:
           "Action unavailable. Workspace Agent Action Broker is unavailable.",
         runMetadata,
         severity: "warning",
         status: "failed",
+        stopReason: "broker_unavailable",
         title: "Action unavailable",
       });
+      clearBrokerContinuationState();
       return true;
     }
 
-    void invokeWorkspaceAgentHobitActionRequest(actionRequest, runMetadata);
+    void invokeWorkspaceAgentHobitActionRequest({
+      actionIndex: attempt.actionIndex,
+      request: actionRequest,
+      runMetadata,
+    });
     return true;
   }
 
-  async function invokeWorkspaceAgentHobitActionRequest(
-    request: HobitAgentActionRequest,
-    runMetadata: WorkspaceAgentRunMetadata,
-  ) {
+  async function invokeWorkspaceAgentHobitActionRequest({
+    actionIndex,
+    request,
+    runMetadata,
+  }: {
+    actionIndex: number;
+    request: HobitAgentActionRequest;
+    runMetadata: WorkspaceAgentRunMetadata;
+  }) {
     try {
       const brokerResult = await onInvokeHobitAgentActionRequest?.(request);
       if (!brokerResult || !isMountedRef.current) {
@@ -714,11 +884,58 @@ export function useWorkspaceAgentDirectWorkController({
       const message = workspaceAgentHobitActionResultMessage(
         brokerResult.result,
       );
+      const state = brokerContinuationStateRef.current;
+      const continuationDecision = state
+        ? shouldContinueWorkspaceAgentBrokerAction({
+            capability: brokerResult.policyDecision.capability,
+            request,
+            result: brokerResult.result,
+            state,
+          })
+        : {
+            shouldContinue: false as const,
+            stopReason: "thread_unavailable" as const,
+          };
+      const continuationThreadId =
+        continuationDecision.shouldContinue && state
+          ? brokerContinuationThreadId(runMetadata)
+          : null;
+      const stopReason = continuationDecision.shouldContinue
+        ? continuationThreadId
+          ? undefined
+          : "thread_unavailable"
+        : continuationDecision.stopReason;
       recordHobitActionResultTranscript({
-        activityRunId: request.requestId,
+        activityRunId: state?.chainId ?? request.requestId,
+        actionIndex,
+        capabilityId: request.capabilityId,
         message,
         result: brokerResult.result,
         runMetadata,
+        stopReason,
+      });
+      if (!state) {
+        clearBrokerContinuationState();
+        return;
+      }
+
+      const resultContext = createWorkspaceAgentBrokerActionResultContext({
+        request,
+        result: brokerResult.result,
+        stopReason,
+        summary: message,
+      });
+      if (!continuationDecision.shouldContinue || !continuationThreadId) {
+        clearBrokerContinuationState();
+        return;
+      }
+
+      await startBrokerContinuationTurn({
+        actionIndex,
+        resumeThreadId: continuationThreadId,
+        resultContext,
+        runMetadata,
+        state,
       });
     } catch (error) {
       if (!isMountedRef.current) {
@@ -726,41 +943,113 @@ export function useWorkspaceAgentDirectWorkController({
       }
 
       const message = errorToMessage(error, "Hobit action failed.");
+      const state = brokerContinuationStateRef.current;
       recordHobitActionResultTranscript({
-        activityRunId: request.requestId,
+        activityRunId: state?.chainId ?? request.requestId,
+        actionIndex,
+        capabilityId: request.capabilityId,
         message,
         runMetadata,
         severity: "error",
         status: "failed",
+        stopReason: "failed",
         title: "Hobit action failed",
       });
+      clearBrokerContinuationState();
     }
   }
 
+  async function startBrokerContinuationTurn({
+    actionIndex,
+    resumeThreadId,
+    resultContext,
+    runMetadata,
+    state,
+  }: {
+    actionIndex: number;
+    resumeThreadId: string;
+    resultContext: ReturnType<
+      typeof createWorkspaceAgentBrokerActionResultContext
+    >;
+    runMetadata: WorkspaceAgentRunMetadata;
+    state: WorkspaceAgentBrokerContinuationState;
+  }) {
+    await startDirectWorkTurn({
+      appendOperatorTranscript: false,
+      attachCapabilityContext: false,
+      brokerContinuationChainId: state.chainId,
+      clearDraftAndVisibleContext: false,
+      operatorPrompt: formatWorkspaceAgentBrokerContinuationPrompt({
+        actionIndex,
+        context: resultContext,
+        maxActions: state.maxActions,
+      }),
+      repoRoot: directWorkDirectory.trim(),
+      resumeThreadIdOverride: resumeThreadId,
+    });
+  }
+
+  function brokerContinuationThreadId(runMetadata: WorkspaceAgentRunMetadata) {
+    return (
+      runMetadata.threadId ??
+      directWorkCapturedThreadIdRef.current ??
+      codexThreadIdForScope(
+        currentCodexThread,
+        workspaceScopeId,
+        instanceId,
+        directWorkDirectory.trim(),
+      )
+    );
+  }
+
   function recordHobitActionResultTranscript({
+    actionIndex,
     activityRunId,
+    capabilityId,
     message,
     result,
     runMetadata,
     severity,
     status,
+    stopReason,
     title,
   }: {
+    actionIndex?: number;
     activityRunId: string;
+    capabilityId?: string;
     message: string;
     result?: HobitAgentActionResult;
     runMetadata: WorkspaceAgentRunMetadata;
     severity?: AgentActivitySeverity;
     status?: AgentActivityStatus;
+    stopReason?: WorkspaceAgentBrokerContinuationStopReason;
     title?: string;
   }) {
-    setDirectWorkFinalResult(message);
-    appendDirectWorkLog(message, "local");
+    const transcriptMessage =
+      actionIndex && capabilityId
+        ? formatWorkspaceAgentBrokerActionTranscript({
+            actionIndex,
+            capabilityId,
+            maxActions:
+              brokerContinuationStateRef.current?.maxActions ??
+              WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+            stopReason,
+            summary: message,
+          })
+        : message;
+    setDirectWorkFinalResult(transcriptMessage);
+    appendDirectWorkLog(transcriptMessage, "local");
     publishHobitActionActivityEvent({
+      actionIndex,
+      lifecycleStage: stopReason
+        ? status === "failed"
+          ? "failed"
+          : "completed"
+        : "step",
       runId: activityRunId,
       severity: severity ?? activitySeverityForHobitActionResult(result),
       status: status ?? activityStatusForHobitActionResult(result),
-      summary: message,
+      summary: transcriptMessage,
       title:
         title ??
         workspaceAgentHobitActionActivityTitle(
@@ -769,7 +1058,7 @@ export function useWorkspaceAgentDirectWorkController({
           result?.dryRun ?? false,
         ),
     });
-    appendAssistantActionTranscript(message, runMetadata);
+    appendAssistantActionTranscript(transcriptMessage, runMetadata);
   }
 
   function appendAssistantActionTranscript(
@@ -785,12 +1074,16 @@ export function useWorkspaceAgentDirectWorkController({
   }
 
   function publishHobitActionActivityEvent({
+    actionIndex,
+    lifecycleStage,
     runId,
     severity,
     status,
     summary,
     title,
   }: {
+    actionIndex?: number;
+    lifecycleStage?: AgentActivityLifecycleStage;
     runId: string;
     severity: AgentActivitySeverity;
     status: AgentActivityStatus;
@@ -798,7 +1091,9 @@ export function useWorkspaceAgentDirectWorkController({
     title: string;
   }) {
     const event: AgentActivityEvent = {
-      id: `${workspaceScopeId}:${instanceId}:hobit-action:${runId}:${status}:${title}`,
+      id: `${workspaceScopeId}:${instanceId}:hobit-action:${runId}:${actionIndex ?? "chain"}:${status}:${title}`,
+      lifecycleStage,
+      runKind: "workspace-agent-broker-continuation",
       runId,
       severity,
       sourceKind: "workspace-agent",
@@ -808,11 +1103,53 @@ export function useWorkspaceAgentDirectWorkController({
       summary,
       timestamp: Date.now(),
       timestampLabel: "0s",
-      title,
+      title: actionIndex ? `${title}` : title,
       workspaceId: workspaceScopeId,
     };
 
     onPublishAgentActivityEvents?.([event]);
+  }
+
+  function recordBrokerContinuationStop({
+    message,
+    runMetadata,
+    severity,
+    status,
+    stopReason,
+  }: {
+    message: string;
+    runMetadata: WorkspaceAgentRunMetadata;
+    severity: AgentActivitySeverity;
+    status: AgentActivityStatus;
+    stopReason: WorkspaceAgentBrokerContinuationStopReason;
+  }) {
+    const state = brokerContinuationStateRef.current;
+    if (!state) {
+      return;
+    }
+
+    const stopMessage = `${message} Stopped: ${stopReasonLabel(stopReason)}.`;
+    appendDirectWorkLog(stopMessage, "local");
+    publishHobitActionActivityEvent({
+      lifecycleStage: status === "failed" ? "failed" : "completed",
+      runId: state.chainId,
+      severity,
+      status,
+      summary: stopMessage,
+      title:
+        status === "failed"
+          ? "Broker action chain stopped"
+          : "Broker action chain completed",
+    });
+    setDirectWorkFinalResult(stopMessage);
+    if (stopReason !== "final_prose") {
+      appendAssistantActionTranscript(stopMessage, runMetadata);
+    }
+  }
+
+  function clearBrokerContinuationState() {
+    brokerContinuationStateRef.current = null;
+    activeBrokerContinuationChainIdRef.current = null;
   }
 
   function activityStatusForHobitActionResult(
@@ -895,6 +1232,7 @@ export function useWorkspaceAgentDirectWorkController({
       return nextSummary;
     });
     productActionLoopGuardRef.current = null;
+    clearBrokerContinuationState();
     appendDirectWorkLog(reason, "local");
     onAppendAssistantTranscript("failed", reason);
   }

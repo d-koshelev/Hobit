@@ -98,6 +98,18 @@ restricted capabilities for explicit workspace/code execution requests only.
   result. The compact manifest includes field-level schema and examples for
   Queue create action requests and Queue dogfood lifecycle action requests
   without dumping the raw registry. Normal assistant prose remains prose.
+- Workspace Agent Broker Action Continuation MVP: after an eligible successful
+  broker action, the frontend appends a compact structured
+  `hobit.action.result` context back to the same Codex thread and lets the
+  model emit the next single `hobit.action.request` envelope or final prose.
+  The loop is frontend-only, capped at eight actions, grouped in transcript
+  and activity, and stops on confirmation-required, policy-blocked,
+  unavailable, dry-run-required, failed, invalid-input, repeated request,
+  repeated capability/input, unsupported envelope, restricted capability, or
+  missing same-thread continuation state. It does not accept action lists,
+  regex-route user prompts, infer task ids, or add backend durability,
+  validation execution, Git mutation, rollback, Terminal, shell, or raw Codex
+  automation.
 
 ## Module Ownership
 
@@ -170,11 +182,26 @@ frontend direct-run result path. Agents may emit a minimal JSON envelope:
 }
 ```
 
-Only this structured envelope is parsed as an app action request. User prompt
-text and ordinary assistant prose are not classified or regex-routed into
-product actions. Invalid envelopes produce a product-facing invalid action
-request result. Unknown capabilities still go through the broker and return
-structured unavailable results.
+Only this structured envelope is parsed as an app action request. The model
+must emit one envelope at a time; action lists are invalid. User prompt text
+and ordinary assistant prose are not classified or regex-routed into product
+actions. Invalid envelopes produce a product-facing invalid action request
+result. Unknown capabilities still go through the broker and return structured
+unavailable results.
+
+The Workspace Agent direct-run controller can continue a broker action chain
+only from structured broker results. It feeds a bounded `hobit.action.result`
+summary into the same Codex thread with returned task ids, executor widget ids,
+run id, blockers, `nextSuggestedCapability`, and explicit safety flags such as
+no validation run, no Git mutation, no shell command, and no Terminal launch.
+The next model step may emit exactly one new `hobit.action.request` or final
+prose. The controller stops instead of continuing when a result requires
+confirmation, is blocked/unavailable/failed/invalid, is a dry-run-required
+result, repeats a previous request id or capability/input fingerprint, exceeds
+the action budget, lacks a usable thread id, or touches restricted capabilities.
+The continuation loop does not infer `taskId` or `executorWidgetId` from prose,
+titles, file paths, final messages, repository roots, or other natural-language
+content.
 
 Agents are expected to produce typed capability action requests with request
 id, agent id, agent role, capability id, input, dry-run state, optional

@@ -423,6 +423,19 @@ These capabilities are frontend/controller lifecycle capabilities only. They
 validate structured inputs, enforce broker policy, support dry-run previews,
 return compact lifecycle results, and emit compact activity/audit labels.
 
+Workspace Agent can now continue across multiple frontend broker actions by
+feeding compact structured `hobit.action.result` context back into the same
+Codex thread after eligible successful results. Continuation remains
+structured-action-only: the model emits one `hobit.action.request` envelope at
+a time, never action lists, and must use ids returned in the structured result.
+The loop is capped and stops on confirmation-required, policy-blocked,
+unavailable, dry-run-required, failed, invalid-input, repeated request id,
+repeated capability/input, unsupported envelope, restricted capability, max
+action count, or missing same-thread continuation state. It does not infer
+task ids or executor ids from prose and does not add backend durability,
+validation execution, Git/commit execution, rollback execution, Terminal,
+shell, Codex, or scheduler behavior.
+
 `queue.lifecycle.agentFinished` accepts the existing explicit fields and can
 also accept an optional normalized or raw `evidenceBundle`. When evidence is
 valid, it can supply `taskId`, `attemptId`, `threadId`, `outcome`,

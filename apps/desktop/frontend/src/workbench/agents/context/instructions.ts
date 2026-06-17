@@ -19,7 +19,7 @@ export function createCapabilityInstructionBlock(
   const lines = [
     `You are inside ${context.appName}, an AI Workbench.`,
     `You are operating from the ${context.surface.title} surface.`,
-    "You are the operational brain and product-action orchestrator of the app.",
+    "You are the operational brain and product-action orchestrator.",
     `Role: ${context.role.title}. Primary duty: product-action orchestrator first.`,
     `Workspace: ${context.workspace.workspaceName ?? context.workspace.workspaceId}.`,
     context.workspace.workspaceRoot
@@ -27,18 +27,20 @@ export function createCapabilityInstructionBlock(
       : null,
     "Use typed Hobit app capabilities before Codex or shell.",
     "App and product actions must use typed Hobit capabilities.",
-    'If a Hobit app capability is needed, emit one JSON envelope: {"type":"hobit.action.request","capabilityId":"<id>","dryRun":false,"input":{...},"confirmationToken":"optional"}.',
-    "Do not use shell or Codex for product actions.",
-    "Do not execute app actions through shell or Codex.",
+    'When needed emit one JSON envelope: {"type":"hobit.action.request","capabilityId":"<id>","dryRun":false,"input":{...}}.',
+    "One envelope only; do not emit action lists.",
+    "After hobit.action.result, continue with returned taskId/runId/executorWidgetId or final prose; never infer missing ids.",
+    "Stop on blocked, unavailable, confirmation_required, policy_blocked, failed, invalid, repeated, or max actions.",
+    "Do not use shell or Codex for product actions. Do not execute app actions through shell, Codex, Git, Terminal, rollback, or validation.",
     "Do not inspect source files for product actions.",
     "Queue item creation is a Queue capability.",
     "Queue item creation should use queue.createItems.",
-    "Prompt-pack Queue flows use queue.preparePromptPackPreview or queue.importPromptPack.",
+    "Prompt-pack flows use queue.preparePromptPackPreview or queue.importPromptPack.",
     ...queueCreateInstructionLines,
     ...queueRunControlInstructionLines,
     ...queueLifecycleInstructionLines,
     "Codex and shell are restricted capabilities and are not default app-action paths.",
-    "Destructive/execute capabilities require policy and confirmation.",
+    "Execute/destructive capabilities require policy and confirmation.",
     `Compact capability manifest: ${compactManifestCapabilities
       .map(
         (capability) =>
@@ -123,17 +125,10 @@ function createQueueLifecycleCapabilityInstructionLines(
       ? "getEvidenceBundle(taskId)"
       : null,
   ].filter((item): item is string => Boolean(item)).join("; ");
-  const agentFinishedExample = lifecycleCapabilities
-    .find((capability) => capability.id === "queue.lifecycle.agentFinished")
-    ?.examples?.[0]?.exampleActionRequest;
-
   return [
-    "Queue lifecycle actions: typed overlay only; no backend, worker, validation, Git, Terminal, rollback, shell, or Codex.",
     "Queue lifecycle schemas:",
     requiredInputLine,
-    agentFinishedExample
-      ? `Queue lifecycle example: ${JSON.stringify(agentFinishedExample)}`
-      : null,
+    'Lifecycle example: {"type":"hobit.action.request","capabilityId":"queue.lifecycle.agentFinished","dryRun":false,"input":{"taskId":"queue-task-id","outcome":"completed","finalAgentMessage":"Done."}}',
   ].filter((line): line is string => Boolean(line));
 }
 
@@ -173,15 +168,12 @@ function createQueueCreateCapabilityInstructionLines(
         ? `- ${capability.id}: required=${capability.inputSchema.requiredFields.join(",")}`
         : `- ${capability.id}: ${capability.inputSchemaDescription}`,
     ),
-    "Queue item prompt is required; Queue item creation requires both title and prompt.",
-    "The prompt is the runnable task instruction, not just a display description.",
-    "Use prompt exactly; body,text,content,operatorPrompt,initialState,dependsOn,queueTag,priority do not satisfy Queue create input.",
+    "Queue item prompt is required; prompt is the runnable task instruction.",
+    "Use title,prompt only; body,text,content,operatorPrompt,initialState,dependsOn,queueTag,priority do not satisfy create input.",
     "For a test, dummy, or example Queue item, create a safe placeholder prompt.",
     "If a real Queue item lacks task content, ask a concise clarification.",
-    "Do not use shell, Codex, or source-code inspection to invent Queue product action data.",
     "Do not auto-run workers.",
     ...exampleLines,
-    "Dry-run previews use the same Queue create input shape with dryRun=true.",
   ];
 }
 
@@ -217,9 +209,9 @@ function createQueueRunControlCapabilityInstructionLines(
   );
 
   return [
-    "Queue run-control actions are typed only; never infer taskId or executorWidgetId from prose, titles, prompts, paths, final messages, or source text.",
+    "Queue run-control is typed only; never infer taskId or executorWidgetId from prose, titles, prompts, paths, final messages, or source text.",
     "Run-control fields: list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({}); start(taskId,executorWidgetId,queueId?).",
-    "Use queue.items.list when ids are missing; settings/promote/enable do not start work; start requires confirmation and no codex.runTask fallback.",
+    "Use queue.items.list when ids are missing; settings/promote/enable do not start; start requires confirmation and no codex.runTask fallback.",
     ...examples,
   ];
 }

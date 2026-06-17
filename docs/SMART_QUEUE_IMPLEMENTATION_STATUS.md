@@ -23,11 +23,12 @@ lifecycle broker capabilities, a full fake broker-driven Queue dogfood loop
 self-test, a frontend Queue worker evidence bundle model/adapter path, and
 a frontend Queue worker evidence ingestion bridge, a Queue-linked Direct Work
 metadata seam, Queue-linked Direct Work evidence event wiring, and focused
-smoke coverage, an active Queue V2 Codex executable setup affordance for
-existing tasks, active Queue V2 Draft readiness discoverability and explicit
-Draft-to-queued promotion through the existing Queue task update path, plus a
-minimal active Queue details review/evidence UI for explicit broker-driven
-coordinator review actions.
+smoke coverage, a bounded Workspace Agent broker-action continuation loop for
+structured action-request chains, an active Queue V2 Codex executable setup
+affordance for existing tasks, active Queue V2 Draft readiness discoverability
+and explicit Draft-to-queued promotion through the existing Queue task update
+path, plus a minimal active Queue details review/evidence UI for explicit
+broker-driven coordinator review actions.
 
 The durable Smart Queue backend/runtime is not implemented yet. Current Smart
 Queue modules are frontend/product-model foundations unless explicitly noted
@@ -64,6 +65,12 @@ The current implemented frontend behavior is:
   Queue task state and latest run-link metadata refresh after a real run id is
   returned, and Queue-owned final detail can feed the existing evidence
   ingestion bridge;
+- Workspace Agent broker-action continuation: after an eligible successful
+  structured broker result, the frontend feeds a compact `hobit.action.result`
+  back into the same Codex thread so the model can emit the next single
+  `hobit.action.request` or final prose, with an eight-action cap and stops for
+  confirmation, policy, unavailable, dry-run-required, failed, invalid,
+  repeated, unsupported, restricted, or missing-thread cases;
 - active Queue V2 Codex executable setup affordance for existing tasks through
   the existing task update/run-settings bridge;
 - active Queue V2 Draft readiness explanation for existing Draft tasks and
@@ -377,7 +384,12 @@ adapter integration and typed frontend Action Broker capability access.
   capabilities for frontend/controller lifecycle overlays.
 - Workspace Agent can invoke those capabilities only by emitting structured
   `hobit.action.request` envelopes. User prompt regex routing is not
-  implemented.
+  implemented. Workspace Agent can now continue a frontend broker-action chain
+  only through compact structured `hobit.action.result` context in the same
+  Codex thread. It still emits one action envelope at a time, never action
+  lists, and must use returned ids from the structured result instead of
+  inferring task ids or executor ids from prompt text, titles, repository
+  paths, final messages, or other prose.
 - `apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.ts`
   now proves a fake full dogfooding loop through the real broker and registered
   Queue lifecycle handlers: agent finished, review message, ACK, validation

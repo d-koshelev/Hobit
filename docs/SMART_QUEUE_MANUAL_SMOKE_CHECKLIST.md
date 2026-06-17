@@ -42,7 +42,14 @@ Workspace Agent surface, should use typed Hobit capabilities for app/product
 actions, and should treat Codex/shell as restricted execution capabilities.
 When the agent emits a valid `hobit.action.request` envelope, the frontend
 Action Broker validates policy/schema/side effects and invokes Queue adapter
-handlers. Natural-language Queue phrases are not regex-routed into actions.
+handlers. After an eligible successful broker result, Workspace Agent can feed
+a compact `hobit.action.result` back into the same Codex thread so the model
+can emit the next single `hobit.action.request` envelope or final prose. The
+continuation loop is bounded, structured-action-only, and stops on
+confirmation, policy, unavailable, dry-run-required, failed, invalid, repeated,
+unsupported, restricted, or missing-thread cases. Natural-language Queue
+phrases are not regex-routed into actions, and task ids or executor ids are
+not inferred from prose.
 
 ## Setup
 
@@ -127,6 +134,9 @@ During the smoke, verify these product labels appear where applicable:
 - `Real worker execution is not covered`
 - `Real validation execution is not covered`
 - `Real Git commit execution is not covered`
+- `Action 1/8`
+- `Action 2/8`
+- `Workspace Agent action chain`
 
 ## Smoke Flow
 
@@ -474,16 +484,32 @@ During the smoke, verify these product labels appear where applicable:
       user prompt contains Queue words.
     - Expected: Queue item creation happens only when the agent emits a valid
       structured Hobit action request and the broker allows it.
+    - Expected: if a broker result is eligible for continuation and the Codex
+      thread id is available, the next Direct Work request uses compact
+      `hobit.action.result` context in the same thread, not a new visible
+      operator turn or pasted prompt.
+    - Expected: transcript/activity show compact action-chain rows such as
+      `Action 1/8: queue.targetSingletonQueue` and
+      `Action 2/8: queue.items.list`; they do not dump raw JSON, logs, secrets,
+      or stack traces.
+    - Expected: the chain stops with a visible reason on confirmation,
+      policy-blocked, unavailable, dry-run-required, failed, invalid input,
+      repeated request id, repeated capability/input, unsupported envelope,
+      restricted capability, max action count, or unavailable thread.
 
 ## Typed StartRun Reconciliation Smoke
 
 1. In Workspace Agent, ask the agent to use typed Queue capabilities and emit
-   `hobit.action.request` envelopes only.
-   - Expected: ordinary prose is not routed by regex or phrase matching.
+   one `hobit.action.request` envelope at a time.
+   - Expected: ordinary prose is not routed by regex or phrase matching, and
+     action lists are rejected.
 
 2. Invoke `queue.items.list` and identify one explicit task id.
    - Expected: the item summary includes the selected task id, current status,
      readiness, and available executor targets.
+   - Expected with continuation: the next action uses task ids and executor ids
+     returned in `hobit.action.result`, not ids inferred from task titles,
+     final messages, paths, repo roots, or the operator prompt.
 
 3. Invoke `queue.item.updateRunSettings` for that exact `taskId` with
    `workspaceRoot`, `codexExecutable`, `sandbox`, and `approvalPolicy` where

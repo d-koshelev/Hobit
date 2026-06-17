@@ -98,6 +98,34 @@ describe("hobitAgentActionRequestEnvelope", () => {
     });
   });
 
+  it("rejects top-level Hobit action lists", () => {
+    const result = readHobitAgentActionRequestEnvelope(
+      JSON.stringify([
+        {
+          capabilityId: "queue.items.list",
+          dryRun: false,
+          input: { limit: 10 },
+          requestId: "request-list",
+          type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+        },
+        {
+          capabilityId: "queue.createItem",
+          dryRun: false,
+          input: { prompt: "Prompt", title: "Task" },
+          requestId: "request-create",
+          type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+        },
+      ]),
+    );
+
+    expect(result).toMatchObject({
+      reasons: [
+        "Action lists are not supported. Emit exactly one hobit.action.request envelope.",
+      ],
+      status: "invalid",
+    });
+  });
+
   it("ignores normal assistant prose without a valid envelope", () => {
     const result = readHobitAgentActionRequestEnvelope(
       "I can break this into Queue tasks, but no app action is being requested here.",
