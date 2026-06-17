@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import moduleShellSource from "./ModuleShell.tsx?raw";
 import { ModuleShellExample } from "./ModuleShellExample";
 import moduleShellExampleSource from "./ModuleShellExample.tsx?raw";
+import modulePopupSource from "./ModulePopup.tsx?raw";
 import moduleSplitSource from "./ModuleSplit.tsx?raw";
 import {
   ModuleBody,
@@ -256,6 +257,8 @@ describe("ModuleShell", () => {
       "Collapse module body",
     ]);
     expect(document.querySelector(".module-header-state-completed")).not.toBeNull();
+    expect(moduleShellExampleSource).toContain("ModulePopup");
+    expect(moduleShellExampleSource).not.toContain("module-settings-popup");
 
     expectForbiddenImports(moduleShellExampleSource);
   });
@@ -302,7 +305,7 @@ describe("ModuleShell", () => {
     expect(body?.contains(popup)).toBe(false);
   });
 
-  it("constrains the dummy settings popup initial position inside the module width", async () => {
+  it("places the dummy settings popup initial position inside the module width", async () => {
     const moduleWidth = 700;
     const restoreModuleShellBounds = mockModuleShellBounds(moduleWidth);
 
@@ -312,8 +315,8 @@ describe("ModuleShell", () => {
       await click(buttonWithText("Settings"));
 
       const popup = settingsPopupOrThrow();
-      const initialX = popupCoordinate(popup, "--module-settings-popup-x");
-      const initialY = popupCoordinate(popup, "--module-settings-popup-y");
+      const initialX = popupCoordinate(popup, "--module-popup-x");
+      const initialY = popupCoordinate(popup, "--module-popup-y");
 
       expect(initialX).toBeGreaterThanOrEqual(SETTINGS_POPUP_MARGIN);
       expect(initialX + SETTINGS_POPUP_WIDTH).toBeLessThanOrEqual(
@@ -342,8 +345,8 @@ describe("ModuleShell", () => {
     await click(buttonWithText("Settings"));
 
     const initialPopup = settingsPopupOrThrow();
-    const initialX = popupCoordinate(initialPopup, "--module-settings-popup-x");
-    const initialY = popupCoordinate(initialPopup, "--module-settings-popup-y");
+    const initialX = popupCoordinate(initialPopup, "--module-popup-x");
+    const initialY = popupCoordinate(initialPopup, "--module-popup-y");
 
     await drag(settingsPopupDragHandle(), {
       endX: 150,
@@ -355,10 +358,10 @@ describe("ModuleShell", () => {
     const movedPopup = settingsPopupOrThrow();
 
     expect(movedPopup.dataset.modulePopupMoving).toBe("false");
-    expect(popupCoordinate(movedPopup, "--module-settings-popup-x")).toBe(
+    expect(popupCoordinate(movedPopup, "--module-popup-x")).toBe(
       initialX + 50,
     );
-    expect(popupCoordinate(movedPopup, "--module-settings-popup-y")).toBe(
+    expect(popupCoordinate(movedPopup, "--module-popup-y")).toBe(
       initialY + 30,
     );
   });
@@ -405,6 +408,7 @@ describe("ModuleShell", () => {
   it("keeps ModuleShell primitive source imports domain-free", () => {
     expectForbiddenImports(moduleShellSource);
     expectForbiddenImports(moduleSplitSource);
+    expectForbiddenImports(modulePopupSource);
   });
 });
 

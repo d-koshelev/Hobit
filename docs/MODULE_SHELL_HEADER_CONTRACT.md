@@ -84,6 +84,24 @@ Opening from a header action must not make the popup part of the header layout
 or a glued dropdown. Movement, when demonstrated in the dummy example, is
 local, non-persistent visual state only.
 
+## ModulePopup Primitive
+
+`ModulePopup` is the reusable floating mini-module surface for module-owned
+visual popups. It follows the same header/body model as `ModuleShell`: a
+compact header stripe, one thin separator, and a body slot that owns popup
+content and scrolling.
+
+The popup header is the drag handle. Popup movement is local React state only
+for now, with no persistence, backend calls, Workbench layout integration, or
+global drag manager. A popup opened from a module header action must remain a
+floating surface above the module canvas; it must not become a dropdown glued
+to the button or part of the header layout.
+
+`ModulePopup` is domain-free visual-system code. It must not contain product
+settings, Workspace Agent, Queue, Knowledge, Terminal, Notes, Finder, backend,
+storage, runtime, registry, or real widget migration logic. Real modules may
+adopt it later only in a dedicated migration phase with explicit scope.
+
 ## Movable Rail Primitive
 
 Module-owned rails are reusable presentational splitters for module body

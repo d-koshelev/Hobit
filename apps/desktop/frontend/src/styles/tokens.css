@@ -217,8 +217,9 @@
   --module-popup-stripe-color: var(--module-palette-active);
   --module-popup-offset-y: 18px;
   --module-popup-width: 264px;
+  --module-popup-max-height: 320px;
   --module-popup-z-index: 4;
-  --module-popup-shadow: 0 2px 0 #090b0d;
+  --module-popup-shadow: none;
   --module-preview-app-background: var(--module-palette-app-background);
   --module-preview-grid-dot: var(--module-palette-canvas-dot);
 
