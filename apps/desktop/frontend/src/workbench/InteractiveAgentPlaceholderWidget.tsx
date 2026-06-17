@@ -101,6 +101,7 @@ export function InteractiveAgentPlaceholderWidget({
   coordinatorAttachedContextRequest,
   onGenerateCoordinatorProviderResponse,
   onGetKnowledgeDocument,
+  onInvokeHobitAgentActionRequest,
   onOpenAgentQueueItem,
   onSearchKnowledgeDocuments,
   onCancelCodexDirectWorkRun,
@@ -154,10 +155,11 @@ export function InteractiveAgentPlaceholderWidget({
   );
   const invokeHobitAgentActionRequest = useMemo(
     () =>
+      onInvokeHobitAgentActionRequest ??
       createWorkspaceAgentHobitActionInvoker({
         workspaceAgentQueueBridge,
       }),
-    [workspaceAgentQueueBridge],
+    [onInvokeHobitAgentActionRequest, workspaceAgentQueueBridge],
   );
   const directWork = useWorkspaceAgentDirectWorkController({
     currentWorkspaceRoot,

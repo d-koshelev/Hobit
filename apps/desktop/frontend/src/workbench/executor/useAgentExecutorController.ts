@@ -36,6 +36,7 @@ export function useAgentExecutorController({
   onCancelCodexDirectWorkRun,
   onForceKillCodexDirectWorkRun,
   onGetAgentExecutorRunDetail,
+  onIngestQueueLinkedDirectWorkEvidence,
   onPublishAgentActivityEvents,
   onRunCodexDirectWork,
   onRunDirectWorkValidation,
@@ -66,6 +67,7 @@ export function useAgentExecutorController({
   >([]);
   const localLogEntrySequenceRef = useRef(0);
   const activeRequestRef = useRef<CodexDirectWorkRequestDraft | null>(null);
+  const queueRunSourceRef = useRef<DirectWorkRunHandoff | null>(null);
   const runStartedAtRef = useRef<number | null>(null);
   const stopStreamListeningRef = useRef<(() => void) | null>(null);
   const streamStartAbortControllerRef = useRef<AbortController | null>(null);
@@ -134,16 +136,16 @@ export function useAgentExecutorController({
     liveRun,
     onAttachToCodexDirectWorkStream,
     onGetAgentExecutorRunDetail,
+    onIngestQueueLinkedDirectWorkEvidence,
     onQueueRunFinalState: onDirectWorkRunHandoffFinalState,
     recordStreamEvent,
     refreshRunHistory,
-    requestGitReviewForRepositoryRoot,
     runStartedAtRef,
     setActiveStreamingRunId,
     setIsRunning,
     setIsStopRequesting,
     setLiveRun,
-    setQueueRunSource,
+    setQueueRunSource: setQueueRunSourceState,
     setRunErrorMessage,
     setRunInfoNotice,
     setValidationRepositoryRoot,
@@ -407,7 +409,9 @@ export function useAgentExecutorController({
       stopActiveStreamListening();
       const repositoryRoot = activeRequestRef.current?.repoRoot ?? null;
       setValidationRepositoryRoot(repositoryRoot);
-      requestGitReviewForRepositoryRoot(repositoryRoot);
+      if (queueRunSourceRef.current?.runId !== event.runId) {
+        requestGitReviewForRepositoryRoot(repositoryRoot);
+      }
       activeRequestRef.current = null;
       refreshRunHistory();
     }
@@ -452,7 +456,7 @@ export function useAgentExecutorController({
     setRunResult(null);
     setRunResultTiming(null);
     setLiveRun(null);
-    setQueueRunSource(null);
+    setQueueRunSourceState(null);
     setActiveStreamingRunId(null);
     setValidationRepositoryRoot(null);
     setLiveLogEntries([]);
@@ -471,6 +475,25 @@ export function useAgentExecutorController({
     onDirectWorkGitReviewRequested?.({
       repositoryRoot: trimmedRepositoryRoot,
       sourceWidgetInstanceId: widgetInstanceId,
+    });
+  }
+
+  function setQueueRunSourceState(
+    value:
+      | DirectWorkRunHandoff
+      | null
+      | ((current: DirectWorkRunHandoff | null) => DirectWorkRunHandoff | null),
+  ) {
+    if (typeof value !== "function") {
+      queueRunSourceRef.current = value;
+      setQueueRunSource(value);
+      return;
+    }
+
+    setQueueRunSource((current) => {
+      const next = value(current);
+      queueRunSourceRef.current = next;
+      return next;
     });
   }
 

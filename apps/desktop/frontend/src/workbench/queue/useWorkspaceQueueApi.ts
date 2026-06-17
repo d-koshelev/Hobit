@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useRef, type MutableRefObject } from "react";
 
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
 import type { DirectWorkRunHandoffController } from "../useDirectWorkRunHandoff";
@@ -26,6 +26,15 @@ import {
 import { createQueueValidationRunner } from "./queueValidationRunnerAdapter";
 import { requestValidationForQueueItem } from "./queueValidationEvidenceService";
 import { buildQueueTaskValidationRunRequest } from "../workspaceChatQueueValidation";
+import {
+  createWorkspaceAgentHobitActionInvoker,
+  type WorkspaceAgentHobitActionInvoker,
+} from "../workspaceAgentBrokerActionRuntime";
+import {
+  ingestQueueLinkedAgentExecutorRunDetail,
+  type QueueWorkerEvidenceIngestionBrokerInvoker,
+} from "./smartQueueWorkerEvidenceIngestion";
+import type { QueueLinkedDirectWorkEvidenceIngestionCallback } from "../queueLinkedDirectWorkEvidenceWiring";
 
 type WorkspaceQueueActions = Pick<
   WorkbenchWidgetInstanceActions,
@@ -57,6 +66,8 @@ type WorkspaceQueueActions = Pick<
 
 export type WorkspaceQueueApi = WorkspaceAgentQueueBridge & {
   controller: AgentQueueController;
+  ingestQueueLinkedDirectWorkEvidence?: QueueLinkedDirectWorkEvidenceIngestionCallback;
+  invokeHobitAgentActionRequest?: WorkspaceAgentHobitActionInvoker;
   queueExecutorSlots: AgentExecutorSlot[];
   queueId: string;
   requestValidation: (
@@ -81,6 +92,70 @@ export function useWorkspaceQueueApi({
   queueWidgetInstanceId?: WidgetInstanceId | null;
   workspaceId: string;
 }): WorkspaceQueueApi {
+  const latestBridgeRef = useRef<WorkspaceAgentQueueBridge | null>(null);
+  const stableBrokerBridge = useMemo<WorkspaceAgentQueueBridge>(
+    () => ({
+      createItem: (request) => requiredBridge(latestBridgeRef).createItem(request),
+      getCurrentWorkspaceRoot: () =>
+        latestBridgeRef.current?.getCurrentWorkspaceRoot?.() ?? null,
+      getRunSettingsDefaults: () =>
+        latestBridgeRef.current?.getRunSettingsDefaults?.() ?? null,
+      getSnapshot: (request) =>
+        requiredBridge(latestBridgeRef).getSnapshot(request),
+      runAutonomousQueue: () =>
+        latestBridgeRef.current?.runAutonomousQueue?.() ??
+        Promise.resolve(
+          autonomousQueueResult({
+            action: "queue.runAutonomousQueue",
+            code: "autonomous_controls_unavailable",
+            message: "Queue autonomous controls are unavailable.",
+            ok: false,
+            status: "unavailable",
+          }),
+        ),
+      stopAutonomousQueueAfterCurrent: () =>
+        latestBridgeRef.current?.stopAutonomousQueueAfterCurrent?.() ??
+        Promise.resolve(
+          autonomousQueueResult({
+            action: "queue.stopAutonomousQueueAfterCurrent",
+            code: "autonomous_controls_unavailable",
+            message: "Queue autonomous controls are unavailable.",
+            ok: false,
+            status: "unavailable",
+          }),
+        ),
+      updateItem: (request) => requiredBridge(latestBridgeRef).updateItem(request),
+    }),
+    [],
+  );
+  const invokeHobitAgentActionRequest = useMemo(
+    () =>
+      createWorkspaceAgentHobitActionInvoker({
+        workspaceAgentQueueBridge: stableBrokerBridge,
+      }),
+    [stableBrokerBridge],
+  );
+  const invokeQueueWorkerEvidenceBrokerAction =
+    useCallback<QueueWorkerEvidenceIngestionBrokerInvoker>(
+      (request) =>
+        invokeHobitAgentActionRequest(request) as ReturnType<
+          QueueWorkerEvidenceIngestionBrokerInvoker
+        >,
+      [invokeHobitAgentActionRequest],
+    );
+  const ingestQueueLinkedDirectWorkEvidence =
+    useCallback<QueueLinkedDirectWorkEvidenceIngestionCallback>(
+      (input) =>
+        ingestQueueLinkedAgentExecutorRunDetail(
+          {
+            agentId: "queue.linked.direct-work.evidence",
+            agentRoleId: "workspace_agent",
+            invokeBrokerAction: invokeQueueWorkerEvidenceBrokerAction,
+          },
+          input,
+        ),
+      [invokeQueueWorkerEvidenceBrokerAction],
+    );
   const normalizedCurrentWorkspaceRoot =
     normalizeWorkspaceRoot(currentWorkspaceRoot);
   const queueExecutorSlots = useMemo(
@@ -198,6 +273,7 @@ export function useWorkspaceQueueApi({
     },
     workspaceId,
   });
+  latestBridgeRef.current = bridge;
   const requestValidation = useCallback(
     (task: AgentQueueTask, runner: ValidationRunner) =>
       requestValidationForQueueItem({
@@ -216,11 +292,23 @@ export function useWorkspaceQueueApi({
   return {
     ...bridge,
     controller,
+    ingestQueueLinkedDirectWorkEvidence,
+    invokeHobitAgentActionRequest,
     queueExecutorSlots,
     queueId,
     requestValidation,
     validationRunner,
   };
+}
+
+function requiredBridge(
+  ref: MutableRefObject<WorkspaceAgentQueueBridge | null>,
+) {
+  if (!ref.current) {
+    throw new Error("Workspace Queue bridge is unavailable.");
+  }
+
+  return ref.current;
 }
 
 function isTauriDesktopRuntime() {

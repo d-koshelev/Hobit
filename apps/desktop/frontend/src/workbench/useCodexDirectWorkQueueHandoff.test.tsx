@@ -14,6 +14,14 @@ import type {
 import type { CodexDirectWorkRequestDraft } from "./CodexDirectWorkTypes";
 import type { DirectWorkRunHandoff } from "./types";
 import {
+  createEvidenceBundleFromAgentExecutorRunDetail,
+} from "./queue/smartQueueWorkerEvidenceBundle";
+import type {
+  QueueLinkedAgentExecutorIngestionInput,
+  QueueWorkerEvidenceIngestionResult,
+} from "./queue/smartQueueWorkerEvidenceIngestion";
+import type { QueueLinkedDirectWorkEvidenceIngestionCallback } from "./queueLinkedDirectWorkEvidenceWiring";
+import {
   flushHookEffects,
   renderHook,
 } from "./test-utils/renderHook";
@@ -40,6 +48,7 @@ type AttachCall = {
 
 type HarnessOptions = {
   disableAttach?: boolean;
+  disableIngestion?: boolean;
   directWorkRunHandoff?: DirectWorkRunHandoff | null;
   initialActiveStreamingRunId?: string | null;
   initialIsRunning?: boolean;
@@ -53,12 +62,14 @@ type HarnessOptions = {
     widgetInstanceId: string,
     runId: string,
   ) => Promise<AgentExecutorRunDetail | null>;
+  onIngestQueueLinkedDirectWorkEvidence?: QueueLinkedDirectWorkEvidenceIngestionCallback;
 };
 
 function createHarnessState() {
   return {
     attachCalls: [] as AttachCall[],
     clearedRunStateCount: 0,
+    evidenceIngestions: [] as QueueLinkedAgentExecutorIngestionInput[],
     finalStates: [] as Array<{ finalStatus: string; handoff: DirectWorkRunHandoff }>,
     gitReviewRequests: [] as Array<string | null | undefined>,
     localLogs: [] as Array<{
@@ -134,17 +145,25 @@ function useQueueHandoffHarness(
           });
         }),
     onGetAgentExecutorRunDetail: options.onGetAgentExecutorRunDetail,
+    onIngestQueueLinkedDirectWorkEvidence: options.disableIngestion
+      ? undefined
+      : options.onIngestQueueLinkedDirectWorkEvidence ??
+        (async (input) => {
+          state.evidenceIngestions.push(input);
+          return successIngestionResult(input);
+        }),
     onQueueRunFinalState: (handoff, finalStatus) => {
       state.finalStates.push({ finalStatus, handoff });
     },
     recordStreamEvent: (event) => {
       state.recordedEvents.push(event);
+      if (event.isFinal) {
+        setIsRunning(false);
+        setActiveStreamingRunId(null);
+      }
     },
     refreshRunHistory: () => {
       state.refreshedHistoryCount += 1;
-    },
-    requestGitReviewForRepositoryRoot: (repositoryRoot) => {
-      state.gitReviewRequests.push(repositoryRoot);
     },
     runStartedAtRef,
     setActiveStreamingRunId,
@@ -308,6 +327,150 @@ describe("useCodexDirectWorkQueueHandoff", () => {
       runId: "run-1",
       source: "queue_handoff",
     });
+    expect(state.evidenceIngestions).toHaveLength(0);
+
+    hook.unmount();
+  });
+
+  it("ingests Queue-linked final stream evidence once when stored run detail matches", async () => {
+    const state = createHarnessState();
+    const hook = renderHook(
+      (options: HarnessOptions) => useQueueHandoffHarness(options, state),
+      {
+        directWorkRunHandoff: baseHandoff,
+        onGetAgentExecutorRunDetail: (_widgetInstanceId, runId) =>
+          Promise.resolve(
+            runDetail(runId, "completed", {
+              changedFilesSummary: "Changed 2 files.",
+              finalMessage: "Queue worker completed.",
+              validationProfile: "changed",
+              validationStatus: "passed",
+            }),
+          ),
+      },
+    );
+
+    await flushHookEffects();
+
+    await act(async () => {
+      state.attachCalls[0].onEvent(
+        streamEvent("run-1", "completed", true, "thread-1"),
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(state.finalStates).toHaveLength(1);
+    expect(state.evidenceIngestions).toHaveLength(1);
+    expect(state.evidenceIngestions[0]).toMatchObject({
+      taskId: "queue-1",
+      threadId: "thread-1",
+      workerId: "executor-1",
+    });
+    expect(state.evidenceIngestions[0].detail.summary.runId).toBe("run-1");
+    expect(
+      state.localLogs.some(
+        (entry) =>
+          entry.kind === "queue_evidence_ingestion" &&
+          entry.status === "success" &&
+          entry.text === "Queue worker evidence ingested",
+      ),
+    ).toBe(true);
+
+    hook.unmount();
+  });
+
+  it("does not duplicate ingestion for repeated final stream notifications", async () => {
+    const state = createHarnessState();
+    const hook = renderHook(
+      (options: HarnessOptions) => useQueueHandoffHarness(options, state),
+      {
+        directWorkRunHandoff: baseHandoff,
+        onGetAgentExecutorRunDetail: (_widgetInstanceId, runId) =>
+          Promise.resolve(runDetail(runId, "completed")),
+      },
+    );
+
+    await flushHookEffects();
+
+    await act(async () => {
+      state.attachCalls[0].onEvent(streamEvent("run-1", "completed", true));
+      state.attachCalls[0].onEvent(streamEvent("run-1", "completed", true));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(state.finalStates).toHaveLength(2);
+    expect(state.evidenceIngestions).toHaveLength(1);
+    expect(
+      state.localLogs.some(
+        (entry) =>
+          entry.kind === "queue_evidence_ingestion" &&
+          entry.status === "duplicate_ignored",
+      ),
+    ).toBe(true);
+
+    hook.unmount();
+  });
+
+  it("ingests different Queue-linked run and Queue item identities independently", async () => {
+    const state = createHarnessState();
+    const getDetail = (_widgetInstanceId: string, runId: string) =>
+      Promise.resolve(runDetail(runId, "completed"));
+    const hook = renderHook(
+      (options: HarnessOptions) => useQueueHandoffHarness(options, state),
+      {
+        directWorkRunHandoff: baseHandoff,
+        onGetAgentExecutorRunDetail: getDetail,
+      },
+    );
+
+    await flushHookEffects();
+
+    await act(async () => {
+      state.attachCalls[0].onEvent(streamEvent("run-1", "completed", true));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    hook.rerender({
+      directWorkRunHandoff: { ...baseHandoff, id: 2, runId: "run-2" },
+      onGetAgentExecutorRunDetail: getDetail,
+    });
+    await flushHookEffects();
+
+    await act(async () => {
+      state.attachCalls[1].onEvent(streamEvent("run-2", "completed", true));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    hook.rerender({
+      directWorkRunHandoff: {
+        ...baseHandoff,
+        id: 3,
+        queueItemId: "queue-2",
+      },
+      onGetAgentExecutorRunDetail: getDetail,
+    });
+    await flushHookEffects();
+
+    await act(async () => {
+      state.attachCalls[2].onEvent(streamEvent("run-1", "completed", true));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    expect(
+      state.evidenceIngestions.map((input) => [
+        input.taskId,
+        input.detail.summary.runId,
+      ]),
+    ).toEqual([
+      ["queue-1", "run-1"],
+      ["queue-1", "run-2"],
+      ["queue-2", "run-1"],
+    ]);
 
     hook.unmount();
   });
@@ -345,6 +508,11 @@ describe("useCodexDirectWorkQueueHandoff", () => {
     });
 
     expect(state.finalStates).toHaveLength(1);
+    expect(state.evidenceIngestions).toHaveLength(1);
+    expect(state.evidenceIngestions[0]).toMatchObject({
+      taskId: "queue-1",
+      workerId: "executor-1",
+    });
     expect(state.finalStates[0].finalStatus).toBe("completed");
     expect(state.finalStates[0].handoff.queueLinkedMetadata).toMatchObject({
       executorWidgetId: "executor-1",
@@ -357,7 +525,7 @@ describe("useCodexDirectWorkQueueHandoff", () => {
     expect(hook.result.current.activeStreamingRunId).toBeNull();
     expect(hook.result.current.validationRepositoryRoot).toBe("/repo");
     expect(state.refreshedHistoryCount).toBe(1);
-    expect(state.gitReviewRequests).toEqual(["/repo"]);
+    expect(state.gitReviewRequests).toEqual([]);
 
     hook.unmount();
   });
@@ -389,13 +557,14 @@ describe("useCodexDirectWorkQueueHandoff", () => {
     });
 
     expect(state.finalStates).toHaveLength(0);
+    expect(state.evidenceIngestions).toHaveLength(0);
     expect(hook.result.current.isRunning).toBe(true);
     expect(hook.result.current.activeStreamingRunId).toBe("run-1");
 
     hook.unmount();
   });
 
-  it("does not call Queue evidence ingestion from the handoff metadata seam", () => {
+  it("does not call broker internals or unsafe side effects directly", () => {
     expect(queueHandoffSource).not.toContain("smartQueueWorkerEvidenceIngestion");
     expect(queueHandoffSource).not.toContain("queue.lifecycle.agentFinished");
     expect(queueHandoffSource).not.toContain("createGitCommit");
@@ -410,8 +579,10 @@ function streamEvent(
   runId: string,
   eventKind: DirectWorkStreamEvent["eventKind"],
   isFinal: boolean,
+  codexThreadId: string | null = null,
 ): DirectWorkStreamEvent {
   return {
+    codexThreadId,
     elapsedMs: 100,
     errorMessage: null,
     eventKind,
@@ -431,7 +602,11 @@ function streamEvent(
   };
 }
 
-function runDetail(runId: string, status: string): AgentExecutorRunDetail {
+function runDetail(
+  runId: string,
+  status: string,
+  overrides: Partial<AgentExecutorRunDetail> = {},
+): AgentExecutorRunDetail {
   return {
     changedFilesSummary: null,
     errorMessage: null,
@@ -444,6 +619,9 @@ function runDetail(runId: string, status: string): AgentExecutorRunDetail {
     resultSummary: "done",
     stderrPreview: "",
     stdoutPreview: "",
+    validationProfile: null,
+    validationStatus: null,
+    ...overrides,
     summary: {
       commandKind: "codex_direct_work",
       durationMs: 1000,
@@ -459,8 +637,53 @@ function runDetail(runId: string, status: string): AgentExecutorRunDetail {
       title: "Queue task",
       validationProfile: null,
       validationStatus: null,
+      ...overrides.summary,
     },
-    validationProfile: null,
-    validationStatus: null,
+  };
+}
+
+function successIngestionResult(
+  input: QueueLinkedAgentExecutorIngestionInput,
+): QueueWorkerEvidenceIngestionResult {
+  const taskId = input.taskId ?? "";
+  const evidenceBundle = createEvidenceBundleFromAgentExecutorRunDetail({
+    attemptId: input.attemptId,
+    detail: input.detail,
+    logReference: input.logReference,
+    taskId,
+    threadId: input.threadId,
+    workerId: input.workerId,
+  });
+
+  return {
+    activityTitle: "Queue worker evidence ingested",
+    dryRun: false,
+    evidenceBundle,
+    evidenceSummary: evidenceBundle.summary.humanSummary,
+    lifecycleOutput: {
+      actionLabel: "Agent finished",
+      additionalPromptCount: 0,
+      agentPromptState: "none",
+      dryRunOnly: false,
+      lifecycle: {} as never,
+      previousAgentPromptState: "none",
+      previousTicketState: "running",
+      queueMutation: "frontend_controller_overlay",
+      reviewOutcome: evidenceBundle.outcome,
+      taskId,
+      ticketState: "awaiting_review",
+      wouldAutoRunWorkers: false,
+      wouldCallGit: false,
+      wouldExecuteRollback: false,
+      wouldLaunchTerminal: false,
+      wouldPersistBackend: false,
+      wouldRunValidation: false,
+      wouldStartWorkers: false,
+    } as unknown as QueueWorkerEvidenceIngestionResult["lifecycleOutput"],
+    message: "Queue item moved to awaiting review.",
+    productStatusLabel: "Queue item awaiting review",
+    reasons: [],
+    status: "success",
+    taskId,
   };
 }

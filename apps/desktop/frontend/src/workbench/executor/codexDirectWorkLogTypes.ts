@@ -30,7 +30,8 @@ export type CodexDirectWorkLiveLogEntryKind =
   | "fallback_starting"
   | "fallback_completed"
   | "fallback_failed"
-  | "queue_handoff_attached";
+  | "queue_handoff_attached"
+  | "queue_evidence_ingestion";
 
 export type CodexDirectWorkLiveLogEntryTone =
   | "neutral"

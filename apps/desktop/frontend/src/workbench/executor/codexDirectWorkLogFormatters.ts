@@ -37,6 +37,7 @@ const LOCAL_LOG_LABELS: Partial<
   fallback_completed: "Fallback completed",
   fallback_failed: "Fallback failed",
   fallback_starting: "Fallback",
+  queue_evidence_ingestion: "Queue evidence",
   queue_handoff_attached: "Queue handoff",
   started: "Run started",
   stop_acknowledged: "Stop requested",

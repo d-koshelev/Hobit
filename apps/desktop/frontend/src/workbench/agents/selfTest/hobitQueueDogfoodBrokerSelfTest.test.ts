@@ -132,12 +132,33 @@ describe("Queue dogfood broker self-test", () => {
       required: false,
       status: "blocked",
     });
+    expect(
+      caseById(report, "queue-dogfood-broker:queue-linked-evidence-event-wiring"),
+    ).toMatchObject({
+      message: "Queue-linked evidence event wiring is available.",
+      required: false,
+      status: "passed",
+    });
+    expect(
+      caseById(report, "queue-dogfood-broker:raw-non-queue-ingestion-blocked"),
+    ).toMatchObject({
+      message: "Raw non-Queue Direct Work ingestion is blocked.",
+      required: false,
+      status: "passed",
+    });
+    expect(
+      caseById(report, "queue-dogfood-broker:duplicate-completion-guarded"),
+    ).toMatchObject({
+      message: "Duplicate Queue-linked completion ingestion is guarded.",
+      required: false,
+      status: "passed",
+    });
     expect(report.summary).toEqual({
       blocked: 3,
       failed: 0,
-      passed: 10,
+      passed: 13,
       skipped: 1,
-      total: 14,
+      total: 17,
     });
   });
 

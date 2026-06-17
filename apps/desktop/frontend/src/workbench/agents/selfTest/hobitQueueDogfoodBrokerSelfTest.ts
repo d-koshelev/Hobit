@@ -81,6 +81,7 @@ export function runQueueDogfoodBrokerSelfTest({
       status: noHiddenSideEffects ? "passed" : "failed",
       title: "No hidden side effects",
     }),
+    ...queueLinkedEvidenceEventWiringInventoryCases(),
   ];
   const cases = [...coveredCases, ...notCoveredRuntimeGapCases()];
   const summary = summarizeQueueDogfoodBrokerSelfTestCases(cases);
@@ -100,6 +101,49 @@ export function runQueueDogfoodBrokerSelfTest({
     status,
     summary,
   };
+}
+
+function queueLinkedEvidenceEventWiringInventoryCases(): QueueDogfoodBrokerSelfTestCase[] {
+  return [
+    selfTestCase({
+      capabilityIds: ["queue.lifecycle.agentFinished"],
+      caseId: "queue-dogfood-broker:queue-linked-evidence-event-wiring",
+      evidence: [
+        "Frontend wiring exists in useCodexDirectWorkQueueHandoff and queueLinkedDirectWorkEvidenceWiring.",
+        "It requires explicit Queue-linked metadata, matching final AgentExecutorRunDetail, and the ingestion bridge callback.",
+        "The mutation path remains Queue-linked completion -> evidence ingestion bridge -> Action Broker -> queue.lifecycle.agentFinished.",
+      ],
+      message: "Queue-linked evidence event wiring is available.",
+      required: false,
+      status: "passed",
+      title: "Queue-linked evidence event wiring available",
+    }),
+    selfTestCase({
+      capabilityIds: ["queue.lifecycle.agentFinished"],
+      caseId: "queue-dogfood-broker:raw-non-queue-ingestion-blocked",
+      evidence: [
+        "Raw Workspace Agent, raw Direct Work, Agent Activity, and standalone Agent Executor history are not ingestion sources.",
+        "Evidence ingestion requires explicit Queue task linkage and never infers taskId from prompt, title, final message, repo path, or changed files.",
+      ],
+      message: "Raw non-Queue Direct Work ingestion is blocked.",
+      required: false,
+      status: "passed",
+      title: "Raw non-Queue ingestion blocked",
+    }),
+    selfTestCase({
+      capabilityIds: ["queue.lifecycle.agentFinished"],
+      caseId: "queue-dogfood-broker:duplicate-completion-guarded",
+      evidence: [
+        "The frontend wiring uses the Queue-linked metadata current-session idempotency key.",
+        "Repeated final stream events and recovered final detail for the same Queue item/run are ignored after the first ingestion attempt.",
+        "The idempotency guard is frontend/session-only and not backend durability.",
+      ],
+      message: "Duplicate Queue-linked completion ingestion is guarded.",
+      required: false,
+      status: "passed",
+      title: "Duplicate completion guarded",
+    }),
+  ];
 }
 
 export function summarizeQueueDogfoodBrokerSelfTestCases(

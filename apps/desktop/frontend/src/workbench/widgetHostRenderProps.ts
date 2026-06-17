@@ -134,6 +134,7 @@ export function widgetHostRenderProps({
         directWorkRunHandoff,
         hasGitWidget,
         instanceId,
+        workspaceQueueApi,
         onAttachContextToCoordinator,
         onPublishAgentActivityEvents,
       }),

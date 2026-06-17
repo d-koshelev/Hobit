@@ -24,6 +24,7 @@ import type {
   GetAgentExecutorRunDetailHandler,
   ListAgentExecutorRunsHandler,
 } from "./AgentExecutorRunHistoryPanel";
+import type { QueueLinkedDirectWorkEvidenceIngestionCallback } from "./queueLinkedDirectWorkEvidenceWiring";
 
 export type CodexDirectWorkPanelProps = {
   agentExecutorRunOpenRequest?: AgentExecutorRunOpenRequest | null;
@@ -36,6 +37,7 @@ export type CodexDirectWorkPanelProps = {
     handoff: DirectWorkRunHandoff,
     finalStatus: string,
   ) => void;
+  onIngestQueueLinkedDirectWorkEvidence?: QueueLinkedDirectWorkEvidenceIngestionCallback;
   onGetAgentExecutorDiffSummary?: GetAgentExecutorDiffSummaryHandler;
   onGetAgentExecutorRunDetail?: GetAgentExecutorRunDetailHandler;
   onListAgentExecutorRuns?: ListAgentExecutorRunsHandler;

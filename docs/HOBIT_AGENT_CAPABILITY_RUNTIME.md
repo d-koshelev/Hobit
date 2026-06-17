@@ -328,11 +328,28 @@ The bridge exposes product-facing labels such as `Queue worker evidence
 ingested`, `Queue item awaiting review`, `Queue evidence ingestion failed`, and
 `Queue evidence ingestion skipped`.
 
+`apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`
+and `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`
+now wire the first safe automatic ingestion point: a Queue-started Direct Work
+completion with valid explicit Queue-linked metadata and matching final
+`AgentExecutorRunDetail`. The wiring calls only the existing ingestion bridge,
+which then invokes `queue.lifecycle.agentFinished` through the Action Broker.
+It is current-session frontend wiring with a metadata idempotency key; repeated
+final stream events or recovered final detail for the same Queue item/run do
+not duplicate bridge calls.
+
+Raw Workspace Agent final events, raw Direct Work final events without Queue
+metadata, Agent Activity events, standalone Executor history, and task-id
+inference from text/title/path/final-message/changed-files content remain
+blocked as ingestion sources.
+
 The ingestion bridge does not auto-create review messages, ACK review,
 approve validation, mark done, start dependents, start workers, run validation,
 execute Git/commit, execute rollback, launch Terminal, call shell/Codex,
-create Queue views, or persist backend state. Broad automatic real worker
-event wiring remains future work.
+create Queue views, or persist backend state. Backend durability, full restart
+recovery, real validation execution, real Git commit execution, rollback
+execution, and broad automatic real worker event integration remain future
+work.
 
 Lifecycle dry-runs preview the intended transition and do not mutate the
 frontend lifecycle overlay. Lifecycle invocation with `dryRun: false` mutates
@@ -356,7 +373,9 @@ only. The main success path now feeds a fake frontend worker evidence bundle to
 normalized evidence readback through `queue.review.getEvidenceBundle`, and
 explicitly reports backend durability as skipped plus real worker execution,
 real validation execution, and real Git commit execution as blocked or not
-covered.
+covered. It also reports Queue-linked evidence event wiring availability, raw
+non-Queue Direct Work ingestion blocking, and duplicate completion guarding as
+current frontend inventory rows without claiming backend durability.
 
 Backend durability for lifecycle records, real worker lifecycle integration,
 durable worker evidence, real validation evidence execution, and real Git

@@ -42,8 +42,10 @@ describe("widgetHostRenderProps", () => {
 
   it("wires Workspace Agent directory, Knowledge, activity, Direct Work, and Queue bridge callbacks", async () => {
     const actions = widgetActions();
+    const invokeHobitAgentActionRequest = vi.fn();
     const publish = vi.fn();
     const workspaceQueue = workspaceQueueApi({
+      invokeHobitAgentActionRequest,
       runAutonomousQueue: vi.fn(async () => ({
         action: "queue.runAutonomousQueue" as const,
         message: "Autonomous Queue started.",
@@ -92,6 +94,9 @@ describe("widgetHostRenderProps", () => {
       actions.generateCoordinatorProviderResponse,
     );
     expect(props.onGetKnowledgeDocument).toBe(actions.getKnowledgeDocument);
+    expect(props.onInvokeHobitAgentActionRequest).toBe(
+      invokeHobitAgentActionRequest,
+    );
     expect(props.workspaceAgentQueueBridge).toBeDefined();
     expect(props.createQueueItemsFromPromptPackPreview).toBeDefined();
     expect(props.workspaceAgentQueueBridge?.getRunSettingsDefaults?.()).toEqual(
@@ -396,6 +401,7 @@ describe("widgetHostRenderProps", () => {
   it("wires Agent Executor Direct Work, history, activity, and Git handoff props", () => {
     const actions = widgetActions();
     const attach = vi.fn();
+    const ingestQueueLinkedDirectWorkEvidence = vi.fn();
     const publish = vi.fn();
     const directWorkGitReview = directWorkGitReviewHandoff();
     const directWorkRunHandoff = directWorkRunHandoffController();
@@ -410,6 +416,9 @@ describe("widgetHostRenderProps", () => {
       hasGitWidget: true,
       onAttachContextToCoordinator: attach,
       onPublishAgentActivityEvents: publish,
+      workspaceQueueApi: workspaceQueueApi({
+        ingestQueueLinkedDirectWorkEvidence,
+      }),
       widgetActions: actions,
     });
 
@@ -440,6 +449,9 @@ describe("widgetHostRenderProps", () => {
     );
     expect(props.onGetAgentExecutorRunDetail).toBe(
       actions.getAgentExecutorRunDetail,
+    );
+    expect(props.onIngestQueueLinkedDirectWorkEvidence).toBe(
+      ingestQueueLinkedDirectWorkEvidence,
     );
     expect(props.onListAgentExecutorRuns).toBe(actions.listAgentExecutorRuns);
     expect(props.onPublishAgentActivityEvents).toBe(publish);

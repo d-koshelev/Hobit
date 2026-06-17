@@ -18,7 +18,8 @@ Current as a frontend pure model foundation with frontend controller/view-model
 adapter integration, typed frontend Action Broker capability access, a
 frontend Queue worker evidence bundle model, a frontend Queue worker evidence
 ingestion bridge, a Queue-linked Direct Work metadata seam, and a broker-driven
-fake dogfooding loop self-test.
+Queue-linked Direct Work evidence event wiring path, and a broker-driven fake
+dogfooding loop self-test.
 
 The implemented model and adapter layer live under:
 
@@ -27,6 +28,8 @@ The implemented model and adapter layer live under:
 - `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts`
 - `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceIngestion.ts`
 - `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkMetadata.ts`
+- `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`
+- `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`
 
 The model is not yet persisted and is not yet wired as the authoritative
 runtime Queue lifecycle. The controller/view-model adapter is an overlay for
@@ -202,7 +205,7 @@ an explicit Queue task link.
 the frontend-only metadata seam for Queue-launched Direct Work. It carries the
 explicit Queue item id, Direct Work run id, Agent Executor widget id, optional
 future attempt id, handoff source, linked/completed timestamps where available,
-and a current-session idempotency key for future ingestion wiring.
+and a current-session idempotency key for Queue-linked evidence event wiring.
 
 The seam is populated from the existing Queue-to-Direct-Work handoff path and
 finalization checks can compare the handoff with Agent Executor run detail or
@@ -221,6 +224,57 @@ This seam does not call the evidence ingestion bridge, does not call
 durability, SQLite schema, Tauri/IPC behavior, worker execution changes,
 validation execution, Git/commit execution, rollback execution, Terminal
 launch, or natural-language prompt routing.
+
+## Queue-Linked Direct Work Evidence Event Wiring
+
+`apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`
+and `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`
+define the first automatic Queue worker evidence event wiring path.
+
+The wiring is current-session frontend/controller wiring only. It runs only
+for Queue-started Direct Work handoffs that have a valid explicit
+Queue-linked completion identity and matching final `AgentExecutorRunDetail`.
+It requires:
+
+- Queue item id;
+- Direct Work run id;
+- Agent Executor widget id;
+- valid finalization identity;
+- matching Agent Executor run detail run id;
+- final Agent Executor run detail status;
+- current-session idempotency key from the Queue-linked metadata seam;
+- an injected ingestion callback backed by the existing ingestion bridge.
+
+The mutation path remains:
+
+```text
+Queue-linked Direct Work completion -> evidence ingestion bridge -> Action Broker -> queue.lifecycle.agentFinished
+```
+
+The wiring builds evidence from `AgentExecutorRunDetail` plus Queue-linked
+metadata and passes available run/thread/worker/final-message/changed-files/
+validation/log-reference fields to the bridge. Successful ingestion moves the
+linked frontend lifecycle overlay to `awaiting_review` and keeps evidence
+available for explicit `queue.review.getEvidenceBundle` and later explicit
+`queue.review.createMessage`.
+
+The wiring is idempotent only for the current UI session. Repeated final stream
+events, recovered final detail, or rerendered final notifications for the same
+Queue item/run key do not call the bridge twice. Different explicit run ids or
+Queue item ids can ingest independently. Failed bridge attempts are not
+automatically retried in this block; that avoids duplicate completion handling
+until durable retry policy exists.
+
+The wiring does not ingest raw Workspace Agent final events, raw Direct Work
+final events without Queue metadata, Agent Activity events, or standalone Agent
+Executor history. It does not infer task id from prompt text, task title, final
+message, repository path, changed files, validation output, or other
+natural-language content.
+
+The wiring does not auto-create review messages, ACK review, approve
+validation, mark done, start dependents, start workers, run validation, run
+Git/commit commands, execute rollback, launch Terminal, call shell/Codex,
+create Queue views, or persist backend state.
 
 ## Follow-Up Prompts
 
@@ -384,6 +438,9 @@ Human-facing helpers return labels such as:
 - Queue item awaiting review
 - Queue evidence ingestion failed
 - Queue evidence ingestion skipped
+- Queue-linked evidence event wiring available
+- Raw non-Queue Direct Work ingestion is blocked
+- Duplicate Queue-linked completion ingestion is guarded
 - Follow-up prompt running
 - Review acknowledged
 - Waiting for coordinator review

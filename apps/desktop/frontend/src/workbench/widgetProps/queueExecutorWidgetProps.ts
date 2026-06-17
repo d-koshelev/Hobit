@@ -65,6 +65,7 @@ type AgentExecutorWidgetPropsOptions = {
   directWorkRunHandoff: DirectWorkRunHandoffController;
   hasGitWidget: boolean;
   instanceId: WidgetInstanceId;
+  workspaceQueueApi: WorkspaceQueueApi;
   onAttachContextToCoordinator?: (
     request: CoordinatorAttachedContextInput,
   ) => void;
@@ -123,6 +124,7 @@ export function agentExecutorWidgetProps({
   directWorkRunHandoff,
   hasGitWidget,
   instanceId,
+  workspaceQueueApi,
   onAttachContextToCoordinator,
   onPublishAgentActivityEvents,
 }: AgentExecutorWidgetPropsOptions): Partial<WidgetRenderProps> {
@@ -139,6 +141,8 @@ export function agentExecutorWidgetProps({
     onForceKillCodexDirectWorkRun: actions.forceKillCodexDirectWorkRun,
     onGetAgentExecutorDiffSummary: actions.getAgentExecutorDiffSummary,
     onGetAgentExecutorRunDetail: actions.getAgentExecutorRunDetail,
+    onIngestQueueLinkedDirectWorkEvidence:
+      workspaceQueueApi.ingestQueueLinkedDirectWorkEvidence,
     onListAgentExecutorRuns: actions.listAgentExecutorRuns,
     onPublishAgentActivityEvents,
     onRunCodexDirectWork: actions.runCodexDirectWork,

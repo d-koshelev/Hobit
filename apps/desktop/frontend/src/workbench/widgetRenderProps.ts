@@ -113,11 +113,13 @@ import type {
   WidgetState,
 } from "./types";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import type { WorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
 import type { AgentQueueController } from "./queue/useAgentQueueController";
 import type {
   QueueValidationRunResult,
 } from "./queue/queueValidationEvidenceService";
 import type { ValidationRunner } from "./validation";
+import type { QueueLinkedDirectWorkEvidenceIngestionCallback } from "./queueLinkedDirectWorkEvidenceWiring";
 
 export type WidgetRenderProps = {
   agentActivityEvents?: AgentActivityEvent[];
@@ -255,6 +257,7 @@ export type WidgetRenderProps = {
     handoff: DirectWorkRunHandoff,
     finalStatus: string,
   ) => void;
+  onIngestQueueLinkedDirectWorkEvidence?: QueueLinkedDirectWorkEvidenceIngestionCallback;
   onDirectWorkRunHandoffStarted?: (
     handoff: DirectWorkRunHandoffInput,
   ) => void;
@@ -403,6 +406,7 @@ export type WidgetRenderProps = {
   ) => void;
   onShowQueueTaskInWorkspaceChat?: (task: AgentQueueTask) => void;
   onOpenAgentQueueItem?: (queueItemId: string) => void;
+  onInvokeHobitAgentActionRequest?: WorkspaceAgentHobitActionInvoker;
   onPublishAgentActivityEvents?: (events: AgentActivityEvent[]) => void;
   onSelectWorkspaceDirectory?: () => Promise<string | null>;
   onReadPromptPackSource?: (

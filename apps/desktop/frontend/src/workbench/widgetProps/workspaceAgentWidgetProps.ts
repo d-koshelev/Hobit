@@ -76,6 +76,8 @@ export function workspaceAgentWidgetProps({
     onGenerateCoordinatorProviderResponse:
       actions.generateCoordinatorProviderResponse,
     onGetKnowledgeDocument: actions.getKnowledgeDocument,
+    onInvokeHobitAgentActionRequest:
+      workspaceQueueApi.invokeHobitAgentActionRequest,
     onOpenAgentQueueItem,
     onPublishAgentActivityEvents,
     onSearchKnowledgeDocuments: actions.searchKnowledgeDocuments,

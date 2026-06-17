@@ -94,6 +94,9 @@ During the smoke, verify these product labels appear where applicable:
 - `Queue item awaiting review`
 - `Queue evidence ingestion failed`
 - `Queue evidence ingestion skipped`
+- `Queue-linked evidence event wiring available`
+- `Raw non-Queue Direct Work ingestion is blocked`
+- `Duplicate Queue-linked completion ingestion is guarded`
 - `Queue dogfood broker loop`
 - `Agent finished - awaiting review`
 - `Review message created`
@@ -235,6 +238,9 @@ During the smoke, verify these product labels appear where applicable:
       `Agent finished - awaiting review`, `Review message created`,
       `Coordinator ACK - in review`, `Validation approved`, `Mark done`,
       `Dependent unblocked after done`, `Follow-up prompt returns to running`,
+      `Queue-linked evidence event wiring available`,
+      `Raw non-Queue Direct Work ingestion is blocked`,
+      `Duplicate Queue-linked completion ingestion is guarded`,
       and `No hidden side effects` as passed fake broker-level checks.
     - Expected: the broker loop evidence rows show that
       `queue.lifecycle.agentFinished` consumed a frontend worker evidence
@@ -314,6 +320,10 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: the self-test does not create backend records, launch workers,
       run validation, execute Git commits, call Codex/shell, launch Terminal,
       execute rollback, create Queue views, or parse prose into actions.
+    - Expected: the self-test report includes inventory rows stating
+      Queue-linked evidence event wiring is available, raw non-Queue Direct
+      Work ingestion is blocked/skipped, duplicate completion ingestion is
+      guarded, and backend durability is still skipped/not covered.
 
 22. Run the Queue worker evidence ingestion bridge automated test.
     - Expected:
@@ -340,9 +350,11 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: broad automatic real worker event wiring is not covered by this
       test and remains future work.
 
-23. Run the Queue-linked Direct Work metadata seam automated tests.
+23. Run the Queue-linked Direct Work metadata seam and evidence event wiring
+    automated tests.
     - Expected:
       `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkMetadata.test.ts`,
+      `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.test.ts`,
       `apps/desktop/frontend/src/workbench/useDirectWorkRunHandoff.test.tsx`,
       and `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.test.tsx`
       prove Queue-linked handoffs carry explicit Queue item id, Direct Work run
@@ -351,15 +363,30 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: missing Queue item id, missing run id, missing executor widget
       id, mismatched Agent Executor run detail, and mismatched final stream
       events are rejected without ingestion.
+    - Expected: a Queue-linked final stream event plus matching final
+      `AgentExecutorRunDetail` calls the ingestion bridge once with
+      `taskId = queueItemId`, run id, executor widget id, final agent message,
+      changed-files summary, validation summary when available, and a
+      log/run-detail reference.
+    - Expected: recovered final detail and repeated final notifications for the
+      same Queue item/run are ignored after the first current-session bridge
+      attempt. Different explicit run ids or Queue item ids can ingest
+      separately.
     - Expected: no task id is inferred from prompt text, task title, repository
       path, final agent message, changed files, validation output, or other
       natural-language content.
-    - Expected: this seam does not call the Queue worker evidence ingestion
-      bridge, does not invoke `queue.lifecycle.agentFinished`, does not move a
-      task to `Awaiting review`, does not create a review message, and does not
-      add backend durability.
-    - Expected: real worker event wiring, real validation execution, and real
-      Git commit execution remain not implemented.
+    - Expected: the metadata seam remains pure and does not call the Queue
+      worker evidence ingestion bridge itself. The handoff controller wiring
+      calls only the injected ingestion bridge callback, which invokes
+      `queue.lifecycle.agentFinished` through the Action Broker.
+    - Expected: successful wiring moves only the linked task to
+      `Awaiting review` and makes normalized frontend-only evidence readable
+      for explicit review/evidence actions. It does not create a review
+      message, ACK review, approve validation, mark done, start dependents,
+      start workers, run validation, call Git, execute rollback, launch
+      Terminal, call shell/Codex, or add backend durability.
+    - Expected: backend durability, real validation execution, real Git commit
+      execution, and full app restart recovery remain not implemented.
 
 24. Check for side effects.
     - Expected: no Git/file mutation, Terminal launch, Workspace Agent runtime
@@ -393,11 +420,9 @@ For every failed smoke step, capture:
 
 ## Next Engineering Blocks
 
-1. Wire explicit Queue-linked Direct Work completion identities into the
-   frontend ingestion bridge with idempotency guards.
-2. Durable backend persistence design.
-3. Backend scheduler/runtime ownership design.
-4. Durable attempt/coordinator decision/review ACK/evidence persistence.
-5. Worker result, validation evidence, and commit result integration.
-6. Safe Workspace Agent handoff integration.
-7. Rollback execution design only after the approval/safety contract.
+1. Durable backend persistence design.
+2. Backend scheduler/runtime ownership design.
+3. Durable attempt/coordinator decision/review ACK/evidence persistence.
+4. Worker result, validation evidence, and commit result integration.
+5. Safe Workspace Agent handoff integration.
+6. Rollback execution design only after the approval/safety contract.

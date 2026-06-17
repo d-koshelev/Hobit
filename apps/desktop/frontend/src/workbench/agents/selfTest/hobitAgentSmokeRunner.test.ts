@@ -80,6 +80,9 @@ describe("hobitAgentSmokeRunner instruction and plan", () => {
         "queue-dogfood-broker:follow-up-running",
         "queue-dogfood-broker:failure-dependent-blocked",
         "queue-dogfood-broker:no-hidden-side-effects",
+        "queue-dogfood-broker:queue-linked-evidence-event-wiring",
+        "queue-dogfood-broker:raw-non-queue-ingestion-blocked",
+        "queue-dogfood-broker:duplicate-completion-guarded",
         "queue-dogfood-broker:backend-durability",
         "queue-dogfood-broker:real-worker-execution",
         "queue-dogfood-broker:real-validation-execution",
@@ -137,9 +140,9 @@ describe("hobitAgentSmokeRunner aggregation", () => {
     expect(report.summary).toEqual({
       blocked: 4,
       failed: 0,
-      passed: 35,
+      passed: 38,
       skipped: 4,
-      total: 43,
+      total: 46,
     });
     expect(summarizeHobitAgentSmokeResults(report)).toEqual(report.summary);
     expect(result(report, "agent.apiSmoke:status.read")).toMatchObject({
@@ -263,6 +266,24 @@ describe("hobitAgentSmokeRunner aggregation", () => {
       message: "Backend durability is not covered.",
       reason: "Frontend fake broker self-test only",
       status: "skipped",
+    });
+    expect(
+      result(report, "queue-dogfood-broker:queue-linked-evidence-event-wiring"),
+    ).toMatchObject({
+      message: "Queue-linked evidence event wiring is available.",
+      status: "passed",
+    });
+    expect(
+      result(report, "queue-dogfood-broker:raw-non-queue-ingestion-blocked"),
+    ).toMatchObject({
+      message: "Raw non-Queue Direct Work ingestion is blocked.",
+      status: "passed",
+    });
+    expect(
+      result(report, "queue-dogfood-broker:duplicate-completion-guarded"),
+    ).toMatchObject({
+      message: "Duplicate Queue-linked completion ingestion is guarded.",
+      status: "passed",
     });
     expect(result(report, "queue-dogfood-broker:real-worker-execution")).toMatchObject({
       message: "Real worker execution is not covered.",

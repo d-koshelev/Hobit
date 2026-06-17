@@ -22,7 +22,8 @@ presentation, explicit retry/handoff/proposal actions, typed Queue dogfood
 lifecycle broker capabilities, a full fake broker-driven Queue dogfood loop
 self-test, a frontend Queue worker evidence bundle model/adapter path, and
 a frontend Queue worker evidence ingestion bridge, a Queue-linked Direct Work
-metadata seam, and focused smoke coverage.
+metadata seam, Queue-linked Direct Work evidence event wiring, and focused
+smoke coverage.
 
 The durable Smart Queue backend/runtime is not implemented yet. Current Smart
 Queue modules are frontend/product-model foundations unless explicitly noted
@@ -51,7 +52,10 @@ The current implemented frontend behavior is:
   frontend completion shapes into `queue.lifecycle.agentFinished`;
 - Queue-linked Direct Work metadata seam carrying explicit Queue item, run,
   executor, source, optional future attempt, and current-session idempotency
-  identity for later evidence wiring;
+  identity for Queue-linked evidence event wiring;
+- Queue-linked Direct Work completion event wiring from valid explicit
+  Queue-linked metadata plus matching final Agent Executor run detail into the
+  existing evidence ingestion bridge and Action Broker path;
 - worker failure/stuck report to coordinator decision integration;
 - QueueV2 Coordinator Decision Card;
 - Retry same action;
@@ -356,6 +360,27 @@ adapter integration and typed frontend Action Broker capability access.
   available, Queue item id, run id, and attempt id when available. It does not
   use prompt text, task title, repository path, final agent message, changed
   files, validation output, or other natural-language content.
+- `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`
+  and `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`
+  wire the safe first automatic ingestion point: Queue-started Direct Work
+  completion with valid explicit metadata and matching final
+  `AgentExecutorRunDetail`. The hook calls only the injected ingestion bridge
+  callback, which then invokes `queue.lifecycle.agentFinished` through the
+  Action Broker.
+- Queue-linked evidence event wiring is current-session frontend-only and
+  idempotent by the metadata key. Stream final event and recovered final detail
+  for the same Queue item/run are ignored after the first bridge attempt.
+  Different explicit run ids or Queue item ids can ingest separately.
+- Raw Workspace Agent final events, raw Direct Work final events without Queue
+  metadata, Agent Activity events, standalone Executor history, and text/title/
+  path/final-message inference remain blocked as ingestion sources.
+- Successful Queue-linked evidence event wiring moves only the linked item to
+  `awaiting_review` through the bridge/broker/controller path and makes
+  normalized frontend-only evidence readable for explicit review/evidence
+  actions. It does not auto-create review messages, ACK review, approve
+  validation, mark done, start dependents, start workers, run validation, run
+  Git, execute rollback, launch Terminal, call shell/Codex, or persist backend
+  state.
 - The fake broker-loop success path now sends a fake worker evidence bundle
   into `queue.lifecycle.agentFinished` and asserts broker consumption, review
   message evidence summary, normalized evidence readback, no Git execution on
@@ -498,7 +523,6 @@ as available from the foundation above:
 - broad automatic real worker result event integration with the dogfood
   lifecycle model;
 - durable worker evidence bundle persistence;
-- automatic ingestion from the Queue-linked Direct Work metadata seam;
 - real validation evidence execution or durable attachment to the dogfood
   lifecycle model;
 - real commit execution or durable commit metadata attachment;
@@ -547,24 +571,20 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 ## Next Engineering Blocks
 
-1. Wire explicit Queue-linked Direct Work completion identities into the
-   frontend ingestion bridge with idempotency guards, without touching raw
-   Workspace Agent final events, raw Direct Work final events, Agent Activity,
-   or standalone Executor history.
-2. Design durable backend persistence for attempts, lifecycle, review
+1. Design durable backend persistence for attempts, lifecycle, review
    messages, ACKs, decisions, worker evidence, validation evidence, and commit
    metadata.
-3. Design backend scheduler/runtime ownership.
-4. Integrate real worker reports, validation evidence, and explicit commit
+2. Design backend scheduler/runtime ownership.
+3. Integrate real worker reports, validation evidence, and explicit commit
    approval/results with the dogfood lifecycle model.
-5. Add safe Workspace Agent handoff integration.
-6. Design rollback execution only after the approval/safety contract is ready.
+4. Add safe Workspace Agent handoff integration.
+5. Design rollback execution only after the approval/safety contract is ready.
 
-The next major block should connect only explicit Queue-linked Direct Work
-completion identities to the frontend ingestion bridge. Backend durability,
-real validation evidence execution, and real Git commit execution remain
-separate later blocks. Broad Queue UI polish is not the blocker for proving the
-current fake broker loop.
+Queue-linked Direct Work completion evidence wiring is now available only for
+explicit Queue handoffs with matching final Agent Executor run detail. Backend
+durability, restart recovery, real validation evidence execution, and real Git
+commit execution remain separate later blocks. Broad Queue UI polish is not
+the blocker for proving the current fake broker loop.
 
 ## Implementation References
 
