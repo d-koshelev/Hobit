@@ -15,6 +15,7 @@ import {
   type TaskDraft,
 } from "../agentQueueTaskUiModel";
 import type { WidgetRenderProps } from "../types";
+import type { AgentQueueRunSettingsUpdateResult } from "./agentQueueControllerTypes";
 
 type UseAgentQueueRunSettingsInput = Pick<
   WidgetRenderProps,
@@ -140,8 +141,39 @@ export function useAgentQueueRunSettings({
       "executionWorkspace" | "codexExecutable" | "sandbox" | "approvalPolicy"
     >>,
   ) {
+    void persistSelectedTaskRunSettings(nextSettings, { optimistic: true });
+  }
+
+  async function saveSelectedTaskCodexExecutable(
+    codexExecutableValue: string,
+  ): Promise<AgentQueueRunSettingsUpdateResult> {
+    const codexExecutableSetting = codexExecutableValue.trim();
+
+    if (!codexExecutableSetting) {
+      return {
+        message: "Enter a Codex executable before saving.",
+        ok: false,
+      };
+    }
+
+    return persistSelectedTaskRunSettings(
+      { codexExecutable: codexExecutableSetting },
+      { optimistic: false },
+    );
+  }
+
+  async function persistSelectedTaskRunSettings(
+    nextSettings: Partial<Pick<
+      AgentQueueTask,
+      "executionWorkspace" | "codexExecutable" | "sandbox" | "approvalPolicy"
+    >>,
+    options: { optimistic: boolean },
+  ): Promise<AgentQueueRunSettingsUpdateResult> {
     if (!selectedTask) {
-      return;
+      return {
+        message: "Select a Queue task before updating task settings.",
+        ok: false,
+      };
     }
 
     const currentSelectedTask =
@@ -151,35 +183,61 @@ export function useAgentQueueRunSettings({
       ...currentSelectedTask,
       ...nextSettings,
     };
-    applyUpdatedTask(updatedTask, { select: true });
 
-    if (!onUpdateAgentQueueTask) {
-      return;
+    if (options.optimistic) {
+      applyUpdatedTask(updatedTask, { select: true });
     }
 
-    void onUpdateAgentQueueTask({
-      approvalPolicy: updatedTask.approvalPolicy ?? null,
-      codexExecutable: updatedTask.codexExecutable ?? null,
-      description: updatedTask.description,
-      executionPolicy: normalizeTaskExecutionPolicy(updatedTask.executionPolicy),
-      executionWorkspace: updatedTask.executionWorkspace ?? null,
-      itemType: normalizeItemType(updatedTask.itemType),
-      priority: updatedTask.priority,
-      prompt: updatedTask.prompt,
-      queueItemId: updatedTask.queueItemId,
-      queueTagId: normalizeQueueTag(updatedTask).queueTagId,
-      queueTagName: normalizeQueueTag(updatedTask).queueTagName,
-      sandbox: updatedTask.sandbox ?? null,
-      status: normalizeTaskStatus(updatedTask.status),
-      title: updatedTask.title,
-      validationStatus: normalizeValidationStatus(updatedTask.validationStatus),
-    }).then((persistedTask) => {
-      if (persistedTask) {
-        applyUpdatedTask(persistedTask, { select: true });
+    if (!onUpdateAgentQueueTask) {
+      return {
+        message: "Queue task updates are unavailable in this runtime.",
+        ok: false,
+      };
+    }
+
+    try {
+      const persistedTask = await onUpdateAgentQueueTask({
+        approvalPolicy: updatedTask.approvalPolicy ?? null,
+        codexExecutable: updatedTask.codexExecutable ?? null,
+        description: updatedTask.description,
+        executionPolicy: normalizeTaskExecutionPolicy(updatedTask.executionPolicy),
+        executionWorkspace: updatedTask.executionWorkspace ?? null,
+        itemType: normalizeItemType(updatedTask.itemType),
+        priority: updatedTask.priority,
+        prompt: updatedTask.prompt,
+        queueItemId: updatedTask.queueItemId,
+        queueTagId: normalizeQueueTag(updatedTask).queueTagId,
+        queueTagName: normalizeQueueTag(updatedTask).queueTagName,
+        sandbox: updatedTask.sandbox ?? null,
+        status: normalizeTaskStatus(updatedTask.status),
+        title: updatedTask.title,
+        validationStatus: normalizeValidationStatus(updatedTask.validationStatus),
+      });
+
+      if (!persistedTask) {
+        return {
+          message: "The selected Queue task could not be found.",
+          ok: false,
+        };
       }
-    }, (error) => {
-      setStartError(errorToMessage(error, "Unable to save task run settings."));
-    });
+
+      applyUpdatedTask(persistedTask, { select: true });
+      return {
+        ok: true,
+        task: persistedTask,
+      };
+    } catch (error) {
+      const message = errorToMessage(
+        error,
+        "Unable to save task run settings.",
+      );
+
+      setStartError(message);
+      return {
+        message,
+        ok: false,
+      };
+    }
   }
 
   return {
@@ -196,5 +254,6 @@ export function useAgentQueueRunSettings({
     updateSelectedTaskCodexExecutable,
     updateSelectedTaskExecutionWorkspace,
     updateSelectedTaskSandbox,
+    saveSelectedTaskCodexExecutable,
   };
 }

@@ -94,6 +94,9 @@ During the smoke, verify these product labels appear where applicable:
 - `Queue item awaiting review`
 - `Queue evidence ingestion failed`
 - `Queue evidence ingestion skipped`
+- `Set Codex executable`
+- `Codex executable saved`
+- `Queue needs a Codex executable on at least one task.`
 - `Queue-linked evidence event wiring available`
 - `Raw non-Queue Direct Work ingestion is blocked`
 - `Duplicate Queue-linked completion ingestion is guarded`
@@ -136,6 +139,20 @@ During the smoke, verify these product labels appear where applicable:
 5. Inspect the created tasks.
    - Expected: root task is `Ready`; dependent tasks are
      `Waiting dependency`.
+   - If Queue Board is `Disabled` and `Enable Queue` is disabled because the
+     task is missing Codex setup, click `Set Codex executable`.
+   - Expected: the selected or first missing-config task details opens with a
+     task-scoped `Codex executable` input, `Save Codex executable`, and
+     `Cancel`.
+   - Enter the executable path, for example `codex.cmd` on Windows, and click
+     `Save Codex executable`.
+   - Expected: `Codex executable saved` appears or the board updates so
+     `Enable Queue` is available when other active gates permit it.
+   - Expected: saving Codex executable does not enable Queue automatically,
+     start a worker, promote a Draft task, run validation, call Git, launch
+     Terminal, execute rollback, or create review/evidence actions.
+   - Expected: Draft tasks still need to be queued/readied separately before
+     they can run.
 
 6. Set Queue to Paused or keep it paused.
    - Expected: Paused prevents task pickup.

@@ -256,6 +256,7 @@ export function queueController({
   onRetrySame = vi.fn(),
   onRetryWithModifiedPrompt = vi.fn(),
   onRun = vi.fn(),
+  onSaveCodexExecutable = vi.fn(),
   readinessMessage = null,
   runCanStart = false,
   selectedTask,
@@ -273,6 +274,7 @@ export function queueController({
   onRetrySame?: () => void;
   onRetryWithModifiedPrompt?: (modifiedPrompt: string) => Promise<boolean> | boolean;
   onRun?: () => void;
+  onSaveCodexExecutable?: (codexExecutable: string) => void;
   readinessMessage?: string | null;
   runCanStart?: boolean;
   selectedTask: AgentQueueTask;
@@ -291,8 +293,19 @@ export function queueController({
       workers: [worker()],
     },
     run: {
+      canUpdateTaskSettings: true,
       canStart: runCanStart,
       isStarting: false,
+      onSaveTaskCodexExecutable: async (codexExecutable: string) => {
+        onSaveCodexExecutable(codexExecutable);
+        return {
+          ok: true,
+          task: {
+            ...selectedTask,
+            codexExecutable,
+          },
+        };
+      },
       onStartAssignedTask: onRun,
       preconditionMessages: [],
       readinessMessage,

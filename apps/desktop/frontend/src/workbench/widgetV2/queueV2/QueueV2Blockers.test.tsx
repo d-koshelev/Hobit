@@ -483,6 +483,7 @@ function queueController({
   onEnableQueue = vi.fn(),
   onPromote = vi.fn(),
   onRun = vi.fn(),
+  onSaveCodexExecutable = vi.fn(),
   onSetWorkspace = vi.fn(),
   selectedTask,
   tasks,
@@ -491,6 +492,7 @@ function queueController({
   onEnableQueue?: () => void;
   onPromote?: () => void;
   onRun?: () => void;
+  onSaveCodexExecutable?: (codexExecutable: string) => void;
   onSetWorkspace?: (workspaceRoot: string) => void;
   selectedTask: AgentQueueTask;
   tasks: AgentQueueTask[];
@@ -509,9 +511,20 @@ function queueController({
       workers: [worker()],
     },
     run: {
+      canUpdateTaskSettings: true,
       canStart: false,
       isStarting: false,
       onRepoRootDraftChange: onSetWorkspace,
+      onSaveTaskCodexExecutable: async (codexExecutable: string) => {
+        onSaveCodexExecutable(codexExecutable);
+        return {
+          ok: true,
+          task: {
+            ...selectedTask,
+            codexExecutable,
+          },
+        };
+      },
       onStartAssignedTask: onRun,
       preconditionMessages: [],
       readinessMessage: null,

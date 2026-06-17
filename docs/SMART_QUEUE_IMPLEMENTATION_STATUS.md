@@ -23,7 +23,8 @@ lifecycle broker capabilities, a full fake broker-driven Queue dogfood loop
 self-test, a frontend Queue worker evidence bundle model/adapter path, and
 a frontend Queue worker evidence ingestion bridge, a Queue-linked Direct Work
 metadata seam, Queue-linked Direct Work evidence event wiring, and focused
-smoke coverage, plus a minimal active Queue details review/evidence UI for
+smoke coverage, an active Queue V2 Codex executable setup affordance for
+existing tasks, plus a minimal active Queue details review/evidence UI for
 explicit broker-driven coordinator review actions.
 
 The durable Smart Queue backend/runtime is not implemented yet. Current Smart
@@ -57,6 +58,8 @@ The current implemented frontend behavior is:
 - Queue-linked Direct Work completion event wiring from valid explicit
   Queue-linked metadata plus matching final Agent Executor run detail into the
   existing evidence ingestion bridge and Action Broker path;
+- active Queue V2 Codex executable setup affordance for existing tasks through
+  the existing task update/run-settings bridge;
 - minimal active Queue details review/evidence presentation and explicit
   broker-action controls for awaiting-review / in-review dogfood items;
 - worker failure/stuck report to coordinator decision integration;
@@ -217,6 +220,29 @@ Implemented for the current frontend Queue controller execution path.
 - This is frontend/controller gate integration only. It is not a durable
   backend scheduler, worker runtime redesign, storage model, IPC contract, or
   persistence migration.
+
+### Active Queue V2 Codex executable setup gate
+
+Implemented for the active Queue product route only.
+
+- The active Queue V2 board keeps `Enable Queue` disabled when no existing task
+  has a task-scoped Codex executable configured.
+- The disabled gate now has an explicit `Set Codex executable` action in the
+  board header. The action opens the selected task when it is missing
+  `codexExecutable`, otherwise the first existing task missing that field.
+- The active task details popup renders a compact task-scoped Codex executable
+  setup section for missing configuration. It uses an executable text input,
+  explicit Save, Cancel, local empty-value validation, unavailable update
+  state, and failed-save error reporting.
+- Saving uses the existing Queue task update/run-settings bridge and persists
+  only `codexExecutable` on the selected task. It does not create a separate
+  global executable store and does not share Workspace Agent / Direct Work
+  executable defaults.
+- Saving Codex executable does not enable Queue, start workers, start Direct
+  Work, promote Draft tasks, create review messages, change dogfood lifecycle,
+  run validation, call Git, launch Terminal, call shell/Codex, execute
+  rollback, or add backend durability.
+- Draft tasks still need readiness/queueing separately before they can run.
 
 ### Frontend dependency failure propagation and recovery
 

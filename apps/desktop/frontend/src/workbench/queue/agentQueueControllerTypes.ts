@@ -116,6 +116,7 @@ export type AgentQueueAutonomousController = {
 
 export type AgentQueueRunController = {
   approvalPolicy: DirectWorkApprovalPolicy | "";
+  canUpdateTaskSettings: boolean;
   canStart: boolean;
   codexExecutableDraft: string;
   executorSelectionMessage: string | null;
@@ -125,6 +126,9 @@ export type AgentQueueRunController = {
   onCodexExecutableDraftChange: (codexExecutable: string) => void;
   onRepoRootDraftChange: (repoRoot: string) => void;
   onSandboxChange: (sandbox: DirectWorkSandbox) => void;
+  onSaveTaskCodexExecutable: (
+    codexExecutable: string,
+  ) => Promise<AgentQueueRunSettingsUpdateResult>;
   onSaveTaskSettings: () => void;
   onStartAssignedTask: () => void;
   preconditionMessages: string[];
@@ -136,6 +140,16 @@ export type AgentQueueRunController = {
   startMessage: string | null;
   usesDefaultExecutorOnStart: boolean;
 };
+
+export type AgentQueueRunSettingsUpdateResult =
+  | {
+      ok: true;
+      task: AgentQueueTask;
+    }
+  | {
+      message: string;
+      ok: false;
+    };
 
 export type AgentQueueRunnerController = {
   canStart: boolean;

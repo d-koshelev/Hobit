@@ -17,6 +17,7 @@ type QueueV2TaskDetailsActionId =
   | "refresh"
   | "new-task"
   | "set-workspace"
+  | "set-codex-executable"
   | "enable-queue"
   | "promote"
   | "run"
@@ -41,12 +42,14 @@ export function buildQueueV2TaskDetailsActions({
   currentWorkspaceRoot,
   inspector,
   onRequestNewTask,
+  onRequestCodexSetup,
   onSelectTab,
   queue,
   task,
 }: {
   currentWorkspaceRoot?: string | null;
   inspector: QueueInspectorSnapshot | null;
+  onRequestCodexSetup?: () => void;
   onRequestNewTask?: () => void;
   onSelectTab: (tab: QueueV2DetailsTab) => void;
   queue?: AgentQueueController;
@@ -169,6 +172,38 @@ export function buildQueueV2TaskDetailsActions({
             : queue?.run.isStarting
               ? "Queue run state indicates startup flow in progress."
               : undefined),
+      variant: "secondary",
+    });
+  }
+
+  if (!hasCodexExecutable(task)) {
+    actions.push({
+      disabled:
+        !hasQueueController ||
+        selectedTaskMismatch ||
+        !onRequestCodexSetup ||
+        !Boolean(queue?.run?.canUpdateTaskSettings),
+      id: "set-codex-executable",
+      label: "Set Codex executable",
+      onClick: () => onRequestCodexSetup?.(),
+      reason:
+        selectionReason ??
+        (!hasQueueController
+          ? "Queue task update actions are not wired in this view."
+          : !onRequestCodexSetup
+            ? "Task Codex setup is unavailable in this view."
+          : queue?.run?.canUpdateTaskSettings
+            ? undefined
+            : "Queue task updates are unavailable in this runtime."),
+      technicalReason:
+        selectionTechnicalReason ??
+        (!hasQueueController
+          ? "Task update actions require queue run controller callbacks."
+          : !onRequestCodexSetup
+            ? "The task details surface did not provide a Codex setup callback."
+          : queue?.run?.canUpdateTaskSettings
+            ? undefined
+            : "The Queue run controller cannot persist task-level execution settings."),
       variant: "secondary",
     });
   }

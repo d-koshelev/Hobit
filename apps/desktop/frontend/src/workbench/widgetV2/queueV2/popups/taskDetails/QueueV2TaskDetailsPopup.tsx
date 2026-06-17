@@ -37,6 +37,7 @@ import { queueV2ValidationEvidenceView } from "../../queueV2ValidationEvidence";
 import { QueueV2TaskDetailsActions } from "./QueueV2TaskDetailsActions";
 import { QueueV2TaskDetailsActivity } from "./QueueV2TaskDetailsActivity";
 import { QueueV2TaskDetailsContext } from "./QueueV2TaskDetailsContext";
+import { QueueV2TaskCodexSetup } from "./QueueV2TaskCodexSetup";
 import { QueueV2CoordinatorDecisionCard } from "./QueueV2CoordinatorDecisionCard";
 import { QueueV2TaskDetailsHeader } from "./QueueV2TaskDetailsHeader";
 import { QueueV2TaskDetailsOverview } from "./QueueV2TaskDetailsOverview";
@@ -111,6 +112,7 @@ export function QueueV2TaskDetailsPopup({
   const [validationRequestState, setValidationRequestState] = useState<
     QueueV2ValidationRequestState
   >("idle");
+  const [codexSetupRequested, setCodexSetupRequested] = useState(false);
   const [validationRequestMessage, setValidationRequestMessage] =
     useState<string | null>(null);
   const titleId = useId();
@@ -132,6 +134,7 @@ export function QueueV2TaskDetailsPopup({
       buildQueueV2TaskDetailsActions({
         currentWorkspaceRoot,
         inspector,
+        onRequestCodexSetup: () => setCodexSetupRequested(true),
         onRequestNewTask,
         onSelectTab: setActiveTab,
         queue,
@@ -230,6 +233,9 @@ export function QueueV2TaskDetailsPopup({
           validationDisabledReason={validationDisabledReason}
           validationRequestRunning={validationRequestState === "running"}
         />
+        {(!task.codexExecutable?.trim() || codexSetupRequested) ? (
+          <QueueV2TaskCodexSetup queue={queue} task={task} />
+        ) : null}
         {showCoordinatorDecisionCard ? (
           <QueueV2CoordinatorDecisionCard queue={queue} task={task} />
         ) : null}

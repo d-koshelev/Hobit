@@ -316,12 +316,25 @@ export function AgentQueueV2Board({
     runningCount: board.counts.running,
     totalSlots: board.capacity.totalSlots,
   });
+  const hasTaskWithCodexExecutable = tasks.some((task) =>
+    Boolean(task.codexExecutable?.trim()),
+  );
   const enableState = queueV2EnableState({
     apiAvailable: queue?.apiAvailable ?? false,
     globalExecutionState,
-    hasCodexExecutable: tasks.some((task) => Boolean(task.codexExecutable?.trim())),
+    hasCodexExecutable: hasTaskWithCodexExecutable,
     hasQueueControls: Boolean(queue?.foundation?.onStartWorkers),
   });
+  const codexSetupTargetTask =
+    !hasTaskWithCodexExecutable && tasks.length > 0
+      ? selectedTask && !selectedTask.codexExecutable?.trim()
+        ? selectedTask
+        : tasks.find((task) => !task.codexExecutable?.trim()) ?? tasks[0]
+      : null;
+  const missingCodexSetupGate =
+    globalExecutionState !== "started" &&
+    !hasTaskWithCodexExecutable &&
+    Boolean(codexSetupTargetTask);
 
   useEffect(() => {
     void refreshKnownDogfoodLifecycles();
@@ -395,7 +408,25 @@ export function AgentQueueV2Board({
               Enable Queue
             </Button>
           ) : null}
-          {globalExecutionState !== "started" && enableState.reason ? (
+          {missingCodexSetupGate ? (
+            <>
+              <Button
+                onClick={(event) => {
+                  if (codexSetupTargetTask) {
+                    openTaskDetails(
+                      codexSetupTargetTask.queueItemId,
+                      event.currentTarget,
+                    );
+                  }
+                }}
+                title="Configure the selected Queue task's Codex executable."
+                variant="secondary"
+              >
+                Set Codex executable
+              </Button>
+              <span>Queue needs a Codex executable on at least one task.</span>
+            </>
+          ) : globalExecutionState !== "started" && enableState.reason ? (
             <span>{enableState.reason}</span>
           ) : null}
         </div>

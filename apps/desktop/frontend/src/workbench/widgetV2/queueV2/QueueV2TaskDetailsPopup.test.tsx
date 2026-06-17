@@ -137,6 +137,146 @@ describe("QueueV2TaskDetailsPopup", () => {
     expect(document.body.textContent).toContain("Missing Codex executable");
   });
 
+  it("saves Codex executable through the task-scoped setup control", async () => {
+    const onSaveCodexExecutable = vi.fn();
+    const onRun = vi.fn();
+    const onPromote = vi.fn();
+    const selectedTask = task({
+      codexExecutable: "",
+      queueItemId: "codex-setup-task",
+      status: "draft",
+      title: "Codex setup task",
+    });
+    const popup = popupModel([selectedTask], selectedTask.queueItemId, "stopped");
+
+    await render(
+      <QueueV2TaskDetailsPopup
+        inspector={popup.inspector}
+        isOpen
+        onRequestClose={vi.fn()}
+        queue={queueController({
+          onPromote,
+          onRun,
+          onSaveCodexExecutable,
+          selectedTask,
+          tasks: [selectedTask],
+        })}
+        taskViewModel={popup.taskViewModel}
+      />,
+    );
+
+    expect(sectionByName("Task Codex executable setup")).not.toBeNull();
+
+    await setInputValue("Codex executable", "codex.cmd");
+    await click(buttonWithText("Save Codex executable"));
+
+    expect(onSaveCodexExecutable).toHaveBeenCalledWith("codex.cmd");
+    expect(onRun).not.toHaveBeenCalled();
+    expect(onPromote).not.toHaveBeenCalled();
+  });
+
+  it("rejects empty Codex executable without calling task update", async () => {
+    const onSaveCodexExecutable = vi.fn();
+    const selectedTask = task({
+      codexExecutable: "",
+      queueItemId: "empty-codex-task",
+      status: "draft",
+      title: "Empty Codex task",
+    });
+    const popup = popupModel([selectedTask], selectedTask.queueItemId, "stopped");
+
+    await render(
+      <QueueV2TaskDetailsPopup
+        inspector={popup.inspector}
+        isOpen
+        onRequestClose={vi.fn()}
+        queue={queueController({
+          onSaveCodexExecutable,
+          selectedTask,
+          tasks: [selectedTask],
+        })}
+        taskViewModel={popup.taskViewModel}
+      />,
+    );
+
+    await setInputValue("Codex executable", "   ");
+    await click(buttonWithText("Save Codex executable"));
+
+    expect(document.body.textContent).toContain(
+      "Enter a Codex executable before saving.",
+    );
+    expect(onSaveCodexExecutable).not.toHaveBeenCalled();
+  });
+
+  it("shows unavailable state when task updates are not wired", async () => {
+    const selectedTask = task({
+      codexExecutable: "",
+      queueItemId: "unavailable-codex-task",
+      status: "draft",
+      title: "Unavailable Codex task",
+    });
+    const popup = popupModel([selectedTask], selectedTask.queueItemId, "stopped");
+    const controller = queueController({
+      selectedTask,
+      tasks: [selectedTask],
+    });
+
+    controller.run.canUpdateTaskSettings = false;
+    controller.run.onSaveTaskCodexExecutable = undefined as never;
+
+    await render(
+      <QueueV2TaskDetailsPopup
+        inspector={popup.inspector}
+        isOpen
+        onRequestClose={vi.fn()}
+        queue={controller}
+        taskViewModel={popup.taskViewModel}
+      />,
+    );
+
+    expect(sectionByName("Task Codex executable setup")?.textContent).toContain(
+      "Queue task updates are unavailable in this runtime.",
+    );
+    expect(buttonWithText("Save Codex executable")?.disabled).toBe(true);
+  });
+
+  it("shows failed task update result without hiding the setup control", async () => {
+    const selectedTask = task({
+      codexExecutable: "",
+      queueItemId: "failed-codex-task",
+      status: "draft",
+      title: "Failed Codex task",
+    });
+    const popup = popupModel([selectedTask], selectedTask.queueItemId, "stopped");
+    const controller = queueController({
+      selectedTask,
+      tasks: [selectedTask],
+    });
+
+    controller.run.onSaveTaskCodexExecutable = vi.fn(async () => ({
+      message: "Unable to save task run settings.",
+      ok: false as const,
+    }));
+
+    await render(
+      <QueueV2TaskDetailsPopup
+        inspector={popup.inspector}
+        isOpen
+        onRequestClose={vi.fn()}
+        queue={controller}
+        taskViewModel={popup.taskViewModel}
+      />,
+    );
+
+    await setInputValue("Codex executable", "codex.cmd");
+    await click(buttonWithText("Save Codex executable"));
+
+    expect(document.body.textContent).toContain(
+      "Unable to save task run settings.",
+    );
+    expect(sectionByName("Task Codex executable setup")).not.toBeNull();
+  });
+
   it("shows Enable Queue when queue is disabled and the task can use that action", async () => {
     const selectedTask = task({
       queueItemId: "enable-task",
@@ -755,6 +895,33 @@ function coordinatorDecisionCard() {
   return document.querySelector<HTMLElement>(
     "[aria-label='Coordinator Decision card']",
   );
+}
+
+function sectionByName(name: string): HTMLElement | null {
+  return (
+    Array.from(document.querySelectorAll<HTMLElement>("section")).find(
+      (element) => element.getAttribute("aria-label") === name,
+    ) ?? null
+  );
+}
+
+async function setInputValue(label: string, value: string) {
+  const labels = Array.from(document.querySelectorAll<HTMLLabelElement>("label"));
+  const labelElement = labels.find((item) => item.textContent === label);
+  const inputId = labelElement?.getAttribute("for");
+  const input = inputId
+    ? document.getElementById(inputId) as HTMLInputElement | null
+    : null;
+
+  if (!input) {
+    throw new Error(`Input ${label} not found.`);
+  }
+
+  await act(async () => {
+    setNativeValue(input, value);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+  });
 }
 
 async function setTextareaValue(label: string, value: string) {
