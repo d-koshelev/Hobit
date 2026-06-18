@@ -46,12 +46,18 @@ When the agent emits a valid `hobit.action.request` envelope, the frontend
 Action Broker validates policy/schema/side effects and invokes Queue adapter
 handlers. After an eligible successful broker result, Workspace Agent can feed
 a compact `hobit.action.result` back into the same Codex thread so the model
-can emit the next single `hobit.action.request` envelope or final prose. The
-continuation loop is bounded, structured-action-only, and stops on
-confirmation, policy, unavailable, dry-run-required, failed, invalid, repeated,
-unsupported, restricted, or missing-thread cases. Natural-language Queue
-phrases are not regex-routed into actions, and task ids or executor ids are
-not inferred from prose.
+can emit the next single `hobit.action.request` envelope or explicit
+`hobit.final.answer`. Typed-capability action mode now treats empty or
+intermediate non-envelope prose as a protocol stall: one compact same-thread
+repair prompt is allowed, then the run stops with visible protocol error if
+the model still does not emit a valid envelope or explicit final answer.
+Prose such as awaiting `queue.items.list` result is not a successful smoke
+outcome, is not parsed into a capability call, and is not regex-routed into a
+Queue action. The continuation loop is bounded, structured-action-only, and
+stops on confirmation, policy, unavailable, dry-run-required, failed, invalid,
+repeated, unsupported, restricted, protocol-error, or missing-thread cases.
+Natural-language Queue phrases are not regex-routed into actions, and task ids
+or executor ids are not inferred from prose.
 Each emitted envelope should use a fresh requestId. If the model omits or
 blanks requestId, the frontend derives a per-chain/per-action id; explicit
 duplicate requestIds still stop as a replay guard. Read-only
@@ -144,6 +150,9 @@ During the smoke, verify these product labels appear where applicable:
 - `Action 1/16`
 - `Action 2/16`
 - `Workspace Agent action chain`
+- `Protocol repair requested`
+- `Workspace Agent action protocol error`
+- `No broker action was executed`
 
 ## Smoke Flow
 
@@ -570,6 +579,16 @@ During the smoke, verify these product labels appear where applicable:
       user prompt contains Queue words.
     - Expected: Queue item creation happens only when the agent emits a valid
       structured Hobit action request and the broker allows it.
+    - Expected: if the model writes prose such as `Awaiting queue.items.list
+      result.` without a valid `hobit.action.request`, no Queue capability is
+      invoked and the run does not silently complete as successful. The
+      Workspace Agent should show `Protocol repair requested` once when a
+      same-thread repair is possible, or `Workspace Agent action protocol
+      error` with `No broker action was executed` when repair is unavailable
+      or fails.
+    - Expected: a valid final user-facing answer in typed-capability action
+      mode uses `{"type":"hobit.final.answer","message":"..."}` so the
+      runtime can distinguish completion from an intermediate waiting state.
     - Expected: if a broker result is eligible for continuation and the Codex
       thread id is available, the next Direct Work request uses compact
       `hobit.action.result` context in the same thread, not a new visible
@@ -582,7 +601,8 @@ During the smoke, verify these product labels appear where applicable:
       `Action 2/16: queue.items.list`; they do not dump raw JSON, logs, secrets,
       or stack traces.
     - Expected: `queue.lifecycle.get` can appear in the continuation chain and
-      proceed to the next envelope or final prose after a successful read.
+      proceed to the next envelope or explicit `hobit.final.answer` after a
+      successful read.
     - Expected: the chain stops with a visible reason on confirmation,
       policy-blocked, unavailable, dry-run-required, failed, invalid input,
       repeated request id, repeated capability/input, unsupported envelope,

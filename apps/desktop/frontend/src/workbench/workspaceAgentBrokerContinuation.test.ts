@@ -8,6 +8,7 @@ import {
   deriveWorkspaceAgentBrokerContinuationRequestId,
   evaluateWorkspaceAgentBrokerContinuationAttempt,
   formatWorkspaceAgentBrokerContinuationPrompt,
+  recordWorkspaceAgentBrokerContinuationProtocolRepair,
   recordWorkspaceAgentBrokerContinuationAttempt,
   shouldContinueWorkspaceAgentBrokerAction,
   WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
@@ -21,6 +22,21 @@ describe("workspaceAgentBrokerContinuation", () => {
 
     expect(WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS).toBe(16);
     expect(state.maxActions).toBe(16);
+    expect(state.protocolRepairAttempted).toBe(false);
+  });
+
+  it("records a single protocol repair attempt without counting it as a broker action", () => {
+    const state = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-protocol-repair",
+    });
+    const repaired = recordWorkspaceAgentBrokerContinuationProtocolRepair(state);
+
+    expect(repaired).toMatchObject({
+      actionCount: 0,
+      chainId: "chain-protocol-repair",
+      protocolRepairAttempted: true,
+    });
+    expect(state.protocolRepairAttempted).toBe(false);
   });
 
   it("allows safe Queue control-plane success results to continue", () => {
@@ -346,6 +362,8 @@ describe("workspaceAgentBrokerContinuation", () => {
       expect.arrayContaining(["No validation run.", "No Git mutation."]),
     );
     expect(prompt).toContain('"type":"hobit.action.result"');
+    expect(prompt).toContain("hobit.final.answer");
+    expect(prompt).toContain("Do not write awaiting capability result");
     expect(prompt).toContain('"taskIds":["task-1"]');
     expect(prompt.length).toBeLessThanOrEqual(3600);
     expect(prompt).not.toContain("secret-value-123");

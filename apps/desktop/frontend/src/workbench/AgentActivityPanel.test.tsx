@@ -224,6 +224,56 @@ describe("AgentActivityPanel", () => {
     expect(rows[0]?.textContent).not.toContain("Running");
   });
 
+  it("renders Workspace Agent protocol repair and protocol error visibility", () => {
+    render(
+      <AgentActivityPanel
+        events={[
+          activityEvent({
+            id: "broker-protocol-repair",
+            lifecycleStage: "step",
+            rawPreview: "Awaiting `queue.items.list` result.",
+            runId: "broker-chain-protocol",
+            runKind: "workspace-agent-broker-continuation",
+            severity: "warning",
+            status: "running",
+            summary:
+              "Workspace Agent action protocol repair requested. No broker action was executed.",
+            timestamp: 1_000,
+            timestampLabel: "0s",
+            title: "Protocol repair requested",
+          }),
+          activityEvent({
+            id: "broker-protocol-error",
+            lifecycleStage: "failed",
+            runId: "broker-chain-protocol",
+            runKind: "workspace-agent-broker-continuation",
+            severity: "error",
+            status: "failed",
+            summary:
+              "Workspace Agent action protocol error. No broker action was executed. Stopped: action protocol error.",
+            timestamp: 2_000,
+            timestampLabel: "1s",
+            title: "Broker action chain stopped",
+          }),
+        ]}
+      />,
+    );
+
+    const rows = activityRows();
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.textContent).toContain("Workspace Agent action chain");
+    expect(rows[0]?.textContent).toContain("Failed");
+    expect(rows[0]?.textContent).toContain("No broker action was executed");
+    expect(document.body.textContent).not.toContain("queue.items.list");
+
+    clickRow("Workspace Agent action chain");
+
+    expect(document.body.textContent).toContain("Protocol repair requested");
+    expect(document.body.textContent).toContain("Raw preview");
+    expect(document.body.textContent).toContain("queue.items.list");
+  });
+
   it("keeps Direct Work running activity grouped as the existing Agent run row", () => {
     render(
       <AgentActivityPanel

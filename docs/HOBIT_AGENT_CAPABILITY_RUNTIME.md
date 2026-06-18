@@ -98,11 +98,13 @@ restricted capabilities for explicit workspace/code execution requests only.
   request, invokes the Action Broker, and renders a compact product-facing
   result. The compact manifest includes field-level schema and examples for
   Queue create action requests and Queue dogfood lifecycle action requests
-  without dumping the raw registry. Normal assistant prose remains prose.
+  without dumping the raw registry. Non-action chat outside typed-capability
+  action mode remains ordinary prose.
 - Workspace Agent Broker Action Continuation MVP: after an eligible successful
   broker action, the frontend appends a compact structured
   `hobit.action.result` context back to the same Codex thread and lets the
-  model emit the next single `hobit.action.request` envelope or final prose.
+  model emit the next single `hobit.action.request` envelope or explicit
+  `hobit.final.answer` marker.
   The loop is frontend-only, capped at 16 actions, grouped in transcript
   and activity, and stops on confirmation-required, policy-blocked,
   unavailable, dry-run-required, failed, invalid-input, repeated request,
@@ -113,6 +115,21 @@ restricted capabilities for explicit workspace/code execution requests only.
   automation. Missing or blank request ids are derived per continuation action
   from the chain id, action index, and capability id; explicit duplicate
   request ids still stop as the replay guard.
+- Workspace Agent Action Protocol Enforcement MVP: Workspace Agent Direct Work
+  turns that receive Hobit capability context are treated as typed-capability
+  action mode. In that mode the model must emit exactly one
+  `hobit.action.request` envelope for a broker action, or exactly one
+  explicit final-answer marker such as
+  `{"type":"hobit.final.answer","message":"..."}` when the user-facing answer
+  is complete or blocked. If the turn emits malformed action JSON, the run
+  stops as an invalid action request. If the turn emits empty or intermediate
+  non-envelope prose, including prose like awaiting a capability result, the
+  controller sends one compact same-thread repair prompt. If repair still does
+  not produce a valid action request or explicit final answer, the chain stops
+  with a visible protocol error and reports that no broker action was executed.
+  This enforcement does not infer capability ids from prose, does not parse
+  awaiting text into `queue.items.list`, and does not add natural-language
+  routing.
 
 ## Module Ownership
 
@@ -192,13 +209,30 @@ actions. Invalid envelopes produce a product-facing invalid action request
 result. Unknown capabilities still go through the broker and return structured
 unavailable results.
 
+Typed-capability action mode now also has an explicit terminal answer marker:
+
+```json
+{
+  "type": "hobit.final.answer",
+  "message": "Visible final answer or blocker."
+}
+```
+
+This marker is not an app action and cannot trigger a broker capability. It is
+only the control-loop boundary that distinguishes a completed user-facing answer
+from an intermediate non-action stall. Prose such as "Awaiting
+`queue.items.list` result" is not treated as success and is not routed to
+`queue.items.list`; it causes one bounded repair prompt or a visible protocol
+error.
+
 The Workspace Agent direct-run controller can continue a broker action chain
 only from structured broker results. It feeds a bounded `hobit.action.result`
 summary into the same Codex thread with returned task ids, executor widget ids,
 run id, blockers, `nextSuggestedCapability`, and explicit safety flags such as
 no validation run, no Git mutation, no shell command, and no Terminal launch.
-The next model step may emit exactly one new `hobit.action.request` or final
-prose. The controller stops instead of continuing when a result requires
+The next model step may emit exactly one new `hobit.action.request` or
+explicit `hobit.final.answer`. The controller stops instead of continuing
+when a result requires
 confirmation, is blocked/unavailable/failed/invalid, is a dry-run-required
 result, repeats a previous request id or capability/input fingerprint, exceeds
 the action budget, lacks a usable thread id, or touches restricted capabilities.

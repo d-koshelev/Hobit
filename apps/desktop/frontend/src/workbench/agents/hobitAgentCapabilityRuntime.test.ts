@@ -317,7 +317,9 @@ describe("hobitAgentCapabilityRuntime context", () => {
       "Codex and shell are restricted capabilities",
     );
     expect(instructionBlock).toContain('"type":"hobit.action.request"');
+    expect(instructionBlock).toContain('"type":"hobit.final.answer"');
     expect(instructionBlock).toContain("do not emit action lists");
+    expect(instructionBlock).toContain("Do not write awaiting capability result");
     expect(instructionBlock).toContain("After hobit.action.result");
     expect(instructionBlock).toContain("fresh requestId");
     expect(instructionBlock).toContain("never infer missing ids");
@@ -396,6 +398,29 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain("Codex and shell are restricted capabilities");
   });
 
+  it("does not include stale unregistered capability ids in Workspace Agent instructions", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const registeredCapabilityIds = new Set(
+      registry.capabilities.map((capability) => capability.id),
+    );
+    const instructionBlock = createWorkspaceAgentCapabilityInstructionBlock({
+      currentPrompt: "Run Queue smoke.",
+      workspaceId: "workspace-1",
+    });
+    const mentionedCapabilityIds = Array.from(
+      instructionBlock.matchAll(
+        /\b(?:agent|codex|queue|workspace\.shell)\.[A-Za-z0-9.]+/g,
+      ),
+    )
+      .map((match) => match[0].replace(/[.,;:]+$/, ""))
+      .filter((capabilityId) => capabilityId !== "codex.cmd");
+
+    expect(mentionedCapabilityIds.length).toBeGreaterThan(0);
+    for (const capabilityId of mentionedCapabilityIds) {
+      expect(registeredCapabilityIds.has(capabilityId), capabilityId).toBe(true);
+    }
+  });
+
   it("wraps Direct Work prompts with Hobit capability context and action request instructions", () => {
     const prompt = createWorkspaceAgentPromptWithCapabilityContext({
       currentPrompt: "Refactor the Workspace Agent prompt path.",
@@ -408,8 +433,10 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain("You are inside Hobit");
     expect(prompt).toContain("Use typed Hobit app capabilities before Codex or shell.");
     expect(prompt).toContain('"type":"hobit.action.request"');
+    expect(prompt).toContain('"type":"hobit.final.answer"');
     expect(prompt).toContain("Use a fresh requestId");
     expect(prompt).toContain("After hobit.action.result");
+    expect(prompt).toContain("Do not write awaiting capability result as prose.");
     expect(prompt).toContain("When a Hobit app capability is needed");
     expect(prompt).toContain("Queue item creation is a Queue capability.");
     expect(prompt).toContain("Queue item prompt is required");

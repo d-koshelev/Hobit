@@ -27,7 +27,8 @@ self-test, a frontend Queue worker evidence bundle model/adapter path, and
 a frontend Queue worker evidence ingestion bridge, a Queue-linked Direct Work
 metadata seam, Queue-linked Direct Work evidence event wiring, and focused
 smoke coverage, a bounded Workspace Agent broker-action continuation loop for
-structured action-request chains, an active Queue V2 Codex executable setup
+structured action-request chains, Workspace Agent action-protocol enforcement
+for typed capability mode, an active Queue V2 Codex executable setup
 affordance for existing tasks, active Queue V2 Draft readiness discoverability
 and explicit Draft-to-queued promotion through the existing Queue task update
 path, plus a minimal active Queue details review/evidence UI for explicit
@@ -215,9 +216,18 @@ The current implemented frontend behavior is:
 - Workspace Agent broker-action continuation: after an eligible successful
   structured broker result, the frontend feeds a compact `hobit.action.result`
   back into the same Codex thread so the model can emit the next single
-  `hobit.action.request` or final prose, with a 16-action cap and stops for
-  confirmation, policy, unavailable, dry-run-required, failed, invalid,
-  repeated, unsupported, restricted, or missing-thread cases;
+  `hobit.action.request` or explicit `hobit.final.answer`, with a 16-action
+  cap and stops for confirmation, policy, unavailable, dry-run-required,
+  failed, invalid, repeated, unsupported, restricted, protocol-error, or
+  missing-thread cases;
+- Workspace Agent action protocol enforcement: a typed-capability Direct Work
+  turn with no valid action request and no explicit final-answer marker gets
+  one compact same-thread repair prompt; if repair still produces empty or
+  intermediate non-action prose, the chain stops with a visible protocol error
+  and reports that no broker action was executed;
+- prose such as awaiting `queue.items.list` result is not a successful Queue
+  smoke outcome, is not parsed into `queue.items.list`, and is not
+  natural-language routed to any capability;
 - continuation request ids preserve replay safety: explicit duplicate
   requestIds hard-stop, while missing or blank requestIds are derived from the
   continuation chain id, action index, and capability id so runtime-generated
@@ -552,6 +562,12 @@ adapter integration and typed frontend Action Broker capability access.
   lists, and must use returned ids from the structured result instead of
   inferring task ids or executor ids from prompt text, titles, repository
   paths, final messages, or other prose.
+- In typed-capability action mode, a model response that says it is awaiting a
+  Queue capability result without emitting a structured envelope is a protocol
+  stall, not success. The controller asks for one repair response in the same
+  thread and then fails visibly with protocol error if the model still does
+  not emit a valid `hobit.action.request` or explicit `hobit.final.answer`.
+  Broker actions remain triggered only by structured envelopes.
 - `apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.ts`
   now proves a fake full dogfooding loop through the real broker and registered
   Queue lifecycle handlers: agent finished, review message, ACK, validation

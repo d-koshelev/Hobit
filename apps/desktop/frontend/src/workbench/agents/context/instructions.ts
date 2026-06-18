@@ -28,8 +28,10 @@ export function createCapabilityInstructionBlock(
     "Use typed Hobit app capabilities before Codex or shell.",
     "App and product actions must use typed Hobit capabilities.",
     'When needed emit one JSON envelope with a fresh requestId: {"type":"hobit.action.request","requestId":"action-1","capabilityId":"<id>","dryRun":false,"input":{...}}.',
+    'When finished in action mode emit one final JSON object: {"type":"hobit.final.answer","message":"<final user-facing answer or blocker>"}',
     "One envelope only; do not emit action lists.",
-    "After hobit.action.result, continue with returned taskId/runId/executorWidgetId or final prose; never infer missing ids.",
+    "Do not write awaiting capability result. Awaiting result prose is not a capability call.",
+    "After hobit.action.result, continue with returned taskId/runId/executorWidgetId, emit the next hobit.action.request, or emit hobit.final.answer; never infer missing ids.",
     "Stop on blocked, unavailable, confirmation_required, policy_blocked, failed, invalid, repeated, or max actions.",
     "Do not use shell or Codex for product actions. Do not execute app actions through shell, Codex, Git, Terminal, rollback, or validation.",
     "Do not inspect source files for product actions.",
@@ -148,19 +150,9 @@ function createQueueCreateCapabilityInstructionLines(
     return [];
   }
 
-  const exampleLines = queueCreateCapabilities.flatMap((capability) => {
-    const example = capability.examples?.find(
-      (candidate) => !candidate.exampleActionRequest.dryRun,
-    );
-
-    return example
-      ? [
-          `Example ${capability.id}: ${JSON.stringify(
-            example.exampleActionRequest,
-          )}`,
-        ]
-      : [];
-  });
+  const exampleIds = queueCreateCapabilities
+    .map((capability) => `{"capabilityId":"${capability.id}"}`)
+    .join("; ");
 
   return [
     "Queue create action schemas:",
@@ -174,8 +166,9 @@ function createQueueCreateCapabilityInstructionLines(
     "For a test, dummy, or example Queue item, create a safe placeholder prompt.",
     "If a real Queue item lacks task content, ask a concise clarification.",
     "Do not auto-run workers.",
-    ...exampleLines,
-  ];
+    '{"capabilityId":"queue.createItem","input":{"prompt":"Review the current workspace state and report one safe next step."}}',
+    exampleIds ? `Queue create envelope ids: ${exampleIds}.` : null,
+  ].filter((line): line is string => Boolean(line));
 }
 
 function createQueueRunControlCapabilityInstructionLines(
@@ -200,19 +193,14 @@ function createQueueRunControlCapabilityInstructionLines(
     return [];
   }
 
-  const examples = runControlCapabilities.flatMap((capability) =>
-    (capability.examples ?? []).slice(0, 1).map(
-      (example) =>
-        `Example ${capability.id}: ${JSON.stringify(
-          example.exampleActionRequest,
-        )}`,
-    ),
-  );
+  const exampleIds = runControlCapabilities
+    .map((capability) => `{"capabilityId":"${capability.id}"}`)
+    .join("; ");
 
   return [
     "Queue run-control is typed only; never infer taskId or executorWidgetId from prose, titles, prompts, paths, final messages, or source text.",
     "Run-control fields: list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({}); start(taskId,executorWidgetId,queueId?).",
     "Use queue.items.list when ids are missing; settings/promote/enable do not start; start requires confirmation and no codex.runTask fallback.",
-    ...examples,
-  ];
+    exampleIds ? `Run-control envelope ids: ${exampleIds}.` : null,
+  ].filter((line): line is string => Boolean(line));
 }

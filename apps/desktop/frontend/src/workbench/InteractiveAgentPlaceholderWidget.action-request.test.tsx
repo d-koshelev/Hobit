@@ -7,6 +7,7 @@ import {
   lastAssistantMessageText,
   lastOperatorMessageText,
   renderWidget,
+  sendMessage,
   setTextareaValue,
   type DirectWorkStreamEvent,
 } from "./InteractiveAgentPlaceholderWidget.test-utils";
@@ -396,7 +397,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
           input: { taskId: "task-smoke" },
           requestId: " ",
         }),
-        "Queue dogfooding smoke started.",
+        finalAnswerEnvelope("Queue dogfooding smoke started."),
       ],
       { codexThreadId: "thread-queue-smoke" },
     );
@@ -600,7 +601,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
           input: { limit: 25 },
           requestId: " ",
         }),
-        "Derived request ids completed.",
+        finalAnswerEnvelope("Derived request ids completed."),
       ],
       { codexThreadId: "thread-derived-request-id" },
     );
@@ -751,10 +752,10 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     );
   });
 
-  it("leaves normal assistant text as a normal transcript message", async () => {
+  it("accepts an explicit final answer marker in typed-capability action mode", async () => {
     const createItem = vi.fn();
     const startDirectWork = startDirectWorkWithFinalText(
-      "Normal assistant response without app action.",
+      finalAnswerEnvelope("Normal assistant response without app action."),
     );
 
     renderWidget({
@@ -772,10 +773,25 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     );
   });
 
+  it("leaves normal non-action chat outside Direct Work as a normal transcript message", async () => {
+    renderWidget({
+      workspaceId: "workspace_1",
+    });
+
+    await sendMessage("Explain the visible Workspace Agent surface.");
+    await flushAsync();
+
+    expect(lastOperatorMessageText()).toBe(
+      "Explain the visible Workspace Agent surface.",
+    );
+    expect(lastAssistantMessageText()).toContain("I can help plan work");
+    expect(lastAssistantMessageText()).not.toContain("action protocol error");
+  });
+
   it("does not route user Queue phrases unless the agent emits an envelope", async () => {
     const createItem = vi.fn();
     const startDirectWork = startDirectWorkWithFinalText(
-      "I can help plan those Queue items.",
+      finalAnswerEnvelope("I can help plan those Queue items."),
     );
 
     renderWidget({
@@ -791,6 +807,196 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(createItem).not.toHaveBeenCalled();
     expect(lastAssistantMessageText()).toBe(
       "I can help plan those Queue items.",
+    );
+  });
+
+  it("does not execute queue.items.list when the model only says it is awaiting a result", async () => {
+    const listItemAggregates = vi.fn(async () => []);
+    const runTerminal = vi.fn();
+    const createGitCommit = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalText(
+      "Awaiting `queue.items.list` result.",
+    );
+
+    renderWidget({
+      onCreateGitCommit: createGitCommit,
+      onRunTerminalCommand: runTerminal,
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ listItemAggregates }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Run the backend-backed Queue smoke with typed capabilities.");
+    await flushAsync();
+
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    expect(listItemAggregates).not.toHaveBeenCalled();
+    expect(runTerminal).not.toHaveBeenCalled();
+    expect(createGitCommit).not.toHaveBeenCalled();
+    expect(lastAssistantMessageText()).toContain(
+      "Workspace Agent action protocol error.",
+    );
+    expect(lastAssistantMessageText()).toContain("No broker action was executed.");
+    expect(lastAssistantMessageText()).not.toContain("Queue items listed");
+  });
+
+  it("requests one protocol repair for no-envelope action-mode output", async () => {
+    const listItemAggregates = vi.fn(async () => []);
+    const publishActivityEvents = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalTexts(
+      [
+        "Awaiting `queue.items.list` result.",
+        finalAnswerEnvelope("Queue smoke blocked before a broker action."),
+      ],
+      { codexThreadId: "thread-protocol-repair" },
+    );
+
+    renderWidget({
+      onPublishAgentActivityEvents: publishActivityEvents,
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ listItemAggregates }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Run the Queue smoke using typed capabilities.");
+    await flushAsync(40);
+
+    expect(startDirectWork).toHaveBeenCalledTimes(2);
+    expect(listItemAggregates).not.toHaveBeenCalled();
+    expect(lastAssistantMessageText()).toBe(
+      "Queue smoke blocked before a broker action.",
+    );
+
+    const repairPrompt = startDirectWork.mock.calls[1]?.[1] as {
+      operatorPrompt?: string;
+    };
+    expect(repairPrompt.operatorPrompt).toContain(
+      "[Hobit action protocol repair]",
+    );
+    expect(repairPrompt.operatorPrompt?.length ?? 0).toBeLessThanOrEqual(1600);
+    expect(repairPrompt.operatorPrompt).not.toContain("queue.items.list");
+
+    const activityEvents = publishActivityEvents.mock.calls.flatMap(
+      (call) => call[0],
+    );
+    expect(activityEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          runKind: "workspace-agent-broker-continuation",
+          title: "Protocol repair requested",
+        }),
+        expect.objectContaining({
+          runKind: "workspace-agent-broker-continuation",
+          title: "Broker action chain completed",
+        }),
+      ]),
+    );
+  });
+
+  it("executes a valid structured envelope after protocol repair", async () => {
+    const listItemAggregates = vi.fn(async () => []);
+    const startDirectWork = startDirectWorkWithFinalTexts(
+      [
+        "Awaiting `queue.items.list` result.",
+        actionEnvelope({
+          capabilityId: "queue.items.list",
+          dryRun: false,
+          input: { limit: 10 },
+          requestId: "request-list-after-repair",
+        }),
+        finalAnswerEnvelope("Queue items listed after repair."),
+      ],
+      { codexThreadId: "thread-valid-after-repair" },
+    );
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ listItemAggregates }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("List Queue items using typed capabilities.");
+    await flushAsync(60);
+
+    expect(startDirectWork).toHaveBeenCalledTimes(3);
+    expect(listItemAggregates).toHaveBeenCalledTimes(1);
+    expect(allAssistantMessageText()).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("action protocol repair requested"),
+        expect.stringContaining("Action 1/16: queue.items.list"),
+      ]),
+    );
+    expect(lastAssistantMessageText()).toBe("Queue items listed after repair.");
+  });
+
+  it("stops with protocol_error after a repeated no-envelope stall", async () => {
+    const listItemAggregates = vi.fn(async () => []);
+    const publishActivityEvents = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalTexts(
+      [
+        "Awaiting `queue.items.list` result.",
+        "Still awaiting the capability result.",
+      ],
+      { codexThreadId: "thread-repeated-stall" },
+    );
+
+    renderWidget({
+      onPublishAgentActivityEvents: publishActivityEvents,
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ listItemAggregates }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Run Queue smoke using typed capabilities.");
+    await flushAsync(50);
+
+    expect(startDirectWork).toHaveBeenCalledTimes(2);
+    expect(listItemAggregates).not.toHaveBeenCalled();
+    expect(lastAssistantMessageText()).toContain(
+      "Workspace Agent action protocol error.",
+    );
+    expect(lastAssistantMessageText()).toContain(
+      "Stopped: action protocol error.",
+    );
+
+    const activityEvents = publishActivityEvents.mock.calls.flatMap(
+      (call) => call[0],
+    );
+    expect(activityEvents).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          status: "failed",
+          title: "Broker action chain stopped",
+        }),
+      ]),
+    );
+  });
+
+  it("stops malformed structured envelopes as invalid_action_request without repair", async () => {
+    const createItem = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalText(
+      [
+        "```hobit-action-request",
+        '{"type":"hobit.action.request","capabilityId":',
+        "```",
+      ].join("\n"),
+    );
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ createItem }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Create Queue work with a malformed envelope.");
+    await flushAsync();
+
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    expect(createItem).not.toHaveBeenCalled();
+    expect(lastAssistantMessageText()).toContain("Invalid Hobit action request.");
+    expect(lastAssistantMessageText()).toContain("Envelope JSON is invalid.");
+    expect(lastAssistantMessageText()).toContain(
+      "Stopped: invalid or unsupported action envelope.",
     );
   });
 
@@ -825,6 +1031,8 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(operatorPrompt).toContain('"capabilityId":"queue.createItem"');
     expect(operatorPrompt).toContain('"capabilityId":"queue.createItems"');
     expect(operatorPrompt).toContain("Queue lifecycle schemas:");
+    expect(operatorPrompt).toContain("hobit.final.answer");
+    expect(operatorPrompt).toContain("Do not write awaiting capability result");
     expect(operatorPrompt).toContain(
       "agentFinished(evidenceBundle or taskId,runId,outcome,finalAgentMessage)",
     );
@@ -875,6 +1083,13 @@ function actionEnvelope({
   }
 
   return JSON.stringify(envelope);
+}
+
+function finalAnswerEnvelope(message: string) {
+  return JSON.stringify({
+    message,
+    type: "hobit.final.answer",
+  });
 }
 
 function allAssistantMessageText() {

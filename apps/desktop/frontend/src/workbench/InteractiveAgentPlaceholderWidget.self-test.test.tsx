@@ -6,6 +6,7 @@ import {
   clickButton,
   definition,
   directWorkEvent,
+  finalAnswerEnvelope,
   instance,
   InteractiveAgentPlaceholderWidget,
   renderWidgetTree,
@@ -317,7 +318,7 @@ function startDirectWorkWithFinalText(text: string) {
           finalStatus: "completed",
           isFinal: true,
           runId: "run_self_test_preservation",
-          text,
+          text: finalAnswerEnvelope(text),
         }),
       );
 

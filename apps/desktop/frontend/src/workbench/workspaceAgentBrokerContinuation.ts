@@ -49,6 +49,7 @@ export type WorkspaceAgentBrokerContinuationStopReason =
   | "max_action_count_reached"
   | "not_allowed_for_auto_continuation"
   | "policy_blocked"
+  | "protocol_error"
   | "repeated_request_fingerprint"
   | "repeated_request_id"
   | "restricted_capability"
@@ -60,6 +61,7 @@ export type WorkspaceAgentBrokerContinuationState = {
   actionCount: number;
   chainId: string;
   maxActions: number;
+  protocolRepairAttempted: boolean;
   seenRequestFingerprints: readonly string[];
   seenRequestIds: readonly string[];
 };
@@ -113,6 +115,7 @@ export function createWorkspaceAgentBrokerContinuationState({
     actionCount: 0,
     chainId,
     maxActions,
+    protocolRepairAttempted: false,
     seenRequestFingerprints: [],
     seenRequestIds: [],
   };
@@ -187,6 +190,15 @@ export function recordWorkspaceAgentBrokerContinuationAttempt(
     seenRequestIds: [...state.seenRequestIds, request.requestId].slice(
       -state.maxActions,
     ),
+  };
+}
+
+export function recordWorkspaceAgentBrokerContinuationProtocolRepair(
+  state: WorkspaceAgentBrokerContinuationState,
+): WorkspaceAgentBrokerContinuationState {
+  return {
+    ...state,
+    protocolRepairAttempted: true,
   };
 }
 
@@ -376,7 +388,9 @@ export function formatWorkspaceAgentBrokerContinuationPrompt({
       `Action ${actionIndex.toString()}/${maxActions.toString()} completed.`,
       "The app executed the typed Hobit action and returned this compact structured result.",
       "Continue the same user request from this result.",
-      "Emit exactly one hobit.action.request envelope when another Hobit app action is needed, or final prose when the task is done.",
+      'Emit exactly one hobit.action.request envelope when another Hobit app action is needed, or {"type":"hobit.final.answer","message":"..."} when the task is done.',
+      "The final-answer marker lets the app distinguish completion from an intermediate stall.",
+      "Do not write awaiting capability result as prose.",
       "Do not emit action lists. Use a fresh requestId for each envelope. Do not repeat a previous request id or same capability/input. Use returned taskIds, executorWidgetIds, runId, blockers, and nextSuggestedCapability.",
       "If the result is blocked, unavailable, confirmation_required, failed, invalid, or policy blocked, stop and report that plainly.",
       "Never infer taskId or executorWidgetId from prose, titles, paths, final messages, or source text.",
@@ -464,6 +478,8 @@ export function stopReasonLabel(
       return "capability is not allowed for auto-continuation";
     case "policy_blocked":
       return "policy blocked";
+    case "protocol_error":
+      return "action protocol error";
     case "repeated_request_fingerprint":
       return "repeated capability/input";
     case "repeated_request_id":

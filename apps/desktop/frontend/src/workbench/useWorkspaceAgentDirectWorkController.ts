@@ -11,7 +11,6 @@ import type { DirectWorkSandbox, DirectWorkStreamEvent } from "../workspace/type
 import { createWorkspaceAgentPromptWithCapabilityContext } from "./agents/context";
 import {
   createHobitAgentActionRequestFromEnvelope,
-  readHobitAgentActionRequestEnvelope,
   type HobitAgentActionRequest,
   type HobitAgentActionResult,
 } from "./agents/broker";
@@ -75,6 +74,7 @@ import {
   evaluateWorkspaceAgentBrokerContinuationAttempt,
   formatWorkspaceAgentBrokerActionTranscript,
   formatWorkspaceAgentBrokerContinuationPrompt,
+  recordWorkspaceAgentBrokerContinuationProtocolRepair,
   recordWorkspaceAgentBrokerContinuationAttempt,
   shouldContinueWorkspaceAgentBrokerAction,
   stopReasonLabel,
@@ -82,6 +82,13 @@ import {
   type WorkspaceAgentBrokerContinuationState,
   type WorkspaceAgentBrokerContinuationStopReason,
 } from "./workspaceAgentBrokerContinuation";
+import {
+  classifyWorkspaceAgentActionProtocolOutput,
+  formatWorkspaceAgentActionProtocolRepairPrompt,
+  workspaceAgentActionProtocolErrorMessage,
+  workspaceAgentActionProtocolRepairMessage,
+  type WorkspaceAgentActionProtocolOutcome,
+} from "./workspaceAgentActionProtocol";
 import type { WidgetRenderProps } from "./types";
 
 type UseWorkspaceAgentDirectWorkControllerOptions = {
@@ -751,11 +758,14 @@ export function useWorkspaceAgentDirectWorkController({
       return false;
     }
 
-    const envelopeRead = readHobitAgentActionRequestEnvelope(
-      finalAgentMessage ?? finalResult,
-    );
+    const protocolOutcome = classifyWorkspaceAgentActionProtocolOutput({
+      mode: brokerContinuationStateRef.current
+        ? "typed_capability_action"
+        : "normal",
+      text: finalAgentMessage ?? finalResult,
+    });
 
-    if (envelopeRead.status === "none") {
+    if (protocolOutcome.kind === "final_answer") {
       if (activeBrokerContinuationChainIdRef.current) {
         recordBrokerContinuationStop({
           message: "Workspace Agent completed the action chain.",
@@ -766,15 +776,34 @@ export function useWorkspaceAgentDirectWorkController({
         });
       }
       clearBrokerContinuationState();
-      return false;
+      onAppendAssistantTranscript(
+        "completed",
+        protocolOutcome.finalAnswer,
+        true,
+        runMetadata,
+      );
+      return true;
     }
 
-    if (envelopeRead.status === "invalid") {
+    if (
+      protocolOutcome.kind === "protocol_stall" ||
+      protocolOutcome.kind === "no_action_output"
+    ) {
+      return handleWorkspaceAgentActionProtocolStall({
+        outcome: protocolOutcome,
+        runId,
+        runMetadata,
+      });
+    }
+
+    if (protocolOutcome.kind === "invalid_action_request") {
       const message = workspaceAgentInvalidActionRequestMessage(
-        envelopeRead.reasons,
+        protocolOutcome.envelopeRead.reasons,
       );
       const state = brokerContinuationStateRef.current;
       const actionIndex = state ? state.actionCount + 1 : 1;
+      setDirectWorkStatus("failed");
+      setDirectWorkError(message);
       recordHobitActionResultTranscript({
         activityRunId: state?.chainId ?? runId,
         actionIndex,
@@ -790,6 +819,7 @@ export function useWorkspaceAgentDirectWorkController({
       return true;
     }
 
+    const envelopeRead = protocolOutcome.envelopeRead;
     const state =
       brokerContinuationStateRef.current ??
       createWorkspaceAgentBrokerContinuationState({
@@ -873,6 +903,73 @@ export function useWorkspaceAgentDirectWorkController({
       request: actionRequest,
       runMetadata,
     });
+    return true;
+  }
+
+  function handleWorkspaceAgentActionProtocolStall({
+    outcome,
+    runId,
+    runMetadata,
+  }: {
+    outcome: Extract<
+      WorkspaceAgentActionProtocolOutcome,
+      { kind: "no_action_output" | "protocol_stall" }
+    >;
+    runId: string;
+    runMetadata: WorkspaceAgentRunMetadata;
+  }) {
+    const state = brokerContinuationStateRef.current;
+    if (!state) {
+      return false;
+    }
+
+    const continuationThreadId = brokerContinuationThreadId(runMetadata);
+    if (!state.protocolRepairAttempted && continuationThreadId) {
+      const repairState =
+        recordWorkspaceAgentBrokerContinuationProtocolRepair(state);
+      brokerContinuationStateRef.current = repairState;
+      const message = workspaceAgentActionProtocolRepairMessage(outcome);
+      appendDirectWorkLog(message, "local");
+      publishHobitActionActivityEvent({
+        details:
+          "Repair asks for exactly one structured hobit.action.request or one explicit hobit.final.answer. No capability is inferred from prose.",
+        lifecycleStage: "step",
+        rawPreview:
+          outcome.kind === "protocol_stall" ? outcome.preview : undefined,
+        runId: repairState.chainId,
+        severity: "warning",
+        status: "running",
+        summary: message,
+        title: "Protocol repair requested",
+      });
+      appendAssistantActionTranscript(message, runMetadata);
+      void startBrokerProtocolRepairTurn({
+        resumeThreadId: continuationThreadId,
+        state: repairState,
+      });
+      return true;
+    }
+
+    const message = workspaceAgentActionProtocolErrorMessage(outcome);
+    setDirectWorkStatus("failed");
+    setDirectWorkError(message);
+    recordBrokerContinuationStop({
+      message,
+      runMetadata: {
+        ...runMetadata,
+        status: "failed",
+      },
+      severity: "error",
+      status: "failed",
+      stopReason: "protocol_error",
+    });
+    clearBrokerContinuationState();
+    appendDirectWorkLog(
+      continuationThreadId
+        ? "Protocol repair was already attempted once."
+        : "Protocol repair unavailable because the Codex thread id is unavailable.",
+      "local",
+    );
     return true;
   }
 
@@ -999,6 +1096,24 @@ export function useWorkspaceAgentDirectWorkController({
     });
   }
 
+  async function startBrokerProtocolRepairTurn({
+    resumeThreadId,
+    state,
+  }: {
+    resumeThreadId: string;
+    state: WorkspaceAgentBrokerContinuationState;
+  }) {
+    await startDirectWorkTurn({
+      appendOperatorTranscript: false,
+      attachCapabilityContext: false,
+      brokerContinuationChainId: state.chainId,
+      clearDraftAndVisibleContext: false,
+      operatorPrompt: formatWorkspaceAgentActionProtocolRepairPrompt(),
+      repoRoot: directWorkDirectory.trim(),
+      resumeThreadIdOverride: resumeThreadId,
+    });
+  }
+
   function brokerContinuationThreadId(runMetadata: WorkspaceAgentRunMetadata) {
     return (
       runMetadata.threadId ??
@@ -1085,7 +1200,9 @@ export function useWorkspaceAgentDirectWorkController({
 
   function publishHobitActionActivityEvent({
     actionIndex,
+    details,
     lifecycleStage,
+    rawPreview,
     runId,
     severity,
     status,
@@ -1093,7 +1210,9 @@ export function useWorkspaceAgentDirectWorkController({
     title,
   }: {
     actionIndex?: number;
+    details?: string;
     lifecycleStage?: AgentActivityLifecycleStage;
+    rawPreview?: string;
     runId: string;
     severity: AgentActivitySeverity;
     status: AgentActivityStatus;
@@ -1102,7 +1221,9 @@ export function useWorkspaceAgentDirectWorkController({
   }) {
     const event: AgentActivityEvent = {
       id: `${workspaceScopeId}:${instanceId}:hobit-action:${runId}:${actionIndex ?? "chain"}:${status}:${title}`,
+      details,
       lifecycleStage,
+      rawPreview,
       runKind: "workspace-agent-broker-continuation",
       runId,
       severity,

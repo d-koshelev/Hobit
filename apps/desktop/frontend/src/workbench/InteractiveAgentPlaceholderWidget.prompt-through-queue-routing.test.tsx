@@ -56,7 +56,10 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             eventKind: "final_message",
             isFinal: false,
             runId: "run_1",
-            text: "Final foreground result.",
+            text: JSON.stringify({
+              message: "Final foreground result.",
+              type: "hobit.final.answer",
+            }),
           }),
         );
         onEvent(
