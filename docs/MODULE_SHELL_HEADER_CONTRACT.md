@@ -23,19 +23,80 @@ The visual model is:
 
 Everything below the separator line is module body content.
 
-The module body is an opaque base canvas. Dotted grid texture may belong to the
-Workbench canvas or a dev preview stage, but it must not show through the core
-module body or make the module read as a transparent overlay.
+The module body is an opaque base canvas. A subtle grid texture may belong to
+the Workbench canvas or a dev preview stage, but it must not show through the
+core module body or make the module read as a transparent overlay.
+
+The current ModuleShell visual direction is Flat Graphite Compact. The
+Workbench/dev preview stage may use a very subtle graphite grid texture to
+suggest a technical workbench surface. Module body regions and module-owned
+popups must remain solid opaque graphite/charcoal surfaces with no glass,
+neon, or blue/navy base treatment.
 
 The ModuleShell base palette is graphite / charcoal. Base surfaces, body
-regions, popups, rails, borders, skeletons, and preview-stage dots must not use
-blue/navy as their foundation. Blue is reserved only for explicit
+regions, popups, rails, borders, skeletons, and preview-stage grid tones must
+not use blue/navy as their foundation. Blue is reserved only for explicit
 focus/selection/active accents in later product-ready states.
 
 `WidgetFrame` remains the single active outer shell for current product widgets.
 `ModuleShell` and `ModuleHeader` are presentational primitives only. They do
 not replace `WidgetFrame`, bypass `WidgetHost`, or create another production
 shell path.
+
+## Module Theme Contract
+
+The ModuleShell theme contract includes colors, radius, and elevation/shadow
+behavior. ModuleShell visuals are not only a color palette.
+
+The default Hobit direction is Flat Graphite Compact:
+
+- graphite / charcoal is the base palette for module surfaces;
+- blue is not a base surface color and is reserved for future explicit
+  focus, selection, or active accents;
+- default radius is compact, around 2px;
+- radius uses a small direct token model: `--module-radius`,
+  `--module-control-radius`, and `--module-popup-radius`;
+- module shell, header, and notice radius consume `--module-radius`;
+- inputs, text areas, buttons, status badges, mono text, and compact control
+  surfaces consume `--module-control-radius`;
+- module-owned popups consume `--module-popup-radius`;
+- module shadow and popup shadow are theme-controlled;
+- module shadow may default to none;
+- popup shadow may be enabled as subtle elevation;
+- no-shadow is a valid theme option for preview comparison.
+
+The dummy ModuleShell visual preview may expose local radius and shadow
+controls for visual-system development. Those controls are preview-only local
+React state. They must not persist, write production settings, introduce an
+app-wide theme manager, touch Workbench state, or change real widget behavior.
+The preview radius control must update a local Module theme scope, with compact
+as the default radius. That local scope must set the final direct radius
+variables rather than an indirect bridge token, so the shell, popup, controls,
+notices, inputs, buttons, badges, and static preview lines visibly change
+together.
+
+Selected or pressed module controls must be clearly readable while staying Flat
+Graphite Compact. Use a flat stronger graphite surface, a calm low-contrast
+graphite border around the whole button, and bright primary text. Ordinary
+selected states must not use neon, glow, blue base surfaces, pill styling,
+oversized radius, heavy outlines, left rails, left accent strips, or inset
+left-side emphasis.
+Preview option controls such as Radius, Shadows, and Background should share
+the generic selected/pressed token path so the active option has an explicit
+flat graphite color difference from inactive buttons without group-specific
+selection styling.
+
+The dummy visual preview may also expose local stage background variants for
+visual-system evaluation: `plain`, `grid`, `fine-grid`, `dots`, `sparse-dots`,
+`dense-grid`, `cross-grid`, and `noir`. These variants are preview/workbench
+stage local only. They are not core ModuleShell body texture, production
+settings, Workbench state, persisted preferences, or app-wide theme
+management. The background hook belongs on the smoke preview root only. Module
+body regions and module-owned popups must remain solid opaque
+graphite/charcoal surfaces regardless of preview background.
+
+Real user theme settings, persisted preferences, Workbench integration, and
+real widget migration are future work and are not part of this contract.
 
 ## Header Structure
 
@@ -75,14 +136,48 @@ State tones are visual-only and domain-free:
 - draft;
 - disabled.
 
+The header state segment is an indicator, not a button or action. It shows only
+a small semantic dot and the state label, such as `Completed`; the visible word
+`State` is not rendered in the segment. The state segment shares the header
+background by default and uses semantic color only as a dot and/or label accent.
+
+Header action segments share the exact header background in their default
+state. Visual change appears only on hover, active, open, focused, or disabled
+states. Header actions have no visible default vertical separators, outlines,
+raised surfaces, pill treatment, or floating button treatment. The only
+permanent full-width header line is the header/body separator.
+
 Module-owned popups should follow the same minimal header/body visual model:
 solid opaque surface, 2px radius, calm border, quiet separation from the header
 action area, and no glass or heavy shadow treatment.
+
+Module-owned popups must not use bright default outlines or white edge
+treatment. Default separation should come from a solid graphite surface, a
+very subtle graphite shadow/elevation token, and at most a low-contrast
+graphite edge. Stronger borders or shadows should appear only on hover, drag,
+active, or focus-visible states when needed. Focus-visible styling must remain
+keyboard-accessible while staying quiet, using muted graphite or an approved
+calm accent rather than white, blue, neon, or OS-window-like outlines.
 
 Module-owned popups are floating mini-module surfaces above the module canvas.
 Opening from a header action must not make the popup part of the header layout
 or a glued dropdown. Movement, when demonstrated in the dummy example, is
 local, non-persistent visual state only.
+
+## Module UI Blocks
+
+Module-level inputs, buttons, statuses, text blocks, key/value rows, and
+notices are visual-system primitives for future module body composition.
+
+These primitives are domain-free. They must not know about Workspace Agent,
+Queue, Knowledge / Skills, Terminal, Notes, Finder, runtime, storage, backend,
+Tauri, widget registry, or business state. Real widgets may adopt them only in
+later focused migration phases with explicit scope.
+
+Module UI blocks should feel like parts of one graphite/charcoal module canvas:
+use minimal frames, 2px radius, calm semantic tones, subtle focus states, and
+compact action states. Prefer text hierarchy, alignment, thin separators, rails,
+and local status signals over nested cards or heavy bordered boxes.
 
 ## ModulePopup Primitive
 
@@ -143,6 +238,8 @@ Minimize collapses only the module body:
 - the header remains visible;
 - the left and right header groups remain visible;
 - the body content is hidden;
+- the module top-left visual position remains anchored and does not move when
+  collapsed or expanded;
 - no widget instance is created, removed, floated, docked, persisted, or
   migrated;
 - module-local body collapses remain separate from shell minimize.

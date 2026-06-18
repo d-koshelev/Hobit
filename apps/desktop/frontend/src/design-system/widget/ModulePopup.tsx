@@ -168,6 +168,7 @@ export function ModulePopup({
               aria-label={closeLabel}
               className="module-popup-close"
               data-module-popup-close="true"
+              data-module-popup-close-flat="true"
               onClick={onClose}
               onPointerDown={(event) => event.stopPropagation()}
               type="button"

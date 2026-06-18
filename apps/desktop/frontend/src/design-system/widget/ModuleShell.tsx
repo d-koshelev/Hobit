@@ -156,6 +156,7 @@ export function ModuleHeaderState({
       ]
         .filter(Boolean)
         .join(" ")}
+      data-module-header-state="indicator"
       data-module-state-tone={tone}
     >
       {children}
@@ -182,6 +183,8 @@ export function ModuleHeaderAction({
         .filter(Boolean)
         .join(" ")}
       data-active={active ? "true" : "false"}
+      data-module-header-action="true"
+      data-module-header-action-flat="true"
       type={type}
     >
       {children}

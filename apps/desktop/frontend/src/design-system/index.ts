@@ -27,5 +27,6 @@ export * from "./widget/WidgetFrame";
 export * from "./widget/ModuleShell";
 export * from "./widget/ModuleSplit";
 export * from "./widget/ModulePopup";
+export * from "./widget/ModuleControls";
 export * from "./widget/WidgetDebugPopup";
 export * from "./widget/WidgetLogsPanel";

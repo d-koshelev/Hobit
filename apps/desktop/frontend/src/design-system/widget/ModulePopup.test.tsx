@@ -1,3 +1,4 @@
+import { readFileSync } from "fs";
 import { act, type ReactNode } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -7,6 +8,8 @@ import modulePopupSource from "./ModulePopup.tsx?raw";
 
 let container: HTMLDivElement | null = null;
 let root: Root | null = null;
+const moduleTokenStyles = readFrontendFile("src/styles/tokens.css");
+const moduleWidgetStyles = readFrontendFile("src/styles/ui/widget.css");
 
 afterEach(() => {
   if (container && root) {
@@ -99,6 +102,84 @@ describe("ModulePopup", () => {
     expect(handle.classList.contains("module-popup-header")).toBe(true);
     expect(handle.getAttribute("aria-label")).toBe("Move test popup");
     expect(handle.getAttribute("title")).toBe("Drag test popup");
+  });
+
+  it("marks the popup close action as a flat header segment", async () => {
+    await render(
+      <ModulePopup
+        closeLabel="Close test popup"
+        id="test-module-popup"
+        onClose={() => undefined}
+        open={true}
+        title="Test popup"
+      >
+        <p>Quiet popup body</p>
+      </ModulePopup>,
+    );
+
+    const close = buttonWithAriaLabel("Close test popup");
+
+    expect(close.dataset.modulePopupClose).toBe("true");
+    expect(close.dataset.modulePopupCloseFlat).toBe("true");
+    expect(close.className).not.toContain("separator");
+  });
+
+  it("uses theme-controlled graphite popup elevation instead of bright default outlines", () => {
+    expect(moduleTokenStyles).toContain("--module-radius: 2px;");
+    expect(moduleTokenStyles).toContain(
+      "--module-popup-radius: var(--module-radius);",
+    );
+    expect(moduleWidgetStyles).toContain(
+      '.module-theme-scope[data-module-radius="soft"]',
+    );
+    expect(moduleWidgetStyles).toContain("--module-popup-radius: 5px;");
+    expect(moduleTokenStyles).toContain("--module-theme-shadow-module: none;");
+    expect(moduleTokenStyles).toContain("--module-popup-shadow-subtle:");
+    expect(moduleTokenStyles).toContain("--module-popup-shadow-subtle-active:");
+    expect(moduleTokenStyles).toContain(
+      "--module-theme-shadow-popup: var(--module-popup-shadow-subtle);",
+    );
+    expect(moduleTokenStyles).toContain(
+      "--module-palette-popup-border: #22282f;",
+    );
+    expect(moduleTokenStyles).toContain(
+      "--module-popup-focus-outline-color: var(--module-palette-popup-focus);",
+    );
+    expect(moduleTokenStyles).toContain(
+      "--module-popup-close-background: var(--module-popup-header-background);",
+    );
+    expect(moduleTokenStyles).not.toContain("--module-popup-shadow: none");
+    expect(moduleTokenStyles).not.toMatch(
+      /--module-palette-popup-border:\s*#(?:fff|ffffff)\b/i,
+    );
+
+    expect(moduleWidgetStyles).toContain(
+      "border: 1px solid var(--module-popup-border-color);",
+    );
+    expect(moduleWidgetStyles).toContain(
+      "border-radius: var(--module-popup-radius);",
+    );
+    expect(moduleWidgetStyles).toContain(
+      "box-shadow: var(--module-theme-shadow-popup);",
+    );
+    expect(moduleWidgetStyles).toContain(
+      "border-color: var(--module-popup-border-active-color);",
+    );
+    expect(moduleWidgetStyles).toContain(
+      "box-shadow: var(--module-theme-shadow-popup-active);",
+    );
+    expect(moduleWidgetStyles).not.toContain(
+      "box-shadow: var(--module-popup-shadow);",
+    );
+    expect(moduleWidgetStyles).toContain(
+      "outline: 1px solid var(--module-popup-focus-outline-color);",
+    );
+    expect(moduleWidgetStyles).toContain(
+      "background: var(--module-popup-header-background);",
+    );
+    expect(moduleWidgetStyles).toContain(
+      "background: var(--module-popup-close-background);",
+    );
   });
 
   it("updates local style position when the header is dragged", async () => {
@@ -327,4 +408,8 @@ function extractImportText(source: string) {
   }
 
   return importLines.join("\n").toLowerCase();
+}
+
+function readFrontendFile(path: string) {
+  return readFileSync(`${process.cwd()}/${path}`, "utf8");
 }
