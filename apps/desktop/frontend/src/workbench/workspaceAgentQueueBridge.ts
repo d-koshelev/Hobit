@@ -11,6 +11,9 @@ import type { AgentQueueTaskRunSettingsDefaults } from "./queue/agentQueueRunSet
 import type {
   AgentQueueTask,
   AgentQueueItemAggregate,
+  AgentQueueReviewCommandResult,
+  AckAgentQueueReviewMessageRequest,
+  CreateAgentQueueReviewMessageRequest,
   GetAgentQueueItemAggregateRequest,
   ListAgentQueueItemAggregatesRequest,
   AttachKnowledgeToQueueTaskRequest,
@@ -109,6 +112,15 @@ export type WorkspaceQueueAggregateReadActions = {
   ) => Promise<AgentQueueItemAggregate[]>;
 };
 
+export type WorkspaceQueueReviewActions = {
+  ackAgentQueueReviewMessage: (
+    request: AckAgentQueueReviewMessageRequest,
+  ) => Promise<AgentQueueReviewCommandResult>;
+  createAgentQueueReviewMessage: (
+    request: CreateAgentQueueReviewMessageRequest,
+  ) => Promise<AgentQueueReviewCommandResult>;
+};
+
 export type WorkspaceAgentQueueBridge = {
   attachKnowledgeToQueueTask?: (
     request: Omit<AttachKnowledgeToQueueTaskRequest, "workspaceId">,
@@ -129,6 +141,12 @@ export type WorkspaceAgentQueueBridge = {
     request: Omit<GetAgentQueueItemAggregateRequest, "workspaceId">,
   ) => Promise<AgentQueueItemAggregate | null>;
   listItemAggregates?: () => Promise<AgentQueueItemAggregate[]>;
+  ackReviewMessage?: (
+    request: Omit<AckAgentQueueReviewMessageRequest, "workspaceId">,
+  ) => Promise<AgentQueueReviewCommandResult>;
+  createReviewMessage?: (
+    request: Omit<CreateAgentQueueReviewMessageRequest, "workspaceId">,
+  ) => Promise<AgentQueueReviewCommandResult>;
   updateItem: (
     request: Omit<QueueUpdateItemRequest, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>>;
@@ -148,6 +166,7 @@ export function createWorkspaceAgentQueueBridge({
   contextActions,
   controlActions,
   queueApi,
+  reviewActions,
   queueState,
   workspaceId,
 }: {
@@ -156,6 +175,7 @@ export function createWorkspaceAgentQueueBridge({
   contextActions?: WorkspaceQueueContextActions | null;
   controlActions?: WorkspaceQueueControlActions | null;
   queueApi: AgentQueueWidgetApi;
+  reviewActions?: WorkspaceQueueReviewActions | null;
   queueState?: WorkspaceQueueStateAccess | null;
   workspaceId: string;
 }): WorkspaceAgentQueueBridge {
@@ -211,6 +231,20 @@ export function createWorkspaceAgentQueueBridge({
       : undefined,
     listItemAggregates: aggregateReadActions
       ? () => aggregateReadActions.listAgentQueueItemAggregates({ workspaceId })
+      : undefined,
+    ackReviewMessage: reviewActions
+      ? (request) =>
+          reviewActions.ackAgentQueueReviewMessage({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    createReviewMessage: reviewActions
+      ? (request) =>
+          reviewActions.createAgentQueueReviewMessage({
+            ...request,
+            workspaceId,
+          })
       : undefined,
     updateItem: async (request) => {
       const result = await queueApi.updateItem({

@@ -111,7 +111,7 @@ function handleCreateReviewMessage(
 ): QueueDogfoodLifecycleHandlerResult {
   const validation = readInput<QueueAgentReviewCreateMessageInput>(
     request,
-    ["taskId", "coordinatorAgentId"],
+    ["taskId"],
     [
       "taskId",
       "coordinatorAgentId",
@@ -141,7 +141,6 @@ function handleCreateReviewMessage(
     lifecycle.createReviewMessage(
       {
         ...validation.value,
-        coordinatorAgentId: validation.value.coordinatorAgentId as string,
         evidenceBundle: evidence.value,
         taskId: validation.value.taskId as string,
       },
@@ -156,7 +155,7 @@ function handleReviewAck(
 ): QueueDogfoodLifecycleHandlerResult {
   const validation = readInput<QueueAgentReviewAckInput>(
     request,
-    ["taskId", "messageId", "coordinatorAgentId"],
+    ["taskId", "messageId"],
     ["taskId", "messageId", "coordinatorAgentId", "ackId", "receivedAt"],
   );
   if (!validation.ok) {
@@ -167,7 +166,6 @@ function handleReviewAck(
     lifecycle.ackReview(
       {
         ...validation.value,
-        coordinatorAgentId: validation.value.coordinatorAgentId as string,
         messageId: validation.value.messageId as string,
         taskId: validation.value.taskId as string,
       },

@@ -71,7 +71,6 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       expect(capability.inputSchema?.requiredFields).toBeDefined();
       expect(capability.forbiddenSideEffects).toEqual(
         expect.arrayContaining([
-          "backend_durability",
           "git_mutation",
           "worker_start",
           "worker_auto_run",
@@ -83,6 +82,14 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
           "shell_command",
         ]),
       );
+      if (
+        capabilityId !== "queue.review.createMessage" &&
+        capabilityId !== "queue.review.ack"
+      ) {
+        expect(capability.forbiddenSideEffects).toEqual(
+          expect.arrayContaining(["backend_durability"]),
+        );
+      }
 
       for (const example of capability.examples ?? []) {
         const parsed = readHobitAgentActionRequestEnvelope(
@@ -120,7 +127,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     expect(
       requiredCapability(registry, "queue.review.ack").inputSchema,
     ).toMatchObject({
-      requiredFields: ["taskId", "messageId", "coordinatorAgentId"],
+      requiredFields: ["taskId", "messageId"],
     });
     expect(
       requiredCapability(registry, "queue.item.markDone").inputSchema,

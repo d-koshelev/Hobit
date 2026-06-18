@@ -2,29 +2,29 @@
 
 ## Purpose
 
-This contract defines the frontend pure model for the Queue dogfooding
-lifecycle. It separates Queue ticket state from agent/prompt state so Hobit can
-model review gates before later durability, worker, validation, and commit
-integration blocks.
+This contract defines the Queue dogfooding lifecycle boundary. The older
+frontend pure model still separates Queue ticket state from agent/prompt state
+for transitional UI and self-test flows, while backend/domain Queue aggregate
+and review command contracts now own durable review-message preconditions and
+review message/ACK state.
 
-This frontend lifecycle contract does not add full backend lifecycle
-durability, SQLite schema migrations, real worker execution, scheduler
-redesign, Git commit execution, rollback execution, Terminal launch, Finder
-behavior, or natural-language prompt routing. A first backend/domain
-`QueueItemAggregate` read model now exists separately as the authoritative
-durable read path over existing Queue task rows and run links; it does not
-persist review messages, ACKs, evidence bundles, validation decisions, commit
-decisions, or scheduler state yet.
+This contract does not add full backend lifecycle durability, real worker
+execution, scheduler redesign, Git commit execution, rollback execution,
+Terminal launch, Finder behavior, or natural-language prompt routing. The
+backend/domain `QueueItemAggregate` read model is the authoritative durable read
+path over existing Queue task rows, run links, dependencies, and review message
+ledger rows. The backend now persists Queue review messages and ACK state; full
+evidence bundles, validation decisions, commit decisions, mark-done/fail/block,
+and scheduler state remain later work.
 
 ## Status
 
-Current as a frontend pure model foundation with frontend controller/view-model
-adapter integration, typed frontend Action Broker capability access, a
-frontend Queue worker evidence bundle model, a frontend Queue worker evidence
-ingestion bridge, a Queue-linked Direct Work metadata seam, and a broker-driven
-Queue-linked Direct Work evidence event wiring path, and a broker-driven fake
-dogfooding loop self-test, plus a minimal active Queue details review/evidence
-surface for explicit coordinator review actions.
+Current as a frontend pure model foundation plus backend/domain aggregate and
+review command MVP. The frontend controller/view-model adapter, worker evidence
+bundle model, ingestion bridge, Queue-linked Direct Work metadata seam, and
+broker-driven fake dogfooding self-test remain transitional. The backend owns
+`queue.review.createMessage` and `queue.review.ack` preconditions and durable
+review message state through typed Tauri commands.
 
 The implemented model and adapter layer live under:
 
@@ -38,20 +38,28 @@ The implemented model and adapter layer live under:
 - `apps/desktop/frontend/src/workbench/queueLinkedDirectWorkEvidenceWiring.ts`
 - `apps/desktop/frontend/src/workbench/useCodexDirectWorkQueueHandoff.ts`
 
-The model is not yet persisted and is not yet wired as the authoritative
-runtime Queue lifecycle. The controller/view-model adapter is an overlay for
-frontend Queue controller helpers, QueueV2 presentation, fake lifecycle tests,
-and broker capability handlers. Broker capability execution mutates only this
-frontend/controller overlay where dependencies are available.
+The frontend lifecycle model is not the authoritative runtime Queue lifecycle.
+The controller/view-model adapter remains an overlay for frontend Queue
+controller helpers, QueueV2 presentation, fake lifecycle tests, evidence
+bundle reads, and lifecycle commands that have not moved to backend/domain yet.
+`queue.review.createMessage` and `queue.review.ack` no longer use that overlay
+as product truth in the Workspace Agent bridge path.
 
-Backend/domain read-model foundation:
+Backend/domain aggregate and review command foundation:
 
 - `crates/hobit-app/src/workspace_service/agent_queue_aggregate.rs` builds a
-  read-only `QueueItemAggregate` from durable Queue task rows, dependency ids,
-  latest Queue run links, and available widget run summary metadata.
+  `QueueItemAggregate` from durable Queue task rows, dependency ids, latest
+  Queue run links, available widget run summary metadata, and latest durable
+  Queue review message rows.
+- `crates/hobit-app/src/workspace_service/agent_queue_review.rs` owns backend
+  create/ACK review command preconditions from the aggregate and persists the
+  review message ledger.
 - `apps/desktop/src-tauri/src/agent_queue_aggregate_dto.rs` and
   `apps/desktop/src-tauri/src/agent_queue_aggregate_commands.rs` expose
   read-only aggregate list/get commands to the desktop bridge.
+- `apps/desktop/src-tauri/src/agent_queue_review_dto.rs` and
+  `apps/desktop/src-tauri/src/agent_queue_review_commands.rs` expose typed
+  review create/ACK commands to the desktop bridge.
 - `crates/hobit-app/src/workspace_service/agent_queue_headless_contract_tests.rs`
   proves the backend/domain contract headlessly through `WorkspaceService` and
   storage fixtures, without launching the frontend.
@@ -61,21 +69,27 @@ Backend/domain read-model foundation:
 - The aggregate treats raw `task.status` as legacy input, not final product
   truth. A successful worker completion maps to `awaiting_review`, not `done`.
   Dependency satisfaction is not granted by worker completion alone.
-- Where review/evidence/validation/commit durability is not implemented, the
+- Worker completion maps to `awaiting_review` with available
+  `create_review_message`; review-message creation maps to
+  `review_message_created` with available `ack_review`; ACK maps to
+  `in_review`. Worker completion still does not mean `done`.
+- Where evidence/validation/commit durability is not implemented, the
   aggregate returns honest `not_durable`, `unknown`, or unavailable next-action
   reasons instead of reading frontend overlays.
 - Workspace Agent / broker read wiring for `queue.items.list` and
   `queue.lifecycle.get` now uses this aggregate DTO through the typed frontend
-  bridge. Queue UI rendering migration to the aggregate DTO remains a later
-  phase, and the frontend overlay remains transitional compatibility behavior
-  for write/review/evidence capabilities until durable commands exist.
+  bridge. Workspace Agent / broker review create and ACK now call typed
+  backend/Tauri commands. Queue UI rendering migration to the aggregate DTO
+  remains a later phase, and the frontend overlay remains transitional
+  compatibility behavior for evidence, validation, follow-up, mark-done,
+  fail, and block lifecycle capabilities until durable commands exist.
 
 The backend aggregate is now the authoritative Queue read model for durable
-task/run-link/dependency inspection and Workspace Agent/Broker read
-capabilities. Queue correctness for those states is testable with Rust backend
-and Tauri command tests without opening or launching the frontend. Queue UI
-must later render this authoritative DTO and send typed commands only;
-frontend overlays must not become product truth.
+task/run-link/dependency/review-message inspection and Workspace Agent/Broker
+read and review create/ACK capabilities. Queue correctness for those states is
+testable with Rust backend and Tauri command tests without opening or launching
+the frontend. Queue UI must later render this authoritative DTO and send typed
+commands only; frontend overlays must not become product truth.
 
 ## State Dimensions
 
@@ -456,16 +470,24 @@ The frontend Action Broker can expose the dogfood lifecycle through structured
 - `queue.lifecycle.get`
 - `queue.review.getEvidenceBundle`
 
-`queue.lifecycle.get` is the read exception in this group: it requires an
-explicit `taskId`, reads the backend/Tauri authoritative aggregate DTO, and
-returns ticket/worker/review/evidence/validation/commit/dependency states,
-blockers, nextActions, latestRun, evidenceSummary, durable flags, and
-`authoritativeBackendAggregate=true`.
+`queue.lifecycle.get` requires an explicit `taskId`, reads the backend/Tauri
+authoritative aggregate DTO, and returns ticket/worker/review/evidence/
+validation/commit/dependency states, blockers, nextActions, latestRun,
+evidenceSummary, durable flags, and `authoritativeBackendAggregate=true`.
 
-The remaining lifecycle write/review/evidence capabilities are
-frontend/controller lifecycle capabilities only. They validate structured
-inputs, enforce broker policy, support dry-run previews, return compact
-lifecycle results, and emit compact activity/audit labels.
+`queue.review.createMessage` and `queue.review.ack` require explicit task
+identity and call backend/domain/Tauri review commands through the typed
+Workspace Agent queue bridge. The model does not need to invent
+`coordinatorAgentId`; the bridge injects a trusted actor id from Workspace
+Agent/request context and falls back to `workspace-agent` only when no stronger
+context id exists. Backend aggregate preconditions decide whether review create
+or ACK is allowed. Results include the durable message id, backend review
+state, blockers, nextActions, and updated aggregate state.
+
+The remaining lifecycle write/evidence capabilities are frontend/controller
+lifecycle capabilities only. They validate structured inputs, enforce broker
+policy, support dry-run previews, return compact lifecycle results, and emit
+compact activity/audit labels.
 
 Workspace Agent can now continue across multiple frontend broker actions by
 feeding compact structured `hobit.action.result` context back into the same
@@ -476,9 +498,9 @@ The loop is capped and stops on confirmation-required, policy-blocked,
 unavailable, dry-run-required, failed, invalid-input, repeated request id,
 repeated capability/input, unsupported envelope, restricted capability, max
 action count, or missing same-thread continuation state. It does not infer
-task ids or executor ids from prose and does not add backend durability,
-validation execution, Git/commit execution, rollback execution, Terminal,
-shell, Codex, or scheduler behavior.
+task ids or executor ids from prose and does not add validation execution,
+Git/commit execution, rollback execution, Terminal, shell, Codex, or scheduler
+behavior.
 
 `queue.lifecycle.agentFinished` accepts the existing explicit fields and can
 also accept an optional normalized or raw `evidenceBundle`. When evidence is
@@ -490,23 +512,31 @@ outcome, and thread id mismatches are rejected. Invalid evidence returns
 `invalid_input`. Dry-run with evidence previews the transition without
 mutating lifecycle overlay state.
 
-`queue.review.createMessage` can include the normalized evidence summary in
-the review message when evidence is supplied. `queue.review.getEvidenceBundle`
-returns the normalized frontend bundle stored in the fake/controller overlay
-when one is available, and reports that the bundle is frontend-only and not
-durable. Review message creation and evidence reads still work when no bundle
-exists.
+`queue.review.createMessage` may pass a bounded final agent/evidence summary
+as review message body, but the backend owns the persisted message row and
+precondition. `queue.review.getEvidenceBundle` returns the normalized frontend
+bundle stored in the fake/controller overlay when one is available, and reports
+that the bundle is frontend-only and not durable. Evidence reads still work
+when no bundle exists.
 
 Dry-run:
 
 - previews the intended lifecycle transition;
 - does not mutate lifecycle overlay state;
-- does not create review messages;
+- does not create backend review messages or ACK review messages;
 - does not mark done, blocked, or failed;
 - does not start workers, run validation, call Git, launch Terminal, execute
   rollback, call shell, or call Codex.
 
-Real invocation:
+Real invocation for backend-backed review create/ACK:
+
+- persists only the review message/ACK ledger row through backend/domain/Tauri
+  commands;
+- returns updated backend aggregate state;
+- does not run workers, run validation, execute a Git commit, launch Terminal,
+  execute rollback, call shell, or call Codex.
+
+Real invocation for remaining transitional lifecycle writes:
 
 - mutates only the frontend/controller lifecycle overlay when the Queue bridge
   or injected lifecycle adapter can provide the current task;

@@ -233,8 +233,8 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
   const agentFinishedPassed =
     agentFinished.status === "succeeded" &&
     agentFinishedOutput?.ticketState === "awaiting_review" &&
-    agentFinishedOutput.lifecycle.workerEvidenceBundle?.taskId === store.taskId &&
-    agentFinishedOutput.lifecycle.currentThreadId === store.fakeThreadId;
+    agentFinishedOutput.lifecycle?.workerEvidenceBundle?.taskId === store.taskId &&
+    agentFinishedOutput.lifecycle?.currentThreadId === store.fakeThreadId;
   const reviewCreatedPassed =
     reviewCreated.status === "succeeded" && reviewMessageHasEvidence;
   const ackPassed =
@@ -242,16 +242,16 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
   const validationPassed =
     approved.status === "succeeded" &&
     approvedOutput?.ticketState === "in_review" &&
-    approvedOutput.lifecycle.validationApprovals.length > 0 &&
+    (approvedOutput.lifecycle?.validationApprovals.length ?? 0) > 0 &&
     approvedOutput.wouldRunValidation === false;
   const markDonePassed =
     done.status === "succeeded" &&
     doneOutput?.ticketState === "done" &&
-    doneOutput.lifecycle.commitResults.some(
+    (doneOutput.lifecycle?.commitResults.some(
       (commit) =>
         commit.commitHash === store.fakeCommit.commitHash &&
         commit.noGitMutationPerformed === true,
-    );
+    ) ?? false);
   const dependentGatePassed =
     !dependentBeforeDoneStartable && dependentAfterDoneStartable;
 
@@ -263,8 +263,8 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
         evidence: [
           brokerEvidence(agentFinished),
           `ticketState: ${agentFinishedOutput?.ticketState ?? "unknown"}.`,
-          `Evidence bundle task: ${agentFinishedOutput?.lifecycle.workerEvidenceBundle?.taskId ?? "missing"}.`,
-          `Evidence thread: ${agentFinishedOutput?.lifecycle.currentThreadId ?? "missing"}.`,
+          `Evidence bundle task: ${agentFinishedOutput?.lifecycle?.workerEvidenceBundle?.taskId ?? "missing"}.`,
+          `Evidence thread: ${agentFinishedOutput?.lifecycle?.currentThreadId ?? "missing"}.`,
           "Broker invoked queue.lifecycle.agentFinished with a worker evidence bundle.",
         ],
         message: agentFinishedPassed

@@ -19,6 +19,8 @@ mod agent_queue_execution_commands;
 mod agent_queue_execution_dto;
 #[cfg(test)]
 mod agent_queue_execution_dto_tests;
+mod agent_queue_review_commands;
+mod agent_queue_review_dto;
 mod agent_queue_runner;
 mod agent_queue_runner_commands;
 mod agent_queue_task_commands;
@@ -203,6 +205,8 @@ pub fn run() {
             agent_queue_task_commands::delete_agent_queue_task,
             agent_queue_aggregate_commands::list_agent_queue_item_aggregates,
             agent_queue_aggregate_commands::get_agent_queue_item_aggregate,
+            agent_queue_review_commands::create_agent_queue_review_message,
+            agent_queue_review_commands::ack_agent_queue_review_message,
             agent_queue_worker_commands::list_agent_queue_workers,
             agent_queue_worker_commands::create_agent_queue_worker,
             agent_queue_worker_commands::update_agent_queue_worker,

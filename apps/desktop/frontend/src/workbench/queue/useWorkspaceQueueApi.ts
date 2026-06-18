@@ -15,6 +15,10 @@ import {
   listAgentQueueItemAggregates,
 } from "../../workspace/tauriAgentQueueAggregateApi";
 import {
+  ackAgentQueueReviewMessage,
+  createAgentQueueReviewMessage,
+} from "../../workspace/tauriAgentQueueReviewApi";
+import {
   createWorkspaceAgentQueueBridge,
   type WorkspaceAgentQueueAutonomousActionName,
   type WorkspaceAgentQueueAutonomousActionResult,
@@ -121,6 +125,12 @@ export function useWorkspaceQueueApi({
       listItemAggregates: () =>
         latestBridgeRef.current?.listItemAggregates?.() ??
         Promise.reject(new Error("Queue aggregate read API is unavailable.")),
+      ackReviewMessage: (request) =>
+        latestBridgeRef.current?.ackReviewMessage?.(request) ??
+        Promise.reject(new Error("Queue review command API is unavailable.")),
+      createReviewMessage: (request) =>
+        latestBridgeRef.current?.createReviewMessage?.(request) ??
+        Promise.reject(new Error("Queue review command API is unavailable.")),
       enableQueue: (request) =>
         latestBridgeRef.current?.enableQueue?.(request) ??
         Promise.resolve(
@@ -323,6 +333,10 @@ export function useWorkspaceQueueApi({
         }),
     },
     queueApi,
+    reviewActions: {
+      ackAgentQueueReviewMessage,
+      createAgentQueueReviewMessage,
+    },
     queueState: {
       getCurrentWorkspaceRoot: () => normalizedCurrentWorkspaceRoot,
       getRunSettingsDefaults: () =>

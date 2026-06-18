@@ -309,9 +309,10 @@ During the smoke, verify these product labels appear where applicable:
       `queue.review.getEvidenceBundle` returns normalized frontend evidence
       when available, and the evidence is labeled frontend-only / not durable.
     - Expected: Queue backend aggregate read-model coverage is available for
-      durable task/run-link state, while dogfood review/evidence persistence is
-      still skipped. Real worker execution, real validation execution, and real
-      Git commit execution are blocked/not covered with explicit reasons.
+      durable task/run-link/review-message state. Frontend evidence bundle
+      persistence, validation decision durability, mark-done/fail/block
+      durability, real worker execution, real validation execution, and real Git
+      commit execution are blocked/not covered with explicit reasons.
     - Expected: after Run Agent Self-Test completes, Agent Activity must not
       show a stale duplicate `Running` row for that self-test run.
     - Expected: no raw JSON appears in the default report; Queue checks are
@@ -338,8 +339,9 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: the self-test is model-only; it does not start workers, call
       Codex or shell, launch Terminal, mutate Git, execute rollback, create
       Queue views, or write backend/storage/schema state.
-    - Expected: backend aggregate read-model tests cover durable task/run-link
-      state separately. Full review/evidence durability, real worker
+    - Expected: backend aggregate/read-model tests cover durable task/run-link
+      state, and backend review command tests cover durable review
+      message/ACK state. Full evidence bundle durability, real worker
       integration, real validation execution, real commit execution, and
       backend scheduler dependency enforcement remain not implemented.
 
@@ -355,6 +357,12 @@ During the smoke, verify these product labels appear where applicable:
       running/completed/failed run links, dependency waiting/failed-upstream
       state, read-only queries, explicit task identity, no prompt regex routing,
       and explicit `not_durable` / `unknown` states.
+    - Expected:
+      `crates/hobit-app/src/workspace_service/agent_queue_review_tests.rs`
+      proves `queue.review.createMessage` backend preconditions, Draft/Running
+      rejection, explicit task id and actor id requirements, unrelated task
+      isolation, durable reload of review message state, and ACK transition to
+      `in_review`.
     - Expected: Draft tasks report Draft with missing-setting blockers; queued
       tasks with settings expose `start_run`; running run links report Running;
       successful worker completion reports `awaiting_review` and not `done`;
@@ -365,9 +373,15 @@ During the smoke, verify these product labels appear where applicable:
       `apps/desktop/src-tauri/src/agent_queue_aggregate_commands/tests.rs`
       prove stable DTO serialization, explicit workspace/task identity, and
       read-only command behavior without launching the frontend UI.
+    - Expected:
+      `apps/desktop/src-tauri/src/agent_queue_review_commands/tests.rs` proves
+      review create/ACK command serialization, typed invalid-state rejection,
+      actor id validation, ACK aggregate update, and frontend independence
+      without launching Queue UI.
     - Expected automated commands include
-      `cargo test -p hobit-app agent_queue_headless_contract_tests` and
-      `cargo test -p hobit-desktop agent_queue_aggregate_commands`, with the
+      `cargo test -p hobit-app agent_queue`,
+      `cargo test -p hobit-desktop agent_queue_aggregate_commands`, and
+      `cargo test -p hobit-desktop agent_queue_review_commands`, with the
       broader root `cargo test` remaining the final validation gate for this
       backend/API contract.
     - Expected: aggregate reads do not start work, run validation, mutate Git,
@@ -381,25 +395,27 @@ During the smoke, verify these product labels appear where applicable:
     request.
     - Expected: Workspace Agent can emit a valid
       `hobit.action.request` envelope for `queue.lifecycle.agentFinished`,
-      `queue.review.ack`, `queue.coordinator.addFollowUpPrompt`, or
-      `queue.item.markDone`.
+      `queue.review.createMessage`, `queue.review.ack`,
+      `queue.coordinator.addFollowUpPrompt`, or `queue.item.markDone`.
     - Expected: `queue.lifecycle.agentFinished` accepts either explicit fields
       or a structured `evidenceBundle` carrying task id, attempt id, thread id,
       outcome, final agent message, changed files, validation summary/output
       preview, and log reference when available.
     - Expected: invalid evidence, task id mismatch, and attempt id mismatch are
       rejected as typed invalid input before lifecycle mutation.
-    - Expected: the Action Broker validates the typed input schema, invokes the
-      injected frontend Queue lifecycle adapter where available, and renders a
-      compact product-facing result such as `Queue lifecycle agent finished.`
+    - Expected: the Action Broker validates the typed input schema. Review
+      create/ACK invoke backend/Tauri review commands through the Workspace
+      Agent queue bridge, while remaining transitional lifecycle writes invoke
+      the injected frontend Queue lifecycle adapter where available.
     - Expected: dry-run lifecycle requests preview the transition and do not
-      change lifecycle overlay state, create review messages, mark done/fail,
-      start workers, run validation, call Git, launch Terminal, execute
-      rollback, call shell, or call Codex.
-    - Expected: real lifecycle requests mutate only the frontend/controller
-      overlay. Backend durability, real worker execution, real validation
-      execution, real Git commit execution, rollback execution, and durable
-      scheduler integration remain not implemented.
+      change lifecycle overlay state, create backend review messages, ACK
+      review, mark done/fail, start workers, run validation, call Git, launch
+      Terminal, execute rollback, call shell, or call Codex.
+    - Expected: real review create/ACK requests mutate only the backend review
+      message ledger and return updated aggregate state. Other real lifecycle
+      requests mutate only the frontend/controller overlay. Real worker
+      execution, real validation execution, real Git commit execution, rollback
+      execution, and durable scheduler integration remain not implemented.
     - Expected: ordinary prose remains prose, and Queue lifecycle product
       actions are not triggered by natural-language phrase matching.
 

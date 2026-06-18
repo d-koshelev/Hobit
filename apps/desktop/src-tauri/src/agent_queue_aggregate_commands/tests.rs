@@ -180,10 +180,10 @@ fn aggregate_command_helper_serializes_completed_run_as_awaiting_review_read_mod
         start.run_id
     );
     assert_eq!(aggregate.next_actions[0].code, "create_review_message");
-    assert!(!aggregate.next_actions[0].available);
+    assert!(aggregate.next_actions[0].available);
     assert_eq!(
         aggregate.next_actions[0].unavailable_reason.as_deref(),
-        Some("backend_review_command_not_implemented")
+        None
     );
     assert!(aggregate.durable_flags.task_row);
     assert!(aggregate.durable_flags.latest_run_link);

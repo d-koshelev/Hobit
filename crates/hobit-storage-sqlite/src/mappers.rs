@@ -3,11 +3,12 @@
 use rusqlite::Result;
 
 use crate::rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerRow,
-    JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow,
-    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
-    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    AgentQueueItemRow, AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
+    AgentQueueWorkerRow, JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow,
+    KnowledgeDocumentRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow,
+    WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
+    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    WorkspaceWorkbenchRow,
 };
 
 pub(crate) fn workspace_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceRow> {
@@ -181,6 +182,26 @@ pub(crate) fn agent_queue_task_run_link_row(
         validation_status: row.get(9)?,
         review_status: row.get(10)?,
         created_at: row.get(11)?,
+        updated_at: row.get(12)?,
+    })
+}
+
+pub(crate) fn agent_queue_review_message_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<AgentQueueReviewMessageRow> {
+    Ok(AgentQueueReviewMessageRow {
+        message_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        queue_task_id: row.get(2)?,
+        run_id: row.get(3)?,
+        run_link_id: row.get(4)?,
+        actor_id: row.get(5)?,
+        message_body: row.get(6)?,
+        status: row.get(7)?,
+        created_at: row.get(8)?,
+        acked_at: row.get(9)?,
+        ack_actor_id: row.get(10)?,
+        metadata_json: row.get(11)?,
         updated_at: row.get(12)?,
     })
 }

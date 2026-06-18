@@ -20,10 +20,25 @@ const LIFECYCLE_FORBIDDEN_SIDE_EFFECTS = [
   "duplicate_queue_view",
 ] as const;
 
+const BACKEND_REVIEW_FORBIDDEN_SIDE_EFFECTS = [
+  "worker_start",
+  "worker_auto_run",
+  "queue_autorun",
+  "validation_execution",
+  "real_commit_execution",
+  "git_mutation",
+  "rollback_execution",
+  "terminal_launch",
+  "codex_run",
+  "shell_command",
+  "duplicate_queue_view",
+] as const;
+
 const COMPACT_GUIDANCE = [
   "Use only the documented fields.",
   "queue.lifecycle.get is a backend-authoritative aggregate read and requires taskId.",
-  "Write/review/evidence lifecycle capabilities remain transitional frontend/controller overlay operations when dryRun=false.",
+  "queue.review.createMessage and queue.review.ack use backend/Tauri review commands and require explicit taskId.",
+  "Other write/evidence lifecycle capabilities remain transitional frontend/controller overlay operations when dryRun=false.",
   "Dry-run previews must not mutate lifecycle state or create review messages.",
   "Do not run workers, validation, Git, Terminal, rollback, shell, or Codex from these capabilities.",
 ] as const;
@@ -80,7 +95,8 @@ const REVIEW_CREATE_SCHEMA: HobitAgentCapabilityInputSchema = {
     attemptId: "Optional attempt id override.",
     changedFilesSummary:
       "Optional changed files summary as a string or string array.",
-    coordinatorAgentId: "Required target coordinator or Workspace Agent id.",
+    coordinatorAgentId:
+      "Optional trusted actor override. Workspace Agent runtime supplies workspace-agent when omitted.",
     createdAt: "Optional ISO timestamp; broker request time is used by default.",
     evidenceBundle:
       "Optional normalized Queue worker evidence bundle. Review message uses its bounded product evidence summary when supplied.",
@@ -91,24 +107,25 @@ const REVIEW_CREATE_SCHEMA: HobitAgentCapabilityInputSchema = {
     validationSummary: "Optional validation summary override.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
-  requiredFields: ["taskId", "coordinatorAgentId"],
+  requiredFields: ["taskId"],
   shape:
-    '{"taskId":"string required","coordinatorAgentId":"string required","messageId":"string optional","finalAgentMessage":"string optional","validationSummary":"string optional","changedFilesSummary":"string|string[] optional"}',
+    '{"taskId":"string required","coordinatorAgentId":"string optional supplied by runtime when omitted","messageId":"string optional","finalAgentMessage":"string optional","validationSummary":"string optional","changedFilesSummary":"string|string[] optional"}',
 };
 
 const REVIEW_ACK_SCHEMA: HobitAgentCapabilityInputSchema = {
   acceptedFields: ["taskId", "messageId", "coordinatorAgentId", "ackId", "receivedAt"],
   fieldDescriptions: {
     ackId: "Optional ACK id.",
-    coordinatorAgentId: "Required coordinator or Workspace Agent id.",
+    coordinatorAgentId:
+      "Optional trusted actor override. Workspace Agent runtime supplies workspace-agent when omitted.",
     messageId: "Required review message id to ACK.",
     receivedAt: "Optional ISO timestamp; broker request time is used by default.",
     taskId: "Required Queue item id.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
-  requiredFields: ["taskId", "messageId", "coordinatorAgentId"],
+  requiredFields: ["taskId", "messageId"],
   shape:
-    '{"taskId":"string required","messageId":"string required","coordinatorAgentId":"string required","ackId":"string optional"}',
+    '{"taskId":"string required","messageId":"string required","coordinatorAgentId":"string optional supplied by runtime when omitted","ackId":"string optional"}',
 };
 
 const APPROVE_VALIDATION_SCHEMA: HobitAgentCapabilityInputSchema = {
@@ -278,7 +295,6 @@ const AGENT_FINISHED_EVIDENCE_EXAMPLE = {
 } as const;
 
 const REVIEW_ACK_EXAMPLE = {
-  coordinatorAgentId: "workspace-agent",
   messageId: "review-message-id",
   taskId: "task-id",
 } as const;
@@ -325,16 +341,18 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
   lifecycleCapability({
     auditLabel: "Queue review message created",
     description:
-      "Create or preview a review message from the current awaiting-review Queue dogfood lifecycle item.",
+      "Create or preview a backend-owned review message from an awaiting-review Queue item.",
+    forbiddenSideEffects: BACKEND_REVIEW_FORBIDDEN_SIDE_EFFECTS,
     id: "queue.review.createMessage",
     inputSchema: REVIEW_CREATE_SCHEMA,
-    output: "Review message plus unchanged or updated lifecycle overlay.",
+    output:
+      "Backend review command result with messageId, reviewState, nextActions, blockers, durability, and updated aggregate.",
     title: "Create Queue Review Message",
   }),
   lifecycleCapability({
     auditLabel: "Queue review acknowledged",
     description:
-      "ACK a Queue dogfood lifecycle review message and move the item from awaiting review to in review.",
+      "ACK a backend-owned Queue review message and move the aggregate from review_message_created to in_review.",
     examples: [
       envelopeExample(
         "Acknowledge the Queue review message.",
@@ -342,9 +360,11 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
         REVIEW_ACK_EXAMPLE,
       ),
     ],
+    forbiddenSideEffects: BACKEND_REVIEW_FORBIDDEN_SIDE_EFFECTS,
     id: "queue.review.ack",
     inputSchema: REVIEW_ACK_SCHEMA,
-    output: "Review ACK plus lifecycle overlay with ticketState in_review.",
+    output:
+      "Backend review command result with messageId, reviewState, nextActions, blockers, durability, and updated aggregate.",
     title: "Acknowledge Queue Review",
   }),
   lifecycleCapability({
@@ -439,11 +459,13 @@ function lifecycleCapability({
   inputSchema,
   output,
   sideEffectLevel = "write",
+  forbiddenSideEffects = LIFECYCLE_FORBIDDEN_SIDE_EFFECTS,
   title,
 }: {
   auditLabel: string;
   description: string;
   examples?: readonly HobitAgentCapabilityExample[];
+  forbiddenSideEffects?: readonly string[];
   id: string;
   inputSchema: HobitAgentCapabilityInputSchema;
   output: string;
@@ -461,7 +483,7 @@ function lifecycleCapability({
     defaultForProductActions: true,
     description,
     examples,
-    forbiddenSideEffects: [...LIFECYCLE_FORBIDDEN_SIDE_EFFECTS],
+    forbiddenSideEffects: [...forbiddenSideEffects],
     id,
     inputSchema,
     inputSchemaDescription: inputSchema.shape,

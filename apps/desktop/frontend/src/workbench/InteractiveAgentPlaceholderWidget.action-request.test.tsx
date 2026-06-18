@@ -824,7 +824,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(operatorPrompt).toContain(
       "agentFinished(evidenceBundle or taskId,outcome,finalAgentMessage)",
     );
-    expect(operatorPrompt).toContain("ack(taskId,messageId,coordinatorAgentId)");
+    expect(operatorPrompt).toContain("ack(taskId,messageId)");
     expect(operatorPrompt).toContain("addFollowUpPrompt(taskId,coordinatorAgentId,prompt)");
     expect(operatorPrompt).toContain(
       "markDone(taskId,coordinatorAgentId,validationApproved:true)",

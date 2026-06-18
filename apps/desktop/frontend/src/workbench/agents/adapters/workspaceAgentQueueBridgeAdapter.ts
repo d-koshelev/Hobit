@@ -1,5 +1,8 @@
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
-import type { AgentQueueItemAggregate } from "../../../workspace/types";
+import type {
+  AgentQueueItemAggregate,
+  AgentQueueReviewCommandResult,
+} from "../../../workspace/types";
 import { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
 import { createDefaultQueueAgentAdapterApi } from "./queueAgentCapabilities";
 import {
@@ -18,12 +21,16 @@ import {
   type QueueAgentLifecycleTaskSeed,
   type QueueAgentLifecycleGetInput,
   type QueueAgentLifecycleGetOutput,
+  type QueueAgentLifecycleHandlerContext,
+  type QueueAgentLifecycleTransitionOutput,
   type QueueAgentListItemsInput,
   type QueueAgentListItemsResult,
   type QueueAgentPromoteDraftResult,
   type QueueAgentPromptPackInput,
   type QueueAgentRunApprovalPolicy,
   type QueueAgentRunSandbox,
+  type QueueAgentReviewAckInput,
+  type QueueAgentReviewCreateMessageInput,
   type QueueAgentStartRunResult,
   type QueueAgentTaskReadiness,
   type QueueAgentTaskSummary,
@@ -52,9 +59,13 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
     createItems: (request) => createQueueItemsThroughBridge(bridge, request),
     enableQueue: (input, context) =>
       enableQueueThroughBridge(bridge, input, context),
-    dogfoodLifecycle: transitionalDogfoodLifecycle
+        dogfoodLifecycle: transitionalDogfoodLifecycle
       ? {
           ...transitionalDogfoodLifecycle,
+          ackReview: (input, context) =>
+            ackReviewThroughBackend(bridge, input, context),
+          createReviewMessage: (input, context) =>
+            createReviewMessageThroughBackend(bridge, input, context),
           getLifecycle: (input, context) =>
             getLifecycleThroughAggregate(bridge, input, context),
         }
@@ -594,6 +605,291 @@ async function startQueueLinkedRunThroughBridge(
   };
 }
 
+async function createReviewMessageThroughBackend(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: Required<Pick<QueueAgentReviewCreateMessageInput, "taskId">> &
+    Omit<QueueAgentReviewCreateMessageInput, "taskId">,
+  context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>> {
+  const taskId = input.taskId.trim();
+  if (!taskId) {
+    return invalidReviewCommandInput(
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewCreateMessage,
+      "queue.review.createMessage requires taskId.",
+    );
+  }
+
+  if (!bridge?.createReviewMessage) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewCreateMessage,
+      "Queue review command API is unavailable.",
+    );
+  }
+
+  if (context.dryRun) {
+    return previewReviewCommandFromAggregate(
+      bridge,
+      taskId,
+      context,
+      "Queue review message creation preview prepared.",
+      "Queue review message created",
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewCreateMessage,
+    );
+  }
+
+  try {
+    const result = await bridge.createReviewMessage({
+      actorId: reviewActorId(input.coordinatorAgentId, context),
+      messageBody: reviewMessageBodyFromInput(input),
+      taskId,
+    });
+    return reviewCommandSucceeded(
+      result,
+      "Queue review message created.",
+      "Queue review message created",
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewCreateMessage,
+    );
+  } catch (error) {
+    return reviewCommandFailed(
+      error,
+      "Queue review message could not be created.",
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewCreateMessage,
+    );
+  }
+}
+
+async function ackReviewThroughBackend(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: Required<Pick<QueueAgentReviewAckInput, "messageId" | "taskId">> &
+    Omit<QueueAgentReviewAckInput, "messageId" | "taskId">,
+  context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>> {
+  const taskId = input.taskId.trim();
+  const messageId = input.messageId.trim();
+  if (!taskId) {
+    return invalidReviewCommandInput(
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewAck,
+      "queue.review.ack requires taskId.",
+    );
+  }
+  if (!messageId) {
+    return invalidReviewCommandInput(
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewAck,
+      "queue.review.ack requires messageId.",
+    );
+  }
+
+  if (!bridge?.ackReviewMessage) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewAck,
+      "Queue review command API is unavailable.",
+    );
+  }
+
+  if (context.dryRun) {
+    return previewReviewCommandFromAggregate(
+      bridge,
+      taskId,
+      context,
+      "Queue review acknowledgment preview prepared.",
+      "Queue review acknowledged",
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewAck,
+    );
+  }
+
+  try {
+    const result = await bridge.ackReviewMessage({
+      actorId: reviewActorId(input.coordinatorAgentId, context),
+      messageId,
+      taskId,
+    });
+    return reviewCommandSucceeded(
+      result,
+      "Queue review acknowledged.",
+      "Queue review acknowledged",
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewAck,
+    );
+  } catch (error) {
+    return reviewCommandFailed(
+      error,
+      "Queue review message could not be acknowledged.",
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewAck,
+    );
+  }
+}
+
+async function previewReviewCommandFromAggregate(
+  bridge: WorkspaceAgentQueueBridge,
+  taskId: string,
+  context: QueueAgentLifecycleHandlerContext,
+  message: string,
+  actionLabel: string,
+  activityEventNames: readonly string[],
+): Promise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>> {
+  if (!bridge.getItemAggregate) {
+    return bridgeUnavailableResult(
+      activityEventNames,
+      "Queue aggregate lifecycle read API is unavailable.",
+    );
+  }
+
+  try {
+    const aggregate = await bridge.getItemAggregate({ taskId });
+    if (!aggregate) {
+      return {
+        activityEventNames: [...activityEventNames],
+        message: `Queue item "${taskId}" was not found.`,
+        reasons: [`Queue item "${taskId}" was not found.`],
+        status: "failed",
+      };
+    }
+
+    return {
+      activityEventNames: [...activityEventNames],
+      message,
+      output: reviewTransitionOutputFromAggregate({
+        actionLabel,
+        aggregate,
+        context,
+        durable: false,
+        queueMutation: "none",
+      }),
+      status: "succeeded",
+    };
+  } catch (error) {
+    return aggregateReadUnavailableResult(
+      activityEventNames,
+      error,
+      "Queue aggregate lifecycle read API is unavailable.",
+    );
+  }
+}
+
+function reviewCommandSucceeded(
+  result: AgentQueueReviewCommandResult,
+  message: string,
+  actionLabel: string,
+  activityEventNames: readonly string[],
+): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
+  return {
+    activityEventNames: [...activityEventNames],
+    message,
+    output: reviewTransitionOutputFromAggregate({
+      actionLabel,
+      aggregate: result.aggregate,
+      context: null,
+      durable: result.durable,
+      messageId: result.messageId,
+      queueMutation: "backend_domain",
+      reviewMessage: result.reviewMessage,
+    }),
+    status: "succeeded",
+  };
+}
+
+function reviewCommandFailed<TOutput>(
+  error: unknown,
+  fallbackMessage: string,
+  activityEventNames: readonly string[],
+): QueueAgentAdapterResult<TOutput> {
+  const message = error instanceof Error ? error.message : fallbackMessage;
+  return {
+    activityEventNames: [...activityEventNames],
+    message,
+    reasons: [message],
+    status: "failed",
+  };
+}
+
+function invalidReviewCommandInput<TOutput>(
+  activityEventNames: readonly string[],
+  message: string,
+): QueueAgentAdapterResult<TOutput> {
+  return {
+    activityEventNames: [...activityEventNames],
+    message,
+    reasons: [message],
+    status: "invalid_input",
+  };
+}
+
+function reviewTransitionOutputFromAggregate({
+  actionLabel,
+  aggregate,
+  context,
+  durable,
+  messageId,
+  queueMutation,
+  reviewMessage,
+}: {
+  actionLabel: string;
+  aggregate: AgentQueueItemAggregate;
+  context: QueueAgentLifecycleHandlerContext | null;
+  durable: boolean;
+  messageId?: string;
+  queueMutation: "backend_domain" | "none";
+  reviewMessage?: unknown;
+}): QueueAgentLifecycleTransitionOutput {
+  const summary = queueTaskSummaryFromAggregate(aggregate);
+
+  return {
+    actionLabel,
+    additionalPromptCount: 0,
+    agentPromptState: "completed",
+    aggregate,
+    blockers: aggregate.blockers,
+    dryRunOnly: context?.dryRun ?? false,
+    durable,
+    lifecycle: null,
+    messageId,
+    nextActions: summary.nextActions ?? [],
+    nextSuggestedCapability: summary.nextSuggestedCapability ?? null,
+    previousAgentPromptState: "completed",
+    previousTicketState: aggregate.ticketState,
+    queueMutation,
+    reviewMessage,
+    reviewOutcome: null,
+    reviewState: aggregate.reviewState,
+    taskId: aggregate.taskId,
+    ticketState: aggregate.ticketState,
+    value: reviewMessage,
+    wouldAutoRunWorkers: false,
+    wouldCallGit: false,
+    wouldExecuteRollback: false,
+    wouldLaunchTerminal: false,
+    wouldPersistBackend: queueMutation === "backend_domain" && durable,
+    wouldRunValidation: false,
+    wouldStartWorkers: false,
+  };
+}
+
+function reviewActorId(
+  coordinatorAgentId: string | undefined,
+  context: QueueAgentLifecycleHandlerContext,
+) {
+  return coordinatorAgentId?.trim() || context.agentId.trim() || "workspace-agent";
+}
+
+function reviewMessageBodyFromInput(
+  input: QueueAgentReviewCreateMessageInput,
+): string | null {
+  return (
+    input.finalAgentMessage?.trim() ||
+    normalizeChangedFilesSummary(input.changedFilesSummary) ||
+    input.validationSummary?.trim() ||
+    null
+  );
+}
+
+function normalizeChangedFilesSummary(value: readonly string[] | string | undefined) {
+  if (Array.isArray(value)) {
+    const changedFiles = value.map((item) => item.trim()).filter(Boolean);
+    return changedFiles.length > 0 ? changedFiles.join(", ") : undefined;
+  }
+
+  return typeof value === "string" ? value.trim() || undefined : undefined;
+}
+
 async function createQueueItemsThroughBridge(
   bridge: WorkspaceAgentQueueBridge | null | undefined,
   request: QueueAgentCreateItemsRequest,
@@ -809,6 +1105,8 @@ function nextActionSuggestedCapability(code: string) {
   switch (code) {
     case "create_review_message":
       return "queue.review.createMessage";
+    case "ack_review":
+      return "queue.review.ack";
     case "promote_draft":
       return "queue.item.promoteDraft";
     case "start_run":

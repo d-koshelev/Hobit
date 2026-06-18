@@ -199,10 +199,10 @@ fn headless_running_and_completed_run_links_drive_awaiting_review_not_done() {
         Some("Worker final report summary.")
     );
     assert_action(&completed, "create_review_message");
-    assert!(!completed.next_actions[0].available);
+    assert!(completed.next_actions[0].available);
     assert_eq!(
         completed.next_actions[0].unavailable_reason.as_deref(),
-        Some("backend_review_command_not_implemented")
+        None
     );
     assert!(!completed.durable_flags.frontend_overlay_used);
 }

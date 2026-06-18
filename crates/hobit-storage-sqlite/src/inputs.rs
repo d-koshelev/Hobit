@@ -171,6 +171,31 @@ pub struct AgentQueueTaskRunLinkFinalUpdate<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueReviewMessage<'a> {
+    pub message_id: &'a str,
+    pub workspace_id: &'a str,
+    pub queue_task_id: &'a str,
+    pub run_id: Option<&'a str>,
+    pub run_link_id: Option<&'a str>,
+    pub actor_id: &'a str,
+    pub message_body: &'a str,
+    pub status: &'a str,
+    pub created_at: Option<&'a str>,
+    pub acked_at: Option<&'a str>,
+    pub ack_actor_id: Option<&'a str>,
+    pub metadata_json: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueReviewMessageAckUpdate<'a> {
+    pub actor_id: &'a str,
+    pub status: &'a str,
+    pub acked_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewAgentQueueWorker<'a> {
     pub worker_id: &'a str,
     pub workspace_id: &'a str,

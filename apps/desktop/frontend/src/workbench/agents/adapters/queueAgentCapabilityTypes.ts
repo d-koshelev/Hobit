@@ -1,5 +1,6 @@
 import type { PromptPackFileEntry, PromptPackImportPreviewModel } from "../../promptPack";
 import type {
+  AgentQueueItemAggregate,
   AgentQueueItemAggregateBlocker,
   AgentQueueItemAggregateDurableFlags,
   AgentQueueItemAggregateEvidenceSummary,
@@ -483,20 +484,28 @@ export type QueueAgentLifecycleTransitionOutput = {
   actionLabel: string;
   additionalPromptCount: number;
   agentPromptState: SmartQueueDogfoodLifecycleItem["agentPromptState"];
+  aggregate?: AgentQueueItemAggregate;
+  blockers?: AgentQueueItemAggregateBlocker[];
   dryRunOnly: boolean;
-  lifecycle: SmartQueueDogfoodLifecycleItem;
+  durable?: boolean;
+  lifecycle: SmartQueueDogfoodLifecycleItem | null;
+  messageId?: string;
+  nextActions?: QueueAgentAggregateNextAction[];
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
   previousAgentPromptState: SmartQueueDogfoodLifecycleItem["agentPromptState"];
-  previousTicketState: SmartQueueDogfoodLifecycleItem["ticketState"];
-  queueMutation: "frontend_controller_overlay" | "none";
+  previousTicketState: SmartQueueDogfoodLifecycleItem["ticketState"] | string;
+  queueMutation: "backend_domain" | "frontend_controller_overlay" | "none";
+  reviewMessage?: unknown;
+  reviewState?: string;
   reviewOutcome: SmartQueueDogfoodReviewOutcome | null;
   taskId: string;
-  ticketState: SmartQueueDogfoodLifecycleItem["ticketState"];
+  ticketState: SmartQueueDogfoodLifecycleItem["ticketState"] | string;
   value?: unknown;
   wouldAutoRunWorkers: false;
   wouldCallGit: false;
   wouldExecuteRollback: false;
   wouldLaunchTerminal: false;
-  wouldPersistBackend: false;
+  wouldPersistBackend: boolean;
   wouldRunValidation: false;
   wouldStartWorkers: false;
 };
@@ -542,8 +551,8 @@ export type QueueAgentReviewEvidenceBundleOutput = {
 
 export type QueueAgentDogfoodLifecycleAdapterApi = {
   ackReview: (
-    input: Required<Pick<QueueAgentReviewAckInput, "coordinatorAgentId" | "messageId" | "taskId">> &
-      Omit<QueueAgentReviewAckInput, "coordinatorAgentId" | "messageId" | "taskId">,
+    input: Required<Pick<QueueAgentReviewAckInput, "messageId" | "taskId">> &
+      Omit<QueueAgentReviewAckInput, "messageId" | "taskId">,
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>>;
   addFollowUpPrompt: (
@@ -567,8 +576,8 @@ export type QueueAgentDogfoodLifecycleAdapterApi = {
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>>;
   createReviewMessage: (
-    input: Required<Pick<QueueAgentReviewCreateMessageInput, "coordinatorAgentId" | "taskId">> &
-      Omit<QueueAgentReviewCreateMessageInput, "coordinatorAgentId" | "taskId">,
+    input: Required<Pick<QueueAgentReviewCreateMessageInput, "taskId">> &
+      Omit<QueueAgentReviewCreateMessageInput, "taskId">,
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>>;
   failItem: (

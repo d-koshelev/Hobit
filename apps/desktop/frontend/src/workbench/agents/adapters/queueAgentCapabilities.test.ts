@@ -36,7 +36,10 @@ import {
   type QueueAgentSelfTestReport,
 } from "./queueAgentCapabilityTypes";
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
-import type { AgentQueueItemAggregate } from "../../../workspace/types";
+import type {
+  AgentQueueItemAggregate,
+  AgentQueueReviewCommandResult,
+} from "../../../workspace/types";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -623,6 +626,206 @@ describe("queueAgentCapabilities invoke", () => {
     expect(result.result.message).toBe("taskId is required.");
     expect(getItemAggregate).not.toHaveBeenCalled();
     expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("creates review messages through backend bridge command with trusted actor default", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const createReviewMessage = vi.fn(async () =>
+      reviewCommandResult({
+        aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: true,
+              code: "ack_review",
+              label: "Acknowledge review message",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "review_message_created",
+          taskId: "task-review",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        messageId: "review-message-1",
+      }),
+    );
+    const getItemAggregate = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage, getItemAggregate, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      lifecycle: null;
+      messageId: string;
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      reviewState: string;
+      taskId: string;
+      wouldPersistBackend: boolean;
+    }>(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: {
+          finalAgentMessage: "Worker final report.",
+          taskId: "task-review",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(createReviewMessage).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      messageBody: "Worker final report.",
+      taskId: "task-review",
+    });
+    expect(getItemAggregate).not.toHaveBeenCalled();
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      lifecycle: null,
+      messageId: "review-message-1",
+      nextSuggestedCapability: "queue.review.ack",
+      queueMutation: "backend_domain",
+      reviewState: "review_message_created",
+      taskId: "task-review",
+      wouldPersistBackend: true,
+    });
+  });
+
+  it("rejects missing review create taskId before backend bridge reads or commands", async () => {
+    const createReviewMessage = vi.fn();
+    const getSnapshot = vi.fn();
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: {},
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toBe("taskId is required.");
+    expect(createReviewMessage).not.toHaveBeenCalled();
+    expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("surfaces backend aggregate blockers for draft review create", async () => {
+    const createReviewMessage = vi.fn(async () => {
+      throw new Error(
+        "invalid input: queue review message cannot be created while ticket_state=draft review_state=none",
+      );
+    });
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: { taskId: "task-draft" },
+      }),
+    );
+
+    expect(result.status).toBe("failed");
+    expect(createReviewMessage).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      messageBody: null,
+      taskId: "task-draft",
+    });
+    expect(result.result.message).toContain("ticket_state=draft");
+  });
+
+  it("acknowledges review messages through backend bridge command", async () => {
+    const ackReviewMessage = vi.fn(async () =>
+      reviewCommandResult({
+        aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: false,
+              code: "none",
+              label: "No action",
+              unavailableReason: "in_review",
+            },
+          ],
+          reviewState: "in_review",
+          taskId: "task-review",
+          ticketState: "in_review",
+        }),
+        messageId: "review-message-1",
+        status: "acknowledged",
+      }),
+    );
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ ackReviewMessage }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync<{
+      messageId: string;
+      queueMutation: string;
+      reviewState: string;
+      ticketState: string;
+    }>(
+      request({
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "review-message-1",
+          taskId: "task-review",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(ackReviewMessage).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      messageId: "review-message-1",
+      taskId: "task-review",
+    });
+    expect(result.result.output).toMatchObject({
+      messageId: "review-message-1",
+      queueMutation: "backend_domain",
+      reviewState: "in_review",
+      ticketState: "in_review",
+    });
   });
 
   it("handles aggregate read not found and unavailable states cleanly", async () => {
@@ -1588,6 +1791,38 @@ function queueAggregate({
     validationState,
     workerRunState,
     workspaceId,
+  };
+}
+
+function reviewCommandResult({
+  aggregate = queueAggregate(),
+  messageId = "review-message-1",
+  status = "created",
+}: Partial<AgentQueueReviewCommandResult> & {
+  aggregate?: AgentQueueItemAggregate;
+  status?: string;
+} = {}): AgentQueueReviewCommandResult {
+  return {
+    aggregate,
+    durable: true,
+    messageId,
+    reviewMessage: {
+      ackActorId: status === "acknowledged" ? "test.agentA" : null,
+      ackedAt: status === "acknowledged" ? "2026-06-15T10:01:00.000Z" : null,
+      actorId: "test.agentA",
+      createdAt: "2026-06-15T10:00:00.000Z",
+      messageBody: "Ready for review.",
+      messageId,
+      metadataJson: null,
+      runId: null,
+      runLinkId: null,
+      status,
+      taskId: aggregate.taskId,
+      updatedAt: "2026-06-15T10:00:00.000Z",
+      workspaceId: aggregate.workspaceId,
+    },
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
   };
 }
 

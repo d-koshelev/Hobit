@@ -295,6 +295,20 @@ export type GetAgentQueueItemAggregateRequest = {
   taskId: string;
 };
 
+export type CreateAgentQueueReviewMessageRequest = {
+  workspaceId: string;
+  taskId: string;
+  actorId: string;
+  messageBody?: string | null;
+};
+
+export type AckAgentQueueReviewMessageRequest = {
+  workspaceId: string;
+  taskId: string;
+  messageId: string;
+  actorId: string;
+};
+
 export type AgentQueueItemAggregateRunSettings = {
   approvalPolicy: string | null;
   assignedExecutorWidgetId: string | null;
@@ -364,6 +378,31 @@ export type AgentQueueItemAggregate = {
   updatedAt: string;
   validationState: string;
   workerRunState: string;
+  workspaceId: string;
+};
+
+export type AgentQueueReviewMessage = {
+  ackActorId: string | null;
+  ackedAt: string | null;
+  actorId: string;
+  createdAt: string;
+  messageBody: string;
+  messageId: string;
+  metadataJson: string | null;
+  runId: string | null;
+  runLinkId: string | null;
+  status: string;
+  taskId: string;
+  updatedAt: string;
+  workspaceId: string;
+};
+
+export type AgentQueueReviewCommandResult = {
+  aggregate: AgentQueueItemAggregate;
+  durable: boolean;
+  messageId: string;
+  reviewMessage: AgentQueueReviewMessage;
+  taskId: string;
   workspaceId: string;
 };
 

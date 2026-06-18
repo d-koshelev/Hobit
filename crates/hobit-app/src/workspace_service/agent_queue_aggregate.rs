@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use hobit_storage_sqlite::{AgentQueueTaskRow, AgentQueueTaskRunLinkRow, WidgetRunRow};
+use hobit_storage_sqlite::{
+    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, WidgetRunRow,
+};
 
 use crate::WorkspaceServiceError;
 
@@ -23,6 +25,8 @@ const RUN_STATUS_TIMED_OUT: &str = "timed_out";
 const RUN_STATUS_CANCELLED: &str = "cancelled";
 const RUN_STATUS_REVIEW_NEEDED: &str = "review_needed";
 const REVIEW_STATUS_REVIEW_NEEDED: &str = "review_needed";
+pub(super) const REVIEW_MESSAGE_STATUS_CREATED: &str = "created";
+pub(super) const REVIEW_MESSAGE_STATUS_ACKNOWLEDGED: &str = "acknowledged";
 const SUMMARY_CAP: usize = 500;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -300,12 +304,16 @@ impl WorkspaceService {
 
         let tasks = self.store.list_agent_queue_tasks(workspace_id)?;
         let mut latest_links = HashMap::new();
+        let mut latest_review_messages = HashMap::new();
         let mut widget_runs = HashMap::new();
 
         for task in &tasks {
             let latest_link = self
                 .store
                 .get_latest_agent_queue_task_run_link(workspace_id, &task.queue_item_id)?;
+            let latest_review_message = self
+                .store
+                .get_latest_agent_queue_review_message(workspace_id, &task.queue_item_id)?;
             if let Some(link) = latest_link {
                 let widget_run = self.store.get_widget_run(&link.direct_work_run_id)?;
                 if let Some(run) = widget_run {
@@ -313,11 +321,15 @@ impl WorkspaceService {
                 }
                 latest_links.insert(task.queue_item_id.clone(), link);
             }
+            if let Some(message) = latest_review_message {
+                latest_review_messages.insert(task.queue_item_id.clone(), message);
+            }
         }
 
         Ok(build_queue_item_aggregates(
             tasks,
             latest_links,
+            latest_review_messages,
             widget_runs,
         ))
     }
@@ -338,6 +350,9 @@ impl WorkspaceService {
         let latest_link = self
             .store
             .get_latest_agent_queue_task_run_link(workspace_id, task_id)?;
+        let latest_review_message = self
+            .store
+            .get_latest_agent_queue_review_message(workspace_id, task_id)?;
         let widget_run = latest_link
             .as_ref()
             .and_then(|link| self.store.get_widget_run(&link.direct_work_run_id).ok())
@@ -347,6 +362,7 @@ impl WorkspaceService {
             &task,
             &all_tasks,
             latest_link.as_ref(),
+            latest_review_message.as_ref(),
             widget_run.as_ref(),
         )))
     }
@@ -378,14 +394,16 @@ impl WorkspaceService {
 pub(super) fn build_queue_item_aggregates(
     tasks: Vec<AgentQueueTaskRow>,
     latest_links: HashMap<String, AgentQueueTaskRunLinkRow>,
+    latest_review_messages: HashMap<String, AgentQueueReviewMessageRow>,
     widget_runs: HashMap<String, WidgetRunRow>,
 ) -> Vec<QueueItemAggregate> {
     tasks
         .iter()
         .map(|task| {
             let latest_link = latest_links.get(&task.queue_item_id);
+            let latest_review_message = latest_review_messages.get(&task.queue_item_id);
             let widget_run = latest_link.and_then(|link| widget_runs.get(&link.direct_work_run_id));
-            build_queue_item_aggregate(task, &tasks, latest_link, widget_run)
+            build_queue_item_aggregate(task, &tasks, latest_link, latest_review_message, widget_run)
         })
         .collect()
 }
@@ -394,14 +412,21 @@ fn build_queue_item_aggregate(
     task: &AgentQueueTaskRow,
     all_tasks: &[AgentQueueTaskRow],
     latest_link: Option<&AgentQueueTaskRunLinkRow>,
+    latest_review_message: Option<&AgentQueueReviewMessageRow>,
     widget_run: Option<&WidgetRunRow>,
 ) -> QueueItemAggregate {
     // Raw task.status is a legacy storage input. This builder folds it together
     // with durable run-link data and never reads frontend lifecycle overlays.
     let worker_run_state = worker_run_state(task, latest_link);
     let dependency_state = dependency_state(task, all_tasks);
-    let ticket_state = ticket_state(task, latest_link, worker_run_state, dependency_state);
-    let review_state = review_state(task, latest_link, ticket_state);
+    let ticket_state = ticket_state(
+        task,
+        latest_link,
+        latest_review_message,
+        worker_run_state,
+        dependency_state,
+    );
+    let review_state = review_state(task, latest_link, latest_review_message, ticket_state);
     let evidence_state = evidence_state(latest_link, widget_run, ticket_state);
     let validation_state = validation_state(latest_link);
     let commit_state = QueueItemAggregateCommitState::None;
@@ -409,7 +434,13 @@ fn build_queue_item_aggregate(
     let latest_run = latest_link.map(|link| latest_run(link, widget_run));
     let evidence_summary = evidence_summary(latest_link, widget_run, evidence_state, ticket_state);
     let blockers = blockers(task, ticket_state, dependency_state);
-    let next_actions = next_actions(task, ticket_state, dependency_state, &blockers);
+    let next_actions = next_actions(
+        task,
+        ticket_state,
+        review_state,
+        dependency_state,
+        &blockers,
+    );
     let durable_flags = durable_flags(
         latest_link,
         review_state,
@@ -469,6 +500,7 @@ fn worker_run_state(
 fn ticket_state(
     task: &AgentQueueTaskRow,
     latest_link: Option<&AgentQueueTaskRunLinkRow>,
+    latest_review_message: Option<&AgentQueueReviewMessageRow>,
     worker_run_state: QueueItemAggregateWorkerRunState,
     dependency_state: QueueItemAggregateDependencyState,
 ) -> QueueItemAggregateTicketState {
@@ -483,6 +515,12 @@ fn ticket_state(
         Some(RUN_STATUS_FAILED | RUN_STATUS_TIMED_OUT | RUN_STATUS_CANCELLED)
     ) {
         return QueueItemAggregateTicketState::Failure;
+    }
+    if latest_review_message
+        .map(|message| message.status.as_str())
+        .is_some_and(|status| status == REVIEW_MESSAGE_STATUS_ACKNOWLEDGED)
+    {
+        return QueueItemAggregateTicketState::InReview;
     }
     if matches!(
         worker_run_state,
@@ -520,10 +558,23 @@ fn ticket_state(
 fn review_state(
     task: &AgentQueueTaskRow,
     latest_link: Option<&AgentQueueTaskRunLinkRow>,
+    latest_review_message: Option<&AgentQueueReviewMessageRow>,
     ticket_state: QueueItemAggregateTicketState,
 ) -> QueueItemAggregateReviewState {
     if matches!(ticket_state, QueueItemAggregateTicketState::Failure) {
         return QueueItemAggregateReviewState::Failed;
+    }
+    match latest_review_message.map(|message| message.status.as_str()) {
+        Some(REVIEW_MESSAGE_STATUS_ACKNOWLEDGED) => {
+            return QueueItemAggregateReviewState::InReview;
+        }
+        Some(REVIEW_MESSAGE_STATUS_CREATED) => {
+            return QueueItemAggregateReviewState::ReviewMessageCreated;
+        }
+        Some(_) => {
+            return QueueItemAggregateReviewState::Unknown;
+        }
+        None => {}
     }
     if latest_link.and_then(|link| link.review_status.as_deref())
         == Some(REVIEW_STATUS_REVIEW_NEEDED)
@@ -771,6 +822,10 @@ fn blockers(
             "awaiting_review",
             "Worker result is awaiting explicit review.",
         )),
+        QueueItemAggregateTicketState::InReview => blockers.push(blocker(
+            "in_review",
+            "Review message has been acknowledged.",
+        )),
         QueueItemAggregateTicketState::Done => {
             blockers.push(blocker("final_done", "Queue item is already done."));
         }
@@ -785,6 +840,7 @@ fn blockers(
 fn next_actions(
     task: &AgentQueueTaskRow,
     ticket_state: QueueItemAggregateTicketState,
+    review_state: QueueItemAggregateReviewState,
     dependency_state: QueueItemAggregateDependencyState,
     blockers: &[QueueItemAggregateBlocker],
 ) -> Vec<QueueItemAggregateNextAction> {
@@ -836,12 +892,50 @@ fn next_actions(
             }
             vec![action("start_run", "Start run", true, None)]
         }
-        QueueItemAggregateTicketState::AwaitingReview => vec![action(
-            "create_review_message",
-            "Create review message",
-            false,
-            Some("backend_review_command_not_implemented"),
-        )],
+        QueueItemAggregateTicketState::AwaitingReview => match review_state {
+            QueueItemAggregateReviewState::AwaitingReview => {
+                vec![action(
+                    "create_review_message",
+                    "Create review message",
+                    true,
+                    None,
+                )]
+            }
+            QueueItemAggregateReviewState::ReviewMessageCreated => {
+                vec![action(
+                    "ack_review",
+                    "Acknowledge review message",
+                    true,
+                    None,
+                )]
+            }
+            QueueItemAggregateReviewState::InReview => {
+                vec![action("none", "No action", false, Some("in_review"))]
+            }
+            QueueItemAggregateReviewState::Done => {
+                vec![action("none", "No action", false, Some("final_done"))]
+            }
+            QueueItemAggregateReviewState::Failed => {
+                vec![action("none", "No action", false, Some("final_failed"))]
+            }
+            QueueItemAggregateReviewState::Unknown => {
+                vec![action(
+                    "none",
+                    "No action",
+                    false,
+                    Some("unknown_review_state"),
+                )]
+            }
+            _ => vec![action(
+                "none",
+                "No action",
+                false,
+                Some("review_not_required"),
+            )],
+        },
+        QueueItemAggregateTicketState::InReview => {
+            vec![action("none", "No action", false, Some("in_review"))]
+        }
         QueueItemAggregateTicketState::Running => {
             vec![action("none", "No action", false, Some("worker_running"))]
         }

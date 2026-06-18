@@ -67,17 +67,14 @@ type RequiredAgentFinishedInput = Required<
   >;
 
 type RequiredReviewMessageInput = Required<
-  Pick<QueueAgentReviewCreateMessageInput, "coordinatorAgentId" | "taskId">
+  Pick<QueueAgentReviewCreateMessageInput, "taskId">
 > &
-  Omit<QueueAgentReviewCreateMessageInput, "coordinatorAgentId" | "taskId">;
+  Omit<QueueAgentReviewCreateMessageInput, "taskId">;
 
 type RequiredReviewAckInput = Required<
-  Pick<QueueAgentReviewAckInput, "coordinatorAgentId" | "messageId" | "taskId">
+  Pick<QueueAgentReviewAckInput, "messageId" | "taskId">
 > &
-  Omit<
-    QueueAgentReviewAckInput,
-    "coordinatorAgentId" | "messageId" | "taskId"
-  >;
+  Omit<QueueAgentReviewAckInput, "messageId" | "taskId">;
 
 type RequiredValidationInput = Required<
   Pick<QueueAgentApproveValidationInput, "coordinatorAgentId" | "taskId">
@@ -221,7 +218,7 @@ export function createInMemoryQueueDogfoodLifecycleAdapterApi({
             ackId:
               input.ackId ??
               idFromParts("review-ack", input.taskId, input.messageId),
-            coordinatorAgentId: input.coordinatorAgentId,
+            coordinatorAgentId: reviewActorId(input.coordinatorAgentId, context),
             messageId: input.messageId,
             receivedAt: input.receivedAt ?? context.requestedAt,
           }),
@@ -328,7 +325,7 @@ export function createInMemoryQueueDogfoodLifecycleAdapterApi({
             messageId:
               input.messageId ??
               idFromParts("review-message", input.taskId, context.requestId),
-            toCoordinatorAgentId: input.coordinatorAgentId,
+            toCoordinatorAgentId: reviewActorId(input.coordinatorAgentId, context),
             validationSummary:
               input.validationSummary ?? evidence.validationSummary,
           });
@@ -629,6 +626,13 @@ function idFromParts(...parts: readonly string[]) {
     .map((part) => part.trim())
     .filter(Boolean)
     .join(":");
+}
+
+function reviewActorId(
+  coordinatorAgentId: string | undefined,
+  context: QueueAgentLifecycleHandlerContext,
+) {
+  return coordinatorAgentId?.trim() || context.agentId.trim() || "workspace-agent";
 }
 
 function withMaybe<TValue, TResult>(

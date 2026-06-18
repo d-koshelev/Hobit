@@ -11,7 +11,7 @@ import type {
   ListAgentQueueItemAggregatesRequest,
 } from "./types";
 
-type TauriAgentQueueItemAggregate = {
+export type TauriAgentQueueItemAggregate = {
   blockers: TauriAgentQueueItemAggregateBlocker[];
   commit_state: string;
   dependency_state: string;
@@ -31,7 +31,7 @@ type TauriAgentQueueItemAggregate = {
   workspace_id: string;
 };
 
-type TauriAgentQueueItemAggregateRunSettings = {
+export type TauriAgentQueueItemAggregateRunSettings = {
   approval_policy: string | null;
   assigned_executor_widget_id: string | null;
   codex_executable: string | null;
@@ -40,7 +40,7 @@ type TauriAgentQueueItemAggregateRunSettings = {
   sandbox: string | null;
 };
 
-type TauriAgentQueueItemAggregateLatestRun = {
+export type TauriAgentQueueItemAggregateLatestRun = {
   completed_at: string | null;
   executor_widget_id: string;
   final_detail_available: boolean;
@@ -53,26 +53,26 @@ type TauriAgentQueueItemAggregateLatestRun = {
   validation_status: string | null;
 };
 
-type TauriAgentQueueItemAggregateEvidenceSummary = {
+export type TauriAgentQueueItemAggregateEvidenceSummary = {
   available: boolean;
   not_durable_reason: string | null;
   source: string;
   summary: string | null;
 };
 
-type TauriAgentQueueItemAggregateBlocker = {
+export type TauriAgentQueueItemAggregateBlocker = {
   code: string;
   message: string;
 };
 
-type TauriAgentQueueItemAggregateNextAction = {
+export type TauriAgentQueueItemAggregateNextAction = {
   available: boolean;
   code: string;
   label: string;
   unavailable_reason: string | null;
 };
 
-type TauriAgentQueueItemAggregateDurableFlags = {
+export type TauriAgentQueueItemAggregateDurableFlags = {
   commit_state: boolean;
   dependency_state: boolean;
   evidence_state: boolean;
@@ -114,7 +114,7 @@ export async function getAgentQueueItemAggregate(
   return aggregate ? normalizeAgentQueueItemAggregate(aggregate) : null;
 }
 
-function normalizeAgentQueueItemAggregate(
+export function normalizeAgentQueueItemAggregate(
   aggregate: TauriAgentQueueItemAggregate,
 ): AgentQueueItemAggregate {
   return {

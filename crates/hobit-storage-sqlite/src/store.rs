@@ -9,26 +9,28 @@ use std::path::Path;
 use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
-    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, AgentQueueWorkerUpdate,
-    JdbcConnectionProfileUpdate, JdbcConnectorUpdate, KnowledgeDocumentUpdate, NewAgentQueueItem,
-    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewJdbcConnectionProfile,
-    NewJdbcConnector, NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject,
-    NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
+    AgentQueueReviewMessageAckUpdate, AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate,
+    AgentQueueWorkerUpdate, JdbcConnectionProfileUpdate, JdbcConnectorUpdate,
+    KnowledgeDocumentUpdate, NewAgentQueueItem, NewAgentQueueReviewMessage, NewAgentQueueTask,
+    NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewJdbcConnectionProfile, NewJdbcConnector,
+    NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject, NewSkill,
+    NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
     NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
     WorkspaceNoteUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerRow,
-    JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    KnowledgeDocumentSearchResultRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow,
-    SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
-    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    AgentQueueItemRow, AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
+    AgentQueueWorkerRow, JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow,
+    KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow, KnowledgeDraftReviewRecordRow,
+    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
+    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
 use crate::schema;
 
 mod agent_queue_items;
+mod agent_queue_review_messages;
 mod agent_queue_task_run_links;
 mod agent_queue_tasks;
 mod agent_queue_workers;

@@ -101,10 +101,10 @@ function createQueueLifecycleCapabilityInstructionLines(
       ? "agentFinished(evidenceBundle or taskId,outcome,finalAgentMessage)"
       : null,
     presentCapabilityIds.has("queue.review.createMessage")
-      ? "createMessage(taskId,coordinatorAgentId)"
+      ? "createMessage(taskId)"
       : null,
     presentCapabilityIds.has("queue.review.ack")
-      ? "ack(taskId,messageId,coordinatorAgentId)"
+      ? "ack(taskId,messageId)"
       : null,
     presentCapabilityIds.has("queue.coordinator.approveValidation")
       ? "approveValidation(taskId,coordinatorAgentId)"

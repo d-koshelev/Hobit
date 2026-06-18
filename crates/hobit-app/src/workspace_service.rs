@@ -33,6 +33,9 @@ mod agent_queue_headless_contract_tests;
 mod agent_queue_lifecycle;
 #[cfg(test)]
 mod agent_queue_lifecycle_tests;
+mod agent_queue_review;
+#[cfg(test)]
+mod agent_queue_review_tests;
 mod agent_queue_run_links;
 #[cfg(test)]
 mod agent_queue_run_links_tests;
@@ -155,6 +158,10 @@ pub use agent_queue_aggregate::{
     QueueItemAggregateLatestRun, QueueItemAggregateNextAction, QueueItemAggregateReviewState,
     QueueItemAggregateRunSettings, QueueItemAggregateTicketState,
     QueueItemAggregateValidationState, QueueItemAggregateWorkerRunState,
+};
+pub use agent_queue_review::{
+    AckAgentQueueReviewMessageInput, AgentQueueReviewCommandResult, AgentQueueReviewMessageSummary,
+    CreateAgentQueueReviewMessageInput,
 };
 pub use agent_queue_task_types::{
     AgentQueueTaskRunLink, AgentQueueTaskRunLinkId, AgentQueueTaskRunReviewStatus,
