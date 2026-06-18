@@ -171,7 +171,7 @@ fn aggregate_command_helper_serializes_completed_run_as_awaiting_review_read_mod
     assert_eq!(aggregate.ticket_state, "awaiting_review");
     assert_eq!(aggregate.worker_run_state, "completed");
     assert_eq!(aggregate.review_state, "awaiting_review");
-    assert_eq!(aggregate.evidence_state, "available");
+    assert_eq!(aggregate.evidence_state, "not_durable");
     assert_eq!(aggregate.validation_state, "not_requested");
     assert_eq!(aggregate.commit_state, "none");
     assert_eq!(aggregate.dependency_state, "none");

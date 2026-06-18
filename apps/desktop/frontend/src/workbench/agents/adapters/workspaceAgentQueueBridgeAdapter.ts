@@ -2,6 +2,8 @@ import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge"
 import type {
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
+  AgentQueueWorkerEvidenceQueryResult,
+  AgentQueueWorkerFinishedCommandResult,
 } from "../../../workspace/types";
 import { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
 import { createDefaultQueueAgentAdapterApi } from "./queueAgentCapabilities";
@@ -19,6 +21,7 @@ import {
   type QueueAgentEnableResult,
   type QueueAgentExecutorTarget,
   type QueueAgentLifecycleTaskSeed,
+  type QueueAgentLifecycleAgentFinishedInput,
   type QueueAgentLifecycleGetInput,
   type QueueAgentLifecycleGetOutput,
   type QueueAgentLifecycleHandlerContext,
@@ -31,6 +34,8 @@ import {
   type QueueAgentRunSandbox,
   type QueueAgentReviewAckInput,
   type QueueAgentReviewCreateMessageInput,
+  type QueueAgentReviewEvidenceBundleInput,
+  type QueueAgentReviewEvidenceBundleOutput,
   type QueueAgentStartRunResult,
   type QueueAgentTaskReadiness,
   type QueueAgentTaskSummary,
@@ -59,13 +64,17 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
     createItems: (request) => createQueueItemsThroughBridge(bridge, request),
     enableQueue: (input, context) =>
       enableQueueThroughBridge(bridge, input, context),
-        dogfoodLifecycle: transitionalDogfoodLifecycle
+    dogfoodLifecycle: transitionalDogfoodLifecycle
       ? {
           ...transitionalDogfoodLifecycle,
           ackReview: (input, context) =>
             ackReviewThroughBackend(bridge, input, context),
+          agentFinished: (input, context) =>
+            recordWorkerFinishedThroughBackend(bridge, input, context),
           createReviewMessage: (input, context) =>
             createReviewMessageThroughBackend(bridge, input, context),
+          getEvidenceBundle: (input, context) =>
+            getWorkerEvidenceBundleThroughBackend(bridge, input, context),
           getLifecycle: (input, context) =>
             getLifecycleThroughAggregate(bridge, input, context),
         }
@@ -603,6 +612,301 @@ async function startQueueLinkedRunThroughBridge(
     },
     status: "succeeded",
   };
+}
+
+async function recordWorkerFinishedThroughBackend(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: Required<
+    Pick<
+      QueueAgentLifecycleAgentFinishedInput,
+      "finalAgentMessage" | "outcome" | "runId" | "taskId"
+    >
+  > &
+    Omit<
+      QueueAgentLifecycleAgentFinishedInput,
+      "finalAgentMessage" | "outcome" | "runId" | "taskId"
+    >,
+  context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>> {
+  const taskId = input.taskId.trim();
+  const runId = input.runId.trim();
+  if (!taskId) {
+    return invalidReviewCommandInput(
+      QUEUE_ACTIVITY_EVENTS.lifecycleAgentFinished,
+      "queue.lifecycle.agentFinished requires taskId.",
+    );
+  }
+  if (!runId) {
+    return invalidReviewCommandInput(
+      QUEUE_ACTIVITY_EVENTS.lifecycleAgentFinished,
+      "queue.lifecycle.agentFinished requires runId.",
+    );
+  }
+
+  if (!bridge?.recordWorkerFinished) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.lifecycleAgentFinished,
+      "Queue worker evidence command API is unavailable.",
+    );
+  }
+
+  if (context.dryRun) {
+    return previewReviewCommandFromAggregate(
+      bridge,
+      taskId,
+      context,
+      "Queue worker evidence recording preview prepared.",
+      "Queue worker evidence recorded",
+      QUEUE_ACTIVITY_EVENTS.lifecycleAgentFinished,
+    );
+  }
+
+  try {
+    const result = await bridge.recordWorkerFinished({
+      changedFiles: changedFilesFromWorkerFinishedInput(input),
+      changedFilesSummary: changedFilesSummaryFromWorkerFinishedInput(input),
+      errorSummary:
+        input.outcome === "failed" ? input.finalAgentMessage.trim() : null,
+      finishedAt: input.finishedAt?.trim() || null,
+      outcome: input.outcome,
+      runId,
+      source: input.source?.trim() || "workspace_agent",
+      summary: input.finalAgentMessage,
+      taskId,
+      validationSummary: input.validationSummary?.trim() || null,
+      workerId: input.workerId?.trim() || context.agentId.trim() || null,
+    });
+
+    return workerFinishedCommandSucceeded(result);
+  } catch (error) {
+    return reviewCommandFailed(
+      error,
+      "Queue worker evidence could not be recorded.",
+      QUEUE_ACTIVITY_EVENTS.lifecycleAgentFinished,
+    );
+  }
+}
+
+async function getWorkerEvidenceBundleThroughBackend(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: Required<Pick<QueueAgentReviewEvidenceBundleInput, "taskId">> &
+    Omit<QueueAgentReviewEvidenceBundleInput, "taskId">,
+  _context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentReviewEvidenceBundleOutput>> {
+  const taskId = input.taskId.trim();
+  const runId = input.runId?.trim() || null;
+  if (!taskId) {
+    return invalidReviewCommandInput(
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewEvidenceBundle,
+      "queue.review.getEvidenceBundle requires taskId.",
+    );
+  }
+
+  if (!bridge?.getWorkerEvidenceBundle) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewEvidenceBundle,
+      "Queue worker evidence read API is unavailable.",
+    );
+  }
+
+  try {
+    const result = await bridge.getWorkerEvidenceBundle({
+      runId,
+      taskId,
+    });
+
+    return workerEvidenceBundleReadSucceeded(result);
+  } catch (error) {
+    return reviewCommandFailed(
+      error,
+      "Queue worker evidence bundle could not be read.",
+      QUEUE_ACTIVITY_EVENTS.lifecycleReviewEvidenceBundle,
+    );
+  }
+}
+
+function workerFinishedCommandSucceeded(
+  result: AgentQueueWorkerFinishedCommandResult,
+): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleAgentFinished],
+    message: "Queue worker evidence recorded.",
+    output: workerFinishedOutputFromBackend(result),
+    status: "succeeded",
+  };
+}
+
+function workerFinishedOutputFromBackend(
+  result: AgentQueueWorkerFinishedCommandResult,
+): QueueAgentLifecycleTransitionOutput {
+  const summary = queueTaskSummaryFromAggregate(result.aggregate);
+
+  return {
+    actionLabel: "Queue worker evidence recorded",
+    additionalPromptCount: 0,
+    agentPromptState: "completed",
+    aggregate: result.aggregate,
+    blockers: result.aggregate.blockers,
+    dryRunOnly: false,
+    durable: result.durable,
+    evidenceBundle: result.evidenceBundle,
+    evidenceBundleId: result.bundleId,
+    evidenceState: result.aggregate.evidenceState,
+    lifecycle: null,
+    nextActions: summary.nextActions ?? [],
+    nextSuggestedCapability: summary.nextSuggestedCapability ?? null,
+    previousAgentPromptState: "completed",
+    previousTicketState: result.aggregate.ticketState,
+    queueMutation: "backend_domain",
+    reviewOutcome: result.evidenceBundle.outcome,
+    reviewState: result.aggregate.reviewState,
+    runId: result.runId,
+    taskId: result.taskId,
+    ticketState: result.aggregate.ticketState,
+    value: result.evidenceBundle,
+    wouldAutoRunWorkers: false,
+    wouldCallGit: false,
+    wouldExecuteRollback: false,
+    wouldLaunchTerminal: false,
+    wouldPersistBackend: result.durable,
+    wouldRunValidation: false,
+    wouldStartWorkers: false,
+  };
+}
+
+function workerEvidenceBundleReadSucceeded(
+  result: AgentQueueWorkerEvidenceQueryResult,
+): QueueAgentAdapterResult<QueueAgentReviewEvidenceBundleOutput> {
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleReviewEvidenceBundle],
+    message:
+      result.state === "available"
+        ? "Queue worker evidence bundle read from backend."
+        : "Queue worker evidence bundle was not found.",
+    output: workerEvidenceBundleOutputFromBackend(result),
+    status: "succeeded",
+  };
+}
+
+function workerEvidenceBundleOutputFromBackend(
+  result: AgentQueueWorkerEvidenceQueryResult,
+): QueueAgentReviewEvidenceBundleOutput {
+  const aggregateSummary = result.aggregate
+    ? queueTaskSummaryFromAggregate(result.aggregate)
+    : null;
+  const bundle = result.evidenceBundle;
+
+  return {
+    aggregate: result.aggregate,
+    backendEvidenceBundle: bundle,
+    blockers: result.aggregate?.blockers ?? [],
+    changedFilesSummary: bundle?.changedFilesSummary ?? undefined,
+    evidenceBundle: null,
+    evidenceBundleId: bundle?.bundleId,
+    evidenceBundlePersistence:
+      result.state === "available" && result.durable
+        ? "backend_durable"
+        : "backend_no_evidence",
+    evidenceState: result.aggregate?.evidenceState ?? result.state,
+    finalAgentMessage: bundle?.summary,
+    latestReviewMessage: null,
+    lifecycle: backendEvidenceCompatibilityLifecycle(result),
+    nextActions: aggregateSummary?.nextActions ?? [],
+    nextSuggestedCapability: aggregateSummary?.nextSuggestedCapability ?? null,
+    reviewMessages: [],
+    reviewOutcome: bundle?.outcome ?? null,
+    runId: result.runId,
+    taskId: result.taskId,
+    validationApprovals: [],
+    validationSummary: bundle?.validationSummary ?? undefined,
+  };
+}
+
+function backendEvidenceCompatibilityLifecycle(
+  result: AgentQueueWorkerEvidenceQueryResult,
+): QueueAgentReviewEvidenceBundleOutput["lifecycle"] {
+  const aggregate = result.aggregate;
+  const bundle = result.evidenceBundle;
+  const now = bundle?.updatedAt ?? aggregate?.updatedAt ?? "";
+
+  return {
+    additionalPromptCount: 0,
+    agentPromptState:
+      aggregate?.workerRunState === "running" ? "running" : "completed",
+    changedFilesSummary: bundle?.changedFilesSummary ?? undefined,
+    commitRequests: [],
+    commitResults: [],
+    coordinatorDecisions: [],
+    createdAt: bundle?.createdAt ?? now,
+    currentAttemptId: undefined,
+    currentRunnablePrompt: undefined,
+    currentThreadId: undefined,
+    finalAgentMessage: bundle?.summary ?? undefined,
+    followUpPrompts: [],
+    originalPrompt: undefined,
+    reviewAcks: [],
+    reviewMessages: [],
+    reviewOutcome: bundle?.outcome ?? undefined,
+    sideEffects: {
+      wouldCallCodex: false,
+      wouldCallShell: false,
+      wouldCallWorkspaceApi: false,
+      wouldExecuteCommit: false,
+      wouldExecuteRollback: false,
+      wouldLaunchTerminal: false,
+      wouldMutateGit: false,
+      wouldPersist: false,
+      wouldStartWorker: false,
+    },
+    taskId: result.taskId,
+    ticketState: aggregate?.ticketState ?? "unknown",
+    title: aggregate?.title,
+    updatedAt: now,
+    validationApprovals: [],
+    validationSummary: bundle?.validationSummary ?? undefined,
+  } as QueueAgentReviewEvidenceBundleOutput["lifecycle"];
+}
+
+function changedFilesFromWorkerFinishedInput(
+  input: QueueAgentLifecycleAgentFinishedInput,
+): string[] | null {
+  const bundleFiles = input.evidenceBundle
+    ? (input.evidenceBundle as { changedFiles?: unknown }).changedFiles
+    : undefined;
+  if (Array.isArray(bundleFiles)) {
+    const files = bundleFiles
+      .filter((file): file is string => typeof file === "string")
+      .map((file) => file.trim())
+      .filter(Boolean);
+    if (files.length > 0) {
+      return files;
+    }
+  }
+
+  if (Array.isArray(input.changedFilesSummary)) {
+    const files = input.changedFilesSummary
+      .map((file) => file.trim())
+      .filter(Boolean);
+    return files.length > 0 ? files : null;
+  }
+
+  return null;
+}
+
+function changedFilesSummaryFromWorkerFinishedInput(
+  input: QueueAgentLifecycleAgentFinishedInput,
+): string | null {
+  const bundleSummary = input.evidenceBundle
+    ? (input.evidenceBundle as { changedFilesSummary?: unknown })
+        .changedFilesSummary
+    : undefined;
+  const cleanBundleSummary =
+    typeof bundleSummary === "string" ? bundleSummary.trim() : "";
+
+  return (
+    normalizeChangedFilesSummary(input.changedFilesSummary) ??
+    (cleanBundleSummary || null)
+  );
 }
 
 async function createReviewMessageThroughBackend(

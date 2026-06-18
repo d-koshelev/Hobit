@@ -11,7 +11,10 @@ import {
 import runtimeSource from "./workspaceAgentBrokerActionRuntime.ts?raw";
 import envelopeSource from "./agents/broker/hobitAgentActionRequestEnvelope.ts?raw";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
-import type { AgentQueueItemAggregate } from "../workspace/types";
+import type {
+  AgentQueueItemAggregate,
+  AgentQueueWorkerFinishedCommandResult,
+} from "../workspace/types";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -20,15 +23,30 @@ import type {
 
 describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
   it("invokes a valid Queue lifecycle envelope through the Workspace Agent broker runtime", async () => {
-    const getSnapshot = vi.fn(async () =>
-      snapshotResult({
-        items: [snapshotItem({ id: "task-1", status: "running" })],
-        selectedItem: snapshotItem({ id: "task-1", status: "running" }),
-        selectedItemId: "task-1",
+    const getSnapshot = vi.fn();
+    const recordWorkerFinished = vi.fn(async () =>
+      workerFinishedCommandResult({
+        aggregate: queueAggregate({
+          evidenceState: "available",
+          nextActions: [
+            {
+              available: true,
+              code: "create_review_message",
+              label: "Create review message",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "awaiting_review",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
       }),
     );
     const invoker = createWorkspaceAgentHobitActionInvoker({
-      workspaceAgentQueueBridge: queueBridge({ getSnapshot }),
+      workspaceAgentQueueBridge: queueBridge({
+        getSnapshot,
+        recordWorkerFinished,
+      }),
     });
     const parsed = readHobitAgentActionRequestEnvelope(
       JSON.stringify({
@@ -38,6 +56,7 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
           attemptId: "attempt-1",
           finalAgentMessage: "Implemented the requested changes.",
           outcome: "completed",
+          runId: "run-1",
           taskId: "task-1",
           validationSummary: "typecheck passed",
         },
@@ -60,17 +79,24 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     );
 
     expect(result.status).toBe("succeeded");
+    expect(recordWorkerFinished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outcome: "completed",
+        runId: "run-1",
+        summary: "Implemented the requested changes.",
+        taskId: "task-1",
+      }),
+    );
     expect(result.result.output).toMatchObject({
-      queueMutation: "frontend_controller_overlay",
+      evidenceBundleId: "bundle-1",
+      queueMutation: "backend_domain",
       ticketState: "awaiting_review",
       wouldStartWorkers: false,
     });
     expect(workspaceAgentHobitActionResultMessage(result.result)).toBe(
       "Queue lifecycle agent finished.",
     );
-    expect(getSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ selectedItemId: "task-1" }),
-    );
+    expect(getSnapshot).not.toHaveBeenCalled();
   });
 
   it("returns compact invalid_input for an invalid lifecycle envelope", async () => {
@@ -84,6 +110,7 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
         dryRun: false,
         input: {
           outcome: "completed",
+          runId: "run-1",
           taskId: "task-1",
         },
         type: "hobit.action.request",
@@ -293,5 +320,40 @@ function queueAggregate(
     workerRunState: "not_started",
     workspaceId: "workspace_1",
     ...overrides,
+  };
+}
+
+function workerFinishedCommandResult({
+  aggregate = queueAggregate(),
+}: {
+  aggregate?: AgentQueueItemAggregate;
+} = {}): AgentQueueWorkerFinishedCommandResult {
+  return {
+    aggregate,
+    bundleId: "bundle-1",
+    durable: true,
+    evidenceBundle: {
+      bundleId: "bundle-1",
+      changedFiles: [],
+      changedFilesCount: 0,
+      changedFilesSummary: null,
+      createdAt: "2026-06-16T12:01:00.000Z",
+      errorSummary: null,
+      executorWidgetId: "executor-1",
+      metadataJson: null,
+      outcome: "completed",
+      runId: "run-1",
+      runLinkId: "link-1",
+      source: "workspace_agent",
+      summary: "Implemented the requested changes.",
+      taskId: aggregate.taskId,
+      updatedAt: "2026-06-16T12:01:00.000Z",
+      validationSummary: "typecheck passed",
+      workerId: "workspace-agent",
+      workspaceId: aggregate.workspaceId,
+    },
+    runId: "run-1",
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
   };
 }

@@ -29,6 +29,8 @@ mod agent_queue_task_dto;
 mod agent_queue_task_dto_tests;
 mod agent_queue_worker_commands;
 mod agent_queue_worker_dto;
+mod agent_queue_worker_evidence_commands;
+mod agent_queue_worker_evidence_dto;
 mod app_state;
 mod codex_direct_work_dto;
 #[cfg(test)]
@@ -207,6 +209,8 @@ pub fn run() {
             agent_queue_aggregate_commands::get_agent_queue_item_aggregate,
             agent_queue_review_commands::create_agent_queue_review_message,
             agent_queue_review_commands::ack_agent_queue_review_message,
+            agent_queue_worker_evidence_commands::record_agent_queue_worker_finished,
+            agent_queue_worker_evidence_commands::get_agent_queue_worker_evidence_bundle,
             agent_queue_worker_commands::list_agent_queue_workers,
             agent_queue_worker_commands::create_agent_queue_worker,
             agent_queue_worker_commands::update_agent_queue_worker,

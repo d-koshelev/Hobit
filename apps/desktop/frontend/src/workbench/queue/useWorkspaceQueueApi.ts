@@ -19,6 +19,10 @@ import {
   createAgentQueueReviewMessage,
 } from "../../workspace/tauriAgentQueueReviewApi";
 import {
+  getAgentQueueWorkerEvidenceBundle,
+  recordAgentQueueWorkerFinished,
+} from "../../workspace/tauriAgentQueueWorkerEvidenceApi";
+import {
   createWorkspaceAgentQueueBridge,
   type WorkspaceAgentQueueAutonomousActionName,
   type WorkspaceAgentQueueAutonomousActionResult,
@@ -336,6 +340,10 @@ export function useWorkspaceQueueApi({
     reviewActions: {
       ackAgentQueueReviewMessage,
       createAgentQueueReviewMessage,
+    },
+    workerEvidenceActions: {
+      getAgentQueueWorkerEvidenceBundle,
+      recordAgentQueueWorkerFinished,
     },
     queueState: {
       getCurrentWorkspaceRoot: () => normalizedCurrentWorkspaceRoot,

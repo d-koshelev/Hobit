@@ -182,14 +182,14 @@ fn successful_completed_run_awaits_review_and_is_not_done() {
     );
     assert_eq!(
         aggregate.evidence_state,
-        QueueItemAggregateEvidenceState::Available
+        QueueItemAggregateEvidenceState::NotDurable
     );
     assert_eq!(
         aggregate
             .evidence_summary
             .as_ref()
-            .and_then(|summary| summary.summary.as_deref()),
-        Some("Final response summary.")
+            .and_then(|summary| summary.not_durable_reason.as_deref()),
+        Some("Queue worker evidence bundle has not been recorded durably yet.")
     );
     assert_action(&aggregate, "create_review_message");
 }

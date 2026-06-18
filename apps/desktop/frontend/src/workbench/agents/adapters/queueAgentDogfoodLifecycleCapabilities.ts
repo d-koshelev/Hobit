@@ -43,12 +43,12 @@ const AGENT_OUTCOMES = new Set(["completed", "not_completed", "failed"]);
 type NormalizedAgentFinishedInput = Required<
   Pick<
     QueueAgentLifecycleAgentFinishedInput,
-    "finalAgentMessage" | "outcome" | "taskId"
+    "finalAgentMessage" | "outcome" | "runId" | "taskId"
   >
 > &
   Omit<
     QueueAgentLifecycleAgentFinishedInput,
-    "finalAgentMessage" | "outcome" | "taskId"
+    "finalAgentMessage" | "outcome" | "runId" | "taskId"
   >;
 
 export function createQueueAgentDogfoodLifecycleActionHandlers(
@@ -83,12 +83,15 @@ function handleAgentFinished(
       "taskId",
       "outcome",
       "finalAgentMessage",
+      "runId",
       "attemptId",
       "threadId",
       "validationSummary",
       "changedFilesSummary",
       "finishedAt",
       "evidenceBundle",
+      "source",
+      "workerId",
     ],
   );
   if (!validation.ok) {
@@ -362,7 +365,7 @@ function handleGetEvidenceBundle(
   const validation = readInput<QueueAgentReviewEvidenceBundleInput>(
     request,
     ["taskId"],
-    ["taskId"],
+    ["taskId", "runId"],
   );
   if (!validation.ok) {
     return invalidInput(request, validation.message);
@@ -371,6 +374,7 @@ function handleGetEvidenceBundle(
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
     lifecycle.getEvidenceBundle(
       {
+        runId: validation.value.runId,
         taskId: validation.value.taskId as string,
       },
       context,
@@ -422,6 +426,23 @@ function normalizeAgentFinishedInput(
       };
     }
 
+    const explicitRunId = cleanString(input.runId);
+    if (
+      explicitRunId &&
+      evidenceBundle.runId &&
+      explicitRunId !== evidenceBundle.runId
+    ) {
+      return {
+        message: "Queue lifecycle runId does not match the evidence bundle runId.",
+        ok: false,
+      };
+    }
+
+    const runId = explicitRunId ?? cleanString(evidenceBundle.runId);
+    if (!runId) {
+      return { message: "runId is required.", ok: false };
+    }
+
     const lifecycleInput = toLifecycleAgentFinishedInput(evidenceBundle, {
       attemptId: cleanString(input.attemptId) ?? undefined,
       changedFilesSummary: normalizeActionChangedFilesSummary(
@@ -447,14 +468,18 @@ function normalizeAgentFinishedInput(
         finalAgentMessage: lifecycleInput.finalAgentMessage,
         finishedAt: lifecycleInput.finishedAt,
         outcome: lifecycleInput.outcome,
+        runId,
+        source: cleanString(input.source) ?? undefined,
         taskId: lifecycleInput.taskId,
         threadId: lifecycleInput.threadId,
         validationSummary: lifecycleInput.validationSummary,
+        workerId: cleanString(input.workerId) ?? undefined,
       },
     };
   }
 
   const taskId = cleanString(input.taskId);
+  const runId = cleanString(input.runId);
   const outcome = cleanString(input.outcome);
   const finalAgentMessage = cleanString(input.finalAgentMessage);
 
@@ -464,6 +489,10 @@ function normalizeAgentFinishedInput(
 
   if (!outcome) {
     return { message: "outcome is required.", ok: false };
+  }
+
+  if (!runId) {
+    return { message: "runId is required.", ok: false };
   }
 
   if (!AGENT_OUTCOMES.has(outcome)) {
@@ -484,7 +513,10 @@ function normalizeAgentFinishedInput(
       ...input,
       finalAgentMessage,
       outcome: outcome as QueueWorkerEvidenceBundle["outcome"],
+      runId,
+      source: cleanString(input.source) ?? undefined,
       taskId,
+      workerId: cleanString(input.workerId) ?? undefined,
     },
   };
 }

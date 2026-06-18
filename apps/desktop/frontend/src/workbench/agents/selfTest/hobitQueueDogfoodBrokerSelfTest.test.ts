@@ -267,6 +267,7 @@ describe("Queue dogfood broker capability calls", () => {
       attemptId: store.fakeAttemptId,
       finalAgentMessage: store.finalAgentMessage,
       outcome: "completed",
+      runId: "fake-run-upstream-1",
       taskId: store.taskId,
       validationSummary: store.validationSummary,
     });

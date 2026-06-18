@@ -3,6 +3,7 @@ export { getWorkspaceApi } from "./workspaceApiRuntime";
 export * from "./workspaceApiAgentChat";
 export * from "./tauriAgentQueueAggregateApi";
 export * from "./tauriAgentQueueReviewApi";
+export * from "./tauriAgentQueueWorkerEvidenceApi";
 export * from "./workspaceApiAgentExecutor";
 export * from "./workspaceApiAgentQueue";
 export * from "./workspaceApiCore";

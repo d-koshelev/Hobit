@@ -51,6 +51,9 @@ mod agent_queue_tests;
 mod agent_queue_validation_runner;
 #[cfg(test)]
 mod agent_queue_validation_runner_tests;
+mod agent_queue_worker_evidence;
+#[cfg(test)]
+mod agent_queue_worker_evidence_tests;
 mod agent_queue_workers;
 #[cfg(test)]
 mod agent_queue_workers_tests;
@@ -177,6 +180,11 @@ pub use agent_queue_task_types::{
     FinishAssignedAgentQueueTaskRunInput, RecordAgentQueueTaskRunFinalStatusInput,
     RecordAgentQueueTaskRunStartedInput, RunAgentQueueValidationSuiteInput,
     StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput, UpdateAgentQueueWorkerInput,
+};
+pub use agent_queue_worker_evidence::{
+    AgentQueueWorkerEvidenceBundleSummary, AgentQueueWorkerEvidenceQueryResult,
+    AgentQueueWorkerEvidenceQueryState, AgentQueueWorkerFinishedCommandResult,
+    GetAgentQueueWorkerEvidenceBundleInput, RecordAgentQueueWorkerFinishedInput,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;
 pub use coordinator_provider_external::{

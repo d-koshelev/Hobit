@@ -34,11 +34,27 @@ const BACKEND_REVIEW_FORBIDDEN_SIDE_EFFECTS = [
   "duplicate_queue_view",
 ] as const;
 
+const BACKEND_WORKER_EVIDENCE_FORBIDDEN_SIDE_EFFECTS = [
+  "worker_start",
+  "worker_auto_run",
+  "queue_autorun",
+  "validation_execution",
+  "real_commit_execution",
+  "git_mutation",
+  "rollback_execution",
+  "terminal_launch",
+  "codex_run",
+  "shell_command",
+  "duplicate_queue_view",
+] as const;
+
 const COMPACT_GUIDANCE = [
   "Use only the documented fields.",
   "queue.lifecycle.get is a backend-authoritative aggregate read and requires taskId.",
   "queue.review.createMessage and queue.review.ack use backend/Tauri review commands and require explicit taskId.",
-  "Other write/evidence lifecycle capabilities remain transitional frontend/controller overlay operations when dryRun=false.",
+  "queue.lifecycle.agentFinished uses backend/Tauri worker evidence commands and requires explicit taskId and runId.",
+  "queue.review.getEvidenceBundle uses backend/Tauri worker evidence queries and requires explicit taskId.",
+  "Validation, follow-up, markDone, block, and fail lifecycle capabilities remain transitional frontend/controller overlay operations when dryRun=false.",
   "Dry-run previews must not mutate lifecycle state or create review messages.",
   "Do not run workers, validation, Git, Terminal, rollback, shell, or Codex from these capabilities.",
 ] as const;
@@ -46,6 +62,7 @@ const COMPACT_GUIDANCE = [
 const AGENT_FINISHED_SCHEMA: HobitAgentCapabilityInputSchema = {
   acceptedFields: [
     "taskId",
+    "runId",
     "outcome",
     "finalAgentMessage",
     "attemptId",
@@ -54,29 +71,35 @@ const AGENT_FINISHED_SCHEMA: HobitAgentCapabilityInputSchema = {
     "changedFilesSummary",
     "finishedAt",
     "evidenceBundle",
+    "source",
+    "workerId",
   ],
   fieldDescriptions: {
     attemptId: "Optional current worker attempt id.",
     changedFilesSummary:
       "Optional changed files summary as a string or string array. Overrides evidence summary display when evidenceBundle is supplied.",
     evidenceBundle:
-      "Optional normalized Queue worker evidence bundle. Supplies taskId, attemptId, threadId, outcome, finalAgentMessage, validation, changed files, logs, and frontend-only evidence summary.",
+      "Optional normalized Queue worker evidence bundle. Supplies taskId, runId, attemptId, threadId, outcome, finalAgentMessage, validation, changed files, logs, and evidence summary fields.",
     finalAgentMessage:
       "Required final agent report text unless supplied by evidenceBundle. Explicit value overrides bundle display text.",
     finishedAt: "Optional ISO timestamp; broker request time is used by default.",
     outcome:
       "Required agent outcome unless supplied by evidenceBundle. If both are supplied, it must match the evidence bundle outcome.",
+    runId:
+      "Required worker run id unless supplied by evidenceBundle.runId. If both are supplied, it must match the evidence bundle runId.",
+    source: "Optional worker evidence source label.",
     taskId:
       "Required Queue item id unless supplied by evidenceBundle. If both are supplied, it must match the evidence bundle taskId.",
     threadId:
       "Optional worker thread id. If both this and evidenceBundle.threadId are supplied, they must match.",
     validationSummary:
       "Optional validation summary text. Overrides evidence summary display when evidenceBundle is supplied.",
+    workerId: "Optional worker or Workspace Agent id.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
-  requiredFields: ["taskId or evidenceBundle.taskId"],
+  requiredFields: ["taskId or evidenceBundle.taskId", "runId or evidenceBundle.runId"],
   shape:
-    '{"taskId":"string required unless evidenceBundle.taskId","outcome":"completed|not_completed|failed required unless evidenceBundle.outcome","finalAgentMessage":"string required unless evidenceBundle final report/failure/stuck evidence","attemptId":"string optional","threadId":"string optional","evidenceBundle":{"kind":"queue_worker_evidence_bundle","version":1,"taskId":"string","outcome":"completed|not_completed|failed"} optional}',
+    '{"taskId":"string required unless evidenceBundle.taskId","runId":"string required unless evidenceBundle.runId","outcome":"completed|not_completed|failed required unless evidenceBundle.outcome","finalAgentMessage":"string required unless evidenceBundle final report/failure/stuck evidence","attemptId":"string optional","threadId":"string optional","evidenceBundle":{"kind":"queue_worker_evidence_bundle","version":1,"taskId":"string","runId":"string","outcome":"completed|not_completed|failed"} optional}',
 };
 
 const REVIEW_CREATE_SCHEMA: HobitAgentCapabilityInputSchema = {
@@ -257,13 +280,14 @@ const GET_SCHEMA: HobitAgentCapabilityInputSchema = {
 };
 
 const EVIDENCE_SCHEMA: HobitAgentCapabilityInputSchema = {
-  acceptedFields: ["taskId"],
+  acceptedFields: ["taskId", "runId"],
   fieldDescriptions: {
-    taskId: "Required Queue item id.",
+    runId: "Optional worker run id to read a specific durable evidence bundle.",
+    taskId: "Required explicit Queue item id. Do not infer it from task title, prompt text, file paths, final message, or natural-language content.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
   requiredFields: ["taskId"],
-  shape: '{"taskId":"string required"}',
+  shape: '{"taskId":"string required","runId":"string optional"}',
 };
 
 const AGENT_FINISHED_EXAMPLE = {
@@ -271,6 +295,7 @@ const AGENT_FINISHED_EXAMPLE = {
   changedFilesSummary: ["apps/desktop/frontend/src/..."],
   finalAgentMessage: "Implemented the requested changes.",
   outcome: "completed",
+  runId: "worker-run-id",
   taskId: "task-id",
   validationSummary: "typecheck passed",
 } as const;
@@ -285,6 +310,7 @@ const AGENT_FINISHED_EVIDENCE_EXAMPLE = {
     kind: "queue_worker_evidence_bundle",
     logReference: "frontend://self-test/logs/attempt-id",
     outcome: "completed",
+    runId: "worker-run-id",
     taskId: "task-id",
     threadId: "thread-id",
     validationOutputPreview: "typecheck passed",
@@ -319,7 +345,7 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
   lifecycleCapability({
     auditLabel: "Queue lifecycle agent finished",
     description:
-      "Record a worker/agent final report and move a running Queue dogfood lifecycle item to awaiting review.",
+      "Record a worker/agent final report through the backend worker evidence command and move the Queue item to backend awaiting review.",
     examples: [
       envelopeExample(
         "Record agent completion and prepare the item for review.",
@@ -333,9 +359,10 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
       ),
     ],
     id: "queue.lifecycle.agentFinished",
+    forbiddenSideEffects: BACKEND_WORKER_EVIDENCE_FORBIDDEN_SIDE_EFFECTS,
     inputSchema: AGENT_FINISHED_SCHEMA,
     output:
-      "Lifecycle transition preview or applied frontend overlay with ticketState awaiting_review.",
+      "Backend worker evidence command result with evidenceBundleId, runId, evidenceState, nextActions, blockers, durability, and updated aggregate.",
     title: "Queue Lifecycle Agent Finished",
   }),
   lifecycleCapability({
@@ -442,10 +469,11 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
   lifecycleCapability({
     auditLabel: "Queue review evidence bundle read",
     description:
-      "Read the current frontend/controller review evidence bundle for a Queue dogfood lifecycle item.",
+      "Read the backend-owned durable worker evidence bundle for a Queue item.",
+    forbiddenSideEffects: BACKEND_WORKER_EVIDENCE_FORBIDDEN_SIDE_EFFECTS,
     id: "queue.review.getEvidenceBundle",
     inputSchema: EVIDENCE_SCHEMA,
-    output: "Final agent message, validation summary, changed files summary, and review messages.",
+    output: "Backend evidence state, evidenceBundleId, runId, outcome, summary, blockers, nextActions, and updated aggregate when available.",
     sideEffectLevel: "read",
     title: "Read Queue Review Evidence Bundle",
   }),

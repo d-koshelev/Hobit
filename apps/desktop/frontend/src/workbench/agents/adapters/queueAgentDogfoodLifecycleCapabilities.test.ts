@@ -83,6 +83,8 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
         ]),
       );
       if (
+        capabilityId !== "queue.lifecycle.agentFinished" &&
+        capabilityId !== "queue.review.getEvidenceBundle" &&
         capabilityId !== "queue.review.createMessage" &&
         capabilityId !== "queue.review.ack"
       ) {
@@ -117,12 +119,16 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     ).toMatchObject({
       acceptedFields: expect.arrayContaining([
         "taskId",
+        "runId",
         "outcome",
         "finalAgentMessage",
         "evidenceBundle",
         "threadId",
       ]),
-      requiredFields: ["taskId or evidenceBundle.taskId"],
+      requiredFields: [
+        "taskId or evidenceBundle.taskId",
+        "runId or evidenceBundle.runId",
+      ],
     });
     expect(
       requiredCapability(registry, "queue.review.ack").inputSchema,
@@ -242,6 +248,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       finalAgentMessage: "Implemented the requested changes.",
       logReference: "frontend://logs/attempt-1",
       outcome: "completed",
+      runId: "run-1",
       taskId: "task-1",
       threadId: "thread-1",
       validationOutputPreview: "typecheck passed",
@@ -288,6 +295,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       changedFiles: [],
       finalAgentMessage: "Done.",
       outcome: "completed",
+      runId: "run-1",
       taskId: "task-other",
     });
 
@@ -369,6 +377,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       finalAgentMessage: "Implemented the requested changes.",
       logReference: "frontend://logs/attempt-1",
       outcome: "completed",
+      runId: "run-1",
       taskId: "task-1",
       threadId: "thread-1",
       validationStatus: "passed",
@@ -691,6 +700,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
         input: {
           finalAgentMessage: "Implemented.",
           outcome: "completed",
+          runId: "run-1",
           taskId: "task-1",
           terminalCommand: "npm test",
         },
@@ -789,6 +799,7 @@ function agentFinishedInput() {
     changedFilesSummary: ["apps/desktop/frontend/src/..."],
     finalAgentMessage: "Implemented the requested changes.",
     outcome: "completed",
+    runId: "run-1",
     taskId: "task-1",
     validationSummary: "typecheck passed",
   };

@@ -57,6 +57,7 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
       dryRun: true,
       finalAgentMessage: "Implementation completed.",
       outcome: "completed",
+      runId: "run-ingest-preview",
       taskId: TASK_ID,
       threadId: THREAD_ID,
       validationSummary: "typecheck passed",
@@ -92,6 +93,7 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
       changedFiles: ["apps/desktop/frontend/src/workbench/queue/bridge.ts"],
       finalAgentMessage: "Implementation completed.",
       outcome: "completed",
+      runId: "run-ingest-bridge",
       taskId: TASK_ID,
       threadId: THREAD_ID,
       validationSummary: "typecheck passed",
@@ -163,6 +165,7 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
     const evidenceBundle = createQueueWorkerEvidenceBundle({
       finalAgentMessage: "Done.",
       outcome: "completed",
+      runId: "run-different-task",
       taskId: "different-task",
     });
 
@@ -187,6 +190,7 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
       attemptId: "attempt-other",
       finalAgentMessage: "Done.",
       outcome: "completed",
+      runId: "run-attempt-conflict",
       taskId: TASK_ID,
     });
 
@@ -208,6 +212,7 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
 
     const result = await ingestQueueWorkerEvidence(harness.dependencies, {
       outcome: "completed",
+      runId: "run-invalid-evidence",
       taskId: TASK_ID,
     });
 
@@ -223,6 +228,7 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
     const missingBroker = await ingestQueueWorkerEvidence({}, {
       finalAgentMessage: "Done.",
       outcome: "completed",
+      runId: "run-missing-broker",
       taskId: TASK_ID,
     });
     const missingController = await ingestQueueWorkerEvidence(
@@ -230,6 +236,7 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
       {
         finalAgentMessage: "Done.",
         outcome: "completed",
+        runId: "run-missing-controller",
         taskId: TASK_ID,
       },
     );
@@ -251,6 +258,7 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
     const result = await ingestQueueWorkerEvidence(harness.dependencies, {
       finalAgentMessage: "Done.",
       outcome: "completed",
+      runId: "run-dry-run-required",
       taskId: TASK_ID,
     });
 
@@ -272,17 +280,20 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
     const completedResult = await ingestQueueWorkerEvidence(completed.dependencies, {
       finalAgentMessage: "Completed.",
       outcome: "completed",
+      runId: "run-completed-outcome",
       taskId: "task-failed",
     });
     const failedResult = await ingestQueueWorkerEvidence(failed.dependencies, {
       failureReason: "Validation failed.",
       outcome: "failed",
+      runId: "run-failed-outcome",
       taskId: "task-failed",
     });
     const notCompletedResult = await ingestQueueWorkerEvidence(
       notCompleted.dependencies,
       {
         outcome: "not_completed",
+        runId: "run-not-completed-outcome",
         stuckReason: "Needs a smaller follow-up prompt.",
         taskId: "task-stuck",
       },
@@ -310,6 +321,7 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
       changedFiles: ["src/a.ts"],
       finalAgentMessage: "Implementation completed.",
       outcome: "completed",
+      runId: "run-evidence-readable",
       taskId: TASK_ID,
       validationSummary: "typecheck passed",
     });
@@ -352,6 +364,7 @@ describe("smartQueueWorkerEvidenceIngestion", () => {
     await ingestQueueWorkerEvidence(harness.dependencies, {
       finalAgentMessage: "Implementation completed.",
       outcome: "completed",
+      runId: "run-dependent-gate",
       taskId: TASK_ID,
     });
 

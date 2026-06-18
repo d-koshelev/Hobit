@@ -162,6 +162,28 @@ CREATE TABLE IF NOT EXISTS agent_queue_review_messages (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS agent_queue_worker_evidence_bundles (
+    bundle_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+    run_id TEXT NOT NULL REFERENCES widget_runs(id) ON DELETE CASCADE,
+    run_link_id TEXT NULL REFERENCES agent_queue_task_run_links(link_id) ON DELETE SET NULL,
+    executor_widget_id TEXT NULL REFERENCES widget_instances(id) ON DELETE SET NULL,
+    worker_id TEXT NULL,
+    source TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    changed_files_json TEXT NOT NULL,
+    changed_files_count INTEGER NOT NULL DEFAULT 0,
+    changed_files_summary TEXT NULL,
+    validation_summary TEXT NULL,
+    error_summary TEXT NULL,
+    metadata_json TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(workspace_id, queue_task_id, run_id)
+);
+
 CREATE TABLE IF NOT EXISTS agent_queue_workers (
     worker_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -431,6 +453,12 @@ CREATE INDEX IF NOT EXISTS idx_agent_queue_review_messages_task_created
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_review_messages_run_id
     ON agent_queue_review_messages(run_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_worker_evidence_task_updated
+    ON agent_queue_worker_evidence_bundles(workspace_id, queue_task_id, updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_worker_evidence_run_id
+    ON agent_queue_worker_evidence_bundles(workspace_id, run_id);
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_workers_workspace_order
     ON agent_queue_workers(workspace_id, display_order, created_at);

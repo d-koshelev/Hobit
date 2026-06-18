@@ -98,7 +98,7 @@ function createQueueLifecycleCapabilityInstructionLines(
   );
   const requiredInputLine = [
     presentCapabilityIds.has("queue.lifecycle.agentFinished")
-      ? "agentFinished(evidenceBundle or taskId,outcome,finalAgentMessage)"
+      ? "agentFinished(evidenceBundle or taskId,runId,outcome,finalAgentMessage)"
       : null,
     presentCapabilityIds.has("queue.review.createMessage")
       ? "createMessage(taskId)"
@@ -123,13 +123,13 @@ function createQueueLifecycleCapabilityInstructionLines(
       : null,
     presentCapabilityIds.has("queue.lifecycle.get") ? "get(taskId)" : null,
     presentCapabilityIds.has("queue.review.getEvidenceBundle")
-      ? "getEvidenceBundle(taskId)"
+      ? "getEvidenceBundle(taskId,runId?)"
       : null,
   ].filter((item): item is string => Boolean(item)).join("; ");
   return [
     "Queue lifecycle schemas:",
     requiredInputLine,
-    'Lifecycle example: {"type":"hobit.action.request","requestId":"lifecycle-agent-finished-1","capabilityId":"queue.lifecycle.agentFinished","dryRun":false,"input":{"taskId":"queue-task-id","outcome":"completed","finalAgentMessage":"Done."}}',
+    'Lifecycle example: {"type":"hobit.action.request","requestId":"lifecycle-agent-finished-1","capabilityId":"queue.lifecycle.agentFinished","dryRun":false,"input":{"taskId":"queue-task-id","runId":"worker-run-id","outcome":"completed","finalAgentMessage":"Done."}}',
   ].filter((line): line is string => Boolean(line));
 }
 

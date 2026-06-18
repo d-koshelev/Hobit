@@ -417,6 +417,7 @@ function toBrokerAgentFinishedInput(
     finalAgentMessage: lifecycleInput.finalAgentMessage,
     finishedAt: lifecycleInput.finishedAt,
     outcome: lifecycleInput.outcome,
+    runId: cleanText(input.runId) ?? bundle.runId,
     taskId: lifecycleInput.taskId,
     threadId: lifecycleInput.threadId,
     validationSummary: lifecycleInput.validationSummary,

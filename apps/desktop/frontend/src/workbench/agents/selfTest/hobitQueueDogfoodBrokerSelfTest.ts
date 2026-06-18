@@ -123,7 +123,7 @@ function queueLinkedEvidenceEventWiringInventoryCases(): QueueDogfoodBrokerSelfT
       caseId: "queue-dogfood-broker:raw-non-queue-ingestion-blocked",
       evidence: [
         "Raw Workspace Agent, raw Direct Work, Agent Activity, and standalone Agent Executor history are not ingestion sources.",
-        "Evidence ingestion requires explicit Queue task linkage and never infers taskId from prompt, title, final message, repo path, or changed files.",
+        "Evidence ingestion requires explicit Queue task/run linkage and never infers taskId or runId from prompt, title, final message, repo path, or changed files.",
       ],
       message: "Raw non-Queue Direct Work ingestion is blocked.",
       required: false,
@@ -369,6 +369,7 @@ function runFollowUpPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
     attemptId: "attempt-follow-up-1",
     finalAgentMessage: "Follow-up needed after fake review.",
     outcome: "completed",
+    runId: "fake-run-follow-up-1",
     taskId: store.followUpTaskId,
     validationSummary: "Follow-up validation needs another pass.",
   });
@@ -436,6 +437,7 @@ function runFailurePath(store: QueueDogfoodBrokerSelfTestFakeStore): {
     attemptId: "attempt-failure-1",
     finalAgentMessage: "Fake worker reported terminal failure evidence.",
     outcome: "failed",
+    runId: "fake-run-failure-1",
     taskId: store.failureTaskId,
     validationSummary: "Validation failed in fake evidence.",
   });

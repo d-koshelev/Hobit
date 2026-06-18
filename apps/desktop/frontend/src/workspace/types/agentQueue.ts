@@ -309,6 +309,33 @@ export type AckAgentQueueReviewMessageRequest = {
   actorId: string;
 };
 
+export type AgentQueueWorkerEvidenceOutcome =
+  | "completed"
+  | "not_completed"
+  | "failed";
+
+export type RecordAgentQueueWorkerFinishedRequest = {
+  workspaceId: string;
+  taskId: string;
+  runId: string;
+  outcome: AgentQueueWorkerEvidenceOutcome;
+  summary?: string | null;
+  changedFiles?: string[] | null;
+  changedFilesSummary?: string | null;
+  validationSummary?: string | null;
+  errorSummary?: string | null;
+  workerId?: string | null;
+  source?: string | null;
+  metadataJson?: string | null;
+  finishedAt?: string | null;
+};
+
+export type GetAgentQueueWorkerEvidenceBundleRequest = {
+  workspaceId: string;
+  taskId: string;
+  runId?: string | null;
+};
+
 export type AgentQueueItemAggregateRunSettings = {
   approvalPolicy: string | null;
   assignedExecutorWidgetId: string | null;
@@ -402,6 +429,47 @@ export type AgentQueueReviewCommandResult = {
   durable: boolean;
   messageId: string;
   reviewMessage: AgentQueueReviewMessage;
+  taskId: string;
+  workspaceId: string;
+};
+
+export type AgentQueueWorkerEvidenceBundle = {
+  bundleId: string;
+  workspaceId: string;
+  taskId: string;
+  runId: string;
+  runLinkId: string | null;
+  executorWidgetId: string | null;
+  workerId: string | null;
+  source: string;
+  outcome: AgentQueueWorkerEvidenceOutcome;
+  summary: string;
+  changedFiles: string[];
+  changedFilesCount: number;
+  changedFilesSummary: string | null;
+  validationSummary: string | null;
+  errorSummary: string | null;
+  metadataJson: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AgentQueueWorkerFinishedCommandResult = {
+  aggregate: AgentQueueItemAggregate;
+  bundleId: string;
+  durable: boolean;
+  evidenceBundle: AgentQueueWorkerEvidenceBundle;
+  runId: string;
+  taskId: string;
+  workspaceId: string;
+};
+
+export type AgentQueueWorkerEvidenceQueryResult = {
+  aggregate: AgentQueueItemAggregate | null;
+  durable: boolean;
+  evidenceBundle: AgentQueueWorkerEvidenceBundle | null;
+  runId: string | null;
+  state: "available" | "no_evidence" | "not_found" | string;
   taskId: string;
   workspaceId: string;
 };

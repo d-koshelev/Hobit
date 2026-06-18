@@ -11,7 +11,10 @@ import {
   type DirectWorkStreamEvent,
 } from "./InteractiveAgentPlaceholderWidget.test-utils";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
-import type { AgentQueueItemAggregate } from "../workspace/types";
+import type {
+  AgentQueueItemAggregate,
+  AgentQueueWorkerFinishedCommandResult,
+} from "../workspace/types";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -125,15 +128,9 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     );
   });
 
-  it("invokes queue.lifecycle.agentFinished through the broker and Queue lifecycle adapter", async () => {
+  it("invokes queue.lifecycle.agentFinished through the broker and backend worker evidence API", async () => {
     const createItem = vi.fn();
-    const getSnapshot = vi.fn(async () =>
-      snapshotResult({
-        items: [snapshotItem({ id: "task-1", status: "running" })],
-        selectedItem: snapshotItem({ id: "task-1", status: "running" }),
-        selectedItemId: "task-1",
-      }),
-    );
+    const recordWorkerFinished = vi.fn(async () => workerFinishedResult());
     const publishActivityEvents = vi.fn();
     const runAutonomousQueue = vi.fn();
     const runTerminal = vi.fn();
@@ -147,6 +144,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
           changedFilesSummary: ["apps/desktop/frontend/src/..."],
           finalAgentMessage: "Implemented the requested changes.",
           outcome: "completed",
+          runId: "run-1",
           taskId: "task-1",
           validationSummary: "typecheck passed",
         },
@@ -160,7 +158,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
       onStartCodexDirectWorkStream: startDirectWork,
       workspaceAgentQueueBridge: queueBridge({
         createItem,
-        getSnapshot,
+        recordWorkerFinished,
         runAutonomousQueue,
       }),
       workspaceId: "workspace_1",
@@ -170,8 +168,14 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     await flushAsync();
 
     expect(startDirectWork).toHaveBeenCalledTimes(1);
-    expect(getSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({ selectedItemId: "task-1" }),
+    expect(recordWorkerFinished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outcome: "completed",
+        runId: "run-1",
+        summary: "Implemented the requested changes.",
+        taskId: "task-1",
+        validationSummary: "typecheck passed",
+      }),
     );
     expect(createItem).not.toHaveBeenCalled();
     expect(runAutonomousQueue).not.toHaveBeenCalled();
@@ -243,7 +247,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(createItem).not.toHaveBeenCalled();
     expect(getSnapshot).not.toHaveBeenCalled();
     expect(lastAssistantMessageText()).toContain(
-      "Invalid Hobit action request. finalAgentMessage is required.",
+      "Invalid Hobit action request. runId is required.",
     );
   });
 
@@ -822,7 +826,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(operatorPrompt).toContain('"capabilityId":"queue.createItems"');
     expect(operatorPrompt).toContain("Queue lifecycle schemas:");
     expect(operatorPrompt).toContain(
-      "agentFinished(evidenceBundle or taskId,outcome,finalAgentMessage)",
+      "agentFinished(evidenceBundle or taskId,runId,outcome,finalAgentMessage)",
     );
     expect(operatorPrompt).toContain("ack(taskId,messageId)");
     expect(operatorPrompt).toContain("addFollowUpPrompt(taskId,coordinatorAgentId,prompt)");
@@ -1051,6 +1055,106 @@ function snapshotItem(
     workspaceId: "workspace_1",
     ...overrides,
   } as QueueWidgetItemSnapshot;
+}
+
+function workerFinishedResult(
+  overrides: Partial<AgentQueueWorkerFinishedCommandResult> = {},
+): AgentQueueWorkerFinishedCommandResult {
+  const taskId = overrides.taskId ?? "task-1";
+  const runId = overrides.runId ?? "run-1";
+  const aggregate = overrides.aggregate ?? workerEvidenceAggregate(taskId, runId);
+  const evidenceBundle = overrides.evidenceBundle ?? {
+    bundleId: overrides.bundleId ?? "bundle-1",
+    changedFiles: ["apps/desktop/frontend/src/..."],
+    changedFilesCount: 1,
+    changedFilesSummary: "1 changed file",
+    createdAt: "2026-06-17T10:00:00.000Z",
+    errorSummary: null,
+    executorWidgetId: "executor-1",
+    metadataJson: null,
+    outcome: "completed" as const,
+    runId,
+    runLinkId: "run-link-1",
+    source: "workspace_agent",
+    summary: "Implemented the requested changes.",
+    taskId,
+    updatedAt: "2026-06-17T10:00:00.000Z",
+    validationSummary: "typecheck passed",
+    workerId: "workspace-agent",
+    workspaceId: "workspace_1",
+  };
+
+  return {
+    aggregate,
+    bundleId: evidenceBundle.bundleId,
+    durable: true,
+    evidenceBundle,
+    runId,
+    taskId,
+    workspaceId: "workspace_1",
+    ...overrides,
+  };
+}
+
+function workerEvidenceAggregate(taskId: string, runId: string): AgentQueueItemAggregate {
+  return {
+    blockers: [],
+    commitState: "none",
+    dependencyState: "none",
+    durableFlags: {
+      commitState: false,
+      dependencyState: true,
+      evidenceState: true,
+      frontendOverlayUsed: false,
+      latestRunLink: true,
+      reviewState: false,
+      taskRow: true,
+      validationState: true,
+    },
+    evidenceState: "available",
+    evidenceSummary: {
+      available: true,
+      notDurableReason: null,
+      source: "durable_worker_evidence_bundle",
+      summary: "Implemented the requested changes.",
+    },
+    latestRun: {
+      completedAt: "2026-06-17T10:00:00.000Z",
+      executorWidgetId: "executor-1",
+      finalDetailAvailable: true,
+      reviewStatus: "review_needed",
+      runId,
+      runLinkId: "run-link-1",
+      source: "agent_executor",
+      startedAt: "2026-06-17T09:59:00.000Z",
+      status: "completed",
+      validationStatus: null,
+    },
+    nextActions: [
+      {
+        available: true,
+        code: "create_review_message",
+        label: "Create review message",
+        unavailableReason: null,
+      },
+    ],
+    reviewState: "awaiting_review",
+    runSettings: {
+      approvalPolicy: null,
+      assignedExecutorWidgetId: "executor-1",
+      codexExecutable: null,
+      executionPolicy: "manual",
+      executionWorkspace: null,
+      sandbox: null,
+    },
+    taskId,
+    ticketState: "awaiting_review",
+    title: "Queue item",
+    updatedAt: "2026-06-17T10:00:00.000Z",
+    validationState: "not_requested",
+    workerRunState: "completed",
+    workspaceId: "workspace_1",
+  };
 }
 
 function aggregateFromSnapshotItem(

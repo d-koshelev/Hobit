@@ -180,6 +180,28 @@ pub struct AgentQueueReviewMessageRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkerEvidenceBundleRow {
+    pub bundle_id: String,
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub run_id: String,
+    pub run_link_id: Option<String>,
+    pub executor_widget_id: Option<String>,
+    pub worker_id: Option<String>,
+    pub source: String,
+    pub outcome: String,
+    pub summary: String,
+    pub changed_files_json: String,
+    pub changed_files_count: i64,
+    pub changed_files_summary: Option<String>,
+    pub validation_summary: Option<String>,
+    pub error_summary: Option<String>,
+    pub metadata_json: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueWorkerRow {
     pub worker_id: String,
     pub workspace_id: String,

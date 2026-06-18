@@ -6,6 +6,7 @@ import type {
   AgentQueueItemAggregateEvidenceSummary,
   AgentQueueItemAggregateLatestRun,
   AgentQueueItemAggregateNextAction,
+  AgentQueueWorkerEvidenceBundle,
 } from "../../../workspace/types";
 import type {
   SmartQueueDogfoodLifecycleItem,
@@ -373,9 +374,12 @@ export type QueueAgentLifecycleAgentFinishedInput = {
   finalAgentMessage?: string;
   finishedAt?: string;
   outcome?: SmartQueueDogfoodReviewOutcome;
+  runId?: string;
+  source?: string;
   taskId?: string;
   threadId?: string;
   validationSummary?: string;
+  workerId?: string;
 };
 
 export type QueueAgentReviewCreateMessageInput = {
@@ -453,6 +457,7 @@ export type QueueAgentLifecycleGetInput = {
 };
 
 export type QueueAgentReviewEvidenceBundleInput = {
+  runId?: string;
   taskId?: string;
 };
 
@@ -486,6 +491,9 @@ export type QueueAgentLifecycleTransitionOutput = {
   agentPromptState: SmartQueueDogfoodLifecycleItem["agentPromptState"];
   aggregate?: AgentQueueItemAggregate;
   blockers?: AgentQueueItemAggregateBlocker[];
+  evidenceBundleId?: string;
+  evidenceBundle?: AgentQueueWorkerEvidenceBundle | null;
+  evidenceState?: string;
   dryRunOnly: boolean;
   durable?: boolean;
   lifecycle: SmartQueueDogfoodLifecycleItem | null;
@@ -498,6 +506,7 @@ export type QueueAgentLifecycleTransitionOutput = {
   reviewMessage?: unknown;
   reviewState?: string;
   reviewOutcome: SmartQueueDogfoodReviewOutcome | null;
+  runId?: string;
   taskId: string;
   ticketState: SmartQueueDogfoodLifecycleItem["ticketState"] | string;
   value?: unknown;
@@ -535,15 +544,26 @@ export type QueueAgentLifecycleGetOutput = {
 };
 
 export type QueueAgentReviewEvidenceBundleOutput = {
+  aggregate?: AgentQueueItemAggregate | null;
+  backendEvidenceBundle?: AgentQueueWorkerEvidenceBundle | null;
+  blockers?: AgentQueueItemAggregateBlocker[];
   changedFilesSummary?: string;
   evidenceBundle: QueueWorkerEvidenceBundle | null;
-  evidenceBundlePersistence: "frontend_only_not_durable";
+  evidenceBundleId?: string;
+  evidenceBundlePersistence:
+    | "backend_durable"
+    | "backend_no_evidence"
+    | "frontend_only_not_durable";
+  evidenceState?: string;
   evidenceSummary?: QueueWorkerEvidenceSummary;
   finalAgentMessage?: string;
   latestReviewMessage: SmartQueueReviewMessage | null;
   lifecycle: SmartQueueDogfoodLifecycleItem;
+  nextActions?: QueueAgentAggregateNextAction[];
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
   reviewMessages: SmartQueueReviewMessage[];
   reviewOutcome: SmartQueueDogfoodReviewOutcome | null;
+  runId?: string | null;
   taskId: string;
   validationApprovals: SmartQueueValidationApproval[];
   validationSummary?: string;
@@ -561,8 +581,8 @@ export type QueueAgentDogfoodLifecycleAdapterApi = {
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>>;
   agentFinished: (
-    input: Required<Pick<QueueAgentLifecycleAgentFinishedInput, "finalAgentMessage" | "outcome" | "taskId">> &
-      Omit<QueueAgentLifecycleAgentFinishedInput, "finalAgentMessage" | "outcome" | "taskId">,
+    input: Required<Pick<QueueAgentLifecycleAgentFinishedInput, "finalAgentMessage" | "outcome" | "runId" | "taskId">> &
+      Omit<QueueAgentLifecycleAgentFinishedInput, "finalAgentMessage" | "outcome" | "runId" | "taskId">,
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>>;
   approveValidation: (
@@ -586,7 +606,8 @@ export type QueueAgentDogfoodLifecycleAdapterApi = {
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>>;
   getEvidenceBundle: (
-    input: Required<Pick<QueueAgentReviewEvidenceBundleInput, "taskId">>,
+    input: Required<Pick<QueueAgentReviewEvidenceBundleInput, "taskId">> &
+      Omit<QueueAgentReviewEvidenceBundleInput, "taskId">,
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentReviewEvidenceBundleOutput>>;
   getLifecycle: (

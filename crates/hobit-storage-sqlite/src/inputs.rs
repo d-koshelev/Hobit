@@ -188,6 +188,28 @@ pub struct NewAgentQueueReviewMessage<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueWorkerEvidenceBundle<'a> {
+    pub bundle_id: &'a str,
+    pub workspace_id: &'a str,
+    pub queue_task_id: &'a str,
+    pub run_id: &'a str,
+    pub run_link_id: Option<&'a str>,
+    pub executor_widget_id: Option<&'a str>,
+    pub worker_id: Option<&'a str>,
+    pub source: &'a str,
+    pub outcome: &'a str,
+    pub summary: &'a str,
+    pub changed_files_json: &'a str,
+    pub changed_files_count: i64,
+    pub changed_files_summary: Option<&'a str>,
+    pub validation_summary: Option<&'a str>,
+    pub error_summary: Option<&'a str>,
+    pub metadata_json: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueReviewMessageAckUpdate<'a> {
     pub actor_id: &'a str,
     pub status: &'a str,

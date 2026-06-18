@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 
 use hobit_storage_sqlite::{
-    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, WidgetRunRow,
+    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
+    AgentQueueWorkerEvidenceBundleRow, WidgetRunRow,
 };
 
 use crate::WorkspaceServiceError;
@@ -305,6 +306,7 @@ impl WorkspaceService {
         let tasks = self.store.list_agent_queue_tasks(workspace_id)?;
         let mut latest_links = HashMap::new();
         let mut latest_review_messages = HashMap::new();
+        let mut latest_evidence_bundles = HashMap::new();
         let mut widget_runs = HashMap::new();
 
         for task in &tasks {
@@ -314,6 +316,9 @@ impl WorkspaceService {
             let latest_review_message = self
                 .store
                 .get_latest_agent_queue_review_message(workspace_id, &task.queue_item_id)?;
+            let latest_evidence_bundle = self
+                .store
+                .get_latest_agent_queue_worker_evidence_bundle(workspace_id, &task.queue_item_id)?;
             if let Some(link) = latest_link {
                 let widget_run = self.store.get_widget_run(&link.direct_work_run_id)?;
                 if let Some(run) = widget_run {
@@ -324,12 +329,16 @@ impl WorkspaceService {
             if let Some(message) = latest_review_message {
                 latest_review_messages.insert(task.queue_item_id.clone(), message);
             }
+            if let Some(evidence_bundle) = latest_evidence_bundle {
+                latest_evidence_bundles.insert(task.queue_item_id.clone(), evidence_bundle);
+            }
         }
 
         Ok(build_queue_item_aggregates(
             tasks,
             latest_links,
             latest_review_messages,
+            latest_evidence_bundles,
             widget_runs,
         ))
     }
@@ -353,6 +362,9 @@ impl WorkspaceService {
         let latest_review_message = self
             .store
             .get_latest_agent_queue_review_message(workspace_id, task_id)?;
+        let latest_evidence_bundle = self
+            .store
+            .get_latest_agent_queue_worker_evidence_bundle(workspace_id, task_id)?;
         let widget_run = latest_link
             .as_ref()
             .and_then(|link| self.store.get_widget_run(&link.direct_work_run_id).ok())
@@ -363,6 +375,7 @@ impl WorkspaceService {
             &all_tasks,
             latest_link.as_ref(),
             latest_review_message.as_ref(),
+            latest_evidence_bundle.as_ref(),
             widget_run.as_ref(),
         )))
     }
@@ -395,6 +408,7 @@ pub(super) fn build_queue_item_aggregates(
     tasks: Vec<AgentQueueTaskRow>,
     latest_links: HashMap<String, AgentQueueTaskRunLinkRow>,
     latest_review_messages: HashMap<String, AgentQueueReviewMessageRow>,
+    latest_evidence_bundles: HashMap<String, AgentQueueWorkerEvidenceBundleRow>,
     widget_runs: HashMap<String, WidgetRunRow>,
 ) -> Vec<QueueItemAggregate> {
     tasks
@@ -402,8 +416,16 @@ pub(super) fn build_queue_item_aggregates(
         .map(|task| {
             let latest_link = latest_links.get(&task.queue_item_id);
             let latest_review_message = latest_review_messages.get(&task.queue_item_id);
+            let latest_evidence_bundle = latest_evidence_bundles.get(&task.queue_item_id);
             let widget_run = latest_link.and_then(|link| widget_runs.get(&link.direct_work_run_id));
-            build_queue_item_aggregate(task, &tasks, latest_link, latest_review_message, widget_run)
+            build_queue_item_aggregate(
+                task,
+                &tasks,
+                latest_link,
+                latest_review_message,
+                latest_evidence_bundle,
+                widget_run,
+            )
         })
         .collect()
 }
@@ -413,6 +435,7 @@ fn build_queue_item_aggregate(
     all_tasks: &[AgentQueueTaskRow],
     latest_link: Option<&AgentQueueTaskRunLinkRow>,
     latest_review_message: Option<&AgentQueueReviewMessageRow>,
+    latest_evidence_bundle: Option<&AgentQueueWorkerEvidenceBundleRow>,
     widget_run: Option<&WidgetRunRow>,
 ) -> QueueItemAggregate {
     // Raw task.status is a legacy storage input. This builder folds it together
@@ -427,12 +450,18 @@ fn build_queue_item_aggregate(
         dependency_state,
     );
     let review_state = review_state(task, latest_link, latest_review_message, ticket_state);
-    let evidence_state = evidence_state(latest_link, widget_run, ticket_state);
+    let evidence_state = evidence_state(latest_link, latest_evidence_bundle, ticket_state);
     let validation_state = validation_state(latest_link);
     let commit_state = QueueItemAggregateCommitState::None;
     let run_settings = run_settings(task);
-    let latest_run = latest_link.map(|link| latest_run(link, widget_run));
-    let evidence_summary = evidence_summary(latest_link, widget_run, evidence_state, ticket_state);
+    let latest_run = latest_link.map(|link| latest_run(link, widget_run, latest_evidence_bundle));
+    let evidence_summary = evidence_summary(
+        latest_link,
+        latest_evidence_bundle,
+        widget_run,
+        evidence_state,
+        ticket_state,
+    );
     let blockers = blockers(task, ticket_state, dependency_state);
     let next_actions = next_actions(
         task,
@@ -589,9 +618,13 @@ fn review_state(
 
 fn evidence_state(
     latest_link: Option<&AgentQueueTaskRunLinkRow>,
-    widget_run: Option<&WidgetRunRow>,
+    latest_evidence_bundle: Option<&AgentQueueWorkerEvidenceBundleRow>,
     ticket_state: QueueItemAggregateTicketState,
 ) -> QueueItemAggregateEvidenceState {
+    if latest_evidence_bundle.is_some() {
+        return QueueItemAggregateEvidenceState::Available;
+    }
+
     match latest_link.map(|link| link.status.as_str()) {
         Some(RUN_STATUS_RUNNING) => QueueItemAggregateEvidenceState::Pending,
         Some(
@@ -600,17 +633,7 @@ fn evidence_state(
             | RUN_STATUS_FAILED
             | RUN_STATUS_TIMED_OUT
             | RUN_STATUS_CANCELLED,
-        ) => {
-            if widget_run.is_some()
-                || latest_link
-                    .and_then(|link| link.completed_at.as_ref())
-                    .is_some()
-            {
-                QueueItemAggregateEvidenceState::Available
-            } else {
-                QueueItemAggregateEvidenceState::NotDurable
-            }
-        }
+        ) => QueueItemAggregateEvidenceState::NotDurable,
         Some(_) => QueueItemAggregateEvidenceState::Unknown,
         None if matches!(ticket_state, QueueItemAggregateTicketState::AwaitingReview) => {
             QueueItemAggregateEvidenceState::NotDurable
@@ -683,6 +706,7 @@ fn run_settings(task: &AgentQueueTaskRow) -> QueueItemAggregateRunSettings {
 fn latest_run(
     link: &AgentQueueTaskRunLinkRow,
     widget_run: Option<&WidgetRunRow>,
+    latest_evidence_bundle: Option<&AgentQueueWorkerEvidenceBundleRow>,
 ) -> QueueItemAggregateLatestRun {
     QueueItemAggregateLatestRun {
         run_link_id: link.link_id.clone(),
@@ -694,14 +718,16 @@ fn latest_run(
         completed_at: link.completed_at.clone(),
         validation_status: link.validation_status.clone(),
         review_status: link.review_status.clone(),
-        final_detail_available: widget_run
-            .map(|run| run.finished_at.is_some() || run.summary.is_some())
-            .unwrap_or(false),
+        final_detail_available: latest_evidence_bundle.is_some()
+            || widget_run
+                .map(|run| run.finished_at.is_some() || run.summary.is_some())
+                .unwrap_or(false),
     }
 }
 
 fn evidence_summary(
     latest_link: Option<&AgentQueueTaskRunLinkRow>,
+    latest_evidence_bundle: Option<&AgentQueueWorkerEvidenceBundleRow>,
     widget_run: Option<&WidgetRunRow>,
     evidence_state: QueueItemAggregateEvidenceState,
     ticket_state: QueueItemAggregateTicketState,
@@ -709,10 +735,14 @@ fn evidence_summary(
     match evidence_state {
         QueueItemAggregateEvidenceState::Available => Some(QueueItemAggregateEvidenceSummary {
             available: true,
-            source: "durable_run_link".to_owned(),
-            summary: widget_run
-                .and_then(|run| run.summary.as_deref())
-                .map(bounded_summary)
+            source: "durable_worker_evidence_bundle".to_owned(),
+            summary: latest_evidence_bundle
+                .map(|bundle| bounded_summary(&bundle.summary))
+                .or_else(|| {
+                    widget_run
+                        .and_then(|run| run.summary.as_deref())
+                        .map(bounded_summary)
+                })
                 .or_else(|| {
                     latest_link.map(|link| {
                         format!(
@@ -731,7 +761,7 @@ fn evidence_summary(
                 source: "missing_durable_evidence_bundle".to_owned(),
                 summary: None,
                 not_durable_reason: Some(
-                    "Queue review/evidence bundle persistence is not implemented yet.".to_owned(),
+                    "Queue worker evidence bundle has not been recorded durably yet.".to_owned(),
                 ),
             })
         }

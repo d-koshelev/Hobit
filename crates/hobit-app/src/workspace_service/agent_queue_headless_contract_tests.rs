@@ -184,7 +184,7 @@ fn headless_running_and_completed_run_links_drive_awaiting_review_not_done() {
     );
     assert_eq!(
         completed.evidence_state,
-        QueueItemAggregateEvidenceState::Available
+        QueueItemAggregateEvidenceState::NotDurable
     );
     assert_eq!(
         completed.validation_state,
@@ -195,8 +195,8 @@ fn headless_running_and_completed_run_links_drive_awaiting_review_not_done() {
         completed
             .evidence_summary
             .as_ref()
-            .and_then(|summary| summary.summary.as_deref()),
-        Some("Worker final report summary.")
+            .and_then(|summary| summary.not_durable_reason.as_deref()),
+        Some("Queue worker evidence bundle has not been recorded durably yet.")
     );
     assert_action(&completed, "create_review_message");
     assert!(completed.next_actions[0].available);
@@ -265,7 +265,7 @@ fn headless_failed_run_link_reports_failure_consistently() {
     );
     assert_eq!(
         aggregate.evidence_state,
-        QueueItemAggregateEvidenceState::Available
+        QueueItemAggregateEvidenceState::NotDurable
     );
     assert_blocker(&aggregate, "final_failed");
     assert_action(&aggregate, "none");
@@ -499,7 +499,7 @@ fn headless_not_durable_and_unknown_states_are_explicit() {
             .evidence_summary
             .as_ref()
             .and_then(|summary| summary.not_durable_reason.as_deref()),
-        Some("Queue review/evidence bundle persistence is not implemented yet.")
+        Some("Queue worker evidence bundle has not been recorded durably yet.")
     );
     assert!(!not_durable.durable_flags.evidence_state);
     assert!(!not_durable.durable_flags.frontend_overlay_used);

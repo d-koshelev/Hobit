@@ -4,11 +4,11 @@ use rusqlite::Result;
 
 use crate::rows::{
     AgentQueueItemRow, AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
-    AgentQueueWorkerRow, JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow,
-    KnowledgeDocumentRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow,
-    WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
-    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, JdbcConnectionProfileRow,
+    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
+    KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow,
+    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 pub(crate) fn workspace_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceRow> {
@@ -203,6 +203,31 @@ pub(crate) fn agent_queue_review_message_row(
         ack_actor_id: row.get(10)?,
         metadata_json: row.get(11)?,
         updated_at: row.get(12)?,
+    })
+}
+
+pub(crate) fn agent_queue_worker_evidence_bundle_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<AgentQueueWorkerEvidenceBundleRow> {
+    Ok(AgentQueueWorkerEvidenceBundleRow {
+        bundle_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        queue_task_id: row.get(2)?,
+        run_id: row.get(3)?,
+        run_link_id: row.get(4)?,
+        executor_widget_id: row.get(5)?,
+        worker_id: row.get(6)?,
+        source: row.get(7)?,
+        outcome: row.get(8)?,
+        summary: row.get(9)?,
+        changed_files_json: row.get(10)?,
+        changed_files_count: row.get(11)?,
+        changed_files_summary: row.get(12)?,
+        validation_summary: row.get(13)?,
+        error_summary: row.get(14)?,
+        metadata_json: row.get(15)?,
+        created_at: row.get(16)?,
+        updated_at: row.get(17)?,
     })
 }
 

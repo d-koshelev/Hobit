@@ -39,6 +39,8 @@ import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge"
 import type {
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
+  AgentQueueWorkerEvidenceQueryResult,
+  AgentQueueWorkerFinishedCommandResult,
 } from "../../../workspace/types";
 import type {
   QueueWidgetActionResult,
@@ -699,6 +701,207 @@ describe("queueAgentCapabilities invoke", () => {
       reviewState: "review_message_created",
       taskId: "task-review",
       wouldPersistBackend: true,
+    });
+  });
+
+  it("records agentFinished through backend worker evidence command", async () => {
+    const recordWorkerFinished = vi.fn(async () =>
+      workerFinishedCommandResult({
+        aggregate: queueAggregate({
+          evidenceState: "available",
+          latestRun: {
+            completedAt: "2026-06-15T10:01:00.000Z",
+            executorWidgetId: "executor-1",
+            finalDetailAvailable: true,
+            reviewStatus: "review_needed",
+            runId: "run-1",
+            runLinkId: "link-1",
+            source: "manual",
+            startedAt: "2026-06-15T10:00:00.000Z",
+            status: "completed",
+            validationStatus: null,
+          },
+          nextActions: [
+            {
+              available: true,
+              code: "create_review_message",
+              label: "Create review message",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "awaiting_review",
+          taskId: "task-review",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        bundleId: "bundle-1",
+        runId: "run-1",
+      }),
+    );
+    const getSnapshot = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getSnapshot, recordWorkerFinished }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      evidenceBundleId: string;
+      evidenceState: string;
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      runId: string;
+      taskId: string;
+      wouldPersistBackend: boolean;
+    }>(
+      request({
+        capabilityId: "queue.lifecycle.agentFinished",
+        input: {
+          changedFilesSummary: ["src/lib.rs"],
+          finalAgentMessage: "Worker final report.",
+          outcome: "completed",
+          runId: "run-1",
+          taskId: "task-review",
+          validationSummary: "not run",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(recordWorkerFinished).toHaveBeenCalledWith({
+      changedFiles: ["src/lib.rs"],
+      changedFilesSummary: "src/lib.rs",
+      errorSummary: null,
+      finishedAt: null,
+      outcome: "completed",
+      runId: "run-1",
+      source: "workspace_agent",
+      summary: "Worker final report.",
+      taskId: "task-review",
+      validationSummary: "not run",
+      workerId: "test.agentA",
+    });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      evidenceBundleId: "bundle-1",
+      evidenceState: "available",
+      nextSuggestedCapability: "queue.review.createMessage",
+      queueMutation: "backend_domain",
+      runId: "run-1",
+      taskId: "task-review",
+      wouldPersistBackend: true,
+    });
+  });
+
+  it("rejects agentFinished without runId before backend worker evidence command", async () => {
+    const recordWorkerFinished = vi.fn();
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ recordWorkerFinished }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.agentFinished",
+        input: {
+          finalAgentMessage: "Worker final report.",
+          outcome: "completed",
+          taskId: "task-review",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toBe("runId is required.");
+    expect(recordWorkerFinished).not.toHaveBeenCalled();
+  });
+
+  it("reads review evidence bundles through backend worker evidence query", async () => {
+    const getWorkerEvidenceBundle = vi.fn(async () =>
+      workerEvidenceQueryResult({
+        aggregate: queueAggregate({
+          evidenceState: "available",
+          nextActions: [
+            {
+              available: true,
+              code: "create_review_message",
+              label: "Create review message",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "awaiting_review",
+          taskId: "task-review",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        bundleId: "bundle-1",
+        runId: "run-1",
+      }),
+    );
+    const getSnapshot = vi.fn();
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getSnapshot, getWorkerEvidenceBundle }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync<{
+      backendEvidenceBundle: { bundleId: string; runId: string };
+      evidenceBundleId: string;
+      evidenceBundlePersistence: string;
+      evidenceState: string;
+      nextSuggestedCapability: string | null;
+      runId: string;
+    }>(
+      request({
+        capabilityId: "queue.review.getEvidenceBundle",
+        input: {
+          runId: "run-1",
+          taskId: "task-review",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(getWorkerEvidenceBundle).toHaveBeenCalledWith({
+      runId: "run-1",
+      taskId: "task-review",
+    });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      backendEvidenceBundle: {
+        bundleId: "bundle-1",
+        runId: "run-1",
+      },
+      evidenceBundleId: "bundle-1",
+      evidenceBundlePersistence: "backend_durable",
+      evidenceState: "available",
+      nextSuggestedCapability: "queue.review.createMessage",
+      runId: "run-1",
     });
   });
 
@@ -1822,6 +2025,75 @@ function reviewCommandResult({
       workspaceId: aggregate.workspaceId,
     },
     taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function workerFinishedCommandResult({
+  aggregate = queueAggregate(),
+  bundleId = "bundle-1",
+  runId = "run-1",
+}: Partial<AgentQueueWorkerFinishedCommandResult> & {
+  aggregate?: AgentQueueItemAggregate;
+} = {}): AgentQueueWorkerFinishedCommandResult {
+  return {
+    aggregate,
+    bundleId,
+    durable: true,
+    evidenceBundle: workerEvidenceBundle({ aggregate, bundleId, runId }),
+    runId,
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function workerEvidenceQueryResult({
+  aggregate = queueAggregate(),
+  bundleId = "bundle-1",
+  runId = "run-1",
+}: {
+  aggregate?: AgentQueueItemAggregate;
+  bundleId?: string;
+  runId?: string;
+} = {}): AgentQueueWorkerEvidenceQueryResult {
+  return {
+    aggregate,
+    durable: true,
+    evidenceBundle: workerEvidenceBundle({ aggregate, bundleId, runId }),
+    runId,
+    state: "available",
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function workerEvidenceBundle({
+  aggregate,
+  bundleId,
+  runId,
+}: {
+  aggregate: AgentQueueItemAggregate;
+  bundleId: string;
+  runId: string;
+}) {
+  return {
+    bundleId,
+    changedFiles: ["src/lib.rs"],
+    changedFilesCount: 1,
+    changedFilesSummary: "src/lib.rs",
+    createdAt: "2026-06-15T10:01:00.000Z",
+    errorSummary: null,
+    executorWidgetId: "executor-1",
+    metadataJson: null,
+    outcome: "completed" as const,
+    runId,
+    runLinkId: "link-1",
+    source: "workspace_agent",
+    summary: "Worker final report.",
+    taskId: aggregate.taskId,
+    updatedAt: "2026-06-15T10:01:00.000Z",
+    validationSummary: "not run",
+    workerId: "test.agentA",
     workspaceId: aggregate.workspaceId,
   };
 }

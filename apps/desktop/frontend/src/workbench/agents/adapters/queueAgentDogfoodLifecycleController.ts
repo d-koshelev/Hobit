@@ -58,12 +58,12 @@ type LifecycleResolverResult =
 type RequiredAgentFinishedInput = Required<
   Pick<
     QueueAgentLifecycleAgentFinishedInput,
-    "finalAgentMessage" | "outcome" | "taskId"
+    "finalAgentMessage" | "outcome" | "runId" | "taskId"
   >
 > &
   Omit<
     QueueAgentLifecycleAgentFinishedInput,
-    "finalAgentMessage" | "outcome" | "taskId"
+    "finalAgentMessage" | "outcome" | "runId" | "taskId"
   >;
 
 type RequiredReviewMessageInput = Required<
