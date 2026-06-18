@@ -27,6 +27,7 @@ import { createQueueAgentActionHandlers } from "./queueAgentActionHandlers";
 import {
   createWorkspaceAgentQueueBridgeAdapterApi,
 } from "./workspaceAgentQueueBridgeAdapter";
+import type { QueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
 import {
   QUEUE_AGENT_CAPABILITY_IDS,
   type QueueAgentAdapterApi,
@@ -91,6 +92,58 @@ describe("queueAgentCapabilities discovery and broker separation", () => {
     expect(genericHandlers["queue.createItems"]).toBeUndefined();
     expect(source).not.toContain('"queue.createItems"');
     expect(source).not.toContain("wouldCreateItems");
+  });
+
+  it("keeps Queue broker adapters independent from Queue UI modules", () => {
+    const adapterSources = [
+      "workbench/agents/adapters/queueAgentCapabilities.ts",
+      "workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts",
+      "workbench/agents/adapters/queueBackendCapabilityPort.ts",
+      "workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
+    ]
+      .map(frontendSource)
+      .join("\n");
+
+    expect(adapterSources).not.toContain("AgentQueueV2Board");
+    expect(adapterSources).not.toContain("AgentQueuePlaceholderWidget");
+    expect(adapterSources).not.toContain("WorkspaceAgentQueueTaskStatusCard");
+    expect(adapterSources).not.toContain("widgetV2/queueV2");
+    expect(adapterSources).not.toContain("queue/details");
+    expect(adapterSources).not.toContain("queueReviewEvidenceViewModel");
+    expect(adapterSources).not.toContain(".css");
+    expect(adapterSources).not.toContain("ModuleShell");
+    expect(adapterSources).not.toContain("ModuleHeader");
+  });
+
+  it("keeps Queue adapter capability references registered", () => {
+    const registeredCapabilityIds = new Set(
+      createHobitAgentCapabilityRegistry().capabilities.map(
+        (capability) => capability.id,
+      ),
+    );
+    const adapterSources = [
+      "workbench/agents/adapters/queueAgentCapabilities.ts",
+      "workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts",
+      "workbench/agents/adapters/queueAgentCapabilityTypes.ts",
+      "workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
+    ]
+      .map(frontendSource)
+      .join("\n");
+    const queueCapabilityReferences = [
+      ...Array.from(
+        adapterSources.matchAll(/nextSuggestedCapability:\s*["'](queue\.[A-Za-z0-9.]+)["']/g),
+      ).map((match) => match[1]),
+      ...Array.from(
+        adapterSources.matchAll(/return\s+["'](queue\.[A-Za-z0-9.]+)["']/g),
+      ).map((match) => match[1]),
+    ];
+
+    expect(queueCapabilityReferences).not.toContain(
+      "queue.lifecycle.getEvidenceBundle",
+    );
+    for (const capabilityId of queueCapabilityReferences) {
+      expect(registeredCapabilityIds.has(capabilityId), capabilityId).toBe(true);
+    }
   });
 });
 
@@ -628,6 +681,190 @@ describe("queueAgentCapabilities invoke", () => {
     expect(result.result.message).toBe("taskId is required.");
     expect(getItemAggregate).not.toHaveBeenCalled();
     expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("runs backend-backed Queue capabilities through the backend port without Queue UI state", async () => {
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        nextActions: [
+          {
+            available: true,
+            code: "create_review_message",
+            label: "Create review message",
+            unavailableReason: null,
+          },
+        ],
+        taskId: "task-backend",
+        ticketState: "awaiting_review",
+        workerRunState: "completed",
+      }),
+    ]);
+    const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>
+      queueAggregate({
+        nextActions: [
+          {
+            available: true,
+            code: "create_review_message",
+            label: "Create review message",
+            unavailableReason: null,
+          },
+        ],
+        taskId,
+        ticketState: "awaiting_review",
+        workerRunState: "completed",
+      }),
+    );
+    const recordWorkerFinished = vi.fn(async () =>
+      workerFinishedCommandResult({
+        aggregate: queueAggregate({
+          evidenceState: "available",
+          nextActions: [
+            {
+              available: true,
+              code: "create_review_message",
+              label: "Create review message",
+              unavailableReason: null,
+            },
+          ],
+          taskId: "task-backend",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        runId: "run-backend",
+      }),
+    );
+    const getWorkerEvidenceBundle = vi.fn(async () =>
+      workerEvidenceQueryResult({
+        aggregate: queueAggregate({
+          evidenceState: "available",
+          taskId: "task-backend",
+          ticketState: "awaiting_review",
+        }),
+        runId: "run-backend",
+      }),
+    );
+    const createReviewMessage = vi.fn(async () =>
+      reviewCommandResult({
+        aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: true,
+              code: "ack_review",
+              label: "Acknowledge review",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "review_message_created",
+          taskId: "task-backend",
+          ticketState: "awaiting_review",
+        }),
+        messageId: "review-message-backend",
+      }),
+    );
+    const ackReviewMessage = vi.fn(async () =>
+      reviewCommandResult({
+        aggregate: queueAggregate({
+          reviewState: "in_review",
+          taskId: "task-backend",
+          ticketState: "in_review",
+        }),
+        messageId: "review-message-backend",
+        status: "acknowledged",
+      }),
+    );
+    const backendApi = queueBackendPort({
+      ackReviewMessage,
+      createReviewMessage,
+      getItemAggregate,
+      getWorkerEvidenceBundle,
+      listItemAggregates,
+      recordWorkerFinished,
+    });
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(null, { backendApi }),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const list = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+    const lifecycle = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-backend" },
+      }),
+    );
+    const finished = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.agentFinished",
+        input: {
+          finalAgentMessage: "Worker completed.",
+          outcome: "completed",
+          runId: "run-backend",
+          taskId: "task-backend",
+        },
+      }),
+    );
+    const evidence = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.getEvidenceBundle",
+        input: { runId: "run-backend", taskId: "task-backend" },
+      }),
+    );
+    const review = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: { taskId: "task-backend" },
+      }),
+    );
+    const ack = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "review-message-backend",
+          taskId: "task-backend",
+        },
+      }),
+    );
+
+    expect(list.status).toBe("succeeded");
+    expect(lifecycle.status).toBe("succeeded");
+    expect(finished.status).toBe("succeeded");
+    expect(evidence.status).toBe("succeeded");
+    expect(review.status).toBe("succeeded");
+    expect(ack.status).toBe("succeeded");
+    expect(listItemAggregates).toHaveBeenCalledTimes(1);
+    expect(getItemAggregate).toHaveBeenCalledWith({ taskId: "task-backend" });
+    expect(recordWorkerFinished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-backend",
+        taskId: "task-backend",
+      }),
+    );
+    expect(getWorkerEvidenceBundle).toHaveBeenCalledWith({
+      runId: "run-backend",
+      taskId: "task-backend",
+    });
+    expect(createReviewMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ taskId: "task-backend" }),
+    );
+    expect(ackReviewMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: "review-message-backend",
+        taskId: "task-backend",
+      }),
+    );
   });
 
   it("creates review messages through backend bridge command with trusted actor default", async () => {
@@ -1847,6 +2084,12 @@ function queueBridge(
     updateItem: vi.fn(async () => queueBridgeItemResult()),
     ...overrides,
   };
+}
+
+function queueBackendPort(
+  overrides: QueueBackendCapabilityPort,
+): QueueBackendCapabilityPort {
+  return overrides;
 }
 
 function queueBridgeItemResult(

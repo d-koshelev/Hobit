@@ -277,6 +277,10 @@ The Queue Capability Adapter MVP is the first real app-module adapter for the
 Hobit Agent Capability Runtime. It lives under
 `apps/desktop/frontend/src/workbench/agents/adapters/` and exposes typed Queue
 capability handlers for the Action Broker through dependency injection.
+Queue backend ownership is governed by
+`docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`: backend/domain/storage owns Queue
+business truth, broker adapters use typed backend/Tauri APIs, and UI state is
+never product truth.
 
 Supported Queue capabilities:
 
@@ -321,6 +325,9 @@ waiting/failed-upstream state, review create/ACK preconditions and durability,
 read-only aggregate behavior, explicit task identity, and honest
 `not_durable` / `unknown` states without launching the frontend. Queue
 card/details rendering migration to the aggregate DTO remains a later phase.
+The Workspace Agent bridge adapter uses an injected Queue backend API port for
+backend-backed Queue capabilities so those paths can be tested without
+mounting the Queue UI.
 
 The adapter boundary is typed and injected. It does not import React hooks,
 mutate global UI state directly, create widgets/views directly, couple to the

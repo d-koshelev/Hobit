@@ -17,6 +17,9 @@ Planned for Smart Queue decision semantics.
 
 The Queue Coordinator owns Queue lifecycle decisions. Workspace Agent assistance
 may inform a decision, but the Workspace Agent is not the lifecycle owner.
+Current frontend coordinator overlays are transitional compatibility state.
+Durable coordinator decisions belong in backend/domain/storage per
+`docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`.
 
 Coordinator-owned decisions include:
 

@@ -135,6 +135,16 @@ export function useWorkspaceQueueApi({
       createReviewMessage: (request) =>
         latestBridgeRef.current?.createReviewMessage?.(request) ??
         Promise.reject(new Error("Queue review command API is unavailable.")),
+      getWorkerEvidenceBundle: (request) =>
+        latestBridgeRef.current?.getWorkerEvidenceBundle?.(request) ??
+        Promise.reject(
+          new Error("Queue worker evidence read API is unavailable."),
+        ),
+      recordWorkerFinished: (request) =>
+        latestBridgeRef.current?.recordWorkerFinished?.(request) ??
+        Promise.reject(
+          new Error("Queue worker evidence command API is unavailable."),
+        ),
       enableQueue: (request) =>
         latestBridgeRef.current?.enableQueue?.(request) ??
         Promise.resolve(

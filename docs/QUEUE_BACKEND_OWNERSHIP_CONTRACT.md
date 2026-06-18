@@ -1,0 +1,75 @@
+# Queue Backend Ownership Contract
+
+## Purpose
+
+This contract defines the Queue responsibility boundary for backend/domain,
+storage, Tauri/API, Workspace Agent broker adapters, frontend API wrappers, and
+UI.
+
+## Ownership Rules
+
+- Queue business truth lives in backend/domain/storage.
+- Storage persists durable Queue task rows, dependencies, run links, worker
+  evidence bundles, and review message/ACK ledgers.
+- Tauri/API exposes typed commands and DTOs over backend state. It does not
+  depend on React, Queue boards, view models, or frontend overlays.
+- Workspace Agent and broker adapters call typed Queue backend/Tauri APIs
+  through an injected Queue backend API port. They do not own product lifecycle
+  truth.
+- Frontend API wrappers translate desktop/browser availability into typed API
+  calls. They do not derive Queue state from UI-selected task detail.
+- UI may render authoritative DTOs, collect explicit operator input, and manage
+  local loading/selection/display state only.
+- No frontend overlay, board-local evidence map, selected-task detail, or UI
+  view model may be used as the source of truth for product Queue state.
+- Queue correctness for backend-backed behavior must be testable through
+  backend/domain/Tauri/API contracts without launching the frontend UI.
+- Any frontend-only transitional Queue code must be labeled as transitional and
+  have a removal path to backend/domain ownership.
+
+## Backend-Backed Capabilities
+
+These Workspace Agent/Broker capabilities are backend-backed now:
+
+- `queue.items.list`
+- `queue.lifecycle.get`
+- `queue.review.createMessage`
+- `queue.review.ack`
+- `queue.lifecycle.agentFinished`
+- `queue.review.getEvidenceBundle`
+
+These capabilities must read/write through backend aggregate, review, or worker
+evidence APIs. They must not read frontend lifecycle controllers, Queue board
+snapshots, selected task detail, evidence overlays, or UI view models as product
+truth.
+
+## Transitional Capabilities
+
+These capabilities are still transitional:
+
+| Capability | Current Owner | Correct Owner | Next Block |
+| --- | --- | --- | --- |
+| `queue.coordinator.approveValidation` | Frontend dogfood lifecycle overlay | Backend Queue validation/coordinator decision service | Add durable validation decision command and aggregate coverage. |
+| `queue.coordinator.addFollowUpPrompt` | Frontend dogfood lifecycle overlay | Backend Queue coordinator/follow-up service | Add durable follow-up command and aggregate readback. |
+| `queue.item.markDone` | Frontend overlay with model-only validation/commit placeholders | Backend Queue finalization service | Add accepted-completion command with review/validation/commit preconditions. |
+| `queue.item.block` | Frontend dogfood lifecycle overlay | Backend Queue coordinator decision service | Add durable block command and dependency blocker propagation. |
+| `queue.item.fail` | Frontend dogfood lifecycle overlay | Backend Queue coordinator decision service | Add durable fail command and failed-upstream aggregate behavior. |
+
+## Test Rules
+
+- Backend/domain tests prove Queue aggregate, review, worker evidence, and
+  lifecycle preconditions headlessly.
+- Tauri/API tests prove DTO serialization, typed command behavior, explicit
+  task/run identity, and no hidden execution.
+- Broker/adapter tests prove backend-backed capabilities use the backend port,
+  do not import Queue UI modules, do not use frontend overlays as truth, and
+  return only registered `nextSuggestedCapability` ids.
+- Workspace Agent protocol tests prove actions come only from
+  `hobit.action.request`, request ids remain unique, task/run ids are explicit,
+  and natural-language regex routing is absent.
+
+## Non-Goals
+
+This contract does not add validation execution, Git mutation, rollback
+execution, hidden Terminal launch, backend scheduler redesign, Queue UI
+migration, or new capabilities.

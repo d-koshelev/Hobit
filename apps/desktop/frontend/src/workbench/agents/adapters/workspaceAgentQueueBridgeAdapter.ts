@@ -5,6 +5,10 @@ import type {
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
 } from "../../../workspace/types";
+import {
+  createQueueBackendCapabilityPort,
+  type QueueBackendCapabilityPort,
+} from "./queueBackendCapabilityPort";
 import { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
 import { createDefaultQueueAgentAdapterApi } from "./queueAgentCapabilities";
 import {
@@ -49,34 +53,47 @@ import type {
   QueueWidgetSnapshot,
 } from "../../queue/agentQueueWidgetApiTypes";
 
+export type WorkspaceAgentQueueBridgeAdapterOptions = {
+  backendApi?: QueueBackendCapabilityPort | null;
+};
+
 export function createWorkspaceAgentQueueBridgeAdapterApi(
   bridge: WorkspaceAgentQueueBridge | null | undefined,
+  options: WorkspaceAgentQueueBridgeAdapterOptions = {},
 ): QueueAgentAdapterApi {
   const defaultAdapter = createDefaultQueueAgentAdapterApi();
+  const backendApi =
+    options.backendApi === undefined
+      ? createQueueBackendCapabilityPort(bridge)
+      : options.backendApi;
   const transitionalDogfoodLifecycle = bridge
     ? createInMemoryQueueDogfoodLifecycleAdapterApi({
         getTaskSeed: (taskId) => getLifecycleTaskSeed(bridge, taskId),
       })
     : undefined;
+  const dogfoodLifecycle =
+    transitionalDogfoodLifecycle ??
+    (backendApi ? createUnavailableDogfoodLifecycleAdapterApi() : undefined);
 
   return {
     ...defaultAdapter,
+    backend: backendApi,
     createItems: (request) => createQueueItemsThroughBridge(bridge, request),
     enableQueue: (input, context) =>
       enableQueueThroughBridge(bridge, input, context),
-    dogfoodLifecycle: transitionalDogfoodLifecycle
+    dogfoodLifecycle: dogfoodLifecycle
       ? {
-          ...transitionalDogfoodLifecycle,
+          ...dogfoodLifecycle,
           ackReview: (input, context) =>
-            ackReviewThroughBackend(bridge, input, context),
+            ackReviewThroughBackend(backendApi, input, context),
           agentFinished: (input, context) =>
-            recordWorkerFinishedThroughBackend(bridge, input, context),
+            recordWorkerFinishedThroughBackend(backendApi, input, context),
           createReviewMessage: (input, context) =>
-            createReviewMessageThroughBackend(bridge, input, context),
+            createReviewMessageThroughBackend(backendApi, input, context),
           getEvidenceBundle: (input, context) =>
-            getWorkerEvidenceBundleThroughBackend(bridge, input, context),
+            getWorkerEvidenceBundleThroughBackend(backendApi, input, context),
           getLifecycle: (input, context) =>
-            getLifecycleThroughAggregate(bridge, input, context),
+            getLifecycleThroughAggregate(backendApi, input, context),
         }
       : undefined,
     importPromptPack: async (input, request) => {
@@ -114,7 +131,7 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
         status: "succeeded",
       };
     },
-    listItems: (input) => listQueueItemsThroughBridge(bridge, input),
+    listItems: (input) => listQueueItemsThroughBackend(backendApi, bridge, input),
     promoteDraft: (input, context) =>
       promoteDraftThroughBridge(bridge, input.taskId, context.dryRun),
     startQueueLinkedRun: (input, context) =>
@@ -126,8 +143,77 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
   };
 }
 
+function createUnavailableDogfoodLifecycleAdapterApi(): NonNullable<
+  QueueAgentAdapterApi["dogfoodLifecycle"]
+> {
+  return {
+    ackReview: () =>
+      unavailableLifecycleResult(
+        QUEUE_ACTIVITY_EVENTS.lifecycleReviewAck,
+        "Queue review command API is unavailable.",
+      ),
+    addFollowUpPrompt: () =>
+      unavailableLifecycleResult(
+        QUEUE_ACTIVITY_EVENTS.lifecycleFollowUpPromptAdded,
+        "Queue follow-up prompt is transitional and requires the Queue controller overlay.",
+      ),
+    agentFinished: () =>
+      unavailableLifecycleResult(
+        QUEUE_ACTIVITY_EVENTS.lifecycleAgentFinished,
+        "Queue worker evidence command API is unavailable.",
+      ),
+    approveValidation: () =>
+      unavailableLifecycleResult(
+        QUEUE_ACTIVITY_EVENTS.lifecycleValidationApproved,
+        "Queue validation approval is transitional and requires the Queue controller overlay.",
+      ),
+    blockItem: () =>
+      unavailableLifecycleResult(
+        QUEUE_ACTIVITY_EVENTS.lifecycleItemBlock,
+        "Queue block is transitional and requires the Queue controller overlay.",
+      ),
+    createReviewMessage: () =>
+      unavailableLifecycleResult(
+        QUEUE_ACTIVITY_EVENTS.lifecycleReviewCreateMessage,
+        "Queue review command API is unavailable.",
+      ),
+    failItem: () =>
+      unavailableLifecycleResult(
+        QUEUE_ACTIVITY_EVENTS.lifecycleItemFail,
+        "Queue fail is transitional and requires the Queue controller overlay.",
+      ),
+    getEvidenceBundle: () =>
+      unavailableLifecycleResult(
+        QUEUE_ACTIVITY_EVENTS.lifecycleReviewEvidenceBundle,
+        "Queue worker evidence read API is unavailable.",
+      ),
+    getLifecycle: () =>
+      unavailableLifecycleResult(
+        QUEUE_ACTIVITY_EVENTS.lifecycleGet,
+        "Queue aggregate lifecycle read API is unavailable.",
+      ),
+    markDone: () =>
+      unavailableLifecycleResult(
+        QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone,
+        "Queue mark done is transitional and requires the Queue controller overlay.",
+      ),
+  };
+}
+
+function unavailableLifecycleResult<TOutput>(
+  activityEventNames: readonly string[],
+  message: string,
+): QueueAgentAdapterResult<TOutput> {
+  return {
+    activityEventNames: [...activityEventNames],
+    message,
+    reasons: [message],
+    status: "unavailable",
+  };
+}
+
 async function getLifecycleThroughAggregate(
-  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  backendApi: QueueBackendCapabilityPort | null | undefined,
   input: QueueAgentLifecycleGetInput,
   _context: unknown,
 ): Promise<QueueAgentAdapterResult<QueueAgentLifecycleGetOutput>> {
@@ -141,7 +227,7 @@ async function getLifecycleThroughAggregate(
     };
   }
 
-  if (!bridge?.getItemAggregate) {
+  if (!backendApi) {
     return bridgeUnavailableResult(
       QUEUE_ACTIVITY_EVENTS.lifecycleGet,
       "Queue aggregate lifecycle read API is unavailable.",
@@ -150,7 +236,7 @@ async function getLifecycleThroughAggregate(
 
   let aggregate: AgentQueueItemAggregate | null;
   try {
-    aggregate = await bridge.getItemAggregate({ taskId });
+    aggregate = await backendApi.getItemAggregate({ taskId });
   } catch (error) {
     return aggregateReadUnavailableResult(
       QUEUE_ACTIVITY_EVENTS.lifecycleGet,
@@ -253,18 +339,12 @@ async function getLifecycleTaskSeed(
   };
 }
 
-async function listQueueItemsThroughBridge(
+async function listQueueItemsThroughBackend(
+  backendApi: QueueBackendCapabilityPort | null | undefined,
   bridge: WorkspaceAgentQueueBridge | null | undefined,
   input: QueueAgentListItemsInput,
 ): Promise<QueueAgentAdapterResult<QueueAgentListItemsResult>> {
-  if (!bridge) {
-    return bridgeUnavailableResult(
-      QUEUE_ACTIVITY_EVENTS.itemsList,
-      "Queue task listing is unavailable.",
-    );
-  }
-
-  if (!bridge.listItemAggregates) {
+  if (!backendApi) {
     return bridgeUnavailableResult(
       QUEUE_ACTIVITY_EVENTS.itemsList,
       "Queue aggregate list read API is unavailable.",
@@ -274,7 +354,7 @@ async function listQueueItemsThroughBridge(
   const limit = boundedItemLimit(input.limit);
   let aggregates: AgentQueueItemAggregate[];
   try {
-    aggregates = await bridge.listItemAggregates();
+    aggregates = await backendApi.listItemAggregates();
   } catch (error) {
     return aggregateReadUnavailableResult(
       QUEUE_ACTIVITY_EVENTS.itemsList,
@@ -283,7 +363,7 @@ async function listQueueItemsThroughBridge(
     );
   }
 
-  const availableExecutors = executorTargets(bridge);
+  const availableExecutors = bridge ? executorTargets(bridge) : [];
   const sourceItems = input.taskId
     ? aggregates.filter((item) => item.taskId === input.taskId)
     : aggregates;
@@ -615,7 +695,7 @@ async function startQueueLinkedRunThroughBridge(
 }
 
 async function recordWorkerFinishedThroughBackend(
-  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  backendApi: QueueBackendCapabilityPort | null | undefined,
   input: Required<
     Pick<
       QueueAgentLifecycleAgentFinishedInput,
@@ -643,7 +723,7 @@ async function recordWorkerFinishedThroughBackend(
     );
   }
 
-  if (!bridge?.recordWorkerFinished) {
+  if (!backendApi) {
     return bridgeUnavailableResult(
       QUEUE_ACTIVITY_EVENTS.lifecycleAgentFinished,
       "Queue worker evidence command API is unavailable.",
@@ -652,7 +732,7 @@ async function recordWorkerFinishedThroughBackend(
 
   if (context.dryRun) {
     return previewReviewCommandFromAggregate(
-      bridge,
+      backendApi,
       taskId,
       context,
       "Queue worker evidence recording preview prepared.",
@@ -662,7 +742,7 @@ async function recordWorkerFinishedThroughBackend(
   }
 
   try {
-    const result = await bridge.recordWorkerFinished({
+    const result = await backendApi.recordWorkerFinished({
       changedFiles: changedFilesFromWorkerFinishedInput(input),
       changedFilesSummary: changedFilesSummaryFromWorkerFinishedInput(input),
       errorSummary:
@@ -688,7 +768,7 @@ async function recordWorkerFinishedThroughBackend(
 }
 
 async function getWorkerEvidenceBundleThroughBackend(
-  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  backendApi: QueueBackendCapabilityPort | null | undefined,
   input: Required<Pick<QueueAgentReviewEvidenceBundleInput, "taskId">> &
     Omit<QueueAgentReviewEvidenceBundleInput, "taskId">,
   _context: QueueAgentLifecycleHandlerContext,
@@ -702,7 +782,7 @@ async function getWorkerEvidenceBundleThroughBackend(
     );
   }
 
-  if (!bridge?.getWorkerEvidenceBundle) {
+  if (!backendApi) {
     return bridgeUnavailableResult(
       QUEUE_ACTIVITY_EVENTS.lifecycleReviewEvidenceBundle,
       "Queue worker evidence read API is unavailable.",
@@ -710,7 +790,7 @@ async function getWorkerEvidenceBundleThroughBackend(
   }
 
   try {
-    const result = await bridge.getWorkerEvidenceBundle({
+    const result = await backendApi.getWorkerEvidenceBundle({
       runId,
       taskId,
     });
@@ -910,7 +990,7 @@ function changedFilesSummaryFromWorkerFinishedInput(
 }
 
 async function createReviewMessageThroughBackend(
-  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  backendApi: QueueBackendCapabilityPort | null | undefined,
   input: Required<Pick<QueueAgentReviewCreateMessageInput, "taskId">> &
     Omit<QueueAgentReviewCreateMessageInput, "taskId">,
   context: QueueAgentLifecycleHandlerContext,
@@ -923,7 +1003,7 @@ async function createReviewMessageThroughBackend(
     );
   }
 
-  if (!bridge?.createReviewMessage) {
+  if (!backendApi) {
     return bridgeUnavailableResult(
       QUEUE_ACTIVITY_EVENTS.lifecycleReviewCreateMessage,
       "Queue review command API is unavailable.",
@@ -932,7 +1012,7 @@ async function createReviewMessageThroughBackend(
 
   if (context.dryRun) {
     return previewReviewCommandFromAggregate(
-      bridge,
+      backendApi,
       taskId,
       context,
       "Queue review message creation preview prepared.",
@@ -942,7 +1022,7 @@ async function createReviewMessageThroughBackend(
   }
 
   try {
-    const result = await bridge.createReviewMessage({
+    const result = await backendApi.createReviewMessage({
       actorId: reviewActorId(input.coordinatorAgentId, context),
       messageBody: reviewMessageBodyFromInput(input),
       taskId,
@@ -963,7 +1043,7 @@ async function createReviewMessageThroughBackend(
 }
 
 async function ackReviewThroughBackend(
-  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  backendApi: QueueBackendCapabilityPort | null | undefined,
   input: Required<Pick<QueueAgentReviewAckInput, "messageId" | "taskId">> &
     Omit<QueueAgentReviewAckInput, "messageId" | "taskId">,
   context: QueueAgentLifecycleHandlerContext,
@@ -983,7 +1063,7 @@ async function ackReviewThroughBackend(
     );
   }
 
-  if (!bridge?.ackReviewMessage) {
+  if (!backendApi) {
     return bridgeUnavailableResult(
       QUEUE_ACTIVITY_EVENTS.lifecycleReviewAck,
       "Queue review command API is unavailable.",
@@ -992,7 +1072,7 @@ async function ackReviewThroughBackend(
 
   if (context.dryRun) {
     return previewReviewCommandFromAggregate(
-      bridge,
+      backendApi,
       taskId,
       context,
       "Queue review acknowledgment preview prepared.",
@@ -1002,7 +1082,7 @@ async function ackReviewThroughBackend(
   }
 
   try {
-    const result = await bridge.ackReviewMessage({
+    const result = await backendApi.ackReviewMessage({
       actorId: reviewActorId(input.coordinatorAgentId, context),
       messageId,
       taskId,
@@ -1023,22 +1103,15 @@ async function ackReviewThroughBackend(
 }
 
 async function previewReviewCommandFromAggregate(
-  bridge: WorkspaceAgentQueueBridge,
+  backendApi: QueueBackendCapabilityPort,
   taskId: string,
   context: QueueAgentLifecycleHandlerContext,
   message: string,
   actionLabel: string,
   activityEventNames: readonly string[],
 ): Promise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>> {
-  if (!bridge.getItemAggregate) {
-    return bridgeUnavailableResult(
-      activityEventNames,
-      "Queue aggregate lifecycle read API is unavailable.",
-    );
-  }
-
   try {
-    const aggregate = await bridge.getItemAggregate({ taskId });
+    const aggregate = await backendApi.getItemAggregate({ taskId });
     if (!aggregate) {
       return {
         activityEventNames: [...activityEventNames],

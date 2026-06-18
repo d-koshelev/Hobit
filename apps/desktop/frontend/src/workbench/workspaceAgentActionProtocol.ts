@@ -163,7 +163,7 @@ export function formatWorkspaceAgentActionProtocolRepairPrompt(): string {
       '{"type":"hobit.action.request","requestId":"fresh-unique-id","capabilityId":"<id>","dryRun":false,"input":{}}',
       "or",
       '{"type":"hobit.final.answer","message":"<final user-facing answer or blocker>"}',
-      "Do not write awaiting capability result. Awaiting result prose is not a capability call.",
+      "Intermediate prose is not a capability call; emit an envelope or final marker.",
       "Do not emit action lists. Do not infer taskId, runId, executorWidgetId, or capability id from prose.",
       "Do not use shell, Git, validation, rollback, Terminal, or hidden execution.",
     ].join("\n"),

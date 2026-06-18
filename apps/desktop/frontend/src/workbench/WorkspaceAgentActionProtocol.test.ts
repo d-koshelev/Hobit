@@ -119,7 +119,8 @@ describe("WorkspaceAgentActionProtocol", () => {
     expect(prompt).toContain("hobit.action.request");
     expect(prompt).toContain("hobit.final.answer");
     expect(prompt).toContain("No broker action was executed");
-    expect(prompt).toContain("Do not write awaiting capability result");
+    expect(prompt).toContain("Intermediate prose is not a capability call");
+    expect(prompt).not.toContain("awaiting capability result");
     expect(prompt).not.toContain("queue.items.list");
     expect(prompt).not.toContain("I saw");
   });

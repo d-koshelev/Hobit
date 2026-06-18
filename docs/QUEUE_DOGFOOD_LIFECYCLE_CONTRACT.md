@@ -8,6 +8,11 @@ for transitional UI and self-test flows, while backend/domain Queue aggregate
 review command contracts now own durable worker evidence, review-message
 preconditions, and review message/ACK state.
 
+Queue backend ownership is governed by
+`docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`. If this document and the ownership
+contract conflict, use the ownership contract for Queue backend/API/UI truth
+boundaries.
+
 This contract does not add full backend lifecycle durability, real worker
 execution, scheduler redesign, Git commit execution, rollback execution,
 Terminal launch, Finder behavior, or natural-language prompt routing. The
@@ -510,10 +515,10 @@ context id exists. Backend aggregate preconditions decide whether review create
 or ACK is allowed. Results include the durable message id, backend review
 state, blockers, nextActions, and updated aggregate state.
 
-The remaining lifecycle write/evidence capabilities are frontend/controller
-lifecycle capabilities only. They validate structured inputs, enforce broker
-policy, support dry-run previews, return compact lifecycle results, and emit
-compact activity/audit labels.
+The remaining transitional lifecycle decision capabilities validate structured
+inputs, enforce broker policy, support dry-run previews, return compact
+lifecycle results, and emit compact activity/audit labels. They are not
+durable product truth until backend/domain commands exist.
 
 Workspace Agent can now continue across multiple frontend broker actions by
 feeding compact structured `hobit.action.result` context back into the same
@@ -701,9 +706,11 @@ natural-language prompt routing.
 
 This contract does not implement:
 
-- backend durability
-- SQLite migrations
-- Tauri or IPC APIs
+- full lifecycle backend durability beyond current aggregate, worker evidence,
+  and review message/ACK contracts
+- broad SQLite migrations beyond current worker evidence and review ledgers
+- Tauri or IPC APIs beyond current aggregate, worker evidence, and review
+  commands
 - real worker execution changes
 - broad automatic real worker result event integration
 - scheduler redesign

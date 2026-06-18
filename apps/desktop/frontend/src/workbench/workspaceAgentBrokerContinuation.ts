@@ -390,7 +390,7 @@ export function formatWorkspaceAgentBrokerContinuationPrompt({
       "Continue the same user request from this result.",
       'Emit exactly one hobit.action.request envelope when another Hobit app action is needed, or {"type":"hobit.final.answer","message":"..."} when the task is done.',
       "The final-answer marker lets the app distinguish completion from an intermediate stall.",
-      "Do not write awaiting capability result as prose.",
+      "Intermediate prose is not a capability call.",
       "Do not emit action lists. Use a fresh requestId for each envelope. Do not repeat a previous request id or same capability/input. Use returned taskIds, executorWidgetIds, runId, blockers, and nextSuggestedCapability.",
       "If the result is blocked, unavailable, confirmation_required, failed, invalid, or policy blocked, stop and report that plainly.",
       "Never infer taskId or executorWidgetId from prose, titles, paths, final messages, or source text.",

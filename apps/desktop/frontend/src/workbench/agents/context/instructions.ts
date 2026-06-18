@@ -30,7 +30,7 @@ export function createCapabilityInstructionBlock(
     'When needed emit one JSON envelope with a fresh requestId: {"type":"hobit.action.request","requestId":"action-1","capabilityId":"<id>","dryRun":false,"input":{...}}.',
     'When finished in action mode emit one final JSON object: {"type":"hobit.final.answer","message":"<final user-facing answer or blocker>"}',
     "One envelope only; do not emit action lists.",
-    "Do not write awaiting capability result. Awaiting result prose is not a capability call.",
+    "Intermediate prose is not a capability call; emit an envelope or final marker.",
     "After hobit.action.result, continue with returned taskId/runId/executorWidgetId, emit the next hobit.action.request, or emit hobit.final.answer; never infer missing ids.",
     "Stop on blocked, unavailable, confirmation_required, policy_blocked, failed, invalid, repeated, or max actions.",
     "Do not use shell or Codex for product actions. Do not execute app actions through shell, Codex, Git, Terminal, rollback, or validation.",
@@ -166,7 +166,7 @@ function createQueueCreateCapabilityInstructionLines(
     "For a test, dummy, or example Queue item, create a safe placeholder prompt.",
     "If a real Queue item lacks task content, ask a concise clarification.",
     "Do not auto-run workers.",
-    '{"capabilityId":"queue.createItem","input":{"prompt":"Review the current workspace state and report one safe next step."}}',
+    '{"capabilityId":"queue.createItem","input":{"title":"Test Queue item","prompt":"Review the current workspace state and report one safe next step."}}',
     exampleIds ? `Queue create envelope ids: ${exampleIds}.` : null,
   ].filter((line): line is string => Boolean(line));
 }

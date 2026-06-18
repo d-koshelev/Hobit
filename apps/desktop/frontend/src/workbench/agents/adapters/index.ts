@@ -1,4 +1,7 @@
 export type {
+  QueueBackendCapabilityPort,
+} from "./queueBackendCapabilityPort";
+export type {
   QueueAgentAdapterApi,
   QueueAgentAdapterResult,
   QueueAgentAddFollowUpPromptInput,
@@ -61,6 +64,7 @@ export type {
 export {
   createDefaultQueueAgentAdapterApi,
 } from "./queueAgentCapabilities";
+export { createQueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
 export { createQueueAgentActionHandlers } from "./queueAgentActionHandlers";
 export { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
 export { QUEUE_AGENT_CAPABILITY_IDS } from "./queueAgentCapabilityTypes";

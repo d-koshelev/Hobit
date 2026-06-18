@@ -12,6 +12,10 @@ behavior, Git mutation, or Terminal launch.
 ## Status
 
 Planned for Smart Queue dependency modeling.
+Current backend aggregates can report dependency-derived read state, but
+accepted completion, block/fail propagation commands, and scheduler enforcement
+remain future backend/domain work. Frontend overlays may present compatibility
+labels but must not become dependency product truth.
 
 ## Structural Dependency
 

@@ -1032,7 +1032,10 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(operatorPrompt).toContain('"capabilityId":"queue.createItems"');
     expect(operatorPrompt).toContain("Queue lifecycle schemas:");
     expect(operatorPrompt).toContain("hobit.final.answer");
-    expect(operatorPrompt).toContain("Do not write awaiting capability result");
+    expect(operatorPrompt).toContain(
+      "Intermediate prose is not a capability call",
+    );
+    expect(operatorPrompt).not.toContain("awaiting capability result");
     expect(operatorPrompt).toContain(
       "agentFinished(evidenceBundle or taskId,runId,outcome,finalAgentMessage)",
     );

@@ -8,6 +8,7 @@ import type {
   AgentQueueItemAggregateNextAction,
   AgentQueueWorkerEvidenceBundle,
 } from "../../../workspace/types";
+import type { QueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
 import type {
   SmartQueueDogfoodLifecycleItem,
   SmartQueueDogfoodReviewOutcome,
@@ -660,6 +661,7 @@ export type QueueAgentAdapterResult<TOutput> = {
 export type QueueAgentMaybePromise<T> = T | Promise<T>;
 
 export type QueueAgentAdapterApi = {
+  backend?: QueueBackendCapabilityPort | null;
   dogfoodLifecycle?: QueueAgentDogfoodLifecycleAdapterApi;
   enableQueue?: (
     input: QueueAgentEnableInput,

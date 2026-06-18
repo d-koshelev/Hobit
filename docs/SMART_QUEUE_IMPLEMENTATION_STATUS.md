@@ -7,6 +7,11 @@ next implementation sequence. It exists to prevent future Queue work from
 confusing pure frontend/product-model foundations with durable runtime
 features.
 
+Queue backend ownership is centralized in
+`docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`; this status document records
+implementation state and must not be used to move Queue business truth into
+frontend UI or overlays.
+
 This is a docs/status artifact only. It does not add frontend behavior,
 backend/runtime behavior beyond the explicitly listed Queue aggregate,
 worker-evidence, and review command contracts, storage/schema changes beyond
@@ -40,6 +45,9 @@ backend/Tauri authoritative Queue item aggregate DTOs, and
 backend/domain/Tauri command or query contracts. These paths do not use Queue
 board snapshots, selected task detail, frontend lifecycle/evidence overlays,
 UI hooks, or broker-local lifecycle maps as product truth.
+The Workspace Agent/Broker adapter boundary uses an injected Queue backend API
+port so backend-backed capability paths can be tested without mounting the
+frontend Queue UI.
 
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly

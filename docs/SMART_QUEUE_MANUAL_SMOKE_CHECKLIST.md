@@ -9,6 +9,12 @@ rollback execution, Git/file mutation, Terminal launch, Workspace Agent
 runtime auto-call, or storage schema changes beyond the narrow worker evidence
 and review ledgers.
 
+For responsibility boundaries, use
+`docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`. Manual smoke must not treat Queue
+UI overlays as product truth; backend-backed Queue behavior must remain
+testable through backend/domain/Tauri/API contracts without launching the
+frontend UI.
+
 Queue manual smoke should move toward peer, widget, and agent-executed smoke
 models under `apps/desktop/frontend/src/workbench/agents/`. Those contracts can
 describe safe self-tests and expected evidence. Workspace Agent now exposes a

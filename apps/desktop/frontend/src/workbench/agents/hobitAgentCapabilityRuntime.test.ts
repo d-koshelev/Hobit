@@ -313,13 +313,18 @@ describe("hobitAgentCapabilityRuntime context", () => {
       '"capabilityId":"queue.item.startRun"',
     );
     expect(instructionBlock).toContain('"prompt":"Review the current workspace state and report one safe next step."');
+    expect(instructionBlock).toContain('"title":"Test Queue item"');
     expect(instructionBlock).toContain(
       "Codex and shell are restricted capabilities",
     );
     expect(instructionBlock).toContain('"type":"hobit.action.request"');
     expect(instructionBlock).toContain('"type":"hobit.final.answer"');
     expect(instructionBlock).toContain("do not emit action lists");
-    expect(instructionBlock).toContain("Do not write awaiting capability result");
+    expect(instructionBlock).toContain(
+      "Intermediate prose is not a capability call",
+    );
+    expect(instructionBlock).not.toContain("awaiting capability result");
+    expect(instructionBlock).not.toMatch(/wait\s+for\s+(?:a\s+)?capability\s+result/i);
     expect(instructionBlock).toContain("After hobit.action.result");
     expect(instructionBlock).toContain("fresh requestId");
     expect(instructionBlock).toContain("never infer missing ids");
@@ -436,7 +441,8 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain('"type":"hobit.final.answer"');
     expect(prompt).toContain("Use a fresh requestId");
     expect(prompt).toContain("After hobit.action.result");
-    expect(prompt).toContain("Do not write awaiting capability result as prose.");
+    expect(prompt).toContain("Intermediate prose is not a capability call.");
+    expect(prompt).not.toContain("awaiting capability result");
     expect(prompt).toContain("When a Hobit app capability is needed");
     expect(prompt).toContain("Queue item creation is a Queue capability.");
     expect(prompt).toContain("Queue item prompt is required");

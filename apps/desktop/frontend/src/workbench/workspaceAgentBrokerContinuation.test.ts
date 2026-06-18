@@ -363,7 +363,8 @@ describe("workspaceAgentBrokerContinuation", () => {
     );
     expect(prompt).toContain('"type":"hobit.action.result"');
     expect(prompt).toContain("hobit.final.answer");
-    expect(prompt).toContain("Do not write awaiting capability result");
+    expect(prompt).toContain("Intermediate prose is not a capability call");
+    expect(prompt).not.toContain("awaiting capability result");
     expect(prompt).toContain('"taskIds":["task-1"]');
     expect(prompt.length).toBeLessThanOrEqual(3600);
     expect(prompt).not.toContain("secret-value-123");

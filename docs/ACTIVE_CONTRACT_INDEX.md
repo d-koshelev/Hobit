@@ -683,6 +683,14 @@ the local executor flow visible to operators.
   It requires exactly one logical Queue and exactly one Queue UI view per
   Workspace. `agent-queue` is the saved-compatible singleton Queue widget
   identity, and `queue-v2` must not become a second Queue widget/view.
+- `docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md` - current Queue responsibility
+  boundary. Read before Queue backend/domain/storage/Tauri/API, Workspace
+  Agent broker adapter, or frontend API boundary work. It states that Queue
+  business truth lives in backend/domain/storage and frontend UI may only
+  render authoritative DTOs plus local loading/display state.
+- `docs/QUEUE_RESPONSIBILITY_REFACTOR_AUDIT.md` - focused audit/status note
+  for the Queue backend ownership refactor, transitional capability debt, and
+  phased cleanup plan.
 - `docs/SMART_QUEUE_WORKFLOW_CONTRACT.md` - planned Smart Queue prompt-pack
   workflow contract. Read before prompt-pack driven QueueBatch/QueueTask
   modeling, Smart Queue eligibility, Queue lifecycle state, or role-boundary
@@ -966,7 +974,8 @@ These documents should not override the Workspace Agent model or
   `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`; add `docs/GIT_WIDGET_CONTRACT.md`
   only when changing current Git behavior, Git plugin API, or Git mutation
   boundaries.
-- Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md` and
+- Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md`,
+  `docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`, and
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
