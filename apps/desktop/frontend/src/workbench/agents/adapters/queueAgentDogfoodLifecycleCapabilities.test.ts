@@ -222,8 +222,18 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     expect(
       QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.review.ack"),
     ).toMatchObject({
+      autoContinuationSafe: true,
       requiredIds: {
         messageId: true,
+        taskId: true,
+      },
+    });
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.review.createMessage"),
+    ).toMatchObject({
+      autoContinuationSafe: false,
+      backing: "backend_backed",
+      requiredIds: {
         taskId: true,
       },
     });

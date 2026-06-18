@@ -325,11 +325,131 @@ describe("workspaceAgentBrokerContinuation", () => {
         taskIds: ["task-1"],
       },
       nextSuggestedCapability: "queue.review.createMessage",
+      queueState: {
+        evidenceState: "available",
+        nextSuggestedCapability: "queue.review.createMessage",
+      },
       safety: {
         didLaunchShell: false,
         didMutateGit: false,
         didRunValidation: false,
         didStartTerminal: false,
+      },
+    });
+  });
+
+  it("allows successful queue.review.ack to continue so backend lifecycle state can be read", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const capability = findCapability(registry, "queue.review.ack");
+    if (!capability) {
+      throw new Error("Expected queue.review.ack to be registered.");
+    }
+
+    const request = requestFor(
+      "queue.review.ack",
+      { messageId: "review-message-1", taskId: "task-1" },
+      "request-review-ack",
+    );
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-review-ack",
+      }),
+      request,
+    );
+    const result = resultFor("queue.review.ack", {
+      aggregate: {
+        commitState: "none",
+        dependencyState: "none",
+        durableFlags: {
+          commitState: false,
+          dependencyState: true,
+          evidenceState: true,
+          frontendOverlayUsed: false,
+          latestRunLink: true,
+          reviewState: true,
+          taskRow: true,
+          validationState: false,
+        },
+        evidenceState: "available",
+        evidenceSummary: {
+          available: true,
+          notDurableReason: null,
+          source: "durable_worker_evidence_bundle",
+          summary: "Worker final report.",
+        },
+        latestRun: {
+          completedAt: "2026-06-17T10:02:00.000Z",
+          executorWidgetId: "executor-1",
+          finalDetailAvailable: true,
+          reviewStatus: "review_needed",
+          runId: "run-1",
+          runLinkId: "run-link-1",
+          source: "agent_executor",
+          startedAt: "2026-06-17T10:00:00.000Z",
+          status: "completed",
+          validationStatus: null,
+        },
+        reviewState: "in_review",
+        taskId: "task-1",
+        ticketState: "in_review",
+        validationState: "unknown",
+        workerRunState: "completed",
+      },
+      messageId: "review-message-1",
+      nextSuggestedCapability: "queue.lifecycle.get",
+      queueMutation: "backend_domain",
+      reviewState: "in_review",
+      taskId: "task-1",
+      ticketState: "in_review",
+      workerRunState: "completed",
+      wouldPersistBackend: true,
+    });
+    const context = createWorkspaceAgentBrokerActionResultContext({
+      request,
+      result,
+      summary: "Queue review acknowledged.",
+    });
+
+    expect(capability).toMatchObject({
+      ownerSurface: "Agent Queue",
+      restricted: false,
+      sideEffectLevel: "write",
+    });
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(capability).kind,
+    ).toBe("allowed");
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        capability,
+        request,
+        result,
+        state,
+      }),
+    ).toEqual({ shouldContinue: true });
+    expect(context).toMatchObject({
+      capabilityId: "queue.review.ack",
+      ids: {
+        runId: "run-1",
+        taskIds: ["task-1"],
+      },
+      nextSuggestedCapability: "queue.lifecycle.get",
+      queueState: {
+        commitState: "none",
+        dependencyState: "none",
+        durableFlags: {
+          reviewState: true,
+          taskRow: true,
+        },
+        evidenceState: "available",
+        latestRun: {
+          runId: "run-1",
+          status: "completed",
+        },
+        nextSuggestedCapability: "queue.lifecycle.get",
+        reviewState: "in_review",
+        ticketState: "in_review",
+        validationState: "unknown",
+        workerRunState: "completed",
       },
     });
   });
@@ -387,10 +507,51 @@ describe("workspaceAgentBrokerContinuation", () => {
     }
   });
 
+  it("does not wildcard-allow review writes or unsafe post-ACK continuation requests", () => {
+    for (const capabilityId of [
+      "queue.review.createMessage",
+      "queue.item.markDone",
+      "queue.item.block",
+      "queue.item.fail",
+      "queue.coordinator.approveValidation",
+      "queue.coordinator.addFollowUpPrompt",
+    ]) {
+      const request = requestFor(capabilityId, {
+        coordinatorAgentId: "workspace-agent",
+        messageId: "review-message-1",
+        prompt: "Continue from ACK.",
+        reason: "Review ACK does not finalize the task.",
+        taskId: "task-1",
+        validationApproved: true,
+      });
+      const state = recordAttempt(
+        createWorkspaceAgentBrokerContinuationState({
+          chainId: `chain-post-ack-${capabilityId}`,
+        }),
+        request,
+      );
+
+      expect(
+        classifyWorkspaceAgentBrokerContinuationCapability(capabilityId).kind,
+      ).toBe("not_allowed");
+      expect(
+        shouldContinueWorkspaceAgentBrokerAction({
+          request,
+          result: resultFor(capabilityId, { taskId: "task-1" }),
+          state,
+        }),
+      ).toEqual({
+        shouldContinue: false,
+        stopReason: "not_allowed_for_auto_continuation",
+      });
+    }
+  });
+
   it("blocks unregistered and wrong evidence capability ids from auto-continuation", () => {
     const registry = createHobitAgentCapabilityRegistry();
 
     for (const capabilityId of [
+      "queue.item.finishEverything",
       "queue.review.unregistered",
       "queue.lifecycle.getEvidenceBundle",
     ]) {
@@ -545,6 +706,194 @@ describe("workspaceAgentBrokerContinuation", () => {
     expect(prompt.length).toBeLessThanOrEqual(3600);
     expect(prompt).not.toContain("secret-value-123");
     expect(prompt).not.toContain("full log line");
+  });
+
+  it("includes backend aggregate state dimensions in compact lifecycle result context", () => {
+    const request = requestFor(
+      "queue.lifecycle.get",
+      { taskId: "task-acked" },
+      "request-lifecycle-acked",
+    );
+    const context = createWorkspaceAgentBrokerActionResultContext({
+      request,
+      result: resultFor("queue.lifecycle.get", {
+        aggregateSource: "tauri_queue_item_aggregate",
+        authoritativeBackendAggregate: true,
+        blockerReasons: ["Review message has been acknowledged."],
+        blockers: [
+          {
+            code: "review_acknowledged",
+            message: "Review message has been acknowledged.",
+          },
+        ],
+        commitState: "not_durable",
+        dependencyState: "none",
+        durableFlags: {
+          commitState: false,
+          dependencyState: true,
+          evidenceState: true,
+          frontendOverlayUsed: false,
+          latestRunLink: true,
+          reviewState: true,
+          taskRow: true,
+          validationState: false,
+        },
+        evidenceState: "available",
+        evidenceSummary: {
+          available: true,
+          notDurableReason: null,
+          source: "durable_worker_evidence_bundle",
+          summary: "Worker final report.",
+        },
+        latestRun: {
+          completedAt: "2026-06-17T10:02:00.000Z",
+          executorWidgetId: "executor-1",
+          finalDetailAvailable: true,
+          reviewStatus: "review_needed",
+          runId: "run-1",
+          runLinkId: "run-link-1",
+          source: "agent_executor",
+          startedAt: "2026-06-17T10:00:00.000Z",
+          status: "completed",
+          validationStatus: null,
+        },
+        lifecycle: null,
+        nextActions: [],
+        nextSuggestedCapability: null,
+        reviewState: "in_review",
+        taskId: "task-acked",
+        ticketState: "in_review",
+        validationState: "unknown",
+        workerRunState: "completed",
+      }),
+      summary:
+        "Queue lifecycle read from backend aggregate. Review message has been acknowledged.",
+    });
+    const prompt = formatWorkspaceAgentBrokerContinuationPrompt({
+      actionIndex: 2,
+      context,
+      maxActions: WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+    });
+
+    expect(context.blockers).toContain(
+      "Review message has been acknowledged.",
+    );
+    expect(context.queueState).toMatchObject({
+      blockers: ["Review message has been acknowledged."],
+      commitState: "not_durable",
+      dependencyState: "none",
+      durableFlags: {
+        commitState: false,
+        evidenceState: true,
+        reviewState: true,
+        validationState: false,
+      },
+      evidenceState: "available",
+      evidenceSummary: {
+        available: true,
+        source: "durable_worker_evidence_bundle",
+        summary: "Worker final report.",
+      },
+      latestRun: {
+        executorWidgetId: "executor-1",
+        runId: "run-1",
+        status: "completed",
+      },
+      nextSuggestedCapability: null,
+      reviewState: "in_review",
+      ticketState: "in_review",
+      validationState: "unknown",
+      workerRunState: "completed",
+    });
+    expect(prompt).toContain('"ticketState":"in_review"');
+    expect(prompt).toContain('"reviewState":"in_review"');
+    expect(prompt).toContain('"evidenceState":"available"');
+    expect(prompt).toContain("hobit.final.answer");
+  });
+
+  it("supports the ACK to lifecycle read to final-answer smoke continuation path", () => {
+    const ackRequest = requestFor(
+      "queue.review.ack",
+      { messageId: "review-message-1", taskId: "task-1" },
+      "request-smoke-ack",
+    );
+    let state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-ack-lifecycle-final",
+      }),
+      ackRequest,
+    );
+    const ackResult = resultFor("queue.review.ack", {
+      messageId: "review-message-1",
+      nextSuggestedCapability: "queue.lifecycle.get",
+      reviewState: "in_review",
+      taskId: "task-1",
+      ticketState: "in_review",
+      workerRunState: "completed",
+    });
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: ackRequest,
+        result: ackResult,
+        state,
+      }),
+    ).toEqual({ shouldContinue: true });
+
+    const lifecycleRequest = requestFor(
+      "queue.lifecycle.get",
+      { taskId: "task-1" },
+      "request-smoke-lifecycle",
+    );
+    const lifecycleAttempt = evaluateWorkspaceAgentBrokerContinuationAttempt(
+      state,
+      lifecycleRequest,
+    );
+    expect(lifecycleAttempt).toMatchObject({ ok: true });
+    if (!lifecycleAttempt.ok) {
+      throw new Error("Expected lifecycle continuation attempt to be accepted.");
+    }
+    state = recordWorkspaceAgentBrokerContinuationAttempt(
+      state,
+      lifecycleRequest,
+      lifecycleAttempt.fingerprint,
+    );
+    const lifecycleResult = resultFor("queue.lifecycle.get", {
+      authoritativeBackendAggregate: true,
+      evidenceState: "available",
+      lifecycle: null,
+      nextSuggestedCapability: null,
+      reviewState: "in_review",
+      taskId: "task-1",
+      ticketState: "in_review",
+      workerRunState: "completed",
+    });
+    const context = createWorkspaceAgentBrokerActionResultContext({
+      request: lifecycleRequest,
+      result: lifecycleResult,
+      summary: "Queue lifecycle read from backend aggregate.",
+    });
+    const prompt = formatWorkspaceAgentBrokerContinuationPrompt({
+      actionIndex: state.actionCount,
+      context,
+      maxActions: state.maxActions,
+    });
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: lifecycleRequest,
+        result: lifecycleResult,
+        state,
+      }),
+    ).toEqual({ shouldContinue: true });
+    expect(context.queueState).toMatchObject({
+      nextSuggestedCapability: null,
+      reviewState: "in_review",
+      ticketState: "in_review",
+    });
+    expect(prompt).toContain(
+      '{"type":"hobit.final.answer","message":"..."}',
+    );
   });
 
   it("keeps continuation structured-only without natural-language id inference", () => {

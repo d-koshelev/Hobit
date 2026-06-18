@@ -22,6 +22,7 @@ const AUTO_CONTINUATION_ALLOWED_CAPABILITIES = new Set([
   "queue.item.promoteDraft",
   "queue.enable",
   "queue.lifecycle.get",
+  "queue.review.ack",
   "queue.review.getEvidenceBundle",
 ]);
 
@@ -98,12 +99,28 @@ export type WorkspaceAgentBrokerContinuationResultContext = {
   };
   nextSuggestedCapability: string | null;
   notDone: string[];
+  queueState: WorkspaceAgentBrokerContinuationQueueState | null;
   requestId: string;
   safety: WorkspaceAgentBrokerContinuationSafety;
   status: string;
   stopReason?: WorkspaceAgentBrokerContinuationStopReason;
   summary: string;
   type: "hobit.action.result";
+};
+
+export type WorkspaceAgentBrokerContinuationQueueState = {
+  blockers: string[];
+  commitState: string | null;
+  dependencyState: string | null;
+  durableFlags: Record<string, boolean> | null;
+  evidenceState: string | null;
+  evidenceSummary: Record<string, string | boolean | null> | null;
+  latestRun: Record<string, string | boolean | null> | null;
+  nextSuggestedCapability: string | null;
+  reviewState: string | null;
+  ticketState: string | null;
+  validationState: string | null;
+  workerRunState: string | null;
 };
 
 export function createWorkspaceAgentBrokerContinuationState({
@@ -327,6 +344,21 @@ export function createWorkspaceAgentBrokerActionResultContext({
 }): WorkspaceAgentBrokerContinuationResultContext {
   const output = recordValue(result.output);
   const safety = workspaceAgentBrokerContinuationSafety(result.output);
+  const nextSuggestedCapability = firstString([
+    stringField(output, "nextSuggestedCapability"),
+    stringField(recordField(output, "item"), "nextSuggestedCapability"),
+    firstString(
+      arrayField(output, "createdItems").map((item) =>
+        stringField(recordValue(item), "nextSuggestedCapability"),
+      ),
+    ),
+    firstString(
+      arrayField(output, "items").map((item) =>
+        stringField(recordValue(item), "nextSuggestedCapability"),
+      ),
+    ),
+  ]);
+  const queueState = collectQueueState(output, nextSuggestedCapability);
   const context: WorkspaceAgentBrokerContinuationResultContext = {
     blockers: compactStringList(
       [
@@ -344,25 +376,15 @@ export function createWorkspaceAgentBrokerActionResultContext({
       ),
       runId: firstString([
         stringField(output, "runId"),
+        stringField(recordField(output, "latestRun"), "runId"),
+        stringField(recordField(recordField(output, "aggregate"), "latestRun"), "runId"),
         stringField(recordField(output, "queueLinkedMetadata"), "runId"),
       ]),
       taskIds: compactStringList(collectTaskIds(output), ID_LIMIT),
     },
-    nextSuggestedCapability: firstString([
-      stringField(output, "nextSuggestedCapability"),
-      stringField(recordField(output, "item"), "nextSuggestedCapability"),
-      firstString(
-        arrayField(output, "createdItems").map((item) =>
-          stringField(recordValue(item), "nextSuggestedCapability"),
-        ),
-      ),
-      firstString(
-        arrayField(output, "items").map((item) =>
-          stringField(recordValue(item), "nextSuggestedCapability"),
-        ),
-      ),
-    ]),
+    nextSuggestedCapability,
     notDone: notDoneMessages(safety),
+    queueState,
     requestId: request.requestId,
     safety,
     status: result.status === "succeeded" ? "succeeded" : result.status,
@@ -543,6 +565,7 @@ function collectTaskIds(output: Record<string, unknown> | null): string[] {
     [
       stringField(output, "taskId"),
       stringField(output, "queueItemId"),
+      stringField(recordField(output, "aggregate"), "taskId"),
       ...stringArrayField(output, "createdTaskIds"),
       stringField(recordField(output, "item"), "taskId"),
       stringField(recordField(output, "lifecycle"), "taskId"),
@@ -579,7 +602,10 @@ function collectExecutorWidgetIds(
 function collectBlockers(output: Record<string, unknown> | null): string[] {
   return compactStringList(
     [
+      stringField(output, "blockerMessage"),
       ...stringArrayField(output, "blockerReasons"),
+      ...blockerMessages(arrayField(output, "blockers")),
+      ...blockerMessages(arrayField(recordField(output, "aggregate"), "blockers")),
       ...stringArrayField(recordField(output, "item"), "blockerReasons"),
       ...arrayField(output, "items").flatMap((item) =>
         stringArrayField(recordValue(item), "blockerReasons"),
@@ -593,6 +619,146 @@ function collectBlockers(output: Record<string, unknown> | null): string[] {
     ],
     BLOCKER_LIMIT,
   );
+}
+
+function collectQueueState(
+  output: Record<string, unknown> | null,
+  nextSuggestedCapability: string | null,
+): WorkspaceAgentBrokerContinuationQueueState | null {
+  const sources = [
+    output,
+    recordField(output, "aggregate"),
+    recordField(output, "item"),
+    recordField(output, "lifecycle"),
+    recordValue(arrayField(output, "items")[0]),
+  ];
+  const ticketState = firstStringFromSources(sources, "ticketState");
+  const workerRunState = firstStringFromSources(sources, "workerRunState");
+  const reviewState = firstStringFromSources(sources, "reviewState");
+  const evidenceState = firstStringFromSources(sources, "evidenceState");
+  const validationState = firstStringFromSources(sources, "validationState");
+  const commitState = firstStringFromSources(sources, "commitState");
+  const dependencyState = firstStringFromSources(sources, "dependencyState");
+  const latestRun = compactRecordFields(
+    firstRecordFieldFromSources(sources, "latestRun"),
+    [
+      "runId",
+      "runLinkId",
+      "executorWidgetId",
+      "source",
+      "status",
+      "reviewStatus",
+      "validationStatus",
+      "startedAt",
+      "completedAt",
+      "finalDetailAvailable",
+    ],
+  );
+  const evidenceSummary = compactRecordFields(
+    firstRecordFieldFromSources(sources, "evidenceSummary"),
+    ["available", "source", "summary", "notDurableReason"],
+  );
+  const durableFlags = compactBooleanRecord(
+    firstRecordFieldFromSources(sources, "durableFlags"),
+  );
+  const blockers = collectBlockers(output);
+
+  if (
+    !ticketState &&
+    !workerRunState &&
+    !reviewState &&
+    !evidenceState &&
+    !validationState &&
+    !commitState &&
+    !dependencyState &&
+    !latestRun &&
+    !evidenceSummary &&
+    !durableFlags &&
+    blockers.length === 0
+  ) {
+    return null;
+  }
+
+  return {
+    blockers,
+    commitState,
+    dependencyState,
+    durableFlags,
+    evidenceState,
+    evidenceSummary,
+    latestRun,
+    nextSuggestedCapability,
+    reviewState,
+    ticketState,
+    validationState,
+    workerRunState,
+  };
+}
+
+function blockerMessages(values: readonly unknown[]): string[] {
+  return values
+    .map((item) => stringField(recordValue(item), "message"))
+    .filter((item): item is string => Boolean(item));
+}
+
+function firstStringFromSources(
+  sources: readonly (Record<string, unknown> | null)[],
+  fieldName: string,
+) {
+  return firstString(sources.map((source) => stringField(source, fieldName)));
+}
+
+function firstRecordFieldFromSources(
+  sources: readonly (Record<string, unknown> | null)[],
+  fieldName: string,
+): Record<string, unknown> | null {
+  for (const source of sources) {
+    const record = recordField(source, fieldName);
+    if (record) {
+      return record;
+    }
+  }
+
+  return null;
+}
+
+function compactRecordFields(
+  record: Record<string, unknown> | null,
+  fieldNames: readonly string[],
+): Record<string, string | boolean | null> | null {
+  if (!record) {
+    return null;
+  }
+
+  const compacted: Record<string, string | boolean | null> = {};
+  for (const fieldName of fieldNames) {
+    const value = record[fieldName];
+    if (typeof value === "string") {
+      compacted[fieldName] = compactText(value, SUMMARY_CHAR_LIMIT);
+    } else if (typeof value === "boolean") {
+      compacted[fieldName] = value;
+    } else if (value === null) {
+      compacted[fieldName] = null;
+    }
+  }
+
+  return Object.keys(compacted).length > 0 ? compacted : null;
+}
+
+function compactBooleanRecord(
+  record: Record<string, unknown> | null,
+): Record<string, boolean> | null {
+  if (!record) {
+    return null;
+  }
+
+  const compacted = Object.fromEntries(
+    Object.entries(record).filter((entry): entry is [string, boolean] =>
+      typeof entry[1] === "boolean",
+    ),
+  );
+
+  return Object.keys(compacted).length > 0 ? compacted : null;
 }
 
 function notDoneMessages(safety: WorkspaceAgentBrokerContinuationSafety) {

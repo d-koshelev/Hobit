@@ -67,8 +67,11 @@ or executor ids are not inferred from prose.
 Each emitted envelope should use a fresh requestId. If the model omits or
 blanks requestId, the frontend derives a per-chain/per-action id; explicit
 duplicate requestIds still stop as a replay guard. Read-only
-`queue.lifecycle.get` and backend-backed read-only
-`queue.review.getEvidenceBundle` can continue safely after success. The
+`queue.lifecycle.get`, backend-backed read-only
+`queue.review.getEvidenceBundle`, and successful backend-backed
+`queue.review.ack` can continue safely after success. ACK continuation is only
+to read state, normally with `queue.lifecycle.get`; ACK does not imply done,
+validation approval, commit state, dependency unblock, or finalization. The
 continuation budget remains 16 actions and the existing safety stops are
 unchanged.
 
@@ -93,6 +96,12 @@ backend blocker diagnostics with ticket, worker-run, review, and evidence
 states, duplicate-message state when relevant, and a next suggested capability
 when available. A generic-only "could not be created" failure is not an
 acceptable smoke result.
+`queue.lifecycle.get` smoke results must expose backend aggregate dimensions:
+`ticketState`, `workerRunState`, `reviewState`, `evidenceState`,
+`validationState` when available, `commitState` when available,
+`dependencyState` when available, `blockers`, `nextSuggestedCapability`,
+`latestRun` when available, `evidenceSummary` when available, and durable
+flags or honest `unknown` / `not_durable` markers when available.
 
 ## Setup
 
@@ -632,10 +641,14 @@ During the smoke, verify these product labels appear where applicable:
       `Action 1/16: queue.targetSingletonQueue` and
       `Action 2/16: queue.items.list`; they do not dump raw JSON, logs, secrets,
       or stack traces.
-    - Expected: `queue.lifecycle.get` and backend-backed read-only
-      `queue.review.getEvidenceBundle` can appear in the continuation chain
-      and proceed to the next envelope or explicit `hobit.final.answer` after a
-      successful read.
+    - Expected: `queue.lifecycle.get`, backend-backed read-only
+      `queue.review.getEvidenceBundle`, and successful backend-backed
+      `queue.review.ack` can appear in the continuation chain and proceed to
+      the next envelope or explicit `hobit.final.answer` after success.
+      Expected ACK path:
+      `queue.review.ack -> queue.lifecycle.get -> hobit.final.answer`.
+      ACK remains review state and must not auto-mark done or make
+      finalization capabilities safe.
     - Expected: the chain stops with a visible reason on confirmation,
       policy-blocked, unavailable, dry-run-required, failed, invalid input,
       repeated request id, repeated capability/input, unsupported envelope,

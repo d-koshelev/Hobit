@@ -368,7 +368,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       sideEffectLevel: "read",
     }),
     queueContract({
-      autoContinuationSafe: false,
+      autoContinuationSafe: true,
       backing: "backend_backed",
       capabilityId: "queue.review.ack",
       fieldPolicies: {

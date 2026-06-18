@@ -613,8 +613,27 @@ describe("queueAgentCapabilities invoke", () => {
         blockers: [
           { code: "review_not_durable", message: "Review state is not durable yet." },
         ],
+        commitState: "not_durable",
         dependencyState: "unknown",
         evidenceState: "not_durable",
+        evidenceSummary: {
+          available: false,
+          notDurableReason: "Worker evidence was not recorded durably.",
+          source: "aggregate",
+          summary: null,
+        },
+        latestRun: {
+          completedAt: "2026-06-15T10:05:00.000Z",
+          executorWidgetId: "executor-1",
+          finalDetailAvailable: true,
+          reviewStatus: "review_needed",
+          runId: "run-1",
+          runLinkId: "link-1",
+          source: "manual",
+          startedAt: "2026-06-15T10:00:00.000Z",
+          status: "completed",
+          validationStatus: null,
+        },
         nextActions: [
           {
             available: false,
@@ -623,6 +642,7 @@ describe("queueAgentCapabilities invoke", () => {
             unavailableReason: "Review command is not durable yet.",
           },
         ],
+        reviewState: "in_review",
         taskId,
         ticketState: "awaiting_review",
         validationState: "unknown",
@@ -648,13 +668,30 @@ describe("queueAgentCapabilities invoke", () => {
       aggregateSource: string;
       authoritativeBackendAggregate: boolean;
       blockerReasons: string[];
-      durableFlags: { evidenceState: boolean; frontendOverlayUsed: boolean };
+      blockers: Array<{ code: string; message: string }>;
+      commitState: string;
+      dependencyState: string;
+      durableFlags: {
+        commitState: boolean;
+        evidenceState: boolean;
+        frontendOverlayUsed: boolean;
+      };
       evidenceState: string;
+      evidenceSummary: {
+        available: boolean;
+        notDurableReason: string | null;
+        source: string;
+        summary: string | null;
+      } | null;
+      latestRun: { runId: string; status: string };
       lifecycle: null;
       nextActions: Array<{ code: string; suggestedCapability?: string | null }>;
+      nextSuggestedCapability: string | null;
+      reviewState: string;
       taskId: string;
       ticketState: string;
       validationState: string;
+      workerRunState: string;
     }>(
       request({
         capabilityId: "queue.lifecycle.get",
@@ -669,7 +706,25 @@ describe("queueAgentCapabilities invoke", () => {
       aggregateSource: "tauri_queue_item_aggregate",
       authoritativeBackendAggregate: true,
       blockerReasons: ["Review state is not durable yet."],
+      blockers: [
+        {
+          code: "review_not_durable",
+          message: "Review state is not durable yet.",
+        },
+      ],
+      commitState: "not_durable",
+      dependencyState: "unknown",
       evidenceState: "not_durable",
+      evidenceSummary: {
+        available: false,
+        notDurableReason: "Worker evidence was not recorded durably.",
+        source: "aggregate",
+        summary: null,
+      },
+      latestRun: {
+        runId: "run-1",
+        status: "completed",
+      },
       lifecycle: null,
       nextActions: [
         {
@@ -677,11 +732,15 @@ describe("queueAgentCapabilities invoke", () => {
           suggestedCapability: "queue.review.createMessage",
         },
       ],
+      nextSuggestedCapability: "queue.review.createMessage",
+      reviewState: "in_review",
       taskId: "task-aggregate",
       ticketState: "awaiting_review",
       validationState: "unknown",
+      workerRunState: "completed",
     });
     expect(result.result.output?.durableFlags).toMatchObject({
+      commitState: false,
       evidenceState: false,
       frontendOverlayUsed: false,
     });

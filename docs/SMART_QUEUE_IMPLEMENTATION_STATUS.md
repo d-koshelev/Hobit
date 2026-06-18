@@ -69,6 +69,11 @@ commands retain explicit id requirements, and transitional/finalizing commands
 remain conservative and policy-restricted. This hardening does not move Queue
 truth into frontend UI, redesign the backend aggregate, migrate Queue UI, add
 regex routing, or add validation/Git/rollback/Terminal behavior.
+`queue.review.ack` is the only backend-backed write allowed to continue after
+success, and that continuation is for reading state, normally through
+`queue.lifecycle.get`. ACK remains review state; it does not mark the task
+done, approve validation, attach commit state, unblock dependencies, or make
+finalizing capabilities auto-safe.
 
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly
@@ -270,7 +275,14 @@ The current implemented frontend behavior is:
   fallback ids do not falsely repeat;
 - read-only `queue.lifecycle.get` is allowed to participate in safe broker
   auto-continuation after success and reads backend aggregate state for one
-  explicit `taskId`;
+  explicit `taskId`. Its broker result exposes ticket, worker, review,
+  evidence, validation, commit, and dependency state dimensions, blockers,
+  next actions, `nextSuggestedCapability`, latest run, evidence summary,
+  durable flags, and `authoritativeBackendAggregate=true`;
+- successful backend-backed `queue.review.ack` is allowed to continue only so
+  the next structured action can read state, normally with
+  `queue.lifecycle.get`. It does not imply accepted completion or
+  finalization;
 - read-only `queue.review.getEvidenceBundle` is allowed to participate in safe
   broker auto-continuation after success, reads backend durable worker evidence
   for an explicit `taskId` and optional `runId`, and does not mutate Queue

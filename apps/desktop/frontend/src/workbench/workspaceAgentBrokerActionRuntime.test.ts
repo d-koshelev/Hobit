@@ -149,9 +149,31 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
             message: "Evidence is not durable yet.",
           },
         ],
+        commitState: "not_durable",
+        dependencyState: "unknown",
         evidenceState: "not_durable",
+        evidenceSummary: {
+          available: false,
+          notDurableReason: "Evidence is not durable yet.",
+          source: "aggregate",
+          summary: null,
+        },
+        latestRun: {
+          completedAt: "2026-06-16T12:02:00.000Z",
+          executorWidgetId: "executor-1",
+          finalDetailAvailable: true,
+          reviewStatus: "review_needed",
+          runId: "run-1",
+          runLinkId: "link-1",
+          source: "manual",
+          startedAt: "2026-06-16T12:00:00.000Z",
+          status: "completed",
+          validationStatus: null,
+        },
+        reviewState: "in_review",
         taskId,
         ticketState: "awaiting_review",
+        validationState: "unknown",
         workerRunState: "completed",
       }),
     );
@@ -189,10 +211,25 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     expect(result.result.output).toMatchObject({
       authoritativeBackendAggregate: true,
       blockerReasons: ["Evidence is not durable yet."],
+      commitState: "not_durable",
+      dependencyState: "unknown",
       evidenceState: "not_durable",
+      evidenceSummary: {
+        available: false,
+        notDurableReason: "Evidence is not durable yet.",
+        source: "aggregate",
+        summary: null,
+      },
+      latestRun: {
+        runId: "run-1",
+        status: "completed",
+      },
       lifecycle: null,
+      reviewState: "in_review",
       taskId: "task-1",
       ticketState: "awaiting_review",
+      validationState: "unknown",
+      workerRunState: "completed",
     });
   });
 

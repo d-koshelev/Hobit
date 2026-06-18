@@ -265,6 +265,11 @@ Queue backend-backed broker capabilities are `queue.items.list`,
 `queue.coordinator.addFollowUpPrompt`, `queue.item.markDone`,
 `queue.item.block`, and `queue.item.fail`; these are not auto-continuation safe
 and must remain policy-restricted until moved to durable backend ownership.
+Among backend-backed writes, only a successful `queue.review.ack` is
+auto-continuation safe, and only so the same action chain can read final
+backend aggregate state with `queue.lifecycle.get`. ACK does not imply done,
+accepted completion, validation approval, commit state, dependency unblock, or
+safe finalization.
 
 Agents are expected to produce typed capability action requests with request
 id, agent id, agent role, capability id, input, dry-run state, optional
@@ -440,16 +445,21 @@ from request context and falls back to `workspace-agent` only when no stronger
 context exists. Validation approval, follow-up, mark-done, fail, and block
 remain transitional frontend/controller overlay writes and do not persist
 durable validation/commit/decision state. `queue.lifecycle.get` requires
-explicit `taskId`, reads the backend aggregate DTO, and is safe for broker
-auto-continuation after success. `queue.review.getEvidenceBundle` is a
-backend-backed read-only evidence query, requires explicit `taskId`, accepts
-optional `runId`, does not mutate Queue state, and is also safe for broker
-auto-continuation after success. These capabilities do not parse user prompts,
-route natural-language phrases, start workers, run validation, execute Git
-commits, launch Terminal, execute rollback, call shell, call Codex, or create
-Queue views. The continuation action budget remains 16, and confirmation,
-unavailable, policy, failed, invalid, restricted, repeated fingerprint, and
-safety stops are unchanged.
+explicit `taskId`, reads the backend aggregate DTO, returns ticket, worker,
+review, evidence, validation, commit, and dependency state dimensions plus
+blockers, next actions, latest run, evidence summary, durable flags, and
+`authoritativeBackendAggregate=true`, and is safe for broker auto-continuation
+after success. `queue.review.ack` is backend-backed and continuation-safe after
+success only to let the next model step read state, normally through
+`queue.lifecycle.get`; it does not auto-finalize or mark the Queue item done.
+`queue.review.getEvidenceBundle` is a backend-backed read-only evidence query,
+requires explicit `taskId`, accepts optional `runId`, does not mutate Queue
+state, and is also safe for broker auto-continuation after success. These
+capabilities do not parse user prompts, route natural-language phrases, start
+workers, run validation, execute Git commits, launch Terminal, execute
+rollback, call shell, call Codex, or create Queue views. The continuation
+action budget remains 16, and confirmation, unavailable, policy, failed,
+invalid, restricted, repeated fingerprint, and safety stops are unchanged.
 
 The optional `queue.lifecycle.agentFinished` evidence bundle is normalized in
 frontend adapter code, then passed to the backend command. Real invocation
