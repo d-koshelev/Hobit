@@ -657,6 +657,20 @@ transitions, wrong-message ACK failure, validation approval placeholders,
 follow-up prompt state, done-gated dependents, unavailable dependencies, and
 Workspace Agent structured action-request invocation.
 
+Queue lifecycle capability hardening is schema-first. Registered backend-backed
+capabilities (`queue.lifecycle.get`, `queue.review.getEvidenceBundle`,
+`queue.review.createMessage`, `queue.review.ack`, and
+`queue.lifecycle.agentFinished`) list exact required ids and trusted
+runtime/backend actor defaults in the manifest. The registered evidence read id
+is `queue.review.getEvidenceBundle`; `queue.lifecycle.getEvidenceBundle` is not
+a capability. Transitional lifecycle writes
+(`queue.coordinator.approveValidation`, `queue.coordinator.addFollowUpPrompt`,
+`queue.item.markDone`, `queue.item.block`, and `queue.item.fail`) remain
+frontend/controller overlay operations, are not auto-continuation safe, and do
+not run validation, Git, rollback, Terminal, shell, Codex, or workers. Prose
+confirmation and prose id mentions remain insufficient for any structured
+capability call.
+
 `apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.ts`
 adds a full fake broker-driven dogfooding loop through the real Action Broker
 and registered Queue lifecycle handlers. It uses a deterministic in-memory

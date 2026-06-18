@@ -12,6 +12,7 @@ import {
   type DirectWorkStreamEvent,
 } from "./InteractiveAgentPlaceholderWidget.test-utils";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import { QUEUE_START_RUN_CONFIRMATION_TOKEN } from "./agents/capabilities/queueCapabilityContracts";
 import type {
   AgentQueueItemAggregate,
   AgentQueueWorkerFinishedCommandResult,
@@ -386,7 +387,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
         }),
         actionEnvelope({
           capabilityId: "queue.item.startRun",
-          confirmationToken: "confirmed",
+          confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
           dryRun: false,
           input: { executorWidgetId: "executor-1", taskId: "task-smoke" },
           requestId: "request-start",
@@ -697,7 +698,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     const startDirectWork = startDirectWorkWithFinalText(
       actionEnvelope({
         capabilityId: "codex.runTask",
-        confirmationToken: "operator-confirmed",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
         dryRun: false,
         input: { prompt: "Run code as a product action." },
       }),
@@ -1030,12 +1031,14 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(operatorPrompt).toContain("ask a concise clarification");
     expect(operatorPrompt).toContain('"capabilityId":"queue.createItem"');
     expect(operatorPrompt).toContain('"capabilityId":"queue.createItems"');
-    expect(operatorPrompt).toContain("Queue lifecycle schemas:");
+    expect(operatorPrompt).toContain(
+      "Queue lifecycle schemas are exact structured contracts",
+    );
     expect(operatorPrompt).toContain("hobit.final.answer");
     expect(operatorPrompt).toContain(
       "Intermediate prose is not a capability call",
     );
-    expect(operatorPrompt).not.toContain("awaiting capability result");
+    expect(operatorPrompt).toContain("Do not write awaiting capability result");
     expect(operatorPrompt).toContain(
       "agentFinished(evidenceBundle or taskId,runId,outcome,finalAgentMessage)",
     );

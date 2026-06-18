@@ -5,6 +5,7 @@ import {
   createHobitAgentCapabilityRegistry,
   findCapability,
 } from "./agents/capabilities";
+import { QUEUE_START_RUN_CONFIRMATION_TOKEN } from "./agents/capabilities/queueCapabilityContracts";
 import continuationSource from "./workspaceAgentBrokerContinuation.ts?raw";
 import {
   classifyWorkspaceAgentBrokerContinuationCapability,
@@ -423,7 +424,7 @@ describe("workspaceAgentBrokerContinuation", () => {
       "queue.item.startRun",
       { executorWidgetId: "executor-1", taskId: "task-1" },
       "request-start",
-      "operator-confirmed",
+      QUEUE_START_RUN_CONFIRMATION_TOKEN,
     );
     const state = recordAttempt(
       createWorkspaceAgentBrokerContinuationState({ chainId: "chain-start" }),
@@ -448,9 +449,29 @@ describe("workspaceAgentBrokerContinuation", () => {
           "queue.item.startRun",
           { taskId: "task-1" },
           "request-start-missing-executor",
-          "operator-confirmed",
+          QUEUE_START_RUN_CONFIRMATION_TOKEN,
         ),
         result: resultFor("queue.item.startRun", {
+          runId: "run-1",
+          taskId: "task-1",
+        }),
+        state,
+      }),
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: requestFor(
+          "queue.item.startRun",
+          { executorWidgetId: "executor-1", taskId: "task-1" },
+          "request-start-wrong-token",
+          "confirmed",
+        ),
+        result: resultFor("queue.item.startRun", {
+          executorWidgetId: "executor-1",
           runId: "run-1",
           taskId: "task-1",
         }),

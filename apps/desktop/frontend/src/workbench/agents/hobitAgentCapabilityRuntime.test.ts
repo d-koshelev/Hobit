@@ -18,6 +18,13 @@ import {
   HOBIT_AGENT_INITIAL_CAPABILITIES as INITIAL_CAPABILITIES_FROM_CAPABILITIES_INDEX,
 } from "./capabilities";
 import {
+  QUEUE_CAPABILITY_CONTRACT_INVENTORY,
+  QUEUE_RUN_APPROVAL_POLICY_VALUES,
+  QUEUE_RUN_SANDBOX_VALUES,
+  QUEUE_START_RUN_CONFIRMATION_FIELD,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "./capabilities/queueCapabilityContracts";
+import {
   createActionRequest as createActionRequestFromBrokerIndex,
   readHobitAgentActionRequestEnvelope,
 } from "./broker";
@@ -323,9 +330,18 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain(
       "Intermediate prose is not a capability call",
     );
-    expect(instructionBlock).not.toContain("awaiting capability result");
+    expect(instructionBlock).toContain("Do not write awaiting capability result");
     expect(instructionBlock).not.toMatch(/wait\s+for\s+(?:a\s+)?capability\s+result/i);
     expect(instructionBlock).toContain("After hobit.action.result");
+    expect(instructionBlock).toContain(
+      `top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}"`,
+    );
+    expect(instructionBlock).toContain(
+      `sandbox=${QUEUE_RUN_SANDBOX_VALUES.join("|")}`,
+    );
+    expect(instructionBlock).toContain(
+      `approvalPolicy=${QUEUE_RUN_APPROVAL_POLICY_VALUES.join("|")}`,
+    );
     expect(instructionBlock).toContain("fresh requestId");
     expect(instructionBlock).toContain("never infer missing ids");
     expect(instructionBlock).not.toContain('"allowedAgentRoles"');
@@ -442,7 +458,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain("Use a fresh requestId");
     expect(prompt).toContain("After hobit.action.result");
     expect(prompt).toContain("Intermediate prose is not a capability call.");
-    expect(prompt).not.toContain("awaiting capability result");
+    expect(prompt).toContain("Do not write awaiting capability result");
     expect(prompt).toContain("When a Hobit app capability is needed");
     expect(prompt).toContain("Queue item creation is a Queue capability.");
     expect(prompt).toContain("Queue item prompt is required");
@@ -663,8 +679,26 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       "executorWidgetId",
       "queueId",
     ]);
+    expect(settings.inputSchema?.shape).toContain(
+      QUEUE_RUN_SANDBOX_VALUES.join("|"),
+    );
+    expect(settings.inputSchema?.shape).toContain(
+      QUEUE_RUN_APPROVAL_POLICY_VALUES.join("|"),
+    );
+    expect(start.inputSchema?.shape).toContain(
+      `${QUEUE_START_RUN_CONFIRMATION_FIELD}":"${QUEUE_START_RUN_CONFIRMATION_TOKEN}`,
+    );
     expect(settings.inputSchema?.acceptedFields).not.toContain("dependsOn");
     expect(start.inputSchema?.acceptedFields).not.toContain("operatorPrompt");
+    expect(requiredMutationExample(start).exampleActionRequest).toMatchObject({
+      capabilityId: "queue.item.startRun",
+      confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      input: {
+        executorWidgetId: "executor-widget-id",
+        taskId: "queue-task-id",
+      },
+      type: "hobit.action.request",
+    });
 
     for (const capability of [list, settings, promote, enable, start]) {
       const serializedExample = JSON.stringify(
@@ -677,6 +711,80 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
         requestIdSource: "explicit",
         status: "valid",
       });
+    }
+
+    const settingsExampleJson = JSON.stringify(
+      requiredMutationExample(settings).exampleActionRequest,
+    );
+    expect(settingsExampleJson).toContain('"sandbox":"workspace_write"');
+    expect(settingsExampleJson).toContain('"approvalPolicy":"on_request"');
+    for (const invalidValue of [
+      "workspace-write",
+      "workspaceWrite",
+      "on-request",
+      "onRequest",
+      '"default"',
+    ]) {
+      expect(settings.inputSchema?.shape).not.toContain(invalidValue);
+      expect(settingsExampleJson).not.toContain(invalidValue);
+    }
+  });
+
+  it("keeps Queue capability contracts, examples, and instructions id-consistent", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const registeredQueueIds = new Set(
+      registry.capabilities
+        .filter((capability) => capability.id.startsWith("queue."))
+        .map((capability) => capability.id),
+    );
+    const instructionBlock = createCapabilityInstructionBlock(
+      createDefaultHobitAgentAppContext({
+        workspace: { workspaceId: "workspace-1" },
+      }),
+    );
+    const exampleIds = registry.capabilities.flatMap((capability) =>
+      (capability.examples ?? []).map(
+        (example) => example.exampleActionRequest.capabilityId,
+      ),
+    );
+    const instructionQueueIds = Array.from(
+      instructionBlock.matchAll(/queue(?:\.[A-Za-z0-9]+)+/g),
+    ).map((match) => match[0]);
+
+    for (const contract of QUEUE_CAPABILITY_CONTRACT_INVENTORY) {
+      expect(registeredQueueIds.has(contract.capabilityId), contract.capabilityId).toBe(
+        true,
+      );
+      for (const nextCapabilityId of contract.nextSuggestedCapabilities) {
+        expect(registeredQueueIds.has(nextCapabilityId), nextCapabilityId).toBe(
+          true,
+        );
+      }
+      if (contract.requiredIds.taskId) {
+        expect(contract.fieldPolicies.taskId).toBeDefined();
+      }
+      if (contract.requiredIds.runId) {
+        expect(contract.fieldPolicies.runId).toBeDefined();
+      }
+      if (contract.requiredIds.executorWidgetId) {
+        expect(contract.fieldPolicies.executorWidgetId).toBeDefined();
+      }
+      if (contract.requiredIds.messageId) {
+        expect(contract.fieldPolicies.messageId).toBeDefined();
+      }
+    }
+
+    for (const capabilityId of [...exampleIds, ...instructionQueueIds]) {
+      expect(registeredQueueIds.has(capabilityId), capabilityId).toBe(true);
+    }
+
+    expect(exampleIds).not.toContain("queue.lifecycle.getEvidenceBundle");
+    expect(instructionBlock).not.toContain("queue.lifecycle.getEvidenceBundle");
+    for (const capability of registry.capabilities) {
+      for (const example of capability.examples ?? []) {
+        expect(Array.isArray(example.exampleActionRequest)).toBe(false);
+        expect(example.exampleActionRequest.type).toBe("hobit.action.request");
+      }
     }
   });
 

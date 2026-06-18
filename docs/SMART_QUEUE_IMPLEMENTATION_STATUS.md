@@ -49,6 +49,24 @@ The Workspace Agent/Broker adapter boundary uses an injected Queue backend API
 port so backend-backed capability paths can be tested without mounting the
 frontend Queue UI.
 
+Queue capability contract hardening is implemented at the manifest, instruction,
+adapter, and test boundary. Every registered `queue.*` capability is covered by
+a compact contract inventory that records implementation/backing status,
+read/write/execute level, auto-continuation policy, exact required ids,
+trusted context fields, exact enum values, structured confirmation
+requirements, model-provided fields, and registered next-capability
+possibilities. `queue.item.updateRunSettings` documents and validates exact
+sandbox values `read_only`, `workspace_write`, `danger_full_access` and
+approval policy values `never`, `on_request`, `untrusted`.
+`queue.item.startRun` requires top-level
+`confirmationToken: "operator-confirmed"` plus explicit `taskId` and
+`executorWidgetId`; `queue.importPromptPack` uses the same top-level
+confirmation token. Prose confirmation remains insufficient. Backend-backed reads/review/evidence
+commands retain explicit id requirements, and transitional/finalizing commands
+remain conservative and policy-restricted. This hardening does not move Queue
+truth into frontend UI, redesign the backend aggregate, migrate Queue UI, add
+regex routing, or add validation/Git/rollback/Terminal behavior.
+
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly
 noted otherwise. The implemented backend exceptions are the

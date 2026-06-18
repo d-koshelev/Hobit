@@ -1367,7 +1367,6 @@ function queueTaskSummaryFromAggregate(
 function queueTaskReadinessFromAggregate(
   aggregate: AgentQueueItemAggregate,
 ): QueueAgentTaskReadiness {
-  const blockerReasons = aggregate.blockers.map((blocker) => blocker.message);
   const hasPrompt = !aggregate.blockers.some(
     (blocker) => blocker.code === "missing_prompt",
   );
@@ -1383,6 +1382,16 @@ function queueTaskReadinessFromAggregate(
   const canStart = aggregate.nextActions.some(
     (action) => action.code === "start_run" && action.available,
   );
+  const blockerReasons = uniqueStrings([
+    ...aggregate.blockers.map((blocker) => blocker.message),
+    ...missingRunSettingsBlockers({
+      hasApprovalPolicy,
+      hasCodexExecutable,
+      hasPrompt,
+      hasSandbox,
+      hasWorkspace,
+    }),
+  ]);
 
   if (aggregate.ticketState === "draft") {
     return {
@@ -1636,6 +1645,10 @@ function missingRunSettingsBlockers({
     hasSandbox ? null : "Missing sandbox.",
     hasApprovalPolicy ? null : "Missing approval policy.",
   ].filter((reason): reason is string => Boolean(reason));
+}
+
+function uniqueStrings(values: readonly string[]) {
+  return [...new Set(values.filter((value) => Boolean(value.trim())))];
 }
 
 function shouldBlockQueueAgentRun(code: string) {

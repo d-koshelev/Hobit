@@ -1,5 +1,11 @@
 import type { HobitAgentAppContext } from "./types";
 import type { HobitAgentCapability } from "../capabilities/types";
+import {
+  QUEUE_RUN_APPROVAL_POLICY_VALUES,
+  QUEUE_RUN_SANDBOX_VALUES,
+  QUEUE_START_RUN_CONFIRMATION_FIELD,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "../capabilities/queueCapabilityContracts";
 
 export function createCapabilityInstructionBlock(
   context: HobitAgentAppContext,
@@ -29,10 +35,12 @@ export function createCapabilityInstructionBlock(
     "App and product actions must use typed Hobit capabilities.",
     'When needed emit one JSON envelope with a fresh requestId: {"type":"hobit.action.request","requestId":"action-1","capabilityId":"<id>","dryRun":false,"input":{...}}.',
     'When finished in action mode emit one final JSON object: {"type":"hobit.final.answer","message":"<final user-facing answer or blocker>"}',
-    "One envelope only; do not emit action lists.",
-    "Intermediate prose is not a capability call; emit an envelope or final marker.",
+    "One envelope only; do not emit action lists. Use the exact capability id, exact input fields, exact enum values, and a unique requestId.",
+    "Intermediate prose is not a capability call; emit an envelope or final marker. Do not write awaiting capability result.",
     "After hobit.action.result, continue with returned taskId/runId/evidenceBundleId/messageId/executorWidgetId, emit the next hobit.action.request, or emit hobit.final.answer; never infer missing ids.",
     "Stop on blocked, unavailable, confirmation_required, policy_blocked, failed, invalid, repeated, or max actions.",
+    "For commands requiring confirmation, include the exact structured confirmation field after user confirmation; prose alone is insufficient.",
+    `Queue required confirmation token: top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}", not inside input.`,
     "Do not use shell or Codex for product actions. Do not execute app actions through shell, Codex, Git, Terminal, rollback, or validation.",
     "Do not inspect source files for product actions.",
     "Queue item creation is a Queue capability.",
@@ -129,8 +137,9 @@ function createQueueLifecycleCapabilityInstructionLines(
       : null,
   ].filter((item): item is string => Boolean(item)).join("; ");
   return [
-    "Queue lifecycle schemas:",
+    "Queue lifecycle schemas are exact structured contracts; do not invent capability ids or ids.",
     requiredInputLine,
+    "Review create/ack use trusted runtime/backend actor defaults when coordinatorAgentId is omitted; do not invent actor ids.",
     'Lifecycle example: {"type":"hobit.action.request","requestId":"lifecycle-agent-finished-1","capabilityId":"queue.lifecycle.agentFinished","dryRun":false,"input":{"taskId":"queue-task-id","runId":"worker-run-id","outcome":"completed","finalAgentMessage":"Done."}}',
   ].filter((line): line is string => Boolean(line));
 }
@@ -199,7 +208,8 @@ function createQueueRunControlCapabilityInstructionLines(
 
   return [
     "Queue run-control is typed only; never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose, titles, prompts, paths, final messages, or source text.",
-    "Run-control fields: list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({}); start(taskId,executorWidgetId,queueId?).",
+    `Run settings enums: sandbox=${QUEUE_RUN_SANDBOX_VALUES.join("|")}; approvalPolicy=${QUEUE_RUN_APPROVAL_POLICY_VALUES.join("|")}.`,
+    `Run-control fields: list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({}); start(input.taskId,input.executorWidgetId,input.queueId?, top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}").`,
     "Use queue.items.list when ids are missing; settings/promote/enable do not start; start requires confirmation and no codex.runTask fallback.",
     exampleIds ? `Run-control envelope ids: ${exampleIds}.` : null,
   ].filter((line): line is string => Boolean(line));

@@ -209,6 +209,21 @@ actions. Invalid envelopes produce a product-facing invalid action request
 result. Unknown capabilities still go through the broker and return structured
 unavailable results.
 
+Queue capability contracts are inventoried in
+`apps/desktop/frontend/src/workbench/agents/capabilities/queueCapabilityContracts.ts`
+and mirrored by manifest examples/tests. For registered `queue.*`
+capabilities, the model must use exact capability ids, required fields, enum
+values, and structured confirmation fields from the manifest. It must not
+guess task ids, run ids, executor widget ids, evidence bundle ids, message ids,
+actor ids, enum spellings, or capability ids from prose or UI selection.
+`queue.item.updateRunSettings` accepts only sandbox values `read_only`,
+`workspace_write`, `danger_full_access` and approval policy values `never`,
+`on_request`, `untrusted`. Queue confirmation-required capabilities use
+top-level `confirmationToken: "operator-confirmed"` after operator
+confirmation; prose such as "I confirm" is insufficient and is not inferred.
+`queue.item.startRun` also requires explicit `taskId` and `executorWidgetId`
+in `input`.
+
 Typed-capability action mode now also has an explicit terminal answer marker:
 
 ```json
@@ -239,6 +254,15 @@ the action budget, lacks a usable thread id, or touches restricted capabilities.
 The continuation loop does not infer `taskId` or `executorWidgetId` from prose,
 titles, file paths, final messages, repository roots, or other natural-language
 content.
+
+Queue backend-backed broker capabilities are `queue.items.list`,
+`queue.lifecycle.get`, `queue.review.getEvidenceBundle`,
+`queue.review.createMessage`, `queue.review.ack`, and
+`queue.lifecycle.agentFinished`. Transitional lifecycle capabilities remain
+`queue.coordinator.approveValidation`,
+`queue.coordinator.addFollowUpPrompt`, `queue.item.markDone`,
+`queue.item.block`, and `queue.item.fail`; these are not auto-continuation safe
+and must remain policy-restricted until moved to durable backend ownership.
 
 Agents are expected to produce typed capability action requests with request
 id, agent id, agent role, capability id, input, dry-run state, optional

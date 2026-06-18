@@ -3,6 +3,12 @@ import type {
   HobitAgentCapabilityExample,
   HobitAgentCapabilityInputSchema,
 } from "./types";
+import {
+  QUEUE_RUN_APPROVAL_POLICY_VALUES,
+  QUEUE_RUN_SANDBOX_VALUES,
+  QUEUE_START_RUN_CONFIRMATION_FIELD,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "./queueCapabilityContracts";
 import { QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES } from "./queueDogfoodLifecycleCapabilityManifest";
 
 const QUEUE_CREATE_ITEM_EXAMPLE_INPUT = {
@@ -165,11 +171,11 @@ const QUEUE_UPDATE_RUN_SETTINGS_SCHEMA: HobitAgentCapabilityInputSchema = {
   ],
   fieldDescriptions: {
     approvalPolicy:
-      "Optional Direct Work approval policy. Supported: never, on_request, untrusted.",
+      `Optional Direct Work approval policy. Supported exactly: ${QUEUE_RUN_APPROVAL_POLICY_VALUES.join(", ")}.`,
     codexExecutable:
       "Optional explicit Codex executable path/name. Empty or whitespace values are invalid.",
     sandbox:
-      "Optional Direct Work sandbox. Supported: danger_full_access, read_only, workspace_write.",
+      `Optional Direct Work sandbox. Supported exactly: ${QUEUE_RUN_SANDBOX_VALUES.join(", ")}.`,
     taskId:
       "Required explicit Queue task id from queue.createItem(s) or queue.items.list.",
     workspaceRoot: "Optional explicit execution workspace/root path.",
@@ -182,7 +188,7 @@ const QUEUE_UPDATE_RUN_SETTINGS_SCHEMA: HobitAgentCapabilityInputSchema = {
   ],
   requiredFields: ["taskId"],
   shape:
-    '{"taskId":"string required","codexExecutable":"string optional","workspaceRoot":"string optional","sandbox":"danger_full_access|read_only|workspace_write optional","approvalPolicy":"never|on_request|untrusted optional"}',
+    `{"taskId":"string required","codexExecutable":"string optional","workspaceRoot":"string optional","sandbox":"${QUEUE_RUN_SANDBOX_VALUES.join("|")} optional","approvalPolicy":"${QUEUE_RUN_APPROVAL_POLICY_VALUES.join("|")} optional"}`,
 };
 
 const QUEUE_PROMOTE_DRAFT_SCHEMA: HobitAgentCapabilityInputSchema = {
@@ -224,13 +230,16 @@ const QUEUE_START_RUN_SCHEMA: HobitAgentCapabilityInputSchema = {
   invalidInputGuidance: [
     "taskId is required.",
     "executorWidgetId is required.",
+    `${QUEUE_START_RUN_CONFIRMATION_FIELD} is required as a top-level action-request field with exact value "${QUEUE_START_RUN_CONFIRMATION_TOKEN}" after explicit operator confirmation.`,
+    "Do not put confirmationToken inside input.",
+    "Do not infer confirmation from prose such as I confirm.",
     "Do not infer taskId or executorWidgetId from task title, prompt text, file paths, final message, or natural-language content.",
     "Use queue.items.list first when ids are missing.",
     "This action starts exactly one explicit Queue-linked Direct Work run and does not run validation, Git, rollback, Terminal, Queue Autorun, or dependent tasks.",
   ],
   requiredFields: ["taskId", "executorWidgetId"],
   shape:
-    '{"taskId":"string required","executorWidgetId":"string required","queueId":"string optional"}',
+    `{"${QUEUE_START_RUN_CONFIRMATION_FIELD}":"${QUEUE_START_RUN_CONFIRMATION_TOKEN} top-level required after operator confirmation","input":{"taskId":"string required","executorWidgetId":"string required","queueId":"string optional"}}`,
 };
 
 const QUEUE_RUN_CONTROL_EXAMPLES: Record<string, HobitAgentCapabilityExample[]> = {
@@ -265,7 +274,7 @@ const QUEUE_RUN_CONTROL_EXAMPLES: Record<string, HobitAgentCapabilityExample[]> 
       description: "Start one explicit Queue-linked Direct Work run.",
       exampleActionRequest: {
         capabilityId: "queue.item.startRun",
-        confirmationToken: "operator-confirmed",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
         dryRun: false,
         input: {
           executorWidgetId: "executor-widget-id",
@@ -553,7 +562,7 @@ export const HOBIT_AGENT_INITIAL_CAPABILITIES: HobitAgentCapability[] = [
     ],
     id: "queue.item.startRun",
     inputSchemaDescription:
-      "taskId and executorWidgetId are required. queueId is optional when already available.",
+      `taskId and executorWidgetId are required in input. Top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}" is required after explicit operator confirmation; prose confirmation is insufficient.`,
     inputSchema: QUEUE_START_RUN_SCHEMA,
     examples: QUEUE_RUN_CONTROL_EXAMPLES["queue.item.startRun"],
     outputSchemaDescription:

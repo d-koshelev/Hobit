@@ -72,6 +72,20 @@ duplicate requestIds still stop as a replay guard. Read-only
 continuation budget remains 16 actions and the existing safety stops are
 unchanged.
 
+Queue action-request smoke must use the manifest schemas exactly. Do not infer
+task ids, run ids, message ids, evidence ids, executor widget ids, actor ids, or
+capability ids from prose or UI selection. For run settings, use only sandbox
+values `read_only`, `workspace_write`, `danger_full_access` and approval policy
+values `never`, `on_request`, `untrusted`. `queue.item.startRun` must include
+explicit `input.taskId`, explicit `input.executorWidgetId`, and top-level
+`confirmationToken: "operator-confirmed"` after user confirmation; a prose-only
+"I confirm" message remains insufficient. `queue.importPromptPack` uses the
+same top-level confirmation token. Backend-backed Queue capabilities are
+`queue.items.list`, `queue.lifecycle.get`, `queue.review.getEvidenceBundle`,
+`queue.review.createMessage`, `queue.review.ack`, and
+`queue.lifecycle.agentFinished`. Transitional lifecycle writes remain
+non-auto-continuation-safe and policy-restricted.
+
 ## Setup
 
 - Start Hobit from `C:\Users\Dmitry\Documents\prj\Hobit_fixed`.

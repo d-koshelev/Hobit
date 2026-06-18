@@ -38,6 +38,12 @@ import {
   type QueueAgentStartRunInput,
   type QueueAgentUpdateRunSettingsInput,
 } from "./queueAgentCapabilityTypes";
+import {
+  QUEUE_RUN_APPROVAL_POLICY_VALUES,
+  QUEUE_RUN_SANDBOX_VALUES,
+  QUEUE_START_RUN_CONFIRMATION_FIELD,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "../capabilities/queueCapabilityContracts";
 
 type ValidationResult<T> =
   | { ok: true; value: T }
@@ -258,6 +264,11 @@ function handleStartQueueLinkedRun(
     return invalidInput(request, validation.message);
   }
 
+  const confirmationError = exactQueueConfirmationError(request);
+  if (confirmationError) {
+    return invalidInput(request, confirmationError);
+  }
+
   if (!adapterApi.startQueueLinkedRun) {
     return unavailable(
       request,
@@ -400,6 +411,11 @@ function handleImportPromptPack(
   const validation = normalizePromptPackInput(request.input);
   if (!validation.ok) {
     return invalidInput(request, validation.message);
+  }
+
+  const confirmationError = exactQueueConfirmationError(request);
+  if (confirmationError) {
+    return invalidInput(request, confirmationError);
   }
 
   return withAdapterResult(
@@ -1067,28 +1083,24 @@ function normalizeUpdateRunSettingsInput(
   }
 
   const sandbox = optionalEnumOrNullField(input, "sandbox", [
-    "danger_full_access",
-    "read_only",
-    "workspace_write",
+    ...QUEUE_RUN_SANDBOX_VALUES,
   ]);
   if (sandbox.invalid) {
     return {
       ok: false,
       message:
-        "sandbox must be one of danger_full_access, read_only, or workspace_write when supplied.",
+        `sandbox must be one of ${QUEUE_RUN_SANDBOX_VALUES.join(", ")} when supplied.`,
     };
   }
 
   const approvalPolicy = optionalEnumOrNullField(input, "approvalPolicy", [
-    "never",
-    "on_request",
-    "untrusted",
+    ...QUEUE_RUN_APPROVAL_POLICY_VALUES,
   ]);
   if (approvalPolicy.invalid) {
     return {
       ok: false,
       message:
-        "approvalPolicy must be one of never, on_request, or untrusted when supplied.",
+        `approvalPolicy must be one of ${QUEUE_RUN_APPROVAL_POLICY_VALUES.join(", ")} when supplied.`,
     };
   }
 
@@ -1355,6 +1367,12 @@ function invalidInput(
     requestId: request.requestId,
     status: "invalid_input",
   });
+}
+
+function exactQueueConfirmationError(request: HobitAgentActionRequest) {
+  return request.confirmationToken === QUEUE_START_RUN_CONFIRMATION_TOKEN
+    ? null
+    : `${request.capabilityId} requires top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD} "${QUEUE_START_RUN_CONFIRMATION_TOKEN}".`;
 }
 
 function failed(

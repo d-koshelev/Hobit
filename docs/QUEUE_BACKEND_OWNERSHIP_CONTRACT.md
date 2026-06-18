@@ -43,6 +43,12 @@ evidence APIs. They must not read frontend lifecycle controllers, Queue board
 snapshots, selected task detail, evidence overlays, or UI view models as product
 truth.
 
+Their Workspace Agent capability contracts must state exact required ids,
+optional fields, trusted runtime/backend actor defaults, enum values, and
+registered `nextSuggestedCapability` ids. The model must not invent task ids,
+run ids, message ids, evidence ids, actor ids, capability ids, or enum values
+from prose or UI state.
+
 ## Transitional Capabilities
 
 These capabilities are still transitional:
@@ -64,6 +70,9 @@ These capabilities are still transitional:
 - Broker/adapter tests prove backend-backed capabilities use the backend port,
   do not import Queue UI modules, do not use frontend overlays as truth, and
   return only registered `nextSuggestedCapability` ids.
+- Broker/adapter tests prove Queue capability manifest examples use exact
+  schema fields/enums/confirmation tokens, reject missing required ids, and do
+  not infer ids or confirmation from natural language.
 - Workspace Agent protocol tests prove actions come only from
   `hobit.action.request`, request ids remain unique, task/run ids are explicit,
   and natural-language regex routing is absent.

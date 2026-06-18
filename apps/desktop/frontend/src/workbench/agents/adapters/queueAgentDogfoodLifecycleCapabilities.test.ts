@@ -14,6 +14,7 @@ import {
   HOBIT_AGENT_INITIAL_CAPABILITIES,
   type HobitAgentCapability,
 } from "../capabilities";
+import { QUEUE_CAPABILITY_CONTRACT_BY_ID } from "../capabilities/queueCapabilityContracts";
 import { HOBIT_TEST_AGENT_CAPABILITIES } from "../runtime";
 import {
   acknowledgeReviewMessage,
@@ -163,6 +164,67 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       expect(acceptedFields).not.toContain("runWorker");
       expect(acceptedFields).not.toContain("rollback");
       expect(acceptedFields).not.toContain("terminalCommand");
+    }
+  });
+
+  it("documents lifecycle backing, id requirements, and continuation policy in the Queue contract inventory", () => {
+    const backendBackedCapabilities = [
+      "queue.lifecycle.agentFinished",
+      "queue.lifecycle.get",
+      "queue.review.ack",
+      "queue.review.createMessage",
+      "queue.review.getEvidenceBundle",
+    ];
+    const transitionalCapabilities = [
+      "queue.coordinator.approveValidation",
+      "queue.coordinator.addFollowUpPrompt",
+      "queue.item.markDone",
+      "queue.item.block",
+      "queue.item.fail",
+    ];
+
+    for (const capabilityId of backendBackedCapabilities) {
+      expect(QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId)).toMatchObject({
+        backing: "backend_backed",
+        implemented: true,
+        registered: true,
+      });
+    }
+
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.review.getEvidenceBundle"),
+    ).toMatchObject({
+      autoContinuationSafe: true,
+      readOnly: true,
+      requiredIds: {
+        taskId: true,
+      },
+      sideEffectLevel: "read",
+    });
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.lifecycle.agentFinished"),
+    ).toMatchObject({
+      requiredIds: {
+        runId: true,
+        taskId: true,
+      },
+    });
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.review.ack"),
+    ).toMatchObject({
+      requiredIds: {
+        messageId: true,
+        taskId: true,
+      },
+    });
+
+    for (const capabilityId of transitionalCapabilities) {
+      expect(QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId)).toMatchObject({
+        autoContinuationSafe: false,
+        backing: "transitional_frontend_overlay",
+        confirmationRequirement: "recommended",
+        registered: true,
+      });
     }
   });
 

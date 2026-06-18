@@ -3,6 +3,7 @@ import type {
   HobitAgentActionResult,
 } from "./agents/broker";
 import type { HobitAgentCapability } from "./agents/capabilities";
+import { QUEUE_START_RUN_CONFIRMATION_TOKEN } from "./agents/capabilities/queueCapabilityContracts";
 
 export const WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS = 16;
 
@@ -503,7 +504,7 @@ function queueStartRunMayContinue(
   const input = recordValue(request.input);
   const output = recordValue(result.output);
   return Boolean(
-    request.confirmationToken?.trim() &&
+    request.confirmationToken === QUEUE_START_RUN_CONFIRMATION_TOKEN &&
       stringField(input, "taskId") &&
       stringField(input, "executorWidgetId") &&
       (stringField(output, "runId") ||
