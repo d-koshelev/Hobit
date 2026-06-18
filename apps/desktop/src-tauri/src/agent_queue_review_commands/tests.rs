@@ -5,12 +5,13 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_app::{
     AssignAgentQueueTaskToExecutorInput, CreateAgentQueueTaskInput,
-    FinishAssignedAgentQueueTaskRunInput, StartAssignedAgentQueueTaskInput, WorkspaceService,
+    FinishAssignedAgentQueueTaskRunInput, RecordAgentQueueWorkerFinishedInput,
+    StartAssignedAgentQueueTaskInput, WorkspaceService,
 };
 use hobit_storage_sqlite::SqliteStore;
 
 #[test]
-fn create_review_message_command_serializes_backend_result() {
+fn create_review_message_command_serializes_no_evidence_blocker() {
     let db_path = unique_test_db_path();
     let service = initialized_service(&db_path);
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
@@ -24,22 +25,58 @@ fn create_review_message_command_serializes_backend_result() {
             task_id: task.queue_item_id,
             actor_id: "workspace-agent".to_owned(),
             message_body: Some("Ready for review.".to_owned()),
+            run_id: None,
+            evidence_bundle_id: None,
         },
         db_path.clone(),
     )
     .expect("create review message");
 
-    assert!(result.durable);
-    assert_eq!(result.review_message.status, "created");
-    assert_eq!(result.review_message.actor_id, "workspace-agent");
-    assert_eq!(result.aggregate.review_state, "review_message_created");
-    assert_eq!(result.aggregate.next_actions[0].code, "ack_review");
-    assert!(result.aggregate.next_actions[0].available);
+    assert_eq!(result.status, "blocked");
+    assert_eq!(
+        result.blocker.as_ref().expect("blocker").blocker_code,
+        "durable_worker_evidence_required"
+    );
     remove_test_db_files(&db_path);
 }
 
 #[test]
-fn create_review_message_command_rejects_invalid_state() {
+fn create_review_message_command_serializes_successful_backend_result() {
+    let db_path = unique_test_db_path();
+    let service = initialized_service(&db_path);
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let task = create_task(&service, &workspace_id, "queued", true);
+    complete_worker_run_with_evidence(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    drop(service);
+
+    let result = create_agent_queue_review_message_blocking(
+        CreateAgentQueueReviewMessageRequest {
+            workspace_id,
+            task_id: task.queue_item_id,
+            actor_id: "workspace-agent".to_owned(),
+            message_body: Some("Ready for review.".to_owned()),
+            run_id: None,
+            evidence_bundle_id: None,
+        },
+        db_path.clone(),
+    )
+    .expect("create review message");
+
+    assert_eq!(result.status, "succeeded");
+    assert!(result.durable);
+    assert!(result.evidence_bundle_id.is_some());
+    let review_message = result.review_message.as_ref().expect("review message");
+    assert_eq!(review_message.status, "created");
+    assert_eq!(review_message.actor_id, "workspace-agent");
+    let aggregate = result.aggregate.as_ref().expect("aggregate");
+    assert_eq!(aggregate.review_state, "review_message_created");
+    assert_eq!(aggregate.next_actions[0].code, "ack_review");
+    assert!(aggregate.next_actions[0].available);
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn create_review_message_command_serializes_backend_blocker_details() {
     let db_path = unique_test_db_path();
     let service = initialized_service(&db_path);
     let workspace = service
@@ -54,12 +91,21 @@ fn create_review_message_command_rejects_invalid_state() {
             task_id: draft.queue_item_id,
             actor_id: "workspace-agent".to_owned(),
             message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
         },
         db_path.clone(),
-    );
+    )
+    .expect("blocked result");
 
-    let message = result.expect_err("invalid state").to_string();
-    assert!(message.contains("ticket_state=draft"));
+    assert_eq!(result.status, "precondition_failed");
+    let blocker = result.blocker.expect("blocker");
+    assert_eq!(blocker.blocker_code, "task_is_draft");
+    assert_eq!(blocker.ticket_state.as_deref(), Some("draft"));
+    assert_eq!(blocker.worker_run_state.as_deref(), Some("not_started"));
+    assert_eq!(blocker.review_state.as_deref(), Some("none"));
+    assert_eq!(blocker.evidence_state.as_deref(), Some("none"));
+    assert!(blocker.durable_evidence_required);
     remove_test_db_files(&db_path);
 }
 
@@ -69,7 +115,7 @@ fn review_commands_validate_actor_and_ack_updates_aggregate() {
     let service = initialized_service(&db_path);
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
     let task = create_task(&service, &workspace_id, "queued", true);
-    complete_worker_run(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    complete_worker_run_with_evidence(&service, &workspace_id, &task.queue_item_id, &executor_id);
     drop(service);
 
     let missing_actor = create_agent_queue_review_message_blocking(
@@ -78,12 +124,12 @@ fn review_commands_validate_actor_and_ack_updates_aggregate() {
             task_id: task.queue_item_id.clone(),
             actor_id: " ".to_owned(),
             message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
         },
         db_path.clone(),
     );
-    assert!(missing_actor
-        .expect_err("actor required")
-        .contains("review actor id must not be empty"));
+    assert_eq!(missing_actor.expect("actor default").status, "succeeded");
 
     let create = create_agent_queue_review_message_blocking(
         CreateAgentQueueReviewMessageRequest {
@@ -91,15 +137,19 @@ fn review_commands_validate_actor_and_ack_updates_aggregate() {
             task_id: task.queue_item_id.clone(),
             actor_id: "workspace-agent".to_owned(),
             message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
         },
         db_path.clone(),
     )
-    .expect("create review message");
+    .expect("duplicate review message");
+    assert_eq!(create.status, "already_exists");
+    let message_id = create.message_id.expect("existing message id");
     let ack = ack_agent_queue_review_message_blocking(
         AckAgentQueueReviewMessageRequest {
             workspace_id,
             task_id: task.queue_item_id,
-            message_id: create.message_id,
+            message_id,
             actor_id: "workspace-agent".to_owned(),
         },
         db_path.clone(),
@@ -248,6 +298,35 @@ fn complete_worker_run(
             direct_work_status: "completed".to_owned(),
         })
         .expect("finish queue run");
+}
+
+fn complete_worker_run_with_evidence(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    queue_item_id: &str,
+    executor_id: &str,
+) {
+    assign_task(service, workspace_id, queue_item_id, executor_id);
+    let start = service
+        .start_assigned_agent_queue_task(start_input(workspace_id, queue_item_id))
+        .expect("start task");
+    service
+        .record_agent_queue_worker_finished(RecordAgentQueueWorkerFinishedInput {
+            workspace_id: workspace_id.to_owned(),
+            queue_item_id: queue_item_id.to_owned(),
+            run_id: start.run_id,
+            outcome: "completed".to_owned(),
+            summary: Some("Worker evidence is durable.".to_owned()),
+            changed_files: vec!["src/lib.rs".to_owned()],
+            changed_files_summary: Some("src/lib.rs".to_owned()),
+            validation_summary: Some("validation not run".to_owned()),
+            error_summary: None,
+            worker_id: Some("workspace-agent".to_owned()),
+            source: Some("workspace_agent".to_owned()),
+            metadata_json: None,
+            finished_at: Some("completed-at".to_owned()),
+        })
+        .expect("record worker evidence");
 }
 
 fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQueueTaskInput {

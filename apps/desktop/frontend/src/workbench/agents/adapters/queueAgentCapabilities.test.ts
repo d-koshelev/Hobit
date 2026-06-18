@@ -46,6 +46,7 @@ import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge"
 import type {
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
+  AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
 } from "../../../workspace/types";
@@ -778,7 +779,7 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
     const createReviewMessage = vi.fn(async () =>
-      reviewCommandResult({
+      reviewCreateMessageResult({
         aggregate: queueAggregate({
           nextActions: [
             {
@@ -792,7 +793,9 @@ describe("queueAgentCapabilities invoke", () => {
           taskId: "task-backend",
           ticketState: "awaiting_review",
         }),
+        evidenceBundleId: "bundle-1",
         messageId: "review-message-backend",
+        runId: "run-backend",
       }),
     );
     const ackReviewMessage = vi.fn(async () =>
@@ -891,7 +894,11 @@ describe("queueAgentCapabilities invoke", () => {
       taskId: "task-backend",
     });
     expect(createReviewMessage).toHaveBeenCalledWith(
-      expect.objectContaining({ taskId: "task-backend" }),
+      expect.objectContaining({
+        evidenceBundleId: null,
+        runId: null,
+        taskId: "task-backend",
+      }),
     );
     expect(ackReviewMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -904,7 +911,7 @@ describe("queueAgentCapabilities invoke", () => {
   it("creates review messages through backend bridge command with trusted actor default", async () => {
     const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
     const createReviewMessage = vi.fn(async () =>
-      reviewCommandResult({
+      reviewCreateMessageResult({
         aggregate: queueAggregate({
           nextActions: [
             {
@@ -919,7 +926,9 @@ describe("queueAgentCapabilities invoke", () => {
           ticketState: "awaiting_review",
           workerRunState: "completed",
         }),
+        evidenceBundleId: "bundle-1",
         messageId: "review-message-1",
+        runId: "run-1",
       }),
     );
     const getItemAggregate = vi.fn();
@@ -959,7 +968,9 @@ describe("queueAgentCapabilities invoke", () => {
     expect(result.status).toBe("succeeded");
     expect(createReviewMessage).toHaveBeenCalledWith({
       actorId: "test.agentA",
+      evidenceBundleId: null,
       messageBody: "Worker final report.",
+      runId: null,
       taskId: "task-review",
     });
     expect(getItemAggregate).not.toHaveBeenCalled();
@@ -1378,11 +1389,17 @@ describe("queueAgentCapabilities invoke", () => {
   });
 
   it("surfaces backend aggregate blockers for draft review create", async () => {
-    const createReviewMessage = vi.fn(async () => {
-      throw new Error(
-        "invalid input: queue review message cannot be created while ticket_state=draft review_state=none",
-      );
-    });
+    const createReviewMessage = vi.fn(async () =>
+      reviewCreateMessageBlockedResult({
+        aggregate: queueAggregate({
+          evidenceState: "none",
+          reviewState: "not_requested",
+          taskId: "task-draft",
+          ticketState: "draft",
+          workerRunState: "not_started",
+        }),
+      }),
+    );
     const result = await createHobitAgentActionBroker({
       handlers: createQueueAgentActionHandlers(
         createWorkspaceAgentQueueBridgeAdapterApi(
@@ -1406,10 +1423,20 @@ describe("queueAgentCapabilities invoke", () => {
     expect(result.status).toBe("failed");
     expect(createReviewMessage).toHaveBeenCalledWith({
       actorId: "test.agentA",
+      evidenceBundleId: null,
       messageBody: null,
+      runId: null,
       taskId: "task-draft",
     });
-    expect(result.result.message).toContain("ticket_state=draft");
+    expect(result.result.message).toContain("task_is_draft");
+    expect(result.result.output).toMatchObject({
+      backendCreateMessageStatus: "precondition_failed",
+      blockerCode: "task_is_draft",
+      evidenceState: "none",
+      reviewState: "not_requested",
+      ticketState: "draft",
+      workerRunState: "not_started",
+    });
   });
 
   it("acknowledges review messages through backend bridge command", async () => {
@@ -3076,6 +3103,90 @@ function reviewCommandResult({
       updatedAt: "2026-06-15T10:00:00.000Z",
       workspaceId: aggregate.workspaceId,
     },
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function reviewCreateMessageResult({
+  aggregate = queueAggregate(),
+  evidenceBundleId = "bundle-1",
+  messageId = "review-message-1",
+  runId = "run-1",
+  status = "succeeded",
+}: Partial<AgentQueueReviewCreateMessageResult> & {
+  aggregate?: AgentQueueItemAggregate;
+  status?: AgentQueueReviewCreateMessageResult["status"];
+} = {}): AgentQueueReviewCreateMessageResult {
+  const resolvedMessageId = messageId ?? "review-message-1";
+  const command = reviewCommandResult({
+    aggregate,
+    messageId: resolvedMessageId,
+    status: "created",
+  });
+
+  return {
+    aggregate,
+    blocker: null,
+    durable: true,
+    evidenceBundleId,
+    messageId: resolvedMessageId,
+    reviewMessage: command.reviewMessage,
+    runId,
+    status,
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function reviewCreateMessageBlockedResult({
+  aggregate = queueAggregate({
+    evidenceState: "none",
+    reviewState: "not_requested",
+    ticketState: "draft",
+    workerRunState: "not_started",
+  }),
+  blockerCode = "task_is_draft",
+  blockerMessage = "Draft Queue tasks cannot create review messages.",
+  evidenceBundleId = null,
+  nextSuggestedCapability = "queue.item.updateRunSettings",
+  runId = null,
+  status = "precondition_failed",
+}: {
+  aggregate?: AgentQueueItemAggregate;
+  blockerCode?: string;
+  blockerMessage?: string;
+  evidenceBundleId?: string | null;
+  nextSuggestedCapability?: string | null;
+  runId?: string | null;
+  status?: AgentQueueReviewCreateMessageResult["status"];
+} = {}): AgentQueueReviewCreateMessageResult {
+  return {
+    aggregate,
+    blocker: {
+      blockerCode,
+      blockerMessage,
+      durableEvidenceRequired: false,
+      evidenceBundleId,
+      evidenceBundleIdRequired: false,
+      evidenceState: aggregate.evidenceState,
+      existingMessageId: null,
+      missingRequiredField: null,
+      nextSuggestedCapability,
+      reviewMessageAlreadyExists: false,
+      reviewState: aggregate.reviewState,
+      runId,
+      runIdRequired: false,
+      taskId: aggregate.taskId,
+      ticketState: aggregate.ticketState,
+      workerRunState: aggregate.workerRunState,
+    },
+    durable: false,
+    evidenceBundleId,
+    messageId: null,
+    reviewMessage: null,
+    runId,
+    status,
     taskId: aggregate.taskId,
     workspaceId: aggregate.workspaceId,
   };

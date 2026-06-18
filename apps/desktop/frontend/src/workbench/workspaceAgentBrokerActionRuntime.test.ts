@@ -13,6 +13,7 @@ import envelopeSource from "./agents/broker/hobitAgentActionRequestEnvelope.ts?r
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type {
   AgentQueueItemAggregate,
+  AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
 } from "../workspace/types";
@@ -265,6 +266,77 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     });
   });
 
+  it("surfaces queue.review.createMessage backend blockers with aggregate states", async () => {
+    const getSnapshot = vi.fn();
+    const createReviewMessage = vi.fn(async () =>
+      reviewCreateMessageBlockedResult({
+        aggregate: queueAggregate({
+          evidenceState: "none",
+          reviewState: "not_requested",
+          taskId: "task-1",
+          ticketState: "draft",
+          workerRunState: "not_started",
+        }),
+      }),
+    );
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentQueueBridge: queueBridge({
+        createReviewMessage,
+        getSnapshot,
+      }),
+    });
+    const parsed = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "queue.review.createMessage",
+        dryRun: false,
+        input: {
+          taskId: "task-1",
+        },
+        requestId: "runtime-review-create-blocked",
+        type: "hobit.action.request",
+      }),
+    );
+
+    expect(parsed.status).toBe("valid");
+    if (parsed.status !== "valid") {
+      throw new Error("Expected valid review create envelope.");
+    }
+
+    const result = await invoker(
+      createHobitAgentActionRequestFromEnvelope({
+        agentId: "workspace-agent",
+        createdAt: "2026-06-16T12:00:00.000Z",
+        envelope: parsed.envelope,
+      }),
+    );
+
+    expect(result.status).toBe("failed");
+    expect(createReviewMessage).toHaveBeenCalledWith({
+      actorId: "workspace-agent",
+      evidenceBundleId: null,
+      messageBody: null,
+      runId: null,
+      taskId: "task-1",
+    });
+    expect(result.result.message).toContain("task_is_draft");
+    expect(result.result.message).toContain("ticketState=draft");
+    expect(result.result.output).toMatchObject({
+      backendCreateMessageStatus: "precondition_failed",
+      blockerCode: "task_is_draft",
+      evidenceState: "none",
+      reviewState: "not_requested",
+      ticketState: "draft",
+      workerRunState: "not_started",
+    });
+    expect(workspaceAgentHobitActionResultMessage(result.result)).toContain(
+      "task_is_draft",
+    );
+    expect(workspaceAgentHobitActionResultMessage(result.result)).not.toBe(
+      "Hobit action failed. Queue review message could not be created.",
+    );
+    expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
   it("keeps prose-only assistant responses as prose", () => {
     expect(
       readHobitAgentActionRequestEnvelope(
@@ -461,6 +533,47 @@ function workerEvidenceQueryResult({
     },
     runId,
     state: "available",
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function reviewCreateMessageBlockedResult({
+  aggregate = queueAggregate({
+    evidenceState: "none",
+    reviewState: "not_requested",
+    ticketState: "draft",
+    workerRunState: "not_started",
+  }),
+}: {
+  aggregate?: AgentQueueItemAggregate;
+} = {}): AgentQueueReviewCreateMessageResult {
+  return {
+    aggregate,
+    blocker: {
+      blockerCode: "task_is_draft",
+      blockerMessage: "Draft Queue tasks cannot create review messages.",
+      durableEvidenceRequired: false,
+      evidenceBundleId: null,
+      evidenceBundleIdRequired: false,
+      evidenceState: aggregate.evidenceState,
+      existingMessageId: null,
+      missingRequiredField: null,
+      nextSuggestedCapability: "queue.item.updateRunSettings",
+      reviewMessageAlreadyExists: false,
+      reviewState: aggregate.reviewState,
+      runId: null,
+      runIdRequired: false,
+      taskId: aggregate.taskId,
+      ticketState: aggregate.ticketState,
+      workerRunState: aggregate.workerRunState,
+    },
+    durable: false,
+    evidenceBundleId: null,
+    messageId: null,
+    reviewMessage: null,
+    runId: null,
+    status: "precondition_failed",
     taskId: aggregate.taskId,
     workspaceId: aggregate.workspaceId,
   };

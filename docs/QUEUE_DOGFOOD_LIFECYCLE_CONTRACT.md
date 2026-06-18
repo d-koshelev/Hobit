@@ -62,6 +62,11 @@ Backend/domain aggregate and review command foundation:
 - `crates/hobit-app/src/workspace_service/agent_queue_review.rs` owns backend
   create/ACK review command preconditions from the aggregate and persists the
   review message ledger.
+  `queue.review.createMessage` returns typed backend-owned blockers instead of
+  generic frontend failures when a message cannot be created. Blockers include
+  ticket, worker-run, review, and evidence states, duplicate-message state,
+  required-field state, selected run/evidence ids when known, and a next
+  suggested capability when available.
 - `crates/hobit-app/src/workspace_service/agent_queue_worker_evidence.rs`
   owns backend worker-finished/evidence command preconditions, requires
   explicit workspace/task/run identity, rejects run links for other tasks, and
@@ -518,7 +523,10 @@ Workspace Agent queue bridge. The model does not need to invent
 Agent/request context and falls back to `workspace-agent` only when no stronger
 context id exists. Backend aggregate preconditions decide whether review create
 or ACK is allowed. Results include the durable message id, backend review
-state, blockers, nextActions, and updated aggregate state.
+state, blockers, nextActions, selected run/evidence ids when applicable, and
+updated aggregate state. Review-create failures return typed blockers with
+backend aggregate states; broker and Tauri layers must not collapse them to a
+generic failure.
 
 The remaining transitional lifecycle decision capabilities validate structured
 inputs, enforce broker policy, support dry-run previews, return compact
@@ -551,12 +559,17 @@ storing evidence.
 
 `queue.review.createMessage` may pass a bounded final agent/evidence summary
 as review message body, but the backend owns the persisted message row and
-precondition. `queue.review.getEvidenceBundle` requires explicit `taskId`,
-accepts optional `runId`, calls the backend/domain evidence query, and returns
-durable evidence state, bundle id, run id, outcome, summary, blockers,
-nextActions, and the latest aggregate when available. Missing durable evidence
-is reported as `no_evidence` or `not_found`; the Workspace Agent/Broker path
-does not read frontend/controller evidence overlays as product truth.
+precondition. Durable backend worker evidence is required. `evidenceBundleId`
+is not required; when omitted, the backend selects the latest durable evidence
+for the explicit `taskId` and optional exact `runId`, validates any supplied
+exact `runId`/`evidenceBundleId`, and returns the selected evidence bundle id.
+The model must not invent run or evidence ids and must not infer them from
+prose. `queue.review.getEvidenceBundle` requires explicit `taskId`, accepts
+optional `runId`, calls the backend/domain evidence query, and returns durable
+evidence state, bundle id, run id, outcome, summary, blockers, nextActions, and
+the latest aggregate when available. Missing durable evidence is reported as
+`no_evidence` or `not_found`; the Workspace Agent/Broker path does not read
+frontend/controller evidence overlays as product truth.
 
 Dry-run:
 

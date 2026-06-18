@@ -296,10 +296,12 @@ fn worker_evidence_survives_service_reload_and_review_create_uses_aggregate_stat
             queue_item_id: task.queue_item_id,
             actor_id: "workspace-agent".to_owned(),
             message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
         })
         .expect("create review from aggregate state");
     assert_eq!(
-        review.aggregate.review_state,
+        review.aggregate.expect("aggregate").review_state,
         QueueItemAggregateReviewState::ReviewMessageCreated
     );
     remove_test_db_files(&db_path);

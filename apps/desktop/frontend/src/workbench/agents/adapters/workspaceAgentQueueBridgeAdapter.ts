@@ -5,6 +5,7 @@ import type {
 import type {
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
+  AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
 } from "../../../workspace/types";
@@ -1088,10 +1089,19 @@ async function createReviewMessageThroughBackend(
   try {
     const result = await backendApi.createReviewMessage({
       actorId: reviewActorId(input.coordinatorAgentId, context),
+      evidenceBundleId: cleanString(input.evidenceBundleId) ?? null,
       messageBody: reviewMessageBodyFromInput(input),
+      runId: cleanString(input.runId) ?? null,
       taskId,
     });
-    return reviewCommandSucceeded(
+    if (result.status !== "succeeded") {
+      return reviewCreateMessageBlocked(
+        result,
+        queueControlStateFromBridge(bridge),
+        QUEUE_ACTIVITY_EVENTS.lifecycleReviewCreateMessage,
+      );
+    }
+    return reviewCreateMessageSucceeded(
       result,
       queueControlStateFromBridge(bridge),
       "Queue review message created.",
@@ -1101,7 +1111,7 @@ async function createReviewMessageThroughBackend(
   } catch (error) {
     return reviewCommandFailed(
       error,
-      "Queue review message could not be created.",
+      "Queue review message create request failed before backend blocker details were returned.",
       QUEUE_ACTIVITY_EVENTS.lifecycleReviewCreateMessage,
     );
   }
@@ -1236,12 +1246,70 @@ function reviewCommandSucceeded(
   };
 }
 
+function reviewCreateMessageSucceeded(
+  result: AgentQueueReviewCreateMessageResult,
+  queueControlState: WorkspaceAgentQueueControlState | null,
+  message: string,
+  actionLabel: string,
+  activityEventNames: readonly string[],
+): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
+  if (!result.aggregate || !result.messageId || !result.reviewMessage) {
+    const failureMessage =
+      "Queue review message create returned an incomplete backend success.";
+    return {
+      activityEventNames: [...activityEventNames],
+      message: failureMessage,
+      reasons: [failureMessage],
+      status: "failed",
+    };
+  }
+
+  return {
+    activityEventNames: [...activityEventNames],
+    message,
+    output: reviewTransitionOutputFromAggregate({
+      actionLabel,
+      aggregate: result.aggregate,
+      backendCreateMessageStatus: result.status,
+      evidenceBundleId: result.evidenceBundleId ?? undefined,
+      queueControlState,
+      context: null,
+      durable: result.durable,
+      messageId: result.messageId,
+      queueMutation: "backend_domain",
+      reviewMessage: result.reviewMessage,
+      runId: result.runId ?? undefined,
+    }),
+    status: "succeeded",
+  };
+}
+
+function reviewCreateMessageBlocked(
+  result: AgentQueueReviewCreateMessageResult,
+  queueControlState: WorkspaceAgentQueueControlState | null,
+  activityEventNames: readonly string[],
+): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
+  const message = reviewCreateMessageBlockerMessage(result);
+  return {
+    activityEventNames: [...activityEventNames],
+    message,
+    output: reviewCreateMessageBlockedOutput(result, queueControlState),
+    reasons: [message],
+    status: result.status === "invalid_input" ? "invalid_input" : "failed",
+  };
+}
+
 function reviewCommandFailed<TOutput>(
   error: unknown,
   fallbackMessage: string,
   activityEventNames: readonly string[],
 ): QueueAgentAdapterResult<TOutput> {
-  const message = error instanceof Error ? error.message : fallbackMessage;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string" && error.trim()
+        ? error.trim()
+        : fallbackMessage;
   return {
     activityEventNames: [...activityEventNames],
     message,
@@ -1265,45 +1333,74 @@ function invalidReviewCommandInput<TOutput>(
 function reviewTransitionOutputFromAggregate({
   actionLabel,
   aggregate,
+  backendCreateMessageStatus,
+  blocker,
+  evidenceBundleId,
   queueControlState,
   context,
   durable,
   messageId,
   queueMutation,
   reviewMessage,
+  runId,
 }: {
   actionLabel: string;
   aggregate: AgentQueueItemAggregate;
+  backendCreateMessageStatus?: string;
+  blocker?: AgentQueueReviewCreateMessageResult["blocker"];
+  evidenceBundleId?: string;
   queueControlState: WorkspaceAgentQueueControlState | null;
   context: QueueAgentLifecycleHandlerContext | null;
   durable: boolean;
   messageId?: string;
   queueMutation: "backend_domain" | "none";
   reviewMessage?: unknown;
+  runId?: string;
 }): QueueAgentLifecycleTransitionOutput {
   const summary = queueTaskSummaryFromAggregate(aggregate, queueControlState);
+  const selectedEvidenceBundleId =
+    evidenceBundleId ?? blocker?.evidenceBundleId ?? undefined;
+  const selectedRunId =
+    runId ?? blocker?.runId ?? aggregate.latestRun?.runId ?? undefined;
 
   return {
     actionLabel,
     additionalPromptCount: 0,
     agentPromptState: "completed",
     aggregate,
+    backendCreateMessageStatus,
+    blockerCode: blocker?.blockerCode,
+    blockerMessage: blocker?.blockerMessage,
     blockers: aggregate.blockers,
     dryRunOnly: context?.dryRun ?? false,
     durable,
+    evidenceBundleId: selectedEvidenceBundleId,
+    evidenceBundleIdRequired: blocker?.evidenceBundleIdRequired,
+    evidenceState: aggregate.evidenceState,
+    existingReviewMessageId: blocker?.existingMessageId ?? undefined,
     lifecycle: null,
-    messageId,
+    messageId: messageId ?? blocker?.existingMessageId ?? undefined,
+    missingRequiredField: blocker?.missingRequiredField ?? undefined,
     nextActions: summary.nextActions ?? [],
-    nextSuggestedCapability: summary.nextSuggestedCapability ?? null,
+    nextSuggestedCapability:
+      (blocker?.nextSuggestedCapability as
+        | QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"]
+        | undefined) ??
+      summary.nextSuggestedCapability ??
+      null,
     previousAgentPromptState: "completed",
     previousTicketState: aggregate.ticketState,
     queueMutation,
     reviewMessage,
+    reviewMessageAlreadyExists: blocker?.reviewMessageAlreadyExists,
     reviewOutcome: null,
     reviewState: aggregate.reviewState,
+    runId: selectedRunId,
+    runIdRequired: blocker?.runIdRequired,
     taskId: aggregate.taskId,
     ticketState: aggregate.ticketState,
     value: reviewMessage,
+    workerRunState: aggregate.workerRunState,
     wouldAutoRunWorkers: false,
     wouldCallGit: false,
     wouldExecuteRollback: false,
@@ -1312,6 +1409,135 @@ function reviewTransitionOutputFromAggregate({
     wouldRunValidation: false,
     wouldStartWorkers: false,
   };
+}
+
+function reviewCreateMessageBlockedOutput(
+  result: AgentQueueReviewCreateMessageResult,
+  queueControlState: WorkspaceAgentQueueControlState | null,
+): QueueAgentLifecycleTransitionOutput {
+  const blocker = result.blocker;
+  const actionLabel = "Queue review message blocked";
+  if (result.aggregate) {
+    return reviewTransitionOutputFromAggregate({
+      actionLabel,
+      aggregate: result.aggregate,
+      backendCreateMessageStatus: result.status,
+      blocker,
+      evidenceBundleId: result.evidenceBundleId ?? undefined,
+      queueControlState,
+      context: null,
+      durable: result.durable,
+      messageId: result.messageId ?? undefined,
+      queueMutation: "none",
+      reviewMessage: result.reviewMessage ?? blocker ?? undefined,
+      runId: result.runId ?? undefined,
+    });
+  }
+
+  return {
+    actionLabel,
+    additionalPromptCount: 0,
+    agentPromptState: "completed",
+    backendCreateMessageStatus: result.status,
+    blockerCode: blocker?.blockerCode,
+    blockerMessage: blocker?.blockerMessage,
+    blockers: blocker
+      ? [{ code: blocker.blockerCode, message: blocker.blockerMessage }]
+      : [],
+    dryRunOnly: false,
+    durable: result.durable,
+    evidenceBundleId:
+      result.evidenceBundleId ?? blocker?.evidenceBundleId ?? undefined,
+    evidenceBundleIdRequired: blocker?.evidenceBundleIdRequired,
+    evidenceState: blocker?.evidenceState ?? undefined,
+    existingReviewMessageId: blocker?.existingMessageId ?? undefined,
+    lifecycle: null,
+    messageId: result.messageId ?? blocker?.existingMessageId ?? undefined,
+    missingRequiredField: blocker?.missingRequiredField ?? undefined,
+    nextActions: [],
+    nextSuggestedCapability:
+      (blocker?.nextSuggestedCapability as
+        | QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"]
+        | undefined) ?? null,
+    previousAgentPromptState: "completed",
+    previousTicketState: blocker?.ticketState ?? "unknown",
+    queueMutation: "none",
+    reviewMessage: result.reviewMessage ?? blocker ?? undefined,
+    reviewMessageAlreadyExists: blocker?.reviewMessageAlreadyExists,
+    reviewOutcome: null,
+    reviewState: blocker?.reviewState ?? undefined,
+    runId: result.runId ?? blocker?.runId ?? undefined,
+    runIdRequired: blocker?.runIdRequired,
+    taskId: result.taskId,
+    ticketState: blocker?.ticketState ?? "unknown",
+    value: blocker ?? result,
+    workerRunState: blocker?.workerRunState ?? undefined,
+    wouldAutoRunWorkers: false,
+    wouldCallGit: false,
+    wouldExecuteRollback: false,
+    wouldLaunchTerminal: false,
+    wouldPersistBackend: false,
+    wouldRunValidation: false,
+    wouldStartWorkers: false,
+  };
+}
+
+function reviewCreateMessageBlockerMessage(
+  result: AgentQueueReviewCreateMessageResult,
+) {
+  const blocker = result.blocker;
+  const stateParts = [
+    statePart("ticketState", blocker?.ticketState ?? result.aggregate?.ticketState),
+    statePart(
+      "workerRunState",
+      blocker?.workerRunState ?? result.aggregate?.workerRunState,
+    ),
+    statePart("reviewState", blocker?.reviewState ?? result.aggregate?.reviewState),
+    statePart(
+      "evidenceState",
+      blocker?.evidenceState ?? result.aggregate?.evidenceState,
+    ),
+  ].filter(Boolean);
+  const details = [
+    blocker?.blockerCode ? `blockerCode=${blocker.blockerCode}` : null,
+    ...stateParts,
+    blocker?.missingRequiredField
+      ? `missingRequiredField=${blocker.missingRequiredField}`
+      : null,
+    blocker ? `runIdRequired=${String(blocker.runIdRequired)}` : null,
+    blocker
+      ? `evidenceBundleIdRequired=${String(blocker.evidenceBundleIdRequired)}`
+      : null,
+    blocker
+      ? `reviewMessageAlreadyExists=${String(
+          blocker.reviewMessageAlreadyExists,
+        )}`
+      : null,
+    blocker?.existingMessageId
+      ? `existingMessageId=${blocker.existingMessageId}`
+      : null,
+    result.runId ?? blocker?.runId
+      ? `runId=${result.runId ?? blocker?.runId}`
+      : null,
+    result.evidenceBundleId ?? blocker?.evidenceBundleId
+      ? `evidenceBundleId=${result.evidenceBundleId ?? blocker?.evidenceBundleId}`
+      : null,
+    blocker?.nextSuggestedCapability
+      ? `nextSuggestedCapability=${blocker.nextSuggestedCapability}`
+      : null,
+  ].filter((part): part is string => Boolean(part));
+
+  return [
+    blocker?.blockerMessage ??
+      `Queue review message was not created. backendStatus=${result.status}`,
+    details.length > 0 ? details.join(" ") : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function statePart(label: string, value: string | null | undefined) {
+  return value ? `${label}=${value}` : null;
 }
 
 function reviewActorId(
@@ -1339,6 +1565,10 @@ function normalizeChangedFilesSummary(value: readonly string[] | string | undefi
   }
 
   return typeof value === "string" ? value.trim() || undefined : undefined;
+}
+
+function cleanString(value: string | null | undefined) {
+  return value?.trim() || undefined;
 }
 
 async function createQueueItemsThroughBridge(

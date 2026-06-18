@@ -137,6 +137,16 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       requiredFields: ["taskId", "messageId"],
     });
     expect(
+      requiredCapability(registry, "queue.review.createMessage").inputSchema,
+    ).toMatchObject({
+      acceptedFields: expect.arrayContaining([
+        "taskId",
+        "runId",
+        "evidenceBundleId",
+      ]),
+      requiredFields: ["taskId"],
+    });
+    expect(
       requiredCapability(registry, "queue.item.markDone").inputSchema,
     ).toMatchObject({
       acceptedFields: expect.arrayContaining([

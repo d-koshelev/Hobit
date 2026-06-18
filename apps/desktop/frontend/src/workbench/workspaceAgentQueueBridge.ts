@@ -12,6 +12,7 @@ import type {
   AgentQueueTask,
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
+  AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
   AckAgentQueueReviewMessageRequest,
@@ -128,7 +129,7 @@ export type WorkspaceQueueReviewActions = {
   ) => Promise<AgentQueueReviewCommandResult>;
   createAgentQueueReviewMessage: (
     request: CreateAgentQueueReviewMessageRequest,
-  ) => Promise<AgentQueueReviewCommandResult>;
+  ) => Promise<AgentQueueReviewCreateMessageResult>;
 };
 
 export type WorkspaceQueueWorkerEvidenceActions = {
@@ -166,7 +167,7 @@ export type WorkspaceAgentQueueBridge = {
   ) => Promise<AgentQueueReviewCommandResult>;
   createReviewMessage?: (
     request: Omit<CreateAgentQueueReviewMessageRequest, "workspaceId">,
-  ) => Promise<AgentQueueReviewCommandResult>;
+  ) => Promise<AgentQueueReviewCreateMessageResult>;
   getWorkerEvidenceBundle?: (
     request: Omit<GetAgentQueueWorkerEvidenceBundleRequest, "workspaceId">,
   ) => Promise<AgentQueueWorkerEvidenceQueryResult>;

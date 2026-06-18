@@ -6,7 +6,7 @@ use tauri::State;
 
 use crate::agent_queue_review_dto::{
     AckAgentQueueReviewMessageRequest, AgentQueueReviewCommandResultDto,
-    CreateAgentQueueReviewMessageRequest,
+    AgentQueueReviewCreateMessageResultDto, CreateAgentQueueReviewMessageRequest,
 };
 use crate::app_state::AppState;
 
@@ -14,18 +14,18 @@ use crate::app_state::AppState;
 pub(crate) fn create_agent_queue_review_message(
     request: CreateAgentQueueReviewMessageRequest,
     state: State<'_, AppState>,
-) -> Result<AgentQueueReviewCommandResultDto, String> {
+) -> Result<AgentQueueReviewCreateMessageResultDto, String> {
     create_agent_queue_review_message_blocking(request, state.db_path().to_path_buf())
 }
 
 pub(crate) fn create_agent_queue_review_message_blocking(
     request: CreateAgentQueueReviewMessageRequest,
     db_path: PathBuf,
-) -> Result<AgentQueueReviewCommandResultDto, String> {
+) -> Result<AgentQueueReviewCreateMessageResultDto, String> {
     let service = workspace_service(&db_path)?;
     service
         .create_agent_queue_review_message(request.into())
-        .map(AgentQueueReviewCommandResultDto::from)
+        .map(AgentQueueReviewCreateMessageResultDto::from)
         .map_err(command_error)
 }
 

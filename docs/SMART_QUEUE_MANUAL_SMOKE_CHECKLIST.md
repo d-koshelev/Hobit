@@ -85,6 +85,14 @@ same top-level confirmation token. Backend-backed Queue capabilities are
 `queue.review.createMessage`, `queue.review.ack`, and
 `queue.lifecycle.agentFinished`. Transitional lifecycle writes remain
 non-auto-continuation-safe and policy-restricted.
+`queue.review.createMessage` requires durable backend worker evidence but does
+not require the model to supply `evidenceBundleId`; the backend selects the
+latest durable evidence for the explicit task/run when omitted and returns the
+selected id. If review creation is blocked, the smoke result must show typed
+backend blocker diagnostics with ticket, worker-run, review, and evidence
+states, duplicate-message state when relevant, and a next suggested capability
+when available. A generic-only "could not be created" failure is not an
+acceptable smoke result.
 
 ## Setup
 
@@ -507,7 +515,9 @@ During the smoke, verify these product labels appear where applicable:
       evidence after ingestion.
     - Expected: review-message creation is still an explicit next action; after
       explicit `queue.review.createMessage`, the review message includes the
-      evidence summary.
+      evidence summary and returns the selected durable `evidenceBundleId` /
+      `runId`. If it is blocked, the result explains the backend blocker and
+      current aggregate states instead of relying on frontend overlay truth.
     - Expected: missing task id, missing run id, task id mismatch, run id
       mismatch, attempt id mismatch, invalid evidence, unavailable controller,
       and non-linked Direct Work completion return structured failure or

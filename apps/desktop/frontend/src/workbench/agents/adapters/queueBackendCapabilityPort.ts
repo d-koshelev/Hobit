@@ -2,6 +2,7 @@ import type {
   AckAgentQueueReviewMessageRequest,
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
+  AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
   CreateAgentQueueReviewMessageRequest,
@@ -16,7 +17,7 @@ export type QueueBackendCapabilityPort = {
   ) => Promise<AgentQueueReviewCommandResult>;
   createReviewMessage: (
     request: Omit<CreateAgentQueueReviewMessageRequest, "workspaceId">,
-  ) => Promise<AgentQueueReviewCommandResult>;
+  ) => Promise<AgentQueueReviewCreateMessageResult>;
   getItemAggregate: (
     request: Omit<GetAgentQueueItemAggregateRequest, "workspaceId">,
   ) => Promise<AgentQueueItemAggregate | null>;

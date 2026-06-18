@@ -54,6 +54,7 @@ const COMPACT_GUIDANCE = [
   "Use the registered id queue.review.getEvidenceBundle; queue.lifecycle.getEvidenceBundle is not a capability.",
   "queue.lifecycle.get is a backend-authoritative aggregate read and requires taskId.",
   "queue.review.createMessage and queue.review.ack use backend/Tauri review commands and require explicit taskId; ack also requires messageId.",
+  "queue.review.createMessage requires durable backend worker evidence. evidenceBundleId is optional exact context; when omitted, the backend selects the latest durable evidence for the explicit taskId/runId and returns the selected evidenceBundleId.",
   "queue.lifecycle.agentFinished uses backend/Tauri worker evidence commands and requires explicit taskId and runId.",
   "queue.review.getEvidenceBundle uses backend/Tauri worker evidence queries and requires explicit taskId.",
   "Review actor fields are trusted context fields; omit coordinatorAgentId unless an exact typed actor id is already available.",
@@ -110,6 +111,8 @@ const REVIEW_CREATE_SCHEMA: HobitAgentCapabilityInputSchema = {
     "taskId",
     "coordinatorAgentId",
     "messageId",
+    "runId",
+    "evidenceBundleId",
     "createdAt",
     "attemptId",
     "evidenceBundle",
@@ -126,16 +129,20 @@ const REVIEW_CREATE_SCHEMA: HobitAgentCapabilityInputSchema = {
     createdAt: "Optional ISO timestamp; broker request time is used by default.",
     evidenceBundle:
       "Optional normalized Queue worker evidence bundle. Review message uses its bounded product evidence summary when supplied.",
+    evidenceBundleId:
+      "Optional exact durable backend evidence bundle id returned by a typed result. If omitted, backend selects the latest durable evidence for taskId/runId.",
     finalAgentMessage:
       "Optional final report override; current lifecycle report is used by default.",
     messageId: "Optional review message id.",
+    runId:
+      "Optional exact worker run id returned by a typed result. If supplied, backend validates it against the selected durable evidence.",
     taskId: "Required Queue item id.",
     validationSummary: "Optional validation summary override.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
   requiredFields: ["taskId"],
   shape:
-    '{"taskId":"string required","coordinatorAgentId":"string optional exact actor only; trusted runtime/backend default when omitted","messageId":"string optional","finalAgentMessage":"string optional","validationSummary":"string optional","changedFilesSummary":"string|string[] optional"}',
+    '{"taskId":"string required","runId":"string optional exact typed id","evidenceBundleId":"string optional exact typed id","coordinatorAgentId":"string optional exact actor only; trusted runtime/backend default when omitted","messageId":"string optional","finalAgentMessage":"string optional","validationSummary":"string optional","changedFilesSummary":"string|string[] optional"}',
 };
 
 const REVIEW_ACK_SCHEMA: HobitAgentCapabilityInputSchema = {
@@ -402,7 +409,7 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
   lifecycleCapability({
     auditLabel: "Queue review message created",
     description:
-      "Create or preview a backend-owned review message from an awaiting-review Queue item.",
+      "Create or preview a backend-owned review message from an awaiting-review Queue item with durable worker evidence. If evidenceBundleId is omitted, backend selects the latest durable evidence for the explicit taskId/runId.",
     examples: [
       envelopeExample(
         "Create a backend review message using trusted actor default.",
@@ -414,7 +421,7 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
     id: "queue.review.createMessage",
     inputSchema: REVIEW_CREATE_SCHEMA,
     output:
-      "Backend review command result with messageId, reviewState, nextActions, blockers, durability, and updated aggregate.",
+      "Backend review command result with messageId, selected evidenceBundleId/runId, reviewState, nextActions, blockers, durability, updated aggregate, or typed backend blocker states.",
     title: "Create Queue Review Message",
   }),
   lifecycleCapability({

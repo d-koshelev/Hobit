@@ -119,6 +119,8 @@ function handleCreateReviewMessage(
       "taskId",
       "coordinatorAgentId",
       "messageId",
+      "runId",
+      "evidenceBundleId",
       "createdAt",
       "attemptId",
       "evidenceBundle",

@@ -95,7 +95,10 @@ command/query, and review command contract:
   run summary metadata, and latest durable review message rows.
 - `WorkspaceService::create_agent_queue_review_message` and
   `WorkspaceService::ack_agent_queue_review_message` validate aggregate
-  preconditions and persist durable review message / ACK rows.
+  preconditions and persist durable review message / ACK rows. Review-create
+  blockers are typed backend results with ticket, worker-run, review, evidence,
+  duplicate-message, required-field, selected id, and next-capability
+  diagnostics instead of generic frontend failure text.
 - `WorkspaceService::record_agent_queue_worker_finished` and
   `WorkspaceService::get_agent_queue_worker_evidence_bundle` require explicit
   workspace/task/run identity where applicable, validate task/run ownership,
@@ -122,8 +125,10 @@ command/query, and review command contract:
   error/evidence summary without marking the item done. Dependency satisfaction
   still requires a future durable accepted completion state.
 - Successful worker evidence with no review message exposes available
-  `create_review_message`; review message creation maps to
-  `review_message_created` and available `ack_review`; ACK maps to `in_review`.
+  `create_review_message`; review message creation requires durable backend
+  worker evidence, maps to `review_message_created`, returns the selected
+  evidence bundle id/run id, and exposes available `ack_review`; ACK maps to
+  `in_review`.
 - Backend headless contract tests now prove list/get, draft readiness, queued
   startability, running/completed/failed run-link state, dependency waiting and
   failed-upstream state, read-only query behavior, durable worker evidence
@@ -160,7 +165,9 @@ Current backend/domain ready operations:
 - inspect aggregate list/get for durable task, run-link, blocker, next-action,
   dependency, review, evidence, validation, and commit state.
 - create durable Queue review messages after backend aggregate state reports
-  `awaiting_review`;
+  `awaiting_review` and durable worker evidence exists. `evidenceBundleId` is
+  optional exact context; when omitted, the backend selects the latest durable
+  evidence for the explicit task/run and returns the selected id.
 - ACK durable Queue review messages and update aggregate review state to
   `in_review`.
 
@@ -629,10 +636,15 @@ adapter integration and typed frontend Action Broker capability access.
   invocation records durable backend worker evidence and returns the updated
   backend aggregate.
 - Review message creation can pass a bounded product-facing final/evidence
-  summary into the backend review message command. `queue.review.getEvidenceBundle`
-  requires explicit `taskId`, accepts optional `runId`, and returns the durable
-  backend evidence query state, bundle id, outcome, summary, blockers,
-  nextActions, and latest aggregate when available.
+  summary into the backend review message command. Durable backend worker
+  evidence is required; `evidenceBundleId` is optional exact typed context and
+  is selected by the backend when omitted. Any supplied `runId` or
+  `evidenceBundleId` is validated against durable evidence, never inferred from
+  prose. Typed blockers surface backend ticket, worker-run, review, and
+  evidence states. `queue.review.getEvidenceBundle` requires explicit `taskId`,
+  accepts optional `runId`, and returns the durable backend evidence query
+  state, bundle id, outcome, summary, blockers, nextActions, and latest
+  aggregate when available.
 - The ingestion bridge can adapt explicitly Queue-linked fake/frontend Direct
   Work, Workspace Agent, Agent Executor, and Queue worker report completion
   data where those shapes are clear. Non-linked Direct Work completion returns

@@ -163,7 +163,9 @@ pub use agent_queue_aggregate::{
     QueueItemAggregateValidationState, QueueItemAggregateWorkerRunState,
 };
 pub use agent_queue_review::{
-    AckAgentQueueReviewMessageInput, AgentQueueReviewCommandResult, AgentQueueReviewMessageSummary,
+    AckAgentQueueReviewMessageInput, AgentQueueReviewCommandResult,
+    AgentQueueReviewCreateMessageBlocker, AgentQueueReviewCreateMessageResult,
+    AgentQueueReviewCreateMessageStatus, AgentQueueReviewMessageSummary,
     CreateAgentQueueReviewMessageInput,
 };
 pub use agent_queue_task_types::{

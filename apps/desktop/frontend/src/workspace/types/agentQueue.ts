@@ -300,6 +300,8 @@ export type CreateAgentQueueReviewMessageRequest = {
   taskId: string;
   actorId: string;
   messageBody?: string | null;
+  runId?: string | null;
+  evidenceBundleId?: string | null;
 };
 
 export type AckAgentQueueReviewMessageRequest = {
@@ -429,6 +431,46 @@ export type AgentQueueReviewCommandResult = {
   durable: boolean;
   messageId: string;
   reviewMessage: AgentQueueReviewMessage;
+  taskId: string;
+  workspaceId: string;
+};
+
+export type AgentQueueReviewCreateMessageBlocker = {
+  blockerCode: string;
+  blockerMessage: string;
+  missingRequiredField: string | null;
+  taskId: string;
+  runId: string | null;
+  evidenceBundleId: string | null;
+  runIdRequired: boolean;
+  evidenceBundleIdRequired: boolean;
+  durableEvidenceRequired: boolean;
+  reviewMessageAlreadyExists: boolean;
+  existingMessageId: string | null;
+  ticketState: string | null;
+  workerRunState: string | null;
+  reviewState: string | null;
+  evidenceState: string | null;
+  nextSuggestedCapability: string | null;
+};
+
+export type AgentQueueReviewCreateMessageStatus =
+  | "succeeded"
+  | "blocked"
+  | "invalid_input"
+  | "already_exists"
+  | "precondition_failed"
+  | string;
+
+export type AgentQueueReviewCreateMessageResult = {
+  aggregate: AgentQueueItemAggregate | null;
+  blocker: AgentQueueReviewCreateMessageBlocker | null;
+  durable: boolean;
+  evidenceBundleId: string | null;
+  messageId: string | null;
+  reviewMessage: AgentQueueReviewMessage | null;
+  runId: string | null;
+  status: AgentQueueReviewCreateMessageStatus;
   taskId: string;
   workspaceId: string;
 };

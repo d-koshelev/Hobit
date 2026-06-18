@@ -19,11 +19,11 @@ fn initialized_file_service(path: &Path) -> WorkspaceService {
 }
 
 #[test]
-fn create_review_message_allowed_after_completed_worker_run() {
+fn create_review_message_allowed_after_durable_worker_evidence() {
     let service = initialized_service();
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
     let task = create_task(&service, &workspace_id, "queued", true);
-    complete_worker_run(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    complete_worker_run_with_evidence(&service, &workspace_id, &task.queue_item_id, &executor_id);
 
     let result = service
         .create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
@@ -31,23 +31,32 @@ fn create_review_message_allowed_after_completed_worker_run() {
             queue_item_id: task.queue_item_id.clone(),
             actor_id: "workspace-agent".to_owned(),
             message_body: Some("Ready for review.".to_owned()),
+            run_id: None,
+            evidence_bundle_id: None,
         })
         .expect("create review message");
 
+    assert_eq!(
+        result.status,
+        AgentQueueReviewCreateMessageStatus::Succeeded
+    );
     assert_eq!(result.workspace_id, workspace_id);
     assert_eq!(result.queue_item_id, task.queue_item_id);
     assert!(result.durable);
-    assert_eq!(result.review_message.actor_id, "workspace-agent");
-    assert_eq!(result.review_message.status, "created");
+    assert!(result.evidence_bundle_id.is_some());
+    let review_message = result.review_message.as_ref().expect("review message");
+    assert_eq!(review_message.actor_id, "workspace-agent");
+    assert_eq!(review_message.status, "created");
+    let aggregate = result.aggregate.as_ref().expect("aggregate");
     assert_eq!(
-        result.aggregate.review_state,
+        aggregate.review_state,
         QueueItemAggregateReviewState::ReviewMessageCreated
     );
     assert_eq!(
-        result.aggregate.ticket_state,
+        aggregate.ticket_state,
         QueueItemAggregateTicketState::AwaitingReview
     );
-    assert_action_available(&result.aggregate, "ack_review");
+    assert_action_available(aggregate, "ack_review");
 }
 
 #[test]
@@ -63,8 +72,17 @@ fn create_review_message_rejects_draft_and_running_states() {
             queue_item_id: draft.queue_item_id,
             actor_id: "workspace-agent".to_owned(),
             message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
         });
-    assert_invalid_state(draft_result, "ticket_state=draft");
+    assert_create_blocker(
+        draft_result,
+        AgentQueueReviewCreateMessageStatus::PreconditionFailed,
+        "task_is_draft",
+        Some("draft"),
+        Some("none"),
+        Some("none"),
+    );
 
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
     let running = create_task(&service, &workspace_id, "queued", true);
@@ -83,12 +101,21 @@ fn create_review_message_rejects_draft_and_running_states() {
             queue_item_id: running.queue_item_id,
             actor_id: "workspace-agent".to_owned(),
             message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
         });
-    assert_invalid_state(running_result, "ticket_state=running");
+    assert_create_blocker(
+        running_result,
+        AgentQueueReviewCreateMessageStatus::Blocked,
+        "worker_running",
+        Some("running"),
+        Some("none"),
+        Some("pending"),
+    );
 }
 
 #[test]
-fn create_review_message_requires_explicit_task_and_actor_ids() {
+fn create_review_message_returns_invalid_input_for_missing_task_id() {
     let service = initialized_service();
     let workspace = service
         .create_empty_workspace("Queue review test", None)
@@ -98,16 +125,180 @@ fn create_review_message_requires_explicit_task_and_actor_ids() {
         queue_item_id: "   ".to_owned(),
         actor_id: "workspace-agent".to_owned(),
         message_body: Some("Do not infer task id from this prompt.".to_owned()),
+        run_id: None,
+        evidence_bundle_id: None,
     });
-    assert_invalid_state(result, "queue item id must not be empty");
+    let result = result.expect("typed invalid input");
+    assert_eq!(
+        result.status,
+        AgentQueueReviewCreateMessageStatus::InvalidInput
+    );
+    let blocker = result.blocker.expect("blocker");
+    assert_eq!(blocker.missing_required_field.as_deref(), Some("taskId"));
+    assert_eq!(blocker.ticket_state, None);
+}
+
+#[test]
+fn create_review_message_uses_default_actor_when_runtime_context_omits_it() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let task = create_task(&service, &workspace_id, "queued", true);
+    complete_worker_run_with_evidence(&service, &workspace_id, &task.queue_item_id, &executor_id);
 
     let result = service.create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
-        workspace_id: "workspace-id".to_owned(),
-        queue_item_id: "task-id".to_owned(),
+        workspace_id,
+        queue_item_id: task.queue_item_id,
         actor_id: "  ".to_owned(),
         message_body: None,
+        run_id: None,
+        evidence_bundle_id: None,
     });
-    assert_invalid_state(result, "review actor id must not be empty");
+    let result = result.expect("create review message");
+    assert_eq!(
+        result.status,
+        AgentQueueReviewCreateMessageStatus::Succeeded
+    );
+    assert_eq!(
+        result
+            .review_message
+            .as_ref()
+            .expect("review message")
+            .actor_id,
+        "workspace-agent"
+    );
+}
+
+#[test]
+fn create_review_message_without_durable_evidence_returns_actionable_blocker() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let task = create_task(&service, &workspace_id, "queued", true);
+    complete_worker_run(&service, &workspace_id, &task.queue_item_id, &executor_id);
+
+    let result = service.create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
+        workspace_id,
+        queue_item_id: task.queue_item_id,
+        actor_id: "workspace-agent".to_owned(),
+        message_body: None,
+        run_id: None,
+        evidence_bundle_id: None,
+    });
+
+    assert_create_blocker(
+        result,
+        AgentQueueReviewCreateMessageStatus::Blocked,
+        "durable_worker_evidence_required",
+        Some("awaiting_review"),
+        Some("awaiting_review"),
+        Some("not_durable"),
+    );
+}
+
+#[test]
+fn duplicate_create_review_message_returns_already_exists_blocker() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let task = create_task(&service, &workspace_id, "queued", true);
+    complete_worker_run_with_evidence(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    let first = service
+        .create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: task.queue_item_id.clone(),
+            actor_id: "workspace-agent".to_owned(),
+            message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
+        })
+        .expect("create review message");
+
+    let duplicate = service
+        .create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
+            workspace_id,
+            queue_item_id: task.queue_item_id,
+            actor_id: "workspace-agent".to_owned(),
+            message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
+        })
+        .expect("duplicate result");
+
+    assert_eq!(
+        duplicate.status,
+        AgentQueueReviewCreateMessageStatus::AlreadyExists
+    );
+    assert_eq!(duplicate.message_id, first.message_id);
+    let blocker = duplicate.blocker.expect("blocker");
+    assert_eq!(blocker.blocker_code, "review_message_already_exists");
+    assert!(blocker.review_message_already_exists);
+    assert_eq!(blocker.existing_message_id, first.message_id);
+    assert_eq!(
+        blocker.next_suggested_capability.as_deref(),
+        Some("queue.review.ack")
+    );
+}
+
+#[test]
+fn create_review_message_validates_explicit_run_and_evidence_ids_when_supplied() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let task = create_task(&service, &workspace_id, "queued", true);
+    let evidence = complete_worker_run_with_evidence(
+        &service,
+        &workspace_id,
+        &task.queue_item_id,
+        &executor_id,
+    );
+
+    let run_mismatch =
+        service.create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: task.queue_item_id.clone(),
+            actor_id: "workspace-agent".to_owned(),
+            message_body: None,
+            run_id: Some("wrong-run".to_owned()),
+            evidence_bundle_id: None,
+        });
+    assert_create_blocker(
+        run_mismatch,
+        AgentQueueReviewCreateMessageStatus::PreconditionFailed,
+        "run_id_mismatch",
+        Some("awaiting_review"),
+        Some("awaiting_review"),
+        Some("available"),
+    );
+
+    let bundle_mismatch =
+        service.create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
+            workspace_id: workspace_id.clone(),
+            queue_item_id: task.queue_item_id.clone(),
+            actor_id: "workspace-agent".to_owned(),
+            message_body: None,
+            run_id: None,
+            evidence_bundle_id: Some("wrong-bundle".to_owned()),
+        });
+    assert_create_blocker(
+        bundle_mismatch,
+        AgentQueueReviewCreateMessageStatus::PreconditionFailed,
+        "evidence_bundle_id_mismatch",
+        Some("awaiting_review"),
+        Some("awaiting_review"),
+        Some("available"),
+    );
+
+    let created = service
+        .create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
+            workspace_id,
+            queue_item_id: task.queue_item_id,
+            actor_id: "workspace-agent".to_owned(),
+            message_body: None,
+            run_id: Some(evidence.run_id),
+            evidence_bundle_id: Some(evidence.bundle_id),
+        })
+        .expect("create with explicit ids");
+    assert_eq!(
+        created.status,
+        AgentQueueReviewCreateMessageStatus::Succeeded
+    );
 }
 
 #[test]
@@ -116,8 +307,8 @@ fn create_review_message_does_not_infer_or_mutate_unrelated_tasks() {
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
     let first = create_task(&service, &workspace_id, "queued", true);
     let second = create_task(&service, &workspace_id, "queued", true);
-    complete_worker_run(&service, &workspace_id, &first.queue_item_id, &executor_id);
-    complete_worker_run(&service, &workspace_id, &second.queue_item_id, &executor_id);
+    complete_worker_run_with_evidence(&service, &workspace_id, &first.queue_item_id, &executor_id);
+    complete_worker_run_with_evidence(&service, &workspace_id, &second.queue_item_id, &executor_id);
 
     service
         .create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
@@ -128,6 +319,8 @@ fn create_review_message_does_not_infer_or_mutate_unrelated_tasks() {
                 "This message mentions {} but must not target it.",
                 first.queue_item_id
             )),
+            run_id: None,
+            evidence_bundle_id: None,
         })
         .expect("create review message");
 
@@ -155,13 +348,15 @@ fn ack_review_message_updates_aggregate_to_in_review() {
     let service = initialized_service();
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
     let task = create_task(&service, &workspace_id, "queued", true);
-    complete_worker_run(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    complete_worker_run_with_evidence(&service, &workspace_id, &task.queue_item_id, &executor_id);
     let create = service
         .create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
             workspace_id: workspace_id.clone(),
             queue_item_id: task.queue_item_id.clone(),
             actor_id: "workspace-agent".to_owned(),
             message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
         })
         .expect("create review message");
 
@@ -169,7 +364,7 @@ fn ack_review_message_updates_aggregate_to_in_review() {
         .ack_agent_queue_review_message(AckAgentQueueReviewMessageInput {
             workspace_id,
             queue_item_id: task.queue_item_id,
-            message_id: create.message_id,
+            message_id: create.message_id.expect("message id"),
             actor_id: "workspace-agent".to_owned(),
         })
         .expect("ack review message");
@@ -192,13 +387,15 @@ fn review_message_survives_service_reload() {
     let service = initialized_file_service(&db_path);
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
     let task = create_task(&service, &workspace_id, "queued", true);
-    complete_worker_run(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    complete_worker_run_with_evidence(&service, &workspace_id, &task.queue_item_id, &executor_id);
     let create = service
         .create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
             workspace_id: workspace_id.clone(),
             queue_item_id: task.queue_item_id.clone(),
             actor_id: "workspace-agent".to_owned(),
             message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
         })
         .expect("create review message");
     drop(service);
@@ -214,7 +411,10 @@ fn review_message_survives_service_reload() {
         .expect("list review messages");
 
     assert_eq!(messages.len(), 1);
-    assert_eq!(messages[0].message_id, create.message_id);
+    assert_eq!(
+        messages[0].message_id,
+        create.message_id.expect("message id")
+    );
     assert_eq!(
         aggregate.review_state,
         QueueItemAggregateReviewState::ReviewMessageCreated
@@ -344,6 +544,35 @@ fn complete_worker_run(
         .expect("finish queue run");
 }
 
+fn complete_worker_run_with_evidence(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    queue_item_id: &str,
+    executor_id: &str,
+) -> AgentQueueWorkerFinishedCommandResult {
+    assign_task(service, workspace_id, queue_item_id, executor_id);
+    let start = service
+        .start_assigned_agent_queue_task(start_input(workspace_id, queue_item_id))
+        .expect("start task");
+    service
+        .record_agent_queue_worker_finished(RecordAgentQueueWorkerFinishedInput {
+            workspace_id: workspace_id.to_owned(),
+            queue_item_id: queue_item_id.to_owned(),
+            run_id: start.run_id,
+            outcome: "completed".to_owned(),
+            summary: Some("Worker evidence is durable.".to_owned()),
+            changed_files: vec!["src/lib.rs".to_owned()],
+            changed_files_summary: Some("src/lib.rs".to_owned()),
+            validation_summary: Some("validation not run".to_owned()),
+            error_summary: None,
+            worker_id: Some("workspace-agent".to_owned()),
+            source: Some("workspace_agent".to_owned()),
+            metadata_json: None,
+            finished_at: Some("completed-at".to_owned()),
+        })
+        .expect("record worker evidence")
+}
+
 fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQueueTaskInput {
     StartAssignedAgentQueueTaskInput {
         workspace_id: workspace_id.to_owned(),
@@ -359,15 +588,25 @@ fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQue
     }
 }
 
-fn assert_invalid_state<T: std::fmt::Debug>(
-    result: Result<T, WorkspaceServiceError>,
-    expected: &str,
+fn assert_create_blocker(
+    result: Result<AgentQueueReviewCreateMessageResult, WorkspaceServiceError>,
+    expected_status: AgentQueueReviewCreateMessageStatus,
+    expected_code: &str,
+    expected_ticket_state: Option<&str>,
+    expected_review_state: Option<&str>,
+    expected_evidence_state: Option<&str>,
 ) {
-    let message = result.expect_err("expected invalid state").to_string();
-    assert!(
-        message.contains(expected),
-        "expected message to contain {expected:?}, got {message:?}"
-    );
+    let result = result.expect("typed blocker result");
+    assert_eq!(result.status, expected_status);
+    assert!(result.review_message.is_none());
+    let blocker = result.blocker.expect("blocker");
+    assert_eq!(blocker.blocker_code, expected_code);
+    assert_eq!(blocker.ticket_state.as_deref(), expected_ticket_state);
+    assert_eq!(blocker.review_state.as_deref(), expected_review_state);
+    assert_eq!(blocker.evidence_state.as_deref(), expected_evidence_state);
+    assert!(blocker.durable_evidence_required);
+    assert!(!blocker.run_id_required);
+    assert!(!blocker.evidence_bundle_id_required);
 }
 
 fn assert_action_available(aggregate: &QueueItemAggregate, code: &str) {
