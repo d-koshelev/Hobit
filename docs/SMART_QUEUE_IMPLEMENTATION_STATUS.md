@@ -243,6 +243,10 @@ The current implemented frontend behavior is:
 - read-only `queue.lifecycle.get` is allowed to participate in safe broker
   auto-continuation after success and reads backend aggregate state for one
   explicit `taskId`;
+- read-only `queue.review.getEvidenceBundle` is allowed to participate in safe
+  broker auto-continuation after success, reads backend durable worker evidence
+  for an explicit `taskId` and optional `runId`, and does not mutate Queue
+  state;
 - read-only `queue.items.list` returns backend aggregate task summaries with
   ticket/worker/review/evidence/validation/commit/dependency states,
   blockers, nextActions, latestRun, evidenceSummary, and durable flags;

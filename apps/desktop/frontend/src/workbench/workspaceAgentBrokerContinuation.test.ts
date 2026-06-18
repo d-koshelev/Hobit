@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import { createActionRequest, createActionResult } from "./agents/broker";
 import {
+  createHobitAgentCapabilityRegistry,
+  findCapability,
+} from "./agents/capabilities";
+import continuationSource from "./workspaceAgentBrokerContinuation.ts?raw";
+import {
   classifyWorkspaceAgentBrokerContinuationCapability,
   createWorkspaceAgentBrokerActionResultContext,
   createWorkspaceAgentBrokerContinuationState,
@@ -248,6 +253,86 @@ describe("workspaceAgentBrokerContinuation", () => {
     ).toEqual({ shouldContinue: true });
   });
 
+  it("allows queue.review.getEvidenceBundle to continue after successful backend read-only evidence results", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const capability = findCapability(
+      registry,
+      "queue.review.getEvidenceBundle",
+    );
+    if (!capability) {
+      throw new Error("Expected queue.review.getEvidenceBundle to be registered.");
+    }
+
+    const request = requestFor(
+      "queue.review.getEvidenceBundle",
+      { runId: "run-1", taskId: "task-1" },
+      "request-evidence-get",
+    );
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-evidence-get",
+      }),
+      request,
+    );
+    const result = resultFor("queue.review.getEvidenceBundle", {
+      evidenceBundleId: "bundle-1",
+      evidenceBundlePersistence: "backend_durable",
+      evidenceState: "available",
+      nextSuggestedCapability: "queue.review.createMessage",
+      runId: "run-1",
+      taskId: "task-1",
+    });
+    const context = createWorkspaceAgentBrokerActionResultContext({
+      request,
+      result,
+      summary: "Queue worker evidence bundle read from backend.",
+    });
+
+    expect(capability).toMatchObject({
+      confirmationRequirement: "none",
+      ownerSurface: "Agent Queue",
+      restricted: false,
+      sideEffectLevel: "read",
+    });
+    expect(capability.forbiddenSideEffects).toEqual(
+      expect.arrayContaining([
+        "codex_run",
+        "git_mutation",
+        "rollback_execution",
+        "shell_command",
+        "terminal_launch",
+        "validation_execution",
+        "worker_auto_run",
+        "worker_start",
+      ]),
+    );
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(capability).kind,
+    ).toBe("allowed");
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        capability,
+        request,
+        result,
+        state,
+      }),
+    ).toEqual({ shouldContinue: true });
+    expect(context).toMatchObject({
+      capabilityId: "queue.review.getEvidenceBundle",
+      ids: {
+        runId: "run-1",
+        taskIds: ["task-1"],
+      },
+      nextSuggestedCapability: "queue.review.createMessage",
+      safety: {
+        didLaunchShell: false,
+        didMutateGit: false,
+        didRunValidation: false,
+        didStartTerminal: false,
+      },
+    });
+  });
+
   it("blocks shell, raw Codex, Git, Terminal, rollback, and validation capabilities from auto-continuation", () => {
     for (const capabilityId of [
       "workspace.shell.runCommand",
@@ -260,6 +345,76 @@ describe("workspaceAgentBrokerContinuation", () => {
       expect(
         classifyWorkspaceAgentBrokerContinuationCapability(capabilityId).kind,
       ).toBe("restricted");
+    }
+  });
+
+  it("keeps transitional write and finalization capabilities out of auto-continuation", () => {
+    for (const capabilityId of [
+      "queue.coordinator.approveValidation",
+      "queue.coordinator.addFollowUpPrompt",
+      "queue.item.markDone",
+      "queue.item.block",
+      "queue.item.fail",
+    ]) {
+      const request = requestFor(capabilityId, {
+        coordinatorAgentId: "workspace-agent",
+        prompt: "Continue with a visible follow-up.",
+        reason: "Needs operator decision.",
+        taskId: "task-1",
+        validationApproved: true,
+      });
+      const state = recordAttempt(
+        createWorkspaceAgentBrokerContinuationState({
+          chainId: `chain-${capabilityId}`,
+        }),
+        request,
+      );
+
+      expect(
+        classifyWorkspaceAgentBrokerContinuationCapability(capabilityId).kind,
+      ).toBe("not_allowed");
+      expect(
+        shouldContinueWorkspaceAgentBrokerAction({
+          request,
+          result: resultFor(capabilityId, { taskId: "task-1" }),
+          state,
+        }),
+      ).toEqual({
+        shouldContinue: false,
+        stopReason: "not_allowed_for_auto_continuation",
+      });
+    }
+  });
+
+  it("blocks unregistered and wrong evidence capability ids from auto-continuation", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+
+    for (const capabilityId of [
+      "queue.review.unregistered",
+      "queue.lifecycle.getEvidenceBundle",
+    ]) {
+      const request = requestFor(capabilityId, { taskId: "task-1" });
+      const state = recordAttempt(
+        createWorkspaceAgentBrokerContinuationState({
+          chainId: `chain-${capabilityId}`,
+        }),
+        request,
+      );
+
+      expect(findCapability(registry, capabilityId)).toBeNull();
+      expect(
+        classifyWorkspaceAgentBrokerContinuationCapability(capabilityId).kind,
+      ).toBe("not_allowed");
+      expect(
+        shouldContinueWorkspaceAgentBrokerAction({
+          request,
+          result: resultFor(capabilityId, { taskId: "task-1" }),
+          state,
+        }),
+      ).toEqual({
+        shouldContinue: false,
+        stopReason: "not_allowed_for_auto_continuation",
+      });
     }
   });
 
@@ -369,6 +524,40 @@ describe("workspaceAgentBrokerContinuation", () => {
     expect(prompt.length).toBeLessThanOrEqual(3600);
     expect(prompt).not.toContain("secret-value-123");
     expect(prompt).not.toContain("full log line");
+  });
+
+  it("keeps continuation structured-only without natural-language id inference", () => {
+    const request = requestFor(
+      "queue.review.getEvidenceBundle",
+      {},
+      "request-no-prose-ids",
+    );
+    const context = createWorkspaceAgentBrokerActionResultContext({
+      request,
+      result: resultFor("queue.review.getEvidenceBundle", {
+        finalAgentMessage:
+          "Prose mentions taskId task-from-prose, runId run-from-prose, evidenceBundleId bundle-from-prose, and messageId message-from-prose.",
+      }),
+      summary:
+        "Prose mentions taskId task-from-prose, runId run-from-prose, evidenceBundleId bundle-from-prose, and messageId message-from-prose.",
+    });
+    const prompt = formatWorkspaceAgentBrokerContinuationPrompt({
+      actionIndex: 3,
+      context,
+      maxActions: WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+    });
+
+    expect(context.ids).toEqual({
+      executorWidgetIds: [],
+      runId: null,
+      taskIds: [],
+    });
+    expect(prompt).toContain(
+      "Never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId",
+    );
+    expect(continuationSource).not.toContain("new RegExp");
+    expect(continuationSource).not.toContain(".match(");
+    expect(continuationSource).not.toContain("classifyUserIntent");
   });
 });
 

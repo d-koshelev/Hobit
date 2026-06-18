@@ -13,6 +13,7 @@ import envelopeSource from "./agents/broker/hobitAgentActionRequestEnvelope.ts?r
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type {
   AgentQueueItemAggregate,
+  AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
 } from "../workspace/types";
 import type {
@@ -194,6 +195,76 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     });
   });
 
+  it("invokes queue.review.getEvidenceBundle through backend evidence reads without Queue snapshots", async () => {
+    const getSnapshot = vi.fn();
+    const getWorkerEvidenceBundle = vi.fn(
+      async ({ runId, taskId }: { runId?: string | null; taskId: string }) =>
+        workerEvidenceQueryResult({
+          aggregate: queueAggregate({
+            evidenceState: "available",
+            nextActions: [
+              {
+                available: true,
+                code: "create_review_message",
+                label: "Create review message",
+                unavailableReason: null,
+              },
+            ],
+            taskId,
+            ticketState: "awaiting_review",
+            workerRunState: "completed",
+          }),
+          runId: runId ?? "run-1",
+        }),
+    );
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentQueueBridge: queueBridge({
+        getSnapshot,
+        getWorkerEvidenceBundle,
+      }),
+    });
+    const parsed = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "queue.review.getEvidenceBundle",
+        dryRun: false,
+        input: {
+          runId: "run-1",
+          taskId: "task-1",
+        },
+        requestId: "runtime-review-evidence-get",
+        type: "hobit.action.request",
+      }),
+    );
+
+    expect(parsed.status).toBe("valid");
+    if (parsed.status !== "valid") {
+      throw new Error("Expected valid evidence read envelope.");
+    }
+
+    const result = await invoker(
+      createHobitAgentActionRequestFromEnvelope({
+        agentId: "workspace-agent",
+        createdAt: "2026-06-16T12:00:00.000Z",
+        envelope: parsed.envelope,
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(getWorkerEvidenceBundle).toHaveBeenCalledWith({
+      runId: "run-1",
+      taskId: "task-1",
+    });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      evidenceBundleId: "bundle-1",
+      evidenceBundlePersistence: "backend_durable",
+      evidenceState: "available",
+      nextSuggestedCapability: "queue.review.createMessage",
+      runId: "run-1",
+      taskId: "task-1",
+    });
+  });
+
   it("keeps prose-only assistant responses as prose", () => {
     expect(
       readHobitAgentActionRequestEnvelope(
@@ -353,6 +424,43 @@ function workerFinishedCommandResult({
       workspaceId: aggregate.workspaceId,
     },
     runId: "run-1",
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function workerEvidenceQueryResult({
+  aggregate = queueAggregate(),
+  runId = "run-1",
+}: {
+  aggregate?: AgentQueueItemAggregate;
+  runId?: string;
+} = {}): AgentQueueWorkerEvidenceQueryResult {
+  return {
+    aggregate,
+    durable: true,
+    evidenceBundle: {
+      bundleId: "bundle-1",
+      changedFiles: [],
+      changedFilesCount: 0,
+      changedFilesSummary: null,
+      createdAt: "2026-06-16T12:01:00.000Z",
+      errorSummary: null,
+      executorWidgetId: "executor-1",
+      metadataJson: null,
+      outcome: "completed",
+      runId,
+      runLinkId: "link-1",
+      source: "workspace_agent",
+      summary: "Implemented the requested changes.",
+      taskId: aggregate.taskId,
+      updatedAt: "2026-06-16T12:01:00.000Z",
+      validationSummary: "typecheck passed",
+      workerId: "workspace-agent",
+      workspaceId: aggregate.workspaceId,
+    },
+    runId,
+    state: "available",
     taskId: aggregate.taskId,
     workspaceId: aggregate.workspaceId,
   };

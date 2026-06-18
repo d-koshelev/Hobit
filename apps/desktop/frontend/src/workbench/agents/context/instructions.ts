@@ -31,7 +31,7 @@ export function createCapabilityInstructionBlock(
     'When finished in action mode emit one final JSON object: {"type":"hobit.final.answer","message":"<final user-facing answer or blocker>"}',
     "One envelope only; do not emit action lists.",
     "Intermediate prose is not a capability call; emit an envelope or final marker.",
-    "After hobit.action.result, continue with returned taskId/runId/executorWidgetId, emit the next hobit.action.request, or emit hobit.final.answer; never infer missing ids.",
+    "After hobit.action.result, continue with returned taskId/runId/evidenceBundleId/messageId/executorWidgetId, emit the next hobit.action.request, or emit hobit.final.answer; never infer missing ids.",
     "Stop on blocked, unavailable, confirmation_required, policy_blocked, failed, invalid, repeated, or max actions.",
     "Do not use shell or Codex for product actions. Do not execute app actions through shell, Codex, Git, Terminal, rollback, or validation.",
     "Do not inspect source files for product actions.",
@@ -198,7 +198,7 @@ function createQueueRunControlCapabilityInstructionLines(
     .join("; ");
 
   return [
-    "Queue run-control is typed only; never infer taskId or executorWidgetId from prose, titles, prompts, paths, final messages, or source text.",
+    "Queue run-control is typed only; never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose, titles, prompts, paths, final messages, or source text.",
     "Run-control fields: list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({}); start(taskId,executorWidgetId,queueId?).",
     "Use queue.items.list when ids are missing; settings/promote/enable do not start; start requires confirmation and no codex.runTask fallback.",
     exampleIds ? `Run-control envelope ids: ${exampleIds}.` : null,

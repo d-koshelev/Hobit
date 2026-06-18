@@ -21,6 +21,7 @@ const AUTO_CONTINUATION_ALLOWED_CAPABILITIES = new Set([
   "queue.item.promoteDraft",
   "queue.enable",
   "queue.lifecycle.get",
+  "queue.review.getEvidenceBundle",
 ]);
 
 const RESTRICTED_CAPABILITY_IDS = new Set([
@@ -393,7 +394,7 @@ export function formatWorkspaceAgentBrokerContinuationPrompt({
       "Intermediate prose is not a capability call.",
       "Do not emit action lists. Use a fresh requestId for each envelope. Do not repeat a previous request id or same capability/input. Use returned taskIds, executorWidgetIds, runId, blockers, and nextSuggestedCapability.",
       "If the result is blocked, unavailable, confirmation_required, failed, invalid, or policy blocked, stop and report that plainly.",
-      "Never infer taskId or executorWidgetId from prose, titles, paths, final messages, or source text.",
+      "Never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose, titles, paths, final messages, or source text.",
       "Do not use shell, raw Codex, Git, validation, rollback, Terminal, or hidden execution for Hobit product actions.",
       contextJson,
     ].join("\n"),

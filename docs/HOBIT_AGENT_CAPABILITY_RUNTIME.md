@@ -415,6 +415,9 @@ context exists. Validation approval, follow-up, mark-done, fail, and block
 remain transitional frontend/controller overlay writes and do not persist
 durable validation/commit/decision state. `queue.lifecycle.get` requires
 explicit `taskId`, reads the backend aggregate DTO, and is safe for broker
+auto-continuation after success. `queue.review.getEvidenceBundle` is a
+backend-backed read-only evidence query, requires explicit `taskId`, accepts
+optional `runId`, does not mutate Queue state, and is also safe for broker
 auto-continuation after success. These capabilities do not parse user prompts,
 route natural-language phrases, start workers, run validation, execute Git
 commits, launch Terminal, execute rollback, call shell, call Codex, or create

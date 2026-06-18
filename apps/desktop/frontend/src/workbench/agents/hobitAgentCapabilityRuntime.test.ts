@@ -297,7 +297,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
     );
     expect(instructionBlock).toContain("Run-control fields:");
     expect(instructionBlock).toContain(
-      "never infer taskId or executorWidgetId",
+      "never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId",
     );
     expect(instructionBlock).toContain(
       '"capabilityId":"queue.items.list"',

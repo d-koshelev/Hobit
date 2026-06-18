@@ -67,8 +67,10 @@ or executor ids are not inferred from prose.
 Each emitted envelope should use a fresh requestId. If the model omits or
 blanks requestId, the frontend derives a per-chain/per-action id; explicit
 duplicate requestIds still stop as a replay guard. Read-only
-`queue.lifecycle.get` can continue safely after success. The continuation
-budget remains 16 actions and the existing safety stops are unchanged.
+`queue.lifecycle.get` and backend-backed read-only
+`queue.review.getEvidenceBundle` can continue safely after success. The
+continuation budget remains 16 actions and the existing safety stops are
+unchanged.
 
 ## Setup
 
@@ -606,8 +608,9 @@ During the smoke, verify these product labels appear where applicable:
       `Action 1/16: queue.targetSingletonQueue` and
       `Action 2/16: queue.items.list`; they do not dump raw JSON, logs, secrets,
       or stack traces.
-    - Expected: `queue.lifecycle.get` can appear in the continuation chain and
-      proceed to the next envelope or explicit `hobit.final.answer` after a
+    - Expected: `queue.lifecycle.get` and backend-backed read-only
+      `queue.review.getEvidenceBundle` can appear in the continuation chain
+      and proceed to the next envelope or explicit `hobit.final.answer` after a
       successful read.
     - Expected: the chain stops with a visible reason on confirmation,
       policy-blocked, unavailable, dry-run-required, failed, invalid input,
