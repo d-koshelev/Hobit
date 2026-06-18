@@ -61,7 +61,10 @@ approval policy values `never`, `on_request`, `untrusted`.
 `queue.item.startRun` requires top-level
 `confirmationToken: "operator-confirmed"` plus explicit `taskId` and
 `executorWidgetId`; `queue.importPromptPack` uses the same top-level
-confirmation token. Prose confirmation remains insufficient. Backend-backed reads/review/evidence
+confirmation token. Prose confirmation remains insufficient. Queue must be
+explicitly enabled before `queue.item.startRun`; when run-control results report
+`nextSuggestedCapability: "queue.enable"`, the next action is `queue.enable`,
+not `queue.item.startRun`. Backend-backed reads/review/evidence
 commands retain explicit id requirements, and transitional/finalizing commands
 remain conservative and policy-restricted. This hardening does not move Queue
 truth into frontend UI, redesign the backend aggregate, migrate Queue UI, add

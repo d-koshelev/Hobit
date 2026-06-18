@@ -222,7 +222,9 @@ actor ids, enum spellings, or capability ids from prose or UI selection.
 top-level `confirmationToken: "operator-confirmed"` after operator
 confirmation; prose such as "I confirm" is insufficient and is not inferred.
 `queue.item.startRun` also requires explicit `taskId` and `executorWidgetId`
-in `input`.
+in `input`. It also requires Queue to be enabled already; when a Queue
+capability result returns `nextSuggestedCapability: "queue.enable"`, the model
+must call `queue.enable` explicitly before `queue.item.startRun`.
 
 Typed-capability action mode now also has an explicit terminal answer marker:
 

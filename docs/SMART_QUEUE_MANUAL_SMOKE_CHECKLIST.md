@@ -663,13 +663,21 @@ During the smoke, verify these product labels appear where applicable:
 5. Invoke `queue.enable`.
    - Expected: Queue is enabled; no Queue Autorun, shell, Terminal, Git,
      validation, rollback, or dependent task start is triggered.
+   - If a prior Queue result reported `nextSuggestedCapability:
+     "queue.enable"` with blocker `Queue disabled.`, this explicit action is
+     required before start.
 
 6. Invoke `queue.item.startRun` with the same exact `taskId` and an explicit
    `executorWidgetId`.
+   - Required: Queue is already enabled and the request has top-level
+     `confirmationToken: "operator-confirmed"`.
    - Expected on accepted start: the result includes `taskId`,
      `executorWidgetId`, and `runId`; the Queue task refreshes to `running` or
      the latest backend final state; latest run-link metadata shows the
      returned run id; the board/details do not remain stale as Ready/Queued.
+   - Expected when Queue is disabled: the capability returns blocked with
+     `Queue disabled.` and `nextSuggestedCapability: "queue.enable"`; it does
+     not auto-enable Queue.
    - Expected when start cannot actually run: the capability returns blocked
      or unavailable with a compact blocker such as local executor unavailable
      and does not claim `Queue-linked run started`.

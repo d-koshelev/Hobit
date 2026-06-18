@@ -49,6 +49,13 @@ registered `nextSuggestedCapability` ids. The model must not invent task ids,
 run ids, message ids, evidence ids, actor ids, capability ids, or enum values
 from prose or UI state.
 
+Queue enabled/disabled control state is currently exposed to broker adapters
+through the typed Workspace Queue bridge from controller execution state. This
+is transitional frontend/controller ownership, not Queue UI truth. Broker
+adapters may use that typed bridge read to choose between `queue.enable` and
+`queue.item.startRun`, while `queue.item.startRun` must still reject disabled
+Queue state and must not auto-enable Queue.
+
 ## Transitional Capabilities
 
 These capabilities are still transitional:

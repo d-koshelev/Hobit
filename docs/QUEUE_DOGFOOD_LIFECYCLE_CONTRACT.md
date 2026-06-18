@@ -100,6 +100,11 @@ Backend/domain aggregate and review command foundation:
   remains transitional compatibility behavior for validation, follow-up,
   mark-done, fail, and block lifecycle capabilities until durable commands
   exist.
+- Queue run-control next-action selection also reads Queue enabled/disabled
+  state through the typed Workspace Queue bridge. Disabled Queue state surfaces
+  `queue_disabled` / `Queue disabled.` and `nextSuggestedCapability:
+  "queue.enable"`; `queue.item.startRun` remains an explicit command that
+  rejects disabled Queue state and never auto-enables.
 
 The backend aggregate is now the authoritative Queue read model for durable
 task/run-link/dependency/worker-evidence/review-message inspection and

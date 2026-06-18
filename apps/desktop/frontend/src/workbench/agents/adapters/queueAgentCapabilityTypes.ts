@@ -341,6 +341,20 @@ export type QueueAgentStartRunResult = {
   taskId: string;
 };
 
+export type QueueAgentStartRunBlockedResult = {
+  blockers?: AgentQueueItemAggregateBlocker[];
+  blockerReasons: string[];
+  executorWidgetId?: string;
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
+  queueEnabled?: boolean;
+  startedDirectWork: false;
+  taskId?: string;
+};
+
+export type QueueAgentStartRunAttemptResult =
+  | QueueAgentStartRunBlockedResult
+  | QueueAgentStartRunResult;
+
 export type QueueAgentPromptPackInput = {
   fileEntries?: readonly PromptPackFileEntry[];
   preview?: PromptPackImportPreviewModel;
@@ -694,7 +708,7 @@ export type QueueAgentAdapterApi = {
     input: Required<Pick<QueueAgentStartRunInput, "executorWidgetId" | "taskId">> &
       Omit<QueueAgentStartRunInput, "executorWidgetId" | "taskId">,
     context: QueueAgentLifecycleHandlerContext,
-  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentStartRunResult>>;
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentStartRunAttemptResult>>;
   supportsDependencyEdges: boolean;
   supportsSafeMutationSandbox?: boolean;
   updateRunSettings?: (

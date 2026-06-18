@@ -1710,6 +1710,319 @@ describe("queueAgentCapabilities invoke", () => {
     });
   });
 
+  it("routes runnable backend aggregate next action to queue.enable while Queue is disabled", async () => {
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        executionWorkspace: "C:/repo",
+        nextActions: [
+          {
+            available: true,
+            code: "start_run",
+            label: "Start run",
+            unavailableReason: null,
+          },
+        ],
+        sandbox: "workspace_write",
+        taskId: "task-disabled",
+        ticketState: "queued",
+      }),
+    ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getAvailableExecutorTargets: () => [
+              {
+                label: "Local executor ready",
+                ownerKind: "agent_queue",
+                widgetInstanceId: "executor-1",
+              },
+            ],
+            getQueueControlState: () => ({
+              globalExecutionState: "stopped",
+              queueEnabled: false,
+            }),
+            listItemAggregates,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      items: Array<{
+        blockers: Array<{ code: string; message: string }>;
+        blockerReasons: string[];
+        canStart: boolean;
+        nextActions: Array<{ code: string; suggestedCapability?: string | null }>;
+        nextSuggestedCapability?: string | null;
+        taskId: string;
+      }>;
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output?.nextSuggestedCapability).toBe("queue.enable");
+    expect(result.result.output?.items[0]).toMatchObject({
+      blockerReasons: ["Queue disabled."],
+      blockers: [{ code: "queue_disabled", message: "Queue disabled." }],
+      canStart: false,
+      nextSuggestedCapability: "queue.enable",
+      taskId: "task-disabled",
+    });
+    expect(result.result.output?.items[0]?.nextActions).toContainEqual(
+      expect.objectContaining({
+        code: "start_run",
+        suggestedCapability: "queue.enable",
+      }),
+    );
+  });
+
+  it("returns queue.enable after run settings make a queued task runnable while Queue is disabled", async () => {
+    const getSnapshot = vi.fn(async () =>
+      queueBridgeSnapshotResult({
+        items: [
+          queueBridgeSnapshotItem({
+            approvalPolicy: "on_request",
+            codexExecutable: "codex.cmd",
+            executionWorkspace: "C:/repo",
+            id: "task-disabled",
+            sandbox: "workspace_write",
+            status: "queued",
+          }),
+        ],
+        selectedItem: queueBridgeSnapshotItem({
+          approvalPolicy: "on_request",
+          codexExecutable: "codex.cmd",
+          executionWorkspace: "C:/repo",
+          id: "task-disabled",
+          sandbox: "workspace_write",
+          status: "queued",
+        }),
+        selectedItemId: "task-disabled",
+      }),
+    );
+    const updateItem = vi.fn(
+      async (input: Parameters<WorkspaceAgentQueueBridge["updateItem"]>[0]) =>
+        queueBridgeItemResult({
+          approvalPolicy: "on_request",
+          codexExecutable: input.patch.codexExecutable ?? "codex.cmd",
+          executionWorkspace: "C:/repo",
+          id: input.itemId,
+          sandbox: "workspace_write",
+          status: "queued",
+        }),
+    );
+    const enableQueue = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            enableQueue,
+            getAvailableExecutorTargets: () => [
+              {
+                label: "Local executor ready",
+                ownerKind: "agent_queue",
+                widgetInstanceId: "executor-1",
+              },
+            ],
+            getQueueControlState: () => ({
+              globalExecutionState: "stopped",
+              queueEnabled: false,
+            }),
+            getSnapshot,
+            updateItem,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      item: {
+        blockers?: Array<{ code: string; message: string }>;
+        blockerReasons: string[];
+        canStart: boolean;
+        nextSuggestedCapability?: string | null;
+      };
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.item.updateRunSettings",
+        input: {
+          codexExecutable: "codex.cmd",
+          taskId: "task-disabled",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output?.nextSuggestedCapability).toBe("queue.enable");
+    expect(result.result.output?.item).toMatchObject({
+      blockerReasons: ["Queue disabled."],
+      blockers: [{ code: "queue_disabled", message: "Queue disabled." }],
+      canStart: false,
+      nextSuggestedCapability: "queue.enable",
+    });
+    expect(enableQueue).not.toHaveBeenCalled();
+  });
+
+  it("keeps startRun blocked while Queue is disabled and does not auto-enable", async () => {
+    const enableQueue = vi.fn();
+    const startQueueLinkedRun = vi.fn(async () => ({
+      blockerReasons: ["Queue disabled."],
+      message: "Queue disabled.",
+      ok: false,
+      status: "blocked" as const,
+    }));
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            enableQueue,
+            getQueueControlState: () => ({
+              globalExecutionState: "stopped",
+              queueEnabled: false,
+            }),
+            startQueueLinkedRun,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      blockers: Array<{ code: string; message: string }>;
+      blockerReasons: string[];
+      nextSuggestedCapability?: string | null;
+      queueEnabled: boolean;
+      startedDirectWork: boolean;
+    }>(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-disabled",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("failed");
+    expect(result.result.message).toBe("Queue disabled.");
+    expect(result.result.output).toMatchObject({
+      blockers: [{ code: "queue_disabled", message: "Queue disabled." }],
+      blockerReasons: ["Queue disabled."],
+      nextSuggestedCapability: "queue.enable",
+      queueEnabled: false,
+      startedDirectWork: false,
+    });
+    expect(startQueueLinkedRun).toHaveBeenCalledTimes(1);
+    expect(enableQueue).not.toHaveBeenCalled();
+  });
+
+  it("suggests startRun after explicit queue.enable succeeds", async () => {
+    const enableQueue = vi.fn(async () => ({
+      didAutoRunWorkers: false as const,
+      didStartWorkers: false as const,
+      globalExecutionState: "started",
+      message: "Queue enabled.",
+      ok: true,
+      queueEnabled: true,
+      status: "enabled" as const,
+    }));
+    const startQueueLinkedRun = vi.fn(async () => ({
+      executorWidgetId: "executor-1",
+      message: "Queue-linked Direct Work run started.",
+      ok: true,
+      response: {
+        executorWidgetInstanceId: "executor-1",
+        queueItemId: "task-1",
+        runId: "run-1",
+        status: "running",
+        workbenchId: "workbench-1",
+        workspaceId: "workspace-1",
+      },
+      status: "started" as const,
+    }));
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            enableQueue,
+            getQueueControlState: () => ({
+              globalExecutionState: "started",
+              queueEnabled: true,
+            }),
+            startQueueLinkedRun,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const enableResult = await broker.invokeAsync<{
+      nextSuggestedCapability?: string | null;
+      queueEnabled: boolean;
+    }>(
+      request({
+        capabilityId: "queue.enable",
+        input: {},
+      }),
+    );
+    const startResult = await broker.invokeAsync<{ runId: string }>(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(enableResult.status).toBe("succeeded");
+    expect(enableResult.result.output).toMatchObject({
+      nextSuggestedCapability: "queue.item.startRun",
+      queueEnabled: true,
+    });
+    expect(startResult.status).toBe("succeeded");
+    expect(startResult.result.output).toMatchObject({ runId: "run-1" });
+    expect(enableQueue).toHaveBeenCalledTimes(1);
+    expect(startQueueLinkedRun).toHaveBeenCalledTimes(1);
+  });
+
   it("accepts only exact Queue run-settings enum values", () => {
     const adapter = fakeQueueAdapter();
     adapter.updateRunSettings = vi.fn(

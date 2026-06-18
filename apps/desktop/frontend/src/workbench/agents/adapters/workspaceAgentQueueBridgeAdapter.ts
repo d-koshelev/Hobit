@@ -1,4 +1,7 @@
-import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
+import type {
+  WorkspaceAgentQueueBridge,
+  WorkspaceAgentQueueControlState,
+} from "../../workspaceAgentQueueBridge";
 import type {
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
@@ -40,7 +43,7 @@ import {
   type QueueAgentReviewCreateMessageInput,
   type QueueAgentReviewEvidenceBundleInput,
   type QueueAgentReviewEvidenceBundleOutput,
-  type QueueAgentStartRunResult,
+  type QueueAgentStartRunAttemptResult,
   type QueueAgentTaskReadiness,
   type QueueAgentTaskSummary,
   type QueueAgentUpdateRunSettingsInput,
@@ -85,15 +88,15 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
       ? {
           ...dogfoodLifecycle,
           ackReview: (input, context) =>
-            ackReviewThroughBackend(backendApi, input, context),
+            ackReviewThroughBackend(backendApi, bridge, input, context),
           agentFinished: (input, context) =>
-            recordWorkerFinishedThroughBackend(backendApi, input, context),
+            recordWorkerFinishedThroughBackend(backendApi, bridge, input, context),
           createReviewMessage: (input, context) =>
-            createReviewMessageThroughBackend(backendApi, input, context),
+            createReviewMessageThroughBackend(backendApi, bridge, input, context),
           getEvidenceBundle: (input, context) =>
-            getWorkerEvidenceBundleThroughBackend(backendApi, input, context),
+            getWorkerEvidenceBundleThroughBackend(backendApi, bridge, input, context),
           getLifecycle: (input, context) =>
-            getLifecycleThroughAggregate(backendApi, input, context),
+            getLifecycleThroughAggregate(backendApi, bridge, input, context),
         }
       : undefined,
     importPromptPack: async (input, request) => {
@@ -214,6 +217,7 @@ function unavailableLifecycleResult<TOutput>(
 
 async function getLifecycleThroughAggregate(
   backendApi: QueueBackendCapabilityPort | null | undefined,
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
   input: QueueAgentLifecycleGetInput,
   _context: unknown,
 ): Promise<QueueAgentAdapterResult<QueueAgentLifecycleGetOutput>> {
@@ -254,7 +258,10 @@ async function getLifecycleThroughAggregate(
     };
   }
 
-  const summary = queueTaskSummaryFromAggregate(aggregate);
+  const summary = queueTaskSummaryFromAggregate(
+    aggregate,
+    queueControlStateFromBridge(bridge),
+  );
 
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleGet],
@@ -386,9 +393,10 @@ async function listQueueItemsThroughBackend(
     };
   }
 
+  const queueControlState = queueControlStateFromBridge(bridge);
   const items = sourceItems
     .slice(0, limit)
-    .map((item) => queueTaskSummaryFromAggregate(item));
+    .map((item) => queueTaskSummaryFromAggregate(item, queueControlState));
 
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.itemsList],
@@ -442,32 +450,35 @@ async function updateRunSettingsThroughBridge(
   }
 
   if (dryRun) {
+    const previewItem = {
+      ...currentItem,
+      approvalPolicy:
+        patch.approvalPolicy === undefined
+          ? currentItem.approvalPolicy
+          : patch.approvalPolicy,
+      codexExecutable:
+        patch.codexExecutable === undefined
+          ? currentItem.codexExecutable
+          : patch.codexExecutable,
+      executionWorkspace:
+        patch.executionWorkspace === undefined
+          ? currentItem.executionWorkspace
+          : patch.executionWorkspace,
+      sandbox: patch.sandbox === undefined ? currentItem.sandbox : patch.sandbox,
+    };
+    const previewSummary = queueTaskSummaryFromSnapshot(
+      previewItem,
+      executorTargets(bridge),
+      queueControlStateFromBridge(bridge),
+    );
+
     return {
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.updateRunSettings],
       message: "Queue run settings update preview prepared.",
       output: {
         appliedFields,
-        item: queueTaskSummaryFromSnapshot(
-          {
-            ...currentItem,
-            approvalPolicy:
-              patch.approvalPolicy === undefined
-                ? currentItem.approvalPolicy
-                : patch.approvalPolicy,
-            codexExecutable:
-              patch.codexExecutable === undefined
-                ? currentItem.codexExecutable
-                : patch.codexExecutable,
-            executionWorkspace:
-              patch.executionWorkspace === undefined
-                ? currentItem.executionWorkspace
-                : patch.executionWorkspace,
-            sandbox:
-              patch.sandbox === undefined ? currentItem.sandbox : patch.sandbox,
-          },
-          executorTargets(bridge),
-        ),
-        nextSuggestedCapability: "queue.item.promoteDraft",
+        item: previewSummary,
+        nextSuggestedCapability: previewSummary.nextSuggestedCapability,
         taskId: input.taskId,
       },
       status: "succeeded",
@@ -488,16 +499,19 @@ async function updateRunSettingsThroughBridge(
   }
   const updatedItem = updated.output;
 
+  const summary = queueTaskSummaryFromSnapshot(
+    updatedItem,
+    executorTargets(bridge),
+    queueControlStateFromBridge(bridge),
+  );
+
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.updateRunSettings],
     message: "Queue run settings updated.",
     output: {
       appliedFields,
-      item: queueTaskSummaryFromSnapshot(updatedItem, executorTargets(bridge)),
-      nextSuggestedCapability:
-        updatedItem.status === "draft"
-          ? "queue.item.promoteDraft"
-          : "queue.item.startRun",
+      item: summary,
+      nextSuggestedCapability: summary.nextSuggestedCapability,
       taskId: input.taskId,
     },
     status: "succeeded",
@@ -522,7 +536,12 @@ async function promoteDraftThroughBridge(
   }
   const currentItem = current.output;
 
-  const summary = queueTaskSummaryFromSnapshot(currentItem, executorTargets(bridge));
+  const queueControlState = queueControlStateFromBridge(bridge);
+  const summary = queueTaskSummaryFromSnapshot(
+    currentItem,
+    executorTargets(bridge),
+    queueControlState,
+  );
   if (currentItem.status !== "draft") {
     return {
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.promoteDraft],
@@ -556,15 +575,21 @@ async function promoteDraftThroughBridge(
   }
 
   if (dryRun) {
+    const promotedSummary = queueTaskSummaryFromSnapshot(
+      {
+        ...currentItem,
+        status: "queued",
+      },
+      executorTargets(bridge),
+      queueControlState,
+    );
+
     return {
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.promoteDraft],
       message: "Queue draft promotion preview prepared.",
       output: {
-        item: {
-          ...summary,
-          nextSuggestedCapability: "queue.item.startRun",
-        },
-        nextSuggestedCapability: "queue.item.startRun",
+        item: promotedSummary,
+        nextSuggestedCapability: promotedSummary.nextSuggestedCapability,
         previousStatus: currentItem.status,
         taskId,
         wouldPromote: true,
@@ -587,12 +612,18 @@ async function promoteDraftThroughBridge(
   }
   const updatedItem = updated.output;
 
+  const updatedSummary = queueTaskSummaryFromSnapshot(
+    updatedItem,
+    executorTargets(bridge),
+    queueControlState,
+  );
+
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.promoteDraft],
     message: "Queue draft promoted to queued.",
     output: {
-      item: queueTaskSummaryFromSnapshot(updatedItem, executorTargets(bridge)),
-      nextSuggestedCapability: "queue.enable",
+      item: updatedSummary,
+      nextSuggestedCapability: updatedSummary.nextSuggestedCapability,
       previousStatus: currentItem.status,
       taskId,
       wouldPromote: true,
@@ -620,7 +651,11 @@ async function enableQueueThroughBridge(
     didAutoRunWorkers: false,
     didStartWorkers: false,
     globalExecutionState: result.globalExecutionState,
-    nextSuggestedCapability: result.ok ? "queue.item.startRun" : "queue.items.list",
+    nextSuggestedCapability: result.ok
+      ? result.queueEnabled
+        ? "queue.item.startRun"
+        : "queue.enable"
+      : "queue.items.list",
     queueEnabled: result.queueEnabled,
   };
 
@@ -641,7 +676,7 @@ async function startQueueLinkedRunThroughBridge(
   bridge: WorkspaceAgentQueueBridge | null | undefined,
   input: { executorWidgetId: string; queueId?: string; taskId: string },
   dryRun: boolean,
-): Promise<QueueAgentAdapterResult<QueueAgentStartRunResult>> {
+): Promise<QueueAgentAdapterResult<QueueAgentStartRunAttemptResult>> {
   if (!bridge?.startQueueLinkedRun) {
     return bridgeUnavailableResult(
       QUEUE_ACTIVITY_EVENTS.startRun,
@@ -657,6 +692,9 @@ async function startQueueLinkedRunThroughBridge(
   });
 
   if (!result.ok || !result.response) {
+    const queueDisabled =
+      queueControlStateFromBridge(bridge)?.queueEnabled === false ||
+      isQueueDisabledStartBlocker(result.blockerReasons ?? [result.message]);
     const status =
       result.status === "confirmation_required"
         ? "confirmation_required"
@@ -666,6 +704,17 @@ async function startQueueLinkedRunThroughBridge(
     return {
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.startRun],
       message: result.message,
+      output: queueDisabled
+        ? {
+            blockers: [QUEUE_DISABLED_BLOCKER],
+            blockerReasons: [QUEUE_DISABLED_MESSAGE],
+            executorWidgetId: input.executorWidgetId,
+            nextSuggestedCapability: "queue.enable",
+            queueEnabled: false,
+            startedDirectWork: false,
+            taskId: input.taskId,
+          }
+        : undefined,
       reasons: result.blockerReasons ?? [result.message],
       status,
     };
@@ -696,6 +745,7 @@ async function startQueueLinkedRunThroughBridge(
 
 async function recordWorkerFinishedThroughBackend(
   backendApi: QueueBackendCapabilityPort | null | undefined,
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
   input: Required<
     Pick<
       QueueAgentLifecycleAgentFinishedInput,
@@ -733,6 +783,7 @@ async function recordWorkerFinishedThroughBackend(
   if (context.dryRun) {
     return previewReviewCommandFromAggregate(
       backendApi,
+      queueControlStateFromBridge(bridge),
       taskId,
       context,
       "Queue worker evidence recording preview prepared.",
@@ -757,7 +808,7 @@ async function recordWorkerFinishedThroughBackend(
       workerId: input.workerId?.trim() || context.agentId.trim() || null,
     });
 
-    return workerFinishedCommandSucceeded(result);
+    return workerFinishedCommandSucceeded(result, queueControlStateFromBridge(bridge));
   } catch (error) {
     return reviewCommandFailed(
       error,
@@ -769,6 +820,7 @@ async function recordWorkerFinishedThroughBackend(
 
 async function getWorkerEvidenceBundleThroughBackend(
   backendApi: QueueBackendCapabilityPort | null | undefined,
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
   input: Required<Pick<QueueAgentReviewEvidenceBundleInput, "taskId">> &
     Omit<QueueAgentReviewEvidenceBundleInput, "taskId">,
   _context: QueueAgentLifecycleHandlerContext,
@@ -795,7 +847,10 @@ async function getWorkerEvidenceBundleThroughBackend(
       taskId,
     });
 
-    return workerEvidenceBundleReadSucceeded(result);
+    return workerEvidenceBundleReadSucceeded(
+      result,
+      queueControlStateFromBridge(bridge),
+    );
   } catch (error) {
     return reviewCommandFailed(
       error,
@@ -807,19 +862,24 @@ async function getWorkerEvidenceBundleThroughBackend(
 
 function workerFinishedCommandSucceeded(
   result: AgentQueueWorkerFinishedCommandResult,
+  queueControlState: WorkspaceAgentQueueControlState | null,
 ): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleAgentFinished],
     message: "Queue worker evidence recorded.",
-    output: workerFinishedOutputFromBackend(result),
+    output: workerFinishedOutputFromBackend(result, queueControlState),
     status: "succeeded",
   };
 }
 
 function workerFinishedOutputFromBackend(
   result: AgentQueueWorkerFinishedCommandResult,
+  queueControlState: WorkspaceAgentQueueControlState | null,
 ): QueueAgentLifecycleTransitionOutput {
-  const summary = queueTaskSummaryFromAggregate(result.aggregate);
+  const summary = queueTaskSummaryFromAggregate(
+    result.aggregate,
+    queueControlState,
+  );
 
   return {
     actionLabel: "Queue worker evidence recorded",
@@ -856,6 +916,7 @@ function workerFinishedOutputFromBackend(
 
 function workerEvidenceBundleReadSucceeded(
   result: AgentQueueWorkerEvidenceQueryResult,
+  queueControlState: WorkspaceAgentQueueControlState | null,
 ): QueueAgentAdapterResult<QueueAgentReviewEvidenceBundleOutput> {
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleReviewEvidenceBundle],
@@ -863,16 +924,17 @@ function workerEvidenceBundleReadSucceeded(
       result.state === "available"
         ? "Queue worker evidence bundle read from backend."
         : "Queue worker evidence bundle was not found.",
-    output: workerEvidenceBundleOutputFromBackend(result),
+    output: workerEvidenceBundleOutputFromBackend(result, queueControlState),
     status: "succeeded",
   };
 }
 
 function workerEvidenceBundleOutputFromBackend(
   result: AgentQueueWorkerEvidenceQueryResult,
+  queueControlState: WorkspaceAgentQueueControlState | null,
 ): QueueAgentReviewEvidenceBundleOutput {
   const aggregateSummary = result.aggregate
-    ? queueTaskSummaryFromAggregate(result.aggregate)
+    ? queueTaskSummaryFromAggregate(result.aggregate, queueControlState)
     : null;
   const bundle = result.evidenceBundle;
 
@@ -991,6 +1053,7 @@ function changedFilesSummaryFromWorkerFinishedInput(
 
 async function createReviewMessageThroughBackend(
   backendApi: QueueBackendCapabilityPort | null | undefined,
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
   input: Required<Pick<QueueAgentReviewCreateMessageInput, "taskId">> &
     Omit<QueueAgentReviewCreateMessageInput, "taskId">,
   context: QueueAgentLifecycleHandlerContext,
@@ -1013,6 +1076,7 @@ async function createReviewMessageThroughBackend(
   if (context.dryRun) {
     return previewReviewCommandFromAggregate(
       backendApi,
+      queueControlStateFromBridge(bridge),
       taskId,
       context,
       "Queue review message creation preview prepared.",
@@ -1029,6 +1093,7 @@ async function createReviewMessageThroughBackend(
     });
     return reviewCommandSucceeded(
       result,
+      queueControlStateFromBridge(bridge),
       "Queue review message created.",
       "Queue review message created",
       QUEUE_ACTIVITY_EVENTS.lifecycleReviewCreateMessage,
@@ -1044,6 +1109,7 @@ async function createReviewMessageThroughBackend(
 
 async function ackReviewThroughBackend(
   backendApi: QueueBackendCapabilityPort | null | undefined,
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
   input: Required<Pick<QueueAgentReviewAckInput, "messageId" | "taskId">> &
     Omit<QueueAgentReviewAckInput, "messageId" | "taskId">,
   context: QueueAgentLifecycleHandlerContext,
@@ -1073,6 +1139,7 @@ async function ackReviewThroughBackend(
   if (context.dryRun) {
     return previewReviewCommandFromAggregate(
       backendApi,
+      queueControlStateFromBridge(bridge),
       taskId,
       context,
       "Queue review acknowledgment preview prepared.",
@@ -1089,6 +1156,7 @@ async function ackReviewThroughBackend(
     });
     return reviewCommandSucceeded(
       result,
+      queueControlStateFromBridge(bridge),
       "Queue review acknowledged.",
       "Queue review acknowledged",
       QUEUE_ACTIVITY_EVENTS.lifecycleReviewAck,
@@ -1104,6 +1172,7 @@ async function ackReviewThroughBackend(
 
 async function previewReviewCommandFromAggregate(
   backendApi: QueueBackendCapabilityPort,
+  queueControlState: WorkspaceAgentQueueControlState | null,
   taskId: string,
   context: QueueAgentLifecycleHandlerContext,
   message: string,
@@ -1127,6 +1196,7 @@ async function previewReviewCommandFromAggregate(
       output: reviewTransitionOutputFromAggregate({
         actionLabel,
         aggregate,
+        queueControlState,
         context,
         durable: false,
         queueMutation: "none",
@@ -1144,6 +1214,7 @@ async function previewReviewCommandFromAggregate(
 
 function reviewCommandSucceeded(
   result: AgentQueueReviewCommandResult,
+  queueControlState: WorkspaceAgentQueueControlState | null,
   message: string,
   actionLabel: string,
   activityEventNames: readonly string[],
@@ -1154,6 +1225,7 @@ function reviewCommandSucceeded(
     output: reviewTransitionOutputFromAggregate({
       actionLabel,
       aggregate: result.aggregate,
+      queueControlState,
       context: null,
       durable: result.durable,
       messageId: result.messageId,
@@ -1193,6 +1265,7 @@ function invalidReviewCommandInput<TOutput>(
 function reviewTransitionOutputFromAggregate({
   actionLabel,
   aggregate,
+  queueControlState,
   context,
   durable,
   messageId,
@@ -1201,13 +1274,14 @@ function reviewTransitionOutputFromAggregate({
 }: {
   actionLabel: string;
   aggregate: AgentQueueItemAggregate;
+  queueControlState: WorkspaceAgentQueueControlState | null;
   context: QueueAgentLifecycleHandlerContext | null;
   durable: boolean;
   messageId?: string;
   queueMutation: "backend_domain" | "none";
   reviewMessage?: unknown;
 }): QueueAgentLifecycleTransitionOutput {
-  const summary = queueTaskSummaryFromAggregate(aggregate);
+  const summary = queueTaskSummaryFromAggregate(aggregate, queueControlState);
 
   return {
     actionLabel,
@@ -1331,12 +1405,26 @@ async function createQueueItemsThroughBridge(
 }
 
 const AGGREGATE_SOURCE = "tauri_queue_item_aggregate" as const;
+const QUEUE_DISABLED_MESSAGE = "Queue disabled.";
+const QUEUE_DISABLED_BLOCKER = {
+  code: "queue_disabled",
+  message: QUEUE_DISABLED_MESSAGE,
+} as const;
 
 function queueTaskSummaryFromAggregate(
   aggregate: AgentQueueItemAggregate,
+  queueControlState: WorkspaceAgentQueueControlState | null = null,
 ): QueueAgentTaskSummary {
-  const readiness = queueTaskReadinessFromAggregate(aggregate);
-  const nextActions = aggregate.nextActions.map(nextActionFromAggregate);
+  const readiness = queueTaskReadinessFromAggregate(
+    aggregate,
+    queueControlState,
+  );
+  const nextActions = aggregate.nextActions.map((action) =>
+    nextActionFromAggregate(action, queueControlState),
+  );
+  const blockers = readiness.blockerReasons.includes(QUEUE_DISABLED_MESSAGE)
+    ? withQueueDisabledBlocker(aggregate.blockers)
+    : aggregate.blockers;
 
   return {
     ...readiness,
@@ -1344,7 +1432,7 @@ function queueTaskSummaryFromAggregate(
     assignedExecutorWidgetId:
       aggregate.runSettings.assignedExecutorWidgetId ?? null,
     authoritativeBackendAggregate: true,
-    blockers: aggregate.blockers,
+    blockers,
     commitState: aggregate.commitState,
     dependencyState: aggregate.dependencyState,
     durableFlags: aggregate.durableFlags,
@@ -1366,6 +1454,7 @@ function queueTaskSummaryFromAggregate(
 
 function queueTaskReadinessFromAggregate(
   aggregate: AgentQueueItemAggregate,
+  queueControlState: WorkspaceAgentQueueControlState | null = null,
 ): QueueAgentTaskReadiness {
   const hasPrompt = !aggregate.blockers.some(
     (blocker) => blocker.code === "missing_prompt",
@@ -1444,29 +1533,48 @@ function queueTaskReadinessFromAggregate(
     };
   }
 
+  const queueDisabledBlocksStart = aggregateQueueDisabledBlocksStart(
+    aggregate,
+    queueControlState,
+  );
+
   return {
-    blockerReasons,
+    blockerReasons: queueDisabledBlocksStart
+      ? uniqueStrings([...blockerReasons, QUEUE_DISABLED_MESSAGE])
+      : blockerReasons,
     canPromote: false,
-    canStart,
+    canStart: queueDisabledBlocksStart ? false : canStart,
     draftState: "not_draft",
     hasApprovalPolicy,
     hasCodexExecutable,
     hasPrompt,
     hasSandbox,
     hasWorkspace,
-    nextSuggestedCapability: canStart
-      ? "queue.item.startRun"
-      : nextSuggestedCapabilityFromAggregate(aggregate),
-    readinessState: canStart ? "runnable" : "blocked",
+    nextSuggestedCapability: queueDisabledBlocksStart
+      ? "queue.enable"
+      : canStart
+        ? "queue.item.startRun"
+        : nextSuggestedCapabilityFromAggregate(aggregate),
+    readinessState: queueDisabledBlocksStart
+      ? "blocked"
+      : canStart
+        ? "runnable"
+        : "blocked",
   };
 }
 
 function nextActionFromAggregate(
   action: AgentQueueItemAggregate["nextActions"][number],
+  queueControlState: WorkspaceAgentQueueControlState | null = null,
 ): QueueAgentAggregateNextAction {
   return {
     ...action,
-    suggestedCapability: nextActionSuggestedCapability(action.code),
+    suggestedCapability:
+      action.code === "start_run" &&
+      action.available &&
+      queueControlState?.queueEnabled === false
+        ? "queue.enable"
+        : nextActionSuggestedCapability(action.code),
   };
 }
 
@@ -1507,13 +1615,21 @@ function nextActionSuggestedCapability(code: string) {
 function queueTaskSummaryFromSnapshot(
   item: QueueWidgetItemSnapshot,
   availableExecutors: readonly QueueAgentExecutorTarget[] = [],
+  queueControlState: WorkspaceAgentQueueControlState | null = null,
 ): QueueAgentTaskSummary {
-  const readiness = queueTaskReadinessFromSnapshot(item, availableExecutors);
+  const readiness = queueTaskReadinessFromSnapshot(
+    item,
+    availableExecutors,
+    queueControlState,
+  );
   const latestRunId = item.runLinks?.[0]?.directWorkRunId ?? null;
 
   return {
     ...readiness,
     assignedExecutorWidgetId: item.assignedExecutorWidgetId ?? null,
+    ...(readiness.blockerReasons.includes(QUEUE_DISABLED_MESSAGE)
+      ? { blockers: [QUEUE_DISABLED_BLOCKER] }
+      : {}),
     latestRunId,
     status: item.status,
     taskId: item.id,
@@ -1524,6 +1640,7 @@ function queueTaskSummaryFromSnapshot(
 function queueTaskReadinessFromSnapshot(
   item: QueueWidgetItemSnapshot,
   availableExecutors: readonly QueueAgentExecutorTarget[],
+  queueControlState: WorkspaceAgentQueueControlState | null = null,
 ): QueueAgentTaskReadiness {
   const hasPrompt = Boolean(item.prompt?.trim());
   const hasWorkspace = Boolean(item.executionWorkspace?.trim());
@@ -1607,22 +1724,67 @@ function queueTaskReadinessFromSnapshot(
     ...snapshotBlockers,
   ];
   const canStart = blockerReasons.length === 0;
+  const queueDisabledBlocksStart =
+    canStart && queueControlState?.queueEnabled === false;
 
   return {
-    blockerReasons,
+    blockerReasons: queueDisabledBlocksStart
+      ? uniqueStrings([...blockerReasons, QUEUE_DISABLED_MESSAGE])
+      : blockerReasons,
     canPromote: false,
-    canStart,
+    canStart: queueDisabledBlocksStart ? false : canStart,
     draftState: "not_draft",
     hasApprovalPolicy,
     hasCodexExecutable,
     hasPrompt,
     hasSandbox,
     hasWorkspace,
-    nextSuggestedCapability: canStart
-      ? "queue.item.startRun"
-      : "queue.item.updateRunSettings",
-    readinessState: canStart ? "runnable" : "blocked",
+    nextSuggestedCapability: queueDisabledBlocksStart
+      ? "queue.enable"
+      : canStart
+        ? "queue.item.startRun"
+        : "queue.item.updateRunSettings",
+    readinessState: queueDisabledBlocksStart
+      ? "blocked"
+      : canStart
+        ? "runnable"
+        : "blocked",
   };
+}
+
+function queueControlStateFromBridge(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+): WorkspaceAgentQueueControlState | null {
+  return bridge?.getQueueControlState?.() ?? null;
+}
+
+function aggregateQueueDisabledBlocksStart(
+  aggregate: AgentQueueItemAggregate,
+  queueControlState: WorkspaceAgentQueueControlState | null,
+) {
+  return (
+    queueControlState?.queueEnabled === false &&
+    aggregate.nextActions.some(
+      (action) => action.code === "start_run" && action.available,
+    )
+  );
+}
+
+function withQueueDisabledBlocker(
+  blockers: readonly AgentQueueItemAggregate["blockers"][number][],
+) {
+  if (blockers.some((blocker) => blocker.code === QUEUE_DISABLED_BLOCKER.code)) {
+    return [...blockers];
+  }
+
+  return [...blockers, QUEUE_DISABLED_BLOCKER];
+}
+
+function isQueueDisabledStartBlocker(reasons: readonly string[]) {
+  return reasons.some((reason) =>
+    reason.toLowerCase().includes("enable queue before starting") ||
+    reason.toLowerCase().includes("queue disabled"),
+  );
 }
 
 function missingRunSettingsBlockers({

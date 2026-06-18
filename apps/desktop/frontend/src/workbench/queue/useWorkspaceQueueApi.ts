@@ -27,6 +27,7 @@ import {
   type WorkspaceAgentQueueAutonomousActionName,
   type WorkspaceAgentQueueAutonomousActionResult,
   type WorkspaceAgentQueueBridge,
+  type WorkspaceAgentQueueControlState,
   type WorkspaceAgentQueueEnableResult,
   type WorkspaceAgentQueueStartRunRequest,
   type WorkspaceAgentQueueStartRunResult,
@@ -121,6 +122,8 @@ export function useWorkspaceQueueApi({
         latestBridgeRef.current?.getRunSettingsDefaults?.() ?? null,
       getAvailableExecutorTargets: () =>
         latestBridgeRef.current?.getAvailableExecutorTargets?.() ?? [],
+      getQueueControlState: () =>
+        latestBridgeRef.current?.getQueueControlState?.() ?? null,
       getSnapshot: (request) =>
         requiredBridge(latestBridgeRef).getSnapshot(request),
       getItemAggregate: (request) =>
@@ -335,6 +338,7 @@ export function useWorkspaceQueueApi({
       enableQueue: (request) =>
         enableQueueForWorkspaceAgent(controller, request.dryRun),
       getAvailableExecutorTargets: () => queueExecutorSlots,
+      getQueueControlState: () => queueControlStateFromController(controller),
       startQueueLinkedRun: (request) =>
         startQueueLinkedRunForWorkspaceAgent({
           actions,
@@ -390,6 +394,15 @@ export function useWorkspaceQueueApi({
     queueId,
     requestValidation,
     validationRunner,
+  };
+}
+
+function queueControlStateFromController(
+  controller: AgentQueueController,
+): WorkspaceAgentQueueControlState {
+  return {
+    globalExecutionState: controller.foundation.globalExecutionState,
+    queueEnabled: controller.foundation.globalExecutionState === "started",
   };
 }
 
@@ -612,8 +625,8 @@ async function startQueueLinkedRunForWorkspaceAgent({
 
   if (controller.foundation.globalExecutionState !== "started") {
     return queueStartRunResult({
-      blockerReasons: ["Enable queue before starting a Queue-linked run."],
-      message: "Enable queue before starting a Queue-linked run.",
+      blockerReasons: ["Queue disabled."],
+      message: "Queue disabled.",
       ok: false,
       status: "blocked",
     });

@@ -327,6 +327,20 @@ function queueStartRunMessage(result: HobitAgentActionResult) {
     stringField(result.output, "queueItemId");
   const runId = stringField(result.output, "runId");
   const executorWidgetId = stringField(result.output, "executorWidgetId");
+  const firstBlocker = stringArrayField(result.output, "blockerReasons")[0];
+
+  if (!result.ok) {
+    const parts = [
+      "Queue-linked run blocked.",
+      taskId ? `Task id: ${taskId}.` : null,
+      executorWidgetId ? `Executor widget id: ${executorWidgetId}.` : null,
+      firstBlocker ? `Blocker: ${firstBlocker}` : null,
+      nextSuggestedCapability(result.output),
+    ].filter((part): part is string => Boolean(part));
+
+    return parts.join(" ");
+  }
+
   const parts = [
     "Queue-linked run started.",
     taskId ? `Task id: ${taskId}.` : null,

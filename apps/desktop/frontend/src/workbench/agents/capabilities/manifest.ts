@@ -213,6 +213,7 @@ const QUEUE_ENABLE_SCHEMA: HobitAgentCapabilityInputSchema = {
   invalidInputGuidance: [
     "Use an empty input object.",
     "This action enables Queue scheduling state only; it does not create tasks, update readiness, start Queue Autorun, or start Direct Work.",
+    "When a Queue capability result says nextSuggestedCapability is queue.enable, call this capability explicitly before queue.item.startRun.",
   ],
   requiredFields: [],
   shape: "{}",
@@ -235,6 +236,7 @@ const QUEUE_START_RUN_SCHEMA: HobitAgentCapabilityInputSchema = {
     "Do not infer confirmation from prose such as I confirm.",
     "Do not infer taskId or executorWidgetId from task title, prompt text, file paths, final message, or natural-language content.",
     "Use queue.items.list first when ids are missing.",
+    "Queue must already be enabled. If a prior result says nextSuggestedCapability is queue.enable, call queue.enable first.",
     "This action starts exactly one explicit Queue-linked Direct Work run and does not run validation, Git, rollback, Terminal, Queue Autorun, or dependent tasks.",
   ],
   requiredFields: ["taskId", "executorWidgetId"],
@@ -546,7 +548,7 @@ export const HOBIT_AGENT_INITIAL_CAPABILITIES: HobitAgentCapability[] = [
     confirmationRequirement: "required",
     defaultForProductActions: true,
     description:
-      "Start exactly one explicit Queue-linked Direct Work run for a supplied taskId and executorWidgetId through existing assigned-task start plumbing.",
+      "Start exactly one explicit Queue-linked Direct Work run for a supplied taskId and executorWidgetId through existing assigned-task start plumbing after Queue has been explicitly enabled.",
     forbiddenSideEffects: [
       "task_id_inference",
       "executor_id_inference",

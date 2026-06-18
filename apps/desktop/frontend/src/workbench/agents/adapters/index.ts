@@ -47,6 +47,8 @@ export type {
   QueueAgentSideEffectFlags,
   QueueAgentSingletonTarget,
   QueueAgentSourceMetadata,
+  QueueAgentStartRunAttemptResult,
+  QueueAgentStartRunBlockedResult,
   QueueAgentStartRunInput,
   QueueAgentStartRunResult,
   QueueAgentTaskReadiness,

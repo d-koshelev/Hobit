@@ -68,6 +68,11 @@ export type WorkspaceAgentQueueStartRunRequest = {
   taskId: string;
 };
 
+export type WorkspaceAgentQueueControlState = {
+  globalExecutionState?: string | null;
+  queueEnabled: boolean;
+};
+
 export type WorkspaceAgentQueueStartRunResult = {
   blockerReasons?: string[];
   executorWidgetId?: string;
@@ -87,6 +92,7 @@ export type WorkspaceQueueControlActions = {
     request: WorkspaceAgentQueueEnableRequest,
   ) => Promise<WorkspaceAgentQueueEnableResult>;
   getAvailableExecutorTargets?: () => AgentExecutorSlot[];
+  getQueueControlState?: () => WorkspaceAgentQueueControlState | null;
   startQueueLinkedRun: (
     request: WorkspaceAgentQueueStartRunRequest,
   ) => Promise<WorkspaceAgentQueueStartRunResult>;
@@ -147,6 +153,7 @@ export type WorkspaceAgentQueueBridge = {
   getCurrentWorkspaceRoot?: () => string | null;
   getRunSettingsDefaults?: () => AgentQueueTaskRunSettingsDefaults | null;
   getAvailableExecutorTargets?: () => AgentExecutorSlot[];
+  getQueueControlState?: () => WorkspaceAgentQueueControlState | null;
   getSnapshot: (
     request?: Omit<Partial<QueueGetSnapshotRequest>, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetSnapshot>>;
@@ -236,6 +243,8 @@ export function createWorkspaceAgentQueueBridge({
       queueState?.getRunSettingsDefaults() ?? null,
     getAvailableExecutorTargets: () =>
       controlActions?.getAvailableExecutorTargets?.() ?? [],
+    getQueueControlState: () =>
+      controlActions?.getQueueControlState?.() ?? null,
     getCurrentWorkspaceRoot: () =>
       queueState?.getCurrentWorkspaceRoot?.() ?? null,
     getSnapshot: (request = {}) =>

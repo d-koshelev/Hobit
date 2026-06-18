@@ -168,7 +168,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       capabilityId: "queue.enable",
       confirmationRequirement: "recommended",
       fieldPolicies: {},
-      nextSuggestedCapabilities: ["queue.item.startRun"],
+      nextSuggestedCapabilities: ["queue.enable", "queue.item.startRun"],
       sideEffectLevel: "write",
     }),
     queueContract({
@@ -240,7 +240,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       fieldPolicies: {
         taskId: "model_required",
       },
-      nextSuggestedCapabilities: ["queue.item.startRun"],
+      nextSuggestedCapabilities: ["queue.enable", "queue.item.startRun"],
       requiredIds: { taskId: true },
       sideEffectLevel: "write",
     }),
@@ -275,6 +275,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         workspaceRoot: "model_optional",
       },
       nextSuggestedCapabilities: [
+        "queue.enable",
         "queue.item.promoteDraft",
         "queue.item.startRun",
         "queue.item.updateRunSettings",
@@ -291,6 +292,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         taskId: "model_optional",
       },
       nextSuggestedCapabilities: [
+        "queue.enable",
         "queue.item.promoteDraft",
         "queue.item.startRun",
         "queue.item.updateRunSettings",
@@ -338,6 +340,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         taskId: "model_required",
       },
       nextSuggestedCapabilities: [
+        "queue.enable",
         "queue.item.promoteDraft",
         "queue.item.startRun",
         "queue.item.updateRunSettings",
