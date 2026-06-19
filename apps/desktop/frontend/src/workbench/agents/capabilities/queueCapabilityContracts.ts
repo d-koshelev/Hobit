@@ -130,8 +130,8 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       capabilityId: "queue.createItem",
       confirmationRequirement: "recommended",
       fieldPolicies: {
-        dependencies: "model_optional",
         description: "model_optional",
+        dependsOn: "model_optional",
         id: "model_optional",
         prompt: "model_required",
         source: "model_optional",
@@ -149,8 +149,8 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       confirmationRequirement: "recommended",
       fieldPolicies: {
         items: "model_required",
-        "items[].dependencies": "model_optional",
         "items[].description": "model_optional",
+        "items[].dependsOn": "model_optional",
         "items[].id": "model_optional",
         "items[].prompt": "model_required",
         "items[].source": "model_optional",

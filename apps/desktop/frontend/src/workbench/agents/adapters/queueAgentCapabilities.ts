@@ -960,7 +960,7 @@ function createItemsFromPromptPackPreview(
     dependencyIdsByTaskId.set(dependency.downstreamTaskId, dependencyIds);
   }
   const items = materialization.tasks.map((task) => ({
-    dependencies: dependencyIdsByTaskId.get(task.taskId) ?? [],
+    dependsOn: dependencyIdsByTaskId.get(task.taskId) ?? [],
     description: `Prompt pack: ${task.source.packName ?? "Prompt Pack"} (${task.source.packId})`,
     id: task.taskId,
     prompt: task.prompt,
@@ -1222,6 +1222,7 @@ function normalizeCreateItemsInput(
     const title = item.title?.trim() ?? "";
     const prompt = item.prompt?.trim() ?? "";
     const id = item.id?.trim() || `item-${(index + 1).toString()}`;
+    const dependencies = normalizeDependsOnRefs(item);
 
     if (!title) {
       return { ok: false, message: "Queue item title is required." };
@@ -1236,8 +1237,12 @@ function normalizeCreateItemsInput(
     }
     ids.add(id);
 
+    if (!dependencies.ok) {
+      return { ok: false, message: dependencies.message };
+    }
+
     normalizedItems.push({
-      dependencies: normalizeDependencyRefs(item.dependencies),
+      dependencies: dependencies.value,
       description: item.description?.trim() ?? "",
       id,
       prompt,
@@ -1265,10 +1270,61 @@ function normalizeCreateItemsInput(
   };
 }
 
-function normalizeDependencyRefs(value: unknown) {
-  return Array.isArray(value)
-    ? [...new Set(value.map((item) => String(item).trim()).filter(Boolean))]
-    : [];
+function normalizeDependsOnRefs(
+  item: QueueAgentCreateItemInput,
+): ValidationResult<string[]> {
+  const input = item as Record<string, unknown>;
+
+  if (hasOwn(input, "dependencies")) {
+    return {
+      ok: false,
+      message:
+        "Queue item dependencies must use dependsOn, not dependencies.",
+    };
+  }
+
+  if (hasOwn(input, "depends_on")) {
+    return {
+      ok: false,
+      message:
+        "Queue item dependencies must use dependsOn, not depends_on.",
+    };
+  }
+
+  if (!hasOwn(input, "dependsOn") || input.dependsOn === undefined) {
+    return { ok: true, value: [] };
+  }
+
+  if (!Array.isArray(input.dependsOn)) {
+    return {
+      ok: false,
+      message: "Queue item dependsOn must be an array of Queue task ids.",
+    };
+  }
+
+  const dependencyIds: string[] = [];
+  for (const dependencyId of input.dependsOn) {
+    if (typeof dependencyId !== "string") {
+      return {
+        ok: false,
+        message:
+          "Queue item dependsOn entries must be non-empty Queue task id strings.",
+      };
+    }
+
+    const trimmedDependencyId = dependencyId.trim();
+    if (!trimmedDependencyId) {
+      return {
+        ok: false,
+        message:
+          "Queue item dependsOn entries must be non-empty Queue task id strings.",
+      };
+    }
+
+    dependencyIds.push(trimmedDependencyId);
+  }
+
+  return { ok: true, value: dependencyIds };
 }
 
 function actionResultFromAdapter<TOutput>({

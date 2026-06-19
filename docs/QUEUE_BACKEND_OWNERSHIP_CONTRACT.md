@@ -65,6 +65,15 @@ dependents. Aggregate dependency states `waiting`, `blocked`,
 `markDone`, downstream aggregate reads clear that dependency blocker and expose
 the downstream task's own next action; no dependent starts automatically.
 
+Typed Workspace Agent Queue create capabilities expose dependencies as
+`dependsOn: string[]` over explicit upstream task ids. The broker passes those
+ids through the typed Queue API to Tauri/backend storage; backend/domain remains
+authoritative for missing dependency, workspace mismatch, self, duplicate, and
+cycle validation where each shape is testable. Frontend adapters may reject
+only shallow shape errors such as non-array or non-string dependency fields.
+They must not infer dependencies from title, prompt, item order, prose, UI
+selection, or prompt-pack-local ids.
+
 Durable dependency failure/block propagation is limited until backend
 coordinator fail/block commands exist. Current failed-upstream behavior may
 derive from existing durable task-row terminal failure state, not a full

@@ -199,7 +199,12 @@ describe("queueAgentCapabilities dry-run", () => {
         input: {
           items: [
             { id: "a", prompt: "Prompt A", title: "Task A" },
-            { dependencies: ["a"], id: "b", prompt: "Prompt B", title: "Task B" },
+            {
+              dependsOn: ["queue-existing-upstream"],
+              id: "b",
+              prompt: "Prompt B",
+              title: "Task B",
+            },
           ],
         },
       }),
@@ -245,6 +250,56 @@ describe("queueAgentCapabilities dry-run", () => {
 
     expect(result.status).toBe("invalid_input");
     expect(result.result.message).toBe("Queue item title is required.");
+  });
+
+  it("rejects invalid Queue dependency create fields before adapter mutation", () => {
+    const adapter = fakeQueueAdapter();
+    const broker = createQueueBroker(adapter, { allowWriteInvoke: true });
+
+    const wrongType = broker.invoke(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependsOn: "upstream-task",
+          prompt: "Run after upstream.",
+          title: "Dependent task",
+        },
+      }),
+    );
+    const oldField = broker.invoke(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependencies: ["upstream-task"],
+          prompt: "Run after upstream.",
+          title: "Dependent task",
+        },
+      }),
+    );
+    const snakeCaseField = broker.invoke(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          depends_on: ["upstream-task"],
+          prompt: "Run after upstream.",
+          title: "Dependent task",
+        },
+      }),
+    );
+
+    expect(wrongType.status).toBe("invalid_input");
+    expect(wrongType.result.message).toBe(
+      "Queue item dependsOn must be an array of Queue task ids.",
+    );
+    expect(oldField.status).toBe("invalid_input");
+    expect(oldField.result.message).toBe(
+      "Queue item dependencies must use dependsOn, not dependencies.",
+    );
+    expect(snakeCaseField.status).toBe("invalid_input");
+    expect(snakeCaseField.result.message).toBe(
+      "Queue item dependencies must use dependsOn, not depends_on.",
+    );
+    expect(adapter.createItems).not.toHaveBeenCalled();
   });
 
   it("keeps Queue item prompt required for createItem and createItems", () => {
@@ -295,6 +350,33 @@ describe("queueAgentCapabilities dry-run", () => {
       expect(result.status).toBe("invalid_input");
       expect(result.result.message).toBe("Queue item prompt is required.");
     }
+  });
+
+  it("does not infer Queue dependencies from title, prompt, prose, or item order", () => {
+    const adapter = fakeQueueAdapter();
+    const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke(
+      request({
+        capabilityId: "queue.createItems",
+        input: {
+          items: [
+            {
+              prompt: "Prepare the upstream output.",
+              title: "Task A",
+            },
+            {
+              prompt:
+                "After Task A is done, use its output. This prose is not a dependency field.",
+              title: "Task B after Task A",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(adapter.createdItems).toHaveLength(2);
+    expect(adapter.createdItems[0]?.dependencies).toEqual([]);
+    expect(adapter.createdItems[1]?.dependencies).toEqual([]);
   });
 });
 
@@ -397,7 +479,7 @@ describe("queueAgentCapabilities invoke", () => {
     expect(adapter.operations.workerStarts).toBe(0);
   });
 
-  it("creates multiple Queue items and preserves source metadata and dependency edges", () => {
+  it("creates multiple Queue items and preserves source metadata and explicit dependency ids", () => {
     const adapter = fakeQueueAdapter();
     const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke<{
       dependencyEdgesPreserved: boolean;
@@ -414,7 +496,7 @@ describe("queueAgentCapabilities invoke", () => {
               title: "First",
             },
             {
-              dependencies: ["first"],
+              dependsOn: ["queue-existing-upstream"],
               id: "second",
               prompt: "Second prompt.",
               sourceMetadata: { promptId: "002" },
@@ -435,8 +517,37 @@ describe("queueAgentCapabilities invoke", () => {
       "first",
       "second",
     ]);
-    expect(adapter.createdItems[1]?.dependencies).toEqual(["first"]);
+    expect(adapter.createdItems[1]?.dependencies).toEqual([
+      "queue-existing-upstream",
+    ]);
     expect(adapter.lastCreateRequest?.sourceMetadata).toEqual({ packId: "pack-1" });
+  });
+
+  it("creates a downstream Queue item with explicit dependsOn task ids", () => {
+    const adapter = fakeQueueAdapter();
+    const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke<{
+      createdItems: Array<{ dependencies: string[]; id: string }>;
+      createdTaskIds: string[];
+    }>(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependsOn: ["queue-upstream-task-id"],
+          prompt: "Run only after the upstream task is accepted complete.",
+          title: "Downstream task",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(adapter.createdItems).toHaveLength(1);
+    expect(adapter.createdItems[0]?.dependencies).toEqual([
+      "queue-upstream-task-id",
+    ]);
+    expect(result.result.output?.createdItems[0]?.dependencies).toEqual([
+      "queue-upstream-task-id",
+    ]);
+    expect(result.result.output?.createdTaskIds).toEqual(["item-1"]);
   });
 
   it("uses the injected Workspace Agent Queue bridge for createItems", async () => {
@@ -476,7 +587,7 @@ describe("queueAgentCapabilities invoke", () => {
         input: {
           items: [
             {
-              dependencies: ["first"],
+              dependsOn: ["queue-existing-upstream"],
               id: "second",
               prompt: "Second prompt.",
               status: "queued",
@@ -491,7 +602,7 @@ describe("queueAgentCapabilities invoke", () => {
     expect(createItem).toHaveBeenCalledTimes(1);
     expect(createItem).toHaveBeenCalledWith(
       expect.objectContaining({
-        dependencies: ["first"],
+        dependencies: ["queue-existing-upstream"],
         prompt: "Second prompt.",
         status: "queued",
         title: "Second",
@@ -506,6 +617,232 @@ describe("queueAgentCapabilities invoke", () => {
       wouldTargetSingletonQueue: true,
     });
     expect(result.result.output?.createdItems).toHaveLength(1);
+  });
+
+  it("creates upstream then downstream through the injected bridge with explicit dependsOn", async () => {
+    const createItem = vi.fn(
+      async (input: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        queueBridgeItemResult({
+          dependencies: input.dependencies ?? [],
+          id: input.title === "Upstream" ? "task-upstream" : "task-downstream",
+          prompt: input.prompt,
+          status: input.status,
+          title: input.title,
+        }),
+    );
+    const runAutonomousQueue = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createItem, runAutonomousQueue }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const upstream = await broker.invokeAsync<{ createdTaskIds: string[] }>(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          prompt: "Prepare the prerequisite result.",
+          title: "Upstream",
+        },
+      }),
+    );
+    const upstreamTaskId = upstream.result.output?.createdTaskIds[0] ?? "";
+    const downstream = await broker.invokeAsync<{
+      createdItems: Array<{ dependencies: string[]; id: string }>;
+      createdTaskIds: string[];
+    }>(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependsOn: [upstreamTaskId],
+          prompt: "Use the accepted upstream result.",
+          title: "Downstream",
+        },
+      }),
+    );
+
+    expect(upstream.status).toBe("succeeded");
+    expect(upstreamTaskId).toBe("task-upstream");
+    expect(downstream.status).toBe("succeeded");
+    expect(createItem).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        dependencies: ["task-upstream"],
+        prompt: "Use the accepted upstream result.",
+        title: "Downstream",
+      }),
+    );
+    expect(downstream.result.output).toMatchObject({
+      createdItems: [
+        {
+          dependencies: ["task-upstream"],
+          id: "task-downstream",
+        },
+      ],
+      createdTaskIds: ["task-downstream"],
+    });
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+  });
+
+  it("uses backend aggregate dependency waiting state in downstream create results when available", async () => {
+    const createItem = vi.fn(
+      async (input: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        queueBridgeItemResult({
+          dependencies: input.dependencies ?? [],
+          id: "task-downstream",
+          prompt: input.prompt,
+          status: "queued",
+          title: input.title,
+        }),
+    );
+    const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>
+      queueAggregate({
+        blockers: [
+          {
+            code: "dependency_waiting",
+            message: "At least one dependency has not reached accepted completion.",
+          },
+        ],
+        dependencyState: "waiting",
+        nextActions: [
+          {
+            available: false,
+            code: "none",
+            label: "No action",
+            unavailableReason: "dependencies_not_ready",
+          },
+        ],
+        taskId,
+        ticketState: "queued",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createItem, getItemAggregate }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      createdItems: Array<{
+        dependencies: string[];
+        nextSuggestedCapability: string | null;
+        readiness: {
+          authoritativeBackendAggregate?: boolean;
+          blockerReasons: string[];
+          canStart: boolean;
+          dependencyState?: string;
+          nextSuggestedCapability?: string | null;
+        };
+      }>;
+      nextSuggestedCapability: string | null;
+    }>(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependsOn: ["task-upstream"],
+          prompt: "Run after upstream accepted completion.",
+          title: "Downstream",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(getItemAggregate).toHaveBeenCalledWith({
+      taskId: "task-downstream",
+    });
+    expect(result.result.output).toMatchObject({
+      createdItems: [
+        {
+          dependencies: ["task-upstream"],
+          nextSuggestedCapability: null,
+          readiness: {
+            authoritativeBackendAggregate: true,
+            blockerReasons: [
+              "At least one dependency has not reached accepted completion.",
+            ],
+            canStart: false,
+            dependencyState: "waiting",
+            nextSuggestedCapability: null,
+          },
+        },
+      ],
+      nextSuggestedCapability: null,
+    });
+  });
+
+  it("returns backend create validation failures for missing explicit upstream ids", async () => {
+    const createItem = vi.fn(
+      async (input: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) => {
+        if (input.dependencies?.includes("missing-upstream")) {
+          return {
+            action: "queue.createItem",
+            error: {
+              code: "create_failed",
+              message:
+                "queue task dependency not found in workspace: missing-upstream",
+            },
+            events: [],
+            message:
+              "queue task dependency not found in workspace: missing-upstream",
+            ok: false,
+            safetyClass: "safe_create_update",
+          } satisfies QueueWidgetActionResult<QueueWidgetItemSnapshot>;
+        }
+
+        return queueBridgeItemResult();
+      },
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(queueBridge({ createItem })),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependsOn: ["missing-upstream"],
+          prompt: "Run after the missing upstream task.",
+          title: "Dependent",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("failed");
+    expect(result.result.message).toBe(
+      "queue task dependency not found in workspace: missing-upstream",
+    );
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dependencies: ["missing-upstream"],
+      }),
+    );
   });
 
   it("reads queue.items.list from backend aggregate API instead of Queue snapshots", async () => {
@@ -3042,7 +3379,12 @@ describe("queueAgentCapabilities invoke", () => {
         input: {
           items: [
             { id: "a", prompt: "A", title: "A" },
-            { dependencies: ["a"], id: "b", prompt: "B", title: "B" },
+            {
+              dependsOn: ["queue-existing-upstream"],
+              id: "b",
+              prompt: "B",
+              title: "B",
+            },
           ],
         },
       }),

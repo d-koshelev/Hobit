@@ -216,6 +216,11 @@ capabilities, the model must use exact capability ids, required fields, enum
 values, and structured confirmation fields from the manifest. It must not
 guess task ids, run ids, executor widget ids, evidence bundle ids, message ids,
 actor ids, enum spellings, or capability ids from prose or UI selection.
+`queue.createItem` and `queue.createItems` expose dependencies with the public
+field `dependsOn: string[]`; the ids must come from typed Queue results, not
+from title, prompt, item order, prose, or prompt-pack-local ids. Dependency
+smoke should create the upstream task first, then create the downstream task
+with the returned upstream task id.
 `queue.item.updateRunSettings` accepts only sandbox values `read_only`,
 `workspace_write`, `danger_full_access` and approval policy values `never`,
 `on_request`, `untrusted`. Queue confirmation-required capabilities use
@@ -385,9 +390,12 @@ Queue create action input is intentionally strict at the adapter boundary.
 a non-empty `items` array, and every item requires `title` and `prompt`. The
 `prompt` field is the runnable task instruction, not a display-only
 description. Optional adapter fields are `status`, `description`,
-`dependencies`, `source`, `sourceMetadata`, and `id`; unsupported aliases such
-as `body`, `text`, `content`, `operatorPrompt`, `initialState`, `dependsOn`,
-`queueTag`, and `priority` do not satisfy Queue create input.
+`dependsOn`, `source`, `sourceMetadata`, and `id`; unsupported aliases such as
+`body`, `text`, `content`, `operatorPrompt`, `initialState`, `dependencies`,
+`depends_on`, `queueTag`, and `priority` do not satisfy Queue create input.
+`dependsOn` must be a string array of explicit upstream Queue task ids returned
+by typed Queue results; it is never inferred from prose, title, prompt text, or
+item order.
 
 Workspace Agent capability instructions may tell the model that explicit
 test, dummy, or example Queue item requests can use a safe placeholder prompt,
@@ -409,6 +417,16 @@ singleton Workspace Queue. It preserves title, prompt, source metadata,
 and dependency edges where the adapter supports them. If dependency edges
 cannot be represented, the handler returns a structured failed/unsupported
 result instead of silently dropping them.
+
+The public Workspace Agent dependency field is `dependsOn: string[]` on
+`queue.createItem` and `items[].dependsOn` on `queue.createItems`. It accepts
+only explicit upstream Queue task ids returned by typed Queue results. The
+adapter performs shallow shape validation and passes accepted ids through the
+typed Queue bridge; backend/domain storage remains the source of truth for
+missing, workspace-mismatched, duplicate, self, and cyclic dependency
+validation where each case is testable. Intra-batch references to tasks being
+created in the same `queue.createItems` call are deliberately not a stable
+public contract in this block.
 
 Prompt-pack preview uses existing prompt-pack and Smart Queue materialization
 models where practical and does not create Queue tasks. Prompt-pack import
@@ -688,11 +706,12 @@ Current honest foundation capabilities:
   read.
 - `agent.selfTest.run`: safe model-level in-app agent self-test.
 - `queue.createItem`: in-app Queue item creation through the singleton
-  Workspace Queue path; write side effect; no duplicate Queue view; no worker
-  start.
+  Workspace Queue path; optional `dependsOn: string[]` over explicit upstream
+  Queue task ids; write side effect; no duplicate Queue view; no worker start.
 - `queue.createItems`: in-app batch Queue item creation; write side effect;
-  supports dry-run/preview where a preview exists; no duplicate Queue view; no
-  Queue Autorun or worker start.
+  supports `items[].dependsOn` only for explicit existing upstream Queue task
+  ids and supports dry-run/preview where a preview exists; no duplicate Queue
+  view; no Queue Autorun or worker start.
 - `queue.preparePromptPackPreview`: safe prompt-pack preview/materialization;
   read side effect; targets the singleton Workspace Queue; no Queue items are
   created.

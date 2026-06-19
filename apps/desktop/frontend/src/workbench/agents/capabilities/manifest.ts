@@ -21,9 +21,16 @@ const QUEUE_CREATE_ITEMS_EXAMPLE_INPUT = {
   items: [QUEUE_CREATE_ITEM_EXAMPLE_INPUT],
 } as const;
 
+const QUEUE_CREATE_DEPENDENT_ITEM_EXAMPLE_INPUT = {
+  dependsOn: ["queue-upstream-task-id"],
+  prompt: "Run only after the upstream Queue task reaches accepted completion.",
+  status: "draft",
+  title: "Dependent Queue item",
+} as const;
+
 const QUEUE_CREATE_ITEM_FIELD_DESCRIPTIONS = {
-  dependencies:
-    "Optional dependency Queue item ids. Use dependencies, not dependsOn.",
+  dependsOn:
+    "Optional upstream Queue task ids. Use explicit task ids returned by queue.createItem(s), queue.items.list, or queue.lifecycle.get.",
   description:
     "Optional display/context description. This does not replace prompt.",
   id: "Optional caller-provided Queue item id.",
@@ -42,7 +49,7 @@ const QUEUE_CREATE_ITEM_SCHEMA: HobitAgentCapabilityInputSchema = {
     "prompt",
     "status",
     "description",
-    "dependencies",
+    "dependsOn",
     "source",
     "sourceMetadata",
     "id",
@@ -51,7 +58,9 @@ const QUEUE_CREATE_ITEM_SCHEMA: HobitAgentCapabilityInputSchema = {
   invalidInputGuidance: [
     "Queue item creation requires both title and prompt.",
     "The prompt is the runnable task instruction, not just a display description.",
-    "Do not use body, text, content, operatorPrompt, initialState, dependsOn, queueTag, or priority for Queue create action input.",
+    "Use dependsOn only for explicit upstream Queue task ids returned by typed Queue results.",
+    "Do not infer dependencies from title, prompt, item order, prose, or prompt-pack ids.",
+    "Do not use body, text, content, operatorPrompt, initialState, dependencies, depends_on, queueTag, or priority for Queue create action input.",
     "If the user explicitly asks for a test, dummy, or example Queue item, create a safe placeholder prompt.",
     "If the user asks for a real Queue item but does not provide task content, ask a concise clarification instead of emitting an invalid action request.",
     "Do not use shell, Codex, or source-code inspection to invent product action data.",
@@ -59,7 +68,7 @@ const QUEUE_CREATE_ITEM_SCHEMA: HobitAgentCapabilityInputSchema = {
   ],
   requiredFields: ["title", "prompt"],
   shape:
-    '{"title":"string required","prompt":"string required","status":"draft|queued|ready optional","description":"string optional","dependencies":"string[] optional","source":"object optional","sourceMetadata":"object optional","id":"string optional"}',
+    '{"title":"string required","prompt":"string required","status":"draft|queued|ready optional","description":"string optional","dependsOn":"string[] optional explicit upstream task ids","source":"object optional","sourceMetadata":"object optional","id":"string optional"}',
 };
 
 const QUEUE_CREATE_ITEMS_SCHEMA: HobitAgentCapabilityInputSchema = {
@@ -69,7 +78,7 @@ const QUEUE_CREATE_ITEMS_SCHEMA: HobitAgentCapabilityInputSchema = {
     "items[].prompt",
     "items[].status",
     "items[].description",
-    "items[].dependencies",
+    "items[].dependsOn",
     "items[].source",
     "items[].sourceMetadata",
     "items[].id",
@@ -78,8 +87,8 @@ const QUEUE_CREATE_ITEMS_SCHEMA: HobitAgentCapabilityInputSchema = {
   fieldDescriptions: {
     items:
       "Required non-empty array of Queue item creation inputs. Every item requires title and prompt.",
-    "items[].dependencies":
-      QUEUE_CREATE_ITEM_FIELD_DESCRIPTIONS.dependencies,
+    "items[].dependsOn":
+      QUEUE_CREATE_ITEM_FIELD_DESCRIPTIONS.dependsOn,
     "items[].description": QUEUE_CREATE_ITEM_FIELD_DESCRIPTIONS.description,
     "items[].id": QUEUE_CREATE_ITEM_FIELD_DESCRIPTIONS.id,
     "items[].prompt": QUEUE_CREATE_ITEM_FIELD_DESCRIPTIONS.prompt,
@@ -93,7 +102,7 @@ const QUEUE_CREATE_ITEMS_SCHEMA: HobitAgentCapabilityInputSchema = {
   invalidInputGuidance: QUEUE_CREATE_ITEM_SCHEMA.invalidInputGuidance,
   requiredFields: ["items", "items[].title", "items[].prompt"],
   shape:
-    '{"items":[{"title":"string required","prompt":"string required","status":"draft|queued|ready optional","description":"string optional","dependencies":"string[] optional","source":"object optional","sourceMetadata":"object optional","id":"string optional"}],"source":"object optional"}',
+    '{"items":[{"title":"string required","prompt":"string required","status":"draft|queued|ready optional","description":"string optional","dependsOn":"string[] optional explicit upstream task ids","source":"object optional","sourceMetadata":"object optional","id":"string optional"}],"source":"object optional"}',
 };
 
 const QUEUE_CREATE_ITEM_EXAMPLES: HobitAgentCapabilityExample[] = [
@@ -119,6 +128,18 @@ const QUEUE_CREATE_ITEM_EXAMPLES: HobitAgentCapabilityExample[] = [
     },
     exampleInput: QUEUE_CREATE_ITEM_EXAMPLE_INPUT,
   },
+  {
+    description:
+      "Create one downstream Queue item with an explicit upstream task id returned by a typed Queue result.",
+    exampleActionRequest: {
+      capabilityId: "queue.createItem",
+      dryRun: false,
+      input: QUEUE_CREATE_DEPENDENT_ITEM_EXAMPLE_INPUT,
+      requestId: "queue-create-dependent-item-1",
+      type: "hobit.action.request",
+    },
+    exampleInput: QUEUE_CREATE_DEPENDENT_ITEM_EXAMPLE_INPUT,
+  },
 ];
 
 const QUEUE_CREATE_ITEMS_EXAMPLES: HobitAgentCapabilityExample[] = [
@@ -143,6 +164,22 @@ const QUEUE_CREATE_ITEMS_EXAMPLES: HobitAgentCapabilityExample[] = [
       type: "hobit.action.request",
     },
     exampleInput: QUEUE_CREATE_ITEMS_EXAMPLE_INPUT,
+  },
+  {
+    description:
+      "Create one downstream Queue item in a batch payload with an explicit upstream task id already returned by a typed Queue result.",
+    exampleActionRequest: {
+      capabilityId: "queue.createItems",
+      dryRun: false,
+      input: {
+        items: [QUEUE_CREATE_DEPENDENT_ITEM_EXAMPLE_INPUT],
+      },
+      requestId: "queue-create-dependent-items-1",
+      type: "hobit.action.request",
+    },
+    exampleInput: {
+      items: [QUEUE_CREATE_DEPENDENT_ITEM_EXAMPLE_INPUT],
+    },
   },
 ];
 
@@ -354,7 +391,7 @@ export const HOBIT_AGENT_INITIAL_CAPABILITIES: HobitAgentCapability[] = [
     ],
     id: "queue.createItem",
     inputSchemaDescription:
-      "Queue item title and runnable prompt are required. Optional fields: status, description, dependencies, source, sourceMetadata, id.",
+      "Queue item title and runnable prompt are required. Optional fields: status, description, dependsOn, source, sourceMetadata, id.",
     inputSchema: QUEUE_CREATE_ITEM_SCHEMA,
     examples: QUEUE_CREATE_ITEM_EXAMPLES,
     outputSchemaDescription:
@@ -388,7 +425,7 @@ export const HOBIT_AGENT_INITIAL_CAPABILITIES: HobitAgentCapability[] = [
     ],
     id: "queue.createItems",
     inputSchemaDescription:
-      "A non-empty items array is required. Every item requires title and runnable prompt. Optional item fields: status, description, dependencies, source, sourceMetadata, id.",
+      "A non-empty items array is required. Every item requires title and runnable prompt. Optional item fields: status, description, dependsOn, source, sourceMetadata, id.",
     inputSchema: QUEUE_CREATE_ITEMS_SCHEMA,
     examples: QUEUE_CREATE_ITEMS_EXAMPLES,
     outputSchemaDescription:

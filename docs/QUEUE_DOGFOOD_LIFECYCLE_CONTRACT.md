@@ -494,6 +494,13 @@ blocker and exposes the downstream task's own next action, such as updating run
 settings or starting only after Queue enablement and explicit start
 preconditions.
 
+Workspace Agent dependency smoke must use typed create actions, not UI state:
+create upstream task A, read the returned task id, then create downstream task B
+with `dependsOn: [A taskId]`. `queue.createItem` and `queue.createItems` accept
+only explicit dependency task id arrays. They must not infer dependencies from
+create order, title, prompt text, or prose. Intra-batch dependency references to
+newly created ids are not a stable public contract in this block.
+
 Backend scheduler dependency enforcement remains a later runtime concern;
 frontend compatibility overlays may only mirror this rule and must not become
 product truth. No downstream task auto-starts from dependency unblocking.

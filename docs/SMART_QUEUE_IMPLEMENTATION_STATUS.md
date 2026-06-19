@@ -181,6 +181,15 @@ command/query, and review command contract:
   fail/block commands, and durable scheduler state remain future work. Current
   failed-upstream propagation is limited to existing durable task-row terminal
   failure/cancelled state until those commands exist.
+- Workspace Agent/Broker Queue create wiring can express dependency edges with
+  `dependsOn: string[]` on `queue.createItem` and `items[].dependsOn` on
+  `queue.createItems`. Those ids must be explicit upstream Queue task ids
+  returned by typed Queue results. The broker passes them through the typed
+  Queue API to backend/Tauri validation; it does not infer dependencies from
+  title, prompt, order, prose, UI state, or prompt-pack-local ids. Dependency
+  smoke should create upstream first, then downstream with the returned
+  upstream task id. Intra-batch references to ids created earlier in the same
+  batch are not a stable public contract in this block.
 
 ### Headless Queue API readiness
 
@@ -436,9 +445,9 @@ Implemented in the existing explicit `Create Queue items` action.
 - Created Queue tasks preserve prompt title/body, source pack and prompt
   metadata, materialized settings where the current Queue task API has fields,
   and remaining prompt-pack metadata in the Queue prompt body.
-- Materialized dependency edges are represented through the current Queue
-  compatibility dependency field (`dependsOn` / `dependencies`) after all
-  selected tasks are created.
+- Materialized prompt-pack dependency edges are represented through the current
+  Queue task dependency field (`dependsOn`; some internal prompt-pack adapter
+  snapshots still use `dependencies`) after all selected tasks are created.
 - Blocking Smart Queue materialization issues prevent Queue task creation with
   a short product-facing error.
 - Creation targets the singleton Workspace Queue through the existing

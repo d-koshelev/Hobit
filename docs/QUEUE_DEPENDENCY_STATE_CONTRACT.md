@@ -104,6 +104,14 @@ type QueueTaskDependency = {
 The current compatibility `dependsOn: string[]` field may continue to represent
 upstream task ids until a richer model is explicitly implemented.
 
+Workspace Agent typed Queue create capabilities use `dependsOn: string[]` as
+the public dependency field. The values must be explicit upstream Queue task ids
+returned by prior typed Queue results such as `queue.createItem`,
+`queue.createItems`, `queue.items.list`, or `queue.lifecycle.get`.
+Dependencies must not be inferred from task order, title, prompt text, prose, or
+prompt-pack-local ids. For dependency smoke, create the upstream task first,
+then create the downstream task with `dependsOn: [upstreamTaskId]`.
+
 ## Blocker Kinds
 
 Dependency-derived blockers use:

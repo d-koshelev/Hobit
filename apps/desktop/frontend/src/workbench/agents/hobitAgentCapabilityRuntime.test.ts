@@ -292,6 +292,13 @@ describe("hobitAgentCapabilityRuntime context", () => {
       "Queue item prompt is required",
     );
     expect(instructionBlock).toContain("runnable task instruction");
+    expect(instructionBlock).toContain("dependsOn:string[]");
+    expect(instructionBlock).toContain(
+      "create upstream first, then create downstream",
+    );
+    expect(instructionBlock).toContain(
+      "Do not infer dependencies from order,title,prompt,prose",
+    );
     expect(instructionBlock).toContain(
       "test, dummy, or example Queue item",
     );
@@ -602,7 +609,7 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       "prompt",
       "status",
       "description",
-      "dependencies",
+      "dependsOn",
       "source",
       "sourceMetadata",
       "id",
@@ -618,6 +625,13 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
     expect(queueCreateItems.inputSchema?.acceptedFields).toContain(
       "items[].prompt",
     );
+    expect(queueCreateItems.inputSchema?.acceptedFields).toContain(
+      "items[].dependsOn",
+    );
+    expect(queueCreateItem.inputSchema?.shape).toContain('"dependsOn"');
+    expect(queueCreateItems.inputSchema?.shape).toContain('"dependsOn"');
+    expect(queueCreateItem.inputSchema?.shape).not.toContain('"dependencies"');
+    expect(queueCreateItems.inputSchema?.shape).not.toContain('"dependencies"');
     expect(createItemExample.exampleActionRequest).toMatchObject({
       capabilityId: "queue.createItem",
       dryRun: false,
@@ -669,6 +683,26 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
         status: "valid",
       });
     }
+
+    const dependentCreateExample = queueCreateItem.examples?.find((example) =>
+      example.description.includes("explicit upstream task id"),
+    );
+    const dependentBatchExample = queueCreateItems.examples?.find((example) =>
+      example.description.includes("explicit upstream task id"),
+    );
+
+    expect(JSON.stringify(dependentCreateExample?.exampleActionRequest)).toContain(
+      '"dependsOn"',
+    );
+    expect(JSON.stringify(dependentBatchExample?.exampleActionRequest)).toContain(
+      '"dependsOn"',
+    );
+    expect(JSON.stringify(dependentCreateExample?.exampleActionRequest)).not.toContain(
+      '"dependencies"',
+    );
+    expect(JSON.stringify(dependentBatchExample?.exampleActionRequest)).not.toContain(
+      '"dependencies"',
+    );
   });
 
   it("declares Queue run-control schemas and valid action-request examples", () => {

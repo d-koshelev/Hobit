@@ -293,9 +293,19 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: Queue item creation is represented by Queue capabilities such
       as `queue.createItem` / `queue.createItems` in the capability manifest
       and broker handlers supplied by `createQueueAgentActionHandlers`.
+    - Expected: dependency creation uses the exact `dependsOn` field with
+      explicit upstream Queue task ids returned by typed Queue results. Do not
+      use `dependencies`, `depends_on`, title text, prompt text, item order, or
+      prose as dependency input.
     - Expected: Workspace Agent Queue action smoke uses an agent-emitted
       structured envelope such as
       `{"type":"hobit.action.request","capabilityId":"queue.createItems","dryRun":false,"input":{"items":[{"title":"Test Queue item","prompt":"Review the current workspace state and report one safe next step.","status":"draft"}]}}`.
+    - Expected dependency smoke: first emit `queue.createItem` for upstream A,
+      read the returned `createdTaskIds[0]` or created item id, then emit
+      `queue.createItem` for downstream B with
+      `{"dependsOn":["<upstream task id>"]}`. The downstream aggregate from
+      `queue.items.list` should show `dependencyState: "waiting"` before
+      upstream accepted completion and no `queue.item.startRun` suggestion.
     - Expected: In Workspace Agent, prompts such as `create test queue item`
       or `create dummy prompt` can produce a structured Queue action request
       with both `title` and runnable `prompt`, or ask for missing real task
@@ -309,9 +319,10 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: Queue item creation targets the singleton Queue; no duplicate
       Queue view is created; no Queue Autorun, worker start, shell command,
       extra Codex run, Terminal action, Git action, or rollback execution is
-      created as a hidden product-action workaround. Codex/shell remain
-      restricted capabilities for explicit workspace/code execution requests
-      only.
+      created as a hidden product-action workaround. Downstream dependency
+      unblocking requires upstream backend accepted completion and does not
+      auto-start downstream work. Codex/shell remain restricted capabilities
+      for explicit workspace/code execution requests only.
 
 17. Run Queue adapter dry-run/self-test coverage.
     - Expected: `queue.createItems` dry-run reports `wouldCreateItems`,

@@ -1833,20 +1833,22 @@ async function createQueueItemsThroughBridge(
       };
     }
 
+    const readiness = await createdQueueItemReadiness(bridge, result.item);
     createdItems.push({
       ...queueAgentCreatedItem(item),
       dependencies: [...result.item.dependencies],
       id: result.item.id,
-      nextSuggestedCapability: "queue.item.updateRunSettings",
+      nextSuggestedCapability: readiness.nextSuggestedCapability ?? null,
       prompt: result.item.prompt,
-      readiness: queueTaskSummaryFromSnapshot(
-        result.item,
-        executorTargets(bridge),
-      ),
+      readiness,
       status: result.item.status === "draft" ? "draft" : "queued",
       title: result.item.title,
     });
   }
+
+  const nextSuggestedCapability =
+    createdItems.find((item) => item.nextSuggestedCapability)
+      ?.nextSuggestedCapability ?? null;
 
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.createItems],
@@ -1857,10 +1859,41 @@ async function createQueueItemsThroughBridge(
       createdItems,
       createdTaskIds: createdItems.map((item) => item.id),
       dependencyEdgesPreserved: true,
-      nextSuggestedCapability: "queue.item.updateRunSettings",
+      nextSuggestedCapability,
     },
     status: "succeeded",
   };
+}
+
+async function createdQueueItemReadiness(
+  bridge: WorkspaceAgentQueueBridge,
+  item: QueueWidgetItemSnapshot,
+) {
+  const queueControlState = queueControlStateFromBridge(bridge);
+  const aggregate = await readCreatedQueueItemAggregate(bridge, item.id);
+
+  return aggregate
+    ? queueTaskSummaryFromAggregate(aggregate, queueControlState)
+    : queueTaskSummaryFromSnapshot(
+        item,
+        executorTargets(bridge),
+        queueControlState,
+      );
+}
+
+async function readCreatedQueueItemAggregate(
+  bridge: WorkspaceAgentQueueBridge,
+  taskId: string,
+): Promise<AgentQueueItemAggregate | null> {
+  if (!bridge.getItemAggregate) {
+    return null;
+  }
+
+  try {
+    return await bridge.getItemAggregate({ taskId });
+  } catch {
+    return null;
+  }
 }
 
 const AGGREGATE_SOURCE = "tauri_queue_item_aggregate" as const;
