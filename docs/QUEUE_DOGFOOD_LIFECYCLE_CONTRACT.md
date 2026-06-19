@@ -485,9 +485,18 @@ The following are not enough to unblock a dependent task:
 - commit result attached without done
 
 The backend aggregate read model applies this gate from durable accepted
-completion decisions. Backend scheduler dependency enforcement remains a later
-runtime concern; frontend compatibility overlays may only mirror this rule and
-must not become product truth.
+completion decisions. It exposes dependency states `none`, `ready`, `waiting`,
+`blocked`, `failed_upstream`, and `unknown`. `waiting`, `blocked`,
+`failed_upstream`, and `unknown` surface dependency blockers and do not expose
+`start_run` or runnable `promote_draft` next actions. After upstream
+`queue.item.markDone` succeeds, downstream re-query clears that dependency
+blocker and exposes the downstream task's own next action, such as updating run
+settings or starting only after Queue enablement and explicit start
+preconditions.
+
+Backend scheduler dependency enforcement remains a later runtime concern;
+frontend compatibility overlays may only mirror this rule and must not become
+product truth. No downstream task auto-starts from dependency unblocking.
 
 ## Frontend Controller And View-Model Adapter
 

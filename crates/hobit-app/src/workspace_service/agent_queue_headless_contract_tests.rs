@@ -377,7 +377,7 @@ fn headless_dependency_failed_upstream_is_visible_without_frontend_state() {
     assert_blocker(&aggregate, "dependency_failed");
     assert_eq!(
         aggregate.next_actions[0].unavailable_reason.as_deref(),
-        Some("blocked")
+        Some("dependency_failed")
     );
 }
 

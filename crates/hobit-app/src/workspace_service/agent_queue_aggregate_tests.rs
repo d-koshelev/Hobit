@@ -325,6 +325,138 @@ fn dependency_waiting_does_not_treat_completed_worker_as_accepted_done() {
         QueueItemAggregateTicketState::Queued
     );
     assert_blocker(&aggregate, "dependency_waiting");
+    assert_action_unavailable(&aggregate, "none", Some("dependencies_not_ready"));
+    assert_no_action(&aggregate, "start_run");
+}
+
+#[test]
+fn dependency_waiting_does_not_treat_completed_run_link_as_accepted_done() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let upstream = create_task(
+        &service,
+        &workspace_id,
+        CreateTaskOptions {
+            status: "queued",
+            with_run_settings: true,
+            ..CreateTaskOptions::default()
+        },
+    );
+    let downstream = create_task(
+        &service,
+        &workspace_id,
+        CreateTaskOptions {
+            status: "queued",
+            with_run_settings: true,
+            depends_on: vec![upstream.queue_item_id],
+            ..CreateTaskOptions::default()
+        },
+    );
+    complete_worker_run(
+        &service,
+        &workspace_id,
+        &downstream.depends_on[0],
+        &executor_id,
+    );
+
+    let aggregate = service
+        .get_queue_item_aggregate(&workspace_id, &downstream.queue_item_id)
+        .expect("get aggregate")
+        .expect("aggregate");
+
+    assert_eq!(
+        aggregate.dependency_state,
+        QueueItemAggregateDependencyState::Waiting
+    );
+    assert_blocker(&aggregate, "dependency_waiting");
+    assert_action_unavailable(&aggregate, "none", Some("dependencies_not_ready"));
+    assert_no_action(&aggregate, "start_run");
+}
+
+#[test]
+fn draft_dependency_waiting_does_not_suggest_promote_draft() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue aggregate workspace", None)
+        .expect("create workspace");
+    let upstream = create_task(
+        &service,
+        &workspace.id,
+        CreateTaskOptions {
+            status: "queued",
+            with_run_settings: true,
+            ..CreateTaskOptions::default()
+        },
+    );
+    let downstream = create_task(
+        &service,
+        &workspace.id,
+        CreateTaskOptions {
+            status: "draft",
+            with_run_settings: true,
+            depends_on: vec![upstream.queue_item_id],
+            ..CreateTaskOptions::default()
+        },
+    );
+
+    let aggregate = service
+        .get_queue_item_aggregate(&workspace.id, &downstream.queue_item_id)
+        .expect("get aggregate")
+        .expect("aggregate");
+
+    assert_eq!(
+        aggregate.dependency_state,
+        QueueItemAggregateDependencyState::Waiting
+    );
+    assert_blocker(&aggregate, "dependency_waiting");
+    assert_no_action(&aggregate, "promote_draft");
+    assert_action_unavailable(&aggregate, "none", Some("dependencies_not_ready"));
+}
+
+#[test]
+fn missing_upstream_dependency_is_unknown_and_not_runnable() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue aggregate workspace", None)
+        .expect("create workspace");
+    let upstream = create_task(
+        &service,
+        &workspace.id,
+        CreateTaskOptions {
+            status: "queued",
+            with_run_settings: true,
+            ..CreateTaskOptions::default()
+        },
+    );
+    let downstream = create_task(
+        &service,
+        &workspace.id,
+        CreateTaskOptions {
+            status: "queued",
+            with_run_settings: true,
+            depends_on: vec![upstream.queue_item_id.clone()],
+            ..CreateTaskOptions::default()
+        },
+    );
+    service
+        .delete_agent_queue_task(DeleteAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: upstream.queue_item_id,
+        })
+        .expect("delete upstream");
+
+    let aggregate = service
+        .get_queue_item_aggregate(&workspace.id, &downstream.queue_item_id)
+        .expect("get aggregate")
+        .expect("aggregate");
+
+    assert_eq!(
+        aggregate.dependency_state,
+        QueueItemAggregateDependencyState::Unknown
+    );
+    assert_blocker(&aggregate, "dependency_unknown");
+    assert_action_unavailable(&aggregate, "none", Some("dependency_unknown"));
+    assert_no_action(&aggregate, "start_run");
 }
 
 #[test]
@@ -367,6 +499,8 @@ fn dependency_failed_upstream_blocks_queued_dependent() {
         QueueItemAggregateTicketState::Blocked
     );
     assert_blocker(&aggregate, "dependency_failed");
+    assert_action_unavailable(&aggregate, "none", Some("dependency_failed"));
+    assert_no_action(&aggregate, "start_run");
 }
 
 #[test]
@@ -499,6 +633,38 @@ fn assign_task(
         .expect("assign task");
 }
 
+fn complete_worker_run(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    queue_item_id: &str,
+    executor_id: &str,
+) {
+    assign_task(service, workspace_id, queue_item_id, executor_id);
+    let start = service
+        .start_assigned_agent_queue_task(start_input(workspace_id, queue_item_id))
+        .expect("start task");
+    service
+        .store
+        .finish_widget_run(
+            &start.run_id,
+            hobit_storage_sqlite::WidgetRunFinishUpdate {
+                status: "completed",
+                finished_at: Some("completed-at"),
+                summary: Some("Worker final report summary."),
+            },
+        )
+        .expect("finish widget run");
+    service
+        .finish_assigned_agent_queue_task_run(FinishAssignedAgentQueueTaskRunInput {
+            workspace_id: workspace_id.to_owned(),
+            queue_item_id: queue_item_id.to_owned(),
+            executor_widget_instance_id: executor_id.to_owned(),
+            run_id: start.run_id,
+            direct_work_status: "completed".to_owned(),
+        })
+        .expect("finish queue run");
+}
+
 fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQueueTaskInput {
     StartAssignedAgentQueueTaskInput {
         workspace_id: workspace_id.to_owned(),
@@ -534,4 +700,28 @@ fn assert_action(aggregate: &QueueItemAggregate, code: &str) {
         "expected action {code}, got {:?}",
         aggregate.next_actions
     );
+}
+
+fn assert_no_action(aggregate: &QueueItemAggregate, code: &str) {
+    assert!(
+        aggregate
+            .next_actions
+            .iter()
+            .all(|action| action.code != code),
+        "expected no action {code}, got {:?}",
+        aggregate.next_actions
+    );
+}
+
+fn assert_action_unavailable(aggregate: &QueueItemAggregate, code: &str, reason: Option<&str>) {
+    let action = aggregate
+        .next_actions
+        .iter()
+        .find(|action| action.code == code)
+        .expect("next action");
+    assert!(
+        !action.available,
+        "expected action {code} to be unavailable"
+    );
+    assert_eq!(action.unavailable_reason.as_deref(), reason);
 }

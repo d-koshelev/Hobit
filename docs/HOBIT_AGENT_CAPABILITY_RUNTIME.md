@@ -348,6 +348,10 @@ read-model contract for Queue state reads. `queue.items.list` and
 `queue.lifecycle.get` call typed frontend bridge methods backed by Tauri
 aggregate list/get commands and return task state dimensions, blockers,
 nextActions, latestRun, evidenceSummary, and durable flags from that DTO.
+Dependency blockers from the backend aggregate remain authoritative in broker
+results: `waiting`, `blocked`, `failed_upstream`, and `unknown` do not get
+converted into `queue.item.startRun`, `queue.enable`, or runnable
+`queue.item.promoteDraft` suggestions.
 `queue.review.createMessage` and `queue.review.ack` call typed frontend bridge
 methods backed by Tauri review command DTOs. `queue.item.markDone` calls a
 typed frontend bridge method backed by the Tauri accepted-completion command

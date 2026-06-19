@@ -2109,6 +2109,235 @@ describe("queueAgentCapabilities invoke", () => {
     );
   });
 
+  it("keeps backend dependency-waiting aggregate out of startRun and queue.enable suggestions", async () => {
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        blockers: [
+          {
+            code: "dependency_waiting",
+            message: "At least one dependency has not reached accepted completion.",
+          },
+        ],
+        dependencyState: "waiting",
+        nextActions: [
+          {
+            available: false,
+            code: "none",
+            label: "No action",
+            unavailableReason: "dependencies_not_ready",
+          },
+        ],
+        taskId: "task-dependent",
+        ticketState: "queued",
+      }),
+    ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              globalExecutionState: "stopped",
+              queueEnabled: false,
+            }),
+            listItemAggregates,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      items: Array<{
+        blockerReasons: string[];
+        canStart: boolean;
+        dependencyState: string;
+        nextActions: Array<{ code: string; suggestedCapability?: string | null }>;
+        nextSuggestedCapability?: string | null;
+        taskId: string;
+      }>;
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output?.nextSuggestedCapability).toBeNull();
+    expect(result.result.output?.items[0]).toMatchObject({
+      blockerReasons: [
+        "At least one dependency has not reached accepted completion.",
+      ],
+      canStart: false,
+      dependencyState: "waiting",
+      nextSuggestedCapability: null,
+      taskId: "task-dependent",
+    });
+    expect(result.result.output?.items[0]?.nextActions).toContainEqual(
+      expect.objectContaining({
+        code: "none",
+        suggestedCapability: null,
+      }),
+    );
+  });
+
+  it("keeps backend dependency-waiting draft out of promoteDraft suggestions", async () => {
+    const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>
+      queueAggregate({
+        blockers: [
+          {
+            code: "dependency_waiting",
+            message: "At least one dependency has not reached accepted completion.",
+          },
+        ],
+        dependencyState: "waiting",
+        nextActions: [
+          {
+            available: false,
+            code: "none",
+            label: "No action",
+            unavailableReason: "dependencies_not_ready",
+          },
+        ],
+        taskId,
+        ticketState: "draft",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getItemAggregate }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      aggregate: {
+        canPromote: boolean;
+      };
+      dependencyState: string;
+      nextSuggestedCapability: string | null;
+    }>(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-dependent-draft" },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output).toMatchObject({
+      aggregate: {
+        canPromote: false,
+      },
+      dependencyState: "waiting",
+      nextSuggestedCapability: null,
+    });
+  });
+
+  it("uses downstream readiness after backend accepted completion clears dependency waiting", async () => {
+    const listItemAggregates = vi
+      .fn()
+      .mockResolvedValueOnce([
+        queueAggregate({
+          blockers: [
+            {
+              code: "missing_codex_executable",
+              message: "Codex executable is required before running.",
+            },
+          ],
+          codexExecutable: null,
+          dependencyState: "ready",
+          nextActions: [
+            {
+              available: true,
+              code: "update_run_settings",
+              label: "Update run settings",
+              unavailableReason: null,
+            },
+          ],
+          taskId: "task-ready-missing-settings",
+          ticketState: "queued",
+        }),
+      ])
+      .mockResolvedValueOnce([
+        queueAggregate({
+          dependencyState: "ready",
+          nextActions: [
+            {
+              available: true,
+              code: "start_run",
+              label: "Start run",
+              unavailableReason: null,
+            },
+          ],
+          taskId: "task-ready-runnable",
+          ticketState: "queued",
+        }),
+      ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              globalExecutionState: "started",
+              queueEnabled: true,
+            }),
+            listItemAggregates,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const missingSettings = await broker.invokeAsync<{
+      items: Array<{ nextSuggestedCapability?: string | null; taskId: string }>;
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+    const runnable = await broker.invokeAsync<{
+      items: Array<{ nextSuggestedCapability?: string | null; taskId: string }>;
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(missingSettings.result.output?.items[0]).toMatchObject({
+      nextSuggestedCapability: "queue.item.updateRunSettings",
+      taskId: "task-ready-missing-settings",
+    });
+    expect(runnable.result.output?.items[0]).toMatchObject({
+      nextSuggestedCapability: "queue.item.startRun",
+      taskId: "task-ready-runnable",
+    });
+  });
+
   it("returns queue.enable after run settings make a queued task runnable while Queue is disabled", async () => {
     const getSnapshot = vi.fn(async () =>
       queueBridgeSnapshotResult({

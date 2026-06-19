@@ -725,6 +725,9 @@ fn dependency_state(
             continue;
         }
         match upstream.status.as_str() {
+            "blocked" => {
+                return QueueItemAggregateDependencyState::Blocked;
+            }
             AGENT_QUEUE_TASK_STATUS_FAILED | AGENT_QUEUE_TASK_STATUS_CANCELLED => {
                 return QueueItemAggregateDependencyState::FailedUpstream;
             }
@@ -889,6 +892,10 @@ fn blockers(
             "dependency_blocked",
             "At least one dependency is blocked.",
         )),
+        QueueItemAggregateDependencyState::Unknown => blockers.push(blocker(
+            "dependency_unknown",
+            "Queue task dependency state is unknown.",
+        )),
         _ => {}
     }
     match ticket_state {
@@ -914,6 +921,15 @@ fn next_actions(
     dependency_state: QueueItemAggregateDependencyState,
     blockers: &[QueueItemAggregateBlocker],
 ) -> Vec<QueueItemAggregateNextAction> {
+    if dependency_prevents_progress(dependency_state) {
+        return vec![action(
+            "none",
+            "No action",
+            false,
+            Some(dependency_unavailable_reason(dependency_state)),
+        )];
+    }
+
     match ticket_state {
         QueueItemAggregateTicketState::Draft => {
             let mut actions = Vec::new();
@@ -939,19 +955,6 @@ fn next_actions(
             actions
         }
         QueueItemAggregateTicketState::Queued => {
-            if matches!(
-                dependency_state,
-                QueueItemAggregateDependencyState::Waiting
-                    | QueueItemAggregateDependencyState::Blocked
-                    | QueueItemAggregateDependencyState::FailedUpstream
-            ) {
-                return vec![action(
-                    "none",
-                    "No action",
-                    false,
-                    Some("dependencies_not_ready"),
-                )];
-            }
             if has_missing_run_settings(blockers) {
                 return vec![action(
                     "update_run_settings",
@@ -1019,6 +1022,30 @@ fn next_actions(
             vec![action("none", "No action", false, Some("blocked"))]
         }
         _ => vec![action("none", "No action", false, Some("unknown_state"))],
+    }
+}
+
+fn dependency_prevents_progress(dependency_state: QueueItemAggregateDependencyState) -> bool {
+    matches!(
+        dependency_state,
+        QueueItemAggregateDependencyState::Waiting
+            | QueueItemAggregateDependencyState::Blocked
+            | QueueItemAggregateDependencyState::FailedUpstream
+            | QueueItemAggregateDependencyState::Unknown
+    )
+}
+
+fn dependency_unavailable_reason(
+    dependency_state: QueueItemAggregateDependencyState,
+) -> &'static str {
+    match dependency_state {
+        QueueItemAggregateDependencyState::Waiting => "dependencies_not_ready",
+        QueueItemAggregateDependencyState::Blocked => "dependency_blocked",
+        QueueItemAggregateDependencyState::FailedUpstream => "dependency_failed",
+        QueueItemAggregateDependencyState::Unknown => "dependency_unknown",
+        QueueItemAggregateDependencyState::None | QueueItemAggregateDependencyState::Ready => {
+            "dependencies_ready"
+        }
     }
 }
 

@@ -54,6 +54,22 @@ unchanged, `commitState` unchanged, `nextSuggestedCapability=null`, and
 `durableFlags.completionState=true`. Worker completion and review ACK alone
 remain not done.
 
+Queue dependency eligibility is also backend/domain aggregate truth.
+Downstream dependencies are satisfied only by an upstream durable accepted
+completion decision from `queue.item.markDone`. Worker completion, durable
+worker evidence, review message creation, review ACK, latest-run completion,
+raw `task.status=completed`, and frontend overlay state do not unblock
+dependents. Aggregate dependency states `waiting`, `blocked`,
+`failed_upstream`, and `unknown` expose blockers and must not suggest
+`queue.item.startRun` or runnable `queue.item.promoteDraft`. After upstream
+`markDone`, downstream aggregate reads clear that dependency blocker and expose
+the downstream task's own next action; no dependent starts automatically.
+
+Durable dependency failure/block propagation is limited until backend
+coordinator fail/block commands exist. Current failed-upstream behavior may
+derive from existing durable task-row terminal failure state, not a full
+coordinator decision ledger.
+
 Their Workspace Agent capability contracts must state exact required ids,
 optional fields, trusted runtime/backend actor defaults, enum values, and
 registered `nextSuggestedCapability` ids. The model must not invent task ids,

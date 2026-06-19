@@ -401,8 +401,9 @@ During the smoke, verify these product labels appear where applicable:
       evidence command tests cover durable evidence record/readback, backend
       review command tests cover durable review message/ACK state, and backend
       completion command tests cover explicit accepted completion. Real worker integration, real
-      validation execution, real commit execution, and backend scheduler
-      dependency enforcement remain not implemented.
+      validation execution, real commit execution, durable coordinator
+      fail/block commands, and backend scheduler dependency enforcement remain
+      not implemented.
 
 20. Run the backend Queue aggregate read-model automated tests.
     - Expected:
@@ -413,9 +414,10 @@ During the smoke, verify these product labels appear where applicable:
       `crates/hobit-app/src/workspace_service/agent_queue_headless_contract_tests.rs`
       proves Queue aggregate/read-model behavior headlessly through backend
       APIs and storage fixtures, including draft readiness, queued startability,
-      running/completed/failed run links, dependency waiting/failed-upstream
-      state, read-only queries, explicit task identity, no prompt regex routing,
-      and explicit `not_durable` / `unknown` states.
+      running/completed/failed run links, dependency waiting, unknown,
+      failed-upstream, completed-run-link-not-satisfied, accepted-completion
+      unblock state, read-only queries, explicit task identity, no prompt regex
+      routing, and explicit `not_durable` / `unknown` states.
     - Expected:
       `crates/hobit-app/src/workspace_service/agent_queue_review_tests.rs`
       proves `queue.review.createMessage` backend preconditions, Draft/Running
@@ -432,8 +434,12 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: Draft tasks report Draft with missing-setting blockers; queued
       tasks with settings expose `start_run`; running run links report Running;
       successful worker completion reports `awaiting_review` and not `done`;
-      failed runs report failure; completed worker state does not unblock
-      dependents; aggregate reads do not mutate task or run-link state.
+      failed runs report failure; completed worker state and review ACK do not
+      unblock dependents; dependency `waiting`, `blocked`, `failed_upstream`,
+      and `unknown` expose blockers with no `start_run` or runnable
+      `promote_draft`; upstream `queue.item.markDone` clears the downstream
+      dependency blocker on re-query but does not auto-start work; aggregate
+      reads do not mutate task or run-link state.
     - Expected:
       `apps/desktop/src-tauri/src/agent_queue_aggregate_dto_tests.rs` and
       `apps/desktop/src-tauri/src/agent_queue_aggregate_commands/tests.rs`

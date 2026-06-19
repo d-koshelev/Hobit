@@ -401,6 +401,9 @@ fn dependency_ready_only_after_accepted_completion() {
         before.dependency_state,
         QueueItemAggregateDependencyState::Waiting
     );
+    assert_blocker(&before, "dependency_waiting");
+    assert_action_unavailable(&before, "none", Some("dependencies_not_ready"));
+    assert_no_action(&before, "start_run");
 
     service
         .mark_agent_queue_item_done(mark_done_input(
@@ -419,6 +422,48 @@ fn dependency_ready_only_after_accepted_completion() {
         QueueItemAggregateDependencyState::Ready
     );
     assert_action_available(&after, "start_run");
+}
+
+#[test]
+fn accepted_completion_unblocks_downstream_to_missing_settings_next_action() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let upstream = create_task(&service, &workspace_id, "queued", true, vec![]);
+    let downstream = create_task(
+        &service,
+        &workspace_id,
+        "queued",
+        false,
+        vec![upstream.queue_item_id.clone()],
+    );
+    complete_worker_run_with_evidence(
+        &service,
+        &workspace_id,
+        &upstream.queue_item_id,
+        &executor_id,
+    );
+    create_and_ack_review(&service, &workspace_id, &upstream.queue_item_id);
+
+    service
+        .mark_agent_queue_item_done(mark_done_input(
+            &workspace_id,
+            &upstream.queue_item_id,
+            None,
+            None,
+        ))
+        .expect("mark upstream done");
+    let aggregate = service
+        .get_queue_item_aggregate(&workspace_id, &downstream.queue_item_id)
+        .expect("get downstream")
+        .expect("downstream");
+
+    assert_eq!(
+        aggregate.dependency_state,
+        QueueItemAggregateDependencyState::Ready
+    );
+    assert_no_blocker(&aggregate, "dependency_waiting");
+    assert_action_available(&aggregate, "update_run_settings");
+    assert_no_action(&aggregate, "start_run");
 }
 
 #[test]
@@ -674,6 +719,39 @@ fn assert_action_unavailable(aggregate: &QueueItemAggregate, code: &str, reason:
         "expected action {code} to be unavailable"
     );
     assert_eq!(action.unavailable_reason.as_deref(), reason);
+}
+
+fn assert_no_action(aggregate: &QueueItemAggregate, code: &str) {
+    assert!(
+        aggregate
+            .next_actions
+            .iter()
+            .all(|action| action.code != code),
+        "expected no action {code}, got {:?}",
+        aggregate.next_actions
+    );
+}
+
+fn assert_blocker(aggregate: &QueueItemAggregate, code: &str) {
+    assert!(
+        aggregate
+            .blockers
+            .iter()
+            .any(|blocker| blocker.code == code),
+        "expected blocker {code}, got {:?}",
+        aggregate.blockers
+    );
+}
+
+fn assert_no_blocker(aggregate: &QueueItemAggregate, code: &str) {
+    assert!(
+        aggregate
+            .blockers
+            .iter()
+            .all(|blocker| blocker.code != code),
+        "expected no blocker {code}, got {:?}",
+        aggregate.blockers
+    );
 }
 
 fn unique_test_db_path() -> PathBuf {

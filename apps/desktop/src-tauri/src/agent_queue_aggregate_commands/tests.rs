@@ -4,8 +4,11 @@ use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_app::{
-    AssignAgentQueueTaskToExecutorInput, CreateAgentQueueTaskInput,
-    FinishAssignedAgentQueueTaskRunInput, StartAssignedAgentQueueTaskInput, WorkspaceService,
+    AckAgentQueueReviewMessageInput, AssignAgentQueueTaskToExecutorInput,
+    CreateAgentQueueReviewMessageInput, CreateAgentQueueTaskInput,
+    FinishAssignedAgentQueueTaskRunInput, MarkAgentQueueItemDoneInput,
+    RecordAgentQueueWorkerFinishedInput, StartAssignedAgentQueueTaskInput, WorkspaceService,
+    AGENT_QUEUE_ACCEPTED_COMPLETION_CONFIRMATION_TOKEN,
 };
 use hobit_storage_sqlite::SqliteStore;
 
@@ -192,6 +195,76 @@ fn aggregate_command_helper_serializes_completed_run_as_awaiting_review_read_mod
 }
 
 #[test]
+fn aggregate_command_helper_serializes_dependency_unblock_after_accepted_completion() {
+    let db_path = unique_test_db_path();
+    let service = initialized_service(&db_path);
+    let workspace = service
+        .create_empty_workspace("Queue aggregate command test", None)
+        .expect("create workspace");
+    let executor_widget_id = add_widget(&service, &workspace.id, "agent-run", "Agent Executor");
+    let upstream = create_task(&service, &workspace.id);
+    let downstream = create_task_with_dependencies(
+        &service,
+        &workspace.id,
+        vec![upstream.queue_item_id.clone()],
+        false,
+    );
+    complete_worker_run_with_evidence(
+        &service,
+        &workspace.id,
+        &upstream.queue_item_id,
+        &executor_widget_id,
+    );
+    create_and_ack_review(&service, &workspace.id, &upstream.queue_item_id);
+    drop(service);
+
+    let waiting = get_agent_queue_item_aggregate_blocking(
+        GetQueueItemAggregateRequest {
+            workspace_id: workspace.id.clone(),
+            task_id: downstream.queue_item_id.clone(),
+        },
+        db_path.clone(),
+    )
+    .expect("get waiting downstream")
+    .expect("waiting downstream");
+    assert_eq!(waiting.dependency_state, "waiting");
+    assert_blocker(&waiting, "dependency_waiting");
+    assert_eq!(waiting.next_actions[0].code, "none");
+    assert_eq!(
+        waiting.next_actions[0].unavailable_reason.as_deref(),
+        Some("dependencies_not_ready")
+    );
+
+    let service = initialized_service(&db_path);
+    service
+        .mark_agent_queue_item_done(MarkAgentQueueItemDoneInput {
+            workspace_id: workspace.id.clone(),
+            queue_item_id: upstream.queue_item_id,
+            actor_id: "workspace-agent".to_owned(),
+            confirmation_token: AGENT_QUEUE_ACCEPTED_COMPLETION_CONFIRMATION_TOKEN.to_owned(),
+            reason: Some("Operator accepted completion.".to_owned()),
+            run_id: None,
+            review_message_id: None,
+        })
+        .expect("mark upstream done");
+    drop(service);
+
+    let ready = get_agent_queue_item_aggregate_blocking(
+        GetQueueItemAggregateRequest {
+            workspace_id: workspace.id,
+            task_id: downstream.queue_item_id,
+        },
+        db_path.clone(),
+    )
+    .expect("get ready downstream")
+    .expect("ready downstream");
+    assert_eq!(ready.dependency_state, "ready");
+    assert_no_blocker(&ready, "dependency_waiting");
+    assert_eq!(ready.next_actions[0].code, "update_run_settings");
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn aggregate_command_source_stays_read_only_and_headless() {
     let source = include_str!("../agent_queue_aggregate_commands.rs");
 
@@ -221,6 +294,15 @@ fn initialized_service(db_path: &Path) -> WorkspaceService {
 }
 
 fn create_task(service: &WorkspaceService, workspace_id: &str) -> hobit_app::AgentQueueTaskSummary {
+    create_task_with_dependencies(service, workspace_id, vec![], true)
+}
+
+fn create_task_with_dependencies(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    depends_on: Vec<String>,
+    with_run_settings: bool,
+) -> hobit_app::AgentQueueTaskSummary {
     service
         .create_agent_queue_task(CreateAgentQueueTaskInput {
             workspace_id: workspace_id.to_owned(),
@@ -229,12 +311,12 @@ fn create_task(service: &WorkspaceService, workspace_id: &str) -> hobit_app::Age
             prompt: "Prompt".to_owned(),
             status: "queued".to_owned(),
             priority: 1,
-            depends_on: Some(vec![]),
+            depends_on: Some(depends_on),
             execution_policy: None,
-            execution_workspace: Some("C:/repo".to_owned()),
-            codex_executable: Some("codex".to_owned()),
-            sandbox: Some("workspace_write".to_owned()),
-            approval_policy: Some("never".to_owned()),
+            execution_workspace: with_run_settings.then(|| "C:/repo".to_owned()),
+            codex_executable: with_run_settings.then(|| "codex".to_owned()),
+            sandbox: with_run_settings.then(|| "workspace_write".to_owned()),
+            approval_policy: with_run_settings.then(|| "never".to_owned()),
         })
         .expect("create task")
 }
@@ -283,6 +365,56 @@ fn assign_task(
         .expect("assign task");
 }
 
+fn complete_worker_run_with_evidence(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    queue_item_id: &str,
+    executor_widget_id: &str,
+) {
+    assign_task(service, workspace_id, queue_item_id, executor_widget_id);
+    let start = service
+        .start_assigned_agent_queue_task(start_input(workspace_id, queue_item_id))
+        .expect("start task");
+    service
+        .record_agent_queue_worker_finished(RecordAgentQueueWorkerFinishedInput {
+            workspace_id: workspace_id.to_owned(),
+            queue_item_id: queue_item_id.to_owned(),
+            run_id: start.run_id,
+            outcome: "completed".to_owned(),
+            summary: Some("Worker evidence is durable.".to_owned()),
+            changed_files: vec![],
+            changed_files_summary: None,
+            validation_summary: Some("validation not run".to_owned()),
+            error_summary: None,
+            worker_id: Some("workspace-agent".to_owned()),
+            source: Some("workspace_agent".to_owned()),
+            metadata_json: None,
+            finished_at: Some("completed-at".to_owned()),
+        })
+        .expect("record worker evidence");
+}
+
+fn create_and_ack_review(service: &WorkspaceService, workspace_id: &str, queue_item_id: &str) {
+    let create = service
+        .create_agent_queue_review_message(CreateAgentQueueReviewMessageInput {
+            workspace_id: workspace_id.to_owned(),
+            queue_item_id: queue_item_id.to_owned(),
+            actor_id: "workspace-agent".to_owned(),
+            message_body: None,
+            run_id: None,
+            evidence_bundle_id: None,
+        })
+        .expect("create review");
+    service
+        .ack_agent_queue_review_message(AckAgentQueueReviewMessageInput {
+            workspace_id: workspace_id.to_owned(),
+            queue_item_id: queue_item_id.to_owned(),
+            message_id: create.message_id.expect("message id"),
+            actor_id: "workspace-agent".to_owned(),
+        })
+        .expect("ack review");
+}
+
 fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQueueTaskInput {
     StartAssignedAgentQueueTaskInput {
         workspace_id: workspace_id.to_owned(),
@@ -296,6 +428,28 @@ fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQue
         stdout_cap_bytes: Some(11),
         stderr_cap_bytes: Some(12),
     }
+}
+
+fn assert_blocker(aggregate: &QueueItemAggregateDto, code: &str) {
+    assert!(
+        aggregate
+            .blockers
+            .iter()
+            .any(|blocker| blocker.code == code),
+        "expected blocker {code}, got {:?}",
+        aggregate.blockers
+    );
+}
+
+fn assert_no_blocker(aggregate: &QueueItemAggregateDto, code: &str) {
+    assert!(
+        aggregate
+            .blockers
+            .iter()
+            .all(|blocker| blocker.code != code),
+        "expected no blocker {code}, got {:?}",
+        aggregate.blockers
+    );
 }
 
 fn unique_test_db_path() -> PathBuf {

@@ -143,14 +143,24 @@ command/query, and review command contract:
   Queue item `done`. Failed worker evidence exposes failure state and durable
   error/evidence summary without marking the item done. Dependency satisfaction
   requires durable accepted completion, not worker completion or ACK.
+- Backend aggregate dependency state is authoritative for backend-backed read
+  capabilities. It exposes `none`, `ready`, `waiting`, `blocked`,
+  `failed_upstream`, and `unknown`. `waiting`, `blocked`, `failed_upstream`,
+  and `unknown` produce dependency blockers and no runnable next action, so
+  broker reads do not suggest `queue.item.startRun`, `queue.enable`, or
+  runnable `queue.item.promoteDraft` from dependency-blocked aggregate state.
+  After upstream accepted completion is recorded through `queue.item.markDone`,
+  downstream aggregate reads clear the dependency blocker and return the
+  downstream task's own readiness action. No worker starts automatically.
 - Successful worker evidence with no review message exposes available
   `create_review_message`; review message creation requires durable backend
   worker evidence, maps to `review_message_created`, returns the selected
   evidence bundle id/run id, and exposes available `ack_review`; ACK maps to
   `in_review`; accepted completion maps to `done`.
 - Backend headless contract tests now prove list/get, draft readiness, queued
-  startability, running/completed/failed run-link state, dependency waiting and
-  failed-upstream state, read-only query behavior, durable worker evidence
+  startability, running/completed/failed run-link state, dependency waiting,
+  unknown, completed-run-link-not-satisfied, failed-upstream, and
+  accepted-completion unblock state, read-only query behavior, durable worker evidence
   record/readback, worker evidence idempotency, run-link ownership rejection,
   review create/ACK preconditions, explicit task identity, unrelated task
   isolation, durable reload of worker evidence, review message state, and
@@ -167,8 +177,10 @@ command/query, and review command contract:
   `queue.review.getEvidenceBundle`; review command wiring is implemented for
   `queue.review.createMessage` and `queue.review.ack`; accepted-completion
   wiring is implemented for `queue.item.markDone`. Queue UI rendering
-  migration, validation decisions, commit decisions, fail/block commands, and
-  durable scheduler state remain future work.
+  migration, validation decisions, commit decisions, durable coordinator
+  fail/block commands, and durable scheduler state remain future work. Current
+  failed-upstream propagation is limited to existing durable task-row terminal
+  failure/cancelled state until those commands exist.
 
 ### Headless Queue API readiness
 
