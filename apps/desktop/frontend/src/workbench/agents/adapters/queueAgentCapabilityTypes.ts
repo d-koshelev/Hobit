@@ -6,6 +6,7 @@ import type {
   AgentQueueItemAggregateEvidenceSummary,
   AgentQueueItemAggregateLatestRun,
   AgentQueueItemAggregateNextAction,
+  AgentQueueCompletionDecision,
   AgentQueueWorkerEvidenceBundle,
 } from "../../../workspace/types";
 import type { QueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
@@ -438,19 +439,12 @@ export type QueueAgentAddFollowUpPromptInput = {
 };
 
 export type QueueAgentMarkDoneInput = {
-  commit?: {
-    commitHash?: string;
-    commitResultId?: string;
-    commitTitle?: string;
-  };
-  completedAt?: string;
-  coordinatorAgentId?: string;
-  decisionId?: string;
+  confirmationToken?: string;
+  messageId?: string;
   reason?: string;
+  reviewMessageId?: string;
+  runId?: string;
   taskId?: string;
-  validationApproved?: boolean;
-  validationApprovalId?: string;
-  validationSummary?: string;
 };
 
 export type QueueAgentBlockInput = {
@@ -508,6 +502,7 @@ export type QueueAgentLifecycleTransitionOutput = {
   agentPromptState: SmartQueueDogfoodLifecycleItem["agentPromptState"];
   aggregate?: AgentQueueItemAggregate;
   backendCreateMessageStatus?: string;
+  backendCompletionStatus?: string;
   blockerCode?: string;
   blockerMessage?: string;
   blockers?: AgentQueueItemAggregateBlocker[];
@@ -518,6 +513,7 @@ export type QueueAgentLifecycleTransitionOutput = {
   existingReviewMessageId?: string;
   dryRunOnly: boolean;
   durable?: boolean;
+  completionDecision?: AgentQueueCompletionDecision | null;
   lifecycle: SmartQueueDogfoodLifecycleItem | null;
   messageId?: string;
   missingRequiredField?: string;
@@ -641,8 +637,8 @@ export type QueueAgentDogfoodLifecycleAdapterApi = {
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentLifecycleGetOutput>>;
   markDone: (
-    input: Required<Pick<QueueAgentMarkDoneInput, "coordinatorAgentId" | "taskId" | "validationApproved">> &
-      Omit<QueueAgentMarkDoneInput, "coordinatorAgentId" | "taskId" | "validationApproved">,
+    input: Required<Pick<QueueAgentMarkDoneInput, "confirmationToken" | "taskId">> &
+      Omit<QueueAgentMarkDoneInput, "confirmationToken" | "taskId">,
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>>;
 };

@@ -202,6 +202,21 @@ pub struct AgentQueueWorkerEvidenceBundleRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueCompletionDecisionRow {
+    pub decision_id: String,
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub run_id: Option<String>,
+    pub run_link_id: Option<String>,
+    pub review_message_id: Option<String>,
+    pub actor_id: String,
+    pub decision: String,
+    pub reason: Option<String>,
+    pub metadata_json: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueWorkerRow {
     pub worker_id: String,
     pub workspace_id: String,

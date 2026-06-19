@@ -37,11 +37,22 @@ These Workspace Agent/Broker capabilities are backend-backed now:
 - `queue.review.ack`
 - `queue.lifecycle.agentFinished`
 - `queue.review.getEvidenceBundle`
+- `queue.item.markDone`
 
 These capabilities must read/write through backend aggregate, review, or worker
 evidence APIs. They must not read frontend lifecycle controllers, Queue board
 snapshots, selected task detail, evidence overlays, or UI view models as product
 truth.
+
+`queue.item.markDone` is the backend/domain accepted-completion command. It
+requires explicit `workspaceId`, `taskId`, trusted actor id, and the exact
+structured confirmation token declared by the Queue capability contract. It
+persists an accepted-completion decision in backend storage and updates the
+authoritative aggregate so `ticketState=done`, `reviewState=done`,
+`workerRunState=completed`, `evidenceState=available`, `validationState`
+unchanged, `commitState` unchanged, `nextSuggestedCapability=null`, and
+`durableFlags.completionState=true`. Worker completion and review ACK alone
+remain not done.
 
 Their Workspace Agent capability contracts must state exact required ids,
 optional fields, trusted runtime/backend actor defaults, enum values, and
@@ -64,14 +75,14 @@ These capabilities are still transitional:
 | --- | --- | --- | --- |
 | `queue.coordinator.approveValidation` | Frontend dogfood lifecycle overlay | Backend Queue validation/coordinator decision service | Add durable validation decision command and aggregate coverage. |
 | `queue.coordinator.addFollowUpPrompt` | Frontend dogfood lifecycle overlay | Backend Queue coordinator/follow-up service | Add durable follow-up command and aggregate readback. |
-| `queue.item.markDone` | Frontend overlay with model-only validation/commit placeholders | Backend Queue finalization service | Add accepted-completion command with review/validation/commit preconditions. |
 | `queue.item.block` | Frontend dogfood lifecycle overlay | Backend Queue coordinator decision service | Add durable block command and dependency blocker propagation. |
 | `queue.item.fail` | Frontend dogfood lifecycle overlay | Backend Queue coordinator decision service | Add durable fail command and failed-upstream aggregate behavior. |
 
 ## Test Rules
 
-- Backend/domain tests prove Queue aggregate, review, worker evidence, and
-  lifecycle preconditions headlessly.
+- Backend/domain tests prove Queue aggregate, review, worker evidence,
+  accepted completion, dependency gates, and lifecycle preconditions
+  headlessly.
 - Tauri/API tests prove DTO serialization, typed command behavior, explicit
   task/run identity, and no hidden execution.
 - Broker/adapter tests prove backend-backed capabilities use the backend port,

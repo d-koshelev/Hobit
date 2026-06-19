@@ -482,7 +482,6 @@ describe("workspaceAgentBrokerContinuation", () => {
         prompt: "Continue with a visible follow-up.",
         reason: "Needs operator decision.",
         taskId: "task-1",
-        validationApproved: true,
       });
       const state = recordAttempt(
         createWorkspaceAgentBrokerContinuationState({
@@ -522,7 +521,6 @@ describe("workspaceAgentBrokerContinuation", () => {
         prompt: "Continue from ACK.",
         reason: "Review ACK does not finalize the task.",
         taskId: "task-1",
-        validationApproved: true,
       });
       const state = recordAttempt(
         createWorkspaceAgentBrokerContinuationState({

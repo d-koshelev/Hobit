@@ -92,6 +92,7 @@ pub(crate) struct QueueItemAggregateDurableFlagsDto {
     pub evidence_state: bool,
     pub validation_state: bool,
     pub commit_state: bool,
+    pub completion_state: bool,
     pub frontend_overlay_used: bool,
 }
 
@@ -202,6 +203,7 @@ impl From<QueueItemAggregateDurableFlags> for QueueItemAggregateDurableFlagsDto 
             evidence_state: flags.evidence_state,
             validation_state: flags.validation_state,
             commit_state: flags.commit_state,
+            completion_state: flags.completion_state,
             frontend_overlay_used: flags.frontend_overlay_used,
         }
     }

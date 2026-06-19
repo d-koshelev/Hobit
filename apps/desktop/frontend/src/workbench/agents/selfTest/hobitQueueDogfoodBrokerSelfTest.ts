@@ -206,13 +206,10 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
   const done = store.invoke<QueueAgentLifecycleTransitionOutput>(
     "queue.item.markDone",
     {
-      commit: store.fakeCommit,
-      coordinatorAgentId: store.coordinatorAgentId,
-      decisionId: "decision-done-upstream-1",
       reason: "Accepted by fake broker self-test.",
       taskId: store.taskId,
-      validationApproved: true,
     },
+    { confirmationToken: "operator-confirmed" },
   );
   const doneOutput = lifecycleOutput(done);
   const dependentAfterDoneStartable = store.canDependentStart(
@@ -245,15 +242,9 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
     (approvedOutput.lifecycle?.validationApprovals.length ?? 0) > 0 &&
     approvedOutput.wouldRunValidation === false;
   const markDonePassed =
-    done.status === "succeeded" &&
-    doneOutput?.ticketState === "done" &&
-    (doneOutput.lifecycle?.commitResults.some(
-      (commit) =>
-        commit.commitHash === store.fakeCommit.commitHash &&
-        commit.noGitMutationPerformed === true,
-    ) ?? false);
+    done.status === "unavailable" && doneOutput?.ticketState !== "done";
   const dependentGatePassed =
-    !dependentBeforeDoneStartable && dependentAfterDoneStartable;
+    !dependentBeforeDoneStartable && !dependentAfterDoneStartable;
 
   return {
     cases: [
@@ -326,29 +317,28 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
         caseId: "queue-dogfood-broker:mark-done",
         evidence: [
           brokerEvidence(done),
-          `ticketState: ${doneOutput?.ticketState ?? "unknown"}.`,
-          `Fake commit hash: ${store.fakeCommit.commitHash}.`,
-          "noGitMutationPerformed: true.",
+          "Backend accepted completion is required for done.",
+          "No frontend fake done state or fake commit metadata is attached by queue.item.markDone.",
         ],
         message: markDonePassed
-          ? "Mark done."
-          : "Mark done did not attach fake commit metadata and close the item.",
+          ? "Mark done unavailable without backend completion command."
+          : "Mark done unexpectedly finalized through the frontend broker.",
         status: markDonePassed ? "passed" : "failed",
-        title: "Mark done",
+        title: "Mark done backend required",
       }),
       selfTestCase({
         capabilityIds: ["queue.item.markDone"],
         caseId: "queue-dogfood-broker:dependent-unblocked-after-done",
         evidence: [
           `Dependent startable before done: ${String(dependentBeforeDoneStartable)}.`,
-          `Dependent startable after done: ${String(dependentAfterDoneStartable)}.`,
-          "Dependency gate uses dogfood done, not agent completion or review state.",
+          `Dependent startable without accepted completion: ${String(dependentAfterDoneStartable)}.`,
+          "Dependency gate uses backend accepted completion, not agent completion or review ACK.",
         ],
         message: dependentGatePassed
-          ? "Dependent unblocked after done."
-          : "Dependent dependency gate did not wait for upstream done.",
+          ? "Dependent remains gated until backend accepted completion."
+          : "Dependent dependency gate unblocked before backend accepted completion.",
         status: dependentGatePassed ? "passed" : "failed",
-        title: "Dependent unblocked after done",
+        title: "Dependent gated until backend completion",
       }),
     ],
     passed:

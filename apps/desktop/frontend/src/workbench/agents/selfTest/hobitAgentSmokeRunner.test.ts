@@ -240,14 +240,14 @@ describe("hobitAgentSmokeRunner aggregation", () => {
     });
     expect(result(report, "queue-dogfood-broker:mark-done")).toMatchObject({
       capabilityId: "queue.item.markDone",
-      message: "Mark done.",
+      message: "Mark done unavailable without backend completion command.",
       status: "passed",
     });
     expect(
       result(report, "queue-dogfood-broker:dependent-unblocked-after-done"),
     ).toMatchObject({
       capabilityId: "queue.item.markDone",
-      message: "Dependent unblocked after done.",
+      message: "Dependent remains gated until backend accepted completion.",
       status: "passed",
     });
     expect(result(report, "queue-dogfood-broker:follow-up-running")).toMatchObject({

@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
 use hobit_storage_sqlite::{
-    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
-    AgentQueueWorkerEvidenceBundleRow, WidgetRunRow,
+    AgentQueueCompletionDecisionRow, AgentQueueReviewMessageRow, AgentQueueTaskRow,
+    AgentQueueTaskRunLinkRow, AgentQueueWorkerEvidenceBundleRow, WidgetRunRow,
 };
 
 use crate::WorkspaceServiceError;
@@ -266,6 +266,7 @@ pub struct QueueItemAggregateDurableFlags {
     pub evidence_state: bool,
     pub validation_state: bool,
     pub commit_state: bool,
+    pub completion_state: bool,
     pub frontend_overlay_used: bool,
 }
 
@@ -307,6 +308,7 @@ impl WorkspaceService {
         let mut latest_links = HashMap::new();
         let mut latest_review_messages = HashMap::new();
         let mut latest_evidence_bundles = HashMap::new();
+        let mut latest_completion_decisions = HashMap::new();
         let mut widget_runs = HashMap::new();
 
         for task in &tasks {
@@ -319,6 +321,9 @@ impl WorkspaceService {
             let latest_evidence_bundle = self
                 .store
                 .get_latest_agent_queue_worker_evidence_bundle(workspace_id, &task.queue_item_id)?;
+            let latest_completion_decision = self
+                .store
+                .get_latest_agent_queue_completion_decision(workspace_id, &task.queue_item_id)?;
             if let Some(link) = latest_link {
                 let widget_run = self.store.get_widget_run(&link.direct_work_run_id)?;
                 if let Some(run) = widget_run {
@@ -332,6 +337,9 @@ impl WorkspaceService {
             if let Some(evidence_bundle) = latest_evidence_bundle {
                 latest_evidence_bundles.insert(task.queue_item_id.clone(), evidence_bundle);
             }
+            if let Some(completion_decision) = latest_completion_decision {
+                latest_completion_decisions.insert(task.queue_item_id.clone(), completion_decision);
+            }
         }
 
         Ok(build_queue_item_aggregates(
@@ -339,6 +347,7 @@ impl WorkspaceService {
             latest_links,
             latest_review_messages,
             latest_evidence_bundles,
+            latest_completion_decisions,
             widget_runs,
         ))
     }
@@ -365,6 +374,18 @@ impl WorkspaceService {
         let latest_evidence_bundle = self
             .store
             .get_latest_agent_queue_worker_evidence_bundle(workspace_id, task_id)?;
+        let latest_completion_decision = self
+            .store
+            .get_latest_agent_queue_completion_decision(workspace_id, task_id)?;
+        let mut completion_decisions = HashMap::new();
+        for candidate in &all_tasks {
+            if let Some(decision) = self.store.get_latest_agent_queue_completion_decision(
+                workspace_id,
+                &candidate.queue_item_id,
+            )? {
+                completion_decisions.insert(candidate.queue_item_id.clone(), decision);
+            }
+        }
         let widget_run = latest_link
             .as_ref()
             .and_then(|link| self.store.get_widget_run(&link.direct_work_run_id).ok())
@@ -373,9 +394,11 @@ impl WorkspaceService {
         Ok(Some(build_queue_item_aggregate(
             &task,
             &all_tasks,
+            &completion_decisions,
             latest_link.as_ref(),
             latest_review_message.as_ref(),
             latest_evidence_bundle.as_ref(),
+            latest_completion_decision.as_ref(),
             widget_run.as_ref(),
         )))
     }
@@ -409,6 +432,7 @@ pub(super) fn build_queue_item_aggregates(
     latest_links: HashMap<String, AgentQueueTaskRunLinkRow>,
     latest_review_messages: HashMap<String, AgentQueueReviewMessageRow>,
     latest_evidence_bundles: HashMap<String, AgentQueueWorkerEvidenceBundleRow>,
+    latest_completion_decisions: HashMap<String, AgentQueueCompletionDecisionRow>,
     widget_runs: HashMap<String, WidgetRunRow>,
 ) -> Vec<QueueItemAggregate> {
     tasks
@@ -417,13 +441,16 @@ pub(super) fn build_queue_item_aggregates(
             let latest_link = latest_links.get(&task.queue_item_id);
             let latest_review_message = latest_review_messages.get(&task.queue_item_id);
             let latest_evidence_bundle = latest_evidence_bundles.get(&task.queue_item_id);
+            let latest_completion_decision = latest_completion_decisions.get(&task.queue_item_id);
             let widget_run = latest_link.and_then(|link| widget_runs.get(&link.direct_work_run_id));
             build_queue_item_aggregate(
                 task,
                 &tasks,
+                &latest_completion_decisions,
                 latest_link,
                 latest_review_message,
                 latest_evidence_bundle,
+                latest_completion_decision,
                 widget_run,
             )
         })
@@ -433,23 +460,32 @@ pub(super) fn build_queue_item_aggregates(
 fn build_queue_item_aggregate(
     task: &AgentQueueTaskRow,
     all_tasks: &[AgentQueueTaskRow],
+    completion_decisions: &HashMap<String, AgentQueueCompletionDecisionRow>,
     latest_link: Option<&AgentQueueTaskRunLinkRow>,
     latest_review_message: Option<&AgentQueueReviewMessageRow>,
     latest_evidence_bundle: Option<&AgentQueueWorkerEvidenceBundleRow>,
+    latest_completion_decision: Option<&AgentQueueCompletionDecisionRow>,
     widget_run: Option<&WidgetRunRow>,
 ) -> QueueItemAggregate {
     // Raw task.status is a legacy storage input. This builder folds it together
     // with durable run-link data and never reads frontend lifecycle overlays.
     let worker_run_state = worker_run_state(task, latest_link);
-    let dependency_state = dependency_state(task, all_tasks);
+    let dependency_state = dependency_state(task, all_tasks, completion_decisions);
     let ticket_state = ticket_state(
         task,
         latest_link,
         latest_review_message,
+        latest_completion_decision,
         worker_run_state,
         dependency_state,
     );
-    let review_state = review_state(task, latest_link, latest_review_message, ticket_state);
+    let review_state = review_state(
+        task,
+        latest_link,
+        latest_review_message,
+        latest_completion_decision,
+        ticket_state,
+    );
     let evidence_state = evidence_state(latest_link, latest_evidence_bundle, ticket_state);
     let validation_state = validation_state(latest_link);
     let commit_state = QueueItemAggregateCommitState::None;
@@ -476,6 +512,7 @@ fn build_queue_item_aggregate(
         evidence_state,
         validation_state,
         commit_state,
+        latest_completion_decision,
     );
 
     QueueItemAggregate {
@@ -530,9 +567,13 @@ fn ticket_state(
     task: &AgentQueueTaskRow,
     latest_link: Option<&AgentQueueTaskRunLinkRow>,
     latest_review_message: Option<&AgentQueueReviewMessageRow>,
+    latest_completion_decision: Option<&AgentQueueCompletionDecisionRow>,
     worker_run_state: QueueItemAggregateWorkerRunState,
     dependency_state: QueueItemAggregateDependencyState,
 ) -> QueueItemAggregateTicketState {
+    if latest_completion_decision.is_some() {
+        return QueueItemAggregateTicketState::Done;
+    }
     if matches!(worker_run_state, QueueItemAggregateWorkerRunState::Running) {
         return QueueItemAggregateTicketState::Running;
     }
@@ -588,8 +629,12 @@ fn review_state(
     task: &AgentQueueTaskRow,
     latest_link: Option<&AgentQueueTaskRunLinkRow>,
     latest_review_message: Option<&AgentQueueReviewMessageRow>,
+    latest_completion_decision: Option<&AgentQueueCompletionDecisionRow>,
     ticket_state: QueueItemAggregateTicketState,
 ) -> QueueItemAggregateReviewState {
+    if latest_completion_decision.is_some() {
+        return QueueItemAggregateReviewState::Done;
+    }
     if matches!(ticket_state, QueueItemAggregateTicketState::Failure) {
         return QueueItemAggregateReviewState::Failed;
     }
@@ -659,6 +704,7 @@ fn validation_state(
 fn dependency_state(
     task: &AgentQueueTaskRow,
     all_tasks: &[AgentQueueTaskRow],
+    completion_decisions: &HashMap<String, AgentQueueCompletionDecisionRow>,
 ) -> QueueItemAggregateDependencyState {
     let dependency_ids = dependency_ids(task);
     if dependency_ids.is_empty() {
@@ -675,12 +721,13 @@ fn dependency_state(
         let Some(upstream) = by_id.get(dependency_id.as_str()) else {
             return QueueItemAggregateDependencyState::Unknown;
         };
+        if completion_decisions.contains_key(dependency_id.as_str()) {
+            continue;
+        }
         match upstream.status.as_str() {
             AGENT_QUEUE_TASK_STATUS_FAILED | AGENT_QUEUE_TASK_STATUS_CANCELLED => {
                 return QueueItemAggregateDependencyState::FailedUpstream;
             }
-            // Accepted Queue completion is not durably modeled yet. A worker
-            // completed status is review evidence, not dependency satisfaction.
             _ => all_ready = false,
         }
     }
@@ -852,13 +899,6 @@ fn blockers(
             "awaiting_review",
             "Worker result is awaiting explicit review.",
         )),
-        QueueItemAggregateTicketState::InReview => blockers.push(blocker(
-            "in_review",
-            "Review message has been acknowledged.",
-        )),
-        QueueItemAggregateTicketState::Done => {
-            blockers.push(blocker("final_done", "Queue item is already done."));
-        }
         QueueItemAggregateTicketState::Failure => {
             blockers.push(blocker("final_failed", "Queue item is in failure state."));
         }
@@ -964,7 +1004,7 @@ fn next_actions(
             )],
         },
         QueueItemAggregateTicketState::InReview => {
-            vec![action("none", "No action", false, Some("in_review"))]
+            vec![action("mark_done", "Mark done", true, None)]
         }
         QueueItemAggregateTicketState::Running => {
             vec![action("none", "No action", false, Some("worker_running"))]
@@ -988,6 +1028,7 @@ fn durable_flags(
     evidence_state: QueueItemAggregateEvidenceState,
     validation_state: QueueItemAggregateValidationState,
     commit_state: QueueItemAggregateCommitState,
+    latest_completion_decision: Option<&AgentQueueCompletionDecisionRow>,
 ) -> QueueItemAggregateDurableFlags {
     QueueItemAggregateDurableFlags {
         task_row: true,
@@ -1005,6 +1046,7 @@ fn durable_flags(
         ),
         validation_state: !matches!(validation_state, QueueItemAggregateValidationState::Unknown),
         commit_state: matches!(commit_state, QueueItemAggregateCommitState::None),
+        completion_state: latest_completion_decision.is_some(),
         frontend_overlay_used: false,
     }
 }

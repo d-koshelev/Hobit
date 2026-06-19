@@ -14,7 +14,10 @@ import {
   HOBIT_AGENT_INITIAL_CAPABILITIES,
   type HobitAgentCapability,
 } from "../capabilities";
-import { QUEUE_CAPABILITY_CONTRACT_BY_ID } from "../capabilities/queueCapabilityContracts";
+import {
+  QUEUE_CAPABILITY_CONTRACT_BY_ID,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "../capabilities/queueCapabilityContracts";
 import { HOBIT_TEST_AGENT_CAPABILITIES } from "../runtime";
 import {
   acknowledgeReviewMessage,
@@ -67,7 +70,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       expect(capability).toMatchObject({
         availability: { status: "available" },
         ownerSurface: "Agent Queue",
-        supportsDryRun: true,
+        supportsDryRun: capabilityId === "queue.item.markDone" ? false : true,
       });
       expect(capability.inputSchema?.requiredFields).toBeDefined();
       expect(capability.forbiddenSideEffects).toEqual(
@@ -87,7 +90,8 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
         capabilityId !== "queue.lifecycle.agentFinished" &&
         capabilityId !== "queue.review.getEvidenceBundle" &&
         capabilityId !== "queue.review.createMessage" &&
-        capabilityId !== "queue.review.ack"
+        capabilityId !== "queue.review.ack" &&
+        capabilityId !== "queue.item.markDone"
       ) {
         expect(capability.forbiddenSideEffects).toEqual(
           expect.arrayContaining(["backend_durability"]),
@@ -151,11 +155,11 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     ).toMatchObject({
       acceptedFields: expect.arrayContaining([
         "taskId",
-        "coordinatorAgentId",
-        "validationApproved",
-        "commit",
+        "reason",
+        "runId",
+        "reviewMessageId",
       ]),
-      requiredFields: ["taskId", "coordinatorAgentId", "validationApproved"],
+      requiredFields: ["taskId", "top-level confirmationToken"],
     });
     expect(
       requiredCapability(registry, "queue.lifecycle.get").inputSchema,
@@ -181,6 +185,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     const backendBackedCapabilities = [
       "queue.lifecycle.agentFinished",
       "queue.lifecycle.get",
+      "queue.item.markDone",
       "queue.review.ack",
       "queue.review.createMessage",
       "queue.review.getEvidenceBundle",
@@ -188,7 +193,6 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     const transitionalCapabilities = [
       "queue.coordinator.approveValidation",
       "queue.coordinator.addFollowUpPrompt",
-      "queue.item.markDone",
       "queue.item.block",
       "queue.item.fail",
     ];
@@ -233,6 +237,20 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     ).toMatchObject({
       autoContinuationSafe: false,
       backing: "backend_backed",
+      requiredIds: {
+        taskId: true,
+      },
+    });
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.item.markDone"),
+    ).toMatchObject({
+      autoContinuationSafe: false,
+      backing: "backend_backed",
+      confirmation: {
+        required: true,
+        value: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      },
+      confirmationRequirement: "required",
       requiredIds: {
         taskId: true,
       },
@@ -642,46 +660,43 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     expect(outputOf(result).lifecycle.followUpPrompts).toHaveLength(1);
   });
 
-  it("marks a reviewed item done with fake commit metadata only", () => {
+  it("requires exact structured confirmation before markDone reaches backend", () => {
     const broker = lifecycleBroker({
       initialLifecycles: [inReviewItem()],
     });
 
-    const result = broker.invoke(
+    const missingConfirmation = broker.invoke(
       request({
         capabilityId: "queue.item.markDone",
         input: {
-          commit: {
-            commitHash: "fake-hash",
-            commitTitle: "frontend: example",
-          },
-          coordinatorAgentId: "workspace-agent",
           taskId: "task-1",
-          validationApproved: true,
         },
       }),
     );
 
-    expect(result.status).toBe("succeeded");
-    const output = outputOf(result);
-    expect(output).toMatchObject({
-      ticketState: "done",
-      wouldCallGit: false,
-      wouldExecuteRollback: false,
-      wouldStartWorkers: false,
-    });
-    expect(output.lifecycle.commitResults).toMatchObject([
-      {
-        commitHash: "fake-hash",
-        modelOnly: true,
-        noGitMutationPerformed: true,
-        status: "success",
-      },
-    ]);
-    expect(canStartDependentAfterReviewGate(output.lifecycle)).toBe(true);
+    expect(missingConfirmation.status).toBe("needs_confirmation");
+    expect(missingConfirmation.result.message).toContain(
+      "queue.item.markDone requires confirmation.",
+    );
+
+    const exactConfirmation = broker.invoke(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Accepted by operator.",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(exactConfirmation.status).toBe("unavailable");
+    expect(exactConfirmation.result.message).toBe(
+      "Queue accepted completion is backend-owned and unavailable from the in-memory lifecycle controller.",
+    );
   });
 
-  it("keeps dependents gated until done", () => {
+  it("keeps dependents gated until backend accepted completion", () => {
     const awaitingReview = awaitingReviewItem();
     const inReview = inReviewItem();
 
@@ -689,19 +704,41 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     expect(canStartDependentAfterReviewGate(inReview)).toBe(false);
 
     const broker = lifecycleBroker({ initialLifecycles: [inReview] });
-    const done = broker.invoke(
+    const result = broker.invoke(
       request({
         capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
         input: {
-          coordinatorAgentId: "workspace-agent",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("unavailable");
+  });
+
+  it("rejects old fake commit and validation markDone fields", () => {
+    const broker = lifecycleBroker({
+      initialLifecycles: [inReviewItem()],
+    });
+
+    const result = broker.invoke(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          commit: {
+            commitHash: "fake-hash",
+          },
           taskId: "task-1",
           validationApproved: true,
         },
       }),
     );
 
-    expect(canStartDependentAfterReviewGate(outputOf(done).lifecycle)).toBe(
-      true,
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toBe(
+      "commit is not supported by queue.item.markDone.",
     );
   });
 
@@ -797,17 +834,13 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
 
   it("exposes safety outputs and does not add regex routing modules", () => {
     const broker = lifecycleBroker({
-      initialLifecycles: [inReviewItem()],
+      initialLifecycles: [runningItem()],
     });
     const result = broker.invoke(
       request({
-        capabilityId: "queue.item.markDone",
+        capabilityId: "queue.lifecycle.agentFinished",
         dryRun: true,
-        input: {
-          coordinatorAgentId: "workspace-agent",
-          taskId: "task-1",
-          validationApproved: true,
-        },
+        input: agentFinishedInput(),
       }),
     );
 
@@ -857,10 +890,12 @@ function lifecycleBroker({
 
 function request({
   capabilityId,
+  confirmationToken,
   dryRun = false,
   input,
 }: {
   capabilityId: string;
+  confirmationToken?: string | null;
   dryRun?: boolean;
   input: unknown;
 }) {
@@ -868,6 +903,7 @@ function request({
     agentId: "workspace-agent",
     agentRoleId: "workspace_agent",
     capabilityId,
+    confirmationToken,
     createdAt: NOW,
     dryRun,
     input,

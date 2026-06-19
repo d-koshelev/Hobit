@@ -93,15 +93,9 @@ type RequiredFollowUpInput = Required<
   >;
 
 type RequiredMarkDoneInput = Required<
-  Pick<
-    QueueAgentMarkDoneInput,
-    "coordinatorAgentId" | "taskId" | "validationApproved"
-  >
+  Pick<QueueAgentMarkDoneInput, "confirmationToken" | "taskId">
 > &
-  Omit<
-    QueueAgentMarkDoneInput,
-    "coordinatorAgentId" | "taskId" | "validationApproved"
-  >;
+  Omit<QueueAgentMarkDoneInput, "confirmationToken" | "taskId">;
 
 type RequiredBlockInput = Required<
   Pick<QueueAgentBlockInput, "coordinatorAgentId" | "reason" | "taskId">
@@ -397,80 +391,14 @@ export function createInMemoryQueueDogfoodLifecycleAdapterApi({
         },
       );
     },
-    markDone: (input: RequiredMarkDoneInput, context) =>
-      applyTransition<unknown>(input, context, "Queue item marked done", (item) => {
-        if (!input.validationApproved) {
-          return transitionFailure(
-            item,
-            "markQueueItemDone",
-            "Done requires validationApproved: true.",
-          );
-        }
-
-        const validationApproved =
-          item.validationApprovals.length > 0
-            ? { item, ok: true as const }
-            : approveValidation(item, {
-                approvedAt: context.requestedAt,
-                approvedByCoordinatorAgentId: input.coordinatorAgentId,
-                summary: input.validationSummary ?? "Validation approved.",
-                validationApprovalId:
-                  input.validationApprovalId ??
-                  idFromParts("validation", input.taskId, context.requestId),
-              });
-        if (!validationApproved.ok) {
-          return validationApproved;
-        }
-
-        const commitRequested =
-          validationApproved.item.commitRequests.length > 0
-            ? { item: validationApproved.item, ok: true as const }
-            : requestCommit(validationApproved.item, {
-                commitRequestId: idFromParts(
-                  "commit-request",
-                  input.taskId,
-                  context.requestId,
-                ),
-                createdAt: context.requestedAt,
-                reason: "Attach fake commit result. No Git mutation.",
-                requestedByCoordinatorAgentId: input.coordinatorAgentId,
-              });
-        if (!commitRequested.ok) {
-          return commitRequested;
-        }
-
-        const commitAttached = commitRequested.item.commitResults.some(
-          (result) => result.status === "success",
-        )
-          ? { item: commitRequested.item, ok: true as const }
-          : attachCommitResult(commitRequested.item, {
-              attachedAt: context.requestedAt,
-              commitHash: input.commit?.commitHash,
-              commitRequestId:
-                commitRequested.item.commitRequests[
-                  commitRequested.item.commitRequests.length - 1
-                ]?.commitRequestId,
-              commitResultId:
-                input.commit?.commitResultId ??
-                idFromParts("commit-result", input.taskId, context.requestId),
-              status: "success",
-              summary: input.commit?.commitTitle
-                ? `Fake commit result: ${input.commit.commitTitle}.`
-                : "Fake commit result attached. No Git mutation.",
-            });
-        if (!commitAttached.ok) {
-          return commitAttached;
-        }
-
-        return markQueueItemDone(commitAttached.item, {
-          completedAt: input.completedAt ?? context.requestedAt,
-          coordinatorAgentId: input.coordinatorAgentId,
-          decisionId:
-            input.decisionId ??
-            idFromParts("decision-done", input.taskId, context.requestId),
-          reason: input.reason ?? "Accepted by coordinator.",
-        });
-      }),
+    markDone: () => ({
+      message:
+        "Queue accepted completion is backend-owned and unavailable from the in-memory lifecycle controller.",
+      reasons: [
+        "Queue accepted completion is backend-owned and unavailable from the in-memory lifecycle controller.",
+      ],
+      status: "unavailable",
+    }),
   };
 }
 

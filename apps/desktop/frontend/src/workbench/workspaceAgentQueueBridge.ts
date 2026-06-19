@@ -13,6 +13,7 @@ import type {
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
   AgentQueueReviewCreateMessageResult,
+  AgentQueueCompletionCommandResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
   AckAgentQueueReviewMessageRequest,
@@ -20,6 +21,7 @@ import type {
   GetAgentQueueWorkerEvidenceBundleRequest,
   GetAgentQueueItemAggregateRequest,
   ListAgentQueueItemAggregatesRequest,
+  MarkAgentQueueItemDoneRequest,
   RecordAgentQueueWorkerFinishedRequest,
   AttachKnowledgeToQueueTaskRequest,
   AttachSkillToQueueTaskRequest,
@@ -132,6 +134,12 @@ export type WorkspaceQueueReviewActions = {
   ) => Promise<AgentQueueReviewCreateMessageResult>;
 };
 
+export type WorkspaceQueueCompletionActions = {
+  markAgentQueueItemDone: (
+    request: MarkAgentQueueItemDoneRequest,
+  ) => Promise<AgentQueueCompletionCommandResult>;
+};
+
 export type WorkspaceQueueWorkerEvidenceActions = {
   getAgentQueueWorkerEvidenceBundle: (
     request: GetAgentQueueWorkerEvidenceBundleRequest,
@@ -168,6 +176,9 @@ export type WorkspaceAgentQueueBridge = {
   createReviewMessage?: (
     request: Omit<CreateAgentQueueReviewMessageRequest, "workspaceId">,
   ) => Promise<AgentQueueReviewCreateMessageResult>;
+  markItemDone?: (
+    request: Omit<MarkAgentQueueItemDoneRequest, "workspaceId">,
+  ) => Promise<AgentQueueCompletionCommandResult>;
   getWorkerEvidenceBundle?: (
     request: Omit<GetAgentQueueWorkerEvidenceBundleRequest, "workspaceId">,
   ) => Promise<AgentQueueWorkerEvidenceQueryResult>;
@@ -191,6 +202,7 @@ export function createWorkspaceAgentQueueBridge({
   autonomousActions,
   aggregateReadActions,
   contextActions,
+  completionActions,
   controlActions,
   queueApi,
   reviewActions,
@@ -201,6 +213,7 @@ export function createWorkspaceAgentQueueBridge({
   autonomousActions?: WorkspaceQueueAutonomousActions | null;
   aggregateReadActions?: WorkspaceQueueAggregateReadActions | null;
   contextActions?: WorkspaceQueueContextActions | null;
+  completionActions?: WorkspaceQueueCompletionActions | null;
   controlActions?: WorkspaceQueueControlActions | null;
   queueApi: AgentQueueWidgetApi;
   reviewActions?: WorkspaceQueueReviewActions | null;
@@ -273,6 +286,13 @@ export function createWorkspaceAgentQueueBridge({
     createReviewMessage: reviewActions
       ? (request) =>
           reviewActions.createAgentQueueReviewMessage({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    markItemDone: completionActions
+      ? (request) =>
+          completionActions.markAgentQueueItemDone({
             ...request,
             workspaceId,
           })

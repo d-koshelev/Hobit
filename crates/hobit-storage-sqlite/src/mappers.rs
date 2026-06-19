@@ -3,12 +3,13 @@
 use rusqlite::Result;
 
 use crate::rows::{
-    AgentQueueItemRow, AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
-    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, JdbcConnectionProfileRow,
-    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow,
-    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
-    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    AgentQueueCompletionDecisionRow, AgentQueueItemRow, AgentQueueReviewMessageRow,
+    AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerEvidenceBundleRow,
+    AgentQueueWorkerRow, JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow,
+    KnowledgeDocumentRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow,
+    WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
+    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    WorkspaceWorkbenchRow,
 };
 
 pub(crate) fn workspace_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceRow> {
@@ -228,6 +229,24 @@ pub(crate) fn agent_queue_worker_evidence_bundle_row(
         metadata_json: row.get(15)?,
         created_at: row.get(16)?,
         updated_at: row.get(17)?,
+    })
+}
+
+pub(crate) fn agent_queue_completion_decision_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<AgentQueueCompletionDecisionRow> {
+    Ok(AgentQueueCompletionDecisionRow {
+        decision_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        queue_task_id: row.get(2)?,
+        run_id: row.get(3)?,
+        run_link_id: row.get(4)?,
+        review_message_id: row.get(5)?,
+        actor_id: row.get(6)?,
+        decision: row.get(7)?,
+        reason: row.get(8)?,
+        metadata_json: row.get(9)?,
+        created_at: row.get(10)?,
     })
 }
 

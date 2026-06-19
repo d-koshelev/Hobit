@@ -68,6 +68,7 @@ fn maps_queue_item_aggregate_to_stable_dto_strings() {
             evidence_state: true,
             validation_state: true,
             commit_state: true,
+            completion_state: false,
             frontend_overlay_used: false,
         },
         updated_at: "3".to_owned(),
@@ -82,6 +83,7 @@ fn maps_queue_item_aggregate_to_stable_dto_strings() {
     assert_eq!(dto.dependency_state, "none");
     assert_eq!(dto.latest_run.as_ref().expect("latest run").run_id, "run_1");
     assert!(!dto.next_actions[0].available);
+    assert!(!dto.durable_flags.completion_state);
     assert!(!dto.durable_flags.frontend_overlay_used);
 
     let value = serde_json::to_value(dto).expect("serialize dto");

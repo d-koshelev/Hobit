@@ -1,6 +1,7 @@
 import type {
   AckAgentQueueReviewMessageRequest,
   AgentQueueItemAggregate,
+  AgentQueueCompletionCommandResult,
   AgentQueueReviewCommandResult,
   AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
@@ -8,6 +9,7 @@ import type {
   CreateAgentQueueReviewMessageRequest,
   GetAgentQueueItemAggregateRequest,
   GetAgentQueueWorkerEvidenceBundleRequest,
+  MarkAgentQueueItemDoneRequest,
   RecordAgentQueueWorkerFinishedRequest,
 } from "../../../workspace/types";
 
@@ -25,6 +27,9 @@ export type QueueBackendCapabilityPort = {
     request: Omit<GetAgentQueueWorkerEvidenceBundleRequest, "workspaceId">,
   ) => Promise<AgentQueueWorkerEvidenceQueryResult>;
   listItemAggregates: () => Promise<AgentQueueItemAggregate[]>;
+  markItemDone: (
+    request: Omit<MarkAgentQueueItemDoneRequest, "workspaceId">,
+  ) => Promise<AgentQueueCompletionCommandResult>;
   recordWorkerFinished: (
     request: Omit<RecordAgentQueueWorkerFinishedRequest, "workspaceId">,
   ) => Promise<AgentQueueWorkerFinishedCommandResult>;
@@ -43,6 +48,7 @@ export function createQueueBackendCapabilityPort(
     typeof candidate.getItemAggregate !== "function" &&
     typeof candidate.getWorkerEvidenceBundle !== "function" &&
     typeof candidate.listItemAggregates !== "function" &&
+    typeof candidate.markItemDone !== "function" &&
     typeof candidate.recordWorkerFinished !== "function"
   ) {
     return null;
@@ -69,6 +75,10 @@ export function createQueueBackendCapabilityPort(
       candidate.listItemAggregates
         ? candidate.listItemAggregates()
         : unavailable("Queue aggregate list read API is unavailable."),
+    markItemDone: (request) =>
+      candidate.markItemDone
+        ? candidate.markItemDone(request)
+        : unavailable("Queue accepted completion command API is unavailable."),
     recordWorkerFinished: (request) =>
       candidate.recordWorkerFinished
         ? candidate.recordWorkerFinished(request)

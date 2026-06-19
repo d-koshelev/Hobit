@@ -123,7 +123,7 @@ function createQueueLifecycleCapabilityInstructionLines(
       ? "addFollowUpPrompt(taskId,coordinatorAgentId,prompt)"
       : null,
     presentCapabilityIds.has("queue.item.markDone")
-      ? "markDone(taskId,coordinatorAgentId,validationApproved:true)"
+      ? "markDone(taskId) plus top-level confirmationToken=operator-confirmed"
       : null,
     presentCapabilityIds.has("queue.item.block")
       ? "block(taskId,coordinatorAgentId,reason)"
@@ -140,6 +140,7 @@ function createQueueLifecycleCapabilityInstructionLines(
     "Queue lifecycle schemas are exact structured contracts; do not invent capability ids or ids.",
     requiredInputLine,
     "Review create/ack use trusted runtime/backend actor defaults when coordinatorAgentId is omitted; do not invent actor ids.",
+    "ACK does not mean done. queue.item.markDone is the backend accepted-completion command; prose confirmation is insufficient and it does not run Git, validation, rollback, Terminal, or workers.",
     'Lifecycle example: {"type":"hobit.action.request","requestId":"lifecycle-agent-finished-1","capabilityId":"queue.lifecycle.agentFinished","dryRun":false,"input":{"taskId":"queue-task-id","runId":"worker-run-id","outcome":"completed","finalAgentMessage":"Done."}}',
   ].filter((line): line is string => Boolean(line));
 }

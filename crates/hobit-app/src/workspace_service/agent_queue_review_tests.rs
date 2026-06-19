@@ -378,7 +378,7 @@ fn ack_review_message_updates_aggregate_to_in_review() {
         ack.aggregate.ticket_state,
         QueueItemAggregateTicketState::InReview
     );
-    assert_action_unavailable(&ack.aggregate, "none", Some("in_review"));
+    assert_action_available(&ack.aggregate, "mark_done");
 }
 
 #[test]
@@ -616,19 +616,6 @@ fn assert_action_available(aggregate: &QueueItemAggregate, code: &str) {
         .find(|action| action.code == code)
         .expect("next action");
     assert!(action.available, "expected action {code} to be available");
-}
-
-fn assert_action_unavailable(aggregate: &QueueItemAggregate, code: &str, reason: Option<&str>) {
-    let action = aggregate
-        .next_actions
-        .iter()
-        .find(|action| action.code == code)
-        .expect("next action");
-    assert!(
-        !action.available,
-        "expected action {code} to be unavailable"
-    );
-    assert_eq!(action.unavailable_reason.as_deref(), reason);
 }
 
 fn unique_test_db_path() -> PathBuf {

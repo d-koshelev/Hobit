@@ -471,6 +471,7 @@ function queueAggregate(
     dependencyState: "none",
     durableFlags: {
       commitState: true,
+      completionState: false,
       dependencyState: true,
       evidenceState: overrides.evidenceState !== "not_durable",
       frontendOverlayUsed: false,

@@ -1045,7 +1045,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(operatorPrompt).toContain("ack(taskId,messageId)");
     expect(operatorPrompt).toContain("addFollowUpPrompt(taskId,coordinatorAgentId,prompt)");
     expect(operatorPrompt).toContain(
-      "markDone(taskId,coordinatorAgentId,validationApproved:true)",
+      "markDone(taskId) plus top-level confirmationToken=operator-confirmed",
     );
     expect(operatorPrompt).toContain(
       '"capabilityId":"queue.lifecycle.agentFinished"',
@@ -1324,6 +1324,7 @@ function workerEvidenceAggregate(taskId: string, runId: string): AgentQueueItemA
     dependencyState: "none",
     durableFlags: {
       commitState: false,
+      completionState: false,
       dependencyState: true,
       evidenceState: true,
       frontendOverlayUsed: false,
@@ -1406,6 +1407,7 @@ function aggregateFromSnapshotItem(
     dependencyState: item.dependencies.length > 0 ? "waiting" : "none",
     durableFlags: {
       commitState: false,
+      completionState: false,
       dependencyState: true,
       evidenceState: false,
       frontendOverlayUsed: false,

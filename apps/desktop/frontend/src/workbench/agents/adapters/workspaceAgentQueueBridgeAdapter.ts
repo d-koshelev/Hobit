@@ -4,6 +4,7 @@ import type {
 } from "../../workspaceAgentQueueBridge";
 import type {
   AgentQueueItemAggregate,
+  AgentQueueCompletionCommandResult,
   AgentQueueReviewCommandResult,
   AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
@@ -13,6 +14,7 @@ import {
   createQueueBackendCapabilityPort,
   type QueueBackendCapabilityPort,
 } from "./queueBackendCapabilityPort";
+import { QUEUE_START_RUN_CONFIRMATION_TOKEN } from "../capabilities/queueCapabilityContracts";
 import { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
 import { createDefaultQueueAgentAdapterApi } from "./queueAgentCapabilities";
 import {
@@ -36,6 +38,7 @@ import {
   type QueueAgentLifecycleTransitionOutput,
   type QueueAgentListItemsInput,
   type QueueAgentListItemsResult,
+  type QueueAgentMarkDoneInput,
   type QueueAgentPromoteDraftResult,
   type QueueAgentPromptPackInput,
   type QueueAgentRunApprovalPolicy,
@@ -98,6 +101,8 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
             getWorkerEvidenceBundleThroughBackend(backendApi, bridge, input, context),
           getLifecycle: (input, context) =>
             getLifecycleThroughAggregate(backendApi, bridge, input, context),
+          markDone: (input, context) =>
+            markDoneThroughBackend(backendApi, bridge, input, context),
         }
       : undefined,
     importPromptPack: async (input, request) => {
@@ -199,7 +204,7 @@ function createUnavailableDogfoodLifecycleAdapterApi(): NonNullable<
     markDone: () =>
       unavailableLifecycleResult(
         QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone,
-        "Queue mark done is transitional and requires the Queue controller overlay.",
+        "Queue accepted completion command API is unavailable.",
       ),
   };
 }
@@ -1180,6 +1185,230 @@ async function ackReviewThroughBackend(
   }
 }
 
+async function markDoneThroughBackend(
+  backendApi: QueueBackendCapabilityPort | null | undefined,
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: Required<Pick<QueueAgentMarkDoneInput, "confirmationToken" | "taskId">> &
+    Omit<QueueAgentMarkDoneInput, "confirmationToken" | "taskId">,
+  context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>> {
+  const taskId = input.taskId.trim();
+  const confirmationToken = input.confirmationToken.trim();
+  if (!taskId) {
+    return invalidReviewCommandInput(
+      QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone,
+      "queue.item.markDone requires taskId.",
+    );
+  }
+  if (confirmationToken !== QUEUE_START_RUN_CONFIRMATION_TOKEN) {
+    return invalidReviewCommandInput(
+      QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone,
+      "queue.item.markDone requires exact structured confirmation.",
+    );
+  }
+
+  if (!backendApi) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone,
+      "Queue accepted completion command API is unavailable.",
+    );
+  }
+
+  if (context.dryRun) {
+    return previewReviewCommandFromAggregate(
+      backendApi,
+      queueControlStateFromBridge(bridge),
+      taskId,
+      context,
+      "Queue accepted completion preview prepared.",
+      "Queue item accepted as done",
+      QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone,
+    );
+  }
+
+  try {
+    const result = await backendApi.markItemDone({
+      actorId: reviewActorId(undefined, context),
+      confirmationToken,
+      reason: cleanString(input.reason),
+      reviewMessageId:
+        cleanString(input.reviewMessageId) ?? cleanString(input.messageId) ?? null,
+      runId: cleanString(input.runId) ?? null,
+      taskId,
+    });
+
+    if (result.status !== "succeeded" && result.status !== "already_done") {
+      return completionCommandBlocked(
+        result,
+        queueControlStateFromBridge(bridge),
+        QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone,
+      );
+    }
+
+    return completionCommandSucceeded(
+      result,
+      queueControlStateFromBridge(bridge),
+    );
+  } catch (error) {
+    return reviewCommandFailed(
+      error,
+      "Queue accepted completion request failed before backend blocker details were returned.",
+      QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone,
+    );
+  }
+}
+
+function completionCommandSucceeded(
+  result: AgentQueueCompletionCommandResult,
+  queueControlState: WorkspaceAgentQueueControlState | null,
+): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
+  if (!result.aggregate) {
+    const failureMessage =
+      "Queue accepted completion returned an incomplete backend success.";
+    return {
+      activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone],
+      message: failureMessage,
+      reasons: [failureMessage],
+      status: "failed",
+    };
+  }
+
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone],
+    message:
+      result.status === "already_done"
+        ? "Queue item was already done."
+        : "Queue item marked done.",
+    output: completionTransitionOutputFromBackend({
+      actionLabel:
+        result.status === "already_done"
+          ? "Queue item already done"
+          : "Queue item marked done",
+      queueControlState,
+      queueMutation: result.status === "succeeded" ? "backend_domain" : "none",
+      result,
+    }),
+    status: "succeeded",
+  };
+}
+
+function completionCommandBlocked(
+  result: AgentQueueCompletionCommandResult,
+  queueControlState: WorkspaceAgentQueueControlState | null,
+  activityEventNames: readonly string[],
+): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
+  const message = completionBlockerMessage(result);
+  return {
+    activityEventNames: [...activityEventNames],
+    message,
+    output: completionTransitionOutputFromBackend({
+      actionLabel: "Queue accepted completion blocked",
+      queueControlState,
+      queueMutation: "none",
+      result,
+    }),
+    reasons: [message],
+    status: result.status === "invalid_input" ? "invalid_input" : "failed",
+  };
+}
+
+function completionTransitionOutputFromBackend({
+  actionLabel,
+  queueControlState,
+  queueMutation,
+  result,
+}: {
+  actionLabel: string;
+  queueControlState: WorkspaceAgentQueueControlState | null;
+  queueMutation: "backend_domain" | "none";
+  result: AgentQueueCompletionCommandResult;
+}): QueueAgentLifecycleTransitionOutput {
+  const blocker = result.blocker;
+  const aggregate = result.aggregate;
+  const summary = aggregate
+    ? queueTaskSummaryFromAggregate(aggregate, queueControlState)
+    : null;
+  const blockers = aggregate?.blockers ?? (blocker
+    ? [{ code: blocker.blockerCode, message: blocker.blockerMessage }]
+    : []);
+  const backendNext =
+    (blocker?.nextSuggestedCapability as
+      | QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"]
+      | undefined) ??
+    (aggregate?.ticketState === "done" ? null : summary?.nextSuggestedCapability) ??
+    null;
+
+  return {
+    actionLabel,
+    additionalPromptCount: 0,
+    agentPromptState: "completed",
+    aggregate: aggregate ?? undefined,
+    backendCompletionStatus: result.status,
+    blockerCode: blocker?.blockerCode,
+    blockerMessage: blocker?.blockerMessage,
+    blockers,
+    completionDecision: result.completionDecision,
+    dryRunOnly: false,
+    durable: result.durable,
+    evidenceBundleId:
+      result.evidenceBundleId ?? blocker?.evidenceBundleId ?? undefined,
+    evidenceState: aggregate?.evidenceState ?? blocker?.evidenceState ?? undefined,
+    lifecycle: null,
+    messageId:
+      result.reviewMessageId ?? blocker?.reviewMessageId ?? undefined,
+    missingRequiredField: blocker?.missingRequiredField ?? undefined,
+    nextActions: summary?.nextActions ?? [],
+    nextSuggestedCapability: backendNext,
+    previousAgentPromptState: "completed",
+    previousTicketState: blocker?.ticketState ?? aggregate?.ticketState ?? "unknown",
+    queueMutation,
+    reviewMessage: result.completionDecision ?? blocker ?? undefined,
+    reviewOutcome: null,
+    reviewState: aggregate?.reviewState ?? blocker?.reviewState ?? undefined,
+    runId: result.runId ?? blocker?.runId ?? undefined,
+    taskId: result.taskId,
+    ticketState: aggregate?.ticketState ?? blocker?.ticketState ?? "unknown",
+    value: result.completionDecision ?? blocker ?? result,
+    workerRunState:
+      aggregate?.workerRunState ?? blocker?.workerRunState ?? undefined,
+    wouldAutoRunWorkers: false,
+    wouldCallGit: false,
+    wouldExecuteRollback: false,
+    wouldLaunchTerminal: false,
+    wouldPersistBackend: queueMutation === "backend_domain" && result.durable,
+    wouldRunValidation: false,
+    wouldStartWorkers: false,
+  };
+}
+
+function completionBlockerMessage(result: AgentQueueCompletionCommandResult) {
+  const blocker = result.blocker;
+  const stateParts = [
+    statePart("ticketState", blocker?.ticketState ?? result.aggregate?.ticketState),
+    statePart(
+      "workerRunState",
+      blocker?.workerRunState ?? result.aggregate?.workerRunState,
+    ),
+    statePart("reviewState", blocker?.reviewState ?? result.aggregate?.reviewState),
+    statePart(
+      "evidenceState",
+      blocker?.evidenceState ?? result.aggregate?.evidenceState,
+    ),
+    statePart(
+      "dependencyState",
+      blocker?.dependencyState ?? result.aggregate?.dependencyState,
+    ),
+  ].filter(Boolean);
+
+  return [
+    blocker?.blockerMessage ??
+      "Queue accepted completion is blocked by backend preconditions.",
+    stateParts.length > 0 ? `(${stateParts.join(", ")})` : null,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
 async function previewReviewCommandFromAggregate(
   backendApi: QueueBackendCapabilityPort,
   queueControlState: WorkspaceAgentQueueControlState | null,
@@ -1831,6 +2060,8 @@ function nextActionSuggestedCapability(code: string) {
       return "queue.review.createMessage";
     case "ack_review":
       return "queue.review.ack";
+    case "mark_done":
+      return "queue.item.markDone";
     case "promote_draft":
       return "queue.item.promoteDraft";
     case "start_run":

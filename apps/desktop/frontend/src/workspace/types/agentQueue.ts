@@ -311,6 +311,16 @@ export type AckAgentQueueReviewMessageRequest = {
   actorId: string;
 };
 
+export type MarkAgentQueueItemDoneRequest = {
+  workspaceId: string;
+  taskId: string;
+  actorId: string;
+  confirmationToken: string;
+  reason?: string | null;
+  runId?: string | null;
+  reviewMessageId?: string | null;
+};
+
 export type AgentQueueWorkerEvidenceOutcome =
   | "completed"
   | "not_completed"
@@ -381,6 +391,7 @@ export type AgentQueueItemAggregateNextAction = {
 
 export type AgentQueueItemAggregateDurableFlags = {
   commitState: boolean;
+  completionState: boolean;
   dependencyState: boolean;
   evidenceState: boolean;
   frontendOverlayUsed: boolean;
@@ -471,6 +482,60 @@ export type AgentQueueReviewCreateMessageResult = {
   reviewMessage: AgentQueueReviewMessage | null;
   runId: string | null;
   status: AgentQueueReviewCreateMessageStatus;
+  taskId: string;
+  workspaceId: string;
+};
+
+export type AgentQueueCompletionDecision = {
+  actorId: string;
+  createdAt: string;
+  decision: string;
+  decisionId: string;
+  metadataJson: string | null;
+  reason: string | null;
+  reviewMessageId: string | null;
+  runId: string | null;
+  runLinkId: string | null;
+  taskId: string;
+  workspaceId: string;
+};
+
+export type AgentQueueCompletionCommandBlocker = {
+  blockerCode: string;
+  blockerMessage: string;
+  missingRequiredField: string | null;
+  taskId: string;
+  runId: string | null;
+  reviewMessageId: string | null;
+  evidenceBundleId: string | null;
+  ticketState: string | null;
+  workerRunState: string | null;
+  reviewState: string | null;
+  evidenceState: string | null;
+  validationState: string | null;
+  commitState: string | null;
+  dependencyState: string | null;
+  nextSuggestedCapability: string | null;
+};
+
+export type AgentQueueCompletionCommandStatus =
+  | "succeeded"
+  | "blocked"
+  | "invalid_input"
+  | "already_done"
+  | "precondition_failed"
+  | string;
+
+export type AgentQueueCompletionCommandResult = {
+  aggregate: AgentQueueItemAggregate | null;
+  blocker: AgentQueueCompletionCommandBlocker | null;
+  completionDecision: AgentQueueCompletionDecision | null;
+  decisionId: string | null;
+  durable: boolean;
+  evidenceBundleId: string | null;
+  reviewMessageId: string | null;
+  runId: string | null;
+  status: AgentQueueCompletionCommandStatus;
   taskId: string;
   workspaceId: string;
 };

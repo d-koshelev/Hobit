@@ -12,10 +12,11 @@ behavior, Git mutation, or Terminal launch.
 ## Status
 
 Planned for Smart Queue dependency modeling.
-Current backend aggregates can report dependency-derived read state, but
-accepted completion, block/fail propagation commands, and scheduler enforcement
-remain future backend/domain work. Frontend overlays may present compatibility
-labels but must not become dependency product truth.
+Current backend aggregates report dependency-derived read state and treat an
+upstream as satisfied only after durable backend accepted completion. Block/fail
+propagation commands and scheduler enforcement remain future backend/domain
+work. Frontend overlays may present compatibility labels but must not become
+dependency product truth.
 
 ## Structural Dependency
 
@@ -63,9 +64,9 @@ completed process, passing validation, or `completed` compatibility status is
 not sufficient by itself if coordinator finalization or closure is still
 required.
 
-Accepted completion maps to a Queue-owned closed/finalized outcome, such as an
-explicit Closed human status or a current compatibility closure state accepted
-by the active Queue contracts.
+Accepted completion maps to the backend/domain `queue.item.markDone` decision
+ledger. Review ACK and worker completion do not satisfy dependencies until that
+durable completion decision exists.
 
 ## Dependency Record Shape
 

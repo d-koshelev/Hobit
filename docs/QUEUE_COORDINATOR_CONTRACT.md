@@ -11,7 +11,10 @@ Terminal launch, Finder behavior, or Workspace Agent tool execution.
 
 ## Status
 
-Planned for Smart Queue decision semantics.
+Planned for broad Smart Queue decision semantics. The narrow accepted
+completion path is implemented now as backend/domain-owned
+`queue.item.markDone`; it records durable completion only after explicit
+structured confirmation and backend aggregate preconditions.
 
 ## Ownership
 
@@ -31,6 +34,8 @@ Coordinator-owned decisions include:
 - block downstream tasks after dependency failure;
 - accept a worker report;
 - reject a worker report;
+- accept completion through the backend finalization command after review ACK
+  and durable worker evidence;
 - request Workspace Agent assistance;
 - create or request follow-up work through explicit Queue-owned flows.
 
@@ -115,6 +120,7 @@ from visible request context. It must not:
 - start workers;
 - override dependency gates;
 - mark tasks closed or failed;
+- treat review ACK, worker completion, or prose confirmation as done;
 - mutate Git;
 - launch Terminal;
 - read Finder state;

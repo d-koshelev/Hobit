@@ -41,7 +41,8 @@ broker-driven coordinator review actions. Workspace Agent/Broker read
 capabilities `queue.items.list` and `queue.lifecycle.get` now read
 backend/Tauri authoritative Queue item aggregate DTOs, and
 `queue.lifecycle.agentFinished`, `queue.review.getEvidenceBundle`,
-`queue.review.createMessage`, and `queue.review.ack` now call
+`queue.review.createMessage`, `queue.review.ack`, and `queue.item.markDone`
+now call
 backend/domain/Tauri command or query contracts. These paths do not use Queue
 board snapshots, selected task detail, frontend lifecycle/evidence overlays,
 UI hooks, or broker-local lifecycle maps as product truth.
@@ -69,6 +70,10 @@ commands retain explicit id requirements, and transitional/finalizing commands
 remain conservative and policy-restricted. This hardening does not move Queue
 truth into frontend UI, redesign the backend aggregate, migrate Queue UI, add
 regex routing, or add validation/Git/rollback/Terminal behavior.
+`queue.item.markDone` is the backend-owned accepted-completion command. It
+requires explicit `taskId`, trusted actor id, and top-level
+`confirmationToken: "operator-confirmed"` after operator confirmation; prose
+confirmation is insufficient. Worker completion and ACK remain not done.
 `queue.review.ack` is the only backend-backed write allowed to continue after
 success, and that continuation is for reading state, normally through
 `queue.lifecycle.get`. ACK remains review state; it does not mark the task
@@ -81,9 +86,10 @@ noted otherwise. The implemented backend exceptions are the
 `QueueItemAggregate` contract over existing durable Queue task rows, run links,
 dependencies, durable worker evidence bundle rows, and review message ledger
 rows, plus typed durable worker-finished/evidence-read and review
-message create/ACK commands. This is not a scheduler, general transition
-command set, validation runtime, Git/commit flow, rollback flow, or full
-Queue lifecycle store.
+message create/ACK commands, plus typed durable accepted-completion
+finalization. This is not a scheduler, general transition command set,
+validation runtime, Git/commit flow, rollback flow, or full Queue lifecycle
+store.
 
 ## Implemented Backend Aggregate, Worker Evidence, And Review Commands
 
@@ -110,6 +116,11 @@ command/query, and review command contract:
   persist durable worker evidence bundles, expose no-evidence/not-found states,
   and update aggregate worker/review readiness without marking the Queue item
   done.
+- `WorkspaceService::mark_agent_queue_item_done` validates accepted-completion
+  preconditions from the backend aggregate, requires exact structured
+  confirmation and trusted actor id, persists a durable completion decision,
+  and updates the aggregate to done without running validation, Git, rollback,
+  Terminal, workers, shell, or Codex.
 - `apps/desktop/src-tauri/src/agent_queue_aggregate_dto.rs` and
   `apps/desktop/src-tauri/src/agent_queue_aggregate_commands.rs` expose
   read-only desktop commands for aggregate list/get.
@@ -119,6 +130,9 @@ command/query, and review command contract:
 - `apps/desktop/src-tauri/src/agent_queue_review_dto.rs` and
   `apps/desktop/src-tauri/src/agent_queue_review_commands.rs` expose typed
   desktop commands for review create/ACK.
+- `apps/desktop/src-tauri/src/agent_queue_completion_dto.rs` and
+  `apps/desktop/src-tauri/src/agent_queue_completion_commands.rs` expose typed
+  desktop commands for accepted completion / mark done.
 - The aggregate read model is deterministic and non-mutating. Worker evidence
   commands mutate only the task/run-link completion state needed for worker
   reporting plus the durable worker evidence ledger. Review commands mutate
@@ -128,20 +142,20 @@ command/query, and review command contract:
 - Successful worker evidence maps to `awaiting_review`; it does not mark the
   Queue item `done`. Failed worker evidence exposes failure state and durable
   error/evidence summary without marking the item done. Dependency satisfaction
-  still requires a future durable accepted completion state.
+  requires durable accepted completion, not worker completion or ACK.
 - Successful worker evidence with no review message exposes available
   `create_review_message`; review message creation requires durable backend
   worker evidence, maps to `review_message_created`, returns the selected
   evidence bundle id/run id, and exposes available `ack_review`; ACK maps to
-  `in_review`.
+  `in_review`; accepted completion maps to `done`.
 - Backend headless contract tests now prove list/get, draft readiness, queued
   startability, running/completed/failed run-link state, dependency waiting and
   failed-upstream state, read-only query behavior, durable worker evidence
   record/readback, worker evidence idempotency, run-link ownership rejection,
   review create/ACK preconditions, explicit task identity, unrelated task
-  isolation, durable reload of worker evidence and review message state, no
-  prompt regex routing, and honest `not_durable` / `unknown` states without
-  launching the frontend.
+  isolation, durable reload of worker evidence, review message state, and
+  accepted completion state, no prompt regex routing, and honest
+  `not_durable` / `unknown` states without launching the frontend.
 - Tauri aggregate command tests now prove the desktop list/get command helpers
   serialize ticket, worker, review, evidence, validation, commit, dependency,
   blocker, next-action, latest-run, and durability fields from the backend
@@ -151,9 +165,10 @@ command/query, and review command contract:
   `queue.items.list` and `queue.lifecycle.get`; worker evidence command/query
   wiring is implemented for `queue.lifecycle.agentFinished` and
   `queue.review.getEvidenceBundle`; review command wiring is implemented for
-  `queue.review.createMessage` and `queue.review.ack`. Queue UI rendering
-  migration, validation decisions, commit decisions, mark-done/fail/block
-  commands, and durable scheduler state remain future work.
+  `queue.review.createMessage` and `queue.review.ack`; accepted-completion
+  wiring is implemented for `queue.item.markDone`. Queue UI rendering
+  migration, validation decisions, commit decisions, fail/block commands, and
+  durable scheduler state remain future work.
 
 ### Headless Queue API readiness
 
@@ -175,6 +190,9 @@ Current backend/domain ready operations:
   evidence for the explicit task/run and returns the selected id.
 - ACK durable Queue review messages and update aggregate review state to
   `in_review`.
+- Mark ACKed Queue review items done through a durable accepted-completion
+  decision after backend aggregate preconditions and exact structured
+  confirmation pass.
 
 Current Tauri/API ready operations:
 
@@ -187,6 +205,8 @@ Current Tauri/API ready operations:
 - record worker finished and read worker evidence bundles through
   authoritative command/query DTOs.
 - create and ACK Queue review messages through authoritative command DTOs.
+- mark ACKed Queue review items done through authoritative accepted-completion
+  command DTOs.
 - Workspace Agent/Broker reads of Queue item summaries and lifecycle/effective
   state through those aggregate DTOs.
 - Workspace Agent/Broker worker finished/evidence read through typed
@@ -194,12 +214,14 @@ Current Tauri/API ready operations:
 - Workspace Agent/Broker review create/ACK through typed backend/Tauri APIs;
   trusted actor id is supplied by runtime context/default rather than model
   invention.
+- Workspace Agent/Broker accepted completion through typed backend/Tauri APIs;
+  exact structured confirmation is required and the result is headless-testable
+  without Queue UI.
 
 Frontend-only transitional operations:
 
 - approve validation placeholder;
 - add follow-up prompt;
-- mark done;
 - block/fail through dogfood lifecycle overlay;
 - frontend worker evidence bundle normalization and legacy/controller evidence
   overlay compatibility only; it is transitional/deprecated for product truth;
@@ -212,13 +234,11 @@ Missing backend commands:
 - durable Queue enable/arm command;
 - durable validation approval command;
 - durable follow-up command;
-- durable mark-done command;
 - durable fail/block command;
 - durable commit approval/result command.
 
 Missing durability:
 
-- accepted completion / done state;
 - validation decision/evidence state beyond run-link status strings;
 - commit decision/result state;
 - durable Queue scheduler/runner state and restart recovery.
@@ -565,32 +585,36 @@ adapter integration and typed frontend Action Broker capability access.
   `awaiting_review`, `in_review`, `done`, and `failure`.
 - Agent/prompt states are `idle`, `running`, `completed`, `not_completed`,
   `failed`, and `additional_prompt_running`.
-- The model supports review messages, coordinator ACK transition from
-  `awaiting_review` to `in_review`, validation approval placeholders, commit
-  request placeholders, fake commit result attachment, explicit done, explicit
-  block/fail, and same-item follow-up prompt records.
+- The legacy frontend model supports review messages, coordinator ACK
+  transition from `awaiting_review` to `in_review`, validation approval
+  placeholders, commit request placeholders, fake commit result attachment,
+  explicit block/fail, and same-item follow-up prompt records. Workspace Agent
+  `queue.item.markDone` no longer uses this overlay as product truth; it calls
+  the backend accepted-completion command.
 - Failed agent prompt outcomes are routed to review first; terminal ticket
   failure requires an explicit coordinator decision.
-- Dependents are startable only after the upstream ticket reaches `done`, not
-  merely after agent completion, awaiting review, in review, validation
+- Dependents are startable only after upstream accepted completion, not merely
+  after agent completion, awaiting review, in review, review ACK, validation
   approval, or fake commit result attachment.
 - The controller adapter exposes pure helpers for lifecycle creation/derivation,
-  agent-finished transitions, coordinator ACK, done/follow-up decisions,
-  dependency done gates, and product-facing lifecycle presentation.
+  agent-finished transitions, coordinator ACK, follow-up/fail/block decisions,
+  dependency gates, and product-facing lifecycle presentation.
 - QueueV2 view-model helpers can consume an explicit dogfood lifecycle overlay
   to show `Awaiting review`, `In review`, `Done`, `Failed`, `Agent completed`,
   `Agent did not complete`, `Agent failed`, `Follow-up prompt running`,
   `Review acknowledged`, `Waiting for coordinator review`, and `Additional
   prompts: N` without redesigning Queue cards.
-- Frontend dependency summaries can use the dogfood overlay so dependents stay
-  waiting while upstream is agent-completed, awaiting review, or in review, and
-  become eligible only when upstream is dogfood `done`.
+- Frontend dependency summaries can use compatibility overlays so dependents
+  stay waiting while upstream is agent-completed, awaiting review, or in
+  review. Backend aggregate dependency state now treats upstream as satisfied
+  only when a durable accepted-completion decision exists.
 - Product-facing helpers emit labels such as `Awaiting review`, `In review`,
   `Agent completed`, `Follow-up prompt running`, `Review acknowledged`, and
   `Waiting for coordinator review`.
-- `smartQueueDogfoodLifecycle.test.ts` covers the fake full lifecycle,
+- `smartQueueDogfoodLifecycle.test.ts` covers the legacy fake lifecycle,
   follow-up branch, invalid transitions, terminal states, ACK targeting,
-  fake commit attachment, done-gated dependencies, and no hidden side effects.
+  fake commit attachment, compatibility dependency gates, and no hidden side
+  effects.
 - `smartQueueDogfoodLifecycleController.test.ts` covers controller overlays,
   QueueV2 presentation integration, done-gated frontend dependency eligibility,
   fake full lifecycle self-test, follow-up prompt branch, and hidden-side-effect
@@ -602,10 +626,10 @@ adapter integration and typed frontend Action Broker capability access.
   `queue.review.getEvidenceBundle` are exposed as typed Action Broker
   capabilities. `queue.lifecycle.get`, `queue.lifecycle.agentFinished`,
   `queue.review.getEvidenceBundle`, `queue.review.createMessage`, and
-  `queue.review.ack` are backend/Tauri aggregate, worker-evidence, or review
-  command-backed in the Workspace Agent bridge path; validation approval,
-  follow-up, mark-done, block, and fail remain frontend/controller
-  overlay-backed.
+  `queue.review.ack`, and `queue.item.markDone` are backend/Tauri aggregate,
+  worker-evidence, review, or accepted-completion command-backed in the
+  Workspace Agent bridge path; validation approval, follow-up, block, and fail
+  remain frontend/controller overlay-backed.
 - Workspace Agent can invoke those capabilities only by emitting structured
   `hobit.action.request` envelopes. User prompt regex routing is not
   implemented. Workspace Agent can now continue a frontend broker-action chain
@@ -623,9 +647,10 @@ adapter integration and typed frontend Action Broker capability access.
 - `apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.ts`
   now proves a fake full dogfooding loop through the real broker and registered
   Queue lifecycle handlers: agent finished, review message, ACK, validation
-  approval, mark done with fake commit metadata, done-gated dependent unblock,
-  follow-up prompt returning to running, failure-dependent blocking, and no
-  hidden side effects.
+  approval, backend-required mark done unavailability in the fake store,
+  dependents remaining gated without backend accepted completion, follow-up
+  prompt returning to running, failure-dependent blocking, and no hidden side
+  effects.
 - `apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts`
   defines the frontend Queue worker evidence bundle model, outcome mapping,
   validation, bounded display summaries, lifecycle/review adapters, and pure
@@ -702,14 +727,17 @@ adapter integration and typed frontend Action Broker capability access.
 - The fake broker-loop success path now sends a fake worker evidence bundle
   into `queue.lifecycle.agentFinished` and asserts broker consumption, review
   message evidence summary through the backend-backed command path, durable
-  backend evidence readback, no Git execution on mark done, and done-gated
-  dependent unblocking.
-- Lifecycle capability dry-runs preview transitions without mutating state.
-  Real worker-finished invocation mutates only the backend worker evidence
-  ledger plus task/run-link completion state; real review create/ACK invocation
-  mutates only the backend review message ledger. Other real lifecycle writes
-  mutate only frontend/controller overlay state where an injected lifecycle
-  adapter or Queue bridge task seed is available.
+  backend evidence readback, no Git execution on mark done, and no dependent
+  unblock without backend accepted completion.
+- Lifecycle capability dry-runs preview transitions without mutating state,
+  except `queue.item.markDone`, which is not dry-run advertised and requires
+  exact structured confirmation for real invocation. Real worker-finished
+  invocation mutates only the backend worker evidence ledger plus task/run-link
+  completion state; real review create/ACK invocation mutates only the backend
+  review message ledger; real markDone invocation mutates only the backend
+  completion decision ledger. Other real lifecycle writes mutate only
+  frontend/controller overlay state where an injected lifecycle adapter or
+  Queue bridge task seed is available.
 - Ingestion bridge tests prove dry-run immutability, broker-only mutation to
   backend evidence recording/readback, explicit review-message evidence
   summary inclusion, no auto-done/dependent unblock before coordinator
@@ -934,8 +962,8 @@ WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board
 
 ## Next Engineering Blocks
 
-1. Design durable backend persistence for attempts, accepted completion,
-   lifecycle decisions, validation evidence, and commit metadata.
+1. Design durable backend persistence for attempts, lifecycle decisions,
+   validation evidence, and commit metadata.
 2. Design backend scheduler/runtime ownership.
 3. Integrate real worker reports, validation evidence, and explicit commit
    approval/results with the dogfood lifecycle model.

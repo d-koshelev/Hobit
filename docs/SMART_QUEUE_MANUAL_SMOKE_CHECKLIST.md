@@ -86,7 +86,11 @@ explicit `input.taskId`, explicit `input.executorWidgetId`, and top-level
 same top-level confirmation token. Backend-backed Queue capabilities are
 `queue.items.list`, `queue.lifecycle.get`, `queue.review.getEvidenceBundle`,
 `queue.review.createMessage`, `queue.review.ack`, and
-`queue.lifecycle.agentFinished`. Transitional lifecycle writes remain
+`queue.lifecycle.agentFinished`, and `queue.item.markDone`. `queue.item.markDone`
+requires explicit `input.taskId`, trusted actor id from runtime/backend
+context, and top-level `confirmationToken: "operator-confirmed"` after
+operator confirmation. ACK and worker completion do not imply done.
+Transitional lifecycle writes remain
 non-auto-continuation-safe and policy-restricted.
 `queue.review.createMessage` requires durable backend worker evidence but does
 not require the model to supply `evidenceBundleId`; the backend selects the
@@ -173,14 +177,14 @@ During the smoke, verify these product labels appear where applicable:
 - `Review message created`
 - `Coordinator ACK - in review`
 - `Validation approved`
-- `Mark done`
+- `Mark done backend required`
 - `Create review message`
 - `Acknowledge review`
 - `Approve validation`
 - `Add follow-up prompt`
 - `Mark failed`
 - `Block`
-- `Dependent unblocked after done`
+- `Dependent gated until backend completion`
 - `Follow-up prompt returns to running`
 - `Backend durability is not covered`
 - `Real worker execution is not covered`
@@ -347,8 +351,10 @@ During the smoke, verify these product labels appear where applicable:
       blocked until adapters exist.
     - Expected: Queue dogfood broker loop rows show
       `Agent finished - awaiting review`, `Review message created`,
-      `Coordinator ACK - in review`, `Validation approved`, `Mark done`,
-      `Dependent unblocked after done`, `Follow-up prompt returns to running`,
+      `Coordinator ACK - in review`, `Validation approved`,
+      `Mark done unavailable without backend completion command`,
+      `Dependent remains gated until backend accepted completion`,
+      `Follow-up prompt returns to running`,
       `Queue-linked evidence event wiring available`,
       `Raw non-Queue Direct Work ingestion is blocked`,
       `Duplicate Queue-linked completion ingestion is guarded`,
@@ -360,8 +366,8 @@ During the smoke, verify these product labels appear where applicable:
       `queue.review.getEvidenceBundle` returns durable backend evidence when
       available, and the evidence includes a backend bundle id/state.
     - Expected: Queue backend aggregate read-model coverage is available for
-      durable task/run-link/worker-evidence/review-message state. Validation
-      decision durability, mark-done/fail/block durability, real worker
+      durable task/run-link/worker-evidence/review-message/completion state.
+      Validation decision durability, fail/block durability, real worker
       execution, real validation execution, and real Git commit execution are
       blocked/not covered with explicit reasons.
     - Expected: after Run Agent Self-Test completes, Agent Activity must not
@@ -375,8 +381,8 @@ During the smoke, verify these product labels appear where applicable:
     self-tests through automated frontend tests.
     - Expected: `smartQueueDogfoodLifecycle.test.ts` covers create, queue,
       start, agent completion, review message, coordinator ACK, validation
-      approval, fake commit result attachment, done, and dependent startability
-      only after done.
+      approval, legacy fake commit result attachment, compatibility done, and
+      dependency gating.
     - Expected: `smartQueueDogfoodLifecycleController.test.ts` covers applying
       the model to existing Queue task objects, preserving legacy task status,
       distinct ticket and agent/prompt states, controller ACK from
@@ -391,9 +397,10 @@ During the smoke, verify these product labels appear where applicable:
       Codex or shell, launch Terminal, mutate Git, execute rollback, create
       Queue views, or write backend/storage/schema state.
     - Expected: backend aggregate/read-model tests cover durable task/run-link
-      and worker-evidence state, backend worker evidence command tests cover
-      durable evidence record/readback, and backend review command tests cover
-      durable review message/ACK state. Real worker integration, real
+      worker-evidence, review, and accepted-completion state, backend worker
+      evidence command tests cover durable evidence record/readback, backend
+      review command tests cover durable review message/ACK state, and backend
+      completion command tests cover explicit accepted completion. Real worker integration, real
       validation execution, real commit execution, and backend scheduler
       dependency enforcement remain not implemented.
 
@@ -462,6 +469,7 @@ During the smoke, verify these product labels appear where applicable:
       `hobit.action.request` envelope for `queue.lifecycle.agentFinished`,
       `queue.review.createMessage`, `queue.review.ack`,
       `queue.coordinator.addFollowUpPrompt`, or `queue.item.markDone`.
+      `queue.item.markDone` must include exact top-level confirmation.
     - Expected: `queue.lifecycle.agentFinished` accepts either explicit fields
       or a structured `evidenceBundle` carrying task id, run id, attempt id,
       thread id, outcome, final agent message, changed files, validation
@@ -470,9 +478,9 @@ During the smoke, verify these product labels appear where applicable:
       mismatch, run id mismatch, and attempt id mismatch are rejected as typed
       invalid input before backend mutation.
     - Expected: the Action Broker validates the typed input schema. Review
-      create/ACK and worker-finished/evidence-read invoke backend/Tauri
-      commands through the Workspace Agent queue bridge, while validation
-      approval, follow-up, mark-done, block, and fail invoke the transitional
+      create/ACK, worker-finished/evidence-read, and markDone invoke
+      backend/Tauri commands through the Workspace Agent queue bridge, while
+      validation approval, follow-up, block, and fail invoke the transitional
       injected frontend Queue lifecycle adapter where available.
     - Expected: dry-run lifecycle requests preview the transition and do not
       change lifecycle overlay state, create backend review messages, ACK
@@ -480,7 +488,8 @@ During the smoke, verify these product labels appear where applicable:
       Terminal, execute rollback, call shell, or call Codex.
     - Expected: real worker-finished requests mutate only backend worker
       evidence plus task/run-link completion state; real review create/ACK
-      requests mutate only the backend review message ledger. Other real
+      requests mutate only the backend review message ledger; real markDone
+      requests mutate only the backend accepted-completion ledger. Other real
       lifecycle requests mutate only the frontend/controller overlay. Real
       worker execution, real validation execution, real Git commit execution,
       rollback execution, and durable scheduler integration remain not
@@ -493,17 +502,19 @@ During the smoke, verify these product labels appear where applicable:
       `apps/desktop/frontend/src/workbench/agents/selfTest/hobitQueueDogfoodBrokerSelfTest.test.ts`
       proves the fake dogfooding loop through Action Broker capability calls,
       including dry-run immutability, real fake-store execution mutation,
-      wrong ACK target failure, mark-done review-state gating, failure-dependent
-      blocking, and the honest skipped/blocked runtime gaps.
+      wrong ACK target failure, backend-required mark-done unavailability in
+      the fake store, failure-dependent blocking, and the honest
+      skipped/blocked runtime gaps.
     - Expected: the main success path uses a structured worker evidence bundle
       plus explicit run id rather than only loose final-agent fields, and the
       test asserts backend worker evidence command consumption, review summary
-      inclusion, durable evidence readback, no Git execution, and done-gated
-      dependent unblocking.
+      inclusion, durable evidence readback, no Git execution, and no dependent
+      unblocking without backend accepted completion.
     - Expected: the self-test does not launch workers, run validation, execute
       Git commits, call Codex/shell, launch Terminal, execute rollback, create
-      Queue views, or parse prose into actions. Backend writes are limited to
-      worker evidence and review message/ACK commands.
+      Queue views, or parse prose into actions. The fake-store loop does not
+      write backend completion state; real backend writes are covered by the
+      worker evidence, review message/ACK, and completion command tests.
     - Expected: the self-test report includes inventory rows stating
       Queue-linked evidence event wiring is available, raw non-Queue Direct
       Work ingestion is blocked/skipped, duplicate completion ingestion is
@@ -573,7 +584,7 @@ During the smoke, verify these product labels appear where applicable:
       review/evidence actions. It does not create a review message, ACK review,
       approve validation, mark done, start dependents, start workers, run
       validation, call Git, execute rollback, launch Terminal, call shell/Codex,
-      or add validation/commit/follow-up/mark-done/fail/block durability.
+      or add validation/commit/follow-up/fail/block durability.
     - Expected: broader lifecycle restart recovery, real validation execution,
       real Git commit execution, and scheduler behavior remain not implemented.
 
@@ -591,6 +602,8 @@ During the smoke, verify these product labels appear where applicable:
     - Expected: explicit review actions use broker capabilities where wired:
       `Create review message`, `Acknowledge review`, `Approve validation`,
       `Add follow-up prompt`, `Mark done`, `Mark failed`, and `Block`.
+      `Mark done` must go through the backend accepted-completion command and
+      exact structured confirmation; UI state must not fake done.
     - Expected: follow-up prompt and fail/block reason inputs reject empty text
       with product-facing validation messages.
     - Expected: if broker access is unavailable, the section shows a compact
@@ -599,7 +612,7 @@ During the smoke, verify these product labels appear where applicable:
       validation by itself, mark done by itself, start dependents, start
       workers, run validation, call Git, execute rollback, launch Terminal,
       call shell/Codex, create another Queue view, or add validation/commit/
-      follow-up/mark-done/fail/block durability.
+      follow-up/fail/block durability.
     - Expected: full review/evidence UI polish, real validation execution, real
       Git commit execution, and broader lifecycle restart recovery remain
       future work.
@@ -648,7 +661,8 @@ During the smoke, verify these product labels appear where applicable:
       Expected ACK path:
       `queue.review.ack -> queue.lifecycle.get -> hobit.final.answer`.
       ACK remains review state and must not auto-mark done or make
-      finalization capabilities safe.
+      finalization capabilities safe. `queue.item.markDone` remains explicit,
+      confirmation-required, and not auto-continuation safe.
     - Expected: the chain stops with a visible reason on confirmation,
       policy-blocked, unavailable, dry-run-required, failed, invalid input,
       repeated request id, repeated capability/input, unsupported envelope,
@@ -716,7 +730,8 @@ During the smoke, verify these product labels appear where applicable:
    - Expected: durable backend evidence is available through
      `queue.review.getEvidenceBundle` when ingestion succeeded; review-message
      creation, ACK, validation approval, mark done, and dependent starts remain
-     explicit separate actions.
+     explicit separate actions. Mark done is backend accepted completion, not
+     a Queue UI truth source.
    - Expected: `queue.lifecycle.get` requires the explicit task id and reads
      the backend/Tauri aggregate DTO for lifecycle/effective state, blockers,
      nextActions, latestRun, evidenceSummary, durable flags, and

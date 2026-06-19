@@ -20,10 +20,11 @@ export const HOBIT_AGENT_SMOKE_PRODUCT_LABELS = {
   queueDogfoodAgentFinishedAwaitingReview: "Agent finished - awaiting review",
   queueDogfoodBrokerLoop: "Queue dogfood broker loop",
   queueDogfoodCoordinatorAckInReview: "Coordinator ACK - in review",
-  queueDogfoodDependentUnblockedAfterDone: "Dependent unblocked after done",
+  queueDogfoodDependentUnblockedAfterDone:
+    "Dependent gated until backend completion",
   queueDogfoodFollowUpReturnsToRunning:
     "Follow-up prompt returns to running",
-  queueDogfoodMarkDone: "Mark done",
+  queueDogfoodMarkDone: "Mark done backend required",
   queueDogfoodReviewMessageCreated: "Review message created",
   queueDogfoodValidationApproved: "Validation approved",
   queueDryRunPreviewPrepared: "Queue dry-run preview prepared",

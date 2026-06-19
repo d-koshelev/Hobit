@@ -382,7 +382,7 @@ function queueDogfoodBrokerPlanCases(): HobitAgentSmokeCase[] {
       componentId: "queue-dogfood-broker-loop",
       componentTitle: "Queue dogfood broker loop",
       expectedResultDescription:
-        "queue.item.markDone closes the fake item with fake commit metadata and no Git mutation.",
+        "queue.item.markDone is a backend-owned accepted-completion path; the fake broker self-test cannot finalize done without backend durability.",
       kind: "capability-dry-run",
       required: true,
       safeMode: "dry-run",
@@ -396,7 +396,7 @@ function queueDogfoodBrokerPlanCases(): HobitAgentSmokeCase[] {
       componentId: "queue-dogfood-broker-loop",
       componentTitle: "Queue dogfood broker loop",
       expectedResultDescription:
-        "The fake dependent task becomes eligible only after the upstream lifecycle is done.",
+        "The fake dependent task remains gated until upstream backend accepted completion exists.",
       kind: "capability-dry-run",
       required: true,
       safeMode: "dry-run",

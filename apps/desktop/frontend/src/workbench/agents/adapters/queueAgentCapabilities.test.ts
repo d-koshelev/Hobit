@@ -44,6 +44,7 @@ import {
 } from "./queueAgentCapabilityTypes";
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
 import type {
+  AgentQueueCompletionCommandResult,
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
   AgentQueueReviewCreateMessageResult,
@@ -860,6 +861,14 @@ describe("queueAgentCapabilities invoke", () => {
     const ackReviewMessage = vi.fn(async () =>
       reviewCommandResult({
         aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: true,
+              code: "mark_done",
+              label: "Mark done",
+              unavailableReason: null,
+            },
+          ],
           reviewState: "in_review",
           taskId: "task-backend",
           ticketState: "in_review",
@@ -868,12 +877,35 @@ describe("queueAgentCapabilities invoke", () => {
         status: "acknowledged",
       }),
     );
+    const markItemDone = vi.fn(async () =>
+      completionCommandResult({
+        aggregate: queueAggregate({
+          durableFlags: {
+            commitState: true,
+            completionState: true,
+            dependencyState: true,
+            evidenceState: true,
+            frontendOverlayUsed: false,
+            latestRunLink: true,
+            reviewState: true,
+            taskRow: true,
+            validationState: true,
+          },
+          evidenceState: "available",
+          reviewState: "done",
+          taskId: "task-backend",
+          ticketState: "done",
+          workerRunState: "completed",
+        }),
+      }),
+    );
     const backendApi = queueBackendPort({
       ackReviewMessage,
       createReviewMessage,
       getItemAggregate,
       getWorkerEvidenceBundle,
       listItemAggregates,
+      markItemDone,
       recordWorkerFinished,
     });
     const broker = createHobitAgentActionBroker({
@@ -933,6 +965,16 @@ describe("queueAgentCapabilities invoke", () => {
         },
       }),
     );
+    const markDone = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Operator accepted completion.",
+          taskId: "task-backend",
+        },
+      }),
+    );
 
     expect(list.status).toBe("succeeded");
     expect(lifecycle.status).toBe("succeeded");
@@ -940,6 +982,7 @@ describe("queueAgentCapabilities invoke", () => {
     expect(evidence.status).toBe("succeeded");
     expect(review.status).toBe("succeeded");
     expect(ack.status).toBe("succeeded");
+    expect(markDone.status).toBe("succeeded");
     expect(listItemAggregates).toHaveBeenCalledTimes(1);
     expect(getItemAggregate).toHaveBeenCalledWith({ taskId: "task-backend" });
     expect(recordWorkerFinished).toHaveBeenCalledWith(
@@ -965,6 +1008,195 @@ describe("queueAgentCapabilities invoke", () => {
         taskId: "task-backend",
       }),
     );
+    expect(markItemDone).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      reason: "Operator accepted completion.",
+      reviewMessageId: null,
+      runId: null,
+      taskId: "task-backend",
+    });
+  });
+
+  it("routes queue.item.markDone through backend command only with exact structured confirmation", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const markItemDone = vi.fn(async () =>
+      completionCommandResult({
+        aggregate: queueAggregate({
+          durableFlags: {
+            commitState: true,
+            completionState: true,
+            dependencyState: true,
+            evidenceState: true,
+            frontendOverlayUsed: false,
+            latestRunLink: true,
+            reviewState: true,
+            taskRow: true,
+            validationState: true,
+          },
+          evidenceState: "available",
+          reviewState: "done",
+          taskId: "task-done",
+          ticketState: "done",
+          workerRunState: "completed",
+        }),
+        decisionId: "decision-done-1",
+        reviewMessageId: "review-message-1",
+        runId: "run-1",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getSnapshot, markItemDone }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const missingTask = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: { reason: "Missing task id." },
+      }),
+    );
+    const proseOnly = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.markDone",
+        input: { taskId: "task-done" },
+      }),
+    );
+    const success = await broker.invokeAsync<{
+      backendCompletionStatus: string;
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      ticketState: string;
+      wouldCallGit: boolean;
+      wouldExecuteRollback: boolean;
+      wouldLaunchTerminal: boolean;
+      wouldRunValidation: boolean;
+    }>(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Operator accepted completion.",
+          reviewMessageId: "review-message-1",
+          runId: "run-1",
+          taskId: "task-done",
+        },
+      }),
+    );
+
+    expect(missingTask.status).toBe("invalid_input");
+    expect(proseOnly.status).toBe("needs_confirmation");
+    expect(markItemDone).toHaveBeenCalledTimes(1);
+    expect(markItemDone).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      reason: "Operator accepted completion.",
+      reviewMessageId: "review-message-1",
+      runId: "run-1",
+      taskId: "task-done",
+    });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(success.status).toBe("succeeded");
+    expect(success.result.output).toMatchObject({
+      backendCompletionStatus: "succeeded",
+      nextSuggestedCapability: null,
+      queueMutation: "backend_domain",
+      ticketState: "done",
+      wouldCallGit: false,
+      wouldExecuteRollback: false,
+      wouldLaunchTerminal: false,
+      wouldRunValidation: false,
+    });
+  });
+
+  it("surfaces queue.item.markDone backend blockers with state dimensions", async () => {
+    const markItemDone = vi.fn(async () =>
+      completionCommandResult({
+        aggregate: queueAggregate({
+          dependencyState: "none",
+          evidenceState: "available",
+          reviewState: "review_message_created",
+          taskId: "task-blocked",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        blocker: {
+          blockerCode: "review_not_acked",
+          blockerMessage:
+            "The backend review message must be ACKed before queue.item.markDone.",
+          commitState: "none",
+          dependencyState: "none",
+          evidenceBundleId: "bundle-1",
+          evidenceState: "available",
+          missingRequiredField: null,
+          nextSuggestedCapability: "queue.review.ack",
+          reviewMessageId: "review-message-1",
+          reviewState: "review_message_created",
+          runId: "run-1",
+          taskId: "task-blocked",
+          ticketState: "awaiting_review",
+          validationState: "not_requested",
+          workerRunState: "completed",
+        },
+        completionDecision: null,
+        decisionId: null,
+        durable: false,
+        evidenceBundleId: "bundle-1",
+        reviewMessageId: "review-message-1",
+        runId: "run-1",
+        status: "blocked",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ markItemDone }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      backendCompletionStatus: string;
+      blockerCode: string;
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      reviewState: string;
+      ticketState: string;
+    }>(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: { taskId: "task-blocked" },
+      }),
+    );
+
+    expect(result.status).toBe("failed");
+    expect(result.result.output).toMatchObject({
+      backendCompletionStatus: "blocked",
+      blockerCode: "review_not_acked",
+      nextSuggestedCapability: "queue.review.ack",
+      queueMutation: "none",
+      reviewState: "review_message_created",
+      ticketState: "awaiting_review",
+    });
   });
 
   it("creates review messages through backend bridge command with trusted actor default", async () => {
@@ -3104,6 +3336,7 @@ function queueAggregate({
     dependencyState,
     durableFlags: durableFlags ?? {
       commitState: commitState !== "not_durable",
+      completionState: ticketState === "done",
       dependencyState: dependencyState !== "unknown",
       evidenceState: evidenceState !== "not_durable",
       frontendOverlayUsed: false,
@@ -3191,6 +3424,56 @@ function reviewCreateMessageResult({
     evidenceBundleId,
     messageId: resolvedMessageId,
     reviewMessage: command.reviewMessage,
+    runId,
+    status,
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function completionCommandResult({
+  aggregate = queueAggregate({
+    reviewState: "done",
+    ticketState: "done",
+    workerRunState: "completed",
+  }),
+  blocker = null,
+  completionDecision,
+  decisionId = "completion-decision-1",
+  durable = true,
+  evidenceBundleId = "bundle-1",
+  reviewMessageId = "review-message-1",
+  runId = "run-1",
+  status = "succeeded",
+}: Partial<AgentQueueCompletionCommandResult> & {
+  aggregate?: AgentQueueItemAggregate;
+  status?: AgentQueueCompletionCommandResult["status"];
+} = {}): AgentQueueCompletionCommandResult {
+  const resolvedDecision =
+    completionDecision === undefined
+      ? {
+          actorId: "test.agentA",
+          createdAt: "2026-06-15T10:02:00.000Z",
+          decision: "accepted",
+          decisionId: decisionId ?? "completion-decision-1",
+          metadataJson: null,
+          reason: "Operator accepted completion.",
+          reviewMessageId,
+          runId,
+          runLinkId: "link-1",
+          taskId: aggregate.taskId,
+          workspaceId: aggregate.workspaceId,
+        }
+      : completionDecision;
+
+  return {
+    aggregate,
+    blocker,
+    completionDecision: resolvedDecision,
+    decisionId,
+    durable,
+    evidenceBundleId,
+    reviewMessageId,
     runId,
     status,
     taskId: aggregate.taskId,

@@ -4,6 +4,10 @@ import {
   toLifecycleAgentFinishedInput,
   type QueueWorkerEvidenceBundle,
 } from "../../queue/smartQueueWorkerEvidenceBundle";
+import {
+  QUEUE_START_RUN_CONFIRMATION_FIELD,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "../capabilities/queueCapabilityContracts";
 import type {
   HobitAgentActionHandlerMap,
   HobitAgentActionRequest,
@@ -250,35 +254,30 @@ function handleMarkDone(
 ): QueueDogfoodLifecycleHandlerResult {
   const validation = readInput<QueueAgentMarkDoneInput>(
     request,
-    ["taskId", "coordinatorAgentId", "validationApproved"],
+    ["taskId"],
     [
       "taskId",
-      "coordinatorAgentId",
-      "validationApproved",
-      "validationSummary",
-      "validationApprovalId",
-      "commit",
-      "completedAt",
-      "decisionId",
       "reason",
+      "runId",
+      "messageId",
+      "reviewMessageId",
     ],
-    { booleanFields: ["validationApproved"] },
   );
   if (!validation.ok) {
     return invalidInput(request, validation.message);
   }
 
-  if (validation.value.validationApproved !== true) {
-    return invalidInput(request, "validationApproved must be true.");
+  const confirmationError = exactQueueConfirmationError(request);
+  if (confirmationError) {
+    return invalidInput(request, confirmationError);
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
     lifecycle.markDone(
       {
         ...validation.value,
-        coordinatorAgentId: validation.value.coordinatorAgentId as string,
+        confirmationToken: request.confirmationToken as string,
         taskId: validation.value.taskId as string,
-        validationApproved: true,
       },
       context,
     ),
@@ -757,6 +756,12 @@ function invalidInput(
     requestId: request.requestId,
     status: "invalid_input",
   });
+}
+
+function exactQueueConfirmationError(request: HobitAgentActionRequest) {
+  return request.confirmationToken === QUEUE_START_RUN_CONFIRMATION_TOKEN
+    ? null
+    : `${request.capabilityId} requires top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD} "${QUEUE_START_RUN_CONFIRMATION_TOKEN}".`;
 }
 
 function unavailable(

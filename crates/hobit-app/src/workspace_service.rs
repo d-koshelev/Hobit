@@ -22,6 +22,9 @@ mod agent_queue;
 mod agent_queue_aggregate;
 #[cfg(test)]
 mod agent_queue_aggregate_tests;
+mod agent_queue_completion;
+#[cfg(test)]
+mod agent_queue_completion_tests;
 mod agent_queue_context;
 #[cfg(test)]
 mod agent_queue_context_tests;
@@ -161,6 +164,12 @@ pub use agent_queue_aggregate::{
     QueueItemAggregateLatestRun, QueueItemAggregateNextAction, QueueItemAggregateReviewState,
     QueueItemAggregateRunSettings, QueueItemAggregateTicketState,
     QueueItemAggregateValidationState, QueueItemAggregateWorkerRunState,
+};
+pub use agent_queue_completion::{
+    AgentQueueCompletionCommandBlocker, AgentQueueCompletionCommandResult,
+    AgentQueueCompletionCommandStatus, AgentQueueCompletionDecisionSummary,
+    MarkAgentQueueItemDoneInput, AGENT_QUEUE_ACCEPTED_COMPLETION_CONFIRMATION_TOKEN,
+    AGENT_QUEUE_COMPLETION_DECISION_ACCEPTED,
 };
 pub use agent_queue_review::{
     AckAgentQueueReviewMessageInput, AgentQueueReviewCommandResult,

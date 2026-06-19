@@ -58,7 +58,9 @@ const COMPACT_GUIDANCE = [
   "queue.lifecycle.agentFinished uses backend/Tauri worker evidence commands and requires explicit taskId and runId.",
   "queue.review.getEvidenceBundle uses backend/Tauri worker evidence queries and requires explicit taskId.",
   "Review actor fields are trusted context fields; omit coordinatorAgentId unless an exact typed actor id is already available.",
-  "Validation, follow-up, markDone, block, and fail lifecycle capabilities remain transitional frontend/controller overlay operations when dryRun=false and are not auto-continuation safe.",
+  "queue.item.markDone is a backend/Tauri accepted-completion command. ACK does not mean done; worker completion does not mean done. Use it only after backend aggregate state is in_review with ACKed review and durable evidence.",
+  "queue.item.markDone requires top-level confirmationToken=\"operator-confirmed\" after explicit operator confirmation. Prose confirmation is insufficient.",
+  "Validation, follow-up, block, and fail lifecycle capabilities remain transitional frontend/controller overlay operations when dryRun=false and are not auto-continuation safe.",
   "Dry-run previews must not mutate lifecycle state or create review messages.",
   "Do not run workers, validation, Git, Terminal, rollback, shell, or Codex from these capabilities.",
 ] as const;
@@ -210,31 +212,24 @@ const FOLLOW_UP_SCHEMA: HobitAgentCapabilityInputSchema = {
 const MARK_DONE_SCHEMA: HobitAgentCapabilityInputSchema = {
   acceptedFields: [
     "taskId",
-    "coordinatorAgentId",
-    "validationApproved",
-    "validationSummary",
-    "validationApprovalId",
-    "commit",
-    "completedAt",
-    "decisionId",
     "reason",
+    "runId",
+    "messageId",
+    "reviewMessageId",
   ],
   fieldDescriptions: {
-    commit:
-      "Optional fake commit metadata object with commitHash, commitTitle, and commitResultId. No Git is executed.",
-    completedAt: "Optional ISO timestamp; broker request time is used by default.",
-    coordinatorAgentId: "Required coordinator or Workspace Agent id.",
-    decisionId: "Optional done decision id.",
-    reason: "Optional coordinator acceptance reason.",
+    messageId:
+      "Optional exact backend review message id returned by typed review results. Prefer reviewMessageId in new requests.",
+    reason: "Optional acceptance reason. Does not run validation, Git, rollback, or Terminal.",
+    reviewMessageId:
+      "Optional exact backend review message id returned by typed review results.",
+    runId: "Optional exact worker run id returned by typed backend results.",
     taskId: "Required Queue item id.",
-    validationApprovalId: "Optional validation approval id.",
-    validationApproved: "Required true validation approval marker.",
-    validationSummary: "Optional validation approval summary.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
-  requiredFields: ["taskId", "coordinatorAgentId", "validationApproved"],
+  requiredFields: ["taskId", "top-level confirmationToken"],
   shape:
-    '{"taskId":"string required","coordinatorAgentId":"string required","validationApproved":"true required","commit":{"commitHash":"string optional","commitTitle":"string optional"} optional}',
+    '{"taskId":"string required","reason":"string optional","runId":"string optional exact typed id","reviewMessageId":"string optional exact typed id"}; top-level confirmationToken="operator-confirmed" required',
 };
 
 const BLOCK_SCHEMA: HobitAgentCapabilityInputSchema = {
@@ -352,13 +347,8 @@ const FOLLOW_UP_EXAMPLE = {
 } as const;
 
 const MARK_DONE_EXAMPLE = {
-  commit: {
-    commitHash: "fake-hash",
-    commitTitle: "frontend: example",
-  },
-  coordinatorAgentId: "workspace-agent",
+  reason: "Operator accepted the ACKed worker evidence.",
   taskId: "task-id",
-  validationApproved: true,
 } as const;
 
 const BLOCK_EXAMPLE = {
@@ -477,19 +467,22 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
   }),
   lifecycleCapability({
     auditLabel: "Queue item marked done",
+    confirmationRequirement: "required",
     description:
-      "Mark an in-review completed Queue dogfood lifecycle item done using validation approval and fake commit metadata only.",
+      "Record backend-owned accepted completion for an in-review ACKed Queue item with durable completed worker evidence. Does not run validation, Git, rollback, Terminal, or workers.",
     examples: [
       envelopeExample(
-        "Mark a reviewed Queue item done with fake commit metadata.",
+        "Mark an ACKed Queue item done after explicit structured confirmation.",
         "queue.item.markDone",
         MARK_DONE_EXAMPLE,
       ),
     ],
+    forbiddenSideEffects: BACKEND_REVIEW_FORBIDDEN_SIDE_EFFECTS,
     id: "queue.item.markDone",
     inputSchema: MARK_DONE_SCHEMA,
     output:
-      "Lifecycle overlay with ticketState done and no real Git mutation.",
+      "Backend completion command result with durable decision id, ticketState done, reviewState done, nextSuggestedCapability null, blockers on invalid preconditions, and no Git/validation/rollback execution.",
+    supportsDryRun: false,
     title: "Mark Queue Item Done",
   }),
   lifecycleCapability({
@@ -571,16 +564,20 @@ function lifecycleCapability({
   output,
   sideEffectLevel = "write",
   forbiddenSideEffects = LIFECYCLE_FORBIDDEN_SIDE_EFFECTS,
+  confirmationRequirement,
+  supportsDryRun = true,
   title,
 }: {
   auditLabel: string;
   description: string;
   examples?: readonly HobitAgentCapabilityExample[];
   forbiddenSideEffects?: readonly string[];
+  confirmationRequirement?: HobitAgentCapability["confirmationRequirement"];
   id: string;
   inputSchema: HobitAgentCapabilityInputSchema;
   output: string;
   sideEffectLevel?: HobitAgentCapability["sideEffectLevel"];
+  supportsDryRun?: boolean;
   title: string;
 }): HobitAgentCapability {
   return {
@@ -590,7 +587,8 @@ function lifecycleCapability({
       auditLabel,
     ],
     availability: { status: "available" },
-    confirmationRequirement: sideEffectLevel === "read" ? "none" : "recommended",
+    confirmationRequirement:
+      confirmationRequirement ?? (sideEffectLevel === "read" ? "none" : "recommended"),
     defaultForProductActions: true,
     description,
     examples,
@@ -602,7 +600,7 @@ function lifecycleCapability({
     ownerSurface: "Agent Queue",
     restricted: false,
     sideEffectLevel,
-    supportsDryRun: true,
+    supportsDryRun,
     supportsSelfTest: false,
     title,
   };
@@ -617,6 +615,9 @@ function envelopeExample(
     description,
     exampleActionRequest: {
       capabilityId,
+      ...(capabilityId === "queue.item.markDone"
+        ? { confirmationToken: "operator-confirmed" }
+        : {}),
       dryRun: false,
       input,
       requestId: `${capabilityId}:example-1`,

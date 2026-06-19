@@ -18,21 +18,21 @@ mod time;
 pub use inputs::{
     AgentQueueReviewMessageAckUpdate, AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate,
     AgentQueueWorkerUpdate, JdbcConnectionProfileUpdate, JdbcConnectorUpdate,
-    KnowledgeDocumentSearchFilters, KnowledgeDocumentUpdate, NewAgentQueueItem,
-    NewAgentQueueReviewMessage, NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorker,
-    NewAgentQueueWorkerEvidenceBundle, NewJdbcConnectionProfile, NewJdbcConnector,
-    NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject, NewSkill,
-    NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
+    KnowledgeDocumentSearchFilters, KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision,
+    NewAgentQueueItem, NewAgentQueueReviewMessage, NewAgentQueueTask, NewAgentQueueTaskRunLink,
+    NewAgentQueueWorker, NewAgentQueueWorkerEvidenceBundle, NewJdbcConnectionProfile,
+    NewJdbcConnector, NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject,
+    NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
     NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
     WorkspaceNoteUpdate,
 };
 pub use rows::{
-    AgentQueueItemRow, AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
-    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, JdbcConnectionProfileRow,
-    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    KnowledgeDocumentSearchResultRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow,
-    SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
-    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    AgentQueueCompletionDecisionRow, AgentQueueItemRow, AgentQueueReviewMessageRow,
+    AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerEvidenceBundleRow,
+    AgentQueueWorkerRow, JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow,
+    KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow, KnowledgeDraftReviewRecordRow,
+    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
+    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
     WorkspaceWorkbenchRow,
 };
 pub use rusqlite::Error as StorageError;
