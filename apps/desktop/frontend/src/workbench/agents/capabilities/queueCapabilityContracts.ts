@@ -66,6 +66,43 @@ export type QueueCapabilityContract = {
   trustedContextFields: readonly string[];
 };
 
+export type QueueCapabilityId = string;
+
+export type QueueCapabilityNextAction = {
+  autoContinuationSafe: boolean;
+  capabilityId: QueueCapabilityId;
+  confirmationRequired?: {
+    field: string;
+    value: string;
+  };
+  input: Record<string, unknown>;
+  reason?: string;
+  requiresConfirmation: boolean;
+};
+
+export type QueueCapabilityNextActionValidationResult =
+  | {
+      ok: true;
+      missingRequiredFields: [];
+      reasons: [];
+    }
+  | {
+      ok: false;
+      missingRequiredFields: string[];
+      reasons: string[];
+    };
+
+export type QueueCapabilityNextActionBuildResult =
+  | {
+      nextAction: QueueCapabilityNextAction;
+      ok: true;
+    }
+  | {
+      missingRequiredFields: string[];
+      ok: false;
+      reason: string;
+    };
+
 const NO_CONFIRMATION: QueueCapabilityConfirmationContract = {
   field: null,
   required: false,
@@ -447,6 +484,183 @@ export const QUEUE_CAPABILITY_CONTRACT_BY_ID = new Map(
   ]),
 );
 
+export function buildQueueCapabilityNextAction({
+  autoContinuationSafe,
+  capabilityId,
+  input,
+  reason,
+}: {
+  autoContinuationSafe?: boolean;
+  capabilityId: QueueCapabilityId;
+  input: Record<string, unknown>;
+  reason?: string;
+}): QueueCapabilityNextActionBuildResult {
+  const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+  if (!contract) {
+    return {
+      missingRequiredFields: [],
+      ok: false,
+      reason: `Queue nextAction capability is not registered: ${capabilityId}.`,
+    };
+  }
+
+  const requiresConfirmation = contract.confirmation.required;
+  const nextAction: QueueCapabilityNextAction = {
+    autoContinuationSafe:
+      autoContinuationSafe ?? (contract.autoContinuationSafe && !requiresConfirmation),
+    capabilityId,
+    input,
+    ...(contract.confirmation.required && contract.confirmation.field
+      ? {
+          confirmationRequired: {
+            field: contract.confirmation.field,
+            value: contract.confirmation.value ?? "",
+          },
+        }
+      : {}),
+    ...(reason ? { reason } : {}),
+    requiresConfirmation,
+  };
+  const validation = validateQueueCapabilityNextAction(nextAction);
+
+  return validation.ok
+    ? { nextAction, ok: true }
+    : {
+        missingRequiredFields: validation.missingRequiredFields,
+        ok: false,
+        reason:
+          validation.reasons[0] ??
+          `Queue nextAction for ${capabilityId} is not schema-valid.`,
+      };
+}
+
+export function validateQueueCapabilityNextAction(
+  candidate: unknown,
+): QueueCapabilityNextActionValidationResult {
+  if (!isRecord(candidate)) {
+    return invalidNextAction([], ["nextAction must be an object."]);
+  }
+
+  const capabilityId =
+    typeof candidate.capabilityId === "string"
+      ? candidate.capabilityId.trim()
+      : "";
+  if (!capabilityId) {
+    return invalidNextAction(["capabilityId"], [
+      "nextAction.capabilityId is required.",
+    ]);
+  }
+
+  const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+  if (!contract) {
+    return invalidNextAction([], [
+      `nextAction capability is not registered: ${capabilityId}.`,
+    ]);
+  }
+
+  const input = candidate.input;
+  if (!isRecord(input)) {
+    return invalidNextAction(["input"], ["nextAction.input must be an object."]);
+  }
+
+  const reasons: string[] = [];
+  const missingRequiredFields: string[] = [];
+  const acceptedInputFields = acceptedInputFieldNames(contract);
+  for (const fieldName of Object.keys(input)) {
+    if (!acceptedInputFields.has(fieldName)) {
+      reasons.push(`${fieldName} is not supported by ${capabilityId}.`);
+    }
+  }
+
+  for (const fieldName of requiredInputFieldNames(contract)) {
+    if (!hasPresentInputValue(input, fieldName)) {
+      missingRequiredFields.push(fieldName);
+      reasons.push(`${fieldName} is required by ${capabilityId}.`);
+    }
+  }
+
+  for (const [fieldName, values] of Object.entries(contract.enumFields)) {
+    if (Object.prototype.hasOwnProperty.call(input, fieldName)) {
+      const value = input[fieldName];
+      if (
+        value !== null &&
+        value !== undefined &&
+        (typeof value !== "string" || !values.includes(value))
+      ) {
+        reasons.push(
+          `${fieldName} must be one of ${values.join(", ")} for ${capabilityId}.`,
+        );
+      }
+    }
+  }
+
+  const requiresConfirmation = candidate.requiresConfirmation;
+  const autoContinuationSafe = candidate.autoContinuationSafe;
+  if (typeof requiresConfirmation !== "boolean") {
+    reasons.push("nextAction.requiresConfirmation must be a boolean.");
+  }
+  if (typeof autoContinuationSafe !== "boolean") {
+    reasons.push("nextAction.autoContinuationSafe must be a boolean.");
+  }
+  if (autoContinuationSafe === true && !contract.autoContinuationSafe) {
+    reasons.push(`${capabilityId} is not auto-continuation safe.`);
+  }
+  if (autoContinuationSafe === true && requiresConfirmation === true) {
+    reasons.push(
+      `${capabilityId} cannot be auto-continuation safe while confirmation is required.`,
+    );
+  }
+
+  const confirmation = contract.confirmation;
+  const confirmationRequired = candidate.confirmationRequired;
+  if (confirmation.required) {
+    if (requiresConfirmation !== true) {
+      reasons.push(`${capabilityId} must declare requiresConfirmation=true.`);
+    }
+    if (!isRecord(confirmationRequired)) {
+      reasons.push(`${capabilityId} must declare confirmationRequired.`);
+    } else {
+      if (confirmationRequired.field !== confirmation.field) {
+        reasons.push(
+          `${capabilityId} confirmation field must be ${confirmation.field}.`,
+        );
+      }
+      if (confirmationRequired.value !== confirmation.value) {
+        reasons.push(
+          `${capabilityId} confirmation value must be ${confirmation.value}.`,
+        );
+      }
+    }
+  } else {
+    if (requiresConfirmation !== false) {
+      reasons.push(`${capabilityId} must declare requiresConfirmation=false.`);
+    }
+    if (confirmationRequired !== undefined) {
+      reasons.push(
+        `${capabilityId} must not declare confirmationRequired because no confirmation is required.`,
+      );
+    }
+  }
+
+  return reasons.length === 0
+    ? { missingRequiredFields: [], ok: true, reasons: [] }
+    : invalidNextAction(missingRequiredFields, reasons);
+}
+
+export function queueCapabilityNextActionAgreesWithSuggestion({
+  nextAction,
+  nextSuggestedCapability,
+}: {
+  nextAction?: QueueCapabilityNextAction | null;
+  nextSuggestedCapability?: string | null;
+}): boolean {
+  return (
+    !nextAction ||
+    !nextSuggestedCapability ||
+    nextAction.capabilityId === nextSuggestedCapability
+  );
+}
+
 function queueContract(
   contract: Omit<
     QueueCapabilityContract,
@@ -489,4 +703,56 @@ function queueContract(
     requiredIds: { ...NO_IDS, ...contract.requiredIds },
     trustedContextFields: contract.trustedContextFields ?? [],
   };
+}
+
+function invalidNextAction(
+  missingRequiredFields: string[],
+  reasons: string[],
+): QueueCapabilityNextActionValidationResult {
+  return {
+    missingRequiredFields: [...new Set(missingRequiredFields)],
+    ok: false,
+    reasons,
+  };
+}
+
+function acceptedInputFieldNames(contract: QueueCapabilityContract) {
+  return new Set(Object.keys(contract.fieldPolicies).map(topLevelFieldName));
+}
+
+function requiredInputFieldNames(contract: QueueCapabilityContract) {
+  const required = new Set<string>();
+  for (const [fieldName, policy] of Object.entries(contract.fieldPolicies)) {
+    if (policy === "model_required") {
+      required.add(topLevelFieldName(fieldName));
+    }
+  }
+  for (const [fieldName, requiredId] of Object.entries(contract.requiredIds)) {
+    if (requiredId) {
+      required.add(fieldName);
+    }
+  }
+  return required;
+}
+
+function topLevelFieldName(fieldName: string) {
+  const topLevel = fieldName.split(".")[0] ?? fieldName;
+  return topLevel.endsWith("[]") ? topLevel.slice(0, -2) : topLevel;
+}
+
+function hasPresentInputValue(input: Record<string, unknown>, fieldName: string) {
+  if (!Object.prototype.hasOwnProperty.call(input, fieldName)) {
+    return false;
+  }
+
+  const value = input[fieldName];
+  if (Array.isArray(value)) {
+    return value.length > 0;
+  }
+
+  return typeof value === "string" ? Boolean(value.trim()) : value != null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

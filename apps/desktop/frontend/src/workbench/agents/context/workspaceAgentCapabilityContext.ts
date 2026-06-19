@@ -92,7 +92,7 @@ export function createWorkspaceAgentPromptWithCapabilityContext(
     "When a Hobit app capability is needed, emit one structured Hobit action request envelope.",
     "Use a fresh requestId for each envelope.",
     'For the final answer in action mode, emit {"type":"hobit.final.answer","message":"<answer or blocker>"}.',
-    "After hobit.action.result, emit one next envelope or the final answer marker.",
+    "After hobit.action.result, prefer returned nextAction exactly; do not rename fields or guess from nextSuggestedCapability alone.",
     "Intermediate prose is not a capability call.",
     "The app validates policy/schema/side effects; use prose when no app action is needed.",
     "",

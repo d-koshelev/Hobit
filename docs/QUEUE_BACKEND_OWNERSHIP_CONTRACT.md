@@ -84,6 +84,21 @@ optional fields, trusted runtime/backend actor defaults, enum values, and
 registered `nextSuggestedCapability` ids. The model must not invent task ids,
 run ids, message ids, evidence ids, actor ids, capability ids, or enum values
 from prose or UI state.
+Broker/capability adapters translate backend aggregate/review/evidence/
+completion results into typed action results. When a Queue result can safely
+name a follow-up capability and all required target inputs are known, it must
+emit a validated `nextAction` payload using canonical target schema field
+names. `nextSuggestedCapability` remains compatibility context only and is not
+sufficient for machine execution. If both fields are present, they must agree.
+If the payload cannot be schema-valid, the adapter must report missing or
+unavailable next-action input instead of inferring ids from prose, title, UI
+selection, file paths, or display text.
+
+`queue.review.ack` input is `messageId`, not `reviewMessageId`. Duplicate
+review creation blockers with `blockerCode=review_message_already_exists` map
+backend `existingMessageId` to `nextAction.input.messageId` for
+`queue.review.ack`. Unsafe or finalizing actions, including
+`queue.item.markDone`, remain explicit and confirmation-gated.
 
 Queue enabled/disabled control state is currently exposed to broker adapters
 through the typed Workspace Queue bridge from controller execution state. This
@@ -113,6 +128,9 @@ These capabilities are still transitional:
 - Broker/adapter tests prove backend-backed capabilities use the backend port,
   do not import Queue UI modules, do not use frontend overlays as truth, and
   return only registered `nextSuggestedCapability` ids.
+- Broker/adapter tests prove emitted `nextAction` payloads are schema-valid,
+  use canonical input field names, include required ids, reject unsupported
+  fields/enums, and agree with `nextSuggestedCapability` when both are present.
 - Broker/adapter tests prove Queue capability manifest examples use exact
   schema fields/enums/confirmation tokens, reject missing required ids, and do
   not infer ids or confirmation from natural language.

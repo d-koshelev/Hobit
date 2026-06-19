@@ -120,6 +120,12 @@ Backend/domain aggregate and review command foundation:
   `queue_disabled` / `Queue disabled.` and `nextSuggestedCapability:
   "queue.enable"`; `queue.item.startRun` remains an explicit command that
   rejects disabled Queue state and never auto-enables.
+- Queue capability result mappers now emit typed `nextAction` payloads when a
+  follow-up can be built with known canonical target fields. The runtime must
+  prefer `nextAction.capabilityId` plus `nextAction.input` and must not guess
+  from `nextSuggestedCapability` alone. `nextSuggestedCapability` remains
+  compatibility context and must agree with `nextAction.capabilityId` when both
+  are present.
 
 The backend aggregate is now the authoritative Queue read model for durable
 task/run-link/dependency/worker-evidence/review-message inspection and
@@ -166,6 +172,13 @@ done.
 ACK is also not done. A Queue task becomes done only after an explicit backend
 accepted-completion command with exact structured confirmation and valid
 backend aggregate preconditions.
+
+Review ACK input uses `messageId`, not `reviewMessageId`. When backend review
+message creation reports `review_message_already_exists`, its
+`existingMessageId` is mapped to `nextAction.input.messageId` for
+`queue.review.ack`. ACK success may expose a read-only
+`queue.lifecycle.get` next action, but it must not imply or auto-run
+`queue.item.markDone`.
 
 ## Review Lifecycle
 
@@ -557,7 +570,10 @@ or ACK is allowed. Results include the durable message id, backend review
 state, blockers, nextActions, selected run/evidence ids when applicable, and
 updated aggregate state. Review-create failures return typed blockers with
 backend aggregate states; broker and Tauri layers must not collapse them to a
-generic failure.
+generic failure. Duplicate review-create blockers that include
+`existingMessageId` expose product status `already_exists` and a typed
+`nextAction` for `queue.review.ack` with `input.messageId` set to that existing
+message id.
 
 `queue.item.markDone` requires explicit `taskId` plus top-level
 `confirmationToken="operator-confirmed"` after explicit operator confirmation.
@@ -569,8 +585,10 @@ finalization, and the task is not already failed/running/draft/queued. Prose
 confirmation is insufficient. Success returns `ticketState=done`,
 `reviewState=done`, `workerRunState=completed`, `evidenceState=available`,
 `nextSuggestedCapability=null`, and durable completion state. Blocked results
-surface typed backend blockers and aggregate state. It does not run workers,
-validation, Git, rollback, Terminal, shell, or Codex.
+surface typed backend blockers and aggregate state. Success emits no
+`nextAction` by default. Blocked finalization may point only to safe
+read-only inspection when helpful; it must not auto-provide confirmation,
+auto-run ACK, validation, Git, rollback, Terminal, shell, Codex, or workers.
 
 The remaining transitional lifecycle decision capabilities validate structured
 inputs, enforce broker policy, support dry-run previews, return compact
@@ -581,8 +599,10 @@ Workspace Agent can now continue across multiple frontend broker actions by
 feeding compact structured `hobit.action.result` context back into the same
 Codex thread after eligible successful results. Continuation remains
 structured-action-only: the model emits one `hobit.action.request` envelope at
-a time, never action lists, and must use ids returned in the structured result.
-The loop is capped and stops on confirmation-required, policy-blocked,
+a time, never action lists, and must prefer a validated `nextAction` payload
+when present. The model must not rename `nextAction.input` fields and must not
+guess ids or actions from `nextSuggestedCapability` alone. The loop is capped
+and stops on confirmation-required, policy-blocked,
 unavailable, dry-run-required, failed, invalid-input, repeated request id,
 repeated capability/input, unsupported envelope, restricted capability, max
 action count, or missing same-thread continuation state. It does not infer
@@ -734,8 +754,8 @@ capabilities (`queue.lifecycle.get`, `queue.review.getEvidenceBundle`,
 `queue.lifecycle.agentFinished`, and `queue.item.markDone`) list exact
 required ids and trusted
 runtime/backend actor defaults in the manifest. The registered evidence read id
-is `queue.review.getEvidenceBundle`; `queue.lifecycle.getEvidenceBundle` is not
-a capability. Transitional lifecycle writes
+is `queue.review.getEvidenceBundle`; there is no lifecycle-namespaced evidence
+read alias. Transitional lifecycle writes
 (`queue.coordinator.approveValidation`, `queue.coordinator.addFollowUpPrompt`,
 `queue.item.block`, and `queue.item.fail`) remain
 frontend/controller overlay operations, are not auto-continuation safe, and do

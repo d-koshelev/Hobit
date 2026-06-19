@@ -104,8 +104,16 @@ acceptable smoke result.
 `ticketState`, `workerRunState`, `reviewState`, `evidenceState`,
 `validationState` when available, `commitState` when available,
 `dependencyState` when available, `blockers`, `nextSuggestedCapability`,
-`latestRun` when available, `evidenceSummary` when available, and durable
-flags or honest `unknown` / `not_durable` markers when available.
+typed `nextAction` when the next payload is schema-valid, `latestRun` when
+available, `evidenceSummary` when available, and durable flags or honest
+`unknown` / `not_durable` markers when available. `nextSuggestedCapability`
+alone is not enough for machine execution.
+
+Queue review smoke must verify `queue.review.ack` input uses `messageId`, not
+`reviewMessageId`. When review creation reports
+`review_message_already_exists`, backend `existingMessageId` must appear as
+`nextAction.input.messageId` for `queue.review.ack`. Unsafe/finalizing actions,
+including `queue.item.markDone`, remain explicit and confirmation-gated.
 
 ## Setup
 
@@ -701,9 +709,12 @@ During the smoke, verify these product labels appear where applicable:
      blockers, nextActions, latestRun when available, durable flags including
      honest `not_durable` / `unknown` state, readiness compatibility fields,
      and available executor targets.
-   - Expected with continuation: the next action uses task ids and executor ids
-     returned in `hobit.action.result`, not ids inferred from task titles,
-     final messages, paths, repo roots, or the operator prompt.
+   - Expected with continuation: when `nextAction` is present, the next request
+     uses `nextAction.capabilityId` and `nextAction.input` exactly. If
+     `nextAction` is unavailable, the agent stops or asks; it does not infer
+     ids or field names from task titles, final messages, paths, repo roots, or
+     the operator prompt, and it does not execute from
+     `nextSuggestedCapability` alone.
 
 3. Invoke `queue.item.updateRunSettings` for that exact `taskId` with
    `workspaceRoot`, `codexExecutable`, `sandbox`, and `approvalPolicy` where
@@ -717,9 +728,10 @@ During the smoke, verify these product labels appear where applicable:
 5. Invoke `queue.enable`.
    - Expected: Queue is enabled; no Queue Autorun, shell, Terminal, Git,
      validation, rollback, or dependent task start is triggered.
-   - If a prior Queue result reported `nextSuggestedCapability:
+   - If a prior Queue result reported typed `nextAction.capabilityId:
      "queue.enable"` with blocker `Queue disabled.`, this explicit action is
-     required before start.
+     required before start. `nextSuggestedCapability` alone remains
+     informational.
 
 6. Invoke `queue.item.startRun` with the same exact `taskId` and an explicit
    `executorWidgetId`.
@@ -730,8 +742,8 @@ During the smoke, verify these product labels appear where applicable:
      the latest backend final state; latest run-link metadata shows the
      returned run id; the board/details do not remain stale as Ready/Queued.
    - Expected when Queue is disabled: the capability returns blocked with
-     `Queue disabled.` and `nextSuggestedCapability: "queue.enable"`; it does
-     not auto-enable Queue.
+     `Queue disabled.` and may expose typed `nextAction` for `queue.enable`;
+     it does not auto-enable Queue.
    - Expected when start cannot actually run: the capability returns blocked
      or unavailable with a compact blocker such as local executor unavailable
      and does not claim `Queue-linked run started`.
@@ -746,9 +758,11 @@ During the smoke, verify these product labels appear where applicable:
 8. Inspect `queue.review.getEvidenceBundle` and the Queue details Result tab.
    - Expected: durable backend evidence is available through
      `queue.review.getEvidenceBundle` when ingestion succeeded; review-message
-     creation, ACK, validation approval, mark done, and dependent starts remain
-     explicit separate actions. Mark done is backend accepted completion, not
-     a Queue UI truth source.
+     creation may expose typed `nextAction` when `taskId`, `runId`, and
+     `evidenceBundleId` are known, but review creation, ACK, validation
+     approval, mark done, and dependent starts remain explicit separate
+     actions. Mark done is backend accepted completion, not a Queue UI truth
+     source.
    - Expected: `queue.lifecycle.get` requires the explicit task id and reads
      the backend/Tauri aggregate DTO for lifecycle/effective state, blockers,
      nextActions, latestRun, evidenceSummary, durable flags, and

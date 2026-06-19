@@ -1513,6 +1513,10 @@ describe("queueAgentCapabilities invoke", () => {
     const result = await broker.invokeAsync<{
       backendCompletionStatus: string;
       blockerCode: string;
+      nextAction: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
       nextSuggestedCapability: string | null;
       queueMutation: string;
       reviewState: string;
@@ -1529,7 +1533,11 @@ describe("queueAgentCapabilities invoke", () => {
     expect(result.result.output).toMatchObject({
       backendCompletionStatus: "blocked",
       blockerCode: "review_not_acked",
-      nextSuggestedCapability: "queue.review.ack",
+      nextAction: {
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-blocked" },
+      },
+      nextSuggestedCapability: "queue.lifecycle.get",
       queueMutation: "none",
       reviewState: "review_message_created",
       ticketState: "awaiting_review",
@@ -1578,6 +1586,10 @@ describe("queueAgentCapabilities invoke", () => {
     const result = await broker.invokeAsync<{
       lifecycle: null;
       messageId: string;
+      nextAction: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
       nextSuggestedCapability: string | null;
       queueMutation: string;
       reviewState: string;
@@ -1606,12 +1618,22 @@ describe("queueAgentCapabilities invoke", () => {
     expect(result.result.output).toMatchObject({
       lifecycle: null,
       messageId: "review-message-1",
+      nextAction: {
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "review-message-1",
+          taskId: "task-review",
+        },
+      },
       nextSuggestedCapability: "queue.review.ack",
       queueMutation: "backend_domain",
       reviewState: "review_message_created",
       taskId: "task-review",
       wouldPersistBackend: true,
     });
+    expect(result.result.output?.nextAction.input).not.toHaveProperty(
+      "reviewMessageId",
+    );
   });
 
   it("acknowledges review messages through backend bridge command with trusted actor default", async () => {
@@ -1712,6 +1734,10 @@ describe("queueAgentCapabilities invoke", () => {
     const result = await broker.invokeAsync<{
       evidenceBundleId: string;
       evidenceState: string;
+      nextAction: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
       nextSuggestedCapability: string | null;
       queueMutation: string;
       runId: string;
@@ -1749,6 +1775,14 @@ describe("queueAgentCapabilities invoke", () => {
     expect(result.result.output).toMatchObject({
       evidenceBundleId: "bundle-1",
       evidenceState: "available",
+      nextAction: {
+        capabilityId: "queue.review.createMessage",
+        input: {
+          evidenceBundleId: "bundle-1",
+          runId: "run-1",
+          taskId: "task-review",
+        },
+      },
       nextSuggestedCapability: "queue.review.createMessage",
       queueMutation: "backend_domain",
       runId: "run-1",
@@ -1829,6 +1863,10 @@ describe("queueAgentCapabilities invoke", () => {
       evidenceBundleId: string;
       evidenceBundlePersistence: string;
       evidenceState: string;
+      nextAction: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
       nextSuggestedCapability: string | null;
       runId: string;
     }>(
@@ -1855,6 +1893,14 @@ describe("queueAgentCapabilities invoke", () => {
       evidenceBundleId: "bundle-1",
       evidenceBundlePersistence: "backend_durable",
       evidenceState: "available",
+      nextAction: {
+        capabilityId: "queue.review.createMessage",
+        input: {
+          evidenceBundleId: "bundle-1",
+          runId: "run-1",
+          taskId: "task-review",
+        },
+      },
       nextSuggestedCapability: "queue.review.createMessage",
       runId: "run-1",
     });
@@ -2067,6 +2113,87 @@ describe("queueAgentCapabilities invoke", () => {
     });
   });
 
+  it("maps duplicate review create existingMessageId to typed ACK nextAction", async () => {
+    const createReviewMessage = vi.fn(async () =>
+      reviewCreateMessageBlockedResult({
+        aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: true,
+              code: "ack_review",
+              label: "Acknowledge review",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "review_message_created",
+          taskId: "task-review",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        blockerCode: "review_message_already_exists",
+        blockerMessage: "A review message already exists for this Queue item.",
+        existingMessageId: "queue-review-message-existing",
+        nextSuggestedCapability: "queue.review.ack",
+        reviewMessageAlreadyExists: true,
+        status: "already_exists",
+      }),
+    );
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync<{
+      blockerCode: string;
+      existingReviewMessageId: string;
+      messageId: string;
+      nextAction: {
+        autoContinuationSafe: boolean;
+        capabilityId: string;
+        input: Record<string, unknown>;
+        requiresConfirmation: boolean;
+      };
+      nextSuggestedCapability: string | null;
+      productStatus: string;
+      reviewMessageAlreadyExists: boolean;
+    }>(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: { taskId: "task-review" },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output).toMatchObject({
+      blockerCode: "review_message_already_exists",
+      existingReviewMessageId: "queue-review-message-existing",
+      messageId: "queue-review-message-existing",
+      nextAction: {
+        autoContinuationSafe: true,
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "queue-review-message-existing",
+          taskId: "task-review",
+        },
+        requiresConfirmation: false,
+      },
+      nextSuggestedCapability: "queue.review.ack",
+      productStatus: "already_exists",
+      reviewMessageAlreadyExists: true,
+    });
+    expect(result.result.output?.nextAction.input).not.toHaveProperty(
+      "reviewMessageId",
+    );
+  });
+
   it("acknowledges review messages through backend bridge command", async () => {
     const ackReviewMessage = vi.fn(async () =>
       reviewCommandResult({
@@ -2123,9 +2250,17 @@ describe("queueAgentCapabilities invoke", () => {
     });
     expect(result.result.output).toMatchObject({
       messageId: "review-message-1",
+      nextAction: {
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-review" },
+      },
+      nextSuggestedCapability: "queue.lifecycle.get",
       queueMutation: "backend_domain",
       reviewState: "in_review",
       ticketState: "in_review",
+    });
+    expect(result.result.output).not.toMatchObject({
+      nextAction: { capabilityId: "queue.item.markDone" },
     });
   });
 
@@ -2355,6 +2490,11 @@ describe("queueAgentCapabilities invoke", () => {
     expect(startResult.status).toBe("succeeded");
     expect(startResult.result.output).toMatchObject({
       executorWidgetId: "executor-1",
+      nextAction: {
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-1" },
+      },
+      nextSuggestedCapability: "queue.lifecycle.get",
       queueItemId: "task-1",
       runId: "run-1",
     });
@@ -2417,10 +2557,18 @@ describe("queueAgentCapabilities invoke", () => {
         blockers: Array<{ code: string; message: string }>;
         blockerReasons: string[];
         canStart: boolean;
+        nextAction?: {
+          capabilityId: string;
+          input: Record<string, unknown>;
+        };
         nextActions: Array<{ code: string; suggestedCapability?: string | null }>;
         nextSuggestedCapability?: string | null;
         taskId: string;
       }>;
+      nextAction?: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
       nextSuggestedCapability?: string | null;
     }>(
       request({
@@ -2430,11 +2578,19 @@ describe("queueAgentCapabilities invoke", () => {
     );
 
     expect(result.status).toBe("succeeded");
+    expect(result.result.output?.nextAction).toMatchObject({
+      capabilityId: "queue.enable",
+      input: {},
+    });
     expect(result.result.output?.nextSuggestedCapability).toBe("queue.enable");
     expect(result.result.output?.items[0]).toMatchObject({
       blockerReasons: ["Queue disabled."],
       blockers: [{ code: "queue_disabled", message: "Queue disabled." }],
       canStart: false,
+      nextAction: {
+        capabilityId: "queue.enable",
+        input: {},
+      },
       nextSuggestedCapability: "queue.enable",
       taskId: "task-disabled",
     });
@@ -2494,10 +2650,18 @@ describe("queueAgentCapabilities invoke", () => {
         blockerReasons: string[];
         canStart: boolean;
         dependencyState: string;
+        nextAction?: {
+          capabilityId: string;
+          input: Record<string, unknown>;
+        };
         nextActions: Array<{ code: string; suggestedCapability?: string | null }>;
         nextSuggestedCapability?: string | null;
         taskId: string;
       }>;
+      nextAction?: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
       nextSuggestedCapability?: string | null;
     }>(
       request({
@@ -2507,6 +2671,7 @@ describe("queueAgentCapabilities invoke", () => {
     );
 
     expect(result.status).toBe("succeeded");
+    expect(result.result.output?.nextAction).toBeUndefined();
     expect(result.result.output?.nextSuggestedCapability).toBeNull();
     expect(result.result.output?.items[0]).toMatchObject({
       blockerReasons: [
@@ -2517,6 +2682,7 @@ describe("queueAgentCapabilities invoke", () => {
       nextSuggestedCapability: null,
       taskId: "task-dependent",
     });
+    expect(result.result.output?.items[0]).not.toHaveProperty("nextAction");
     expect(result.result.output?.items[0]?.nextActions).toContainEqual(
       expect.objectContaining({
         code: "none",
@@ -4062,7 +4228,9 @@ function reviewCreateMessageBlockedResult({
   blockerCode = "task_is_draft",
   blockerMessage = "Draft Queue tasks cannot create review messages.",
   evidenceBundleId = null,
+  existingMessageId = null,
   nextSuggestedCapability = "queue.item.updateRunSettings",
+  reviewMessageAlreadyExists = false,
   runId = null,
   status = "precondition_failed",
 }: {
@@ -4070,7 +4238,9 @@ function reviewCreateMessageBlockedResult({
   blockerCode?: string;
   blockerMessage?: string;
   evidenceBundleId?: string | null;
+  existingMessageId?: string | null;
   nextSuggestedCapability?: string | null;
+  reviewMessageAlreadyExists?: boolean;
   runId?: string | null;
   status?: AgentQueueReviewCreateMessageResult["status"];
 } = {}): AgentQueueReviewCreateMessageResult {
@@ -4083,10 +4253,10 @@ function reviewCreateMessageBlockedResult({
       evidenceBundleId,
       evidenceBundleIdRequired: false,
       evidenceState: aggregate.evidenceState,
-      existingMessageId: null,
+      existingMessageId,
       missingRequiredField: null,
       nextSuggestedCapability,
-      reviewMessageAlreadyExists: false,
+      reviewMessageAlreadyExists,
       reviewState: aggregate.reviewState,
       runId,
       runIdRequired: false,

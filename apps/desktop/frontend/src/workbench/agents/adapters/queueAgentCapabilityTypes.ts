@@ -10,6 +10,10 @@ import type {
   AgentQueueWorkerEvidenceBundle,
 } from "../../../workspace/types";
 import type { QueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
+import {
+  buildQueueCapabilityNextAction,
+  type QueueCapabilityNextAction,
+} from "../capabilities/queueCapabilityContracts";
 import type {
   SmartQueueDogfoodLifecycleItem,
   SmartQueueDogfoodReviewOutcome,
@@ -190,6 +194,12 @@ export type QueueAgentCreatedItem = {
   sourceMetadata: QueueAgentSourceMetadata | null;
   status: "draft" | "queued";
   title: string;
+} & QueueAgentNextActionFields;
+
+export type QueueAgentNextActionFields = {
+  missingNextActionInput?: string[];
+  nextAction?: QueueCapabilityNextAction;
+  nextActionUnavailableReason?: string;
 };
 
 export type QueueAgentCreateItemsResult = QueueAgentCreateItemsPreview & {
@@ -198,7 +208,7 @@ export type QueueAgentCreateItemsResult = QueueAgentCreateItemsPreview & {
   createdTaskIds: string[];
   dependencyEdgesPreserved: boolean;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
-};
+} & QueueAgentNextActionFields;
 
 export type QueueAgentRunSandbox =
   | "danger_full_access"
@@ -230,7 +240,7 @@ export type QueueAgentTaskReadiness = {
   hasWorkspace: boolean;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
   readinessState: QueueAgentTaskReadinessState;
-};
+} & QueueAgentNextActionFields;
 
 export type QueueAgentAggregateSource = "tauri_queue_item_aggregate";
 
@@ -281,7 +291,7 @@ export type QueueAgentListItemsResult = {
   itemCount: number;
   items: QueueAgentTaskSummary[];
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
-};
+} & QueueAgentNextActionFields;
 
 export type QueueAgentUpdateRunSettingsInput = {
   approvalPolicy?: QueueAgentRunApprovalPolicy | null;
@@ -296,7 +306,7 @@ export type QueueAgentUpdateRunSettingsResult = {
   item: QueueAgentTaskSummary;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
   taskId: string;
-};
+} & QueueAgentNextActionFields;
 
 export type QueueAgentPromoteDraftInput = {
   taskId?: string;
@@ -308,7 +318,7 @@ export type QueueAgentPromoteDraftResult = {
   previousStatus: string;
   taskId: string;
   wouldPromote: boolean;
-};
+} & QueueAgentNextActionFields;
 
 export type QueueAgentEnableInput = Record<string, never>;
 
@@ -319,7 +329,7 @@ export type QueueAgentEnableResult = {
   globalExecutionState?: string;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
   queueEnabled: boolean;
-};
+} & QueueAgentNextActionFields;
 
 export type QueueAgentStartRunInput = {
   executorWidgetId?: string;
@@ -329,6 +339,7 @@ export type QueueAgentStartRunInput = {
 
 export type QueueAgentStartRunResult = {
   executorWidgetId: string;
+  nextSuggestedCapability?: QueueAgentCapabilityId | null;
   queueItemId: string;
   queueLinkedMetadata: {
     executorWidgetId: string;
@@ -340,7 +351,7 @@ export type QueueAgentStartRunResult = {
   runId: string;
   startedDirectWork: true;
   taskId: string;
-};
+} & QueueAgentNextActionFields;
 
 export type QueueAgentStartRunBlockedResult = {
   blockers?: AgentQueueItemAggregateBlocker[];
@@ -350,7 +361,7 @@ export type QueueAgentStartRunBlockedResult = {
   queueEnabled?: boolean;
   startedDirectWork: false;
   taskId?: string;
-};
+} & QueueAgentNextActionFields;
 
 export type QueueAgentStartRunAttemptResult =
   | QueueAgentStartRunBlockedResult
@@ -381,7 +392,7 @@ export type QueueAgentPromptPackImportResult = QueueAgentPromptPackPreview & {
   createdTaskIds: string[];
   dependencyEdgesPreserved: boolean;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
-};
+} & QueueAgentNextActionFields;
 
 export type QueueAgentLifecycleAgentFinishedInput = {
   attemptId?: string;
@@ -517,10 +528,14 @@ export type QueueAgentLifecycleTransitionOutput = {
   lifecycle: SmartQueueDogfoodLifecycleItem | null;
   messageId?: string;
   missingRequiredField?: string;
+  missingNextActionInput?: string[];
   nextActions?: QueueAgentAggregateNextAction[];
+  nextAction?: QueueCapabilityNextAction;
+  nextActionUnavailableReason?: string;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
   previousAgentPromptState: SmartQueueDogfoodLifecycleItem["agentPromptState"];
   previousTicketState: SmartQueueDogfoodLifecycleItem["ticketState"] | string;
+  productStatus?: string;
   queueMutation: "backend_domain" | "frontend_controller_overlay" | "none";
   reviewMessage?: unknown;
   reviewMessageAlreadyExists?: boolean;
@@ -555,7 +570,10 @@ export type QueueAgentLifecycleGetOutput = {
   latestRun?: AgentQueueItemAggregateLatestRun | null;
   lifecycle: SmartQueueDogfoodLifecycleItem | null;
   lifecycles?: SmartQueueDogfoodLifecycleItem[];
+  missingNextActionInput?: string[];
   nextActions?: QueueAgentAggregateNextAction[];
+  nextAction?: QueueCapabilityNextAction;
+  nextActionUnavailableReason?: string;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
   reviewState?: string;
   taskId?: string;
@@ -581,7 +599,10 @@ export type QueueAgentReviewEvidenceBundleOutput = {
   finalAgentMessage?: string;
   latestReviewMessage: SmartQueueReviewMessage | null;
   lifecycle: SmartQueueDogfoodLifecycleItem;
+  missingNextActionInput?: string[];
   nextActions?: QueueAgentAggregateNextAction[];
+  nextAction?: QueueCapabilityNextAction;
+  nextActionUnavailableReason?: string;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
   reviewMessages: SmartQueueReviewMessage[];
   reviewOutcome: SmartQueueDogfoodReviewOutcome | null;
@@ -776,9 +797,20 @@ export function createQueueAgentItemsPreview(
 export function queueAgentCreatedItem(
   item: QueueAgentNormalizedCreateItem,
 ): QueueAgentCreatedItem {
+  const nextAction = buildQueueCapabilityNextAction({
+    capabilityId: "queue.item.updateRunSettings",
+    input: { taskId: item.id },
+    reason: "New Queue item needs task-scoped run settings before it can run.",
+  });
   return {
     dependencies: [...item.dependencies],
     id: item.id,
+    ...(nextAction.ok
+      ? { nextAction: nextAction.nextAction }
+      : {
+          missingNextActionInput: nextAction.missingRequiredFields,
+          nextActionUnavailableReason: nextAction.reason,
+        }),
     nextSuggestedCapability: "queue.item.updateRunSettings",
     prompt: item.prompt,
     readiness: {

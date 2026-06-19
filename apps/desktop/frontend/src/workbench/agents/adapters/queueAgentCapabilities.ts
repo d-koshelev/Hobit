@@ -81,16 +81,24 @@ export function createDefaultQueueAgentAdapterApi(): QueueAgentAdapterApi {
   return {
     createItems: (request) => {
       const preview = createQueueAgentItemsPreview(request.items);
+      const createdItems = request.items.map(queueAgentCreatedItem);
+      const nextSuggestedCapability =
+        createdItems.find((item) => item.nextSuggestedCapability)
+          ?.nextSuggestedCapability ?? null;
       return {
         activityEventNames: [...QUEUE_ACTIVITY_EVENTS.createItems],
         message: "Queue items created",
         output: {
           ...preview,
+          ...nextActionFieldsForSingleCreatedItem(
+            createdItems,
+            nextSuggestedCapability,
+          ),
           createdItemCount: request.items.length,
-          createdItems: request.items.map(queueAgentCreatedItem),
+          createdItems,
           createdTaskIds: request.items.map((item) => item.id),
           dependencyEdgesPreserved: true,
-          nextSuggestedCapability: "queue.item.updateRunSettings",
+          nextSuggestedCapability,
         },
         status: "succeeded",
       };
@@ -112,17 +120,25 @@ export function createDefaultQueueAgentAdapterApi(): QueueAgentAdapterApi {
         };
       }
       const preview = createQueueAgentItemsPreview(request.items);
+      const createdItems = request.items.map(queueAgentCreatedItem);
+      const nextSuggestedCapability =
+        createdItems.find((item) => item.nextSuggestedCapability)
+          ?.nextSuggestedCapability ?? null;
       return {
         activityEventNames: [...QUEUE_ACTIVITY_EVENTS.importPromptPack],
         message: "Queue items created",
         output: {
           ...promptPackPreview.output,
           ...preview,
+          ...nextActionFieldsForSingleCreatedItem(
+            createdItems,
+            nextSuggestedCapability,
+          ),
           createdItemCount: request.items.length,
-          createdItems: request.items.map(queueAgentCreatedItem),
+          createdItems,
           createdTaskIds: request.items.map((item) => item.id),
           dependencyEdgesPreserved: true,
-          nextSuggestedCapability: "queue.item.updateRunSettings",
+          nextSuggestedCapability,
         },
         status: "succeeded",
       };
@@ -138,6 +154,32 @@ export function createDefaultQueueAgentAdapterApi(): QueueAgentAdapterApi {
     supportsDependencyEdges: true,
     supportsSafeMutationSandbox: false,
   };
+}
+
+function nextActionFieldsForSingleCreatedItem(
+  createdItems: readonly ReturnType<typeof queueAgentCreatedItem>[],
+  nextSuggestedCapability: string | null,
+) {
+  if (!nextSuggestedCapability) {
+    return {};
+  }
+
+  if (createdItems.length !== 1) {
+    return {
+      nextActionUnavailableReason:
+        "A top-level Queue nextAction is unavailable because the result contains multiple created task ids.",
+    };
+  }
+
+  const item = createdItems[0];
+  return item.nextAction
+    ? { nextAction: item.nextAction }
+    : {
+        missingNextActionInput: item.missingNextActionInput,
+        nextActionUnavailableReason:
+          item.nextActionUnavailableReason ??
+          "A top-level Queue nextAction is unavailable for the created task.",
+      };
 }
 
 function handleListItems(

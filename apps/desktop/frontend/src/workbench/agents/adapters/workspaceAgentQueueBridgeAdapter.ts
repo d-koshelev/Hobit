@@ -14,7 +14,10 @@ import {
   createQueueBackendCapabilityPort,
   type QueueBackendCapabilityPort,
 } from "./queueBackendCapabilityPort";
-import { QUEUE_START_RUN_CONFIRMATION_TOKEN } from "../capabilities/queueCapabilityContracts";
+import {
+  buildQueueCapabilityNextAction,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "../capabilities/queueCapabilityContracts";
 import { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
 import { createDefaultQueueAgentAdapterApi } from "./queueAgentCapabilities";
 import {
@@ -43,6 +46,7 @@ import {
   type QueueAgentPromptPackInput,
   type QueueAgentRunApprovalPolicy,
   type QueueAgentRunSandbox,
+  type QueueAgentNextActionFields,
   type QueueAgentReviewAckInput,
   type QueueAgentReviewCreateMessageInput,
   type QueueAgentReviewEvidenceBundleInput,
@@ -268,6 +272,15 @@ async function getLifecycleThroughAggregate(
     aggregate,
     queueControlStateFromBridge(bridge),
   );
+  const nextSuggestedCapability = nextCapabilityForLifecycleRead(summary);
+  const nextActionFields = nextActionFieldsForSuggestedCapability({
+    executorWidgetId: summary.assignedExecutorWidgetId,
+    nextSuggestedCapability,
+    reason:
+      "Queue lifecycle read exposed the next task-scoped lifecycle capability.",
+    runId: summary.latestRunId,
+    taskId: summary.taskId,
+  });
 
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleGet],
@@ -285,8 +298,9 @@ async function getLifecycleThroughAggregate(
       evidenceSummary: summary.evidenceSummary ?? null,
       latestRun: summary.latestRun ?? null,
       lifecycle: null,
+      ...nextActionFields,
       nextActions: summary.nextActions ?? [],
-      nextSuggestedCapability: summary.nextSuggestedCapability,
+      nextSuggestedCapability,
       reviewState: summary.reviewState,
       taskId: summary.taskId,
       ticketState: summary.ticketState,
@@ -403,6 +417,11 @@ async function listQueueItemsThroughBackend(
   const items = sourceItems
     .slice(0, limit)
     .map((item) => queueTaskSummaryFromAggregate(item, queueControlState));
+  const nextSuggestedCapability = nextCapabilityForSummaries(items);
+  const nextActionFields = nextActionFieldsForSingleTaskSummary(
+    items,
+    nextSuggestedCapability,
+  );
 
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.itemsList],
@@ -416,7 +435,8 @@ async function listQueueItemsThroughBackend(
       capped: !input.taskId && sourceItems.length > items.length,
       itemCount: items.length,
       items,
-      nextSuggestedCapability: nextCapabilityForSummaries(items),
+      ...nextActionFields,
+      nextSuggestedCapability,
     },
     status: "succeeded",
   };
@@ -484,6 +504,10 @@ async function updateRunSettingsThroughBridge(
       output: {
         appliedFields,
         item: previewSummary,
+        ...nextActionFieldsForSingleTaskSummary(
+          [previewSummary],
+          previewSummary.nextSuggestedCapability ?? null,
+        ),
         nextSuggestedCapability: previewSummary.nextSuggestedCapability,
         taskId: input.taskId,
       },
@@ -517,6 +541,10 @@ async function updateRunSettingsThroughBridge(
     output: {
       appliedFields,
       item: summary,
+      ...nextActionFieldsForSingleTaskSummary(
+        [summary],
+        summary.nextSuggestedCapability ?? null,
+      ),
       nextSuggestedCapability: summary.nextSuggestedCapability,
       taskId: input.taskId,
     },
@@ -570,6 +598,10 @@ async function promoteDraftThroughBridge(
         summary.blockerReasons[0] ?? "Complete draft readiness before queuing.",
       output: {
         item: summary,
+        ...nextActionFieldsForSingleTaskSummary(
+          [summary],
+          summary.nextSuggestedCapability ?? null,
+        ),
         nextSuggestedCapability: summary.nextSuggestedCapability,
         previousStatus: currentItem.status,
         taskId,
@@ -595,6 +627,10 @@ async function promoteDraftThroughBridge(
       message: "Queue draft promotion preview prepared.",
       output: {
         item: promotedSummary,
+        ...nextActionFieldsForSingleTaskSummary(
+          [promotedSummary],
+          promotedSummary.nextSuggestedCapability ?? null,
+        ),
         nextSuggestedCapability: promotedSummary.nextSuggestedCapability,
         previousStatus: currentItem.status,
         taskId,
@@ -629,6 +665,10 @@ async function promoteDraftThroughBridge(
     message: "Queue draft promoted to queued.",
     output: {
       item: updatedSummary,
+      ...nextActionFieldsForSingleTaskSummary(
+        [updatedSummary],
+        updatedSummary.nextSuggestedCapability ?? null,
+      ),
       nextSuggestedCapability: updatedSummary.nextSuggestedCapability,
       previousStatus: currentItem.status,
       taskId,
@@ -652,16 +692,21 @@ async function enableQueueThroughBridge(
 
   const result = await bridge.enableQueue({ dryRun: context.dryRun });
   const blockerReasons = result.blockerReasons ?? [];
+  const nextSuggestedCapability = result.ok
+    ? result.queueEnabled
+      ? "queue.item.startRun"
+      : "queue.enable"
+    : "queue.items.list";
   const output: QueueAgentEnableResult = {
     blockerReasons,
     didAutoRunWorkers: false,
     didStartWorkers: false,
     globalExecutionState: result.globalExecutionState,
-    nextSuggestedCapability: result.ok
-      ? result.queueEnabled
-        ? "queue.item.startRun"
-        : "queue.enable"
-      : "queue.items.list",
+    ...nextActionFieldsForSuggestedCapability({
+      nextSuggestedCapability,
+      reason: "Queue enable reported the next available Queue capability.",
+    }),
+    nextSuggestedCapability,
     queueEnabled: result.queueEnabled,
   };
 
@@ -715,6 +760,11 @@ async function startQueueLinkedRunThroughBridge(
             blockers: [QUEUE_DISABLED_BLOCKER],
             blockerReasons: [QUEUE_DISABLED_MESSAGE],
             executorWidgetId: input.executorWidgetId,
+            ...nextActionFieldsForSuggestedCapability({
+              nextSuggestedCapability: "queue.enable",
+              reason:
+                "Queue-linked run start is blocked until Queue execution is enabled.",
+            }),
             nextSuggestedCapability: "queue.enable",
             queueEnabled: false,
             startedDirectWork: false,
@@ -733,6 +783,11 @@ async function startQueueLinkedRunThroughBridge(
       : "Queue-linked run started.",
     output: {
       executorWidgetId: result.response.executorWidgetInstanceId,
+      ...nextActionFieldsForSuggestedCapability({
+        nextSuggestedCapability: "queue.lifecycle.get",
+        reason: "Queue-linked run start can be followed by a lifecycle read.",
+        taskId: result.response.queueItemId,
+      }),
       queueItemId: result.response.queueItemId,
       queueLinkedMetadata: {
         executorWidgetId: result.response.executorWidgetInstanceId,
@@ -744,6 +799,7 @@ async function startQueueLinkedRunThroughBridge(
       runId: result.response.runId,
       startedDirectWork: true,
       taskId: result.response.queueItemId,
+      nextSuggestedCapability: "queue.lifecycle.get",
     },
     status: "succeeded",
   };
@@ -886,6 +942,15 @@ function workerFinishedOutputFromBackend(
     result.aggregate,
     queueControlState,
   );
+  const nextSuggestedCapability = summary.nextSuggestedCapability ?? null;
+  const nextActionFields = nextActionFieldsForSuggestedCapability({
+    evidenceBundleId: result.bundleId,
+    nextSuggestedCapability,
+    reason:
+      "Queue worker evidence was recorded and can be followed by the next lifecycle capability.",
+    runId: result.runId,
+    taskId: result.taskId,
+  });
 
   return {
     actionLabel: "Queue worker evidence recorded",
@@ -899,8 +964,9 @@ function workerFinishedOutputFromBackend(
     evidenceBundleId: result.bundleId,
     evidenceState: result.aggregate.evidenceState,
     lifecycle: null,
+    ...nextActionFields,
     nextActions: summary.nextActions ?? [],
-    nextSuggestedCapability: summary.nextSuggestedCapability ?? null,
+    nextSuggestedCapability,
     previousAgentPromptState: "completed",
     previousTicketState: result.aggregate.ticketState,
     queueMutation: "backend_domain",
@@ -943,6 +1009,18 @@ function workerEvidenceBundleOutputFromBackend(
     ? queueTaskSummaryFromAggregate(result.aggregate, queueControlState)
     : null;
   const bundle = result.evidenceBundle;
+  const nextSuggestedCapability =
+    result.state === "available"
+      ? aggregateSummary?.nextSuggestedCapability ?? null
+      : null;
+  const nextActionFields = nextActionFieldsForSuggestedCapability({
+    evidenceBundleId: bundle?.bundleId,
+    nextSuggestedCapability,
+    reason:
+      "Queue evidence bundle was read and can be followed by the next review capability.",
+    runId: result.runId ?? bundle?.runId,
+    taskId: result.taskId,
+  });
 
   return {
     aggregate: result.aggregate,
@@ -959,8 +1037,9 @@ function workerEvidenceBundleOutputFromBackend(
     finalAgentMessage: bundle?.summary,
     latestReviewMessage: null,
     lifecycle: backendEvidenceCompatibilityLifecycle(result),
+    ...nextActionFields,
     nextActions: aggregateSummary?.nextActions ?? [],
-    nextSuggestedCapability: aggregateSummary?.nextSuggestedCapability ?? null,
+    nextSuggestedCapability,
     reviewMessages: [],
     reviewOutcome: bundle?.outcome ?? null,
     runId: result.runId,
@@ -1175,6 +1254,7 @@ async function ackReviewThroughBackend(
       "Queue review acknowledged.",
       "Queue review acknowledged",
       QUEUE_ACTIVITY_EVENTS.lifecycleReviewAck,
+      "queue.lifecycle.get",
     );
   } catch (error) {
     return reviewCommandFailed(
@@ -1337,6 +1417,17 @@ function completionTransitionOutputFromBackend({
       | undefined) ??
     (aggregate?.ticketState === "done" ? null : summary?.nextSuggestedCapability) ??
     null;
+  const nextSuggestedCapability = completionSafeNextCapability(backendNext);
+  const nextActionFields = nextActionFieldsForSuggestedCapability({
+    evidenceBundleId:
+      result.evidenceBundleId ?? blocker?.evidenceBundleId ?? undefined,
+    messageId: result.reviewMessageId ?? blocker?.reviewMessageId ?? undefined,
+    nextSuggestedCapability,
+    reason:
+      "Queue completion result exposed a safe read-only follow-up capability.",
+    runId: result.runId ?? blocker?.runId ?? undefined,
+    taskId: result.taskId,
+  });
 
   return {
     actionLabel,
@@ -1357,8 +1448,9 @@ function completionTransitionOutputFromBackend({
     messageId:
       result.reviewMessageId ?? blocker?.reviewMessageId ?? undefined,
     missingRequiredField: blocker?.missingRequiredField ?? undefined,
+    ...nextActionFields,
     nextActions: summary?.nextActions ?? [],
-    nextSuggestedCapability: backendNext,
+    nextSuggestedCapability,
     previousAgentPromptState: "completed",
     previousTicketState: blocker?.ticketState ?? aggregate?.ticketState ?? "unknown",
     queueMutation,
@@ -1409,6 +1501,21 @@ function completionBlockerMessage(result: AgentQueueCompletionCommandResult) {
     .join(" ");
 }
 
+function completionSafeNextCapability(
+  backendNext: QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"],
+): QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"] {
+  switch (backendNext) {
+    case "queue.lifecycle.get":
+    case "queue.review.getEvidenceBundle":
+      return backendNext;
+    case "queue.review.ack":
+    case "queue.review.createMessage":
+      return "queue.lifecycle.get";
+    default:
+      return null;
+  }
+}
+
 async function previewReviewCommandFromAggregate(
   backendApi: QueueBackendCapabilityPort,
   queueControlState: WorkspaceAgentQueueControlState | null,
@@ -1457,6 +1564,7 @@ function reviewCommandSucceeded(
   message: string,
   actionLabel: string,
   activityEventNames: readonly string[],
+  nextSuggestedCapabilityOverride?: QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"],
 ): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
   return {
     activityEventNames: [...activityEventNames],
@@ -1468,6 +1576,7 @@ function reviewCommandSucceeded(
       context: null,
       durable: result.durable,
       messageId: result.messageId,
+      nextSuggestedCapabilityOverride,
       queueMutation: "backend_domain",
       reviewMessage: result.reviewMessage,
     }),
@@ -1519,12 +1628,19 @@ function reviewCreateMessageBlocked(
   activityEventNames: readonly string[],
 ): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
   const message = reviewCreateMessageBlockerMessage(result);
+  const isDuplicateWithKnownMessage =
+    result.blocker?.blockerCode === "review_message_already_exists" &&
+    Boolean(result.blocker.existingMessageId);
   return {
     activityEventNames: [...activityEventNames],
     message,
     output: reviewCreateMessageBlockedOutput(result, queueControlState),
-    reasons: [message],
-    status: result.status === "invalid_input" ? "invalid_input" : "failed",
+    ...(isDuplicateWithKnownMessage ? {} : { reasons: [message] }),
+    status: isDuplicateWithKnownMessage
+      ? "succeeded"
+      : result.status === "invalid_input"
+        ? "invalid_input"
+        : "failed",
   };
 }
 
@@ -1569,6 +1685,7 @@ function reviewTransitionOutputFromAggregate({
   context,
   durable,
   messageId,
+  nextSuggestedCapabilityOverride,
   queueMutation,
   reviewMessage,
   runId,
@@ -1582,6 +1699,7 @@ function reviewTransitionOutputFromAggregate({
   context: QueueAgentLifecycleHandlerContext | null;
   durable: boolean;
   messageId?: string;
+  nextSuggestedCapabilityOverride?: QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"];
   queueMutation: "backend_domain" | "none";
   reviewMessage?: unknown;
   runId?: string;
@@ -1591,6 +1709,30 @@ function reviewTransitionOutputFromAggregate({
     evidenceBundleId ?? blocker?.evidenceBundleId ?? undefined;
   const selectedRunId =
     runId ?? blocker?.runId ?? aggregate.latestRun?.runId ?? undefined;
+  const selectedMessageId = messageId ?? blocker?.existingMessageId ?? undefined;
+  const nextSuggestedCapability =
+    nextSuggestedCapabilityOverride ??
+    ((blocker?.nextSuggestedCapability as
+      | QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"]
+      | undefined) ||
+      summary.nextSuggestedCapability ||
+      null);
+  const nextActionFields = nextActionFieldsForSuggestedCapability({
+    evidenceBundleId: selectedEvidenceBundleId,
+    messageId: selectedMessageId,
+    nextSuggestedCapability,
+    reason:
+      "Queue review result exposed the next review lifecycle capability.",
+    runId: selectedRunId,
+    taskId: aggregate.taskId,
+  });
+  const productStatus =
+    backendCreateMessageStatus === "already_exists" ||
+    blocker?.blockerCode === "review_message_already_exists"
+      ? "already_exists"
+      : blocker && nextActionFields.nextAction
+        ? "blocked_actionable"
+        : undefined;
 
   return {
     actionLabel,
@@ -1608,17 +1750,14 @@ function reviewTransitionOutputFromAggregate({
     evidenceState: aggregate.evidenceState,
     existingReviewMessageId: blocker?.existingMessageId ?? undefined,
     lifecycle: null,
-    messageId: messageId ?? blocker?.existingMessageId ?? undefined,
+    messageId: selectedMessageId,
     missingRequiredField: blocker?.missingRequiredField ?? undefined,
+    ...nextActionFields,
     nextActions: summary.nextActions ?? [],
-    nextSuggestedCapability:
-      (blocker?.nextSuggestedCapability as
-        | QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"]
-        | undefined) ??
-      summary.nextSuggestedCapability ??
-      null,
+    nextSuggestedCapability,
     previousAgentPromptState: "completed",
     previousTicketState: aggregate.ticketState,
+    ...(productStatus ? { productStatus } : {}),
     queueMutation,
     reviewMessage,
     reviewMessageAlreadyExists: blocker?.reviewMessageAlreadyExists,
@@ -1663,6 +1802,31 @@ function reviewCreateMessageBlockedOutput(
     });
   }
 
+  const nextSuggestedCapability =
+    (blocker?.nextSuggestedCapability as
+      | QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"]
+      | undefined) ?? null;
+  const selectedMessageId = result.messageId ?? blocker?.existingMessageId ?? undefined;
+  const selectedRunId = result.runId ?? blocker?.runId ?? undefined;
+  const selectedEvidenceBundleId =
+    result.evidenceBundleId ?? blocker?.evidenceBundleId ?? undefined;
+  const nextActionFields = nextActionFieldsForSuggestedCapability({
+    evidenceBundleId: selectedEvidenceBundleId,
+    messageId: selectedMessageId,
+    nextSuggestedCapability,
+    reason:
+      "Queue review create blocker exposed a schema-valid follow-up capability.",
+    runId: selectedRunId,
+    taskId: result.taskId,
+  });
+  const productStatus =
+    result.status === "already_exists" ||
+    blocker?.blockerCode === "review_message_already_exists"
+      ? "already_exists"
+      : nextActionFields.nextAction
+        ? "blocked_actionable"
+        : undefined;
+
   return {
     actionLabel,
     additionalPromptCount: 0,
@@ -1675,27 +1839,25 @@ function reviewCreateMessageBlockedOutput(
       : [],
     dryRunOnly: false,
     durable: result.durable,
-    evidenceBundleId:
-      result.evidenceBundleId ?? blocker?.evidenceBundleId ?? undefined,
+    evidenceBundleId: selectedEvidenceBundleId,
     evidenceBundleIdRequired: blocker?.evidenceBundleIdRequired,
     evidenceState: blocker?.evidenceState ?? undefined,
     existingReviewMessageId: blocker?.existingMessageId ?? undefined,
     lifecycle: null,
-    messageId: result.messageId ?? blocker?.existingMessageId ?? undefined,
+    messageId: selectedMessageId,
     missingRequiredField: blocker?.missingRequiredField ?? undefined,
+    ...nextActionFields,
     nextActions: [],
-    nextSuggestedCapability:
-      (blocker?.nextSuggestedCapability as
-        | QueueAgentLifecycleTransitionOutput["nextSuggestedCapability"]
-        | undefined) ?? null,
+    nextSuggestedCapability,
     previousAgentPromptState: "completed",
     previousTicketState: blocker?.ticketState ?? "unknown",
+    ...(productStatus ? { productStatus } : {}),
     queueMutation: "none",
     reviewMessage: result.reviewMessage ?? blocker ?? undefined,
     reviewMessageAlreadyExists: blocker?.reviewMessageAlreadyExists,
     reviewOutcome: null,
     reviewState: blocker?.reviewState ?? undefined,
-    runId: result.runId ?? blocker?.runId ?? undefined,
+    runId: selectedRunId,
     runIdRequired: blocker?.runIdRequired,
     taskId: result.taskId,
     ticketState: blocker?.ticketState ?? "unknown",
@@ -1769,6 +1931,108 @@ function statePart(label: string, value: string | null | undefined) {
   return value ? `${label}=${value}` : null;
 }
 
+function nextActionFieldsForSuggestedCapability({
+  executorWidgetId,
+  evidenceBundleId,
+  messageId,
+  nextSuggestedCapability,
+  reason,
+  runId,
+  taskId,
+}: {
+  executorWidgetId?: string | null;
+  evidenceBundleId?: string | null;
+  messageId?: string | null;
+  nextSuggestedCapability?: string | null;
+  reason: string;
+  runId?: string | null;
+  taskId?: string | null;
+}): QueueAgentNextActionFields {
+  if (!nextSuggestedCapability) {
+    return {};
+  }
+
+  switch (nextSuggestedCapability) {
+    case "queue.enable":
+    case "queue.items.list":
+      return queueNextActionFields({
+        capabilityId: nextSuggestedCapability,
+        input: {},
+        reason,
+      });
+    case "queue.item.promoteDraft":
+    case "queue.item.updateRunSettings":
+    case "queue.lifecycle.get":
+      return queueNextActionFields({
+        capabilityId: nextSuggestedCapability,
+        input: compactNextActionInput({ taskId }),
+        reason,
+      });
+    case "queue.item.startRun":
+      return queueNextActionFields({
+        capabilityId: nextSuggestedCapability,
+        input: compactNextActionInput({ executorWidgetId, taskId }),
+        reason,
+      });
+    case "queue.review.ack":
+      return queueNextActionFields({
+        capabilityId: nextSuggestedCapability,
+        input: compactNextActionInput({ messageId, taskId }),
+        reason,
+      });
+    case "queue.review.createMessage":
+      return queueNextActionFields({
+        capabilityId: nextSuggestedCapability,
+        input: compactNextActionInput({ evidenceBundleId, runId, taskId }),
+        reason,
+      });
+    case "queue.review.getEvidenceBundle":
+      return queueNextActionFields({
+        capabilityId: nextSuggestedCapability,
+        input: compactNextActionInput({ runId, taskId }),
+        reason,
+      });
+    default:
+      return {
+        nextActionUnavailableReason: `${nextSuggestedCapability} is not a supported Queue nextAction target.`,
+      };
+  }
+}
+
+function queueNextActionFields({
+  autoContinuationSafe,
+  capabilityId,
+  input,
+  reason,
+}: {
+  autoContinuationSafe?: boolean;
+  capabilityId: string;
+  input: Record<string, unknown>;
+  reason: string;
+}): QueueAgentNextActionFields {
+  const result = buildQueueCapabilityNextAction({
+    autoContinuationSafe,
+    capabilityId,
+    input,
+    reason,
+  });
+
+  return result.ok
+    ? { nextAction: result.nextAction }
+    : {
+        missingNextActionInput: result.missingRequiredFields,
+        nextActionUnavailableReason: result.reason,
+      };
+}
+
+function compactNextActionInput(
+  input: Record<string, string | null | undefined>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(input).filter(([, value]) => Boolean(cleanString(value))),
+  );
+}
+
 function reviewActorId(
   coordinatorAgentId: string | undefined,
   context: QueueAgentLifecycleHandlerContext,
@@ -1834,8 +2098,17 @@ async function createQueueItemsThroughBridge(
     }
 
     const readiness = await createdQueueItemReadiness(bridge, result.item);
+    const createdItem = queueAgentCreatedItem({
+      ...item,
+      id: result.item.id,
+    });
+    const readinessNextActionFields = nextActionFieldsForSingleTaskSummary(
+      [readiness],
+      readiness.nextSuggestedCapability ?? null,
+    );
     createdItems.push({
-      ...queueAgentCreatedItem(item),
+      ...createdItem,
+      ...readinessNextActionFields,
       dependencies: [...result.item.dependencies],
       id: result.item.id,
       nextSuggestedCapability: readiness.nextSuggestedCapability ?? null,
@@ -1849,12 +2122,17 @@ async function createQueueItemsThroughBridge(
   const nextSuggestedCapability =
     createdItems.find((item) => item.nextSuggestedCapability)
       ?.nextSuggestedCapability ?? null;
+  const nextActionFields = nextActionFieldsForSingleCreatedItem(
+    createdItems,
+    nextSuggestedCapability,
+  );
 
   return {
     activityEventNames: [...QUEUE_ACTIVITY_EVENTS.createItems],
     message: "Queue items created",
     output: {
       ...createQueueAgentItemsPreview(request.items),
+      ...nextActionFields,
       createdItemCount: createdItems.length,
       createdItems,
       createdTaskIds: createdItems.map((item) => item.id),
@@ -1863,6 +2141,58 @@ async function createQueueItemsThroughBridge(
     },
     status: "succeeded",
   };
+}
+
+function nextActionFieldsForSingleCreatedItem(
+  createdItems: readonly QueueAgentCreatedItem[],
+  nextSuggestedCapability: string | null,
+): QueueAgentNextActionFields {
+  if (!nextSuggestedCapability) {
+    return {};
+  }
+
+  if (createdItems.length !== 1) {
+    return {
+      nextActionUnavailableReason:
+        "A top-level Queue nextAction is unavailable because the result contains multiple created task ids.",
+    };
+  }
+
+  const item = createdItems[0];
+  return item.nextAction
+    ? { nextAction: item.nextAction }
+    : {
+        missingNextActionInput: item.missingNextActionInput,
+        nextActionUnavailableReason:
+          item.nextActionUnavailableReason ??
+          "A top-level Queue nextAction is unavailable for the created task.",
+      };
+}
+
+function nextActionFieldsForSingleTaskSummary(
+  items: readonly QueueAgentTaskSummary[],
+  nextSuggestedCapability: string | null,
+): QueueAgentNextActionFields {
+  if (!nextSuggestedCapability) {
+    return {};
+  }
+
+  if (items.length !== 1) {
+    return {
+      nextActionUnavailableReason:
+        "A top-level Queue nextAction is unavailable because the result contains multiple candidate task ids.",
+    };
+  }
+
+  const item = items[0];
+  return item.nextAction
+    ? { nextAction: item.nextAction }
+    : {
+        missingNextActionInput: item.missingNextActionInput,
+        nextActionUnavailableReason:
+          item.nextActionUnavailableReason ??
+          "A top-level Queue nextAction is unavailable for the selected task.",
+      };
 }
 
 async function createdQueueItemReadiness(
@@ -1917,9 +2247,17 @@ function queueTaskSummaryFromAggregate(
   const blockers = readiness.blockerReasons.includes(QUEUE_DISABLED_MESSAGE)
     ? withQueueDisabledBlocker(aggregate.blockers)
     : aggregate.blockers;
+  const nextActionFields = nextActionFieldsForSuggestedCapability({
+    executorWidgetId: aggregate.runSettings.assignedExecutorWidgetId,
+    nextSuggestedCapability: readiness.nextSuggestedCapability,
+    reason: "Queue aggregate exposed this task's next available capability.",
+    runId: aggregate.latestRun?.runId,
+    taskId: aggregate.taskId,
+  });
 
   return {
     ...readiness,
+    ...nextActionFields,
     aggregateSource: AGGREGATE_SOURCE,
     assignedExecutorWidgetId:
       aggregate.runSettings.assignedExecutorWidgetId ?? null,
@@ -2117,9 +2455,17 @@ function queueTaskSummaryFromSnapshot(
     queueControlState,
   );
   const latestRunId = item.runLinks?.[0]?.directWorkRunId ?? null;
+  const nextActionFields = nextActionFieldsForSuggestedCapability({
+    executorWidgetId: item.assignedExecutorWidgetId,
+    nextSuggestedCapability: readiness.nextSuggestedCapability,
+    reason: "Queue snapshot exposed this task's next available capability.",
+    runId: latestRunId,
+    taskId: item.id,
+  });
 
   return {
     ...readiness,
+    ...nextActionFields,
     assignedExecutorWidgetId: item.assignedExecutorWidgetId ?? null,
     ...(readiness.blockerReasons.includes(QUEUE_DISABLED_MESSAGE)
       ? { blockers: [QUEUE_DISABLED_BLOCKER] }
@@ -2323,6 +2669,18 @@ function nextCapabilityForSummaries(
     items.find((item) => item.nextSuggestedCapability)?.nextSuggestedCapability ??
     null
   );
+}
+
+function nextCapabilityForLifecycleRead(summary: QueueAgentTaskSummary) {
+  if (
+    summary.nextSuggestedCapability === "queue.review.createMessage" &&
+    summary.evidenceState === "available" &&
+    summary.latestRunId
+  ) {
+    return "queue.review.getEvidenceBundle";
+  }
+
+  return summary.nextSuggestedCapability ?? null;
 }
 
 function executorTargets(

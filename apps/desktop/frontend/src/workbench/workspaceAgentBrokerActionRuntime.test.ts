@@ -297,6 +297,14 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
       evidenceBundleId: "bundle-1",
       evidenceBundlePersistence: "backend_durable",
       evidenceState: "available",
+      nextAction: {
+        capabilityId: "queue.review.createMessage",
+        input: {
+          evidenceBundleId: "bundle-1",
+          runId: "run-1",
+          taskId: "task-1",
+        },
+      },
       nextSuggestedCapability: "queue.review.createMessage",
       runId: "run-1",
       taskId: "task-1",
@@ -372,6 +380,80 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
       "Hobit action failed. Queue review message could not be created.",
     );
     expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("surfaces duplicate review create as actionable typed ACK nextAction", async () => {
+    const createReviewMessage = vi.fn(async () =>
+      reviewCreateMessageBlockedResult({
+        aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: true,
+              code: "ack_review",
+              label: "Acknowledge review",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "review_message_created",
+          taskId: "task-1",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        blockerCode: "review_message_already_exists",
+        blockerMessage: "A review message already exists.",
+        existingMessageId: "queue-review-message-existing",
+        nextSuggestedCapability: "queue.review.ack",
+        reviewMessageAlreadyExists: true,
+        status: "already_exists",
+      }),
+    );
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentQueueBridge: queueBridge({ createReviewMessage }),
+    });
+    const parsed = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "queue.review.createMessage",
+        dryRun: false,
+        input: { taskId: "task-1" },
+        requestId: "runtime-review-create-duplicate",
+        type: "hobit.action.request",
+      }),
+    );
+
+    expect(parsed.status).toBe("valid");
+    if (parsed.status !== "valid") {
+      throw new Error("Expected valid review create envelope.");
+    }
+
+    const result = await invoker(
+      createHobitAgentActionRequestFromEnvelope({
+        agentId: "workspace-agent",
+        createdAt: "2026-06-16T12:00:00.000Z",
+        envelope: parsed.envelope,
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    const output = result.result.output as {
+      nextAction?: { input: Record<string, unknown> };
+    };
+    expect(result.result.output).toMatchObject({
+      blockerCode: "review_message_already_exists",
+      existingReviewMessageId: "queue-review-message-existing",
+      messageId: "queue-review-message-existing",
+      nextAction: {
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "queue-review-message-existing",
+          taskId: "task-1",
+        },
+      },
+      nextSuggestedCapability: "queue.review.ack",
+      productStatus: "already_exists",
+    });
+    expect(output.nextAction?.input).not.toHaveProperty(
+      "reviewMessageId",
+    );
   });
 
   it("keeps prose-only assistant responses as prose", () => {
@@ -583,22 +665,34 @@ function reviewCreateMessageBlockedResult({
     ticketState: "draft",
     workerRunState: "not_started",
   }),
+  blockerCode = "task_is_draft",
+  blockerMessage = "Draft Queue tasks cannot create review messages.",
+  existingMessageId = null,
+  nextSuggestedCapability = "queue.item.updateRunSettings",
+  reviewMessageAlreadyExists = false,
+  status = "precondition_failed",
 }: {
   aggregate?: AgentQueueItemAggregate;
+  blockerCode?: string;
+  blockerMessage?: string;
+  existingMessageId?: string | null;
+  nextSuggestedCapability?: string | null;
+  reviewMessageAlreadyExists?: boolean;
+  status?: AgentQueueReviewCreateMessageResult["status"];
 } = {}): AgentQueueReviewCreateMessageResult {
   return {
     aggregate,
     blocker: {
-      blockerCode: "task_is_draft",
-      blockerMessage: "Draft Queue tasks cannot create review messages.",
+      blockerCode,
+      blockerMessage,
       durableEvidenceRequired: false,
       evidenceBundleId: null,
       evidenceBundleIdRequired: false,
       evidenceState: aggregate.evidenceState,
-      existingMessageId: null,
+      existingMessageId,
       missingRequiredField: null,
-      nextSuggestedCapability: "queue.item.updateRunSettings",
-      reviewMessageAlreadyExists: false,
+      nextSuggestedCapability,
+      reviewMessageAlreadyExists,
       reviewState: aggregate.reviewState,
       runId: null,
       runIdRequired: false,
@@ -611,7 +705,7 @@ function reviewCreateMessageBlockedResult({
     messageId: null,
     reviewMessage: null,
     runId: null,
-    status: "precondition_failed",
+    status,
     taskId: aggregate.taskId,
     workspaceId: aggregate.workspaceId,
   };

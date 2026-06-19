@@ -15,8 +15,11 @@ import {
   type HobitAgentCapability,
 } from "../capabilities";
 import {
+  buildQueueCapabilityNextAction,
   QUEUE_CAPABILITY_CONTRACT_BY_ID,
+  queueCapabilityNextActionAgreesWithSuggestion,
   QUEUE_START_RUN_CONFIRMATION_TOKEN,
+  validateQueueCapabilityNextAction,
 } from "../capabilities/queueCapabilityContracts";
 import { HOBIT_TEST_AGENT_CAPABILITIES } from "../runtime";
 import {
@@ -264,6 +267,93 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
         registered: true,
       });
     }
+  });
+
+  it("validates typed Queue nextAction payloads against canonical capability schemas", () => {
+    const ack = buildQueueCapabilityNextAction({
+      capabilityId: "queue.review.ack",
+      input: { messageId: "review-message-1", taskId: "task-1" },
+      reason: "Duplicate review message can be acknowledged.",
+    });
+
+    expect(ack).toMatchObject({
+      nextAction: {
+        autoContinuationSafe: true,
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "review-message-1",
+          taskId: "task-1",
+        },
+        requiresConfirmation: false,
+      },
+      ok: true,
+    });
+    if (!ack.ok) {
+      throw new Error("Expected ACK nextAction to validate.");
+    }
+    expect(
+      queueCapabilityNextActionAgreesWithSuggestion({
+        nextAction: ack.nextAction,
+        nextSuggestedCapability: "queue.review.ack",
+      }),
+    ).toBe(true);
+    expect(
+      queueCapabilityNextActionAgreesWithSuggestion({
+        nextAction: ack.nextAction,
+        nextSuggestedCapability: "queue.review.createMessage",
+      }),
+    ).toBe(false);
+
+    expect(
+      validateQueueCapabilityNextAction({
+        ...ack.nextAction,
+        input: { reviewMessageId: "review-message-1", taskId: "task-1" },
+      }),
+    ).toMatchObject({
+      missingRequiredFields: ["messageId"],
+      ok: false,
+      reasons: expect.arrayContaining([
+        "reviewMessageId is not supported by queue.review.ack.",
+        "messageId is required by queue.review.ack.",
+      ]),
+    });
+    expect(
+      validateQueueCapabilityNextAction({
+        ...ack.nextAction,
+        capabilityId: "queue.review.unregistered",
+      }),
+    ).toMatchObject({
+      ok: false,
+      reasons: [
+        "nextAction capability is not registered: queue.review.unregistered.",
+      ],
+    });
+    expect(
+      buildQueueCapabilityNextAction({
+        capabilityId: "queue.item.updateRunSettings",
+        input: { sandbox: "workspace-write", taskId: "task-1" },
+      }),
+    ).toMatchObject({
+      ok: false,
+      reason:
+        "sandbox must be one of read_only, workspace_write, danger_full_access for queue.item.updateRunSettings.",
+    });
+    expect(
+      buildQueueCapabilityNextAction({
+        capabilityId: "queue.item.markDone",
+        input: { taskId: "task-1" },
+      }),
+    ).toMatchObject({
+      nextAction: {
+        autoContinuationSafe: false,
+        confirmationRequired: {
+          field: "confirmationToken",
+          value: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        },
+        requiresConfirmation: true,
+      },
+      ok: true,
+    });
   });
 
   it("dry-runs agentFinished without mutating the lifecycle overlay", () => {

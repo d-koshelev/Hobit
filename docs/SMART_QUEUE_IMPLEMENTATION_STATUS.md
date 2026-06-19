@@ -59,12 +59,19 @@ requirements, model-provided fields, and registered next-capability
 possibilities. `queue.item.updateRunSettings` documents and validates exact
 sandbox values `read_only`, `workspace_write`, `danger_full_access` and
 approval policy values `never`, `on_request`, `untrusted`.
+Queue capability results now expose typed `nextAction` payloads when a
+follow-up can be built safely from known backend/adapter ids and validates
+against the target capability contract. `nextAction` is the machine-readable
+continuation payload; `nextSuggestedCapability` is compatibility context and is
+not enough for execution. The Workspace Agent must not rename fields or infer
+ids from prose. `queue.review.ack` uses `messageId`; duplicate review-create
+`existingMessageId` maps to `nextAction.input.messageId`.
 `queue.item.startRun` requires top-level
 `confirmationToken: "operator-confirmed"` plus explicit `taskId` and
 `executorWidgetId`; `queue.importPromptPack` uses the same top-level
 confirmation token. Prose confirmation remains insufficient. Queue must be
 explicitly enabled before `queue.item.startRun`; when run-control results report
-`nextSuggestedCapability: "queue.enable"`, the next action is `queue.enable`,
+typed `nextAction.capabilityId: "queue.enable"`, the next action is `queue.enable`,
 not `queue.item.startRun`. Backend-backed reads/review/evidence
 commands retain explicit id requirements, and transitional/finalizing commands
 remain conservative and policy-restricted. This hardening does not move Queue
@@ -301,7 +308,9 @@ The current implemented frontend behavior is:
   `hobit.action.request` or explicit `hobit.final.answer`, with a 16-action
   cap and stops for confirmation, policy, unavailable, dry-run-required,
   failed, invalid, repeated, unsupported, restricted, protocol-error, or
-  missing-thread cases;
+  missing-thread cases. The continuation runtime now prefers a validated typed
+  `nextAction` payload and does not infer from `nextSuggestedCapability`
+  alone;
 - Workspace Agent action protocol enforcement: a typed-capability Direct Work
   turn with no valid action request and no explicit final-answer marker gets
   one compact same-thread repair prompt; if repair still produces empty or
@@ -318,16 +327,18 @@ The current implemented frontend behavior is:
   auto-continuation after success and reads backend aggregate state for one
   explicit `taskId`. Its broker result exposes ticket, worker, review,
   evidence, validation, commit, and dependency state dimensions, blockers,
-  next actions, `nextSuggestedCapability`, latest run, evidence summary,
-  durable flags, and `authoritativeBackendAggregate=true`;
+  next actions, typed `nextAction` when schema-valid, `nextSuggestedCapability`,
+  latest run, evidence summary, durable flags, and
+  `authoritativeBackendAggregate=true`;
 - successful backend-backed `queue.review.ack` is allowed to continue only so
   the next structured action can read state, normally with
   `queue.lifecycle.get`. It does not imply accepted completion or
   finalization;
-- read-only `queue.review.getEvidenceBundle` is allowed to participate in safe
-  broker auto-continuation after success, reads backend durable worker evidence
-  for an explicit `taskId` and optional `runId`, and does not mutate Queue
-  state;
+- read-only `queue.review.getEvidenceBundle` reads backend durable worker
+  evidence for an explicit `taskId` and optional `runId`, may expose typed
+  `nextAction` for `queue.review.createMessage` when `taskId`, `runId`, and
+  `evidenceBundleId` are known, and does not mutate Queue state. Review
+  creation remains a write and is not auto-continuation safe by default;
 - read-only `queue.items.list` returns backend aggregate task summaries with
   ticket/worker/review/evidence/validation/commit/dependency states,
   blockers, nextActions, latestRun, evidenceSummary, and durable flags;

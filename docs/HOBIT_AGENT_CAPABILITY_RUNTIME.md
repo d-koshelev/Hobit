@@ -216,6 +216,15 @@ capabilities, the model must use exact capability ids, required fields, enum
 values, and structured confirmation fields from the manifest. It must not
 guess task ids, run ids, executor widget ids, evidence bundle ids, message ids,
 actor ids, enum spellings, or capability ids from prose or UI selection.
+Queue capability results may expose a typed `nextAction` payload when the
+producer knows every required target input and the payload validates against
+the target capability contract. `nextAction.capabilityId` and
+`nextAction.input` are the machine-readable continuation contract and use
+canonical schema field names. `nextSuggestedCapability` may remain as compact
+human-readable compatibility context, but it is not sufficient for machine
+execution. If both are present, they must agree. If a valid payload cannot be
+built, the result reports missing or unavailable next-action input instead of
+asking the model to infer ids or field names.
 `queue.createItem` and `queue.createItems` expose dependencies with the public
 field `dependsOn: string[]`; the ids must come from typed Queue results, not
 from title, prompt, item order, prose, or prompt-pack-local ids. Dependency
@@ -228,8 +237,9 @@ top-level `confirmationToken: "operator-confirmed"` after operator
 confirmation; prose such as "I confirm" is insufficient and is not inferred.
 `queue.item.startRun` also requires explicit `taskId` and `executorWidgetId`
 in `input`. It also requires Queue to be enabled already; when a Queue
-capability result returns `nextSuggestedCapability: "queue.enable"`, the model
-must call `queue.enable` explicitly before `queue.item.startRun`.
+capability result returns a typed `nextAction` for `queue.enable`, the model
+must use that exact payload before `queue.item.startRun`. A legacy
+`nextSuggestedCapability` value alone is informational and not executable.
 
 Typed-capability action mode now also has an explicit terminal answer marker:
 
@@ -249,11 +259,17 @@ error.
 
 The Workspace Agent direct-run controller can continue a broker action chain
 only from structured broker results. It feeds a bounded `hobit.action.result`
-summary into the same Codex thread with returned task ids, executor widget ids,
-run id, blockers, `nextSuggestedCapability`, and explicit safety flags such as
-no validation run, no Git mutation, no shell command, and no Terminal launch.
-The next model step may emit exactly one new `hobit.action.request` or
-explicit `hobit.final.answer`. The controller stops instead of continuing
+summary into the same Codex thread with queue state, blockers, explicit ids,
+validated `nextAction` when available, and safety flags such as no validation
+run, no Git mutation, no shell command, and no Terminal launch. The next model
+step may emit exactly one new `hobit.action.request` or explicit
+`hobit.final.answer`. The model must prefer returned `nextAction` exactly,
+must not rename input fields, and must not guess from `nextSuggestedCapability`
+alone. The controller auto-continues a `nextAction` only when the target
+capability is registered, the payload validates against the target contract,
+`autoContinuationSafe=true`, policy allows the target, and no confirmation is
+missing. Otherwise it stops with a visible blocker and leaves the typed payload
+for operator/model review. The controller stops instead of continuing
 when a result requires
 confirmation, is blocked/unavailable/failed/invalid, is a dry-run-required
 result, repeats a previous request id or capability/input fingerprint, exceeds
@@ -468,8 +484,12 @@ block/fail an item through structured `hobit.action.request` envelopes.
 backend/domain/Tauri-backed in the Workspace Agent bridge path. Worker-finished
 persists only the durable worker evidence bundle plus task/run-link completion
 state required for aggregate readiness. Review create/ACK persist only the
-review message ledger. MarkDone persists only the accepted-completion decision
-ledger after backend aggregate preconditions pass. The model does not need to invent
+review message ledger. `queue.review.ack` input is `messageId`, not
+`reviewMessageId`; when `queue.review.createMessage` reports
+`review_message_already_exists`, backend `existingMessageId` maps to
+`nextAction.input.messageId` for a typed ACK follow-up. MarkDone persists only
+the accepted-completion decision ledger after backend aggregate preconditions pass.
+The model does not need to invent
 `coordinatorAgentId`; the Workspace Agent bridge supplies a trusted actor id
 from request context and falls back to `workspace-agent` only when no stronger
 context exists. Validation approval, follow-up, fail, and block

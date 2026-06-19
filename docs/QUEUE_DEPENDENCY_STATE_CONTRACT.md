@@ -70,6 +70,10 @@ For `waiting`, `blocked`, `failed_upstream`, and `unknown`, the backend
 aggregate exposes a dependency blocker and returns no runnable next action. It
 must not suggest `queue.item.startRun`, and it must not suggest
 `queue.item.promoteDraft` as runnable while the dependency gate is unsatisfied.
+Broker result mappers must also not emit a typed `nextAction` for
+`queue.item.startRun` from dependency-waiting aggregates. After upstream
+accepted completion clears the blocker, any downstream `nextAction` must be
+built from that downstream task's own readiness and validated capability input.
 
 ## Completion For Dependency Satisfaction
 

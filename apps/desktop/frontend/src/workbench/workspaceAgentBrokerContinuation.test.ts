@@ -55,7 +55,13 @@ describe("workspaceAgentBrokerContinuation", () => {
       request,
       result: resultFor("queue.items.list", {
         items: [{ taskId: "task-1" }],
-        nextSuggestedCapability: "queue.item.updateRunSettings",
+        nextAction: {
+          autoContinuationSafe: true,
+          capabilityId: "queue.lifecycle.get",
+          input: { taskId: "task-1" },
+          requiresConfirmation: false,
+        },
+        nextSuggestedCapability: "queue.lifecycle.get",
       }),
       state,
     });
@@ -254,7 +260,7 @@ describe("workspaceAgentBrokerContinuation", () => {
     ).toEqual({ shouldContinue: true });
   });
 
-  it("allows queue.review.getEvidenceBundle to continue after successful backend read-only evidence results", () => {
+  it("stops with visible nextAction after evidence read when review creation is next", () => {
     const registry = createHobitAgentCapabilityRegistry();
     const capability = findCapability(
       registry,
@@ -279,6 +285,16 @@ describe("workspaceAgentBrokerContinuation", () => {
       evidenceBundleId: "bundle-1",
       evidenceBundlePersistence: "backend_durable",
       evidenceState: "available",
+      nextAction: {
+        autoContinuationSafe: false,
+        capabilityId: "queue.review.createMessage",
+        input: {
+          evidenceBundleId: "bundle-1",
+          runId: "run-1",
+          taskId: "task-1",
+        },
+        requiresConfirmation: false,
+      },
       nextSuggestedCapability: "queue.review.createMessage",
       runId: "run-1",
       taskId: "task-1",
@@ -317,12 +333,24 @@ describe("workspaceAgentBrokerContinuation", () => {
         result,
         state,
       }),
-    ).toEqual({ shouldContinue: true });
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
     expect(context).toMatchObject({
       capabilityId: "queue.review.getEvidenceBundle",
       ids: {
+        evidenceBundleIds: ["bundle-1"],
         runId: "run-1",
         taskIds: ["task-1"],
+      },
+      nextAction: {
+        capabilityId: "queue.review.createMessage",
+        input: {
+          evidenceBundleId: "bundle-1",
+          runId: "run-1",
+          taskId: "task-1",
+        },
       },
       nextSuggestedCapability: "queue.review.createMessage",
       queueState: {
@@ -396,6 +424,12 @@ describe("workspaceAgentBrokerContinuation", () => {
         workerRunState: "completed",
       },
       messageId: "review-message-1",
+      nextAction: {
+        autoContinuationSafe: true,
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-1" },
+        requiresConfirmation: false,
+      },
       nextSuggestedCapability: "queue.lifecycle.get",
       queueMutation: "backend_domain",
       reviewState: "in_review",
@@ -429,8 +463,13 @@ describe("workspaceAgentBrokerContinuation", () => {
     expect(context).toMatchObject({
       capabilityId: "queue.review.ack",
       ids: {
+        messageIds: ["review-message-1"],
         runId: "run-1",
         taskIds: ["task-1"],
+      },
+      nextAction: {
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-1" },
       },
       nextSuggestedCapability: "queue.lifecycle.get",
       queueState: {
@@ -543,6 +582,71 @@ describe("workspaceAgentBrokerContinuation", () => {
         stopReason: "not_allowed_for_auto_continuation",
       });
     }
+  });
+
+  it("does not infer continuation from nextSuggestedCapability alone", () => {
+    const request = requestFor(
+      "queue.review.createMessage",
+      { taskId: "task-1" },
+      "request-suggested-only",
+    );
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-suggested-only",
+      }),
+      request,
+    );
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request,
+        result: resultFor("queue.review.createMessage", {
+          messageId: "review-message-1",
+          nextSuggestedCapability: "queue.review.ack",
+          taskId: "task-1",
+        }),
+        state,
+      }),
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+  });
+
+  it("rejects invalid nextAction payloads instead of repairing field names", () => {
+    const request = requestFor(
+      "queue.review.createMessage",
+      { taskId: "task-1" },
+      "request-invalid-next-action",
+    );
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-invalid-next-action",
+      }),
+      request,
+    );
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request,
+        result: resultFor("queue.review.createMessage", {
+          nextAction: {
+            autoContinuationSafe: true,
+            capabilityId: "queue.review.ack",
+            input: {
+              reviewMessageId: "review-message-1",
+              taskId: "task-1",
+            },
+            requiresConfirmation: false,
+          },
+          nextSuggestedCapability: "queue.review.ack",
+        }),
+        state,
+      }),
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "invalid_input",
+    });
   });
 
   it("blocks unregistered and wrong evidence capability ids from auto-continuation", () => {
@@ -823,6 +927,12 @@ describe("workspaceAgentBrokerContinuation", () => {
     );
     const ackResult = resultFor("queue.review.ack", {
       messageId: "review-message-1",
+      nextAction: {
+        autoContinuationSafe: true,
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-1" },
+        requiresConfirmation: false,
+      },
       nextSuggestedCapability: "queue.lifecycle.get",
       reviewState: "in_review",
       taskId: "task-1",
@@ -916,7 +1026,9 @@ describe("workspaceAgentBrokerContinuation", () => {
     });
 
     expect(context.ids).toEqual({
+      evidenceBundleIds: [],
       executorWidgetIds: [],
+      messageIds: [],
       runId: null,
       taskIds: [],
     });

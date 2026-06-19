@@ -253,7 +253,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     );
   });
 
-  it("continues a Queue smoke chain through broker results in one Workspace Agent run", async () => {
+  it("continues Queue setup through broker results and stops before confirmed startRun", async () => {
     let task: QueueWidgetItemSnapshot | null = null;
     const getSnapshot = vi.fn(async () =>
       snapshotResult({
@@ -430,7 +430,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     await runDirectWork("Run the Queue dogfooding smoke.");
     await flushAsync(80);
 
-    expect(startDirectWork).toHaveBeenCalledTimes(9);
+    expect(startDirectWork).toHaveBeenCalledTimes(5);
     expect(createItem).toHaveBeenCalledWith(
       expect.objectContaining({
         prompt: "Run the Queue dogfooding smoke through Workspace Agent.",
@@ -439,18 +439,13 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
       }),
     );
     expect(updateItem).toHaveBeenCalled();
-    expect(enableQueue).toHaveBeenCalledWith({ dryRun: false });
-    expect(startQueueLinkedRun).toHaveBeenCalledWith({
-      dryRun: false,
-      executorWidgetId: "executor-1",
-      taskId: "task-smoke",
-    });
+    expect(enableQueue).not.toHaveBeenCalled();
+    expect(startQueueLinkedRun).not.toHaveBeenCalled();
     expect(listItemAggregates).toHaveBeenCalled();
     expect(getItemAggregate).toHaveBeenCalledWith({ taskId: "task-smoke" });
     expect(runTerminal).not.toHaveBeenCalled();
     expect(createGitCommit).not.toHaveBeenCalled();
     expect(lastOperatorMessageText()).toBe("Run the Queue dogfooding smoke.");
-    expect(lastAssistantMessageText()).toBe("Queue dogfooding smoke started.");
     expect(allAssistantMessageText()).toEqual(
       expect.arrayContaining([
         expect.stringContaining("Action 1/16: queue.targetSingletonQueue"),
@@ -458,10 +453,10 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
         expect.stringContaining("Action 3/16: queue.createItem"),
         expect.stringContaining("Action 4/16: queue.item.updateRunSettings"),
         expect.stringContaining("Action 5/16: queue.item.promoteDraft"),
-        expect.stringContaining("Action 6/16: queue.enable"),
-        expect.stringContaining("Action 7/16: queue.item.startRun"),
-        expect.stringContaining("Action 8/16: queue.lifecycle.get"),
       ]),
+    );
+    expect(lastAssistantMessageText()).toContain(
+      "Stopped: capability is not allowed for auto-continuation.",
     );
     const continuationRequests = startDirectWork.mock.calls
       .slice(1)
@@ -500,11 +495,14 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
       expect.arrayContaining([
         expect.objectContaining({
           runKind: "workspace-agent-broker-continuation",
-          title: "Queue-linked run started",
+          title: "Queue run settings updated",
         }),
         expect.objectContaining({
           runKind: "workspace-agent-broker-continuation",
-          title: "Queue lifecycle read",
+          summary: expect.stringContaining(
+            "Stopped: capability is not allowed for auto-continuation.",
+          ),
+          title: "Queue draft promoted",
         }),
       ]),
     );

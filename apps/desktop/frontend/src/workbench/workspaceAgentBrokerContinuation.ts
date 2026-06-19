@@ -3,7 +3,11 @@ import type {
   HobitAgentActionResult,
 } from "./agents/broker";
 import type { HobitAgentCapability } from "./agents/capabilities";
-import { QUEUE_START_RUN_CONFIRMATION_TOKEN } from "./agents/capabilities/queueCapabilityContracts";
+import {
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+  validateQueueCapabilityNextAction,
+  type QueueCapabilityNextAction,
+} from "./agents/capabilities/queueCapabilityContracts";
 
 export const WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS = 16;
 
@@ -93,10 +97,13 @@ export type WorkspaceAgentBrokerContinuationResultContext = {
   blockers: string[];
   capabilityId: string;
   ids: {
+    evidenceBundleIds: string[];
     executorWidgetIds: string[];
+    messageIds: string[];
     runId: string | null;
     taskIds: string[];
   };
+  nextAction: QueueCapabilityNextAction | null;
   nextSuggestedCapability: string | null;
   notDone: string[];
   queueState: WorkspaceAgentBrokerContinuationQueueState | null;
@@ -275,6 +282,55 @@ export function shouldContinueWorkspaceAgentBrokerAction({
     };
   }
 
+  const nextAction = queueResultNextAction(result.output);
+  if (nextAction) {
+    const validation = validateQueueCapabilityNextAction(nextAction);
+    if (!validation.ok) {
+      return {
+        shouldContinue: false,
+        stopReason: "invalid_input",
+      };
+    }
+
+    const nextCapabilityClass =
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        nextAction.capabilityId,
+      );
+    if (nextCapabilityClass.kind === "restricted") {
+      return {
+        shouldContinue: false,
+        stopReason: "restricted_capability",
+      };
+    }
+    if (nextAction.requiresConfirmation || nextAction.confirmationRequired) {
+      return {
+        shouldContinue: false,
+        stopReason: "confirmation_required",
+      };
+    }
+    if (!nextAction.autoContinuationSafe) {
+      return {
+        shouldContinue: false,
+        stopReason: "not_allowed_for_auto_continuation",
+      };
+    }
+    if (nextCapabilityClass.kind !== "allowed") {
+      return {
+        shouldContinue: false,
+        stopReason: "not_allowed_for_auto_continuation",
+      };
+    }
+
+    return { shouldContinue: true };
+  }
+
+  if (queueResultHasNextSuggestedCapability(result.output)) {
+    return {
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    };
+  }
+
   if (capabilityClass.kind === "allowed") {
     return { shouldContinue: true };
   }
@@ -344,6 +400,11 @@ export function createWorkspaceAgentBrokerActionResultContext({
 }): WorkspaceAgentBrokerContinuationResultContext {
   const output = recordValue(result.output);
   const safety = workspaceAgentBrokerContinuationSafety(result.output);
+  const nextAction = queueResultNextAction(result.output);
+  const validNextAction =
+    nextAction && validateQueueCapabilityNextAction(nextAction).ok
+      ? nextAction
+      : null;
   const nextSuggestedCapability = firstString([
     stringField(output, "nextSuggestedCapability"),
     stringField(recordField(output, "item"), "nextSuggestedCapability"),
@@ -370,18 +431,31 @@ export function createWorkspaceAgentBrokerActionResultContext({
     ),
     capabilityId: result.capabilityId,
     ids: {
+      evidenceBundleIds: compactStringList(
+        collectEvidenceBundleIds(output, validNextAction),
+        ID_LIMIT,
+      ),
       executorWidgetIds: compactStringList(
-        collectExecutorWidgetIds(output),
+        collectExecutorWidgetIds(output, validNextAction),
+        ID_LIMIT,
+      ),
+      messageIds: compactStringList(
+        collectMessageIds(output, validNextAction),
         ID_LIMIT,
       ),
       runId: firstString([
+        stringField(recordValue(validNextAction?.input), "runId"),
         stringField(output, "runId"),
         stringField(recordField(output, "latestRun"), "runId"),
         stringField(recordField(recordField(output, "aggregate"), "latestRun"), "runId"),
         stringField(recordField(output, "queueLinkedMetadata"), "runId"),
       ]),
-      taskIds: compactStringList(collectTaskIds(output), ID_LIMIT),
+      taskIds: compactStringList(
+        collectTaskIds(output, validNextAction),
+        ID_LIMIT,
+      ),
     },
+    nextAction: validNextAction,
     nextSuggestedCapability,
     notDone: notDoneMessages(safety),
     queueState,
@@ -415,7 +489,9 @@ export function formatWorkspaceAgentBrokerContinuationPrompt({
       'Emit exactly one hobit.action.request envelope when another Hobit app action is needed, or {"type":"hobit.final.answer","message":"..."} when the task is done.',
       "The final-answer marker lets the app distinguish completion from an intermediate stall.",
       "Intermediate prose is not a capability call.",
-      "Do not emit action lists. Use a fresh requestId for each envelope. Do not repeat a previous request id or same capability/input. Use returned taskIds, executorWidgetIds, runId, blockers, and nextSuggestedCapability.",
+      "Do not emit action lists. Use a fresh requestId for each envelope. Do not repeat a previous request id or same capability/input.",
+      "Prefer returned nextAction when present. Use nextAction.capabilityId and nextAction.input exactly; do not rename fields.",
+      "If nextAction is unavailable, ask or stop with the blocker. Do not guess from nextSuggestedCapability alone.",
       "If the result is blocked, unavailable, confirmation_required, failed, invalid, or policy blocked, stop and report that plainly.",
       "Never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose, titles, paths, final messages, or source text.",
       "Do not use shell, raw Codex, Git, validation, rollback, Terminal, or hidden execution for Hobit product actions.",
@@ -534,6 +610,25 @@ function queueStartRunMayContinue(
   );
 }
 
+function queueResultNextAction(output: unknown): QueueCapabilityNextAction | null {
+  const nextAction = recordField(recordValue(output), "nextAction");
+  return nextAction ? (nextAction as QueueCapabilityNextAction) : null;
+}
+
+function queueResultHasNextSuggestedCapability(output: unknown) {
+  const root = recordValue(output);
+  return Boolean(
+    stringField(root, "nextSuggestedCapability") ||
+      stringField(recordField(root, "item"), "nextSuggestedCapability") ||
+      arrayField(root, "createdItems").some((item) =>
+        Boolean(stringField(recordValue(item), "nextSuggestedCapability")),
+      ) ||
+      arrayField(root, "items").some((item) =>
+        Boolean(stringField(recordValue(item), "nextSuggestedCapability")),
+      ),
+  );
+}
+
 function workspaceAgentBrokerContinuationSafety(
   output: unknown,
 ): WorkspaceAgentBrokerContinuationSafety {
@@ -560,9 +655,13 @@ function workspaceAgentBrokerContinuationSafety(
   };
 }
 
-function collectTaskIds(output: Record<string, unknown> | null): string[] {
+function collectTaskIds(
+  output: Record<string, unknown> | null,
+  nextAction: QueueCapabilityNextAction | null,
+): string[] {
   return compactStringList(
     [
+      stringField(recordValue(nextAction?.input), "taskId"),
       stringField(output, "taskId"),
       stringField(output, "queueItemId"),
       stringField(recordField(output, "aggregate"), "taskId"),
@@ -582,9 +681,11 @@ function collectTaskIds(output: Record<string, unknown> | null): string[] {
 
 function collectExecutorWidgetIds(
   output: Record<string, unknown> | null,
+  nextAction: QueueCapabilityNextAction | null,
 ): string[] {
   return compactStringList(
     [
+      stringField(recordValue(nextAction?.input), "executorWidgetId"),
       stringField(output, "executorWidgetId"),
       stringField(recordField(output, "queueLinkedMetadata"), "executorWidgetId"),
       stringField(recordField(output, "item"), "assignedExecutorWidgetId"),
@@ -594,6 +695,36 @@ function collectExecutorWidgetIds(
       ...arrayField(output, "items").map((item) =>
         stringField(recordValue(item), "assignedExecutorWidgetId"),
       ),
+    ],
+    ID_LIMIT,
+  );
+}
+
+function collectEvidenceBundleIds(
+  output: Record<string, unknown> | null,
+  nextAction: QueueCapabilityNextAction | null,
+): string[] {
+  return compactStringList(
+    [
+      stringField(recordValue(nextAction?.input), "evidenceBundleId"),
+      stringField(output, "evidenceBundleId"),
+      stringField(recordField(output, "backendEvidenceBundle"), "bundleId"),
+      stringField(recordField(output, "evidenceBundle"), "bundleId"),
+    ],
+    ID_LIMIT,
+  );
+}
+
+function collectMessageIds(
+  output: Record<string, unknown> | null,
+  nextAction: QueueCapabilityNextAction | null,
+): string[] {
+  return compactStringList(
+    [
+      stringField(recordValue(nextAction?.input), "messageId"),
+      stringField(output, "messageId"),
+      stringField(output, "existingReviewMessageId"),
+      stringField(recordField(output, "latestReviewMessage"), "messageId"),
     ],
     ID_LIMIT,
   );

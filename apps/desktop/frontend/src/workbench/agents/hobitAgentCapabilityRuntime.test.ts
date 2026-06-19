@@ -340,6 +340,12 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain("Do not write awaiting capability result");
     expect(instructionBlock).not.toMatch(/wait\s+for\s+(?:a\s+)?capability\s+result/i);
     expect(instructionBlock).toContain("After hobit.action.result");
+    expect(instructionBlock).toContain("prefer returned nextAction");
+    expect(instructionBlock).toContain("nextAction.capabilityId");
+    expect(instructionBlock).toContain("do not rename fields");
+    expect(instructionBlock).toContain(
+      "do not guess ids, fields, or actions from nextSuggestedCapability alone",
+    );
     expect(instructionBlock).toContain(
       `top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}"`,
     );
@@ -350,7 +356,6 @@ describe("hobitAgentCapabilityRuntime context", () => {
       `approvalPolicy=${QUEUE_RUN_APPROVAL_POLICY_VALUES.join("|")}`,
     );
     expect(instructionBlock).toContain("fresh requestId");
-    expect(instructionBlock).toContain("never infer missing ids");
     expect(instructionBlock).not.toContain('"allowedAgentRoles"');
     expect(instructionBlock.length).toBeLessThan(11000);
     expect(instructionBlock).not.toContain('"capabilities"');
@@ -464,6 +469,8 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain('"type":"hobit.final.answer"');
     expect(prompt).toContain("Use a fresh requestId");
     expect(prompt).toContain("After hobit.action.result");
+    expect(prompt).toContain("prefer returned nextAction");
+    expect(prompt).toContain("do not rename fields");
     expect(prompt).toContain("Intermediate prose is not a capability call.");
     expect(prompt).toContain("Do not write awaiting capability result");
     expect(prompt).toContain("When a Hobit app capability is needed");
