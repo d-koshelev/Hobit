@@ -3970,6 +3970,30 @@ describe("queueAgentCapabilities self-test and architecture safety", () => {
     expect(workspaceAgentSource).not.toContain("createQueueAgentActionHandlers");
     expect(workspaceAgentSource).not.toContain("createHobitAgentActionBroker");
   });
+
+  it("keeps backend-backed Queue broker capabilities isolated from Queue UI modules", () => {
+    const backendPathSources = [
+      "workbench/agents/adapters/queueBackendCapabilityPort.ts",
+      "workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
+      "workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts",
+    ].map(frontendSource);
+    const forbiddenImports = [
+      "AgentQueueV2Board",
+      "AgentQueuePlaceholderWidget",
+      "queue/details/",
+      "queueV2/",
+      "QueueV2",
+      "smartQueueDogfoodLifecycleController",
+      "queueReviewEvidenceViewModel",
+      "queueReviewEvidenceActions",
+    ];
+
+    for (const source of backendPathSources) {
+      for (const forbiddenImport of forbiddenImports) {
+        expect(source).not.toContain(forbiddenImport);
+      }
+    }
+  });
 });
 
 function createQueueBroker(

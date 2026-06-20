@@ -4,8 +4,10 @@ import type {
 } from "./agents/broker";
 import type { HobitAgentCapability } from "./agents/capabilities";
 import {
+  QUEUE_CAPABILITY_CONTRACT_BY_ID,
   QUEUE_START_RUN_CONFIRMATION_TOKEN,
   validateQueueCapabilityNextAction,
+  type QueueCapabilityRiskClass,
   type QueueCapabilityNextAction,
 } from "./agents/capabilities/queueCapabilityContracts";
 
@@ -17,18 +19,9 @@ const SUMMARY_CHAR_LIMIT = 220;
 const ID_LIMIT = 8;
 const BLOCKER_LIMIT = 6;
 
-const AUTO_CONTINUATION_ALLOWED_CAPABILITIES = new Set([
-  "queue.targetSingletonQueue",
-  "queue.items.list",
-  "queue.createItem",
-  "queue.createItems",
-  "queue.item.updateRunSettings",
-  "queue.item.promoteDraft",
-  "queue.enable",
-  "queue.lifecycle.get",
-  "queue.review.ack",
-  "queue.review.getEvidenceBundle",
-]);
+const DEFAULT_AUTO_CONTINUATION_RISK_CLASSES = new Set<QueueCapabilityRiskClass>(
+  ["read", "setup", "review"],
+);
 
 const RESTRICTED_CAPABILITY_IDS = new Set([
   "codex.runTask",
@@ -71,6 +64,14 @@ export type WorkspaceAgentBrokerContinuationState = {
   protocolRepairAttempted: boolean;
   seenRequestFingerprints: readonly string[];
   seenRequestIds: readonly string[];
+  workflowGrant: WorkspaceAgentQueueWorkflowGrant | null;
+};
+
+export type WorkspaceAgentQueueWorkflowGrant = {
+  allowedRiskClasses: readonly QueueCapabilityRiskClass[];
+  grantId: string;
+  maxActions?: number;
+  type: "queue.workflow.grant";
 };
 
 export type WorkspaceAgentBrokerContinuationAttempt =
@@ -133,17 +134,58 @@ export type WorkspaceAgentBrokerContinuationQueueState = {
 export function createWorkspaceAgentBrokerContinuationState({
   chainId,
   maxActions = WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+  workflowGrant = null,
 }: {
   chainId: string;
   maxActions?: number;
+  workflowGrant?: unknown;
 }): WorkspaceAgentBrokerContinuationState {
+  const structuredGrant = normalizeWorkspaceAgentQueueWorkflowGrant(workflowGrant);
   return {
     actionCount: 0,
     chainId,
-    maxActions,
+    maxActions: structuredGrant?.maxActions
+      ? Math.min(maxActions, structuredGrant.maxActions)
+      : maxActions,
     protocolRepairAttempted: false,
     seenRequestFingerprints: [],
     seenRequestIds: [],
+    workflowGrant: structuredGrant,
+  };
+}
+
+export function normalizeWorkspaceAgentQueueWorkflowGrant(
+  candidate: unknown,
+): WorkspaceAgentQueueWorkflowGrant | null {
+  if (!recordValue(candidate)) {
+    return null;
+  }
+
+  const record = candidate as Record<string, unknown>;
+  if (record.type !== "queue.workflow.grant") {
+    return null;
+  }
+
+  const grantId = typeof record.grantId === "string" ? record.grantId.trim() : "";
+  const allowedRiskClasses = Array.isArray(record.allowedRiskClasses)
+    ? record.allowedRiskClasses.filter(isQueueCapabilityRiskClass)
+    : [];
+  const maxActions =
+    typeof record.maxActions === "number" &&
+    Number.isInteger(record.maxActions) &&
+    record.maxActions > 0
+      ? record.maxActions
+      : undefined;
+
+  if (!grantId || allowedRiskClasses.length === 0) {
+    return null;
+  }
+
+  return {
+    allowedRiskClasses: [...new Set(allowedRiskClasses)],
+    grantId,
+    ...(maxActions ? { maxActions } : {}),
+    type: "queue.workflow.grant",
   };
 }
 
@@ -254,6 +296,7 @@ export function shouldContinueWorkspaceAgentBrokerAction({
 
   const capabilityClass = classifyWorkspaceAgentBrokerContinuationCapability(
     capability ?? result.capabilityId,
+    state.workflowGrant,
   );
   if (capabilityClass.kind === "restricted") {
     return {
@@ -295,6 +338,7 @@ export function shouldContinueWorkspaceAgentBrokerAction({
     const nextCapabilityClass =
       classifyWorkspaceAgentBrokerContinuationCapability(
         nextAction.capabilityId,
+        state.workflowGrant,
       );
     if (nextCapabilityClass.kind === "restricted") {
       return {
@@ -350,6 +394,7 @@ export function shouldContinueWorkspaceAgentBrokerAction({
 
 export function classifyWorkspaceAgentBrokerContinuationCapability(
   capabilityOrId: HobitAgentCapability | string,
+  workflowGrant: WorkspaceAgentQueueWorkflowGrant | null = null,
 ):
   | { kind: "allowed"; reason: null }
   | { kind: "queue_start_run"; reason: null }
@@ -373,18 +418,58 @@ export function classifyWorkspaceAgentBrokerContinuationCapability(
     };
   }
 
-  if (AUTO_CONTINUATION_ALLOWED_CAPABILITIES.has(capabilityId)) {
-    return { kind: "allowed", reason: null };
-  }
-
   if (capabilityId === "queue.item.startRun") {
     return { kind: "queue_start_run", reason: null };
+  }
+
+  const queueContract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+  if (queueContract) {
+    if (
+      queueContract.autoContinuationSafe &&
+      !queueContract.confirmation.required &&
+      riskClassAllowsAutoContinuation(queueContract.riskClass, workflowGrant)
+    ) {
+      return { kind: "allowed", reason: null };
+    }
+
+    return {
+      kind: "not_allowed",
+      reason: `${capabilityId} risk class ${queueContract.riskClass} is not allowed for broker auto-continuation.`,
+    };
   }
 
   return {
     kind: "not_allowed",
     reason: `${capabilityId} is not allowed for broker auto-continuation.`,
   };
+}
+
+function riskClassAllowsAutoContinuation(
+  riskClass: QueueCapabilityRiskClass,
+  workflowGrant: WorkspaceAgentQueueWorkflowGrant | null,
+) {
+  return (
+    DEFAULT_AUTO_CONTINUATION_RISK_CLASSES.has(riskClass) ||
+    Boolean(workflowGrant?.allowedRiskClasses.includes(riskClass))
+  );
+}
+
+function isQueueCapabilityRiskClass(
+  value: unknown,
+): value is QueueCapabilityRiskClass {
+  return (
+    value === "read" ||
+    value === "setup" ||
+    value === "run_start" ||
+    value === "worker_evidence" ||
+    value === "review" ||
+    value === "final_accept" ||
+    value === "terminal_fail" ||
+    value === "block" ||
+    value === "follow_up" ||
+    value === "validation_decision" ||
+    value === "forbidden"
+  );
 }
 
 export function createWorkspaceAgentBrokerActionResultContext({

@@ -688,6 +688,16 @@ the local executor flow visible to operators.
   Agent broker adapter, or frontend API boundary work. It states that Queue
   business truth lives in backend/domain/storage and frontend UI may only
   render authoritative DTOs plus local loading/display state.
+- `docs/QUEUE_SYSTEM_ARCHITECTURE_RESET.md` - current Queue / Workspace Agent
+  architecture correction note. Read before broad Queue dogfooding,
+  continuation-policy, capability-contract, or responsibility-boundary cleanup.
+  It records the root causes, corrected layer responsibilities, current debt,
+  overengineering, under-designed contracts, and next implementation sequence.
+- `docs/QUEUE_WORKFLOW_ORCHESTRATION_CONTRACT.md` - current Queue workflow
+  orchestration contract. Read before changing Workspace Agent Queue
+  continuation, typed `nextAction`, risk-class policy, structured
+  confirmation, bounded grants, result statuses, dependency satisfaction, or
+  backend-backed broker capability behavior.
 - `docs/QUEUE_RESPONSIBILITY_REFACTOR_AUDIT.md` - focused audit/status note
   for the Queue backend ownership refactor, transitional capability debt, and
   phased cleanup plan.

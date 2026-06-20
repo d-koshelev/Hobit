@@ -83,6 +83,9 @@
   contract and avoid restating large ownership sections.
 - Prompt text should say to emit a structured envelope or final marker, not to
   write intermediate waiting prose.
+- Workflow orchestration should be governed by
+  `docs/QUEUE_WORKFLOW_ORCHESTRATION_CONTRACT.md`, not by capability-specific
+  prompt patches.
 
 ## Immediate Refactor Performed
 
@@ -94,6 +97,11 @@
   registered `nextSuggestedCapability` ids, and stale capability ids.
 - Compact Workspace Agent instruction text and guarded against the stale
   intermediate-result phrase.
+- Added Queue risk-class metadata and moved broker continuation away from a
+  duplicate static allowlist.
+- Added `docs/QUEUE_SYSTEM_ARCHITECTURE_RESET.md` and
+  `docs/QUEUE_WORKFLOW_ORCHESTRATION_CONTRACT.md` as the architecture reset
+  and workflow-level source documents.
 
 ## Remaining Phased Cleanup Plan
 

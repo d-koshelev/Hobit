@@ -18,11 +18,14 @@ import {
   HOBIT_AGENT_INITIAL_CAPABILITIES as INITIAL_CAPABILITIES_FROM_CAPABILITIES_INDEX,
 } from "./capabilities";
 import {
+  QUEUE_CAPABILITY_CONTRACT_BY_ID,
   QUEUE_CAPABILITY_CONTRACT_INVENTORY,
   QUEUE_RUN_APPROVAL_POLICY_VALUES,
   QUEUE_RUN_SANDBOX_VALUES,
   QUEUE_START_RUN_CONFIRMATION_FIELD,
   QUEUE_START_RUN_CONFIRMATION_TOKEN,
+  queueCapabilityNextActionAgreesWithSuggestion,
+  validateQueueCapabilityNextAction,
 } from "./capabilities/queueCapabilityContracts";
 import {
   createActionRequest as createActionRequestFromBrokerIndex,
@@ -451,6 +454,104 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(mentionedCapabilityIds.length).toBeGreaterThan(0);
     for (const capabilityId of mentionedCapabilityIds) {
       expect(registeredCapabilityIds.has(capabilityId), capabilityId).toBe(true);
+    }
+  });
+
+  it("keeps Queue capability schemas and examples on canonical action fields", () => {
+    const queueCapabilities = INITIAL_CAPABILITIES_FROM_CAPABILITIES_INDEX.filter(
+      (capability) => capability.id.startsWith("queue."),
+    );
+    const badFieldNames = [
+      "approval_policy",
+      "depends_on",
+      "dependencies",
+      "reviewMessageId",
+    ];
+
+    expect(queueCapabilities.length).toBeGreaterThan(0);
+    for (const capability of queueCapabilities) {
+      const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capability.id);
+      expect(contract, capability.id).toBeDefined();
+      expect(contract?.riskClass, capability.id).toBeTruthy();
+
+      for (const example of capability.examples ?? []) {
+        const exampleInput = example.exampleInput as Record<string, unknown>;
+        const actionInput = example.exampleActionRequest.input as Record<
+          string,
+          unknown
+        >;
+        const serialized = JSON.stringify({
+          actionInput,
+          exampleInput,
+        });
+
+        expect(example.exampleActionRequest.type).toBe("hobit.action.request");
+        expect(example.exampleActionRequest.capabilityId).toBe(capability.id);
+        expect(actionInput).not.toHaveProperty("confirmationToken");
+        for (const badFieldName of badFieldNames) {
+          expect(serialized, `${capability.id} example`).not.toContain(
+            `"${badFieldName}"`,
+          );
+        }
+      }
+    }
+
+    const ackNextAction = {
+      autoContinuationSafe: true,
+      capabilityId: "queue.review.ack",
+      input: { messageId: "review-message-id", taskId: "task-id" },
+      requiresConfirmation: false,
+    };
+
+    expect(validateQueueCapabilityNextAction(ackNextAction)).toEqual({
+      missingRequiredFields: [],
+      ok: true,
+      reasons: [],
+    });
+    expect(
+      validateQueueCapabilityNextAction({
+        ...ackNextAction,
+        input: { reviewMessageId: "review-message-id", taskId: "task-id" },
+      }).ok,
+    ).toBe(false);
+    expect(
+      queueCapabilityNextActionAgreesWithSuggestion({
+        nextAction: ackNextAction,
+        nextSuggestedCapability: "queue.review.ack",
+      }),
+    ).toBe(true);
+    expect(
+      queueCapabilityNextActionAgreesWithSuggestion({
+        nextAction: ackNextAction,
+        nextSuggestedCapability: "queue.item.markDone",
+      }),
+    ).toBe(false);
+  });
+
+  it("keeps transitional and finalizing Queue capabilities explicitly gated", () => {
+    const transitionalCapabilities = [
+      "queue.coordinator.addFollowUpPrompt",
+      "queue.coordinator.approveValidation",
+      "queue.item.block",
+    ];
+    const finalizingCapabilities = ["queue.item.markDone", "queue.item.fail"];
+
+    for (const capabilityId of transitionalCapabilities) {
+      const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+      expect(contract, capabilityId).toBeDefined();
+      expect(contract?.backing, capabilityId).toBe(
+        "transitional_frontend_overlay",
+      );
+      expect(contract?.autoContinuationSafe, capabilityId).toBe(false);
+      expect(contract?.riskClass, capabilityId).not.toBe("read");
+    }
+
+    for (const capabilityId of finalizingCapabilities) {
+      const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+      expect(contract, capabilityId).toBeDefined();
+      expect(contract?.backing, capabilityId).toBe("backend_backed");
+      expect(contract?.autoContinuationSafe, capabilityId).toBe(false);
+      expect(contract?.confirmation.required, capabilityId).toBe(true);
     }
   });
 

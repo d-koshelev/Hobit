@@ -14,6 +14,7 @@ import {
   deriveWorkspaceAgentBrokerContinuationRequestId,
   evaluateWorkspaceAgentBrokerContinuationAttempt,
   formatWorkspaceAgentBrokerContinuationPrompt,
+  normalizeWorkspaceAgentQueueWorkflowGrant,
   recordWorkspaceAgentBrokerContinuationProtocolRepair,
   recordWorkspaceAgentBrokerContinuationAttempt,
   shouldContinueWorkspaceAgentBrokerAction,
@@ -43,6 +44,54 @@ describe("workspaceAgentBrokerContinuation", () => {
       protocolRepairAttempted: true,
     });
     expect(state.protocolRepairAttempted).toBe(false);
+  });
+
+  it("derives Queue auto-continuation from capability risk metadata", () => {
+    expect(continuationSource).not.toContain(
+      "AUTO_CONTINUATION_ALLOWED_CAPABILITIES",
+    );
+
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability("queue.lifecycle.get"),
+    ).toMatchObject({ kind: "allowed" });
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.review.createMessage",
+      ),
+    ).toMatchObject({ kind: "not_allowed" });
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability("queue.item.markDone"),
+    ).toMatchObject({ kind: "not_allowed" });
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability("queue.item.fail"),
+    ).toMatchObject({ kind: "not_allowed" });
+  });
+
+  it("normalizes only structured Queue workflow grants", () => {
+    expect(normalizeWorkspaceAgentQueueWorkflowGrant("I confirm")).toBeNull();
+    expect(
+      normalizeWorkspaceAgentQueueWorkflowGrant({
+        allowedRiskClasses: ["review"],
+        grantId: "grant-queue-review",
+        maxActions: 4,
+        type: "queue.workflow.grant",
+      }),
+    ).toEqual({
+      allowedRiskClasses: ["review"],
+      grantId: "grant-queue-review",
+      maxActions: 4,
+      type: "queue.workflow.grant",
+    });
+    expect(
+      normalizeWorkspaceAgentQueueWorkflowGrant({
+        allowedRiskClasses: ["terminal_fail"],
+        grantId: "grant-terminal-fail",
+        type: "queue.workflow.grant",
+      }),
+    ).toMatchObject({
+      allowedRiskClasses: ["terminal_fail"],
+      grantId: "grant-terminal-fail",
+    });
   });
 
   it("allows safe Queue control-plane success results to continue", () => {
@@ -543,6 +592,47 @@ describe("workspaceAgentBrokerContinuation", () => {
         stopReason: "not_allowed_for_auto_continuation",
       });
     }
+  });
+
+  it("does not let a structured grant bypass finalization confirmation gates", () => {
+    const state = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-structured-grant-finalization",
+      workflowGrant: {
+        allowedRiskClasses: ["final_accept", "terminal_fail"],
+        grantId: "grant-finalization",
+        type: "queue.workflow.grant",
+      },
+    });
+    const markDoneRequest = requestFor(
+      "queue.item.markDone",
+      { taskId: "task-1" },
+      "request-mark-done",
+      QUEUE_START_RUN_CONFIRMATION_TOKEN,
+    );
+    const recorded = recordAttempt(state, markDoneRequest);
+
+    expect(recorded.workflowGrant).toMatchObject({
+      grantId: "grant-finalization",
+    });
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.item.markDone",
+        recorded.workflowGrant,
+      ).kind,
+    ).toBe("not_allowed");
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: markDoneRequest,
+        result: resultFor("queue.item.markDone", {
+          decisionId: "decision-1",
+          taskId: "task-1",
+        }),
+        state: recorded,
+      }),
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
   });
 
   it("does not wildcard-allow review writes or unsafe post-ACK continuation requests", () => {

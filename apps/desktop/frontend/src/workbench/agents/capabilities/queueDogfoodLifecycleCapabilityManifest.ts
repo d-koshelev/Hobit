@@ -221,17 +221,17 @@ const MARK_DONE_SCHEMA: HobitAgentCapabilityInputSchema = {
   ],
   fieldDescriptions: {
     messageId:
-      "Optional exact backend review message id returned by typed review results. Prefer reviewMessageId in new requests.",
+      "Optional exact backend review message id returned by typed review results. Use messageId as the canonical field in new typed requests.",
     reason: "Optional acceptance reason. Does not run validation, Git, rollback, or Terminal.",
     reviewMessageId:
-      "Optional exact backend review message id returned by typed review results.",
+      "Compatibility-only exact backend review message guard. Do not use it for queue.review.ack or typed nextAction payloads.",
     runId: "Optional exact worker run id returned by typed backend results.",
     taskId: "Required Queue item id.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
   requiredFields: ["taskId", "top-level confirmationToken"],
   shape:
-    '{"taskId":"string required","reason":"string optional","runId":"string optional exact typed id","reviewMessageId":"string optional exact typed id"}; top-level confirmationToken="operator-confirmed" required',
+    '{"taskId":"string required","reason":"string optional","runId":"string optional exact typed id","messageId":"string optional exact typed id"}; top-level confirmationToken="operator-confirmed" required',
 };
 
 const BLOCK_SCHEMA: HobitAgentCapabilityInputSchema = {
@@ -268,17 +268,17 @@ const FAIL_SCHEMA: HobitAgentCapabilityInputSchema = {
     evidenceBundleId:
       "Optional exact backend evidence bundle id returned by typed results.",
     messageId:
-      "Optional exact backend review message id returned by typed review results. Prefer reviewMessageId in new requests.",
+      "Optional exact backend review message id returned by typed review results. Use messageId as the canonical field in new typed requests.",
     reason: "Required visible failure reason. Does not run validation, Git, rollback, or Terminal.",
     reviewMessageId:
-      "Optional exact backend review message id returned by typed review results.",
+      "Compatibility-only exact backend review message guard. Do not use it for queue.review.ack or typed nextAction payloads.",
     runId: "Optional exact worker run id returned by typed backend results.",
     taskId: "Required Queue item id.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
   requiredFields: ["taskId", "reason", "top-level confirmationToken"],
   shape:
-    '{"taskId":"string required","reason":"string required","runId":"string optional exact typed id","evidenceBundleId":"string optional exact typed id","reviewMessageId":"string optional exact typed id"}; top-level confirmationToken="operator-confirmed" required',
+    '{"taskId":"string required","reason":"string required","runId":"string optional exact typed id","evidenceBundleId":"string optional exact typed id","messageId":"string optional exact typed id"}; top-level confirmationToken="operator-confirmed" required',
 };
 
 const GET_SCHEMA: HobitAgentCapabilityInputSchema = {

@@ -56,7 +56,9 @@ a compact contract inventory that records implementation/backing status,
 read/write/execute level, auto-continuation policy, exact required ids,
 trusted context fields, exact enum values, structured confirmation
 requirements, model-provided fields, and registered next-capability
-possibilities. `queue.item.updateRunSettings` documents and validates exact
+possibilities. The continuation policy now reads this contract metadata and
+Queue risk classes rather than maintaining a second static allowlist.
+`queue.item.updateRunSettings` documents and validates exact
 sandbox values `read_only`, `workspace_write`, `danger_full_access` and
 approval policy values `never`, `on_request`, `untrusted`.
 Queue capability results now expose typed `nextAction` payloads when a

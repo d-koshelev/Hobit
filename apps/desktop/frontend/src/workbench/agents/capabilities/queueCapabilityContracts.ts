@@ -25,6 +25,19 @@ export type QueueCapabilityBacking =
   | "model_preview"
   | "transitional_frontend_overlay";
 
+export type QueueCapabilityRiskClass =
+  | "read"
+  | "setup"
+  | "run_start"
+  | "worker_evidence"
+  | "review"
+  | "final_accept"
+  | "terminal_fail"
+  | "block"
+  | "follow_up"
+  | "validation_decision"
+  | "forbidden";
+
 export type QueueCapabilityFieldPolicy =
   | "model_required"
   | "model_optional"
@@ -62,6 +75,7 @@ export type QueueCapabilityContract = {
     runId: boolean;
     taskId: boolean;
   };
+  riskClass: QueueCapabilityRiskClass;
   sideEffectLevel: HobitAgentCapabilitySideEffect;
   trustedContextFields: readonly string[];
 };
@@ -145,6 +159,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         threadId: "model_optional",
       },
       requiredIds: { taskId: true },
+      riskClass: "follow_up",
       sideEffectLevel: "write",
     }),
     queueContract({
@@ -159,6 +174,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         validationApprovalId: "model_optional",
       },
       requiredIds: { taskId: true },
+      riskClass: "validation_decision",
       sideEffectLevel: "write",
     }),
     queueContract({
@@ -177,6 +193,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         title: "model_required",
       },
       nextSuggestedCapabilities: ["queue.item.updateRunSettings"],
+      riskClass: "setup",
       sideEffectLevel: "write",
     }),
     queueContract({
@@ -197,6 +214,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         source: "model_optional",
       },
       nextSuggestedCapabilities: ["queue.item.updateRunSettings"],
+      riskClass: "setup",
       sideEffectLevel: "write",
     }),
     queueContract({
@@ -206,6 +224,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       confirmationRequirement: "recommended",
       fieldPolicies: {},
       nextSuggestedCapabilities: ["queue.enable", "queue.item.startRun"],
+      riskClass: "setup",
       sideEffectLevel: "write",
     }),
     queueContract({
@@ -221,6 +240,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         sourceText: "model_optional",
       },
       nextSuggestedCapabilities: ["queue.item.updateRunSettings"],
+      riskClass: "setup",
       sideEffectLevel: "write",
     }),
     queueContract({
@@ -235,6 +255,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         taskId: "model_required",
       },
       requiredIds: { taskId: true },
+      riskClass: "block",
       sideEffectLevel: "write",
     }),
     queueContract({
@@ -253,6 +274,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       },
       nextSuggestedCapabilities: [],
       requiredIds: { taskId: true },
+      riskClass: "terminal_fail",
       sideEffectLevel: "write",
       trustedContextFields: REVIEW_ACTOR_CONTEXT_FIELDS,
     }),
@@ -271,6 +293,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       },
       nextSuggestedCapabilities: [],
       requiredIds: { taskId: true },
+      riskClass: "final_accept",
       sideEffectLevel: "write",
       trustedContextFields: REVIEW_ACTOR_CONTEXT_FIELDS,
     }),
@@ -284,6 +307,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       },
       nextSuggestedCapabilities: ["queue.enable", "queue.item.startRun"],
       requiredIds: { taskId: true },
+      riskClass: "setup",
       sideEffectLevel: "write",
     }),
     queueContract({
@@ -298,6 +322,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         taskId: "model_required",
       },
       requiredIds: { executorWidgetId: true, taskId: true },
+      riskClass: "run_start",
       sideEffectLevel: "execute",
     }),
     queueContract({
@@ -323,6 +348,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         "queue.item.updateRunSettings",
       ],
       requiredIds: { taskId: true },
+      riskClass: "setup",
       sideEffectLevel: "write",
     }),
     queueContract({
@@ -342,6 +368,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         "queue.review.createMessage",
       ],
       readOnly: true,
+      riskClass: "read",
       sideEffectLevel: "read",
     }),
     queueContract({
@@ -371,6 +398,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
         "queue.review.getEvidenceBundle",
       ],
       requiredIds: { runId: true, taskId: true },
+      riskClass: "worker_evidence",
       sideEffectLevel: "write",
       trustedContextFields: RUNTIME_CONTEXT_FIELDS,
     }),
@@ -392,6 +420,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       ],
       readOnly: true,
       requiredIds: { taskId: true },
+      riskClass: "read",
       sideEffectLevel: "read",
       trustedContextFields: RUNTIME_CONTEXT_FIELDS,
     }),
@@ -407,6 +436,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       },
       nextSuggestedCapabilities: ["queue.importPromptPack"],
       readOnly: true,
+      riskClass: "read",
       sideEffectLevel: "read",
     }),
     queueContract({
@@ -422,6 +452,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       },
       nextSuggestedCapabilities: ["queue.lifecycle.get"],
       requiredIds: { messageId: true, taskId: true },
+      riskClass: "review",
       sideEffectLevel: "write",
       trustedContextFields: REVIEW_ACTOR_CONTEXT_FIELDS,
     }),
@@ -444,6 +475,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       },
       nextSuggestedCapabilities: ["queue.review.ack"],
       requiredIds: { taskId: true },
+      riskClass: "review",
       sideEffectLevel: "write",
       trustedContextFields: REVIEW_ACTOR_CONTEXT_FIELDS,
     }),
@@ -461,6 +493,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       ],
       readOnly: true,
       requiredIds: { taskId: true },
+      riskClass: "read",
       sideEffectLevel: "read",
       trustedContextFields: RUNTIME_CONTEXT_FIELDS,
     }),
@@ -470,6 +503,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       capabilityId: "queue.selfTest",
       fieldPolicies: {},
       readOnly: true,
+      riskClass: "read",
       sideEffectLevel: "read",
     }),
     queueContract({
@@ -478,6 +512,7 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
       capabilityId: "queue.targetSingletonQueue",
       fieldPolicies: {},
       readOnly: true,
+      riskClass: "read",
       sideEffectLevel: "read",
     }),
   ] as const;

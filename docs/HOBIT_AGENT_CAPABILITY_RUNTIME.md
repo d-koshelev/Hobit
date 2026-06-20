@@ -267,9 +267,12 @@ step may emit exactly one new `hobit.action.request` or explicit
 must not rename input fields, and must not guess from `nextSuggestedCapability`
 alone. The controller auto-continues a `nextAction` only when the target
 capability is registered, the payload validates against the target contract,
-`autoContinuationSafe=true`, policy allows the target, and no confirmation is
-missing. Otherwise it stops with a visible blocker and leaves the typed payload
-for operator/model review. The controller stops instead of continuing
+`autoContinuationSafe=true`, the Queue risk class is allowed by policy or a
+structured bounded workflow grant, policy allows the target, and no
+confirmation is missing. Auto-continuation policy is derived from capability
+contract metadata and risk class, not from natural-language descriptions or a
+separate static allowlist. Otherwise it stops with a visible blocker and leaves
+the typed payload for operator/model review. The controller stops instead of continuing
 when a result requires
 confirmation, is blocked/unavailable/failed/invalid, is a dry-run-required
 result, repeats a previous request id or capability/input fingerprint, exceeds

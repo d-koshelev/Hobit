@@ -13,6 +13,9 @@ Queue backend ownership is governed by
 `docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`. If this document and the ownership
 contract conflict, use the ownership contract for Queue backend/API/UI truth
 boundaries.
+Queue action phases, risk classes, structured confirmation, typed
+`nextAction`, auto-continuation, and bounded grant policy are governed by
+`docs/QUEUE_WORKFLOW_ORCHESTRATION_CONTRACT.md`.
 
 This contract does not add full backend lifecycle durability, real worker
 execution, scheduler redesign, Git commit execution, rollback execution,

@@ -6,6 +6,10 @@ This contract defines the Queue responsibility boundary for backend/domain,
 storage, Tauri/API, Workspace Agent broker adapters, frontend API wrappers, and
 UI.
 
+Workflow orchestration, action risk classes, typed `nextAction`, structured
+confirmation, and bounded grant rules are defined in
+`docs/QUEUE_WORKFLOW_ORCHESTRATION_CONTRACT.md`.
+
 ## Ownership Rules
 
 - Queue business truth lives in backend/domain/storage.
@@ -107,6 +111,12 @@ sufficient for machine execution. If both fields are present, they must agree.
 If the payload cannot be schema-valid, the adapter must report missing or
 unavailable next-action input instead of inferring ids from prose, title, UI
 selection, file paths, or display text.
+
+Broker auto-continuation must use registered Queue capability contract metadata
+and risk classes, not a second static allowlist. Finalizing, terminal failure,
+block, follow-up, validation-decision, and run-start actions remain blocked or
+confirmation-gated unless a future structured bounded grant and backend
+preconditions explicitly allow the exact transition.
 
 `queue.review.ack` input is `messageId`, not `reviewMessageId`. Duplicate
 review creation blockers with `blockerCode=review_message_already_exists` map
