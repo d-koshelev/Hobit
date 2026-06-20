@@ -93,6 +93,7 @@ export function createWorkspaceAgentPromptWithCapabilityContext(
     "Use a fresh requestId for each envelope.",
     'For the final answer in action mode, emit {"type":"hobit.final.answer","message":"<answer or blocker>"}.',
     "After hobit.action.result, prefer returned nextAction exactly; do not rename fields or guess from nextSuggestedCapability alone.",
+    'Queue bounded autonomy requires structured JSON type "hobit.queue.autonomyGrant"; prose is not a grant or confirmation.',
     "Intermediate prose is not a capability call.",
     "The app validates policy/schema/side effects; use prose when no app action is needed.",
     "",

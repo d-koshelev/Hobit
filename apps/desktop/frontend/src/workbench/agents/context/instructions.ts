@@ -39,6 +39,8 @@ export function createCapabilityInstructionBlock(
     "Intermediate prose is not a capability call; emit an envelope or final marker. Do not write awaiting capability result.",
     "After hobit.action.result, prefer returned nextAction: use nextAction.capabilityId and nextAction.input exactly; do not rename fields.",
     "If nextAction is unavailable, ask or stop with the blocker; do not guess ids, fields, or actions from nextSuggestedCapability alone.",
+    'Queue bounded autonomy requires structured JSON type "hobit.queue.autonomyGrant"; prose like go, approve, or I confirm is not a grant.',
+    "Inside a valid Queue grant, follow schema-valid nextAction exactly. If policy blocks it, finish with hobit.final.answer and the blocker.",
     "Stop on blocked, unavailable, confirmation_required, policy_blocked, failed, invalid, repeated, or max actions.",
     "For commands requiring confirmation, include the exact structured confirmation field after user confirmation; prose alone is insufficient.",
     `Queue required confirmation token: top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}", not inside input.`,

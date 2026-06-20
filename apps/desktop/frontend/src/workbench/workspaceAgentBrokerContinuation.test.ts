@@ -8,13 +8,16 @@ import {
 import { QUEUE_START_RUN_CONFIRMATION_TOKEN } from "./agents/capabilities/queueCapabilityContracts";
 import continuationSource from "./workspaceAgentBrokerContinuation.ts?raw";
 import {
+  applyWorkspaceAgentQueueAutonomyGrantToActionRequest,
   classifyWorkspaceAgentBrokerContinuationCapability,
   createWorkspaceAgentBrokerActionResultContext,
   createWorkspaceAgentBrokerContinuationState,
   deriveWorkspaceAgentBrokerContinuationRequestId,
   evaluateWorkspaceAgentBrokerContinuationAttempt,
   formatWorkspaceAgentBrokerContinuationPrompt,
-  normalizeWorkspaceAgentQueueWorkflowGrant,
+  normalizeWorkspaceAgentQueueAutonomyGrant,
+  prepareWorkspaceAgentBrokerContinuationStateForResult,
+  readWorkspaceAgentQueueAutonomyGrantFromText,
   recordWorkspaceAgentBrokerContinuationProtocolRepair,
   recordWorkspaceAgentBrokerContinuationAttempt,
   shouldContinueWorkspaceAgentBrokerAction,
@@ -67,30 +70,105 @@ describe("workspaceAgentBrokerContinuation", () => {
     ).toMatchObject({ kind: "not_allowed" });
   });
 
-  it("normalizes only structured Queue workflow grants", () => {
-    expect(normalizeWorkspaceAgentQueueWorkflowGrant("I confirm")).toBeNull();
-    expect(
-      normalizeWorkspaceAgentQueueWorkflowGrant({
-        allowedRiskClasses: ["review"],
-        grantId: "grant-queue-review",
-        maxActions: 4,
-        type: "queue.workflow.grant",
-      }),
-    ).toEqual({
-      allowedRiskClasses: ["review"],
-      grantId: "grant-queue-review",
-      maxActions: 4,
-      type: "queue.workflow.grant",
+  it("parses only structured Queue autonomy grants", () => {
+    expect(readWorkspaceAgentQueueAutonomyGrantFromText("go")).toMatchObject({
+      grant: null,
+      status: "none",
     });
     expect(
-      normalizeWorkspaceAgentQueueWorkflowGrant({
-        allowedRiskClasses: ["terminal_fail"],
-        grantId: "grant-terminal-fail",
-        type: "queue.workflow.grant",
+      readWorkspaceAgentQueueAutonomyGrantFromText("I confirm"),
+    ).toMatchObject({
+      grant: null,
+      status: "none",
+    });
+
+    const grantRead = readWorkspaceAgentQueueAutonomyGrantFromText(
+      JSON.stringify({
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        constraints: queueAutonomyConstraints(),
+        maxActions: 99,
+        mode: "queue_acceptance_smoke",
+        type: "hobit.queue.autonomyGrant",
+      }),
+    );
+
+    expect(grantRead).toMatchObject({
+      grant: {
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        maxActions: 99,
+        mode: "queue_acceptance_smoke",
+        type: "hobit.queue.autonomyGrant",
+      },
+      policy: {
+        active: true,
+        maxActions: WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+      },
+      status: "valid",
+    });
+    expect(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-capped-grant",
+        queueAutonomyGrant: grantRead.grant,
+      }).maxActions,
+    ).toBe(WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS);
+    expect(
+      normalizeWorkspaceAgentQueueAutonomyGrant({
+        constraints: queueAutonomyConstraints(),
+        mode: "queue_failure_smoke",
+        type: "hobit.queue.autonomyGrant",
       }),
     ).toMatchObject({
-      allowedRiskClasses: ["terminal_fail"],
-      grantId: "grant-terminal-fail",
+      mode: "queue_failure_smoke",
+      type: "hobit.queue.autonomyGrant",
+    });
+  });
+
+  it("rejects malformed Queue autonomy grants without inferring permission from prose", () => {
+    expect(
+      readWorkspaceAgentQueueAutonomyGrantFromText(
+        '{"type":"hobit.queue.autonomyGrant","mode":"queue_acceptance_smoke"',
+      ),
+    ).toMatchObject({
+      grant: null,
+      status: "invalid",
+    });
+    expect(
+      readWorkspaceAgentQueueAutonomyGrantFromText(
+        JSON.stringify({
+          confirmationToken: "confirmed",
+          constraints: queueAutonomyConstraints(),
+          mode: "queue_acceptance_smoke",
+          type: "hobit.queue.autonomyGrant",
+        }),
+      ),
+    ).toMatchObject({
+      grant: null,
+      status: "invalid",
+    });
+    expect(
+      readWorkspaceAgentQueueAutonomyGrantFromText(
+        JSON.stringify({
+          constraints: queueAutonomyConstraints(),
+          mode: "approve_everything",
+          type: "hobit.queue.autonomyGrant",
+        }),
+      ),
+    ).toMatchObject({
+      grant: null,
+      status: "invalid",
+    });
+    expect(
+      readWorkspaceAgentQueueAutonomyGrantFromText(
+        JSON.stringify({
+          allowedCapabilities: ["queue.item.delete"],
+          constraints: queueAutonomyConstraints(),
+          mode: "queue_operator_flow",
+          type: "hobit.queue.autonomyGrant",
+        }),
+      ),
+    ).toMatchObject({
+      grant: null,
+      status: "invalid",
     });
   });
 
@@ -116,6 +194,113 @@ describe("workspaceAgentBrokerContinuation", () => {
     });
 
     expect(decision).toEqual({ shouldContinue: true });
+  });
+
+  it("keeps run-start and finalizer nextActions blocked without a Queue autonomy grant", () => {
+    const cases = [
+      [
+        "queue.enable",
+        confirmedNextAction("queue.item.startRun", {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        }),
+        "queue.item.startRun",
+      ],
+      [
+        "queue.lifecycle.get",
+        confirmedNextAction("queue.item.markDone", { taskId: "task-1" }),
+        "queue.item.markDone",
+      ],
+      [
+        "queue.lifecycle.get",
+        confirmedNextAction("queue.item.fail", {
+          reason: "Worker failed.",
+          taskId: "task-1",
+        }),
+        "queue.item.fail",
+      ],
+    ] as const;
+
+    for (const [capabilityId, nextAction, nextSuggestedCapability] of cases) {
+      const request = requestFor(capabilityId, { taskId: "task-1" });
+      const state = recordAttempt(
+        createWorkspaceAgentBrokerContinuationState({
+          chainId: `chain-no-grant-${nextSuggestedCapability}`,
+        }),
+        request,
+      );
+
+      expect(
+        shouldContinueWorkspaceAgentBrokerAction({
+          request,
+          result: resultFor(capabilityId, {
+            nextAction,
+            nextSuggestedCapability,
+            taskId: "task-1",
+          }),
+          state,
+        }),
+      ).toEqual({
+        shouldContinue: false,
+        stopReason: "not_allowed_for_auto_continuation",
+      });
+    }
+  });
+
+  it("applies Queue autonomy modes by risk class and denied capability intersection", () => {
+    const readOnlyState = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-read-only",
+      queueAutonomyGrant: queueAutonomyGrant("read_only"),
+    });
+    const queueSmokeState = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-queue-smoke",
+      queueAutonomyGrant: queueAutonomyGrant("queue_smoke", {
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      }),
+    });
+    const deniedAckState = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-denied-ack",
+      queueAutonomyGrant: queueAutonomyGrant("queue_smoke", {
+        deniedCapabilities: ["queue.review.ack"],
+      }),
+    });
+
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.lifecycle.get",
+        readOnlyState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("allowed");
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.enable",
+        readOnlyState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("not_allowed");
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.item.startRun",
+        queueSmokeState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("allowed");
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.review.createMessage",
+        queueSmokeState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("allowed");
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.item.markDone",
+        queueSmokeState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("not_allowed");
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.review.ack",
+        deniedAckState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("not_allowed");
   });
 
   it("stops on broker statuses that require user or policy intervention", () => {
@@ -550,6 +735,7 @@ describe("workspaceAgentBrokerContinuation", () => {
       "terminal.open",
       "rollback.execute",
       "validation.run",
+      "delete.queueItem",
     ]) {
       expect(
         classifyWorkspaceAgentBrokerContinuationCapability(capabilityId).kind,
@@ -558,6 +744,13 @@ describe("workspaceAgentBrokerContinuation", () => {
   });
 
   it("keeps transitional write and finalization capabilities out of auto-continuation", () => {
+    const operatorFlowState = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-transitional-operator-flow",
+      queueAutonomyGrant: queueAutonomyGrant("queue_operator_flow", {
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      }),
+    });
+
     for (const capabilityId of [
       "queue.coordinator.approveValidation",
       "queue.coordinator.addFollowUpPrompt",
@@ -581,6 +774,18 @@ describe("workspaceAgentBrokerContinuation", () => {
       expect(
         classifyWorkspaceAgentBrokerContinuationCapability(capabilityId).kind,
       ).toBe("not_allowed");
+      if (
+        capabilityId === "queue.coordinator.approveValidation" ||
+        capabilityId === "queue.coordinator.addFollowUpPrompt" ||
+        capabilityId === "queue.item.block"
+      ) {
+        expect(
+          classifyWorkspaceAgentBrokerContinuationCapability(
+            capabilityId,
+            operatorFlowState.queueAutonomyPolicy,
+          ).kind,
+        ).toBe("not_allowed");
+      }
       expect(
         shouldContinueWorkspaceAgentBrokerAction({
           request,
@@ -594,45 +799,32 @@ describe("workspaceAgentBrokerContinuation", () => {
     }
   });
 
-  it("does not let a structured grant bypass finalization confirmation gates", () => {
-    const state = createWorkspaceAgentBrokerContinuationState({
-      chainId: "chain-structured-grant-finalization",
-      workflowGrant: {
-        allowedRiskClasses: ["final_accept", "terminal_fail"],
-        grantId: "grant-finalization",
-        type: "queue.workflow.grant",
-      },
+  it("keeps finalization blocked outside finalizer-specific Queue autonomy grants", () => {
+    const queueSmokeState = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-queue-smoke-finalization",
+      queueAutonomyGrant: queueAutonomyGrant("queue_smoke", {
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      }),
     });
-    const markDoneRequest = requestFor(
-      "queue.item.markDone",
-      { taskId: "task-1" },
-      "request-mark-done",
-      QUEUE_START_RUN_CONFIRMATION_TOKEN,
-    );
-    const recorded = recordAttempt(state, markDoneRequest);
+    const acceptanceState = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-acceptance-finalization",
+      queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke", {
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      }),
+    });
 
-    expect(recorded.workflowGrant).toMatchObject({
-      grantId: "grant-finalization",
-    });
     expect(
       classifyWorkspaceAgentBrokerContinuationCapability(
         "queue.item.markDone",
-        recorded.workflowGrant,
+        queueSmokeState.queueAutonomyPolicy,
       ).kind,
     ).toBe("not_allowed");
     expect(
-      shouldContinueWorkspaceAgentBrokerAction({
-        request: markDoneRequest,
-        result: resultFor("queue.item.markDone", {
-          decisionId: "decision-1",
-          taskId: "task-1",
-        }),
-        state: recorded,
-      }),
-    ).toEqual({
-      shouldContinue: false,
-      stopReason: "not_allowed_for_auto_continuation",
-    });
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.item.markDone",
+        acceptanceState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("allowed");
   });
 
   it("does not wildcard-allow review writes or unsafe post-ACK continuation requests", () => {
@@ -700,6 +892,86 @@ describe("workspaceAgentBrokerContinuation", () => {
     ).toEqual({
       shouldContinue: false,
       stopReason: "not_allowed_for_auto_continuation",
+    });
+  });
+
+  it("continues review duplicate to ACK using messageId from typed nextAction", () => {
+    const request = requestFor(
+      "queue.review.createMessage",
+      { taskId: "task-1" },
+      "request-review-duplicate",
+    );
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-review-duplicate",
+        queueAutonomyGrant: queueAutonomyGrant("queue_smoke"),
+      }),
+      request,
+    );
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request,
+        result: resultFor("queue.review.createMessage", {
+          existingReviewMessageId: "review-message-1",
+          nextAction: plainNextAction("queue.review.ack", {
+            messageId: "review-message-1",
+            taskId: "task-1",
+          }),
+          nextSuggestedCapability: "queue.review.ack",
+          taskId: "task-1",
+        }),
+        state,
+      }),
+    ).toEqual({ shouldContinue: true });
+  });
+
+  it("blocks mismatched nextSuggestedCapability and dependency-waiting startRun nextActions under grants", () => {
+    const request = requestFor("queue.enable", {}, "request-enable-mismatch");
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-next-action-mismatch",
+        queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke", {
+          confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        }),
+      }),
+      request,
+    );
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request,
+        result: resultFor("queue.enable", {
+          nextAction: confirmedNextAction("queue.item.startRun", {
+            executorWidgetId: "executor-1",
+            taskId: "task-1",
+          }),
+          nextSuggestedCapability: "queue.review.ack",
+        }),
+        state,
+      }),
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "invalid_input",
+    });
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request,
+        result: resultFor("queue.enable", {
+          aggregate: {
+            dependencyState: "waiting",
+          },
+          nextAction: confirmedNextAction("queue.item.startRun", {
+            executorWidgetId: "executor-1",
+            taskId: "task-1",
+          }),
+          nextSuggestedCapability: "queue.item.startRun",
+        }),
+        state,
+      }),
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "policy_blocked",
     });
   });
 
@@ -829,6 +1101,255 @@ describe("workspaceAgentBrokerContinuation", () => {
           taskId: "task-1",
         }),
         state,
+      }),
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+  });
+
+  it("continues queue.enable to queue.item.startRun inside an exact-token Queue autonomy grant", () => {
+    const request = requestFor("queue.enable", {}, "request-enable");
+    let state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-enable-start",
+        queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke", {
+          confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        }),
+      }),
+      request,
+    );
+    const result = resultFor("queue.enable", {
+      nextAction: confirmedNextAction("queue.item.startRun", {
+        executorWidgetId: "executor-1",
+        taskId: "task-1",
+      }),
+      nextSuggestedCapability: "queue.item.startRun",
+      taskId: "task-1",
+    });
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request,
+        result,
+        state,
+      }),
+    ).toEqual({ shouldContinue: true });
+
+    state = prepareWorkspaceAgentBrokerContinuationStateForResult({
+      result,
+      state,
+    });
+    const emittedStartRun = requestFor(
+      "queue.item.startRun",
+      { executorWidgetId: "executor-1", taskId: "task-1" },
+      "request-start-from-next-action",
+    );
+    const applied = applyWorkspaceAgentQueueAutonomyGrantToActionRequest(
+      state,
+      emittedStartRun,
+    );
+
+    expect(applied.confirmationInjected).toBe(true);
+    expect(applied.request.confirmationToken).toBe(
+      QUEUE_START_RUN_CONFIRMATION_TOKEN,
+    );
+  });
+
+  it("does not inject confirmation from prose, missing grants, wrong tokens, or wrong nextAction input", () => {
+    const noGrantState = prepareWorkspaceAgentBrokerContinuationStateForResult({
+      result: resultFor("queue.enable", {
+        nextAction: confirmedNextAction("queue.item.startRun", {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        }),
+        nextSuggestedCapability: "queue.item.startRun",
+      }),
+      state: createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-no-grant-token",
+      }),
+    });
+    const wrongTokenState = prepareWorkspaceAgentBrokerContinuationStateForResult({
+      result: resultFor("queue.enable", {
+        nextAction: confirmedNextAction("queue.item.startRun", {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        }),
+        nextSuggestedCapability: "queue.item.startRun",
+      }),
+      state: createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-wrong-token",
+        queueAutonomyGrant: {
+          constraints: queueAutonomyConstraints(),
+          confirmationToken: "confirmed",
+          mode: "queue_acceptance_smoke",
+          type: "hobit.queue.autonomyGrant",
+        },
+      }),
+    });
+    const grantedState = prepareWorkspaceAgentBrokerContinuationStateForResult({
+      result: resultFor("queue.enable", {
+        nextAction: confirmedNextAction("queue.item.startRun", {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        }),
+        nextSuggestedCapability: "queue.item.startRun",
+      }),
+      state: createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-wrong-input-token",
+        queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke", {
+          confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        }),
+      }),
+    });
+
+    expect(
+      applyWorkspaceAgentQueueAutonomyGrantToActionRequest(
+        noGrantState,
+        requestFor(
+          "queue.item.startRun",
+          { executorWidgetId: "executor-1", taskId: "task-1" },
+          "request-no-grant-start",
+        ),
+      ).confirmationInjected,
+    ).toBe(false);
+    expect(
+      applyWorkspaceAgentQueueAutonomyGrantToActionRequest(
+        wrongTokenState,
+        requestFor(
+          "queue.item.startRun",
+          { executorWidgetId: "executor-1", taskId: "task-1" },
+          "request-wrong-token-start",
+        ),
+      ).confirmationInjected,
+    ).toBe(false);
+    expect(
+      applyWorkspaceAgentQueueAutonomyGrantToActionRequest(
+        grantedState,
+        requestFor(
+          "queue.item.startRun",
+          { executorWidgetId: "executor-2", taskId: "task-1" },
+          "request-wrong-input-start",
+        ),
+      ).confirmationInjected,
+    ).toBe(false);
+  });
+
+  it("gates markDone and fail by grant mode, exact confirmation, and final no-downstream behavior", () => {
+    const acceptanceLifecycleRequest = requestFor(
+      "queue.lifecycle.get",
+      { taskId: "task-1" },
+      "request-lifecycle-acceptance",
+    );
+    const acceptanceState = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-mark-done",
+        queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke", {
+          confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        }),
+      }),
+      acceptanceLifecycleRequest,
+    );
+    const markDoneResult = resultFor("queue.lifecycle.get", {
+      nextAction: confirmedNextAction("queue.item.markDone", {
+        taskId: "task-1",
+      }),
+      nextSuggestedCapability: "queue.item.markDone",
+      taskId: "task-1",
+    });
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: acceptanceLifecycleRequest,
+        result: markDoneResult,
+        state: acceptanceState,
+      }),
+    ).toEqual({ shouldContinue: true });
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: requestFor(
+          "queue.item.markDone",
+          { taskId: "task-1" },
+          "request-mark-done-final",
+          QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        ),
+        result: resultFor("queue.item.markDone", {
+          decisionId: "decision-1",
+          taskId: "task-1",
+        }),
+        state: recordAttempt(
+          createWorkspaceAgentBrokerContinuationState({
+            chainId: "chain-mark-done-final",
+            queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke", {
+              confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+            }),
+          }),
+          requestFor(
+            "queue.item.markDone",
+            { taskId: "task-1" },
+            "request-mark-done-final",
+            QUEUE_START_RUN_CONFIRMATION_TOKEN,
+          ),
+        ),
+      }),
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+
+    const failureLifecycleRequest = requestFor(
+      "queue.lifecycle.get",
+      { taskId: "task-1" },
+      "request-lifecycle-failure",
+    );
+    const failureState = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-fail",
+        queueAutonomyGrant: queueAutonomyGrant("queue_failure_smoke", {
+          confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        }),
+      }),
+      failureLifecycleRequest,
+    );
+    const failResult = resultFor("queue.lifecycle.get", {
+      nextAction: confirmedNextAction("queue.item.fail", {
+        reason: "Worker failed.",
+        taskId: "task-1",
+      }),
+      nextSuggestedCapability: "queue.item.fail",
+      taskId: "task-1",
+    });
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: failureLifecycleRequest,
+        result: failResult,
+        state: failureState,
+      }),
+    ).toEqual({ shouldContinue: true });
+
+    const failFinalRequest = requestFor(
+      "queue.item.fail",
+      { reason: "Worker failed.", taskId: "task-1" },
+      "request-fail-final",
+      QUEUE_START_RUN_CONFIRMATION_TOKEN,
+    );
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: failFinalRequest,
+        result: resultFor("queue.item.fail", {
+          reason: "Worker failed.",
+          taskId: "task-1",
+        }),
+        state: recordAttempt(
+          createWorkspaceAgentBrokerContinuationState({
+            chainId: "chain-fail-final",
+            queueAutonomyGrant: queueAutonomyGrant("queue_failure_smoke", {
+              confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+            }),
+          }),
+          failFinalRequest,
+        ),
       }),
     ).toEqual({
       shouldContinue: false,
@@ -1094,6 +1615,240 @@ describe("workspaceAgentBrokerContinuation", () => {
     );
   });
 
+  it("supports an acceptance dependency smoke workflow under queue_acceptance_smoke grant", () => {
+    let state = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-acceptance-dependency-smoke",
+      queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke", {
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      }),
+    });
+
+    state = expectContinues(
+      state,
+      requestFor("queue.createItem", {
+        prompt: "Run upstream task A.",
+        title: "Task A",
+      }),
+      resultFor("queue.createItem", { taskId: "task-a" }),
+    );
+    state = expectContinues(
+      state,
+      requestFor(
+        "queue.createItem",
+        {
+          dependsOn: ["task-a"],
+          prompt: "Run downstream task B after A.",
+          title: "Task B",
+        },
+        "queue.createItem:request-b",
+      ),
+      resultFor("queue.createItem", {
+        dependencyState: "waiting",
+        taskId: "task-b",
+      }),
+    );
+    state = expectContinues(
+      state,
+      requestFor("queue.enable", {}, "queue.enable:request-a"),
+      resultFor("queue.enable", {
+        nextAction: confirmedNextAction("queue.item.startRun", {
+          executorWidgetId: "executor-1",
+          taskId: "task-a",
+        }),
+        nextSuggestedCapability: "queue.item.startRun",
+      }),
+    );
+    state = expectContinues(
+      state,
+      requestFor(
+        "queue.item.startRun",
+        { executorWidgetId: "executor-1", taskId: "task-a" },
+        "queue.item.startRun:request-a",
+        QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      ),
+      resultFor("queue.item.startRun", {
+        nextAction: plainNextAction("queue.lifecycle.get", {
+          taskId: "task-a",
+        }),
+        nextSuggestedCapability: "queue.lifecycle.get",
+        runId: "run-a",
+      }),
+    );
+    state = expectContinues(
+      state,
+      requestFor(
+        "queue.review.getEvidenceBundle",
+        { runId: "run-a", taskId: "task-a" },
+        "queue.review.getEvidenceBundle:request-a",
+      ),
+      resultFor("queue.review.getEvidenceBundle", {
+        evidenceBundleId: "bundle-a",
+        nextAction: plainNextAction(
+          "queue.review.createMessage",
+          {
+            evidenceBundleId: "bundle-a",
+            runId: "run-a",
+            taskId: "task-a",
+          },
+          false,
+        ),
+        nextSuggestedCapability: "queue.review.createMessage",
+      }),
+    );
+    state = expectContinues(
+      state,
+      requestFor(
+        "queue.review.createMessage",
+        { evidenceBundleId: "bundle-a", runId: "run-a", taskId: "task-a" },
+        "queue.review.createMessage:request-a",
+      ),
+      resultFor("queue.review.createMessage", {
+        nextAction: plainNextAction("queue.review.ack", {
+          messageId: "message-a",
+          taskId: "task-a",
+        }),
+        nextSuggestedCapability: "queue.review.ack",
+      }),
+    );
+    state = expectContinues(
+      state,
+      requestFor(
+        "queue.review.ack",
+        { messageId: "message-a", taskId: "task-a" },
+        "queue.review.ack:request-a",
+      ),
+      resultFor("queue.review.ack", {
+        nextAction: plainNextAction("queue.lifecycle.get", {
+          taskId: "task-a",
+        }),
+        nextSuggestedCapability: "queue.lifecycle.get",
+      }),
+    );
+    state = expectContinues(
+      state,
+      requestFor(
+        "queue.lifecycle.get",
+        { taskId: "task-a" },
+        "queue.lifecycle.get:request-a-ready",
+      ),
+      resultFor("queue.lifecycle.get", {
+        nextAction: confirmedNextAction("queue.item.markDone", {
+          taskId: "task-a",
+        }),
+        nextSuggestedCapability: "queue.item.markDone",
+      }),
+    );
+
+    const markDoneRequest = requestFor(
+      "queue.item.markDone",
+      { taskId: "task-a" },
+      "queue.item.markDone:request-a",
+      QUEUE_START_RUN_CONFIRMATION_TOKEN,
+    );
+    const finalState = recordAttempt(state, markDoneRequest);
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: markDoneRequest,
+        result: resultFor("queue.item.markDone", {
+          dependencyState: "ready",
+          downstreamTaskId: "task-b",
+          taskId: "task-a",
+        }),
+        state: finalState,
+      }),
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+  });
+
+  it("supports a failure dependency smoke workflow under queue_failure_smoke grant", () => {
+    let state = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-failure-dependency-smoke",
+      queueAutonomyGrant: queueAutonomyGrant("queue_failure_smoke", {
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      }),
+    });
+
+    state = expectContinues(
+      state,
+      requestFor("queue.createItem", {
+        prompt: "Run upstream task A.",
+        title: "Task A",
+      }),
+      resultFor("queue.createItem", { taskId: "task-a" }),
+    );
+    state = expectContinues(
+      state,
+      requestFor(
+        "queue.item.startRun",
+        { executorWidgetId: "executor-1", taskId: "task-a" },
+        "queue.item.startRun:failure-request-a",
+        QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      ),
+      resultFor("queue.item.startRun", {
+        nextAction: plainNextAction("queue.review.getEvidenceBundle", {
+          runId: "run-a",
+          taskId: "task-a",
+        }),
+        nextSuggestedCapability: "queue.review.getEvidenceBundle",
+        runId: "run-a",
+      }),
+    );
+    state = expectContinues(
+      state,
+      requestFor(
+        "queue.review.createMessage",
+        { runId: "run-a", taskId: "task-a" },
+        "queue.review.createMessage:failure-request-a",
+      ),
+      resultFor("queue.review.createMessage", {
+        nextAction: plainNextAction("queue.review.ack", {
+          messageId: "message-a",
+          taskId: "task-a",
+        }),
+        nextSuggestedCapability: "queue.review.ack",
+      }),
+    );
+    state = expectContinues(
+      state,
+      requestFor(
+        "queue.lifecycle.get",
+        { taskId: "task-a" },
+        "queue.lifecycle.get:failure-request-a",
+      ),
+      resultFor("queue.lifecycle.get", {
+        nextAction: confirmedNextAction("queue.item.fail", {
+          reason: "Worker failed.",
+          taskId: "task-a",
+        }),
+        nextSuggestedCapability: "queue.item.fail",
+      }),
+    );
+
+    const failRequest = requestFor(
+      "queue.item.fail",
+      { reason: "Worker failed.", taskId: "task-a" },
+      "queue.item.fail:failure-request-a",
+      QUEUE_START_RUN_CONFIRMATION_TOKEN,
+    );
+    const finalState = recordAttempt(state, failRequest);
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: failRequest,
+        result: resultFor("queue.item.fail", {
+          dependencyState: "failed_upstream",
+          downstreamTaskId: "task-b",
+          taskId: "task-a",
+        }),
+        state: finalState,
+      }),
+    ).toEqual({
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+  });
+
   it("keeps continuation structured-only without natural-language id inference", () => {
     const request = requestFor(
       "queue.review.getEvidenceBundle",
@@ -1178,4 +1933,78 @@ function recordAttempt(
     request,
     attempt.fingerprint,
   );
+}
+
+function expectContinues(
+  state: ReturnType<typeof createWorkspaceAgentBrokerContinuationState>,
+  request: ReturnType<typeof requestFor>,
+  result: ReturnType<typeof resultFor>,
+) {
+  const recorded = recordAttempt(state, request);
+  expect(
+    shouldContinueWorkspaceAgentBrokerAction({
+      request,
+      result,
+      state: recorded,
+    }),
+  ).toEqual({ shouldContinue: true });
+
+  return prepareWorkspaceAgentBrokerContinuationStateForResult({
+    result,
+    state: recorded,
+  });
+}
+
+function queueAutonomyConstraints() {
+  return {
+    noDelete: true,
+    noDownstreamAutoStart: true,
+    noGit: true,
+    noRollback: true,
+    noTerminal: true,
+    noValidationExecution: true,
+  };
+}
+
+function queueAutonomyGrant(
+  mode:
+    | "read_only"
+    | "queue_smoke"
+    | "queue_acceptance_smoke"
+    | "queue_failure_smoke"
+    | "queue_operator_flow",
+  overrides: Record<string, unknown> = {},
+) {
+  return {
+    constraints: queueAutonomyConstraints(),
+    mode,
+    type: "hobit.queue.autonomyGrant",
+    ...overrides,
+  };
+}
+
+function confirmedNextAction(capabilityId: string, input: Record<string, unknown>) {
+  return {
+    autoContinuationSafe: false,
+    capabilityId,
+    confirmationRequired: {
+      field: "confirmationToken",
+      value: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+    },
+    input,
+    requiresConfirmation: true,
+  };
+}
+
+function plainNextAction(
+  capabilityId: string,
+  input: Record<string, unknown>,
+  autoContinuationSafe = true,
+) {
+  return {
+    autoContinuationSafe,
+    capabilityId,
+    input,
+    requiresConfirmation: false,
+  };
 }

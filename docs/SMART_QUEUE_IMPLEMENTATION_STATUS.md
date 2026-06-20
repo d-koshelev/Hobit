@@ -68,6 +68,17 @@ continuation payload; `nextSuggestedCapability` is compatibility context and is
 not enough for execution. The Workspace Agent must not rename fields or infer
 ids from prose. `queue.review.ack` uses `messageId`; duplicate review-create
 `existingMessageId` maps to `nextAction.input.messageId`.
+Workspace Agent now supports a structured bounded Queue autonomy grant:
+`{"type":"hobit.queue.autonomyGrant","mode":"queue_acceptance_smoke",...}`.
+The grant is JSON only, never prose. Under grant policy, Workspace Agent may
+continue through schema-valid typed Queue `nextAction` payloads while the
+runtime enforces registered capability contracts, risk-class mode, optional
+allowed/denied capability intersections, exact confirmation token, max action
+budget, backend/result blockers, replay guards, and no Git/validation/
+rollback/Terminal/delete/downstream-auto-start constraints. Grant modes are
+`read_only`, `queue_smoke`, `queue_acceptance_smoke`,
+`queue_failure_smoke`, and `queue_operator_flow`; transitional block,
+follow-up, and validation decision capabilities remain blocked.
 `queue.item.startRun` requires top-level
 `confirmationToken: "operator-confirmed"` plus explicit `taskId` and
 `executorWidgetId`; `queue.importPromptPack` uses the same top-level
@@ -87,11 +98,15 @@ confirmation is insufficient. Worker completion and ACK remain not done.
 explicit `taskId`, visible reason, trusted actor id, durable worker evidence,
 an ACKed review message, and the same top-level confirmation token; worker
 failure evidence and ACK alone do not imply terminal failure.
-`queue.review.ack` is the only backend-backed write allowed to continue after
-success, and that continuation is for reading state, normally through
-`queue.lifecycle.get`. ACK remains review state; it does not mark the task
-done, approve validation, attach commit state, unblock dependencies, or make
-finalizing capabilities auto-safe.
+Without a structured grant, `queue.review.ack` is the only backend-backed
+write allowed to continue after success, and that continuation is for reading
+state, normally through `queue.lifecycle.get`. ACK remains review state; it
+does not mark the task done, approve validation, attach commit state, unblock
+dependencies, or make finalizing capabilities safe. With
+`queue_acceptance_smoke` or `queue_failure_smoke`, `queue.item.markDone` or
+`queue.item.fail` can be followed only from a valid typed nextAction with exact
+structured confirmation and backend preconditions; successful finalizers end or
+allow read-only inspection and never auto-start downstream work.
 
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly
@@ -325,7 +340,9 @@ The current implemented frontend behavior is:
   failed, invalid, repeated, unsupported, restricted, protocol-error, or
   missing-thread cases. The continuation runtime now prefers a validated typed
   `nextAction` payload and does not infer from `nextSuggestedCapability`
-  alone;
+  alone. Structured Queue autonomy grants can allow bounded multi-step Queue
+  workflows through risk-class policy and exact-token confirmation injection,
+  but malformed grants or prose-only approvals do not grant permission;
 - Workspace Agent action protocol enforcement: a typed-capability Direct Work
   turn with no valid action request and no explicit final-answer marker gets
   one compact same-thread repair prompt; if repair still produces empty or

@@ -90,12 +90,13 @@ prefixes, prose, UI labels, or natural-language descriptions.
 
 ## Auto-Continuation Rules
 
-An action may auto-continue only when all of these are true:
+Without a structured Queue autonomy grant, an action may auto-continue only
+when all of these are true:
 
 - The previous result status is `succeeded`.
 - The target capability is registered.
 - The target capability contract says `autoContinuationSafe=true`.
-- The risk class is allowed by default policy or by a structured bounded grant.
+- The risk class is allowed by default policy.
 - The result contains a schema-valid `nextAction`.
 - `nextAction.input` uses canonical target fields.
 - `nextAction.requiresConfirmation=false`.
@@ -110,6 +111,26 @@ An action may auto-continue only when all of these are true:
 Default safe risk classes are `read`, `setup`, and the narrow review action
 needed for ACK-to-read continuation. Finalizing and unsafe transitions are not
 auto-continuation safe by default.
+
+With a valid structured `hobit.queue.autonomyGrant`, Workspace Agent may
+continue through schema-valid typed Queue `nextAction` payloads when all policy
+conditions pass:
+
+- `nextAction.capabilityId` is registered.
+- `nextAction.input` validates against that capability contract.
+- `nextAction.capabilityId` agrees with `nextSuggestedCapability` when both
+  are present.
+- the capability risk class is allowed by the grant mode;
+- the capability is not denied and, when `allowedCapabilities` is supplied, is
+  also in that intersection;
+- the action budget remains;
+- backend/result blockers such as dependency waiting do not forbid the
+  follow-up;
+- no request id or capability/input fingerprint loop is detected;
+- grant constraints still forbid Git, validation execution, rollback,
+  Terminal, delete, downstream auto-start, shell, raw Codex, and hidden worker
+  behavior;
+- required confirmation is exact and structured.
 
 ## Structured Confirmation
 
@@ -130,21 +151,44 @@ The current confirmation token is a top-level action-request field:
 It must not be placed inside `input`. Prose such as "I confirm" is not
 confirmation and must not be converted into confirmation.
 
+A structured Queue autonomy grant may supply the exact top-level token for a
+validated pending `nextAction` only when the grant contains
+`confirmationToken: "operator-confirmed"`, the mode permits that risk class,
+the capability requires that exact token, and all required ids are already in
+the typed payload. Injection is limited to registered Queue run-start,
+accepted-completion, and terminal-failure next actions. It is never available
+for unknown, transitional, Git, validation, rollback, Terminal, delete, shell,
+raw Codex, or arbitrary execution capabilities.
+
 ## Operator Grant Policy
 
-A future Queue autonomy grant must be:
+The implemented Queue autonomy grant is:
 
-- a structured typed object, not prose;
+- a structured JSON object with `type: "hobit.queue.autonomyGrant"`;
+- never inferred from prose;
 - bounded by risk class, capability set, task scope, workspace, action budget,
   and current session;
-- explicit about whether it may start runs;
+- explicit about whether it may start runs or finalize accepted completion or
+  terminal failure;
 - unable to bypass backend preconditions;
-- unable to synthesize confirmation for finalization or terminal failure;
+- unable to synthesize ids or unsupported confirmation;
 - unable to permit hidden Git, validation, rollback, Terminal, shell, Codex,
   or scheduler behavior.
 
-If a grant is absent or invalid, default policy applies. Invalid or prose-only
-grant text is ignored.
+Grant modes are `none`, `read_only`, `queue_smoke`,
+`queue_acceptance_smoke`, `queue_failure_smoke`, and
+`queue_operator_flow`. `read_only` allows only reads. `queue_smoke` allows
+read, setup, run start, worker evidence, and review, but no markDone/fail.
+`queue_acceptance_smoke` additionally allows `final_accept`.
+`queue_failure_smoke` additionally allows `terminal_fail`.
+`queue_operator_flow` allows the same Queue workflow risk classes, but still
+does not enable Git, validation, rollback, Terminal, delete, shell, raw Codex,
+downstream auto-start, or hidden worker behavior.
+
+Transitional risk classes `block`, `follow_up`, and `validation_decision`
+remain blocked for bounded autonomy. If a grant is absent or invalid, default
+policy applies. Invalid grant JSON is rejected with a visible reason; prose-only
+grant text is ignored as no grant.
 
 ## `nextAction` Construction And Validation
 
@@ -257,4 +301,3 @@ This contract does not implement:
 - broad worker automation;
 - UI redesign;
 - additional Queue widget/view surfaces.
-

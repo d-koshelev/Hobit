@@ -76,6 +76,11 @@ Broker result mappers must also not emit a typed `nextAction` for
 `queue.item.startRun` from dependency-waiting aggregates. After upstream
 accepted completion clears the blocker, any downstream `nextAction` must be
 built from that downstream task's own readiness and validated capability input.
+Workspace Agent bounded autonomy grants do not override this dependency gate:
+even under `queue_acceptance_smoke` or `queue_failure_smoke`, a typed
+`queue.item.startRun` nextAction stops when the authoritative backend/result
+state reports `waiting`, `blocked`, `failed_upstream`, `unknown`, or a
+dependency blocker.
 
 ## Completion For Dependency Satisfaction
 
@@ -104,6 +109,9 @@ After `queue.item.fail` succeeds for an upstream task, downstream aggregate
 reads expose `dependencyState=failed_upstream`, a `dependency_failed` blocker,
 and no runnable `queue.item.startRun`, `queue.enable`, or
 `queue.item.promoteDraft` path. No downstream task starts automatically.
+`queue_failure_smoke` grants may allow the explicit upstream
+`queue.item.fail` command with exact structured confirmation, but they must not
+start, promote, or otherwise mutate downstream tasks.
 
 ## Dependency Record Shape
 

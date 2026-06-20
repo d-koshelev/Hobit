@@ -105,16 +105,26 @@ restricted capabilities for explicit workspace/code execution requests only.
   `hobit.action.result` context back to the same Codex thread and lets the
   model emit the next single `hobit.action.request` envelope or explicit
   `hobit.final.answer` marker.
-  The loop is frontend-only, capped at 16 actions, grouped in transcript
-  and activity, and stops on confirmation-required, policy-blocked,
+  The loop is frontend-only, capped at 16 actions, grouped in transcript and
+  activity, and can use a structured Queue bounded autonomy grant:
+  `{"type":"hobit.queue.autonomyGrant","mode":"queue_acceptance_smoke",...}`.
+  The grant is machine-readable JSON only; prose such as "go" or "I confirm"
+  is not a grant. Inside a valid grant, the continuation policy may follow a
+  schema-valid typed Queue `nextAction` through the grant's risk-class mode,
+  capability allow/deny intersection, exact confirmation token, and action
+  budget. Required-confirmation Queue actions may receive only the canonical
+  top-level `confirmationToken: "operator-confirmed"` from the grant, and only
+  for registered run-start/finalizer Queue next actions whose ids are already
+  present in the typed payload. The loop still stops on policy-blocked,
   unavailable, dry-run-required, failed, invalid-input, repeated request,
-  repeated capability/input, unsupported envelope, restricted capability, or
-  missing same-thread continuation state. It does not accept action lists,
-  regex-route user prompts, infer task ids, or add unrelated backend durability,
-  validation execution, Git mutation, rollback, Terminal, shell, or raw Codex
-  automation. Missing or blank request ids are derived per continuation action
-  from the chain id, action index, and capability id; explicit duplicate
-  request ids still stop as the replay guard.
+  repeated capability/input, unsupported envelope, restricted capability,
+  confirmation-required without an exact grant token, or missing same-thread
+  continuation state. It does not accept action lists, regex-route user
+  prompts, infer task ids, or add unrelated backend durability, validation
+  execution, Git mutation, rollback, Terminal, shell, raw Codex automation,
+  deletion, downstream auto-start, or UI truth. Missing or blank request ids
+  are derived per continuation action from the chain id, action index, and
+  capability id; explicit duplicate request ids still stop as the replay guard.
 - Workspace Agent Action Protocol Enforcement MVP: Workspace Agent Direct Work
   turns that receive Hobit capability context are treated as typed-capability
   action mode. In that mode the model must emit exactly one
@@ -261,25 +271,28 @@ The Workspace Agent direct-run controller can continue a broker action chain
 only from structured broker results. It feeds a bounded `hobit.action.result`
 summary into the same Codex thread with queue state, blockers, explicit ids,
 validated `nextAction` when available, and safety flags such as no validation
-run, no Git mutation, no shell command, and no Terminal launch. The next model
-step may emit exactly one new `hobit.action.request` or explicit
-`hobit.final.answer`. The model must prefer returned `nextAction` exactly,
-must not rename input fields, and must not guess from `nextSuggestedCapability`
-alone. The controller auto-continues a `nextAction` only when the target
-capability is registered, the payload validates against the target contract,
-`autoContinuationSafe=true`, the Queue risk class is allowed by policy or a
-structured bounded workflow grant, policy allows the target, and no
-confirmation is missing. Auto-continuation policy is derived from capability
-contract metadata and risk class, not from natural-language descriptions or a
-separate static allowlist. Otherwise it stops with a visible blocker and leaves
-the typed payload for operator/model review. The controller stops instead of continuing
-when a result requires
-confirmation, is blocked/unavailable/failed/invalid, is a dry-run-required
-result, repeats a previous request id or capability/input fingerprint, exceeds
-the action budget, lacks a usable thread id, or touches restricted capabilities.
-The continuation loop does not infer `taskId` or `executorWidgetId` from prose,
-titles, file paths, final messages, repository roots, or other natural-language
-content.
+run, no Git mutation, no rollback, no deletion, no shell command, and no
+Terminal launch. The next model step may emit exactly one new
+`hobit.action.request` or explicit `hobit.final.answer`. The model must prefer
+returned `nextAction` exactly, must not rename input fields, and must not guess
+from `nextSuggestedCapability` alone. The controller continues a `nextAction`
+only when the target capability is registered, the payload validates against
+the target contract, `nextAction` agrees with `nextSuggestedCapability` when
+both exist, the Queue risk class is allowed by default policy or a structured
+`hobit.queue.autonomyGrant`, policy allows the target, backend/result blockers
+do not forbid continuation, no fingerprint loop is detected, and required
+confirmation is already exact or can be injected from the structured grant.
+Auto-continuation policy is derived from capability contract metadata and risk
+class, not from natural-language descriptions or a separate static allowlist.
+Otherwise it stops with a visible blocker and leaves the typed payload for
+operator/model review. The controller stops instead of continuing when a
+result requires confirmation without a valid grant token, is
+blocked/unavailable/failed/invalid, is a dry-run-required result, repeats a
+previous request id or capability/input fingerprint, exceeds the action budget,
+lacks a usable thread id, or touches restricted capabilities. The continuation
+loop does not infer `taskId`, `runId`, `messageId`, `evidenceBundleId`, or
+`executorWidgetId` from prose, titles, file paths, final messages, repository
+roots, UI state, or other natural-language content.
 
 Queue backend-backed broker capabilities are `queue.items.list`,
 `queue.lifecycle.get`, `queue.review.getEvidenceBundle`,

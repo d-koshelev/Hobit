@@ -449,7 +449,11 @@ describe("hobitAgentCapabilityRuntime context", () => {
       ),
     )
       .map((match) => match[0].replace(/[.,;:]+$/, ""))
-      .filter((capabilityId) => capabilityId !== "codex.cmd");
+      .filter(
+        (capabilityId) =>
+          capabilityId !== "codex.cmd" &&
+          capabilityId !== "queue.autonomyGrant",
+      );
 
     expect(mentionedCapabilityIds.length).toBeGreaterThan(0);
     for (const capabilityId of mentionedCapabilityIds) {
@@ -928,7 +932,9 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
     );
     const instructionQueueIds = Array.from(
       instructionBlock.matchAll(/queue(?:\.[A-Za-z0-9]+)+/g),
-    ).map((match) => match[0]);
+    )
+      .map((match) => match[0])
+      .filter((capabilityId) => capabilityId !== "queue.autonomyGrant");
 
     for (const contract of QUEUE_CAPABILITY_CONTRACT_INVENTORY) {
       expect(registeredQueueIds.has(contract.capabilityId), contract.capabilityId).toBe(

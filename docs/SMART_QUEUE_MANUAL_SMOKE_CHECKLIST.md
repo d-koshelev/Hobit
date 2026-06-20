@@ -75,6 +75,36 @@ validation approval, commit state, dependency unblock, or finalization. The
 continuation budget remains 16 actions and the existing safety stops are
 unchanged.
 
+To authorize bounded multi-step Queue smoke, the operator must include a
+structured grant JSON object such as:
+
+```json
+{
+  "type": "hobit.queue.autonomyGrant",
+  "mode": "queue_acceptance_smoke",
+  "maxActions": 16,
+  "confirmationToken": "operator-confirmed",
+  "constraints": {
+    "noGit": true,
+    "noValidationExecution": true,
+    "noRollback": true,
+    "noTerminal": true,
+    "noDelete": true,
+    "noDownstreamAutoStart": true
+  }
+}
+```
+
+Prose such as `go`, `do the rest`, or `I confirm` is not a grant or
+confirmation. Inside a valid grant, Workspace Agent may follow schema-valid
+typed Queue `nextAction` payloads exactly, including `queue.enable ->
+queue.item.startRun`, duplicate `queue.review.createMessage ->
+queue.review.ack` using `input.messageId`, and finalizer next actions allowed
+by `queue_acceptance_smoke` or `queue_failure_smoke`. Backend preconditions,
+dependency blockers, exact confirmations, max action budget, and unsafe
+constraints remain authoritative. Transitional validation, follow-up, and block
+capabilities remain blocked.
+
 Queue action-request smoke must use the manifest schemas exactly. Do not infer
 task ids, run ids, message ids, evidence ids, executor widget ids, actor ids, or
 capability ids from prose or UI selection. For run settings, use only sandbox
@@ -119,7 +149,13 @@ Queue review smoke must verify `queue.review.ack` input uses `messageId`, not
 `review_message_already_exists`, backend `existingMessageId` must appear as
 `nextAction.input.messageId` for `queue.review.ack`. Unsafe/finalizing actions,
 including `queue.item.markDone` and `queue.item.fail`, remain explicit and
-confirmation-gated.
+confirmation-gated. Under `queue_acceptance_smoke`, `queue.item.markDone` may
+run only from a valid typed nextAction with exact structured confirmation and
+backend preconditions; success must end or allow read-only lifecycle
+inspection, not downstream auto-start. Under `queue_failure_smoke`,
+`queue.item.fail` has the same exact-token and backend-precondition gate and
+must leave downstream tasks in `failed_upstream` read state without starting
+work.
 
 ## Setup
 
@@ -706,9 +742,20 @@ During the smoke, verify these product labels appear where applicable:
       Expected ACK path:
       `queue.review.ack -> queue.lifecycle.get -> hobit.final.answer`.
       ACK remains review state and must not auto-mark done or make
-      finalization capabilities safe. `queue.item.markDone` and
-      `queue.item.fail` remain explicit, confirmation-required, and not
-      auto-continuation safe.
+      finalization capabilities safe by default. `queue.item.markDone` and
+      `queue.item.fail` remain explicit and confirmation-required; they may
+      continue only inside the appropriate structured Queue autonomy grant
+      with a valid typed nextAction, exact token, and backend preconditions.
+    - Expected with a valid `queue_acceptance_smoke` grant: a typed
+      `queue.enable -> queue.item.startRun` nextAction continues when
+      `taskId`, `executorWidgetId`, and exact confirmation are available;
+      `queue.item.markDone` can run only from a valid final-accept nextAction,
+      and success does not auto-start downstream work.
+    - Expected with a valid `queue_failure_smoke` grant: a typed
+      `queue.item.fail` nextAction can run only with explicit `taskId`,
+      visible `reason`, exact confirmation, and backend preconditions; success
+      does not auto-start downstream work and downstream reads report the
+      backend failure/dependency state.
     - Expected: the chain stops with a visible reason on confirmation,
       policy-blocked, unavailable, dry-run-required, failed, invalid input,
       repeated request id, repeated capability/input, unsupported envelope,

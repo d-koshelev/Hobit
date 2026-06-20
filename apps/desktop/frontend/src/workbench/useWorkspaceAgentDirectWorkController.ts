@@ -68,12 +68,15 @@ import {
   type WorkspaceAgentHobitActionInvoker,
 } from "./workspaceAgentBrokerActionRuntime";
 import {
+  applyWorkspaceAgentQueueAutonomyGrantToActionRequest,
   createWorkspaceAgentBrokerActionResultContext,
   createWorkspaceAgentBrokerContinuationState,
   deriveWorkspaceAgentBrokerContinuationRequestId,
   evaluateWorkspaceAgentBrokerContinuationAttempt,
   formatWorkspaceAgentBrokerActionTranscript,
   formatWorkspaceAgentBrokerContinuationPrompt,
+  prepareWorkspaceAgentBrokerContinuationStateForResult,
+  readWorkspaceAgentQueueAutonomyGrantFromText,
   recordWorkspaceAgentBrokerContinuationProtocolRepair,
   recordWorkspaceAgentBrokerContinuationAttempt,
   shouldContinueWorkspaceAgentBrokerAction,
@@ -246,13 +249,20 @@ export function useWorkspaceAgentDirectWorkController({
     }
 
     const chainId = `workspace-agent-action-chain-${Date.now().toString()}`;
+    const queueAutonomyGrantRead =
+      readWorkspaceAgentQueueAutonomyGrantFromText(operatorPrompt);
     brokerContinuationStateRef.current =
-      createWorkspaceAgentBrokerContinuationState({ chainId });
+      createWorkspaceAgentBrokerContinuationState({
+        autonomyGrantRejectionReasons: queueAutonomyGrantRead.reasons,
+        chainId,
+        queueAutonomyGrant: queueAutonomyGrantRead.grant,
+      });
     activeBrokerContinuationChainIdRef.current = null;
     await startDirectWorkTurn({
       appendOperatorTranscript: true,
       attachCapabilityContext: true,
       clearDraftAndVisibleContext: true,
+      initialLocalNotice: queueAutonomyGrantNotice(queueAutonomyGrantRead),
       operatorPrompt,
       repoRoot,
       startNewThread: Boolean(options.startNewThread),
@@ -264,6 +274,7 @@ export function useWorkspaceAgentDirectWorkController({
     attachCapabilityContext,
     brokerContinuationChainId = null,
     clearDraftAndVisibleContext,
+    initialLocalNotice = null,
     operatorPrompt,
     repoRoot,
     resumeThreadIdOverride,
@@ -273,6 +284,7 @@ export function useWorkspaceAgentDirectWorkController({
     attachCapabilityContext: boolean;
     brokerContinuationChainId?: string | null;
     clearDraftAndVisibleContext: boolean;
+    initialLocalNotice?: string | null;
     operatorPrompt: string;
     repoRoot: string;
     resumeThreadIdOverride?: string | null;
@@ -380,7 +392,7 @@ export function useWorkspaceAgentDirectWorkController({
       {
         id: "direct-local-starting",
         kind: "local",
-        text: `${threadStartText} ${contextLogText} Starting Codex Direct Work from ${repoRoot}.`,
+        text: `${threadStartText} ${contextLogText} ${initialLocalNotice ? `${initialLocalNotice} ` : ""}Starting Codex Direct Work from ${repoRoot}.`,
       },
     ]);
 
@@ -827,7 +839,7 @@ export function useWorkspaceAgentDirectWorkController({
       });
     brokerContinuationStateRef.current = state;
     const actionIndex = state.actionCount + 1;
-    const actionRequest = createHobitAgentActionRequestFromEnvelope({
+    const baseActionRequest = createHobitAgentActionRequestFromEnvelope({
       agentId: `workspace-agent:${instanceId}`,
       createdAt: new Date().toISOString(),
       derivedRequestId:
@@ -840,6 +852,17 @@ export function useWorkspaceAgentDirectWorkController({
             }),
       envelope: envelopeRead.envelope,
     });
+    const autonomyApplied = applyWorkspaceAgentQueueAutonomyGrantToActionRequest(
+      state,
+      baseActionRequest,
+    );
+    const actionRequest = autonomyApplied.request;
+    if (autonomyApplied.confirmationInjected) {
+      appendDirectWorkLog(
+        "Structured Queue autonomy grant supplied exact confirmation for the typed nextAction.",
+        "local",
+      );
+    }
     const attempt = evaluateWorkspaceAgentBrokerContinuationAttempt(
       state,
       actionRequest,
@@ -1037,12 +1060,18 @@ export function useWorkspaceAgentDirectWorkController({
         return;
       }
 
+      const continuationState =
+        prepareWorkspaceAgentBrokerContinuationStateForResult({
+          result: brokerResult.result,
+          state,
+        });
+      brokerContinuationStateRef.current = continuationState;
       await startBrokerContinuationTurn({
         actionIndex,
         resumeThreadId: continuationThreadId,
         resultContext,
         runMetadata,
-        state,
+        state: continuationState,
       });
     } catch (error) {
       if (!isMountedRef.current) {
@@ -1125,6 +1154,20 @@ export function useWorkspaceAgentDirectWorkController({
         directWorkDirectory.trim(),
       )
     );
+  }
+
+  function queueAutonomyGrantNotice(
+    readResult: ReturnType<typeof readWorkspaceAgentQueueAutonomyGrantFromText>,
+  ) {
+    if (readResult.status === "valid") {
+      return `Structured Queue autonomy grant active: ${readResult.grant.mode}.`;
+    }
+
+    if (readResult.status === "invalid") {
+      return `Queue autonomy grant ignored: ${readResult.reasons.join(" ")}`;
+    }
+
+    return null;
   }
 
   function recordHobitActionResultTranscript({

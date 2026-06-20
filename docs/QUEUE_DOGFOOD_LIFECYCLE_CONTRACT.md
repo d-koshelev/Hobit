@@ -633,14 +633,23 @@ Codex thread after eligible successful results. Continuation remains
 structured-action-only: the model emits one `hobit.action.request` envelope at
 a time, never action lists, and must prefer a validated `nextAction` payload
 when present. The model must not rename `nextAction.input` fields and must not
-guess ids or actions from `nextSuggestedCapability` alone. The loop is capped
-and stops on confirmation-required, policy-blocked,
-unavailable, dry-run-required, failed, invalid-input, repeated request id,
-repeated capability/input, unsupported envelope, restricted capability, max
-action count, or missing same-thread continuation state. It does not infer
-task ids or executor ids from prose and does not add validation execution,
-Git/commit execution, rollback execution, Terminal, shell, Codex, or scheduler
-behavior.
+guess ids or actions from `nextSuggestedCapability` alone. A user/operator can
+grant bounded Queue autonomy only with structured JSON
+`type: "hobit.queue.autonomyGrant"`; prose such as "go" or "I confirm" is not
+a grant. Inside a valid grant, the loop may follow typed `nextAction` through
+the grant's risk-class mode, capability allow/deny intersection, exact
+confirmation token, and action budget. The grant does not move Queue truth to
+the frontend: backend aggregate preconditions remain authoritative, and
+dependency waiting, failed upstream, invalid input, or policy blockers still
+stop continuation. The loop is capped and stops on confirmation-required
+without an exact grant token, policy-blocked, unavailable, dry-run-required,
+failed, invalid-input, repeated request id, repeated capability/input,
+unsupported envelope, restricted capability, max action count, or missing
+same-thread continuation state. It does not infer task ids or executor ids
+from prose and does not add validation execution, Git/commit execution,
+rollback execution, Terminal, shell, Codex, delete, downstream auto-start, or
+scheduler behavior. Transitional validation, follow-up, and block capabilities
+remain blocked for bounded autonomy.
 
 `queue.lifecycle.agentFinished` requires explicit task and run identity. The
 model may provide `taskId` and `runId` as top-level fields or inside a
