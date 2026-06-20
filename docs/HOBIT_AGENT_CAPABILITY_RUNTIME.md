@@ -108,23 +108,34 @@ restricted capabilities for explicit workspace/code execution requests only.
   The loop is frontend-only, capped at 16 actions, grouped in transcript and
   activity, and can use a structured Queue bounded autonomy grant:
   `{"type":"hobit.queue.autonomyGrant","mode":"queue_acceptance_smoke",...}`.
-  The grant is machine-readable JSON only; prose such as "go" or "I confirm"
-  is not a grant. Inside a valid grant, the continuation policy may follow a
-  schema-valid typed Queue `nextAction` through the grant's risk-class mode,
-  capability allow/deny intersection, exact confirmation token, and action
-  budget. Required-confirmation Queue actions may receive only the canonical
-  top-level `confirmationToken: "operator-confirmed"` from the grant, and only
-  for registered run-start/finalizer Queue next actions whose ids are already
-  present in the typed payload. The loop still stops on policy-blocked,
-  unavailable, dry-run-required, failed, invalid-input, repeated request,
-  repeated capability/input, unsupported envelope, restricted capability,
-  confirmation-required without an exact grant token, or missing same-thread
-  continuation state. It does not accept action lists, regex-route user
-  prompts, infer task ids, or add unrelated backend durability, validation
-  execution, Git mutation, rollback, Terminal, shell, raw Codex automation,
-  deletion, downstream auto-start, or UI truth. Missing or blank request ids
-  are derived per continuation action from the chain id, action index, and
-  capability id; explicit duplicate request ids still stop as the replay guard.
+  The grant is machine-readable JSON only and may be embedded in ordinary
+  prompt text or a fenced JSON block, but only the JSON object is parsed; prose
+  such as "go" or "I confirm" is not a grant. The parsed grant is stored in
+  the action-chain state and remains available across same-thread continuation
+  turns until the chain ends. Inside a valid grant, the continuation policy may
+  follow a schema-valid typed Queue `nextAction` through the grant's risk-class
+  mode, capability allow/deny intersection, optional task/run scope, exact
+  confirmation token, and action budget. Required-confirmation Queue actions
+  may receive only the canonical top-level
+  `confirmationToken: "operator-confirmed"` from the grant, and only for
+  registered run-start/finalizer Queue next actions whose ids are already
+  present in the typed payload. Without a structured grant, setup mutations
+  such as `queue.item.updateRunSettings` do not auto-continue. The loop still
+  stops on policy-blocked, unavailable, dry-run-required, failed,
+  invalid-input, repeated request, repeated capability/input, unsupported
+  envelope, restricted capability, ambiguous next action, confirmation-required
+  without an exact grant token, max action budget, or missing same-thread
+  continuation state. Policy stop diagnostics identify the target
+  `capabilityId`, risk class, grant active/mode state, allowed risk classes,
+  reason code/message, nextAction presence and payload validation state,
+  confirmation missing/injected state, denied-capability state, and candidate
+  task ids when ambiguity blocked continuation. It does not accept action
+  lists, regex-route user prompts, infer task ids, or add unrelated backend
+  durability, validation execution, Git mutation, rollback, Terminal, shell,
+  raw Codex automation, deletion, downstream auto-start, or UI truth. Missing
+  or blank request ids are derived per continuation action from the chain id,
+  action index, and capability id; explicit duplicate request ids still stop
+  as the replay guard.
 - Workspace Agent Action Protocol Enforcement MVP: Workspace Agent Direct Work
   turns that receive Hobit capability context are treated as typed-capability
   action mode. In that mode the model must emit exactly one

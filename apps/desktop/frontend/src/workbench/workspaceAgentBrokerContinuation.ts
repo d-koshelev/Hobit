@@ -23,7 +23,7 @@ const ID_LIMIT = 8;
 const BLOCKER_LIMIT = 6;
 
 const DEFAULT_AUTO_CONTINUATION_RISK_CLASSES = new Set<QueueCapabilityRiskClass>(
-  ["read", "setup", "review"],
+  ["read", "review"],
 );
 const QUEUE_AUTONOMY_GRANT_TYPE = "hobit.queue.autonomyGrant";
 const QUEUE_AUTONOMY_GRANT_MODE_VALUES = [
@@ -99,6 +99,7 @@ const RESTRICTED_CAPABILITY_PREFIXES = [
 ];
 
 export type WorkspaceAgentBrokerContinuationStopReason =
+  | "ambiguous_next_action"
   | "broker_unavailable"
   | "confirmation_required"
   | "dry_run_required"
@@ -182,6 +183,60 @@ export type QueueAutonomyDecision =
       riskClass?: QueueCapabilityRiskClass;
     };
 
+export type WorkspaceAgentBrokerContinuationReasonCode =
+  | "ambiguous_next_action"
+  | "action_status_blocked"
+  | "backend_not_bounded_autonomy_safe"
+  | "capability_denied_by_grant"
+  | "capability_not_allowed_by_grant"
+  | "capability_not_auto_continuation_safe"
+  | "capability_not_registered"
+  | "confirmation_required"
+  | "continuation_allowed"
+  | "dependency_waiting"
+  | "grant_not_parsed"
+  | "max_actions_exceeded"
+  | "next_action_payload_invalid"
+  | "next_action_suggestion_mismatch"
+  | "no_grant_for_risk_class"
+  | "no_next_action"
+  | "out_of_scope_task"
+  | "restricted_capability"
+  | "risk_class_not_allowed"
+  | "safety_stop"
+  | "terminal_finalizer_completed";
+
+export type WorkspaceAgentBrokerPolicyDiagnostics = {
+  allowedCapabilities: readonly string[] | null;
+  allowedRiskClasses: readonly QueueCapabilityRiskClass[];
+  candidateTaskIds: readonly string[];
+  capabilityId: string;
+  confirmationInjected: boolean;
+  confirmationMissing: boolean;
+  deniedCapabilities: readonly string[];
+  deniedCapabilitiesBlocked: boolean;
+  grantActive: boolean;
+  grantMode: QueueAutonomyMode | null;
+  nextActionCapabilityId: string | null;
+  nextActionPayloadValidated: boolean | null;
+  nextActionPayloadValidationErrors: readonly string[];
+  nextActionPresent: boolean;
+  reasonCode: WorkspaceAgentBrokerContinuationReasonCode;
+  reasonMessage: string;
+  riskClass: QueueCapabilityRiskClass | null;
+};
+
+export type WorkspaceAgentBrokerContinuationDecision =
+  | {
+      diagnostics: WorkspaceAgentBrokerPolicyDiagnostics;
+      shouldContinue: true;
+    }
+  | {
+      diagnostics: WorkspaceAgentBrokerPolicyDiagnostics;
+      shouldContinue: false;
+      stopReason: WorkspaceAgentBrokerContinuationStopReason;
+    };
+
 export type QueueAutonomyGrantReadResult =
   | {
       grant: null;
@@ -237,6 +292,7 @@ export type WorkspaceAgentBrokerContinuationResultContext = {
   nextAction: QueueCapabilityNextAction | null;
   nextSuggestedCapability: string | null;
   notDone: string[];
+  policyDiagnostics?: WorkspaceAgentBrokerPolicyDiagnostics;
   queueState: WorkspaceAgentBrokerContinuationQueueState | null;
   requestId: string;
   safety: WorkspaceAgentBrokerContinuationSafety;
@@ -666,12 +722,92 @@ export function shouldContinueWorkspaceAgentBrokerAction({
       shouldContinue: false;
       stopReason: WorkspaceAgentBrokerContinuationStopReason;
     } {
+  const decision = decideWorkspaceAgentBrokerActionContinuation({
+    capability,
+    request,
+    result,
+    state,
+  });
+
+  return decision.shouldContinue
+    ? { shouldContinue: true }
+    : {
+        shouldContinue: false,
+        stopReason: decision.stopReason,
+      };
+}
+
+export function decideWorkspaceAgentBrokerActionContinuation({
+  capability,
+  confirmationInjected = false,
+  request,
+  result,
+  state,
+}: {
+  capability?: HobitAgentCapability | null;
+  confirmationInjected?: boolean;
+  request: HobitAgentActionRequest;
+  result: HobitAgentActionResult;
+  state: WorkspaceAgentBrokerContinuationState;
+}): WorkspaceAgentBrokerContinuationDecision {
+  const continueAllowed = (
+    diagnostics: WorkspaceAgentBrokerPolicyDiagnostics,
+  ): WorkspaceAgentBrokerContinuationDecision => ({
+    diagnostics,
+    shouldContinue: true,
+  });
+  const blocked = ({
+    capabilityId,
+    candidateTaskIds = [],
+    confirmationMissing = false,
+    deniedCapabilitiesBlocked = false,
+    nextAction = null,
+    nextActionValidation = null,
+    reasonCode,
+    reasonMessage,
+    stopReason,
+  }: {
+    capabilityId: string;
+    candidateTaskIds?: readonly string[];
+    confirmationMissing?: boolean;
+    deniedCapabilitiesBlocked?: boolean;
+    nextAction?: QueueCapabilityNextAction | null;
+    nextActionValidation?: ReturnType<typeof validateQueueCapabilityNextAction> | null;
+    reasonCode: WorkspaceAgentBrokerContinuationReasonCode;
+    reasonMessage: string;
+    stopReason: WorkspaceAgentBrokerContinuationStopReason;
+  }): WorkspaceAgentBrokerContinuationDecision => ({
+    diagnostics: createWorkspaceAgentBrokerPolicyDiagnostics({
+      candidateTaskIds,
+      capabilityId,
+      confirmationInjected,
+      confirmationMissing,
+      deniedCapabilitiesBlocked,
+      nextAction,
+      nextActionValidation,
+      reasonCode,
+      reasonMessage,
+      state,
+    }),
+    shouldContinue: false,
+    stopReason,
+  });
+
   const terminalStatusReason = stopReasonForActionStatus(result.status);
   if (terminalStatusReason) {
-    return {
-      shouldContinue: false,
+    return blocked({
+      capabilityId: request.capabilityId,
+      reasonCode:
+        terminalStatusReason === "confirmation_required"
+          ? "confirmation_required"
+          : "action_status_blocked",
+      reasonMessage:
+        result.policyReasons[0] ??
+        result.unavailableReason ??
+        result.message ??
+        `${request.capabilityId} returned ${result.status}.`,
       stopReason: terminalStatusReason,
-    };
+    });
   }
 
   const capabilityClass = classifyWorkspaceAgentBrokerContinuationCapability(
@@ -679,10 +815,12 @@ export function shouldContinueWorkspaceAgentBrokerAction({
     state.queueAutonomyPolicy,
   );
   if (capabilityClass.kind === "restricted") {
-    return {
-      shouldContinue: false,
+    return blocked({
+      capabilityId: request.capabilityId,
+      reasonCode: "restricted_capability",
+      reasonMessage: capabilityClass.reason,
       stopReason: "restricted_capability",
-    };
+    });
   }
 
   const safety = workspaceAgentBrokerContinuationSafety(result.output);
@@ -694,17 +832,22 @@ export function shouldContinueWorkspaceAgentBrokerAction({
     safety.didRunValidation ||
     safety.didStartTerminal
   ) {
-    return {
-      shouldContinue: false,
+    return blocked({
+      capabilityId: request.capabilityId,
+      reasonCode: "safety_stop",
+      reasonMessage:
+        "Continuation stopped because the result reported a forbidden side effect.",
       stopReason: "safety_stop",
-    };
+    });
   }
 
   if (state.actionCount >= state.maxActions) {
-    return {
-      shouldContinue: false,
+    return blocked({
+      capabilityId: request.capabilityId,
+      reasonCode: "max_actions_exceeded",
+      reasonMessage: `Continuation action budget ${state.maxActions.toString()} was reached.`,
       stopReason: "max_action_count_reached",
-    };
+    });
   }
 
   const nextAction = queueResultNextAction(result.output);
@@ -712,10 +855,16 @@ export function shouldContinueWorkspaceAgentBrokerAction({
   if (nextAction) {
     const validation = validateQueueCapabilityNextAction(nextAction);
     if (!validation.ok) {
-      return {
-        shouldContinue: false,
+      return blocked({
+        capabilityId: nextAction.capabilityId,
+        nextAction,
+        nextActionValidation: validation,
+        reasonCode: "next_action_payload_invalid",
+        reasonMessage:
+          validation.reasons[0] ??
+          `nextAction payload for ${nextAction.capabilityId} is invalid.`,
         stopReason: "invalid_input",
-      };
+      });
     }
 
     if (
@@ -724,10 +873,15 @@ export function shouldContinueWorkspaceAgentBrokerAction({
         nextSuggestedCapability,
       })
     ) {
-      return {
-        shouldContinue: false,
+      return blocked({
+        capabilityId: nextAction.capabilityId,
+        nextAction,
+        nextActionValidation: validation,
+        reasonCode: "next_action_suggestion_mismatch",
+        reasonMessage:
+          "nextAction.capabilityId does not match nextSuggestedCapability.",
         stopReason: "invalid_input",
-      };
+      });
     }
 
     const nextCapabilityClass =
@@ -736,10 +890,16 @@ export function shouldContinueWorkspaceAgentBrokerAction({
         state.queueAutonomyPolicy,
       );
     if (nextCapabilityClass.kind === "restricted") {
-      return {
-        shouldContinue: false,
+      return blocked({
+        capabilityId: nextAction.capabilityId,
+        nextAction,
+        nextActionValidation: validation,
+        reasonCode: "restricted_capability",
+        reasonMessage:
+          nextCapabilityClass.reason ??
+          `${nextAction.capabilityId} is restricted.`,
         stopReason: "restricted_capability",
-      };
+      });
     }
 
     const nextContract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(
@@ -753,16 +913,46 @@ export function shouldContinueWorkspaceAgentBrokerAction({
         })
       : null;
     if (nextDecision && !nextDecision.allowed) {
-      return {
-        shouldContinue: false,
+      return blocked({
+        capabilityId: nextAction.capabilityId,
+        deniedCapabilitiesBlocked:
+          state.queueAutonomyPolicy.deniedCapabilities.includes(
+            nextAction.capabilityId,
+          ),
+        nextAction,
+        nextActionValidation: validation,
+        reasonCode: reasonCodeForQueueAutonomyDecision({
+          decision: nextDecision,
+          state,
+        }),
+        reasonMessage: nextDecision.reason,
         stopReason: "not_allowed_for_auto_continuation",
-      };
+      });
+    }
+    const scopeDecision = decideQueueAutonomyScopeForNextAction({
+      nextAction,
+      policy: state.queueAutonomyPolicy,
+    });
+    if (!scopeDecision.allowed) {
+      return blocked({
+        capabilityId: nextAction.capabilityId,
+        nextAction,
+        nextActionValidation: validation,
+        reasonCode: "out_of_scope_task",
+        reasonMessage: scopeDecision.reason,
+        stopReason: "not_allowed_for_auto_continuation",
+      });
     }
     if (queueResultForbidsNextAction(result.output, nextAction)) {
-      return {
-        shouldContinue: false,
+      return blocked({
+        capabilityId: nextAction.capabilityId,
+        nextAction,
+        nextActionValidation: validation,
+        reasonCode: "dependency_waiting",
+        reasonMessage:
+          "Backend aggregate dependency state blocks this next action.",
         stopReason: "policy_blocked",
-      };
+      });
     }
     if (
       state.seenRequestFingerprints.includes(
@@ -773,10 +963,15 @@ export function shouldContinueWorkspaceAgentBrokerAction({
         }),
       )
     ) {
-      return {
-        shouldContinue: false,
+      return blocked({
+        capabilityId: nextAction.capabilityId,
+        nextAction,
+        nextActionValidation: validation,
+        reasonCode: "action_status_blocked",
+        reasonMessage:
+          "Continuation stopped because the next action repeats a previous capability/input.",
         stopReason: "repeated_request_fingerprint",
-      };
+      });
     }
 
     if (nextAction.requiresConfirmation || nextAction.confirmationRequired) {
@@ -786,57 +981,361 @@ export function shouldContinueWorkspaceAgentBrokerAction({
         state.queueAutonomyPolicy.confirmationToken !==
           QUEUE_START_RUN_CONFIRMATION_TOKEN
       ) {
-        return {
-          shouldContinue: false,
+        return blocked({
+          capabilityId: nextAction.capabilityId,
+          confirmationMissing: true,
+          nextAction,
+          nextActionValidation: validation,
+          reasonCode: "confirmation_required",
+          reasonMessage:
+            "The next action requires exact structured confirmation and the active grant cannot supply it.",
           stopReason: "confirmation_required",
-        };
+        });
       }
     }
     if (!state.queueAutonomyPolicy.active && !nextAction.autoContinuationSafe) {
-      return {
-        shouldContinue: false,
+      return blocked({
+        capabilityId: nextAction.capabilityId,
+        nextAction,
+        nextActionValidation: validation,
+        reasonCode: "capability_not_auto_continuation_safe",
+        reasonMessage: `${nextAction.capabilityId} is not marked auto-continuation safe without a Queue grant.`,
         stopReason: "not_allowed_for_auto_continuation",
-      };
+      });
     }
     if (nextCapabilityClass.kind !== "allowed") {
-      return {
-        shouldContinue: false,
+      return blocked({
+        capabilityId: nextAction.capabilityId,
+        nextAction,
+        nextActionValidation: validation,
+        reasonCode: reasonCodeForCapabilityClass({
+          capabilityId: nextAction.capabilityId,
+          state,
+        }),
+        reasonMessage:
+          nextCapabilityClass.reason ??
+          `${nextAction.capabilityId} is not allowed for continuation.`,
         stopReason: "not_allowed_for_auto_continuation",
-      };
+      });
     }
 
-    return { shouldContinue: true };
+    return continueAllowed(
+      createWorkspaceAgentBrokerPolicyDiagnostics({
+        capabilityId: nextAction.capabilityId,
+        confirmationInjected,
+        nextAction,
+        nextActionValidation: validation,
+        reasonCode: "continuation_allowed",
+        reasonMessage: `${nextAction.capabilityId} is allowed for continuation.`,
+        state,
+      }),
+    );
   }
 
   if (nextSuggestedCapability) {
-    return {
-      shouldContinue: false,
-      stopReason: "not_allowed_for_auto_continuation",
-    };
+    const candidateTaskIds = candidateTaskIdsForAmbiguousNextAction(result.output);
+    const ambiguous = isAmbiguousNextActionResult(result.output, candidateTaskIds);
+    return blocked({
+      capabilityId: nextSuggestedCapability,
+      candidateTaskIds,
+      reasonCode: ambiguous ? "ambiguous_next_action" : "no_next_action",
+      reasonMessage: ambiguous
+        ? `Result suggested ${nextSuggestedCapability}, but multiple candidate task ids are present. Use a typed nextAction or scope the read to one task.`
+        : `Result suggested ${nextSuggestedCapability}, but no schema-valid typed nextAction was present.`,
+      stopReason: ambiguous
+        ? "ambiguous_next_action"
+        : "not_allowed_for_auto_continuation",
+    });
   }
 
   if (capabilityClass.kind === "allowed" && capabilityClass.isTerminalFinalizer) {
-    return {
-      shouldContinue: false,
+    return blocked({
+      capabilityId: request.capabilityId,
+      reasonCode: "terminal_finalizer_completed",
+      reasonMessage:
+        "Terminal Queue finalizer completed; continuation stops before downstream auto-start.",
       stopReason: "not_allowed_for_auto_continuation",
-    };
+    });
   }
 
   if (capabilityClass.kind === "allowed") {
-    return { shouldContinue: true };
+    return continueAllowed(
+      createWorkspaceAgentBrokerPolicyDiagnostics({
+        capabilityId: request.capabilityId,
+        confirmationInjected,
+        reasonCode: "continuation_allowed",
+        reasonMessage: `${request.capabilityId} is allowed for continuation.`,
+        state,
+      }),
+    );
   }
 
   if (
     capabilityClass.kind === "queue_start_run" &&
     queueStartRunMayContinue(request, result)
   ) {
-    return { shouldContinue: true };
+    return continueAllowed(
+      createWorkspaceAgentBrokerPolicyDiagnostics({
+        capabilityId: request.capabilityId,
+        confirmationInjected,
+        reasonCode: "continuation_allowed",
+        reasonMessage:
+          "Confirmed Queue-linked run returned explicit task, executor, and run ids.",
+        state,
+      }),
+    );
   }
 
-  return {
-    shouldContinue: false,
+  return blocked({
+    capabilityId: request.capabilityId,
+    reasonCode: reasonCodeForCapabilityClass({
+      capabilityId: request.capabilityId,
+      state,
+    }),
+    reasonMessage:
+      capabilityClass.kind === "not_allowed"
+        ? capabilityClass.reason
+        : `${request.capabilityId} is not allowed for continuation.`,
     stopReason: "not_allowed_for_auto_continuation",
+  });
+}
+
+function createWorkspaceAgentBrokerPolicyDiagnostics({
+  candidateTaskIds = [],
+  capabilityId,
+  confirmationInjected = false,
+  confirmationMissing = false,
+  deniedCapabilitiesBlocked = false,
+  nextAction = null,
+  nextActionValidation = null,
+  reasonCode,
+  reasonMessage,
+  state,
+}: {
+  candidateTaskIds?: readonly string[];
+  capabilityId: string;
+  confirmationInjected?: boolean;
+  confirmationMissing?: boolean;
+  deniedCapabilitiesBlocked?: boolean;
+  nextAction?: QueueCapabilityNextAction | null;
+  nextActionValidation?: ReturnType<typeof validateQueueCapabilityNextAction> | null;
+  reasonCode: WorkspaceAgentBrokerContinuationReasonCode;
+  reasonMessage: string;
+  state: WorkspaceAgentBrokerContinuationState;
+}): WorkspaceAgentBrokerPolicyDiagnostics {
+  const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+  return {
+    allowedCapabilities: state.queueAutonomyPolicy.allowedCapabilities
+      ? [...state.queueAutonomyPolicy.allowedCapabilities]
+      : null,
+    allowedRiskClasses: [...state.queueAutonomyPolicy.allowedRiskClasses],
+    candidateTaskIds: compactStringList(candidateTaskIds, ID_LIMIT),
+    capabilityId,
+    confirmationInjected,
+    confirmationMissing,
+    deniedCapabilities: [...state.queueAutonomyPolicy.deniedCapabilities],
+    deniedCapabilitiesBlocked,
+    grantActive: state.queueAutonomyPolicy.active,
+    grantMode: state.queueAutonomyPolicy.active
+      ? state.queueAutonomyPolicy.mode
+      : null,
+    nextActionCapabilityId: nextAction?.capabilityId ?? null,
+    nextActionPayloadValidated: nextAction
+      ? Boolean(nextActionValidation?.ok)
+      : null,
+    nextActionPayloadValidationErrors:
+      nextActionValidation && !nextActionValidation.ok
+        ? [...nextActionValidation.reasons]
+        : [],
+    nextActionPresent: Boolean(nextAction),
+    reasonCode,
+    reasonMessage,
+    riskClass: contract?.riskClass ?? null,
   };
+}
+
+export function formatWorkspaceAgentBrokerPolicyDiagnosticSummary(
+  diagnostics: WorkspaceAgentBrokerPolicyDiagnostics,
+): string {
+  const nextActionState = diagnostics.nextActionPresent
+    ? `${diagnostics.nextActionCapabilityId ?? "unknown"}; payloadValidated=${
+        diagnostics.nextActionPayloadValidated === true ? "true" : "false"
+      }`
+    : "absent";
+  const confirmationState = diagnostics.confirmationInjected
+    ? "injected"
+    : diagnostics.confirmationMissing
+      ? "missing"
+      : "not_required";
+  const candidateSuffix =
+    diagnostics.candidateTaskIds.length > 0
+      ? ` candidateTaskIds=${diagnostics.candidateTaskIds.join(",")};`
+      : "";
+
+  return [
+    `Policy diagnostic: ${diagnostics.reasonCode}.`,
+    `capabilityId=${diagnostics.capabilityId};`,
+    `riskClass=${diagnostics.riskClass ?? "unknown"};`,
+    `grantActive=${diagnostics.grantActive ? "true" : "false"};`,
+    `grantMode=${diagnostics.grantMode ?? "none"};`,
+    `allowedRiskClasses=${
+      diagnostics.allowedRiskClasses.length > 0
+        ? diagnostics.allowedRiskClasses.join(",")
+        : "none"
+    };`,
+    `nextAction=${nextActionState};`,
+    `confirmation=${confirmationState};`,
+    `deniedCapabilitiesBlocked=${
+      diagnostics.deniedCapabilitiesBlocked ? "true" : "false"
+    };`,
+    candidateSuffix,
+    diagnostics.reasonMessage,
+  ]
+    .filter((part) => part.trim())
+    .join(" ");
+}
+
+function reasonCodeForQueueAutonomyDecision({
+  decision,
+  state,
+}: {
+  decision: Extract<QueueAutonomyDecision, { allowed: false }>;
+  state: WorkspaceAgentBrokerContinuationState;
+}): WorkspaceAgentBrokerContinuationReasonCode {
+  const policy = state.queueAutonomyPolicy;
+  const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(decision.capabilityId);
+
+  if (!policy.active && state.autonomyGrantRejectionReasons.length > 0) {
+    return "grant_not_parsed";
+  }
+
+  if (policy.deniedCapabilities.includes(decision.capabilityId)) {
+    return "capability_denied_by_grant";
+  }
+
+  if (
+    policy.allowedCapabilities &&
+    !policy.allowedCapabilities.includes(decision.capabilityId)
+  ) {
+    return "capability_not_allowed_by_grant";
+  }
+
+  if (
+    contract &&
+    (contract.backing === "transitional_frontend_overlay" ||
+      contract.backing === "model_preview")
+  ) {
+    return "backend_not_bounded_autonomy_safe";
+  }
+
+  if (decision.riskClass && !policy.allowedRiskClasses.includes(decision.riskClass)) {
+    return policy.active ? "risk_class_not_allowed" : "no_grant_for_risk_class";
+  }
+
+  return policy.active ? "risk_class_not_allowed" : "no_grant_for_risk_class";
+}
+
+function reasonCodeForCapabilityClass({
+  capabilityId,
+  state,
+}: {
+  capabilityId: string;
+  state: WorkspaceAgentBrokerContinuationState;
+}): WorkspaceAgentBrokerContinuationReasonCode {
+  const policy = state.queueAutonomyPolicy;
+  const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+
+  if (!contract) {
+    return "capability_not_registered";
+  }
+
+  if (!policy.active && state.autonomyGrantRejectionReasons.length > 0) {
+    return "grant_not_parsed";
+  }
+
+  if (policy.deniedCapabilities.includes(capabilityId)) {
+    return "capability_denied_by_grant";
+  }
+
+  if (policy.allowedCapabilities && !policy.allowedCapabilities.includes(capabilityId)) {
+    return "capability_not_allowed_by_grant";
+  }
+
+  if (!policy.allowedRiskClasses.includes(contract.riskClass)) {
+    return policy.active ? "risk_class_not_allowed" : "no_grant_for_risk_class";
+  }
+
+  if (!contract.autoContinuationSafe || contract.confirmation.required) {
+    return "capability_not_auto_continuation_safe";
+  }
+
+  return "risk_class_not_allowed";
+}
+
+function decideQueueAutonomyScopeForNextAction({
+  nextAction,
+  policy,
+}: {
+  nextAction: QueueCapabilityNextAction;
+  policy: QueueAutonomyPolicy;
+}): { allowed: true } | { allowed: false; reason: string } {
+  if (!policy.active || !policy.scope) {
+    return { allowed: true };
+  }
+
+  const input = recordValue(nextAction.input);
+  const taskId = stringField(input, "taskId");
+  const scopedTaskIds = policy.scope.taskIds ?? [];
+  if (taskId && scopedTaskIds.length > 0 && !scopedTaskIds.includes(taskId)) {
+    return {
+      allowed: false,
+      reason: `${nextAction.capabilityId} targets taskId ${taskId}, which is outside the Queue autonomy grant scope.`,
+    };
+  }
+
+  const runId = stringField(input, "runId");
+  const scopedRunIds = policy.scope.runIds ?? [];
+  if (runId && scopedRunIds.length > 0 && !scopedRunIds.includes(runId)) {
+    return {
+      allowed: false,
+      reason: `${nextAction.capabilityId} targets runId ${runId}, which is outside the Queue autonomy grant scope.`,
+    };
+  }
+
+  return { allowed: true };
+}
+
+function candidateTaskIdsForAmbiguousNextAction(output: unknown): string[] {
+  const root = recordValue(output);
+  return compactStringList(
+    [
+      ...stringArrayField(root, "candidateTaskIds"),
+      ...stringArrayField(root, "createdTaskIds"),
+      ...arrayField(root, "items").map((item) =>
+        stringField(recordValue(item), "taskId"),
+      ),
+      ...arrayField(root, "createdItems").map((item) =>
+        stringField(recordValue(item), "id"),
+      ),
+    ],
+    ID_LIMIT,
+  );
+}
+
+function isAmbiguousNextActionResult(
+  output: unknown,
+  candidateTaskIds: readonly string[],
+) {
+  const root = recordValue(output);
+  return (
+    stringField(root, "nextActionUnavailableCode") === "ambiguous_next_action" ||
+    candidateTaskIds.length > 1 ||
+    Boolean(
+      stringField(root, "nextActionUnavailableReason")
+        ?.toLowerCase()
+        .includes("multiple"),
+    )
+  );
 }
 
 export function classifyWorkspaceAgentBrokerContinuationCapability(
@@ -1341,11 +1840,13 @@ function isTerminalFinalizerRiskClass(riskClass: QueueCapabilityRiskClass) {
 }
 
 export function createWorkspaceAgentBrokerActionResultContext({
+  policyDiagnostics,
   request,
   result,
   stopReason,
   summary,
 }: {
+  policyDiagnostics?: WorkspaceAgentBrokerPolicyDiagnostics;
   request: HobitAgentActionRequest;
   result: HobitAgentActionResult;
   stopReason?: WorkspaceAgentBrokerContinuationStopReason;
@@ -1411,6 +1912,7 @@ export function createWorkspaceAgentBrokerActionResultContext({
     nextAction: validNextAction,
     nextSuggestedCapability,
     notDone: notDoneMessages(safety),
+    ...(policyDiagnostics ? { policyDiagnostics } : {}),
     queueState,
     requestId: request.requestId,
     safety,
@@ -1515,6 +2017,8 @@ export function stopReasonLabel(
   switch (reason) {
     case "broker_unavailable":
       return "Action Broker unavailable";
+    case "ambiguous_next_action":
+      return "ambiguous next action";
     case "confirmation_required":
       return "confirmation required";
     case "dry_run_required":
@@ -1530,7 +2034,7 @@ export function stopReasonLabel(
     case "max_action_count_reached":
       return "maximum action count reached";
     case "not_allowed_for_auto_continuation":
-      return "capability is not allowed for auto-continuation";
+      return "auto-continuation policy blocked";
     case "policy_blocked":
       return "policy blocked";
     case "protocol_error":

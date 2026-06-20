@@ -198,8 +198,10 @@ export type QueueAgentCreatedItem = {
 } & QueueAgentNextActionFields;
 
 export type QueueAgentNextActionFields = {
+  candidateTaskIds?: string[];
   missingNextActionInput?: string[];
   nextAction?: QueueCapabilityNextAction;
+  nextActionUnavailableCode?: string;
   nextActionUnavailableReason?: string;
 };
 

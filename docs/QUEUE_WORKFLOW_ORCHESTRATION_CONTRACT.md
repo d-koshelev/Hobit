@@ -108,8 +108,11 @@ when all of these are true:
 
 `nextSuggestedCapability` alone is never executable.
 
-Default safe risk classes are `read`, `setup`, and the narrow review action
-needed for ACK-to-read continuation. Finalizing and unsafe transitions are not
+Default safe risk classes are `read` and the narrow review action needed for
+ACK-to-read continuation. Setup mutations such as
+`queue.item.updateRunSettings`, `queue.item.promoteDraft`, and `queue.enable`
+require a valid structured Queue autonomy grant for same-thread
+auto-continuation. Finalizing and unsafe transitions are not
 auto-continuation safe by default.
 
 With a valid structured `hobit.queue.autonomyGrant`, Workspace Agent may
@@ -131,6 +134,17 @@ conditions pass:
   Terminal, delete, downstream auto-start, shell, raw Codex, and hidden worker
   behavior;
 - required confirmation is exact and structured.
+
+When continuation stops, the product-facing policy diagnostic must identify
+the target `capabilityId`, risk class, whether a grant is active, grant mode
+when present, allowed risk classes, a stable reason code and product-facing
+message, whether `nextAction` was present, whether its payload validated,
+whether confirmation was missing or injected, and whether
+`deniedCapabilities` blocked it. Expected reason codes include
+`no_grant_for_risk_class`, `grant_not_parsed`, `risk_class_not_allowed`,
+`capability_denied_by_grant`, `next_action_payload_invalid`,
+`confirmation_required`, `dependency_waiting`, `ambiguous_next_action`,
+`out_of_scope_task`, and `max_actions_exceeded`.
 
 ## Structured Confirmation
 
@@ -165,6 +179,8 @@ raw Codex, or arbitrary execution capabilities.
 The implemented Queue autonomy grant is:
 
 - a structured JSON object with `type: "hobit.queue.autonomyGrant"`;
+- may be embedded in prompt prose or a fenced JSON block, but only the JSON
+  object is parsed;
 - never inferred from prose;
 - bounded by risk class, capability set, task scope, workspace, action budget,
   and current session;
@@ -221,6 +237,11 @@ Rules:
 - If required target input is missing, return a typed
   `nextActionUnavailableReason` or blocker instead of asking the model to
   infer ids.
+- If multiple Queue items could be the target, do not choose from titles,
+  prompts, UI selection, order, or prose. Return `ambiguous_next_action` with
+  candidate task ids, or require a typed `nextAction` / `queue.items.list`
+  scoped to one exact `taskId`. A structured grant `scope.taskIds` may bound
+  policy for typed next actions, but it does not permit id inference.
 
 ## Result Status Taxonomy
 

@@ -95,15 +95,30 @@ structured grant JSON object such as:
 }
 ```
 
-Prose such as `go`, `do the rest`, or `I confirm` is not a grant or
-confirmation. Inside a valid grant, Workspace Agent may follow schema-valid
-typed Queue `nextAction` payloads exactly, including `queue.enable ->
+The JSON object may be embedded in normal Workspace Agent prompt text, for
+example after "The following JSON object is the only autonomy grant for this
+run:", or inside a fenced JSON block. Only the JSON object is parsed. Prose
+such as `go`, `do the rest`, or `I confirm` is not a grant or confirmation.
+The parsed grant is carried in the action-chain state across continuation
+turns. Inside a valid grant, Workspace Agent may follow schema-valid typed
+Queue `nextAction` payloads exactly, including `queue.enable ->
 queue.item.startRun`, duplicate `queue.review.createMessage ->
 queue.review.ack` using `input.messageId`, and finalizer next actions allowed
 by `queue_acceptance_smoke` or `queue_failure_smoke`. Backend preconditions,
 dependency blockers, exact confirmations, max action budget, and unsafe
 constraints remain authoritative. Transitional validation, follow-up, and block
 capabilities remain blocked.
+
+When continuation stops, the visible result should include policy diagnostics:
+`capabilityId`, risk class, whether a grant was active, grant mode, allowed
+risk classes, reason code/message, whether `nextAction` was present, whether
+its payload validated, confirmation missing/injected state, and whether
+`deniedCapabilities` blocked it. For multi-item flows, use
+`scope.taskIds`, `queue.items.list` with exact `taskId`, or a typed
+`nextAction` that identifies one task. If multiple items remain possible, the
+expected blocker is `ambiguous_next_action` with candidate task ids; the agent
+must not infer the target from title, prompt text, order, UI selection, or
+operator prose.
 
 Queue action-request smoke must use the manifest schemas exactly. Do not infer
 task ids, run ids, message ids, evidence ids, executor widget ids, actor ids, or

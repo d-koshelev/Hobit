@@ -2421,6 +2421,8 @@ function nextActionFieldsForSingleCreatedItem(
 
   if (createdItems.length !== 1) {
     return {
+      candidateTaskIds: createdItems.map((item) => item.id),
+      nextActionUnavailableCode: "ambiguous_next_action",
       nextActionUnavailableReason:
         "A top-level Queue nextAction is unavailable because the result contains multiple created task ids.",
     };
@@ -2447,6 +2449,8 @@ function nextActionFieldsForSingleTaskSummary(
 
   if (items.length !== 1) {
     return {
+      candidateTaskIds: items.map((item) => item.taskId),
+      nextActionUnavailableCode: "ambiguous_next_action",
       nextActionUnavailableReason:
         "A top-level Queue nextAction is unavailable because the result contains multiple candidate task ids.",
     };

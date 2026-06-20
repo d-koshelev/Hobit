@@ -427,7 +427,23 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
       workspaceId: "workspace_1",
     });
 
-    await runDirectWork("Run the Queue dogfooding smoke.");
+    const smokePrompt = `Run the Queue dogfooding smoke. The following JSON object is the only autonomy grant for this run: ${JSON.stringify(
+      {
+        constraints: {
+          noDelete: true,
+          noDownstreamAutoStart: true,
+          noGit: true,
+          noRollback: true,
+          noTerminal: true,
+          noValidationExecution: true,
+        },
+        maxActions: 16,
+        mode: "queue_acceptance_smoke",
+        type: "hobit.queue.autonomyGrant",
+      },
+    )}`;
+
+    await runDirectWork(smokePrompt);
     await flushAsync(80);
 
     expect(startDirectWork).toHaveBeenCalledTimes(5);
@@ -445,7 +461,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(getItemAggregate).toHaveBeenCalledWith({ taskId: "task-smoke" });
     expect(runTerminal).not.toHaveBeenCalled();
     expect(createGitCommit).not.toHaveBeenCalled();
-    expect(lastOperatorMessageText()).toBe("Run the Queue dogfooding smoke.");
+    expect(lastOperatorMessageText()).toBe(smokePrompt);
     expect(allAssistantMessageText()).toEqual(
       expect.arrayContaining([
         expect.stringContaining("Action 1/16: queue.targetSingletonQueue"),
@@ -456,7 +472,13 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
       ]),
     );
     expect(lastAssistantMessageText()).toContain(
-      "Stopped: capability is not allowed for auto-continuation.",
+      "Stopped: auto-continuation policy blocked.",
+    );
+    expect(lastAssistantMessageText()).toContain(
+      "Policy diagnostic: no_next_action.",
+    );
+    expect(lastAssistantMessageText()).toContain(
+      "capabilityId=queue.item.startRun",
     );
     const continuationRequests = startDirectWork.mock.calls
       .slice(1)
@@ -500,7 +522,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
         expect.objectContaining({
           runKind: "workspace-agent-broker-continuation",
           summary: expect.stringContaining(
-            "Stopped: capability is not allowed for auto-continuation.",
+            "Policy diagnostic: no_next_action.",
           ),
           title: "Queue draft promoted",
         }),

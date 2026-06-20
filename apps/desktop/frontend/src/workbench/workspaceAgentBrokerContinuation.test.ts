@@ -5,13 +5,17 @@ import {
   createHobitAgentCapabilityRegistry,
   findCapability,
 } from "./agents/capabilities";
-import { QUEUE_START_RUN_CONFIRMATION_TOKEN } from "./agents/capabilities/queueCapabilityContracts";
+import {
+  QUEUE_CAPABILITY_CONTRACT_BY_ID,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "./agents/capabilities/queueCapabilityContracts";
 import continuationSource from "./workspaceAgentBrokerContinuation.ts?raw";
 import {
   applyWorkspaceAgentQueueAutonomyGrantToActionRequest,
   classifyWorkspaceAgentBrokerContinuationCapability,
   createWorkspaceAgentBrokerActionResultContext,
   createWorkspaceAgentBrokerContinuationState,
+  decideWorkspaceAgentBrokerActionContinuation,
   deriveWorkspaceAgentBrokerContinuationRequestId,
   evaluateWorkspaceAgentBrokerContinuationAttempt,
   formatWorkspaceAgentBrokerContinuationPrompt,
@@ -120,6 +124,59 @@ describe("workspaceAgentBrokerContinuation", () => {
     ).toMatchObject({
       mode: "queue_failure_smoke",
       type: "hobit.queue.autonomyGrant",
+    });
+  });
+
+  it("parses a structured Queue autonomy grant embedded in the manual smoke prompt prose", () => {
+    const grant = {
+      confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      constraints: queueAutonomyConstraints(),
+      maxActions: 16,
+      mode: "queue_acceptance_smoke",
+      scope: { taskIds: ["task-a"] },
+      type: "hobit.queue.autonomyGrant",
+    };
+    const grantRead = readWorkspaceAgentQueueAutonomyGrantFromText(
+      `Run the queue_acceptance_smoke workflow. The following JSON object is the only autonomy grant for this run: ${JSON.stringify(
+        grant,
+      )} Do not infer anything from this prose.`,
+    );
+
+    expect(grantRead).toMatchObject({
+      grant: {
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        mode: "queue_acceptance_smoke",
+        scope: { taskIds: ["task-a"] },
+      },
+      policy: {
+        active: true,
+        allowedRiskClasses: expect.arrayContaining(["setup", "final_accept"]),
+        mode: "queue_acceptance_smoke",
+      },
+      status: "valid",
+    });
+  });
+
+  it("parses a structured Queue autonomy grant inside a fenced JSON block", () => {
+    const grantRead = readWorkspaceAgentQueueAutonomyGrantFromText(`
+Use typed Queue capabilities only.
+
+\`\`\`json
+${JSON.stringify({
+  confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+  constraints: queueAutonomyConstraints(),
+  mode: "queue_failure_smoke",
+  type: "hobit.queue.autonomyGrant",
+})}
+\`\`\`
+`);
+
+    expect(grantRead).toMatchObject({
+      grant: {
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        mode: "queue_failure_smoke",
+      },
+      status: "valid",
     });
   });
 
@@ -248,6 +305,9 @@ describe("workspaceAgentBrokerContinuation", () => {
   });
 
   it("applies Queue autonomy modes by risk class and denied capability intersection", () => {
+    const noGrantState = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-no-grant-setup",
+    });
     const readOnlyState = createWorkspaceAgentBrokerContinuationState({
       chainId: "chain-read-only",
       queueAutonomyGrant: queueAutonomyGrant("read_only"),
@@ -264,6 +324,14 @@ describe("workspaceAgentBrokerContinuation", () => {
         deniedCapabilities: ["queue.review.ack"],
       }),
     });
+    const acceptanceState = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-acceptance-setup",
+      queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke"),
+    });
+    const failureState = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-failure-setup",
+      queueAutonomyGrant: queueAutonomyGrant("queue_failure_smoke"),
+    });
 
     expect(
       classifyWorkspaceAgentBrokerContinuationCapability(
@@ -277,6 +345,36 @@ describe("workspaceAgentBrokerContinuation", () => {
         readOnlyState.queueAutonomyPolicy,
       ).kind,
     ).toBe("not_allowed");
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.item.updateRunSettings",
+        noGrantState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("not_allowed");
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.item.updateRunSettings",
+        readOnlyState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("not_allowed");
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.item.updateRunSettings",
+        queueSmokeState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("allowed");
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.item.updateRunSettings",
+        acceptanceState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("allowed");
+    expect(
+      classifyWorkspaceAgentBrokerContinuationCapability(
+        "queue.item.updateRunSettings",
+        failureState.queueAutonomyPolicy,
+      ).kind,
+    ).toBe("allowed");
     expect(
       classifyWorkspaceAgentBrokerContinuationCapability(
         "queue.item.startRun",
@@ -301,6 +399,200 @@ describe("workspaceAgentBrokerContinuation", () => {
         deniedAckState.queueAutonomyPolicy,
       ).kind,
     ).toBe("not_allowed");
+  });
+
+  it("allows queue.item.updateRunSettings only under setup-capable Queue grants", () => {
+    const listRequest = requestFor(
+      "queue.items.list",
+      { limit: 10 },
+      "request-list-settings",
+    );
+    const listResult = resultFor("queue.items.list", {
+      items: [
+        {
+          nextAction: plainNextAction("queue.item.updateRunSettings", {
+            codexExecutable: "codex.cmd",
+            taskId: "task-setup",
+          }),
+          nextSuggestedCapability: "queue.item.updateRunSettings",
+          taskId: "task-setup",
+        },
+      ],
+      nextAction: plainNextAction("queue.item.updateRunSettings", {
+        codexExecutable: "codex.cmd",
+        taskId: "task-setup",
+      }),
+      nextSuggestedCapability: "queue.item.updateRunSettings",
+    });
+    const acceptanceState = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-settings-acceptance",
+        queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke"),
+      }),
+      listRequest,
+    );
+    const noGrantState = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-settings-no-grant",
+      }),
+      listRequest,
+    );
+    const readOnlyState = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-settings-read-only",
+        queueAutonomyGrant: queueAutonomyGrant("read_only"),
+      }),
+      listRequest,
+    );
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: listRequest,
+        result: listResult,
+        state: acceptanceState,
+      }),
+    ).toEqual({ shouldContinue: true });
+    expect(
+      decideWorkspaceAgentBrokerActionContinuation({
+        request: listRequest,
+        result: listResult,
+        state: noGrantState,
+      }),
+    ).toMatchObject({
+      diagnostics: {
+        capabilityId: "queue.item.updateRunSettings",
+        grantActive: false,
+        nextActionPayloadValidated: true,
+        reasonCode: "no_grant_for_risk_class",
+        riskClass: "setup",
+      },
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+    expect(
+      decideWorkspaceAgentBrokerActionContinuation({
+        request: listRequest,
+        result: listResult,
+        state: readOnlyState,
+      }),
+    ).toMatchObject({
+      diagnostics: {
+        capabilityId: "queue.item.updateRunSettings",
+        grantActive: true,
+        grantMode: "read_only",
+        reasonCode: "risk_class_not_allowed",
+        riskClass: "setup",
+      },
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+  });
+
+  it("classifies queue.item.updateRunSettings as setup risk", () => {
+    expect(QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.item.updateRunSettings"))
+      .toMatchObject({
+        autoContinuationSafe: true,
+        riskClass: "setup",
+      });
+  });
+
+  it("propagates Queue autonomy grant state through create-create-list continuation", () => {
+    let state = createWorkspaceAgentBrokerContinuationState({
+      chainId: "chain-grant-propagation",
+      queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke", {
+        maxActions: 5,
+      }),
+    });
+
+    expect(state.queueAutonomyPolicy).toMatchObject({
+      active: true,
+      mode: "queue_acceptance_smoke",
+    });
+    expect(state.maxActions).toBe(5);
+
+    const createARequest = requestFor(
+      "queue.createItem",
+      { prompt: "Create upstream task.", title: "Task A" },
+      "request-create-a",
+    );
+    state = recordAttempt(state, createARequest);
+    expect(state.actionCount).toBe(1);
+    expect(state.queueAutonomyPolicy.active).toBe(true);
+
+    const createAResult = resultFor("queue.createItem", {
+      nextAction: plainNextAction("queue.item.updateRunSettings", {
+        codexExecutable: "codex.cmd",
+        taskId: "task-a",
+      }),
+      nextSuggestedCapability: "queue.item.updateRunSettings",
+      taskId: "task-a",
+    });
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: createARequest,
+        result: createAResult,
+        state,
+      }),
+    ).toEqual({ shouldContinue: true });
+    state = prepareWorkspaceAgentBrokerContinuationStateForResult({
+      result: createAResult,
+      state,
+    });
+    expect(state.pendingNextAction).toMatchObject({
+      capabilityId: "queue.item.updateRunSettings",
+      input: { taskId: "task-a" },
+    });
+    expect(state.queueAutonomyPolicy.active).toBe(true);
+
+    const createBRequest = requestFor(
+      "queue.createItem",
+      {
+        dependsOn: ["task-a"],
+        prompt: "Create downstream task.",
+        title: "Task B",
+      },
+      "request-create-b",
+    );
+    state = recordAttempt(state, createBRequest);
+    expect(state.actionCount).toBe(2);
+    expect(state.pendingNextAction).toBeNull();
+    expect(state.queueAutonomyPolicy.active).toBe(true);
+
+    const listRequest = requestFor(
+      "queue.items.list",
+      { taskId: "task-a" },
+      "request-list-task-a",
+    );
+    state = recordAttempt(state, listRequest);
+    expect(state.actionCount).toBe(3);
+
+    const listResult = resultFor("queue.items.list", {
+      items: [{ taskId: "task-a" }],
+      nextAction: plainNextAction("queue.item.updateRunSettings", {
+        codexExecutable: "codex.cmd",
+        taskId: "task-a",
+      }),
+      nextSuggestedCapability: "queue.item.updateRunSettings",
+    });
+    const decision = decideWorkspaceAgentBrokerActionContinuation({
+      request: listRequest,
+      result: listResult,
+      state,
+    });
+
+    expect(decision).toMatchObject({
+      diagnostics: {
+        allowedRiskClasses: expect.arrayContaining(["setup"]),
+        capabilityId: "queue.item.updateRunSettings",
+        grantActive: true,
+        grantMode: "queue_acceptance_smoke",
+        nextActionPayloadValidated: true,
+        reasonCode: "continuation_allowed",
+        riskClass: "setup",
+      },
+      shouldContinue: true,
+    });
+    expect(state.maxActions - state.actionCount).toBe(2);
   });
 
   it("stops on broker statuses that require user or policy intervention", () => {
@@ -895,6 +1187,60 @@ describe("workspaceAgentBrokerContinuation", () => {
     });
   });
 
+  it("reports ambiguous_next_action when a list result has multiple candidate task ids", () => {
+    const request = requestFor(
+      "queue.items.list",
+      { limit: 10 },
+      "request-list-ambiguous",
+    );
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-list-ambiguous",
+        queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke"),
+      }),
+      request,
+    );
+    const result = resultFor("queue.items.list", {
+      candidateTaskIds: ["task-a", "task-b"],
+      itemCount: 2,
+      items: [{ taskId: "task-a" }, { taskId: "task-b" }],
+      nextActionUnavailableCode: "ambiguous_next_action",
+      nextActionUnavailableReason:
+        "A top-level Queue nextAction is unavailable because the result contains multiple candidate task ids.",
+      nextSuggestedCapability: "queue.item.updateRunSettings",
+    });
+    const decision = decideWorkspaceAgentBrokerActionContinuation({
+      request,
+      result,
+      state,
+    });
+    const context = createWorkspaceAgentBrokerActionResultContext({
+      policyDiagnostics: decision.diagnostics,
+      request,
+      result,
+      stopReason: decision.shouldContinue ? undefined : decision.stopReason,
+      summary: "Queue items listed.",
+    });
+
+    expect(decision).toMatchObject({
+      diagnostics: {
+        candidateTaskIds: ["task-a", "task-b"],
+        capabilityId: "queue.item.updateRunSettings",
+        grantActive: true,
+        nextActionPayloadValidated: null,
+        nextActionPresent: false,
+        reasonCode: "ambiguous_next_action",
+        riskClass: "setup",
+      },
+      shouldContinue: false,
+      stopReason: "ambiguous_next_action",
+    });
+    expect(context.policyDiagnostics).toMatchObject({
+      candidateTaskIds: ["task-a", "task-b"],
+      reasonCode: "ambiguous_next_action",
+    });
+  });
+
   it("continues review duplicate to ACK using messageId from typed nextAction", () => {
     const request = requestFor(
       "queue.review.createMessage",
@@ -926,6 +1272,78 @@ describe("workspaceAgentBrokerContinuation", () => {
     ).toEqual({ shouldContinue: true });
   });
 
+  it("reports deniedCapabilities and missing confirmation as distinct policy diagnostics", () => {
+    const deniedRequest = requestFor(
+      "queue.items.list",
+      { taskId: "task-1" },
+      "request-denied-settings",
+    );
+    const deniedState = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-denied-settings",
+        queueAutonomyGrant: queueAutonomyGrant("queue_smoke", {
+          deniedCapabilities: ["queue.item.updateRunSettings"],
+        }),
+      }),
+      deniedRequest,
+    );
+    const deniedDecision = decideWorkspaceAgentBrokerActionContinuation({
+      request: deniedRequest,
+      result: resultFor("queue.items.list", {
+        nextAction: plainNextAction("queue.item.updateRunSettings", {
+          codexExecutable: "codex.cmd",
+          taskId: "task-1",
+        }),
+        nextSuggestedCapability: "queue.item.updateRunSettings",
+      }),
+      state: deniedState,
+    });
+
+    expect(deniedDecision).toMatchObject({
+      diagnostics: {
+        capabilityId: "queue.item.updateRunSettings",
+        deniedCapabilitiesBlocked: true,
+        reasonCode: "capability_denied_by_grant",
+      },
+      shouldContinue: false,
+    });
+
+    const confirmationRequest = requestFor(
+      "queue.enable",
+      {},
+      "request-missing-confirmation",
+    );
+    const confirmationState = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-missing-confirmation",
+        queueAutonomyGrant: queueAutonomyGrant("queue_smoke"),
+      }),
+      confirmationRequest,
+    );
+
+    expect(
+      decideWorkspaceAgentBrokerActionContinuation({
+        request: confirmationRequest,
+        result: resultFor("queue.enable", {
+          nextAction: confirmedNextAction("queue.item.startRun", {
+            executorWidgetId: "executor-1",
+            taskId: "task-1",
+          }),
+          nextSuggestedCapability: "queue.item.startRun",
+        }),
+        state: confirmationState,
+      }),
+    ).toMatchObject({
+      diagnostics: {
+        capabilityId: "queue.item.startRun",
+        confirmationMissing: true,
+        reasonCode: "confirmation_required",
+      },
+      shouldContinue: false,
+      stopReason: "confirmation_required",
+    });
+  });
+
   it("blocks mismatched nextSuggestedCapability and dependency-waiting startRun nextActions under grants", () => {
     const request = requestFor("queue.enable", {}, "request-enable-mismatch");
     const state = recordAttempt(
@@ -939,7 +1357,7 @@ describe("workspaceAgentBrokerContinuation", () => {
     );
 
     expect(
-      shouldContinueWorkspaceAgentBrokerAction({
+      decideWorkspaceAgentBrokerActionContinuation({
         request,
         result: resultFor("queue.enable", {
           nextAction: confirmedNextAction("queue.item.startRun", {
@@ -950,12 +1368,15 @@ describe("workspaceAgentBrokerContinuation", () => {
         }),
         state,
       }),
-    ).toEqual({
+    ).toMatchObject({
+      diagnostics: {
+        reasonCode: "next_action_suggestion_mismatch",
+      },
       shouldContinue: false,
       stopReason: "invalid_input",
     });
     expect(
-      shouldContinueWorkspaceAgentBrokerAction({
+      decideWorkspaceAgentBrokerActionContinuation({
         request,
         result: resultFor("queue.enable", {
           aggregate: {
@@ -969,7 +1390,10 @@ describe("workspaceAgentBrokerContinuation", () => {
         }),
         state,
       }),
-    ).toEqual({
+    ).toMatchObject({
+      diagnostics: {
+        reasonCode: "dependency_waiting",
+      },
       shouldContinue: false,
       stopReason: "policy_blocked",
     });
@@ -989,7 +1413,7 @@ describe("workspaceAgentBrokerContinuation", () => {
     );
 
     expect(
-      shouldContinueWorkspaceAgentBrokerAction({
+      decideWorkspaceAgentBrokerActionContinuation({
         request,
         result: resultFor("queue.review.createMessage", {
           nextAction: {
@@ -1005,7 +1429,11 @@ describe("workspaceAgentBrokerContinuation", () => {
         }),
         state,
       }),
-    ).toEqual({
+    ).toMatchObject({
+      diagnostics: {
+        nextActionPayloadValidated: false,
+        reasonCode: "next_action_payload_invalid",
+      },
       shouldContinue: false,
       stopReason: "invalid_input",
     });

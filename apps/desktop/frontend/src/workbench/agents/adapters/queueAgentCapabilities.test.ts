@@ -513,7 +513,9 @@ describe("queueAgentCapabilities invoke", () => {
 
     expect(result.status).toBe("succeeded");
     expect(result.result.output).toMatchObject({
+      candidateTaskIds: ["first", "second"],
       dependencyEdgesPreserved: true,
+      nextActionUnavailableCode: "ambiguous_next_action",
       wouldAutoRunWorkers: false,
       wouldCreateDuplicateQueueView: false,
     });
@@ -2820,6 +2822,80 @@ describe("queueAgentCapabilities invoke", () => {
         suggestedCapability: "queue.enable",
       }),
     );
+  });
+
+  it("does not choose a top-level nextAction when queue.items.list returns multiple setup candidates", async () => {
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        approvalPolicy: null,
+        codexExecutable: null,
+        executionWorkspace: null,
+        nextActions: [
+          {
+            available: true,
+            code: "update_run_settings",
+            label: "Update run settings",
+            unavailableReason: null,
+          },
+        ],
+        sandbox: null,
+        taskId: "task-a",
+        ticketState: "draft",
+      }),
+      queueAggregate({
+        approvalPolicy: null,
+        codexExecutable: null,
+        executionWorkspace: null,
+        nextActions: [
+          {
+            available: true,
+            code: "update_run_settings",
+            label: "Update run settings",
+            unavailableReason: null,
+          },
+        ],
+        sandbox: null,
+        taskId: "task-b",
+        ticketState: "draft",
+      }),
+    ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ listItemAggregates }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      candidateTaskIds?: string[];
+      nextAction?: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
+      nextActionUnavailableCode?: string;
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output?.nextAction).toBeUndefined();
+    expect(result.result.output).toMatchObject({
+      candidateTaskIds: ["task-a", "task-b"],
+      nextActionUnavailableCode: "ambiguous_next_action",
+      nextSuggestedCapability: "queue.item.updateRunSettings",
+    });
   });
 
   it("keeps backend dependency-waiting aggregate out of startRun and queue.enable suggestions", async () => {

@@ -71,17 +71,19 @@ import {
   applyWorkspaceAgentQueueAutonomyGrantToActionRequest,
   createWorkspaceAgentBrokerActionResultContext,
   createWorkspaceAgentBrokerContinuationState,
+  decideWorkspaceAgentBrokerActionContinuation,
   deriveWorkspaceAgentBrokerContinuationRequestId,
   evaluateWorkspaceAgentBrokerContinuationAttempt,
   formatWorkspaceAgentBrokerActionTranscript,
   formatWorkspaceAgentBrokerContinuationPrompt,
+  formatWorkspaceAgentBrokerPolicyDiagnosticSummary,
   prepareWorkspaceAgentBrokerContinuationStateForResult,
   readWorkspaceAgentQueueAutonomyGrantFromText,
   recordWorkspaceAgentBrokerContinuationProtocolRepair,
   recordWorkspaceAgentBrokerContinuationAttempt,
-  shouldContinueWorkspaceAgentBrokerAction,
   stopReasonLabel,
   WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+  type WorkspaceAgentBrokerPolicyDiagnostics,
   type WorkspaceAgentBrokerContinuationState,
   type WorkspaceAgentBrokerContinuationStopReason,
 } from "./workspaceAgentBrokerContinuation";
@@ -923,6 +925,7 @@ export function useWorkspaceAgentDirectWorkController({
 
     void invokeWorkspaceAgentHobitActionRequest({
       actionIndex: attempt.actionIndex,
+      confirmationInjected: autonomyApplied.confirmationInjected,
       request: actionRequest,
       runMetadata,
     });
@@ -998,10 +1001,12 @@ export function useWorkspaceAgentDirectWorkController({
 
   async function invokeWorkspaceAgentHobitActionRequest({
     actionIndex,
+    confirmationInjected,
     request,
     runMetadata,
   }: {
     actionIndex: number;
+    confirmationInjected: boolean;
     request: HobitAgentActionRequest;
     runMetadata: WorkspaceAgentRunMetadata;
   }) {
@@ -1016,14 +1021,16 @@ export function useWorkspaceAgentDirectWorkController({
       );
       const state = brokerContinuationStateRef.current;
       const continuationDecision = state
-        ? shouldContinueWorkspaceAgentBrokerAction({
+        ? decideWorkspaceAgentBrokerActionContinuation({
             capability: brokerResult.policyDecision.capability,
+            confirmationInjected,
             request,
             result: brokerResult.result,
             state,
           })
         : {
             shouldContinue: false as const,
+            diagnostics: null,
             stopReason: "thread_unavailable" as const,
           };
       const continuationThreadId =
@@ -1040,6 +1047,7 @@ export function useWorkspaceAgentDirectWorkController({
         actionIndex,
         capabilityId: request.capabilityId,
         message,
+        policyDiagnostics: continuationDecision.diagnostics ?? undefined,
         result: brokerResult.result,
         runMetadata,
         stopReason,
@@ -1050,6 +1058,7 @@ export function useWorkspaceAgentDirectWorkController({
       }
 
       const resultContext = createWorkspaceAgentBrokerActionResultContext({
+        policyDiagnostics: continuationDecision.diagnostics ?? undefined,
         request,
         result: brokerResult.result,
         stopReason,
@@ -1175,6 +1184,7 @@ export function useWorkspaceAgentDirectWorkController({
     activityRunId,
     capabilityId,
     message,
+    policyDiagnostics,
     result,
     runMetadata,
     severity,
@@ -1186,6 +1196,7 @@ export function useWorkspaceAgentDirectWorkController({
     activityRunId: string;
     capabilityId?: string;
     message: string;
+    policyDiagnostics?: WorkspaceAgentBrokerPolicyDiagnostics;
     result?: HobitAgentActionResult;
     runMetadata: WorkspaceAgentRunMetadata;
     severity?: AgentActivitySeverity;
@@ -1193,6 +1204,15 @@ export function useWorkspaceAgentDirectWorkController({
     stopReason?: WorkspaceAgentBrokerContinuationStopReason;
     title?: string;
   }) {
+    const messageWithDiagnostics =
+      stopReason && policyDiagnostics
+        ? [
+            message,
+            formatWorkspaceAgentBrokerPolicyDiagnosticSummary(
+              policyDiagnostics,
+            ),
+          ].join(" ")
+        : message;
     const transcriptMessage =
       actionIndex && capabilityId
         ? formatWorkspaceAgentBrokerActionTranscript({
@@ -1202,9 +1222,9 @@ export function useWorkspaceAgentDirectWorkController({
               brokerContinuationStateRef.current?.maxActions ??
               WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
             stopReason,
-            summary: message,
+            summary: messageWithDiagnostics,
           })
-        : message;
+        : messageWithDiagnostics;
     setDirectWorkFinalResult(transcriptMessage);
     appendDirectWorkLog(transcriptMessage, "local");
     publishHobitActionActivityEvent({
