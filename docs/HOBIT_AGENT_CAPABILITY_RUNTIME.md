@@ -281,14 +281,20 @@ content.
 Queue backend-backed broker capabilities are `queue.items.list`,
 `queue.lifecycle.get`, `queue.review.getEvidenceBundle`,
 `queue.review.createMessage`, `queue.review.ack`, and
-`queue.lifecycle.agentFinished`, and `queue.item.markDone`. `queue.item.markDone`
+`queue.lifecycle.agentFinished`, `queue.item.markDone`, and `queue.item.fail`.
+`queue.item.markDone`
 is the accepted-completion command and requires explicit `taskId`, trusted
 actor id from runtime context, and top-level
 `confirmationToken: "operator-confirmed"`; prose confirmation is insufficient.
-It is not auto-continuation safe. Transitional lifecycle capabilities remain
+`queue.item.fail` is the terminal-failure command and requires explicit
+`taskId`, visible `reason`, trusted actor id from runtime context, durable
+worker evidence, an ACKed review message, and the same exact top-level
+confirmation token. Worker failure evidence alone is not terminal failure. Both
+commands are not auto-continuation safe. Transitional lifecycle capabilities
+remain
 `queue.coordinator.approveValidation`,
-`queue.coordinator.addFollowUpPrompt`, `queue.item.block`, and
-`queue.item.fail`; these are not auto-continuation safe
+`queue.coordinator.addFollowUpPrompt`, and `queue.item.block`; these are not
+auto-continuation safe
 and must remain policy-restricted until moved to durable backend ownership.
 Among backend-backed writes, only a successful `queue.review.ack` is
 auto-continuation safe, and only so the same action chain can read final
@@ -374,19 +380,22 @@ results: `waiting`, `blocked`, `failed_upstream`, and `unknown` do not get
 converted into `queue.item.startRun`, `queue.enable`, or runnable
 `queue.item.promoteDraft` suggestions.
 `queue.review.createMessage` and `queue.review.ack` call typed frontend bridge
-methods backed by Tauri review command DTOs. `queue.item.markDone` calls a
-typed frontend bridge method backed by the Tauri accepted-completion command
-DTO. These paths do not read Queue board snapshots, selected task detail,
+methods backed by Tauri review command DTOs. `queue.item.markDone` and
+`queue.item.fail` call typed frontend bridge methods backed by the Tauri
+accepted-completion and terminal-failure command DTOs. These paths do not read
+Queue board snapshots, selected task detail,
 frontend lifecycle or evidence overlays, UI hooks, or broker-local lifecycle
-maps as product truth. The aggregate read, review command, and completion
-command paths do not run workers, validation, Git, rollback, Terminal, shell,
-or Codex, and do not infer task ids from natural language. Backend and Tauri
+maps as product truth. The aggregate read, review command, completion command,
+and failure command paths do not run workers, validation, Git, rollback,
+Terminal, shell, or Codex, and do not infer task ids from natural language.
+Backend and Tauri
 headless contract tests now prove aggregate list/get,
 lifecycle/readiness inspection, run-link state, dependency
 waiting/failed-upstream state, review create/ACK preconditions and durability,
-accepted-completion preconditions and durability, read-only aggregate behavior,
-explicit task identity, and honest `not_durable` / `unknown` states without
-launching the frontend. Queue
+accepted-completion preconditions and durability, terminal-failure
+preconditions and durability, read-only aggregate behavior, explicit task
+identity, and honest `not_durable` / `unknown` states without launching the
+frontend. Queue
 card/details rendering migration to the aggregate DTO remains a later phase.
 The Workspace Agent bridge adapter uses an injected Queue backend API port for
 backend-backed Queue capabilities so those paths can be tested without
@@ -478,10 +487,12 @@ Queue dogfood lifecycle capabilities are typed broker capabilities. Workspace
 Agent or Coordinator Agent can report an agent finish with explicit `taskId`
 and `runId`, create and ACK review messages, record validation approval
 placeholders, add follow-up prompts, request backend accepted completion, and
-block/fail an item through structured `hobit.action.request` envelopes.
+request backend terminal failure or block an item through structured
+`hobit.action.request` envelopes.
 `queue.lifecycle.agentFinished`, `queue.review.getEvidenceBundle`,
-`queue.review.createMessage`, `queue.review.ack`, and `queue.item.markDone` are
-backend/domain/Tauri-backed in the Workspace Agent bridge path. Worker-finished
+`queue.review.createMessage`, `queue.review.ack`, `queue.item.markDone`, and
+`queue.item.fail` are backend/domain/Tauri-backed in the Workspace Agent bridge
+path. Worker-finished
 persists only the durable worker evidence bundle plus task/run-link completion
 state required for aggregate readiness. Review create/ACK persist only the
 review message ledger. `queue.review.ack` input is `messageId`, not
@@ -489,10 +500,13 @@ review message ledger. `queue.review.ack` input is `messageId`, not
 `review_message_already_exists`, backend `existingMessageId` maps to
 `nextAction.input.messageId` for a typed ACK follow-up. MarkDone persists only
 the accepted-completion decision ledger after backend aggregate preconditions pass.
+Fail persists only the terminal-failure decision ledger after backend aggregate
+preconditions pass; worker failure evidence and review ACK alone do not mark
+terminal failure.
 The model does not need to invent
 `coordinatorAgentId`; the Workspace Agent bridge supplies a trusted actor id
 from request context and falls back to `workspace-agent` only when no stronger
-context exists. Validation approval, follow-up, fail, and block
+context exists. Validation approval, follow-up, and block
 remain transitional frontend/controller overlay writes and do not persist
 durable validation/commit/decision state. `queue.lifecycle.get` requires
 explicit `taskId`, reads the backend aggregate DTO, returns ticket, worker,
@@ -502,8 +516,9 @@ blockers, next actions, latest run, evidence summary, durable flags, and
 after success. `queue.review.ack` is backend-backed and continuation-safe after
 success only to let the next model step read state, normally through
 `queue.lifecycle.get`; it does not auto-finalize or mark the Queue item done.
-Only explicit `queue.item.markDone` can finalize done, and it is not
-auto-continuation safe.
+Only explicit `queue.item.markDone` can finalize done, only explicit
+`queue.item.fail` can mark terminal failure, and neither is auto-continuation
+safe.
 `queue.review.getEvidenceBundle` is a backend-backed read-only evidence query,
 requires explicit `taskId`, accepts optional `runId`, does not mutate Queue
 state, and is also safe for broker auto-continuation after success. These
@@ -573,15 +588,18 @@ real worker event integration remain future work.
 
 Lifecycle dry-runs preview the intended transition and do not mutate the
 frontend lifecycle overlay, backend worker evidence ledger, or backend review
-ledger. `queue.item.markDone` is not advertised as dry-run safe and requires
-exact structured confirmation for real invocation. Worker-finished invocation
+ledger. `queue.item.markDone` and `queue.item.fail` are not advertised as
+dry-run safe and require exact structured confirmation for real invocation.
+Worker-finished invocation
 with `dryRun: false` mutates only the backend worker evidence ledger plus
 task/run-link completion state through typed Tauri commands and returns
 updated aggregate state. Review create/ACK invocation with `dryRun: false`
 mutates only the backend review message ledger through typed Tauri commands
 and returns updated aggregate state. MarkDone invocation with `dryRun: false`
 mutates only the backend accepted-completion ledger and returns updated
-aggregate state. Other lifecycle invocation with `dryRun: false` mutates only
+aggregate state. Fail invocation with `dryRun: false` mutates only the backend
+terminal-failure ledger and returns updated aggregate state. Other lifecycle
+invocation with `dryRun: false` mutates only
 the current frontend/controller overlay when the injected lifecycle adapter or
 Queue bridge can provide the task seed. No Git command, validation execution,
 rollback, Terminal launch, worker start, or commit capability is implemented

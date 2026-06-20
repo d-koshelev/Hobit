@@ -316,18 +316,30 @@ function handleFailItem(
 ): QueueDogfoodLifecycleHandlerResult {
   const validation = readInput<QueueAgentFailInput>(
     request,
-    ["taskId", "coordinatorAgentId", "reason"],
-    ["taskId", "coordinatorAgentId", "reason", "failedAt", "decisionId"],
+    ["taskId", "reason"],
+    [
+      "taskId",
+      "reason",
+      "runId",
+      "evidenceBundleId",
+      "messageId",
+      "reviewMessageId",
+    ],
   );
   if (!validation.ok) {
     return invalidInput(request, validation.message);
+  }
+
+  const confirmationError = exactQueueConfirmationError(request);
+  if (confirmationError) {
+    return invalidInput(request, confirmationError);
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
     lifecycle.failItem(
       {
         ...validation.value,
-        coordinatorAgentId: validation.value.coordinatorAgentId as string,
+        confirmationToken: request.confirmationToken as string,
         reason: validation.value.reason as string,
         taskId: validation.value.taskId as string,
       },

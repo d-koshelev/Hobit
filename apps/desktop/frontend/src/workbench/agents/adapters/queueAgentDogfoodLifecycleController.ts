@@ -8,7 +8,6 @@ import {
   createDogfoodLifecycleItem,
   createReviewMessage,
   failAgentPrompt,
-  failQueueItem,
   markAgentPromptNotCompleted,
   markQueueItemDone,
   queueDogfoodLifecycleItem,
@@ -28,7 +27,6 @@ import type {
   QueueAgentApproveValidationInput,
   QueueAgentBlockInput,
   QueueAgentDogfoodLifecycleAdapterApi,
-  QueueAgentFailInput,
   QueueAgentLifecycleAgentFinishedInput,
   QueueAgentLifecycleGetInput,
   QueueAgentLifecycleGetOutput,
@@ -101,11 +99,6 @@ type RequiredBlockInput = Required<
   Pick<QueueAgentBlockInput, "coordinatorAgentId" | "reason" | "taskId">
 > &
   Omit<QueueAgentBlockInput, "coordinatorAgentId" | "reason" | "taskId">;
-
-type RequiredFailInput = Required<
-  Pick<QueueAgentFailInput, "coordinatorAgentId" | "reason" | "taskId">
-> &
-  Omit<QueueAgentFailInput, "coordinatorAgentId" | "reason" | "taskId">;
 
 export function createInMemoryQueueDogfoodLifecycleAdapterApi({
   getTaskSeed,
@@ -325,17 +318,14 @@ export function createInMemoryQueueDogfoodLifecycleAdapterApi({
           });
         },
       ),
-    failItem: (input: RequiredFailInput, context) =>
-      applyTransition(input, context, "Queue item failed", (item) =>
-        failQueueItem(item, {
-          coordinatorAgentId: input.coordinatorAgentId,
-          decisionId:
-            input.decisionId ??
-            idFromParts("decision-fail", input.taskId, context.requestId),
-          failedAt: input.failedAt ?? context.requestedAt,
-          reason: input.reason,
-        }),
-      ),
+    failItem: () => ({
+      message:
+        "Queue terminal failure is backend-owned and unavailable from the in-memory lifecycle controller.",
+      reasons: [
+        "Queue terminal failure is backend-owned and unavailable from the in-memory lifecycle controller.",
+      ],
+      status: "unavailable",
+    }),
     getEvidenceBundle: (
       input: Required<Pick<QueueAgentReviewEvidenceBundleInput, "taskId">>,
     ) =>

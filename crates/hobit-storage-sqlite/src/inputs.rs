@@ -225,6 +225,22 @@ pub struct NewAgentQueueCompletionDecision<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueFailureDecision<'a> {
+    pub decision_id: &'a str,
+    pub workspace_id: &'a str,
+    pub queue_task_id: &'a str,
+    pub run_id: Option<&'a str>,
+    pub run_link_id: Option<&'a str>,
+    pub evidence_bundle_id: Option<&'a str>,
+    pub review_message_id: Option<&'a str>,
+    pub actor_id: &'a str,
+    pub decision: &'a str,
+    pub reason: &'a str,
+    pub metadata_json: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueReviewMessageAckUpdate<'a> {
     pub actor_id: &'a str,
     pub status: &'a str,

@@ -426,12 +426,12 @@ function queueDogfoodBrokerPlanCases(): HobitAgentSmokeCase[] {
       componentId: "queue-dogfood-broker-loop",
       componentTitle: "Queue dogfood broker loop",
       expectedResultDescription:
-        "The fake failure branch keeps dependent work ineligible through the dependency gate.",
+        "The fake broker self-test confirms queue.item.fail is backend-owned and unavailable without durable backend failure state.",
       kind: "capability-dry-run",
       required: true,
       safeMode: "dry-run",
       source: "Action Broker Queue dogfood self-test",
-      title: "Failure keeps dependent blocked",
+      title: "Terminal failure requires backend durability",
       widgetId: "agent-queue",
     }),
     smokeCase({

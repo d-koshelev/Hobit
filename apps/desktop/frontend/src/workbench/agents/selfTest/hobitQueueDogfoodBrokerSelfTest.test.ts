@@ -83,7 +83,7 @@ describe("Queue dogfood broker self-test", () => {
     );
   });
 
-  it("passes the failure branch and keeps the dependent task blocked", () => {
+  it("keeps terminal failure backend-owned in the fake broker self-test", () => {
     const report = runQueueDogfoodBrokerSelfTest();
     const failure = caseById(
       report,
@@ -91,12 +91,12 @@ describe("Queue dogfood broker self-test", () => {
     );
 
     expect(failure).toMatchObject({
-      message: "Failure keeps dependent blocked.",
+      message: "Terminal failure requires backend durability.",
       status: "passed",
     });
     expect(failure.evidence).toEqual(
       expect.arrayContaining([
-        "ticketState: failure.",
+        "ticketState: backend-unavailable.",
         "Dependent startable after upstream failure: false.",
       ]),
     );

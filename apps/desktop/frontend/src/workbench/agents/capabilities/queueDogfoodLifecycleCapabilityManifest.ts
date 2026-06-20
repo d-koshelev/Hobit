@@ -60,7 +60,9 @@ const COMPACT_GUIDANCE = [
   "Review actor fields are trusted context fields; omit coordinatorAgentId unless an exact typed actor id is already available.",
   "queue.item.markDone is a backend/Tauri accepted-completion command. ACK does not mean done; worker completion does not mean done. Use it only after backend aggregate state is in_review with ACKed review and durable evidence.",
   "queue.item.markDone requires top-level confirmationToken=\"operator-confirmed\" after explicit operator confirmation. Prose confirmation is insufficient.",
-  "Validation, follow-up, block, and fail lifecycle capabilities remain transitional frontend/controller overlay operations when dryRun=false and are not auto-continuation safe.",
+  "queue.item.fail is a backend/Tauri terminal failure decision. Worker failure evidence does not mean terminal failure; ACK does not mean failure. Use it only after backend aggregate state is in_review with ACKed review and durable evidence.",
+  "queue.item.fail requires top-level confirmationToken=\"operator-confirmed\" after explicit operator confirmation plus a visible reason. Prose confirmation is insufficient.",
+  "Validation, follow-up, and block lifecycle capabilities remain transitional frontend/controller overlay operations when dryRun=false and are not auto-continuation safe.",
   "Dry-run previews must not mutate lifecycle state or create review messages.",
   "Do not run workers, validation, Git, Terminal, rollback, shell, or Codex from these capabilities.",
 ] as const;
@@ -256,22 +258,27 @@ const BLOCK_SCHEMA: HobitAgentCapabilityInputSchema = {
 const FAIL_SCHEMA: HobitAgentCapabilityInputSchema = {
   acceptedFields: [
     "taskId",
-    "coordinatorAgentId",
     "reason",
-    "decisionId",
-    "failedAt",
+    "runId",
+    "evidenceBundleId",
+    "messageId",
+    "reviewMessageId",
   ],
   fieldDescriptions: {
-    coordinatorAgentId: "Required coordinator or Workspace Agent id.",
-    decisionId: "Optional coordinator decision id.",
-    failedAt: "Optional ISO timestamp; broker request time is used by default.",
-    reason: "Required visible reason.",
+    evidenceBundleId:
+      "Optional exact backend evidence bundle id returned by typed results.",
+    messageId:
+      "Optional exact backend review message id returned by typed review results. Prefer reviewMessageId in new requests.",
+    reason: "Required visible failure reason. Does not run validation, Git, rollback, or Terminal.",
+    reviewMessageId:
+      "Optional exact backend review message id returned by typed review results.",
+    runId: "Optional exact worker run id returned by typed backend results.",
     taskId: "Required Queue item id.",
   },
   invalidInputGuidance: COMPACT_GUIDANCE,
-  requiredFields: ["taskId", "coordinatorAgentId", "reason"],
+  requiredFields: ["taskId", "reason", "top-level confirmationToken"],
   shape:
-    '{"taskId":"string required","coordinatorAgentId":"string required","reason":"string required","decisionId":"string optional","failedAt":"string optional"}',
+    '{"taskId":"string required","reason":"string required","runId":"string optional exact typed id","evidenceBundleId":"string optional exact typed id","reviewMessageId":"string optional exact typed id"}; top-level confirmationToken="operator-confirmed" required',
 };
 
 const GET_SCHEMA: HobitAgentCapabilityInputSchema = {
@@ -358,8 +365,7 @@ const BLOCK_EXAMPLE = {
 } as const;
 
 const FAIL_EXAMPLE = {
-  coordinatorAgentId: "workspace-agent",
-  reason: "Worker reported a terminal failure.",
+  reason: "Operator rejected the ACKed worker evidence.",
   taskId: "task-id",
 } as const;
 
@@ -503,18 +509,22 @@ export const QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES: HobitAgentCapability[] = [
   }),
   lifecycleCapability({
     auditLabel: "Queue item failed",
+    confirmationRequirement: "required",
     description:
-      "Fail an in-review Queue dogfood lifecycle item with a visible coordinator reason.",
+      "Record backend-owned terminal failure for an in-review ACKed Queue item with durable worker evidence. Does not run validation, Git, rollback, Terminal, or workers.",
     examples: [
       envelopeExample(
-        "Fail a transitional Queue lifecycle item.",
+        "Fail an ACKed Queue item after explicit structured confirmation.",
         "queue.item.fail",
         FAIL_EXAMPLE,
       ),
     ],
+    forbiddenSideEffects: BACKEND_REVIEW_FORBIDDEN_SIDE_EFFECTS,
     id: "queue.item.fail",
     inputSchema: FAIL_SCHEMA,
-    output: "Lifecycle overlay with ticketState failure.",
+    output:
+      "Backend failure command result with durable decision id, ticketState failure, reviewState failed, nextSuggestedCapability null, blockers on invalid preconditions, and no Git/validation/rollback execution.",
+    supportsDryRun: false,
     title: "Fail Queue Item",
   }),
   lifecycleCapability({
@@ -615,7 +625,8 @@ function envelopeExample(
     description,
     exampleActionRequest: {
       capabilityId,
-      ...(capabilityId === "queue.item.markDone"
+      ...(capabilityId === "queue.item.markDone" ||
+      capabilityId === "queue.item.fail"
         ? { confirmationToken: "operator-confirmed" }
         : {}),
       dryRun: false,

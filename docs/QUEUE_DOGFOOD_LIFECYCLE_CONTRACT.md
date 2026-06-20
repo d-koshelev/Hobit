@@ -6,7 +6,8 @@ This contract defines the Queue dogfooding lifecycle boundary. The older
 frontend pure model still separates Queue ticket state from agent/prompt state
 for transitional UI and self-test flows, while backend/domain Queue aggregate
 review command contracts now own durable worker evidence, review-message
-preconditions, and review message/ACK state.
+preconditions, review message/ACK state, accepted completion, and terminal
+failure decisions.
 
 Queue backend ownership is governed by
 `docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`. If this document and the ownership
@@ -20,7 +21,8 @@ backend/domain `QueueItemAggregate` read model is the authoritative durable read
 path over existing Queue task rows, run links, dependencies, worker evidence
 bundle rows, and review message ledger rows. The backend now persists Queue
 worker evidence, review messages, ACK state, and accepted-completion
-decisions; validation decisions, commit decisions, fail/block, and scheduler
+decisions, and terminal-failure decisions; validation decisions, commit
+decisions, block, and scheduler
 state remain later work.
 
 ## Status
@@ -31,8 +33,8 @@ controller/view-model adapter, worker evidence bundle model, ingestion bridge,
 Queue-linked Direct Work metadata seam, and broker-driven fake dogfooding
 self-test remain transitional. The backend owns `queue.lifecycle.agentFinished`,
 `queue.review.getEvidenceBundle`, `queue.review.createMessage`, and
-`queue.review.ack`, and `queue.item.markDone` for Workspace Agent bridge paths
-through typed Tauri commands.
+`queue.review.ack`, `queue.item.markDone`, and `queue.item.fail` for Workspace
+Agent bridge paths through typed Tauri commands.
 
 The implemented model and adapter layer live under:
 
@@ -51,8 +53,9 @@ The controller/view-model adapter remains an overlay for frontend Queue
 controller helpers, QueueV2 presentation, fake lifecycle tests, evidence
 bundle reads, and lifecycle commands that have not moved to backend/domain yet.
 `queue.lifecycle.agentFinished`, `queue.review.getEvidenceBundle`,
-`queue.review.createMessage`, `queue.review.ack`, and `queue.item.markDone` no
-longer use that overlay as product truth in the Workspace Agent bridge path.
+`queue.review.createMessage`, `queue.review.ack`, `queue.item.markDone`, and
+`queue.item.fail` no longer use that overlay as product truth in the Workspace
+Agent bridge path.
 
 Backend/domain aggregate and review command foundation:
 
@@ -77,6 +80,12 @@ Backend/domain aggregate and review command foundation:
   identity, trusted actor id, exact structured confirmation, durable completed
   worker evidence, a durable ACKed review message, and aggregate preconditions
   before persisting the completion decision.
+- `crates/hobit-app/src/workspace_service/agent_queue_failure.rs` owns the
+  backend terminal-failure command. It requires explicit workspace/task
+  identity, trusted actor id, exact structured confirmation, visible reason,
+  durable worker evidence, a durable ACKed review message, and aggregate
+  preconditions before persisting the failure decision. Worker failure evidence
+  alone is not terminal task failure.
 - `apps/desktop/src-tauri/src/agent_queue_aggregate_dto.rs` and
   `apps/desktop/src-tauri/src/agent_queue_aggregate_commands.rs` expose
   read-only aggregate list/get commands to the desktop bridge.
@@ -89,6 +98,9 @@ Backend/domain aggregate and review command foundation:
 - `apps/desktop/src-tauri/src/agent_queue_completion_dto.rs` and
   `apps/desktop/src-tauri/src/agent_queue_completion_commands.rs` expose typed
   accepted-completion commands to the desktop bridge.
+- `apps/desktop/src-tauri/src/agent_queue_failure_dto.rs` and
+  `apps/desktop/src-tauri/src/agent_queue_failure_commands.rs` expose typed
+  terminal-failure commands to the desktop bridge.
 - `crates/hobit-app/src/workspace_service/agent_queue_headless_contract_tests.rs`
   proves the backend/domain contract headlessly through `WorkspaceService` and
   storage fixtures, without launching the frontend.
@@ -110,11 +122,12 @@ Backend/domain aggregate and review command foundation:
 - Workspace Agent / broker read wiring for `queue.items.list` and
   `queue.lifecycle.get` now uses this aggregate DTO through the typed frontend
   bridge. Workspace Agent / broker worker finished, evidence read, review
-  create, ACK, and accepted completion now call typed backend/Tauri commands.
+  create, ACK, accepted completion, and terminal failure now call typed
+  backend/Tauri commands.
   Queue UI rendering
   migration to the aggregate DTO remains a later phase, and the frontend overlay
   remains transitional compatibility behavior for validation, follow-up,
-  fail, and block lifecycle capabilities until durable commands exist.
+  and block lifecycle capabilities until durable commands exist.
 - Queue run-control next-action selection also reads Queue enabled/disabled
   state through the typed Workspace Queue bridge. Disabled Queue state surfaces
   `queue_disabled` / `Queue disabled.` and `nextSuggestedCapability:
@@ -505,7 +518,9 @@ completion decisions. It exposes dependency states `none`, `ready`, `waiting`,
 `queue.item.markDone` succeeds, downstream re-query clears that dependency
 blocker and exposes the downstream task's own next action, such as updating run
 settings or starting only after Queue enablement and explicit start
-preconditions.
+preconditions. After upstream `queue.item.fail` succeeds, downstream re-query
+reports `failed_upstream` from the durable failure decision ledger and does not
+expose a runnable next action.
 
 Workspace Agent dependency smoke must use typed create actions, not UI state:
 create upstream task A, read the returned task id, then create downstream task B
@@ -525,7 +540,7 @@ The frontend adapter layer can:
 - create or derive a dogfood lifecycle overlay for an existing Queue task
   without renaming or removing the legacy task status;
 - apply model transitions for agent completion, coordinator ACK, validation
-  approval, fake commit result attachment, block/fail, and follow-up prompt
+  approval, fake commit result attachment, block, and follow-up prompt
   decisions;
 - answer whether the item is awaiting review, in review, done-gated for
   dependents, or running a follow-up prompt;
@@ -589,6 +604,20 @@ surface typed backend blockers and aggregate state. Success emits no
 `nextAction` by default. Blocked finalization may point only to safe
 read-only inspection when helpful; it must not auto-provide confirmation,
 auto-run ACK, validation, Git, rollback, Terminal, shell, Codex, or workers.
+
+`queue.item.fail` requires explicit `taskId`, visible `reason`, and top-level
+`confirmationToken="operator-confirmed"` after explicit operator confirmation.
+The broker injects trusted actor id from runtime/request context and calls the
+backend/Tauri terminal-failure command. Optional `runId`, `evidenceBundleId`,
+`messageId`, and `reviewMessageId` are validation guards only. It succeeds only
+when the backend aggregate proves durable worker evidence exists, a review
+message exists and has been ACKed, the task is in review, and the task is not
+already done, already failed, running, draft, or queued. Worker failure evidence
+alone and review ACK alone do not mark terminal failure. Success returns
+`ticketState=failure`, `reviewState=failed`, durable failure state, and no
+next suggested capability. Blocked results surface typed backend blockers and
+aggregate state. Success emits no `nextAction`; it must not auto-run follow-up,
+validation, Git, rollback, Terminal, shell, Codex, workers, or downstream work.
 
 The remaining transitional lifecycle decision capabilities validate structured
 inputs, enforce broker policy, support dry-run previews, return compact
@@ -675,11 +704,22 @@ Real invocation for backend-backed accepted completion:
 - does not run workers, run validation, execute a Git commit, launch Terminal,
   execute rollback, call shell, or call Codex.
 
+Real invocation for backend-backed terminal failure:
+
+- persists only the failure decision ledger row through backend/domain/Tauri
+  commands;
+- requires exact structured confirmation, trusted actor id, and visible reason;
+- returns updated backend aggregate state with ticket failure/review failed and
+  no next suggested capability;
+- causes downstream dependency reads to report `failed_upstream`;
+- does not run workers, run validation, execute a Git commit, launch Terminal,
+  execute rollback, call shell, or call Codex.
+
 Real invocation for remaining transitional lifecycle writes:
 
 - mutates only the frontend/controller lifecycle overlay when the Queue bridge
   or injected lifecycle adapter can provide the current task;
-- may attach model-only validation approval or follow-up/fail/block metadata as
+- may attach model-only validation approval or follow-up/block metadata as
   required by the pure model;
 - does not claim backend durability;
 - does not run workers, run validation, execute a Git commit, launch Terminal,
@@ -751,13 +791,13 @@ Workspace Agent structured action-request invocation.
 Queue lifecycle capability hardening is schema-first. Registered backend-backed
 capabilities (`queue.lifecycle.get`, `queue.review.getEvidenceBundle`,
 `queue.review.createMessage`, `queue.review.ack`,
-`queue.lifecycle.agentFinished`, and `queue.item.markDone`) list exact
-required ids and trusted
+`queue.lifecycle.agentFinished`, `queue.item.markDone`, and `queue.item.fail`)
+list exact required ids and trusted
 runtime/backend actor defaults in the manifest. The registered evidence read id
 is `queue.review.getEvidenceBundle`; there is no lifecycle-namespaced evidence
 read alias. Transitional lifecycle writes
 (`queue.coordinator.approveValidation`, `queue.coordinator.addFollowUpPrompt`,
-`queue.item.block`, and `queue.item.fail`) remain
+and `queue.item.block`) remain
 frontend/controller overlay operations, are not auto-continuation safe, and do
 not run validation, Git, rollback, Terminal, shell, Codex, or workers. Prose
 confirmation and prose id mentions remain insufficient for any structured
@@ -773,6 +813,7 @@ frontend lifecycle/controller store and invokes:
 - `queue.review.ack`
 - `queue.coordinator.approveValidation`
 - `queue.item.markDone`
+- `queue.item.fail`
 - `queue.coordinator.addFollowUpPrompt`
 
 The broker self-test verifies the main success path from agent finished to
@@ -782,7 +823,7 @@ the fake frontend store, and dependents staying gated without durable accepted
 completion. It also verifies the follow-up branch returns the same item to
 `running` with agent/prompt state
 `additional_prompt_running` and increments `additionalPromptCount`, plus a
-failure branch that keeps dependent work ineligible.
+backend-required terminal failure boundary in the fake frontend store.
 
 The main success path invokes `queue.lifecycle.agentFinished` with a fake
 frontend worker evidence bundle instead of only loose final-agent fields. That

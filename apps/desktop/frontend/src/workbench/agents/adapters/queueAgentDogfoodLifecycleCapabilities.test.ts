@@ -73,7 +73,11 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       expect(capability).toMatchObject({
         availability: { status: "available" },
         ownerSurface: "Agent Queue",
-        supportsDryRun: capabilityId === "queue.item.markDone" ? false : true,
+        supportsDryRun:
+          capabilityId === "queue.item.markDone" ||
+          capabilityId === "queue.item.fail"
+            ? false
+            : true,
       });
       expect(capability.inputSchema?.requiredFields).toBeDefined();
       expect(capability.forbiddenSideEffects).toEqual(
@@ -94,7 +98,8 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
         capabilityId !== "queue.review.getEvidenceBundle" &&
         capabilityId !== "queue.review.createMessage" &&
         capabilityId !== "queue.review.ack" &&
-        capabilityId !== "queue.item.markDone"
+        capabilityId !== "queue.item.markDone" &&
+        capabilityId !== "queue.item.fail"
       ) {
         expect(capability.forbiddenSideEffects).toEqual(
           expect.arrayContaining(["backend_durability"]),
@@ -165,6 +170,18 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       requiredFields: ["taskId", "top-level confirmationToken"],
     });
     expect(
+      requiredCapability(registry, "queue.item.fail").inputSchema,
+    ).toMatchObject({
+      acceptedFields: expect.arrayContaining([
+        "taskId",
+        "reason",
+        "runId",
+        "evidenceBundleId",
+        "reviewMessageId",
+      ]),
+      requiredFields: ["taskId", "reason", "top-level confirmationToken"],
+    });
+    expect(
       requiredCapability(registry, "queue.lifecycle.get").inputSchema,
     ).toMatchObject({
       acceptedFields: ["taskId"],
@@ -188,6 +205,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     const backendBackedCapabilities = [
       "queue.lifecycle.agentFinished",
       "queue.lifecycle.get",
+      "queue.item.fail",
       "queue.item.markDone",
       "queue.review.ack",
       "queue.review.createMessage",
@@ -197,7 +215,6 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       "queue.coordinator.approveValidation",
       "queue.coordinator.addFollowUpPrompt",
       "queue.item.block",
-      "queue.item.fail",
     ];
 
     for (const capabilityId of backendBackedCapabilities) {
@@ -246,6 +263,20 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     });
     expect(
       QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.item.markDone"),
+    ).toMatchObject({
+      autoContinuationSafe: false,
+      backing: "backend_backed",
+      confirmation: {
+        required: true,
+        value: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      },
+      confirmationRequirement: "required",
+      requiredIds: {
+        taskId: true,
+      },
+    });
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.item.fail"),
     ).toMatchObject({
       autoContinuationSafe: false,
       backing: "backend_backed",
@@ -786,6 +817,43 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     );
   });
 
+  it("requires exact structured confirmation before fail reaches backend", () => {
+    const broker = lifecycleBroker({
+      initialLifecycles: [inReviewItem()],
+    });
+
+    const missingConfirmation = broker.invoke(
+      request({
+        capabilityId: "queue.item.fail",
+        input: {
+          reason: "Operator rejected evidence.",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(missingConfirmation.status).toBe("needs_confirmation");
+    expect(missingConfirmation.result.message).toContain(
+      "queue.item.fail requires confirmation.",
+    );
+
+    const exactConfirmation = broker.invoke(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Operator rejected evidence.",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(exactConfirmation.status).toBe("unavailable");
+    expect(exactConfirmation.result.message).toBe(
+      "Queue terminal failure is backend-owned and unavailable from the in-memory lifecycle controller.",
+    );
+  });
+
   it("keeps dependents gated until backend accepted completion", () => {
     const awaitingReview = awaitingReviewItem();
     const inReview = inReviewItem();
@@ -832,7 +900,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     );
   });
 
-  it("blocks and fails in-review items with visible reasons", () => {
+  it("blocks transitional items but does not fake backend-owned failure", () => {
     const broker = lifecycleBroker({
       initialLifecycles: [inReviewItem("task-block"), inReviewItem("task-fail")],
     });
@@ -850,8 +918,8 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     const failed = broker.invoke(
       request({
         capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
         input: {
-          coordinatorAgentId: "workspace-agent",
           reason: "Validation cannot pass.",
           taskId: "task-fail",
         },
@@ -865,13 +933,10 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       },
       ticketState: "blocked",
     });
-    expect(failed.status).toBe("succeeded");
-    expect(failed.result.output).toMatchObject({
-      lifecycle: {
-        failureReason: "Validation cannot pass.",
-      },
-      ticketState: "failure",
-    });
+    expect(failed.status).toBe("unavailable");
+    expect(failed.result.message).toBe(
+      "Queue terminal failure is backend-owned and unavailable from the in-memory lifecycle controller.",
+    );
   });
 
   it("returns unavailable when lifecycle controller dependencies are absent", () => {

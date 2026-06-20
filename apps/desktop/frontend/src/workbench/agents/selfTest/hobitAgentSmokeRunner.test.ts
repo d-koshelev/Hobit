@@ -259,7 +259,7 @@ describe("hobitAgentSmokeRunner aggregation", () => {
       result(report, "queue-dogfood-broker:failure-dependent-blocked"),
     ).toMatchObject({
       capabilityId: "queue.item.fail",
-      message: "Failure keeps dependent blocked.",
+      message: "Terminal failure requires backend durability.",
       status: "passed",
     });
     expect(result(report, "queue-dogfood-broker:backend-durability")).toMatchObject({

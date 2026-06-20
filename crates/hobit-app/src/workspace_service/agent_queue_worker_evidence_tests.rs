@@ -158,11 +158,11 @@ fn record_failed_worker_evidence_is_durable_without_marking_done() {
     );
     assert_eq!(
         result.aggregate.ticket_state,
-        QueueItemAggregateTicketState::Failure
+        QueueItemAggregateTicketState::AwaitingReview
     );
     assert_eq!(
         result.aggregate.review_state,
-        QueueItemAggregateReviewState::Failed
+        QueueItemAggregateReviewState::AwaitingReview
     );
     assert_eq!(
         result.aggregate.evidence_state,
@@ -172,6 +172,8 @@ fn record_failed_worker_evidence_is_durable_without_marking_done() {
         result.aggregate.ticket_state,
         QueueItemAggregateTicketState::Done
     );
+    assert!(!result.aggregate.durable_flags.failure_state);
+    assert_action_available(&result.aggregate, "create_review_message");
 }
 
 #[test]

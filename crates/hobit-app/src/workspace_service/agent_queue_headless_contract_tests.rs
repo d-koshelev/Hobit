@@ -208,7 +208,7 @@ fn headless_running_and_completed_run_links_drive_awaiting_review_not_done() {
 }
 
 #[test]
-fn headless_failed_run_link_reports_failure_consistently() {
+fn headless_failed_run_link_awaits_review_without_terminal_failure() {
     let service = initialized_service();
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
     let task = create_task(
@@ -252,7 +252,7 @@ fn headless_failed_run_link_reports_failure_consistently() {
 
     assert_eq!(
         aggregate.ticket_state,
-        QueueItemAggregateTicketState::Failure
+        QueueItemAggregateTicketState::AwaitingReview
     );
     assert_ne!(aggregate.ticket_state, QueueItemAggregateTicketState::Done);
     assert_eq!(
@@ -261,17 +261,17 @@ fn headless_failed_run_link_reports_failure_consistently() {
     );
     assert_eq!(
         aggregate.review_state,
-        QueueItemAggregateReviewState::Failed
+        QueueItemAggregateReviewState::AwaitingReview
     );
     assert_eq!(
         aggregate.evidence_state,
         QueueItemAggregateEvidenceState::NotDurable
     );
-    assert_blocker(&aggregate, "final_failed");
-    assert_action(&aggregate, "none");
+    assert_blocker(&aggregate, "awaiting_review");
+    assert_action(&aggregate, "create_review_message");
     assert_eq!(
         aggregate.next_actions[0].unavailable_reason.as_deref(),
-        Some("final_failed")
+        None
     );
 }
 
@@ -336,7 +336,7 @@ fn headless_dependency_gate_waits_for_accepted_completion_not_worker_completion(
 }
 
 #[test]
-fn headless_dependency_failed_upstream_is_visible_without_frontend_state() {
+fn headless_raw_failed_upstream_without_failure_decision_keeps_dependency_waiting() {
     let service = initialized_service();
     let workspace = service
         .create_empty_workspace("Queue headless dependencies", None)
@@ -368,16 +368,16 @@ fn headless_dependency_failed_upstream_is_visible_without_frontend_state() {
 
     assert_eq!(
         aggregate.dependency_state,
-        QueueItemAggregateDependencyState::FailedUpstream
+        QueueItemAggregateDependencyState::Waiting
     );
     assert_eq!(
         aggregate.ticket_state,
-        QueueItemAggregateTicketState::Blocked
+        QueueItemAggregateTicketState::Queued
     );
-    assert_blocker(&aggregate, "dependency_failed");
+    assert_blocker(&aggregate, "dependency_waiting");
     assert_eq!(
         aggregate.next_actions[0].unavailable_reason.as_deref(),
-        Some("dependency_failed")
+        Some("dependencies_not_ready")
     );
 }
 

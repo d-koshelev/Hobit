@@ -14,10 +14,12 @@ import type {
   AgentQueueReviewCommandResult,
   AgentQueueReviewCreateMessageResult,
   AgentQueueCompletionCommandResult,
+  AgentQueueFailureCommandResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
   AckAgentQueueReviewMessageRequest,
   CreateAgentQueueReviewMessageRequest,
+  FailAgentQueueItemRequest,
   GetAgentQueueWorkerEvidenceBundleRequest,
   GetAgentQueueItemAggregateRequest,
   ListAgentQueueItemAggregatesRequest,
@@ -140,6 +142,12 @@ export type WorkspaceQueueCompletionActions = {
   ) => Promise<AgentQueueCompletionCommandResult>;
 };
 
+export type WorkspaceQueueFailureActions = {
+  failAgentQueueItem: (
+    request: FailAgentQueueItemRequest,
+  ) => Promise<AgentQueueFailureCommandResult>;
+};
+
 export type WorkspaceQueueWorkerEvidenceActions = {
   getAgentQueueWorkerEvidenceBundle: (
     request: GetAgentQueueWorkerEvidenceBundleRequest,
@@ -179,6 +187,9 @@ export type WorkspaceAgentQueueBridge = {
   markItemDone?: (
     request: Omit<MarkAgentQueueItemDoneRequest, "workspaceId">,
   ) => Promise<AgentQueueCompletionCommandResult>;
+  failItem?: (
+    request: Omit<FailAgentQueueItemRequest, "workspaceId">,
+  ) => Promise<AgentQueueFailureCommandResult>;
   getWorkerEvidenceBundle?: (
     request: Omit<GetAgentQueueWorkerEvidenceBundleRequest, "workspaceId">,
   ) => Promise<AgentQueueWorkerEvidenceQueryResult>;
@@ -204,6 +215,7 @@ export function createWorkspaceAgentQueueBridge({
   contextActions,
   completionActions,
   controlActions,
+  failureActions,
   queueApi,
   reviewActions,
   queueState,
@@ -215,6 +227,7 @@ export function createWorkspaceAgentQueueBridge({
   contextActions?: WorkspaceQueueContextActions | null;
   completionActions?: WorkspaceQueueCompletionActions | null;
   controlActions?: WorkspaceQueueControlActions | null;
+  failureActions?: WorkspaceQueueFailureActions | null;
   queueApi: AgentQueueWidgetApi;
   reviewActions?: WorkspaceQueueReviewActions | null;
   queueState?: WorkspaceQueueStateAccess | null;
@@ -293,6 +306,13 @@ export function createWorkspaceAgentQueueBridge({
     markItemDone: completionActions
       ? (request) =>
           completionActions.markAgentQueueItemDone({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    failItem: failureActions
+      ? (request) =>
+          failureActions.failAgentQueueItem({
             ...request,
             workspaceId,
           })

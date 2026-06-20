@@ -8,8 +8,7 @@ use crate::WorkspaceServiceError;
 
 use super::{
     agent_queue_lifecycle::{
-        AGENT_QUEUE_TASK_STATUS_COMPLETED, AGENT_QUEUE_TASK_STATUS_FAILED,
-        AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED,
+        AGENT_QUEUE_TASK_STATUS_COMPLETED, AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED,
     },
     agent_queue_tasks::{load_agent_queue_task, map_storage_agent_queue_task_error},
     placeholder_id, placeholder_timestamp,
@@ -453,7 +452,6 @@ fn normalize_changed_files(changed_files: Vec<String>) -> Vec<String> {
 fn task_status_for_worker_outcome(outcome: &str) -> &'static str {
     match outcome {
         AGENT_QUEUE_WORKER_EVIDENCE_OUTCOME_COMPLETED => AGENT_QUEUE_TASK_STATUS_COMPLETED,
-        AGENT_QUEUE_WORKER_EVIDENCE_OUTCOME_FAILED => AGENT_QUEUE_TASK_STATUS_FAILED,
         _ => AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED,
     }
 }

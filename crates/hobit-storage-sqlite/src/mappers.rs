@@ -3,13 +3,13 @@
 use rusqlite::Result;
 
 use crate::rows::{
-    AgentQueueCompletionDecisionRow, AgentQueueItemRow, AgentQueueReviewMessageRow,
-    AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerEvidenceBundleRow,
-    AgentQueueWorkerRow, JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow,
-    KnowledgeDocumentRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow,
-    WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
-    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    AgentQueueCompletionDecisionRow, AgentQueueFailureDecisionRow, AgentQueueItemRow,
+    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
+    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, JdbcConnectionProfileRow,
+    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
+    KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow,
+    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 
 pub(crate) fn workspace_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceRow> {
@@ -247,6 +247,25 @@ pub(crate) fn agent_queue_completion_decision_row(
         reason: row.get(8)?,
         metadata_json: row.get(9)?,
         created_at: row.get(10)?,
+    })
+}
+
+pub(crate) fn agent_queue_failure_decision_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<AgentQueueFailureDecisionRow> {
+    Ok(AgentQueueFailureDecisionRow {
+        decision_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        queue_task_id: row.get(2)?,
+        run_id: row.get(3)?,
+        run_link_id: row.get(4)?,
+        evidence_bundle_id: row.get(5)?,
+        review_message_id: row.get(6)?,
+        actor_id: row.get(7)?,
+        decision: row.get(8)?,
+        reason: row.get(9)?,
+        metadata_json: row.get(10)?,
+        created_at: row.get(11)?,
     })
 }
 

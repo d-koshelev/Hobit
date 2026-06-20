@@ -31,6 +31,9 @@ mod agent_queue_context_tests;
 mod agent_queue_execution;
 #[cfg(test)]
 mod agent_queue_execution_tests;
+mod agent_queue_failure;
+#[cfg(test)]
+mod agent_queue_failure_tests;
 #[cfg(test)]
 mod agent_queue_headless_contract_tests;
 mod agent_queue_lifecycle;
@@ -170,6 +173,11 @@ pub use agent_queue_completion::{
     AgentQueueCompletionCommandStatus, AgentQueueCompletionDecisionSummary,
     MarkAgentQueueItemDoneInput, AGENT_QUEUE_ACCEPTED_COMPLETION_CONFIRMATION_TOKEN,
     AGENT_QUEUE_COMPLETION_DECISION_ACCEPTED,
+};
+pub use agent_queue_failure::{
+    AgentQueueFailureCommandBlocker, AgentQueueFailureCommandResult,
+    AgentQueueFailureCommandStatus, AgentQueueFailureDecisionSummary, FailAgentQueueItemInput,
+    AGENT_QUEUE_FAILURE_CONFIRMATION_TOKEN, AGENT_QUEUE_FAILURE_DECISION_FAILED,
 };
 pub use agent_queue_review::{
     AckAgentQueueReviewMessageInput, AgentQueueReviewCommandResult,

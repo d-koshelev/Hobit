@@ -2,11 +2,13 @@ import type {
   AckAgentQueueReviewMessageRequest,
   AgentQueueItemAggregate,
   AgentQueueCompletionCommandResult,
+  AgentQueueFailureCommandResult,
   AgentQueueReviewCommandResult,
   AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
   CreateAgentQueueReviewMessageRequest,
+  FailAgentQueueItemRequest,
   GetAgentQueueItemAggregateRequest,
   GetAgentQueueWorkerEvidenceBundleRequest,
   MarkAgentQueueItemDoneRequest,
@@ -30,6 +32,9 @@ export type QueueBackendCapabilityPort = {
   markItemDone: (
     request: Omit<MarkAgentQueueItemDoneRequest, "workspaceId">,
   ) => Promise<AgentQueueCompletionCommandResult>;
+  failItem: (
+    request: Omit<FailAgentQueueItemRequest, "workspaceId">,
+  ) => Promise<AgentQueueFailureCommandResult>;
   recordWorkerFinished: (
     request: Omit<RecordAgentQueueWorkerFinishedRequest, "workspaceId">,
   ) => Promise<AgentQueueWorkerFinishedCommandResult>;
@@ -49,6 +54,7 @@ export function createQueueBackendCapabilityPort(
     typeof candidate.getWorkerEvidenceBundle !== "function" &&
     typeof candidate.listItemAggregates !== "function" &&
     typeof candidate.markItemDone !== "function" &&
+    typeof candidate.failItem !== "function" &&
     typeof candidate.recordWorkerFinished !== "function"
   ) {
     return null;
@@ -79,6 +85,10 @@ export function createQueueBackendCapabilityPort(
       candidate.markItemDone
         ? candidate.markItemDone(request)
         : unavailable("Queue accepted completion command API is unavailable."),
+    failItem: (request) =>
+      candidate.failItem
+        ? candidate.failItem(request)
+        : unavailable("Queue terminal failure command API is unavailable."),
     recordWorkerFinished: (request) =>
       candidate.recordWorkerFinished
         ? candidate.recordWorkerFinished(request)

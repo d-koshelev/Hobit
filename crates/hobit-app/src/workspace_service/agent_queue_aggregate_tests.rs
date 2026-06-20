@@ -195,7 +195,7 @@ fn successful_completed_run_awaits_review_and_is_not_done() {
 }
 
 #[test]
-fn failed_run_reports_failure_without_marking_done() {
+fn failed_run_awaits_review_without_terminal_failure() {
     let service = initialized_service();
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
     let task = create_task(
@@ -239,7 +239,7 @@ fn failed_run_reports_failure_without_marking_done() {
 
     assert_eq!(
         aggregate.ticket_state,
-        QueueItemAggregateTicketState::Failure
+        QueueItemAggregateTicketState::AwaitingReview
     );
     assert_ne!(aggregate.ticket_state, QueueItemAggregateTicketState::Done);
     assert_eq!(
@@ -248,9 +248,15 @@ fn failed_run_reports_failure_without_marking_done() {
     );
     assert_eq!(
         aggregate.review_state,
-        QueueItemAggregateReviewState::Failed
+        QueueItemAggregateReviewState::AwaitingReview
     );
-    assert_blocker(&aggregate, "final_failed");
+    assert_eq!(
+        aggregate.evidence_state,
+        QueueItemAggregateEvidenceState::NotDurable
+    );
+    assert_blocker(&aggregate, "awaiting_review");
+    assert_action(&aggregate, "create_review_message");
+    assert!(!aggregate.durable_flags.failure_state);
 }
 
 #[test]
@@ -460,7 +466,7 @@ fn missing_upstream_dependency_is_unknown_and_not_runnable() {
 }
 
 #[test]
-fn dependency_failed_upstream_blocks_queued_dependent() {
+fn raw_failed_upstream_without_failure_decision_keeps_dependency_waiting() {
     let service = initialized_service();
     let workspace = service
         .create_empty_workspace("Queue aggregate workspace", None)
@@ -492,14 +498,14 @@ fn dependency_failed_upstream_blocks_queued_dependent() {
 
     assert_eq!(
         aggregate.dependency_state,
-        QueueItemAggregateDependencyState::FailedUpstream
+        QueueItemAggregateDependencyState::Waiting
     );
     assert_eq!(
         aggregate.ticket_state,
-        QueueItemAggregateTicketState::Blocked
+        QueueItemAggregateTicketState::Queued
     );
-    assert_blocker(&aggregate, "dependency_failed");
-    assert_action_unavailable(&aggregate, "none", Some("dependency_failed"));
+    assert_blocker(&aggregate, "dependency_waiting");
+    assert_action_unavailable(&aggregate, "none", Some("dependencies_not_ready"));
     assert_no_action(&aggregate, "start_run");
 }
 

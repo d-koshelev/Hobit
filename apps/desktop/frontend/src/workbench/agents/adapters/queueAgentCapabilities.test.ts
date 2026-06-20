@@ -33,7 +33,10 @@ import { createQueueAgentActionHandlers } from "./queueAgentActionHandlers";
 import {
   createWorkspaceAgentQueueBridgeAdapterApi,
 } from "./workspaceAgentQueueBridgeAdapter";
-import type { QueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
+import {
+  createQueueBackendCapabilityPort,
+  type QueueBackendCapabilityPort,
+} from "./queueBackendCapabilityPort";
 import {
   QUEUE_AGENT_CAPABILITY_IDS,
   type QueueAgentAdapterApi,
@@ -45,6 +48,7 @@ import {
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
 import type {
   AgentQueueCompletionCommandResult,
+  AgentQueueFailureCommandResult,
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
   AgentQueueReviewCreateMessageResult,
@@ -1222,6 +1226,7 @@ describe("queueAgentCapabilities invoke", () => {
             completionState: true,
             dependencyState: true,
             evidenceState: true,
+            failureState: false,
             frontendOverlayUsed: false,
             latestRunLink: true,
             reviewState: true,
@@ -1365,6 +1370,7 @@ describe("queueAgentCapabilities invoke", () => {
             completionState: true,
             dependencyState: true,
             evidenceState: true,
+            failureState: false,
             frontendOverlayUsed: false,
             latestRunLink: true,
             reviewState: true,
@@ -1536,6 +1542,220 @@ describe("queueAgentCapabilities invoke", () => {
       nextAction: {
         capabilityId: "queue.lifecycle.get",
         input: { taskId: "task-blocked" },
+      },
+      nextSuggestedCapability: "queue.lifecycle.get",
+      queueMutation: "none",
+      reviewState: "review_message_created",
+      ticketState: "awaiting_review",
+    });
+  });
+
+  it("routes queue.item.fail through backend command only with exact structured confirmation", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const failItem = vi.fn(async () =>
+      failureCommandResult({
+        aggregate: queueAggregate({
+          durableFlags: {
+            commitState: true,
+            completionState: false,
+            dependencyState: true,
+            evidenceState: true,
+            failureState: true,
+            frontendOverlayUsed: false,
+            latestRunLink: true,
+            reviewState: true,
+            taskRow: true,
+            validationState: true,
+          },
+          evidenceState: "available",
+          reviewState: "failed",
+          taskId: "task-failed",
+          ticketState: "failure",
+          workerRunState: "failed",
+        }),
+        decisionId: "decision-failed-1",
+        evidenceBundleId: "bundle-1",
+        reviewMessageId: "review-message-1",
+        runId: "run-1",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ failItem, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const missingTask = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: { reason: "Missing task id." },
+      }),
+    );
+    const proseOnly = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.fail",
+        input: {
+          reason: "I confirm. Fail the task.",
+          taskId: "task-failed",
+        },
+      }),
+    );
+    const malformedConfirmation = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: "confirmed",
+        input: {
+          reason: "Operator rejected evidence.",
+          taskId: "task-failed",
+        },
+      }),
+    );
+    const success = await broker.invokeAsync<{
+      backendFailureStatus: string;
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      reviewOutcome: string;
+      ticketState: string;
+      wouldCallGit: boolean;
+      wouldExecuteRollback: boolean;
+      wouldLaunchTerminal: boolean;
+      wouldRunValidation: boolean;
+      wouldStartWorkers: boolean;
+    }>(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          evidenceBundleId: "bundle-1",
+          reason: "Operator rejected evidence.",
+          reviewMessageId: "review-message-1",
+          runId: "run-1",
+          taskId: "task-failed",
+        },
+      }),
+    );
+
+    expect(missingTask.status).toBe("invalid_input");
+    expect(proseOnly.status).toBe("needs_confirmation");
+    expect(malformedConfirmation.status).toBe("invalid_input");
+    expect(failItem).toHaveBeenCalledTimes(1);
+    expect(failItem).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      evidenceBundleId: "bundle-1",
+      reason: "Operator rejected evidence.",
+      reviewMessageId: "review-message-1",
+      runId: "run-1",
+      taskId: "task-failed",
+    });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(success.status).toBe("succeeded");
+    expect(success.result.output).toMatchObject({
+      backendFailureStatus: "succeeded",
+      nextSuggestedCapability: null,
+      queueMutation: "backend_domain",
+      reviewOutcome: "failed",
+      ticketState: "failure",
+      wouldCallGit: false,
+      wouldExecuteRollback: false,
+      wouldLaunchTerminal: false,
+      wouldRunValidation: false,
+      wouldStartWorkers: false,
+    });
+  });
+
+  it("surfaces queue.item.fail backend blockers with state dimensions", async () => {
+    const failItem = vi.fn(async () =>
+      failureCommandResult({
+        aggregate: queueAggregate({
+          dependencyState: "none",
+          evidenceState: "available",
+          reviewState: "review_message_created",
+          taskId: "task-blocked-fail",
+          ticketState: "awaiting_review",
+          workerRunState: "failed",
+        }),
+        blocker: {
+          blockerCode: "review_not_acked",
+          blockerMessage:
+            "The backend review message must be ACKed before queue.item.fail.",
+          commitState: "none",
+          dependencyState: "none",
+          evidenceBundleId: "bundle-1",
+          evidenceState: "available",
+          missingRequiredField: null,
+          nextSuggestedCapability: "queue.review.ack",
+          reviewMessageId: "review-message-1",
+          reviewState: "review_message_created",
+          runId: "run-1",
+          taskId: "task-blocked-fail",
+          ticketState: "awaiting_review",
+          validationState: "not_requested",
+          workerRunState: "failed",
+        },
+        decisionId: null,
+        durable: false,
+        evidenceBundleId: "bundle-1",
+        failureDecision: null,
+        reviewMessageId: "review-message-1",
+        runId: "run-1",
+        status: "blocked",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ failItem }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      backendFailureStatus: string;
+      blockerCode: string;
+      nextAction: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      reviewState: string;
+      ticketState: string;
+    }>(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Operator rejected evidence.",
+          taskId: "task-blocked-fail",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("failed");
+    expect(result.result.output).toMatchObject({
+      backendFailureStatus: "blocked",
+      blockerCode: "review_not_acked",
+      nextAction: {
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-blocked-fail" },
       },
       nextSuggestedCapability: "queue.lifecycle.get",
       queueMutation: "none",
@@ -3951,9 +4171,13 @@ function queueBridge(
 }
 
 function queueBackendPort(
-  overrides: QueueBackendCapabilityPort,
+  overrides: Partial<QueueBackendCapabilityPort>,
 ): QueueBackendCapabilityPort {
-  return overrides;
+  const port = createQueueBackendCapabilityPort(overrides);
+  if (!port) {
+    throw new Error("Expected queue backend test port.");
+  }
+  return port;
 }
 
 function queueBridgeItemResult(
@@ -4076,6 +4300,7 @@ function queueAggregate({
       completionState: ticketState === "done",
       dependencyState: dependencyState !== "unknown",
       evidenceState: evidenceState !== "not_durable",
+      failureState: ticketState === "failure",
       frontendOverlayUsed: false,
       latestRunLink: Boolean(latestRun),
       reviewState: reviewState !== "not_durable",
@@ -4210,6 +4435,58 @@ function completionCommandResult({
     decisionId,
     durable,
     evidenceBundleId,
+    reviewMessageId,
+    runId,
+    status,
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function failureCommandResult({
+  aggregate = queueAggregate({
+    evidenceState: "available",
+    reviewState: "failed",
+    ticketState: "failure",
+    workerRunState: "failed",
+  }),
+  blocker = null,
+  decisionId = "failure-decision-1",
+  durable = true,
+  evidenceBundleId = "bundle-1",
+  failureDecision,
+  reviewMessageId = "review-message-1",
+  runId = "run-1",
+  status = "succeeded",
+}: Partial<AgentQueueFailureCommandResult> & {
+  aggregate?: AgentQueueItemAggregate;
+  status?: AgentQueueFailureCommandResult["status"];
+} = {}): AgentQueueFailureCommandResult {
+  const resolvedDecision =
+    failureDecision === undefined
+      ? {
+          actorId: "test.agentA",
+          createdAt: "2026-06-15T10:02:00.000Z",
+          decision: "failed",
+          decisionId: decisionId ?? "failure-decision-1",
+          evidenceBundleId,
+          metadataJson: null,
+          reason: "Operator rejected evidence.",
+          reviewMessageId,
+          runId,
+          runLinkId: "link-1",
+          taskId: aggregate.taskId,
+          workspaceId: aggregate.workspaceId,
+        }
+      : failureDecision;
+
+  return {
+    aggregate,
+    blocker,
+    decisionId,
+    durable,
+    evidenceBundleId,
+    failureDecision: resolvedDecision,
     reviewMessageId,
     runId,
     status,

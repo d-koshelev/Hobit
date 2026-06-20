@@ -556,6 +556,7 @@ function queueAggregate(
       completionState: false,
       dependencyState: true,
       evidenceState: overrides.evidenceState !== "not_durable",
+      failureState: false,
       frontendOverlayUsed: false,
       latestRunLink: false,
       reviewState: true,

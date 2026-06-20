@@ -77,6 +77,7 @@ export type TauriAgentQueueItemAggregateDurableFlags = {
   completion_state: boolean;
   dependency_state: boolean;
   evidence_state: boolean;
+  failure_state: boolean;
   frontend_overlay_used: boolean;
   latest_run_link: boolean;
   review_state: boolean;
@@ -212,6 +213,7 @@ function normalizeDurableFlags(
     completionState: flags.completion_state,
     dependencyState: flags.dependency_state,
     evidenceState: flags.evidence_state,
+    failureState: flags.failure_state,
     frontendOverlayUsed: flags.frontend_overlay_used,
     latestRunLink: flags.latest_run_link,
     reviewState: flags.review_state,

@@ -13,13 +13,15 @@ behavior, Git mutation, or Terminal launch.
 
 Current for backend aggregate dependency read state. Planned for broader Smart
 Queue scheduler behavior, dependency override policy, and durable coordinator
-fail/block commands.
+block commands. Explicit terminal failure now comes from the backend failure
+decision ledger.
 
 Current backend aggregates report dependency-derived read state and treat an
-upstream as satisfied only after durable backend accepted completion. Block/fail
-propagation is limited to existing durable task-row status until explicit
-backend coordinator fail/block commands exist. Frontend overlays may present
-compatibility labels but must not become dependency product truth.
+upstream as satisfied only after durable backend accepted completion. Failed
+upstream propagation comes from the durable backend failure decision ledger.
+Block propagation remains planned until an explicit backend block command
+exists. Frontend overlays may present compatibility labels but must not become
+dependency product truth.
 
 ## Structural Dependency
 
@@ -51,8 +53,8 @@ Backend aggregate `dependencyState` values are:
   upstream dependency.
 - `blocked`: at least one upstream dependency is explicitly blocked when a
   durable blocked state exists.
-- `failed_upstream`: at least one upstream dependency failed before accepted
-  completion when durable failure state exists.
+- `failed_upstream`: at least one upstream dependency has a durable terminal
+  failure decision before accepted completion.
 - `unknown`: the backend cannot determine dependency state safely, such as a
   missing upstream task row.
 
@@ -89,6 +91,19 @@ durable completion decision exists.
 Raw `task.status=completed`, a completed run link, durable worker evidence,
 `reviewState=in_review`, and review ACK are review/completion inputs only. They
 do not unblock dependents without an accepted-completion decision.
+
+## Failure For Dependency Blocking
+
+Dependency failure requires an explicit durable backend failure decision from
+`queue.item.fail`. Worker failure evidence, failed run links, review message
+creation, review ACK, raw failed compatibility status, validation failure
+evidence, and frontend lifecycle overlays do not by themselves create
+`failed_upstream`.
+
+After `queue.item.fail` succeeds for an upstream task, downstream aggregate
+reads expose `dependencyState=failed_upstream`, a `dependency_failed` blocker,
+and no runnable `queue.item.startRun`, `queue.enable`, or
+`queue.item.promoteDraft` path. No downstream task starts automatically.
 
 ## Dependency Record Shape
 

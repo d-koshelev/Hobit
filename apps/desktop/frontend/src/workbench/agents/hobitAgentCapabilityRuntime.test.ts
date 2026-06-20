@@ -584,6 +584,25 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       ],
       requiredFields: ["taskId", "top-level confirmationToken"],
     });
+    expect(requiredCapability(registry, "queue.item.fail")).toMatchObject({
+      confirmationRequirement: "required",
+      restricted: false,
+      sideEffectLevel: "write",
+      supportsDryRun: false,
+    });
+    expect(
+      requiredCapability(registry, "queue.item.fail").inputSchema,
+    ).toMatchObject({
+      acceptedFields: [
+        "taskId",
+        "reason",
+        "runId",
+        "evidenceBundleId",
+        "messageId",
+        "reviewMessageId",
+      ],
+      requiredFields: ["taskId", "reason", "top-level confirmationToken"],
+    });
     expect(
       assertCapabilityDoesNotAllowForbiddenSideEffects(queueCreateItems, [
         "duplicate_queue_view",

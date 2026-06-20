@@ -38,6 +38,7 @@ These Workspace Agent/Broker capabilities are backend-backed now:
 - `queue.lifecycle.agentFinished`
 - `queue.review.getEvidenceBundle`
 - `queue.item.markDone`
+- `queue.item.fail`
 
 These capabilities must read/write through backend aggregate, review, or worker
 evidence APIs. They must not read frontend lifecycle controllers, Queue board
@@ -54,12 +55,26 @@ unchanged, `commitState` unchanged, `nextSuggestedCapability=null`, and
 `durableFlags.completionState=true`. Worker completion and review ACK alone
 remain not done.
 
+`queue.item.fail` is the backend/domain terminal failure command. It requires
+explicit `workspaceId`, `taskId`, non-empty reason, trusted actor id, and the
+exact structured confirmation token declared by the Queue capability contract.
+Optional `runId`, `evidenceBundleId`, and `reviewMessageId`/`messageId` are
+validation guards only. It persists a failure decision in backend storage and
+updates the authoritative aggregate so `ticketState=failure`,
+`reviewState=failed`, actual worker run state remains visible,
+`evidenceState=available` when durable evidence exists, validation and commit
+state remain unchanged, `nextSuggestedCapability=null`, and
+`durableFlags.failureState=true`. Worker failure evidence and review ACK alone
+remain not terminal failure.
+
 Queue dependency eligibility is also backend/domain aggregate truth.
 Downstream dependencies are satisfied only by an upstream durable accepted
 completion decision from `queue.item.markDone`. Worker completion, durable
 worker evidence, review message creation, review ACK, latest-run completion,
 raw `task.status=completed`, and frontend overlay state do not unblock
-dependents. Aggregate dependency states `waiting`, `blocked`,
+dependents. Downstream `failed_upstream` derives from an upstream durable
+failure decision from `queue.item.fail`, not worker failure evidence or review
+ACK alone. Aggregate dependency states `waiting`, `blocked`,
 `failed_upstream`, and `unknown` expose blockers and must not suggest
 `queue.item.startRun` or runnable `queue.item.promoteDraft`. After upstream
 `markDone`, downstream aggregate reads clear that dependency blocker and expose
@@ -74,10 +89,9 @@ only shallow shape errors such as non-array or non-string dependency fields.
 They must not infer dependencies from title, prompt, item order, prose, UI
 selection, or prompt-pack-local ids.
 
-Durable dependency failure/block propagation is limited until backend
-coordinator fail/block commands exist. Current failed-upstream behavior may
-derive from existing durable task-row terminal failure state, not a full
-coordinator decision ledger.
+Durable dependency block propagation remains limited until a backend block
+command exists. Failed-upstream propagation is now backed by the durable
+failure decision ledger.
 
 Their Workspace Agent capability contracts must state exact required ids,
 optional fields, trusted runtime/backend actor defaults, enum values, and
@@ -98,7 +112,8 @@ selection, file paths, or display text.
 review creation blockers with `blockerCode=review_message_already_exists` map
 backend `existingMessageId` to `nextAction.input.messageId` for
 `queue.review.ack`. Unsafe or finalizing actions, including
-`queue.item.markDone`, remain explicit and confirmation-gated.
+`queue.item.markDone` and `queue.item.fail`, remain explicit and
+confirmation-gated.
 
 Queue enabled/disabled control state is currently exposed to broker adapters
 through the typed Workspace Queue bridge from controller execution state. This
@@ -116,7 +131,6 @@ These capabilities are still transitional:
 | `queue.coordinator.approveValidation` | Frontend dogfood lifecycle overlay | Backend Queue validation/coordinator decision service | Add durable validation decision command and aggregate coverage. |
 | `queue.coordinator.addFollowUpPrompt` | Frontend dogfood lifecycle overlay | Backend Queue coordinator/follow-up service | Add durable follow-up command and aggregate readback. |
 | `queue.item.block` | Frontend dogfood lifecycle overlay | Backend Queue coordinator decision service | Add durable block command and dependency blocker propagation. |
-| `queue.item.fail` | Frontend dogfood lifecycle overlay | Backend Queue coordinator decision service | Add durable fail command and failed-upstream aggregate behavior. |
 
 ## Test Rules
 

@@ -394,6 +394,7 @@ export type AgentQueueItemAggregateDurableFlags = {
   completionState: boolean;
   dependencyState: boolean;
   evidenceState: boolean;
+  failureState: boolean;
   frontendOverlayUsed: boolean;
   latestRunLink: boolean;
   reviewState: boolean;
@@ -536,6 +537,73 @@ export type AgentQueueCompletionCommandResult = {
   reviewMessageId: string | null;
   runId: string | null;
   status: AgentQueueCompletionCommandStatus;
+  taskId: string;
+  workspaceId: string;
+};
+
+export type FailAgentQueueItemRequest = {
+  actorId?: string | null;
+  confirmationToken: string;
+  evidenceBundleId?: string | null;
+  reason: string;
+  reviewMessageId?: string | null;
+  runId?: string | null;
+  taskId: string;
+  workspaceId: string;
+};
+
+export type AgentQueueFailureDecision = {
+  actorId: string;
+  createdAt: string;
+  decision: string;
+  decisionId: string;
+  evidenceBundleId: string | null;
+  metadataJson: string | null;
+  reason: string;
+  reviewMessageId: string | null;
+  runId: string | null;
+  runLinkId: string | null;
+  taskId: string;
+  workspaceId: string;
+};
+
+export type AgentQueueFailureCommandBlocker = {
+  blockerCode: string;
+  blockerMessage: string;
+  missingRequiredField: string | null;
+  taskId: string;
+  runId: string | null;
+  reviewMessageId: string | null;
+  evidenceBundleId: string | null;
+  ticketState: string | null;
+  workerRunState: string | null;
+  reviewState: string | null;
+  evidenceState: string | null;
+  validationState: string | null;
+  commitState: string | null;
+  dependencyState: string | null;
+  nextSuggestedCapability: string | null;
+};
+
+export type AgentQueueFailureCommandStatus =
+  | "succeeded"
+  | "blocked"
+  | "invalid_input"
+  | "already_done"
+  | "already_failed"
+  | "precondition_failed"
+  | string;
+
+export type AgentQueueFailureCommandResult = {
+  aggregate: AgentQueueItemAggregate | null;
+  blocker: AgentQueueFailureCommandBlocker | null;
+  decisionId: string | null;
+  durable: boolean;
+  evidenceBundleId: string | null;
+  failureDecision: AgentQueueFailureDecision | null;
+  reviewMessageId: string | null;
+  runId: string | null;
+  status: AgentQueueFailureCommandStatus;
   taskId: string;
   workspaceId: string;
 };

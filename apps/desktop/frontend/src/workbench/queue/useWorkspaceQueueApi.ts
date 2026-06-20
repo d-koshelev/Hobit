@@ -15,6 +15,7 @@ import {
   listAgentQueueItemAggregates,
 } from "../../workspace/tauriAgentQueueAggregateApi";
 import { markAgentQueueItemDone } from "../../workspace/tauriAgentQueueCompletionApi";
+import { failAgentQueueItem } from "../../workspace/tauriAgentQueueFailureApi";
 import {
   ackAgentQueueReviewMessage,
   createAgentQueueReviewMessage,
@@ -143,6 +144,11 @@ export function useWorkspaceQueueApi({
         latestBridgeRef.current?.markItemDone?.(request) ??
         Promise.reject(
           new Error("Queue accepted completion command API is unavailable."),
+        ),
+      failItem: (request) =>
+        latestBridgeRef.current?.failItem?.(request) ??
+        Promise.reject(
+          new Error("Queue terminal failure command API is unavailable."),
         ),
       getWorkerEvidenceBundle: (request) =>
         latestBridgeRef.current?.getWorkerEvidenceBundle?.(request) ??
@@ -342,6 +348,9 @@ export function useWorkspaceQueueApi({
     },
     completionActions: {
       markAgentQueueItemDone,
+    },
+    failureActions: {
+      failAgentQueueItem,
     },
     controlActions: {
       enableQueue: (request) =>

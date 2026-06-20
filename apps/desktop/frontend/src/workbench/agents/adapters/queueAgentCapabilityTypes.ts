@@ -7,6 +7,7 @@ import type {
   AgentQueueItemAggregateLatestRun,
   AgentQueueItemAggregateNextAction,
   AgentQueueCompletionDecision,
+  AgentQueueFailureDecision,
   AgentQueueWorkerEvidenceBundle,
 } from "../../../workspace/types";
 import type { QueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
@@ -467,10 +468,12 @@ export type QueueAgentBlockInput = {
 };
 
 export type QueueAgentFailInput = {
-  coordinatorAgentId?: string;
-  decisionId?: string;
-  failedAt?: string;
+  confirmationToken?: string;
+  evidenceBundleId?: string;
+  messageId?: string;
   reason?: string;
+  reviewMessageId?: string;
+  runId?: string;
   taskId?: string;
 };
 
@@ -514,6 +517,7 @@ export type QueueAgentLifecycleTransitionOutput = {
   aggregate?: AgentQueueItemAggregate;
   backendCreateMessageStatus?: string;
   backendCompletionStatus?: string;
+  backendFailureStatus?: string;
   blockerCode?: string;
   blockerMessage?: string;
   blockers?: AgentQueueItemAggregateBlocker[];
@@ -525,6 +529,7 @@ export type QueueAgentLifecycleTransitionOutput = {
   dryRunOnly: boolean;
   durable?: boolean;
   completionDecision?: AgentQueueCompletionDecision | null;
+  failureDecision?: AgentQueueFailureDecision | null;
   lifecycle: SmartQueueDogfoodLifecycleItem | null;
   messageId?: string;
   missingRequiredField?: string;
@@ -644,8 +649,8 @@ export type QueueAgentDogfoodLifecycleAdapterApi = {
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>>;
   failItem: (
-    input: Required<Pick<QueueAgentFailInput, "coordinatorAgentId" | "reason" | "taskId">> &
-      Omit<QueueAgentFailInput, "coordinatorAgentId" | "reason" | "taskId">,
+    input: Required<Pick<QueueAgentFailInput, "confirmationToken" | "reason" | "taskId">> &
+      Omit<QueueAgentFailInput, "confirmationToken" | "reason" | "taskId">,
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput>>;
   getEvidenceBundle: (

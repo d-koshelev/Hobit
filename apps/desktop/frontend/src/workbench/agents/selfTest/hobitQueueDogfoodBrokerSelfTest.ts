@@ -444,18 +444,18 @@ function runFailurePath(store: QueueDogfoodBrokerSelfTestFakeStore): {
   const failed = store.invoke<QueueAgentLifecycleTransitionOutput>(
     "queue.item.fail",
     {
-      coordinatorAgentId: store.coordinatorAgentId,
       reason: "Fake coordinator accepted the failure evidence.",
       taskId: store.failureTaskId,
     },
+    { confirmationToken: "operator-confirmed" },
   );
   const output = lifecycleOutput(failed);
   const dependentStartable = store.canDependentStart(
     store.failureDependentTaskId,
   );
   const passed =
-    failed.status === "succeeded" &&
-    output?.ticketState === "failure" &&
+    failed.status === "unavailable" &&
+    failed.result.message.includes("backend-owned") &&
     dependentStartable === false;
 
   return {
@@ -470,14 +470,14 @@ function runFailurePath(store: QueueDogfoodBrokerSelfTestFakeStore): {
         caseId: "queue-dogfood-broker:failure-dependent-blocked",
         evidence: [
           brokerEvidence(failed),
-          `ticketState: ${output?.ticketState ?? "unknown"}.`,
+          `ticketState: ${output?.ticketState ?? "backend-unavailable"}.`,
           `Dependent startable after upstream failure: ${String(dependentStartable)}.`,
         ],
         message: passed
-          ? "Failure keeps dependent blocked."
-          : "Failure branch did not keep dependent blocked.",
+          ? "Terminal failure requires backend durability."
+          : "Terminal failure branch did not stop at backend-owned boundary.",
         status: passed ? "passed" : "failed",
-        title: "Failure keeps dependent blocked",
+        title: "Terminal failure requires backend durability",
       }),
     ],
     passed,
