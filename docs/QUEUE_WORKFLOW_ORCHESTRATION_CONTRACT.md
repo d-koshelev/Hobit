@@ -92,8 +92,17 @@ Queue capability contract inventory for generic module tooling. That adapter
 preserves backing status, risk class, confirmation metadata, required id
 fields, and trusted actor context only; it does not execute capabilities,
 authorize workflows, or change continuation policy. Queue workflow metadata
-remains empty/future until a typed workflow metadata and request contract is
-implemented.
+remains empty/future until typed Queue workflow metadata, input validation, and
+runner contracts are implemented.
+
+The generic workflow request envelope now exists as
+`hobit.workflow.request`. It is module-neutral and contains `requestId`,
+`moduleId`, `workflowId`, optional opaque `grant`, optional opaque `inputs`,
+and optional compact `metadata`. Workspace Agent protocol code can classify and
+validate this envelope against `ModuleControlSurfaceRegistry`, including
+reporting that Queue workflows are not declared/implemented yet. This is not
+`hobit.queue.workflowRequest`, does not add Queue-specific workflow input
+validation, and does not execute a workflow runner.
 
 ## Auto-Continuation Rules
 
@@ -344,9 +353,13 @@ context. It cannot:
 - unblock dependencies;
 - mark work done or failed;
 - authorize Git, validation, rollback, Terminal, shell, Codex, or worker start.
+- provide workflow inputs, workflow ids, grants, confirmations, or task/run/
+  message/evidence/executor ids for workflow execution.
 
 Product action execution requires structured `hobit.action.request` plus
 Broker policy and backend preconditions.
+Workflow requests require structured `hobit.workflow.request` and are currently
+validation/classification only.
 
 ## Non-Goals
 
@@ -359,5 +372,7 @@ This contract does not implement:
 - rollback execution;
 - Terminal launch;
 - broad worker automation;
+- Queue-specific workflow metadata/input validation or workflow runner
+  execution;
 - UI redesign;
 - additional Queue widget/view surfaces.

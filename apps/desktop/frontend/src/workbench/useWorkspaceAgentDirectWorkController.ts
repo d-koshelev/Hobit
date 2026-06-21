@@ -65,6 +65,8 @@ import {
   workspaceAgentHobitActionActivityTitle,
   workspaceAgentHobitActionResultMessage,
   workspaceAgentInvalidActionRequestMessage,
+  workspaceAgentInvalidWorkflowRequestMessage,
+  workspaceAgentWorkflowRequestMessage,
   type WorkspaceAgentHobitActionInvoker,
 } from "./workspaceAgentBrokerActionRuntime";
 import {
@@ -808,6 +810,49 @@ export function useWorkspaceAgentDirectWorkController({
         runId,
         runMetadata,
       });
+    }
+
+    if (protocolOutcome.kind === "workflow_request") {
+      const message = workspaceAgentWorkflowRequestMessage(
+        protocolOutcome.workflowRead,
+      );
+      const state = brokerContinuationStateRef.current;
+      setDirectWorkFinalResult(message);
+      appendDirectWorkLog(message, "local");
+      publishHobitActionActivityEvent({
+        lifecycleStage: "completed",
+        runId: state?.chainId ?? runId,
+        severity: "warning",
+        status: "completed",
+        summary: message,
+        title: "Workflow request recognized",
+      });
+      appendAssistantActionTranscript(message, runMetadata);
+      clearBrokerContinuationState();
+      return true;
+    }
+
+    if (protocolOutcome.kind === "invalid_workflow_request") {
+      const message = workspaceAgentInvalidWorkflowRequestMessage(
+        protocolOutcome.workflowRead.reasons,
+      );
+      const state = brokerContinuationStateRef.current;
+      const actionIndex = state ? state.actionCount + 1 : 1;
+      setDirectWorkStatus("failed");
+      setDirectWorkError(message);
+      recordHobitActionResultTranscript({
+        activityRunId: state?.chainId ?? runId,
+        actionIndex,
+        capabilityId: "workflow",
+        message,
+        runMetadata,
+        severity: "error",
+        status: "failed",
+        stopReason: "invalid_or_unsupported_envelope",
+        title: "Invalid Hobit workflow request",
+      });
+      clearBrokerContinuationState();
+      return true;
     }
 
     if (protocolOutcome.kind === "invalid_action_request") {

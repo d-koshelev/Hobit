@@ -428,8 +428,11 @@ unless the task explicitly requests it.
   layer for registered agent-facing module surfaces; Queue is the first
   registered module, and Queue capability metadata is adapted from the Queue
   capability contract inventory for the generic surface. Registry metadata is
-  not runtime behavior. UI widgets are not executable module APIs, and Codex
-  is a provider/worker implementation rather than the module integration
+  not runtime behavior. Generic `hobit.workflow.request` parsing and
+  validation lives at the Workspace Agent protocol/broker boundary and checks
+  module/workflow availability through this registry without executing
+  workflows. UI widgets are not executable module APIs, and Codex is a
+  provider/worker implementation rather than the module integration
   architecture.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source
   provenance, AI-readable context approval, citations, or trust-layer work.
@@ -707,8 +710,9 @@ the local executor flow visible to operators.
 - `docs/QUEUE_WORKFLOW_ORCHESTRATION_CONTRACT.md` - current Queue workflow
   orchestration contract. Read before changing Workspace Agent Queue
   continuation, typed `nextAction`, risk-class policy, structured
-  confirmation, bounded grants, result statuses, dependency satisfaction, or
-  backend-backed broker capability behavior.
+  confirmation, bounded grants, generic `hobit.workflow.request` validation,
+  result statuses, dependency satisfaction, or backend-backed broker
+  capability behavior.
 - `docs/QUEUE_RESPONSIBILITY_REFACTOR_AUDIT.md` - focused audit/status note
   for the Queue backend ownership refactor, transitional capability debt, and
   phased cleanup plan.

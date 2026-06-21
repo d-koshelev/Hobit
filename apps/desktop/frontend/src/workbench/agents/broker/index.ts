@@ -58,6 +58,18 @@ export {
   HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
   readHobitAgentActionRequestEnvelope,
 } from "./hobitAgentActionRequestEnvelope";
+export type {
+  HobitAgentWorkflowRequestEnvelope,
+  HobitAgentWorkflowRequestEnvelopeIssue,
+  HobitAgentWorkflowRequestEnvelopeReadResult,
+  HobitAgentWorkflowRequestEnvelopeValidationResult,
+  HobitAgentWorkflowRequestEnvelopeValidationStatus,
+} from "./hobitAgentWorkflowRequestEnvelope";
+export {
+  HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
+  readHobitAgentWorkflowRequestEnvelope,
+  validateHobitAgentWorkflowRequestEnvelope,
+} from "./hobitAgentWorkflowRequestEnvelope";
 export type { HobitNextActionValidationOptions } from "./nextAction";
 export {
   createHobitNextActionUnavailable,

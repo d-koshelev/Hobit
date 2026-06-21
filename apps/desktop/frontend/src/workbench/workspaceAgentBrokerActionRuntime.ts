@@ -5,6 +5,7 @@ import {
   type HobitAgentActionRequest,
   type HobitAgentActionResult,
   type HobitAgentBrokerResult,
+  type HobitAgentWorkflowRequestEnvelopeReadResult,
 } from "./agents/broker";
 import { createHobitAgentCapabilityRegistry } from "./agents/capabilities";
 import {
@@ -82,6 +83,31 @@ export function workspaceAgentInvalidActionRequestMessage(
   return withOptionalReason(
     "Invalid Hobit action request.",
     reasons[0] ?? null,
+  );
+}
+
+export function workspaceAgentWorkflowRequestMessage(
+  workflowRead: Extract<
+    HobitAgentWorkflowRequestEnvelopeReadResult,
+    { status: "valid" }
+  >,
+): string {
+  if (!workflowRead.validation.ok) {
+    return withOptionalReason(
+      "Workflow request recognized, but workflow is not declared/implemented yet.",
+      workflowRead.validation.reasons[0] ?? null,
+    );
+  }
+
+  return "Workflow request recognized, but workflow execution is not implemented yet.";
+}
+
+export function workspaceAgentInvalidWorkflowRequestMessage(
+  reasons: readonly string[],
+): string {
+  return withOptionalReason(
+    "Invalid Hobit workflow request.",
+    reasons.length > 0 ? reasons.join(" ") : null,
   );
 }
 

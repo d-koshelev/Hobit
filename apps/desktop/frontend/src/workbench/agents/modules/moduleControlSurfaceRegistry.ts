@@ -5,6 +5,7 @@ import type {
   HobitModuleId,
   ModuleCapabilityReference,
   ModuleControlSurface,
+  ModuleWorkflowReference,
 } from "./moduleControlSurface";
 import { QUEUE_MODULE_CONTROL_SURFACE } from "./queueModuleControlSurface";
 
@@ -42,6 +43,11 @@ export type ModuleControlSurfaceCapabilityResolutionIssueCode =
   | "unknown_module"
   | "unknown_module_capability_pair";
 
+export type ModuleControlSurfaceWorkflowResolutionIssueCode =
+  | "unknown_module"
+  | "workflow_not_declared"
+  | "workflow_unavailable";
+
 export type ModuleControlSurfaceCapabilityResolution =
   | {
       capability: ModuleCapabilityReference;
@@ -56,6 +62,22 @@ export type ModuleControlSurfaceCapabilityResolution =
       ok: false;
       reasonCode: ModuleControlSurfaceCapabilityResolutionIssueCode;
       reasons: string[];
+    };
+
+export type ModuleControlSurfaceWorkflowResolution =
+  | {
+      moduleId: HobitModuleId;
+      ok: true;
+      surface: ModuleControlSurface;
+      workflow: ModuleWorkflowReference;
+      workflowId: string;
+    }
+  | {
+      moduleId?: HobitModuleId;
+      ok: false;
+      reasonCode: ModuleControlSurfaceWorkflowResolutionIssueCode;
+      reasons: string[];
+      workflowId: string;
     };
 
 const DEFAULT_MODULE_CONTROL_SURFACE_VALIDATION_CONTEXT: ModuleControlSurfaceValidationContext =
@@ -155,6 +177,65 @@ export function resolveModuleControlSurfaceCapability({
     reasons: [
       `${capabilityId} is not registered by any module control surface.`,
     ],
+  };
+}
+
+export function resolveModuleControlSurfaceWorkflow({
+  moduleId,
+  surfaces = MODULE_CONTROL_SURFACE_REGISTRY,
+  workflowId,
+}: {
+  moduleId: HobitModuleId;
+  surfaces?: readonly ModuleControlSurface[];
+  workflowId: string;
+}): ModuleControlSurfaceWorkflowResolution {
+  const surface = getModuleControlSurface(moduleId, surfaces);
+  if (!surface) {
+    return {
+      moduleId,
+      ok: false,
+      reasonCode: "unknown_module",
+      reasons: [`Module control surface is not registered: ${moduleId}.`],
+      workflowId,
+    };
+  }
+
+  const workflow = surface.workflows.find(
+    (candidate) => candidate.workflowId === workflowId,
+  );
+  if (!workflow) {
+    const declaredCount = surface.workflowIds.length;
+    return {
+      moduleId,
+      ok: false,
+      reasonCode: "workflow_not_declared",
+      reasons: [
+        declaredCount === 0
+          ? `${moduleId} does not declare workflows yet.`
+          : `${workflowId} is not declared by module control surface ${moduleId}.`,
+      ],
+      workflowId,
+    };
+  }
+
+  if (workflow.backingStatus !== "implemented") {
+    return {
+      moduleId,
+      ok: false,
+      reasonCode: "workflow_unavailable",
+      reasons: [
+        `${workflowId} is declared by ${moduleId} but is ${workflow.backingStatus}.`,
+      ],
+      workflowId,
+    };
+  }
+
+  return {
+    moduleId: surface.moduleId,
+    ok: true,
+    surface,
+    workflow,
+    workflowId,
   };
 }
 

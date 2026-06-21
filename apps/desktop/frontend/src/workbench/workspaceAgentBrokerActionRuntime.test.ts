@@ -7,6 +7,8 @@ import {
 import {
   createWorkspaceAgentHobitActionInvoker,
   workspaceAgentHobitActionResultMessage,
+  workspaceAgentInvalidWorkflowRequestMessage,
+  workspaceAgentWorkflowRequestMessage,
 } from "./workspaceAgentBrokerActionRuntime";
 import runtimeSource from "./workspaceAgentBrokerActionRuntime.ts?raw";
 import envelopeSource from "./agents/broker/hobitAgentActionRequestEnvelope.ts?raw";
@@ -464,6 +466,39 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
         "Normal assistant response without app action.",
       ),
     ).toEqual({ status: "none" });
+  });
+
+  it("formats workflow request validation results without invoking broker capabilities", () => {
+    expect(
+      workspaceAgentWorkflowRequestMessage({
+        envelope: {
+          moduleId: "queue",
+          requestId: "workflow-request-1",
+          type: "hobit.workflow.request",
+          workflowId: "dependency_acceptance_smoke",
+        },
+        source: "direct_json",
+        status: "valid",
+        validation: {
+          fieldPaths: ["$.workflowId"],
+          moduleId: "queue",
+          ok: false,
+          reasonCode: "workflow_not_declared",
+          reasons: ["queue does not declare workflows yet."],
+          status: "workflow_not_declared",
+          workflowId: "dependency_acceptance_smoke",
+        },
+      }),
+    ).toBe(
+      "Workflow request recognized, but workflow is not declared/implemented yet. queue does not declare workflows yet.",
+    );
+    expect(
+      workspaceAgentInvalidWorkflowRequestMessage([
+        "$.requestId: requestId is required.",
+      ]),
+    ).toBe(
+      "Invalid Hobit workflow request. $.requestId: requestId is required.",
+    );
   });
 
   it("does not add natural-language routing in the Workspace Agent broker runtime", () => {

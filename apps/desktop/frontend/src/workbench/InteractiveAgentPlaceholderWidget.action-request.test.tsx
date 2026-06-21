@@ -861,6 +861,76 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(lastAssistantMessageText()).not.toContain("Queue items listed");
   });
 
+  it("recognizes workflow requests without executing Queue capabilities", async () => {
+    const listItemAggregates = vi.fn(async () => []);
+    const createItem = vi.fn();
+    const runTerminal = vi.fn();
+    const createGitCommit = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalText(
+      workflowEnvelope({
+        workflowId: "dependency_acceptance_smoke",
+      }),
+    );
+
+    renderWidget({
+      onCreateGitCommit: createGitCommit,
+      onRunTerminalCommand: runTerminal,
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ createItem, listItemAggregates }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Recognize a structured Queue workflow request.");
+    await flushAsync();
+
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    expect(listItemAggregates).not.toHaveBeenCalled();
+    expect(createItem).not.toHaveBeenCalled();
+    expect(runTerminal).not.toHaveBeenCalled();
+    expect(createGitCommit).not.toHaveBeenCalled();
+    expect(lastAssistantMessageText()).toContain(
+      "Workflow request recognized, but workflow is not declared/implemented yet.",
+    );
+    expect(lastAssistantMessageText()).toContain(
+      "queue does not declare workflows yet.",
+    );
+    expect(lastAssistantMessageText()).not.toContain("Queue items listed");
+    expect(lastAssistantMessageText()).not.toContain("Hobit action requested");
+  });
+
+  it("reports invalid workflow request field paths without broker execution", async () => {
+    const listItemAggregates = vi.fn(async () => []);
+    const startDirectWork = startDirectWorkWithFinalText(
+      JSON.stringify({
+        inputs: {},
+        moduleId: "queue",
+        type: "hobit.workflow.request",
+        workflowId: "dependency_acceptance_smoke",
+      }),
+    );
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ listItemAggregates }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Validate a malformed workflow envelope.");
+    await flushAsync();
+
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    expect(listItemAggregates).not.toHaveBeenCalled();
+    expect(lastAssistantMessageText()).toContain(
+      "Invalid Hobit workflow request.",
+    );
+    expect(lastAssistantMessageText()).toContain(
+      "$.requestId: requestId is required.",
+    );
+    expect(lastAssistantMessageText()).toContain(
+      "Stopped: invalid or unsupported action envelope.",
+    );
+  });
+
   it("requests one protocol repair for no-envelope action-mode output", async () => {
     const listItemAggregates = vi.fn(async () => []);
     const publishActivityEvents = vi.fn();
@@ -1109,6 +1179,21 @@ function actionEnvelope({
   }
 
   return JSON.stringify(envelope);
+}
+
+function workflowEnvelope({
+  workflowId,
+}: {
+  workflowId: string;
+}) {
+  return JSON.stringify({
+    grant: {},
+    inputs: {},
+    moduleId: "queue",
+    requestId: "workflow-request-1",
+    type: "hobit.workflow.request",
+    workflowId,
+  });
 }
 
 function finalAnswerEnvelope(message: string) {

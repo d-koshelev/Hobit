@@ -36,6 +36,8 @@ export function createCapabilityInstructionBlock(
     'When needed emit one JSON envelope with a fresh requestId: {"type":"hobit.action.request","requestId":"action-1","capabilityId":"<id>","dryRun":false,"input":{...}}.',
     'When finished in action mode emit one final JSON object: {"type":"hobit.final.answer","message":"<final user-facing answer or blocker>"}',
     "One envelope only; do not emit action lists. Use the exact capability id, exact input fields, exact enum values, and a unique requestId.",
+    'Workflow requests use a separate generic envelope only when explicitly requested: {"type":"hobit.workflow.request","requestId":"workflow-1","moduleId":"queue","workflowId":"<declared-workflow>","grant":{},"inputs":{}}.',
+    "Workflow requests are validation/classification only here; prose is not workflow input, and undeclared workflows are reported instead of executed.",
     "Intermediate prose is not a capability call; emit an envelope or final marker. Do not write awaiting capability result.",
     "After hobit.action.result, prefer returned nextAction: use nextAction.capabilityId and nextAction.input exactly; do not rename fields.",
     "If nextAction is unavailable, ask or stop with the blocker; do not guess ids, fields, or actions from nextSuggestedCapability alone.",

@@ -181,6 +181,17 @@ paths; dependency waiting does not start downstream work.
   awaiting text into `queue.items.list`, and does not add natural-language
   routing.
 
+- Structured Workflow Request Envelope MVP: Workspace Agent now recognizes a
+  module-neutral `hobit.workflow.request` JSON envelope with `requestId`,
+  `moduleId`, `workflowId`, optional opaque `grant`, optional opaque `inputs`,
+  and optional compact `metadata`. The envelope is classification and
+  validation only. It verifies `moduleId` through `ModuleControlSurfaceRegistry`
+  and reports whether `workflowId` is declared/available by that module. It
+  rejects malformed JSON, arrays, unknown workflow envelope types, multiple
+  workflow envelopes, and mixed action/workflow envelopes. It does not execute
+  workflows, call broker capabilities, run Queue adapters, infer workflow
+  inputs from prose, or treat prose permission as a grant.
+
 ## Module Control Surface
 
 `ModuleControlSurface` is the generic agent-facing module contract for Hobit
@@ -203,8 +214,8 @@ collect explicit operator input, but agents must use typed module capability
 metadata plus the Action Broker and module API ports for product actions.
 
 Capabilities are atomic typed operations. Workflows are multi-step typed
-processes and will be registered separately when a workflow request/runner
-contract exists. Queue is the first reference module surface. Its backend-
+processes and are validated through the generic `hobit.workflow.request`
+envelope before any future runner exists. Queue is the first reference module surface. Its backend-
 backed capabilities are labeled separately from transitional controller-backed
 capabilities. Transitional capabilities must remain labeled and migrate later.
 Queue capability module metadata is adapted from the existing Queue capability
@@ -213,8 +224,8 @@ preserves exact capability ids, backing status, risk class, confirmation
 tokens, required id fields, and trusted actor context fields. It is
 metadata-only and does not change broker execution, backend lifecycle
 semantics, Queue UI behavior, or continuation policy. Queue workflow metadata
-remains empty until typed workflow metadata and workflow request contracts are
-implemented.
+remains empty until typed Queue workflow metadata and workflow execution
+contracts are implemented.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture.

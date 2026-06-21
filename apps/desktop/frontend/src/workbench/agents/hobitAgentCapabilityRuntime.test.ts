@@ -335,7 +335,12 @@ describe("hobitAgentCapabilityRuntime context", () => {
       "Codex and shell are restricted capabilities",
     );
     expect(instructionBlock).toContain('"type":"hobit.action.request"');
+    expect(instructionBlock).toContain('"type":"hobit.workflow.request"');
     expect(instructionBlock).toContain('"type":"hobit.final.answer"');
+    expect(instructionBlock).toContain(
+      "Workflow requests are validation/classification only",
+    );
+    expect(instructionBlock).toContain("prose is not workflow input");
     expect(instructionBlock).toContain("do not emit action lists");
     expect(instructionBlock).toContain(
       "Intermediate prose is not a capability call",
@@ -571,11 +576,14 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain("You are inside Hobit");
     expect(prompt).toContain("Use typed Hobit app capabilities before Codex or shell.");
     expect(prompt).toContain('"type":"hobit.action.request"');
+    expect(prompt).toContain('"type":"hobit.workflow.request"');
     expect(prompt).toContain('"type":"hobit.final.answer"');
     expect(prompt).toContain("Use a fresh requestId");
+    expect(prompt).toContain("the app validates availability only");
     expect(prompt).toContain("After hobit.action.result");
     expect(prompt).toContain("prefer returned nextAction");
     expect(prompt).toContain("do not rename fields");
+    expect(prompt).toContain("Do not infer workflow inputs");
     expect(prompt).toContain("Intermediate prose is not a capability call.");
     expect(prompt).toContain("Do not write awaiting capability result");
     expect(prompt).toContain("When a Hobit app capability is needed");

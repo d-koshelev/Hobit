@@ -6,6 +6,7 @@ import {
   HOBIT_AGENT_FINAL_ANSWER_ENVELOPE_TYPE,
   readHobitAgentFinalAnswerEnvelope,
 } from "./workspaceAgentActionProtocol";
+import { HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE } from "./agents/broker";
 
 describe("WorkspaceAgentActionProtocol", () => {
   it("classifies valid Hobit action envelopes without prose inference", () => {
@@ -48,6 +49,95 @@ describe("WorkspaceAgentActionProtocol", () => {
         status: "invalid",
       },
       kind: "invalid_action_request",
+    });
+  });
+
+  it("classifies workflow request envelopes distinctly from action requests and final answers", () => {
+    const outcome = classifyWorkspaceAgentActionProtocolOutput({
+      mode: "typed_capability_action",
+      text: JSON.stringify({
+        grant: {},
+        inputs: {},
+        moduleId: "queue",
+        requestId: "workflow-request-1",
+        type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
+        workflowId: "dependency_acceptance_smoke",
+      }),
+    });
+
+    expect(outcome).toMatchObject({
+      kind: "workflow_request",
+      workflowRead: {
+        envelope: {
+          moduleId: "queue",
+          requestId: "workflow-request-1",
+          workflowId: "dependency_acceptance_smoke",
+        },
+        status: "valid",
+        validation: {
+          ok: false,
+          reasonCode: "workflow_not_declared",
+          status: "workflow_not_declared",
+        },
+      },
+    });
+    expect(outcome).not.toMatchObject({
+      kind: "final_answer",
+    });
+    expect(outcome).not.toMatchObject({
+      kind: "structured_action_request",
+    });
+  });
+
+  it("classifies invalid workflow request envelopes as invalid_workflow_request", () => {
+    const outcome = classifyWorkspaceAgentActionProtocolOutput({
+      mode: "typed_capability_action",
+      text: JSON.stringify({
+        inputs: {},
+        moduleId: "queue",
+        type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
+        workflowId: "dependency_acceptance_smoke",
+      }),
+    });
+
+    expect(outcome).toMatchObject({
+      kind: "invalid_workflow_request",
+      workflowRead: {
+        reasons: ["$.requestId: requestId is required."],
+        status: "invalid",
+      },
+    });
+  });
+
+  it("rejects mixed action and workflow envelopes before action execution classification", () => {
+    const outcome = classifyWorkspaceAgentActionProtocolOutput({
+      mode: "typed_capability_action",
+      text: [
+        JSON.stringify({
+          moduleId: "queue",
+          requestId: "workflow-request-mixed",
+          type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
+          workflowId: "dependency_acceptance_smoke",
+        }),
+        JSON.stringify({
+          capabilityId: "queue.items.list",
+          dryRun: false,
+          input: { limit: 10 },
+          requestId: "action-request-mixed",
+          type: "hobit.action.request",
+        }),
+      ].join("\n"),
+    });
+
+    expect(outcome).toMatchObject({
+      kind: "invalid_workflow_request",
+      workflowRead: {
+        issues: [
+          expect.objectContaining({
+            code: "envelope_mixed_request_types",
+          }),
+        ],
+      },
     });
   });
 
@@ -117,6 +207,7 @@ describe("WorkspaceAgentActionProtocol", () => {
 
     expect(prompt.length).toBeLessThanOrEqual(1600);
     expect(prompt).toContain("hobit.action.request");
+    expect(prompt).toContain("hobit.workflow.request");
     expect(prompt).toContain("hobit.final.answer");
     expect(prompt).toContain("No broker action was executed");
     expect(prompt).toContain("Intermediate prose is not a capability call");

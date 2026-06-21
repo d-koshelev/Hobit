@@ -127,6 +127,15 @@ validated envelope and `nextActionUnavailable` metadata without parsing prose,
 using regex routing, or inferring task/run/message/evidence/executor ids from
 titles, prompts, UI order, file paths, or natural-language text.
 
+The generic `hobit.workflow.request` envelope is now recognized by Workspace
+Agent protocol code as a separate module-neutral request type. It validates
+only the envelope shape plus `moduleId`/`workflowId` availability through
+`ModuleControlSurfaceRegistry`. For Queue, current workflow metadata remains
+empty, so a request such as `dependency_acceptance_smoke` is recognized but
+reported as not declared/implemented. This block does not add
+`hobit.queue.workflowRequest`, Queue workflow input validation, a workflow
+runner, scheduler behavior, worker auto-start, or Queue runtime changes.
+
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly
 noted otherwise. The implemented backend exceptions are the
@@ -991,6 +1000,8 @@ The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend Smart Queue persistence;
+- Queue-specific workflow metadata, workflow input validation, or workflow
+  runner execution;
 - durable Queue lifecycle transition commands beyond the current aggregate DTO
   and worker-evidence/review create/ACK commands;
 - backend scheduler/runner ownership;

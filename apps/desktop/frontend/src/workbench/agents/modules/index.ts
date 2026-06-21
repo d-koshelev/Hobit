@@ -20,6 +20,8 @@ export type {
   ModuleControlSurfaceCapabilityResolutionIssueCode,
   ModuleControlSurfaceValidationIssue,
   ModuleControlSurfaceValidationIssueCode,
+  ModuleControlSurfaceWorkflowResolution,
+  ModuleControlSurfaceWorkflowResolutionIssueCode,
 } from "./moduleControlSurfaceRegistry";
 export {
   getModuleControlSurface,
@@ -29,6 +31,7 @@ export {
   listModuleWorkflowIds,
   MODULE_CONTROL_SURFACE_REGISTRY,
   resolveModuleControlSurfaceCapability,
+  resolveModuleControlSurfaceWorkflow,
   validateModuleControlSurfaces,
   validateRegisteredModuleControlSurfaces,
 } from "./moduleControlSurfaceRegistry";

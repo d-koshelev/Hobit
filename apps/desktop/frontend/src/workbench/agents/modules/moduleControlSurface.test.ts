@@ -20,6 +20,7 @@ import {
   listModuleWorkflowIds,
   MODULE_CONTROL_SURFACE_REGISTRY,
   resolveModuleControlSurfaceCapability,
+  resolveModuleControlSurfaceWorkflow,
   QUEUE_BACKEND_BACKED_MODULE_CAPABILITY_IDS,
   QUEUE_MODULE_CAPABILITIES,
   QUEUE_MODULE_CAPABILITY_IDS,
@@ -311,6 +312,26 @@ describe("ModuleControlSurface", () => {
     expect(QUEUE_MODULE_CONTROL_SURFACE.compatibilityNotes.join(" ")).toContain(
       "Queue workflow metadata is intentionally empty",
     );
+    expect(
+      resolveModuleControlSurfaceWorkflow({
+        moduleId: "queue",
+        workflowId: "dependency_acceptance_smoke",
+      }),
+    ).toMatchObject({
+      moduleId: "queue",
+      ok: false,
+      reasonCode: "workflow_not_declared",
+      workflowId: "dependency_acceptance_smoke",
+    });
+    expect(
+      resolveModuleControlSurfaceWorkflow({
+        moduleId: "unknown-module",
+        workflowId: "dependency_acceptance_smoke",
+      }),
+    ).toMatchObject({
+      ok: false,
+      reasonCode: "unknown_module",
+    });
   });
 
   it("makes UI dependency policy explicit for every Queue module capability", () => {

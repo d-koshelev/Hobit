@@ -185,11 +185,13 @@ Broker/module action results use the module-neutral action status taxonomy
 `already_failed`, `precondition_failed`, `unavailable`, `paused`, and
 `failed_unexpected`) plus typed `reasonCode` where practical. These statuses
 are distinct from pure multi-agent runtime statuses such as `idle` or
-`running`. Future workflow runners must use structured status/reason fields
-and validated generic `nextAction`, not prose reason strings or agent message
-text. `nextSuggestedCapability` is human/UI compatibility context only and is
-not executable without a schema-valid `nextAction`; missing, ambiguous, or
-invalid follow-ups use structured `nextActionUnavailable` metadata.
+`running`. Workflow invocation is represented by the generic
+`hobit.workflow.request` envelope and is currently validation/classification
+only. Future workflow runners must use structured status/reason fields and
+validated generic `nextAction`, not prose reason strings or agent message text.
+`nextSuggestedCapability` is human/UI compatibility context only and is not
+executable without a schema-valid `nextAction`; missing, ambiguous, or invalid
+follow-ups use structured `nextActionUnavailable` metadata.
 
 App control must not be implemented as:
 
@@ -204,8 +206,9 @@ Queue is the reference rich-metadata module: its generic capability metadata is
 adapted from the Queue capability contract inventory, not from Queue UI, and
 preserves risk, confirmation, actor context, and transitional labels without
 changing execution behavior. Queue is also the first reference module for
-generic `nextAction` validation. Queue workflows remain future/empty until
-typed workflow request contracts exist.
+generic `nextAction` validation and generic workflow request validation.
+Queue workflows remain future/empty until Queue-specific workflow metadata,
+input validation, and execution contracts exist.
 `ModuleControlSurfaceRegistry` is the discovery layer for these agent-facing
 module surfaces. Queue is the first registered module. The registry is
 metadata only, is not runtime behavior, and must stay UI-independent. Widgets

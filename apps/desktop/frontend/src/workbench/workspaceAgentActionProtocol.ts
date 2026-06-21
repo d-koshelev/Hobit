@@ -1,6 +1,8 @@
 import {
   readHobitAgentActionRequestEnvelope,
+  readHobitAgentWorkflowRequestEnvelope,
   type HobitAgentActionRequestEnvelopeReadResult,
+  type HobitAgentWorkflowRequestEnvelopeReadResult,
 } from "./agents/broker";
 
 export const HOBIT_AGENT_FINAL_ANSWER_ENVELOPE_TYPE =
@@ -38,11 +40,25 @@ export type WorkspaceAgentActionProtocolOutcome =
       kind: "structured_action_request";
     }
   | {
+      workflowRead: Extract<
+        HobitAgentWorkflowRequestEnvelopeReadResult,
+        { status: "valid" }
+      >;
+      kind: "workflow_request";
+    }
+  | {
       envelopeRead: Extract<
         HobitAgentActionRequestEnvelopeReadResult,
         { status: "invalid" }
       >;
       kind: "invalid_action_request";
+    }
+  | {
+      workflowRead: Extract<
+        HobitAgentWorkflowRequestEnvelopeReadResult,
+        { status: "invalid" }
+      >;
+      kind: "invalid_workflow_request";
     }
   | {
       finalAnswer: string;
@@ -66,6 +82,21 @@ export function classifyWorkspaceAgentActionProtocolOutput({
   mode: WorkspaceAgentActionProtocolMode;
   text: string;
 }): WorkspaceAgentActionProtocolOutcome {
+  const workflowRead = readHobitAgentWorkflowRequestEnvelope(text);
+  if (workflowRead.status === "valid") {
+    return {
+      kind: "workflow_request",
+      workflowRead,
+    };
+  }
+
+  if (workflowRead.status === "invalid") {
+    return {
+      kind: "invalid_workflow_request",
+      workflowRead,
+    };
+  }
+
   const envelopeRead = readHobitAgentActionRequestEnvelope(text);
   if (envelopeRead.status === "valid") {
     return {
@@ -162,6 +193,8 @@ export function formatWorkspaceAgentActionProtocolRepairPrompt(): string {
       "Emit exactly one JSON object now:",
       '{"type":"hobit.action.request","requestId":"fresh-unique-id","capabilityId":"<id>","dryRun":false,"input":{}}',
       "or",
+      '{"type":"hobit.workflow.request","requestId":"fresh-unique-id","moduleId":"<module>","workflowId":"<workflow>","grant":{},"inputs":{}}',
+      "or",
       '{"type":"hobit.final.answer","message":"<final user-facing answer or blocker>"}',
       "Intermediate prose is not a capability call; emit an envelope or final marker.",
       "Do not emit action lists. Do not infer taskId, runId, executorWidgetId, or capability id from prose.",
@@ -206,8 +239,16 @@ function actionProtocolOutcomeSummary(
     return "The model produced an invalid Hobit action request.";
   }
 
+  if (outcome.kind === "invalid_workflow_request") {
+    return "The model produced an invalid Hobit workflow request.";
+  }
+
   if (outcome.kind === "structured_action_request") {
     return "The model produced a valid Hobit action request.";
+  }
+
+  if (outcome.kind === "workflow_request") {
+    return "The model produced a Hobit workflow request.";
   }
 
   return "The model produced an explicit final answer.";
