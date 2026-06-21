@@ -63,6 +63,14 @@ restricted capabilities for explicit workspace/code execution requests only.
   Codex Direct Work is the current default AgentProvider implementation, not
   the Workspace Agent architecture. Fake AgentProviders are allowed for
   deterministic protocol/action/workflow tests.
+- AgentProtocolRuntime: provider-neutral, pure frontend protocol
+  classification for Workspace Agent model output. It distinguishes final
+  answers, structured `hobit.action.request` envelopes, structured
+  `hobit.workflow.request` envelopes, invalid action/workflow envelopes, mixed
+  action/workflow envelopes, protocol stalls, and no-output cases. It reuses
+  the existing envelope parsers and final-answer marker logic; it does not
+  invoke the Action Broker, execute workflows, infer permissions or ids from
+  prose, call providers, or touch Queue UI.
 - WorkerProvider Runtime: provider-neutral frontend execution seam for
   explicit work items. It is separate from AgentProvider: AgentProvider
   generates structured Workspace Agent turns, while WorkerProvider starts an
@@ -198,6 +206,9 @@ paths; dependency waiting does not start downstream work.
   controller sends one compact same-thread repair prompt. If repair still does
   not produce a valid action request or explicit final answer, the chain stops
   with a visible protocol error and reports that no broker action was executed.
+  `AgentProtocolRuntime` owns this classification boundary; the current React
+  controller still owns broker invocation, continuation turns, transcript
+  updates, and activity formatting until later controller-split blocks.
   This enforcement does not infer capability ids from prose, does not parse
   awaiting text into `queue.items.list`, and does not add natural-language
   routing.
@@ -337,8 +348,9 @@ and does not add UI, backend/Tauri/IPC commands, storage/schema changes, Queue
 runtime behavior, Terminal launch, Git mutation, rollback execution, scheduler
 behavior, worker runtime, or hidden Workspace Agent execution.
 
-The Workspace Agent structured action-request protocol is implemented in the
-frontend direct-run result path. Agents may emit a minimal JSON envelope:
+The Workspace Agent structured action-request protocol is classified by the
+frontend `AgentProtocolRuntime` and then handled by the current direct-run
+controller path. Agents may emit a minimal JSON envelope:
 
 ```json
 {

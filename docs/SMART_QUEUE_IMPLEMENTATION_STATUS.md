@@ -128,10 +128,14 @@ using regex routing, or inferring task/run/message/evidence/executor ids from
 titles, prompts, UI order, file paths, or natural-language text.
 
 The generic `hobit.workflow.request` envelope is now recognized by Workspace
-Agent protocol code as a separate module-neutral request type. It validates
-the envelope shape, the generic grant/input split, and `moduleId`/`workflowId`
-availability through `ModuleControlSurfaceRegistry`. `grant` is now enforced
-as permission/scope metadata only; `inputs` is the only workflow data location.
+Agent protocol classification as a separate module-neutral request type.
+`AgentProtocolRuntime` is the pure provider-neutral facade for classifying
+final answers, action requests, workflow requests, invalid requests, mixed
+action/workflow requests, protocol stalls, and no-output cases. It reuses the
+existing envelope parsers, validates the generic grant/input split and
+`moduleId`/`workflowId` availability through `ModuleControlSurfaceRegistry`,
+and does not execute workflows or broker actions. `grant` is now enforced as
+permission/scope metadata only; `inputs` is the only workflow data location.
 Product data such as runSettings, tasks, prompts, dependencies, run
 configuration, and direct ids is rejected inside `grant`, while the same data
 under `inputs` remains opaque to generic validation. For Queue, current
@@ -399,9 +403,9 @@ The current implemented frontend behavior is:
   but malformed grants or prose-only approvals do not grant permission;
 - Workspace Agent action protocol enforcement: a typed-capability Direct Work
   turn with no valid action request and no explicit final-answer marker gets
-  one compact same-thread repair prompt; if repair still produces empty or
-  intermediate non-action prose, the chain stops with a visible protocol error
-  and reports that no broker action was executed;
+  one compact same-thread repair prompt from the protocol runtime facade; if
+  repair still produces empty or intermediate non-action prose, the chain stops
+  with a visible protocol error and reports that no broker action was executed;
 - prose such as awaiting `queue.items.list` result is not a successful Queue
   smoke outcome, is not parsed into `queue.items.list`, and is not
   natural-language routed to any capability;

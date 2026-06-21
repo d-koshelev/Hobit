@@ -229,6 +229,13 @@ approval, and Direct Work event mapping inside the Codex adapter. Fake
 AgentProviders may drive deterministic protocol/action/workflow tests without
 calling Codex.
 
+Workspace Agent protocol classification now has a pure provider-neutral
+`AgentProtocolRuntime` facade. It classifies model/provider output into final
+answer, action request, workflow request, invalid request, mixed request,
+protocol-stall, or no-output outcomes. It does not execute broker actions,
+run workflows, inspect Queue UI, call providers, or infer ids, inputs,
+permissions, confirmations, or workflow data from prose.
+
 WorkerProvider is now a separate provider-neutral seam for explicit work-item
 execution. It emits normalized worker run, output/log, evidence, completion,
 failure, cancellation, stopped, and provider-error events. Codex Direct Work

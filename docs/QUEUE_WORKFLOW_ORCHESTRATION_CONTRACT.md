@@ -107,7 +107,8 @@ The generic workflow request envelope now exists as
 `hobit.workflow.request`. It is module-neutral and contains `requestId`,
 `moduleId`, `workflowId`, optional generic permission/scope `grant`, optional
 opaque object `inputs`, and optional compact `metadata`. Workspace Agent
-protocol code can classify and validate this envelope against
+protocol classification through `AgentProtocolRuntime` can validate this
+envelope against
 `ModuleControlSurfaceRegistry`, including reporting that Queue workflows are
 not declared/implemented yet. Generic validation enforces that `grant`
 authorizes only permission/scope and `inputs` is the only workflow data
@@ -118,6 +119,9 @@ belong only under explicit arrays such as `grant.scope.taskIds`; prose is
 never executable workflow input or confirmation. This is not
 `hobit.queue.workflowRequest`, does not add Queue-specific workflow input
 validation, and does not execute a workflow runner.
+The current controller still owns broker invocation and continuation policy
+after classification; this contract does not move execution into the protocol
+runtime.
 
 ## Auto-Continuation Rules
 

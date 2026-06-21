@@ -63,9 +63,14 @@ import {
   type WorkspaceAgentRunTokenUsage,
 } from "./workspaceAgentRunMetadata";
 import {
+  agentProtocolRuntimeErrorMessage,
+  agentProtocolRuntimeRepairMessage,
+  classifyAgentProtocolRuntimeOutput,
+  formatAgentProtocolRuntimeRepairPrompt,
   createCodexAgentProvider,
   type AgentProvider,
   type AgentProviderEvent,
+  type AgentProtocolRuntimeResult,
 } from "./agentRuntime";
 import {
   workspaceAgentHobitActionActivityTitle,
@@ -95,13 +100,6 @@ import {
   type WorkspaceAgentBrokerContinuationState,
   type WorkspaceAgentBrokerContinuationStopReason,
 } from "./workspaceAgentBrokerContinuation";
-import {
-  classifyWorkspaceAgentActionProtocolOutput,
-  formatWorkspaceAgentActionProtocolRepairPrompt,
-  workspaceAgentActionProtocolErrorMessage,
-  workspaceAgentActionProtocolRepairMessage,
-  type WorkspaceAgentActionProtocolOutcome,
-} from "./workspaceAgentActionProtocol";
 import type { WidgetRenderProps } from "./types";
 
 type UseWorkspaceAgentDirectWorkControllerOptions = {
@@ -897,7 +895,7 @@ export function useWorkspaceAgentDirectWorkController({
       return false;
     }
 
-    const protocolOutcome = classifyWorkspaceAgentActionProtocolOutput({
+    const protocolOutcome = classifyAgentProtocolRuntimeOutput({
       mode: brokerContinuationStateRef.current
         ? "typed_capability_action"
         : "normal",
@@ -937,7 +935,7 @@ export function useWorkspaceAgentDirectWorkController({
 
     if (protocolOutcome.kind === "workflow_request") {
       const message = workspaceAgentWorkflowRequestMessage(
-        protocolOutcome.workflowRead,
+        protocolOutcome.workflowRequestRead,
       );
       const state = brokerContinuationStateRef.current;
       setDirectWorkFinalResult(message);
@@ -955,9 +953,12 @@ export function useWorkspaceAgentDirectWorkController({
       return true;
     }
 
-    if (protocolOutcome.kind === "invalid_workflow_request") {
+    if (
+      protocolOutcome.kind === "invalid_workflow_request" ||
+      protocolOutcome.kind === "mixed_action_and_workflow_request"
+    ) {
       const message = workspaceAgentInvalidWorkflowRequestMessage(
-        protocolOutcome.workflowRead.reasons,
+        protocolOutcome.workflowRequestRead.reasons,
       );
       const state = brokerContinuationStateRef.current;
       const actionIndex = state ? state.actionCount + 1 : 1;
@@ -980,7 +981,7 @@ export function useWorkspaceAgentDirectWorkController({
 
     if (protocolOutcome.kind === "invalid_action_request") {
       const message = workspaceAgentInvalidActionRequestMessage(
-        protocolOutcome.envelopeRead.reasons,
+        protocolOutcome.actionRequestRead.reasons,
       );
       const state = brokerContinuationStateRef.current;
       const actionIndex = state ? state.actionCount + 1 : 1;
@@ -1001,7 +1002,7 @@ export function useWorkspaceAgentDirectWorkController({
       return true;
     }
 
-    const envelopeRead = protocolOutcome.envelopeRead;
+    const envelopeRead = protocolOutcome.actionRequestRead;
     const state =
       brokerContinuationStateRef.current ??
       createWorkspaceAgentBrokerContinuationState({
@@ -1106,7 +1107,7 @@ export function useWorkspaceAgentDirectWorkController({
     runMetadata,
   }: {
     outcome: Extract<
-      WorkspaceAgentActionProtocolOutcome,
+      AgentProtocolRuntimeResult,
       { kind: "no_action_output" | "protocol_stall" }
     >;
     runId: string;
@@ -1122,7 +1123,7 @@ export function useWorkspaceAgentDirectWorkController({
       const repairState =
         recordWorkspaceAgentBrokerContinuationProtocolRepair(state);
       brokerContinuationStateRef.current = repairState;
-      const message = workspaceAgentActionProtocolRepairMessage(outcome);
+      const message = agentProtocolRuntimeRepairMessage(outcome);
       appendDirectWorkLog(message, "local");
       publishHobitActionActivityEvent({
         details:
@@ -1144,7 +1145,7 @@ export function useWorkspaceAgentDirectWorkController({
       return true;
     }
 
-    const message = workspaceAgentActionProtocolErrorMessage(outcome);
+    const message = agentProtocolRuntimeErrorMessage(outcome);
     setDirectWorkStatus("failed");
     setDirectWorkError(message);
     recordBrokerContinuationStop({
@@ -1314,7 +1315,7 @@ export function useWorkspaceAgentDirectWorkController({
       attachCapabilityContext: false,
       brokerContinuationChainId: state.chainId,
       clearDraftAndVisibleContext: false,
-      operatorPrompt: formatWorkspaceAgentActionProtocolRepairPrompt(),
+      operatorPrompt: formatAgentProtocolRuntimeRepairPrompt(),
       repoRoot: directWorkDirectory.trim(),
       resumeThreadIdOverride: resumeThreadId,
     });

@@ -68,6 +68,19 @@ export type {
   AgentRunRequestValidation,
 } from "./agentRuntimeModel";
 export {
+  agentProtocolRuntimeErrorMessage,
+  agentProtocolRuntimeRepairMessage,
+  classifyAgentProtocolRuntimeOutput,
+  formatAgentProtocolRuntimeRepairPrompt,
+} from "./agentProtocolRuntime";
+export type {
+  AgentProtocolOutcomeKind,
+  AgentProtocolRepairInstruction,
+  AgentProtocolRuntimeInput,
+  AgentProtocolRuntimeResult,
+  AgentProtocolValidationError,
+} from "./agentProtocolRuntime";
+export {
   CODEX_AGENT_PROVIDER_ID,
   createCodexAgentProvider,
   codexProviderCapabilityWarnings,
