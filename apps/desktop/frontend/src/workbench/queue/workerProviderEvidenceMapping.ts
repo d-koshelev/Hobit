@@ -10,6 +10,7 @@ import type {
 
 export type WorkerProviderQueueEvidenceMetadata = {
   evidenceBundleId?: string;
+  outcome: WorkerProviderFinalResult["outcome"];
   providerId: string;
   providerMetadata?: Record<string, unknown>;
   providerRunId?: string;
@@ -70,6 +71,7 @@ export function mapWorkerProviderFinalResultToQueueEvidenceIngestion(
       ...(result.evidenceBundleId
         ? { evidenceBundleId: result.evidenceBundleId }
         : {}),
+      outcome: result.outcome,
       providerId: result.providerId,
       ...(result.providerMetadata
         ? { providerMetadata: result.providerMetadata }

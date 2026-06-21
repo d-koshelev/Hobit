@@ -1,6 +1,7 @@
 import {
   createWorkerProviderCapabilities,
   evidenceSummaryFromWorkerProviderFinalResult,
+  workerProviderFinalStatusToOutcome,
   type WorkerProvider,
   type WorkerProviderEvent,
   type WorkerProviderFinalResult,
@@ -346,19 +347,23 @@ function fakeStepToEvent({
   }
 
   const status = statusForTerminalStep(step.type);
+  const result = {
+    ...defaultFinalResult({
+      providerId,
+      providerRunId,
+      providerThreadId,
+      request,
+      runId,
+      startedAtMs,
+      status,
+    }),
+    ...step.result,
+  };
   return {
     ...base,
     result: {
-      ...defaultFinalResult({
-        providerId,
-        providerRunId,
-        providerThreadId,
-        request,
-        runId,
-        startedAtMs,
-        status,
-      }),
-      ...step.result,
+      ...result,
+      outcome: workerProviderFinalStatusToOutcome(result.status),
     },
     type: step.type,
   };
@@ -388,6 +393,7 @@ function defaultFinalResult({
     elapsedMs: completedAtMs - startedAtMs,
     executorWidgetId: request.executorWidgetId,
     finalMessage: status === "completed" ? "Fake worker completed." : undefined,
+    outcome: workerProviderFinalStatusToOutcome(status),
     providerId,
     providerMetadata: request.metadata,
     providerRunId,

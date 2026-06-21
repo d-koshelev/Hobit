@@ -10,6 +10,7 @@ import type {
 import {
   createWorkerProviderCapabilities,
   evidenceSummaryFromWorkerProviderFinalResult,
+  workerProviderFinalStatusToOutcome,
   type WorkerProvider,
   type WorkerProviderEvent,
   type WorkerProviderFinalResult,
@@ -92,61 +93,79 @@ export function createCodexWorkerProvider({
     providerDisplayName: "Codex Direct Work Worker",
     providerId: CODEX_WORKER_PROVIDER_ID,
     async startWork(request, onEvent, options) {
+      let sequence = 0;
+      const startedAtMs = Date.now();
+
       if (!startCodexDirectWorkStream) {
-        onEvent({
+        const providerError = providerErrorEventAndSnapshot({
           errorCode: "codex_stream_unavailable",
           errorMessage: "Codex Direct Work stream API is unavailable.",
-          executorWidgetId: request.executorWidgetId,
-          providerId: CODEX_WORKER_PROVIDER_ID,
-          providerThreadId: request.providerThreadId ?? null,
+          request,
           runId: request.id,
-          sequence: 1,
-          taskId: request.taskId,
-          timestampMs: Date.now(),
-          type: "worker_error",
+          sequence: sequence + 1,
+          startedAtMs,
         });
+        sequence = providerError.event.sequence;
+        onEvent(providerError.event);
+        runSnapshots.set(request.id, providerError.snapshot);
         return null;
       }
 
-      let sequence = 0;
-      const startedAtMs = Date.now();
-      const session = await startCodexDirectWorkStream(
-        request.executorWidgetId,
-        codexWorkerRequestToDirectWorkRequest(request, {
-          codexExecutable,
-          stderrCapBytes,
-          stdoutCapBytes,
-          timeoutMs,
-        }),
-        (event) => {
-          for (const workerEvent of directWorkEventToWorkerEvents({
-            event,
-            request,
-            sequenceStart: sequence + 1,
-            startedAtMs,
-          })) {
-            sequence = workerEvent.sequence;
-            onEvent(workerEvent);
-            updateRunSnapshot(runSnapshots, workerEvent);
-          }
-        },
-        options?.signal,
-      );
+      let session: CodexDirectWorkStreamSession | null;
+      try {
+        session = await startCodexDirectWorkStream(
+          request.executorWidgetId,
+          codexWorkerRequestToDirectWorkRequest(request, {
+            codexExecutable,
+            stderrCapBytes,
+            stdoutCapBytes,
+            timeoutMs,
+          }),
+          (event) => {
+            for (const workerEvent of directWorkEventToWorkerEvents({
+              event,
+              request,
+              sequenceStart: sequence + 1,
+              startedAtMs,
+            })) {
+              sequence = workerEvent.sequence;
+              onEvent(workerEvent);
+              updateRunSnapshot(runSnapshots, workerEvent);
+            }
+          },
+          options?.signal,
+        );
+      } catch (error) {
+        const providerError = providerErrorEventAndSnapshot({
+          errorCode: "codex_stream_start_failed",
+          errorMessage: unknownErrorMessage(
+            error,
+            "Codex Direct Work stream failed before a worker run was accepted.",
+          ),
+          request,
+          runId: request.id,
+          sequence: sequence + 1,
+          startedAtMs,
+        });
+        sequence = providerError.event.sequence;
+        onEvent(providerError.event);
+        runSnapshots.set(request.id, providerError.snapshot);
+        return null;
+      }
 
       if (!session) {
-        onEvent({
+        const providerError = providerErrorEventAndSnapshot({
           errorCode: "codex_stream_not_accepted",
           errorMessage:
             "Codex Direct Work stream was not accepted for this worker.",
-          executorWidgetId: request.executorWidgetId,
-          providerId: CODEX_WORKER_PROVIDER_ID,
-          providerThreadId: request.providerThreadId ?? null,
+          request,
           runId: request.id,
           sequence: sequence + 1,
-          taskId: request.taskId,
-          timestampMs: Date.now(),
-          type: "worker_error",
+          startedAtMs,
         });
+        sequence = providerError.event.sequence;
+        onEvent(providerError.event);
+        runSnapshots.set(request.id, providerError.snapshot);
         return null;
       }
 
@@ -170,6 +189,92 @@ export function createCodexWorkerProvider({
         taskId: request.taskId,
       };
     },
+  };
+}
+
+function providerErrorEventAndSnapshot({
+  errorCode,
+  errorMessage,
+  request,
+  runId,
+  sequence,
+  startedAtMs,
+}: {
+  errorCode: string;
+  errorMessage: string;
+  request: WorkerProviderWorkRequest;
+  runId: string;
+  sequence: number;
+  startedAtMs: number;
+}): {
+  event: WorkerProviderEvent;
+  snapshot: WorkerProviderRunSnapshot;
+} {
+  const result = providerErrorFinalResult({
+    errorCode,
+    errorMessage,
+    request,
+    runId,
+    startedAtMs,
+  });
+  return {
+    event: {
+      errorCode,
+      errorMessage,
+      executorWidgetId: request.executorWidgetId,
+      providerId: CODEX_WORKER_PROVIDER_ID,
+      providerThreadId: request.providerThreadId ?? null,
+      runId,
+      sequence,
+      taskId: request.taskId,
+      timestampMs: Date.now(),
+      type: "worker_error",
+    },
+    snapshot: {
+      finalResult: result,
+      providerId: CODEX_WORKER_PROVIDER_ID,
+      providerThreadId: request.providerThreadId ?? null,
+      runId,
+      status: "error",
+      taskId: request.taskId,
+    },
+  };
+}
+
+function providerErrorFinalResult({
+  errorCode,
+  errorMessage,
+  request,
+  runId,
+  startedAtMs,
+}: {
+  errorCode: string;
+  errorMessage: string;
+  request: WorkerProviderWorkRequest;
+  runId: string;
+  startedAtMs: number;
+}): WorkerProviderFinalResult {
+  const completedAtMs = Date.now();
+  return {
+    changedFiles: [],
+    completedAtMs,
+    elapsedMs: completedAtMs - startedAtMs,
+    errorMessage,
+    executorWidgetId: request.executorWidgetId,
+    failureReason: errorMessage,
+    outcome: "provider_error",
+    providerId: CODEX_WORKER_PROVIDER_ID,
+    providerMetadata: {
+      errorCode,
+      source: request.source ?? "worker_provider",
+    },
+    providerThreadId: request.providerThreadId ?? null,
+    runId,
+    startedAtMs,
+    status: "error",
+    taskId: request.taskId,
+    validation: { status: "not_run" },
+    workerId: request.workerId,
   };
 }
 
@@ -323,6 +428,7 @@ export function directWorkFinalEventToWorkerProviderFinalResult({
     executorWidgetId: request.executorWidgetId,
     ...(status === "failed" && errorMessage ? { failureReason: errorMessage } : {}),
     ...(message ? { finalMessage: message, summary: message } : {}),
+    outcome: workerProviderFinalStatusToOutcome(status),
     providerId: CODEX_WORKER_PROVIDER_ID,
     providerMetadata: {
       directWorkEventKind: event.eventKind,
@@ -405,7 +511,11 @@ function finalStatusFromDirectWorkEvent(
     return "stopped";
   }
 
-  if (event.eventKind === "completed" || event.finalStatus === "completed") {
+  if (
+    event.eventKind === "completed" ||
+    event.eventKind === "final_message" ||
+    event.finalStatus === "completed"
+  ) {
     return "completed";
   }
 
@@ -435,4 +545,10 @@ function responseMessage(value: unknown, fallback: string) {
   }
 
   return fallback;
+}
+
+function unknownErrorMessage(error: unknown, fallback: string) {
+  return error instanceof Error && error.message.trim()
+    ? error.message
+    : fallback;
 }

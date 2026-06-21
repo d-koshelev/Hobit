@@ -35,6 +35,7 @@ export type {
   WorkerProviderEvent,
   WorkerProviderEvidenceStatus,
   WorkerProviderEvidenceSummary,
+  WorkerProviderFinalOutcome,
   WorkerProviderFinalResult,
   WorkerProviderFinalStatus,
   WorkerProviderId,
@@ -50,6 +51,7 @@ export {
   createWorkerProviderCapabilities,
   evidenceSummaryFromWorkerProviderFinalResult,
   isWorkerProviderRunHandle,
+  workerProviderFinalStatusToOutcome,
   workerProviderFinalStatusToEvidenceStatus,
 } from "./workerProvider";
 export {

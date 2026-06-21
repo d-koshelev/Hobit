@@ -68,6 +68,13 @@ export type WorkerProviderFinalStatus = Exclude<
   "running" | "starting"
 >;
 
+export type WorkerProviderFinalOutcome =
+  | "cancelled"
+  | "completed"
+  | "failed"
+  | "provider_error"
+  | "stopped";
+
 export type WorkerProviderEvidenceStatus =
   | "completed"
   | "failed"
@@ -108,6 +115,7 @@ export type WorkerProviderFinalResult = {
   executorWidgetId?: string;
   failureReason?: string;
   finalMessage?: string;
+  outcome: WorkerProviderFinalOutcome;
   providerId: WorkerProviderId;
   providerMetadata?: Record<string, unknown>;
   providerRunId?: string;
@@ -219,6 +227,28 @@ export function workerProviderFinalStatusToEvidenceStatus(
   }
 
   return "not_completed";
+}
+
+export function workerProviderFinalStatusToOutcome(
+  status: WorkerProviderFinalStatus,
+): WorkerProviderFinalOutcome {
+  if (status === "completed") {
+    return "completed";
+  }
+
+  if (status === "cancelled") {
+    return "cancelled";
+  }
+
+  if (status === "failed") {
+    return "failed";
+  }
+
+  if (status === "error") {
+    return "provider_error";
+  }
+
+  return "stopped";
 }
 
 export function evidenceSummaryFromWorkerProviderFinalResult(
