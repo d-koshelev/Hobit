@@ -268,8 +268,13 @@ paths; dependency waiting does not start downstream work.
   action/workflow envelopes, malformed grants, malformed inputs, invalid scope
   fields, and product input in grants. It does not execute workflows, call
   broker capabilities, run Queue adapters, infer workflow inputs from prose, or
-  treat prose permission as a grant. Queue-specific workflow input validation
-  and workflow execution remain future work.
+  treat prose permission as a grant. Queue-specific validation now exists for
+  declared Queue dependency smoke workflows: `inputs.runSettings`,
+  `inputs.tasks`, task `slot` values, `dependsOnSlots`, grant modes, and
+  required safety constraints are validated before any future runner. The
+  request can validate as `workflow_valid_not_executable`, which means no
+  workflow executes. `review_acceptance` and `terminal_failure` remain
+  declared with `input_validation_deferred`.
 
 ## Module Control Surface
 
@@ -306,12 +311,15 @@ semantics, Queue UI behavior, or continuation policy. Queue workflow metadata
 now declares the initial Queue workflows
 `dependency_acceptance_smoke`, `dependency_failure_smoke`,
 `review_acceptance`, and `terminal_failure` as `metadata_only`. Generic
-`hobit.workflow.request` validation can recognize those workflow ids and
-return a non-executable/unavailable result with their declared capabilities,
-risk classes, grant modes, input-section summary, and safety constraints.
-There is still no Queue-specific workflow input validation, workflow runner,
-worker start, validation execution, Git mutation, rollback, Terminal launch,
-scheduler behavior, backend lifecycle semantic change, or UI truth path.
+`hobit.workflow.request` validation can recognize those workflow ids. Queue
+dependency acceptance/failure smoke requests now validate typed
+`inputs.runSettings`, typed task slots, explicit dependency slot references,
+grant modes, and safety constraints, then return a non-executable
+validation-only result. `review_acceptance` and `terminal_failure` remain
+declared with deferred input validation. There is still no Queue workflow
+runner, worker start, validation execution, Git mutation, rollback, Terminal
+launch, scheduler behavior, backend lifecycle semantic change, or UI truth
+path.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture. WorkerProvider is the normalized

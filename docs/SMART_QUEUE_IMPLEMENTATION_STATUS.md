@@ -137,19 +137,19 @@ existing envelope parsers, validates the generic grant/input split and
 and does not execute workflows or broker actions. `grant` is now enforced as
 permission/scope metadata only; `inputs` is the only workflow data location.
 Product data such as runSettings, tasks, prompts, dependencies, run
-configuration, and direct ids is rejected inside `grant`, while the same data
-under `inputs` remains opaque to generic validation. For Queue, the initial
+configuration, and direct ids is rejected inside `grant`. For Queue, the initial
 workflow ids `dependency_acceptance_smoke`, `dependency_failure_smoke`,
 `review_acceptance`, and `terminal_failure` are now declared in
 `ModuleControlSurface` metadata as `metadata_only`. A request such as
-`dependency_acceptance_smoke` is recognized as declared but returns a
-workflow-unavailable/not-executable validation result with compact required
-capability, risk-class, grant-mode, input-section, safety, pause/resume, and
-backend-ownership metadata. Unknown Queue workflow ids still report not
-declared. This block does not add `hobit.queue.workflowRequest`, Queue
-workflow input validation, a workflow runner, scheduler behavior, worker
-auto-start, Queue mutation, or Queue runtime changes. Prose is never
-executable workflow input, permission, confirmation, or id source.
+`dependency_acceptance_smoke` or `dependency_failure_smoke` now validates typed
+`inputs.runSettings`, typed task slots, explicit dependency slot references,
+allowed Queue grant modes, and required safety constraints, then returns a
+`workflow_valid_not_executable` validation result. `review_acceptance` and
+`terminal_failure` remain declared with `input_validation_deferred`. Unknown
+Queue workflow ids still report not declared. This block does not add
+`hobit.queue.workflowRequest`, a workflow runner, scheduler behavior, worker
+auto-start, Queue mutation, or Queue runtime changes. Prose is never executable
+workflow input, permission, confirmation, or id source.
 
 Workspace Agent direct turns now go through a provider-neutral AgentProvider
 seam. Codex Direct Work remains the default implementation through a
@@ -1066,7 +1066,8 @@ The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend Smart Queue persistence;
-- Queue-specific workflow input validation or workflow runner execution;
+- Queue workflow runner execution beyond validation-only request handling;
+- Queue-specific input validation for review/terminal workflows;
 - durable Queue lifecycle transition commands beyond the current aggregate DTO
   and worker-evidence/review create/ACK commands;
 - backend scheduler/runner ownership;

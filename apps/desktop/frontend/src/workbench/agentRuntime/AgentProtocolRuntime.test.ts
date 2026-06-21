@@ -77,7 +77,8 @@ describe("AgentProtocolRuntime", () => {
       workflowRequestRead: {
         status: "valid",
         validation: {
-          reasonCode: "workflow_unavailable",
+          ok: true,
+          status: "workflow_valid_not_executable",
           workflowMetadata: {
             backingStatus: "metadata_only",
             workflowId: "dependency_acceptance_smoke",
@@ -252,8 +253,38 @@ function workflowRequest(
   overrides: Partial<Record<string, unknown>> = {},
 ): Record<string, unknown> {
   return {
-    grant: {},
-    inputs: {},
+    grant: {
+      constraints: {
+        noDelete: true,
+        noDownstreamAutoStart: true,
+        noGit: true,
+        noRollback: true,
+        noTerminal: true,
+        noValidationExecution: true,
+      },
+      mode: "queue_acceptance_smoke",
+    },
+    inputs: {
+      runSettings: {
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        sandbox: "workspace_write",
+        workspaceRoot: "C:/repo",
+      },
+      tasks: [
+        {
+          prompt: "Complete upstream dependency smoke work.",
+          slot: "upstream",
+          title: "Upstream",
+        },
+        {
+          dependsOnSlots: ["upstream"],
+          prompt: "Complete downstream dependency smoke work.",
+          slot: "downstream",
+          title: "Downstream",
+        },
+      ],
+    },
     moduleId: "queue",
     requestId: "workflow-request-1",
     type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,

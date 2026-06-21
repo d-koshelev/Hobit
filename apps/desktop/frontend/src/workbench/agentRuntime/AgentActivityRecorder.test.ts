@@ -357,7 +357,7 @@ describe("AgentActivityRecorder", () => {
     expect(recorded.transcriptAppends[0]?.body).toBe(recorded.logAppends[0]?.text);
   });
 
-  it("preserves metadata-only workflow compact message", () => {
+  it("preserves validation-only workflow compact message", () => {
     const outcome = classifyAgentProtocolRuntimeOutput({
       mode: "typed_capability_action",
       text: JSON.stringify(workflowRequest()),
@@ -376,10 +376,10 @@ describe("AgentActivityRecorder", () => {
     });
 
     expect(recorded.transcriptAppends[0]?.body).toContain(
-      "Workflow request recognized, but workflow execution is not implemented yet.",
+      "Queue workflow request validated, but workflow runner is not implemented yet.",
     );
     expect(recorded.transcriptAppends[0]?.body).toContain(
-      "dependency_acceptance_smoke is declared by queue but is metadata_only.",
+      "Queue workflow request validated",
     );
     expect(recorded.activityAppends[0]).toMatchObject({
       severity: "warning",
@@ -459,8 +459,38 @@ function streamEvent(
 
 function workflowRequest(overrides: Record<string, unknown> = {}) {
   return {
-    grant: {},
-    inputs: {},
+    grant: {
+      constraints: {
+        noDelete: true,
+        noDownstreamAutoStart: true,
+        noGit: true,
+        noRollback: true,
+        noTerminal: true,
+        noValidationExecution: true,
+      },
+      mode: "queue_acceptance_smoke",
+    },
+    inputs: {
+      runSettings: {
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        sandbox: "workspace_write",
+        workspaceRoot: "C:/repo",
+      },
+      tasks: [
+        {
+          prompt: "Complete upstream dependency smoke work.",
+          slot: "upstream",
+          title: "Upstream",
+        },
+        {
+          dependsOnSlots: ["upstream"],
+          prompt: "Complete downstream dependency smoke work.",
+          slot: "downstream",
+          title: "Downstream",
+        },
+      ],
+    },
     moduleId: "queue",
     requestId: "workflow-request-1",
     type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,

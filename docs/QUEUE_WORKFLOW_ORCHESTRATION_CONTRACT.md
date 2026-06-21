@@ -106,25 +106,52 @@ records display summary, supported phases, required Queue capabilities,
 required risk classes, required grant modes, required input-section summaries,
 safety constraints, pause reasons, planned resume support, backend ownership
 notes, transitional limitations, and implementation status. This metadata does
-not validate Queue-specific inputs and does not execute workflows.
+not execute workflows. Queue workflow request validation now exists for
+`dependency_acceptance_smoke` and `dependency_failure_smoke`; it validates
+typed `inputs.runSettings`, `inputs.tasks`, task slots, dependency slot
+references, grant modes, and safety constraints before returning a
+validation-only non-executable result. `review_acceptance` and
+`terminal_failure` are declared with input validation deferred.
 
 The generic workflow request envelope now exists as
 `hobit.workflow.request`. It is module-neutral and contains `requestId`,
 `moduleId`, `workflowId`, optional generic permission/scope `grant`, optional
-opaque object `inputs`, and optional compact `metadata`. Workspace Agent
+object `inputs`, and optional compact `metadata`. Workspace Agent
 protocol classification through `AgentProtocolRuntime` can validate this
 envelope against
 `ModuleControlSurfaceRegistry`, including reporting that Queue workflows are
-declared but metadata-only/not executable. Unknown Queue workflow ids still
-return not-declared/unknown workflow status. Generic validation enforces that
+declared but not executable. Unknown Queue workflow ids still return
+not-declared/unknown workflow status. Generic validation enforces that
 `grant` authorizes only permission/scope and `inputs` is the only workflow data
 location. Product data such as runSettings, tasks, prompts, dependencies,
 run-configuration fields, and direct task/run/message/evidence/executor ids is
 rejected inside `grant` with field paths and stable reason codes. Scope ids
 belong only under explicit arrays such as `grant.scope.taskIds`; prose is
 never executable workflow input or confirmation. This is not
-`hobit.queue.workflowRequest`, does not add Queue-specific workflow input
-validation, and does not execute a workflow runner.
+`hobit.queue.workflowRequest`; it validates the dependency smoke Queue input
+shape but does not execute a workflow runner.
+
+## Queue Workflow Request Validation MVP
+
+For `dependency_acceptance_smoke` and `dependency_failure_smoke`, workflow data
+lives only under `inputs`. `inputs.runSettings` requires non-empty
+`codexExecutable` and `workspaceRoot`, exact `sandbox` values `read_only`,
+`workspace_write`, or `danger_full_access`, and exact `approvalPolicy` values
+`never`, `on_request`, or `untrusted`. `inputs.tasks` is a non-empty array of
+task templates with non-empty `slot`, `title`, and `prompt`; `dependsOnSlots`
+is optional but must reference existing slots when present. Slot names must be
+unique, `upstream` and `downstream` slots are required, and
+`downstream.dependsOnSlots` must explicitly include `upstream`.
+Self-dependencies, unknown slot references, and simple cycles are rejected.
+Dependencies are never inferred from title, order, prompt, prose, UI, or file
+paths.
+
+`dependency_failure_smoke` additionally requires non-empty
+`inputs.failureReason`. The failure reason is validation input only; no failure
+capability is called. `review_acceptance` and `terminal_failure` are declared
+but return `input_validation_deferred` after grant validation until their typed
+input contract and runner boundary are narrowed.
+
 Provider turns now pass through the provider-neutral `AgentRuntime` event loop,
 which owns AgentProvider run lifecycle and delegates final-output
 classification to `AgentProtocolRuntime`. The current controller still owns
@@ -262,6 +289,16 @@ read, setup, run start, worker evidence, and review, but no markDone/fail.
 `queue_operator_flow` allows the same Queue workflow risk classes, but still
 does not enable Git, validation, rollback, Terminal, delete, shell, raw Codex,
 downstream auto-start, or hidden worker behavior.
+
+Queue workflow requests use the generic `grant` shape but require
+Queue-specific grant modes. `dependency_acceptance_smoke` accepts
+`queue_acceptance_smoke` or `queue_operator_flow`; `dependency_failure_smoke`
+accepts `queue_failure_smoke` or `queue_operator_flow`; `review_acceptance`
+accepts `queue_acceptance_smoke`, `queue_failure_smoke`, or
+`queue_operator_flow`; `terminal_failure` accepts `queue_failure_smoke` or
+`queue_operator_flow`. For dependency smoke validation, `grant.constraints`
+must set `noGit`, `noValidationExecution`, `noRollback`, `noTerminal`,
+`noDelete`, and `noDownstreamAutoStart` to exactly `true`.
 
 Transitional risk classes `block`, `follow_up`, and `validation_decision`
 remain blocked for bounded autonomy. If a grant is absent or invalid, default
@@ -416,6 +453,7 @@ This contract does not implement:
 - rollback execution;
 - Terminal launch;
 - broad worker automation;
-- Queue-specific workflow input validation or workflow runner execution;
+- Queue workflow runner execution beyond validation-only request handling;
+- Queue-specific input validation for review/terminal workflows;
 - UI redesign;
 - additional Queue widget/view surfaces.

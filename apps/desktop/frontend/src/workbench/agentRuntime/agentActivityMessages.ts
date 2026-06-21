@@ -60,7 +60,25 @@ export function workspaceAgentWorkflowRequestMessage(
     { status: "valid" }
   >,
 ): string {
+  if (workflowRead.validation.ok) {
+    if (workflowRead.validation.status === "workflow_valid_not_executable") {
+      return withOptionalReason(
+        "Queue workflow request validated, but workflow runner is not implemented yet.",
+        workflowRead.validation.reasons[1] ?? null,
+      );
+    }
+
+    return "Workflow request recognized, but workflow execution is not implemented yet.";
+  }
+
   if (!workflowRead.validation.ok) {
+    if (workflowRead.validation.reasonCode === "input_validation_deferred") {
+      return withOptionalReason(
+        "Workflow request recognized, but Queue workflow input validation is deferred.",
+        workflowRead.validation.reasons[0] ?? null,
+      );
+    }
+
     if (workflowRead.validation.reasonCode === "workflow_unavailable") {
       return withOptionalReason(
         "Workflow request recognized, but workflow execution is not implemented yet.",

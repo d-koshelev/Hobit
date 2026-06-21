@@ -150,14 +150,7 @@ export function fakeAgentProviderScriptForScenario(
     case "valid_workflow_request":
       return [
         {
-          text: JSON.stringify({
-            grant: {},
-            inputs: {},
-            moduleId: "queue",
-            requestId: "fake-workflow-request",
-            type: "hobit.workflow.request",
-            workflowId: "dependency_acceptance_smoke",
-          }),
+          text: JSON.stringify(validQueueWorkflowRequest()),
           type: "workflow_request_detected",
         },
       ];
@@ -197,6 +190,47 @@ export function fakeAgentProviderScriptForScenario(
         },
       ];
   }
+}
+
+function validQueueWorkflowRequest() {
+  return {
+    grant: {
+      constraints: {
+        noDelete: true,
+        noDownstreamAutoStart: true,
+        noGit: true,
+        noRollback: true,
+        noTerminal: true,
+        noValidationExecution: true,
+      },
+      mode: "queue_acceptance_smoke",
+    },
+    inputs: {
+      runSettings: {
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        sandbox: "workspace_write",
+        workspaceRoot: "C:/repo",
+      },
+      tasks: [
+        {
+          prompt: "Complete upstream dependency smoke work.",
+          slot: "upstream",
+          title: "Upstream dependency smoke",
+        },
+        {
+          dependsOnSlots: ["upstream"],
+          prompt: "Complete downstream dependency smoke work.",
+          slot: "downstream",
+          title: "Downstream dependency smoke",
+        },
+      ],
+    },
+    moduleId: "queue",
+    requestId: "fake-workflow-request",
+    type: "hobit.workflow.request",
+    workflowId: "dependency_acceptance_smoke",
+  };
 }
 
 function fakeStepToEvent({

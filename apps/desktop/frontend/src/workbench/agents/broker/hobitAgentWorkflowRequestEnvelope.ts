@@ -7,6 +7,11 @@ import {
   MODULE_CONTROL_SURFACE_REGISTRY,
   resolveModuleControlSurfaceWorkflow,
 } from "../modules/moduleControlSurfaceRegistry";
+import {
+  QUEUE_MODULE_WORKFLOW_IDS,
+  validateQueueWorkflowRequest,
+  type QueueWorkflowRequestValidationReasonCode,
+} from "../modules";
 import { HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE } from "./hobitAgentActionRequestEnvelope";
 import {
   validateWorkflowGrantAndInputsSplit,
@@ -30,6 +35,8 @@ export type HobitAgentWorkflowRequestEnvelope = {
 
 export type HobitAgentWorkflowRequestEnvelopeValidationStatus =
   | "available"
+  | "workflow_valid_not_executable"
+  | "input_validation_deferred"
   | "workflow_not_declared"
   | "workflow_unavailable";
 
@@ -39,8 +46,8 @@ export type HobitAgentWorkflowRequestEnvelopeValidationResult =
       moduleId: HobitModuleId;
       ok: true;
       reasonCode?: never;
-      reasons: [];
-      status: "available";
+      reasons: string[];
+      status: "available" | "workflow_valid_not_executable";
       workflowMetadata: ModuleWorkflowReference;
       workflowId: string;
     }
@@ -50,12 +57,12 @@ export type HobitAgentWorkflowRequestEnvelopeValidationResult =
       ok: false;
       reasonCode: Exclude<
         HobitAgentWorkflowRequestEnvelopeValidationStatus,
-        "available"
+        "available" | "workflow_valid_not_executable"
       >;
       reasons: string[];
       status: Exclude<
         HobitAgentWorkflowRequestEnvelopeValidationStatus,
-        "available"
+        "available" | "workflow_valid_not_executable"
       >;
       workflowMetadata?: ModuleWorkflowReference;
       workflowId: string;
@@ -66,6 +73,7 @@ export type HobitAgentWorkflowRequestEnvelopeIssueCode =
   | "envelope_must_be_object"
   | "envelope_top_level_array"
   | "invalid_json"
+  | QueueWorkflowRequestValidationReasonCode
   | WorkflowGrantInputSplitReasonCode
   | "metadata_invalid"
   | "missing_required_field"
@@ -291,6 +299,61 @@ export function validateHobitAgentWorkflowRequestEnvelope(
     ]);
   }
 
+  if (resolution.workflow && isDeclaredQueueWorkflow(moduleId, workflowId)) {
+    const queueValidation = validateQueueWorkflowRequest({
+      ...(splitValidation.grant ? { grant: splitValidation.grant } : {}),
+      ...(splitValidation.inputs ? { inputs: splitValidation.inputs } : {}),
+      moduleId,
+      workflowId,
+    });
+
+    if (
+      !queueValidation.ok &&
+      queueValidation.status !== "input_validation_deferred"
+    ) {
+      return invalidEnvelope(
+        queueValidation.issues.map((issue) => ({
+          code: issue.reasonCode,
+          fieldPath: issue.fieldPath,
+          message: issue.message,
+        })),
+      );
+    }
+
+    const workflowValidation: HobitAgentWorkflowRequestEnvelopeValidationResult =
+      queueValidation.ok
+        ? {
+            fieldPaths: [],
+            moduleId,
+            ok: true,
+            reasons: [...queueValidation.reasons],
+            status: "workflow_valid_not_executable",
+            workflowMetadata: resolution.workflow,
+            workflowId,
+          }
+        : {
+            fieldPaths: [...queueValidation.fieldPaths],
+            moduleId,
+            ok: false,
+            reasonCode: "input_validation_deferred",
+            reasons: [...queueValidation.reasons],
+            status: "input_validation_deferred",
+            workflowMetadata: resolution.workflow,
+            workflowId,
+          };
+
+    return {
+      envelope: buildWorkflowRequestEnvelope({
+        moduleId,
+        requestId,
+        value,
+        workflowId,
+      }),
+      status: "valid",
+      workflowValidation,
+    };
+  }
+
   const unavailableReasonCode =
     !resolution.ok && resolution.reasonCode === "workflow_unavailable"
       ? "workflow_unavailable"
@@ -319,25 +382,48 @@ export function validateHobitAgentWorkflowRequestEnvelope(
           workflowId,
         };
 
+  return {
+    envelope: buildWorkflowRequestEnvelope({
+      moduleId,
+      requestId,
+      value,
+      workflowId,
+    }),
+    status: "valid",
+    workflowValidation,
+  };
+}
+
+function buildWorkflowRequestEnvelope({
+  moduleId,
+  requestId,
+  value,
+  workflowId,
+}: {
+  moduleId: HobitModuleId;
+  requestId: string;
+  value: Record<string, unknown>;
+  workflowId: string;
+}): HobitAgentWorkflowRequestEnvelope {
   const hasGrant = Object.prototype.hasOwnProperty.call(value, "grant");
   const hasInputs = Object.prototype.hasOwnProperty.call(value, "inputs");
-  const envelope: HobitAgentWorkflowRequestEnvelope = {
+
+  return {
     ...(hasGrant ? { grant: value.grant as WorkflowGrant } : {}),
     ...(hasInputs ? { inputs: value.inputs as WorkflowInputs } : {}),
-    ...(isRecord(value.metadata)
-      ? { metadata: value.metadata }
-      : {}),
+    ...(isRecord(value.metadata) ? { metadata: value.metadata } : {}),
     moduleId,
     requestId,
     type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
     workflowId,
   };
+}
 
-  return {
-    envelope,
-    status: "valid",
-    workflowValidation,
-  };
+function isDeclaredQueueWorkflow(moduleId: HobitModuleId, workflowId: string) {
+  return (
+    moduleId === "queue" &&
+    QUEUE_MODULE_WORKFLOW_IDS.includes(workflowId as never)
+  );
 }
 
 function rejectTopLevelStructuredList(

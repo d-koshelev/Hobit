@@ -86,7 +86,7 @@ describe("WorkspaceAgent AgentProvider", () => {
 
     expect(listItemAggregates).not.toHaveBeenCalled();
     expect(lastAssistantMessageText()).toContain(
-      "Workflow request recognized, but workflow is not declared/implemented yet.",
+      "Queue workflow request validated, but workflow runner is not implemented yet.",
     );
   });
 

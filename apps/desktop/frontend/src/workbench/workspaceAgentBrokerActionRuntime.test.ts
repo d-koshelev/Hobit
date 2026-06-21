@@ -481,14 +481,14 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
         source: "direct_json",
         status: "valid",
         validation: {
-          fieldPaths: ["$.workflowId"],
+          fieldPaths: [],
           moduleId: "queue",
-          ok: false,
-          reasonCode: "workflow_unavailable",
+          ok: true,
           reasons: [
-            "dependency_acceptance_smoke is declared by queue but is metadata_only. Declared workflow metadata only; generic hobit.workflow.request recognition returns workflow_unavailable and no workflow executes.",
+            "Queue workflow request validated, but Queue workflow runner is not implemented yet.",
+            "No Queue capabilities were called and no Queue state was mutated.",
           ],
-          status: "workflow_unavailable",
+          status: "workflow_valid_not_executable",
           workflowMetadata: requiredQueueWorkflowMetadata(
             "dependency_acceptance_smoke",
           ),
@@ -496,7 +496,7 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
         },
       }),
     ).toContain(
-      "Workflow request recognized, but workflow execution is not implemented yet.",
+      "Queue workflow request validated, but workflow runner is not implemented yet.",
     );
     expect(
       workspaceAgentWorkflowRequestMessage({

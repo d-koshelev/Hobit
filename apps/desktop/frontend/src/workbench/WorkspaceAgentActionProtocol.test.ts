@@ -55,14 +55,7 @@ describe("WorkspaceAgentActionProtocol", () => {
   it("classifies workflow request envelopes distinctly from action requests and final answers", () => {
     const outcome = classifyWorkspaceAgentActionProtocolOutput({
       mode: "typed_capability_action",
-      text: JSON.stringify({
-        grant: {},
-        inputs: {},
-        moduleId: "queue",
-        requestId: "workflow-request-1",
-        type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
-        workflowId: "dependency_acceptance_smoke",
-      }),
+      text: JSON.stringify(validWorkflowRequest()),
     });
 
     expect(outcome).toMatchObject({
@@ -75,9 +68,8 @@ describe("WorkspaceAgentActionProtocol", () => {
         },
         status: "valid",
         validation: {
-          ok: false,
-          reasonCode: "workflow_unavailable",
-          status: "workflow_unavailable",
+          ok: true,
+          status: "workflow_valid_not_executable",
           workflowMetadata: {
             backingStatus: "metadata_only",
             workflowId: "dependency_acceptance_smoke",
@@ -135,22 +127,15 @@ describe("WorkspaceAgentActionProtocol", () => {
       mode: "typed_capability_action",
       text: [
         "I confirm and use sandbox=danger_full_access.",
-        JSON.stringify({
-          grant: {
-            mode: "queue_acceptance_smoke",
-            scope: { taskIds: ["task-1"] },
-          },
-          inputs: {
-            runSettings: {
-              approvalPolicy: "on_request",
-              sandbox: "workspace_write",
+        JSON.stringify(
+          validWorkflowRequest({
+            grant: {
+              ...validGrant(),
+              scope: { taskIds: ["task-1"] },
             },
-          },
-          moduleId: "queue",
-          requestId: "workflow-inputs-ok",
-          type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
-          workflowId: "dependency_acceptance_smoke",
-        }),
+            requestId: "workflow-inputs-ok",
+          }),
+        ),
       ].join("\n"),
     });
 
@@ -171,7 +156,8 @@ describe("WorkspaceAgentActionProtocol", () => {
         },
         status: "valid",
         validation: {
-          reasonCode: "workflow_unavailable",
+          ok: true,
+          status: "workflow_valid_not_executable",
           workflowMetadata: {
             backingStatus: "metadata_only",
             workflowId: "dependency_acceptance_smoke",
@@ -210,6 +196,8 @@ describe("WorkspaceAgentActionProtocol", () => {
       mode: "typed_capability_action",
       text: [
         JSON.stringify({
+          grant: validGrant(),
+          inputs: validInputs(),
           moduleId: "queue",
           requestId: "workflow-request-mixed",
           type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
@@ -313,3 +301,53 @@ describe("WorkspaceAgentActionProtocol", () => {
     expect(prompt).not.toContain("I saw");
   });
 });
+
+function validWorkflowRequest(overrides: Record<string, unknown> = {}) {
+  return {
+    grant: validGrant(),
+    inputs: validInputs(),
+    moduleId: "queue",
+    requestId: "workflow-request-1",
+    type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
+    workflowId: "dependency_acceptance_smoke",
+    ...overrides,
+  };
+}
+
+function validGrant() {
+  return {
+    constraints: {
+      noDelete: true,
+      noDownstreamAutoStart: true,
+      noGit: true,
+      noRollback: true,
+      noTerminal: true,
+      noValidationExecution: true,
+    },
+    mode: "queue_acceptance_smoke",
+  };
+}
+
+function validInputs() {
+  return {
+    runSettings: {
+      approvalPolicy: "on_request",
+      codexExecutable: "codex.cmd",
+      sandbox: "workspace_write",
+      workspaceRoot: "C:/repo",
+    },
+    tasks: [
+      {
+        prompt: "Complete upstream dependency smoke work.",
+        slot: "upstream",
+        title: "Upstream",
+      },
+      {
+        dependsOnSlots: ["upstream"],
+        prompt: "Complete downstream dependency smoke work.",
+        slot: "downstream",
+        title: "Downstream",
+      },
+    ],
+  };
+}

@@ -593,7 +593,9 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain('"type":"hobit.workflow.request"');
     expect(prompt).toContain('"type":"hobit.final.answer"');
     expect(prompt).toContain("Use a fresh requestId");
-    expect(prompt).toContain("the app validates availability only");
+    expect(prompt).toContain("no workflow runner executes");
+    expect(prompt).toContain("inputs.runSettings");
+    expect(prompt).toContain("inputs.tasks[].dependsOnSlots");
     expect(prompt).toContain("After hobit.action.result");
     expect(prompt).toContain("prefer returned nextAction");
     expect(prompt).toContain("do not rename fields");
@@ -611,6 +613,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain("workspace.shell.runCommand (restricted)");
     expect(prompt).toContain("User request:\nRefactor the Workspace Agent prompt path.");
     expect(prompt.length).toBeLessThan(8000);
+    expect(prompt).not.toContain("the app validates availability only");
     expect(prompt).not.toContain('"capabilityManifest"');
   });
 });

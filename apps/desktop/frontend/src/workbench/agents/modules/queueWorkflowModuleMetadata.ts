@@ -29,7 +29,7 @@ const COMMON_BACKEND_OWNERSHIP_NOTES = [
 
 const COMMON_PAUSE_REASONS = [
   "workflowRunnerNotImplemented",
-  "queueSpecificInputValidationNotImplemented",
+  "queueWorkflowInputValidationDeferred",
   "grantMissingOrInsufficient",
   "capabilityUnavailable",
   "backendPreconditionBlocked",
@@ -37,8 +37,9 @@ const COMMON_PAUSE_REASONS = [
 ] as const;
 
 const COMMON_TRANSITIONAL_LIMITATIONS = [
-  "Metadata only in this block; no Queue workflow runner exists.",
-  "Queue-specific workflow input validation is not implemented yet.",
+  "Metadata and validation only in this block; no Queue workflow runner exists.",
+  "Dependency acceptance/failure smoke workflows validate typed runSettings, task slots, dependency slot references, grant modes, and safety constraints.",
+  "Review acceptance and terminal failure workflow input validation remains deferred until their typed runner/input contracts are narrowed.",
   "No worker, validation, Git, rollback, Terminal, downstream auto-start, or scheduler behavior is triggered by workflow metadata.",
 ] as const;
 
@@ -71,11 +72,8 @@ export const QUEUE_MODULE_WORKFLOWS: readonly QueueModuleWorkflowMetadata[] = [
     requiredGrantModes: ["queue_acceptance_smoke", "queue_operator_flow"],
     requiredInputSections: [
       "inputs.tasks",
-      "inputs.dependencies",
+      "inputs.tasks[].dependsOnSlots",
       "inputs.runSettings",
-      "inputs.executorTarget",
-      "inputs.workerEvidence",
-      "inputs.reviewDecision",
     ],
     requiredRiskClasses: [
       "read",
@@ -119,10 +117,8 @@ export const QUEUE_MODULE_WORKFLOWS: readonly QueueModuleWorkflowMetadata[] = [
     requiredGrantModes: ["queue_failure_smoke", "queue_operator_flow"],
     requiredInputSections: [
       "inputs.tasks",
-      "inputs.dependencies",
+      "inputs.tasks[].dependsOnSlots",
       "inputs.runSettings",
-      "inputs.executorTarget",
-      "inputs.workerEvidence",
       "inputs.failureReason",
     ],
     requiredRiskClasses: [
@@ -155,7 +151,11 @@ export const QUEUE_MODULE_WORKFLOWS: readonly QueueModuleWorkflowMetadata[] = [
       "queue.review.createMessage",
       "queue.review.ack",
     ],
-    requiredGrantModes: ["queue_smoke", "queue_operator_flow"],
+    requiredGrantModes: [
+      "queue_acceptance_smoke",
+      "queue_failure_smoke",
+      "queue_operator_flow",
+    ],
     requiredInputSections: [
       "inputs.task",
       "inputs.workerEvidence",
@@ -223,7 +223,7 @@ function queueWorkflow({
     confirmationRequirement,
     displayName,
     implementationStatus:
-      "Declared workflow metadata only; generic hobit.workflow.request recognition returns workflow_unavailable and no workflow executes.",
+      "Declared workflow metadata with validation-only request handling; dependency acceptance/failure request inputs can validate, but no Queue workflow runner executes.",
     pauseReasons: COMMON_PAUSE_REASONS,
     requiredCapabilityIds,
     requiredGrantModes,

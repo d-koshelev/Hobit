@@ -214,12 +214,13 @@ generic `nextAction` validation and generic workflow request validation.
 Queue now declares the initial workflow ids
 `dependency_acceptance_smoke`, `dependency_failure_smoke`,
 `review_acceptance`, and `terminal_failure` as metadata-only. Generic
-validation can recognize those ids and return non-executable workflow metadata,
-including required capabilities, risk classes, grant
-modes, opaque input-section summaries, safety constraints, pause/resume notes,
-and backend ownership notes. Generic validation may accept opaque
-Queue-looking `inputs` objects, but it does not validate Queue-specific
-runSettings/tasks, start workers, mutate Queue state, or execute workflows.
+validation can recognize those ids and return non-executable workflow metadata.
+For `dependency_acceptance_smoke` and `dependency_failure_smoke`, Queue-specific
+validation checks typed `inputs.runSettings`, `inputs.tasks`, task slots,
+explicit `dependsOnSlots`, allowed grant modes, and required safety
+constraints before returning `workflow_valid_not_executable`. `review_acceptance`
+and `terminal_failure` are declared with input validation deferred. No workflow
+request starts workers, mutates Queue state, or executes workflows.
 `ModuleControlSurfaceRegistry` is the discovery layer for these agent-facing
 module surfaces. Queue is the first registered module. The registry is
 metadata only, is not runtime behavior, and must stay UI-independent. Widgets

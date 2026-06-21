@@ -889,10 +889,10 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(runTerminal).not.toHaveBeenCalled();
     expect(createGitCommit).not.toHaveBeenCalled();
     expect(lastAssistantMessageText()).toContain(
-      "Workflow request recognized, but workflow execution is not implemented yet.",
+      "Queue workflow request validated, but workflow runner is not implemented yet.",
     );
     expect(lastAssistantMessageText()).toContain(
-      "dependency_acceptance_smoke is declared by queue but is metadata_only.",
+      "No Queue capabilities were called and no Queue state was mutated.",
     );
     expect(lastAssistantMessageText()).not.toContain("Queue items listed");
     expect(lastAssistantMessageText()).not.toContain("Hobit action requested");
@@ -1229,8 +1229,38 @@ function workflowEnvelope({
   workflowId: string;
 }) {
   return JSON.stringify({
-    grant: {},
-    inputs: {},
+    grant: {
+      constraints: {
+        noDelete: true,
+        noDownstreamAutoStart: true,
+        noGit: true,
+        noRollback: true,
+        noTerminal: true,
+        noValidationExecution: true,
+      },
+      mode: "queue_acceptance_smoke",
+    },
+    inputs: {
+      runSettings: {
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        sandbox: "workspace_write",
+        workspaceRoot: "C:/repo",
+      },
+      tasks: [
+        {
+          prompt: "Complete upstream dependency smoke work.",
+          slot: "upstream",
+          title: "Upstream",
+        },
+        {
+          dependsOnSlots: ["upstream"],
+          prompt: "Complete downstream dependency smoke work.",
+          slot: "downstream",
+          title: "Downstream",
+        },
+      ],
+    },
     moduleId: "queue",
     requestId: "workflow-request-1",
     type: "hobit.workflow.request",

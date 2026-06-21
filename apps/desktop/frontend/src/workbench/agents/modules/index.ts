@@ -56,6 +56,13 @@ export type {
   QueueModuleWorkflowMetadata,
   QueueWorkflowId,
 } from "./queueWorkflowModuleMetadata";
+export { validateQueueWorkflowRequest } from "./queueWorkflowRequestValidation";
+export type {
+  QueueWorkflowRequestValidationIssue,
+  QueueWorkflowRequestValidationReasonCode,
+  QueueWorkflowRequestValidationResult,
+  QueueWorkflowRequestValidationStatus,
+} from "./queueWorkflowRequestValidation";
 export {
   QUEUE_BACKEND_BACKED_MODULE_CAPABILITY_IDS,
   QUEUE_MODULE_CONTROL_SURFACE,

@@ -11,7 +11,7 @@ import {
 import { validateWorkflowGrantAndInputsSplit } from "./workflowGrantInputSplit";
 
 describe("hobitAgentWorkflowRequestEnvelope", () => {
-  it("parses raw workflow request JSON and reports metadata-only Queue workflow availability", () => {
+  it("parses raw workflow request JSON and reports validated Queue workflow availability", () => {
     const result = readHobitAgentWorkflowRequestEnvelope(
       JSON.stringify(workflowRequest()),
     );
@@ -26,11 +26,14 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
       source: "direct_json",
       status: "valid",
       validation: {
-        fieldPaths: ["$.workflowId"],
+        fieldPaths: [],
         moduleId: "queue",
-        ok: false,
-        reasonCode: "workflow_unavailable",
-        status: "workflow_unavailable",
+        ok: true,
+        reasons: [
+          expect.stringContaining("Queue workflow request validated"),
+          expect.stringContaining("no Queue state was mutated"),
+        ],
+        status: "workflow_valid_not_executable",
         workflowMetadata: {
           backingStatus: "metadata_only",
           requiredCapabilityIds: expect.arrayContaining([
@@ -290,6 +293,56 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
     expect(result.validation).not.toHaveProperty("workflowMetadata");
   });
 
+  it("returns field-path validation errors for invalid declared Queue workflow inputs", () => {
+    const result = readHobitAgentWorkflowRequestEnvelope(
+      JSON.stringify(
+        workflowRequest({
+          inputs: validInputs({
+            runSettings: {
+              ...validRunSettings(),
+              sandbox: "workspace-write",
+            },
+          }),
+        }),
+      ),
+    );
+
+    expect(result).toMatchObject({
+      issues: [
+        expect.objectContaining({
+          code: "invalid_sandbox",
+          fieldPath: "$.inputs.runSettings.sandbox",
+        }),
+      ],
+      status: "invalid",
+    });
+  });
+
+  it("reports declared deferred Queue workflows without executing them", () => {
+    const result = readHobitAgentWorkflowRequestEnvelope(
+      JSON.stringify(
+        workflowRequest({
+          grant: validGrant({ mode: "queue_operator_flow" }),
+          workflowId: "review_acceptance",
+        }),
+      ),
+    );
+
+    expect(result).toMatchObject({
+      status: "valid",
+      validation: {
+        fieldPaths: ["$.inputs"],
+        ok: false,
+        reasonCode: "input_validation_deferred",
+        status: "input_validation_deferred",
+        workflowMetadata: {
+          workflowId: "review_acceptance",
+        },
+        workflowId: "review_acceptance",
+      },
+    });
+  });
+
   it("validates declared workflow metadata when a module surface declares it", () => {
     const moduleSurfaces = [
       workflowSurface({
@@ -346,12 +399,13 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
     });
   });
 
-  it("accepts generic permission grant fields and opaque workflow input objects", () => {
+  it("accepts generic permission grant fields and typed Queue workflow inputs", () => {
     const result = readHobitAgentWorkflowRequestEnvelope(
       JSON.stringify(
         workflowRequest({
           grant: {
             confirmationToken: "operator-confirmed",
+            constraints: validConstraints(),
             mode: "queue_acceptance_smoke",
             scope: {
               evidenceBundleIds: ["bundle-1"],
@@ -361,19 +415,7 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
               taskIds: ["task-1"],
             },
           },
-          inputs: {
-            runSettings: {
-              approvalPolicy: "on_request",
-              sandbox: "workspace_write",
-            },
-            tasks: [
-              {
-                dependsOnSlots: ["upstream"],
-                prompt: "Run the workflow.",
-                title: "Workflow task",
-              },
-            ],
-          },
+          inputs: validInputs(),
         }),
       ),
     );
@@ -382,6 +424,7 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
       envelope: {
         grant: {
           confirmationToken: "operator-confirmed",
+          constraints: validConstraints(),
           mode: "queue_acceptance_smoke",
           scope: {
             evidenceBundleIds: ["bundle-1"],
@@ -391,21 +434,13 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
             taskIds: ["task-1"],
           },
         },
-        inputs: {
-          runSettings: {
-            approvalPolicy: "on_request",
-            sandbox: "workspace_write",
-          },
-          tasks: [
-            {
-              dependsOnSlots: ["upstream"],
-              prompt: "Run the workflow.",
-              title: "Workflow task",
-            },
-          ],
-        },
+        inputs: validInputs(),
       },
       status: "valid",
+      validation: {
+        ok: true,
+        status: "workflow_valid_not_executable",
+      },
     });
     expect(result).not.toMatchObject({
       status: "invalid",
@@ -591,24 +626,16 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
     });
   });
 
-  it("accepts workflow data under inputs while Queue-specific input validation remains absent", () => {
+  it("validates workflow data under inputs through the Queue workflow validator", () => {
     const result = readHobitAgentWorkflowRequestEnvelope(
       JSON.stringify(
         workflowRequest({
           grant: {
+            constraints: validConstraints(),
             mode: "queue_acceptance_smoke",
             scope: { taskIds: ["task-1"] },
           },
-          inputs: {
-            dependsOnSlots: ["upstream"],
-            runSettings: {
-              approvalPolicy: "on_request",
-              codexExecutable: "codex.cmd",
-              sandbox: "workspace_write",
-              workspaceRoot: "C:/repo",
-            },
-            tasks: [{ prompt: "Run typed workflow task.", title: "Task" }],
-          },
+          inputs: validInputs(),
         }),
       ),
     );
@@ -616,8 +643,8 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
     expect(result).toMatchObject({
       status: "valid",
       validation: {
-        ok: false,
-        reasonCode: "workflow_unavailable",
+        ok: true,
+        status: "workflow_valid_not_executable",
         workflowMetadata: {
           backingStatus: "metadata_only",
           requiredInputSections: expect.arrayContaining(["inputs.tasks"]),
@@ -633,10 +660,16 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
         JSON.stringify(
           workflowRequest({
             grant: {
+              constraints: validConstraints(),
               mode: "queue_acceptance_smoke",
               scope: { taskIds: ["task-1"] },
             },
-            inputs: {},
+            inputs: validInputs({
+              runSettings: {
+                ...validRunSettings(),
+                sandbox: "workspace_write",
+              },
+            }),
           }),
         ),
       ].join("\n"),
@@ -645,10 +678,11 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
     expect(result).toMatchObject({
       envelope: {
         grant: {
+          constraints: validConstraints(),
           mode: "queue_acceptance_smoke",
           scope: { taskIds: ["task-1"] },
         },
-        inputs: {},
+        inputs: validInputs(),
       },
       status: "valid",
     });
@@ -656,7 +690,9 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
       throw new Error("Expected workflow request to stay valid.");
     }
     expect(result.envelope.grant?.confirmationToken).toBeUndefined();
-    expect(result.envelope.inputs).toEqual({});
+    expect(result.envelope.inputs?.runSettings).toMatchObject({
+      sandbox: "workspace_write",
+    });
   });
 
   it("keeps split validation helpers independent from Queue UI and visual shell modules", () => {
@@ -676,14 +712,66 @@ function workflowRequest(
   overrides: Partial<Record<string, unknown>> = {},
 ): Record<string, unknown> {
   return {
-    grant: {},
-    inputs: {},
+    grant: validGrant(),
+    inputs: validInputs(),
     moduleId: "queue",
     requestId: "workflow-request-1",
     type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
     workflowId: "dependency_acceptance_smoke",
     ...overrides,
   };
+}
+
+function validGrant(overrides: Record<string, unknown> = {}) {
+  return {
+    constraints: validConstraints(),
+    mode: "queue_acceptance_smoke",
+    ...overrides,
+  };
+}
+
+function validConstraints() {
+  return {
+    noDelete: true,
+    noDownstreamAutoStart: true,
+    noGit: true,
+    noRollback: true,
+    noTerminal: true,
+    noValidationExecution: true,
+  };
+}
+
+function validInputs(overrides: Record<string, unknown> = {}) {
+  return {
+    runSettings: validRunSettings(),
+    tasks: validTasks(),
+    ...overrides,
+  };
+}
+
+function validRunSettings() {
+  return {
+    approvalPolicy: "on_request",
+    codexExecutable: "codex.cmd",
+    sandbox: "workspace_write",
+    workspaceRoot: "C:/repo",
+  };
+}
+
+function validTasks() {
+  return [
+    {
+      prompt: "Complete upstream dependency smoke work.",
+      slot: "upstream",
+      title: "Upstream",
+    },
+    {
+      dependsOnSlots: ["upstream"],
+      prompt: "Complete downstream dependency smoke work.",
+      slot: "downstream",
+      title: "Downstream",
+    },
+  ];
 }
 
 function workflowSurface({
