@@ -183,14 +183,23 @@ paths; dependency waiting does not start downstream work.
 
 - Structured Workflow Request Envelope MVP: Workspace Agent now recognizes a
   module-neutral `hobit.workflow.request` JSON envelope with `requestId`,
-  `moduleId`, `workflowId`, optional opaque `grant`, optional opaque `inputs`,
-  and optional compact `metadata`. The envelope is classification and
-  validation only. It verifies `moduleId` through `ModuleControlSurfaceRegistry`
-  and reports whether `workflowId` is declared/available by that module. It
-  rejects malformed JSON, arrays, unknown workflow envelope types, multiple
-  workflow envelopes, and mixed action/workflow envelopes. It does not execute
-  workflows, call broker capabilities, run Queue adapters, infer workflow
-  inputs from prose, or treat prose permission as a grant.
+  `moduleId`, `workflowId`, optional generic permission/scope `grant`,
+  optional opaque object `inputs`, and optional compact `metadata`. The
+  envelope is classification and validation only. It verifies `moduleId`
+  through `ModuleControlSurfaceRegistry` and reports whether `workflowId` is
+  declared/available by that module. Generic validation now enforces the
+  grant/input split: `grant` is permission and scope metadata only, while
+  `inputs` is the only workflow data location. Product data such as
+  runSettings, tasks, prompts, dependencies, run configuration, and direct ids
+  are rejected inside `grant`; ids may appear only under explicit
+  `grant.scope.*Ids` arrays. Confirmation tokens in `grant` are permission
+  metadata only and are never inferred from prose. It rejects malformed JSON,
+  arrays, unknown workflow envelope types, multiple workflow envelopes, mixed
+  action/workflow envelopes, malformed grants, malformed inputs, invalid scope
+  fields, and product input in grants. It does not execute workflows, call
+  broker capabilities, run Queue adapters, infer workflow inputs from prose, or
+  treat prose permission as a grant. Queue-specific workflow input validation
+  and workflow execution remain future work.
 
 ## Module Control Surface
 

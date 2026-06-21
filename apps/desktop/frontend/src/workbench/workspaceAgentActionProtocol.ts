@@ -197,6 +197,7 @@ export function formatWorkspaceAgentActionProtocolRepairPrompt(): string {
       "or",
       '{"type":"hobit.final.answer","message":"<final user-facing answer or blocker>"}',
       "Intermediate prose is not a capability call; emit an envelope or final marker.",
+      "For workflow requests, grant is permission/scope only and workflow data belongs under inputs.",
       "Do not emit action lists. Do not infer taskId, runId, executorWidgetId, or capability id from prose.",
       "Do not use shell, Git, validation, rollback, Terminal, or hidden execution.",
     ].join("\n"),

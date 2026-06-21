@@ -7,13 +7,19 @@ import {
   resolveModuleControlSurfaceWorkflow,
 } from "../modules/moduleControlSurfaceRegistry";
 import { HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE } from "./hobitAgentActionRequestEnvelope";
+import {
+  validateWorkflowGrantAndInputsSplit,
+  type WorkflowGrant,
+  type WorkflowGrantInputSplitReasonCode,
+  type WorkflowInputs,
+} from "./workflowGrantInputSplit";
 
 export const HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE =
   "hobit.workflow.request" as const;
 
 export type HobitAgentWorkflowRequestEnvelope = {
-  grant?: unknown;
-  inputs?: unknown;
+  grant?: WorkflowGrant;
+  inputs?: WorkflowInputs;
   metadata?: Record<string, unknown>;
   moduleId: HobitModuleId;
   requestId: string;
@@ -57,6 +63,7 @@ export type HobitAgentWorkflowRequestEnvelopeIssueCode =
   | "envelope_must_be_object"
   | "envelope_top_level_array"
   | "invalid_json"
+  | WorkflowGrantInputSplitReasonCode
   | "metadata_invalid"
   | "missing_required_field"
   | "multiple_workflow_requests"
@@ -89,6 +96,14 @@ export type HobitAgentWorkflowRequestEnvelopeReadResult =
 export type HobitAgentWorkflowRequestEnvelopeValidationOptions = {
   moduleSurfaces?: readonly ModuleControlSurface[];
 };
+
+const splitIssueCodes = new Set<HobitAgentWorkflowRequestEnvelopeIssueCode>([
+  "invalid_grant_field",
+  "invalid_grant_scope",
+  "malformed_grant",
+  "malformed_inputs",
+  "product_input_in_grant",
+]);
 
 type JsonCandidate = {
   source: "direct_json" | "embedded_json" | "fenced_json";
@@ -244,6 +259,17 @@ export function validateHobitAgentWorkflowRequestEnvelope(
     return invalidEnvelope(issues);
   }
 
+  const splitValidation = validateWorkflowGrantAndInputsSplit(value);
+  if (!splitValidation.valid) {
+    return invalidEnvelope(
+      splitValidation.issues.map((issue) => ({
+        code: issue.reasonCode,
+        fieldPath: issue.fieldPath,
+        message: issue.message,
+      })),
+    );
+  }
+
   const requestId = trimmedString(value.requestId);
   const moduleId = trimmedString(value.moduleId) as HobitModuleId;
   const workflowId = trimmedString(value.workflowId);
@@ -286,13 +312,11 @@ export function validateHobitAgentWorkflowRequestEnvelope(
           workflowId,
         };
 
+  const hasGrant = Object.prototype.hasOwnProperty.call(value, "grant");
+  const hasInputs = Object.prototype.hasOwnProperty.call(value, "inputs");
   const envelope: HobitAgentWorkflowRequestEnvelope = {
-    ...(Object.prototype.hasOwnProperty.call(value, "grant")
-      ? { grant: value.grant }
-      : {}),
-    ...(Object.prototype.hasOwnProperty.call(value, "inputs")
-      ? { inputs: value.inputs }
-      : {}),
+    ...(hasGrant ? { grant: value.grant as WorkflowGrant } : {}),
+    ...(hasInputs ? { inputs: value.inputs as WorkflowInputs } : {}),
     ...(isRecord(value.metadata)
       ? { metadata: value.metadata }
       : {}),
@@ -429,13 +453,17 @@ function invalidEnvelope(
   return {
     issues: [...issues],
     message: "Invalid Hobit workflow request",
-    reasons: issues.map((issue) =>
-      issue.fieldPath === "$"
-        ? issue.message
-        : `${issue.fieldPath}: ${issue.message}`,
-    ),
+    reasons: issues.map(issueReason),
     status: "invalid",
   };
+}
+
+function issueReason(issue: HobitAgentWorkflowRequestEnvelopeIssue) {
+  const message = splitIssueCodes.has(issue.code)
+    ? `${issue.code}: ${issue.message}`
+    : issue.message;
+
+  return issue.fieldPath === "$" ? message : `${issue.fieldPath}: ${message}`;
 }
 
 function collectFencedBlocks(text: string): FencedBlock[] {

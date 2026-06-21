@@ -38,6 +38,8 @@ export function createCapabilityInstructionBlock(
     "One envelope only; do not emit action lists. Use the exact capability id, exact input fields, exact enum values, and a unique requestId.",
     'Workflow requests use a separate generic envelope only when explicitly requested: {"type":"hobit.workflow.request","requestId":"workflow-1","moduleId":"queue","workflowId":"<declared-workflow>","grant":{},"inputs":{}}.',
     "Workflow requests are validation/classification only here; prose is not workflow input, and undeclared workflows are reported instead of executed.",
+    "Workflow grant authorizes only permission/scope. Workflow inputs configure data such as runSettings/tasks/prompts/dependencies.",
+    "Never put runSettings/tasks/prompts/dependencies/workspaceRoot/codexExecutable/sandbox/approvalPolicy in grant; scope ids only under grant.scope taskIds/runIds/messageIds/evidenceBundleIds/executorWidgetIds; confirmationToken in grant is permission metadata only; hobit.action.request remains separate.",
     "Intermediate prose is not a capability call; emit an envelope or final marker. Do not write awaiting capability result.",
     "After hobit.action.result, prefer returned nextAction: use nextAction.capabilityId and nextAction.input exactly; do not rename fields.",
     "If nextAction is unavailable, ask or stop with the blocker; do not guess ids, fields, or actions from nextSuggestedCapability alone.",

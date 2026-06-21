@@ -2,11 +2,13 @@ import { describe, expect, it } from "vitest";
 
 import type { ModuleControlSurface } from "../modules";
 import { QUEUE_MODULE_CONTROL_SURFACE } from "../modules";
+import workflowGrantInputSplitSource from "./workflowGrantInputSplit.ts?raw";
 import {
   HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
   readHobitAgentWorkflowRequestEnvelope,
   validateHobitAgentWorkflowRequestEnvelope,
 } from "./hobitAgentWorkflowRequestEnvelope";
+import { validateWorkflowGrantAndInputsSplit } from "./workflowGrantInputSplit";
 
 describe("hobitAgentWorkflowRequestEnvelope", () => {
   it("parses raw workflow request JSON and reports undeclared Queue workflow availability", () => {
@@ -284,15 +286,34 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
     });
   });
 
-  it("treats grant and inputs as opaque generic values", () => {
+  it("accepts generic permission grant fields and opaque workflow input objects", () => {
     const result = readHobitAgentWorkflowRequestEnvelope(
       JSON.stringify(
         workflowRequest({
           grant: {
             confirmationToken: "operator-confirmed",
             mode: "queue_acceptance_smoke",
+            scope: {
+              evidenceBundleIds: ["bundle-1"],
+              executorWidgetIds: ["executor-1"],
+              messageIds: ["message-1"],
+              runIds: ["run-1"],
+              taskIds: ["task-1"],
+            },
           },
-          inputs: "opaque workflow input string",
+          inputs: {
+            runSettings: {
+              approvalPolicy: "on_request",
+              sandbox: "workspace_write",
+            },
+            tasks: [
+              {
+                dependsOnSlots: ["upstream"],
+                prompt: "Run the workflow.",
+                title: "Workflow task",
+              },
+            ],
+          },
         }),
       ),
     );
@@ -302,14 +323,288 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
         grant: {
           confirmationToken: "operator-confirmed",
           mode: "queue_acceptance_smoke",
+          scope: {
+            evidenceBundleIds: ["bundle-1"],
+            executorWidgetIds: ["executor-1"],
+            messageIds: ["message-1"],
+            runIds: ["run-1"],
+            taskIds: ["task-1"],
+          },
         },
-        inputs: "opaque workflow input string",
+        inputs: {
+          runSettings: {
+            approvalPolicy: "on_request",
+            sandbox: "workspace_write",
+          },
+          tasks: [
+            {
+              dependsOnSlots: ["upstream"],
+              prompt: "Run the workflow.",
+              title: "Workflow task",
+            },
+          ],
+        },
       },
       status: "valid",
     });
     expect(result).not.toMatchObject({
       status: "invalid",
     });
+  });
+
+  it("rejects workflow product input fields inside grant with field paths", () => {
+    const productFields = [
+      "runSettings",
+      "tasks",
+      "task",
+      "prompt",
+      "prompts",
+      "title",
+      "dependsOn",
+      "dependsOnSlots",
+      "workflowInputs",
+      "inputs",
+      "codexExecutable",
+      "workspaceRoot",
+      "sandbox",
+      "approvalPolicy",
+    ];
+
+    for (const fieldName of productFields) {
+      const result = validateHobitAgentWorkflowRequestEnvelope(
+        workflowRequest({
+          grant: { [fieldName]: fieldName === "tasks" ? [] : "value" },
+          inputs: {},
+        }),
+      );
+
+      expect(result, fieldName).toMatchObject({
+        issues: [
+          expect.objectContaining({
+            code: "product_input_in_grant",
+            fieldPath: `$.grant.${fieldName}`,
+          }),
+        ],
+        reasons: [
+          expect.stringContaining(
+            `$.grant.${fieldName}: product_input_in_grant:`,
+          ),
+        ],
+        status: "invalid",
+      });
+    }
+  });
+
+  it("rejects direct ids at top-level grant and allows id arrays only under scope", () => {
+    const directIdFields = [
+      "taskId",
+      "runId",
+      "messageId",
+      "evidenceBundleId",
+      "executorWidgetId",
+    ];
+
+    for (const fieldName of directIdFields) {
+      expect(
+        validateHobitAgentWorkflowRequestEnvelope(
+          workflowRequest({
+            grant: { [fieldName]: `${fieldName}-1` },
+            inputs: {},
+          }),
+        ),
+        fieldName,
+      ).toMatchObject({
+        issues: [
+          expect.objectContaining({
+            code: "product_input_in_grant",
+            fieldPath: `$.grant.${fieldName}`,
+          }),
+        ],
+        status: "invalid",
+      });
+    }
+
+    const scoped = validateWorkflowGrantAndInputsSplit({
+      grant: {
+        scope: {
+          evidenceBundleIds: ["bundle-1"],
+          executorWidgetIds: ["executor-1"],
+          messageIds: ["message-1"],
+          runIds: ["run-1"],
+          taskIds: ["task-1"],
+        },
+      },
+      inputs: {},
+    });
+
+    expect(scoped).toMatchObject({
+      issues: [],
+      valid: true,
+    });
+  });
+
+  it("allows module and capability ids only as explicit scope arrays", () => {
+    expect(
+      validateWorkflowGrantAndInputsSplit({
+        grant: {
+          scope: {
+            capabilityIds: ["queue.items.list"],
+            moduleIds: ["queue"],
+          },
+        },
+        inputs: {},
+      }),
+    ).toMatchObject({
+      issues: [],
+      valid: true,
+    });
+
+    expect(
+      validateWorkflowGrantAndInputsSplit({
+        grant: { taskIds: ["task-1"] },
+        inputs: {},
+      }),
+    ).toMatchObject({
+      issues: [
+        expect.objectContaining({
+          fieldPath: "$.grant.taskIds",
+          reasonCode: "invalid_grant_scope",
+        }),
+      ],
+      valid: false,
+    });
+  });
+
+  it("rejects malformed grant, malformed inputs, and invalid scope fields", () => {
+    expect(
+      validateWorkflowGrantAndInputsSplit({
+        grant: [],
+        inputs: {},
+      }),
+    ).toMatchObject({
+      issues: [
+        expect.objectContaining({
+          fieldPath: "$.grant",
+          reasonCode: "malformed_grant",
+        }),
+      ],
+      valid: false,
+    });
+
+    expect(
+      validateWorkflowGrantAndInputsSplit({
+        grant: {},
+        inputs: "runSettings belong in an object",
+      }),
+    ).toMatchObject({
+      issues: [
+        expect.objectContaining({
+          fieldPath: "$.inputs",
+          reasonCode: "malformed_inputs",
+        }),
+      ],
+      valid: false,
+    });
+
+    expect(
+      validateWorkflowGrantAndInputsSplit({
+        grant: {
+          scope: {
+            taskId: "task-1",
+            taskIds: ["task-2", ""],
+          },
+        },
+        inputs: {},
+      }),
+    ).toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          fieldPath: "$.grant.scope.taskId",
+          reasonCode: "invalid_grant_scope",
+        }),
+        expect.objectContaining({
+          fieldPath: "$.grant.scope.taskIds",
+          reasonCode: "invalid_grant_scope",
+        }),
+      ]),
+      valid: false,
+    });
+  });
+
+  it("accepts workflow data under inputs while generic Queue workflow remains undeclared", () => {
+    const result = readHobitAgentWorkflowRequestEnvelope(
+      JSON.stringify(
+        workflowRequest({
+          grant: {
+            mode: "queue_acceptance_smoke",
+            scope: { taskIds: ["task-1"] },
+          },
+          inputs: {
+            dependsOnSlots: ["upstream"],
+            runSettings: {
+              approvalPolicy: "on_request",
+              codexExecutable: "codex.cmd",
+              sandbox: "workspace_write",
+              workspaceRoot: "C:/repo",
+            },
+            tasks: [{ prompt: "Run typed workflow task.", title: "Task" }],
+          },
+        }),
+      ),
+    );
+
+    expect(result).toMatchObject({
+      status: "valid",
+      validation: {
+        ok: false,
+        reasonCode: "workflow_not_declared",
+      },
+    });
+  });
+
+  it("ignores prose confirmation and prose run settings around workflow JSON", () => {
+    const result = readHobitAgentWorkflowRequestEnvelope(
+      [
+        "I confirm. Use sandbox=danger_full_access.",
+        JSON.stringify(
+          workflowRequest({
+            grant: {
+              mode: "queue_acceptance_smoke",
+              scope: { taskIds: ["task-1"] },
+            },
+            inputs: {},
+          }),
+        ),
+      ].join("\n"),
+    );
+
+    expect(result).toMatchObject({
+      envelope: {
+        grant: {
+          mode: "queue_acceptance_smoke",
+          scope: { taskIds: ["task-1"] },
+        },
+        inputs: {},
+      },
+      status: "valid",
+    });
+    if (result.status !== "valid") {
+      throw new Error("Expected workflow request to stay valid.");
+    }
+    expect(result.envelope.grant?.confirmationToken).toBeUndefined();
+    expect(result.envelope.inputs).toEqual({});
+  });
+
+  it("keeps split validation helpers independent from Queue UI and visual shell modules", () => {
+    expect(workflowGrantInputSplitSource).not.toContain("AgentQueueV2Board");
+    expect(workflowGrantInputSplitSource).not.toContain(
+      "AgentQueuePlaceholderWidget",
+    );
+    expect(workflowGrantInputSplitSource).not.toContain("widgetV2/queueV2");
+    expect(workflowGrantInputSplitSource).not.toContain("queue/details");
+    expect(workflowGrantInputSplitSource).not.toContain("ModuleShell");
+    expect(workflowGrantInputSplitSource).not.toContain("tokens.css");
+    expect(workflowGrantInputSplitSource).not.toContain("widget.css");
   });
 });
 

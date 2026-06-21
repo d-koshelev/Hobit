@@ -70,6 +70,15 @@ export {
   readHobitAgentWorkflowRequestEnvelope,
   validateHobitAgentWorkflowRequestEnvelope,
 } from "./hobitAgentWorkflowRequestEnvelope";
+export type {
+  WorkflowGrant,
+  WorkflowGrantInputSplitIssue,
+  WorkflowGrantInputSplitReasonCode,
+  WorkflowGrantInputSplitValidationResult,
+  WorkflowGrantScope,
+  WorkflowInputs,
+} from "./workflowGrantInputSplit";
+export { validateWorkflowGrantAndInputsSplit } from "./workflowGrantInputSplit";
 export type { HobitNextActionValidationOptions } from "./nextAction";
 export {
   createHobitNextActionUnavailable,

@@ -341,6 +341,17 @@ describe("hobitAgentCapabilityRuntime context", () => {
       "Workflow requests are validation/classification only",
     );
     expect(instructionBlock).toContain("prose is not workflow input");
+    expect(instructionBlock).toContain(
+      "Workflow grant authorizes only permission/scope",
+    );
+    expect(instructionBlock).toContain(
+      "Workflow inputs configure data such as runSettings",
+    );
+    expect(instructionBlock).toContain("Never put runSettings");
+    expect(instructionBlock).toContain("grant.scope taskIds");
+    expect(instructionBlock).toContain(
+      "confirmationToken in grant is permission metadata only",
+    );
     expect(instructionBlock).toContain("do not emit action lists");
     expect(instructionBlock).toContain(
       "Intermediate prose is not a capability call",
@@ -365,6 +376,8 @@ describe("hobitAgentCapabilityRuntime context", () => {
     );
     expect(instructionBlock).toContain("fresh requestId");
     expect(instructionBlock).not.toContain('"allowedAgentRoles"');
+    expect(instructionBlock).not.toContain('"grant":{"runSettings"');
+    expect(instructionBlock).not.toContain('"grant":{"tasks"');
     expect(instructionBlock.length).toBeLessThan(11000);
     expect(instructionBlock).not.toContain('"capabilities"');
   });
@@ -401,6 +414,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(seam.instructionBlock).toContain("You are inside Hobit");
     expect(seam.instructionBlock).toContain("queue.createItems");
     expect(seam.instructionBlock).toContain("codex.runTask");
+    expect(seam.instructionBlock).toContain("Workflow grant authorizes");
     expect(seam.instructionBlock).toContain("Workspace root: C:/repo.");
   });
 

@@ -129,12 +129,18 @@ titles, prompts, UI order, file paths, or natural-language text.
 
 The generic `hobit.workflow.request` envelope is now recognized by Workspace
 Agent protocol code as a separate module-neutral request type. It validates
-only the envelope shape plus `moduleId`/`workflowId` availability through
-`ModuleControlSurfaceRegistry`. For Queue, current workflow metadata remains
-empty, so a request such as `dependency_acceptance_smoke` is recognized but
-reported as not declared/implemented. This block does not add
-`hobit.queue.workflowRequest`, Queue workflow input validation, a workflow
-runner, scheduler behavior, worker auto-start, or Queue runtime changes.
+the envelope shape, the generic grant/input split, and `moduleId`/`workflowId`
+availability through `ModuleControlSurfaceRegistry`. `grant` is now enforced
+as permission/scope metadata only; `inputs` is the only workflow data location.
+Product data such as runSettings, tasks, prompts, dependencies, run
+configuration, and direct ids is rejected inside `grant`, while the same data
+under `inputs` remains opaque to generic validation. For Queue, current
+workflow metadata remains empty, so a request such as
+`dependency_acceptance_smoke` is recognized but reported as not
+declared/implemented. This block does not add `hobit.queue.workflowRequest`,
+Queue workflow input validation, a workflow runner, scheduler behavior, worker
+auto-start, or Queue runtime changes. Prose is never executable workflow input,
+permission, confirmation, or id source.
 
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly

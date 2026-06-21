@@ -499,6 +499,13 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     ).toBe(
       "Invalid Hobit workflow request. $.requestId: requestId is required.",
     );
+    expect(
+      workspaceAgentInvalidWorkflowRequestMessage([
+        "$.grant.runSettings: product_input_in_grant: Workflow grant cannot contain workflow data field runSettings. Put workflow data under $.inputs.",
+      ]),
+    ).toBe(
+      "Invalid Hobit workflow request. $.grant.runSettings: product_input_in_grant: Workflow grant cannot contain workflow data field runSettings. Put workflow data under $.inputs.",
+    );
   });
 
   it("does not add natural-language routing in the Workspace Agent broker runtime", () => {

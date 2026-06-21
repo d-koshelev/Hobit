@@ -187,8 +187,12 @@ Broker/module action results use the module-neutral action status taxonomy
 are distinct from pure multi-agent runtime statuses such as `idle` or
 `running`. Workflow invocation is represented by the generic
 `hobit.workflow.request` envelope and is currently validation/classification
-only. Future workflow runners must use structured status/reason fields and
-validated generic `nextAction`, not prose reason strings or agent message text.
+only. The generic grant/input split is enforced before any future runner:
+`grant` authorizes permission/scope only, `inputs` is the only workflow data
+location, product data in grants is rejected with field paths, and prose is not
+permission, confirmation, id, or workflow input. Future workflow runners must
+use structured status/reason fields, typed inputs, and validated generic
+`nextAction`, not prose reason strings or agent message text.
 `nextSuggestedCapability` is human/UI compatibility context only and is not
 executable without a schema-valid `nextAction`; missing, ambiguous, or invalid
 follow-ups use structured `nextActionUnavailable` metadata.
@@ -208,7 +212,9 @@ preserves risk, confirmation, actor context, and transitional labels without
 changing execution behavior. Queue is also the first reference module for
 generic `nextAction` validation and generic workflow request validation.
 Queue workflows remain future/empty until Queue-specific workflow metadata,
-input validation, and execution contracts exist.
+input validation, and execution contracts exist. Generic validation may accept
+opaque Queue-looking `inputs` objects, but it does not validate Queue-specific
+runSettings/tasks or execute workflows.
 `ModuleControlSurfaceRegistry` is the discovery layer for these agent-facing
 module surfaces. Queue is the first registered module. The registry is
 metadata only, is not runtime behavior, and must stay UI-independent. Widgets

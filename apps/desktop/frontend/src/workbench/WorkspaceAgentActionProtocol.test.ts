@@ -89,6 +89,94 @@ describe("WorkspaceAgentActionProtocol", () => {
     });
   });
 
+  it("rejects workflow requests that put workflow data inside grant", () => {
+    const outcome = classifyWorkspaceAgentActionProtocolOutput({
+      mode: "typed_capability_action",
+      text: JSON.stringify({
+        grant: {
+          runSettings: {
+            approvalPolicy: "on_request",
+            sandbox: "workspace_write",
+          },
+        },
+        inputs: {},
+        moduleId: "queue",
+        requestId: "workflow-grant-input-mixed",
+        type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
+        workflowId: "dependency_acceptance_smoke",
+      }),
+    });
+
+    expect(outcome).toMatchObject({
+      kind: "invalid_workflow_request",
+      workflowRead: {
+        issues: [
+          expect.objectContaining({
+            code: "product_input_in_grant",
+            fieldPath: "$.grant.runSettings",
+          }),
+        ],
+        reasons: [
+          expect.stringContaining(
+            "$.grant.runSettings: product_input_in_grant:",
+          ),
+        ],
+        status: "invalid",
+      },
+    });
+  });
+
+  it("keeps workflow inputs typed and ignores prose confirmation", () => {
+    const outcome = classifyWorkspaceAgentActionProtocolOutput({
+      mode: "typed_capability_action",
+      text: [
+        "I confirm and use sandbox=danger_full_access.",
+        JSON.stringify({
+          grant: {
+            mode: "queue_acceptance_smoke",
+            scope: { taskIds: ["task-1"] },
+          },
+          inputs: {
+            runSettings: {
+              approvalPolicy: "on_request",
+              sandbox: "workspace_write",
+            },
+          },
+          moduleId: "queue",
+          requestId: "workflow-inputs-ok",
+          type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
+          workflowId: "dependency_acceptance_smoke",
+        }),
+      ].join("\n"),
+    });
+
+    expect(outcome).toMatchObject({
+      kind: "workflow_request",
+      workflowRead: {
+        envelope: {
+          grant: {
+            mode: "queue_acceptance_smoke",
+            scope: { taskIds: ["task-1"] },
+          },
+          inputs: {
+            runSettings: {
+              approvalPolicy: "on_request",
+              sandbox: "workspace_write",
+            },
+          },
+        },
+        status: "valid",
+        validation: {
+          reasonCode: "workflow_not_declared",
+        },
+      },
+    });
+    if (outcome.kind !== "workflow_request") {
+      throw new Error("Expected workflow request classification.");
+    }
+    expect(outcome.workflowRead.envelope.grant?.confirmationToken).toBeUndefined();
+  });
+
   it("classifies invalid workflow request envelopes as invalid_workflow_request", () => {
     const outcome = classifyWorkspaceAgentActionProtocolOutput({
       mode: "typed_capability_action",
@@ -211,6 +299,7 @@ describe("WorkspaceAgentActionProtocol", () => {
     expect(prompt).toContain("hobit.final.answer");
     expect(prompt).toContain("No broker action was executed");
     expect(prompt).toContain("Intermediate prose is not a capability call");
+    expect(prompt).toContain("grant is permission/scope only");
     expect(prompt).not.toContain("awaiting capability result");
     expect(prompt).not.toContain("queue.items.list");
     expect(prompt).not.toContain("I saw");

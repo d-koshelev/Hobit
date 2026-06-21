@@ -931,6 +931,48 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     );
   });
 
+  it("rejects workflow data inside grant without broker execution", async () => {
+    const listItemAggregates = vi.fn(async () => []);
+    const createItem = vi.fn();
+    const startDirectWork = startDirectWorkWithFinalText(
+      JSON.stringify({
+        grant: {
+          runSettings: {
+            approvalPolicy: "on_request",
+            sandbox: "workspace_write",
+          },
+        },
+        inputs: {},
+        moduleId: "queue",
+        requestId: "workflow-grant-input-split",
+        type: "hobit.workflow.request",
+        workflowId: "dependency_acceptance_smoke",
+      }),
+    );
+
+    renderWidget({
+      onStartCodexDirectWorkStream: startDirectWork,
+      workspaceAgentQueueBridge: queueBridge({ createItem, listItemAggregates }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Validate workflow grant and input split.");
+    await flushAsync();
+
+    expect(startDirectWork).toHaveBeenCalledTimes(1);
+    expect(listItemAggregates).not.toHaveBeenCalled();
+    expect(createItem).not.toHaveBeenCalled();
+    expect(lastAssistantMessageText()).toContain(
+      "Invalid Hobit workflow request.",
+    );
+    expect(lastAssistantMessageText()).toContain("$.grant.runSettings");
+    expect(lastAssistantMessageText()).toContain("product_input_in_grant");
+    expect(lastAssistantMessageText()).toContain(
+      "Stopped: invalid or unsupported action envelope.",
+    );
+    expect(lastAssistantMessageText()).not.toContain("Hobit action requested");
+  });
+
   it("requests one protocol repair for no-envelope action-mode output", async () => {
     const listItemAggregates = vi.fn(async () => []);
     const publishActivityEvents = vi.fn();

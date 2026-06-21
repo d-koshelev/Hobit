@@ -97,10 +97,17 @@ runner contracts are implemented.
 
 The generic workflow request envelope now exists as
 `hobit.workflow.request`. It is module-neutral and contains `requestId`,
-`moduleId`, `workflowId`, optional opaque `grant`, optional opaque `inputs`,
-and optional compact `metadata`. Workspace Agent protocol code can classify and
-validate this envelope against `ModuleControlSurfaceRegistry`, including
-reporting that Queue workflows are not declared/implemented yet. This is not
+`moduleId`, `workflowId`, optional generic permission/scope `grant`, optional
+opaque object `inputs`, and optional compact `metadata`. Workspace Agent
+protocol code can classify and validate this envelope against
+`ModuleControlSurfaceRegistry`, including reporting that Queue workflows are
+not declared/implemented yet. Generic validation enforces that `grant`
+authorizes only permission/scope and `inputs` is the only workflow data
+location. Product data such as runSettings, tasks, prompts, dependencies,
+run-configuration fields, and direct task/run/message/evidence/executor ids is
+rejected inside `grant` with field paths and stable reason codes. Scope ids
+belong only under explicit arrays such as `grant.scope.taskIds`; prose is
+never executable workflow input or confirmation. This is not
 `hobit.queue.workflowRequest`, does not add Queue-specific workflow input
 validation, and does not execute a workflow runner.
 

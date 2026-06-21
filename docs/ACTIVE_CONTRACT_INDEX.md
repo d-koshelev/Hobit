@@ -429,9 +429,12 @@ unless the task explicitly requests it.
   registered module, and Queue capability metadata is adapted from the Queue
   capability contract inventory for the generic surface. Registry metadata is
   not runtime behavior. Generic `hobit.workflow.request` parsing and
-  validation lives at the Workspace Agent protocol/broker boundary and checks
-  module/workflow availability through this registry without executing
-  workflows. UI widgets are not executable module APIs, and Codex is a
+  validation lives at the Workspace Agent protocol/broker boundary, enforces
+  the generic grant/input split, and checks module/workflow availability
+  through this registry without executing workflows. `grant` is permission/
+  scope only, `inputs` is the only workflow data location, Queue-specific
+  workflow input validation remains future, and prose is never executable
+  workflow input. UI widgets are not executable module APIs, and Codex is a
   provider/worker implementation rather than the module integration
   architecture.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source

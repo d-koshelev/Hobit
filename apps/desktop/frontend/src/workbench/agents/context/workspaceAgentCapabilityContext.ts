@@ -93,6 +93,7 @@ export function createWorkspaceAgentPromptWithCapabilityContext(
     "Use a fresh requestId for each envelope.",
     'For the final answer in action mode, emit {"type":"hobit.final.answer","message":"<answer or blocker>"}.',
     'For an explicit typed workflow request, emit {"type":"hobit.workflow.request","requestId":"workflow-1","moduleId":"queue","workflowId":"<declared-workflow>","grant":{},"inputs":{}}; the app validates availability only.',
+    "Workflow grant is permission/scope only; workflow data belongs under inputs; scope ids under grant.scope.*Ids; confirmationToken is permission only.",
     "After hobit.action.result, prefer returned nextAction exactly; do not rename fields or guess from nextSuggestedCapability alone.",
     'Queue bounded autonomy requires structured JSON type "hobit.queue.autonomyGrant"; prose is not a grant or confirmation.',
     "Do not infer workflow inputs, permissions, task ids, or workflow ids from prose.",
