@@ -49,6 +49,78 @@ export type HobitAgentActionReasonCode =
   | "unexpected_error"
   | (string & {});
 
+export type HobitNextActionSource =
+  | "backend_aggregate"
+  | "capability_result"
+  | "policy"
+  | "workflow_runner";
+
+export type HobitNextActionTargetIds = {
+  evidenceBundleId?: string;
+  executorWidgetId?: string;
+  messageId?: string;
+  runId?: string;
+  taskId?: string;
+};
+
+export type HobitNextActionConfirmationMetadata = {
+  required?: boolean;
+  tokenField?: string;
+  tokenValuePresent?: boolean;
+};
+
+export type HobitNextAction = {
+  autoContinuationSafe?: boolean;
+  capabilityId: HobitAgentCapabilityId;
+  confirmation?: HobitNextActionConfirmationMetadata;
+  confirmationRequired?: {
+    field: string;
+    value: string;
+  };
+  input: unknown;
+  moduleId?: string;
+  reason?: string;
+  reasonCode?: HobitAgentActionReasonCode;
+  reasonMessage?: string;
+  requiresConfirmation?: boolean;
+  riskClass?: string;
+  source?: HobitNextActionSource;
+  targetIds?: HobitNextActionTargetIds;
+};
+
+export type HobitNextActionUnavailableReasonCode =
+  | "ambiguous_next_action"
+  | "invalid_next_action_payload"
+  | "missing_required_input"
+  | "next_action_unavailable"
+  | HobitAgentActionReasonCode;
+
+export type HobitNextActionUnavailable = {
+  ambiguousCandidateIds?: readonly string[];
+  invalidPayloadReason?: string;
+  missingRequiredInputs?: readonly string[];
+  reasonCode: HobitNextActionUnavailableReasonCode;
+  reasonMessage: string;
+};
+
+export type HobitNextActionValidationResult =
+  | {
+      capabilityId: HobitAgentCapabilityId;
+      missingRequiredInputs: [];
+      moduleId: string | null;
+      ok: true;
+      reasons: [];
+    }
+  | {
+      capabilityId?: HobitAgentCapabilityId | null;
+      invalidPayloadReason?: string;
+      missingRequiredInputs: string[];
+      moduleId?: string | null;
+      ok: false;
+      reasonCode: HobitNextActionUnavailableReasonCode;
+      reasons: string[];
+    };
+
 export type HobitAgentBrokerStatus = HobitAgentActionStatus;
 
 export type HobitAgentHiddenSideEffectFlags = {

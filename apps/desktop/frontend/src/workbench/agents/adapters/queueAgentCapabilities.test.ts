@@ -515,6 +515,10 @@ describe("queueAgentCapabilities invoke", () => {
     expect(result.result.output).toMatchObject({
       candidateTaskIds: ["first", "second"],
       dependencyEdgesPreserved: true,
+      nextActionUnavailable: {
+        ambiguousCandidateIds: ["first", "second"],
+        reasonCode: "ambiguous_next_action",
+      },
       nextActionUnavailableCode: "ambiguous_next_action",
       wouldAutoRunWorkers: false,
       wouldCreateDuplicateQueueView: false,
@@ -2518,6 +2522,7 @@ describe("queueAgentCapabilities invoke", () => {
           messageId: "queue-review-message-existing",
           taskId: "task-review",
         },
+        moduleId: "queue",
         requiresConfirmation: false,
       },
       nextSuggestedCapability: "queue.review.ack",
@@ -2994,6 +2999,10 @@ describe("queueAgentCapabilities invoke", () => {
         capabilityId: string;
         input: Record<string, unknown>;
       };
+      nextActionUnavailable?: {
+        ambiguousCandidateIds?: string[];
+        reasonCode: string;
+      };
       nextActionUnavailableCode?: string;
       nextSuggestedCapability?: string | null;
     }>(
@@ -3007,6 +3016,10 @@ describe("queueAgentCapabilities invoke", () => {
     expect(result.result.output?.nextAction).toBeUndefined();
     expect(result.result.output).toMatchObject({
       candidateTaskIds: ["task-a", "task-b"],
+      nextActionUnavailable: {
+        ambiguousCandidateIds: ["task-a", "task-b"],
+        reasonCode: "ambiguous_next_action",
+      },
       nextActionUnavailableCode: "ambiguous_next_action",
       nextSuggestedCapability: "queue.item.updateRunSettings",
     });

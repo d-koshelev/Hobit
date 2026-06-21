@@ -17,6 +17,7 @@ import {
   noHiddenSideEffectFlags,
   queueAgentCreatedItem,
   queueAgentCapabilityStatusToBrokerStatus,
+  queueNextActionUnavailableFields,
   queueSideEffectFlags,
   QUEUE_ACTIVITY_EVENTS,
   singletonQueueTarget,
@@ -166,23 +167,27 @@ function nextActionFieldsForSingleCreatedItem(
   }
 
   if (createdItems.length !== 1) {
-    return {
-      candidateTaskIds: createdItems.map((item) => item.id),
-      nextActionUnavailableCode: "ambiguous_next_action",
-      nextActionUnavailableReason:
+    return queueNextActionUnavailableFields({
+      ambiguousCandidateIds: createdItems.map((item) => item.id),
+      reasonCode: "ambiguous_next_action",
+      reasonMessage:
         "A top-level Queue nextAction is unavailable because the result contains multiple created task ids.",
-    };
+    });
   }
 
   const item = createdItems[0];
   return item.nextAction
     ? { nextAction: item.nextAction }
-    : {
-        missingNextActionInput: item.missingNextActionInput,
-        nextActionUnavailableReason:
+    : queueNextActionUnavailableFields({
+        invalidPayloadReason: item.nextActionUnavailableReason,
+        missingRequiredInputs: item.missingNextActionInput ?? [],
+        reasonCode: item.missingNextActionInput?.length
+          ? "missing_required_input"
+          : "next_action_unavailable",
+        reasonMessage:
           item.nextActionUnavailableReason ??
           "A top-level Queue nextAction is unavailable for the created task.",
-      };
+      });
 }
 
 function handleListItems(

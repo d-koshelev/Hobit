@@ -106,7 +106,7 @@ when all of these are true:
 - The target capability is registered.
 - The target capability contract says `autoContinuationSafe=true`.
 - The risk class is allowed by default policy.
-- The result contains a schema-valid `nextAction`.
+- The result contains a schema-valid generic typed `nextAction`.
 - `nextAction.input` uses canonical target fields.
 - `nextAction.requiresConfirmation=false`.
 - No `confirmationRequired` object is present.
@@ -115,7 +115,8 @@ when all of these are true:
 - No hidden side-effect flags indicate shell, Codex, Git, validation,
   rollback, Terminal, or unsafe worker behavior.
 
-`nextSuggestedCapability` alone is never executable.
+`nextSuggestedCapability` alone is never executable; it is human/UI
+compatibility context only.
 
 Default safe risk classes are `read` and the narrow review action needed for
 ACK-to-read continuation. Setup mutations such as
@@ -125,7 +126,7 @@ auto-continuation. Finalizing and unsafe transitions are not
 auto-continuation safe by default.
 
 With a valid structured `hobit.queue.autonomyGrant`, Workspace Agent may
-continue through schema-valid typed Queue `nextAction` payloads when all policy
+continue through schema-valid generic typed `nextAction` payloads when all policy
 conditions pass:
 
 - `nextAction.capabilityId` is registered.
@@ -145,9 +146,9 @@ conditions pass:
 - required confirmation is exact and structured.
 
 When continuation stops, the product-facing policy diagnostic must identify
-the target `capabilityId`, risk class, whether a grant is active, grant mode
-when present, allowed risk classes, a stable reason code and product-facing
-message, whether `nextAction` was present, whether its payload validated,
+the target `capabilityId`, module id when known, risk class, whether a grant
+is active, grant mode when present, allowed risk classes, a stable reason code
+and product-facing message, whether `nextAction` was present, whether its payload validated,
 whether confirmation was missing or injected, and whether
 `deniedCapabilities` blocked it. Expected reason codes include
 `no_grant_for_risk_class`, `grant_not_parsed`, `risk_class_not_allowed`,
@@ -217,10 +218,12 @@ grant text is ignored as no grant.
 
 ## `nextAction` Construction And Validation
 
-`nextAction` is the machine continuation contract:
+`nextAction` is the generic machine continuation contract. Queue is the first
+reference module using this module-neutral envelope:
 
 ```json
 {
+  "moduleId": "queue",
   "capabilityId": "queue.review.ack",
   "input": {"taskId":"task-id","messageId":"message-id"},
   "requiresConfirmation": false,
@@ -229,8 +232,17 @@ grant text is ignored as no grant.
 ```
 
 The producer may emit `nextAction` only when all required target input is
-known. It must validate the payload against the target capability contract
-before returning it.
+known. It must validate the payload against the registered capability schema,
+ModuleControlSurface capability metadata where applicable, and target module
+contract before returning it. Future workflow runners must consume this same
+typed `nextAction` contract instead of parsing prose or using Queue-specific
+shortcut fields.
+
+`nextSuggestedCapability` is a human-readable/UI compatibility suggestion and
+must not be treated as executable. If a typed action cannot be produced, the
+result should expose `nextActionUnavailable` with a stable reason code/message
+and compact metadata such as `missingRequiredInputs`,
+`ambiguousCandidateIds`, or `invalidPayloadReason`.
 
 Rules:
 
@@ -243,8 +255,8 @@ Rules:
 - Do not include finalizing confirmation inside `input`.
 - If `nextAction` and `nextSuggestedCapability` both exist, their capability
   ids must agree.
-- If required target input is missing, return a typed
-  `nextActionUnavailableReason` or blocker instead of asking the model to
+- If required target input is missing, return structured
+  `nextActionUnavailable` metadata or a blocker instead of asking the model to
   infer ids.
 - If multiple Queue items could be the target, do not choose from titles,
   prompts, UI selection, order, or prose. Return `ambiguous_next_action` with

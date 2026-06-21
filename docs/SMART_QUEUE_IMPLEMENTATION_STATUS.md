@@ -61,12 +61,15 @@ Queue risk classes rather than maintaining a second static allowlist.
 `queue.item.updateRunSettings` documents and validates exact
 sandbox values `read_only`, `workspace_write`, `danger_full_access` and
 approval policy values `never`, `on_request`, `untrusted`.
-Queue capability results now expose typed `nextAction` payloads when a
+Queue capability results now expose generic typed `nextAction` payloads when a
 follow-up can be built safely from known backend/adapter ids and validates
-against the target capability contract. `nextAction` is the machine-readable
-continuation payload; `nextSuggestedCapability` is compatibility context and is
-not enough for execution. The Workspace Agent must not rename fields or infer
-ids from prose. `queue.review.ack` uses `messageId`; duplicate review-create
+against the registered capability schema, Queue module metadata, and target
+capability contract. `nextAction` is the machine-readable continuation
+payload; `nextSuggestedCapability` is human/UI compatibility context and is
+not enough for execution. Missing, ambiguous, or invalid follow-ups expose
+structured `nextActionUnavailable` metadata while retaining compatibility
+reason fields. The Workspace Agent must not rename fields or infer ids from
+prose. `queue.review.ack` uses `messageId`; duplicate review-create
 `existingMessageId` maps to `nextAction.input.messageId`.
 Broker/module action results now use a typed module-neutral status taxonomy.
 Idempotent Queue states are not generic failures: duplicate review create maps
@@ -81,7 +84,7 @@ errors map to `failed_unexpected`. New broker logic should use typed
 Workspace Agent now supports a structured bounded Queue autonomy grant:
 `{"type":"hobit.queue.autonomyGrant","mode":"queue_acceptance_smoke",...}`.
 The grant is JSON only, never prose. Under grant policy, Workspace Agent may
-continue through schema-valid typed Queue `nextAction` payloads while the
+continue through schema-valid generic typed Queue `nextAction` payloads while the
 runtime enforces registered capability contracts, risk-class mode, optional
 allowed/denied capability intersections, exact confirmation token, max action
 budget, backend/result blockers, replay guards, and no Git/validation/
@@ -117,6 +120,12 @@ dependencies, or make finalizing capabilities safe. With
 `queue.item.fail` can be followed only from a valid typed nextAction with exact
 structured confirmation and backend preconditions; successful finalizers end or
 allow read-only inspection and never auto-start downstream work.
+
+The generic `nextAction` contract is now module-neutral. Queue is the first
+reference module; future deterministic workflow runners must consume the same
+validated envelope and `nextActionUnavailable` metadata without parsing prose,
+using regex routing, or inferring task/run/message/evidence/executor ids from
+titles, prompts, UI order, file paths, or natural-language text.
 
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly

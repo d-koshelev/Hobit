@@ -13,7 +13,9 @@ import type {
 import type {
   HobitAgentActionReasonCode,
   HobitAgentActionStatus,
+  HobitNextActionUnavailable,
 } from "../broker/types";
+import { createHobitNextActionUnavailable } from "../broker/nextAction";
 import type { QueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
 import {
   buildQueueCapabilityNextAction,
@@ -213,6 +215,7 @@ export type QueueAgentNextActionFields = {
   candidateTaskIds?: string[];
   missingNextActionInput?: string[];
   nextAction?: QueueCapabilityNextAction;
+  nextActionUnavailable?: HobitNextActionUnavailable;
   nextActionUnavailableCode?: string;
   nextActionUnavailableReason?: string;
 };
@@ -550,6 +553,7 @@ export type QueueAgentLifecycleTransitionOutput = {
   missingNextActionInput?: string[];
   nextActions?: QueueAgentAggregateNextAction[];
   nextAction?: QueueCapabilityNextAction;
+  nextActionUnavailable?: HobitNextActionUnavailable;
   nextActionUnavailableReason?: string;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
   previousAgentPromptState: SmartQueueDogfoodLifecycleItem["agentPromptState"];
@@ -592,6 +596,7 @@ export type QueueAgentLifecycleGetOutput = {
   missingNextActionInput?: string[];
   nextActions?: QueueAgentAggregateNextAction[];
   nextAction?: QueueCapabilityNextAction;
+  nextActionUnavailable?: HobitNextActionUnavailable;
   nextActionUnavailableReason?: string;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
   reviewState?: string;
@@ -621,6 +626,7 @@ export type QueueAgentReviewEvidenceBundleOutput = {
   missingNextActionInput?: string[];
   nextActions?: QueueAgentAggregateNextAction[];
   nextAction?: QueueCapabilityNextAction;
+  nextActionUnavailable?: HobitNextActionUnavailable;
   nextActionUnavailableReason?: string;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
   reviewMessages: SmartQueueReviewMessage[];
@@ -804,6 +810,34 @@ export function noHiddenSideEffectFlags() {
   } as const;
 }
 
+export function queueNextActionUnavailableFields({
+  ambiguousCandidateIds = [],
+  invalidPayloadReason,
+  missingRequiredInputs = [],
+  reasonCode,
+  reasonMessage,
+}: HobitNextActionUnavailable): QueueAgentNextActionFields {
+  const nextActionUnavailable = createHobitNextActionUnavailable({
+    ambiguousCandidateIds,
+    invalidPayloadReason,
+    missingRequiredInputs,
+    reasonCode,
+    reasonMessage,
+  });
+
+  return {
+    ...(ambiguousCandidateIds.length > 0
+      ? { candidateTaskIds: [...ambiguousCandidateIds] }
+      : {}),
+    ...(missingRequiredInputs.length > 0
+      ? { missingNextActionInput: [...missingRequiredInputs] }
+      : {}),
+    nextActionUnavailable,
+    nextActionUnavailableCode: reasonCode,
+    nextActionUnavailableReason: reasonMessage,
+  };
+}
+
 export function queueAgentCapabilityStatusToBrokerStatus(
   status: QueueAgentCapabilityStatus,
 ): HobitAgentActionStatus {
@@ -835,10 +869,12 @@ export function queueAgentCreatedItem(
     id: item.id,
     ...(nextAction.ok
       ? { nextAction: nextAction.nextAction }
-      : {
-          missingNextActionInput: nextAction.missingRequiredFields,
-          nextActionUnavailableReason: nextAction.reason,
-        }),
+      : queueNextActionUnavailableFields({
+          invalidPayloadReason: nextAction.reason,
+          missingRequiredInputs: nextAction.missingRequiredFields,
+          reasonCode: "invalid_next_action_payload",
+          reasonMessage: nextAction.reason,
+        })),
     nextSuggestedCapability: "queue.item.updateRunSettings",
     prompt: item.prompt,
     readiness: {

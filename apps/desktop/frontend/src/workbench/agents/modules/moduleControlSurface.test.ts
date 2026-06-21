@@ -19,6 +19,7 @@ import {
   listModuleControlSurfaces,
   listModuleWorkflowIds,
   MODULE_CONTROL_SURFACE_REGISTRY,
+  resolveModuleControlSurfaceCapability,
   QUEUE_BACKEND_BACKED_MODULE_CAPABILITY_IDS,
   QUEUE_MODULE_CAPABILITIES,
   QUEUE_MODULE_CAPABILITY_IDS,
@@ -70,6 +71,42 @@ describe("ModuleControlSurface", () => {
     expect(hasModuleControlSurface("queue")).toBe(true);
     expect(getModuleControlSurface("unknown-module")).toBeUndefined();
     expect(hasModuleControlSurface("unknown-module")).toBe(false);
+  });
+
+  it("resolves Queue nextAction capability metadata through the module registry", () => {
+    expect(
+      resolveModuleControlSurfaceCapability({
+        capabilityId: "queue.review.ack",
+        moduleId: "queue",
+      }),
+    ).toMatchObject({
+      capability: {
+        capabilityId: "queue.review.ack",
+        riskClass: "review",
+      },
+      moduleId: "queue",
+      ok: true,
+    });
+
+    expect(
+      resolveModuleControlSurfaceCapability({
+        capabilityId: "queue.review.ack",
+        moduleId: "unknown-module",
+      }),
+    ).toMatchObject({
+      ok: false,
+      reasonCode: "unknown_module",
+    });
+
+    expect(
+      resolveModuleControlSurfaceCapability({
+        capabilityId: "agent.status.read",
+        moduleId: "queue",
+      }),
+    ).toMatchObject({
+      ok: false,
+      reasonCode: "unknown_module_capability_pair",
+    });
   });
 
   it("lists registered module capability and workflow ids", () => {

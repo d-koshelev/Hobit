@@ -186,7 +186,10 @@ Broker/module action results use the module-neutral action status taxonomy
 `failed_unexpected`) plus typed `reasonCode` where practical. These statuses
 are distinct from pure multi-agent runtime statuses such as `idle` or
 `running`. Future workflow runners must use structured status/reason fields
-and validated `nextAction`, not prose reason strings or agent message text.
+and validated generic `nextAction`, not prose reason strings or agent message
+text. `nextSuggestedCapability` is human/UI compatibility context only and is
+not executable without a schema-valid `nextAction`; missing, ambiguous, or
+invalid follow-ups use structured `nextActionUnavailable` metadata.
 
 App control must not be implemented as:
 
@@ -200,8 +203,9 @@ backend-backed versus transitional backing status, and UI dependency policy.
 Queue is the reference rich-metadata module: its generic capability metadata is
 adapted from the Queue capability contract inventory, not from Queue UI, and
 preserves risk, confirmation, actor context, and transitional labels without
-changing execution behavior. Queue workflows remain future/empty until typed
-workflow request contracts exist.
+changing execution behavior. Queue is also the first reference module for
+generic `nextAction` validation. Queue workflows remain future/empty until
+typed workflow request contracts exist.
 `ModuleControlSurfaceRegistry` is the discovery layer for these agent-facing
 module surfaces. Queue is the first registered module. The registry is
 metadata only, is not runtime behavior, and must stay UI-independent. Widgets

@@ -609,6 +609,8 @@ ${JSON.stringify({
         capabilityId: "queue.item.updateRunSettings",
         grantActive: true,
         grantMode: "queue_acceptance_smoke",
+        moduleId: "queue",
+        nextActionModuleId: "queue",
         nextActionPayloadValidated: true,
         reasonCode: "continuation_allowed",
         riskClass: "setup",
@@ -1252,6 +1254,45 @@ ${JSON.stringify({
     });
   });
 
+  it("stops with diagnostics when nextActionUnavailable is structured", () => {
+    const request = requestFor(
+      "queue.items.list",
+      { limit: 10 },
+      "request-structured-next-action-unavailable",
+    );
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-structured-next-action-unavailable",
+      }),
+      request,
+    );
+
+    expect(
+      decideWorkspaceAgentBrokerActionContinuation({
+        request,
+        result: resultFor("queue.items.list", {
+          nextActionUnavailable: {
+            missingRequiredInputs: ["taskId"],
+            reasonCode: "missing_required_input",
+            reasonMessage: "taskId is required before lifecycle can be read.",
+          },
+          nextSuggestedCapability: "queue.lifecycle.get",
+        }),
+        state,
+      }),
+    ).toMatchObject({
+      diagnostics: {
+        capabilityId: "queue.lifecycle.get",
+        moduleId: "queue",
+        nextActionPayloadValidated: null,
+        nextActionPresent: false,
+        reasonCode: "no_next_action",
+      },
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+  });
+
   it("reports ambiguous_next_action when a list result has multiple candidate task ids", () => {
     const request = requestFor(
       "queue.items.list",
@@ -1269,6 +1310,12 @@ ${JSON.stringify({
       candidateTaskIds: ["task-a", "task-b"],
       itemCount: 2,
       items: [{ taskId: "task-a" }, { taskId: "task-b" }],
+      nextActionUnavailable: {
+        ambiguousCandidateIds: ["task-a", "task-b"],
+        reasonCode: "ambiguous_next_action",
+        reasonMessage:
+          "A top-level Queue nextAction is unavailable because the result contains multiple candidate task ids.",
+      },
       nextActionUnavailableCode: "ambiguous_next_action",
       nextActionUnavailableReason:
         "A top-level Queue nextAction is unavailable because the result contains multiple candidate task ids.",
@@ -1292,7 +1339,9 @@ ${JSON.stringify({
         candidateTaskIds: ["task-a", "task-b"],
         capabilityId: "queue.item.updateRunSettings",
         grantActive: true,
+        moduleId: "queue",
         nextActionPayloadValidated: null,
+        nextActionModuleId: null,
         nextActionPresent: false,
         reasonCode: "ambiguous_next_action",
         riskClass: "setup",
@@ -1302,6 +1351,10 @@ ${JSON.stringify({
     });
     expect(context.policyDiagnostics).toMatchObject({
       candidateTaskIds: ["task-a", "task-b"],
+      reasonCode: "ambiguous_next_action",
+    });
+    expect(context.nextActionUnavailable).toMatchObject({
+      ambiguousCandidateIds: ["task-a", "task-b"],
       reasonCode: "ambiguous_next_action",
     });
   });
@@ -1542,6 +1595,7 @@ ${JSON.stringify({
       }),
     ).toMatchObject({
       diagnostics: {
+        moduleId: "queue",
         nextActionPayloadValidated: false,
         reasonCode: "next_action_payload_invalid",
       },
@@ -2535,6 +2589,7 @@ function confirmedNextAction(capabilityId: string, input: Record<string, unknown
       value: QUEUE_START_RUN_CONFIRMATION_TOKEN,
     },
     input,
+    moduleId: "queue",
     requiresConfirmation: true,
   };
 }
@@ -2548,6 +2603,7 @@ function plainNextAction(
     autoContinuationSafe,
     capabilityId,
     input,
+    moduleId: "queue",
     requiresConfirmation: false,
   };
 }

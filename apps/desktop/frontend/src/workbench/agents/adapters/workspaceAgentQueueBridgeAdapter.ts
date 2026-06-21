@@ -24,6 +24,7 @@ import { createDefaultQueueAgentAdapterApi } from "./queueAgentCapabilities";
 import {
   createQueueAgentItemsPreview,
   queueAgentCreatedItem,
+  queueNextActionUnavailableFields,
   QUEUE_ACTIVITY_EVENTS,
   type QueueAgentAdapterApi,
   type QueueAgentAdapterResult,
@@ -2369,9 +2370,10 @@ function nextActionFieldsForSuggestedCapability({
         reason,
       });
     default:
-      return {
-        nextActionUnavailableReason: `${nextSuggestedCapability} is not a supported Queue nextAction target.`,
-      };
+      return queueNextActionUnavailableFields({
+        reasonCode: "next_action_unavailable",
+        reasonMessage: `${nextSuggestedCapability} is not a supported Queue nextAction target.`,
+      });
   }
 }
 
@@ -2395,10 +2397,14 @@ function queueNextActionFields({
 
   return result.ok
     ? { nextAction: result.nextAction }
-    : {
-        missingNextActionInput: result.missingRequiredFields,
-        nextActionUnavailableReason: result.reason,
-      };
+    : queueNextActionUnavailableFields({
+        invalidPayloadReason: result.reason,
+        missingRequiredInputs: result.missingRequiredFields,
+        reasonCode: result.missingRequiredFields.length > 0
+          ? "missing_required_input"
+          : "invalid_next_action_payload",
+        reasonMessage: result.reason,
+      });
 }
 
 function compactNextActionInput(
@@ -2529,23 +2535,27 @@ function nextActionFieldsForSingleCreatedItem(
   }
 
   if (createdItems.length !== 1) {
-    return {
-      candidateTaskIds: createdItems.map((item) => item.id),
-      nextActionUnavailableCode: "ambiguous_next_action",
-      nextActionUnavailableReason:
+    return queueNextActionUnavailableFields({
+      ambiguousCandidateIds: createdItems.map((item) => item.id),
+      reasonCode: "ambiguous_next_action",
+      reasonMessage:
         "A top-level Queue nextAction is unavailable because the result contains multiple created task ids.",
-    };
+    });
   }
 
   const item = createdItems[0];
   return item.nextAction
     ? { nextAction: item.nextAction }
-    : {
-        missingNextActionInput: item.missingNextActionInput,
-        nextActionUnavailableReason:
+    : queueNextActionUnavailableFields({
+        invalidPayloadReason: item.nextActionUnavailableReason,
+        missingRequiredInputs: item.missingNextActionInput ?? [],
+        reasonCode: item.missingNextActionInput?.length
+          ? "missing_required_input"
+          : "next_action_unavailable",
+        reasonMessage:
           item.nextActionUnavailableReason ??
           "A top-level Queue nextAction is unavailable for the created task.",
-      };
+      });
 }
 
 function nextActionFieldsForSingleTaskSummary(
@@ -2557,23 +2567,27 @@ function nextActionFieldsForSingleTaskSummary(
   }
 
   if (items.length !== 1) {
-    return {
-      candidateTaskIds: items.map((item) => item.taskId),
-      nextActionUnavailableCode: "ambiguous_next_action",
-      nextActionUnavailableReason:
+    return queueNextActionUnavailableFields({
+      ambiguousCandidateIds: items.map((item) => item.taskId),
+      reasonCode: "ambiguous_next_action",
+      reasonMessage:
         "A top-level Queue nextAction is unavailable because the result contains multiple candidate task ids.",
-    };
+    });
   }
 
   const item = items[0];
   return item.nextAction
     ? { nextAction: item.nextAction }
-    : {
-        missingNextActionInput: item.missingNextActionInput,
-        nextActionUnavailableReason:
+    : queueNextActionUnavailableFields({
+        invalidPayloadReason: item.nextActionUnavailableReason,
+        missingRequiredInputs: item.missingNextActionInput ?? [],
+        reasonCode: item.missingNextActionInput?.length
+          ? "missing_required_input"
+          : "next_action_unavailable",
+        reasonMessage:
           item.nextActionUnavailableReason ??
           "A top-level Queue nextAction is unavailable for the selected task.",
-      };
+      });
 }
 
 async function createdQueueItemReadiness(

@@ -116,9 +116,9 @@ restricted capabilities for explicit workspace/code execution requests only.
   such as "go" or "I confirm" is not a grant. The parsed grant is stored in
   the action-chain state and remains available across same-thread continuation
   turns until the chain ends. Inside a valid grant, the continuation policy may
-  follow a schema-valid typed Queue `nextAction` through the grant's risk-class
-  mode, capability allow/deny intersection, optional task/run scope, exact
-  confirmation token, and action budget. Required-confirmation Queue actions
+  follow a schema-valid generic typed `nextAction` through the grant's
+  Queue risk-class mode, capability allow/deny intersection, optional task/run
+  scope, exact confirmation token, and action budget. Required-confirmation Queue actions
   may receive only the canonical top-level
   `confirmationToken: "operator-confirmed"` from the grant, and only for
   registered run-start/finalizer Queue next actions whose ids are already
@@ -133,8 +133,8 @@ restricted capabilities for explicit workspace/code execution requests only.
   restricted capability, ambiguous next action, confirmation-required without
   an exact grant token, max action budget, or missing same-thread continuation
   state. Policy stop diagnostics identify the target
-  `capabilityId`, risk class, grant active/mode state, allowed risk classes,
-  reason code/message, nextAction presence and payload validation state,
+  `capabilityId`, module id when known, risk class, grant active/mode state,
+  allowed risk classes, reason code/message, nextAction presence and payload validation state,
   confirmation missing/injected state, denied-capability state, and candidate
   task ids when ambiguity blocked continuation. It does not accept action
   lists, regex-route user prompts, infer task ids, or add unrelated backend
@@ -218,6 +218,30 @@ implemented.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture.
+
+## Generic `nextAction` Contract
+
+`nextAction` is a module-neutral typed follow-up action. It carries a compact
+target envelope with `moduleId` when known, `capabilityId`, `input`, optional
+risk/confirmation/target-id metadata, and source/reason fields. It is
+executable only after validation proves the capability is registered, the
+optional module/capability pair is known through `ModuleControlSurface`, and
+the input matches the target capability schema and module-specific contract.
+
+`nextSuggestedCapability` is human/UI compatibility context only. It may help
+render the next likely step, but it is never executable by itself. Missing,
+ambiguous, or invalid follow-ups are represented by `nextActionUnavailable`
+with stable reason metadata such as `missingRequiredInputs`,
+`ambiguousCandidateIds`, and `invalidPayloadReason`.
+
+Queue is the first reference module for this contract. Queue next actions
+validate against the Queue capability contract inventory, including exact
+field names, enum values, confirmation requirements, and module metadata.
+Future workflow runners must consume the same generic `nextAction` contract
+instead of parsing prose or Queue-specific shortcut fields. They must not infer
+task ids, run ids, evidence bundle ids, message ids, executor widget ids,
+permissions, confirmations, or workflow inputs from titles, prompts, file
+paths, UI order, or natural-language text.
 
 ## Module Ownership
 

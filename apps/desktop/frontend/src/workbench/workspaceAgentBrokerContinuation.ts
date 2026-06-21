@@ -1,17 +1,22 @@
 import type {
   HobitAgentActionRequest,
   HobitAgentActionResult,
+  HobitNextAction,
+  HobitNextActionUnavailable,
+  HobitNextActionValidationResult,
+} from "./agents/broker";
+import {
+  hobitNextActionAgreesWithSuggestion,
+  readHobitNextActionUnavailable,
+  validateHobitNextAction,
 } from "./agents/broker";
 import type { HobitAgentCapability } from "./agents/capabilities";
 import {
   QUEUE_CAPABILITY_CONTRACT_BY_ID,
   QUEUE_START_RUN_CONFIRMATION_FIELD,
   QUEUE_START_RUN_CONFIRMATION_TOKEN,
-  queueCapabilityNextActionAgreesWithSuggestion,
-  validateQueueCapabilityNextAction,
   type QueueCapabilityContract,
   type QueueCapabilityRiskClass,
-  type QueueCapabilityNextAction,
 } from "./agents/capabilities/queueCapabilityContracts";
 
 export const WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS = 16;
@@ -130,7 +135,7 @@ export type WorkspaceAgentBrokerContinuationState = {
   autonomyGrantRejectionReasons: readonly string[];
   chainId: string;
   maxActions: number;
-  pendingNextAction: QueueCapabilityNextAction | null;
+  pendingNextAction: HobitNextAction | null;
   protocolRepairAttempted: boolean;
   queueAutonomyGrant: QueueAutonomyGrant | null;
   queueAutonomyPolicy: QueueAutonomyPolicy;
@@ -226,7 +231,9 @@ export type WorkspaceAgentBrokerPolicyDiagnostics = {
   deniedCapabilitiesBlocked: boolean;
   grantActive: boolean;
   grantMode: QueueAutonomyMode | null;
+  moduleId: string | null;
   nextActionCapabilityId: string | null;
+  nextActionModuleId: string | null;
   nextActionPayloadValidated: boolean | null;
   nextActionPayloadValidationErrors: readonly string[];
   nextActionPresent: boolean;
@@ -298,7 +305,8 @@ export type WorkspaceAgentBrokerContinuationResultContext = {
     runId: string | null;
     taskIds: string[];
   };
-  nextAction: QueueCapabilityNextAction | null;
+  nextAction: HobitNextAction | null;
+  nextActionUnavailable: HobitNextActionUnavailable | null;
   nextSuggestedCapability: string | null;
   notDone: string[];
   policyDiagnostics?: WorkspaceAgentBrokerPolicyDiagnostics;
@@ -653,7 +661,7 @@ export function prepareWorkspaceAgentBrokerContinuationStateForResult({
   state: WorkspaceAgentBrokerContinuationState;
 }): WorkspaceAgentBrokerContinuationState {
   const nextAction = queueResultNextAction(result.output);
-  if (!nextAction || !validateQueueCapabilityNextAction(nextAction).ok) {
+  if (!nextAction || !validateHobitNextAction(nextAction).ok) {
     return {
       ...state,
       pendingNextAction: null,
@@ -770,6 +778,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
     candidateTaskIds = [],
     confirmationMissing = false,
     deniedCapabilitiesBlocked = false,
+    moduleId = null,
     nextAction = null,
     nextActionValidation = null,
     reasonCode,
@@ -780,8 +789,9 @@ export function decideWorkspaceAgentBrokerActionContinuation({
     candidateTaskIds?: readonly string[];
     confirmationMissing?: boolean;
     deniedCapabilitiesBlocked?: boolean;
-    nextAction?: QueueCapabilityNextAction | null;
-    nextActionValidation?: ReturnType<typeof validateQueueCapabilityNextAction> | null;
+    moduleId?: string | null;
+    nextAction?: HobitNextAction | null;
+    nextActionValidation?: HobitNextActionValidationResult | null;
     reasonCode: WorkspaceAgentBrokerContinuationReasonCode;
     reasonMessage: string;
     stopReason: WorkspaceAgentBrokerContinuationStopReason;
@@ -792,6 +802,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
       confirmationInjected,
       confirmationMissing,
       deniedCapabilitiesBlocked,
+      moduleId,
       nextAction,
       nextActionValidation,
       reasonCode,
@@ -864,10 +875,11 @@ export function decideWorkspaceAgentBrokerActionContinuation({
   const nextAction = queueResultNextAction(result.output);
   const nextSuggestedCapability = queueResultNextSuggestedCapability(result.output);
   if (nextAction) {
-    const validation = validateQueueCapabilityNextAction(nextAction);
+    const validation = validateHobitNextAction(nextAction);
     if (!validation.ok) {
       return blocked({
         capabilityId: nextAction.capabilityId,
+        moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
         nextAction,
         nextActionValidation: validation,
         reasonCode: "next_action_payload_invalid",
@@ -879,13 +891,14 @@ export function decideWorkspaceAgentBrokerActionContinuation({
     }
 
     if (
-      !queueCapabilityNextActionAgreesWithSuggestion({
+      !hobitNextActionAgreesWithSuggestion({
         nextAction,
         nextSuggestedCapability,
       })
     ) {
       return blocked({
         capabilityId: nextAction.capabilityId,
+        moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
         nextAction,
         nextActionValidation: validation,
         reasonCode: "next_action_suggestion_mismatch",
@@ -903,6 +916,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
     if (nextCapabilityClass.kind === "restricted") {
       return blocked({
         capabilityId: nextAction.capabilityId,
+        moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
         nextAction,
         nextActionValidation: validation,
         reasonCode: "restricted_capability",
@@ -930,6 +944,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
           state.queueAutonomyPolicy.deniedCapabilities.includes(
             nextAction.capabilityId,
           ),
+        moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
         nextAction,
         nextActionValidation: validation,
         reasonCode: reasonCodeForQueueAutonomyDecision({
@@ -947,6 +962,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
     if (!scopeDecision.allowed) {
       return blocked({
         capabilityId: nextAction.capabilityId,
+        moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
         nextAction,
         nextActionValidation: validation,
         reasonCode: "out_of_scope_task",
@@ -957,6 +973,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
     if (queueResultForbidsNextAction(result.output, nextAction)) {
       return blocked({
         capabilityId: nextAction.capabilityId,
+        moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
         nextAction,
         nextActionValidation: validation,
         reasonCode: "dependency_waiting",
@@ -976,6 +993,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
     ) {
       return blocked({
         capabilityId: nextAction.capabilityId,
+        moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
         nextAction,
         nextActionValidation: validation,
         reasonCode: "action_status_blocked",
@@ -995,6 +1013,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
         return blocked({
           capabilityId: nextAction.capabilityId,
           confirmationMissing: true,
+          moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
           nextAction,
           nextActionValidation: validation,
           reasonCode: "confirmation_required",
@@ -1007,6 +1026,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
     if (!state.queueAutonomyPolicy.active && !nextAction.autoContinuationSafe) {
       return blocked({
         capabilityId: nextAction.capabilityId,
+        moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
         nextAction,
         nextActionValidation: validation,
         reasonCode: "capability_not_auto_continuation_safe",
@@ -1017,6 +1037,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
     if (nextCapabilityClass.kind !== "allowed") {
       return blocked({
         capabilityId: nextAction.capabilityId,
+        moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
         nextAction,
         nextActionValidation: validation,
         reasonCode: reasonCodeForCapabilityClass({
@@ -1034,6 +1055,7 @@ export function decideWorkspaceAgentBrokerActionContinuation({
       createWorkspaceAgentBrokerPolicyDiagnostics({
         capabilityId: nextAction.capabilityId,
         confirmationInjected,
+        moduleId: validation.moduleId ?? nextAction.moduleId ?? null,
         nextAction,
         nextActionValidation: validation,
         reasonCode: "continuation_allowed",
@@ -1043,8 +1065,36 @@ export function decideWorkspaceAgentBrokerActionContinuation({
     );
   }
 
+  const nextActionUnavailable = readHobitNextActionUnavailable(result.output);
   const statusWithoutNextActionStopReason =
     stopReasonForActionStatusWithoutNextAction(result.status);
+  if (nextActionUnavailable) {
+    const candidateTaskIds = candidateTaskIdsForAmbiguousNextAction(
+      result.output,
+    );
+    const ambiguous =
+      nextActionUnavailable.reasonCode === "ambiguous_next_action" ||
+      candidateTaskIds.length > 1;
+    return blocked({
+      capabilityId: nextSuggestedCapability ?? request.capabilityId,
+      candidateTaskIds,
+      reasonCode: ambiguous
+        ? "ambiguous_next_action"
+        : nextActionUnavailable.reasonCode === "invalid_next_action_payload"
+          ? "next_action_payload_invalid"
+          : statusWithoutNextActionStopReason === "precondition_failed"
+            ? "precondition_failed"
+            : "no_next_action",
+      reasonMessage:
+        nextActionUnavailable.invalidPayloadReason ??
+        nextActionUnavailable.reasonMessage,
+      stopReason: ambiguous
+        ? "ambiguous_next_action"
+        : statusWithoutNextActionStopReason ??
+          "not_allowed_for_auto_continuation",
+    });
+  }
+
   if (statusWithoutNextActionStopReason) {
     return blocked({
       capabilityId: nextSuggestedCapability ?? request.capabilityId,
@@ -1134,6 +1184,7 @@ function createWorkspaceAgentBrokerPolicyDiagnostics({
   confirmationInjected = false,
   confirmationMissing = false,
   deniedCapabilitiesBlocked = false,
+  moduleId = null,
   nextAction = null,
   nextActionValidation = null,
   reasonCode,
@@ -1145,13 +1196,19 @@ function createWorkspaceAgentBrokerPolicyDiagnostics({
   confirmationInjected?: boolean;
   confirmationMissing?: boolean;
   deniedCapabilitiesBlocked?: boolean;
-  nextAction?: QueueCapabilityNextAction | null;
-  nextActionValidation?: ReturnType<typeof validateQueueCapabilityNextAction> | null;
+  moduleId?: string | null;
+  nextAction?: HobitNextAction | null;
+  nextActionValidation?: HobitNextActionValidationResult | null;
   reasonCode: WorkspaceAgentBrokerContinuationReasonCode;
   reasonMessage: string;
   state: WorkspaceAgentBrokerContinuationState;
 }): WorkspaceAgentBrokerPolicyDiagnostics {
   const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+  const resolvedModuleId =
+    moduleId ??
+    nextActionValidation?.moduleId ??
+    nextAction?.moduleId ??
+    (contract ? "queue" : null);
   return {
     allowedCapabilities: state.queueAutonomyPolicy.allowedCapabilities
       ? [...state.queueAutonomyPolicy.allowedCapabilities]
@@ -1167,7 +1224,9 @@ function createWorkspaceAgentBrokerPolicyDiagnostics({
     grantMode: state.queueAutonomyPolicy.active
       ? state.queueAutonomyPolicy.mode
       : null,
+    moduleId: resolvedModuleId,
     nextActionCapabilityId: nextAction?.capabilityId ?? null,
+    nextActionModuleId: nextAction ? resolvedModuleId : null,
     nextActionPayloadValidated: nextAction
       ? Boolean(nextActionValidation?.ok)
       : null,
@@ -1203,6 +1262,7 @@ export function formatWorkspaceAgentBrokerPolicyDiagnosticSummary(
   return [
     `Policy diagnostic: ${diagnostics.reasonCode}.`,
     `capabilityId=${diagnostics.capabilityId};`,
+    `moduleId=${diagnostics.moduleId ?? "unknown"};`,
     `riskClass=${diagnostics.riskClass ?? "unknown"};`,
     `grantActive=${diagnostics.grantActive ? "true" : "false"};`,
     `grantMode=${diagnostics.grantMode ?? "none"};`,
@@ -1304,7 +1364,7 @@ function decideQueueAutonomyScopeForNextAction({
   nextAction,
   policy,
 }: {
-  nextAction: QueueCapabilityNextAction;
+  nextAction: HobitNextAction;
   policy: QueueAutonomyPolicy;
 }): { allowed: true } | { allowed: false; reason: string } {
   if (!policy.active || !policy.scope) {
@@ -1335,8 +1395,10 @@ function decideQueueAutonomyScopeForNextAction({
 
 function candidateTaskIdsForAmbiguousNextAction(output: unknown): string[] {
   const root = recordValue(output);
+  const nextActionUnavailable = readHobitNextActionUnavailable(output);
   return compactStringList(
     [
+      ...(nextActionUnavailable?.ambiguousCandidateIds ?? []),
       ...stringArrayField(root, "candidateTaskIds"),
       ...stringArrayField(root, "createdTaskIds"),
       ...arrayField(root, "items").map((item) =>
@@ -1355,16 +1417,11 @@ function isAmbiguousNextActionResult(
   candidateTaskIds: readonly string[],
 ) {
   const root = recordValue(output);
-  // TODO(queue-status-taxonomy): keep this compatibility fallback until all
-  // ambiguous next-action blockers carry nextActionUnavailableCode.
+  const nextActionUnavailable = readHobitNextActionUnavailable(output);
   return (
+    nextActionUnavailable?.reasonCode === "ambiguous_next_action" ||
     stringField(root, "nextActionUnavailableCode") === "ambiguous_next_action" ||
-    candidateTaskIds.length > 1 ||
-    Boolean(
-      stringField(root, "nextActionUnavailableReason")
-        ?.toLowerCase()
-        .includes("multiple"),
-    )
+    candidateTaskIds.length > 1
   );
 }
 
@@ -1804,7 +1861,7 @@ function parseJsonRecord(
 
 function actionRequestMatchesNextAction(
   request: HobitAgentActionRequest,
-  nextAction: QueueCapabilityNextAction,
+  nextAction: HobitNextAction,
 ) {
   return (
     request.capabilityId === nextAction.capabilityId &&
@@ -1814,7 +1871,7 @@ function actionRequestMatchesNextAction(
 
 function queueResultForbidsNextAction(
   output: unknown,
-  nextAction: QueueCapabilityNextAction,
+  nextAction: HobitNextAction,
 ) {
   if (nextAction.capabilityId !== "queue.item.startRun") {
     return false;
@@ -1886,9 +1943,10 @@ export function createWorkspaceAgentBrokerActionResultContext({
   const safety = workspaceAgentBrokerContinuationSafety(result.output);
   const nextAction = queueResultNextAction(result.output);
   const validNextAction =
-    nextAction && validateQueueCapabilityNextAction(nextAction).ok
+    nextAction && validateHobitNextAction(nextAction).ok
       ? nextAction
       : null;
+  const nextActionUnavailable = readHobitNextActionUnavailable(result.output);
   const nextSuggestedCapability = firstString([
     stringField(output, "nextSuggestedCapability"),
     stringField(recordField(output, "item"), "nextSuggestedCapability"),
@@ -1940,6 +1998,7 @@ export function createWorkspaceAgentBrokerActionResultContext({
       ),
     },
     nextAction: validNextAction,
+    nextActionUnavailable,
     nextSuggestedCapability,
     notDone: notDoneMessages(safety),
     ...(policyDiagnostics ? { policyDiagnostics } : {}),
@@ -2143,9 +2202,9 @@ function queueStartRunMayContinue(
   );
 }
 
-function queueResultNextAction(output: unknown): QueueCapabilityNextAction | null {
+function queueResultNextAction(output: unknown): HobitNextAction | null {
   const nextAction = recordField(recordValue(output), "nextAction");
-  return nextAction ? (nextAction as QueueCapabilityNextAction) : null;
+  return nextAction ? (nextAction as HobitNextAction) : null;
 }
 
 function queueResultNextSuggestedCapability(output: unknown) {
@@ -2203,7 +2262,7 @@ function workspaceAgentBrokerContinuationSafety(
 
 function collectTaskIds(
   output: Record<string, unknown> | null,
-  nextAction: QueueCapabilityNextAction | null,
+  nextAction: HobitNextAction | null,
 ): string[] {
   return compactStringList(
     [
@@ -2227,7 +2286,7 @@ function collectTaskIds(
 
 function collectExecutorWidgetIds(
   output: Record<string, unknown> | null,
-  nextAction: QueueCapabilityNextAction | null,
+  nextAction: HobitNextAction | null,
 ): string[] {
   return compactStringList(
     [
@@ -2248,7 +2307,7 @@ function collectExecutorWidgetIds(
 
 function collectEvidenceBundleIds(
   output: Record<string, unknown> | null,
-  nextAction: QueueCapabilityNextAction | null,
+  nextAction: HobitNextAction | null,
 ): string[] {
   return compactStringList(
     [
@@ -2263,7 +2322,7 @@ function collectEvidenceBundleIds(
 
 function collectMessageIds(
   output: Record<string, unknown> | null,
-  nextAction: QueueCapabilityNextAction | null,
+  nextAction: HobitNextAction | null,
 ): string[] {
   return compactStringList(
     [

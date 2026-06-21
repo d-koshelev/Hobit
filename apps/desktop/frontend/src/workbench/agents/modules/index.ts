@@ -16,6 +16,8 @@ export type {
 } from "./moduleControlSurface";
 export type {
   ModuleControlSurfaceValidationContext,
+  ModuleControlSurfaceCapabilityResolution,
+  ModuleControlSurfaceCapabilityResolutionIssueCode,
   ModuleControlSurfaceValidationIssue,
   ModuleControlSurfaceValidationIssueCode,
 } from "./moduleControlSurfaceRegistry";
@@ -26,6 +28,7 @@ export {
   listModuleControlSurfaces,
   listModuleWorkflowIds,
   MODULE_CONTROL_SURFACE_REGISTRY,
+  resolveModuleControlSurfaceCapability,
   validateModuleControlSurfaces,
   validateRegisteredModuleControlSurfaces,
 } from "./moduleControlSurfaceRegistry";

@@ -1,4 +1,8 @@
 import type {
+  HobitNextAction,
+  HobitNextActionSource,
+} from "../broker/types";
+import type {
   HobitAgentCapabilitySideEffect,
   HobitAgentConfirmationRequirement,
 } from "./types";
@@ -82,7 +86,7 @@ export type QueueCapabilityContract = {
 
 export type QueueCapabilityId = string;
 
-export type QueueCapabilityNextAction = {
+export type QueueCapabilityNextAction = HobitNextAction & {
   autoContinuationSafe: boolean;
   capabilityId: QueueCapabilityId;
   confirmationRequired?: {
@@ -90,6 +94,7 @@ export type QueueCapabilityNextAction = {
     value: string;
   };
   input: Record<string, unknown>;
+  moduleId?: "queue";
   reason?: string;
   requiresConfirmation: boolean;
 };
@@ -529,11 +534,17 @@ export function buildQueueCapabilityNextAction({
   capabilityId,
   input,
   reason,
+  reasonCode,
+  reasonMessage,
+  source,
 }: {
   autoContinuationSafe?: boolean;
   capabilityId: QueueCapabilityId;
   input: Record<string, unknown>;
   reason?: string;
+  reasonCode?: string;
+  reasonMessage?: string;
+  source?: HobitNextActionSource;
 }): QueueCapabilityNextActionBuildResult {
   const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
   if (!contract) {
@@ -550,6 +561,7 @@ export function buildQueueCapabilityNextAction({
       autoContinuationSafe ?? (contract.autoContinuationSafe && !requiresConfirmation),
     capabilityId,
     input,
+    moduleId: "queue",
     ...(contract.confirmation.required && contract.confirmation.field
       ? {
           confirmationRequired: {
@@ -559,6 +571,9 @@ export function buildQueueCapabilityNextAction({
         }
       : {}),
     ...(reason ? { reason } : {}),
+    ...(reasonCode ? { reasonCode } : {}),
+    ...(reasonMessage ? { reasonMessage } : {}),
+    ...(source ? { source } : {}),
     requiresConfirmation,
   };
   const validation = validateQueueCapabilityNextAction(nextAction);
@@ -580,6 +595,8 @@ export function validateQueueCapabilityNextAction(
   if (!isRecord(candidate)) {
     return invalidNextAction([], ["nextAction must be an object."]);
   }
+
+  const topLevelReasons = unsupportedQueueNextActionFields(candidate);
 
   const capabilityId =
     typeof candidate.capabilityId === "string"
@@ -603,7 +620,7 @@ export function validateQueueCapabilityNextAction(
     return invalidNextAction(["input"], ["nextAction.input must be an object."]);
   }
 
-  const reasons: string[] = [];
+  const reasons: string[] = [...topLevelReasons];
   const missingRequiredFields: string[] = [];
   const acceptedInputFields = acceptedInputFieldNames(contract);
   for (const fieldName of Object.keys(input)) {
@@ -636,6 +653,29 @@ export function validateQueueCapabilityNextAction(
 
   const requiresConfirmation = candidate.requiresConfirmation;
   const autoContinuationSafe = candidate.autoContinuationSafe;
+  if (candidate.moduleId !== undefined && candidate.moduleId !== "queue") {
+    reasons.push("nextAction.moduleId must be queue for Queue capabilities.");
+  }
+  if (
+    candidate.riskClass !== undefined &&
+    candidate.riskClass !== contract.riskClass
+  ) {
+    reasons.push(
+      `nextAction.riskClass must be ${contract.riskClass} for ${capabilityId}.`,
+    );
+  }
+  if (
+    candidate.source !== undefined &&
+    !["backend_aggregate", "capability_result", "policy", "workflow_runner"].includes(
+      String(candidate.source),
+    )
+  ) {
+    reasons.push(
+      "nextAction.source must be one of backend_aggregate, capability_result, policy, workflow_runner.",
+    );
+  }
+  reasons.push(...validateQueueNextActionConfirmationMetadata(candidate.confirmation));
+  reasons.push(...validateQueueNextActionTargetIds(candidate.targetIds));
   if (typeof requiresConfirmation !== "boolean") {
     reasons.push("nextAction.requiresConfirmation must be a boolean.");
   }
@@ -754,6 +794,81 @@ function invalidNextAction(
     ok: false,
     reasons,
   };
+}
+
+function unsupportedQueueNextActionFields(candidate: Record<string, unknown>) {
+  const supported = new Set([
+    "autoContinuationSafe",
+    "capabilityId",
+    "confirmation",
+    "confirmationRequired",
+    "input",
+    "moduleId",
+    "reason",
+    "reasonCode",
+    "reasonMessage",
+    "requiresConfirmation",
+    "riskClass",
+    "source",
+    "targetIds",
+  ]);
+  return Object.keys(candidate)
+    .filter((fieldName) => !supported.has(fieldName))
+    .map((fieldName) => `nextAction.${fieldName} is not supported.`);
+}
+
+function validateQueueNextActionConfirmationMetadata(value: unknown): string[] {
+  if (value === undefined) {
+    return [];
+  }
+  if (!isRecord(value)) {
+    return ["nextAction.confirmation must be an object."];
+  }
+  const supported = new Set(["required", "tokenField", "tokenValuePresent"]);
+  const reasons = Object.keys(value)
+    .filter((fieldName) => !supported.has(fieldName))
+    .map((fieldName) => `nextAction.confirmation.${fieldName} is not supported.`);
+  if (value.required !== undefined && typeof value.required !== "boolean") {
+    reasons.push("nextAction.confirmation.required must be a boolean.");
+  }
+  if (value.tokenField !== undefined && typeof value.tokenField !== "string") {
+    reasons.push("nextAction.confirmation.tokenField must be a string.");
+  }
+  if (
+    value.tokenValuePresent !== undefined &&
+    typeof value.tokenValuePresent !== "boolean"
+  ) {
+    reasons.push("nextAction.confirmation.tokenValuePresent must be a boolean.");
+  }
+  return reasons;
+}
+
+function validateQueueNextActionTargetIds(value: unknown): string[] {
+  if (value === undefined) {
+    return [];
+  }
+  if (!isRecord(value)) {
+    return ["nextAction.targetIds must be an object."];
+  }
+  const supported = new Set([
+    "evidenceBundleId",
+    "executorWidgetId",
+    "messageId",
+    "runId",
+    "taskId",
+  ]);
+  const reasons = Object.keys(value)
+    .filter((fieldName) => !supported.has(fieldName))
+    .map((fieldName) => `nextAction.targetIds.${fieldName} is not supported.`);
+  for (const [fieldName, fieldValue] of Object.entries(value)) {
+    if (
+      supported.has(fieldName) &&
+      (typeof fieldValue !== "string" || !fieldValue.trim())
+    ) {
+      reasons.push(`nextAction.targetIds.${fieldName} must be a string.`);
+    }
+  }
+  return reasons;
 }
 
 function acceptedInputFieldNames(contract: QueueCapabilityContract) {

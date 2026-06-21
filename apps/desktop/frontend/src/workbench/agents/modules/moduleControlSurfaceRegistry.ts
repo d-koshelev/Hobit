@@ -3,6 +3,7 @@ import { QUEUE_CAPABILITY_CONTRACT_BY_ID } from "../capabilities/queueCapability
 import type { HobitAgentCapabilityId } from "../capabilities/types";
 import type {
   HobitModuleId,
+  ModuleCapabilityReference,
   ModuleControlSurface,
 } from "./moduleControlSurface";
 import { QUEUE_MODULE_CONTROL_SURFACE } from "./queueModuleControlSurface";
@@ -36,6 +37,27 @@ export type ModuleControlSurfaceValidationContext = {
   >;
 };
 
+export type ModuleControlSurfaceCapabilityResolutionIssueCode =
+  | "capability_not_in_module_registry"
+  | "unknown_module"
+  | "unknown_module_capability_pair";
+
+export type ModuleControlSurfaceCapabilityResolution =
+  | {
+      capability: ModuleCapabilityReference;
+      capabilityId: HobitAgentCapabilityId;
+      moduleId: HobitModuleId;
+      ok: true;
+      surface: ModuleControlSurface;
+    }
+  | {
+      capabilityId: HobitAgentCapabilityId;
+      moduleId?: HobitModuleId;
+      ok: false;
+      reasonCode: ModuleControlSurfaceCapabilityResolutionIssueCode;
+      reasons: string[];
+    };
+
 const DEFAULT_MODULE_CONTROL_SURFACE_VALIDATION_CONTEXT: ModuleControlSurfaceValidationContext =
   {
     knownCapabilityIds: createHobitAgentCapabilityRegistry().capabilities.map(
@@ -64,6 +86,76 @@ export function hasModuleControlSurface(
   surfaces: readonly ModuleControlSurface[] = MODULE_CONTROL_SURFACE_REGISTRY,
 ): boolean {
   return Boolean(getModuleControlSurface(moduleId, surfaces));
+}
+
+export function resolveModuleControlSurfaceCapability({
+  capabilityId,
+  moduleId,
+  surfaces = MODULE_CONTROL_SURFACE_REGISTRY,
+}: {
+  capabilityId: HobitAgentCapabilityId;
+  moduleId?: HobitModuleId | null;
+  surfaces?: readonly ModuleControlSurface[];
+}): ModuleControlSurfaceCapabilityResolution {
+  if (moduleId) {
+    const surface = getModuleControlSurface(moduleId, surfaces);
+    if (!surface) {
+      return {
+        capabilityId,
+        moduleId,
+        ok: false,
+        reasonCode: "unknown_module",
+        reasons: [`Module control surface is not registered: ${moduleId}.`],
+      };
+    }
+
+    const capability = surface.capabilities.find(
+      (candidate) => candidate.capabilityId === capabilityId,
+    );
+    if (!capability) {
+      return {
+        capabilityId,
+        moduleId,
+        ok: false,
+        reasonCode: "unknown_module_capability_pair",
+        reasons: [
+          `${capabilityId} is not registered by module control surface ${moduleId}.`,
+        ],
+      };
+    }
+
+    return {
+      capability,
+      capabilityId,
+      moduleId: surface.moduleId,
+      ok: true,
+      surface,
+    };
+  }
+
+  for (const surface of surfaces) {
+    const capability = surface.capabilities.find(
+      (candidate) => candidate.capabilityId === capabilityId,
+    );
+    if (capability) {
+      return {
+        capability,
+        capabilityId,
+        moduleId: surface.moduleId,
+        ok: true,
+        surface,
+      };
+    }
+  }
+
+  return {
+    capabilityId,
+    ok: false,
+    reasonCode: "capability_not_in_module_registry",
+    reasons: [
+      `${capabilityId} is not registered by any module control surface.`,
+    ],
+  };
 }
 
 export function listModuleCapabilityIds(

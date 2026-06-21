@@ -315,6 +315,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
           messageId: "review-message-1",
           taskId: "task-1",
         },
+        moduleId: "queue",
         requiresConfirmation: false,
       },
       ok: true,

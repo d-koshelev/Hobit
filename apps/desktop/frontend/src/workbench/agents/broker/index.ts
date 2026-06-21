@@ -14,6 +14,13 @@ export type {
   HobitAgentBrokerResult,
   HobitAgentBrokerStatus,
   HobitAgentHiddenSideEffectFlags,
+  HobitNextAction,
+  HobitNextActionConfirmationMetadata,
+  HobitNextActionSource,
+  HobitNextActionTargetIds,
+  HobitNextActionUnavailable,
+  HobitNextActionUnavailableReasonCode,
+  HobitNextActionValidationResult,
 } from "./types";
 export { HOBIT_AGENT_ACTION_STATUS_TAXONOMY } from "./types";
 export {
@@ -51,3 +58,10 @@ export {
   HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
   readHobitAgentActionRequestEnvelope,
 } from "./hobitAgentActionRequestEnvelope";
+export type { HobitNextActionValidationOptions } from "./nextAction";
+export {
+  createHobitNextActionUnavailable,
+  hobitNextActionAgreesWithSuggestion,
+  readHobitNextActionUnavailable,
+  validateHobitNextAction,
+} from "./nextAction";
