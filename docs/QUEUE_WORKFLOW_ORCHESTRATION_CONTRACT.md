@@ -50,6 +50,14 @@ Raw task status, UI lane, frontend overlay label, latest run status, worker
 completion, review message creation, and review ACK are inputs to aggregate
 state. They are not accepted completion by themselves.
 
+WorkerProvider is the provider-neutral worker boundary for future explicit
+work-item execution. It is separate from AgentProvider: AgentProvider produces
+structured Workspace Agent turns, while WorkerProvider starts explicit worker
+requests and emits normalized worker evidence/result events. Queue workflow
+runners may consume WorkerProvider later, but this contract does not wire a
+runner to WorkerProvider, does not auto-start workers, and does not change
+current Queue-linked Direct Work behavior.
+
 ## Legal Transition Categories
 
 - `read_state`: read aggregate/evidence state only.
@@ -374,7 +382,7 @@ This contract does not implement:
 
 - backend scheduler redesign;
 - hidden Queue Autorun;
-- WorkerProvider or provider-driven Queue workflow execution;
+- provider-driven Queue workflow execution through WorkerProvider;
 - validation execution;
 - Git commit/push/revert/reset;
 - rollback execution;

@@ -148,8 +148,16 @@ CodexAgentProvider adapter, while deterministic FakeAgentProviders can emit
 final answers, structured Hobit action requests, workflow requests, errors,
 and cancellation/stopped events for tests without calling Codex. This does not
 change Queue capability behavior, backend lifecycle semantics, bounded
-autonomy policy, workflow request validation, or Queue UI. WorkerProvider and
-Queue workflow execution remain not implemented.
+autonomy policy, workflow request validation, or Queue UI.
+
+WorkerProvider is now a separate provider-neutral frontend seam for explicit
+work-item execution and normalized worker evidence/result events. The MVP
+includes a deterministic FakeWorkerProvider, a thin CodexWorkerProvider adapter
+around existing Direct Work stream APIs, and a pure mapping from
+WorkerProvider final results into the current Queue worker evidence ingestion
+input shape. Queue workflow execution remains not implemented: no runner,
+scheduler behavior, Queue auto-start, backend lifecycle semantic change, or
+new Queue capability is added.
 
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly
@@ -777,6 +785,12 @@ adapter integration and typed frontend Action Broker capability access.
   preview, and returns product-facing labels such as `Queue worker evidence
   ingested`, `Queue item awaiting review`, `Queue evidence ingestion failed`,
   and `Queue evidence ingestion skipped`.
+- `apps/desktop/frontend/src/workbench/queue/workerProviderEvidenceMapping.ts`
+  defines the pure WorkerProvider-to-Queue evidence input mapping. It preserves
+  explicit task/run/provider/thread ids, outcome, final report/summary,
+  changed files, validation status, failure/stuck reason, and provider
+  metadata, but it does not record evidence or call Queue lifecycle APIs by
+  itself.
 - `queue.lifecycle.agentFinished` accepts either the existing explicit fields
   or an optional structured evidence bundle, but it requires explicit `taskId`
   and `runId` and never infers either from prose. A valid bundle can supply

@@ -62,10 +62,19 @@ restricted capabilities for explicit workspace/code execution requests only.
   action/workflow output, final answer, error, run finished, and cancellation.
   Codex Direct Work is the current default AgentProvider implementation, not
   the Workspace Agent architecture. Fake AgentProviders are allowed for
-  deterministic protocol/action/workflow tests. WorkerProvider, workflow
-  runner execution, scheduler behavior, validation execution, Git mutation,
-  rollback, Terminal launch, and hidden worker starts are not implemented by
-  this seam.
+  deterministic protocol/action/workflow tests.
+- WorkerProvider Runtime: provider-neutral frontend execution seam for
+  explicit work items. It is separate from AgentProvider: AgentProvider
+  generates structured Workspace Agent turns, while WorkerProvider starts an
+  explicit worker request and emits normalized worker run, output/log,
+  evidence, completion, failure, cancellation, stopped, and provider-error
+  events. Codex Direct Work is the current concrete/default worker
+  implementation through a CodexWorkerProvider adapter, not the worker
+  architecture. Fake WorkerProviders are allowed for deterministic evidence
+  and terminal-state tests. Queue workflow runners may consume WorkerProvider
+  later, but this seam does not add workflow runner execution, scheduler
+  behavior, validation execution, Git mutation, rollback, Terminal launch, or
+  hidden worker starts.
 - Agent-to-Agent SelfTest: pure model peer checks where Agent A can test Agent
   B and Agent B can test Agent A through status, history, capability manifest,
   and typed message APIs. This is the foundation for future agent-executed
@@ -249,7 +258,9 @@ remains empty until typed Queue workflow metadata and workflow execution
 contracts are implemented.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It
-is not the module integration architecture.
+is not the module integration architecture. WorkerProvider is the normalized
+worker boundary for future explicit work-item execution and evidence events;
+the current Queue workflow runner does not consume it yet.
 
 ## Generic `nextAction` Contract
 

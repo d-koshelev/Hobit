@@ -26,6 +26,32 @@ export type {
   AgentProviderTurnRequest,
 } from "./agentProvider";
 export { isAgentProviderRunHandle } from "./agentProvider";
+export type {
+  WorkerProvider,
+  WorkerProviderApprovalPolicy,
+  WorkerProviderCancelResult,
+  WorkerProviderCapabilities,
+  WorkerProviderChangedFile,
+  WorkerProviderEvent,
+  WorkerProviderEvidenceStatus,
+  WorkerProviderEvidenceSummary,
+  WorkerProviderFinalResult,
+  WorkerProviderFinalStatus,
+  WorkerProviderId,
+  WorkerProviderRunHandle,
+  WorkerProviderRunSnapshot,
+  WorkerProviderRunStatus,
+  WorkerProviderSandbox,
+  WorkerProviderStartOptions,
+  WorkerProviderValidationSummary,
+  WorkerProviderWorkRequest,
+} from "./workerProvider";
+export {
+  createWorkerProviderCapabilities,
+  evidenceSummaryFromWorkerProviderFinalResult,
+  isWorkerProviderRunHandle,
+  workerProviderFinalStatusToEvidenceStatus,
+} from "./workerProvider";
 export {
   AGENT_RUN_LIFECYCLE_LABELS,
   agentRunLifecycleLabel,
@@ -58,6 +84,17 @@ export type {
   CodexAgentRuntimeRunHandle,
 } from "./codexProviderAdapter";
 export {
+  CODEX_WORKER_PROVIDER_ID,
+  codexWorkerRequestToDirectWorkRequest,
+  createCodexWorkerProvider,
+  directWorkEventToWorkerEvents,
+  directWorkFinalEventToWorkerProviderFinalResult,
+} from "./codexWorkerProviderAdapter";
+export type {
+  CodexWorkerProviderActions,
+  CodexWorkerProviderOptions,
+} from "./codexWorkerProviderAdapter";
+export {
   createFakeAgentProvider,
   fakeAgentProviderScriptForScenario,
 } from "./fakeAgentProvider";
@@ -66,3 +103,12 @@ export type {
   FakeAgentProviderScenario,
   FakeAgentProviderScriptStep,
 } from "./fakeAgentProvider";
+export {
+  createFakeWorkerProvider,
+  fakeWorkerProviderScriptForScenario,
+} from "./fakeWorkerProvider";
+export type {
+  FakeWorkerProviderOptions,
+  FakeWorkerProviderScenario,
+  FakeWorkerProviderScriptStep,
+} from "./fakeWorkerProvider";

@@ -227,10 +227,16 @@ seam for direct turns. Codex Direct Work is the default current
 AgentProvider implementation and keeps its executable, thread id, sandbox,
 approval, and Direct Work event mapping inside the Codex adapter. Fake
 AgentProviders may drive deterministic protocol/action/workflow tests without
-calling Codex. This does not add WorkerProvider, workflow runner execution,
-scheduler behavior, Queue workflow execution, validation execution, Git
-mutation, rollback, Terminal launch, hidden worker starts, or new Queue
-capabilities.
+calling Codex.
+
+WorkerProvider is now a separate provider-neutral seam for explicit work-item
+execution. It emits normalized worker run, output/log, evidence, completion,
+failure, cancellation, stopped, and provider-error events. Codex Direct Work
+remains a concrete/default worker implementation through a CodexWorkerProvider
+adapter, while Fake WorkerProviders can drive deterministic worker/evidence
+tests without Codex. This does not add workflow runner execution, scheduler
+behavior, Queue workflow execution, validation execution, Git mutation,
+rollback, Terminal launch, hidden worker starts, or new Queue capabilities.
 
 Codex and shell remain restricted explicit execution capabilities for
 workspace/code execution requests. They are not used for agent-to-agent runtime
