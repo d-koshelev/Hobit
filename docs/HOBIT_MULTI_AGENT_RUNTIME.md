@@ -188,9 +188,12 @@ Module functionality exposed to agents must be described through a
 The surface is metadata only: it names the module, typed capabilities, future
 typed workflows, risk and confirmation policy, actor/default context,
 backend-backed versus transitional backing status, and UI dependency policy.
-Widgets are render/control surfaces, not executable module APIs. Queue is the
-first reference module surface; Knowledge, Notes, Terminal, and future modules
-should register later without importing UI components or React state.
+`ModuleControlSurfaceRegistry` is the discovery layer for these agent-facing
+module surfaces. Queue is the first registered module. The registry is
+metadata only, is not runtime behavior, and must stay UI-independent. Widgets
+are render/control surfaces, not executable module APIs. Knowledge, Notes,
+Terminal, and future modules should register later without importing UI
+components or React state.
 
 Codex and shell remain restricted explicit execution capabilities for
 workspace/code execution requests. They are not used for agent-to-agent runtime

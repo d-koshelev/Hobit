@@ -24,6 +24,10 @@ confirmation, and bounded grant rules are defined in
   these typed APIs. It may describe backend-backed, bridge-backed,
   model-preview, transitional, unavailable, and future workflow metadata, but
   it does not execute Queue behavior by itself.
+- `ModuleControlSurfaceRegistry` is the UI-independent discovery layer for
+  agent-facing module surfaces. Queue is the first registered module. Registry
+  metadata is not runtime behavior and must not import Queue UI, widget
+  components, CSS, or visual shell modules. Other modules will register later.
 - Queue UI widgets are not executable Queue APIs. Backend-backed capabilities
   must remain testable without mounting Queue UI components.
 - Frontend API wrappers translate desktop/browser availability into typed API

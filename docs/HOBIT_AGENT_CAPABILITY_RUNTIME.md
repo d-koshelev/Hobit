@@ -162,6 +162,13 @@ ids, capability backing status, risk classes, confirmation requirements, actor
 context policy, UI dependency policy, compatibility notes, and contract-test
 requirements.
 
+`ModuleControlSurfaceRegistry` is the discovery layer for agent-facing modules.
+It can list and retrieve registered module surfaces and validate compact
+metadata consistency. Queue is the first registered module. Registry metadata
+is not runtime behavior, does not execute workflows, and must remain
+UI-independent. Knowledge, Notes, Terminal, and other modules will register
+later only after safe module surface metadata exists.
+
 UI widgets are not executable module APIs. Widgets may render module DTOs and
 collect explicit operator input, but agents must use typed module capability
 metadata plus the Action Broker and module API ports for product actions.

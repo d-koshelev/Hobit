@@ -424,9 +424,11 @@ unless the task explicitly requests it.
   capability metadata, Action Broker behavior, Widget Agent Contracts, or
   Module Control Surface metadata. `ModuleControlSurface` is the generic
   agent-facing module contract for typed module capabilities and future typed
-  workflows; UI widgets are not executable module APIs, and Codex is a
-  provider/worker implementation rather than the module integration
-  architecture.
+  workflows. `ModuleControlSurfaceRegistry` is the UI-independent discovery
+  layer for registered agent-facing module surfaces; Queue is the first
+  registered module, and the registry metadata is not runtime behavior. UI
+  widgets are not executable module APIs, and Codex is a provider/worker
+  implementation rather than the module integration architecture.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source
   provenance, AI-readable context approval, citations, or trust-layer work.
 - `docs/EVENT_AUDIT_ENVELOPE_CONTRACT.md` - read for Event/Audit Envelope v0
