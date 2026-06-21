@@ -1,6 +1,7 @@
 import type {
   HobitAgentActionRequest,
   HobitAgentActionResult,
+  HobitAgentActionReasonCode,
   HobitAgentActionStatus,
   HobitAgentAuditEvent,
   HobitAgentHiddenSideEffectFlags,
@@ -75,22 +76,28 @@ export function createActionResult<TOutput = unknown>({
   auditEvents = [],
   capabilityId,
   dryRun = false,
+  fieldPath,
+  fieldPaths,
   hiddenSideEffectFlags = createNoHiddenSideEffectFlags(),
   message,
   output,
   policyDecision,
   policyReasons = [],
+  reasonCode,
   requestId = `${capabilityId}:request`,
   status = "succeeded",
 }: {
   auditEvents?: HobitAgentAuditEvent[];
   capabilityId: HobitAgentCapabilityId;
   dryRun?: boolean;
+  fieldPath?: string;
+  fieldPaths?: string[];
   hiddenSideEffectFlags?: HobitAgentHiddenSideEffectFlags;
   message: string;
   output?: TOutput;
   policyDecision?: HobitAgentPolicyDecision;
   policyReasons?: string[];
+  reasonCode?: HobitAgentActionReasonCode;
   requestId?: string;
   status?: HobitAgentActionStatus;
 }): HobitAgentActionResult<TOutput> {
@@ -98,15 +105,29 @@ export function createActionResult<TOutput = unknown>({
     auditEvents,
     capabilityId,
     dryRun,
+    ...(fieldPath ? { fieldPath } : {}),
+    ...(fieldPaths && fieldPaths.length > 0 ? { fieldPaths } : {}),
     hiddenSideEffectFlags,
     message,
-    ok: status === "succeeded",
+    ok: hobitAgentActionStatusIsOk(status),
     output,
     ...(policyDecision ? { policyDecision } : {}),
     policyReasons,
+    ...(reasonCode ? { reasonCode } : {}),
     requestId,
     status,
   };
+}
+
+export function hobitAgentActionStatusIsOk(
+  status: HobitAgentActionStatus,
+): boolean {
+  return (
+    status === "succeeded" ||
+    status === "already_exists" ||
+    status === "already_done" ||
+    status === "already_failed"
+  );
 }
 
 export function createUnavailableActionResult({
@@ -133,6 +154,7 @@ export function createUnavailableActionResult({
     ok: false,
     ...(policyDecision ? { policyDecision } : {}),
     policyReasons: [reason],
+    reasonCode: "capability_unavailable",
     requestId,
     status: "unavailable",
     unavailableReason: reason,
@@ -161,6 +183,7 @@ export function createPolicyBlockedActionResult({
     ok: false,
     ...(policyDecision ? { policyDecision } : {}),
     policyReasons: [...reasons],
+    reasonCode: "policy_denied",
     requestId,
     status: "policy_blocked",
   };

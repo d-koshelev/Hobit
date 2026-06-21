@@ -45,8 +45,22 @@ export function workspaceAgentHobitActionResultMessage(
   switch (result.status) {
     case "succeeded":
       return succeededActionMessage(result);
+    case "blocked":
+      return withReason("Action blocked.", result);
+    case "blocked_actionable":
+      return withReason("Action blocked with next action.", result);
+    case "already_exists":
+      return withReason("Action already exists.", result);
+    case "already_done":
+      return withReason("Action already done.", result);
+    case "already_failed":
+      return withReason("Action already failed.", result);
+    case "precondition_failed":
+      return withReason("Action precondition failed.", result);
     case "needs_confirmation":
       return withReason("Action needs confirmation.", result);
+    case "paused":
+      return withReason("Action paused.", result);
     case "dry_run_required":
       return withReason("Action requires dry-run first.", result);
     case "policy_blocked":
@@ -55,6 +69,8 @@ export function workspaceAgentHobitActionResultMessage(
       return withReason("Action unavailable.", result);
     case "invalid_input":
       return withReason("Invalid Hobit action request.", result);
+    case "failed_unexpected":
+      return withReason("Hobit action failed unexpectedly.", result);
     case "failed":
       return withReason("Hobit action failed.", result);
   }
@@ -129,6 +145,34 @@ export function workspaceAgentHobitActionActivityTitle(
     return "Action needs confirmation";
   }
 
+  if (resultStatus === "blocked") {
+    return "Action blocked";
+  }
+
+  if (resultStatus === "blocked_actionable") {
+    return "Action blocked with next action";
+  }
+
+  if (resultStatus === "already_exists") {
+    return "Action already exists";
+  }
+
+  if (resultStatus === "already_done") {
+    return "Action already done";
+  }
+
+  if (resultStatus === "already_failed") {
+    return "Action already failed";
+  }
+
+  if (resultStatus === "precondition_failed") {
+    return "Action precondition failed";
+  }
+
+  if (resultStatus === "paused") {
+    return "Action paused";
+  }
+
   if (resultStatus === "dry_run_required") {
     return "Action requires dry-run first";
   }
@@ -143,6 +187,10 @@ export function workspaceAgentHobitActionActivityTitle(
 
   if (resultStatus === "invalid_input") {
     return "Invalid Hobit action request";
+  }
+
+  if (resultStatus === "failed_unexpected") {
+    return "Hobit action failed unexpectedly";
   }
 
   return "Hobit action failed";

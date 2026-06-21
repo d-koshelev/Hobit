@@ -68,6 +68,16 @@ continuation payload; `nextSuggestedCapability` is compatibility context and is
 not enough for execution. The Workspace Agent must not rename fields or infer
 ids from prose. `queue.review.ack` uses `messageId`; duplicate review-create
 `existingMessageId` maps to `nextAction.input.messageId`.
+Broker/module action results now use a typed module-neutral status taxonomy.
+Idempotent Queue states are not generic failures: duplicate review create maps
+to `already_exists`, accepted-completion idempotency maps to `already_done`,
+terminal-failure idempotency maps to `already_failed`, backend/domain
+preconditions map to `precondition_failed` or `blocked_actionable` when a safe
+typed `nextAction` exists, missing exact confirmation maps to
+`needs_confirmation`, invalid payloads map to `invalid_input` with field paths,
+unavailable capability/API paths map to `unavailable`, and thrown runtime
+errors map to `failed_unexpected`. New broker logic should use typed
+`reasonCode` values, not prose reason strings.
 Workspace Agent now supports a structured bounded Queue autonomy grant:
 `{"type":"hobit.queue.autonomyGrant","mode":"queue_acceptance_smoke",...}`.
 The grant is JSON only, never prose. Under grant policy, Workspace Agent may
@@ -332,15 +342,18 @@ The current implemented frontend behavior is:
   Queue task state and latest run-link metadata refresh after a real run id is
   returned, and Queue-owned final detail can feed the existing evidence
   ingestion bridge;
-- Workspace Agent broker-action continuation: after an eligible successful
-  structured broker result, the frontend feeds a compact `hobit.action.result`
+- Workspace Agent broker-action continuation: after an eligible structured
+  broker result, the frontend feeds a compact `hobit.action.result`
   back into the same Codex thread so the model can emit the next single
   `hobit.action.request` or explicit `hobit.final.answer`, with a 16-action
-  cap and stops for confirmation, policy, unavailable, dry-run-required,
-  failed, invalid, repeated, unsupported, restricted, protocol-error, or
-  missing-thread cases. The continuation runtime now prefers a validated typed
-  `nextAction` payload and does not infer from `nextSuggestedCapability`
-  alone. Structured Queue autonomy grants can allow bounded multi-step Queue
+  cap and typed stops for confirmation, policy, unavailable, paused,
+  dry-run-required compatibility, invalid, blocked, unexpected failure,
+  repeated, unsupported, restricted, protocol-error, or missing-thread cases.
+  `blocked_actionable`, `already_exists`, `already_done`, and
+  `precondition_failed` can continue only through a validated typed
+  `nextAction`. The continuation runtime does not infer from
+  `nextSuggestedCapability` alone. Structured Queue autonomy grants can allow
+  bounded multi-step Queue
   workflows through risk-class policy and exact-token confirmation injection,
   but malformed grants or prose-only approvals do not grant permission;
 - Workspace Agent action protocol enforcement: a typed-capability Direct Work

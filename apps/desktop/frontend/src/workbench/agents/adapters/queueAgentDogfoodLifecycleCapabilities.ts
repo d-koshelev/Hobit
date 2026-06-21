@@ -12,10 +12,10 @@ import type {
   HobitAgentActionHandlerMap,
   HobitAgentActionRequest,
   HobitAgentActionResult,
-  HobitAgentActionStatus,
 } from "../broker/types";
 import {
   noHiddenSideEffectFlags,
+  queueAgentCapabilityStatusToBrokerStatus,
   queueSideEffectFlags,
   QUEUE_ACTIVITY_EVENTS,
   type QueueAgentAdapterApi,
@@ -23,7 +23,6 @@ import {
   type QueueAgentAddFollowUpPromptInput,
   type QueueAgentApproveValidationInput,
   type QueueAgentBlockInput,
-  type QueueAgentCapabilityStatus,
   type QueueAgentFailInput,
   type QueueAgentLifecycleAgentFinishedInput,
   type QueueAgentLifecycleGetInput,
@@ -40,7 +39,7 @@ type QueueDogfoodLifecycleHandlerResult =
 
 type ValidationResult<T> =
   | { ok: true; value: T }
-  | { message: string; ok: false };
+  | { fieldPath?: string; message: string; ok: false };
 
 const AGENT_OUTCOMES = new Set(["completed", "not_completed", "failed"]);
 
@@ -99,12 +98,16 @@ function handleAgentFinished(
     ],
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   const normalized = normalizeAgentFinishedInput(validation.value);
   if (!normalized.ok) {
-    return invalidInput(request, normalized.message);
+    return invalidInput(request, normalized.message, {
+      fieldPath: normalized.fieldPath,
+    });
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
@@ -134,7 +137,9 @@ function handleCreateReviewMessage(
     ],
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   const evidence = normalizeOptionalEvidenceBundle({
@@ -143,7 +148,9 @@ function handleCreateReviewMessage(
     taskId: validation.value.taskId,
   });
   if (!evidence.ok) {
-    return invalidInput(request, evidence.message);
+    return invalidInput(request, evidence.message, {
+      fieldPath: evidence.fieldPath,
+    });
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
@@ -168,7 +175,9 @@ function handleReviewAck(
     ["taskId", "messageId", "coordinatorAgentId", "ackId", "receivedAt"],
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
@@ -199,7 +208,9 @@ function handleApproveValidation(
     ],
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
@@ -232,7 +243,9 @@ function handleAddFollowUpPrompt(
     ],
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
@@ -264,12 +277,16 @@ function handleMarkDone(
     ],
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   const confirmationError = exactQueueConfirmationError(request);
   if (confirmationError) {
-    return invalidInput(request, confirmationError);
+    return invalidInput(request, confirmationError, {
+      fieldPath: QUEUE_START_RUN_CONFIRMATION_FIELD,
+    });
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
@@ -294,7 +311,9 @@ function handleBlockItem(
     ["taskId", "coordinatorAgentId", "reason", "blockedAt", "decisionId"],
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
@@ -327,12 +346,16 @@ function handleFailItem(
     ],
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   const confirmationError = exactQueueConfirmationError(request);
   if (confirmationError) {
-    return invalidInput(request, confirmationError);
+    return invalidInput(request, confirmationError, {
+      fieldPath: QUEUE_START_RUN_CONFIRMATION_FIELD,
+    });
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
@@ -358,7 +381,9 @@ function handleGetLifecycle(
     ["taskId"],
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
@@ -381,7 +406,9 @@ function handleGetEvidenceBundle(
     ["taskId", "runId"],
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   return invokeLifecycle(adapterApi, request, (lifecycle, context) =>
@@ -412,6 +439,7 @@ function normalizeAgentFinishedInput(
     const explicitOutcome = cleanString(input.outcome);
     if (explicitOutcome && !AGENT_OUTCOMES.has(explicitOutcome)) {
       return {
+        fieldPath: "input.outcome",
         message:
           "Queue lifecycle outcome must be completed, not_completed, or failed.",
         ok: false,
@@ -420,6 +448,7 @@ function normalizeAgentFinishedInput(
 
     if (explicitOutcome && explicitOutcome !== evidenceBundle.outcome) {
       return {
+        fieldPath: "input.outcome",
         message:
           "Queue lifecycle outcome does not match the evidence bundle outcome.",
         ok: false,
@@ -433,6 +462,7 @@ function normalizeAgentFinishedInput(
       explicitThreadId !== evidenceBundle.threadId
     ) {
       return {
+        fieldPath: "input.threadId",
         message:
           "Queue lifecycle threadId does not match the evidence bundle threadId.",
         ok: false,
@@ -446,6 +476,7 @@ function normalizeAgentFinishedInput(
       explicitRunId !== evidenceBundle.runId
     ) {
       return {
+        fieldPath: "input.runId",
         message: "Queue lifecycle runId does not match the evidence bundle runId.",
         ok: false,
       };
@@ -453,7 +484,7 @@ function normalizeAgentFinishedInput(
 
     const runId = explicitRunId ?? cleanString(evidenceBundle.runId);
     if (!runId) {
-      return { message: "runId is required.", ok: false };
+      return { fieldPath: "input.runId", message: "runId is required.", ok: false };
     }
 
     const lifecycleInput = toLifecycleAgentFinishedInput(evidenceBundle, {
@@ -497,19 +528,20 @@ function normalizeAgentFinishedInput(
   const finalAgentMessage = cleanString(input.finalAgentMessage);
 
   if (!taskId) {
-    return { message: "taskId is required.", ok: false };
+    return { fieldPath: "input.taskId", message: "taskId is required.", ok: false };
   }
 
   if (!outcome) {
-    return { message: "outcome is required.", ok: false };
+    return { fieldPath: "input.outcome", message: "outcome is required.", ok: false };
   }
 
   if (!runId) {
-    return { message: "runId is required.", ok: false };
+    return { fieldPath: "input.runId", message: "runId is required.", ok: false };
   }
 
   if (!AGENT_OUTCOMES.has(outcome)) {
     return {
+      fieldPath: "input.outcome",
       message:
         "Queue lifecycle outcome must be completed, not_completed, or failed.",
       ok: false,
@@ -517,7 +549,11 @@ function normalizeAgentFinishedInput(
   }
 
   if (!finalAgentMessage) {
-    return { message: "finalAgentMessage is required.", ok: false };
+    return {
+      fieldPath: "input.finalAgentMessage",
+      message: "finalAgentMessage is required.",
+      ok: false,
+    };
   }
 
   return {
@@ -554,6 +590,7 @@ function normalizeOptionalEvidenceBundle({
 
   if (!validation.ok) {
     return {
+      fieldPath: "input.evidenceBundle",
       message: validation.reasons[0] ?? "Evidence bundle is invalid.",
       ok: false,
     };
@@ -627,12 +664,14 @@ function actionResultFromAdapter<TOutput>({
   dryRun: boolean;
   requestId: string;
 }): HobitAgentActionResult {
-  const status = brokerStatus(adapterResult.status);
+  const status = queueAgentCapabilityStatusToBrokerStatus(adapterResult.status);
 
   return createActionResult({
     auditEvents: [],
     capabilityId,
     dryRun,
+    fieldPath: adapterResult.fieldPath,
+    fieldPaths: adapterResult.fieldPaths,
     hiddenSideEffectFlags: noHiddenSideEffectFlags(),
     message: adapterResult.message,
     output: {
@@ -646,17 +685,10 @@ function actionResultFromAdapter<TOutput>({
     },
     policyReasons:
       adapterResult.reasons ?? (status === "succeeded" ? [] : [adapterResult.message]),
+    reasonCode: adapterResult.reasonCode,
     requestId,
     status,
   });
-}
-
-function brokerStatus(status: QueueAgentCapabilityStatus): HobitAgentActionStatus {
-  if (status === "confirmation_required") {
-    return "needs_confirmation";
-  }
-
-  return status;
 }
 
 function activityEventsFor(capabilityId: string): string[] {
@@ -701,13 +733,21 @@ function readInput<T extends object>(
   for (const field of requiredFields) {
     if (options.booleanFields?.includes(field)) {
       if (typeof value[field] !== "boolean") {
-        return { ok: false, message: `${field} must be a boolean.` };
+        return {
+          fieldPath: `input.${field}`,
+          ok: false,
+          message: `${field} must be a boolean.`,
+        };
       }
       continue;
     }
 
     if (typeof value[field] !== "string" || !value[field].trim()) {
-      return { ok: false, message: `${field} is required.` };
+      return {
+        fieldPath: `input.${field}`,
+        ok: false,
+        message: `${field} is required.`,
+      };
     }
   }
 
@@ -720,6 +760,7 @@ function readOptionalInput<T extends object>(
 ): ValidationResult<T> {
   if (!isRecord(request.input)) {
     return {
+      fieldPath: "input",
       message: "Queue lifecycle action input is required.",
       ok: false,
     };
@@ -728,6 +769,7 @@ function readOptionalInput<T extends object>(
   for (const field of Object.keys(request.input)) {
     if (!acceptedFields.includes(field)) {
       return {
+        fieldPath: `input.${field}`,
         message: `${field} is not supported by ${request.capabilityId}.`,
         ok: false,
       };
@@ -757,14 +799,18 @@ function cleanString(value: unknown) {
 function invalidInput(
   request: HobitAgentActionRequest,
   message: string,
+  options: { fieldPath?: string; fieldPaths?: string[] } = {},
 ): HobitAgentActionResult {
   return createActionResult({
     auditEvents: [],
     capabilityId: request.capabilityId,
     dryRun: request.dryRun,
+    fieldPath: options.fieldPath,
+    fieldPaths: options.fieldPaths,
     hiddenSideEffectFlags: noHiddenSideEffectFlags(),
     message,
     policyReasons: [message],
+    reasonCode: "invalid_payload",
     requestId: request.requestId,
     status: "invalid_input",
   });
@@ -787,6 +833,7 @@ function unavailable(
     hiddenSideEffectFlags: noHiddenSideEffectFlags(),
     message,
     policyReasons: [message],
+    reasonCode: "capability_unavailable",
     requestId: request.requestId,
     status: "unavailable",
   });

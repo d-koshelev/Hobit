@@ -40,11 +40,19 @@ const QUEUE_WORKER_EVIDENCE_INGESTION_REASON =
 
 export type QueueWorkerEvidenceIngestionStatus =
   | "success"
+  | "blocked"
+  | "blocked_actionable"
   | "invalid_input"
+  | "already_exists"
+  | "already_done"
+  | "already_failed"
+  | "precondition_failed"
   | "unavailable"
+  | "paused"
   | "policy_blocked"
   | "dry_run_required"
   | "confirmation_required"
+  | "failed_unexpected"
   | "failed"
   | "not_linked";
 

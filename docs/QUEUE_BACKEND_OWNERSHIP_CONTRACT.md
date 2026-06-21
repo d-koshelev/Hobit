@@ -130,6 +130,20 @@ If the payload cannot be schema-valid, the adapter must report missing or
 unavailable next-action input instead of inferring ids from prose, title, UI
 selection, file paths, or display text.
 
+Broker action statuses are typed and module-neutral. Queue adapters are the
+reference mapping for the taxonomy: `invalid_input` carries invalid payload or
+field-path details, `needs_confirmation` means exact structured confirmation
+is missing, `policy_blocked` means broker/runtime policy denied the action,
+`blocked` means no safe typed follow-up exists, `blocked_actionable` means a
+safe validated `nextAction` exists, `already_exists` / `already_done` /
+`already_failed` are idempotent domain states, `precondition_failed` is a
+backend/domain precondition without automatic execution, `unavailable` is API
+or capability absence, `paused` is resumable waiting, and
+`failed_unexpected` is an unexpected runtime/system error. Logic must use
+typed `reasonCode` values such as `review_message_already_exists`,
+`queue_disabled`, `dependency_waiting`, `invalid_payload`,
+`capability_unavailable`, and `unexpected_error`, not prose reason parsing.
+
 Broker auto-continuation must use registered Queue capability contract metadata
 and risk classes, not a second static allowlist. Finalizing, terminal failure,
 block, follow-up, validation-decision, and run-start actions remain blocked or

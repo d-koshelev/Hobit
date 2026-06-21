@@ -28,6 +28,7 @@ import {
   type QueueAgentAdapterApi,
   type QueueAgentAdapterResult,
   type QueueAgentAggregateNextAction,
+  type QueueAgentCapabilityStatus,
   type QueueAgentCreateItemsRequest,
   type QueueAgentCreateItemsResult,
   type QueueAgentCreatedItem,
@@ -224,6 +225,7 @@ function unavailableLifecycleResult<TOutput>(
   return {
     activityEventNames: [...activityEventNames],
     message,
+    reasonCode: "capability_unavailable",
     reasons: [message],
     status: "unavailable",
   };
@@ -267,8 +269,9 @@ async function getLifecycleThroughAggregate(
     return {
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleGet],
       message: `Queue item "${taskId}" was not found.`,
+      reasonCode: "precondition_failed",
       reasons: [`Queue item "${taskId}" was not found.`],
-      status: "failed",
+      status: "precondition_failed",
     };
   }
 
@@ -350,8 +353,9 @@ async function getLifecycleTaskSeed(
     return {
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleGet],
       message: `Queue item "${taskId}" was not found.`,
+      reasonCode: "precondition_failed",
       reasons: [`Queue item "${taskId}" was not found.`],
-      status: "failed",
+      status: "precondition_failed",
     };
   }
 
@@ -412,8 +416,9 @@ async function listQueueItemsThroughBackend(
         items: [],
         nextSuggestedCapability: "queue.items.list",
       },
+      reasonCode: "precondition_failed",
       reasons: [`Queue item "${input.taskId}" was not found.`],
-      status: "failed",
+      status: "precondition_failed",
     };
   }
 
@@ -590,29 +595,34 @@ async function promoteDraftThroughBridge(
         taskId,
         wouldPromote: false,
       },
+      reasonCode: "precondition_failed",
       reasons: [`Queue item "${taskId}" is not a Draft.`],
-      status: "failed",
+      status: "precondition_failed",
     };
   }
 
   if (!summary.canPromote) {
+    const nextActionFields = nextActionFieldsForSingleTaskSummary(
+      [summary],
+      summary.nextSuggestedCapability ?? null,
+    );
     return {
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.promoteDraft],
       message:
         summary.blockerReasons[0] ?? "Complete draft readiness before queuing.",
       output: {
         item: summary,
-        ...nextActionFieldsForSingleTaskSummary(
-          [summary],
-          summary.nextSuggestedCapability ?? null,
-        ),
+        ...nextActionFields,
         nextSuggestedCapability: summary.nextSuggestedCapability,
         previousStatus: currentItem.status,
         taskId,
         wouldPromote: false,
       },
+      reasonCode: "task_not_ready",
       reasons: summary.blockerReasons,
-      status: "failed",
+      status: nextActionFields.nextAction
+        ? "blocked_actionable"
+        : "precondition_failed",
     };
   }
 
@@ -755,7 +765,9 @@ async function startQueueLinkedRunThroughBridge(
         ? "confirmation_required"
         : result.status === "unavailable"
           ? "unavailable"
-          : "failed";
+          : queueDisabled
+            ? "blocked_actionable"
+            : "precondition_failed";
     return {
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.startRun],
       message: result.message,
@@ -775,6 +787,7 @@ async function startQueueLinkedRunThroughBridge(
             taskId: input.taskId,
           }
         : undefined,
+      reasonCode: queueDisabled ? "queue_disabled" : "precondition_failed",
       reasons: result.blockerReasons ?? [result.message],
       status,
     };
@@ -1434,7 +1447,8 @@ function completionCommandSucceeded(
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleItemMarkDone],
       message: failureMessage,
       reasons: [failureMessage],
-      status: "failed",
+      reasonCode: "unexpected_error",
+      status: "failed_unexpected",
     };
   }
 
@@ -1453,7 +1467,8 @@ function completionCommandSucceeded(
       queueMutation: result.status === "succeeded" ? "backend_domain" : "none",
       result,
     }),
-    status: "succeeded",
+    reasonCode: result.status === "already_done" ? "already_done" : undefined,
+    status: result.status === "already_done" ? "already_done" : "succeeded",
   };
 }
 
@@ -1468,7 +1483,8 @@ function failureCommandSucceeded(
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.lifecycleItemFail],
       message: failureMessage,
       reasons: [failureMessage],
-      status: "failed",
+      reasonCode: "unexpected_error",
+      status: "failed_unexpected",
     };
   }
 
@@ -1487,7 +1503,9 @@ function failureCommandSucceeded(
       queueMutation: result.status === "succeeded" ? "backend_domain" : "none",
       result,
     }),
-    status: "succeeded",
+    reasonCode:
+      result.status === "already_failed" ? "already_failed" : undefined,
+    status: result.status === "already_failed" ? "already_failed" : "succeeded",
   };
 }
 
@@ -1497,17 +1515,19 @@ function completionCommandBlocked(
   activityEventNames: readonly string[],
 ): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
   const message = completionBlockerMessage(result);
+  const output = completionTransitionOutputFromBackend({
+    actionLabel: "Queue accepted completion blocked",
+    queueControlState,
+    queueMutation: "none",
+    result,
+  });
   return {
     activityEventNames: [...activityEventNames],
     message,
-    output: completionTransitionOutputFromBackend({
-      actionLabel: "Queue accepted completion blocked",
-      queueControlState,
-      queueMutation: "none",
-      result,
-    }),
+    output,
+    reasonCode: completionCommandReasonCode(result),
     reasons: [message],
-    status: result.status === "invalid_input" ? "invalid_input" : "failed",
+    status: completionCommandStatus(result, output),
   };
 }
 
@@ -1517,18 +1537,92 @@ function failureCommandBlocked(
   activityEventNames: readonly string[],
 ): QueueAgentAdapterResult<QueueAgentLifecycleTransitionOutput> {
   const message = failureBlockerMessage(result);
+  const output = failureTransitionOutputFromBackend({
+    actionLabel: "Queue terminal failure blocked",
+    queueControlState,
+    queueMutation: "none",
+    result,
+  });
   return {
     activityEventNames: [...activityEventNames],
     message,
-    output: failureTransitionOutputFromBackend({
-      actionLabel: "Queue terminal failure blocked",
-      queueControlState,
-      queueMutation: "none",
-      result,
-    }),
+    output,
+    reasonCode: failureCommandReasonCode(result),
     reasons: [message],
-    status: result.status === "invalid_input" ? "invalid_input" : "failed",
+    status: failureCommandStatus(result, output),
   };
+}
+
+function completionCommandStatus(
+  result: AgentQueueCompletionCommandResult,
+  output: QueueAgentLifecycleTransitionOutput,
+): QueueAgentCapabilityStatus {
+  if (result.status === "invalid_input") {
+    return "invalid_input";
+  }
+
+  if (result.status === "already_done") {
+    return "already_done";
+  }
+
+  return output.nextAction ? "blocked_actionable" : "precondition_failed";
+}
+
+function completionCommandReasonCode(
+  result: AgentQueueCompletionCommandResult,
+) {
+  if (result.blocker?.blockerCode) {
+    return result.blocker.blockerCode;
+  }
+
+  if (result.status === "invalid_input") {
+    return "invalid_payload";
+  }
+
+  if (result.status === "already_done") {
+    return "already_done";
+  }
+
+  return "precondition_failed";
+}
+
+function failureCommandStatus(
+  result: AgentQueueFailureCommandResult,
+  output: QueueAgentLifecycleTransitionOutput,
+): QueueAgentCapabilityStatus {
+  if (result.status === "invalid_input") {
+    return "invalid_input";
+  }
+
+  if (result.status === "already_done") {
+    return "already_done";
+  }
+
+  if (result.status === "already_failed") {
+    return "already_failed";
+  }
+
+  return output.nextAction ? "blocked_actionable" : "precondition_failed";
+}
+
+function failureCommandReasonCode(result: AgentQueueFailureCommandResult) {
+  if (result.blocker?.blockerCode) {
+    return result.blocker.blockerCode;
+  }
+
+  if (result.status === "invalid_input") {
+    return "invalid_payload";
+  }
+
+  if (result.status === "already_done") {
+    return "already_done";
+  }
+
+  if (result.status === "already_failed") {
+    return "already_failed";
+  }
+
+  return "precondition_failed";
 }
 
 function completionTransitionOutputFromBackend({
@@ -1799,8 +1893,9 @@ async function previewReviewCommandFromAggregate(
       return {
         activityEventNames: [...activityEventNames],
         message: `Queue item "${taskId}" was not found.`,
+        reasonCode: "precondition_failed",
         reasons: [`Queue item "${taskId}" was not found.`],
-        status: "failed",
+        status: "precondition_failed",
       };
     }
 
@@ -1866,7 +1961,8 @@ function reviewCreateMessageSucceeded(
       activityEventNames: [...activityEventNames],
       message: failureMessage,
       reasons: [failureMessage],
-      status: "failed",
+      reasonCode: "unexpected_error",
+      status: "failed_unexpected",
     };
   }
 
@@ -1899,16 +1995,26 @@ function reviewCreateMessageBlocked(
   const isDuplicateWithKnownMessage =
     result.blocker?.blockerCode === "review_message_already_exists" &&
     Boolean(result.blocker.existingMessageId);
+  const output = reviewCreateMessageBlockedOutput(result, queueControlState);
   return {
     activityEventNames: [...activityEventNames],
     message,
-    output: reviewCreateMessageBlockedOutput(result, queueControlState),
+    output,
     ...(isDuplicateWithKnownMessage ? {} : { reasons: [message] }),
+    reasonCode:
+      result.blocker?.blockerCode ??
+      (result.status === "invalid_input"
+        ? "invalid_payload"
+        : result.status === "already_exists"
+          ? "review_message_already_exists"
+          : "precondition_failed"),
     status: isDuplicateWithKnownMessage
-      ? "succeeded"
+      ? "already_exists"
       : result.status === "invalid_input"
         ? "invalid_input"
-        : "failed",
+        : output.nextAction
+          ? "blocked_actionable"
+          : "precondition_failed",
   };
 }
 
@@ -1927,7 +2033,8 @@ function reviewCommandFailed<TOutput>(
     activityEventNames: [...activityEventNames],
     message,
     reasons: [message],
-    status: "failed",
+    reasonCode: "unexpected_error",
+    status: "failed_unexpected",
   };
 }
 
@@ -1938,6 +2045,7 @@ function invalidReviewCommandInput<TOutput>(
   return {
     activityEventNames: [...activityEventNames],
     message,
+    reasonCode: "invalid_payload",
     reasons: [message],
     status: "invalid_input",
   };
@@ -2360,8 +2468,9 @@ async function createQueueItemsThroughBridge(
       return {
         activityEventNames: [...QUEUE_ACTIVITY_EVENTS.createItems],
         message: result.error?.message ?? result.message,
+        reasonCode: "unexpected_error",
         reasons: [result.error?.message ?? result.message],
-        status: "failed",
+        status: "failed_unexpected",
       };
     }
 
@@ -2893,6 +3002,8 @@ function withQueueDisabledBlocker(
 }
 
 function isQueueDisabledStartBlocker(reasons: readonly string[]) {
+  // TODO(queue-status-taxonomy): replace this compatibility text check with a
+  // typed queue_disabled blocker code once the backend aggregate exposes it.
   return reasons.some((reason) =>
     reason.toLowerCase().includes("enable queue before starting") ||
     reason.toLowerCase().includes("queue disabled"),
@@ -3020,8 +3131,9 @@ async function loadQueueItemSnapshot(
     return {
       activityEventNames: [...QUEUE_ACTIVITY_EVENTS.itemsList],
       message: `Queue item "${taskId}" was not found.`,
+      reasonCode: "precondition_failed",
       reasons: [`Queue item "${taskId}" was not found.`],
-      status: "failed",
+      status: "precondition_failed",
     };
   }
 
@@ -3042,6 +3154,7 @@ function validSnapshotOrResult(
       activityEventNames: [...activityEventNames],
       message:
         result.error?.message ?? result.message ?? "Queue snapshot unavailable.",
+      reasonCode: "capability_unavailable",
       reasons: [result.error?.message ?? result.message],
       status: "unavailable",
     };
@@ -3060,11 +3173,13 @@ function validItemOrResult(
   activityEventNames: readonly string[],
 ): QueueAgentAdapterResult<QueueWidgetItemSnapshot> {
   if (!result.ok || !result.item) {
+    const notFound = result.error?.code === "item_not_found";
     return {
       activityEventNames: [...activityEventNames],
       message: result.error?.message ?? result.message ?? "Queue item unavailable.",
+      reasonCode: notFound ? "precondition_failed" : "capability_unavailable",
       reasons: [result.error?.message ?? result.message],
-      status: result.error?.code === "item_not_found" ? "failed" : "unavailable",
+      status: notFound ? "precondition_failed" : "unavailable",
     };
   }
 
@@ -3081,7 +3196,10 @@ function adapterFailure<TOutput>(
 ): QueueAgentAdapterResult<TOutput> {
   return {
     activityEventNames: result.activityEventNames,
+    fieldPath: result.fieldPath,
+    fieldPaths: result.fieldPaths,
     message: result.message,
+    reasonCode: result.reasonCode,
     reasons: result.reasons,
     status: result.status,
   };
@@ -3094,6 +3212,7 @@ function bridgeUnavailableResult<TOutput>(
   return {
     activityEventNames: [...activityEventNames],
     message,
+    reasonCode: "capability_unavailable",
     reasons: [message],
     status: "unavailable",
   };

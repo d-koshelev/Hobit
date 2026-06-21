@@ -5,20 +5,24 @@ export type {
   HobitAgentActionHandlerMap,
   HobitAgentActionHandlerResult,
   HobitAgentActionRequest,
+  HobitAgentActionReasonCode,
   HobitAgentActionRequestValidation,
   HobitAgentActionResult,
   HobitAgentActionStatus,
+  HobitAgentActionTaxonomyStatus,
   HobitAgentAuditEvent,
   HobitAgentBrokerResult,
   HobitAgentBrokerStatus,
   HobitAgentHiddenSideEffectFlags,
 } from "./types";
+export { HOBIT_AGENT_ACTION_STATUS_TAXONOMY } from "./types";
 export {
   createActionRequest,
   createActionResult,
   createNoHiddenSideEffectFlags,
   createPolicyBlockedActionResult,
   createUnavailableActionResult,
+  hobitAgentActionStatusIsOk,
 } from "./results";
 export type {
   HobitAgentActionBrokerInput,

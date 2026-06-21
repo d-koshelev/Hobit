@@ -44,8 +44,11 @@ restricted capabilities for explicit workspace/code execution requests only.
   none, recommended, or required.
 - Audit/Activity Events: every action produces structured events, including
   unavailable and policy-blocked attempts.
-- Structured Results: all action outcomes return typed success, failure,
-  unavailable, blocked, dry-run-required, or confirmation-required results.
+- Structured Results: all action outcomes return typed module-neutral statuses
+  such as `succeeded`, `invalid_input`, `needs_confirmation`,
+  `policy_blocked`, `blocked`, `blocked_actionable`, `already_exists`,
+  `already_done`, `already_failed`, `precondition_failed`, `unavailable`,
+  `paused`, and `failed_unexpected`, plus stable `reasonCode` where practical.
 - SelfTest Runtime: safe test harness that checks capability availability and
   policy without hidden mutation.
 - Multi-Agent Runtime: frontend-only agent instance, status, bounded history,
@@ -120,12 +123,16 @@ restricted capabilities for explicit workspace/code execution requests only.
   `confirmationToken: "operator-confirmed"` from the grant, and only for
   registered run-start/finalizer Queue next actions whose ids are already
   present in the typed payload. Without a structured grant, setup mutations
-  such as `queue.item.updateRunSettings` do not auto-continue. The loop still
-  stops on policy-blocked, unavailable, dry-run-required, failed,
-  invalid-input, repeated request, repeated capability/input, unsupported
-  envelope, restricted capability, ambiguous next action, confirmation-required
-  without an exact grant token, max action budget, or missing same-thread
-  continuation state. Policy stop diagnostics identify the target
+  such as `queue.item.updateRunSettings` do not auto-continue. The loop may
+  continue from `blocked_actionable`, `already_exists`, `already_done`, or
+  `precondition_failed` only when the result includes a schema-valid typed
+  `nextAction` allowed by policy. It stops on `invalid_input`,
+  `needs_confirmation`, `policy_blocked`, `unavailable`, `paused`, `blocked`,
+  `already_failed`, `failed_unexpected`, dry-run-required compatibility,
+  repeated request, repeated capability/input, unsupported envelope,
+  restricted capability, ambiguous next action, confirmation-required without
+  an exact grant token, max action budget, or missing same-thread continuation
+  state. Policy stop diagnostics identify the target
   `capabilityId`, risk class, grant active/mode state, allowed risk classes,
   reason code/message, nextAction presence and payload validation state,
   confirmation missing/injected state, denied-capability state, and candidate
@@ -136,6 +143,28 @@ restricted capabilities for explicit workspace/code execution requests only.
   or blank request ids are derived per continuation action from the chain id,
   action index, and capability id; explicit duplicate request ids still stop
   as the replay guard.
+
+### Broker Result Status Taxonomy
+
+The broker status taxonomy is typed and module-neutral. Logic must branch on
+`status`, structured `reasonCode`, field paths, and validated `nextAction`, not
+prose reason text. `reasonCode` examples include
+`review_message_already_exists`, `evidence_bundle_missing`, `task_not_ready`,
+`queue_disabled`, `dependency_waiting`, `confirmation_required`,
+`invalid_payload`, `capability_unavailable`, `policy_denied`, and
+`unexpected_error`.
+
+Idempotent states are not generic failures. `already_exists`, `already_done`,
+and `already_failed` report stable domain state; actionable blockers use
+`blocked_actionable` only when a safe typed `nextAction` exists. Domain
+preconditions without a safe follow-up use `precondition_failed` or `blocked`.
+Unexpected thrown/runtime errors use `failed_unexpected`.
+
+Queue is the reference mapping for this taxonomy. Duplicate review create
+preserves typed ACK follow-up as `nextAction.input.messageId`; review/finalizer
+idempotency keeps `already_*`; missing confirmation returns
+`needs_confirmation`; malformed payloads return `invalid_input` with field
+paths; dependency waiting does not start downstream work.
 - Workspace Agent Action Protocol Enforcement MVP: Workspace Agent Direct Work
   turns that receive Hobit capability context are treated as typed-capability
   action mode. In that mode the model must emit exactly one
@@ -339,12 +368,15 @@ class, not from natural-language descriptions or a separate static allowlist.
 Otherwise it stops with a visible blocker and leaves the typed payload for
 operator/model review. The controller stops instead of continuing when a
 result requires confirmation without a valid grant token, is
-blocked/unavailable/failed/invalid, is a dry-run-required result, repeats a
-previous request id or capability/input fingerprint, exceeds the action budget,
-lacks a usable thread id, or touches restricted capabilities. The continuation
-loop does not infer `taskId`, `runId`, `messageId`, `evidenceBundleId`, or
-`executorWidgetId` from prose, titles, file paths, final messages, repository
-roots, UI state, or other natural-language content.
+blocked, unavailable, invalid, paused, policy-blocked, failed unexpectedly, is
+a dry-run-required compatibility result, repeats a previous request id or
+capability/input fingerprint, exceeds the action budget, lacks a usable thread
+id, or touches restricted capabilities. `blocked_actionable`,
+`already_exists`, `already_done`, and `precondition_failed` require a valid
+typed `nextAction` before continuation. The continuation loop does not infer
+`taskId`, `runId`, `messageId`, `evidenceBundleId`, or `executorWidgetId` from
+prose, titles, file paths, final messages, repository roots, UI state, or
+other natural-language content.
 
 Queue backend-backed broker capabilities are `queue.items.list`,
 `queue.lifecycle.get`, `queue.review.getEvidenceBundle`,
@@ -508,7 +540,7 @@ Dry-run Queue creation returns a structured preview with:
 Invoke Queue creation uses the injected Queue adapter API and targets the
 singleton Workspace Queue. It preserves title, prompt, source metadata,
 and dependency edges where the adapter supports them. If dependency edges
-cannot be represented, the handler returns a structured failed/unsupported
+cannot be represented, the handler returns a structured unavailable
 result instead of silently dropping them.
 
 The public Workspace Agent dependency field is `dependsOn: string[]` on
@@ -593,8 +625,9 @@ state, and is also safe for broker auto-continuation after success. These
 capabilities do not parse user prompts, route natural-language phrases, start
 workers, run validation, execute Git commits, launch Terminal, execute
 rollback, call shell, call Codex, or create Queue views. The continuation
-action budget remains 16, and confirmation, unavailable, policy, failed,
-invalid, restricted, repeated fingerprint, and safety stops are unchanged.
+action budget remains 16, and confirmation, unavailable, policy, invalid,
+unexpected failure, restricted, repeated fingerprint, and safety stops are
+unchanged.
 
 The optional `queue.lifecycle.agentFinished` evidence bundle is normalized in
 frontend adapter code, then passed to the backend command. Real invocation

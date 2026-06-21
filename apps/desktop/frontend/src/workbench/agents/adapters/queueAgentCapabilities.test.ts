@@ -840,7 +840,8 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("failed_unexpected");
+    expect(result.result.reasonCode).toBe("unexpected_error");
     expect(result.result.message).toBe(
       "queue task dependency not found in workspace: missing-upstream",
     );
@@ -1537,7 +1538,8 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("blocked_actionable");
+    expect(result.result.reasonCode).toBe("review_not_acked");
     expect(result.result.output).toMatchObject({
       backendCompletionStatus: "blocked",
       blockerCode: "review_not_acked",
@@ -1550,6 +1552,45 @@ describe("queueAgentCapabilities invoke", () => {
       reviewState: "review_message_created",
       ticketState: "awaiting_review",
     });
+  });
+
+  it("maps queue.item.markDone already_done as an idempotent typed result", async () => {
+    const markItemDone = vi.fn(async () =>
+      completionCommandResult({
+        aggregate: queueAggregate({
+          reviewState: "done",
+          taskId: "task-already-done",
+          ticketState: "done",
+          workerRunState: "completed",
+        }),
+        status: "already_done",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ markItemDone }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: { taskId: "task-already-done" },
+      }),
+    );
+
+    expect(result.status).toBe("already_done");
+    expect(result.result.reasonCode).toBe("already_done");
   });
 
   it("routes queue.item.fail through backend command only with exact structured confirmation", async () => {
@@ -1751,7 +1792,8 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("blocked_actionable");
+    expect(result.result.reasonCode).toBe("review_not_acked");
     expect(result.result.output).toMatchObject({
       backendFailureStatus: "blocked",
       blockerCode: "review_not_acked",
@@ -1764,6 +1806,46 @@ describe("queueAgentCapabilities invoke", () => {
       reviewState: "review_message_created",
       ticketState: "awaiting_review",
     });
+  });
+
+  it("maps queue.item.fail already_failed as an idempotent typed result", async () => {
+    const failItem = vi.fn(async () =>
+      failureCommandResult({
+        aggregate: queueAggregate({
+          reviewState: "failed",
+          taskId: "task-already-failed",
+          ticketState: "failure",
+          workerRunState: "failed",
+        }),
+        status: "already_failed",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(queueBridge({ failItem })),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Already terminal failed.",
+          taskId: "task-already-failed",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("already_failed");
+    expect(result.result.reasonCode).toBe("already_failed");
   });
 
   it("creates review messages through backend bridge command with trusted actor default", async () => {
@@ -2316,7 +2398,8 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("blocked_actionable");
+    expect(result.result.reasonCode).toBe("task_is_draft");
     expect(createReviewMessage).toHaveBeenCalledWith({
       actorId: "test.agentA",
       evidenceBundleId: null,
@@ -2333,6 +2416,35 @@ describe("queueAgentCapabilities invoke", () => {
       ticketState: "draft",
       workerRunState: "not_started",
     });
+  });
+
+  it("maps unexpected review create backend exceptions to failed_unexpected", async () => {
+    const createReviewMessage = vi.fn(async () => {
+      throw new Error("Review command crashed.");
+    });
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: { taskId: "task-review-crash" },
+      }),
+    );
+
+    expect(result.status).toBe("failed_unexpected");
+    expect(result.result.reasonCode).toBe("unexpected_error");
+    expect(result.result.message).toBe("Review command crashed.");
   });
 
   it("maps duplicate review create existingMessageId to typed ACK nextAction", async () => {
@@ -2393,7 +2505,8 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
 
-    expect(result.status).toBe("succeeded");
+    expect(result.status).toBe("already_exists");
+    expect(result.result.reasonCode).toBe("review_message_already_exists");
     expect(result.result.output).toMatchObject({
       blockerCode: "review_message_already_exists",
       existingReviewMessageId: "queue-review-message-existing",
@@ -2533,7 +2646,8 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
 
-    expect(notFound.status).toBe("failed");
+    expect(notFound.status).toBe("precondition_failed");
+    expect(notFound.result.reasonCode).toBe("precondition_failed");
     expect(notFound.result.message).toBe('Queue item "missing-task" was not found.');
     expect(unavailable.status).toBe("unavailable");
     expect(unavailable.result.message).toBe("Aggregate command unavailable.");
@@ -3279,7 +3393,8 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("blocked_actionable");
+    expect(result.result.reasonCode).toBe("queue_disabled");
     expect(result.result.message).toBe("Queue disabled.");
     expect(result.result.output).toMatchObject({
       blockers: [{ code: "queue_disabled", message: "Queue disabled." }],
@@ -3641,7 +3756,8 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("precondition_failed");
+    expect(result.result.reasonCode).toBe("precondition_failed");
     expect(result.result.message).toBe("Local executor unavailable.");
     expect(result.result.output).not.toMatchObject({
       startedDirectWork: true,
@@ -3687,10 +3803,14 @@ describe("queueAgentCapabilities invoke", () => {
     );
 
     expect(whitespaceExecutable.status).toBe("invalid_input");
+    expect(whitespaceExecutable.result.fieldPath).toBe("input.codexExecutable");
+    expect(whitespaceExecutable.result.reasonCode).toBe("invalid_payload");
     expect(whitespaceExecutable.result.message).toContain(
       "codexExecutable must be a non-empty string",
     );
     expect(missingTaskId.status).toBe("invalid_input");
+    expect(missingTaskId.result.fieldPath).toBe("input.taskId");
+    expect(missingTaskId.result.reasonCode).toBe("invalid_payload");
     expect(missingTaskId.result.message).toBe(
       "queue.item.startRun requires taskId.",
     );
@@ -3825,13 +3945,15 @@ describe("queueAgentCapabilities invoke", () => {
       "queue.item.startRun requires taskId.",
     );
     expect(inferredExecutor.status).toBe("invalid_input");
+    expect(inferredExecutor.result.fieldPath).toBe("input.executorWidgetId");
+    expect(inferredExecutor.result.reasonCode).toBe("invalid_payload");
     expect(inferredExecutor.result.message).toBe(
       "queue.item.startRun requires executorWidgetId.",
     );
     expect(startQueueLinkedRun).not.toHaveBeenCalled();
   });
 
-  it("returns failed when dependencies cannot be represented by the injected adapter", () => {
+  it("returns unavailable when dependencies cannot be represented by the injected adapter", () => {
     const result = createQueueBroker(
       fakeQueueAdapter({ supportsDependencyEdges: false }),
       { allowWriteInvoke: true },
@@ -3852,7 +3974,8 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("unavailable");
+    expect(result.result.reasonCode).toBe("capability_unavailable");
     expect(result.result.message).toContain("dependency edges are not supported");
   });
 });

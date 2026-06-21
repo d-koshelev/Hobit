@@ -10,6 +10,10 @@ import type {
   AgentQueueFailureDecision,
   AgentQueueWorkerEvidenceBundle,
 } from "../../../workspace/types";
+import type {
+  HobitAgentActionReasonCode,
+  HobitAgentActionStatus,
+} from "../broker/types";
 import type { QueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
 import {
   buildQueueCapabilityNextAction,
@@ -112,10 +116,18 @@ export type QueueAgentCapabilityId =
 
 export type QueueAgentCapabilityStatus =
   | "succeeded"
+  | "blocked"
+  | "blocked_actionable"
   | "failed"
+  | "failed_unexpected"
   | "invalid_input"
   | "unavailable"
   | "policy_blocked"
+  | "already_exists"
+  | "already_done"
+  | "already_failed"
+  | "precondition_failed"
+  | "paused"
   | "dry_run_required"
   | "confirmation_required";
 
@@ -701,8 +713,11 @@ export type QueueAgentSelfTestReport = {
 
 export type QueueAgentAdapterResult<TOutput> = {
   activityEventNames?: string[];
+  fieldPath?: string;
+  fieldPaths?: string[];
   message: string;
   output?: TOutput;
+  reasonCode?: HobitAgentActionReasonCode;
   reasons?: string[];
   status: QueueAgentCapabilityStatus;
 };
@@ -787,6 +802,12 @@ export function noHiddenSideEffectFlags() {
     noTerminalLaunch: false,
     noWorkerStart: false,
   } as const;
+}
+
+export function queueAgentCapabilityStatusToBrokerStatus(
+  status: QueueAgentCapabilityStatus,
+): HobitAgentActionStatus {
+  return status === "confirmation_required" ? "needs_confirmation" : status;
 }
 
 export function createQueueAgentItemsPreview(

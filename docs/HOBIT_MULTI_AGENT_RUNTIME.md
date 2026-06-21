@@ -179,6 +179,15 @@ App control outside the pure peer-runtime model must happen through:
 
 `user prompt + Hobit app context + capability manifest -> typed capability selection -> Action Broker policy/schema/side-effect validation -> internal app API -> structured result/activity/audit`
 
+Broker/module action results use the module-neutral action status taxonomy
+(`succeeded`, `invalid_input`, `needs_confirmation`, `policy_blocked`,
+`blocked`, `blocked_actionable`, `already_exists`, `already_done`,
+`already_failed`, `precondition_failed`, `unavailable`, `paused`, and
+`failed_unexpected`) plus typed `reasonCode` where practical. These statuses
+are distinct from pure multi-agent runtime statuses such as `idle` or
+`running`. Future workflow runners must use structured status/reason fields
+and validated `nextAction`, not prose reason strings or agent message text.
+
 App control must not be implemented as:
 
 `user text -> regex classifier -> product action`

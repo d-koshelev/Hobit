@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
-import { createActionRequest, createActionResult } from "./agents/broker";
+import {
+  createActionRequest,
+  createActionResult,
+  HOBIT_AGENT_ACTION_STATUS_TAXONOMY,
+  type HobitAgentActionStatus,
+} from "./agents/broker";
 import {
   createHobitAgentCapabilityRegistry,
   findCapability,
@@ -29,6 +34,24 @@ import {
 } from "./workspaceAgentBrokerContinuation";
 
 describe("workspaceAgentBrokerContinuation", () => {
+  it("exposes the compact broker action status taxonomy", () => {
+    expect(HOBIT_AGENT_ACTION_STATUS_TAXONOMY).toEqual([
+      "succeeded",
+      "blocked",
+      "blocked_actionable",
+      "invalid_input",
+      "needs_confirmation",
+      "already_exists",
+      "already_done",
+      "already_failed",
+      "precondition_failed",
+      "policy_blocked",
+      "unavailable",
+      "paused",
+      "failed_unexpected",
+    ]);
+  });
+
   it("defaults the broker continuation budget to 16 actions", () => {
     const state = createWorkspaceAgentBrokerContinuationState({
       chainId: "chain-default-budget",
@@ -601,6 +624,10 @@ ${JSON.stringify({
       ["policy_blocked", "policy_blocked"],
       ["unavailable", "unavailable"],
       ["dry_run_required", "dry_run_required"],
+      ["blocked", "blocked"],
+      ["paused", "paused"],
+      ["already_failed", "already_failed"],
+      ["failed_unexpected", "failed_unexpected"],
       ["failed", "failed"],
       ["invalid_input", "invalid_input"],
     ] as const;
@@ -623,6 +650,44 @@ ${JSON.stringify({
             requestId: request.requestId,
             status,
           }),
+          state,
+        }),
+      ).toEqual({
+        shouldContinue: false,
+        stopReason,
+      });
+    }
+  });
+
+  it("requires a typed nextAction before actionable or idempotent statuses can continue", () => {
+    const statuses = [
+      ["blocked_actionable", "blocked"],
+      ["already_exists", "already_exists"],
+      ["already_done", "already_done"],
+      ["precondition_failed", "precondition_failed"],
+    ] as const;
+
+    for (const [status, stopReason] of statuses) {
+      const request = requestFor("queue.lifecycle.get", { taskId: "task-1" });
+      const state = recordAttempt(
+        createWorkspaceAgentBrokerContinuationState({
+          chainId: `chain-no-next-action-${status}`,
+          queueAutonomyGrant: queueAutonomyGrant("queue_smoke"),
+        }),
+        request,
+      );
+
+      expect(
+        shouldContinueWorkspaceAgentBrokerAction({
+          request,
+          result: resultFor(
+            "queue.lifecycle.get",
+            {
+              nextSuggestedCapability: "queue.review.ack",
+              taskId: "task-1",
+            },
+            status,
+          ),
           state,
         }),
       ).toEqual({
@@ -1258,18 +1323,64 @@ ${JSON.stringify({
     expect(
       shouldContinueWorkspaceAgentBrokerAction({
         request,
-        result: resultFor("queue.review.createMessage", {
-          existingReviewMessageId: "review-message-1",
-          nextAction: plainNextAction("queue.review.ack", {
-            messageId: "review-message-1",
+        result: resultFor(
+          "queue.review.createMessage",
+          {
+            existingReviewMessageId: "review-message-1",
+            nextAction: plainNextAction("queue.review.ack", {
+              messageId: "review-message-1",
+              taskId: "task-1",
+            }),
+            nextSuggestedCapability: "queue.review.ack",
             taskId: "task-1",
-          }),
-          nextSuggestedCapability: "queue.review.ack",
-          taskId: "task-1",
-        }),
+          },
+          "already_exists",
+        ),
         state,
       }),
     ).toEqual({ shouldContinue: true });
+  });
+
+  it("continues blocked_actionable only through a valid typed nextAction allowed by policy", () => {
+    const request = requestFor(
+      "queue.lifecycle.get",
+      { taskId: "task-1" },
+      "request-blocked-actionable-mark-done",
+    );
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-blocked-actionable-mark-done",
+        queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke", {
+          confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        }),
+      }),
+      request,
+    );
+
+    expect(
+      decideWorkspaceAgentBrokerActionContinuation({
+        request,
+        result: resultFor(
+          "queue.lifecycle.get",
+          {
+            nextAction: confirmedNextAction("queue.item.markDone", {
+              taskId: "task-1",
+            }),
+            nextSuggestedCapability: "queue.item.markDone",
+            taskId: "task-1",
+          },
+          "blocked_actionable",
+        ),
+        state,
+      }),
+    ).toMatchObject({
+      diagnostics: {
+        capabilityId: "queue.item.markDone",
+        nextActionPayloadValidated: true,
+        reasonCode: "continuation_allowed",
+      },
+      shouldContinue: true,
+    });
   });
 
   it("reports deniedCapabilities and missing confirmation as distinct policy diagnostics", () => {
@@ -2334,13 +2445,17 @@ function requestFor(
   });
 }
 
-function resultFor(capabilityId: string, output: unknown) {
+function resultFor(
+  capabilityId: string,
+  output: unknown,
+  status: HobitAgentActionStatus = "succeeded",
+) {
   return createActionResult({
     capabilityId,
     message: `${capabilityId} completed.`,
     output,
     requestId: `${capabilityId}:request`,
-    status: "succeeded",
+    status,
   });
 }
 

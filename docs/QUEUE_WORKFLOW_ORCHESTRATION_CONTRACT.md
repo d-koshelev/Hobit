@@ -100,7 +100,9 @@ implemented.
 Without a structured Queue autonomy grant, an action may auto-continue only
 when all of these are true:
 
-- The previous result status is `succeeded`.
+- The previous result status is `succeeded`, or an actionable/idempotent
+  status (`blocked_actionable`, `already_exists`, `already_done`, or
+  `precondition_failed`) with a schema-valid typed `nextAction`.
 - The target capability is registered.
 - The target capability contract says `autoContinuationSafe=true`.
 - The risk class is allowed by default policy.
@@ -258,16 +260,34 @@ Use result statuses deliberately:
 - `invalid_input`: schema, missing field, enum, id, or confirmation shape is
   invalid before command execution.
 - `needs_confirmation`: exact structured confirmation is required.
-- `dry_run_required`: policy requires preview before mutation.
 - `policy_blocked`: Broker policy forbids the action.
 - `unavailable`: required API/runtime is unavailable.
+- `paused`: operation or workflow is paused and may resume later.
+- `blocked`: backend/domain precondition blocks the current action and no safe
+  typed `nextAction` exists.
 - `blocked_actionable`: backend/domain precondition blocks the current action
-  but reports a safe typed next action or explicit blocker.
-- `failed`: command attempted and failed unexpectedly or reached a terminal
-  error state that is not an actionable precondition.
+  but reports a safe typed `nextAction`.
+- `already_exists`: idempotent domain state where the requested object/action
+  already exists.
+- `already_done`: idempotent domain state where the requested action is
+  already durably done.
+- `already_failed`: idempotent domain state where the requested action is
+  already terminal failed.
+- `precondition_failed`: backend/domain precondition failed; it may be
+  actionable only when the result also carries a valid typed `nextAction`.
+- `failed_unexpected`: unexpected runtime/system failure.
 
-`blocked_actionable` must not be collapsed into generic `failed`. It tells the
-agent/operator what safe explicit action or missing input is required next.
+`dry_run_required` and `failed` may remain as compatibility statuses, but new
+Queue mappings should prefer the taxonomy above.
+
+Idempotent and actionable states must not be collapsed into generic failure.
+Future workflow runners depend on the typed status plus stable `reasonCode`,
+not prose reason strings. Queue is the reference mapping: duplicate review
+create maps to `already_exists` with typed ACK `nextAction.input.messageId`
+when safe, finalizer idempotency maps to `already_done` / `already_failed`,
+domain blockers map to `precondition_failed` or `blocked_actionable`, missing
+confirmation maps to `needs_confirmation`, and thrown runtime errors map to
+`failed_unexpected`.
 
 ## Dependency Satisfaction
 

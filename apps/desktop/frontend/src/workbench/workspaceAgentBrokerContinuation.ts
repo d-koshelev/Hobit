@@ -99,17 +99,24 @@ const RESTRICTED_CAPABILITY_PREFIXES = [
 ];
 
 export type WorkspaceAgentBrokerContinuationStopReason =
+  | "already_done"
+  | "already_exists"
+  | "already_failed"
   | "ambiguous_next_action"
+  | "blocked"
   | "broker_unavailable"
   | "confirmation_required"
   | "dry_run_required"
   | "failed"
+  | "failed_unexpected"
   | "final_prose"
   | "invalid_input"
   | "invalid_or_unsupported_envelope"
   | "max_action_count_reached"
   | "not_allowed_for_auto_continuation"
+  | "paused"
   | "policy_blocked"
+  | "precondition_failed"
   | "protocol_error"
   | "repeated_request_fingerprint"
   | "repeated_request_id"
@@ -200,7 +207,9 @@ export type WorkspaceAgentBrokerContinuationReasonCode =
   | "next_action_suggestion_mismatch"
   | "no_grant_for_risk_class"
   | "no_next_action"
+  | "paused"
   | "out_of_scope_task"
+  | "precondition_failed"
   | "restricted_capability"
   | "risk_class_not_allowed"
   | "safety_stop"
@@ -800,6 +809,8 @@ export function decideWorkspaceAgentBrokerActionContinuation({
       reasonCode:
         terminalStatusReason === "confirmation_required"
           ? "confirmation_required"
+          : terminalStatusReason === "paused"
+            ? "paused"
           : "action_status_blocked",
       reasonMessage:
         result.policyReasons[0] ??
@@ -1030,6 +1041,23 @@ export function decideWorkspaceAgentBrokerActionContinuation({
         state,
       }),
     );
+  }
+
+  const statusWithoutNextActionStopReason =
+    stopReasonForActionStatusWithoutNextAction(result.status);
+  if (statusWithoutNextActionStopReason) {
+    return blocked({
+      capabilityId: nextSuggestedCapability ?? request.capabilityId,
+      candidateTaskIds: candidateTaskIdsForAmbiguousNextAction(result.output),
+      reasonCode:
+        result.status === "precondition_failed"
+          ? "precondition_failed"
+          : "no_next_action",
+      reasonMessage: nextSuggestedCapability
+        ? `${result.status} requires a schema-valid typed nextAction before ${nextSuggestedCapability} can continue.`
+        : `${result.status} cannot continue without a schema-valid typed nextAction.`,
+      stopReason: statusWithoutNextActionStopReason,
+    });
   }
 
   if (nextSuggestedCapability) {
@@ -1327,6 +1355,8 @@ function isAmbiguousNextActionResult(
   candidateTaskIds: readonly string[],
 ) {
   const root = recordValue(output);
+  // TODO(queue-status-taxonomy): keep this compatibility fallback until all
+  // ambiguous next-action blockers carry nextActionUnavailableCode.
   return (
     stringField(root, "nextActionUnavailableCode") === "ambiguous_next_action" ||
     candidateTaskIds.length > 1 ||
@@ -1949,7 +1979,8 @@ export function formatWorkspaceAgentBrokerContinuationPrompt({
       "Prefer returned nextAction when present. Use nextAction.capabilityId and nextAction.input exactly; do not rename fields.",
       "If nextAction is unavailable, ask or stop with the blocker. Do not guess from nextSuggestedCapability alone.",
       "Inside an active Queue grant, follow schema-valid nextAction exactly. If policy blocks it, finish with a hobit.final.answer blocker.",
-      "If the result is blocked, unavailable, confirmation_required, failed, invalid, or policy blocked, stop and report that plainly.",
+      "Hard-stop statuses are blocked, invalid_input, needs_confirmation, policy_blocked, unavailable, paused, failed_unexpected, and failed compatibility.",
+      "Actionable/idempotent statuses such as blocked_actionable, already_exists, already_done, and precondition_failed may continue only through a schema-valid typed nextAction allowed by policy.",
       "Never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose, titles, paths, final messages, or source text.",
       "Do not use shell, raw Codex, Git, validation, rollback, Terminal, or hidden execution for Hobit product actions.",
       contextJson,
@@ -1995,6 +2026,10 @@ export function stopReasonForActionStatus(
 ): WorkspaceAgentBrokerContinuationStopReason | null {
   switch (status) {
     case "succeeded":
+    case "blocked_actionable":
+    case "already_exists":
+    case "already_done":
+    case "precondition_failed":
       return null;
     case "needs_confirmation":
       return "confirmation_required";
@@ -2006,8 +2041,33 @@ export function stopReasonForActionStatus(
       return "unavailable";
     case "invalid_input":
       return "invalid_input";
+    case "blocked":
+      return "blocked";
+    case "paused":
+      return "paused";
+    case "already_failed":
+      return "already_failed";
+    case "failed_unexpected":
+      return "failed_unexpected";
     case "failed":
       return "failed";
+  }
+}
+
+function stopReasonForActionStatusWithoutNextAction(
+  status: HobitAgentActionResult["status"],
+): WorkspaceAgentBrokerContinuationStopReason | null {
+  switch (status) {
+    case "blocked_actionable":
+      return "blocked";
+    case "already_exists":
+      return "already_exists";
+    case "already_done":
+      return "already_done";
+    case "precondition_failed":
+      return "precondition_failed";
+    default:
+      return null;
   }
 }
 
@@ -2015,16 +2075,26 @@ export function stopReasonLabel(
   reason: WorkspaceAgentBrokerContinuationStopReason,
 ): string {
   switch (reason) {
+    case "already_done":
+      return "already done";
+    case "already_exists":
+      return "already exists";
+    case "already_failed":
+      return "already failed";
     case "broker_unavailable":
       return "Action Broker unavailable";
     case "ambiguous_next_action":
       return "ambiguous next action";
+    case "blocked":
+      return "blocked";
     case "confirmation_required":
       return "confirmation required";
     case "dry_run_required":
       return "dry-run required";
     case "failed":
       return "action failed";
+    case "failed_unexpected":
+      return "unexpected action failure";
     case "final_prose":
       return "final answer received";
     case "invalid_input":
@@ -2035,8 +2105,12 @@ export function stopReasonLabel(
       return "maximum action count reached";
     case "not_allowed_for_auto_continuation":
       return "auto-continuation policy blocked";
+    case "paused":
+      return "paused";
     case "policy_blocked":
       return "policy blocked";
+    case "precondition_failed":
+      return "precondition failed";
     case "protocol_error":
       return "action protocol error";
     case "repeated_request_fingerprint":

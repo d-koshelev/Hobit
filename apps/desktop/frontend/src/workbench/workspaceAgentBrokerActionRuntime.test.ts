@@ -355,7 +355,8 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("blocked_actionable");
+    expect(result.result.reasonCode).toBe("task_is_draft");
     expect(createReviewMessage).toHaveBeenCalledWith({
       actorId: "workspace-agent",
       evidenceBundleId: null,
@@ -377,7 +378,7 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
       "task_is_draft",
     );
     expect(workspaceAgentHobitActionResultMessage(result.result)).not.toBe(
-      "Hobit action failed. Queue review message could not be created.",
+      "Action blocked with next action. Queue review message could not be created.",
     );
     expect(getSnapshot).not.toHaveBeenCalled();
   });
@@ -433,7 +434,8 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
       }),
     );
 
-    expect(result.status).toBe("succeeded");
+    expect(result.status).toBe("already_exists");
+    expect(result.result.reasonCode).toBe("review_message_already_exists");
     const output = result.result.output as {
       nextAction?: { input: Record<string, unknown> };
     };

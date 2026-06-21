@@ -8,14 +8,46 @@ import type { HobitAgentPolicyDecision } from "../capabilities/policy";
 import type { HobitAgentId } from "../runtime/hobitMultiAgentRuntime";
 import type { HobitAgentRoleId } from "../context/types";
 
+export const HOBIT_AGENT_ACTION_STATUS_TAXONOMY = [
+  "succeeded",
+  "blocked",
+  "blocked_actionable",
+  "invalid_input",
+  "needs_confirmation",
+  "already_exists",
+  "already_done",
+  "already_failed",
+  "precondition_failed",
+  "policy_blocked",
+  "unavailable",
+  "paused",
+  "failed_unexpected",
+] as const;
+
+export type HobitAgentActionTaxonomyStatus =
+  (typeof HOBIT_AGENT_ACTION_STATUS_TAXONOMY)[number];
+
 export type HobitAgentActionStatus =
-  | "succeeded"
-  | "failed"
-  | "unavailable"
-  | "policy_blocked"
-  | "needs_confirmation"
+  | HobitAgentActionTaxonomyStatus
   | "dry_run_required"
-  | "invalid_input";
+  | "failed";
+
+export type HobitAgentActionReasonCode =
+  | "already_done"
+  | "already_failed"
+  | "already_exists"
+  | "capability_unavailable"
+  | "confirmation_required"
+  | "dependency_waiting"
+  | "evidence_bundle_missing"
+  | "invalid_payload"
+  | "policy_denied"
+  | "precondition_failed"
+  | "queue_disabled"
+  | "review_message_already_exists"
+  | "task_not_ready"
+  | "unexpected_error"
+  | (string & {});
 
 export type HobitAgentBrokerStatus = HobitAgentActionStatus;
 
@@ -61,12 +93,15 @@ export type HobitAgentActionResult<TOutput = unknown> = {
   auditEvents: HobitAgentAuditEvent[];
   capabilityId: HobitAgentCapabilityId;
   dryRun: boolean;
+  fieldPath?: string;
+  fieldPaths?: string[];
   hiddenSideEffectFlags: HobitAgentHiddenSideEffectFlags;
   message: string;
   ok: boolean;
   output?: TOutput;
   policyDecision?: HobitAgentPolicyDecision;
   policyReasons: string[];
+  reasonCode?: HobitAgentActionReasonCode;
   requestId: string;
   status: HobitAgentActionStatus;
   unavailableReason?: string;

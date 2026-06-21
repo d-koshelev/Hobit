@@ -895,6 +895,8 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     );
 
     expect(result.status).toBe("invalid_input");
+    expect(result.result.fieldPath).toBe("input.commit");
+    expect(result.result.reasonCode).toBe("invalid_payload");
     expect(result.result.message).toBe(
       "commit is not supported by queue.item.markDone.",
     );
