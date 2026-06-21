@@ -122,6 +122,12 @@ validation, and does not execute a workflow runner.
 The current controller still owns broker invocation and continuation policy
 after classification; this contract does not move execution into the protocol
 runtime.
+Workspace Agent activity/log/transcript formatting is isolated in the pure
+`AgentActivityRecorder`. It consumes only events and results that provider,
+protocol, broker, and continuation code have already decided, then returns
+append intents for the React controller to apply. It does not authorize Queue
+actions, follow `nextAction`, execute workflows, infer ids from prose, or
+change Queue policy.
 
 ## Auto-Continuation Rules
 

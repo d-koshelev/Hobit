@@ -71,6 +71,12 @@ restricted capabilities for explicit workspace/code execution requests only.
   the existing envelope parsers and final-answer marker logic; it does not
   invoke the Action Broker, execute workflows, infer permissions or ids from
   prose, call providers, or touch Queue UI.
+- AgentActivityRecorder: pure frontend formatting and intent generation for
+  Workspace Agent provider/protocol/broker/continuation output. It turns
+  already-decided runtime events into transcript append intents, activity
+  append intents, notice intents, and log append intents. It does not call
+  providers, invoke the broker, choose continuation policy, execute workflows,
+  mutate UI state, or touch Queue UI.
 - WorkerProvider Runtime: provider-neutral frontend execution seam for
   explicit work items. It is separate from AgentProvider: AgentProvider
   generates structured Workspace Agent turns, while WorkerProvider starts an
@@ -207,8 +213,11 @@ paths; dependency waiting does not start downstream work.
   not produce a valid action request or explicit final answer, the chain stops
   with a visible protocol error and reports that no broker action was executed.
   `AgentProtocolRuntime` owns this classification boundary; the current React
-  controller still owns broker invocation, continuation turns, transcript
-  updates, and activity formatting until later controller-split blocks.
+  controller still owns broker invocation, continuation turns, visible UI
+  state arrays, and transcript/activity application. `AgentActivityRecorder`
+  owns formatting and append-intent generation only, preserving the current
+  visible labels, summaries, protocol repair copy, workflow recognition copy,
+  and broker-result transcript text.
   This enforcement does not infer capability ids from prose, does not parse
   awaiting text into `queue.items.list`, and does not add natural-language
   routing.

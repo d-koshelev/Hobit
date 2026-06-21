@@ -81,6 +81,25 @@ export type {
   AgentProtocolValidationError,
 } from "./agentProtocolRuntime";
 export {
+  activitySeverityForHobitActionResult,
+  activityStatusForHobitActionResult,
+  recordAgentActivity,
+  workspaceAgentHobitActionActivityTitle,
+  workspaceAgentHobitActionResultMessage,
+  workspaceAgentInvalidActionRequestMessage,
+  workspaceAgentInvalidWorkflowRequestMessage,
+  workspaceAgentWorkflowRequestMessage,
+} from "./agentActivityRecorder";
+export type {
+  ActivityAppendIntent,
+  AgentActivityRecorderEvent,
+  AgentActivityRecorderInput,
+  AgentActivityRecorderResult,
+  LogAppendIntent,
+  NoticeIntent,
+  TranscriptAppendIntent,
+} from "./agentActivityRecorder";
+export {
   CODEX_AGENT_PROVIDER_ID,
   createCodexAgentProvider,
   codexProviderCapabilityWarnings,

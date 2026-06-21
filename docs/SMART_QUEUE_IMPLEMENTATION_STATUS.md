@@ -154,6 +154,15 @@ and cancellation/stopped events for tests without calling Codex. This does not
 change Queue capability behavior, backend lifecycle semantics, bounded
 autonomy policy, workflow request validation, or Queue UI.
 
+Workspace Agent activity/transcript/log output formatting now goes through a
+pure AgentActivityRecorder. It returns append intents for provider final
+answers, provider terminal/error rows, invalid action/workflow requests, mixed
+action/workflow rejection, broker action results, continuation stops, protocol
+repair notices, and workflow-not-declared messages. The React controller still
+owns UI state and applies those intents. Broker invocation, continuation
+policy, protocol classification, Queue behavior, workflow execution, and
+backend lifecycle semantics are unchanged.
+
 WorkerProvider is now a separate provider-neutral frontend seam for explicit
 work-item execution and normalized worker evidence/result events. The MVP
 includes a deterministic FakeWorkerProvider, a thin CodexWorkerProvider adapter

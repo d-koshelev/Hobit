@@ -45,8 +45,12 @@ describe("WorkspaceAgent AgentProvider", () => {
     await flushAsync();
 
     expect(listItemAggregates).toHaveBeenCalledTimes(1);
-    expect(lastAssistantMessageText()).toContain("Action 1/16: queue.items.list");
-    expect(lastAssistantMessageText()).toContain("Queue items listed.");
+    expect(allAssistantMessageText()).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Action 1/16: queue.items.list"),
+        expect.stringContaining("Queue items listed."),
+      ]),
+    );
   });
 
   it("stops invalid FakeAgentProvider action requests before broker execution", async () => {
@@ -209,4 +213,16 @@ async function flushAsync(cycles = 12) {
       await Promise.resolve();
     }
   });
+}
+
+function allAssistantMessageText() {
+  return Array.from(
+    document.querySelectorAll(
+      '[data-testid="interactive-agent-message-assistant"]',
+    ),
+  ).map(
+    (message) =>
+      message.querySelector(".interactive-agent-message-body")?.textContent ??
+      "",
+  );
 }

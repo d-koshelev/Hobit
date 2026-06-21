@@ -236,6 +236,14 @@ protocol-stall, or no-output outcomes. It does not execute broker actions,
 run workflows, inspect Queue UI, call providers, or infer ids, inputs,
 permissions, confirmations, or workflow data from prose.
 
+Workspace Agent activity recording now has a pure `AgentActivityRecorder`
+facade for formatting and append-intent generation. It converts
+already-decided provider, protocol, broker, continuation, and workflow
+recognition events into activity, transcript, notice, and log intents. The
+React controller still owns visible UI state and execution flow. Broker
+invocation, continuation policy, protocol classification, and workflow
+execution behavior are unchanged.
+
 WorkerProvider is now a separate provider-neutral seam for explicit work-item
 execution. It emits normalized worker run, output/log, evidence, completion,
 failure, cancellation, stopped, and provider-error events. Codex Direct Work
