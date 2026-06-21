@@ -229,6 +229,14 @@ approval, and Direct Work event mapping inside the Codex adapter. Fake
 AgentProviders may drive deterministic protocol/action/workflow tests without
 calling Codex.
 
+Workspace Agent provider turns now run through a provider-neutral
+`AgentRuntime` event loop around AgentProvider. AgentRuntime starts provider
+turns, owns provider run handle metadata, exposes provider cancellation, emits
+normalized provider/lifecycle events, and delegates final-output
+classification to AgentProtocolRuntime. It does not execute broker actions,
+run workflows, start workers, call backend/Tauri APIs, format activity, mutate
+React state, or inspect Queue UI.
+
 Workspace Agent protocol classification now has a pure provider-neutral
 `AgentProtocolRuntime` facade. It classifies model/provider output into final
 answer, action request, workflow request, invalid request, mixed request,
@@ -245,10 +253,10 @@ and typed effects/intents after protocol or broker results. It reuses the
 explicit Queue-specific bounded-autonomy continuation helpers as transitional
 Queue policy and does not execute providers, invoke the broker, call backend
 APIs, format activity, or run workflows. The React controller still owns
-visible UI state, provider turn execution, broker invocation, and applying
-activity/transcript intents. Broker invocation behavior, provider behavior,
-protocol classification, activity formatting, Queue behavior, and workflow
-execution behavior are unchanged.
+visible UI state, broker invocation, continuation turn application, and
+applying activity/transcript intents. Broker invocation behavior, provider
+behavior, protocol classification semantics, activity formatting, Queue
+behavior, and workflow execution behavior are unchanged.
 
 WorkerProvider is now a separate provider-neutral seam for explicit work-item
 execution. It emits normalized worker run, output/log, evidence, completion,

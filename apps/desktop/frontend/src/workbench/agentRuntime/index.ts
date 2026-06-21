@@ -26,6 +26,15 @@ export type {
   AgentProviderTurnRequest,
 } from "./agentProvider";
 export { isAgentProviderRunHandle } from "./agentProvider";
+export { startAgentRuntimeTurn } from "./agentRuntime";
+export type {
+  AgentRuntimeEvent,
+  AgentRuntimeInput,
+  AgentRuntimeProtocolOptions,
+  AgentRuntimeResult,
+  AgentRuntimeRunHandle,
+  AgentRuntimeStopReason,
+} from "./agentRuntime";
 export type {
   WorkerProvider,
   WorkerProviderApprovalPolicy,

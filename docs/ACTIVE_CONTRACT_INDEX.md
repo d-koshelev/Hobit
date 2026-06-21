@@ -435,13 +435,18 @@ unless the task explicitly requests it.
   scope only, `inputs` is the only workflow data location, Queue-specific
   workflow input validation remains future, and prose is never executable
   workflow input. Workspace Agent direct turns use a provider-neutral
-  AgentProvider seam; Codex is the default current implementation rather than
-  the architecture, and fake providers support deterministic protocol tests.
+  AgentProvider seam and AgentRuntime lifecycle layer; Codex is the default
+  current provider implementation rather than the architecture, and fake
+  providers support deterministic protocol tests. AgentRuntime owns provider
+  turn lifecycle/cancellation delegation and delegates final-output
+  classification to AgentProtocolRuntime without invoking the broker,
+  executing workflows, starting workers, calling backend/Tauri APIs, or
+  touching Queue UI.
   BrokerContinuationRuntime is the pure continuation-chain orchestration layer
   for already-classified protocol and broker results. It emits typed
   invocation/continuation/repair/stop/complete intents while the React
-  controller still executes provider turns, invokes the broker, and applies UI
-  state. Queue bounded-autonomy continuation policy remains explicitly
+  controller still invokes the broker, applies continuation turns, and applies
+  UI state. Queue bounded-autonomy continuation policy remains explicitly
   Queue-specific transitional policy.
   AgentActivityRecorder is the pure formatting/append-intent layer for
   already-decided provider/protocol/broker/continuation output; the React

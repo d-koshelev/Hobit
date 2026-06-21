@@ -63,6 +63,16 @@ restricted capabilities for explicit workspace/code execution requests only.
   Codex Direct Work is the current default AgentProvider implementation, not
   the Workspace Agent architecture. Fake AgentProviders are allowed for
   deterministic protocol/action/workflow tests.
+- AgentRuntime: provider-neutral frontend turn lifecycle layer around
+  AgentProvider. It starts provider turns, owns provider run handle metadata,
+  exposes cancellation through the provider seam, preserves provider events,
+  and emits normalized lifecycle/protocol events for final answers, structured
+  `hobit.action.request`, structured `hobit.workflow.request`, invalid
+  protocol output, provider errors, run finish, cancellation, and stopped
+  states. It may classify final provider output by delegating to
+  AgentProtocolRuntime. It does not invoke the Action Broker, execute
+  workflows, start workers, call backend/Tauri APIs, mutate UI state, or touch
+  Queue UI.
 - AgentProtocolRuntime: provider-neutral, pure frontend protocol
   classification for Workspace Agent model output. It distinguishes final
   answers, structured `hobit.action.request` envelopes, structured
@@ -221,9 +231,11 @@ paths; dependency waiting does not start downstream work.
   not produce a valid action request or explicit final answer, the chain stops
   with a visible protocol error and reports that no broker action was executed.
   `AgentProtocolRuntime` owns this classification boundary;
-  `BrokerContinuationRuntime` owns continuation decisions/intents; the current
-  React controller still owns provider turn execution, broker invocation,
-  visible UI state arrays, and transcript/activity application.
+  `AgentRuntime` owns provider-neutral provider turn lifecycle and emits the
+  classified protocol result; `BrokerContinuationRuntime` owns continuation
+  decisions/intents. The current React controller still owns visible UI state
+  arrays, broker invocation, continuation turn application, and
+  transcript/activity application.
   `AgentActivityRecorder` owns formatting and append-intent generation only,
   preserving the current visible labels, summaries, protocol repair copy,
   workflow recognition copy, and broker-result transcript text.

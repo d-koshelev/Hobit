@@ -119,10 +119,13 @@ belong only under explicit arrays such as `grant.scope.taskIds`; prose is
 never executable workflow input or confirmation. This is not
 `hobit.queue.workflowRequest`, does not add Queue-specific workflow input
 validation, and does not execute a workflow runner.
-The current controller still owns broker invocation, provider turns, visible
-state, and activity application after classification; this contract does not
-move execution into the protocol runtime. Pure continuation-chain
-orchestration now lives in `BrokerContinuationRuntime`, which emits typed
+Provider turns now pass through the provider-neutral `AgentRuntime` event loop,
+which owns AgentProvider run lifecycle and delegates final-output
+classification to `AgentProtocolRuntime`. The current controller still owns
+broker invocation, visible state, continuation turn application, and activity
+application after classification; this contract does not move broker
+execution into the runtime or protocol runtime. Pure continuation-chain
+orchestration lives in `BrokerContinuationRuntime`, which emits typed
 intents/effects for broker action invocation, same-thread continuation,
 protocol repair, stop, and completion. It delegates Queue bounded-autonomy
 decisions to the existing explicitly Queue-specific continuation helpers; that

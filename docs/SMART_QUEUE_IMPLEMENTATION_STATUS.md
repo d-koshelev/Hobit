@@ -154,6 +154,18 @@ and cancellation/stopped events for tests without calling Codex. This does not
 change Queue capability behavior, backend lifecycle semantics, bounded
 autonomy policy, workflow request validation, or Queue UI.
 
+Workspace Agent provider turns now also pass through a provider-neutral
+AgentRuntime event loop around AgentProvider. AgentRuntime owns provider run
+lifecycle, provider run handle metadata, provider cancellation delegation, and
+normalized runtime events. It delegates final-output classification to
+AgentProtocolRuntime and emits intent-like protocol events for the controller.
+The React controller still owns visible UI state, broker invocation,
+continuation turn application, activity/transcript application, and all
+existing broker/application flow. BrokerInvocationRuntime and fuller
+controller reduction remain future blocks. No workflow execution, workflow
+runner, scheduler behavior, worker auto-start, backend lifecycle semantic
+change, or new Queue capability is added.
+
 Workspace Agent activity/transcript/log output formatting now goes through a
 pure AgentActivityRecorder. It returns append intents for provider final
 answers, provider terminal/error rows, invalid action/workflow requests, mixed
