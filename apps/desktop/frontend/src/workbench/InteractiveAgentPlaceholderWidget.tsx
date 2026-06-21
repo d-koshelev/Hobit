@@ -112,7 +112,7 @@ export function InteractiveAgentPlaceholderWidget({
   onUpdateAgentQueueTask, createQueueItemsFromPromptPackPreview,
   queueReportActionCardRequest,
   queueTaskStatusCardRequest,
-  queueValidationRunner, workspaceAgentQueueBridge,
+  queueValidationRunner, workspaceAgentProvider, workspaceAgentQueueBridge,
   onStartFrameMove,
   title,
   workspaceId,
@@ -162,6 +162,7 @@ export function InteractiveAgentPlaceholderWidget({
     [onInvokeHobitAgentActionRequest, workspaceAgentQueueBridge],
   );
   const directWork = useWorkspaceAgentDirectWorkController({
+    agentProvider: workspaceAgentProvider,
     currentWorkspaceRoot,
     draft,
     instanceId: instance.id,

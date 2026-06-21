@@ -85,6 +85,7 @@ import type {
   WriteTerminalPtySessionRequest,
 } from "../workspace/types";
 import type { AgentActivityEvent } from "./agentActivityModel";
+import type { AgentProvider } from "./agentRuntime";
 import type {
   PromptPackImportPreviewModel,
   PromptPackFileEntry,
@@ -124,6 +125,7 @@ import type { QueueLinkedDirectWorkEvidenceIngestionCallback } from "./queueLink
 export type WidgetRenderProps = {
   agentActivityEvents?: AgentActivityEvent[];
   agentQueueController?: AgentQueueController;
+  workspaceAgentProvider?: AgentProvider;
   agentExecutorSlots?: AgentExecutorSlot[];
   config: Record<string, unknown>;
   definition: WidgetDefinition;

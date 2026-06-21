@@ -434,9 +434,11 @@ unless the task explicitly requests it.
   through this registry without executing workflows. `grant` is permission/
   scope only, `inputs` is the only workflow data location, Queue-specific
   workflow input validation remains future, and prose is never executable
-  workflow input. UI widgets are not executable module APIs, and Codex is a
-  provider/worker implementation rather than the module integration
-  architecture.
+  workflow input. Workspace Agent direct turns use a provider-neutral
+  AgentProvider seam; Codex is the default current implementation rather than
+  the architecture, and fake providers support deterministic protocol tests.
+  UI widgets are not executable module APIs, and Codex is a provider/worker
+  implementation rather than the module integration architecture.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source
   provenance, AI-readable context approval, citations, or trust-layer work.
 - `docs/EVENT_AUDIT_ENVELOPE_CONTRACT.md` - read for Event/Audit Envelope v0

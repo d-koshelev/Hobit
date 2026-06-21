@@ -374,6 +374,7 @@ This contract does not implement:
 
 - backend scheduler redesign;
 - hidden Queue Autorun;
+- WorkerProvider or provider-driven Queue workflow execution;
 - validation execution;
 - Git commit/push/revert/reset;
 - rollback execution;

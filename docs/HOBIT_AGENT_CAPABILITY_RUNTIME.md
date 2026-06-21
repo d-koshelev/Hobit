@@ -55,6 +55,17 @@ restricted capabilities for explicit workspace/code execution requests only.
   typed message, and model self-test foundation documented in
   `docs/HOBIT_MULTI_AGENT_RUNTIME.md`. It does not execute broker actions or
   call shell/Codex for agent-to-agent communication.
+- AgentProvider Runtime: provider-neutral frontend execution seam for
+  Workspace Agent turns. The seam exposes provider identity/capabilities,
+  start/continue-by-thread inputs, cancellation support when available, and
+  normalized run events such as run started, message/text output, structured
+  action/workflow output, final answer, error, run finished, and cancellation.
+  Codex Direct Work is the current default AgentProvider implementation, not
+  the Workspace Agent architecture. Fake AgentProviders are allowed for
+  deterministic protocol/action/workflow tests. WorkerProvider, workflow
+  runner execution, scheduler behavior, validation execution, Git mutation,
+  rollback, Terminal launch, and hidden worker starts are not implemented by
+  this seam.
 - Agent-to-Agent SelfTest: pure model peer checks where Agent A can test Agent
   B and Agent B can test Agent A through status, history, capability manifest,
   and typed message APIs. This is the foundation for future agent-executed
@@ -94,9 +105,10 @@ restricted capabilities for explicit workspace/code execution requests only.
   dogfood broker-loop self-test, and restricted Codex/shell capability
   assertions. It renders a structured report instead of raw JSON.
 - Workspace Agent Capability Context Injection: the active Workspace Agent
-  Codex Direct Work prompt path now attaches Hobit app context, Workspace
+  provider prompt path now attaches Hobit app context, Workspace
   Agent role instructions, a compact capability manifest, and policy rules
-  before Codex execution. When the agent returns a valid
+  before provider execution. Codex remains the default current implementation
+  through the Codex AgentProvider adapter. When the agent returns a valid
   `hobit.action.request` envelope, the frontend parses that structured machine
   request, invokes the Action Broker, and renders a compact product-facing
   result. The compact manifest includes field-level schema and examples for

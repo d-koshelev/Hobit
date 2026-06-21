@@ -142,6 +142,15 @@ Queue workflow input validation, a workflow runner, scheduler behavior, worker
 auto-start, or Queue runtime changes. Prose is never executable workflow input,
 permission, confirmation, or id source.
 
+Workspace Agent direct turns now go through a provider-neutral AgentProvider
+seam. Codex Direct Work remains the default implementation through a
+CodexAgentProvider adapter, while deterministic FakeAgentProviders can emit
+final answers, structured Hobit action requests, workflow requests, errors,
+and cancellation/stopped events for tests without calling Codex. This does not
+change Queue capability behavior, backend lifecycle semantics, bounded
+autonomy policy, workflow request validation, or Queue UI. WorkerProvider and
+Queue workflow execution remain not implemented.
+
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly
 noted otherwise. The implemented backend exceptions are the

@@ -222,6 +222,16 @@ are render/control surfaces, not executable module APIs. Knowledge, Notes,
 Terminal, and future modules should register later without importing UI
 components or React state.
 
+Workspace Agent foreground execution now has a provider-neutral AgentProvider
+seam for direct turns. Codex Direct Work is the default current
+AgentProvider implementation and keeps its executable, thread id, sandbox,
+approval, and Direct Work event mapping inside the Codex adapter. Fake
+AgentProviders may drive deterministic protocol/action/workflow tests without
+calling Codex. This does not add WorkerProvider, workflow runner execution,
+scheduler behavior, Queue workflow execution, validation execution, Git
+mutation, rollback, Terminal launch, hidden worker starts, or new Queue
+capabilities.
+
 Codex and shell remain restricted explicit execution capabilities for
 workspace/code execution requests. They are not used for agent-to-agent runtime
 tests or ordinary in-app agent communication.
