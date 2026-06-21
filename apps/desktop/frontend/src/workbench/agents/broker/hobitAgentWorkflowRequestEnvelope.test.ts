@@ -31,11 +31,12 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
         ok: true,
         reasons: [
           expect.stringContaining("Queue workflow request validated"),
+          expect.stringContaining("validation-only"),
           expect.stringContaining("no Queue state was mutated"),
         ],
         status: "workflow_valid_not_executable",
         workflowMetadata: {
-          backingStatus: "metadata_only",
+          backingStatus: "validation_only",
           requiredCapabilityIds: expect.arrayContaining([
             "queue.lifecycle.agentFinished",
             "queue.review.getEvidenceBundle",
@@ -646,7 +647,7 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
         ok: true,
         status: "workflow_valid_not_executable",
         workflowMetadata: {
-          backingStatus: "metadata_only",
+          backingStatus: "validation_only",
           requiredInputSections: expect.arrayContaining(["inputs.tasks"]),
         },
       },

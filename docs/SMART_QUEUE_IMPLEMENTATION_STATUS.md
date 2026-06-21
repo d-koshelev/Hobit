@@ -140,16 +140,25 @@ Product data such as runSettings, tasks, prompts, dependencies, run
 configuration, and direct ids is rejected inside `grant`. For Queue, the initial
 workflow ids `dependency_acceptance_smoke`, `dependency_failure_smoke`,
 `review_acceptance`, and `terminal_failure` are now declared in
-`ModuleControlSurface` metadata as `metadata_only`. A request such as
+`ModuleControlSurface` metadata as `validation_only`. A request such as
 `dependency_acceptance_smoke` or `dependency_failure_smoke` now validates typed
 `inputs.runSettings`, typed task slots, explicit dependency slot references,
 allowed Queue grant modes, and required safety constraints, then returns a
 `workflow_valid_not_executable` validation result. `review_acceptance` and
 `terminal_failure` remain declared with `input_validation_deferred`. Unknown
-Queue workflow ids still report not declared. This block does not add
-`hobit.queue.workflowRequest`, a workflow runner, scheduler behavior, worker
-auto-start, Queue mutation, or Queue runtime changes. Prose is never executable
-workflow input, permission, confirmation, or id source.
+Queue workflow ids still report not declared. A deterministic read-only
+`QueueWorkflowRunner` now exists under the Queue module control-plane code. It
+can consume validated Queue workflow requests and inspect explicit existing
+Queue aggregate/lifecycle/evidence ids through an injected read port, returning
+workflow-local variables, read snapshots, steps, events, blockers, pause
+reasons, and a read-only report. It requires explicit task/run/evidence ids,
+including explicit slot task ids for dependency smoke inspection, and does not
+infer ids from title, prompt, prose, UI order, file paths, or repository roots.
+The generic Workspace Agent workflow request path does not invoke the runner
+yet. This block does not add `hobit.queue.workflowRequest`, mutating workflow
+execution, scheduler behavior, worker auto-start, Queue mutation, or Queue
+runtime changes. Prose is never executable workflow input, permission,
+confirmation, or id source.
 
 Workspace Agent direct turns now go through a provider-neutral AgentProvider
 seam. Codex Direct Work remains the default implementation through a
@@ -170,8 +179,9 @@ delegated to runtime adapter helpers. It still owns visible UI state, broker
 invocation, continuation turn application, activity/transcript application,
 and all existing broker/application flow. BrokerInvocationRuntime remains a
 future block if broker invocation/application needs a dedicated runtime. No
-workflow execution, workflow runner, scheduler behavior, worker auto-start,
-backend lifecycle semantic change, or new Queue capability is added.
+mutating workflow execution, workflow runner invocation from Workspace Agent,
+scheduler behavior, worker auto-start, backend lifecycle semantic change, or
+new Queue capability is added.
 
 Workspace Agent activity/transcript/log output formatting now goes through a
 pure AgentActivityRecorder. It returns append intents for provider final
@@ -183,18 +193,21 @@ goes through a pure BrokerContinuationRuntime that returns typed intents for
 broker invocation, continuation turns, protocol repair, stop, and completion.
 The runtime reuses the existing explicitly Queue-specific bounded-autonomy
 helpers; Queue policy remains transitional and Queue-specific until a real
-Queue workflow runner exists. Broker invocation, provider behavior,
-continuation policy behavior, protocol classification, Queue behavior,
-workflow execution, and backend lifecycle semantics are unchanged.
+mutating Queue workflow runner is explicitly wired. Broker invocation,
+provider behavior, continuation policy behavior, protocol classification,
+Queue behavior, workflow execution, and backend lifecycle semantics are
+unchanged.
 
 WorkerProvider is now a separate provider-neutral frontend seam for explicit
 work-item execution and normalized worker evidence/result events. The MVP
 includes a deterministic FakeWorkerProvider, a thin CodexWorkerProvider adapter
 around existing Direct Work stream APIs, and a pure mapping from
 WorkerProvider final results into the current Queue worker evidence ingestion
-input shape. Queue workflow execution remains not implemented: no runner,
-scheduler behavior, Queue auto-start, backend lifecycle semantic change, or
-new Queue capability is added.
+input shape. Mutating Queue workflow execution remains not implemented: no
+mutating runner phases, scheduler behavior, Queue auto-start, backend
+lifecycle semantic change, or new Queue capability is added. The current
+QueueWorkflowRunner is read-only inspection only and does not consume
+WorkerProvider.
 
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly
@@ -1066,7 +1079,7 @@ The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend Smart Queue persistence;
-- Queue workflow runner execution beyond validation-only request handling;
+- mutating Queue workflow runner execution beyond read-only inspection;
 - Queue-specific input validation for review/terminal workflows;
 - durable Queue lifecycle transition commands beyond the current aggregate DTO
   and worker-evidence/review create/ACK commands;

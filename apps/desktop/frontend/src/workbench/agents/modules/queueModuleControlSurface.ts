@@ -55,7 +55,7 @@ export const QUEUE_MODULE_CONTROL_SURFACE: ModuleControlSurface<QueueCapabilityR
     compatibilityNotes: [
       "Widget Agent Contracts describe widget-readable product boundaries; they are not executable Module Control Surfaces.",
       "Codex Direct Work is a provider/worker implementation detail, not the module integration architecture.",
-      "Queue workflow metadata is declared for generic control-plane discovery only; no Queue workflow runner or Queue-specific input validation exists yet.",
+      "Queue workflow metadata remains non-executable through the generic request path; a separate read-only QueueWorkflowRunner exists for explicit inspection through injected read ports.",
       "Transitional Queue capabilities must stay labeled until backend/domain commands replace frontend controller overlays.",
     ],
     confirmationRequirements: QUEUE_MODULE_CONFIRMATION_REQUIREMENTS,
@@ -65,7 +65,7 @@ export const QUEUE_MODULE_CONTROL_SURFACE: ModuleControlSurface<QueueCapabilityR
       "Backend-backed and transitional capability lists do not overlap.",
       "Backend-backed Queue module capabilities do not import Queue UI files.",
       "No lifecycle-namespaced evidence read alias is present.",
-      "Queue workflows are metadata-only and must not be marked runtime_available until a runner contract exists.",
+      "Queue workflows must not be marked runtime_available until runtime wiring exists; the current runner is read-only inspection only.",
       "Queue workflow required capabilities must refer to registered Queue module capabilities.",
     ],
     displayName: "Agent Queue",

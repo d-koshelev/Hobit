@@ -434,12 +434,18 @@ unless the task explicitly requests it.
   through this registry without executing workflows. Queue declares the initial
   workflow ids `dependency_acceptance_smoke`,
   `dependency_failure_smoke`, `review_acceptance`, and `terminal_failure` as
-  metadata-only/not executable. `dependency_acceptance_smoke` and
+  validation-only/not executable through the generic request path.
+  `dependency_acceptance_smoke` and
   `dependency_failure_smoke` validate typed `inputs.runSettings`,
   `inputs.tasks`, task slots, explicit dependency slot references, grant modes,
   and safety constraints before returning `workflow_valid_not_executable`;
   `review_acceptance` and `terminal_failure` remain declared with
-  `input_validation_deferred`. Unknown ids remain not declared. `grant` is
+  `input_validation_deferred`. A Queue-specific read-only
+  `QueueWorkflowRunner` exists as an explicit control-plane helper that can
+  consume validated Queue workflow requests and inspect only explicit existing
+  Queue aggregate/lifecycle/evidence ids through an injected read port; the
+  Workspace Agent workflow request path does not invoke it yet. Unknown ids
+  remain not declared. `grant` is
   permission/scope only, `inputs` is the only workflow data location, and prose
   is never executable workflow input. Workspace Agent direct turns use a provider-neutral
   AgentProvider seam and AgentRuntime lifecycle layer; Codex is the default
@@ -460,8 +466,8 @@ unless the task explicitly requests it.
   controller still owns visible state and execution flow.
   WorkerProvider is a separate provider-neutral seam for explicit worker items
   and normalized worker evidence/result events; Codex Direct Work remains a
-  concrete worker implementation, and Queue workflow runners may consume the
-  seam later. UI widgets are not executable module APIs, and Codex is a
+  concrete worker implementation, and the current read-only QueueWorkflowRunner
+  does not consume the seam. UI widgets are not executable module APIs, and Codex is a
   provider/worker implementation rather than the module integration
   architecture.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source

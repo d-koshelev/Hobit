@@ -258,7 +258,7 @@ function validateDeferredWorkflow({
     ok: false,
     reasons: [
       `${workflowId} is declared, but Queue workflow input validation is deferred until the typed runner/input contract is narrowed.`,
-      "No Queue workflow runner is implemented and no Queue state is mutated.",
+      "No Queue workflow phase is executed and no Queue state is mutated.",
     ],
     status: "input_validation_deferred",
     ...(workflowMetadata ? { workflowMetadata } : {}),
@@ -711,7 +711,8 @@ function validNotExecutableResult({
     issues: [],
     ok: true,
     reasons: [
-      "Queue workflow request validated, but Queue workflow runner is not implemented yet.",
+      "Queue workflow request validated; the read-only Queue workflow runner can inspect explicit existing Queue ids when invoked.",
+      "Generic Workspace Agent workflow request handling remains validation-only and does not execute workflow phases.",
       "No Queue capabilities were called and no Queue state was mutated.",
     ],
     status: "workflow_valid_not_executable",

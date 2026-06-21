@@ -251,9 +251,10 @@ paths; dependency waiting does not start downstream work.
   module-neutral `hobit.workflow.request` JSON envelope with `requestId`,
   `moduleId`, `workflowId`, optional generic permission/scope `grant`,
   optional opaque object `inputs`, and optional compact `metadata`. The
-  envelope is classification and validation only. It verifies `moduleId`
-  through `ModuleControlSurfaceRegistry` and reports whether `workflowId` is
-  unknown, declared but not executable, or runtime-available by that module.
+  generic envelope path is classification and validation only. It verifies
+  `moduleId` through `ModuleControlSurfaceRegistry` and reports whether
+  `workflowId` is unknown, declared but not executable, or runtime-available
+  by that module.
   Declared workflow validation can expose compact workflow metadata such as
   backing status, required capabilities, required risk classes, required grant
   modes, input-section summary, safety constraints, pause/resume notes, and
@@ -271,10 +272,17 @@ paths; dependency waiting does not start downstream work.
   treat prose permission as a grant. Queue-specific validation now exists for
   declared Queue dependency smoke workflows: `inputs.runSettings`,
   `inputs.tasks`, task `slot` values, `dependsOnSlots`, grant modes, and
-  required safety constraints are validated before any future runner. The
-  request can validate as `workflow_valid_not_executable`, which means no
-  workflow executes. `review_acceptance` and `terminal_failure` remain
-  declared with `input_validation_deferred`.
+  required safety constraints are validated before any mutating runner phase.
+  The request can validate as `workflow_valid_not_executable`, which means the
+  Workspace Agent workflow request path does not execute a workflow. A
+  Queue-specific read-only `QueueWorkflowRunner` now exists as an explicit
+  control-plane helper for inspecting existing Queue state through injected
+  read ports only. It does not create tasks, start workers, review, ACK,
+  markDone, fail, block, follow up, run validation, mutate Git, launch
+  Terminal, roll back, or mutate Queue state. It requires explicit existing
+  task/run/evidence ids and never infers ids from titles, prose, UI order, or
+  file paths. `review_acceptance` and `terminal_failure` remain declared with
+  `input_validation_deferred`.
 
 ## Module Control Surface
 
@@ -299,7 +307,7 @@ metadata plus the Action Broker and module API ports for product actions.
 
 Capabilities are atomic typed operations. Workflows are multi-step typed
 processes and are validated through the generic `hobit.workflow.request`
-envelope before any future runner exists. Queue is the first reference module surface. Its backend-
+envelope before any executable runner phase can run. Queue is the first reference module surface. Its backend-
 backed capabilities are labeled separately from transitional controller-backed
 capabilities. Transitional capabilities must remain labeled and migrate later.
 Queue capability module metadata is adapted from the existing Queue capability
@@ -310,13 +318,16 @@ metadata-only and does not change broker execution, backend lifecycle
 semantics, Queue UI behavior, or continuation policy. Queue workflow metadata
 now declares the initial Queue workflows
 `dependency_acceptance_smoke`, `dependency_failure_smoke`,
-`review_acceptance`, and `terminal_failure` as `metadata_only`. Generic
+`review_acceptance`, and `terminal_failure` as `validation_only`. Generic
 `hobit.workflow.request` validation can recognize those workflow ids. Queue
 dependency acceptance/failure smoke requests now validate typed
 `inputs.runSettings`, typed task slots, explicit dependency slot references,
 grant modes, and safety constraints, then return a non-executable
 validation-only result. `review_acceptance` and `terminal_failure` remain
-declared with deferred input validation. There is still no Queue workflow
+declared with deferred input validation. The read-only `QueueWorkflowRunner`
+can consume validated Queue workflow requests for explicit read inspection
+only through a `QueueWorkflowReadPort`; generic Workspace Agent request
+handling does not invoke it yet. There is still no mutating Queue workflow
 runner, worker start, validation execution, Git mutation, rollback, Terminal
 launch, scheduler behavior, backend lifecycle semantic change, or UI truth
 path.
@@ -324,7 +335,7 @@ path.
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture. WorkerProvider is the normalized
 worker boundary for future explicit work-item execution and evidence events;
-the current Queue workflow runner does not consume it yet.
+the current read-only Queue workflow runner does not consume it.
 
 ## Generic `nextAction` Contract
 

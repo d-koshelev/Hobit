@@ -80,7 +80,7 @@ describe("AgentProtocolRuntime", () => {
           ok: true,
           status: "workflow_valid_not_executable",
           workflowMetadata: {
-            backingStatus: "metadata_only",
+            backingStatus: "validation_only",
             workflowId: "dependency_acceptance_smoke",
           },
         },

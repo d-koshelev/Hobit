@@ -68,12 +68,12 @@ describe("WorkspaceAgentActionProtocol", () => {
         },
         status: "valid",
         validation: {
-          ok: true,
-          status: "workflow_valid_not_executable",
-          workflowMetadata: {
-            backingStatus: "metadata_only",
-            workflowId: "dependency_acceptance_smoke",
-          },
+            ok: true,
+            status: "workflow_valid_not_executable",
+            workflowMetadata: {
+              backingStatus: "validation_only",
+              workflowId: "dependency_acceptance_smoke",
+            },
         },
       },
     });
@@ -156,12 +156,12 @@ describe("WorkspaceAgentActionProtocol", () => {
         },
         status: "valid",
         validation: {
-          ok: true,
-          status: "workflow_valid_not_executable",
-          workflowMetadata: {
-            backingStatus: "metadata_only",
-            workflowId: "dependency_acceptance_smoke",
-          },
+            ok: true,
+            status: "workflow_valid_not_executable",
+            workflowMetadata: {
+              backingStatus: "validation_only",
+              workflowId: "dependency_acceptance_smoke",
+            },
         },
       },
     });

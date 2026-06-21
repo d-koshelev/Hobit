@@ -28,7 +28,8 @@ const COMMON_BACKEND_OWNERSHIP_NOTES = [
 ] as const;
 
 const COMMON_PAUSE_REASONS = [
-  "workflowRunnerNotImplemented",
+  "workflowRunnerNotRuntimeWired",
+  "readOnlyRunnerRequiresExplicitIds",
   "queueWorkflowInputValidationDeferred",
   "grantMissingOrInsufficient",
   "capabilityUnavailable",
@@ -37,13 +38,14 @@ const COMMON_PAUSE_REASONS = [
 ] as const;
 
 const COMMON_TRANSITIONAL_LIMITATIONS = [
-  "Metadata and validation only in this block; no Queue workflow runner exists.",
+  "Workflow request handling remains validation-only; a separate read-only QueueWorkflowRunner module exists for explicit control-plane inspection.",
   "Dependency acceptance/failure smoke workflows validate typed runSettings, task slots, dependency slot references, grant modes, and safety constraints.",
   "Review acceptance and terminal failure workflow input validation remains deferred until their typed runner/input contracts are narrowed.",
-  "No worker, validation, Git, rollback, Terminal, downstream auto-start, or scheduler behavior is triggered by workflow metadata.",
+  "The read-only runner requires explicit existing task/run/evidence ids and does not infer ids from titles, prose, UI order, or file paths.",
+  "No worker, validation, Git, rollback, Terminal, downstream auto-start, scheduler behavior, review, ACK, markDone, fail, block, follow-up, or validation decision is triggered by workflow metadata or the read-only runner.",
 ] as const;
 
-const METADATA_ONLY_RESUME_SUPPORT = {
+const PLANNED_RESUME_SUPPORT = {
   notes: [
     "No durable workflow run state or resume runner exists yet; future support must be typed and backend-aware.",
   ],
@@ -219,17 +221,17 @@ function queueWorkflow({
 }): QueueModuleWorkflowMetadata {
   return {
     backendOwnership: COMMON_BACKEND_OWNERSHIP_NOTES,
-    backingStatus: "metadata_only",
+    backingStatus: "validation_only",
     confirmationRequirement,
     displayName,
     implementationStatus:
-      "Declared workflow metadata with validation-only request handling; dependency acceptance/failure request inputs can validate, but no Queue workflow runner executes.",
+      "Declared workflow metadata with validation-only request handling; dependency acceptance/failure request inputs can validate, and an explicit read-only QueueWorkflowRunner can inspect existing Queue state through injected read ports. Runtime workflow execution and mutating phases are not wired.",
     pauseReasons: COMMON_PAUSE_REASONS,
     requiredCapabilityIds,
     requiredGrantModes,
     requiredInputSections,
     requiredRiskClasses,
-    resumeSupport: METADATA_ONLY_RESUME_SUPPORT,
+    resumeSupport: PLANNED_RESUME_SUPPORT,
     safetyConstraints: COMMON_SAFETY_CONSTRAINTS,
     summary,
     supportedPhases,

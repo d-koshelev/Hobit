@@ -213,14 +213,19 @@ changing execution behavior. Queue is also the first reference module for
 generic `nextAction` validation and generic workflow request validation.
 Queue now declares the initial workflow ids
 `dependency_acceptance_smoke`, `dependency_failure_smoke`,
-`review_acceptance`, and `terminal_failure` as metadata-only. Generic
+`review_acceptance`, and `terminal_failure` as validation-only. Generic
 validation can recognize those ids and return non-executable workflow metadata.
 For `dependency_acceptance_smoke` and `dependency_failure_smoke`, Queue-specific
 validation checks typed `inputs.runSettings`, `inputs.tasks`, task slots,
 explicit `dependsOnSlots`, allowed grant modes, and required safety
 constraints before returning `workflow_valid_not_executable`. `review_acceptance`
-and `terminal_failure` are declared with input validation deferred. No workflow
-request starts workers, mutates Queue state, or executes workflows.
+and `terminal_failure` are declared with input validation deferred. A
+Queue-specific read-only `QueueWorkflowRunner` now exists as an explicit
+control-plane helper that consumes validated Queue workflow requests and reads
+only explicit Queue aggregate/lifecycle/evidence ids through an injected read
+port. The generic Workspace Agent workflow request path does not invoke it
+yet. No workflow request starts workers, mutates Queue state, or executes
+mutating workflow phases.
 `ModuleControlSurfaceRegistry` is the discovery layer for these agent-facing
 module surfaces. Queue is the first registered module. The registry is
 metadata only, is not runtime behavior, and must stay UI-independent. Widgets
@@ -272,9 +277,11 @@ execution. It emits normalized worker run, output/log, evidence, completion,
 failure, cancellation, stopped, and provider-error events. Codex Direct Work
 remains a concrete/default worker implementation through a CodexWorkerProvider
 adapter, while Fake WorkerProviders can drive deterministic worker/evidence
-tests without Codex. This does not add workflow runner execution, scheduler
-behavior, Queue workflow execution, validation execution, Git mutation,
-rollback, Terminal launch, hidden worker starts, or new Queue capabilities.
+tests without Codex. The read-only QueueWorkflowRunner does not consume
+WorkerProvider. This does not add mutating workflow runner execution,
+scheduler behavior, Queue workflow execution, validation execution, Git
+mutation, rollback, Terminal launch, hidden worker starts, or new Queue
+capabilities.
 
 Codex and shell remain restricted explicit execution capabilities for
 workspace/code execution requests. They are not used for agent-to-agent runtime

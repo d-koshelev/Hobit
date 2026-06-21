@@ -101,7 +101,7 @@ preserves backing status, risk class, confirmation metadata, required id
 fields, and trusted actor context only; it does not execute capabilities,
 authorize workflows, or change continuation policy. Queue workflow metadata now
 declares `dependency_acceptance_smoke`, `dependency_failure_smoke`,
-`review_acceptance`, and `terminal_failure` as `metadata_only`. The metadata
+`review_acceptance`, and `terminal_failure` as `validation_only`. The metadata
 records display summary, supported phases, required Queue capabilities,
 required risk classes, required grant modes, required input-section summaries,
 safety constraints, pause reasons, planned resume support, backend ownership
@@ -129,7 +129,8 @@ rejected inside `grant` with field paths and stable reason codes. Scope ids
 belong only under explicit arrays such as `grant.scope.taskIds`; prose is
 never executable workflow input or confirmation. This is not
 `hobit.queue.workflowRequest`; it validates the dependency smoke Queue input
-shape but does not execute a workflow runner.
+shape but the generic Workspace Agent workflow request path does not execute a
+workflow runner.
 
 ## Queue Workflow Request Validation MVP
 
@@ -152,6 +153,47 @@ capability is called. `review_acceptance` and `terminal_failure` are declared
 but return `input_validation_deferred` after grant validation until their typed
 input contract and runner boundary are narrowed.
 
+## Queue Read-Only Workflow Runner MVP
+
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.ts`
+defines the first deterministic Queue-specific workflow runner skeleton. It is
+a pure/control-plane helper, not UI, not generic `AgentRuntime`, and not
+backend truth.
+
+The runner accepts a Queue workflow request plus its existing Queue workflow
+validation result. For `dependency_acceptance_smoke` and
+`dependency_failure_smoke`, it can read existing Queue state only when explicit
+ids are supplied. Supported explicit id sources are structured workflow data
+such as `inputs.taskIdsBySlot`, `inputs.runIdsBySlot`,
+`inputs.evidenceBundleIdsBySlot`, `inputs.messageIdsBySlot`,
+`inputs.evidenceReads`, and explicit `grant.scope.*Ids` arrays. Scope arrays
+bound/read explicit ids but do not assign dependency slots by order. The runner
+does not infer task ids, run ids, evidence bundle ids, message ids, or
+executor widget ids from titles, prompts, prose, UI selection, UI order, file
+paths, or repository roots.
+
+The runner uses only an injected `QueueWorkflowReadPort` with read methods for
+Queue aggregate, lifecycle, list, and evidence inspection. Tests use fake read
+ports. The runner does not import Queue UI, visual shell modules, Tauri APIs,
+AgentProvider, WorkerProvider, Action Broker invocation, or Queue adapter
+mutation handlers.
+
+Runner results are structured as `completed`, `blocked`, `paused`,
+`invalid_request`, `unavailable`, or `failed_unexpected` with workflow-local
+variables, read snapshots, steps, events, blockers, missing explicit ids, and a
+read-only report. If dependency smoke requests do not include existing task ids
+for the required `upstream` and `downstream` slots, the runner pauses with
+`read_only_runner_requires_existing_tasks` / `missing_explicit_task_ids`.
+`review_acceptance` and `terminal_failure` remain
+`input_validation_deferred` and are not inspected by the runner.
+
+The runner performs no Queue mutation. It does not create tasks, update run
+settings, promote drafts, enable Queue, start workers, record worker evidence,
+create review messages, ACK review messages, mark done, fail, block, add
+follow-up prompts, approve validation, run validation, mutate Git, execute
+rollback, launch Terminal, call shell/Codex, start downstream work, or add
+scheduler behavior. Mutating workflow phases remain future explicit blocks.
+
 Provider turns now pass through the provider-neutral `AgentRuntime` event loop,
 which owns AgentProvider run lifecycle and delegates final-output
 classification to `AgentProtocolRuntime`. The current controller still owns
@@ -165,8 +207,9 @@ orchestration lives in `BrokerContinuationRuntime`, which emits typed
 intents/effects for broker action invocation, same-thread continuation,
 protocol repair, stop, and completion. It delegates Queue bounded-autonomy
 decisions to the existing explicitly Queue-specific continuation helpers; that
-Queue policy remains transitional until a typed Queue workflow runner exists.
-BrokerInvocationRuntime and the Queue workflow runner remain future work.
+Queue policy remains transitional until a typed mutating Queue workflow runner
+is explicitly wired. BrokerInvocationRuntime and workflow-runner invocation
+from Workspace Agent remain future work.
 Workspace Agent activity/log/transcript formatting is isolated in the pure
 `AgentActivityRecorder`. It consumes only events and results that provider,
 protocol, broker, and continuation code have already decided, then returns
@@ -439,7 +482,9 @@ context. It cannot:
 Product action execution requires structured `hobit.action.request` plus
 Broker policy and backend preconditions.
 Workflow requests require structured `hobit.workflow.request` and are currently
-validation/classification only.
+validation/classification only in the Workspace Agent path. The separate
+QueueWorkflowRunner is explicit read-only inspection and does not execute
+workflow phases.
 
 ## Non-Goals
 
@@ -453,7 +498,7 @@ This contract does not implement:
 - rollback execution;
 - Terminal launch;
 - broad worker automation;
-- Queue workflow runner execution beyond validation-only request handling;
+- Queue workflow mutation/execution beyond explicit read-only inspection;
 - Queue-specific input validation for review/terminal workflows;
 - UI redesign;
 - additional Queue widget/view surfaces.

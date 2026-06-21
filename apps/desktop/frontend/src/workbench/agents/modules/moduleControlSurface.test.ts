@@ -318,7 +318,7 @@ describe("ModuleControlSurface", () => {
     expect(QUEUE_MODULE_CONTROL_SURFACE.unavailableCapabilityIds).toEqual([]);
   });
 
-  it("declares metadata-only Queue workflows without making them executable", () => {
+  it("declares validation-only Queue workflows without making them runtime executable", () => {
     expect(QUEUE_MODULE_CONTROL_SURFACE.workflowIds).toBe(
       QUEUE_MODULE_WORKFLOW_IDS,
     );
@@ -338,7 +338,7 @@ describe("ModuleControlSurface", () => {
     );
     expect(
       QUEUE_MODULE_CONTROL_SURFACE.workflows.every(
-        (workflow) => workflow.backingStatus === "metadata_only",
+        (workflow) => workflow.backingStatus === "validation_only",
       ),
     ).toBe(true);
     expect(
@@ -347,7 +347,7 @@ describe("ModuleControlSurface", () => {
       ),
     ).toBe(false);
     expect(QUEUE_MODULE_CONTROL_SURFACE.compatibilityNotes.join(" ")).toContain(
-      "Queue workflow metadata is declared for generic control-plane discovery only",
+      "read-only QueueWorkflowRunner exists for explicit inspection",
     );
     expect(
       resolveModuleControlSurfaceWorkflow({
@@ -359,7 +359,7 @@ describe("ModuleControlSurface", () => {
       ok: false,
       reasonCode: "workflow_unavailable",
       workflow: {
-        backingStatus: "metadata_only",
+        backingStatus: "validation_only",
         workflowId: "dependency_acceptance_smoke",
       },
       workflowId: "dependency_acceptance_smoke",
@@ -383,7 +383,7 @@ describe("ModuleControlSurface", () => {
       expect(workflow.displayName.length, workflow.workflowId).toBeGreaterThan(0);
       expect(workflow.summary.length, workflow.workflowId).toBeGreaterThan(0);
       expect(workflow.implementationStatus, workflow.workflowId).toContain(
-        "metadata",
+        "read-only QueueWorkflowRunner",
       );
       expect(workflow.uiDependencyPolicy, workflow.workflowId).toBe("none");
       expect(workflow.resumeSupport.status, workflow.workflowId).toBe("planned");
@@ -403,7 +403,10 @@ describe("ModuleControlSurface", () => {
         ]),
       );
       expect(workflow.pauseReasons, workflow.workflowId).toContain(
-        "workflowRunnerNotImplemented",
+        "workflowRunnerNotRuntimeWired",
+      );
+      expect(workflow.pauseReasons, workflow.workflowId).toContain(
+        "readOnlyRunnerRequiresExplicitIds",
       );
       expect(workflow.backendOwnership.join(" "), workflow.workflowId).toContain(
         "backend/domain/storage",

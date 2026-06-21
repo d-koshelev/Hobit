@@ -16,6 +16,7 @@ describe("queueWorkflowRequestValidation", () => {
       ok: true,
       reasons: [
         expect.stringContaining("Queue workflow request validated"),
+        expect.stringContaining("validation-only"),
         expect.stringContaining("no Queue state was mutated"),
       ],
       status: "workflow_valid_not_executable",
