@@ -20,6 +20,12 @@ confirmation, and bounded grant rules are defined in
 - Workspace Agent and broker adapters call typed Queue backend/Tauri APIs
   through an injected Queue backend API port. They do not own product lifecycle
   truth.
+- The Queue `ModuleControlSurface` is the agent-facing metadata contract over
+  these typed APIs. It may describe backend-backed, bridge-backed,
+  model-preview, transitional, unavailable, and future workflow metadata, but
+  it does not execute Queue behavior by itself.
+- Queue UI widgets are not executable Queue APIs. Backend-backed capabilities
+  must remain testable without mounting Queue UI components.
 - Frontend API wrappers translate desktop/browser availability into typed API
   calls. They do not derive Queue state from UI-selected task detail.
 - UI may render authoritative DTOs, collect explicit operator input, and manage
@@ -158,6 +164,9 @@ These capabilities are still transitional:
 - Broker/adapter tests prove Queue capability manifest examples use exact
   schema fields/enums/confirmation tokens, reject missing required ids, and do
   not infer ids or confirmation from natural language.
+- Module Control Surface tests prove Queue backend-backed and transitional
+  capability lists match the active contracts, do not overlap, and do not
+  import Queue UI files.
 - Workspace Agent protocol tests prove actions come only from
   `hobit.action.request`, request ids remain unique, task/run ids are explicit,
   and natural-language regex routing is absent.

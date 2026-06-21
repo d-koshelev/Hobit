@@ -420,6 +420,13 @@ unless the task explicitly requests it.
   Capability Boundary v0 vocabulary. It is type scaffolding only and does not
   add capability execution, permission checks, audit emission, server runtime,
   RBAC, storage, DTO, Tauri, frontend, or widget behavior changes.
+- `docs/HOBIT_AGENT_CAPABILITY_RUNTIME.md` - read before changing agent
+  capability metadata, Action Broker behavior, Widget Agent Contracts, or
+  Module Control Surface metadata. `ModuleControlSurface` is the generic
+  agent-facing module contract for typed module capabilities and future typed
+  workflows; UI widgets are not executable module APIs, and Codex is a
+  provider/worker implementation rather than the module integration
+  architecture.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source
   provenance, AI-readable context approval, citations, or trust-layer work.
 - `docs/EVENT_AUDIT_ENVELOPE_CONTRACT.md` - read for Event/Audit Envelope v0

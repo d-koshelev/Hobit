@@ -183,6 +183,15 @@ App control must not be implemented as:
 
 `user text -> regex classifier -> product action`
 
+Module functionality exposed to agents must be described through a
+`ModuleControlSurface` before it becomes part of the generic control plane.
+The surface is metadata only: it names the module, typed capabilities, future
+typed workflows, risk and confirmation policy, actor/default context,
+backend-backed versus transitional backing status, and UI dependency policy.
+Widgets are render/control surfaces, not executable module APIs. Queue is the
+first reference module surface; Knowledge, Notes, Terminal, and future modules
+should register later without importing UI components or React state.
+
 Codex and shell remain restricted explicit execution capabilities for
 workspace/code execution requests. They are not used for agent-to-agent runtime
 tests or ordinary in-app agent communication.

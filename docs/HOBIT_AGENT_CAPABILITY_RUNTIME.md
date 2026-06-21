@@ -152,6 +152,29 @@ restricted capabilities for explicit workspace/code execution requests only.
   awaiting text into `queue.items.list`, and does not add natural-language
   routing.
 
+## Module Control Surface
+
+`ModuleControlSurface` is the generic agent-facing module contract for Hobit
+modules. It lives under
+`apps/desktop/frontend/src/workbench/agents/modules/` and describes module id,
+display name, version, backend/API ownership, typed capability ids, workflow
+ids, capability backing status, risk classes, confirmation requirements, actor
+context policy, UI dependency policy, compatibility notes, and contract-test
+requirements.
+
+UI widgets are not executable module APIs. Widgets may render module DTOs and
+collect explicit operator input, but agents must use typed module capability
+metadata plus the Action Broker and module API ports for product actions.
+
+Capabilities are atomic typed operations. Workflows are multi-step typed
+processes and will be registered separately when a workflow request/runner
+contract exists. Queue is the first reference module surface. Its backend-
+backed capabilities are labeled separately from transitional controller-backed
+capabilities. Transitional capabilities must remain labeled and migrate later.
+
+Codex is a provider/worker implementation for explicit Direct Work paths. It
+is not the module integration architecture.
+
 ## Module Ownership
 
 Frontend agent runtime foundation code lives under
@@ -176,6 +199,9 @@ land in the owned module folder that matches its responsibility:
   report summary helpers.
 - `widgets/`: future Widget Agent Contract models. It does not implement widget
   contracts yet.
+- `modules/`: Module Control Surface metadata for agent-facing module
+  contracts. This folder describes typed module capabilities and workflows; it
+  must not import widget components or React state.
 - `adapters/`: typed app-module adapters. The Queue Capability Adapter MVP
   lives here as the first real app-module adapter behind the Action Broker.
   Workspace Agent broker execution is wired for structured Queue action
