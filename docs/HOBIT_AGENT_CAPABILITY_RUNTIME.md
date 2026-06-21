@@ -77,6 +77,14 @@ restricted capabilities for explicit workspace/code execution requests only.
   append intents, notice intents, and log append intents. It does not call
   providers, invoke the broker, choose continuation policy, execute workflows,
   mutate UI state, or touch Queue UI.
+- BrokerContinuationRuntime: pure frontend continuation-chain orchestration for
+  Workspace Agent broker action mode. It consumes protocol and broker results,
+  updates continuation state, and emits typed intents/effects such as broker
+  action invocation, same-thread continuation, protocol repair, stop, and
+  complete. It delegates the current Queue-specific bounded-autonomy policy to
+  the explicit Queue continuation helpers and does not call providers, invoke
+  the broker, call backend/Tauri APIs, execute workflows, format activity, or
+  touch Queue UI.
 - WorkerProvider Runtime: provider-neutral frontend execution seam for
   explicit work items. It is separate from AgentProvider: AgentProvider
   generates structured Workspace Agent turns, while WorkerProvider starts an
@@ -212,12 +220,13 @@ paths; dependency waiting does not start downstream work.
   controller sends one compact same-thread repair prompt. If repair still does
   not produce a valid action request or explicit final answer, the chain stops
   with a visible protocol error and reports that no broker action was executed.
-  `AgentProtocolRuntime` owns this classification boundary; the current React
-  controller still owns broker invocation, continuation turns, visible UI
-  state arrays, and transcript/activity application. `AgentActivityRecorder`
-  owns formatting and append-intent generation only, preserving the current
-  visible labels, summaries, protocol repair copy, workflow recognition copy,
-  and broker-result transcript text.
+  `AgentProtocolRuntime` owns this classification boundary;
+  `BrokerContinuationRuntime` owns continuation decisions/intents; the current
+  React controller still owns provider turn execution, broker invocation,
+  visible UI state arrays, and transcript/activity application.
+  `AgentActivityRecorder` owns formatting and append-intent generation only,
+  preserving the current visible labels, summaries, protocol repair copy,
+  workflow recognition copy, and broker-result transcript text.
   This enforcement does not infer capability ids from prose, does not parse
   awaiting text into `queue.items.list`, and does not add natural-language
   routing.

@@ -11,7 +11,6 @@ import {
 import type { DirectWorkSandbox, DirectWorkStreamEvent } from "../workspace/types";
 import { createWorkspaceAgentPromptWithCapabilityContext } from "./agents/context";
 import {
-  createHobitAgentActionRequestFromEnvelope,
   type HobitAgentActionRequest,
   type HobitAgentActionResult,
 } from "./agents/broker";
@@ -56,29 +55,20 @@ import {
 } from "./workspaceAgentRunMetadata";
 import {
   classifyAgentProtocolRuntimeOutput,
-  formatAgentProtocolRuntimeRepairPrompt,
   createCodexAgentProvider,
   recordAgentActivity,
+  runBrokerContinuationRuntime,
   workspaceAgentHobitActionResultMessage,
   type AgentProvider,
   type AgentProviderEvent,
   type AgentActivityRecorderResult,
-  type AgentProtocolRuntimeResult,
+  type BrokerContinuationRuntimeResult,
+  type BrokerContinuationTurnIntent,
 } from "./agentRuntime";
 import type { WorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
 import {
-  applyWorkspaceAgentQueueAutonomyGrantToActionRequest,
-  createWorkspaceAgentBrokerActionResultContext,
   createWorkspaceAgentBrokerContinuationState,
-  decideWorkspaceAgentBrokerActionContinuation,
-  deriveWorkspaceAgentBrokerContinuationRequestId,
-  evaluateWorkspaceAgentBrokerContinuationAttempt,
-  formatWorkspaceAgentBrokerContinuationPrompt,
-  prepareWorkspaceAgentBrokerContinuationStateForResult,
   readWorkspaceAgentQueueAutonomyGrantFromText,
-  recordWorkspaceAgentBrokerContinuationProtocolRepair,
-  recordWorkspaceAgentBrokerContinuationAttempt,
-  stopReasonLabel,
   WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
   type WorkspaceAgentBrokerPolicyDiagnostics,
   type WorkspaceAgentBrokerContinuationState,
@@ -876,275 +866,248 @@ export function useWorkspaceAgentDirectWorkController({
       text: finalAgentMessage ?? finalResult,
     });
 
-    if (protocolOutcome.kind === "final_answer") {
-      if (activeBrokerContinuationChainIdRef.current) {
-        recordBrokerContinuationStop({
-          message: "Workspace Agent completed the action chain.",
-          runMetadata,
-          severity: "success",
-          status: "completed",
-          stopReason: "final_prose",
-        });
-      }
-      clearBrokerContinuationState();
-      applyAgentActivityRecorderResult(
-        recordAgentActivity({
-          event: {
-            finalAnswer: protocolOutcome.finalAnswer,
-            runId,
-            runMetadata,
-            type: "provider_final_answer",
-          },
-          timestampMs: Date.now(),
-          widgetInstanceId: instanceId,
-          workspaceId: workspaceScopeId,
-        }),
-      );
-      return true;
-    }
-
-    if (
-      protocolOutcome.kind === "protocol_stall" ||
-      protocolOutcome.kind === "no_action_output"
-    ) {
-      return handleWorkspaceAgentActionProtocolStall({
-        outcome: protocolOutcome,
-        runId,
-        runMetadata,
-      });
-    }
-
-    if (protocolOutcome.kind === "workflow_request") {
-      const state = brokerContinuationStateRef.current;
-      applyAgentActivityRecorderResult(
-        recordAgentActivity({
-          event: {
-            runId: state?.chainId ?? runId,
-            runMetadata,
-            type: "workflow_request_recognized",
-            workflowRequestRead: protocolOutcome.workflowRequestRead,
-          },
-          timestampMs: Date.now(),
-          widgetInstanceId: instanceId,
-          workspaceId: workspaceScopeId,
-        }),
-      );
-      clearBrokerContinuationState();
-      return true;
-    }
-
-    if (
-      protocolOutcome.kind === "invalid_workflow_request" ||
-      protocolOutcome.kind === "mixed_action_and_workflow_request"
-    ) {
-      const state = brokerContinuationStateRef.current;
-      const actionIndex = state ? state.actionCount + 1 : 1;
-      setDirectWorkStatus("failed");
-      applyAgentActivityRecorderResult(
-        recordAgentActivity({
-          event: {
-            actionIndex,
-            reasons: protocolOutcome.workflowRequestRead.reasons,
-            runId: state?.chainId ?? runId,
-            runMetadata,
-            type: protocolOutcome.kind,
-          },
-          timestampMs: Date.now(),
-          widgetInstanceId: instanceId,
-          workspaceId: workspaceScopeId,
-        }),
-      );
-      clearBrokerContinuationState();
-      return true;
-    }
-
-    if (protocolOutcome.kind === "invalid_action_request") {
-      const state = brokerContinuationStateRef.current;
-      const actionIndex = state ? state.actionCount + 1 : 1;
-      setDirectWorkStatus("failed");
-      applyAgentActivityRecorderResult(
-        recordAgentActivity({
-          event: {
-            actionIndex,
-            reasons: protocolOutcome.actionRequestRead.reasons,
-            runId: state?.chainId ?? runId,
-            runMetadata,
-            type: "invalid_action_request",
-          },
-          timestampMs: Date.now(),
-          widgetInstanceId: instanceId,
-          workspaceId: workspaceScopeId,
-        }),
-      );
-      clearBrokerContinuationState();
-      return true;
-    }
-
-    const envelopeRead = protocolOutcome.actionRequestRead;
-    const state =
-      brokerContinuationStateRef.current ??
-      createWorkspaceAgentBrokerContinuationState({
-        chainId: `workspace-agent-action-chain-${runId}`,
-      });
-    brokerContinuationStateRef.current = state;
-    const actionIndex = state.actionCount + 1;
-    const baseActionRequest = createHobitAgentActionRequestFromEnvelope({
-      agentId: `workspace-agent:${instanceId}`,
-      createdAt: new Date().toISOString(),
-      derivedRequestId:
-        envelopeRead.requestIdSource === "explicit"
-          ? null
-          : deriveWorkspaceAgentBrokerContinuationRequestId({
-              actionIndex,
-              capabilityId: envelopeRead.envelope.capabilityId,
-              chainId: state.chainId,
-            }),
-      envelope: envelopeRead.envelope,
-    });
-    const autonomyApplied = applyWorkspaceAgentQueueAutonomyGrantToActionRequest(
-      state,
-      baseActionRequest,
-    );
-    const actionRequest = autonomyApplied.request;
-    if (autonomyApplied.confirmationInjected) {
-      appendDirectWorkLog(
-        "Structured Queue autonomy grant supplied exact confirmation for the typed nextAction.",
-        "local",
-      );
-    }
-    const attempt = evaluateWorkspaceAgentBrokerContinuationAttempt(
-      state,
-      actionRequest,
-    );
-    if (!attempt.ok) {
-      const message = `Broker action continuation stopped. ${stopReasonLabel(
-        attempt.stopReason,
-      )}.`;
-      recordHobitActionResultTranscript({
-        activityRunId: state.chainId,
-        actionIndex: attempt.actionIndex,
-        capabilityId: actionRequest.capabilityId,
-        message,
-        runMetadata,
-        severity: "warning",
-        status: "failed",
-        stopReason: attempt.stopReason,
-        title: "Broker action continuation stopped",
-      });
-      clearBrokerContinuationState();
-      return true;
-    }
-
-    const nextState = recordWorkspaceAgentBrokerContinuationAttempt(
-      state,
-      actionRequest,
-      attempt.fingerprint,
-    );
-    brokerContinuationStateRef.current = nextState;
-    applyAgentActivityRecorderResult(
-      recordAgentActivity({
-        event: {
-          actionIndex: attempt.actionIndex,
-          capabilityId: actionRequest.capabilityId,
-          maxActions: nextState.maxActions,
-          runId: nextState.chainId,
-          type: "broker_action_requested",
-        },
-        timestampMs: Date.now(),
-        widgetInstanceId: instanceId,
-        workspaceId: workspaceScopeId,
-      }),
-    );
-
-    if (!onInvokeHobitAgentActionRequest) {
-      recordHobitActionResultTranscript({
-        activityRunId: nextState.chainId,
-        actionIndex: attempt.actionIndex,
-        capabilityId: actionRequest.capabilityId,
-        message:
-          "Action unavailable. Workspace Agent Action Broker is unavailable.",
-        runMetadata,
-        severity: "warning",
-        status: "failed",
-        stopReason: "broker_unavailable",
-        title: "Action unavailable",
-      });
-      clearBrokerContinuationState();
-      return true;
-    }
-
-    void invokeWorkspaceAgentHobitActionRequest({
-      actionIndex: attempt.actionIndex,
-      confirmationInjected: autonomyApplied.confirmationInjected,
-      request: actionRequest,
+    return applyBrokerContinuationRuntimeResult({
+      runId,
       runMetadata,
+      runtimeResult: runBrokerContinuationRuntime({
+        activeChainId: activeBrokerContinuationChainIdRef.current,
+        agentId: `workspace-agent:${instanceId}`,
+        continuationThreadId: brokerContinuationThreadId(runMetadata),
+        createdAt: new Date().toISOString(),
+        derivedChainId: `workspace-agent-action-chain-${runId}`,
+        kind: "provider_protocol_result",
+        protocolOutcome,
+        state: brokerContinuationStateRef.current,
+      }),
     });
-    return true;
   }
 
-  function handleWorkspaceAgentActionProtocolStall({
-    outcome,
+  function applyBrokerContinuationRuntimeResult({
     runId,
     runMetadata,
+    runtimeResult,
   }: {
-    outcome: Extract<
-      AgentProtocolRuntimeResult,
-      { kind: "no_action_output" | "protocol_stall" }
-    >;
     runId: string;
     runMetadata: WorkspaceAgentRunMetadata;
+    runtimeResult: BrokerContinuationRuntimeResult;
   }) {
-    const state = brokerContinuationStateRef.current;
-    if (!state) {
+    if (!runtimeResult.handled) {
       return false;
     }
 
-    const continuationThreadId = brokerContinuationThreadId(runMetadata);
-    if (!state.protocolRepairAttempted && continuationThreadId) {
-      const repairState =
-        recordWorkspaceAgentBrokerContinuationProtocolRepair(state);
-      brokerContinuationStateRef.current = repairState;
-      applyAgentActivityRecorderResult(
-        recordAgentActivity({
-          event: {
-            outcome,
-            runId: repairState.chainId,
+    for (const effect of runtimeResult.effects) {
+      if (effect.type === "complete") {
+        if (
+          effect.completionKind === "final_answer" &&
+          effect.stopReason &&
+          effect.chainId
+        ) {
+          recordBrokerContinuationStop({
+            chainId: effect.chainId,
+            message: "Workspace Agent completed the action chain.",
             runMetadata,
-            type: "protocol_repair_required",
-          },
-          timestampMs: Date.now(),
-          widgetInstanceId: instanceId,
-          workspaceId: workspaceScopeId,
-        }),
-      );
-      void startBrokerProtocolRepairTurn({
-        resumeThreadId: continuationThreadId,
-        state: repairState,
-      });
-      return true;
+            severity: "success",
+            status: "completed",
+            stopReason: effect.stopReason,
+          });
+        }
+
+        if (effect.completionKind === "final_answer") {
+          applyAgentActivityRecorderResult(
+            recordAgentActivity({
+              event: {
+                finalAnswer: effect.finalAnswer,
+                runId,
+                runMetadata,
+                type: "provider_final_answer",
+              },
+              timestampMs: Date.now(),
+              widgetInstanceId: instanceId,
+              workspaceId: workspaceScopeId,
+            }),
+          );
+        } else {
+          applyAgentActivityRecorderResult(
+            recordAgentActivity({
+              event: {
+                runId: effect.chainId ?? runId,
+                runMetadata,
+                type: "workflow_request_recognized",
+                workflowRequestRead:
+                  effect.protocolOutcome.workflowRequestRead,
+              },
+              timestampMs: Date.now(),
+              widgetInstanceId: instanceId,
+              workspaceId: workspaceScopeId,
+            }),
+          );
+        }
+        continue;
+      }
+
+      if (effect.type === "queue_structured_confirmation_injected") {
+        appendDirectWorkLog(effect.message, "local");
+        continue;
+      }
+
+      if (effect.type === "record_broker_action_result") {
+        recordHobitActionResultTranscript({
+          activityRunId: effect.activityRunId,
+          actionIndex: effect.actionIndex,
+          capabilityId: effect.capabilityId,
+          message: effect.message,
+          policyDiagnostics: effect.policyDiagnostics,
+          result: effect.result,
+          runMetadata,
+          stopReason: effect.stopReason,
+        });
+        continue;
+      }
+
+      if (effect.type === "invoke_next_action") {
+        brokerContinuationStateRef.current = effect.state;
+        applyAgentActivityRecorderResult(
+          recordAgentActivity({
+            event: {
+              actionIndex: effect.intent.actionIndex,
+              capabilityId: effect.intent.request.capabilityId,
+              maxActions: effect.state.maxActions,
+              runId: effect.state.chainId,
+              type: "broker_action_requested",
+            },
+            timestampMs: Date.now(),
+            widgetInstanceId: instanceId,
+            workspaceId: workspaceScopeId,
+          }),
+        );
+
+        if (!onInvokeHobitAgentActionRequest) {
+          recordHobitActionResultTranscript({
+            activityRunId: effect.state.chainId,
+            actionIndex: effect.intent.actionIndex,
+            capabilityId: effect.intent.request.capabilityId,
+            message:
+              "Action unavailable. Workspace Agent Action Broker is unavailable.",
+            runMetadata,
+            severity: "warning",
+            status: "failed",
+            stopReason: "broker_unavailable",
+            title: "Action unavailable",
+          });
+          clearBrokerContinuationState();
+          continue;
+        }
+
+        void invokeWorkspaceAgentHobitActionRequest({
+          actionIndex: effect.intent.actionIndex,
+          confirmationInjected: effect.intent.confirmationInjected,
+          request: effect.intent.request,
+          runMetadata,
+        });
+        continue;
+      }
+
+      if (effect.type === "request_repair_turn") {
+        brokerContinuationStateRef.current = effect.state;
+        applyAgentActivityRecorderResult(
+          recordAgentActivity({
+            event: {
+              outcome: effect.outcome,
+              runId: effect.state.chainId,
+              runMetadata,
+              type: "protocol_repair_required",
+            },
+            timestampMs: Date.now(),
+            widgetInstanceId: instanceId,
+            workspaceId: workspaceScopeId,
+          }),
+        );
+        void startBrokerProtocolRepairTurn(effect.intent);
+        continue;
+      }
+
+      if (effect.type === "request_continuation_turn") {
+        brokerContinuationStateRef.current = effect.state;
+        void startBrokerContinuationTurn(effect.intent);
+        continue;
+      }
+
+      if (effect.type === "stop") {
+        setDirectWorkStatus("failed");
+        if (effect.protocolOutcome?.kind === "invalid_action_request") {
+          applyAgentActivityRecorderResult(
+            recordAgentActivity({
+              event: {
+                actionIndex: effect.actionIndex,
+                reasons: effect.protocolOutcome.actionRequestRead.reasons,
+                runId: effect.chainId,
+                runMetadata,
+                type: "invalid_action_request",
+              },
+              timestampMs: Date.now(),
+              widgetInstanceId: instanceId,
+              workspaceId: workspaceScopeId,
+            }),
+          );
+        } else if (
+          effect.protocolOutcome?.kind === "invalid_workflow_request" ||
+          effect.protocolOutcome?.kind === "mixed_action_and_workflow_request"
+        ) {
+          applyAgentActivityRecorderResult(
+            recordAgentActivity({
+              event: {
+                actionIndex: effect.actionIndex,
+                reasons: effect.protocolOutcome.workflowRequestRead.reasons,
+                runId: effect.chainId,
+                runMetadata,
+                type: effect.protocolOutcome.kind,
+              },
+              timestampMs: Date.now(),
+              widgetInstanceId: instanceId,
+              workspaceId: workspaceScopeId,
+            }),
+          );
+        } else if (
+          effect.protocolOutcome?.kind === "protocol_stall" ||
+          effect.protocolOutcome?.kind === "no_action_output"
+        ) {
+          applyAgentActivityRecorderResult(
+            recordAgentActivity({
+              event: {
+                outcome: effect.protocolOutcome,
+                runId: effect.chainId,
+                runMetadata,
+                type: "protocol_error",
+              },
+              timestampMs: Date.now(),
+              widgetInstanceId: instanceId,
+              workspaceId: workspaceScopeId,
+            }),
+          );
+        } else if (effect.message) {
+          recordHobitActionResultTranscript({
+            activityRunId: effect.chainId,
+            actionIndex: effect.actionIndex,
+            capabilityId: effect.capabilityId,
+            message: effect.message,
+            runMetadata,
+            severity: "warning",
+            status: "failed",
+            stopReason: effect.stopReason,
+            title: effect.title,
+          });
+        }
+
+        if (effect.logMessage) {
+          appendDirectWorkLog(effect.logMessage, "local");
+        }
+      }
     }
 
-    setDirectWorkStatus("failed");
-    applyAgentActivityRecorderResult(
-      recordAgentActivity({
-        event: {
-          outcome,
-          runId: state.chainId,
-          runMetadata,
-          type: "protocol_error",
-        },
-        timestampMs: Date.now(),
-        widgetInstanceId: instanceId,
-        workspaceId: workspaceScopeId,
-      }),
-    );
-    clearBrokerContinuationState();
-    appendDirectWorkLog(
-      continuationThreadId
-        ? "Protocol repair was already attempted once."
-        : "Protocol repair unavailable because the Codex thread id is unavailable.",
-      "local",
-    );
+    if (runtimeResult.nextState === null) {
+      clearBrokerContinuationState();
+    }
+
     return true;
   }
 
@@ -1168,68 +1131,19 @@ export function useWorkspaceAgentDirectWorkController({
       const message = workspaceAgentHobitActionResultMessage(
         brokerResult.result,
       );
-      const state = brokerContinuationStateRef.current;
-      const continuationDecision = state
-        ? decideWorkspaceAgentBrokerActionContinuation({
-            capability: brokerResult.policyDecision.capability,
-            confirmationInjected,
-            request,
-            result: brokerResult.result,
-            state,
-          })
-        : {
-            shouldContinue: false as const,
-            diagnostics: null,
-            stopReason: "thread_unavailable" as const,
-          };
-      const continuationThreadId =
-        continuationDecision.shouldContinue && state
-          ? brokerContinuationThreadId(runMetadata)
-          : null;
-      const stopReason = continuationDecision.shouldContinue
-        ? continuationThreadId
-          ? undefined
-          : "thread_unavailable"
-        : continuationDecision.stopReason;
-      recordHobitActionResultTranscript({
-        activityRunId: state?.chainId ?? request.requestId,
-        actionIndex,
-        capabilityId: request.capabilityId,
-        message,
-        policyDiagnostics: continuationDecision.diagnostics ?? undefined,
-        result: brokerResult.result,
+      applyBrokerContinuationRuntimeResult({
+        runId: request.requestId,
         runMetadata,
-        stopReason,
-      });
-      if (!state) {
-        clearBrokerContinuationState();
-        return;
-      }
-
-      const resultContext = createWorkspaceAgentBrokerActionResultContext({
-        policyDiagnostics: continuationDecision.diagnostics ?? undefined,
-        request,
-        result: brokerResult.result,
-        stopReason,
-        summary: message,
-      });
-      if (!continuationDecision.shouldContinue || !continuationThreadId) {
-        clearBrokerContinuationState();
-        return;
-      }
-
-      const continuationState =
-        prepareWorkspaceAgentBrokerContinuationStateForResult({
-          result: brokerResult.result,
-          state,
-        });
-      brokerContinuationStateRef.current = continuationState;
-      await startBrokerContinuationTurn({
-        actionIndex,
-        resumeThreadId: continuationThreadId,
-        resultContext,
-        runMetadata,
-        state: continuationState,
+        runtimeResult: runBrokerContinuationRuntime({
+          actionIndex,
+          brokerResult,
+          confirmationInjected,
+          continuationThreadId: brokerContinuationThreadId(runMetadata),
+          kind: "broker_action_result",
+          message,
+          request,
+          state: brokerContinuationStateRef.current,
+        }),
       });
     } catch (error) {
       if (!isMountedRef.current) {
@@ -1253,51 +1167,27 @@ export function useWorkspaceAgentDirectWorkController({
     }
   }
 
-  async function startBrokerContinuationTurn({
-    actionIndex,
-    resumeThreadId,
-    resultContext,
-    runMetadata,
-    state,
-  }: {
-    actionIndex: number;
-    resumeThreadId: string;
-    resultContext: ReturnType<
-      typeof createWorkspaceAgentBrokerActionResultContext
-    >;
-    runMetadata: WorkspaceAgentRunMetadata;
-    state: WorkspaceAgentBrokerContinuationState;
-  }) {
+  async function startBrokerContinuationTurn(intent: BrokerContinuationTurnIntent) {
     await startDirectWorkTurn({
       appendOperatorTranscript: false,
       attachCapabilityContext: false,
-      brokerContinuationChainId: state.chainId,
+      brokerContinuationChainId: intent.chainId,
       clearDraftAndVisibleContext: false,
-      operatorPrompt: formatWorkspaceAgentBrokerContinuationPrompt({
-        actionIndex,
-        context: resultContext,
-        maxActions: state.maxActions,
-      }),
+      operatorPrompt: intent.prompt,
       repoRoot: directWorkDirectory.trim(),
-      resumeThreadIdOverride: resumeThreadId,
+      resumeThreadIdOverride: intent.resumeThreadId,
     });
   }
 
-  async function startBrokerProtocolRepairTurn({
-    resumeThreadId,
-    state,
-  }: {
-    resumeThreadId: string;
-    state: WorkspaceAgentBrokerContinuationState;
-  }) {
+  async function startBrokerProtocolRepairTurn(intent: BrokerContinuationTurnIntent) {
     await startDirectWorkTurn({
       appendOperatorTranscript: false,
       attachCapabilityContext: false,
-      brokerContinuationChainId: state.chainId,
+      brokerContinuationChainId: intent.chainId,
       clearDraftAndVisibleContext: false,
-      operatorPrompt: formatAgentProtocolRuntimeRepairPrompt(),
+      operatorPrompt: intent.prompt,
       repoRoot: directWorkDirectory.trim(),
-      resumeThreadIdOverride: resumeThreadId,
+      resumeThreadIdOverride: intent.resumeThreadId,
     });
   }
 
@@ -1392,12 +1282,14 @@ export function useWorkspaceAgentDirectWorkController({
   }
 
   function recordBrokerContinuationStop({
+    chainId,
     message,
     runMetadata,
     severity,
     status,
     stopReason,
   }: {
+    chainId?: string;
     message: string;
     runMetadata: WorkspaceAgentRunMetadata;
     severity: AgentActivityRecorderResult["activityAppends"][number]["severity"];
@@ -1405,7 +1297,8 @@ export function useWorkspaceAgentDirectWorkController({
     stopReason: WorkspaceAgentBrokerContinuationStopReason;
   }) {
     const state = brokerContinuationStateRef.current;
-    if (!state) {
+    const runId = chainId ?? state?.chainId ?? null;
+    if (!runId) {
       return;
     }
 
@@ -1413,7 +1306,7 @@ export function useWorkspaceAgentDirectWorkController({
       recordAgentActivity({
         event: {
           message,
-          runId: state.chainId,
+          runId,
           runMetadata,
           severity,
           status,

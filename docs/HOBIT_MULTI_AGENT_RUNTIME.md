@@ -240,8 +240,14 @@ Workspace Agent activity recording now has a pure `AgentActivityRecorder`
 facade for formatting and append-intent generation. It converts
 already-decided provider, protocol, broker, continuation, and workflow
 recognition events into activity, transcript, notice, and log intents. The
-React controller still owns visible UI state and execution flow. Broker
-invocation, continuation policy, protocol classification, and workflow
+pure `BrokerContinuationRuntime` now owns continuation-chain state transitions
+and typed effects/intents after protocol or broker results. It reuses the
+explicit Queue-specific bounded-autonomy continuation helpers as transitional
+Queue policy and does not execute providers, invoke the broker, call backend
+APIs, format activity, or run workflows. The React controller still owns
+visible UI state, provider turn execution, broker invocation, and applying
+activity/transcript intents. Broker invocation behavior, provider behavior,
+protocol classification, activity formatting, Queue behavior, and workflow
 execution behavior are unchanged.
 
 WorkerProvider is now a separate provider-neutral seam for explicit work-item

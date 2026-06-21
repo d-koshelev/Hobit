@@ -159,9 +159,14 @@ pure AgentActivityRecorder. It returns append intents for provider final
 answers, provider terminal/error rows, invalid action/workflow requests, mixed
 action/workflow rejection, broker action results, continuation stops, protocol
 repair notices, and workflow-not-declared messages. The React controller still
-owns UI state and applies those intents. Broker invocation, continuation
-policy, protocol classification, Queue behavior, workflow execution, and
-backend lifecycle semantics are unchanged.
+owns UI state and applies those intents. Broker continuation orchestration now
+goes through a pure BrokerContinuationRuntime that returns typed intents for
+broker invocation, continuation turns, protocol repair, stop, and completion.
+The runtime reuses the existing explicitly Queue-specific bounded-autonomy
+helpers; Queue policy remains transitional and Queue-specific until a real
+Queue workflow runner exists. Broker invocation, provider behavior,
+continuation policy behavior, protocol classification, Queue behavior,
+workflow execution, and backend lifecycle semantics are unchanged.
 
 WorkerProvider is now a separate provider-neutral frontend seam for explicit
 work-item execution and normalized worker evidence/result events. The MVP

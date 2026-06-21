@@ -80,6 +80,15 @@ export type {
   AgentProtocolRuntimeResult,
   AgentProtocolValidationError,
 } from "./agentProtocolRuntime";
+export { runBrokerContinuationRuntime } from "./brokerContinuationRuntime";
+export type {
+  BrokerActionInvocationIntent,
+  BrokerContinuationRuntimeEffect,
+  BrokerContinuationRuntimeInput,
+  BrokerContinuationRuntimeResult,
+  BrokerContinuationStopReason,
+  BrokerContinuationTurnIntent,
+} from "./brokerContinuationRuntime";
 export {
   activitySeverityForHobitActionResult,
   activityStatusForHobitActionResult,
