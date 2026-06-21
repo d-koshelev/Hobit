@@ -889,10 +889,10 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(runTerminal).not.toHaveBeenCalled();
     expect(createGitCommit).not.toHaveBeenCalled();
     expect(lastAssistantMessageText()).toContain(
-      "Workflow request recognized, but workflow is not declared/implemented yet.",
+      "Workflow request recognized, but workflow execution is not implemented yet.",
     );
     expect(lastAssistantMessageText()).toContain(
-      "queue does not declare workflows yet.",
+      "dependency_acceptance_smoke is declared by queue but is metadata_only.",
     );
     expect(lastAssistantMessageText()).not.toContain("Queue items listed");
     expect(lastAssistantMessageText()).not.toContain("Hobit action requested");

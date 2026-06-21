@@ -77,7 +77,11 @@ describe("AgentProtocolRuntime", () => {
       workflowRequestRead: {
         status: "valid",
         validation: {
-          reasonCode: "workflow_not_declared",
+          reasonCode: "workflow_unavailable",
+          workflowMetadata: {
+            backingStatus: "metadata_only",
+            workflowId: "dependency_acceptance_smoke",
+          },
         },
       },
     });

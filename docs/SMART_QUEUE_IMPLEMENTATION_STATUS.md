@@ -138,13 +138,18 @@ and does not execute workflows or broker actions. `grant` is now enforced as
 permission/scope metadata only; `inputs` is the only workflow data location.
 Product data such as runSettings, tasks, prompts, dependencies, run
 configuration, and direct ids is rejected inside `grant`, while the same data
-under `inputs` remains opaque to generic validation. For Queue, current
-workflow metadata remains empty, so a request such as
-`dependency_acceptance_smoke` is recognized but reported as not
-declared/implemented. This block does not add `hobit.queue.workflowRequest`,
-Queue workflow input validation, a workflow runner, scheduler behavior, worker
-auto-start, or Queue runtime changes. Prose is never executable workflow input,
-permission, confirmation, or id source.
+under `inputs` remains opaque to generic validation. For Queue, the initial
+workflow ids `dependency_acceptance_smoke`, `dependency_failure_smoke`,
+`review_acceptance`, and `terminal_failure` are now declared in
+`ModuleControlSurface` metadata as `metadata_only`. A request such as
+`dependency_acceptance_smoke` is recognized as declared but returns a
+workflow-unavailable/not-executable validation result with compact required
+capability, risk-class, grant-mode, input-section, safety, pause/resume, and
+backend-ownership metadata. Unknown Queue workflow ids still report not
+declared. This block does not add `hobit.queue.workflowRequest`, Queue
+workflow input validation, a workflow runner, scheduler behavior, worker
+auto-start, Queue mutation, or Queue runtime changes. Prose is never
+executable workflow input, permission, confirmation, or id source.
 
 Workspace Agent direct turns now go through a provider-neutral AgentProvider
 seam. Codex Direct Work remains the default implementation through a
@@ -1061,8 +1066,7 @@ The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend Smart Queue persistence;
-- Queue-specific workflow metadata, workflow input validation, or workflow
-  runner execution;
+- Queue-specific workflow input validation or workflow runner execution;
 - durable Queue lifecycle transition commands beyond the current aggregate DTO
   and worker-evidence/review create/ACK commands;
 - backend scheduler/runner ownership;

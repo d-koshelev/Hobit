@@ -99,9 +99,14 @@ The Queue `ModuleControlSurface` adapts this capability metadata from the
 Queue capability contract inventory for generic module tooling. That adapter
 preserves backing status, risk class, confirmation metadata, required id
 fields, and trusted actor context only; it does not execute capabilities,
-authorize workflows, or change continuation policy. Queue workflow metadata
-remains empty/future until typed Queue workflow metadata, input validation, and
-runner contracts are implemented.
+authorize workflows, or change continuation policy. Queue workflow metadata now
+declares `dependency_acceptance_smoke`, `dependency_failure_smoke`,
+`review_acceptance`, and `terminal_failure` as `metadata_only`. The metadata
+records display summary, supported phases, required Queue capabilities,
+required risk classes, required grant modes, required input-section summaries,
+safety constraints, pause reasons, planned resume support, backend ownership
+notes, transitional limitations, and implementation status. This metadata does
+not validate Queue-specific inputs and does not execute workflows.
 
 The generic workflow request envelope now exists as
 `hobit.workflow.request`. It is module-neutral and contains `requestId`,
@@ -110,8 +115,9 @@ opaque object `inputs`, and optional compact `metadata`. Workspace Agent
 protocol classification through `AgentProtocolRuntime` can validate this
 envelope against
 `ModuleControlSurfaceRegistry`, including reporting that Queue workflows are
-not declared/implemented yet. Generic validation enforces that `grant`
-authorizes only permission/scope and `inputs` is the only workflow data
+declared but metadata-only/not executable. Unknown Queue workflow ids still
+return not-declared/unknown workflow status. Generic validation enforces that
+`grant` authorizes only permission/scope and `inputs` is the only workflow data
 location. Product data such as runSettings, tasks, prompts, dependencies,
 run-configuration fields, and direct task/run/message/evidence/executor ids is
 rejected inside `grant` with field paths and stable reason codes. Scope ids
@@ -410,7 +416,6 @@ This contract does not implement:
 - rollback execution;
 - Terminal launch;
 - broad worker automation;
-- Queue-specific workflow metadata/input validation or workflow runner
-  execution;
+- Queue-specific workflow input validation or workflow runner execution;
 - UI redesign;
 - additional Queue widget/view surfaces.

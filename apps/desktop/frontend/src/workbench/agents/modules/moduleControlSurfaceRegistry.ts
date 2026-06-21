@@ -21,7 +21,10 @@ export type ModuleControlSurfaceValidationIssueCode =
   | "capability_reference_missing_id"
   | "duplicate_capability_id"
   | "duplicate_module_id"
-  | "workflow_id_missing_declaration";
+  | "duplicate_workflow_id"
+  | "workflow_declaration_missing_id"
+  | "workflow_id_missing_declaration"
+  | "workflow_required_capability_missing_module_reference";
 
 export type ModuleControlSurfaceValidationIssue = {
   capabilityId?: HobitAgentCapabilityId;
@@ -77,6 +80,8 @@ export type ModuleControlSurfaceWorkflowResolution =
       ok: false;
       reasonCode: ModuleControlSurfaceWorkflowResolutionIssueCode;
       reasons: string[];
+      surface?: ModuleControlSurface;
+      workflow?: ModuleWorkflowReference;
       workflowId: string;
     };
 
@@ -218,14 +223,16 @@ export function resolveModuleControlSurfaceWorkflow({
     };
   }
 
-  if (workflow.backingStatus !== "implemented") {
+  if (workflow.backingStatus !== "runtime_available") {
     return {
       moduleId,
       ok: false,
       reasonCode: "workflow_unavailable",
       reasons: [
-        `${workflowId} is declared by ${moduleId} but is ${workflow.backingStatus}.`,
+        `${workflowId} is declared by ${moduleId} but is ${workflow.backingStatus}. ${workflow.implementationStatus}`,
       ],
+      surface,
+      workflow,
       workflowId,
     };
   }
@@ -316,6 +323,16 @@ function validateSingleModuleControlSurface({
     issues,
     moduleId: surface.moduleId,
   });
+  validateDuplicateWorkflowIds({
+    ids: surface.workflowIds,
+    issues,
+    moduleId: surface.moduleId,
+  });
+  validateDuplicateWorkflowIds({
+    ids: surface.workflows.map((workflow) => workflow.workflowId),
+    issues,
+    moduleId: surface.moduleId,
+  });
 
   for (const capabilityId of categorizedCapabilityIds(surface)) {
     if (!declaredCapabilityIds.has(capabilityId)) {
@@ -381,6 +398,7 @@ function validateSingleModuleControlSurface({
   const declaredWorkflowIds = new Set(
     surface.workflows.map((workflow) => workflow.workflowId),
   );
+  const listedWorkflowIds = new Set(surface.workflowIds);
   for (const workflowId of surface.workflowIds) {
     if (!declaredWorkflowIds.has(workflowId)) {
       issues.push({
@@ -389,6 +407,27 @@ function validateSingleModuleControlSurface({
         moduleId: surface.moduleId,
         workflowId,
       });
+    }
+  }
+  for (const workflow of surface.workflows) {
+    if (!listedWorkflowIds.has(workflow.workflowId)) {
+      issues.push({
+        code: "workflow_declaration_missing_id",
+        message: `${workflow.workflowId} is declared by ${surface.moduleId} but is missing from workflowIds.`,
+        moduleId: surface.moduleId,
+        workflowId: workflow.workflowId,
+      });
+    }
+    for (const capabilityId of workflow.requiredCapabilityIds) {
+      if (!declaredCapabilityIds.has(capabilityId)) {
+        issues.push({
+          capabilityId,
+          code: "workflow_required_capability_missing_module_reference",
+          message: `${workflow.workflowId} requires ${capabilityId}, but ${capabilityId} is not listed by module control surface ${surface.moduleId}.`,
+          moduleId: surface.moduleId,
+          workflowId: workflow.workflowId,
+        });
+      }
     }
   }
 }
@@ -416,6 +455,32 @@ function validateDuplicateIds({
       reported.add(capabilityId);
     }
     seen.add(capabilityId);
+  }
+}
+
+function validateDuplicateWorkflowIds({
+  ids,
+  issues,
+  moduleId,
+}: {
+  ids: readonly string[];
+  issues: ModuleControlSurfaceValidationIssue[];
+  moduleId: HobitModuleId;
+}) {
+  const seen = new Set<string>();
+  const reported = new Set<string>();
+
+  for (const workflowId of ids) {
+    if (seen.has(workflowId) && !reported.has(workflowId)) {
+      issues.push({
+        code: "duplicate_workflow_id",
+        message: `${workflowId} is listed more than once by ${moduleId}.`,
+        moduleId,
+        workflowId,
+      });
+      reported.add(workflowId);
+    }
+    seen.add(workflowId);
   }
 }
 

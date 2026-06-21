@@ -27,6 +27,8 @@ import {
   QUEUE_MODULE_CONFIRMATION_REQUIREMENTS,
   QUEUE_MODULE_CONTROL_SURFACE,
   QUEUE_MODULE_RISK_CLASSES,
+  QUEUE_MODULE_WORKFLOW_IDS,
+  QUEUE_MODULE_WORKFLOWS,
   QUEUE_TRANSITIONAL_MODULE_CAPABILITY_IDS,
   queueCapabilityContractToModuleCapabilityMetadata,
   validateModuleControlSurfaces,
@@ -52,6 +54,13 @@ const EXPECTED_TRANSITIONAL_QUEUE_CAPABILITIES = [
   "queue.item.block",
   "queue.coordinator.addFollowUpPrompt",
   "queue.coordinator.approveValidation",
+] as const;
+
+const EXPECTED_QUEUE_WORKFLOW_IDS = [
+  "dependency_acceptance_smoke",
+  "dependency_failure_smoke",
+  "review_acceptance",
+  "terminal_failure",
 ] as const;
 
 describe("ModuleControlSurface", () => {
@@ -116,7 +125,10 @@ describe("ModuleControlSurface", () => {
     );
     expect(listModuleCapabilityIds()).toContain("queue.items.list");
     expect(listModuleCapabilityIds()).toContain("queue.review.getEvidenceBundle");
-    expect(listModuleWorkflowIds()).toEqual([]);
+    expect(listModuleWorkflowIds()).toEqual(
+      QUEUE_MODULE_CONTROL_SURFACE.workflowIds,
+    );
+    expect(listModuleWorkflowIds()).toEqual([...EXPECTED_QUEUE_WORKFLOW_IDS]);
   });
 
   it("describes Queue as the first agent-facing module control surface", () => {
@@ -306,11 +318,36 @@ describe("ModuleControlSurface", () => {
     expect(QUEUE_MODULE_CONTROL_SURFACE.unavailableCapabilityIds).toEqual([]);
   });
 
-  it("allows Queue workflow metadata to be empty until a typed workflow runner exists", () => {
-    expect(QUEUE_MODULE_CONTROL_SURFACE.workflowIds).toEqual([]);
-    expect(QUEUE_MODULE_CONTROL_SURFACE.workflows).toEqual([]);
+  it("declares metadata-only Queue workflows without making them executable", () => {
+    expect(QUEUE_MODULE_CONTROL_SURFACE.workflowIds).toBe(
+      QUEUE_MODULE_WORKFLOW_IDS,
+    );
+    expect(QUEUE_MODULE_CONTROL_SURFACE.workflows).toBe(
+      QUEUE_MODULE_WORKFLOWS,
+    );
+    expect(QUEUE_MODULE_CONTROL_SURFACE.workflowIds).toEqual([
+      ...EXPECTED_QUEUE_WORKFLOW_IDS,
+    ]);
+    expect(
+      QUEUE_MODULE_CONTROL_SURFACE.workflows.map(
+        (workflow) => workflow.workflowId,
+      ),
+    ).toEqual([...EXPECTED_QUEUE_WORKFLOW_IDS]);
+    expect(new Set(QUEUE_MODULE_CONTROL_SURFACE.workflowIds).size).toBe(
+      QUEUE_MODULE_CONTROL_SURFACE.workflowIds.length,
+    );
+    expect(
+      QUEUE_MODULE_CONTROL_SURFACE.workflows.every(
+        (workflow) => workflow.backingStatus === "metadata_only",
+      ),
+    ).toBe(true);
+    expect(
+      QUEUE_MODULE_CONTROL_SURFACE.workflows.some(
+        (workflow) => workflow.backingStatus === "runtime_available",
+      ),
+    ).toBe(false);
     expect(QUEUE_MODULE_CONTROL_SURFACE.compatibilityNotes.join(" ")).toContain(
-      "Queue workflow metadata is intentionally empty",
+      "Queue workflow metadata is declared for generic control-plane discovery only",
     );
     expect(
       resolveModuleControlSurfaceWorkflow({
@@ -320,7 +357,11 @@ describe("ModuleControlSurface", () => {
     ).toMatchObject({
       moduleId: "queue",
       ok: false,
-      reasonCode: "workflow_not_declared",
+      reasonCode: "workflow_unavailable",
+      workflow: {
+        backingStatus: "metadata_only",
+        workflowId: "dependency_acceptance_smoke",
+      },
       workflowId: "dependency_acceptance_smoke",
     });
     expect(
@@ -331,6 +372,89 @@ describe("ModuleControlSurface", () => {
     ).toMatchObject({
       ok: false,
       reasonCode: "unknown_module",
+    });
+  });
+
+  it("represents Queue workflow required capabilities, risk classes, grants, and safety constraints", () => {
+    const capabilityIds = new Set(QUEUE_MODULE_CONTROL_SURFACE.capabilityIds);
+    const riskClasses = new Set(QUEUE_MODULE_CONTROL_SURFACE.riskClasses);
+
+    for (const workflow of QUEUE_MODULE_CONTROL_SURFACE.workflows) {
+      expect(workflow.displayName.length, workflow.workflowId).toBeGreaterThan(0);
+      expect(workflow.summary.length, workflow.workflowId).toBeGreaterThan(0);
+      expect(workflow.implementationStatus, workflow.workflowId).toContain(
+        "metadata",
+      );
+      expect(workflow.uiDependencyPolicy, workflow.workflowId).toBe("none");
+      expect(workflow.resumeSupport.status, workflow.workflowId).toBe("planned");
+      expect(workflow.requiredCapabilityIds.length, workflow.workflowId).toBeGreaterThan(0);
+      expect(workflow.requiredRiskClasses.length, workflow.workflowId).toBeGreaterThan(0);
+      expect(workflow.requiredGrantModes.length, workflow.workflowId).toBeGreaterThan(0);
+      expect(workflow.requiredInputSections.length, workflow.workflowId).toBeGreaterThan(0);
+      expect(workflow.supportedPhases.length, workflow.workflowId).toBeGreaterThan(0);
+      expect(workflow.safetyConstraints, workflow.workflowId).toEqual(
+        expect.arrayContaining([
+          "noGit",
+          "noValidationExecution",
+          "noRollback",
+          "noTerminal",
+          "noDelete",
+          "noDownstreamAutoStart",
+        ]),
+      );
+      expect(workflow.pauseReasons, workflow.workflowId).toContain(
+        "workflowRunnerNotImplemented",
+      );
+      expect(workflow.backendOwnership.join(" "), workflow.workflowId).toContain(
+        "backend/domain/storage",
+      );
+      expect(
+        workflow.transitionalLimitations.join(" "),
+        workflow.workflowId,
+      ).toContain("No worker");
+
+      for (const capabilityId of workflow.requiredCapabilityIds) {
+        expect(capabilityIds.has(capabilityId), `${workflow.workflowId}:${capabilityId}`).toBe(true);
+      }
+      for (const riskClass of workflow.requiredRiskClasses) {
+        expect(riskClasses.has(riskClass), `${workflow.workflowId}:${riskClass}`).toBe(true);
+      }
+    }
+
+    expect(requiredModuleWorkflow("dependency_acceptance_smoke")).toMatchObject({
+      requiredCapabilityIds: expect.arrayContaining([
+        "queue.lifecycle.agentFinished",
+        "queue.review.getEvidenceBundle",
+        "queue.review.createMessage",
+        "queue.review.ack",
+        "queue.item.markDone",
+      ]),
+      requiredGrantModes: expect.arrayContaining([
+        "queue_acceptance_smoke",
+        "queue_operator_flow",
+      ]),
+      requiredRiskClasses: expect.arrayContaining(["final_accept"]),
+    });
+    expect(requiredModuleWorkflow("dependency_failure_smoke")).toMatchObject({
+      requiredCapabilityIds: expect.arrayContaining(["queue.item.fail"]),
+      requiredGrantModes: expect.arrayContaining([
+        "queue_failure_smoke",
+        "queue_operator_flow",
+      ]),
+      requiredRiskClasses: expect.arrayContaining(["terminal_fail"]),
+    });
+    expect(requiredModuleWorkflow("review_acceptance")).toMatchObject({
+      requiredCapabilityIds: [
+        "queue.lifecycle.get",
+        "queue.review.getEvidenceBundle",
+        "queue.review.createMessage",
+        "queue.review.ack",
+      ],
+      requiredRiskClasses: ["read", "review"],
+    });
+    expect(requiredModuleWorkflow("terminal_failure")).toMatchObject({
+      requiredCapabilityIds: expect.arrayContaining(["queue.item.fail"]),
+      requiredRiskClasses: ["read", "review", "terminal_fail"],
     });
   });
 
@@ -392,6 +516,26 @@ describe("ModuleControlSurface", () => {
       "riskClass",
       "uiDependencyPolicy",
     ]);
+    const allowedWorkflowKeys = new Set([
+      "backendOwnership",
+      "backingStatus",
+      "confirmationRequirement",
+      "displayName",
+      "implementationStatus",
+      "notes",
+      "pauseReasons",
+      "requiredCapabilityIds",
+      "requiredGrantModes",
+      "requiredInputSections",
+      "requiredRiskClasses",
+      "resumeSupport",
+      "safetyConstraints",
+      "summary",
+      "supportedPhases",
+      "transitionalLimitations",
+      "uiDependencyPolicy",
+      "workflowId",
+    ]);
 
     for (const capability of QUEUE_MODULE_CONTROL_SURFACE.capabilities) {
       for (const key of Object.keys(capability)) {
@@ -399,6 +543,14 @@ describe("ModuleControlSurface", () => {
       }
       expect(Object.keys(capability).length).toBeLessThanOrEqual(
         allowedCapabilityKeys.size,
+      );
+    }
+    for (const workflow of QUEUE_MODULE_CONTROL_SURFACE.workflows) {
+      for (const key of Object.keys(workflow)) {
+        expect(allowedWorkflowKeys.has(key), key).toBe(true);
+      }
+      expect(Object.keys(workflow).length).toBeLessThanOrEqual(
+        allowedWorkflowKeys.size,
       );
     }
   });
@@ -409,6 +561,7 @@ describe("ModuleControlSurface", () => {
       "workbench/agents/modules/moduleControlSurfaceRegistry.ts",
       "workbench/agents/modules/queueCapabilityModuleMetadata.ts",
       "workbench/agents/modules/queueModuleControlSurface.ts",
+      "workbench/agents/modules/queueWorkflowModuleMetadata.ts",
       "workbench/agents/modules/index.ts",
     ]
       .map(frontendSource)
@@ -543,6 +696,58 @@ describe("ModuleControlSurface", () => {
       }),
     );
   });
+
+  it("detects duplicate workflow ids and dangling workflow declarations in validation", () => {
+    const duplicateWorkflowId = QUEUE_MODULE_CONTROL_SURFACE.workflowIds[0];
+    const duplicateSurface: ModuleControlSurface = {
+      ...QUEUE_MODULE_CONTROL_SURFACE,
+      workflowIds: [
+        ...QUEUE_MODULE_CONTROL_SURFACE.workflowIds,
+        duplicateWorkflowId,
+      ],
+    };
+    const danglingSurface: ModuleControlSurface = {
+      ...QUEUE_MODULE_CONTROL_SURFACE,
+      workflowIds: [],
+    };
+
+    expect(validateModuleControlSurfaces([duplicateSurface])).toContainEqual(
+      expect.objectContaining({
+        code: "duplicate_workflow_id",
+        moduleId: "queue",
+        workflowId: duplicateWorkflowId,
+      }),
+    );
+    expect(validateModuleControlSurfaces([danglingSurface])).toContainEqual(
+      expect.objectContaining({
+        code: "workflow_declaration_missing_id",
+        moduleId: "queue",
+        workflowId: "dependency_acceptance_smoke",
+      }),
+    );
+  });
+
+  it("detects workflow required capabilities missing from module references", () => {
+    const workflowSurface: ModuleControlSurface = {
+      ...QUEUE_MODULE_CONTROL_SURFACE,
+      workflows: [
+        {
+          ...requiredModuleWorkflow("dependency_acceptance_smoke"),
+          requiredCapabilityIds: ["queue.workflow.futureCapability"],
+        },
+      ],
+    };
+    const issues = validateModuleControlSurfaces([workflowSurface]);
+
+    expect(issues).toContainEqual(
+      expect.objectContaining({
+        capabilityId: "queue.workflow.futureCapability",
+        code: "workflow_required_capability_missing_module_reference",
+        moduleId: "queue",
+        workflowId: "dependency_acceptance_smoke",
+      }),
+    );
+  });
 });
 
 function requiredModuleCapability(capabilityId: string) {
@@ -554,6 +759,17 @@ function requiredModuleCapability(capabilityId: string) {
   }
 
   return capability;
+}
+
+function requiredModuleWorkflow(workflowId: string) {
+  const workflow = QUEUE_MODULE_CONTROL_SURFACE.workflows.find(
+    (candidate) => candidate.workflowId === workflowId,
+  );
+  if (!workflow) {
+    throw new Error(`Missing module workflow ${workflowId}`);
+  }
+
+  return workflow;
 }
 
 function sortedStrings(values: readonly string[]) {

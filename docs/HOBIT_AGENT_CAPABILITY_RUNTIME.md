@@ -253,7 +253,11 @@ paths; dependency waiting does not start downstream work.
   optional opaque object `inputs`, and optional compact `metadata`. The
   envelope is classification and validation only. It verifies `moduleId`
   through `ModuleControlSurfaceRegistry` and reports whether `workflowId` is
-  declared/available by that module. Generic validation now enforces the
+  unknown, declared but not executable, or runtime-available by that module.
+  Declared workflow validation can expose compact workflow metadata such as
+  backing status, required capabilities, required risk classes, required grant
+  modes, input-section summary, safety constraints, pause/resume notes, and
+  backend ownership notes without executing the workflow. Generic validation now enforces the
   grant/input split: `grant` is permission and scope metadata only, while
   `inputs` is the only workflow data location. Product data such as
   runSettings, tasks, prompts, dependencies, run configuration, and direct ids
@@ -299,8 +303,15 @@ preserves exact capability ids, backing status, risk class, confirmation
 tokens, required id fields, and trusted actor context fields. It is
 metadata-only and does not change broker execution, backend lifecycle
 semantics, Queue UI behavior, or continuation policy. Queue workflow metadata
-remains empty until typed Queue workflow metadata and workflow execution
-contracts are implemented.
+now declares the initial Queue workflows
+`dependency_acceptance_smoke`, `dependency_failure_smoke`,
+`review_acceptance`, and `terminal_failure` as `metadata_only`. Generic
+`hobit.workflow.request` validation can recognize those workflow ids and
+return a non-executable/unavailable result with their declared capabilities,
+risk classes, grant modes, input-section summary, and safety constraints.
+There is still no Queue-specific workflow input validation, workflow runner,
+worker start, validation execution, Git mutation, rollback, Terminal launch,
+scheduler behavior, backend lifecycle semantic change, or UI truth path.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture. WorkerProvider is the normalized

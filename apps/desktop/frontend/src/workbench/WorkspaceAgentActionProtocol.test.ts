@@ -76,8 +76,12 @@ describe("WorkspaceAgentActionProtocol", () => {
         status: "valid",
         validation: {
           ok: false,
-          reasonCode: "workflow_not_declared",
-          status: "workflow_not_declared",
+          reasonCode: "workflow_unavailable",
+          status: "workflow_unavailable",
+          workflowMetadata: {
+            backingStatus: "metadata_only",
+            workflowId: "dependency_acceptance_smoke",
+          },
         },
       },
     });
@@ -167,7 +171,11 @@ describe("WorkspaceAgentActionProtocol", () => {
         },
         status: "valid",
         validation: {
-          reasonCode: "workflow_not_declared",
+          reasonCode: "workflow_unavailable",
+          workflowMetadata: {
+            backingStatus: "metadata_only",
+            workflowId: "dependency_acceptance_smoke",
+          },
         },
       },
     });

@@ -211,10 +211,15 @@ adapted from the Queue capability contract inventory, not from Queue UI, and
 preserves risk, confirmation, actor context, and transitional labels without
 changing execution behavior. Queue is also the first reference module for
 generic `nextAction` validation and generic workflow request validation.
-Queue workflows remain future/empty until Queue-specific workflow metadata,
-input validation, and execution contracts exist. Generic validation may accept
-opaque Queue-looking `inputs` objects, but it does not validate Queue-specific
-runSettings/tasks or execute workflows.
+Queue now declares the initial workflow ids
+`dependency_acceptance_smoke`, `dependency_failure_smoke`,
+`review_acceptance`, and `terminal_failure` as metadata-only. Generic
+validation can recognize those ids and return non-executable workflow metadata,
+including required capabilities, risk classes, grant
+modes, opaque input-section summaries, safety constraints, pause/resume notes,
+and backend ownership notes. Generic validation may accept opaque
+Queue-looking `inputs` objects, but it does not validate Queue-specific
+runSettings/tasks, start workers, mutate Queue state, or execute workflows.
 `ModuleControlSurfaceRegistry` is the discovery layer for these agent-facing
 module surfaces. Queue is the first registered module. The registry is
 metadata only, is not runtime behavior, and must stay UI-independent. Widgets

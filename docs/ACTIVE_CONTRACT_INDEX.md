@@ -431,10 +431,14 @@ unless the task explicitly requests it.
   not runtime behavior. Generic `hobit.workflow.request` parsing and
   validation lives at the Workspace Agent protocol/broker boundary, enforces
   the generic grant/input split, and checks module/workflow availability
-  through this registry without executing workflows. `grant` is permission/
-  scope only, `inputs` is the only workflow data location, Queue-specific
-  workflow input validation remains future, and prose is never executable
-  workflow input. Workspace Agent direct turns use a provider-neutral
+  through this registry without executing workflows. Queue declares the initial
+  workflow ids `dependency_acceptance_smoke`,
+  `dependency_failure_smoke`, `review_acceptance`, and `terminal_failure` as
+  metadata-only/not executable, so known ids are recognized as unavailable
+  rather than unknown while unknown ids remain not declared. `grant` is
+  permission/scope only, `inputs` is the only workflow data location,
+  Queue-specific workflow input validation remains future, and prose is never
+  executable workflow input. Workspace Agent direct turns use a provider-neutral
   AgentProvider seam and AgentRuntime lifecycle layer; Codex is the default
   current provider implementation rather than the architecture, and fake
   providers support deterministic protocol tests. AgentRuntime owns provider

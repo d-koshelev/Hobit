@@ -61,6 +61,13 @@ export function workspaceAgentWorkflowRequestMessage(
   >,
 ): string {
   if (!workflowRead.validation.ok) {
+    if (workflowRead.validation.reasonCode === "workflow_unavailable") {
+      return withOptionalReason(
+        "Workflow request recognized, but workflow execution is not implemented yet.",
+        workflowRead.validation.reasons[0] ?? null,
+      );
+    }
+
     return withOptionalReason(
       "Workflow request recognized, but workflow is not declared/implemented yet.",
       workflowRead.validation.reasons[0] ?? null,

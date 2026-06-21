@@ -357,7 +357,7 @@ describe("AgentActivityRecorder", () => {
     expect(recorded.transcriptAppends[0]?.body).toBe(recorded.logAppends[0]?.text);
   });
 
-  it("preserves workflow-not-declared compact message", () => {
+  it("preserves metadata-only workflow compact message", () => {
     const outcome = classifyAgentProtocolRuntimeOutput({
       mode: "typed_capability_action",
       text: JSON.stringify(workflowRequest()),
@@ -375,8 +375,11 @@ describe("AgentActivityRecorder", () => {
       workflowRequestRead: outcome.workflowRequestRead,
     });
 
-    expect(recorded.transcriptAppends[0]?.body).toBe(
-      "Workflow request recognized, but workflow is not declared/implemented yet. queue does not declare workflows yet.",
+    expect(recorded.transcriptAppends[0]?.body).toContain(
+      "Workflow request recognized, but workflow execution is not implemented yet.",
+    );
+    expect(recorded.transcriptAppends[0]?.body).toContain(
+      "dependency_acceptance_smoke is declared by queue but is metadata_only.",
     );
     expect(recorded.activityAppends[0]).toMatchObject({
       severity: "warning",

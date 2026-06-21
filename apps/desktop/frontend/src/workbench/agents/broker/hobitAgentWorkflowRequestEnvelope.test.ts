@@ -11,7 +11,7 @@ import {
 import { validateWorkflowGrantAndInputsSplit } from "./workflowGrantInputSplit";
 
 describe("hobitAgentWorkflowRequestEnvelope", () => {
-  it("parses raw workflow request JSON and reports undeclared Queue workflow availability", () => {
+  it("parses raw workflow request JSON and reports metadata-only Queue workflow availability", () => {
     const result = readHobitAgentWorkflowRequestEnvelope(
       JSON.stringify(workflowRequest()),
     );
@@ -29,8 +29,38 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
         fieldPaths: ["$.workflowId"],
         moduleId: "queue",
         ok: false,
-        reasonCode: "workflow_not_declared",
-        status: "workflow_not_declared",
+        reasonCode: "workflow_unavailable",
+        status: "workflow_unavailable",
+        workflowMetadata: {
+          backingStatus: "metadata_only",
+          requiredCapabilityIds: expect.arrayContaining([
+            "queue.lifecycle.agentFinished",
+            "queue.review.getEvidenceBundle",
+            "queue.review.createMessage",
+            "queue.review.ack",
+            "queue.item.markDone",
+          ]),
+          requiredGrantModes: expect.arrayContaining([
+            "queue_acceptance_smoke",
+          ]),
+          requiredRiskClasses: expect.arrayContaining([
+            "read",
+            "setup",
+            "run_start",
+            "worker_evidence",
+            "review",
+            "final_accept",
+          ]),
+          safetyConstraints: expect.arrayContaining([
+            "noGit",
+            "noValidationExecution",
+            "noRollback",
+            "noTerminal",
+            "noDelete",
+            "noDownstreamAutoStart",
+          ]),
+          workflowId: "dependency_acceptance_smoke",
+        },
       },
     });
   });
@@ -238,10 +268,32 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
     });
   });
 
+  it("keeps unknown Queue workflow ids not declared", () => {
+    const result = readHobitAgentWorkflowRequestEnvelope(
+      JSON.stringify(workflowRequest({ workflowId: "unknown_queue_workflow" })),
+    );
+
+    expect(result).toMatchObject({
+      status: "valid",
+      validation: {
+        fieldPaths: ["$.workflowId"],
+        moduleId: "queue",
+        ok: false,
+        reasonCode: "workflow_not_declared",
+        status: "workflow_not_declared",
+        workflowId: "unknown_queue_workflow",
+      },
+    });
+    if (result.status !== "valid") {
+      throw new Error("Expected valid workflow envelope.");
+    }
+    expect(result.validation).not.toHaveProperty("workflowMetadata");
+  });
+
   it("validates declared workflow metadata when a module surface declares it", () => {
     const moduleSurfaces = [
       workflowSurface({
-        backingStatus: "implemented",
+        backingStatus: "runtime_available",
         workflowId: "implemented.workflow",
       }),
     ];
@@ -258,6 +310,10 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
       validation: {
         ok: true,
         status: "available",
+        workflowMetadata: {
+          backingStatus: "runtime_available",
+          workflowId: "implemented.workflow",
+        },
       },
     });
   });
@@ -282,6 +338,10 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
         ok: false,
         reasonCode: "workflow_unavailable",
         status: "workflow_unavailable",
+        workflowMetadata: {
+          backingStatus: "planned",
+          workflowId: "planned.workflow",
+        },
       },
     });
   });
@@ -531,7 +591,7 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
     });
   });
 
-  it("accepts workflow data under inputs while generic Queue workflow remains undeclared", () => {
+  it("accepts workflow data under inputs while Queue-specific input validation remains absent", () => {
     const result = readHobitAgentWorkflowRequestEnvelope(
       JSON.stringify(
         workflowRequest({
@@ -557,7 +617,11 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
       status: "valid",
       validation: {
         ok: false,
-        reasonCode: "workflow_not_declared",
+        reasonCode: "workflow_unavailable",
+        workflowMetadata: {
+          backingStatus: "metadata_only",
+          requiredInputSections: expect.arrayContaining(["inputs.tasks"]),
+        },
       },
     });
   });
@@ -626,7 +690,12 @@ function workflowSurface({
   backingStatus,
   workflowId,
 }: {
-  backingStatus: "implemented" | "planned" | "unavailable";
+  backingStatus:
+    | "metadata_only"
+    | "planned"
+    | "runtime_available"
+    | "validation_only"
+    | "unavailable";
   workflowId: string;
 }): ModuleControlSurface {
   return {
@@ -634,9 +703,21 @@ function workflowSurface({
     workflowIds: [workflowId],
     workflows: [
       {
+        backendOwnership: ["Test module workflow metadata."],
         backingStatus,
         confirmationRequirement: "none",
-        riskClasses: ["read"],
+        displayName: "Test Workflow",
+        implementationStatus: "Test workflow status.",
+        pauseReasons: ["test_pause"],
+        requiredCapabilityIds: ["queue.items.list"],
+        requiredGrantModes: ["read_only"],
+        requiredInputSections: ["inputs"],
+        requiredRiskClasses: ["read"],
+        resumeSupport: { status: "none" },
+        safetyConstraints: ["noGit"],
+        summary: "Test workflow metadata.",
+        supportedPhases: ["read_state"],
+        transitionalLimitations: ["Test only."],
         uiDependencyPolicy: "none",
         workflowId,
       },

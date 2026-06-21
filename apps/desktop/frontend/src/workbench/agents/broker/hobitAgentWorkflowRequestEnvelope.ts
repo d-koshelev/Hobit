@@ -1,6 +1,7 @@
 import type {
   HobitModuleId,
   ModuleControlSurface,
+  ModuleWorkflowReference,
 } from "../modules/moduleControlSurface";
 import {
   MODULE_CONTROL_SURFACE_REGISTRY,
@@ -40,6 +41,7 @@ export type HobitAgentWorkflowRequestEnvelopeValidationResult =
       reasonCode?: never;
       reasons: [];
       status: "available";
+      workflowMetadata: ModuleWorkflowReference;
       workflowId: string;
     }
   | {
@@ -55,6 +57,7 @@ export type HobitAgentWorkflowRequestEnvelopeValidationResult =
         HobitAgentWorkflowRequestEnvelopeValidationStatus,
         "available"
       >;
+      workflowMetadata?: ModuleWorkflowReference;
       workflowId: string;
     };
 
@@ -300,6 +303,7 @@ export function validateHobitAgentWorkflowRequestEnvelope(
           ok: true,
           reasons: [],
           status: "available",
+          workflowMetadata: resolution.workflow,
           workflowId,
         }
       : {
@@ -309,6 +313,9 @@ export function validateHobitAgentWorkflowRequestEnvelope(
           reasonCode: unavailableReasonCode,
           reasons: resolution.reasons,
           status: unavailableReasonCode,
+          ...(resolution.workflow
+            ? { workflowMetadata: resolution.workflow }
+            : {}),
           workflowId,
         };
 

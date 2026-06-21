@@ -20,8 +20,10 @@ export type ModuleCapabilityBackingStatus =
   | "unavailable";
 
 export type ModuleWorkflowBackingStatus =
-  | "implemented"
+  | "metadata_only"
   | "planned"
+  | "runtime_available"
+  | "validation_only"
   | "unavailable";
 
 export type ModuleUiDependencyPolicy =
@@ -82,11 +84,28 @@ export type ModuleCapabilityReference<TRiskClass extends string = string> = {
   uiDependencyPolicy: ModuleUiDependencyPolicy;
 };
 
+export type ModuleWorkflowResumeSupport = {
+  notes?: readonly string[];
+  status: "metadata_only" | "none" | "planned" | "runtime_available";
+};
+
 export type ModuleWorkflowReference<TRiskClass extends string = string> = {
+  backendOwnership: readonly string[];
   backingStatus: ModuleWorkflowBackingStatus;
   confirmationRequirement: HobitAgentConfirmationRequirement;
+  displayName: string;
+  implementationStatus: string;
   notes?: readonly string[];
-  riskClasses: readonly TRiskClass[];
+  pauseReasons: readonly string[];
+  requiredCapabilityIds: readonly HobitAgentCapabilityId[];
+  requiredGrantModes: readonly string[];
+  requiredInputSections: readonly string[];
+  requiredRiskClasses: readonly TRiskClass[];
+  resumeSupport: ModuleWorkflowResumeSupport;
+  safetyConstraints: readonly string[];
+  summary: string;
+  supportedPhases: readonly string[];
+  transitionalLimitations: readonly string[];
   uiDependencyPolicy: ModuleUiDependencyPolicy;
   workflowId: string;
 };

@@ -9,6 +9,7 @@ export type {
   ModuleConfirmationRequirement,
   ModuleControlSurface,
   ModuleControlSurfaceBackingStatus,
+  ModuleWorkflowResumeSupport,
   ModuleTauriSurfaceMetadata,
   ModuleUiDependencyPolicy,
   ModuleWorkflowBackingStatus,
@@ -47,6 +48,14 @@ export {
   uniqueQueueRiskClasses,
 } from "./queueCapabilityModuleMetadata";
 export type { QueueModuleCapabilityMetadata } from "./queueCapabilityModuleMetadata";
+export {
+  QUEUE_MODULE_WORKFLOW_IDS,
+  QUEUE_MODULE_WORKFLOWS,
+} from "./queueWorkflowModuleMetadata";
+export type {
+  QueueModuleWorkflowMetadata,
+  QueueWorkflowId,
+} from "./queueWorkflowModuleMetadata";
 export {
   QUEUE_BACKEND_BACKED_MODULE_CAPABILITY_IDS,
   QUEUE_MODULE_CONTROL_SURFACE,

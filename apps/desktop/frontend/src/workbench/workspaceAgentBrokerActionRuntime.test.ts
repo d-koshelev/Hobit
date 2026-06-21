@@ -12,6 +12,7 @@ import {
 } from "./workspaceAgentBrokerActionRuntime";
 import runtimeSource from "./workspaceAgentBrokerActionRuntime.ts?raw";
 import envelopeSource from "./agents/broker/hobitAgentActionRequestEnvelope.ts?raw";
+import { QUEUE_MODULE_WORKFLOWS } from "./agents/modules";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type {
   AgentQueueItemAggregate,
@@ -483,14 +484,42 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
           fieldPaths: ["$.workflowId"],
           moduleId: "queue",
           ok: false,
-          reasonCode: "workflow_not_declared",
-          reasons: ["queue does not declare workflows yet."],
-          status: "workflow_not_declared",
+          reasonCode: "workflow_unavailable",
+          reasons: [
+            "dependency_acceptance_smoke is declared by queue but is metadata_only. Declared workflow metadata only; generic hobit.workflow.request recognition returns workflow_unavailable and no workflow executes.",
+          ],
+          status: "workflow_unavailable",
+          workflowMetadata: requiredQueueWorkflowMetadata(
+            "dependency_acceptance_smoke",
+          ),
           workflowId: "dependency_acceptance_smoke",
         },
       }),
+    ).toContain(
+      "Workflow request recognized, but workflow execution is not implemented yet.",
+    );
+    expect(
+      workspaceAgentWorkflowRequestMessage({
+        envelope: {
+          moduleId: "queue",
+          requestId: "workflow-request-unknown",
+          type: "hobit.workflow.request",
+          workflowId: "unknown",
+        },
+        source: "direct_json",
+        status: "valid",
+        validation: {
+          fieldPaths: ["$.workflowId"],
+          moduleId: "queue",
+          ok: false,
+          reasonCode: "workflow_not_declared",
+          reasons: ["unknown is not declared by module control surface queue."],
+          status: "workflow_not_declared",
+          workflowId: "unknown",
+        },
+      }),
     ).toBe(
-      "Workflow request recognized, but workflow is not declared/implemented yet. queue does not declare workflows yet.",
+      "Workflow request recognized, but workflow is not declared/implemented yet. unknown is not declared by module control surface queue.",
     );
     expect(
       workspaceAgentInvalidWorkflowRequestMessage([
@@ -517,6 +546,17 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     }
   });
 });
+
+function requiredQueueWorkflowMetadata(workflowId: string) {
+  const workflow = QUEUE_MODULE_WORKFLOWS.find(
+    (candidate) => candidate.workflowId === workflowId,
+  );
+  if (!workflow) {
+    throw new Error(`Missing Queue workflow metadata ${workflowId}`);
+  }
+
+  return workflow;
+}
 
 function queueBridge(
   overrides: Partial<WorkspaceAgentQueueBridge> = {},

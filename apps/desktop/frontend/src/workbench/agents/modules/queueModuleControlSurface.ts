@@ -8,11 +8,19 @@ import {
   QUEUE_MODULE_RISK_CLASSES,
   QUEUE_TRANSITIONAL_MODULE_CAPABILITY_IDS,
 } from "./queueCapabilityModuleMetadata";
+import {
+  QUEUE_MODULE_WORKFLOW_IDS,
+  QUEUE_MODULE_WORKFLOWS,
+} from "./queueWorkflowModuleMetadata";
 
 export {
   QUEUE_BACKEND_BACKED_MODULE_CAPABILITY_IDS,
   QUEUE_TRANSITIONAL_MODULE_CAPABILITY_IDS,
 } from "./queueCapabilityModuleMetadata";
+export {
+  QUEUE_MODULE_WORKFLOW_IDS,
+  QUEUE_MODULE_WORKFLOWS,
+} from "./queueWorkflowModuleMetadata";
 
 export const QUEUE_MODULE_CONTROL_SURFACE: ModuleControlSurface<QueueCapabilityRiskClass> =
   {
@@ -47,7 +55,7 @@ export const QUEUE_MODULE_CONTROL_SURFACE: ModuleControlSurface<QueueCapabilityR
     compatibilityNotes: [
       "Widget Agent Contracts describe widget-readable product boundaries; they are not executable Module Control Surfaces.",
       "Codex Direct Work is a provider/worker implementation detail, not the module integration architecture.",
-      "Queue workflow metadata is intentionally empty until a typed workflow request and runner contract exists.",
+      "Queue workflow metadata is declared for generic control-plane discovery only; no Queue workflow runner or Queue-specific input validation exists yet.",
       "Transitional Queue capabilities must stay labeled until backend/domain commands replace frontend controller overlays.",
     ],
     confirmationRequirements: QUEUE_MODULE_CONFIRMATION_REQUIREMENTS,
@@ -57,7 +65,8 @@ export const QUEUE_MODULE_CONTROL_SURFACE: ModuleControlSurface<QueueCapabilityR
       "Backend-backed and transitional capability lists do not overlap.",
       "Backend-backed Queue module capabilities do not import Queue UI files.",
       "No lifecycle-namespaced evidence read alias is present.",
-      "Workflow metadata may be empty while no Queue workflow runner is implemented.",
+      "Queue workflows are metadata-only and must not be marked runtime_available until a runner contract exists.",
+      "Queue workflow required capabilities must refer to registered Queue module capabilities.",
     ],
     displayName: "Agent Queue",
     moduleId: "queue",
@@ -81,6 +90,6 @@ export const QUEUE_MODULE_CONTROL_SURFACE: ModuleControlSurface<QueueCapabilityR
     uiDependencyPolicy: "transitional_controller",
     unavailableCapabilityIds: [],
     version: "module-control-surface.queue.v0",
-    workflowIds: [],
-    workflows: [],
+    workflowIds: QUEUE_MODULE_WORKFLOW_IDS,
+    workflows: QUEUE_MODULE_WORKFLOWS,
   } as const;
