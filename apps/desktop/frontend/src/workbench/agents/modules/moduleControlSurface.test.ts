@@ -11,6 +11,7 @@ import {
   QUEUE_CAPABILITY_CONTRACT_BY_ID,
   QUEUE_CAPABILITY_CONTRACT_INVENTORY,
 } from "../capabilities/queueCapabilityContracts";
+import { QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES } from "../capabilities/queueDogfoodLifecycleCapabilityManifest";
 import {
   getModuleControlSurface,
   hasModuleControlSurface,
@@ -19,8 +20,13 @@ import {
   listModuleWorkflowIds,
   MODULE_CONTROL_SURFACE_REGISTRY,
   QUEUE_BACKEND_BACKED_MODULE_CAPABILITY_IDS,
+  QUEUE_MODULE_CAPABILITIES,
+  QUEUE_MODULE_CAPABILITY_IDS,
+  QUEUE_MODULE_CONFIRMATION_REQUIREMENTS,
   QUEUE_MODULE_CONTROL_SURFACE,
+  QUEUE_MODULE_RISK_CLASSES,
   QUEUE_TRANSITIONAL_MODULE_CAPABILITY_IDS,
+  queueCapabilityContractToModuleCapabilityMetadata,
   validateModuleControlSurfaces,
   validateRegisteredModuleControlSurfaces,
   type ModuleControlSurface,
@@ -94,12 +100,34 @@ describe("ModuleControlSurface", () => {
     );
   });
 
-  it("represents exact Queue backend-backed capabilities", () => {
-    expect(QUEUE_BACKEND_BACKED_MODULE_CAPABILITY_IDS).toEqual(
-      EXPECTED_BACKEND_BACKED_QUEUE_CAPABILITIES,
+  it("derives Queue module metadata from Queue capability contracts", () => {
+    expect(QUEUE_MODULE_CONTROL_SURFACE.capabilities).toBe(
+      QUEUE_MODULE_CAPABILITIES,
     );
-    expect(QUEUE_MODULE_CONTROL_SURFACE.backendBackedCapabilityIds).toEqual(
-      EXPECTED_BACKEND_BACKED_QUEUE_CAPABILITIES,
+    expect(QUEUE_MODULE_CONTROL_SURFACE.capabilityIds).toBe(
+      QUEUE_MODULE_CAPABILITY_IDS,
+    );
+    expect(QUEUE_MODULE_CONTROL_SURFACE.confirmationRequirements).toBe(
+      QUEUE_MODULE_CONFIRMATION_REQUIREMENTS,
+    );
+    expect(QUEUE_MODULE_CONTROL_SURFACE.riskClasses).toBe(
+      QUEUE_MODULE_RISK_CLASSES,
+    );
+    expect(QUEUE_MODULE_CAPABILITIES).toEqual(
+      QUEUE_CAPABILITY_CONTRACT_INVENTORY.map((contract) =>
+        queueCapabilityContractToModuleCapabilityMetadata(contract),
+      ),
+    );
+  });
+
+  it("represents exact Queue backend-backed capabilities", () => {
+    expect(sortedStrings(QUEUE_BACKEND_BACKED_MODULE_CAPABILITY_IDS)).toEqual(
+      sortedStrings(EXPECTED_BACKEND_BACKED_QUEUE_CAPABILITIES),
+    );
+    expect(
+      sortedStrings(QUEUE_MODULE_CONTROL_SURFACE.backendBackedCapabilityIds),
+    ).toEqual(
+      sortedStrings(EXPECTED_BACKEND_BACKED_QUEUE_CAPABILITIES),
     );
 
     for (const capabilityId of EXPECTED_BACKEND_BACKED_QUEUE_CAPABILITIES) {
@@ -117,11 +145,13 @@ describe("ModuleControlSurface", () => {
   });
 
   it("represents exact Queue transitional capabilities", () => {
-    expect(QUEUE_TRANSITIONAL_MODULE_CAPABILITY_IDS).toEqual(
-      EXPECTED_TRANSITIONAL_QUEUE_CAPABILITIES,
+    expect(sortedStrings(QUEUE_TRANSITIONAL_MODULE_CAPABILITY_IDS)).toEqual(
+      sortedStrings(EXPECTED_TRANSITIONAL_QUEUE_CAPABILITIES),
     );
-    expect(QUEUE_MODULE_CONTROL_SURFACE.transitionalCapabilityIds).toEqual(
-      EXPECTED_TRANSITIONAL_QUEUE_CAPABILITIES,
+    expect(
+      sortedStrings(QUEUE_MODULE_CONTROL_SURFACE.transitionalCapabilityIds),
+    ).toEqual(
+      sortedStrings(EXPECTED_TRANSITIONAL_QUEUE_CAPABILITIES),
     );
 
     for (const capabilityId of EXPECTED_TRANSITIONAL_QUEUE_CAPABILITIES) {
@@ -138,6 +168,55 @@ describe("ModuleControlSurface", () => {
     }
   });
 
+  it("preserves Queue risk, confirmation, required-id, and actor metadata", () => {
+    for (const contract of QUEUE_CAPABILITY_CONTRACT_INVENTORY) {
+      const moduleCapability = requiredModuleCapability(contract.capabilityId);
+      const requiredIdFields = Object.entries(contract.requiredIds)
+        .filter(([, required]) => required)
+        .map(([fieldName]) => fieldName)
+        .sort();
+
+      expect(moduleCapability.riskClass, contract.capabilityId).toBe(
+        contract.riskClass,
+      );
+      expect(moduleCapability.confirmationRequirement, contract.capabilityId).toBe(
+        contract.confirmationRequirement,
+      );
+      expect(moduleCapability.confirmation, contract.capabilityId).toMatchObject({
+        required: contract.confirmation.required,
+      });
+      expect(moduleCapability.autoContinuationSafe, contract.capabilityId).toBe(
+        contract.autoContinuationSafe,
+      );
+      expect(moduleCapability.readOnly, contract.capabilityId).toBe(
+        contract.readOnly,
+      );
+      expect(moduleCapability.requiredIdFields, contract.capabilityId).toEqual(
+        requiredIdFields,
+      );
+
+      if (contract.confirmation.required) {
+        expect(moduleCapability.confirmation, contract.capabilityId).toMatchObject(
+          {
+            tokenField: contract.confirmation.field,
+            tokenValue: contract.confirmation.value,
+          },
+        );
+      }
+
+      if (contract.trustedContextFields.length > 0) {
+        expect(moduleCapability.actorPolicy, contract.capabilityId).toMatchObject(
+          {
+            defaultActor: "runtime_agent",
+            trustedContextFields: contract.trustedContextFields,
+          },
+        );
+      } else {
+        expect(moduleCapability.actorPolicy, contract.capabilityId).toBeUndefined();
+      }
+    }
+  });
+
   it("keeps Queue module capability ids known to the capability manifest and Queue contracts", () => {
     const registry = createHobitAgentCapabilityRegistry();
     const manifestIds = new Set(
@@ -146,11 +225,17 @@ describe("ModuleControlSurface", () => {
     const contractIds = new Set(
       QUEUE_CAPABILITY_CONTRACT_INVENTORY.map((contract) => contract.capabilityId),
     );
+    const lifecycleManifestIds = new Set(
+      QUEUE_DOGFOOD_LIFECYCLE_CAPABILITIES.map((capability) => capability.id),
+    );
 
     expect(QUEUE_MODULE_CONTROL_SURFACE.capabilityIds.length).toBeGreaterThan(0);
     for (const capabilityId of QUEUE_MODULE_CONTROL_SURFACE.capabilityIds) {
       expect(manifestIds.has(capabilityId), capabilityId).toBe(true);
-      expect(contractIds.has(capabilityId), capabilityId).toBe(true);
+      expect(
+        contractIds.has(capabilityId) || lifecycleManifestIds.has(capabilityId),
+        capabilityId,
+      ).toBe(true);
       expect(findCapability(registry, capabilityId)).not.toBeNull();
     }
     for (const moduleCapability of QUEUE_MODULE_CONTROL_SURFACE.capabilities) {
@@ -211,10 +296,60 @@ describe("ModuleControlSurface", () => {
     ).toBe(true);
   });
 
+  it("keeps ModuleControlSurface compact and stable", () => {
+    expect(Object.keys(QUEUE_MODULE_CONTROL_SURFACE).sort()).toEqual([
+      "actorContextPolicy",
+      "apiPort",
+      "backendBackedCapabilityIds",
+      "backendOwner",
+      "backingStatus",
+      "capabilities",
+      "capabilityIds",
+      "compatibilityNotes",
+      "confirmationRequirements",
+      "contractTestRequirements",
+      "displayName",
+      "moduleId",
+      "riskClasses",
+      "serviceOwner",
+      "summary",
+      "tauriSurface",
+      "transitionalCapabilityIds",
+      "uiDependencyPolicy",
+      "unavailableCapabilityIds",
+      "version",
+      "workflowIds",
+      "workflows",
+    ]);
+    const allowedCapabilityKeys = new Set([
+      "actorPolicy",
+      "autoContinuationSafe",
+      "backingStatus",
+      "capabilityId",
+      "confirmation",
+      "confirmationRequirement",
+      "notes",
+      "readOnly",
+      "requiredIdFields",
+      "riskClass",
+      "uiDependencyPolicy",
+    ]);
+
+    for (const capability of QUEUE_MODULE_CONTROL_SURFACE.capabilities) {
+      for (const key of Object.keys(capability)) {
+        expect(allowedCapabilityKeys.has(key), key).toBe(true);
+      }
+      expect(Object.keys(capability).length).toBeLessThanOrEqual(
+        allowedCapabilityKeys.size,
+      );
+    }
+  });
+
   it("does not import Queue UI, Queue visual shell, or stale evidence capability ids", () => {
     const moduleSources = [
       "workbench/agents/modules/moduleControlSurface.ts",
       "workbench/agents/modules/moduleControlSurfaceRegistry.ts",
+      "workbench/agents/modules/queueCapabilityModuleMetadata.ts",
       "workbench/agents/modules/queueModuleControlSurface.ts",
       "workbench/agents/modules/index.ts",
     ]
@@ -361,6 +496,10 @@ function requiredModuleCapability(capabilityId: string) {
   }
 
   return capability;
+}
+
+function sortedStrings(values: readonly string[]) {
+  return [...values].sort();
 }
 
 function frontendSource(path: string) {

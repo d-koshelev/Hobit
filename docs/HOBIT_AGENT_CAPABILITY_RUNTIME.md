@@ -178,6 +178,14 @@ processes and will be registered separately when a workflow request/runner
 contract exists. Queue is the first reference module surface. Its backend-
 backed capabilities are labeled separately from transitional controller-backed
 capabilities. Transitional capabilities must remain labeled and migrate later.
+Queue capability module metadata is adapted from the existing Queue capability
+contract inventory into the generic `ModuleControlSurface` shape. The adapter
+preserves exact capability ids, backing status, risk class, confirmation
+tokens, required id fields, and trusted actor context fields. It is
+metadata-only and does not change broker execution, backend lifecycle
+semantics, Queue UI behavior, or continuation policy. Queue workflow metadata
+remains empty until typed workflow metadata and workflow request contracts are
+implemented.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture.

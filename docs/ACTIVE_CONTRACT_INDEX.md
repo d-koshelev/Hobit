@@ -426,9 +426,11 @@ unless the task explicitly requests it.
   agent-facing module contract for typed module capabilities and future typed
   workflows. `ModuleControlSurfaceRegistry` is the UI-independent discovery
   layer for registered agent-facing module surfaces; Queue is the first
-  registered module, and the registry metadata is not runtime behavior. UI
-  widgets are not executable module APIs, and Codex is a provider/worker
-  implementation rather than the module integration architecture.
+  registered module, and Queue capability metadata is adapted from the Queue
+  capability contract inventory for the generic surface. Registry metadata is
+  not runtime behavior. UI widgets are not executable module APIs, and Codex
+  is a provider/worker implementation rather than the module integration
+  architecture.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source
   provenance, AI-readable context approval, citations, or trust-layer work.
 - `docs/EVENT_AUDIT_ENVELOPE_CONTRACT.md` - read for Event/Audit Envelope v0

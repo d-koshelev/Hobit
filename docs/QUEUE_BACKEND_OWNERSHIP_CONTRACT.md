@@ -24,6 +24,14 @@ confirmation, and bounded grant rules are defined in
   these typed APIs. It may describe backend-backed, bridge-backed,
   model-preview, transitional, unavailable, and future workflow metadata, but
   it does not execute Queue behavior by itself.
+- Queue capability metadata for the generic `ModuleControlSurface` is adapted
+  from the existing Queue capability contract inventory. Queue remains the
+  reference module for rich capability metadata: exact capability ids,
+  backend-backed versus transitional backing, risk classes, structured
+  confirmation requirements, required id fields, and trusted actor context are
+  preserved for generic module tooling. The adapter is metadata-only and does
+  not change backend lifecycle semantics, broker execution, Queue UI behavior,
+  or action continuation policy.
 - `ModuleControlSurfaceRegistry` is the UI-independent discovery layer for
   agent-facing module surfaces. Queue is the first registered module. Registry
   metadata is not runtime behavior and must not import Queue UI, widget

@@ -47,6 +47,18 @@ export type ModuleActorContextPolicy = {
   trustedContextFields: readonly string[];
 };
 
+export type ModuleCapabilityActorPolicy = {
+  defaultActor: ModuleActorContextPolicy["defaultActor"];
+  notes?: readonly string[];
+  trustedContextFields: readonly string[];
+};
+
+export type ModuleCapabilityConfirmationMetadata = {
+  required: boolean;
+  tokenField?: string;
+  tokenValue?: string;
+};
+
 export type ModuleConfirmationRequirement = {
   capabilityId?: HobitAgentCapabilityId;
   notes?: readonly string[];
@@ -57,10 +69,15 @@ export type ModuleConfirmationRequirement = {
 };
 
 export type ModuleCapabilityReference<TRiskClass extends string = string> = {
+  actorPolicy?: ModuleCapabilityActorPolicy;
+  autoContinuationSafe?: boolean;
   backingStatus: ModuleCapabilityBackingStatus;
   capabilityId: HobitAgentCapabilityId;
+  confirmation?: ModuleCapabilityConfirmationMetadata;
   confirmationRequirement: HobitAgentConfirmationRequirement;
   notes?: readonly string[];
+  readOnly?: boolean;
+  requiredIdFields?: readonly string[];
   riskClass: TRiskClass;
   uiDependencyPolicy: ModuleUiDependencyPolicy;
 };

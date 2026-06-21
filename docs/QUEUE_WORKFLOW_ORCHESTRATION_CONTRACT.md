@@ -87,6 +87,13 @@ Queue capability risk classes are:
 
 Risk class is capability metadata. It must not be inferred from capability id
 prefixes, prose, UI labels, or natural-language descriptions.
+The Queue `ModuleControlSurface` adapts this capability metadata from the
+Queue capability contract inventory for generic module tooling. That adapter
+preserves backing status, risk class, confirmation metadata, required id
+fields, and trusted actor context only; it does not execute capabilities,
+authorize workflows, or change continuation policy. Queue workflow metadata
+remains empty/future until a typed workflow metadata and request contract is
+implemented.
 
 ## Auto-Continuation Rules
 

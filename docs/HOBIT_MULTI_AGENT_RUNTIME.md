@@ -188,6 +188,11 @@ Module functionality exposed to agents must be described through a
 The surface is metadata only: it names the module, typed capabilities, future
 typed workflows, risk and confirmation policy, actor/default context,
 backend-backed versus transitional backing status, and UI dependency policy.
+Queue is the reference rich-metadata module: its generic capability metadata is
+adapted from the Queue capability contract inventory, not from Queue UI, and
+preserves risk, confirmation, actor context, and transitional labels without
+changing execution behavior. Queue workflows remain future/empty until typed
+workflow request contracts exist.
 `ModuleControlSurfaceRegistry` is the discovery layer for these agent-facing
 module surfaces. Queue is the first registered module. The registry is
 metadata only, is not runtime behavior, and must stay UI-independent. Widgets
