@@ -9,7 +9,6 @@ import {
   cappedPreviewText,
 } from "../renderMemoryGuards";
 import type { DirectWorkSandbox, DirectWorkStreamEvent } from "../workspace/types";
-import { createWorkspaceAgentPromptWithCapabilityContext } from "./agents/context";
 import {
   type HobitAgentActionRequest,
   type HobitAgentActionResult,
@@ -54,9 +53,11 @@ import {
   type WorkspaceAgentRunTokenUsage,
 } from "./workspaceAgentRunMetadata";
 import {
-  classifyAgentProtocolRuntimeOutput,
+  buildWorkspaceAgentRuntimeTurnInput,
   createCodexAgentProvider,
+  directWorkStreamEventFromAgentRuntimeEvent,
   recordAgentActivity,
+  resolveAgentRuntimeProtocolOutcome,
   runBrokerContinuationRuntime,
   startAgentRuntimeTurn,
   workspaceAgentHobitActionResultMessage,
@@ -354,18 +355,22 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkStartAbortControllerRef.current?.abort();
     const startAbortController = new AbortController();
     directWorkStartAbortControllerRef.current = startAbortController;
-    const providerThreadText = providerThreadLabel(workspaceAgentProvider);
-    const threadStartText = resumeThreadId
-      ? `Continuing ${providerThreadText} ${shortCodexThreadId(resumeThreadId)}.`
-      : `Starting new ${providerThreadText}.`;
-    const promptWithCapabilityContext = attachCapabilityContext
-      ? createWorkspaceAgentPromptWithCapabilityContext({
-          currentPrompt: operatorPrompt,
-          widgetInstanceId: instanceId,
-          workspaceId: workspaceScopeId,
-          workspaceRoot: currentWorkspaceRoot?.trim() || repoRoot,
-        })
-      : operatorPrompt;
+    const runtimeTurn = buildWorkspaceAgentRuntimeTurnInput({
+      attachCapabilityContext,
+      brokerContinuationActive: Boolean(brokerContinuationStateRef.current),
+      currentWorkspaceRoot,
+      directWorkSandbox,
+      instanceId,
+      isBrokerContinuationTurn: Boolean(brokerContinuationChainId),
+      operatorPrompt,
+      provider: workspaceAgentProvider,
+      providerThreadId: resumeThreadId,
+      repoRoot,
+      requestCreatedAtMs: Date.now(),
+      requestId: `workspace-agent-turn-${Date.now().toString()}`,
+      signal: startAbortController.signal,
+      workspaceScopeId,
+    });
     if (appendOperatorTranscript) {
       onAppendOperatorTranscript(operatorPrompt);
     }
@@ -381,50 +386,19 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkFinalResult(null);
     setDirectWorkRunMetadata(null);
     updateDirectWorkActivitySummary(
-      workspaceAgentActivitySummaryForLocalStart(
-        brokerContinuationChainId
-          ? "Continuing broker action chain"
-          : resumeThreadId
-            ? "Starting agent turn"
-            : "Starting Codex thread",
-      ),
+      workspaceAgentActivitySummaryForLocalStart(runtimeTurn.startSummaryLabel),
     );
-    const contextLogText = attachCapabilityContext
-      ? "Hobit capability context attached. Capability manifest attached. Knowledge is not searched automatically; only visible composer text plus capability instructions are sent."
-      : "Compact Hobit action result context attached for same-thread continuation. No manual user turn was added.";
     setDirectWorkLogs([
       {
         id: "direct-local-starting",
         kind: "local",
-        text: `${threadStartText} ${contextLogText} ${initialLocalNotice ? `${initialLocalNotice} ` : ""}Starting ${workspaceAgentProvider.providerDisplayName} from ${repoRoot}.`,
+        text: `${runtimeTurn.threadStartText} ${runtimeTurn.contextLogText} ${initialLocalNotice ? `${initialLocalNotice} ` : ""}Starting ${workspaceAgentProvider.providerDisplayName} from ${repoRoot}.`,
       },
     ]);
 
     try {
       const runtimeHandle = await startAgentRuntimeTurn(
-        {
-          provider: workspaceAgentProvider,
-          providerOptions: {
-            signal: startAbortController.signal,
-          },
-          protocol: {
-            mode: brokerContinuationStateRef.current
-              ? "typed_capability_action"
-              : "normal",
-          },
-          request: {
-            approvalPolicy: "never",
-            createdAtMs: Date.now(),
-            id: `workspace-agent-turn-${Date.now().toString()}`,
-            mode: "direct",
-            prompt: promptWithCapabilityContext,
-            providerThreadId: resumeThreadId,
-            sandbox: directWorkSandbox,
-            widgetInstanceId: instanceId,
-            workingDirectory: repoRoot,
-            workspaceId: workspaceScopeId,
-          },
-        },
+        runtimeTurn.runtimeInput,
         recordAgentRuntimeEvent,
       );
       if (!isMountedRef.current || startAbortController.signal.aborted) {
@@ -582,106 +556,20 @@ export function useWorkspaceAgentDirectWorkController({
       return;
     }
 
-    const directWorkEvent = directWorkStreamEventFromAgentProviderEvent(event);
+    const runScope = directWorkRunScopeRef.current ?? {
+      widgetInstanceId: instanceId,
+      workspaceId: workspaceScopeId,
+    };
+    const directWorkEvent = directWorkStreamEventFromAgentRuntimeEvent(event, {
+      providerStoppedMessage: `${workspaceAgentProvider.providerDisplayName} stopped.`,
+      widgetInstanceId: runScope.widgetInstanceId,
+      workspaceId: runScope.workspaceId,
+    });
     if (!directWorkEvent) {
       return;
     }
 
     recordDirectWorkEvent(directWorkEvent);
-  }
-
-  function directWorkStreamEventFromAgentProviderEvent(
-    runtimeEvent: Extract<AgentRuntimeEvent, { type: "provider_event" }>,
-  ): DirectWorkStreamEvent | null {
-    const event = runtimeEvent.providerEvent;
-    if (event.rawDirectWorkEvent) {
-      return event.rawDirectWorkEvent;
-    }
-
-    const runScope = directWorkRunScopeRef.current ?? {
-      widgetInstanceId: instanceId,
-      workingDirectory: directWorkDirectory.trim(),
-      workspaceId: workspaceScopeId,
-    };
-    const base = {
-      codexThreadId: event.providerThreadId ?? null,
-      elapsedMs: 0,
-      errorMessage: null,
-      exitCode: null,
-      failedStage: null,
-      finalStatus: null,
-      isFinal: false,
-      line: null,
-      parsedCodexEventType: null,
-      runId: event.runId,
-      status: null,
-      stderrPreview: null,
-      text: null,
-      widgetInstanceId: runScope.widgetInstanceId,
-      workbenchId: "workspace-agent-provider",
-      workspaceId: runScope.workspaceId,
-    } satisfies Omit<DirectWorkStreamEvent, "eventKind">;
-
-    if (event.type === "run_started") {
-      return {
-        ...base,
-        eventKind: "started",
-        status: "running",
-      };
-    }
-
-    if (
-      event.type === "text_delta" ||
-      event.type === "message_delta" ||
-      event.type === "structured_output" ||
-      event.type === "action_request_detected" ||
-      event.type === "workflow_request_detected" ||
-      event.type === "final_answer"
-    ) {
-      return {
-        ...base,
-        eventKind: event.type === "text_delta" ? "stdout_line" : "final_message",
-        line: event.type === "text_delta" ? event.text : null,
-        text: event.text,
-      };
-    }
-
-    if (event.type === "error") {
-      return {
-        ...base,
-        errorMessage: event.errorMessage,
-        eventKind: "failed",
-        finalStatus: "failed",
-        isFinal: true,
-        status: "failed",
-        text: event.errorMessage,
-      };
-    }
-
-    if (event.type === "cancelled" || event.type === "stopped") {
-      return {
-        ...base,
-        eventKind: "cancelled",
-        finalStatus: "cancelled",
-        isFinal: true,
-        status: "cancelled",
-        text: event.message ?? `${workspaceAgentProvider.providerDisplayName} stopped.`,
-      };
-    }
-
-    if (event.type === "run_finished") {
-      return {
-        ...base,
-        elapsedMs: event.elapsedMs ?? 0,
-        eventKind: event.status,
-        finalStatus: event.status,
-        isFinal: true,
-        status: event.status,
-        text: event.finalMessage ?? null,
-      };
-    }
-
-    return null;
   }
 
   function recordDirectWorkEvent(event: DirectWorkStreamEvent) {
@@ -885,14 +773,13 @@ export function useWorkspaceAgentDirectWorkController({
       return false;
     }
 
-    const protocolOutcome =
-      directWorkProtocolOutcomeRef.current ??
-      classifyAgentProtocolRuntimeOutput({
-        mode: brokerContinuationStateRef.current
-          ? "typed_capability_action"
-          : "normal",
-        text: finalAgentMessage ?? finalResult,
-      });
+    const protocolOutcome = resolveAgentRuntimeProtocolOutcome({
+      fallbackMode: brokerContinuationStateRef.current
+        ? "typed_capability_action"
+        : "normal",
+      fallbackText: finalAgentMessage ?? finalResult,
+      runtimeProtocolOutcome: directWorkProtocolOutcomeRef.current,
+    });
     directWorkProtocolOutcomeRef.current = null;
 
     return applyBrokerContinuationRuntimeResult({
@@ -1473,10 +1360,4 @@ export function useWorkspaceAgentDirectWorkController({
     threadNotice: codexThreadNotice,
     workspaceKnowledgeLookup,
   };
-}
-
-function providerThreadLabel(provider: AgentProvider) {
-  return provider.providerId === "codex-direct-work"
-    ? "Codex thread"
-    : `${provider.providerDisplayName} thread`;
 }

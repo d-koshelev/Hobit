@@ -233,9 +233,13 @@ paths; dependency waiting does not start downstream work.
   `AgentProtocolRuntime` owns this classification boundary;
   `AgentRuntime` owns provider-neutral provider turn lifecycle and emits the
   classified protocol result; `BrokerContinuationRuntime` owns continuation
-  decisions/intents. The current React controller still owns visible UI state
-  arrays, broker invocation, continuation turn application, and
-  transcript/activity application.
+  decisions/intents. `useWorkspaceAgentDirectWorkController` now also delegates
+  provider-turn input construction, provider-event compatibility mapping, and
+  protocol fallback resolution to small UI-independent runtime adapter helpers.
+  The current React controller still owns visible UI state arrays, broker
+  invocation, continuation turn application, and transcript/activity
+  application. BrokerInvocationRuntime remains a future cleanup block if the
+  broker invocation/application boundary needs another split.
   `AgentActivityRecorder` owns formatting and append-intent generation only,
   preserving the current visible labels, summaries, protocol repair copy,
   workflow recognition copy, and broker-result transcript text.

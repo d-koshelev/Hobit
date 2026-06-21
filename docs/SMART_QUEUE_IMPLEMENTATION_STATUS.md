@@ -159,12 +159,14 @@ AgentRuntime event loop around AgentProvider. AgentRuntime owns provider run
 lifecycle, provider run handle metadata, provider cancellation delegation, and
 normalized runtime events. It delegates final-output classification to
 AgentProtocolRuntime and emits intent-like protocol events for the controller.
-The React controller still owns visible UI state, broker invocation,
-continuation turn application, activity/transcript application, and all
-existing broker/application flow. BrokerInvocationRuntime and fuller
-controller reduction remain future blocks. No workflow execution, workflow
-runner, scheduler behavior, worker auto-start, backend lifecycle semantic
-change, or new Queue capability is added.
+The React controller is now thinner: provider-turn input construction,
+provider-event compatibility mapping, and protocol fallback resolution are
+delegated to runtime adapter helpers. It still owns visible UI state, broker
+invocation, continuation turn application, activity/transcript application,
+and all existing broker/application flow. BrokerInvocationRuntime remains a
+future block if broker invocation/application needs a dedicated runtime. No
+workflow execution, workflow runner, scheduler behavior, worker auto-start,
+backend lifecycle semantic change, or new Queue capability is added.
 
 Workspace Agent activity/transcript/log output formatting now goes through a
 pure AgentActivityRecorder. It returns append intents for provider final

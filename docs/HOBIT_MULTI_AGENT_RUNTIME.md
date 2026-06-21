@@ -252,11 +252,14 @@ pure `BrokerContinuationRuntime` now owns continuation-chain state transitions
 and typed effects/intents after protocol or broker results. It reuses the
 explicit Queue-specific bounded-autonomy continuation helpers as transitional
 Queue policy and does not execute providers, invoke the broker, call backend
-APIs, format activity, or run workflows. The React controller still owns
-visible UI state, broker invocation, continuation turn application, and
-applying activity/transcript intents. Broker invocation behavior, provider
-behavior, protocol classification semantics, activity formatting, Queue
-behavior, and workflow execution behavior are unchanged.
+APIs, format activity, or run workflows. The React controller is now thinner:
+provider-turn input construction, provider-event compatibility mapping, and
+protocol fallback resolution are delegated to UI-independent runtime adapter
+helpers. The React controller still owns visible UI state, broker invocation,
+continuation turn application, and applying activity/transcript intents.
+BrokerInvocationRuntime remains a future cleanup boundary. Broker invocation
+behavior, provider behavior, protocol classification semantics, activity
+formatting, Queue behavior, and workflow execution behavior are unchanged.
 
 WorkerProvider is now a separate provider-neutral seam for explicit work-item
 execution. It emits normalized worker run, output/log, evidence, completion,

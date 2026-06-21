@@ -77,6 +77,16 @@ export type {
   AgentRunRequestValidation,
 } from "./agentRuntimeModel";
 export {
+  buildWorkspaceAgentRuntimeTurnInput,
+  directWorkStreamEventFromAgentRuntimeEvent,
+  resolveAgentRuntimeProtocolOutcome,
+} from "./agentRuntimeControllerAdapter";
+export type {
+  AgentRuntimeDirectWorkEventFallback,
+  WorkspaceAgentRuntimeTurnBuildInput,
+  WorkspaceAgentRuntimeTurnBuildResult,
+} from "./agentRuntimeControllerAdapter";
+export {
   agentProtocolRuntimeErrorMessage,
   agentProtocolRuntimeRepairMessage,
   classifyAgentProtocolRuntimeOutput,

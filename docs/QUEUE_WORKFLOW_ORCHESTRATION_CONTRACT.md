@@ -124,12 +124,16 @@ which owns AgentProvider run lifecycle and delegates final-output
 classification to `AgentProtocolRuntime`. The current controller still owns
 broker invocation, visible state, continuation turn application, and activity
 application after classification; this contract does not move broker
-execution into the runtime or protocol runtime. Pure continuation-chain
+execution into the runtime or protocol runtime. Runtime adapter helpers now
+own provider-turn input construction, provider-event compatibility mapping, and
+protocol fallback resolution so the controller remains a React adapter instead
+of a provider lifecycle implementation. Pure continuation-chain
 orchestration lives in `BrokerContinuationRuntime`, which emits typed
 intents/effects for broker action invocation, same-thread continuation,
 protocol repair, stop, and completion. It delegates Queue bounded-autonomy
 decisions to the existing explicitly Queue-specific continuation helpers; that
 Queue policy remains transitional until a typed Queue workflow runner exists.
+BrokerInvocationRuntime and the Queue workflow runner remain future work.
 Workspace Agent activity/log/transcript formatting is isolated in the pure
 `AgentActivityRecorder`. It consumes only events and results that provider,
 protocol, broker, and continuation code have already decided, then returns
