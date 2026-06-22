@@ -267,8 +267,13 @@ API consumed by the Queue workflow runtime adapter:
   against durable Queue facts, and returns a typed plan or blocker. It can
   report terminal workflow-run states, expected-version conflicts, unsupported
   phases, missing or mismatched task/run/evidence/review/finalization facts,
-  missing workflow dependency edges as `blocked_dependency_edge_missing`, next
-  deterministic phase/step, and whether a fresh grant or exact structured
+  missing workflow dependency edges as `blocked_dependency_edge_missing`,
+  missing workflow slot setup as `waiting_for_run_settings`, missing workflow
+  slot promotion as `waiting_for_promote`, settings drift as
+  `blocked_settings_mismatch`, promote-state drift as
+  `blocked_promote_state_mismatch`, executor drift as
+  `blocked_executor_mismatch`, next deterministic phase/step, and whether a
+  fresh grant or exact structured
   confirmation is required. It must not execute workflow steps, call
   `QueueWorkflowRunner`, create/update/promote/enable tasks, start workers,
   record worker evidence, create/ACK review messages, mark done, fail, block,
@@ -327,11 +332,11 @@ run and slot with a different hash is a typed conflict. The same slot/spec in
 a different workflow run is allowed and does not deduplicate globally.
 
 Materialized workflow tasks are created as draft/manual Queue tasks. This is a
-setup artifact only: it does not update run settings, assign executors,
-promote drafts, enable Queue, start workers, create run links, record worker
-evidence, create/ACK reviews, mark done, fail, block, add follow-up work,
-approve/run validation, mutate Git, roll back, launch Terminal, schedule
-work, or start downstream tasks.
+setup artifact only: materialization itself does not update run settings,
+assign executors, promote drafts, enable Queue, start workers, create run
+links, record worker evidence, create/ACK reviews, mark done, fail, block, add
+follow-up work, approve/run validation, mutate Git, roll back, launch
+Terminal, schedule work, or start downstream tasks.
 
 Dependency edges are materialized only from explicit `dependsOnSlots`.
 Upstream slots must already have durable task-id bindings in the same
@@ -345,6 +350,44 @@ inferred from task title, prompt text, order, UI position, file path, or prose.
 This method is not exposed as a Workspace Agent broker capability and is not
 wired into `hobit.workflow.request` execution. It does not add a
 QueueWorkflowRunner create/setup/start phase.
+
+## Queue Workflow Run Settings / Promote MVP
+
+Backend/domain now has narrow workflow-internal setup primitives for already
+materialized slots:
+
+- `apply_agent_queue_workflow_run_settings` applies explicit typed run
+  settings to the bound slot task, including `executionWorkspace`,
+  `codexExecutable`, `sandbox`, `approvalPolicy`, `executionPolicy`, and
+  `executorWidgetId`. The backend computes the canonical `settingsHash` from
+  those typed fields and persists `settingsHash`, a bounded `runSettings`
+  snapshot, `executorWidgetId`, and `updateRunSettings` action refs in
+  `slot_bindings_json`. The action ledger row uses type
+  `update_run_settings` and idempotency key
+  `workflowRunId:update_run_settings:slot:settingsHash`.
+- `promote_agent_queue_workflow_task_slot` promotes the configured slot task
+  from `draft` to `queued`, or treats an already `queued`/`ready` task as
+  idempotent success only when the explicit `taskSpecHash`, `settingsHash`,
+  durable run settings, and executor assignment match. It persists
+  `promoted`, `promoteActionId`, `promoteActionIdempotencyKey`, `promotedAt`,
+  and the promoted task-state snapshot in `slot_bindings_json`. The action
+  ledger row uses type `promote_task` and idempotency key
+  `workflowRunId:promote_task:slot:taskSpecHash:settingsHash`.
+
+Both primitives are backend-owned idempotent workflow actions. Same slot/hash
+and same typed refs return the existing durable result. Different settings
+hashes, task spec hashes, task ids, executor assignments, or action refs
+conflict or block instead of silently overwriting state. The current MVP
+accepts only `manual` `executionPolicy` for workflow setup, so setup cannot
+arm autonomous pickup.
+
+Setup/promote do not enable Queue, start workers, create run links, satisfy
+dependencies, record evidence, create/ACK reviews, mark done, fail, block,
+create follow-ups, run validation, mutate Git, roll back, launch Terminal,
+schedule work, or auto-start downstream work. Downstream slots may be
+configured/promoted while upstream dependencies are unsatisfied, but the
+dependency gate remains authoritative until upstream durable accepted
+completion exists.
 
 ## Queue Control State MVP
 
@@ -402,9 +445,9 @@ workflow/action blocks as `active_run_conflict`.
 
 This MVP does not add a QueueWorkflowRunner create/setup/start phase. The
 runner still supports only the existing read/review/finalization phases. It
-does not create tasks, update run settings, promote drafts, record worker
-evidence, ACK reviews, mark done/fail/block/follow-up, run validation, run
-Git, launch Terminal, schedule workers, or auto-start downstream tasks.
+does not create tasks, call workflow setup/promote, start workers, record
+worker evidence, ACK reviews, mark done/fail/block/follow-up, run validation,
+run Git, launch Terminal, schedule workers, or auto-start downstream tasks.
 
 Resume planner statuses are typed and stable: `resume_ready`,
 `resume_read_only_ready`, `blocked_missing_task`,

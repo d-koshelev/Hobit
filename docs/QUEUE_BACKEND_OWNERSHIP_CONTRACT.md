@@ -87,6 +87,25 @@ not update run settings, assign/promote tasks, enable Queue, start workers,
 record evidence, create/ACK reviews, finalize, validate, mutate Git, roll
 back, launch Terminal, schedule work, or start downstream tasks.
 
+Workflow-owned run-settings setup and task promotion are separate narrow
+backend/domain methods for already materialized slots. Run-settings setup
+applies explicit typed task run settings and executor assignment to the bound
+task, computes/persists `settingsHash`, stores a bounded `runSettings`
+snapshot and `updateRunSettings` action refs in the slot binding, and records
+an `update_run_settings` action keyed by
+`workflowRunId:update_run_settings:slot:settingsHash`. Task promotion requires
+matching `taskSpecHash`, matching `settingsHash`, and durable task settings/
+executor assignment that match the slot binding; it moves `draft` to `queued`
+or treats already `queued`/`ready` as idempotent only with matching hashes. It
+stores promoted refs in the slot binding and records a `promote_task` action
+keyed by `workflowRunId:promote_task:slot:taskSpecHash:settingsHash`.
+Both actions are idempotent for identical typed refs and conflict/block for
+changed slot hashes, task ids, action refs, or executor assignment. They do
+not start workers, create run links, satisfy dependencies, record evidence,
+create/ACK reviews, finalize, validate, mutate Git, roll back, launch
+Terminal, schedule, or auto-start downstream work. The current MVP accepts
+only `manual` workflow execution policy for setup.
+
 Workflow persistence APIs are not Workspace Agent broker capabilities. They
 are backend-backed storage/reporting APIs consumed by the typed Queue workflow
 runtime adapter. No public append-event command exists; action-ledger mutation
@@ -103,10 +122,14 @@ missing blockers; mismatched durable facts return `blocked_state_mismatch`.
 Planner code must not infer ids, permissions, confirmations, or workflow input
 from task titles, prompts, UI selection, frontend order, file paths, or prose.
 For workflow materialized slots, resume planning also validates persisted
-`taskSpecHash`, `dependencySpecHash`, and `dependencyEdgeHash` when enough typed
-input or binding data is present, and returns
-`blocked_dependency_edge_missing` for missing exact dependency edges without
-repairing them.
+`taskSpecHash`, `dependencySpecHash`, `dependencyEdgeHash`, `settingsHash`,
+bounded run-settings snapshots, executor bindings, and promoted state when
+enough typed input or binding data is present. It returns
+`blocked_dependency_edge_missing` for missing exact dependency edges,
+`blocked_settings_mismatch` for settings drift,
+`blocked_executor_mismatch` for executor drift, and
+`blocked_promote_state_mismatch` for promote-state drift without repairing
+durable state.
 Any mutating restart target must require a fresh grant and fresh exact
 structured confirmation; persisted confirmation tokens are never replayed.
 

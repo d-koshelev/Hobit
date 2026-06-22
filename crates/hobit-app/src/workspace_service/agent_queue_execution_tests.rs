@@ -1172,6 +1172,7 @@ fn worker_settings_hash_for_input(
         codex_executable: input.codex_executable.clone(),
         sandbox: input.sandbox.clone(),
         approval_policy: input.approval_policy.clone(),
+        execution_policy: "manual".to_owned(),
         executor_widget_id: executor_id.to_owned(),
     }
     .stable_hash()

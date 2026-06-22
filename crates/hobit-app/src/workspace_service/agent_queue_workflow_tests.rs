@@ -1125,6 +1125,718 @@ fn materialize_create_task_action_conflicting_refs_rejected_without_task_creatio
 }
 
 #[test]
+fn workflow_run_settings_apply_is_idempotent_and_persists_binding() {
+    let service = initialized_service_with_executor();
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let materialized = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream");
+    let task = materialized.task.expect("task");
+    let settings = workflow_run_settings("executor-1");
+
+    let first = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            settings.clone(),
+            None,
+        ))
+        .expect("apply settings");
+    let duplicate = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            Some(&task.queue_item_id),
+            settings,
+            None,
+        ))
+        .expect("duplicate settings");
+
+    assert_eq!(first.status, QueueWorkflowApplyRunSettingsStatus::Applied);
+    assert_eq!(
+        duplicate.status,
+        QueueWorkflowApplyRunSettingsStatus::Reused
+    );
+    assert_eq!(
+        first.binding.as_ref().expect("binding").settings_hash,
+        duplicate
+            .binding
+            .as_ref()
+            .expect("duplicate binding")
+            .settings_hash
+    );
+    let updated_task = service
+        .get_agent_queue_task("workspace-1", &task.queue_item_id)
+        .expect("get task")
+        .expect("task");
+    assert_eq!(updated_task.status, "draft");
+    assert_eq!(
+        updated_task.execution_workspace.as_deref(),
+        Some("C:/workspace/project")
+    );
+    assert_eq!(updated_task.codex_executable.as_deref(), Some("codex"));
+    assert_eq!(updated_task.sandbox.as_deref(), Some("workspace_write"));
+    assert_eq!(updated_task.approval_policy.as_deref(), Some("never"));
+    assert_eq!(updated_task.execution_policy, "manual");
+    assert_eq!(
+        updated_task.assigned_executor_widget_id.as_deref(),
+        Some("executor-1")
+    );
+
+    let run = service
+        .get_queue_workflow_run(QueueWorkflowGetRequest {
+            workspace_id: "workspace-1".to_owned(),
+            workflow_run_id: workflow_run.workflow_run_id.clone(),
+        })
+        .expect("get workflow")
+        .expect("workflow");
+    let slot_bindings: Value = serde_json::from_str(
+        run.slot_bindings_json
+            .as_deref()
+            .expect("slot bindings json"),
+    )
+    .expect("slot bindings");
+    assert_eq!(
+        slot_bindings["upstream"]["settingsHash"].as_str(),
+        Some(
+            first
+                .binding
+                .as_ref()
+                .expect("binding")
+                .settings_hash
+                .as_str()
+        )
+    );
+    assert_eq!(
+        slot_bindings["upstream"]["runSettings"]["executorWidgetId"].as_str(),
+        Some("executor-1")
+    );
+    assert_eq!(
+        slot_bindings["upstream"]["updateRunSettingsActionIdempotencyKey"].as_str(),
+        Some(
+            first
+                .binding
+                .as_ref()
+                .expect("binding")
+                .update_run_settings_action_idempotency_key
+                .as_str()
+        )
+    );
+
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions("workspace-1", &workflow_run.workflow_run_id)
+        .expect("actions");
+    assert_eq!(actions.len(), 2);
+    assert!(actions
+        .iter()
+        .any(|action| action.action_type == "update_run_settings"));
+    assert_no_queue_workflow_side_effects(&service, "workspace-1", &task.queue_item_id);
+}
+
+#[test]
+fn workflow_run_settings_conflicts_on_changed_hash_and_task_id_mismatch_blocks() {
+    let service = initialized_service_with_executor();
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let materialized = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream");
+
+    service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            workflow_run_settings("executor-1"),
+            None,
+        ))
+        .expect("apply settings");
+
+    let mut changed = workflow_run_settings("executor-1");
+    changed.codex_executable = "codex-nightly".to_owned();
+    let conflict = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            changed,
+            None,
+        ))
+        .expect("settings conflict");
+    assert_eq!(
+        conflict.status,
+        QueueWorkflowApplyRunSettingsStatus::Conflict
+    );
+    assert_eq!(
+        conflict.conflict.expect("conflict").conflict_code,
+        "slot_settings_hash_conflict"
+    );
+
+    let mismatch = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            Some("other-task"),
+            workflow_run_settings("executor-1"),
+            None,
+        ))
+        .expect("task mismatch");
+    assert_eq!(
+        mismatch.status,
+        QueueWorkflowApplyRunSettingsStatus::Blocked
+    );
+    assert_eq!(
+        mismatch.blocker.expect("blocker").blocker_code,
+        "task_id_mismatch"
+    );
+    assert_no_queue_workflow_side_effects(
+        &service,
+        "workspace-1",
+        &materialized.task.expect("task").queue_item_id,
+    );
+}
+
+#[test]
+fn workflow_run_settings_blocks_existing_executor_assignment_mismatch() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    insert_executor_widget(&store, "workspace-1", "workbench-1", "executor-2");
+    let service = WorkspaceService::new(store);
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let task = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream")
+        .task
+        .expect("task");
+    service
+        .store
+        .assign_agent_queue_task_to_executor(
+            "workspace-1",
+            &task.queue_item_id,
+            "executor-2",
+            Some("assigned-elsewhere"),
+        )
+        .expect("assign executor")
+        .expect("assigned task");
+
+    let result = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            workflow_run_settings("executor-1"),
+            None,
+        ))
+        .expect("apply settings");
+
+    assert_eq!(result.status, QueueWorkflowApplyRunSettingsStatus::Blocked);
+    assert_eq!(
+        result.blocker.expect("blocker").blocker_code,
+        "executor_assignment_conflict"
+    );
+}
+
+#[test]
+fn workflow_promote_is_idempotent_and_never_starts_worker() {
+    let service = initialized_service_with_executor();
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let materialized = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream");
+    let task = materialized.task.expect("task");
+    let task_spec_hash = materialized.binding.expect("binding").task_spec_hash;
+    let settings = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            workflow_run_settings("executor-1"),
+            None,
+        ))
+        .expect("apply settings")
+        .binding
+        .expect("settings binding");
+
+    let promoted = service
+        .promote_agent_queue_workflow_task_slot(promote_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            Some(&task.queue_item_id),
+            &task_spec_hash,
+            &settings.settings_hash,
+        ))
+        .expect("promote");
+    let duplicate = service
+        .promote_agent_queue_workflow_task_slot(promote_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            &task_spec_hash,
+            &settings.settings_hash,
+        ))
+        .expect("duplicate promote");
+
+    assert_eq!(
+        promoted.status,
+        QueueWorkflowPromoteTaskSlotStatus::Promoted
+    );
+    assert_eq!(duplicate.status, QueueWorkflowPromoteTaskSlotStatus::Reused);
+    assert_eq!(promoted.task.expect("task").status, "queued");
+    assert_eq!(duplicate.binding.expect("duplicate binding").promoted, true);
+    assert_no_queue_workflow_side_effects(&service, "workspace-1", &task.queue_item_id);
+    assert!(
+        service
+            .store
+            .list_agent_queue_task_run_links("workspace-1", &task.queue_item_id)
+            .expect("run links")
+            .is_empty(),
+        "promotion must not create a run link"
+    );
+
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions("workspace-1", &workflow_run.workflow_run_id)
+        .expect("actions");
+    assert_eq!(actions.len(), 3);
+    assert!(actions
+        .iter()
+        .any(|action| action.action_type == "promote_task"));
+}
+
+#[test]
+fn workflow_promote_conflicts_on_task_spec_or_settings_hash_mismatch() {
+    let service = initialized_service_with_executor();
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let materialized = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream");
+    let task_spec_hash = materialized.binding.expect("binding").task_spec_hash;
+    let settings_hash = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            workflow_run_settings("executor-1"),
+            None,
+        ))
+        .expect("apply settings")
+        .binding
+        .expect("settings binding")
+        .settings_hash;
+
+    let wrong_spec = service
+        .promote_agent_queue_workflow_task_slot(promote_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            "queue-task-spec-fnv1a64:badbadbadbadbadb",
+            &settings_hash,
+        ))
+        .expect("wrong spec");
+    assert_eq!(
+        wrong_spec.status,
+        QueueWorkflowPromoteTaskSlotStatus::Conflict
+    );
+    assert_eq!(
+        wrong_spec.conflict.expect("conflict").conflict_code,
+        "task_spec_hash_conflict"
+    );
+
+    let wrong_settings = service
+        .promote_agent_queue_workflow_task_slot(promote_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            &task_spec_hash,
+            "queue-settings-fnv1a64:badbadbadbadbadb",
+        ))
+        .expect("wrong settings");
+    assert_eq!(
+        wrong_settings.status,
+        QueueWorkflowPromoteTaskSlotStatus::Conflict
+    );
+    assert_eq!(
+        wrong_settings.conflict.expect("conflict").conflict_code,
+        "settings_hash_conflict"
+    );
+}
+
+#[test]
+fn workflow_promoted_downstream_remains_dependency_waiting_without_auto_start() {
+    let service = initialized_service_with_executor();
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let _upstream = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream");
+    let downstream = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "downstream",
+            "Implement follow-up",
+            "Use the upstream result to implement the follow-up.",
+            vec!["upstream"],
+        ))
+        .expect("materialize downstream");
+    let downstream_task = downstream.task.expect("downstream task");
+    let downstream_spec_hash = downstream
+        .binding
+        .expect("downstream binding")
+        .task_spec_hash;
+    let downstream_settings_hash = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "downstream",
+            None,
+            workflow_run_settings("executor-1"),
+            None,
+        ))
+        .expect("apply downstream settings")
+        .binding
+        .expect("downstream settings")
+        .settings_hash;
+    service
+        .promote_agent_queue_workflow_task_slot(promote_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "downstream",
+            None,
+            &downstream_spec_hash,
+            &downstream_settings_hash,
+        ))
+        .expect("promote downstream");
+
+    let aggregate = service
+        .get_queue_item_aggregate("workspace-1", &downstream_task.queue_item_id)
+        .expect("aggregate")
+        .expect("aggregate");
+    assert_eq!(aggregate.dependency_state.as_str(), "waiting");
+    assert!(aggregate
+        .next_actions
+        .iter()
+        .all(|action| action.code != "start_run" || !action.available));
+    assert_no_queue_workflow_side_effects(&service, "workspace-1", &downstream_task.queue_item_id);
+
+    let plan = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            None,
+        ))
+        .expect("plan")
+        .expect("plan");
+    assert!(plan.slot_reconciliations.iter().any(|slot| {
+        slot.slot == "downstream" && slot.aggregate_dependency_state.as_deref() == Some("waiting")
+    }));
+}
+
+#[test]
+fn resume_planner_tracks_settings_and_promote_setup_state() {
+    let service = initialized_service_with_executor();
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let materialized = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream");
+    let task_spec_hash = materialized
+        .binding
+        .as_ref()
+        .expect("binding")
+        .task_spec_hash
+        .clone();
+
+    let missing_settings = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            None,
+        ))
+        .expect("plan missing settings")
+        .expect("plan");
+    assert_eq!(
+        missing_settings.status,
+        QueueWorkflowResumePlanStatus::WaitingForRunSettings
+    );
+    assert_eq!(
+        missing_settings.next_step.as_deref(),
+        Some("waiting_for_run_settings")
+    );
+
+    let settings_hash = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            workflow_run_settings("executor-1"),
+            None,
+        ))
+        .expect("apply settings")
+        .binding
+        .expect("settings")
+        .settings_hash;
+    let missing_promote = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            None,
+        ))
+        .expect("plan missing promote")
+        .expect("plan");
+    assert_eq!(
+        missing_promote.status,
+        QueueWorkflowResumePlanStatus::WaitingForPromote
+    );
+    assert_eq!(
+        missing_promote.next_step.as_deref(),
+        Some("waiting_for_promote")
+    );
+
+    service
+        .promote_agent_queue_workflow_task_slot(promote_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            &task_spec_hash,
+            &settings_hash,
+        ))
+        .expect("promote");
+    let start_ready = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            None,
+        ))
+        .expect("plan start ready")
+        .expect("plan");
+    assert_eq!(
+        start_ready.status,
+        QueueWorkflowResumePlanStatus::BlockedMissingConfirmation
+    );
+    assert_eq!(start_ready.next_step.as_deref(), Some("start_worker_ready"));
+}
+
+#[test]
+fn resume_planner_blocks_settings_promote_and_executor_mismatches() {
+    let service = initialized_service_with_executor();
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let materialized = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream");
+    let task = materialized.task.expect("task");
+    let task_spec_hash = materialized.binding.expect("binding").task_spec_hash;
+    let settings_hash = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            workflow_run_settings("executor-1"),
+            None,
+        ))
+        .expect("apply settings")
+        .binding
+        .expect("settings")
+        .settings_hash;
+
+    service
+        .store
+        .update_agent_queue_task(
+            "workspace-1",
+            &task.queue_item_id,
+            AgentQueueTaskUpdate {
+                title: &task.title,
+                description: &task.description,
+                prompt: &task.prompt,
+                status: &task.status,
+                priority: task.priority,
+                depends_on: Some("[]"),
+                execution_policy: Some("manual"),
+                execution_workspace: Some("C:/workspace/project"),
+                codex_executable: Some("codex-drift"),
+                sandbox: Some("workspace_write"),
+                approval_policy: Some("never"),
+                context_json: None,
+                updated_at: Some("settings-drift"),
+            },
+        )
+        .expect("drift settings")
+        .expect("updated");
+    let settings_mismatch = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            None,
+        ))
+        .expect("plan settings mismatch")
+        .expect("plan");
+    assert_eq!(
+        settings_mismatch.status,
+        QueueWorkflowResumePlanStatus::BlockedSettingsMismatch
+    );
+
+    service
+        .store
+        .update_agent_queue_task(
+            "workspace-1",
+            &task.queue_item_id,
+            AgentQueueTaskUpdate {
+                title: &task.title,
+                description: &task.description,
+                prompt: &task.prompt,
+                status: &task.status,
+                priority: task.priority,
+                depends_on: Some("[]"),
+                execution_policy: Some("manual"),
+                execution_workspace: Some("C:/workspace/project"),
+                codex_executable: Some("codex"),
+                sandbox: Some("workspace_write"),
+                approval_policy: Some("never"),
+                context_json: None,
+                updated_at: Some("settings-restored"),
+            },
+        )
+        .expect("restore settings")
+        .expect("updated");
+    insert_executor_widget(&service.store, "workspace-1", "workbench-1", "executor-2");
+    service
+        .store
+        .assign_agent_queue_task_to_executor(
+            "workspace-1",
+            &task.queue_item_id,
+            "executor-2",
+            Some("executor-drift"),
+        )
+        .expect("assign executor")
+        .expect("assigned");
+    let executor_mismatch = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            None,
+        ))
+        .expect("plan executor mismatch")
+        .expect("plan");
+    assert_eq!(
+        executor_mismatch.status,
+        QueueWorkflowResumePlanStatus::BlockedExecutorMismatch
+    );
+
+    service
+        .store
+        .assign_agent_queue_task_to_executor(
+            "workspace-1",
+            &task.queue_item_id,
+            "executor-1",
+            Some("executor-restored"),
+        )
+        .expect("restore executor")
+        .expect("assigned");
+    service
+        .promote_agent_queue_workflow_task_slot(promote_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            &task_spec_hash,
+            &settings_hash,
+        ))
+        .expect("promote");
+    service
+        .store
+        .update_agent_queue_task_status(
+            "workspace-1",
+            &task.queue_item_id,
+            "draft",
+            Some("promote-drift"),
+        )
+        .expect("draft")
+        .expect("updated");
+    let promote_mismatch = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            None,
+        ))
+        .expect("plan promote mismatch")
+        .expect("plan");
+    assert_eq!(
+        promote_mismatch.status,
+        QueueWorkflowResumePlanStatus::BlockedPromoteStateMismatch
+    );
+}
+
+#[test]
 fn plan_resume_blocks_when_materialized_dependency_edge_is_missing() {
     let service = initialized_service();
     create_workspace(&service, "workspace-1");
@@ -1951,6 +2663,63 @@ fn materialize_request(
     }
 }
 
+fn initialized_service_with_executor() -> WorkspaceService {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    WorkspaceService::new(store)
+}
+
+fn workflow_run_settings(executor_widget_id: &str) -> QueueWorkflowRunSettings {
+    QueueWorkflowRunSettings {
+        execution_workspace: "C:/workspace/project".to_owned(),
+        codex_executable: "codex".to_owned(),
+        sandbox: "workspace_write".to_owned(),
+        approval_policy: "never".to_owned(),
+        execution_policy: "manual".to_owned(),
+        executor_widget_id: executor_widget_id.to_owned(),
+    }
+}
+
+fn run_settings_request(
+    workspace_id: &str,
+    workflow_run_id: &str,
+    slot: &str,
+    task_id: Option<&str>,
+    run_settings: QueueWorkflowRunSettings,
+    settings_hash: Option<&str>,
+) -> QueueWorkflowApplyRunSettingsRequest {
+    QueueWorkflowApplyRunSettingsRequest {
+        workspace_id: workspace_id.to_owned(),
+        workflow_run_id: workflow_run_id.to_owned(),
+        slot: slot.to_owned(),
+        task_id: task_id.map(str::to_owned),
+        run_settings,
+        settings_hash: settings_hash.map(str::to_owned),
+        actor_id: Some("workspace-agent".to_owned()),
+        action_idempotency_key: None,
+    }
+}
+
+fn promote_request(
+    workspace_id: &str,
+    workflow_run_id: &str,
+    slot: &str,
+    task_id: Option<&str>,
+    task_spec_hash: &str,
+    settings_hash: &str,
+) -> QueueWorkflowPromoteTaskSlotRequest {
+    QueueWorkflowPromoteTaskSlotRequest {
+        workspace_id: workspace_id.to_owned(),
+        workflow_run_id: workflow_run_id.to_owned(),
+        slot: slot.to_owned(),
+        task_id: task_id.map(str::to_owned),
+        task_spec_hash: task_spec_hash.to_owned(),
+        settings_hash: settings_hash.to_owned(),
+        actor_id: Some("workspace-agent".to_owned()),
+        action_idempotency_key: None,
+    }
+}
+
 fn assert_no_queue_workflow_side_effects(
     service: &WorkspaceService,
     workspace_id: &str,
@@ -2089,6 +2858,37 @@ fn create_workspace_with_executor(
     store
         .create_workspace_workbench(workbench_id, workspace_id, None)
         .expect("create workbench");
+    store
+        .insert_widget_instance(NewWidgetInstance {
+            id: executor_id,
+            workspace_id,
+            workbench_id,
+            definition_id: "agent-run",
+            title: "Agent Executor",
+            category: "agent",
+            layout_mode: "docked",
+            dock_x: Some(0),
+            dock_y: Some(0),
+            dock_width: Some(360),
+            dock_height: Some(240),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert executor");
+}
+
+fn insert_executor_widget(
+    store: &SqliteStore,
+    workspace_id: &str,
+    workbench_id: &str,
+    executor_id: &str,
+) {
     store
         .insert_widget_instance(NewWidgetInstance {
             id: executor_id,

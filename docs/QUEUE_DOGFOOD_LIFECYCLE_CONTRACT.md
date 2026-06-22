@@ -146,6 +146,17 @@ Backend/domain aggregate and review command foundation:
   second worker. This does not record worker evidence, call
   `queue.lifecycle.agentFinished`, ACK reviews, mark done/fail/block/follow-up,
   run validation/Git/rollback/Terminal, or auto-start downstream tasks.
+- Queue workflow setup now has backend-owned idempotent run-settings and
+  promote actions for already materialized workflow slots. Run-settings setup
+  applies explicit typed task settings and executor assignment, persists
+  `settingsHash` and `update_run_settings` action refs, and accepts only
+  manual execution policy in this MVP. Promotion records `promote_task` refs
+  and moves a matching configured draft task to queued, or treats already
+  queued/ready as idempotent only when typed hashes match. These setup actions
+  do not start workers, create run links, satisfy dependencies, call
+  `queue.lifecycle.agentFinished`, record evidence, ACK reviews, mark
+  done/fail/block/follow-up, run validation/Git/rollback/Terminal, or
+  auto-start downstream tasks.
 - Queue capability result mappers now emit typed `nextAction` payloads when a
   follow-up can be built with known canonical target fields. The runtime must
   prefer `nextAction.capabilityId` plus `nextAction.input` and must not guess
@@ -527,7 +538,9 @@ The backend aggregate read model applies this gate from durable accepted
 completion decisions. It exposes dependency states `none`, `ready`, `waiting`,
 `blocked`, `failed_upstream`, and `unknown`. `waiting`, `blocked`,
 `failed_upstream`, and `unknown` surface dependency blockers and do not expose
-`start_run` or runnable `promote_draft` next actions. After upstream
+`start_run` or runnable `promote_draft` next actions. A workflow-promoted
+downstream task remains blocked by this gate until upstream accepted
+completion exists. After upstream
 `queue.item.markDone` succeeds, downstream re-query clears that dependency
 blocker and exposes the downstream task's own next action, such as updating run
 settings or starting only after Queue enablement and explicit start

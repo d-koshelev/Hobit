@@ -13,7 +13,8 @@ use super::{
     },
     agent_queue_lifecycle::{
         map_direct_work_final_status_to_queue_status, AgentQueueExecutionLifecycleStatus,
-        AgentQueueTaskLifecycleStatus, AGENT_QUEUE_TASK_STATUS_RUNNING,
+        AgentQueueTaskLifecycleStatus, AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL,
+        AGENT_QUEUE_TASK_STATUS_RUNNING,
     },
     agent_queue_run_links::{
         record_agent_queue_task_run_final_status_in_store,
@@ -1303,6 +1304,7 @@ fn effective_worker_start_settings(
             .approval_policy
             .clone()
             .unwrap_or_else(|| input.approval_policy.clone()),
+        execution_policy: task.execution_policy.clone(),
         executor_widget_id: executor_widget_id.to_owned(),
     }
 }
@@ -1351,6 +1353,11 @@ fn validate_workflow_start_run_settings(
             "approval_policy",
             task.approval_policy.as_deref(),
             Some(input.approval_policy.as_str()),
+        ),
+        (
+            "execution_policy",
+            Some(task.execution_policy.as_str()),
+            Some(AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL),
         ),
     ] {
         if let Some(expected) = expected {

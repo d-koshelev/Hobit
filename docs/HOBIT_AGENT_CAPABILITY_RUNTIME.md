@@ -226,7 +226,8 @@ settings refs and exact structured confirmation. Broker and Workspace Agent
 logic must not infer `taskId`, `runId`, `workflowRunId`,
 `actionIdempotencyKey`, `settingsHash`, or `executorWidgetId` from prose,
 title, UI order, file path, or selected detail state. The current
-QueueWorkflowRunner does not expose create/setup/start execution; it remains
+QueueWorkflowRunner does not expose create/setup/start execution and does not
+call backend materialization/setup/promote/start APIs; it remains
 read/review/finalization only until an explicit future implementation block.
 - Workspace Agent Action Protocol Enforcement MVP: Workspace Agent Direct Work
   turns that receive Hobit capability context are treated as typed-capability
@@ -392,9 +393,17 @@ typed domain method: it creates/reuses draft/manual Queue tasks by explicit
 dependency edges only from explicit `dependsOnSlots` resolved to bound upstream
 task ids. It is not a Workspace Agent broker route, not natural-language
 routing, and not wired into `hobit.workflow.request` execution. It does not
-update run settings, promote tasks, enable Queue, start workers, record
+itself update run settings, promote tasks, enable Queue, start workers, record
 evidence/reviews/finalization, run validation, mutate Git, roll back, launch
 Terminal, schedule, or auto-start downstream work.
+Backend workflow run-settings setup and promote now exist as separate
+workflow-internal typed domain methods for already materialized slots. They
+persist `settingsHash` / `update_run_settings` refs and `promote_task` refs in
+workflow slot bindings/action ledgers, are idempotent for exact typed refs, and
+block/conflict on mismatched hashes, task ids, executor assignments, or action
+refs. They are not Workspace Agent broker routes, not natural-language routes,
+not wired into `hobit.workflow.request` execution, and do not start workers or
+create run links.
 Queue control state is now backend-owned and durable per workspace through
 typed control APIs. The MVP states are `disabled` and `manual_enabled`;
 `manual_enabled` is a manual/no-autodispatch gate for future explicit typed

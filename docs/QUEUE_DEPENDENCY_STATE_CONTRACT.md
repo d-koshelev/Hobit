@@ -150,6 +150,14 @@ materialization, and missing persisted dependency edges block resume planning
 as `blocked_dependency_edge_missing`; the planner does not repair edges in the
 MVP.
 
+After a downstream workflow slot is materialized, workflow-owned setup may
+apply typed run settings and promote that downstream task idempotently while
+the upstream dependency is still waiting. Promotion does not satisfy the
+dependency and does not make the downstream task startable. Backend start
+eligibility must continue to block on `dependency_waiting`,
+`dependency_blocked`, `dependency_failed`, or `dependency_unknown` until the
+upstream dependency has durable accepted completion.
+
 ## Blocker Kinds
 
 Dependency-derived blockers use:

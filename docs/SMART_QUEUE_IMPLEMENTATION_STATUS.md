@@ -73,9 +73,27 @@ upstream task ids. The same workflow/slot/hash is idempotent, a different hash
 for the same workflow/slot conflicts, and the same slot/spec in a different
 workflow does not deduplicate globally. This is not wired into the
 QueueWorkflowRunner create/setup/start path or Workspace Agent broker routing,
-and it does not update run settings, promote tasks, enable Queue, start
-workers, record evidence/reviews/finalization, run validation, mutate Git,
-roll back, launch Terminal, schedule, or auto-start downstream work.
+and materialization itself does not update run settings, promote tasks, enable
+Queue, start workers, record evidence/reviews/finalization, run validation,
+mutate Git, roll back, launch Terminal, schedule, or auto-start downstream
+work.
+Queue workflow run-settings setup and task promotion now exist as backend/
+domain MVP primitives for already materialized slots. Run-settings setup
+applies typed durable task settings plus executor assignment, computes a
+canonical `settingsHash`, persists a bounded `runSettings` snapshot and
+`updateRunSettings` refs in the slot binding, and records an
+`update_run_settings` workflow action row keyed by
+`workflowRunId:update_run_settings:slot:settingsHash`. Promotion requires
+matching `taskSpecHash`, matching `settingsHash`, and matching durable task
+settings/executor assignment, moves draft to queued or treats already
+queued/ready as idempotent only with matching hashes, persists promote refs in
+the slot binding, and records a `promote_task` action row keyed by
+`workflowRunId:promote_task:slot:taskSpecHash:settingsHash`. These backend
+methods are not wired into QueueWorkflowRunner create/setup/start execution or
+Workspace Agent broker routing and do not start workers, create run links,
+enable Queue, satisfy dependencies, record evidence/reviews/finalization, run
+validation, mutate Git, roll back, launch Terminal, schedule, or auto-start
+downstream work.
 Queue control state is also backend-owned and durable per workspace. The MVP
 control states are `disabled` and `manual_enabled`, exposed through typed
 backend/Tauri/frontend wrappers. `manual_enabled` is a manual/no-autodispatch

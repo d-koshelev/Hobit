@@ -171,6 +171,7 @@ pub struct QueueWorkerStartSettingsSnapshot {
     pub codex_executable: String,
     pub sandbox: String,
     pub approval_policy: String,
+    pub execution_policy: String,
     pub executor_widget_id: String,
 }
 
@@ -179,6 +180,7 @@ impl QueueWorkerStartSettingsSnapshot {
         let canonical = [
             ("approval_policy", self.approval_policy.as_str()),
             ("codex_executable", self.codex_executable.as_str()),
+            ("execution_policy", self.execution_policy.as_str()),
             ("execution_workspace", self.execution_workspace.as_str()),
             ("executor_widget_id", self.executor_widget_id.as_str()),
             ("sandbox", self.sandbox.as_str()),

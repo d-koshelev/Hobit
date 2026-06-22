@@ -104,6 +104,36 @@ fn start_worker_action_input<'a>(
     }
 }
 
+fn workflow_setup_action_input<'a>(
+    action_id: &'a str,
+    workflow_run_id: &'a str,
+    workspace_id: &'a str,
+    step_id: &'a str,
+    action_type: &'a str,
+    idempotency_key: &'a str,
+    target_refs_json: &'a str,
+    result_refs_json: &'a str,
+) -> NewAgentQueueWorkflowAction<'a> {
+    NewAgentQueueWorkflowAction {
+        action_id,
+        workflow_run_id,
+        workspace_id,
+        step_id,
+        action_type,
+        idempotency_key,
+        status: "completed",
+        target_refs_json: Some(target_refs_json),
+        result_refs_json: Some(result_refs_json),
+        blocker_code: None,
+        blocker_message: None,
+        attempt_count: 1,
+        started_at: Some("2"),
+        completed_at: Some("2"),
+        created_at: Some("2"),
+        updated_at: Some("2"),
+    }
+}
+
 #[test]
 fn create_get_and_list_agent_queue_workflow_runs_are_workspace_scoped() {
     let store = initialized_store();
@@ -380,6 +410,134 @@ fn workflow_action_duplicate_key_conflicting_refs_is_rejected() {
     ));
 
     assert!(conflict.is_err());
+}
+
+#[test]
+fn workflow_setup_action_types_are_idempotent_for_same_key_and_refs() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    create_workflow_run(
+        &store,
+        "workspace-1",
+        "workflow-run-1",
+        "request-1",
+        "hash-1",
+        "running",
+    );
+
+    let settings = store
+        .insert_agent_queue_workflow_action(workflow_setup_action_input(
+            "action-settings",
+            "workflow-run-1",
+            "workspace-1",
+            "update_run_settings",
+            "update_run_settings",
+            "workflow-run-1:update_run_settings:upstream:queue-settings-fnv1a64:1111",
+            r#"{"slot":"upstream","taskId":"task-1","settingsHash":"queue-settings-fnv1a64:1111","workflowRunId":"workflow-run-1"}"#,
+            r#"{"taskId":"task-1","executorWidgetId":"executor-1","settingsHash":"queue-settings-fnv1a64:1111","result":"applied"}"#,
+        ))
+        .expect("insert settings action");
+    let duplicate_settings = store
+        .insert_agent_queue_workflow_action(workflow_setup_action_input(
+            "action-settings-duplicate",
+            "workflow-run-1",
+            "workspace-1",
+            "update_run_settings",
+            "update_run_settings",
+            "workflow-run-1:update_run_settings:upstream:queue-settings-fnv1a64:1111",
+            r#"{"slot":"upstream","taskId":"task-1","settingsHash":"queue-settings-fnv1a64:1111","workflowRunId":"workflow-run-1"}"#,
+            r#"{"taskId":"task-1","executorWidgetId":"executor-1","settingsHash":"queue-settings-fnv1a64:1111","result":"applied"}"#,
+        ))
+        .expect("insert duplicate settings action");
+    assert_eq!(duplicate_settings, settings);
+
+    let promote = store
+        .insert_agent_queue_workflow_action(workflow_setup_action_input(
+            "action-promote",
+            "workflow-run-1",
+            "workspace-1",
+            "promote_task",
+            "promote_task",
+            "workflow-run-1:promote_task:upstream:queue-task-spec-fnv1a64:aaaa:queue-settings-fnv1a64:1111",
+            r#"{"slot":"upstream","taskId":"task-1","taskSpecHash":"queue-task-spec-fnv1a64:aaaa","settingsHash":"queue-settings-fnv1a64:1111","workflowRunId":"workflow-run-1"}"#,
+            r#"{"taskId":"task-1","taskState":"queued","result":"promoted"}"#,
+        ))
+        .expect("insert promote action");
+    let duplicate_promote = store
+        .insert_agent_queue_workflow_action(workflow_setup_action_input(
+            "action-promote-duplicate",
+            "workflow-run-1",
+            "workspace-1",
+            "promote_task",
+            "promote_task",
+            "workflow-run-1:promote_task:upstream:queue-task-spec-fnv1a64:aaaa:queue-settings-fnv1a64:1111",
+            r#"{"slot":"upstream","taskId":"task-1","taskSpecHash":"queue-task-spec-fnv1a64:aaaa","settingsHash":"queue-settings-fnv1a64:1111","workflowRunId":"workflow-run-1"}"#,
+            r#"{"taskId":"task-1","taskState":"queued","result":"promoted"}"#,
+        ))
+        .expect("insert duplicate promote action");
+    assert_eq!(duplicate_promote, promote);
+}
+
+#[test]
+fn workflow_setup_action_types_reject_conflicting_refs() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    create_workflow_run(
+        &store,
+        "workspace-1",
+        "workflow-run-1",
+        "request-1",
+        "hash-1",
+        "running",
+    );
+
+    store
+        .insert_agent_queue_workflow_action(workflow_setup_action_input(
+            "action-settings",
+            "workflow-run-1",
+            "workspace-1",
+            "update_run_settings",
+            "update_run_settings",
+            "workflow-run-1:update_run_settings:upstream:queue-settings-fnv1a64:1111",
+            r#"{"slot":"upstream","taskId":"task-1","settingsHash":"queue-settings-fnv1a64:1111","workflowRunId":"workflow-run-1"}"#,
+            r#"{"taskId":"task-1","executorWidgetId":"executor-1","settingsHash":"queue-settings-fnv1a64:1111","result":"applied"}"#,
+        ))
+        .expect("insert settings action");
+    let settings_conflict = store.insert_agent_queue_workflow_action(workflow_setup_action_input(
+        "action-settings-conflict",
+        "workflow-run-1",
+        "workspace-1",
+        "update_run_settings",
+        "update_run_settings",
+        "workflow-run-1:update_run_settings:upstream:queue-settings-fnv1a64:1111",
+        r#"{"slot":"upstream","taskId":"task-1","settingsHash":"queue-settings-fnv1a64:2222","workflowRunId":"workflow-run-1"}"#,
+        r#"{"taskId":"task-1","executorWidgetId":"executor-1","settingsHash":"queue-settings-fnv1a64:2222","result":"applied"}"#,
+    ));
+    assert!(settings_conflict.is_err());
+
+    store
+        .insert_agent_queue_workflow_action(workflow_setup_action_input(
+            "action-promote",
+            "workflow-run-1",
+            "workspace-1",
+            "promote_task",
+            "promote_task",
+            "workflow-run-1:promote_task:upstream:queue-task-spec-fnv1a64:aaaa:queue-settings-fnv1a64:1111",
+            r#"{"slot":"upstream","taskId":"task-1","taskSpecHash":"queue-task-spec-fnv1a64:aaaa","settingsHash":"queue-settings-fnv1a64:1111","workflowRunId":"workflow-run-1"}"#,
+            r#"{"taskId":"task-1","taskState":"queued","result":"promoted"}"#,
+        ))
+        .expect("insert promote action");
+    let promote_conflict = store.insert_agent_queue_workflow_action(workflow_setup_action_input(
+        "action-promote-conflict",
+        "workflow-run-1",
+        "workspace-1",
+        "promote_task",
+        "promote_task",
+        "workflow-run-1:promote_task:upstream:queue-task-spec-fnv1a64:aaaa:queue-settings-fnv1a64:1111",
+        r#"{"slot":"upstream","taskId":"task-1","taskSpecHash":"queue-task-spec-fnv1a64:bbbb","settingsHash":"queue-settings-fnv1a64:1111","workflowRunId":"workflow-run-1"}"#,
+        r#"{"taskId":"task-1","taskState":"queued","result":"promoted"}"#,
+    ));
+    assert!(promote_conflict.is_err());
 }
 
 #[test]

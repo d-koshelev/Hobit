@@ -459,7 +459,17 @@ unless the task explicitly requests it.
   tasks by explicit `workflowRunId + slot + taskSpecHash`, persists durable
   slot bindings, and materializes dependency edges only from explicit
   `dependsOnSlots`. It is not a Workspace Agent broker capability and is not
-  wired into `hobit.workflow.request` execution. A backend-owned worker-start
+  wired into `hobit.workflow.request` execution. Backend workflow run-settings
+  setup and task promotion now also exist as workflow-internal domain methods
+  for already materialized slots: they persist `settingsHash`,
+  bounded run-settings snapshots, `update_run_settings` refs, and
+  `promote_task` refs in the workflow slot binding/action ledger; same typed
+  refs are idempotent and changed hashes/refs conflict or block. They are not
+  broker capabilities, not wired into QueueWorkflowRunner create/setup/start
+  execution, and do not start workers, create run links, enable Queue,
+  satisfy dependencies, record evidence/reviews/finalization, run validation,
+  mutate Git, launch Terminal, schedule, or auto-start downstream work. A
+  backend-owned worker-start
   idempotency/control
   contract now exists on the assigned Queue task start path for future start
   phases: it requires explicit workflow/action/task/executor/settings refs,

@@ -11,9 +11,17 @@ use crate::WorkspaceServiceError;
 
 use super::{
     agent_queue_aggregate::REVIEW_MESSAGE_STATUS_ACKNOWLEDGED,
+    agent_queue_lifecycle::{
+        AGENT_QUEUE_TASK_STATUS_DRAFT, AGENT_QUEUE_TASK_STATUS_QUEUED,
+        AGENT_QUEUE_TASK_STATUS_READY,
+    },
     agent_queue_workflow_materialization::{
         normalize_queue_workflow_task_spec_for_hash, workflow_dependency_edge_hash,
         QueueWorkflowTaskSpec,
+    },
+    agent_queue_workflow_setup::{
+        durable_settings_hash_for_task, normalize_queue_workflow_run_settings_for_hash,
+        QueueWorkflowRunSettings,
     },
     QueueItemAggregate, QueueWorkflowAction, QueueWorkflowRun, WorkspaceService,
 };
@@ -28,6 +36,11 @@ const RESUME_STATUS_BLOCKED_MISSING_REVIEW_ACK: &str = "blocked_missing_review_a
 const RESUME_STATUS_BLOCKED_MISSING_EVIDENCE: &str = "blocked_missing_evidence";
 const RESUME_STATUS_BLOCKED_MISSING_CONFIRMATION: &str = "blocked_missing_confirmation";
 const RESUME_STATUS_BLOCKED_STALE_GRANT: &str = "blocked_stale_grant";
+const RESUME_STATUS_BLOCKED_SETTINGS_MISMATCH: &str = "blocked_settings_mismatch";
+const RESUME_STATUS_BLOCKED_PROMOTE_STATE_MISMATCH: &str = "blocked_promote_state_mismatch";
+const RESUME_STATUS_BLOCKED_EXECUTOR_MISMATCH: &str = "blocked_executor_mismatch";
+const RESUME_STATUS_WAITING_FOR_RUN_SETTINGS: &str = "waiting_for_run_settings";
+const RESUME_STATUS_WAITING_FOR_PROMOTE: &str = "waiting_for_promote";
 const RESUME_STATUS_TERMINAL_COMPLETED: &str = "terminal_completed";
 const RESUME_STATUS_TERMINAL_FAILED: &str = "terminal_failed";
 const RESUME_STATUS_TERMINAL_CANCELLED: &str = "terminal_cancelled";
@@ -46,6 +59,11 @@ pub enum QueueWorkflowResumePlanStatus {
     BlockedMissingEvidence,
     BlockedMissingConfirmation,
     BlockedStaleGrant,
+    BlockedSettingsMismatch,
+    BlockedPromoteStateMismatch,
+    BlockedExecutorMismatch,
+    WaitingForRunSettings,
+    WaitingForPromote,
     TerminalCompleted,
     TerminalFailed,
     TerminalCancelled,
@@ -66,6 +84,11 @@ impl QueueWorkflowResumePlanStatus {
             Self::BlockedMissingEvidence => RESUME_STATUS_BLOCKED_MISSING_EVIDENCE,
             Self::BlockedMissingConfirmation => RESUME_STATUS_BLOCKED_MISSING_CONFIRMATION,
             Self::BlockedStaleGrant => RESUME_STATUS_BLOCKED_STALE_GRANT,
+            Self::BlockedSettingsMismatch => RESUME_STATUS_BLOCKED_SETTINGS_MISMATCH,
+            Self::BlockedPromoteStateMismatch => RESUME_STATUS_BLOCKED_PROMOTE_STATE_MISMATCH,
+            Self::BlockedExecutorMismatch => RESUME_STATUS_BLOCKED_EXECUTOR_MISMATCH,
+            Self::WaitingForRunSettings => RESUME_STATUS_WAITING_FOR_RUN_SETTINGS,
+            Self::WaitingForPromote => RESUME_STATUS_WAITING_FOR_PROMOTE,
             Self::TerminalCompleted => RESUME_STATUS_TERMINAL_COMPLETED,
             Self::TerminalFailed => RESUME_STATUS_TERMINAL_FAILED,
             Self::TerminalCancelled => RESUME_STATUS_TERMINAL_CANCELLED,
@@ -179,12 +202,30 @@ struct SlotBinding {
     dependency_edge_hash: Option<String>,
     depends_on_slots: Vec<String>,
     dependency_task_ids: Vec<String>,
+    settings_hash: Option<String>,
+    run_settings: Option<SlotRunSettings>,
+    update_run_settings_action_id: Option<String>,
+    update_run_settings_action_idempotency_key: Option<String>,
+    promoted: bool,
+    promote_action_id: Option<String>,
+    promote_action_idempotency_key: Option<String>,
+    promoted_task_status: Option<String>,
     run_id: Option<String>,
     evidence_bundle_id: Option<String>,
     message_id: Option<String>,
     completion_decision_id: Option<String>,
     failure_decision_id: Option<String>,
     executor_widget_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SlotRunSettings {
+    execution_workspace: String,
+    codex_executable: String,
+    sandbox: String,
+    approval_policy: String,
+    execution_policy: String,
+    executor_widget_id: String,
 }
 
 #[derive(Clone, Debug)]
@@ -1031,6 +1072,23 @@ fn parse_slot_bindings(
             dependency_edge_hash: optional_string_field(fields.get("dependencyEdgeHash")),
             depends_on_slots: optional_string_array_field(fields.get("dependsOnSlots")),
             dependency_task_ids: optional_string_array_field(fields.get("dependencyTaskIds")),
+            settings_hash: optional_string_field(fields.get("settingsHash")),
+            run_settings: parse_slot_run_settings(fields.get("runSettings")),
+            update_run_settings_action_id: optional_string_field(
+                fields.get("updateRunSettingsActionId"),
+            ),
+            update_run_settings_action_idempotency_key: optional_string_field(
+                fields.get("updateRunSettingsActionIdempotencyKey"),
+            ),
+            promoted: fields
+                .get("promoted")
+                .and_then(Value::as_bool)
+                .unwrap_or(false),
+            promote_action_id: optional_string_field(fields.get("promoteActionId")),
+            promote_action_idempotency_key: optional_string_field(
+                fields.get("promoteActionIdempotencyKey"),
+            ),
+            promoted_task_status: optional_string_field(fields.get("promotedTaskStatus")),
             run_id: optional_string_field(fields.get("runId")),
             evidence_bundle_id: optional_string_field(fields.get("evidenceBundleId")),
             message_id: optional_string_field(fields.get("messageId")),
@@ -1064,6 +1122,18 @@ fn optional_string_array_field(value: Option<&Value>) -> Vec<String> {
                 .collect()
         })
         .unwrap_or_default()
+}
+
+fn parse_slot_run_settings(value: Option<&Value>) -> Option<SlotRunSettings> {
+    let fields = value.and_then(Value::as_object)?;
+    Some(SlotRunSettings {
+        execution_workspace: optional_string_field(fields.get("executionWorkspace"))?,
+        codex_executable: optional_string_field(fields.get("codexExecutable"))?,
+        sandbox: optional_string_field(fields.get("sandbox"))?,
+        approval_policy: optional_string_field(fields.get("approvalPolicy"))?,
+        execution_policy: optional_string_field(fields.get("executionPolicy"))?,
+        executor_widget_id: optional_string_field(fields.get("executorWidgetId"))?,
+    })
 }
 
 fn parse_task_templates(
@@ -1157,13 +1227,7 @@ fn validate_task_materialization_binding(
         if task.title != template.task_spec.title
             || task.description != template.task_spec.description
             || task.prompt != template.task_spec.prompt
-            || task.status != template.task_spec.status
             || task.priority != template.task_spec.priority
-            || task.execution_policy != "manual"
-            || task.execution_workspace.is_some()
-            || task.codex_executable.is_some()
-            || task.sandbox.is_some()
-            || task.approval_policy.is_some()
         {
             blockers.push(binding_blocker(
                 "task_spec_state_mismatch",
@@ -1173,6 +1237,9 @@ fn validate_task_materialization_binding(
             ));
         }
     }
+
+    validate_settings_binding(binding, task, blockers);
+    validate_promote_binding(binding, task, blockers);
 
     if let (Some(bound_hash), Some(template)) =
         (binding.dependency_spec_hash.as_deref(), task_template)
@@ -1226,6 +1293,177 @@ fn validate_task_materialization_binding(
     }
 
     Ok(())
+}
+
+fn validate_settings_binding(
+    binding: &SlotBinding,
+    task: &AgentQueueTaskRow,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    let Some(settings_hash) = binding.settings_hash.as_deref() else {
+        if binding_has_runtime_progress(binding) {
+            return;
+        }
+        let pristine_materialized_task = task.execution_policy == "manual"
+            && task.execution_workspace.is_none()
+            && task.codex_executable.is_none()
+            && task.sandbox.is_none()
+            && task.approval_policy.is_none()
+            && task.assigned_executor_widget_id.is_none();
+        if !pristine_materialized_task {
+            blockers.push(binding_blocker(
+                "settings_durable_mismatch",
+                "Bound Queue task has durable run settings but the workflow slot binding has no settingsHash.",
+                binding,
+                Some("settingsHash"),
+            ));
+        }
+        return;
+    };
+
+    let Some(run_settings) = binding.run_settings.as_ref() else {
+        blockers.push(binding_blocker(
+            "settings_binding_missing",
+            "Workflow slot binding has settingsHash but is missing the bounded runSettings snapshot.",
+            binding,
+            Some("runSettings"),
+        ));
+        return;
+    };
+
+    let normalized = QueueWorkflowRunSettings {
+        execution_workspace: run_settings.execution_workspace.clone(),
+        codex_executable: run_settings.codex_executable.clone(),
+        sandbox: run_settings.sandbox.clone(),
+        approval_policy: run_settings.approval_policy.clone(),
+        execution_policy: run_settings.execution_policy.clone(),
+        executor_widget_id: run_settings.executor_widget_id.clone(),
+    };
+    match normalize_queue_workflow_run_settings_for_hash(normalized) {
+        Ok((_, expected_hash)) if expected_hash == settings_hash => {}
+        Ok((_, expected_hash)) => {
+            blockers.push(binding_blocker(
+                "settings_hash_mismatch",
+                "Persisted settingsHash no longer matches the bounded runSettings snapshot.",
+                binding,
+                Some("settingsHash"),
+            ));
+            if expected_hash.is_empty() {
+                return;
+            }
+        }
+        Err(_) => {
+            blockers.push(binding_blocker(
+                "settings_binding_invalid",
+                "Workflow slot binding contains an invalid runSettings snapshot.",
+                binding,
+                Some("runSettings"),
+            ));
+            return;
+        }
+    }
+
+    if task.assigned_executor_widget_id.as_deref() != Some(run_settings.executor_widget_id.as_str())
+    {
+        blockers.push(binding_blocker(
+            "executor_widget_mismatch",
+            "Workflow slot executorWidgetId does not match the durable task assignment.",
+            binding,
+            Some("executorWidgetId"),
+        ));
+    }
+    if let Some(binding_executor) = binding.executor_widget_id.as_deref() {
+        if binding_executor != run_settings.executor_widget_id {
+            blockers.push(binding_blocker(
+                "executor_widget_mismatch",
+                "Workflow slot executorWidgetId does not match the bounded runSettings snapshot.",
+                binding,
+                Some("executorWidgetId"),
+            ));
+        }
+    }
+
+    match durable_settings_hash_for_task(task) {
+        Some(actual_hash) if actual_hash == settings_hash => {}
+        Some(_) => blockers.push(binding_blocker(
+            "settings_durable_mismatch",
+            "Workflow settingsHash does not match durable task run settings.",
+            binding,
+            Some("settingsHash"),
+        )),
+        None => blockers.push(binding_blocker(
+            "settings_durable_mismatch",
+            "Workflow settingsHash requires complete durable task run settings and executor assignment.",
+            binding,
+            Some("settingsHash"),
+        )),
+    }
+}
+
+fn validate_promote_binding(
+    binding: &SlotBinding,
+    task: &AgentQueueTaskRow,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    let durable_promoted = task.status != AGENT_QUEUE_TASK_STATUS_DRAFT;
+    if binding.promoted && !durable_promoted {
+        blockers.push(binding_blocker(
+            "promote_state_mismatch",
+            "Workflow slot is marked promoted but the durable Queue task is still draft.",
+            binding,
+            Some("promoted"),
+        ));
+    }
+    if !binding.promoted && durable_promoted && !binding_has_runtime_progress(binding) {
+        blockers.push(binding_blocker(
+            "promote_state_mismatch",
+            "Durable Queue task has left draft state but the workflow slot has no promote binding.",
+            binding,
+            Some("promoted"),
+        ));
+    }
+    if binding.promoted
+        && (binding.promote_action_id.is_none() || binding.promote_action_idempotency_key.is_none())
+    {
+        blockers.push(binding_blocker(
+            "promote_state_mismatch",
+            "Workflow slot promote binding is missing durable promote action refs.",
+            binding,
+            Some("promoteActionId"),
+        ));
+    }
+    if binding.settings_hash.is_none() && binding.promoted {
+        blockers.push(binding_blocker(
+            "settings_durable_mismatch",
+            "Workflow slot cannot be promoted without a persisted settingsHash.",
+            binding,
+            Some("settingsHash"),
+        ));
+    }
+    if let Some(promoted_task_status) = binding.promoted_task_status.as_deref() {
+        if binding.promoted
+            && matches!(
+                task.status.as_str(),
+                AGENT_QUEUE_TASK_STATUS_QUEUED | AGENT_QUEUE_TASK_STATUS_READY
+            )
+            && promoted_task_status != task.status
+        {
+            blockers.push(binding_blocker(
+                "promote_state_mismatch",
+                "Workflow slot promoted task status no longer matches the durable queued task state.",
+                binding,
+                Some("promotedTaskStatus"),
+            ));
+        }
+    }
+}
+
+fn binding_has_runtime_progress(binding: &SlotBinding) -> bool {
+    binding.run_id.is_some()
+        || binding.evidence_bundle_id.is_some()
+        || binding.message_id.is_some()
+        || binding.completion_decision_id.is_some()
+        || binding.failure_decision_id.is_some()
 }
 
 fn expected_dependency_task_ids(
@@ -1341,30 +1579,56 @@ fn derive_next_step(
     }
 
     if slot.run_link.is_none() {
+        if slot.binding.settings_hash.is_none() {
+            return DerivedStep {
+                status: QueueWorkflowResumePlanStatus::WaitingForRunSettings,
+                next_phase: Some("setup".to_owned()),
+                next_step: Some("waiting_for_run_settings".to_owned()),
+                required_fresh_grant: true,
+                required_confirmation: false,
+                blockers: Vec::new(),
+            };
+        }
+        if !slot.binding.promoted {
+            return DerivedStep {
+                status: QueueWorkflowResumePlanStatus::WaitingForPromote,
+                next_phase: Some("setup".to_owned()),
+                next_step: Some("waiting_for_promote".to_owned()),
+                required_fresh_grant: true,
+                required_confirmation: false,
+                blockers: Vec::new(),
+            };
+        }
         let next_step = match slot.aggregate.as_ref() {
-            Some(aggregate) if has_next_action(aggregate, "promote_draft") => {
-                "setup_promote_draft_ready"
-            }
-            Some(aggregate) if has_next_action(aggregate, "update_run_settings") => {
-                "setup_update_run_settings_ready"
-            }
             Some(aggregate) if has_next_action(aggregate, "start_run") => "start_worker_ready",
+            Some(aggregate)
+                if matches!(
+                    aggregate.dependency_state.as_str(),
+                    "waiting" | "blocked" | "failed_upstream" | "unknown"
+                ) =>
+            {
+                "waiting_for_dependency_completion"
+            }
             _ => "setup_or_start_worker_not_ready",
         };
         return DerivedStep {
-            status: if next_step == "setup_or_start_worker_not_ready" {
-                QueueWorkflowResumePlanStatus::BlockedStateMismatch
-            } else {
-                QueueWorkflowResumePlanStatus::BlockedMissingConfirmation
+            status: match next_step {
+                "start_worker_ready" => QueueWorkflowResumePlanStatus::BlockedMissingConfirmation,
+                "waiting_for_dependency_completion" => {
+                    QueueWorkflowResumePlanStatus::ResumeReadOnlyReady
+                }
+                _ => QueueWorkflowResumePlanStatus::BlockedStateMismatch,
             },
             next_phase: Some(if next_step == "start_worker_ready" {
                 "run_start".to_owned()
+            } else if next_step == "waiting_for_dependency_completion" {
+                "dependency_wait".to_owned()
             } else {
                 "setup".to_owned()
             }),
             next_step: Some(next_step.to_owned()),
-            required_fresh_grant: next_step != "setup_or_start_worker_not_ready",
-            required_confirmation: next_step != "setup_or_start_worker_not_ready",
+            required_fresh_grant: next_step == "start_worker_ready",
+            required_confirmation: next_step == "start_worker_ready",
             blockers: (next_step == "setup_or_start_worker_not_ready")
                 .then(|| {
                     vec![binding_blocker(
@@ -1842,6 +2106,29 @@ fn status_for_blockers(blockers: &[QueueWorkflowResumeBlocker]) -> QueueWorkflow
         .any(|blocker| blocker.blocker_code == "fresh_confirmation_required")
     {
         return QueueWorkflowResumePlanStatus::BlockedMissingConfirmation;
+    }
+    if blockers
+        .iter()
+        .any(|blocker| blocker.blocker_code == "executor_widget_mismatch")
+    {
+        return QueueWorkflowResumePlanStatus::BlockedExecutorMismatch;
+    }
+    if blockers.iter().any(|blocker| {
+        matches!(
+            blocker.blocker_code.as_str(),
+            "settings_hash_mismatch"
+                | "settings_durable_mismatch"
+                | "settings_binding_missing"
+                | "settings_binding_invalid"
+        )
+    }) {
+        return QueueWorkflowResumePlanStatus::BlockedSettingsMismatch;
+    }
+    if blockers
+        .iter()
+        .any(|blocker| blocker.blocker_code == "promote_state_mismatch")
+    {
+        return QueueWorkflowResumePlanStatus::BlockedPromoteStateMismatch;
     }
     QueueWorkflowResumePlanStatus::BlockedStateMismatch
 }
