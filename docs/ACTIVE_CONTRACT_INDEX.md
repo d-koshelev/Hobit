@@ -748,8 +748,8 @@ the local executor flow visible to operators.
   boundary. Read before Queue backend/domain/storage/Tauri/API, Workspace
   Agent broker adapter, or frontend API boundary work. It states that Queue
   business truth lives in backend/domain/storage, including Queue workflow
-  run/action persistence, and frontend UI may only render authoritative DTOs
-  plus local loading/display state.
+  run/action persistence and durable Queue control state, and frontend UI may
+  only render authoritative DTOs plus local loading/display state.
 - `docs/QUEUE_SYSTEM_ARCHITECTURE_RESET.md` - current Queue / Workspace Agent
   architecture correction note. Read before broad Queue dogfooding,
   continuation-policy, capability-contract, or responsibility-boundary cleanup.

@@ -63,6 +63,12 @@ finalization runner phases are wired. Task creation/setup/start, worker start,
 worker evidence recording, scheduler behavior, downstream auto-start, and
 generic public resume execution remain not implemented. Workflow persistence
 APIs are not exposed as Workspace Agent broker capabilities.
+Queue control state is also backend-owned and durable per workspace. The MVP
+control states are `disabled` and `manual_enabled`, exposed through typed
+backend/Tauri/frontend wrappers. `manual_enabled` is a manual/no-autodispatch
+state for future explicit typed worker-start preconditions; setting it does
+not start workers, arm Queue Autorun, run a scheduler, create run links, or
+mutate tasks.
 
 Queue capability contract hardening is implemented at the manifest, instruction,
 adapter, and test boundary. Every registered `queue.*` capability is covered by
@@ -250,9 +256,11 @@ rows, plus typed durable worker-finished/evidence-read and review
 message create/ACK commands, plus typed durable accepted-completion
 finalization, plus backend-owned Queue workflow run/action persistence with
 start/get/list/cancel/report/planResume APIs and a narrow runner-report record
-API for supported workflow runner phases. This is not a scheduler, general
+API for supported workflow runner phases, plus backend-owned Queue control
+state with `disabled` / `manual_enabled`. This is not a scheduler, general
 transition command set, generic workflow resume executor, validation runtime,
-Git/commit flow, rollback flow, or full Queue lifecycle store.
+Git/commit flow, rollback flow, worker-start implementation, or full Queue
+lifecycle store.
 
 ## Implemented Backend Aggregate, Worker Evidence, And Review Commands
 
@@ -456,12 +464,12 @@ Frontend-only transitional operations:
 - frontend worker evidence bundle normalization and legacy/controller evidence
   overlay compatibility only; it is transitional/deprecated for product truth;
 - Queue-linked Direct Work evidence ingestion and current-session idempotency;
-- Queue enable/active/pause and Autorun arming in the active Queue surface.
+- Queue active/pause and Autorun arming in the active Queue surface.
 
 Missing backend commands:
 
 - dedicated typed draft-promotion command;
-- durable Queue enable/arm command;
+- durable Queue Autorun arm command;
 - durable validation approval command;
 - durable follow-up command;
 - durable block command;

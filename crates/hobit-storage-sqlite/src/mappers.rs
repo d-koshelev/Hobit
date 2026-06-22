@@ -3,8 +3,8 @@
 use rusqlite::Result;
 
 use crate::rows::{
-    AgentQueueCompletionDecisionRow, AgentQueueFailureDecisionRow, AgentQueueItemRow,
-    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
+    AgentQueueCompletionDecisionRow, AgentQueueControlStateRow, AgentQueueFailureDecisionRow,
+    AgentQueueItemRow, AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
     AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, AgentQueueWorkflowActionRow,
     AgentQueueWorkflowRunRow, JdbcConnectionProfileRow, JdbcConnectorRow,
     KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDraftReviewRecordRow,
@@ -282,6 +282,20 @@ pub(crate) fn agent_queue_worker_row(row: &rusqlite::Row<'_>) -> Result<AgentQue
         display_order: row.get(7)?,
         created_at: row.get(8)?,
         updated_at: row.get(9)?,
+    })
+}
+
+pub(crate) fn agent_queue_control_state_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<AgentQueueControlStateRow> {
+    Ok(AgentQueueControlStateRow {
+        workspace_id: row.get(0)?,
+        status: row.get(1)?,
+        version: row.get(2)?,
+        updated_by_actor_id: row.get(3)?,
+        reason: row.get(4)?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
     })
 }
 

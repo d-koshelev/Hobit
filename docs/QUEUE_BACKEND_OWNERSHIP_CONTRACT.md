@@ -200,12 +200,21 @@ backend `existingMessageId` to `nextAction.input.messageId` for
 `queue.item.markDone` and `queue.item.fail`, remain explicit and
 confirmation-gated.
 
-Queue enabled/disabled control state is currently exposed to broker adapters
-through the typed Workspace Queue bridge from controller execution state. This
-is transitional frontend/controller ownership, not Queue UI truth. Broker
-adapters may use that typed bridge read to choose between `queue.enable` and
-`queue.item.startRun`, while `queue.item.startRun` must still reject disabled
-Queue state and must not auto-enable Queue.
+Queue enabled/disabled control state is backend-owned. The durable
+per-workspace state is `agent_queue_control_states.status` with MVP values:
+
+- `disabled`: explicit typed worker start must block.
+- `manual_enabled`: explicit typed worker start may proceed later when every
+  other backend precondition passes.
+
+`manual_enabled` is not an autonomous/scheduler/Autorun arm state. Setting it
+must not start workers, mutate tasks, create run links, record evidence,
+execute validation, run Git, launch Terminal, or pick up unrelated Queue
+items. Workspace Agent and workflow control-plane paths must read this typed
+backend state through Tauri/API wrappers instead of treating frontend
+`globalExecutionState` or Queue UI/controller state as product truth. Browser
+or non-desktop controller state may remain transitional display/compatibility
+state only.
 
 ## Transitional Capabilities
 

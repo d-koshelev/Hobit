@@ -9,6 +9,7 @@ import type {
 } from "./queue/agentQueueWidgetApiTypes";
 import type { AgentQueueTaskRunSettingsDefaults } from "./queue/agentQueueRunSettingsDefaults";
 import type {
+  AgentQueueControlStatus,
   AgentQueueTask,
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
@@ -56,6 +57,7 @@ export type WorkspaceAgentQueueEnableRequest = {
 };
 
 export type WorkspaceAgentQueueEnableResult = {
+  backendOwned?: boolean;
   blockerReasons?: string[];
   didAutoRunWorkers: false;
   didStartWorkers: false;
@@ -63,7 +65,9 @@ export type WorkspaceAgentQueueEnableResult = {
   message: string;
   ok: boolean;
   queueEnabled: boolean;
+  queueControlStatus?: AgentQueueControlStatus;
   status: "blocked" | "enabled" | "preview" | "unavailable";
+  version?: number;
 };
 
 export type WorkspaceAgentQueueStartRunRequest = {
@@ -74,8 +78,11 @@ export type WorkspaceAgentQueueStartRunRequest = {
 };
 
 export type WorkspaceAgentQueueControlState = {
+  backendOwned?: boolean;
   globalExecutionState?: string | null;
   queueEnabled: boolean;
+  status?: AgentQueueControlStatus;
+  version?: number;
 };
 
 export type WorkspaceAgentQueueStartRunResult = {

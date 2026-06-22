@@ -228,6 +228,16 @@ CREATE TABLE IF NOT EXISTS agent_queue_workers (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS agent_queue_control_states (
+    workspace_id TEXT PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    updated_by_actor_id TEXT NULL,
+    reason TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS agent_queue_workflow_runs (
     workflow_run_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
@@ -552,6 +562,12 @@ CREATE INDEX IF NOT EXISTS idx_agent_queue_failure_decisions_run_id
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_workers_workspace_order
     ON agent_queue_workers(workspace_id, display_order, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_control_states_status
+    ON agent_queue_control_states(status);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_control_states_updated
+    ON agent_queue_control_states(updated_at);
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_runs_workspace_status
     ON agent_queue_workflow_runs(workspace_id, status);

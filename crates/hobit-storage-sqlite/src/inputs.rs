@@ -274,6 +274,25 @@ pub struct AgentQueueWorkerUpdate<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueControlState<'a> {
+    pub workspace_id: &'a str,
+    pub status: &'a str,
+    pub version: i64,
+    pub updated_by_actor_id: Option<&'a str>,
+    pub reason: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueControlStateUpdate<'a> {
+    pub status: &'a str,
+    pub updated_by_actor_id: Option<&'a str>,
+    pub reason: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewAgentQueueWorkflowRun<'a> {
     pub workflow_run_id: &'a str,
     pub workspace_id: &'a str,

@@ -247,6 +247,17 @@ pub struct AgentQueueWorkerRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueControlStateRow {
+    pub workspace_id: String,
+    pub status: String,
+    pub version: i64,
+    pub updated_by_actor_id: Option<String>,
+    pub reason: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueWorkflowRunRow {
     pub workflow_run_id: String,
     pub workspace_id: String,

@@ -28,6 +28,9 @@ mod agent_queue_completion_tests;
 mod agent_queue_context;
 #[cfg(test)]
 mod agent_queue_context_tests;
+mod agent_queue_control;
+#[cfg(test)]
+mod agent_queue_control_tests;
 mod agent_queue_execution;
 #[cfg(test)]
 mod agent_queue_execution_tests;
@@ -177,6 +180,11 @@ pub use agent_queue_completion::{
     AgentQueueCompletionCommandStatus, AgentQueueCompletionDecisionSummary,
     MarkAgentQueueItemDoneInput, AGENT_QUEUE_ACCEPTED_COMPLETION_CONFIRMATION_TOKEN,
     AGENT_QUEUE_COMPLETION_DECISION_ACCEPTED,
+};
+pub use agent_queue_control::{
+    AgentQueueControlCommandBlocker, AgentQueueControlCommandStatus, AgentQueueControlStateSummary,
+    SetAgentQueueControlStateInput, SetAgentQueueControlStateResult,
+    AGENT_QUEUE_CONTROL_STATUS_DISABLED, AGENT_QUEUE_CONTROL_STATUS_MANUAL_ENABLED,
 };
 pub use agent_queue_failure::{
     AgentQueueFailureCommandBlocker, AgentQueueFailureCommandResult,

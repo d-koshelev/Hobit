@@ -14,6 +14,8 @@ mod agent_queue_aggregate_dto;
 mod agent_queue_aggregate_dto_tests;
 mod agent_queue_completion_commands;
 mod agent_queue_completion_dto;
+mod agent_queue_control_commands;
+mod agent_queue_control_dto;
 mod agent_queue_dto;
 #[cfg(test)]
 mod agent_queue_dto_tests;
@@ -217,6 +219,8 @@ pub fn run() {
             agent_queue_review_commands::ack_agent_queue_review_message,
             agent_queue_completion_commands::mark_agent_queue_item_done,
             agent_queue_failure_commands::fail_agent_queue_item,
+            agent_queue_control_commands::get_agent_queue_control_state,
+            agent_queue_control_commands::set_agent_queue_control_state,
             agent_queue_worker_evidence_commands::record_agent_queue_worker_finished,
             agent_queue_worker_evidence_commands::get_agent_queue_worker_evidence_bundle,
             agent_queue_worker_commands::list_agent_queue_workers,

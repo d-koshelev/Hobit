@@ -1,4 +1,11 @@
-import { useCallback, useMemo, useRef, type MutableRefObject } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from "react";
 
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
 import type { DirectWorkRunHandoffController } from "../useDirectWorkRunHandoff";
@@ -6,6 +13,7 @@ import type { AgentExecutorSlot, WidgetInstanceId } from "../types";
 import type { QueueValidationRunResult } from "./queueValidationEvidenceService";
 import type { ValidationRunner } from "../validation";
 import type {
+  AgentQueueControlState as BackendAgentQueueControlState,
   AgentQueueTask,
   DirectWorkApprovalPolicy,
   DirectWorkSandbox,
@@ -14,6 +22,10 @@ import {
   getAgentQueueItemAggregate,
   listAgentQueueItemAggregates,
 } from "../../workspace/tauriAgentQueueAggregateApi";
+import {
+  getAgentQueueControlState,
+  setAgentQueueControlState,
+} from "../../workspace/tauriAgentQueueControlApi";
 import { markAgentQueueItemDone } from "../../workspace/tauriAgentQueueCompletionApi";
 import { failAgentQueueItem } from "../../workspace/tauriAgentQueueFailureApi";
 import {
@@ -122,6 +134,41 @@ export function useWorkspaceQueueApi({
   workspaceId: string;
 }): WorkspaceQueueApi {
   const latestBridgeRef = useRef<WorkspaceAgentQueueBridge | null>(null);
+  const [backendQueueControlState, setBackendQueueControlState] =
+    useState<BackendAgentQueueControlState | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!isTauriDesktopRuntime()) {
+      setBackendQueueControlState(null);
+      return;
+    }
+
+    getAgentQueueControlState({ workspaceId })
+      .then((controlState) => {
+        if (!cancelled) {
+          setBackendQueueControlState(controlState);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBackendQueueControlState(null);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [workspaceId]);
+  const readBackendQueueControlState = useCallback(async () => {
+    if (!isTauriDesktopRuntime()) {
+      return null;
+    }
+
+    const controlState = await getAgentQueueControlState({ workspaceId });
+    setBackendQueueControlState(controlState);
+    return controlState;
+  }, [workspaceId]);
   const stableBrokerBridge = useMemo<WorkspaceAgentQueueBridge>(
     () => ({
       createItem: (request) => requiredBridge(latestBridgeRef).createItem(request),
@@ -361,9 +408,18 @@ export function useWorkspaceQueueApi({
     },
     controlActions: {
       enableQueue: (request) =>
-        enableQueueForWorkspaceAgent(controller, request.dryRun),
+        enableQueueForWorkspaceAgent({
+          backendQueueControlState,
+          controller,
+          dryRun: request.dryRun,
+          readBackendQueueControlState,
+          setBackendQueueControlState,
+          workspaceId,
+        }),
       getAvailableExecutorTargets: () => queueExecutorSlots,
-      getQueueControlState: () => queueControlStateFromController(controller),
+      getQueueControlState: () =>
+        queueControlStateFromBackend(backendQueueControlState) ??
+        queueControlStateFromController(controller),
       startQueueLinkedRun: (request) =>
         startQueueLinkedRunForWorkspaceAgent({
           actions,
@@ -371,6 +427,7 @@ export function useWorkspaceQueueApi({
           directWorkRunHandoff,
           queueExecutorSlots,
           queueId,
+          readBackendQueueControlState,
           request,
           workspaceId,
         }),
@@ -433,6 +490,23 @@ function queueControlStateFromController(
   return {
     globalExecutionState: controller.foundation.globalExecutionState,
     queueEnabled: controller.foundation.globalExecutionState === "started",
+  };
+}
+
+function queueControlStateFromBackend(
+  controlState: BackendAgentQueueControlState | null,
+): WorkspaceAgentQueueControlState | null {
+  if (!controlState) {
+    return null;
+  }
+
+  const queueEnabled = controlState.status === "manual_enabled";
+  return {
+    backendOwned: true,
+    globalExecutionState: queueEnabled ? "started" : "stopped",
+    queueEnabled,
+    status: controlState.status,
+    version: controlState.version,
   };
 }
 
@@ -562,10 +636,105 @@ function autonomousQueueResult({
   };
 }
 
-function enableQueueForWorkspaceAgent(
-  controller: AgentQueueController,
-  dryRun: boolean,
-): Promise<WorkspaceAgentQueueEnableResult> {
+async function enableQueueForWorkspaceAgent({
+  backendQueueControlState,
+  controller,
+  dryRun,
+  readBackendQueueControlState,
+  setBackendQueueControlState,
+  workspaceId,
+}: {
+  backendQueueControlState: BackendAgentQueueControlState | null;
+  controller: AgentQueueController;
+  dryRun: boolean;
+  readBackendQueueControlState: () => Promise<BackendAgentQueueControlState | null>;
+  setBackendQueueControlState: (
+    controlState: BackendAgentQueueControlState | null,
+  ) => void;
+  workspaceId: string;
+}): Promise<WorkspaceAgentQueueEnableResult> {
+  if (isTauriDesktopRuntime()) {
+    if (dryRun) {
+      try {
+        const controlState =
+          backendQueueControlState ?? (await readBackendQueueControlState());
+        const mappedState = queueControlStateFromBackend(controlState);
+        return queueEnableResult({
+          backendOwned: true,
+          message:
+            "Queue control enable preview prepared. No task execution or worker start was requested.",
+          ok: true,
+          queueControlStatus: mappedState?.status,
+          queueEnabled: mappedState?.queueEnabled ?? false,
+          status: "preview",
+          version: mappedState?.version,
+          globalExecutionState: mappedState?.globalExecutionState ?? "stopped",
+        });
+      } catch (error) {
+        const message = errorToMessage(
+          error,
+          "Queue backend control state is unavailable.",
+        );
+        return queueEnableResult({
+          backendOwned: true,
+          blockerReasons: [message],
+          message,
+          ok: false,
+          queueEnabled: false,
+          status: "unavailable",
+          globalExecutionState: "stopped",
+        });
+      }
+    }
+
+    try {
+      const result = await setAgentQueueControlState({
+        actorId: "workspace-agent",
+        reason: "workspace_agent_queue_enable",
+        status: "manual_enabled",
+        workspaceId,
+      });
+      const controlState = result.controlState;
+      setBackendQueueControlState(controlState);
+      const mappedState = queueControlStateFromBackend(controlState);
+      const ok =
+        (result.status === "succeeded" ||
+          result.status === "already_in_state") &&
+        mappedState?.queueEnabled === true;
+      const blockerMessage =
+        result.blocker?.blockerMessage ??
+        "Queue backend control state could not be enabled.";
+
+      return queueEnableResult({
+        backendOwned: true,
+        blockerReasons: ok ? [] : [blockerMessage],
+        message: ok
+          ? "Queue manual control enabled. No task execution, Queue Autorun, shell command, Terminal launch, Git action, validation, rollback, or worker start was started."
+          : blockerMessage,
+        ok,
+        queueControlStatus: mappedState?.status,
+        queueEnabled: mappedState?.queueEnabled ?? false,
+        status: ok ? "enabled" : "blocked",
+        version: mappedState?.version,
+        globalExecutionState: mappedState?.globalExecutionState ?? "stopped",
+      });
+    } catch (error) {
+      const message = errorToMessage(
+        error,
+        "Queue backend control state could not be enabled.",
+      );
+      return queueEnableResult({
+        backendOwned: true,
+        blockerReasons: [message],
+        message,
+        ok: false,
+        queueEnabled: false,
+        status: "unavailable",
+        globalExecutionState: "stopped",
+      });
+    }
+  }
+
   if (dryRun) {
     return Promise.resolve(
       queueEnableResult({
@@ -620,6 +789,7 @@ async function startQueueLinkedRunForWorkspaceAgent({
   directWorkRunHandoff,
   queueExecutorSlots,
   queueId,
+  readBackendQueueControlState,
   request,
 }: {
   actions: WorkspaceQueueActions;
@@ -627,6 +797,7 @@ async function startQueueLinkedRunForWorkspaceAgent({
   directWorkRunHandoff: DirectWorkRunHandoffController;
   queueExecutorSlots: AgentExecutorSlot[];
   queueId: string;
+  readBackendQueueControlState: () => Promise<BackendAgentQueueControlState | null>;
   request: WorkspaceAgentQueueStartRunRequest;
   workspaceId: string;
 }): Promise<WorkspaceAgentQueueStartRunResult> {
@@ -653,7 +824,32 @@ async function startQueueLinkedRunForWorkspaceAgent({
     });
   }
 
-  if (controller.foundation.globalExecutionState !== "started") {
+  if (isTauriDesktopRuntime()) {
+    let controlState: BackendAgentQueueControlState | null;
+    try {
+      controlState = await readBackendQueueControlState();
+    } catch (error) {
+      const message = errorToMessage(
+        error,
+        "Queue backend control state is unavailable.",
+      );
+      return queueStartRunResult({
+        blockerReasons: [message],
+        message,
+        ok: false,
+        status: "blocked",
+      });
+    }
+
+    if (controlState?.status !== "manual_enabled") {
+      return queueStartRunResult({
+        blockerReasons: ["Queue disabled."],
+        message: "Queue disabled.",
+        ok: false,
+        status: "blocked",
+      });
+    }
+  } else if (controller.foundation.globalExecutionState !== "started") {
     return queueStartRunResult({
       blockerReasons: ["Queue disabled."],
       message: "Queue disabled.",
@@ -810,29 +1006,38 @@ function queueLinkedStartBlockers({
 }
 
 function queueEnableResult({
+  backendOwned,
   blockerReasons = [],
   globalExecutionState,
   message,
   ok,
+  queueControlStatus,
   queueEnabled,
   status,
+  version,
 }: {
+  backendOwned?: boolean;
   blockerReasons?: string[];
   globalExecutionState?: string;
   message: string;
   ok: boolean;
+  queueControlStatus?: WorkspaceAgentQueueEnableResult["queueControlStatus"];
   queueEnabled: boolean;
   status: WorkspaceAgentQueueEnableResult["status"];
+  version?: number;
 }): WorkspaceAgentQueueEnableResult {
   return {
+    backendOwned,
     blockerReasons,
     didAutoRunWorkers: false,
     didStartWorkers: false,
     globalExecutionState,
     message,
     ok,
+    queueControlStatus,
     queueEnabled,
     status,
+    version,
   };
 }
 

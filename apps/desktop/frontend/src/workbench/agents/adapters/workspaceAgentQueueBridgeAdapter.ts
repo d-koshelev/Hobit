@@ -713,6 +713,7 @@ async function enableQueueThroughBridge(
       : "queue.enable"
     : "queue.items.list";
   const output: QueueAgentEnableResult = {
+    backendOwned: result.backendOwned,
     blockerReasons,
     didAutoRunWorkers: false,
     didStartWorkers: false,
@@ -722,7 +723,9 @@ async function enableQueueThroughBridge(
       reason: "Queue enable reported the next available Queue capability.",
     }),
     nextSuggestedCapability,
+    queueControlStatus: result.queueControlStatus,
     queueEnabled: result.queueEnabled,
+    version: result.version,
   };
 
   return {

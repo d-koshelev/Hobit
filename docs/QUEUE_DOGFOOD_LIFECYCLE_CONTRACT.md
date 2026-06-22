@@ -131,11 +131,12 @@ Backend/domain aggregate and review command foundation:
   migration to the aggregate DTO remains a later phase, and the frontend overlay
   remains transitional compatibility behavior for validation, follow-up,
   and block lifecycle capabilities until durable commands exist.
-- Queue run-control next-action selection also reads Queue enabled/disabled
-  state through the typed Workspace Queue bridge. Disabled Queue state surfaces
+- Queue run-control next-action selection reads backend-owned Queue control
+  state through the typed Workspace Queue bridge. `disabled` surfaces
   `queue_disabled` / `Queue disabled.` and `nextSuggestedCapability:
-  "queue.enable"`; `queue.item.startRun` remains an explicit command that
-  rejects disabled Queue state and never auto-enables.
+  "queue.enable"`; `manual_enabled` is a manual/no-autodispatch control state.
+  `queue.item.startRun` remains an explicit command that rejects disabled
+  Queue state and never auto-enables.
 - Queue capability result mappers now emit typed `nextAction` payloads when a
   follow-up can be built with known canonical target fields. The runtime must
   prefer `nextAction.capabilityId` plus `nextAction.input` and must not guess

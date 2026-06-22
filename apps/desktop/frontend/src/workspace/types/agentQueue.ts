@@ -32,6 +32,52 @@ export type AgentQueueGlobalExecutionState =
   | "stopped"
   | "stop_kill_requested";
 
+export type AgentQueueControlStatus = "disabled" | "manual_enabled";
+
+export type AgentQueueControlState = {
+  workspaceId: string;
+  status: AgentQueueControlStatus;
+  version: number;
+  updatedByActorId: string | null;
+  reason: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type GetAgentQueueControlStateRequest = {
+  workspaceId: string;
+};
+
+export type SetAgentQueueControlStateRequest = {
+  workspaceId: string;
+  status: AgentQueueControlStatus;
+  actorId?: string | null;
+  reason?: string | null;
+  expectedVersion?: number | null;
+};
+
+export type AgentQueueControlCommandBlocker = {
+  blockerCode: string;
+  blockerMessage: string;
+  expectedVersion: number | null;
+  actualVersion: number | null;
+  missingRequiredField: string | null;
+};
+
+export type AgentQueueControlCommandStatus =
+  | "succeeded"
+  | "already_in_state"
+  | "invalid_input"
+  | "workspace_not_found"
+  | "version_conflict"
+  | string;
+
+export type SetAgentQueueControlStateResult = {
+  status: AgentQueueControlCommandStatus;
+  controlState: AgentQueueControlState | null;
+  blocker: AgentQueueControlCommandBlocker | null;
+};
+
 export type AgentQueueTaskValidationStatus =
   | "not_started"
   | "validating"

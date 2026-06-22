@@ -3373,8 +3373,11 @@ describe("queueAgentCapabilities invoke", () => {
           queueBridge({
             enableQueue,
             getQueueControlState: () => ({
+              backendOwned: true,
               globalExecutionState: "stopped",
               queueEnabled: false,
+              status: "disabled",
+              version: 1,
             }),
             startQueueLinkedRun,
           }),
@@ -3422,13 +3425,16 @@ describe("queueAgentCapabilities invoke", () => {
 
   it("suggests startRun after explicit queue.enable succeeds", async () => {
     const enableQueue = vi.fn(async () => ({
+      backendOwned: true,
       didAutoRunWorkers: false as const,
       didStartWorkers: false as const,
       globalExecutionState: "started",
       message: "Queue enabled.",
       ok: true,
+      queueControlStatus: "manual_enabled" as const,
       queueEnabled: true,
       status: "enabled" as const,
+      version: 2,
     }));
     const startQueueLinkedRun = vi.fn(async () => ({
       executorWidgetId: "executor-1",
@@ -3488,8 +3494,11 @@ describe("queueAgentCapabilities invoke", () => {
 
     expect(enableResult.status).toBe("succeeded");
     expect(enableResult.result.output).toMatchObject({
+      backendOwned: true,
       nextSuggestedCapability: "queue.item.startRun",
+      queueControlStatus: "manual_enabled",
       queueEnabled: true,
+      version: 2,
     });
     expect(startResult.status).toBe("succeeded");
     expect(startResult.result.output).toMatchObject({ runId: "run-1" });

@@ -305,6 +305,24 @@ capabilities. Resume planning may read durable Queue aggregate, run-link,
 evidence, review, completion, and failure facts, but the planner itself is
 still read-only and never executes steps.
 
+## Queue Control State MVP
+
+Queue control state is backend-owned and durable per workspace. The MVP state
+is stored separately from workflow runs and Queue task/run/evidence ledgers:
+
+- `disabled`: explicit typed worker start must block.
+- `manual_enabled`: future explicit typed worker start may proceed only after
+  every other backend precondition passes.
+
+`manual_enabled` does not arm Queue Autorun, run the scheduler, select tasks,
+start workers, mutate run links, mutate task rows, record evidence, execute
+validation, run Git, launch Terminal, or start downstream work. Workspace
+Agent and workflow control-plane paths must read this typed backend state
+through `queue.control.get` / `queue.control.set` style APIs and must not use
+frontend `globalExecutionState`, Queue UI state, controller session state, or
+prose as Queue control truth. Browser/frontend controller state remains
+transitional compatibility only when no backend API is available.
+
 Resume planner statuses are typed and stable: `resume_ready`,
 `resume_read_only_ready`, `blocked_missing_task`,
 `blocked_state_mismatch`, `blocked_missing_review_ack`,

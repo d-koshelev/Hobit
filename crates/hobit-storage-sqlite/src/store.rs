@@ -9,21 +9,23 @@ use std::path::Path;
 use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
-    AgentQueueReviewMessageAckUpdate, AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate,
-    AgentQueueWorkerUpdate, AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunReportUpdate,
+    AgentQueueControlStateUpdate, AgentQueueReviewMessageAckUpdate,
+    AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, AgentQueueWorkerUpdate,
+    AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunReportUpdate,
     AgentQueueWorkflowRunStatusUpdate, JdbcConnectionProfileUpdate, JdbcConnectorUpdate,
-    KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision, NewAgentQueueFailureDecision,
-    NewAgentQueueItem, NewAgentQueueReviewMessage, NewAgentQueueTask, NewAgentQueueTaskRunLink,
-    NewAgentQueueWorker, NewAgentQueueWorkerEvidenceBundle, NewAgentQueueWorkflowAction,
-    NewAgentQueueWorkflowRun, NewJdbcConnectionProfile, NewJdbcConnector, NewKnowledgeDocument,
-    NewKnowledgeDraftReviewRecord, NewSharedStateObject, NewSkill, NewWidgetInstance, NewWidgetLog,
-    NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession, SkillUpdate,
-    WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
+    KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision, NewAgentQueueControlState,
+    NewAgentQueueFailureDecision, NewAgentQueueItem, NewAgentQueueReviewMessage, NewAgentQueueTask,
+    NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewAgentQueueWorkerEvidenceBundle,
+    NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun, NewJdbcConnectionProfile,
+    NewJdbcConnector, NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject,
+    NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
+    NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
+    WorkspaceNoteUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
-    AgentQueueCompletionDecisionRow, AgentQueueFailureDecisionRow, AgentQueueItemRow,
-    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
+    AgentQueueCompletionDecisionRow, AgentQueueControlStateRow, AgentQueueFailureDecisionRow,
+    AgentQueueItemRow, AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
     AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, AgentQueueWorkflowActionRow,
     AgentQueueWorkflowRunRow, JdbcConnectionProfileRow, JdbcConnectorRow,
     KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
@@ -34,6 +36,7 @@ pub use crate::rows::{
 use crate::schema;
 
 mod agent_queue_completion_decisions;
+mod agent_queue_control_states;
 mod agent_queue_failure_decisions;
 mod agent_queue_items;
 mod agent_queue_review_messages;
@@ -60,6 +63,8 @@ mod widget_runs;
 mod workbenches;
 mod workspaces;
 
+#[cfg(test)]
+mod agent_queue_control_states_tests;
 #[cfg(test)]
 mod agent_queue_task_run_links_tests;
 #[cfg(test)]

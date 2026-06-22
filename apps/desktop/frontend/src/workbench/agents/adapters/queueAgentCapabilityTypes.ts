@@ -341,12 +341,15 @@ export type QueueAgentPromoteDraftResult = {
 export type QueueAgentEnableInput = Record<string, never>;
 
 export type QueueAgentEnableResult = {
+  backendOwned?: boolean;
   blockerReasons: string[];
   didAutoRunWorkers: false;
   didStartWorkers: false;
   globalExecutionState?: string;
   nextSuggestedCapability?: QueueAgentCapabilityId | null;
+  queueControlStatus?: "disabled" | "manual_enabled";
   queueEnabled: boolean;
+  version?: number;
 } & QueueAgentNextActionFields;
 
 export type QueueAgentStartRunInput = {

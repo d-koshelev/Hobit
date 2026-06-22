@@ -376,6 +376,11 @@ the planner before execution and invokes only currently supported phases when
 the plan is ready and fresh typed grant/confirmation input is present when
 required. This persistence surface is not registered as a Workspace Agent
 broker capability and does not implement a generic public resume executor.
+Queue control state is now backend-owned and durable per workspace through
+typed control APIs. The MVP states are `disabled` and `manual_enabled`;
+`manual_enabled` is a manual/no-autodispatch gate for future explicit typed
+worker starts and does not start workers, arm Queue Autorun, run a scheduler,
+mutate tasks, or create run links.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture. WorkerProvider is the normalized
