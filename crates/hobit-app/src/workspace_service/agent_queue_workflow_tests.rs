@@ -1,8 +1,8 @@
 use hobit_storage_sqlite::{
-    NewAgentQueueCompletionDecision, NewAgentQueueFailureDecision, NewAgentQueueReviewMessage,
-    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorkerEvidenceBundle,
-    NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun, NewWidgetInstance, NewWidgetRun,
-    SqliteStore,
+    AgentQueueTaskUpdate, NewAgentQueueCompletionDecision, NewAgentQueueFailureDecision,
+    NewAgentQueueReviewMessage, NewAgentQueueTask, NewAgentQueueTaskRunLink,
+    NewAgentQueueWorkerEvidenceBundle, NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun,
+    NewWidgetInstance, NewWidgetRun, SqliteStore,
 };
 use serde_json::{json, Value};
 
@@ -809,6 +809,404 @@ fn plan_resume_created_workflow_without_slots_waits_for_explicit_task_creation()
 }
 
 #[test]
+fn materialize_workflow_task_slot_creates_draft_task_binding_and_action() {
+    let service = initialized_service();
+    create_workspace(&service, "workspace-1");
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+
+    let result = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream");
+    let task = result.task.expect("task");
+    let action = result.action.expect("action");
+    let binding = result.binding.expect("binding");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowMaterializeTaskSlotStatus::Created
+    );
+    assert_eq!(task.status, "draft");
+    assert_eq!(task.execution_policy, "manual");
+    assert_eq!(task.execution_workspace, None);
+    assert_eq!(task.codex_executable, None);
+    assert_eq!(task.sandbox, None);
+    assert_eq!(task.approval_policy, None);
+    assert_eq!(task.depends_on, Vec::<String>::new());
+    assert_eq!(binding.slot, "upstream");
+    assert_eq!(binding.task_id, task.queue_item_id);
+    assert!(binding
+        .task_spec_hash
+        .starts_with("queue-task-spec-fnv1a64:"));
+    assert!(binding
+        .dependency_spec_hash
+        .starts_with("queue-dependency-spec-fnv1a64:"));
+    assert!(binding
+        .dependency_edge_hash
+        .starts_with("queue-dependency-edge-fnv1a64:"));
+    assert_eq!(action.action_type, "create_task");
+    assert_eq!(action.status, "completed");
+
+    let updated_run = service
+        .get_queue_workflow_run(QueueWorkflowGetRequest {
+            workspace_id: "workspace-1".to_owned(),
+            workflow_run_id: workflow_run.workflow_run_id.clone(),
+        })
+        .expect("get workflow")
+        .expect("workflow");
+    let slot_bindings: Value = serde_json::from_str(
+        updated_run
+            .slot_bindings_json
+            .as_deref()
+            .expect("slot bindings"),
+    )
+    .expect("slot bindings json");
+    assert_eq!(
+        slot_bindings["upstream"]["taskId"].as_str(),
+        Some(task.queue_item_id.as_str())
+    );
+    assert_eq!(
+        slot_bindings["upstream"]["taskSpecHash"].as_str(),
+        Some(binding.task_spec_hash.as_str())
+    );
+    assert!(
+        slot_bindings["upstream"]["runId"].is_null(),
+        "task materialization must not bind worker runs"
+    );
+    assert_no_queue_workflow_side_effects(&service, "workspace-1", &task.queue_item_id);
+}
+
+#[test]
+fn materialize_downstream_slot_creates_dependency_edge_by_depends_on_slots() {
+    let service = initialized_service();
+    create_workspace(&service, "workspace-1");
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let upstream = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream")
+        .task
+        .expect("upstream task");
+
+    let first = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "downstream",
+            "Implement follow-up",
+            "Use the upstream result to implement the follow-up.",
+            vec!["upstream"],
+        ))
+        .expect("materialize downstream");
+    let duplicate = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "downstream",
+            "Implement follow-up",
+            "Use the upstream result to implement the follow-up.",
+            vec!["upstream"],
+        ))
+        .expect("materialize downstream duplicate");
+    let downstream = first.task.expect("downstream task");
+
+    assert_eq!(
+        first.status,
+        QueueWorkflowMaterializeTaskSlotStatus::Created
+    );
+    assert_eq!(
+        duplicate.status,
+        QueueWorkflowMaterializeTaskSlotStatus::Reused
+    );
+    assert_eq!(
+        duplicate.task.expect("duplicate task").queue_item_id,
+        downstream.queue_item_id
+    );
+    assert_eq!(downstream.depends_on, vec![upstream.queue_item_id.clone()]);
+    assert_eq!(
+        first.binding.expect("binding").dependency_task_ids,
+        vec![upstream.queue_item_id]
+    );
+
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions("workspace-1", &workflow_run.workflow_run_id)
+        .expect("workflow actions");
+    assert_eq!(actions.len(), 2);
+    assert!(actions
+        .iter()
+        .all(|action| action.action_type == "create_task"));
+}
+
+#[test]
+fn materialize_same_workflow_slot_different_spec_hash_conflicts() {
+    let service = initialized_service();
+    create_workspace(&service, "workspace-1");
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+
+    service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream");
+    let conflict = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect changed contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("conflict");
+
+    assert_eq!(
+        conflict.status,
+        QueueWorkflowMaterializeTaskSlotStatus::Conflict
+    );
+    assert_eq!(
+        conflict.conflict.expect("conflict").conflict_code,
+        "slot_task_spec_hash_conflict"
+    );
+}
+
+#[test]
+fn materialize_same_slot_spec_in_different_workflows_is_not_global_dedupe() {
+    let service = initialized_service();
+    create_workspace(&service, "workspace-1");
+    let first_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let second_run = start_materialization_workflow(&service, "workspace-1", "request-2");
+
+    let first = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &first_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("first materialization")
+        .task
+        .expect("first task");
+    let second = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &second_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("second materialization")
+        .task
+        .expect("second task");
+
+    assert_ne!(first.queue_item_id, second.queue_item_id);
+}
+
+#[test]
+fn materialize_downstream_missing_upstream_binding_blocks_without_task_creation() {
+    let service = initialized_service();
+    create_workspace(&service, "workspace-1");
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+
+    let result = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "downstream",
+            "Implement follow-up",
+            "Use the upstream result to implement the follow-up.",
+            vec!["upstream"],
+        ))
+        .expect("blocked downstream");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowMaterializeTaskSlotStatus::Blocked
+    );
+    assert_eq!(
+        result.blocker.expect("blocker").blocker_code,
+        "missing_upstream_slot_binding"
+    );
+    assert!(
+        service
+            .list_agent_queue_tasks("workspace-1")
+            .expect("list tasks")
+            .is_empty(),
+        "blocked dependency materialization must not create a Queue task"
+    );
+}
+
+#[test]
+fn materialize_create_task_action_conflicting_refs_rejected_without_task_creation() {
+    let service = initialized_service();
+    create_workspace(&service, "workspace-1");
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let (_, _, task_spec_hash, _) =
+        super::agent_queue_workflow_materialization::normalize_queue_workflow_task_spec_for_hash(
+            QueueWorkflowTaskSpec {
+                title: "Inspect contract".to_owned(),
+                prompt: "Read the visible contract and summarize blockers.".to_owned(),
+                description: None,
+                status: None,
+                priority: None,
+            },
+            vec![],
+        )
+        .expect("hash task spec");
+    let idempotency_key = format!(
+        "{}:create_task:upstream:{}",
+        workflow_run.workflow_run_id, task_spec_hash
+    );
+    service
+        .store
+        .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+            action_id: "conflicting-action",
+            workflow_run_id: &workflow_run.workflow_run_id,
+            workspace_id: "workspace-1",
+            step_id: "create_task",
+            action_type: "create_task",
+            idempotency_key: &idempotency_key,
+            status: "completed",
+            target_refs_json: Some(r#"{"slot":"upstream","taskSpecHash":"different"}"#),
+            result_refs_json: Some(r#"{"taskId":"other"}"#),
+            blocker_code: None,
+            blocker_message: None,
+            attempt_count: 1,
+            started_at: Some("1"),
+            completed_at: Some("1"),
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("insert conflicting action");
+
+    let result = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("conflict");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowMaterializeTaskSlotStatus::Conflict
+    );
+    assert_eq!(
+        service
+            .list_agent_queue_tasks("workspace-1")
+            .expect("list tasks")
+            .len(),
+        0,
+        "conflicting ledger refs must block before task creation"
+    );
+}
+
+#[test]
+fn plan_resume_blocks_when_materialized_dependency_edge_is_missing() {
+    let service = initialized_service();
+    create_workspace(&service, "workspace-1");
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let upstream = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream")
+        .task
+        .expect("upstream task");
+    let downstream = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "downstream",
+            "Implement follow-up",
+            "Use the upstream result to implement the follow-up.",
+            vec!["upstream"],
+        ))
+        .expect("materialize downstream")
+        .task
+        .expect("downstream task");
+    service
+        .store
+        .update_agent_queue_task(
+            "workspace-1",
+            &downstream.queue_item_id,
+            AgentQueueTaskUpdate {
+                title: &downstream.title,
+                description: &downstream.description,
+                prompt: &downstream.prompt,
+                status: &downstream.status,
+                priority: downstream.priority,
+                depends_on: Some("[]"),
+                execution_policy: Some(downstream.execution_policy.as_str()),
+                execution_workspace: None,
+                codex_executable: None,
+                sandbox: None,
+                approval_policy: None,
+                context_json: None,
+                updated_at: Some("edge-removed"),
+            },
+        )
+        .expect("remove dependency edge")
+        .expect("updated task");
+
+    let plan = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            None,
+        ))
+        .expect("plan resume")
+        .expect("plan");
+
+    assert_eq!(
+        plan.status,
+        QueueWorkflowResumePlanStatus::BlockedDependencyEdgeMissing
+    );
+    assert!(plan
+        .blockers
+        .iter()
+        .any(|blocker| blocker.blocker_code == "dependency_edge_missing"));
+    assert_eq!(
+        service
+            .get_agent_queue_task("workspace-1", &downstream.queue_item_id)
+            .expect("get downstream")
+            .expect("downstream")
+            .depends_on,
+        Vec::<String>::new(),
+        "resume planning must not repair dependency edges"
+    );
+    assert_eq!(upstream.status, "draft");
+}
+
+#[test]
 fn plan_resume_blocks_missing_and_cross_workspace_tasks() {
     let store = initialized_store();
     create_workspace_in_store(&store, "workspace-1");
@@ -1464,6 +1862,140 @@ fn plan_request(
         workflow_run_id: workflow_run_id.to_owned(),
         expected_version,
     }
+}
+
+fn start_materialization_workflow(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    request_id: &str,
+) -> QueueWorkflowRun {
+    service
+        .start_queue_workflow(QueueWorkflowStartRequest {
+            workspace_id: workspace_id.to_owned(),
+            workflow_id: "dependency_acceptance_smoke".to_owned(),
+            request_id: request_id.to_owned(),
+            phase: None,
+            current_step: None,
+            actor_id: Some("workspace-agent".to_owned()),
+            inputs_snapshot: Some(json!({
+                "tasks": [
+                    {
+                        "slot": "upstream",
+                        "title": "Inspect contract",
+                        "prompt": "Read the visible contract and summarize blockers.",
+                        "dependsOnSlots": []
+                    },
+                    {
+                        "slot": "downstream",
+                        "title": "Implement follow-up",
+                        "prompt": "Use the upstream result to implement the follow-up.",
+                        "dependsOnSlots": ["upstream"]
+                    }
+                ]
+            })),
+            grant_summary: Some(json!({
+                "actorId": "workspace-agent",
+                "mode": "queue_acceptance_smoke",
+                "allowedRiskClasses": ["read", "review"],
+                "constraints": {
+                    "noGit": true,
+                    "noValidationExecution": true,
+                    "noRollback": true,
+                    "noTerminal": true,
+                    "noDelete": true,
+                    "noDownstreamAutoStart": true
+                },
+                "scope": {
+                    "workflowRunId": request_id
+                },
+                "issuedAt": "1",
+                "expiresAt": "9999999999",
+                "restartPolicy": "regrant_mutations",
+                "maxActions": 16,
+                "consumedActionCount": 0
+            })),
+            variables: Some(json!({"workflowId": "dependency_acceptance_smoke"})),
+            slot_bindings: Some(json!({})),
+            mutation_refs: Some(json!({})),
+            idempotency_keys: Some(json!({})),
+            action_log_summary: Some(json!([])),
+        })
+        .expect("start workflow")
+        .workflow_run
+        .expect("workflow run")
+}
+
+fn materialize_request(
+    workspace_id: &str,
+    workflow_run_id: &str,
+    slot: &str,
+    title: &str,
+    prompt: &str,
+    depends_on_slots: Vec<&str>,
+) -> QueueWorkflowMaterializeTaskSlotRequest {
+    QueueWorkflowMaterializeTaskSlotRequest {
+        workspace_id: workspace_id.to_owned(),
+        workflow_run_id: workflow_run_id.to_owned(),
+        slot: slot.to_owned(),
+        task_spec: QueueWorkflowTaskSpec {
+            title: title.to_owned(),
+            prompt: prompt.to_owned(),
+            description: None,
+            status: None,
+            priority: None,
+        },
+        task_spec_hash: None,
+        depends_on_slots: depends_on_slots.into_iter().map(str::to_owned).collect(),
+        actor_id: Some("workspace-agent".to_owned()),
+        action_idempotency_key: None,
+    }
+}
+
+fn assert_no_queue_workflow_side_effects(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    task_id: &str,
+) {
+    assert!(
+        service
+            .store
+            .list_agent_queue_task_run_links(workspace_id, task_id)
+            .expect("list run links")
+            .is_empty(),
+        "task materialization must not start workers"
+    );
+    assert!(
+        service
+            .store
+            .list_agent_queue_review_messages(workspace_id, task_id)
+            .expect("list review messages")
+            .is_empty(),
+        "task materialization must not create reviews"
+    );
+    assert!(
+        service
+            .store
+            .get_latest_agent_queue_worker_evidence_bundle(workspace_id, task_id)
+            .expect("latest evidence")
+            .is_none(),
+        "task materialization must not record evidence"
+    );
+    assert!(
+        service
+            .store
+            .get_latest_agent_queue_completion_decision(workspace_id, task_id)
+            .expect("latest completion decision")
+            .is_none(),
+        "task materialization must not finalize completion"
+    );
+    assert!(
+        service
+            .store
+            .get_latest_agent_queue_failure_decision(workspace_id, task_id)
+            .expect("latest failure decision")
+            .is_none(),
+        "task materialization must not finalize failure"
+    );
 }
 
 fn runner_report_request(

@@ -386,6 +386,15 @@ the planner before execution and invokes only currently supported phases when
 the plan is ready and fresh typed grant/confirmation input is present when
 required. This persistence surface is not registered as a Workspace Agent
 broker capability and does not implement a generic public resume executor.
+Backend workflow task slot materialization now exists as a workflow-internal
+typed domain method: it creates/reuses draft/manual Queue tasks by explicit
+`workflowRunId + slot + taskSpecHash`, persists slot bindings, and materializes
+dependency edges only from explicit `dependsOnSlots` resolved to bound upstream
+task ids. It is not a Workspace Agent broker route, not natural-language
+routing, and not wired into `hobit.workflow.request` execution. It does not
+update run settings, promote tasks, enable Queue, start workers, record
+evidence/reviews/finalization, run validation, mutate Git, roll back, launch
+Terminal, schedule, or auto-start downstream work.
 Queue control state is now backend-owned and durable per workspace through
 typed control APIs. The MVP states are `disabled` and `manual_enabled`;
 `manual_enabled` is a manual/no-autodispatch gate for future explicit typed

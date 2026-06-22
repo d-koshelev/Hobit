@@ -1,4 +1,4 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use hobit_storage_sqlite::{
@@ -10,14 +10,19 @@ use serde_json::Value;
 use crate::WorkspaceServiceError;
 
 use super::{
-    agent_queue_aggregate::REVIEW_MESSAGE_STATUS_ACKNOWLEDGED, QueueItemAggregate,
-    QueueWorkflowAction, QueueWorkflowRun, WorkspaceService,
+    agent_queue_aggregate::REVIEW_MESSAGE_STATUS_ACKNOWLEDGED,
+    agent_queue_workflow_materialization::{
+        normalize_queue_workflow_task_spec_for_hash, workflow_dependency_edge_hash,
+        QueueWorkflowTaskSpec,
+    },
+    QueueItemAggregate, QueueWorkflowAction, QueueWorkflowRun, WorkspaceService,
 };
 
 const QUEUE_WORKFLOW_SCHEMA_VERSION: i64 = 1;
 const RESUME_STATUS_RESUME_READY: &str = "resume_ready";
 const RESUME_STATUS_RESUME_READ_ONLY_READY: &str = "resume_read_only_ready";
 const RESUME_STATUS_BLOCKED_MISSING_TASK: &str = "blocked_missing_task";
+const RESUME_STATUS_BLOCKED_DEPENDENCY_EDGE_MISSING: &str = "blocked_dependency_edge_missing";
 const RESUME_STATUS_BLOCKED_STATE_MISMATCH: &str = "blocked_state_mismatch";
 const RESUME_STATUS_BLOCKED_MISSING_REVIEW_ACK: &str = "blocked_missing_review_ack";
 const RESUME_STATUS_BLOCKED_MISSING_EVIDENCE: &str = "blocked_missing_evidence";
@@ -35,6 +40,7 @@ pub enum QueueWorkflowResumePlanStatus {
     ResumeReady,
     ResumeReadOnlyReady,
     BlockedMissingTask,
+    BlockedDependencyEdgeMissing,
     BlockedStateMismatch,
     BlockedMissingReviewAck,
     BlockedMissingEvidence,
@@ -54,6 +60,7 @@ impl QueueWorkflowResumePlanStatus {
             Self::ResumeReady => RESUME_STATUS_RESUME_READY,
             Self::ResumeReadOnlyReady => RESUME_STATUS_RESUME_READ_ONLY_READY,
             Self::BlockedMissingTask => RESUME_STATUS_BLOCKED_MISSING_TASK,
+            Self::BlockedDependencyEdgeMissing => RESUME_STATUS_BLOCKED_DEPENDENCY_EDGE_MISSING,
             Self::BlockedStateMismatch => RESUME_STATUS_BLOCKED_STATE_MISMATCH,
             Self::BlockedMissingReviewAck => RESUME_STATUS_BLOCKED_MISSING_REVIEW_ACK,
             Self::BlockedMissingEvidence => RESUME_STATUS_BLOCKED_MISSING_EVIDENCE,
@@ -167,6 +174,11 @@ pub struct QueueWorkflowResumePlan {
 struct SlotBinding {
     slot: String,
     task_id: Option<String>,
+    task_spec_hash: Option<String>,
+    dependency_spec_hash: Option<String>,
+    dependency_edge_hash: Option<String>,
+    depends_on_slots: Vec<String>,
+    dependency_task_ids: Vec<String>,
     run_id: Option<String>,
     evidence_bundle_id: Option<String>,
     message_id: Option<String>,
@@ -186,6 +198,14 @@ struct ReconciledSlot {
     failure_decision: Option<AgentQueueFailureDecisionRow>,
     aggregate: Option<QueueItemAggregate>,
     blockers: Vec<QueueWorkflowResumeBlocker>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ResumeTaskTemplate {
+    task_spec: super::agent_queue_workflow_materialization::CanonicalQueueWorkflowTaskSpec,
+    depends_on_slots: Vec<String>,
+    task_spec_hash: String,
+    dependency_spec_hash: String,
 }
 
 #[derive(Clone, Debug)]
@@ -453,10 +473,37 @@ impl WorkspaceService {
                 )));
             }
         };
+        let task_templates = match parse_task_templates(inputs_value.as_ref()) {
+            Ok(templates) => templates,
+            Err(blocker) => {
+                return Ok(Some(plan_with_status(
+                    workflow_run,
+                    actions,
+                    QueueWorkflowResumePlanStatus::FailedUnexpected,
+                    None,
+                    None,
+                    false,
+                    false,
+                    None,
+                    vec![blocker],
+                )));
+            }
+        };
+        let slot_binding_map = slot_bindings
+            .iter()
+            .cloned()
+            .map(|binding| (binding.slot.clone(), binding))
+            .collect::<BTreeMap<_, _>>();
 
         let mut reconciled_slots = Vec::new();
         for binding in slot_bindings {
-            reconciled_slots.push(self.reconcile_workflow_slot(&workspace_id, binding)?);
+            let template = task_templates.get(&binding.slot);
+            reconciled_slots.push(self.reconcile_workflow_slot(
+                &workspace_id,
+                binding,
+                template,
+                &slot_binding_map,
+            )?);
         }
 
         let mut blockers = reconciled_slots
@@ -563,6 +610,8 @@ impl WorkspaceService {
         &self,
         workspace_id: &str,
         binding: SlotBinding,
+        task_template: Option<&ResumeTaskTemplate>,
+        slot_bindings: &BTreeMap<String, SlotBinding>,
     ) -> Result<ReconciledSlot, WorkspaceServiceError> {
         let mut blockers = Vec::new();
 
@@ -592,6 +641,18 @@ impl WorkspaceService {
             },
             None => None,
         };
+
+        if let Some(task) = task.as_ref() {
+            validate_task_materialization_binding(
+                workspace_id,
+                &binding,
+                task,
+                task_template,
+                slot_bindings,
+                &self.store,
+                &mut blockers,
+            )?;
+        }
 
         let run_link = match binding.run_id.as_deref() {
             Some(run_id) => {
@@ -965,6 +1026,11 @@ fn parse_slot_bindings(
         bindings.push(SlotBinding {
             slot: slot.clone(),
             task_id: optional_string_field(fields.get("taskId")),
+            task_spec_hash: optional_string_field(fields.get("taskSpecHash")),
+            dependency_spec_hash: optional_string_field(fields.get("dependencySpecHash")),
+            dependency_edge_hash: optional_string_field(fields.get("dependencyEdgeHash")),
+            depends_on_slots: optional_string_array_field(fields.get("dependsOnSlots")),
+            dependency_task_ids: optional_string_array_field(fields.get("dependencyTaskIds")),
             run_id: optional_string_field(fields.get("runId")),
             evidence_bundle_id: optional_string_field(fields.get("evidenceBundleId")),
             message_id: optional_string_field(fields.get("messageId")),
@@ -983,6 +1049,225 @@ fn optional_string_field(value: Option<&Value>) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty())
         .map(str::to_owned)
+}
+
+fn optional_string_array_field(value: Option<&Value>) -> Vec<String> {
+    value
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn parse_task_templates(
+    inputs: Option<&Value>,
+) -> Result<BTreeMap<String, ResumeTaskTemplate>, QueueWorkflowResumeBlocker> {
+    let Some(tasks) = inputs
+        .and_then(|value| value.get("tasks"))
+        .and_then(Value::as_array)
+    else {
+        return Ok(BTreeMap::new());
+    };
+
+    let mut templates = BTreeMap::new();
+    for task in tasks {
+        let Some(fields) = task.as_object() else {
+            return Err(blocker(
+                "invalid_task_template",
+                "inputs.tasks entries must be typed task template objects.",
+                None,
+                Some("inputs.tasks"),
+            ));
+        };
+        let Some(slot) = optional_string_field(fields.get("slot")) else {
+            return Err(blocker(
+                "invalid_task_template",
+                "inputs.tasks entries must include an explicit slot.",
+                None,
+                Some("inputs.tasks.slot"),
+            ));
+        };
+        if templates.contains_key(&slot) {
+            return Err(blocker(
+                "duplicate_task_slot",
+                "inputs.tasks contains duplicate slot values.",
+                Some(&slot),
+                Some("inputs.tasks.slot"),
+            ));
+        }
+
+        let task_spec = QueueWorkflowTaskSpec {
+            title: optional_string_field(fields.get("title")).unwrap_or_default(),
+            prompt: optional_string_field(fields.get("prompt")).unwrap_or_default(),
+            description: optional_string_field(fields.get("description")),
+            status: optional_string_field(fields.get("status")),
+            priority: fields.get("priority").and_then(Value::as_i64),
+        };
+        let depends_on_slots = optional_string_array_field(fields.get("dependsOnSlots"));
+        let (task_spec, depends_on_slots, task_spec_hash, dependency_spec_hash) =
+            normalize_queue_workflow_task_spec_for_hash(task_spec, depends_on_slots).map_err(
+                |message| {
+                    blocker(
+                        "invalid_task_template",
+                        &message,
+                        Some(&slot),
+                        Some("inputs.tasks"),
+                    )
+                },
+            )?;
+        templates.insert(
+            slot,
+            ResumeTaskTemplate {
+                task_spec,
+                depends_on_slots,
+                task_spec_hash,
+                dependency_spec_hash,
+            },
+        );
+    }
+
+    Ok(templates)
+}
+
+fn validate_task_materialization_binding(
+    workspace_id: &str,
+    binding: &SlotBinding,
+    task: &AgentQueueTaskRow,
+    task_template: Option<&ResumeTaskTemplate>,
+    slot_bindings: &BTreeMap<String, SlotBinding>,
+    store: &hobit_storage_sqlite::SqliteStore,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) -> Result<(), WorkspaceServiceError> {
+    if let (Some(bound_hash), Some(template)) = (binding.task_spec_hash.as_deref(), task_template) {
+        if bound_hash != template.task_spec_hash {
+            blockers.push(binding_blocker(
+                "task_spec_hash_mismatch",
+                "Persisted taskSpecHash no longer matches the typed workflow task template.",
+                binding,
+                Some("taskSpecHash"),
+            ));
+        }
+        if task.title != template.task_spec.title
+            || task.description != template.task_spec.description
+            || task.prompt != template.task_spec.prompt
+            || task.status != template.task_spec.status
+            || task.priority != template.task_spec.priority
+            || task.execution_policy != "manual"
+            || task.execution_workspace.is_some()
+            || task.codex_executable.is_some()
+            || task.sandbox.is_some()
+            || task.approval_policy.is_some()
+        {
+            blockers.push(binding_blocker(
+                "task_spec_state_mismatch",
+                "Bound Queue task row no longer matches the typed workflow task template.",
+                binding,
+                None,
+            ));
+        }
+    }
+
+    if let (Some(bound_hash), Some(template)) =
+        (binding.dependency_spec_hash.as_deref(), task_template)
+    {
+        if bound_hash != template.dependency_spec_hash {
+            blockers.push(binding_blocker(
+                "dependency_spec_hash_mismatch",
+                "Persisted dependencySpecHash no longer matches explicit dependsOnSlots.",
+                binding,
+                Some("dependencySpecHash"),
+            ));
+        }
+    }
+
+    let expected_task_ids = expected_dependency_task_ids(binding, task_template, slot_bindings);
+    if expected_task_ids.is_empty() && binding.dependency_edge_hash.is_none() {
+        return Ok(());
+    }
+
+    for task_id in &expected_task_ids {
+        if store.get_agent_queue_task(workspace_id, task_id)?.is_none() {
+            blockers.push(binding_blocker(
+                "dependency_task_missing",
+                "Persisted dependency edge references an upstream task that is missing.",
+                binding,
+                Some("dependencyTaskIds"),
+            ));
+        }
+    }
+
+    let actual_task_ids = task_dependency_ids(task).unwrap_or_default();
+    if !same_string_set(&actual_task_ids, &expected_task_ids) {
+        blockers.push(binding_blocker(
+            "dependency_edge_missing",
+            "Bound Queue task depends_on does not match explicit workflow dependsOnSlots.",
+            binding,
+            Some("dependsOnSlots"),
+        ));
+    }
+
+    if let Some(bound_edge_hash) = binding.dependency_edge_hash.as_deref() {
+        let expected_edge_hash = workflow_dependency_edge_hash(&expected_task_ids);
+        if bound_edge_hash != expected_edge_hash {
+            blockers.push(binding_blocker(
+                "dependency_edge_hash_mismatch",
+                "Persisted dependencyEdgeHash no longer matches the durable dependency task ids.",
+                binding,
+                Some("dependencyEdgeHash"),
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+fn expected_dependency_task_ids(
+    binding: &SlotBinding,
+    task_template: Option<&ResumeTaskTemplate>,
+    slot_bindings: &BTreeMap<String, SlotBinding>,
+) -> Vec<String> {
+    if !binding.dependency_task_ids.is_empty() {
+        let mut task_ids = binding.dependency_task_ids.clone();
+        task_ids.sort();
+        task_ids.dedup();
+        return task_ids;
+    }
+
+    let depends_on_slots = task_template
+        .map(|template| template.depends_on_slots.as_slice())
+        .unwrap_or(binding.depends_on_slots.as_slice());
+    let mut task_ids = depends_on_slots
+        .iter()
+        .filter_map(|slot| slot_bindings.get(slot))
+        .filter_map(|binding| binding.task_id.clone())
+        .collect::<Vec<_>>();
+    task_ids.sort();
+    task_ids.dedup();
+    task_ids
+}
+
+fn task_dependency_ids(task: &AgentQueueTaskRow) -> Result<Vec<String>, serde_json::Error> {
+    let mut ids = serde_json::from_str::<Vec<String>>(&task.depends_on)?;
+    ids.sort();
+    ids.dedup();
+    Ok(ids)
+}
+
+fn same_string_set(left: &[String], right: &[String]) -> bool {
+    let mut left = left.to_vec();
+    let mut right = right.to_vec();
+    left.sort();
+    left.dedup();
+    right.sort();
+    right.dedup();
+    left == right
 }
 
 fn derive_next_step(
@@ -1517,10 +1802,18 @@ fn status_for_blockers(blockers: &[QueueWorkflowResumeBlocker]) -> QueueWorkflow
     if blockers.iter().any(|blocker| {
         matches!(
             blocker.blocker_code.as_str(),
-            "task_missing" | "missing_task"
+            "task_missing" | "missing_task" | "dependency_task_missing"
         )
     }) {
         return QueueWorkflowResumePlanStatus::BlockedMissingTask;
+    }
+    if blockers.iter().any(|blocker| {
+        matches!(
+            blocker.blocker_code.as_str(),
+            "dependency_edge_missing" | "dependency_edge_hash_mismatch"
+        )
+    }) {
+        return QueueWorkflowResumePlanStatus::BlockedDependencyEdgeMissing;
     }
     if blockers
         .iter()

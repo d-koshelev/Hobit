@@ -454,7 +454,13 @@ unless the task explicitly requests it.
   idempotent states. The Workspace Agent workflow request path now invokes it
   only for supported Queue phases through typed backend ports; unsupported,
   invalid, or deferred workflows do not invoke the runner, and downstream work
-  is not auto-started. A backend-owned worker-start idempotency/control
+  is not auto-started. Backend workflow task slot materialization now exists
+  as a workflow-internal domain method: it creates/reuses draft/manual Queue
+  tasks by explicit `workflowRunId + slot + taskSpecHash`, persists durable
+  slot bindings, and materializes dependency edges only from explicit
+  `dependsOnSlots`. It is not a Workspace Agent broker capability and is not
+  wired into `hobit.workflow.request` execution. A backend-owned worker-start
+  idempotency/control
   contract now exists on the assigned Queue task start path for future start
   phases: it requires explicit workflow/action/task/executor/settings refs,
   exact confirmation, durable `manual_enabled`, workflow action-ledger

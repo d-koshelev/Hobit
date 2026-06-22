@@ -1152,7 +1152,7 @@ fn contains_confirmation_token(value: &Value) -> bool {
     }
 }
 
-fn canonical_json_string(value: &Value) -> String {
+pub(super) fn canonical_json_string(value: &Value) -> String {
     match value {
         Value::Null => "null".to_owned(),
         Value::Bool(value) => value.to_string(),
@@ -1186,13 +1186,17 @@ fn canonical_json_string(value: &Value) -> String {
 }
 
 fn stable_request_hash(canonical_json: &str) -> String {
+    stable_fnv1a64_hash("fnv1a64", canonical_json)
+}
+
+pub(super) fn stable_fnv1a64_hash(prefix: &str, canonical_json: &str) -> String {
     let mut hash = 0xcbf29ce484222325_u64;
     for byte in canonical_json.as_bytes() {
         hash ^= u64::from(*byte);
         hash = hash.wrapping_mul(0x100000001b3);
     }
 
-    format!("fnv1a64:{hash:016x}")
+    format!("{prefix}:{hash:016x}")
 }
 
 fn start_invalid_input(field: &str, message: &str) -> QueueWorkflowStartResult {

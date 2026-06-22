@@ -139,6 +139,17 @@ Dependencies must not be inferred from task order, title, prompt text, prose, or
 prompt-pack-local ids. For dependency smoke, create the upstream task first,
 then create the downstream task with `dependsOn: [upstreamTaskId]`.
 
+Queue workflow task slot materialization uses a different internal typed
+dependency shape: `dependsOnSlots`. A downstream workflow slot can be
+materialized only after each upstream slot already has a durable slot binding
+to a Queue task id in the same workflow/workspace. The backend resolves those
+explicit slots to existing task ids and writes the existing Queue task
+`depends_on` edge. It does not infer dependencies from slot order, title,
+prompt, UI position, file path, or prose. Missing upstream slot bindings block
+materialization, and missing persisted dependency edges block resume planning
+as `blocked_dependency_edge_missing`; the planner does not repair edges in the
+MVP.
+
 ## Blocker Kinds
 
 Dependency-derived blockers use:

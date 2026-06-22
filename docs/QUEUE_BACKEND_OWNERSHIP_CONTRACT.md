@@ -74,6 +74,19 @@ bounded status, phase/step, blocker, variable/slot-binding, mutation-ref, and
 idempotent action-summary state for already-supported read/review/finalization
 runner phases.
 
+Backend workflow task slot materialization is now a narrow workflow-internal
+domain method. It creates or reuses draft/manual Queue tasks by explicit
+`workflowRunId + slot + taskSpecHash`, records a backend `create_task` action
+ledger row keyed by `workflowRunId:create_task:slot:taskSpecHash`, and persists
+the durable slot-to-task binding in `agent_queue_workflow_runs.slot_bindings_json`.
+It may materialize dependency edges only by resolving explicit
+`dependsOnSlots` to already-bound upstream task ids in the same workspace. It
+must block on missing upstream bindings, task-spec hash conflicts, conflicting
+action refs, cross-workspace task ids, or dependency-edge mismatches. It must
+not update run settings, assign/promote tasks, enable Queue, start workers,
+record evidence, create/ACK reviews, finalize, validate, mutate Git, roll
+back, launch Terminal, schedule work, or start downstream tasks.
+
 Workflow persistence APIs are not Workspace Agent broker capabilities. They
 are backend-backed storage/reporting APIs consumed by the typed Queue workflow
 runtime adapter. No public append-event command exists; action-ledger mutation
@@ -89,6 +102,11 @@ and completion/failure decision-to-task). Missing durable facts return typed
 missing blockers; mismatched durable facts return `blocked_state_mismatch`.
 Planner code must not infer ids, permissions, confirmations, or workflow input
 from task titles, prompts, UI selection, frontend order, file paths, or prose.
+For workflow materialized slots, resume planning also validates persisted
+`taskSpecHash`, `dependencySpecHash`, and `dependencyEdgeHash` when enough typed
+input or binding data is present, and returns
+`blocked_dependency_edge_missing` for missing exact dependency edges without
+repairing them.
 Any mutating restart target must require a fresh grant and fresh exact
 structured confirmation; persisted confirmation tokens are never replayed.
 

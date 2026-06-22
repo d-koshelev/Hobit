@@ -267,7 +267,8 @@ API consumed by the Queue workflow runtime adapter:
   against durable Queue facts, and returns a typed plan or blocker. It can
   report terminal workflow-run states, expected-version conflicts, unsupported
   phases, missing or mismatched task/run/evidence/review/finalization facts,
-  next deterministic phase/step, and whether a fresh grant or exact structured
+  missing workflow dependency edges as `blocked_dependency_edge_missing`, next
+  deterministic phase/step, and whether a fresh grant or exact structured
   confirmation is required. It must not execute workflow steps, call
   `QueueWorkflowRunner`, create/update/promote/enable tasks, start workers,
   record worker evidence, create/ACK review messages, mark done, fail, block,
@@ -304,6 +305,46 @@ APIs consumed by the adapter; they are not Workspace Agent broker
 capabilities. Resume planning may read durable Queue aggregate, run-link,
 evidence, review, completion, and failure facts, but the planner itself is
 still read-only and never executes steps.
+
+## Queue Workflow Task Slot Materialization MVP
+
+Backend/domain now has a narrow workflow-internal task slot materialization
+method. It creates or reuses a durable Queue task for an explicit
+`workspaceId + workflowRunId + slot + taskSpecHash` and persists the explicit
+slot binding in `agent_queue_workflow_runs.slot_bindings_json`. The binding
+records `slot`, `taskId`, `taskSpecHash`, `dependencySpecHash`,
+`dependencyEdgeHash`, explicit `dependsOnSlots`, resolved durable
+`dependencyTaskIds`, and the `create_task` workflow action id/key. The
+idempotency key is exactly
+`workflowRunId:create_task:slot:taskSpecHash`.
+
+`taskSpecHash` is computed from canonical typed task fields, not prose outside
+those fields. The MVP task spec is bounded `title`, bounded `prompt`, optional
+bounded `description`, optional `priority`, and initial `draft` status only.
+Dependencies are part of the hash through explicit `dependsOnSlots`. The same
+workflow run, slot, and hash returns the existing task id. The same workflow
+run and slot with a different hash is a typed conflict. The same slot/spec in
+a different workflow run is allowed and does not deduplicate globally.
+
+Materialized workflow tasks are created as draft/manual Queue tasks. This is a
+setup artifact only: it does not update run settings, assign executors,
+promote drafts, enable Queue, start workers, create run links, record worker
+evidence, create/ACK reviews, mark done, fail, block, add follow-up work,
+approve/run validation, mutate Git, roll back, launch Terminal, schedule
+work, or start downstream tasks.
+
+Dependency edges are materialized only from explicit `dependsOnSlots`.
+Upstream slots must already have durable task-id bindings in the same
+workflow/workspace before a downstream task can be created. The downstream
+task row stores the resolved upstream task ids in the existing `depends_on`
+field. Duplicate materialization validates exact ids and hashes. Missing or
+mismatched dependency edges block resume planning with typed blockers; the
+planner does not repair dependency edges in this MVP. No dependency may be
+inferred from task title, prompt text, order, UI position, file path, or prose.
+
+This method is not exposed as a Workspace Agent broker capability and is not
+wired into `hobit.workflow.request` execution. It does not add a
+QueueWorkflowRunner create/setup/start phase.
 
 ## Queue Control State MVP
 
@@ -367,15 +408,15 @@ Git, launch Terminal, schedule workers, or auto-start downstream tasks.
 
 Resume planner statuses are typed and stable: `resume_ready`,
 `resume_read_only_ready`, `blocked_missing_task`,
-`blocked_state_mismatch`, `blocked_missing_review_ack`,
-`blocked_missing_evidence`, `blocked_missing_confirmation`,
-`blocked_stale_grant`, `terminal_completed`, `terminal_failed`,
-`terminal_cancelled`, `unsupported_phase`, `failed_unexpected`, and
-`version_conflict`. `terminal_failed` means the workflow run itself is failed;
-it is not a Queue task failure. Mutating or finalizing next steps after
-restart require a fresh grant and fresh exact structured confirmation unless a
-future restart policy explicitly narrows a safe exception. Persisted
-confirmation tokens must never be replayed.
+`blocked_dependency_edge_missing`, `blocked_state_mismatch`,
+`blocked_missing_review_ack`, `blocked_missing_evidence`,
+`blocked_missing_confirmation`, `blocked_stale_grant`, `terminal_completed`,
+`terminal_failed`, `terminal_cancelled`, `unsupported_phase`,
+`failed_unexpected`, and `version_conflict`. `terminal_failed` means the
+workflow run itself is failed; it is not a Queue task failure. Mutating or
+finalizing next steps after restart require a fresh grant and fresh exact
+structured confirmation unless a future restart policy explicitly narrows a
+safe exception. Persisted confirmation tokens must never be replayed.
 
 Provider turns now pass through the provider-neutral `AgentRuntime` event loop,
 which owns AgentProvider run lifecycle and delegates final-output

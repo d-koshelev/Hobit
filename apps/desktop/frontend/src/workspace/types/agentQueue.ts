@@ -898,6 +898,7 @@ export type AgentQueueWorkflowResumePlanStatus =
   | "resume_ready"
   | "resume_read_only_ready"
   | "blocked_missing_task"
+  | "blocked_dependency_edge_missing"
   | "blocked_state_mismatch"
   | "blocked_missing_review_ack"
   | "blocked_missing_evidence"

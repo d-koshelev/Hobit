@@ -64,6 +64,18 @@ execution, worker evidence recording, scheduler behavior, downstream
 auto-start, and generic public resume execution remain not implemented.
 Workflow persistence APIs are not exposed as Workspace Agent broker
 capabilities.
+Queue workflow task slot materialization now exists as a backend/domain MVP.
+It creates or reuses durable draft/manual Queue tasks by explicit
+`workflowRunId + slot + taskSpecHash`, stores slot-to-task bindings in
+workflow persistence, records a `create_task` workflow action row, and writes
+dependency edges only by resolving explicit `dependsOnSlots` to already-bound
+upstream task ids. The same workflow/slot/hash is idempotent, a different hash
+for the same workflow/slot conflicts, and the same slot/spec in a different
+workflow does not deduplicate globally. This is not wired into the
+QueueWorkflowRunner create/setup/start path or Workspace Agent broker routing,
+and it does not update run settings, promote tasks, enable Queue, start
+workers, record evidence/reviews/finalization, run validation, mutate Git,
+roll back, launch Terminal, schedule, or auto-start downstream work.
 Queue control state is also backend-owned and durable per workspace. The MVP
 control states are `disabled` and `manual_enabled`, exposed through typed
 backend/Tauri/frontend wrappers. `manual_enabled` is a manual/no-autodispatch
