@@ -17,11 +17,12 @@ mod time;
 
 pub use inputs::{
     AgentQueueReviewMessageAckUpdate, AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate,
-    AgentQueueWorkerUpdate, JdbcConnectionProfileUpdate, JdbcConnectorUpdate,
-    KnowledgeDocumentSearchFilters, KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision,
-    NewAgentQueueFailureDecision, NewAgentQueueItem, NewAgentQueueReviewMessage, NewAgentQueueTask,
-    NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewAgentQueueWorkerEvidenceBundle,
-    NewJdbcConnectionProfile, NewJdbcConnector, NewKnowledgeDocument,
+    AgentQueueWorkerUpdate, AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunStatusUpdate,
+    JdbcConnectionProfileUpdate, JdbcConnectorUpdate, KnowledgeDocumentSearchFilters,
+    KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision, NewAgentQueueFailureDecision,
+    NewAgentQueueItem, NewAgentQueueReviewMessage, NewAgentQueueTask, NewAgentQueueTaskRunLink,
+    NewAgentQueueWorker, NewAgentQueueWorkerEvidenceBundle, NewAgentQueueWorkflowAction,
+    NewAgentQueueWorkflowRun, NewJdbcConnectionProfile, NewJdbcConnector, NewKnowledgeDocument,
     NewKnowledgeDraftReviewRecord, NewSharedStateObject, NewSkill, NewWidgetInstance, NewWidgetLog,
     NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession, SkillUpdate,
     WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
@@ -29,12 +30,12 @@ pub use inputs::{
 pub use rows::{
     AgentQueueCompletionDecisionRow, AgentQueueFailureDecisionRow, AgentQueueItemRow,
     AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
-    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, JdbcConnectionProfileRow,
-    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    KnowledgeDocumentSearchResultRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow,
-    SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
-    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, AgentQueueWorkflowActionRow,
+    AgentQueueWorkflowRunRow, JdbcConnectionProfileRow, JdbcConnectorRow,
+    KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
+    KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow,
+    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 pub use rusqlite::Error as StorageError;
 pub use store::SqliteStore;

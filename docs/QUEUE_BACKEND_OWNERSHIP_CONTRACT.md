@@ -14,7 +14,8 @@ confirmation, and bounded grant rules are defined in
 
 - Queue business truth lives in backend/domain/storage.
 - Storage persists durable Queue task rows, dependencies, run links, worker
-  evidence bundles, and review message/ACK ledgers.
+  evidence bundles, review message/ACK ledgers, completion/failure decisions,
+  and Queue workflow run/action ledgers.
 - Tauri/API exposes typed commands and DTOs over backend state. It does not
   depend on React, Queue boards, view models, or frontend overlays.
 - Workspace Agent and broker adapters call typed Queue backend/Tauri APIs
@@ -48,6 +49,30 @@ confirmation, and bounded grant rules are defined in
   backend/domain/Tauri/API contracts without launching the frontend UI.
 - Any frontend-only transitional Queue code must be labeled as transitional and
   have a removal path to backend/domain ownership.
+
+## Workflow Persistence Ownership
+
+Queue workflow run state is backend/domain/storage truth, not frontend session
+memory. `agent_queue_workflow_runs` stores the durable workflow-run header,
+typed input snapshot, safe bounded grant summary, variables, slot bindings,
+mutation references, idempotency keys, compact action-log summary, phase/step,
+status, pause/block reasons, and timestamps. `agent_queue_workflow_actions`
+stores backend-internal step/action idempotency ledger rows keyed by workflow
+run and idempotency key.
+
+The typed workflow persistence API exposes start/get/list/cancel/report only.
+Start is idempotent by `workspaceId + requestId + requestHash`; same request id
+with a different typed snapshot is a conflict. Cancel is non-destructive and
+does not mutate Queue tasks, run links, review messages, evidence bundles,
+completion/failure decisions, workers, Git, Terminal, validation, rollback, or
+scheduler state. Reports read persisted workflow/run action rows and state that
+resume execution is not implemented.
+
+Workflow persistence APIs are not Workspace Agent broker capabilities yet.
+They are backend-backed storage/reporting APIs that future runner-resume wiring
+may consume. No public append-event command exists; action-ledger mutation
+remains backend-internal. Persisted grant summaries must not store reusable
+confirmation tokens or secrets.
 
 ## Backend-Backed Capabilities
 

@@ -63,6 +63,9 @@ mod agent_queue_worker_evidence_tests;
 mod agent_queue_workers;
 #[cfg(test)]
 mod agent_queue_workers_tests;
+mod agent_queue_workflow;
+#[cfg(test)]
+mod agent_queue_workflow_tests;
 mod coordinator_provider;
 mod coordinator_provider_drafts;
 mod coordinator_provider_external;
@@ -204,6 +207,16 @@ pub use agent_queue_worker_evidence::{
     AgentQueueWorkerEvidenceBundleSummary, AgentQueueWorkerEvidenceQueryResult,
     AgentQueueWorkerEvidenceQueryState, AgentQueueWorkerFinishedCommandResult,
     GetAgentQueueWorkerEvidenceBundleInput, RecordAgentQueueWorkerFinishedInput,
+};
+pub use agent_queue_workflow::{
+    QueueWorkflowAction, QueueWorkflowActionStatus, QueueWorkflowCancelRequest,
+    QueueWorkflowCancelResult, QueueWorkflowCancelStatus, QueueWorkflowCommandBlocker,
+    QueueWorkflowConflict, QueueWorkflowGetRequest, QueueWorkflowListRequest, QueueWorkflowReport,
+    QueueWorkflowRun, QueueWorkflowRunStatus, QueueWorkflowStartRequest, QueueWorkflowStartResult,
+    QueueWorkflowStartStatus, MAX_WORKFLOW_ACTION_LOG_SUMMARY_JSON_BYTES,
+    MAX_WORKFLOW_GRANT_SUMMARY_JSON_BYTES, MAX_WORKFLOW_IDEMPOTENCY_KEYS_JSON_BYTES,
+    MAX_WORKFLOW_INPUTS_JSON_BYTES, MAX_WORKFLOW_MUTATION_REFS_JSON_BYTES,
+    MAX_WORKFLOW_SLOT_BINDINGS_JSON_BYTES, MAX_WORKFLOW_VARIABLES_JSON_BYTES,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;
 pub use coordinator_provider_external::{

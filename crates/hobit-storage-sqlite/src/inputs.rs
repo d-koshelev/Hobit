@@ -274,6 +274,76 @@ pub struct AgentQueueWorkerUpdate<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueWorkflowRun<'a> {
+    pub workflow_run_id: &'a str,
+    pub workspace_id: &'a str,
+    pub workflow_id: &'a str,
+    pub request_id: &'a str,
+    pub request_hash: &'a str,
+    pub status: &'a str,
+    pub phase: &'a str,
+    pub current_step: Option<&'a str>,
+    pub pause_reason: Option<&'a str>,
+    pub blocker_reason: Option<&'a str>,
+    pub actor_id: Option<&'a str>,
+    pub inputs_snapshot_json: Option<&'a str>,
+    pub grant_summary_json: Option<&'a str>,
+    pub variables_json: Option<&'a str>,
+    pub slot_bindings_json: Option<&'a str>,
+    pub mutation_refs_json: Option<&'a str>,
+    pub idempotency_keys_json: Option<&'a str>,
+    pub action_log_summary_json: Option<&'a str>,
+    pub version: i64,
+    pub schema_version: i64,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkflowRunStatusUpdate<'a> {
+    pub status: &'a str,
+    pub phase: Option<&'a str>,
+    pub current_step: Option<&'a str>,
+    pub pause_reason: Option<&'a str>,
+    pub blocker_reason: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueWorkflowAction<'a> {
+    pub action_id: &'a str,
+    pub workflow_run_id: &'a str,
+    pub workspace_id: &'a str,
+    pub step_id: &'a str,
+    pub action_type: &'a str,
+    pub idempotency_key: &'a str,
+    pub status: &'a str,
+    pub target_refs_json: Option<&'a str>,
+    pub result_refs_json: Option<&'a str>,
+    pub blocker_code: Option<&'a str>,
+    pub blocker_message: Option<&'a str>,
+    pub attempt_count: i64,
+    pub started_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkflowActionUpdate<'a> {
+    pub status: &'a str,
+    pub result_refs_json: Option<&'a str>,
+    pub blocker_code: Option<&'a str>,
+    pub blocker_message: Option<&'a str>,
+    pub attempt_count: Option<i64>,
+    pub started_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewWorkspaceNote<'a> {
     pub note_id: &'a str,
     pub workspace_id: &'a str,

@@ -356,6 +356,16 @@ recording, validation execution, Git mutation, rollback, Terminal launch,
 scheduler behavior, backend lifecycle semantic change, Queue UI truth path, or
 downstream auto-start.
 
+Queue workflow persistence now exists as a backend-owned storage/API
+foundation for workflow-run and action-ledger records. The typed
+start/get/list/cancel/report API stores bounded validated input snapshots,
+safe grant summaries, phase/step/status, slot/variable/idempotency metadata,
+and internal action ledger rows. `queue.workflow.start` is idempotent by
+`workspaceId + requestId + requestHash`; reusable confirmation tokens are not
+persisted as grants. This persistence surface is not registered as a Workspace
+Agent broker capability, does not wire `QueueWorkflowRunner` to storage, and
+does not implement resume execution.
+
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture. WorkerProvider is the normalized
 worker boundary for future explicit work-item execution and evidence events;

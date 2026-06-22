@@ -10,25 +10,26 @@ use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
     AgentQueueReviewMessageAckUpdate, AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate,
-    AgentQueueWorkerUpdate, JdbcConnectionProfileUpdate, JdbcConnectorUpdate,
-    KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision, NewAgentQueueFailureDecision,
-    NewAgentQueueItem, NewAgentQueueReviewMessage, NewAgentQueueTask, NewAgentQueueTaskRunLink,
-    NewAgentQueueWorker, NewAgentQueueWorkerEvidenceBundle, NewJdbcConnectionProfile,
-    NewJdbcConnector, NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject,
-    NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
-    NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
-    WorkspaceNoteUpdate,
+    AgentQueueWorkerUpdate, AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunStatusUpdate,
+    JdbcConnectionProfileUpdate, JdbcConnectorUpdate, KnowledgeDocumentUpdate,
+    NewAgentQueueCompletionDecision, NewAgentQueueFailureDecision, NewAgentQueueItem,
+    NewAgentQueueReviewMessage, NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorker,
+    NewAgentQueueWorkerEvidenceBundle, NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun,
+    NewJdbcConnectionProfile, NewJdbcConnector, NewKnowledgeDocument,
+    NewKnowledgeDraftReviewRecord, NewSharedStateObject, NewSkill, NewWidgetInstance, NewWidgetLog,
+    NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession, SkillUpdate,
+    WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
     AgentQueueCompletionDecisionRow, AgentQueueFailureDecisionRow, AgentQueueItemRow,
     AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
-    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, JdbcConnectionProfileRow,
-    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    KnowledgeDocumentSearchResultRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow,
-    SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
-    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, AgentQueueWorkflowActionRow,
+    AgentQueueWorkflowRunRow, JdbcConnectionProfileRow, JdbcConnectorRow,
+    KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
+    KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow,
+    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 use crate::schema;
 
@@ -40,6 +41,7 @@ mod agent_queue_task_run_links;
 mod agent_queue_tasks;
 mod agent_queue_worker_evidence_bundles;
 mod agent_queue_workers;
+mod agent_queue_workflows;
 mod events;
 mod jdbc_connection_profiles;
 mod jdbc_connectors;
@@ -64,6 +66,8 @@ mod agent_queue_task_run_links_tests;
 mod agent_queue_tasks_tests;
 #[cfg(test)]
 mod agent_queue_workers_tests;
+#[cfg(test)]
+mod agent_queue_workflows_tests;
 #[cfg(test)]
 mod jdbc_connection_profiles_tests;
 #[cfg(test)]

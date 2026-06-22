@@ -5,11 +5,12 @@ use rusqlite::Result;
 use crate::rows::{
     AgentQueueCompletionDecisionRow, AgentQueueFailureDecisionRow, AgentQueueItemRow,
     AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
-    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, JdbcConnectionProfileRow,
-    JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow,
-    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
-    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
+    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, AgentQueueWorkflowActionRow,
+    AgentQueueWorkflowRunRow, JdbcConnectionProfileRow, JdbcConnectorRow,
+    KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDraftReviewRecordRow,
+    SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow,
+    WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
+    WorkspaceWorkbenchRow,
 };
 
 pub(crate) fn workspace_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceRow> {
@@ -281,6 +282,59 @@ pub(crate) fn agent_queue_worker_row(row: &rusqlite::Row<'_>) -> Result<AgentQue
         display_order: row.get(7)?,
         created_at: row.get(8)?,
         updated_at: row.get(9)?,
+    })
+}
+
+pub(crate) fn agent_queue_workflow_run_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<AgentQueueWorkflowRunRow> {
+    Ok(AgentQueueWorkflowRunRow {
+        workflow_run_id: row.get(0)?,
+        workspace_id: row.get(1)?,
+        workflow_id: row.get(2)?,
+        request_id: row.get(3)?,
+        request_hash: row.get(4)?,
+        status: row.get(5)?,
+        phase: row.get(6)?,
+        current_step: row.get(7)?,
+        pause_reason: row.get(8)?,
+        blocker_reason: row.get(9)?,
+        actor_id: row.get(10)?,
+        inputs_snapshot_json: row.get(11)?,
+        grant_summary_json: row.get(12)?,
+        variables_json: row.get(13)?,
+        slot_bindings_json: row.get(14)?,
+        mutation_refs_json: row.get(15)?,
+        idempotency_keys_json: row.get(16)?,
+        action_log_summary_json: row.get(17)?,
+        version: row.get(18)?,
+        schema_version: row.get(19)?,
+        created_at: row.get(20)?,
+        updated_at: row.get(21)?,
+        completed_at: row.get(22)?,
+    })
+}
+
+pub(crate) fn agent_queue_workflow_action_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<AgentQueueWorkflowActionRow> {
+    Ok(AgentQueueWorkflowActionRow {
+        action_id: row.get(0)?,
+        workflow_run_id: row.get(1)?,
+        workspace_id: row.get(2)?,
+        step_id: row.get(3)?,
+        action_type: row.get(4)?,
+        idempotency_key: row.get(5)?,
+        status: row.get(6)?,
+        target_refs_json: row.get(7)?,
+        result_refs_json: row.get(8)?,
+        blocker_code: row.get(9)?,
+        blocker_message: row.get(10)?,
+        attempt_count: row.get(11)?,
+        started_at: row.get(12)?,
+        completed_at: row.get(13)?,
+        created_at: row.get(14)?,
+        updated_at: row.get(15)?,
     })
 }
 

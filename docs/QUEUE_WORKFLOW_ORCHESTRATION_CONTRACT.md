@@ -239,6 +239,43 @@ validation, mutate Git, execute rollback, launch Terminal, call shell/Codex,
 start downstream work, or add scheduler behavior. Broader mutating workflow
 phases remain future explicit blocks.
 
+## Queue Workflow Persistence MVP
+
+Queue workflow run persistence is backend-owned. The storage/API foundation
+now persists `agent_queue_workflow_runs` and `agent_queue_workflow_actions` as
+workflow orchestration ledgers separate from Queue task/run/review/evidence/
+completion/failure ledgers. `QueueWorkflowRun.status=failed` means workflow
+execution failure and must not be interpreted as Queue task terminal failure.
+
+The public backend/Tauri/frontend workflow API surface is limited to
+start/get/list/cancel/report:
+
+- `queue.workflow.start` creates a workflow-run record only. It is idempotent
+  for the same `workspaceId + requestId` when the stable request hash matches.
+  A different typed snapshot for the same workspace/request id is a typed
+  conflict.
+- `queue.workflow.get`, `queue.workflow.list`, and
+  `queue.workflow.getReport` read backend-owned persisted workflow records and
+  action ledger rows scoped to the requested workspace.
+- `queue.workflow.cancel` is non-destructive. It marks non-terminal workflow
+  runs cancelled and does not roll back, stop workers, mutate Queue tasks,
+  mutate evidence/review/finalization ledgers, or start/stop any runtime.
+- `queue.workflow.resume` execution is not implemented by this contract block.
+
+Persisted workflow snapshots contain only validated typed workflow inputs and
+safe bounded grant summaries. They must not contain raw prompts outside bounded
+validated input fields, raw provider transcripts, terminal output, Git output,
+secrets, or reusable confirmation tokens. A grant summary may persist safe
+fields such as actor, mode, risk classes, constraints, scope, issued/expiry
+time, restart policy, max actions, and consumed action count; reusable
+`confirmationToken` values are rejected/redacted before persistence.
+
+The action ledger records backend-internal step/action idempotency metadata.
+It is not exposed as a public append-event command. This persistence foundation
+does not wire the current frontend `QueueWorkflowRunner` to storage and does
+not expose workflow persistence commands as Workspace Agent broker
+capabilities.
+
 Provider turns now pass through the provider-neutral `AgentRuntime` event loop,
 which owns AgentProvider run lifecycle and delegates final-output
 classification to `AgentProtocolRuntime`. The current controller still owns

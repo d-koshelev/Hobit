@@ -228,6 +228,53 @@ CREATE TABLE IF NOT EXISTS agent_queue_workers (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS agent_queue_workflow_runs (
+    workflow_run_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    workflow_id TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    request_hash TEXT NOT NULL,
+    status TEXT NOT NULL,
+    phase TEXT NOT NULL,
+    current_step TEXT NULL,
+    pause_reason TEXT NULL,
+    blocker_reason TEXT NULL,
+    actor_id TEXT NULL,
+    inputs_snapshot_json TEXT NULL,
+    grant_summary_json TEXT NULL,
+    variables_json TEXT NULL,
+    slot_bindings_json TEXT NULL,
+    mutation_refs_json TEXT NULL,
+    idempotency_keys_json TEXT NULL,
+    action_log_summary_json TEXT NULL,
+    version INTEGER NOT NULL,
+    schema_version INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT NULL,
+    UNIQUE(workspace_id, request_id)
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_workflow_actions (
+    action_id TEXT PRIMARY KEY,
+    workflow_run_id TEXT NOT NULL REFERENCES agent_queue_workflow_runs(workflow_run_id) ON DELETE CASCADE,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    step_id TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    target_refs_json TEXT NULL,
+    result_refs_json TEXT NULL,
+    blocker_code TEXT NULL,
+    blocker_message TEXT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 1,
+    started_at TEXT NULL,
+    completed_at TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(workflow_run_id, idempotency_key)
+);
+
 CREATE TABLE IF NOT EXISTS notes (
     note_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -505,6 +552,27 @@ CREATE INDEX IF NOT EXISTS idx_agent_queue_failure_decisions_run_id
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_workers_workspace_order
     ON agent_queue_workers(workspace_id, display_order, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_runs_workspace_status
+    ON agent_queue_workflow_runs(workspace_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_runs_workspace_workflow
+    ON agent_queue_workflow_runs(workspace_id, workflow_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_runs_workspace_created
+    ON agent_queue_workflow_runs(workspace_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_runs_workspace_updated
+    ON agent_queue_workflow_runs(workspace_id, updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_actions_run_status
+    ON agent_queue_workflow_actions(workflow_run_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_actions_run_step
+    ON agent_queue_workflow_actions(workflow_run_id, step_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_actions_workspace_created
+    ON agent_queue_workflow_actions(workspace_id, created_at);
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_documents_scope
     ON knowledge_documents(scope);

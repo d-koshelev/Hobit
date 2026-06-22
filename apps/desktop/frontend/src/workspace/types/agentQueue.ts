@@ -649,6 +649,160 @@ export type AgentQueueWorkerEvidenceQueryResult = {
   workspaceId: string;
 };
 
+export type AgentQueueWorkflowJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | AgentQueueWorkflowJsonValue[]
+  | { [key: string]: AgentQueueWorkflowJsonValue };
+
+export type AgentQueueWorkflowRunStatus =
+  | "created"
+  | "running"
+  | "paused"
+  | "blocked"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type AgentQueueWorkflowActionStatus =
+  | "created"
+  | "running"
+  | "completed"
+  | "blocked"
+  | "failed"
+  | "cancelled";
+
+export type StartAgentQueueWorkflowRequest = {
+  workspaceId: string;
+  workflowId: string;
+  requestId: string;
+  phase?: string | null;
+  currentStep?: string | null;
+  actorId?: string | null;
+  inputsSnapshot?: AgentQueueWorkflowJsonValue | null;
+  grantSummary?: AgentQueueWorkflowJsonValue | null;
+  variables?: AgentQueueWorkflowJsonValue | null;
+  slotBindings?: AgentQueueWorkflowJsonValue | null;
+  mutationRefs?: AgentQueueWorkflowJsonValue | null;
+  idempotencyKeys?: AgentQueueWorkflowJsonValue | null;
+  actionLogSummary?: AgentQueueWorkflowJsonValue | null;
+};
+
+export type GetAgentQueueWorkflowRequest = {
+  workspaceId: string;
+  workflowRunId: string;
+};
+
+export type ListAgentQueueWorkflowsRequest = {
+  workspaceId: string;
+  status?: AgentQueueWorkflowRunStatus | null;
+  workflowId?: string | null;
+};
+
+export type CancelAgentQueueWorkflowRequest = {
+  workspaceId: string;
+  workflowRunId: string;
+  actorId?: string | null;
+  reason?: string | null;
+};
+
+export type AgentQueueWorkflowRun = {
+  workflowRunId: string;
+  workspaceId: string;
+  workflowId: string;
+  requestId: string;
+  requestHash: string;
+  status: AgentQueueWorkflowRunStatus | string;
+  phase: string;
+  currentStep: string | null;
+  pauseReason: string | null;
+  blockerReason: string | null;
+  actorId: string | null;
+  inputsSnapshotJson: string | null;
+  grantSummaryJson: string | null;
+  variablesJson: string | null;
+  slotBindingsJson: string | null;
+  mutationRefsJson: string | null;
+  idempotencyKeysJson: string | null;
+  actionLogSummaryJson: string | null;
+  version: number;
+  schemaVersion: number;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+};
+
+export type AgentQueueWorkflowAction = {
+  actionId: string;
+  workflowRunId: string;
+  workspaceId: string;
+  stepId: string;
+  actionType: string;
+  idempotencyKey: string;
+  status: AgentQueueWorkflowActionStatus | string;
+  targetRefsJson: string | null;
+  resultRefsJson: string | null;
+  blockerCode: string | null;
+  blockerMessage: string | null;
+  attemptCount: number;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type AgentQueueWorkflowCommandBlocker = {
+  blockerCode: string;
+  blockerMessage: string;
+  missingRequiredField: string | null;
+};
+
+export type AgentQueueWorkflowConflict = {
+  conflictCode: string;
+  conflictMessage: string;
+  existingWorkflowRunId: string | null;
+  existingRequestHash: string | null;
+  requestedRequestHash: string | null;
+};
+
+export type AgentQueueWorkflowStartStatus =
+  | "succeeded"
+  | "already_exists"
+  | "conflict"
+  | "invalid_input"
+  | string;
+
+export type AgentQueueWorkflowCancelStatus =
+  | "cancelled"
+  | "already_cancelled"
+  | "already_terminal"
+  | "not_found"
+  | "invalid_input"
+  | string;
+
+export type AgentQueueWorkflowStartResult = {
+  status: AgentQueueWorkflowStartStatus;
+  workflowRun: AgentQueueWorkflowRun | null;
+  conflict: AgentQueueWorkflowConflict | null;
+  blocker: AgentQueueWorkflowCommandBlocker | null;
+};
+
+export type AgentQueueWorkflowCancelResult = {
+  status: AgentQueueWorkflowCancelStatus;
+  workflowRun: AgentQueueWorkflowRun | null;
+  blocker: AgentQueueWorkflowCommandBlocker | null;
+};
+
+export type AgentQueueWorkflowReport = {
+  workflowRun: AgentQueueWorkflowRun;
+  actions: AgentQueueWorkflowAction[];
+  resumeAvailable: boolean;
+  resumeStatus: "not_implemented" | string;
+  reportSummary: string;
+};
+
 export type DeleteAgentQueueTaskRequest = GetAgentQueueTaskRequest;
 
 export type AttachKnowledgeToQueueTaskRequest = GetAgentQueueTaskRequest & {

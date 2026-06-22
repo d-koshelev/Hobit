@@ -14,11 +14,11 @@ frontend UI or overlays.
 
 This is a docs/status artifact only. It does not add frontend behavior,
 backend/runtime behavior beyond the explicitly listed Queue aggregate,
-worker-evidence, and review command contracts, storage/schema changes beyond
-the explicitly listed worker-evidence and review ledgers, Tauri commands, IPC,
-scheduler or worker runtime, persistence, UI redesign, Finder behavior, Git
-mutation, Terminal launch, Workspace Agent provider calls, or Agent Executor
-execution.
+worker-evidence, review command, finalization, and workflow-persistence
+contracts, storage/schema changes beyond those explicitly listed ledgers,
+Tauri commands, IPC, scheduler or worker runtime, persistence, UI redesign,
+Finder behavior, Git mutation, Terminal launch, Workspace Agent provider
+calls, or Agent Executor execution.
 
 ## Current Status
 
@@ -49,6 +49,14 @@ UI hooks, or broker-local lifecycle maps as product truth.
 The Workspace Agent/Broker adapter boundary uses an injected Queue backend API
 port so backend-backed capability paths can be tested without mounting the
 frontend Queue UI.
+Queue workflow persistence now has a backend-owned MVP: durable
+`agent_queue_workflow_runs` and `agent_queue_workflow_actions` storage,
+typed start/get/list/cancel/report backend and Tauri/frontend API wrappers,
+idempotent start by request hash, bounded JSON snapshots, safe grant-summary
+persistence, and action-ledger idempotency rows. It is storage/API foundation
+only: resume execution is not implemented, the frontend QueueWorkflowRunner is
+not wired to persistence, and these APIs are not exposed as Workspace Agent
+broker capabilities.
 
 Queue capability contract hardening is implemented at the manifest, instruction,
 adapter, and test boundary. Every registered `queue.*` capability is covered by
@@ -231,9 +239,10 @@ noted otherwise. The implemented backend exceptions are the
 dependencies, durable worker evidence bundle rows, and review message ledger
 rows, plus typed durable worker-finished/evidence-read and review
 message create/ACK commands, plus typed durable accepted-completion
-finalization. This is not a scheduler, general transition command set,
-validation runtime, Git/commit flow, rollback flow, or full Queue lifecycle
-store.
+finalization, plus backend-owned Queue workflow run/action persistence with
+start/get/list/cancel/report APIs. This is not a scheduler, general transition
+command set, workflow resume executor, validation runtime, Git/commit flow,
+rollback flow, or full Queue lifecycle store.
 
 ## Implemented Backend Aggregate, Worker Evidence, And Review Commands
 
@@ -339,6 +348,37 @@ command/query, and review command contract:
   smoke should create upstream first, then downstream with the returned
   upstream task id. Intra-batch references to ids created earlier in the same
   batch are not a stable public contract in this block.
+
+### Queue workflow persistence API
+
+Implemented as backend/storage/API foundation only:
+
+- `agent_queue_workflow_runs` stores durable workflow run identity,
+  workspace/request/workflow ids, stable request hash, status, phase/current
+  step, pause/block reasons, bounded typed input snapshots, safe grant
+  summaries, variables, slot bindings, mutation refs, idempotency keys,
+  compact action-log summary, versioning, schema version, and timestamps.
+- `agent_queue_workflow_actions` stores backend-internal step/action ledger
+  rows with idempotency keys, target/result refs, blockers, attempt count, and
+  timestamps.
+- `WorkspaceService::start_queue_workflow`,
+  `get_queue_workflow_run`, `list_queue_workflow_runs`,
+  `cancel_queue_workflow_run`, and `get_queue_workflow_report` expose the
+  backend contract. Tauri commands and frontend wrappers mirror those
+  operations.
+- `start_queue_workflow` is idempotent for the same workspace/request id and
+  stable request hash; conflicting typed snapshots return a conflict instead
+  of overwriting the previous run.
+- Snapshot JSON fields are bounded and grant summaries do not persist
+  reusable confirmation tokens.
+- Cancel is non-destructive and does not roll back, stop workers, mutate Queue
+  lifecycle/task/review/evidence/finalization state, or launch runtime work.
+
+Not implemented here: workflow resume execution, QueueWorkflowRunner
+persistence wiring, broker capability exposure, worker start, task setup,
+worker evidence recording, review/finalization execution through the workflow
+ledger, validation, Git, rollback, Terminal, scheduler, or downstream
+auto-start.
 
 ### Headless Queue API readiness
 

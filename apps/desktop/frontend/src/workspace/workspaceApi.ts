@@ -6,6 +6,7 @@ export * from "./tauriAgentQueueCompletionApi";
 export * from "./tauriAgentQueueFailureApi";
 export * from "./tauriAgentQueueReviewApi";
 export * from "./tauriAgentQueueWorkerEvidenceApi";
+export * from "./tauriAgentQueueWorkflowApi";
 export * from "./workspaceApiAgentExecutor";
 export * from "./workspaceApiAgentQueue";
 export * from "./workspaceApiCore";

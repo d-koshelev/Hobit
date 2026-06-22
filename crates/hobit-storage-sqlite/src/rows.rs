@@ -247,6 +247,53 @@ pub struct AgentQueueWorkerRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkflowRunRow {
+    pub workflow_run_id: String,
+    pub workspace_id: String,
+    pub workflow_id: String,
+    pub request_id: String,
+    pub request_hash: String,
+    pub status: String,
+    pub phase: String,
+    pub current_step: Option<String>,
+    pub pause_reason: Option<String>,
+    pub blocker_reason: Option<String>,
+    pub actor_id: Option<String>,
+    pub inputs_snapshot_json: Option<String>,
+    pub grant_summary_json: Option<String>,
+    pub variables_json: Option<String>,
+    pub slot_bindings_json: Option<String>,
+    pub mutation_refs_json: Option<String>,
+    pub idempotency_keys_json: Option<String>,
+    pub action_log_summary_json: Option<String>,
+    pub version: i64,
+    pub schema_version: i64,
+    pub created_at: String,
+    pub updated_at: String,
+    pub completed_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkflowActionRow {
+    pub action_id: String,
+    pub workflow_run_id: String,
+    pub workspace_id: String,
+    pub step_id: String,
+    pub action_type: String,
+    pub idempotency_key: String,
+    pub status: String,
+    pub target_refs_json: Option<String>,
+    pub result_refs_json: Option<String>,
+    pub blocker_code: Option<String>,
+    pub blocker_message: Option<String>,
+    pub attempt_count: i64,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceNoteRow {
     pub note_id: String,
     pub workspace_id: String,
