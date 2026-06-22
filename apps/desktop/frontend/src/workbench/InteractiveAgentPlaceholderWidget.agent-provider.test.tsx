@@ -12,7 +12,9 @@ import {
   createFakeAgentProvider,
   fakeAgentProviderScriptForScenario,
   type FakeAgentProviderScenario,
+  type FakeAgentProviderScriptStep,
 } from "./agentRuntime";
+import type { AgentQueueItemAggregate } from "../workspace/types";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -72,7 +74,7 @@ describe("WorkspaceAgent AgentProvider", () => {
     );
   });
 
-  it("recognizes FakeAgentProvider workflow requests without executing workflows", async () => {
+  it("reports FakeAgentProvider workflow runner blockers without Queue reads", async () => {
     const listItemAggregates = vi.fn(async () => []);
 
     renderWidget({
@@ -86,8 +88,40 @@ describe("WorkspaceAgent AgentProvider", () => {
 
     expect(listItemAggregates).not.toHaveBeenCalled();
     expect(lastAssistantMessageText()).toContain(
-      "Queue workflow request validated, but workflow runner is not implemented yet.",
+      "Queue workflow runner report. Status: paused.",
     );
+    expect(lastAssistantMessageText()).toContain("explicit existing task ids");
+  });
+
+  it("runs FakeAgentProvider workflow requests with explicit ids through typed Queue reads", async () => {
+    const getItemAggregate = vi.fn(
+      async ({ taskId }: { taskId: string }) => aggregate({ taskId }),
+    );
+    const listItemAggregates = vi.fn(async () => []);
+
+    renderWidget({
+      workspaceAgentProvider: fakeProviderFromScript([
+        {
+          text: JSON.stringify(explicitWorkflowRequest()),
+          type: "workflow_request_detected",
+        },
+      ]),
+      workspaceAgentQueueBridge: queueBridge({
+        getItemAggregate,
+        listItemAggregates,
+      }),
+      workspaceId: "workspace_1",
+    });
+
+    await runDirectWork("Emit a fake workflow request with explicit ids.");
+    await flushAsync(20);
+
+    expect(getItemAggregate).toHaveBeenCalledTimes(4);
+    expect(listItemAggregates).not.toHaveBeenCalled();
+    expect(lastAssistantMessageText()).toContain(
+      "Queue workflow runner report. Status: completed.",
+    );
+    expect(lastAssistantMessageText()).toContain("Task ids:");
   });
 
   it("rejects invalid FakeAgentProvider workflow requests before broker execution", async () => {
@@ -148,6 +182,59 @@ function fakeProvider(scenario: FakeAgentProviderScenario) {
   });
 }
 
+function fakeProviderFromScript(script: readonly FakeAgentProviderScriptStep[]) {
+  return createFakeAgentProvider({
+    providerId: "fake-explicit-workflow",
+    providerThreadId: "fake-thread-1",
+    script,
+  });
+}
+
+function explicitWorkflowRequest() {
+  return {
+    grant: {
+      constraints: {
+        noDelete: true,
+        noDownstreamAutoStart: true,
+        noGit: true,
+        noRollback: true,
+        noTerminal: true,
+        noValidationExecution: true,
+      },
+      mode: "queue_acceptance_smoke",
+    },
+    inputs: {
+      runSettings: {
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        sandbox: "read_only",
+        workspaceRoot: "C:/repo",
+      },
+      taskIdsBySlot: {
+        downstream: "task-downstream",
+        upstream: "task-upstream",
+      },
+      tasks: [
+        {
+          prompt: "Complete upstream dependency smoke work.",
+          slot: "upstream",
+          title: "Upstream dependency smoke",
+        },
+        {
+          dependsOnSlots: ["upstream"],
+          prompt: "Complete downstream dependency smoke work.",
+          slot: "downstream",
+          title: "Downstream dependency smoke",
+        },
+      ],
+    },
+    moduleId: "queue",
+    requestId: "fake-explicit-workflow-request",
+    type: "hobit.workflow.request",
+    workflowId: "dependency_acceptance_smoke",
+  };
+}
+
 function queueBridge(
   overrides: Partial<WorkspaceAgentQueueBridge> = {},
 ): WorkspaceAgentQueueBridge {
@@ -199,6 +286,50 @@ function snapshotResult(
       workspaceId: "workspace_1",
       ...overrides,
     } as QueueWidgetSnapshot,
+  };
+}
+
+function aggregate({
+  taskId,
+}: {
+  taskId: string;
+}): AgentQueueItemAggregate {
+  return {
+    blockers: [],
+    commitState: "none",
+    dependencyState: "none",
+    durableFlags: {
+      commitState: false,
+      completionState: false,
+      dependencyState: true,
+      evidenceState: false,
+      failureState: false,
+      frontendOverlayUsed: false,
+      latestRunLink: false,
+      reviewState: true,
+      taskRow: true,
+      validationState: true,
+    },
+    evidenceState: "none",
+    evidenceSummary: null,
+    latestRun: null,
+    nextActions: [],
+    reviewState: "not_requested",
+    runSettings: {
+      approvalPolicy: "never",
+      assignedExecutorWidgetId: null,
+      codexExecutable: "codex.cmd",
+      executionPolicy: "manual",
+      executionWorkspace: "C:/repo",
+      sandbox: "read_only",
+    },
+    taskId,
+    ticketState: "queued",
+    title: "Queue item",
+    updatedAt: "2026-06-22T00:00:00.000Z",
+    validationState: "not_requested",
+    workerRunState: "not_started",
+    workspaceId: "workspace_1",
   };
 }
 

@@ -3,6 +3,7 @@ import type {
   HobitAgentActionResult,
   HobitAgentWorkflowRequestEnvelopeReadResult,
 } from "../agents/broker";
+import type { QueueWorkflowRunnerRuntimeResult } from "../agents/modules";
 import {
   agentActivityEventFromDirectWorkStreamEvent,
   type AgentActivityEvent,
@@ -21,8 +22,12 @@ import {
   type AgentProtocolRuntimeResult,
 } from "./agentProtocolRuntime";
 import {
+  activitySeverityForQueueWorkflowRuntimeResult,
   activitySeverityForHobitActionResult,
+  activityStatusForQueueWorkflowRuntimeResult,
   activityStatusForHobitActionResult,
+  workspaceAgentQueueWorkflowRuntimeActivityTitle,
+  workspaceAgentQueueWorkflowRuntimeResultMessage,
   workspaceAgentHobitActionActivityTitle,
   workspaceAgentInvalidActionRequestMessage,
   workspaceAgentInvalidWorkflowRequestMessage,
@@ -39,8 +44,12 @@ import {
 } from "../workspaceAgentBrokerContinuation";
 
 export {
+  activitySeverityForQueueWorkflowRuntimeResult,
   activitySeverityForHobitActionResult,
+  activityStatusForQueueWorkflowRuntimeResult,
   activityStatusForHobitActionResult,
+  workspaceAgentQueueWorkflowRuntimeActivityTitle,
+  workspaceAgentQueueWorkflowRuntimeResultMessage,
   workspaceAgentHobitActionActivityTitle,
   workspaceAgentHobitActionResultMessage,
   workspaceAgentInvalidActionRequestMessage,
@@ -120,6 +129,12 @@ export type AgentActivityRecorderEvent =
         HobitAgentWorkflowRequestEnvelopeReadResult,
         { status: "valid" }
       >;
+    }
+  | {
+      runId: string;
+      runMetadata: WorkspaceAgentRunMetadata;
+      type: "queue_workflow_runtime_result";
+      workflowRuntimeResult: QueueWorkflowRunnerRuntimeResult;
     }
   | {
       outcome: Extract<
@@ -221,6 +236,8 @@ export function recordAgentActivity(
       return recordInvalidWorkflowRequest({ ...input, event: input.event });
     case "workflow_request_recognized":
       return recordWorkflowRequestRecognized({ ...input, event: input.event });
+    case "queue_workflow_runtime_result":
+      return recordQueueWorkflowRuntimeResult({ ...input, event: input.event });
     case "protocol_repair_required":
       return recordProtocolRepairRequired({ ...input, event: input.event });
     case "protocol_error":
@@ -512,6 +529,59 @@ function recordWorkflowRequestRecognized({
         status: "completed",
         summary: message,
         title: "Workflow request recognized",
+        timestampMs,
+        widgetInstanceId,
+        workspaceId,
+      }),
+    ],
+    logAppends: [{ kind: "local", text: message }],
+    notices: [{ kind: "direct_work_final_result", value: message }],
+    transcriptAppends: [
+      {
+        body: message,
+        kind: "assistant_action",
+        runMetadata: event.runMetadata,
+      },
+    ],
+  });
+}
+
+function recordQueueWorkflowRuntimeResult({
+  event,
+  timestampMs,
+  widgetInstanceId,
+  workspaceId,
+}: AgentActivityRecorderInput & {
+  event: Extract<
+    AgentActivityRecorderEvent,
+    { type: "queue_workflow_runtime_result" }
+  >;
+}): AgentActivityRecorderResult {
+  const message = workspaceAgentQueueWorkflowRuntimeResultMessage(
+    event.workflowRuntimeResult,
+  );
+  const status = activityStatusForQueueWorkflowRuntimeResult(
+    event.workflowRuntimeResult,
+  );
+  const severity = activitySeverityForQueueWorkflowRuntimeResult(
+    event.workflowRuntimeResult,
+  );
+  return result({
+    activityAppends: [
+      hobitActionActivityEvent({
+        lifecycleStage:
+          status === "completed"
+            ? "completed"
+            : status === "failed"
+              ? "failed"
+              : "step",
+        runId: event.runId,
+        severity,
+        status,
+        summary: message,
+        title: workspaceAgentQueueWorkflowRuntimeActivityTitle(
+          event.workflowRuntimeResult.status,
+        ),
         timestampMs,
         widgetInstanceId,
         workspaceId,

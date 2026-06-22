@@ -167,11 +167,13 @@ only by minimal explicit typed runner inputs while generic request validation
 remains deferred. Already-existing review messages, already-done ACKs,
 `already_done`, and `already_failed` are idempotent/actionable states, not
 generic failure. ACK is not task completion. The generic Workspace Agent
-workflow request path does not invoke the runner yet. This block does not add
-`hobit.queue.workflowRequest`, scheduler behavior, worker auto-start, Queue
-mutation outside review message/ACK ledger or explicit upstream finalization
-ports, or Queue runtime changes. Prose is never executable workflow input,
-permission, confirmation, or id source.
+workflow request path now invokes the runner only for supported Queue phases
+through a typed runtime adapter. This block does not add
+`hobit.queue.workflowRequest`, scheduler behavior, worker auto-start, task
+creation, worker evidence recording, Queue mutation outside review message/ACK
+ledger or explicit upstream finalization ports, or Queue runtime changes.
+Prose is never executable workflow input, permission, confirmation, or id
+source.
 
 Workspace Agent direct turns now go through a provider-neutral AgentProvider
 seam. Codex Direct Work remains the default implementation through a
@@ -192,9 +194,9 @@ delegated to runtime adapter helpers. It still owns visible UI state, broker
 invocation, continuation turn application, activity/transcript application,
 and all existing broker/application flow. BrokerInvocationRuntime remains a
 future block if broker invocation/application needs a dedicated runtime. No
-mutating workflow execution, workflow runner invocation from Workspace Agent,
-scheduler behavior, worker auto-start, backend lifecycle semantic change, or
-new Queue capability is added.
+mutating workflow execution beyond the explicit QueueWorkflowRunner
+read/review/finalization adapter, scheduler behavior, worker auto-start,
+backend lifecycle semantic change, or new Queue capability is added.
 
 Workspace Agent activity/transcript/log output formatting now goes through a
 pure AgentActivityRecorder. It returns append intents for provider final

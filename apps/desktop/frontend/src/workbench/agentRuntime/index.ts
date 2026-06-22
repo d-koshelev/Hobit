@@ -109,9 +109,13 @@ export type {
   BrokerContinuationTurnIntent,
 } from "./brokerContinuationRuntime";
 export {
+  activitySeverityForQueueWorkflowRuntimeResult,
   activitySeverityForHobitActionResult,
+  activityStatusForQueueWorkflowRuntimeResult,
   activityStatusForHobitActionResult,
   recordAgentActivity,
+  workspaceAgentQueueWorkflowRuntimeActivityTitle,
+  workspaceAgentQueueWorkflowRuntimeResultMessage,
   workspaceAgentHobitActionActivityTitle,
   workspaceAgentHobitActionResultMessage,
   workspaceAgentInvalidActionRequestMessage,

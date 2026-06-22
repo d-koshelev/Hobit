@@ -69,7 +69,10 @@ import {
   type BrokerContinuationRuntimeResult,
   type BrokerContinuationTurnIntent,
 } from "./agentRuntime";
-import type { WorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
+import type {
+  WorkspaceAgentHobitActionInvoker,
+  WorkspaceAgentQueueWorkflowInvoker,
+} from "./workspaceAgentBrokerActionRuntime";
 import {
   createWorkspaceAgentBrokerContinuationState,
   readWorkspaceAgentQueueAutonomyGrantFromText,
@@ -102,6 +105,7 @@ type UseWorkspaceAgentDirectWorkControllerOptions = {
   onClearVisibleAttachedContext: () => void;
   onFocusComposer: () => void;
   onInvokeHobitAgentActionRequest?: WorkspaceAgentHobitActionInvoker;
+  onInvokeQueueWorkflowRequest?: WorkspaceAgentQueueWorkflowInvoker;
   onPublishAgentActivityEvents?: WidgetRenderProps["onPublishAgentActivityEvents"];
   onRemoveVisibleAttachedContext: () => void;
   onSearchKnowledgeDocuments?: WidgetRenderProps["onSearchKnowledgeDocuments"];
@@ -127,6 +131,7 @@ export function useWorkspaceAgentDirectWorkController({
   onClearVisibleAttachedContext,
   onFocusComposer,
   onInvokeHobitAgentActionRequest,
+  onInvokeQueueWorkflowRequest,
   onPublishAgentActivityEvents,
   onRemoveVisibleAttachedContext,
   onStartCodexDirectWorkStream,
@@ -842,6 +847,15 @@ export function useWorkspaceAgentDirectWorkController({
               workspaceId: workspaceScopeId,
             }),
           );
+        } else if (
+          effect.protocolOutcome.workflowRequest.moduleId === "queue" &&
+          onInvokeQueueWorkflowRequest
+        ) {
+          void invokeWorkspaceAgentQueueWorkflowRequest({
+            runId: effect.chainId ?? runId,
+            runMetadata,
+            workflowRequestRead: effect.protocolOutcome.workflowRequestRead,
+          });
         } else {
           applyAgentActivityRecorderResult(
             recordAgentActivity({
@@ -1025,6 +1039,54 @@ export function useWorkspaceAgentDirectWorkController({
     }
 
     return true;
+  }
+
+  async function invokeWorkspaceAgentQueueWorkflowRequest({
+    runId,
+    runMetadata,
+    workflowRequestRead,
+  }: {
+    runId: string;
+    runMetadata: WorkspaceAgentRunMetadata;
+    workflowRequestRead: Parameters<WorkspaceAgentQueueWorkflowInvoker>[0];
+  }) {
+    try {
+      const runtimeResult =
+        await onInvokeQueueWorkflowRequest?.(workflowRequestRead);
+      if (!runtimeResult || !isMountedRef.current) {
+        return;
+      }
+
+      applyAgentActivityRecorderResult(
+        recordAgentActivity({
+          event: {
+            runId,
+            runMetadata,
+            type: "queue_workflow_runtime_result",
+            workflowRuntimeResult: runtimeResult,
+          },
+          timestampMs: Date.now(),
+          widgetInstanceId: instanceId,
+          workspaceId: workspaceScopeId,
+        }),
+      );
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      const message = errorToMessage(error, "Queue workflow runner failed.");
+      recordHobitActionResultTranscript({
+        activityRunId: runId,
+        message,
+        runMetadata,
+        severity: "error",
+        status: "failed",
+        stopReason: "failed",
+        title: "Queue workflow runner failed",
+      });
+      clearBrokerContinuationState();
+    }
   }
 
   async function invokeWorkspaceAgentHobitActionRequest({

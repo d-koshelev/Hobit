@@ -861,7 +861,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(lastAssistantMessageText()).not.toContain("Queue items listed");
   });
 
-  it("recognizes workflow requests without executing Queue capabilities", async () => {
+  it("reports Queue workflow runner blockers without executing Queue capabilities", async () => {
     const listItemAggregates = vi.fn(async () => []);
     const createItem = vi.fn();
     const runTerminal = vi.fn();
@@ -889,10 +889,10 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     expect(runTerminal).not.toHaveBeenCalled();
     expect(createGitCommit).not.toHaveBeenCalled();
     expect(lastAssistantMessageText()).toContain(
-      "Queue workflow request validated, but workflow runner is not implemented yet.",
+      "Queue workflow runner report. Status: paused.",
     );
     expect(lastAssistantMessageText()).toContain(
-      "No Queue capabilities were called and no Queue state was mutated.",
+      "explicit existing task ids",
     );
     expect(lastAssistantMessageText()).not.toContain("Queue items listed");
     expect(lastAssistantMessageText()).not.toContain("Hobit action requested");

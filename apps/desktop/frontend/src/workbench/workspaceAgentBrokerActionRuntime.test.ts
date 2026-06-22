@@ -2,10 +2,14 @@ import { describe, expect, it, vi } from "vitest";
 
 import {
   createHobitAgentActionRequestFromEnvelope,
+  HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
   readHobitAgentActionRequestEnvelope,
+  readHobitAgentWorkflowRequestEnvelope,
 } from "./agents/broker";
 import {
   createWorkspaceAgentHobitActionInvoker,
+  createWorkspaceAgentQueueWorkflowInvoker,
+  workspaceAgentQueueWorkflowRuntimeResultMessage,
   workspaceAgentHobitActionResultMessage,
   workspaceAgentInvalidWorkflowRequestMessage,
   workspaceAgentWorkflowRequestMessage,
@@ -485,7 +489,7 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
           moduleId: "queue",
           ok: true,
           reasons: [
-            "Queue workflow request validated, but Queue workflow runner is not implemented yet.",
+            "Queue workflow request validated; QueueWorkflowRunner can now run supported phases when an invoker is wired.",
             "No Queue capabilities were called and no Queue state was mutated.",
           ],
           status: "workflow_valid_not_executable",
@@ -496,7 +500,7 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
         },
       }),
     ).toContain(
-      "Queue workflow request validated, but workflow runner is not implemented yet.",
+      "Queue workflow request validated, but no workflow runner was invoked in this context.",
     );
     expect(
       workspaceAgentWorkflowRequestMessage({
@@ -537,6 +541,45 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     );
   });
 
+  it("invokes QueueWorkflowRunner through typed workflow bridge ports without lifecycle finish", async () => {
+    const getItemAggregate = vi.fn(
+      async ({ taskId }: { taskId: string }) => queueAggregate({ taskId }),
+    );
+    const listItemAggregates = vi.fn(async () => []);
+    const recordWorkerFinished = vi.fn();
+    const invoker = createWorkspaceAgentQueueWorkflowInvoker({
+      actorId: "workspace-agent:test",
+      workspaceAgentQueueBridge: queueBridge({
+        getItemAggregate,
+        listItemAggregates,
+        recordWorkerFinished,
+      }),
+    });
+    const workflowRead = readHobitAgentWorkflowRequestEnvelope(
+      JSON.stringify(dependencyWorkflowRequest()),
+    );
+
+    expect(workflowRead.status).toBe("valid");
+    if (workflowRead.status !== "valid") {
+      throw new Error("Expected valid Queue workflow request.");
+    }
+
+    const result = await invoker(workflowRead);
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "read",
+      status: "completed",
+      workflowId: "dependency_acceptance_smoke",
+    });
+    expect(getItemAggregate).toHaveBeenCalled();
+    expect(listItemAggregates).not.toHaveBeenCalled();
+    expect(recordWorkerFinished).not.toHaveBeenCalled();
+    expect(workspaceAgentQueueWorkflowRuntimeResultMessage(result)).toContain(
+      "Queue workflow runner report. Status: completed.",
+    );
+  });
+
   it("does not add natural-language routing in the Workspace Agent broker runtime", () => {
     for (const source of [runtimeSource, envelopeSource]) {
       expect(source).not.toContain("new RegExp");
@@ -556,6 +599,51 @@ function requiredQueueWorkflowMetadata(workflowId: string) {
   }
 
   return workflow;
+}
+
+function dependencyWorkflowRequest() {
+  return {
+    grant: {
+      constraints: {
+        noDelete: true,
+        noDownstreamAutoStart: true,
+        noGit: true,
+        noRollback: true,
+        noTerminal: true,
+        noValidationExecution: true,
+      },
+      mode: "queue_acceptance_smoke",
+    },
+    inputs: {
+      runSettings: {
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        sandbox: "read_only",
+        workspaceRoot: "C:/repo",
+      },
+      taskIdsBySlot: {
+        downstream: "task-downstream",
+        upstream: "task-upstream",
+      },
+      tasks: [
+        {
+          prompt: "Complete upstream dependency smoke work.",
+          slot: "upstream",
+          title: "Upstream",
+        },
+        {
+          dependsOnSlots: ["upstream"],
+          prompt: "Complete downstream dependency smoke work.",
+          slot: "downstream",
+          title: "Downstream",
+        },
+      ],
+    },
+    moduleId: "queue",
+    requestId: "workflow-request-1",
+    type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
+    workflowId: "dependency_acceptance_smoke",
+  };
 }
 
 function queueBridge(

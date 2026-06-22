@@ -110,8 +110,9 @@ not execute workflows. Queue workflow request validation now exists for
 `dependency_acceptance_smoke` and `dependency_failure_smoke`; it validates
 typed `inputs.runSettings`, `inputs.tasks`, task slots, dependency slot
 references, grant modes, and safety constraints before returning a
-validation-only non-executable result. `review_acceptance` and
-`terminal_failure` are declared with input validation deferred.
+validation result that is eligible only for supported QueueWorkflowRunner
+adapter phases. `review_acceptance` and `terminal_failure` are declared with
+input validation deferred.
 
 The generic workflow request envelope now exists as
 `hobit.workflow.request`. It is module-neutral and contains `requestId`,
@@ -129,8 +130,8 @@ rejected inside `grant` with field paths and stable reason codes. Scope ids
 belong only under explicit arrays such as `grant.scope.taskIds`; prose is
 never executable workflow input or confirmation. This is not
 `hobit.queue.workflowRequest`; it validates the dependency smoke Queue input
-shape but the generic Workspace Agent workflow request path does not execute a
-workflow runner.
+shape before the Workspace Agent controller may invoke the narrow
+QueueWorkflowRunner runtime adapter for supported Queue phases.
 
 ## Queue Workflow Request Validation MVP
 
@@ -526,10 +527,10 @@ context. It cannot:
 Product action execution requires structured `hobit.action.request` plus
 Broker policy and backend preconditions.
 Workflow requests require structured `hobit.workflow.request` and are currently
-validation/classification only in the Workspace Agent path. The separate
-QueueWorkflowRunner exposes explicit read, review, and finalization helper
-phases through typed ports, but generic Workspace Agent workflow requests do
-not invoke it automatically.
+validated/classified before execution. The QueueWorkflowRunner runtime adapter
+can invoke explicit read, review, and finalization phases through typed ports
+for supported `moduleId: "queue"` workflow requests only. Unsupported,
+invalid, or still-deferred workflows do not invoke the runner.
 
 ## Non-Goals
 
@@ -544,7 +545,7 @@ This contract does not implement:
 - Terminal launch;
 - broad worker automation;
 - Queue workflow mutation/execution beyond explicit read/review/finalization
-  helper phases;
+  runner phases;
 - Queue-specific input validation for review/terminal workflows;
 - UI redesign;
 - additional Queue widget/view surfaces.

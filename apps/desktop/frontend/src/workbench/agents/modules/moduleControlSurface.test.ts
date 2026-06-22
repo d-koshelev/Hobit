@@ -318,7 +318,7 @@ describe("ModuleControlSurface", () => {
     expect(QUEUE_MODULE_CONTROL_SURFACE.unavailableCapabilityIds).toEqual([]);
   });
 
-  it("declares validation-only Queue workflows without making them runtime executable", () => {
+  it("declares validation-only Queue metadata while runner adapter handles supported phases", () => {
     expect(QUEUE_MODULE_CONTROL_SURFACE.workflowIds).toBe(
       QUEUE_MODULE_WORKFLOW_IDS,
     );
@@ -347,7 +347,7 @@ describe("ModuleControlSurface", () => {
       ),
     ).toBe(false);
     expect(QUEUE_MODULE_CONTROL_SURFACE.compatibilityNotes.join(" ")).toContain(
-      "QueueWorkflowRunner helpers exist for explicit read, review, and finalization phases",
+      "Queue workflow requests can invoke QueueWorkflowRunner",
     );
     expect(
       resolveModuleControlSurfaceWorkflow({
@@ -383,7 +383,7 @@ describe("ModuleControlSurface", () => {
       expect(workflow.displayName.length, workflow.workflowId).toBeGreaterThan(0);
       expect(workflow.summary.length, workflow.workflowId).toBeGreaterThan(0);
       expect(workflow.implementationStatus, workflow.workflowId).toContain(
-        "explicit QueueWorkflowRunner helpers",
+        "QueueWorkflowRunner",
       );
       expect(workflow.uiDependencyPolicy, workflow.workflowId).toBe("none");
       expect(workflow.resumeSupport.status, workflow.workflowId).toBe("planned");
@@ -403,7 +403,7 @@ describe("ModuleControlSurface", () => {
         ]),
       );
       expect(workflow.pauseReasons, workflow.workflowId).toContain(
-        "workflowRunnerNotRuntimeWired",
+        "workflowRunnerRequiresSupportedTypedPhase",
       );
       expect(workflow.pauseReasons, workflow.workflowId).toContain(
         "readOnlyRunnerRequiresExplicitIds",

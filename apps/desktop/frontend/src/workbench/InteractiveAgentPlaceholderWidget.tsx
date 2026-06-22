@@ -79,7 +79,10 @@ import { useWorkspaceAgentDirectWorkController } from "./useWorkspaceAgentDirect
 import { useWorkspaceAgentQueueCardRequests } from "./useWorkspaceAgentQueueCardRequests";
 import { useWorkspaceAgentPromptPackImport } from "./useWorkspaceAgentPromptPackImport";
 import { explicitQueueCommandWorkspaceRoot } from "./workspaceAgentExplicitQueueRoot";
-import { createWorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
+import {
+  createWorkspaceAgentHobitActionInvoker,
+  createWorkspaceAgentQueueWorkflowInvoker,
+} from "./workspaceAgentBrokerActionRuntime";
 
 type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
 
@@ -161,6 +164,14 @@ export function InteractiveAgentPlaceholderWidget({
       }),
     [onInvokeHobitAgentActionRequest, workspaceAgentQueueBridge],
   );
+  const invokeQueueWorkflowRequest = useMemo(
+    () =>
+      createWorkspaceAgentQueueWorkflowInvoker({
+        actorId: `workspace-agent:${instance.id}`,
+        workspaceAgentQueueBridge,
+      }),
+    [instance.id, workspaceAgentQueueBridge],
+  );
   const directWork = useWorkspaceAgentDirectWorkController({
     agentProvider: workspaceAgentProvider,
     currentWorkspaceRoot,
@@ -182,6 +193,7 @@ export function InteractiveAgentPlaceholderWidget({
       window.setTimeout(() => textareaRef.current?.focus(), 0);
     },
     onInvokeHobitAgentActionRequest: invokeHobitAgentActionRequest,
+    onInvokeQueueWorkflowRequest: invokeQueueWorkflowRequest,
     onPublishAgentActivityEvents,
     onRemoveVisibleAttachedContext: removeVisibleAttachedContext,
     onSearchKnowledgeDocuments,

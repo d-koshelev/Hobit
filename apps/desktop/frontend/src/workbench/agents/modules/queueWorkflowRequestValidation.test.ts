@@ -9,16 +9,17 @@ import {
 } from ".";
 
 describe("queueWorkflowRequestValidation", () => {
-  it("validates dependency_acceptance_smoke as validation-only and non-executable", () => {
+  it("validates dependency_acceptance_smoke as runner-adapter eligible and non-mutating during validation", () => {
     expect(validateQueueWorkflowRequest(validRequest())).toMatchObject({
       fieldPaths: [],
       issues: [],
       ok: true,
-      reasons: [
+      reasons: expect.arrayContaining([
         expect.stringContaining("Queue workflow request validated"),
-        expect.stringContaining("validation-only"),
-        expect.stringContaining("no Queue state was mutated"),
-      ],
+        expect.stringContaining("runtime adapter"),
+        expect.stringContaining("Validation itself does not call Queue capabilities"),
+        expect.stringContaining("no task creation"),
+      ]),
       status: "workflow_valid_not_executable",
       workflowId: "dependency_acceptance_smoke",
     });

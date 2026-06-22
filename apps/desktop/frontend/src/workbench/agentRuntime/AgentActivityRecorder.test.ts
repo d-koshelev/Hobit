@@ -357,7 +357,7 @@ describe("AgentActivityRecorder", () => {
     expect(recorded.transcriptAppends[0]?.body).toBe(recorded.logAppends[0]?.text);
   });
 
-  it("preserves validation-only workflow compact message", () => {
+  it("preserves fallback workflow-recognized compact message", () => {
     const outcome = classifyAgentProtocolRuntimeOutput({
       mode: "typed_capability_action",
       text: JSON.stringify(workflowRequest()),
@@ -376,7 +376,7 @@ describe("AgentActivityRecorder", () => {
     });
 
     expect(recorded.transcriptAppends[0]?.body).toContain(
-      "Queue workflow request validated, but workflow runner is not implemented yet.",
+      "Queue workflow request validated, but no workflow runner was invoked in this context.",
     );
     expect(recorded.transcriptAppends[0]?.body).toContain(
       "Queue workflow request validated",
@@ -385,6 +385,43 @@ describe("AgentActivityRecorder", () => {
       severity: "warning",
       status: "completed",
       title: "Workflow request recognized",
+    });
+  });
+
+  it("formats Queue workflow runtime results as transcript and activity reports", () => {
+    const recorded = record({
+      runId: "chain-workflow-runtime",
+      runMetadata: runMetadata(),
+      type: "queue_workflow_runtime_result",
+      workflowRuntimeResult: {
+        blockers: ["Read-only Queue workflow runner requires explicit existing task ids."],
+        invoked: true,
+        moduleId: "queue",
+        phase: "read",
+        phasesExecuted: ["read"],
+        requestId: "workflow-request-1",
+        status: "paused",
+        summary:
+          "Paused before Queue reads because no explicit existing task ids were supplied.",
+        validationReasons: [],
+        validationStatus: "workflow_valid_not_executable",
+        workflowId: "dependency_acceptance_smoke",
+      },
+    });
+
+    expect(recorded.transcriptAppends[0]?.body).toContain(
+      "Queue workflow runner report. Status: paused.",
+    );
+    expect(recorded.transcriptAppends[0]?.body).toContain(
+      "Workflow: dependency_acceptance_smoke.",
+    );
+    expect(recorded.transcriptAppends[0]?.body).toContain(
+      "Blocker: Read-only Queue workflow runner requires explicit existing task ids.",
+    );
+    expect(recorded.activityAppends[0]).toMatchObject({
+      severity: "warning",
+      status: "pending",
+      title: "Queue workflow runner paused",
     });
   });
 

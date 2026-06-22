@@ -213,8 +213,9 @@ changing execution behavior. Queue is also the first reference module for
 generic `nextAction` validation and generic workflow request validation.
 Queue now declares the initial workflow ids
 `dependency_acceptance_smoke`, `dependency_failure_smoke`,
-`review_acceptance`, and `terminal_failure` as validation-only. Generic
-validation can recognize those ids and return non-executable workflow metadata.
+`review_acceptance`, and `terminal_failure` as validation-only metadata.
+Generic validation can recognize those ids and return workflow metadata before
+any runner phase is considered.
 For `dependency_acceptance_smoke` and `dependency_failure_smoke`, Queue-specific
 validation checks typed `inputs.runSettings`, `inputs.tasks`, task slots,
 explicit `dependsOnSlots`, allowed grant modes, and required safety
@@ -229,10 +230,12 @@ explicit typed ids are available; and the finalization phase can mark the
 explicit upstream done for `dependency_acceptance_smoke` or failed for
 `dependency_failure_smoke` through an injected typed finalization port. ACK is
 not completion, and idempotent review/finalization states are preserved. The
-generic Workspace Agent workflow request path does not invoke it yet. No
-workflow request starts workers, mutates Queue state outside review ledger or
-explicit upstream finalization ports, starts downstream work, or executes
-broader mutating workflow phases.
+Workspace Agent controller can now invoke QueueWorkflowRunner for supported
+Queue workflow requests through a narrow runtime adapter and typed backend
+ports. No workflow request creates tasks, starts workers, records worker
+evidence, mutates Queue state outside review ledger or explicit upstream
+finalization ports, starts downstream work, or executes broader mutating
+workflow phases.
 `ModuleControlSurfaceRegistry` is the discovery layer for these agent-facing
 module surfaces. Queue is the first registered module. The registry is
 metadata only, is not runtime behavior, and must stay UI-independent. Widgets
@@ -274,10 +277,12 @@ APIs, format activity, or run workflows. The React controller is now thinner:
 provider-turn input construction, provider-event compatibility mapping, and
 protocol fallback resolution are delegated to UI-independent runtime adapter
 helpers. The React controller still owns visible UI state, broker invocation,
-continuation turn application, and applying activity/transcript intents.
-BrokerInvocationRuntime remains a future cleanup boundary. Broker invocation
-behavior, provider behavior, protocol classification semantics, activity
-formatting, Queue behavior, and workflow execution behavior are unchanged.
+Queue workflow runner adapter invocation for supported Queue workflow
+requests, continuation turn application, and applying activity/transcript
+intents. BrokerInvocationRuntime remains a future cleanup boundary. Broker
+invocation behavior, provider behavior, protocol classification semantics,
+activity formatting, Queue behavior, and full autonomous workflow execution
+behavior are unchanged.
 
 WorkerProvider is now a separate provider-neutral seam for explicit work-item
 execution. It emits normalized worker run, output/log, evidence, completion,
@@ -286,9 +291,9 @@ remains a concrete/default worker implementation through a CodexWorkerProvider
 adapter, while Fake WorkerProviders can drive deterministic worker/evidence
 tests without Codex. The current QueueWorkflowRunner read/review/finalization
 phases do not consume WorkerProvider. This does not add worker start, scheduler
-behavior, generic Queue workflow execution from Workspace Agent, validation
-execution, Git mutation, rollback, Terminal launch, hidden worker starts, or
-new Queue capabilities.
+behavior, full autonomous Queue workflow execution, validation execution, Git
+mutation, rollback, Terminal launch, hidden worker starts, task creation,
+evidence recording, or new Queue capabilities.
 
 Codex and shell remain restricted explicit execution capabilities for
 workspace/code execution requests. They are not used for agent-to-agent runtime

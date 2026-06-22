@@ -7,6 +7,10 @@ import type {
   AgentActivitySeverity,
   AgentActivityStatus,
 } from "../agentActivityModel";
+import type {
+  QueueWorkflowRunnerRuntimeResult,
+  QueueWorkflowRunnerRuntimeStatus,
+} from "../agents/modules";
 
 export function workspaceAgentHobitActionResultMessage(
   actionResult: HobitAgentActionResult,
@@ -63,12 +67,12 @@ export function workspaceAgentWorkflowRequestMessage(
   if (workflowRead.validation.ok) {
     if (workflowRead.validation.status === "workflow_valid_not_executable") {
       return withOptionalReason(
-        "Queue workflow request validated, but workflow runner is not implemented yet.",
+        "Queue workflow request validated, but no workflow runner was invoked in this context.",
         workflowRead.validation.reasons[1] ?? null,
       );
     }
 
-    return "Workflow request recognized, but workflow execution is not implemented yet.";
+    return "Workflow request recognized, but no workflow runner was invoked in this context.";
   }
 
   if (!workflowRead.validation.ok) {
@@ -81,7 +85,7 @@ export function workspaceAgentWorkflowRequestMessage(
 
     if (workflowRead.validation.reasonCode === "workflow_unavailable") {
       return withOptionalReason(
-        "Workflow request recognized, but workflow execution is not implemented yet.",
+        "Workflow request recognized, but no workflow runner was invoked in this context.",
         workflowRead.validation.reasons[0] ?? null,
       );
     }
@@ -92,7 +96,7 @@ export function workspaceAgentWorkflowRequestMessage(
     );
   }
 
-  return "Workflow request recognized, but workflow execution is not implemented yet.";
+  return "Workflow request recognized, but no workflow runner was invoked in this context.";
 }
 
 export function workspaceAgentInvalidWorkflowRequestMessage(
@@ -102,6 +106,174 @@ export function workspaceAgentInvalidWorkflowRequestMessage(
     "Invalid Hobit workflow request.",
     reasons.length > 0 ? reasons.join(" ") : null,
   );
+}
+
+export function workspaceAgentQueueWorkflowRuntimeResultMessage(
+  runtimeResult: QueueWorkflowRunnerRuntimeResult,
+): string {
+  const runnerResult = runtimeResult.runnerResult;
+  const taskIdsBySlot = runnerResult
+    ? Object.entries(runnerResult.variables.taskIdsBySlot)
+    : [];
+  const review = runnerResult?.report.review;
+  const finalization = runnerResult?.report.finalization;
+  const downstream = finalization?.downstreamVerification;
+  const missingIds = runnerResult?.report.missingExplicitIds ?? [];
+  const idParts = [
+    runtimeResult.workflowId
+      ? `Workflow: ${runtimeResult.workflowId}.`
+      : null,
+    runtimeResult.requestId ? `Request: ${runtimeResult.requestId}.` : null,
+    runtimeResult.phase ? `Phase: ${runtimeResult.phase}.` : null,
+    runtimeResult.phasesExecuted.length > 0
+      ? `Executed: ${runtimeResult.phasesExecuted.join(", ")}.`
+      : null,
+  ];
+  const runnerParts = [
+    taskIdsBySlot.length > 0
+      ? `Task ids: ${taskIdsBySlot
+          .map(([slot, taskId]) => `${slot}=${taskId}`)
+          .join(", ")}.`
+      : null,
+    runnerResult?.variables.scopedRunIds.length
+      ? `Run ids: ${runnerResult.variables.scopedRunIds.join(", ")}.`
+      : null,
+    runnerResult?.variables.scopedEvidenceBundleIds.length
+      ? `Evidence bundle ids: ${runnerResult.variables.scopedEvidenceBundleIds.join(", ")}.`
+      : null,
+    runnerResult?.variables.scopedMessageIds.length
+      ? `Message ids: ${runnerResult.variables.scopedMessageIds.join(", ")}.`
+      : null,
+  ];
+  const reviewParts = review
+    ? [
+        review.status ? `Review: ${review.status}.` : null,
+        review.taskId ? `Review task: ${review.taskId}.` : null,
+        review.runId ? `Review run: ${review.runId}.` : null,
+        review.evidenceBundleId
+          ? `Review evidence: ${review.evidenceBundleId}.`
+          : null,
+        review.messageId ? `Review message: ${review.messageId}.` : null,
+        review.createStatus ? `Review create: ${review.createStatus}.` : null,
+        review.ackStatus ? `Review ack: ${review.ackStatus}.` : null,
+      ]
+    : [];
+  const finalizationParts = finalization
+    ? [
+        finalization.status ? `Finalization: ${finalization.status}.` : null,
+        finalization.finalizationAction
+          ? `Finalization action: ${finalization.finalizationAction}.`
+          : null,
+        finalization.taskId
+          ? `Finalization task: ${finalization.taskId}.`
+          : null,
+        finalization.commandStatus
+          ? `Finalization command: ${finalization.commandStatus}.`
+          : null,
+        finalization.failureReason
+          ? `Failure reason: ${finalization.failureReason}.`
+          : null,
+        downstream?.taskId ? `Downstream task: ${downstream.taskId}.` : null,
+        downstream?.dependencyVerified !== null &&
+        downstream?.dependencyVerified !== undefined
+          ? `Downstream dependency verified: ${String(downstream.dependencyVerified)}.`
+          : null,
+        downstream?.notAutoStartedVerified !== null &&
+        downstream?.notAutoStartedVerified !== undefined
+          ? `Downstream auto-start check: ${String(downstream.notAutoStartedVerified)}.`
+          : null,
+      ]
+    : [];
+  const diagnosticParts = [
+    missingIds.length > 0 ? `Missing ids: ${missingIds.join(", ")}.` : null,
+    runtimeResult.blockers.length > 0
+      ? `Blocker: ${runtimeResult.blockers.slice(0, 2).join(" ")}`
+      : null,
+    runtimeResult.unsupportedReason
+      ? `Reason: ${runtimeResult.unsupportedReason}.`
+      : null,
+  ];
+  const parts = [
+    `Queue workflow runner report. Status: ${runtimeResult.status}.`,
+    runtimeResult.summary,
+    ...idParts,
+    ...runnerParts,
+    ...reviewParts,
+    ...finalizationParts,
+    ...diagnosticParts,
+  ].filter((part): part is string => Boolean(part));
+
+  return parts.join(" ");
+}
+
+export function activityStatusForQueueWorkflowRuntimeResult(
+  runtimeResult: QueueWorkflowRunnerRuntimeResult,
+): AgentActivityStatus {
+  if (runtimeResult.status === "completed") {
+    return "completed";
+  }
+
+  if (
+    runtimeResult.status === "blocked" ||
+    runtimeResult.status === "deferred" ||
+    runtimeResult.status === "paused" ||
+    runtimeResult.status === "unsupported" ||
+    runtimeResult.status === "unavailable"
+  ) {
+    return "pending";
+  }
+
+  return "failed";
+}
+
+export function activitySeverityForQueueWorkflowRuntimeResult(
+  runtimeResult: QueueWorkflowRunnerRuntimeResult,
+): AgentActivitySeverity {
+  if (runtimeResult.status === "completed") {
+    return "success";
+  }
+
+  if (
+    runtimeResult.status === "blocked" ||
+    runtimeResult.status === "deferred" ||
+    runtimeResult.status === "paused" ||
+    runtimeResult.status === "unsupported" ||
+    runtimeResult.status === "unavailable"
+  ) {
+    return "warning";
+  }
+
+  return "error";
+}
+
+export function workspaceAgentQueueWorkflowRuntimeActivityTitle(
+  runtimeStatus: QueueWorkflowRunnerRuntimeStatus,
+): string {
+  if (runtimeStatus === "completed") {
+    return "Queue workflow runner completed";
+  }
+
+  if (runtimeStatus === "paused") {
+    return "Queue workflow runner paused";
+  }
+
+  if (runtimeStatus === "blocked") {
+    return "Queue workflow runner blocked";
+  }
+
+  if (runtimeStatus === "deferred") {
+    return "Queue workflow deferred";
+  }
+
+  if (runtimeStatus === "unsupported") {
+    return "Queue workflow unsupported";
+  }
+
+  if (runtimeStatus === "unavailable") {
+    return "Queue workflow runner unavailable";
+  }
+
+  return "Queue workflow runner failed";
 }
 
 export function workspaceAgentHobitActionActivityTitle(

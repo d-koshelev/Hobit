@@ -431,10 +431,10 @@ unless the task explicitly requests it.
   not runtime behavior. Generic `hobit.workflow.request` parsing and
   validation lives at the Workspace Agent protocol/broker boundary, enforces
   the generic grant/input split, and checks module/workflow availability
-  through this registry without executing workflows. Queue declares the initial
+  through this registry before any runner phase. Queue declares the initial
   workflow ids `dependency_acceptance_smoke`,
   `dependency_failure_smoke`, `review_acceptance`, and `terminal_failure` as
-  validation-only/not executable through the generic request path.
+  validation-only metadata with narrow QueueWorkflowRunner adapter support.
   `dependency_acceptance_smoke` and
   `dependency_failure_smoke` validate typed `inputs.runSettings`,
   `inputs.tasks`, task slots, explicit dependency slot references, grant modes,
@@ -451,8 +451,10 @@ unless the task explicitly requests it.
   typed ids, confirmation, failure reason where needed, and review
   ACK/precondition proof are present. ACK is not completion; already-existing
   review messages, already-done ACKs, `already_done`, and `already_failed` are
-  idempotent states. The Workspace Agent workflow request path does not invoke
-  it yet and downstream work is not auto-started.
+  idempotent states. The Workspace Agent workflow request path now invokes it
+  only for supported Queue phases through typed backend ports; unsupported,
+  invalid, or deferred workflows do not invoke the runner, and downstream work
+  is not auto-started.
   Unknown ids remain not declared. `grant` is
   permission/scope only, `inputs` is the only workflow data location, and prose
   is never executable workflow input. Workspace Agent direct turns use a provider-neutral
@@ -466,8 +468,9 @@ unless the task explicitly requests it.
   BrokerContinuationRuntime is the pure continuation-chain orchestration layer
   for already-classified protocol and broker results. It emits typed
   invocation/continuation/repair/stop/complete intents while the React
-  controller still invokes the broker, applies continuation turns, and applies
-  UI state. Queue bounded-autonomy continuation policy remains explicitly
+  controller still invokes the broker, invokes the Queue workflow runner
+  adapter for supported Queue workflow requests, applies continuation turns,
+  and applies UI state. Queue bounded-autonomy continuation policy remains explicitly
   Queue-specific transitional policy.
   AgentActivityRecorder is the pure formatting/append-intent layer for
   already-decided provider/protocol/broker/continuation output; the React

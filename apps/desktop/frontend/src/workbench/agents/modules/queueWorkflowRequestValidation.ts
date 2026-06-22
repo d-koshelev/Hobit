@@ -711,9 +711,9 @@ function validNotExecutableResult({
     issues: [],
     ok: true,
     reasons: [
-      "Queue workflow request validated; the read-only Queue workflow runner can inspect explicit existing Queue ids when invoked.",
-      "Generic Workspace Agent workflow request handling remains validation-only and does not execute workflow phases.",
-      "No Queue capabilities were called and no Queue state was mutated.",
+      "Queue workflow request validated; supported QueueWorkflowRunner phases can run through the runtime adapter when explicit existing Queue ids are supplied.",
+      "Validation itself does not call Queue capabilities or mutate Queue state.",
+      "Runtime workflow integration remains limited to typed read, review, and finalization ports; no task creation, worker start, evidence recording, or downstream auto-start is performed.",
     ],
     status: "workflow_valid_not_executable",
     ...(workflowMetadata ? { workflowMetadata } : {}),

@@ -63,12 +63,23 @@ export type {
   QueueWorkflowRequestValidationResult,
   QueueWorkflowRequestValidationStatus,
 } from "./queueWorkflowRequestValidation";
-export { runQueueWorkflowReadOnlyRunner } from "./queueWorkflowRunner";
+export {
+  runQueueWorkflowFinalizationRunner,
+  runQueueWorkflowReadOnlyRunner,
+  runQueueWorkflowReviewRunner,
+} from "./queueWorkflowRunner";
 export type {
   QueueWorkflowEvidenceReadRequest,
+  QueueWorkflowFinalizationCommandResult,
+  QueueWorkflowFinalizationCommandStatus,
+  QueueWorkflowFinalizationPort,
+  QueueWorkflowFinalizationReport,
   QueueWorkflowLifecycleSnapshot,
   QueueWorkflowReadPort,
   QueueWorkflowReadSnapshots,
+  QueueWorkflowReviewCommandStatus,
+  QueueWorkflowReviewPort,
+  QueueWorkflowReviewReport,
   QueueWorkflowRunnerBlocker,
   QueueWorkflowRunnerBlockerReason,
   QueueWorkflowRunnerEvent,
@@ -82,6 +93,17 @@ export type {
   QueueWorkflowSlotVariables,
   QueueWorkflowVariables,
 } from "./queueWorkflowRunner";
+export {
+  createQueueWorkflowRunnerRuntimePortsFromQueueBridge,
+  runQueueWorkflowRunnerRuntimeAdapter,
+} from "./queueWorkflowRunnerRuntimeAdapter";
+export type {
+  QueueWorkflowRunnerRuntimeAdapterInput,
+  QueueWorkflowRunnerRuntimePhase,
+  QueueWorkflowRunnerRuntimePorts,
+  QueueWorkflowRunnerRuntimeResult,
+  QueueWorkflowRunnerRuntimeStatus,
+} from "./queueWorkflowRunnerRuntimeAdapter";
 export {
   QUEUE_BACKEND_BACKED_MODULE_CAPABILITY_IDS,
   QUEUE_MODULE_CONTROL_SURFACE,

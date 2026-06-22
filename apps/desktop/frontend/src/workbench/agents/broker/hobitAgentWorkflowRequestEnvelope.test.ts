@@ -29,11 +29,12 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
         fieldPaths: [],
         moduleId: "queue",
         ok: true,
-        reasons: [
+        reasons: expect.arrayContaining([
           expect.stringContaining("Queue workflow request validated"),
-          expect.stringContaining("validation-only"),
-          expect.stringContaining("no Queue state was mutated"),
-        ],
+          expect.stringContaining("runtime adapter"),
+          expect.stringContaining("Validation itself does not call Queue capabilities"),
+          expect.stringContaining("no task creation"),
+        ]),
         status: "workflow_valid_not_executable",
         workflowMetadata: {
           backingStatus: "validation_only",

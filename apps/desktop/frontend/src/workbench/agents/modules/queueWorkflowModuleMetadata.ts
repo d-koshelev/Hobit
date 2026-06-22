@@ -28,7 +28,7 @@ const COMMON_BACKEND_OWNERSHIP_NOTES = [
 ] as const;
 
 const COMMON_PAUSE_REASONS = [
-  "workflowRunnerNotRuntimeWired",
+  "workflowRunnerRequiresSupportedTypedPhase",
   "readOnlyRunnerRequiresExplicitIds",
   "queueWorkflowInputValidationDeferred",
   "grantMissingOrInsufficient",
@@ -38,11 +38,11 @@ const COMMON_PAUSE_REASONS = [
 ] as const;
 
 const COMMON_TRANSITIONAL_LIMITATIONS = [
-  "Workflow request handling remains validation-only; separate QueueWorkflowRunner helpers exist for explicit read, review, and finalization control-plane phases.",
+  "Workspace Agent workflow requests can invoke QueueWorkflowRunner for supported explicit read, review, and finalization phases through typed runtime ports.",
   "Dependency acceptance/failure smoke workflows validate typed runSettings, task slots, dependency slot references, grant modes, and safety constraints.",
   "Review acceptance and terminal failure workflow input validation remains deferred until their typed runner/input contracts are narrowed.",
   "QueueWorkflowRunner helpers require explicit existing task/run/evidence/message ids, typed finalization confirmation, and review ACK/precondition evidence; they do not infer ids from titles, prose, UI order, or file paths.",
-  "No worker, validation, Git, rollback, Terminal, downstream auto-start, scheduler behavior, block, follow-up, or validation decision is triggered by workflow metadata or QueueWorkflowRunner helpers.",
+  "No task creation, worker start, worker evidence recording, validation, Git, rollback, Terminal, downstream auto-start, scheduler behavior, block, follow-up, or validation decision is triggered by workflow metadata or QueueWorkflowRunner runtime integration.",
 ] as const;
 
 const PLANNED_RESUME_SUPPORT = {
@@ -225,7 +225,7 @@ function queueWorkflow({
     confirmationRequirement,
     displayName,
     implementationStatus:
-      "Declared workflow metadata with validation-only request handling; dependency acceptance/failure request inputs can validate, and explicit QueueWorkflowRunner helpers can inspect existing Queue state, perform review create/ACK, or finalize explicit upstream state through injected typed ports. Runtime workflow execution is not wired.",
+      "Declared workflow metadata with Queue workflow request validation; supported Workspace Agent workflow requests can invoke QueueWorkflowRunner to inspect existing Queue state, perform review create/ACK, or finalize explicit upstream state through injected typed ports. Full autonomous workflow execution remains deferred.",
     pauseReasons: COMMON_PAUSE_REASONS,
     requiredCapabilityIds,
     requiredGrantModes,
