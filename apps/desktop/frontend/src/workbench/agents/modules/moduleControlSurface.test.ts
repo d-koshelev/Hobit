@@ -347,7 +347,7 @@ describe("ModuleControlSurface", () => {
       ),
     ).toBe(false);
     expect(QUEUE_MODULE_CONTROL_SURFACE.compatibilityNotes.join(" ")).toContain(
-      "read-only QueueWorkflowRunner exists for explicit inspection",
+      "QueueWorkflowRunner helpers exist for explicit read, review, and finalization phases",
     );
     expect(
       resolveModuleControlSurfaceWorkflow({
@@ -383,7 +383,7 @@ describe("ModuleControlSurface", () => {
       expect(workflow.displayName.length, workflow.workflowId).toBeGreaterThan(0);
       expect(workflow.summary.length, workflow.workflowId).toBeGreaterThan(0);
       expect(workflow.implementationStatus, workflow.workflowId).toContain(
-        "read-only QueueWorkflowRunner",
+        "explicit QueueWorkflowRunner helpers",
       );
       expect(workflow.uiDependencyPolicy, workflow.workflowId).toBe("none");
       expect(workflow.resumeSupport.status, workflow.workflowId).toBe("planned");

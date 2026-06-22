@@ -175,10 +175,12 @@ paths, or repository roots.
 The read-only phase uses only an injected `QueueWorkflowReadPort` with read
 methods for Queue aggregate, lifecycle, list, and evidence inspection. The
 review phase uses that read port plus a separate injected
-`QueueWorkflowReviewPort` for review message create and ACK commands. Tests use
-fake ports. The runner does not import Queue UI, visual shell modules, Tauri
-APIs, AgentProvider, WorkerProvider, Action Broker invocation, or Queue adapter
-mutation handlers.
+`QueueWorkflowReviewPort` for review message create and ACK commands. The
+finalization phase uses the read port plus a separate injected
+`QueueWorkflowFinalizationPort` for explicit accepted completion or terminal
+failure commands. Tests use fake ports. The runner does not import Queue UI,
+visual shell modules, Tauri APIs, AgentProvider, WorkerProvider, Action Broker
+invocation, or Queue adapter mutation handlers.
 
 Read-only runner results are structured as `completed`, `blocked`, `paused`,
 `invalid_request`, `unavailable`, or `failed_unexpected` with workflow-local
@@ -209,13 +211,32 @@ is idempotent and can continue to ACK. ACK `already_done` or `already_exists`
 is also idempotent. ACK uses canonical `messageId`; compatibility
 `reviewMessageId` is not a runner input.
 
+The same module now also exposes an explicit Queue finalization runner phase
+through an injected `QueueWorkflowFinalizationPort`. For
+`dependency_acceptance_smoke`, finalization targets only the explicit
+`upstream` slot and calls `markDone` only when an explicit upstream task id,
+exact structured `confirmationToken`, and review ACK/precondition proof are
+present. For `dependency_failure_smoke`, finalization targets only the
+explicit `upstream` slot and calls `failItem` only when those preconditions and
+a non-empty structured `failureReason` are present. `already_done` is
+idempotent acceptance success, and `already_failed` is idempotent failure
+success. Other backend statuses stop as typed blockers or unexpected failures.
+If an explicit downstream task id is present, the runner reads downstream
+aggregate/lifecycle state after finalization and reports dependency-state and
+no-auto-start verification. If downstream id is absent, upstream finalization
+can still complete but downstream verification is reported missing. The runner
+never infers downstream ids from titles, order, prose, UI, or file paths, and
+never starts downstream work.
+
 The review runner may mutate only the backend review message/ACK ledger
-through the injected review port. ACK is not completion. The runner does not
+through the injected review port. ACK is not completion. The finalization
+runner may mutate only explicit upstream accepted-completion or terminal-
+failure state through the injected finalization port. The runner does not
 create tasks, update run settings, promote drafts, enable Queue, start workers,
-record worker evidence, mark done, fail, block, add follow-up prompts, approve
-validation, run validation, mutate Git, execute rollback, launch Terminal, call
-shell/Codex, start downstream work, or add scheduler behavior. Finalization
-and broader mutating workflow phases remain future explicit blocks.
+record worker evidence, block, add follow-up prompts, approve validation, run
+validation, mutate Git, execute rollback, launch Terminal, call shell/Codex,
+start downstream work, or add scheduler behavior. Broader mutating workflow
+phases remain future explicit blocks.
 
 Provider turns now pass through the provider-neutral `AgentRuntime` event loop,
 which owns AgentProvider run lifecycle and delegates final-output
@@ -506,8 +527,9 @@ Product action execution requires structured `hobit.action.request` plus
 Broker policy and backend preconditions.
 Workflow requests require structured `hobit.workflow.request` and are currently
 validation/classification only in the Workspace Agent path. The separate
-QueueWorkflowRunner is explicit read-only inspection and does not execute
-workflow phases.
+QueueWorkflowRunner exposes explicit read, review, and finalization helper
+phases through typed ports, but generic Workspace Agent workflow requests do
+not invoke it automatically.
 
 ## Non-Goals
 
@@ -521,7 +543,8 @@ This contract does not implement:
 - rollback execution;
 - Terminal launch;
 - broad worker automation;
-- Queue workflow mutation/execution beyond explicit read-only inspection;
+- Queue workflow mutation/execution beyond explicit read/review/finalization
+  helper phases;
 - Queue-specific input validation for review/terminal workflows;
 - UI redesign;
 - additional Queue widget/view surfaces.

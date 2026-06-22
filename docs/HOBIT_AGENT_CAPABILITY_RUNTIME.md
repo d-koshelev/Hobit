@@ -276,21 +276,28 @@ paths; dependency waiting does not start downstream work.
   The request can validate as `workflow_valid_not_executable`, which means the
   Workspace Agent workflow request path does not execute a workflow. A
   Queue-specific `QueueWorkflowRunner` now exists as an explicit control-plane
-  helper with separate read-only and review phases. The read-only phase
-  inspects existing Queue state through injected read ports. The review phase
-  can read lifecycle/aggregate/evidence state, create a backend review message,
-  and ACK that review message through an injected review port when explicit
-  typed task/run/evidence/message ids are available. ACK is review state, not
-  completion. Already-existing review messages and already-done ACKs are
-  idempotent, actionable states rather than generic failures. The runner does
-  not create tasks, start workers, call `queue.lifecycle.agentFinished`, record
-  evidence, markDone, fail, block, follow up, run validation, mutate Git, launch
-  Terminal, roll back, or mutate Queue state outside review message/ACK ledger
-  operations. It requires explicit existing task/run/evidence ids and never
-  infers ids from titles, prose, UI order, or file paths. `review_acceptance`
-  remains supported only by a minimal explicit typed runner input shape, while
-  generic request validation for `review_acceptance` and `terminal_failure`
-  remains `input_validation_deferred`.
+  helper with separate read-only, review, and finalization phases. The
+  read-only phase inspects existing Queue state through injected read ports.
+  The review phase can read lifecycle/aggregate/evidence state, create a
+  backend review message, and ACK that review message through an injected
+  review port when explicit typed task/run/evidence/message ids are available.
+  ACK is review state, not completion. Already-existing review messages and
+  already-done ACKs are idempotent, actionable states rather than generic
+  failures. The finalization phase can call injected typed finalization ports
+  for `queue.item.markDone` on `dependency_acceptance_smoke` and
+  `queue.item.fail` on `dependency_failure_smoke` only after explicit upstream
+  task id, exact structured `confirmationToken`, explicit failure reason for
+  failure, and review ACK/precondition evidence are present. It verifies
+  downstream dependency/no-auto-start state only when an explicit downstream
+  task id is available and never starts downstream work. The runner does not
+  create tasks, start workers, call `queue.lifecycle.agentFinished`, record
+  evidence, block, follow up, run validation, mutate Git, launch Terminal, roll
+  back, or mutate Queue state outside review message/ACK or explicit upstream
+  finalization ports. It requires explicit existing task/run/evidence/message
+  ids and never infers ids from titles, prose, UI order, or file paths.
+  `review_acceptance` remains supported only by a minimal explicit typed runner
+  input shape, while generic request validation for `review_acceptance` and
+  `terminal_failure` remains `input_validation_deferred`.
 
 ## Module Control Surface
 
@@ -334,17 +341,20 @@ grant modes, and safety constraints, then return a non-executable
 validation-only result. `review_acceptance` and `terminal_failure` remain
 declared with deferred input validation in the generic request path.
 `QueueWorkflowRunner` can consume validated Queue workflow requests for
-explicit read inspection through a `QueueWorkflowReadPort`, and its explicit
-review phase can consume a `QueueWorkflowReviewPort` to perform evidence
-lookup, review message create, and review ACK only. Generic Workspace Agent
-request handling does not invoke it yet. There is still no finalization runner,
-worker start, validation execution, Git mutation, rollback, Terminal launch,
-scheduler behavior, backend lifecycle semantic change, or UI truth path.
+explicit read inspection through a `QueueWorkflowReadPort`; its explicit review
+phase can consume a `QueueWorkflowReviewPort` to perform evidence lookup,
+review message create, and review ACK; and its explicit finalization phase can
+consume a `QueueWorkflowFinalizationPort` to mark the explicit upstream done or
+failed for the dependency smoke workflows only. Generic Workspace Agent request
+handling does not invoke it yet. There is still no worker start, validation
+execution, Git mutation, rollback, Terminal launch, scheduler behavior, backend
+lifecycle semantic change, Queue UI truth path, or downstream auto-start.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture. WorkerProvider is the normalized
 worker boundary for future explicit work-item execution and evidence events;
-the current Queue workflow runner read/review phases do not consume it.
+the current Queue workflow runner read/review/finalization phases do not
+consume it.
 
 ## Generic `nextAction` Contract
 

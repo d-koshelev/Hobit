@@ -442,12 +442,17 @@ unless the task explicitly requests it.
   `review_acceptance` and `terminal_failure` remain declared with
   `input_validation_deferred` in the generic request path. A Queue-specific
   `QueueWorkflowRunner` exists as an explicit control-plane helper with
-  read-only and review phases. It can inspect explicit existing Queue
-  aggregate/lifecycle/evidence ids through an injected read port, and its
+  read-only, review, and finalization phases. It can inspect explicit existing
+  Queue aggregate/lifecycle/evidence ids through an injected read port; its
   review phase can create and ACK backend review messages through an injected
-  review port when explicit typed ids are available. ACK is not completion;
-  already-existing review messages and already-done ACKs are idempotent
-  states. The Workspace Agent workflow request path does not invoke it yet.
+  review port; and its finalization phase can mark the explicit upstream done
+  for `dependency_acceptance_smoke` or failed for
+  `dependency_failure_smoke` through an injected finalization port when exact
+  typed ids, confirmation, failure reason where needed, and review
+  ACK/precondition proof are present. ACK is not completion; already-existing
+  review messages, already-done ACKs, `already_done`, and `already_failed` are
+  idempotent states. The Workspace Agent workflow request path does not invoke
+  it yet and downstream work is not auto-started.
   Unknown ids remain not declared. `grant` is
   permission/scope only, `inputs` is the only workflow data location, and prose
   is never executable workflow input. Workspace Agent direct turns use a provider-neutral
@@ -470,7 +475,7 @@ unless the task explicitly requests it.
   WorkerProvider is a separate provider-neutral seam for explicit worker items
   and normalized worker evidence/result events; Codex Direct Work remains a
   concrete worker implementation, and the current QueueWorkflowRunner
-  read/review phases do not consume the seam. UI widgets are not executable module APIs, and Codex is a
+  read/review/finalization phases do not consume the seam. UI widgets are not executable module APIs, and Codex is a
   provider/worker implementation rather than the module integration
   architecture.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source

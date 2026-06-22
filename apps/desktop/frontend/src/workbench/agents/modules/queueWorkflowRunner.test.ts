@@ -8,6 +8,10 @@ import type {
 } from "../../../workspace/types";
 import type {
   QueueWorkflowEvidenceReadRequest,
+  QueueWorkflowFailItemRequest,
+  QueueWorkflowFinalizationCommandResult,
+  QueueWorkflowFinalizationPort,
+  QueueWorkflowMarkDoneRequest,
   QueueWorkflowReadPort,
   QueueWorkflowReviewPort,
   QueueWorkflowAckReviewMessageRequest,
@@ -17,6 +21,7 @@ import type {
   QueueWorkflowRunnerRequest,
 } from "./queueWorkflowRunner";
 import {
+  runQueueWorkflowFinalizationRunner,
   runQueueWorkflowReadOnlyRunner,
   runQueueWorkflowReviewRunner,
 } from "./queueWorkflowRunner";
@@ -183,7 +188,7 @@ describe("QueueWorkflowRunner", () => {
       },
     });
     expect(result.report.nextMutatingPhase).toContain(
-      "only inspect Queue state or mutate review message/ACK ledger",
+      "inspect Queue state, mutate review message/ACK ledger, or finalize upstream",
     );
     expect(result.report.mutationSummary).toEqual(
       expect.objectContaining({
@@ -951,6 +956,600 @@ describe("QueueWorkflowRunner", () => {
     ]);
   });
 
+  it("finalizes dependency_acceptance_smoke by marking explicit upstream done and verifying downstream ready", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-downstream": aggregate({
+          dependencyState: "ready",
+          taskId: "task-downstream",
+          workerRunState: "not_started",
+        }),
+        "task-upstream": aggregate({
+          reviewState: "in_review",
+          taskId: "task-upstream",
+          workerRunState: "completed",
+        }),
+      },
+    });
+    const finalizationPort = fakeFinalizationPort({
+      markDoneResult: {
+        aggregate: aggregate({
+          reviewState: "done",
+          taskId: "task-upstream",
+          ticketState: "done",
+          workerRunState: "completed",
+        }),
+        status: "succeeded",
+      },
+    });
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        messageIdsBySlot: {
+          upstream: "message-upstream",
+        },
+        runIdsBySlot: {
+          upstream: "run-upstream",
+        },
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_completed");
+    expect(result.report.finalization).toMatchObject({
+      commandStatus: "succeeded",
+      confirmationTokenAccepted: true,
+      downstreamVerification: {
+        dependencyState: "ready",
+        dependencyVerified: true,
+        notAutoStartedVerified: true,
+        taskId: "task-downstream",
+        verificationMissing: false,
+        workerRunState: "not_started",
+      },
+      finalizationAction: "mark_done",
+      idempotent: false,
+      status: "finalization_completed",
+      targetSlot: "upstream",
+      taskId: "task-upstream",
+    });
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didAckReview: false,
+        didCreateReviewMessage: false,
+        didFail: false,
+        didMarkDone: true,
+        didMutateQueue: true,
+        didStartWorker: false,
+        didValidate: false,
+      }),
+    );
+    expect(finalizationPort.calls).toEqual([
+      {
+        confirmationToken: "operator-confirmed",
+        messageId: "message-upstream",
+        method: "markDone",
+        runId: "run-upstream",
+        taskId: "task-upstream",
+      },
+    ]);
+    expect(readPort.calls).toEqual([
+      { method: "getQueueItemAggregate", taskId: "task-upstream" },
+      { method: "getLifecycle", taskId: "task-upstream" },
+      { method: "getQueueItemAggregate", taskId: "task-downstream" },
+      { method: "getLifecycle", taskId: "task-downstream" },
+    ]);
+  });
+
+  it("treats already_done as idempotent acceptance finalization success", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-downstream": aggregate({
+          dependencyState: "ready",
+          taskId: "task-downstream",
+        }),
+        "task-upstream": aggregate({
+          reviewState: "done",
+          taskId: "task-upstream",
+          ticketState: "done",
+        }),
+      },
+    });
+    const finalizationPort = fakeFinalizationPort({
+      markDoneResult: { status: "already_done" },
+    });
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_already_done");
+    expect(result.report.finalization).toMatchObject({
+      commandStatus: "already_done",
+      idempotent: true,
+      status: "finalization_already_done",
+    });
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didMarkDone: false,
+        didMutateQueue: false,
+      }),
+    );
+    expect(finalizationPort.calls.map((call) => call.method)).toEqual([
+      "markDone",
+    ]);
+  });
+
+  it("blocks acceptance finalization without exact structured confirmation before any port call", async () => {
+    const readPort = fakeReadPort();
+    const finalizationPort = fakeFinalizationPort();
+    const request = workflowRequest({
+      inputs: {
+        ...validInputs(),
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_needs_confirmation");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        fieldPath: "$.grant.confirmationToken",
+        reasonCode: "finalization_confirmation_required",
+      }),
+    ]);
+    expect(finalizationPort.calls).toEqual([]);
+    expect(readPort.calls).toEqual([]);
+  });
+
+  it("blocks acceptance finalization when review ACK is not proven", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-upstream": aggregate({
+          reviewState: "review_message_created",
+          taskId: "task-upstream",
+        }),
+      },
+    });
+    const finalizationPort = fakeFinalizationPort();
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_blocked");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "finalization_review_ack_required",
+        taskId: "task-upstream",
+      }),
+    ]);
+    expect(finalizationPort.calls).toEqual([]);
+    expect(readPort.calls).toEqual([
+      { method: "getQueueItemAggregate", taskId: "task-upstream" },
+      { method: "getLifecycle", taskId: "task-upstream" },
+    ]);
+  });
+
+  it("blocks acceptance finalization without explicit upstream taskId and does not infer from prose", async () => {
+    const readPort = fakeReadPort();
+    const finalizationPort = fakeFinalizationPort();
+    const request = workflowRequest({
+      grant: {
+        ...validGrant("queue_acceptance_smoke", {
+          confirmationToken: "operator-confirmed",
+        }),
+        scope: {
+          taskIds: ["task-upstream"],
+        },
+      },
+      inputs: validInputs(),
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_blocked");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        fieldPath: "$.inputs.taskIdsBySlot.upstream",
+        reasonCode: "finalization_missing_upstream_task_id",
+      }),
+    ]);
+    expect(result.variables.taskIdsBySlot).toEqual({});
+    expect(finalizationPort.calls).toEqual([]);
+    expect(readPort.calls).toEqual([]);
+  });
+
+  it("allows acceptance finalization with missing downstream taskId but reports verification missing", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-upstream": aggregate({
+          reviewState: "in_review",
+          taskId: "task-upstream",
+        }),
+      },
+    });
+    const finalizationPort = fakeFinalizationPort({
+      markDoneResult: { status: "succeeded" },
+    });
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        taskIdsBySlot: {
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_completed");
+    expect(result.report.finalization.downstreamVerification).toMatchObject({
+      missingReason: "missing_downstream_task_id",
+      verificationMissing: true,
+    });
+    expect(readPort.calls).toEqual([
+      { method: "getQueueItemAggregate", taskId: "task-upstream" },
+      { method: "getLifecycle", taskId: "task-upstream" },
+    ]);
+    expect(finalizationPort.calls).toHaveLength(1);
+  });
+
+  it("finalizes dependency_failure_smoke by failing explicit upstream and verifying downstream failed_upstream", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-downstream": aggregate({
+          dependencyState: "failed_upstream",
+          taskId: "task-downstream",
+          workerRunState: "not_started",
+        }),
+        "task-upstream": aggregate({
+          reviewState: "in_review",
+          taskId: "task-upstream",
+          workerRunState: "failed",
+        }),
+      },
+    });
+    const finalizationPort = fakeFinalizationPort({
+      failResult: {
+        aggregate: aggregate({
+          reviewState: "failed",
+          taskId: "task-upstream",
+          ticketState: "failure",
+          workerRunState: "failed",
+        }),
+        status: "succeeded",
+      },
+    });
+    const request = workflowRequest({
+      grant: validGrant("queue_failure_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        evidenceBundleIdsBySlot: {
+          upstream: "bundle-upstream",
+        },
+        failureReason: "Upstream worker failed during smoke.",
+        messageIdsBySlot: {
+          upstream: "message-upstream",
+        },
+        runIdsBySlot: {
+          upstream: "run-upstream",
+        },
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+      workflowId: "dependency_failure_smoke",
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_completed");
+    expect(result.report.finalization).toMatchObject({
+      commandStatus: "succeeded",
+      downstreamVerification: {
+        dependencyState: "failed_upstream",
+        dependencyVerified: true,
+        notAutoStartedVerified: true,
+        taskId: "task-downstream",
+        verificationMissing: false,
+        workerRunState: "not_started",
+      },
+      failureReason: "Upstream worker failed during smoke.",
+      finalizationAction: "fail",
+      status: "finalization_completed",
+      targetSlot: "upstream",
+      taskId: "task-upstream",
+    });
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didFail: true,
+        didMarkDone: false,
+        didMutateQueue: true,
+        didStartWorker: false,
+        didValidate: false,
+      }),
+    );
+    expect(finalizationPort.calls).toEqual([
+      {
+        confirmationToken: "operator-confirmed",
+        evidenceBundleId: "bundle-upstream",
+        messageId: "message-upstream",
+        method: "failItem",
+        reason: "Upstream worker failed during smoke.",
+        runId: "run-upstream",
+        taskId: "task-upstream",
+      },
+    ]);
+  });
+
+  it("treats already_failed as idempotent failure finalization success", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-downstream": aggregate({
+          dependencyState: "failed_upstream",
+          taskId: "task-downstream",
+        }),
+        "task-upstream": aggregate({
+          reviewState: "failed",
+          taskId: "task-upstream",
+          ticketState: "failure",
+        }),
+      },
+    });
+    const finalizationPort = fakeFinalizationPort({
+      failResult: { status: "already_failed" },
+    });
+    const request = workflowRequest({
+      grant: validGrant("queue_failure_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        failureReason: "Already failed upstream.",
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+      workflowId: "dependency_failure_smoke",
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_already_failed");
+    expect(result.report.finalization).toMatchObject({
+      commandStatus: "already_failed",
+      idempotent: true,
+      status: "finalization_already_failed",
+    });
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didFail: false,
+        didMutateQueue: false,
+      }),
+    );
+    expect(finalizationPort.calls.map((call) => call.method)).toEqual([
+      "failItem",
+    ]);
+  });
+
+  it("blocks failure finalization without failureReason before any port call", async () => {
+    const readPort = fakeReadPort();
+    const finalizationPort = fakeFinalizationPort();
+    const request = workflowRequest({
+      grant: validGrant("queue_failure_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+      workflowId: "dependency_failure_smoke",
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_blocked");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        fieldPath: "$.inputs.failureReason",
+        reasonCode: "finalization_missing_failure_reason",
+      }),
+    ]);
+    expect(finalizationPort.calls).toEqual([]);
+    expect(readPort.calls).toEqual([]);
+  });
+
+  it("blocks failure finalization without exact structured confirmation before any port call", async () => {
+    const readPort = fakeReadPort();
+    const finalizationPort = fakeFinalizationPort();
+    const request = workflowRequest({
+      grant: validGrant("queue_failure_smoke"),
+      inputs: {
+        ...validInputs(),
+        failureReason: "Failure reason exists.",
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+      workflowId: "dependency_failure_smoke",
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_needs_confirmation");
+    expect(finalizationPort.calls).toEqual([]);
+    expect(readPort.calls).toEqual([]);
+  });
+
+  it("blocks failure finalization when review ACK is not proven", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-upstream": aggregate({
+          reviewState: "awaiting_review",
+          taskId: "task-upstream",
+        }),
+      },
+    });
+    const finalizationPort = fakeFinalizationPort();
+    const request = workflowRequest({
+      grant: validGrant("queue_failure_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        failureReason: "Failure reason exists.",
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+      workflowId: "dependency_failure_smoke",
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_blocked");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "finalization_review_ack_required",
+      }),
+    ]);
+    expect(finalizationPort.calls).toEqual([]);
+  });
+
+  it("blocks failure finalization without explicit upstream taskId", async () => {
+    const readPort = fakeReadPort();
+    const finalizationPort = fakeFinalizationPort();
+    const request = workflowRequest({
+      grant: validGrant("queue_failure_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        failureReason: "Failure reason exists.",
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+        },
+      },
+      workflowId: "dependency_failure_smoke",
+    });
+
+    const result = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("finalization_blocked");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "finalization_missing_upstream_task_id",
+      }),
+    ]);
+    expect(finalizationPort.calls).toEqual([]);
+    expect(readPort.calls).toEqual([]);
+  });
+
   it("does not import Queue UI, visual shell, providers, Tauri, or WorkerProvider", () => {
     expect(runnerSource).not.toContain("@tauri-apps");
     expect(runnerSource).not.toContain("AgentProvider");
@@ -959,6 +1558,12 @@ describe("QueueWorkflowRunner", () => {
     expect(runnerSource).not.toContain("AgentQueuePlaceholderWidget");
     expect(runnerSource).not.toContain("ModuleShell");
     expect(runnerSource).not.toContain("reviewMessageId");
+    expect(runnerSource).not.toContain("queue.lifecycle.agentFinished");
+    expect(runnerSource).not.toContain("recordWorkerFinished");
+    expect(runnerSource).not.toContain("approveValidation");
+    expect(runnerSource).not.toContain("addFollowUpPrompt");
+    expect(runnerSource).not.toContain("blockItem");
+    expect(runnerSource).not.toContain("startRun");
     expect(runnerSource).not.toContain("widget.css");
     expect(runnerSource).not.toContain("queueV2");
   });
@@ -977,7 +1582,7 @@ function workflowRequest(
   };
 }
 
-function validGrant(mode: string) {
+function validGrant(mode: string, overrides: Record<string, unknown> = {}) {
   return {
     constraints: {
       noDelete: true,
@@ -989,6 +1594,7 @@ function validGrant(mode: string) {
     },
     maxActions: 16,
     mode,
+    ...overrides,
   };
 }
 
@@ -1045,6 +1651,17 @@ type FakeReviewPort = QueueWorkflowReviewPort & {
   >;
 };
 
+type FakeFinalizationPort = QueueWorkflowFinalizationPort & {
+  calls: Array<
+    | ({
+        method: "failItem";
+      } & QueueWorkflowFailItemRequest)
+    | ({
+        method: "markDone";
+      } & QueueWorkflowMarkDoneRequest)
+  >;
+};
+
 function fakeReadPort({
   aggregates = {},
   evidence = {},
@@ -1077,6 +1694,49 @@ function fakeReadPort({
     listQueueItemAggregates: async () => {
       calls.push({ method: "listQueueItemAggregates" });
       return Object.values(aggregates);
+    },
+  };
+}
+
+function fakeFinalizationPort({
+  failError,
+  failResult = { status: "succeeded" },
+  markDoneError,
+  markDoneResult = { status: "succeeded" },
+}: {
+  failError?: Error;
+  failResult?: QueueWorkflowFinalizationCommandResult;
+  markDoneError?: Error;
+  markDoneResult?: QueueWorkflowFinalizationCommandResult;
+} = {}): FakeFinalizationPort {
+  const calls: FakeFinalizationPort["calls"] = [];
+  return {
+    calls,
+    failItem: async (request) => {
+      calls.push({
+        method: "failItem",
+        ...request,
+      });
+      if (failError) {
+        throw failError;
+      }
+      return {
+        taskId: request.taskId,
+        ...failResult,
+      };
+    },
+    markDone: async (request) => {
+      calls.push({
+        method: "markDone",
+        ...request,
+      });
+      if (markDoneError) {
+        throw markDoneError;
+      }
+      return {
+        taskId: request.taskId,
+        ...markDoneResult,
+      };
     },
   };
 }
@@ -1132,34 +1792,47 @@ function evidenceKey(request: QueueWorkflowEvidenceReadRequest): string {
 
 function aggregate({
   dependencyState = "none",
+  durableFlags = {},
+  reviewState = "none",
   taskId,
+  ticketState = "queued",
   title = "Queue task",
+  workerRunState = "not_started",
 }: {
   dependencyState?: string;
+  durableFlags?: Partial<AgentQueueItemAggregate["durableFlags"]>;
+  reviewState?: string;
   taskId: string;
+  ticketState?: string;
   title?: string;
+  workerRunState?: string;
 }): AgentQueueItemAggregate {
+  const defaultDurableFlags: AgentQueueItemAggregate["durableFlags"] = {
+    commitState: false,
+    completionState: false,
+    dependencyState: true,
+    evidenceState: false,
+    failureState: false,
+    frontendOverlayUsed: false,
+    latestRunLink: false,
+    reviewState: false,
+    taskRow: true,
+    validationState: false,
+  };
+
   return {
     blockers: [],
     commitState: "none",
     dependencyState,
     durableFlags: {
-      commitState: false,
-      completionState: false,
-      dependencyState: true,
-      evidenceState: false,
-      failureState: false,
-      frontendOverlayUsed: false,
-      latestRunLink: false,
-      reviewState: false,
-      taskRow: true,
-      validationState: false,
+      ...defaultDurableFlags,
+      ...durableFlags,
     },
     evidenceState: "none",
     evidenceSummary: null,
     latestRun: null,
     nextActions: [],
-    reviewState: "none",
+    reviewState,
     runSettings: {
       approvalPolicy: "never",
       assignedExecutorWidgetId: null,
@@ -1169,11 +1842,11 @@ function aggregate({
       sandbox: "read_only",
     },
     taskId,
-    ticketState: "queued",
+    ticketState,
     title,
     updatedAt: "2026-06-22T00:00:00.000Z",
     validationState: "not_requested",
-    workerRunState: "not_started",
+    workerRunState,
     workspaceId: "workspace-1",
   };
 }

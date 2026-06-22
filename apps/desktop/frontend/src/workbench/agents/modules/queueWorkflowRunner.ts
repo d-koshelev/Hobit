@@ -18,6 +18,7 @@ export type QueueWorkflowRunnerStatus =
   | "invalid_request"
   | "unavailable"
   | "failed_unexpected"
+  | QueueWorkflowFinalizationStatus
   | QueueWorkflowReviewStatus;
 
 export type QueueWorkflowReviewStatus =
@@ -27,6 +28,16 @@ export type QueueWorkflowReviewStatus =
   | "review_completed"
   | "review_message_already_exists"
   | "review_not_supported_for_workflow";
+
+export type QueueWorkflowFinalizationStatus =
+  | "finalization_already_done"
+  | "finalization_already_failed"
+  | "finalization_blocked"
+  | "finalization_completed"
+  | "finalization_failed_unexpected"
+  | "finalization_invalid_input"
+  | "finalization_needs_confirmation"
+  | "finalization_not_supported_for_workflow";
 
 export type QueueWorkflowRunnerStepStatus =
   | "completed"
@@ -40,6 +51,16 @@ export type QueueWorkflowRunnerBlockerReason =
   | "aggregate_not_found"
   | "evidence_read_unavailable"
   | "failed_unexpected"
+  | "finalization_command_blocked"
+  | "finalization_confirmation_invalid"
+  | "finalization_confirmation_required"
+  | "finalization_invalid_input"
+  | "finalization_missing_failure_reason"
+  | "finalization_missing_upstream_task_id"
+  | "finalization_not_supported_for_workflow"
+  | "finalization_policy_blocked"
+  | "finalization_port_unavailable"
+  | "finalization_review_ack_required"
   | "input_validation_deferred"
   | "invalid_request"
   | "missing_explicit_evidence_ids"
@@ -67,9 +88,16 @@ export type QueueWorkflowRunnerBlocker = {
   taskId?: string;
 };
 
+export type QueueWorkflowRunnerPhase =
+  | "finalization"
+  | "read"
+  | "review"
+  | "validate"
+  | "verification";
+
 export type QueueWorkflowRunnerEvent = {
   message: string;
-  phase?: "read" | "review" | "validate";
+  phase?: QueueWorkflowRunnerPhase;
   reasonCode?: QueueWorkflowRunnerBlockerReason;
   slot?: string;
   status: QueueWorkflowRunnerStepStatus;
@@ -81,7 +109,7 @@ export type QueueWorkflowRunnerStep = {
   evidenceBundleId?: string;
   message: string;
   messageId?: string;
-  phase?: "read" | "review" | "validate";
+  phase?: QueueWorkflowRunnerPhase;
   reasonCode?: QueueWorkflowRunnerBlockerReason;
   runId?: string;
   slot?: string;
@@ -185,6 +213,74 @@ export type QueueWorkflowReviewPort = {
   ) => Promise<QueueWorkflowCreateReviewMessageResult>;
 };
 
+export type QueueWorkflowFinalizationCommandStatus =
+  | "already_done"
+  | "already_failed"
+  | "blocked"
+  | "failed_unexpected"
+  | "invalid_input"
+  | "needs_confirmation"
+  | "policy_blocked"
+  | "precondition_failed"
+  | "succeeded"
+  | "unavailable";
+
+export type QueueWorkflowFinalizationBlocker = {
+  blockerCode?: string | null;
+  blockerMessage?: string | null;
+  dependencyState?: string | null;
+  evidenceBundleId?: string | null;
+  evidenceState?: string | null;
+  missingRequiredField?: string | null;
+  nextSuggestedCapability?: string | null;
+  reviewState?: string | null;
+  runId?: string | null;
+  taskId?: string | null;
+  ticketState?: string | null;
+  validationState?: string | null;
+  workerRunState?: string | null;
+};
+
+export type QueueWorkflowMarkDoneRequest = {
+  confirmationToken: string;
+  messageId?: string;
+  reason?: string;
+  runId?: string;
+  taskId: string;
+};
+
+export type QueueWorkflowFailItemRequest = {
+  confirmationToken: string;
+  evidenceBundleId?: string;
+  messageId?: string;
+  reason: string;
+  runId?: string;
+  taskId: string;
+};
+
+export type QueueWorkflowFinalizationCommandResult = {
+  aggregate?: AgentQueueItemAggregate | null;
+  blocker?: QueueWorkflowFinalizationBlocker | null;
+  durable?: boolean;
+  evidenceBundleId?: string | null;
+  fieldPath?: string;
+  fieldPaths?: readonly string[];
+  message?: string;
+  reasonCode?: string;
+  runId?: string | null;
+  status: QueueWorkflowFinalizationCommandStatus;
+  taskId?: string;
+};
+
+export type QueueWorkflowFinalizationPort = {
+  failItem: (
+    request: QueueWorkflowFailItemRequest,
+  ) => Promise<QueueWorkflowFinalizationCommandResult>;
+  markDone: (
+    request: QueueWorkflowMarkDoneRequest,
+  ) => Promise<QueueWorkflowFinalizationCommandResult>;
+};
+
 export type QueueWorkflowRunnerRequest = {
   grant?: WorkflowGrant;
   inputs?: WorkflowInputs;
@@ -224,6 +320,7 @@ export type QueueWorkflowVariables = {
 
 export type QueueWorkflowRunnerReport = {
   evidenceReads: QueueWorkflowEvidenceReadRequest[];
+  finalization: QueueWorkflowFinalizationReport;
   missingExplicitIds: string[];
   mutationSummary: {
     didAckReview: boolean;
@@ -244,6 +341,32 @@ export type QueueWorkflowRunnerReport = {
   review: QueueWorkflowReviewReport;
   summary: string;
   taskReads: string[];
+};
+
+export type QueueWorkflowDownstreamVerificationReport = {
+  dependencyState?: string;
+  dependencyVerified: boolean | null;
+  expectedDependencyState?: string;
+  missingReason?: "missing_downstream_task_id" | "snapshot_unavailable";
+  notAutoStartedVerified: boolean | null;
+  snapshot?: QueueWorkflowLifecycleSnapshot | null;
+  taskId?: string;
+  verificationMissing: boolean;
+  workerRunState?: string;
+};
+
+export type QueueWorkflowFinalizationReport = {
+  commandStatus?: QueueWorkflowFinalizationCommandStatus;
+  confirmationTokenAccepted: boolean;
+  downstreamVerification: QueueWorkflowDownstreamVerificationReport;
+  failureReason?: string;
+  finalizationAction?: "fail" | "mark_done";
+  idempotent: boolean;
+  phase: "finalization";
+  status: QueueWorkflowFinalizationStatus | null;
+  supportedWorkflow: boolean;
+  targetSlot?: string;
+  taskId?: string;
 };
 
 export type QueueWorkflowReviewReport = {
@@ -283,7 +406,12 @@ export type QueueWorkflowReviewRunnerInput = QueueWorkflowRunnerInput & {
   reviewPort?: QueueWorkflowReviewPort | null;
 };
 
+export type QueueWorkflowFinalizationRunnerInput = QueueWorkflowRunnerInput & {
+  finalizationPort?: QueueWorkflowFinalizationPort | null;
+};
+
 const QUEUE_MODULE_ID = "queue";
+const QUEUE_FINALIZATION_CONFIRMATION_TOKEN = "operator-confirmed";
 const DEPENDENCY_WORKFLOWS = new Set<string>([
   "dependency_acceptance_smoke",
   "dependency_failure_smoke",
@@ -317,6 +445,21 @@ const EMPTY_REVIEW_REPORT: QueueWorkflowReviewReport = {
   idempotentAck: false,
   idempotentCreate: false,
   phase: "review",
+  status: null,
+  supportedWorkflow: false,
+};
+
+const EMPTY_DOWNSTREAM_VERIFICATION: QueueWorkflowDownstreamVerificationReport = {
+  dependencyVerified: null,
+  notAutoStartedVerified: null,
+  verificationMissing: true,
+};
+
+const EMPTY_FINALIZATION_REPORT: QueueWorkflowFinalizationReport = {
+  confirmationTokenAccepted: false,
+  downstreamVerification: EMPTY_DOWNSTREAM_VERIFICATION,
+  idempotent: false,
+  phase: "finalization",
   status: null,
   supportedWorkflow: false,
 };
@@ -1043,6 +1186,467 @@ export async function runQueueWorkflowReviewRunner(
   }
 }
 
+export async function runQueueWorkflowFinalizationRunner(
+  input: QueueWorkflowFinalizationRunnerInput,
+): Promise<QueueWorkflowRunnerResult> {
+  const steps: QueueWorkflowRunnerStep[] = [];
+  const events: QueueWorkflowRunnerEvent[] = [];
+  const blockers: QueueWorkflowRunnerBlocker[] = [];
+  const variables = buildVariables(input.request);
+  const mutationSummary = { ...MUTATION_SUMMARY };
+
+  const validationBlocker = validateFinalizationRunnerBoundary(input);
+  if (validationBlocker) {
+    blockers.push(validationBlocker);
+    pushStep(steps, events, {
+      message: validationBlocker.message,
+      phase: "validate",
+      reasonCode: validationBlocker.reasonCode,
+      status: "blocked",
+      stepId: "validate_finalization_request",
+    });
+    return result({
+      blockers,
+      events,
+      finalizationReport: finalizationReport({
+        status: "finalization_invalid_input",
+      }),
+      mutationSummary,
+      readOnly: false,
+      reportSummary: validationBlocker.message,
+      status: "finalization_invalid_input",
+      steps,
+      variables,
+    });
+  }
+
+  if (!DEPENDENCY_WORKFLOWS.has(input.request.workflowId)) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      fieldPath: "$.workflowId",
+      message: `${input.request.workflowId} is not supported by the Queue finalization workflow runner.`,
+      reasonCode: "finalization_not_supported_for_workflow",
+    };
+    blockers.push(blocker);
+    pushStep(steps, events, {
+      message: blocker.message,
+      phase: "finalization",
+      reasonCode: blocker.reasonCode,
+      status: "blocked",
+      stepId: "select_finalization_workflow",
+    });
+    return result({
+      blockers,
+      events,
+      finalizationReport: finalizationReport({
+        status: "finalization_not_supported_for_workflow",
+        supportedWorkflow: false,
+      }),
+      mutationSummary,
+      readOnly: false,
+      reportSummary: blocker.message,
+      status: "finalization_not_supported_for_workflow",
+      steps,
+      variables,
+    });
+  }
+
+  const target = resolveFinalizationTarget(input.request, variables);
+  if (!target.ok) {
+    blockers.push(target.blocker);
+    pushStep(steps, events, {
+      message: target.blocker.message,
+      phase: "finalization",
+      reasonCode: target.blocker.reasonCode,
+      slot: target.blocker.slot,
+      status: "blocked",
+      stepId: "resolve_finalization_target",
+      taskId: target.blocker.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      finalizationReport: finalizationReport({
+        finalizationAction:
+          input.request.workflowId === "dependency_failure_smoke"
+            ? "fail"
+            : "mark_done",
+        status: "finalization_blocked",
+        supportedWorkflow: true,
+        targetSlot: target.blocker.slot,
+        taskId: target.blocker.taskId,
+      }),
+      mutationSummary,
+      readOnly: false,
+      reportSummary: target.blocker.message,
+      status: "finalization_blocked",
+      steps,
+      variables,
+    });
+  }
+
+  const confirmation = resolveFinalizationConfirmation(input.request);
+  if (!confirmation.ok) {
+    blockers.push(confirmation.blocker);
+    pushStep(steps, events, {
+      message: confirmation.blocker.message,
+      phase: "finalization",
+      reasonCode: confirmation.blocker.reasonCode,
+      status:
+        confirmation.status === "finalization_needs_confirmation"
+          ? "paused"
+          : "blocked",
+      stepId: `confirm_finalization:${target.value.taskId}`,
+      taskId: target.value.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      finalizationReport: finalizationReport({
+        failureReason: target.value.failureReason,
+        finalizationAction: target.value.action,
+        status: confirmation.status,
+        supportedWorkflow: true,
+        targetSlot: target.value.targetSlot,
+        taskId: target.value.taskId,
+      }),
+      mutationSummary,
+      readOnly: false,
+      reportSummary: confirmation.blocker.message,
+      status: confirmation.status,
+      steps,
+      variables,
+    });
+  }
+
+  if (!input.readPort) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      message: "Queue workflow read port is unavailable.",
+      reasonCode: "read_port_unavailable",
+      taskId: target.value.taskId,
+    };
+    blockers.push(blocker);
+    pushStep(steps, events, {
+      message: blocker.message,
+      phase: "read",
+      reasonCode: blocker.reasonCode,
+      status: "unavailable",
+      stepId: "open_finalization_read_port",
+      taskId: target.value.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      finalizationReport: finalizationReport({
+        failureReason: target.value.failureReason,
+        finalizationAction: target.value.action,
+        status: "finalization_blocked",
+        supportedWorkflow: true,
+        targetSlot: target.value.targetSlot,
+        taskId: target.value.taskId,
+      }),
+      mutationSummary,
+      readOnly: false,
+      reportSummary: blocker.message,
+      status: "unavailable",
+      steps,
+      variables,
+    });
+  }
+
+  if (!input.finalizationPort) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      message: "Queue workflow finalization port is unavailable.",
+      reasonCode: "finalization_port_unavailable",
+      taskId: target.value.taskId,
+    };
+    blockers.push(blocker);
+    pushStep(steps, events, {
+      message: blocker.message,
+      phase: "finalization",
+      reasonCode: blocker.reasonCode,
+      status: "unavailable",
+      stepId: "open_finalization_port",
+      taskId: target.value.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      finalizationReport: finalizationReport({
+        failureReason: target.value.failureReason,
+        finalizationAction: target.value.action,
+        status: "finalization_blocked",
+        supportedWorkflow: true,
+        targetSlot: target.value.targetSlot,
+        taskId: target.value.taskId,
+      }),
+      mutationSummary,
+      readOnly: false,
+      reportSummary: blocker.message,
+      status: "unavailable",
+      steps,
+      variables,
+    });
+  }
+
+  const baseFinalizationReport = finalizationReport({
+    confirmationTokenAccepted: true,
+    failureReason: target.value.failureReason,
+    finalizationAction: target.value.action,
+    supportedWorkflow: true,
+    targetSlot: target.value.targetSlot,
+    taskId: target.value.taskId,
+  });
+
+  try {
+    await readTaskSnapshots({
+      events,
+      readPort: input.readPort,
+      steps,
+      taskIds: [target.value.taskId],
+      variables,
+    });
+
+    const aggregateBlockers = missingAggregateBlockersForReads(variables, [
+      target.value.taskId,
+    ]);
+    if (aggregateBlockers.length > 0) {
+      blockers.push(...aggregateBlockers);
+      return result({
+        blockers,
+        events,
+        finalizationReport: {
+          ...baseFinalizationReport,
+          status: "finalization_blocked",
+        },
+        mutationSummary,
+        readOnly: false,
+        reportSummary:
+          "Queue finalization workflow blocked because the explicit upstream aggregate was not found.",
+        status: "finalization_blocked",
+        steps,
+        variables,
+      });
+    }
+
+    const reviewPrecondition = reviewAcknowledgedForFinalization({
+      request: input.request,
+      snapshot: snapshotForTask(variables, target.value.taskId),
+      target: target.value,
+    });
+    if (!reviewPrecondition.ok) {
+      blockers.push(reviewPrecondition.blocker);
+      pushStep(steps, events, {
+        message: reviewPrecondition.blocker.message,
+        phase: "finalization",
+        reasonCode: reviewPrecondition.blocker.reasonCode,
+        status: "blocked",
+        stepId: `check_review_ack:${target.value.taskId}`,
+        taskId: target.value.taskId,
+      });
+      return result({
+        blockers,
+        events,
+        finalizationReport: {
+          ...baseFinalizationReport,
+          status: "finalization_blocked",
+        },
+        mutationSummary,
+        readOnly: false,
+        reportSummary: reviewPrecondition.blocker.message,
+        status: "finalization_blocked",
+        steps,
+        variables,
+      });
+    }
+
+    const commandResult =
+      target.value.action === "mark_done"
+        ? await input.finalizationPort.markDone(
+            stripUndefined({
+              confirmationToken: confirmation.token,
+              messageId: target.value.messageId,
+              reason: target.value.reason,
+              runId: target.value.runId,
+              taskId: target.value.taskId,
+            }),
+          )
+        : await input.finalizationPort.failItem(
+            stripUndefined({
+              confirmationToken: confirmation.token,
+              evidenceBundleId: target.value.evidenceBundleId,
+              messageId: target.value.messageId,
+              reason: target.value.failureReason!,
+              runId: target.value.runId,
+              taskId: target.value.taskId,
+            }),
+          );
+
+    if (commandResult.aggregate) {
+      variables.readSnapshots.aggregatesByTaskId[target.value.taskId] =
+        commandResult.aggregate;
+      variables.readSnapshots.lifecycleByTaskId[target.value.taskId] =
+        commandResult.aggregate;
+    }
+
+    const status = finalizationStatusForCommandResult(
+      commandResult.status,
+      target.value.action,
+    );
+    const idempotent =
+      status === "finalization_already_done" ||
+      status === "finalization_already_failed";
+
+    if (
+      status === "finalization_completed" ||
+      status === "finalization_already_done" ||
+      status === "finalization_already_failed"
+    ) {
+      if (commandResult.status === "succeeded") {
+        if (target.value.action === "mark_done") {
+          mutationSummary.didMarkDone = true;
+        } else {
+          mutationSummary.didFail = true;
+        }
+        mutationSummary.didMutateQueue = true;
+      }
+
+      pushStep(steps, events, {
+        message: finalizationSuccessMessage(commandResult.status, target.value.action),
+        phase: "finalization",
+        status: "completed",
+        stepId: `${target.value.action}:${target.value.taskId}`,
+        taskId: target.value.taskId,
+      });
+
+      const downstreamVerification = await verifyDownstreamAfterFinalization({
+        action: target.value.action,
+        downstreamTaskId: target.value.downstreamTaskId,
+        events,
+        readPort: input.readPort,
+        steps,
+        variables,
+      });
+
+      return result({
+        blockers,
+        events,
+        finalizationReport: finalizationReport({
+          ...baseFinalizationReport,
+          commandStatus: commandResult.status,
+          downstreamVerification,
+          idempotent,
+          status,
+        }),
+        mutationSummary,
+        readOnly: false,
+        reportSummary:
+          target.value.action === "mark_done"
+            ? "Queue acceptance finalization completed for explicit upstream task."
+            : "Queue failure finalization completed for explicit upstream task.",
+        status,
+        steps,
+        variables,
+      });
+    }
+
+    const blocker = blockerForFinalizationResult(
+      commandResult,
+      target.value.action,
+      target.value.taskId,
+    );
+    blockers.push(blocker);
+    pushStep(steps, events, {
+      message: blocker.message,
+      phase: "finalization",
+      reasonCode: blocker.reasonCode,
+      status:
+        status === "finalization_failed_unexpected"
+          ? "failed_unexpected"
+          : "blocked",
+      stepId: `${target.value.action}_blocked:${target.value.taskId}`,
+      taskId: target.value.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      finalizationReport: finalizationReport({
+        ...baseFinalizationReport,
+        commandStatus: commandResult.status,
+        status:
+          status === "unavailable" ? "finalization_blocked" : status,
+      }),
+      mutationSummary,
+      readOnly: false,
+      reportSummary: blocker.message,
+      status,
+      steps,
+      variables,
+    });
+  } catch (error) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      message:
+        error instanceof Error
+          ? error.message
+          : "Queue finalization workflow failed unexpectedly.",
+      reasonCode: "failed_unexpected",
+      taskId: target.value.taskId,
+    };
+    blockers.push(blocker);
+    pushStep(steps, events, {
+      message: blocker.message,
+      phase: "finalization",
+      reasonCode: blocker.reasonCode,
+      status: "failed_unexpected",
+      stepId: "finalization_failed",
+      taskId: target.value.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      finalizationReport: finalizationReport({
+        ...baseFinalizationReport,
+        status: "finalization_failed_unexpected",
+      }),
+      mutationSummary,
+      readOnly: false,
+      reportSummary: blocker.message,
+      status: "finalization_failed_unexpected",
+      steps,
+      variables,
+    });
+  }
+}
+
+type QueueWorkflowFinalizationAction = "fail" | "mark_done";
+
+type QueueWorkflowFinalizationTarget = {
+  action: QueueWorkflowFinalizationAction;
+  downstreamTaskId?: string;
+  evidenceBundleId?: string;
+  failureReason?: string;
+  messageId?: string;
+  reason?: string;
+  runId?: string;
+  targetSlot: "upstream";
+  taskId: string;
+};
+
+type QueueWorkflowFinalizationTargetResolution =
+  | { ok: true; value: QueueWorkflowFinalizationTarget }
+  | { blocker: QueueWorkflowRunnerBlocker; ok: false };
+
+type QueueWorkflowFinalizationConfirmationResolution =
+  | { ok: true; token: string }
+  | {
+      blocker: QueueWorkflowRunnerBlocker;
+      ok: false;
+      status: "finalization_invalid_input" | "finalization_needs_confirmation";
+    };
+
+type QueueWorkflowReviewPreconditionResolution =
+  | { ok: true }
+  | { blocker: QueueWorkflowRunnerBlocker; ok: false };
+
 type QueueWorkflowReviewTarget = {
   evidenceBundleId?: string;
   messageBody?: string;
@@ -1407,6 +2011,436 @@ function reviewReport(
     ...EMPTY_REVIEW_REPORT,
     ...stripUndefined(report),
   };
+}
+
+function finalizationReport(
+  report: Partial<QueueWorkflowFinalizationReport>,
+): QueueWorkflowFinalizationReport {
+  return {
+    ...EMPTY_FINALIZATION_REPORT,
+    ...stripUndefined(report),
+    downstreamVerification: {
+      ...EMPTY_DOWNSTREAM_VERIFICATION,
+      ...stripUndefined(report.downstreamVerification ?? {}),
+    },
+  };
+}
+
+function validateFinalizationRunnerBoundary({
+  request,
+  validation,
+}: QueueWorkflowFinalizationRunnerInput): QueueWorkflowRunnerBlocker | null {
+  if (request.moduleId !== QUEUE_MODULE_ID) {
+    return {
+      fieldPath: "$.moduleId",
+      message: "Queue finalization workflow runner only accepts moduleId queue.",
+      reasonCode: "invalid_request",
+    };
+  }
+
+  if (validation.workflowId !== request.workflowId) {
+    return {
+      fieldPath: "$.workflowId",
+      message: "Queue workflow validation result does not match the request workflowId.",
+      reasonCode: "invalid_request",
+    };
+  }
+
+  if (validation.status === "input_validation_deferred") {
+    return null;
+  }
+
+  if (!validation.ok) {
+    if (onlyMissingFailureReason(validation)) {
+      return null;
+    }
+    return {
+      fieldPath: validation.fieldPath,
+      message: validation.message,
+      reasonCode: "invalid_request",
+    };
+  }
+
+  if (validation.status !== "workflow_valid_not_executable") {
+    return {
+      fieldPath: "$.workflowId",
+      message: "Queue workflow request has not passed Queue workflow validation.",
+      reasonCode: "invalid_request",
+    };
+  }
+
+  return null;
+}
+
+function onlyMissingFailureReason(
+  validation: QueueWorkflowRequestValidationResult,
+): boolean {
+  if (validation.ok || !("issues" in validation)) {
+    return false;
+  }
+  return (
+    validation.workflowId === "dependency_failure_smoke" &&
+    validation.issues.length > 0 &&
+    validation.issues.every(
+      (issue) =>
+        issue.fieldPath === "$.inputs.failureReason" &&
+        issue.reasonCode === "missing_required_input",
+    )
+  );
+}
+
+function resolveFinalizationTarget(
+  request: QueueWorkflowRunnerRequest,
+  variables: QueueWorkflowVariables,
+): QueueWorkflowFinalizationTargetResolution {
+  const slot = variables.slots.upstream;
+  const taskId = slot?.taskId;
+  if (!taskId) {
+    return {
+      blocker: {
+        fieldPath: "$.inputs.taskIdsBySlot.upstream",
+        message:
+          "Queue dependency finalization phase requires explicit upstream taskId.",
+        reasonCode: "finalization_missing_upstream_task_id",
+        slot: "upstream",
+      },
+      ok: false,
+    };
+  }
+
+  if (request.workflowId === "dependency_acceptance_smoke") {
+    return {
+      ok: true,
+      value: stripUndefined({
+        action: "mark_done",
+        downstreamTaskId: variables.slots.downstream?.taskId,
+        messageId: slot.messageId,
+        reason: finalizationReason(request),
+        runId: slot.runId,
+        targetSlot: "upstream",
+        taskId,
+      }),
+    };
+  }
+
+  if (request.workflowId === "dependency_failure_smoke") {
+    const failureReason = finalizationFailureReason(request);
+    if (!failureReason) {
+      return {
+        blocker: {
+          fieldPath: "$.inputs.failureReason",
+          message:
+            "Queue dependency failure finalization requires explicit failureReason.",
+          reasonCode: "finalization_missing_failure_reason",
+          slot: "upstream",
+          taskId,
+        },
+        ok: false,
+      };
+    }
+
+    return {
+      ok: true,
+      value: stripUndefined({
+        action: "fail",
+        downstreamTaskId: variables.slots.downstream?.taskId,
+        evidenceBundleId: slot.evidenceBundleId,
+        failureReason,
+        messageId: slot.messageId,
+        runId: slot.runId,
+        targetSlot: "upstream",
+        taskId,
+      }),
+    };
+  }
+
+  return {
+    blocker: {
+      fieldPath: "$.workflowId",
+      message: `${request.workflowId} is not supported by the Queue finalization workflow runner.`,
+      reasonCode: "finalization_not_supported_for_workflow",
+    },
+    ok: false,
+  };
+}
+
+function resolveFinalizationConfirmation(
+  request: QueueWorkflowRunnerRequest,
+): QueueWorkflowFinalizationConfirmationResolution {
+  const token = cleanString(request.grant?.confirmationToken);
+  if (!token) {
+    return {
+      blocker: {
+        fieldPath: "$.grant.confirmationToken",
+        message:
+          "Queue finalization requires exact structured confirmationToken.",
+        reasonCode: "finalization_confirmation_required",
+      },
+      ok: false,
+      status: "finalization_needs_confirmation",
+    };
+  }
+
+  if (token !== QUEUE_FINALIZATION_CONFIRMATION_TOKEN) {
+    return {
+      blocker: {
+        fieldPath: "$.grant.confirmationToken",
+        message:
+          "Queue finalization confirmationToken must exactly equal operator-confirmed.",
+        reasonCode: "finalization_confirmation_invalid",
+      },
+      ok: false,
+      status: "finalization_invalid_input",
+    };
+  }
+
+  return { ok: true, token };
+}
+
+function reviewAcknowledgedForFinalization({
+  request,
+  snapshot,
+  target,
+}: {
+  request: QueueWorkflowRunnerRequest;
+  snapshot: QueueWorkflowLifecycleSnapshot | null;
+  target: QueueWorkflowFinalizationTarget;
+}): QueueWorkflowReviewPreconditionResolution {
+  if (explicitReviewAcknowledged(request, target.targetSlot)) {
+    return { ok: true };
+  }
+
+  const reviewState = snapshotString(snapshot, "reviewState");
+  const allowedStates =
+    target.action === "mark_done"
+      ? ["done", "in_review", "reviewed"]
+      : ["failed", "in_review", "reviewed"];
+  if (reviewState && allowedStates.includes(reviewState)) {
+    return { ok: true };
+  }
+
+  return {
+    blocker: {
+      fieldPath: "$.inputs.reviewAcknowledgedBySlot.upstream",
+      message:
+        "Queue finalization requires an ACKed review state for the explicit upstream task.",
+      reasonCode: "finalization_review_ack_required",
+      slot: target.targetSlot,
+      taskId: target.taskId,
+    },
+    ok: false,
+  };
+}
+
+async function verifyDownstreamAfterFinalization({
+  action,
+  downstreamTaskId,
+  events,
+  readPort,
+  steps,
+  variables,
+}: {
+  action: QueueWorkflowFinalizationAction;
+  downstreamTaskId?: string;
+  events: QueueWorkflowRunnerEvent[];
+  readPort: QueueWorkflowReadPort;
+  steps: QueueWorkflowRunnerStep[];
+  variables: QueueWorkflowVariables;
+}): Promise<QueueWorkflowDownstreamVerificationReport> {
+  if (!downstreamTaskId) {
+    return {
+      ...EMPTY_DOWNSTREAM_VERIFICATION,
+      missingReason: "missing_downstream_task_id",
+      verificationMissing: true,
+    };
+  }
+
+  const aggregate = await readPort.getQueueItemAggregate(downstreamTaskId);
+  variables.readSnapshots.aggregatesByTaskId[downstreamTaskId] = aggregate;
+  pushStep(steps, events, {
+    message: aggregate
+      ? `Read downstream Queue aggregate for ${downstreamTaskId}.`
+      : `Downstream Queue aggregate not found for ${downstreamTaskId}.`,
+    phase: "verification",
+    reasonCode: aggregate ? undefined : "aggregate_not_found",
+    status: aggregate ? "completed" : "blocked",
+    stepId: `verify_downstream_aggregate:${downstreamTaskId}`,
+    taskId: downstreamTaskId,
+  });
+
+  const lifecycle = readPort.getLifecycle
+    ? await readPort.getLifecycle(downstreamTaskId)
+    : aggregate;
+  variables.readSnapshots.lifecycleByTaskId[downstreamTaskId] = lifecycle;
+  pushStep(steps, events, {
+    message: lifecycle
+      ? `Read downstream Queue lifecycle for ${downstreamTaskId}.`
+      : `Downstream Queue lifecycle not found for ${downstreamTaskId}.`,
+    phase: "verification",
+    reasonCode: lifecycle ? undefined : "aggregate_not_found",
+    status: lifecycle ? "completed" : "blocked",
+    stepId: `verify_downstream_lifecycle:${downstreamTaskId}`,
+    taskId: downstreamTaskId,
+  });
+
+  const snapshot = lifecycle ?? aggregate;
+  if (!snapshot) {
+    return {
+      ...EMPTY_DOWNSTREAM_VERIFICATION,
+      missingReason: "snapshot_unavailable",
+      taskId: downstreamTaskId,
+      verificationMissing: true,
+    };
+  }
+
+  const dependencyState = snapshotString(snapshot, "dependencyState");
+  const workerRunState = snapshotString(snapshot, "workerRunState");
+  const expectedDependencyState =
+    action === "mark_done" ? "ready" : "failed_upstream";
+  const dependencyVerified = dependencyState
+    ? action === "mark_done"
+      ? dependencyState === "ready" || dependencyState === "none"
+      : dependencyState === "failed_upstream"
+    : null;
+  const notAutoStartedVerified = workerRunState
+    ? workerRunState === "not_started"
+    : null;
+
+  return stripUndefined({
+    dependencyState,
+    dependencyVerified,
+    expectedDependencyState,
+    notAutoStartedVerified,
+    snapshot,
+    taskId: downstreamTaskId,
+    verificationMissing: false,
+    workerRunState,
+  });
+}
+
+function finalizationStatusForCommandResult(
+  status: QueueWorkflowFinalizationCommandStatus,
+  action: QueueWorkflowFinalizationAction,
+): QueueWorkflowFinalizationStatus | "unavailable" {
+  if (status === "succeeded") {
+    return "finalization_completed";
+  }
+  if (status === "already_done") {
+    return action === "mark_done"
+      ? "finalization_already_done"
+      : "finalization_blocked";
+  }
+  if (status === "already_failed") {
+    return action === "fail"
+      ? "finalization_already_failed"
+      : "finalization_blocked";
+  }
+  if (status === "invalid_input") {
+    return "finalization_invalid_input";
+  }
+  if (status === "needs_confirmation") {
+    return "finalization_needs_confirmation";
+  }
+  if (status === "failed_unexpected") {
+    return "finalization_failed_unexpected";
+  }
+  if (status === "unavailable") {
+    return "unavailable";
+  }
+  return "finalization_blocked";
+}
+
+function blockerForFinalizationResult(
+  commandResult: QueueWorkflowFinalizationCommandResult,
+  action: QueueWorkflowFinalizationAction,
+  taskId: string,
+): QueueWorkflowRunnerBlocker {
+  return {
+    fieldPath: commandResult.fieldPath,
+    message:
+      commandResult.message ??
+      commandResult.blocker?.blockerMessage ??
+      `Queue ${finalizationActionLabel(action)} finalization stopped with status ${commandResult.status}.`,
+    reasonCode:
+      commandResult.status === "invalid_input"
+        ? "finalization_invalid_input"
+        : commandResult.status === "needs_confirmation"
+          ? "finalization_confirmation_required"
+          : commandResult.status === "policy_blocked"
+            ? "finalization_policy_blocked"
+            : commandResult.status === "failed_unexpected"
+              ? "failed_unexpected"
+              : "finalization_command_blocked",
+    taskId,
+  };
+}
+
+function finalizationSuccessMessage(
+  status: QueueWorkflowFinalizationCommandStatus,
+  action: QueueWorkflowFinalizationAction,
+): string {
+  if (status === "already_done" || status === "already_failed") {
+    return `Queue ${finalizationActionLabel(action)} finalization is already durable; treating as idempotent.`;
+  }
+  return `Queue ${finalizationActionLabel(action)} finalization completed.`;
+}
+
+function finalizationActionLabel(action: QueueWorkflowFinalizationAction) {
+  return action === "mark_done" ? "accepted completion" : "terminal failure";
+}
+
+function finalizationReason(
+  request: QueueWorkflowRunnerRequest,
+): string | undefined {
+  const finalizationInput = recordRecord(request.inputs, "finalization");
+  return firstString(
+    recordString(finalizationInput, "reason"),
+    recordString(request.inputs, "reason"),
+  );
+}
+
+function finalizationFailureReason(
+  request: QueueWorkflowRunnerRequest,
+): string | undefined {
+  const finalizationInput = recordRecord(request.inputs, "finalization");
+  return firstString(
+    recordString(finalizationInput, "failureReason"),
+    recordString(finalizationInput, "reason"),
+    recordString(request.inputs, "failureReason"),
+  );
+}
+
+function explicitReviewAcknowledged(
+  request: QueueWorkflowRunnerRequest,
+  slot: string,
+): boolean {
+  return booleanRecord(request.inputs?.reviewAcknowledgedBySlot)[slot] === true;
+}
+
+function snapshotForTask(
+  variables: QueueWorkflowVariables,
+  taskId: string,
+): QueueWorkflowLifecycleSnapshot | null {
+  return (
+    variables.readSnapshots.lifecycleByTaskId[taskId] ??
+    variables.readSnapshots.aggregatesByTaskId[taskId] ??
+    null
+  );
+}
+
+function snapshotString(
+  snapshot: QueueWorkflowLifecycleSnapshot | null | undefined,
+  fieldName: "dependencyState" | "reviewState" | "ticketState" | "workerRunState",
+): string | undefined {
+  if (!snapshot) {
+    return undefined;
+  }
+  const snapshotRecord = snapshot as Record<string, unknown>;
+  const aggregate = snapshotRecord["aggregate"];
+  if (isRecord(aggregate)) {
+    return recordString(aggregate, fieldName);
+  }
+  return recordString(snapshotRecord, fieldName);
 }
 
 function setSlotVariable(
@@ -1799,6 +2833,7 @@ function finalStatus(
 function result({
   blockers,
   events,
+  finalizationReport = EMPTY_FINALIZATION_REPORT,
   mutationSummary = MUTATION_SUMMARY,
   readOnly = true,
   reportSummary,
@@ -1809,6 +2844,7 @@ function result({
 }: {
   blockers: QueueWorkflowRunnerBlocker[];
   events: QueueWorkflowRunnerEvent[];
+  finalizationReport?: QueueWorkflowFinalizationReport;
   mutationSummary?: QueueWorkflowRunnerReport["mutationSummary"];
   readOnly?: boolean;
   reportSummary: string;
@@ -1826,6 +2862,7 @@ function result({
     events,
     report: {
       evidenceReads,
+      finalization: { ...finalizationReport },
       missingExplicitIds: blockers
         .filter((blocker) =>
           [
@@ -1853,9 +2890,9 @@ function result({
 function nextMutatingPhase(workflowId: string): string | null {
   switch (workflowId as QueueWorkflowId) {
     case "dependency_acceptance_smoke":
-      return "Later runner phases may create/setup/run/final-accept tasks; current runners only inspect Queue state or mutate review message/ACK ledger when explicitly called.";
+      return "Create/setup/run/evidence phases remain deferred; current explicit runner helpers can inspect Queue state, mutate review message/ACK ledger, or finalize upstream accepted completion when separately invoked with typed ids and confirmation.";
     case "dependency_failure_smoke":
-      return "Later runner phases may create/setup/run/terminal-fail tasks; current runners only inspect Queue state or mutate review message/ACK ledger when explicitly called.";
+      return "Create/setup/run/evidence phases remain deferred; current explicit runner helpers can inspect Queue state, mutate review message/ACK ledger, or finalize upstream terminal failure when separately invoked with typed ids, failure reason, and confirmation.";
     case "review_acceptance":
     case "terminal_failure":
       return null;
@@ -1889,6 +2926,20 @@ function stringRecord(value: unknown): Record<string, string> {
   for (const [key, item] of Object.entries(value)) {
     if (typeof item === "string" && item.trim()) {
       record[key] = item.trim();
+    }
+  }
+  return record;
+}
+
+function booleanRecord(value: unknown): Record<string, boolean> {
+  if (!isRecord(value)) {
+    return {};
+  }
+
+  const record: Record<string, boolean> = {};
+  for (const [key, item] of Object.entries(value)) {
+    if (typeof item === "boolean") {
+      record[key] = item;
     }
   }
   return record;
