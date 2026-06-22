@@ -153,12 +153,12 @@ capability is called. `review_acceptance` and `terminal_failure` are declared
 but return `input_validation_deferred` after grant validation until their typed
 input contract and runner boundary are narrowed.
 
-## Queue Read-Only Workflow Runner MVP
+## Queue Workflow Runner MVP
 
 `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.ts`
-defines the first deterministic Queue-specific workflow runner skeleton. It is
-a pure/control-plane helper, not UI, not generic `AgentRuntime`, and not
-backend truth.
+defines the deterministic Queue-specific workflow runner skeleton. It is a
+pure/control-plane helper, not UI, not generic `AgentRuntime`, and not backend
+truth.
 
 The runner accepts a Queue workflow request plus its existing Queue workflow
 validation result. For `dependency_acceptance_smoke` and
@@ -172,27 +172,50 @@ does not infer task ids, run ids, evidence bundle ids, message ids, or
 executor widget ids from titles, prompts, prose, UI selection, UI order, file
 paths, or repository roots.
 
-The runner uses only an injected `QueueWorkflowReadPort` with read methods for
-Queue aggregate, lifecycle, list, and evidence inspection. Tests use fake read
-ports. The runner does not import Queue UI, visual shell modules, Tauri APIs,
-AgentProvider, WorkerProvider, Action Broker invocation, or Queue adapter
+The read-only phase uses only an injected `QueueWorkflowReadPort` with read
+methods for Queue aggregate, lifecycle, list, and evidence inspection. The
+review phase uses that read port plus a separate injected
+`QueueWorkflowReviewPort` for review message create and ACK commands. Tests use
+fake ports. The runner does not import Queue UI, visual shell modules, Tauri
+APIs, AgentProvider, WorkerProvider, Action Broker invocation, or Queue adapter
 mutation handlers.
 
-Runner results are structured as `completed`, `blocked`, `paused`,
+Read-only runner results are structured as `completed`, `blocked`, `paused`,
 `invalid_request`, `unavailable`, or `failed_unexpected` with workflow-local
 variables, read snapshots, steps, events, blockers, missing explicit ids, and a
 read-only report. If dependency smoke requests do not include existing task ids
 for the required `upstream` and `downstream` slots, the runner pauses with
 `read_only_runner_requires_existing_tasks` / `missing_explicit_task_ids`.
-`review_acceptance` and `terminal_failure` remain
-`input_validation_deferred` and are not inspected by the runner.
+The read-only runner still treats `review_acceptance` and `terminal_failure` as
+`input_validation_deferred` and does not inspect or execute them.
 
-The runner performs no Queue mutation. It does not create tasks, update run
-settings, promote drafts, enable Queue, start workers, record worker evidence,
-create review messages, ACK review messages, mark done, fail, block, add
-follow-up prompts, approve validation, run validation, mutate Git, execute
-rollback, launch Terminal, call shell/Codex, start downstream work, or add
-scheduler behavior. Mutating workflow phases remain future explicit blocks.
+The same module now also exposes an explicit Queue review runner phase through
+an injected `QueueWorkflowReviewPort`. The review runner is provider-
+independent and UI-independent. It can read lifecycle/aggregate state, read a
+durable evidence bundle, create a backend review message, and ACK that review
+message when all required typed ids are present. For dependency smoke
+workflows, review targets only the explicit `upstream` slot and requires an
+explicit upstream `taskId` plus explicit `runId` or `evidenceBundleId`.
+`review_acceptance` is supported only through a minimal explicit typed input
+shape such as `inputs.taskId` plus `inputs.runId` or
+`inputs.evidenceBundleId`; its generic Workspace Agent request validation
+remains deferred. Scope arrays bound ids but never assign slots by order.
+
+Review runner statuses include `review_acknowledged`,
+`review_blocked_missing_evidence`, `review_blocked_missing_task_or_run`,
+`review_message_already_exists`, `review_not_supported_for_workflow`, and
+`failed_unexpected`. Duplicate review creation with an existing `messageId`
+is idempotent and can continue to ACK. ACK `already_done` or `already_exists`
+is also idempotent. ACK uses canonical `messageId`; compatibility
+`reviewMessageId` is not a runner input.
+
+The review runner may mutate only the backend review message/ACK ledger
+through the injected review port. ACK is not completion. The runner does not
+create tasks, update run settings, promote drafts, enable Queue, start workers,
+record worker evidence, mark done, fail, block, add follow-up prompts, approve
+validation, run validation, mutate Git, execute rollback, launch Terminal, call
+shell/Codex, start downstream work, or add scheduler behavior. Finalization
+and broader mutating workflow phases remain future explicit blocks.
 
 Provider turns now pass through the provider-neutral `AgentRuntime` event loop,
 which owns AgentProvider run lifecycle and delegates final-output

@@ -103,8 +103,8 @@ restricted capabilities for explicit workspace/code execution requests only.
   events. Codex Direct Work is the current concrete/default worker
   implementation through a CodexWorkerProvider adapter, not the worker
   architecture. Fake WorkerProviders are allowed for deterministic evidence
-  and terminal-state tests. Queue workflow runners may consume WorkerProvider
-  later, but this seam does not add workflow runner execution, scheduler
+  and terminal-state tests. Future Queue workflow phases may consume
+  WorkerProvider later, but this seam does not add worker starts, scheduler
   behavior, validation execution, Git mutation, rollback, Terminal launch, or
   hidden worker starts.
 - Agent-to-Agent SelfTest: pure model peer checks where Agent A can test Agent
@@ -275,14 +275,22 @@ paths; dependency waiting does not start downstream work.
   required safety constraints are validated before any mutating runner phase.
   The request can validate as `workflow_valid_not_executable`, which means the
   Workspace Agent workflow request path does not execute a workflow. A
-  Queue-specific read-only `QueueWorkflowRunner` now exists as an explicit
-  control-plane helper for inspecting existing Queue state through injected
-  read ports only. It does not create tasks, start workers, review, ACK,
-  markDone, fail, block, follow up, run validation, mutate Git, launch
-  Terminal, roll back, or mutate Queue state. It requires explicit existing
-  task/run/evidence ids and never infers ids from titles, prose, UI order, or
-  file paths. `review_acceptance` and `terminal_failure` remain declared with
-  `input_validation_deferred`.
+  Queue-specific `QueueWorkflowRunner` now exists as an explicit control-plane
+  helper with separate read-only and review phases. The read-only phase
+  inspects existing Queue state through injected read ports. The review phase
+  can read lifecycle/aggregate/evidence state, create a backend review message,
+  and ACK that review message through an injected review port when explicit
+  typed task/run/evidence/message ids are available. ACK is review state, not
+  completion. Already-existing review messages and already-done ACKs are
+  idempotent, actionable states rather than generic failures. The runner does
+  not create tasks, start workers, call `queue.lifecycle.agentFinished`, record
+  evidence, markDone, fail, block, follow up, run validation, mutate Git, launch
+  Terminal, roll back, or mutate Queue state outside review message/ACK ledger
+  operations. It requires explicit existing task/run/evidence ids and never
+  infers ids from titles, prose, UI order, or file paths. `review_acceptance`
+  remains supported only by a minimal explicit typed runner input shape, while
+  generic request validation for `review_acceptance` and `terminal_failure`
+  remains `input_validation_deferred`.
 
 ## Module Control Surface
 
@@ -324,18 +332,19 @@ dependency acceptance/failure smoke requests now validate typed
 `inputs.runSettings`, typed task slots, explicit dependency slot references,
 grant modes, and safety constraints, then return a non-executable
 validation-only result. `review_acceptance` and `terminal_failure` remain
-declared with deferred input validation. The read-only `QueueWorkflowRunner`
-can consume validated Queue workflow requests for explicit read inspection
-only through a `QueueWorkflowReadPort`; generic Workspace Agent request
-handling does not invoke it yet. There is still no mutating Queue workflow
-runner, worker start, validation execution, Git mutation, rollback, Terminal
-launch, scheduler behavior, backend lifecycle semantic change, or UI truth
-path.
+declared with deferred input validation in the generic request path.
+`QueueWorkflowRunner` can consume validated Queue workflow requests for
+explicit read inspection through a `QueueWorkflowReadPort`, and its explicit
+review phase can consume a `QueueWorkflowReviewPort` to perform evidence
+lookup, review message create, and review ACK only. Generic Workspace Agent
+request handling does not invoke it yet. There is still no finalization runner,
+worker start, validation execution, Git mutation, rollback, Terminal launch,
+scheduler behavior, backend lifecycle semantic change, or UI truth path.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture. WorkerProvider is the normalized
 worker boundary for future explicit work-item execution and evidence events;
-the current read-only Queue workflow runner does not consume it.
+the current Queue workflow runner read/review phases do not consume it.
 
 ## Generic `nextAction` Contract
 

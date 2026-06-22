@@ -146,19 +146,26 @@ workflow ids `dependency_acceptance_smoke`, `dependency_failure_smoke`,
 allowed Queue grant modes, and required safety constraints, then returns a
 `workflow_valid_not_executable` validation result. `review_acceptance` and
 `terminal_failure` remain declared with `input_validation_deferred`. Unknown
-Queue workflow ids still report not declared. A deterministic read-only
-`QueueWorkflowRunner` now exists under the Queue module control-plane code. It
-can consume validated Queue workflow requests and inspect explicit existing
-Queue aggregate/lifecycle/evidence ids through an injected read port, returning
-workflow-local variables, read snapshots, steps, events, blockers, pause
-reasons, and a read-only report. It requires explicit task/run/evidence ids,
-including explicit slot task ids for dependency smoke inspection, and does not
-infer ids from title, prompt, prose, UI order, file paths, or repository roots.
-The generic Workspace Agent workflow request path does not invoke the runner
-yet. This block does not add `hobit.queue.workflowRequest`, mutating workflow
-execution, scheduler behavior, worker auto-start, Queue mutation, or Queue
-runtime changes. Prose is never executable workflow input, permission,
-confirmation, or id source.
+Queue workflow ids still report not declared. A deterministic
+`QueueWorkflowRunner` now exists under the Queue module control-plane code with
+separate read-only and review phases. It can consume validated Queue workflow
+requests and inspect explicit existing Queue aggregate/lifecycle/evidence ids
+through an injected read port, returning workflow-local variables, read
+snapshots, steps, events, blockers, pause reasons, and a structured report.
+The review phase can additionally resolve evidence, create a backend review
+message, and ACK that review message through an injected review port when all
+required explicit typed ids are present. It requires explicit task/run/evidence
+ids, including explicit upstream slot task ids for dependency review, and does
+not infer ids from title, prompt, prose, UI order, file paths, or repository
+roots. `review_acceptance` is supported only by minimal explicit typed runner
+inputs while generic request validation remains deferred. Already-existing
+review messages and already-done ACKs are idempotent/actionable states, not
+generic failure. ACK is not task completion. The generic Workspace Agent
+workflow request path does not invoke the runner yet. This block does not add
+`hobit.queue.workflowRequest`, finalization runner execution, scheduler
+behavior, worker auto-start, Queue mutation outside review message/ACK ledger
+operations, or Queue runtime changes. Prose is never executable workflow input,
+permission, confirmation, or id source.
 
 Workspace Agent direct turns now go through a provider-neutral AgentProvider
 seam. Codex Direct Work remains the default implementation through a
@@ -203,11 +210,10 @@ work-item execution and normalized worker evidence/result events. The MVP
 includes a deterministic FakeWorkerProvider, a thin CodexWorkerProvider adapter
 around existing Direct Work stream APIs, and a pure mapping from
 WorkerProvider final results into the current Queue worker evidence ingestion
-input shape. Mutating Queue workflow execution remains not implemented: no
-mutating runner phases, scheduler behavior, Queue auto-start, backend
-lifecycle semantic change, or new Queue capability is added. The current
-QueueWorkflowRunner is read-only inspection only and does not consume
-WorkerProvider.
+input shape. Worker-backed Queue workflow execution remains not implemented:
+no worker start, finalization runner, scheduler behavior, Queue auto-start,
+backend lifecycle semantic change, or new Queue capability is added. The
+current QueueWorkflowRunner read/review phases do not consume WorkerProvider.
 
 The full durable Smart Queue backend/runtime is not implemented yet. Current
 Smart Queue modules are frontend/product-model foundations unless explicitly
@@ -1079,7 +1085,7 @@ The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend Smart Queue persistence;
-- mutating Queue workflow runner execution beyond read-only inspection;
+- Queue workflow runner execution beyond explicit read/review ledger phases;
 - Queue-specific input validation for review/terminal workflows;
 - durable Queue lifecycle transition commands beyond the current aggregate DTO
   and worker-evidence/review create/ACK commands;

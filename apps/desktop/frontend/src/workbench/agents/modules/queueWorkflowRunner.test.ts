@@ -9,10 +9,16 @@ import type {
 import type {
   QueueWorkflowEvidenceReadRequest,
   QueueWorkflowReadPort,
+  QueueWorkflowReviewPort,
+  QueueWorkflowAckReviewMessageRequest,
+  QueueWorkflowAckReviewMessageResult,
+  QueueWorkflowCreateReviewMessageRequest,
+  QueueWorkflowCreateReviewMessageResult,
   QueueWorkflowRunnerRequest,
 } from "./queueWorkflowRunner";
 import {
   runQueueWorkflowReadOnlyRunner,
+  runQueueWorkflowReviewRunner,
 } from "./queueWorkflowRunner";
 import { validateQueueWorkflowRequest } from "./queueWorkflowRequestValidation";
 
@@ -176,7 +182,9 @@ describe("QueueWorkflowRunner", () => {
         taskId: "task-upstream",
       },
     });
-    expect(result.report.nextMutatingPhase).toContain("only reads");
+    expect(result.report.nextMutatingPhase).toContain(
+      "only inspect Queue state or mutate review message/ACK ledger",
+    );
     expect(result.report.mutationSummary).toEqual(
       expect.objectContaining({
         didAckReview: false,
@@ -386,6 +394,563 @@ describe("QueueWorkflowRunner", () => {
     ]);
   });
 
+  it("runs review phase for dependency_acceptance_smoke with explicit upstream taskId and runId", async () => {
+    let finalizationCalls = 0;
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-downstream": aggregate({ taskId: "task-downstream" }),
+        "task-upstream": aggregate({ taskId: "task-upstream" }),
+      },
+      evidence: {
+        "task-upstream|run-upstream|": evidenceQuery({
+          bundleId: "bundle-upstream",
+          runId: "run-upstream",
+          taskId: "task-upstream",
+        }),
+      },
+    });
+    const reviewPort = {
+      ...fakeReviewPort({
+        ackResult: { status: "succeeded" },
+        createResult: {
+          evidenceBundleId: "bundle-upstream",
+          messageId: "message-upstream",
+          runId: "run-upstream",
+          status: "succeeded",
+        },
+      }),
+      failItem: () => {
+        finalizationCalls += 1;
+        throw new Error("failItem must not be called");
+      },
+      markItemDone: () => {
+        finalizationCalls += 1;
+        throw new Error("markItemDone must not be called");
+      },
+      startRun: () => {
+        finalizationCalls += 1;
+        throw new Error("startRun must not be called");
+      },
+    };
+    const request = workflowRequest({
+      inputs: {
+        ...validInputs(),
+        runIdsBySlot: {
+          upstream: "run-upstream",
+        },
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("review_acknowledged");
+    expect(result.variables.evidenceBundleIdsBySlot.upstream).toBe(
+      "bundle-upstream",
+    );
+    expect(result.variables.messageIdsBySlot.upstream).toBe("message-upstream");
+    expect(result.report).toMatchObject({
+      mutationSummary: {
+        didAckReview: true,
+        didBlock: false,
+        didCreateReviewMessage: true,
+        didFail: false,
+        didFollowUp: false,
+        didLaunchTerminal: false,
+        didMarkDone: false,
+        didMutateGit: false,
+        didMutateQueue: true,
+        didRollback: false,
+        didStartWorker: false,
+        didValidate: false,
+      },
+      readOnly: false,
+      review: {
+        ackStatus: "succeeded",
+        createStatus: "succeeded",
+        evidenceBundleId: "bundle-upstream",
+        messageId: "message-upstream",
+        runId: "run-upstream",
+        status: "review_acknowledged",
+        targetSlot: "upstream",
+        taskId: "task-upstream",
+      },
+    });
+    expect(readPort.calls).toEqual([
+      { method: "getQueueItemAggregate", taskId: "task-upstream" },
+      { method: "getLifecycle", taskId: "task-upstream" },
+      {
+        method: "getEvidenceBundle",
+        runId: "run-upstream",
+        taskId: "task-upstream",
+      },
+    ]);
+    expect(reviewPort.calls).toEqual([
+      {
+        evidenceBundleId: "bundle-upstream",
+        method: "createReviewMessage",
+        runId: "run-upstream",
+        taskId: "task-upstream",
+      },
+      {
+        messageId: "message-upstream",
+        method: "ackReviewMessage",
+        taskId: "task-upstream",
+      },
+    ]);
+    expect(finalizationCalls).toBe(0);
+  });
+
+  it("treats already-existing review message and already-done ACK as idempotent", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-downstream": aggregate({ taskId: "task-downstream" }),
+        "task-upstream": aggregate({ taskId: "task-upstream" }),
+      },
+      evidence: {
+        "task-upstream|run-upstream|": evidenceQuery({
+          bundleId: "bundle-upstream",
+          runId: "run-upstream",
+          taskId: "task-upstream",
+        }),
+      },
+    });
+    const reviewPort = fakeReviewPort({
+      ackResult: { status: "already_done" },
+      createResult: {
+        existingMessageId: "message-existing",
+        status: "already_exists",
+      },
+    });
+    const request = workflowRequest({
+      inputs: {
+        ...validInputs(),
+        runIdsBySlot: {
+          upstream: "run-upstream",
+        },
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("review_acknowledged");
+    expect(result.blockers).toEqual([]);
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didAckReview: false,
+        didCreateReviewMessage: false,
+        didMutateQueue: false,
+      }),
+    );
+    expect(result.report.review).toMatchObject({
+      ackStatus: "already_done",
+      createStatus: "already_exists",
+      idempotentAck: true,
+      idempotentCreate: true,
+      messageId: "message-existing",
+      status: "review_acknowledged",
+    });
+    expect(reviewPort.calls).toEqual([
+      {
+        evidenceBundleId: "bundle-upstream",
+        method: "createReviewMessage",
+        runId: "run-upstream",
+        taskId: "task-upstream",
+      },
+      {
+        messageId: "message-existing",
+        method: "ackReviewMessage",
+        taskId: "task-upstream",
+      },
+    ]);
+  });
+
+  it("supports review_acceptance minimally from explicit deferred-validation typed inputs", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-review": aggregate({ taskId: "task-review" }),
+      },
+      evidence: {
+        "task-review|run-review|": evidenceQuery({
+          bundleId: "bundle-review",
+          runId: "run-review",
+          taskId: "task-review",
+        }),
+      },
+    });
+    const reviewPort = fakeReviewPort({
+      ackResult: { status: "succeeded" },
+      createResult: {
+        evidenceBundleId: "bundle-review",
+        messageId: "message-review",
+        runId: "run-review",
+        status: "succeeded",
+      },
+    });
+    const request = workflowRequest({
+      grant: validGrant("queue_operator_flow"),
+      inputs: {
+        runId: "run-review",
+        taskId: "task-review",
+      },
+      workflowId: "review_acceptance",
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("review_acknowledged");
+    expect(result.report.review).toMatchObject({
+      evidenceBundleId: "bundle-review",
+      messageId: "message-review",
+      status: "review_acknowledged",
+      targetSlot: "review",
+      taskId: "task-review",
+    });
+  });
+
+  it("does not support terminal_failure finalization in the review runner", async () => {
+    const readPort = fakeReadPort();
+    const reviewPort = fakeReviewPort();
+    const request = workflowRequest({
+      grant: validGrant("queue_failure_smoke"),
+      workflowId: "terminal_failure",
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("review_not_supported_for_workflow");
+    expect(readPort.calls).toEqual([]);
+    expect(reviewPort.calls).toEqual([]);
+  });
+
+  it("blocks review phase when upstream taskId is missing and does not assign scoped ids by order", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-downstream": aggregate({ taskId: "task-downstream" }),
+        "task-upstream": aggregate({ taskId: "task-upstream" }),
+      },
+    });
+    const reviewPort = fakeReviewPort();
+    const request = workflowRequest({
+      grant: {
+        ...validGrant("queue_acceptance_smoke"),
+        scope: {
+          taskIds: ["task-downstream", "task-upstream"],
+        },
+      },
+      inputs: validInputs(),
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("review_blocked_missing_task_or_run");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        fieldPath: "$.inputs.taskIdsBySlot.upstream",
+        reasonCode: "review_blocked_missing_task_or_run",
+      }),
+    ]);
+    expect(result.variables.taskIdsBySlot).toEqual({});
+    expect(readPort.calls).toEqual([]);
+    expect(reviewPort.calls).toEqual([]);
+  });
+
+  it("blocks review phase when upstream runId and evidenceBundleId are missing", async () => {
+    const readPort = fakeReadPort();
+    const reviewPort = fakeReviewPort();
+    const request = workflowRequest({
+      inputs: {
+        ...validInputs(),
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("review_blocked_missing_task_or_run");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        fieldPath: "$.inputs.runIdsBySlot.upstream",
+        reasonCode: "review_blocked_missing_task_or_run",
+        taskId: "task-upstream",
+      }),
+    ]);
+    expect(readPort.calls).toEqual([]);
+    expect(reviewPort.calls).toEqual([]);
+  });
+
+  it("does not infer review task ids from title, prompt prose, or task order", async () => {
+    const readPort = fakeReadPort();
+    const reviewPort = fakeReviewPort();
+    const request = workflowRequest({
+      inputs: {
+        ...validInputs(),
+        runIdsBySlot: {
+          upstream: "run-upstream",
+        },
+        tasks: [
+          {
+            prompt: "The prose mentions task-upstream but is not typed input.",
+            slot: "upstream",
+            title: "task-upstream",
+          },
+          {
+            dependsOnSlots: ["upstream"],
+            prompt: "The second item mentions task-downstream.",
+            slot: "downstream",
+            title: "task-downstream",
+          },
+        ],
+      },
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("review_blocked_missing_task_or_run");
+    expect(result.variables.taskIdsBySlot).toEqual({});
+    expect(readPort.calls).toEqual([]);
+    expect(reviewPort.calls).toEqual([]);
+  });
+
+  it("blocks review create when evidence cannot be resolved", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-upstream": aggregate({ taskId: "task-upstream" }),
+      },
+    });
+    const reviewPort = fakeReviewPort();
+    const request = workflowRequest({
+      inputs: {
+        ...validInputs(),
+        runIdsBySlot: {
+          upstream: "run-upstream",
+        },
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("review_blocked_missing_evidence");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "review_blocked_missing_evidence",
+        taskId: "task-upstream",
+      }),
+    ]);
+    expect(reviewPort.calls).toEqual([]);
+  });
+
+  it("blocks and does not ACK when review create returns a precondition failure", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-upstream": aggregate({ taskId: "task-upstream" }),
+      },
+      evidence: {
+        "task-upstream|run-upstream|": evidenceQuery({
+          bundleId: "bundle-upstream",
+          runId: "run-upstream",
+          taskId: "task-upstream",
+        }),
+      },
+    });
+    const reviewPort = fakeReviewPort({
+      createResult: {
+        message: "Durable worker evidence is required.",
+        status: "precondition_failed",
+      },
+    });
+    const request = workflowRequest({
+      inputs: {
+        ...validInputs(),
+        runIdsBySlot: {
+          upstream: "run-upstream",
+        },
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        message: "Durable worker evidence is required.",
+        reasonCode: "review_create_blocked",
+      }),
+    ]);
+    expect(reviewPort.calls.map((call) => call.method)).toEqual([
+      "createReviewMessage",
+    ]);
+  });
+
+  it("blocks ACK invalid input after create without finalizing", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-upstream": aggregate({ taskId: "task-upstream" }),
+      },
+      evidence: {
+        "task-upstream|run-upstream|": evidenceQuery({
+          bundleId: "bundle-upstream",
+          runId: "run-upstream",
+          taskId: "task-upstream",
+        }),
+      },
+    });
+    const reviewPort = fakeReviewPort({
+      ackResult: {
+        message: "messageId is invalid.",
+        status: "invalid_input",
+      },
+      createResult: {
+        messageId: "message-upstream",
+        status: "succeeded",
+      },
+    });
+    const request = workflowRequest({
+      inputs: {
+        ...validInputs(),
+        runIdsBySlot: {
+          upstream: "run-upstream",
+        },
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("blocked");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        message: "messageId is invalid.",
+        reasonCode: "review_ack_invalid_input",
+      }),
+    ]);
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didAckReview: false,
+        didCreateReviewMessage: true,
+        didFail: false,
+        didMarkDone: false,
+        didStartWorker: false,
+      }),
+    );
+  });
+
+  it("maps unexpected review port errors to failed_unexpected", async () => {
+    const readPort = fakeReadPort({
+      aggregates: {
+        "task-upstream": aggregate({ taskId: "task-upstream" }),
+      },
+      evidence: {
+        "task-upstream|run-upstream|": evidenceQuery({
+          bundleId: "bundle-upstream",
+          runId: "run-upstream",
+          taskId: "task-upstream",
+        }),
+      },
+    });
+    const reviewPort = fakeReviewPort({
+      createError: new Error("backend review command unavailable"),
+    });
+    const request = workflowRequest({
+      inputs: {
+        ...validInputs(),
+        runIdsBySlot: {
+          upstream: "run-upstream",
+        },
+        taskIdsBySlot: {
+          downstream: "task-downstream",
+          upstream: "task-upstream",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowReviewRunner({
+      readPort,
+      request,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(request),
+    });
+
+    expect(result.status).toBe("failed_unexpected");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        message: "backend review command unavailable",
+        reasonCode: "failed_unexpected",
+      }),
+    ]);
+  });
+
   it("does not import Queue UI, visual shell, providers, Tauri, or WorkerProvider", () => {
     expect(runnerSource).not.toContain("@tauri-apps");
     expect(runnerSource).not.toContain("AgentProvider");
@@ -393,6 +958,7 @@ describe("QueueWorkflowRunner", () => {
     expect(runnerSource).not.toContain("AgentQueueV2Board");
     expect(runnerSource).not.toContain("AgentQueuePlaceholderWidget");
     expect(runnerSource).not.toContain("ModuleShell");
+    expect(runnerSource).not.toContain("reviewMessageId");
     expect(runnerSource).not.toContain("widget.css");
     expect(runnerSource).not.toContain("queueV2");
   });
@@ -468,6 +1034,17 @@ type FakeReadPort = QueueWorkflowReadPort & {
   >;
 };
 
+type FakeReviewPort = QueueWorkflowReviewPort & {
+  calls: Array<
+    | ({
+        method: "ackReviewMessage";
+      } & QueueWorkflowAckReviewMessageRequest)
+    | ({
+        method: "createReviewMessage";
+      } & QueueWorkflowCreateReviewMessageRequest)
+  >;
+};
+
 function fakeReadPort({
   aggregates = {},
   evidence = {},
@@ -500,6 +1077,47 @@ function fakeReadPort({
     listQueueItemAggregates: async () => {
       calls.push({ method: "listQueueItemAggregates" });
       return Object.values(aggregates);
+    },
+  };
+}
+
+function fakeReviewPort({
+  ackResult = { status: "succeeded" },
+  createError,
+  createResult = { messageId: "review-message-1", status: "succeeded" },
+}: {
+  ackResult?: QueueWorkflowAckReviewMessageResult;
+  createError?: Error;
+  createResult?: QueueWorkflowCreateReviewMessageResult;
+} = {}): FakeReviewPort {
+  const calls: FakeReviewPort["calls"] = [];
+  return {
+    calls,
+    ackReviewMessage: async (request) => {
+      calls.push({
+        method: "ackReviewMessage",
+        ...request,
+      });
+      return {
+        messageId: request.messageId,
+        taskId: request.taskId,
+        ...ackResult,
+      };
+    },
+    createReviewMessage: async (request) => {
+      calls.push({
+        method: "createReviewMessage",
+        ...request,
+      });
+      if (createError) {
+        throw createError;
+      }
+      return {
+        evidenceBundleId: request.evidenceBundleId,
+        runId: request.runId,
+        taskId: request.taskId,
+        ...createResult,
+      };
     },
   };
 }

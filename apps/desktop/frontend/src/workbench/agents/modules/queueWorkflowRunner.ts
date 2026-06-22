@@ -4,6 +4,8 @@ import type {
 } from "../broker/workflowGrantInputSplit";
 import type {
   AgentQueueItemAggregate,
+  AgentQueueReviewCreateMessageBlocker,
+  AgentQueueReviewMessage,
   AgentQueueWorkerEvidenceQueryResult,
 } from "../../../workspace/types";
 import type { QueueWorkflowId } from "./queueWorkflowModuleMetadata";
@@ -15,7 +17,16 @@ export type QueueWorkflowRunnerStatus =
   | "paused"
   | "invalid_request"
   | "unavailable"
-  | "failed_unexpected";
+  | "failed_unexpected"
+  | QueueWorkflowReviewStatus;
+
+export type QueueWorkflowReviewStatus =
+  | "review_acknowledged"
+  | "review_blocked_missing_evidence"
+  | "review_blocked_missing_task_or_run"
+  | "review_completed"
+  | "review_message_already_exists"
+  | "review_not_supported_for_workflow";
 
 export type QueueWorkflowRunnerStepStatus =
   | "completed"
@@ -35,6 +46,17 @@ export type QueueWorkflowRunnerBlockerReason =
   | "missing_explicit_task_ids"
   | "read_only_runner_requires_existing_tasks"
   | "read_port_unavailable"
+  | "review_ack_already_done"
+  | "review_ack_blocked"
+  | "review_ack_invalid_input"
+  | "review_ack_missing_message_id"
+  | "review_blocked_missing_evidence"
+  | "review_blocked_missing_task_or_run"
+  | "review_create_blocked"
+  | "review_create_invalid_input"
+  | "review_message_already_exists"
+  | "review_not_supported_for_workflow"
+  | "review_port_unavailable"
   | "workflow_not_supported_read_only";
 
 export type QueueWorkflowRunnerBlocker = {
@@ -47,6 +69,7 @@ export type QueueWorkflowRunnerBlocker = {
 
 export type QueueWorkflowRunnerEvent = {
   message: string;
+  phase?: "read" | "review" | "validate";
   reasonCode?: QueueWorkflowRunnerBlockerReason;
   slot?: string;
   status: QueueWorkflowRunnerStepStatus;
@@ -57,6 +80,8 @@ export type QueueWorkflowRunnerEvent = {
 export type QueueWorkflowRunnerStep = {
   evidenceBundleId?: string;
   message: string;
+  messageId?: string;
+  phase?: "read" | "review" | "validate";
   reasonCode?: QueueWorkflowRunnerBlockerReason;
   runId?: string;
   slot?: string;
@@ -95,6 +120,69 @@ export type QueueWorkflowReadPort = {
     taskId: string,
   ) => Promise<AgentQueueItemAggregate | null>;
   listQueueItemAggregates: () => Promise<readonly AgentQueueItemAggregate[]>;
+};
+
+export type QueueWorkflowReviewCommandStatus =
+  | "already_done"
+  | "already_exists"
+  | "blocked"
+  | "failed_unexpected"
+  | "invalid_input"
+  | "needs_confirmation"
+  | "policy_blocked"
+  | "precondition_failed"
+  | "succeeded"
+  | "unavailable";
+
+export type QueueWorkflowCreateReviewMessageRequest = {
+  evidenceBundleId: string;
+  messageBody?: string;
+  runId?: string;
+  taskId: string;
+};
+
+export type QueueWorkflowAckReviewMessageRequest = {
+  messageId: string;
+  taskId: string;
+};
+
+export type QueueWorkflowCreateReviewMessageResult = {
+  aggregate?: AgentQueueItemAggregate | null;
+  blocker?: AgentQueueReviewCreateMessageBlocker | null;
+  durable?: boolean;
+  evidenceBundleId?: string | null;
+  existingMessageId?: string | null;
+  fieldPath?: string;
+  fieldPaths?: readonly string[];
+  message?: string;
+  messageId?: string | null;
+  reasonCode?: string;
+  reviewMessage?: AgentQueueReviewMessage | null;
+  runId?: string | null;
+  status: QueueWorkflowReviewCommandStatus;
+  taskId?: string;
+};
+
+export type QueueWorkflowAckReviewMessageResult = {
+  aggregate?: AgentQueueItemAggregate | null;
+  durable?: boolean;
+  fieldPath?: string;
+  fieldPaths?: readonly string[];
+  message?: string;
+  messageId?: string | null;
+  reasonCode?: string;
+  reviewMessage?: AgentQueueReviewMessage | null;
+  status: QueueWorkflowReviewCommandStatus;
+  taskId?: string;
+};
+
+export type QueueWorkflowReviewPort = {
+  ackReviewMessage: (
+    request: QueueWorkflowAckReviewMessageRequest,
+  ) => Promise<QueueWorkflowAckReviewMessageResult>;
+  createReviewMessage: (
+    request: QueueWorkflowCreateReviewMessageRequest,
+  ) => Promise<QueueWorkflowCreateReviewMessageResult>;
 };
 
 export type QueueWorkflowRunnerRequest = {
@@ -138,23 +226,40 @@ export type QueueWorkflowRunnerReport = {
   evidenceReads: QueueWorkflowEvidenceReadRequest[];
   missingExplicitIds: string[];
   mutationSummary: {
-    didAckReview: false;
-    didBlock: false;
-    didCreateReviewMessage: false;
-    didFail: false;
-    didFollowUp: false;
-    didMarkDone: false;
-    didMutateQueue: false;
-    didStartWorker: false;
-    didValidate: false;
-    didLaunchTerminal: false;
-    didMutateGit: false;
-    didRollback: false;
+    didAckReview: boolean;
+    didBlock: boolean;
+    didCreateReviewMessage: boolean;
+    didFail: boolean;
+    didFollowUp: boolean;
+    didLaunchTerminal: boolean;
+    didMarkDone: boolean;
+    didMutateGit: boolean;
+    didMutateQueue: boolean;
+    didRollback: boolean;
+    didStartWorker: boolean;
+    didValidate: boolean;
   };
   nextMutatingPhase: string | null;
-  readOnly: true;
+  readOnly: boolean;
+  review: QueueWorkflowReviewReport;
   summary: string;
   taskReads: string[];
+};
+
+export type QueueWorkflowReviewReport = {
+  ackStatus?: QueueWorkflowReviewCommandStatus;
+  createStatus?: QueueWorkflowReviewCommandStatus | "skipped_existing_message";
+  evidenceBundleId?: string;
+  evidenceState?: string;
+  idempotentAck: boolean;
+  idempotentCreate: boolean;
+  messageId?: string;
+  phase: "review";
+  runId?: string;
+  status: QueueWorkflowReviewStatus | null;
+  supportedWorkflow: boolean;
+  targetSlot?: string;
+  taskId?: string;
 };
 
 export type QueueWorkflowRunnerResult = {
@@ -174,10 +279,19 @@ export type QueueWorkflowRunnerInput = {
   validation: QueueWorkflowRequestValidationResult;
 };
 
+export type QueueWorkflowReviewRunnerInput = QueueWorkflowRunnerInput & {
+  reviewPort?: QueueWorkflowReviewPort | null;
+};
+
 const QUEUE_MODULE_ID = "queue";
 const DEPENDENCY_WORKFLOWS = new Set<string>([
   "dependency_acceptance_smoke",
   "dependency_failure_smoke",
+]);
+const REVIEW_WORKFLOWS = new Set<string>([
+  "dependency_acceptance_smoke",
+  "dependency_failure_smoke",
+  "review_acceptance",
 ]);
 const VALIDATION_DEFERRED_WORKFLOWS = new Set<string>([
   "review_acceptance",
@@ -197,6 +311,14 @@ const MUTATION_SUMMARY: QueueWorkflowRunnerReport["mutationSummary"] = {
   didRollback: false,
   didStartWorker: false,
   didValidate: false,
+};
+
+const EMPTY_REVIEW_REPORT: QueueWorkflowReviewReport = {
+  idempotentAck: false,
+  idempotentCreate: false,
+  phase: "review",
+  status: null,
+  supportedWorkflow: false,
 };
 
 export async function runQueueWorkflowReadOnlyRunner(
@@ -385,6 +507,938 @@ export async function runQueueWorkflowReadOnlyRunner(
     steps,
     variables,
   });
+}
+
+export async function runQueueWorkflowReviewRunner(
+  input: QueueWorkflowReviewRunnerInput,
+): Promise<QueueWorkflowRunnerResult> {
+  const steps: QueueWorkflowRunnerStep[] = [];
+  const events: QueueWorkflowRunnerEvent[] = [];
+  const blockers: QueueWorkflowRunnerBlocker[] = [];
+  const variables = buildVariables(input.request);
+  const mutationSummary = { ...MUTATION_SUMMARY };
+
+  const validationBlocker = validateReviewRunnerBoundary(input);
+  if (validationBlocker) {
+    blockers.push(validationBlocker);
+    pushStep(steps, events, {
+      message: validationBlocker.message,
+      phase: "validate",
+      reasonCode: validationBlocker.reasonCode,
+      status: "blocked",
+      stepId: "validate_review_request",
+    });
+    return result({
+      blockers,
+      events,
+      mutationSummary,
+      readOnly: false,
+      reportSummary: validationBlocker.message,
+      status: "invalid_request",
+      steps,
+      variables,
+    });
+  }
+
+  if (!REVIEW_WORKFLOWS.has(input.request.workflowId)) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      fieldPath: "$.workflowId",
+      message: `${input.request.workflowId} is not supported by the Queue review workflow runner.`,
+      reasonCode: "review_not_supported_for_workflow",
+    };
+    blockers.push(blocker);
+    pushStep(steps, events, {
+      message: blocker.message,
+      phase: "review",
+      reasonCode: blocker.reasonCode,
+      status: "blocked",
+      stepId: "select_review_workflow",
+    });
+    return result({
+      blockers,
+      events,
+      mutationSummary,
+      readOnly: false,
+      reportSummary: blocker.message,
+      reviewReport: reviewReport({
+        status: "review_not_supported_for_workflow",
+        supportedWorkflow: false,
+      }),
+      status: "review_not_supported_for_workflow",
+      steps,
+      variables,
+    });
+  }
+
+  const target = resolveReviewTarget(input.request, variables);
+  if (!target.ok) {
+    blockers.push(target.blocker);
+    pushStep(steps, events, {
+      message: target.blocker.message,
+      phase: "review",
+      reasonCode: target.blocker.reasonCode,
+      slot: target.blocker.slot,
+      status: "blocked",
+      stepId: "resolve_review_target",
+      taskId: target.blocker.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      mutationSummary,
+      readOnly: false,
+      reportSummary: target.blocker.message,
+      reviewReport: reviewReport({
+        status: "review_blocked_missing_task_or_run",
+        supportedWorkflow: true,
+        targetSlot: target.blocker.slot,
+        taskId: target.blocker.taskId,
+      }),
+      status: "review_blocked_missing_task_or_run",
+      steps,
+      variables,
+    });
+  }
+
+  const reviewReportDraft = reviewReport({
+    evidenceBundleId: target.value.evidenceBundleId,
+    messageId: target.value.messageId,
+    runId: target.value.runId,
+    status: null,
+    supportedWorkflow: true,
+    targetSlot: target.value.targetSlot,
+    taskId: target.value.taskId,
+  });
+
+  if (!input.readPort) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      message: "Queue workflow read port is unavailable.",
+      reasonCode: "read_port_unavailable",
+      taskId: target.value.taskId,
+    };
+    blockers.push(blocker);
+    pushStep(steps, events, {
+      message: blocker.message,
+      phase: "read",
+      reasonCode: blocker.reasonCode,
+      status: "unavailable",
+      stepId: "open_review_read_port",
+      taskId: target.value.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      mutationSummary,
+      readOnly: false,
+      reportSummary: blocker.message,
+      reviewReport: reviewReportDraft,
+      status: "unavailable",
+      steps,
+      variables,
+    });
+  }
+
+  if (!input.reviewPort) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      message: "Queue workflow review port is unavailable.",
+      reasonCode: "review_port_unavailable",
+      taskId: target.value.taskId,
+    };
+    blockers.push(blocker);
+    pushStep(steps, events, {
+      message: blocker.message,
+      phase: "review",
+      reasonCode: blocker.reasonCode,
+      status: "unavailable",
+      stepId: "open_review_port",
+      taskId: target.value.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      mutationSummary,
+      readOnly: false,
+      reportSummary: blocker.message,
+      reviewReport: reviewReportDraft,
+      status: "unavailable",
+      steps,
+      variables,
+    });
+  }
+
+  try {
+    await readTaskSnapshots({
+      events,
+      readPort: input.readPort,
+      steps,
+      taskIds: [target.value.taskId],
+      variables,
+    });
+
+    const aggregateBlockers = missingAggregateBlockersForReads(variables, [
+      target.value.taskId,
+    ]);
+    if (aggregateBlockers.length > 0) {
+      blockers.push(...aggregateBlockers);
+      return result({
+        blockers,
+        events,
+        mutationSummary,
+        readOnly: false,
+        reportSummary:
+          "Queue review workflow blocked because the explicit task aggregate was not found.",
+        reviewReport: reviewReportDraft,
+        status: "blocked",
+        steps,
+        variables,
+      });
+    }
+
+    const evidence = await resolveReviewEvidence({
+      events,
+      readPort: input.readPort,
+      steps,
+      target: target.value,
+      variables,
+    });
+    reviewReportDraft.evidenceState = evidence.evidenceState;
+    if (!evidence.ok) {
+      blockers.push(evidence.blocker);
+      return result({
+        blockers,
+        events,
+        mutationSummary,
+        readOnly: false,
+        reportSummary: evidence.blocker.message,
+        reviewReport: reviewReport({
+          ...reviewReportDraft,
+          status: "review_blocked_missing_evidence",
+        }),
+        status: "review_blocked_missing_evidence",
+        steps,
+        variables,
+      });
+    }
+
+    reviewReportDraft.evidenceBundleId = evidence.evidenceBundleId;
+    reviewReportDraft.runId = evidence.runId;
+    setSlotVariable(variables, target.value.targetSlot, {
+      evidenceBundleId: evidence.evidenceBundleId,
+      runId: evidence.runId,
+    });
+
+    let messageId = target.value.messageId;
+    let createStatus: QueueWorkflowReviewReport["createStatus"] =
+      messageId ? "skipped_existing_message" : undefined;
+    let idempotentCreate = false;
+
+    if (messageId) {
+      pushStep(steps, events, {
+        message:
+          "Skipped review message creation because a typed messageId was already supplied.",
+        messageId,
+        phase: "review",
+        status: "skipped",
+        stepId: `skip_review_create:${target.value.taskId}`,
+        taskId: target.value.taskId,
+      });
+    } else {
+      const createResult = await input.reviewPort.createReviewMessage(
+        stripUndefined({
+          evidenceBundleId: evidence.evidenceBundleId,
+          messageBody: target.value.messageBody,
+          runId: evidence.runId,
+          taskId: target.value.taskId,
+        }),
+      );
+      createStatus = createResult.status;
+      reviewReportDraft.createStatus = createStatus;
+
+      if (createResult.status === "succeeded") {
+        messageId = cleanString(createResult.messageId);
+        if (!messageId) {
+          const blocker: QueueWorkflowRunnerBlocker = {
+            message:
+              "Queue review create succeeded without returning a messageId.",
+            reasonCode: "failed_unexpected",
+            taskId: target.value.taskId,
+          };
+          blockers.push(blocker);
+          pushStep(steps, events, {
+            message: blocker.message,
+            phase: "review",
+            reasonCode: blocker.reasonCode,
+            status: "failed_unexpected",
+            stepId: `create_review_missing_message:${target.value.taskId}`,
+            taskId: target.value.taskId,
+          });
+          return result({
+            blockers,
+            events,
+            mutationSummary,
+            readOnly: false,
+            reportSummary: blocker.message,
+            reviewReport: reviewReport({
+              ...reviewReportDraft,
+              status: "review_completed",
+            }),
+            status: "failed_unexpected",
+            steps,
+            variables,
+          });
+        }
+        mutationSummary.didCreateReviewMessage = true;
+        mutationSummary.didMutateQueue = true;
+        pushStep(steps, events, {
+          evidenceBundleId: evidence.evidenceBundleId,
+          message: "Queue review message created.",
+          messageId,
+          phase: "review",
+          runId: evidence.runId,
+          status: "completed",
+          stepId: `create_review:${target.value.taskId}`,
+          taskId: target.value.taskId,
+        });
+      } else if (createResult.status === "already_exists") {
+        messageId = messageIdFromCreateResult(createResult);
+        idempotentCreate = true;
+        if (!messageId) {
+          const blocker: QueueWorkflowRunnerBlocker = {
+            message:
+              createResult.message ??
+              "Queue review message already exists, but no existing messageId was returned.",
+            reasonCode: "review_message_already_exists",
+            taskId: target.value.taskId,
+          };
+          blockers.push(blocker);
+          pushStep(steps, events, {
+            message: blocker.message,
+            phase: "review",
+            reasonCode: blocker.reasonCode,
+            status: "blocked",
+            stepId: `create_review_already_exists_missing_message:${target.value.taskId}`,
+            taskId: target.value.taskId,
+          });
+          return result({
+            blockers,
+            events,
+            mutationSummary,
+            readOnly: false,
+            reportSummary: blocker.message,
+            reviewReport: reviewReport({
+              ...reviewReportDraft,
+              createStatus,
+              idempotentCreate,
+              status: "review_message_already_exists",
+            }),
+            status: "review_message_already_exists",
+            steps,
+            variables,
+          });
+        }
+        pushStep(steps, events, {
+          evidenceBundleId: evidence.evidenceBundleId,
+          message: "Queue review message already exists; using existing messageId.",
+          messageId,
+          phase: "review",
+          reasonCode: "review_message_already_exists",
+          runId: evidence.runId,
+          status: "completed",
+          stepId: `create_review_already_exists:${target.value.taskId}`,
+          taskId: target.value.taskId,
+        });
+      } else {
+        const blocker = blockerForCreateReviewResult(
+          createResult,
+          target.value.taskId,
+        );
+        blockers.push(blocker);
+        pushStep(steps, events, {
+          evidenceBundleId: evidence.evidenceBundleId,
+          message: blocker.message,
+          phase: "review",
+          reasonCode: blocker.reasonCode,
+          runId: evidence.runId,
+          status:
+            createResult.status === "failed_unexpected"
+              ? "failed_unexpected"
+              : "blocked",
+          stepId: `create_review_blocked:${target.value.taskId}`,
+          taskId: target.value.taskId,
+        });
+        return result({
+          blockers,
+          events,
+          mutationSummary,
+          readOnly: false,
+          reportSummary: blocker.message,
+          reviewReport: reviewReport({
+            ...reviewReportDraft,
+            createStatus,
+            status: null,
+          }),
+          status:
+            createResult.status === "failed_unexpected"
+              ? "failed_unexpected"
+              : createResult.status === "unavailable"
+                ? "unavailable"
+                : "blocked",
+          steps,
+          variables,
+        });
+      }
+    }
+
+    if (!messageId) {
+      const blocker: QueueWorkflowRunnerBlocker = {
+        message: "Queue review ACK requires messageId.",
+        reasonCode: "review_ack_missing_message_id",
+        taskId: target.value.taskId,
+      };
+      blockers.push(blocker);
+      pushStep(steps, events, {
+        message: blocker.message,
+        phase: "review",
+        reasonCode: blocker.reasonCode,
+        status: "blocked",
+        stepId: `ack_review_missing_message:${target.value.taskId}`,
+        taskId: target.value.taskId,
+      });
+      return result({
+        blockers,
+        events,
+        mutationSummary,
+        readOnly: false,
+        reportSummary: blocker.message,
+        reviewReport: reviewReport({
+          ...reviewReportDraft,
+          createStatus,
+          idempotentCreate,
+          status: "review_completed",
+        }),
+        status: "blocked",
+        steps,
+        variables,
+      });
+    }
+
+    reviewReportDraft.messageId = messageId;
+    setSlotVariable(variables, target.value.targetSlot, { messageId });
+
+    const ackResult = await input.reviewPort.ackReviewMessage({
+      messageId,
+      taskId: target.value.taskId,
+    });
+    const idempotentAck =
+      ackResult.status === "already_done" || ackResult.status === "already_exists";
+
+    if (ackResult.status === "succeeded" || idempotentAck) {
+      if (ackResult.status === "succeeded") {
+        mutationSummary.didAckReview = true;
+        mutationSummary.didMutateQueue = true;
+      }
+      pushStep(steps, events, {
+        message:
+          ackResult.status === "succeeded"
+            ? "Queue review acknowledged."
+            : "Queue review ACK is already durable; treating as idempotent.",
+        messageId,
+        phase: "review",
+        reasonCode: idempotentAck ? "review_ack_already_done" : undefined,
+        status: "completed",
+        stepId: `ack_review:${target.value.taskId}`,
+        taskId: target.value.taskId,
+      });
+      return result({
+        blockers,
+        events,
+        mutationSummary,
+        readOnly: false,
+        reportSummary:
+          "Queue review workflow acknowledged review message without finalization.",
+        reviewReport: reviewReport({
+          ...reviewReportDraft,
+          ackStatus: ackResult.status,
+          createStatus,
+          idempotentAck,
+          idempotentCreate,
+          messageId,
+          status: "review_acknowledged",
+        }),
+        status: "review_acknowledged",
+        steps,
+        variables,
+      });
+    }
+
+    const blocker = blockerForAckReviewResult(ackResult, target.value.taskId);
+    blockers.push(blocker);
+    pushStep(steps, events, {
+      message: blocker.message,
+      messageId,
+      phase: "review",
+      reasonCode: blocker.reasonCode,
+      status:
+        ackResult.status === "failed_unexpected"
+          ? "failed_unexpected"
+          : "blocked",
+      stepId: `ack_review_blocked:${target.value.taskId}`,
+      taskId: target.value.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      mutationSummary,
+      readOnly: false,
+      reportSummary: blocker.message,
+      reviewReport: reviewReport({
+        ...reviewReportDraft,
+        ackStatus: ackResult.status,
+        createStatus,
+        idempotentCreate,
+        messageId,
+        status: "review_completed",
+      }),
+      status:
+        ackResult.status === "failed_unexpected"
+          ? "failed_unexpected"
+          : ackResult.status === "unavailable"
+            ? "unavailable"
+            : "blocked",
+      steps,
+      variables,
+    });
+  } catch (error) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      message:
+        error instanceof Error
+          ? error.message
+          : "Queue review workflow failed unexpectedly.",
+      reasonCode: "failed_unexpected",
+      taskId: target.value.taskId,
+    };
+    blockers.push(blocker);
+    pushStep(steps, events, {
+      message: blocker.message,
+      phase: "review",
+      reasonCode: blocker.reasonCode,
+      status: "failed_unexpected",
+      stepId: "review_failed",
+      taskId: target.value.taskId,
+    });
+    return result({
+      blockers,
+      events,
+      mutationSummary,
+      readOnly: false,
+      reportSummary: blocker.message,
+      reviewReport: reviewReport({
+        ...reviewReportDraft,
+        status: null,
+      }),
+      status: "failed_unexpected",
+      steps,
+      variables,
+    });
+  }
+}
+
+type QueueWorkflowReviewTarget = {
+  evidenceBundleId?: string;
+  messageBody?: string;
+  messageId?: string;
+  runId?: string;
+  targetSlot?: string;
+  taskId: string;
+};
+
+type QueueWorkflowReviewTargetResolution =
+  | { ok: true; value: QueueWorkflowReviewTarget }
+  | { blocker: QueueWorkflowRunnerBlocker; ok: false };
+
+type QueueWorkflowReviewEvidenceResolution =
+  | {
+      evidenceBundleId: string;
+      evidenceState: string;
+      ok: true;
+      runId?: string;
+    }
+  | {
+      blocker: QueueWorkflowRunnerBlocker;
+      evidenceState: string;
+      ok: false;
+    };
+
+function validateReviewRunnerBoundary({
+  request,
+  validation,
+}: QueueWorkflowReviewRunnerInput): QueueWorkflowRunnerBlocker | null {
+  if (request.moduleId !== QUEUE_MODULE_ID) {
+    return {
+      fieldPath: "$.moduleId",
+      message: "Queue review workflow runner only accepts moduleId queue.",
+      reasonCode: "invalid_request",
+    };
+  }
+
+  if (validation.workflowId !== request.workflowId) {
+    return {
+      fieldPath: "$.workflowId",
+      message: "Queue workflow validation result does not match the request workflowId.",
+      reasonCode: "invalid_request",
+    };
+  }
+
+  if (validation.status === "input_validation_deferred") {
+    return null;
+  }
+
+  if (!validation.ok) {
+    return {
+      fieldPath: validation.fieldPath,
+      message: validation.message,
+      reasonCode: "invalid_request",
+    };
+  }
+
+  if (validation.status !== "workflow_valid_not_executable") {
+    return {
+      fieldPath: "$.workflowId",
+      message: "Queue workflow request has not passed Queue workflow validation.",
+      reasonCode: "invalid_request",
+    };
+  }
+
+  return null;
+}
+
+function resolveReviewTarget(
+  request: QueueWorkflowRunnerRequest,
+  variables: QueueWorkflowVariables,
+): QueueWorkflowReviewTargetResolution {
+  if (DEPENDENCY_WORKFLOWS.has(request.workflowId)) {
+    const slot = variables.slots.upstream;
+    const taskId = slot?.taskId;
+    if (!taskId) {
+      return {
+        blocker: {
+          fieldPath: "$.inputs.taskIdsBySlot.upstream",
+          message:
+            "Queue dependency review phase requires explicit upstream taskId.",
+          reasonCode: "review_blocked_missing_task_or_run",
+          slot: "upstream",
+        },
+        ok: false,
+      };
+    }
+
+    if (!slot.runId && !slot.evidenceBundleId) {
+      return {
+        blocker: {
+          fieldPath: "$.inputs.runIdsBySlot.upstream",
+          message:
+            "Queue dependency review phase requires explicit upstream runId or evidenceBundleId.",
+          reasonCode: "review_blocked_missing_task_or_run",
+          slot: "upstream",
+          taskId,
+        },
+        ok: false,
+      };
+    }
+
+    return {
+      ok: true,
+      value: stripUndefined({
+        evidenceBundleId: slot.evidenceBundleId,
+        messageId: slot.messageId,
+        runId: slot.runId,
+        targetSlot: "upstream",
+        taskId,
+      }),
+    };
+  }
+
+  if (request.workflowId === "review_acceptance") {
+    const inputs = request.inputs;
+    const taskId = firstString(
+      recordString(inputs, "taskId"),
+      recordString(recordRecord(inputs, "task"), "taskId"),
+      recordString(recordRecord(inputs, "workerEvidence"), "taskId"),
+      recordString(recordRecord(inputs, "reviewMessage"), "taskId"),
+    );
+    if (!taskId) {
+      return {
+        blocker: {
+          fieldPath: "$.inputs.taskId",
+          message:
+            "Queue review_acceptance phase requires explicit taskId.",
+          reasonCode: "review_blocked_missing_task_or_run",
+        },
+        ok: false,
+      };
+    }
+
+    const runId = firstString(
+      recordString(inputs, "runId"),
+      recordString(recordRecord(inputs, "task"), "runId"),
+      recordString(recordRecord(inputs, "workerEvidence"), "runId"),
+      recordString(recordRecord(inputs, "reviewMessage"), "runId"),
+    );
+    const evidenceBundleId = firstString(
+      recordString(inputs, "evidenceBundleId"),
+      recordString(recordRecord(inputs, "workerEvidence"), "evidenceBundleId"),
+      recordString(recordRecord(inputs, "reviewMessage"), "evidenceBundleId"),
+    );
+    if (!runId && !evidenceBundleId) {
+      return {
+        blocker: {
+          fieldPath: "$.inputs.runId",
+          message:
+            "Queue review_acceptance phase requires explicit runId or evidenceBundleId.",
+          reasonCode: "review_blocked_missing_task_or_run",
+          taskId,
+        },
+        ok: false,
+      };
+    }
+
+    return {
+      ok: true,
+      value: stripUndefined({
+        evidenceBundleId,
+        messageBody: firstString(
+          recordString(inputs, "messageBody"),
+          recordString(recordRecord(inputs, "reviewMessage"), "messageBody"),
+        ),
+        messageId: firstString(
+          recordString(inputs, "messageId"),
+          recordString(recordRecord(inputs, "reviewMessage"), "messageId"),
+        ),
+        runId,
+        targetSlot: "review",
+        taskId,
+      }),
+    };
+  }
+
+  return {
+    blocker: {
+      fieldPath: "$.workflowId",
+      message: `${request.workflowId} is not supported by the Queue review workflow runner.`,
+      reasonCode: "review_not_supported_for_workflow",
+    },
+    ok: false,
+  };
+}
+
+async function resolveReviewEvidence({
+  events,
+  readPort,
+  steps,
+  target,
+  variables,
+}: {
+  events: QueueWorkflowRunnerEvent[];
+  readPort: QueueWorkflowReadPort;
+  steps: QueueWorkflowRunnerStep[];
+  target: QueueWorkflowReviewTarget;
+  variables: QueueWorkflowVariables;
+}): Promise<QueueWorkflowReviewEvidenceResolution> {
+  if (!readPort.getEvidenceBundle) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      message: "Queue evidence read API is unavailable.",
+      reasonCode: "evidence_read_unavailable",
+      taskId: target.taskId,
+    };
+    pushStep(steps, events, {
+      message: blocker.message,
+      phase: "read",
+      reasonCode: blocker.reasonCode,
+      status: "unavailable",
+      stepId: `read_review_evidence_unavailable:${target.taskId}`,
+      taskId: target.taskId,
+    });
+    return { blocker, evidenceState: "unavailable", ok: false };
+  }
+
+  const evidenceRequest = stripUndefined({
+    evidenceBundleId: target.evidenceBundleId,
+    runId: target.runId,
+    taskId: target.taskId,
+  });
+  const evidence = await readPort.getEvidenceBundle(evidenceRequest);
+  variables.readSnapshots.evidenceByKey[evidenceKey(evidenceRequest)] =
+    evidence;
+
+  const evidenceState = evidence?.state ?? "missing";
+  const bundle = evidence?.evidenceBundle ?? null;
+  if (evidenceState !== "available" || !bundle) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      message:
+        evidenceState === "missing"
+          ? "Queue review evidence was not returned."
+          : `Queue review evidence is not available: ${evidenceState}.`,
+      reasonCode: "review_blocked_missing_evidence",
+      taskId: target.taskId,
+    };
+    pushStep(steps, events, {
+      evidenceBundleId: target.evidenceBundleId,
+      message: blocker.message,
+      phase: "read",
+      reasonCode: blocker.reasonCode,
+      runId: target.runId,
+      status: "blocked",
+      stepId: `read_review_evidence:${evidenceKey(evidenceRequest)}`,
+      taskId: target.taskId,
+    });
+    return { blocker, evidenceState, ok: false };
+  }
+
+  if (target.evidenceBundleId && bundle.bundleId !== target.evidenceBundleId) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      message:
+        "Queue review evidence bundle did not match the explicit evidenceBundleId.",
+      reasonCode: "review_blocked_missing_evidence",
+      taskId: target.taskId,
+    };
+    pushStep(steps, events, {
+      evidenceBundleId: target.evidenceBundleId,
+      message: blocker.message,
+      phase: "read",
+      reasonCode: blocker.reasonCode,
+      runId: target.runId,
+      status: "blocked",
+      stepId: `read_review_evidence_mismatch:${evidenceKey(evidenceRequest)}`,
+      taskId: target.taskId,
+    });
+    return { blocker, evidenceState, ok: false };
+  }
+
+  if (target.runId && bundle.runId !== target.runId) {
+    const blocker: QueueWorkflowRunnerBlocker = {
+      message: "Queue review evidence run did not match the explicit runId.",
+      reasonCode: "review_blocked_missing_evidence",
+      taskId: target.taskId,
+    };
+    pushStep(steps, events, {
+      evidenceBundleId: bundle.bundleId,
+      message: blocker.message,
+      phase: "read",
+      reasonCode: blocker.reasonCode,
+      runId: target.runId,
+      status: "blocked",
+      stepId: `read_review_evidence_run_mismatch:${evidenceKey(evidenceRequest)}`,
+      taskId: target.taskId,
+    });
+    return { blocker, evidenceState, ok: false };
+  }
+
+  pushStep(steps, events, {
+    evidenceBundleId: bundle.bundleId,
+    message: "Queue review evidence bundle read from backend.",
+    phase: "read",
+    runId: bundle.runId,
+    status: "completed",
+    stepId: `read_review_evidence:${evidenceKey(evidenceRequest)}`,
+    taskId: target.taskId,
+  });
+
+  return {
+    evidenceBundleId: bundle.bundleId,
+    evidenceState,
+    ok: true,
+    runId: bundle.runId,
+  };
+}
+
+function blockerForCreateReviewResult(
+  createResult: QueueWorkflowCreateReviewMessageResult,
+  taskId: string,
+): QueueWorkflowRunnerBlocker {
+  return {
+    fieldPath: createResult.fieldPath,
+    message:
+      createResult.message ??
+      createResult.blocker?.blockerMessage ??
+      `Queue review message creation stopped with status ${createResult.status}.`,
+    reasonCode:
+      createResult.status === "invalid_input"
+        ? "review_create_invalid_input"
+        : createResult.status === "failed_unexpected"
+          ? "failed_unexpected"
+          : "review_create_blocked",
+    taskId,
+  };
+}
+
+function blockerForAckReviewResult(
+  ackResult: QueueWorkflowAckReviewMessageResult,
+  taskId: string,
+): QueueWorkflowRunnerBlocker {
+  return {
+    fieldPath: ackResult.fieldPath,
+    message:
+      ackResult.message ??
+      `Queue review ACK stopped with status ${ackResult.status}.`,
+    reasonCode:
+      ackResult.status === "invalid_input"
+        ? "review_ack_invalid_input"
+        : ackResult.status === "failed_unexpected"
+          ? "failed_unexpected"
+          : "review_ack_blocked",
+    taskId,
+  };
+}
+
+function messageIdFromCreateResult(
+  createResult: QueueWorkflowCreateReviewMessageResult,
+): string | undefined {
+  return (
+    cleanString(createResult.messageId) ??
+    cleanString(createResult.existingMessageId) ??
+    cleanString(createResult.blocker?.existingMessageId)
+  );
+}
+
+function reviewReport(
+  report: Partial<QueueWorkflowReviewReport>,
+): QueueWorkflowReviewReport {
+  return {
+    ...EMPTY_REVIEW_REPORT,
+    ...stripUndefined(report),
+  };
+}
+
+function setSlotVariable(
+  variables: QueueWorkflowVariables,
+  slot: string | undefined,
+  values: Pick<
+    QueueWorkflowSlotVariables,
+    "evidenceBundleId" | "messageId" | "runId"
+  >,
+) {
+  if (!slot) {
+    return;
+  }
+
+  const current = variables.slots[slot] ?? { slot };
+  const next = stripUndefined({
+    ...current,
+    evidenceBundleId: values.evidenceBundleId ?? current.evidenceBundleId,
+    messageId: values.messageId ?? current.messageId,
+    runId: values.runId ?? current.runId,
+    slot,
+  });
+  variables.slots[slot] = next;
+  if (next.evidenceBundleId) {
+    variables.evidenceBundleIdsBySlot[slot] = next.evidenceBundleId;
+  }
+  if (next.messageId) {
+    variables.messageIdsBySlot[slot] = next.messageId;
+  }
+  if (next.runId) {
+    variables.runIdsBySlot[slot] = next.runId;
+  }
 }
 
 function validateRunnerBoundary({
@@ -745,14 +1799,20 @@ function finalStatus(
 function result({
   blockers,
   events,
+  mutationSummary = MUTATION_SUMMARY,
+  readOnly = true,
   reportSummary,
+  reviewReport = EMPTY_REVIEW_REPORT,
   status,
   steps,
   variables,
 }: {
   blockers: QueueWorkflowRunnerBlocker[];
   events: QueueWorkflowRunnerEvent[];
+  mutationSummary?: QueueWorkflowRunnerReport["mutationSummary"];
+  readOnly?: boolean;
   reportSummary: string;
+  reviewReport?: QueueWorkflowReviewReport;
   status: QueueWorkflowRunnerStatus;
   steps: QueueWorkflowRunnerStep[];
   variables: QueueWorkflowVariables;
@@ -775,9 +1835,10 @@ function result({
           ].includes(blocker.reasonCode),
         )
         .map((blocker) => blocker.fieldPath ?? blocker.reasonCode),
-      mutationSummary: { ...MUTATION_SUMMARY },
+      mutationSummary: { ...mutationSummary },
       nextMutatingPhase: nextMutatingPhase(variables.workflowId),
-      readOnly: true,
+      readOnly,
+      review: { ...reviewReport },
       summary: reportSummary,
       taskReads: Object.keys(variables.readSnapshots.aggregatesByTaskId),
     },
@@ -792,9 +1853,9 @@ function result({
 function nextMutatingPhase(workflowId: string): string | null {
   switch (workflowId as QueueWorkflowId) {
     case "dependency_acceptance_smoke":
-      return "Later runner phases may create/setup/run/review/final-accept tasks, but this runner only reads.";
+      return "Later runner phases may create/setup/run/final-accept tasks; current runners only inspect Queue state or mutate review message/ACK ledger when explicitly called.";
     case "dependency_failure_smoke":
-      return "Later runner phases may create/setup/run/review/terminal-fail tasks, but this runner only reads.";
+      return "Later runner phases may create/setup/run/terminal-fail tasks; current runners only inspect Queue state or mutate review message/ACK ledger when explicitly called.";
     case "review_acceptance":
     case "terminal_failure":
       return null;
@@ -810,6 +1871,7 @@ function pushStep(
   events.push(
     stripUndefined({
       message: step.message,
+      phase: step.phase,
       reasonCode: step.reasonCode,
       slot: step.slot,
       status: step.status,
@@ -881,6 +1943,35 @@ function evidenceRequestFromKey(key: string): QueueWorkflowEvidenceReadRequest {
 
 function nonEmptyString(value: unknown): value is string {
   return typeof value === "string" && Boolean(value.trim());
+}
+
+function cleanString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function firstString(
+  ...values: readonly (string | null | undefined)[]
+): string | undefined {
+  return values.find((value): value is string => Boolean(value));
+}
+
+function recordString(
+  value: unknown,
+  fieldName: string,
+): string | undefined {
+  return isRecord(value) ? cleanString(value[fieldName]) : undefined;
+}
+
+function recordRecord(
+  value: unknown,
+  fieldName: string,
+): Record<string, unknown> | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+
+  const fieldValue = value[fieldName];
+  return isRecord(fieldValue) ? fieldValue : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
