@@ -11,10 +11,13 @@ vi.mock("@tauri-apps/api/core", () => ({
 import * as workflowApi from "./tauriAgentQueueWorkflowApi";
 import {
   cancelAgentQueueWorkflow,
+  applyAgentQueueWorkflowRunSettings,
   getAgentQueueWorkflow,
   getAgentQueueWorkflowReport,
   listAgentQueueWorkflows,
+  materializeAgentQueueWorkflowTaskSlot,
   planAgentQueueWorkflowResume,
+  promoteAgentQueueWorkflowTaskSlot,
   recordAgentQueueWorkflowRunnerReport,
   startAgentQueueWorkflow,
 } from "./tauriAgentQueueWorkflowApi";
@@ -68,6 +71,46 @@ const expectedRun = {
   version: 1,
   workflowId: "queue.read",
   workflowRunId: "workflow_run_1",
+  workspaceId: "workspace_1",
+};
+
+const tauriTask = {
+  approval_policy: "never",
+  assigned_executor_widget_id: "executor_widget_1",
+  codex_executable: "codex.cmd",
+  context_json: null,
+  created_at: "2026-06-22T10:00:00Z",
+  depends_on: ["task_upstream"],
+  description: "Task description",
+  execution_policy: "manual",
+  execution_workspace: "C:/repo",
+  priority: 1,
+  prompt: "Task prompt",
+  queue_item_id: "task_downstream",
+  sandbox: "read_only",
+  status: "draft" as const,
+  title: "Task title",
+  updated_at: "2026-06-22T10:00:00Z",
+  workspace_id: "workspace_1",
+};
+
+const expectedTask = {
+  approvalPolicy: "never",
+  assignedExecutorWidgetId: "executor_widget_1",
+  codexExecutable: "codex.cmd",
+  context: undefined,
+  createdAt: "2026-06-22T10:00:00Z",
+  dependsOn: ["task_upstream"],
+  description: "Task description",
+  executionPolicy: "manual",
+  executionWorkspace: "C:/repo",
+  priority: 1,
+  prompt: "Task prompt",
+  queueItemId: "task_downstream",
+  sandbox: "read_only",
+  status: "draft",
+  title: "Task title",
+  updatedAt: "2026-06-22T10:00:00Z",
   workspaceId: "workspace_1",
 };
 
@@ -158,6 +201,206 @@ describe("queueWorkflow Tauri API wrapper", () => {
       status: "conflict",
       workflowRun: expectedRun,
     });
+  });
+
+  it("materializes workflow task slots through the typed Tauri command", async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      action: null,
+      binding: {
+        create_task_action_id: "workflow_action_create",
+        create_task_action_idempotency_key:
+          "workflow_run_1:create_task:downstream:task-spec-hash",
+        dependency_edge_hash: "dependency-edge-hash",
+        dependency_spec_hash: "dependency-spec-hash",
+        dependency_task_ids: ["task_upstream"],
+        depends_on_slots: ["upstream"],
+        slot: "downstream",
+        task_id: "task_downstream",
+        task_spec_hash: "task-spec-hash",
+      },
+      blocker: null,
+      conflict: null,
+      status: "created",
+      task: tauriTask,
+      workflow_run: tauriRun,
+    });
+
+    await expect(
+      materializeAgentQueueWorkflowTaskSlot({
+        actionIdempotencyKey: "workflow_run_1:create_task:downstream:hash",
+        actorId: "workspace-agent",
+        dependsOnSlots: ["upstream"],
+        slot: "downstream",
+        taskSpec: {
+          priority: 1,
+          prompt: "Task prompt",
+          status: "draft",
+          title: "Task title",
+        },
+        taskSpecHash: "task-spec-hash",
+        workflowRunId: "workflow_run_1",
+        workspaceId: "workspace_1",
+      }),
+    ).resolves.toMatchObject({
+      binding: {
+        dependencyTaskIds: ["task_upstream"],
+        dependsOnSlots: ["upstream"],
+        slot: "downstream",
+        taskId: "task_downstream",
+        taskSpecHash: "task-spec-hash",
+      },
+      status: "created",
+      task: expectedTask,
+      workflowRun: expectedRun,
+    });
+    expect(mocks.invoke).toHaveBeenLastCalledWith(
+      "materialize_agent_queue_workflow_task_slot",
+      {
+        request: {
+          action_idempotency_key: "workflow_run_1:create_task:downstream:hash",
+          actor_id: "workspace-agent",
+          depends_on_slots: ["upstream"],
+          slot: "downstream",
+          task_spec: {
+            description: null,
+            priority: 1,
+            prompt: "Task prompt",
+            status: "draft",
+            title: "Task title",
+          },
+          task_spec_hash: "task-spec-hash",
+          workflow_run_id: "workflow_run_1",
+          workspace_id: "workspace_1",
+        },
+      },
+    );
+  });
+
+  it("applies workflow run settings through the typed Tauri command", async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      action: null,
+      binding: {
+        executor_widget_id: "executor_widget_1",
+        settings_hash: "settings-hash",
+        slot: "upstream",
+        task_id: "task_upstream",
+        update_run_settings_action_id: "workflow_action_settings",
+        update_run_settings_action_idempotency_key:
+          "workflow_run_1:update_run_settings:upstream:settings-hash",
+      },
+      blocker: null,
+      conflict: null,
+      status: "applied",
+      task: { ...tauriTask, queue_item_id: "task_upstream", depends_on: [] },
+      workflow_run: tauriRun,
+    });
+
+    await expect(
+      applyAgentQueueWorkflowRunSettings({
+        actorId: "workspace-agent",
+        runSettings: {
+          approvalPolicy: "never",
+          codexExecutable: "codex.cmd",
+          executionPolicy: "manual",
+          executionWorkspace: "C:/repo",
+          executorWidgetId: "executor_widget_1",
+          sandbox: "read_only",
+        },
+        settingsHash: "settings-hash",
+        slot: "upstream",
+        taskId: "task_upstream",
+        workflowRunId: "workflow_run_1",
+        workspaceId: "workspace_1",
+      }),
+    ).resolves.toMatchObject({
+      binding: {
+        executorWidgetId: "executor_widget_1",
+        settingsHash: "settings-hash",
+        slot: "upstream",
+        taskId: "task_upstream",
+      },
+      status: "applied",
+    });
+    expect(mocks.invoke).toHaveBeenLastCalledWith(
+      "apply_agent_queue_workflow_run_settings",
+      {
+        request: {
+          action_idempotency_key: null,
+          actor_id: "workspace-agent",
+          run_settings: {
+            approval_policy: "never",
+            codex_executable: "codex.cmd",
+            execution_policy: "manual",
+            execution_workspace: "C:/repo",
+            executor_widget_id: "executor_widget_1",
+            sandbox: "read_only",
+          },
+          settings_hash: "settings-hash",
+          slot: "upstream",
+          task_id: "task_upstream",
+          workflow_run_id: "workflow_run_1",
+          workspace_id: "workspace_1",
+        },
+      },
+    );
+  });
+
+  it("promotes workflow task slots through the typed Tauri command", async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      action: null,
+      binding: {
+        promote_action_id: "workflow_action_promote",
+        promote_action_idempotency_key:
+          "workflow_run_1:promote_task:upstream:task-spec-hash:settings-hash",
+        promoted: true,
+        settings_hash: "settings-hash",
+        slot: "upstream",
+        task_id: "task_upstream",
+        task_spec_hash: "task-spec-hash",
+        task_status: "queued",
+      },
+      blocker: null,
+      conflict: null,
+      status: "promoted",
+      task: { ...tauriTask, queue_item_id: "task_upstream", status: "queued" },
+      workflow_run: tauriRun,
+    });
+
+    await expect(
+      promoteAgentQueueWorkflowTaskSlot({
+        settingsHash: "settings-hash",
+        slot: "upstream",
+        taskId: "task_upstream",
+        taskSpecHash: "task-spec-hash",
+        workflowRunId: "workflow_run_1",
+        workspaceId: "workspace_1",
+      }),
+    ).resolves.toMatchObject({
+      binding: {
+        promoted: true,
+        settingsHash: "settings-hash",
+        slot: "upstream",
+        taskId: "task_upstream",
+        taskSpecHash: "task-spec-hash",
+        taskStatus: "queued",
+      },
+      status: "promoted",
+    });
+    expect(mocks.invoke).toHaveBeenLastCalledWith(
+      "promote_agent_queue_workflow_task_slot",
+      {
+        request: {
+          action_idempotency_key: null,
+          actor_id: null,
+          settings_hash: "settings-hash",
+          slot: "upstream",
+          task_id: "task_upstream",
+          task_spec_hash: "task-spec-hash",
+          workflow_run_id: "workflow_run_1",
+          workspace_id: "workspace_1",
+        },
+      },
+    );
   });
 
   it("gets, lists, cancels, and reports persisted queueWorkflow runs", async () => {

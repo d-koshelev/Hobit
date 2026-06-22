@@ -1,14 +1,19 @@
 use hobit_app::{
-    QueueWorkflowAction, QueueWorkflowCancelRequest, QueueWorkflowCancelResult,
-    QueueWorkflowCommandBlocker, QueueWorkflowConflict, QueueWorkflowGetRequest,
-    QueueWorkflowListRequest, QueueWorkflowPlanResumeRequest, QueueWorkflowRecordRunnerAction,
+    QueueWorkflowAction, QueueWorkflowApplyRunSettingsRequest, QueueWorkflowApplyRunSettingsResult,
+    QueueWorkflowCancelRequest, QueueWorkflowCancelResult, QueueWorkflowCommandBlocker,
+    QueueWorkflowConflict, QueueWorkflowGetRequest, QueueWorkflowListRequest,
+    QueueWorkflowMaterializeTaskSlotRequest, QueueWorkflowMaterializeTaskSlotResult,
+    QueueWorkflowPlanResumeRequest, QueueWorkflowPromoteTaskSlotRequest,
+    QueueWorkflowPromoteTaskSlotResult, QueueWorkflowRecordRunnerAction,
     QueueWorkflowRecordRunnerReportRequest, QueueWorkflowRecordRunnerReportResult,
     QueueWorkflowReport, QueueWorkflowResumeBlocker, QueueWorkflowResumePlan, QueueWorkflowRun,
-    QueueWorkflowSlotReconciliation, QueueWorkflowStartRequest, QueueWorkflowStartResult,
-    QueueWorkflowTaskResumeSnapshot,
+    QueueWorkflowRunSettings, QueueWorkflowSlotReconciliation, QueueWorkflowStartRequest,
+    QueueWorkflowStartResult, QueueWorkflowTaskResumeSnapshot, QueueWorkflowTaskSpec,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+
+use crate::agent_queue_task_dto::AgentQueueTaskDto;
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub(crate) struct StartAgentQueueWorkflowRequest {
@@ -82,6 +87,75 @@ pub(crate) struct RecordAgentQueueWorkflowRunnerAction {
     pub result_refs: Option<Value>,
     pub blocker_code: Option<String>,
     pub blocker_message: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct AgentQueueWorkflowTaskSpecRequest {
+    pub title: String,
+    pub prompt: String,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub status: Option<String>,
+    #[serde(default)]
+    pub priority: Option<i64>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct MaterializeAgentQueueWorkflowTaskSlotRequest {
+    pub workspace_id: String,
+    pub workflow_run_id: String,
+    pub slot: String,
+    pub task_spec: AgentQueueWorkflowTaskSpecRequest,
+    #[serde(default)]
+    pub task_spec_hash: Option<String>,
+    #[serde(default)]
+    pub depends_on_slots: Vec<String>,
+    #[serde(default)]
+    pub actor_id: Option<String>,
+    #[serde(default)]
+    pub action_idempotency_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct AgentQueueWorkflowRunSettingsRequest {
+    pub execution_workspace: String,
+    pub codex_executable: String,
+    pub sandbox: String,
+    pub approval_policy: String,
+    pub execution_policy: String,
+    pub executor_widget_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct ApplyAgentQueueWorkflowRunSettingsRequest {
+    pub workspace_id: String,
+    pub workflow_run_id: String,
+    pub slot: String,
+    #[serde(default)]
+    pub task_id: Option<String>,
+    pub run_settings: AgentQueueWorkflowRunSettingsRequest,
+    #[serde(default)]
+    pub settings_hash: Option<String>,
+    #[serde(default)]
+    pub actor_id: Option<String>,
+    #[serde(default)]
+    pub action_idempotency_key: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct PromoteAgentQueueWorkflowTaskSlotRequest {
+    pub workspace_id: String,
+    pub workflow_run_id: String,
+    pub slot: String,
+    #[serde(default)]
+    pub task_id: Option<String>,
+    pub task_spec_hash: String,
+    pub settings_hash: String,
+    #[serde(default)]
+    pub actor_id: Option<String>,
+    #[serde(default)]
+    pub action_idempotency_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -238,6 +312,74 @@ pub(crate) struct AgentQueueWorkflowTaskResumeSnapshotDto {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowTaskSlotBindingDto {
+    pub slot: String,
+    pub task_id: String,
+    pub task_spec_hash: String,
+    pub dependency_spec_hash: String,
+    pub dependency_edge_hash: String,
+    pub depends_on_slots: Vec<String>,
+    pub dependency_task_ids: Vec<String>,
+    pub create_task_action_id: Option<String>,
+    pub create_task_action_idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowMaterializeTaskSlotResultDto {
+    pub status: String,
+    pub workflow_run: Option<AgentQueueWorkflowRunDto>,
+    pub task: Option<AgentQueueTaskDto>,
+    pub action: Option<AgentQueueWorkflowActionDto>,
+    pub binding: Option<AgentQueueWorkflowTaskSlotBindingDto>,
+    pub blocker: Option<AgentQueueWorkflowCommandBlockerDto>,
+    pub conflict: Option<AgentQueueWorkflowConflictDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowRunSettingsBindingDto {
+    pub slot: String,
+    pub task_id: String,
+    pub settings_hash: String,
+    pub executor_widget_id: String,
+    pub update_run_settings_action_id: Option<String>,
+    pub update_run_settings_action_idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowApplyRunSettingsResultDto {
+    pub status: String,
+    pub workflow_run: Option<AgentQueueWorkflowRunDto>,
+    pub task: Option<AgentQueueTaskDto>,
+    pub action: Option<AgentQueueWorkflowActionDto>,
+    pub binding: Option<AgentQueueWorkflowRunSettingsBindingDto>,
+    pub blocker: Option<AgentQueueWorkflowCommandBlockerDto>,
+    pub conflict: Option<AgentQueueWorkflowConflictDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowPromoteTaskSlotBindingDto {
+    pub slot: String,
+    pub task_id: String,
+    pub task_spec_hash: String,
+    pub settings_hash: String,
+    pub promoted: bool,
+    pub task_status: String,
+    pub promote_action_id: Option<String>,
+    pub promote_action_idempotency_key: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowPromoteTaskSlotResultDto {
+    pub status: String,
+    pub workflow_run: Option<AgentQueueWorkflowRunDto>,
+    pub task: Option<AgentQueueTaskDto>,
+    pub action: Option<AgentQueueWorkflowActionDto>,
+    pub binding: Option<AgentQueueWorkflowPromoteTaskSlotBindingDto>,
+    pub blocker: Option<AgentQueueWorkflowCommandBlockerDto>,
+    pub conflict: Option<AgentQueueWorkflowConflictDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct AgentQueueWorkflowResumePlanDto {
     pub status: String,
     pub resume_available: bool,
@@ -350,6 +492,78 @@ impl From<RecordAgentQueueWorkflowRunnerAction> for QueueWorkflowRecordRunnerAct
             result_refs: action.result_refs,
             blocker_code: action.blocker_code,
             blocker_message: action.blocker_message,
+        }
+    }
+}
+
+impl From<AgentQueueWorkflowTaskSpecRequest> for QueueWorkflowTaskSpec {
+    fn from(task_spec: AgentQueueWorkflowTaskSpecRequest) -> Self {
+        Self {
+            title: task_spec.title,
+            prompt: task_spec.prompt,
+            description: task_spec.description,
+            status: task_spec.status,
+            priority: task_spec.priority,
+        }
+    }
+}
+
+impl From<MaterializeAgentQueueWorkflowTaskSlotRequest>
+    for QueueWorkflowMaterializeTaskSlotRequest
+{
+    fn from(request: MaterializeAgentQueueWorkflowTaskSlotRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workflow_run_id: request.workflow_run_id,
+            slot: request.slot,
+            task_spec: request.task_spec.into(),
+            task_spec_hash: request.task_spec_hash,
+            depends_on_slots: request.depends_on_slots,
+            actor_id: request.actor_id,
+            action_idempotency_key: request.action_idempotency_key,
+        }
+    }
+}
+
+impl From<AgentQueueWorkflowRunSettingsRequest> for QueueWorkflowRunSettings {
+    fn from(settings: AgentQueueWorkflowRunSettingsRequest) -> Self {
+        Self {
+            execution_workspace: settings.execution_workspace,
+            codex_executable: settings.codex_executable,
+            sandbox: settings.sandbox,
+            approval_policy: settings.approval_policy,
+            execution_policy: settings.execution_policy,
+            executor_widget_id: settings.executor_widget_id,
+        }
+    }
+}
+
+impl From<ApplyAgentQueueWorkflowRunSettingsRequest> for QueueWorkflowApplyRunSettingsRequest {
+    fn from(request: ApplyAgentQueueWorkflowRunSettingsRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workflow_run_id: request.workflow_run_id,
+            slot: request.slot,
+            task_id: request.task_id,
+            run_settings: request.run_settings.into(),
+            settings_hash: request.settings_hash,
+            actor_id: request.actor_id,
+            action_idempotency_key: request.action_idempotency_key,
+        }
+    }
+}
+
+impl From<PromoteAgentQueueWorkflowTaskSlotRequest> for QueueWorkflowPromoteTaskSlotRequest {
+    fn from(request: PromoteAgentQueueWorkflowTaskSlotRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workflow_run_id: request.workflow_run_id,
+            slot: request.slot,
+            task_id: request.task_id,
+            task_spec_hash: request.task_spec_hash,
+            settings_hash: request.settings_hash,
+            actor_id: request.actor_id,
+            action_idempotency_key: request.action_idempotency_key,
         }
     }
 }
@@ -550,6 +764,111 @@ impl From<QueueWorkflowTaskResumeSnapshot> for AgentQueueWorkflowTaskResumeSnaps
             latest_review_message_status: snapshot.latest_review_message_status,
             latest_completion_decision_id: snapshot.latest_completion_decision_id,
             latest_failure_decision_id: snapshot.latest_failure_decision_id,
+        }
+    }
+}
+
+impl From<hobit_app::QueueWorkflowTaskSlotBindingSummary> for AgentQueueWorkflowTaskSlotBindingDto {
+    fn from(binding: hobit_app::QueueWorkflowTaskSlotBindingSummary) -> Self {
+        Self {
+            slot: binding.slot,
+            task_id: binding.task_id,
+            task_spec_hash: binding.task_spec_hash,
+            dependency_spec_hash: binding.dependency_spec_hash,
+            dependency_edge_hash: binding.dependency_edge_hash,
+            depends_on_slots: binding.depends_on_slots,
+            dependency_task_ids: binding.dependency_task_ids,
+            create_task_action_id: binding.create_task_action_id,
+            create_task_action_idempotency_key: binding.create_task_action_idempotency_key,
+        }
+    }
+}
+
+impl From<QueueWorkflowMaterializeTaskSlotResult>
+    for AgentQueueWorkflowMaterializeTaskSlotResultDto
+{
+    fn from(result: QueueWorkflowMaterializeTaskSlotResult) -> Self {
+        Self {
+            status: result.status.as_str().to_owned(),
+            workflow_run: result.workflow_run.map(AgentQueueWorkflowRunDto::from),
+            task: result.task.map(AgentQueueTaskDto::from),
+            action: result.action.map(AgentQueueWorkflowActionDto::from),
+            binding: result
+                .binding
+                .map(AgentQueueWorkflowTaskSlotBindingDto::from),
+            blocker: result
+                .blocker
+                .map(AgentQueueWorkflowCommandBlockerDto::from),
+            conflict: result.conflict.map(AgentQueueWorkflowConflictDto::from),
+        }
+    }
+}
+
+impl From<hobit_app::QueueWorkflowRunSettingsBindingSummary>
+    for AgentQueueWorkflowRunSettingsBindingDto
+{
+    fn from(binding: hobit_app::QueueWorkflowRunSettingsBindingSummary) -> Self {
+        Self {
+            slot: binding.slot,
+            task_id: binding.task_id,
+            settings_hash: binding.settings_hash,
+            executor_widget_id: binding.executor_widget_id,
+            update_run_settings_action_id: binding.update_run_settings_action_id,
+            update_run_settings_action_idempotency_key: binding
+                .update_run_settings_action_idempotency_key,
+        }
+    }
+}
+
+impl From<QueueWorkflowApplyRunSettingsResult> for AgentQueueWorkflowApplyRunSettingsResultDto {
+    fn from(result: QueueWorkflowApplyRunSettingsResult) -> Self {
+        Self {
+            status: result.status.as_str().to_owned(),
+            workflow_run: result.workflow_run.map(AgentQueueWorkflowRunDto::from),
+            task: result.task.map(AgentQueueTaskDto::from),
+            action: result.action.map(AgentQueueWorkflowActionDto::from),
+            binding: result
+                .binding
+                .map(AgentQueueWorkflowRunSettingsBindingDto::from),
+            blocker: result
+                .blocker
+                .map(AgentQueueWorkflowCommandBlockerDto::from),
+            conflict: result.conflict.map(AgentQueueWorkflowConflictDto::from),
+        }
+    }
+}
+
+impl From<hobit_app::QueueWorkflowPromoteTaskSlotBindingSummary>
+    for AgentQueueWorkflowPromoteTaskSlotBindingDto
+{
+    fn from(binding: hobit_app::QueueWorkflowPromoteTaskSlotBindingSummary) -> Self {
+        Self {
+            slot: binding.slot,
+            task_id: binding.task_id,
+            task_spec_hash: binding.task_spec_hash,
+            settings_hash: binding.settings_hash,
+            promoted: binding.promoted,
+            task_status: binding.task_status,
+            promote_action_id: binding.promote_action_id,
+            promote_action_idempotency_key: binding.promote_action_idempotency_key,
+        }
+    }
+}
+
+impl From<QueueWorkflowPromoteTaskSlotResult> for AgentQueueWorkflowPromoteTaskSlotResultDto {
+    fn from(result: QueueWorkflowPromoteTaskSlotResult) -> Self {
+        Self {
+            status: result.status.as_str().to_owned(),
+            workflow_run: result.workflow_run.map(AgentQueueWorkflowRunDto::from),
+            task: result.task.map(AgentQueueTaskDto::from),
+            action: result.action.map(AgentQueueWorkflowActionDto::from),
+            binding: result
+                .binding
+                .map(AgentQueueWorkflowPromoteTaskSlotBindingDto::from),
+            blocker: result
+                .blocker
+                .map(AgentQueueWorkflowCommandBlockerDto::from),
+            conflict: result.conflict.map(AgentQueueWorkflowConflictDto::from),
         }
     }
 }

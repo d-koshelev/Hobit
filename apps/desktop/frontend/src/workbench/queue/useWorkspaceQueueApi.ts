@@ -37,7 +37,10 @@ import {
   recordAgentQueueWorkerFinished,
 } from "../../workspace/tauriAgentQueueWorkerEvidenceApi";
 import {
+  applyAgentQueueWorkflowRunSettings,
+  materializeAgentQueueWorkflowTaskSlot,
   planAgentQueueWorkflowResume,
+  promoteAgentQueueWorkflowTaskSlot,
   recordAgentQueueWorkflowRunnerReport,
   startAgentQueueWorkflow,
 } from "../../workspace/tauriAgentQueueWorkflowApi";
@@ -440,6 +443,12 @@ export function useWorkspaceQueueApi({
     workerEvidenceActions: {
       getAgentQueueWorkerEvidenceBundle,
       recordAgentQueueWorkerFinished,
+    },
+    workflowActions: {
+      applyWorkflowRunSettings: applyAgentQueueWorkflowRunSettings,
+      materializeWorkflowTaskSlot: materializeAgentQueueWorkflowTaskSlot,
+      promoteWorkflowTaskSlot: promoteAgentQueueWorkflowTaskSlot,
+      startAssignedAgentQueueTask: actions.startAssignedAgentQueueTask,
     },
     queueState: {
       getCurrentWorkspaceRoot: () => normalizedCurrentWorkspaceRoot,

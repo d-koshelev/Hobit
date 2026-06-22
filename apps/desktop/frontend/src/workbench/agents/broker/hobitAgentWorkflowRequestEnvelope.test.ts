@@ -33,7 +33,7 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
           expect.stringContaining("Queue workflow request validated"),
           expect.stringContaining("runtime adapter"),
           expect.stringContaining("Validation itself does not call Queue capabilities"),
-          expect.stringContaining("no task creation"),
+          expect.stringContaining("create/setup/start"),
         ]),
         status: "workflow_valid_not_executable",
         workflowMetadata: {
@@ -798,6 +798,8 @@ function validRunSettings() {
   return {
     approvalPolicy: "on_request",
     codexExecutable: "codex.cmd",
+    executionPolicy: "manual",
+    executorWidgetId: "executor-widget-1",
     sandbox: "workspace_write",
     workspaceRoot: "C:/repo",
   };

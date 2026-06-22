@@ -1,24 +1,34 @@
 import { invoke } from "@tauri-apps/api/core";
 import type {
   AgentQueueWorkflowAction,
+  AgentQueueWorkflowApplyRunSettingsResult,
   AgentQueueWorkflowCancelResult,
   AgentQueueWorkflowCommandBlocker,
   AgentQueueWorkflowConflict,
+  AgentQueueWorkflowMaterializeTaskSlotResult,
+  AgentQueueWorkflowPromoteTaskSlotResult,
   AgentQueueWorkflowReport,
   AgentQueueWorkflowResumeBlocker,
   AgentQueueWorkflowResumePlan,
   AgentQueueWorkflowRunnerReportRecordResult,
+  AgentQueueTask,
+  AgentQueueTaskContext,
+  AgentQueueTaskExecutionPolicy,
   AgentQueueWorkflowSlotReconciliation,
   AgentQueueWorkflowTaskResumeSnapshot,
   AgentQueueWorkflowRun,
   AgentQueueWorkflowStartResult,
+  ApplyAgentQueueWorkflowRunSettingsRequest,
   CancelAgentQueueWorkflowRequest,
   GetAgentQueueWorkflowRequest,
   ListAgentQueueWorkflowsRequest,
+  MaterializeAgentQueueWorkflowTaskSlotRequest,
   PlanAgentQueueWorkflowResumeRequest,
+  PromoteAgentQueueWorkflowTaskSlotRequest,
   RecordAgentQueueWorkflowRunnerReportRequest,
   StartAgentQueueWorkflowRequest,
 } from "./types";
+import type { TauriAgentQueueTask } from "./tauriAgentQueueDto";
 
 type TauriAgentQueueWorkflowRun = {
   workflow_run_id: string;
@@ -96,6 +106,68 @@ type TauriAgentQueueWorkflowRunnerReportRecordResult = {
   status: string;
   workflow_run: TauriAgentQueueWorkflowRun | null;
   actions: TauriAgentQueueWorkflowAction[];
+  blocker: TauriAgentQueueWorkflowCommandBlocker | null;
+  conflict: TauriAgentQueueWorkflowConflict | null;
+};
+
+type TauriAgentQueueWorkflowTaskSlotBinding = {
+  slot: string;
+  task_id: string;
+  task_spec_hash: string;
+  dependency_spec_hash: string;
+  dependency_edge_hash: string;
+  depends_on_slots: string[];
+  dependency_task_ids: string[];
+  create_task_action_id: string | null;
+  create_task_action_idempotency_key: string;
+};
+
+type TauriAgentQueueWorkflowMaterializeTaskSlotResult = {
+  status: string;
+  workflow_run: TauriAgentQueueWorkflowRun | null;
+  task: TauriAgentQueueTask | null;
+  action: TauriAgentQueueWorkflowAction | null;
+  binding: TauriAgentQueueWorkflowTaskSlotBinding | null;
+  blocker: TauriAgentQueueWorkflowCommandBlocker | null;
+  conflict: TauriAgentQueueWorkflowConflict | null;
+};
+
+type TauriAgentQueueWorkflowRunSettingsBinding = {
+  slot: string;
+  task_id: string;
+  settings_hash: string;
+  executor_widget_id: string;
+  update_run_settings_action_id: string | null;
+  update_run_settings_action_idempotency_key: string;
+};
+
+type TauriAgentQueueWorkflowApplyRunSettingsResult = {
+  status: string;
+  workflow_run: TauriAgentQueueWorkflowRun | null;
+  task: TauriAgentQueueTask | null;
+  action: TauriAgentQueueWorkflowAction | null;
+  binding: TauriAgentQueueWorkflowRunSettingsBinding | null;
+  blocker: TauriAgentQueueWorkflowCommandBlocker | null;
+  conflict: TauriAgentQueueWorkflowConflict | null;
+};
+
+type TauriAgentQueueWorkflowPromoteTaskSlotBinding = {
+  slot: string;
+  task_id: string;
+  task_spec_hash: string;
+  settings_hash: string;
+  promoted: boolean;
+  task_status: string;
+  promote_action_id: string | null;
+  promote_action_idempotency_key: string;
+};
+
+type TauriAgentQueueWorkflowPromoteTaskSlotResult = {
+  status: string;
+  workflow_run: TauriAgentQueueWorkflowRun | null;
+  task: TauriAgentQueueTask | null;
+  action: TauriAgentQueueWorkflowAction | null;
+  binding: TauriAgentQueueWorkflowPromoteTaskSlotBinding | null;
   blocker: TauriAgentQueueWorkflowCommandBlocker | null;
   conflict: TauriAgentQueueWorkflowConflict | null;
 };
@@ -326,6 +398,85 @@ export async function recordAgentQueueWorkflowRunnerReport(
   return normalizeRunnerReportRecordResult(result);
 }
 
+export async function materializeAgentQueueWorkflowTaskSlot(
+  request: MaterializeAgentQueueWorkflowTaskSlotRequest,
+): Promise<AgentQueueWorkflowMaterializeTaskSlotResult> {
+  const result = await invoke<TauriAgentQueueWorkflowMaterializeTaskSlotResult>(
+    "materialize_agent_queue_workflow_task_slot",
+    {
+      request: {
+        action_idempotency_key: request.actionIdempotencyKey ?? null,
+        actor_id: request.actorId ?? null,
+        depends_on_slots: request.dependsOnSlots ?? [],
+        slot: request.slot,
+        task_spec: {
+          description: request.taskSpec.description ?? null,
+          priority: request.taskSpec.priority ?? null,
+          prompt: request.taskSpec.prompt,
+          status: request.taskSpec.status ?? null,
+          title: request.taskSpec.title,
+        },
+        task_spec_hash: request.taskSpecHash ?? null,
+        workflow_run_id: request.workflowRunId,
+        workspace_id: request.workspaceId,
+      },
+    },
+  );
+
+  return normalizeMaterializeTaskSlotResult(result);
+}
+
+export async function applyAgentQueueWorkflowRunSettings(
+  request: ApplyAgentQueueWorkflowRunSettingsRequest,
+): Promise<AgentQueueWorkflowApplyRunSettingsResult> {
+  const result = await invoke<TauriAgentQueueWorkflowApplyRunSettingsResult>(
+    "apply_agent_queue_workflow_run_settings",
+    {
+      request: {
+        action_idempotency_key: request.actionIdempotencyKey ?? null,
+        actor_id: request.actorId ?? null,
+        run_settings: {
+          approval_policy: request.runSettings.approvalPolicy,
+          codex_executable: request.runSettings.codexExecutable,
+          execution_policy: request.runSettings.executionPolicy,
+          execution_workspace: request.runSettings.executionWorkspace,
+          executor_widget_id: request.runSettings.executorWidgetId,
+          sandbox: request.runSettings.sandbox,
+        },
+        settings_hash: request.settingsHash ?? null,
+        slot: request.slot,
+        task_id: request.taskId ?? null,
+        workflow_run_id: request.workflowRunId,
+        workspace_id: request.workspaceId,
+      },
+    },
+  );
+
+  return normalizeApplyRunSettingsResult(result);
+}
+
+export async function promoteAgentQueueWorkflowTaskSlot(
+  request: PromoteAgentQueueWorkflowTaskSlotRequest,
+): Promise<AgentQueueWorkflowPromoteTaskSlotResult> {
+  const result = await invoke<TauriAgentQueueWorkflowPromoteTaskSlotResult>(
+    "promote_agent_queue_workflow_task_slot",
+    {
+      request: {
+        action_idempotency_key: request.actionIdempotencyKey ?? null,
+        actor_id: request.actorId ?? null,
+        settings_hash: request.settingsHash,
+        slot: request.slot,
+        task_id: request.taskId ?? null,
+        task_spec_hash: request.taskSpecHash,
+        workflow_run_id: request.workflowRunId,
+        workspace_id: request.workspaceId,
+      },
+    },
+  );
+
+  return normalizePromoteTaskSlotResult(result);
+}
+
 export function normalizeAgentQueueWorkflowRun(
   run: TauriAgentQueueWorkflowRun,
 ): AgentQueueWorkflowRun {
@@ -361,6 +512,84 @@ function normalizeRunnerReportRecordResult(
     blocker: result.blocker ? normalizeBlocker(result.blocker) : null,
     conflict: result.conflict ? normalizeConflict(result.conflict) : null,
     status: result.status,
+    workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
+  };
+}
+
+function normalizeMaterializeTaskSlotResult(
+  result: TauriAgentQueueWorkflowMaterializeTaskSlotResult,
+): AgentQueueWorkflowMaterializeTaskSlotResult {
+  return {
+    action: result.action ? normalizeAction(result.action) : null,
+    binding: result.binding
+      ? {
+          createTaskActionId: result.binding.create_task_action_id,
+          createTaskActionIdempotencyKey:
+            result.binding.create_task_action_idempotency_key,
+          dependencyEdgeHash: result.binding.dependency_edge_hash,
+          dependencySpecHash: result.binding.dependency_spec_hash,
+          dependencyTaskIds: result.binding.dependency_task_ids,
+          dependsOnSlots: result.binding.depends_on_slots,
+          slot: result.binding.slot,
+          taskId: result.binding.task_id,
+          taskSpecHash: result.binding.task_spec_hash,
+        }
+      : null,
+    blocker: result.blocker ? normalizeBlocker(result.blocker) : null,
+    conflict: result.conflict ? normalizeConflict(result.conflict) : null,
+    status: result.status,
+    task: result.task ? normalizeAgentQueueTask(result.task) : null,
+    workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
+  };
+}
+
+function normalizeApplyRunSettingsResult(
+  result: TauriAgentQueueWorkflowApplyRunSettingsResult,
+): AgentQueueWorkflowApplyRunSettingsResult {
+  return {
+    action: result.action ? normalizeAction(result.action) : null,
+    binding: result.binding
+      ? {
+          executorWidgetId: result.binding.executor_widget_id,
+          settingsHash: result.binding.settings_hash,
+          slot: result.binding.slot,
+          taskId: result.binding.task_id,
+          updateRunSettingsActionId:
+            result.binding.update_run_settings_action_id,
+          updateRunSettingsActionIdempotencyKey:
+            result.binding.update_run_settings_action_idempotency_key,
+        }
+      : null,
+    blocker: result.blocker ? normalizeBlocker(result.blocker) : null,
+    conflict: result.conflict ? normalizeConflict(result.conflict) : null,
+    status: result.status,
+    task: result.task ? normalizeAgentQueueTask(result.task) : null,
+    workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
+  };
+}
+
+function normalizePromoteTaskSlotResult(
+  result: TauriAgentQueueWorkflowPromoteTaskSlotResult,
+): AgentQueueWorkflowPromoteTaskSlotResult {
+  return {
+    action: result.action ? normalizeAction(result.action) : null,
+    binding: result.binding
+      ? {
+          promoteActionId: result.binding.promote_action_id,
+          promoteActionIdempotencyKey:
+            result.binding.promote_action_idempotency_key,
+          promoted: result.binding.promoted,
+          settingsHash: result.binding.settings_hash,
+          slot: result.binding.slot,
+          taskId: result.binding.task_id,
+          taskSpecHash: result.binding.task_spec_hash,
+          taskStatus: result.binding.task_status,
+        }
+      : null,
+    blocker: result.blocker ? normalizeBlocker(result.blocker) : null,
+    conflict: result.conflict ? normalizeConflict(result.conflict) : null,
+    status: result.status,
+    task: result.task ? normalizeAgentQueueTask(result.task) : null,
     workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
   };
 }
@@ -426,6 +655,134 @@ function normalizeRun(run: TauriAgentQueueWorkflowRun): AgentQueueWorkflowRun {
     workflowRunId: run.workflow_run_id,
     workspaceId: run.workspace_id,
   };
+}
+
+function normalizeAgentQueueTask(task: TauriAgentQueueTask): AgentQueueTask {
+  return {
+    approvalPolicy: normalizeApprovalPolicy(task.approval_policy),
+    assignedExecutorWidgetId: task.assigned_executor_widget_id,
+    codexExecutable: task.codex_executable ?? null,
+    context: normalizeAgentQueueTaskContext(task.context_json),
+    createdAt: task.created_at,
+    dependsOn: normalizeDependsOn(task.depends_on),
+    description: task.description,
+    executionPolicy: normalizeExecutionPolicy(task.execution_policy),
+    executionWorkspace: task.execution_workspace ?? null,
+    priority: task.priority,
+    prompt: task.prompt,
+    queueItemId: task.queue_item_id,
+    sandbox: normalizeSandbox(task.sandbox),
+    status: task.status,
+    title: task.title,
+    updatedAt: task.updated_at,
+    workspaceId: task.workspace_id,
+  };
+}
+
+function normalizeDependsOn(dependsOn: string[] | null | undefined): string[] {
+  return Array.isArray(dependsOn)
+    ? dependsOn.filter((dependencyId) => typeof dependencyId === "string")
+    : [];
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeAgentQueueTaskContext(
+  contextJson: string | null | undefined,
+): AgentQueueTaskContext | undefined {
+  if (!contextJson) {
+    return undefined;
+  }
+
+  try {
+    const value = JSON.parse(contextJson);
+    if (!isRecord(value)) {
+      return undefined;
+    }
+
+    return {
+      attachedKnowledgeRefs: Array.isArray(value.attachedKnowledgeRefs)
+        ? (value.attachedKnowledgeRefs as AgentQueueTaskContext["attachedKnowledgeRefs"])
+        : [],
+      attachedSkillRefs: Array.isArray(value.attachedSkillRefs)
+        ? (value.attachedSkillRefs as AgentQueueTaskContext["attachedSkillRefs"])
+        : [],
+      attachedKnowledgeSnapshots: Array.isArray(value.attachedKnowledgeSnapshots)
+        ? (value.attachedKnowledgeSnapshots as AgentQueueTaskContext["attachedKnowledgeSnapshots"])
+        : [],
+      contextWarnings: Array.isArray(value.contextWarnings)
+        ? (value.contextWarnings as AgentQueueTaskContext["contextWarnings"])
+        : [],
+      contextTokenBudget: isRecord(value.contextTokenBudget)
+        ? {
+            estimatedTokens:
+              typeof value.contextTokenBudget.estimatedTokens === "number"
+                ? value.contextTokenBudget.estimatedTokens
+                : 0,
+            maxTokens:
+              typeof value.contextTokenBudget.maxTokens === "number"
+                ? value.contextTokenBudget.maxTokens
+                : 0,
+            overBudget:
+              typeof value.contextTokenBudget.overBudget === "boolean"
+                ? value.contextTokenBudget.overBudget
+                : false,
+          }
+        : { estimatedTokens: 0, maxTokens: 0, overBudget: false },
+      materializedAt:
+        typeof value.materializedAt === "string" ? value.materializedAt : null,
+    };
+  } catch {
+    return undefined;
+  }
+}
+
+function normalizeSandbox(
+  sandbox: string | null | undefined,
+): AgentQueueTask["sandbox"] {
+  if (
+    sandbox === "read_only" ||
+    sandbox === "workspace_write" ||
+    sandbox === "danger_full_access"
+  ) {
+    return sandbox;
+  }
+
+  return null;
+}
+
+function normalizeApprovalPolicy(
+  approvalPolicy: string | null | undefined,
+): AgentQueueTask["approvalPolicy"] {
+  if (
+    approvalPolicy === "never" ||
+    approvalPolicy === "on_request" ||
+    approvalPolicy === "untrusted"
+  ) {
+    return approvalPolicy;
+  }
+
+  return null;
+}
+
+function normalizeExecutionPolicy(
+  executionPolicy: string | null | undefined,
+): AgentQueueTaskExecutionPolicy {
+  return isAgentQueueTaskExecutionPolicy(executionPolicy)
+    ? executionPolicy
+    : "manual";
+}
+
+function isAgentQueueTaskExecutionPolicy(
+  executionPolicy: string | null | undefined,
+): executionPolicy is AgentQueueTaskExecutionPolicy {
+  return (
+    executionPolicy === "manual" ||
+    executionPolicy === "auto" ||
+    executionPolicy === "after_previous_success"
+  );
 }
 
 function normalizeAction(

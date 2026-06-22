@@ -18,7 +18,7 @@ describe("queueWorkflowRequestValidation", () => {
         expect.stringContaining("Queue workflow request validated"),
         expect.stringContaining("runtime adapter"),
         expect.stringContaining("Validation itself does not call Queue capabilities"),
-        expect.stringContaining("no task creation"),
+        expect.stringContaining("create/setup/start"),
       ]),
       status: "workflow_valid_not_executable",
       workflowId: "dependency_acceptance_smoke",
@@ -595,6 +595,8 @@ function validRunSettings(overrides: Record<string, unknown> = {}) {
   return {
     approvalPolicy: "on_request",
     codexExecutable: "codex.cmd",
+    executionPolicy: "manual",
+    executorWidgetId: "executor-widget-1",
     sandbox: "workspace_write",
     workspaceRoot: "C:/repo",
     ...overrides,

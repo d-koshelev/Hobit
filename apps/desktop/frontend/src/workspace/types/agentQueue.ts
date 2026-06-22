@@ -904,6 +904,11 @@ export type AgentQueueWorkflowResumePlanStatus =
   | "blocked_missing_evidence"
   | "blocked_missing_confirmation"
   | "blocked_stale_grant"
+  | "blocked_settings_mismatch"
+  | "blocked_promote_state_mismatch"
+  | "blocked_executor_mismatch"
+  | "waiting_for_run_settings"
+  | "waiting_for_promote"
   | "terminal_completed"
   | "terminal_failed"
   | "terminal_cancelled"
@@ -981,6 +986,145 @@ export type AgentQueueWorkflowResumePlan = {
   requiredConfirmation: boolean;
   terminalStatus: string | null;
   reportSummary: string;
+};
+
+export type AgentQueueWorkflowTaskSpec = {
+  title: string;
+  prompt: string;
+  description?: string | null;
+  status?: AgentQueueTaskStatus | string | null;
+  priority?: number | null;
+};
+
+export type MaterializeAgentQueueWorkflowTaskSlotRequest = {
+  workspaceId: string;
+  workflowRunId: string;
+  slot: string;
+  taskSpec: AgentQueueWorkflowTaskSpec;
+  taskSpecHash?: string | null;
+  dependsOnSlots?: string[];
+  actorId?: string | null;
+  actionIdempotencyKey?: string | null;
+};
+
+export type AgentQueueWorkflowTaskSlotBinding = {
+  slot: string;
+  taskId: string;
+  taskSpecHash: string;
+  dependencySpecHash: string;
+  dependencyEdgeHash: string;
+  dependsOnSlots: string[];
+  dependencyTaskIds: string[];
+  createTaskActionId: string | null;
+  createTaskActionIdempotencyKey: string;
+};
+
+export type AgentQueueWorkflowMaterializeTaskSlotStatus =
+  | "created"
+  | "reused"
+  | "conflict"
+  | "blocked"
+  | "not_found"
+  | "invalid_input"
+  | string;
+
+export type AgentQueueWorkflowMaterializeTaskSlotResult = {
+  status: AgentQueueWorkflowMaterializeTaskSlotStatus;
+  workflowRun: AgentQueueWorkflowRun | null;
+  task: AgentQueueTask | null;
+  action: AgentQueueWorkflowAction | null;
+  binding: AgentQueueWorkflowTaskSlotBinding | null;
+  blocker: AgentQueueWorkflowCommandBlocker | null;
+  conflict: AgentQueueWorkflowConflict | null;
+};
+
+export type AgentQueueWorkflowRunSettings = {
+  executionWorkspace: string;
+  codexExecutable: string;
+  sandbox: RunCodexDirectWorkRequest["sandbox"] | string;
+  approvalPolicy: RunCodexDirectWorkRequest["approvalPolicy"] | string;
+  executionPolicy: AgentQueueTaskExecutionPolicy | string;
+  executorWidgetId: string;
+};
+
+export type ApplyAgentQueueWorkflowRunSettingsRequest = {
+  workspaceId: string;
+  workflowRunId: string;
+  slot: string;
+  taskId?: string | null;
+  runSettings: AgentQueueWorkflowRunSettings;
+  settingsHash?: string | null;
+  actorId?: string | null;
+  actionIdempotencyKey?: string | null;
+};
+
+export type AgentQueueWorkflowRunSettingsBinding = {
+  slot: string;
+  taskId: string;
+  settingsHash: string;
+  executorWidgetId: string;
+  updateRunSettingsActionId: string | null;
+  updateRunSettingsActionIdempotencyKey: string;
+};
+
+export type AgentQueueWorkflowApplyRunSettingsStatus =
+  | "applied"
+  | "reused"
+  | "conflict"
+  | "blocked"
+  | "not_found"
+  | "invalid_input"
+  | string;
+
+export type AgentQueueWorkflowApplyRunSettingsResult = {
+  status: AgentQueueWorkflowApplyRunSettingsStatus;
+  workflowRun: AgentQueueWorkflowRun | null;
+  task: AgentQueueTask | null;
+  action: AgentQueueWorkflowAction | null;
+  binding: AgentQueueWorkflowRunSettingsBinding | null;
+  blocker: AgentQueueWorkflowCommandBlocker | null;
+  conflict: AgentQueueWorkflowConflict | null;
+};
+
+export type PromoteAgentQueueWorkflowTaskSlotRequest = {
+  workspaceId: string;
+  workflowRunId: string;
+  slot: string;
+  taskId?: string | null;
+  taskSpecHash: string;
+  settingsHash: string;
+  actorId?: string | null;
+  actionIdempotencyKey?: string | null;
+};
+
+export type AgentQueueWorkflowPromoteTaskSlotBinding = {
+  slot: string;
+  taskId: string;
+  taskSpecHash: string;
+  settingsHash: string;
+  promoted: boolean;
+  taskStatus: string;
+  promoteActionId: string | null;
+  promoteActionIdempotencyKey: string;
+};
+
+export type AgentQueueWorkflowPromoteTaskSlotStatus =
+  | "promoted"
+  | "reused"
+  | "conflict"
+  | "blocked"
+  | "not_found"
+  | "invalid_input"
+  | string;
+
+export type AgentQueueWorkflowPromoteTaskSlotResult = {
+  status: AgentQueueWorkflowPromoteTaskSlotStatus;
+  workflowRun: AgentQueueWorkflowRun | null;
+  task: AgentQueueTask | null;
+  action: AgentQueueWorkflowAction | null;
+  binding: AgentQueueWorkflowPromoteTaskSlotBinding | null;
+  blocker: AgentQueueWorkflowCommandBlocker | null;
+  conflict: AgentQueueWorkflowConflict | null;
 };
 
 export type DeleteAgentQueueTaskRequest = GetAgentQueueTaskRequest;

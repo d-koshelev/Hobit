@@ -139,9 +139,10 @@ For `dependency_acceptance_smoke` and `dependency_failure_smoke`, workflow data
 lives only under `inputs`. `inputs.runSettings` requires non-empty
 `codexExecutable` and `workspaceRoot`, exact `sandbox` values `read_only`,
 `workspace_write`, or `danger_full_access`, and exact `approvalPolicy` values
-`never`, `on_request`, or `untrusted`. `inputs.tasks` is a non-empty array of
-task templates with non-empty `slot`, `title`, and `prompt`; `dependsOnSlots`
-is optional but must reference existing slots when present. Slot names must be
+`never`, `on_request`, or `untrusted`, exact `executionPolicy: "manual"`, and
+a non-empty `executorWidgetId`. `inputs.tasks` is a non-empty array of task
+templates with non-empty `slot`, `title`, and `prompt`; `dependsOnSlots` is
+optional but must reference existing slots when present. Slot names must be
 unique, `upstream` and `downstream` slots are required, and
 `downstream.dependsOnSlots` must explicitly include `upstream`.
 Self-dependencies, unknown slot references, and simple cycles are rejected.
@@ -163,15 +164,25 @@ truth.
 
 The runner accepts a Queue workflow request plus its existing Queue workflow
 validation result. For `dependency_acceptance_smoke` and
-`dependency_failure_smoke`, it can read existing Queue state only when explicit
-ids are supplied. Supported explicit id sources are structured workflow data
-such as `inputs.taskIdsBySlot`, `inputs.runIdsBySlot`,
+`dependency_failure_smoke`, it now has a create/setup/start phase. That phase
+uses only typed ports to materialize the explicit `upstream` and `downstream`
+task slots, apply upstream typed run settings, promote only the upstream task,
+verify backend `QueueControlState=manual_enabled`, start only the explicit
+upstream worker with a structured workflow start context, persist bounded
+report/action summaries, and pause at `awaiting_worker_completion` /
+`worker_running`. It never records evidence, creates or ACKs reviews,
+finalizes, starts downstream, runs validation, mutates Git, launches Terminal,
+or schedules work.
+
+Read/review/finalization phases can also read existing Queue state only when
+explicit ids are supplied. Supported explicit id sources are structured
+workflow data such as `inputs.taskIdsBySlot`, `inputs.runIdsBySlot`,
 `inputs.evidenceBundleIdsBySlot`, `inputs.messageIdsBySlot`,
 `inputs.evidenceReads`, and explicit `grant.scope.*Ids` arrays. Scope arrays
 bound/read explicit ids but do not assign dependency slots by order. The runner
-does not infer task ids, run ids, evidence bundle ids, message ids, or
-executor widget ids from titles, prompts, prose, UI selection, UI order, file
-paths, or repository roots.
+does not infer task ids, run ids, evidence bundle ids, message ids, workflow
+run ids, settings hashes, action ids, or executor widget ids from titles,
+prompts, prose, UI selection, UI order, file paths, or repository roots.
 
 The read-only phase uses only an injected `QueueWorkflowReadPort` with read
 methods for Queue aggregate, lifecycle, list, and evidence inspection. The
@@ -233,11 +244,11 @@ The review runner may mutate only the backend review message/ACK ledger
 through the injected review port. ACK is not completion. The finalization
 runner may mutate only explicit upstream accepted-completion or terminal-
 failure state through the injected finalization port. The runner does not
-create tasks, update run settings, promote drafts, enable Queue, start workers,
-record worker evidence, block, add follow-up prompts, approve validation, run
-validation, mutate Git, execute rollback, launch Terminal, call shell/Codex,
-start downstream work, or add scheduler behavior. Broader mutating workflow
-phases remain future explicit blocks.
+enable Queue, record worker evidence, block, add follow-up prompts, approve
+validation, run validation, mutate Git, execute rollback, launch Terminal, call
+shell/Codex, start downstream work, or add scheduler behavior. Its only task
+create/settings/promote/start mutations are the create/setup/start phase above,
+scoped to explicit dependency-smoke slots and typed workflow start context.
 
 ## Queue Workflow Persistence MVP
 
@@ -248,8 +259,9 @@ completion/failure ledgers. `QueueWorkflowRun.status=failed` means workflow
 execution failure and must not be interpreted as Queue task terminal failure.
 
 The public backend/Tauri/frontend workflow API surface is limited to
-start/get/list/cancel/report/planResume plus the narrow runner-report record
-API consumed by the Queue workflow runtime adapter:
+start/get/list/cancel/report/planResume, narrow runner-report recording, and
+the backend-owned workflow setup primitives consumed by the Queue workflow
+runtime adapter:
 
 - `queue.workflow.start` creates or reuses a workflow-run record only. It is
   idempotent for the same `workspaceId + requestId` when the stable request
@@ -280,12 +292,18 @@ API consumed by the Queue workflow runtime adapter:
   follow up, validate, mutate Git, roll back, launch Terminal, start
   downstream work, or infer ids from frontend/session/prose.
 - `queue.workflow.recordRunnerReport` records bounded runtime-adapter report
-  state and action-ledger summaries for already-supported read/review/
-  finalization runner phases. It may update only
+  state and action-ledger summaries for supported create/setup/start,
+  read/review/finalization runner phases. It may update only
   `agent_queue_workflow_runs` and `agent_queue_workflow_actions`; it must not
   mutate Queue tasks, run links, worker evidence, review messages,
   completion/failure decisions, Queue control state, validation, Git,
   rollback, Terminal, scheduler, or downstream worker state.
+- `queue.workflow.materializeTaskSlot`,
+  `queue.workflow.applyRunSettings`, and `queue.workflow.promoteTaskSlot` are
+  typed backend-owned workflow primitives exposed only so the runtime adapter
+  can execute create/setup/start. They require `workflowRunId` and `slot`, use
+  explicit typed task specs/run settings, and are not Workspace Agent broker
+  capabilities or natural-language routes.
 - A separate public `queue.workflow.resume` execution command is not
   implemented. Continuation from an explicit typed `metadata.workflowRunId`
   uses `queue.workflow.planResume` first, then the frontend runtime adapter may
@@ -347,9 +365,10 @@ mismatched dependency edges block resume planning with typed blockers; the
 planner does not repair dependency edges in this MVP. No dependency may be
 inferred from task title, prompt text, order, UI position, file path, or prose.
 
-This method is not exposed as a Workspace Agent broker capability and is not
-wired into `hobit.workflow.request` execution. It does not add a
-QueueWorkflowRunner create/setup/start phase.
+This method is not exposed as a Workspace Agent broker capability. It is wired
+only through the QueueWorkflowRunner create/setup/start phase and runtime
+adapter with validated typed workflow input; it remains unavailable through
+natural-language routing or generic broker capability exposure.
 
 ## Queue Workflow Run Settings / Promote MVP
 
@@ -443,11 +462,14 @@ rules. The supplied `settingsHash` must match the effective durable task run
 settings where those settings exist. A matching active run from another
 workflow/action blocks as `active_run_conflict`.
 
-This MVP does not add a QueueWorkflowRunner create/setup/start phase. The
-runner still supports only the existing read/review/finalization phases. It
-does not create tasks, call workflow setup/promote, start workers, record
-worker evidence, ACK reviews, mark done/fail/block/follow-up, run validation,
-run Git, launch Terminal, schedule workers, or auto-start downstream tasks.
+The QueueWorkflowRunner create/setup/start phase can call this worker-start
+path for only the explicit upstream dependency-smoke task after typed
+materialization, settings, promotion, backend `manual_enabled` verification,
+and exact structured confirmation. It records/reuses the workflow
+`start_worker` action and then pauses at `awaiting_worker_completion` /
+`worker_running`. It does not record worker evidence, create/ACK reviews, mark
+done/fail/block/follow-up, run validation, run Git, launch Terminal, schedule
+workers, or auto-start downstream tasks.
 
 Resume planner statuses are typed and stable: `resume_ready`,
 `resume_read_only_ready`, `blocked_missing_task`,
@@ -476,7 +498,8 @@ protocol repair, stop, and completion. It delegates Queue bounded-autonomy
 decisions to the existing explicitly Queue-specific continuation helpers; that
 Queue policy remains transitional for action continuation. Valid structured
 Queue `hobit.workflow.request` envelopes can invoke the QueueWorkflowRunner
-runtime adapter for supported persisted read/review/finalization phases only.
+runtime adapter for supported persisted create/setup/start,
+read/review/finalization phases only.
 BrokerInvocationRuntime remains future work.
 Workspace Agent activity/log/transcript formatting is isolated in the pure
 `AgentActivityRecorder`. It consumes only events and results that provider,
@@ -751,8 +774,9 @@ Product action execution requires structured `hobit.action.request` plus
 Broker policy and backend preconditions.
 Workflow requests require structured `hobit.workflow.request` and are currently
 validated/classified before execution. The QueueWorkflowRunner runtime adapter
-can invoke explicit read, review, and finalization phases through typed ports
-for supported `moduleId: "queue"` workflow requests only. Unsupported,
+can invoke explicit create/setup/start, read, review, and finalization phases
+through typed ports for supported `moduleId: "queue"` workflow requests only.
+Unsupported,
 invalid, or still-deferred workflows do not invoke the runner.
 
 ## Non-Goals
@@ -767,8 +791,8 @@ This contract does not implement:
 - rollback execution;
 - Terminal launch;
 - broad worker automation;
-- Queue workflow mutation/execution beyond explicit read/review/finalization
-  runner phases;
+- Queue workflow mutation/execution beyond explicit create/setup/start,
+  read/review/finalization runner phases;
 - Queue-specific input validation for review/terminal workflows;
 - UI redesign;
 - additional Queue widget/view surfaces.

@@ -10,10 +10,12 @@ import type {
   StartAgentQueueWorkflowRequest,
 } from "../../../workspace/types";
 import {
+  runQueueWorkflowCreateSetupStartRunner,
   runQueueWorkflowFinalizationRunner,
   runQueueWorkflowReadOnlyRunner,
   runQueueWorkflowReviewRunner,
   type QueueWorkflowAckReviewMessageResult,
+  type QueueWorkflowCreateSetupStartPort,
   type QueueWorkflowFinalizationCommandResult,
   type QueueWorkflowFinalizationCommandStatus,
   type QueueWorkflowFinalizationPort,
@@ -26,6 +28,7 @@ import {
 import { validateQueueWorkflowRequest } from "./queueWorkflowRequestValidation";
 
 export type QueueWorkflowRunnerRuntimePhase =
+  | "create_setup_start"
   | "finalization"
   | "read"
   | "review";
@@ -41,6 +44,7 @@ export type QueueWorkflowRunnerRuntimeStatus =
   | "unsupported";
 
 export type QueueWorkflowRunnerRuntimePorts = {
+  createSetupStartPort?: QueueWorkflowCreateSetupStartPort | null;
   finalizationPort?: QueueWorkflowFinalizationPort | null;
   readPort?: QueueWorkflowReadPort | null;
   reviewPort?: QueueWorkflowReviewPort | null;
@@ -96,6 +100,10 @@ export type QueueWorkflowRunnerRuntimeResult = {
 
 const QUEUE_MODULE_ID = "queue";
 const DEFAULT_ACTOR_ID = "workspace-agent";
+const CREATE_SETUP_START_WORKFLOWS = new Set([
+  "dependency_acceptance_smoke",
+  "dependency_failure_smoke",
+]);
 const SUPPORTED_REVIEW_DEFERRED_WORKFLOWS = new Set(["review_acceptance"]);
 
 const REVIEW_COMMAND_STATUSES = new Set<QueueWorkflowReviewCommandStatus>([
@@ -386,6 +394,7 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
     ports: runtimePorts,
     request: runnerRequest,
     validation,
+    workflowRunId: workflowRunId!,
   });
   const recordRequest = recordRequestForRunnerResult({
     phase: selectedPhase,
@@ -405,7 +414,10 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
     recordResult.workflowRun?.status ?? persistentStatus;
 
   return {
-    actionLedgerSummaryCount: recordRequest.actions.length,
+    actionLedgerSummaryCount: Math.max(
+      recordRequest.actions.length,
+      recordResult.actions.length,
+    ),
     blockers: [
       ...runnerResult.blockers.map((blocker) => blocker.message),
       ...recordBlockers,
@@ -443,6 +455,9 @@ export function createQueueWorkflowRunnerRuntimePortsFromQueueBridge({
   queueBridge?: WorkspaceAgentQueueBridge | null;
 }): QueueWorkflowRunnerRuntimePorts {
   return {
+    createSetupStartPort: queueBridge
+      ? createCreateSetupStartPort(queueBridge)
+      : null,
     finalizationPort: queueBridge
       ? createFinalizationPort(queueBridge, actorId)
       : null,
@@ -456,12 +471,23 @@ async function runSelectedRunner({
   ports,
   request,
   validation,
+  workflowRunId,
 }: {
   phase: QueueWorkflowRunnerRuntimePhase;
   ports: QueueWorkflowRunnerRuntimePorts;
   request: QueueWorkflowRunnerRequest;
   validation: Parameters<typeof runQueueWorkflowReadOnlyRunner>[0]["validation"];
+  workflowRunId: string;
 }) {
+  if (phase === "create_setup_start") {
+    return runQueueWorkflowCreateSetupStartRunner({
+      createSetupStartPort: ports.createSetupStartPort,
+      request,
+      validation,
+      workflowRunId,
+    });
+  }
+
   if (phase === "review") {
     return runQueueWorkflowReviewRunner({
       readPort: ports.readPort,
@@ -505,6 +531,32 @@ function createReadPort(
     getLifecycle: (taskId) => queueBridge.getItemAggregate!({ taskId }),
     getQueueItemAggregate: (taskId) => queueBridge.getItemAggregate!({ taskId }),
     listQueueItemAggregates: () => queueBridge.listItemAggregates!(),
+  };
+}
+
+function createCreateSetupStartPort(
+  queueBridge: WorkspaceAgentQueueBridge,
+): QueueWorkflowCreateSetupStartPort | null {
+  if (
+    !queueBridge.applyWorkflowRunSettings ||
+    !queueBridge.getQueueControlState ||
+    !queueBridge.materializeWorkflowTaskSlot ||
+    !queueBridge.promoteWorkflowTaskSlot ||
+    !queueBridge.startWorkflowAssignedTask
+  ) {
+    return null;
+  }
+
+  return {
+    applyRunSettings: (request) =>
+      queueBridge.applyWorkflowRunSettings!(request),
+    getQueueControlState: () => queueBridge.getQueueControlState!(),
+    materializeTaskSlot: (request) =>
+      queueBridge.materializeWorkflowTaskSlot!(request),
+    promoteTaskSlot: (request) =>
+      queueBridge.promoteWorkflowTaskSlot!(request),
+    startWorkerForSlot: (request) =>
+      queueBridge.startWorkflowAssignedTask!(request),
   };
 }
 
@@ -632,6 +684,7 @@ function resolveRuntimePhase(
   const explicitPhase = stringInput(request.inputs, "phase");
   if (explicitPhase) {
     if (
+      explicitPhase === "create_setup_start" ||
       explicitPhase === "read" ||
       explicitPhase === "review" ||
       explicitPhase === "finalization"
@@ -649,6 +702,10 @@ function resolveRuntimePhase(
 
   if (request.workflowId === "review_acceptance") {
     return { ok: true, phase: "review" };
+  }
+
+  if (CREATE_SETUP_START_WORKFLOWS.has(request.workflowId)) {
+    return { ok: true, phase: "create_setup_start" };
   }
 
   if (request.workflowId === "terminal_failure") {
@@ -680,6 +737,8 @@ function runtimeStatusFromRunner(
 
   if (
     status === "paused" ||
+    status === "awaiting_worker_completion" ||
+    status === "worker_running" ||
     status === "finalization_needs_confirmation"
   ) {
     return "paused";
@@ -800,7 +859,7 @@ function recordRequestForRunnerResult({
     mutationRefs: mutationRefsForRunnerResult(runnerResult),
     pauseReason:
       persistedRunStatusFromRunner(phase, runtimeStatus) === "paused"
-        ? "awaiting_next_typed_workflow_request"
+        ? pauseReasonForRunnerResult(phase, runnerResult)
         : null,
     phase: workflowPhaseForRuntimePhase(phase),
     slotBindings: sanitizeJsonValue(runnerResult.variables.slots),
@@ -1097,17 +1156,34 @@ function resumeDecisionForPlan({
     };
   }
 
+  if (plan.nextStep === "worker_running_waiting_for_evidence") {
+    return {
+      blockers: [],
+      ok: false,
+      phase: "create_setup_start",
+      status: "paused",
+      summary:
+        "Queue workflow worker is already running; Queue workflow runner did not start another worker.",
+    };
+  }
+
   if (plan.requiredConfirmation || plan.status === "blocked_missing_confirmation") {
-    if (plannedPhase !== "finalization") {
+    if (
+      plannedPhase !== "finalization" &&
+      !(
+        plannedPhase === "create_setup_start" &&
+        plan.nextStep === "start_worker_ready"
+      )
+    ) {
       return {
         blockers: [
-          "Fresh confirmation may only resume currently supported finalization phases.",
+          "Fresh confirmation may only resume supported finalization or worker-start phases.",
         ],
         ok: false,
         phase: plannedPhase,
         status: "blocked",
         summary:
-          "Queue workflow resume requested confirmation for a non-finalization phase; Queue workflow runner was not invoked.",
+          "Queue workflow resume requested confirmation for an unsupported phase; Queue workflow runner was not invoked.",
       };
     }
     if (request.grant?.confirmationToken !== "operator-confirmed") {
@@ -1129,6 +1205,10 @@ function resumeDecisionForPlan({
     plan.status === "blocked_missing_review_ack" ||
     plan.status === "blocked_missing_evidence" ||
     plan.status === "blocked_stale_grant" ||
+    plan.status === "blocked_settings_mismatch" ||
+    plan.status === "blocked_promote_state_mismatch" ||
+    plan.status === "blocked_executor_mismatch" ||
+    plan.status === "blocked_dependency_edge_missing" ||
     plan.status === "unsupported_phase" ||
     plan.status === "failed_unexpected" ||
     plan.status === "version_conflict"
@@ -1144,12 +1224,17 @@ function resumeDecisionForPlan({
 
   if (
     plan.status === "resume_ready" ||
-    plan.status === "resume_read_only_ready"
+    plan.status === "resume_read_only_ready" ||
+    plan.status === "waiting_for_run_settings" ||
+    plan.status === "waiting_for_promote"
   ) {
     return {
       ok: true,
       phase:
-        plan.status === "resume_read_only_ready" ? "read" : plannedPhase,
+        plan.status === "resume_read_only_ready" &&
+        plannedPhase !== "create_setup_start"
+          ? "read"
+          : plannedPhase,
     };
   }
 
@@ -1201,6 +1286,9 @@ function currentStepForRunnerResult(
   phase: QueueWorkflowRunnerRuntimePhase,
   runtimeStatus: QueueWorkflowRunnerRuntimeStatus,
 ) {
+  if (phase === "create_setup_start" && runtimeStatus === "paused") {
+    return "awaiting_worker_completion";
+  }
   if (runtimeStatus === "failed_unexpected") return `${phase}_failed_unexpected`;
   if (runtimeStatus === "blocked") return `${phase}_blocked`;
   if (phase === "finalization" && runtimeStatus === "completed") {
@@ -1212,6 +1300,7 @@ function currentStepForRunnerResult(
 }
 
 function workflowPhaseForRuntimePhase(phase: QueueWorkflowRunnerRuntimePhase) {
+  if (phase === "create_setup_start") return "run_start";
   if (phase === "finalization") return "decision";
   if (phase === "review") return "review";
   return "worker_evidence";
@@ -1222,15 +1311,29 @@ function runtimePhaseFromWorkflowPhase(
 ): QueueWorkflowRunnerRuntimePhase | null {
   if (phase === "decision" || phase === "closed") return "finalization";
   if (phase === "review") return "review";
+  if (phase === "setup" || phase === "run_start") return "create_setup_start";
   if (
     phase === "intake" ||
-    phase === "setup" ||
-    phase === "run_start" ||
     phase === "worker_evidence"
   ) {
     return "read";
   }
   return null;
+}
+
+function pauseReasonForRunnerResult(
+  phase: QueueWorkflowRunnerRuntimePhase,
+  runnerResult: QueueWorkflowRunnerResult,
+) {
+  if (
+    phase === "create_setup_start" &&
+    (runnerResult.status === "awaiting_worker_completion" ||
+      runnerResult.status === "worker_running")
+  ) {
+    return "awaiting_worker_completion";
+  }
+
+  return "awaiting_next_typed_workflow_request";
 }
 
 function workflowActionStatusFromCommand(status: string) {
@@ -1249,13 +1352,19 @@ function workflowActionStatusFromCommand(status: string) {
 function mutationRefsForRunnerResult(
   runnerResult: QueueWorkflowRunnerResult,
 ): AgentQueueWorkflowJsonValue {
+  const createSetupStart = runnerResult.report.createSetupStart;
   const review = runnerResult.report.review;
   const finalization = runnerResult.report.finalization;
   return sanitizeJsonValue(
     stripUndefined({
+      createSetupStartStatus: createSetupStart.status,
+      downstreamTaskId: createSetupStart.downstreamTaskId,
       finalizationAction: finalization.finalizationAction,
       finalizationCommandStatus: finalization.commandStatus,
       finalizationTaskId: finalization.taskId,
+      settingsHash: createSetupStart.runSettings?.settingsHash,
+      startedRunId: createSetupStart.start?.runId,
+      upstreamTaskId: createSetupStart.upstreamTaskId,
       reviewAckStatus: review.ackStatus,
       reviewCreateStatus: review.createStatus,
       reviewMessageId: review.messageId,

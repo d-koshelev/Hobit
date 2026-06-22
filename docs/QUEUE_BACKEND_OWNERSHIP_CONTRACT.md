@@ -71,8 +71,8 @@ action rows. Resume planning reads persisted workflow state and durable Queue
 facts to return a typed plan/blocker; it does not execute workflow steps.
 Runner-report recording may update only the workflow run/action ledgers with
 bounded status, phase/step, blocker, variable/slot-binding, mutation-ref, and
-idempotent action-summary state for already-supported read/review/finalization
-runner phases.
+idempotent action-summary state for supported create/setup/start,
+read/review/finalization runner phases.
 
 Backend workflow task slot materialization is now a narrow workflow-internal
 domain method. It creates or reuses draft/manual Queue tasks by explicit
@@ -111,6 +111,15 @@ are backend-backed storage/reporting APIs consumed by the typed Queue workflow
 runtime adapter. No public append-event command exists; action-ledger mutation
 remains backend-internal. Persisted grant summaries and runner reports must not
 store reusable confirmation tokens or secrets.
+
+The Queue workflow runtime adapter may call materialization, run-settings
+setup, promotion, control-state read, and assigned-task worker start only
+through typed backend/Tauri APIs for the create/setup/start phase. These calls
+do not expose new Workspace Agent broker capabilities, do not route natural
+language, and do not use UI state as Queue truth. The phase must stop after
+persisting/reusing the upstream worker run id and reporting
+`awaiting_worker_completion` / `worker_running`; evidence recording and
+downstream start remain separate work.
 
 Resume planning must reconcile only explicit persisted bindings and variables:
 task ids, run ids, evidence bundle ids, review message ids, completion decision

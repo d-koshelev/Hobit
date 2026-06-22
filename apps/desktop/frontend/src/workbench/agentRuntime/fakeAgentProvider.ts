@@ -206,9 +206,12 @@ function validQueueWorkflowRequest() {
       mode: "queue_acceptance_smoke",
     },
     inputs: {
+      phase: "read",
       runSettings: {
         approvalPolicy: "on_request",
         codexExecutable: "codex.cmd",
+        executionPolicy: "manual",
+        executorWidgetId: "executor-widget-1",
         sandbox: "workspace_write",
         workspaceRoot: "C:/repo",
       },

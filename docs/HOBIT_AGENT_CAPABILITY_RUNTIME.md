@@ -220,15 +220,16 @@ idempotency keeps `already_*`; missing confirmation returns
 paths; dependency waiting does not start downstream work.
 
 Queue worker start idempotency is a backend-owned typed contract, not a new
-natural-language route. When future workflow phases start a worker, they must
-call typed backend/Tauri APIs with explicit workflow/action/task/executor/
-settings refs and exact structured confirmation. Broker and Workspace Agent
+natural-language route. The Queue create/setup/start workflow phase starts
+only the explicit upstream worker by calling typed backend/Tauri APIs with
+explicit workflow/action/task/executor/settings refs and exact structured
+confirmation, then pauses before evidence recording. Broker and Workspace Agent
 logic must not infer `taskId`, `runId`, `workflowRunId`,
 `actionIdempotencyKey`, `settingsHash`, or `executorWidgetId` from prose,
 title, UI order, file path, or selected detail state. The current
-QueueWorkflowRunner does not expose create/setup/start execution and does not
-call backend materialization/setup/promote/start APIs; it remains
-read/review/finalization only until an explicit future implementation block.
+QueueWorkflowRunner exposes this only through validated typed dependency-smoke
+workflow requests and does not expose materialization/setup/promote/start as
+broker capabilities.
 - Workspace Agent Action Protocol Enforcement MVP: Workspace Agent Direct Work
   turns that receive Hobit capability context are treated as typed-capability
   action mode. In that mode the model must emit exactly one
@@ -291,7 +292,12 @@ read/review/finalization only until an explicit future implementation block.
   metadata remains non-runtime-available even though supported Queue runner
   phases can be invoked through the narrow adapter. A Queue-specific
   `QueueWorkflowRunner` now exists as an explicit control-plane helper with
-  separate read-only, review, and finalization phases. The
+  separate create/setup/start, read-only, review, and finalization phases. The
+  create/setup/start phase materializes explicit upstream/downstream slots,
+  applies upstream run settings, promotes upstream, verifies backend
+  `manual_enabled`, starts only the explicit upstream worker with typed
+  workflow start context, persists bounded action/report summaries, and pauses
+  at `awaiting_worker_completion` / `worker_running` before evidence. The
   read-only phase inspects existing Queue state through injected read ports.
   The review phase can read lifecycle/aggregate/evidence state, create a
   backend review message, and ACK that review message through an injected
@@ -304,12 +310,14 @@ read/review/finalization only until an explicit future implementation block.
   task id, exact structured `confirmationToken`, explicit failure reason for
   failure, and review ACK/precondition evidence are present. It verifies
   downstream dependency/no-auto-start state only when an explicit downstream
-  task id is available and never starts downstream work. The runner does not
-  create tasks, start workers, call `queue.lifecycle.agentFinished`, record
-  evidence, block, follow up, run validation, mutate Git, launch Terminal, roll
-  back, or mutate Queue state outside review message/ACK or explicit upstream
-  finalization ports. It requires explicit existing task/run/evidence/message
-  ids and never infers ids from titles, prose, UI order, or file paths.
+  task id is available and never starts downstream work. Outside the scoped
+  create/setup/start task materialization/settings/promote/upstream-start
+  phase, review message/ACK phase, and explicit upstream finalization ports,
+  the runner does not call `queue.lifecycle.agentFinished`, record evidence,
+  block, follow up, run validation, mutate Git, launch Terminal, roll back, or
+  mutate Queue state. It requires explicit typed task/run/evidence/message/
+  workflow/executor/settings ids and never infers ids from titles, prose, UI
+  order, or file paths.
   `review_acceptance` remains supported only by a minimal explicit typed runner
   input shape, while generic request validation for `review_acceptance` and
   `terminal_failure` remains `input_validation_deferred`.
@@ -363,10 +371,12 @@ review message create, and review ACK; and its explicit finalization phase can
 consume a `QueueWorkflowFinalizationPort` to mark the explicit upstream done or
 failed for the dependency smoke workflows only. Workspace Agent workflow
 requests now invoke it only for supported Queue phases through typed backend
-ports. There is still no task creation, worker start, worker evidence
-recording, validation execution, Git mutation, rollback, Terminal launch,
-scheduler behavior, backend lifecycle semantic change, Queue UI truth path, or
-downstream auto-start.
+ports. Create/setup/start can create/reuse dependency-smoke task slots, apply
+settings, promote upstream, start the explicit upstream worker, and pause
+awaiting worker completion. There is still no worker evidence recording,
+validation execution, Git mutation, rollback, Terminal launch, scheduler
+behavior, backend lifecycle semantic change beyond this phase, Queue UI truth
+path, or downstream auto-start.
 
 Queue workflow persistence now exists as a backend-owned storage/API
 foundation for workflow-run and action-ledger records. The typed
@@ -391,19 +401,20 @@ Backend workflow task slot materialization now exists as a workflow-internal
 typed domain method: it creates/reuses draft/manual Queue tasks by explicit
 `workflowRunId + slot + taskSpecHash`, persists slot bindings, and materializes
 dependency edges only from explicit `dependsOnSlots` resolved to bound upstream
-task ids. It is not a Workspace Agent broker route, not natural-language
-routing, and not wired into `hobit.workflow.request` execution. It does not
-itself update run settings, promote tasks, enable Queue, start workers, record
-evidence/reviews/finalization, run validation, mutate Git, roll back, launch
-Terminal, schedule, or auto-start downstream work.
+task ids. It is not a Workspace Agent broker route or natural-language route;
+it is wired only through validated typed QueueWorkflowRunner create/setup/start
+execution. It does not itself update run settings, promote tasks, enable
+Queue, start workers, record evidence/reviews/finalization, run validation,
+mutate Git, roll back, launch Terminal, schedule, or auto-start downstream
+work.
 Backend workflow run-settings setup and promote now exist as separate
 workflow-internal typed domain methods for already materialized slots. They
 persist `settingsHash` / `update_run_settings` refs and `promote_task` refs in
 workflow slot bindings/action ledgers, are idempotent for exact typed refs, and
 block/conflict on mismatched hashes, task ids, executor assignments, or action
-refs. They are not Workspace Agent broker routes, not natural-language routes,
-not wired into `hobit.workflow.request` execution, and do not start workers or
-create run links.
+refs. They are not Workspace Agent broker routes or natural-language routes;
+they are wired only through typed QueueWorkflowRunner create/setup/start
+execution and do not themselves start workers or create run links.
 Queue control state is now backend-owned and durable per workspace through
 typed control APIs. The MVP states are `disabled` and `manual_enabled`;
 `manual_enabled` is a manual/no-autodispatch gate for future explicit typed
@@ -413,8 +424,8 @@ mutate tasks, or create run links.
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture. WorkerProvider is the normalized
 worker boundary for future explicit work-item execution and evidence events;
-the current Queue workflow runner read/review/finalization phases do not
-consume it.
+the current Queue workflow runner create/setup/start phase uses the existing
+backend assigned-task start path rather than hidden WorkerProvider calls.
 
 ## Generic `nextAction` Contract
 

@@ -18,9 +18,11 @@ import type {
   QueueWorkflowAckReviewMessageResult,
   QueueWorkflowCreateReviewMessageRequest,
   QueueWorkflowCreateReviewMessageResult,
+  QueueWorkflowCreateSetupStartPort,
   QueueWorkflowRunnerRequest,
 } from "./queueWorkflowRunner";
 import {
+  runQueueWorkflowCreateSetupStartRunner,
   runQueueWorkflowFinalizationRunner,
   runQueueWorkflowReadOnlyRunner,
   runQueueWorkflowReviewRunner,
@@ -188,7 +190,10 @@ describe("QueueWorkflowRunner", () => {
       },
     });
     expect(result.report.nextMutatingPhase).toContain(
-      "inspect Queue state, mutate review message/ACK ledger, or finalize upstream",
+      "Create/setup/start can materialize dependency slots",
+    );
+    expect(result.report.nextMutatingPhase).toContain(
+      "evidence, review, and accepted-completion finalization remain separate typed phases",
     );
     expect(result.report.mutationSummary).toEqual(
       expect.objectContaining({
@@ -205,6 +210,278 @@ describe("QueueWorkflowRunner", () => {
         didValidate: false,
       }),
     );
+  });
+
+  it("runs create/setup/start and pauses awaiting worker completion", async () => {
+    const port = fakeCreateSetupStartPort();
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+    });
+
+    const result = await runQueueWorkflowCreateSetupStartRunner({
+      createSetupStartPort: port,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("awaiting_worker_completion");
+    expect(result.variables.taskIdsBySlot).toMatchObject({
+      downstream: "task-downstream",
+      upstream: "task-upstream",
+    });
+    expect(result.variables.runIdsBySlot).toMatchObject({
+      upstream: "run-upstream",
+    });
+    expect(result.report.createSetupStart).toMatchObject({
+      downstreamTaskId: "task-downstream",
+      materializedSlots: {
+        downstream: {
+          dependencyTaskIds: ["task-upstream"],
+          dependsOnSlots: ["upstream"],
+          status: "created",
+          taskId: "task-downstream",
+        },
+        upstream: {
+          dependsOnSlots: [],
+          status: "created",
+          taskId: "task-upstream",
+        },
+      },
+      promote: {
+        status: "promoted",
+        taskId: "task-upstream",
+      },
+      queueControl: {
+        status: "manual_enabled",
+        version: 7,
+      },
+      runSettings: {
+        executorWidgetId: "executor-widget-1",
+        settingsHash: "settings-hash-upstream",
+        status: "applied",
+        taskId: "task-upstream",
+      },
+      start: {
+        runId: "run-upstream",
+        status: "started",
+        taskId: "task-upstream",
+      },
+      upstreamTaskId: "task-upstream",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didAckReview: false,
+        didCreateReviewMessage: false,
+        didFail: false,
+        didMarkDone: false,
+        didMutateGit: false,
+        didMutateQueue: true,
+        didRollback: false,
+        didStartWorker: true,
+        didValidate: false,
+      }),
+    );
+    expect(result.report.evidenceReads).toEqual([]);
+    expect(result.report.review.status).toBeNull();
+    expect(result.report.finalization.status).toBeNull();
+    expect(port.calls).toEqual([
+      expect.objectContaining({
+        method: "materializeTaskSlot",
+        slot: "upstream",
+      }),
+      expect.objectContaining({
+        dependsOnSlots: ["upstream"],
+        method: "materializeTaskSlot",
+        slot: "downstream",
+      }),
+      expect.objectContaining({
+        method: "applyRunSettings",
+        slot: "upstream",
+        taskId: "task-upstream",
+      }),
+      expect.objectContaining({
+        method: "promoteTaskSlot",
+        slot: "upstream",
+        taskId: "task-upstream",
+      }),
+      { method: "getQueueControlState" },
+      expect.objectContaining({
+        method: "startWorkerForSlot",
+        queueItemId: "task-upstream",
+        workflowStartContext: expect.objectContaining({
+          actionIdempotencyKey:
+            "queue-workflow-run-1:start_worker:task-upstream:executor-widget-1:settings-hash-upstream",
+          confirmationToken: "operator-confirmed",
+          expectedQueueControlVersion: 7,
+          executorWidgetId: "executor-widget-1",
+          settingsHash: "settings-hash-upstream",
+          taskId: "task-upstream",
+          workflowRunId: "queue-workflow-run-1",
+        }),
+      }),
+    ]);
+  });
+
+  it("blocks before worker start when executorWidgetId is missing", async () => {
+    const port = fakeCreateSetupStartPort();
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        runSettings: {
+          ...validInputs().runSettings,
+          executorWidgetId: "",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowCreateSetupStartRunner({
+      createSetupStartPort: port,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("invalid_request");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "invalid_request",
+      }),
+    ]);
+    expect(port.calls).toEqual([]);
+  });
+
+  it("blocks after setup when backend Queue control is disabled", async () => {
+    const port = fakeCreateSetupStartPort({
+      queueControlState: { status: "disabled", version: 9 },
+    });
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+    });
+
+    const result = await runQueueWorkflowCreateSetupStartRunner({
+      createSetupStartPort: port,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("blocked_queue_control");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "blocked_queue_control",
+        taskId: "task-upstream",
+      }),
+    ]);
+    expect(port.calls.map((call) => call.method)).toEqual([
+      "materializeTaskSlot",
+      "materializeTaskSlot",
+      "applyRunSettings",
+      "promoteTaskSlot",
+      "getQueueControlState",
+    ]);
+  });
+
+  it("blocks settings mismatch before promotion or worker start", async () => {
+    const port = fakeCreateSetupStartPort({
+      applyStatus: "conflict",
+    });
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+    });
+
+    const result = await runQueueWorkflowCreateSetupStartRunner({
+      createSetupStartPort: port,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("blocked_setup");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "blocked_setup",
+      }),
+    ]);
+    expect(port.calls.map((call) => call.method)).toEqual([
+      "materializeTaskSlot",
+      "materializeTaskSlot",
+      "applyRunSettings",
+    ]);
+  });
+
+  it("treats duplicate create/setup/start as idempotent reuse", async () => {
+    const port = fakeCreateSetupStartPort({
+      applyStatus: "reused",
+      materializeStatus: "reused",
+      promoteStatus: "reused",
+      startStatus: "already_started",
+    });
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+    });
+
+    const result = await runQueueWorkflowCreateSetupStartRunner({
+      createSetupStartPort: port,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("awaiting_worker_completion");
+    expect(result.report.createSetupStart.start).toMatchObject({
+      runId: "run-upstream",
+      status: "already_started",
+    });
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didMutateQueue: false,
+        didStartWorker: false,
+      }),
+    );
+    expect(port.calls.filter((call) => call.method === "startWorkerForSlot")).toHaveLength(1);
+  });
+
+  it("returns an orphan worker-start blocker without starting downstream", async () => {
+    const port = fakeCreateSetupStartPort({
+      startBlockerCode: "orphaned_start",
+      startStatus: "blocked",
+    });
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+    });
+
+    const result = await runQueueWorkflowCreateSetupStartRunner({
+      createSetupStartPort: port,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("blocked_worker_start");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "worker_start_orphan",
+        taskId: "task-upstream",
+      }),
+    ]);
+    expect(port.calls.filter((call) => call.method === "startWorkerForSlot")).toEqual([
+      expect.objectContaining({ queueItemId: "task-upstream" }),
+    ]);
   });
 
   it("reads evidence only when explicit task and run or evidence ids are supplied", async () => {
@@ -1603,6 +1880,8 @@ function validInputs() {
     runSettings: {
       approvalPolicy: "never",
       codexExecutable: "codex.cmd",
+      executionPolicy: "manual",
+      executorWidgetId: "executor-widget-1",
       sandbox: "read_only",
       workspaceRoot: "C:/work/hobit",
     },
@@ -1624,6 +1903,166 @@ function validTasks() {
       title: "Downstream task",
     },
   ];
+}
+
+type FakeCreateSetupStartPort = QueueWorkflowCreateSetupStartPort & {
+  calls: Array<{ method: string } & Record<string, unknown>>;
+};
+
+function fakeCreateSetupStartPort(
+  options: {
+    applyStatus?: string;
+    materializeStatus?: string;
+    promoteStatus?: string;
+    queueControlState?: { status: string; version?: number | null };
+    startBlockerCode?: string;
+    startStatus?: string;
+  } = {},
+): FakeCreateSetupStartPort {
+  const calls: FakeCreateSetupStartPort["calls"] = [];
+  const materializeStatus = options.materializeStatus ?? "created";
+  const applyStatus = options.applyStatus ?? "applied";
+  const promoteStatus = options.promoteStatus ?? "promoted";
+  const startStatus = options.startStatus ?? "started";
+
+  return {
+    calls,
+    applyRunSettings: async (request) => {
+      calls.push({ method: "applyRunSettings", ...request });
+      return {
+        action: null,
+        binding:
+          applyStatus === "applied" || applyStatus === "reused"
+            ? {
+                executorWidgetId: request.runSettings.executorWidgetId,
+                settingsHash: "settings-hash-upstream",
+                slot: request.slot,
+                taskId: request.taskId ?? "task-upstream",
+                updateRunSettingsActionId: "workflow-action-settings",
+                updateRunSettingsActionIdempotencyKey:
+                  "queue-workflow-run-1:update_run_settings:upstream:settings-hash-upstream",
+              }
+            : null,
+        blocker:
+          applyStatus === "conflict"
+            ? {
+                blockerCode: "settings_mismatch",
+                blockerMessage: "Durable run settings do not match.",
+                missingRequiredField: "runSettings",
+              }
+            : null,
+        conflict: null,
+        status: applyStatus,
+        task: null,
+        workflowRun: null,
+      };
+    },
+    getQueueControlState: () => {
+      calls.push({ method: "getQueueControlState" });
+      return options.queueControlState ?? { status: "manual_enabled", version: 7 };
+    },
+    materializeTaskSlot: async (request) => {
+      calls.push({ method: "materializeTaskSlot", ...request });
+      const taskId =
+        request.slot === "upstream" ? "task-upstream" : "task-downstream";
+      return {
+        action: null,
+        binding:
+          materializeStatus === "created" || materializeStatus === "reused"
+            ? {
+                createTaskActionId: `workflow-action-create-${request.slot}`,
+                createTaskActionIdempotencyKey:
+                  `queue-workflow-run-1:create_task:${request.slot}:task-spec-hash-${request.slot}`,
+                dependencyEdgeHash: `dependency-edge-hash-${request.slot}`,
+                dependencySpecHash: `dependency-spec-hash-${request.slot}`,
+                dependencyTaskIds:
+                  request.slot === "downstream" ? ["task-upstream"] : [],
+                dependsOnSlots: request.dependsOnSlots ?? [],
+                slot: request.slot,
+                taskId,
+                taskSpecHash: `task-spec-hash-${request.slot}`,
+              }
+            : null,
+        blocker: null,
+        conflict: null,
+        status: materializeStatus,
+        task: null,
+        workflowRun: null,
+      };
+    },
+    promoteTaskSlot: async (request) => {
+      calls.push({ method: "promoteTaskSlot", ...request });
+      return {
+        action: null,
+        binding:
+          promoteStatus === "promoted" || promoteStatus === "reused"
+            ? {
+                promoteActionId: "workflow-action-promote-upstream",
+                promoteActionIdempotencyKey:
+                  "queue-workflow-run-1:promote_task:upstream:task-spec-hash-upstream:settings-hash-upstream",
+                promoted: true,
+                settingsHash: request.settingsHash,
+                slot: request.slot,
+                taskId: request.taskId ?? "task-upstream",
+                taskSpecHash: request.taskSpecHash,
+                taskStatus: "queued",
+              }
+            : null,
+        blocker: null,
+        conflict: null,
+        status: promoteStatus,
+        task: null,
+        workflowRun: null,
+      };
+    },
+    startWorkerForSlot: async (request) => {
+      calls.push({ method: "startWorkerForSlot", ...request });
+      return {
+        actionIdempotencyKey:
+          request.workflowStartContext?.actionIdempotencyKey ?? null,
+        blocker:
+          startStatus === "blocked"
+            ? {
+                actionIdempotencyKey:
+                  request.workflowStartContext?.actionIdempotencyKey ?? null,
+                actualQueueControlVersion: null,
+                actualSettingsHash: null,
+                blockerCode: options.startBlockerCode ?? "worker_start_blocked",
+                blockerMessage: "Workflow worker start is blocked.",
+                currentRunState: null,
+                expectedQueueControlVersion:
+                  request.workflowStartContext?.expectedQueueControlVersion ??
+                  null,
+                expectedSettingsHash:
+                  request.workflowStartContext?.settingsHash ?? null,
+                executorWidgetId:
+                  request.workflowStartContext?.executorWidgetId ?? null,
+                missingRequiredField: null,
+                runId: null,
+                taskId: request.queueItemId,
+                workflowActionId:
+                  request.workflowStartContext?.workflowActionId ?? null,
+                workflowRunId:
+                  request.workflowStartContext?.workflowRunId ?? null,
+              }
+            : null,
+        currentRunState:
+          startStatus === "started" || startStatus === "already_started"
+            ? "running"
+            : null,
+        executorWidgetInstanceId:
+          request.workflowStartContext?.executorWidgetId ?? "executor-widget-1",
+        queueItemId: request.queueItemId,
+        runId: startStatus === "blocked" ? "" : "run-upstream",
+        settingsHash: request.workflowStartContext?.settingsHash ?? null,
+        status: startStatus,
+        workbenchId: "workbench-1",
+        workflowActionId: request.workflowStartContext?.workflowActionId ?? null,
+        workflowRunId: request.workflowStartContext?.workflowRunId ?? null,
+        workspaceId: "workspace-1",
+      };
+    },
+  };
 }
 
 type FakeReadPort = QueueWorkflowReadPort & {

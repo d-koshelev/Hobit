@@ -5,11 +5,14 @@ use hobit_storage_sqlite::SqliteStore;
 use tauri::State;
 
 use crate::agent_queue_workflow_dto::{
-    AgentQueueWorkflowCancelResultDto, AgentQueueWorkflowReportDto,
-    AgentQueueWorkflowResumePlanDto, AgentQueueWorkflowRunDto,
+    AgentQueueWorkflowApplyRunSettingsResultDto, AgentQueueWorkflowCancelResultDto,
+    AgentQueueWorkflowMaterializeTaskSlotResultDto, AgentQueueWorkflowPromoteTaskSlotResultDto,
+    AgentQueueWorkflowReportDto, AgentQueueWorkflowResumePlanDto, AgentQueueWorkflowRunDto,
     AgentQueueWorkflowRunnerReportRecordResultDto, AgentQueueWorkflowStartResultDto,
-    CancelAgentQueueWorkflowRequest, GetAgentQueueWorkflowRequest, ListAgentQueueWorkflowsRequest,
-    PlanAgentQueueWorkflowResumeRequest, RecordAgentQueueWorkflowRunnerReportRequest,
+    ApplyAgentQueueWorkflowRunSettingsRequest, CancelAgentQueueWorkflowRequest,
+    GetAgentQueueWorkflowRequest, ListAgentQueueWorkflowsRequest,
+    MaterializeAgentQueueWorkflowTaskSlotRequest, PlanAgentQueueWorkflowResumeRequest,
+    PromoteAgentQueueWorkflowTaskSlotRequest, RecordAgentQueueWorkflowRunnerReportRequest,
     StartAgentQueueWorkflowRequest,
 };
 use crate::app_state::AppState;
@@ -148,6 +151,63 @@ pub(crate) fn record_agent_queue_workflow_runner_report_blocking(
     service
         .record_queue_workflow_runner_report(request.into())
         .map(AgentQueueWorkflowRunnerReportRecordResultDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn materialize_agent_queue_workflow_task_slot(
+    request: MaterializeAgentQueueWorkflowTaskSlotRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueWorkflowMaterializeTaskSlotResultDto, String> {
+    materialize_agent_queue_workflow_task_slot_blocking(request, state.db_path().to_path_buf())
+}
+
+pub(crate) fn materialize_agent_queue_workflow_task_slot_blocking(
+    request: MaterializeAgentQueueWorkflowTaskSlotRequest,
+    db_path: PathBuf,
+) -> Result<AgentQueueWorkflowMaterializeTaskSlotResultDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .materialize_agent_queue_workflow_task_slot(request.into())
+        .map(AgentQueueWorkflowMaterializeTaskSlotResultDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn apply_agent_queue_workflow_run_settings(
+    request: ApplyAgentQueueWorkflowRunSettingsRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueWorkflowApplyRunSettingsResultDto, String> {
+    apply_agent_queue_workflow_run_settings_blocking(request, state.db_path().to_path_buf())
+}
+
+pub(crate) fn apply_agent_queue_workflow_run_settings_blocking(
+    request: ApplyAgentQueueWorkflowRunSettingsRequest,
+    db_path: PathBuf,
+) -> Result<AgentQueueWorkflowApplyRunSettingsResultDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .apply_agent_queue_workflow_run_settings(request.into())
+        .map(AgentQueueWorkflowApplyRunSettingsResultDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn promote_agent_queue_workflow_task_slot(
+    request: PromoteAgentQueueWorkflowTaskSlotRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueWorkflowPromoteTaskSlotResultDto, String> {
+    promote_agent_queue_workflow_task_slot_blocking(request, state.db_path().to_path_buf())
+}
+
+pub(crate) fn promote_agent_queue_workflow_task_slot_blocking(
+    request: PromoteAgentQueueWorkflowTaskSlotRequest,
+    db_path: PathBuf,
+) -> Result<AgentQueueWorkflowPromoteTaskSlotResultDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .promote_agent_queue_workflow_task_slot(request.into())
+        .map(AgentQueueWorkflowPromoteTaskSlotResultDto::from)
         .map_err(command_error)
 }
 

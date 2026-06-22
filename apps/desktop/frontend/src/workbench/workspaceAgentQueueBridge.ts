@@ -19,16 +19,23 @@ import type {
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
   AckAgentQueueReviewMessageRequest,
+  ApplyAgentQueueWorkflowRunSettingsRequest,
   CreateAgentQueueReviewMessageRequest,
   FailAgentQueueItemRequest,
   GetAgentQueueWorkerEvidenceBundleRequest,
   GetAgentQueueItemAggregateRequest,
   ListAgentQueueItemAggregatesRequest,
   MarkAgentQueueItemDoneRequest,
+  MaterializeAgentQueueWorkflowTaskSlotRequest,
+  PromoteAgentQueueWorkflowTaskSlotRequest,
   RecordAgentQueueWorkerFinishedRequest,
+  StartAssignedAgentQueueTaskRequest,
   AttachKnowledgeToQueueTaskRequest,
   AttachSkillToQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
+  AgentQueueWorkflowApplyRunSettingsResult,
+  AgentQueueWorkflowMaterializeTaskSlotResult,
+  AgentQueueWorkflowPromoteTaskSlotResult,
 } from "../workspace/types";
 import type { AgentExecutorSlot } from "./types";
 
@@ -164,6 +171,21 @@ export type WorkspaceQueueWorkerEvidenceActions = {
   ) => Promise<AgentQueueWorkerFinishedCommandResult>;
 };
 
+export type WorkspaceQueueWorkflowActions = {
+  applyWorkflowRunSettings: (
+    request: ApplyAgentQueueWorkflowRunSettingsRequest,
+  ) => Promise<AgentQueueWorkflowApplyRunSettingsResult>;
+  materializeWorkflowTaskSlot: (
+    request: MaterializeAgentQueueWorkflowTaskSlotRequest,
+  ) => Promise<AgentQueueWorkflowMaterializeTaskSlotResult>;
+  promoteWorkflowTaskSlot: (
+    request: PromoteAgentQueueWorkflowTaskSlotRequest,
+  ) => Promise<AgentQueueWorkflowPromoteTaskSlotResult>;
+  startAssignedAgentQueueTask: (
+    request: StartAssignedAgentQueueTaskRequest,
+  ) => Promise<StartAssignedAgentQueueTaskResponse>;
+};
+
 export type WorkspaceAgentQueueBridge = {
   attachKnowledgeToQueueTask?: (
     request: Omit<AttachKnowledgeToQueueTaskRequest, "workspaceId">,
@@ -203,6 +225,18 @@ export type WorkspaceAgentQueueBridge = {
   recordWorkerFinished?: (
     request: Omit<RecordAgentQueueWorkerFinishedRequest, "workspaceId">,
   ) => Promise<AgentQueueWorkerFinishedCommandResult>;
+  applyWorkflowRunSettings?: (
+    request: Omit<ApplyAgentQueueWorkflowRunSettingsRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowApplyRunSettingsResult>;
+  materializeWorkflowTaskSlot?: (
+    request: Omit<MaterializeAgentQueueWorkflowTaskSlotRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowMaterializeTaskSlotResult>;
+  promoteWorkflowTaskSlot?: (
+    request: Omit<PromoteAgentQueueWorkflowTaskSlotRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowPromoteTaskSlotResult>;
+  startWorkflowAssignedTask?: (
+    request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
+  ) => Promise<StartAssignedAgentQueueTaskResponse>;
   updateItem: (
     request: Omit<QueueUpdateItemRequest, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>>;
@@ -226,6 +260,7 @@ export function createWorkspaceAgentQueueBridge({
   queueApi,
   reviewActions,
   queueState,
+  workflowActions,
   workerEvidenceActions,
   workspaceId,
 }: {
@@ -238,6 +273,7 @@ export function createWorkspaceAgentQueueBridge({
   queueApi: AgentQueueWidgetApi;
   reviewActions?: WorkspaceQueueReviewActions | null;
   queueState?: WorkspaceQueueStateAccess | null;
+  workflowActions?: WorkspaceQueueWorkflowActions | null;
   workerEvidenceActions?: WorkspaceQueueWorkerEvidenceActions | null;
   workspaceId: string;
 }): WorkspaceAgentQueueBridge {
@@ -334,6 +370,34 @@ export function createWorkspaceAgentQueueBridge({
     recordWorkerFinished: workerEvidenceActions
       ? (request) =>
           workerEvidenceActions.recordAgentQueueWorkerFinished({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    applyWorkflowRunSettings: workflowActions
+      ? (request) =>
+          workflowActions.applyWorkflowRunSettings({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    materializeWorkflowTaskSlot: workflowActions
+      ? (request) =>
+          workflowActions.materializeWorkflowTaskSlot({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    promoteWorkflowTaskSlot: workflowActions
+      ? (request) =>
+          workflowActions.promoteWorkflowTaskSlot({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    startWorkflowAssignedTask: workflowActions
+      ? (request) =>
+          workflowActions.startAssignedAgentQueueTask({
             ...request,
             workspaceId,
           })

@@ -58,10 +58,10 @@ a read-only resume planner. The Workspace Agent Queue workflow runtime adapter
 now creates or reuses a durable workflow run before supported runner
 invocation, blocks request-hash conflicts before execution, records bounded
 runner reports/action summaries, and uses the resume planner before continuing
-an explicit typed `metadata.workflowRunId`. Only existing read/review/
-finalization runner phases are wired. Task creation/setup/start workflow
-execution, worker evidence recording, scheduler behavior, downstream
-auto-start, and generic public resume execution remain not implemented.
+an explicit typed `metadata.workflowRunId`. Create/setup/start plus existing
+read/review/finalization runner phases are wired. Worker evidence recording,
+scheduler behavior, downstream auto-start, and generic public resume execution
+remain not implemented.
 Workflow persistence APIs are not exposed as Workspace Agent broker
 capabilities.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
@@ -71,12 +71,12 @@ workflow persistence, records a `create_task` workflow action row, and writes
 dependency edges only by resolving explicit `dependsOnSlots` to already-bound
 upstream task ids. The same workflow/slot/hash is idempotent, a different hash
 for the same workflow/slot conflicts, and the same slot/spec in a different
-workflow does not deduplicate globally. This is not wired into the
-QueueWorkflowRunner create/setup/start path or Workspace Agent broker routing,
-and materialization itself does not update run settings, promote tasks, enable
-Queue, start workers, record evidence/reviews/finalization, run validation,
-mutate Git, roll back, launch Terminal, schedule, or auto-start downstream
-work.
+workflow does not deduplicate globally. This is wired only into the
+QueueWorkflowRunner create/setup/start path through typed runtime-adapter ports,
+not Workspace Agent broker routing, and materialization itself does not update
+run settings, promote tasks, enable Queue, start workers, record evidence/
+reviews/finalization, run validation, mutate Git, roll back, launch Terminal,
+schedule, or auto-start downstream work.
 Queue workflow run-settings setup and task promotion now exist as backend/
 domain MVP primitives for already materialized slots. Run-settings setup
 applies typed durable task settings plus executor assignment, computes a
@@ -89,11 +89,11 @@ settings/executor assignment, moves draft to queued or treats already
 queued/ready as idempotent only with matching hashes, persists promote refs in
 the slot binding, and records a `promote_task` action row keyed by
 `workflowRunId:promote_task:slot:taskSpecHash:settingsHash`. These backend
-methods are not wired into QueueWorkflowRunner create/setup/start execution or
-Workspace Agent broker routing and do not start workers, create run links,
-enable Queue, satisfy dependencies, record evidence/reviews/finalization, run
-validation, mutate Git, roll back, launch Terminal, schedule, or auto-start
-downstream work.
+methods are wired only into QueueWorkflowRunner create/setup/start execution
+through typed runtime-adapter ports, not Workspace Agent broker routing, and
+they do not themselves start workers, create run links, enable Queue, satisfy
+dependencies, record evidence/reviews/finalization, run validation, mutate Git,
+roll back, launch Terminal, schedule, or auto-start downstream work.
 Queue control state is also backend-owned and durable per workspace. The MVP
 control states are `disabled` and `manual_enabled`, exposed through typed
 backend/Tauri/frontend wrappers. `manual_enabled` is a manual/no-autodispatch
@@ -101,15 +101,16 @@ state for future explicit typed worker-start preconditions; setting it does
 not start workers, arm Queue Autorun, run a scheduler, create run links, or
 mutate tasks.
 Worker start now has a backend-owned idempotency/control contract on the
-existing assigned-task start path for future Queue workflow phases. Workflow
+existing assigned-task start path for Queue workflow phases. Workflow
 context requires explicit workflow/action/task/executor/settings refs plus
 exact confirmation, checks durable `manual_enabled`, task/dependency/executor
 preconditions, and settings hash, records/reads `start_worker` action ledger
 rows, returns the prior run for duplicate same-key/same-ref starts, conflicts
 on changed refs, and blocks orphan/unknown start windows instead of silently
-starting a second worker. This does not add QueueWorkflowRunner create/setup/
-start execution, worker evidence recording, lifecycle finalization, scheduler
-pickup, or downstream auto-start.
+starting a second worker. QueueWorkflowRunner create/setup/start now uses this
+path only for the explicit upstream dependency-smoke task and pauses before
+worker evidence recording, lifecycle finalization, scheduler pickup, or
+downstream auto-start.
 
 Queue capability contract hardening is implemented at the manifest, instruction,
 adapter, and test boundary. Every registered `queue.*` capability is covered by
@@ -439,13 +440,12 @@ Implemented as backend/storage/API foundation only:
   grant/confirmation requirements, and never infers ids from title/prose/UI
   order/session state.
 
-Not implemented here: workflow resume execution, QueueWorkflowRunner
-persistence execution wiring beyond existing read/review/finalization phases,
-broker workflow capability exposure, task create/setup/start workflow phase,
-worker evidence recording, review/finalization execution beyond the existing
-runner ports, validation, Git, rollback, Terminal, scheduler, or downstream
-auto-start. The backend worker-start idempotency/control contract exists, but
-the QueueWorkflowRunner does not call it yet.
+Not implemented here: generic public workflow resume execution, broker workflow
+capability exposure, worker evidence recording, review/finalization execution
+beyond the existing runner ports, validation, Git, rollback, Terminal,
+scheduler, or downstream auto-start. QueueWorkflowRunner persistence execution
+wiring now includes create/setup/start for dependency smoke and pauses before
+evidence.
 
 ### Headless Queue API readiness
 
@@ -1201,8 +1201,8 @@ The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend Smart Queue persistence;
-- Queue workflow runner execution beyond explicit read/review/finalization
-  helper phases;
+- Queue workflow runner execution beyond explicit create/setup/start,
+  read/review/finalization helper phases;
 - Queue-specific input validation for review/terminal workflows;
 - durable Queue lifecycle transition commands beyond the current aggregate DTO,
   worker-evidence/review create/ACK commands, and accepted-completion /

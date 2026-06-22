@@ -210,9 +210,12 @@ function explicitWorkflowRequest() {
       mode: "queue_acceptance_smoke",
     },
     inputs: {
+      phase: "read",
       runSettings: {
         approvalPolicy: "never",
         codexExecutable: "codex.cmd",
+        executionPolicy: "manual",
+        executorWidgetId: "executor-widget-1",
         sandbox: "read_only",
         workspaceRoot: "C:/repo",
       },

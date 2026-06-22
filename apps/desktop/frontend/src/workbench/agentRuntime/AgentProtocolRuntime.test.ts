@@ -268,6 +268,8 @@ function workflowRequest(
       runSettings: {
         approvalPolicy: "on_request",
         codexExecutable: "codex.cmd",
+        executionPolicy: "manual",
+        executorWidgetId: "executor-widget-1",
         sandbox: "workspace_write",
         workspaceRoot: "C:/repo",
       },

@@ -369,7 +369,7 @@ function validateRunSettings(
       issue({
         fieldPath: "$.inputs.runSettings",
         message:
-          "inputs.runSettings is required and must contain codexExecutable, workspaceRoot, sandbox, and approvalPolicy.",
+          "inputs.runSettings is required and must contain codexExecutable, workspaceRoot, sandbox, approvalPolicy, executionPolicy, and executorWidgetId.",
         reasonCode: "missing_required_input",
       }),
     ];
@@ -408,6 +408,24 @@ function validateRunSettings(
         fieldPath: "$.inputs.runSettings.approvalPolicy",
         message: `inputs.runSettings.approvalPolicy must be one of ${QUEUE_RUN_APPROVAL_POLICY_VALUES.join(", ")}.`,
         reasonCode: "invalid_approval_policy",
+      }),
+    );
+  }
+  if (value.executionPolicy !== "manual") {
+    issues.push(
+      issue({
+        fieldPath: "$.inputs.runSettings.executionPolicy",
+        message: "inputs.runSettings.executionPolicy must be manual.",
+        reasonCode: "invalid_run_settings",
+      }),
+    );
+  }
+  if (!nonEmptyString(value.executorWidgetId)) {
+    issues.push(
+      issue({
+        fieldPath: "$.inputs.runSettings.executorWidgetId",
+        message: "inputs.runSettings.executorWidgetId must be a non-empty string.",
+        reasonCode: "missing_required_input",
       }),
     );
   }
@@ -711,9 +729,9 @@ function validNotExecutableResult({
     issues: [],
     ok: true,
     reasons: [
-      "Queue workflow request validated; supported QueueWorkflowRunner phases can run through the runtime adapter when explicit existing Queue ids are supplied.",
+      "Queue workflow request validated; supported QueueWorkflowRunner phases can run through the runtime adapter when explicit typed Queue inputs are supplied.",
       "Validation itself does not call Queue capabilities or mutate Queue state.",
-      "Runtime workflow integration remains limited to typed read, review, and finalization ports; no task creation, worker start, evidence recording, or downstream auto-start is performed.",
+      "Runtime workflow integration is limited to typed create/setup/start, read, review, and finalization ports; no evidence recording or downstream auto-start is performed.",
     ],
     status: "workflow_valid_not_executable",
     ...(workflowMetadata ? { workflowMetadata } : {}),

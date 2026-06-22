@@ -158,6 +158,12 @@ eligibility must continue to block on `dependency_waiting`,
 `dependency_blocked`, `dependency_failed`, or `dependency_unknown` until the
 upstream dependency has durable accepted completion.
 
+The dependency-smoke create/setup/start phase materializes the downstream slot
+only to persist the explicit dependency edge. In this MVP it applies run
+settings, promotes, and starts only the upstream slot, then pauses awaiting
+upstream worker completion. It does not auto-promote, auto-start, or schedule
+downstream work.
+
 ## Blocker Kinds
 
 Dependency-derived blockers use:

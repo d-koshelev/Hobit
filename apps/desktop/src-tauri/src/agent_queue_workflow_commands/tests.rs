@@ -3,7 +3,10 @@ use super::*;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use crate::agent_queue_workflow_dto::RecordAgentQueueWorkflowRunnerAction;
+use crate::agent_queue_workflow_dto::{
+    AgentQueueWorkflowRunSettingsRequest, AgentQueueWorkflowTaskSpecRequest,
+    RecordAgentQueueWorkflowRunnerAction,
+};
 use hobit_app::WorkspaceService;
 use hobit_storage_sqlite::{NewAgentQueueWorkflowAction, SqliteStore};
 use serde_json::json;
@@ -301,6 +304,153 @@ fn workflow_record_runner_report_command_updates_only_workflow_tables() {
 }
 
 #[test]
+fn workflow_setup_commands_materialize_apply_and_promote_without_ui_imports() {
+    let db_path = unique_test_db_path();
+    let service = initialized_service(&db_path);
+    let workspace = service
+        .create_empty_workspace("Queue workflow command test", None)
+        .expect("create workspace");
+    let other_workspace = service
+        .create_empty_workspace("Other workspace", None)
+        .expect("create other workspace");
+    let workbench_id = workspace
+        .workbench_id
+        .as_ref()
+        .expect("workspace workbench")
+        .clone();
+    let executor_widget_id = add_agent_executor_widget(&service, &workspace.id, &workbench_id);
+    drop(service);
+    let run = start_agent_queue_workflow_blocking(
+        materialization_start_request(&workspace.id, "request-1"),
+        db_path.clone(),
+    )
+    .expect("start workflow")
+    .workflow_run
+    .expect("workflow run");
+
+    let upstream = materialize_agent_queue_workflow_task_slot_blocking(
+        MaterializeAgentQueueWorkflowTaskSlotRequest {
+            workspace_id: workspace.id.clone(),
+            workflow_run_id: run.workflow_run_id.clone(),
+            slot: "upstream".to_owned(),
+            task_spec: AgentQueueWorkflowTaskSpecRequest {
+                title: "Upstream".to_owned(),
+                prompt: "Run upstream worker.".to_owned(),
+                description: None,
+                status: None,
+                priority: None,
+            },
+            task_spec_hash: None,
+            depends_on_slots: vec![],
+            actor_id: Some("workspace-agent".to_owned()),
+            action_idempotency_key: None,
+        },
+        db_path.clone(),
+    )
+    .expect("materialize upstream");
+    let upstream_binding = upstream
+        .binding
+        .clone()
+        .unwrap_or_else(|| panic!("upstream binding missing: {upstream:?}"));
+    assert_eq!(upstream.status, "created");
+    assert_eq!(upstream_binding.slot, "upstream");
+
+    let downstream = materialize_agent_queue_workflow_task_slot_blocking(
+        MaterializeAgentQueueWorkflowTaskSlotRequest {
+            workspace_id: workspace.id.clone(),
+            workflow_run_id: run.workflow_run_id.clone(),
+            slot: "downstream".to_owned(),
+            task_spec: AgentQueueWorkflowTaskSpecRequest {
+                title: "Downstream".to_owned(),
+                prompt: "Wait for upstream.".to_owned(),
+                description: None,
+                status: None,
+                priority: None,
+            },
+            task_spec_hash: None,
+            depends_on_slots: vec!["upstream".to_owned()],
+            actor_id: Some("workspace-agent".to_owned()),
+            action_idempotency_key: None,
+        },
+        db_path.clone(),
+    )
+    .expect("materialize downstream");
+    let downstream_binding = downstream.binding.expect("downstream binding");
+    assert_eq!(downstream.status, "created");
+    assert_eq!(
+        downstream_binding.dependency_task_ids,
+        vec![upstream_binding.task_id.clone()]
+    );
+
+    let cross_workspace = materialize_agent_queue_workflow_task_slot_blocking(
+        MaterializeAgentQueueWorkflowTaskSlotRequest {
+            workspace_id: other_workspace.id,
+            workflow_run_id: run.workflow_run_id.clone(),
+            slot: "upstream".to_owned(),
+            task_spec: AgentQueueWorkflowTaskSpecRequest {
+                title: "Cross workspace".to_owned(),
+                prompt: "Must not materialize.".to_owned(),
+                description: None,
+                status: None,
+                priority: None,
+            },
+            task_spec_hash: None,
+            depends_on_slots: vec![],
+            actor_id: Some("workspace-agent".to_owned()),
+            action_idempotency_key: None,
+        },
+        db_path.clone(),
+    )
+    .expect("cross workspace materialize");
+    assert_eq!(cross_workspace.status, "not_found");
+
+    let settings = apply_agent_queue_workflow_run_settings_blocking(
+        ApplyAgentQueueWorkflowRunSettingsRequest {
+            workspace_id: workspace.id.clone(),
+            workflow_run_id: run.workflow_run_id.clone(),
+            slot: "upstream".to_owned(),
+            task_id: Some(upstream_binding.task_id.clone()),
+            run_settings: AgentQueueWorkflowRunSettingsRequest {
+                execution_workspace: "C:/repo".to_owned(),
+                codex_executable: "codex.cmd".to_owned(),
+                sandbox: "read_only".to_owned(),
+                approval_policy: "never".to_owned(),
+                execution_policy: "manual".to_owned(),
+                executor_widget_id: executor_widget_id.clone(),
+            },
+            settings_hash: None,
+            actor_id: Some("workspace-agent".to_owned()),
+            action_idempotency_key: None,
+        },
+        db_path.clone(),
+    )
+    .expect("apply settings");
+    let settings_binding = settings.binding.expect("settings binding");
+    assert_eq!(settings.status, "applied");
+    assert_eq!(settings_binding.executor_widget_id, executor_widget_id);
+
+    let promote = promote_agent_queue_workflow_task_slot_blocking(
+        PromoteAgentQueueWorkflowTaskSlotRequest {
+            workspace_id: workspace.id,
+            workflow_run_id: run.workflow_run_id,
+            slot: "upstream".to_owned(),
+            task_id: Some(upstream_binding.task_id),
+            task_spec_hash: upstream_binding.task_spec_hash,
+            settings_hash: settings_binding.settings_hash,
+            actor_id: Some("workspace-agent".to_owned()),
+            action_idempotency_key: None,
+        },
+        db_path.clone(),
+    )
+    .expect("promote task");
+    let promote_binding = promote.binding.expect("promote binding");
+    assert_eq!(promote.status, "promoted");
+    assert!(promote_binding.promoted);
+    assert_eq!(promote_binding.task_status, "queued");
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn workflow_command_source_has_no_execution_or_queue_lifecycle_calls() {
     let source = include_str!("../agent_queue_workflow_commands.rs");
 
@@ -374,6 +524,56 @@ fn start_request(workspace_id: &str, request_id: &str) -> StartAgentQueueWorkflo
         idempotency_keys: Some(json!({})),
         action_log_summary: Some(json!([])),
     }
+}
+
+fn materialization_start_request(
+    workspace_id: &str,
+    request_id: &str,
+) -> StartAgentQueueWorkflowRequest {
+    let mut request = start_request(workspace_id, request_id);
+    request.inputs_snapshot = Some(json!({}));
+    request.grant_summary = Some(json!({
+        "actorId": "workspace-agent",
+        "mode": "queue_acceptance_smoke",
+        "allowedRiskClasses": ["setup", "run_start"],
+        "constraints": {
+            "noGit": true,
+            "noValidationExecution": true,
+            "noRollback": true,
+            "noTerminal": true,
+            "noDelete": true,
+            "noDownstreamAutoStart": true
+        },
+        "issuedAt": "1",
+        "expiresAt": "2",
+        "restartPolicy": "regrant_mutations",
+        "maxActions": 16,
+        "consumedActionCount": 0
+    }));
+    request.slot_bindings = Some(json!({}));
+    request
+}
+
+fn add_agent_executor_widget(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    workbench_id: &str,
+) -> String {
+    service
+        .add_widget_instance_to_workbench(
+            workspace_id,
+            workbench_id,
+            "agent-run",
+            "Agent Executor",
+            "agent",
+        )
+        .expect("add executor widget")
+        .expect("updated workbench")
+        .widget_instances
+        .into_iter()
+        .find(|widget| widget.definition_id == "agent-run")
+        .expect("executor widget")
+        .id
 }
 
 fn unique_test_db_path() -> PathBuf {

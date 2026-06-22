@@ -40,10 +40,11 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     const result = await runAdapter({
       queueBridge: bridge,
       workflowPersistence: persistence,
-      workflowRequestRead: validRead(
+      workflowRequestRead: readWorkflow(
         workflowRequest({
           inputs: {
             ...validInputs(),
+            phase: "read",
             taskIdsBySlot: explicitDependencyTaskIds(),
           },
         }),
@@ -107,10 +108,11 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     const result = await runAdapter({
       queueBridge: bridge,
       workflowPersistence: persistence,
-      workflowRequestRead: validRead(
+      workflowRequestRead: readWorkflow(
         workflowRequest({
           inputs: {
             ...validInputs(),
+            phase: "read",
             taskIdsBySlot: explicitDependencyTaskIds(),
           },
         }),
@@ -152,10 +154,11 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     const result = await runAdapter({
       queueBridge: bridge,
       workflowPersistence: persistence,
-      workflowRequestRead: validRead(
+      workflowRequestRead: readWorkflow(
         workflowRequest({
           inputs: {
             ...validInputs(),
+            phase: "read",
             taskIdsBySlot: explicitDependencyTaskIds(),
           },
         }),
@@ -201,7 +204,7 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     const result = await runAdapter({
       queueBridge: bridge,
       workflowPersistence: persistence,
-      workflowRequestRead: validRead(
+      workflowRequestRead: readWorkflow(
         workflowRequest({ workflowId: "unknown_queue_workflow" }),
       ),
     });
@@ -254,7 +257,14 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     const result = await runAdapter({
       queueBridge: bridge,
       workflowPersistence: persistence,
-      workflowRequestRead: validRead(workflowRequest()),
+      workflowRequestRead: validRead(
+        workflowRequest({
+          inputs: {
+            ...validInputs(),
+            phase: "read",
+          },
+        }),
+      ),
     });
 
     expect(result).toMatchObject({
@@ -295,6 +305,7 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
         workflowRequest({
           inputs: {
             ...validInputs(),
+            phase: "read",
             taskIdsBySlot: explicitDependencyTaskIds(),
           },
         }),
@@ -306,6 +317,266 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(bridge.createReviewMessage).not.toHaveBeenCalled();
     expect(bridge.markItemDone).not.toHaveBeenCalled();
     expect(bridge.failItem).not.toHaveBeenCalled();
+  });
+
+  it("persists create/setup/start report for valid dependency workflow requests", async () => {
+    const workflowBridge = createSetupStartBridge();
+    const persistence = workflowPersistence({
+      recordAgentQueueWorkflowRunnerReport: recordWithPersistedCreateSetupActions(),
+    });
+
+    const result = await runAdapter({
+      queueBridge: queueBridge(workflowBridge.bridge),
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          grant: validGrant("queue_acceptance_smoke", {
+            confirmationToken: "operator-confirmed",
+          }),
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      actionLedgerSummaryCount: 5,
+      invoked: true,
+      persistedActionCount: 5,
+      phase: "create_setup_start",
+      status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(result.summary).toContain("queue-workflow-run-1");
+    expect(result.summary).toContain("task-upstream");
+    expect(result.summary).toContain("run-upstream");
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentStep: "awaiting_worker_completion",
+        pauseReason: "awaiting_worker_completion",
+        phase: "run_start",
+        status: "paused",
+        workflowRunId: "queue-workflow-run-1",
+      }),
+    );
+    expect(workflowBridge.calls.map((call) => call.method)).toEqual([
+      "materializeWorkflowTaskSlot",
+      "materializeWorkflowTaskSlot",
+      "applyWorkflowRunSettings",
+      "promoteWorkflowTaskSlot",
+      "getQueueControlState",
+      "startWorkflowAssignedTask",
+    ]);
+  });
+
+  it("reuses create/setup/start actions for repeated requestId/hash", async () => {
+    const workflowBridge = createSetupStartBridge({
+      applyStatus: "reused",
+      materializeStatus: "reused",
+      promoteStatus: "reused",
+      startStatus: "already_started",
+    });
+    const persistence = workflowPersistence({
+      startAgentQueueWorkflow: vi.fn(async (request) => ({
+        blocker: null,
+        conflict: null,
+        status: "already_exists",
+        workflowRun: workflowRun({
+          requestId: request.requestId,
+          workflowId: request.workflowId,
+          workflowRunId: "queue-workflow-run-existing",
+          workspaceId: request.workspaceId,
+        }),
+      })),
+    });
+
+    const result = await runAdapter({
+      queueBridge: queueBridge(workflowBridge.bridge),
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          grant: validGrant("queue_acceptance_smoke", {
+            confirmationToken: "operator-confirmed",
+          }),
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      persistenceStatus: "reused",
+      phase: "create_setup_start",
+      status: "paused",
+      workflowRunId: "queue-workflow-run-existing",
+      workflowStartStatus: "already_exists",
+    });
+    expect(workflowBridge.calls.filter((call) => call.method === "startWorkflowAssignedTask")).toHaveLength(1);
+    expect(result.runnerResult?.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didMutateQueue: false,
+        didStartWorker: false,
+      }),
+    );
+  });
+
+  it("resumes waiting_for_run_settings through create/setup/start", async () => {
+    const workflowBridge = createSetupStartBridge();
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        createSetupStartResumePlan({
+          nextPhase: "setup",
+          nextStep: "waiting_for_run_settings",
+          status: "waiting_for_run_settings",
+        }),
+      ),
+    });
+
+    const result = await runAdapter({
+      queueBridge: queueBridge(workflowBridge.bridge),
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          grant: validGrant("queue_acceptance_smoke", {
+            confirmationToken: "operator-confirmed",
+          }),
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "create_setup_start",
+      resumePlan: expect.objectContaining({
+        status: "waiting_for_run_settings",
+      }),
+      status: "paused",
+    });
+    expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
+    expect(workflowBridge.calls.map((call) => call.method)).toContain(
+      "applyWorkflowRunSettings",
+    );
+  });
+
+  it("resumes waiting_for_promote through create/setup/start", async () => {
+    const workflowBridge = createSetupStartBridge();
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        createSetupStartResumePlan({
+          nextPhase: "setup",
+          nextStep: "waiting_for_promote",
+          status: "waiting_for_promote",
+        }),
+      ),
+    });
+
+    const result = await runAdapter({
+      queueBridge: queueBridge(workflowBridge.bridge),
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          grant: validGrant("queue_acceptance_smoke", {
+            confirmationToken: "operator-confirmed",
+          }),
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result.phase).toBe("create_setup_start");
+    expect(workflowBridge.calls.map((call) => call.method)).toContain(
+      "promoteWorkflowTaskSlot",
+    );
+  });
+
+  it("resumes start_worker_ready only with fresh confirmation", async () => {
+    const workflowBridge = createSetupStartBridge();
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        createSetupStartResumePlan({
+          nextPhase: "run_start",
+          nextStep: "start_worker_ready",
+          requiredConfirmation: true,
+          requiredFreshGrant: true,
+          status: "blocked_missing_confirmation",
+        }),
+      ),
+    });
+
+    const result = await runAdapter({
+      queueBridge: queueBridge(workflowBridge.bridge),
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          grant: validGrant("queue_acceptance_smoke", {
+            confirmationToken: "operator-confirmed",
+          }),
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "create_setup_start",
+      status: "paused",
+    });
+    expect(workflowBridge.calls.map((call) => call.method)).toContain(
+      "startWorkflowAssignedTask",
+    );
+  });
+
+  it("does not start a second worker when resume planner reports worker running", async () => {
+    const workflowBridge = createSetupStartBridge();
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        createSetupStartResumePlan({
+          nextPhase: "worker_evidence",
+          nextStep: "worker_running_waiting_for_evidence",
+          status: "resume_read_only_ready",
+        }),
+      ),
+    });
+
+    const result = await runAdapter({
+      queueBridge: queueBridge(workflowBridge.bridge),
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: false,
+      status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(workflowBridge.calls).toEqual([]);
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
+  });
+
+  it("does not materialize tasks when typed fields are missing", async () => {
+    const workflowBridge = createSetupStartBridge();
+
+    const result = await runAdapter({
+      queueBridge: queueBridge(workflowBridge.bridge),
+      workflowRequestRead: readWorkflow(
+        workflowRequest({
+          inputs: {
+            ...validInputs(),
+            runSettings: {
+              ...validInputs().runSettings,
+              executorWidgetId: "",
+            },
+          },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: false,
+      status: "invalid_request",
+    });
+    expect(workflowBridge.calls).toEqual([]);
   });
 
   it("review phase calls evidence, create review message, and ACK review message", async () => {
@@ -1144,6 +1415,8 @@ function validInputs() {
     runSettings: {
       approvalPolicy: "never",
       codexExecutable: "codex.cmd",
+      executionPolicy: "manual",
+      executorWidgetId: "executor-widget-1",
       sandbox: "read_only",
       workspaceRoot: "C:/work/hobit",
     },
@@ -1168,6 +1441,193 @@ function explicitDependencyTaskIds() {
     downstream: "task-downstream",
     upstream: "task-upstream",
   };
+}
+
+function createSetupStartBridge(
+  options: {
+    applyStatus?: string;
+    materializeStatus?: string;
+    promoteStatus?: string;
+    startStatus?: string;
+  } = {},
+) {
+  const calls: Array<{ method: string } & Record<string, unknown>> = [];
+  const materializeStatus = options.materializeStatus ?? "created";
+  const applyStatus = options.applyStatus ?? "applied";
+  const promoteStatus = options.promoteStatus ?? "promoted";
+  const startStatus = options.startStatus ?? "started";
+  const bridge: Partial<WorkspaceAgentQueueBridge> = {
+    applyWorkflowRunSettings: vi.fn(async (request) => {
+      calls.push({ method: "applyWorkflowRunSettings", ...request });
+      return {
+        action: null,
+        binding:
+          applyStatus === "applied" || applyStatus === "reused"
+            ? {
+                executorWidgetId: request.runSettings.executorWidgetId,
+                settingsHash: "settings-hash-upstream",
+                slot: request.slot,
+                taskId: request.taskId ?? "task-upstream",
+                updateRunSettingsActionId: "workflow-action-settings",
+                updateRunSettingsActionIdempotencyKey:
+                  "queue-workflow-run-1:update_run_settings:upstream:settings-hash-upstream",
+              }
+            : null,
+        blocker: null,
+        conflict: null,
+        status: applyStatus,
+        task: null,
+        workflowRun: null,
+      };
+    }),
+    getQueueControlState: vi.fn(() => {
+      calls.push({ method: "getQueueControlState" });
+      return {
+        backendOwned: true,
+        queueEnabled: true,
+        status: "manual_enabled" as const,
+        version: 7,
+      };
+    }),
+    materializeWorkflowTaskSlot: vi.fn(async (request) => {
+      calls.push({ method: "materializeWorkflowTaskSlot", ...request });
+      const taskId =
+        request.slot === "upstream" ? "task-upstream" : "task-downstream";
+      return {
+        action: null,
+        binding:
+          materializeStatus === "created" || materializeStatus === "reused"
+            ? {
+                createTaskActionId: `workflow-action-create-${request.slot}`,
+                createTaskActionIdempotencyKey:
+                  `queue-workflow-run-1:create_task:${request.slot}:task-spec-hash-${request.slot}`,
+                dependencyEdgeHash: `dependency-edge-hash-${request.slot}`,
+                dependencySpecHash: `dependency-spec-hash-${request.slot}`,
+                dependencyTaskIds:
+                  request.slot === "downstream" ? ["task-upstream"] : [],
+                dependsOnSlots: request.dependsOnSlots ?? [],
+                slot: request.slot,
+                taskId,
+                taskSpecHash: `task-spec-hash-${request.slot}`,
+              }
+            : null,
+        blocker: null,
+        conflict: null,
+        status: materializeStatus,
+        task: null,
+        workflowRun: null,
+      };
+    }),
+    promoteWorkflowTaskSlot: vi.fn(async (request) => {
+      calls.push({ method: "promoteWorkflowTaskSlot", ...request });
+      return {
+        action: null,
+        binding:
+          promoteStatus === "promoted" || promoteStatus === "reused"
+            ? {
+                promoteActionId: "workflow-action-promote-upstream",
+                promoteActionIdempotencyKey:
+                  "queue-workflow-run-1:promote_task:upstream:task-spec-hash-upstream:settings-hash-upstream",
+                promoted: true,
+                settingsHash: request.settingsHash,
+                slot: request.slot,
+                taskId: request.taskId ?? "task-upstream",
+                taskSpecHash: request.taskSpecHash,
+                taskStatus: "queued",
+              }
+            : null,
+        blocker: null,
+        conflict: null,
+        status: promoteStatus,
+        task: null,
+        workflowRun: null,
+      };
+    }),
+    startWorkflowAssignedTask: vi.fn(async (request) => {
+      calls.push({ method: "startWorkflowAssignedTask", ...request });
+      return {
+        actionIdempotencyKey:
+          request.workflowStartContext?.actionIdempotencyKey ?? null,
+        blocker: null,
+        currentRunState: "running",
+        executorWidgetInstanceId:
+          request.workflowStartContext?.executorWidgetId ?? "executor-widget-1",
+        queueItemId: request.queueItemId,
+        runId: "run-upstream",
+        settingsHash: request.workflowStartContext?.settingsHash ?? null,
+        status: startStatus,
+        workbenchId: "workbench-1",
+        workflowActionId: request.workflowStartContext?.workflowActionId ?? null,
+        workflowRunId: request.workflowStartContext?.workflowRunId ?? null,
+        workspaceId: "workspace-1",
+      };
+    }),
+  };
+
+  return { bridge, calls };
+}
+
+function recordWithPersistedCreateSetupActions(): QueueWorkflowPersistencePort["recordAgentQueueWorkflowRunnerReport"] {
+  return vi.fn(async (request) => ({
+    actions: ["create-upstream", "create-downstream", "settings", "promote", "start"].map(
+      (suffix, index) => ({
+        actionId: `workflow-action-${suffix}`,
+        actionType:
+          index < 2
+            ? "create_task"
+            : index === 2
+              ? "update_run_settings"
+              : index === 3
+                ? "promote_task"
+                : "start_worker",
+        attemptCount: 1,
+        blockerCode: null,
+        blockerMessage: null,
+        completedAt: "2026-06-22T00:00:00.000Z",
+        createdAt: "2026-06-22T00:00:00.000Z",
+        idempotencyKey: `${request.workflowRunId}:${suffix}`,
+        resultRefsJson: "{}",
+        startedAt: "2026-06-22T00:00:00.000Z",
+        status: "completed",
+        stepId: suffix,
+        targetRefsJson: "{}",
+        updatedAt: "2026-06-22T00:00:00.000Z",
+        workflowRunId: request.workflowRunId,
+        workspaceId: request.workspaceId,
+      }),
+    ),
+    blocker: null,
+    conflict: null,
+    status: "recorded",
+    workflowRun: workflowRun({
+      currentStep: request.currentStep ?? null,
+      phase: request.phase ?? "run_start",
+      status: request.status,
+      workflowRunId: request.workflowRunId,
+      workspaceId: request.workspaceId,
+    }),
+  }));
+}
+
+function createSetupStartResumePlan(
+  overrides: Parameters<typeof resumePlan>[0] = {},
+) {
+  return resumePlan({
+    nextPhase: "setup",
+    nextStep: "waiting_for_run_settings",
+    status: "waiting_for_run_settings",
+    workflowRun: workflowRun({
+      inputsSnapshotJson: JSON.stringify(validInputs()),
+      phase: "setup",
+      slotBindingsJson: JSON.stringify({
+        downstream: { taskId: "task-downstream" },
+        upstream: { taskId: "task-upstream" },
+      }),
+      status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    }),
+    ...overrides,
+  });
 }
 
 function queueBridge(

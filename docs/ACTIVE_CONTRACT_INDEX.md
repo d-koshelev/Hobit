@@ -442,10 +442,16 @@ unless the task explicitly requests it.
   `review_acceptance` and `terminal_failure` remain declared with
   `input_validation_deferred` in the generic request path. A Queue-specific
   `QueueWorkflowRunner` exists as an explicit control-plane helper with
-  read-only, review, and finalization phases. It can inspect explicit existing
-  Queue aggregate/lifecycle/evidence ids through an injected read port; its
-  review phase can create and ACK backend review messages through an injected
-  review port; and its finalization phase can mark the explicit upstream done
+  create/setup/start, read-only, review, and finalization phases. Its
+  create/setup/start phase can materialize explicit upstream/downstream slots,
+  apply upstream run settings, promote upstream, verify backend
+  `manual_enabled`, start only the explicit upstream worker with typed
+  workflow start context, persist report/action summaries, and pause at
+  `awaiting_worker_completion` without evidence or downstream auto-start. It
+  can inspect explicit existing Queue aggregate/lifecycle/evidence ids through
+  an injected read port; its review phase can create and ACK backend review
+  messages through an injected review port; and its finalization phase can
+  mark the explicit upstream done
   for `dependency_acceptance_smoke` or failed for
   `dependency_failure_smoke` through an injected finalization port when exact
   typed ids, confirmation, failure reason where needed, and review
@@ -458,25 +464,25 @@ unless the task explicitly requests it.
   as a workflow-internal domain method: it creates/reuses draft/manual Queue
   tasks by explicit `workflowRunId + slot + taskSpecHash`, persists durable
   slot bindings, and materializes dependency edges only from explicit
-  `dependsOnSlots`. It is not a Workspace Agent broker capability and is not
-  wired into `hobit.workflow.request` execution. Backend workflow run-settings
+  `dependsOnSlots`. It is not a Workspace Agent broker capability and is wired
+  only through typed QueueWorkflowRunner create/setup/start execution. Backend workflow run-settings
   setup and task promotion now also exist as workflow-internal domain methods
   for already materialized slots: they persist `settingsHash`,
   bounded run-settings snapshots, `update_run_settings` refs, and
   `promote_task` refs in the workflow slot binding/action ledger; same typed
   refs are idempotent and changed hashes/refs conflict or block. They are not
-  broker capabilities, not wired into QueueWorkflowRunner create/setup/start
-  execution, and do not start workers, create run links, enable Queue,
+  broker capabilities; they are wired only through typed QueueWorkflowRunner
+  create/setup/start execution and do not themselves start workers, create run links, enable Queue,
   satisfy dependencies, record evidence/reviews/finalization, run validation,
   mutate Git, launch Terminal, schedule, or auto-start downstream work. A
   backend-owned worker-start
   idempotency/control
-  contract now exists on the assigned Queue task start path for future start
-  phases: it requires explicit workflow/action/task/executor/settings refs,
+  contract now exists on the assigned Queue task start path for the workflow
+  start phase: it requires explicit workflow/action/task/executor/settings refs,
   exact confirmation, durable `manual_enabled`, workflow action-ledger
   idempotency, dependency/executor/settings checks, and orphan/unknown blocker
-  handling. The current QueueWorkflowRunner still does not call worker start
-  or implement create/setup/start execution.
+  handling. The current QueueWorkflowRunner calls it only for explicit
+  upstream dependency-smoke start and pauses before evidence recording.
   Unknown ids remain not declared. `grant` is
   permission/scope only, `inputs` is the only workflow data location, and prose
   is never executable workflow input. Workspace Agent direct turns use a provider-neutral

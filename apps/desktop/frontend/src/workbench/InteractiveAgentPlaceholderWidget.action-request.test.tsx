@@ -870,6 +870,7 @@ describe("InteractiveAgentPlaceholderWidget Hobit action requests", () => {
     const createGitCommit = vi.fn();
     const startDirectWork = startDirectWorkWithFinalText(
       workflowEnvelope({
+        phase: "read",
         workflowId: "dependency_acceptance_smoke",
       }),
     );
@@ -1227,8 +1228,10 @@ function actionEnvelope({
 }
 
 function workflowEnvelope({
+  phase,
   workflowId,
 }: {
+  phase?: string;
   workflowId: string;
 }) {
   return JSON.stringify({
@@ -1244,9 +1247,12 @@ function workflowEnvelope({
       mode: "queue_acceptance_smoke",
     },
     inputs: {
+      ...(phase ? { phase } : {}),
       runSettings: {
         approvalPolicy: "on_request",
         codexExecutable: "codex.cmd",
+        executionPolicy: "manual",
+        executorWidgetId: "executor-widget-1",
         sandbox: "workspace_write",
         workspaceRoot: "C:/repo",
       },
