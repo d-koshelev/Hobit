@@ -60,19 +60,34 @@ status, pause/block reasons, and timestamps. `agent_queue_workflow_actions`
 stores backend-internal step/action idempotency ledger rows keyed by workflow
 run and idempotency key.
 
-The typed workflow persistence API exposes start/get/list/cancel/report only.
-Start is idempotent by `workspaceId + requestId + requestHash`; same request id
-with a different typed snapshot is a conflict. Cancel is non-destructive and
-does not mutate Queue tasks, run links, review messages, evidence bundles,
-completion/failure decisions, workers, Git, Terminal, validation, rollback, or
-scheduler state. Reports read persisted workflow/run action rows and state that
-resume execution is not implemented.
+The typed workflow persistence API exposes start/get/list/cancel/report and
+read-only resume planning only. Start is idempotent by
+`workspaceId + requestId + requestHash`; same request id with a different typed
+snapshot is a conflict. Cancel is non-destructive and does not mutate Queue
+tasks, run links, review messages, evidence bundles, completion/failure
+decisions, workers, Git, Terminal, validation, rollback, or scheduler state.
+Reports read persisted workflow/run action rows and state that resume
+execution is not implemented. Resume planning reads persisted workflow state
+and durable Queue facts to return a typed plan/blocker; it does not execute
+workflow steps.
 
 Workflow persistence APIs are not Workspace Agent broker capabilities yet.
 They are backend-backed storage/reporting APIs that future runner-resume wiring
 may consume. No public append-event command exists; action-ledger mutation
 remains backend-internal. Persisted grant summaries must not store reusable
 confirmation tokens or secrets.
+
+Resume planning must reconcile only explicit persisted bindings and variables:
+task ids, run ids, evidence bundle ids, review message ids, completion decision
+ids, failure decision ids, and future executor widget ids. Bound ids must
+belong to the same workspace and to each other when both sides are present
+(for example run-to-task, evidence-to-task/run, review-to-task/run/evidence,
+and completion/failure decision-to-task). Missing durable facts return typed
+missing blockers; mismatched durable facts return `blocked_state_mismatch`.
+Planner code must not infer ids, permissions, confirmations, or workflow input
+from task titles, prompts, UI selection, frontend order, file paths, or prose.
+Any mutating restart target must require a fresh grant and fresh exact
+structured confirmation; persisted confirmation tokens are never replayed.
 
 ## Backend-Backed Capabilities
 

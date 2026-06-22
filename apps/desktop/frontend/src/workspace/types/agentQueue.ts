@@ -695,6 +695,10 @@ export type GetAgentQueueWorkflowRequest = {
   workflowRunId: string;
 };
 
+export type PlanAgentQueueWorkflowResumeRequest = GetAgentQueueWorkflowRequest & {
+  expectedVersion?: number | null;
+};
+
 export type ListAgentQueueWorkflowsRequest = {
   workspaceId: string;
   status?: AgentQueueWorkflowRunStatus | null;
@@ -800,6 +804,94 @@ export type AgentQueueWorkflowReport = {
   actions: AgentQueueWorkflowAction[];
   resumeAvailable: boolean;
   resumeStatus: "not_implemented" | string;
+  reportSummary: string;
+};
+
+export type AgentQueueWorkflowResumePlanStatus =
+  | "resume_ready"
+  | "resume_read_only_ready"
+  | "blocked_missing_task"
+  | "blocked_state_mismatch"
+  | "blocked_missing_review_ack"
+  | "blocked_missing_evidence"
+  | "blocked_missing_confirmation"
+  | "blocked_stale_grant"
+  | "terminal_completed"
+  | "terminal_failed"
+  | "terminal_cancelled"
+  | "unsupported_phase"
+  | "failed_unexpected"
+  | "version_conflict"
+  | string;
+
+export type AgentQueueWorkflowResumeBlocker = {
+  blockerCode: string;
+  blockerMessage: string;
+  slot: string | null;
+  taskId: string | null;
+  runId: string | null;
+  evidenceBundleId: string | null;
+  messageId: string | null;
+  completionDecisionId: string | null;
+  failureDecisionId: string | null;
+  missingRequiredField: string | null;
+};
+
+export type AgentQueueWorkflowSlotReconciliation = {
+  slot: string;
+  taskId: string | null;
+  runId: string | null;
+  evidenceBundleId: string | null;
+  messageId: string | null;
+  completionDecisionId: string | null;
+  failureDecisionId: string | null;
+  executorWidgetId: string | null;
+  taskExists: boolean;
+  runExists: boolean;
+  evidenceExists: boolean;
+  reviewMessageExists: boolean;
+  reviewMessageStatus: string | null;
+  completionDecisionExists: boolean;
+  failureDecisionExists: boolean;
+  aggregateTicketState: string | null;
+  aggregateReviewState: string | null;
+  aggregateEvidenceState: string | null;
+  aggregateDependencyState: string | null;
+  blockerCode: string | null;
+};
+
+export type AgentQueueWorkflowTaskResumeSnapshot = {
+  taskId: string;
+  ticketState: string;
+  workerRunState: string;
+  reviewState: string;
+  evidenceState: string;
+  validationState: string;
+  commitState: string;
+  dependencyState: string;
+  latestRunId: string | null;
+  latestRunStatus: string | null;
+  latestEvidenceBundleId: string | null;
+  latestReviewMessageId: string | null;
+  latestReviewMessageStatus: string | null;
+  latestCompletionDecisionId: string | null;
+  latestFailureDecisionId: string | null;
+};
+
+export type AgentQueueWorkflowResumePlan = {
+  status: AgentQueueWorkflowResumePlanStatus;
+  resumeAvailable: boolean;
+  workflowRun: AgentQueueWorkflowRun;
+  actions: AgentQueueWorkflowAction[];
+  reconciledVariablesJson: string | null;
+  slotReconciliations: AgentQueueWorkflowSlotReconciliation[];
+  taskSnapshots: AgentQueueWorkflowTaskResumeSnapshot[];
+  nextPhase: string | null;
+  nextStep: string | null;
+  blockers: AgentQueueWorkflowResumeBlocker[];
+  requiredFreshGrant: boolean;
+  requiredConfirmation: boolean;
+  terminalStatus: string | null;
   reportSummary: string;
 };
 

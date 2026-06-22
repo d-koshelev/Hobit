@@ -14,6 +14,7 @@ import {
   getAgentQueueWorkflow,
   getAgentQueueWorkflowReport,
   listAgentQueueWorkflows,
+  planAgentQueueWorkflowResume,
   startAgentQueueWorkflow,
 } from "./tauriAgentQueueWorkflowApi";
 
@@ -278,6 +279,170 @@ describe("queueWorkflow Tauri API wrapper", () => {
       "get_agent_queue_workflow_report",
       {
         request: {
+          workflow_run_id: "workflow_run_1",
+          workspace_id: "workspace_1",
+        },
+      },
+    );
+  });
+
+  it("plans queueWorkflow resume through the read-only Tauri command", async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      actions: [],
+      blockers: [
+        {
+          blocker_code: "fresh_confirmation_required",
+          blocker_message:
+            "A fresh exact structured confirmation is required before this workflow step can resume execution.",
+          completion_decision_id: null,
+          evidence_bundle_id: "evidence_1",
+          failure_decision_id: null,
+          message_id: "message_1",
+          missing_required_field: "confirmationToken",
+          run_id: "run_1",
+          slot: "upstream",
+          task_id: "task_1",
+        },
+      ],
+      next_phase: "finalize",
+      next_step: "mark_done_ready",
+      reconciled_variables_json: "{}",
+      report_summary:
+        "Queue workflow run workflow_run_1 resume plan status is blocked_missing_confirmation. No workflow steps were executed.",
+      required_confirmation: true,
+      required_fresh_grant: true,
+      resume_available: true,
+      slot_reconciliations: [
+        {
+          aggregate_dependency_state: "unblocked",
+          aggregate_evidence_state: "available",
+          aggregate_review_state: "acked",
+          aggregate_ticket_state: "review_needed",
+          blocker_code: null,
+          completion_decision_exists: false,
+          completion_decision_id: null,
+          evidence_bundle_id: "evidence_1",
+          evidence_exists: true,
+          executor_widget_id: "executor_1",
+          failure_decision_exists: false,
+          failure_decision_id: null,
+          message_id: "message_1",
+          review_message_exists: true,
+          review_message_status: "acked",
+          run_exists: true,
+          run_id: "run_1",
+          slot: "upstream",
+          task_exists: true,
+          task_id: "task_1",
+        },
+      ],
+      status: "blocked_missing_confirmation",
+      task_snapshots: [
+        {
+          commit_state: "not_required",
+          dependency_state: "unblocked",
+          evidence_state: "available",
+          latest_completion_decision_id: null,
+          latest_evidence_bundle_id: "evidence_1",
+          latest_failure_decision_id: null,
+          latest_review_message_id: "message_1",
+          latest_review_message_status: "acked",
+          latest_run_id: "run_1",
+          latest_run_status: "completed",
+          review_state: "acked",
+          task_id: "task_1",
+          ticket_state: "review_needed",
+          validation_state: "not_required",
+          worker_run_state: "completed",
+        },
+      ],
+      terminal_status: null,
+      workflow_run: tauriRun,
+    });
+
+    await expect(
+      planAgentQueueWorkflowResume({
+        expectedVersion: 1,
+        workflowRunId: "workflow_run_1",
+        workspaceId: "workspace_1",
+      }),
+    ).resolves.toEqual({
+      actions: [],
+      blockers: [
+        {
+          blockerCode: "fresh_confirmation_required",
+          blockerMessage:
+            "A fresh exact structured confirmation is required before this workflow step can resume execution.",
+          completionDecisionId: null,
+          evidenceBundleId: "evidence_1",
+          failureDecisionId: null,
+          messageId: "message_1",
+          missingRequiredField: "confirmationToken",
+          runId: "run_1",
+          slot: "upstream",
+          taskId: "task_1",
+        },
+      ],
+      nextPhase: "finalize",
+      nextStep: "mark_done_ready",
+      reconciledVariablesJson: "{}",
+      reportSummary:
+        "Queue workflow run workflow_run_1 resume plan status is blocked_missing_confirmation. No workflow steps were executed.",
+      requiredConfirmation: true,
+      requiredFreshGrant: true,
+      resumeAvailable: true,
+      slotReconciliations: [
+        {
+          aggregateDependencyState: "unblocked",
+          aggregateEvidenceState: "available",
+          aggregateReviewState: "acked",
+          aggregateTicketState: "review_needed",
+          blockerCode: null,
+          completionDecisionExists: false,
+          completionDecisionId: null,
+          evidenceBundleId: "evidence_1",
+          evidenceExists: true,
+          executorWidgetId: "executor_1",
+          failureDecisionExists: false,
+          failureDecisionId: null,
+          messageId: "message_1",
+          reviewMessageExists: true,
+          reviewMessageStatus: "acked",
+          runExists: true,
+          runId: "run_1",
+          slot: "upstream",
+          taskExists: true,
+          taskId: "task_1",
+        },
+      ],
+      status: "blocked_missing_confirmation",
+      taskSnapshots: [
+        {
+          commitState: "not_required",
+          dependencyState: "unblocked",
+          evidenceState: "available",
+          latestCompletionDecisionId: null,
+          latestEvidenceBundleId: "evidence_1",
+          latestFailureDecisionId: null,
+          latestReviewMessageId: "message_1",
+          latestReviewMessageStatus: "acked",
+          latestRunId: "run_1",
+          latestRunStatus: "completed",
+          reviewState: "acked",
+          taskId: "task_1",
+          ticketState: "review_needed",
+          validationState: "not_required",
+          workerRunState: "completed",
+        },
+      ],
+      terminalStatus: null,
+      workflowRun: expectedRun,
+    });
+    expect(mocks.invoke).toHaveBeenCalledWith(
+      "plan_agent_queue_workflow_resume",
+      {
+        request: {
+          expected_version: 1,
           workflow_run_id: "workflow_run_1",
           workspace_id: "workspace_1",
         },

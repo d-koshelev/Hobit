@@ -248,7 +248,7 @@ completion/failure ledgers. `QueueWorkflowRun.status=failed` means workflow
 execution failure and must not be interpreted as Queue task terminal failure.
 
 The public backend/Tauri/frontend workflow API surface is limited to
-start/get/list/cancel/report:
+start/get/list/cancel/report/planResume:
 
 - `queue.workflow.start` creates a workflow-run record only. It is idempotent
   for the same `workspaceId + requestId` when the stable request hash matches.
@@ -260,6 +260,18 @@ start/get/list/cancel/report:
 - `queue.workflow.cancel` is non-destructive. It marks non-terminal workflow
   runs cancelled and does not roll back, stop workers, mutate Queue tasks,
   mutate evidence/review/finalization ledgers, or start/stop any runtime.
+- `queue.workflow.planResume` is a read-only backend-owned resume planner. It
+  loads a persisted workflow run, reads its action ledger, parses only
+  persisted typed snapshots, reconciles explicit slot bindings/variables
+  against durable Queue facts, and returns a typed plan or blocker. It can
+  report terminal workflow-run states, expected-version conflicts, unsupported
+  phases, missing or mismatched task/run/evidence/review/finalization facts,
+  next deterministic phase/step, and whether a fresh grant or exact structured
+  confirmation is required. It must not execute workflow steps, call
+  `QueueWorkflowRunner`, create/update/promote/enable tasks, start workers,
+  record worker evidence, create/ACK review messages, mark done, fail, block,
+  follow up, validate, mutate Git, roll back, launch Terminal, start
+  downstream work, or infer ids from frontend/session/prose.
 - `queue.workflow.resume` execution is not implemented by this contract block.
 
 Persisted workflow snapshots contain only validated typed workflow inputs and
@@ -272,9 +284,23 @@ time, restart policy, max actions, and consumed action count; reusable
 
 The action ledger records backend-internal step/action idempotency metadata.
 It is not exposed as a public append-event command. This persistence foundation
-does not wire the current frontend `QueueWorkflowRunner` to storage and does
-not expose workflow persistence commands as Workspace Agent broker
-capabilities.
+does not wire the current frontend `QueueWorkflowRunner` to storage for
+execution and does not expose workflow persistence commands as Workspace Agent
+broker capabilities. Resume planning may read durable Queue aggregate,
+run-link, evidence, review, completion, and failure facts, but it is a
+planning/reporting layer only.
+
+Resume planner statuses are typed and stable: `resume_ready`,
+`resume_read_only_ready`, `blocked_missing_task`,
+`blocked_state_mismatch`, `blocked_missing_review_ack`,
+`blocked_missing_evidence`, `blocked_missing_confirmation`,
+`blocked_stale_grant`, `terminal_completed`, `terminal_failed`,
+`terminal_cancelled`, `unsupported_phase`, `failed_unexpected`, and
+`version_conflict`. `terminal_failed` means the workflow run itself is failed;
+it is not a Queue task failure. Mutating or finalizing next steps after
+restart require a fresh grant and fresh exact structured confirmation unless a
+future restart policy explicitly narrows a safe exception. Persisted
+confirmation tokens must never be replayed.
 
 Provider turns now pass through the provider-neutral `AgentRuntime` event loop,
 which owns AgentProvider run lifecycle and delegates final-output

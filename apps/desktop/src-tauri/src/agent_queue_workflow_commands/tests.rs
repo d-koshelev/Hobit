@@ -51,6 +51,23 @@ fn workflow_commands_start_get_list_cancel_and_report() {
     assert_eq!(list.len(), 1);
     assert_eq!(list[0].workflow_run_id, run.workflow_run_id);
 
+    let plan = plan_agent_queue_workflow_resume_blocking(
+        PlanAgentQueueWorkflowResumeRequest {
+            workspace_id: workspace.id.clone(),
+            workflow_run_id: run.workflow_run_id.clone(),
+            expected_version: Some(run.version),
+        },
+        db_path.clone(),
+    )
+    .expect("plan resume")
+    .expect("resume plan");
+
+    assert_eq!(plan.workflow_run.workflow_run_id, run.workflow_run_id);
+    assert_eq!(plan.status, "blocked_missing_task");
+    assert!(plan.resume_available);
+    assert_eq!(plan.blockers.len(), 1);
+    assert_eq!(plan.blockers[0].blocker_code, "task_missing");
+
     let cancel = cancel_agent_queue_workflow_blocking(
         CancelAgentQueueWorkflowRequest {
             workspace_id: workspace.id.clone(),
@@ -147,14 +164,26 @@ fn workflow_commands_enforce_workspace_isolation() {
 
     let cross_workspace_get = get_agent_queue_workflow_blocking(
         GetAgentQueueWorkflowRequest {
-            workspace_id: workspace_two.id,
-            workflow_run_id: run.workflow_run_id,
+            workspace_id: workspace_two.id.clone(),
+            workflow_run_id: run.workflow_run_id.clone(),
         },
         db_path.clone(),
     )
     .expect("cross workspace get");
 
     assert!(cross_workspace_get.is_none());
+
+    let cross_workspace_plan = plan_agent_queue_workflow_resume_blocking(
+        PlanAgentQueueWorkflowResumeRequest {
+            workspace_id: workspace_two.id,
+            workflow_run_id: run.workflow_run_id,
+            expected_version: None,
+        },
+        db_path.clone(),
+    )
+    .expect("cross workspace plan");
+
+    assert!(cross_workspace_plan.is_none());
     remove_test_db_files(&db_path);
 }
 

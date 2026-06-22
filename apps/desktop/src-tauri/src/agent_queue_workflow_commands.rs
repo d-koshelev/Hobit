@@ -5,9 +5,10 @@ use hobit_storage_sqlite::SqliteStore;
 use tauri::State;
 
 use crate::agent_queue_workflow_dto::{
-    AgentQueueWorkflowCancelResultDto, AgentQueueWorkflowReportDto, AgentQueueWorkflowRunDto,
-    AgentQueueWorkflowStartResultDto, CancelAgentQueueWorkflowRequest,
-    GetAgentQueueWorkflowRequest, ListAgentQueueWorkflowsRequest, StartAgentQueueWorkflowRequest,
+    AgentQueueWorkflowCancelResultDto, AgentQueueWorkflowReportDto,
+    AgentQueueWorkflowResumePlanDto, AgentQueueWorkflowRunDto, AgentQueueWorkflowStartResultDto,
+    CancelAgentQueueWorkflowRequest, GetAgentQueueWorkflowRequest, ListAgentQueueWorkflowsRequest,
+    PlanAgentQueueWorkflowResumeRequest, StartAgentQueueWorkflowRequest,
 };
 use crate::app_state::AppState;
 
@@ -107,6 +108,25 @@ pub(crate) fn get_agent_queue_workflow_report_blocking(
     service
         .get_queue_workflow_report(request.into())
         .map(|report| report.map(AgentQueueWorkflowReportDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn plan_agent_queue_workflow_resume(
+    request: PlanAgentQueueWorkflowResumeRequest,
+    state: State<'_, AppState>,
+) -> Result<Option<AgentQueueWorkflowResumePlanDto>, String> {
+    plan_agent_queue_workflow_resume_blocking(request, state.db_path().to_path_buf())
+}
+
+pub(crate) fn plan_agent_queue_workflow_resume_blocking(
+    request: PlanAgentQueueWorkflowResumeRequest,
+    db_path: PathBuf,
+) -> Result<Option<AgentQueueWorkflowResumePlanDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .plan_queue_workflow_resume(request.into())
+        .map(|plan| plan.map(AgentQueueWorkflowResumePlanDto::from))
         .map_err(command_error)
 }
 

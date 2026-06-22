@@ -5,11 +5,16 @@ import type {
   AgentQueueWorkflowCommandBlocker,
   AgentQueueWorkflowConflict,
   AgentQueueWorkflowReport,
+  AgentQueueWorkflowResumeBlocker,
+  AgentQueueWorkflowResumePlan,
+  AgentQueueWorkflowSlotReconciliation,
+  AgentQueueWorkflowTaskResumeSnapshot,
   AgentQueueWorkflowRun,
   AgentQueueWorkflowStartResult,
   CancelAgentQueueWorkflowRequest,
   GetAgentQueueWorkflowRequest,
   ListAgentQueueWorkflowsRequest,
+  PlanAgentQueueWorkflowResumeRequest,
   StartAgentQueueWorkflowRequest,
 } from "./types";
 
@@ -90,6 +95,77 @@ type TauriAgentQueueWorkflowReport = {
   actions: TauriAgentQueueWorkflowAction[];
   resume_available: boolean;
   resume_status: string;
+  report_summary: string;
+};
+
+type TauriAgentQueueWorkflowResumeBlocker = {
+  blocker_code: string;
+  blocker_message: string;
+  slot: string | null;
+  task_id: string | null;
+  run_id: string | null;
+  evidence_bundle_id: string | null;
+  message_id: string | null;
+  completion_decision_id: string | null;
+  failure_decision_id: string | null;
+  missing_required_field: string | null;
+};
+
+type TauriAgentQueueWorkflowSlotReconciliation = {
+  slot: string;
+  task_id: string | null;
+  run_id: string | null;
+  evidence_bundle_id: string | null;
+  message_id: string | null;
+  completion_decision_id: string | null;
+  failure_decision_id: string | null;
+  executor_widget_id: string | null;
+  task_exists: boolean;
+  run_exists: boolean;
+  evidence_exists: boolean;
+  review_message_exists: boolean;
+  review_message_status: string | null;
+  completion_decision_exists: boolean;
+  failure_decision_exists: boolean;
+  aggregate_ticket_state: string | null;
+  aggregate_review_state: string | null;
+  aggregate_evidence_state: string | null;
+  aggregate_dependency_state: string | null;
+  blocker_code: string | null;
+};
+
+type TauriAgentQueueWorkflowTaskResumeSnapshot = {
+  task_id: string;
+  ticket_state: string;
+  worker_run_state: string;
+  review_state: string;
+  evidence_state: string;
+  validation_state: string;
+  commit_state: string;
+  dependency_state: string;
+  latest_run_id: string | null;
+  latest_run_status: string | null;
+  latest_evidence_bundle_id: string | null;
+  latest_review_message_id: string | null;
+  latest_review_message_status: string | null;
+  latest_completion_decision_id: string | null;
+  latest_failure_decision_id: string | null;
+};
+
+type TauriAgentQueueWorkflowResumePlan = {
+  status: string;
+  resume_available: boolean;
+  workflow_run: TauriAgentQueueWorkflowRun;
+  actions: TauriAgentQueueWorkflowAction[];
+  reconciled_variables_json: string | null;
+  slot_reconciliations: TauriAgentQueueWorkflowSlotReconciliation[];
+  task_snapshots: TauriAgentQueueWorkflowTaskResumeSnapshot[];
+  next_phase: string | null;
+  next_step: string | null;
+  blockers: TauriAgentQueueWorkflowResumeBlocker[];
+  required_fresh_grant: boolean;
+  required_confirmation: boolean;
+  terminal_status: string | null;
   report_summary: string;
 };
 
@@ -187,6 +263,23 @@ export async function getAgentQueueWorkflowReport(
   return result ? normalizeReport(result) : null;
 }
 
+export async function planAgentQueueWorkflowResume(
+  request: PlanAgentQueueWorkflowResumeRequest,
+): Promise<AgentQueueWorkflowResumePlan | null> {
+  const result = await invoke<TauriAgentQueueWorkflowResumePlan | null>(
+    "plan_agent_queue_workflow_resume",
+    {
+      request: {
+        expected_version: request.expectedVersion ?? null,
+        workflow_run_id: request.workflowRunId,
+        workspace_id: request.workspaceId,
+      },
+    },
+  );
+
+  return result ? normalizeResumePlan(result) : null;
+}
+
 export function normalizeAgentQueueWorkflowRun(
   run: TauriAgentQueueWorkflowRun,
 ): AgentQueueWorkflowRun {
@@ -223,6 +316,29 @@ function normalizeReport(
     resumeAvailable: report.resume_available,
     resumeStatus: report.resume_status,
     workflowRun: normalizeRun(report.workflow_run),
+  };
+}
+
+function normalizeResumePlan(
+  plan: TauriAgentQueueWorkflowResumePlan,
+): AgentQueueWorkflowResumePlan {
+  return {
+    actions: plan.actions.map(normalizeAction),
+    blockers: plan.blockers.map(normalizeResumeBlocker),
+    nextPhase: plan.next_phase,
+    nextStep: plan.next_step,
+    reconciledVariablesJson: plan.reconciled_variables_json,
+    reportSummary: plan.report_summary,
+    requiredConfirmation: plan.required_confirmation,
+    requiredFreshGrant: plan.required_fresh_grant,
+    resumeAvailable: plan.resume_available,
+    slotReconciliations: plan.slot_reconciliations.map(
+      normalizeSlotReconciliation,
+    ),
+    status: plan.status,
+    taskSnapshots: plan.task_snapshots.map(normalizeTaskResumeSnapshot),
+    terminalStatus: plan.terminal_status,
+    workflowRun: normalizeRun(plan.workflow_run),
   };
 }
 
@@ -284,6 +400,72 @@ function normalizeBlocker(
     blockerCode: blocker.blocker_code,
     blockerMessage: blocker.blocker_message,
     missingRequiredField: blocker.missing_required_field,
+  };
+}
+
+function normalizeResumeBlocker(
+  blocker: TauriAgentQueueWorkflowResumeBlocker,
+): AgentQueueWorkflowResumeBlocker {
+  return {
+    blockerCode: blocker.blocker_code,
+    blockerMessage: blocker.blocker_message,
+    completionDecisionId: blocker.completion_decision_id,
+    evidenceBundleId: blocker.evidence_bundle_id,
+    failureDecisionId: blocker.failure_decision_id,
+    messageId: blocker.message_id,
+    missingRequiredField: blocker.missing_required_field,
+    runId: blocker.run_id,
+    slot: blocker.slot,
+    taskId: blocker.task_id,
+  };
+}
+
+function normalizeSlotReconciliation(
+  reconciliation: TauriAgentQueueWorkflowSlotReconciliation,
+): AgentQueueWorkflowSlotReconciliation {
+  return {
+    aggregateDependencyState: reconciliation.aggregate_dependency_state,
+    aggregateEvidenceState: reconciliation.aggregate_evidence_state,
+    aggregateReviewState: reconciliation.aggregate_review_state,
+    aggregateTicketState: reconciliation.aggregate_ticket_state,
+    blockerCode: reconciliation.blocker_code,
+    completionDecisionExists: reconciliation.completion_decision_exists,
+    completionDecisionId: reconciliation.completion_decision_id,
+    evidenceBundleId: reconciliation.evidence_bundle_id,
+    evidenceExists: reconciliation.evidence_exists,
+    executorWidgetId: reconciliation.executor_widget_id,
+    failureDecisionExists: reconciliation.failure_decision_exists,
+    failureDecisionId: reconciliation.failure_decision_id,
+    messageId: reconciliation.message_id,
+    reviewMessageExists: reconciliation.review_message_exists,
+    reviewMessageStatus: reconciliation.review_message_status,
+    runExists: reconciliation.run_exists,
+    runId: reconciliation.run_id,
+    slot: reconciliation.slot,
+    taskExists: reconciliation.task_exists,
+    taskId: reconciliation.task_id,
+  };
+}
+
+function normalizeTaskResumeSnapshot(
+  snapshot: TauriAgentQueueWorkflowTaskResumeSnapshot,
+): AgentQueueWorkflowTaskResumeSnapshot {
+  return {
+    commitState: snapshot.commit_state,
+    dependencyState: snapshot.dependency_state,
+    evidenceState: snapshot.evidence_state,
+    latestCompletionDecisionId: snapshot.latest_completion_decision_id,
+    latestEvidenceBundleId: snapshot.latest_evidence_bundle_id,
+    latestFailureDecisionId: snapshot.latest_failure_decision_id,
+    latestReviewMessageId: snapshot.latest_review_message_id,
+    latestReviewMessageStatus: snapshot.latest_review_message_status,
+    latestRunId: snapshot.latest_run_id,
+    latestRunStatus: snapshot.latest_run_status,
+    reviewState: snapshot.review_state,
+    taskId: snapshot.task_id,
+    ticketState: snapshot.ticket_state,
+    validationState: snapshot.validation_state,
+    workerRunState: snapshot.worker_run_state,
   };
 }
 

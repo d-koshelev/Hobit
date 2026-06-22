@@ -1,8 +1,10 @@
 use hobit_app::{
     QueueWorkflowAction, QueueWorkflowCancelRequest, QueueWorkflowCancelResult,
     QueueWorkflowCommandBlocker, QueueWorkflowConflict, QueueWorkflowGetRequest,
-    QueueWorkflowListRequest, QueueWorkflowReport, QueueWorkflowRun, QueueWorkflowStartRequest,
-    QueueWorkflowStartResult,
+    QueueWorkflowListRequest, QueueWorkflowPlanResumeRequest, QueueWorkflowReport,
+    QueueWorkflowResumeBlocker, QueueWorkflowResumePlan, QueueWorkflowRun,
+    QueueWorkflowSlotReconciliation, QueueWorkflowStartRequest, QueueWorkflowStartResult,
+    QueueWorkflowTaskResumeSnapshot,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -43,6 +45,13 @@ pub(crate) struct CancelAgentQueueWorkflowRequest {
     pub workflow_run_id: String,
     pub actor_id: Option<String>,
     pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct PlanAgentQueueWorkflowResumeRequest {
+    pub workspace_id: String,
+    pub workflow_run_id: String,
+    pub expected_version: Option<i64>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -132,6 +141,81 @@ pub(crate) struct AgentQueueWorkflowReportDto {
     pub report_summary: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowResumeBlockerDto {
+    pub blocker_code: String,
+    pub blocker_message: String,
+    pub slot: Option<String>,
+    pub task_id: Option<String>,
+    pub run_id: Option<String>,
+    pub evidence_bundle_id: Option<String>,
+    pub message_id: Option<String>,
+    pub completion_decision_id: Option<String>,
+    pub failure_decision_id: Option<String>,
+    pub missing_required_field: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowSlotReconciliationDto {
+    pub slot: String,
+    pub task_id: Option<String>,
+    pub run_id: Option<String>,
+    pub evidence_bundle_id: Option<String>,
+    pub message_id: Option<String>,
+    pub completion_decision_id: Option<String>,
+    pub failure_decision_id: Option<String>,
+    pub executor_widget_id: Option<String>,
+    pub task_exists: bool,
+    pub run_exists: bool,
+    pub evidence_exists: bool,
+    pub review_message_exists: bool,
+    pub review_message_status: Option<String>,
+    pub completion_decision_exists: bool,
+    pub failure_decision_exists: bool,
+    pub aggregate_ticket_state: Option<String>,
+    pub aggregate_review_state: Option<String>,
+    pub aggregate_evidence_state: Option<String>,
+    pub aggregate_dependency_state: Option<String>,
+    pub blocker_code: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowTaskResumeSnapshotDto {
+    pub task_id: String,
+    pub ticket_state: String,
+    pub worker_run_state: String,
+    pub review_state: String,
+    pub evidence_state: String,
+    pub validation_state: String,
+    pub commit_state: String,
+    pub dependency_state: String,
+    pub latest_run_id: Option<String>,
+    pub latest_run_status: Option<String>,
+    pub latest_evidence_bundle_id: Option<String>,
+    pub latest_review_message_id: Option<String>,
+    pub latest_review_message_status: Option<String>,
+    pub latest_completion_decision_id: Option<String>,
+    pub latest_failure_decision_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowResumePlanDto {
+    pub status: String,
+    pub resume_available: bool,
+    pub workflow_run: AgentQueueWorkflowRunDto,
+    pub actions: Vec<AgentQueueWorkflowActionDto>,
+    pub reconciled_variables_json: Option<String>,
+    pub slot_reconciliations: Vec<AgentQueueWorkflowSlotReconciliationDto>,
+    pub task_snapshots: Vec<AgentQueueWorkflowTaskResumeSnapshotDto>,
+    pub next_phase: Option<String>,
+    pub next_step: Option<String>,
+    pub blockers: Vec<AgentQueueWorkflowResumeBlockerDto>,
+    pub required_fresh_grant: bool,
+    pub required_confirmation: bool,
+    pub terminal_status: Option<String>,
+    pub report_summary: String,
+}
+
 impl From<StartAgentQueueWorkflowRequest> for QueueWorkflowStartRequest {
     fn from(request: StartAgentQueueWorkflowRequest) -> Self {
         Self {
@@ -178,6 +262,16 @@ impl From<CancelAgentQueueWorkflowRequest> for QueueWorkflowCancelRequest {
             workflow_run_id: request.workflow_run_id,
             actor_id: request.actor_id,
             reason: request.reason,
+        }
+    }
+}
+
+impl From<PlanAgentQueueWorkflowResumeRequest> for QueueWorkflowPlanResumeRequest {
+    fn from(request: PlanAgentQueueWorkflowResumeRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workflow_run_id: request.workflow_run_id,
+            expected_version: request.expected_version,
         }
     }
 }
@@ -294,6 +388,109 @@ impl From<QueueWorkflowReport> for AgentQueueWorkflowReportDto {
             resume_available: report.resume_available,
             resume_status: report.resume_status,
             report_summary: report.report_summary,
+        }
+    }
+}
+
+impl From<QueueWorkflowResumeBlocker> for AgentQueueWorkflowResumeBlockerDto {
+    fn from(blocker: QueueWorkflowResumeBlocker) -> Self {
+        Self {
+            blocker_code: blocker.blocker_code,
+            blocker_message: blocker.blocker_message,
+            slot: blocker.slot,
+            task_id: blocker.task_id,
+            run_id: blocker.run_id,
+            evidence_bundle_id: blocker.evidence_bundle_id,
+            message_id: blocker.message_id,
+            completion_decision_id: blocker.completion_decision_id,
+            failure_decision_id: blocker.failure_decision_id,
+            missing_required_field: blocker.missing_required_field,
+        }
+    }
+}
+
+impl From<QueueWorkflowSlotReconciliation> for AgentQueueWorkflowSlotReconciliationDto {
+    fn from(reconciliation: QueueWorkflowSlotReconciliation) -> Self {
+        Self {
+            slot: reconciliation.slot,
+            task_id: reconciliation.task_id,
+            run_id: reconciliation.run_id,
+            evidence_bundle_id: reconciliation.evidence_bundle_id,
+            message_id: reconciliation.message_id,
+            completion_decision_id: reconciliation.completion_decision_id,
+            failure_decision_id: reconciliation.failure_decision_id,
+            executor_widget_id: reconciliation.executor_widget_id,
+            task_exists: reconciliation.task_exists,
+            run_exists: reconciliation.run_exists,
+            evidence_exists: reconciliation.evidence_exists,
+            review_message_exists: reconciliation.review_message_exists,
+            review_message_status: reconciliation.review_message_status,
+            completion_decision_exists: reconciliation.completion_decision_exists,
+            failure_decision_exists: reconciliation.failure_decision_exists,
+            aggregate_ticket_state: reconciliation.aggregate_ticket_state,
+            aggregate_review_state: reconciliation.aggregate_review_state,
+            aggregate_evidence_state: reconciliation.aggregate_evidence_state,
+            aggregate_dependency_state: reconciliation.aggregate_dependency_state,
+            blocker_code: reconciliation.blocker_code,
+        }
+    }
+}
+
+impl From<QueueWorkflowTaskResumeSnapshot> for AgentQueueWorkflowTaskResumeSnapshotDto {
+    fn from(snapshot: QueueWorkflowTaskResumeSnapshot) -> Self {
+        Self {
+            task_id: snapshot.task_id,
+            ticket_state: snapshot.ticket_state,
+            worker_run_state: snapshot.worker_run_state,
+            review_state: snapshot.review_state,
+            evidence_state: snapshot.evidence_state,
+            validation_state: snapshot.validation_state,
+            commit_state: snapshot.commit_state,
+            dependency_state: snapshot.dependency_state,
+            latest_run_id: snapshot.latest_run_id,
+            latest_run_status: snapshot.latest_run_status,
+            latest_evidence_bundle_id: snapshot.latest_evidence_bundle_id,
+            latest_review_message_id: snapshot.latest_review_message_id,
+            latest_review_message_status: snapshot.latest_review_message_status,
+            latest_completion_decision_id: snapshot.latest_completion_decision_id,
+            latest_failure_decision_id: snapshot.latest_failure_decision_id,
+        }
+    }
+}
+
+impl From<QueueWorkflowResumePlan> for AgentQueueWorkflowResumePlanDto {
+    fn from(plan: QueueWorkflowResumePlan) -> Self {
+        Self {
+            status: plan.status.as_str().to_owned(),
+            resume_available: plan.resume_available,
+            workflow_run: AgentQueueWorkflowRunDto::from(plan.workflow_run),
+            actions: plan
+                .actions
+                .into_iter()
+                .map(AgentQueueWorkflowActionDto::from)
+                .collect(),
+            reconciled_variables_json: plan.reconciled_variables_json,
+            slot_reconciliations: plan
+                .slot_reconciliations
+                .into_iter()
+                .map(AgentQueueWorkflowSlotReconciliationDto::from)
+                .collect(),
+            task_snapshots: plan
+                .task_snapshots
+                .into_iter()
+                .map(AgentQueueWorkflowTaskResumeSnapshotDto::from)
+                .collect(),
+            next_phase: plan.next_phase,
+            next_step: plan.next_step,
+            blockers: plan
+                .blockers
+                .into_iter()
+                .map(AgentQueueWorkflowResumeBlockerDto::from)
+                .collect(),
+            required_fresh_grant: plan.required_fresh_grant,
+            required_confirmation: plan.required_confirmation,
+            terminal_status: plan.terminal_status,
+            report_summary: plan.report_summary,
         }
     }
 }

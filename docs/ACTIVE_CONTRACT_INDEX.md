@@ -761,9 +761,9 @@ the local executor flow visible to operators.
   confirmation, bounded grants, generic `hobit.workflow.request` validation,
   result statuses, dependency satisfaction, or backend-backed broker
   capability behavior. It also records the backend-owned QueueWorkflowRun
-  persistence MVP: start/get/list/cancel/report APIs and internal action
-  ledger exist, while resume execution and runner persistence wiring remain
-  not implemented.
+  persistence MVP: start/get/list/cancel/report/planResume APIs, read-only
+  resume planning, and internal action ledger exist, while resume execution
+  and runner persistence execution wiring remain not implemented.
 - `docs/QUEUE_RESPONSIBILITY_REFACTOR_AUDIT.md` - focused audit/status note
   for the Queue backend ownership refactor, transitional capability debt, and
   phased cleanup plan.

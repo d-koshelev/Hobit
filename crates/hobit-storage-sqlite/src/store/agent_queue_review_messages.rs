@@ -70,6 +70,24 @@ impl SqliteStore {
             .optional()
     }
 
+    pub fn get_agent_queue_review_message_by_id(
+        &self,
+        workspace_id: &str,
+        message_id: &str,
+    ) -> Result<Option<AgentQueueReviewMessageRow>> {
+        self.connection
+            .query_row(
+                "SELECT
+                    message_id, workspace_id, queue_task_id, run_id, run_link_id, actor_id,
+                    message_body, status, created_at, acked_at, ack_actor_id, metadata_json, updated_at
+                 FROM agent_queue_review_messages
+                 WHERE workspace_id = ?1 AND message_id = ?2",
+                params![workspace_id, message_id],
+                agent_queue_review_message_row,
+            )
+            .optional()
+    }
+
     pub fn get_latest_agent_queue_review_message(
         &self,
         workspace_id: &str,

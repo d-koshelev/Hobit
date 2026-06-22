@@ -1,5 +1,8 @@
 use hobit_storage_sqlite::{
-    NewAgentQueueTask, NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun, SqliteStore,
+    NewAgentQueueCompletionDecision, NewAgentQueueFailureDecision, NewAgentQueueReviewMessage,
+    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorkerEvidenceBundle,
+    NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun, NewWidgetInstance, NewWidgetRun,
+    SqliteStore,
 };
 use serde_json::{json, Value};
 
@@ -540,4 +543,1012 @@ fn queue_workflow_report_returns_persisted_actions_and_no_resume_execution() {
     assert_eq!(report.resume_status, "not_implemented");
     assert_eq!(report.actions.len(), 1);
     assert_eq!(report.actions[0].action_type, "queue.lifecycle.get");
+}
+
+#[test]
+fn plan_resume_reports_terminal_workflow_run_statuses() {
+    for (status, expected) in [
+        (
+            "completed",
+            QueueWorkflowResumePlanStatus::TerminalCompleted,
+        ),
+        ("failed", QueueWorkflowResumePlanStatus::TerminalFailed),
+        (
+            "cancelled",
+            QueueWorkflowResumePlanStatus::TerminalCancelled,
+        ),
+    ] {
+        let store = initialized_store();
+        create_workspace_in_store(&store, "workspace-1");
+        insert_resume_workflow(
+            &store,
+            "workflow-run-1",
+            "dependency_acceptance_smoke",
+            status,
+            "closed",
+            None,
+            None,
+            None,
+            None,
+            Some("1"),
+        );
+        let service = WorkspaceService::new(store);
+
+        let plan = service
+            .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-1", None))
+            .expect("plan resume")
+            .expect("plan");
+
+        assert_eq!(plan.status, expected);
+        assert!(!plan.resume_available);
+        assert_eq!(plan.terminal_status.as_deref(), Some(status));
+    }
+}
+
+#[test]
+fn plan_resume_created_workflow_without_slots_waits_for_explicit_task_creation() {
+    let store = initialized_store();
+    create_workspace_in_store(&store, "workspace-1");
+    insert_resume_workflow(
+        &store,
+        "workflow-run-1",
+        "dependency_acceptance_smoke",
+        "created",
+        "intake",
+        Some("created"),
+        Some(r#"{"operatorText":"task-1 is mentioned only as prose"}"#),
+        None,
+        None,
+        Some("1"),
+    );
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    let service = WorkspaceService::new(store);
+
+    let plan = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-1", None))
+        .expect("plan resume")
+        .expect("plan");
+
+    assert_eq!(
+        plan.status,
+        QueueWorkflowResumePlanStatus::ResumeReadOnlyReady
+    );
+    assert_eq!(
+        plan.next_step.as_deref(),
+        Some("waiting_for_task_creation_phase")
+    );
+    assert!(
+        plan.slot_reconciliations.is_empty(),
+        "planner must not infer task ids from prose-only inputs"
+    );
+    assert_eq!(
+        service
+            .list_agent_queue_tasks("workspace-1")
+            .expect("list tasks")
+            .len(),
+        1,
+        "planning must not create or mutate Queue tasks"
+    );
+}
+
+#[test]
+fn plan_resume_blocks_missing_and_cross_workspace_tasks() {
+    let store = initialized_store();
+    create_workspace_in_store(&store, "workspace-1");
+    create_workspace_in_store(&store, "workspace-2");
+    create_task_row(
+        &store,
+        "workspace-2",
+        "task-other-workspace",
+        "queued",
+        true,
+        None,
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-missing",
+        "dependency_acceptance_smoke",
+        "running",
+        "review",
+        Some("review"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-missing"}}"#),
+        None,
+        Some("1"),
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-mismatch",
+        "dependency_acceptance_smoke",
+        "running",
+        "review",
+        Some("review"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-other-workspace"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let missing = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-missing", None))
+        .expect("plan missing task")
+        .expect("plan");
+    let mismatch = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-mismatch", None))
+        .expect("plan task mismatch")
+        .expect("plan");
+
+    assert_eq!(
+        missing.status,
+        QueueWorkflowResumePlanStatus::BlockedMissingTask
+    );
+    assert_eq!(
+        missing.blockers[0].missing_required_field.as_deref(),
+        Some("taskId")
+    );
+    assert_eq!(
+        mismatch.status,
+        QueueWorkflowResumePlanStatus::BlockedStateMismatch
+    );
+    assert_eq!(mismatch.blockers[0].blocker_code, "task_workspace_mismatch");
+}
+
+#[test]
+fn plan_resume_reconciles_run_and_evidence_binding_mismatches() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_task_row(&store, "workspace-1", "task-2", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "completed",
+    );
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-2",
+        "run-2",
+        "link-2",
+        "completed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-2",
+        "run-2",
+        "link-2",
+        "bundle-2",
+        "completed",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-run-mismatch",
+        "dependency_acceptance_smoke",
+        "running",
+        "worker_evidence",
+        Some("worker_evidence"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-2"}}"#),
+        None,
+        Some("1"),
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-evidence-mismatch",
+        "dependency_acceptance_smoke",
+        "running",
+        "review",
+        Some("review"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1","evidenceBundleId":"bundle-2"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let run_mismatch = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            "workflow-run-run-mismatch",
+            None,
+        ))
+        .expect("plan run mismatch")
+        .expect("plan");
+    let evidence_mismatch = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            "workflow-run-evidence-mismatch",
+            None,
+        ))
+        .expect("plan evidence mismatch")
+        .expect("plan");
+
+    assert_eq!(
+        run_mismatch.status,
+        QueueWorkflowResumePlanStatus::BlockedStateMismatch
+    );
+    assert_eq!(run_mismatch.blockers[0].blocker_code, "run_task_mismatch");
+    assert_eq!(
+        evidence_mismatch.status,
+        QueueWorkflowResumePlanStatus::BlockedStateMismatch
+    );
+    assert!(evidence_mismatch
+        .blockers
+        .iter()
+        .any(|blocker| blocker.blocker_code == "evidence_task_mismatch"));
+}
+
+#[test]
+fn plan_resume_blocks_missing_evidence_for_finished_run() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "completed",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-1",
+        "dependency_acceptance_smoke",
+        "running",
+        "review",
+        Some("review"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let plan = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-1", None))
+        .expect("plan resume")
+        .expect("plan");
+
+    assert_eq!(
+        plan.status,
+        QueueWorkflowResumePlanStatus::BlockedMissingEvidence
+    );
+    assert_eq!(plan.next_step.as_deref(), Some("worker_evidence_required"));
+}
+
+#[test]
+fn plan_resume_moves_from_evidence_to_review_create_or_ack() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_task_row(&store, "workspace-1", "task-2", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "review_needed",
+    );
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-2",
+        "run-2",
+        "link-2",
+        "review_needed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "bundle-1",
+        "completed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-2",
+        "run-2",
+        "link-2",
+        "bundle-2",
+        "completed",
+    );
+    create_review_message(
+        &store,
+        "workspace-1",
+        "task-2",
+        "run-2",
+        "link-2",
+        "message-2",
+        "created",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-review-create",
+        "dependency_acceptance_smoke",
+        "running",
+        "review",
+        Some("review"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1","evidenceBundleId":"bundle-1"}}"#),
+        None,
+        Some("1"),
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-review-ack",
+        "dependency_acceptance_smoke",
+        "running",
+        "review",
+        Some("review"),
+        None,
+        Some(
+            r#"{"upstream":{"taskId":"task-2","runId":"run-2","evidenceBundleId":"bundle-2","messageId":"message-2"}}"#,
+        ),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let create_plan = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            "workflow-run-review-create",
+            None,
+        ))
+        .expect("plan review create")
+        .expect("plan");
+    let ack_plan = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-review-ack", None))
+        .expect("plan review ack")
+        .expect("plan");
+
+    assert_eq!(
+        create_plan.status,
+        QueueWorkflowResumePlanStatus::BlockedMissingConfirmation
+    );
+    assert_eq!(
+        create_plan.next_step.as_deref(),
+        Some("review_create_ready")
+    );
+    assert!(create_plan.required_fresh_grant);
+    assert!(create_plan.required_confirmation);
+    assert_eq!(
+        ack_plan.status,
+        QueueWorkflowResumePlanStatus::BlockedMissingReviewAck
+    );
+    assert_eq!(ack_plan.next_step.as_deref(), Some("review_ack_ready"));
+}
+
+#[test]
+fn plan_resume_after_ack_requires_fresh_confirmation_for_finalization() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "review_needed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "bundle-1",
+        "completed",
+    );
+    create_review_message(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "message-1",
+        "acknowledged",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-1",
+        "dependency_acceptance_smoke",
+        "running",
+        "decision",
+        Some("decision"),
+        None,
+        Some(
+            r#"{"upstream":{"taskId":"task-1","runId":"run-1","evidenceBundleId":"bundle-1","messageId":"message-1"}}"#,
+        ),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let plan = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-1", None))
+        .expect("plan resume")
+        .expect("plan");
+
+    assert_eq!(
+        plan.status,
+        QueueWorkflowResumePlanStatus::BlockedMissingConfirmation
+    );
+    assert_eq!(plan.next_step.as_deref(), Some("mark_done_ready"));
+    assert!(plan.required_fresh_grant);
+    assert!(plan.required_confirmation);
+    assert!(plan
+        .report_summary
+        .contains("No workflow steps were executed"));
+}
+
+#[test]
+fn plan_resume_recognizes_idempotent_completion_and_failure_decisions() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-done", "queued", true, None);
+    create_task_row(&store, "workspace-1", "task-failed", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-done",
+        "run-done",
+        "link-done",
+        "review_needed",
+    );
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-failed",
+        "run-failed",
+        "link-failed",
+        "review_needed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-done",
+        "run-done",
+        "link-done",
+        "bundle-done",
+        "completed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-failed",
+        "run-failed",
+        "link-failed",
+        "bundle-failed",
+        "failed",
+    );
+    create_review_message(
+        &store,
+        "workspace-1",
+        "task-done",
+        "run-done",
+        "link-done",
+        "message-done",
+        "acknowledged",
+    );
+    create_review_message(
+        &store,
+        "workspace-1",
+        "task-failed",
+        "run-failed",
+        "link-failed",
+        "message-failed",
+        "acknowledged",
+    );
+    create_completion_decision(
+        &store,
+        "workspace-1",
+        "task-done",
+        "run-done",
+        "link-done",
+        "message-done",
+        "completion-1",
+    );
+    create_failure_decision(
+        &store,
+        "workspace-1",
+        "task-failed",
+        "run-failed",
+        "link-failed",
+        "bundle-failed",
+        "message-failed",
+        "failure-1",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-done",
+        "dependency_acceptance_smoke",
+        "running",
+        "decision",
+        Some("decision"),
+        None,
+        Some(
+            r#"{"upstream":{"taskId":"task-done","runId":"run-done","evidenceBundleId":"bundle-done","messageId":"message-done","completionDecisionId":"completion-1"}}"#,
+        ),
+        None,
+        Some("1"),
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-failed",
+        "dependency_failure_smoke",
+        "running",
+        "decision",
+        Some("decision"),
+        Some(r#"{"failureReason":"Rejected by operator"}"#),
+        Some(
+            r#"{"upstream":{"taskId":"task-failed","runId":"run-failed","evidenceBundleId":"bundle-failed","messageId":"message-failed","failureDecisionId":"failure-1"}}"#,
+        ),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let done = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-done", None))
+        .expect("plan done")
+        .expect("plan");
+    let failed = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-failed", None))
+        .expect("plan failed")
+        .expect("plan");
+
+    assert_eq!(
+        done.status,
+        QueueWorkflowResumePlanStatus::ResumeReadOnlyReady
+    );
+    assert_eq!(
+        done.next_step.as_deref(),
+        Some("completed_idempotent_acceptance")
+    );
+    assert_eq!(
+        failed.status,
+        QueueWorkflowResumePlanStatus::ResumeReadOnlyReady
+    );
+    assert_eq!(
+        failed.next_step.as_deref(),
+        Some("completed_idempotent_failure")
+    );
+}
+
+#[test]
+fn plan_resume_blocks_stale_grant_and_expected_version_conflict() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "review_needed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "bundle-1",
+        "completed",
+    );
+    create_review_message(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "message-1",
+        "acknowledged",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-1",
+        "dependency_acceptance_smoke",
+        "running",
+        "decision",
+        Some("decision"),
+        None,
+        Some(
+            r#"{"upstream":{"taskId":"task-1","runId":"run-1","evidenceBundleId":"bundle-1","messageId":"message-1"}}"#,
+        ),
+        Some(
+            r#"{"expiresAt":"expired","scope":{"taskIds":["task-1"],"runIds":["run-1"],"evidenceBundleIds":["bundle-1"],"messageIds":["message-1"]}}"#,
+        ),
+        Some("3"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let stale = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-1", None))
+        .expect("plan stale")
+        .expect("plan");
+    let version_conflict = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-1", Some(2)))
+        .expect("plan version")
+        .expect("plan");
+
+    assert_eq!(
+        stale.status,
+        QueueWorkflowResumePlanStatus::BlockedStaleGrant
+    );
+    assert!(stale
+        .blockers
+        .iter()
+        .any(|blocker| blocker.blocker_code == "grant_expired"));
+    assert_eq!(
+        version_conflict.status,
+        QueueWorkflowResumePlanStatus::VersionConflict
+    );
+}
+
+#[test]
+fn plan_resume_does_not_mutate_workflow_or_queue_facts() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "review_needed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "bundle-1",
+        "completed",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-1",
+        "dependency_acceptance_smoke",
+        "running",
+        "review",
+        Some("review"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1","evidenceBundleId":"bundle-1"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+    let before_workflow = service
+        .get_queue_workflow_run(QueueWorkflowGetRequest {
+            workspace_id: "workspace-1".to_owned(),
+            workflow_run_id: "workflow-run-1".to_owned(),
+        })
+        .expect("get before")
+        .expect("workflow");
+    let before_task_count = service
+        .list_agent_queue_tasks("workspace-1")
+        .expect("list before")
+        .len();
+
+    let plan = service
+        .plan_queue_workflow_resume(plan_request("workspace-1", "workflow-run-1", None))
+        .expect("plan")
+        .expect("plan");
+    let after_workflow = service
+        .get_queue_workflow_run(QueueWorkflowGetRequest {
+            workspace_id: "workspace-1".to_owned(),
+            workflow_run_id: "workflow-run-1".to_owned(),
+        })
+        .expect("get after")
+        .expect("workflow");
+    let review_messages = service
+        .store
+        .list_agent_queue_review_messages("workspace-1", "task-1")
+        .expect("list review messages");
+
+    assert_eq!(plan.next_step.as_deref(), Some("review_create_ready"));
+    assert_eq!(before_workflow.version, after_workflow.version);
+    assert_eq!(
+        before_task_count,
+        service
+            .list_agent_queue_tasks("workspace-1")
+            .expect("list after")
+            .len()
+    );
+    assert!(
+        review_messages.is_empty(),
+        "planning must not create review messages"
+    );
+}
+
+fn plan_request(
+    workspace_id: &str,
+    workflow_run_id: &str,
+    expected_version: Option<i64>,
+) -> QueueWorkflowPlanResumeRequest {
+    QueueWorkflowPlanResumeRequest {
+        workspace_id: workspace_id.to_owned(),
+        workflow_run_id: workflow_run_id.to_owned(),
+        expected_version,
+    }
+}
+
+fn insert_resume_workflow(
+    store: &SqliteStore,
+    workflow_run_id: &str,
+    workflow_id: &str,
+    status: &str,
+    phase: &str,
+    current_step: Option<&str>,
+    inputs_snapshot_json: Option<&str>,
+    slot_bindings_json: Option<&str>,
+    grant_summary_json: Option<&str>,
+    version: Option<&str>,
+) {
+    store
+        .insert_agent_queue_workflow_run(NewAgentQueueWorkflowRun {
+            workflow_run_id,
+            workspace_id: "workspace-1",
+            workflow_id,
+            request_id: workflow_run_id,
+            request_hash: "hash-1",
+            status,
+            phase,
+            current_step,
+            pause_reason: None,
+            blocker_reason: None,
+            actor_id: Some("workspace-agent"),
+            inputs_snapshot_json,
+            grant_summary_json,
+            variables_json: Some("{}"),
+            slot_bindings_json,
+            mutation_refs_json: Some("{}"),
+            idempotency_keys_json: Some("{}"),
+            action_log_summary_json: Some("[]"),
+            version: version
+                .and_then(|value| value.parse::<i64>().ok())
+                .unwrap_or(1),
+            schema_version: 1,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+            completed_at: matches!(status, "completed" | "failed" | "cancelled").then_some("2"),
+        })
+        .expect("insert workflow run");
+}
+
+fn create_workspace_with_executor(
+    store: &SqliteStore,
+    workspace_id: &str,
+    workbench_id: &str,
+    executor_id: &str,
+) {
+    store
+        .create_workspace(workspace_id, "Workspace", None, "active")
+        .expect("create workspace");
+    store
+        .create_workspace_workbench(workbench_id, workspace_id, None)
+        .expect("create workbench");
+    store
+        .insert_widget_instance(NewWidgetInstance {
+            id: executor_id,
+            workspace_id,
+            workbench_id,
+            definition_id: "agent-run",
+            title: "Agent Executor",
+            category: "agent",
+            layout_mode: "docked",
+            dock_x: Some(0),
+            dock_y: Some(0),
+            dock_width: Some(360),
+            dock_height: Some(240),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert executor");
+}
+
+fn create_task_row(
+    store: &SqliteStore,
+    workspace_id: &str,
+    task_id: &str,
+    status: &str,
+    with_run_settings: bool,
+    depends_on_json: Option<&str>,
+) {
+    store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: task_id,
+            workspace_id,
+            title: "Task",
+            description: "",
+            prompt: "Prompt",
+            status,
+            priority: 1,
+            depends_on: depends_on_json,
+            execution_policy: None,
+            execution_workspace: with_run_settings.then_some("C:/workspace/project"),
+            codex_executable: with_run_settings.then_some("codex"),
+            sandbox: with_run_settings.then_some("workspace_write"),
+            approval_policy: with_run_settings.then_some("never"),
+            context_json: None,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create queue task");
+}
+
+fn create_run_link(
+    store: &SqliteStore,
+    workspace_id: &str,
+    task_id: &str,
+    run_id: &str,
+    link_id: &str,
+    status: &str,
+) {
+    store
+        .insert_widget_run(NewWidgetRun {
+            id: run_id,
+            widget_instance_id: "executor-1",
+            status,
+            command_kind: Some("codex_direct_work"),
+            command_payload: Some("{}"),
+            started_at: Some("2"),
+            finished_at: (status != "running").then_some("3"),
+            summary: Some("Worker summary"),
+        })
+        .expect("insert widget run");
+    store
+        .insert_agent_queue_task_run_link(NewAgentQueueTaskRunLink {
+            link_id,
+            workspace_id,
+            queue_task_id: task_id,
+            executor_widget_id: "executor-1",
+            direct_work_run_id: run_id,
+            source: "manual",
+            status,
+            started_at: Some("2"),
+            completed_at: (status != "running").then_some("3"),
+            validation_status: None,
+            review_status: Some("review_needed"),
+            created_at: Some("2"),
+            updated_at: Some("3"),
+        })
+        .expect("insert run link");
+}
+
+fn create_evidence(
+    store: &SqliteStore,
+    workspace_id: &str,
+    task_id: &str,
+    run_id: &str,
+    link_id: &str,
+    bundle_id: &str,
+    outcome: &str,
+) {
+    store
+        .upsert_agent_queue_worker_evidence_bundle(NewAgentQueueWorkerEvidenceBundle {
+            bundle_id,
+            workspace_id,
+            queue_task_id: task_id,
+            run_id,
+            run_link_id: Some(link_id),
+            executor_widget_id: Some("executor-1"),
+            worker_id: Some("workspace-agent"),
+            source: "workspace_agent",
+            outcome,
+            summary: "Worker evidence is durable.",
+            changed_files_json: "[]",
+            changed_files_count: 0,
+            changed_files_summary: None,
+            validation_summary: None,
+            error_summary: None,
+            metadata_json: None,
+            created_at: Some("4"),
+            updated_at: Some("4"),
+        })
+        .expect("insert evidence");
+}
+
+fn create_review_message(
+    store: &SqliteStore,
+    workspace_id: &str,
+    task_id: &str,
+    run_id: &str,
+    link_id: &str,
+    message_id: &str,
+    status: &str,
+) {
+    store
+        .insert_agent_queue_review_message(NewAgentQueueReviewMessage {
+            message_id,
+            workspace_id,
+            queue_task_id: task_id,
+            run_id: Some(run_id),
+            run_link_id: Some(link_id),
+            actor_id: "workspace-agent",
+            message_body: "Review worker evidence.",
+            status,
+            created_at: Some("5"),
+            acked_at: (status == "acknowledged").then_some("6"),
+            ack_actor_id: (status == "acknowledged").then_some("workspace-agent"),
+            metadata_json: None,
+            updated_at: Some("6"),
+        })
+        .expect("insert review message");
+}
+
+fn create_completion_decision(
+    store: &SqliteStore,
+    workspace_id: &str,
+    task_id: &str,
+    run_id: &str,
+    link_id: &str,
+    message_id: &str,
+    decision_id: &str,
+) {
+    store
+        .insert_agent_queue_completion_decision(NewAgentQueueCompletionDecision {
+            decision_id,
+            workspace_id,
+            queue_task_id: task_id,
+            run_id: Some(run_id),
+            run_link_id: Some(link_id),
+            review_message_id: Some(message_id),
+            actor_id: "workspace-agent",
+            decision: "accepted",
+            reason: Some("Accepted."),
+            metadata_json: None,
+            created_at: Some("7"),
+        })
+        .expect("insert completion decision");
+}
+
+fn create_failure_decision(
+    store: &SqliteStore,
+    workspace_id: &str,
+    task_id: &str,
+    run_id: &str,
+    link_id: &str,
+    bundle_id: &str,
+    message_id: &str,
+    decision_id: &str,
+) {
+    store
+        .insert_agent_queue_failure_decision(NewAgentQueueFailureDecision {
+            decision_id,
+            workspace_id,
+            queue_task_id: task_id,
+            run_id: Some(run_id),
+            run_link_id: Some(link_id),
+            evidence_bundle_id: Some(bundle_id),
+            review_message_id: Some(message_id),
+            actor_id: "workspace-agent",
+            decision: "failed",
+            reason: "Rejected.",
+            metadata_json: None,
+            created_at: Some("7"),
+        })
+        .expect("insert failure decision");
 }

@@ -67,6 +67,25 @@ impl SqliteStore {
             .optional()
     }
 
+    pub fn get_agent_queue_failure_decision_by_id(
+        &self,
+        workspace_id: &str,
+        decision_id: &str,
+    ) -> Result<Option<AgentQueueFailureDecisionRow>> {
+        self.connection
+            .query_row(
+                "SELECT
+                    decision_id, workspace_id, queue_task_id, run_id, run_link_id,
+                    evidence_bundle_id, review_message_id, actor_id, decision, reason,
+                    metadata_json, created_at
+                 FROM agent_queue_failure_decisions
+                 WHERE workspace_id = ?1 AND decision_id = ?2",
+                params![workspace_id, decision_id],
+                agent_queue_failure_decision_row,
+            )
+            .optional()
+    }
+
     pub fn get_latest_agent_queue_failure_decision(
         &self,
         workspace_id: &str,

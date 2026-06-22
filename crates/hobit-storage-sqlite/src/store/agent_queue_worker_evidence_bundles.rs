@@ -95,6 +95,26 @@ impl SqliteStore {
             .optional()
     }
 
+    pub fn get_agent_queue_worker_evidence_bundle_by_id(
+        &self,
+        workspace_id: &str,
+        bundle_id: &str,
+    ) -> Result<Option<AgentQueueWorkerEvidenceBundleRow>> {
+        self.connection
+            .query_row(
+                "SELECT
+                    bundle_id, workspace_id, queue_task_id, run_id, run_link_id, executor_widget_id,
+                    worker_id, source, outcome, summary, changed_files_json, changed_files_count,
+                    changed_files_summary, validation_summary, error_summary, metadata_json,
+                    created_at, updated_at
+                 FROM agent_queue_worker_evidence_bundles
+                 WHERE workspace_id = ?1 AND bundle_id = ?2",
+                params![workspace_id, bundle_id],
+                agent_queue_worker_evidence_bundle_row,
+            )
+            .optional()
+    }
+
     pub fn get_latest_agent_queue_worker_evidence_bundle(
         &self,
         workspace_id: &str,

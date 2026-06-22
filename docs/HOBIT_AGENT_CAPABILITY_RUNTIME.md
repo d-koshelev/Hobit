@@ -358,12 +358,15 @@ downstream auto-start.
 
 Queue workflow persistence now exists as a backend-owned storage/API
 foundation for workflow-run and action-ledger records. The typed
-start/get/list/cancel/report API stores bounded validated input snapshots,
-safe grant summaries, phase/step/status, slot/variable/idempotency metadata,
-and internal action ledger rows. `queue.workflow.start` is idempotent by
-`workspaceId + requestId + requestHash`; reusable confirmation tokens are not
-persisted as grants. This persistence surface is not registered as a Workspace
-Agent broker capability, does not wire `QueueWorkflowRunner` to storage, and
+start/get/list/cancel/report/planResume API stores bounded validated input
+snapshots, safe grant summaries, phase/step/status, slot/variable/idempotency
+metadata, and internal action ledger rows. `queue.workflow.start` is
+idempotent by `workspaceId + requestId + requestHash`; reusable confirmation
+tokens are not persisted as grants. `queue.workflow.planResume` is a read-only
+backend planner that reconciles persisted workflow state with durable Queue
+facts and returns a typed resume plan or blocker; it does not execute runner
+steps. This persistence surface is not registered as a Workspace Agent broker
+capability, does not wire `QueueWorkflowRunner` to storage for execution, and
 does not implement resume execution.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It

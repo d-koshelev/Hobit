@@ -64,6 +64,7 @@ mod agent_queue_workers;
 #[cfg(test)]
 mod agent_queue_workers_tests;
 mod agent_queue_workflow;
+mod agent_queue_workflow_resume;
 #[cfg(test)]
 mod agent_queue_workflow_tests;
 mod coordinator_provider;
@@ -217,6 +218,11 @@ pub use agent_queue_workflow::{
     MAX_WORKFLOW_GRANT_SUMMARY_JSON_BYTES, MAX_WORKFLOW_IDEMPOTENCY_KEYS_JSON_BYTES,
     MAX_WORKFLOW_INPUTS_JSON_BYTES, MAX_WORKFLOW_MUTATION_REFS_JSON_BYTES,
     MAX_WORKFLOW_SLOT_BINDINGS_JSON_BYTES, MAX_WORKFLOW_VARIABLES_JSON_BYTES,
+};
+pub use agent_queue_workflow_resume::{
+    QueueWorkflowPlanResumeRequest, QueueWorkflowResumeBlocker, QueueWorkflowResumePlan,
+    QueueWorkflowResumePlanStatus, QueueWorkflowSlotReconciliation,
+    QueueWorkflowTaskResumeSnapshot,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;
 pub use coordinator_provider_external::{

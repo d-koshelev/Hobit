@@ -51,12 +51,15 @@ port so backend-backed capability paths can be tested without mounting the
 frontend Queue UI.
 Queue workflow persistence now has a backend-owned MVP: durable
 `agent_queue_workflow_runs` and `agent_queue_workflow_actions` storage,
-typed start/get/list/cancel/report backend and Tauri/frontend API wrappers,
-idempotent start by request hash, bounded JSON snapshots, safe grant-summary
-persistence, and action-ledger idempotency rows. It is storage/API foundation
-only: resume execution is not implemented, the frontend QueueWorkflowRunner is
-not wired to persistence, and these APIs are not exposed as Workspace Agent
-broker capabilities.
+typed start/get/list/cancel/report/planResume backend and Tauri/frontend API
+wrappers, idempotent start by request hash, bounded JSON snapshots, safe
+grant-summary persistence, action-ledger idempotency rows, and a read-only
+resume planner. The planner reconciles persisted workflow state with durable
+Queue facts and returns a typed plan/blocker without executing workflow steps.
+It is storage/API/planning foundation only: resume execution is not
+implemented, the frontend QueueWorkflowRunner is not wired to persistence for
+execution, and these APIs are not exposed as Workspace Agent broker
+capabilities.
 
 Queue capability contract hardening is implemented at the manifest, instruction,
 adapter, and test boundary. Every registered `queue.*` capability is covered by
@@ -363,9 +366,9 @@ Implemented as backend/storage/API foundation only:
   timestamps.
 - `WorkspaceService::start_queue_workflow`,
   `get_queue_workflow_run`, `list_queue_workflow_runs`,
-  `cancel_queue_workflow_run`, and `get_queue_workflow_report` expose the
-  backend contract. Tauri commands and frontend wrappers mirror those
-  operations.
+  `cancel_queue_workflow_run`, `get_queue_workflow_report`, and
+  `plan_queue_workflow_resume` expose the backend contract. Tauri commands and
+  frontend wrappers mirror those operations.
 - `start_queue_workflow` is idempotent for the same workspace/request id and
   stable request hash; conflicting typed snapshots return a conflict instead
   of overwriting the previous run.
@@ -373,11 +376,17 @@ Implemented as backend/storage/API foundation only:
   reusable confirmation tokens.
 - Cancel is non-destructive and does not roll back, stop workers, mutate Queue
   lifecycle/task/review/evidence/finalization state, or launch runtime work.
+- Resume planning is read-only. It loads durable workflow state and action
+  ledger rows, parses typed slot bindings/variables, reconciles bound
+  task/run/evidence/review/completion/failure ids against durable Queue facts,
+  reports terminal workflow-run states, blockers, next phase/step, and fresh
+  grant/confirmation requirements, and never infers ids from title/prose/UI
+  order/session state.
 
 Not implemented here: workflow resume execution, QueueWorkflowRunner
-persistence wiring, broker capability exposure, worker start, task setup,
-worker evidence recording, review/finalization execution through the workflow
-ledger, validation, Git, rollback, Terminal, scheduler, or downstream
+persistence execution wiring, broker capability exposure, worker start, task
+setup, worker evidence recording, review/finalization execution through the
+workflow ledger, validation, Git, rollback, Terminal, scheduler, or downstream
 auto-start.
 
 ### Headless Queue API readiness
