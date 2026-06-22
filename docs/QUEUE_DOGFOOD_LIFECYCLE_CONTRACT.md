@@ -137,6 +137,15 @@ Backend/domain aggregate and review command foundation:
   "queue.enable"`; `manual_enabled` is a manual/no-autodispatch control state.
   `queue.item.startRun` remains an explicit command that rejects disabled
   Queue state and never auto-enables.
+- Queue worker start has a backend-owned idempotency/control contract for
+  future workflow start phases. Workflow-owned starts must provide explicit
+  workflow/action/task/executor/settings refs and exact confirmation; backend
+  start records/reads a `start_worker` workflow action row, returns an existing
+  run for duplicate same-key/same-ref starts, conflicts on same-key/different
+  refs, and blocks ambiguous orphan windows instead of silently starting a
+  second worker. This does not record worker evidence, call
+  `queue.lifecycle.agentFinished`, ACK reviews, mark done/fail/block/follow-up,
+  run validation/Git/rollback/Terminal, or auto-start downstream tasks.
 - Queue capability result mappers now emit typed `nextAction` payloads when a
   follow-up can be built with known canonical target fields. The runtime must
   prefer `nextAction.capabilityId` plus `nextAction.input` and must not guess

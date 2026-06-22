@@ -50,6 +50,7 @@ fn record_worker_finished_rejects_unknown_task() {
     let workspace = service
         .create_empty_workspace("Queue worker evidence test", None)
         .expect("create workspace");
+    enable_queue_manual(&service, &workspace.id);
 
     let result = service.record_agent_queue_worker_finished(record_input(
         &workspace.id,
@@ -60,6 +61,17 @@ fn record_worker_finished_rejects_unknown_task() {
     ));
 
     assert_invalid_state(result, "queue task not found: missing-task");
+}
+
+fn enable_queue_manual(service: &WorkspaceService, workspace_id: &str) {
+    service
+        .enable_agent_queue_manual_control(
+            workspace_id.to_owned(),
+            Some("test-operator".to_owned()),
+            Some("test start fixture".to_owned()),
+            None,
+        )
+        .expect("enable queue manual control");
 }
 
 #[test]
@@ -336,6 +348,7 @@ fn add_executor(service: &WorkspaceService) -> (String, String, String) {
     let workspace = service
         .create_empty_workspace("Queue worker evidence test", None)
         .expect("create workspace");
+    enable_queue_manual(service, &workspace.id);
     let workbench_id = workspace
         .workbench_id
         .as_deref()
@@ -392,6 +405,7 @@ fn start_task(
             executor_widget_instance_id: executor_id.to_owned(),
         })
         .expect("assign task");
+    enable_queue_manual(service, workspace_id);
     service
         .start_assigned_agent_queue_task(StartAssignedAgentQueueTaskInput {
             workspace_id: workspace_id.to_owned(),
@@ -404,6 +418,7 @@ fn start_task(
             timeout_ms: Some(10),
             stdout_cap_bytes: Some(11),
             stderr_cap_bytes: Some(12),
+            workflow_start_context: None,
         })
         .expect("start task")
         .run_id

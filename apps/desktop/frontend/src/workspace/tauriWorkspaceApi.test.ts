@@ -809,6 +809,12 @@ describe("tauri workspace api adapter", () => {
         executor_widget_instance_id: "exec_1",
         run_id: "run_1",
         status: "running",
+        workflow_run_id: null,
+        workflow_action_id: null,
+        action_idempotency_key: null,
+        settings_hash: null,
+        current_run_state: null,
+        blocker: null,
       })
       .mockResolvedValueOnce({
         workspace_id: "ws_1",
@@ -887,6 +893,7 @@ describe("tauri workspace api adapter", () => {
           approval_policy: "never",
           queue_item_id: "queue_1",
           repo_root: "C:/repo",
+          workflow_start_context: null,
         }),
       },
     );

@@ -310,6 +310,21 @@ export async function startAssignedAgentQueueTask(
         timeout_ms: request.timeoutMs ?? null,
         stdout_cap_bytes: request.stdoutCapBytes ?? null,
         stderr_cap_bytes: request.stderrCapBytes ?? null,
+        workflow_start_context: request.workflowStartContext
+          ? {
+              workflow_run_id: request.workflowStartContext.workflowRunId,
+              workflow_action_id: request.workflowStartContext.workflowActionId ?? null,
+              action_idempotency_key:
+                request.workflowStartContext.actionIdempotencyKey ?? null,
+              task_id: request.workflowStartContext.taskId,
+              executor_widget_id: request.workflowStartContext.executorWidgetId,
+              settings_hash: request.workflowStartContext.settingsHash,
+              expected_queue_control_version:
+                request.workflowStartContext.expectedQueueControlVersion ?? null,
+              actor_id: request.workflowStartContext.actorId ?? null,
+              confirmation_token: request.workflowStartContext.confirmationToken ?? null,
+            }
+          : null,
       },
     },
   );
@@ -596,6 +611,30 @@ function normalizeStartAssignedAgentQueueTaskResponse(
     executorWidgetInstanceId: response.executor_widget_instance_id,
     runId: response.run_id,
     status: response.status,
+    workflowRunId: response.workflow_run_id,
+    workflowActionId: response.workflow_action_id,
+    actionIdempotencyKey: response.action_idempotency_key,
+    settingsHash: response.settings_hash,
+    currentRunState: response.current_run_state,
+    blocker: response.blocker
+      ? {
+          blockerCode: response.blocker.blocker_code,
+          blockerMessage: response.blocker.blocker_message,
+          taskId: response.blocker.task_id,
+          executorWidgetId: response.blocker.executor_widget_id,
+          runId: response.blocker.run_id,
+          workflowRunId: response.blocker.workflow_run_id,
+          workflowActionId: response.blocker.workflow_action_id,
+          actionIdempotencyKey: response.blocker.action_idempotency_key,
+          currentRunState: response.blocker.current_run_state,
+          expectedQueueControlVersion:
+            response.blocker.expected_queue_control_version,
+          actualQueueControlVersion: response.blocker.actual_queue_control_version,
+          expectedSettingsHash: response.blocker.expected_settings_hash,
+          actualSettingsHash: response.blocker.actual_settings_hash,
+          missingRequiredField: response.blocker.missing_required_field,
+        }
+      : null,
   };
 }
 

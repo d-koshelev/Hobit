@@ -356,6 +356,7 @@ fn assign_task(
     queue_item_id: &str,
     executor_widget_id: &str,
 ) {
+    enable_queue_manual(service, workspace_id);
     service
         .assign_agent_queue_task_to_executor(AssignAgentQueueTaskToExecutorInput {
             workspace_id: workspace_id.to_owned(),
@@ -363,6 +364,17 @@ fn assign_task(
             executor_widget_instance_id: executor_widget_id.to_owned(),
         })
         .expect("assign task");
+}
+
+fn enable_queue_manual(service: &WorkspaceService, workspace_id: &str) {
+    service
+        .enable_agent_queue_manual_control(
+            workspace_id.to_owned(),
+            Some("test-operator".to_owned()),
+            Some("test start fixture".to_owned()),
+            None,
+        )
+        .expect("enable queue manual control");
 }
 
 fn complete_worker_run_with_evidence(
@@ -427,6 +439,7 @@ fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQue
         timeout_ms: Some(10),
         stdout_cap_bytes: Some(11),
         stderr_cap_bytes: Some(12),
+        workflow_start_context: None,
     }
 }
 

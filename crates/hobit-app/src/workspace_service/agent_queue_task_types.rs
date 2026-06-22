@@ -166,6 +166,73 @@ pub struct AgentQueueValidationSuiteRunSummary {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueWorkerStartSettingsSnapshot {
+    pub execution_workspace: String,
+    pub codex_executable: String,
+    pub sandbox: String,
+    pub approval_policy: String,
+    pub executor_widget_id: String,
+}
+
+impl QueueWorkerStartSettingsSnapshot {
+    pub fn stable_hash(&self) -> String {
+        let canonical = [
+            ("approval_policy", self.approval_policy.as_str()),
+            ("codex_executable", self.codex_executable.as_str()),
+            ("execution_workspace", self.execution_workspace.as_str()),
+            ("executor_widget_id", self.executor_widget_id.as_str()),
+            ("sandbox", self.sandbox.as_str()),
+        ]
+        .into_iter()
+        .map(|(key, value)| format!("{}:{}{}:{}", key.len(), key, value.len(), value))
+        .collect::<Vec<_>>()
+        .join("|");
+
+        format!("queue-settings-fnv1a64:{:016x}", fnv1a64(&canonical))
+    }
+}
+
+fn fnv1a64(input: &str) -> u64 {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in input.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    hash
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueWorkerStartContext {
+    pub workflow_run_id: String,
+    pub workflow_action_id: Option<String>,
+    pub action_idempotency_key: Option<String>,
+    pub task_id: String,
+    pub executor_widget_id: String,
+    pub settings_hash: String,
+    pub expected_queue_control_version: Option<i64>,
+    pub actor_id: Option<String>,
+    pub confirmation_token: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueWorkerStartBlocker {
+    pub blocker_code: String,
+    pub blocker_message: String,
+    pub task_id: Option<String>,
+    pub executor_widget_id: Option<String>,
+    pub run_id: Option<String>,
+    pub workflow_run_id: Option<String>,
+    pub workflow_action_id: Option<String>,
+    pub action_idempotency_key: Option<String>,
+    pub current_run_state: Option<String>,
+    pub expected_queue_control_version: Option<i64>,
+    pub actual_queue_control_version: Option<i64>,
+    pub expected_settings_hash: Option<String>,
+    pub actual_settings_hash: Option<String>,
+    pub missing_required_field: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StartAssignedAgentQueueTaskInput {
     pub workspace_id: String,
     pub queue_item_id: String,
@@ -177,6 +244,7 @@ pub struct StartAssignedAgentQueueTaskInput {
     pub timeout_ms: Option<u64>,
     pub stdout_cap_bytes: Option<usize>,
     pub stderr_cap_bytes: Option<usize>,
+    pub workflow_start_context: Option<QueueWorkerStartContext>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -206,6 +274,12 @@ pub struct AssignedAgentQueueTaskStartSummary {
     pub run_id: String,
     pub status: String,
     pub direct_work_input: super::RunCodexDirectWorkInput,
+    pub workflow_run_id: Option<String>,
+    pub workflow_action_id: Option<String>,
+    pub action_idempotency_key: Option<String>,
+    pub settings_hash: Option<String>,
+    pub current_run_state: Option<String>,
+    pub blocker: Option<QueueWorkerStartBlocker>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

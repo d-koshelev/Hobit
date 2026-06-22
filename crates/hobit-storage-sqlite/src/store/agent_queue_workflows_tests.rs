@@ -75,6 +75,35 @@ fn workflow_action_input<'a>(
     }
 }
 
+fn start_worker_action_input<'a>(
+    action_id: &'a str,
+    workflow_run_id: &'a str,
+    workspace_id: &'a str,
+    idempotency_key: &'a str,
+    target_refs_json: &'a str,
+    result_refs_json: Option<&'a str>,
+    status: &'a str,
+) -> NewAgentQueueWorkflowAction<'a> {
+    NewAgentQueueWorkflowAction {
+        action_id,
+        workflow_run_id,
+        workspace_id,
+        step_id: "start_worker",
+        action_type: "start_worker",
+        idempotency_key,
+        status,
+        target_refs_json: Some(target_refs_json),
+        result_refs_json,
+        blocker_code: None,
+        blocker_message: None,
+        attempt_count: 1,
+        started_at: Some("2"),
+        completed_at: None,
+        created_at: Some("2"),
+        updated_at: Some("2"),
+    }
+}
+
 #[test]
 fn create_get_and_list_agent_queue_workflow_runs_are_workspace_scoped() {
     let store = initialized_store();
@@ -351,6 +380,130 @@ fn workflow_action_duplicate_key_conflicting_refs_is_rejected() {
     ));
 
     assert!(conflict.is_err());
+}
+
+#[test]
+fn start_worker_action_idempotency_reuses_same_refs_and_rejects_conflicting_refs() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    create_workflow_run(
+        &store,
+        "workspace-1",
+        "workflow-run-1",
+        "request-1",
+        "hash-1",
+        "running",
+    );
+    let target_refs = r#"{"executorWidgetId":"exec-1","settingsHash":"hash-a","taskId":"task-1","workflowActionId":"action-start","workflowRunId":"workflow-run-1"}"#;
+    let result_refs = r#"{"currentRunState":"running","runId":"run-1"}"#;
+
+    let first = store
+        .insert_agent_queue_workflow_action(start_worker_action_input(
+            "action-start",
+            "workflow-run-1",
+            "workspace-1",
+            "workflow-run-1:start_worker:task-1:exec-1:hash-a",
+            target_refs,
+            Some(result_refs),
+            "completed",
+        ))
+        .expect("insert start worker action");
+    let duplicate = store
+        .insert_agent_queue_workflow_action(start_worker_action_input(
+            "action-start-duplicate",
+            "workflow-run-1",
+            "workspace-1",
+            "workflow-run-1:start_worker:task-1:exec-1:hash-a",
+            target_refs,
+            Some(result_refs),
+            "completed",
+        ))
+        .expect("idempotent duplicate returns existing start action");
+
+    assert_eq!(duplicate, first);
+    assert_eq!(duplicate.result_refs_json.as_deref(), Some(result_refs));
+
+    let conflict = store.insert_agent_queue_workflow_action(start_worker_action_input(
+        "action-start-conflict",
+        "workflow-run-1",
+        "workspace-1",
+        "workflow-run-1:start_worker:task-1:exec-1:hash-a",
+        r#"{"executorWidgetId":"exec-2","settingsHash":"hash-a","taskId":"task-1","workflowActionId":"action-start","workflowRunId":"workflow-run-1"}"#,
+        Some(result_refs),
+        "completed",
+    ));
+
+    assert!(conflict.is_err());
+}
+
+#[test]
+fn start_worker_action_update_persists_run_id_and_orphan_blocker_refs() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    create_workflow_run(
+        &store,
+        "workspace-1",
+        "workflow-run-1",
+        "request-1",
+        "hash-1",
+        "running",
+    );
+    let target_refs = r#"{"executorWidgetId":"exec-1","settingsHash":"hash-a","taskId":"task-1","workflowActionId":"action-start","workflowRunId":"workflow-run-1"}"#;
+    store
+        .insert_agent_queue_workflow_action(start_worker_action_input(
+            "action-start",
+            "workflow-run-1",
+            "workspace-1",
+            "workflow-run-1:start_worker:task-1:exec-1:hash-a",
+            target_refs,
+            None,
+            "running",
+        ))
+        .expect("insert running start worker action");
+
+    let result_refs = r#"{"currentRunState":"running","runId":"run-1"}"#;
+    let completed = store
+        .update_agent_queue_workflow_action(
+            "workspace-1",
+            "workflow-run-1",
+            "workflow-run-1:start_worker:task-1:exec-1:hash-a",
+            AgentQueueWorkflowActionUpdate {
+                status: "completed",
+                result_refs_json: Some(result_refs),
+                blocker_code: None,
+                blocker_message: None,
+                attempt_count: Some(1),
+                started_at: None,
+                completed_at: Some("3"),
+                updated_at: Some("3"),
+            },
+        )
+        .expect("update start worker action")
+        .expect("completed action");
+    assert_eq!(completed.result_refs_json.as_deref(), Some(result_refs));
+
+    let orphan = store
+        .update_agent_queue_workflow_action(
+            "workspace-1",
+            "workflow-run-1",
+            "workflow-run-1:start_worker:task-1:exec-1:hash-a",
+            AgentQueueWorkflowActionUpdate {
+                status: "blocked",
+                result_refs_json: None,
+                blocker_code: Some("orphaned_start"),
+                blocker_message: Some("operator review required"),
+                attempt_count: Some(1),
+                started_at: None,
+                completed_at: Some("4"),
+                updated_at: Some("4"),
+            },
+        )
+        .expect("update orphan blocker")
+        .expect("blocked action");
+
+    assert_eq!(orphan.status, "blocked");
+    assert_eq!(orphan.result_refs_json.as_deref(), Some(result_refs));
+    assert_eq!(orphan.blocker_code.as_deref(), Some("orphaned_start"));
 }
 
 #[test]

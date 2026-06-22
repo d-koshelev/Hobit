@@ -111,6 +111,7 @@ fn mark_done_rejects_draft_running_missing_evidence_and_missing_review() {
     let workspace = service
         .create_empty_workspace("Queue completion test", None)
         .expect("create workspace");
+    enable_queue_manual(&service, &workspace.id);
     let draft = create_task(&service, &workspace.id, "draft", false, vec![]);
     assert_completion_blocker(
         service.mark_agent_queue_item_done(mark_done_input(
@@ -192,6 +193,17 @@ fn mark_done_rejects_draft_running_missing_evidence_and_missing_review() {
         Some("awaiting_review"),
         Some("available"),
     );
+}
+
+fn enable_queue_manual(service: &WorkspaceService, workspace_id: &str) {
+    service
+        .enable_agent_queue_manual_control(
+            workspace_id.to_owned(),
+            Some("test-operator".to_owned()),
+            Some("test start fixture".to_owned()),
+            None,
+        )
+        .expect("enable queue manual control");
 }
 
 #[test]
@@ -493,6 +505,7 @@ fn add_executor(service: &WorkspaceService) -> (String, String, String) {
     let workspace = service
         .create_empty_workspace("Queue completion test", None)
         .expect("create workspace");
+    enable_queue_manual(service, &workspace.id);
     let workbench_id = workspace
         .workbench_id
         .as_deref()
@@ -564,6 +577,7 @@ fn start_task(
     executor_id: &str,
 ) -> String {
     assign_task(service, workspace_id, queue_item_id, executor_id);
+    enable_queue_manual(service, workspace_id);
     service
         .start_assigned_agent_queue_task(start_input(workspace_id, queue_item_id))
         .expect("start task")
@@ -679,6 +693,7 @@ fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQue
         timeout_ms: Some(10),
         stdout_cap_bytes: Some(11),
         stderr_cap_bytes: Some(12),
+        workflow_start_context: None,
     }
 }
 

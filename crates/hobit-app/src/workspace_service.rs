@@ -208,7 +208,8 @@ pub use agent_queue_task_types::{
     AttachSkillToQueueTaskInput, ClearAgentQueueTaskAssignmentInput, CreateAgentQueueTaskInput,
     CreateAgentQueueWorkerInput, DeleteAgentQueueTaskInput, DeleteAgentQueueWorkerInput,
     DetachKnowledgeFromQueueTaskInput, DetachSkillFromQueueTaskInput,
-    FinishAssignedAgentQueueTaskRunInput, RecordAgentQueueTaskRunFinalStatusInput,
+    FinishAssignedAgentQueueTaskRunInput, QueueWorkerStartBlocker, QueueWorkerStartContext,
+    QueueWorkerStartSettingsSnapshot, RecordAgentQueueTaskRunFinalStatusInput,
     RecordAgentQueueTaskRunStartedInput, RunAgentQueueValidationSuiteInput,
     StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput, UpdateAgentQueueWorkerInput,
 };

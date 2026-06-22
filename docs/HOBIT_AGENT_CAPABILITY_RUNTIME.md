@@ -218,6 +218,16 @@ preserves typed ACK follow-up as `nextAction.input.messageId`; review/finalizer
 idempotency keeps `already_*`; missing confirmation returns
 `needs_confirmation`; malformed payloads return `invalid_input` with field
 paths; dependency waiting does not start downstream work.
+
+Queue worker start idempotency is a backend-owned typed contract, not a new
+natural-language route. When future workflow phases start a worker, they must
+call typed backend/Tauri APIs with explicit workflow/action/task/executor/
+settings refs and exact structured confirmation. Broker and Workspace Agent
+logic must not infer `taskId`, `runId`, `workflowRunId`,
+`actionIdempotencyKey`, `settingsHash`, or `executorWidgetId` from prose,
+title, UI order, file path, or selected detail state. The current
+QueueWorkflowRunner does not expose create/setup/start execution; it remains
+read/review/finalization only until an explicit future implementation block.
 - Workspace Agent Action Protocol Enforcement MVP: Workspace Agent Direct Work
   turns that receive Hobit capability context are treated as typed-capability
   action mode. In that mode the model must emit exactly one

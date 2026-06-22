@@ -216,6 +216,29 @@ backend state through Tauri/API wrappers instead of treating frontend
 or non-desktop controller state may remain transitional display/compatibility
 state only.
 
+Worker start idempotency is backend/domain truth. The assigned Queue task start
+path accepts an optional typed workflow start context with explicit
+`workflowRunId`, `workflowActionId` or `actionIdempotencyKey`, `taskId`,
+`executorWidgetId`, `settingsHash`, optional expected Queue-control version,
+optional trusted actor id, and exact structured confirmation. No field may be
+derived from prose, task title, UI order, file path, selected detail state, or
+natural-language confirmation.
+
+When workflow context is supplied, backend start writes/reads a
+`start_worker` row in `agent_queue_workflow_actions`. The same
+idempotency key and same target refs returns the existing run id/current state
+without launching a second worker. The same key with changed task, executor,
+workflow, action, or settings refs is a conflict. A prior incomplete action or
+ambiguous run-link/runtime state is persisted as a blocker such as
+`start_state_unknown` or `orphaned_start`; the backend must not silently retry
+or create a second run.
+
+Before a new run link is accepted, backend start checks durable Queue control
+state, task readiness, dependency readiness, executor binding, and settings
+hash. `disabled` blocks as `blocked_control_disabled`; `manual_enabled` is only
+a precondition for the exact explicit start and does not dispatch, schedule,
+record evidence, finish lifecycle, or start downstream tasks.
+
 ## Transitional Capabilities
 
 These capabilities are still transitional:

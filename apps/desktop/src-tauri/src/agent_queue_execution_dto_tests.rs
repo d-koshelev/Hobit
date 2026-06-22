@@ -7,7 +7,7 @@ use hobit_app::{
 };
 
 use crate::agent_queue_execution_dto::{
-    AgentQueueTaskRunLinkDto, ListAgentQueueTaskRunLinksRequest,
+    AgentQueueTaskRunLinkDto, ListAgentQueueTaskRunLinksRequest, QueueWorkerStartContextRequest,
     StartAssignedAgentQueueTaskRequest, StartAssignedAgentQueueTaskResponseDto,
 };
 
@@ -24,6 +24,17 @@ fn maps_start_assigned_agent_queue_task_request_to_app_input() {
         timeout_ms: Some(10),
         stdout_cap_bytes: Some(11),
         stderr_cap_bytes: Some(12),
+        workflow_start_context: Some(QueueWorkerStartContextRequest {
+            workflow_run_id: "workflow-run-1".to_owned(),
+            workflow_action_id: Some("workflow-action-1".to_owned()),
+            action_idempotency_key: Some("workflow-key-1".to_owned()),
+            task_id: "task_1".to_owned(),
+            executor_widget_id: "executor_1".to_owned(),
+            settings_hash: "queue-settings-fnv1a64:0000000000000001".to_owned(),
+            expected_queue_control_version: Some(2),
+            actor_id: Some("operator-1".to_owned()),
+            confirmation_token: Some("operator-confirmed".to_owned()),
+        }),
     };
 
     let input = hobit_app::StartAssignedAgentQueueTaskInput::from(request);
@@ -41,6 +52,21 @@ fn maps_start_assigned_agent_queue_task_request_to_app_input() {
     assert_eq!(input.timeout_ms, Some(10));
     assert_eq!(input.stdout_cap_bytes, Some(11));
     assert_eq!(input.stderr_cap_bytes, Some(12));
+    let context = input
+        .workflow_start_context
+        .expect("workflow start context");
+    assert_eq!(context.workflow_run_id, "workflow-run-1");
+    assert_eq!(
+        context.workflow_action_id.as_deref(),
+        Some("workflow-action-1")
+    );
+    assert_eq!(
+        context.action_idempotency_key.as_deref(),
+        Some("workflow-key-1")
+    );
+    assert_eq!(context.task_id, "task_1");
+    assert_eq!(context.executor_widget_id, "executor_1");
+    assert_eq!(context.expected_queue_control_version, Some(2));
 }
 
 #[test]
@@ -56,7 +82,8 @@ fn legacy_materialized_prompt_field_is_ignored_at_tauri_boundary() {
         "approval_policy": "never",
         "timeout_ms": 10,
         "stdout_cap_bytes": 11,
-        "stderr_cap_bytes": 12
+        "stderr_cap_bytes": 12,
+        "workflow_start_context": null
     }))
     .expect("deserialize legacy request");
 
@@ -91,6 +118,12 @@ fn maps_start_assigned_agent_queue_task_summary_to_dto() {
             stdout_cap_bytes: Some(11),
             stderr_cap_bytes: Some(12),
         },
+        workflow_run_id: Some("workflow-run-1".to_owned()),
+        workflow_action_id: Some("workflow-action-1".to_owned()),
+        action_idempotency_key: Some("workflow-key-1".to_owned()),
+        settings_hash: Some("queue-settings-fnv1a64:0000000000000001".to_owned()),
+        current_run_state: Some("running".to_owned()),
+        blocker: None,
     });
 
     assert_eq!(dto.workspace_id, "ws_1");
@@ -99,6 +132,13 @@ fn maps_start_assigned_agent_queue_task_summary_to_dto() {
     assert_eq!(dto.executor_widget_instance_id, "wid_1");
     assert_eq!(dto.run_id, "run_1");
     assert_eq!(dto.status, "started");
+    assert_eq!(dto.workflow_run_id.as_deref(), Some("workflow-run-1"));
+    assert_eq!(dto.workflow_action_id.as_deref(), Some("workflow-action-1"));
+    assert_eq!(
+        dto.action_idempotency_key.as_deref(),
+        Some("workflow-key-1")
+    );
+    assert_eq!(dto.current_run_state.as_deref(), Some("running"));
 }
 
 #[test]

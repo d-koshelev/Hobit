@@ -323,6 +323,48 @@ frontend `globalExecutionState`, Queue UI state, controller session state, or
 prose as Queue control truth. Browser/frontend controller state remains
 transitional compatibility only when no backend API is available.
 
+## Worker Start Idempotency MVP
+
+Backend/domain worker start now accepts an optional typed workflow start
+context on the existing assigned-task start path. The context is backend-owned
+control-plane input, not prose, and contains explicit `workflowRunId`,
+`workflowActionId` or `actionIdempotencyKey`, `taskId`, `executorWidgetId`,
+`settingsHash`, optional `expectedQueueControlVersion`, optional trusted
+`actorId`, and the exact `confirmationToken` required for `run_start`.
+
+When workflow context is present, backend start uses the
+`agent_queue_workflow_actions` ledger with a `start_worker` action. The
+idempotency target refs include the explicit workflow run, action, task,
+executor, and settings hash. A repeated request with the same key and same
+refs returns the existing `runId` / current start state and must not start a
+second worker. A repeated request with the same key and different refs is a
+typed conflict. A prior incomplete action, a prior action with a run id but
+unknown runtime/run-link state, or an orphaned crash window is recorded as a
+blocker such as `start_state_unknown` or `orphaned_start` and must not be
+retried silently.
+
+Worker start checks durable `QueueControlState` before inserting a new run:
+`disabled` returns `blocked_control_disabled`, `manual_enabled` only permits
+the explicit typed start to continue, and an optional expected control version
+mismatch returns `version_conflict`. `manual_enabled` still does not
+auto-dispatch, schedule, select tasks, create run links, record evidence, or
+start downstream work by itself.
+
+Worker start also checks backend task preconditions: the task must exist in
+the same workspace, be in an explicit runnable state, have a non-empty prompt,
+have satisfied dependencies, have no waiting/blocked/failed-upstream
+dependency blockers, and have an explicit executor binding matching
+`executorWidgetId` or an explicit Queue-owned start owner accepted by backend
+rules. The supplied `settingsHash` must match the effective durable task run
+settings where those settings exist. A matching active run from another
+workflow/action blocks as `active_run_conflict`.
+
+This MVP does not add a QueueWorkflowRunner create/setup/start phase. The
+runner still supports only the existing read/review/finalization phases. It
+does not create tasks, update run settings, promote drafts, record worker
+evidence, ACK reviews, mark done/fail/block/follow-up, run validation, run
+Git, launch Terminal, schedule workers, or auto-start downstream tasks.
+
 Resume planner statuses are typed and stable: `resume_ready`,
 `resume_read_only_ready`, `blocked_missing_task`,
 `blocked_state_mismatch`, `blocked_missing_review_ack`,

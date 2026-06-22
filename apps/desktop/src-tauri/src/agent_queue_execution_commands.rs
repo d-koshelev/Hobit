@@ -108,6 +108,10 @@ pub(crate) async fn start_assigned_agent_queue_task_from_request_with_source(
     .await
     .map_err(command_error)??;
 
+    if start.status != "started" {
+        return Ok(StartAssignedAgentQueueTaskResponseDto::from(start));
+    }
+
     let run_id = start.run_id.clone();
     let cancellation_token = hobit_app::CodexDirectStreamCancellationToken::new();
     let _host_start_artifacts =
@@ -162,20 +166,29 @@ pub(crate) fn start_assigned_agent_queue_task_blocking_with_source(
     source: AgentQueueTaskRunSource,
 ) -> Result<hobit_app::AssignedAgentQueueTaskStartSummary, String> {
     let input: hobit_app::StartAssignedAgentQueueTaskInput = request.into();
+    let has_workflow_context = input.workflow_start_context.is_some();
     let service = workspace_service(&db_path)?;
-    let plan = service
-        .prepare_assigned_agent_queue_task_run(input.clone())
-        .map_err(command_error)?;
 
-    if active_runs.has_active_widget_run(
-        &plan.workspace_id,
-        &plan.workbench_id,
-        &plan.executor_widget_instance_id,
-    ) {
-        return Err(
-            "Assigned Agent Executor already has an active Direct Work run. Stop it before running this Queue task."
-                .to_owned(),
-        );
+    match service.prepare_assigned_agent_queue_task_run(input.clone()) {
+        Ok(plan) => {
+            if active_runs.has_active_widget_run(
+                &plan.workspace_id,
+                &plan.workbench_id,
+                &plan.executor_widget_instance_id,
+            ) {
+                return Err(
+                    "Assigned Agent Executor already has an active Direct Work run. Stop it before running this Queue task."
+                        .to_owned(),
+                );
+            }
+        }
+        Err(error) if has_workflow_context => {
+            let message = error.to_string();
+            if !message.contains("queue task status cannot be run: running") {
+                return Err(command_error(error));
+            }
+        }
+        Err(error) => return Err(command_error(error)),
     }
 
     service

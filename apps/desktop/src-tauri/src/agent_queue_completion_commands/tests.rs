@@ -58,6 +58,7 @@ fn mark_done_command_serializes_backend_blocker_details() {
     let workspace = service
         .create_empty_workspace("Queue completion command test", None)
         .expect("create workspace");
+    enable_queue_manual(&service, &workspace.id);
     let draft = create_task(&service, &workspace.id, "draft", false);
     drop(service);
 
@@ -75,6 +76,17 @@ fn mark_done_command_serializes_backend_blocker_details() {
     assert_eq!(blocker.review_state.as_deref(), Some("none"));
     assert_eq!(blocker.evidence_state.as_deref(), Some("none"));
     remove_test_db_files(&db_path);
+}
+
+fn enable_queue_manual(service: &WorkspaceService, workspace_id: &str) {
+    service
+        .enable_agent_queue_manual_control(
+            workspace_id.to_owned(),
+            Some("test-operator".to_owned()),
+            Some("test start fixture".to_owned()),
+            None,
+        )
+        .expect("enable queue manual control");
 }
 
 #[test]
@@ -234,6 +246,7 @@ fn complete_worker_run_with_evidence(
             executor_widget_instance_id: executor_id.to_owned(),
         })
         .expect("assign task");
+    enable_queue_manual(service, workspace_id);
     let start = service
         .start_assigned_agent_queue_task(StartAssignedAgentQueueTaskInput {
             workspace_id: workspace_id.to_owned(),
@@ -246,6 +259,7 @@ fn complete_worker_run_with_evidence(
             timeout_ms: Some(10),
             stdout_cap_bytes: Some(11),
             stderr_cap_bytes: Some(12),
+            workflow_start_context: None,
         })
         .expect("start task");
     service

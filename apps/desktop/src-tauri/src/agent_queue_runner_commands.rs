@@ -121,6 +121,7 @@ async fn start_agent_queue_runner_session_once(
             timeout_ms: request.timeout_ms,
             stdout_cap_bytes: request.stdout_cap_bytes,
             stderr_cap_bytes: request.stderr_cap_bytes,
+            workflow_start_context: None,
         },
         app,
         db_path,
@@ -205,6 +206,7 @@ fn start_agent_queue_runner_session_once_without_background(
             timeout_ms: request.timeout_ms,
             stdout_cap_bytes: request.stdout_cap_bytes,
             stderr_cap_bytes: request.stderr_cap_bytes,
+            workflow_start_context: None,
         },
         db_path,
         active_runs,
@@ -514,6 +516,7 @@ fn continuation_start_request(
         timeout_ms: request.runtime_config.timeout_ms,
         stdout_cap_bytes: request.runtime_config.stdout_cap_bytes,
         stderr_cap_bytes: request.runtime_config.stderr_cap_bytes,
+        workflow_start_context: None,
     })
 }
 

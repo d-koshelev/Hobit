@@ -182,6 +182,42 @@ fn start_assigned_agent_queue_task_command_helper_rejects_active_executor() {
 }
 
 #[test]
+fn start_assigned_agent_queue_task_command_helper_rejects_disabled_queue_control() {
+    let db_path = unique_test_db_path();
+    let (workspace_id, queue_item_id, executor_widget_id) =
+        create_assigned_task(&db_path, "queued");
+    {
+        let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+        store.init_schema().expect("initialize schema");
+        let service = WorkspaceService::new(store);
+        service
+            .disable_agent_queue_control(
+                workspace_id.clone(),
+                Some("test-operator".to_owned()),
+                Some("disabled test".to_owned()),
+                None,
+            )
+            .expect("disable queue control");
+    }
+
+    let error = start_assigned_agent_queue_task_blocking(
+        request(&workspace_id, &queue_item_id),
+        db_path.clone(),
+        DirectWorkActiveRunRegistry::default(),
+    )
+    .expect_err("disabled queue control rejected");
+
+    assert!(error.contains("blocked_control_disabled"));
+    let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+    store.init_schema().expect("initialize schema");
+    assert!(store
+        .list_widget_runs_for_widget(&executor_widget_id)
+        .expect("list widget runs")
+        .is_empty());
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn start_assigned_agent_queue_task_command_helper_rejects_non_runnable_task() {
     let db_path = unique_test_db_path();
     let (workspace_id, queue_item_id, executor_widget_id) =
@@ -211,6 +247,14 @@ fn create_assigned_task(db_path: &Path, status: &str) -> (String, String, String
     let workspace = service
         .create_empty_workspace("Queue execution command test", None)
         .expect("create workspace");
+    service
+        .enable_agent_queue_manual_control(
+            workspace.id.clone(),
+            Some("test-operator".to_owned()),
+            Some("test start fixture".to_owned()),
+            None,
+        )
+        .expect("enable queue manual control");
     let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
     let executor_widget_id = service
         .add_widget_instance_to_workbench(
@@ -302,6 +346,7 @@ fn request(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQueueTa
         timeout_ms: Some(10),
         stdout_cap_bytes: Some(11),
         stderr_cap_bytes: Some(12),
+        workflow_start_context: None,
     };
 
     StartAssignedAgentQueueTaskRequest {
@@ -315,6 +360,7 @@ fn request(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQueueTa
         timeout_ms: input.timeout_ms,
         stdout_cap_bytes: input.stdout_cap_bytes,
         stderr_cap_bytes: input.stderr_cap_bytes,
+        workflow_start_context: None,
     }
 }
 

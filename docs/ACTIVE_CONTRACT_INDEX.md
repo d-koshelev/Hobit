@@ -454,7 +454,13 @@ unless the task explicitly requests it.
   idempotent states. The Workspace Agent workflow request path now invokes it
   only for supported Queue phases through typed backend ports; unsupported,
   invalid, or deferred workflows do not invoke the runner, and downstream work
-  is not auto-started.
+  is not auto-started. A backend-owned worker-start idempotency/control
+  contract now exists on the assigned Queue task start path for future start
+  phases: it requires explicit workflow/action/task/executor/settings refs,
+  exact confirmation, durable `manual_enabled`, workflow action-ledger
+  idempotency, dependency/executor/settings checks, and orphan/unknown blocker
+  handling. The current QueueWorkflowRunner still does not call worker start
+  or implement create/setup/start execution.
   Unknown ids remain not declared. `grant` is
   permission/scope only, `inputs` is the only workflow data location, and prose
   is never executable workflow input. Workspace Agent direct turns use a provider-neutral

@@ -81,6 +81,29 @@ export type TauriStartAssignedAgentQueueTaskResponse = {
   executor_widget_instance_id: string;
   run_id: string;
   status: string;
+  workflow_run_id: string | null;
+  workflow_action_id: string | null;
+  action_idempotency_key: string | null;
+  settings_hash: string | null;
+  current_run_state: string | null;
+  blocker: TauriQueueWorkerStartBlocker | null;
+};
+
+export type TauriQueueWorkerStartBlocker = {
+  blocker_code: string;
+  blocker_message: string;
+  task_id: string | null;
+  executor_widget_id: string | null;
+  run_id: string | null;
+  workflow_run_id: string | null;
+  workflow_action_id: string | null;
+  action_idempotency_key: string | null;
+  current_run_state: string | null;
+  expected_queue_control_version: number | null;
+  actual_queue_control_version: number | null;
+  expected_settings_hash: string | null;
+  actual_settings_hash: string | null;
+  missing_required_field: string | null;
 };
 
 export type TauriAgentQueueTaskRunLink = {

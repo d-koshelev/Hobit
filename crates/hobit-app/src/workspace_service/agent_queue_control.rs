@@ -248,7 +248,7 @@ fn normalize_control_input(
     })
 }
 
-fn ensure_default_control_state(
+pub(super) fn ensure_default_control_state(
     store: &hobit_storage_sqlite::SqliteStore,
     workspace_id: &str,
 ) -> Result<AgentQueueControlStateRow, hobit_storage_sqlite::StorageError> {

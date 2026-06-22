@@ -1030,6 +1030,36 @@ export type StartAssignedAgentQueueTaskRequest = Omit<
 > & {
   queueItemId: string;
   queueOwnerWidgetInstanceId?: string;
+  workflowStartContext?: QueueWorkerStartContext;
+};
+
+export type QueueWorkerStartContext = {
+  workflowRunId: string;
+  workflowActionId?: string | null;
+  actionIdempotencyKey?: string | null;
+  taskId: string;
+  executorWidgetId: string;
+  settingsHash: string;
+  expectedQueueControlVersion?: number | null;
+  actorId?: string | null;
+  confirmationToken?: string | null;
+};
+
+export type QueueWorkerStartBlocker = {
+  blockerCode: string;
+  blockerMessage: string;
+  taskId?: string | null;
+  executorWidgetId?: string | null;
+  runId?: string | null;
+  workflowRunId?: string | null;
+  workflowActionId?: string | null;
+  actionIdempotencyKey?: string | null;
+  currentRunState?: string | null;
+  expectedQueueControlVersion?: number | null;
+  actualQueueControlVersion?: number | null;
+  expectedSettingsHash?: string | null;
+  actualSettingsHash?: string | null;
+  missingRequiredField?: string | null;
 };
 
 export type StartAssignedAgentQueueTaskResponse = {
@@ -1039,6 +1069,12 @@ export type StartAssignedAgentQueueTaskResponse = {
   executorWidgetInstanceId: string;
   runId: string;
   status: string;
+  workflowRunId?: string | null;
+  workflowActionId?: string | null;
+  actionIdempotencyKey?: string | null;
+  settingsHash?: string | null;
+  currentRunState?: string | null;
+  blocker?: QueueWorkerStartBlocker | null;
 };
 
 export type AgentQueueTaskRunSource =

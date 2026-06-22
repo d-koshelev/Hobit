@@ -59,16 +59,27 @@ now creates or reuses a durable workflow run before supported runner
 invocation, blocks request-hash conflicts before execution, records bounded
 runner reports/action summaries, and uses the resume planner before continuing
 an explicit typed `metadata.workflowRunId`. Only existing read/review/
-finalization runner phases are wired. Task creation/setup/start, worker start,
-worker evidence recording, scheduler behavior, downstream auto-start, and
-generic public resume execution remain not implemented. Workflow persistence
-APIs are not exposed as Workspace Agent broker capabilities.
+finalization runner phases are wired. Task creation/setup/start workflow
+execution, worker evidence recording, scheduler behavior, downstream
+auto-start, and generic public resume execution remain not implemented.
+Workflow persistence APIs are not exposed as Workspace Agent broker
+capabilities.
 Queue control state is also backend-owned and durable per workspace. The MVP
 control states are `disabled` and `manual_enabled`, exposed through typed
 backend/Tauri/frontend wrappers. `manual_enabled` is a manual/no-autodispatch
 state for future explicit typed worker-start preconditions; setting it does
 not start workers, arm Queue Autorun, run a scheduler, create run links, or
 mutate tasks.
+Worker start now has a backend-owned idempotency/control contract on the
+existing assigned-task start path for future Queue workflow phases. Workflow
+context requires explicit workflow/action/task/executor/settings refs plus
+exact confirmation, checks durable `manual_enabled`, task/dependency/executor
+preconditions, and settings hash, records/reads `start_worker` action ledger
+rows, returns the prior run for duplicate same-key/same-ref starts, conflicts
+on changed refs, and blocks orphan/unknown start windows instead of silently
+starting a second worker. This does not add QueueWorkflowRunner create/setup/
+start execution, worker evidence recording, lifecycle finalization, scheduler
+pickup, or downstream auto-start.
 
 Queue capability contract hardening is implemented at the manifest, instruction,
 adapter, and test boundary. Every registered `queue.*` capability is covered by
@@ -399,10 +410,12 @@ Implemented as backend/storage/API foundation only:
   order/session state.
 
 Not implemented here: workflow resume execution, QueueWorkflowRunner
-persistence execution wiring, broker capability exposure, worker start, task
-setup, worker evidence recording, review/finalization execution through the
-workflow ledger, validation, Git, rollback, Terminal, scheduler, or downstream
-auto-start.
+persistence execution wiring beyond existing read/review/finalization phases,
+broker workflow capability exposure, task create/setup/start workflow phase,
+worker evidence recording, review/finalization execution beyond the existing
+runner ports, validation, Git, rollback, Terminal, scheduler, or downstream
+auto-start. The backend worker-start idempotency/control contract exists, but
+the QueueWorkflowRunner does not call it yet.
 
 ### Headless Queue API readiness
 
