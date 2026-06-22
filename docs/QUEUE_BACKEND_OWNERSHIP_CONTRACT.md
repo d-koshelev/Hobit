@@ -72,7 +72,7 @@ facts to return a typed plan/blocker; it does not execute workflow steps.
 Runner-report recording may update only the workflow run/action ledgers with
 bounded status, phase/step, blocker, variable/slot-binding, mutation-ref, and
 idempotent action-summary state for supported create/setup/start,
-read/review/finalization runner phases.
+worker-evidence, read/review/finalization runner phases.
 
 Backend workflow task slot materialization is now a narrow workflow-internal
 domain method. It creates or reuses draft/manual Queue tasks by explicit
@@ -118,8 +118,25 @@ through typed backend/Tauri APIs for the create/setup/start phase. These calls
 do not expose new Workspace Agent broker capabilities, do not route natural
 language, and do not use UI state as Queue truth. The phase must stop after
 persisting/reusing the upstream worker run id and reporting
-`awaiting_worker_completion` / `worker_running`; evidence recording and
-downstream start remain separate work.
+`awaiting_worker_completion` / `worker_running`; downstream start remains
+separate work.
+
+Workflow-owned worker evidence recording is a separate narrow backend/domain
+path. It requires explicit `workspaceId`, `workflowRunId`, `slot`, `taskId`,
+`runId`, bounded worker final status/outcome/summary input, and an exact
+workflow action idempotency key. The default key is
+`workflowRunId:record_worker_evidence:slot:taskId:runId`. The backend must
+validate that the task/run match the persisted slot binding, that the run
+belongs to the task and workspace, and that the worker is durably complete
+enough to record evidence. Existing matching evidence is idempotent success;
+existing mismatched evidence, changed action refs, missing bindings, missing
+worker completion, or ambiguous worker state must block or conflict. On
+success the backend persists `evidenceBundleId`, evidence action refs,
+recorded timestamp, and bounded worker final status into workflow state and
+the action ledger. This path must not create/ACK reviews, mark done, fail,
+block, follow up, validate, mutate Git, roll back, launch Terminal, start
+workers, start downstream work, create/update/promote tasks, enable Queue, or
+infer ids from prose/UI/session state.
 
 Resume planning must reconcile only explicit persisted bindings and variables:
 task ids, run ids, evidence bundle ids, review message ids, completion decision
@@ -138,7 +155,12 @@ enough typed input or binding data is present. It returns
 `blocked_settings_mismatch` for settings drift,
 `blocked_executor_mismatch` for executor drift, and
 `blocked_promote_state_mismatch` for promote-state drift without repairing
-durable state.
+durable state. After worker start, a persisted run binding with no evidence
+returns `awaiting_worker_completion` while the worker is still running and
+`waiting_for_worker_evidence` when the worker has durably finished. If a
+workflow binding contains an `evidenceBundleId` that cannot be found, planning
+returns `blocked_missing_evidence`; mismatched evidence/task/run facts return
+`blocked_state_mismatch`. The planner never records evidence by itself.
 Any mutating restart target must require a fresh grant and fresh exact
 structured confirmation; persisted confirmation tokens are never replayed.
 

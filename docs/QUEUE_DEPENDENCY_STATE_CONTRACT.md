@@ -164,6 +164,14 @@ settings, promotes, and starts only the upstream slot, then pauses awaiting
 upstream worker completion. It does not auto-promote, auto-start, or schedule
 downstream work.
 
+The dependency-smoke worker-evidence phase records or reconciles durable
+worker evidence only for the explicit upstream slot after the upstream run has
+completed. It persists the upstream `evidenceBundleId` in workflow state and
+then stops at the separate review boundary. Durable worker evidence still does
+not satisfy the downstream dependency; only a later explicit accepted
+completion decision for the upstream task can clear the downstream dependency
+gate. This phase does not start downstream work.
+
 ## Blocker Kinds
 
 Dependency-derived blockers use:

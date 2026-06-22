@@ -170,9 +170,22 @@ task slots, apply upstream typed run settings, promote only the upstream task,
 verify backend `QueueControlState=manual_enabled`, start only the explicit
 upstream worker with a structured workflow start context, persist bounded
 report/action summaries, and pause at `awaiting_worker_completion` /
-`worker_running`. It never records evidence, creates or ACKs reviews,
+`worker_running`. That phase never records evidence, creates or ACKs reviews,
 finalizes, starts downstream, runs validation, mutates Git, launches Terminal,
 or schedules work.
+
+The runner also exposes a separate explicit `worker_evidence` phase for
+dependency smoke workflows. It accepts only typed continuation input for the
+explicit `upstream` slot: `workflowRunId`, `slot`, `taskId`, `runId`, bounded
+worker outcome/summary fields, optional trusted actor/source metadata, and an
+optional exact action idempotency key. It calls an injected
+`QueueWorkflowWorkerEvidencePort`, which delegates to backend-owned workflow
+evidence recording/reconciliation. Missing typed completion input returns
+`awaiting_worker_completion` without mutation. A recorded or already-recorded
+bundle returns `evidence_recorded` / `evidence_already_recorded` and stops at
+`awaiting_review`. It does not create review messages, ACK reviews, finalize,
+block/follow up, validate, mutate Git, roll back, launch Terminal, start any
+worker, or start downstream work.
 
 Read/review/finalization phases can also read existing Queue state only when
 explicit ids are supplied. Supported explicit id sources are structured
@@ -186,7 +199,10 @@ prompts, prose, UI selection, UI order, file paths, or repository roots.
 
 The read-only phase uses only an injected `QueueWorkflowReadPort` with read
 methods for Queue aggregate, lifecycle, list, and evidence inspection. The
-review phase uses that read port plus a separate injected
+worker-evidence phase uses a separate injected
+`QueueWorkflowWorkerEvidencePort` for the single backend workflow evidence
+record/reconcile command. The review phase uses the read port plus a separate
+injected
 `QueueWorkflowReviewPort` for review message create and ACK commands. The
 finalization phase uses the read port plus a separate injected
 `QueueWorkflowFinalizationPort` for explicit accepted completion or terminal
@@ -259,9 +275,10 @@ completion/failure ledgers. `QueueWorkflowRun.status=failed` means workflow
 execution failure and must not be interpreted as Queue task terminal failure.
 
 The public backend/Tauri/frontend workflow API surface is limited to
-start/get/list/cancel/report/planResume, narrow runner-report recording, and
-the backend-owned workflow setup primitives consumed by the Queue workflow
-runtime adapter:
+start/get/list/cancel/report/planResume, narrow runner-report recording, the
+backend-owned workflow setup primitives consumed by the Queue workflow runtime
+adapter, and the narrow workflow-owned worker evidence record/reconcile
+command:
 
 - `queue.workflow.start` creates or reuses a workflow-run record only. It is
   idempotent for the same `workspaceId + requestId` when the stable request
@@ -291,9 +308,24 @@ runtime adapter:
   record worker evidence, create/ACK review messages, mark done, fail, block,
   follow up, validate, mutate Git, roll back, launch Terminal, start
   downstream work, or infer ids from frontend/session/prose.
+- `queue.workflow.recordWorkerEvidence` records or reconciles durable worker
+  evidence for one explicit workflow slot. It requires `workspaceId`,
+  `workflowRunId`, `slot`, `taskId`, `runId`, bounded worker final
+  status/outcome/summary input, and either the default exact idempotency key
+  `workflowRunId:record_worker_evidence:slot:taskId:runId` or an equivalent
+  supplied key. For dependency smoke workflows this phase is limited to the
+  `upstream` slot. It validates the persisted slot binding, validates that the
+  run belongs to the task/workspace, blocks missing/running/ambiguous worker
+  state, treats existing matching evidence as idempotent success, conflicts on
+  existing mismatched evidence or changed action refs, persists the
+  `evidenceBundleId` into the workflow slot binding/action ledger, and stops
+  at `awaiting_review`. It must not create/ACK review messages, mark done,
+  fail, block, follow up, validate, mutate Git, roll back, launch Terminal,
+  start workers, start downstream work, create/update/promote tasks, or enable
+  Queue.
 - `queue.workflow.recordRunnerReport` records bounded runtime-adapter report
   state and action-ledger summaries for supported create/setup/start,
-  read/review/finalization runner phases. It may update only
+  worker-evidence, read/review/finalization runner phases. It may update only
   `agent_queue_workflow_runs` and `agent_queue_workflow_actions`; it must not
   mutate Queue tasks, run links, worker evidence, review messages,
   completion/failure decisions, Queue control state, validation, Git,
@@ -475,6 +507,7 @@ Resume planner statuses are typed and stable: `resume_ready`,
 `resume_read_only_ready`, `blocked_missing_task`,
 `blocked_dependency_edge_missing`, `blocked_state_mismatch`,
 `blocked_missing_review_ack`, `blocked_missing_evidence`,
+`waiting_for_worker_evidence`,
 `blocked_missing_confirmation`, `blocked_stale_grant`, `terminal_completed`,
 `terminal_failed`, `terminal_cancelled`, `unsupported_phase`,
 `failed_unexpected`, and `version_conflict`. `terminal_failed` means the
@@ -499,7 +532,7 @@ decisions to the existing explicitly Queue-specific continuation helpers; that
 Queue policy remains transitional for action continuation. Valid structured
 Queue `hobit.workflow.request` envelopes can invoke the QueueWorkflowRunner
 runtime adapter for supported persisted create/setup/start,
-read/review/finalization phases only.
+worker-evidence, read/review/finalization phases only.
 BrokerInvocationRuntime remains future work.
 Workspace Agent activity/log/transcript formatting is isolated in the pure
 `AgentActivityRecorder`. It consumes only events and results that provider,
@@ -774,8 +807,9 @@ Product action execution requires structured `hobit.action.request` plus
 Broker policy and backend preconditions.
 Workflow requests require structured `hobit.workflow.request` and are currently
 validated/classified before execution. The QueueWorkflowRunner runtime adapter
-can invoke explicit create/setup/start, read, review, and finalization phases
-through typed ports for supported `moduleId: "queue"` workflow requests only.
+can invoke explicit create/setup/start, worker-evidence, read, review, and
+finalization phases through typed ports for supported `moduleId: "queue"`
+workflow requests only.
 Unsupported,
 invalid, or still-deferred workflows do not invoke the runner.
 
@@ -792,7 +826,7 @@ This contract does not implement:
 - Terminal launch;
 - broad worker automation;
 - Queue workflow mutation/execution beyond explicit create/setup/start,
-  read/review/finalization runner phases;
+  worker-evidence, read/review/finalization runner phases;
 - Queue-specific input validation for review/terminal workflows;
 - UI redesign;
 - additional Queue widget/view surfaces.

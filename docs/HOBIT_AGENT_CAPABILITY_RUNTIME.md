@@ -230,6 +230,18 @@ title, UI order, file path, or selected detail state. The current
 QueueWorkflowRunner exposes this only through validated typed dependency-smoke
 workflow requests and does not expose materialization/setup/promote/start as
 broker capabilities.
+
+Queue workflow worker evidence recording is also backend-owned typed workflow
+behavior, not a natural-language route and not a new broker capability. It can
+resume only from explicit `metadata.workflowRunId` plus typed worker-evidence
+input for the `upstream` slot, exact `taskId`, exact `runId`, bounded worker
+outcome/summary data, and a workflow action idempotency key. The backend
+validates the persisted slot/run binding, records or reconciles durable
+worker evidence by `workflowRunId + slot + taskId + runId`, persists
+`evidenceBundleId` in the workflow state/action ledger, and stops at
+`awaiting_review`. It does not create review messages, ACK reviews, finalize,
+start downstream work, run validation, mutate Git, roll back, launch Terminal,
+start workers, or infer ids from prose/UI/session state.
 - Workspace Agent Action Protocol Enforcement MVP: Workspace Agent Direct Work
   turns that receive Hobit capability context are treated as typed-capability
   action mode. In that mode the model must emit exactly one
@@ -292,12 +304,15 @@ broker capabilities.
   metadata remains non-runtime-available even though supported Queue runner
   phases can be invoked through the narrow adapter. A Queue-specific
   `QueueWorkflowRunner` now exists as an explicit control-plane helper with
-  separate create/setup/start, read-only, review, and finalization phases. The
+  separate create/setup/start, worker-evidence, read-only, review, and
+  finalization phases. The
   create/setup/start phase materializes explicit upstream/downstream slots,
   applies upstream run settings, promotes upstream, verifies backend
   `manual_enabled`, starts only the explicit upstream worker with typed
   workflow start context, persists bounded action/report summaries, and pauses
   at `awaiting_worker_completion` / `worker_running` before evidence. The
+  worker-evidence phase can then record or reconcile durable upstream evidence
+  from typed completion input and stop at `awaiting_review`. The
   read-only phase inspects existing Queue state through injected read ports.
   The review phase can read lifecycle/aggregate/evidence state, create a
   backend review message, and ACK that review message through an injected
@@ -312,12 +327,12 @@ broker capabilities.
   downstream dependency/no-auto-start state only when an explicit downstream
   task id is available and never starts downstream work. Outside the scoped
   create/setup/start task materialization/settings/promote/upstream-start
-  phase, review message/ACK phase, and explicit upstream finalization ports,
-  the runner does not call `queue.lifecycle.agentFinished`, record evidence,
-  block, follow up, run validation, mutate Git, launch Terminal, roll back, or
-  mutate Queue state. It requires explicit typed task/run/evidence/message/
-  workflow/executor/settings ids and never infers ids from titles, prose, UI
-  order, or file paths.
+  phase, worker-evidence record/reconcile phase, review message/ACK phase, and
+  explicit upstream finalization ports, the runner does not call
+  `queue.lifecycle.agentFinished`, record evidence, block, follow up, run
+  validation, mutate Git, launch Terminal, roll back, or mutate Queue state. It
+  requires explicit typed task/run/evidence/message/workflow/executor/settings
+  ids and never infers ids from titles, prose, UI order, or file paths.
   `review_acceptance` remains supported only by a minimal explicit typed runner
   input shape, while generic request validation for `review_acceptance` and
   `terminal_failure` remains `input_validation_deferred`.
@@ -373,10 +388,12 @@ failed for the dependency smoke workflows only. Workspace Agent workflow
 requests now invoke it only for supported Queue phases through typed backend
 ports. Create/setup/start can create/reuse dependency-smoke task slots, apply
 settings, promote upstream, start the explicit upstream worker, and pause
-awaiting worker completion. There is still no worker evidence recording,
-validation execution, Git mutation, rollback, Terminal launch, scheduler
-behavior, backend lifecycle semantic change beyond this phase, Queue UI truth
-path, or downstream auto-start.
+awaiting worker completion. The separate worker-evidence phase can resume from
+typed completion input, record/reconcile durable upstream evidence through the
+backend workflow evidence command, persist `evidenceBundleId`, and stop before
+review. There is still no validation execution, Git mutation, rollback,
+Terminal launch, scheduler behavior, backend lifecycle semantic change beyond
+this phase, Queue UI truth path, or downstream auto-start.
 
 Queue workflow persistence now exists as a backend-owned storage/API
 foundation for workflow-run and action-ledger records. The typed
@@ -387,7 +404,8 @@ idempotent by `workspaceId + requestId + requestHash`; a different hash for the
 same request id is a typed conflict and blocks runner invocation. Reusable
 confirmation tokens are not persisted as grants. The Queue workflow runtime
 adapter now creates or reuses a durable workflow run before invoking supported
-read/review/finalization phases, records bounded runner reports and action
+create/setup/start, worker-evidence, read/review/finalization phases, records
+bounded runner reports and action
 summaries back to the workflow run/action ledgers, and includes workflow run id
 and persisted status in Workspace Agent activity/transcript output.
 `queue.workflow.planResume` is a read-only backend planner that reconciles

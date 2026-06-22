@@ -8,7 +8,10 @@ use crate::agent_queue_workflow_dto::{
     RecordAgentQueueWorkflowRunnerAction,
 };
 use hobit_app::WorkspaceService;
-use hobit_storage_sqlite::{NewAgentQueueWorkflowAction, SqliteStore};
+use hobit_storage_sqlite::{
+    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorkflowAction, NewWidgetRun,
+    SqliteStore,
+};
 use serde_json::json;
 
 #[test]
@@ -304,6 +307,104 @@ fn workflow_record_runner_report_command_updates_only_workflow_tables() {
 }
 
 #[test]
+fn workflow_worker_evidence_command_records_upstream_and_serializes_result() {
+    let db_path = unique_test_db_path();
+    let service = initialized_service(&db_path);
+    let workspace = service
+        .create_empty_workspace("Queue workflow command evidence test", None)
+        .expect("create workspace");
+    let workbench_id = workspace
+        .workbench_id
+        .as_ref()
+        .expect("workspace workbench")
+        .clone();
+    let executor_widget_id = add_agent_executor_widget(&service, &workspace.id, &workbench_id);
+    drop(service);
+
+    seed_completed_queue_run(
+        &db_path,
+        &workspace.id,
+        "task-1",
+        "run-1",
+        "link-1",
+        &executor_widget_id,
+    );
+
+    let mut request = start_request(&workspace.id, "request-evidence");
+    request.phase = Some("worker_evidence".to_owned());
+    request.current_step = Some("awaiting_worker_completion".to_owned());
+    request.slot_bindings = Some(json!({
+        "upstream": {
+            "taskId": "task-1",
+            "runId": "run-1",
+            "executorWidgetId": executor_widget_id
+        }
+    }));
+    let run = start_agent_queue_workflow_blocking(request, db_path.clone())
+        .expect("start workflow")
+        .workflow_run
+        .expect("workflow run");
+
+    let result = record_agent_queue_workflow_worker_evidence_blocking(
+        RecordAgentQueueWorkflowWorkerEvidenceRequest {
+            workspace_id: workspace.id.clone(),
+            workflow_run_id: run.workflow_run_id.clone(),
+            slot: "upstream".to_owned(),
+            task_id: "task-1".to_owned(),
+            run_id: "run-1".to_owned(),
+            outcome: "completed".to_owned(),
+            summary: Some("Worker evidence is durable.".to_owned()),
+            changed_files: vec!["crates/hobit-app/src/workspace_service.rs".to_owned()],
+            changed_files_summary: Some("1 file changed".to_owned()),
+            validation_summary: None,
+            error_summary: None,
+            worker_id: Some("workspace-agent".to_owned()),
+            source: Some("workspace_agent".to_owned()),
+            metadata_json: None,
+            finished_at: Some("4".to_owned()),
+            actor_id: Some("workspace-agent".to_owned()),
+            action_idempotency_key: None,
+        },
+        db_path.clone(),
+    )
+    .expect("record workflow worker evidence");
+
+    assert_eq!(result.status, "recorded");
+    let binding = result.binding.expect("binding");
+    assert_eq!(binding.slot, "upstream");
+    assert_eq!(binding.task_id, "task-1");
+    assert_eq!(binding.run_id, "run-1");
+    assert_eq!(
+        binding.evidence_action_idempotency_key,
+        format!(
+            "{}:record_worker_evidence:upstream:task-1:run-1",
+            run.workflow_run_id
+        )
+    );
+    let evidence = result.evidence_bundle.expect("evidence bundle");
+    assert_eq!(evidence.task_id, "task-1");
+    assert_eq!(evidence.run_id, "run-1");
+    assert_eq!(binding.evidence_bundle_id, evidence.bundle_id);
+    let aggregate = result.aggregate.expect("aggregate");
+    assert_eq!(aggregate.task_id, "task-1");
+    assert_eq!(aggregate.evidence_state, "available");
+    assert_eq!(aggregate.review_state, "awaiting_review");
+    let workflow_run = result.workflow_run.expect("workflow run");
+    assert_eq!(workflow_run.phase, "worker_evidence");
+    assert_eq!(
+        workflow_run.current_step.as_deref(),
+        Some("awaiting_review")
+    );
+    assert!(workflow_run
+        .slot_bindings_json
+        .as_deref()
+        .expect("slot bindings")
+        .contains(&binding.evidence_bundle_id));
+
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn workflow_setup_commands_materialize_apply_and_promote_without_ui_imports() {
     let db_path = unique_test_db_path();
     let service = initialized_service(&db_path);
@@ -574,6 +675,66 @@ fn add_agent_executor_widget(
         .find(|widget| widget.definition_id == "agent-run")
         .expect("executor widget")
         .id
+}
+
+fn seed_completed_queue_run(
+    db_path: &Path,
+    workspace_id: &str,
+    task_id: &str,
+    run_id: &str,
+    link_id: &str,
+    executor_widget_id: &str,
+) {
+    let store = SqliteStore::open(db_path).expect("open store");
+    store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: task_id,
+            workspace_id,
+            title: "Upstream",
+            description: "",
+            prompt: "Run upstream worker.",
+            status: "queued",
+            priority: 1,
+            depends_on: None,
+            execution_policy: Some("manual"),
+            execution_workspace: Some("C:/repo"),
+            codex_executable: Some("codex.cmd"),
+            sandbox: Some("read_only"),
+            approval_policy: Some("never"),
+            context_json: None,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create queue task");
+    store
+        .insert_widget_run(NewWidgetRun {
+            id: run_id,
+            widget_instance_id: executor_widget_id,
+            status: "completed",
+            command_kind: Some("codex_direct_work"),
+            command_payload: Some("{}"),
+            started_at: Some("2"),
+            finished_at: Some("3"),
+            summary: Some("Worker summary"),
+        })
+        .expect("insert widget run");
+    store
+        .insert_agent_queue_task_run_link(NewAgentQueueTaskRunLink {
+            link_id,
+            workspace_id,
+            queue_task_id: task_id,
+            executor_widget_id,
+            direct_work_run_id: run_id,
+            source: "manual",
+            status: "completed",
+            started_at: Some("2"),
+            completed_at: Some("3"),
+            validation_status: None,
+            review_status: Some("review_needed"),
+            created_at: Some("2"),
+            updated_at: Some("3"),
+        })
+        .expect("insert run link");
 }
 
 fn unique_test_db_path() -> PathBuf {

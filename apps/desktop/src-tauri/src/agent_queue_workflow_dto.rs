@@ -6,14 +6,18 @@ use hobit_app::{
     QueueWorkflowPlanResumeRequest, QueueWorkflowPromoteTaskSlotRequest,
     QueueWorkflowPromoteTaskSlotResult, QueueWorkflowRecordRunnerAction,
     QueueWorkflowRecordRunnerReportRequest, QueueWorkflowRecordRunnerReportResult,
+    QueueWorkflowRecordWorkerEvidenceRequest, QueueWorkflowRecordWorkerEvidenceResult,
     QueueWorkflowReport, QueueWorkflowResumeBlocker, QueueWorkflowResumePlan, QueueWorkflowRun,
     QueueWorkflowRunSettings, QueueWorkflowSlotReconciliation, QueueWorkflowStartRequest,
     QueueWorkflowStartResult, QueueWorkflowTaskResumeSnapshot, QueueWorkflowTaskSpec,
+    QueueWorkflowWorkerEvidenceBindingSummary,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::agent_queue_aggregate_dto::QueueItemAggregateDto;
 use crate::agent_queue_task_dto::AgentQueueTaskDto;
+use crate::agent_queue_worker_evidence_dto::AgentQueueWorkerEvidenceBundleDto;
 
 #[derive(Clone, Debug, PartialEq, Deserialize)]
 pub(crate) struct StartAgentQueueWorkflowRequest {
@@ -87,6 +91,28 @@ pub(crate) struct RecordAgentQueueWorkflowRunnerAction {
     pub result_refs: Option<Value>,
     pub blocker_code: Option<String>,
     pub blocker_message: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct RecordAgentQueueWorkflowWorkerEvidenceRequest {
+    pub workspace_id: String,
+    pub workflow_run_id: String,
+    pub slot: String,
+    pub task_id: String,
+    pub run_id: String,
+    pub outcome: String,
+    pub summary: Option<String>,
+    #[serde(default)]
+    pub changed_files: Vec<String>,
+    pub changed_files_summary: Option<String>,
+    pub validation_summary: Option<String>,
+    pub error_summary: Option<String>,
+    pub worker_id: Option<String>,
+    pub source: Option<String>,
+    pub metadata_json: Option<String>,
+    pub finished_at: Option<String>,
+    pub actor_id: Option<String>,
+    pub action_idempotency_key: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -241,6 +267,31 @@ pub(crate) struct AgentQueueWorkflowRunnerReportRecordResultDto {
     pub status: String,
     pub workflow_run: Option<AgentQueueWorkflowRunDto>,
     pub actions: Vec<AgentQueueWorkflowActionDto>,
+    pub blocker: Option<AgentQueueWorkflowCommandBlockerDto>,
+    pub conflict: Option<AgentQueueWorkflowConflictDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowWorkerEvidenceBindingDto {
+    pub slot: String,
+    pub task_id: String,
+    pub run_id: String,
+    pub evidence_bundle_id: String,
+    pub evidence_action_id: Option<String>,
+    pub evidence_action_idempotency_key: String,
+    pub evidence_recorded_at: String,
+    pub worker_final_status: String,
+    pub worker_outcome: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowWorkerEvidenceRecordResultDto {
+    pub status: String,
+    pub workflow_run: Option<AgentQueueWorkflowRunDto>,
+    pub action: Option<AgentQueueWorkflowActionDto>,
+    pub evidence_bundle: Option<AgentQueueWorkerEvidenceBundleDto>,
+    pub aggregate: Option<QueueItemAggregateDto>,
+    pub binding: Option<AgentQueueWorkflowWorkerEvidenceBindingDto>,
     pub blocker: Option<AgentQueueWorkflowCommandBlockerDto>,
     pub conflict: Option<AgentQueueWorkflowConflictDto>,
 }
@@ -496,6 +547,32 @@ impl From<RecordAgentQueueWorkflowRunnerAction> for QueueWorkflowRecordRunnerAct
     }
 }
 
+impl From<RecordAgentQueueWorkflowWorkerEvidenceRequest>
+    for QueueWorkflowRecordWorkerEvidenceRequest
+{
+    fn from(request: RecordAgentQueueWorkflowWorkerEvidenceRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workflow_run_id: request.workflow_run_id,
+            slot: request.slot,
+            task_id: request.task_id,
+            run_id: request.run_id,
+            outcome: request.outcome,
+            summary: request.summary,
+            changed_files: request.changed_files,
+            changed_files_summary: request.changed_files_summary,
+            validation_summary: request.validation_summary,
+            error_summary: request.error_summary,
+            worker_id: request.worker_id,
+            source: request.source,
+            metadata_json: request.metadata_json,
+            finished_at: request.finished_at,
+            actor_id: request.actor_id,
+            action_idempotency_key: request.action_idempotency_key,
+        }
+    }
+}
+
 impl From<AgentQueueWorkflowTaskSpecRequest> for QueueWorkflowTaskSpec {
     fn from(task_spec: AgentQueueWorkflowTaskSpecRequest) -> Self {
         Self {
@@ -678,6 +755,47 @@ impl From<QueueWorkflowRecordRunnerReportResult> for AgentQueueWorkflowRunnerRep
                 .into_iter()
                 .map(AgentQueueWorkflowActionDto::from)
                 .collect(),
+            blocker: result
+                .blocker
+                .map(AgentQueueWorkflowCommandBlockerDto::from),
+            conflict: result.conflict.map(AgentQueueWorkflowConflictDto::from),
+        }
+    }
+}
+
+impl From<QueueWorkflowWorkerEvidenceBindingSummary>
+    for AgentQueueWorkflowWorkerEvidenceBindingDto
+{
+    fn from(binding: QueueWorkflowWorkerEvidenceBindingSummary) -> Self {
+        Self {
+            slot: binding.slot,
+            task_id: binding.task_id,
+            run_id: binding.run_id,
+            evidence_bundle_id: binding.evidence_bundle_id,
+            evidence_action_id: binding.evidence_action_id,
+            evidence_action_idempotency_key: binding.evidence_action_idempotency_key,
+            evidence_recorded_at: binding.evidence_recorded_at,
+            worker_final_status: binding.worker_final_status,
+            worker_outcome: binding.worker_outcome,
+        }
+    }
+}
+
+impl From<QueueWorkflowRecordWorkerEvidenceResult>
+    for AgentQueueWorkflowWorkerEvidenceRecordResultDto
+{
+    fn from(result: QueueWorkflowRecordWorkerEvidenceResult) -> Self {
+        Self {
+            status: result.status.as_str().to_owned(),
+            workflow_run: result.workflow_run.map(AgentQueueWorkflowRunDto::from),
+            action: result.action.map(AgentQueueWorkflowActionDto::from),
+            evidence_bundle: result
+                .evidence_bundle
+                .map(AgentQueueWorkerEvidenceBundleDto::from),
+            aggregate: result.aggregate.map(QueueItemAggregateDto::from),
+            binding: result
+                .binding
+                .map(AgentQueueWorkflowWorkerEvidenceBindingDto::from),
             blocker: result
                 .blocker
                 .map(AgentQueueWorkflowCommandBlockerDto::from),

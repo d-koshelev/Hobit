@@ -42,6 +42,7 @@ import {
   planAgentQueueWorkflowResume,
   promoteAgentQueueWorkflowTaskSlot,
   recordAgentQueueWorkflowRunnerReport,
+  recordAgentQueueWorkflowWorkerEvidence,
   startAgentQueueWorkflow,
 } from "../../workspace/tauriAgentQueueWorkflowApi";
 import {
@@ -448,6 +449,7 @@ export function useWorkspaceQueueApi({
       applyWorkflowRunSettings: applyAgentQueueWorkflowRunSettings,
       materializeWorkflowTaskSlot: materializeAgentQueueWorkflowTaskSlot,
       promoteWorkflowTaskSlot: promoteAgentQueueWorkflowTaskSlot,
+      recordWorkflowWorkerEvidence: recordAgentQueueWorkflowWorkerEvidence,
       startAssignedAgentQueueTask: actions.startAssignedAgentQueueTask,
     },
     queueState: {
@@ -484,6 +486,7 @@ export function useWorkspaceQueueApi({
     queueWorkflowPersistence: {
       planAgentQueueWorkflowResume,
       recordAgentQueueWorkflowRunnerReport,
+      recordAgentQueueWorkflowWorkerEvidence,
       startAgentQueueWorkflow,
     },
     queueExecutorSlots,

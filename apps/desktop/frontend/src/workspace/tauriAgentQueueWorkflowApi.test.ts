@@ -19,6 +19,7 @@ import {
   planAgentQueueWorkflowResume,
   promoteAgentQueueWorkflowTaskSlot,
   recordAgentQueueWorkflowRunnerReport,
+  recordAgentQueueWorkflowWorkerEvidence,
   startAgentQueueWorkflow,
 } from "./tauriAgentQueueWorkflowApi";
 
@@ -642,6 +643,106 @@ describe("queueWorkflow Tauri API wrapper", () => {
           slot_bindings: { upstream: { taskId: "task_1" } },
           status: "paused",
           variables: { workflowId: "dependency_acceptance_smoke" },
+          workflow_run_id: "workflow_run_1",
+          workspace_id: "workspace_1",
+        },
+      },
+    );
+  });
+
+  it("records queueWorkflow worker evidence through the typed Tauri command", async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      action: null,
+      aggregate: null,
+      binding: {
+        evidence_action_id: "action_evidence_1",
+        evidence_action_idempotency_key:
+          "workflow_run_1:record_worker_evidence:upstream:task_1:run_1",
+        evidence_bundle_id: "bundle_1",
+        evidence_recorded_at: "2026-06-22T10:02:00Z",
+        run_id: "run_1",
+        slot: "upstream",
+        task_id: "task_1",
+        worker_final_status: "completed",
+        worker_outcome: "completed",
+      },
+      blocker: null,
+      conflict: null,
+      evidence_bundle: {
+        bundle_id: "bundle_1",
+        changed_files: ["src/file.ts"],
+        changed_files_count: 1,
+        changed_files_summary: "1 file changed",
+        created_at: "2026-06-22T10:02:00Z",
+        error_summary: null,
+        executor_widget_id: "executor_1",
+        metadata_json: null,
+        outcome: "completed",
+        run_id: "run_1",
+        run_link_id: "link_1",
+        source: "workspace_agent",
+        summary: "Worker completed.",
+        task_id: "task_1",
+        updated_at: "2026-06-22T10:02:00Z",
+        validation_summary: null,
+        worker_id: "workspace-agent",
+        workspace_id: "workspace_1",
+      },
+      status: "recorded",
+      workflow_run: { ...tauriRun, current_step: "awaiting_review" },
+    });
+
+    await expect(
+      recordAgentQueueWorkflowWorkerEvidence({
+        actionIdempotencyKey:
+          "workflow_run_1:record_worker_evidence:upstream:task_1:run_1",
+        changedFiles: ["src/file.ts"],
+        changedFilesSummary: "1 file changed",
+        outcome: "completed",
+        runId: "run_1",
+        slot: "upstream",
+        summary: "Worker completed.",
+        taskId: "task_1",
+        workflowRunId: "workflow_run_1",
+        workspaceId: "workspace_1",
+        workerId: "workspace-agent",
+      }),
+    ).resolves.toMatchObject({
+      binding: {
+        evidenceActionId: "action_evidence_1",
+        evidenceBundleId: "bundle_1",
+        runId: "run_1",
+        slot: "upstream",
+        taskId: "task_1",
+      },
+      evidenceBundle: {
+        bundleId: "bundle_1",
+        changedFiles: ["src/file.ts"],
+        taskId: "task_1",
+      },
+      status: "recorded",
+      workflowRun: { ...expectedRun, currentStep: "awaiting_review" },
+    });
+    expect(mocks.invoke).toHaveBeenLastCalledWith(
+      "record_agent_queue_workflow_worker_evidence",
+      {
+        request: {
+          action_idempotency_key:
+            "workflow_run_1:record_worker_evidence:upstream:task_1:run_1",
+          actor_id: null,
+          changed_files: ["src/file.ts"],
+          changed_files_summary: "1 file changed",
+          error_summary: null,
+          finished_at: null,
+          metadata_json: null,
+          outcome: "completed",
+          run_id: "run_1",
+          slot: "upstream",
+          source: null,
+          summary: "Worker completed.",
+          task_id: "task_1",
+          validation_summary: null,
+          worker_id: "workspace-agent",
           workflow_run_id: "workflow_run_1",
           workspace_id: "workspace_1",
         },

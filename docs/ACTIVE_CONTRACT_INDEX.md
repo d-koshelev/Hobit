@@ -442,15 +442,19 @@ unless the task explicitly requests it.
   `review_acceptance` and `terminal_failure` remain declared with
   `input_validation_deferred` in the generic request path. A Queue-specific
   `QueueWorkflowRunner` exists as an explicit control-plane helper with
-  create/setup/start, read-only, review, and finalization phases. Its
+  create/setup/start, worker-evidence, read-only, review, and finalization
+  phases. Its
   create/setup/start phase can materialize explicit upstream/downstream slots,
   apply upstream run settings, promote upstream, verify backend
   `manual_enabled`, start only the explicit upstream worker with typed
   workflow start context, persist report/action summaries, and pause at
-  `awaiting_worker_completion` without evidence or downstream auto-start. It
-  can inspect explicit existing Queue aggregate/lifecycle/evidence ids through
-  an injected read port; its review phase can create and ACK backend review
-  messages through an injected review port; and its finalization phase can
+  `awaiting_worker_completion` without downstream auto-start. Its separate
+  worker-evidence phase can resume from typed upstream task/run completion
+  input, record/reconcile durable evidence, persist `evidenceBundleId` in
+  workflow state/action ledger, and stop before review. It can inspect
+  explicit existing Queue aggregate/lifecycle/evidence ids through an injected
+  read port; its review phase can create and ACK backend review messages
+  through an injected review port; and its finalization phase can
   mark the explicit upstream done
   for `dependency_acceptance_smoke` or failed for
   `dependency_failure_smoke` through an injected finalization port when exact
@@ -482,7 +486,8 @@ unless the task explicitly requests it.
   exact confirmation, durable `manual_enabled`, workflow action-ledger
   idempotency, dependency/executor/settings checks, and orphan/unknown blocker
   handling. The current QueueWorkflowRunner calls it only for explicit
-  upstream dependency-smoke start and pauses before evidence recording.
+  upstream dependency-smoke start and pauses before the separate evidence
+  phase.
   Unknown ids remain not declared. `grant` is
   permission/scope only, `inputs` is the only workflow data location, and prose
   is never executable workflow input. Workspace Agent direct turns use a provider-neutral
@@ -505,8 +510,8 @@ unless the task explicitly requests it.
   controller still owns visible state and execution flow.
   WorkerProvider is a separate provider-neutral seam for explicit worker items
   and normalized worker evidence/result events; Codex Direct Work remains a
-  concrete worker implementation, and the current QueueWorkflowRunner
-  read/review/finalization phases do not consume the seam. UI widgets are not executable module APIs, and Codex is a
+  concrete worker implementation, and the current QueueWorkflowRunner phases
+  do not consume the seam. UI widgets are not executable module APIs, and Codex is a
   provider/worker implementation rather than the module integration
   architecture.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source
@@ -791,9 +796,9 @@ the local executor flow visible to operators.
   capability behavior. It also records the backend-owned QueueWorkflowRun
   persistence MVP: start/get/list/cancel/report/planResume APIs, read-only
   resume planning, internal action ledger, and runtime-adapter report/action
-  persistence for supported read/review/finalization runner phases. Generic
-  resume execution, task setup/start, worker evidence recording, and scheduler
-  behavior remain not implemented.
+  persistence for supported create/setup/start, worker-evidence,
+  read/review/finalization runner phases. Generic resume execution and
+  scheduler behavior remain not implemented.
 - `docs/QUEUE_RESPONSIBILITY_REFACTOR_AUDIT.md` - focused audit/status note
   for the Queue backend ownership refactor, transitional capability debt, and
   phased cleanup plan.

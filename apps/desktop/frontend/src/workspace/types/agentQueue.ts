@@ -784,6 +784,25 @@ export type RecordAgentQueueWorkflowRunnerReportRequest =
     actions: RecordAgentQueueWorkflowRunnerReportAction[];
   };
 
+export type RecordAgentQueueWorkflowWorkerEvidenceRequest =
+  GetAgentQueueWorkflowRequest & {
+    actionIdempotencyKey?: string | null;
+    actorId?: string | null;
+    changedFiles?: string[] | null;
+    changedFilesSummary?: string | null;
+    errorSummary?: string | null;
+    finishedAt?: string | null;
+    metadataJson?: string | null;
+    outcome: AgentQueueWorkerEvidenceOutcome;
+    runId: string;
+    slot: string;
+    source?: string | null;
+    summary?: string | null;
+    taskId: string;
+    validationSummary?: string | null;
+    workerId?: string | null;
+  };
+
 export type AgentQueueWorkflowRun = {
   workflowRunId: string;
   workspaceId: string;
@@ -865,6 +884,15 @@ export type AgentQueueWorkflowRunnerReportRecordStatus =
   | "invalid_input"
   | string;
 
+export type AgentQueueWorkflowWorkerEvidenceRecordStatus =
+  | "recorded"
+  | "already_recorded"
+  | "blocked"
+  | "conflict"
+  | "not_found"
+  | "invalid_input"
+  | string;
+
 export type AgentQueueWorkflowStartResult = {
   status: AgentQueueWorkflowStartStatus;
   workflowRun: AgentQueueWorkflowRun | null;
@@ -884,6 +912,29 @@ export type AgentQueueWorkflowRunnerReportRecordResult = {
   actions: AgentQueueWorkflowAction[];
   blocker: AgentQueueWorkflowCommandBlocker | null;
   conflict: AgentQueueWorkflowConflict | null;
+};
+
+export type AgentQueueWorkflowWorkerEvidenceBinding = {
+  evidenceActionId: string | null;
+  evidenceActionIdempotencyKey: string;
+  evidenceBundleId: string;
+  evidenceRecordedAt: string;
+  runId: string;
+  slot: string;
+  taskId: string;
+  workerFinalStatus: string;
+  workerOutcome: AgentQueueWorkerEvidenceOutcome | string;
+};
+
+export type AgentQueueWorkflowWorkerEvidenceRecordResult = {
+  action: AgentQueueWorkflowAction | null;
+  aggregate: AgentQueueItemAggregate | null;
+  binding: AgentQueueWorkflowWorkerEvidenceBinding | null;
+  blocker: AgentQueueWorkflowCommandBlocker | null;
+  conflict: AgentQueueWorkflowConflict | null;
+  evidenceBundle: AgentQueueWorkerEvidenceBundle | null;
+  status: AgentQueueWorkflowWorkerEvidenceRecordStatus;
+  workflowRun: AgentQueueWorkflowRun | null;
 };
 
 export type AgentQueueWorkflowReport = {
@@ -909,6 +960,7 @@ export type AgentQueueWorkflowResumePlanStatus =
   | "blocked_executor_mismatch"
   | "waiting_for_run_settings"
   | "waiting_for_promote"
+  | "waiting_for_worker_evidence"
   | "terminal_completed"
   | "terminal_failed"
   | "terminal_cancelled"

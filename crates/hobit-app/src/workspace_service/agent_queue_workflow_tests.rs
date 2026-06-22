@@ -77,6 +77,34 @@ fn start_request(workspace_id: &str, request_id: &str) -> QueueWorkflowStartRequ
     }
 }
 
+fn workflow_evidence_request(
+    workflow_run_id: &str,
+    slot: &str,
+    task_id: &str,
+    run_id: &str,
+    outcome: &str,
+) -> QueueWorkflowRecordWorkerEvidenceRequest {
+    QueueWorkflowRecordWorkerEvidenceRequest {
+        workspace_id: "workspace-1".to_owned(),
+        workflow_run_id: workflow_run_id.to_owned(),
+        slot: slot.to_owned(),
+        task_id: task_id.to_owned(),
+        run_id: run_id.to_owned(),
+        outcome: outcome.to_owned(),
+        summary: Some("Worker evidence is durable.".to_owned()),
+        changed_files: Vec::new(),
+        changed_files_summary: None,
+        validation_summary: None,
+        error_summary: None,
+        worker_id: Some("workspace-agent".to_owned()),
+        source: Some("workspace_agent".to_owned()),
+        metadata_json: None,
+        finished_at: Some("4".to_owned()),
+        actor_id: None,
+        action_idempotency_key: None,
+    }
+}
+
 #[test]
 fn start_queue_workflow_creates_persisted_workflow_run() {
     let service = initialized_service();
@@ -2071,7 +2099,7 @@ fn plan_resume_reconciles_run_and_evidence_binding_mismatches() {
 }
 
 #[test]
-fn plan_resume_blocks_missing_evidence_for_finished_run() {
+fn plan_resume_waits_for_worker_evidence_for_finished_run() {
     let store = initialized_store();
     create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
     create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
@@ -2104,9 +2132,426 @@ fn plan_resume_blocks_missing_evidence_for_finished_run() {
 
     assert_eq!(
         plan.status,
-        QueueWorkflowResumePlanStatus::BlockedMissingEvidence
+        QueueWorkflowResumePlanStatus::WaitingForWorkerEvidence
     );
-    assert_eq!(plan.next_step.as_deref(), Some("worker_evidence_required"));
+    assert_eq!(
+        plan.next_step.as_deref(),
+        Some("waiting_for_worker_evidence")
+    );
+    assert_eq!(plan.next_phase.as_deref(), Some("worker_evidence"));
+    assert!(!plan.required_confirmation);
+}
+
+#[test]
+fn record_workflow_worker_evidence_records_upstream_and_stops_before_review() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "completed",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-evidence",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1","executorWidgetId":"executor-1"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let result = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-evidence",
+            "upstream",
+            "task-1",
+            "run-1",
+            "completed",
+        ))
+        .expect("record workflow evidence");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Recorded
+    );
+    let binding = result.binding.expect("binding");
+    assert_eq!(binding.slot, "upstream");
+    assert_eq!(binding.task_id, "task-1");
+    assert_eq!(binding.run_id, "run-1");
+    assert!(!binding.evidence_bundle_id.is_empty());
+    assert_eq!(
+        binding.evidence_action_idempotency_key,
+        "workflow-run-evidence:record_worker_evidence:upstream:task-1:run-1"
+    );
+    let workflow_run = result.workflow_run.expect("workflow run");
+    assert_eq!(workflow_run.status, "paused");
+    assert_eq!(workflow_run.phase, "worker_evidence");
+    assert_eq!(
+        workflow_run.current_step.as_deref(),
+        Some("awaiting_review")
+    );
+    assert_eq!(
+        workflow_run.pause_reason.as_deref(),
+        Some("awaiting_review")
+    );
+    let slot_bindings: Value =
+        serde_json::from_str(workflow_run.slot_bindings_json.as_deref().unwrap())
+            .expect("slot bindings json");
+    assert_eq!(
+        slot_bindings["upstream"]["evidenceBundleId"].as_str(),
+        Some(binding.evidence_bundle_id.as_str())
+    );
+
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions("workspace-1", "workflow-run-evidence")
+        .expect("workflow actions");
+    assert_eq!(actions.len(), 1);
+    assert_eq!(actions[0].action_type, "record_worker_evidence");
+    assert_eq!(
+        actions[0].idempotency_key,
+        "workflow-run-evidence:record_worker_evidence:upstream:task-1:run-1"
+    );
+    assert!(service
+        .store
+        .list_agent_queue_review_messages("workspace-1", "task-1")
+        .expect("review messages")
+        .is_empty());
+    assert!(service
+        .store
+        .get_latest_agent_queue_completion_decision("workspace-1", "task-1")
+        .expect("completion decision")
+        .is_none());
+    assert!(service
+        .store
+        .get_latest_agent_queue_failure_decision("workspace-1", "task-1")
+        .expect("failure decision")
+        .is_none());
+}
+
+#[test]
+fn record_workflow_worker_evidence_is_idempotent_for_same_task_run() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "completed",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-evidence",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let first = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-evidence",
+            "upstream",
+            "task-1",
+            "run-1",
+            "completed",
+        ))
+        .expect("first evidence");
+    let second = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-evidence",
+            "upstream",
+            "task-1",
+            "run-1",
+            "completed",
+        ))
+        .expect("second evidence");
+
+    assert_eq!(
+        second.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::AlreadyRecorded
+    );
+    assert_eq!(
+        first.binding.unwrap().evidence_bundle_id,
+        second.binding.unwrap().evidence_bundle_id
+    );
+    assert_eq!(
+        service
+            .store
+            .list_agent_queue_workflow_actions("workspace-1", "workflow-run-evidence")
+            .expect("actions")
+            .len(),
+        1
+    );
+}
+
+#[test]
+fn record_workflow_worker_evidence_reconciles_existing_matching_evidence() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "completed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "bundle-existing",
+        "completed",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-evidence",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let result = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-evidence",
+            "upstream",
+            "task-1",
+            "run-1",
+            "completed",
+        ))
+        .expect("reconcile evidence");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::AlreadyRecorded
+    );
+    assert_eq!(
+        result.binding.unwrap().evidence_bundle_id,
+        "bundle-existing"
+    );
+}
+
+#[test]
+fn record_workflow_worker_evidence_blocks_missing_bindings_and_running_worker() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "running",
+    );
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-ambiguous",
+        "link-ambiguous",
+        "queued",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-missing-run",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1"}}"#),
+        None,
+        Some("1"),
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-running",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1"}}"#),
+        None,
+        Some("1"),
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-ambiguous",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-ambiguous"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let missing_run = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-missing-run",
+            "upstream",
+            "task-1",
+            "run-1",
+            "completed",
+        ))
+        .expect("missing run binding");
+    let running = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-running",
+            "upstream",
+            "task-1",
+            "run-1",
+            "completed",
+        ))
+        .expect("running worker");
+    let ambiguous = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-ambiguous",
+            "upstream",
+            "task-1",
+            "run-ambiguous",
+            "completed",
+        ))
+        .expect("ambiguous worker");
+
+    assert_eq!(
+        missing_run.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Blocked
+    );
+    assert_eq!(
+        missing_run.blocker.unwrap().blocker_code,
+        "missing_run_binding"
+    );
+    assert_eq!(
+        running.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Blocked
+    );
+    assert_eq!(running.blocker.unwrap().blocker_code, "worker_not_complete");
+    assert_eq!(
+        ambiguous.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Blocked
+    );
+    assert_eq!(
+        ambiguous.blocker.unwrap().blocker_code,
+        "ambiguous_worker_state"
+    );
+}
+
+#[test]
+fn record_workflow_worker_evidence_rejects_task_run_and_metadata_conflicts() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_task_row(&store, "workspace-1", "task-2", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-2",
+        "run-2",
+        "link-2",
+        "completed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-2",
+        "run-2",
+        "link-2",
+        "bundle-existing",
+        "failed",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-task-mismatch",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-2"}}"#),
+        None,
+        Some("1"),
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-evidence-conflict",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-2","runId":"run-2"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let task_mismatch = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-task-mismatch",
+            "upstream",
+            "task-1",
+            "run-2",
+            "completed",
+        ))
+        .expect("task mismatch");
+    let metadata_conflict = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-evidence-conflict",
+            "upstream",
+            "task-2",
+            "run-2",
+            "completed",
+        ))
+        .expect("metadata conflict");
+
+    assert_eq!(
+        task_mismatch.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Conflict
+    );
+    assert_eq!(
+        task_mismatch.conflict.unwrap().conflict_code,
+        "run_task_mismatch"
+    );
+    assert_eq!(
+        metadata_conflict.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Conflict
+    );
+    assert_eq!(
+        metadata_conflict.conflict.unwrap().conflict_code,
+        "evidence_metadata_conflict"
+    );
 }
 
 #[test]

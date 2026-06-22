@@ -166,6 +166,18 @@ Backend/domain aggregate and review command foundation:
   call `queue.lifecycle.agentFinished`, review/ACK, mark done/fail/block/
   follow-up, run validation/Git/rollback/Terminal, schedule workers, or
   auto-start downstream.
+- Queue workflow worker-evidence recording now exists as the next dependency
+  smoke phase after explicit upstream worker completion. It resumes only from
+  typed workflow continuation input with exact `workflowRunId`, `slot:
+  "upstream"`, `taskId`, `runId`, bounded worker outcome/summary data, and the
+  workflow action idempotency key
+  `workflowRunId:record_worker_evidence:slot:taskId:runId` unless an equivalent
+  exact key is supplied. It reconciles existing matching durable evidence as
+  idempotent success, persists `evidenceBundleId` and bounded final worker
+  status in the workflow state/action ledger, and stops at `awaiting_review`.
+  It does not create/ACK review messages, mark done/fail/block/follow-up, run
+  validation/Git/rollback/Terminal, schedule workers, start downstream, or
+  infer task/run/evidence ids from prose/UI/session state.
 - Queue capability result mappers now emit typed `nextAction` payloads when a
   follow-up can be built with known canonical target fields. The runtime must
   prefer `nextAction.capabilityId` plus `nextAction.input` and must not guess

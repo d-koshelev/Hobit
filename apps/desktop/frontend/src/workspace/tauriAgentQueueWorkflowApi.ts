@@ -11,6 +11,8 @@ import type {
   AgentQueueWorkflowResumeBlocker,
   AgentQueueWorkflowResumePlan,
   AgentQueueWorkflowRunnerReportRecordResult,
+  AgentQueueWorkflowWorkerEvidenceRecordResult,
+  AgentQueueWorkerEvidenceBundle,
   AgentQueueTask,
   AgentQueueTaskContext,
   AgentQueueTaskExecutionPolicy,
@@ -26,9 +28,14 @@ import type {
   PlanAgentQueueWorkflowResumeRequest,
   PromoteAgentQueueWorkflowTaskSlotRequest,
   RecordAgentQueueWorkflowRunnerReportRequest,
+  RecordAgentQueueWorkflowWorkerEvidenceRequest,
   StartAgentQueueWorkflowRequest,
 } from "./types";
 import type { TauriAgentQueueTask } from "./tauriAgentQueueDto";
+import {
+  normalizeAgentQueueItemAggregate,
+  type TauriAgentQueueItemAggregate,
+} from "./tauriAgentQueueAggregateApi";
 
 type TauriAgentQueueWorkflowRun = {
   workflow_run_id: string;
@@ -108,6 +115,50 @@ type TauriAgentQueueWorkflowRunnerReportRecordResult = {
   actions: TauriAgentQueueWorkflowAction[];
   blocker: TauriAgentQueueWorkflowCommandBlocker | null;
   conflict: TauriAgentQueueWorkflowConflict | null;
+};
+
+type TauriAgentQueueWorkerEvidenceBundle = {
+  bundle_id: string;
+  changed_files: string[];
+  changed_files_count: number;
+  changed_files_summary: string | null;
+  created_at: string;
+  error_summary: string | null;
+  executor_widget_id: string | null;
+  metadata_json: string | null;
+  outcome: AgentQueueWorkerEvidenceBundle["outcome"];
+  run_id: string;
+  run_link_id: string | null;
+  source: string;
+  summary: string;
+  task_id: string;
+  updated_at: string;
+  validation_summary: string | null;
+  worker_id: string | null;
+  workspace_id: string;
+};
+
+type TauriAgentQueueWorkflowWorkerEvidenceBinding = {
+  evidence_action_id: string | null;
+  evidence_action_idempotency_key: string;
+  evidence_bundle_id: string;
+  evidence_recorded_at: string;
+  run_id: string;
+  slot: string;
+  task_id: string;
+  worker_final_status: string;
+  worker_outcome: string;
+};
+
+type TauriAgentQueueWorkflowWorkerEvidenceRecordResult = {
+  action: TauriAgentQueueWorkflowAction | null;
+  aggregate: TauriAgentQueueItemAggregate | null;
+  binding: TauriAgentQueueWorkflowWorkerEvidenceBinding | null;
+  blocker: TauriAgentQueueWorkflowCommandBlocker | null;
+  conflict: TauriAgentQueueWorkflowConflict | null;
+  evidence_bundle: TauriAgentQueueWorkerEvidenceBundle | null;
+  status: string;
+  workflow_run: TauriAgentQueueWorkflowRun | null;
 };
 
 type TauriAgentQueueWorkflowTaskSlotBinding = {
@@ -398,6 +449,37 @@ export async function recordAgentQueueWorkflowRunnerReport(
   return normalizeRunnerReportRecordResult(result);
 }
 
+export async function recordAgentQueueWorkflowWorkerEvidence(
+  request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
+): Promise<AgentQueueWorkflowWorkerEvidenceRecordResult> {
+  const result = await invoke<TauriAgentQueueWorkflowWorkerEvidenceRecordResult>(
+    "record_agent_queue_workflow_worker_evidence",
+    {
+      request: {
+        action_idempotency_key: request.actionIdempotencyKey ?? null,
+        actor_id: request.actorId ?? null,
+        changed_files: request.changedFiles ?? [],
+        changed_files_summary: request.changedFilesSummary ?? null,
+        error_summary: request.errorSummary ?? null,
+        finished_at: request.finishedAt ?? null,
+        metadata_json: request.metadataJson ?? null,
+        outcome: request.outcome,
+        run_id: request.runId,
+        slot: request.slot,
+        source: request.source ?? null,
+        summary: request.summary ?? null,
+        task_id: request.taskId,
+        validation_summary: request.validationSummary ?? null,
+        worker_id: request.workerId ?? null,
+        workflow_run_id: request.workflowRunId,
+        workspace_id: request.workspaceId,
+      },
+    },
+  );
+
+  return normalizeWorkerEvidenceRecordResult(result);
+}
+
 export async function materializeAgentQueueWorkflowTaskSlot(
   request: MaterializeAgentQueueWorkflowTaskSlotRequest,
 ): Promise<AgentQueueWorkflowMaterializeTaskSlotResult> {
@@ -513,6 +595,63 @@ function normalizeRunnerReportRecordResult(
     conflict: result.conflict ? normalizeConflict(result.conflict) : null,
     status: result.status,
     workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
+  };
+}
+
+function normalizeWorkerEvidenceRecordResult(
+  result: TauriAgentQueueWorkflowWorkerEvidenceRecordResult,
+): AgentQueueWorkflowWorkerEvidenceRecordResult {
+  return {
+    action: result.action ? normalizeAction(result.action) : null,
+    aggregate: result.aggregate
+      ? normalizeAgentQueueItemAggregate(result.aggregate)
+      : null,
+    binding: result.binding
+      ? {
+          evidenceActionId: result.binding.evidence_action_id,
+          evidenceActionIdempotencyKey:
+            result.binding.evidence_action_idempotency_key,
+          evidenceBundleId: result.binding.evidence_bundle_id,
+          evidenceRecordedAt: result.binding.evidence_recorded_at,
+          runId: result.binding.run_id,
+          slot: result.binding.slot,
+          taskId: result.binding.task_id,
+          workerFinalStatus: result.binding.worker_final_status,
+          workerOutcome: result.binding.worker_outcome,
+        }
+      : null,
+    blocker: result.blocker ? normalizeBlocker(result.blocker) : null,
+    conflict: result.conflict ? normalizeConflict(result.conflict) : null,
+    evidenceBundle: result.evidence_bundle
+      ? normalizeWorkerEvidenceBundle(result.evidence_bundle)
+      : null,
+    status: result.status,
+    workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
+  };
+}
+
+function normalizeWorkerEvidenceBundle(
+  bundle: TauriAgentQueueWorkerEvidenceBundle,
+): AgentQueueWorkerEvidenceBundle {
+  return {
+    bundleId: bundle.bundle_id,
+    changedFiles: bundle.changed_files,
+    changedFilesCount: bundle.changed_files_count,
+    changedFilesSummary: bundle.changed_files_summary,
+    createdAt: bundle.created_at,
+    errorSummary: bundle.error_summary,
+    executorWidgetId: bundle.executor_widget_id,
+    metadataJson: bundle.metadata_json,
+    outcome: bundle.outcome,
+    runId: bundle.run_id,
+    runLinkId: bundle.run_link_id,
+    source: bundle.source,
+    summary: bundle.summary,
+    taskId: bundle.task_id,
+    updatedAt: bundle.updated_at,
+    validationSummary: bundle.validation_summary,
+    workerId: bundle.worker_id,
+    workspaceId: bundle.workspace_id,
   };
 }
 

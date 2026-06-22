@@ -19,13 +19,16 @@ import type {
   QueueWorkflowCreateReviewMessageRequest,
   QueueWorkflowCreateReviewMessageResult,
   QueueWorkflowCreateSetupStartPort,
+  QueueWorkflowRecordWorkerEvidenceRequest,
   QueueWorkflowRunnerRequest,
+  QueueWorkflowWorkerEvidencePort,
 } from "./queueWorkflowRunner";
 import {
   runQueueWorkflowCreateSetupStartRunner,
   runQueueWorkflowFinalizationRunner,
   runQueueWorkflowReadOnlyRunner,
   runQueueWorkflowReviewRunner,
+  runQueueWorkflowWorkerEvidenceRunner,
 } from "./queueWorkflowRunner";
 import { validateQueueWorkflowRequest } from "./queueWorkflowRequestValidation";
 
@@ -324,6 +327,122 @@ describe("QueueWorkflowRunner", () => {
         }),
       }),
     ]);
+  });
+
+  it("records worker evidence for explicit upstream task and run then stops before review", async () => {
+    const port = fakeWorkerEvidencePort();
+    const request = workerEvidenceWorkflowRequest();
+
+    const result = await runQueueWorkflowWorkerEvidenceRunner({
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workerEvidencePort: port,
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("awaiting_review");
+    expect(result.variables.taskIdsBySlot.upstream).toBe("task-upstream");
+    expect(result.variables.runIdsBySlot.upstream).toBe("run-upstream");
+    expect(result.variables.evidenceBundleIdsBySlot.upstream).toBe(
+      "evidence-bundle-1",
+    );
+    expect(result.report.workerEvidence).toMatchObject({
+      commandStatus: "recorded",
+      evidenceBundleId: "evidence-bundle-1",
+      idempotent: false,
+      runId: "run-upstream",
+      status: "evidence_recorded",
+      targetSlot: "upstream",
+      taskId: "task-upstream",
+    });
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didAckReview: false,
+        didCreateReviewMessage: false,
+        didFail: false,
+        didMarkDone: false,
+        didStartWorker: false,
+        didValidate: false,
+      }),
+    );
+    expect(port.calls).toEqual([
+      expect.objectContaining({
+        method: "recordWorkerEvidenceForSlot",
+        outcome: "completed",
+        runId: "run-upstream",
+        slot: "upstream",
+        taskId: "task-upstream",
+        workflowRunId: "queue-workflow-run-1",
+      }),
+    ]);
+  });
+
+  it("treats existing worker evidence as idempotent success", async () => {
+    const port = fakeWorkerEvidencePort({ status: "already_recorded" });
+    const request = workerEvidenceWorkflowRequest();
+
+    const result = await runQueueWorkflowWorkerEvidenceRunner({
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workerEvidencePort: port,
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("awaiting_review");
+    expect(result.report.workerEvidence).toMatchObject({
+      commandStatus: "already_recorded",
+      idempotent: true,
+      status: "evidence_already_recorded",
+    });
+    expect(result.report.mutationSummary.didMutateQueue).toBe(false);
+  });
+
+  it("pauses worker evidence recording without typed completion input", async () => {
+    const request = workflowRequest({
+      inputs: {
+        ...validInputs(),
+        phase: "worker_evidence",
+      },
+    });
+
+    const result = await runQueueWorkflowWorkerEvidenceRunner({
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workerEvidencePort: fakeWorkerEvidencePort(),
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("awaiting_worker_completion");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "worker_evidence_missing_input",
+      }),
+    ]);
+    expect(result.report.mutationSummary.didMutateQueue).toBe(false);
+  });
+
+  it("blocks worker evidence conflicts without review or finalization", async () => {
+    const port = fakeWorkerEvidencePort({ status: "conflict" });
+    const request = workerEvidenceWorkflowRequest();
+
+    const result = await runQueueWorkflowWorkerEvidenceRunner({
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workerEvidencePort: port,
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("blocked_evidence_conflict");
+    expect(result.report.workerEvidence.status).toBe("blocked_evidence_conflict");
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didAckReview: false,
+        didCreateReviewMessage: false,
+        didFail: false,
+        didMarkDone: false,
+        didStartWorker: false,
+      }),
+    );
   });
 
   it("blocks before worker start when executorWidgetId is missing", async () => {
@@ -1859,6 +1978,26 @@ function workflowRequest(
   };
 }
 
+function workerEvidenceWorkflowRequest(
+  overrides: Partial<QueueWorkflowRunnerRequest> = {},
+): QueueWorkflowRunnerRequest {
+  return workflowRequest({
+    inputs: {
+      phase: "worker_evidence",
+      workerEvidence: {
+        changedFiles: ["src/file.ts"],
+        outcome: "completed",
+        runId: "run-upstream",
+        slot: "upstream",
+        summary: "Worker completed.",
+        taskId: "task-upstream",
+        workflowRunId: "queue-workflow-run-1",
+      },
+    },
+    ...overrides,
+  });
+}
+
 function validGrant(mode: string, overrides: Record<string, unknown> = {}) {
   return {
     constraints: {
@@ -1908,6 +2047,73 @@ function validTasks() {
 type FakeCreateSetupStartPort = QueueWorkflowCreateSetupStartPort & {
   calls: Array<{ method: string } & Record<string, unknown>>;
 };
+
+type FakeWorkerEvidencePort = QueueWorkflowWorkerEvidencePort & {
+  calls: Array<
+    { method: "recordWorkerEvidenceForSlot" } & QueueWorkflowRecordWorkerEvidenceRequest
+  >;
+};
+
+function fakeWorkerEvidencePort(
+  options: { status?: string } = {},
+): FakeWorkerEvidencePort {
+  const calls: FakeWorkerEvidencePort["calls"] = [];
+  const status = options.status ?? "recorded";
+  return {
+    calls,
+    recordWorkerEvidenceForSlot: async (request) => {
+      calls.push({ method: "recordWorkerEvidenceForSlot", ...request });
+      return {
+        action: null,
+        aggregate: aggregate({ taskId: request.taskId }),
+        binding:
+          status === "recorded" || status === "already_recorded"
+            ? {
+                evidenceActionId: "workflow-action-evidence",
+                evidenceActionIdempotencyKey:
+                  request.actionIdempotencyKey ??
+                  `${request.workflowRunId}:record_worker_evidence:${request.slot}:${request.taskId}:${request.runId}`,
+                evidenceBundleId: "evidence-bundle-1",
+                evidenceRecordedAt: "2026-06-22T00:00:00.000Z",
+                runId: request.runId,
+                slot: request.slot,
+                taskId: request.taskId,
+                workerFinalStatus: "completed",
+                workerOutcome: request.outcome,
+              }
+            : null,
+        blocker:
+          status === "blocked"
+            ? {
+                blockerCode: "worker_not_complete",
+                blockerMessage: "Worker is still running.",
+                missingRequiredField: "runId",
+              }
+            : null,
+        conflict:
+          status === "conflict"
+            ? {
+                conflictCode: "evidence_metadata_conflict",
+                conflictMessage: "Evidence conflicts.",
+                existingRequestHash: "existing",
+                existingWorkflowRunId: request.workflowRunId,
+                requestedRequestHash: "requested",
+              }
+            : null,
+        evidenceBundle:
+          status === "recorded" || status === "already_recorded"
+            ? evidenceQuery({
+                bundleId: "evidence-bundle-1",
+                runId: request.runId,
+                taskId: request.taskId,
+              }).evidenceBundle
+            : null,
+        status,
+        workflowRun: null,
+      };
+    },
+  };
+}
 
 function fakeCreateSetupStartPort(
   options: {

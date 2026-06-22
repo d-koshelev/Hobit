@@ -234,6 +234,7 @@ pub fn run() {
             agent_queue_workflow_commands::get_agent_queue_workflow_report,
             agent_queue_workflow_commands::plan_agent_queue_workflow_resume,
             agent_queue_workflow_commands::record_agent_queue_workflow_runner_report,
+            agent_queue_workflow_commands::record_agent_queue_workflow_worker_evidence,
             agent_queue_workflow_commands::materialize_agent_queue_workflow_task_slot,
             agent_queue_workflow_commands::apply_agent_queue_workflow_run_settings,
             agent_queue_workflow_commands::promote_agent_queue_workflow_task_slot,

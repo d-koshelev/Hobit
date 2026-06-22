@@ -213,6 +213,22 @@ function validateDependencySmokeWorkflow({
   workflowId: QueueWorkflowId;
   workflowMetadata?: QueueModuleWorkflowMetadata;
 }): QueueWorkflowRequestValidationResult {
+  if (isWorkerEvidenceContinuation(inputs)) {
+    const issues = [
+      ...validateGrant(grant, requiredGrantModes),
+      ...validateWorkerEvidenceContinuationInputs(inputs),
+    ];
+    if (issues.length > 0) {
+      return invalidResult({
+        issues,
+        status: statusForIssues(issues),
+        workflowId,
+        workflowMetadata,
+      });
+    }
+    return validNotExecutableResult({ workflowId, workflowMetadata });
+  }
+
   const issues = [
     ...validateGrant(grant, requiredGrantModes),
     ...validateCommonDependencyInputs(inputs),
@@ -229,6 +245,90 @@ function validateDependencySmokeWorkflow({
   }
 
   return validNotExecutableResult({ workflowId, workflowMetadata });
+}
+
+function isWorkerEvidenceContinuation(inputs: WorkflowInputs | undefined): boolean {
+  if (!isRecord(inputs)) {
+    return false;
+  }
+  return inputs.phase === "worker_evidence" || isRecord(inputs.workerEvidence);
+}
+
+function validateWorkerEvidenceContinuationInputs(
+  inputs: WorkflowInputs | undefined,
+): QueueWorkflowRequestValidationIssue[] {
+  const issues: QueueWorkflowRequestValidationIssue[] = [];
+  if (isRecord(inputs) && inputs.phase === "worker_evidence" && inputs.workerEvidence === undefined) {
+    return issues;
+  }
+  if (!isRecord(inputs) || !isRecord(inputs.workerEvidence)) {
+    return [
+      issue({
+        fieldPath: "$.inputs.workerEvidence",
+        message:
+          "inputs.workerEvidence is required for Queue worker evidence recording.",
+        reasonCode: "missing_required_input",
+      }),
+    ];
+  }
+
+  const evidence = inputs.workerEvidence;
+  if (evidence.slot !== "upstream") {
+    issues.push(
+      issue({
+        fieldPath: "$.inputs.workerEvidence.slot",
+        message: "inputs.workerEvidence.slot must be upstream.",
+        reasonCode: "invalid_workflow_input",
+      }),
+    );
+  }
+  if (!nonEmptyString(evidence.taskId)) {
+    issues.push(
+      issue({
+        fieldPath: "$.inputs.workerEvidence.taskId",
+        message: "inputs.workerEvidence.taskId must be a non-empty string.",
+        reasonCode: "missing_required_input",
+      }),
+    );
+  }
+  if (!nonEmptyString(evidence.runId)) {
+    issues.push(
+      issue({
+        fieldPath: "$.inputs.workerEvidence.runId",
+        message: "inputs.workerEvidence.runId must be a non-empty string.",
+        reasonCode: "missing_required_input",
+      }),
+    );
+  }
+  if (
+    evidence.outcome !== "completed" &&
+    evidence.outcome !== "not_completed" &&
+    evidence.outcome !== "failed"
+  ) {
+    issues.push(
+      issue({
+        fieldPath: "$.inputs.workerEvidence.outcome",
+        message:
+          "inputs.workerEvidence.outcome must be completed, not_completed, or failed.",
+        reasonCode: "invalid_workflow_input",
+      }),
+    );
+  }
+  if (
+    evidence.changedFiles !== undefined &&
+    (!Array.isArray(evidence.changedFiles) ||
+      evidence.changedFiles.some((item) => typeof item !== "string"))
+  ) {
+    issues.push(
+      issue({
+        fieldPath: "$.inputs.workerEvidence.changedFiles",
+        message: "inputs.workerEvidence.changedFiles must be an array of strings.",
+        reasonCode: "invalid_workflow_input",
+      }),
+    );
+  }
+
+  return issues;
 }
 
 function validateDeferredWorkflow({
@@ -731,7 +831,7 @@ function validNotExecutableResult({
     reasons: [
       "Queue workflow request validated; supported QueueWorkflowRunner phases can run through the runtime adapter when explicit typed Queue inputs are supplied.",
       "Validation itself does not call Queue capabilities or mutate Queue state.",
-      "Runtime workflow integration is limited to typed create/setup/start, read, review, and finalization ports; no evidence recording or downstream auto-start is performed.",
+      "Runtime workflow integration is limited to typed create/setup/start, worker-evidence, read, review, and finalization ports; validation, Git, rollback, Terminal, and downstream auto-start are not performed.",
     ],
     status: "workflow_valid_not_executable",
     ...(workflowMetadata ? { workflowMetadata } : {}),

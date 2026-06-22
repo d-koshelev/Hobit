@@ -9,11 +9,11 @@ use crate::agent_queue_workflow_dto::{
     AgentQueueWorkflowMaterializeTaskSlotResultDto, AgentQueueWorkflowPromoteTaskSlotResultDto,
     AgentQueueWorkflowReportDto, AgentQueueWorkflowResumePlanDto, AgentQueueWorkflowRunDto,
     AgentQueueWorkflowRunnerReportRecordResultDto, AgentQueueWorkflowStartResultDto,
-    ApplyAgentQueueWorkflowRunSettingsRequest, CancelAgentQueueWorkflowRequest,
-    GetAgentQueueWorkflowRequest, ListAgentQueueWorkflowsRequest,
+    AgentQueueWorkflowWorkerEvidenceRecordResultDto, ApplyAgentQueueWorkflowRunSettingsRequest,
+    CancelAgentQueueWorkflowRequest, GetAgentQueueWorkflowRequest, ListAgentQueueWorkflowsRequest,
     MaterializeAgentQueueWorkflowTaskSlotRequest, PlanAgentQueueWorkflowResumeRequest,
     PromoteAgentQueueWorkflowTaskSlotRequest, RecordAgentQueueWorkflowRunnerReportRequest,
-    StartAgentQueueWorkflowRequest,
+    RecordAgentQueueWorkflowWorkerEvidenceRequest, StartAgentQueueWorkflowRequest,
 };
 use crate::app_state::AppState;
 
@@ -151,6 +151,25 @@ pub(crate) fn record_agent_queue_workflow_runner_report_blocking(
     service
         .record_queue_workflow_runner_report(request.into())
         .map(AgentQueueWorkflowRunnerReportRecordResultDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn record_agent_queue_workflow_worker_evidence(
+    request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueWorkflowWorkerEvidenceRecordResultDto, String> {
+    record_agent_queue_workflow_worker_evidence_blocking(request, state.db_path().to_path_buf())
+}
+
+pub(crate) fn record_agent_queue_workflow_worker_evidence_blocking(
+    request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
+    db_path: PathBuf,
+) -> Result<AgentQueueWorkflowWorkerEvidenceRecordResultDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .record_queue_workflow_worker_evidence(request.into())
+        .map(AgentQueueWorkflowWorkerEvidenceRecordResultDto::from)
         .map_err(command_error)
 }
 

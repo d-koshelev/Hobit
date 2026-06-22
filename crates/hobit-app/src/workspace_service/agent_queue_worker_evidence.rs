@@ -1,7 +1,7 @@
 use hobit_core::widgets::WidgetRunStatus;
 use hobit_storage_sqlite::{
     AgentQueueTaskRunLinkFinalUpdate, AgentQueueWorkerEvidenceBundleRow,
-    NewAgentQueueWorkerEvidenceBundle, WidgetRunFinishUpdate,
+    NewAgentQueueWorkerEvidenceBundle, SqliteStore, WidgetRunFinishUpdate,
 };
 
 use crate::WorkspaceServiceError;
@@ -107,20 +107,20 @@ pub struct AgentQueueWorkerEvidenceQueryResult {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct NormalizedRecordAgentQueueWorkerFinishedInput {
-    workspace_id: String,
-    queue_item_id: String,
-    run_id: String,
-    outcome: String,
-    summary: String,
-    changed_files: Vec<String>,
-    changed_files_summary: Option<String>,
-    validation_summary: Option<String>,
-    error_summary: Option<String>,
-    worker_id: Option<String>,
-    source: String,
-    metadata_json: Option<String>,
-    finished_at: Option<String>,
+pub(super) struct NormalizedRecordAgentQueueWorkerFinishedInput {
+    pub(super) workspace_id: String,
+    pub(super) queue_item_id: String,
+    pub(super) run_id: String,
+    pub(super) outcome: String,
+    pub(super) summary: String,
+    pub(super) changed_files: Vec<String>,
+    pub(super) changed_files_summary: Option<String>,
+    pub(super) validation_summary: Option<String>,
+    pub(super) error_summary: Option<String>,
+    pub(super) worker_id: Option<String>,
+    pub(super) source: String,
+    pub(super) metadata_json: Option<String>,
+    pub(super) finished_at: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -141,102 +141,17 @@ impl WorkspaceService {
             .clone()
             .unwrap_or_else(placeholder_timestamp);
         let bundle_id = placeholder_id("queue_worker_evidence_");
-        let changed_files_json = serde_json::to_string(&input.changed_files).map_err(|error| {
-            WorkspaceServiceError::InvalidInput(format!(
-                "worker evidence changed files must serialize as JSON: {error}"
-            ))
-        })?;
+        let changed_files_json = worker_evidence_changed_files_json(&input.changed_files)?;
 
         let evidence = self
             .store
             .with_immediate_transaction(|store| {
-                let _task =
-                    load_agent_queue_task(store, &input.workspace_id, &input.queue_item_id)?;
-                let Some(run_link) = store
-                    .get_agent_queue_task_run_link_by_run_id(&input.workspace_id, &input.run_id)?
-                else {
-                    return Err(hobit_storage_sqlite::StorageError::InvalidParameterName(
-                        format!("queue task run link not found: {}", input.run_id),
-                    ));
-                };
-
-                if run_link.queue_task_id != input.queue_item_id {
-                    return Err(hobit_storage_sqlite::StorageError::InvalidParameterName(
-                        format!(
-                            "queue task run link does not belong to task: {}",
-                            input.run_id
-                        ),
-                    ));
-                }
-
-                let task_status = task_status_for_worker_outcome(&input.outcome);
-                store
-                    .update_agent_queue_task_status(
-                        &input.workspace_id,
-                        &input.queue_item_id,
-                        task_status,
-                        Some(&finished_at),
-                    )?
-                    .ok_or_else(|| {
-                        hobit_storage_sqlite::StorageError::InvalidParameterName(format!(
-                            "queue task not found: {}",
-                            input.queue_item_id
-                        ))
-                    })?;
-
-                store
-                    .update_agent_queue_task_run_link_final_status(
-                        &input.workspace_id,
-                        &input.queue_item_id,
-                        &input.run_id,
-                        AgentQueueTaskRunLinkFinalUpdate {
-                            status: run_status_for_worker_outcome(&input.outcome),
-                            completed_at: Some(&finished_at),
-                            validation_status: None,
-                            review_status: Some(
-                                AgentQueueTaskRunReviewStatus::ReviewNeeded.as_str(),
-                            ),
-                            updated_at: Some(&finished_at),
-                        },
-                    )?
-                    .ok_or_else(|| {
-                        hobit_storage_sqlite::StorageError::InvalidParameterName(format!(
-                            "queue task run link not found: {}",
-                            input.run_id
-                        ))
-                    })?;
-
-                let widget_run_status = widget_run_status_for_worker_outcome(&input.outcome);
-                let _run = store.finish_widget_run(
-                    &input.run_id,
-                    WidgetRunFinishUpdate {
-                        status: widget_run_status,
-                        finished_at: Some(&finished_at),
-                        summary: Some(&input.summary),
-                    },
-                )?;
-
-                let evidence = store.upsert_agent_queue_worker_evidence_bundle(
-                    NewAgentQueueWorkerEvidenceBundle {
-                        bundle_id: &bundle_id,
-                        workspace_id: &input.workspace_id,
-                        queue_task_id: &input.queue_item_id,
-                        run_id: &input.run_id,
-                        run_link_id: Some(&run_link.link_id),
-                        executor_widget_id: Some(&run_link.executor_widget_id),
-                        worker_id: input.worker_id.as_deref(),
-                        source: &input.source,
-                        outcome: &input.outcome,
-                        summary: &input.summary,
-                        changed_files_json: &changed_files_json,
-                        changed_files_count: input.changed_files.len() as i64,
-                        changed_files_summary: input.changed_files_summary.as_deref(),
-                        validation_summary: input.validation_summary.as_deref(),
-                        error_summary: input.error_summary.as_deref(),
-                        metadata_json: input.metadata_json.as_deref(),
-                        created_at: Some(&finished_at),
-                        updated_at: Some(&finished_at),
-                    },
+                let evidence = record_agent_queue_worker_finished_in_store(
+                    store,
+                    &input,
+                    &finished_at,
+                    &bundle_id,
+                    &changed_files_json,
                 )?;
 
                 store.touch_workspace(&input.workspace_id)?;
@@ -350,7 +265,7 @@ impl WorkspaceService {
     }
 }
 
-fn normalize_record_agent_queue_worker_finished_input(
+pub(super) fn normalize_record_agent_queue_worker_finished_input(
     input: RecordAgentQueueWorkerFinishedInput,
 ) -> Result<NormalizedRecordAgentQueueWorkerFinishedInput, WorkspaceServiceError> {
     let workspace_id = required_input(&input.workspace_id, "workspace id")?.to_owned();
@@ -375,6 +290,108 @@ fn normalize_record_agent_queue_worker_finished_input(
         source: optional_trimmed(input.source).unwrap_or_else(|| "workspace_agent".to_owned()),
         metadata_json: optional_trimmed(input.metadata_json),
         finished_at: optional_trimmed(input.finished_at),
+    })
+}
+
+pub(super) fn worker_evidence_changed_files_json(
+    changed_files: &[String],
+) -> Result<String, WorkspaceServiceError> {
+    serde_json::to_string(changed_files).map_err(|error| {
+        WorkspaceServiceError::InvalidInput(format!(
+            "worker evidence changed files must serialize as JSON: {error}"
+        ))
+    })
+}
+
+pub(super) fn record_agent_queue_worker_finished_in_store(
+    store: &SqliteStore,
+    input: &NormalizedRecordAgentQueueWorkerFinishedInput,
+    finished_at: &str,
+    bundle_id: &str,
+    changed_files_json: &str,
+) -> Result<AgentQueueWorkerEvidenceBundleRow, hobit_storage_sqlite::StorageError> {
+    let _task = load_agent_queue_task(store, &input.workspace_id, &input.queue_item_id)?;
+    let Some(run_link) =
+        store.get_agent_queue_task_run_link_by_run_id(&input.workspace_id, &input.run_id)?
+    else {
+        return Err(hobit_storage_sqlite::StorageError::InvalidParameterName(
+            format!("queue task run link not found: {}", input.run_id),
+        ));
+    };
+
+    if run_link.queue_task_id != input.queue_item_id {
+        return Err(hobit_storage_sqlite::StorageError::InvalidParameterName(
+            format!(
+                "queue task run link does not belong to task: {}",
+                input.run_id
+            ),
+        ));
+    }
+
+    let task_status = task_status_for_worker_outcome(&input.outcome);
+    store
+        .update_agent_queue_task_status(
+            &input.workspace_id,
+            &input.queue_item_id,
+            task_status,
+            Some(finished_at),
+        )?
+        .ok_or_else(|| {
+            hobit_storage_sqlite::StorageError::InvalidParameterName(format!(
+                "queue task not found: {}",
+                input.queue_item_id
+            ))
+        })?;
+
+    store
+        .update_agent_queue_task_run_link_final_status(
+            &input.workspace_id,
+            &input.queue_item_id,
+            &input.run_id,
+            AgentQueueTaskRunLinkFinalUpdate {
+                status: run_status_for_worker_outcome(&input.outcome),
+                completed_at: Some(finished_at),
+                validation_status: None,
+                review_status: Some(AgentQueueTaskRunReviewStatus::ReviewNeeded.as_str()),
+                updated_at: Some(finished_at),
+            },
+        )?
+        .ok_or_else(|| {
+            hobit_storage_sqlite::StorageError::InvalidParameterName(format!(
+                "queue task run link not found: {}",
+                input.run_id
+            ))
+        })?;
+
+    let widget_run_status = widget_run_status_for_worker_outcome(&input.outcome);
+    let _run = store.finish_widget_run(
+        &input.run_id,
+        WidgetRunFinishUpdate {
+            status: widget_run_status,
+            finished_at: Some(finished_at),
+            summary: Some(&input.summary),
+        },
+    )?;
+
+    store.upsert_agent_queue_worker_evidence_bundle(NewAgentQueueWorkerEvidenceBundle {
+        bundle_id,
+        workspace_id: &input.workspace_id,
+        queue_task_id: &input.queue_item_id,
+        run_id: &input.run_id,
+        run_link_id: Some(&run_link.link_id),
+        executor_widget_id: Some(&run_link.executor_widget_id),
+        worker_id: input.worker_id.as_deref(),
+        source: &input.source,
+        outcome: &input.outcome,
+        summary: &input.summary,
+        changed_files_json,
+        changed_files_count: input.changed_files.len() as i64,
+        changed_files_summary: input.changed_files_summary.as_deref(),
+        validation_summary: input.validation_summary.as_deref(),
+        error_summary: input.error_summary.as_deref(),
+        metadata_json: input.metadata_json.as_deref(),
+        created_at: Some(finished_at),
+        updated_at: Some(finished_at),
     })
 }
 

@@ -41,6 +41,7 @@ const RESUME_STATUS_BLOCKED_PROMOTE_STATE_MISMATCH: &str = "blocked_promote_stat
 const RESUME_STATUS_BLOCKED_EXECUTOR_MISMATCH: &str = "blocked_executor_mismatch";
 const RESUME_STATUS_WAITING_FOR_RUN_SETTINGS: &str = "waiting_for_run_settings";
 const RESUME_STATUS_WAITING_FOR_PROMOTE: &str = "waiting_for_promote";
+const RESUME_STATUS_WAITING_FOR_WORKER_EVIDENCE: &str = "waiting_for_worker_evidence";
 const RESUME_STATUS_TERMINAL_COMPLETED: &str = "terminal_completed";
 const RESUME_STATUS_TERMINAL_FAILED: &str = "terminal_failed";
 const RESUME_STATUS_TERMINAL_CANCELLED: &str = "terminal_cancelled";
@@ -64,6 +65,7 @@ pub enum QueueWorkflowResumePlanStatus {
     BlockedExecutorMismatch,
     WaitingForRunSettings,
     WaitingForPromote,
+    WaitingForWorkerEvidence,
     TerminalCompleted,
     TerminalFailed,
     TerminalCancelled,
@@ -89,6 +91,7 @@ impl QueueWorkflowResumePlanStatus {
             Self::BlockedExecutorMismatch => RESUME_STATUS_BLOCKED_EXECUTOR_MISMATCH,
             Self::WaitingForRunSettings => RESUME_STATUS_WAITING_FOR_RUN_SETTINGS,
             Self::WaitingForPromote => RESUME_STATUS_WAITING_FOR_PROMOTE,
+            Self::WaitingForWorkerEvidence => RESUME_STATUS_WAITING_FOR_WORKER_EVIDENCE,
             Self::TerminalCompleted => RESUME_STATUS_TERMINAL_COMPLETED,
             Self::TerminalFailed => RESUME_STATUS_TERMINAL_FAILED,
             Self::TerminalCancelled => RESUME_STATUS_TERMINAL_CANCELLED,
@@ -1643,32 +1646,40 @@ fn derive_next_step(
     }
 
     if slot.evidence.is_none() {
-        if slot
-            .run_link
-            .as_ref()
-            .is_some_and(|run| run.status == "running")
-        {
-            return DerivedStep {
-                status: QueueWorkflowResumePlanStatus::ResumeReadOnlyReady,
-                next_phase: Some("worker_evidence".to_owned()),
-                next_step: Some("worker_running_waiting_for_evidence".to_owned()),
-                required_fresh_grant: false,
-                required_confirmation: false,
-                blockers: Vec::new(),
-            };
+        if let Some(run_link) = slot.run_link.as_ref() {
+            if run_link.status == "running" {
+                return DerivedStep {
+                    status: QueueWorkflowResumePlanStatus::ResumeReadOnlyReady,
+                    next_phase: Some("worker_evidence".to_owned()),
+                    next_step: Some("awaiting_worker_completion".to_owned()),
+                    required_fresh_grant: false,
+                    required_confirmation: false,
+                    blockers: Vec::new(),
+                };
+            }
+            if is_completed_worker_run_state(run_link) {
+                return DerivedStep {
+                    status: QueueWorkflowResumePlanStatus::WaitingForWorkerEvidence,
+                    next_phase: Some("worker_evidence".to_owned()),
+                    next_step: Some("waiting_for_worker_evidence".to_owned()),
+                    required_fresh_grant: false,
+                    required_confirmation: false,
+                    blockers: Vec::new(),
+                };
+            }
         }
 
         return DerivedStep {
-            status: QueueWorkflowResumePlanStatus::BlockedMissingEvidence,
+            status: QueueWorkflowResumePlanStatus::BlockedStateMismatch,
             next_phase: Some("worker_evidence".to_owned()),
-            next_step: Some("worker_evidence_required".to_owned()),
+            next_step: Some("blocked_worker_state_ambiguous".to_owned()),
             required_fresh_grant: false,
             required_confirmation: false,
             blockers: vec![binding_blocker(
-                "evidence_missing",
-                "Durable worker evidence is required before review or finalization can resume.",
+                "worker_state_ambiguous",
+                "Bound worker run is not running and is not a deterministic completed state.",
                 &slot.binding,
-                Some("evidenceBundleId"),
+                Some("runId"),
             )],
         };
     }
@@ -1764,6 +1775,14 @@ fn target_slot<'a>(
         }
     }
     None
+}
+
+fn is_completed_worker_run_state(run_link: &AgentQueueTaskRunLinkRow) -> bool {
+    run_link.completed_at.is_some()
+        && matches!(
+            run_link.status.as_str(),
+            "completed" | "failed" | "timed_out" | "cancelled" | "review_needed"
+        )
 }
 
 fn has_next_action(aggregate: &QueueItemAggregate, code: &str) -> bool {

@@ -5,8 +5,10 @@ import type {
   AgentQueueWorkflowResumePlan,
   AgentQueueWorkflowRunnerReportRecordResult,
   AgentQueueWorkflowStartResult,
+  AgentQueueWorkflowWorkerEvidenceRecordResult,
   RecordAgentQueueWorkflowRunnerReportAction,
   RecordAgentQueueWorkflowRunnerReportRequest,
+  RecordAgentQueueWorkflowWorkerEvidenceRequest,
   StartAgentQueueWorkflowRequest,
 } from "../../../workspace/types";
 import {
@@ -14,6 +16,7 @@ import {
   runQueueWorkflowFinalizationRunner,
   runQueueWorkflowReadOnlyRunner,
   runQueueWorkflowReviewRunner,
+  runQueueWorkflowWorkerEvidenceRunner,
   type QueueWorkflowAckReviewMessageResult,
   type QueueWorkflowCreateSetupStartPort,
   type QueueWorkflowFinalizationCommandResult,
@@ -24,6 +27,7 @@ import {
   type QueueWorkflowReviewPort,
   type QueueWorkflowRunnerRequest,
   type QueueWorkflowRunnerResult,
+  type QueueWorkflowWorkerEvidencePort,
 } from "./queueWorkflowRunner";
 import { validateQueueWorkflowRequest } from "./queueWorkflowRequestValidation";
 
@@ -31,7 +35,8 @@ export type QueueWorkflowRunnerRuntimePhase =
   | "create_setup_start"
   | "finalization"
   | "read"
-  | "review";
+  | "review"
+  | "worker_evidence";
 
 export type QueueWorkflowRunnerRuntimeStatus =
   | "blocked"
@@ -48,6 +53,7 @@ export type QueueWorkflowRunnerRuntimePorts = {
   finalizationPort?: QueueWorkflowFinalizationPort | null;
   readPort?: QueueWorkflowReadPort | null;
   reviewPort?: QueueWorkflowReviewPort | null;
+  workerEvidencePort?: QueueWorkflowWorkerEvidencePort | null;
 };
 
 export type QueueWorkflowPersistencePort = {
@@ -59,6 +65,9 @@ export type QueueWorkflowPersistencePort = {
   recordAgentQueueWorkflowRunnerReport: (
     request: RecordAgentQueueWorkflowRunnerReportRequest,
   ) => Promise<AgentQueueWorkflowRunnerReportRecordResult>;
+  recordAgentQueueWorkflowWorkerEvidence?: (
+    request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
+  ) => Promise<AgentQueueWorkflowWorkerEvidenceRecordResult>;
   startAgentQueueWorkflow: (
     request: StartAgentQueueWorkflowRequest,
   ) => Promise<AgentQueueWorkflowStartResult>;
@@ -83,6 +92,7 @@ export type QueueWorkflowRunnerRuntimeResult = {
   persistentStatus?: string | null;
   phase: QueueWorkflowRunnerRuntimePhase | null;
   phasesExecuted: readonly string[];
+  evidenceRecordResult?: AgentQueueWorkflowWorkerEvidenceRecordResult;
   recordResult?: AgentQueueWorkflowRunnerReportRecordResult;
   requestId: string | null;
   requestHashConflict?: AgentQueueWorkflowStartResult["conflict"];
@@ -325,6 +335,19 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
     });
     persistenceStatus = "resume_planned";
   } else {
+    if (selectedPhase === "worker_evidence") {
+      return notInvoked({
+        blockers: ["Queue worker evidence recording requires metadata.workflowRunId."],
+        moduleId: request.moduleId,
+        requestId: request.requestId,
+        status: "blocked",
+        summary:
+          "Queue worker evidence recording requires a persisted workflowRunId; no workflow was started.",
+        validationReasons: validation.reasons,
+        validationStatus: validation.status,
+        workflowId: request.workflowId,
+      });
+    }
     const startResult = await workflowPersistence.startAgentQueueWorkflow(
       startRequestForWorkflow({
         actorId: actorId?.trim() || DEFAULT_ACTOR_ID,
@@ -463,6 +486,9 @@ export function createQueueWorkflowRunnerRuntimePortsFromQueueBridge({
       : null,
     readPort: queueBridge ? createReadPort(queueBridge) : null,
     reviewPort: queueBridge ? createReviewPort(queueBridge, actorId) : null,
+    workerEvidencePort: queueBridge
+      ? createWorkerEvidencePort(queueBridge, actorId)
+      : null,
   };
 }
 
@@ -503,6 +529,15 @@ async function runSelectedRunner({
       readPort: ports.readPort,
       request,
       validation,
+    });
+  }
+
+  if (phase === "worker_evidence") {
+    return runQueueWorkflowWorkerEvidenceRunner({
+      request,
+      validation,
+      workerEvidencePort: ports.workerEvidencePort,
+      workflowRunId,
     });
   }
 
@@ -557,6 +592,23 @@ function createCreateSetupStartPort(
       queueBridge.promoteWorkflowTaskSlot!(request),
     startWorkerForSlot: (request) =>
       queueBridge.startWorkflowAssignedTask!(request),
+  };
+}
+
+function createWorkerEvidencePort(
+  queueBridge: WorkspaceAgentQueueBridge,
+  actorId: string,
+): QueueWorkflowWorkerEvidencePort | null {
+  if (!queueBridge.recordWorkflowWorkerEvidence) {
+    return null;
+  }
+
+  return {
+    recordWorkerEvidenceForSlot: (request) =>
+      queueBridge.recordWorkflowWorkerEvidence!({
+        ...request,
+        actorId: request.actorId ?? actorId,
+      }),
   };
 }
 
@@ -687,7 +739,8 @@ function resolveRuntimePhase(
       explicitPhase === "create_setup_start" ||
       explicitPhase === "read" ||
       explicitPhase === "review" ||
-      explicitPhase === "finalization"
+      explicitPhase === "finalization" ||
+      explicitPhase === "worker_evidence"
     ) {
       return { ok: true, phase: explicitPhase };
     }
@@ -738,6 +791,9 @@ function runtimeStatusFromRunner(
   if (
     status === "paused" ||
     status === "awaiting_worker_completion" ||
+    status === "awaiting_review" ||
+    status === "evidence_recorded" ||
+    status === "evidence_already_recorded" ||
     status === "worker_running" ||
     status === "finalization_needs_confirmation"
   ) {
@@ -1156,15 +1212,36 @@ function resumeDecisionForPlan({
     };
   }
 
-  if (plan.nextStep === "worker_running_waiting_for_evidence") {
+  if (
+    plan.nextStep === "awaiting_worker_completion" ||
+    plan.nextStep === "worker_running_waiting_for_evidence"
+  ) {
     return {
       blockers: [],
       ok: false,
-      phase: "create_setup_start",
+      phase: "worker_evidence",
       status: "paused",
       summary:
-        "Queue workflow worker is already running; Queue workflow runner did not start another worker.",
+        "Queue workflow worker is still running; worker evidence was not recorded.",
     };
+  }
+
+  if (
+    plan.status === "waiting_for_worker_evidence" ||
+    plan.nextStep === "waiting_for_worker_evidence" ||
+    plan.nextStep === "worker_evidence_required"
+  ) {
+    if (!hasTypedWorkerEvidenceInput(request)) {
+      return {
+        blockers: ["Typed inputs.workerEvidence is required to record worker evidence."],
+        ok: false,
+        phase: "worker_evidence",
+        status: "paused",
+        summary:
+          "Queue workflow worker completion/evidence input is missing; evidence was not recorded.",
+      };
+    }
+    return { ok: true, phase: "worker_evidence" };
   }
 
   if (plan.requiredConfirmation || plan.status === "blocked_missing_confirmation") {
@@ -1254,6 +1331,20 @@ function workflowRunIdFromMetadata(
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function hasTypedWorkerEvidenceInput(
+  request: QueueWorkflowRunnerRequest,
+): boolean {
+  const workerEvidence = recordRecord(request.inputs, "workerEvidence");
+  return (
+    stringValue(workerEvidence.slot) === "upstream" &&
+    Boolean(stringValue(workerEvidence.taskId)) &&
+    Boolean(stringValue(workerEvidence.runId)) &&
+    ["completed", "not_completed", "failed"].includes(
+      stringValue(workerEvidence.outcome) ?? "",
+    )
+  );
+}
+
 function blockersFromRecordResult(
   result: AgentQueueWorkflowRunnerReportRecordResult,
 ): string[] {
@@ -1289,6 +1380,9 @@ function currentStepForRunnerResult(
   if (phase === "create_setup_start" && runtimeStatus === "paused") {
     return "awaiting_worker_completion";
   }
+  if (phase === "worker_evidence" && runtimeStatus === "paused") {
+    return "awaiting_review";
+  }
   if (runtimeStatus === "failed_unexpected") return `${phase}_failed_unexpected`;
   if (runtimeStatus === "blocked") return `${phase}_blocked`;
   if (phase === "finalization" && runtimeStatus === "completed") {
@@ -1303,6 +1397,7 @@ function workflowPhaseForRuntimePhase(phase: QueueWorkflowRunnerRuntimePhase) {
   if (phase === "create_setup_start") return "run_start";
   if (phase === "finalization") return "decision";
   if (phase === "review") return "review";
+  if (phase === "worker_evidence") return "worker_evidence";
   return "worker_evidence";
 }
 
@@ -1311,11 +1406,9 @@ function runtimePhaseFromWorkflowPhase(
 ): QueueWorkflowRunnerRuntimePhase | null {
   if (phase === "decision" || phase === "closed") return "finalization";
   if (phase === "review") return "review";
+  if (phase === "worker_evidence") return "worker_evidence";
   if (phase === "setup" || phase === "run_start") return "create_setup_start";
-  if (
-    phase === "intake" ||
-    phase === "worker_evidence"
-  ) {
+  if (phase === "intake") {
     return "read";
   }
   return null;
@@ -1331,6 +1424,9 @@ function pauseReasonForRunnerResult(
       runnerResult.status === "worker_running")
   ) {
     return "awaiting_worker_completion";
+  }
+  if (phase === "worker_evidence" && runnerResult.status === "awaiting_review") {
+    return "awaiting_review";
   }
 
   return "awaiting_next_typed_workflow_request";
@@ -1353,18 +1449,23 @@ function mutationRefsForRunnerResult(
   runnerResult: QueueWorkflowRunnerResult,
 ): AgentQueueWorkflowJsonValue {
   const createSetupStart = runnerResult.report.createSetupStart;
+  const workerEvidence = runnerResult.report.workerEvidence;
   const review = runnerResult.report.review;
   const finalization = runnerResult.report.finalization;
   return sanitizeJsonValue(
     stripUndefined({
       createSetupStartStatus: createSetupStart.status,
       downstreamTaskId: createSetupStart.downstreamTaskId,
+      evidenceBundleId: workerEvidence.evidenceBundleId,
       finalizationAction: finalization.finalizationAction,
       finalizationCommandStatus: finalization.commandStatus,
       finalizationTaskId: finalization.taskId,
+      recordWorkerEvidenceStatus: workerEvidence.commandStatus,
       settingsHash: createSetupStart.runSettings?.settingsHash,
       startedRunId: createSetupStart.start?.runId,
       upstreamTaskId: createSetupStart.upstreamTaskId,
+      workerEvidenceRunId: workerEvidence.runId,
+      workerEvidenceTaskId: workerEvidence.taskId,
       reviewAckStatus: review.ackStatus,
       reviewCreateStatus: review.createStatus,
       reviewMessageId: review.messageId,

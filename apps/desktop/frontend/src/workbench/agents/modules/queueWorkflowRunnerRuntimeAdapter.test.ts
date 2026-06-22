@@ -923,6 +923,174 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     });
   });
 
+  it("resumes worker evidence phase with typed completion input", async () => {
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        workerEvidenceResumePlan(),
+      ),
+    });
+    const recordWorkflowWorkerEvidence = vi.fn(async (request) => ({
+      action: null,
+      aggregate: aggregate({ taskId: request.taskId }),
+      binding: {
+        evidenceActionId: "workflow-action-evidence",
+        evidenceActionIdempotencyKey:
+          request.actionIdempotencyKey ??
+          `${request.workflowRunId}:record_worker_evidence:${request.slot}:${request.taskId}:${request.runId}`,
+        evidenceBundleId: "bundle-upstream",
+        evidenceRecordedAt: "2026-06-22T00:00:00.000Z",
+        runId: request.runId,
+        slot: request.slot,
+        taskId: request.taskId,
+        workerFinalStatus: "completed",
+        workerOutcome: request.outcome,
+      },
+      blocker: null,
+      conflict: null,
+      evidenceBundle: evidenceQuery({
+        runId: request.runId,
+        taskId: request.taskId,
+      }).evidenceBundle,
+      status: "recorded",
+      workflowRun: null,
+    }));
+    const bridge = queueBridge({ recordWorkflowWorkerEvidence });
+
+    const result = await runAdapter({
+      queueBridge: bridge,
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          inputs: workerEvidenceInputs(),
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "worker_evidence",
+      status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
+    expect(recordWorkflowWorkerEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outcome: "completed",
+        runId: "run-upstream",
+        slot: "upstream",
+        taskId: "task-upstream",
+        workflowRunId: "queue-workflow-run-1",
+      }),
+    );
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentStep: "awaiting_review",
+        phase: "worker_evidence",
+        pauseReason: "awaiting_review",
+        status: "paused",
+        workflowRunId: "queue-workflow-run-1",
+      }),
+    );
+    expect(result.runnerResult?.report.workerEvidence).toMatchObject({
+      commandStatus: "recorded",
+      evidenceBundleId: "bundle-upstream",
+      status: "evidence_recorded",
+    });
+    expect(result.runnerResult?.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didAckReview: false,
+        didCreateReviewMessage: false,
+        didFail: false,
+        didMarkDone: false,
+        didStartWorker: false,
+      }),
+    );
+  });
+
+  it("keeps worker evidence resume paused without typed completion input", async () => {
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        workerEvidenceResumePlan(),
+      ),
+    });
+    const recordWorkflowWorkerEvidence = vi.fn();
+    const bridge = queueBridge({ recordWorkflowWorkerEvidence });
+
+    const result = await runAdapter({
+      queueBridge: bridge,
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          inputs: { phase: "worker_evidence" },
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: false,
+      phase: "worker_evidence",
+      status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(recordWorkflowWorkerEvidence).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
+  });
+
+  it("treats repeated worker evidence continuation as idempotent", async () => {
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        workerEvidenceResumePlan(),
+      ),
+    });
+    const bridge = queueBridge({
+      recordWorkflowWorkerEvidence: vi.fn(async (request) => ({
+        action: null,
+        aggregate: aggregate({ taskId: request.taskId }),
+        binding: {
+          evidenceActionId: "workflow-action-evidence",
+          evidenceActionIdempotencyKey:
+            `${request.workflowRunId}:record_worker_evidence:${request.slot}:${request.taskId}:${request.runId}`,
+          evidenceBundleId: "bundle-upstream",
+          evidenceRecordedAt: "2026-06-22T00:00:00.000Z",
+          runId: request.runId,
+          slot: request.slot,
+          taskId: request.taskId,
+          workerFinalStatus: "completed",
+          workerOutcome: request.outcome,
+        },
+        blocker: null,
+        conflict: null,
+        evidenceBundle: evidenceQuery({
+          runId: request.runId,
+          taskId: request.taskId,
+        }).evidenceBundle,
+        status: "already_recorded",
+        workflowRun: null,
+      })),
+    });
+
+    const result = await runAdapter({
+      queueBridge: bridge,
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          inputs: workerEvidenceInputs(),
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result.status).toBe("paused");
+    expect(result.runnerResult?.report.workerEvidence).toMatchObject({
+      commandStatus: "already_recorded",
+      idempotent: true,
+      status: "evidence_already_recorded",
+    });
+    expect(result.runnerResult?.report.mutationSummary.didMutateQueue).toBe(false);
+  });
+
   it("returns terminal resume plans without invoking the runner", async () => {
     const persistence = workflowPersistence({
       planAgentQueueWorkflowResume: vi.fn(async () =>
@@ -1436,6 +1604,21 @@ function validInputs() {
   };
 }
 
+function workerEvidenceInputs() {
+  return {
+    phase: "worker_evidence",
+    workerEvidence: {
+      changedFiles: [],
+      outcome: "completed",
+      runId: "run-upstream",
+      slot: "upstream",
+      summary: "Worker completed.",
+      taskId: "task-upstream",
+      workflowRunId: "queue-workflow-run-1",
+    },
+  };
+}
+
 function explicitDependencyTaskIds() {
   return {
     downstream: "task-downstream",
@@ -1622,6 +1805,28 @@ function createSetupStartResumePlan(
       slotBindingsJson: JSON.stringify({
         downstream: { taskId: "task-downstream" },
         upstream: { taskId: "task-upstream" },
+      }),
+      status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    }),
+    ...overrides,
+  });
+}
+
+function workerEvidenceResumePlan(
+  overrides: Parameters<typeof resumePlan>[0] = {},
+) {
+  return resumePlan({
+    nextPhase: "worker_evidence",
+    nextStep: "waiting_for_worker_evidence",
+    reportSummary:
+      "Queue workflow run queue-workflow-run-1 resume plan status is waiting_for_worker_evidence. No workflow steps were executed.",
+    status: "waiting_for_worker_evidence",
+    workflowRun: workflowRun({
+      inputsSnapshotJson: JSON.stringify(validInputs()),
+      phase: "worker_evidence",
+      slotBindingsJson: JSON.stringify({
+        upstream: { runId: "run-upstream", taskId: "task-upstream" },
       }),
       status: "paused",
       workflowRunId: "queue-workflow-run-1",
