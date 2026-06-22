@@ -1,8 +1,8 @@
 use rusqlite::{params, OptionalExtension, Result};
 
 use crate::inputs::{
-    AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunStatusUpdate, NewAgentQueueWorkflowAction,
-    NewAgentQueueWorkflowRun,
+    AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunReportUpdate,
+    AgentQueueWorkflowRunStatusUpdate, NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun,
 };
 use crate::mappers::{agent_queue_workflow_action_row, agent_queue_workflow_run_row};
 use crate::rows::{AgentQueueWorkflowActionRow, AgentQueueWorkflowRunRow};
@@ -140,6 +140,57 @@ impl SqliteStore {
                 update.current_step,
                 update.pause_reason,
                 update.blocker_reason,
+                update.completed_at,
+                updated_at,
+                workspace_id,
+                workflow_run_id,
+            ],
+        )?;
+
+        if affected_rows == 0 {
+            return Ok(None);
+        }
+
+        self.get_agent_queue_workflow_run(workspace_id, workflow_run_id)
+    }
+
+    pub fn update_agent_queue_workflow_run_report(
+        &self,
+        workspace_id: &str,
+        workflow_run_id: &str,
+        update: AgentQueueWorkflowRunReportUpdate<'_>,
+    ) -> Result<Option<AgentQueueWorkflowRunRow>> {
+        let updated_at = update
+            .updated_at
+            .map(str::to_owned)
+            .unwrap_or_else(now_precise_timestamp);
+        let affected_rows = self.connection.execute(
+            "UPDATE agent_queue_workflow_runs
+             SET status = ?1,
+                 phase = COALESCE(?2, phase),
+                 current_step = COALESCE(?3, current_step),
+                 pause_reason = COALESCE(?4, pause_reason),
+                 blocker_reason = COALESCE(?5, blocker_reason),
+                 variables_json = COALESCE(?6, variables_json),
+                 slot_bindings_json = COALESCE(?7, slot_bindings_json),
+                 mutation_refs_json = COALESCE(?8, mutation_refs_json),
+                 idempotency_keys_json = COALESCE(?9, idempotency_keys_json),
+                 action_log_summary_json = COALESCE(?10, action_log_summary_json),
+                 completed_at = COALESCE(?11, completed_at),
+                 updated_at = ?12,
+                 version = version + 1
+             WHERE workspace_id = ?13 AND workflow_run_id = ?14",
+            params![
+                update.status,
+                update.phase,
+                update.current_step,
+                update.pause_reason,
+                update.blocker_reason,
+                update.variables_json,
+                update.slot_bindings_json,
+                update.mutation_refs_json,
+                update.idempotency_keys_json,
+                update.action_log_summary_json,
                 update.completed_at,
                 updated_at,
                 workspace_id,

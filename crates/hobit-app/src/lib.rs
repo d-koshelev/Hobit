@@ -133,6 +133,8 @@ pub use workspace_service::{
     QueueWorkflowActionStatus, QueueWorkflowCancelRequest, QueueWorkflowCancelResult,
     QueueWorkflowCancelStatus, QueueWorkflowCommandBlocker, QueueWorkflowConflict,
     QueueWorkflowGetRequest, QueueWorkflowListRequest, QueueWorkflowPlanResumeRequest,
+    QueueWorkflowRecordRunnerAction, QueueWorkflowRecordRunnerReportRequest,
+    QueueWorkflowRecordRunnerReportResult, QueueWorkflowRecordRunnerReportStatus,
     QueueWorkflowReport, QueueWorkflowResumeBlocker, QueueWorkflowResumePlan,
     QueueWorkflowResumePlanStatus, QueueWorkflowRun, QueueWorkflowRunStatus,
     QueueWorkflowSlotReconciliation, QueueWorkflowStartRequest, QueueWorkflowStartResult,

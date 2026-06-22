@@ -229,6 +229,7 @@ pub fn run() {
             agent_queue_workflow_commands::cancel_agent_queue_workflow,
             agent_queue_workflow_commands::get_agent_queue_workflow_report,
             agent_queue_workflow_commands::plan_agent_queue_workflow_resume,
+            agent_queue_workflow_commands::record_agent_queue_workflow_runner_report,
             agent_queue_execution_commands::start_assigned_agent_queue_task,
             agent_queue_execution_commands::get_agent_queue_task_latest_run_link,
             agent_queue_execution_commands::list_agent_queue_task_run_links,

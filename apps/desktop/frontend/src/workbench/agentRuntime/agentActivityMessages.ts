@@ -123,10 +123,31 @@ export function workspaceAgentQueueWorkflowRuntimeResultMessage(
     runtimeResult.workflowId
       ? `Workflow: ${runtimeResult.workflowId}.`
       : null,
+    runtimeResult.workflowRunId
+      ? `Workflow run: ${runtimeResult.workflowRunId}.`
+      : null,
     runtimeResult.requestId ? `Request: ${runtimeResult.requestId}.` : null,
+    runtimeResult.persistentStatus
+      ? `Persistent status: ${runtimeResult.persistentStatus}.`
+      : null,
+    runtimeResult.workflowStartStatus
+      ? `Start: ${runtimeResult.workflowStartStatus}.`
+      : null,
+    runtimeResult.persistenceStatus
+      ? `Persistence: ${runtimeResult.persistenceStatus}.`
+      : null,
     runtimeResult.phase ? `Phase: ${runtimeResult.phase}.` : null,
     runtimeResult.phasesExecuted.length > 0
       ? `Executed: ${runtimeResult.phasesExecuted.join(", ")}.`
+      : null,
+    typeof runtimeResult.actionLedgerSummaryCount === "number"
+      ? `Action summaries: ${runtimeResult.actionLedgerSummaryCount.toString()}.`
+      : null,
+    typeof runtimeResult.persistedActionCount === "number"
+      ? `Persisted actions: ${runtimeResult.persistedActionCount.toString()}.`
+      : null,
+    runtimeResult.resumePlan
+      ? `Resume plan: ${runtimeResult.resumePlan.status}.`
       : null,
   ];
   const runnerParts = [

@@ -1,8 +1,9 @@
 use std::collections::BTreeMap;
 
 use hobit_storage_sqlite::{
-    AgentQueueWorkflowActionRow, AgentQueueWorkflowRunRow, AgentQueueWorkflowRunStatusUpdate,
-    NewAgentQueueWorkflowRun, StorageError,
+    AgentQueueWorkflowActionRow, AgentQueueWorkflowRunReportUpdate, AgentQueueWorkflowRunRow,
+    AgentQueueWorkflowRunStatusUpdate, NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun,
+    StorageError,
 };
 use serde_json::Value;
 
@@ -87,6 +88,18 @@ impl QueueWorkflowActionStatus {
             Self::Blocked => "blocked",
             Self::Failed => "failed",
             Self::Cancelled => "cancelled",
+        }
+    }
+
+    fn from_str(value: &str) -> Option<Self> {
+        match value {
+            "created" => Some(Self::Created),
+            "running" => Some(Self::Running),
+            "completed" => Some(Self::Completed),
+            "blocked" => Some(Self::Blocked),
+            "failed" => Some(Self::Failed),
+            "cancelled" => Some(Self::Cancelled),
+            _ => None,
         }
     }
 }
@@ -176,6 +189,35 @@ pub struct QueueWorkflowCancelRequest {
     pub reason: Option<String>,
 }
 
+#[derive(Clone, Debug, PartialEq)]
+pub struct QueueWorkflowRecordRunnerReportRequest {
+    pub workspace_id: String,
+    pub workflow_run_id: String,
+    pub status: String,
+    pub phase: Option<String>,
+    pub current_step: Option<String>,
+    pub pause_reason: Option<String>,
+    pub blocker_reason: Option<String>,
+    pub variables: Option<Value>,
+    pub slot_bindings: Option<Value>,
+    pub mutation_refs: Option<Value>,
+    pub idempotency_keys: Option<Value>,
+    pub action_log_summary: Option<Value>,
+    pub actions: Vec<QueueWorkflowRecordRunnerAction>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct QueueWorkflowRecordRunnerAction {
+    pub step_id: String,
+    pub action_type: String,
+    pub idempotency_key: String,
+    pub status: String,
+    pub target_refs: Option<Value>,
+    pub result_refs: Option<Value>,
+    pub blocker_code: Option<String>,
+    pub blocker_message: Option<String>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QueueWorkflowReport {
     pub workflow_run: QueueWorkflowRun,
@@ -225,6 +267,25 @@ impl QueueWorkflowCancelStatus {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QueueWorkflowRecordRunnerReportStatus {
+    Recorded,
+    Conflict,
+    NotFound,
+    InvalidInput,
+}
+
+impl QueueWorkflowRecordRunnerReportStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Recorded => "recorded",
+            Self::Conflict => "conflict",
+            Self::NotFound => "not_found",
+            Self::InvalidInput => "invalid_input",
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QueueWorkflowCommandBlocker {
     pub blocker_code: String,
@@ -254,6 +315,15 @@ pub struct QueueWorkflowCancelResult {
     pub status: QueueWorkflowCancelStatus,
     pub workflow_run: Option<QueueWorkflowRun>,
     pub blocker: Option<QueueWorkflowCommandBlocker>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueWorkflowRecordRunnerReportResult {
+    pub status: QueueWorkflowRecordRunnerReportStatus,
+    pub workflow_run: Option<QueueWorkflowRun>,
+    pub actions: Vec<QueueWorkflowAction>,
+    pub blocker: Option<QueueWorkflowCommandBlocker>,
+    pub conflict: Option<QueueWorkflowConflict>,
 }
 
 impl WorkspaceService {
@@ -508,6 +578,185 @@ impl WorkspaceService {
         })
     }
 
+    pub fn record_queue_workflow_runner_report(
+        &self,
+        request: QueueWorkflowRecordRunnerReportRequest,
+    ) -> Result<QueueWorkflowRecordRunnerReportResult, WorkspaceServiceError> {
+        let workspace_id = request.workspace_id.trim().to_owned();
+        let workflow_run_id = request.workflow_run_id.trim().to_owned();
+        let status = request.status.trim().to_owned();
+        let phase = optional_trimmed_option(request.phase.clone());
+        let current_step = optional_trimmed_option(request.current_step.clone());
+        let pause_reason = optional_trimmed_option(request.pause_reason.clone());
+        let blocker_reason = optional_trimmed_option(request.blocker_reason.clone());
+
+        if workspace_id.is_empty() {
+            return Ok(record_invalid_input(
+                "workspaceId",
+                "workspaceId is required.",
+            ));
+        }
+        if workflow_run_id.is_empty() {
+            return Ok(record_invalid_input(
+                "workflowRunId",
+                "workflowRunId is required.",
+            ));
+        }
+        let Some(run_status) = QueueWorkflowRunStatus::from_str(&status) else {
+            return Ok(record_invalid_input(
+                "status",
+                "Queue workflow runner report status is not supported.",
+            ));
+        };
+        if let Some(phase) = phase.as_deref() {
+            if !is_supported_phase(phase) {
+                return Ok(record_invalid_input(
+                    "phase",
+                    "Queue workflow runner report phase is not supported.",
+                ));
+            }
+        }
+
+        let Some(existing_run) = self
+            .store
+            .get_agent_queue_workflow_run(&workspace_id, &workflow_run_id)?
+        else {
+            return Ok(QueueWorkflowRecordRunnerReportResult {
+                status: QueueWorkflowRecordRunnerReportStatus::NotFound,
+                workflow_run: None,
+                actions: Vec::new(),
+                blocker: Some(QueueWorkflowCommandBlocker {
+                    blocker_code: "workflow_run_not_found".to_owned(),
+                    blocker_message: "Queue workflow run was not found.".to_owned(),
+                    missing_required_field: None,
+                }),
+                conflict: None,
+            });
+        };
+
+        let prepared = match prepare_runner_report_snapshots(&request) {
+            Ok(prepared) => prepared,
+            Err(blocker) => {
+                return Ok(QueueWorkflowRecordRunnerReportResult {
+                    status: QueueWorkflowRecordRunnerReportStatus::InvalidInput,
+                    workflow_run: Some(QueueWorkflowRun::from(existing_run)),
+                    actions: Vec::new(),
+                    blocker: Some(blocker),
+                    conflict: None,
+                });
+            }
+        };
+        let prepared_actions =
+            match prepare_runner_report_actions(&workflow_run_id, &request.actions) {
+                Ok(actions) => actions,
+                Err(blocker) => {
+                    return Ok(QueueWorkflowRecordRunnerReportResult {
+                        status: QueueWorkflowRecordRunnerReportStatus::InvalidInput,
+                        workflow_run: Some(QueueWorkflowRun::from(existing_run)),
+                        actions: Vec::new(),
+                        blocker: Some(blocker),
+                        conflict: None,
+                    });
+                }
+            };
+
+        for action in &prepared_actions {
+            if let Some(existing_action) = self
+                .store
+                .get_agent_queue_workflow_action_by_idempotency_key(
+                    &workflow_run_id,
+                    &action.idempotency_key,
+                )?
+            {
+                if !workflow_report_action_matches_prepared(&existing_action, action) {
+                    return Ok(QueueWorkflowRecordRunnerReportResult {
+                        status: QueueWorkflowRecordRunnerReportStatus::Conflict,
+                        workflow_run: Some(QueueWorkflowRun::from(existing_run)),
+                        actions: vec![QueueWorkflowAction::from(existing_action.clone())],
+                        blocker: None,
+                        conflict: Some(QueueWorkflowConflict {
+                            conflict_code: "workflow_action_idempotency_conflict".to_owned(),
+                            conflict_message:
+                                "A Queue workflow action already exists for this idempotency key with different explicit refs."
+                                    .to_owned(),
+                            existing_workflow_run_id: Some(existing_action.workflow_run_id),
+                            existing_request_hash: Some(existing_action.idempotency_key),
+                            requested_request_hash: Some(action.idempotency_key.clone()),
+                        }),
+                    });
+                }
+            }
+        }
+
+        let updated_at = placeholder_timestamp();
+        let completed_at = run_status.is_terminal().then(|| updated_at.clone());
+        let updated_run = self
+            .store
+            .with_immediate_transaction(|store| {
+                let row = store
+                    .update_agent_queue_workflow_run_report(
+                        &workspace_id,
+                        &workflow_run_id,
+                        AgentQueueWorkflowRunReportUpdate {
+                            status: run_status.as_str(),
+                            phase: phase.as_deref(),
+                            current_step: current_step.as_deref(),
+                            pause_reason: pause_reason.as_deref(),
+                            blocker_reason: blocker_reason.as_deref(),
+                            variables_json: prepared.variables_json.as_deref(),
+                            slot_bindings_json: prepared.slot_bindings_json.as_deref(),
+                            mutation_refs_json: prepared.mutation_refs_json.as_deref(),
+                            idempotency_keys_json: prepared.idempotency_keys_json.as_deref(),
+                            action_log_summary_json: prepared.action_log_summary_json.as_deref(),
+                            updated_at: Some(&updated_at),
+                            completed_at: completed_at.as_deref(),
+                        },
+                    )?
+                    .ok_or(StorageError::QueryReturnedNoRows)?;
+
+                for action in &prepared_actions {
+                    let action_id = placeholder_id("queue-workflow-action-");
+                    store.insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+                        action_id: &action_id,
+                        workflow_run_id: &workflow_run_id,
+                        workspace_id: &workspace_id,
+                        step_id: &action.step_id,
+                        action_type: &action.action_type,
+                        idempotency_key: &action.idempotency_key,
+                        status: action.status.as_str(),
+                        target_refs_json: action.target_refs_json.as_deref(),
+                        result_refs_json: action.result_refs_json.as_deref(),
+                        blocker_code: action.blocker_code.as_deref(),
+                        blocker_message: action.blocker_message.as_deref(),
+                        attempt_count: 1,
+                        started_at: Some(&updated_at),
+                        completed_at: terminal_action_status(action.status)
+                            .then_some(updated_at.as_str()),
+                        created_at: Some(&updated_at),
+                        updated_at: Some(&updated_at),
+                    })?;
+                }
+
+                store.touch_workspace(&workspace_id)?;
+                Ok(row)
+            })
+            .map_err(super::agent_queue_tasks::map_storage_agent_queue_task_error)?;
+        let actions = self
+            .store
+            .list_agent_queue_workflow_actions(&workspace_id, &workflow_run_id)?
+            .into_iter()
+            .map(QueueWorkflowAction::from)
+            .collect();
+
+        Ok(QueueWorkflowRecordRunnerReportResult {
+            status: QueueWorkflowRecordRunnerReportStatus::Recorded,
+            workflow_run: Some(QueueWorkflowRun::from(updated_run)),
+            actions,
+            blocker: None,
+            conflict: None,
+        })
+    }
+
     pub fn get_queue_workflow_report(
         &self,
         request: QueueWorkflowGetRequest,
@@ -526,16 +775,27 @@ impl WorkspaceService {
             .map(QueueWorkflowAction::from)
             .collect::<Vec<_>>();
         let workflow_run = QueueWorkflowRun::from(run);
+        let run_status = QueueWorkflowRunStatus::from_str(&workflow_run.status)
+            .unwrap_or(QueueWorkflowRunStatus::Failed);
+        let resume_available = !run_status.is_terminal();
+        let resume_status = if resume_available {
+            "plan_required"
+        } else {
+            "terminal"
+        };
 
         Ok(Some(QueueWorkflowReport {
             report_summary: format!(
-                "Queue workflow run {} is {}. Resume execution is not implemented.",
-                workflow_run.workflow_run_id, workflow_run.status
+                "Queue workflow run {} is {} at phase {}. Persisted workflow actions: {}. Resume requires queue.workflow.planResume.",
+                workflow_run.workflow_run_id,
+                workflow_run.status,
+                workflow_run.phase,
+                actions.len()
             ),
             workflow_run,
             actions,
-            resume_available: false,
-            resume_status: "not_implemented".to_owned(),
+            resume_available,
+            resume_status: resume_status.to_owned(),
         }))
     }
 }
@@ -605,6 +865,27 @@ struct PreparedWorkflowSnapshots {
     action_log_summary_json: Option<String>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PreparedRunnerReportSnapshots {
+    variables_json: Option<String>,
+    slot_bindings_json: Option<String>,
+    mutation_refs_json: Option<String>,
+    idempotency_keys_json: Option<String>,
+    action_log_summary_json: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PreparedRunnerReportAction {
+    step_id: String,
+    action_type: String,
+    idempotency_key: String,
+    status: QueueWorkflowActionStatus,
+    target_refs_json: Option<String>,
+    result_refs_json: Option<String>,
+    blocker_code: Option<String>,
+    blocker_message: Option<String>,
+}
+
 fn prepare_workflow_snapshots(
     workflow_id: &str,
     request: &QueueWorkflowStartRequest,
@@ -670,6 +951,114 @@ fn prepare_workflow_snapshots(
     })
 }
 
+fn prepare_runner_report_snapshots(
+    request: &QueueWorkflowRecordRunnerReportRequest,
+) -> Result<PreparedRunnerReportSnapshots, QueueWorkflowCommandBlocker> {
+    let variables_json = bounded_report_json(
+        request.variables.as_ref(),
+        "variables",
+        MAX_WORKFLOW_VARIABLES_JSON_BYTES,
+    )?;
+    let slot_bindings_json = bounded_report_json(
+        request.slot_bindings.as_ref(),
+        "slotBindings",
+        MAX_WORKFLOW_SLOT_BINDINGS_JSON_BYTES,
+    )?;
+    let mutation_refs_json = bounded_report_json(
+        request.mutation_refs.as_ref(),
+        "mutationRefs",
+        MAX_WORKFLOW_MUTATION_REFS_JSON_BYTES,
+    )?;
+    let idempotency_keys_json = bounded_report_json(
+        request.idempotency_keys.as_ref(),
+        "idempotencyKeys",
+        MAX_WORKFLOW_IDEMPOTENCY_KEYS_JSON_BYTES,
+    )?;
+    let action_log_summary_json = bounded_report_json(
+        request.action_log_summary.as_ref(),
+        "actionLogSummary",
+        MAX_WORKFLOW_ACTION_LOG_SUMMARY_JSON_BYTES,
+    )?;
+
+    Ok(PreparedRunnerReportSnapshots {
+        variables_json,
+        slot_bindings_json,
+        mutation_refs_json,
+        idempotency_keys_json,
+        action_log_summary_json,
+    })
+}
+
+fn prepare_runner_report_actions(
+    workflow_run_id: &str,
+    actions: &[QueueWorkflowRecordRunnerAction],
+) -> Result<Vec<PreparedRunnerReportAction>, QueueWorkflowCommandBlocker> {
+    let mut prepared = Vec::with_capacity(actions.len());
+    for action in actions {
+        let step_id = action.step_id.trim().to_owned();
+        let action_type = action.action_type.trim().to_owned();
+        let idempotency_key = action.idempotency_key.trim().to_owned();
+        let status = action.status.trim().to_owned();
+
+        if step_id.is_empty() {
+            return Err(record_blocker(
+                "missing_stepId",
+                "Workflow runner action stepId is required.",
+                Some("actions.stepId"),
+            ));
+        }
+        if action_type.is_empty() {
+            return Err(record_blocker(
+                "missing_actionType",
+                "Workflow runner action actionType is required.",
+                Some("actions.actionType"),
+            ));
+        }
+        if idempotency_key.is_empty() {
+            return Err(record_blocker(
+                "missing_idempotencyKey",
+                "Workflow runner action idempotencyKey is required.",
+                Some("actions.idempotencyKey"),
+            ));
+        }
+        if !idempotency_key.contains(workflow_run_id) {
+            return Err(record_blocker(
+                "invalid_idempotencyKey",
+                "Workflow runner action idempotencyKey must include workflowRunId.",
+                Some("actions.idempotencyKey"),
+            ));
+        }
+        let Some(status) = QueueWorkflowActionStatus::from_str(&status) else {
+            return Err(record_blocker(
+                "invalid_action_status",
+                "Workflow runner action status is not supported.",
+                Some("actions.status"),
+            ));
+        };
+
+        prepared.push(PreparedRunnerReportAction {
+            step_id,
+            action_type,
+            idempotency_key,
+            status,
+            target_refs_json: bounded_report_json(
+                action.target_refs.as_ref(),
+                "actions.targetRefs",
+                MAX_WORKFLOW_MUTATION_REFS_JSON_BYTES,
+            )?,
+            result_refs_json: bounded_report_json(
+                action.result_refs.as_ref(),
+                "actions.resultRefs",
+                MAX_WORKFLOW_MUTATION_REFS_JSON_BYTES,
+            )?,
+            blocker_code: optional_trimmed_option(action.blocker_code.clone()),
+            blocker_message: optional_trimmed_option(action.blocker_message.clone()),
+        });
+    }
+
+    Ok(prepared)
+}
+
 fn bounded_canonical_json(
     value: Option<&Value>,
     field_name: &str,
@@ -692,6 +1081,26 @@ fn bounded_canonical_json(
     }
 
     Ok(Some(json))
+}
+
+fn bounded_report_json(
+    value: Option<&Value>,
+    field_name: &str,
+    max_bytes: usize,
+) -> Result<Option<String>, QueueWorkflowCommandBlocker> {
+    if let Some(value) = value {
+        if contains_confirmation_token(value) {
+            return Err(QueueWorkflowCommandBlocker {
+                blocker_code: "confirmation_token_not_persistable".to_owned(),
+                blocker_message:
+                    "confirmationToken must not be persisted in Queue workflow runner reports."
+                        .to_owned(),
+                missing_required_field: Some(field_name.to_owned()),
+            });
+        }
+    }
+
+    bounded_canonical_json(value, field_name, max_bytes)
 }
 
 fn safe_grant_summary(value: &Value) -> Result<Value, QueueWorkflowCommandBlocker> {
@@ -799,6 +1208,28 @@ fn start_invalid_input(field: &str, message: &str) -> QueueWorkflowStartResult {
     }
 }
 
+fn record_invalid_input(field: &str, message: &str) -> QueueWorkflowRecordRunnerReportResult {
+    QueueWorkflowRecordRunnerReportResult {
+        status: QueueWorkflowRecordRunnerReportStatus::InvalidInput,
+        workflow_run: None,
+        actions: Vec::new(),
+        blocker: Some(record_blocker(
+            &format!("missing_{field}"),
+            message,
+            Some(field),
+        )),
+        conflict: None,
+    }
+}
+
+fn record_blocker(code: &str, message: &str, field: Option<&str>) -> QueueWorkflowCommandBlocker {
+    QueueWorkflowCommandBlocker {
+        blocker_code: code.to_owned(),
+        blocker_message: message.to_owned(),
+        missing_required_field: field.map(str::to_owned),
+    }
+}
+
 fn cancel_invalid_input(field: &str, message: &str) -> QueueWorkflowCancelResult {
     QueueWorkflowCancelResult {
         status: QueueWorkflowCancelStatus::InvalidInput,
@@ -809,6 +1240,26 @@ fn cancel_invalid_input(field: &str, message: &str) -> QueueWorkflowCancelResult
             missing_required_field: Some(field.to_owned()),
         }),
     }
+}
+
+fn terminal_action_status(status: QueueWorkflowActionStatus) -> bool {
+    matches!(
+        status,
+        QueueWorkflowActionStatus::Completed
+            | QueueWorkflowActionStatus::Blocked
+            | QueueWorkflowActionStatus::Failed
+            | QueueWorkflowActionStatus::Cancelled
+    )
+}
+
+fn workflow_report_action_matches_prepared(
+    existing: &AgentQueueWorkflowActionRow,
+    prepared: &PreparedRunnerReportAction,
+) -> bool {
+    existing.step_id == prepared.step_id
+        && existing.action_type == prepared.action_type
+        && existing.target_refs_json == prepared.target_refs_json
+        && existing.result_refs_json == prepared.result_refs_json
 }
 
 fn optional_trimmed_option(value: Option<String>) -> Option<String> {

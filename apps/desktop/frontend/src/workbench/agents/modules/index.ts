@@ -99,6 +99,7 @@ export {
 } from "./queueWorkflowRunnerRuntimeAdapter";
 export type {
   QueueWorkflowRunnerRuntimeAdapterInput,
+  QueueWorkflowPersistencePort,
   QueueWorkflowRunnerRuntimePhase,
   QueueWorkflowRunnerRuntimePorts,
   QueueWorkflowRunnerRuntimeResult,

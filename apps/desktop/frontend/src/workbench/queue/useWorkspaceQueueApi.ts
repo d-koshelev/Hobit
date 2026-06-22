@@ -25,6 +25,11 @@ import {
   recordAgentQueueWorkerFinished,
 } from "../../workspace/tauriAgentQueueWorkerEvidenceApi";
 import {
+  planAgentQueueWorkflowResume,
+  recordAgentQueueWorkflowRunnerReport,
+  startAgentQueueWorkflow,
+} from "../../workspace/tauriAgentQueueWorkflowApi";
+import {
   createWorkspaceAgentQueueBridge,
   type WorkspaceAgentQueueAutonomousActionName,
   type WorkspaceAgentQueueAutonomousActionResult,
@@ -52,6 +57,7 @@ import {
   createWorkspaceAgentHobitActionInvoker,
   type WorkspaceAgentHobitActionInvoker,
 } from "../workspaceAgentBrokerActionRuntime";
+import type { QueueWorkflowPersistencePort } from "../agents/modules";
 import {
   ingestQueueLinkedAgentExecutorRunDetail,
   type QueueWorkerEvidenceIngestionBrokerInvoker,
@@ -90,6 +96,7 @@ export type WorkspaceQueueApi = WorkspaceAgentQueueBridge & {
   controller: AgentQueueController;
   ingestQueueLinkedDirectWorkEvidence?: QueueLinkedDirectWorkEvidenceIngestionCallback;
   invokeHobitAgentActionRequest?: WorkspaceAgentHobitActionInvoker;
+  queueWorkflowPersistence?: QueueWorkflowPersistencePort;
   queueExecutorSlots: AgentExecutorSlot[];
   queueId: string;
   requestValidation: (
@@ -408,6 +415,11 @@ export function useWorkspaceQueueApi({
     controller,
     ingestQueueLinkedDirectWorkEvidence,
     invokeHobitAgentActionRequest,
+    queueWorkflowPersistence: {
+      planAgentQueueWorkflowResume,
+      recordAgentQueueWorkflowRunnerReport,
+      startAgentQueueWorkflow,
+    },
     queueExecutorSlots,
     queueId,
     requestValidation,

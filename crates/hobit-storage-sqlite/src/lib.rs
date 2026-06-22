@@ -17,15 +17,16 @@ mod time;
 
 pub use inputs::{
     AgentQueueReviewMessageAckUpdate, AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate,
-    AgentQueueWorkerUpdate, AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunStatusUpdate,
-    JdbcConnectionProfileUpdate, JdbcConnectorUpdate, KnowledgeDocumentSearchFilters,
-    KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision, NewAgentQueueFailureDecision,
-    NewAgentQueueItem, NewAgentQueueReviewMessage, NewAgentQueueTask, NewAgentQueueTaskRunLink,
-    NewAgentQueueWorker, NewAgentQueueWorkerEvidenceBundle, NewAgentQueueWorkflowAction,
-    NewAgentQueueWorkflowRun, NewJdbcConnectionProfile, NewJdbcConnector, NewKnowledgeDocument,
-    NewKnowledgeDraftReviewRecord, NewSharedStateObject, NewSkill, NewWidgetInstance, NewWidgetLog,
-    NewWidgetResult, NewWidgetRun, NewWorkspaceNote, NewWorkspaceSession, SkillUpdate,
-    WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate, WorkspaceNoteUpdate,
+    AgentQueueWorkerUpdate, AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunReportUpdate,
+    AgentQueueWorkflowRunStatusUpdate, JdbcConnectionProfileUpdate, JdbcConnectorUpdate,
+    KnowledgeDocumentSearchFilters, KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision,
+    NewAgentQueueFailureDecision, NewAgentQueueItem, NewAgentQueueReviewMessage, NewAgentQueueTask,
+    NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewAgentQueueWorkerEvidenceBundle,
+    NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun, NewJdbcConnectionProfile,
+    NewJdbcConnector, NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject,
+    NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
+    NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
+    WorkspaceNoteUpdate,
 };
 pub use rows::{
     AgentQueueCompletionDecisionRow, AgentQueueFailureDecisionRow, AgentQueueItemRow,

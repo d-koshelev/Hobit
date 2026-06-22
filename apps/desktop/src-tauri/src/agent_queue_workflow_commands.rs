@@ -6,9 +6,11 @@ use tauri::State;
 
 use crate::agent_queue_workflow_dto::{
     AgentQueueWorkflowCancelResultDto, AgentQueueWorkflowReportDto,
-    AgentQueueWorkflowResumePlanDto, AgentQueueWorkflowRunDto, AgentQueueWorkflowStartResultDto,
+    AgentQueueWorkflowResumePlanDto, AgentQueueWorkflowRunDto,
+    AgentQueueWorkflowRunnerReportRecordResultDto, AgentQueueWorkflowStartResultDto,
     CancelAgentQueueWorkflowRequest, GetAgentQueueWorkflowRequest, ListAgentQueueWorkflowsRequest,
-    PlanAgentQueueWorkflowResumeRequest, StartAgentQueueWorkflowRequest,
+    PlanAgentQueueWorkflowResumeRequest, RecordAgentQueueWorkflowRunnerReportRequest,
+    StartAgentQueueWorkflowRequest,
 };
 use crate::app_state::AppState;
 
@@ -127,6 +129,25 @@ pub(crate) fn plan_agent_queue_workflow_resume_blocking(
     service
         .plan_queue_workflow_resume(request.into())
         .map(|plan| plan.map(AgentQueueWorkflowResumePlanDto::from))
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn record_agent_queue_workflow_runner_report(
+    request: RecordAgentQueueWorkflowRunnerReportRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueWorkflowRunnerReportRecordResultDto, String> {
+    record_agent_queue_workflow_runner_report_blocking(request, state.db_path().to_path_buf())
+}
+
+pub(crate) fn record_agent_queue_workflow_runner_report_blocking(
+    request: RecordAgentQueueWorkflowRunnerReportRequest,
+    db_path: PathBuf,
+) -> Result<AgentQueueWorkflowRunnerReportRecordResultDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .record_queue_workflow_runner_report(request.into())
+        .map(AgentQueueWorkflowRunnerReportRecordResultDto::from)
         .map_err(command_error)
 }
 

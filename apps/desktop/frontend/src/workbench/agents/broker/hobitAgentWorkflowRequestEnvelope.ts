@@ -23,10 +23,17 @@ import {
 export const HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE =
   "hobit.workflow.request" as const;
 
+export type HobitAgentWorkflowRequestEnvelopeMetadata = Record<
+  string,
+  unknown
+> & {
+  workflowRunId?: string;
+};
+
 export type HobitAgentWorkflowRequestEnvelope = {
   grant?: WorkflowGrant;
   inputs?: WorkflowInputs;
-  metadata?: Record<string, unknown>;
+  metadata?: HobitAgentWorkflowRequestEnvelopeMetadata;
   moduleId: HobitModuleId;
   requestId: string;
   type: typeof HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE;
@@ -411,7 +418,12 @@ function buildWorkflowRequestEnvelope({
   return {
     ...(hasGrant ? { grant: value.grant as WorkflowGrant } : {}),
     ...(hasInputs ? { inputs: value.inputs as WorkflowInputs } : {}),
-    ...(isRecord(value.metadata) ? { metadata: value.metadata } : {}),
+    ...(isRecord(value.metadata)
+      ? {
+          metadata:
+            value.metadata as HobitAgentWorkflowRequestEnvelopeMetadata,
+        }
+      : {}),
     moduleId,
     requestId,
     type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
@@ -652,15 +664,28 @@ function requiredStringIssue(
 function metadataIssue(
   value: unknown,
 ): HobitAgentWorkflowRequestEnvelopeIssue | null {
-  if (value === undefined || value === null || isRecord(value)) {
+  if (value === undefined || value === null) {
     return null;
   }
+  if (!isRecord(value)) {
+    return {
+      code: "metadata_invalid",
+      fieldPath: "$.metadata",
+      message: "metadata must be a JSON object.",
+    };
+  }
+  if (
+    value.workflowRunId !== undefined &&
+    (typeof value.workflowRunId !== "string" || !value.workflowRunId.trim())
+  ) {
+    return {
+      code: "metadata_invalid",
+      fieldPath: "$.metadata.workflowRunId",
+      message: "metadata.workflowRunId must be a non-empty string when present.",
+    };
+  }
 
-  return {
-    code: "metadata_invalid",
-    fieldPath: "$.metadata",
-    message: "metadata must be a JSON object.",
-  };
+  return null;
 }
 
 function looksLikePartialWorkflowJson(text: string) {

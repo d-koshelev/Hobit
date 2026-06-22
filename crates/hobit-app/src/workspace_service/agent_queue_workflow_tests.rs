@@ -539,10 +539,187 @@ fn queue_workflow_report_returns_persisted_actions_and_no_resume_execution() {
         .expect("get report")
         .expect("report");
 
-    assert!(!report.resume_available);
-    assert_eq!(report.resume_status, "not_implemented");
+    assert!(report.resume_available);
+    assert_eq!(report.resume_status, "plan_required");
     assert_eq!(report.actions.len(), 1);
     assert_eq!(report.actions[0].action_type, "queue.lifecycle.get");
+    assert!(report
+        .report_summary
+        .contains("Persisted workflow actions: 1"));
+}
+
+#[test]
+fn record_runner_report_updates_only_workflow_run_and_action_ledger() {
+    let store = initialized_store();
+    create_workspace_in_store(&store, "workspace-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    insert_resume_workflow(
+        &store,
+        "workflow-run-1",
+        "dependency_acceptance_smoke",
+        "running",
+        "review",
+        Some("review_create_ready"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let result = service
+        .record_queue_workflow_runner_report(runner_report_request("workspace-1", "workflow-run-1"))
+        .expect("record runner report");
+    let workflow_run = result.workflow_run.expect("workflow run");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowRecordRunnerReportStatus::Recorded
+    );
+    assert_eq!(workflow_run.status, "paused");
+    assert_eq!(workflow_run.phase, "review");
+    assert_eq!(workflow_run.current_step.as_deref(), Some("review_ack"));
+    assert!(workflow_run
+        .action_log_summary_json
+        .as_deref()
+        .expect("action summary")
+        .contains("review_ack"));
+    assert_eq!(result.actions.len(), 1);
+    assert_eq!(result.actions[0].action_type, "queue.review.createMessage");
+    assert_eq!(
+        service
+            .store
+            .list_agent_queue_review_messages("workspace-1", "task-1")
+            .expect("list review messages")
+            .len(),
+        0,
+        "report persistence must not create review messages"
+    );
+    assert!(service
+        .store
+        .get_latest_agent_queue_completion_decision("workspace-1", "task-1")
+        .expect("latest completion")
+        .is_none());
+    assert!(service
+        .store
+        .get_latest_agent_queue_failure_decision("workspace-1", "task-1")
+        .expect("latest failure")
+        .is_none());
+    assert!(service
+        .store
+        .get_latest_agent_queue_worker_evidence_bundle("workspace-1", "task-1")
+        .expect("latest evidence")
+        .is_none());
+}
+
+#[test]
+fn record_runner_report_action_ledger_is_idempotent_and_conflicts_on_changed_refs() {
+    let service = initialized_service();
+    create_workspace(&service, "workspace-1");
+    let workflow_run = service
+        .start_queue_workflow(start_request("workspace-1", "request-1"))
+        .expect("start workflow")
+        .workflow_run
+        .expect("workflow run");
+    let request = runner_report_request("workspace-1", &workflow_run.workflow_run_id);
+
+    let first = service
+        .record_queue_workflow_runner_report(request.clone())
+        .expect("record first");
+    let duplicate = service
+        .record_queue_workflow_runner_report(request.clone())
+        .expect("record duplicate");
+    let mut changed = request;
+    changed.actions[0].target_refs = Some(json!({"taskId": "changed"}));
+    let conflict = service
+        .record_queue_workflow_runner_report(changed)
+        .expect("record conflict");
+
+    assert_eq!(
+        first.status,
+        QueueWorkflowRecordRunnerReportStatus::Recorded
+    );
+    assert_eq!(
+        duplicate.status,
+        QueueWorkflowRecordRunnerReportStatus::Recorded
+    );
+    assert_eq!(duplicate.actions.len(), 1);
+    assert_eq!(
+        conflict.status,
+        QueueWorkflowRecordRunnerReportStatus::Conflict
+    );
+    assert_eq!(
+        conflict.conflict.expect("conflict").conflict_code,
+        "workflow_action_idempotency_conflict"
+    );
+}
+
+#[test]
+fn record_runner_report_rejects_confirmation_token_and_oversized_json() {
+    let service = initialized_service();
+    create_workspace(&service, "workspace-1");
+    let workflow_run = service
+        .start_queue_workflow(start_request("workspace-1", "request-1"))
+        .expect("start workflow")
+        .workflow_run
+        .expect("workflow run");
+    let mut token_request = runner_report_request("workspace-1", &workflow_run.workflow_run_id);
+    token_request.action_log_summary = Some(json!({"confirmationToken": "operator-confirmed"}));
+    let mut oversized_request = runner_report_request("workspace-1", &workflow_run.workflow_run_id);
+    oversized_request.action_log_summary = Some(Value::String(
+        "x".repeat(MAX_WORKFLOW_ACTION_LOG_SUMMARY_JSON_BYTES + 1),
+    ));
+
+    let token_result = service
+        .record_queue_workflow_runner_report(token_request)
+        .expect("record token");
+    let oversized_result = service
+        .record_queue_workflow_runner_report(oversized_request)
+        .expect("record oversized");
+
+    assert_eq!(
+        token_result.status,
+        QueueWorkflowRecordRunnerReportStatus::InvalidInput
+    );
+    assert_eq!(
+        token_result.blocker.expect("token blocker").blocker_code,
+        "confirmation_token_not_persistable"
+    );
+    assert_eq!(
+        oversized_result.status,
+        QueueWorkflowRecordRunnerReportStatus::InvalidInput
+    );
+    assert_eq!(
+        oversized_result
+            .blocker
+            .expect("oversized blocker")
+            .blocker_code,
+        "workflow_json_too_large"
+    );
+}
+
+#[test]
+fn record_runner_report_is_workspace_scoped() {
+    let service = initialized_service();
+    create_workspace(&service, "workspace-1");
+    create_workspace(&service, "workspace-2");
+    let workflow_run = service
+        .start_queue_workflow(start_request("workspace-1", "request-1"))
+        .expect("start workflow")
+        .workflow_run
+        .expect("workflow run");
+
+    let result = service
+        .record_queue_workflow_runner_report(runner_report_request(
+            "workspace-2",
+            &workflow_run.workflow_run_id,
+        ))
+        .expect("record cross workspace");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowRecordRunnerReportStatus::NotFound
+    );
 }
 
 #[test]
@@ -1286,6 +1463,42 @@ fn plan_request(
         workspace_id: workspace_id.to_owned(),
         workflow_run_id: workflow_run_id.to_owned(),
         expected_version,
+    }
+}
+
+fn runner_report_request(
+    workspace_id: &str,
+    workflow_run_id: &str,
+) -> QueueWorkflowRecordRunnerReportRequest {
+    QueueWorkflowRecordRunnerReportRequest {
+        workspace_id: workspace_id.to_owned(),
+        workflow_run_id: workflow_run_id.to_owned(),
+        status: "paused".to_owned(),
+        phase: Some("review".to_owned()),
+        current_step: Some("review_ack".to_owned()),
+        pause_reason: Some("waiting_for_review_ack".to_owned()),
+        blocker_reason: None,
+        variables: Some(json!({"workflowId": "dependency_acceptance_smoke"})),
+        slot_bindings: Some(json!({"upstream": {"taskId": "task-1"}})),
+        mutation_refs: Some(json!({"reviewMessageId": "message-1"})),
+        idempotency_keys: Some(json!([format!(
+            "{workflow_run_id}:queue.review.createMessage:task-1:run-1"
+        )])),
+        action_log_summary: Some(json!({
+            "runnerStatus": "completed",
+            "currentStep": "review_ack",
+            "actions": 1
+        })),
+        actions: vec![QueueWorkflowRecordRunnerAction {
+            step_id: "review.create".to_owned(),
+            action_type: "queue.review.createMessage".to_owned(),
+            idempotency_key: format!("{workflow_run_id}:queue.review.createMessage:task-1:run-1"),
+            status: QueueWorkflowActionStatus::Completed.as_str().to_owned(),
+            target_refs: Some(json!({"taskId": "task-1", "runId": "run-1"})),
+            result_refs: Some(json!({"messageId": "message-1", "status": "created"})),
+            blocker_code: None,
+            blocker_message: None,
+        }],
     }
 }
 

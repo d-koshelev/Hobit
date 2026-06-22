@@ -51,15 +51,18 @@ port so backend-backed capability paths can be tested without mounting the
 frontend Queue UI.
 Queue workflow persistence now has a backend-owned MVP: durable
 `agent_queue_workflow_runs` and `agent_queue_workflow_actions` storage,
-typed start/get/list/cancel/report/planResume backend and Tauri/frontend API
-wrappers, idempotent start by request hash, bounded JSON snapshots, safe
-grant-summary persistence, action-ledger idempotency rows, and a read-only
-resume planner. The planner reconciles persisted workflow state with durable
-Queue facts and returns a typed plan/blocker without executing workflow steps.
-It is storage/API/planning foundation only: resume execution is not
-implemented, the frontend QueueWorkflowRunner is not wired to persistence for
-execution, and these APIs are not exposed as Workspace Agent broker
-capabilities.
+typed start/get/list/cancel/report/planResume plus runner-report-record backend
+and Tauri/frontend API wrappers, idempotent start by request hash, bounded JSON
+snapshots, safe grant-summary persistence, action-ledger idempotency rows, and
+a read-only resume planner. The Workspace Agent Queue workflow runtime adapter
+now creates or reuses a durable workflow run before supported runner
+invocation, blocks request-hash conflicts before execution, records bounded
+runner reports/action summaries, and uses the resume planner before continuing
+an explicit typed `metadata.workflowRunId`. Only existing read/review/
+finalization runner phases are wired. Task creation/setup/start, worker start,
+worker evidence recording, scheduler behavior, downstream auto-start, and
+generic public resume execution remain not implemented. Workflow persistence
+APIs are not exposed as Workspace Agent broker capabilities.
 
 Queue capability contract hardening is implemented at the manifest, instruction,
 adapter, and test boundary. Every registered `queue.*` capability is covered by
@@ -179,7 +182,10 @@ remains deferred. Already-existing review messages, already-done ACKs,
 `already_done`, and `already_failed` are idempotent/actionable states, not
 generic failure. ACK is not task completion. The generic Workspace Agent
 workflow request path now invokes the runner only for supported Queue phases
-through a typed runtime adapter. This block does not add
+through a typed runtime adapter. The adapter persists supported invocations by
+starting/reusing workflow-run records, recording bounded report/action-ledger
+summaries, and using read-only resume planning before any typed continuation
+from `metadata.workflowRunId`. This block does not add
 `hobit.queue.workflowRequest`, scheduler behavior, worker auto-start, task
 creation, worker evidence recording, Queue mutation outside review message/ACK
 ledger or explicit upstream finalization ports, or Queue runtime changes.
@@ -243,9 +249,10 @@ dependencies, durable worker evidence bundle rows, and review message ledger
 rows, plus typed durable worker-finished/evidence-read and review
 message create/ACK commands, plus typed durable accepted-completion
 finalization, plus backend-owned Queue workflow run/action persistence with
-start/get/list/cancel/report APIs. This is not a scheduler, general transition
-command set, workflow resume executor, validation runtime, Git/commit flow,
-rollback flow, or full Queue lifecycle store.
+start/get/list/cancel/report/planResume APIs and a narrow runner-report record
+API for supported workflow runner phases. This is not a scheduler, general
+transition command set, generic workflow resume executor, validation runtime,
+Git/commit flow, rollback flow, or full Queue lifecycle store.
 
 ## Implemented Backend Aggregate, Worker Evidence, And Review Commands
 
@@ -1168,7 +1175,7 @@ as available from the foundation above:
 - Terminal launch/actions;
 - remote/server/enterprise queue runtime;
 - broad backend migrations or storage schema changes beyond the current narrow
-  worker evidence and review message ledger tables.
+  worker evidence, review message, and workflow run/action ledger tables.
 
 The existing explicit prompt-pack `Create Queue items` action creates current
 persisted Queue tasks through the pre-existing frontend Queue bridge using the

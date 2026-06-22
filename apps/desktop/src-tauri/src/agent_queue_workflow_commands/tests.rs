@@ -3,6 +3,7 @@ use super::*;
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use crate::agent_queue_workflow_dto::RecordAgentQueueWorkflowRunnerAction;
 use hobit_app::WorkspaceService;
 use hobit_storage_sqlite::{NewAgentQueueWorkflowAction, SqliteStore};
 use serde_json::json;
@@ -96,7 +97,7 @@ fn workflow_commands_start_get_list_cancel_and_report() {
     .expect("report");
 
     assert!(!report.resume_available);
-    assert_eq!(report.resume_status, "not_implemented");
+    assert_eq!(report.resume_status, "terminal");
     remove_test_db_files(&db_path);
 }
 
@@ -236,8 +237,66 @@ fn workflow_report_command_serializes_action_ledger_without_resume_execution() {
 
     assert_eq!(report.actions.len(), 1);
     assert_eq!(report.actions[0].action_type, "queue.lifecycle.get");
-    assert!(!report.resume_available);
-    assert_eq!(report.resume_status, "not_implemented");
+    assert!(report.resume_available);
+    assert_eq!(report.resume_status, "plan_required");
+    remove_test_db_files(&db_path);
+}
+
+#[test]
+fn workflow_record_runner_report_command_updates_only_workflow_tables() {
+    let db_path = unique_test_db_path();
+    let service = initialized_service(&db_path);
+    let workspace = service
+        .create_empty_workspace("Queue workflow command test", None)
+        .expect("create workspace");
+    drop(service);
+    let run = start_agent_queue_workflow_blocking(
+        start_request(&workspace.id, "request-1"),
+        db_path.clone(),
+    )
+    .expect("start workflow")
+    .workflow_run
+    .expect("workflow run");
+
+    let result = record_agent_queue_workflow_runner_report_blocking(
+        RecordAgentQueueWorkflowRunnerReportRequest {
+            workspace_id: workspace.id,
+            workflow_run_id: run.workflow_run_id.clone(),
+            status: "paused".to_owned(),
+            phase: Some("review".to_owned()),
+            current_step: Some("review_ack".to_owned()),
+            pause_reason: Some("waiting_for_review_ack".to_owned()),
+            blocker_reason: None,
+            variables: Some(json!({"workflowId": "dependency_acceptance_smoke"})),
+            slot_bindings: Some(json!({"upstream": {"taskId": "task-1"}})),
+            mutation_refs: Some(json!({"messageId": "message-1"})),
+            idempotency_keys: Some(json!([format!(
+                "{}:queue.review.createMessage:task-1:run-1",
+                run.workflow_run_id
+            )])),
+            action_log_summary: Some(json!({"runnerStatus": "completed", "actions": 1})),
+            actions: vec![RecordAgentQueueWorkflowRunnerAction {
+                step_id: "review.create".to_owned(),
+                action_type: "queue.review.createMessage".to_owned(),
+                idempotency_key: format!(
+                    "{}:queue.review.createMessage:task-1:run-1",
+                    run.workflow_run_id
+                ),
+                status: "completed".to_owned(),
+                target_refs: Some(json!({"taskId": "task-1", "runId": "run-1"})),
+                result_refs: Some(json!({"messageId": "message-1", "status": "created"})),
+                blocker_code: None,
+                blocker_message: None,
+            }],
+        },
+        db_path.clone(),
+    )
+    .expect("record runner report");
+
+    assert_eq!(result.status, "recorded");
+    assert_eq!(result.workflow_run.expect("recorded run").status, "paused");
+    assert_eq!(result.actions.len(), 1);
+    assert_eq!(result.actions[0].action_type, "queue.review.createMessage");
     remove_test_db_files(&db_path);
 }
 

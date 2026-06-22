@@ -115,6 +115,7 @@ import type {
 } from "./types";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type { WorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
+import type { QueueWorkflowPersistencePort } from "./agents/modules";
 import type { AgentQueueController } from "./queue/useAgentQueueController";
 import type {
   QueueValidationRunResult,
@@ -419,6 +420,7 @@ export type WidgetRenderProps = {
     options?: { currentWorkspaceRoot?: string | null },
   ) => Promise<PromptPackMaterializationResult>;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
+  workspaceAgentQueueWorkflowPersistence?: QueueWorkflowPersistencePort;
   queueValidationRunner?: ValidationRunner | null;
   onRequestQueueValidation?: (
     task: AgentQueueTask,

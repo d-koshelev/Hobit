@@ -762,8 +762,10 @@ the local executor flow visible to operators.
   result statuses, dependency satisfaction, or backend-backed broker
   capability behavior. It also records the backend-owned QueueWorkflowRun
   persistence MVP: start/get/list/cancel/report/planResume APIs, read-only
-  resume planning, and internal action ledger exist, while resume execution
-  and runner persistence execution wiring remain not implemented.
+  resume planning, internal action ledger, and runtime-adapter report/action
+  persistence for supported read/review/finalization runner phases. Generic
+  resume execution, task setup/start, worker evidence recording, and scheduler
+  behavior remain not implemented.
 - `docs/QUEUE_RESPONSIBILITY_REFACTOR_AUDIT.md` - focused audit/status note
   for the Queue backend ownership refactor, transitional capability debt, and
   phased cleanup plan.

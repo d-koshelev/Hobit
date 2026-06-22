@@ -15,6 +15,7 @@ import {
   getAgentQueueWorkflowReport,
   listAgentQueueWorkflows,
   planAgentQueueWorkflowResume,
+  recordAgentQueueWorkflowRunnerReport,
   startAgentQueueWorkflow,
 } from "./tauriAgentQueueWorkflowApi";
 
@@ -279,6 +280,125 @@ describe("queueWorkflow Tauri API wrapper", () => {
       "get_agent_queue_workflow_report",
       {
         request: {
+          workflow_run_id: "workflow_run_1",
+          workspace_id: "workspace_1",
+        },
+      },
+    );
+  });
+
+  it("records queueWorkflow runner reports through the Tauri command", async () => {
+    const tauriAction = {
+      action_id: "action_1",
+      action_type: "queue.review.createMessage",
+      attempt_count: 1,
+      blocker_code: null,
+      blocker_message: null,
+      completed_at: "2026-06-22T10:01:00Z",
+      created_at: "2026-06-22T10:00:30Z",
+      idempotency_key:
+        "workflow_run_1:queue.review.createMessage:task_1:run_1",
+      result_refs_json: "{\"messageId\":\"message_1\"}",
+      started_at: "2026-06-22T10:00:30Z",
+      status: "completed",
+      step_id: "review.create",
+      target_refs_json: "{\"taskId\":\"task_1\",\"runId\":\"run_1\"}",
+      updated_at: "2026-06-22T10:01:00Z",
+      workflow_run_id: "workflow_run_1",
+      workspace_id: "workspace_1",
+    };
+    mocks.invoke.mockResolvedValueOnce({
+      actions: [tauriAction],
+      blocker: null,
+      conflict: null,
+      status: "recorded",
+      workflow_run: { ...tauriRun, status: "paused" },
+    });
+
+    await expect(
+      recordAgentQueueWorkflowRunnerReport({
+        actionLogSummary: { runnerStatus: "completed" },
+        actions: [
+          {
+            actionType: "queue.review.createMessage",
+            idempotencyKey:
+              "workflow_run_1:queue.review.createMessage:task_1:run_1",
+            resultRefs: { messageId: "message_1" },
+            status: "completed",
+            stepId: "review.create",
+            targetRefs: { taskId: "task_1", runId: "run_1" },
+          },
+        ],
+        currentStep: "review_ack",
+        idempotencyKeys: {
+          reviewCreate:
+            "workflow_run_1:queue.review.createMessage:task_1:run_1",
+        },
+        mutationRefs: { messageId: "message_1" },
+        phase: "review",
+        slotBindings: { upstream: { taskId: "task_1" } },
+        status: "paused",
+        variables: { workflowId: "dependency_acceptance_smoke" },
+        workflowRunId: "workflow_run_1",
+        workspaceId: "workspace_1",
+      }),
+    ).resolves.toEqual({
+      actions: [
+        {
+          actionId: "action_1",
+          actionType: "queue.review.createMessage",
+          attemptCount: 1,
+          blockerCode: null,
+          blockerMessage: null,
+          completedAt: "2026-06-22T10:01:00Z",
+          createdAt: "2026-06-22T10:00:30Z",
+          idempotencyKey:
+            "workflow_run_1:queue.review.createMessage:task_1:run_1",
+          resultRefsJson: "{\"messageId\":\"message_1\"}",
+          startedAt: "2026-06-22T10:00:30Z",
+          status: "completed",
+          stepId: "review.create",
+          targetRefsJson: "{\"taskId\":\"task_1\",\"runId\":\"run_1\"}",
+          updatedAt: "2026-06-22T10:01:00Z",
+          workflowRunId: "workflow_run_1",
+          workspaceId: "workspace_1",
+        },
+      ],
+      blocker: null,
+      conflict: null,
+      status: "recorded",
+      workflowRun: { ...expectedRun, status: "paused" },
+    });
+    expect(mocks.invoke).toHaveBeenLastCalledWith(
+      "record_agent_queue_workflow_runner_report",
+      {
+        request: {
+          action_log_summary: { runnerStatus: "completed" },
+          actions: [
+            {
+              action_type: "queue.review.createMessage",
+              blocker_code: null,
+              blocker_message: null,
+              idempotency_key:
+                "workflow_run_1:queue.review.createMessage:task_1:run_1",
+              result_refs: { messageId: "message_1" },
+              status: "completed",
+              step_id: "review.create",
+              target_refs: { taskId: "task_1", runId: "run_1" },
+            },
+          ],
+          blocker_reason: null,
+          current_step: "review_ack",
+          idempotency_keys: {
+            reviewCreate:
+              "workflow_run_1:queue.review.createMessage:task_1:run_1",
+          },
+          mutation_refs: { messageId: "message_1" },
+          pause_reason: null,
+          phase: "review",
+          slot_bindings: { upstream: { taskId: "task_1" } },
+          status: "paused",
+          variables: { workflowId: "dependency_acceptance_smoke" },
           workflow_run_id: "workflow_run_1",
           workspace_id: "workspace_1",
         },

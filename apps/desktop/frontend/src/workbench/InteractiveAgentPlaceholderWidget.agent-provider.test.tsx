@@ -14,7 +14,11 @@ import {
   type FakeAgentProviderScenario,
   type FakeAgentProviderScriptStep,
 } from "./agentRuntime";
-import type { AgentQueueItemAggregate } from "../workspace/types";
+import type { QueueWorkflowPersistencePort } from "./agents/modules";
+import type {
+  AgentQueueItemAggregate,
+  AgentQueueWorkflowRun,
+} from "../workspace/types";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -80,6 +84,7 @@ describe("WorkspaceAgent AgentProvider", () => {
     renderWidget({
       workspaceAgentProvider: fakeProvider("valid_workflow_request"),
       workspaceAgentQueueBridge: queueBridge({ listItemAggregates }),
+      workspaceAgentQueueWorkflowPersistence: workflowPersistence(),
       workspaceId: "workspace_1",
     });
 
@@ -110,6 +115,7 @@ describe("WorkspaceAgent AgentProvider", () => {
         getItemAggregate,
         listItemAggregates,
       }),
+      workspaceAgentQueueWorkflowPersistence: workflowPersistence(),
       workspaceId: "workspace_1",
     });
 
@@ -242,6 +248,91 @@ function queueBridge(
     createItem: vi.fn(async () => itemResult()),
     getSnapshot: vi.fn(async () => snapshotResult()),
     updateItem: vi.fn(async () => itemResult()),
+    ...overrides,
+  };
+}
+
+function workflowPersistence(
+  overrides: Partial<QueueWorkflowPersistencePort> = {},
+): QueueWorkflowPersistencePort {
+  return {
+    planAgentQueueWorkflowResume: vi.fn(async () => null),
+    recordAgentQueueWorkflowRunnerReport: vi.fn(
+      async (
+        request: Parameters<
+          QueueWorkflowPersistencePort["recordAgentQueueWorkflowRunnerReport"]
+        >[0],
+      ) => ({
+      actions: request.actions.map((action, index) => ({
+        actionId: `workflow-action-${index + 1}`,
+        actionType: action.actionType,
+        attemptCount: 1,
+        blockerCode: action.blockerCode ?? null,
+        blockerMessage: action.blockerMessage ?? null,
+        completedAt: "2026-06-22T00:00:00.000Z",
+        createdAt: "2026-06-22T00:00:00.000Z",
+        idempotencyKey: action.idempotencyKey,
+        resultRefsJson: action.resultRefs ? JSON.stringify(action.resultRefs) : null,
+        startedAt: "2026-06-22T00:00:00.000Z",
+        status: action.status,
+        stepId: action.stepId,
+        targetRefsJson: action.targetRefs ? JSON.stringify(action.targetRefs) : null,
+        updatedAt: "2026-06-22T00:00:00.000Z",
+        workflowRunId: request.workflowRunId,
+        workspaceId: request.workspaceId,
+      })),
+      blocker: null,
+      conflict: null,
+      status: "recorded",
+      workflowRun: workflowRun({
+        currentStep: request.currentStep ?? null,
+        phase: request.phase ?? "read",
+        status: request.status,
+        workflowRunId: request.workflowRunId,
+        workspaceId: request.workspaceId,
+      }),
+    })),
+    startAgentQueueWorkflow: vi.fn(async (request) => ({
+      blocker: null,
+      conflict: null,
+      status: "succeeded",
+      workflowRun: workflowRun({
+        requestId: request.requestId,
+        workflowId: request.workflowId,
+        workspaceId: request.workspaceId,
+      }),
+    })),
+    ...overrides,
+  };
+}
+
+function workflowRun(
+  overrides: Partial<AgentQueueWorkflowRun> = {},
+): AgentQueueWorkflowRun {
+  return {
+    actionLogSummaryJson: null,
+    actorId: "workspace-agent:test",
+    blockerReason: null,
+    completedAt: null,
+    createdAt: "2026-06-22T00:00:00.000Z",
+    currentStep: overrides.currentStep ?? "created",
+    grantSummaryJson: null,
+    idempotencyKeysJson: null,
+    inputsSnapshotJson: null,
+    mutationRefsJson: null,
+    pauseReason: null,
+    phase: overrides.phase ?? "intake",
+    requestHash: overrides.requestHash ?? "fnv1a64:test",
+    requestId: overrides.requestId ?? "fake-workflow-request",
+    schemaVersion: 1,
+    slotBindingsJson: null,
+    status: overrides.status ?? "created",
+    updatedAt: "2026-06-22T00:00:00.000Z",
+    variablesJson: null,
+    version: 1,
+    workflowId: overrides.workflowId ?? "dependency_acceptance_smoke",
+    workflowRunId: overrides.workflowRunId ?? "queue-workflow-run-1",
+    workspaceId: overrides.workspaceId ?? "workspace_1",
     ...overrides,
   };
 }

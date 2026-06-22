@@ -1,8 +1,9 @@
 use hobit_app::{
     QueueWorkflowAction, QueueWorkflowCancelRequest, QueueWorkflowCancelResult,
     QueueWorkflowCommandBlocker, QueueWorkflowConflict, QueueWorkflowGetRequest,
-    QueueWorkflowListRequest, QueueWorkflowPlanResumeRequest, QueueWorkflowReport,
-    QueueWorkflowResumeBlocker, QueueWorkflowResumePlan, QueueWorkflowRun,
+    QueueWorkflowListRequest, QueueWorkflowPlanResumeRequest, QueueWorkflowRecordRunnerAction,
+    QueueWorkflowRecordRunnerReportRequest, QueueWorkflowRecordRunnerReportResult,
+    QueueWorkflowReport, QueueWorkflowResumeBlocker, QueueWorkflowResumePlan, QueueWorkflowRun,
     QueueWorkflowSlotReconciliation, QueueWorkflowStartRequest, QueueWorkflowStartResult,
     QueueWorkflowTaskResumeSnapshot,
 };
@@ -52,6 +53,35 @@ pub(crate) struct PlanAgentQueueWorkflowResumeRequest {
     pub workspace_id: String,
     pub workflow_run_id: String,
     pub expected_version: Option<i64>,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub(crate) struct RecordAgentQueueWorkflowRunnerReportRequest {
+    pub workspace_id: String,
+    pub workflow_run_id: String,
+    pub status: String,
+    pub phase: Option<String>,
+    pub current_step: Option<String>,
+    pub pause_reason: Option<String>,
+    pub blocker_reason: Option<String>,
+    pub variables: Option<Value>,
+    pub slot_bindings: Option<Value>,
+    pub mutation_refs: Option<Value>,
+    pub idempotency_keys: Option<Value>,
+    pub action_log_summary: Option<Value>,
+    pub actions: Vec<RecordAgentQueueWorkflowRunnerAction>,
+}
+
+#[derive(Clone, Debug, PartialEq, Deserialize)]
+pub(crate) struct RecordAgentQueueWorkflowRunnerAction {
+    pub step_id: String,
+    pub action_type: String,
+    pub idempotency_key: String,
+    pub status: String,
+    pub target_refs: Option<Value>,
+    pub result_refs: Option<Value>,
+    pub blocker_code: Option<String>,
+    pub blocker_message: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -130,6 +160,15 @@ pub(crate) struct AgentQueueWorkflowCancelResultDto {
     pub status: String,
     pub workflow_run: Option<AgentQueueWorkflowRunDto>,
     pub blocker: Option<AgentQueueWorkflowCommandBlockerDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowRunnerReportRecordResultDto {
+    pub status: String,
+    pub workflow_run: Option<AgentQueueWorkflowRunDto>,
+    pub actions: Vec<AgentQueueWorkflowActionDto>,
+    pub blocker: Option<AgentQueueWorkflowCommandBlockerDto>,
+    pub conflict: Option<AgentQueueWorkflowConflictDto>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -276,6 +315,45 @@ impl From<PlanAgentQueueWorkflowResumeRequest> for QueueWorkflowPlanResumeReques
     }
 }
 
+impl From<RecordAgentQueueWorkflowRunnerReportRequest> for QueueWorkflowRecordRunnerReportRequest {
+    fn from(request: RecordAgentQueueWorkflowRunnerReportRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            workflow_run_id: request.workflow_run_id,
+            status: request.status,
+            phase: request.phase,
+            current_step: request.current_step,
+            pause_reason: request.pause_reason,
+            blocker_reason: request.blocker_reason,
+            variables: request.variables,
+            slot_bindings: request.slot_bindings,
+            mutation_refs: request.mutation_refs,
+            idempotency_keys: request.idempotency_keys,
+            action_log_summary: request.action_log_summary,
+            actions: request
+                .actions
+                .into_iter()
+                .map(QueueWorkflowRecordRunnerAction::from)
+                .collect(),
+        }
+    }
+}
+
+impl From<RecordAgentQueueWorkflowRunnerAction> for QueueWorkflowRecordRunnerAction {
+    fn from(action: RecordAgentQueueWorkflowRunnerAction) -> Self {
+        Self {
+            step_id: action.step_id,
+            action_type: action.action_type,
+            idempotency_key: action.idempotency_key,
+            status: action.status,
+            target_refs: action.target_refs,
+            result_refs: action.result_refs,
+            blocker_code: action.blocker_code,
+            blocker_message: action.blocker_message,
+        }
+    }
+}
+
 impl From<QueueWorkflowRun> for AgentQueueWorkflowRunDto {
     fn from(run: QueueWorkflowRun) -> Self {
         Self {
@@ -372,6 +450,24 @@ impl From<QueueWorkflowCancelResult> for AgentQueueWorkflowCancelResultDto {
             blocker: result
                 .blocker
                 .map(AgentQueueWorkflowCommandBlockerDto::from),
+        }
+    }
+}
+
+impl From<QueueWorkflowRecordRunnerReportResult> for AgentQueueWorkflowRunnerReportRecordResultDto {
+    fn from(result: QueueWorkflowRecordRunnerReportResult) -> Self {
+        Self {
+            status: result.status.as_str().to_owned(),
+            workflow_run: result.workflow_run.map(AgentQueueWorkflowRunDto::from),
+            actions: result
+                .actions
+                .into_iter()
+                .map(AgentQueueWorkflowActionDto::from)
+                .collect(),
+            blocker: result
+                .blocker
+                .map(AgentQueueWorkflowCommandBlockerDto::from),
+            conflict: result.conflict.map(AgentQueueWorkflowConflictDto::from),
         }
     }
 }

@@ -12,6 +12,7 @@ import {
 } from "./agents/adapters";
 import {
   runQueueWorkflowRunnerRuntimeAdapter,
+  type QueueWorkflowPersistencePort,
   type QueueWorkflowRunnerRuntimeResult,
 } from "./agents/modules";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
@@ -51,10 +52,14 @@ export function createWorkspaceAgentHobitActionInvoker({
 
 export function createWorkspaceAgentQueueWorkflowInvoker({
   actorId,
+  workflowPersistence,
   workspaceAgentQueueBridge,
+  workspaceId,
 }: {
   actorId?: string | null;
+  workflowPersistence?: QueueWorkflowPersistencePort | null;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge | null;
+  workspaceId?: string | null;
 }): WorkspaceAgentQueueWorkflowInvoker {
   const normalizedActorId = actorId?.trim() || "workspace-agent";
 
@@ -62,7 +67,9 @@ export function createWorkspaceAgentQueueWorkflowInvoker({
     runQueueWorkflowRunnerRuntimeAdapter({
       actorId: normalizedActorId,
       queueBridge: workspaceAgentQueueBridge,
+      workflowPersistence,
       workflowRequestRead,
+      workspaceId,
     });
 }
 

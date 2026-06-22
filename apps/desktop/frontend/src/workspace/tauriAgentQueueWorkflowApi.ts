@@ -7,6 +7,7 @@ import type {
   AgentQueueWorkflowReport,
   AgentQueueWorkflowResumeBlocker,
   AgentQueueWorkflowResumePlan,
+  AgentQueueWorkflowRunnerReportRecordResult,
   AgentQueueWorkflowSlotReconciliation,
   AgentQueueWorkflowTaskResumeSnapshot,
   AgentQueueWorkflowRun,
@@ -15,6 +16,7 @@ import type {
   GetAgentQueueWorkflowRequest,
   ListAgentQueueWorkflowsRequest,
   PlanAgentQueueWorkflowResumeRequest,
+  RecordAgentQueueWorkflowRunnerReportRequest,
   StartAgentQueueWorkflowRequest,
 } from "./types";
 
@@ -88,6 +90,14 @@ type TauriAgentQueueWorkflowCancelResult = {
   status: string;
   workflow_run: TauriAgentQueueWorkflowRun | null;
   blocker: TauriAgentQueueWorkflowCommandBlocker | null;
+};
+
+type TauriAgentQueueWorkflowRunnerReportRecordResult = {
+  status: string;
+  workflow_run: TauriAgentQueueWorkflowRun | null;
+  actions: TauriAgentQueueWorkflowAction[];
+  blocker: TauriAgentQueueWorkflowCommandBlocker | null;
+  conflict: TauriAgentQueueWorkflowConflict | null;
 };
 
 type TauriAgentQueueWorkflowReport = {
@@ -280,6 +290,42 @@ export async function planAgentQueueWorkflowResume(
   return result ? normalizeResumePlan(result) : null;
 }
 
+export async function recordAgentQueueWorkflowRunnerReport(
+  request: RecordAgentQueueWorkflowRunnerReportRequest,
+): Promise<AgentQueueWorkflowRunnerReportRecordResult> {
+  const result = await invoke<TauriAgentQueueWorkflowRunnerReportRecordResult>(
+    "record_agent_queue_workflow_runner_report",
+    {
+      request: {
+        action_log_summary: request.actionLogSummary ?? null,
+        actions: request.actions.map((action) => ({
+          action_type: action.actionType,
+          blocker_code: action.blockerCode ?? null,
+          blocker_message: action.blockerMessage ?? null,
+          idempotency_key: action.idempotencyKey,
+          result_refs: action.resultRefs ?? null,
+          status: action.status,
+          step_id: action.stepId,
+          target_refs: action.targetRefs ?? null,
+        })),
+        blocker_reason: request.blockerReason ?? null,
+        current_step: request.currentStep ?? null,
+        idempotency_keys: request.idempotencyKeys ?? null,
+        mutation_refs: request.mutationRefs ?? null,
+        pause_reason: request.pauseReason ?? null,
+        phase: request.phase ?? null,
+        slot_bindings: request.slotBindings ?? null,
+        status: request.status,
+        variables: request.variables ?? null,
+        workflow_run_id: request.workflowRunId,
+        workspace_id: request.workspaceId,
+      },
+    },
+  );
+
+  return normalizeRunnerReportRecordResult(result);
+}
+
 export function normalizeAgentQueueWorkflowRun(
   run: TauriAgentQueueWorkflowRun,
 ): AgentQueueWorkflowRun {
@@ -302,6 +348,18 @@ function normalizeCancelResult(
 ): AgentQueueWorkflowCancelResult {
   return {
     blocker: result.blocker ? normalizeBlocker(result.blocker) : null,
+    status: result.status,
+    workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
+  };
+}
+
+function normalizeRunnerReportRecordResult(
+  result: TauriAgentQueueWorkflowRunnerReportRecordResult,
+): AgentQueueWorkflowRunnerReportRecordResult {
+  return {
+    actions: result.actions.map(normalizeAction),
+    blocker: result.blocker ? normalizeBlocker(result.blocker) : null,
+    conflict: result.conflict ? normalizeConflict(result.conflict) : null,
     status: result.status,
     workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
   };

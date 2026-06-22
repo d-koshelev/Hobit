@@ -60,22 +60,25 @@ status, pause/block reasons, and timestamps. `agent_queue_workflow_actions`
 stores backend-internal step/action idempotency ledger rows keyed by workflow
 run and idempotency key.
 
-The typed workflow persistence API exposes start/get/list/cancel/report and
-read-only resume planning only. Start is idempotent by
-`workspaceId + requestId + requestHash`; same request id with a different typed
-snapshot is a conflict. Cancel is non-destructive and does not mutate Queue
-tasks, run links, review messages, evidence bundles, completion/failure
-decisions, workers, Git, Terminal, validation, rollback, or scheduler state.
-Reports read persisted workflow/run action rows and state that resume
-execution is not implemented. Resume planning reads persisted workflow state
-and durable Queue facts to return a typed plan/blocker; it does not execute
-workflow steps.
+The typed workflow persistence API exposes start/get/list/cancel/report,
+read-only resume planning, and a narrow runner-report record API. Start is
+idempotent by `workspaceId + requestId + requestHash`; same request id with a
+different typed snapshot is a conflict and must block runner invocation. Cancel
+is non-destructive and does not mutate Queue tasks, run links, review messages,
+evidence bundles, completion/failure decisions, workers, Git, Terminal,
+validation, rollback, or scheduler state. Reports read persisted workflow/run
+action rows. Resume planning reads persisted workflow state and durable Queue
+facts to return a typed plan/blocker; it does not execute workflow steps.
+Runner-report recording may update only the workflow run/action ledgers with
+bounded status, phase/step, blocker, variable/slot-binding, mutation-ref, and
+idempotent action-summary state for already-supported read/review/finalization
+runner phases.
 
-Workflow persistence APIs are not Workspace Agent broker capabilities yet.
-They are backend-backed storage/reporting APIs that future runner-resume wiring
-may consume. No public append-event command exists; action-ledger mutation
-remains backend-internal. Persisted grant summaries must not store reusable
-confirmation tokens or secrets.
+Workflow persistence APIs are not Workspace Agent broker capabilities. They
+are backend-backed storage/reporting APIs consumed by the typed Queue workflow
+runtime adapter. No public append-event command exists; action-ledger mutation
+remains backend-internal. Persisted grant summaries and runner reports must not
+store reusable confirmation tokens or secrets.
 
 Resume planning must reconcile only explicit persisted bindings and variables:
 task ids, run ids, evidence bundle ids, review message ids, completion decision

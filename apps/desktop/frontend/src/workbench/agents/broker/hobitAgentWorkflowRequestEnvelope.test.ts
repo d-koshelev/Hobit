@@ -70,6 +70,49 @@ describe("hobitAgentWorkflowRequestEnvelope", () => {
     });
   });
 
+  it("preserves typed workflowRunId metadata for explicit continuation", () => {
+    const result = readHobitAgentWorkflowRequestEnvelope(
+      JSON.stringify(
+        workflowRequest({
+          metadata: {
+            workflowRunId: "queue-workflow-run-1",
+          },
+        }),
+      ),
+    );
+
+    expect(result).toMatchObject({
+      envelope: {
+        metadata: {
+          workflowRunId: "queue-workflow-run-1",
+        },
+      },
+      status: "valid",
+    });
+  });
+
+  it("rejects non-string workflowRunId metadata", () => {
+    const result = readHobitAgentWorkflowRequestEnvelope(
+      JSON.stringify(
+        workflowRequest({
+          metadata: {
+            workflowRunId: 123,
+          },
+        }),
+      ),
+    );
+
+    expect(result).toMatchObject({
+      issues: [
+        {
+          code: "metadata_invalid",
+          fieldPath: "$.metadata.workflowRunId",
+        },
+      ],
+      status: "invalid",
+    });
+  });
+
   it("parses embedded workflow request JSON without inferring fields from prose", () => {
     const result = readHobitAgentWorkflowRequestEnvelope(
       `Please validate this typed request only: ${JSON.stringify(

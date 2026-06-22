@@ -712,6 +712,32 @@ export type CancelAgentQueueWorkflowRequest = {
   reason?: string | null;
 };
 
+export type RecordAgentQueueWorkflowRunnerReportAction = {
+  stepId: string;
+  actionType: string;
+  idempotencyKey: string;
+  status: AgentQueueWorkflowActionStatus | string;
+  targetRefs?: AgentQueueWorkflowJsonValue | null;
+  resultRefs?: AgentQueueWorkflowJsonValue | null;
+  blockerCode?: string | null;
+  blockerMessage?: string | null;
+};
+
+export type RecordAgentQueueWorkflowRunnerReportRequest =
+  GetAgentQueueWorkflowRequest & {
+    status: AgentQueueWorkflowRunStatus | string;
+    phase?: string | null;
+    currentStep?: string | null;
+    pauseReason?: string | null;
+    blockerReason?: string | null;
+    variables?: AgentQueueWorkflowJsonValue | null;
+    slotBindings?: AgentQueueWorkflowJsonValue | null;
+    mutationRefs?: AgentQueueWorkflowJsonValue | null;
+    idempotencyKeys?: AgentQueueWorkflowJsonValue | null;
+    actionLogSummary?: AgentQueueWorkflowJsonValue | null;
+    actions: RecordAgentQueueWorkflowRunnerReportAction[];
+  };
+
 export type AgentQueueWorkflowRun = {
   workflowRunId: string;
   workspaceId: string;
@@ -786,6 +812,13 @@ export type AgentQueueWorkflowCancelStatus =
   | "invalid_input"
   | string;
 
+export type AgentQueueWorkflowRunnerReportRecordStatus =
+  | "recorded"
+  | "conflict"
+  | "not_found"
+  | "invalid_input"
+  | string;
+
 export type AgentQueueWorkflowStartResult = {
   status: AgentQueueWorkflowStartStatus;
   workflowRun: AgentQueueWorkflowRun | null;
@@ -799,11 +832,19 @@ export type AgentQueueWorkflowCancelResult = {
   blocker: AgentQueueWorkflowCommandBlocker | null;
 };
 
+export type AgentQueueWorkflowRunnerReportRecordResult = {
+  status: AgentQueueWorkflowRunnerReportRecordStatus;
+  workflowRun: AgentQueueWorkflowRun | null;
+  actions: AgentQueueWorkflowAction[];
+  blocker: AgentQueueWorkflowCommandBlocker | null;
+  conflict: AgentQueueWorkflowConflict | null;
+};
+
 export type AgentQueueWorkflowReport = {
   workflowRun: AgentQueueWorkflowRun;
   actions: AgentQueueWorkflowAction[];
   resumeAvailable: boolean;
-  resumeStatus: "not_implemented" | string;
+  resumeStatus: "plan_required" | "terminal" | string;
   reportSummary: string;
 };
 

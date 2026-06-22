@@ -16,7 +16,10 @@ import {
 } from "./workspaceAgentBrokerActionRuntime";
 import runtimeSource from "./workspaceAgentBrokerActionRuntime.ts?raw";
 import envelopeSource from "./agents/broker/hobitAgentActionRequestEnvelope.ts?raw";
-import { QUEUE_MODULE_WORKFLOWS } from "./agents/modules";
+import {
+  QUEUE_MODULE_WORKFLOWS,
+  type QueueWorkflowPersistencePort,
+} from "./agents/modules";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type {
   AgentQueueItemAggregate,
@@ -549,11 +552,13 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     const recordWorkerFinished = vi.fn();
     const invoker = createWorkspaceAgentQueueWorkflowInvoker({
       actorId: "workspace-agent:test",
+      workflowPersistence: workflowPersistence(),
       workspaceAgentQueueBridge: queueBridge({
         getItemAggregate,
         listItemAggregates,
         recordWorkerFinished,
       }),
+      workspaceId: "workspace-1",
     });
     const workflowRead = readHobitAgentWorkflowRequestEnvelope(
       JSON.stringify(dependencyWorkflowRequest()),
@@ -599,6 +604,106 @@ function requiredQueueWorkflowMetadata(workflowId: string) {
   }
 
   return workflow;
+}
+
+function workflowPersistence(): QueueWorkflowPersistencePort {
+  return {
+    planAgentQueueWorkflowResume: vi.fn(async () => null),
+    recordAgentQueueWorkflowRunnerReport: vi.fn(
+      async (
+        request: Parameters<
+          QueueWorkflowPersistencePort["recordAgentQueueWorkflowRunnerReport"]
+        >[0],
+      ) => ({
+        actions: request.actions.map((action, index) => ({
+          actionId: `workflow-action-${index + 1}`,
+          actionType: action.actionType,
+          attemptCount: 1,
+          blockerCode: null,
+          blockerMessage: null,
+          completedAt: "2026-06-22T00:00:00.000Z",
+          createdAt: "2026-06-22T00:00:00.000Z",
+          idempotencyKey: action.idempotencyKey,
+          resultRefsJson: action.resultRefs
+            ? JSON.stringify(action.resultRefs)
+            : null,
+          startedAt: "2026-06-22T00:00:00.000Z",
+          status: action.status,
+          stepId: action.stepId,
+          targetRefsJson: action.targetRefs
+            ? JSON.stringify(action.targetRefs)
+            : null,
+          updatedAt: "2026-06-22T00:00:00.000Z",
+          workflowRunId: request.workflowRunId,
+          workspaceId: request.workspaceId,
+        })),
+        blocker: null,
+        conflict: null,
+        status: "recorded",
+        workflowRun: {
+          actionLogSummaryJson: null,
+          actorId: "workspace-agent:test",
+          blockerReason: null,
+          completedAt: null,
+          createdAt: "2026-06-22T00:00:00.000Z",
+          currentStep: request.currentStep ?? "read_complete",
+          grantSummaryJson: null,
+          idempotencyKeysJson: null,
+          inputsSnapshotJson: null,
+          mutationRefsJson: null,
+          pauseReason: null,
+          phase: request.phase ?? "worker_evidence",
+          requestHash: "fnv1a64:test",
+          requestId: "workflow-request-1",
+          schemaVersion: 1,
+          slotBindingsJson: null,
+          status: request.status,
+          updatedAt: "2026-06-22T00:00:00.000Z",
+          variablesJson: null,
+          version: 2,
+          workflowId: "dependency_acceptance_smoke",
+          workflowRunId: request.workflowRunId,
+          workspaceId: request.workspaceId,
+        },
+      }),
+    ),
+    startAgentQueueWorkflow: vi.fn(
+      async (
+        request: Parameters<
+          QueueWorkflowPersistencePort["startAgentQueueWorkflow"]
+        >[0],
+      ) => ({
+        blocker: null,
+        conflict: null,
+        status: "succeeded",
+        workflowRun: {
+          actionLogSummaryJson: null,
+          actorId: "workspace-agent:test",
+          blockerReason: null,
+          completedAt: null,
+          createdAt: "2026-06-22T00:00:00.000Z",
+          currentStep: request.currentStep ?? "created",
+          grantSummaryJson: null,
+          idempotencyKeysJson: null,
+          inputsSnapshotJson: null,
+          mutationRefsJson: null,
+          pauseReason: null,
+          phase: request.phase ?? "intake",
+          requestHash: "fnv1a64:test",
+          requestId: request.requestId,
+          schemaVersion: 1,
+          slotBindingsJson: null,
+          status: "created",
+          updatedAt: "2026-06-22T00:00:00.000Z",
+          variablesJson: null,
+          version: 1,
+          workflowId: request.workflowId,
+          workflowRunId: "queue-workflow-run-1",
+          workspaceId: request.workspaceId,
+        },
+      }),
+    ),
+  };
 }
 
 function dependencyWorkflowRequest() {

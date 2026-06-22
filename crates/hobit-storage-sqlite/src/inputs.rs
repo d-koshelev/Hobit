@@ -312,6 +312,22 @@ pub struct AgentQueueWorkflowRunStatusUpdate<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkflowRunReportUpdate<'a> {
+    pub status: &'a str,
+    pub phase: Option<&'a str>,
+    pub current_step: Option<&'a str>,
+    pub pause_reason: Option<&'a str>,
+    pub blocker_reason: Option<&'a str>,
+    pub variables_json: Option<&'a str>,
+    pub slot_bindings_json: Option<&'a str>,
+    pub mutation_refs_json: Option<&'a str>,
+    pub idempotency_keys_json: Option<&'a str>,
+    pub action_log_summary_json: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NewAgentQueueWorkflowAction<'a> {
     pub action_id: &'a str,
     pub workflow_run_id: &'a str,

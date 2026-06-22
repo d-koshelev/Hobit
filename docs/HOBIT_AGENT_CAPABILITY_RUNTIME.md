@@ -254,9 +254,10 @@ paths; dependency waiting does not start downstream work.
   generic envelope path classifies and validates before any runner phase can
   run. It verifies `moduleId` through `ModuleControlSurfaceRegistry` and
   reports whether `workflowId` is unknown, declared but not executable, or
-  runtime-available by that module. For `moduleId: "queue"`, the Workspace
-  Agent controller can now pass validated supported Queue workflow requests to
-  the QueueWorkflowRunner runtime adapter.
+  runtime-available by that module. `metadata.workflowRunId` is the only typed
+  workflow-continuation id field; it is never inferred from prose. For
+  `moduleId: "queue"`, the Workspace Agent controller can now pass validated
+  supported Queue workflow requests to the QueueWorkflowRunner runtime adapter.
   Declared workflow validation can expose compact workflow metadata such as
   backing status, required capabilities, required risk classes, required grant
   modes, input-section summary, safety constraints, pause/resume notes, and
@@ -361,13 +362,20 @@ foundation for workflow-run and action-ledger records. The typed
 start/get/list/cancel/report/planResume API stores bounded validated input
 snapshots, safe grant summaries, phase/step/status, slot/variable/idempotency
 metadata, and internal action ledger rows. `queue.workflow.start` is
-idempotent by `workspaceId + requestId + requestHash`; reusable confirmation
-tokens are not persisted as grants. `queue.workflow.planResume` is a read-only
-backend planner that reconciles persisted workflow state with durable Queue
-facts and returns a typed resume plan or blocker; it does not execute runner
-steps. This persistence surface is not registered as a Workspace Agent broker
-capability, does not wire `QueueWorkflowRunner` to storage for execution, and
-does not implement resume execution.
+idempotent by `workspaceId + requestId + requestHash`; a different hash for the
+same request id is a typed conflict and blocks runner invocation. Reusable
+confirmation tokens are not persisted as grants. The Queue workflow runtime
+adapter now creates or reuses a durable workflow run before invoking supported
+read/review/finalization phases, records bounded runner reports and action
+summaries back to the workflow run/action ledgers, and includes workflow run id
+and persisted status in Workspace Agent activity/transcript output.
+`queue.workflow.planResume` is a read-only backend planner that reconciles
+persisted workflow state with durable Queue facts and returns a typed resume
+plan or blocker. When `metadata.workflowRunId` is present, the adapter calls
+the planner before execution and invokes only currently supported phases when
+the plan is ready and fresh typed grant/confirmation input is present when
+required. This persistence surface is not registered as a Workspace Agent
+broker capability and does not implement a generic public resume executor.
 
 Codex is a provider/worker implementation for explicit Direct Work paths. It
 is not the module integration architecture. WorkerProvider is the normalized

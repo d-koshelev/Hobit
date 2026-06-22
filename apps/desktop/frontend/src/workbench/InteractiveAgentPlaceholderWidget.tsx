@@ -116,6 +116,7 @@ export function InteractiveAgentPlaceholderWidget({
   queueReportActionCardRequest,
   queueTaskStatusCardRequest,
   queueValidationRunner, workspaceAgentProvider, workspaceAgentQueueBridge,
+  workspaceAgentQueueWorkflowPersistence,
   onStartFrameMove,
   title,
   workspaceId,
@@ -169,8 +170,15 @@ export function InteractiveAgentPlaceholderWidget({
       createWorkspaceAgentQueueWorkflowInvoker({
         actorId: `workspace-agent:${instance.id}`,
         workspaceAgentQueueBridge,
+        workflowPersistence: workspaceAgentQueueWorkflowPersistence,
+        workspaceId: workspaceScopeId,
       }),
-    [instance.id, workspaceAgentQueueBridge],
+    [
+      instance.id,
+      workspaceAgentQueueBridge,
+      workspaceAgentQueueWorkflowPersistence,
+      workspaceScopeId,
+    ],
   );
   const directWork = useWorkspaceAgentDirectWorkController({
     agentProvider: workspaceAgentProvider,

@@ -236,6 +236,60 @@ fn update_agent_queue_workflow_run_status_increments_version() {
 }
 
 #[test]
+fn update_agent_queue_workflow_run_report_updates_bounded_report_fields() {
+    let store = initialized_store();
+    create_workspace(&store, "workspace-1");
+    create_workflow_run(
+        &store,
+        "workspace-1",
+        "workflow-run-1",
+        "request-1",
+        "hash-1",
+        "running",
+    );
+
+    let updated = store
+        .update_agent_queue_workflow_run_report(
+            "workspace-1",
+            "workflow-run-1",
+            AgentQueueWorkflowRunReportUpdate {
+                status: "paused",
+                phase: Some("review"),
+                current_step: Some("review_ack"),
+                pause_reason: Some("waiting_for_operator"),
+                blocker_reason: None,
+                variables_json: Some(r#"{"workflowId":"dependency_acceptance_smoke"}"#),
+                slot_bindings_json: Some(r#"{"upstream":{"taskId":"task-1"}}"#),
+                mutation_refs_json: Some(r#"{"messageId":"message-1"}"#),
+                idempotency_keys_json: Some(r#"["workflow-run-1:review:create:task-1"]"#),
+                action_log_summary_json: Some(r#"{"actions":1}"#),
+                updated_at: Some("3"),
+                completed_at: None,
+            },
+        )
+        .expect("update workflow run report")
+        .expect("updated workflow run report");
+
+    assert_eq!(updated.status, "paused");
+    assert_eq!(updated.phase, "review");
+    assert_eq!(updated.current_step.as_deref(), Some("review_ack"));
+    assert_eq!(
+        updated.pause_reason.as_deref(),
+        Some("waiting_for_operator")
+    );
+    assert_eq!(
+        updated.mutation_refs_json.as_deref(),
+        Some(r#"{"messageId":"message-1"}"#)
+    );
+    assert_eq!(
+        updated.action_log_summary_json.as_deref(),
+        Some(r#"{"actions":1}"#)
+    );
+    assert_eq!(updated.version, 2);
+    assert_eq!(updated.completed_at, None);
+}
+
+#[test]
 fn workflow_action_insert_is_idempotent_for_same_key_and_refs() {
     let store = initialized_store();
     create_workspace(&store, "workspace-1");

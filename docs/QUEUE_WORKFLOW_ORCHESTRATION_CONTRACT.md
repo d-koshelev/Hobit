@@ -248,12 +248,13 @@ completion/failure ledgers. `QueueWorkflowRun.status=failed` means workflow
 execution failure and must not be interpreted as Queue task terminal failure.
 
 The public backend/Tauri/frontend workflow API surface is limited to
-start/get/list/cancel/report/planResume:
+start/get/list/cancel/report/planResume plus the narrow runner-report record
+API consumed by the Queue workflow runtime adapter:
 
-- `queue.workflow.start` creates a workflow-run record only. It is idempotent
-  for the same `workspaceId + requestId` when the stable request hash matches.
-  A different typed snapshot for the same workspace/request id is a typed
-  conflict.
+- `queue.workflow.start` creates or reuses a workflow-run record only. It is
+  idempotent for the same `workspaceId + requestId` when the stable request
+  hash matches. A different typed snapshot for the same workspace/request id is
+  a typed conflict and must block runner invocation.
 - `queue.workflow.get`, `queue.workflow.list`, and
   `queue.workflow.getReport` read backend-owned persisted workflow records and
   action ledger rows scoped to the requested workspace.
@@ -272,7 +273,18 @@ start/get/list/cancel/report/planResume:
   record worker evidence, create/ACK review messages, mark done, fail, block,
   follow up, validate, mutate Git, roll back, launch Terminal, start
   downstream work, or infer ids from frontend/session/prose.
-- `queue.workflow.resume` execution is not implemented by this contract block.
+- `queue.workflow.recordRunnerReport` records bounded runtime-adapter report
+  state and action-ledger summaries for already-supported read/review/
+  finalization runner phases. It may update only
+  `agent_queue_workflow_runs` and `agent_queue_workflow_actions`; it must not
+  mutate Queue tasks, run links, worker evidence, review messages,
+  completion/failure decisions, Queue control state, validation, Git,
+  rollback, Terminal, scheduler, or downstream worker state.
+- A separate public `queue.workflow.resume` execution command is not
+  implemented. Continuation from an explicit typed `metadata.workflowRunId`
+  uses `queue.workflow.planResume` first, then the frontend runtime adapter may
+  invoke only the already-supported safe runner phase when the plan is ready
+  and fresh typed grant/confirmation input is present when required.
 
 Persisted workflow snapshots contain only validated typed workflow inputs and
 safe bounded grant summaries. They must not contain raw prompts outside bounded
@@ -283,12 +295,15 @@ time, restart policy, max actions, and consumed action count; reusable
 `confirmationToken` values are rejected/redacted before persistence.
 
 The action ledger records backend-internal step/action idempotency metadata.
-It is not exposed as a public append-event command. This persistence foundation
-does not wire the current frontend `QueueWorkflowRunner` to storage for
-execution and does not expose workflow persistence commands as Workspace Agent
-broker capabilities. Resume planning may read durable Queue aggregate,
-run-link, evidence, review, completion, and failure facts, but it is a
-planning/reporting layer only.
+It is not exposed as a public append-event command. The QueueWorkflowRunner
+runtime adapter now creates or reuses durable workflow runs before supported
+runner invocation, persists bounded report/action summaries after the runner
+returns, and includes the workflow run id/status in Workspace Agent
+activity/transcript output. Workflow persistence commands remain typed backend
+APIs consumed by the adapter; they are not Workspace Agent broker
+capabilities. Resume planning may read durable Queue aggregate, run-link,
+evidence, review, completion, and failure facts, but the planner itself is
+still read-only and never executes steps.
 
 Resume planner statuses are typed and stable: `resume_ready`,
 `resume_read_only_ready`, `blocked_missing_task`,
@@ -315,9 +330,10 @@ orchestration lives in `BrokerContinuationRuntime`, which emits typed
 intents/effects for broker action invocation, same-thread continuation,
 protocol repair, stop, and completion. It delegates Queue bounded-autonomy
 decisions to the existing explicitly Queue-specific continuation helpers; that
-Queue policy remains transitional until a typed mutating Queue workflow runner
-is explicitly wired. BrokerInvocationRuntime and workflow-runner invocation
-from Workspace Agent remain future work.
+Queue policy remains transitional for action continuation. Valid structured
+Queue `hobit.workflow.request` envelopes can invoke the QueueWorkflowRunner
+runtime adapter for supported persisted read/review/finalization phases only.
+BrokerInvocationRuntime remains future work.
 Workspace Agent activity/log/transcript formatting is isolated in the pure
 `AgentActivityRecorder`. It consumes only events and results that provider,
 protocol, broker, and continuation code have already decided, then returns
