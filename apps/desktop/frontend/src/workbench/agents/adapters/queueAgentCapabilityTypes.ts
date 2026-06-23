@@ -41,6 +41,7 @@ import type {
 
 export const QUEUE_AGENT_CAPABILITY_IDS = [
   "queue.control.get",
+  "queue.control.setManualEnabled",
   "queue.createItem",
   "queue.createItems",
   "queue.enable",
@@ -66,6 +67,9 @@ export const QUEUE_AGENT_CAPABILITY_IDS = [
 
 export const QUEUE_ACTIVITY_EVENTS = {
   controlGet: ["hobit.agent.capability.queue.control.get.requested"],
+  controlSetManualEnabled: [
+    "hobit.agent.capability.queue.control.setManualEnabled.requested",
+  ],
   createItem: ["hobit.agent.capability.queue.createItem.requested", "queue.itemCreated"],
   createItems: ["hobit.agent.capability.queue.createItems.requested", "queue.itemCreated"],
   enable: ["hobit.agent.capability.queue.enable.requested"],
@@ -347,6 +351,12 @@ export type QueueAgentControlGetInput = {
   workspaceId?: string;
 };
 
+export type QueueAgentControlSetManualEnabledInput = {
+  expectedVersion?: number;
+  reason?: string;
+  workspaceId?: string;
+};
+
 export type QueueAgentControlGetResult = {
   backendOwned: boolean;
   blockers: string[];
@@ -361,6 +371,40 @@ export type QueueAgentControlGetResult = {
   updatedAt: string | null;
   updatedByActorId: string | null;
   version: number | null;
+  workspaceId: string | null;
+};
+
+export type QueueAgentControlSetManualEnabledResultStatus =
+  | "succeeded"
+  | "already_in_state"
+  | "invalid_input"
+  | "workspace_not_found"
+  | "version_conflict"
+  | "failed_unexpected";
+
+export type QueueAgentControlSetManualEnabledResult = {
+  backendOwned: true;
+  blockers: string[];
+  controlState: {
+    reason: string | null;
+    status: AgentQueueControlStatus;
+    updatedAt: string | null;
+    updatedByActorId: string | null;
+    version: number | null;
+  } | null;
+  didAutoRunWorkers: false;
+  didCreateRunLinks: false;
+  didInvokeWorkflowRunner: false;
+  didMutateEvidence: false;
+  didMutateFinalization: false;
+  didMutateQueueControlState: boolean;
+  didMutateQueueTasks: false;
+  didMutateReviews: false;
+  didScheduleOrAutodispatch: false;
+  didStartDownstream: false;
+  didStartWorkers: false;
+  queueEnabled: boolean;
+  resultStatus: QueueAgentControlSetManualEnabledResultStatus;
   workspaceId: string | null;
 };
 
@@ -764,6 +808,10 @@ export type QueueAgentAdapterApi = {
     input: QueueAgentControlGetInput,
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentControlGetResult>>;
+  setQueueControlManualEnabled?: (
+    input: QueueAgentControlSetManualEnabledInput,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentControlSetManualEnabledResult>>;
   enableQueue?: (
     input: QueueAgentEnableInput,
     context: QueueAgentLifecycleHandlerContext,

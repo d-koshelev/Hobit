@@ -519,6 +519,97 @@ ${JSON.stringify({
       });
   });
 
+  it("allows queue.control.setManualEnabled only under setup-capable Queue grants", () => {
+    const controlRequest = requestFor(
+      "queue.control.get",
+      {},
+      "request-control-get",
+    );
+    const controlResult = resultFor("queue.control.get", {
+      nextAction: plainNextAction("queue.control.setManualEnabled", {
+        expectedVersion: 2,
+        reason: "prepare_manual_queue_smoke",
+      }),
+      nextSuggestedCapability: "queue.control.setManualEnabled",
+      queueEnabled: false,
+      status: "disabled",
+      version: 2,
+    });
+    const setupGrantState = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-control-set-setup",
+        queueAutonomyGrant: queueAutonomyGrant("queue_acceptance_smoke"),
+      }),
+      controlRequest,
+    );
+    const noGrantState = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-control-set-no-grant",
+      }),
+      controlRequest,
+    );
+    const readOnlyState = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-control-set-read-only",
+        queueAutonomyGrant: queueAutonomyGrant("read_only"),
+      }),
+      controlRequest,
+    );
+
+    expect(
+      shouldContinueWorkspaceAgentBrokerAction({
+        request: controlRequest,
+        result: controlResult,
+        state: setupGrantState,
+      }),
+    ).toEqual({ shouldContinue: true });
+    expect(
+      decideWorkspaceAgentBrokerActionContinuation({
+        request: controlRequest,
+        result: controlResult,
+        state: noGrantState,
+      }),
+    ).toMatchObject({
+      diagnostics: {
+        capabilityId: "queue.control.setManualEnabled",
+        grantActive: false,
+        nextActionPayloadValidated: true,
+        reasonCode: "no_grant_for_risk_class",
+        riskClass: "setup",
+      },
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+    expect(
+      decideWorkspaceAgentBrokerActionContinuation({
+        request: controlRequest,
+        result: controlResult,
+        state: readOnlyState,
+      }),
+    ).toMatchObject({
+      diagnostics: {
+        capabilityId: "queue.control.setManualEnabled",
+        grantActive: true,
+        grantMode: "read_only",
+        reasonCode: "risk_class_not_allowed",
+        riskClass: "setup",
+      },
+      shouldContinue: false,
+      stopReason: "not_allowed_for_auto_continuation",
+    });
+  });
+
+  it("classifies queue.control.setManualEnabled as backend-backed setup risk", () => {
+    expect(QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.control.setManualEnabled"))
+      .toMatchObject({
+        autoContinuationSafe: true,
+        backing: "backend_backed",
+        confirmationRequirement: "recommended",
+        riskClass: "setup",
+        sideEffectLevel: "write",
+      });
+  });
+
   it("propagates Queue autonomy grant state through create-create-list continuation", () => {
     let state = createWorkspaceAgentBrokerContinuationState({
       chainId: "chain-grant-propagation",

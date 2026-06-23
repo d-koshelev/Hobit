@@ -802,8 +802,12 @@ the local executor flow visible to operators.
   Agent live smoke discovery may read live renderer-held workspace/workbench
   and widget instance state through `workspace.context.get` and
   `workbench.widgets.list`, and backend Queue control state through
-  `queue.control.get`; it must not infer ids from UI text, titles, prose,
-  order, file paths, localStorage, or transcripts.
+  `queue.control.get`. Workspace Agent may set only backend Queue control
+  state to `manual_enabled` through `queue.control.setManualEnabled`; this does
+  not start workers, dispatch a scheduler, mutate Queue tasks, create run
+  links, record evidence/reviews/finalization, invoke workflows, or launch
+  shell/Git/Terminal/validation/rollback behavior. It must not infer ids from
+  UI text, titles, prose, order, file paths, localStorage, or transcripts.
 - `docs/QUEUE_SYSTEM_ARCHITECTURE_RESET.md` - current Queue / Workspace Agent
   architecture correction note. Read before broad Queue dogfooding,
   continuation-policy, capability-contract, or responsibility-boundary cleanup.

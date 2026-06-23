@@ -119,6 +119,10 @@ backend/Tauri/frontend wrappers. `manual_enabled` is a manual/no-autodispatch
 state for future explicit typed worker-start preconditions; setting it does
 not start workers, arm Queue Autorun, run a scheduler, create run links, or
 mutate tasks.
+Workspace Agent can read this state with `queue.control.get` and set it to
+`manual_enabled` with `queue.control.setManualEnabled`; the set capability
+supports optional `expectedVersion` conflict checking and bounded `reason`, and
+it mutates only backend Queue control state.
 Worker start now has a backend-owned idempotency/control contract on the
 existing assigned-task start path for Queue workflow phases. Workflow
 context requires explicit workflow/action/task/executor/settings refs plus
@@ -186,10 +190,12 @@ follow-up, and validation decision capabilities remain blocked.
 `queue.item.startRun` requires top-level
 `confirmationToken: "operator-confirmed"` plus explicit `taskId` and
 `executorWidgetId`; `queue.importPromptPack` uses the same top-level
-confirmation token. Prose confirmation remains insufficient. Queue must be
-explicitly enabled before `queue.item.startRun`; when run-control results report
-typed `nextAction.capabilityId: "queue.enable"`, the next action is `queue.enable`,
-not `queue.item.startRun`. Backend-backed reads/review/evidence/finalization
+confirmation token. Prose confirmation remains insufficient. Backend Queue
+control must be `manual_enabled` before `queue.item.startRun`. New live smoke
+setup uses `queue.control.get` followed by
+`queue.control.setManualEnabled`; older typed `nextAction.capabilityId:
+"queue.enable"` payloads remain a compatibility path before start.
+Backend-backed reads/review/evidence/finalization
 commands retain explicit id requirements, and remaining transitional commands
 remain conservative and policy-restricted. This hardening does not move Queue
 truth into frontend UI, redesign the backend aggregate, migrate Queue UI, add
@@ -1242,17 +1248,18 @@ Implemented as focused frontend smoke/regression coverage.
 The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
-- Queue live smoke execution from Workspace Agent. The read-only discovery
+- Queue live smoke execution from Workspace Agent. The discovery/control
   foundation is implemented: `workspace.context.get` reads current
   workspace/workbench/root context from live renderer state,
   `workbench.widgets.list` lists bounded widget instances and discovers Agent
-  Executor widgets only by `definitionId === "agent-run"`, and
+  Executor widgets only by `definitionId === "agent-run"`,
   `queue.control.get` reads backend Queue control state through the Queue
-  control bridge. Actual `dependency_acceptance_smoke` /
-  `dependency_failure_smoke` invocation from Workspace Agent, Queue control
-  set/manual-enable, workflow report/list/planResume/action-log reads, and
-  live smoke recovery/debug capabilities remain future blocks. Codex shell
-  still cannot perform live smoke without the live Tauri renderer/IPC context.
+  control bridge, and `queue.control.setManualEnabled` sets only backend Queue
+  control state to `manual_enabled`. Actual `dependency_acceptance_smoke` /
+  `dependency_failure_smoke` invocation from Workspace Agent, workflow
+  report/list/planResume/action-log reads, and live smoke recovery/debug
+  capabilities remain future blocks. Codex shell still cannot perform live
+  smoke without the live Tauri renderer/IPC context.
 - durable backend Smart Queue persistence;
 - Queue workflow runner execution beyond the full typed
   `dependency_acceptance_smoke` and `dependency_failure_smoke` paths and the

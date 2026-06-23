@@ -52,6 +52,8 @@ import {
   type WorkspaceAgentQueueBridge,
   type WorkspaceAgentQueueControlState,
   type WorkspaceAgentQueueEnableResult,
+  type WorkspaceAgentQueueSetManualEnabledRequest,
+  type WorkspaceAgentQueueSetManualEnabledResult,
   type WorkspaceAgentQueueStartRunRequest,
   type WorkspaceAgentQueueStartRunResult,
 } from "../workspaceAgentQueueBridge";
@@ -184,6 +186,18 @@ export function useWorkspaceQueueApi({
         latestBridgeRef.current?.getAvailableExecutorTargets?.() ?? [],
       getQueueControlState: () =>
         latestBridgeRef.current?.getQueueControlState?.() ?? null,
+      setQueueControlManualEnabled: (request) =>
+        latestBridgeRef.current?.setQueueControlManualEnabled?.(request) ??
+        Promise.resolve(
+          queueSetManualEnabledResult({
+            blockerReasons: ["Queue manual control controls are unavailable."],
+            message: "Queue manual control controls are unavailable.",
+            ok: false,
+            queueEnabled: false,
+            status: "unavailable",
+            workspaceId: null,
+          }),
+        ),
       getSnapshot: (request) =>
         requiredBridge(latestBridgeRef).getSnapshot(request),
       getItemAggregate: (request) =>
@@ -424,6 +438,14 @@ export function useWorkspaceQueueApi({
       getQueueControlState: () =>
         queueControlStateFromBackend(backendQueueControlState) ??
         queueControlStateFromController(controller, workspaceId),
+      setQueueControlManualEnabled: (request) =>
+        setQueueControlManualEnabledForWorkspaceAgent({
+          backendQueueControlState,
+          readBackendQueueControlState,
+          request,
+          setBackendQueueControlState,
+          workspaceId,
+        }),
       startQueueLinkedRun: (request) =>
         startQueueLinkedRunForWorkspaceAgent({
           actions,
@@ -802,6 +824,142 @@ async function enableQueueForWorkspaceAgent({
   );
 }
 
+async function setQueueControlManualEnabledForWorkspaceAgent({
+  backendQueueControlState,
+  readBackendQueueControlState,
+  request,
+  setBackendQueueControlState,
+  workspaceId,
+}: {
+  backendQueueControlState: BackendAgentQueueControlState | null;
+  readBackendQueueControlState: () => Promise<BackendAgentQueueControlState | null>;
+  request: WorkspaceAgentQueueSetManualEnabledRequest;
+  setBackendQueueControlState: (
+    controlState: BackendAgentQueueControlState | null,
+  ) => void;
+  workspaceId: string;
+}): Promise<WorkspaceAgentQueueSetManualEnabledResult> {
+  const requestedWorkspaceId = request.workspaceId?.trim() ?? "";
+  if (requestedWorkspaceId && requestedWorkspaceId !== workspaceId) {
+    return queueSetManualEnabledResult({
+      blocker: {
+        blockerCode: "workspace_mismatch",
+        blockerMessage:
+          "Queue control workspaceId does not match current workspace.",
+      },
+      blockerReasons: [
+        "Queue control workspaceId does not match current workspace.",
+      ],
+      controlState: queueControlStateFromBackend(backendQueueControlState),
+      message: "Queue control workspaceId does not match current workspace.",
+      ok: false,
+      queueEnabled: backendQueueControlState?.status === "manual_enabled",
+      status: "invalid_input",
+      workspaceId,
+    });
+  }
+
+  if (!isTauriDesktopRuntime()) {
+    return queueSetManualEnabledResult({
+      blocker: {
+        blockerCode: "backend_control_unavailable",
+        blockerMessage:
+          "Queue manual control requires the desktop backend Queue control API.",
+      },
+      blockerReasons: [
+        "Queue manual control requires the desktop backend Queue control API.",
+      ],
+      message:
+        "Queue manual control requires the desktop backend Queue control API.",
+      ok: false,
+      queueEnabled: false,
+      status: "unavailable",
+      workspaceId,
+    });
+  }
+
+  if (request.dryRun) {
+    try {
+      const controlState =
+        backendQueueControlState ?? (await readBackendQueueControlState());
+      const mappedState = queueControlStateFromBackend(controlState);
+      return queueSetManualEnabledResult({
+        controlState: mappedState,
+        message:
+          "Queue manual control preview prepared. No backend Queue control mutation, task execution, worker start, scheduler dispatch, or workflow invocation was requested.",
+        ok: true,
+        queueEnabled: mappedState?.queueEnabled ?? false,
+        status: "preview",
+        workspaceId: mappedState?.workspaceId ?? workspaceId,
+      });
+    } catch (error) {
+      const message = errorToMessage(
+        error,
+        "Queue backend control state is unavailable.",
+      );
+      return queueSetManualEnabledResult({
+        blocker: {
+          blockerCode: "backend_control_unavailable",
+          blockerMessage: message,
+        },
+        blockerReasons: [message],
+        message,
+        ok: false,
+        queueEnabled: false,
+        status: "unavailable",
+        workspaceId,
+      });
+    }
+  }
+
+  try {
+    const result = await setAgentQueueControlState({
+      actorId: request.actorId?.trim() || "workspace-agent",
+      expectedVersion: request.expectedVersion ?? null,
+      reason: request.reason?.trim() || null,
+      status: "manual_enabled",
+      workspaceId,
+    });
+    const controlState = result.controlState;
+    setBackendQueueControlState(controlState);
+    const mappedState = queueControlStateFromBackend(controlState);
+    const status = queueControlSetManualEnabledStatus(result.status);
+    const ok = status === "succeeded" || status === "already_in_state";
+    const blockerMessage =
+      result.blocker?.blockerMessage ??
+      "Queue manual control state could not be set.";
+
+    return queueSetManualEnabledResult({
+      blocker: result.blocker,
+      blockerReasons: ok ? [] : [blockerMessage],
+      controlState: mappedState,
+      didMutateQueueControlState: status === "succeeded",
+      message: queueControlSetManualEnabledMessage(status, blockerMessage),
+      ok,
+      queueEnabled: mappedState?.queueEnabled ?? false,
+      status,
+      workspaceId: mappedState?.workspaceId ?? workspaceId,
+    });
+  } catch (error) {
+    const message = errorToMessage(
+      error,
+      "Queue manual control state could not be set.",
+    );
+    return queueSetManualEnabledResult({
+      blocker: {
+        blockerCode: "failed_unexpected",
+        blockerMessage: message,
+      },
+      blockerReasons: [message],
+      message,
+      ok: false,
+      queueEnabled: false,
+      status: "failed_unexpected",
+      workspaceId,
+    });
+  }
+}
+
 async function startQueueLinkedRunForWorkspaceAgent({
   actions,
   controller,
@@ -1058,6 +1216,86 @@ function queueEnableResult({
     status,
     version,
   };
+}
+
+function queueSetManualEnabledResult({
+  blocker,
+  blockerReasons = [],
+  controlState = null,
+  didMutateQueueControlState = false,
+  message,
+  ok,
+  queueEnabled,
+  status,
+  workspaceId,
+}: {
+  blocker?: WorkspaceAgentQueueSetManualEnabledResult["blocker"];
+  blockerReasons?: string[];
+  controlState?: WorkspaceAgentQueueControlState | null;
+  didMutateQueueControlState?: boolean;
+  message: string;
+  ok: boolean;
+  queueEnabled: boolean;
+  status: WorkspaceAgentQueueSetManualEnabledResult["status"];
+  workspaceId: string | null;
+}): WorkspaceAgentQueueSetManualEnabledResult {
+  return {
+    backendOwned: true,
+    blocker,
+    blockerReasons,
+    controlState,
+    didAutoRunWorkers: false,
+    didCreateRunLinks: false,
+    didInvokeWorkflowRunner: false,
+    didMutateEvidence: false,
+    didMutateFinalization: false,
+    didMutateQueueControlState,
+    didMutateQueueTasks: false,
+    didMutateReviews: false,
+    didScheduleOrAutodispatch: false,
+    didStartDownstream: false,
+    didStartWorkers: false,
+    message,
+    ok,
+    queueEnabled,
+    status,
+    workspaceId,
+  };
+}
+
+function queueControlSetManualEnabledStatus(
+  status: string,
+): Exclude<WorkspaceAgentQueueSetManualEnabledResult["status"], "preview" | "unavailable"> {
+  switch (status) {
+    case "succeeded":
+    case "already_in_state":
+    case "invalid_input":
+    case "workspace_not_found":
+    case "version_conflict":
+      return status;
+    default:
+      return "failed_unexpected";
+  }
+}
+
+function queueControlSetManualEnabledMessage(
+  status: WorkspaceAgentQueueSetManualEnabledResult["status"],
+  fallbackMessage: string,
+) {
+  switch (status) {
+    case "succeeded":
+      return "Queue manual control set to manual_enabled. No task execution, Queue Autorun, scheduler dispatch, shell command, Terminal launch, Git action, validation, rollback, worker start, downstream start, workflow invocation, evidence/review/finalization mutation, run-link creation, or Queue task mutation was started.";
+    case "already_in_state":
+      return "Queue manual control was already manual_enabled. No task execution, Queue Autorun, scheduler dispatch, worker start, downstream start, workflow invocation, evidence/review/finalization mutation, run-link creation, or Queue task mutation was started.";
+    case "invalid_input":
+      return fallbackMessage || "Queue manual control input was invalid.";
+    case "workspace_not_found":
+      return fallbackMessage || "Workspace was not found.";
+    case "version_conflict":
+      return fallbackMessage || "Queue control state version conflict.";
+    default:
+      return fallbackMessage || "Queue manual control state could not be set.";
+  }
 }
 
 function queueStartRunResult({

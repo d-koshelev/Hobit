@@ -32,6 +32,8 @@ import {
   type QueueAgentCapabilityStatus,
   type QueueAgentControlGetInput,
   type QueueAgentControlGetResult,
+  type QueueAgentControlSetManualEnabledInput,
+  type QueueAgentControlSetManualEnabledResult,
   type QueueAgentCreateItemsRequest,
   type QueueAgentCreateItemsResult,
   type QueueAgentCreatedItem,
@@ -98,6 +100,8 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
     createItems: (request) => createQueueItemsThroughBridge(bridge, request),
     getQueueControlState: (input, context) =>
       getQueueControlStateThroughBridge(bridge, input, context),
+    setQueueControlManualEnabled: (input, context) =>
+      setQueueControlManualEnabledThroughBridge(bridge, input, context),
     enableQueue: (input, context) =>
       enableQueueThroughBridge(bridge, input, context),
     dogfoodLifecycle: dogfoodLifecycle
@@ -310,6 +314,80 @@ function getQueueControlStateThroughBridge(
       workspaceId: requestedWorkspaceId ?? stateWorkspaceId,
     },
     status: "succeeded",
+  };
+}
+
+async function setQueueControlManualEnabledThroughBridge(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: QueueAgentControlSetManualEnabledInput,
+  context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentControlSetManualEnabledResult>> {
+  if (!bridge?.setQueueControlManualEnabled) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.controlSetManualEnabled,
+      "Queue manual control API is unavailable.",
+    );
+  }
+
+  const result = await bridge.setQueueControlManualEnabled({
+    actorId: context.agentId || "workspace-agent",
+    dryRun: context.dryRun,
+    expectedVersion: input.expectedVersion ?? null,
+    reason: input.reason ?? null,
+    workspaceId: input.workspaceId ?? null,
+  });
+
+  if (result.status === "unavailable") {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.controlSetManualEnabled,
+      result.message,
+    );
+  }
+
+  const controlState = result.controlState;
+  const resultStatus =
+    result.status === "preview"
+      ? controlState?.status === "manual_enabled"
+        ? "already_in_state"
+        : "succeeded"
+      : queueControlSetManualEnabledResultStatus(result.status);
+  const output: QueueAgentControlSetManualEnabledResult = {
+    backendOwned: true,
+    blockers: result.blockerReasons ?? [],
+    controlState: controlState
+      ? {
+          reason: boundedText(controlState.reason),
+          status:
+            controlState.status ??
+            (controlState.queueEnabled ? "manual_enabled" : "disabled"),
+          updatedAt: controlState.updatedAt ?? null,
+          updatedByActorId: controlState.updatedByActorId ?? null,
+          version: controlState.version ?? null,
+        }
+      : null,
+    didAutoRunWorkers: false,
+    didCreateRunLinks: false,
+    didInvokeWorkflowRunner: false,
+    didMutateEvidence: false,
+    didMutateFinalization: false,
+    didMutateQueueControlState: result.didMutateQueueControlState,
+    didMutateQueueTasks: false,
+    didMutateReviews: false,
+    didScheduleOrAutodispatch: false,
+    didStartDownstream: false,
+    didStartWorkers: false,
+    queueEnabled: result.queueEnabled,
+    resultStatus,
+    workspaceId: result.workspaceId ?? controlState?.workspaceId ?? null,
+  };
+
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.controlSetManualEnabled],
+    message: result.message,
+    output,
+    reasonCode: queueControlSetManualEnabledReasonCode(result.status),
+    reasons: result.ok ? [] : result.blockerReasons,
+    status: queueControlSetManualEnabledBrokerStatus(result.status),
   };
 }
 
@@ -3328,6 +3406,59 @@ function aggregateReadUnavailableResult<TOutput>(
     reasons: [message],
     status: "unavailable",
   };
+}
+
+function queueControlSetManualEnabledResultStatus(
+  status: string,
+): QueueAgentControlSetManualEnabledResult["resultStatus"] {
+  switch (status) {
+    case "succeeded":
+    case "already_in_state":
+    case "invalid_input":
+    case "workspace_not_found":
+    case "version_conflict":
+      return status;
+    default:
+      return "failed_unexpected";
+  }
+}
+
+function queueControlSetManualEnabledBrokerStatus(
+  status: string,
+): QueueAgentCapabilityStatus {
+  switch (status) {
+    case "preview":
+    case "succeeded":
+      return "succeeded";
+    case "already_in_state":
+      return "already_exists";
+    case "invalid_input":
+      return "invalid_input";
+    case "workspace_not_found":
+    case "version_conflict":
+      return "precondition_failed";
+    case "unavailable":
+      return "unavailable";
+    default:
+      return "failed_unexpected";
+  }
+}
+
+function queueControlSetManualEnabledReasonCode(status: string) {
+  switch (status) {
+    case "invalid_input":
+      return "invalid_payload";
+    case "workspace_not_found":
+      return "workspace_not_found";
+    case "version_conflict":
+      return "version_conflict";
+    case "unavailable":
+      return "capability_unavailable";
+    case "failed_unexpected":
+      return "failed_unexpected";
+    default:
+      return undefined;
+  }
 }
 
 function boundedItemLimit(limit: number | undefined) {

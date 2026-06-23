@@ -325,6 +325,12 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain(
       '"capabilityId":"queue.item.promoteDraft"',
     );
+    expect(instructionBlock).toContain(
+      '"capabilityId":"queue.control.setManualEnabled"',
+    );
+    expect(instructionBlock).toContain(
+      "queue.control.get, then queue.control.setManualEnabled",
+    );
     expect(instructionBlock).toContain('"capabilityId":"queue.enable"');
     expect(instructionBlock).toContain(
       '"capabilityId":"queue.item.startRun"',
@@ -652,6 +658,7 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
 
     expect(queueCapabilities).toEqual([
       "queue.control.get",
+      "queue.control.setManualEnabled",
       "queue.coordinator.addFollowUpPrompt",
       "queue.coordinator.approveValidation",
       "queue.createItem",
@@ -870,10 +877,19 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       "queue.item.updateRunSettings",
     );
     const promote = requiredCapability(registry, "queue.item.promoteDraft");
+    const setManualEnabled = requiredCapability(
+      registry,
+      "queue.control.setManualEnabled",
+    );
     const enable = requiredCapability(registry, "queue.enable");
     const start = requiredCapability(registry, "queue.item.startRun");
 
     expect(list.inputSchema?.acceptedFields).toEqual(["limit", "taskId"]);
+    expect(setManualEnabled.inputSchema?.acceptedFields).toEqual([
+      "workspaceId",
+      "expectedVersion",
+      "reason",
+    ]);
     expect(settings.inputSchema?.acceptedFields).toEqual([
       "taskId",
       "codexExecutable",
@@ -882,6 +898,11 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       "approvalPolicy",
     ]);
     expect(promote.inputSchema?.acceptedFields).toEqual(["taskId"]);
+    expect(setManualEnabled).toMatchObject({
+      confirmationRequirement: "recommended",
+      sideEffectLevel: "write",
+      supportsDryRun: true,
+    });
     expect(enable.inputSchema?.acceptedFields).toEqual([]);
     expect(start.inputSchema?.acceptedFields).toEqual([
       "taskId",
@@ -909,7 +930,14 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       type: "hobit.action.request",
     });
 
-    for (const capability of [list, settings, promote, enable, start]) {
+    for (const capability of [
+      list,
+      setManualEnabled,
+      settings,
+      promote,
+      enable,
+      start,
+    ]) {
       const serializedExample = JSON.stringify(
         capability.examples?.[0]?.exampleActionRequest,
       );

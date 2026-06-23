@@ -42,7 +42,7 @@ const COMMON_TRANSITIONAL_LIMITATIONS = [
   "Dependency acceptance/failure smoke workflows validate typed runSettings, task slots, dependency slot references, grant modes, and safety constraints.",
   "Review acceptance and terminal failure workflow input validation remains deferred until their typed runner/input contracts are narrowed.",
   "QueueWorkflowRunner helpers require explicit existing task/run/evidence/message ids, typed finalization confirmation, and review ACK/precondition evidence; they do not infer ids from titles, prose, UI order, or file paths.",
-  "No task creation, worker start, worker evidence recording, validation, Git, rollback, Terminal, downstream auto-start, scheduler behavior, block, follow-up, or validation decision is triggered by workflow metadata or QueueWorkflowRunner runtime integration.",
+  "No worker start, task creation, worker evidence recording, validation, Git, rollback, Terminal, downstream auto-start, scheduler behavior, block, follow-up, or validation decision is triggered by workflow metadata or QueueWorkflowRunner runtime integration.",
 ] as const;
 
 const PLANNED_RESUME_SUPPORT = {
@@ -63,6 +63,7 @@ export const QUEUE_MODULE_WORKFLOWS: readonly QueueModuleWorkflowMetadata[] = [
       "queue.createItems",
       "queue.item.updateRunSettings",
       "queue.item.promoteDraft",
+      "queue.control.setManualEnabled",
       "queue.enable",
       "queue.item.startRun",
       "queue.lifecycle.agentFinished",
@@ -108,6 +109,7 @@ export const QUEUE_MODULE_WORKFLOWS: readonly QueueModuleWorkflowMetadata[] = [
       "queue.createItems",
       "queue.item.updateRunSettings",
       "queue.item.promoteDraft",
+      "queue.control.setManualEnabled",
       "queue.enable",
       "queue.item.startRun",
       "queue.lifecycle.agentFinished",

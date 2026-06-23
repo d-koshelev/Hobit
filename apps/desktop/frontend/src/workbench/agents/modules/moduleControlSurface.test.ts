@@ -40,6 +40,8 @@ import {
 } from "../index";
 
 const EXPECTED_BACKEND_BACKED_QUEUE_CAPABILITIES = [
+  "queue.control.get",
+  "queue.control.setManualEnabled",
   "queue.items.list",
   "queue.lifecycle.get",
   "queue.lifecycle.agentFinished",

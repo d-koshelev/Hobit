@@ -251,6 +251,26 @@ const QUEUE_CONTROL_GET_SCHEMA: HobitAgentCapabilityInputSchema = {
   shape: '{"workspaceId":"string optional exact current workspace id"}',
 };
 
+const QUEUE_CONTROL_SET_MANUAL_ENABLED_SCHEMA: HobitAgentCapabilityInputSchema = {
+  acceptedFields: ["workspaceId", "expectedVersion", "reason"],
+  fieldDescriptions: {
+    expectedVersion:
+      "Optional exact backend Queue control state version. If supplied, mismatches return version_conflict.",
+    reason:
+      "Optional bounded reason string. This is stored only as Queue control metadata.",
+    workspaceId:
+      "Optional explicit workspace id. If supplied, it must match the current live Workspace context.",
+  },
+  invalidInputGuidance: [
+    "Use queue.control.get before this action when version-aware smoke setup is needed.",
+    "Do not supply actorId, task ids, workflow ids, executor ids, run ids, confirmationToken, prose confirmation, UI text, file paths, transcript text, or task titles.",
+    "This action sets backend Queue control state to manual_enabled only. It never starts workers, dispatches a scheduler, starts Queue Autorun, creates run links, mutates Queue tasks, records evidence, creates or ACKs reviews, finalizes tasks, invokes workflows, launches Terminal/shell/Git/validation/rollback, or starts downstream work.",
+  ],
+  requiredFields: [],
+  shape:
+    '{"workspaceId":"string optional exact current workspace id","expectedVersion":"number optional non-negative integer","reason":"string optional max 240 chars"}',
+};
+
 const QUEUE_UPDATE_RUN_SETTINGS_SCHEMA: HobitAgentCapabilityInputSchema = {
   acceptedFields: [
     "taskId",
@@ -302,8 +322,9 @@ const QUEUE_ENABLE_SCHEMA: HobitAgentCapabilityInputSchema = {
   fieldDescriptions: {},
   invalidInputGuidance: [
     "Use an empty input object.",
+    "Compatibility path only. New live Queue smoke setup should use queue.control.get followed by queue.control.setManualEnabled.",
     "This action enables Queue scheduling state only; it does not create tasks, update readiness, start Queue Autorun, or start Direct Work.",
-    "When a Queue capability result says nextSuggestedCapability is queue.enable, call this capability explicitly before queue.item.startRun.",
+    "When an older Queue capability result says nextSuggestedCapability is queue.enable, this capability remains available for compatibility before queue.item.startRun.",
   ],
   requiredFields: [],
   shape: "{}",
@@ -326,7 +347,7 @@ const QUEUE_START_RUN_SCHEMA: HobitAgentCapabilityInputSchema = {
     "Do not infer confirmation from prose such as I confirm.",
     "Do not infer taskId or executorWidgetId from task title, prompt text, file paths, final message, or natural-language content.",
     "Use queue.items.list first when ids are missing.",
-    "Queue must already be enabled. If a prior result says nextSuggestedCapability is queue.enable, call queue.enable first.",
+    "Queue control must already be manual_enabled. New live smoke setup should call queue.control.get then queue.control.setManualEnabled; older queue.enable nextActions remain compatibility-only.",
     "This action starts exactly one explicit Queue-linked Direct Work run and does not run validation, Git, rollback, Terminal, Queue Autorun, or dependent tasks.",
   ],
   requiredFields: ["taskId", "executorWidgetId"],
@@ -348,9 +369,30 @@ const QUEUE_RUN_CONTROL_EXAMPLES: Record<string, HobitAgentCapabilityExample[]> 
       exampleInput: {},
     },
   ],
+  "queue.control.setManualEnabled": [
+    {
+      description:
+        "Set backend Queue control state to manual_enabled without starting workers or scheduler dispatch.",
+      exampleActionRequest: {
+        capabilityId: "queue.control.setManualEnabled",
+        dryRun: false,
+        input: {
+          expectedVersion: 2,
+          reason: "prepare_manual_queue_smoke",
+        },
+        requestId: "queue-control-set-manual-enabled-1",
+        type: "hobit.action.request",
+      },
+      exampleInput: {
+        expectedVersion: 2,
+        reason: "prepare_manual_queue_smoke",
+      },
+    },
+  ],
   "queue.enable": [
     {
-      description: "Enable Queue scheduling state without starting a task.",
+      description:
+        "Compatibility path for older Queue enable nextActions without starting a task.",
       exampleActionRequest: {
         capabilityId: "queue.enable",
         dryRun: false,
@@ -546,6 +588,50 @@ export const HOBIT_AGENT_INITIAL_CAPABILITIES: HobitAgentCapability[] = [
     supportsDryRun: true,
     supportsSelfTest: true,
     title: "Get Queue Control",
+  },
+  {
+    allowedAgentRoles: ["workspace_agent", "test_harness"],
+    auditEventNames: [
+      "hobit.agent.capability.queue.control.setManualEnabled.requested",
+    ],
+    availability: { status: "available" },
+    confirmationRequirement: "recommended",
+    defaultForProductActions: true,
+    description:
+      "Set backend-owned Queue control state to manual_enabled through the typed Queue control bridge without starting workers or scheduler dispatch.",
+    forbiddenSideEffects: [
+      "queue_item_create",
+      "queue_item_update",
+      "queue_task_mutation",
+      "run_link_create",
+      "worker_start",
+      "scheduler_dispatch",
+      "queue_autorun",
+      "downstream_start",
+      "workflow_invocation",
+      "evidence_mutation",
+      "review_mutation",
+      "finalization_mutation",
+      "codex_run",
+      "shell_command",
+      "terminal_launch",
+      "git_mutation",
+      "validation_execution",
+      "rollback_execution",
+    ],
+    id: "queue.control.setManualEnabled",
+    inputSchemaDescription:
+      "Optional exact workspaceId, expectedVersion, and bounded reason. No ids, actorId, or confirmation/prose fields are accepted.",
+    inputSchema: QUEUE_CONTROL_SET_MANUAL_ENABLED_SCHEMA,
+    examples: QUEUE_RUN_CONTROL_EXAMPLES["queue.control.setManualEnabled"],
+    outputSchemaDescription:
+      "Workspace id, resultStatus succeeded/already_in_state/invalid_input/workspace_not_found/version_conflict/failed_unexpected, bounded controlState, and explicit no-worker/no-scheduler/no-task/no-evidence/no-review/no-finalization/no-workflow flags.",
+    ownerSurface: "Agent Queue",
+    restricted: false,
+    sideEffectLevel: "write",
+    supportsDryRun: true,
+    supportsSelfTest: true,
+    title: "Set Queue Manual Control",
   },
   {
     allowedAgentRoles: ["workspace_agent", "test_harness"],

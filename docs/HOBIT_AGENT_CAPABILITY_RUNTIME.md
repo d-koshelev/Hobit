@@ -608,10 +608,11 @@ with the returned upstream task id.
 top-level `confirmationToken: "operator-confirmed"` after operator
 confirmation; prose such as "I confirm" is insufficient and is not inferred.
 `queue.item.startRun` also requires explicit `taskId` and `executorWidgetId`
-in `input`. It also requires Queue to be enabled already; when a Queue
-capability result returns a typed `nextAction` for `queue.enable`, the model
-must use that exact payload before `queue.item.startRun`. A legacy
-`nextSuggestedCapability` value alone is informational and not executable.
+in `input`. It also requires backend Queue control to be `manual_enabled`
+already. New live smoke setup uses `queue.control.get` followed by
+`queue.control.setManualEnabled` when needed. Older typed `nextAction` payloads
+for `queue.enable` remain a compatibility path before `queue.item.startRun`,
+but `nextSuggestedCapability` alone is informational and not executable.
 
 Typed-capability action mode now also has an explicit terminal answer marker:
 
@@ -719,6 +720,14 @@ rollback, validation execution, worker start, or Queue mutation. Codex shell
 still cannot run live Queue smoke by itself because it has no live Tauri
 renderer/IPC context.
 
+Workspace Agent can also set backend Queue control to `manual_enabled` through
+the typed `queue.control.setManualEnabled` broker action. This is a setup
+capability, not a read, and it follows the Queue setup grant/policy path. It
+mutates only backend Queue control state; it does not start workers, arm or
+dispatch a scheduler, create run links, mutate Queue tasks, record evidence,
+create/ACK reviews, finalize tasks, invoke workflows, launch shell/Terminal,
+run Git/validation/rollback, or start downstream work.
+
 Codex and shell capabilities remain restricted execute capabilities. They are
 not default Hobit app-action paths, and the broker MVP blocks restricted
 execute invocation unless a future explicit policy/adaptor slice deliberately
@@ -744,6 +753,7 @@ Supported Queue capabilities:
 - `queue.importPromptPack`
 - `queue.selfTest`
 - `queue.control.get`
+- `queue.control.setManualEnabled`
 - `queue.items.list`
 - `queue.item.updateRunSettings`
 - `queue.item.promoteDraft`
@@ -1162,6 +1172,12 @@ Current honest foundation capabilities:
   Queue control bridge; reports `disabled` or `manual_enabled`, version, and
   backend metadata when available; it does not enable Queue, start workers,
   start Queue Autorun, create tasks, or start Direct Work.
+- `queue.control.setManualEnabled`: setup/write Queue control action through
+  the existing backend/Tauri Queue control API; sets only backend Queue control
+  state to `manual_enabled`, supports optional `expectedVersion` conflict
+  checking and bounded `reason`, and does not start workers, schedule/dispatch,
+  mutate Queue tasks, create run links, record evidence/reviews/finalization,
+  invoke workflows, or launch shell/Git/Terminal/validation/rollback behavior.
 - `workspaceAgent.selfTest`: safe Workspace Agent capability self-test surface.
 - `codex.runTask`: restricted execute capability for explicit Codex Direct
   Work; not a product-action default.

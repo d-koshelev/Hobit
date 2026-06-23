@@ -54,7 +54,7 @@ export function createCapabilityInstructionBlock(
     "Queue item creation should use queue.createItems.",
     "Prompt-pack flows use queue.preparePromptPackPreview or queue.importPromptPack.",
     "Queue reads use backend aggregates.",
-    'Live Queue smoke discovery: workspace.context.get, workbench.widgets.list definitionIdFilter="agent-run", queue.control.get; never agent.status.read.',
+    'Queue smoke setup: workspace.context.get, workbench.widgets.list, queue.control.get->queue.control.setManualEnabled; never agent.status.read.',
     ...queueCreateInstructionLines,
     ...queueRunControlInstructionLines,
     ...queueLifecycleInstructionLines,
@@ -198,6 +198,7 @@ function createQueueRunControlCapabilityInstructionLines(
     "workspace.context.get",
     "workbench.widgets.list",
     "queue.control.get",
+    "queue.control.setManualEnabled",
     "queue.items.list",
     "queue.item.updateRunSettings",
     "queue.item.promoteDraft",
@@ -217,15 +218,16 @@ function createQueueRunControlCapabilityInstructionLines(
   }
 
   const exampleIds = runControlCapabilities
+    .filter((capability) => capability.id.startsWith("queue."))
     .map((capability) => `{"capabilityId":"${capability.id}"}`)
     .join("; ");
 
   return [
-    "Live Queue smoke discovery uses read-only context/widgets/control capabilities only.",
-    "Queue run-control is typed only; never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose, titles, prompts, paths, final messages, or source text.",
+    "Queue run-control typed only; never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose/titles/prompts/paths/final messages/source.",
+    "Prepare smoke with queue.control.get, then queue.control.setManualEnabled; queue.enable is compat-only.",
     `Run settings enums: sandbox=${QUEUE_RUN_SANDBOX_VALUES.join("|")}; approvalPolicy=${QUEUE_RUN_APPROVAL_POLICY_VALUES.join("|")}.`,
-    `Run-control fields: control(workspaceId?); list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({}); start(input.taskId,input.executorWidgetId,input.queueId?, top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}").`,
-    "Use queue.items.list when ids are missing; settings/promote/enable do not start; start requires confirmation and no codex.runTask fallback.",
+    `Run-control fields: get(workspaceId?); setManualEnabled(workspaceId?,expectedVersion?,reason?); list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({} compat); start(taskId,executorWidgetId,queueId?, top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}").`,
+    "Use queue.items.list for missing ids; setup does not start; start needs confirmation; no codex.runTask fallback.",
     exampleIds ? `Run-control envelope ids: ${exampleIds}.` : null,
   ].filter((line): line is string => Boolean(line));
 }

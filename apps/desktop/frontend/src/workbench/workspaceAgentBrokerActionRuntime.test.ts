@@ -21,7 +21,10 @@ import {
   QUEUE_MODULE_WORKFLOWS,
   type QueueWorkflowPersistencePort,
 } from "./agents/modules";
-import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
+import type {
+  WorkspaceAgentQueueBridge,
+  WorkspaceAgentQueueSetManualEnabledResult,
+} from "./workspaceAgentQueueBridge";
 import type {
   AgentQueueItemAggregate,
   AgentQueueReviewCreateMessageResult,
@@ -588,6 +591,9 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
   });
 
   it("handles live context discovery reads without using agent.status.read", async () => {
+    const setQueueControlManualEnabled = vi.fn(async () =>
+      setManualEnabledResult({ status: "succeeded" }),
+    );
     const invoker = createWorkspaceAgentHobitActionInvoker({
       workspaceAgentLiveContext: {
         currentRuntimeMode: "test_renderer",
@@ -617,6 +623,7 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
           version: 2,
           workspaceId: "workspace-1",
         }),
+        setQueueControlManualEnabled,
       }),
     });
 
@@ -675,6 +682,39 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
       status: "disabled",
       version: 2,
     });
+
+    const setManualEnabled = await invoker(
+      createActionRequest({
+        agentRoleId: "workspace_agent",
+        capabilityId: "queue.control.setManualEnabled",
+        input: {
+          expectedVersion: 2,
+          reason: "prepare_manual_queue_smoke",
+        },
+        requestId: "runtime-queue-control-set-manual-enabled-1",
+      }),
+    );
+    expect(setManualEnabled.status).toBe("succeeded");
+    expect(setManualEnabled.result.output).toMatchObject({
+      didCreateRunLinks: false,
+      didInvokeWorkflowRunner: false,
+      didMutateEvidence: false,
+      didMutateFinalization: false,
+      didMutateQueueTasks: false,
+      didMutateReviews: false,
+      didScheduleOrAutodispatch: false,
+      didStartDownstream: false,
+      didStartWorkers: false,
+      resultStatus: "succeeded",
+    });
+    expect(setQueueControlManualEnabled).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dryRun: false,
+        expectedVersion: 2,
+        reason: "prepare_manual_queue_smoke",
+      }),
+    );
+    expect(setQueueControlManualEnabled).toHaveBeenCalledTimes(1);
 
     const statusRead = await invoker(
       createActionRequest({
@@ -929,6 +969,44 @@ function snapshotItem(
     workspaceId: "workspace_1",
     ...overrides,
   } as QueueWidgetItemSnapshot;
+}
+
+function setManualEnabledResult(
+  overrides: Partial<WorkspaceAgentQueueSetManualEnabledResult> = {},
+): WorkspaceAgentQueueSetManualEnabledResult {
+  const controlState = overrides.controlState ?? {
+    backendOwned: true,
+    queueEnabled: true,
+    reason: "prepare_manual_queue_smoke",
+    status: "manual_enabled" as const,
+    updatedAt: "2026-06-23T12:00:00.000Z",
+    updatedByActorId: "workspace-agent:test",
+    version: 3,
+    workspaceId: "workspace-1",
+  };
+
+  return {
+    backendOwned: true,
+    blockerReasons: [],
+    controlState,
+    didAutoRunWorkers: false,
+    didCreateRunLinks: false,
+    didInvokeWorkflowRunner: false,
+    didMutateEvidence: false,
+    didMutateFinalization: false,
+    didMutateQueueControlState: true,
+    didMutateQueueTasks: false,
+    didMutateReviews: false,
+    didScheduleOrAutodispatch: false,
+    didStartDownstream: false,
+    didStartWorkers: false,
+    message: "Queue manual control result.",
+    ok: true,
+    queueEnabled: true,
+    status: "succeeded",
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
 }
 
 function widgetInstance(overrides: Partial<WidgetInstance> = {}): WidgetInstance {

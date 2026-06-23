@@ -26,6 +26,8 @@ import {
   type QueueAgentCapabilityStatus,
   type QueueAgentControlGetInput,
   type QueueAgentControlGetResult,
+  type QueueAgentControlSetManualEnabledInput,
+  type QueueAgentControlSetManualEnabledResult,
   type QueueAgentCreateItemInput,
   type QueueAgentCreateItemsInput,
   type QueueAgentCreateItemsRequest,
@@ -63,6 +65,8 @@ export function createQueueAgentActionHandlers(
   return {
     "queue.control.get": ({ request }) =>
       handleQueueControlGet(adapterApi, request),
+    "queue.control.setManualEnabled": ({ request }) =>
+      handleQueueControlSetManualEnabled(adapterApi, request),
     "queue.createItem": ({ request }) => handleCreateItem(adapterApi, request),
     "queue.createItems": ({ request }) => handleCreateItems(adapterApi, request),
     "queue.enable": ({ request }) => handleEnableQueue(adapterApi, request),
@@ -219,6 +223,38 @@ function handleQueueControlGet(
     ),
     capabilityId: request.capabilityId,
     defaultMessage: "Queue control state read",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleQueueControlSetManualEnabled(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeQueueControlSetManualEnabledInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.setQueueControlManualEnabled) {
+    return unavailable(
+      request,
+      "Queue manual control mutation is unavailable: the Workspace Queue bridge did not expose typed backend Queue control plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentControlSetManualEnabledResult>({
+    adapterResult: adapterApi.setQueueControlManualEnabled(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: request.dryRun
+      ? "Queue manual control preview prepared"
+      : "Queue manual control set",
     dryRun: request.dryRun,
     requestId: request.requestId,
   });
@@ -1316,6 +1352,77 @@ function normalizeQueueControlGetInput(
   };
 }
 
+function normalizeQueueControlSetManualEnabledInput(
+  input: unknown,
+): ValidationResult<QueueAgentControlSetManualEnabledInput> {
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.control.setManualEnabled input must be an object.",
+    };
+  }
+
+  const supportedFields = new Set([
+    "expectedVersion",
+    "reason",
+    "workspaceId",
+  ]);
+  const unsupported = Object.keys(input).filter(
+    (fieldName) => !supportedFields.has(fieldName),
+  );
+  if (unsupported.length > 0) {
+    return {
+      fieldPath: `input.${unsupported[0]}`,
+      ok: false,
+      message: `${unsupported[0]} is not supported by queue.control.setManualEnabled.`,
+    };
+  }
+
+  const workspaceId = optionalStringField(input, "workspaceId");
+  if (workspaceId.invalid) {
+    return {
+      fieldPath: "input.workspaceId",
+      ok: false,
+      message: "workspaceId must be a non-empty string when supplied.",
+    };
+  }
+
+  const expectedVersion = optionalNonNegativeIntegerField(
+    input,
+    "expectedVersion",
+  );
+  if (expectedVersion.invalid) {
+    return {
+      fieldPath: "input.expectedVersion",
+      ok: false,
+      message:
+        "expectedVersion must be a non-negative integer when supplied.",
+    };
+  }
+
+  const reason = optionalBoundedStringField(input, "reason", 240);
+  if (reason.invalid) {
+    return {
+      fieldPath: "input.reason",
+      ok: false,
+      message:
+        "reason must be a non-empty string up to 240 characters when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...(expectedVersion.value !== undefined
+        ? { expectedVersion: expectedVersion.value }
+        : {}),
+      ...(reason.value ? { reason: reason.value } : {}),
+      ...(workspaceId.value ? { workspaceId: workspaceId.value } : {}),
+    },
+  };
+}
+
 function normalizeStartRunInput(
   input: unknown,
 ): ValidationResult<
@@ -1732,6 +1839,41 @@ function optionalLimitField(
     Number.isInteger(value) &&
     value >= 1 &&
     value <= 50
+    ? { invalid: false, value }
+    : { invalid: true };
+}
+
+function optionalNonNegativeIntegerField(
+  input: Record<string, unknown>,
+  fieldName: string,
+): { invalid: boolean; value?: number } {
+  if (!hasOwn(input, fieldName) || input[fieldName] === undefined) {
+    return { invalid: false };
+  }
+
+  const value = input[fieldName];
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0
+    ? { invalid: false, value }
+    : { invalid: true };
+}
+
+function optionalBoundedStringField(
+  input: Record<string, unknown>,
+  fieldName: string,
+  maxLength: number,
+): { invalid: boolean; value?: string } {
+  if (!hasOwn(input, fieldName) || input[fieldName] === undefined) {
+    return { invalid: false };
+  }
+
+  if (typeof input[fieldName] !== "string") {
+    return { invalid: true };
+  }
+
+  const value = input[fieldName].trim();
+  return value && value.length <= maxLength
     ? { invalid: false, value }
     : { invalid: true };
 }

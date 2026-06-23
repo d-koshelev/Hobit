@@ -92,6 +92,13 @@ capabilities before any smoke execution step:
   existing Queue control bridge and reports `disabled` or `manual_enabled`
   without enabling Queue, starting workers, starting Queue Autorun, creating
   tasks, or starting Direct Work.
+- `queue.control.setManualEnabled` sets only backend Queue control state to
+  `manual_enabled` through the typed Queue control bridge. It accepts optional
+  exact `workspaceId`, optional `expectedVersion`, and optional bounded
+  `reason`. It does not start workers, dispatch a scheduler, start Queue
+  Autorun, create run links, mutate Queue tasks, record evidence, create/ACK
+  reviews, finalize tasks, invoke workflows, launch shell/Terminal/Git,
+  execute validation/rollback, or start downstream work.
 
 Use these discovery reads for live Queue smoke setup. Do not use
 `agent.status.read` for workspace/workbench/widget/executor/Queue-control
@@ -126,13 +133,17 @@ run:", or inside a fenced JSON block. Only the JSON object is parsed. Prose
 such as `go`, `do the rest`, or `I confirm` is not a grant or confirmation.
 The parsed grant is carried in the action-chain state across continuation
 turns. Inside a valid grant, Workspace Agent may follow schema-valid typed
-Queue `nextAction` payloads exactly, including `queue.enable ->
-queue.item.startRun`, duplicate `queue.review.createMessage ->
+Queue `nextAction` payloads exactly, including
+`queue.control.setManualEnabled -> queue.item.startRun`, duplicate
+`queue.review.createMessage ->
 queue.review.ack` using `input.messageId`, and finalizer next actions allowed
 by `queue_acceptance_smoke` or `queue_failure_smoke`. Backend preconditions,
 dependency blockers, exact confirmations, max action budget, and unsafe
 constraints remain authoritative. Transitional validation, follow-up, and block
 capabilities remain blocked.
+Older `queue.enable -> queue.item.startRun` typed nextActions remain a
+compatibility path, but new live smoke setup should prefer
+`queue.control.get` followed by `queue.control.setManualEnabled`.
 
 When continuation stops, the visible result should include policy diagnostics:
 `capabilityId`, risk class, whether a grant was active, grant mode, allowed
@@ -1052,10 +1063,11 @@ During the smoke, verify these product labels appear where applicable:
       continue only inside the appropriate structured Queue autonomy grant
       with a valid typed nextAction, exact token, and backend preconditions.
     - Expected with a valid `queue_acceptance_smoke` grant: a typed
-      `queue.enable -> queue.item.startRun` nextAction continues when
-      `taskId`, `executorWidgetId`, and exact confirmation are available;
-      `queue.item.markDone` can run only from a valid final-accept nextAction,
-      and success does not auto-start downstream work.
+      `queue.control.setManualEnabled -> queue.item.startRun` nextAction
+      continues when `taskId`, `executorWidgetId`, and exact confirmation are
+      available; older `queue.enable -> queue.item.startRun` nextActions remain
+      compatibility-only. `queue.item.markDone` can run only from a valid
+      final-accept nextAction, and success does not auto-start downstream work.
     - Expected with a valid `queue_failure_smoke` grant: a typed
       `queue.item.fail` nextAction can run only with explicit `taskId`,
       visible `reason`, exact confirmation, and backend preconditions; success
@@ -1098,18 +1110,24 @@ During the smoke, verify these product labels appear where applicable:
    permits.
    - Expected: status becomes `queued`; no worker starts.
 
-5. Invoke `queue.enable`.
-   - Expected: Queue is enabled; no Queue Autorun, shell, Terminal, Git,
-     validation, rollback, or dependent task start is triggered.
-   - If a prior Queue result reported typed `nextAction.capabilityId:
-     "queue.enable"` with blocker `Queue disabled.`, this explicit action is
-     required before start. `nextSuggestedCapability` alone remains
+5. Invoke `queue.control.setManualEnabled`.
+   - Expected: backend Queue control state becomes `manual_enabled` or returns
+     `already_in_state`; no Queue Autorun, scheduler dispatch, shell,
+     Terminal, Git, validation, rollback, worker start, dependent task start,
+     run-link creation, Queue task mutation, evidence/review/finalization
+     mutation, or workflow invocation is triggered.
+   - Use `expectedVersion` from `queue.control.get` when version-aware smoke
+     setup is needed. A mismatch returns `version_conflict`.
+   - If an older Queue result reported typed `nextAction.capabilityId:
+     "queue.enable"` with blocker `Queue disabled.`, `queue.enable` remains a
+     compatibility action. New smoke flows should use
+     `queue.control.setManualEnabled`. `nextSuggestedCapability` alone remains
      informational.
 
 6. Invoke `queue.item.startRun` with the same exact `taskId` and an explicit
    `executorWidgetId`.
-   - Required: Queue is already enabled and the request has top-level
-     `confirmationToken: "operator-confirmed"`.
+   - Required: backend Queue control is already `manual_enabled` and the
+     request has top-level `confirmationToken: "operator-confirmed"`.
    - Expected on accepted start: the result includes `taskId`,
      `executorWidgetId`, and `runId`; the Queue task refreshes to `running` or
      the latest backend final state; latest run-link metadata shows the

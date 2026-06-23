@@ -65,6 +65,14 @@ export type WorkspaceAgentQueueEnableRequest = {
   dryRun: boolean;
 };
 
+export type WorkspaceAgentQueueSetManualEnabledRequest = {
+  actorId?: string | null;
+  dryRun: boolean;
+  expectedVersion?: number | null;
+  reason?: string | null;
+  workspaceId?: string | null;
+};
+
 export type WorkspaceAgentQueueEnableResult = {
   backendOwned?: boolean;
   blockerReasons?: string[];
@@ -77,6 +85,43 @@ export type WorkspaceAgentQueueEnableResult = {
   queueControlStatus?: AgentQueueControlStatus;
   status: "blocked" | "enabled" | "preview" | "unavailable";
   version?: number;
+};
+
+export type WorkspaceAgentQueueSetManualEnabledResult = {
+  backendOwned: true;
+  blocker?: {
+    actualVersion?: number | null;
+    blockerCode?: string | null;
+    blockerMessage?: string | null;
+    expectedVersion?: number | null;
+    missingRequiredField?: string | null;
+  } | null;
+  blockerReasons?: string[];
+  controlState: WorkspaceAgentQueueControlState | null;
+  didAutoRunWorkers: false;
+  didCreateRunLinks: false;
+  didInvokeWorkflowRunner: false;
+  didMutateEvidence: false;
+  didMutateFinalization: false;
+  didMutateQueueControlState: boolean;
+  didMutateQueueTasks: false;
+  didMutateReviews: false;
+  didScheduleOrAutodispatch: false;
+  didStartDownstream: false;
+  didStartWorkers: false;
+  message: string;
+  ok: boolean;
+  queueEnabled: boolean;
+  status:
+    | "preview"
+    | "succeeded"
+    | "already_in_state"
+    | "invalid_input"
+    | "workspace_not_found"
+    | "version_conflict"
+    | "failed_unexpected"
+    | "unavailable";
+  workspaceId: string | null;
 };
 
 export type WorkspaceAgentQueueStartRunRequest = {
@@ -119,6 +164,9 @@ export type WorkspaceQueueControlActions = {
   ) => Promise<WorkspaceAgentQueueEnableResult>;
   getAvailableExecutorTargets?: () => AgentExecutorSlot[];
   getQueueControlState?: () => WorkspaceAgentQueueControlState | null;
+  setQueueControlManualEnabled?: (
+    request: WorkspaceAgentQueueSetManualEnabledRequest,
+  ) => Promise<WorkspaceAgentQueueSetManualEnabledResult>;
   startQueueLinkedRun: (
     request: WorkspaceAgentQueueStartRunRequest,
   ) => Promise<WorkspaceAgentQueueStartRunResult>;
@@ -257,6 +305,9 @@ export type WorkspaceAgentQueueBridge = {
   enableQueue?: (
     request: WorkspaceAgentQueueEnableRequest,
   ) => Promise<WorkspaceAgentQueueEnableResult>;
+  setQueueControlManualEnabled?: (
+    request: WorkspaceAgentQueueSetManualEnabledRequest,
+  ) => Promise<WorkspaceAgentQueueSetManualEnabledResult>;
   startQueueLinkedRun?: (
     request: WorkspaceAgentQueueStartRunRequest,
   ) => Promise<WorkspaceAgentQueueStartRunResult>;
@@ -450,6 +501,14 @@ export function createWorkspaceAgentQueueBridge({
               "Queue enable controls are unavailable.",
             ),
           ),
+    setQueueControlManualEnabled: (request) =>
+      controlActions?.setQueueControlManualEnabled
+        ? controlActions.setQueueControlManualEnabled(request)
+        : Promise.resolve(
+            unavailableQueueSetManualEnabledResult(
+              "Queue manual control controls are unavailable.",
+            ),
+          ),
     startQueueLinkedRun: (request) =>
       controlActions
         ? controlActions.startQueueLinkedRun(request)
@@ -481,6 +540,36 @@ function unavailableQueueEnableResult(
     ok: false,
     queueEnabled: false,
     status: "unavailable",
+  };
+}
+
+function unavailableQueueSetManualEnabledResult(
+  message: string,
+): WorkspaceAgentQueueSetManualEnabledResult {
+  return {
+    backendOwned: true,
+    blocker: {
+      blockerCode: "capability_unavailable",
+      blockerMessage: message,
+    },
+    blockerReasons: [message],
+    controlState: null,
+    didAutoRunWorkers: false,
+    didCreateRunLinks: false,
+    didInvokeWorkflowRunner: false,
+    didMutateEvidence: false,
+    didMutateFinalization: false,
+    didMutateQueueControlState: false,
+    didMutateQueueTasks: false,
+    didMutateReviews: false,
+    didScheduleOrAutodispatch: false,
+    didStartDownstream: false,
+    didStartWorkers: false,
+    message,
+    ok: false,
+    queueEnabled: false,
+    status: "unavailable",
+    workspaceId: null,
   };
 }
 
