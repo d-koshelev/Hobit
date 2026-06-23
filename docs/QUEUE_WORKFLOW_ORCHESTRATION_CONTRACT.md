@@ -256,6 +256,20 @@ can still complete but downstream verification is reported missing. The runner
 never infers downstream ids from titles, order, prose, UI, or file paths, and
 never starts downstream work.
 
+For `dependency_acceptance_smoke`, the runtime adapter can now complete the
+full headless typed workflow by composing the existing runner phases through
+durable workflow persistence: materialize tasks, apply upstream run settings,
+promote upstream, verify backend `manual_enabled`, start only the upstream
+worker, pause for typed worker evidence, record/reconcile upstream evidence,
+create and ACK a durable review message, mark only the upstream done after a
+fresh exact structured confirmation, verify downstream dependency readiness
+and no-auto-start state, and persist the workflow run as completed. The
+adapter always calls `queue.workflow.planResume` before continuation execution
+for an existing `metadata.workflowRunId` and may execute only the next typed
+phase that the plan marks ready. `dependency_failure_smoke` keeps the existing
+create/setup/start, worker-evidence, review, and finalization helper phases,
+but full failure workflow completion remains a separate future block.
+
 The review runner may mutate only the backend review message/ACK ledger
 through the injected review port. ACK is not completion. The finalization
 runner may mutate only explicit upstream accepted-completion or terminal-
@@ -339,8 +353,12 @@ command:
 - A separate public `queue.workflow.resume` execution command is not
   implemented. Continuation from an explicit typed `metadata.workflowRunId`
   uses `queue.workflow.planResume` first, then the frontend runtime adapter may
-  invoke only the already-supported safe runner phase when the plan is ready
-  and fresh typed grant/confirmation input is present when required.
+  invoke only the next already-supported safe runner phase when the plan is
+  ready and fresh typed grant/confirmation input is present when required. For
+  `dependency_acceptance_smoke`, that adapter sequencing can complete the
+  durable acceptance path through worker evidence, review create/ACK,
+  upstream accepted completion, downstream ready/no-auto-start verification,
+  and completed workflow-run reporting.
 
 Persisted workflow snapshots contain only validated typed workflow inputs and
 safe bounded grant summaries. They must not contain raw prompts outside bounded
@@ -512,9 +530,13 @@ Resume planner statuses are typed and stable: `resume_ready`,
 `terminal_failed`, `terminal_cancelled`, `unsupported_phase`,
 `failed_unexpected`, and `version_conflict`. `terminal_failed` means the
 workflow run itself is failed; it is not a Queue task failure. Mutating or
-finalizing next steps after restart require a fresh grant and fresh exact
-structured confirmation unless a future restart policy explicitly narrows a
-safe exception. Persisted confirmation tokens must never be replayed.
+finalizing next steps after restart require a fresh grant where their
+capability contract requires one. Worker start and finalizing restart targets
+also require fresh exact structured confirmation unless a future restart policy
+explicitly narrows a safe exception. Review create/ACK restart targets require
+durable evidence/message ids and a fresh grant but do not replay or persist a
+reusable confirmation token. Persisted confirmation tokens must never be
+replayed.
 
 Provider turns now pass through the provider-neutral `AgentRuntime` event loop,
 which owns AgentProvider run lifecycle and delegates final-output

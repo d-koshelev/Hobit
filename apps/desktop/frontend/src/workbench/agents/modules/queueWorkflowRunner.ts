@@ -325,6 +325,7 @@ export type QueueWorkflowFailItemRequest = {
 export type QueueWorkflowFinalizationCommandResult = {
   aggregate?: AgentQueueItemAggregate | null;
   blocker?: QueueWorkflowFinalizationBlocker | null;
+  decisionId?: string | null;
   durable?: boolean;
   evidenceBundleId?: string | null;
   fieldPath?: string;
@@ -506,6 +507,7 @@ export type QueueWorkflowDownstreamVerificationReport = {
 export type QueueWorkflowFinalizationReport = {
   commandStatus?: QueueWorkflowFinalizationCommandStatus;
   confirmationTokenAccepted: boolean;
+  decisionId?: string;
   downstreamVerification: QueueWorkflowDownstreamVerificationReport;
   failureReason?: string;
   finalizationAction?: "fail" | "mark_done";
@@ -3279,6 +3281,7 @@ export async function runQueueWorkflowFinalizationRunner(
         finalizationReport: finalizationReport({
           ...baseFinalizationReport,
           commandStatus: commandResult.status,
+          decisionId: commandResult.decisionId ?? undefined,
           downstreamVerification,
           idempotent,
           status,

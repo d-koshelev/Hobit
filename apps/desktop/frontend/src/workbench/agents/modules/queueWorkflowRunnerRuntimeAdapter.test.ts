@@ -1091,6 +1091,101 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(result.runnerResult?.report.mutationSummary.didMutateQueue).toBe(false);
   });
 
+  it("resumes review create and ACK after worker evidence is durable", async () => {
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () => reviewCreateResumePlan()),
+    });
+    const bridge = queueBridge({
+      ackReviewMessage: vi.fn(async () => reviewCommandResult()),
+      createReviewMessage: vi.fn(async () => reviewCreateResult()),
+      getItemAggregate: vi.fn(async ({ taskId }: { taskId: string }) =>
+        aggregate({ reviewState: "awaiting_review", taskId }),
+      ),
+      getWorkerEvidenceBundle: vi.fn(async () =>
+        evidenceQuery({ runId: "run-upstream", taskId: "task-upstream" }),
+      ),
+      listItemAggregates: vi.fn(async () => []),
+    });
+
+    const result = await runAdapter({
+      queueBridge: bridge,
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "review",
+      status: "completed",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(bridge.createReviewMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evidenceBundleId: "bundle-upstream",
+        runId: "run-upstream",
+        taskId: "task-upstream",
+      }),
+    );
+    expect(bridge.ackReviewMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: "message-upstream",
+        taskId: "task-upstream",
+      }),
+    );
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentStep: "review_ack",
+        phase: "review",
+        status: "paused",
+        workflowRunId: "queue-workflow-run-1",
+      }),
+    );
+  });
+
+  it("resumes review ACK from durable messageId without creating another message", async () => {
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () => reviewAckResumePlan()),
+    });
+    const bridge = queueBridge({
+      ackReviewMessage: vi.fn(async () => reviewCommandResult()),
+      createReviewMessage: vi.fn(),
+      getItemAggregate: vi.fn(async ({ taskId }: { taskId: string }) =>
+        aggregate({ reviewState: "review_message_created", taskId }),
+      ),
+      getWorkerEvidenceBundle: vi.fn(async () =>
+        evidenceQuery({ runId: "run-upstream", taskId: "task-upstream" }),
+      ),
+      listItemAggregates: vi.fn(async () => []),
+    });
+
+    const result = await runAdapter({
+      queueBridge: bridge,
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "review",
+      status: "completed",
+    });
+    expect(bridge.createReviewMessage).not.toHaveBeenCalled();
+    expect(bridge.ackReviewMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: "message-upstream",
+        taskId: "task-upstream",
+      }),
+    );
+  });
+
   it("returns terminal resume plans without invoking the runner", async () => {
     const persistence = workflowPersistence({
       planAgentQueueWorkflowResume: vi.fn(async () =>
@@ -1213,7 +1308,7 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       failItem: vi.fn(),
       getItemAggregate: vi.fn(async ({ taskId }: { taskId: string }) =>
         aggregate({
-          dependencyState: taskId === "task-downstream" ? "done" : "none",
+          dependencyState: taskId === "task-downstream" ? "ready" : "none",
           reviewState: taskId === "task-upstream" ? "in_review" : "none",
           taskId,
         }),
@@ -1245,10 +1340,33 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       phase: "finalization",
       status: "completed",
     });
+    expect(result.runnerResult?.report.finalization).toMatchObject({
+      decisionId: "completion-decision-1",
+      downstreamVerification: {
+        dependencyVerified: true,
+        notAutoStartedVerified: true,
+      },
+      status: "finalization_completed",
+    });
     expect(bridge.markItemDone).toHaveBeenCalledWith(
       expect.objectContaining({
         confirmationToken: "operator-confirmed",
         taskId: "task-upstream",
+      }),
+    );
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actions: expect.arrayContaining([
+          expect.objectContaining({
+            actionType: "queue.item.markDone",
+            resultRefs: expect.objectContaining({
+              decisionId: "completion-decision-1",
+            }),
+          }),
+        ]),
+        currentStep: "finalization_complete",
+        phase: "decision",
+        status: "completed",
       }),
     );
     expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
@@ -1835,6 +1953,168 @@ function workerEvidenceResumePlan(
   });
 }
 
+function reviewCreateResumePlan(
+  overrides: Parameters<typeof resumePlan>[0] = {},
+) {
+  return resumePlan({
+    nextPhase: "review",
+    nextStep: "review_create_ready",
+    reportSummary:
+      "Queue workflow run queue-workflow-run-1 resume plan status is resume_ready. Next step: review_create_ready. Fresh grant required. No workflow steps were executed.",
+    requiredConfirmation: false,
+    requiredFreshGrant: true,
+    slotReconciliations: [
+      {
+        aggregateDependencyState: "none",
+        aggregateEvidenceState: "available",
+        aggregateReviewState: "awaiting_review",
+        aggregateTicketState: "awaiting_review",
+        blockerCode: null,
+        completionDecisionExists: false,
+        completionDecisionId: null,
+        evidenceBundleId: "bundle-upstream",
+        evidenceExists: true,
+        executorWidgetId: null,
+        failureDecisionExists: false,
+        failureDecisionId: null,
+        messageId: null,
+        reviewMessageExists: false,
+        reviewMessageStatus: null,
+        runExists: true,
+        runId: "run-upstream",
+        slot: "upstream",
+        taskExists: true,
+        taskId: "task-upstream",
+      },
+      {
+        aggregateDependencyState: "waiting",
+        aggregateEvidenceState: "none",
+        aggregateReviewState: "none",
+        aggregateTicketState: "queued",
+        blockerCode: null,
+        completionDecisionExists: false,
+        completionDecisionId: null,
+        evidenceBundleId: null,
+        evidenceExists: false,
+        executorWidgetId: null,
+        failureDecisionExists: false,
+        failureDecisionId: null,
+        messageId: null,
+        reviewMessageExists: false,
+        reviewMessageStatus: null,
+        runExists: false,
+        runId: null,
+        slot: "downstream",
+        taskExists: true,
+        taskId: "task-downstream",
+      },
+    ],
+    status: "resume_ready",
+    workflowRun: workflowRun({
+      inputsSnapshotJson: JSON.stringify(validInputs()),
+      phase: "review",
+      slotBindingsJson: JSON.stringify({
+        downstream: { taskId: "task-downstream" },
+        upstream: {
+          evidenceBundleId: "bundle-upstream",
+          runId: "run-upstream",
+          taskId: "task-upstream",
+        },
+      }),
+      status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    }),
+    ...overrides,
+  });
+}
+
+function reviewAckResumePlan(
+  overrides: Parameters<typeof resumePlan>[0] = {},
+) {
+  return reviewCreateResumePlan({
+    blockers: [
+      {
+        blockerCode: "review_ack_missing",
+        blockerMessage: "The durable review message exists but has not been ACKed.",
+        completionDecisionId: null,
+        evidenceBundleId: "bundle-upstream",
+        failureDecisionId: null,
+        messageId: "message-upstream",
+        missingRequiredField: "messageId",
+        runId: "run-upstream",
+        slot: "upstream",
+        taskId: "task-upstream",
+      },
+    ],
+    nextStep: "review_ack_ready",
+    reportSummary:
+      "Queue workflow run queue-workflow-run-1 resume plan status is blocked_missing_review_ack. Next step: review_ack_ready. Fresh grant required. No workflow steps were executed.",
+    slotReconciliations: [
+      {
+        aggregateDependencyState: "none",
+        aggregateEvidenceState: "available",
+        aggregateReviewState: "review_message_created",
+        aggregateTicketState: "awaiting_review",
+        blockerCode: null,
+        completionDecisionExists: false,
+        completionDecisionId: null,
+        evidenceBundleId: "bundle-upstream",
+        evidenceExists: true,
+        executorWidgetId: null,
+        failureDecisionExists: false,
+        failureDecisionId: null,
+        messageId: "message-upstream",
+        reviewMessageExists: true,
+        reviewMessageStatus: "created",
+        runExists: true,
+        runId: "run-upstream",
+        slot: "upstream",
+        taskExists: true,
+        taskId: "task-upstream",
+      },
+      {
+        aggregateDependencyState: "waiting",
+        aggregateEvidenceState: "none",
+        aggregateReviewState: "none",
+        aggregateTicketState: "queued",
+        blockerCode: null,
+        completionDecisionExists: false,
+        completionDecisionId: null,
+        evidenceBundleId: null,
+        evidenceExists: false,
+        executorWidgetId: null,
+        failureDecisionExists: false,
+        failureDecisionId: null,
+        messageId: null,
+        reviewMessageExists: false,
+        reviewMessageStatus: null,
+        runExists: false,
+        runId: null,
+        slot: "downstream",
+        taskExists: true,
+        taskId: "task-downstream",
+      },
+    ],
+    status: "blocked_missing_review_ack",
+    workflowRun: workflowRun({
+      inputsSnapshotJson: JSON.stringify(validInputs()),
+      phase: "review",
+      slotBindingsJson: JSON.stringify({
+        downstream: { taskId: "task-downstream" },
+        upstream: {
+          evidenceBundleId: "bundle-upstream",
+          messageId: "message-upstream",
+          runId: "run-upstream",
+          taskId: "task-upstream",
+        },
+      }),
+      status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    }),
+    ...overrides,
+  });
+}
+
 function queueBridge(
   overrides: Partial<WorkspaceAgentQueueBridge> = {},
 ): WorkspaceAgentQueueBridge {
@@ -2025,7 +2305,7 @@ function completionResult(): AgentQueueCompletionCommandResult {
     aggregate: aggregate({ taskId: "task-upstream", ticketState: "done" }),
     blocker: null,
     completionDecision: null,
-    decisionId: null,
+    decisionId: "completion-decision-1",
     durable: true,
     evidenceBundleId: null,
     reviewMessageId: "message-upstream",

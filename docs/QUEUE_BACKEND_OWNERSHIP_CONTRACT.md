@@ -138,6 +138,19 @@ block, follow up, validate, mutate Git, roll back, launch Terminal, start
 workers, start downstream work, create/update/promote tasks, enable Queue, or
 infer ids from prose/UI/session state.
 
+The typed Queue workflow runtime adapter can now complete
+`dependency_acceptance_smoke` end to end by using only backend-owned workflow,
+aggregate, review, worker-evidence, and accepted-completion APIs. It resumes
+from an explicit `metadata.workflowRunId`, calls the read-only resume planner
+before each continuation phase, records/reconciles upstream evidence, creates
+and ACKs a durable review message from explicit durable ids, marks only the
+upstream task done with a fresh exact structured confirmation, verifies the
+explicit downstream task's dependency-ready/no-auto-start state, and persists
+the workflow run/report as completed. The workflow report may persist bounded
+task/run/evidence/message/decision refs and action counts, but must not persist
+raw transcripts, reusable confirmation tokens, validation output, Git output,
+Terminal output, rollback output, or downstream worker starts.
+
 Resume planning must reconcile only explicit persisted bindings and variables:
 task ids, run ids, evidence bundle ids, review message ids, completion decision
 ids, failure decision ids, and future executor widget ids. Bound ids must
@@ -161,8 +174,12 @@ returns `awaiting_worker_completion` while the worker is still running and
 workflow binding contains an `evidenceBundleId` that cannot be found, planning
 returns `blocked_missing_evidence`; mismatched evidence/task/run facts return
 `blocked_state_mismatch`. The planner never records evidence by itself.
-Any mutating restart target must require a fresh grant and fresh exact
-structured confirmation; persisted confirmation tokens are never replayed.
+Any mutating restart target must require a fresh grant where its capability
+contract requires one. Worker start and finalization restart targets also
+require fresh exact structured confirmation. Review create/ACK restart targets
+require durable evidence/message ids and a fresh grant, but they must not
+replay or persist reusable confirmation tokens. Persisted confirmation tokens
+are never replayed.
 
 ## Backend-Backed Capabilities
 

@@ -461,10 +461,16 @@ unless the task explicitly requests it.
   typed ids, confirmation, failure reason where needed, and review
   ACK/precondition proof are present. ACK is not completion; already-existing
   review messages, already-done ACKs, `already_done`, and `already_failed` are
-  idempotent states. The Workspace Agent workflow request path now invokes it
-  only for supported Queue phases through typed backend ports; unsupported,
-  invalid, or deferred workflows do not invoke the runner, and downstream work
-  is not auto-started. Backend workflow task slot materialization now exists
+  idempotent states. For `dependency_acceptance_smoke`, the runtime adapter
+  now composes these typed phases through durable workflow persistence until
+  the workflow run is completed: upstream evidence, review create/ACK,
+  upstream accepted completion with fresh exact structured confirmation,
+  downstream ready/no-auto-start verification, and bounded completed report
+  persistence. Full `dependency_failure_smoke` completion remains future work.
+  The Workspace Agent workflow request path now invokes it only for supported
+  Queue phases through typed backend ports; unsupported, invalid, or deferred
+  workflows do not invoke the runner, and downstream work is not auto-started.
+  Backend workflow task slot materialization now exists
   as a workflow-internal domain method: it creates/reuses draft/manual Queue
   tasks by explicit `workflowRunId + slot + taskSpecHash`, persists durable
   slot bindings, and materializes dependency edges only from explicit

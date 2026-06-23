@@ -1691,7 +1691,7 @@ fn derive_next_step(
                 next_phase: Some("review".to_owned()),
                 next_step: Some("review_create_ready".to_owned()),
                 required_fresh_grant: true,
-                required_confirmation: true,
+                required_confirmation: false,
                 blockers: Vec::new(),
             };
         }
@@ -1701,7 +1701,7 @@ fn derive_next_step(
                 next_phase: Some("review".to_owned()),
                 next_step: Some("review_ack_ready".to_owned()),
                 required_fresh_grant: true,
-                required_confirmation: true,
+                required_confirmation: false,
                 blockers: vec![binding_blocker(
                     "review_ack_missing",
                     "The durable review message exists but has not been ACKed.",

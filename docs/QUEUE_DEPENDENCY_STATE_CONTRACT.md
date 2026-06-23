@@ -172,6 +172,15 @@ not satisfy the downstream dependency; only a later explicit accepted
 completion decision for the upstream task can clear the downstream dependency
 gate. This phase does not start downstream work.
 
+The full `dependency_acceptance_smoke` workflow can now continue after durable
+worker evidence to create and ACK the upstream review message, mark only the
+upstream task done with a fresh exact structured confirmation, and then read
+the explicit downstream task to verify the dependency is ready/satisfied and
+that no downstream worker auto-started. If the downstream task id is missing,
+upstream acceptance may still complete with downstream verification reported
+missing. If downstream is unexpectedly running, the workflow reports that
+state instead of starting, stopping, or repairing it.
+
 ## Blocker Kinds
 
 Dependency-derived blockers use:

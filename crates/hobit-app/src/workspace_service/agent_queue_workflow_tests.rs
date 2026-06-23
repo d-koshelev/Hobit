@@ -2646,19 +2646,21 @@ fn plan_resume_moves_from_evidence_to_review_create_or_ack() {
 
     assert_eq!(
         create_plan.status,
-        QueueWorkflowResumePlanStatus::BlockedMissingConfirmation
+        QueueWorkflowResumePlanStatus::ResumeReady
     );
     assert_eq!(
         create_plan.next_step.as_deref(),
         Some("review_create_ready")
     );
     assert!(create_plan.required_fresh_grant);
-    assert!(create_plan.required_confirmation);
+    assert!(!create_plan.required_confirmation);
     assert_eq!(
         ack_plan.status,
         QueueWorkflowResumePlanStatus::BlockedMissingReviewAck
     );
     assert_eq!(ack_plan.next_step.as_deref(), Some("review_ack_ready"));
+    assert!(ack_plan.required_fresh_grant);
+    assert!(!ack_plan.required_confirmation);
 }
 
 #[test]

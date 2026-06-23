@@ -683,6 +683,7 @@ function createFinalizationPort(
       return finalizationResult({
         aggregate: result.aggregate,
         blocker: result.blocker,
+        decisionId: result.decisionId,
         durable: result.durable,
         evidenceBundleId: result.evidenceBundleId,
         runId: result.runId,
@@ -702,6 +703,7 @@ function createFinalizationPort(
       return finalizationResult({
         aggregate: result.aggregate,
         blocker: result.blocker,
+        decisionId: result.decisionId,
         durable: result.durable,
         evidenceBundleId: result.evidenceBundleId,
         runId: result.runId,
@@ -903,7 +905,9 @@ function recordRequestForRunnerResult({
 
   return {
     actionLogSummary: sanitizeJsonValue({
+      actionCount: actions.length,
       blockers,
+      refs: workflowReportRefs(runnerResult),
       phasesExecuted: phasesExecuted(runnerResult, phase),
       runnerStatus: runnerResult.status,
       summary: runnerResult.report.summary,
@@ -935,6 +939,32 @@ function recordRequestForRunnerResult({
     workflowRunId,
     workspaceId,
   };
+}
+
+function workflowReportRefs(
+  runnerResult: QueueWorkflowRunnerResult,
+): AgentQueueWorkflowJsonValue {
+  return sanitizeJsonValue(
+    stripUndefined({
+      completionDecisionId: runnerResult.report.finalization.decisionId,
+      downstreamTaskId:
+        runnerResult.report.createSetupStart.downstreamTaskId ??
+        runnerResult.variables.taskIdsBySlot.downstream,
+      evidenceBundleId:
+        runnerResult.report.workerEvidence.evidenceBundleId ??
+        runnerResult.variables.evidenceBundleIdsBySlot.upstream,
+      messageId:
+        runnerResult.report.review.messageId ??
+        runnerResult.variables.messageIdsBySlot.upstream,
+      runId:
+        runnerResult.report.createSetupStart.start?.runId ??
+        runnerResult.report.workerEvidence.runId ??
+        runnerResult.variables.runIdsBySlot.upstream,
+      upstreamTaskId:
+        runnerResult.report.createSetupStart.upstreamTaskId ??
+        runnerResult.variables.taskIdsBySlot.upstream,
+    }),
+  );
 }
 
 function actionSummariesForRunnerResult({
@@ -1057,6 +1087,7 @@ function actionSummariesForRunnerResult({
       ].join(":"),
       resultRefs: stripNullish({
         commandStatus: finalization.commandStatus,
+        decisionId: finalization.decisionId,
         failureReason: finalization.failureReason,
         idempotent: finalization.idempotent,
         status: finalization.status,
@@ -1244,6 +1275,30 @@ function resumeDecisionForPlan({
     return { ok: true, phase: "worker_evidence" };
   }
 
+  if (isReviewResumeStep(plan)) {
+    if (!resumePlanHasEvidence(plan)) {
+      return {
+        blockers: ["Durable worker evidence is required before review can resume."],
+        ok: false,
+        phase: "review",
+        status: "blocked",
+        summary:
+          "Queue workflow review resume requires durable evidence; Queue workflow runner was not invoked.",
+      };
+    }
+    if (isReviewAckResumeStep(plan) && !resumePlanHasMessageId(plan)) {
+      return {
+        blockers: ["Durable review messageId is required before review ACK can resume."],
+        ok: false,
+        phase: "review",
+        status: "blocked",
+        summary:
+          "Queue workflow review ACK resume requires a durable messageId; Queue workflow runner was not invoked.",
+      };
+    }
+    return { ok: true, phase: "review" };
+  }
+
   if (plan.requiredConfirmation || plan.status === "blocked_missing_confirmation") {
     if (
       plannedPhase !== "finalization" &&
@@ -1322,6 +1377,36 @@ function resumeDecisionForPlan({
     status: "blocked",
     summary: plan.reportSummary,
   };
+}
+
+function isReviewResumeStep(plan: AgentQueueWorkflowResumePlan): boolean {
+  return (
+    plan.nextPhase === "review" &&
+    (plan.nextStep === "review_create_ready" ||
+      plan.nextStep === "review_ack_ready" ||
+      plan.nextStep === "awaiting_review")
+  );
+}
+
+function isReviewAckResumeStep(plan: AgentQueueWorkflowResumePlan): boolean {
+  return plan.nextPhase === "review" && plan.nextStep === "review_ack_ready";
+}
+
+function resumePlanHasEvidence(plan: AgentQueueWorkflowResumePlan): boolean {
+  return plan.slotReconciliations.some(
+    (reconciliation) =>
+      reconciliation.slot === "upstream" &&
+      Boolean(
+        reconciliation.evidenceBundleId || reconciliation.evidenceExists,
+      ),
+  );
+}
+
+function resumePlanHasMessageId(plan: AgentQueueWorkflowResumePlan): boolean {
+  return plan.slotReconciliations.some(
+    (reconciliation) =>
+      reconciliation.slot === "upstream" && Boolean(reconciliation.messageId),
+  );
 }
 
 function workflowRunIdFromMetadata(
@@ -1459,6 +1544,7 @@ function mutationRefsForRunnerResult(
       evidenceBundleId: workerEvidence.evidenceBundleId,
       finalizationAction: finalization.finalizationAction,
       finalizationCommandStatus: finalization.commandStatus,
+      finalizationDecisionId: finalization.decisionId,
       finalizationTaskId: finalization.taskId,
       recordWorkerEvidenceStatus: workerEvidence.commandStatus,
       settingsHash: createSetupStart.runSettings?.settingsHash,

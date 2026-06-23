@@ -59,10 +59,14 @@ now creates or reuses a durable workflow run before supported runner
 invocation, blocks request-hash conflicts before execution, records bounded
 runner reports/action summaries, and uses the resume planner before continuing
 an explicit typed `metadata.workflowRunId`. Create/setup/start plus existing
-worker-evidence/read/review/finalization runner phases are wired. Workflow
-worker evidence recording is limited to explicit upstream task/run evidence
-record/reconcile and stops before review. Scheduler behavior, downstream
-auto-start, and generic public resume execution remain not implemented.
+worker-evidence/read/review/finalization runner phases are wired. The
+`dependency_acceptance_smoke` path can now compose those phases end to end:
+upstream task setup/start, typed upstream evidence recording, review message
+create/ACK, upstream accepted completion with fresh exact structured
+confirmation, downstream dependency-ready/no-auto-start verification, and a
+completed bounded workflow report. Scheduler behavior, downstream auto-start,
+generic public resume execution, and full `dependency_failure_smoke`
+completion remain not implemented.
 Workflow persistence APIs are not exposed as Workspace Agent broker
 capabilities.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
@@ -249,7 +253,10 @@ workflow request path now invokes the runner only for supported Queue phases
 through a typed runtime adapter. The adapter persists supported invocations by
 starting/reusing workflow-run records, recording bounded report/action-ledger
 summaries, and using read-only resume planning before any typed continuation
-from `metadata.workflowRunId`. This block does not add
+from `metadata.workflowRunId`. For `dependency_acceptance_smoke`, that adapter
+now completes the full acceptance sequence and persists completed workflow
+status/report refs without persisting raw transcripts or reusable confirmation
+tokens. This block does not add
 `hobit.queue.workflowRequest`, scheduler behavior, worker auto-start, task
 creation outside create/setup/start, Queue mutation outside workflow-owned
 upstream evidence recording, review message/ACK ledger, or explicit upstream
@@ -1217,8 +1224,10 @@ The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
 - durable backend Smart Queue persistence;
-- Queue workflow runner execution beyond explicit create/setup/start,
-  worker-evidence, read/review/finalization helper phases;
+- Queue workflow runner execution beyond the full typed
+  `dependency_acceptance_smoke` path and the existing explicit
+  create/setup/start, worker-evidence, read/review/finalization helper phases;
+- full `dependency_failure_smoke` failure-completion workflow;
 - Queue-specific input validation for review/terminal workflows;
 - durable Queue lifecycle transition commands beyond the current aggregate DTO,
   worker-evidence/review create/ACK commands, and accepted-completion /
