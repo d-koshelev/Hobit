@@ -430,10 +430,12 @@ unless the task explicitly requests it.
   Module Control Surface metadata. `ModuleControlSurface` is the generic
   agent-facing module contract for typed module capabilities and future typed
   workflows. `ModuleControlSurfaceRegistry` is the UI-independent discovery
-  layer for registered agent-facing module surfaces; Queue is the first
-  registered module, and Queue capability metadata is adapted from the Queue
-  capability contract inventory for the generic surface. Registry metadata is
-  not runtime behavior. Generic `hobit.workflow.request` parsing and
+  layer for registered agent-facing module surfaces; Queue and Workbench live
+  context reads are registered modules. Queue capability metadata is adapted
+  from the Queue capability contract inventory for the generic surface, and
+  Workbench metadata covers `workspace.context.get` plus
+  `workbench.widgets.list` as read-only broker-safe live context reads.
+  Registry metadata is not runtime behavior. Generic `hobit.workflow.request` parsing and
   validation lives at the Workspace Agent protocol/broker boundary, enforces
   the generic grant/input split, and checks module/workflow availability
   through this registry before any runner phase. Queue declares the initial
@@ -812,7 +814,11 @@ the local executor flow visible to operators.
   `queue.workflow.planResume`, and `queue.workflow.readActionLog` broker
   capabilities over backend workflow run/report/resume/action-ledger APIs. It
   must not infer ids from UI text, titles, prose, order, file paths,
-  localStorage, or transcripts.
+  localStorage, or transcripts. The live Queue smoke discovery/control/debug
+  capabilities are expected to resolve concrete module/risk metadata across
+  manifest, broker handler, `ModuleControlSurface`, and continuation policy
+  layers; `queue.control.setManualEnabled` remains setup/write-gated, and
+  workflow invocation remains `hobit.workflow.request` only.
 - `docs/QUEUE_SYSTEM_ARCHITECTURE_RESET.md` - current Queue / Workspace Agent
   architecture correction note. Read before broad Queue dogfooding,
   continuation-policy, capability-contract, or responsibility-boundary cleanup.

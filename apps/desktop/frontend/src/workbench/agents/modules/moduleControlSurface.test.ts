@@ -30,6 +30,7 @@ import {
   QUEUE_MODULE_WORKFLOW_IDS,
   QUEUE_MODULE_WORKFLOWS,
   QUEUE_TRANSITIONAL_MODULE_CAPABILITY_IDS,
+  WORKBENCH_MODULE_CONTROL_SURFACE,
   queueCapabilityContractToModuleCapabilityMetadata,
   validateModuleControlSurfaces,
   validateRegisteredModuleControlSurfaces,
@@ -66,21 +67,30 @@ const EXPECTED_QUEUE_WORKFLOW_IDS = [
 ] as const;
 
 describe("ModuleControlSurface", () => {
-  it("registers Queue as the first module control surface", () => {
+  it("registers Queue and Workbench module control surfaces", () => {
     expect(MODULE_CONTROL_SURFACE_REGISTRY).toEqual([
       QUEUE_MODULE_CONTROL_SURFACE,
+      WORKBENCH_MODULE_CONTROL_SURFACE,
     ]);
     expect(listModuleControlSurfaces()).toEqual([
       QUEUE_MODULE_CONTROL_SURFACE,
+      WORKBENCH_MODULE_CONTROL_SURFACE,
     ]);
     expect(listModuleControlSurfaces()[0]).toBe(QUEUE_MODULE_CONTROL_SURFACE);
+    expect(listModuleControlSurfaces()[1]).toBe(
+      WORKBENCH_MODULE_CONTROL_SURFACE,
+    );
   });
 
-  it("retrieves Queue by module id and returns undefined for unknown modules", () => {
+  it("retrieves modules by module id and returns undefined for unknown modules", () => {
     expect(getModuleControlSurface("queue")).toBe(
       QUEUE_MODULE_CONTROL_SURFACE,
     );
+    expect(getModuleControlSurface("workbench")).toBe(
+      WORKBENCH_MODULE_CONTROL_SURFACE,
+    );
     expect(hasModuleControlSurface("queue")).toBe(true);
+    expect(hasModuleControlSurface("workbench")).toBe(true);
     expect(getModuleControlSurface("unknown-module")).toBeUndefined();
     expect(hasModuleControlSurface("unknown-module")).toBe(false);
   });
@@ -97,6 +107,31 @@ describe("ModuleControlSurface", () => {
         riskClass: "review",
       },
       moduleId: "queue",
+      ok: true,
+    });
+    expect(
+      resolveModuleControlSurfaceCapability({
+        capabilityId: "workspace.context.get",
+      }),
+    ).toMatchObject({
+      capability: {
+        capabilityId: "workspace.context.get",
+        riskClass: "read",
+      },
+      moduleId: "workbench",
+      ok: true,
+    });
+    expect(
+      resolveModuleControlSurfaceCapability({
+        capabilityId: "workbench.widgets.list",
+        moduleId: "workbench",
+      }),
+    ).toMatchObject({
+      capability: {
+        capabilityId: "workbench.widgets.list",
+        riskClass: "read",
+      },
+      moduleId: "workbench",
       ok: true,
     });
 
@@ -123,10 +158,15 @@ describe("ModuleControlSurface", () => {
 
   it("lists registered module capability and workflow ids", () => {
     expect(listModuleCapabilityIds()).toEqual(
-      QUEUE_MODULE_CONTROL_SURFACE.capabilityIds,
+      [
+        ...QUEUE_MODULE_CONTROL_SURFACE.capabilityIds,
+        ...WORKBENCH_MODULE_CONTROL_SURFACE.capabilityIds,
+      ],
     );
     expect(listModuleCapabilityIds()).toContain("queue.items.list");
     expect(listModuleCapabilityIds()).toContain("queue.review.getEvidenceBundle");
+    expect(listModuleCapabilityIds()).toContain("workspace.context.get");
+    expect(listModuleCapabilityIds()).toContain("workbench.widgets.list");
     expect(listModuleWorkflowIds()).toEqual(
       QUEUE_MODULE_CONTROL_SURFACE.workflowIds,
     );
@@ -150,6 +190,33 @@ describe("ModuleControlSurface", () => {
     expect(QUEUE_MODULE_CONTROL_SURFACE_FROM_PUBLIC_INDEX).toBe(
       QUEUE_MODULE_CONTROL_SURFACE,
     );
+  });
+
+  it("describes Workbench live context reads as read-only broker-safe capabilities", () => {
+    expect(WORKBENCH_MODULE_CONTROL_SURFACE).toMatchObject({
+      backingStatus: "mixed",
+      displayName: "Workbench Context",
+      moduleId: "workbench",
+      riskClasses: ["read"],
+      uiDependencyPolicy: "none",
+      version: "module-control-surface.workbench.v0",
+    });
+    expect(WORKBENCH_MODULE_CONTROL_SURFACE.capabilityIds).toEqual([
+      "workspace.context.get",
+      "workbench.widgets.list",
+    ]);
+
+    for (const capability of WORKBENCH_MODULE_CONTROL_SURFACE.capabilities) {
+      expect(capability).toMatchObject({
+        autoContinuationSafe: true,
+        backingStatus: "bridge_backed",
+        confirmation: { required: false },
+        confirmationRequirement: "none",
+        readOnly: true,
+        riskClass: "read",
+        uiDependencyPolicy: "none",
+      });
+    }
   });
 
   it("derives Queue module metadata from Queue capability contracts", () => {
@@ -567,6 +634,7 @@ describe("ModuleControlSurface", () => {
       "workbench/agents/modules/queueCapabilityModuleMetadata.ts",
       "workbench/agents/modules/queueModuleControlSurface.ts",
       "workbench/agents/modules/queueWorkflowModuleMetadata.ts",
+      "workbench/agents/modules/workbenchModuleControlSurface.ts",
       "workbench/agents/modules/index.ts",
     ]
       .map(frontendSource)

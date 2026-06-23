@@ -737,6 +737,21 @@ rollback, validation execution, worker start, or Queue mutation. Codex shell
 still cannot run live Queue smoke by itself because it has no live Tauri
 renderer/IPC context.
 
+The live Queue smoke discovery/debug capability surface is now registered
+consistently across the capability manifest, Workspace Agent context
+instructions, Action Broker handler map, `ModuleControlSurface` registry, and
+BrokerContinuationRuntime policy metadata. `workspace.context.get`,
+`workbench.widgets.list`, `queue.control.get`, `queue.workflow.get`,
+`queue.workflow.list`, `queue.workflow.getReport`,
+`queue.workflow.planResume`, and `queue.workflow.readActionLog` all resolve a
+non-unknown module id/risk class, execute through wired handlers, require no
+confirmation or active grant, and are safe for read-only broker
+auto-continuation. Workspace Agent broker-scoped capability registries mark
+Workspace Agent capabilities without wired broker handlers unavailable so an
+advertised future/model capability does not pass policy and then fail handler
+lookup. `agent.status.read` remains a Multi-Agent Runtime model/API smoke
+capability, not a Workspace/Workbench/Queue live smoke discovery path.
+
 Workspace Agent can also set backend Queue control to `manual_enabled` through
 the typed `queue.control.setManualEnabled` broker action. This is a setup
 capability, not a read, and it follows the Queue setup grant/policy path. It

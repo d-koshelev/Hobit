@@ -110,3 +110,9 @@ export {
   QUEUE_MODULE_CONTROL_SURFACE,
   QUEUE_TRANSITIONAL_MODULE_CAPABILITY_IDS,
 } from "./queueModuleControlSurface";
+export {
+  WORKBENCH_MODULE_CONTROL_SURFACE,
+} from "./workbenchModuleControlSurface";
+export type {
+  WorkbenchCapabilityRiskClass,
+} from "./workbenchModuleControlSurface";

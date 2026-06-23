@@ -131,6 +131,16 @@ because it has no live Tauri renderer/IPC context. Actual live
 the next block after this invocation wiring. `queue.workflow.invoke` is
 deliberately not implemented; invocation uses only `hobit.workflow.request`.
 
+The live smoke discovery/debug capabilities are expected to be consistent
+across Workspace Agent instructions, capability manifest metadata, Action
+Broker handlers, `ModuleControlSurface` metadata, and broker continuation
+policy diagnostics. Read-only discovery/debug actions should continue without
+grant or confirmation and should report concrete module/risk metadata rather
+than `moduleId=unknown` or `riskClass=unknown`. The setup action
+`queue.control.setManualEnabled` remains setup/write-gated for
+auto-continuation and must require an appropriate structured Queue grant; it
+must never be treated as a read-only continuation step.
+
 To authorize bounded multi-step Queue smoke, the operator must include a
 structured grant JSON object such as:
 

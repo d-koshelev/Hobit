@@ -11,6 +11,8 @@ import {
   validateHobitNextAction,
 } from "./agents/broker";
 import type { HobitAgentCapability } from "./agents/capabilities";
+import type { HobitModuleId } from "./agents/modules";
+import { resolveModuleControlSurfaceCapability } from "./agents/modules";
 import {
   QUEUE_CAPABILITY_CONTRACT_BY_ID,
   QUEUE_START_RUN_CONFIRMATION_FIELD,
@@ -194,6 +196,14 @@ export type QueueAutonomyDecision =
       reason: string;
       riskClass?: QueueCapabilityRiskClass;
     };
+
+type BrokerContinuationCapabilityMetadata = {
+  autoContinuationSafe: boolean;
+  confirmationRequired: boolean;
+  moduleId: string | null;
+  readOnly: boolean;
+  riskClass: QueueCapabilityRiskClass | null;
+};
 
 export type WorkspaceAgentBrokerContinuationReasonCode =
   | "ambiguous_next_action"
@@ -1203,12 +1213,16 @@ function createWorkspaceAgentBrokerPolicyDiagnostics({
   reasonMessage: string;
   state: WorkspaceAgentBrokerContinuationState;
 }): WorkspaceAgentBrokerPolicyDiagnostics {
-  const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+  const metadata = resolveBrokerContinuationCapabilityMetadata({
+    capabilityId,
+    moduleId,
+  });
   const resolvedModuleId =
     moduleId ??
     nextActionValidation?.moduleId ??
     nextAction?.moduleId ??
-    (contract ? "queue" : null);
+    metadata?.moduleId ??
+    null;
   return {
     allowedCapabilities: state.queueAutonomyPolicy.allowedCapabilities
       ? [...state.queueAutonomyPolicy.allowedCapabilities]
@@ -1237,7 +1251,52 @@ function createWorkspaceAgentBrokerPolicyDiagnostics({
     nextActionPresent: Boolean(nextAction),
     reasonCode,
     reasonMessage,
-    riskClass: contract?.riskClass ?? null,
+    riskClass: metadata?.riskClass ?? null,
+  };
+}
+
+function resolveBrokerContinuationCapabilityMetadata({
+  capabilityId,
+  moduleId = null,
+}: {
+  capabilityId: string;
+  moduleId?: string | null;
+}): BrokerContinuationCapabilityMetadata | null {
+  const queueContract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+  if (queueContract) {
+    return {
+      autoContinuationSafe: queueContract.autoContinuationSafe,
+      confirmationRequired:
+        queueContract.confirmation.required ||
+        queueContract.confirmationRequirement === "required",
+      moduleId: "queue",
+      readOnly: queueContract.readOnly,
+      riskClass: queueContract.riskClass,
+    };
+  }
+
+  const moduleResolution = resolveModuleControlSurfaceCapability({
+    capabilityId,
+    moduleId: moduleId as HobitModuleId | null,
+  });
+  if (!moduleResolution.ok) {
+    return null;
+  }
+
+  const moduleCapability = moduleResolution.capability;
+  const riskClass = isQueueCapabilityRiskClass(moduleCapability.riskClass)
+    ? moduleCapability.riskClass
+    : null;
+  const confirmationRequired =
+    moduleCapability.confirmation?.required === true ||
+    moduleCapability.confirmationRequirement === "required";
+
+  return {
+    autoContinuationSafe: moduleCapability.autoContinuationSafe === true,
+    confirmationRequired,
+    moduleId: moduleResolution.moduleId,
+    readOnly: moduleCapability.readOnly === true || riskClass === "read",
+    riskClass,
   };
 }
 
@@ -1331,9 +1390,11 @@ function reasonCodeForCapabilityClass({
   state: WorkspaceAgentBrokerContinuationState;
 }): WorkspaceAgentBrokerContinuationReasonCode {
   const policy = state.queueAutonomyPolicy;
-  const contract = QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId);
+  const metadata = resolveBrokerContinuationCapabilityMetadata({
+    capabilityId,
+  });
 
-  if (!contract) {
+  if (!metadata?.riskClass) {
     return "capability_not_registered";
   }
 
@@ -1349,11 +1410,11 @@ function reasonCodeForCapabilityClass({
     return "capability_not_allowed_by_grant";
   }
 
-  if (!policy.allowedRiskClasses.includes(contract.riskClass)) {
+  if (!policy.allowedRiskClasses.includes(metadata.riskClass)) {
     return policy.active ? "risk_class_not_allowed" : "no_grant_for_risk_class";
   }
 
-  if (!contract.autoContinuationSafe || contract.confirmation.required) {
+  if (!metadata.autoContinuationSafe || metadata.confirmationRequired) {
     return "capability_not_auto_continuation_safe";
   }
 
@@ -1505,6 +1566,32 @@ export function classifyWorkspaceAgentBrokerContinuationCapability(
       reason: decision.allowed
         ? `${capabilityId} is not auto-continuation safe without a Queue autonomy grant.`
         : decision.reason,
+    };
+  }
+
+  const metadata = resolveBrokerContinuationCapabilityMetadata({
+    capabilityId,
+  });
+  if (metadata?.riskClass) {
+    if (
+      metadata.readOnly &&
+      metadata.autoContinuationSafe &&
+      !metadata.confirmationRequired &&
+      policy.allowedRiskClasses.includes(metadata.riskClass)
+    ) {
+      return {
+        isTerminalFinalizer: false,
+        kind: "allowed",
+        reason: null,
+        riskClass: metadata.riskClass,
+      };
+    }
+
+    return {
+      kind: "not_allowed",
+      reason: !policy.allowedRiskClasses.includes(metadata.riskClass)
+        ? `${capabilityId} risk class ${metadata.riskClass} is not allowed for broker auto-continuation.`
+        : `${capabilityId} is not auto-continuation safe for broker continuation.`,
     };
   }
 

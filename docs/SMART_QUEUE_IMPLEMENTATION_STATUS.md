@@ -123,6 +123,16 @@ Workspace Agent can read this state with `queue.control.get` and set it to
 `manual_enabled` with `queue.control.setManualEnabled`; the set capability
 supports optional `expectedVersion` conflict checking and bounded `reason`, and
 it mutates only backend Queue control state.
+Workspace Agent live Queue smoke capabilities required before actual smoke
+execution are now registry-consistent across the manifest, context
+instructions, Action Broker handlers, `ModuleControlSurface` metadata, and
+BrokerContinuationRuntime policy lookup. `workspace.context.get`,
+`workbench.widgets.list`, `queue.control.get`, and Queue workflow debug reads
+resolve concrete module/risk metadata and are read-only auto-continuation safe
+without grant or confirmation. `queue.control.setManualEnabled` remains a
+setup/write capability that can auto-continue only under setup-capable
+structured Queue grant policy. `hobit.workflow.request` remains the official
+workflow invocation path; `queue.workflow.invoke` is not implemented.
 Worker start now has a backend-owned idempotency/control contract on the
 existing assigned-task start path for Queue workflow phases. Workflow
 context requires explicit workflow/action/task/executor/settings refs plus
@@ -1265,8 +1275,10 @@ as available from the foundation above:
   `queue.workflow.readActionLog`; these are bounded read-only broker
   capabilities over existing backend/Tauri workflow run, report, resume plan,
   and action-ledger APIs. `queue.workflow.invoke` is intentionally not
-  implemented. Codex shell still cannot perform live smoke without the live
-  Tauri renderer/IPC context.
+  implemented, and `hobit.workflow.request` remains the only workflow
+  invocation path. Codex shell still cannot perform live smoke without the
+  live Tauri renderer/IPC context. Actual live Queue smoke remains the next
+  step after the registry-consistent discovery/control/debug surface.
 - durable backend Smart Queue persistence;
 - Queue workflow runner execution beyond the full typed
   `dependency_acceptance_smoke` and `dependency_failure_smoke` paths and the

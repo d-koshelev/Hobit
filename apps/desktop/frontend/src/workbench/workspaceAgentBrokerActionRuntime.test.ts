@@ -901,8 +901,9 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     );
     expect(statusRead.status).toBe("unavailable");
     expect(statusRead.result.message).toContain(
-      "agent.status.read is not implemented by this Action Broker MVP",
+      "agent.status.read is not wired in the Workspace Agent Action Broker surface.",
     );
+    expect(statusRead.policyDecision.status).toBe("unavailable");
   });
 
   it("does not add natural-language routing in the Workspace Agent broker runtime", () => {

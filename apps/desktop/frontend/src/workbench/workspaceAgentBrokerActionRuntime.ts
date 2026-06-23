@@ -1,11 +1,16 @@
 import {
   createHobitAgentActionBroker,
   type HobitAgentActionBrokerPolicyOptions,
+  type HobitAgentActionHandlerMap,
   type HobitAgentActionRequest,
   type HobitAgentBrokerResult,
   type HobitAgentWorkflowRequestEnvelopeReadResult,
 } from "./agents/broker";
 import { createHobitAgentCapabilityRegistry } from "./agents/capabilities";
+import type {
+  HobitAgentCapability,
+  HobitAgentCapabilityRegistry,
+} from "./agents/capabilities";
 import {
   createQueueAgentActionHandlers,
   createWorkspaceAgentQueueBridgeAdapterApi,
@@ -44,19 +49,67 @@ export function createWorkspaceAgentHobitActionInvoker({
   const queueAdapter = createWorkspaceAgentQueueBridgeAdapterApi(
     workspaceAgentQueueBridge,
   );
+  const handlers = createWorkspaceAgentHobitActionHandlers({
+    queueAdapter,
+    workspaceAgentLiveContext,
+  });
   const broker = createHobitAgentActionBroker({
-    handlers: {
-      ...createQueueAgentActionHandlers(queueAdapter),
-      ...createWorkspaceAgentLiveContextActionHandlers(workspaceAgentLiveContext),
-    },
+    handlers,
     policy: {
       requireDryRunBeforeSideEffectingInvoke: false,
       ...policy,
     },
-    registry: createHobitAgentCapabilityRegistry(),
+    registry: createWorkspaceAgentBrokerCapabilityRegistry(handlers),
   });
 
   return (request) => broker.invokeAsync(request);
+}
+
+export function createWorkspaceAgentHobitActionHandlers({
+  queueAdapter,
+  workspaceAgentLiveContext,
+}: {
+  queueAdapter: ReturnType<typeof createWorkspaceAgentQueueBridgeAdapterApi>;
+  workspaceAgentLiveContext?: WorkspaceAgentLiveContextSource | null;
+}): HobitAgentActionHandlerMap {
+  return {
+    ...createQueueAgentActionHandlers(queueAdapter),
+    ...createWorkspaceAgentLiveContextActionHandlers(workspaceAgentLiveContext),
+  };
+}
+
+export function createWorkspaceAgentBrokerCapabilityRegistry(
+  handlers: HobitAgentActionHandlerMap,
+): HobitAgentCapabilityRegistry {
+  const handlerIds = new Set(Object.keys(handlers));
+  const registry = createHobitAgentCapabilityRegistry();
+
+  return {
+    ...registry,
+    capabilities: registry.capabilities.map((capability) =>
+      shouldMarkUnavailableForWorkspaceAgentBroker(capability, handlerIds)
+        ? {
+            ...capability,
+            availability: {
+              reason: `${capability.id} is not wired in the Workspace Agent Action Broker surface.`,
+              status: "unavailable",
+            },
+          }
+        : capability,
+    ),
+  };
+}
+
+function shouldMarkUnavailableForWorkspaceAgentBroker(
+  capability: HobitAgentCapability,
+  handlerIds: ReadonlySet<string>,
+) {
+  return (
+    capability.availability.status === "available" &&
+    capability.allowedAgentRoles.includes("workspace_agent") &&
+    !capability.restricted &&
+    !handlerIds.has(capability.id)
+  );
 }
 
 export function createWorkspaceAgentQueueWorkflowInvoker({

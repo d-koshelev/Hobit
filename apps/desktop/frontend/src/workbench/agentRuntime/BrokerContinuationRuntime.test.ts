@@ -27,6 +27,15 @@ import {
   runBrokerContinuationRuntime,
   type BrokerContinuationRuntimeEffect,
 } from "./brokerContinuationRuntime";
+import { createWorkspaceAgentHobitActionInvoker } from "../workspaceAgentBrokerActionRuntime";
+import type { WidgetInstance } from "../types";
+import type { WorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
+import type {
+  AgentQueueWorkflowAction,
+  AgentQueueWorkflowReport,
+  AgentQueueWorkflowResumePlan,
+  AgentQueueWorkflowRun,
+} from "../../workspace/types";
 
 describe("BrokerContinuationRuntime", () => {
   it("continues valid typed nextAction under explicit Queue policy approval", () => {
@@ -83,6 +92,191 @@ describe("BrokerContinuationRuntime", () => {
     expect(continuationEffect.state.pendingNextAction).toMatchObject({
       capabilityId: "queue.item.updateRunSettings",
       input: { taskId: "task-1" },
+    });
+  });
+
+  it("executes live Queue smoke read capabilities through broker continuation with module metadata", async () => {
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentLiveContext: liveContext(),
+      workspaceAgentQueueBridge: workflowQueueBridge(),
+    });
+    const cases = [
+      {
+        capabilityId: "workspace.context.get",
+        input: {
+          includeQueueControl: true,
+          includeWidgetSummary: true,
+        },
+        moduleId: "workbench",
+        output: {
+          currentWorkspaceAvailable: true,
+          widgetSummary: {
+            agentExecutorCount: 1,
+          },
+        },
+        riskClass: "read",
+      },
+      {
+        capabilityId: "workbench.widgets.list",
+        input: {
+          definitionIdFilter: "agent-run",
+        },
+        moduleId: "workbench",
+        output: {
+          recommendedExecutorWidgetId: "executor-1",
+        },
+        riskClass: "read",
+      },
+      {
+        capabilityId: "queue.control.get",
+        input: {},
+        moduleId: "queue",
+        output: {
+          didMutateQueue: false,
+          didStartWorkers: false,
+          status: "disabled",
+        },
+        riskClass: "read",
+      },
+      {
+        capabilityId: "queue.workflow.getReport",
+        input: { workflowRunId: "workflow-run-1" },
+        moduleId: "queue",
+        output: {
+          didInvokeWorkflowRunner: false,
+          didMutateQueue: false,
+          didStartWorkers: false,
+          workflowRunId: "workflow-run-1",
+        },
+        riskClass: "read",
+      },
+      {
+        capabilityId: "queue.workflow.planResume",
+        input: { workflowRunId: "workflow-run-1" },
+        moduleId: "queue",
+        output: {
+          didInvokeWorkflowRunner: false,
+          didMutateQueue: false,
+          didStartWorkers: false,
+          resumeAvailable: true,
+        },
+        riskClass: "read",
+      },
+      {
+        capabilityId: "queue.workflow.readActionLog",
+        input: { workflowRunId: "workflow-run-1" },
+        moduleId: "queue",
+        output: {
+          didInvokeWorkflowRunner: false,
+          didMutateQueue: false,
+          didStartWorkers: false,
+          truncated: false,
+        },
+        riskClass: "read",
+      },
+    ] as const;
+
+    for (const testCase of cases) {
+      const result = await runLiveContinuationAction({
+        capabilityId: testCase.capabilityId,
+        input: testCase.input,
+        invoker,
+      });
+
+      expect(result.brokerResult.status, testCase.capabilityId).toBe(
+        "succeeded",
+      );
+      expect(result.brokerResult.policyDecision).toMatchObject({
+        allowed: true,
+        requiresConfirmation: false,
+        requiresDryRun: false,
+      });
+      expect(result.brokerResult.result.output, testCase.capabilityId)
+        .toMatchObject(testCase.output);
+      expect(result.recordEffect.stopReason, testCase.capabilityId)
+        .toBeUndefined();
+      expect(result.recordEffect.policyDiagnostics, testCase.capabilityId)
+        .toMatchObject({
+          capabilityId: testCase.capabilityId,
+          confirmationMissing: false,
+          grantActive: false,
+          moduleId: testCase.moduleId,
+          reasonCode: "continuation_allowed",
+          riskClass: testCase.riskClass,
+        });
+      expect(result.runtime.nextState, testCase.capabilityId).not.toBeNull();
+    }
+  });
+
+  it("keeps missing live workspace context structured instead of capability_not_registered", async () => {
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentLiveContext: {
+        workbenchId: null,
+        widgets: undefined,
+        workspaceId: null,
+        workspaceRootPath: null,
+      },
+    });
+
+    const result = await runLiveContinuationAction({
+      capabilityId: "workspace.context.get",
+      input: { includeWidgetSummary: true },
+      invoker,
+    });
+
+    expect(result.brokerResult.status).toBe("succeeded");
+    expect(result.brokerResult.result.output).toMatchObject({
+      currentWorkbenchAvailable: false,
+      currentWorkspaceAvailable: false,
+      missingCapabilities: [
+        "workspace_unavailable",
+        "workbench_unavailable",
+        "workbench_widgets_unavailable",
+      ],
+    });
+    expect(result.recordEffect.policyDiagnostics).toMatchObject({
+      capabilityId: "workspace.context.get",
+      moduleId: "workbench",
+      reasonCode: "continuation_allowed",
+      riskClass: "read",
+    });
+    expect(result.recordEffect.policyDiagnostics?.reasonCode).not.toBe(
+      "capability_not_registered",
+    );
+  });
+
+  it("keeps fake unknown capabilities blocked as capability_not_registered", () => {
+    const request = requestFor("workspace.fake.read", {});
+    const state = recordAttempt(
+      createWorkspaceAgentBrokerContinuationState({
+        chainId: "chain-unknown-capability",
+      }),
+      request,
+    );
+
+    const runtime = brokerRuntime({
+      brokerResult: brokerResult(
+        request,
+        resultFor("workspace.fake.read", {
+          hiddenSideEffectFlags: {},
+        }),
+      ),
+      request,
+      state,
+    });
+    const recordEffect = effectOf(
+      runtime.effects,
+      "record_broker_action_result",
+    );
+
+    expect(recordEffect.stopReason).toBe(
+      "not_allowed_for_auto_continuation",
+    );
+    expect(recordEffect.policyDiagnostics).toMatchObject({
+      capabilityId: "workspace.fake.read",
+      moduleId: null,
+      reasonCode: "capability_not_registered",
+      riskClass: null,
     });
   });
 
@@ -449,6 +643,116 @@ function brokerRuntime({
   });
 }
 
+async function runLiveContinuationAction({
+  capabilityId,
+  input,
+  invoker,
+}: {
+  capabilityId: string;
+  input: unknown;
+  invoker: ReturnType<typeof createWorkspaceAgentHobitActionInvoker>;
+}) {
+  const state = createWorkspaceAgentBrokerContinuationState({
+    chainId: `chain-${capabilityId}`,
+  });
+  const firstRuntime = runBrokerContinuationRuntime({
+    agentId: "workspace-agent:test",
+    continuationThreadId: "thread-1",
+    createdAt: "2026-06-23T12:00:00.000Z",
+    derivedChainId: `chain-${capabilityId}`,
+    kind: "provider_protocol_result",
+    protocolOutcome: actionProtocolOutcome({
+      capabilityId,
+      input,
+      requestId: `request-${capabilityId}`,
+    }),
+    state,
+  });
+  const invokeEffect = effectOf(firstRuntime.effects, "invoke_next_action");
+  const brokerResult = await invoker(invokeEffect.intent.request);
+  const runtime = runBrokerContinuationRuntime({
+    actionIndex: invokeEffect.intent.actionIndex,
+    brokerResult,
+    confirmationInjected: invokeEffect.intent.confirmationInjected,
+    continuationThreadId: "thread-1",
+    kind: "broker_action_result",
+    message: brokerResult.result.message,
+    request: invokeEffect.intent.request,
+    state: firstRuntime.nextState,
+  });
+
+  return {
+    brokerResult,
+    recordEffect: effectOf(runtime.effects, "record_broker_action_result"),
+    runtime,
+  };
+}
+
+function liveContext() {
+  return {
+    currentRuntimeMode: "test_renderer",
+    getQueueControlState: () => ({
+      backendOwned: true,
+      queueEnabled: false,
+      status: "disabled" as const,
+      version: 2,
+      workspaceId: "workspace-1",
+    }),
+    workbenchId: "workbench-1",
+    widgets: [
+      widget({ definitionId: "interactive-agent", id: "workspace-agent-1" }),
+      widget({ definitionId: "agent-run", id: "executor-1" }),
+    ],
+    workspaceId: "workspace-1",
+    workspaceRootPath: "C:/repo",
+  };
+}
+
+function workflowQueueBridge(): WorkspaceAgentQueueBridge {
+  return {
+    createItem: async () => {
+      throw new Error("Queue mutation must not be called by read test.");
+    },
+    getQueueControlState: () => ({
+      backendOwned: true,
+      queueEnabled: false,
+      status: "disabled",
+      version: 2,
+      workspaceId: "workspace-1",
+    }),
+    getSnapshot: async () => {
+      throw new Error("Queue snapshot UI path must not be called by read test.");
+    },
+    getWorkflow: async () => workflowRun(),
+    getWorkflowReport: async () => workflowReport(),
+    planWorkflowResume: async () => workflowResumePlan(),
+    updateItem: async () => {
+      throw new Error("Queue mutation must not be called by read test.");
+    },
+  } as unknown as WorkspaceAgentQueueBridge;
+}
+
+function widget(overrides: Partial<WidgetInstance>): WidgetInstance {
+  return {
+    config: {},
+    definitionId: "notes",
+    id: "widget-1",
+    layout: {
+      area: "main",
+      height: 360,
+      mode: "docked",
+      order: 0,
+      width: 480,
+      x: 0,
+      y: 0,
+    },
+    state: {},
+    title: "Widget",
+    visible: true,
+    ...overrides,
+  };
+}
+
 function effectOf<
   TType extends BrokerContinuationRuntimeEffect["type"],
 >(
@@ -516,6 +820,99 @@ function resultFor(
     requestId: `${capabilityId}:request`,
     status: "succeeded",
   });
+}
+
+function workflowRun(): AgentQueueWorkflowRun {
+  return {
+    actionLogSummaryJson: null,
+    actorId: "workspace-agent:test",
+    blockerReason: null,
+    completedAt: null,
+    createdAt: "2026-06-23T12:00:00.000Z",
+    currentStep: "record_worker_evidence",
+    grantSummaryJson: null,
+    idempotencyKeysJson: null,
+    inputsSnapshotJson: null,
+    mutationRefsJson: null,
+    pauseReason: null,
+    phase: "worker_evidence",
+    requestHash: "workflow-request-hash",
+    requestId: "workflow-request-1",
+    schemaVersion: 1,
+    slotBindingsJson: JSON.stringify({
+      upstream: {
+        evidenceBundleId: "evidence-bundle-1",
+        messageId: "review-message-1",
+        runId: "run-upstream-1",
+        taskId: "task-upstream",
+      },
+    }),
+    status: "paused",
+    updatedAt: "2026-06-23T12:05:00.000Z",
+    variablesJson: null,
+    version: 4,
+    workflowId: "dependency_acceptance_smoke",
+    workflowRunId: "workflow-run-1",
+    workspaceId: "workspace-1",
+  };
+}
+
+function workflowAction(): AgentQueueWorkflowAction {
+  return {
+    actionId: "workflow-action-1",
+    actionType: "record_worker_evidence",
+    attemptCount: 1,
+    blockerCode: null,
+    blockerMessage: null,
+    completedAt: "2026-06-23T12:04:00.000Z",
+    createdAt: "2026-06-23T12:03:00.000Z",
+    idempotencyKey: "workflow-run-1:upstream:evidence",
+    resultRefsJson: JSON.stringify({
+      confirmationToken: "operator-confirmed",
+      rawProviderTranscript: "raw provider transcript",
+      runId: "run-upstream-1",
+      taskId: "task-upstream",
+    }),
+    startedAt: "2026-06-23T12:03:00.000Z",
+    status: "completed",
+    stepId: "record_worker_evidence",
+    targetRefsJson: JSON.stringify({
+      slot: "upstream",
+      taskId: "task-upstream",
+    }),
+    updatedAt: "2026-06-23T12:04:00.000Z",
+    workflowRunId: "workflow-run-1",
+    workspaceId: "workspace-1",
+  };
+}
+
+function workflowReport(): AgentQueueWorkflowReport {
+  return {
+    actions: [workflowAction()],
+    reportSummary: "Queue workflow report.",
+    resumeAvailable: true,
+    resumeStatus: "plan_required",
+    workflowRun: workflowRun(),
+  };
+}
+
+function workflowResumePlan(): AgentQueueWorkflowResumePlan {
+  return {
+    actions: [workflowAction()],
+    blockers: [],
+    nextPhase: "review",
+    nextStep: "ack_review_message",
+    reconciledVariablesJson: null,
+    reportSummary: "Queue workflow resume plan.",
+    requiredConfirmation: false,
+    requiredFreshGrant: true,
+    resumeAvailable: true,
+    slotReconciliations: [],
+    status: "resume_read_only_ready",
+    taskSnapshots: [],
+    terminalStatus: null,
+    workflowRun: workflowRun(),
+  };
 }
 
 function brokerResult(

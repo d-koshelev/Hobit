@@ -133,10 +133,7 @@ export function validateHobitNextAction(
     moduleId: moduleId as HobitModuleId | null,
     surfaces: options.moduleSurfaces ?? MODULE_CONTROL_SURFACE_REGISTRY,
   });
-  if (
-    !moduleResolution.ok &&
-    (moduleId || moduleResolution.reasonCode !== "capability_not_in_module_registry")
-  ) {
+  if (!moduleResolution.ok) {
     reasons.push(...moduleResolution.reasons);
   }
   const resolvedModuleId = moduleResolution.ok ? moduleResolution.moduleId : moduleId;

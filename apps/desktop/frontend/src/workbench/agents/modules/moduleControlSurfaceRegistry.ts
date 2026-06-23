@@ -8,9 +8,11 @@ import type {
   ModuleWorkflowReference,
 } from "./moduleControlSurface";
 import { QUEUE_MODULE_CONTROL_SURFACE } from "./queueModuleControlSurface";
+import { WORKBENCH_MODULE_CONTROL_SURFACE } from "./workbenchModuleControlSurface";
 
 export const MODULE_CONTROL_SURFACE_REGISTRY: readonly ModuleControlSurface[] = [
   QUEUE_MODULE_CONTROL_SURFACE,
+  WORKBENCH_MODULE_CONTROL_SURFACE,
 ];
 
 export type ModuleControlSurfaceValidationIssueCode =
