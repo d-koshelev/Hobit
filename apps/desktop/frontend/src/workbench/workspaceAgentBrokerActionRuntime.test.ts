@@ -1301,11 +1301,11 @@ function queueWorkflowStartBridge() {
       const providerId = executionTarget?.providerId ?? "codex";
       const queueOwnerWidgetInstanceId =
         executionTarget?.kind === "queue_local"
-          ? executionTarget.queueOwnerWidgetInstanceId
+          ? (executionTarget.queueOwnerWidgetInstanceId ?? null)
           : null;
       const executorWidgetId =
         executionTarget?.kind === "agent_executor"
-          ? executionTarget.executorWidgetId
+          ? (executionTarget.executorWidgetId ?? "executor-widget-1")
           : (request.runSettings.executorWidgetId ??
             queueOwnerWidgetInstanceId ??
             "executor-widget-1");

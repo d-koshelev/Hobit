@@ -1441,9 +1441,14 @@ fn workflow_run_settings_queue_local_accepts_agent_queue_widget_without_agent_ex
 }
 
 #[test]
-fn workflow_run_settings_queue_local_rejects_missing_queue_owner() {
+fn workflow_run_settings_queue_local_accepts_backend_owned_target_without_queue_widget() {
     let store = initialized_store();
-    create_workspace_with_queue(&store, "workspace-1", "workbench-1", "queue-1");
+    store
+        .create_workspace("workspace-1", "Workspace", None, "active")
+        .expect("create workspace");
+    store
+        .create_workspace_workbench("workbench-1", "workspace-1", None)
+        .expect("create workbench");
     let service = WorkspaceService::new(store);
     let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
     let task = service
@@ -1474,16 +1479,37 @@ fn workflow_run_settings_queue_local_rejects_missing_queue_owner() {
             settings,
             None,
         ))
-        .expect("missing queue owner is typed invalid input");
+        .expect("backend-owned queue local settings apply");
 
-    assert_eq!(
-        result.status,
-        QueueWorkflowApplyRunSettingsStatus::InvalidInput
-    );
-    assert_eq!(
-        result.blocker.expect("blocker").blocker_code,
-        "missing_execution_target_queue_owner"
-    );
+    assert_eq!(result.status, QueueWorkflowApplyRunSettingsStatus::Applied);
+    let binding = result.binding.expect("binding");
+    assert_eq!(binding.execution_target_kind, "queue_local");
+    assert_eq!(binding.provider_id, "codex");
+    assert_eq!(binding.queue_owner_widget_instance_id, None);
+    assert_eq!(binding.executor_widget_id, "");
+    let updated_task = service
+        .get_agent_queue_task("workspace-1", &task.queue_item_id)
+        .expect("get task")
+        .expect("task");
+    assert_eq!(updated_task.assigned_executor_widget_id, None);
+
+    let run = service
+        .get_queue_workflow_run(QueueWorkflowGetRequest {
+            workspace_id: "workspace-1".to_owned(),
+            workflow_run_id: workflow_run.workflow_run_id.clone(),
+        })
+        .expect("get workflow")
+        .expect("workflow");
+    let slot_bindings: Value = serde_json::from_str(
+        run.slot_bindings_json
+            .as_deref()
+            .expect("slot bindings json"),
+    )
+    .expect("slot bindings");
+    assert!(slot_bindings["upstream"]["queueOwnerWidgetInstanceId"].is_null());
+    assert!(slot_bindings["upstream"]["runSettings"]["executionTarget"]
+        ["queueOwnerWidgetInstanceId"]
+        .is_null());
 }
 
 #[test]

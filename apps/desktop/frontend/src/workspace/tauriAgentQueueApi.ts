@@ -317,7 +317,8 @@ export async function startAssignedAgentQueueTask(
               action_idempotency_key:
                 request.workflowStartContext.actionIdempotencyKey ?? null,
               task_id: request.workflowStartContext.taskId,
-              executor_widget_id: request.workflowStartContext.executorWidgetId,
+              executor_widget_id:
+                request.workflowStartContext.executorWidgetId ?? null,
               settings_hash: request.workflowStartContext.settingsHash,
               execution_target_hash:
                 request.workflowStartContext.executionTargetHash ?? null,

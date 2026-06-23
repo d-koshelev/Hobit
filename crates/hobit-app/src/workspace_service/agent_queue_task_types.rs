@@ -1,3 +1,8 @@
+pub const QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID: &str = "queue_local:codex";
+pub const QUEUE_LOCAL_BACKEND_WORKBENCH_ID: &str = "queue_local_backend";
+const QUEUE_LOCAL_NULL_OWNER_HASH_MARKER: &str = "<queue-owner:null>";
+const QUEUE_LOCAL_NULL_EXECUTOR_HASH_MARKER: &str = "<executor:null>";
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CreateAgentQueueTaskInput {
     pub workspace_id: String,
@@ -183,7 +188,7 @@ impl QueueWorkerStartSettingsSnapshot {
         let queue_owner_widget_instance_id = self
             .queue_owner_widget_instance_id
             .as_deref()
-            .unwrap_or_default();
+            .unwrap_or(QUEUE_LOCAL_NULL_OWNER_HASH_MARKER);
         let canonical = [
             ("approval_policy", self.approval_policy.as_str()),
             ("codex_executable", self.codex_executable.as_str()),
@@ -220,8 +225,11 @@ impl QueueExecutionTargetSnapshot {
         let queue_owner_widget_instance_id = self
             .queue_owner_widget_instance_id
             .as_deref()
-            .unwrap_or_default();
-        let executor_widget_id = self.executor_widget_id.as_deref().unwrap_or_default();
+            .unwrap_or(QUEUE_LOCAL_NULL_OWNER_HASH_MARKER);
+        let executor_widget_id = self
+            .executor_widget_id
+            .as_deref()
+            .unwrap_or(QUEUE_LOCAL_NULL_EXECUTOR_HASH_MARKER);
         let canonical = [
             ("execution_target_kind", self.execution_target_kind.as_str()),
             ("executor_widget_id", executor_widget_id),
@@ -258,7 +266,7 @@ pub struct QueueWorkerStartContext {
     pub workflow_action_id: Option<String>,
     pub action_idempotency_key: Option<String>,
     pub task_id: String,
-    pub executor_widget_id: String,
+    pub executor_widget_id: Option<String>,
     pub settings_hash: String,
     pub execution_target_hash: Option<String>,
     pub expected_queue_control_version: Option<i64>,

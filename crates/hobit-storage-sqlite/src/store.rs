@@ -152,6 +152,7 @@ impl SqliteStore {
 
     fn upgrade_schema(&self) -> Result<()> {
         self.upgrade_widget_logs_schema()?;
+        self.upgrade_agent_queue_task_run_links_backend_owned_schema()?;
         self.upgrade_knowledge_documents_schema()?;
         self.ensure_column("workspaces", "root_path", "root_path TEXT NULL")?;
         self.ensure_column(
@@ -258,6 +259,62 @@ impl SqliteStore {
         );
 
         self.connection.execute_batch(&sql)?;
+        Ok(())
+    }
+
+    fn upgrade_agent_queue_task_run_links_backend_owned_schema(&self) -> Result<()> {
+        let mut statement = self
+            .connection
+            .prepare("PRAGMA foreign_key_list(agent_queue_task_run_links)")?;
+        let foreign_tables = statement
+            .query_map([], |row| row.get::<_, String>(2))?
+            .collect::<Result<Vec<_>>>()?;
+        if !foreign_tables
+            .iter()
+            .any(|table| table == "widget_instances" || table == "widget_runs")
+        {
+            return Ok(());
+        }
+        drop(statement);
+
+        self.connection.pragma_update(None, "foreign_keys", "OFF")?;
+        let migration = self.connection.execute_batch(
+            r#"
+            ALTER TABLE agent_queue_task_run_links RENAME TO agent_queue_task_run_links_legacy;
+
+            CREATE TABLE agent_queue_task_run_links (
+                link_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+                queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+                executor_widget_id TEXT NOT NULL,
+                direct_work_run_id TEXT NOT NULL UNIQUE,
+                source TEXT NOT NULL,
+                status TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                completed_at TEXT NULL,
+                validation_status TEXT NULL,
+                review_status TEXT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            INSERT INTO agent_queue_task_run_links (
+                link_id, workspace_id, queue_task_id, executor_widget_id, direct_work_run_id,
+                source, status, started_at, completed_at, validation_status, review_status,
+                created_at, updated_at
+            )
+            SELECT
+                link_id, workspace_id, queue_task_id, executor_widget_id, direct_work_run_id,
+                source, status, started_at, completed_at, validation_status, review_status,
+                created_at, updated_at
+            FROM agent_queue_task_run_links_legacy;
+
+            DROP TABLE agent_queue_task_run_links_legacy;
+            "#,
+        );
+        let restore = self.connection.pragma_update(None, "foreign_keys", "ON");
+        migration?;
+        restore?;
         Ok(())
     }
 

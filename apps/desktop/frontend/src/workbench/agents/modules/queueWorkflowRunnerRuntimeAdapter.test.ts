@@ -610,10 +610,8 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
             ...validInputs(),
             runSettings: {
               ...validInputs().runSettings,
-              executionTarget: {
-                kind: "queue_local",
-                providerId: "codex",
-              },
+              executionTarget: undefined,
+              executorWidgetId: undefined,
             },
           },
         }),

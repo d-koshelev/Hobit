@@ -540,8 +540,9 @@ impl WorkspaceService {
                             },
                         )?
                         .ok_or(hobit_storage_sqlite::StorageError::QueryReturnedNoRows)?;
-                    let task = if task.assigned_executor_widget_id.as_deref()
-                        == Some(request.run_settings.executor_widget_id.as_str())
+                    let task = if request.run_settings.executor_widget_id.is_empty()
+                        || task.assigned_executor_widget_id.as_deref()
+                            == Some(request.run_settings.executor_widget_id.as_str())
                     {
                         task
                     } else {
@@ -1275,16 +1276,8 @@ fn normalize_execution_target(
 
         return match kind.as_str() {
             "queue_local" => {
-                let queue_owner_widget_instance_id = normalize_optional_string(
-                    target.queue_owner_widget_instance_id,
-                )
-                .ok_or_else(|| {
-                    blocker(
-                        "missing_execution_target_queue_owner",
-                        "Queue-local workflow executionTarget requires queueOwnerWidgetInstanceId.",
-                        Some("runSettings.executionTarget.queueOwnerWidgetInstanceId"),
-                    )
-                })?;
+                let queue_owner_widget_instance_id =
+                    normalize_optional_string(target.queue_owner_widget_instance_id);
                 if normalize_optional_string(target.executor_widget_id).is_some() {
                     return Err(blocker(
                         "invalid_execution_target",
@@ -1295,7 +1288,7 @@ fn normalize_execution_target(
                 Ok(CanonicalQueueWorkflowExecutionTarget {
                     kind: CanonicalQueueWorkflowExecutionTargetKind::QueueLocal,
                     provider_id,
-                    queue_owner_widget_instance_id: Some(queue_owner_widget_instance_id),
+                    queue_owner_widget_instance_id,
                     executor_widget_id: None,
                 })
             }
@@ -1347,10 +1340,11 @@ fn validate_workflow_execution_target_owner(
 ) -> Result<(), hobit_storage_sqlite::StorageError> {
     match target.kind {
         CanonicalQueueWorkflowExecutionTargetKind::QueueLocal => {
-            let queue_owner_widget_instance_id = target
-                .queue_owner_widget_instance_id
-                .as_deref()
-                .unwrap_or_default();
+            let Some(queue_owner_widget_instance_id) =
+                target.queue_owner_widget_instance_id.as_deref()
+            else {
+                return Ok(());
+            };
             let Some(widget) = store.get_widget_instance(queue_owner_widget_instance_id)? else {
                 return Err(storage_invalid_input(format!(
                     "queue owner widget not found: {queue_owner_widget_instance_id}"
@@ -1521,7 +1515,7 @@ fn durable_settings_mismatch(
             Some("runSettings.executionPolicy"),
         ));
     }
-    if task.assigned_executor_widget_id.as_deref() != Some(settings.executor_widget_id.as_str()) {
+    if task.assigned_executor_widget_id.clone().unwrap_or_default() != settings.executor_widget_id {
         return Some(blocker(
             "executor_widget_mismatch",
             "Durable task executor assignment no longer matches the workflow settingsHash.",
@@ -1560,9 +1554,9 @@ fn execution_target_from_bound_run_settings(
             "queue_local" => Some(CanonicalQueueWorkflowExecutionTarget {
                 kind: CanonicalQueueWorkflowExecutionTargetKind::QueueLocal,
                 provider_id,
-                queue_owner_widget_instance_id: Some(optional_string_field(
+                queue_owner_widget_instance_id: optional_string_field(
                     target.get("queueOwnerWidgetInstanceId"),
-                )?),
+                ),
                 executor_widget_id: None,
             }),
             "agent_executor" => Some(CanonicalQueueWorkflowExecutionTarget {
@@ -1720,14 +1714,14 @@ fn apply_run_settings_to_binding(
         "providerId".to_owned(),
         Value::String(summary.provider_id.clone()),
     );
-    if let Some(queue_owner_widget_instance_id) = &summary.queue_owner_widget_instance_id {
-        object.insert(
-            "queueOwnerWidgetInstanceId".to_owned(),
-            Value::String(queue_owner_widget_instance_id.clone()),
-        );
-    } else {
-        object.remove("queueOwnerWidgetInstanceId");
-    }
+    object.insert(
+        "queueOwnerWidgetInstanceId".to_owned(),
+        summary
+            .queue_owner_widget_instance_id
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
     object.insert(
         "executorWidgetId".to_owned(),
         Value::String(summary.executor_widget_id.clone()),

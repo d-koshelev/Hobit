@@ -29,7 +29,7 @@ fn maps_start_assigned_agent_queue_task_request_to_app_input() {
             workflow_action_id: Some("workflow-action-1".to_owned()),
             action_idempotency_key: Some("workflow-key-1".to_owned()),
             task_id: "task_1".to_owned(),
-            executor_widget_id: "executor_1".to_owned(),
+            executor_widget_id: Some("executor_1".to_owned()),
             settings_hash: "queue-settings-fnv1a64:0000000000000001".to_owned(),
             execution_target_hash: Some(
                 "queue-execution-target-fnv1a64:0000000000000002".to_owned(),
@@ -68,7 +68,7 @@ fn maps_start_assigned_agent_queue_task_request_to_app_input() {
         Some("workflow-key-1")
     );
     assert_eq!(context.task_id, "task_1");
-    assert_eq!(context.executor_widget_id, "executor_1");
+    assert_eq!(context.executor_widget_id.as_deref(), Some("executor_1"));
     assert_eq!(
         context.execution_target_hash.as_deref(),
         Some("queue-execution-target-fnv1a64:0000000000000002")

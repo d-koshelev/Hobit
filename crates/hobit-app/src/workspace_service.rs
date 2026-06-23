@@ -215,7 +215,8 @@ pub use agent_queue_task_types::{
     QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot,
     RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
     RunAgentQueueValidationSuiteInput, StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
-    UpdateAgentQueueWorkerInput,
+    UpdateAgentQueueWorkerInput, QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
+    QUEUE_LOCAL_BACKEND_WORKBENCH_ID,
 };
 pub use agent_queue_worker_evidence::{
     AgentQueueWorkerEvidenceBundleSummary, AgentQueueWorkerEvidenceQueryResult,

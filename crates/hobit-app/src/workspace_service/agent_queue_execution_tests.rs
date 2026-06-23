@@ -3,7 +3,8 @@ use super::*;
 use std::path::PathBuf;
 
 use hobit_storage_sqlite::{
-    NewAgentQueueFailureDecision, NewAgentQueueWorkflowAction, SqliteStore,
+    AgentQueueWorkflowRunReportUpdate, NewAgentQueueFailureDecision, NewAgentQueueWorkflowAction,
+    SqliteStore,
 };
 use hobit_tools::codex_cli::{
     CodexApprovalPolicy, CodexDirectStreamEvent, CodexDirectStreamEventKind,
@@ -556,12 +557,13 @@ fn workflow_worker_start_rejects_missing_structured_context_fields() {
         .workflow_start_context
         .as_mut()
         .expect("workflow context")
-        .executor_widget_id
-        .clear();
+        .executor_widget_id = None;
     let error = service
         .start_assigned_agent_queue_task(input)
         .expect_err("missing executor rejected");
-    assert!(error.to_string().contains("executor widget id"));
+    assert!(error
+        .to_string()
+        .contains("executorWidgetId or executionTargetHash"));
 }
 
 #[test]
@@ -612,7 +614,7 @@ fn workflow_worker_start_blocks_version_executor_and_settings_mismatches() {
         .workflow_start_context
         .as_mut()
         .expect("workflow context")
-        .executor_widget_id = other_executor_id;
+        .executor_widget_id = Some(other_executor_id);
     let error = service
         .start_assigned_agent_queue_task(mismatched_executor)
         .expect_err("executor mismatch rejected");
@@ -874,6 +876,65 @@ fn workflow_worker_start_queue_local_duplicate_uses_execution_target_hash() {
         target_refs["executionTargetHash"].as_str(),
         Some(execution_target_hash.as_str())
     );
+}
+
+#[test]
+fn workflow_worker_start_backend_queue_local_does_not_require_queue_widget() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue workspace", None)
+        .expect("create workspace");
+    enable_queue_manual(&service, &workspace.id);
+    let task = create_task(&service, &workspace.id, "queued", "Prompt");
+    let workflow_run_id =
+        create_workflow_run(&service, &workspace.id, "request-backend-queue-local");
+    let input = backend_queue_local_workflow_start_input(
+        &workspace.id,
+        &task.queue_item_id,
+        &workflow_run_id,
+        "action-backend-queue-local",
+    );
+    bind_backend_queue_local_start(
+        &service,
+        &workspace.id,
+        &workflow_run_id,
+        &task.queue_item_id,
+        input
+            .workflow_start_context
+            .as_ref()
+            .expect("workflow context"),
+    );
+
+    let start = service
+        .start_assigned_agent_queue_task(input)
+        .expect("backend queue-local workflow start");
+    let stored_task = service
+        .get_agent_queue_task(&workspace.id, &task.queue_item_id)
+        .expect("get queue task")
+        .expect("queue task");
+    let link = service
+        .get_latest_agent_queue_task_run_link(&workspace.id, &task.queue_item_id)
+        .expect("get latest link")
+        .expect("latest link");
+
+    assert_eq!(start.status, "started");
+    assert_eq!(
+        start.executor_widget_instance_id,
+        QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID
+    );
+    assert_eq!(start.workbench_id, QUEUE_LOCAL_BACKEND_WORKBENCH_ID);
+    assert_eq!(stored_task.status, "running");
+    assert_eq!(stored_task.assigned_executor_widget_id, None);
+    assert_eq!(
+        link.executor_widget_id,
+        QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID
+    );
+    assert_eq!(link.direct_work_run_id, start.run_id);
+    assert!(service
+        .store
+        .get_widget_run(&start.run_id)
+        .expect("read widget run")
+        .is_none());
 }
 
 #[test]
@@ -1226,7 +1287,7 @@ fn workflow_start_input(
         workflow_action_id: Some(workflow_action_id.to_owned()),
         action_idempotency_key: Some(action_idempotency_key),
         task_id: queue_item_id.to_owned(),
-        executor_widget_id: executor_id.to_owned(),
+        executor_widget_id: Some(executor_id.to_owned()),
         settings_hash,
         execution_target_hash: None,
         expected_queue_control_version: None,
@@ -1261,7 +1322,7 @@ fn queue_local_workflow_start_input(
         workflow_action_id: Some(workflow_action_id.to_owned()),
         action_idempotency_key: Some(action_idempotency_key),
         task_id: queue_item_id.to_owned(),
-        executor_widget_id: queue_widget_id.to_owned(),
+        executor_widget_id: Some(queue_widget_id.to_owned()),
         settings_hash,
         execution_target_hash: Some(execution_target_hash),
         expected_queue_control_version: None,
@@ -1269,6 +1330,100 @@ fn queue_local_workflow_start_input(
         confirmation_token: Some("operator-confirmed".to_owned()),
     });
     input
+}
+
+fn backend_queue_local_workflow_start_input(
+    workspace_id: &str,
+    queue_item_id: &str,
+    workflow_run_id: &str,
+    workflow_action_id: &str,
+) -> StartAssignedAgentQueueTaskInput {
+    let mut input = start_input(workspace_id, queue_item_id);
+    let settings_hash = backend_queue_local_settings_hash_for_input(&input);
+    let execution_target_hash = QueueExecutionTargetSnapshot {
+        execution_target_kind: "queue_local".to_owned(),
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: None,
+        executor_widget_id: None,
+    }
+    .stable_hash();
+    let action_idempotency_key = format!(
+        "{workflow_run_id}:start_worker:{queue_item_id}:{execution_target_hash}:{settings_hash}"
+    );
+    input.workflow_start_context = Some(QueueWorkerStartContext {
+        workflow_run_id: workflow_run_id.to_owned(),
+        workflow_action_id: Some(workflow_action_id.to_owned()),
+        action_idempotency_key: Some(action_idempotency_key),
+        task_id: queue_item_id.to_owned(),
+        executor_widget_id: None,
+        settings_hash,
+        execution_target_hash: Some(execution_target_hash),
+        expected_queue_control_version: None,
+        actor_id: Some("test-operator".to_owned()),
+        confirmation_token: Some("operator-confirmed".to_owned()),
+    });
+    input
+}
+
+fn bind_backend_queue_local_start(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    workflow_run_id: &str,
+    queue_item_id: &str,
+    context: &QueueWorkerStartContext,
+) {
+    let slot_bindings = json!({
+        "upstream": {
+            "executionTargetHash": context
+                .execution_target_hash
+                .as_deref()
+                .expect("execution target hash"),
+            "executionTargetKind": "queue_local",
+            "executorWidgetId": "",
+            "providerId": "codex",
+            "queueOwnerWidgetInstanceId": Value::Null,
+            "runSettings": {
+                "approvalPolicy": "never",
+                "codexExecutable": "codex",
+                "executionPolicy": "manual",
+                "executionTarget": {
+                    "kind": "queue_local",
+                    "providerId": "codex",
+                    "queueOwnerWidgetInstanceId": Value::Null
+                },
+                "executorWidgetId": "",
+                "executionWorkspace": std::env::current_dir()
+                    .expect("current dir")
+                    .to_string_lossy()
+                    .into_owned(),
+                "sandbox": "workspace_write"
+            },
+            "settingsHash": &context.settings_hash,
+            "taskId": queue_item_id
+        }
+    })
+    .to_string();
+    service
+        .store
+        .update_agent_queue_workflow_run_report(
+            workspace_id,
+            workflow_run_id,
+            AgentQueueWorkflowRunReportUpdate {
+                status: "running",
+                phase: None,
+                current_step: None,
+                pause_reason: None,
+                blocker_reason: None,
+                variables_json: None,
+                slot_bindings_json: Some(&slot_bindings),
+                mutation_refs_json: None,
+                idempotency_keys_json: None,
+                action_log_summary_json: None,
+                updated_at: Some("backend-bind"),
+                completed_at: None,
+            },
+        )
+        .expect("bind backend queue-local slot");
 }
 
 fn worker_settings_hash_for_input(
@@ -1299,11 +1454,30 @@ fn worker_settings_hash_for_input(
     .stable_hash()
 }
 
+fn backend_queue_local_settings_hash_for_input(input: &StartAssignedAgentQueueTaskInput) -> String {
+    QueueWorkerStartSettingsSnapshot {
+        execution_workspace: input.repo_root.to_string_lossy().into_owned(),
+        codex_executable: input.codex_executable.clone(),
+        sandbox: input.sandbox.clone(),
+        approval_policy: input.approval_policy.clone(),
+        execution_policy: "manual".to_owned(),
+        execution_target_kind: "queue_local".to_owned(),
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: None,
+        executor_widget_id: String::new(),
+    }
+    .stable_hash()
+}
+
 fn workflow_start_target_refs_for_test(context: &QueueWorkerStartContext) -> String {
     let mut refs = serde_json::Map::new();
     refs.insert(
         "executorWidgetId".to_owned(),
-        Value::String(context.executor_widget_id.clone()),
+        context
+            .executor_widget_id
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
     );
     refs.insert(
         "settingsHash".to_owned(),

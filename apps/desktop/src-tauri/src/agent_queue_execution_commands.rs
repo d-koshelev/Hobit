@@ -182,12 +182,7 @@ pub(crate) fn start_assigned_agent_queue_task_blocking_with_source(
                 );
             }
         }
-        Err(error) if has_workflow_context => {
-            let message = error.to_string();
-            if !message.contains("queue task status cannot be run: running") {
-                return Err(command_error(error));
-            }
-        }
+        Err(_error) if has_workflow_context => {}
         Err(error) => return Err(command_error(error)),
     }
 
@@ -207,28 +202,22 @@ fn run_assigned_agent_queue_task_background(
     let service = workspace_service(&db_path)?;
     let executor_widget_instance_id = input.widget_instance_id.clone();
     let workspace_id = input.workspace_id.clone();
-    let result = service.run_codex_direct_work_stream_with_cancellation(
-        input,
-        &run_id,
-        cancellation_token,
-        |event| {
-            let _event_artifact = DirectWorkHostStreamEventRuntimeArtifact::from_event(&event);
-            let emit_result = app.emit(
-                DIRECT_WORK_STREAM_EVENT_NAME,
-                DirectWorkStreamEventDto::from(event),
-            );
-            let _emit_artifact = match &emit_result {
-                Ok(_) => DirectWorkHostRuntimeBoundarySummary::from_event_emit_result(None),
-                Err(error) => {
-                    let error_message = error.to_string();
-                    DirectWorkHostRuntimeBoundarySummary::from_event_emit_result(Some(
-                        &error_message,
-                    ))
-                }
-            };
-            let _ = emit_result;
-        },
-    );
+    let result =
+        if executor_widget_instance_id == hobit_app::QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID {
+            service.run_backend_owned_agent_queue_direct_work_stream_with_cancellation(
+                input,
+                &run_id,
+                cancellation_token,
+                |event| emit_direct_work_stream_event(&app, event),
+            )
+        } else {
+            service.run_codex_direct_work_stream_with_cancellation(
+                input,
+                &run_id,
+                cancellation_token,
+                |event| emit_direct_work_stream_event(&app, event),
+            )
+        };
 
     match result {
         Ok(Some(summary)) => service
@@ -267,6 +256,25 @@ fn run_assigned_agent_queue_task_background(
             Err(error)
         }
     }
+}
+
+fn emit_direct_work_stream_event(
+    app: &tauri::AppHandle,
+    event: hobit_app::CodexDirectWorkStreamEventSummary,
+) {
+    let _event_artifact = DirectWorkHostStreamEventRuntimeArtifact::from_event(&event);
+    let emit_result = app.emit(
+        DIRECT_WORK_STREAM_EVENT_NAME,
+        DirectWorkStreamEventDto::from(event),
+    );
+    let _emit_artifact = match &emit_result {
+        Ok(_) => DirectWorkHostRuntimeBoundarySummary::from_event_emit_result(None),
+        Err(error) => {
+            let error_message = error.to_string();
+            DirectWorkHostRuntimeBoundarySummary::from_event_emit_result(Some(&error_message))
+        }
+    };
+    let _ = emit_result;
 }
 
 fn workspace_service(db_path: &Path) -> Result<WorkspaceService, String> {

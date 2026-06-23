@@ -397,7 +397,7 @@ export type QueueWorkflowSlotVariables = {
   evidenceBundleId?: string;
   executionTargetHash?: string;
   executionTargetKind?: string;
-  executorWidgetId?: string;
+  executorWidgetId?: string | null;
   messageId?: string;
   providerId?: string;
   queueOwnerWidgetInstanceId?: string;
@@ -481,7 +481,7 @@ export type QueueWorkflowCreateSetupStartReport = {
   runSettings?: {
     executionTargetHash?: string;
     executionTargetKind?: string;
-    executorWidgetId?: string;
+    executorWidgetId?: string | null;
     providerId?: string;
     queueOwnerWidgetInstanceId?: string | null;
     settingsHash?: string;
@@ -1236,8 +1236,7 @@ export async function runQueueWorkflowCreateSetupStartRunner(
     });
     const queueOwnerWidgetInstanceId =
       settingsBinding.executionTargetKind === "queue_local"
-        ? (settingsBinding.queueOwnerWidgetInstanceId ??
-          settingsBinding.executorWidgetId)
+        ? (settingsBinding.queueOwnerWidgetInstanceId ?? undefined)
         : undefined;
     const start = await input.createSetupStartPort.startWorkerForSlot({
       approvalPolicy: requestInput.value.runSettings.approvalPolicy as StartAssignedAgentQueueTaskRequest["approvalPolicy"],
@@ -1256,7 +1255,7 @@ export async function runQueueWorkflowCreateSetupStartRunner(
           requestInput.value.expectedQueueControlVersion ??
           queueControl.version ??
           null,
-        executorWidgetId: settingsBinding.executorWidgetId,
+        executorWidgetId: settingsBinding.executorWidgetId ?? undefined,
         executionTargetHash: settingsBinding.executionTargetHash,
         settingsHash: settingsBinding.settingsHash,
         taskId: upstreamBinding.taskId,
@@ -2187,25 +2186,15 @@ function resolveExecutionTargetInput(
       executionTarget,
       "queueOwnerWidgetInstanceId",
     );
-    if (!queueOwnerWidgetInstanceId) {
-      return {
-        blocker: {
-          fieldPath:
-            "$.inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId",
-          message:
-            "Queue-local executionTarget requires queueOwnerWidgetInstanceId.",
-          reasonCode: "missing_run_settings",
-        },
-        ok: false,
-      };
-    }
     return {
       ok: true,
       value: {
         executionTarget: {
           kind,
           providerId,
-          queueOwnerWidgetInstanceId,
+          ...(queueOwnerWidgetInstanceId
+            ? { queueOwnerWidgetInstanceId }
+            : {}),
         },
       },
     };

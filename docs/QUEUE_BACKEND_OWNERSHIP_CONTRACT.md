@@ -323,12 +323,15 @@ state only.
 Worker start idempotency is backend/domain truth. The assigned Queue task start
 path accepts an optional typed workflow start context with explicit
 `workflowRunId`, `workflowActionId` or `actionIdempotencyKey`, `taskId`,
-`executorWidgetId`, `settingsHash`, optional `executionTargetHash`, optional
+optional `executorWidgetId`, `settingsHash`, optional `executionTargetHash`, optional
 expected Queue-control version, optional trusted actor id, and exact
-structured confirmation. Queue-local workflow starts also pass explicit
-`queueOwnerWidgetInstanceId`; no `agent-run` widget is required for that target
-kind. No field may be derived from prose, task title, UI order, file path,
-selected detail state, or natural-language confirmation.
+structured confirmation. Backend-owned Queue-local workflow starts require
+`executionTargetHash`/`settingsHash` and may omit both
+`queueOwnerWidgetInstanceId` and compatibility `executorWidgetId`; a supplied
+`queueOwnerWidgetInstanceId` is optional Agent Queue widget attribution and no
+`agent-run` widget is required for that target kind. No field may be derived
+from prose, task title, UI order, file path, selected detail state, or
+natural-language confirmation.
 
 When workflow context is supplied, backend start writes/reads a
 `start_worker` row in `agent_queue_workflow_actions`. The same

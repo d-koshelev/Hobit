@@ -264,9 +264,9 @@ describe("QueueWorkflowRunner", () => {
       runSettings: {
         executionTargetHash: "execution-target-hash-queue_local",
         executionTargetKind: "queue_local",
-        executorWidgetId: "agent-queue-widget-id",
+        executorWidgetId: null,
         providerId: "codex",
-        queueOwnerWidgetInstanceId: "agent-queue-widget-id",
+        queueOwnerWidgetInstanceId: null,
         settingsHash: "settings-hash-upstream",
         status: "applied",
         taskId: "task-upstream",
@@ -318,14 +318,14 @@ describe("QueueWorkflowRunner", () => {
       { method: "getQueueControlState" },
       expect.objectContaining({
         method: "startWorkerForSlot",
-        queueOwnerWidgetInstanceId: "agent-queue-widget-id",
+        queueOwnerWidgetInstanceId: undefined,
         queueItemId: "task-upstream",
         workflowStartContext: expect.objectContaining({
           actionIdempotencyKey:
             "queue-workflow-run-1:start_worker:task-upstream:execution-target-hash-queue_local:settings-hash-upstream",
           confirmationToken: "operator-confirmed",
           expectedQueueControlVersion: 7,
-          executorWidgetId: "agent-queue-widget-id",
+          executorWidgetId: undefined,
           executionTargetHash: "execution-target-hash-queue_local",
           settingsHash: "settings-hash-upstream",
           taskId: "task-upstream",
@@ -819,7 +819,7 @@ describe("QueueWorkflowRunner", () => {
     );
   });
 
-  it("blocks before worker start when queue_local queueOwnerWidgetInstanceId is missing", async () => {
+  it("runs create/setup/start with optional queueOwnerWidgetInstanceId attribution", async () => {
     const port = fakeCreateSetupStartPort();
     const request = workflowRequest({
       grant: validGrant("queue_acceptance_smoke", {
@@ -832,6 +832,7 @@ describe("QueueWorkflowRunner", () => {
           executionTarget: {
             kind: "queue_local",
             providerId: "codex",
+            queueOwnerWidgetInstanceId: "agent-queue-widget-id",
           },
         },
       },
@@ -844,13 +845,20 @@ describe("QueueWorkflowRunner", () => {
       workflowRunId: "queue-workflow-run-1",
     });
 
-    expect(result.status).toBe("invalid_request");
-    expect(result.blockers).toEqual([
-      expect.objectContaining({
-        reasonCode: "invalid_request",
-      }),
-    ]);
-    expect(port.calls).toEqual([]);
+    expect(result.status).toBe("awaiting_worker_completion");
+    expect(port.calls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          method: "startWorkerForSlot",
+          queueOwnerWidgetInstanceId: "agent-queue-widget-id",
+          workflowStartContext: expect.objectContaining({
+            executorWidgetId: undefined,
+            executionTargetHash: "execution-target-hash-queue_local",
+            settingsHash: "settings-hash-upstream",
+          }),
+        }),
+      ]),
+    );
   });
 
   it("blocks after setup when backend Queue control is disabled", async () => {
@@ -2400,7 +2408,6 @@ function validInputs() {
       executionTarget: {
         kind: "queue_local",
         providerId: "codex",
-        queueOwnerWidgetInstanceId: "agent-queue-widget-id",
       },
       sandbox: "read_only",
       workspaceRoot: "C:/work/hobit",
@@ -2532,14 +2539,12 @@ function fakeCreateSetupStartPort(
       const providerId = executionTarget?.providerId ?? "codex";
       const queueOwnerWidgetInstanceId =
         executionTarget?.kind === "queue_local"
-          ? executionTarget.queueOwnerWidgetInstanceId
+          ? (executionTarget.queueOwnerWidgetInstanceId ?? null)
           : null;
       const executorWidgetId =
         executionTarget?.kind === "agent_executor"
           ? executionTarget.executorWidgetId
-          : (request.runSettings.executorWidgetId ??
-            queueOwnerWidgetInstanceId ??
-            "executor-widget-1");
+          : (request.runSettings.executorWidgetId ?? null);
       return {
         action: null,
         binding:
@@ -2666,7 +2671,7 @@ function fakeCreateSetupStartPort(
             ? "running"
             : null,
         executorWidgetInstanceId:
-          request.workflowStartContext?.executorWidgetId ?? "executor-widget-1",
+          request.workflowStartContext?.executorWidgetId ?? "queue_local:codex",
         queueItemId: request.queueItemId,
         runId: startStatus === "blocked" ? "" : "run-upstream",
         settingsHash: request.workflowStartContext?.settingsHash ?? null,

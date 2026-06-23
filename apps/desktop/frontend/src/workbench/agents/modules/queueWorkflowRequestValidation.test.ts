@@ -25,7 +25,7 @@ describe("queueWorkflowRequestValidation", () => {
     });
   });
 
-  it("accepts dependency_acceptance_smoke queue_local executionTarget without executorWidgetId", () => {
+  it("accepts dependency_acceptance_smoke backend-owned queue_local executionTarget without executorWidgetId or queueOwnerWidgetInstanceId", () => {
     expect(
       validateQueueWorkflowRequest(
         validRequest({
@@ -36,7 +36,6 @@ describe("queueWorkflowRequestValidation", () => {
               executionTarget: {
                 kind: "queue_local",
                 providerId: "codex",
-                queueOwnerWidgetInstanceId: "agent-queue-widget-id",
               },
             }),
           },
@@ -68,7 +67,7 @@ describe("queueWorkflowRequestValidation", () => {
     });
   });
 
-  it("accepts dependency_failure_smoke queue_local executionTarget without executorWidgetId", () => {
+  it("accepts dependency_failure_smoke backend-owned queue_local executionTarget without executorWidgetId or queueOwnerWidgetInstanceId", () => {
     expect(
       validateQueueWorkflowRequest(
         validRequest({
@@ -80,7 +79,6 @@ describe("queueWorkflowRequestValidation", () => {
               executionTarget: {
                 kind: "queue_local",
                 providerId: "codex",
-                queueOwnerWidgetInstanceId: "agent-queue-widget-id",
               },
             }),
           },
@@ -94,7 +92,7 @@ describe("queueWorkflowRequestValidation", () => {
     });
   });
 
-  it("rejects queue_local executionTarget without queueOwnerWidgetInstanceId", () => {
+  it("accepts queue_local executionTarget with optional queueOwnerWidgetInstanceId attribution", () => {
     expect(
       validateQueueWorkflowRequest(
         validRequest({
@@ -104,21 +102,15 @@ describe("queueWorkflowRequestValidation", () => {
               executionTarget: {
                 kind: "queue_local",
                 providerId: "codex",
+                queueOwnerWidgetInstanceId: "agent-queue-widget-id",
               },
             }),
           },
         }),
       ),
     ).toMatchObject({
-      issues: expect.arrayContaining([
-        expect.objectContaining({
-          fieldPath:
-            "$.inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId",
-          reasonCode: "missing_required_input",
-        }),
-      ]),
-      ok: false,
-      status: "missing_required_inputs",
+      ok: true,
+      status: "workflow_valid_not_executable",
     });
   });
 
@@ -165,6 +157,31 @@ describe("queueWorkflowRequestValidation", () => {
     });
   });
 
+  it("rejects missing executionTarget and missing legacy executorWidgetId", () => {
+    expect(
+      validateQueueWorkflowRequest(
+        validRequest({
+          inputs: {
+            ...validInputs(),
+            runSettings: validRunSettings({
+              executionTarget: undefined,
+              executorWidgetId: undefined,
+            }),
+          },
+        }),
+      ),
+    ).toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          fieldPath: "$.inputs.runSettings.executionTarget",
+          reasonCode: "missing_required_input",
+        }),
+      ]),
+      ok: false,
+      status: "missing_required_inputs",
+    });
+  });
+
   it("does not infer execution target from prose fields", () => {
     expect(
       validateQueueWorkflowRequest(
@@ -194,11 +211,6 @@ describe("queueWorkflowRequestValidation", () => {
           fieldPath:
             "$.inputs.runSettings.executionTarget.targetDescription",
           reasonCode: "unsupported_run_settings_field",
-        }),
-        expect.objectContaining({
-          fieldPath:
-            "$.inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId",
-          reasonCode: "missing_required_input",
         }),
       ]),
       ok: false,
@@ -794,7 +806,6 @@ function validRunSettings(overrides: Record<string, unknown> = {}) {
     executionTarget: {
       kind: "queue_local",
       providerId: "codex",
-      queueOwnerWidgetInstanceId: "agent-queue-widget-id",
     },
     sandbox: "workspace_write",
     workspaceRoot: "C:/repo",

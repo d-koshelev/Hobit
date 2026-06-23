@@ -77,8 +77,15 @@ describe("workbench.widgets.list", () => {
       agentExecutorCount: 1,
       agentExecutorBlockers: [],
       blockers: [],
+      optionalWorkspaceSuggestions: [],
       queueLocalExecutionTargetBlockers: [],
+      queueLocalExecutionTargetAvailable: true,
       queueLocalExecutionTargetCount: 1,
+      recommendedExecutionTarget: {
+        kind: "queue_local",
+        providerId: "codex",
+        queueOwnerWidgetInstanceId: "queue-1",
+      },
       recommendedQueueOwnerWidgetInstanceId: "queue-1",
       recommendedExecutorWidgetId: "executor-1",
       returnedWidgetCount: 1,
@@ -146,8 +153,15 @@ describe("workbench.widgets.list", () => {
       agentExecutorCount: 1,
       agentExecutorBlockers: [],
       blockers: [],
+      optionalWorkspaceSuggestions: [],
       queueLocalExecutionTargetBlockers: [],
+      queueLocalExecutionTargetAvailable: true,
       queueLocalExecutionTargetCount: 1,
+      recommendedExecutionTarget: {
+        kind: "queue_local",
+        providerId: "codex",
+        queueOwnerWidgetInstanceId: "queue-1",
+      },
       recommendedQueueOwnerWidgetInstanceId: "queue-1",
       recommendedExecutorWidgetId: "executor-1",
       returnedWidgetCount: 1,
@@ -182,6 +196,8 @@ describe("workbench.widgets.list", () => {
     expect(result.status).toBe("succeeded");
     expect(result.result.output).toMatchObject({
       blockers: [],
+      optionalWorkspaceSuggestions: [],
+      queueLocalExecutionTargetAvailable: true,
       queueLocalExecutionTargetCount: 1,
       queueLocalExecutionTargets: [
         {
@@ -194,6 +210,11 @@ describe("workbench.widgets.list", () => {
           visible: true,
         },
       ],
+      recommendedExecutionTarget: {
+        kind: "queue_local",
+        providerId: "codex",
+        queueOwnerWidgetInstanceId: "queue-1",
+      },
       recommendedQueueOwnerWidgetInstanceId: "queue-1",
       widgetInstances: [
         {
@@ -224,8 +245,22 @@ describe("workbench.widgets.list", () => {
     expect(result.result.output).toMatchObject({
       agentExecutors: [],
       agentExecutorBlockers: ["no_agent_executor"],
-      blockers: ["no_queue_local_execution_target"],
-      queueLocalExecutionTargetBlockers: ["no_queue_local_execution_target"],
+      blockers: [],
+      optionalWorkspaceSuggestions: [
+        {
+          blocker: false,
+          kind: "add_widget",
+          reason: "Optional Queue widget can be added to observe Queue state.",
+          widgetDefinitionId: "agent-queue",
+        },
+      ],
+      queueLocalExecutionTargetBlockers: [],
+      queueLocalExecutionTargetAvailable: true,
+      queueWidgetPresent: false,
+      recommendedExecutionTarget: {
+        kind: "queue_local",
+        providerId: "codex",
+      },
       recommendedExecutorWidgetId: null,
       recommendedQueueOwnerWidgetInstanceId: null,
     });
@@ -241,6 +276,7 @@ describe("workbench.widgets.list", () => {
     expect(noExecutor.result.output).toMatchObject({
       agentExecutorBlockers: ["no_agent_executor"],
       blockers: [],
+      queueLocalExecutionTargetAvailable: true,
       recommendedExecutorWidgetId: null,
       recommendedQueueOwnerWidgetInstanceId: "queue-1",
     });
@@ -257,6 +293,29 @@ describe("workbench.widgets.list", () => {
       blockers: [],
       recommendedExecutorWidgetId: null,
       recommendedQueueOwnerWidgetInstanceId: "queue-1",
+    });
+  });
+
+  it("keeps backend-owned queue_local valid when multiple Queue widgets exist", async () => {
+    const result = await invokeWidgetsList({
+      widgets: [
+        widget({ definitionId: "agent-queue", id: "queue-1" }),
+        widget({ definitionId: "agent-queue", id: "queue-2" }),
+      ],
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output).toMatchObject({
+      blockers: [],
+      queueLocalExecutionTargetBlockers: [],
+      queueLocalExecutionTargetAvailable: true,
+      queueLocalExecutionTargetCount: 2,
+      queueWidgetPresent: true,
+      recommendedExecutionTarget: {
+        kind: "queue_local",
+        providerId: "codex",
+      },
+      recommendedQueueOwnerWidgetInstanceId: null,
     });
   });
 

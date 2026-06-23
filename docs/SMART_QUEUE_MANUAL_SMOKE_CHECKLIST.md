@@ -101,13 +101,17 @@ capabilities before any smoke execution step:
   `C:/Users/Dmitry/Documents/prj/Hobit_queue_logic`, and verify discovery
   reports that path. The process current-directory fallback is legacy only and
   can point at `apps/desktop/src-tauri` when running `cargo tauri dev`.
-- `workbench.widgets.list` returns bounded live widget instances and discovers
-  Queue-local workflow execution targets from Agent Queue widgets by
-  `definitionId === "agent-queue"`. Use the returned
-  `queueOwnerWidgetInstanceId` as the queue-local execution target owner for
-  headless Queue workflow smoke. Legacy Agent
-  Executor widgets may still be listed by `definitionId === "agent-run"` for
-  compatibility, but `agent-run` is not required for current smoke.
+- `workbench.widgets.list` returns bounded live widget instances and reports
+  the backend-owned Queue-local execution target
+  `{ "kind": "queue_local", "providerId": "codex" }` without requiring an
+  Agent Queue widget. Agent Queue widgets discovered by
+  `definitionId === "agent-queue"` are optional observability/control surfaces;
+  when exactly one safe Queue widget exists, its `queueOwnerWidgetInstanceId`
+  may be included as compatibility/display attribution. Missing Queue widgets
+  may produce a non-blocking suggestion to add Agent Queue for observability,
+  but this is not a smoke execution blocker. Legacy Agent Executor widgets may
+  still be listed by `definitionId === "agent-run"` for compatibility, but
+  `agent-run` is not required for current smoke.
 - `queue.control.get` reads backend-owned Queue control state through the
   existing Queue control bridge and reports `disabled` or `manual_enabled`
   without enabling Queue, starting workers, starting Queue Autorun, creating
@@ -321,10 +325,9 @@ Initial dependency workflow inputs:
 - `inputs.runSettings.executionPolicy: "manual"`.
 - `inputs.runSettings.executionTarget.kind: "queue_local"`.
 - `inputs.runSettings.executionTarget.providerId: "codex"`.
-- `inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId`: explicit
-  Agent Queue widget id discovered from `workbench.widgets.list` with
-  `definitionIdFilter: "agent-queue"` or from the returned
-  queue-local execution targets.
+- `inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId` is optional
+  compatibility/display attribution when an Agent Queue widget already exists.
+  It is not required for headless smoke.
 - `inputs.runSettings.executorWidgetId` remains a legacy compatibility field
   for old `agent-run` workflows only and should not be used for current smoke.
 - `inputs.tasks`: typed task specs with unique `slot`, `title`, `prompt`.
@@ -381,8 +384,7 @@ Schematic initial request shape:
       "executionPolicy": "manual",
       "executionTarget": {
         "kind": "queue_local",
-        "providerId": "codex",
-        "queueOwnerWidgetInstanceId": "agent-queue-widget-id"
+        "providerId": "codex"
       }
     },
     "tasks": [
@@ -411,8 +413,10 @@ ensure it is `manual_enabled`.
 Collect these before starting:
 
 - `workspaceId`.
-- Explicit Agent Queue widget id for
-  `executionTarget.queueOwnerWidgetInstanceId`.
+- Optional Agent Queue widget id for
+  `executionTarget.queueOwnerWidgetInstanceId` only when an existing Queue
+  widget is being used as compatibility/display attribution. Headless smoke
+  must work without it.
 - `codexExecutable`.
 - Explicit `workspaceRoot` / execution workspace.
 - `sandbox`.

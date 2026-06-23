@@ -191,7 +191,7 @@ type TauriAgentQueueWorkflowRunSettingsBinding = {
   execution_target_kind: string;
   provider_id: string;
   queue_owner_widget_instance_id: string | null;
-  executor_widget_id: string;
+  executor_widget_id: string | null;
   execution_target_hash: string;
   update_run_settings_action_id: string | null;
   update_run_settings_action_idempotency_key: string;
@@ -738,7 +738,7 @@ function toTauriExecutionTarget(
     return {
       kind: target.kind,
       provider_id: target.providerId,
-      queue_owner_widget_instance_id: target.queueOwnerWidgetInstanceId,
+      queue_owner_widget_instance_id: target.queueOwnerWidgetInstanceId ?? null,
       executor_widget_id: null,
     };
   }

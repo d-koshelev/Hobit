@@ -1096,7 +1096,7 @@ export type AgentQueueWorkflowExecutionTarget =
   | {
       kind: "queue_local";
       providerId: "codex";
-      queueOwnerWidgetInstanceId: string;
+      queueOwnerWidgetInstanceId?: string | null;
     }
   | {
       kind: "agent_executor";
@@ -1132,7 +1132,7 @@ export type AgentQueueWorkflowRunSettingsBinding = {
   executionTargetKind: "queue_local" | "agent_executor" | string;
   providerId: "codex" | string;
   queueOwnerWidgetInstanceId: string | null;
-  executorWidgetId: string;
+  executorWidgetId: string | null;
   executionTargetHash: string;
   updateRunSettingsActionId: string | null;
   updateRunSettingsActionIdempotencyKey: string;
@@ -1254,7 +1254,7 @@ export type QueueWorkerStartContext = {
   workflowActionId?: string | null;
   actionIdempotencyKey?: string | null;
   taskId: string;
-  executorWidgetId: string;
+  executorWidgetId?: string | null;
   settingsHash: string;
   executionTargetHash?: string | null;
   expectedQueueControlVersion?: number | null;

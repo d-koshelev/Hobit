@@ -628,14 +628,17 @@ function validateExecutionTarget(
 
   switch (executionTarget.kind) {
     case "queue_local":
-      if (!nonEmptyString(executionTarget.queueOwnerWidgetInstanceId)) {
+      if (
+        executionTarget.queueOwnerWidgetInstanceId !== undefined &&
+        !nonEmptyString(executionTarget.queueOwnerWidgetInstanceId)
+      ) {
         issues.push(
           issue({
             fieldPath:
               "$.inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId",
             message:
-              "queue_local executionTarget requires queueOwnerWidgetInstanceId.",
-            reasonCode: "missing_required_input",
+              "queue_local executionTarget.queueOwnerWidgetInstanceId must be a non-empty string when supplied.",
+            reasonCode: "invalid_run_settings",
           }),
         );
       }

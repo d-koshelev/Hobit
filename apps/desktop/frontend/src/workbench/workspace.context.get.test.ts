@@ -63,7 +63,9 @@ describe("workspace.context.get", () => {
       currentWorkbenchAvailable: true,
       currentWorkspaceAvailable: true,
       missingCapabilities: [],
+      optionalWorkspaceSuggestions: [],
       queueLocalExecutionTargetBlockers: [],
+      queueLocalExecutionTargetAvailable: true,
       queueLocalExecutionTargetCount: 1,
       queueLocalExecutionTargets: [
         {
@@ -81,6 +83,11 @@ describe("workspace.context.get", () => {
         version: 7,
         workspaceId: "workspace-1",
       },
+      recommendedExecutionTarget: {
+        kind: "queue_local",
+        providerId: "codex",
+        queueOwnerWidgetInstanceId: "queue-1",
+      },
       recommendedExecutorWidgetId: "executor-1",
       recommendedQueueOwnerWidgetInstanceId: "queue-1",
       visibleWidgetCount: 3,
@@ -95,7 +102,9 @@ describe("workspace.context.get", () => {
             visible: true,
           },
         ],
+        optionalWorkspaceSuggestions: [],
         queueLocalExecutionTargetBlockers: [],
+        queueLocalExecutionTargetAvailable: true,
         queueLocalExecutionTargetCount: 1,
         queueLocalExecutionTargets: [
           {
@@ -107,6 +116,11 @@ describe("workspace.context.get", () => {
             visible: true,
           },
         ],
+        recommendedExecutionTarget: {
+          kind: "queue_local",
+          providerId: "codex",
+          queueOwnerWidgetInstanceId: "queue-1",
+        },
         recommendedExecutorWidgetId: "executor-1",
         recommendedQueueOwnerWidgetInstanceId: "queue-1",
         visibleWidgetCount: 3,
@@ -164,6 +178,79 @@ describe("workspace.context.get", () => {
       workbenchId: null,
       workspaceId: null,
       workspaceRootPath: null,
+    });
+  });
+
+  it("reports backend-owned queue_local target and optional Queue widget suggestion when Queue widget is absent", async () => {
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentLiveContext: {
+        currentRuntimeMode: "test_renderer",
+        getQueueControlState: () => ({
+          backendOwned: true,
+          queueEnabled: true,
+          status: "manual_enabled",
+          version: 3,
+          workspaceId: "workspace-1",
+        }),
+        workbenchSnapshot: liveWorkbenchSnapshot([
+          widget({ definitionId: "interactive-agent", id: "agent-1" }),
+          widget({ definitionId: "notes", id: "notes-1" }),
+        ]),
+      },
+    });
+
+    const result = await invoker(
+      createActionRequest({
+        agentRoleId: "workspace_agent",
+        capabilityId: "workspace.context.get",
+        input: {
+          includeQueueControl: true,
+          includeWidgetSummary: true,
+        },
+        requestId: "workspace-context-no-queue-1",
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output).toMatchObject({
+      blockers: [],
+      missingCapabilities: [],
+      optionalWorkspaceSuggestions: [
+        {
+          blocker: false,
+          kind: "add_widget",
+          reason: "Optional Queue widget can be added to observe Queue state.",
+          widgetDefinitionId: "agent-queue",
+        },
+      ],
+      queueLocalExecutionTargetBlockers: [],
+      queueLocalExecutionTargetAvailable: true,
+      queueLocalExecutionTargetCount: 0,
+      queueWidgetPresent: false,
+      recommendedExecutionTarget: {
+        kind: "queue_local",
+        providerId: "codex",
+      },
+      recommendedQueueOwnerWidgetInstanceId: null,
+      widgetSummary: {
+        optionalWorkspaceSuggestions: [
+          {
+            blocker: false,
+            kind: "add_widget",
+            reason: "Optional Queue widget can be added to observe Queue state.",
+            widgetDefinitionId: "agent-queue",
+          },
+        ],
+        queueLocalExecutionTargetBlockers: [],
+        queueLocalExecutionTargetAvailable: true,
+        queueLocalExecutionTargetCount: 0,
+        queueWidgetPresent: false,
+        recommendedExecutionTarget: {
+          kind: "queue_local",
+          providerId: "codex",
+        },
+        recommendedQueueOwnerWidgetInstanceId: null,
+      },
     });
   });
 

@@ -2,6 +2,10 @@ use hobit_storage_sqlite::{
     AgentQueueTaskRunLinkRow, AgentQueueWorkflowActionRow, AgentQueueWorkflowActionUpdate,
     NewAgentQueueWorkflowAction,
 };
+use hobit_tools::codex_cli::{
+    run_codex_direct_work_streaming_with_cancellation, CodexDirectStreamCancellationToken,
+    CodexDirectStreamEvent, CodexDirectStreamOutput, CodexDirectStreamRequest,
+};
 use serde_json::{Map, Value};
 
 use crate::WorkspaceServiceError;
@@ -25,18 +29,25 @@ use super::{
         storage_invalid_input,
     },
     direct_work::{
-        can_initiate_direct_work, normalize_direct_work_input, CODEX_DIRECT_WORK_COMMAND_KIND,
+        can_initiate_direct_work, direct_work_approval_policy_value, direct_work_sandbox_value,
+        normalize_direct_work_input, CODEX_DIRECT_WORK_COMMAND_KIND,
+        CODEX_DIRECT_WORK_EXECUTOR_KIND, CODEX_DIRECT_WORK_MODE, CODEX_DIRECT_WORK_RESULT_TYPE,
     },
-    direct_work_stream::insert_codex_direct_work_stream_start,
+    direct_work_stream::{
+        direct_work_stream_event_summary, direct_work_stream_final_status,
+        insert_codex_direct_work_stream_start,
+    },
     mapping::agent_queue_task_summary,
     placeholder_id, placeholder_timestamp,
+    runs::widget_run_status_value,
     validation::{required_input, validate_widget_run_ownership},
     AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AgentQueueTaskSummary,
-    AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary,
+    AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary, CodexDirectWorkRunSummary,
     FinishAssignedAgentQueueTaskRunInput, QueueWorkerStartBlocker, QueueWorkerStartContext,
     QueueWorkerStartSettingsSnapshot, QueueWorkflowActionStatus, RunCodexDirectWorkInput,
     StartAssignedAgentQueueTaskInput, WorkspaceService, AGENT_QUEUE_WIDGET_DEFINITION_ID,
-    AGENT_RUN_WIDGET_DEFINITION_ID,
+    AGENT_RUN_WIDGET_DEFINITION_ID, QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
+    QUEUE_LOCAL_BACKEND_WORKBENCH_ID,
 };
 
 const QUEUE_WORKER_START_ACTION_TYPE: &str = "start_worker";
@@ -53,25 +64,21 @@ impl WorkspaceService {
         let task =
             load_runnable_agent_queue_task(&self.store, &input.workspace_id, &input.queue_item_id)
                 .map_err(map_storage_agent_queue_task_error)?;
-        let executor = load_agent_queue_direct_work_owner(
-            &self.store,
-            &input.workspace_id,
-            input.queue_owner_widget_instance_id.as_deref(),
-            task.assigned_executor_widget_id.as_deref(),
-        )
-        .map_err(map_storage_agent_queue_task_error)?;
+        let executor =
+            resolve_agent_queue_direct_work_owner(&self.store, &input.workspace_id, &input, &task)
+                .map_err(map_storage_agent_queue_task_error)?;
         let direct_work_input = build_direct_work_input(
             &input,
-            executor.workbench_id.clone(),
-            executor.id.clone(),
+            executor.workbench_id().to_owned(),
+            executor.id().to_owned(),
             operator_prompt_for_queue_task(&task)?,
         )?;
 
         Ok(AssignedAgentQueueTaskRunPlan {
             workspace_id: input.workspace_id,
             queue_item_id: input.queue_item_id,
-            workbench_id: executor.workbench_id,
-            executor_widget_instance_id: executor.id,
+            workbench_id: executor.workbench_id().to_owned(),
+            executor_widget_instance_id: executor.id().to_owned(),
             direct_work_input,
         })
     }
@@ -118,7 +125,7 @@ impl WorkspaceService {
                                         control.version
                                     ),
                                     Some(&input.queue_item_id),
-                                    Some(&workflow_context.executor_widget_id),
+                                    workflow_context.executor_widget_id.as_deref(),
                                     None,
                                     Some(control.status.as_str()),
                                     Some(expected_version),
@@ -137,7 +144,7 @@ impl WorkspaceService {
                         Some(&input.queue_item_id),
                         input.workflow_start_context
                             .as_ref()
-                            .map(|context| context.executor_widget_id.as_str()),
+                            .and_then(|context| context.executor_widget_id.as_deref()),
                         None,
                         Some(control.status.as_str()),
                         input
@@ -185,16 +192,20 @@ impl WorkspaceService {
                     validate_queue_task_dependencies_ready(store, &input.workspace_id, &task)
                         .map_err(workflow_start_storage_error)?;
                 }
-                let executor = load_agent_queue_direct_work_owner(
+                let executor = resolve_agent_queue_direct_work_owner(
                     store,
                     &input.workspace_id,
-                    input.queue_owner_widget_instance_id.as_deref(),
-                    task.assigned_executor_widget_id.as_deref(),
+                    &input,
+                    &task,
                 )?;
-                let settings_snapshot = effective_worker_start_settings(&input, &task, &executor.id);
+                let settings_snapshot = effective_worker_start_settings(&input, &task, &executor);
                 let settings_hash = settings_snapshot.stable_hash();
                 if let Some(workflow_context) = input.workflow_start_context.as_ref() {
-                    if workflow_context.executor_widget_id != executor.id {
+                    if workflow_context
+                        .executor_widget_id
+                        .as_deref()
+                        .is_some_and(|executor_widget_id| executor_widget_id != executor.id())
+                    {
                         return record_workflow_start_blocked(
                             store,
                             &input,
@@ -203,7 +214,7 @@ impl WorkspaceService {
                                 "executor_binding_mismatch",
                                 "workflow worker start executorWidgetId does not match the task's explicit executor binding.",
                                 Some(&input.queue_item_id),
-                                Some(&workflow_context.executor_widget_id),
+                                workflow_context.executor_widget_id.as_deref(),
                                 None,
                                 None,
                                 workflow_context.expected_queue_control_version,
@@ -254,8 +265,8 @@ impl WorkspaceService {
                 }
                 let direct_work_input = build_direct_work_input(
                     &input,
-                    executor.workbench_id.clone(),
-                    executor.id.clone(),
+                    executor.workbench_id().to_owned(),
+                    executor.id().to_owned(),
                     operator_prompt_for_queue_task(&task)
                         .map_err(|error| storage_invalid_input(error.to_string()))?,
                 )
@@ -263,18 +274,24 @@ impl WorkspaceService {
                 let normalized_direct_work_input =
                     normalize_direct_work_input(direct_work_input.clone())
                         .map_err(|error| storage_invalid_input(error.to_string()))?;
-                let start =
+                let start = if executor.is_backend_queue_local() {
+                    super::CodexDirectWorkStreamStartSummary {
+                        run_id: placeholder_id("queue-run_"),
+                        status: "started".to_owned(),
+                    }
+                } else {
                     insert_codex_direct_work_stream_start(store, &normalized_direct_work_input)?
                         .ok_or_else(|| {
                             storage_invalid_input(
                                 "assigned Agent Executor could not start Direct Work".to_owned(),
                             )
-                        })?;
+                        })?
+                };
                 record_agent_queue_task_run_started_in_store(
                     store,
                     &input.workspace_id,
                     &input.queue_item_id,
-                    &executor.id,
+                    executor.id(),
                     &start.run_id,
                     source,
                 )?;
@@ -318,8 +335,8 @@ impl WorkspaceService {
                 Ok(StartTransactionResult::Started(AssignedAgentQueueTaskStartSummary {
                     workspace_id: task.workspace_id,
                     queue_item_id: task.queue_item_id,
-                    workbench_id: executor.workbench_id,
-                    executor_widget_instance_id: executor.id,
+                    workbench_id: executor.workbench_id().to_owned(),
+                    executor_widget_instance_id: executor.id().to_owned(),
                     run_id: start.run_id,
                     status: AgentQueueExecutionLifecycleStatus::Started
                         .as_str()
@@ -373,39 +390,49 @@ impl WorkspaceService {
                     )));
                 }
 
-                let executor = load_agent_queue_direct_work_owner_by_id(
-                    store,
-                    &input.workspace_id,
-                    &input.executor_widget_instance_id,
-                )?;
-                if executor.definition_id == AGENT_RUN_WIDGET_DEFINITION_ID
-                    && task.assigned_executor_widget_id.as_deref() != Some(executor.id.as_str())
-                {
-                    return Err(storage_invalid_input(
-                        "queue task is not assigned to the completed executor".to_owned(),
-                    ));
-                }
+                if input.executor_widget_instance_id == QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID {
+                    if task.assigned_executor_widget_id.is_some() {
+                        return Err(storage_invalid_input(
+                            "backend-owned queue_local run cannot finish an assigned executor task"
+                                .to_owned(),
+                        ));
+                    }
+                } else {
+                    let executor = load_agent_queue_direct_work_owner_by_id(
+                        store,
+                        &input.workspace_id,
+                        &input.executor_widget_instance_id,
+                    )?;
+                    if executor.definition_id == AGENT_RUN_WIDGET_DEFINITION_ID
+                        && task.assigned_executor_widget_id.as_deref() != Some(executor.id.as_str())
+                    {
+                        return Err(storage_invalid_input(
+                            "queue task is not assigned to the completed executor".to_owned(),
+                        ));
+                    }
 
-                let Some((_workspace, _workbench, widget, run)) = validate_widget_run_ownership(
-                    store,
-                    &input.workspace_id,
-                    &executor.workbench_id,
-                    &executor.id,
-                    &input.run_id,
-                )?
-                else {
-                    return Err(storage_invalid_input(format!(
-                        "Direct Work run not found for queue task: {}",
-                        input.run_id
-                    )));
-                };
+                    let Some((_workspace, _workbench, widget, run)) =
+                        validate_widget_run_ownership(
+                            store,
+                            &input.workspace_id,
+                            &executor.workbench_id,
+                            &executor.id,
+                            &input.run_id,
+                        )?
+                    else {
+                        return Err(storage_invalid_input(format!(
+                            "Direct Work run not found for queue task: {}",
+                            input.run_id
+                        )));
+                    };
 
-                if !can_initiate_direct_work(&widget.definition_id)
-                    || run.command_kind.as_deref() != Some(CODEX_DIRECT_WORK_COMMAND_KIND)
-                {
-                    return Err(storage_invalid_input(
-                        "queue task run is not an Agent Executor Direct Work run".to_owned(),
-                    ));
+                    if !can_initiate_direct_work(&widget.definition_id)
+                        || run.command_kind.as_deref() != Some(CODEX_DIRECT_WORK_COMMAND_KIND)
+                    {
+                        return Err(storage_invalid_input(
+                            "queue task run is not an Agent Executor Direct Work run".to_owned(),
+                        ));
+                    }
                 }
 
                 let task = store
@@ -420,7 +447,7 @@ impl WorkspaceService {
                     store,
                     &input.workspace_id,
                     &input.queue_item_id,
-                    &executor.id,
+                    &input.executor_widget_instance_id,
                     &input.run_id,
                     &input.direct_work_status,
                 )?;
@@ -429,6 +456,83 @@ impl WorkspaceService {
             })
             .map(agent_queue_task_summary)
             .map_err(map_storage_agent_queue_task_error)
+    }
+
+    pub fn run_backend_owned_agent_queue_direct_work_stream_with_cancellation<E>(
+        &self,
+        input: RunCodexDirectWorkInput,
+        run_id: &str,
+        cancellation_token: CodexDirectStreamCancellationToken,
+        mut emit_event: E,
+    ) -> Result<Option<CodexDirectWorkRunSummary>, WorkspaceServiceError>
+    where
+        E: FnMut(super::CodexDirectWorkStreamEventSummary),
+    {
+        let input = normalize_direct_work_input(input)?;
+        if input.widget_instance_id != QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID {
+            return Err(WorkspaceServiceError::InvalidInput(
+                "backend-owned queue_local stream requires the backend queue_local target id"
+                    .to_owned(),
+            ));
+        }
+
+        let request = CodexDirectStreamRequest {
+            program: Some(input.codex_executable.clone()),
+            repo_root: input.repo_root.clone(),
+            prompt: input.operator_prompt.clone(),
+            resume_thread_id: input.codex_thread_id.clone(),
+            sandbox: input.sandbox,
+            approval_policy: input.approval_policy,
+            skip_git_repo_check: input.skip_git_repo_check,
+            timeout_ms: Some(input.timeout_ms),
+            stdout_cap_bytes: Some(input.stdout_cap_bytes),
+            stderr_cap_bytes: Some(input.stderr_cap_bytes),
+            output_last_message_path: None,
+        };
+        let mut on_stream_event = |event: CodexDirectStreamEvent| {
+            emit_event(direct_work_stream_event_summary(&input, run_id, &event));
+        };
+        let output = run_codex_direct_work_streaming_with_cancellation(
+            request,
+            cancellation_token,
+            &mut on_stream_event,
+        );
+
+        Ok(Some(backend_owned_direct_work_summary(
+            &input, run_id, &output,
+        )))
+    }
+}
+
+fn backend_owned_direct_work_summary(
+    input: &super::direct_work::NormalizedDirectWorkInput,
+    run_id: &str,
+    output: &CodexDirectStreamOutput,
+) -> CodexDirectWorkRunSummary {
+    let final_status = direct_work_stream_final_status(output.status);
+    let final_status_value = widget_run_status_value(&final_status);
+    CodexDirectWorkRunSummary {
+        run_id: run_id.to_owned(),
+        result_id: format!("{run_id}:backend-result"),
+        result_type: CODEX_DIRECT_WORK_RESULT_TYPE.to_owned(),
+        executor_kind: CODEX_DIRECT_WORK_EXECUTOR_KIND.to_owned(),
+        mode: CODEX_DIRECT_WORK_MODE.to_owned(),
+        repo_root: input.repo_root.display().to_string(),
+        sandbox: direct_work_sandbox_value(input.sandbox).to_owned(),
+        approval_policy: direct_work_approval_policy_value(input.approval_policy).to_owned(),
+        command_summary: output.command_summary.clone(),
+        status: final_status_value.to_owned(),
+        exit_code: output.exit_code,
+        stdout: output.stdout_collected.clone(),
+        stderr: output.stderr_collected.clone(),
+        stdout_truncated: output.stdout_truncated,
+        stderr_truncated: output.stderr_truncated,
+        final_message: output.final_message.clone(),
+        duration_ms: output.duration_ms,
+        error_message: output.error_message.clone(),
+        no_auto_commit: true,
+        no_auto_push: true,
+        git_mutations_performed_by_hobit: false,
     }
 }
 
@@ -470,7 +574,7 @@ struct NormalizedQueueWorkerStartContext {
     workflow_action_id: Option<String>,
     action_idempotency_key: String,
     task_id: String,
-    executor_widget_id: String,
+    executor_widget_id: Option<String>,
     settings_hash: String,
     execution_target_hash: Option<String>,
     expected_queue_control_version: Option<i64>,
@@ -532,11 +636,7 @@ fn normalize_queue_worker_start_context(
         ));
     }
 
-    let executor_widget_id = required_input(
-        &context.executor_widget_id,
-        "workflow worker start executor widget id",
-    )?
-    .to_owned();
+    let executor_widget_id = normalize_optional_context_field(context.executor_widget_id);
     let settings_hash = required_input(
         &context.settings_hash,
         "workflow worker start settings hash",
@@ -564,11 +664,17 @@ fn normalize_queue_worker_start_context(
         ));
     }
 
+    if executor_widget_id.is_none() && execution_target_hash.is_none() {
+        return Err(WorkspaceServiceError::InvalidInput(
+            "workflow worker start requires executorWidgetId or executionTargetHash".to_owned(),
+        ));
+    }
+
     let action_idempotency_key = explicit_idempotency_key.unwrap_or_else(|| {
         workflow_start_idempotency_key(
             &workflow_run_id,
             &task_id,
-            &executor_widget_id,
+            executor_widget_id.as_deref(),
             execution_target_hash.as_deref(),
             &settings_hash,
         )
@@ -597,11 +703,13 @@ fn normalize_optional_context_field(value: Option<String>) -> Option<String> {
 fn workflow_start_idempotency_key(
     workflow_run_id: &str,
     task_id: &str,
-    executor_widget_id: &str,
+    executor_widget_id: Option<&str>,
     execution_target_hash: Option<&str>,
     settings_hash: &str,
 ) -> String {
-    let target_ref = execution_target_hash.unwrap_or(executor_widget_id);
+    let target_ref = execution_target_hash
+        .or(executor_widget_id)
+        .unwrap_or(QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID);
     format!("{workflow_run_id}:start_worker:{task_id}:{target_ref}:{settings_hash}")
 }
 
@@ -643,6 +751,70 @@ fn load_runnable_agent_queue_task(
     }
 
     Ok(task)
+}
+
+enum QueueDirectWorkOwner {
+    Widget(hobit_storage_sqlite::WidgetInstanceRow),
+    BackendQueueLocal,
+}
+
+impl QueueDirectWorkOwner {
+    fn id(&self) -> &str {
+        match self {
+            Self::Widget(widget) => &widget.id,
+            Self::BackendQueueLocal => QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
+        }
+    }
+
+    fn workbench_id(&self) -> &str {
+        match self {
+            Self::Widget(widget) => &widget.workbench_id,
+            Self::BackendQueueLocal => QUEUE_LOCAL_BACKEND_WORKBENCH_ID,
+        }
+    }
+
+    fn is_backend_queue_local(&self) -> bool {
+        matches!(self, Self::BackendQueueLocal)
+    }
+}
+
+fn resolve_agent_queue_direct_work_owner(
+    store: &hobit_storage_sqlite::SqliteStore,
+    workspace_id: &str,
+    input: &NormalizedStartAssignedAgentQueueTaskInput,
+    task: &hobit_storage_sqlite::AgentQueueTaskRow,
+) -> Result<QueueDirectWorkOwner, hobit_storage_sqlite::StorageError> {
+    if let Some(queue_owner_widget_instance_id) = input.queue_owner_widget_instance_id.as_deref() {
+        return load_agent_queue_direct_work_owner(
+            store,
+            workspace_id,
+            Some(queue_owner_widget_instance_id),
+            None,
+        )
+        .map(QueueDirectWorkOwner::Widget);
+    }
+
+    if let Some(assigned_executor_widget_id) = task.assigned_executor_widget_id.as_deref() {
+        return load_agent_queue_direct_work_owner(
+            store,
+            workspace_id,
+            None,
+            Some(assigned_executor_widget_id),
+        )
+        .map(QueueDirectWorkOwner::Widget);
+    }
+
+    if input
+        .workflow_start_context
+        .as_ref()
+        .is_some_and(|context| backend_queue_local_workflow_context_matches(store, input, context))
+    {
+        return Ok(QueueDirectWorkOwner::BackendQueueLocal);
+    }
+
+    Err(storage_invalid_input(
+        "queue task needs a Queue-owned local executor before running".to_owned(),
+    ))
 }
 
 fn load_agent_queue_direct_work_owner(
@@ -710,6 +882,48 @@ fn load_agent_queue_direct_work_owner_by_id(
     Ok(widget)
 }
 
+fn backend_queue_local_workflow_context_matches(
+    store: &hobit_storage_sqlite::SqliteStore,
+    input: &NormalizedStartAssignedAgentQueueTaskInput,
+    context: &NormalizedQueueWorkerStartContext,
+) -> bool {
+    let Some(execution_target_hash) = context.execution_target_hash.as_deref() else {
+        return false;
+    };
+    let Ok(Some(workflow_run)) =
+        store.get_agent_queue_workflow_run(&input.workspace_id, &context.workflow_run_id)
+    else {
+        return false;
+    };
+    let Some(slot_bindings_json) = workflow_run.slot_bindings_json.as_deref() else {
+        return false;
+    };
+    let Ok(Value::Object(slot_bindings)) = serde_json::from_str::<Value>(slot_bindings_json) else {
+        return false;
+    };
+
+    slot_bindings.values().any(|binding| {
+        let Some(binding) = binding.as_object() else {
+            return false;
+        };
+        let queue_owner_is_explicit_null = binding
+            .get("queueOwnerWidgetInstanceId")
+            .is_some_and(Value::is_null);
+        binding.get("taskId").and_then(Value::as_str) == Some(input.queue_item_id.as_str())
+            && binding.get("settingsHash").and_then(Value::as_str)
+                == Some(context.settings_hash.as_str())
+            && binding.get("executionTargetHash").and_then(Value::as_str)
+                == Some(execution_target_hash)
+            && binding.get("executionTargetKind").and_then(Value::as_str) == Some("queue_local")
+            && binding.get("providerId").and_then(Value::as_str) == Some("codex")
+            && queue_owner_is_explicit_null
+            && binding
+                .get("executorWidgetId")
+                .and_then(Value::as_str)
+                .map_or(true, str::is_empty)
+    })
+}
+
 fn is_runnable_agent_queue_task_status(status: &str) -> bool {
     AgentQueueTaskLifecycleStatus::from_current_status(status)
         .map(AgentQueueTaskLifecycleStatus::allows_explicit_assigned_start)
@@ -767,7 +981,7 @@ fn resolve_existing_workflow_start(
                     "workflow_action_idempotency_conflict",
                     "A Queue worker start action already exists for this idempotency key with different explicit refs.",
                     Some(&input.queue_item_id),
-                    Some(&context.executor_widget_id),
+                    context.executor_widget_id.as_deref(),
                     workflow_action_result_run_id(&existing).as_deref(),
                     None,
                     context.expected_queue_control_version,
@@ -791,7 +1005,7 @@ fn resolve_existing_workflow_start(
                         "orphaned_start",
                         "workflow worker start action completed without a recorded runId.",
                         Some(&input.queue_item_id),
-                        Some(&context.executor_widget_id),
+                        context.executor_widget_id.as_deref(),
                         None,
                         None,
                         context.expected_queue_control_version,
@@ -811,7 +1025,7 @@ fn resolve_existing_workflow_start(
                         "start_state_unknown",
                         "workflow worker start has a runId, but the run link/runtime state could not be verified; operator review is required before retry.",
                         Some(&input.queue_item_id),
-                        Some(&context.executor_widget_id),
+                        context.executor_widget_id.as_deref(),
                         Some(&run_id),
                         None,
                         context.expected_queue_control_version,
@@ -844,7 +1058,7 @@ fn resolve_existing_workflow_start(
                             "workflow worker start action is already blocked or terminal.",
                         ),
                         Some(&input.queue_item_id),
-                        Some(&context.executor_widget_id),
+                        context.executor_widget_id.as_deref(),
                         run_id.as_deref(),
                         Some(existing.status.as_str()),
                         context.expected_queue_control_version,
@@ -868,7 +1082,7 @@ fn resolve_existing_workflow_start(
                     },
                     "workflow worker start action is incomplete; retry is blocked to avoid a duplicate worker.",
                     Some(&input.queue_item_id),
-                    Some(&context.executor_widget_id),
+                    context.executor_widget_id.as_deref(),
                     run_id.as_deref(),
                     Some(existing.status.as_str()),
                     context.expected_queue_control_version,
@@ -889,15 +1103,19 @@ fn workflow_start_existing_summary(
     current_run_state: String,
 ) -> Result<AssignedAgentQueueTaskStartSummary, hobit_storage_sqlite::StorageError> {
     let task = load_agent_queue_task(store, &input.workspace_id, &input.queue_item_id)?;
-    let executor = load_agent_queue_direct_work_owner_by_id(
-        store,
-        &input.workspace_id,
-        &context.executor_widget_id,
-    )?;
+    let executor = if let Some(executor_widget_id) = context.executor_widget_id.as_deref() {
+        QueueDirectWorkOwner::Widget(load_agent_queue_direct_work_owner_by_id(
+            store,
+            &input.workspace_id,
+            executor_widget_id,
+        )?)
+    } else {
+        resolve_agent_queue_direct_work_owner(store, &input.workspace_id, input, &task)?
+    };
     let direct_work_input = build_direct_work_input(
         input,
-        executor.workbench_id.clone(),
-        executor.id.clone(),
+        executor.workbench_id().to_owned(),
+        executor.id().to_owned(),
         operator_prompt_for_queue_task(&task)
             .map_err(|error| storage_invalid_input(error.to_string()))?,
     )
@@ -906,8 +1124,8 @@ fn workflow_start_existing_summary(
     Ok(AssignedAgentQueueTaskStartSummary {
         workspace_id: task.workspace_id,
         queue_item_id: task.queue_item_id,
-        workbench_id: executor.workbench_id,
-        executor_widget_instance_id: executor.id,
+        workbench_id: executor.workbench_id().to_owned(),
+        executor_widget_instance_id: executor.id().to_owned(),
         run_id,
         status: QUEUE_WORKER_START_STATUS_ALREADY_STARTED.to_owned(),
         direct_work_input,
@@ -1031,7 +1249,11 @@ fn workflow_start_target_refs_json(context: &NormalizedQueueWorkerStartContext) 
     let mut refs = Map::new();
     refs.insert(
         "executorWidgetId".to_owned(),
-        Value::String(context.executor_widget_id.clone()),
+        context
+            .executor_widget_id
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
     );
     refs.insert(
         "settingsHash".to_owned(),
@@ -1143,7 +1365,7 @@ fn load_workflow_start_runnable_task(
                 "task_not_ready",
                 format!("queue task status cannot be run: {}", task.status),
                 Some(&input.queue_item_id),
-                Some(&context.executor_widget_id),
+                context.executor_widget_id.as_deref(),
                 None,
                 Some(task.status.as_str()),
                 context.expected_queue_control_version,
@@ -1163,7 +1385,7 @@ fn load_workflow_start_runnable_task(
                 "task_not_ready",
                 "queue task prompt must not be empty before running",
                 Some(&input.queue_item_id),
-                Some(&context.executor_widget_id),
+                context.executor_widget_id.as_deref(),
                 None,
                 Some(task.status.as_str()),
                 context.expected_queue_control_version,
@@ -1297,10 +1519,11 @@ fn queue_task_dependency_ids(task: &hobit_storage_sqlite::AgentQueueTaskRow) -> 
 fn effective_worker_start_settings(
     input: &NormalizedStartAssignedAgentQueueTaskInput,
     task: &hobit_storage_sqlite::AgentQueueTaskRow,
-    executor_widget_id: &str,
+    owner: &QueueDirectWorkOwner,
 ) -> QueueWorkerStartSettingsSnapshot {
     let queue_owner_widget_instance_id = input.queue_owner_widget_instance_id.clone();
-    let queue_local_target = queue_owner_widget_instance_id.is_some();
+    let queue_local_target =
+        queue_owner_widget_instance_id.is_some() || owner.is_backend_queue_local();
     QueueWorkerStartSettingsSnapshot {
         execution_workspace: task
             .execution_workspace
@@ -1329,7 +1552,7 @@ fn effective_worker_start_settings(
         executor_widget_id: if queue_local_target {
             String::new()
         } else {
-            executor_widget_id.to_owned()
+            owner.id().to_owned()
         },
     }
 }
@@ -1345,7 +1568,7 @@ fn validate_workflow_start_run_settings(
             "settings_hash_mismatch",
             "workflow worker start settingsHash does not match durable task run settings.",
             Some(&input.queue_item_id),
-            Some(&context.executor_widget_id),
+            context.executor_widget_id.as_deref(),
             None,
             None,
             context.expected_queue_control_version,
@@ -1393,7 +1616,7 @@ fn validate_workflow_start_run_settings(
                         "workflow worker start {field} does not match durable task run settings."
                     ),
                     Some(&input.queue_item_id),
-                    Some(&context.executor_widget_id),
+                    context.executor_widget_id.as_deref(),
                     None,
                     None,
                     context.expected_queue_control_version,
@@ -1450,7 +1673,7 @@ fn workflow_start_blocker_with_workflow_refs(
         blocker.task_id = Some(context.task_id.clone());
     }
     if blocker.executor_widget_id.is_none() {
-        blocker.executor_widget_id = Some(context.executor_widget_id.clone());
+        blocker.executor_widget_id = context.executor_widget_id.clone();
     }
     if blocker.expected_settings_hash.is_none() {
         blocker.expected_settings_hash = Some(context.settings_hash.clone());

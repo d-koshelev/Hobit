@@ -27,7 +27,8 @@ pub(crate) struct QueueWorkerStartContextRequest {
     pub workflow_action_id: Option<String>,
     pub action_idempotency_key: Option<String>,
     pub task_id: String,
-    pub executor_widget_id: String,
+    #[serde(default)]
+    pub executor_widget_id: Option<String>,
     pub settings_hash: String,
     #[serde(default)]
     pub execution_target_hash: Option<String>,

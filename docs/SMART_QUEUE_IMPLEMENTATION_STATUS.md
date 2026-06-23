@@ -139,17 +139,25 @@ auto-continue only under setup-capable structured Queue grant policy.
 `queue.workflow.invoke` is not implemented.
 Workspace Agent live workbench context is now threaded from the Workbench model
 through the Workspace Agent broker runtime as a bounded typed widget snapshot,
-so `workbench.widgets.list` can discover queue-local workflow execution
-targets from visible Agent Queue widgets by `definitionId === "agent-queue"`.
-The same result may still list legacy Agent Executor widgets by
-`definitionId === "agent-run"` for compatibility, but current Queue workflow
-smoke no longer requires an Agent Executor widget. Actual live Queue smoke
-remains the next step after this read-only context discovery path. The broker
+and `workbench.widgets.list` / `workspace.context.get` report the
+backend-owned queue-local execution target
+`{ "kind": "queue_local", "providerId": "codex" }` without requiring an Agent
+Queue widget. Visible Agent Queue widgets discovered by
+`definitionId === "agent-queue"` remain optional observability/control
+surfaces; when exactly one safe Queue widget exists, its
+`queueOwnerWidgetInstanceId` may be included as compatibility/display
+attribution. Missing Queue widgets produce only a non-blocking suggestion to
+add Agent Queue for observability. The same result may still list legacy Agent
+Executor widgets by `definitionId === "agent-run"` for compatibility, but
+current Queue workflow smoke requires neither Agent Executor nor Agent Queue
+widget presence. Actual live Queue smoke remains the next step after this
+read-only context discovery path. The broker
 continuation `hobit.action.result` context now preserves bounded structured
 payloads for `workspace.context.get`, `workbench.widgets.list`, and
 `queue.control.get`, so Workspace Agent can read exact `workspaceId`,
 `workbenchId`, durable `workspaceRootPath`, Queue control status/version,
-queue-local execution targets, and `recommendedQueueOwnerWidgetInstanceId`
+queue-local execution target availability, optional Queue widget suggestions,
+and `recommendedQueueOwnerWidgetInstanceId` when applicable
 from action results rather than compact display text. Persisted Workspace root
 path is the product truth for new Workspaces. The desktop process current
 directory remains only a legacy fallback for old rows with null root path and
@@ -1286,10 +1294,10 @@ as available from the foundation above:
   session. The discovery/control/invocation foundation is implemented:
   `workspace.context.get` reads current workspace/workbench/root context from
   live renderer state backed by durable Workspace root path data,
-  `workbench.widgets.list` lists bounded widget instances and discovers
-  queue-local execution targets from Agent Queue widgets by
-  `definitionId === "agent-queue"` while retaining `agent-run` discovery as
-  compatibility only,
+  `workbench.widgets.list` lists bounded widget instances and reports the
+  backend-owned queue-local target without requiring Agent Queue or Agent
+  Executor widgets, while retaining Agent Queue widget attribution and
+  `agent-run` discovery as compatibility/display information only,
   `queue.control.get` reads backend Queue control state through the Queue
   control bridge, `queue.control.setManualEnabled` sets only backend Queue
   control state to `manual_enabled`, and structured `hobit.workflow.request`
