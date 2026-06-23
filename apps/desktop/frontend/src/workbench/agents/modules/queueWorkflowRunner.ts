@@ -5,6 +5,7 @@ import type {
 import type {
   AgentQueueControlStatus,
   AgentQueueItemAggregate,
+  AgentQueueWorkflowExecutionTarget,
   AgentQueueWorkflowApplyRunSettingsResult,
   AgentQueueWorkflowMaterializeTaskSlotResult,
   AgentQueueWorkflowPromoteTaskSlotResult,
@@ -394,8 +395,12 @@ export type QueueWorkflowRunnerRequest = {
 
 export type QueueWorkflowSlotVariables = {
   evidenceBundleId?: string;
+  executionTargetHash?: string;
+  executionTargetKind?: string;
   executorWidgetId?: string;
   messageId?: string;
+  providerId?: string;
+  queueOwnerWidgetInstanceId?: string;
   runId?: string;
   settingsHash?: string;
   slot: string;
@@ -474,7 +479,11 @@ export type QueueWorkflowCreateSetupStartReport = {
     version?: number | null;
   };
   runSettings?: {
+    executionTargetHash?: string;
+    executionTargetKind?: string;
     executorWidgetId?: string;
+    providerId?: string;
+    queueOwnerWidgetInstanceId?: string | null;
     settingsHash?: string;
     slot: string;
     status: string;
@@ -1220,15 +1229,21 @@ export async function runQueueWorkflowCreateSetupStartRunner(
     }
 
     const startActionIdempotencyKey = workflowStartIdempotencyKey({
-      executorWidgetId: settingsBinding.executorWidgetId,
+      executionTargetHash: settingsBinding.executionTargetHash,
       settingsHash: settingsBinding.settingsHash,
       taskId: upstreamBinding.taskId,
       workflowRunId: input.workflowRunId,
     });
+    const queueOwnerWidgetInstanceId =
+      settingsBinding.executionTargetKind === "queue_local"
+        ? (settingsBinding.queueOwnerWidgetInstanceId ??
+          settingsBinding.executorWidgetId)
+        : undefined;
     const start = await input.createSetupStartPort.startWorkerForSlot({
       approvalPolicy: requestInput.value.runSettings.approvalPolicy as StartAssignedAgentQueueTaskRequest["approvalPolicy"],
       codexExecutable: requestInput.value.runSettings.codexExecutable,
       queueItemId: upstreamBinding.taskId,
+      queueOwnerWidgetInstanceId,
       repoRoot: requestInput.value.runSettings.executionWorkspace,
       sandbox: requestInput.value.runSettings.sandbox as StartAssignedAgentQueueTaskRequest["sandbox"],
       stderrCapBytes: requestInput.value.stderrCapBytes,
@@ -1242,6 +1257,7 @@ export async function runQueueWorkflowCreateSetupStartRunner(
           queueControl.version ??
           null,
         executorWidgetId: settingsBinding.executorWidgetId,
+        executionTargetHash: settingsBinding.executionTargetHash,
         settingsHash: settingsBinding.settingsHash,
         taskId: upstreamBinding.taskId,
         workflowRunId: input.workflowRunId,
@@ -2077,20 +2093,22 @@ function resolveRunSettingsInput(
   const sandbox = recordString(runSettingsInput, "sandbox");
   const approvalPolicy = recordString(runSettingsInput, "approvalPolicy");
   const executionPolicy = recordString(runSettingsInput, "executionPolicy");
-  const executorWidgetId = recordString(runSettingsInput, "executorWidgetId");
+  const executionTarget = resolveExecutionTargetInput(runSettingsInput);
+  if (!executionTarget.ok) {
+    return executionTarget;
+  }
   if (
     !codexExecutable ||
     !executionWorkspace ||
     !sandbox ||
     !approvalPolicy ||
-    !executionPolicy ||
-    !executorWidgetId
+    !executionPolicy
   ) {
     return {
       blocker: {
         fieldPath: "$.inputs.runSettings",
         message:
-          "Queue create/setup/start requires codexExecutable, workspaceRoot, sandbox, approvalPolicy, executionPolicy, and executorWidgetId.",
+          "Queue create/setup/start requires codexExecutable, workspaceRoot, sandbox, approvalPolicy, executionPolicy, and typed executionTarget or legacy executorWidgetId.",
         reasonCode: "missing_run_settings",
       },
       ok: false,
@@ -2109,13 +2127,124 @@ function resolveRunSettingsInput(
         codexExecutable,
         executionPolicy,
         executionWorkspace,
-        executorWidgetId,
+        executionTarget: executionTarget.value.executionTarget,
+        executorWidgetId: executionTarget.value.executorWidgetId,
         sandbox,
       },
       stderrCapBytes: numberInput(runSettingsInput.stderrCapBytes),
       stdoutCapBytes: numberInput(runSettingsInput.stdoutCapBytes),
       timeoutMs: numberInput(runSettingsInput.timeoutMs),
     },
+  };
+}
+
+function resolveExecutionTargetInput(
+  runSettingsInput: Record<string, unknown>,
+):
+  | {
+      ok: true;
+      value: {
+        executionTarget?: AgentQueueWorkflowExecutionTarget;
+        executorWidgetId?: string;
+      };
+    }
+  | { blocker: QueueWorkflowRunnerBlocker; ok: false } {
+  const executionTarget = recordRecord(runSettingsInput, "executionTarget");
+  if (!executionTarget) {
+    const executorWidgetId = recordString(runSettingsInput, "executorWidgetId");
+    if (!executorWidgetId) {
+      return {
+        blocker: {
+          fieldPath: "$.inputs.runSettings.executionTarget",
+          message:
+            "Queue create/setup/start requires queue_local executionTarget or legacy executorWidgetId.",
+          reasonCode: "missing_run_settings",
+        },
+        ok: false,
+      };
+    }
+    return {
+      ok: true,
+      value: { executorWidgetId },
+    };
+  }
+
+  const kind = recordString(executionTarget, "kind");
+  const providerId = recordString(executionTarget, "providerId");
+  if (providerId !== "codex") {
+    return {
+      blocker: {
+        fieldPath: "$.inputs.runSettings.executionTarget.providerId",
+        message: "Queue create/setup/start only supports providerId codex.",
+        reasonCode: "invalid_request",
+      },
+      ok: false,
+    };
+  }
+
+  if (kind === "queue_local") {
+    const queueOwnerWidgetInstanceId = recordString(
+      executionTarget,
+      "queueOwnerWidgetInstanceId",
+    );
+    if (!queueOwnerWidgetInstanceId) {
+      return {
+        blocker: {
+          fieldPath:
+            "$.inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId",
+          message:
+            "Queue-local executionTarget requires queueOwnerWidgetInstanceId.",
+          reasonCode: "missing_run_settings",
+        },
+        ok: false,
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        executionTarget: {
+          kind,
+          providerId,
+          queueOwnerWidgetInstanceId,
+        },
+      },
+    };
+  }
+
+  if (kind === "agent_executor") {
+    const executorWidgetId = recordString(executionTarget, "executorWidgetId");
+    if (!executorWidgetId) {
+      return {
+        blocker: {
+          fieldPath: "$.inputs.runSettings.executionTarget.executorWidgetId",
+          message:
+            "Legacy agent_executor executionTarget requires executorWidgetId.",
+          reasonCode: "missing_run_settings",
+        },
+        ok: false,
+      };
+    }
+    return {
+      ok: true,
+      value: {
+        executionTarget: {
+          kind,
+          providerId,
+          executorWidgetId,
+        },
+        executorWidgetId,
+      },
+    };
+  }
+
+  return {
+    blocker: {
+      fieldPath: "$.inputs.runSettings.executionTarget.kind",
+      message:
+        "Queue create/setup/start executionTarget.kind must be queue_local or agent_executor.",
+      reasonCode: "invalid_request",
+    },
+    ok: false,
   };
 }
 
@@ -2182,7 +2311,11 @@ function updateCreateSetupStartReportRunSettings(
   return {
     ...report,
     runSettings: stripUndefined({
+      executionTargetHash: setup.binding?.executionTargetHash,
+      executionTargetKind: setup.binding?.executionTargetKind,
       executorWidgetId: setup.binding?.executorWidgetId,
+      providerId: setup.binding?.providerId,
+      queueOwnerWidgetInstanceId: setup.binding?.queueOwnerWidgetInstanceId,
       settingsHash: setup.binding?.settingsHash,
       slot: setup.binding?.slot ?? "upstream",
       status: setup.status,
@@ -2333,7 +2466,11 @@ function setRunSettingsSlotVariables(
   const current = variables.slots[binding.slot] ?? { slot: binding.slot };
   variables.slots[binding.slot] = stripUndefined({
     ...current,
+    executionTargetHash: binding.executionTargetHash,
+    executionTargetKind: binding.executionTargetKind,
     executorWidgetId: binding.executorWidgetId,
+    providerId: binding.providerId,
+    queueOwnerWidgetInstanceId: binding.queueOwnerWidgetInstanceId ?? undefined,
     settingsHash: binding.settingsHash,
     taskId: binding.taskId,
   });
@@ -2358,17 +2495,17 @@ function setStartedSlotVariables(
 }
 
 function workflowStartIdempotencyKey({
-  executorWidgetId,
+  executionTargetHash,
   settingsHash,
   taskId,
   workflowRunId,
 }: {
-  executorWidgetId: string;
+  executionTargetHash: string;
   settingsHash: string;
   taskId: string;
   workflowRunId: string;
 }) {
-  return `${workflowRunId}:start_worker:${taskId}:${executorWidgetId}:${settingsHash}`;
+  return `${workflowRunId}:start_worker:${taskId}:${executionTargetHash}:${settingsHash}`;
 }
 
 function createSetupStartSummary({

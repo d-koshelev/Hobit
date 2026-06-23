@@ -29,6 +29,8 @@ pub(crate) struct QueueWorkerStartContextRequest {
     pub task_id: String,
     pub executor_widget_id: String,
     pub settings_hash: String,
+    #[serde(default)]
+    pub execution_target_hash: Option<String>,
     pub expected_queue_control_version: Option<i64>,
     pub actor_id: Option<String>,
     pub confirmation_token: Option<String>,
@@ -145,6 +147,7 @@ impl From<QueueWorkerStartContextRequest> for QueueWorkerStartContext {
             task_id: request.task_id,
             executor_widget_id: request.executor_widget_id,
             settings_hash: request.settings_hash,
+            execution_target_hash: request.execution_target_hash,
             expected_queue_control_version: request.expected_queue_control_version,
             actor_id: request.actor_id,
             confirmation_token: request.confirmation_token,

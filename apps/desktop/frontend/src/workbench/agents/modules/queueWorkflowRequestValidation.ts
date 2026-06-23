@@ -35,6 +35,7 @@ export type QueueWorkflowRequestValidationReasonCode =
   | "missing_grant"
   | "missing_required_constraint"
   | "missing_required_input"
+  | "unsupported_run_settings_field"
   | "unsupported_task_field"
   | "unsupported_workflow";
 
@@ -128,6 +129,21 @@ const SUPPORTED_TASK_TEMPLATE_FIELDS = new Set([
   "prompt",
   "slot",
   "title",
+]);
+const SUPPORTED_RUN_SETTINGS_FIELDS = new Set([
+  "approvalPolicy",
+  "codexExecutable",
+  "executionPolicy",
+  "executionTarget",
+  "executorWidgetId",
+  "sandbox",
+  "workspaceRoot",
+]);
+const SUPPORTED_EXECUTION_TARGET_FIELDS = new Set([
+  "executorWidgetId",
+  "kind",
+  "providerId",
+  "queueOwnerWidgetInstanceId",
 ]);
 const SLOT_PATTERN = /^[A-Za-z][A-Za-z0-9_-]*$/;
 
@@ -489,10 +505,22 @@ function validateRunSettings(
       issue({
         fieldPath: "$.inputs.runSettings",
         message:
-          "inputs.runSettings is required and must contain codexExecutable, workspaceRoot, sandbox, approvalPolicy, executionPolicy, and executorWidgetId.",
+          "inputs.runSettings is required and must contain codexExecutable, workspaceRoot, sandbox, approvalPolicy, executionPolicy, and a typed executionTarget or legacy executorWidgetId.",
         reasonCode: "missing_required_input",
       }),
     ];
+  }
+
+  for (const fieldName of Object.keys(value)) {
+    if (!SUPPORTED_RUN_SETTINGS_FIELDS.has(fieldName)) {
+      issues.push(
+        issue({
+          fieldPath: `$.inputs.runSettings.${fieldName}`,
+          message: `runSettings field ${fieldName} is not supported by Queue workflow validation.`,
+          reasonCode: "unsupported_run_settings_field",
+        }),
+      );
+    }
   }
 
   if (!nonEmptyString(value.codexExecutable)) {
@@ -540,14 +568,121 @@ function validateRunSettings(
       }),
     );
   }
-  if (!nonEmptyString(value.executorWidgetId)) {
+  issues.push(...validateExecutionTarget(value.executionTarget, value.executorWidgetId));
+
+  return issues;
+}
+
+function validateExecutionTarget(
+  executionTarget: unknown,
+  legacyExecutorWidgetId: unknown,
+): QueueWorkflowRequestValidationIssue[] {
+  const issues: QueueWorkflowRequestValidationIssue[] = [];
+  if (executionTarget === undefined) {
+    if (!nonEmptyString(legacyExecutorWidgetId)) {
+      issues.push(
+        issue({
+          fieldPath: "$.inputs.runSettings.executionTarget",
+          message:
+            "inputs.runSettings.executionTarget is required unless legacy executorWidgetId is supplied.",
+          reasonCode: "missing_required_input",
+        }),
+      );
+    }
+    return issues;
+  }
+
+  if (!isRecord(executionTarget)) {
     issues.push(
       issue({
-        fieldPath: "$.inputs.runSettings.executorWidgetId",
-        message: "inputs.runSettings.executorWidgetId must be a non-empty string.",
-        reasonCode: "missing_required_input",
+        fieldPath: "$.inputs.runSettings.executionTarget",
+        message: "inputs.runSettings.executionTarget must be a typed JSON object.",
+        reasonCode: "invalid_run_settings",
       }),
     );
+    return issues;
+  }
+
+  for (const fieldName of Object.keys(executionTarget)) {
+    if (!SUPPORTED_EXECUTION_TARGET_FIELDS.has(fieldName)) {
+      issues.push(
+        issue({
+          fieldPath: `$.inputs.runSettings.executionTarget.${fieldName}`,
+          message: `executionTarget field ${fieldName} is not supported by Queue workflow validation.`,
+          reasonCode: "unsupported_run_settings_field",
+        }),
+      );
+    }
+  }
+
+  if (executionTarget.providerId !== "codex") {
+    issues.push(
+      issue({
+        fieldPath: "$.inputs.runSettings.executionTarget.providerId",
+        message:
+          "inputs.runSettings.executionTarget.providerId must be codex for this Queue workflow MVP.",
+        reasonCode: "invalid_run_settings",
+      }),
+    );
+  }
+
+  switch (executionTarget.kind) {
+    case "queue_local":
+      if (!nonEmptyString(executionTarget.queueOwnerWidgetInstanceId)) {
+        issues.push(
+          issue({
+            fieldPath:
+              "$.inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId",
+            message:
+              "queue_local executionTarget requires queueOwnerWidgetInstanceId.",
+            reasonCode: "missing_required_input",
+          }),
+        );
+      }
+      if (executionTarget.executorWidgetId !== undefined) {
+        issues.push(
+          issue({
+            fieldPath: "$.inputs.runSettings.executionTarget.executorWidgetId",
+            message:
+              "queue_local executionTarget must not include executorWidgetId.",
+            reasonCode: "invalid_run_settings",
+          }),
+        );
+      }
+      break;
+    case "agent_executor":
+      if (!nonEmptyString(executionTarget.executorWidgetId)) {
+        issues.push(
+          issue({
+            fieldPath: "$.inputs.runSettings.executionTarget.executorWidgetId",
+            message:
+              "legacy agent_executor executionTarget requires executorWidgetId.",
+            reasonCode: "missing_required_input",
+          }),
+        );
+      }
+      if (executionTarget.queueOwnerWidgetInstanceId !== undefined) {
+        issues.push(
+          issue({
+            fieldPath:
+              "$.inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId",
+            message:
+              "legacy agent_executor executionTarget must not include queueOwnerWidgetInstanceId.",
+            reasonCode: "invalid_run_settings",
+          }),
+        );
+      }
+      break;
+    default:
+      issues.push(
+        issue({
+          fieldPath: "$.inputs.runSettings.executionTarget.kind",
+          message:
+            "inputs.runSettings.executionTarget.kind must be queue_local or agent_executor.",
+          reasonCode: "invalid_run_settings",
+        }),
+      );
+      break;
   }
 
   return issues;

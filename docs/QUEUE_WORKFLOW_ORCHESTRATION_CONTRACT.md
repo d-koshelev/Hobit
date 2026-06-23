@@ -150,7 +150,11 @@ lives only under `inputs`. `inputs.runSettings` requires non-empty
 `codexExecutable` and `workspaceRoot`, exact `sandbox` values `read_only`,
 `workspace_write`, or `danger_full_access`, and exact `approvalPolicy` values
 `never`, `on_request`, or `untrusted`, exact `executionPolicy: "manual"`, and
-a non-empty `executorWidgetId`. `inputs.tasks` is a non-empty array of task
+a typed execution target. Current smoke should use
+`executionTarget.kind: "queue_local"`, `providerId: "codex"`, and explicit
+`queueOwnerWidgetInstanceId` for the Agent Queue widget. Legacy
+`executorWidgetId` remains accepted only as compatibility for old
+`agent_executor` / `agent-run` workflows. `inputs.tasks` is a non-empty array of task
 templates with non-empty `slot`, `title`, and `prompt`; `dependsOnSlots` is
 optional but must reference existing slots when present. Slot names must be
 unique, `upstream` and `downstream` slots are required, and
@@ -459,9 +463,14 @@ materialized slots:
 - `apply_agent_queue_workflow_run_settings` applies explicit typed run
   settings to the bound slot task, including `executionWorkspace`,
   `codexExecutable`, `sandbox`, `approvalPolicy`, `executionPolicy`, and
-  `executorWidgetId`. The backend computes the canonical `settingsHash` from
-  those typed fields and persists `settingsHash`, a bounded `runSettings`
-  snapshot, `executorWidgetId`, and `updateRunSettings` action refs in
+  typed `executionTarget`. For `queue_local`, the target owner must be an
+  Agent Queue widget in the same workspace and the backend must not require
+  an `agent-run` widget. For legacy `agent_executor`, the existing `agent-run`
+  validation remains. The backend computes the canonical `settingsHash` from
+  those typed fields plus target kind/provider/owner, persists
+  `executionTargetKind`, `providerId`, `queueOwnerWidgetInstanceId` when
+  queue-local, compatibility `executorWidgetId`, `executionTargetHash`, a
+  bounded `runSettings` snapshot, and `updateRunSettings` action refs in
   `slot_bindings_json`. The action ledger row uses type
   `update_run_settings` and idempotency key
   `workflowRunId:update_run_settings:slot:settingsHash`.
@@ -513,13 +522,19 @@ Backend/domain worker start now accepts an optional typed workflow start
 context on the existing assigned-task start path. The context is backend-owned
 control-plane input, not prose, and contains explicit `workflowRunId`,
 `workflowActionId` or `actionIdempotencyKey`, `taskId`, `executorWidgetId`,
-`settingsHash`, optional `expectedQueueControlVersion`, optional trusted
-`actorId`, and the exact `confirmationToken` required for `run_start`.
+`settingsHash`, optional `executionTargetHash`, optional
+`expectedQueueControlVersion`, optional trusted `actorId`, and the exact
+`confirmationToken` required for `run_start`. For queue-local workflow starts,
+the start request also passes `queueOwnerWidgetInstanceId`, and the
+compatibility `executorWidgetId` in the workflow context is the same Agent
+Queue owner id.
 
 When workflow context is present, backend start uses the
 `agent_queue_workflow_actions` ledger with a `start_worker` action. The
 idempotency target refs include the explicit workflow run, action, task,
-executor, and settings hash. A repeated request with the same key and same
+executor owner, `executionTargetHash` when present, and settings hash. Current
+QueueWorkflowRunner start keys use `executionTargetHash` plus `settingsHash`
+instead of requiring an `agent-run` widget identity. A repeated request with the same key and same
 refs returns the existing `runId` / current start state and must not start a
 second worker. A repeated request with the same key and different refs is a
 typed conflict. A prior incomplete action, a prior action with a run id but

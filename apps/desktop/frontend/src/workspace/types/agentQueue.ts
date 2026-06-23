@@ -1092,13 +1092,26 @@ export type AgentQueueWorkflowMaterializeTaskSlotResult = {
   conflict: AgentQueueWorkflowConflict | null;
 };
 
+export type AgentQueueWorkflowExecutionTarget =
+  | {
+      kind: "queue_local";
+      providerId: "codex";
+      queueOwnerWidgetInstanceId: string;
+    }
+  | {
+      kind: "agent_executor";
+      providerId: "codex";
+      executorWidgetId: string;
+    };
+
 export type AgentQueueWorkflowRunSettings = {
   executionWorkspace: string;
   codexExecutable: string;
   sandbox: RunCodexDirectWorkRequest["sandbox"] | string;
   approvalPolicy: RunCodexDirectWorkRequest["approvalPolicy"] | string;
   executionPolicy: AgentQueueTaskExecutionPolicy | string;
-  executorWidgetId: string;
+  executionTarget?: AgentQueueWorkflowExecutionTarget;
+  executorWidgetId?: string;
 };
 
 export type ApplyAgentQueueWorkflowRunSettingsRequest = {
@@ -1116,7 +1129,11 @@ export type AgentQueueWorkflowRunSettingsBinding = {
   slot: string;
   taskId: string;
   settingsHash: string;
+  executionTargetKind: "queue_local" | "agent_executor" | string;
+  providerId: "codex" | string;
+  queueOwnerWidgetInstanceId: string | null;
   executorWidgetId: string;
+  executionTargetHash: string;
   updateRunSettingsActionId: string | null;
   updateRunSettingsActionIdempotencyKey: string;
 };
@@ -1239,6 +1256,7 @@ export type QueueWorkerStartContext = {
   taskId: string;
   executorWidgetId: string;
   settingsHash: string;
+  executionTargetHash?: string | null;
   expectedQueueControlVersion?: number | null;
   actorId?: string | null;
   confirmationToken?: string | null;

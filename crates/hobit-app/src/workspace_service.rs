@@ -211,10 +211,11 @@ pub use agent_queue_task_types::{
     AttachSkillToQueueTaskInput, ClearAgentQueueTaskAssignmentInput, CreateAgentQueueTaskInput,
     CreateAgentQueueWorkerInput, DeleteAgentQueueTaskInput, DeleteAgentQueueWorkerInput,
     DetachKnowledgeFromQueueTaskInput, DetachSkillFromQueueTaskInput,
-    FinishAssignedAgentQueueTaskRunInput, QueueWorkerStartBlocker, QueueWorkerStartContext,
-    QueueWorkerStartSettingsSnapshot, RecordAgentQueueTaskRunFinalStatusInput,
-    RecordAgentQueueTaskRunStartedInput, RunAgentQueueValidationSuiteInput,
-    StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput, UpdateAgentQueueWorkerInput,
+    FinishAssignedAgentQueueTaskRunInput, QueueExecutionTargetSnapshot, QueueWorkerStartBlocker,
+    QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot,
+    RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
+    RunAgentQueueValidationSuiteInput, StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
+    UpdateAgentQueueWorkerInput,
 };
 pub use agent_queue_worker_evidence::{
     AgentQueueWorkerEvidenceBundleSummary, AgentQueueWorkerEvidenceQueryResult,
@@ -249,10 +250,10 @@ pub use agent_queue_workflow_resume::{
 };
 pub use agent_queue_workflow_setup::{
     QueueWorkflowApplyRunSettingsRequest, QueueWorkflowApplyRunSettingsResult,
-    QueueWorkflowApplyRunSettingsStatus, QueueWorkflowPromoteTaskSlotBindingSummary,
-    QueueWorkflowPromoteTaskSlotRequest, QueueWorkflowPromoteTaskSlotResult,
-    QueueWorkflowPromoteTaskSlotStatus, QueueWorkflowRunSettings,
-    QueueWorkflowRunSettingsBindingSummary,
+    QueueWorkflowApplyRunSettingsStatus, QueueWorkflowExecutionTarget,
+    QueueWorkflowPromoteTaskSlotBindingSummary, QueueWorkflowPromoteTaskSlotRequest,
+    QueueWorkflowPromoteTaskSlotResult, QueueWorkflowPromoteTaskSlotStatus,
+    QueueWorkflowRunSettings, QueueWorkflowRunSettingsBindingSummary,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;
 pub use coordinator_provider_external::{

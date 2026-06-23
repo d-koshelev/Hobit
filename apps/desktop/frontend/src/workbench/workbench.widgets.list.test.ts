@@ -19,6 +19,7 @@ describe("workbench.widgets.list", () => {
         }),
         workbenchSnapshot: liveWorkbenchSnapshot([
           widget({ definitionId: "interactive-agent", id: "agent-1" }),
+          widget({ definitionId: "agent-queue", id: "queue-1" }),
           widget({ definitionId: "agent-run", id: "executor-1" }),
           widget({ definitionId: "notes", id: "notes-1" }),
         ]),
@@ -54,8 +55,10 @@ describe("workbench.widgets.list", () => {
       currentWorkspaceAvailable: true,
       widgetSummary: {
         agentExecutorCount: 1,
+        queueLocalExecutionTargetCount: 1,
         recommendedExecutorWidgetId: "executor-1",
-        widgetCount: 3,
+        recommendedQueueOwnerWidgetInstanceId: "queue-1",
+        widgetCount: 4,
       },
       workbenchId: "workbench-1",
       workspaceId: "workspace-1",
@@ -72,10 +75,14 @@ describe("workbench.widgets.list", () => {
         },
       ],
       agentExecutorCount: 1,
+      agentExecutorBlockers: [],
       blockers: [],
+      queueLocalExecutionTargetBlockers: [],
+      queueLocalExecutionTargetCount: 1,
+      recommendedQueueOwnerWidgetInstanceId: "queue-1",
       recommendedExecutorWidgetId: "executor-1",
       returnedWidgetCount: 1,
-      visibleWidgetCount: 3,
+      visibleWidgetCount: 4,
       widgetInstances: [
         {
           definitionId: "agent-run",
@@ -84,7 +91,7 @@ describe("workbench.widgets.list", () => {
           visible: true,
         },
       ],
-      widgetCount: 3,
+      widgetCount: 4,
       workbenchId: "workbench-1",
       workspaceId: "workspace-1",
     });
@@ -101,6 +108,11 @@ describe("workbench.widgets.list", () => {
           definitionId: "interactive-agent",
           id: "workspace-agent-1",
           title: "Workspace Agent",
+        }),
+        widget({
+          definitionId: "agent-queue",
+          id: "queue-1",
+          title: "Queue",
         }),
         widget({
           definitionId: "agent-run",
@@ -132,11 +144,15 @@ describe("workbench.widgets.list", () => {
         },
       ],
       agentExecutorCount: 1,
+      agentExecutorBlockers: [],
       blockers: [],
+      queueLocalExecutionTargetBlockers: [],
+      queueLocalExecutionTargetCount: 1,
+      recommendedQueueOwnerWidgetInstanceId: "queue-1",
       recommendedExecutorWidgetId: "executor-1",
       returnedWidgetCount: 1,
       visibleOnly: true,
-      visibleWidgetCount: 2,
+      visibleWidgetCount: 3,
       widgetInstances: [
         {
           definitionId: "agent-run",
@@ -144,11 +160,50 @@ describe("workbench.widgets.list", () => {
           visible: true,
         },
       ],
-      widgetCount: 3,
+      widgetCount: 4,
       workbenchId: "workbench-1",
       workspaceId: "workspace-1",
     });
     expect(JSON.stringify(result.result.output)).not.toContain("Executor One");
+  });
+
+  it("lists queue-local execution targets from Agent Queue widgets", async () => {
+    const result = await invokeWidgetsList({
+      input: {
+        definitionIdFilter: "agent-queue",
+        includeTitles: true,
+      },
+      widgets: [
+        widget({ definitionId: "interactive-agent", id: "agent-1" }),
+        widget({ definitionId: "agent-queue", id: "queue-1", title: "Queue" }),
+      ],
+    });
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output).toMatchObject({
+      blockers: [],
+      queueLocalExecutionTargetCount: 1,
+      queueLocalExecutionTargets: [
+        {
+          definitionId: "agent-queue",
+          id: "queue-1",
+          kind: "queue_local",
+          providerId: "codex",
+          queueOwnerWidgetInstanceId: "queue-1",
+          title: "Queue",
+          visible: true,
+        },
+      ],
+      recommendedQueueOwnerWidgetInstanceId: "queue-1",
+      widgetInstances: [
+        {
+          definitionId: "agent-queue",
+          id: "queue-1",
+          title: "Queue",
+          visible: true,
+        },
+      ],
+    });
   });
 
   it("does not infer Agent Executor identity from title or prose", async () => {
@@ -168,29 +223,40 @@ describe("workbench.widgets.list", () => {
     expect(result.status).toBe("succeeded");
     expect(result.result.output).toMatchObject({
       agentExecutors: [],
-      blockers: ["no_agent_executor"],
+      agentExecutorBlockers: ["no_agent_executor"],
+      blockers: ["no_queue_local_execution_target"],
+      queueLocalExecutionTargetBlockers: ["no_queue_local_execution_target"],
       recommendedExecutorWidgetId: null,
+      recommendedQueueOwnerWidgetInstanceId: null,
     });
   });
 
-  it("returns no-agent and ambiguous-executor blockers without choosing by order", async () => {
+  it("returns compatibility executor blockers without choosing by order", async () => {
     const noExecutor = await invokeWidgetsList({
-      widgets: [widget({ definitionId: "interactive-agent", id: "agent-1" })],
+      widgets: [
+        widget({ definitionId: "interactive-agent", id: "agent-1" }),
+        widget({ definitionId: "agent-queue", id: "queue-1" }),
+      ],
     });
     expect(noExecutor.result.output).toMatchObject({
-      blockers: ["no_agent_executor"],
+      agentExecutorBlockers: ["no_agent_executor"],
+      blockers: [],
       recommendedExecutorWidgetId: null,
+      recommendedQueueOwnerWidgetInstanceId: "queue-1",
     });
 
     const multipleExecutors = await invokeWidgetsList({
       widgets: [
+        widget({ definitionId: "agent-queue", id: "queue-1" }),
         widget({ definitionId: "agent-run", id: "executor-1" }),
         widget({ definitionId: "agent-run", id: "executor-2" }),
       ],
     });
     expect(multipleExecutors.result.output).toMatchObject({
-      blockers: ["ambiguous_agent_executor"],
+      agentExecutorBlockers: ["ambiguous_agent_executor"],
+      blockers: [],
       recommendedExecutorWidgetId: null,
+      recommendedQueueOwnerWidgetInstanceId: "queue-1",
     });
   });
 

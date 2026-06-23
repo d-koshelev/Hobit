@@ -22,6 +22,7 @@ describe("workspace.context.get", () => {
         }),
         workbenchSnapshot: liveWorkbenchSnapshot([
           widget({ definitionId: "interactive-agent", id: "agent-1" }),
+          widget({ definitionId: "agent-queue", id: "queue-1" }),
           widget({ definitionId: "agent-run", id: "executor-1" }),
         ]),
       },
@@ -48,6 +49,7 @@ describe("workspace.context.get", () => {
     });
     expect(result.result.output).toMatchObject({
       agentExecutorCount: 1,
+      agentExecutorBlockers: [],
       agentExecutors: [
         {
           definitionId: "agent-run",
@@ -61,6 +63,18 @@ describe("workspace.context.get", () => {
       currentWorkbenchAvailable: true,
       currentWorkspaceAvailable: true,
       missingCapabilities: [],
+      queueLocalExecutionTargetBlockers: [],
+      queueLocalExecutionTargetCount: 1,
+      queueLocalExecutionTargets: [
+        {
+          definitionId: "agent-queue",
+          id: "queue-1",
+          kind: "queue_local",
+          providerId: "codex",
+          queueOwnerWidgetInstanceId: "queue-1",
+          visible: true,
+        },
+      ],
       queueControlState: {
         backendOwned: true,
         status: "disabled",
@@ -68,9 +82,11 @@ describe("workspace.context.get", () => {
         workspaceId: "workspace-1",
       },
       recommendedExecutorWidgetId: "executor-1",
-      visibleWidgetCount: 2,
+      recommendedQueueOwnerWidgetInstanceId: "queue-1",
+      visibleWidgetCount: 3,
       widgetSummary: {
         agentExecutorCount: 1,
+        agentExecutorBlockers: [],
         agentExecutors: [
           {
             definitionId: "agent-run",
@@ -79,11 +95,24 @@ describe("workspace.context.get", () => {
             visible: true,
           },
         ],
+        queueLocalExecutionTargetBlockers: [],
+        queueLocalExecutionTargetCount: 1,
+        queueLocalExecutionTargets: [
+          {
+            definitionId: "agent-queue",
+            id: "queue-1",
+            kind: "queue_local",
+            providerId: "codex",
+            queueOwnerWidgetInstanceId: "queue-1",
+            visible: true,
+          },
+        ],
         recommendedExecutorWidgetId: "executor-1",
-        visibleWidgetCount: 2,
-        widgetCount: 2,
+        recommendedQueueOwnerWidgetInstanceId: "queue-1",
+        visibleWidgetCount: 3,
+        widgetCount: 3,
       },
-      widgetCount: 2,
+      widgetCount: 3,
       workbenchId: "workbench-1",
       workspaceId: "workspace-1",
       workspaceRootPath: "C:/repo",

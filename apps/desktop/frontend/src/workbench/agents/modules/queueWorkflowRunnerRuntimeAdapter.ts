@@ -1550,6 +1550,8 @@ function mutationRefsForRunnerResult(
       finalizationDecisionId: finalization.decisionId,
       finalizationTaskId: finalization.taskId,
       recordWorkerEvidenceStatus: workerEvidence.commandStatus,
+      executionTargetHash: createSetupStart.runSettings?.executionTargetHash,
+      executionTargetKind: createSetupStart.runSettings?.executionTargetKind,
       settingsHash: createSetupStart.runSettings?.settingsHash,
       startedRunId: createSetupStart.start?.runId,
       upstreamTaskId: createSetupStart.upstreamTaskId,

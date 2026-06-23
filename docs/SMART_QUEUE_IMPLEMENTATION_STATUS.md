@@ -139,20 +139,24 @@ auto-continue only under setup-capable structured Queue grant policy.
 `queue.workflow.invoke` is not implemented.
 Workspace Agent live workbench context is now threaded from the Workbench model
 through the Workspace Agent broker runtime as a bounded typed widget snapshot,
-so `workbench.widgets.list` can discover visible Agent Executor widgets inside
-live Hobit by `definitionId === "agent-run"`. Actual live Queue smoke remains
-the next step after this read-only context discovery path. The broker
+so `workbench.widgets.list` can discover queue-local workflow execution
+targets from visible Agent Queue widgets by `definitionId === "agent-queue"`.
+The same result may still list legacy Agent Executor widgets by
+`definitionId === "agent-run"` for compatibility, but current Queue workflow
+smoke no longer requires an Agent Executor widget. Actual live Queue smoke
+remains the next step after this read-only context discovery path. The broker
 continuation `hobit.action.result` context now preserves bounded structured
 payloads for `workspace.context.get`, `workbench.widgets.list`, and
 `queue.control.get`, so Workspace Agent can read exact `workspaceId`,
-`workbenchId`, Queue control status/version, Agent Executor widgets, and
-`recommendedExecutorWidgetId` from action results rather than compact display
-text.
+`workbenchId`, Queue control status/version, queue-local execution targets,
+and `recommendedQueueOwnerWidgetInstanceId` from action results rather than
+compact display text.
 Worker start now has a backend-owned idempotency/control contract on the
 existing assigned-task start path for Queue workflow phases. Workflow
-context requires explicit workflow/action/task/executor/settings refs plus
-exact confirmation, checks durable `manual_enabled`, task/dependency/executor
-preconditions, and settings hash, records/reads `start_worker` action ledger
+context requires explicit workflow/action/task/executor-owner/settings refs
+plus optional `executionTargetHash` and exact confirmation, checks durable
+`manual_enabled`, task/dependency/executor-owner preconditions, and settings
+hash, records/reads `start_worker` action ledger
 rows, returns the prior run for duplicate same-key/same-ref starts, conflicts
 on changed refs, and blocks orphan/unknown start windows instead of silently
 starting a second worker. QueueWorkflowRunner create/setup/start now uses this
@@ -1279,7 +1283,9 @@ as available from the foundation above:
   session. The discovery/control/invocation foundation is implemented:
   `workspace.context.get` reads current workspace/workbench/root context from
   live renderer state, `workbench.widgets.list` lists bounded widget instances
-  and discovers Agent Executor widgets only by `definitionId === "agent-run"`,
+  and discovers queue-local execution targets from Agent Queue widgets by
+  `definitionId === "agent-queue"` while retaining `agent-run` discovery as
+  compatibility only,
   `queue.control.get` reads backend Queue control state through the Queue
   control bridge, `queue.control.setManualEnabled` sets only backend Queue
   control state to `manual_enabled`, and structured `hobit.workflow.request`

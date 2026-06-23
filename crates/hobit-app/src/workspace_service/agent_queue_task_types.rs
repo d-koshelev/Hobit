@@ -172,17 +172,30 @@ pub struct QueueWorkerStartSettingsSnapshot {
     pub sandbox: String,
     pub approval_policy: String,
     pub execution_policy: String,
+    pub execution_target_kind: String,
+    pub provider_id: String,
+    pub queue_owner_widget_instance_id: Option<String>,
     pub executor_widget_id: String,
 }
 
 impl QueueWorkerStartSettingsSnapshot {
     pub fn stable_hash(&self) -> String {
+        let queue_owner_widget_instance_id = self
+            .queue_owner_widget_instance_id
+            .as_deref()
+            .unwrap_or_default();
         let canonical = [
             ("approval_policy", self.approval_policy.as_str()),
             ("codex_executable", self.codex_executable.as_str()),
             ("execution_policy", self.execution_policy.as_str()),
+            ("execution_target_kind", self.execution_target_kind.as_str()),
             ("execution_workspace", self.execution_workspace.as_str()),
             ("executor_widget_id", self.executor_widget_id.as_str()),
+            ("provider_id", self.provider_id.as_str()),
+            (
+                "queue_owner_widget_instance_id",
+                queue_owner_widget_instance_id,
+            ),
             ("sandbox", self.sandbox.as_str()),
         ]
         .into_iter()
@@ -191,6 +204,42 @@ impl QueueWorkerStartSettingsSnapshot {
         .join("|");
 
         format!("queue-settings-fnv1a64:{:016x}", fnv1a64(&canonical))
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueExecutionTargetSnapshot {
+    pub execution_target_kind: String,
+    pub provider_id: String,
+    pub queue_owner_widget_instance_id: Option<String>,
+    pub executor_widget_id: Option<String>,
+}
+
+impl QueueExecutionTargetSnapshot {
+    pub fn stable_hash(&self) -> String {
+        let queue_owner_widget_instance_id = self
+            .queue_owner_widget_instance_id
+            .as_deref()
+            .unwrap_or_default();
+        let executor_widget_id = self.executor_widget_id.as_deref().unwrap_or_default();
+        let canonical = [
+            ("execution_target_kind", self.execution_target_kind.as_str()),
+            ("executor_widget_id", executor_widget_id),
+            ("provider_id", self.provider_id.as_str()),
+            (
+                "queue_owner_widget_instance_id",
+                queue_owner_widget_instance_id,
+            ),
+        ]
+        .into_iter()
+        .map(|(key, value)| format!("{}:{}{}:{}", key.len(), key, value.len(), value))
+        .collect::<Vec<_>>()
+        .join("|");
+
+        format!(
+            "queue-execution-target-fnv1a64:{:016x}",
+            fnv1a64(&canonical)
+        )
     }
 }
 
@@ -211,6 +260,7 @@ pub struct QueueWorkerStartContext {
     pub task_id: String,
     pub executor_widget_id: String,
     pub settings_hash: String,
+    pub execution_target_hash: Option<String>,
     pub expected_queue_control_version: Option<i64>,
     pub actor_id: Option<String>,
     pub confirmation_token: Option<String>,

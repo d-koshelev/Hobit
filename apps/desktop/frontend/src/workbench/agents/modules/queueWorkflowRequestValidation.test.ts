@@ -25,6 +25,30 @@ describe("queueWorkflowRequestValidation", () => {
     });
   });
 
+  it("accepts dependency_acceptance_smoke queue_local executionTarget without executorWidgetId", () => {
+    expect(
+      validateQueueWorkflowRequest(
+        validRequest({
+          inputs: {
+            ...validInputs(),
+            runSettings: validRunSettings({
+              executorWidgetId: undefined,
+              executionTarget: {
+                kind: "queue_local",
+                providerId: "codex",
+                queueOwnerWidgetInstanceId: "agent-queue-widget-id",
+              },
+            }),
+          },
+        }),
+      ),
+    ).toMatchObject({
+      ok: true,
+      status: "workflow_valid_not_executable",
+      workflowId: "dependency_acceptance_smoke",
+    });
+  });
+
   it("validates dependency_failure_smoke with an explicit failure reason", () => {
     expect(
       validateQueueWorkflowRequest(
@@ -41,6 +65,143 @@ describe("queueWorkflowRequestValidation", () => {
       ok: true,
       status: "workflow_valid_not_executable",
       workflowId: "dependency_failure_smoke",
+    });
+  });
+
+  it("accepts dependency_failure_smoke queue_local executionTarget without executorWidgetId", () => {
+    expect(
+      validateQueueWorkflowRequest(
+        validRequest({
+          grant: validGrant("queue_failure_smoke"),
+          inputs: {
+            ...validInputs(),
+            runSettings: validRunSettings({
+              executorWidgetId: undefined,
+              executionTarget: {
+                kind: "queue_local",
+                providerId: "codex",
+                queueOwnerWidgetInstanceId: "agent-queue-widget-id",
+              },
+            }),
+          },
+          workflowId: "dependency_failure_smoke",
+        }),
+      ),
+    ).toMatchObject({
+      ok: true,
+      status: "workflow_valid_not_executable",
+      workflowId: "dependency_failure_smoke",
+    });
+  });
+
+  it("rejects queue_local executionTarget without queueOwnerWidgetInstanceId", () => {
+    expect(
+      validateQueueWorkflowRequest(
+        validRequest({
+          inputs: {
+            ...validInputs(),
+            runSettings: validRunSettings({
+              executionTarget: {
+                kind: "queue_local",
+                providerId: "codex",
+              },
+            }),
+          },
+        }),
+      ),
+    ).toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          fieldPath:
+            "$.inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId",
+          reasonCode: "missing_required_input",
+        }),
+      ]),
+      ok: false,
+      status: "missing_required_inputs",
+    });
+  });
+
+  it("rejects unsupported executionTarget provider", () => {
+    expect(
+      validateQueueWorkflowRequest(
+        validRequest({
+          inputs: {
+            ...validInputs(),
+            runSettings: validRunSettings({
+              executionTarget: {
+                kind: "queue_local",
+                providerId: "other",
+                queueOwnerWidgetInstanceId: "agent-queue-widget-id",
+              },
+            }),
+          },
+        }),
+      ),
+    ).toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          fieldPath: "$.inputs.runSettings.executionTarget.providerId",
+          reasonCode: "invalid_run_settings",
+        }),
+      ]),
+      ok: false,
+    });
+  });
+
+  it("accepts legacy executorWidgetId without executionTarget", () => {
+    expect(
+      validateQueueWorkflowRequest(
+        validRequest({
+          inputs: {
+            ...validInputs(),
+            runSettings: legacyRunSettings(),
+          },
+        }),
+      ),
+    ).toMatchObject({
+      ok: true,
+      status: "workflow_valid_not_executable",
+    });
+  });
+
+  it("does not infer execution target from prose fields", () => {
+    expect(
+      validateQueueWorkflowRequest(
+        validRequest({
+          inputs: {
+            ...validInputs(),
+            runSettings: {
+              ...validRunSettings({
+                executionTarget: {
+                  kind: "queue_local",
+                  providerId: "codex",
+                  targetDescription: "Use the visible Agent Queue widget.",
+                },
+              }),
+              executionTargetText: "Agent Queue widget titled Queue",
+            },
+          },
+        }),
+      ),
+    ).toMatchObject({
+      issues: expect.arrayContaining([
+        expect.objectContaining({
+          fieldPath: "$.inputs.runSettings.executionTargetText",
+          reasonCode: "unsupported_run_settings_field",
+        }),
+        expect.objectContaining({
+          fieldPath:
+            "$.inputs.runSettings.executionTarget.targetDescription",
+          reasonCode: "unsupported_run_settings_field",
+        }),
+        expect.objectContaining({
+          fieldPath:
+            "$.inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId",
+          reasonCode: "missing_required_input",
+        }),
+      ]),
+      ok: false,
     });
   });
 
@@ -626,6 +787,22 @@ function validInputs(overrides: Record<string, unknown> = {}) {
 }
 
 function validRunSettings(overrides: Record<string, unknown> = {}) {
+  return {
+    approvalPolicy: "on_request",
+    codexExecutable: "codex.cmd",
+    executionPolicy: "manual",
+    executionTarget: {
+      kind: "queue_local",
+      providerId: "codex",
+      queueOwnerWidgetInstanceId: "agent-queue-widget-id",
+    },
+    sandbox: "workspace_write",
+    workspaceRoot: "C:/repo",
+    ...overrides,
+  };
+}
+
+function legacyRunSettings(overrides: Record<string, unknown> = {}) {
   return {
     approvalPolicy: "on_request",
     codexExecutable: "codex.cmd",

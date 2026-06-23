@@ -610,7 +610,10 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
             ...validInputs(),
             runSettings: {
               ...validInputs().runSettings,
-              executorWidgetId: "",
+              executionTarget: {
+                kind: "queue_local",
+                providerId: "codex",
+              },
             },
           },
         }),
@@ -1921,7 +1924,11 @@ function validInputs() {
       approvalPolicy: "never",
       codexExecutable: "codex.cmd",
       executionPolicy: "manual",
-      executorWidgetId: "executor-widget-1",
+      executionTarget: {
+        kind: "queue_local",
+        providerId: "codex",
+        queueOwnerWidgetInstanceId: "agent-queue-widget-id",
+      },
       sandbox: "read_only",
       workspaceRoot: "C:/work/hobit",
     },
@@ -1979,12 +1986,29 @@ function createSetupStartBridge(
   const bridge: Partial<WorkspaceAgentQueueBridge> = {
     applyWorkflowRunSettings: vi.fn(async (request) => {
       calls.push({ method: "applyWorkflowRunSettings", ...request });
+      const executionTarget = request.runSettings.executionTarget;
+      const executionTargetKind = executionTarget?.kind ?? "agent_executor";
+      const providerId = executionTarget?.providerId ?? "codex";
+      const queueOwnerWidgetInstanceId =
+        executionTarget?.kind === "queue_local"
+          ? executionTarget.queueOwnerWidgetInstanceId
+          : null;
+      const executorWidgetId =
+        executionTarget?.kind === "agent_executor"
+          ? executionTarget.executorWidgetId
+          : (request.runSettings.executorWidgetId ??
+            queueOwnerWidgetInstanceId ??
+            "executor-widget-1");
       return {
         action: null,
         binding:
           applyStatus === "applied" || applyStatus === "reused"
             ? {
-                executorWidgetId: request.runSettings.executorWidgetId,
+                executionTargetHash: `execution-target-hash-${executionTargetKind}`,
+                executionTargetKind,
+                executorWidgetId,
+                providerId,
+                queueOwnerWidgetInstanceId,
                 settingsHash: "settings-hash-upstream",
                 slot: request.slot,
                 taskId: request.taskId ?? "task-upstream",

@@ -16,6 +16,7 @@ import type {
   AgentQueueTask,
   AgentQueueTaskContext,
   AgentQueueTaskExecutionPolicy,
+  AgentQueueWorkflowExecutionTarget,
   AgentQueueWorkflowSlotReconciliation,
   AgentQueueWorkflowTaskResumeSnapshot,
   AgentQueueWorkflowRun,
@@ -187,7 +188,11 @@ type TauriAgentQueueWorkflowRunSettingsBinding = {
   slot: string;
   task_id: string;
   settings_hash: string;
+  execution_target_kind: string;
+  provider_id: string;
+  queue_owner_widget_instance_id: string | null;
   executor_widget_id: string;
+  execution_target_hash: string;
   update_run_settings_action_id: string | null;
   update_run_settings_action_idempotency_key: string;
 };
@@ -522,7 +527,10 @@ export async function applyAgentQueueWorkflowRunSettings(
           codex_executable: request.runSettings.codexExecutable,
           execution_policy: request.runSettings.executionPolicy,
           execution_workspace: request.runSettings.executionWorkspace,
-          executor_widget_id: request.runSettings.executorWidgetId,
+          execution_target: toTauriExecutionTarget(
+            request.runSettings.executionTarget,
+          ),
+          executor_widget_id: request.runSettings.executorWidgetId ?? "",
           sandbox: request.runSettings.sandbox,
         },
         settings_hash: request.settingsHash ?? null,
@@ -689,7 +697,12 @@ function normalizeApplyRunSettingsResult(
     action: result.action ? normalizeAction(result.action) : null,
     binding: result.binding
       ? {
+          executionTargetHash: result.binding.execution_target_hash,
+          executionTargetKind: result.binding.execution_target_kind,
           executorWidgetId: result.binding.executor_widget_id,
+          providerId: result.binding.provider_id,
+          queueOwnerWidgetInstanceId:
+            result.binding.queue_owner_widget_instance_id,
           settingsHash: result.binding.settings_hash,
           slot: result.binding.slot,
           taskId: result.binding.task_id,
@@ -704,6 +717,37 @@ function normalizeApplyRunSettingsResult(
     status: result.status,
     task: result.task ? normalizeAgentQueueTask(result.task) : null,
     workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
+  };
+}
+
+function toTauriExecutionTarget(
+  target: AgentQueueWorkflowExecutionTarget | undefined,
+):
+  | {
+      kind: string;
+      provider_id: string;
+      queue_owner_widget_instance_id?: string | null;
+      executor_widget_id?: string | null;
+    }
+  | null {
+  if (!target) {
+    return null;
+  }
+
+  if (target.kind === "queue_local") {
+    return {
+      kind: target.kind,
+      provider_id: target.providerId,
+      queue_owner_widget_instance_id: target.queueOwnerWidgetInstanceId,
+      executor_widget_id: null,
+    };
+  }
+
+  return {
+    kind: target.kind,
+    provider_id: target.providerId,
+    queue_owner_widget_instance_id: null,
+    executor_widget_id: target.executorWidgetId,
   };
 }
 

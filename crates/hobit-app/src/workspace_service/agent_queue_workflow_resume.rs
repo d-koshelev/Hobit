@@ -20,8 +20,8 @@ use super::{
         QueueWorkflowTaskSpec,
     },
     agent_queue_workflow_setup::{
-        durable_settings_hash_for_task, normalize_queue_workflow_run_settings_for_hash,
-        QueueWorkflowRunSettings,
+        durable_settings_hash_for_task_with_target, normalize_queue_workflow_run_settings_for_hash,
+        QueueWorkflowExecutionTarget, QueueWorkflowRunSettings,
     },
     QueueItemAggregate, QueueWorkflowAction, QueueWorkflowRun, WorkspaceService,
 };
@@ -215,6 +215,10 @@ struct SlotBinding {
     depends_on_slots: Vec<String>,
     dependency_task_ids: Vec<String>,
     settings_hash: Option<String>,
+    execution_target_hash: Option<String>,
+    execution_target_kind: Option<String>,
+    provider_id: Option<String>,
+    queue_owner_widget_instance_id: Option<String>,
     run_settings: Option<SlotRunSettings>,
     update_run_settings_action_id: Option<String>,
     update_run_settings_action_idempotency_key: Option<String>,
@@ -237,6 +241,7 @@ struct SlotRunSettings {
     sandbox: String,
     approval_policy: String,
     execution_policy: String,
+    execution_target: Option<QueueWorkflowExecutionTarget>,
     executor_widget_id: String,
 }
 
@@ -1090,6 +1095,12 @@ fn parse_slot_bindings(
             depends_on_slots: optional_string_array_field(fields.get("dependsOnSlots")),
             dependency_task_ids: optional_string_array_field(fields.get("dependencyTaskIds")),
             settings_hash: optional_string_field(fields.get("settingsHash")),
+            execution_target_hash: optional_string_field(fields.get("executionTargetHash")),
+            execution_target_kind: optional_string_field(fields.get("executionTargetKind")),
+            provider_id: optional_string_field(fields.get("providerId")),
+            queue_owner_widget_instance_id: optional_string_field(
+                fields.get("queueOwnerWidgetInstanceId"),
+            ),
             run_settings: parse_slot_run_settings(fields.get("runSettings")),
             update_run_settings_action_id: optional_string_field(
                 fields.get("updateRunSettingsActionId"),
@@ -1275,6 +1286,34 @@ fn recover_update_run_settings_action(
     );
     set_binding_string(
         binding,
+        "executionTargetHash",
+        optional_string_ref(&target, "executionTargetHash"),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "executionTargetKind",
+        optional_string_ref(&target, "executionTargetKind"),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "providerId",
+        optional_string_ref(&target, "providerId"),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "queueOwnerWidgetInstanceId",
+        optional_string_ref(&target, "queueOwnerWidgetInstanceId"),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
         "executorWidgetId",
         string_ref(action, &result, "executorWidgetId", blockers),
         action,
@@ -1425,6 +1464,13 @@ fn recover_start_worker_action(
         binding,
         "settingsHash",
         string_ref(action, &target, "settingsHash", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "executionTargetHash",
+        optional_string_ref(&target, "executionTargetHash"),
         action,
         blockers,
     );
@@ -1642,6 +1688,15 @@ fn string_ref(
     value
 }
 
+fn optional_string_ref(object: &serde_json::Map<String, Value>, field: &str) -> Option<String> {
+    object
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
 fn string_array_ref(object: &serde_json::Map<String, Value>, field: &str) -> Vec<String> {
     object
         .get(field)
@@ -1699,6 +1754,10 @@ fn set_binding_string(
         "dependencySpecHash" => &mut binding.dependency_spec_hash,
         "dependencyEdgeHash" => &mut binding.dependency_edge_hash,
         "settingsHash" => &mut binding.settings_hash,
+        "executionTargetHash" => &mut binding.execution_target_hash,
+        "executionTargetKind" => &mut binding.execution_target_kind,
+        "providerId" => &mut binding.provider_id,
+        "queueOwnerWidgetInstanceId" => &mut binding.queue_owner_widget_instance_id,
         "promotedTaskStatus" => &mut binding.promoted_task_status,
         "runId" => &mut binding.run_id,
         "evidenceBundleId" => &mut binding.evidence_bundle_id,
@@ -1827,13 +1886,31 @@ fn optional_string_array_field(value: Option<&Value>) -> Vec<String> {
 
 fn parse_slot_run_settings(value: Option<&Value>) -> Option<SlotRunSettings> {
     let fields = value.and_then(Value::as_object)?;
+    let execution_target = if let Some(value) = fields.get("executionTarget") {
+        Some(parse_slot_execution_target(value)?)
+    } else {
+        None
+    };
     Some(SlotRunSettings {
         execution_workspace: optional_string_field(fields.get("executionWorkspace"))?,
         codex_executable: optional_string_field(fields.get("codexExecutable"))?,
         sandbox: optional_string_field(fields.get("sandbox"))?,
         approval_policy: optional_string_field(fields.get("approvalPolicy"))?,
         execution_policy: optional_string_field(fields.get("executionPolicy"))?,
+        execution_target,
         executor_widget_id: optional_string_field(fields.get("executorWidgetId"))?,
+    })
+}
+
+fn parse_slot_execution_target(value: &Value) -> Option<QueueWorkflowExecutionTarget> {
+    let fields = value.as_object()?;
+    Some(QueueWorkflowExecutionTarget {
+        kind: optional_string_field(fields.get("kind"))?,
+        provider_id: optional_string_field(fields.get("providerId"))?,
+        queue_owner_widget_instance_id: optional_string_field(
+            fields.get("queueOwnerWidgetInstanceId"),
+        ),
+        executor_widget_id: optional_string_field(fields.get("executorWidgetId")),
     })
 }
 
@@ -2029,6 +2106,7 @@ fn validate_settings_binding(
             sandbox: run_settings.sandbox.clone(),
             approval_policy: run_settings.approval_policy.clone(),
             execution_policy: run_settings.execution_policy.clone(),
+            execution_target: run_settings.execution_target.clone(),
             executor_widget_id: run_settings.executor_widget_id.clone(),
         }
     } else if let Some(settings) = run_settings_from_durable_task(task) {
@@ -2042,29 +2120,27 @@ fn validate_settings_binding(
         ));
         return;
     };
-    let expected_executor_widget_id = normalized.executor_widget_id.clone();
-    match normalize_queue_workflow_run_settings_for_hash(normalized) {
-        Ok((_, expected_hash)) if expected_hash == settings_hash => {}
-        Ok((_, expected_hash)) => {
-            blockers.push(binding_blocker(
-                "settings_hash_mismatch",
-                "Persisted settingsHash no longer matches the bounded runSettings snapshot.",
-                binding,
-                Some("settingsHash"),
-            ));
-            if expected_hash.is_empty() {
+    let (canonical_settings, expected_hash) =
+        match normalize_queue_workflow_run_settings_for_hash(normalized) {
+            Ok((canonical_settings, expected_hash)) => (canonical_settings, expected_hash),
+            Err(_) => {
+                blockers.push(binding_blocker(
+                    "settings_binding_invalid",
+                    "Workflow slot binding contains an invalid runSettings snapshot.",
+                    binding,
+                    Some("runSettings"),
+                ));
                 return;
             }
-        }
-        Err(_) => {
-            blockers.push(binding_blocker(
-                "settings_binding_invalid",
-                "Workflow slot binding contains an invalid runSettings snapshot.",
-                binding,
-                Some("runSettings"),
-            ));
-            return;
-        }
+        };
+    let expected_executor_widget_id = canonical_settings.executor_widget_id.clone();
+    if expected_hash != settings_hash {
+        blockers.push(binding_blocker(
+            "settings_hash_mismatch",
+            "Persisted settingsHash no longer matches the bounded runSettings snapshot.",
+            binding,
+            Some("settingsHash"),
+        ));
     }
 
     if task.assigned_executor_widget_id.as_deref() != Some(expected_executor_widget_id.as_str()) {
@@ -2086,7 +2162,10 @@ fn validate_settings_binding(
         }
     }
 
-    match durable_settings_hash_for_task(task) {
+    match durable_settings_hash_for_task_with_target(
+        task,
+        &canonical_settings.execution_target,
+    ) {
         Some(actual_hash) if actual_hash == settings_hash => {}
         Some(_) => blockers.push(binding_blocker(
             "settings_durable_mismatch",
@@ -2168,6 +2247,7 @@ fn run_settings_from_durable_task(task: &AgentQueueTaskRow) -> Option<QueueWorkf
         sandbox: task.sandbox.clone()?,
         approval_policy: task.approval_policy.clone()?,
         execution_policy: task.execution_policy.clone(),
+        execution_target: None,
         executor_widget_id: task.assigned_executor_widget_id.clone()?,
     })
 }

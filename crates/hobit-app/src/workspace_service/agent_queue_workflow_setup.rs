@@ -11,13 +11,15 @@ use super::{
         AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL, AGENT_QUEUE_TASK_STATUS_DRAFT,
         AGENT_QUEUE_TASK_STATUS_QUEUED, AGENT_QUEUE_TASK_STATUS_READY,
     },
-    agent_queue_tasks::{load_agent_executor_widget, map_storage_agent_queue_task_error},
+    agent_queue_tasks::{
+        load_agent_executor_widget, map_storage_agent_queue_task_error, storage_invalid_input,
+    },
     agent_queue_workflow::canonical_json_string,
     mapping::agent_queue_task_summary,
-    placeholder_id, placeholder_timestamp, AgentQueueTaskSummary, QueueWorkerStartSettingsSnapshot,
-    QueueWorkflowAction, QueueWorkflowActionStatus, QueueWorkflowCommandBlocker,
-    QueueWorkflowConflict, QueueWorkflowRun, WorkspaceService,
-    MAX_WORKFLOW_SLOT_BINDINGS_JSON_BYTES,
+    placeholder_id, placeholder_timestamp, AgentQueueTaskSummary, QueueExecutionTargetSnapshot,
+    QueueWorkerStartSettingsSnapshot, QueueWorkflowAction, QueueWorkflowActionStatus,
+    QueueWorkflowCommandBlocker, QueueWorkflowConflict, QueueWorkflowRun, WorkspaceService,
+    AGENT_QUEUE_WIDGET_DEFINITION_ID, MAX_WORKFLOW_SLOT_BINDINGS_JSON_BYTES,
 };
 
 const UPDATE_RUN_SETTINGS_ACTION_TYPE: &str = "update_run_settings";
@@ -27,12 +29,21 @@ const PROMOTE_TASK_STEP_ID: &str = "promote_task";
 const MAX_WORKFLOW_TASK_SLOT_CHARS: usize = 96;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueWorkflowExecutionTarget {
+    pub kind: String,
+    pub provider_id: String,
+    pub queue_owner_widget_instance_id: Option<String>,
+    pub executor_widget_id: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct QueueWorkflowRunSettings {
     pub execution_workspace: String,
     pub codex_executable: String,
     pub sandbox: String,
     pub approval_policy: String,
     pub execution_policy: String,
+    pub execution_target: Option<QueueWorkflowExecutionTarget>,
     pub executor_widget_id: String,
 }
 
@@ -76,7 +87,11 @@ pub struct QueueWorkflowRunSettingsBindingSummary {
     pub slot: String,
     pub task_id: String,
     pub settings_hash: String,
+    pub execution_target_kind: String,
+    pub provider_id: String,
+    pub queue_owner_widget_instance_id: Option<String>,
     pub executor_widget_id: String,
+    pub execution_target_hash: String,
     pub update_run_settings_action_id: Option<String>,
     pub update_run_settings_action_idempotency_key: String,
 }
@@ -157,7 +172,54 @@ pub(super) struct CanonicalQueueWorkflowRunSettings {
     pub sandbox: String,
     pub approval_policy: String,
     pub execution_policy: String,
+    pub execution_target: CanonicalQueueWorkflowExecutionTarget,
     pub executor_widget_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub(super) struct CanonicalQueueWorkflowExecutionTarget {
+    kind: CanonicalQueueWorkflowExecutionTargetKind,
+    provider_id: String,
+    queue_owner_widget_instance_id: Option<String>,
+    executor_widget_id: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum CanonicalQueueWorkflowExecutionTargetKind {
+    QueueLocal,
+    AgentExecutor,
+}
+
+impl CanonicalQueueWorkflowExecutionTargetKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            Self::QueueLocal => "queue_local",
+            Self::AgentExecutor => "agent_executor",
+        }
+    }
+}
+
+impl CanonicalQueueWorkflowExecutionTarget {
+    fn direct_work_owner_widget_id(&self) -> &str {
+        match self.kind {
+            CanonicalQueueWorkflowExecutionTargetKind::QueueLocal => self
+                .queue_owner_widget_instance_id
+                .as_deref()
+                .unwrap_or_default(),
+            CanonicalQueueWorkflowExecutionTargetKind::AgentExecutor => {
+                self.executor_widget_id.as_deref().unwrap_or_default()
+            }
+        }
+    }
+
+    fn target_executor_widget_id_for_hash(&self) -> Option<String> {
+        match self.kind {
+            CanonicalQueueWorkflowExecutionTargetKind::QueueLocal => None,
+            CanonicalQueueWorkflowExecutionTargetKind::AgentExecutor => {
+                self.executor_widget_id.clone()
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -429,10 +491,10 @@ impl WorkspaceService {
                     ));
                 }
 
-                load_agent_executor_widget(
+                validate_workflow_execution_target_owner(
                     store,
                     &request.workspace_id,
-                    &request.run_settings.executor_widget_id,
+                    &request.run_settings.execution_target,
                 )?;
 
                 let existing_action = store.get_agent_queue_workflow_action_by_idempotency_key(
@@ -518,11 +580,26 @@ impl WorkspaceService {
                     )
                 };
 
+                let execution_target_hash =
+                    workflow_execution_target_hash(&request.run_settings.execution_target);
                 let binding = QueueWorkflowRunSettingsBindingSummary {
                     slot: request.slot.clone(),
                     task_id: bound_task_id.clone(),
                     settings_hash: request.settings_hash.clone(),
+                    execution_target_kind: request
+                        .run_settings
+                        .execution_target
+                        .kind
+                        .as_str()
+                        .to_owned(),
+                    provider_id: request.run_settings.execution_target.provider_id.clone(),
+                    queue_owner_widget_instance_id: request
+                        .run_settings
+                        .execution_target
+                        .queue_owner_widget_instance_id
+                        .clone(),
                     executor_widget_id: request.run_settings.executor_widget_id.clone(),
+                    execution_target_hash,
                     update_run_settings_action_id: Some(action.action_id.clone()),
                     update_run_settings_action_idempotency_key: request
                         .action_idempotency_key
@@ -1025,7 +1102,28 @@ pub(super) fn workflow_run_settings_hash(settings: &CanonicalQueueWorkflowRunSet
         sandbox: settings.sandbox.clone(),
         approval_policy: settings.approval_policy.clone(),
         execution_policy: settings.execution_policy.clone(),
-        executor_widget_id: settings.executor_widget_id.clone(),
+        execution_target_kind: settings.execution_target.kind.as_str().to_owned(),
+        provider_id: settings.execution_target.provider_id.clone(),
+        queue_owner_widget_instance_id: settings
+            .execution_target
+            .queue_owner_widget_instance_id
+            .clone(),
+        executor_widget_id: settings
+            .execution_target
+            .target_executor_widget_id_for_hash()
+            .unwrap_or_default(),
+    }
+    .stable_hash()
+}
+
+pub(super) fn workflow_execution_target_hash(
+    target: &CanonicalQueueWorkflowExecutionTarget,
+) -> String {
+    QueueExecutionTargetSnapshot {
+        execution_target_kind: target.kind.as_str().to_owned(),
+        provider_id: target.provider_id.clone(),
+        queue_owner_widget_instance_id: target.queue_owner_widget_instance_id.clone(),
+        executor_widget_id: target.target_executor_widget_id_for_hash(),
     }
     .stable_hash()
 }
@@ -1144,8 +1242,9 @@ fn normalize_run_settings(
             Some("runSettings.executionPolicy"),
         ));
     }
-    let executor_widget_id =
-        required_owned(settings.executor_widget_id, "runSettings.executorWidgetId")?;
+    let execution_target =
+        normalize_execution_target(settings.execution_target, settings.executor_widget_id)?;
+    let executor_widget_id = execution_target.direct_work_owner_widget_id().to_owned();
 
     Ok(CanonicalQueueWorkflowRunSettings {
         execution_workspace,
@@ -1153,8 +1252,132 @@ fn normalize_run_settings(
         sandbox,
         approval_policy,
         execution_policy,
+        execution_target,
         executor_widget_id,
     })
+}
+
+fn normalize_execution_target(
+    execution_target: Option<QueueWorkflowExecutionTarget>,
+    legacy_executor_widget_id: String,
+) -> Result<CanonicalQueueWorkflowExecutionTarget, QueueWorkflowCommandBlocker> {
+    if let Some(target) = execution_target {
+        let kind = required_owned(target.kind, "runSettings.executionTarget.kind")?;
+        let provider_id =
+            required_owned(target.provider_id, "runSettings.executionTarget.providerId")?;
+        if provider_id != "codex" {
+            return Err(blocker(
+                "unsupported_execution_target_provider",
+                "Queue workflow setup only accepts the codex provider for executionTarget.",
+                Some("runSettings.executionTarget.providerId"),
+            ));
+        }
+
+        return match kind.as_str() {
+            "queue_local" => {
+                let queue_owner_widget_instance_id = normalize_optional_string(
+                    target.queue_owner_widget_instance_id,
+                )
+                .ok_or_else(|| {
+                    blocker(
+                        "missing_execution_target_queue_owner",
+                        "Queue-local workflow executionTarget requires queueOwnerWidgetInstanceId.",
+                        Some("runSettings.executionTarget.queueOwnerWidgetInstanceId"),
+                    )
+                })?;
+                if normalize_optional_string(target.executor_widget_id).is_some() {
+                    return Err(blocker(
+                        "invalid_execution_target",
+                        "Queue-local workflow executionTarget must not include executorWidgetId.",
+                        Some("runSettings.executionTarget.executorWidgetId"),
+                    ));
+                }
+                Ok(CanonicalQueueWorkflowExecutionTarget {
+                    kind: CanonicalQueueWorkflowExecutionTargetKind::QueueLocal,
+                    provider_id,
+                    queue_owner_widget_instance_id: Some(queue_owner_widget_instance_id),
+                    executor_widget_id: None,
+                })
+            }
+            "agent_executor" => {
+                let executor_widget_id =
+                    normalize_optional_string(target.executor_widget_id).ok_or_else(|| {
+                        blocker(
+                            "missing_execution_target_executor",
+                            "Legacy agent_executor workflow executionTarget requires executorWidgetId.",
+                            Some("runSettings.executionTarget.executorWidgetId"),
+                        )
+                    })?;
+                if normalize_optional_string(target.queue_owner_widget_instance_id).is_some() {
+                    return Err(blocker(
+                        "invalid_execution_target",
+                        "Legacy agent_executor workflow executionTarget must not include queueOwnerWidgetInstanceId.",
+                        Some("runSettings.executionTarget.queueOwnerWidgetInstanceId"),
+                    ));
+                }
+                Ok(CanonicalQueueWorkflowExecutionTarget {
+                    kind: CanonicalQueueWorkflowExecutionTargetKind::AgentExecutor,
+                    provider_id,
+                    queue_owner_widget_instance_id: None,
+                    executor_widget_id: Some(executor_widget_id),
+                })
+            }
+            _ => Err(blocker(
+                "unsupported_execution_target_kind",
+                "Queue workflow setup only accepts queue_local or agent_executor executionTarget.kind.",
+                Some("runSettings.executionTarget.kind"),
+            )),
+        };
+    }
+
+    let executor_widget_id =
+        required_owned(legacy_executor_widget_id, "runSettings.executorWidgetId")?;
+    Ok(CanonicalQueueWorkflowExecutionTarget {
+        kind: CanonicalQueueWorkflowExecutionTargetKind::AgentExecutor,
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: None,
+        executor_widget_id: Some(executor_widget_id),
+    })
+}
+
+fn validate_workflow_execution_target_owner(
+    store: &hobit_storage_sqlite::SqliteStore,
+    workspace_id: &str,
+    target: &CanonicalQueueWorkflowExecutionTarget,
+) -> Result<(), hobit_storage_sqlite::StorageError> {
+    match target.kind {
+        CanonicalQueueWorkflowExecutionTargetKind::QueueLocal => {
+            let queue_owner_widget_instance_id = target
+                .queue_owner_widget_instance_id
+                .as_deref()
+                .unwrap_or_default();
+            let Some(widget) = store.get_widget_instance(queue_owner_widget_instance_id)? else {
+                return Err(storage_invalid_input(format!(
+                    "queue owner widget not found: {queue_owner_widget_instance_id}"
+                )));
+            };
+
+            if widget.workspace_id != workspace_id {
+                return Err(storage_invalid_input(format!(
+                    "queue owner widget does not belong to workspace: {queue_owner_widget_instance_id}"
+                )));
+            }
+
+            if widget.definition_id != AGENT_QUEUE_WIDGET_DEFINITION_ID {
+                return Err(storage_invalid_input(format!(
+                    "queue-local execution target is not an Agent Queue widget: {queue_owner_widget_instance_id}"
+                )));
+            }
+
+            Ok(())
+        }
+        CanonicalQueueWorkflowExecutionTargetKind::AgentExecutor => load_agent_executor_widget(
+            store,
+            workspace_id,
+            target.executor_widget_id.as_deref().unwrap_or_default(),
+        )
+        .map(|_| ()),
+    }
 }
 
 fn validate_task_configurable_for_run_settings(
@@ -1310,13 +1533,53 @@ fn durable_settings_mismatch(
 
 fn run_settings_from_binding(binding: &Value) -> Option<CanonicalQueueWorkflowRunSettings> {
     let settings = binding.as_object()?.get("runSettings")?.as_object()?;
+    let execution_target = execution_target_from_bound_run_settings(settings)?;
+    let executor_widget_id = execution_target.direct_work_owner_widget_id().to_owned();
     Some(CanonicalQueueWorkflowRunSettings {
         execution_workspace: optional_string_field(settings.get("executionWorkspace"))?,
         codex_executable: optional_string_field(settings.get("codexExecutable"))?,
         sandbox: optional_string_field(settings.get("sandbox"))?,
         approval_policy: optional_string_field(settings.get("approvalPolicy"))?,
         execution_policy: optional_string_field(settings.get("executionPolicy"))?,
-        executor_widget_id: optional_string_field(settings.get("executorWidgetId"))?,
+        execution_target,
+        executor_widget_id,
+    })
+}
+
+fn execution_target_from_bound_run_settings(
+    settings: &Map<String, Value>,
+) -> Option<CanonicalQueueWorkflowExecutionTarget> {
+    let target = settings.get("executionTarget").and_then(Value::as_object);
+    if let Some(target) = target {
+        let kind = optional_string_field(target.get("kind"))?;
+        let provider_id = optional_string_field(target.get("providerId"))?;
+        if provider_id != "codex" {
+            return None;
+        }
+        return match kind.as_str() {
+            "queue_local" => Some(CanonicalQueueWorkflowExecutionTarget {
+                kind: CanonicalQueueWorkflowExecutionTargetKind::QueueLocal,
+                provider_id,
+                queue_owner_widget_instance_id: Some(optional_string_field(
+                    target.get("queueOwnerWidgetInstanceId"),
+                )?),
+                executor_widget_id: None,
+            }),
+            "agent_executor" => Some(CanonicalQueueWorkflowExecutionTarget {
+                kind: CanonicalQueueWorkflowExecutionTargetKind::AgentExecutor,
+                provider_id,
+                queue_owner_widget_instance_id: None,
+                executor_widget_id: Some(optional_string_field(target.get("executorWidgetId"))?),
+            }),
+            _ => None,
+        };
+    }
+
+    Some(CanonicalQueueWorkflowExecutionTarget {
+        kind: CanonicalQueueWorkflowExecutionTargetKind::AgentExecutor,
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: None,
+        executor_widget_id: Some(optional_string_field(settings.get("executorWidgetId"))?),
     })
 }
 
@@ -1391,7 +1654,12 @@ fn run_settings_target_refs_json(
     request: &NormalizedApplyRunSettingsRequest,
     task_id: &str,
 ) -> String {
+    let execution_target = &request.run_settings.execution_target;
     canonical_json_string(&json!({
+        "executionTargetHash": workflow_execution_target_hash(execution_target),
+        "executionTargetKind": execution_target.kind.as_str(),
+        "providerId": &execution_target.provider_id,
+        "queueOwnerWidgetInstanceId": &execution_target.queue_owner_widget_instance_id,
         "settingsHash": request.settings_hash,
         "slot": request.slot,
         "taskId": task_id,
@@ -1403,8 +1671,13 @@ fn run_settings_result_refs_json(
     request: &NormalizedApplyRunSettingsRequest,
     task_id: &str,
 ) -> String {
+    let execution_target = &request.run_settings.execution_target;
     canonical_json_string(&json!({
+        "executionTargetHash": workflow_execution_target_hash(execution_target),
+        "executionTargetKind": execution_target.kind.as_str(),
         "executorWidgetId": request.run_settings.executor_widget_id,
+        "providerId": &execution_target.provider_id,
+        "queueOwnerWidgetInstanceId": &execution_target.queue_owner_widget_instance_id,
         "result": "applied",
         "settingsHash": request.settings_hash,
         "taskId": task_id,
@@ -1440,8 +1713,28 @@ fn apply_run_settings_to_binding(
         Value::String(summary.settings_hash.clone()),
     );
     object.insert(
+        "executionTargetKind".to_owned(),
+        Value::String(summary.execution_target_kind.clone()),
+    );
+    object.insert(
+        "providerId".to_owned(),
+        Value::String(summary.provider_id.clone()),
+    );
+    if let Some(queue_owner_widget_instance_id) = &summary.queue_owner_widget_instance_id {
+        object.insert(
+            "queueOwnerWidgetInstanceId".to_owned(),
+            Value::String(queue_owner_widget_instance_id.clone()),
+        );
+    } else {
+        object.remove("queueOwnerWidgetInstanceId");
+    }
+    object.insert(
         "executorWidgetId".to_owned(),
         Value::String(summary.executor_widget_id.clone()),
+    );
+    object.insert(
+        "executionTargetHash".to_owned(),
+        Value::String(summary.execution_target_hash.clone()),
     );
     object.insert(
         "runSettings".to_owned(),
@@ -1450,6 +1743,7 @@ fn apply_run_settings_to_binding(
             "codexExecutable": request.run_settings.codex_executable,
             "executionPolicy": request.run_settings.execution_policy,
             "executionWorkspace": request.run_settings.execution_workspace,
+            "executionTarget": execution_target_json(&request.run_settings.execution_target),
             "executorWidgetId": request.run_settings.executor_widget_id,
             "sandbox": request.run_settings.sandbox,
         }),
@@ -1469,6 +1763,21 @@ fn apply_run_settings_to_binding(
             "settingsAppliedByActorId".to_owned(),
             Value::String(actor_id.clone()),
         );
+    }
+}
+
+fn execution_target_json(target: &CanonicalQueueWorkflowExecutionTarget) -> Value {
+    match target.kind {
+        CanonicalQueueWorkflowExecutionTargetKind::QueueLocal => json!({
+            "kind": target.kind.as_str(),
+            "providerId": &target.provider_id,
+            "queueOwnerWidgetInstanceId": &target.queue_owner_widget_instance_id,
+        }),
+        CanonicalQueueWorkflowExecutionTargetKind::AgentExecutor => json!({
+            "kind": target.kind.as_str(),
+            "providerId": &target.provider_id,
+            "executorWidgetId": &target.executor_widget_id,
+        }),
     }
 }
 
@@ -1707,7 +2016,10 @@ fn promote_result(
     }
 }
 
-pub(super) fn durable_settings_hash_for_task(task: &AgentQueueTaskRow) -> Option<String> {
+pub(super) fn durable_settings_hash_for_task_with_target(
+    task: &AgentQueueTaskRow,
+    target: &CanonicalQueueWorkflowExecutionTarget,
+) -> Option<String> {
     Some(
         QueueWorkerStartSettingsSnapshot {
             execution_workspace: task.execution_workspace.clone()?,
@@ -1715,7 +2027,12 @@ pub(super) fn durable_settings_hash_for_task(task: &AgentQueueTaskRow) -> Option
             sandbox: task.sandbox.clone()?,
             approval_policy: task.approval_policy.clone()?,
             execution_policy: task.execution_policy.clone(),
-            executor_widget_id: task.assigned_executor_widget_id.clone()?,
+            execution_target_kind: target.kind.as_str().to_owned(),
+            provider_id: target.provider_id.clone(),
+            queue_owner_widget_instance_id: target.queue_owner_widget_instance_id.clone(),
+            executor_widget_id: target
+                .target_executor_widget_id_for_hash()
+                .unwrap_or_default(),
         }
         .stable_hash(),
     )

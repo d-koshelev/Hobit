@@ -96,12 +96,12 @@ capabilities before any smoke execution step:
   control bridge. Its broker continuation result includes bounded structured
   payload fields for the model, not only the compact activity text.
 - `workbench.widgets.list` returns bounded live widget instances and discovers
-  Agent Executor widgets only by `definitionId === "agent-run"`. It returns
-  `recommendedExecutorWidgetId` only when exactly one visible Agent Executor is
-  present; otherwise it returns `no_agent_executor` or
-  `ambiguous_agent_executor`. The model-visible action result includes the
-  bounded Agent Executor list and recommendation needed to capture the exact
-  `executorWidgetId`.
+  Queue-local workflow execution targets from Agent Queue widgets by
+  `definitionId === "agent-queue"`. Use the returned
+  `queueOwnerWidgetInstanceId` as the queue-local execution target owner for
+  headless Queue workflow smoke. Legacy Agent
+  Executor widgets may still be listed by `definitionId === "agent-run"` for
+  compatibility, but `agent-run` is not required for current smoke.
 - `queue.control.get` reads backend-owned Queue control state through the
   existing Queue control bridge and reports `disabled` or `manual_enabled`
   without enabling Queue, starting workers, starting Queue Autorun, creating
@@ -311,7 +311,14 @@ Initial dependency workflow inputs:
 - `inputs.runSettings.approvalPolicy`: `never`, `on_request`, or
   `untrusted`.
 - `inputs.runSettings.executionPolicy: "manual"`.
-- `inputs.runSettings.executorWidgetId`: explicit Agent Executor widget id.
+- `inputs.runSettings.executionTarget.kind: "queue_local"`.
+- `inputs.runSettings.executionTarget.providerId: "codex"`.
+- `inputs.runSettings.executionTarget.queueOwnerWidgetInstanceId`: explicit
+  Agent Queue widget id discovered from `workbench.widgets.list` with
+  `definitionIdFilter: "agent-queue"` or from the returned
+  queue-local execution targets.
+- `inputs.runSettings.executorWidgetId` remains a legacy compatibility field
+  for old `agent-run` workflows only and should not be used for current smoke.
 - `inputs.tasks`: typed task specs with unique `slot`, `title`, `prompt`.
 - Required slots are `upstream` and `downstream`.
 - `downstream.dependsOnSlots` must explicitly include `upstream`.
@@ -364,7 +371,11 @@ Schematic initial request shape:
       "sandbox": "workspace_write",
       "approvalPolicy": "on_request",
       "executionPolicy": "manual",
-      "executorWidgetId": "agent-run-widget-id"
+      "executionTarget": {
+        "kind": "queue_local",
+        "providerId": "codex",
+        "queueOwnerWidgetInstanceId": "agent-queue-widget-id"
+      }
     },
     "tasks": [
       {"slot": "upstream", "title": "Upstream smoke", "prompt": "Typed smoke upstream work."},
@@ -392,7 +403,8 @@ ensure it is `manual_enabled`.
 Collect these before starting:
 
 - `workspaceId`.
-- Explicit `executorWidgetId`.
+- Explicit Agent Queue widget id for
+  `executionTarget.queueOwnerWidgetInstanceId`.
 - `codexExecutable`.
 - Explicit `workspaceRoot` / execution workspace.
 - `sandbox`.

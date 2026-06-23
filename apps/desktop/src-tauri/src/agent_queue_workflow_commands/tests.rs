@@ -517,6 +517,7 @@ fn workflow_setup_commands_materialize_apply_and_promote_without_ui_imports() {
                 sandbox: "read_only".to_owned(),
                 approval_policy: "never".to_owned(),
                 execution_policy: "manual".to_owned(),
+                execution_target: None,
                 executor_widget_id: executor_widget_id.clone(),
             },
             settings_hash: None,

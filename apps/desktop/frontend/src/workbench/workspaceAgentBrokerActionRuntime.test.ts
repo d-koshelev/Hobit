@@ -1295,23 +1295,42 @@ function queueWorkflowStartBridge() {
       request: Parameters<
         NonNullable<WorkspaceAgentQueueBridge["applyWorkflowRunSettings"]>
       >[0],
-    ): Promise<AgentQueueWorkflowApplyRunSettingsResult> => ({
-      action: null,
-      binding: {
-        executorWidgetId: request.runSettings.executorWidgetId,
-        settingsHash: "settings-hash-upstream",
-        slot: request.slot,
-        taskId: request.taskId ?? "task-upstream",
-        updateRunSettingsActionId: null,
-        updateRunSettingsActionIdempotencyKey:
-          request.actionIdempotencyKey ?? "settings:upstream",
-      },
-      blocker: null,
-      conflict: null,
-      status: "applied",
-      task: null,
-      workflowRun: null,
-    }),
+    ): Promise<AgentQueueWorkflowApplyRunSettingsResult> => {
+      const executionTarget = request.runSettings.executionTarget;
+      const executionTargetKind = executionTarget?.kind ?? "agent_executor";
+      const providerId = executionTarget?.providerId ?? "codex";
+      const queueOwnerWidgetInstanceId =
+        executionTarget?.kind === "queue_local"
+          ? executionTarget.queueOwnerWidgetInstanceId
+          : null;
+      const executorWidgetId =
+        executionTarget?.kind === "agent_executor"
+          ? executionTarget.executorWidgetId
+          : (request.runSettings.executorWidgetId ??
+            queueOwnerWidgetInstanceId ??
+            "executor-widget-1");
+      return {
+        action: null,
+        binding: {
+          executionTargetHash: `execution-target-hash-${executionTargetKind}`,
+          executionTargetKind,
+          executorWidgetId,
+          providerId,
+          queueOwnerWidgetInstanceId,
+          settingsHash: "settings-hash-upstream",
+          slot: request.slot,
+          taskId: request.taskId ?? "task-upstream",
+          updateRunSettingsActionId: null,
+          updateRunSettingsActionIdempotencyKey:
+            request.actionIdempotencyKey ?? "settings:upstream",
+        },
+        blocker: null,
+        conflict: null,
+        status: "applied",
+        task: null,
+        workflowRun: null,
+      };
+    },
   );
   const promoteWorkflowTaskSlot = vi.fn(
     async (

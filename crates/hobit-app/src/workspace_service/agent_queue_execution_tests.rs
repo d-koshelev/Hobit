@@ -805,6 +805,78 @@ fn workflow_worker_start_duplicate_returns_existing_run_and_conflicting_key_bloc
 }
 
 #[test]
+fn workflow_worker_start_queue_local_duplicate_uses_execution_target_hash() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue workspace", None)
+        .expect("create workspace");
+    enable_queue_manual(&service, &workspace.id);
+    let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
+    let queue_widget_id = add_widget(
+        &service,
+        &workspace.id,
+        workbench_id,
+        AGENT_QUEUE_WIDGET_DEFINITION_ID,
+        "Agent Queue",
+    );
+    let task = create_task(&service, &workspace.id, "queued", "Prompt");
+    let workflow_run_id = create_workflow_run(&service, &workspace.id, "request-queue-local");
+    let input = queue_local_workflow_start_input(
+        &workspace.id,
+        &task.queue_item_id,
+        &queue_widget_id,
+        &workflow_run_id,
+        "action-queue-local",
+    );
+    let context = input
+        .workflow_start_context
+        .as_ref()
+        .expect("workflow context");
+    let execution_target_hash = context
+        .execution_target_hash
+        .clone()
+        .expect("execution target hash");
+
+    let first = service
+        .start_assigned_agent_queue_task(input.clone())
+        .expect("first queue-local workflow start");
+    let second = service
+        .start_assigned_agent_queue_task(input)
+        .expect("duplicate queue-local workflow start returns existing");
+
+    assert_eq!(first.status, "started");
+    assert_eq!(second.status, "already_started");
+    assert_eq!(second.run_id, first.run_id);
+    assert!(second
+        .action_idempotency_key
+        .as_deref()
+        .expect("action key")
+        .contains(&execution_target_hash));
+    assert_eq!(first.executor_widget_instance_id, queue_widget_id);
+    assert_eq!(
+        service
+            .store
+            .list_widget_runs_for_widget(&queue_widget_id)
+            .expect("list queue widget runs")
+            .len(),
+        1
+    );
+
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions(&workspace.id, &workflow_run_id)
+        .expect("workflow actions");
+    assert_eq!(actions.len(), 1);
+    let target_refs: Value =
+        serde_json::from_str(actions[0].target_refs_json.as_deref().expect("target refs"))
+            .expect("target refs json");
+    assert_eq!(
+        target_refs["executionTargetHash"].as_str(),
+        Some(execution_target_hash.as_str())
+    );
+}
+
+#[test]
 fn workflow_worker_start_blocks_active_or_orphaned_prior_starts_without_side_effects() {
     let service = initialized_service();
     let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
@@ -1156,6 +1228,42 @@ fn workflow_start_input(
         task_id: queue_item_id.to_owned(),
         executor_widget_id: executor_id.to_owned(),
         settings_hash,
+        execution_target_hash: None,
+        expected_queue_control_version: None,
+        actor_id: Some("test-operator".to_owned()),
+        confirmation_token: Some("operator-confirmed".to_owned()),
+    });
+    input
+}
+
+fn queue_local_workflow_start_input(
+    workspace_id: &str,
+    queue_item_id: &str,
+    queue_widget_id: &str,
+    workflow_run_id: &str,
+    workflow_action_id: &str,
+) -> StartAssignedAgentQueueTaskInput {
+    let mut input = start_input(workspace_id, queue_item_id);
+    input.queue_owner_widget_instance_id = Some(queue_widget_id.to_owned());
+    let settings_hash = worker_settings_hash_for_input(&input, queue_widget_id);
+    let execution_target_hash = QueueExecutionTargetSnapshot {
+        execution_target_kind: "queue_local".to_owned(),
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: Some(queue_widget_id.to_owned()),
+        executor_widget_id: None,
+    }
+    .stable_hash();
+    let action_idempotency_key = format!(
+        "{workflow_run_id}:start_worker:{queue_item_id}:{execution_target_hash}:{settings_hash}"
+    );
+    input.workflow_start_context = Some(QueueWorkerStartContext {
+        workflow_run_id: workflow_run_id.to_owned(),
+        workflow_action_id: Some(workflow_action_id.to_owned()),
+        action_idempotency_key: Some(action_idempotency_key),
+        task_id: queue_item_id.to_owned(),
+        executor_widget_id: queue_widget_id.to_owned(),
+        settings_hash,
+        execution_target_hash: Some(execution_target_hash),
         expected_queue_control_version: None,
         actor_id: Some("test-operator".to_owned()),
         confirmation_token: Some("operator-confirmed".to_owned()),
@@ -1167,13 +1275,26 @@ fn worker_settings_hash_for_input(
     input: &StartAssignedAgentQueueTaskInput,
     executor_id: &str,
 ) -> String {
+    let queue_owner_widget_instance_id = input.queue_owner_widget_instance_id.clone();
+    let queue_local_target = queue_owner_widget_instance_id.is_some();
     QueueWorkerStartSettingsSnapshot {
         execution_workspace: input.repo_root.to_string_lossy().into_owned(),
         codex_executable: input.codex_executable.clone(),
         sandbox: input.sandbox.clone(),
         approval_policy: input.approval_policy.clone(),
         execution_policy: "manual".to_owned(),
-        executor_widget_id: executor_id.to_owned(),
+        execution_target_kind: if queue_local_target {
+            "queue_local".to_owned()
+        } else {
+            "agent_executor".to_owned()
+        },
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id,
+        executor_widget_id: if queue_local_target {
+            String::new()
+        } else {
+            executor_id.to_owned()
+        },
     }
     .stable_hash()
 }
@@ -1188,6 +1309,12 @@ fn workflow_start_target_refs_for_test(context: &QueueWorkerStartContext) -> Str
         "settingsHash".to_owned(),
         Value::String(context.settings_hash.clone()),
     );
+    if let Some(execution_target_hash) = &context.execution_target_hash {
+        refs.insert(
+            "executionTargetHash".to_owned(),
+            Value::String(execution_target_hash.clone()),
+        );
+    }
     refs.insert("taskId".to_owned(), Value::String(context.task_id.clone()));
     refs.insert(
         "workflowActionId".to_owned(),

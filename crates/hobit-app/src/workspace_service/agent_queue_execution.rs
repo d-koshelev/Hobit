@@ -472,6 +472,7 @@ struct NormalizedQueueWorkerStartContext {
     task_id: String,
     executor_widget_id: String,
     settings_hash: String,
+    execution_target_hash: Option<String>,
     expected_queue_control_version: Option<i64>,
     actor_id: Option<String>,
     confirmation_token: String,
@@ -541,6 +542,7 @@ fn normalize_queue_worker_start_context(
         "workflow worker start settings hash",
     )?
     .to_owned();
+    let execution_target_hash = normalize_optional_context_field(context.execution_target_hash);
     let confirmation_token = required_input(
         context.confirmation_token.as_deref().unwrap_or_default(),
         "workflow worker start confirmation token",
@@ -567,6 +569,7 @@ fn normalize_queue_worker_start_context(
             &workflow_run_id,
             &task_id,
             &executor_widget_id,
+            execution_target_hash.as_deref(),
             &settings_hash,
         )
     });
@@ -578,6 +581,7 @@ fn normalize_queue_worker_start_context(
         task_id,
         executor_widget_id,
         settings_hash,
+        execution_target_hash,
         expected_queue_control_version: context.expected_queue_control_version,
         actor_id: normalize_optional_context_field(context.actor_id),
         confirmation_token,
@@ -594,9 +598,11 @@ fn workflow_start_idempotency_key(
     workflow_run_id: &str,
     task_id: &str,
     executor_widget_id: &str,
+    execution_target_hash: Option<&str>,
     settings_hash: &str,
 ) -> String {
-    format!("{workflow_run_id}:start_worker:{task_id}:{executor_widget_id}:{settings_hash}")
+    let target_ref = execution_target_hash.unwrap_or(executor_widget_id);
+    format!("{workflow_run_id}:start_worker:{task_id}:{target_ref}:{settings_hash}")
 }
 
 fn normalize_finish_assigned_agent_queue_task_run_input(
@@ -1031,6 +1037,12 @@ fn workflow_start_target_refs_json(context: &NormalizedQueueWorkerStartContext) 
         "settingsHash".to_owned(),
         Value::String(context.settings_hash.clone()),
     );
+    if let Some(execution_target_hash) = &context.execution_target_hash {
+        refs.insert(
+            "executionTargetHash".to_owned(),
+            Value::String(execution_target_hash.clone()),
+        );
+    }
     refs.insert("taskId".to_owned(), Value::String(context.task_id.clone()));
     refs.insert(
         "workflowActionId".to_owned(),
@@ -1287,6 +1299,8 @@ fn effective_worker_start_settings(
     task: &hobit_storage_sqlite::AgentQueueTaskRow,
     executor_widget_id: &str,
 ) -> QueueWorkerStartSettingsSnapshot {
+    let queue_owner_widget_instance_id = input.queue_owner_widget_instance_id.clone();
+    let queue_local_target = queue_owner_widget_instance_id.is_some();
     QueueWorkerStartSettingsSnapshot {
         execution_workspace: task
             .execution_workspace
@@ -1305,7 +1319,18 @@ fn effective_worker_start_settings(
             .clone()
             .unwrap_or_else(|| input.approval_policy.clone()),
         execution_policy: task.execution_policy.clone(),
-        executor_widget_id: executor_widget_id.to_owned(),
+        execution_target_kind: if queue_local_target {
+            "queue_local".to_owned()
+        } else {
+            "agent_executor".to_owned()
+        },
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id,
+        executor_widget_id: if queue_local_target {
+            String::new()
+        } else {
+            executor_widget_id.to_owned()
+        },
     }
 }
 

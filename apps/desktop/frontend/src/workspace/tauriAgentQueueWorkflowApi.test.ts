@@ -281,7 +281,11 @@ describe("queueWorkflow Tauri API wrapper", () => {
     mocks.invoke.mockResolvedValueOnce({
       action: null,
       binding: {
+        execution_target_hash: "execution-target-hash",
+        execution_target_kind: "agent_executor",
         executor_widget_id: "executor_widget_1",
+        provider_id: "codex",
+        queue_owner_widget_instance_id: null,
         settings_hash: "settings-hash",
         slot: "upstream",
         task_id: "task_upstream",
@@ -315,7 +319,11 @@ describe("queueWorkflow Tauri API wrapper", () => {
       }),
     ).resolves.toMatchObject({
       binding: {
+        executionTargetHash: "execution-target-hash",
+        executionTargetKind: "agent_executor",
         executorWidgetId: "executor_widget_1",
+        providerId: "codex",
+        queueOwnerWidgetInstanceId: null,
         settingsHash: "settings-hash",
         slot: "upstream",
         taskId: "task_upstream",
@@ -333,6 +341,7 @@ describe("queueWorkflow Tauri API wrapper", () => {
             codex_executable: "codex.cmd",
             execution_policy: "manual",
             execution_workspace: "C:/repo",
+            execution_target: null,
             executor_widget_id: "executor_widget_1",
             sandbox: "read_only",
           },

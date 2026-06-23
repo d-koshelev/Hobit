@@ -262,7 +262,11 @@ describe("QueueWorkflowRunner", () => {
         version: 7,
       },
       runSettings: {
-        executorWidgetId: "executor-widget-1",
+        executionTargetHash: "execution-target-hash-queue_local",
+        executionTargetKind: "queue_local",
+        executorWidgetId: "agent-queue-widget-id",
+        providerId: "codex",
+        queueOwnerWidgetInstanceId: "agent-queue-widget-id",
         settingsHash: "settings-hash-upstream",
         status: "applied",
         taskId: "task-upstream",
@@ -314,19 +318,62 @@ describe("QueueWorkflowRunner", () => {
       { method: "getQueueControlState" },
       expect.objectContaining({
         method: "startWorkerForSlot",
+        queueOwnerWidgetInstanceId: "agent-queue-widget-id",
         queueItemId: "task-upstream",
         workflowStartContext: expect.objectContaining({
           actionIdempotencyKey:
-            "queue-workflow-run-1:start_worker:task-upstream:executor-widget-1:settings-hash-upstream",
+            "queue-workflow-run-1:start_worker:task-upstream:execution-target-hash-queue_local:settings-hash-upstream",
           confirmationToken: "operator-confirmed",
           expectedQueueControlVersion: 7,
-          executorWidgetId: "executor-widget-1",
+          executorWidgetId: "agent-queue-widget-id",
+          executionTargetHash: "execution-target-hash-queue_local",
           settingsHash: "settings-hash-upstream",
           taskId: "task-upstream",
           workflowRunId: "queue-workflow-run-1",
         }),
       }),
     ]);
+  });
+
+  it("keeps legacy executorWidgetId create/setup/start compatibility", async () => {
+    const port = fakeCreateSetupStartPort();
+    const request = workflowRequest({
+      grant: validGrant("queue_acceptance_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        runSettings: legacyRunSettings(),
+      },
+    });
+
+    const result = await runQueueWorkflowCreateSetupStartRunner({
+      createSetupStartPort: port,
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("awaiting_worker_completion");
+    expect(result.report.createSetupStart.runSettings).toMatchObject({
+      executionTargetHash: "execution-target-hash-agent_executor",
+      executionTargetKind: "agent_executor",
+      executorWidgetId: "executor-widget-1",
+      providerId: "codex",
+      queueOwnerWidgetInstanceId: null,
+    });
+    expect(port.calls).toContainEqual(
+      expect.objectContaining({
+        method: "startWorkerForSlot",
+        queueOwnerWidgetInstanceId: undefined,
+        workflowStartContext: expect.objectContaining({
+          actionIdempotencyKey:
+            "queue-workflow-run-1:start_worker:task-upstream:execution-target-hash-agent_executor:settings-hash-upstream",
+          executorWidgetId: "executor-widget-1",
+          executionTargetHash: "execution-target-hash-agent_executor",
+        }),
+      }),
+    );
   });
 
   it("records worker evidence for explicit upstream task and run then stops before review", async () => {
@@ -772,7 +819,7 @@ describe("QueueWorkflowRunner", () => {
     );
   });
 
-  it("blocks before worker start when executorWidgetId is missing", async () => {
+  it("blocks before worker start when queue_local queueOwnerWidgetInstanceId is missing", async () => {
     const port = fakeCreateSetupStartPort();
     const request = workflowRequest({
       grant: validGrant("queue_acceptance_smoke", {
@@ -782,7 +829,10 @@ describe("QueueWorkflowRunner", () => {
         ...validInputs(),
         runSettings: {
           ...validInputs().runSettings,
-          executorWidgetId: "",
+          executionTarget: {
+            kind: "queue_local",
+            providerId: "codex",
+          },
         },
       },
     });
@@ -2347,11 +2397,26 @@ function validInputs() {
       approvalPolicy: "never",
       codexExecutable: "codex.cmd",
       executionPolicy: "manual",
-      executorWidgetId: "executor-widget-1",
+      executionTarget: {
+        kind: "queue_local",
+        providerId: "codex",
+        queueOwnerWidgetInstanceId: "agent-queue-widget-id",
+      },
       sandbox: "read_only",
       workspaceRoot: "C:/work/hobit",
     },
     tasks: validTasks(),
+  };
+}
+
+function legacyRunSettings() {
+  return {
+    approvalPolicy: "never",
+    codexExecutable: "codex.cmd",
+    executionPolicy: "manual",
+    executorWidgetId: "executor-widget-1",
+    sandbox: "read_only",
+    workspaceRoot: "C:/work/hobit",
   };
 }
 
@@ -2462,12 +2527,29 @@ function fakeCreateSetupStartPort(
     calls,
     applyRunSettings: async (request) => {
       calls.push({ method: "applyRunSettings", ...request });
+      const executionTarget = request.runSettings.executionTarget;
+      const executionTargetKind = executionTarget?.kind ?? "agent_executor";
+      const providerId = executionTarget?.providerId ?? "codex";
+      const queueOwnerWidgetInstanceId =
+        executionTarget?.kind === "queue_local"
+          ? executionTarget.queueOwnerWidgetInstanceId
+          : null;
+      const executorWidgetId =
+        executionTarget?.kind === "agent_executor"
+          ? executionTarget.executorWidgetId
+          : (request.runSettings.executorWidgetId ??
+            queueOwnerWidgetInstanceId ??
+            "executor-widget-1");
       return {
         action: null,
         binding:
           applyStatus === "applied" || applyStatus === "reused"
             ? {
-                executorWidgetId: request.runSettings.executorWidgetId,
+                executionTargetHash: `execution-target-hash-${executionTargetKind}`,
+                executionTargetKind,
+                executorWidgetId,
+                providerId,
+                queueOwnerWidgetInstanceId,
                 settingsHash: "settings-hash-upstream",
                 slot: request.slot,
                 taskId: request.taskId ?? "task-upstream",

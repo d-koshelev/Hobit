@@ -1362,6 +1362,210 @@ fn workflow_run_settings_apply_is_idempotent_and_persists_binding() {
 }
 
 #[test]
+fn workflow_run_settings_queue_local_accepts_agent_queue_widget_without_agent_executor() {
+    let store = initialized_store();
+    create_workspace_with_queue(&store, "workspace-1", "workbench-1", "queue-1");
+    let service = WorkspaceService::new(store);
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let task = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream")
+        .task
+        .expect("task");
+
+    let result = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            None,
+            queue_local_workflow_run_settings("queue-1"),
+            None,
+        ))
+        .expect("apply queue-local settings");
+
+    assert_eq!(result.status, QueueWorkflowApplyRunSettingsStatus::Applied);
+    let binding = result.binding.expect("binding");
+    assert_eq!(binding.execution_target_kind, "queue_local");
+    assert_eq!(binding.provider_id, "codex");
+    assert_eq!(
+        binding.queue_owner_widget_instance_id.as_deref(),
+        Some("queue-1")
+    );
+    assert_eq!(binding.executor_widget_id, "queue-1");
+    assert!(binding
+        .execution_target_hash
+        .starts_with("queue-execution-target-fnv1a64:"));
+    let updated_task = service
+        .get_agent_queue_task("workspace-1", &task.queue_item_id)
+        .expect("get task")
+        .expect("task");
+    assert_eq!(
+        updated_task.assigned_executor_widget_id.as_deref(),
+        Some("queue-1")
+    );
+
+    let run = service
+        .get_queue_workflow_run(QueueWorkflowGetRequest {
+            workspace_id: "workspace-1".to_owned(),
+            workflow_run_id: workflow_run.workflow_run_id.clone(),
+        })
+        .expect("get workflow")
+        .expect("workflow");
+    let slot_bindings: Value = serde_json::from_str(
+        run.slot_bindings_json
+            .as_deref()
+            .expect("slot bindings json"),
+    )
+    .expect("slot bindings");
+    assert_eq!(
+        slot_bindings["upstream"]["executionTargetKind"].as_str(),
+        Some("queue_local")
+    );
+    assert_eq!(
+        slot_bindings["upstream"]["runSettings"]["executionTarget"]["kind"].as_str(),
+        Some("queue_local")
+    );
+    assert_eq!(
+        slot_bindings["upstream"]["runSettings"]["executionTarget"]["queueOwnerWidgetInstanceId"]
+            .as_str(),
+        Some("queue-1")
+    );
+}
+
+#[test]
+fn workflow_run_settings_queue_local_rejects_missing_queue_owner() {
+    let store = initialized_store();
+    create_workspace_with_queue(&store, "workspace-1", "workbench-1", "queue-1");
+    let service = WorkspaceService::new(store);
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let task = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream")
+        .task
+        .expect("task");
+    let mut settings = queue_local_workflow_run_settings("queue-1");
+    settings
+        .execution_target
+        .as_mut()
+        .expect("target")
+        .queue_owner_widget_instance_id = None;
+
+    let result = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            Some(&task.queue_item_id),
+            settings,
+            None,
+        ))
+        .expect("missing queue owner is typed invalid input");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowApplyRunSettingsStatus::InvalidInput
+    );
+    assert_eq!(
+        result.blocker.expect("blocker").blocker_code,
+        "missing_execution_target_queue_owner"
+    );
+}
+
+#[test]
+fn workflow_run_settings_queue_local_rejects_wrong_workspace_and_wrong_definition() {
+    let store = initialized_store();
+    create_workspace_with_queue(&store, "workspace-1", "workbench-1", "queue-1");
+    create_workspace_with_queue(&store, "workspace-2", "workbench-2", "queue-2");
+    let service = WorkspaceService::new(store);
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let task = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream")
+        .task
+        .expect("task");
+
+    let wrong_workspace = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            Some(&task.queue_item_id),
+            queue_local_workflow_run_settings("queue-2"),
+            None,
+        ))
+        .expect_err("wrong workspace queue owner should fail storage validation");
+    assert!(format!("{wrong_workspace:?}").contains("does not belong to workspace"));
+
+    insert_executor_widget(&service.store, "workspace-1", "workbench-1", "executor-1");
+    let wrong_definition = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            Some(&task.queue_item_id),
+            queue_local_workflow_run_settings("executor-1"),
+            None,
+        ))
+        .expect_err("wrong widget definition should fail storage validation");
+    assert!(format!("{wrong_definition:?}").contains("not an Agent Queue widget"));
+}
+
+#[test]
+fn workflow_run_settings_legacy_executor_still_requires_agent_run_widget() {
+    let store = initialized_store();
+    create_workspace_with_queue(&store, "workspace-1", "workbench-1", "queue-1");
+    let service = WorkspaceService::new(store);
+    let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
+    let task = service
+        .materialize_agent_queue_workflow_task_slot(materialize_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            "Inspect contract",
+            "Read the visible contract and summarize blockers.",
+            vec![],
+        ))
+        .expect("materialize upstream")
+        .task
+        .expect("task");
+
+    let result = service
+        .apply_agent_queue_workflow_run_settings(run_settings_request(
+            "workspace-1",
+            &workflow_run.workflow_run_id,
+            "upstream",
+            Some(&task.queue_item_id),
+            workflow_run_settings("queue-1"),
+            None,
+        ))
+        .expect_err("legacy executor target must be agent-run");
+
+    assert!(format!("{result:?}").contains("not an Agent Executor"));
+}
+
+#[test]
 fn workflow_run_settings_conflicts_on_changed_hash_and_task_id_mismatch_blocks() {
     let service = initialized_service_with_executor();
     let workflow_run = start_materialization_workflow(&service, "workspace-1", "request-1");
@@ -3387,7 +3591,25 @@ fn workflow_run_settings(executor_widget_id: &str) -> QueueWorkflowRunSettings {
         sandbox: "workspace_write".to_owned(),
         approval_policy: "never".to_owned(),
         execution_policy: "manual".to_owned(),
+        execution_target: None,
         executor_widget_id: executor_widget_id.to_owned(),
+    }
+}
+
+fn queue_local_workflow_run_settings(queue_widget_id: &str) -> QueueWorkflowRunSettings {
+    QueueWorkflowRunSettings {
+        execution_workspace: "C:/workspace/project".to_owned(),
+        codex_executable: "codex".to_owned(),
+        sandbox: "workspace_write".to_owned(),
+        approval_policy: "never".to_owned(),
+        execution_policy: "manual".to_owned(),
+        execution_target: Some(QueueWorkflowExecutionTarget {
+            kind: "queue_local".to_owned(),
+            provider_id: "codex".to_owned(),
+            queue_owner_widget_instance_id: Some(queue_widget_id.to_owned()),
+            executor_widget_id: None,
+        }),
+        executor_widget_id: String::new(),
     }
 }
 
@@ -3594,6 +3816,21 @@ fn create_workspace_with_executor(
         .expect("insert executor");
 }
 
+fn create_workspace_with_queue(
+    store: &SqliteStore,
+    workspace_id: &str,
+    workbench_id: &str,
+    queue_widget_id: &str,
+) {
+    store
+        .create_workspace(workspace_id, "Workspace", None, "active")
+        .expect("create workspace");
+    store
+        .create_workspace_workbench(workbench_id, workspace_id, None)
+        .expect("create workbench");
+    insert_queue_widget(store, workspace_id, workbench_id, queue_widget_id);
+}
+
 fn insert_executor_widget(
     store: &SqliteStore,
     workspace_id: &str,
@@ -3623,6 +3860,37 @@ fn insert_executor_widget(
             state: Some("{}"),
         })
         .expect("insert executor");
+}
+
+fn insert_queue_widget(
+    store: &SqliteStore,
+    workspace_id: &str,
+    workbench_id: &str,
+    queue_widget_id: &str,
+) {
+    store
+        .insert_widget_instance(NewWidgetInstance {
+            id: queue_widget_id,
+            workspace_id,
+            workbench_id,
+            definition_id: "agent-queue",
+            title: "Agent Queue",
+            category: "agent",
+            layout_mode: "docked",
+            dock_x: Some(0),
+            dock_y: Some(0),
+            dock_width: Some(360),
+            dock_height: Some(240),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert queue");
 }
 
 fn create_task_row(

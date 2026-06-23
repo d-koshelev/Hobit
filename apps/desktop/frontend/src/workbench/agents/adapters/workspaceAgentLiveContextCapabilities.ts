@@ -5,7 +5,10 @@ import type {
   HobitAgentActionResult,
 } from "../broker/types";
 import type { WorkspaceAgentQueueControlState } from "../../workspaceAgentQueueBridge";
-import { AGENT_RUN_WIDGET_DEFINITION_ID } from "../../widgetRegistry";
+import {
+  AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  AGENT_RUN_WIDGET_DEFINITION_ID,
+} from "../../widgetRegistry";
 import {
   createWorkspaceAgentLiveWorkbenchContextSnapshot,
   normalizedWorkspaceAgentLiveWorkbenchContext,
@@ -104,9 +107,18 @@ function handleWorkspaceContextGet(
       ...(widgetSummary
         ? {
             agentExecutorCount: widgetSummary.agentExecutorCount,
+            agentExecutorBlockers: widgetSummary.agentExecutorBlockers,
             agentExecutors: widgetSummary.agentExecutors,
+            queueLocalExecutionTargetBlockers:
+              widgetSummary.queueLocalExecutionTargetBlockers,
+            queueLocalExecutionTargetCount:
+              widgetSummary.queueLocalExecutionTargetCount,
+            queueLocalExecutionTargets:
+              widgetSummary.queueLocalExecutionTargets,
             recommendedExecutorWidgetId:
               widgetSummary.recommendedExecutorWidgetId,
+            recommendedQueueOwnerWidgetInstanceId:
+              widgetSummary.recommendedQueueOwnerWidgetInstanceId,
             visibleWidgetCount: widgetSummary.visibleWidgetCount,
             widgetCount: widgetSummary.widgetCount,
             widgetSummary,
@@ -147,11 +159,16 @@ function handleWorkbenchWidgetsList(
       hiddenSideEffectFlags: createNoHiddenSideEffectFlags(),
       message: "Workbench widget context is unavailable.",
       output: {
+        agentExecutorBlockers: ["no_agent_executor"],
         agentExecutors: [],
         blockers,
         hiddenSideEffectFlags: liveContextReadSideEffectFlags(),
         missingCapabilities: blockers,
+        queueLocalExecutionTargetBlockers: blockers,
+        queueLocalExecutionTargetCount: 0,
+        queueLocalExecutionTargets: [],
         recommendedExecutorWidgetId: null,
+        recommendedQueueOwnerWidgetInstanceId: null,
         widgetInstances: [],
         workbenchId: resolvedWorkbenchId,
         workspaceId: resolvedWorkspaceId,
@@ -173,6 +190,10 @@ function handleWorkbenchWidgetsList(
     (widget) =>
       widget.visible && widget.definitionId === AGENT_RUN_WIDGET_DEFINITION_ID,
   );
+  const visibleAgentQueues = allWidgets.filter(
+    (widget) =>
+      widget.visible && widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  );
   const listedWidgets = visibleScopedWidgets
     .filter(
       (widget) =>
@@ -184,7 +205,16 @@ function handleWorkbenchWidgetsList(
     .filter((widget) => widget.definitionId === AGENT_RUN_WIDGET_DEFINITION_ID)
     .slice(0, MAX_WIDGETS)
     .map((widget) => agentExecutorSummary(widget, includeTitles));
-  const blockers = executorSelectionBlockers(visibleAgentExecutors.length);
+  const queueLocalExecutionTargets = visibleScopedWidgets
+    .filter((widget) => widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID)
+    .slice(0, MAX_WIDGETS)
+    .map((widget) => queueLocalExecutionTargetSummary(widget, includeTitles));
+  const agentExecutorBlockers = executorSelectionBlockers(
+    visibleAgentExecutors.length,
+  );
+  const queueLocalExecutionTargetBlockers =
+    queueLocalExecutionTargetSelectionBlockers(visibleAgentQueues.length);
+  const blockers = queueLocalExecutionTargetBlockers;
 
   return createActionResult({
     capabilityId: request.capabilityId,
@@ -193,13 +223,17 @@ function handleWorkbenchWidgetsList(
     message: "Workbench widgets listed.",
     output: {
       agentExecutorCount: visibleAgentExecutors.length,
+      agentExecutorBlockers,
       agentExecutors,
       blockers,
       capped:
         visibleScopedWidgets.length > listedWidgets.length ||
         visibleScopedWidgets.filter(
           (widget) => widget.definitionId === AGENT_RUN_WIDGET_DEFINITION_ID,
-        ).length > agentExecutors.length,
+        ).length > agentExecutors.length ||
+        visibleScopedWidgets.filter(
+          (widget) => widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
+        ).length > queueLocalExecutionTargets.length,
       definitionIdFilter: definitionIdFilter ?? null,
       hiddenSideEffectFlags: liveContextReadSideEffectFlags(),
       missingCapabilities: blockers,
@@ -207,6 +241,11 @@ function handleWorkbenchWidgetsList(
         visibleAgentExecutors.length === 1
           ? visibleAgentExecutors[0]?.id ?? null
           : null,
+      queueLocalExecutionTargetBlockers,
+      queueLocalExecutionTargetCount: visibleAgentQueues.length,
+      queueLocalExecutionTargets,
+      recommendedQueueOwnerWidgetInstanceId:
+        visibleAgentQueues.length === 1 ? visibleAgentQueues[0]?.id ?? null : null,
       returnedWidgetCount: listedWidgets.length,
       visibleOnly,
       visibleWidgetCount: visibleScopedWidgets.length,
@@ -357,7 +396,12 @@ function summarizeWidgets(
     missingCapabilities.push("workbench_widgets_unavailable");
     return {
       agentExecutorCount: 0,
+      agentExecutorBlockers: ["no_agent_executor"],
       recommendedExecutorWidgetId: null,
+      queueLocalExecutionTargetBlockers: ["no_queue_local_execution_target"],
+      queueLocalExecutionTargetCount: 0,
+      queueLocalExecutionTargets: [],
+      recommendedQueueOwnerWidgetInstanceId: null,
       visibleWidgetCount: 0,
       widgetCount: 0,
     };
@@ -367,16 +411,31 @@ function summarizeWidgets(
     (widget) =>
       widget.visible && widget.definitionId === AGENT_RUN_WIDGET_DEFINITION_ID,
   );
+  const visibleAgentQueues = workbenchSnapshot.widgetInstances.filter(
+    (widget) =>
+      widget.visible && widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  );
 
   return {
     agentExecutorCount: visibleAgentExecutors.length,
+    agentExecutorBlockers: executorSelectionBlockers(
+      visibleAgentExecutors.length,
+    ),
     agentExecutors: visibleAgentExecutors
       .slice(0, MAX_WIDGETS)
       .map((widget) => agentExecutorSummary(widget, false)),
+    queueLocalExecutionTargetBlockers:
+      queueLocalExecutionTargetSelectionBlockers(visibleAgentQueues.length),
+    queueLocalExecutionTargetCount: visibleAgentQueues.length,
+    queueLocalExecutionTargets: visibleAgentQueues
+      .slice(0, MAX_WIDGETS)
+      .map((widget) => queueLocalExecutionTargetSummary(widget, false)),
     recommendedExecutorWidgetId:
       visibleAgentExecutors.length === 1
         ? visibleAgentExecutors[0]?.id ?? null
         : null,
+    recommendedQueueOwnerWidgetInstanceId:
+      visibleAgentQueues.length === 1 ? visibleAgentQueues[0]?.id ?? null : null,
     visibleWidgetCount: workbenchSnapshot.widgetInstances.filter(
       (widget) => widget.visible,
     ).length,
@@ -437,6 +496,18 @@ function agentExecutorSummary(
   };
 }
 
+function queueLocalExecutionTargetSummary(
+  widget: WorkspaceAgentLiveWorkbenchWidgetSummary,
+  includeTitle: boolean,
+) {
+  return {
+    kind: "queue_local",
+    providerId: "codex",
+    queueOwnerWidgetInstanceId: widget.id,
+    ...widgetSummary(widget, includeTitle),
+  };
+}
+
 function liveWorkbenchSnapshot(
   liveContext: WorkspaceAgentLiveContextSource | null | undefined,
 ) {
@@ -465,6 +536,16 @@ function executorSelectionBlockers(agentExecutorCount: number) {
   }
   if (agentExecutorCount > 1) {
     return ["ambiguous_agent_executor"];
+  }
+  return [];
+}
+
+function queueLocalExecutionTargetSelectionBlockers(targetCount: number) {
+  if (targetCount === 0) {
+    return ["no_queue_local_execution_target"];
+  }
+  if (targetCount > 1) {
+    return ["ambiguous_queue_local_execution_target"];
   }
   return [];
 }

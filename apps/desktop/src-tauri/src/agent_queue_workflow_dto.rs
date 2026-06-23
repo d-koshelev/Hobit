@@ -1,15 +1,16 @@
 use hobit_app::{
     QueueWorkflowAction, QueueWorkflowApplyRunSettingsRequest, QueueWorkflowApplyRunSettingsResult,
     QueueWorkflowCancelRequest, QueueWorkflowCancelResult, QueueWorkflowCommandBlocker,
-    QueueWorkflowConflict, QueueWorkflowGetRequest, QueueWorkflowListRequest,
-    QueueWorkflowMaterializeTaskSlotRequest, QueueWorkflowMaterializeTaskSlotResult,
-    QueueWorkflowPlanResumeRequest, QueueWorkflowPromoteTaskSlotRequest,
-    QueueWorkflowPromoteTaskSlotResult, QueueWorkflowRecordRunnerAction,
-    QueueWorkflowRecordRunnerReportRequest, QueueWorkflowRecordRunnerReportResult,
-    QueueWorkflowRecordWorkerEvidenceRequest, QueueWorkflowRecordWorkerEvidenceResult,
-    QueueWorkflowReport, QueueWorkflowResumeBlocker, QueueWorkflowResumePlan, QueueWorkflowRun,
-    QueueWorkflowRunSettings, QueueWorkflowSlotReconciliation, QueueWorkflowStartRequest,
-    QueueWorkflowStartResult, QueueWorkflowTaskResumeSnapshot, QueueWorkflowTaskSpec,
+    QueueWorkflowConflict, QueueWorkflowExecutionTarget, QueueWorkflowGetRequest,
+    QueueWorkflowListRequest, QueueWorkflowMaterializeTaskSlotRequest,
+    QueueWorkflowMaterializeTaskSlotResult, QueueWorkflowPlanResumeRequest,
+    QueueWorkflowPromoteTaskSlotRequest, QueueWorkflowPromoteTaskSlotResult,
+    QueueWorkflowRecordRunnerAction, QueueWorkflowRecordRunnerReportRequest,
+    QueueWorkflowRecordRunnerReportResult, QueueWorkflowRecordWorkerEvidenceRequest,
+    QueueWorkflowRecordWorkerEvidenceResult, QueueWorkflowReport, QueueWorkflowResumeBlocker,
+    QueueWorkflowResumePlan, QueueWorkflowRun, QueueWorkflowRunSettings,
+    QueueWorkflowSlotReconciliation, QueueWorkflowStartRequest, QueueWorkflowStartResult,
+    QueueWorkflowTaskResumeSnapshot, QueueWorkflowTaskSpec,
     QueueWorkflowWorkerEvidenceBindingSummary,
 };
 use serde::{Deserialize, Serialize};
@@ -150,7 +151,20 @@ pub(crate) struct AgentQueueWorkflowRunSettingsRequest {
     pub sandbox: String,
     pub approval_policy: String,
     pub execution_policy: String,
+    #[serde(default)]
+    pub execution_target: Option<AgentQueueWorkflowExecutionTargetRequest>,
+    #[serde(default)]
     pub executor_widget_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct AgentQueueWorkflowExecutionTargetRequest {
+    pub kind: String,
+    pub provider_id: String,
+    #[serde(default)]
+    pub queue_owner_widget_instance_id: Option<String>,
+    #[serde(default)]
+    pub executor_widget_id: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
@@ -391,7 +405,11 @@ pub(crate) struct AgentQueueWorkflowRunSettingsBindingDto {
     pub slot: String,
     pub task_id: String,
     pub settings_hash: String,
+    pub execution_target_kind: String,
+    pub provider_id: String,
+    pub queue_owner_widget_instance_id: Option<String>,
     pub executor_widget_id: String,
+    pub execution_target_hash: String,
     pub update_run_settings_action_id: Option<String>,
     pub update_run_settings_action_idempotency_key: String,
 }
@@ -610,7 +628,21 @@ impl From<AgentQueueWorkflowRunSettingsRequest> for QueueWorkflowRunSettings {
             sandbox: settings.sandbox,
             approval_policy: settings.approval_policy,
             execution_policy: settings.execution_policy,
+            execution_target: settings
+                .execution_target
+                .map(QueueWorkflowExecutionTarget::from),
             executor_widget_id: settings.executor_widget_id,
+        }
+    }
+}
+
+impl From<AgentQueueWorkflowExecutionTargetRequest> for QueueWorkflowExecutionTarget {
+    fn from(target: AgentQueueWorkflowExecutionTargetRequest) -> Self {
+        Self {
+            kind: target.kind,
+            provider_id: target.provider_id,
+            queue_owner_widget_instance_id: target.queue_owner_widget_instance_id,
+            executor_widget_id: target.executor_widget_id,
         }
     }
 }
@@ -930,7 +962,11 @@ impl From<hobit_app::QueueWorkflowRunSettingsBindingSummary>
             slot: binding.slot,
             task_id: binding.task_id,
             settings_hash: binding.settings_hash,
+            execution_target_kind: binding.execution_target_kind,
+            provider_id: binding.provider_id,
+            queue_owner_widget_instance_id: binding.queue_owner_widget_instance_id,
             executor_widget_id: binding.executor_widget_id,
+            execution_target_hash: binding.execution_target_hash,
             update_run_settings_action_id: binding.update_run_settings_action_id,
             update_run_settings_action_idempotency_key: binding
                 .update_run_settings_action_idempotency_key,
