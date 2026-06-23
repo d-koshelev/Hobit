@@ -4,16 +4,20 @@ import type {
   HobitAgentActionRequest,
   HobitAgentActionResult,
 } from "../broker/types";
-import type { WidgetInstance } from "../../types";
 import type { WorkspaceAgentQueueControlState } from "../../workspaceAgentQueueBridge";
+import { AGENT_RUN_WIDGET_DEFINITION_ID } from "../../widgetRegistry";
 import {
-  AGENT_RUN_WIDGET_DEFINITION_ID,
-  getWidgetDefinition,
-} from "../../widgetRegistry";
+  createWorkspaceAgentLiveWorkbenchContextSnapshot,
+  normalizedWorkspaceAgentLiveWorkbenchContext,
+  type WorkspaceAgentLiveWorkbenchContextSnapshot,
+  type WorkspaceAgentLiveWorkbenchWidgetSummary,
+} from "../../workspaceAgentLiveWorkbenchContext";
+import type { WidgetInstance } from "../../types";
 
 export type WorkspaceAgentLiveContextSource = {
   currentRuntimeMode?: string | null;
   getQueueControlState?: () => WorkspaceAgentQueueControlState | null;
+  workbenchSnapshot?: WorkspaceAgentLiveWorkbenchContextSnapshot | null;
   workbenchId?: string | null;
   widgets?: readonly WidgetInstance[];
   workspaceId?: string | null;
@@ -59,10 +63,16 @@ function handleWorkspaceContextGet(
 
   const workspaceId = normalizedString(liveContext?.workspaceId);
   const workspaceRootPath = normalizedString(liveContext?.workspaceRootPath);
-  const workbenchId = normalizedString(liveContext?.workbenchId);
+  const workbenchSnapshot = liveWorkbenchSnapshot(liveContext);
+  const workbenchId = normalizedString(workbenchSnapshot?.workbenchId);
   const missingCapabilities: string[] = [];
 
-  if (!workspaceId) {
+  const resolvedWorkspaceId =
+    normalizedString(workbenchSnapshot?.workspaceId) ?? workspaceId;
+  const resolvedWorkspaceRootPath =
+    normalizedString(workbenchSnapshot?.workspaceRootPath) ?? workspaceRootPath;
+
+  if (!resolvedWorkspaceId) {
     missingCapabilities.push("workspace_unavailable");
   }
   if (!workbenchId) {
@@ -70,10 +80,10 @@ function handleWorkspaceContextGet(
   }
 
   const widgetSummary = validation.value.includeWidgetSummary
-    ? summarizeWidgets(liveContext?.widgets ?? null, missingCapabilities)
+    ? summarizeWidgets(workbenchSnapshot, missingCapabilities)
     : undefined;
   const queueControlState = validation.value.includeQueueControl
-    ? readQueueControlState(liveContext, workspaceId, missingCapabilities)
+    ? readQueueControlState(liveContext, resolvedWorkspaceId, missingCapabilities)
     : undefined;
 
   return createActionResult({
@@ -85,15 +95,15 @@ function handleWorkspaceContextGet(
       currentRuntimeMode:
         normalizedString(liveContext?.currentRuntimeMode) ?? detectRuntimeMode(),
       currentWorkbenchAvailable: Boolean(workbenchId),
-      currentWorkspaceAvailable: Boolean(workspaceId),
+      currentWorkspaceAvailable: Boolean(resolvedWorkspaceId),
       hiddenSideEffectFlags: liveContextReadSideEffectFlags(),
       missingCapabilities,
       missingCapabilitiesSummary: missingCapabilities.join(", "),
       ...(queueControlState !== undefined ? { queueControlState } : {}),
       ...(widgetSummary ? { widgetSummary } : {}),
       workbenchId,
-      workspaceId,
-      workspaceRootPath,
+      workspaceId: resolvedWorkspaceId,
+      workspaceRootPath: resolvedWorkspaceRootPath,
     },
     policyReasons: [],
     requestId: request.requestId,
@@ -112,8 +122,13 @@ function handleWorkbenchWidgetsList(
 
   const workbenchId = normalizedString(liveContext?.workbenchId);
   const workspaceId = normalizedString(liveContext?.workspaceId);
-  const allWidgets = liveContext?.widgets;
-  if (!workbenchId || !allWidgets) {
+  const workbenchSnapshot = liveWorkbenchSnapshot(liveContext);
+  const resolvedWorkbenchId =
+    normalizedString(workbenchSnapshot?.workbenchId) ?? workbenchId;
+  const resolvedWorkspaceId =
+    normalizedString(workbenchSnapshot?.workspaceId) ?? workspaceId;
+  const allWidgets = workbenchSnapshot?.widgetInstances;
+  if (!resolvedWorkbenchId || !allWidgets) {
     const blockers = ["workbench_unavailable"];
     return createActionResult({
       capabilityId: request.capabilityId,
@@ -127,8 +142,8 @@ function handleWorkbenchWidgetsList(
         missingCapabilities: blockers,
         recommendedExecutorWidgetId: null,
         widgetInstances: [],
-        workbenchId,
-        workspaceId,
+        workbenchId: resolvedWorkbenchId,
+        workspaceId: resolvedWorkspaceId,
       },
       policyReasons: blockers,
       reasonCode: "precondition_failed",
@@ -143,6 +158,10 @@ function handleWorkbenchWidgetsList(
   const visibleScopedWidgets = allWidgets.filter(
     (widget) => !visibleOnly || widget.visible,
   );
+  const visibleAgentExecutors = allWidgets.filter(
+    (widget) =>
+      widget.visible && widget.definitionId === AGENT_RUN_WIDGET_DEFINITION_ID,
+  );
   const listedWidgets = visibleScopedWidgets
     .filter(
       (widget) =>
@@ -154,7 +173,7 @@ function handleWorkbenchWidgetsList(
     .filter((widget) => widget.definitionId === AGENT_RUN_WIDGET_DEFINITION_ID)
     .slice(0, MAX_WIDGETS)
     .map((widget) => widgetSummary(widget, includeTitles));
-  const blockers = executorSelectionBlockers(agentExecutors.length);
+  const blockers = executorSelectionBlockers(visibleAgentExecutors.length);
 
   return createActionResult({
     capabilityId: request.capabilityId,
@@ -173,11 +192,13 @@ function handleWorkbenchWidgetsList(
       hiddenSideEffectFlags: liveContextReadSideEffectFlags(),
       missingCapabilities: blockers,
       recommendedExecutorWidgetId:
-        agentExecutors.length === 1 ? agentExecutors[0]?.id ?? null : null,
+        visibleAgentExecutors.length === 1
+          ? visibleAgentExecutors[0]?.id ?? null
+          : null,
       visibleOnly,
       widgetInstances: listedWidgets,
-      workbenchId,
-      workspaceId,
+      workbenchId: resolvedWorkbenchId,
+      workspaceId: resolvedWorkspaceId,
     },
     policyReasons: [],
     requestId: request.requestId,
@@ -314,25 +335,34 @@ function normalizeWorkbenchWidgetsListInput(
 }
 
 function summarizeWidgets(
-  widgets: readonly WidgetInstance[] | null,
+  workbenchSnapshot: WorkspaceAgentLiveWorkbenchContextSnapshot | null,
   missingCapabilities: string[],
 ) {
-  if (!widgets) {
+  if (!workbenchSnapshot) {
     missingCapabilities.push("workbench_widgets_unavailable");
     return {
       agentExecutorCount: 0,
+      recommendedExecutorWidgetId: null,
       visibleWidgetCount: 0,
       widgetCount: 0,
     };
   }
 
+  const visibleAgentExecutors = workbenchSnapshot.widgetInstances.filter(
+    (widget) =>
+      widget.visible && widget.definitionId === AGENT_RUN_WIDGET_DEFINITION_ID,
+  );
+
   return {
-    agentExecutorCount: widgets.filter(
-      (widget) =>
-        widget.visible && widget.definitionId === AGENT_RUN_WIDGET_DEFINITION_ID,
+    agentExecutorCount: visibleAgentExecutors.length,
+    recommendedExecutorWidgetId:
+      visibleAgentExecutors.length === 1
+        ? visibleAgentExecutors[0]?.id ?? null
+        : null,
+    visibleWidgetCount: workbenchSnapshot.widgetInstances.filter(
+      (widget) => widget.visible,
     ).length,
-    visibleWidgetCount: widgets.filter((widget) => widget.visible).length,
-    widgetCount: widgets.length,
+    widgetCount: workbenchSnapshot.widgetCount,
   };
 }
 
@@ -366,15 +396,39 @@ function readQueueControlState(
   };
 }
 
-function widgetSummary(widget: WidgetInstance, includeTitle: boolean) {
-  const definition = getWidgetDefinition(widget.definitionId);
+function widgetSummary(
+  widget: WorkspaceAgentLiveWorkbenchWidgetSummary,
+  includeTitle: boolean,
+) {
   return {
-    category: definition?.category ?? null,
+    category: widget.category,
     definitionId: widget.definitionId,
     id: widget.id,
     ...(includeTitle ? { title: widget.title } : {}),
     visible: widget.visible,
   };
+}
+
+function liveWorkbenchSnapshot(
+  liveContext: WorkspaceAgentLiveContextSource | null | undefined,
+) {
+  const snapshot = normalizedWorkspaceAgentLiveWorkbenchContext(
+    liveContext?.workbenchSnapshot,
+  );
+  if (snapshot) {
+    return snapshot;
+  }
+
+  if (!liveContext?.widgets) {
+    return null;
+  }
+
+  return createWorkspaceAgentLiveWorkbenchContextSnapshot({
+    widgetInstances: liveContext.widgets,
+    workbenchId: liveContext.workbenchId,
+    workspaceId: liveContext.workspaceId,
+    workspaceRootPath: liveContext.workspaceRootPath,
+  });
 }
 
 function executorSelectionBlockers(agentExecutorCount: number) {

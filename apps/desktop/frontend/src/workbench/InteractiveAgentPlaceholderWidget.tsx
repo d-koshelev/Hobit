@@ -83,6 +83,10 @@ import {
   createWorkspaceAgentHobitActionInvoker,
   createWorkspaceAgentQueueWorkflowInvoker,
 } from "./workspaceAgentBrokerActionRuntime";
+import {
+  createWorkspaceAgentLiveWorkbenchContextSnapshot,
+  type WorkspaceAgentLiveWorkbenchContextSnapshot,
+} from "./workspaceAgentLiveWorkbenchContext";
 
 type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
 
@@ -113,6 +117,7 @@ export function InteractiveAgentPlaceholderWidget({
   onSelectWorkspaceDirectory, onReadPromptPackSource,
   onStartCodexDirectWorkStream,
   onUpdateAgentQueueTask, createQueueItemsFromPromptPackPreview,
+  workspaceAgentLiveWorkbenchContext,
   workbenchId,
   workbenchWidgets,
   queueReportActionCardRequest,
@@ -159,6 +164,26 @@ export function InteractiveAgentPlaceholderWidget({
   const currentAgentActivityEvents = (agentActivityEvents ?? []).filter(
     (event) => event.sourceWidgetInstanceId === instance.id,
   );
+  const liveWorkbenchContextSnapshot =
+    useMemo<WorkspaceAgentLiveWorkbenchContextSnapshot | null>(
+      () =>
+        workspaceAgentLiveWorkbenchContext ??
+        (workbenchWidgets
+          ? createWorkspaceAgentLiveWorkbenchContextSnapshot({
+              widgetInstances: workbenchWidgets,
+              workbenchId,
+              workspaceId: workspaceScopeId,
+              workspaceRootPath: currentWorkspaceRoot,
+            })
+          : null),
+      [
+        currentWorkspaceRoot,
+        workbenchId,
+        workbenchWidgets,
+        workspaceAgentLiveWorkbenchContext,
+        workspaceScopeId,
+      ],
+    );
   const invokeHobitAgentActionRequest = useMemo(
     () =>
       onInvokeHobitAgentActionRequest ??
@@ -166,20 +191,14 @@ export function InteractiveAgentPlaceholderWidget({
         workspaceAgentLiveContext: {
           getQueueControlState: () =>
             workspaceAgentQueueBridge?.getQueueControlState?.() ?? null,
-          workbenchId,
-          widgets: workbenchWidgets,
-          workspaceId: workspaceScopeId,
-          workspaceRootPath: currentWorkspaceRoot,
+          workbenchSnapshot: liveWorkbenchContextSnapshot,
         },
         workspaceAgentQueueBridge,
       }),
     [
-      currentWorkspaceRoot,
+      liveWorkbenchContextSnapshot,
       onInvokeHobitAgentActionRequest,
-      workbenchId,
-      workbenchWidgets,
       workspaceAgentQueueBridge,
-      workspaceScopeId,
     ],
   );
   const invokeQueueWorkflowRequest = useMemo(

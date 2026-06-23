@@ -1,5 +1,6 @@
 import brokerActionRuntimeSource from "./workspaceAgentBrokerActionRuntime.ts?raw";
 import continuationSource from "./workspaceAgentBrokerContinuation.ts?raw";
+import liveWorkbenchContextSource from "./workspaceAgentLiveWorkbenchContext.ts?raw";
 import liveContextSource from "./agents/adapters/workspaceAgentLiveContextCapabilities.ts?raw";
 import queueAdapterSource from "./agents/adapters/queueAgentCapabilities.ts?raw";
 import moduleRegistrySource from "./agents/modules/moduleControlSurfaceRegistry.ts?raw";
@@ -273,6 +274,7 @@ describe("Workspace Agent capability registry consistency", () => {
     for (const source of [
       brokerActionRuntimeSource,
       continuationSource,
+      liveWorkbenchContextSource,
       liveContextSource,
       queueAdapterSource,
       moduleRegistrySource,

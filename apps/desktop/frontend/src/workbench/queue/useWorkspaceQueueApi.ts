@@ -78,6 +78,7 @@ import {
   createWorkspaceAgentHobitActionInvoker,
   type WorkspaceAgentHobitActionInvoker,
 } from "../workspaceAgentBrokerActionRuntime";
+import type { WorkspaceAgentLiveWorkbenchContextSnapshot } from "../workspaceAgentLiveWorkbenchContext";
 import type { QueueWorkflowPersistencePort } from "../agents/modules";
 import {
   ingestQueueLinkedAgentExecutorRunDetail,
@@ -133,6 +134,7 @@ export function useWorkspaceQueueApi({
   currentWorkspaceRoot,
   directWorkRunHandoff,
   queueWidgetInstanceId,
+  workspaceAgentLiveWorkbenchContext,
   workspaceId,
 }: {
   actions: WorkspaceQueueActions;
@@ -140,6 +142,7 @@ export function useWorkspaceQueueApi({
   currentWorkspaceRoot?: string | null;
   directWorkRunHandoff: DirectWorkRunHandoffController;
   queueWidgetInstanceId?: WidgetInstanceId | null;
+  workspaceAgentLiveWorkbenchContext?: WorkspaceAgentLiveWorkbenchContextSnapshot | null;
   workspaceId: string;
 }): WorkspaceQueueApi {
   const latestBridgeRef = useRef<WorkspaceAgentQueueBridge | null>(null);
@@ -301,9 +304,14 @@ export function useWorkspaceQueueApi({
   const invokeHobitAgentActionRequest = useMemo(
     () =>
       createWorkspaceAgentHobitActionInvoker({
+        workspaceAgentLiveContext: {
+          getQueueControlState: () =>
+            stableBrokerBridge.getQueueControlState?.() ?? null,
+          workbenchSnapshot: workspaceAgentLiveWorkbenchContext ?? null,
+        },
         workspaceAgentQueueBridge: stableBrokerBridge,
       }),
-    [stableBrokerBridge],
+    [stableBrokerBridge, workspaceAgentLiveWorkbenchContext],
   );
   const invokeQueueWorkerEvidenceBrokerAction =
     useCallback<QueueWorkerEvidenceIngestionBrokerInvoker>(

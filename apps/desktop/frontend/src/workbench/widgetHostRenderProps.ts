@@ -18,6 +18,7 @@ import type {
   AgentQueueReportActionCard,
   AgentQueueTask,
 } from "../workspace/types";
+import type { WorkspaceAgentLiveWorkbenchContextSnapshot } from "./workspaceAgentLiveWorkbenchContext";
 import type {
   AgentExecutorRunOpenRequest,
   AgentExecutorRunOpenRequestInput,
@@ -53,6 +54,7 @@ type WidgetHostRenderPropsOptions = {
   componentKey: string;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   currentWorkspaceRoot?: string | null;
+  workspaceAgentLiveWorkbenchContext?: WorkspaceAgentLiveWorkbenchContextSnapshot | null;
   workbenchId?: string | null;
   workbenchWidgets?: readonly WidgetInstance[];
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
@@ -85,6 +87,7 @@ export function widgetHostRenderProps({
   componentKey,
   coordinatorAttachedContextRequest,
   currentWorkspaceRoot,
+  workspaceAgentLiveWorkbenchContext,
   workbenchId,
   workbenchWidgets,
   queueReportActionCardRequest,
@@ -175,6 +178,7 @@ export function widgetHostRenderProps({
         queueReportActionCardRequest,
         queueTaskStatusCardRequest,
         currentWorkspaceRoot,
+        workspaceAgentLiveWorkbenchContext,
         workbenchId,
         workbenchWidgets,
         workspaceQueueApi,

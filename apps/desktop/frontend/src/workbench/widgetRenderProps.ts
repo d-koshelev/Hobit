@@ -116,6 +116,7 @@ import type {
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type { WorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
 import type { QueueWorkflowPersistencePort } from "./agents/modules";
+import type { WorkspaceAgentLiveWorkbenchContextSnapshot } from "./workspaceAgentLiveWorkbenchContext";
 import type { AgentQueueController } from "./queue/useAgentQueueController";
 import type {
   QueueValidationRunResult,
@@ -131,6 +132,7 @@ export type WidgetRenderProps = {
   config: Record<string, unknown>;
   definition: WidgetDefinition;
   currentWorkspaceRoot?: string | null;
+  workspaceAgentLiveWorkbenchContext?: WorkspaceAgentLiveWorkbenchContextSnapshot | null;
   workbenchId?: string | null;
   workbenchWidgets?: readonly WidgetInstance[];
   directWorkGitReviewRequest?: DirectWorkGitReviewRequest | null;

@@ -26,6 +26,7 @@ import {
   INTERACTIVE_AGENT_WIDGET_DEFINITION_ID,
   isUserFacingWidgetDefinition,
 } from "./widgetRegistry";
+import { createWorkspaceAgentLiveWorkbenchContextSnapshot } from "./workspaceAgentLiveWorkbenchContext";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
 import { useWorkbenchLayoutInteractions } from "./useWorkbenchLayoutInteractions";
 import type {
@@ -117,12 +118,28 @@ export function WorkbenchCanvas({
   const directWorkGitReview = useDirectWorkGitReviewHandoff();
   const directWorkRunHandoff = useDirectWorkRunHandoff();
   const currentWorkspaceRoot = currentWorkspaceRootFromViewState(viewState);
+  const workspaceAgentLiveWorkbenchContext = useMemo(
+    () =>
+      createWorkspaceAgentLiveWorkbenchContextSnapshot({
+        widgetInstances: viewState.widgets,
+        workbenchId: viewState.workbench.id,
+        workspaceId: viewState.workspace.id,
+        workspaceRootPath: currentWorkspaceRoot,
+      }),
+    [
+      currentWorkspaceRoot,
+      viewState.widgets,
+      viewState.workbench.id,
+      viewState.workspace.id,
+    ],
+  );
   const workspaceQueueApi = useWorkspaceQueueApi({
     actions: widgetActions,
     agentExecutorSlots,
     currentWorkspaceRoot,
     directWorkRunHandoff,
     queueWidgetInstanceId: queueWidget?.id ?? null,
+    workspaceAgentLiveWorkbenchContext,
     workspaceId: viewState.workspace.id,
   });
   const queueChatRequests = useWorkspaceAgentQueueChatRequests({
@@ -565,6 +582,9 @@ export function WorkbenchCanvas({
                             coordinatorAttachedContextRequest
                           }
                           currentWorkspaceRoot={currentWorkspaceRoot}
+                          workspaceAgentLiveWorkbenchContext={
+                            workspaceAgentLiveWorkbenchContext
+                          }
                           workbenchId={viewState.workbench.id}
                           workbenchWidgets={viewState.widgets}
                           queueReportActionCardRequest={
@@ -624,6 +644,9 @@ export function WorkbenchCanvas({
                           coordinatorAttachedContextRequest
                         }
                         currentWorkspaceRoot={currentWorkspaceRoot}
+                        workspaceAgentLiveWorkbenchContext={
+                          workspaceAgentLiveWorkbenchContext
+                        }
                         workbenchId={viewState.workbench.id}
                         workbenchWidgets={viewState.widgets}
                         queueReportActionCardRequest={

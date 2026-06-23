@@ -31,6 +31,7 @@ import {
   createWidgetRuntimeContext,
   WidgetRuntimeContextProvider,
 } from "./widgetRuntimeContext";
+import type { WorkspaceAgentLiveWorkbenchContextSnapshot } from "./workspaceAgentLiveWorkbenchContext";
 import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import {
   AGENT_RUN_WIDGET_DEFINITION_ID,
@@ -53,6 +54,7 @@ type WidgetHostProps = {
   agentQueueItemOpenRequest: AgentQueueItemOpenRequest | null;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   currentWorkspaceRoot?: string | null;
+  workspaceAgentLiveWorkbenchContext?: WorkspaceAgentLiveWorkbenchContextSnapshot | null;
   workbenchId?: string | null;
   workbenchWidgets?: readonly WidgetInstance[];
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
@@ -100,6 +102,7 @@ export function WidgetHost({
   agentQueueItemOpenRequest,
   coordinatorAttachedContextRequest,
   currentWorkspaceRoot,
+  workspaceAgentLiveWorkbenchContext,
   workbenchId,
   workbenchWidgets,
   queueReportActionCardRequest,
@@ -222,6 +225,7 @@ export function WidgetHost({
     componentKey: definition.componentKey,
     coordinatorAttachedContextRequest,
     currentWorkspaceRoot,
+    workspaceAgentLiveWorkbenchContext,
     workbenchId,
     workbenchWidgets,
     queueReportActionCardRequest,

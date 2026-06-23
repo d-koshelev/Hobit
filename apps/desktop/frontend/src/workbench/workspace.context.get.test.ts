@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { createActionRequest } from "./agents/broker";
 import { createWorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
 import type { WidgetInstance } from "./types";
+import { createWorkspaceAgentLiveWorkbenchContextSnapshot } from "./workspaceAgentLiveWorkbenchContext";
 
 describe("workspace.context.get", () => {
   it("is registered and handled as a read-only Workspace Agent capability", async () => {
@@ -19,13 +20,10 @@ describe("workspace.context.get", () => {
           version: 7,
           workspaceId: "workspace-1",
         }),
-        workbenchId: "workbench-1",
-        widgets: [
+        workbenchSnapshot: liveWorkbenchSnapshot([
           widget({ definitionId: "interactive-agent", id: "agent-1" }),
           widget({ definitionId: "agent-run", id: "executor-1" }),
-        ],
-        workspaceId: "workspace-1",
-        workspaceRootPath: "C:/repo",
+        ]),
       },
     });
 
@@ -61,6 +59,7 @@ describe("workspace.context.get", () => {
       },
       widgetSummary: {
         agentExecutorCount: 1,
+        recommendedExecutorWidgetId: "executor-1",
         visibleWidgetCount: 2,
         widgetCount: 2,
       },
@@ -158,4 +157,13 @@ function widget(overrides: Partial<WidgetInstance>): WidgetInstance {
     visible: true,
     ...overrides,
   };
+}
+
+function liveWorkbenchSnapshot(widgets: readonly WidgetInstance[]) {
+  return createWorkspaceAgentLiveWorkbenchContextSnapshot({
+    widgetInstances: widgets,
+    workbenchId: "workbench-1",
+    workspaceId: "workspace-1",
+    workspaceRootPath: "C:/repo",
+  });
 }

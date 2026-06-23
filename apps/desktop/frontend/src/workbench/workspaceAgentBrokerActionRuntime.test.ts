@@ -39,6 +39,7 @@ import type {
   StartAssignedAgentQueueTaskResponse,
 } from "../workspace/types";
 import type { WidgetInstance } from "./types";
+import { createWorkspaceAgentLiveWorkbenchContextSnapshot } from "./workspaceAgentLiveWorkbenchContext";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -754,16 +755,18 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
           version: 2,
           workspaceId: "workspace-1",
         }),
-        workbenchId: "workbench-1",
-        widgets: [
-          widgetInstance({
-            definitionId: "interactive-agent",
-            id: "workspace-agent-1",
-          }),
-          widgetInstance({ definitionId: "agent-run", id: "executor-1" }),
-        ],
-        workspaceId: "workspace-1",
-        workspaceRootPath: "C:/repo",
+        workbenchSnapshot: createWorkspaceAgentLiveWorkbenchContextSnapshot({
+          widgetInstances: [
+            widgetInstance({
+              definitionId: "interactive-agent",
+              id: "workspace-agent-1",
+            }),
+            widgetInstance({ definitionId: "agent-run", id: "executor-1" }),
+          ],
+          workbenchId: "workbench-1",
+          workspaceId: "workspace-1",
+          workspaceRootPath: "C:/repo",
+        }),
       },
       workspaceAgentQueueBridge: queueBridge({
         getWorkflow,

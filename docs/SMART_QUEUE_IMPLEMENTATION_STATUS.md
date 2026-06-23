@@ -133,6 +133,11 @@ without grant or confirmation. `queue.control.setManualEnabled` remains a
 setup/write capability that can auto-continue only under setup-capable
 structured Queue grant policy. `hobit.workflow.request` remains the official
 workflow invocation path; `queue.workflow.invoke` is not implemented.
+Workspace Agent live workbench context is now threaded from the Workbench model
+through the Workspace Agent broker runtime as a bounded typed widget snapshot,
+so `workbench.widgets.list` can discover visible Agent Executor widgets inside
+live Hobit by `definitionId === "agent-run"`. Actual live Queue smoke remains
+the next step after this read-only context discovery path.
 Worker start now has a backend-owned idempotency/control contract on the
 existing assigned-task start path for Queue workflow phases. Workflow
 context requires explicit workflow/action/task/executor/settings refs plus

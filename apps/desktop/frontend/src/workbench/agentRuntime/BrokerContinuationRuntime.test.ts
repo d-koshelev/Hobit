@@ -30,6 +30,7 @@ import {
 import { createWorkspaceAgentHobitActionInvoker } from "../workspaceAgentBrokerActionRuntime";
 import type { WidgetInstance } from "../types";
 import type { WorkspaceAgentQueueBridge } from "../workspaceAgentQueueBridge";
+import { createWorkspaceAgentLiveWorkbenchContextSnapshot } from "../workspaceAgentLiveWorkbenchContext";
 import type {
   AgentQueueWorkflowAction,
   AgentQueueWorkflowReport,
@@ -698,13 +699,15 @@ function liveContext() {
       version: 2,
       workspaceId: "workspace-1",
     }),
-    workbenchId: "workbench-1",
-    widgets: [
-      widget({ definitionId: "interactive-agent", id: "workspace-agent-1" }),
-      widget({ definitionId: "agent-run", id: "executor-1" }),
-    ],
-    workspaceId: "workspace-1",
-    workspaceRootPath: "C:/repo",
+    workbenchSnapshot: createWorkspaceAgentLiveWorkbenchContextSnapshot({
+      widgetInstances: [
+        widget({ definitionId: "interactive-agent", id: "workspace-agent-1" }),
+        widget({ definitionId: "agent-run", id: "executor-1" }),
+      ],
+      workbenchId: "workbench-1",
+      workspaceId: "workspace-1",
+      workspaceRootPath: "C:/repo",
+    }),
   };
 }
 

@@ -3,8 +3,88 @@ import { describe, expect, it } from "vitest";
 import { createActionRequest } from "./agents/broker";
 import { createWorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
 import type { WidgetInstance } from "./types";
+import { createWorkspaceAgentLiveWorkbenchContextSnapshot } from "./workspaceAgentLiveWorkbenchContext";
 
 describe("workbench.widgets.list", () => {
+  it("uses the same live snapshot after workspace.context.get succeeds", async () => {
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentLiveContext: {
+        currentRuntimeMode: "test_renderer",
+        getQueueControlState: () => ({
+          backendOwned: true,
+          queueEnabled: false,
+          status: "disabled",
+          version: 2,
+          workspaceId: "workspace-1",
+        }),
+        workbenchSnapshot: liveWorkbenchSnapshot([
+          widget({ definitionId: "interactive-agent", id: "agent-1" }),
+          widget({ definitionId: "agent-run", id: "executor-1" }),
+          widget({ definitionId: "notes", id: "notes-1" }),
+        ]),
+      },
+    });
+
+    const context = await invoker(
+      createActionRequest({
+        agentRoleId: "workspace_agent",
+        capabilityId: "workspace.context.get",
+        input: {
+          includeQueueControl: true,
+          includeWidgetSummary: true,
+        },
+        requestId: "workbench-widgets-context-1",
+      }),
+    );
+    const widgets = await invoker(
+      createActionRequest({
+        agentRoleId: "workspace_agent",
+        capabilityId: "workbench.widgets.list",
+        input: {
+          definitionIdFilter: "agent-run",
+          includeTitles: true,
+        },
+        requestId: "workbench-widgets-context-2",
+      }),
+    );
+
+    expect(context.status).toBe("succeeded");
+    expect(context.result.output).toMatchObject({
+      currentWorkbenchAvailable: true,
+      currentWorkspaceAvailable: true,
+      widgetSummary: {
+        agentExecutorCount: 1,
+        recommendedExecutorWidgetId: "executor-1",
+        widgetCount: 3,
+      },
+      workbenchId: "workbench-1",
+      workspaceId: "workspace-1",
+    });
+    expect(widgets.status).toBe("succeeded");
+    expect(widgets.result.output).toMatchObject({
+      agentExecutors: [
+        {
+          definitionId: "agent-run",
+          id: "executor-1",
+          title: "Widget",
+          visible: true,
+        },
+      ],
+      blockers: [],
+      recommendedExecutorWidgetId: "executor-1",
+      widgetInstances: [
+        {
+          definitionId: "agent-run",
+          id: "executor-1",
+          title: "Widget",
+          visible: true,
+        },
+      ],
+      workbenchId: "workbench-1",
+      workspaceId: "workspace-1",
+    });
+  });
+
   it("lists bounded widgets and recommends exactly one visible Agent Executor", async () => {
     const result = await invokeWidgetsList({
       input: {
@@ -130,6 +210,35 @@ describe("workbench.widgets.list", () => {
       widgetInstances: [],
     });
   });
+
+  it("returns a workbench_unavailable blocker when workbench ids exist but the live snapshot is missing", async () => {
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentLiveContext: {
+        workbenchId: "workbench-1",
+        widgets: undefined,
+        workspaceId: "workspace-1",
+      },
+    });
+
+    const result = await invoker(
+      createActionRequest({
+        agentRoleId: "workspace_agent",
+        capabilityId: "workbench.widgets.list",
+        input: {},
+        requestId: "workbench-widgets-missing-snapshot-1",
+      }),
+    );
+
+    expect(result.status).toBe("precondition_failed");
+    expect(result.result.output).toMatchObject({
+      blockers: ["workbench_unavailable"],
+      missingCapabilities: ["workbench_unavailable"],
+      recommendedExecutorWidgetId: null,
+      widgetInstances: [],
+      workbenchId: "workbench-1",
+      workspaceId: "workspace-1",
+    });
+  });
 });
 
 async function invokeWidgetsList({
@@ -141,9 +250,7 @@ async function invokeWidgetsList({
 }) {
   const invoker = createWorkspaceAgentHobitActionInvoker({
     workspaceAgentLiveContext: {
-      workbenchId: "workbench-1",
-      widgets,
-      workspaceId: "workspace-1",
+      workbenchSnapshot: liveWorkbenchSnapshot(widgets),
     },
   });
 
@@ -155,6 +262,15 @@ async function invokeWidgetsList({
       requestId: "workbench-widgets-list-1",
     }),
   );
+}
+
+function liveWorkbenchSnapshot(widgets: readonly WidgetInstance[]) {
+  return createWorkspaceAgentLiveWorkbenchContextSnapshot({
+    widgetInstances: widgets,
+    workbenchId: "workbench-1",
+    workspaceId: "workspace-1",
+    workspaceRootPath: "C:/repo",
+  });
 }
 
 function widget(overrides: Partial<WidgetInstance>): WidgetInstance {

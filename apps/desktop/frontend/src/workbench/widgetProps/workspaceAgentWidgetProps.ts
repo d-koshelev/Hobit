@@ -10,6 +10,7 @@ import type {
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
 import type { WorkspaceQueueApi } from "../queue/useWorkspaceQueueApi";
 import { materializePromptPackPreviewToQueue } from "../promptPack";
+import type { WorkspaceAgentLiveWorkbenchContextSnapshot } from "../workspaceAgentLiveWorkbenchContext";
 
 type WorkspaceAgentActions = Pick<
   WorkbenchWidgetInstanceActions,
@@ -33,6 +34,7 @@ type WorkspaceAgentWidgetPropsOptions = {
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   currentWorkspaceRoot?: string | null;
   instanceId: WidgetInstanceId;
+  workspaceAgentLiveWorkbenchContext?: WorkspaceAgentLiveWorkbenchContextSnapshot | null;
   workbenchId?: string | null;
   workbenchWidgets?: readonly WidgetInstance[];
   onOpenAgentQueueItem?: (queueItemId: string) => void;
@@ -48,6 +50,7 @@ export function workspaceAgentWidgetProps({
   coordinatorAttachedContextRequest,
   currentWorkspaceRoot,
   instanceId,
+  workspaceAgentLiveWorkbenchContext,
   workbenchId,
   workbenchWidgets,
   onOpenAgentQueueItem,
@@ -106,6 +109,7 @@ export function workspaceAgentWidgetProps({
     agentQueueController: workspaceQueueApi.controller,
     queueValidationRunner: workspaceQueueApi.validationRunner,
     workspaceAgentQueueBridge: workspaceQueueApi,
+    workspaceAgentLiveWorkbenchContext,
     workbenchId,
     workbenchWidgets,
     workspaceAgentQueueWorkflowPersistence:
