@@ -162,6 +162,99 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     expect(getSnapshot).not.toHaveBeenCalled();
   });
 
+  it("invokes read-only live context discovery without dryRun through the Workspace Agent broker runtime", async () => {
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentLiveContext: {
+        currentRuntimeMode: "test_renderer",
+        getQueueControlState: () => ({
+          backendOwned: true,
+          queueEnabled: false,
+          status: "disabled",
+          version: 2,
+          workspaceId: "workspace-1",
+        }),
+        workbenchSnapshot: createWorkspaceAgentLiveWorkbenchContextSnapshot({
+          widgetInstances: [
+            widgetInstance({
+              definitionId: "agent-run",
+              id: "executor-1",
+              title: "Agent Executor",
+            }),
+          ],
+          workbenchId: "workbench-1",
+          workspaceId: "workspace-1",
+          workspaceRootPath: "C:/repo",
+        }),
+      },
+    });
+    const parsed = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "workspace.context.get",
+        input: {
+          includeQueueControl: true,
+          includeWidgetSummary: true,
+        },
+        requestId: "runtime-context-read-without-dry-run",
+        type: "hobit.action.request",
+      }),
+    );
+
+    expect(parsed).toMatchObject({
+      dryRunSource: "default_read",
+      envelope: {
+        dryRun: false,
+      },
+      status: "valid",
+    });
+    if (parsed.status !== "valid") {
+      throw new Error("Expected valid read-only live context envelope.");
+    }
+
+    const request = createHobitAgentActionRequestFromEnvelope({
+      agentId: "workspace-agent",
+      createdAt: "2026-06-23T12:00:00.000Z",
+      envelope: parsed.envelope,
+    });
+    const result = await invoker(request);
+
+    expect(result.status).toBe("succeeded");
+    expect(result.request.dryRun).toBe(false);
+    expect(result.result.output).toMatchObject({
+      currentWorkspaceAvailable: true,
+      hiddenSideEffectFlags: {
+        didMutateQueue: false,
+        didStartWorkers: false,
+      },
+      recommendedExecutorWidgetId: "executor-1",
+      widgetSummary: {
+        agentExecutorCount: 1,
+      },
+      workspaceId: "workspace-1",
+    });
+  });
+
+  it("rejects setup actions without dryRun before Queue mutation can run", () => {
+    const setQueueControlManualEnabled = vi.fn();
+    const parsed = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "queue.control.setManualEnabled",
+        input: {
+          reason: "prepare_manual_queue_smoke",
+        },
+        requestId: "runtime-control-set-without-dry-run",
+        type: "hobit.action.request",
+      }),
+    );
+
+    expect(parsed).toMatchObject({
+      reasons: [
+        "dryRun is required for non-read capability queue.control.setManualEnabled.",
+      ],
+      status: "invalid",
+    });
+    expect(setQueueControlManualEnabled).not.toHaveBeenCalled();
+  });
+
   it("invokes queue.lifecycle.get through backend aggregate reads without Queue snapshots", async () => {
     const getSnapshot = vi.fn();
     const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>

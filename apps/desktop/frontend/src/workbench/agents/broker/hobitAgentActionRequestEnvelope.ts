@@ -1,5 +1,9 @@
 import { createActionRequest } from "./results";
 import type { HobitAgentActionRequest } from "./types";
+import {
+  createHobitAgentCapabilityRegistry,
+  findCapability,
+} from "../capabilities";
 import type { HobitAgentRoleId } from "../context/types";
 import type { HobitAgentId } from "../runtime/hobitMultiAgentRuntime";
 
@@ -21,8 +25,13 @@ export type HobitAgentActionRequestEnvelopeRequestIdSource =
   | "explicit"
   | "missing";
 
+export type HobitAgentActionRequestEnvelopeDryRunSource =
+  | "default_read"
+  | "explicit";
+
 export type HobitAgentActionRequestEnvelopeReadResult =
   | {
+      dryRunSource: HobitAgentActionRequestEnvelopeDryRunSource;
       envelope: HobitAgentActionRequestEnvelope;
       requestIdSource: HobitAgentActionRequestEnvelopeRequestIdSource;
       source: "direct_json" | "embedded_json" | "fenced_json";
@@ -48,6 +57,9 @@ type FencedBlock = {
   language: string;
 };
 
+const ACTION_REQUEST_DRY_RUN_CAPABILITY_REGISTRY =
+  createHobitAgentCapabilityRegistry();
+
 export function readHobitAgentActionRequestEnvelope(
   text: string,
 ): HobitAgentActionRequestEnvelopeReadResult {
@@ -72,6 +84,7 @@ export function readHobitAgentActionRequestEnvelope(
     const validation = validateHobitActionRequestEnvelope(parsed.value);
     if (validation.status === "valid") {
       return {
+        dryRunSource: validation.dryRunSource,
         envelope: validation.envelope,
         requestIdSource: validation.requestIdSource,
         source: candidate.source,
@@ -226,12 +239,15 @@ function validateHobitActionRequestEnvelope(
     return invalidEnvelope(["Envelope must be a JSON object."]);
   }
 
+  const capabilityId =
+    typeof value.capabilityId === "string" ? value.capabilityId.trim() : "";
+  const dryRunValidation = validateDryRunForCapability(value, capabilityId);
   const reasons = [
     value.type === HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE
       ? null
       : "Envelope type must be hobit.action.request.",
     requiredString(value.capabilityId, "capabilityId"),
-    typeof value.dryRun === "boolean" ? null : "dryRun must be a boolean.",
+    dryRunValidation.ok ? null : dryRunValidation.reason,
     Object.prototype.hasOwnProperty.call(value, "input")
       ? null
       : "input is required.",
@@ -240,16 +256,19 @@ function validateHobitActionRequestEnvelope(
     optionalString(value.confirmationToken, "confirmationToken"),
   ].filter((reason): reason is string => Boolean(reason));
 
+  if (!dryRunValidation.ok) {
+    return invalidEnvelope(reasons);
+  }
+
   if (reasons.length > 0) {
     return invalidEnvelope(reasons);
   }
 
-  const capabilityId =
-    typeof value.capabilityId === "string" ? value.capabilityId.trim() : "";
-  const dryRun = typeof value.dryRun === "boolean" ? value.dryRun : false;
   const requestIdSource = requestIdSourceForEnvelope(value);
+  const dryRun = dryRunValidation.dryRun;
 
   return {
+    dryRunSource: dryRunValidation.source,
     envelope: {
       capabilityId,
       confirmationToken: optionalTrimmed(value.confirmationToken),
@@ -262,6 +281,48 @@ function validateHobitActionRequestEnvelope(
     requestIdSource,
     source: "direct_json",
     status: "valid",
+  };
+}
+
+function validateDryRunForCapability(
+  value: Record<string, unknown>,
+  capabilityId: string,
+):
+  | {
+      dryRun: boolean;
+      ok: true;
+      source: HobitAgentActionRequestEnvelopeDryRunSource;
+    }
+  | { ok: false; reason: string } {
+  const hasDryRun = Object.prototype.hasOwnProperty.call(value, "dryRun");
+  if (hasDryRun) {
+    return typeof value.dryRun === "boolean"
+      ? { dryRun: value.dryRun, ok: true, source: "explicit" }
+      : { ok: false, reason: "dryRun must be a boolean." };
+  }
+
+  if (!capabilityId) {
+    return { ok: false, reason: "dryRun must be a boolean." };
+  }
+
+  const capability = findCapability(
+    ACTION_REQUEST_DRY_RUN_CAPABILITY_REGISTRY,
+    capabilityId,
+  );
+  if (!capability) {
+    return {
+      ok: false,
+      reason: `dryRun is required for unknown capability ${capabilityId}.`,
+    };
+  }
+
+  if (capability.sideEffectLevel === "read") {
+    return { dryRun: false, ok: true, source: "default_read" };
+  }
+
+  return {
+    ok: false,
+    reason: `dryRun is required for non-read capability ${capabilityId}.`,
   };
 }
 

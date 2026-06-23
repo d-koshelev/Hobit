@@ -61,6 +61,33 @@ describe("AgentProtocolRuntime", () => {
     });
   });
 
+  it("normalizes missing dryRun for read-only Hobit action request envelopes", () => {
+    expect(
+      classifyAgentProtocolRuntimeOutput({
+        mode: "typed_capability_action",
+        text: JSON.stringify({
+          capabilityId: "workbench.widgets.list",
+          input: {
+            definitionIdFilter: "agent-run",
+          },
+          requestId: "request-widgets",
+          type: "hobit.action.request",
+        }),
+      }),
+    ).toMatchObject({
+      actionRequest: {
+        capabilityId: "workbench.widgets.list",
+        dryRun: false,
+        requestId: "request-widgets",
+      },
+      actionRequestRead: {
+        dryRunSource: "default_read",
+        status: "valid",
+      },
+      kind: "action_request",
+    });
+  });
+
   it("classifies valid workflow request envelopes without executing workflows", () => {
     expect(
       classifyAgentProtocolRuntimeOutput({
@@ -102,6 +129,32 @@ describe("AgentProtocolRuntime", () => {
       errors: [
         {
           message: "input is required.",
+          reasonCode: "invalid_action_request",
+          source: "action_request",
+        },
+      ],
+      kind: "invalid_action_request",
+    });
+  });
+
+  it("rejects non-read Hobit action request envelopes that omit dryRun", () => {
+    expect(
+      classifyAgentProtocolRuntimeOutput({
+        mode: "typed_capability_action",
+        text: JSON.stringify({
+          capabilityId: "queue.item.startRun",
+          input: {
+            executorWidgetId: "executor-1",
+            taskId: "task-1",
+          },
+          type: "hobit.action.request",
+        }),
+      }),
+    ).toMatchObject({
+      errors: [
+        {
+          message:
+            "dryRun is required for non-read capability queue.item.startRun.",
           reasonCode: "invalid_action_request",
           source: "action_request",
         },

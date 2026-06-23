@@ -129,10 +129,14 @@ instructions, Action Broker handlers, `ModuleControlSurface` metadata, and
 BrokerContinuationRuntime policy lookup. `workspace.context.get`,
 `workbench.widgets.list`, `queue.control.get`, and Queue workflow debug reads
 resolve concrete module/risk metadata and are read-only auto-continuation safe
-without grant or confirmation. `queue.control.setManualEnabled` remains a
-setup/write capability that can auto-continue only under setup-capable
-structured Queue grant policy. `hobit.workflow.request` remains the official
-workflow invocation path; `queue.workflow.invoke` is not implemented.
+without grant or confirmation. Missing `dryRun` is normalized to `false` only
+for those registered read-only `hobit.action.request` capabilities; unknown
+capabilities and setup/write/run/finalization capabilities without an explicit
+boolean `dryRun` remain invalid before broker invocation.
+`queue.control.setManualEnabled` remains a setup/write capability that can
+auto-continue only under setup-capable structured Queue grant policy.
+`hobit.workflow.request` remains the official workflow invocation path;
+`queue.workflow.invoke` is not implemented.
 Workspace Agent live workbench context is now threaded from the Workbench model
 through the Workspace Agent broker runtime as a bounded typed widget snapshot,
 so `workbench.widgets.list` can discover visible Agent Executor widgets inside

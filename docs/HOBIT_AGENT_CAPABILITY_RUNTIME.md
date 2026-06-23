@@ -151,11 +151,17 @@ restricted capabilities for explicit workspace/code execution requests only.
   before provider execution. Codex remains the default current implementation
   through the Codex AgentProvider adapter. When the agent returns a valid
   `hobit.action.request` envelope, the frontend parses that structured machine
-  request, invokes the Action Broker, and renders a compact product-facing
-  result. The compact manifest includes field-level schema and examples for
-  Queue create action requests and Queue dogfood lifecycle action requests
-  without dumping the raw registry. Non-action chat outside typed-capability
-  action mode remains ordinary prose.
+  request, normalizes missing `dryRun` only for registered read-only
+  capabilities (`sideEffectLevel: "read"`), invokes the Action Broker, and
+  renders a compact product-facing result. Setup/write/run/finalization
+  capabilities still require an explicit boolean `dryRun` field, and unknown
+  capabilities without `dryRun` are not defaulted. This keeps live context
+  discovery robust for `workspace.context.get`, `workbench.widgets.list`,
+  `queue.control.get`, and Queue workflow debug reads without weakening
+  mutation safety. The compact manifest includes field-level schema and
+  examples for Queue create action requests and Queue dogfood lifecycle action
+  requests without dumping the raw registry. Non-action chat outside
+  typed-capability action mode remains ordinary prose.
 - Workspace Agent Broker Action Continuation MVP: after an eligible successful
   broker action, the frontend appends a compact structured
   `hobit.action.result` context back to the same Codex thread and lets the

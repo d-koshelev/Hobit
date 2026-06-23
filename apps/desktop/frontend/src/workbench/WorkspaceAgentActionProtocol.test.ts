@@ -33,6 +33,34 @@ describe("WorkspaceAgentActionProtocol", () => {
     });
   });
 
+  it("classifies read-only Hobit action envelopes without dryRun after normalization", () => {
+    const outcome = classifyWorkspaceAgentActionProtocolOutput({
+      mode: "typed_capability_action",
+      text: JSON.stringify({
+        capabilityId: "workspace.context.get",
+        input: {
+          includeQueueControl: true,
+          includeWidgetSummary: true,
+        },
+        requestId: "request-context",
+        type: "hobit.action.request",
+      }),
+    });
+
+    expect(outcome).toMatchObject({
+      envelopeRead: {
+        dryRunSource: "default_read",
+        envelope: {
+          capabilityId: "workspace.context.get",
+          dryRun: false,
+          requestId: "request-context",
+        },
+        status: "valid",
+      },
+      kind: "structured_action_request",
+    });
+  });
+
   it("classifies malformed Hobit action envelopes as invalid_action_request", () => {
     const outcome = classifyWorkspaceAgentActionProtocolOutput({
       mode: "typed_capability_action",
@@ -46,6 +74,46 @@ describe("WorkspaceAgentActionProtocol", () => {
     expect(outcome).toMatchObject({
       envelopeRead: {
         reasons: ["input is required."],
+        status: "invalid",
+      },
+      kind: "invalid_action_request",
+    });
+  });
+
+  it("classifies non-read Hobit action envelopes without dryRun as invalid_action_request", () => {
+    const outcome = classifyWorkspaceAgentActionProtocolOutput({
+      mode: "typed_capability_action",
+      text: JSON.stringify({
+        capabilityId: "queue.createItem",
+        input: { prompt: "Prompt", title: "Title" },
+        type: "hobit.action.request",
+      }),
+    });
+
+    expect(outcome).toMatchObject({
+      envelopeRead: {
+        reasons: ["dryRun is required for non-read capability queue.createItem."],
+        status: "invalid",
+      },
+      kind: "invalid_action_request",
+    });
+  });
+
+  it("classifies unknown Hobit action envelopes without dryRun as invalid_action_request", () => {
+    const outcome = classifyWorkspaceAgentActionProtocolOutput({
+      mode: "typed_capability_action",
+      text: JSON.stringify({
+        capabilityId: "workspace.fake.read",
+        input: {},
+        type: "hobit.action.request",
+      }),
+    });
+
+    expect(outcome).toMatchObject({
+      envelopeRead: {
+        reasons: [
+          "dryRun is required for unknown capability workspace.fake.read.",
+        ],
         status: "invalid",
       },
       kind: "invalid_action_request",
@@ -296,6 +364,12 @@ describe("WorkspaceAgentActionProtocol", () => {
     expect(prompt).toContain("No broker action was executed");
     expect(prompt).toContain("Intermediate prose is not a capability call");
     expect(prompt).toContain("grant is permission/scope only");
+    expect(prompt).toContain(
+      "dryRun may be omitted only for read-only typed capabilities",
+    );
+    expect(prompt).toContain(
+      "mutating, setup, run, and finalization actions require an explicit dryRun boolean",
+    );
     expect(prompt).not.toContain("awaiting capability result");
     expect(prompt).not.toContain("queue.items.list");
     expect(prompt).not.toContain("I saw");

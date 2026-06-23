@@ -50,8 +50,19 @@ execution. The context tells the agent it is inside Hobit, operating from the
 Workspace Agent surface, should use typed Hobit capabilities for app/product
 actions, and should treat Codex/shell as restricted execution capabilities.
 When the agent emits a valid `hobit.action.request` envelope, the frontend
-Action Broker validates policy/schema/side effects and invokes Queue adapter
-handlers. After an eligible successful broker result, Workspace Agent can feed
+normalizes missing `dryRun` only for registered read-only capabilities and
+then the Action Broker validates policy/schema/side effects and invokes Queue
+adapter handlers. Read-only live discovery/debug actions such as
+`workspace.context.get`, `workbench.widgets.list`, `queue.control.get`,
+`queue.workflow.get`, `queue.workflow.list`, `queue.workflow.getReport`,
+`queue.workflow.planResume`, and `queue.workflow.readActionLog` may omit
+`dryRun` and are treated as `dryRun: false`. Setup/write/run/finalization
+actions, including `queue.control.setManualEnabled`, `queue.createItem(s)`,
+`queue.item.updateRunSettings`, `queue.item.promoteDraft`,
+`queue.item.startRun`, lifecycle/review writes, `queue.item.markDone`, and
+`queue.item.fail`, still require an explicit boolean `dryRun` field. Unknown
+capabilities without `dryRun` are not defaulted. After an eligible successful
+broker result, Workspace Agent can feed
 a compact `hobit.action.result` back into the same Codex thread so the model
 can emit the next single `hobit.action.request` envelope or explicit
 `hobit.final.answer`. Typed-capability action mode now treats empty or

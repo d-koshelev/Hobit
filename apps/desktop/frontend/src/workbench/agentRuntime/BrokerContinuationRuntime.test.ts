@@ -182,11 +182,14 @@ describe("BrokerContinuationRuntime", () => {
         capabilityId: testCase.capabilityId,
         input: testCase.input,
         invoker,
+        omitDryRun: true,
       });
 
       expect(result.brokerResult.status, testCase.capabilityId).toBe(
         "succeeded",
       );
+      expect(result.brokerResult.request.dryRun, testCase.capabilityId)
+        .toBe(false);
       expect(result.brokerResult.policyDecision).toMatchObject({
         allowed: true,
         requiresConfirmation: false,
@@ -727,10 +730,12 @@ async function runLiveContinuationAction({
   capabilityId,
   input,
   invoker,
+  omitDryRun = false,
 }: {
   capabilityId: string;
   input: unknown;
   invoker: ReturnType<typeof createWorkspaceAgentHobitActionInvoker>;
+  omitDryRun?: boolean;
 }) {
   const state = createWorkspaceAgentBrokerContinuationState({
     chainId: `chain-${capabilityId}`,
@@ -744,6 +749,7 @@ async function runLiveContinuationAction({
     protocolOutcome: actionProtocolOutcome({
       capabilityId,
       input,
+      omitDryRun,
       requestId: `request-${capabilityId}`,
     }),
     state,
@@ -851,20 +857,22 @@ function effectOf<
 function actionProtocolOutcome({
   capabilityId,
   input,
+  omitDryRun = false,
   requestId,
 }: {
   capabilityId: string;
   input: unknown;
+  omitDryRun?: boolean;
   requestId: string;
 }) {
   const outcome = classifyAgentProtocolRuntimeOutput({
     mode: "typed_capability_action",
     text: JSON.stringify({
       capabilityId,
-      dryRun: false,
       input,
       requestId,
       type: "hobit.action.request",
+      ...(omitDryRun ? {} : { dryRun: false }),
     }),
   });
   if (outcome.kind !== "action_request") {

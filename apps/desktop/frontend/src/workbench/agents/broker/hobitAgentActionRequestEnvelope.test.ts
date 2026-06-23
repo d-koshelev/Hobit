@@ -69,6 +69,151 @@ describe("hobitAgentActionRequestEnvelope", () => {
     });
   });
 
+  it.each([
+    [
+      "workspace.context.get",
+      { includeQueueControl: true, includeWidgetSummary: true },
+    ],
+    [
+      "workbench.widgets.list",
+      { definitionIdFilter: "agent-run", visibleOnly: true },
+    ],
+    ["queue.control.get", {}],
+    ["queue.workflow.get", { workflowRunId: "workflow-run-1" }],
+    ["queue.workflow.list", { limit: 10 }],
+    ["queue.workflow.getReport", { workflowRunId: "workflow-run-1" }],
+    ["queue.workflow.planResume", { workflowRunId: "workflow-run-1" }],
+    ["queue.workflow.readActionLog", { workflowRunId: "workflow-run-1" }],
+  ])(
+    "normalizes missing dryRun to false for read-only capability %s",
+    (capabilityId, input) => {
+      const result = readHobitAgentActionRequestEnvelope(
+        JSON.stringify({
+          capabilityId,
+          input,
+          requestId: `request-${capabilityId}`,
+          type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+        }),
+      );
+
+      expect(result).toMatchObject({
+        dryRunSource: "default_read",
+        envelope: {
+          capabilityId,
+          dryRun: false,
+        },
+        status: "valid",
+      });
+    },
+  );
+
+  it("keeps non-boolean dryRun invalid for read-only capabilities", () => {
+    const result = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "workspace.context.get",
+        dryRun: "false",
+        input: {},
+        type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+      }),
+    );
+
+    expect(result).toMatchObject({
+      reasons: ["dryRun must be a boolean."],
+      status: "invalid",
+    });
+  });
+
+  it("does not default missing dryRun for unknown capabilities", () => {
+    const result = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "workspace.fake.read",
+        input: {},
+        type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+      }),
+    );
+
+    expect(result).toMatchObject({
+      reasons: [
+        "dryRun is required for unknown capability workspace.fake.read.",
+      ],
+      status: "invalid",
+    });
+  });
+
+  it.each([
+    ["queue.control.setManualEnabled", {}],
+    ["queue.createItem", { prompt: "Prompt", title: "Title" }],
+    ["queue.createItems", { items: [{ prompt: "Prompt", title: "Title" }] }],
+    ["queue.item.updateRunSettings", { taskId: "task-1", workspaceRoot: "C:/repo" }],
+    ["queue.item.promoteDraft", { taskId: "task-1" }],
+    [
+      "queue.item.startRun",
+      { executorWidgetId: "executor-1", taskId: "task-1" },
+    ],
+    [
+      "queue.lifecycle.agentFinished",
+      {
+        finalAgentMessage: "Done.",
+        outcome: "completed",
+        runId: "run-1",
+        taskId: "task-1",
+      },
+    ],
+    ["queue.review.createMessage", { taskId: "task-1" }],
+    ["queue.review.ack", { messageId: "message-1", taskId: "task-1" }],
+    ["queue.item.markDone", { taskId: "task-1" }],
+    ["queue.item.fail", { reason: "Rejected.", taskId: "task-1" }],
+    [
+      "queue.item.block",
+      {
+        coordinatorAgentId: "workspace-agent",
+        reason: "Blocked.",
+        taskId: "task-1",
+      },
+    ],
+  ])(
+    "requires explicit dryRun for non-read capability %s",
+    (capabilityId, input) => {
+      const result = readHobitAgentActionRequestEnvelope(
+        JSON.stringify({
+          capabilityId,
+          input,
+          requestId: `request-${capabilityId}`,
+          type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+        }),
+      );
+
+      expect(result).toMatchObject({
+        reasons: [`dryRun is required for non-read capability ${capabilityId}.`],
+        status: "invalid",
+      });
+    },
+  );
+
+  it("preserves explicit dryRun false for non-read capabilities", () => {
+    const result = readHobitAgentActionRequestEnvelope(
+      JSON.stringify({
+        capabilityId: "queue.item.startRun",
+        dryRun: false,
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        },
+        requestId: "queue-start-run-explicit",
+        type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
+      }),
+    );
+
+    expect(result).toMatchObject({
+      dryRunSource: "explicit",
+      envelope: {
+        capabilityId: "queue.item.startRun",
+        dryRun: false,
+      },
+      status: "valid",
+    });
+  });
+
   it("returns invalid for malformed structured JSON", () => {
     const result = readHobitAgentActionRequestEnvelope(
       [
