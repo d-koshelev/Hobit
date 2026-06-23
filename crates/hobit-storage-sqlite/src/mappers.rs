@@ -18,9 +18,10 @@ pub(crate) fn workspace_row(row: &rusqlite::Row<'_>) -> Result<WorkspaceRow> {
         id: row.get(0)?,
         title: row.get(1)?,
         description: row.get(2)?,
-        status: row.get(3)?,
-        created_at: row.get(4)?,
-        updated_at: row.get(5)?,
+        root_path: row.get(3)?,
+        status: row.get(4)?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
     })
 }
 
@@ -29,17 +30,18 @@ pub(crate) fn workspace_summary_row(row: &rusqlite::Row<'_>) -> Result<Workspace
         id: row.get(0)?,
         title: row.get(1)?,
         description: row.get(2)?,
-        status: row.get(3)?,
-        created_at: row.get(4)?,
-        updated_at: row.get(5)?,
-        last_opened_at: row.get(6)?,
-        widget_count: row.get(7)?,
-        workspace_agent_count: row.get(8)?,
-        note_count: row.get(9)?,
-        skill_count: row.get(10)?,
-        knowledge_document_count: row.get(11)?,
-        queue_task_count: row.get(12)?,
-        workbench_id: row.get(13)?,
+        root_path: row.get(3)?,
+        status: row.get(4)?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
+        last_opened_at: row.get(7)?,
+        widget_count: row.get(8)?,
+        workspace_agent_count: row.get(9)?,
+        note_count: row.get(10)?,
+        skill_count: row.get(11)?,
+        knowledge_document_count: row.get(12)?,
+        queue_task_count: row.get(13)?,
+        workbench_id: row.get(14)?,
     })
 }
 

@@ -37,6 +37,36 @@ fn create_empty_workspace_creates_workspace_and_workbench() {
 }
 
 #[test]
+fn create_empty_workspace_with_root_path_persists_workspace_root() {
+    let service = initialized_service();
+    let root_path = std::env::temp_dir().to_string_lossy().to_string();
+
+    let summary = service
+        .create_empty_workspace_with_root_path("Incident", None, Some(root_path.clone()))
+        .expect("create workspace with root path");
+    let reopened = service
+        .get_workspace_summary(&summary.id)
+        .expect("get workspace summary")
+        .expect("workspace summary");
+
+    assert_eq!(summary.root_path.as_deref(), Some(root_path.as_str()));
+    assert_eq!(reopened.root_path.as_deref(), Some(root_path.as_str()));
+}
+
+#[test]
+fn create_empty_workspace_with_root_path_rejects_invalid_root_path() {
+    let service = initialized_service();
+
+    for root_path in ["", "   ", "~", ".", "relative/path"] {
+        let error = service
+            .create_empty_workspace_with_root_path("Incident", None, Some(root_path.to_owned()))
+            .expect_err("reject invalid root path");
+
+        assert!(matches!(error, WorkspaceServiceError::InvalidInput(_)));
+    }
+}
+
+#[test]
 fn workspace_summary_includes_created_opened_and_safe_stats() {
     let service = initialized_service();
     let workspace = service

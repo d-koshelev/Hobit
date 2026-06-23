@@ -61,6 +61,7 @@ function normalizeCreateWorkspaceRequest(
   return {
     title: request.title,
     description: request.description ?? null,
+    rootPath: normalizeWorkspaceRoot(request.rootPath),
   };
 }
 
@@ -71,4 +72,14 @@ function normalizeUpdateWorkspaceRequest(
     workspaceId: request.workspaceId,
     title: request.title,
   };
+}
+
+function normalizeWorkspaceRoot(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }

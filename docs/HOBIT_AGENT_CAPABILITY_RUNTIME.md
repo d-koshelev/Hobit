@@ -175,6 +175,11 @@ restricted capabilities for explicit workspace/code execution requests only.
   summaries plus recommendation/blockers; `queue.control.get` exposes backend
   control status/version metadata. Activity rows and transcript summaries
   remain compact.
+  `workspaceRootPath` is durable Workspace data when present and is the source
+  of truth for live Workspace Agent context. The desktop process current
+  directory is only a legacy fallback for older Workspace rows without a
+  persisted root path, and in Tauri dev that fallback can resolve to
+  `apps/desktop/src-tauri` instead of the operator's repository root.
   The loop is frontend-only, capped at 16 actions, grouped in transcript and
   activity, and can use a structured Queue bounded autonomy grant:
   `{"type":"hobit.queue.autonomyGrant","mode":"queue_acceptance_smoke",...}`.

@@ -148,9 +148,12 @@ remains the next step after this read-only context discovery path. The broker
 continuation `hobit.action.result` context now preserves bounded structured
 payloads for `workspace.context.get`, `workbench.widgets.list`, and
 `queue.control.get`, so Workspace Agent can read exact `workspaceId`,
-`workbenchId`, Queue control status/version, queue-local execution targets,
-and `recommendedQueueOwnerWidgetInstanceId` from action results rather than
-compact display text.
+`workbenchId`, durable `workspaceRootPath`, Queue control status/version,
+queue-local execution targets, and `recommendedQueueOwnerWidgetInstanceId`
+from action results rather than compact display text. Persisted Workspace root
+path is the product truth for new Workspaces. The desktop process current
+directory remains only a legacy fallback for old rows with null root path and
+can resolve to `apps/desktop/src-tauri` under `cargo tauri dev`.
 Worker start now has a backend-owned idempotency/control contract on the
 existing assigned-task start path for Queue workflow phases. Workflow
 context requires explicit workflow/action/task/executor-owner/settings refs
@@ -1282,8 +1285,9 @@ as available from the foundation above:
   `dependency_failure_smoke` smoke execution from the desktop Workspace Agent
   session. The discovery/control/invocation foundation is implemented:
   `workspace.context.get` reads current workspace/workbench/root context from
-  live renderer state, `workbench.widgets.list` lists bounded widget instances
-  and discovers queue-local execution targets from Agent Queue widgets by
+  live renderer state backed by durable Workspace root path data,
+  `workbench.widgets.list` lists bounded widget instances and discovers
+  queue-local execution targets from Agent Queue widgets by
   `definitionId === "agent-queue"` while retaining `agent-run` discovery as
   compatibility only,
   `queue.control.get` reads backend Queue control state through the Queue

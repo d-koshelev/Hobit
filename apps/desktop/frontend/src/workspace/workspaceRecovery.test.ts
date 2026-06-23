@@ -37,7 +37,9 @@ afterEach(() => {
 
 describe("recoverLastOpenWorkspace", () => {
   it("opens and restores the persisted last workspace", async () => {
-    const workspace = workspaceSummary();
+    const workspace = workspaceSummary({
+      rootPath: "C:/Users/Dmitry/Documents/prj/Hobit_queue_logic",
+    });
     writeRecoveryRecord(workspace);
     workspaceApiMocks.openWorkspace.mockResolvedValue(sessionSummary());
     workspaceApiMocks.getWorkspaceWorkbenchState.mockResolvedValue(
@@ -54,6 +56,9 @@ describe("recoverLastOpenWorkspace", () => {
 
     if (recovery.kind === "restored") {
       expect(recovery.viewState.workspace.id).toBe(workspace.id);
+      expect(recovery.viewState.workspace.rootPath).toBe(
+        "C:/Users/Dmitry/Documents/prj/Hobit_queue_logic",
+      );
       expect(recovery.viewState.workspace.title).toBe(workspace.title);
       expect(recovery.viewState.widgets.map((widget) => widget.definitionId))
         .toEqual(["interactive-agent", "notes"]);

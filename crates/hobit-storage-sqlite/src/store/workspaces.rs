@@ -14,12 +14,23 @@ impl SqliteStore {
         description: Option<&str>,
         status: &str,
     ) -> Result<WorkspaceRow> {
+        self.create_workspace_with_root_path(id, title, description, None, status)
+    }
+
+    pub fn create_workspace_with_root_path(
+        &self,
+        id: &str,
+        title: &str,
+        description: Option<&str>,
+        root_path: Option<&str>,
+        status: &str,
+    ) -> Result<WorkspaceRow> {
         let now = now_timestamp();
         self.connection.execute(
             "INSERT INTO workspaces (
-                id, title, description, status, created_at, updated_at
-            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![id, title, description, status, now, now],
+                id, title, description, root_path, status, created_at, updated_at
+            ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![id, title, description, root_path, status, now, now],
         )?;
 
         self.get_workspace(id)?
@@ -29,7 +40,7 @@ impl SqliteStore {
     pub fn get_workspace(&self, id: &str) -> Result<Option<WorkspaceRow>> {
         self.connection
             .query_row(
-                "SELECT id, title, description, status, created_at, updated_at
+                "SELECT id, title, description, root_path, status, created_at, updated_at
                  FROM workspaces
                  WHERE id = ?1",
                 params![id],
@@ -57,7 +68,7 @@ impl SqliteStore {
 
     pub fn list_workspaces(&self) -> Result<Vec<WorkspaceRow>> {
         let mut statement = self.connection.prepare(
-            "SELECT id, title, description, status, created_at, updated_at
+            "SELECT id, title, description, root_path, status, created_at, updated_at
              FROM workspaces
              ORDER BY updated_at DESC, id",
         )?;
@@ -72,6 +83,7 @@ impl SqliteStore {
                 workspaces.id,
                 workspaces.title,
                 workspaces.description,
+                workspaces.root_path,
                 workspaces.status,
                 workspaces.created_at,
                 workspaces.updated_at,
@@ -136,6 +148,7 @@ impl SqliteStore {
                     workspaces.id,
                     workspaces.title,
                     workspaces.description,
+                    workspaces.root_path,
                     workspaces.status,
                     workspaces.created_at,
                     workspaces.updated_at,

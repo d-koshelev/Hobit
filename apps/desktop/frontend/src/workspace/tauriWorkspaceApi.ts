@@ -316,6 +316,7 @@ async function createWorkspace(
     request: {
       title: request.title,
       description: request.description ?? null,
+      root_path: normalizeWorkspaceRoot(request.rootPath),
     },
   });
 

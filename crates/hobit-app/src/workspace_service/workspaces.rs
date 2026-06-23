@@ -1,3 +1,5 @@
+use std::path::Path;
+
 use hobit_storage_sqlite::NewWorkspaceSession;
 
 use crate::WorkspaceServiceError;
@@ -15,8 +17,18 @@ impl WorkspaceService {
         title: impl Into<String>,
         description: Option<String>,
     ) -> Result<WorkspaceSummary, WorkspaceServiceError> {
+        self.create_empty_workspace_with_root_path(title, description, None)
+    }
+
+    pub fn create_empty_workspace_with_root_path(
+        &self,
+        title: impl Into<String>,
+        description: Option<String>,
+        root_path: Option<String>,
+    ) -> Result<WorkspaceSummary, WorkspaceServiceError> {
         let title = title.into();
         let title = title.trim();
+        let root_path = normalize_workspace_root_path(root_path)?;
 
         if title.is_empty() {
             return Err(WorkspaceServiceError::InvalidInput(
@@ -28,8 +40,13 @@ impl WorkspaceService {
         let workbench_id = placeholder_id("wb_");
 
         let (workspace, workbench) = self.store.with_immediate_transaction(|store| {
-            let workspace =
-                store.create_workspace(&workspace_id, title, description.as_deref(), "active")?;
+            let workspace = store.create_workspace_with_root_path(
+                &workspace_id,
+                title,
+                description.as_deref(),
+                root_path.as_deref(),
+                "active",
+            )?;
             let workbench = store.create_workspace_workbench(&workbench_id, &workspace.id, None)?;
 
             let event_payload = format!("workbench_id={}", workbench.id);
@@ -183,4 +200,33 @@ impl WorkspaceService {
             active_widget_id: session.active_widget_id,
         }))
     }
+}
+
+fn normalize_workspace_root_path(
+    root_path: Option<String>,
+) -> Result<Option<String>, WorkspaceServiceError> {
+    let Some(root_path) = root_path else {
+        return Ok(None);
+    };
+    let trimmed = root_path.trim();
+
+    if trimmed.is_empty() || trimmed == "~" || trimmed == "." {
+        return Err(WorkspaceServiceError::InvalidInput(
+            "workspace root path must be an existing absolute directory".to_owned(),
+        ));
+    }
+
+    let path = Path::new(trimmed);
+    if !path.is_absolute() {
+        return Err(WorkspaceServiceError::InvalidInput(
+            "workspace root path must be absolute".to_owned(),
+        ));
+    }
+    if !path.is_dir() {
+        return Err(WorkspaceServiceError::InvalidInput(
+            "workspace root path must be an existing directory".to_owned(),
+        ));
+    }
+
+    Ok(Some(trimmed.to_owned()))
 }

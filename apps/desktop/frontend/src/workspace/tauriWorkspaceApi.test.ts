@@ -129,6 +129,43 @@ describe("tauri workspace api adapter", () => {
     expect(mocks.invoke).toHaveBeenCalledWith("list_workspaces");
   });
 
+  it("maps create workspace rootPath to the Tauri create request", async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      id: "ws_1",
+      title: "Repo workspace",
+      description: null,
+      root_path: "C:/Users/Dmitry/Documents/prj/Hobit_queue_logic",
+      status: "active",
+      created_at: "2026-06-23T10:00:00Z",
+      updated_at: "2026-06-23T10:00:00Z",
+      last_opened_at: null,
+      widget_count: 0,
+      workspace_agent_count: 0,
+      note_count: 0,
+      skill_count: 0,
+      knowledge_document_count: 0,
+      queue_task_count: 0,
+      workbench_id: "wb_1",
+    });
+
+    await expect(
+      tauriWorkspaceApi.createWorkspace({
+        title: "Repo workspace",
+        description: null,
+        rootPath: " C:/Users/Dmitry/Documents/prj/Hobit_queue_logic ",
+      }),
+    ).resolves.toMatchObject({
+      rootPath: "C:/Users/Dmitry/Documents/prj/Hobit_queue_logic",
+    });
+    expect(mocks.invoke).toHaveBeenCalledWith("create_workspace", {
+      request: {
+        title: "Repo workspace",
+        description: null,
+        root_path: "C:/Users/Dmitry/Documents/prj/Hobit_queue_logic",
+      },
+    });
+  });
+
   it("maps workspace rename payloads and normalized summaries", async () => {
     mocks.invoke.mockResolvedValueOnce({
       id: "ws_1",

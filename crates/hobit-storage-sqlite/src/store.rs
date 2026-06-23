@@ -153,6 +153,7 @@ impl SqliteStore {
     fn upgrade_schema(&self) -> Result<()> {
         self.upgrade_widget_logs_schema()?;
         self.upgrade_knowledge_documents_schema()?;
+        self.ensure_column("workspaces", "root_path", "root_path TEXT NULL")?;
         self.ensure_column(
             "widget_results",
             "result_type",

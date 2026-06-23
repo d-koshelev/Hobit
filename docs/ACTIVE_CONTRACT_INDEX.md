@@ -804,7 +804,10 @@ the local executor flow visible to operators.
   Agent live smoke discovery may read live renderer-held workspace/workbench
   and widget instance state through `workspace.context.get` and
   `workbench.widgets.list`, and backend Queue control state through
-  `queue.control.get`. Workspace Agent may set only backend Queue control
+  `queue.control.get`. `workspace.context.get` reports durable Workspace root
+  path data when present; the desktop process cwd fallback is legacy only and
+  can point at `apps/desktop/src-tauri` in Tauri dev. Workspace Agent may set
+  only backend Queue control
   state to `manual_enabled` through `queue.control.setManualEnabled`; this does
   not start workers, dispatch a scheduler, mutate Queue tasks, create run
   links, record evidence/reviews/finalization, invoke workflows, or launch

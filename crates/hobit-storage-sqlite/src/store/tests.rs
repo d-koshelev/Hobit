@@ -225,11 +225,52 @@ fn init_schema_upgrades_agent_queue_task_assignment_column() {
 }
 
 #[test]
+fn init_schema_upgrades_workspaces_root_path_column() {
+    let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
+    store
+        .connection
+        .execute_batch(
+            r#"
+                CREATE TABLE workspaces (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                INSERT INTO workspaces (
+                    id, title, description, status, created_at, updated_at
+                ) VALUES (
+                    'workspace-1', 'Workspace', NULL, 'active', '1', '1'
+                );
+                "#,
+        )
+        .expect("create legacy workspace table");
+
+    store.init_schema().expect("upgrade schema");
+
+    let workspace = store
+        .get_workspace("workspace-1")
+        .expect("get upgraded workspace")
+        .expect("upgraded workspace");
+
+    assert_eq!(workspace.root_path, None);
+}
+
+#[test]
 fn create_and_load_workspace() {
     let store = initialized_store();
 
     let created = store
-        .create_workspace("workspace-1", "Incident", Some("Investigate"), "active")
+        .create_workspace_with_root_path(
+            "workspace-1",
+            "Incident",
+            Some("Investigate"),
+            Some("C:/repo"),
+            "active",
+        )
         .expect("create workspace");
     let loaded = store
         .get_workspace("workspace-1")
@@ -239,6 +280,7 @@ fn create_and_load_workspace() {
     assert_eq!(created.id, loaded.id);
     assert_eq!(loaded.title, "Incident");
     assert_eq!(loaded.description.as_deref(), Some("Investigate"));
+    assert_eq!(loaded.root_path.as_deref(), Some("C:/repo"));
     assert_eq!(loaded.status, "active");
 }
 
@@ -526,6 +568,7 @@ fn list_workspace_summaries_includes_metadata_and_scoped_counts() {
         .expect("get workspace summary")
         .expect("workspace summary");
 
+    assert_eq!(summary.root_path, None);
     assert_eq!(summary.last_opened_at.as_deref(), Some("20"));
     assert_eq!(summary.widget_count, 2);
     assert_eq!(summary.workspace_agent_count, 1);

@@ -62,7 +62,11 @@ pub(crate) fn create_workspace(
 ) -> Result<WorkspaceSummaryDto, String> {
     let service = workspace_service(state.db_path())?;
     service
-        .create_empty_workspace(request.title, request.description)
+        .create_empty_workspace_with_root_path(
+            request.title,
+            request.description,
+            request.root_path,
+        )
         .map(|summary| root_dto::summary(summary, state.workspace_root()))
         .map_err(command_error)
 }

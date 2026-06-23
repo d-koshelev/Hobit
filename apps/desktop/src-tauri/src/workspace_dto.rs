@@ -14,6 +14,8 @@ use std::path::PathBuf;
 pub(crate) struct CreateWorkspaceRequest {
     pub title: String,
     pub description: Option<String>,
+    #[serde(default, alias = "rootPath")]
+    pub root_path: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]

@@ -95,6 +95,12 @@ capabilities before any smoke execution step:
   Queue control state from live renderer-held typed app state plus the Queue
   control bridge. Its broker continuation result includes bounded structured
   payload fields for the model, not only the compact activity text.
+  `workspaceRootPath` must come from durable Workspace data when present. For
+  new live smoke setup, create/open the Workspace for the actual repository
+  root, for example
+  `C:/Users/Dmitry/Documents/prj/Hobit_queue_logic`, and verify discovery
+  reports that path. The process current-directory fallback is legacy only and
+  can point at `apps/desktop/src-tauri` when running `cargo tauri dev`.
 - `workbench.widgets.list` returns bounded live widget instances and discovers
   Queue-local workflow execution targets from Agent Queue widgets by
   `definitionId === "agent-queue"`. Use the returned
@@ -306,6 +312,8 @@ Initial dependency workflow inputs:
 - `inputs.runSettings.codexExecutable`: non-empty executable such as
   `codex`, `codex.cmd`, or an explicit path.
 - `inputs.runSettings.workspaceRoot`: explicit execution workspace/root.
+  For Hobit repo smoke, use the durable Workspace root reported by
+  `workspace.context.get`, not process cwd or localStorage.
 - `inputs.runSettings.sandbox`: `read_only`, `workspace_write`, or
   `danger_full_access`.
 - `inputs.runSettings.approvalPolicy`: `never`, `on_request`, or
@@ -367,7 +375,7 @@ Schematic initial request shape:
   "inputs": {
     "runSettings": {
       "codexExecutable": "codex.cmd",
-      "workspaceRoot": "C:/path/to/workspace",
+      "workspaceRoot": "C:/Users/Dmitry/Documents/prj/Hobit_queue_logic",
       "sandbox": "workspace_write",
       "approvalPolicy": "on_request",
       "executionPolicy": "manual",

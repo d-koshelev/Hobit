@@ -16,7 +16,7 @@ use serde_json::json;
 
 use crate::workspace_dto::{
     AgentChatProposalActionRequest, AgentChatProposalRequest, AgentMonitoringSnapshotDto,
-    DeleteWidgetInstanceFromWorkbenchRequest, DeleteWorkspaceRequest,
+    CreateWorkspaceRequest, DeleteWidgetInstanceFromWorkbenchRequest, DeleteWorkspaceRequest,
     GetAgentMonitoringSnapshotRequest, GitRepositoryStatusDto, PersistAgentChatProposalRequest,
     PersistAgentChatProposalResponseDto, RunTerminalCommandRequest, RunTerminalCommandResponseDto,
     WidgetLogDto, WorkspaceDeletionResponseDto, WorkspaceSessionSummaryDto, WorkspaceSummaryDto,
@@ -136,6 +136,50 @@ fn maps_workspace_summary_fallback_root_to_dto_root_path() {
         dto.root_path.as_deref(),
         Some("C:/Users/Dmitry/Documents/prj/Hobit_fixed")
     );
+}
+
+#[test]
+fn maps_persisted_workspace_root_before_fallback_root() {
+    let summary = WorkspaceSummary {
+        id: "ws_1".to_owned(),
+        title: "Incident".to_owned(),
+        description: None,
+        root_path: Some("C:/repo".to_owned()),
+        status: "active".to_owned(),
+        created_at: "2026-05-25T10:00:00Z".to_owned(),
+        updated_at: "2026-05-25T10:30:00Z".to_owned(),
+        last_opened_at: None,
+        widget_count: 0,
+        workspace_agent_count: 0,
+        note_count: 0,
+        skill_count: 0,
+        knowledge_document_count: 0,
+        queue_task_count: 0,
+        workbench_id: Some("wb_1".to_owned()),
+    };
+
+    let dto = root_dto::summary(summary, Some("C:/src-tauri"));
+
+    assert_eq!(dto.root_path.as_deref(), Some("C:/repo"));
+}
+
+#[test]
+fn deserializes_create_workspace_request_root_path_aliases() {
+    let snake_case: CreateWorkspaceRequest = serde_json::from_value(json!({
+        "title": "Repo workspace",
+        "description": null,
+        "root_path": "C:/repo"
+    }))
+    .expect("deserialize snake root path");
+    let camel_case: CreateWorkspaceRequest = serde_json::from_value(json!({
+        "title": "Repo workspace",
+        "description": null,
+        "rootPath": "C:/repo"
+    }))
+    .expect("deserialize camel root path");
+
+    assert_eq!(snake_case.root_path.as_deref(), Some("C:/repo"));
+    assert_eq!(camel_case.root_path.as_deref(), Some("C:/repo"));
 }
 
 #[test]

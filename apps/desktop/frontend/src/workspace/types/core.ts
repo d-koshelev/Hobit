@@ -19,6 +19,7 @@ export type WorkspaceSummary = {
 export type CreateWorkspaceRequest = {
   title: string;
   description?: string | null;
+  rootPath?: string | null;
 };
 
 export type UpdateWorkspaceRequest = {
