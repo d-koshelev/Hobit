@@ -36,7 +36,13 @@ import type {
   AgentQueueWorkflowApplyRunSettingsResult,
   AgentQueueWorkflowMaterializeTaskSlotResult,
   AgentQueueWorkflowPromoteTaskSlotResult,
+  AgentQueueWorkflowReport,
+  AgentQueueWorkflowResumePlan,
+  AgentQueueWorkflowRun,
   AgentQueueWorkflowWorkerEvidenceRecordResult,
+  GetAgentQueueWorkflowRequest,
+  ListAgentQueueWorkflowsRequest,
+  PlanAgentQueueWorkflowResumeRequest,
   RecordAgentQueueWorkflowWorkerEvidenceRequest,
 } from "../workspace/types";
 import type { AgentExecutorSlot } from "./types";
@@ -227,6 +233,18 @@ export type WorkspaceQueueWorkerEvidenceActions = {
 };
 
 export type WorkspaceQueueWorkflowActions = {
+  getWorkflow: (
+    request: GetAgentQueueWorkflowRequest,
+  ) => Promise<AgentQueueWorkflowRun | null>;
+  getWorkflowReport: (
+    request: GetAgentQueueWorkflowRequest,
+  ) => Promise<AgentQueueWorkflowReport | null>;
+  listWorkflows: (
+    request: ListAgentQueueWorkflowsRequest,
+  ) => Promise<AgentQueueWorkflowRun[]>;
+  planWorkflowResume: (
+    request: PlanAgentQueueWorkflowResumeRequest,
+  ) => Promise<AgentQueueWorkflowResumePlan | null>;
   applyWorkflowRunSettings: (
     request: ApplyAgentQueueWorkflowRunSettingsRequest,
   ) => Promise<AgentQueueWorkflowApplyRunSettingsResult>;
@@ -280,6 +298,18 @@ export type WorkspaceAgentQueueBridge = {
   getWorkerEvidenceBundle?: (
     request: Omit<GetAgentQueueWorkerEvidenceBundleRequest, "workspaceId">,
   ) => Promise<AgentQueueWorkerEvidenceQueryResult>;
+  getWorkflow?: (
+    request: Omit<GetAgentQueueWorkflowRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowRun | null>;
+  getWorkflowReport?: (
+    request: Omit<GetAgentQueueWorkflowRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowReport | null>;
+  listWorkflows?: (
+    request?: Omit<ListAgentQueueWorkflowsRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowRun[]>;
+  planWorkflowResume?: (
+    request: Omit<PlanAgentQueueWorkflowResumeRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowResumePlan | null>;
   recordWorkerFinished?: (
     request: Omit<RecordAgentQueueWorkerFinishedRequest, "workspaceId">,
   ) => Promise<AgentQueueWorkerFinishedCommandResult>;
@@ -434,6 +464,34 @@ export function createWorkspaceAgentQueueBridge({
     recordWorkerFinished: workerEvidenceActions
       ? (request) =>
           workerEvidenceActions.recordAgentQueueWorkerFinished({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    getWorkflow: workflowActions
+      ? (request) =>
+          workflowActions.getWorkflow({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    getWorkflowReport: workflowActions
+      ? (request) =>
+          workflowActions.getWorkflowReport({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    listWorkflows: workflowActions
+      ? (request = {}) =>
+          workflowActions.listWorkflows({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    planWorkflowResume: workflowActions
+      ? (request) =>
+          workflowActions.planWorkflowResume({
             ...request,
             workspaceId,
           })

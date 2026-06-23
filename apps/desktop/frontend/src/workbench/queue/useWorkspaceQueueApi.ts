@@ -38,6 +38,9 @@ import {
 } from "../../workspace/tauriAgentQueueWorkerEvidenceApi";
 import {
   applyAgentQueueWorkflowRunSettings,
+  getAgentQueueWorkflow,
+  getAgentQueueWorkflowReport,
+  listAgentQueueWorkflows,
   materializeAgentQueueWorkflowTaskSlot,
   planAgentQueueWorkflowResume,
   promoteAgentQueueWorkflowTaskSlot,
@@ -226,6 +229,22 @@ export function useWorkspaceQueueApi({
         latestBridgeRef.current?.getWorkerEvidenceBundle?.(request) ??
         Promise.reject(
           new Error("Queue worker evidence read API is unavailable."),
+        ),
+      getWorkflow: (request) =>
+        latestBridgeRef.current?.getWorkflow?.(request) ??
+        Promise.reject(new Error("Queue workflow get API is unavailable.")),
+      getWorkflowReport: (request) =>
+        latestBridgeRef.current?.getWorkflowReport?.(request) ??
+        Promise.reject(
+          new Error("Queue workflow report read API is unavailable."),
+        ),
+      listWorkflows: (request) =>
+        latestBridgeRef.current?.listWorkflows?.(request) ??
+        Promise.reject(new Error("Queue workflow list API is unavailable.")),
+      planWorkflowResume: (request) =>
+        latestBridgeRef.current?.planWorkflowResume?.(request) ??
+        Promise.reject(
+          new Error("Queue workflow resume planning API is unavailable."),
         ),
       recordWorkerFinished: (request) =>
         latestBridgeRef.current?.recordWorkerFinished?.(request) ??
@@ -469,7 +488,11 @@ export function useWorkspaceQueueApi({
     },
     workflowActions: {
       applyWorkflowRunSettings: applyAgentQueueWorkflowRunSettings,
+      getWorkflow: getAgentQueueWorkflow,
+      getWorkflowReport: getAgentQueueWorkflowReport,
+      listWorkflows: listAgentQueueWorkflows,
       materializeWorkflowTaskSlot: materializeAgentQueueWorkflowTaskSlot,
+      planWorkflowResume: planAgentQueueWorkflowResume,
       promoteWorkflowTaskSlot: promoteAgentQueueWorkflowTaskSlot,
       recordWorkflowWorkerEvidence: recordAgentQueueWorkflowWorkerEvidence,
       startAssignedAgentQueueTask: actions.startAssignedAgentQueueTask,

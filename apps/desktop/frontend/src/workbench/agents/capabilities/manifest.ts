@@ -236,6 +236,123 @@ const QUEUE_ITEMS_LIST_SCHEMA: HobitAgentCapabilityInputSchema = {
   shape: '{"limit":"number optional 1-50","taskId":"string optional"}',
 };
 
+const QUEUE_WORKFLOW_READ_FORBIDDEN_SIDE_EFFECTS = [
+  "queue_mutation",
+  "queue_control_set",
+  "queue_item_create",
+  "queue_item_update",
+  "workflow_invocation",
+  "workflow_execution",
+  "worker_start",
+  "auto_run_workers",
+  "queue_autorun",
+  "run_link_create",
+  "evidence_mutation",
+  "review_mutation",
+  "finalization_mutation",
+  "codex_run",
+  "shell_command",
+  "terminal_launch",
+  "git_mutation",
+  "validation_execution",
+  "rollback_execution",
+  "dom_scraping",
+  "ui_text_id_inference",
+  "prose_id_inference",
+  "raw_confirmation_token",
+] as const;
+
+const QUEUE_WORKFLOW_GET_SCHEMA: HobitAgentCapabilityInputSchema = {
+  acceptedFields: ["workspaceId", "workflowRunId"],
+  fieldDescriptions: {
+    workflowRunId:
+      "Required explicit workflow run id returned by queue.workflow.list, workflow start, or another typed workflow result.",
+    workspaceId:
+      "Optional exact workspace id. If supplied, it must match the current live Workspace context.",
+  },
+  invalidInputGuidance: [
+    "workflowRunId is required.",
+    "Use queue.workflow.list first when workflowRunId was lost.",
+    "Do not infer workflowRunId from UI text, task titles, task order, prompt text, file paths, transcript text, or prose.",
+    "This action reads one workflow run summary only. It never invokes workflows, starts workers, mutates Queue state, records evidence, creates/ACKs reviews, or finalizes tasks.",
+  ],
+  requiredFields: ["workflowRunId"],
+  shape:
+    '{"workspaceId":"string optional exact current workspace id","workflowRunId":"string required explicit workflow run id"}',
+};
+
+const QUEUE_WORKFLOW_LIST_SCHEMA: HobitAgentCapabilityInputSchema = {
+  acceptedFields: ["workspaceId", "status", "workflowId", "limit"],
+  fieldDescriptions: {
+    limit: "Optional maximum workflow run summaries to return. Range: 1-50.",
+    status:
+      "Optional exact workflow run status filter: created, running, paused, blocked, completed, failed, or cancelled.",
+    workflowId: "Optional exact declared Queue workflow id filter.",
+    workspaceId:
+      "Optional exact workspace id. If supplied, it must match the current live Workspace context.",
+  },
+  invalidInputGuidance: [
+    "Use this when workflowRunId was lost during smoke/debug work.",
+    "Do not supply task titles, UI text, prompt text, transcript text, file paths, or prose hints.",
+    "This action reads bounded workflow run summaries only. It never invokes workflows, starts workers, mutates Queue state, or creates Queue tasks.",
+  ],
+  requiredFields: [],
+  shape:
+    '{"workspaceId":"string optional exact current workspace id","status":"created|running|paused|blocked|completed|failed|cancelled optional","workflowId":"string optional exact workflow id","limit":"number optional 1-50"}',
+};
+
+const QUEUE_WORKFLOW_GET_REPORT_SCHEMA: HobitAgentCapabilityInputSchema = {
+  ...QUEUE_WORKFLOW_GET_SCHEMA,
+  invalidInputGuidance: [
+    "workflowRunId is required.",
+    "Use queue.workflow.getReport to recover continuation ids such as taskIds, runIds, evidenceBundleIds, messageIds, completionDecisionIds, and failureDecisionIds.",
+    "Do not infer ids from UI text, task titles, task order, prompt text, file paths, transcript text, or prose.",
+    "This action reads the bounded persisted workflow report and action summaries only. It never exposes raw provider transcript or raw confirmationToken.",
+  ],
+};
+
+const QUEUE_WORKFLOW_PLAN_RESUME_SCHEMA: HobitAgentCapabilityInputSchema = {
+  acceptedFields: ["workspaceId", "workflowRunId", "expectedVersion"],
+  fieldDescriptions: {
+    expectedVersion:
+      "Optional exact workflow run version. If supplied, mismatches return a read-only resume blocker.",
+    workflowRunId:
+      "Required explicit workflow run id returned by queue.workflow.list, workflow start, or another typed workflow result.",
+    workspaceId:
+      "Optional exact workspace id. If supplied, it must match the current live Workspace context.",
+  },
+  invalidInputGuidance: [
+    "workflowRunId is required.",
+    "Call queue.workflow.planResume before continuation when resuming smoke/debug work.",
+    "Do not infer workflowRunId or version from UI text, task titles, prompt text, transcript text, file paths, or prose.",
+    "This action is read-only. It plans resume state and blockers but never executes workflow steps, starts workers, or mutates Queue state.",
+  ],
+  requiredFields: ["workflowRunId"],
+  shape:
+    '{"workspaceId":"string optional exact current workspace id","workflowRunId":"string required explicit workflow run id","expectedVersion":"number optional non-negative integer"}',
+};
+
+const QUEUE_WORKFLOW_READ_ACTION_LOG_SCHEMA: HobitAgentCapabilityInputSchema = {
+  acceptedFields: ["workspaceId", "workflowRunId", "limit", "status"],
+  fieldDescriptions: {
+    limit: "Optional maximum action summaries to return. Range: 1-50.",
+    status: "Optional exact workflow action status filter.",
+    workflowRunId:
+      "Required explicit workflow run id returned by queue.workflow.list, workflow start, or another typed workflow result.",
+    workspaceId:
+      "Optional exact workspace id. If supplied, it must match the current live Workspace context.",
+  },
+  invalidInputGuidance: [
+    "workflowRunId is required.",
+    "Use queue.workflow.readActionLog to debug idempotency/action issues from persisted action summaries.",
+    "Do not infer workflowRunId from UI text, task titles, prompt text, transcript text, file paths, or prose.",
+    "This action reads bounded action summaries only. It never exposes raw logs, raw provider transcript, or raw confirmationToken.",
+  ],
+  requiredFields: ["workflowRunId"],
+  shape:
+    '{"workspaceId":"string optional exact current workspace id","workflowRunId":"string required explicit workflow run id","limit":"number optional 1-50","status":"string optional exact action status"}',
+};
+
 const QUEUE_CONTROL_GET_SCHEMA: HobitAgentCapabilityInputSchema = {
   acceptedFields: ["workspaceId"],
   fieldDescriptions: {
@@ -472,6 +589,85 @@ const QUEUE_RUN_CONTROL_EXAMPLES: Record<string, HobitAgentCapabilityExample[]> 
         type: "hobit.action.request",
       },
       exampleInput: { limit: 25 },
+    },
+  ],
+  "queue.workflow.get": [
+    {
+      description: "Read one Queue workflow run summary by explicit workflowRunId.",
+      exampleActionRequest: {
+        capabilityId: "queue.workflow.get",
+        dryRun: false,
+        input: { workflowRunId: "workflow-run-id" },
+        requestId: "queue-workflow-get-1",
+        type: "hobit.action.request",
+      },
+      exampleInput: { workflowRunId: "workflow-run-id" },
+    },
+  ],
+  "queue.workflow.list": [
+    {
+      description: "List recent Queue workflow runs to recover a lost workflowRunId.",
+      exampleActionRequest: {
+        capabilityId: "queue.workflow.list",
+        dryRun: false,
+        input: { limit: 10 },
+        requestId: "queue-workflow-list-1",
+        type: "hobit.action.request",
+      },
+      exampleInput: { limit: 10 },
+    },
+  ],
+  "queue.workflow.getReport": [
+    {
+      description:
+        "Read a bounded workflow report and continuation ids for one workflow run.",
+      exampleActionRequest: {
+        capabilityId: "queue.workflow.getReport",
+        dryRun: false,
+        input: { workflowRunId: "workflow-run-id" },
+        requestId: "queue-workflow-get-report-1",
+        type: "hobit.action.request",
+      },
+      exampleInput: { workflowRunId: "workflow-run-id" },
+    },
+  ],
+  "queue.workflow.planResume": [
+    {
+      description: "Plan read-only workflow resume state before continuation.",
+      exampleActionRequest: {
+        capabilityId: "queue.workflow.planResume",
+        dryRun: false,
+        input: {
+          expectedVersion: 3,
+          workflowRunId: "workflow-run-id",
+        },
+        requestId: "queue-workflow-plan-resume-1",
+        type: "hobit.action.request",
+      },
+      exampleInput: {
+        expectedVersion: 3,
+        workflowRunId: "workflow-run-id",
+      },
+    },
+  ],
+  "queue.workflow.readActionLog": [
+    {
+      description:
+        "Read bounded workflow action summaries for idempotency/action debugging.",
+      exampleActionRequest: {
+        capabilityId: "queue.workflow.readActionLog",
+        dryRun: false,
+        input: {
+          limit: 25,
+          workflowRunId: "workflow-run-id",
+        },
+        requestId: "queue-workflow-read-action-log-1",
+        type: "hobit.action.request",
+      },
+      exampleInput: {
+        limit: 25,
+        workflowRunId: "workflow-run-id",
+      },
     },
   ],
 };
@@ -735,6 +931,127 @@ export const HOBIT_AGENT_INITIAL_CAPABILITIES: HobitAgentCapability[] = [
     supportsDryRun: true,
     supportsSelfTest: true,
     title: "List Queue Items",
+  },
+  {
+    allowedAgentRoles: ["workspace_agent", "test_harness"],
+    auditEventNames: ["hobit.agent.capability.queue.workflow.get.requested"],
+    availability: { status: "available" },
+    confirmationRequirement: "none",
+    defaultForProductActions: true,
+    description:
+      "Read one workspace-scoped Queue workflow run summary through the existing backend/Tauri workflow read API.",
+    forbiddenSideEffects: [...QUEUE_WORKFLOW_READ_FORBIDDEN_SIDE_EFFECTS],
+    id: "queue.workflow.get",
+    inputSchemaDescription:
+      "workflowRunId is required. Optional exact workspaceId must match current Workspace context. No prose or UI-derived fields are accepted.",
+    inputSchema: QUEUE_WORKFLOW_GET_SCHEMA,
+    examples: QUEUE_RUN_CONTROL_EXAMPLES["queue.workflow.get"],
+    outputSchemaDescription:
+      "Workflow run id, workflow id, request id, status, phase/currentStep, timestamps, bounded variable/slot summaries, explicit continuation refs by slot, blockers, missing capabilities, and no-mutation flags.",
+    ownerSurface: "Agent Queue",
+    restricted: false,
+    sideEffectLevel: "read",
+    supportsDryRun: true,
+    supportsSelfTest: true,
+    title: "Get Queue Workflow Run",
+  },
+  {
+    allowedAgentRoles: ["workspace_agent", "test_harness"],
+    auditEventNames: ["hobit.agent.capability.queue.workflow.list.requested"],
+    availability: { status: "available" },
+    confirmationRequirement: "none",
+    defaultForProductActions: true,
+    description:
+      "Read bounded workspace-scoped Queue workflow run summaries through the existing backend/Tauri workflow list API.",
+    forbiddenSideEffects: [...QUEUE_WORKFLOW_READ_FORBIDDEN_SIDE_EFFECTS],
+    id: "queue.workflow.list",
+    inputSchemaDescription:
+      "Optional exact workspaceId, status, workflowId, and bounded limit. No prose or UI-derived fields are accepted.",
+    inputSchema: QUEUE_WORKFLOW_LIST_SCHEMA,
+    examples: QUEUE_RUN_CONTROL_EXAMPLES["queue.workflow.list"],
+    outputSchemaDescription:
+      "Bounded workflow run summaries with workflowRunId, workflowId, requestId, status, phase/currentStep, updatedAt, continuation refs by slot, total, and truncated flag.",
+    ownerSurface: "Agent Queue",
+    restricted: false,
+    sideEffectLevel: "read",
+    supportsDryRun: true,
+    supportsSelfTest: true,
+    title: "List Queue Workflow Runs",
+  },
+  {
+    allowedAgentRoles: ["workspace_agent", "test_harness"],
+    auditEventNames: [
+      "hobit.agent.capability.queue.workflow.getReport.requested",
+    ],
+    availability: { status: "available" },
+    confirmationRequirement: "none",
+    defaultForProductActions: true,
+    description:
+      "Read a bounded workspace-scoped Queue workflow report and continuation refs from the existing backend/Tauri workflow report API.",
+    forbiddenSideEffects: [...QUEUE_WORKFLOW_READ_FORBIDDEN_SIDE_EFFECTS],
+    id: "queue.workflow.getReport",
+    inputSchemaDescription:
+      "workflowRunId is required. Optional exact workspaceId must match current Workspace context. No prose or UI-derived fields are accepted.",
+    inputSchema: QUEUE_WORKFLOW_GET_REPORT_SCHEMA,
+    examples: QUEUE_RUN_CONTROL_EXAMPLES["queue.workflow.getReport"],
+    outputSchemaDescription:
+      "Workflow run status, phase/currentStep, task/run/evidence/message/completion/failure decision ids by slot, blockers, resume status, action count summary, bounded action summaries, bounded report summary, and no raw provider transcript or raw confirmationToken.",
+    ownerSurface: "Agent Queue",
+    restricted: false,
+    sideEffectLevel: "read",
+    supportsDryRun: true,
+    supportsSelfTest: true,
+    title: "Get Queue Workflow Report",
+  },
+  {
+    allowedAgentRoles: ["workspace_agent", "test_harness"],
+    auditEventNames: [
+      "hobit.agent.capability.queue.workflow.planResume.requested",
+    ],
+    availability: { status: "available" },
+    confirmationRequirement: "none",
+    defaultForProductActions: true,
+    description:
+      "Read a workspace-scoped Queue workflow resume plan from the existing backend/Tauri read-only resume planner.",
+    forbiddenSideEffects: [...QUEUE_WORKFLOW_READ_FORBIDDEN_SIDE_EFFECTS],
+    id: "queue.workflow.planResume",
+    inputSchemaDescription:
+      "workflowRunId is required. Optional exact workspaceId and expectedVersion. No prose or UI-derived fields are accepted.",
+    inputSchema: QUEUE_WORKFLOW_PLAN_RESUME_SCHEMA,
+    examples: QUEUE_RUN_CONTROL_EXAMPLES["queue.workflow.planResume"],
+    outputSchemaDescription:
+      "Resume status, nextPhase/nextStep, blockers, requiredFreshGrant, requiredConfirmation, continuation refs by slot, task snapshots, worker orphan/start-state blockers, and no-mutation flags.",
+    ownerSurface: "Agent Queue",
+    restricted: false,
+    sideEffectLevel: "read",
+    supportsDryRun: true,
+    supportsSelfTest: true,
+    title: "Plan Queue Workflow Resume",
+  },
+  {
+    allowedAgentRoles: ["workspace_agent", "test_harness"],
+    auditEventNames: [
+      "hobit.agent.capability.queue.workflow.readActionLog.requested",
+    ],
+    availability: { status: "available" },
+    confirmationRequirement: "none",
+    defaultForProductActions: true,
+    description:
+      "Read bounded Queue workflow action summaries by projecting the existing backend/Tauri workflow report action ledger.",
+    forbiddenSideEffects: [...QUEUE_WORKFLOW_READ_FORBIDDEN_SIDE_EFFECTS],
+    id: "queue.workflow.readActionLog",
+    inputSchemaDescription:
+      "workflowRunId is required. Optional exact workspaceId, bounded limit, and exact action status filter. No prose or UI-derived fields are accepted.",
+    inputSchema: QUEUE_WORKFLOW_READ_ACTION_LOG_SCHEMA,
+    examples: QUEUE_RUN_CONTROL_EXAMPLES["queue.workflow.readActionLog"],
+    outputSchemaDescription:
+      "Bounded action summaries with actionType, status, idempotencyKey, safe target/result refs, blocker code/message, timestamps, total, truncated flag, and no raw logs or raw confirmationToken.",
+    ownerSurface: "Agent Queue",
+    restricted: false,
+    sideEffectLevel: "read",
+    supportsDryRun: true,
+    supportsSelfTest: true,
+    title: "Read Queue Workflow Action Log",
   },
   {
     allowedAgentRoles: ["workspace_agent", "test_harness"],

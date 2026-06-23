@@ -43,6 +43,16 @@ import {
   type QueueAgentSelfTestReport,
   type QueueAgentStartRunInput,
   type QueueAgentUpdateRunSettingsInput,
+  type QueueAgentWorkflowGetInput,
+  type QueueAgentWorkflowGetReportInput,
+  type QueueAgentWorkflowGetResult,
+  type QueueAgentWorkflowListInput,
+  type QueueAgentWorkflowListResult,
+  type QueueAgentWorkflowPlanResumeInput,
+  type QueueAgentWorkflowPlanResumeResult,
+  type QueueAgentWorkflowReadActionLogInput,
+  type QueueAgentWorkflowReadActionLogResult,
+  type QueueAgentWorkflowReportResult,
 } from "./queueAgentCapabilityTypes";
 import {
   QUEUE_RUN_APPROVAL_POLICY_VALUES,
@@ -59,6 +69,16 @@ type QueueAgentActionHandlerResult =
   | HobitAgentActionResult
   | Promise<HobitAgentActionResult>;
 
+const QUEUE_WORKFLOW_RUN_STATUS_VALUES = [
+  "blocked",
+  "cancelled",
+  "completed",
+  "created",
+  "failed",
+  "paused",
+  "running",
+] as const;
+
 export function createQueueAgentActionHandlers(
   adapterApi: QueueAgentAdapterApi,
 ): HobitAgentActionHandlerMap {
@@ -73,6 +93,16 @@ export function createQueueAgentActionHandlers(
     "queue.importPromptPack": ({ request }) =>
       handleImportPromptPack(adapterApi, request),
     "queue.items.list": ({ request }) => handleListItems(adapterApi, request),
+    "queue.workflow.get": ({ request }) =>
+      handleWorkflowGet(adapterApi, request),
+    "queue.workflow.getReport": ({ request }) =>
+      handleWorkflowGetReport(adapterApi, request),
+    "queue.workflow.list": ({ request }) =>
+      handleWorkflowList(adapterApi, request),
+    "queue.workflow.planResume": ({ request }) =>
+      handleWorkflowPlanResume(adapterApi, request),
+    "queue.workflow.readActionLog": ({ request }) =>
+      handleWorkflowReadActionLog(adapterApi, request),
     "queue.item.promoteDraft": ({ request }) =>
       handlePromoteDraft(adapterApi, request),
     "queue.item.startRun": ({ request }) =>
@@ -282,6 +312,156 @@ function handleListItems(
     adapterResult: adapterApi.listItems(validation.value, contextForRequest(request)),
     capabilityId: request.capabilityId,
     defaultMessage: "Queue items listed",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleWorkflowGet(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeWorkflowGetInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.getWorkflow) {
+    return unavailable(
+      request,
+      "Queue workflow read is unavailable: the Workspace Queue bridge did not expose typed workflow get plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentWorkflowGetResult>({
+    adapterResult: adapterApi.getWorkflow(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue workflow run read",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleWorkflowList(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeWorkflowListInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.listWorkflows) {
+    return unavailable(
+      request,
+      "Queue workflow list is unavailable: the Workspace Queue bridge did not expose typed workflow list plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentWorkflowListResult>({
+    adapterResult: adapterApi.listWorkflows(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue workflow runs listed",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleWorkflowGetReport(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeWorkflowGetReportInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.getWorkflowReport) {
+    return unavailable(
+      request,
+      "Queue workflow report read is unavailable: the Workspace Queue bridge did not expose typed workflow report plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentWorkflowReportResult>({
+    adapterResult: adapterApi.getWorkflowReport(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue workflow report read",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleWorkflowPlanResume(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeWorkflowPlanResumeInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.planWorkflowResume) {
+    return unavailable(
+      request,
+      "Queue workflow resume planning is unavailable: the Workspace Queue bridge did not expose typed workflow resume planning plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentWorkflowPlanResumeResult>({
+    adapterResult: adapterApi.planWorkflowResume(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue workflow resume plan read",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleWorkflowReadActionLog(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeWorkflowReadActionLogInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.readWorkflowActionLog) {
+    return unavailable(
+      request,
+      "Queue workflow action-log read is unavailable: the Workspace Queue bridge did not expose typed workflow report plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentWorkflowReadActionLogResult>({
+    adapterResult: adapterApi.readWorkflowActionLog(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue workflow action log read",
     dryRun: request.dryRun,
     requestId: request.requestId,
   });
@@ -1194,6 +1374,261 @@ function normalizeListItemsInput(
   };
 }
 
+function normalizeWorkflowGetInput(
+  input: unknown,
+): ValidationResult<
+  Required<Pick<QueueAgentWorkflowGetInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowGetInput, "workflowRunId">
+> {
+  return normalizeWorkflowRunIdInput<QueueAgentWorkflowGetInput>(
+    input,
+    "queue.workflow.get",
+    ["workflowRunId", "workspaceId"],
+  );
+}
+
+function normalizeWorkflowGetReportInput(
+  input: unknown,
+): ValidationResult<
+  Required<Pick<QueueAgentWorkflowGetReportInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowGetReportInput, "workflowRunId">
+> {
+  return normalizeWorkflowRunIdInput<QueueAgentWorkflowGetReportInput>(
+    input,
+    "queue.workflow.getReport",
+    ["workflowRunId", "workspaceId"],
+  );
+}
+
+function normalizeWorkflowPlanResumeInput(
+  input: unknown,
+): ValidationResult<
+  Required<Pick<QueueAgentWorkflowPlanResumeInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowPlanResumeInput, "workflowRunId">
+> {
+  const base = normalizeWorkflowRunIdInput<QueueAgentWorkflowPlanResumeInput>(
+    input,
+    "queue.workflow.planResume",
+    ["expectedVersion", "workflowRunId", "workspaceId"],
+  );
+  if (!base.ok) {
+    return base;
+  }
+
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.workflow.planResume input must be an object.",
+    };
+  }
+
+  const expectedVersion = optionalNonNegativeIntegerField(
+    input,
+    "expectedVersion",
+  );
+  if (expectedVersion.invalid) {
+    return {
+      fieldPath: "input.expectedVersion",
+      ok: false,
+      message:
+        "expectedVersion must be a non-negative integer when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...base.value,
+      ...(expectedVersion.value !== undefined
+        ? { expectedVersion: expectedVersion.value }
+        : {}),
+    },
+  };
+}
+
+function normalizeWorkflowReadActionLogInput(
+  input: unknown,
+): ValidationResult<
+  Required<Pick<QueueAgentWorkflowReadActionLogInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowReadActionLogInput, "workflowRunId">
+> {
+  const base =
+    normalizeWorkflowRunIdInput<QueueAgentWorkflowReadActionLogInput>(
+      input,
+      "queue.workflow.readActionLog",
+      ["limit", "status", "workflowRunId", "workspaceId"],
+    );
+  if (!base.ok) {
+    return base;
+  }
+
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.workflow.readActionLog input must be an object.",
+    };
+  }
+
+  const limit = optionalLimitField(input, "limit");
+  if (limit.invalid) {
+    return {
+      fieldPath: "input.limit",
+      ok: false,
+      message: "limit must be an integer between 1 and 50 when supplied.",
+    };
+  }
+
+  const status = optionalStringField(input, "status");
+  if (status.invalid) {
+    return {
+      fieldPath: "input.status",
+      ok: false,
+      message: "status must be a non-empty string when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...base.value,
+      ...(limit.value ? { limit: limit.value } : {}),
+      ...(status.value ? { status: status.value } : {}),
+    },
+  };
+}
+
+function normalizeWorkflowListInput(
+  input: unknown,
+): ValidationResult<QueueAgentWorkflowListInput> {
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.workflow.list input must be an object.",
+    };
+  }
+
+  const unsupported = unsupportedInputFields(input, [
+    "limit",
+    "status",
+    "workflowId",
+    "workspaceId",
+  ]);
+  if (unsupported) {
+    return {
+      fieldPath: `input.${unsupported}`,
+      ok: false,
+      message: `${unsupported} is not supported by queue.workflow.list.`,
+    };
+  }
+
+  const workspaceId = optionalStringField(input, "workspaceId");
+  if (workspaceId.invalid) {
+    return {
+      fieldPath: "input.workspaceId",
+      ok: false,
+      message: "workspaceId must be a non-empty string when supplied.",
+    };
+  }
+
+  const workflowId = optionalStringField(input, "workflowId");
+  if (workflowId.invalid) {
+    return {
+      fieldPath: "input.workflowId",
+      ok: false,
+      message: "workflowId must be a non-empty string when supplied.",
+    };
+  }
+
+  const status = optionalEnumField(
+    input,
+    "status",
+    QUEUE_WORKFLOW_RUN_STATUS_VALUES,
+  );
+  if (status.invalid) {
+    return {
+      fieldPath: "input.status",
+      ok: false,
+      message:
+        `status must be one of ${QUEUE_WORKFLOW_RUN_STATUS_VALUES.join(", ")} when supplied.`,
+    };
+  }
+
+  const limit = optionalLimitField(input, "limit");
+  if (limit.invalid) {
+    return {
+      fieldPath: "input.limit",
+      ok: false,
+      message: "limit must be an integer between 1 and 50 when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...(limit.value ? { limit: limit.value } : {}),
+      ...(status.value ? { status: status.value } : {}),
+      ...(workflowId.value ? { workflowId: workflowId.value } : {}),
+      ...(workspaceId.value ? { workspaceId: workspaceId.value } : {}),
+    },
+  };
+}
+
+function normalizeWorkflowRunIdInput<TInput extends QueueAgentWorkflowGetInput>(
+  input: unknown,
+  capabilityId: string,
+  acceptedFields: readonly string[],
+): ValidationResult<
+  Required<Pick<TInput, "workflowRunId">> & Omit<TInput, "workflowRunId">
+> {
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: `${capabilityId} input must be an object.`,
+    };
+  }
+
+  const unsupported = unsupportedInputFields(input, acceptedFields);
+  if (unsupported) {
+    return {
+      fieldPath: `input.${unsupported}`,
+      ok: false,
+      message: `${unsupported} is not supported by ${capabilityId}.`,
+    };
+  }
+
+  const workflowRunId = optionalStringField(input, "workflowRunId");
+  if (workflowRunId.invalid || !workflowRunId.value) {
+    return {
+      fieldPath: "input.workflowRunId",
+      ok: false,
+      message: `${capabilityId} requires workflowRunId.`,
+    };
+  }
+
+  const workspaceId = optionalStringField(input, "workspaceId");
+  if (workspaceId.invalid) {
+    return {
+      fieldPath: "input.workspaceId",
+      ok: false,
+      message: "workspaceId must be a non-empty string when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...(input as Omit<TInput, "workflowRunId" | "workspaceId">),
+      workflowRunId: workflowRunId.value,
+      ...(workspaceId.value ? { workspaceId: workspaceId.value } : {}),
+    } as Required<Pick<TInput, "workflowRunId">> &
+      Omit<TInput, "workflowRunId">,
+  };
+}
+
 function normalizeUpdateRunSettingsInput(
   input: unknown,
 ): ValidationResult<
@@ -1826,6 +2261,21 @@ function optionalEnumOrNullField<TValue extends string>(
     : { invalid: true };
 }
 
+function optionalEnumField<TValue extends string>(
+  input: Record<string, unknown>,
+  fieldName: string,
+  values: readonly TValue[],
+): { invalid: boolean; value?: TValue } {
+  if (!hasOwn(input, fieldName) || input[fieldName] === undefined) {
+    return { invalid: false };
+  }
+
+  return typeof input[fieldName] === "string" &&
+    values.includes(input[fieldName] as TValue)
+    ? { invalid: false, value: input[fieldName] as TValue }
+    : { invalid: true };
+}
+
 function optionalLimitField(
   input: Record<string, unknown>,
   fieldName: string,
@@ -1883,6 +2333,14 @@ function hasOwn<TObject extends object, TKey extends PropertyKey>(
   key: TKey,
 ): object is TObject & Record<TKey, unknown> {
   return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function unsupportedInputFields(
+  input: Record<string, unknown>,
+  acceptedFields: readonly string[],
+) {
+  const accepted = new Set(acceptedFields);
+  return Object.keys(input).find((fieldName) => !accepted.has(fieldName));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

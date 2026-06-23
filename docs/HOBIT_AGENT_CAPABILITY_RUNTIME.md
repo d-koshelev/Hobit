@@ -443,8 +443,17 @@ persisted workflow state with durable Queue facts and returns a typed resume
 plan or blocker. When `metadata.workflowRunId` is present, the adapter calls
 the planner before execution and invokes only currently supported phases when
 the plan is ready and fresh typed grant/confirmation input is present when
-required. This persistence surface is not registered as a Workspace Agent
-broker capability and does not implement a generic public resume executor.
+required. Workspace Agent now exposes safe, bounded, read-only broker
+capabilities for workflow debug reads: `queue.workflow.get`,
+`queue.workflow.list`, `queue.workflow.getReport`,
+`queue.workflow.planResume`, and `queue.workflow.readActionLog`. These
+capabilities read the backend/Tauri workflow run, report, resume planner, and
+persisted action ledger summaries only. They do not invoke workflows, start
+workers, mutate Queue state, create tasks, record evidence, create/ACK reviews,
+finalize tasks, launch shell/Git/Terminal/validation/rollback behavior, or
+expose raw provider transcripts or raw confirmation tokens. This persistence
+surface still does not implement `queue.workflow.invoke` or a generic public
+resume executor.
 Backend workflow task slot materialization now exists as a workflow-internal
 typed domain method: it creates/reuses draft/manual Queue tasks by explicit
 `workflowRunId + slot + taskSpecHash`, persists slot bindings, and materializes
@@ -1178,6 +1187,24 @@ Current honest foundation capabilities:
   checking and bounded `reason`, and does not start workers, schedule/dispatch,
   mutate Queue tasks, create run links, record evidence/reviews/finalization,
   invoke workflows, or launch shell/Git/Terminal/validation/rollback behavior.
+- `queue.workflow.get`: read-only Queue workflow run summary by explicit
+  `workflowRunId`, with phase/currentStep/status/timestamps, bounded
+  variable/slot summaries, continuation refs by slot, blockers, and
+  no-mutation flags.
+- `queue.workflow.list`: read-only bounded Queue workflow run list with
+  optional exact `status`, `workflowId`, and `limit`, for recovering lost
+  workflow run ids without UI/prose inference.
+- `queue.workflow.getReport`: read-only bounded Queue workflow report with
+  task/run/evidence/message/completion/failure decision refs by slot, blockers,
+  resume status, action count summary, and bounded report/action summaries.
+- `queue.workflow.planResume`: read-only Queue workflow resume planner over
+  existing backend state; returns resume status, next phase/step, blockers,
+  required fresh grant/confirmation flags, task snapshots, and continuation
+  refs without executing any workflow step.
+- `queue.workflow.readActionLog`: read-only bounded action summary projection
+  from the existing workflow report/action ledger, with optional status filter
+  and limit; it exposes safe target/result refs and never raw logs or raw
+  confirmation tokens.
 - `workspaceAgent.selfTest`: safe Workspace Agent capability self-test surface.
 - `codex.runTask`: restricted execute capability for explicit Codex Direct
   Work; not a product-action default.

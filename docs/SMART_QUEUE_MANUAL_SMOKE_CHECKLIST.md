@@ -99,13 +99,33 @@ capabilities before any smoke execution step:
   Autorun, create run links, mutate Queue tasks, record evidence, create/ACK
   reviews, finalize tasks, invoke workflows, launch shell/Terminal/Git,
   execute validation/rollback, or start downstream work.
+- `queue.workflow.list` reads bounded workflow run summaries and should be
+  used to recover recent `workflowRunId` values when a smoke/debug session lost
+  the id.
+- `queue.workflow.get` reads one workflow run summary by explicit
+  `workflowRunId`, including status, phase/currentStep, timestamps, blockers,
+  missing capabilities, and bounded variable/slot summaries.
+- `queue.workflow.getReport` reads the bounded workflow report and exposes the
+  continuation ids needed for smoke recovery: task ids, run ids, evidence
+  bundle ids, review message ids, completion decision ids, and failure decision
+  ids by slot.
+- `queue.workflow.planResume` is a read-only resume planner. Call it before
+  continuation to read next phase/step, blockers, required fresh grant,
+  required confirmation, worker/start-state blockers, task snapshots, and
+  continuation refs.
+- `queue.workflow.readActionLog` reads bounded workflow action summaries for
+  idempotency/action debugging, with safe target/result refs and no raw logs or
+  raw confirmation token exposure.
 
 Use these discovery reads for live Queue smoke setup. Do not use
 `agent.status.read` for workspace/workbench/widget/executor/Queue-control
-discovery. Codex shell still cannot perform live Queue smoke by itself because
-it has no live Tauri renderer/IPC context. Actual `dependency_acceptance_smoke`
-and `dependency_failure_smoke` execution from Workspace Agent remains a later
-step after this discovery phase.
+or workflow-debug discovery. Do not use DevTools, Queue UI text, DOM scraping,
+localStorage alone, task titles, prompt text, file paths, transcript text, or
+prose to infer ids. Codex shell still cannot perform live Queue smoke by itself
+because it has no live Tauri renderer/IPC context. Actual
+`dependency_acceptance_smoke` and `dependency_failure_smoke` execution from
+Workspace Agent remains a later step after this discovery/debug-read phase, and
+`queue.workflow.invoke` is deliberately not implemented here.
 
 To authorize bounded multi-step Queue smoke, the operator must include a
 structured grant JSON object such as:

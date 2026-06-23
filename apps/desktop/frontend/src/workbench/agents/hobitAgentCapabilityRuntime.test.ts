@@ -331,6 +331,17 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain(
       "queue.control.get, then queue.control.setManualEnabled",
     );
+    expect(instructionBlock).toContain("Queue workflow debug read schemas:");
+    expect(instructionBlock).toContain("queue.workflow.list");
+    expect(instructionBlock).toContain("queue.workflow.getReport");
+    expect(instructionBlock).toContain("queue.workflow.planResume");
+    expect(instructionBlock).toContain("queue.workflow.readActionLog");
+    expect(instructionBlock).toContain(
+      "never DevTools, UI text, DOM scraping",
+    );
+    expect(instructionBlock).toContain(
+      "never invoke workflows, start workers, mutate Queue",
+    );
     expect(instructionBlock).toContain('"capabilityId":"queue.enable"');
     expect(instructionBlock).toContain(
       '"capabilityId":"queue.item.startRun"',
@@ -680,6 +691,11 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       "queue.review.getEvidenceBundle",
       "queue.selfTest",
       "queue.targetSingletonQueue",
+      "queue.workflow.get",
+      "queue.workflow.getReport",
+      "queue.workflow.list",
+      "queue.workflow.planResume",
+      "queue.workflow.readActionLog",
     ]);
     expect(queueCreateItems.ownerSurface).toBe("Agent Queue");
     expect(queueCreateItems.sideEffectLevel).toBe("write");

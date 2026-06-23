@@ -54,6 +54,10 @@ import type {
   AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
+  AgentQueueWorkflowAction,
+  AgentQueueWorkflowReport,
+  AgentQueueWorkflowResumePlan,
+  AgentQueueWorkflowRun,
 } from "../../../workspace/types";
 import type {
   QueueWidgetActionResult,
@@ -184,6 +188,37 @@ describe("queueAgentCapabilities discovery and broker separation", () => {
       for (const nextCapabilityId of contract.nextSuggestedCapabilities) {
         expect(findCapability(registry, nextCapabilityId)).not.toBeNull();
       }
+    }
+  });
+
+  it("registers Queue workflow debug reads as read-only Queue capabilities", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const workflowReadCapabilityIds = [
+      "queue.workflow.get",
+      "queue.workflow.list",
+      "queue.workflow.getReport",
+      "queue.workflow.planResume",
+      "queue.workflow.readActionLog",
+    ];
+
+    for (const capabilityId of workflowReadCapabilityIds) {
+      const capability = requiredCapability(registry, capabilityId);
+      const contract = QUEUE_CAPABILITY_CONTRACT_INVENTORY.find(
+        (candidate) => candidate.capabilityId === capabilityId,
+      );
+
+      expect(capability.ownerSurface).toBe("Agent Queue");
+      expect(capability.sideEffectLevel).toBe("read");
+      expect(capability.confirmationRequirement).toBe("none");
+      expect(capability.restricted).toBe(false);
+      expect(contract).toMatchObject({
+        backing: "backend_backed",
+        confirmationRequirement: "none",
+        readOnly: true,
+        riskClass: "read",
+        sideEffectLevel: "read",
+      });
+      expect(contract?.trustedContextFields).toContain("requestId");
     }
   });
 });
@@ -954,6 +989,256 @@ describe("queueAgentCapabilities invoke", () => {
       evidenceState: false,
       frontendOverlayUsed: false,
     });
+  });
+
+  it("handles read-only Queue workflow get/list/report/resume/action-log capabilities from workflow APIs", async () => {
+    const getWorkflow = vi.fn(async () => workflowRun());
+    const listWorkflows = vi.fn(async () => [
+      workflowRun({ workflowRunId: "workflow-run-1" }),
+      workflowRun({
+        currentStep: "review_waiting",
+        updatedAt: "2026-06-23T12:15:00.000Z",
+        workflowRunId: "workflow-run-2",
+      }),
+    ]);
+    const getWorkflowReport = vi.fn(async () => workflowReport());
+    const planWorkflowResume = vi.fn(async () => workflowResumePlan());
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              backendOwned: true,
+              queueEnabled: false,
+              status: "disabled",
+              workspaceId: "workspace-1",
+            }),
+            getWorkflow,
+            getWorkflowReport,
+            listWorkflows,
+            planWorkflowResume,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const getResult = await broker.invokeAsync<Record<string, unknown>>(
+      request({
+        capabilityId: "queue.workflow.get",
+        input: {
+          workflowRunId: "workflow-run-1",
+          workspaceId: "workspace-1",
+        },
+      }),
+    );
+    expect(getResult.status).toBe("succeeded");
+    expect(getWorkflow).toHaveBeenCalledWith({
+      workflowRunId: "workflow-run-1",
+    });
+    expect(getResult.result.output).toMatchObject({
+      didInvokeWorkflowRunner: false,
+      didMutateQueue: false,
+      didStartWorkers: false,
+      missingCapabilities: ["queue.workflow.debug.read"],
+      phase: "worker_evidence",
+      requestId: "workflow-request-1",
+      status: "paused",
+      taskIdsBySlot: { upstream: "task-upstream" },
+      workflowId: "dependency_acceptance_smoke",
+      workflowRunId: "workflow-run-1",
+    });
+    expect(JSON.stringify(getResult.result.output)).not.toContain(
+      "operator-confirmed",
+    );
+
+    const listResult = await broker.invokeAsync<Record<string, unknown>>(
+      request({
+        capabilityId: "queue.workflow.list",
+        input: {
+          limit: 1,
+          status: "paused",
+          workflowId: "dependency_acceptance_smoke",
+          workspaceId: "workspace-1",
+        },
+      }),
+    );
+    expect(listResult.status).toBe("succeeded");
+    expect(listWorkflows).toHaveBeenCalledWith({
+      status: "paused",
+      workflowId: "dependency_acceptance_smoke",
+    });
+    expect(listResult.result.output).toMatchObject({
+      didInvokeWorkflowRunner: false,
+      limit: 1,
+      total: 2,
+      truncated: true,
+      workflows: [
+        {
+          workflowRunId: "workflow-run-1",
+          workflowId: "dependency_acceptance_smoke",
+          status: "paused",
+        },
+      ],
+    });
+
+    const reportResult = await broker.invokeAsync<Record<string, unknown>>(
+      request({
+        capabilityId: "queue.workflow.getReport",
+        input: { workflowRunId: "workflow-run-1" },
+      }),
+    );
+    expect(reportResult.status).toBe("succeeded");
+    expect(reportResult.result.output).toMatchObject({
+      actionCountSummary: {
+        byActionType: {
+          materialize_task_slot: 1,
+          record_worker_evidence: 1,
+        },
+        byStatus: { completed: 2 },
+        total: 2,
+      },
+      completionDecisionIdsBySlot: { upstream: "completion-decision-1" },
+      evidenceBundleIdsBySlot: { upstream: "evidence-bundle-1" },
+      failureDecisionIdsBySlot: { upstream: "failure-decision-1" },
+      messageIdsBySlot: { upstream: "review-message-1" },
+      runIdsBySlot: { upstream: "run-upstream-1" },
+      taskIdsBySlot: { upstream: "task-upstream" },
+      workflowRunId: "workflow-run-1",
+    });
+    const reportJson = JSON.stringify(reportResult.result.output);
+    expect(reportJson).not.toContain("operator-confirmed");
+    expect(reportJson).not.toContain("raw provider transcript");
+
+    const planResult = await broker.invokeAsync<Record<string, unknown>>(
+      request({
+        capabilityId: "queue.workflow.planResume",
+        input: {
+          expectedVersion: 7,
+          workflowRunId: "workflow-run-1",
+        },
+      }),
+    );
+    expect(planResult.status).toBe("succeeded");
+    expect(planWorkflowResume).toHaveBeenCalledWith({
+      expectedVersion: 7,
+      workflowRunId: "workflow-run-1",
+    });
+    expect(planResult.result.output).toMatchObject({
+      blockers: [
+        {
+          blockerCode: "waiting_for_review_ack",
+          messageId: "review-message-1",
+          taskId: "task-upstream",
+        },
+      ],
+      evidenceBundleIdsBySlot: { upstream: "evidence-bundle-1" },
+      nextPhase: "review",
+      nextStep: "ack_review_message",
+      requiredConfirmation: false,
+      requiredFreshGrant: true,
+      resumeStatus: "resume_read_only_ready",
+      taskIdsBySlot: { upstream: "task-upstream" },
+    });
+
+    const actionLogResult = await broker.invokeAsync<Record<string, unknown>>(
+      request({
+        capabilityId: "queue.workflow.readActionLog",
+        input: {
+          limit: 1,
+          status: "completed",
+          workflowRunId: "workflow-run-1",
+        },
+      }),
+    );
+    expect(actionLogResult.status).toBe("succeeded");
+    expect(actionLogResult.result.output).toMatchObject({
+      actionCountSummary: { total: 2 },
+      actions: [
+        {
+          actionType: "materialize_task_slot",
+          status: "completed",
+        },
+      ],
+      limit: 1,
+      total: 2,
+      truncated: true,
+      workflowRunId: "workflow-run-1",
+    });
+    const actionLogJson = JSON.stringify(actionLogResult.result.output);
+    expect(actionLogJson).not.toContain("operator-confirmed");
+    expect(actionLogJson).not.toContain("raw provider transcript");
+  });
+
+  it("rejects Queue workflow debug reads without explicit workflowRunId", async () => {
+    const getWorkflow = vi.fn(async () => workflowRun());
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(queueBridge({ getWorkflow })),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.workflow.get",
+        input: {},
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.fieldPath).toBe("input.workflowRunId");
+    expect(getWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("keeps Queue workflow debug reads isolated to the current workspace", async () => {
+    const getWorkflow = vi.fn(async () => workflowRun());
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              queueEnabled: false,
+              workspaceId: "workspace-1",
+            }),
+            getWorkflow,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.workflow.get",
+        input: {
+          workflowRunId: "workflow-run-1",
+          workspaceId: "other-workspace",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("precondition_failed");
+    expect(result.result.reasonCode).toBe("precondition_failed");
+    expect(getWorkflow).not.toHaveBeenCalled();
   });
 
   it("reads queue.lifecycle.get from backend aggregate API with explicit taskId", async () => {
@@ -4403,6 +4688,199 @@ function promptPackSourceText() {
       },
     ],
   });
+}
+
+function workflowRun(
+  overrides: Partial<AgentQueueWorkflowRun> = {},
+): AgentQueueWorkflowRun {
+  return {
+    actionLogSummaryJson: JSON.stringify({
+      missingCapabilities: ["queue.workflow.debug.read"],
+      nextAction: { capabilityId: "queue.workflow.planResume" },
+      nextPhase: "review",
+    }),
+    actorId: "workspace-agent:test",
+    blockerReason: null,
+    completedAt: null,
+    createdAt: "2026-06-23T12:00:00.000Z",
+    currentStep: "record_worker_evidence",
+    grantSummaryJson: null,
+    idempotencyKeysJson: null,
+    inputsSnapshotJson: null,
+    mutationRefsJson: null,
+    pauseReason: null,
+    phase: "worker_evidence",
+    requestHash: "workflow-request-hash",
+    requestId: "workflow-request-1",
+    schemaVersion: 1,
+    slotBindingsJson: JSON.stringify({
+      upstream: {
+        completionDecisionId: "completion-decision-1",
+        confirmationToken: "operator-confirmed",
+        evidenceBundleId: "evidence-bundle-1",
+        failureDecisionId: "failure-decision-1",
+        messageId: "review-message-1",
+        runId: "run-upstream-1",
+        taskId: "task-upstream",
+      },
+    }),
+    status: "paused",
+    updatedAt: "2026-06-23T12:10:00.000Z",
+    variablesJson: JSON.stringify({
+      confirmationToken: "operator-confirmed",
+      workerOutcome: "completed",
+    }),
+    version: 7,
+    workflowId: "dependency_acceptance_smoke",
+    workflowRunId: "workflow-run-1",
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
+}
+
+function workflowAction(
+  overrides: Partial<AgentQueueWorkflowAction> = {},
+): AgentQueueWorkflowAction {
+  return {
+    actionId: "workflow-action-1",
+    actionType: "materialize_task_slot",
+    attemptCount: 1,
+    blockerCode: null,
+    blockerMessage: null,
+    completedAt: "2026-06-23T12:02:00.000Z",
+    createdAt: "2026-06-23T12:01:00.000Z",
+    idempotencyKey: "workflow-run-1:upstream:materialize",
+    resultRefsJson: JSON.stringify({
+      confirmationToken: "operator-confirmed",
+      rawProviderTranscript: "raw provider transcript",
+      slot: "upstream",
+      taskId: "task-upstream",
+    }),
+    startedAt: "2026-06-23T12:01:00.000Z",
+    status: "completed",
+    stepId: "materialize_upstream",
+    targetRefsJson: JSON.stringify({
+      slot: "upstream",
+    }),
+    updatedAt: "2026-06-23T12:02:00.000Z",
+    workflowRunId: "workflow-run-1",
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
+}
+
+function workflowReport(
+  overrides: Partial<AgentQueueWorkflowReport> = {},
+): AgentQueueWorkflowReport {
+  return {
+    actions: [
+      workflowAction(),
+      workflowAction({
+        actionId: "workflow-action-2",
+        actionType: "record_worker_evidence",
+        idempotencyKey: "workflow-run-1:upstream:worker-evidence",
+        resultRefsJson: JSON.stringify({
+          completionDecisionId: "completion-decision-1",
+          evidenceBundleId: "evidence-bundle-1",
+          failureDecisionId: "failure-decision-1",
+          messageId: "review-message-1",
+          runId: "run-upstream-1",
+          slot: "upstream",
+        }),
+        stepId: "record_worker_evidence",
+        targetRefsJson: JSON.stringify({
+          runId: "run-upstream-1",
+          slot: "upstream",
+          taskId: "task-upstream",
+        }),
+      }),
+    ],
+    reportSummary: "Queue workflow runner report. Status: paused.",
+    resumeAvailable: true,
+    resumeStatus: "plan_required",
+    workflowRun: workflowRun(),
+    ...overrides,
+  };
+}
+
+function workflowResumePlan(
+  overrides: Partial<AgentQueueWorkflowResumePlan> = {},
+): AgentQueueWorkflowResumePlan {
+  return {
+    actions: workflowReport().actions,
+    blockers: [
+      {
+        blockerCode: "waiting_for_review_ack",
+        blockerMessage: "Review message must be acknowledged before finalization.",
+        completionDecisionId: null,
+        evidenceBundleId: "evidence-bundle-1",
+        failureDecisionId: null,
+        messageId: "review-message-1",
+        missingRequiredField: null,
+        runId: "run-upstream-1",
+        slot: "upstream",
+        taskId: "task-upstream",
+      },
+    ],
+    nextPhase: "review",
+    nextStep: "ack_review_message",
+    reconciledVariablesJson: JSON.stringify({
+      upstream: {
+        taskId: "task-upstream",
+      },
+    }),
+    reportSummary: "Queue workflow resume plan. Status: resume_read_only_ready.",
+    requiredConfirmation: false,
+    requiredFreshGrant: true,
+    resumeAvailable: true,
+    slotReconciliations: [
+      {
+        aggregateDependencyState: "none",
+        aggregateEvidenceState: "available",
+        aggregateReviewState: "awaiting_review",
+        aggregateTicketState: "awaiting_review",
+        blockerCode: null,
+        completionDecisionExists: false,
+        completionDecisionId: "completion-decision-1",
+        evidenceBundleId: "evidence-bundle-1",
+        evidenceExists: true,
+        executorWidgetId: "executor-1",
+        failureDecisionExists: false,
+        failureDecisionId: "failure-decision-1",
+        messageId: "review-message-1",
+        reviewMessageExists: true,
+        reviewMessageStatus: "open",
+        runExists: true,
+        runId: "run-upstream-1",
+        slot: "upstream",
+        taskExists: true,
+        taskId: "task-upstream",
+      },
+    ],
+    status: "resume_read_only_ready",
+    taskSnapshots: [
+      {
+        commitState: "none",
+        dependencyState: "none",
+        evidenceState: "available",
+        latestCompletionDecisionId: "completion-decision-1",
+        latestEvidenceBundleId: "evidence-bundle-1",
+        latestFailureDecisionId: "failure-decision-1",
+        latestReviewMessageId: "review-message-1",
+        latestReviewMessageStatus: "open",
+        latestRunId: "run-upstream-1",
+        latestRunStatus: "completed",
+        reviewState: "awaiting_review",
+        taskId: "task-upstream",
+        ticketState: "awaiting_review",
+        validationState: "passed",
+        workerRunState: "completed",
+      },
+    ],
+    terminalStatus: null,
+    workflowRun: workflowRun(),
+    ...overrides,
+  };
 }
 
 function queueBridge(

@@ -10,6 +10,8 @@ import type {
   AgentQueueControlStatus,
   AgentQueueFailureDecision,
   AgentQueueWorkerEvidenceBundle,
+  AgentQueueWorkflowActionStatus,
+  AgentQueueWorkflowRunStatus,
 } from "../../../workspace/types";
 import type {
   HobitAgentActionReasonCode,
@@ -63,6 +65,11 @@ export const QUEUE_AGENT_CAPABILITY_IDS = [
   "queue.review.getEvidenceBundle",
   "queue.selfTest",
   "queue.targetSingletonQueue",
+  "queue.workflow.get",
+  "queue.workflow.getReport",
+  "queue.workflow.list",
+  "queue.workflow.planResume",
+  "queue.workflow.readActionLog",
 ] as const;
 
 export const QUEUE_ACTIVITY_EVENTS = {
@@ -117,6 +124,17 @@ export const QUEUE_ACTIVITY_EVENTS = {
   ],
   updateRunSettings: [
     "hobit.agent.capability.queue.item.updateRunSettings.requested",
+  ],
+  workflowGet: ["hobit.agent.capability.queue.workflow.get.requested"],
+  workflowGetReport: [
+    "hobit.agent.capability.queue.workflow.getReport.requested",
+  ],
+  workflowList: ["hobit.agent.capability.queue.workflow.list.requested"],
+  workflowPlanResume: [
+    "hobit.agent.capability.queue.workflow.planResume.requested",
+  ],
+  workflowReadActionLog: [
+    "hobit.agent.capability.queue.workflow.readActionLog.requested",
   ],
 } as const;
 
@@ -407,6 +425,196 @@ export type QueueAgentControlSetManualEnabledResult = {
   resultStatus: QueueAgentControlSetManualEnabledResultStatus;
   workspaceId: string | null;
 };
+
+export type QueueAgentWorkflowGetInput = {
+  workflowRunId?: string;
+  workspaceId?: string;
+};
+
+export type QueueAgentWorkflowListInput = {
+  limit?: number;
+  status?: AgentQueueWorkflowRunStatus;
+  workflowId?: string;
+  workspaceId?: string;
+};
+
+export type QueueAgentWorkflowGetReportInput = QueueAgentWorkflowGetInput;
+
+export type QueueAgentWorkflowPlanResumeInput = QueueAgentWorkflowGetInput & {
+  expectedVersion?: number;
+};
+
+export type QueueAgentWorkflowReadActionLogInput = QueueAgentWorkflowGetInput & {
+  limit?: number;
+  status?: AgentQueueWorkflowActionStatus | string;
+};
+
+export type QueueAgentWorkflowSafeJsonValue =
+  | boolean
+  | null
+  | number
+  | string
+  | QueueAgentWorkflowSafeJsonValue[]
+  | { [key: string]: QueueAgentWorkflowSafeJsonValue };
+
+export type QueueAgentWorkflowRefMaps = {
+  completionDecisionIdsBySlot: Record<string, string>;
+  evidenceBundleIdsBySlot: Record<string, string>;
+  failureDecisionIdsBySlot: Record<string, string>;
+  messageIdsBySlot: Record<string, string>;
+  runIdsBySlot: Record<string, string>;
+  taskIdsBySlot: Record<string, string>;
+};
+
+export type QueueAgentWorkflowBlockerSummary = {
+  blockerCode: string;
+  blockerMessage: string;
+  completionDecisionId?: string | null;
+  evidenceBundleId?: string | null;
+  failureDecisionId?: string | null;
+  messageId?: string | null;
+  missingRequiredField?: string | null;
+  runId?: string | null;
+  slot?: string | null;
+  taskId?: string | null;
+};
+
+export type QueueAgentWorkflowActionCountSummary = {
+  byActionType: Record<string, number>;
+  byStatus: Record<string, number>;
+  total: number;
+};
+
+export type QueueAgentWorkflowNoMutationFlags = {
+  didAutoRunWorkers: false;
+  didExecuteRollback: false;
+  didInvokeWorkflowRunner: false;
+  didLaunchShell: false;
+  didLaunchTerminal: false;
+  didMutateEvidence: false;
+  didMutateFinalization: false;
+  didMutateGit: false;
+  didMutateQueue: false;
+  didMutateReviews: false;
+  didRunValidation: false;
+  didStartWorkers: false;
+};
+
+export type QueueAgentWorkflowRunSummary = QueueAgentWorkflowNoMutationFlags & {
+  actionLogSummary?: QueueAgentWorkflowSafeJsonValue | null;
+  blockers: QueueAgentWorkflowBlockerSummary[];
+  completedAt: string | null;
+  createdAt: string;
+  currentStep: string | null;
+  missingCapabilities: string[];
+  phase: string;
+  requestId: string;
+  slotBindingsSummary?: QueueAgentWorkflowSafeJsonValue | null;
+  status: string;
+  updatedAt: string;
+  variablesSummary?: QueueAgentWorkflowSafeJsonValue | null;
+  version: number;
+  workflowId: string;
+  workflowRunId: string;
+  workspaceId: string;
+} & QueueAgentWorkflowRefMaps;
+
+export type QueueAgentWorkflowGetResult = QueueAgentWorkflowRunSummary;
+
+export type QueueAgentWorkflowListResult = QueueAgentWorkflowNoMutationFlags & {
+  limit: number;
+  statusFilter: string | null;
+  total: number;
+  truncated: boolean;
+  workflowIdFilter: string | null;
+  workflows: QueueAgentWorkflowRunSummary[];
+};
+
+export type QueueAgentWorkflowActionSummary = {
+  actionId: string;
+  actionType: string;
+  attemptCount: number;
+  blockerCode: string | null;
+  blockerMessage?: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  idempotencyKey: string;
+  resultRefs: QueueAgentWorkflowSafeJsonValue | null;
+  startedAt: string | null;
+  status: string;
+  stepId: string;
+  targetRefs: QueueAgentWorkflowSafeJsonValue | null;
+  updatedAt: string;
+};
+
+export type QueueAgentWorkflowReportResult =
+  QueueAgentWorkflowNoMutationFlags &
+    QueueAgentWorkflowRefMaps & {
+      actionCountSummary: QueueAgentWorkflowActionCountSummary;
+      actionSummaries: QueueAgentWorkflowActionSummary[];
+      blockers: QueueAgentWorkflowBlockerSummary[];
+      completedAt: string | null;
+      currentStep: string | null;
+      nextAction: QueueAgentWorkflowSafeJsonValue | null;
+      nextPhase: string | null;
+      phase: string;
+      reportSummary: string;
+      resumeAvailable: boolean;
+      resumeStatus: string;
+      status: string;
+      truncatedActionSummaries: boolean;
+      workflowId: string;
+      workflowRunId: string;
+      workspaceId: string;
+    };
+
+export type QueueAgentWorkflowPlanResumeResult =
+  QueueAgentWorkflowNoMutationFlags &
+    QueueAgentWorkflowRefMaps & {
+      actionCountSummary: QueueAgentWorkflowActionCountSummary;
+      blockers: QueueAgentWorkflowBlockerSummary[];
+      nextPhase: string | null;
+      nextStep: string | null;
+      reconciledVariablesSummary: QueueAgentWorkflowSafeJsonValue | null;
+      reportSummary: string;
+      requiredConfirmation: boolean;
+      requiredContinuationRefs: QueueAgentWorkflowRefMaps;
+      requiredFreshGrant: boolean;
+      resumeAvailable: boolean;
+      resumeStatus: string;
+      status: string;
+      taskSnapshots: readonly {
+        dependencyState: string;
+        evidenceState: string;
+        latestCompletionDecisionId: string | null;
+        latestEvidenceBundleId: string | null;
+        latestFailureDecisionId: string | null;
+        latestReviewMessageId: string | null;
+        latestRunId: string | null;
+        reviewState: string;
+        taskId: string;
+        ticketState: string;
+        validationState: string;
+        workerRunState: string;
+      }[];
+      terminalStatus: string | null;
+      workflowId: string;
+      workflowRunId: string;
+      workspaceId: string;
+    };
+
+export type QueueAgentWorkflowReadActionLogResult =
+  QueueAgentWorkflowNoMutationFlags & {
+    actionCountSummary: QueueAgentWorkflowActionCountSummary;
+    actions: QueueAgentWorkflowActionSummary[];
+    limit: number;
+    statusFilter: string | null;
+    total: number;
+    truncated: boolean;
+    workflowId: string;
+    workflowRunId: string;
+    workspaceId: string;
+  };
 
 export type QueueAgentEnableResult = {
   backendOwned?: boolean;
@@ -821,6 +1029,30 @@ export type QueueAgentAdapterApi = {
     input: QueueAgentListItemsInput,
     context: QueueAgentLifecycleHandlerContext,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentListItemsResult>>;
+  getWorkflow?: (
+    input: Required<Pick<QueueAgentWorkflowGetInput, "workflowRunId">> &
+      Omit<QueueAgentWorkflowGetInput, "workflowRunId">,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentWorkflowGetResult>>;
+  listWorkflows?: (
+    input: QueueAgentWorkflowListInput,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentWorkflowListResult>>;
+  getWorkflowReport?: (
+    input: Required<Pick<QueueAgentWorkflowGetReportInput, "workflowRunId">> &
+      Omit<QueueAgentWorkflowGetReportInput, "workflowRunId">,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentWorkflowReportResult>>;
+  planWorkflowResume?: (
+    input: Required<Pick<QueueAgentWorkflowPlanResumeInput, "workflowRunId">> &
+      Omit<QueueAgentWorkflowPlanResumeInput, "workflowRunId">,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentWorkflowPlanResumeResult>>;
+  readWorkflowActionLog?: (
+    input: Required<Pick<QueueAgentWorkflowReadActionLogInput, "workflowRunId">> &
+      Omit<QueueAgentWorkflowReadActionLogInput, "workflowRunId">,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentWorkflowReadActionLogResult>>;
   previewCreateItems: (
     request: QueueAgentCreateItemsRequest,
   ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentCreateItemsPreview>>;

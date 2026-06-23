@@ -1255,11 +1255,15 @@ as available from the foundation above:
   Executor widgets only by `definitionId === "agent-run"`,
   `queue.control.get` reads backend Queue control state through the Queue
   control bridge, and `queue.control.setManualEnabled` sets only backend Queue
-  control state to `manual_enabled`. Actual `dependency_acceptance_smoke` /
-  `dependency_failure_smoke` invocation from Workspace Agent, workflow
-  report/list/planResume/action-log reads, and live smoke recovery/debug
-  capabilities remain future blocks. Codex shell still cannot perform live
-  smoke without the live Tauri renderer/IPC context.
+  control state to `manual_enabled`. Workspace Agent can also read Queue
+  workflow debug state through `queue.workflow.get`, `queue.workflow.list`,
+  `queue.workflow.getReport`, `queue.workflow.planResume`, and
+  `queue.workflow.readActionLog`; these are bounded read-only broker
+  capabilities over existing backend/Tauri workflow run, report, resume plan,
+  and action-ledger APIs. Actual `dependency_acceptance_smoke` /
+  `dependency_failure_smoke` invocation from Workspace Agent and
+  `queue.workflow.invoke` remain future blocks. Codex shell still cannot
+  perform live smoke without the live Tauri renderer/IPC context.
 - durable backend Smart Queue persistence;
 - Queue workflow runner execution beyond the full typed
   `dependency_acceptance_smoke` and `dependency_failure_smoke` paths and the

@@ -19,6 +19,10 @@ export function createCapabilityInstructionBlock(
     createQueueLifecycleCapabilityInstructionLines(capabilities);
   const queueRunControlInstructionLines =
     createQueueRunControlCapabilityInstructionLines(capabilities);
+  const queueWorkflowDebugInstructionLines =
+    shouldIncludeQueueWorkflowDebugInstructions(context.currentPrompt)
+      ? createQueueWorkflowDebugCapabilityInstructionLines(capabilities)
+      : [];
   const compactManifestCapabilities = capabilities.filter(
     (capability) => !isQueueLifecycleCapabilityId(capability.id),
   );
@@ -55,8 +59,12 @@ export function createCapabilityInstructionBlock(
     "Prompt-pack flows use queue.preparePromptPackPreview or queue.importPromptPack.",
     "Queue reads use backend aggregates.",
     'Queue smoke setup: workspace.context.get, workbench.widgets.list, queue.control.get->queue.control.setManualEnabled; never agent.status.read.',
+    queueWorkflowDebugInstructionLines.length > 0
+      ? "Queue workflow debug reads use typed Queue workflow capabilities only; never DevTools, UI text, DOM scraping, task titles, file paths, transcript text, or prose id inference."
+      : null,
     ...queueCreateInstructionLines,
     ...queueRunControlInstructionLines,
+    ...queueWorkflowDebugInstructionLines,
     ...queueLifecycleInstructionLines,
     "Codex and shell are restricted capabilities and are not default app-action paths.",
     "Execute/destructive capabilities require policy and confirmation.",
@@ -80,7 +88,8 @@ function isQueueLifecycleCapabilityId(capabilityId: string) {
     capabilityId.startsWith("queue.coordinator.") ||
     capabilityId.startsWith("queue.item.") ||
     capabilityId.startsWith("queue.lifecycle.") ||
-    capabilityId.startsWith("queue.review.")
+    capabilityId.startsWith("queue.review.") ||
+    capabilityId.startsWith("queue.workflow.")
   );
 }
 
@@ -230,4 +239,50 @@ function createQueueRunControlCapabilityInstructionLines(
     "Use queue.items.list for missing ids; setup does not start; start needs confirmation; no codex.runTask fallback.",
     exampleIds ? `Run-control envelope ids: ${exampleIds}.` : null,
   ].filter((line): line is string => Boolean(line));
+}
+
+function createQueueWorkflowDebugCapabilityInstructionLines(
+  capabilities: readonly HobitAgentCapability[],
+) {
+  const capabilityIds = [
+    "queue.workflow.list",
+    "queue.workflow.get",
+    "queue.workflow.getReport",
+    "queue.workflow.planResume",
+    "queue.workflow.readActionLog",
+  ];
+  const workflowDebugCapabilities = capabilityIds
+    .map((capabilityId) =>
+      capabilities.find((capability) => capability.id === capabilityId),
+    )
+    .filter((capability): capability is HobitAgentCapability =>
+      Boolean(capability),
+    );
+
+  if (workflowDebugCapabilities.length === 0) {
+    return [];
+  }
+
+  const exampleIds = workflowDebugCapabilities
+    .map((capability) => `{"capabilityId":"${capability.id}"}`)
+    .join("; ");
+
+  return [
+    "Queue workflow debug read schemas:",
+    "Use list to recover workflowRunId; get for run summary; getReport for task/run/evidence/message/completion/failure ids; planResume before continuation; readActionLog for idempotency/action issues.",
+    "These reads never invoke workflows, start workers, mutate Queue, run shell/Git/Terminal/validation/rollback, or expose raw confirmationToken.",
+    exampleIds ? `Workflow-debug envelope ids: ${exampleIds}.` : null,
+  ].filter((line): line is string => Boolean(line));
+}
+
+function shouldIncludeQueueWorkflowDebugInstructions(currentPrompt: string) {
+  const prompt = currentPrompt.toLowerCase();
+  return (
+    prompt.includes("queue") ||
+    prompt.includes("workflow") ||
+    prompt.includes("smoke") ||
+    prompt.includes("resume") ||
+    prompt.includes("action log") ||
+    prompt.includes("debug")
+  );
 }

@@ -806,8 +806,13 @@ the local executor flow visible to operators.
   state to `manual_enabled` through `queue.control.setManualEnabled`; this does
   not start workers, dispatch a scheduler, mutate Queue tasks, create run
   links, record evidence/reviews/finalization, invoke workflows, or launch
-  shell/Git/Terminal/validation/rollback behavior. It must not infer ids from
-  UI text, titles, prose, order, file paths, localStorage, or transcripts.
+  shell/Git/Terminal/validation/rollback behavior. Workspace Agent may read
+  workflow debug state through bounded read-only `queue.workflow.get`,
+  `queue.workflow.list`, `queue.workflow.getReport`,
+  `queue.workflow.planResume`, and `queue.workflow.readActionLog` broker
+  capabilities over backend workflow run/report/resume/action-ledger APIs. It
+  must not infer ids from UI text, titles, prose, order, file paths,
+  localStorage, or transcripts.
 - `docs/QUEUE_SYSTEM_ARCHITECTURE_RESET.md` - current Queue / Workspace Agent
   architecture correction note. Read before broad Queue dogfooding,
   continuation-policy, capability-contract, or responsibility-boundary cleanup.
@@ -822,8 +827,10 @@ the local executor flow visible to operators.
   persistence MVP: start/get/list/cancel/report/planResume APIs, read-only
   resume planning, internal action ledger, and runtime-adapter report/action
   persistence for supported create/setup/start, worker-evidence,
-  read/review/finalization runner phases. Generic resume execution and
-  scheduler behavior remain not implemented.
+  read/review/finalization runner phases. Workspace Agent broker workflow debug
+  reads are available for get/list/report/planResume/action-log inspection;
+  generic resume execution, `queue.workflow.invoke`, and scheduler behavior
+  remain not implemented.
 - `docs/QUEUE_RESPONSIBILITY_REFACTOR_AUDIT.md` - focused audit/status note
   for the Queue backend ownership refactor, transitional capability debt, and
   phased cleanup plan.

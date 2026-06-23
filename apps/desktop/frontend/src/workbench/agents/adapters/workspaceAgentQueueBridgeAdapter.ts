@@ -10,6 +10,13 @@ import type {
   AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
+  AgentQueueWorkflowAction,
+  AgentQueueWorkflowReport,
+  AgentQueueWorkflowResumeBlocker,
+  AgentQueueWorkflowResumePlan,
+  AgentQueueWorkflowRun,
+  AgentQueueWorkflowSlotReconciliation,
+  AgentQueueWorkflowTaskResumeSnapshot,
 } from "../../../workspace/types";
 import {
   createQueueBackendCapabilityPort,
@@ -64,6 +71,23 @@ import {
   type QueueAgentTaskSummary,
   type QueueAgentUpdateRunSettingsInput,
   type QueueAgentUpdateRunSettingsResult,
+  type QueueAgentWorkflowActionCountSummary,
+  type QueueAgentWorkflowActionSummary,
+  type QueueAgentWorkflowBlockerSummary,
+  type QueueAgentWorkflowGetInput,
+  type QueueAgentWorkflowGetReportInput,
+  type QueueAgentWorkflowGetResult,
+  type QueueAgentWorkflowListInput,
+  type QueueAgentWorkflowListResult,
+  type QueueAgentWorkflowNoMutationFlags,
+  type QueueAgentWorkflowPlanResumeInput,
+  type QueueAgentWorkflowPlanResumeResult,
+  type QueueAgentWorkflowReadActionLogInput,
+  type QueueAgentWorkflowReadActionLogResult,
+  type QueueAgentWorkflowRefMaps,
+  type QueueAgentWorkflowReportResult,
+  type QueueAgentWorkflowRunSummary,
+  type QueueAgentWorkflowSafeJsonValue,
 } from "./queueAgentCapabilityTypes";
 import type {
   QueueUpdateItemPatch,
@@ -100,6 +124,16 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
     createItems: (request) => createQueueItemsThroughBridge(bridge, request),
     getQueueControlState: (input, context) =>
       getQueueControlStateThroughBridge(bridge, input, context),
+    getWorkflow: (input, context) =>
+      getWorkflowThroughBridge(bridge, input, context),
+    getWorkflowReport: (input, context) =>
+      getWorkflowReportThroughBridge(bridge, input, context),
+    listWorkflows: (input, context) =>
+      listWorkflowsThroughBridge(bridge, input, context),
+    planWorkflowResume: (input, context) =>
+      planWorkflowResumeThroughBridge(bridge, input, context),
+    readWorkflowActionLog: (input, context) =>
+      readWorkflowActionLogThroughBridge(bridge, input, context),
     setQueueControlManualEnabled: (input, context) =>
       setQueueControlManualEnabledThroughBridge(bridge, input, context),
     enableQueue: (input, context) =>
@@ -391,6 +425,316 @@ async function setQueueControlManualEnabledThroughBridge(
   };
 }
 
+async function getWorkflowThroughBridge(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: Required<Pick<QueueAgentWorkflowGetInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowGetInput, "workflowRunId">,
+  _context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentWorkflowGetResult>> {
+  if (!bridge?.getWorkflow) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.workflowGet,
+      "Queue workflow get API is unavailable.",
+    );
+  }
+
+  const precheck = workflowWorkspacePrecheck<QueueAgentWorkflowGetResult>(
+    bridge,
+    input.workspaceId,
+    QUEUE_ACTIVITY_EVENTS.workflowGet,
+  );
+  if (precheck) {
+    return precheck;
+  }
+
+  let workflowRun: AgentQueueWorkflowRun | null;
+  try {
+    workflowRun = await bridge.getWorkflow({
+      workflowRunId: input.workflowRunId,
+    });
+  } catch (error) {
+    return aggregateReadUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.workflowGet,
+      error,
+      "Queue workflow get API is unavailable.",
+    );
+  }
+
+  if (!workflowRun) {
+    return workflowNotFoundResult(
+      QUEUE_ACTIVITY_EVENTS.workflowGet,
+      input.workflowRunId,
+    );
+  }
+
+  const mismatch = workflowRunWorkspaceMismatchResult<QueueAgentWorkflowGetResult>(
+    workflowRun,
+    input.workspaceId,
+    QUEUE_ACTIVITY_EVENTS.workflowGet,
+  );
+  if (mismatch) {
+    return mismatch;
+  }
+
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.workflowGet],
+    message: "Queue workflow run read.",
+    output: workflowRunSummary(workflowRun),
+    status: "succeeded",
+  };
+}
+
+async function listWorkflowsThroughBridge(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: QueueAgentWorkflowListInput,
+  _context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentWorkflowListResult>> {
+  if (!bridge?.listWorkflows) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.workflowList,
+      "Queue workflow list API is unavailable.",
+    );
+  }
+
+  const precheck = workflowWorkspacePrecheck<QueueAgentWorkflowListResult>(
+    bridge,
+    input.workspaceId,
+    QUEUE_ACTIVITY_EVENTS.workflowList,
+  );
+  if (precheck) {
+    return precheck;
+  }
+
+  let workflowRuns: AgentQueueWorkflowRun[];
+  try {
+    workflowRuns = await bridge.listWorkflows({
+      status: input.status ?? null,
+      workflowId: input.workflowId ?? null,
+    });
+  } catch (error) {
+    return aggregateReadUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.workflowList,
+      error,
+      "Queue workflow list API is unavailable.",
+    );
+  }
+
+  const requestedWorkspaceId = normalizedString(input.workspaceId);
+  const mismatchedRun = requestedWorkspaceId
+    ? workflowRuns.find(
+        (run) => normalizedString(run.workspaceId) !== requestedWorkspaceId,
+      )
+    : null;
+  if (mismatchedRun) {
+    return workflowRunWorkspaceMismatchResult<QueueAgentWorkflowListResult>(
+      mismatchedRun,
+      input.workspaceId,
+      QUEUE_ACTIVITY_EVENTS.workflowList,
+    )!;
+  }
+
+  const limit = boundedItemLimit(input.limit);
+  const boundedRuns = workflowRuns.slice(0, limit);
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.workflowList],
+    message: "Queue workflow runs listed.",
+    output: {
+      ...workflowNoMutationFlags(),
+      limit,
+      statusFilter: input.status ?? null,
+      total: workflowRuns.length,
+      truncated: workflowRuns.length > limit,
+      workflowIdFilter: input.workflowId ?? null,
+      workflows: boundedRuns.map(workflowRunSummary),
+    },
+    status: "succeeded",
+  };
+}
+
+async function getWorkflowReportThroughBridge(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: Required<Pick<QueueAgentWorkflowGetReportInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowGetReportInput, "workflowRunId">,
+  _context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentWorkflowReportResult>> {
+  if (!bridge?.getWorkflowReport) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.workflowGetReport,
+      "Queue workflow report read API is unavailable.",
+    );
+  }
+
+  const precheck = workflowWorkspacePrecheck<QueueAgentWorkflowReportResult>(
+    bridge,
+    input.workspaceId,
+    QUEUE_ACTIVITY_EVENTS.workflowGetReport,
+  );
+  if (precheck) {
+    return precheck;
+  }
+
+  let report: AgentQueueWorkflowReport | null;
+  try {
+    report = await bridge.getWorkflowReport({
+      workflowRunId: input.workflowRunId,
+    });
+  } catch (error) {
+    return aggregateReadUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.workflowGetReport,
+      error,
+      "Queue workflow report read API is unavailable.",
+    );
+  }
+
+  if (!report) {
+    return workflowNotFoundResult(
+      QUEUE_ACTIVITY_EVENTS.workflowGetReport,
+      input.workflowRunId,
+    );
+  }
+
+  const mismatch =
+    workflowRunWorkspaceMismatchResult<QueueAgentWorkflowReportResult>(
+      report.workflowRun,
+      input.workspaceId,
+      QUEUE_ACTIVITY_EVENTS.workflowGetReport,
+    );
+  if (mismatch) {
+    return mismatch;
+  }
+
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.workflowGetReport],
+    message: "Queue workflow report read.",
+    output: workflowReportResult(report),
+    status: "succeeded",
+  };
+}
+
+async function planWorkflowResumeThroughBridge(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: Required<Pick<QueueAgentWorkflowPlanResumeInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowPlanResumeInput, "workflowRunId">,
+  _context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentWorkflowPlanResumeResult>> {
+  if (!bridge?.planWorkflowResume) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.workflowPlanResume,
+      "Queue workflow resume planning API is unavailable.",
+    );
+  }
+
+  const precheck = workflowWorkspacePrecheck<QueueAgentWorkflowPlanResumeResult>(
+    bridge,
+    input.workspaceId,
+    QUEUE_ACTIVITY_EVENTS.workflowPlanResume,
+  );
+  if (precheck) {
+    return precheck;
+  }
+
+  let plan: AgentQueueWorkflowResumePlan | null;
+  try {
+    plan = await bridge.planWorkflowResume({
+      expectedVersion: input.expectedVersion ?? null,
+      workflowRunId: input.workflowRunId,
+    });
+  } catch (error) {
+    return aggregateReadUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.workflowPlanResume,
+      error,
+      "Queue workflow resume planning API is unavailable.",
+    );
+  }
+
+  if (!plan) {
+    return workflowNotFoundResult(
+      QUEUE_ACTIVITY_EVENTS.workflowPlanResume,
+      input.workflowRunId,
+    );
+  }
+
+  const mismatch =
+    workflowRunWorkspaceMismatchResult<QueueAgentWorkflowPlanResumeResult>(
+      plan.workflowRun,
+      input.workspaceId,
+      QUEUE_ACTIVITY_EVENTS.workflowPlanResume,
+    );
+  if (mismatch) {
+    return mismatch;
+  }
+
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.workflowPlanResume],
+    message: "Queue workflow resume plan read.",
+    output: workflowPlanResumeResult(plan),
+    status: "succeeded",
+  };
+}
+
+async function readWorkflowActionLogThroughBridge(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: Required<
+    Pick<QueueAgentWorkflowReadActionLogInput, "workflowRunId">
+  > &
+    Omit<QueueAgentWorkflowReadActionLogInput, "workflowRunId">,
+  _context: QueueAgentLifecycleHandlerContext,
+): Promise<QueueAgentAdapterResult<QueueAgentWorkflowReadActionLogResult>> {
+  if (!bridge?.getWorkflowReport) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.workflowReadActionLog,
+      "Queue workflow report read API is unavailable.",
+    );
+  }
+
+  const precheck =
+    workflowWorkspacePrecheck<QueueAgentWorkflowReadActionLogResult>(
+      bridge,
+      input.workspaceId,
+      QUEUE_ACTIVITY_EVENTS.workflowReadActionLog,
+    );
+  if (precheck) {
+    return precheck;
+  }
+
+  let report: AgentQueueWorkflowReport | null;
+  try {
+    report = await bridge.getWorkflowReport({
+      workflowRunId: input.workflowRunId,
+    });
+  } catch (error) {
+    return aggregateReadUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.workflowReadActionLog,
+      error,
+      "Queue workflow action-log read API is unavailable.",
+    );
+  }
+
+  if (!report) {
+    return workflowNotFoundResult(
+      QUEUE_ACTIVITY_EVENTS.workflowReadActionLog,
+      input.workflowRunId,
+    );
+  }
+
+  const mismatch =
+    workflowRunWorkspaceMismatchResult<QueueAgentWorkflowReadActionLogResult>(
+      report.workflowRun,
+      input.workspaceId,
+      QUEUE_ACTIVITY_EVENTS.workflowReadActionLog,
+    );
+  if (mismatch) {
+    return mismatch;
+  }
+
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.workflowReadActionLog],
+    message: "Queue workflow action log read.",
+    output: workflowActionLogResult(report, input),
+    status: "succeeded",
+  };
+}
+
 async function getLifecycleThroughAggregate(
   backendApi: QueueBackendCapabilityPort | null | undefined,
   bridge: WorkspaceAgentQueueBridge | null | undefined,
@@ -608,6 +952,513 @@ async function listQueueItemsThroughBackend(
       nextSuggestedCapability,
     },
     status: "succeeded",
+  };
+}
+
+function workflowRunSummary(
+  workflowRun: AgentQueueWorkflowRun,
+): QueueAgentWorkflowRunSummary {
+  const actionLogSummary = safeWorkflowJsonSummary(
+    workflowRun.actionLogSummaryJson,
+  );
+
+  return {
+    ...workflowNoMutationFlags(),
+    ...workflowRefsFromRun(workflowRun),
+    actionLogSummary,
+    blockers: workflowRunBlockers(workflowRun),
+    completedAt: workflowRun.completedAt ?? null,
+    createdAt: workflowRun.createdAt,
+    currentStep: workflowRun.currentStep ?? null,
+    missingCapabilities: missingCapabilitiesFromSummary(actionLogSummary),
+    phase: workflowRun.phase,
+    requestId: workflowRun.requestId,
+    slotBindingsSummary: safeWorkflowJsonSummary(
+      workflowRun.slotBindingsJson,
+    ),
+    status: workflowRun.status,
+    updatedAt: workflowRun.updatedAt,
+    variablesSummary: safeWorkflowJsonSummary(workflowRun.variablesJson),
+    version: workflowRun.version,
+    workflowId: workflowRun.workflowId,
+    workflowRunId: workflowRun.workflowRunId,
+    workspaceId: workflowRun.workspaceId,
+  };
+}
+
+function workflowReportResult(
+  report: AgentQueueWorkflowReport,
+): QueueAgentWorkflowReportResult {
+  const workflowRun = report.workflowRun;
+  const actionLogSummary = safeWorkflowJsonSummary(
+    workflowRun.actionLogSummaryJson,
+  );
+  const actionSummaries = report.actions
+    .slice(0, 25)
+    .map(workflowActionSummary);
+  return {
+    ...workflowNoMutationFlags(),
+    ...mergeWorkflowRefMaps(
+      workflowRefsFromRun(workflowRun),
+      workflowRefsFromActions(report.actions),
+    ),
+    actionCountSummary: workflowActionCountSummary(report.actions),
+    actionSummaries,
+    blockers: [
+      ...workflowRunBlockers(workflowRun),
+      ...workflowActionBlockers(report.actions),
+    ],
+    completedAt: workflowRun.completedAt ?? null,
+    currentStep: workflowRun.currentStep ?? null,
+    nextAction: nextActionFromSummary(actionLogSummary),
+    nextPhase: stringFieldFromValue(actionLogSummary, [
+      "nextPhase",
+      "next_phase",
+    ]),
+    phase: workflowRun.phase,
+    reportSummary: boundedLongText(report.reportSummary, 2000),
+    resumeAvailable: report.resumeAvailable,
+    resumeStatus: report.resumeStatus,
+    status: workflowRun.status,
+    truncatedActionSummaries: report.actions.length > actionSummaries.length,
+    workflowId: workflowRun.workflowId,
+    workflowRunId: workflowRun.workflowRunId,
+    workspaceId: workflowRun.workspaceId,
+  };
+}
+
+function workflowPlanResumeResult(
+  plan: AgentQueueWorkflowResumePlan,
+): QueueAgentWorkflowPlanResumeResult {
+  const workflowRun = plan.workflowRun;
+  const refs = mergeWorkflowRefMaps(
+    workflowRefsFromRun(workflowRun),
+    workflowRefsFromActions(plan.actions),
+    workflowRefsFromSlotReconciliations(plan.slotReconciliations),
+    workflowRefsFromTaskSnapshots(plan.taskSnapshots),
+  );
+
+  return {
+    ...workflowNoMutationFlags(),
+    ...refs,
+    actionCountSummary: workflowActionCountSummary(plan.actions),
+    blockers: plan.blockers.map(workflowResumeBlockerSummary),
+    nextPhase: plan.nextPhase ?? null,
+    nextStep: plan.nextStep ?? null,
+    reconciledVariablesSummary: safeWorkflowJsonSummary(
+      plan.reconciledVariablesJson,
+    ),
+    reportSummary: boundedLongText(plan.reportSummary, 2000),
+    requiredConfirmation: plan.requiredConfirmation,
+    requiredContinuationRefs: refs,
+    requiredFreshGrant: plan.requiredFreshGrant,
+    resumeAvailable: plan.resumeAvailable,
+    resumeStatus: plan.status,
+    status: workflowRun.status,
+    taskSnapshots: plan.taskSnapshots.slice(0, 25).map(workflowTaskSnapshot),
+    terminalStatus: plan.terminalStatus ?? null,
+    workflowId: workflowRun.workflowId,
+    workflowRunId: workflowRun.workflowRunId,
+    workspaceId: workflowRun.workspaceId,
+  };
+}
+
+function workflowActionLogResult(
+  report: AgentQueueWorkflowReport,
+  input: Required<
+    Pick<QueueAgentWorkflowReadActionLogInput, "workflowRunId">
+  > &
+    Omit<QueueAgentWorkflowReadActionLogInput, "workflowRunId">,
+): QueueAgentWorkflowReadActionLogResult {
+  const statusFilter = normalizedString(input.status);
+  const filteredActions = statusFilter
+    ? report.actions.filter((action) => action.status === statusFilter)
+    : report.actions;
+  const limit = boundedItemLimit(input.limit);
+  const boundedActions = filteredActions.slice(0, limit);
+
+  return {
+    ...workflowNoMutationFlags(),
+    actionCountSummary: workflowActionCountSummary(filteredActions),
+    actions: boundedActions.map(workflowActionSummary),
+    limit,
+    statusFilter,
+    total: filteredActions.length,
+    truncated: filteredActions.length > boundedActions.length,
+    workflowId: report.workflowRun.workflowId,
+    workflowRunId: report.workflowRun.workflowRunId,
+    workspaceId: report.workflowRun.workspaceId,
+  };
+}
+
+function workflowActionSummary(
+  action: AgentQueueWorkflowAction,
+): QueueAgentWorkflowActionSummary {
+  return {
+    actionId: action.actionId,
+    actionType: action.actionType,
+    attemptCount: action.attemptCount,
+    blockerCode: action.blockerCode ?? null,
+    blockerMessage: boundedText(action.blockerMessage),
+    completedAt: action.completedAt ?? null,
+    createdAt: action.createdAt,
+    idempotencyKey: safeWorkflowText(action.idempotencyKey, 240),
+    resultRefs: safeWorkflowJsonSummary(action.resultRefsJson),
+    startedAt: action.startedAt ?? null,
+    status: action.status,
+    stepId: action.stepId,
+    targetRefs: safeWorkflowJsonSummary(action.targetRefsJson),
+    updatedAt: action.updatedAt,
+  };
+}
+
+function workflowRunBlockers(
+  workflowRun: AgentQueueWorkflowRun,
+): QueueAgentWorkflowBlockerSummary[] {
+  const blockerReason = boundedText(workflowRun.blockerReason);
+  if (!blockerReason) {
+    return [];
+  }
+
+  return [
+    {
+      blockerCode: "workflow_blocker",
+      blockerMessage: blockerReason,
+    },
+  ];
+}
+
+function workflowActionBlockers(
+  actions: readonly AgentQueueWorkflowAction[],
+): QueueAgentWorkflowBlockerSummary[] {
+  return actions
+    .filter((action) => Boolean(action.blockerCode || action.blockerMessage))
+    .slice(0, 25)
+    .map((action) => ({
+      blockerCode: action.blockerCode ?? "workflow_action_blocker",
+      blockerMessage:
+        boundedText(action.blockerMessage) ??
+        `Workflow action ${action.actionType} is ${action.status}.`,
+    }));
+}
+
+function workflowResumeBlockerSummary(
+  blocker: AgentQueueWorkflowResumeBlocker,
+): QueueAgentWorkflowBlockerSummary {
+  return {
+    blockerCode: blocker.blockerCode,
+    blockerMessage: boundedText(blocker.blockerMessage) ?? blocker.blockerCode,
+    completionDecisionId: blocker.completionDecisionId,
+    evidenceBundleId: blocker.evidenceBundleId,
+    failureDecisionId: blocker.failureDecisionId,
+    messageId: blocker.messageId,
+    missingRequiredField: blocker.missingRequiredField,
+    runId: blocker.runId,
+    slot: blocker.slot,
+    taskId: blocker.taskId,
+  };
+}
+
+function workflowTaskSnapshot(
+  snapshot: AgentQueueWorkflowTaskResumeSnapshot,
+): QueueAgentWorkflowPlanResumeResult["taskSnapshots"][number] {
+  return {
+    dependencyState: snapshot.dependencyState,
+    evidenceState: snapshot.evidenceState,
+    latestCompletionDecisionId: snapshot.latestCompletionDecisionId,
+    latestEvidenceBundleId: snapshot.latestEvidenceBundleId,
+    latestFailureDecisionId: snapshot.latestFailureDecisionId,
+    latestReviewMessageId: snapshot.latestReviewMessageId,
+    latestRunId: snapshot.latestRunId,
+    reviewState: snapshot.reviewState,
+    taskId: snapshot.taskId,
+    ticketState: snapshot.ticketState,
+    validationState: snapshot.validationState,
+    workerRunState: snapshot.workerRunState,
+  };
+}
+
+function workflowActionCountSummary(
+  actions: readonly AgentQueueWorkflowAction[],
+): QueueAgentWorkflowActionCountSummary {
+  return {
+    byActionType: countBy(actions.map((action) => action.actionType)),
+    byStatus: countBy(actions.map((action) => action.status)),
+    total: actions.length,
+  };
+}
+
+function workflowRefsFromRun(
+  workflowRun: AgentQueueWorkflowRun,
+): QueueAgentWorkflowRefMaps {
+  return mergeWorkflowRefMaps(
+    workflowRefsFromJson(workflowRun.slotBindingsJson),
+    workflowRefsFromJson(workflowRun.variablesJson),
+    workflowRefsFromJson(workflowRun.mutationRefsJson),
+  );
+}
+
+function workflowRefsFromActions(
+  actions: readonly AgentQueueWorkflowAction[],
+): QueueAgentWorkflowRefMaps {
+  const refs = emptyWorkflowRefMaps();
+  for (const action of actions) {
+    mergeWorkflowRefMapsInto(refs, workflowRefsFromJson(action.targetRefsJson));
+    mergeWorkflowRefMapsInto(refs, workflowRefsFromJson(action.resultRefsJson));
+  }
+  return refs;
+}
+
+function workflowRefsFromSlotReconciliations(
+  reconciliations: readonly AgentQueueWorkflowSlotReconciliation[],
+): QueueAgentWorkflowRefMaps {
+  const refs = emptyWorkflowRefMaps();
+  for (const reconciliation of reconciliations) {
+    addWorkflowRefsForSlot(refs, reconciliation.slot, reconciliation);
+  }
+  return refs;
+}
+
+function workflowRefsFromTaskSnapshots(
+  snapshots: readonly AgentQueueWorkflowTaskResumeSnapshot[],
+): QueueAgentWorkflowRefMaps {
+  const refs = emptyWorkflowRefMaps();
+  for (const snapshot of snapshots) {
+    addWorkflowRef(refs.taskIdsBySlot, snapshot.taskId, snapshot.taskId);
+    addWorkflowRef(refs.runIdsBySlot, snapshot.taskId, snapshot.latestRunId);
+    addWorkflowRef(
+      refs.evidenceBundleIdsBySlot,
+      snapshot.taskId,
+      snapshot.latestEvidenceBundleId,
+    );
+    addWorkflowRef(
+      refs.messageIdsBySlot,
+      snapshot.taskId,
+      snapshot.latestReviewMessageId,
+    );
+    addWorkflowRef(
+      refs.completionDecisionIdsBySlot,
+      snapshot.taskId,
+      snapshot.latestCompletionDecisionId,
+    );
+    addWorkflowRef(
+      refs.failureDecisionIdsBySlot,
+      snapshot.taskId,
+      snapshot.latestFailureDecisionId,
+    );
+  }
+  return refs;
+}
+
+function workflowRefsFromJson(
+  json: string | null | undefined,
+): QueueAgentWorkflowRefMaps {
+  const parsed = tryParseWorkflowJson(json);
+  if (parsed === null) {
+    return emptyWorkflowRefMaps();
+  }
+
+  const refs = emptyWorkflowRefMaps();
+  collectWorkflowRefs(refs, parsed, null);
+  return refs;
+}
+
+function collectWorkflowRefs(
+  refs: QueueAgentWorkflowRefMaps,
+  value: unknown,
+  fallbackSlot: string | null,
+) {
+  if (Array.isArray(value)) {
+    for (const item of value.slice(0, 50)) {
+      collectWorkflowRefs(refs, item, fallbackSlot);
+    }
+    return;
+  }
+
+  if (!isRecord(value)) {
+    return;
+  }
+
+  const slot =
+    stringFieldFromRecord(value, ["slot", "slotId", "taskSlot", "task_slot"]) ??
+    fallbackSlot;
+  if (slot) {
+    addWorkflowRefsForSlot(refs, slot, value);
+  }
+
+  for (const [key, child] of Object.entries(value).slice(0, 50)) {
+    collectWorkflowRefs(refs, child, isRecord(child) ? key : slot);
+  }
+}
+
+function addWorkflowRefsForSlot(
+  refs: QueueAgentWorkflowRefMaps,
+  slot: string,
+  value: Record<string, unknown>,
+) {
+  addWorkflowRef(
+    refs.taskIdsBySlot,
+    slot,
+    stringFieldFromRecord(value, ["taskId", "task_id"]),
+  );
+  addWorkflowRef(
+    refs.runIdsBySlot,
+    slot,
+    stringFieldFromRecord(value, ["runId", "run_id"]),
+  );
+  addWorkflowRef(
+    refs.evidenceBundleIdsBySlot,
+    slot,
+    stringFieldFromRecord(value, ["evidenceBundleId", "evidence_bundle_id"]),
+  );
+  addWorkflowRef(
+    refs.messageIdsBySlot,
+    slot,
+    stringFieldFromRecord(value, [
+      "messageId",
+      "reviewMessageId",
+      "message_id",
+      "review_message_id",
+    ]),
+  );
+  addWorkflowRef(
+    refs.completionDecisionIdsBySlot,
+    slot,
+    stringFieldFromRecord(value, [
+      "completionDecisionId",
+      "completion_decision_id",
+    ]),
+  );
+  addWorkflowRef(
+    refs.failureDecisionIdsBySlot,
+    slot,
+    stringFieldFromRecord(value, [
+      "failureDecisionId",
+      "failure_decision_id",
+    ]),
+  );
+}
+
+function addWorkflowRef(
+  target: Record<string, string>,
+  slot: string,
+  value: string | null | undefined,
+) {
+  const safeSlot = normalizedString(slot);
+  const safeValue = normalizedString(value);
+  if (safeSlot && safeValue) {
+    target[safeSlot] = safeValue;
+  }
+}
+
+function mergeWorkflowRefMaps(
+  ...maps: readonly QueueAgentWorkflowRefMaps[]
+): QueueAgentWorkflowRefMaps {
+  const merged = emptyWorkflowRefMaps();
+  for (const refs of maps) {
+    mergeWorkflowRefMapsInto(merged, refs);
+  }
+  return merged;
+}
+
+function mergeWorkflowRefMapsInto(
+  target: QueueAgentWorkflowRefMaps,
+  source: QueueAgentWorkflowRefMaps,
+) {
+  Object.assign(target.taskIdsBySlot, source.taskIdsBySlot);
+  Object.assign(target.runIdsBySlot, source.runIdsBySlot);
+  Object.assign(target.evidenceBundleIdsBySlot, source.evidenceBundleIdsBySlot);
+  Object.assign(target.messageIdsBySlot, source.messageIdsBySlot);
+  Object.assign(
+    target.completionDecisionIdsBySlot,
+    source.completionDecisionIdsBySlot,
+  );
+  Object.assign(
+    target.failureDecisionIdsBySlot,
+    source.failureDecisionIdsBySlot,
+  );
+}
+
+function emptyWorkflowRefMaps(): QueueAgentWorkflowRefMaps {
+  return {
+    completionDecisionIdsBySlot: {},
+    evidenceBundleIdsBySlot: {},
+    failureDecisionIdsBySlot: {},
+    messageIdsBySlot: {},
+    runIdsBySlot: {},
+    taskIdsBySlot: {},
+  };
+}
+
+function workflowNoMutationFlags(): QueueAgentWorkflowNoMutationFlags {
+  return {
+    didAutoRunWorkers: false,
+    didExecuteRollback: false,
+    didInvokeWorkflowRunner: false,
+    didLaunchShell: false,
+    didLaunchTerminal: false,
+    didMutateEvidence: false,
+    didMutateFinalization: false,
+    didMutateGit: false,
+    didMutateQueue: false,
+    didMutateReviews: false,
+    didRunValidation: false,
+    didStartWorkers: false,
+  };
+}
+
+function workflowWorkspacePrecheck<TOutput>(
+  bridge: WorkspaceAgentQueueBridge,
+  requestedWorkspaceId: string | null | undefined,
+  activityEventNames: readonly string[],
+): QueueAgentAdapterResult<TOutput> | null {
+  const requested = normalizedString(requestedWorkspaceId);
+  const current = normalizedString(bridge.getQueueControlState?.()?.workspaceId);
+  if (!requested || !current || requested === current) {
+    return null;
+  }
+
+  return {
+    activityEventNames: [...activityEventNames],
+    message: "Queue workflow workspaceId does not match current workspace.",
+    reasonCode: "precondition_failed",
+    reasons: ["Queue workflow workspaceId does not match current workspace."],
+    status: "precondition_failed",
+  };
+}
+
+function workflowRunWorkspaceMismatchResult<TOutput>(
+  workflowRun: AgentQueueWorkflowRun,
+  requestedWorkspaceId: string | null | undefined,
+  activityEventNames: readonly string[],
+): QueueAgentAdapterResult<TOutput> | null {
+  const requested = normalizedString(requestedWorkspaceId);
+  const actual = normalizedString(workflowRun.workspaceId);
+  if (!requested || !actual || requested === actual) {
+    return null;
+  }
+
+  return {
+    activityEventNames: [...activityEventNames],
+    message: "Queue workflow workspaceId does not match returned workflow run.",
+    reasonCode: "precondition_failed",
+    reasons: [
+      "Queue workflow workspaceId does not match returned workflow run.",
+    ],
+    status: "precondition_failed",
+  };
+}
+
+function workflowNotFoundResult<TOutput>(
+  activityEventNames: readonly string[],
+  workflowRunId: string,
+): QueueAgentAdapterResult<TOutput> {
+  return {
+    activityEventNames: [...activityEventNames],
+    message: `Queue workflow run "${workflowRunId}" was not found.`,
+    reasonCode: "precondition_failed",
+    reasons: [`Queue workflow run "${workflowRunId}" was not found.`],
+    status: "precondition_failed",
   };
 }
 
@@ -3465,6 +4316,17 @@ function boundedItemLimit(limit: number | undefined) {
   return Math.max(1, Math.min(50, limit ?? 25));
 }
 
+function countBy(values: readonly string[]) {
+  const counts: Record<string, number> = {};
+  for (const value of values) {
+    const key = normalizedString(value);
+    if (key) {
+      counts[key] = (counts[key] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
 function isRunnableStatus(status: string) {
   return status === "queued" || status === "ready" || status === "review_needed";
 }
@@ -3498,9 +4360,191 @@ function boundedText(value: string | null | undefined) {
   return trimmed.length > 240 ? `${trimmed.slice(0, 240)}...` : trimmed;
 }
 
+function boundedLongText(value: string | null | undefined, maxLength: number) {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) {
+    return "";
+  }
+
+  return trimmed.length > maxLength
+    ? `${trimmed.slice(0, maxLength)}...`
+    : trimmed;
+}
+
+function safeWorkflowText(value: string | null | undefined, maxLength: number) {
+  const trimmed = value?.trim() ?? "";
+  const redacted = trimmed
+    .replace(/operator-confirmed/g, "[redacted-confirmation-token]")
+    .replace(/confirmationToken/gi, "confirmation-token-redacted")
+    .replace(/confirmation_token/gi, "confirmation-token-redacted");
+  return redacted.length > maxLength
+    ? `${redacted.slice(0, maxLength)}...`
+    : redacted;
+}
+
+function safeWorkflowJsonSummary(
+  json: string | null | undefined,
+): QueueAgentWorkflowSafeJsonValue | null {
+  const parsed = tryParseWorkflowJson(json);
+  if (parsed === null) {
+    return null;
+  }
+
+  return sanitizeWorkflowJsonValue(parsed, 0);
+}
+
+function tryParseWorkflowJson(json: string | null | undefined): unknown | null {
+  const trimmed = json?.trim() ?? "";
+  if (!trimmed) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(trimmed) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function sanitizeWorkflowJsonValue(
+  value: unknown,
+  depth: number,
+): QueueAgentWorkflowSafeJsonValue | null {
+  if (depth > 4) {
+    return "[truncated]";
+  }
+
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value === "string") {
+    return safeWorkflowText(value, 500);
+  }
+
+  if (typeof value === "number" || typeof value === "boolean") {
+    return value;
+  }
+
+  if (Array.isArray(value)) {
+    return value
+      .slice(0, 25)
+      .map((item) => sanitizeWorkflowJsonValue(item, depth + 1));
+  }
+
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const entries = Object.entries(value);
+  const output: Record<string, QueueAgentWorkflowSafeJsonValue> = {};
+  for (const [key, child] of entries.slice(0, 25)) {
+    if (isSensitiveWorkflowKey(key)) {
+      output[key] = "[redacted-confirmation-token]";
+      continue;
+    }
+
+    if (isRawWorkflowLogKey(key)) {
+      output[key] = "[redacted-raw-log]";
+      continue;
+    }
+
+    output[key] = sanitizeWorkflowJsonValue(child, depth + 1);
+  }
+
+  if (entries.length > 25) {
+    output.truncatedFieldCount = entries.length - 25;
+  }
+
+  return output;
+}
+
+function isSensitiveWorkflowKey(key: string) {
+  const normalized = key.toLowerCase().replace(/[_-]/g, "");
+  return normalized.includes("confirmationtoken");
+}
+
+function isRawWorkflowLogKey(key: string) {
+  const normalized = key.toLowerCase().replace(/[_-]/g, "");
+  return (
+    normalized.includes("transcript") ||
+    normalized === "log" ||
+    normalized === "logs" ||
+    normalized === "rawlog" ||
+    normalized === "rawlogs" ||
+    normalized.includes("providerlog")
+  );
+}
+
 function normalizedString(value: string | null | undefined) {
   const trimmed = value?.trim() ?? "";
   return trimmed ? trimmed : null;
+}
+
+function missingCapabilitiesFromSummary(
+  value: QueueAgentWorkflowSafeJsonValue | null,
+) {
+  if (!isRecord(value)) {
+    return [];
+  }
+
+  const candidates = [
+    value.missingCapability,
+    value.missingCapabilities,
+    value.missing_capability,
+    value.missing_capabilities,
+  ];
+  const missingCapabilities = candidates.flatMap((candidate) => {
+    if (typeof candidate === "string") {
+      return [candidate];
+    }
+
+    if (Array.isArray(candidate)) {
+      return candidate.filter(
+        (item): item is string => typeof item === "string",
+      );
+    }
+
+    return [];
+  });
+  return uniqueStrings(missingCapabilities);
+}
+
+function nextActionFromSummary(
+  value: QueueAgentWorkflowSafeJsonValue | null,
+): QueueAgentWorkflowSafeJsonValue | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const nextAction = value.nextAction ?? value.next_action;
+  return nextAction === undefined
+    ? null
+    : (nextAction as QueueAgentWorkflowSafeJsonValue);
+}
+
+function stringFieldFromValue(
+  value: QueueAgentWorkflowSafeJsonValue | null,
+  fieldNames: readonly string[],
+) {
+  return isRecord(value) ? stringFieldFromRecord(value, fieldNames) : null;
+}
+
+function stringFieldFromRecord(
+  record: Record<string, unknown>,
+  fieldNames: readonly string[],
+) {
+  for (const fieldName of fieldNames) {
+    const value = record[fieldName];
+    if (typeof value === "string") {
+      const normalized = normalizedString(value);
+      if (normalized) {
+        return normalized;
+      }
+    }
+  }
+
+  return null;
 }
 
 function hasOwn<TObject extends object, TKey extends PropertyKey>(
@@ -3508,4 +4552,8 @@ function hasOwn<TObject extends object, TKey extends PropertyKey>(
   key: TKey,
 ): object is TObject & Record<TKey, unknown> {
   return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

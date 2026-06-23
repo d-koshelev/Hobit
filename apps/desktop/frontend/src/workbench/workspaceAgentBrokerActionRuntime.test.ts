@@ -30,6 +30,7 @@ import type {
   AgentQueueReviewCreateMessageResult,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
+  AgentQueueWorkflowRun,
 } from "../workspace/types";
 import type { WidgetInstance } from "./types";
 import type {
@@ -594,6 +595,7 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     const setQueueControlManualEnabled = vi.fn(async () =>
       setManualEnabledResult({ status: "succeeded" }),
     );
+    const getWorkflow = vi.fn(async () => workflowDebugRun());
     const invoker = createWorkspaceAgentHobitActionInvoker({
       workspaceAgentLiveContext: {
         currentRuntimeMode: "test_renderer",
@@ -616,6 +618,7 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
         workspaceRootPath: "C:/repo",
       },
       workspaceAgentQueueBridge: queueBridge({
+        getWorkflow,
         getQueueControlState: () => ({
           backendOwned: true,
           queueEnabled: false,
@@ -715,6 +718,28 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
       }),
     );
     expect(setQueueControlManualEnabled).toHaveBeenCalledTimes(1);
+
+    const workflowRead = await invoker(
+      createActionRequest({
+        agentRoleId: "workspace_agent",
+        capabilityId: "queue.workflow.get",
+        input: {
+          workflowRunId: "workflow-run-1",
+        },
+        requestId: "runtime-queue-workflow-get-1",
+      }),
+    );
+    expect(workflowRead.status).toBe("succeeded");
+    expect(workflowRead.result.output).toMatchObject({
+      didInvokeWorkflowRunner: false,
+      didMutateQueue: false,
+      didStartWorkers: false,
+      workflowId: "dependency_acceptance_smoke",
+      workflowRunId: "workflow-run-1",
+    });
+    expect(getWorkflow).toHaveBeenCalledWith({
+      workflowRunId: "workflow-run-1",
+    });
 
     const statusRead = await invoker(
       createActionRequest({
@@ -898,6 +923,42 @@ function dependencyWorkflowRequest() {
     requestId: "workflow-request-1",
     type: HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
     workflowId: "dependency_acceptance_smoke",
+  };
+}
+
+function workflowDebugRun(
+  overrides: Partial<AgentQueueWorkflowRun> = {},
+): AgentQueueWorkflowRun {
+  return {
+    actionLogSummaryJson: null,
+    actorId: "workspace-agent:test",
+    blockerReason: null,
+    completedAt: null,
+    createdAt: "2026-06-23T12:00:00.000Z",
+    currentStep: "record_worker_evidence",
+    grantSummaryJson: null,
+    idempotencyKeysJson: null,
+    inputsSnapshotJson: null,
+    mutationRefsJson: null,
+    pauseReason: null,
+    phase: "worker_evidence",
+    requestHash: "workflow-request-hash",
+    requestId: "workflow-request-1",
+    schemaVersion: 1,
+    slotBindingsJson: JSON.stringify({
+      upstream: {
+        runId: "run-upstream-1",
+        taskId: "task-upstream",
+      },
+    }),
+    status: "paused",
+    updatedAt: "2026-06-23T12:10:00.000Z",
+    variablesJson: null,
+    version: 7,
+    workflowId: "dependency_acceptance_smoke",
+    workflowRunId: "workflow-run-1",
+    workspaceId: "workspace-1",
+    ...overrides,
   };
 }
 
