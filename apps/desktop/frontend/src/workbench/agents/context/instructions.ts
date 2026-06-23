@@ -40,8 +40,9 @@ export function createCapabilityInstructionBlock(
     'When needed emit one JSON envelope with a fresh requestId: {"type":"hobit.action.request","requestId":"action-1","capabilityId":"<id>","dryRun":false,"input":{...}}.',
     'When finished in action mode emit one final JSON object: {"type":"hobit.final.answer","message":"<final user-facing answer or blocker>"}',
     "One envelope only; do not emit action lists. Use the exact capability id, exact input fields, exact enum values, and a unique requestId.",
-    'Workflow requests use a separate generic envelope only when explicitly requested: {"type":"hobit.workflow.request","requestId":"workflow-1","moduleId":"queue","workflowId":"<declared-workflow>","grant":{},"inputs":{}}.',
-    "Workflow requests are validation/classification only here; prose is not workflow input, and undeclared workflows are reported instead of executed.",
+    'Queue workflow invocation uses only the generic envelope: {"type":"hobit.workflow.request","moduleId":"queue","workflowId":"dependency_acceptance_smoke|dependency_failure_smoke","grant":{},"inputs":{}}.',
+    "Do not use queue.workflow.invoke. Prose is not workflow input; undeclared workflows report unsupported.",
+    "Continue with hobit.workflow.request plus metadata.workflowRunId and typed inputs; debug with queue.workflow.getReport/planResume/readActionLog.",
     "Workflow grant authorizes only permission/scope. Workflow inputs configure data such as runSettings, task slots, prompts, and dependency slot references.",
     "Never put runSettings/tasks/prompts/dependencies/workspaceRoot/codexExecutable/sandbox/approvalPolicy in grant; grant.scope taskIds/runIds/messageIds/evidenceBundleIds/executorWidgetIds only; confirmationToken in grant is permission metadata only.",
     "Intermediate prose is not a capability call; emit an envelope or final marker. Do not write awaiting capability result.",
@@ -58,7 +59,7 @@ export function createCapabilityInstructionBlock(
     "Queue item creation should use queue.createItems.",
     "Prompt-pack flows use queue.preparePromptPackPreview or queue.importPromptPack.",
     "Queue reads use backend aggregates.",
-    'Queue smoke setup: workspace.context.get, workbench.widgets.list, queue.control.get->queue.control.setManualEnabled; never agent.status.read.',
+    'Queue smoke chain: workspace.context.get, workbench.widgets.list, queue.control.get, queue.control.setManualEnabled, hobit.workflow.request, debug reads; never agent.status.read.',
     queueWorkflowDebugInstructionLines.length > 0
       ? "Queue workflow debug reads use typed Queue workflow capabilities only; never DevTools, UI text, DOM scraping, task titles, file paths, transcript text, or prose id inference."
       : null,
@@ -270,7 +271,7 @@ function createQueueWorkflowDebugCapabilityInstructionLines(
   return [
     "Queue workflow debug read schemas:",
     "Use list to recover workflowRunId; get for run summary; getReport for task/run/evidence/message/completion/failure ids; planResume before continuation; readActionLog for idempotency/action issues.",
-    "These reads never invoke workflows, start workers, mutate Queue, run shell/Git/Terminal/validation/rollback, or expose raw confirmationToken.",
+    "Reads never invoke workflows/start workers/mutate Queue/run shell/Git/Terminal/validation/rollback or expose raw confirmationToken; invocation is hobit.workflow.request.",
     exampleIds ? `Workflow-debug envelope ids: ${exampleIds}.` : null,
   ].filter((line): line is string => Boolean(line));
 }

@@ -117,15 +117,19 @@ capabilities before any smoke execution step:
   idempotency/action debugging, with safe target/result refs and no raw logs or
   raw confirmation token exposure.
 
-Use these discovery reads for live Queue smoke setup. Do not use
-`agent.status.read` for workspace/workbench/widget/executor/Queue-control
-or workflow-debug discovery. Do not use DevTools, Queue UI text, DOM scraping,
+Use these discovery reads for live Queue smoke setup. The recommended Workspace
+Agent smoke chain is `workspace.context.get`, `workbench.widgets.list`,
+`queue.control.get`, `queue.control.setManualEnabled`, structured
+`hobit.workflow.request`, `queue.workflow.getReport`,
+`queue.workflow.planResume`, and `queue.workflow.readActionLog`. Do not use
+`agent.status.read` for workspace/workbench/widget/executor/Queue-control or
+workflow-debug discovery. Do not use DevTools, Queue UI text, DOM scraping,
 localStorage alone, task titles, prompt text, file paths, transcript text, or
 prose to infer ids. Codex shell still cannot perform live Queue smoke by itself
-because it has no live Tauri renderer/IPC context. Actual
-`dependency_acceptance_smoke` and `dependency_failure_smoke` execution from
-Workspace Agent remains a later step after this discovery/debug-read phase, and
-`queue.workflow.invoke` is deliberately not implemented here.
+because it has no live Tauri renderer/IPC context. Actual live
+`dependency_acceptance_smoke` and `dependency_failure_smoke` smoke execution is
+the next block after this invocation wiring. `queue.workflow.invoke` is
+deliberately not implemented; invocation uses only `hobit.workflow.request`.
 
 To authorize bounded multi-step Queue smoke, the operator must include a
 structured grant JSON object such as:

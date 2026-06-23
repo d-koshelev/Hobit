@@ -829,8 +829,10 @@ the local executor flow visible to operators.
   persistence for supported create/setup/start, worker-evidence,
   read/review/finalization runner phases. Workspace Agent broker workflow debug
   reads are available for get/list/report/planResume/action-log inspection;
-  generic resume execution, `queue.workflow.invoke`, and scheduler behavior
-  remain not implemented.
+  official Workspace Agent workflow invocation uses the structured
+  `hobit.workflow.request` protocol path with `metadata.workflowRunId` for
+  continuations. Generic public resume execution, `queue.workflow.invoke`, and
+  scheduler behavior remain not implemented.
 - `docs/QUEUE_RESPONSIBILITY_REFACTOR_AUDIT.md` - focused audit/status note
   for the Queue backend ownership refactor, transitional capability debt, and
   phased cleanup plan.

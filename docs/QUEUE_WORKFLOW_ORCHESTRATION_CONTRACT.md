@@ -133,6 +133,16 @@ never executable workflow input or confirmation. This is not
 shape before the Workspace Agent controller may invoke the narrow
 QueueWorkflowRunner runtime adapter for supported Queue phases.
 
+Block 45 invocation decision: `hobit.workflow.request` is the sole official
+Queue workflow invocation envelope for Workspace Agent live smoke. Workspace
+Agent must emit that structured JSON for initial
+`dependency_acceptance_smoke` / `dependency_failure_smoke` requests and emit
+another `hobit.workflow.request` with `metadata.workflowRunId` for
+worker-evidence, review, and finalization continuations. `queue.workflow.invoke`
+is intentionally not registered as an Action Broker capability because it
+would duplicate the same validator/runtime adapter path, create a second
+surface for grant/input policy, and make debug reads look executable.
+
 ## Queue Workflow Request Validation MVP
 
 For `dependency_acceptance_smoke` and `dependency_failure_smoke`, workflow data
@@ -848,11 +858,11 @@ context. It cannot:
 
 Product action execution requires structured `hobit.action.request` plus
 Broker policy and backend preconditions.
-Workflow requests require structured `hobit.workflow.request` and are currently
-validated/classified before execution. The QueueWorkflowRunner runtime adapter
-can invoke explicit create/setup/start, worker-evidence, read, review, and
-finalization phases through typed ports for supported `moduleId: "queue"`
-workflow requests only.
+Workflow requests require structured `hobit.workflow.request`. The protocol
+runtime validates/classifies the envelope first, and the QueueWorkflowRunner
+runtime adapter can then invoke explicit create/setup/start, worker-evidence,
+read, review, and finalization phases through typed ports for supported
+`moduleId: "queue"` workflow requests only.
 Unsupported,
 invalid, or still-deferred workflows do not invoke the runner.
 

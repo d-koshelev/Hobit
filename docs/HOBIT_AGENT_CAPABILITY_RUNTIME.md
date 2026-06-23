@@ -303,6 +303,13 @@ restarting workers or using UI/session/prose state.
   workflow-continuation id field; it is never inferred from prose. For
   `moduleId: "queue"`, the Workspace Agent controller can now pass validated
   supported Queue workflow requests to the QueueWorkflowRunner runtime adapter.
+  This generic `hobit.workflow.request` envelope is the official Workspace
+  Agent Queue workflow invocation path for live smoke. Workspace Agent must
+  emit the structured envelope directly for `dependency_acceptance_smoke` and
+  `dependency_failure_smoke`, then use `metadata.workflowRunId` on typed
+  continuation envelopes. `queue.workflow.invoke` is intentionally not a
+  broker capability because it would duplicate the same validator/runtime
+  adapter path and weaken the single grant/input boundary.
   Declared workflow validation can expose compact workflow metadata such as
   backing status, required capabilities, required risk classes, required grant
   modes, input-section summary, safety constraints, pause/resume notes, and
@@ -452,8 +459,9 @@ persisted action ledger summaries only. They do not invoke workflows, start
 workers, mutate Queue state, create tasks, record evidence, create/ACK reviews,
 finalize tasks, launch shell/Git/Terminal/validation/rollback behavior, or
 expose raw provider transcripts or raw confirmation tokens. This persistence
-surface still does not implement `queue.workflow.invoke` or a generic public
-resume executor.
+surface intentionally does not implement `queue.workflow.invoke` or a generic
+public resume executor; invocation remains the canonical structured
+`hobit.workflow.request` protocol path.
 Backend workflow task slot materialization now exists as a workflow-internal
 typed domain method: it creates/reuses draft/manual Queue tasks by explicit
 `workflowRunId + slot + taskSpecHash`, persists slot bindings, and materializes

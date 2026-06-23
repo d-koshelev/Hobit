@@ -17,6 +17,8 @@ import {
 } from "./workspaceAgentBrokerActionRuntime";
 import runtimeSource from "./workspaceAgentBrokerActionRuntime.ts?raw";
 import envelopeSource from "./agents/broker/hobitAgentActionRequestEnvelope.ts?raw";
+import workflowEnvelopeSource from "./agents/broker/hobitAgentWorkflowRequestEnvelope.ts?raw";
+import workflowRuntimeAdapterSource from "./agents/modules/queueWorkflowRunnerRuntimeAdapter.ts?raw";
 import {
   QUEUE_MODULE_WORKFLOWS,
   type QueueWorkflowPersistencePort,
@@ -27,10 +29,14 @@ import type {
 } from "./workspaceAgentQueueBridge";
 import type {
   AgentQueueItemAggregate,
+  AgentQueueWorkflowApplyRunSettingsResult,
+  AgentQueueWorkflowMaterializeTaskSlotResult,
+  AgentQueueWorkflowPromoteTaskSlotResult,
   AgentQueueReviewCreateMessageResult,
+  AgentQueueWorkflowRun,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
-  AgentQueueWorkflowRun,
+  StartAssignedAgentQueueTaskResponse,
 } from "../workspace/types";
 import type { WidgetInstance } from "./types";
 import type {
@@ -591,6 +597,148 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     );
   });
 
+  it("invokes dependency smoke workflows through canonical hobit.workflow.request create/setup/start", async () => {
+    for (const scenario of [
+      {
+        grantMode: "queue_acceptance_smoke",
+        workflowId: "dependency_acceptance_smoke",
+      },
+      {
+        grantMode: "queue_failure_smoke",
+        workflowId: "dependency_failure_smoke",
+      },
+    ] as const) {
+      const startBridge = queueWorkflowStartBridge();
+      const persistence = workflowPersistence(scenario.workflowId);
+      const invoker = createWorkspaceAgentQueueWorkflowInvoker({
+        actorId: "workspace-agent:test",
+        workflowPersistence: persistence,
+        workspaceAgentQueueBridge: startBridge.bridge,
+        workspaceId: "workspace-1",
+      });
+      const baseRequest = dependencyWorkflowRequest();
+      const workflowRead = readHobitAgentWorkflowRequestEnvelope(
+        JSON.stringify({
+          ...baseRequest,
+          grant: {
+            ...baseRequest.grant,
+            confirmationToken: "operator-confirmed",
+            mode: scenario.grantMode,
+          },
+          inputs: {
+            ...baseRequest.inputs,
+            phase: "create_setup_start",
+          },
+          requestId: `${scenario.workflowId}-initial-1`,
+          workflowId: scenario.workflowId,
+        }),
+      );
+
+      expect(workflowRead.status).toBe("valid");
+      if (workflowRead.status !== "valid") {
+        throw new Error("Expected valid Queue workflow request.");
+      }
+
+      const result = await invoker(workflowRead);
+
+      expect(result).toMatchObject({
+        invoked: true,
+        phase: "create_setup_start",
+        status: "paused",
+        workflowId: scenario.workflowId,
+        workflowRunId: "queue-workflow-run-1",
+        workflowStartStatus: "succeeded",
+      });
+      expect(result.runnerResult?.status).toBe("awaiting_worker_completion");
+      expect(result.runnerResult?.report.createSetupStart).toMatchObject({
+        downstreamTaskId: "task-downstream",
+        start: {
+          runId: "run-upstream",
+          status: "started",
+          taskId: "task-upstream",
+        },
+        status: "worker_running",
+        upstreamTaskId: "task-upstream",
+      });
+      expect(startBridge.materializeWorkflowTaskSlot).toHaveBeenCalledTimes(2);
+      expect(startBridge.applyWorkflowRunSettings).toHaveBeenCalledTimes(1);
+      expect(startBridge.promoteWorkflowTaskSlot).toHaveBeenCalledTimes(1);
+      expect(startBridge.startWorkflowAssignedTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalPolicy: "never",
+          codexExecutable: "codex.cmd",
+          queueItemId: "task-upstream",
+          repoRoot: "C:/repo",
+          sandbox: "read_only",
+          workflowStartContext: expect.objectContaining({
+            confirmationToken: "operator-confirmed",
+            executorWidgetId: "executor-widget-1",
+            taskId: "task-upstream",
+            workflowRunId: "queue-workflow-run-1",
+          }),
+        }),
+      );
+      const recordRequest =
+        vi.mocked(persistence.recordAgentQueueWorkflowRunnerReport).mock
+          .calls[0]?.[0];
+      expect(recordRequest).toBeDefined();
+      expect(JSON.stringify(recordRequest)).not.toContain("operator-confirmed");
+      const message = workspaceAgentQueueWorkflowRuntimeResultMessage(result);
+      expect(message).toContain("Workflow run: queue-workflow-run-1.");
+      expect(message).toContain(
+        "Task ids: downstream=task-downstream, upstream=task-upstream.",
+      );
+      expect(message).toContain("Run ids: run-upstream.");
+      expect(message).toContain("Action summaries:");
+      expect(message).not.toContain("operator-confirmed");
+    }
+  });
+
+  it("blocks canonical Queue workflow start without exact structured confirmation", async () => {
+    const startBridge = queueWorkflowStartBridge();
+    const persistence = workflowPersistence();
+    const invoker = createWorkspaceAgentQueueWorkflowInvoker({
+      actorId: "workspace-agent:test",
+      workflowPersistence: persistence,
+      workspaceAgentQueueBridge: startBridge.bridge,
+      workspaceId: "workspace-1",
+    });
+    const baseRequest = dependencyWorkflowRequest();
+    const workflowRead = readHobitAgentWorkflowRequestEnvelope(
+      JSON.stringify({
+        ...baseRequest,
+        inputs: {
+          ...baseRequest.inputs,
+          phase: "create_setup_start",
+        },
+        requestId: "dependency_acceptance_smoke-missing-confirmation-1",
+      }),
+    );
+
+    expect(workflowRead.status).toBe("valid");
+    if (workflowRead.status !== "valid") {
+      throw new Error("Expected valid Queue workflow request.");
+    }
+
+    const result = await invoker(workflowRead);
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "create_setup_start",
+      status: "blocked",
+      workflowId: "dependency_acceptance_smoke",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(result.blockers).toContain(
+      "Queue worker start requires exact structured confirmationToken.",
+    );
+    expect(startBridge.startWorkflowAssignedTask).not.toHaveBeenCalled();
+    expect(
+      vi.mocked(persistence.recordAgentQueueWorkflowRunnerReport).mock
+        .calls[0]?.[0].status,
+    ).toBe("blocked");
+  });
+
   it("handles live context discovery reads without using agent.status.read", async () => {
     const setQueueControlManualEnabled = vi.fn(async () =>
       setManualEnabledResult({ status: "succeeded" }),
@@ -758,11 +906,28 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
   });
 
   it("does not add natural-language routing in the Workspace Agent broker runtime", () => {
-    for (const source of [runtimeSource, envelopeSource]) {
+    for (const source of [
+      runtimeSource,
+      envelopeSource,
+      workflowEnvelopeSource,
+      workflowRuntimeAdapterSource,
+    ]) {
       expect(source).not.toContain("new RegExp");
       expect(source).not.toContain(".match(");
       expect(source).not.toContain("classifyUserIntent");
       expect(source).not.toContain(["user text", " -> regex"].join(""));
+      expect(source).not.toContain("queue.workflow.invoke");
+      expect(source).not.toContain("AgentQueueV2Board");
+      expect(source).not.toContain("AgentQueuePlaceholderWidget");
+      expect(source).not.toContain("QueueV2");
+      expect(source).not.toContain("ModuleShell");
+      expect(source).not.toContain("tokens.css");
+      expect(source).not.toContain("widget.css");
+      expect(source).not.toContain("scheduler");
+      expect(source).not.toContain("autodispatch");
+      expect(source).not.toContain("workspace.shell.runCommand");
+      expect(source).not.toContain("Terminal");
+      expect(source).not.toContain("rollback");
     }
   });
 });
@@ -778,7 +943,9 @@ function requiredQueueWorkflowMetadata(workflowId: string) {
   return workflow;
 }
 
-function workflowPersistence(): QueueWorkflowPersistencePort {
+function workflowPersistence(
+  workflowId = "dependency_acceptance_smoke",
+): QueueWorkflowPersistencePort {
   return {
     planAgentQueueWorkflowResume: vi.fn(async () => null),
     recordAgentQueueWorkflowRunnerReport: vi.fn(
@@ -833,7 +1000,7 @@ function workflowPersistence(): QueueWorkflowPersistencePort {
           updatedAt: "2026-06-22T00:00:00.000Z",
           variablesJson: null,
           version: 2,
-          workflowId: "dependency_acceptance_smoke",
+          workflowId,
           workflowRunId: request.workflowRunId,
           workspaceId: request.workspaceId,
         },
@@ -970,6 +1137,129 @@ function queueBridge(
     getSnapshot: vi.fn(async () => snapshotResult()),
     updateItem: vi.fn(async () => itemResult()),
     ...overrides,
+  };
+}
+
+function queueWorkflowStartBridge() {
+  const materializeWorkflowTaskSlot = vi.fn(
+    async (
+      request: Parameters<
+        NonNullable<WorkspaceAgentQueueBridge["materializeWorkflowTaskSlot"]>
+      >[0],
+    ): Promise<AgentQueueWorkflowMaterializeTaskSlotResult> => {
+      const taskId =
+        request.slot === "downstream" ? "task-downstream" : "task-upstream";
+      return {
+        action: null,
+        binding: {
+          createTaskActionId: null,
+          createTaskActionIdempotencyKey:
+            request.actionIdempotencyKey ?? `create:${request.slot}`,
+          dependencyEdgeHash: `dependency-edge:${request.slot}`,
+          dependencySpecHash: `dependency-spec:${request.slot}`,
+          dependencyTaskIds:
+            request.slot === "downstream" ? ["task-upstream"] : [],
+          dependsOnSlots: request.dependsOnSlots ?? [],
+          slot: request.slot,
+          taskId,
+          taskSpecHash: `task-spec:${request.slot}`,
+        },
+        blocker: null,
+        conflict: null,
+        status: "created",
+        task: null,
+        workflowRun: null,
+      };
+    },
+  );
+  const applyWorkflowRunSettings = vi.fn(
+    async (
+      request: Parameters<
+        NonNullable<WorkspaceAgentQueueBridge["applyWorkflowRunSettings"]>
+      >[0],
+    ): Promise<AgentQueueWorkflowApplyRunSettingsResult> => ({
+      action: null,
+      binding: {
+        executorWidgetId: request.runSettings.executorWidgetId,
+        settingsHash: "settings-hash-upstream",
+        slot: request.slot,
+        taskId: request.taskId ?? "task-upstream",
+        updateRunSettingsActionId: null,
+        updateRunSettingsActionIdempotencyKey:
+          request.actionIdempotencyKey ?? "settings:upstream",
+      },
+      blocker: null,
+      conflict: null,
+      status: "applied",
+      task: null,
+      workflowRun: null,
+    }),
+  );
+  const promoteWorkflowTaskSlot = vi.fn(
+    async (
+      request: Parameters<
+        NonNullable<WorkspaceAgentQueueBridge["promoteWorkflowTaskSlot"]>
+      >[0],
+    ): Promise<AgentQueueWorkflowPromoteTaskSlotResult> => ({
+      action: null,
+      binding: {
+        promoteActionId: null,
+        promoteActionIdempotencyKey:
+          request.actionIdempotencyKey ?? "promote:upstream",
+        promoted: true,
+        settingsHash: request.settingsHash,
+        slot: request.slot,
+        taskId: request.taskId ?? "task-upstream",
+        taskSpecHash: request.taskSpecHash,
+        taskStatus: "queued",
+      },
+      blocker: null,
+      conflict: null,
+      status: "promoted",
+      task: null,
+      workflowRun: null,
+    }),
+  );
+  const startWorkflowAssignedTask = vi.fn(
+    async (
+      request: Parameters<
+        NonNullable<WorkspaceAgentQueueBridge["startWorkflowAssignedTask"]>
+      >[0],
+    ): Promise<StartAssignedAgentQueueTaskResponse> => ({
+      actionIdempotencyKey:
+        request.workflowStartContext?.actionIdempotencyKey ?? null,
+      blocker: null,
+      currentRunState: "running",
+      executorWidgetInstanceId:
+        request.workflowStartContext?.executorWidgetId ?? "executor-widget-1",
+      queueItemId: request.queueItemId,
+      runId: "run-upstream",
+      settingsHash: request.workflowStartContext?.settingsHash ?? null,
+      status: "started",
+      workbenchId: "workbench-1",
+      workflowRunId: request.workflowStartContext?.workflowRunId ?? null,
+      workspaceId: "workspace-1",
+    }),
+  );
+
+  return {
+    applyWorkflowRunSettings,
+    bridge: queueBridge({
+      applyWorkflowRunSettings,
+      getQueueControlState: () => ({
+        backendOwned: true,
+        queueEnabled: true,
+        status: "manual_enabled",
+        version: 7,
+        workspaceId: "workspace-1",
+      }),
+      materializeWorkflowTaskSlot,
+      promoteWorkflowTaskSlot,
+      startWorkflowAssignedTask,
+    }),
+    materializeWorkflowTaskSlot,
+    promoteWorkflowTaskSlot,
+    startWorkflowAssignedTask,
   };
 }
 

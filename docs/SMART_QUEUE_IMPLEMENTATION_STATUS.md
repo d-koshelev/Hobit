@@ -282,7 +282,8 @@ failure sequence and persists completed workflow status/report refs without
 persisting raw transcripts or reusable confirmation tokens. Failure reports may
 include sanitized typed failure reason and decision refs. This block does not
 add
-`hobit.queue.workflowRequest`, scheduler behavior, worker auto-start, task
+`hobit.queue.workflowRequest`, `queue.workflow.invoke`, scheduler behavior,
+worker auto-start, task
 creation outside create/setup/start, Queue mutation outside workflow-owned
 upstream evidence recording, review message/ACK ledger, or explicit upstream
 finalization ports, or Queue runtime changes. Prose is never executable
@@ -1248,22 +1249,24 @@ Implemented as focused frontend smoke/regression coverage.
 The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
-- Queue live smoke execution from Workspace Agent. The discovery/control
-  foundation is implemented: `workspace.context.get` reads current
-  workspace/workbench/root context from live renderer state,
-  `workbench.widgets.list` lists bounded widget instances and discovers Agent
-  Executor widgets only by `definitionId === "agent-run"`,
+- Actual live `dependency_acceptance_smoke` /
+  `dependency_failure_smoke` smoke execution from the desktop Workspace Agent
+  session. The discovery/control/invocation foundation is implemented:
+  `workspace.context.get` reads current workspace/workbench/root context from
+  live renderer state, `workbench.widgets.list` lists bounded widget instances
+  and discovers Agent Executor widgets only by `definitionId === "agent-run"`,
   `queue.control.get` reads backend Queue control state through the Queue
-  control bridge, and `queue.control.setManualEnabled` sets only backend Queue
-  control state to `manual_enabled`. Workspace Agent can also read Queue
+  control bridge, `queue.control.setManualEnabled` sets only backend Queue
+  control state to `manual_enabled`, and structured `hobit.workflow.request`
+  invokes supported Queue workflow phases through the existing
+  QueueWorkflowRunner runtime adapter. Workspace Agent can also read Queue
   workflow debug state through `queue.workflow.get`, `queue.workflow.list`,
   `queue.workflow.getReport`, `queue.workflow.planResume`, and
   `queue.workflow.readActionLog`; these are bounded read-only broker
   capabilities over existing backend/Tauri workflow run, report, resume plan,
-  and action-ledger APIs. Actual `dependency_acceptance_smoke` /
-  `dependency_failure_smoke` invocation from Workspace Agent and
-  `queue.workflow.invoke` remain future blocks. Codex shell still cannot
-  perform live smoke without the live Tauri renderer/IPC context.
+  and action-ledger APIs. `queue.workflow.invoke` is intentionally not
+  implemented. Codex shell still cannot perform live smoke without the live
+  Tauri renderer/IPC context.
 - durable backend Smart Queue persistence;
 - Queue workflow runner execution beyond the full typed
   `dependency_acceptance_smoke` and `dependency_failure_smoke` paths and the

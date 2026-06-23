@@ -340,7 +340,7 @@ describe("hobitAgentCapabilityRuntime context", () => {
       "never DevTools, UI text, DOM scraping",
     );
     expect(instructionBlock).toContain(
-      "never invoke workflows, start workers, mutate Queue",
+      "Reads never invoke workflows/start workers/mutate Queue",
     );
     expect(instructionBlock).toContain('"capabilityId":"queue.enable"');
     expect(instructionBlock).toContain(
@@ -355,9 +355,19 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(instructionBlock).toContain('"type":"hobit.workflow.request"');
     expect(instructionBlock).toContain('"type":"hobit.final.answer"');
     expect(instructionBlock).toContain(
-      "Workflow requests are validation/classification only",
+      "Queue workflow invocation uses only the generic envelope",
     );
-    expect(instructionBlock).toContain("prose is not workflow input");
+    expect(instructionBlock).toContain("dependency_acceptance_smoke");
+    expect(instructionBlock).toContain("dependency_failure_smoke");
+    expect(instructionBlock).toContain("Do not use queue.workflow.invoke");
+    expect(instructionBlock).toContain("metadata.workflowRunId");
+    expect(instructionBlock).toContain("queue.workflow.getReport");
+    expect(instructionBlock).toContain("queue.workflow.planResume");
+    expect(instructionBlock).toContain("queue.workflow.readActionLog");
+    expect(instructionBlock).toContain("Prose is not workflow input");
+    expect(instructionBlock).toContain(
+      "workspace.context.get, workbench.widgets.list, queue.control.get, queue.control.setManualEnabled, hobit.workflow.request",
+    );
     expect(instructionBlock).toContain(
       "Workflow grant authorizes only permission/scope",
     );
@@ -488,10 +498,13 @@ describe("hobitAgentCapabilityRuntime context", () => {
       .filter(
         (capabilityId) =>
           capabilityId !== "codex.cmd" &&
-          capabilityId !== "queue.autonomyGrant",
+          capabilityId !== "queue.autonomyGrant" &&
+          capabilityId !== "queue.workflow.invoke",
       );
 
     expect(mentionedCapabilityIds.length).toBeGreaterThan(0);
+    expect(registeredCapabilityIds.has("queue.workflow.invoke")).toBe(false);
+    expect(instructionBlock).toContain("Do not use queue.workflow.invoke");
     for (const capabilityId of mentionedCapabilityIds) {
       expect(registeredCapabilityIds.has(capabilityId), capabilityId).toBe(true);
     }
@@ -610,7 +623,12 @@ describe("hobitAgentCapabilityRuntime context", () => {
     expect(prompt).toContain('"type":"hobit.workflow.request"');
     expect(prompt).toContain('"type":"hobit.final.answer"');
     expect(prompt).toContain("Use a fresh requestId");
-    expect(prompt).toContain("no workflow runner executes");
+    expect(prompt).toContain(
+      "it is the only Queue workflow invocation path",
+    );
+    expect(prompt).toContain("metadata.workflowRunId");
+    expect(prompt).toContain("Queue workflow invocation uses only the generic envelope");
+    expect(prompt).toContain("Do not use queue.workflow.invoke");
     expect(prompt).toContain("inputs.runSettings");
     expect(prompt).toContain("inputs.tasks[].dependsOnSlots");
     expect(prompt).toContain("After hobit.action.result");
@@ -697,6 +715,7 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       "queue.workflow.planResume",
       "queue.workflow.readActionLog",
     ]);
+    expect(queueCapabilities).not.toContain("queue.workflow.invoke");
     expect(queueCreateItems.ownerSurface).toBe("Agent Queue");
     expect(queueCreateItems.sideEffectLevel).toBe("write");
     expect(queueCreateItems.defaultForProductActions).toBe(true);
@@ -1004,7 +1023,11 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       instructionBlock.matchAll(/queue(?:\.[A-Za-z0-9]+)+/g),
     )
       .map((match) => match[0])
-      .filter((capabilityId) => capabilityId !== "queue.autonomyGrant");
+      .filter(
+        (capabilityId) =>
+          capabilityId !== "queue.autonomyGrant" &&
+          capabilityId !== "queue.workflow.invoke",
+      );
 
     for (const contract of QUEUE_CAPABILITY_CONTRACT_INVENTORY) {
       expect(registeredQueueIds.has(contract.capabilityId), contract.capabilityId).toBe(
@@ -1035,6 +1058,8 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
 
     expect(exampleIds).not.toContain("queue.lifecycle.getEvidenceBundle");
     expect(instructionBlock).not.toContain("queue.lifecycle.getEvidenceBundle");
+    expect(registeredQueueIds.has("queue.workflow.invoke")).toBe(false);
+    expect(instructionBlock).toContain("Do not use queue.workflow.invoke");
     for (const capability of registry.capabilities) {
       for (const example of capability.examples ?? []) {
         expect(Array.isArray(example.exampleActionRequest)).toBe(false);
