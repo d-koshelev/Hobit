@@ -698,8 +698,8 @@ decision, stable audit/activity events, and hidden-side-effect flags asserting
 that safe model handlers did not run shell, Codex, Queue mutation, Terminal,
 Git, rollback, or workers.
 
-The broker MVP includes deterministic frontend test handlers only for pure
-agent model APIs:
+The generic broker MVP includes deterministic frontend test handlers only for
+pure agent model APIs:
 
 - `agent.status.read`
 - `agent.capabilities.read`
@@ -708,6 +708,16 @@ agent model APIs:
 Queue-specific behavior does not live in the generic broker layer. Queue
 handlers are supplied by the Queue Capability Adapter through
 `createQueueAgentActionHandlers(adapterApi)`.
+
+Workspace Agent live app-context discovery is not routed through
+`agent.status.read`. The Workspace Agent broker runtime injects read-only
+handlers for `workspace.context.get` and `workbench.widgets.list` from the
+live renderer-held Workspace/Workbench state, and `queue.control.get` through
+the typed Queue control bridge. These reads do not use UI text, DOM scraping,
+localStorage as truth, transcript text, title inference, shell, Git, Terminal,
+rollback, validation execution, worker start, or Queue mutation. Codex shell
+still cannot run live Queue smoke by itself because it has no live Tauri
+renderer/IPC context.
 
 Codex and shell capabilities remain restricted execute capabilities. They are
 not default Hobit app-action paths, and the broker MVP blocks restricted
@@ -733,6 +743,7 @@ Supported Queue capabilities:
 - `queue.preparePromptPackPreview`
 - `queue.importPromptPack`
 - `queue.selfTest`
+- `queue.control.get`
 - `queue.items.list`
 - `queue.item.updateRunSettings`
 - `queue.item.promoteDraft`
@@ -1118,6 +1129,11 @@ Each capability has:
 
 Current honest foundation capabilities:
 
+- `workspace.context.get`: read-only live Workspace/Workbench context read
+  from typed renderer state, with optional Queue control and widget summary.
+- `workbench.widgets.list`: read-only bounded live widget list; Agent Executor
+  discovery uses `definitionId === "agent-run"` and never title/prose/order
+  inference.
 - `agent.status.read`: model-level in-app agent status read.
 - `agent.history.read`: model-level bounded in-app agent history read.
 - `agent.message.send`: typed in-app agent message send through the pure
@@ -1142,6 +1158,10 @@ Current honest foundation capabilities:
   Workspace Queue target and forbids duplicate Queue views.
 - `queue.selfTest`: safe dry-run Queue capability self-test surface through
   the Action Broker and injected Queue adapter.
+- `queue.control.get`: read-only Queue control state read through the existing
+  Queue control bridge; reports `disabled` or `manual_enabled`, version, and
+  backend metadata when available; it does not enable Queue, start workers,
+  start Queue Autorun, create tasks, or start Direct Work.
 - `workspaceAgent.selfTest`: safe Workspace Agent capability self-test surface.
 - `codex.runTask`: restricted execute capability for explicit Codex Direct
   Work; not a product-action default.

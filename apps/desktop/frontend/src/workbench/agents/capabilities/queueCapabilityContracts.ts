@@ -184,6 +184,18 @@ export const QUEUE_CAPABILITY_CONTRACT_INVENTORY: readonly QueueCapabilityContra
     }),
     queueContract({
       autoContinuationSafe: true,
+      backing: "backend_backed",
+      capabilityId: "queue.control.get",
+      fieldPolicies: {
+        workspaceId: "model_optional_exact_only",
+      },
+      readOnly: true,
+      riskClass: "read",
+      sideEffectLevel: "read",
+      trustedContextFields: RUNTIME_CONTEXT_FIELDS,
+    }),
+    queueContract({
+      autoContinuationSafe: true,
       backing: "bridge_backed",
       capabilityId: "queue.createItem",
       confirmationRequirement: "recommended",

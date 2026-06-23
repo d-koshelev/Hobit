@@ -1,6 +1,7 @@
 import type { AgentActivityEvent } from "../agentActivityModel";
 import type {
   CoordinatorAttachedContextRequest,
+  WidgetInstance,
   WidgetInstanceId,
   WidgetRenderProps,
   WorkspaceAgentQueueReportActionCardRequest,
@@ -32,6 +33,8 @@ type WorkspaceAgentWidgetPropsOptions = {
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   currentWorkspaceRoot?: string | null;
   instanceId: WidgetInstanceId;
+  workbenchId?: string | null;
+  workbenchWidgets?: readonly WidgetInstance[];
   onOpenAgentQueueItem?: (queueItemId: string) => void;
   onPublishAgentActivityEvents: (events: AgentActivityEvent[]) => void;
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
@@ -45,6 +48,8 @@ export function workspaceAgentWidgetProps({
   coordinatorAttachedContextRequest,
   currentWorkspaceRoot,
   instanceId,
+  workbenchId,
+  workbenchWidgets,
   onOpenAgentQueueItem,
   onPublishAgentActivityEvents,
   queueReportActionCardRequest,
@@ -101,6 +106,8 @@ export function workspaceAgentWidgetProps({
     agentQueueController: workspaceQueueApi.controller,
     queueValidationRunner: workspaceQueueApi.validationRunner,
     workspaceAgentQueueBridge: workspaceQueueApi,
+    workbenchId,
+    workbenchWidgets,
     workspaceAgentQueueWorkflowPersistence:
       workspaceQueueApi.queueWorkflowPersistence,
   };

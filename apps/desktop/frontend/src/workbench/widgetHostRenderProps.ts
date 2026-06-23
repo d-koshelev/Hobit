@@ -27,6 +27,7 @@ import type {
   CoordinatorAttachedContextRequest,
   WorkspaceAgentQueueReportActionCardRequest,
   WorkspaceAgentQueueTaskStatusCardRequest,
+  WidgetInstance,
   WidgetInstanceId,
   WidgetRenderProps,
 } from "./types";
@@ -52,6 +53,8 @@ type WidgetHostRenderPropsOptions = {
   componentKey: string;
   coordinatorAttachedContextRequest: CoordinatorAttachedContextRequest | null;
   currentWorkspaceRoot?: string | null;
+  workbenchId?: string | null;
+  workbenchWidgets?: readonly WidgetInstance[];
   queueReportActionCardRequest: WorkspaceAgentQueueReportActionCardRequest | null;
   queueTaskStatusCardRequest: WorkspaceAgentQueueTaskStatusCardRequest | null;
   directWorkGitReview: DirectWorkGitReviewHandoff;
@@ -82,6 +85,8 @@ export function widgetHostRenderProps({
   componentKey,
   coordinatorAttachedContextRequest,
   currentWorkspaceRoot,
+  workbenchId,
+  workbenchWidgets,
   queueReportActionCardRequest,
   queueTaskStatusCardRequest,
   directWorkGitReview,
@@ -170,6 +175,8 @@ export function widgetHostRenderProps({
         queueReportActionCardRequest,
         queueTaskStatusCardRequest,
         currentWorkspaceRoot,
+        workbenchId,
+        workbenchWidgets,
         workspaceQueueApi,
       }),
     };

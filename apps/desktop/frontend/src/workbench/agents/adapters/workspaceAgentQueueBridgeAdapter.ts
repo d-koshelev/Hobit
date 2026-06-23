@@ -30,6 +30,8 @@ import {
   type QueueAgentAdapterResult,
   type QueueAgentAggregateNextAction,
   type QueueAgentCapabilityStatus,
+  type QueueAgentControlGetInput,
+  type QueueAgentControlGetResult,
   type QueueAgentCreateItemsRequest,
   type QueueAgentCreateItemsResult,
   type QueueAgentCreatedItem,
@@ -94,6 +96,8 @@ export function createWorkspaceAgentQueueBridgeAdapterApi(
     ...defaultAdapter,
     backend: backendApi,
     createItems: (request) => createQueueItemsThroughBridge(bridge, request),
+    getQueueControlState: (input, context) =>
+      getQueueControlStateThroughBridge(bridge, input, context),
     enableQueue: (input, context) =>
       enableQueueThroughBridge(bridge, input, context),
     dogfoodLifecycle: dogfoodLifecycle
@@ -229,6 +233,83 @@ function unavailableLifecycleResult<TOutput>(
     reasonCode: "capability_unavailable",
     reasons: [message],
     status: "unavailable",
+  };
+}
+
+function getQueueControlStateThroughBridge(
+  bridge: WorkspaceAgentQueueBridge | null | undefined,
+  input: QueueAgentControlGetInput,
+  _context: unknown,
+): QueueAgentAdapterResult<QueueAgentControlGetResult> {
+  if (!bridge?.getQueueControlState) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.controlGet,
+      "Queue control read API is unavailable.",
+    );
+  }
+
+  const state = bridge.getQueueControlState();
+  if (!state) {
+    return bridgeUnavailableResult(
+      QUEUE_ACTIVITY_EVENTS.controlGet,
+      "Queue control state is unavailable.",
+    );
+  }
+
+  const requestedWorkspaceId = normalizedString(input.workspaceId);
+  const stateWorkspaceId = normalizedString(state.workspaceId);
+  if (
+    requestedWorkspaceId &&
+    stateWorkspaceId &&
+    requestedWorkspaceId !== stateWorkspaceId
+  ) {
+    return {
+      activityEventNames: [...QUEUE_ACTIVITY_EVENTS.controlGet],
+      message: "Queue control workspaceId does not match current workspace.",
+      output: {
+        backendOwned: state.backendOwned === true,
+        blockers: ["workspace_mismatch"],
+        didAutoRunWorkers: false,
+        didMutateQueue: false,
+        didStartWorkers: false,
+        globalExecutionState: state.globalExecutionState ?? null,
+        missingCapabilities: ["workspace_mismatch"],
+        queueEnabled: state.queueEnabled,
+        reason: boundedText(state.reason),
+        status:
+          state.status ?? (state.queueEnabled ? "manual_enabled" : "disabled"),
+        updatedAt: state.updatedAt ?? null,
+        updatedByActorId: state.updatedByActorId ?? null,
+        version: state.version ?? null,
+        workspaceId: stateWorkspaceId,
+      },
+      reasonCode: "precondition_failed",
+      reasons: ["Queue control workspaceId does not match current workspace."],
+      status: "precondition_failed",
+    };
+  }
+
+  const status = state.status ?? (state.queueEnabled ? "manual_enabled" : "disabled");
+  return {
+    activityEventNames: [...QUEUE_ACTIVITY_EVENTS.controlGet],
+    message: "Queue control state read.",
+    output: {
+      backendOwned: state.backendOwned === true,
+      blockers: [],
+      didAutoRunWorkers: false,
+      didMutateQueue: false,
+      didStartWorkers: false,
+      globalExecutionState: state.globalExecutionState ?? null,
+      missingCapabilities: [],
+      queueEnabled: state.queueEnabled,
+      reason: boundedText(state.reason),
+      status,
+      updatedAt: state.updatedAt ?? null,
+      updatedByActorId: state.updatedByActorId ?? null,
+      version: state.version ?? null,
+      workspaceId: requestedWorkspaceId ?? stateWorkspaceId,
+    },
+    status: "succeeded",
   };
 }
 
@@ -3275,6 +3356,20 @@ function isSupportedApprovalPolicy(
   value: string | null | undefined,
 ): value is QueueAgentRunApprovalPolicy {
   return value === "never" || value === "on_request" || value === "untrusted";
+}
+
+function boundedText(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.length > 240 ? `${trimmed.slice(0, 240)}...` : trimmed;
+}
+
+function normalizedString(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  return trimmed ? trimmed : null;
 }
 
 function hasOwn<TObject extends object, TKey extends PropertyKey>(

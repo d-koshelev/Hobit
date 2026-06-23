@@ -88,10 +88,15 @@ export type WorkspaceAgentQueueStartRunRequest = {
 
 export type WorkspaceAgentQueueControlState = {
   backendOwned?: boolean;
+  createdAt?: string | null;
   globalExecutionState?: string | null;
   queueEnabled: boolean;
+  reason?: string | null;
   status?: AgentQueueControlStatus;
+  updatedAt?: string | null;
+  updatedByActorId?: string | null;
   version?: number;
+  workspaceId?: string | null;
 };
 
 export type WorkspaceAgentQueueStartRunResult = {

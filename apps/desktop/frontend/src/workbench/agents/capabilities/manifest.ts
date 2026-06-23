@@ -28,6 +28,44 @@ const QUEUE_CREATE_DEPENDENT_ITEM_EXAMPLE_INPUT = {
   title: "Dependent Queue item",
 } as const;
 
+const WORKSPACE_CONTEXT_GET_SCHEMA: HobitAgentCapabilityInputSchema = {
+  acceptedFields: ["includeQueueControl", "includeWidgetSummary"],
+  fieldDescriptions: {
+    includeQueueControl:
+      "Optional boolean. When true, include typed Queue control state if the live Queue bridge can read it.",
+    includeWidgetSummary:
+      "Optional boolean. When true, include bounded counts for live workbench widgets and Agent Executor widgets.",
+  },
+  invalidInputGuidance: [
+    "Use this capability for live Workspace/Workbench context discovery before Queue smoke.",
+    "Do not use agent.status.read for Queue live context discovery.",
+    "Do not provide UI text, task titles, file paths, transcript text, prompt-pack ids, or prose hints as input.",
+  ],
+  requiredFields: [],
+  shape:
+    '{"includeQueueControl":"boolean optional","includeWidgetSummary":"boolean optional"}',
+};
+
+const WORKBENCH_WIDGETS_LIST_SCHEMA: HobitAgentCapabilityInputSchema = {
+  acceptedFields: ["definitionIdFilter", "visibleOnly", "includeTitles"],
+  fieldDescriptions: {
+    definitionIdFilter:
+      "Optional exact widget definition id filter. Use agent-run to list Agent Executor widgets.",
+    includeTitles:
+      "Optional boolean. When true, include display titles for operator-readable context only.",
+    visibleOnly:
+      "Optional boolean. Defaults to true so recommended executor selection uses visible workbench widgets.",
+  },
+  invalidInputGuidance: [
+    "Agent Executor identity is definitionId === \"agent-run\" only.",
+    "Do not infer executorWidgetId from title, widget order, UI text, file path, transcript text, or prose.",
+    "When multiple Agent Executor widgets are returned, do not choose one unless a later typed policy explicitly disambiguates it.",
+  ],
+  requiredFields: [],
+  shape:
+    '{"definitionIdFilter":"string optional exact widget definition id","visibleOnly":"boolean optional default true","includeTitles":"boolean optional"}',
+};
+
 const QUEUE_CREATE_ITEM_FIELD_DESCRIPTIONS = {
   dependsOn:
     "Optional upstream Queue task ids. Use explicit task ids returned by queue.createItem(s), queue.items.list, or queue.lifecycle.get.",
@@ -198,6 +236,21 @@ const QUEUE_ITEMS_LIST_SCHEMA: HobitAgentCapabilityInputSchema = {
   shape: '{"limit":"number optional 1-50","taskId":"string optional"}',
 };
 
+const QUEUE_CONTROL_GET_SCHEMA: HobitAgentCapabilityInputSchema = {
+  acceptedFields: ["workspaceId"],
+  fieldDescriptions: {
+    workspaceId:
+      "Optional explicit workspace id. If supplied, it must match the current live Workspace context.",
+  },
+  invalidInputGuidance: [
+    "Use workspace.context.get first when the current workspace id is unknown.",
+    "Do not infer workspaceId from UI text, task titles, file paths, transcript text, or prose.",
+    "This action reads Queue control state only. It never enables Queue, starts workers, starts Queue Autorun, creates tasks, or starts Direct Work.",
+  ],
+  requiredFields: [],
+  shape: '{"workspaceId":"string optional exact current workspace id"}',
+};
+
 const QUEUE_UPDATE_RUN_SETTINGS_SCHEMA: HobitAgentCapabilityInputSchema = {
   acceptedFields: [
     "taskId",
@@ -282,6 +335,19 @@ const QUEUE_START_RUN_SCHEMA: HobitAgentCapabilityInputSchema = {
 };
 
 const QUEUE_RUN_CONTROL_EXAMPLES: Record<string, HobitAgentCapabilityExample[]> = {
+  "queue.control.get": [
+    {
+      description: "Read backend Queue control state for the current workspace.",
+      exampleActionRequest: {
+        capabilityId: "queue.control.get",
+        dryRun: false,
+        input: {},
+        requestId: "queue-control-get-1",
+        type: "hobit.action.request",
+      },
+      exampleInput: {},
+    },
+  ],
   "queue.enable": [
     {
       description: "Enable Queue scheduling state without starting a task.",
@@ -369,6 +435,118 @@ const QUEUE_RUN_CONTROL_EXAMPLES: Record<string, HobitAgentCapabilityExample[]> 
 };
 
 export const HOBIT_AGENT_INITIAL_CAPABILITIES: HobitAgentCapability[] = [
+  {
+    allowedAgentRoles: ["workspace_agent", "test_harness"],
+    auditEventNames: [
+      "hobit.agent.capability.workspace.context.get.requested",
+    ],
+    availability: { status: "available" },
+    confirmationRequirement: "none",
+    defaultForProductActions: true,
+    description:
+      "Read the current live Workspace/Workbench context already held by the running app, with optional Queue control and widget summary reads.",
+    forbiddenSideEffects: [
+      "dom_scraping",
+      "local_storage_truth",
+      "transcript_inference",
+      "queue_mutation",
+      "queue_item_create",
+      "auto_run_workers",
+      "queue_autorun",
+      "codex_run",
+      "shell_command",
+      "terminal_launch",
+      "git_mutation",
+      "validation_execution",
+      "rollback_execution",
+    ],
+    id: "workspace.context.get",
+    inputSchemaDescription:
+      "Optional booleans includeQueueControl and includeWidgetSummary. No prose or UI-derived fields are accepted.",
+    inputSchema: WORKSPACE_CONTEXT_GET_SCHEMA,
+    outputSchemaDescription:
+      "Current workspaceId, workspaceRootPath, workbenchId, availability booleans, runtime mode, optional Queue control state, optional widget counts, and missing capability blockers.",
+    ownerSurface: "Workbench",
+    restricted: false,
+    sideEffectLevel: "read",
+    supportsDryRun: true,
+    supportsSelfTest: true,
+    title: "Get Workspace Context",
+  },
+  {
+    allowedAgentRoles: ["workspace_agent", "test_harness"],
+    auditEventNames: [
+      "hobit.agent.capability.workbench.widgets.list.requested",
+    ],
+    availability: { status: "available" },
+    confirmationRequirement: "none",
+    defaultForProductActions: true,
+    description:
+      "Read a bounded list of live Workbench widget instances and discover Agent Executor widgets by definitionId === \"agent-run\".",
+    forbiddenSideEffects: [
+      "dom_scraping",
+      "ui_text_id_inference",
+      "title_id_inference",
+      "widget_order_id_inference",
+      "queue_mutation",
+      "queue_item_create",
+      "auto_run_workers",
+      "queue_autorun",
+      "codex_run",
+      "shell_command",
+      "terminal_launch",
+      "git_mutation",
+      "validation_execution",
+      "rollback_execution",
+    ],
+    id: "workbench.widgets.list",
+    inputSchemaDescription:
+      "Optional exact definitionIdFilter, visibleOnly, and includeTitles. Agent Executor discovery uses definitionId only.",
+    inputSchema: WORKBENCH_WIDGETS_LIST_SCHEMA,
+    outputSchemaDescription:
+      "Bounded widget instance summaries, Agent Executor widget summaries, recommendedExecutorWidgetId only when exactly one safe executor exists, and no/ambiguous executor blockers.",
+    ownerSurface: "Workbench",
+    restricted: false,
+    sideEffectLevel: "read",
+    supportsDryRun: true,
+    supportsSelfTest: true,
+    title: "List Workbench Widgets",
+  },
+  {
+    allowedAgentRoles: ["workspace_agent", "test_harness"],
+    auditEventNames: ["hobit.agent.capability.queue.control.get.requested"],
+    availability: { status: "available" },
+    confirmationRequirement: "none",
+    defaultForProductActions: true,
+    description:
+      "Read typed backend-owned Queue control state for the current workspace through the existing Queue control bridge.",
+    forbiddenSideEffects: [
+      "queue_control_set",
+      "queue_item_create",
+      "queue_item_update",
+      "auto_run_workers",
+      "queue_autorun",
+      "codex_run",
+      "shell_command",
+      "terminal_launch",
+      "git_mutation",
+      "validation_execution",
+      "rollback_execution",
+    ],
+    id: "queue.control.get",
+    inputSchemaDescription:
+      "Optional exact workspaceId. No prose or UI-derived fields are accepted.",
+    inputSchema: QUEUE_CONTROL_GET_SCHEMA,
+    examples: QUEUE_RUN_CONTROL_EXAMPLES["queue.control.get"],
+    outputSchemaDescription:
+      "Workspace id, status disabled/manual_enabled, version, updatedAt, updatedByActorId, reason, backendOwned flag, and explicit no-worker/no-mutation flags.",
+    ownerSurface: "Agent Queue",
+    restricted: false,
+    sideEffectLevel: "read",
+    supportsDryRun: true,
+    supportsSelfTest: true,
+    title: "Get Queue Control",
+  },
   {
     allowedAgentRoles: ["workspace_agent", "test_harness"],
     auditEventNames: [

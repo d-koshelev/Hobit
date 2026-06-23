@@ -131,6 +131,8 @@ export type WidgetRenderProps = {
   config: Record<string, unknown>;
   definition: WidgetDefinition;
   currentWorkspaceRoot?: string | null;
+  workbenchId?: string | null;
+  workbenchWidgets?: readonly WidgetInstance[];
   directWorkGitReviewRequest?: DirectWorkGitReviewRequest | null;
   directWorkGitReviewStatus?: DirectWorkGitReviewStatus | null;
   directWorkRunHandoff?: DirectWorkRunHandoff | null;

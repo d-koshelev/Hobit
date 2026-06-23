@@ -423,7 +423,7 @@ export function useWorkspaceQueueApi({
       getAvailableExecutorTargets: () => queueExecutorSlots,
       getQueueControlState: () =>
         queueControlStateFromBackend(backendQueueControlState) ??
-        queueControlStateFromController(controller),
+        queueControlStateFromController(controller, workspaceId),
       startQueueLinkedRun: (request) =>
         startQueueLinkedRunForWorkspaceAgent({
           actions,
@@ -498,10 +498,12 @@ export function useWorkspaceQueueApi({
 
 function queueControlStateFromController(
   controller: AgentQueueController,
+  workspaceId: string,
 ): WorkspaceAgentQueueControlState {
   return {
     globalExecutionState: controller.foundation.globalExecutionState,
     queueEnabled: controller.foundation.globalExecutionState === "started",
+    workspaceId,
   };
 }
 
@@ -515,10 +517,15 @@ function queueControlStateFromBackend(
   const queueEnabled = controlState.status === "manual_enabled";
   return {
     backendOwned: true,
+    createdAt: controlState.createdAt,
     globalExecutionState: queueEnabled ? "started" : "stopped",
     queueEnabled,
+    reason: controlState.reason,
     status: controlState.status,
+    updatedAt: controlState.updatedAt,
+    updatedByActorId: controlState.updatedByActorId,
     version: controlState.version,
+    workspaceId: controlState.workspaceId,
   };
 }
 

@@ -11,6 +11,10 @@ import {
   createWorkspaceAgentQueueBridgeAdapterApi,
 } from "./agents/adapters";
 import {
+  createWorkspaceAgentLiveContextActionHandlers,
+  type WorkspaceAgentLiveContextSource,
+} from "./agents/adapters/workspaceAgentLiveContextCapabilities";
+import {
   runQueueWorkflowRunnerRuntimeAdapter,
   type QueueWorkflowPersistencePort,
   type QueueWorkflowRunnerRuntimeResult,
@@ -30,16 +34,21 @@ export type WorkspaceAgentQueueWorkflowInvoker = (
 
 export function createWorkspaceAgentHobitActionInvoker({
   policy,
+  workspaceAgentLiveContext,
   workspaceAgentQueueBridge,
 }: {
   policy?: HobitAgentActionBrokerPolicyOptions;
+  workspaceAgentLiveContext?: WorkspaceAgentLiveContextSource | null;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge | null;
 }): WorkspaceAgentHobitActionInvoker {
   const queueAdapter = createWorkspaceAgentQueueBridgeAdapterApi(
     workspaceAgentQueueBridge,
   );
   const broker = createHobitAgentActionBroker({
-    handlers: createQueueAgentActionHandlers(queueAdapter),
+    handlers: {
+      ...createQueueAgentActionHandlers(queueAdapter),
+      ...createWorkspaceAgentLiveContextActionHandlers(workspaceAgentLiveContext),
+    },
     policy: {
       requireDryRunBeforeSideEffectingInvoke: false,
       ...policy,

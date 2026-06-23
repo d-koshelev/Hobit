@@ -111,6 +111,7 @@ describe("queueAgentCapabilities discovery and broker separation", () => {
       "workbench/agents/adapters/queueAgentCapabilities.ts",
       "workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts",
       "workbench/agents/adapters/queueBackendCapabilityPort.ts",
+      "workbench/agents/adapters/workspaceAgentLiveContextCapabilities.ts",
       "workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
     ]
       .map(frontendSource)

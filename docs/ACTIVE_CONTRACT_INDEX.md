@@ -798,7 +798,12 @@ the local executor flow visible to operators.
   Agent broker adapter, or frontend API boundary work. It states that Queue
   business truth lives in backend/domain/storage, including Queue workflow
   run/action persistence and durable Queue control state, and frontend UI may
-  only render authoritative DTOs plus local loading/display state.
+  only render authoritative DTOs plus local loading/display state. Workspace
+  Agent live smoke discovery may read live renderer-held workspace/workbench
+  and widget instance state through `workspace.context.get` and
+  `workbench.widgets.list`, and backend Queue control state through
+  `queue.control.get`; it must not infer ids from UI text, titles, prose,
+  order, file paths, localStorage, or transcripts.
 - `docs/QUEUE_SYSTEM_ARCHITECTURE_RESET.md` - current Queue / Workspace Agent
   architecture correction note. Read before broad Queue dogfooding,
   continuation-policy, capability-contract, or responsibility-boundary cleanup.

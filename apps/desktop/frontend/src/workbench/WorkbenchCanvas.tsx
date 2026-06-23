@@ -565,6 +565,8 @@ export function WorkbenchCanvas({
                             coordinatorAttachedContextRequest
                           }
                           currentWorkspaceRoot={currentWorkspaceRoot}
+                          workbenchId={viewState.workbench.id}
+                          workbenchWidgets={viewState.widgets}
                           queueReportActionCardRequest={
                             queueChatRequests.queueReportActionCardRequest
                           }
@@ -622,6 +624,8 @@ export function WorkbenchCanvas({
                           coordinatorAttachedContextRequest
                         }
                         currentWorkspaceRoot={currentWorkspaceRoot}
+                        workbenchId={viewState.workbench.id}
+                        workbenchWidgets={viewState.widgets}
                         queueReportActionCardRequest={
                           queueChatRequests.queueReportActionCardRequest
                         }

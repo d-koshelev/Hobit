@@ -651,6 +651,7 @@ describe("hobitAgentCapabilityRuntime capabilities", () => {
       .map((capability) => capability.id);
 
     expect(queueCapabilities).toEqual([
+      "queue.control.get",
       "queue.coordinator.addFollowUpPrompt",
       "queue.coordinator.approveValidation",
       "queue.createItem",

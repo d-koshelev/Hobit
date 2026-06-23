@@ -1242,6 +1242,17 @@ Implemented as focused frontend smoke/regression coverage.
 The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
+- Queue live smoke execution from Workspace Agent. The read-only discovery
+  foundation is implemented: `workspace.context.get` reads current
+  workspace/workbench/root context from live renderer state,
+  `workbench.widgets.list` lists bounded widget instances and discovers Agent
+  Executor widgets only by `definitionId === "agent-run"`, and
+  `queue.control.get` reads backend Queue control state through the Queue
+  control bridge. Actual `dependency_acceptance_smoke` /
+  `dependency_failure_smoke` invocation from Workspace Agent, Queue control
+  set/manual-enable, workflow report/list/planResume/action-log reads, and
+  live smoke recovery/debug capabilities remain future blocks. Codex shell
+  still cannot perform live smoke without the live Tauri renderer/IPC context.
 - durable backend Smart Queue persistence;
 - Queue workflow runner execution beyond the full typed
   `dependency_acceptance_smoke` and `dependency_failure_smoke` paths and the

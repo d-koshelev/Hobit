@@ -7,6 +7,7 @@ import type {
   AgentQueueItemAggregateLatestRun,
   AgentQueueItemAggregateNextAction,
   AgentQueueCompletionDecision,
+  AgentQueueControlStatus,
   AgentQueueFailureDecision,
   AgentQueueWorkerEvidenceBundle,
 } from "../../../workspace/types";
@@ -39,6 +40,7 @@ import type {
 } from "../../queue/smartQueueWorkerEvidenceBundle";
 
 export const QUEUE_AGENT_CAPABILITY_IDS = [
+  "queue.control.get",
   "queue.createItem",
   "queue.createItems",
   "queue.enable",
@@ -63,6 +65,7 @@ export const QUEUE_AGENT_CAPABILITY_IDS = [
 ] as const;
 
 export const QUEUE_ACTIVITY_EVENTS = {
+  controlGet: ["hobit.agent.capability.queue.control.get.requested"],
   createItem: ["hobit.agent.capability.queue.createItem.requested", "queue.itemCreated"],
   createItems: ["hobit.agent.capability.queue.createItems.requested", "queue.itemCreated"],
   enable: ["hobit.agent.capability.queue.enable.requested"],
@@ -339,6 +342,27 @@ export type QueueAgentPromoteDraftResult = {
 } & QueueAgentNextActionFields;
 
 export type QueueAgentEnableInput = Record<string, never>;
+
+export type QueueAgentControlGetInput = {
+  workspaceId?: string;
+};
+
+export type QueueAgentControlGetResult = {
+  backendOwned: boolean;
+  blockers: string[];
+  didAutoRunWorkers: false;
+  didMutateQueue: false;
+  didStartWorkers: false;
+  globalExecutionState: string | null;
+  missingCapabilities: string[];
+  queueEnabled: boolean;
+  reason: string | null;
+  status: AgentQueueControlStatus;
+  updatedAt: string | null;
+  updatedByActorId: string | null;
+  version: number | null;
+  workspaceId: string | null;
+};
 
 export type QueueAgentEnableResult = {
   backendOwned?: boolean;
@@ -736,6 +760,10 @@ export type QueueAgentMaybePromise<T> = T | Promise<T>;
 export type QueueAgentAdapterApi = {
   backend?: QueueBackendCapabilityPort | null;
   dogfoodLifecycle?: QueueAgentDogfoodLifecycleAdapterApi;
+  getQueueControlState?: (
+    input: QueueAgentControlGetInput,
+    context: QueueAgentLifecycleHandlerContext,
+  ) => QueueAgentMaybePromise<QueueAgentAdapterResult<QueueAgentControlGetResult>>;
   enableQueue?: (
     input: QueueAgentEnableInput,
     context: QueueAgentLifecycleHandlerContext,

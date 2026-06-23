@@ -24,6 +24,8 @@ import {
   type QueueAgentAdapterApi,
   type QueueAgentAdapterResult,
   type QueueAgentCapabilityStatus,
+  type QueueAgentControlGetInput,
+  type QueueAgentControlGetResult,
   type QueueAgentCreateItemInput,
   type QueueAgentCreateItemsInput,
   type QueueAgentCreateItemsRequest,
@@ -59,6 +61,8 @@ export function createQueueAgentActionHandlers(
   adapterApi: QueueAgentAdapterApi,
 ): HobitAgentActionHandlerMap {
   return {
+    "queue.control.get": ({ request }) =>
+      handleQueueControlGet(adapterApi, request),
     "queue.createItem": ({ request }) => handleCreateItem(adapterApi, request),
     "queue.createItems": ({ request }) => handleCreateItems(adapterApi, request),
     "queue.enable": ({ request }) => handleEnableQueue(adapterApi, request),
@@ -188,6 +192,36 @@ function nextActionFieldsForSingleCreatedItem(
           item.nextActionUnavailableReason ??
           "A top-level Queue nextAction is unavailable for the created task.",
       });
+}
+
+function handleQueueControlGet(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeQueueControlGetInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.getQueueControlState) {
+    return unavailable(
+      request,
+      "Queue control read is unavailable: the Workspace Queue bridge did not expose typed Queue control state.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentControlGetResult>({
+    adapterResult: adapterApi.getQueueControlState(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue control state read",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
 }
 
 function handleListItems(
@@ -1243,6 +1277,43 @@ function normalizeEnableInput(
   }
 
   return { ok: true, value: {} };
+}
+
+function normalizeQueueControlGetInput(
+  input: unknown,
+): ValidationResult<QueueAgentControlGetInput> {
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.control.get input must be an object.",
+    };
+  }
+
+  const unsupported = Object.keys(input).filter(
+    (fieldName) => fieldName !== "workspaceId",
+  );
+  if (unsupported.length > 0) {
+    return {
+      fieldPath: `input.${unsupported[0]}`,
+      ok: false,
+      message: `${unsupported[0]} is not supported by queue.control.get.`,
+    };
+  }
+
+  const workspaceId = optionalStringField(input, "workspaceId");
+  if (workspaceId.invalid) {
+    return {
+      fieldPath: "input.workspaceId",
+      ok: false,
+      message: "workspaceId must be a non-empty string when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: workspaceId.value ? { workspaceId: workspaceId.value } : {},
+  };
 }
 
 function normalizeStartRunInput(

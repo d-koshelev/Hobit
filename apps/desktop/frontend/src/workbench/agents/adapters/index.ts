@@ -9,6 +9,8 @@ export type {
   QueueAgentBlockInput,
   QueueAgentCapabilityId,
   QueueAgentCapabilityStatus,
+  QueueAgentControlGetInput,
+  QueueAgentControlGetResult,
   QueueAgentCreateItemInput,
   QueueAgentCreateItemsInput,
   QueueAgentCreateItemsPreview,
@@ -57,6 +59,9 @@ export type {
   QueueAgentUpdateRunSettingsResult,
 } from "./queueAgentCapabilityTypes";
 export type {
+  WorkspaceAgentLiveContextSource,
+} from "./workspaceAgentLiveContextCapabilities";
+export type {
   QueueWorkerEvidenceBundle,
   QueueWorkerEvidenceBundleInput,
   QueueWorkerEvidenceBundleValidationResult,
@@ -70,4 +75,5 @@ export { createQueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
 export { createQueueAgentActionHandlers } from "./queueAgentActionHandlers";
 export { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
 export { QUEUE_AGENT_CAPABILITY_IDS } from "./queueAgentCapabilityTypes";
+export { createWorkspaceAgentLiveContextActionHandlers } from "./workspaceAgentLiveContextCapabilities";
 export { createWorkspaceAgentQueueBridgeAdapterApi } from "./workspaceAgentQueueBridgeAdapter";

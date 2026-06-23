@@ -76,6 +76,30 @@ validation approval, commit state, dependency unblock, or finalization. The
 continuation budget remains 16 actions and the existing safety stops are
 unchanged.
 
+Workspace Agent live Queue smoke context discovery now has read-only typed
+capabilities before any smoke execution step:
+
+- `workspace.context.get` returns the current `workspaceId`, workspace root,
+  `workbenchId`, runtime availability, optional widget summary, and optional
+  Queue control state from live renderer-held typed app state plus the Queue
+  control bridge.
+- `workbench.widgets.list` returns bounded live widget instances and discovers
+  Agent Executor widgets only by `definitionId === "agent-run"`. It returns
+  `recommendedExecutorWidgetId` only when exactly one visible Agent Executor is
+  present; otherwise it returns `no_agent_executor` or
+  `ambiguous_agent_executor`.
+- `queue.control.get` reads backend-owned Queue control state through the
+  existing Queue control bridge and reports `disabled` or `manual_enabled`
+  without enabling Queue, starting workers, starting Queue Autorun, creating
+  tasks, or starting Direct Work.
+
+Use these discovery reads for live Queue smoke setup. Do not use
+`agent.status.read` for workspace/workbench/widget/executor/Queue-control
+discovery. Codex shell still cannot perform live Queue smoke by itself because
+it has no live Tauri renderer/IPC context. Actual `dependency_acceptance_smoke`
+and `dependency_failure_smoke` execution from Workspace Agent remains a later
+step after this discovery phase.
+
 To authorize bounded multi-step Queue smoke, the operator must include a
 structured grant JSON object such as:
 
@@ -130,9 +154,10 @@ explicit `input.taskId`, explicit `input.executorWidgetId`, and top-level
 `confirmationToken: "operator-confirmed"` after user confirmation; a prose-only
 "I confirm" message remains insufficient. `queue.importPromptPack` uses the
 same top-level confirmation token. Backend-backed Queue capabilities are
-`queue.items.list`, `queue.lifecycle.get`, `queue.review.getEvidenceBundle`,
-`queue.review.createMessage`, `queue.review.ack`, and
-`queue.lifecycle.agentFinished`, `queue.item.markDone`, and `queue.item.fail`.
+`queue.control.get`, `queue.items.list`, `queue.lifecycle.get`,
+`queue.review.getEvidenceBundle`, `queue.review.createMessage`,
+`queue.review.ack`, and `queue.lifecycle.agentFinished`,
+`queue.item.markDone`, and `queue.item.fail`.
 `queue.item.markDone`
 requires explicit `input.taskId`, trusted actor id from runtime/backend
 context, and top-level `confirmationToken: "operator-confirmed"` after

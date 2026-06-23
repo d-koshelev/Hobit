@@ -39,12 +39,12 @@ export function createCapabilityInstructionBlock(
     'Workflow requests use a separate generic envelope only when explicitly requested: {"type":"hobit.workflow.request","requestId":"workflow-1","moduleId":"queue","workflowId":"<declared-workflow>","grant":{},"inputs":{}}.',
     "Workflow requests are validation/classification only here; prose is not workflow input, and undeclared workflows are reported instead of executed.",
     "Workflow grant authorizes only permission/scope. Workflow inputs configure data such as runSettings, task slots, prompts, and dependency slot references.",
-    "Never put runSettings/tasks/prompts/dependencies/workspaceRoot/codexExecutable/sandbox/approvalPolicy in grant; scope ids only under grant.scope taskIds/runIds/messageIds/evidenceBundleIds/executorWidgetIds; confirmationToken in grant is permission metadata only; hobit.action.request remains separate.",
+    "Never put runSettings/tasks/prompts/dependencies/workspaceRoot/codexExecutable/sandbox/approvalPolicy in grant; grant.scope taskIds/runIds/messageIds/evidenceBundleIds/executorWidgetIds only; confirmationToken in grant is permission metadata only.",
     "Intermediate prose is not a capability call; emit an envelope or final marker. Do not write awaiting capability result.",
     "After hobit.action.result, prefer returned nextAction: use nextAction.capabilityId and nextAction.input exactly; do not rename fields.",
     "If nextAction is unavailable, ask or stop with the blocker; do not guess ids, fields, or actions from nextSuggestedCapability alone.",
-    'Queue bounded autonomy requires structured JSON type "hobit.queue.autonomyGrant"; prose like go, approve, or I confirm is not a grant.',
-    "Inside a valid Queue grant, follow schema-valid nextAction exactly. If policy blocks it, finish with hobit.final.answer and the blocker.",
+    'Queue bounded autonomy requires structured "hobit.queue.autonomyGrant"; prose like go, approve, or I confirm is not a grant.',
+    "Inside a valid Queue grant, follow schema-valid nextAction exactly; stop with hobit.final.answer on blockers.",
     "Stop on blocked, unavailable, confirmation_required, policy_blocked, failed, invalid, repeated, or max actions.",
     "For commands requiring confirmation, include the exact structured confirmation field after user confirmation; prose alone is insufficient.",
     `Queue required confirmation token: top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}", not inside input.`,
@@ -54,6 +54,7 @@ export function createCapabilityInstructionBlock(
     "Queue item creation should use queue.createItems.",
     "Prompt-pack flows use queue.preparePromptPackPreview or queue.importPromptPack.",
     "Queue reads use backend aggregates.",
+    'Live Queue smoke discovery: workspace.context.get, workbench.widgets.list definitionIdFilter="agent-run", queue.control.get; never agent.status.read.',
     ...queueCreateInstructionLines,
     ...queueRunControlInstructionLines,
     ...queueLifecycleInstructionLines,
@@ -147,8 +148,7 @@ function createQueueLifecycleCapabilityInstructionLines(
     "Queue lifecycle schemas are exact structured contracts; do not invent capability ids or ids.",
     requiredInputLine,
     "Review create/ack use trusted runtime/backend actor defaults when coordinatorAgentId is omitted; do not invent actor ids.",
-    "ACK does not mean done or failed. queue.item.markDone is the backend accepted-completion command; queue.item.fail is the backend terminal-failure command. Worker failure evidence alone is not terminal failure. Prose confirmation is insufficient and these commands do not run Git, validation, rollback, Terminal, or workers.",
-    'Lifecycle example: {"type":"hobit.action.request","requestId":"lifecycle-agent-finished-1","capabilityId":"queue.lifecycle.agentFinished","dryRun":false,"input":{"taskId":"queue-task-id","runId":"worker-run-id","outcome":"completed","finalAgentMessage":"Done."}}',
+    "ACK does not mean done or failed. queue.item.markDone accepts completion; queue.item.fail is terminal failure. Worker failure evidence alone is not terminal failure. Prose confirmation is insufficient; no Git, validation, rollback, Terminal, or workers.",
   ].filter((line): line is string => Boolean(line));
 }
 
@@ -195,6 +195,9 @@ function createQueueRunControlCapabilityInstructionLines(
   capabilities: readonly HobitAgentCapability[],
 ) {
   const capabilityIds = [
+    "workspace.context.get",
+    "workbench.widgets.list",
+    "queue.control.get",
     "queue.items.list",
     "queue.item.updateRunSettings",
     "queue.item.promoteDraft",
@@ -218,9 +221,10 @@ function createQueueRunControlCapabilityInstructionLines(
     .join("; ");
 
   return [
+    "Live Queue smoke discovery uses read-only context/widgets/control capabilities only.",
     "Queue run-control is typed only; never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose, titles, prompts, paths, final messages, or source text.",
     `Run settings enums: sandbox=${QUEUE_RUN_SANDBOX_VALUES.join("|")}; approvalPolicy=${QUEUE_RUN_APPROVAL_POLICY_VALUES.join("|")}.`,
-    `Run-control fields: list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({}); start(input.taskId,input.executorWidgetId,input.queueId?, top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}").`,
+    `Run-control fields: control(workspaceId?); list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({}); start(input.taskId,input.executorWidgetId,input.queueId?, top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}").`,
     "Use queue.items.list when ids are missing; settings/promote/enable do not start; start requires confirmation and no codex.runTask fallback.",
     exampleIds ? `Run-control envelope ids: ${exampleIds}.` : null,
   ].filter((line): line is string => Boolean(line));

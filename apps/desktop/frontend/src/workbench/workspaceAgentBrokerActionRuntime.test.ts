@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  createActionRequest,
   createHobitAgentActionRequestFromEnvelope,
   HOBIT_AGENT_WORKFLOW_REQUEST_ENVELOPE_TYPE,
   readHobitAgentActionRequestEnvelope,
@@ -27,6 +28,7 @@ import type {
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerFinishedCommandResult,
 } from "../workspace/types";
+import type { WidgetInstance } from "./types";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -585,6 +587,111 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     );
   });
 
+  it("handles live context discovery reads without using agent.status.read", async () => {
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentLiveContext: {
+        currentRuntimeMode: "test_renderer",
+        getQueueControlState: () => ({
+          backendOwned: true,
+          queueEnabled: false,
+          status: "disabled",
+          version: 2,
+          workspaceId: "workspace-1",
+        }),
+        workbenchId: "workbench-1",
+        widgets: [
+          widgetInstance({
+            definitionId: "interactive-agent",
+            id: "workspace-agent-1",
+          }),
+          widgetInstance({ definitionId: "agent-run", id: "executor-1" }),
+        ],
+        workspaceId: "workspace-1",
+        workspaceRootPath: "C:/repo",
+      },
+      workspaceAgentQueueBridge: queueBridge({
+        getQueueControlState: () => ({
+          backendOwned: true,
+          queueEnabled: false,
+          status: "disabled",
+          version: 2,
+          workspaceId: "workspace-1",
+        }),
+      }),
+    });
+
+    const context = await invoker(
+      createActionRequest({
+        agentRoleId: "workspace_agent",
+        capabilityId: "workspace.context.get",
+        input: {
+          includeQueueControl: true,
+          includeWidgetSummary: true,
+        },
+        requestId: "runtime-workspace-context-1",
+      }),
+    );
+    expect(context.status).toBe("succeeded");
+    expect(context.result.output).toMatchObject({
+      currentRuntimeMode: "test_renderer",
+      queueControlState: {
+        status: "disabled",
+        version: 2,
+      },
+      widgetSummary: {
+        agentExecutorCount: 1,
+      },
+      workbenchId: "workbench-1",
+      workspaceId: "workspace-1",
+    });
+
+    const widgets = await invoker(
+      createActionRequest({
+        agentRoleId: "workspace_agent",
+        capabilityId: "workbench.widgets.list",
+        input: {
+          definitionIdFilter: "agent-run",
+        },
+        requestId: "runtime-workbench-widgets-1",
+      }),
+    );
+    expect(widgets.status).toBe("succeeded");
+    expect(widgets.result.output).toMatchObject({
+      recommendedExecutorWidgetId: "executor-1",
+    });
+
+    const control = await invoker(
+      createActionRequest({
+        agentRoleId: "workspace_agent",
+        capabilityId: "queue.control.get",
+        input: {},
+        requestId: "runtime-queue-control-1",
+      }),
+    );
+    expect(control.status).toBe("succeeded");
+    expect(control.result.output).toMatchObject({
+      didMutateQueue: false,
+      didStartWorkers: false,
+      status: "disabled",
+      version: 2,
+    });
+
+    const statusRead = await invoker(
+      createActionRequest({
+        agentRoleId: "workspace_agent",
+        capabilityId: "agent.status.read",
+        input: {
+          agentId: "workspace-agent",
+        },
+        requestId: "runtime-agent-status-read-1",
+      }),
+    );
+    expect(statusRead.status).toBe("unavailable");
+    expect(statusRead.result.message).toContain(
+      "agent.status.read is not implemented by this Action Broker MVP",
+    );
+  });
+
   it("does not add natural-language routing in the Workspace Agent broker runtime", () => {
     for (const source of [runtimeSource, envelopeSource]) {
       expect(source).not.toContain("new RegExp");
@@ -822,6 +929,27 @@ function snapshotItem(
     workspaceId: "workspace_1",
     ...overrides,
   } as QueueWidgetItemSnapshot;
+}
+
+function widgetInstance(overrides: Partial<WidgetInstance> = {}): WidgetInstance {
+  return {
+    config: {},
+    definitionId: "notes",
+    id: "widget-1",
+    layout: {
+      area: "main",
+      height: 360,
+      mode: "docked",
+      order: 0,
+      width: 480,
+      x: 0,
+      y: 0,
+    },
+    state: {},
+    title: "Widget",
+    visible: true,
+    ...overrides,
+  };
 }
 
 function queueAggregate(

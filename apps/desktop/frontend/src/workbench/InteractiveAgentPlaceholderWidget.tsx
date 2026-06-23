@@ -113,6 +113,8 @@ export function InteractiveAgentPlaceholderWidget({
   onSelectWorkspaceDirectory, onReadPromptPackSource,
   onStartCodexDirectWorkStream,
   onUpdateAgentQueueTask, createQueueItemsFromPromptPackPreview,
+  workbenchId,
+  workbenchWidgets,
   queueReportActionCardRequest,
   queueTaskStatusCardRequest,
   queueValidationRunner, workspaceAgentProvider, workspaceAgentQueueBridge,
@@ -161,9 +163,24 @@ export function InteractiveAgentPlaceholderWidget({
     () =>
       onInvokeHobitAgentActionRequest ??
       createWorkspaceAgentHobitActionInvoker({
+        workspaceAgentLiveContext: {
+          getQueueControlState: () =>
+            workspaceAgentQueueBridge?.getQueueControlState?.() ?? null,
+          workbenchId,
+          widgets: workbenchWidgets,
+          workspaceId: workspaceScopeId,
+          workspaceRootPath: currentWorkspaceRoot,
+        },
         workspaceAgentQueueBridge,
       }),
-    [onInvokeHobitAgentActionRequest, workspaceAgentQueueBridge],
+    [
+      currentWorkspaceRoot,
+      onInvokeHobitAgentActionRequest,
+      workbenchId,
+      workbenchWidgets,
+      workspaceAgentQueueBridge,
+      workspaceScopeId,
+    ],
   );
   const invokeQueueWorkflowRequest = useMemo(
     () =>
