@@ -92,6 +92,7 @@ function handleWorkspaceContextGet(
     hiddenSideEffectFlags: createNoHiddenSideEffectFlags(),
     message: "Workspace context read.",
     output: {
+      blockers: missingCapabilities,
       currentRuntimeMode:
         normalizedString(liveContext?.currentRuntimeMode) ?? detectRuntimeMode(),
       currentWorkbenchAvailable: Boolean(workbenchId),
@@ -100,7 +101,17 @@ function handleWorkspaceContextGet(
       missingCapabilities,
       missingCapabilitiesSummary: missingCapabilities.join(", "),
       ...(queueControlState !== undefined ? { queueControlState } : {}),
-      ...(widgetSummary ? { widgetSummary } : {}),
+      ...(widgetSummary
+        ? {
+            agentExecutorCount: widgetSummary.agentExecutorCount,
+            agentExecutors: widgetSummary.agentExecutors,
+            recommendedExecutorWidgetId:
+              widgetSummary.recommendedExecutorWidgetId,
+            visibleWidgetCount: widgetSummary.visibleWidgetCount,
+            widgetCount: widgetSummary.widgetCount,
+            widgetSummary,
+          }
+        : {}),
       workbenchId,
       workspaceId: resolvedWorkspaceId,
       workspaceRootPath: resolvedWorkspaceRootPath,
@@ -172,7 +183,7 @@ function handleWorkbenchWidgetsList(
   const agentExecutors = visibleScopedWidgets
     .filter((widget) => widget.definitionId === AGENT_RUN_WIDGET_DEFINITION_ID)
     .slice(0, MAX_WIDGETS)
-    .map((widget) => widgetSummary(widget, includeTitles));
+    .map((widget) => agentExecutorSummary(widget, includeTitles));
   const blockers = executorSelectionBlockers(visibleAgentExecutors.length);
 
   return createActionResult({
@@ -181,6 +192,7 @@ function handleWorkbenchWidgetsList(
     hiddenSideEffectFlags: createNoHiddenSideEffectFlags(),
     message: "Workbench widgets listed.",
     output: {
+      agentExecutorCount: visibleAgentExecutors.length,
       agentExecutors,
       blockers,
       capped:
@@ -195,8 +207,11 @@ function handleWorkbenchWidgetsList(
         visibleAgentExecutors.length === 1
           ? visibleAgentExecutors[0]?.id ?? null
           : null,
+      returnedWidgetCount: listedWidgets.length,
       visibleOnly,
+      visibleWidgetCount: visibleScopedWidgets.length,
       widgetInstances: listedWidgets,
+      widgetCount: allWidgets.length,
       workbenchId: resolvedWorkbenchId,
       workspaceId: resolvedWorkspaceId,
     },
@@ -355,6 +370,9 @@ function summarizeWidgets(
 
   return {
     agentExecutorCount: visibleAgentExecutors.length,
+    agentExecutors: visibleAgentExecutors
+      .slice(0, MAX_WIDGETS)
+      .map((widget) => agentExecutorSummary(widget, false)),
     recommendedExecutorWidgetId:
       visibleAgentExecutors.length === 1
         ? visibleAgentExecutors[0]?.id ?? null
@@ -406,6 +424,16 @@ function widgetSummary(
     id: widget.id,
     ...(includeTitle ? { title: widget.title } : {}),
     visible: widget.visible,
+  };
+}
+
+function agentExecutorSummary(
+  widget: WorkspaceAgentLiveWorkbenchWidgetSummary,
+  includeTitle: boolean,
+) {
+  return {
+    executorWidgetId: widget.id,
+    ...widgetSummary(widget, includeTitle),
   };
 }
 

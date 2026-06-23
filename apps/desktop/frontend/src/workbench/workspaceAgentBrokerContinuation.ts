@@ -28,6 +28,8 @@ const CONTINUATION_PROMPT_CHAR_LIMIT = 3600;
 const SUMMARY_CHAR_LIMIT = 220;
 const ID_LIMIT = 8;
 const BLOCKER_LIMIT = 6;
+const DISCOVERY_WIDGET_PAYLOAD_LIMIT = 12;
+const DISCOVERY_EXECUTOR_PAYLOAD_LIMIT = 8;
 
 const DEFAULT_AUTO_CONTINUATION_RISK_CLASSES = new Set<QueueCapabilityRiskClass>(
   ["read", "review"],
@@ -305,9 +307,73 @@ export type WorkspaceAgentBrokerContinuationSafety = {
   didStartTerminal: boolean;
 };
 
+export type WorkspaceAgentBrokerContinuationWidgetPayload = {
+  category: string | null;
+  definitionId: string;
+  id: string;
+  title?: string;
+  visible: boolean | null;
+};
+
+export type WorkspaceAgentBrokerContinuationAgentExecutorPayload =
+  WorkspaceAgentBrokerContinuationWidgetPayload & {
+    executorWidgetId: string;
+  };
+
+export type WorkspaceAgentBrokerContinuationQueueControlPayload = {
+  backendOwned: boolean | null;
+  blockers: string[];
+  globalExecutionState: string | null;
+  queueEnabled: boolean | null;
+  reason: string | null;
+  status: string | null;
+  updatedAt: string | null;
+  updatedByActorId: string | null;
+  version: number | null;
+  workspaceId: string | null;
+};
+
+export type WorkspaceAgentBrokerContinuationWorkspaceContextPayload = {
+  agentExecutorCount: number | null;
+  agentExecutors: WorkspaceAgentBrokerContinuationAgentExecutorPayload[];
+  blockers: string[];
+  currentWorkbenchAvailable: boolean | null;
+  currentWorkspaceAvailable: boolean | null;
+  missingCapabilities: string[];
+  queueControlState: WorkspaceAgentBrokerContinuationQueueControlPayload | null;
+  recommendedExecutorWidgetId: string | null;
+  visibleWidgetCount: number | null;
+  widgetCount: number | null;
+  workbenchId: string | null;
+  workspaceId: string | null;
+  workspaceRootPath: string | null;
+};
+
+export type WorkspaceAgentBrokerContinuationWorkbenchWidgetsPayload = {
+  agentExecutorCount: number | null;
+  agentExecutors: WorkspaceAgentBrokerContinuationAgentExecutorPayload[];
+  blockers: string[];
+  missingCapabilities: string[];
+  recommendedExecutorWidgetId: string | null;
+  returnedWidgetCount: number | null;
+  visibleOnly: boolean | null;
+  visibleWidgetCount: number | null;
+  widgetCount: number | null;
+  widgetInstances: WorkspaceAgentBrokerContinuationWidgetPayload[];
+  workbenchId: string | null;
+  workspaceId: string | null;
+};
+
+export type WorkspaceAgentBrokerContinuationResultData = {
+  queueControl?: WorkspaceAgentBrokerContinuationQueueControlPayload;
+  workbenchWidgets?: WorkspaceAgentBrokerContinuationWorkbenchWidgetsPayload;
+  workspaceContext?: WorkspaceAgentBrokerContinuationWorkspaceContextPayload;
+};
+
 export type WorkspaceAgentBrokerContinuationResultContext = {
   blockers: string[];
   capabilityId: string;
+  data?: WorkspaceAgentBrokerContinuationResultData;
   ids: {
     evidenceBundleIds: string[];
     executorWidgetIds: string[];
@@ -2049,6 +2115,7 @@ export function createWorkspaceAgentBrokerActionResultContext({
     ),
   ]);
   const queueState = collectQueueState(output, nextSuggestedCapability);
+  const data = collectDiscoveryResultData(result.capabilityId, output);
   const context: WorkspaceAgentBrokerContinuationResultContext = {
     blockers: compactStringList(
       [
@@ -2059,6 +2126,7 @@ export function createWorkspaceAgentBrokerActionResultContext({
       BLOCKER_LIMIT,
     ),
     capabilityId: result.capabilityId,
+    ...(data ? { data } : {}),
     ids: {
       evidenceBundleIds: compactStringList(
         collectEvidenceBundleIds(output, validNextAction),
@@ -2379,8 +2447,19 @@ function collectExecutorWidgetIds(
     [
       stringField(recordValue(nextAction?.input), "executorWidgetId"),
       stringField(output, "executorWidgetId"),
+      stringField(output, "recommendedExecutorWidgetId"),
+      stringField(recordField(output, "widgetSummary"), "recommendedExecutorWidgetId"),
       stringField(recordField(output, "queueLinkedMetadata"), "executorWidgetId"),
       stringField(recordField(output, "item"), "assignedExecutorWidgetId"),
+      ...arrayField(output, "agentExecutors").map((item) =>
+        executorWidgetIdFromWidgetPayload(recordValue(item)),
+      ),
+      ...arrayField(recordField(output, "widgetSummary"), "agentExecutors").map(
+        (item) => executorWidgetIdFromWidgetPayload(recordValue(item)),
+      ),
+      ...arrayField(output, "widgetInstances").map((item) =>
+        executorWidgetIdFromWidgetPayload(recordValue(item)),
+      ),
       ...arrayField(output, "availableExecutors").map((item) =>
         stringField(recordValue(item), "executorWidgetId"),
       ),
@@ -2422,11 +2501,232 @@ function collectMessageIds(
   );
 }
 
+function collectDiscoveryResultData(
+  capabilityId: string,
+  output: Record<string, unknown> | null,
+): WorkspaceAgentBrokerContinuationResultData | null {
+  if (!output) {
+    return null;
+  }
+
+  if (capabilityId === "workspace.context.get") {
+    const workspaceContext = workspaceContextPayload(output);
+    return workspaceContext ? { workspaceContext } : null;
+  }
+
+  if (capabilityId === "workbench.widgets.list") {
+    const workbenchWidgets = workbenchWidgetsPayload(output);
+    return workbenchWidgets ? { workbenchWidgets } : null;
+  }
+
+  if (capabilityId === "queue.control.get") {
+    const queueControl = queueControlPayload(output);
+    return queueControl ? { queueControl } : null;
+  }
+
+  return null;
+}
+
+function workspaceContextPayload(
+  output: Record<string, unknown>,
+): WorkspaceAgentBrokerContinuationWorkspaceContextPayload {
+  const widgetSummary = recordField(output, "widgetSummary");
+  const queueControlState = queueControlPayload(
+    recordField(output, "queueControlState"),
+  );
+  return {
+    agentExecutorCount:
+      numberField(output, "agentExecutorCount") ??
+      numberField(widgetSummary, "agentExecutorCount"),
+    agentExecutors: compactAgentExecutorPayloads([
+      ...arrayField(output, "agentExecutors"),
+      ...arrayField(widgetSummary, "agentExecutors"),
+    ]),
+    blockers: collectBlockers(output),
+    currentWorkbenchAvailable: booleanFieldOrNull(
+      output,
+      "currentWorkbenchAvailable",
+    ),
+    currentWorkspaceAvailable: booleanFieldOrNull(
+      output,
+      "currentWorkspaceAvailable",
+    ),
+    missingCapabilities: compactStringList(
+      stringArrayField(output, "missingCapabilities"),
+      BLOCKER_LIMIT,
+    ),
+    queueControlState,
+    recommendedExecutorWidgetId: firstString([
+      stringField(output, "recommendedExecutorWidgetId"),
+      stringField(widgetSummary, "recommendedExecutorWidgetId"),
+    ]),
+    visibleWidgetCount:
+      numberField(output, "visibleWidgetCount") ??
+      numberField(widgetSummary, "visibleWidgetCount"),
+    widgetCount:
+      numberField(output, "widgetCount") ??
+      numberField(widgetSummary, "widgetCount"),
+    workbenchId: stringField(output, "workbenchId"),
+    workspaceId: stringField(output, "workspaceId"),
+    workspaceRootPath: stringField(output, "workspaceRootPath"),
+  };
+}
+
+function workbenchWidgetsPayload(
+  output: Record<string, unknown>,
+): WorkspaceAgentBrokerContinuationWorkbenchWidgetsPayload {
+  return {
+    agentExecutorCount: numberField(output, "agentExecutorCount"),
+    agentExecutors: compactAgentExecutorPayloads(
+      arrayField(output, "agentExecutors"),
+    ),
+    blockers: collectBlockers(output),
+    missingCapabilities: compactStringList(
+      stringArrayField(output, "missingCapabilities"),
+      BLOCKER_LIMIT,
+    ),
+    recommendedExecutorWidgetId: stringField(
+      output,
+      "recommendedExecutorWidgetId",
+    ),
+    returnedWidgetCount: numberField(output, "returnedWidgetCount"),
+    visibleOnly: booleanFieldOrNull(output, "visibleOnly"),
+    visibleWidgetCount: numberField(output, "visibleWidgetCount"),
+    widgetCount: numberField(output, "widgetCount"),
+    widgetInstances: compactWidgetPayloads(arrayField(output, "widgetInstances")),
+    workbenchId: stringField(output, "workbenchId"),
+    workspaceId: stringField(output, "workspaceId"),
+  };
+}
+
+function queueControlPayload(
+  output: Record<string, unknown> | null,
+): WorkspaceAgentBrokerContinuationQueueControlPayload | null {
+  if (!output) {
+    return null;
+  }
+
+  const payload: WorkspaceAgentBrokerContinuationQueueControlPayload = {
+    backendOwned: booleanFieldOrNull(output, "backendOwned"),
+    blockers: collectBlockers(output),
+    globalExecutionState: stringField(output, "globalExecutionState"),
+    queueEnabled: booleanFieldOrNull(output, "queueEnabled"),
+    reason: stringField(output, "reason"),
+    status: stringField(output, "status"),
+    updatedAt: stringField(output, "updatedAt"),
+    updatedByActorId: stringField(output, "updatedByActorId"),
+    version: numberField(output, "version"),
+    workspaceId: stringField(output, "workspaceId"),
+  };
+
+  if (
+    payload.backendOwned === null &&
+    payload.blockers.length === 0 &&
+    payload.globalExecutionState === null &&
+    payload.queueEnabled === null &&
+    payload.reason === null &&
+    payload.status === null &&
+    payload.updatedAt === null &&
+    payload.updatedByActorId === null &&
+    payload.version === null &&
+    payload.workspaceId === null
+  ) {
+    return null;
+  }
+
+  return payload;
+}
+
+function compactWidgetPayloads(
+  widgets: readonly unknown[],
+): WorkspaceAgentBrokerContinuationWidgetPayload[] {
+  const compacted: WorkspaceAgentBrokerContinuationWidgetPayload[] = [];
+  const seen = new Set<string>();
+  for (const widget of widgets) {
+    const payload = compactWidgetPayload(recordValue(widget));
+    if (!payload || seen.has(payload.id)) {
+      continue;
+    }
+
+    seen.add(payload.id);
+    compacted.push(payload);
+    if (compacted.length >= DISCOVERY_WIDGET_PAYLOAD_LIMIT) {
+      break;
+    }
+  }
+
+  return compacted;
+}
+
+function compactAgentExecutorPayloads(
+  widgets: readonly unknown[],
+): WorkspaceAgentBrokerContinuationAgentExecutorPayload[] {
+  const compacted: WorkspaceAgentBrokerContinuationAgentExecutorPayload[] = [];
+  const seen = new Set<string>();
+  for (const widget of widgets) {
+    const payload = compactAgentExecutorPayload(recordValue(widget));
+    if (!payload || seen.has(payload.executorWidgetId)) {
+      continue;
+    }
+
+    seen.add(payload.executorWidgetId);
+    compacted.push(payload);
+    if (compacted.length >= DISCOVERY_EXECUTOR_PAYLOAD_LIMIT) {
+      break;
+    }
+  }
+
+  return compacted;
+}
+
+function compactWidgetPayload(
+  widget: Record<string, unknown> | null,
+): WorkspaceAgentBrokerContinuationWidgetPayload | null {
+  const id = stringField(widget, "id");
+  const definitionId = stringField(widget, "definitionId");
+  if (!id || !definitionId) {
+    return null;
+  }
+
+  const title = stringField(widget, "title");
+  return {
+    category: stringField(widget, "category"),
+    definitionId,
+    id,
+    ...(title ? { title: compactText(title, SUMMARY_CHAR_LIMIT) } : {}),
+    visible: booleanFieldOrNull(widget, "visible"),
+  };
+}
+
+function compactAgentExecutorPayload(
+  widget: Record<string, unknown> | null,
+): WorkspaceAgentBrokerContinuationAgentExecutorPayload | null {
+  const payload = compactWidgetPayload(widget);
+  if (!payload || payload.definitionId !== "agent-run") {
+    return null;
+  }
+
+  const executorWidgetId = stringField(widget, "executorWidgetId") ?? payload.id;
+  return {
+    ...payload,
+    executorWidgetId,
+  };
+}
+
+function executorWidgetIdFromWidgetPayload(
+  widget: Record<string, unknown> | null,
+) {
+  const payload = compactAgentExecutorPayload(widget);
+  return payload?.executorWidgetId ?? null;
+}
+
 function collectBlockers(output: Record<string, unknown> | null): string[] {
   return compactStringList(
     [
       stringField(output, "blockerMessage"),
       ...stringArrayField(output, "blockerReasons"),
+      ...stringArrayField(output, "blockers"),
+      ...stringArrayField(output, "missingCapabilities"),
       ...blockerMessages(arrayField(output, "blockers")),
       ...blockerMessages(arrayField(recordField(output, "aggregate"), "blockers")),
       ...stringArrayField(recordField(output, "item"), "blockerReasons"),
@@ -2606,8 +2906,47 @@ function boundResultContext(
   return {
     ...context,
     blockers: context.blockers.slice(0, 3),
+    ...(context.data ? { data: boundDiscoveryResultData(context.data) } : {}),
     notDone: context.notDone.slice(0, 4),
     summary: compactText(context.summary, 120),
+  };
+}
+
+function boundDiscoveryResultData(
+  data: WorkspaceAgentBrokerContinuationResultData,
+): WorkspaceAgentBrokerContinuationResultData {
+  return {
+    ...(data.workspaceContext
+      ? {
+          workspaceContext: {
+            ...data.workspaceContext,
+            agentExecutors: data.workspaceContext.agentExecutors.slice(0, 4),
+            blockers: data.workspaceContext.blockers.slice(0, 4),
+            missingCapabilities:
+              data.workspaceContext.missingCapabilities.slice(0, 4),
+          },
+        }
+      : {}),
+    ...(data.workbenchWidgets
+      ? {
+          workbenchWidgets: {
+            ...data.workbenchWidgets,
+            agentExecutors: data.workbenchWidgets.agentExecutors.slice(0, 4),
+            blockers: data.workbenchWidgets.blockers.slice(0, 4),
+            missingCapabilities:
+              data.workbenchWidgets.missingCapabilities.slice(0, 4),
+            widgetInstances: data.workbenchWidgets.widgetInstances.slice(0, 6),
+          },
+        }
+      : {}),
+    ...(data.queueControl
+      ? {
+          queueControl: {
+            ...data.queueControl,
+            blockers: data.queueControl.blockers.slice(0, 4),
+          },
+        }
+      : {}),
   };
 }
 
@@ -2711,6 +3050,14 @@ function stringArrayField(
           typeof item === "string" && Boolean(item.trim()),
       )
     : [];
+}
+
+function booleanFieldOrNull(
+  value: Record<string, unknown> | null,
+  fieldName: string,
+): boolean | null {
+  const field = value?.[fieldName];
+  return typeof field === "boolean" ? field : null;
 }
 
 function booleanField(

@@ -47,6 +47,16 @@ describe("workspace.context.get", () => {
       sideEffectLevel: "read",
     });
     expect(result.result.output).toMatchObject({
+      agentExecutorCount: 1,
+      agentExecutors: [
+        {
+          definitionId: "agent-run",
+          executorWidgetId: "executor-1",
+          id: "executor-1",
+          visible: true,
+        },
+      ],
+      blockers: [],
       currentRuntimeMode: "test_renderer",
       currentWorkbenchAvailable: true,
       currentWorkspaceAvailable: true,
@@ -57,12 +67,23 @@ describe("workspace.context.get", () => {
         version: 7,
         workspaceId: "workspace-1",
       },
+      recommendedExecutorWidgetId: "executor-1",
+      visibleWidgetCount: 2,
       widgetSummary: {
         agentExecutorCount: 1,
+        agentExecutors: [
+          {
+            definitionId: "agent-run",
+            executorWidgetId: "executor-1",
+            id: "executor-1",
+            visible: true,
+          },
+        ],
         recommendedExecutorWidgetId: "executor-1",
         visibleWidgetCount: 2,
         widgetCount: 2,
       },
+      widgetCount: 2,
       workbenchId: "workbench-1",
       workspaceId: "workspace-1",
       workspaceRootPath: "C:/repo",
@@ -101,6 +122,11 @@ describe("workspace.context.get", () => {
     expect(result.result.output).toMatchObject({
       currentWorkbenchAvailable: false,
       currentWorkspaceAvailable: false,
+      blockers: [
+        "workspace_unavailable",
+        "workbench_unavailable",
+        "workbench_widgets_unavailable",
+      ],
       missingCapabilities: [
         "workspace_unavailable",
         "workbench_unavailable",

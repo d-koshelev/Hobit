@@ -209,6 +209,85 @@ describe("BrokerContinuationRuntime", () => {
     }
   });
 
+  it("returns live discovery payload in the same-thread continuation prompt", async () => {
+    const invoker = createWorkspaceAgentHobitActionInvoker({
+      workspaceAgentLiveContext: liveContext(),
+      workspaceAgentQueueBridge: workflowQueueBridge(),
+    });
+
+    const widgets = await runLiveContinuationAction({
+      capabilityId: "workbench.widgets.list",
+      input: { definitionIdFilter: "agent-run", includeTitles: true },
+      invoker,
+    });
+    const widgetsContinuation = effectOf(
+      widgets.runtime.effects,
+      "request_continuation_turn",
+    );
+
+    expect(widgets.recordEffect.message).toBe("Workbench widgets listed.");
+    expect(widgetsContinuation.resultContext.data?.workbenchWidgets)
+      .toMatchObject({
+        agentExecutors: [
+          {
+            definitionId: "agent-run",
+            executorWidgetId: "executor-1",
+            id: "executor-1",
+          },
+        ],
+        recommendedExecutorWidgetId: "executor-1",
+        workbenchId: "workbench-1",
+        workspaceId: "workspace-1",
+      });
+    expect(widgetsContinuation.resultContext.ids.executorWidgetIds).toEqual([
+      "executor-1",
+    ]);
+    expect(widgetsContinuation.intent.prompt).toContain(
+      '"executorWidgetId":"executor-1"',
+    );
+    expect(widgetsContinuation.intent.prompt).toContain(
+      '"recommendedExecutorWidgetId":"executor-1"',
+    );
+
+    const context = await runLiveContinuationAction({
+      capabilityId: "workspace.context.get",
+      input: { includeQueueControl: true, includeWidgetSummary: true },
+      invoker,
+    });
+    const contextContinuation = effectOf(
+      context.runtime.effects,
+      "request_continuation_turn",
+    );
+    expect(contextContinuation.resultContext.data?.workspaceContext)
+      .toMatchObject({
+        queueControlState: {
+          status: "disabled",
+          version: 2,
+        },
+        recommendedExecutorWidgetId: "executor-1",
+        widgetCount: 2,
+        workbenchId: "workbench-1",
+        workspaceId: "workspace-1",
+        workspaceRootPath: "C:/repo",
+      });
+
+    const control = await runLiveContinuationAction({
+      capabilityId: "queue.control.get",
+      input: {},
+      invoker,
+    });
+    const controlContinuation = effectOf(
+      control.runtime.effects,
+      "request_continuation_turn",
+    );
+    expect(controlContinuation.resultContext.data?.queueControl).toMatchObject({
+      backendOwned: true,
+      status: "disabled",
+      version: 2,
+      workspaceId: "workspace-1",
+    });
+  });
+
   it("keeps missing live workspace context structured instead of capability_not_registered", async () => {
     const invoker = createWorkspaceAgentHobitActionInvoker({
       workspaceAgentLiveContext: {

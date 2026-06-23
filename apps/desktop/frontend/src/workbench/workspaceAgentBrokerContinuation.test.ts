@@ -2105,6 +2105,161 @@ ${JSON.stringify({
     expect(prompt).not.toContain("full log line");
   });
 
+  it("surfaces bounded live discovery payloads in model-visible action result context", () => {
+    const workspaceContext = createWorkspaceAgentBrokerActionResultContext({
+      request: requestFor("workspace.context.get", {
+        includeQueueControl: true,
+        includeWidgetSummary: true,
+      }),
+      result: resultFor("workspace.context.get", {
+        agentExecutorCount: 1,
+        agentExecutors: [
+          {
+            definitionId: "agent-run",
+            executorWidgetId: "executor-1",
+            id: "executor-1",
+            visible: true,
+          },
+        ],
+        blockers: [],
+        currentWorkbenchAvailable: true,
+        currentWorkspaceAvailable: true,
+        missingCapabilities: [],
+        queueControlState: {
+          backendOwned: true,
+          queueEnabled: false,
+          status: "disabled",
+          updatedAt: "2026-06-23T12:00:00.000Z",
+          version: 2,
+          workspaceId: "workspace-1",
+        },
+        rawLogs: "raw context log should not be copied",
+        recommendedExecutorWidgetId: "executor-1",
+        secretToken: "secret-value-123",
+        widgetCount: 2,
+        widgetSummary: {
+          agentExecutorCount: 1,
+          recommendedExecutorWidgetId: "executor-1",
+          visibleWidgetCount: 2,
+          widgetCount: 2,
+        },
+        workbenchId: "workbench-1",
+        workspaceId: "workspace-1",
+        workspaceRootPath: "C:/repo",
+      }),
+      summary: "Workspace context read.",
+    });
+    const workbenchWidgets = createWorkspaceAgentBrokerActionResultContext({
+      request: requestFor("workbench.widgets.list", {
+        definitionIdFilter: "agent-run",
+      }),
+      result: resultFor("workbench.widgets.list", {
+        agentExecutorCount: 1,
+        agentExecutors: [
+          {
+            category: "agent",
+            definitionId: "agent-run",
+            executorWidgetId: "executor-1",
+            id: "executor-1",
+            title: "Agent Executor",
+            visible: true,
+          },
+        ],
+        blockers: [],
+        missingCapabilities: [],
+        recommendedExecutorWidgetId: "executor-1",
+        returnedWidgetCount: 1,
+        visibleOnly: true,
+        visibleWidgetCount: 2,
+        widgetCount: 2,
+        widgetInstances: [
+          {
+            category: "agent",
+            definitionId: "agent-run",
+            id: "executor-1",
+            title: "Agent Executor",
+            visible: true,
+          },
+          {
+            definitionId: "notes",
+            id: "notes-1",
+            title: "Agent Executor by title only",
+            visible: true,
+          },
+        ],
+        workbenchId: "workbench-1",
+        workspaceId: "workspace-1",
+      }),
+      summary: "Workbench widgets listed.",
+    });
+    const queueControl = createWorkspaceAgentBrokerActionResultContext({
+      request: requestFor("queue.control.get", {}),
+      result: resultFor("queue.control.get", {
+        backendOwned: true,
+        blockers: [],
+        didMutateQueue: false,
+        didStartWorkers: false,
+        queueEnabled: false,
+        reason: "manual smoke setup",
+        status: "disabled",
+        updatedAt: "2026-06-23T12:00:00.000Z",
+        updatedByActorId: "operator",
+        version: 2,
+        workspaceId: "workspace-1",
+      }),
+      summary: "Queue control state read.",
+    });
+    const prompt = formatWorkspaceAgentBrokerContinuationPrompt({
+      actionIndex: 1,
+      context: workbenchWidgets,
+      maxActions: WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+    });
+
+    expect(workspaceContext.data?.workspaceContext).toMatchObject({
+      agentExecutorCount: 1,
+      currentWorkbenchAvailable: true,
+      currentWorkspaceAvailable: true,
+      queueControlState: {
+        backendOwned: true,
+        status: "disabled",
+        version: 2,
+      },
+      recommendedExecutorWidgetId: "executor-1",
+      widgetCount: 2,
+      workbenchId: "workbench-1",
+      workspaceId: "workspace-1",
+      workspaceRootPath: "C:/repo",
+    });
+    expect(workspaceContext.ids.executorWidgetIds).toEqual(["executor-1"]);
+    expect(workbenchWidgets.data?.workbenchWidgets).toMatchObject({
+      agentExecutors: [
+        {
+          definitionId: "agent-run",
+          executorWidgetId: "executor-1",
+          id: "executor-1",
+          visible: true,
+        },
+      ],
+      recommendedExecutorWidgetId: "executor-1",
+      widgetCount: 2,
+      workbenchId: "workbench-1",
+    });
+    expect(workbenchWidgets.ids.executorWidgetIds).toEqual(["executor-1"]);
+    expect(queueControl.data?.queueControl).toMatchObject({
+      backendOwned: true,
+      status: "disabled",
+      updatedAt: "2026-06-23T12:00:00.000Z",
+      updatedByActorId: "operator",
+      version: 2,
+      workspaceId: "workspace-1",
+    });
+    expect(prompt).toContain('"recommendedExecutorWidgetId":"executor-1"');
+    expect(prompt).toContain('"executorWidgetId":"executor-1"');
+    expect(prompt).toContain('"workbenchId":"workbench-1"');
+    expect(prompt).not.toContain("secret-value-123");
+    expect(prompt).not.toContain("raw context log");
+  });
+
   it("includes backend aggregate state dimensions in compact lifecycle result context", () => {
     const request = requestFor(
       "queue.lifecycle.get",

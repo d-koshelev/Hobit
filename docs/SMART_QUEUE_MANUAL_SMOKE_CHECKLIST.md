@@ -82,16 +82,21 @@ capabilities before any smoke execution step:
 - `workspace.context.get` returns the current `workspaceId`, workspace root,
   `workbenchId`, runtime availability, optional widget summary, and optional
   Queue control state from live renderer-held typed app state plus the Queue
-  control bridge.
+  control bridge. Its broker continuation result includes bounded structured
+  payload fields for the model, not only the compact activity text.
 - `workbench.widgets.list` returns bounded live widget instances and discovers
   Agent Executor widgets only by `definitionId === "agent-run"`. It returns
   `recommendedExecutorWidgetId` only when exactly one visible Agent Executor is
   present; otherwise it returns `no_agent_executor` or
-  `ambiguous_agent_executor`.
+  `ambiguous_agent_executor`. The model-visible action result includes the
+  bounded Agent Executor list and recommendation needed to capture the exact
+  `executorWidgetId`.
 - `queue.control.get` reads backend-owned Queue control state through the
   existing Queue control bridge and reports `disabled` or `manual_enabled`
   without enabling Queue, starting workers, starting Queue Autorun, creating
-  tasks, or starting Direct Work.
+  tasks, or starting Direct Work. The model-visible action result includes
+  backend ownership, status, version, updated metadata, reason when bounded,
+  and blockers when unavailable.
 - `queue.control.setManualEnabled` sets only backend Queue control state to
   `manual_enabled` through the typed Queue control bridge. It accepts optional
   exact `workspaceId`, optional `expectedVersion`, and optional bounded
@@ -128,7 +133,8 @@ localStorage alone, task titles, prompt text, file paths, transcript text, or
 prose to infer ids. Codex shell still cannot perform live Queue smoke by itself
 because it has no live Tauri renderer/IPC context. Actual live
 `dependency_acceptance_smoke` and `dependency_failure_smoke` smoke execution is
-the next block after this invocation wiring. `queue.workflow.invoke` is
+the next step after this structured result-payload surfacing fix.
+`queue.workflow.invoke` is
 deliberately not implemented; invocation uses only `hobit.workflow.request`.
 
 The live smoke discovery/debug capabilities are expected to be consistent

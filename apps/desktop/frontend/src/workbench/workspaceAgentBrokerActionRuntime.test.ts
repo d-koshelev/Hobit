@@ -794,16 +794,28 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     );
     expect(context.status).toBe("succeeded");
     expect(context.result.output).toMatchObject({
+      agentExecutorCount: 1,
+      agentExecutors: [
+        {
+          definitionId: "agent-run",
+          executorWidgetId: "executor-1",
+          id: "executor-1",
+        },
+      ],
+      blockers: [],
       currentRuntimeMode: "test_renderer",
       queueControlState: {
         status: "disabled",
         version: 2,
       },
+      recommendedExecutorWidgetId: "executor-1",
       widgetSummary: {
         agentExecutorCount: 1,
       },
+      widgetCount: 2,
       workbenchId: "workbench-1",
       workspaceId: "workspace-1",
+      workspaceRootPath: "C:/repo",
     });
 
     const widgets = await invoker(
@@ -818,7 +830,16 @@ describe("workspaceAgentBrokerActionRuntime structured action requests", () => {
     );
     expect(widgets.status).toBe("succeeded");
     expect(widgets.result.output).toMatchObject({
+      agentExecutors: [
+        {
+          definitionId: "agent-run",
+          executorWidgetId: "executor-1",
+          id: "executor-1",
+        },
+      ],
       recommendedExecutorWidgetId: "executor-1",
+      widgetCount: 2,
+      workbenchId: "workbench-1",
     });
 
     const control = await invoker(

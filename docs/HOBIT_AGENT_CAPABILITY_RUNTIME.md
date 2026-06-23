@@ -161,6 +161,14 @@ restricted capabilities for explicit workspace/code execution requests only.
   `hobit.action.result` context back to the same Codex thread and lets the
   model emit the next single `hobit.action.request` envelope or explicit
   `hobit.final.answer` marker.
+  For live discovery reads, this context now preserves a bounded
+  model-visible `data` payload in addition to the compact display message:
+  `workspace.context.get` exposes workspace/workbench/root ids, widget counts,
+  Agent Executor summaries, recommended executor id, Queue control state, and
+  blockers; `workbench.widgets.list` exposes bounded widget and Agent Executor
+  summaries plus recommendation/blockers; `queue.control.get` exposes backend
+  control status/version metadata. Activity rows and transcript summaries
+  remain compact.
   The loop is frontend-only, capped at 16 actions, grouped in transcript and
   activity, and can use a structured Queue bounded autonomy grant:
   `{"type":"hobit.queue.autonomyGrant","mode":"queue_acceptance_smoke",...}`.

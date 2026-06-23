@@ -137,7 +137,13 @@ Workspace Agent live workbench context is now threaded from the Workbench model
 through the Workspace Agent broker runtime as a bounded typed widget snapshot,
 so `workbench.widgets.list` can discover visible Agent Executor widgets inside
 live Hobit by `definitionId === "agent-run"`. Actual live Queue smoke remains
-the next step after this read-only context discovery path.
+the next step after this read-only context discovery path. The broker
+continuation `hobit.action.result` context now preserves bounded structured
+payloads for `workspace.context.get`, `workbench.widgets.list`, and
+`queue.control.get`, so Workspace Agent can read exact `workspaceId`,
+`workbenchId`, Queue control status/version, Agent Executor widgets, and
+`recommendedExecutorWidgetId` from action results rather than compact display
+text.
 Worker start now has a backend-owned idempotency/control contract on the
 existing assigned-task start path for Queue workflow phases. Workflow
 context requires explicit workflow/action/task/executor/settings refs plus

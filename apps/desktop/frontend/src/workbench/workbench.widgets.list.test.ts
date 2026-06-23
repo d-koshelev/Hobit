@@ -65,13 +65,17 @@ describe("workbench.widgets.list", () => {
       agentExecutors: [
         {
           definitionId: "agent-run",
+          executorWidgetId: "executor-1",
           id: "executor-1",
           title: "Widget",
           visible: true,
         },
       ],
+      agentExecutorCount: 1,
       blockers: [],
       recommendedExecutorWidgetId: "executor-1",
+      returnedWidgetCount: 1,
+      visibleWidgetCount: 3,
       widgetInstances: [
         {
           definitionId: "agent-run",
@@ -80,6 +84,7 @@ describe("workbench.widgets.list", () => {
           visible: true,
         },
       ],
+      widgetCount: 3,
       workbenchId: "workbench-1",
       workspaceId: "workspace-1",
     });
@@ -121,13 +126,17 @@ describe("workbench.widgets.list", () => {
       agentExecutors: [
         {
           definitionId: "agent-run",
+          executorWidgetId: "executor-1",
           id: "executor-1",
           visible: true,
         },
       ],
+      agentExecutorCount: 1,
       blockers: [],
       recommendedExecutorWidgetId: "executor-1",
+      returnedWidgetCount: 1,
       visibleOnly: true,
+      visibleWidgetCount: 2,
       widgetInstances: [
         {
           definitionId: "agent-run",
@@ -135,6 +144,7 @@ describe("workbench.widgets.list", () => {
           visible: true,
         },
       ],
+      widgetCount: 3,
       workbenchId: "workbench-1",
       workspaceId: "workspace-1",
     });
