@@ -44,6 +44,40 @@ describe("queueWorkflowRequestValidation", () => {
     });
   });
 
+  it("validates dependency_failure_smoke setup before the failure reason is supplied", () => {
+    expect(
+      validateQueueWorkflowRequest(
+        validRequest({
+          grant: validGrant("queue_failure_smoke"),
+          workflowId: "dependency_failure_smoke",
+        }),
+      ),
+    ).toMatchObject({
+      ok: true,
+      status: "workflow_valid_not_executable",
+      workflowId: "dependency_failure_smoke",
+    });
+  });
+
+  it("validates typed dependency_failure_smoke continuations without setup inputs", () => {
+    expect(
+      validateQueueWorkflowRequest(
+        validRequest({
+          grant: validGrant("queue_failure_smoke"),
+          inputs: {
+            phase: "finalization",
+            failureReason: "Upstream worker failed during smoke.",
+          },
+          workflowId: "dependency_failure_smoke",
+        }),
+      ),
+    ).toMatchObject({
+      ok: true,
+      status: "workflow_valid_not_executable",
+      workflowId: "dependency_failure_smoke",
+    });
+  });
+
   it("rejects missing runSettings", () => {
     expect(
       validateQueueWorkflowRequest(

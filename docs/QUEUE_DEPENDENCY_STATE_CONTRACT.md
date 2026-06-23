@@ -181,6 +181,14 @@ upstream acceptance may still complete with downstream verification reported
 missing. If downstream is unexpectedly running, the workflow reports that
 state instead of starting, stopping, or repairing it.
 
+The full `dependency_failure_smoke` workflow can now continue after durable
+worker evidence to create and ACK the upstream review message, fail only the
+upstream task with typed `failureReason` and fresh exact structured
+confirmation, and then read the explicit downstream task to verify the
+dependency is `failed_upstream` and no downstream worker auto-started.
+Downstream failure/block state remains derived from the upstream durable
+failure decision; the workflow does not mark or repair downstream directly.
+
 ## Blocker Kinds
 
 Dependency-derived blockers use:

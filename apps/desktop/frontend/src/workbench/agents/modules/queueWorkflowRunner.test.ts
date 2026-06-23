@@ -527,6 +527,183 @@ describe("QueueWorkflowRunner", () => {
     );
   });
 
+  it("completes the dependency_failure_smoke path across typed durable phases", async () => {
+    const createPort = fakeCreateSetupStartPort();
+    const createRequest = workflowRequest({
+      grant: validGrant("queue_failure_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      workflowId: "dependency_failure_smoke",
+    });
+    const create = await runQueueWorkflowCreateSetupStartRunner({
+      createSetupStartPort: createPort,
+      request: createRequest,
+      validation: validateQueueWorkflowRequest(createRequest),
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    const evidencePort = fakeWorkerEvidencePort();
+    const evidenceRequest = workerEvidenceWorkflowRequest({
+      grant: validGrant("queue_failure_smoke"),
+      inputs: {
+        phase: "worker_evidence",
+        taskIdsBySlot: create.variables.taskIdsBySlot,
+        workerEvidence: {
+          outcome: "failed",
+          runId: create.variables.runIdsBySlot.upstream,
+          slot: "upstream",
+          summary: "Worker failed.",
+          taskId: create.variables.taskIdsBySlot.upstream,
+          workflowRunId: "queue-workflow-run-1",
+        },
+      },
+      workflowId: "dependency_failure_smoke",
+    });
+    const evidence = await runQueueWorkflowWorkerEvidenceRunner({
+      request: evidenceRequest,
+      validation: validateQueueWorkflowRequest(evidenceRequest),
+      workerEvidencePort: evidencePort,
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    const reviewReadPort = fakeReadPort({
+      aggregates: {
+        "task-upstream": aggregate({
+          reviewState: "awaiting_review",
+          taskId: "task-upstream",
+          workerRunState: "failed",
+        }),
+      },
+      evidence: {
+        "task-upstream|run-upstream|evidence-bundle-1": evidenceQuery({
+          bundleId: "evidence-bundle-1",
+          runId: "run-upstream",
+          taskId: "task-upstream",
+        }),
+      },
+    });
+    const reviewPort = fakeReviewPort({
+      ackResult: { status: "succeeded" },
+      createResult: {
+        evidenceBundleId: "evidence-bundle-1",
+        messageId: "message-upstream",
+        runId: "run-upstream",
+        status: "succeeded",
+      },
+    });
+    const reviewRequest = workflowRequest({
+      grant: validGrant("queue_failure_smoke"),
+      inputs: {
+        ...validInputs(),
+        evidenceBundleIdsBySlot: evidence.variables.evidenceBundleIdsBySlot,
+        runIdsBySlot: evidence.variables.runIdsBySlot,
+        taskIdsBySlot: {
+          ...create.variables.taskIdsBySlot,
+          ...evidence.variables.taskIdsBySlot,
+        },
+      },
+      workflowId: "dependency_failure_smoke",
+    });
+    const review = await runQueueWorkflowReviewRunner({
+      readPort: reviewReadPort,
+      request: reviewRequest,
+      reviewPort,
+      validation: validateQueueWorkflowRequest(reviewRequest),
+    });
+
+    const finalizationReadPort = fakeReadPort({
+      aggregates: {
+        "task-downstream": aggregate({
+          dependencyState: "failed_upstream",
+          taskId: "task-downstream",
+          workerRunState: "not_started",
+        }),
+        "task-upstream": aggregate({
+          reviewState: "in_review",
+          taskId: "task-upstream",
+          workerRunState: "failed",
+        }),
+      },
+    });
+    const finalizationPort = fakeFinalizationPort({
+      failResult: {
+        aggregate: aggregate({
+          reviewState: "failed",
+          taskId: "task-upstream",
+          ticketState: "failure",
+          workerRunState: "failed",
+        }),
+        decisionId: "failure-decision-1",
+        status: "succeeded",
+      },
+    });
+    const finalizationRequest = workflowRequest({
+      grant: validGrant("queue_failure_smoke", {
+        confirmationToken: "operator-confirmed",
+      }),
+      inputs: {
+        ...validInputs(),
+        evidenceBundleIdsBySlot: evidence.variables.evidenceBundleIdsBySlot,
+        failureReason: "Upstream worker failed during smoke.",
+        messageIdsBySlot: review.variables.messageIdsBySlot,
+        runIdsBySlot: evidence.variables.runIdsBySlot,
+        taskIdsBySlot: {
+          ...create.variables.taskIdsBySlot,
+          ...evidence.variables.taskIdsBySlot,
+        },
+      },
+      workflowId: "dependency_failure_smoke",
+    });
+    const finalization = await runQueueWorkflowFinalizationRunner({
+      finalizationPort,
+      readPort: finalizationReadPort,
+      request: finalizationRequest,
+      validation: validateQueueWorkflowRequest(finalizationRequest),
+    });
+
+    expect(create.status).toBe("awaiting_worker_completion");
+    expect(evidence.status).toBe("awaiting_review");
+    expect(review.status).toBe("review_acknowledged");
+    expect(finalization.status).toBe("finalization_completed");
+    expect(finalization.report.finalization).toMatchObject({
+      decisionId: "failure-decision-1",
+      downstreamVerification: {
+        dependencyState: "failed_upstream",
+        dependencyVerified: true,
+        notAutoStartedVerified: true,
+        workerRunState: "not_started",
+      },
+      failureReason: "Upstream worker failed during smoke.",
+      finalizationAction: "fail",
+      status: "finalization_completed",
+    });
+    expect(createPort.calls.filter((call) => call.method === "startWorkerForSlot")).toEqual([
+      expect.objectContaining({ queueItemId: "task-upstream" }),
+    ]);
+    expect(finalizationPort.calls).toEqual([
+      {
+        confirmationToken: "operator-confirmed",
+        evidenceBundleId: "evidence-bundle-1",
+        messageId: "message-upstream",
+        method: "failItem",
+        reason: "Upstream worker failed during smoke.",
+        runId: "run-upstream",
+        taskId: "task-upstream",
+      },
+    ]);
+    expect(finalization.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didFail: true,
+        didLaunchTerminal: false,
+        didMarkDone: false,
+        didMutateGit: false,
+        didRollback: false,
+        didStartWorker: false,
+        didValidate: false,
+      }),
+    );
+  });
+
   it("treats existing worker evidence as idempotent success", async () => {
     const port = fakeWorkerEvidencePort({ status: "already_recorded" });
     const request = workerEvidenceWorkflowRequest();

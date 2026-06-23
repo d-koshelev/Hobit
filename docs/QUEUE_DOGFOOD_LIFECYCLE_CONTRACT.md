@@ -178,18 +178,18 @@ Backend/domain aggregate and review command foundation:
   It does not create/ACK review messages, mark done/fail/block/follow-up, run
   validation/Git/rollback/Terminal, schedule workers, start downstream, or
   infer task/run/evidence ids from prose/UI/session state.
-- The full `dependency_acceptance_smoke` workflow can now complete through the
-  typed QueueWorkflowRunner/runtime adapter path: durable upstream evidence is
-  followed by backend review message creation, canonical `messageId` ACK,
-  upstream-only `queue.item.markDone` with fresh exact structured
-  confirmation, downstream dependency-ready/no-auto-start verification, and a
-  completed workflow-run report. The path records bounded workflow refs such as
-  task ids, run id, evidence bundle id, message id, completion decision id, and
-  action count. It does not persist raw transcripts or reusable confirmation
-  tokens, and it does not start downstream work. The full
-  `dependency_failure_smoke` failure-completion path remains future work; its
-  existing partial create/setup/start, evidence, review, and finalization
-  helper behavior must remain compatible.
+- The full `dependency_acceptance_smoke` and `dependency_failure_smoke`
+  workflows can now complete through the typed QueueWorkflowRunner/runtime
+  adapter path. Durable upstream evidence is followed by backend review message
+  creation, canonical `messageId` ACK, and upstream-only finalization with
+  fresh exact structured confirmation. Acceptance uses `queue.item.markDone`
+  and verifies downstream dependency-ready/no-auto-start state. Failure
+  requires typed `failureReason`, uses `queue.item.fail`, and verifies
+  downstream `failed_upstream`/no-auto-start state. The path records bounded
+  workflow refs such as task ids, run id, evidence bundle id, message id,
+  decision id, sanitized failure reason where applicable, and action count. It
+  does not persist raw transcripts or reusable confirmation tokens, and it does
+  not start downstream work.
 - Queue capability result mappers now emit typed `nextAction` payloads when a
   follow-up can be built with known canonical target fields. The runtime must
   prefer `nextAction.capabilityId` plus `nextAction.input` and must not guess

@@ -149,11 +149,14 @@ Self-dependencies, unknown slot references, and simple cycles are rejected.
 Dependencies are never inferred from title, order, prompt, prose, UI, or file
 paths.
 
-`dependency_failure_smoke` additionally requires non-empty
-`inputs.failureReason`. The failure reason is validation input only; no failure
-capability is called. `review_acceptance` and `terminal_failure` are declared
-but return `input_validation_deferred` after grant validation until their typed
-input contract and runner boundary are narrowed.
+`dependency_failure_smoke` does not require `inputs.failureReason` during
+create/setup/start, worker-evidence, or review phases. The failure reason is a
+typed finalization input only; it may be supplied in the initial request if the
+workflow will finalize without a later continuation, or in a phase-tagged
+finalization continuation. Validation never infers it from prose and never
+calls a failure capability. `review_acceptance` and `terminal_failure` are
+declared but return `input_validation_deferred` after grant validation until
+their typed input contract and runner boundary are narrowed.
 
 ## Queue Workflow Runner MVP
 
@@ -256,19 +259,20 @@ can still complete but downstream verification is reported missing. The runner
 never infers downstream ids from titles, order, prose, UI, or file paths, and
 never starts downstream work.
 
-For `dependency_acceptance_smoke`, the runtime adapter can now complete the
-full headless typed workflow by composing the existing runner phases through
-durable workflow persistence: materialize tasks, apply upstream run settings,
-promote upstream, verify backend `manual_enabled`, start only the upstream
-worker, pause for typed worker evidence, record/reconcile upstream evidence,
-create and ACK a durable review message, mark only the upstream done after a
-fresh exact structured confirmation, verify downstream dependency readiness
-and no-auto-start state, and persist the workflow run as completed. The
-adapter always calls `queue.workflow.planResume` before continuation execution
-for an existing `metadata.workflowRunId` and may execute only the next typed
-phase that the plan marks ready. `dependency_failure_smoke` keeps the existing
-create/setup/start, worker-evidence, review, and finalization helper phases,
-but full failure workflow completion remains a separate future block.
+For `dependency_acceptance_smoke` and `dependency_failure_smoke`, the runtime
+adapter can now complete the full headless typed workflow by composing the
+existing runner phases through durable workflow persistence: materialize tasks,
+apply upstream run settings, promote upstream, verify backend
+`manual_enabled`, start only the upstream worker, pause for typed worker
+evidence, record/reconcile upstream evidence, create and ACK a durable review
+message, then finalize only the upstream task after fresh exact structured
+confirmation. Acceptance uses `markDone`, verifies downstream dependency
+readiness/no-auto-start state, and persists the workflow run as completed.
+Failure uses typed `failureReason`, calls `failItem`, verifies downstream
+`failed_upstream`/no-auto-start state, and persists the workflow run as
+completed. The adapter always calls `queue.workflow.planResume` before
+continuation execution for an existing `metadata.workflowRunId` and may execute
+only the next typed phase that the plan marks ready.
 
 The review runner may mutate only the backend review message/ACK ledger
 through the injected review port. ACK is not completion. The finalization
@@ -358,7 +362,11 @@ command:
   `dependency_acceptance_smoke`, that adapter sequencing can complete the
   durable acceptance path through worker evidence, review create/ACK,
   upstream accepted completion, downstream ready/no-auto-start verification,
-  and completed workflow-run reporting.
+  and completed workflow-run reporting. For `dependency_failure_smoke`, the
+  same adapter sequencing can complete the durable failure path through worker
+  evidence, review create/ACK, upstream terminal failure with typed
+  `failureReason`, downstream `failed_upstream`/no-auto-start verification, and
+  completed workflow-run reporting.
 
 Persisted workflow snapshots contain only validated typed workflow inputs and
 safe bounded grant summaries. They must not contain raw prompts outside bounded

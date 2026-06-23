@@ -438,7 +438,11 @@ unless the task explicitly requests it.
   `dependency_acceptance_smoke` and
   `dependency_failure_smoke` validate typed `inputs.runSettings`,
   `inputs.tasks`, task slots, explicit dependency slot references, grant modes,
-  and safety constraints before returning `workflow_valid_not_executable`;
+  and safety constraints for setup phases before returning
+  `workflow_valid_not_executable`; phase-tagged typed continuations may rely on
+  persisted workflow bindings, while `dependency_failure_smoke` still requires
+  typed `failureReason` at the finalization runner boundary before
+  `queue.item.fail`;
   `review_acceptance` and `terminal_failure` remain declared with
   `input_validation_deferred` in the generic request path. A Queue-specific
   `QueueWorkflowRunner` exists as an explicit control-plane helper with
@@ -461,12 +465,13 @@ unless the task explicitly requests it.
   typed ids, confirmation, failure reason where needed, and review
   ACK/precondition proof are present. ACK is not completion; already-existing
   review messages, already-done ACKs, `already_done`, and `already_failed` are
-  idempotent states. For `dependency_acceptance_smoke`, the runtime adapter
-  now composes these typed phases through durable workflow persistence until
-  the workflow run is completed: upstream evidence, review create/ACK,
-  upstream accepted completion with fresh exact structured confirmation,
-  downstream ready/no-auto-start verification, and bounded completed report
-  persistence. Full `dependency_failure_smoke` completion remains future work.
+  idempotent states. For `dependency_acceptance_smoke` and
+  `dependency_failure_smoke`, the runtime adapter now composes these typed
+  phases through durable workflow persistence until the workflow run is
+  completed: upstream evidence, review create/ACK, upstream accepted
+  completion or typed terminal failure with fresh exact structured
+  confirmation, downstream ready/`failed_upstream` no-auto-start verification,
+  and bounded completed report persistence.
   The Workspace Agent workflow request path now invokes it only for supported
   Queue phases through typed backend ports; unsupported, invalid, or deferred
   workflows do not invoke the runner, and downstream work is not auto-started.

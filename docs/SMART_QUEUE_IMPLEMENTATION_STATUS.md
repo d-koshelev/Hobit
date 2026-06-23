@@ -60,13 +60,13 @@ invocation, blocks request-hash conflicts before execution, records bounded
 runner reports/action summaries, and uses the resume planner before continuing
 an explicit typed `metadata.workflowRunId`. Create/setup/start plus existing
 worker-evidence/read/review/finalization runner phases are wired. The
-`dependency_acceptance_smoke` path can now compose those phases end to end:
-upstream task setup/start, typed upstream evidence recording, review message
-create/ACK, upstream accepted completion with fresh exact structured
-confirmation, downstream dependency-ready/no-auto-start verification, and a
+`dependency_acceptance_smoke` and `dependency_failure_smoke` paths can now
+compose those phases end to end: upstream task setup/start, typed upstream
+evidence recording, review message create/ACK, upstream accepted completion or
+typed terminal failure with fresh exact structured confirmation, downstream
+dependency-ready or `failed_upstream` no-auto-start verification, and a
 completed bounded workflow report. Scheduler behavior, downstream auto-start,
-generic public resume execution, and full `dependency_failure_smoke`
-completion remain not implemented.
+and generic public resume execution remain not implemented.
 Workflow persistence APIs are not exposed as Workspace Agent broker
 capabilities.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
@@ -220,8 +220,11 @@ workflow ids `dependency_acceptance_smoke`, `dependency_failure_smoke`,
 `ModuleControlSurface` metadata as `validation_only`. A request such as
 `dependency_acceptance_smoke` or `dependency_failure_smoke` now validates typed
 `inputs.runSettings`, typed task slots, explicit dependency slot references,
-allowed Queue grant modes, and required safety constraints, then returns a
-`workflow_valid_not_executable` validation result. `review_acceptance` and
+allowed Queue grant modes, and required safety constraints for setup phases,
+then returns a `workflow_valid_not_executable` validation result. Phase-tagged
+typed continuations may omit setup inputs and rely on persisted workflow
+bindings; failure finalization still requires typed non-empty
+`failureReason` at the runner boundary. `review_acceptance` and
 `terminal_failure` remain declared with `input_validation_deferred`. Unknown
 Queue workflow ids still report not declared. A deterministic
 `QueueWorkflowRunner` now exists under the Queue module control-plane code with
@@ -253,10 +256,12 @@ workflow request path now invokes the runner only for supported Queue phases
 through a typed runtime adapter. The adapter persists supported invocations by
 starting/reusing workflow-run records, recording bounded report/action-ledger
 summaries, and using read-only resume planning before any typed continuation
-from `metadata.workflowRunId`. For `dependency_acceptance_smoke`, that adapter
-now completes the full acceptance sequence and persists completed workflow
-status/report refs without persisting raw transcripts or reusable confirmation
-tokens. This block does not add
+from `metadata.workflowRunId`. For `dependency_acceptance_smoke` and
+`dependency_failure_smoke`, that adapter now completes the full acceptance or
+failure sequence and persists completed workflow status/report refs without
+persisting raw transcripts or reusable confirmation tokens. Failure reports may
+include sanitized typed failure reason and decision refs. This block does not
+add
 `hobit.queue.workflowRequest`, scheduler behavior, worker auto-start, task
 creation outside create/setup/start, Queue mutation outside workflow-owned
 upstream evidence recording, review message/ACK ledger, or explicit upstream
@@ -1225,9 +1230,9 @@ as available from the foundation above:
 
 - durable backend Smart Queue persistence;
 - Queue workflow runner execution beyond the full typed
-  `dependency_acceptance_smoke` path and the existing explicit
-  create/setup/start, worker-evidence, read/review/finalization helper phases;
-- full `dependency_failure_smoke` failure-completion workflow;
+  `dependency_acceptance_smoke` and `dependency_failure_smoke` paths and the
+  existing explicit create/setup/start, worker-evidence, read/review/
+  finalization helper phases;
 - Queue-specific input validation for review/terminal workflows;
 - durable Queue lifecycle transition commands beyond the current aggregate DTO,
   worker-evidence/review create/ACK commands, and accepted-completion /

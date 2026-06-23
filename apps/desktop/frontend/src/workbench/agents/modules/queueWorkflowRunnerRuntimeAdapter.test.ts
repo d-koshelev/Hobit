@@ -367,6 +367,42 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     ]);
   });
 
+  it("starts dependency_failure_smoke setup without requiring the final failure reason", async () => {
+    const workflowBridge = createSetupStartBridge();
+    const persistence = workflowPersistence({
+      recordAgentQueueWorkflowRunnerReport: recordWithPersistedCreateSetupActions(),
+    });
+
+    const result = await runAdapter({
+      queueBridge: queueBridge(workflowBridge.bridge),
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          grant: validGrant("queue_failure_smoke", {
+            confirmationToken: "operator-confirmed",
+          }),
+          workflowId: "dependency_failure_smoke",
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "create_setup_start",
+      status: "paused",
+      workflowId: "dependency_failure_smoke",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(persistence.startAgentQueueWorkflow).toHaveBeenCalledWith(
+      expect.objectContaining({
+        workflowId: "dependency_failure_smoke",
+      }),
+    );
+    expect(workflowBridge.calls.filter((call) => call.method === "startWorkflowAssignedTask")).toEqual([
+      expect.objectContaining({ queueItemId: "task-upstream" }),
+    ]);
+  });
+
   it("reuses create/setup/start actions for repeated requestId/hash", async () => {
     const workflowBridge = createSetupStartBridge({
       applyStatus: "reused",
@@ -860,11 +896,12 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     const bridge = queueBridge({
       failItem: vi.fn(),
       getItemAggregate: vi.fn(),
+      markItemDone: vi.fn(),
     });
 
     const result = await runAdapter({
       queueBridge: bridge,
-      workflowRequestRead: readWorkflow(
+      workflowRequestRead: validRead(
         workflowRequest({
           grant: validGrant("queue_failure_smoke", {
             confirmationToken: "operator-confirmed",
@@ -881,9 +918,15 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     });
 
     expect(result).toMatchObject({
-      invoked: false,
-      status: "invalid_request",
+      invoked: true,
+      phase: "finalization",
+      status: "blocked",
     });
+    expect(result.runnerResult?.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "finalization_missing_failure_reason",
+      }),
+    ]);
     expect(bridge.failItem).not.toHaveBeenCalled();
   });
 
@@ -1372,6 +1415,99 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
   });
 
+  it("resumes dependency_failure_smoke failure finalization from a persisted workflow run", async () => {
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        failureFinalizationResumePlan(),
+      ),
+    });
+    const bridge = queueBridge({
+      failItem: vi.fn(async () => failureResult()),
+      getItemAggregate: vi.fn(async ({ taskId }: { taskId: string }) =>
+        aggregate({
+          dependencyState:
+            taskId === "task-downstream" ? "failed_upstream" : "none",
+          reviewState: taskId === "task-upstream" ? "in_review" : "none",
+          taskId,
+          workerRunState:
+            taskId === "task-downstream" ? "not_started" : "failed",
+        }),
+      ),
+      listItemAggregates: vi.fn(async () => []),
+      markItemDone: vi.fn(),
+    });
+
+    const result = await runAdapter({
+      actorId: "workspace-agent:test",
+      queueBridge: bridge,
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          grant: validGrant("queue_failure_smoke", {
+            confirmationToken: "operator-confirmed",
+          }),
+          inputs: {
+            failureReason: "Upstream worker failed during smoke.",
+            phase: "finalization",
+          },
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+          workflowId: "dependency_failure_smoke",
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "finalization",
+      status: "completed",
+      workflowId: "dependency_failure_smoke",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
+    expect(bridge.failItem).toHaveBeenCalledWith({
+      actorId: "workspace-agent:test",
+      confirmationToken: "operator-confirmed",
+      evidenceBundleId: "bundle-upstream",
+      reason: "Upstream worker failed during smoke.",
+      reviewMessageId: "message-upstream",
+      runId: "run-upstream",
+      taskId: "task-upstream",
+    });
+    expect(bridge.markItemDone).not.toHaveBeenCalled();
+    expect(result.runnerResult?.report.finalization).toMatchObject({
+      downstreamVerification: {
+        dependencyState: "failed_upstream",
+        dependencyVerified: true,
+        notAutoStartedVerified: true,
+      },
+      failureReason: "Upstream worker failed during smoke.",
+      finalizationAction: "fail",
+      status: "finalization_completed",
+    });
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actions: expect.arrayContaining([
+          expect.objectContaining({
+            actionType: "queue.item.fail",
+            resultRefs: expect.objectContaining({
+              failureReason: "Upstream worker failed during smoke.",
+            }),
+            status: "completed",
+          }),
+        ]),
+        currentStep: "finalization_complete",
+        phase: "decision",
+        status: "completed",
+      }),
+    );
+    expect(
+      JSON.stringify(
+        vi.mocked(persistence.recordAgentQueueWorkflowRunnerReport).mock
+          .calls[0]?.[0],
+      ),
+    ).not.toContain("confirmationToken");
+  });
+
   it("does not import providers, Queue UI, visual shell, worker start, lifecycle finish, or evidence recording", () => {
     expect(adapterSource).not.toContain("AgentProvider");
     expect(adapterSource).not.toContain("WorkerProvider");
@@ -1663,6 +1799,80 @@ function finalizationResumePlan() {
         },
       }),
       status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    }),
+  });
+}
+
+function failureFinalizationResumePlan() {
+  return resumePlan({
+    nextPhase: "decision",
+    nextStep: "fail_ready",
+    reportSummary:
+      "Queue workflow run queue-workflow-run-1 resume plan status is blocked_missing_confirmation. No workflow steps were executed.",
+    requiredConfirmation: true,
+    requiredFreshGrant: true,
+    slotReconciliations: [
+      {
+        aggregateDependencyState: "none",
+        aggregateEvidenceState: "available",
+        aggregateReviewState: "acked",
+        aggregateTicketState: "review_needed",
+        blockerCode: null,
+        completionDecisionExists: false,
+        completionDecisionId: null,
+        evidenceBundleId: "bundle-upstream",
+        evidenceExists: true,
+        executorWidgetId: null,
+        failureDecisionExists: false,
+        failureDecisionId: null,
+        messageId: "message-upstream",
+        reviewMessageExists: true,
+        reviewMessageStatus: "acked",
+        runExists: true,
+        runId: "run-upstream",
+        slot: "upstream",
+        taskExists: true,
+        taskId: "task-upstream",
+      },
+      {
+        aggregateDependencyState: "waiting",
+        aggregateEvidenceState: "none",
+        aggregateReviewState: "none",
+        aggregateTicketState: "queued",
+        blockerCode: null,
+        completionDecisionExists: false,
+        completionDecisionId: null,
+        evidenceBundleId: null,
+        evidenceExists: false,
+        executorWidgetId: null,
+        failureDecisionExists: false,
+        failureDecisionId: null,
+        messageId: null,
+        reviewMessageExists: false,
+        reviewMessageStatus: null,
+        runExists: false,
+        runId: null,
+        slot: "downstream",
+        taskExists: true,
+        taskId: "task-downstream",
+      },
+    ],
+    status: "blocked_missing_confirmation",
+    workflowRun: workflowRun({
+      inputsSnapshotJson: JSON.stringify(validInputs()),
+      phase: "decision",
+      slotBindingsJson: JSON.stringify({
+        downstream: { taskId: "task-downstream" },
+        upstream: {
+          evidenceBundleId: "bundle-upstream",
+          messageId: "message-upstream",
+          runId: "run-upstream",
+          taskId: "task-upstream",
+        },
+      }),
+      status: "paused",
+      workflowId: "dependency_failure_smoke",
       workflowRunId: "queue-workflow-run-1",
     }),
   });

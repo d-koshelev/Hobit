@@ -164,7 +164,7 @@ export function validateQueueWorkflowRequest(
         grant: request.grant,
         inputs: request.inputs,
         requiredGrantModes: FAILURE_GRANT_MODES,
-        requireFailureReason: true,
+        requireFailureReason: false,
         workflowId: request.workflowId,
         workflowMetadata: request.workflowMetadata,
       });
@@ -229,6 +229,19 @@ function validateDependencySmokeWorkflow({
     return validNotExecutableResult({ workflowId, workflowMetadata });
   }
 
+  if (isDependencySmokeContinuation(inputs)) {
+    const issues = validateGrant(grant, requiredGrantModes);
+    if (issues.length > 0) {
+      return invalidResult({
+        issues,
+        status: statusForIssues(issues),
+        workflowId,
+        workflowMetadata,
+      });
+    }
+    return validNotExecutableResult({ workflowId, workflowMetadata });
+  }
+
   const issues = [
     ...validateGrant(grant, requiredGrantModes),
     ...validateCommonDependencyInputs(inputs),
@@ -252,6 +265,13 @@ function isWorkerEvidenceContinuation(inputs: WorkflowInputs | undefined): boole
     return false;
   }
   return inputs.phase === "worker_evidence" || isRecord(inputs.workerEvidence);
+}
+
+function isDependencySmokeContinuation(inputs: WorkflowInputs | undefined): boolean {
+  if (!isRecord(inputs)) {
+    return false;
+  }
+  return inputs.phase === "review" || inputs.phase === "finalization";
 }
 
 function validateWorkerEvidenceContinuationInputs(

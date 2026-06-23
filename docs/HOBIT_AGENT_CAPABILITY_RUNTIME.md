@@ -243,20 +243,20 @@ worker evidence by `workflowRunId + slot + taskId + runId`, persists
 start downstream work, run validation, mutate Git, roll back, launch Terminal,
 start workers, or infer ids from prose/UI/session state.
 
-The typed Queue workflow runtime adapter can now complete
-`dependency_acceptance_smoke` end to end across durable continuation requests.
-After the create/setup/start pause, each continuation with explicit
-`metadata.workflowRunId` calls the backend resume planner first, records
-typed upstream worker evidence when supplied, creates and ACKs the durable
-review message only from explicit evidence/message refs, calls upstream-only
-`queue.item.markDone` only with fresh exact structured confirmation, verifies
-the explicit downstream dependency-ready/no-auto-start state, and persists a
-bounded completed workflow report. The path does not infer task/run/evidence/
-message/workflow ids or permission from prose, does not persist reusable
-confirmation tokens, does not run validation/Git/rollback/Terminal behavior,
-does not schedule work, and does not start downstream tasks. Full
-`dependency_failure_smoke` failure completion remains future work while the
-existing partial failure smoke phases stay supported.
+The typed Queue workflow runtime adapter can now complete both
+`dependency_acceptance_smoke` and `dependency_failure_smoke` end to end across
+durable continuation requests. After the create/setup/start pause, each
+continuation with explicit `metadata.workflowRunId` calls the backend resume
+planner first, records typed upstream worker evidence when supplied, creates
+and ACKs the durable review message only from explicit evidence/message refs,
+and finalizes only the upstream task with fresh exact structured confirmation.
+Acceptance calls `queue.item.markDone` and verifies explicit downstream
+dependency-ready/no-auto-start state. Failure requires typed `failureReason`,
+calls `queue.item.fail`, and verifies explicit downstream
+`failed_upstream`/no-auto-start state. The path does not infer task/run/
+evidence/message/workflow ids or permission from prose, does not persist
+reusable confirmation tokens, does not run validation/Git/rollback/Terminal
+behavior, does not schedule work, and does not start downstream tasks.
 - Workspace Agent Action Protocol Enforcement MVP: Workspace Agent Direct Work
   turns that receive Hobit capability context are treated as typed-capability
   action mode. In that mode the model must emit exactly one
@@ -348,12 +348,12 @@ existing partial failure smoke phases stay supported.
   validation, mutate Git, launch Terminal, roll back, or mutate Queue state. It
   requires explicit typed task/run/evidence/message/workflow/executor/settings
   ids and never infers ids from titles, prose, UI order, or file paths.
-  For `dependency_acceptance_smoke`, the runtime adapter now sequences those
-  typed phases through durable workflow persistence until the workflow run is
-  completed: upstream evidence, review create/ACK, upstream accepted
-  completion, downstream ready/no-auto-start verification, and bounded final
-  report persistence. Full `dependency_failure_smoke` completion remains a
-  future block; this work preserves its existing partial phase behavior.
+  For `dependency_acceptance_smoke` and `dependency_failure_smoke`, the runtime
+  adapter now sequences those typed phases through durable workflow persistence
+  until the workflow run is completed: upstream evidence, review create/ACK,
+  upstream accepted completion or typed terminal failure, downstream
+  ready/`failed_upstream` no-auto-start verification, and bounded final report
+  persistence.
   `review_acceptance` remains supported only by a minimal explicit typed runner
   input shape, while generic request validation for `review_acceptance` and
   `terminal_failure` remains `input_validation_deferred`.
@@ -396,8 +396,11 @@ now declares the initial Queue workflows
 `hobit.workflow.request` validation can recognize those workflow ids. Queue
 dependency acceptance/failure smoke requests now validate typed
 `inputs.runSettings`, typed task slots, explicit dependency slot references,
-grant modes, and safety constraints, then return a non-executable
-validation result that is eligible only for supported QueueWorkflowRunner
+grant modes, and safety constraints for setup phases. Phase-tagged typed
+continuations may omit setup inputs and rely on persisted workflow bindings;
+`dependency_failure_smoke` still requires a typed non-empty `failureReason` at
+the finalization runner boundary before `queue.item.fail`. The validation
+result is non-executable and eligible only for supported QueueWorkflowRunner
 adapter phases. `review_acceptance` and `terminal_failure` remain declared
 with deferred input validation in the generic request path.
 `QueueWorkflowRunner` can consume validated Queue workflow requests for
