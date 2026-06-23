@@ -257,6 +257,12 @@ calls `queue.item.fail`, and verifies explicit downstream
 evidence/message/workflow ids or permission from prose, does not persist
 reusable confirmation tokens, does not run validation/Git/rollback/Terminal
 behavior, does not schedule work, and does not start downstream tasks.
+Workflow restart recovery remains backend-owned: frontend runner variables are
+lightweight report state and cannot overwrite backend-rich workflow slot
+bindings. Resume planning may use completed workflow action target/result refs
+as secondary typed evidence, but incomplete action refs, orphan start windows,
+or missing slot identity block with typed recovery statuses instead of
+restarting workers or using UI/session/prose state.
 - Workspace Agent Action Protocol Enforcement MVP: Workspace Agent Direct Work
   turns that receive Hobit capability context are treated as typed-capability
   action mode. In that mode the model must emit exactly one

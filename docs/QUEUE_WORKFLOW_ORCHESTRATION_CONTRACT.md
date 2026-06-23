@@ -326,6 +326,14 @@ command:
   record worker evidence, create/ACK review messages, mark done, fail, block,
   follow up, validate, mutate Git, roll back, launch Terminal, start
   downstream work, or infer ids from frontend/session/prose.
+  Completed workflow action rows are secondary typed recovery evidence only:
+  when slot bindings are incomplete, the planner may reconstruct explicit
+  task/settings/promote/run/evidence/review/decision refs from matching
+  action target/result refs and durable Queue facts. Missing or ambiguous
+  action refs block as `blocked_incomplete_workflow_action_refs`; missing
+  slot identity blocks as `blocked_incomplete_slot_binding`. The planner must
+  not infer recovery ids from Activity logs, transcripts, UI selection, task
+  titles, prompts, file paths, or prose.
 - `queue.workflow.recordWorkerEvidence` records or reconciles durable worker
   evidence for one explicit workflow slot. It requires `workspaceId`,
   `workflowRunId`, `slot`, `taskId`, `runId`, bounded worker final
@@ -347,7 +355,12 @@ command:
   `agent_queue_workflow_runs` and `agent_queue_workflow_actions`; it must not
   mutate Queue tasks, run links, worker evidence, review messages,
   completion/failure decisions, Queue control state, validation, Git,
-  rollback, Terminal, scheduler, or downstream worker state.
+  rollback, Terminal, scheduler, or downstream worker state. Workflow slot
+  bindings are backend-owned recovery data: report persistence merges incoming
+  `slotBindings` into existing bindings, never deletes existing non-null
+  fields when a report omits them, and rejects conflicting non-empty refs.
+  Lightweight frontend runner variables may be stored under `variables_json`
+  but cannot overwrite backend-rich recovery bindings.
 - `queue.workflow.materializeTaskSlot`,
   `queue.workflow.applyRunSettings`, and `queue.workflow.promoteTaskSlot` are
   typed backend-owned workflow primitives exposed only so the runtime adapter

@@ -189,6 +189,13 @@ dependency is `failed_upstream` and no downstream worker auto-started.
 Downstream failure/block state remains derived from the upstream durable
 failure decision; the workflow does not mark or repair downstream directly.
 
+Downstream verification is read-only recovery work. After restart, the
+workflow planner/runner may recompute downstream ready or `failed_upstream`
+state by reading the explicit downstream task aggregate and the durable
+upstream completion/failure decision. It must not require a persisted
+verification marker for correctness, and it must not mutate, start, stop,
+fail, or repair the downstream task.
+
 ## Blocker Kinds
 
 Dependency-derived blockers use:

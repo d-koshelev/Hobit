@@ -5,7 +5,7 @@ use hobit_storage_sqlite::{
     AgentQueueWorkflowRunStatusUpdate, NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun,
     StorageError,
 };
-use serde_json::Value;
+use serde_json::{Map, Value};
 
 use crate::WorkspaceServiceError;
 
@@ -660,6 +660,32 @@ impl WorkspaceService {
                 }
             };
 
+        let merged_slot_bindings_json = match merge_runner_report_slot_bindings(
+            &workflow_run_id,
+            existing_run.slot_bindings_json.as_deref(),
+            prepared.slot_bindings_json.as_deref(),
+        ) {
+            Ok(slot_bindings_json) => slot_bindings_json,
+            Err(RunnerReportSlotBindingMergeError::Invalid(blocker)) => {
+                return Ok(QueueWorkflowRecordRunnerReportResult {
+                    status: QueueWorkflowRecordRunnerReportStatus::InvalidInput,
+                    workflow_run: Some(QueueWorkflowRun::from(existing_run)),
+                    actions: Vec::new(),
+                    blocker: Some(blocker),
+                    conflict: None,
+                });
+            }
+            Err(RunnerReportSlotBindingMergeError::Conflict(conflict)) => {
+                return Ok(QueueWorkflowRecordRunnerReportResult {
+                    status: QueueWorkflowRecordRunnerReportStatus::Conflict,
+                    workflow_run: Some(QueueWorkflowRun::from(existing_run)),
+                    actions: Vec::new(),
+                    blocker: None,
+                    conflict: Some(conflict),
+                });
+            }
+        };
+
         for action in &prepared_actions {
             if let Some(existing_action) = self
                 .store
@@ -704,7 +730,7 @@ impl WorkspaceService {
                             pause_reason: pause_reason.as_deref(),
                             blocker_reason: blocker_reason.as_deref(),
                             variables_json: prepared.variables_json.as_deref(),
-                            slot_bindings_json: prepared.slot_bindings_json.as_deref(),
+                            slot_bindings_json: merged_slot_bindings_json.as_deref(),
                             mutation_refs_json: prepared.mutation_refs_json.as_deref(),
                             idempotency_keys_json: prepared.idempotency_keys_json.as_deref(),
                             action_log_summary_json: prepared.action_log_summary_json.as_deref(),
@@ -886,6 +912,11 @@ struct PreparedRunnerReportAction {
     blocker_message: Option<String>,
 }
 
+enum RunnerReportSlotBindingMergeError {
+    Invalid(QueueWorkflowCommandBlocker),
+    Conflict(QueueWorkflowConflict),
+}
+
 fn prepare_workflow_snapshots(
     workflow_id: &str,
     request: &QueueWorkflowStartRequest,
@@ -987,6 +1018,159 @@ fn prepare_runner_report_snapshots(
         idempotency_keys_json,
         action_log_summary_json,
     })
+}
+
+fn merge_runner_report_slot_bindings(
+    workflow_run_id: &str,
+    existing_json: Option<&str>,
+    incoming_json: Option<&str>,
+) -> Result<Option<String>, RunnerReportSlotBindingMergeError> {
+    let Some(incoming_json) = incoming_json else {
+        return Ok(None);
+    };
+    if incoming_json.trim().is_empty() {
+        return Ok(None);
+    }
+
+    let incoming_value = parse_slot_bindings_report_json(incoming_json)?;
+    if incoming_value.is_null() {
+        return Ok(None);
+    }
+    let Some(incoming_object) = incoming_value.as_object() else {
+        return Err(RunnerReportSlotBindingMergeError::Invalid(record_blocker(
+            "invalid_slot_bindings_json",
+            "Queue workflow runner report slotBindings must be an object keyed by explicit slot.",
+            Some("slotBindings"),
+        )));
+    };
+    if incoming_object.is_empty() {
+        return Ok(None);
+    }
+
+    let mut merged_object = match existing_json {
+        Some(raw) if !raw.trim().is_empty() => {
+            let existing_value = parse_existing_slot_bindings_json(raw)?;
+            if existing_value.is_null() {
+                Map::new()
+            } else {
+                existing_value.as_object().cloned().ok_or_else(|| {
+                    RunnerReportSlotBindingMergeError::Invalid(record_blocker(
+                        "invalid_existing_slot_bindings_json",
+                        "Persisted Queue workflow slotBindings are not an object and cannot be merged safely.",
+                        Some("slotBindings"),
+                    ))
+                })?
+            }
+        }
+        _ => Map::new(),
+    };
+
+    let mut changed = false;
+    for (slot, incoming_binding) in incoming_object {
+        let Some(incoming_fields) = incoming_binding.as_object() else {
+            return Err(RunnerReportSlotBindingMergeError::Invalid(record_blocker(
+                "invalid_slot_binding",
+                "Each Queue workflow runner report slot binding must be an object.",
+                Some("slotBindings"),
+            )));
+        };
+        if incoming_fields.is_empty() {
+            continue;
+        }
+
+        let existing_entry = merged_object
+            .entry(slot.clone())
+            .or_insert_with(|| Value::Object(Map::new()));
+        let Some(existing_fields) = existing_entry.as_object_mut() else {
+            return Err(RunnerReportSlotBindingMergeError::Invalid(record_blocker(
+                "invalid_existing_slot_binding",
+                "Persisted Queue workflow slot binding is not an object and cannot be merged safely.",
+                Some("slotBindings"),
+            )));
+        };
+
+        for (field, incoming_field_value) in incoming_fields {
+            if incoming_field_value.is_null() {
+                continue;
+            }
+            if let Some(existing_field_value) = existing_fields.get(field) {
+                if !existing_field_value.is_null()
+                    && canonical_json_string(existing_field_value)
+                        != canonical_json_string(incoming_field_value)
+                {
+                    return Err(RunnerReportSlotBindingMergeError::Conflict(
+                        slot_binding_merge_conflict(
+                            workflow_run_id,
+                            slot,
+                            field,
+                            existing_field_value,
+                            incoming_field_value,
+                        ),
+                    ));
+                }
+                continue;
+            }
+
+            existing_fields.insert(field.clone(), incoming_field_value.clone());
+            changed = true;
+        }
+    }
+
+    if !changed {
+        return Ok(None);
+    }
+
+    let merged_value = Value::Object(merged_object);
+    let merged_json = canonical_json_string(&merged_value);
+    if merged_json.len() > MAX_WORKFLOW_SLOT_BINDINGS_JSON_BYTES {
+        return Err(RunnerReportSlotBindingMergeError::Invalid(record_blocker(
+            "workflow_json_too_large",
+            "Queue workflow merged slotBindings JSON exceeds the configured byte limit.",
+            Some("slotBindings"),
+        )));
+    }
+
+    Ok(Some(merged_json))
+}
+
+fn parse_slot_bindings_report_json(raw: &str) -> Result<Value, RunnerReportSlotBindingMergeError> {
+    serde_json::from_str::<Value>(raw).map_err(|_| {
+        RunnerReportSlotBindingMergeError::Invalid(record_blocker(
+            "invalid_slot_bindings_json",
+            "Queue workflow runner report slotBindings must contain valid JSON.",
+            Some("slotBindings"),
+        ))
+    })
+}
+
+fn parse_existing_slot_bindings_json(
+    raw: &str,
+) -> Result<Value, RunnerReportSlotBindingMergeError> {
+    serde_json::from_str::<Value>(raw).map_err(|_| {
+        RunnerReportSlotBindingMergeError::Invalid(record_blocker(
+            "invalid_existing_slot_bindings_json",
+            "Persisted Queue workflow slotBindings must contain valid JSON for merge.",
+            Some("slotBindings"),
+        ))
+    })
+}
+
+fn slot_binding_merge_conflict(
+    workflow_run_id: &str,
+    slot: &str,
+    field: &str,
+    existing_value: &Value,
+    incoming_value: &Value,
+) -> QueueWorkflowConflict {
+    QueueWorkflowConflict {
+        conflict_code: "workflow_slot_binding_conflict".to_owned(),
+        conflict_message: format!(
+            "Queue workflow runner report slotBindings.{slot}.{field} conflicts with an existing backend-owned binding field."
+        ),
+        existing_workflow_run_id: Some(workflow_run_id.to_owned()),
+        existing_request_hash: Some(canonical_json_string(existing_value)),
+        requested_request_hash: Some(canonical_json_string(incoming_value)),
+    }
 }
 
 fn prepare_runner_report_actions(

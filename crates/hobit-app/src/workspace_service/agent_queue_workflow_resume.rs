@@ -39,6 +39,9 @@ const RESUME_STATUS_BLOCKED_STALE_GRANT: &str = "blocked_stale_grant";
 const RESUME_STATUS_BLOCKED_SETTINGS_MISMATCH: &str = "blocked_settings_mismatch";
 const RESUME_STATUS_BLOCKED_PROMOTE_STATE_MISMATCH: &str = "blocked_promote_state_mismatch";
 const RESUME_STATUS_BLOCKED_EXECUTOR_MISMATCH: &str = "blocked_executor_mismatch";
+const RESUME_STATUS_BLOCKED_INCOMPLETE_SLOT_BINDING: &str = "blocked_incomplete_slot_binding";
+const RESUME_STATUS_BLOCKED_INCOMPLETE_WORKFLOW_ACTION_REFS: &str =
+    "blocked_incomplete_workflow_action_refs";
 const RESUME_STATUS_WAITING_FOR_RUN_SETTINGS: &str = "waiting_for_run_settings";
 const RESUME_STATUS_WAITING_FOR_PROMOTE: &str = "waiting_for_promote";
 const RESUME_STATUS_WAITING_FOR_WORKER_EVIDENCE: &str = "waiting_for_worker_evidence";
@@ -63,6 +66,8 @@ pub enum QueueWorkflowResumePlanStatus {
     BlockedSettingsMismatch,
     BlockedPromoteStateMismatch,
     BlockedExecutorMismatch,
+    BlockedIncompleteSlotBinding,
+    BlockedIncompleteWorkflowActionRefs,
     WaitingForRunSettings,
     WaitingForPromote,
     WaitingForWorkerEvidence,
@@ -89,6 +94,10 @@ impl QueueWorkflowResumePlanStatus {
             Self::BlockedSettingsMismatch => RESUME_STATUS_BLOCKED_SETTINGS_MISMATCH,
             Self::BlockedPromoteStateMismatch => RESUME_STATUS_BLOCKED_PROMOTE_STATE_MISMATCH,
             Self::BlockedExecutorMismatch => RESUME_STATUS_BLOCKED_EXECUTOR_MISMATCH,
+            Self::BlockedIncompleteSlotBinding => RESUME_STATUS_BLOCKED_INCOMPLETE_SLOT_BINDING,
+            Self::BlockedIncompleteWorkflowActionRefs => {
+                RESUME_STATUS_BLOCKED_INCOMPLETE_WORKFLOW_ACTION_REFS
+            }
             Self::WaitingForRunSettings => RESUME_STATUS_WAITING_FOR_RUN_SETTINGS,
             Self::WaitingForPromote => RESUME_STATUS_WAITING_FOR_PROMOTE,
             Self::WaitingForWorkerEvidence => RESUME_STATUS_WAITING_FOR_WORKER_EVIDENCE,
@@ -517,6 +526,8 @@ impl WorkspaceService {
                 )));
             }
         };
+        let (slot_bindings, mut action_recovery_blockers) =
+            augment_slot_bindings_from_actions(&workflow_run, slot_bindings, &actions);
         let task_templates = match parse_task_templates(inputs_value.as_ref()) {
             Ok(templates) => templates,
             Err(blocker) => {
@@ -550,10 +561,13 @@ impl WorkspaceService {
             )?);
         }
 
-        let mut blockers = reconciled_slots
-            .iter()
-            .flat_map(|slot| slot.blockers.clone())
-            .collect::<Vec<_>>();
+        let mut blockers = Vec::new();
+        blockers.append(&mut action_recovery_blockers);
+        blockers.extend(
+            reconciled_slots
+                .iter()
+                .flat_map(|slot| slot.blockers.clone()),
+        );
 
         let mut derived = if blockers.is_empty() {
             derive_next_step(
@@ -1104,6 +1118,690 @@ fn parse_slot_bindings(
     Ok(bindings)
 }
 
+fn augment_slot_bindings_from_actions(
+    run: &QueueWorkflowRun,
+    bindings: Vec<SlotBinding>,
+    actions: &[QueueWorkflowAction],
+) -> (Vec<SlotBinding>, Vec<QueueWorkflowResumeBlocker>) {
+    let mut by_slot = bindings
+        .into_iter()
+        .map(|binding| (binding.slot.clone(), binding))
+        .collect::<BTreeMap<_, _>>();
+    let mut blockers = Vec::new();
+
+    for action in actions {
+        match action.action_type.as_str() {
+            "create_task" => recover_create_task_action(&mut by_slot, action, &mut blockers),
+            "update_run_settings" => {
+                recover_update_run_settings_action(&mut by_slot, action, &mut blockers)
+            }
+            "promote_task" => recover_promote_task_action(&mut by_slot, action, &mut blockers),
+            "start_worker" => recover_start_worker_action(run, &mut by_slot, action, &mut blockers),
+            "record_worker_evidence" => {
+                recover_worker_evidence_action(&mut by_slot, action, &mut blockers)
+            }
+            "queue.review.createMessage" | "queue.review.ack" => {
+                recover_review_action(&mut by_slot, action, &mut blockers)
+            }
+            "queue.item.markDone" => {
+                recover_decision_action(&mut by_slot, action, "completionDecisionId", &mut blockers)
+            }
+            "queue.item.fail" => {
+                recover_decision_action(&mut by_slot, action, "failureDecisionId", &mut blockers)
+            }
+            _ => {}
+        }
+    }
+
+    (by_slot.into_values().collect(), blockers)
+}
+
+fn recover_create_task_action(
+    by_slot: &mut BTreeMap<String, SlotBinding>,
+    action: &QueueWorkflowAction,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    if action.status != "completed" {
+        blockers.push(action_ref_blocker(
+            "incomplete_workflow_action_refs",
+            "A workflow create_task action exists but is not completed; resume planning will not recreate or infer the task binding.",
+            action,
+            None,
+            None,
+        ));
+        return;
+    }
+    let Some(target) = action_ref_object(action, action.target_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(result) = action_ref_object(action, action.result_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(slot) = string_ref(action, &target, "slot", blockers) else {
+        return;
+    };
+    let binding = by_slot.entry(slot.clone()).or_insert_with(|| SlotBinding {
+        slot: slot.clone(),
+        ..SlotBinding::default()
+    });
+    set_binding_string(
+        binding,
+        "taskId",
+        string_ref(action, &result, "taskId", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "taskSpecHash",
+        string_ref(action, &target, "taskSpecHash", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "dependencySpecHash",
+        string_ref(action, &target, "dependencySpecHash", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "dependencyEdgeHash",
+        string_ref(action, &result, "dependencyEdgeHash", blockers),
+        action,
+        blockers,
+    );
+    set_binding_strings(
+        binding,
+        "dependsOnSlots",
+        string_array_ref(&target, "dependsOnSlots"),
+        action,
+        blockers,
+    );
+    set_binding_strings(
+        binding,
+        "dependencyTaskIds",
+        string_array_ref(&result, "dependencyTaskIds"),
+        action,
+        blockers,
+    );
+}
+
+fn recover_update_run_settings_action(
+    by_slot: &mut BTreeMap<String, SlotBinding>,
+    action: &QueueWorkflowAction,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    if action.status != "completed" {
+        blockers.push(action_ref_blocker(
+            "incomplete_workflow_action_refs",
+            "A workflow update_run_settings action exists but is not completed; resume planning will not infer setup state.",
+            action,
+            None,
+            None,
+        ));
+        return;
+    }
+    let Some(target) = action_ref_object(action, action.target_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(result) = action_ref_object(action, action.result_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(slot) = string_ref(action, &target, "slot", blockers) else {
+        return;
+    };
+    let Some(binding) = binding_for_action_slot(by_slot, action, &slot, blockers) else {
+        return;
+    };
+    set_binding_string(
+        binding,
+        "taskId",
+        string_ref(action, &target, "taskId", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "settingsHash",
+        string_ref(action, &target, "settingsHash", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "executorWidgetId",
+        string_ref(action, &result, "executorWidgetId", blockers),
+        action,
+        blockers,
+    );
+    binding.update_run_settings_action_id = Some(action.action_id.clone());
+    binding.update_run_settings_action_idempotency_key = Some(action.idempotency_key.clone());
+}
+
+fn recover_promote_task_action(
+    by_slot: &mut BTreeMap<String, SlotBinding>,
+    action: &QueueWorkflowAction,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    if action.status != "completed" {
+        blockers.push(action_ref_blocker(
+            "incomplete_workflow_action_refs",
+            "A workflow promote_task action exists but is not completed; resume planning will not infer promoted state.",
+            action,
+            None,
+            None,
+        ));
+        return;
+    }
+    let Some(target) = action_ref_object(action, action.target_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(result) = action_ref_object(action, action.result_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(slot) = string_ref(action, &target, "slot", blockers) else {
+        return;
+    };
+    let Some(binding) = binding_for_action_slot(by_slot, action, &slot, blockers) else {
+        return;
+    };
+    set_binding_string(
+        binding,
+        "taskId",
+        string_ref(action, &target, "taskId", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "taskSpecHash",
+        string_ref(action, &target, "taskSpecHash", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "settingsHash",
+        string_ref(action, &target, "settingsHash", blockers),
+        action,
+        blockers,
+    );
+    binding.promoted = true;
+    set_binding_string(
+        binding,
+        "promotedTaskStatus",
+        string_ref(action, &result, "taskState", blockers),
+        action,
+        blockers,
+    );
+    binding.promote_action_id = Some(action.action_id.clone());
+    binding.promote_action_idempotency_key = Some(action.idempotency_key.clone());
+}
+
+fn recover_start_worker_action(
+    run: &QueueWorkflowRun,
+    by_slot: &mut BTreeMap<String, SlotBinding>,
+    action: &QueueWorkflowAction,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    if action.status == "blocked" {
+        blockers.push(action_ref_blocker(
+            action
+                .blocker_code
+                .as_deref()
+                .unwrap_or("start_state_unknown"),
+            action.blocker_message.as_deref().unwrap_or(
+                "A workflow start_worker action is blocked and cannot be retried blindly.",
+            ),
+            action,
+            None,
+            None,
+        ));
+        return;
+    }
+    if action.status != "completed" {
+        blockers.push(action_ref_blocker(
+            "start_state_unknown",
+            "A workflow start_worker action exists without a durable runId; resume planning will not start a duplicate worker.",
+            action,
+            None,
+            None,
+        ));
+        return;
+    }
+    let Some(target) = action_ref_object(action, action.target_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(result) = action_ref_object(action, action.result_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    if target
+        .get("workflowRunId")
+        .and_then(Value::as_str)
+        .is_some_and(|id| id != run.workflow_run_id)
+    {
+        blockers.push(action_ref_blocker(
+            "workflow_action_ref_mismatch",
+            "A workflow start_worker action references a different workflowRunId.",
+            action,
+            None,
+            None,
+        ));
+        return;
+    }
+    let Some(task_id) = string_ref(action, &target, "taskId", blockers) else {
+        return;
+    };
+    let Some(slot) = slot_for_task(by_slot, &task_id) else {
+        blockers.push(action_ref_blocker(
+            "incomplete_slot_binding",
+            "A workflow start_worker action has durable refs but no matching task slot binding.",
+            action,
+            Some(&task_id),
+            None,
+        ));
+        return;
+    };
+    let binding = by_slot.get_mut(&slot).expect("slot exists");
+    set_binding_string(binding, "taskId", Some(task_id), action, blockers);
+    set_binding_string(
+        binding,
+        "executorWidgetId",
+        string_ref(action, &target, "executorWidgetId", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "settingsHash",
+        string_ref(action, &target, "settingsHash", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "runId",
+        string_ref(action, &result, "runId", blockers),
+        action,
+        blockers,
+    );
+}
+
+fn recover_worker_evidence_action(
+    by_slot: &mut BTreeMap<String, SlotBinding>,
+    action: &QueueWorkflowAction,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    if action.status != "completed" {
+        blockers.push(action_ref_blocker(
+            "incomplete_workflow_action_refs",
+            "A workflow record_worker_evidence action exists but is not completed; resume planning will not infer evidence state.",
+            action,
+            None,
+            None,
+        ));
+        return;
+    }
+    let Some(target) = action_ref_object(action, action.target_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(result) = action_ref_object(action, action.result_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(slot) = string_ref(action, &target, "slot", blockers) else {
+        return;
+    };
+    let Some(binding) = binding_for_action_slot(by_slot, action, &slot, blockers) else {
+        return;
+    };
+    set_binding_string(
+        binding,
+        "taskId",
+        string_ref(action, &target, "taskId", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "runId",
+        string_ref(action, &target, "runId", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "evidenceBundleId",
+        string_ref(action, &result, "evidenceBundleId", blockers),
+        action,
+        blockers,
+    );
+}
+
+fn recover_review_action(
+    by_slot: &mut BTreeMap<String, SlotBinding>,
+    action: &QueueWorkflowAction,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    if action.status != "completed" {
+        return;
+    }
+    let Some(target) = action_ref_object(action, action.target_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let result = action
+        .result_refs_json
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .and_then(|value| value.as_object().cloned())
+        .unwrap_or_default();
+    let Some(task_id) = string_ref(action, &target, "taskId", blockers) else {
+        return;
+    };
+    let Some(slot) = slot_for_task(by_slot, &task_id) else {
+        blockers.push(action_ref_blocker(
+            "incomplete_slot_binding",
+            "A workflow review action has durable refs but no matching task slot binding.",
+            action,
+            Some(&task_id),
+            None,
+        ));
+        return;
+    };
+    let binding = by_slot.get_mut(&slot).expect("slot exists");
+    let message_id = string_ref(action, &result, "messageId", blockers)
+        .or_else(|| string_ref(action, &target, "messageId", blockers));
+    set_binding_string(binding, "messageId", message_id, action, blockers);
+}
+
+fn recover_decision_action(
+    by_slot: &mut BTreeMap<String, SlotBinding>,
+    action: &QueueWorkflowAction,
+    decision_field: &str,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    if action.status != "completed" {
+        return;
+    }
+    let Some(target) = action_ref_object(action, action.target_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(result) = action_ref_object(action, action.result_refs_json.as_deref(), blockers)
+    else {
+        return;
+    };
+    let Some(task_id) = string_ref(action, &target, "taskId", blockers) else {
+        return;
+    };
+    let Some(slot) = slot_for_task(by_slot, &task_id) else {
+        blockers.push(action_ref_blocker(
+            "incomplete_slot_binding",
+            "A workflow finalization action has durable refs but no matching task slot binding.",
+            action,
+            Some(&task_id),
+            None,
+        ));
+        return;
+    };
+    let binding = by_slot.get_mut(&slot).expect("slot exists");
+    set_binding_string(binding, "taskId", Some(task_id), action, blockers);
+    set_binding_string(
+        binding,
+        "runId",
+        string_ref(action, &target, "runId", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "evidenceBundleId",
+        string_ref(action, &target, "evidenceBundleId", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "messageId",
+        string_ref(action, &target, "messageId", blockers),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        decision_field,
+        string_ref(action, &result, "decisionId", blockers),
+        action,
+        blockers,
+    );
+}
+
+fn action_ref_object(
+    action: &QueueWorkflowAction,
+    raw: Option<&str>,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) -> Option<serde_json::Map<String, Value>> {
+    let Some(raw) = raw else {
+        blockers.push(action_ref_blocker(
+            "incomplete_workflow_action_refs",
+            "A workflow action is missing required typed refs for restart recovery.",
+            action,
+            None,
+            None,
+        ));
+        return None;
+    };
+    match serde_json::from_str::<Value>(raw) {
+        Ok(Value::Object(object)) => Some(object),
+        _ => {
+            blockers.push(action_ref_blocker(
+                "incomplete_workflow_action_refs",
+                "A workflow action has invalid typed refs for restart recovery.",
+                action,
+                None,
+                None,
+            ));
+            None
+        }
+    }
+}
+
+fn string_ref(
+    action: &QueueWorkflowAction,
+    object: &serde_json::Map<String, Value>,
+    field: &str,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) -> Option<String> {
+    let value = object
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned);
+    if value.is_none() {
+        blockers.push(action_ref_blocker(
+            "incomplete_workflow_action_refs",
+            &format!("A workflow action is missing required typed ref field `{field}`."),
+            action,
+            None,
+            Some(field),
+        ));
+    }
+    value
+}
+
+fn string_array_ref(object: &serde_json::Map<String, Value>, field: &str) -> Vec<String> {
+    object
+        .get(field)
+        .and_then(Value::as_array)
+        .map(|values| {
+            values
+                .iter()
+                .filter_map(Value::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_owned)
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+fn binding_for_action_slot<'a>(
+    by_slot: &'a mut BTreeMap<String, SlotBinding>,
+    action: &QueueWorkflowAction,
+    slot: &str,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) -> Option<&'a mut SlotBinding> {
+    if !by_slot.contains_key(slot) {
+        blockers.push(action_ref_blocker(
+            "incomplete_slot_binding",
+            "A workflow action has durable refs but its slot binding is missing.",
+            action,
+            None,
+            Some("slotBindings"),
+        ));
+        return None;
+    }
+    by_slot.get_mut(slot)
+}
+
+fn slot_for_task(by_slot: &BTreeMap<String, SlotBinding>, task_id: &str) -> Option<String> {
+    by_slot.iter().find_map(|(slot, binding)| {
+        (binding.task_id.as_deref() == Some(task_id)).then(|| slot.clone())
+    })
+}
+
+fn set_binding_string(
+    binding: &mut SlotBinding,
+    field: &str,
+    incoming: Option<String>,
+    action: &QueueWorkflowAction,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    let Some(incoming) = incoming else {
+        return;
+    };
+    let target = match field {
+        "taskId" => &mut binding.task_id,
+        "taskSpecHash" => &mut binding.task_spec_hash,
+        "dependencySpecHash" => &mut binding.dependency_spec_hash,
+        "dependencyEdgeHash" => &mut binding.dependency_edge_hash,
+        "settingsHash" => &mut binding.settings_hash,
+        "promotedTaskStatus" => &mut binding.promoted_task_status,
+        "runId" => &mut binding.run_id,
+        "evidenceBundleId" => &mut binding.evidence_bundle_id,
+        "messageId" => &mut binding.message_id,
+        "completionDecisionId" => &mut binding.completion_decision_id,
+        "failureDecisionId" => &mut binding.failure_decision_id,
+        "executorWidgetId" => &mut binding.executor_widget_id,
+        _ => return,
+    };
+    if let Some(existing) = target.as_deref() {
+        if existing != incoming {
+            blockers.push(action_ref_blocker(
+                "workflow_action_ref_binding_mismatch",
+                &format!(
+                    "A workflow action typed ref for `{field}` conflicts with the persisted slot binding."
+                ),
+                action,
+                binding.task_id.as_deref(),
+                Some(field),
+            ));
+        }
+        return;
+    }
+    *target = Some(incoming);
+}
+
+fn set_binding_strings(
+    binding: &mut SlotBinding,
+    field: &str,
+    incoming: Vec<String>,
+    action: &QueueWorkflowAction,
+    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
+) {
+    if incoming.is_empty() {
+        return;
+    }
+    let target = match field {
+        "dependsOnSlots" => &mut binding.depends_on_slots,
+        "dependencyTaskIds" => &mut binding.dependency_task_ids,
+        _ => return,
+    };
+    if !target.is_empty() {
+        if !same_string_set(target, &incoming) {
+            blockers.push(action_ref_blocker(
+                "workflow_action_ref_binding_mismatch",
+                &format!(
+                    "A workflow action typed ref for `{field}` conflicts with the persisted slot binding."
+                ),
+                action,
+                binding.task_id.as_deref(),
+                Some(field),
+            ));
+        }
+        return;
+    }
+    *target = incoming;
+}
+
+fn action_ref_blocker(
+    code: &str,
+    message: &str,
+    action: &QueueWorkflowAction,
+    task_id: Option<&str>,
+    missing_required_field: Option<&str>,
+) -> QueueWorkflowResumeBlocker {
+    QueueWorkflowResumeBlocker {
+        blocker_code: code.to_owned(),
+        blocker_message: message.to_owned(),
+        slot: action_target_string(action, "slot"),
+        task_id: task_id.map(str::to_owned).or_else(|| {
+            action_target_string(action, "taskId")
+                .or_else(|| action_result_string(action, "taskId"))
+        }),
+        run_id: action_target_string(action, "runId")
+            .or_else(|| action_result_string(action, "runId")),
+        evidence_bundle_id: action_target_string(action, "evidenceBundleId")
+            .or_else(|| action_result_string(action, "evidenceBundleId")),
+        message_id: action_target_string(action, "messageId")
+            .or_else(|| action_result_string(action, "messageId")),
+        completion_decision_id: action_result_string(action, "completionDecisionId")
+            .or_else(|| action_result_string(action, "decisionId")),
+        failure_decision_id: action_result_string(action, "failureDecisionId")
+            .or_else(|| action_result_string(action, "decisionId")),
+        missing_required_field: missing_required_field.map(str::to_owned),
+    }
+}
+
+fn action_target_string(action: &QueueWorkflowAction, field: &str) -> Option<String> {
+    action
+        .target_refs_json
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .and_then(|value| value.get(field).and_then(Value::as_str).map(str::to_owned))
+}
+
+fn action_result_string(action: &QueueWorkflowAction, field: &str) -> Option<String> {
+    action
+        .result_refs_json
+        .as_deref()
+        .and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .and_then(|value| value.get(field).and_then(Value::as_str).map(str::to_owned))
+}
+
 fn optional_string_field(value: Option<&Value>) -> Option<String> {
     value
         .and_then(Value::as_str)
@@ -1324,24 +2022,27 @@ fn validate_settings_binding(
         return;
     };
 
-    let Some(run_settings) = binding.run_settings.as_ref() else {
+    let normalized = if let Some(run_settings) = binding.run_settings.as_ref() {
+        QueueWorkflowRunSettings {
+            execution_workspace: run_settings.execution_workspace.clone(),
+            codex_executable: run_settings.codex_executable.clone(),
+            sandbox: run_settings.sandbox.clone(),
+            approval_policy: run_settings.approval_policy.clone(),
+            execution_policy: run_settings.execution_policy.clone(),
+            executor_widget_id: run_settings.executor_widget_id.clone(),
+        }
+    } else if let Some(settings) = run_settings_from_durable_task(task) {
+        settings
+    } else {
         blockers.push(binding_blocker(
             "settings_binding_missing",
-            "Workflow slot binding has settingsHash but is missing the bounded runSettings snapshot.",
+            "Workflow slot binding has settingsHash but durable run settings are incomplete.",
             binding,
             Some("runSettings"),
         ));
         return;
     };
-
-    let normalized = QueueWorkflowRunSettings {
-        execution_workspace: run_settings.execution_workspace.clone(),
-        codex_executable: run_settings.codex_executable.clone(),
-        sandbox: run_settings.sandbox.clone(),
-        approval_policy: run_settings.approval_policy.clone(),
-        execution_policy: run_settings.execution_policy.clone(),
-        executor_widget_id: run_settings.executor_widget_id.clone(),
-    };
+    let expected_executor_widget_id = normalized.executor_widget_id.clone();
     match normalize_queue_workflow_run_settings_for_hash(normalized) {
         Ok((_, expected_hash)) if expected_hash == settings_hash => {}
         Ok((_, expected_hash)) => {
@@ -1366,8 +2067,7 @@ fn validate_settings_binding(
         }
     }
 
-    if task.assigned_executor_widget_id.as_deref() != Some(run_settings.executor_widget_id.as_str())
-    {
+    if task.assigned_executor_widget_id.as_deref() != Some(expected_executor_widget_id.as_str()) {
         blockers.push(binding_blocker(
             "executor_widget_mismatch",
             "Workflow slot executorWidgetId does not match the durable task assignment.",
@@ -1376,7 +2076,7 @@ fn validate_settings_binding(
         ));
     }
     if let Some(binding_executor) = binding.executor_widget_id.as_deref() {
-        if binding_executor != run_settings.executor_widget_id {
+        if binding_executor != expected_executor_widget_id {
             blockers.push(binding_blocker(
                 "executor_widget_mismatch",
                 "Workflow slot executorWidgetId does not match the bounded runSettings snapshot.",
@@ -1459,6 +2159,17 @@ fn validate_promote_binding(
             ));
         }
     }
+}
+
+fn run_settings_from_durable_task(task: &AgentQueueTaskRow) -> Option<QueueWorkflowRunSettings> {
+    Some(QueueWorkflowRunSettings {
+        execution_workspace: task.execution_workspace.clone()?,
+        codex_executable: task.codex_executable.clone()?,
+        sandbox: task.sandbox.clone()?,
+        approval_policy: task.approval_policy.clone()?,
+        execution_policy: task.execution_policy.clone(),
+        executor_widget_id: task.assigned_executor_widget_id.clone()?,
+    })
 }
 
 fn binding_has_runtime_progress(binding: &SlotBinding) -> bool {
@@ -2131,6 +2842,23 @@ fn status_for_blockers(blockers: &[QueueWorkflowResumeBlocker]) -> QueueWorkflow
         .any(|blocker| blocker.blocker_code == "executor_widget_mismatch")
     {
         return QueueWorkflowResumePlanStatus::BlockedExecutorMismatch;
+    }
+    if blockers
+        .iter()
+        .any(|blocker| blocker.blocker_code == "incomplete_slot_binding")
+    {
+        return QueueWorkflowResumePlanStatus::BlockedIncompleteSlotBinding;
+    }
+    if blockers.iter().any(|blocker| {
+        matches!(
+            blocker.blocker_code.as_str(),
+            "incomplete_workflow_action_refs"
+                | "start_state_unknown"
+                | "orphaned_start"
+                | "active_run_conflict"
+        )
+    }) {
+        return QueueWorkflowResumePlanStatus::BlockedIncompleteWorkflowActionRefs;
     }
     if blockers.iter().any(|blocker| {
         matches!(

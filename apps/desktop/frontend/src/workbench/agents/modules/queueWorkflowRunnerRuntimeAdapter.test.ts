@@ -72,6 +72,15 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
         workflowRunId: "queue-workflow-run-1",
       }),
     );
+    const reportRequest = vi.mocked(
+      persistence.recordAgentQueueWorkflowRunnerReport,
+    ).mock.calls[0]?.[0];
+    expect(reportRequest?.slotBindings).toBeNull();
+    expect(reportRequest?.variables).toEqual(
+      expect.objectContaining({
+        slots: expect.any(Object),
+      }),
+    );
     expect(result.runnerResult?.report.mutationSummary).toEqual(
       expect.objectContaining({
         didAckReview: false,

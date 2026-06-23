@@ -958,6 +958,8 @@ export type AgentQueueWorkflowResumePlanStatus =
   | "blocked_settings_mismatch"
   | "blocked_promote_state_mismatch"
   | "blocked_executor_mismatch"
+  | "blocked_incomplete_slot_binding"
+  | "blocked_incomplete_workflow_action_refs"
   | "waiting_for_run_settings"
   | "waiting_for_promote"
   | "waiting_for_worker_evidence"

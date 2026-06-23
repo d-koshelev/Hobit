@@ -73,6 +73,13 @@ Runner-report recording may update only the workflow run/action ledgers with
 bounded status, phase/step, blocker, variable/slot-binding, mutation-ref, and
 idempotent action-summary state for supported create/setup/start,
 worker-evidence, read/review/finalization runner phases.
+Slot bindings are backend-owned recovery bindings, not frontend runner
+variables. Runner-report recording must merge incoming binding fields into the
+existing binding, preserve existing non-null task/spec/dependency/settings/
+promotion/run/evidence/review/decision refs when the incoming report omits
+them, and reject conflicting non-empty refs as typed conflicts. Minimal runner
+slot maps may be persisted under `variables_json` for report readability, but
+they must not replace `slot_bindings_json`.
 
 Backend workflow task slot materialization is now a narrow workflow-internal
 domain method. It creates or reuses draft/manual Queue tasks by explicit
@@ -161,6 +168,11 @@ belong to the same workspace and to each other when both sides are present
 (for example run-to-task, evidence-to-task/run, review-to-task/run/evidence,
 and completion/failure decision-to-task). Missing durable facts return typed
 missing blockers; mismatched durable facts return `blocked_state_mismatch`.
+When bindings are incomplete, completed workflow action rows may be used only
+as secondary typed recovery evidence from their target/result refs. Missing
+action refs block as `blocked_incomplete_workflow_action_refs`, and missing
+slot identity blocks as `blocked_incomplete_slot_binding`; planner code must
+not continue with weak proof.
 Planner code must not infer ids, permissions, confirmations, or workflow input
 from task titles, prompts, UI selection, frontend order, file paths, or prose.
 For workflow materialized slots, resume planning also validates persisted

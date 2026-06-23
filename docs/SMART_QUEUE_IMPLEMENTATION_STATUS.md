@@ -67,6 +67,12 @@ typed terminal failure with fresh exact structured confirmation, downstream
 dependency-ready or `failed_upstream` no-auto-start verification, and a
 completed bounded workflow report. Scheduler behavior, downstream auto-start,
 and generic public resume execution remain not implemented.
+Restart/recovery hardening is implemented for those existing dependency smoke
+workflows: runner reports no longer overwrite backend-rich slot bindings with
+frontend slot variables, backend report persistence merges authoritative
+binding refs and rejects conflicts, and the resume planner can recover safe
+refs from completed workflow actions or block incomplete binding/action/orphan
+worker states explicitly.
 Workflow persistence APIs are not exposed as Workspace Agent broker
 capabilities.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
@@ -1244,8 +1250,9 @@ as available from the foundation above:
 - broad automatic real worker result event integration with the dogfood
   lifecycle model;
 - durable Queue review decision persistence beyond message create/ACK;
-- restart recovery for dogfood lifecycle state beyond durable worker evidence
-  and the durable review message/ACK ledger;
+- broad dogfood lifecycle restart recovery beyond the hardened
+  `dependency_acceptance_smoke` / `dependency_failure_smoke` workflow
+  persistence, durable worker evidence, and durable review message/ACK ledger;
 - full Queue review/evidence UI redesign or polish;
 - real validation evidence execution or durable attachment to the dogfood
   lifecycle model;

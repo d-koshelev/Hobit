@@ -274,7 +274,7 @@ fn workflow_record_runner_report_command_updates_only_workflow_tables() {
             pause_reason: Some("waiting_for_review_ack".to_owned()),
             blocker_reason: None,
             variables: Some(json!({"workflowId": "dependency_acceptance_smoke"})),
-            slot_bindings: Some(json!({"upstream": {"taskId": "task-1"}})),
+            slot_bindings: None,
             mutation_refs: Some(json!({"messageId": "message-1"})),
             idempotency_keys: Some(json!([format!(
                 "{}:queue.review.createMessage:task-1:run-1",

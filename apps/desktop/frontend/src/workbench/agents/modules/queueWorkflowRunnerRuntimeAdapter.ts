@@ -922,7 +922,7 @@ function recordRequestForRunnerResult({
         ? pauseReasonForRunnerResult(phase, runnerResult)
         : null,
     phase: workflowPhaseForRuntimePhase(phase),
-    slotBindings: sanitizeJsonValue(runnerResult.variables.slots),
+    slotBindings: null,
     status: persistedRunStatusFromRunner(phase, runtimeStatus),
     variables: sanitizeJsonValue({
       evidenceBundleIdsBySlot: runnerResult.variables.evidenceBundleIdsBySlot,
@@ -933,6 +933,7 @@ function recordRequestForRunnerResult({
       scopedMessageIds: runnerResult.variables.scopedMessageIds,
       scopedRunIds: runnerResult.variables.scopedRunIds,
       scopedTaskIds: runnerResult.variables.scopedTaskIds,
+      slots: runnerResult.variables.slots,
       taskIdsBySlot: runnerResult.variables.taskIdsBySlot,
       workflowId: runnerResult.variables.workflowId,
     }),
@@ -1340,6 +1341,8 @@ function resumeDecisionForPlan({
     plan.status === "blocked_settings_mismatch" ||
     plan.status === "blocked_promote_state_mismatch" ||
     plan.status === "blocked_executor_mismatch" ||
+    plan.status === "blocked_incomplete_slot_binding" ||
+    plan.status === "blocked_incomplete_workflow_action_refs" ||
     plan.status === "blocked_dependency_edge_missing" ||
     plan.status === "unsupported_phase" ||
     plan.status === "failed_unexpected" ||

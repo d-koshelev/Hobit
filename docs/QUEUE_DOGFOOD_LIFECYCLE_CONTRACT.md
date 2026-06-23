@@ -190,6 +190,14 @@ Backend/domain aggregate and review command foundation:
   decision id, sanitized failure reason where applicable, and action count. It
   does not persist raw transcripts or reusable confirmation tokens, and it does
   not start downstream work.
+- Queue workflow restart/recovery is hardened for these dependency smoke
+  workflows. Runtime reports can no longer erase backend-rich slot bindings
+  with lightweight frontend runner variables; report persistence merges
+  authoritative binding refs and conflicts on mismatches. Resume planning may
+  use completed workflow action target/result refs as secondary typed recovery
+  evidence, but incomplete bindings/actions and worker orphan windows block
+  with typed recovery blockers instead of starting duplicate workers or
+  inferring state from UI/session/prose.
 - Queue capability result mappers now emit typed `nextAction` payloads when a
   follow-up can be built with known canonical target fields. The runtime must
   prefer `nextAction.capabilityId` plus `nextAction.input` and must not guess
