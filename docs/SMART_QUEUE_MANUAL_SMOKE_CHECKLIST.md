@@ -1,13 +1,14 @@
-# Smart Queue Manual Desktop Smoke Checklist
+# Smart Queue Manual Smoke Checklist
 
 ## Purpose
 
-Manual desktop checklist for the current Smart Queue checkpoint. This
+Manual checklist for the current Smart Queue checkpoint, including the current
+headless Queue workflow smoke path and the older desktop/UI smoke path. This
 checklist claims only the explicitly listed backend aggregate, worker evidence,
-and review command contracts. It does not claim durable backend scheduler,
-rollback execution, Git/file mutation, Terminal launch, Workspace Agent
-runtime auto-call, or storage schema changes beyond the narrow worker evidence
-and review ledgers.
+review command, finalization, and workflow persistence contracts. It does not
+claim durable backend scheduler, rollback execution, Git/file mutation,
+Terminal launch, Workspace Agent runtime auto-call, or storage schema changes
+beyond the narrow worker evidence, review, finalization, and workflow ledgers.
 
 For responsibility boundaries, use
 `docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`. Manual smoke must not treat Queue
@@ -171,6 +172,270 @@ inspection, not downstream auto-start. Under `queue_failure_smoke`,
 `queue.item.fail` has the same exact-token and backend-precondition gate and
 must leave downstream tasks in `failed_upstream` read state without starting
 work.
+
+## Headless Queue Workflow Smoke
+
+Verdict: `ready_for_manual_headless_smoke`.
+
+Use this section before the desktop/UI smoke when the goal is to prove durable
+headless orchestration for `dependency_acceptance_smoke` and
+`dependency_failure_smoke`. It must use only structured
+`hobit.workflow.request` envelopes, `metadata.workflowRunId` continuations,
+typed continuation inputs, backend Queue control state, backend workflow
+reports, and backend resume plans. Do not use Queue UI truth, transcript/prose
+inference, manual database edits, task ids copied from titles, or file paths as
+workflow input.
+
+### Typed Request Schema
+
+Common workflow envelope:
+
+- `type: "hobit.workflow.request"`.
+- `requestId`: required on every envelope. Initial workflow start is
+  idempotent by `workspaceId + requestId + stable typed request hash`; same
+  request id with different typed content must conflict.
+- `moduleId: "queue"`.
+- `workflowId`: `dependency_acceptance_smoke` or
+  `dependency_failure_smoke`.
+- `grant`: generic workflow grant object with `mode`, optional
+  `confirmationToken`, optional `scope`, optional `maxActions`, and required
+  safety `constraints`.
+- `inputs`: the only place for workflow data.
+- `metadata.workflowRunId`: the only workflow continuation id. It is never
+  inferred from prose.
+
+Required grant modes:
+
+- Acceptance: `queue_acceptance_smoke` or `queue_operator_flow`.
+- Failure: `queue_failure_smoke` or `queue_operator_flow`.
+- Safety constraints must set `noGit`, `noValidationExecution`, `noRollback`,
+  `noTerminal`, `noDelete`, and `noDownstreamAutoStart` to exactly `true`.
+- `confirmationToken` is required only for worker start/finalization phases
+  that need it and must be exactly `operator-confirmed`. Do not persist or
+  replay a prior token.
+
+Initial dependency workflow inputs:
+
+- `inputs.runSettings.codexExecutable`: non-empty executable such as
+  `codex`, `codex.cmd`, or an explicit path.
+- `inputs.runSettings.workspaceRoot`: explicit execution workspace/root.
+- `inputs.runSettings.sandbox`: `read_only`, `workspace_write`, or
+  `danger_full_access`.
+- `inputs.runSettings.approvalPolicy`: `never`, `on_request`, or
+  `untrusted`.
+- `inputs.runSettings.executionPolicy: "manual"`.
+- `inputs.runSettings.executorWidgetId`: explicit Agent Executor widget id.
+- `inputs.tasks`: typed task specs with unique `slot`, `title`, `prompt`.
+- Required slots are `upstream` and `downstream`.
+- `downstream.dependsOnSlots` must explicitly include `upstream`.
+- Dependencies must not be inferred from task order, title, prompt, prose, UI,
+  or file paths.
+
+Continuation inputs:
+
+- Worker evidence: use `metadata.workflowRunId` plus
+  `inputs.phase: "worker_evidence"` and
+  `inputs.workerEvidence.slot: "upstream"`, `taskId`, `runId`, `outcome`,
+  and bounded optional fields such as `summary`, `changedFiles`,
+  `validationSummary`, `errorSummary`, `source`, `workerId`, `finishedAt`,
+  and `actionIdempotencyKey`.
+- Review: use `metadata.workflowRunId` plus `inputs.phase: "review"`.
+  Normally resume planning supplies task/run/evidence/message bindings. If a
+  checkpoint lacks a durable binding, provide explicit `taskIdsBySlot`,
+  `runIdsBySlot`, `evidenceBundleIdsBySlot`, and/or `messageIdsBySlot`.
+  ACK uses canonical `messageId`; stale `reviewMessageId` is not an ACK input.
+- Acceptance finalization: use `metadata.workflowRunId`,
+  `inputs.phase: "finalization"`, and fresh
+  `grant.confirmationToken: "operator-confirmed"`.
+- Failure finalization: same as acceptance finalization, plus typed
+  `inputs.failureReason`.
+
+Schematic initial request shape:
+
+```json
+{
+  "type": "hobit.workflow.request",
+  "requestId": "acceptance-smoke-001",
+  "moduleId": "queue",
+  "workflowId": "dependency_acceptance_smoke",
+  "grant": {
+    "mode": "queue_acceptance_smoke",
+    "confirmationToken": "operator-confirmed",
+    "constraints": {
+      "noGit": true,
+      "noValidationExecution": true,
+      "noRollback": true,
+      "noTerminal": true,
+      "noDelete": true,
+      "noDownstreamAutoStart": true
+    }
+  },
+  "inputs": {
+    "runSettings": {
+      "codexExecutable": "codex.cmd",
+      "workspaceRoot": "C:/path/to/workspace",
+      "sandbox": "workspace_write",
+      "approvalPolicy": "on_request",
+      "executionPolicy": "manual",
+      "executorWidgetId": "agent-run-widget-id"
+    },
+    "tasks": [
+      {"slot": "upstream", "title": "Upstream smoke", "prompt": "Typed smoke upstream work."},
+      {"slot": "downstream", "title": "Downstream smoke", "prompt": "Typed smoke downstream work.", "dependsOnSlots": ["upstream"]}
+    ]
+  }
+}
+```
+
+### Queue Control Prerequisite
+
+Before either workflow, read backend Queue control state for the workspace and
+ensure it is `manual_enabled`.
+
+- Use the typed backend/Tauri Queue control API, not frontend
+  `globalExecutionState`, Queue board state, or controller session state.
+- Setting `manual_enabled` must not start workers, arm Autorun, run a
+  scheduler, create run links, record evidence, run validation, run Git,
+  launch Terminal, or start downstream work.
+- With control state `disabled`, typed worker start must block with a control
+  blocker and must not auto-enable Queue.
+
+### Required Operator Inputs
+
+Collect these before starting:
+
+- `workspaceId`.
+- Explicit `executorWidgetId`.
+- `codexExecutable`.
+- Explicit `workspaceRoot` / execution workspace.
+- `sandbox`.
+- `approvalPolicy`.
+- Stable initial `requestId` values for acceptance and failure workflows.
+- Typed upstream/downstream task specs.
+- Typed worker evidence payload for the upstream continuation.
+- Fresh exact `grant.confirmationToken` when starting/finalizing requires it.
+- Typed `failureReason` for `dependency_failure_smoke` finalization.
+
+Do not require UI-derived task ids. Capture `workflowRunId`, upstream
+`taskId`, downstream `taskId`, `runId`, `evidenceBundleId`, and `messageId`
+from workflow reports, slot bindings, mutation refs, action ledgers, or resume
+plans after the relevant phase persists them.
+
+### Acceptance Smoke Sequence
+
+1. Verify backend Queue control state is `manual_enabled`.
+2. Send a typed `dependency_acceptance_smoke` initial request with a stable
+   `requestId`, typed run settings, typed upstream/downstream task specs, and
+   explicit `downstream.dependsOnSlots: ["upstream"]`.
+3. Verify the workflow starts or reuses a durable `workflowRunId`, materializes
+   both slots, applies upstream run settings, promotes upstream, starts only
+   the upstream worker, and pauses at `awaiting_worker_completion` /
+   `worker_running`.
+4. Capture `workflowRunId`, upstream `taskId`, downstream `taskId`, upstream
+   `runId`, settings hash, and action counts from the workflow report.
+5. After the upstream worker is durably complete, continue with
+   `metadata.workflowRunId` and typed `inputs.workerEvidence` for the
+   `upstream` slot. Use `outcome: "completed"` for acceptance.
+6. Verify durable `evidenceBundleId` is recorded/reused and the workflow pauses
+   at `awaiting_review`.
+7. Continue with `metadata.workflowRunId` and `inputs.phase: "review"`.
+   Verify review message create and ACK use durable backend ids and canonical
+   `messageId`.
+8. Continue with `metadata.workflowRunId`, `inputs.phase: "finalization"`, and
+   fresh exact `grant.confirmationToken: "operator-confirmed"`.
+9. Verify the workflow completes, upstream is durably `done`, downstream reads
+   as dependency-ready or otherwise no longer blocked by upstream, and no
+   downstream worker auto-started.
+10. Idempotency check: read `queue.workflow.getReport` for the completed
+    `workflowRunId`, then send a continuation with only
+    `metadata.workflowRunId` and verify resume planning reports
+    `terminal_completed` without invoking runner work. Separately, re-submit
+    the exact same initial `requestId` and typed hash only to verify
+    `queue.workflow.start` returns/reuses the existing workflow run; do not
+    treat UI state as the proof.
+
+### Failure Smoke Sequence
+
+1. Verify backend Queue control state is `manual_enabled`.
+2. Send a typed `dependency_failure_smoke` initial request with a stable
+   `requestId`, typed run settings, typed upstream/downstream task specs, and
+   explicit `downstream.dependsOnSlots: ["upstream"]`.
+3. Verify the workflow reaches `awaiting_worker_completion` /
+   `worker_running` for only the upstream worker.
+4. Capture `workflowRunId`, upstream `taskId`, downstream `taskId`, upstream
+   `runId`, settings hash, and action counts from the workflow report.
+5. Continue with `metadata.workflowRunId` and typed upstream
+   `inputs.workerEvidence`. Use an outcome that matches the failure scenario,
+   normally `failed` or `not_completed`.
+6. Verify durable `evidenceBundleId` is recorded/reused and the workflow pauses
+   at `awaiting_review`.
+7. Continue with `metadata.workflowRunId` and `inputs.phase: "review"`.
+   Verify review create and ACK use durable backend ids and canonical
+   `messageId`.
+8. Continue with `metadata.workflowRunId`, `inputs.phase: "finalization"`,
+   typed `inputs.failureReason`, and fresh exact
+   `grant.confirmationToken: "operator-confirmed"`.
+9. Verify the workflow completes, upstream is durably `failure`, downstream
+   reads `failed_upstream`, and no downstream worker auto-started.
+10. Idempotency check: read `queue.workflow.getReport` for the completed
+    `workflowRunId`, then send a continuation with only
+    `metadata.workflowRunId` and verify resume planning reports
+    `terminal_completed` without invoking runner work. Separately, re-submit
+    the exact same initial `requestId` and typed hash only to verify
+    `queue.workflow.start` returns/reuses the existing workflow run.
+
+### Restart/Resume Checkpoints
+
+At each reachable checkpoint, restart the app or start a fresh session, then
+continue only with `metadata.workflowRunId` and the typed continuation data
+required by the resume plan. Verify no UI/session state is required and no
+duplicate task/start/evidence/review/ACK/finalization is created.
+
+- After workflow run creation before materialization, if this pause is
+  reachable: expect resume to continue setup only from persisted typed inputs.
+- After materialization: expect bound slot task ids to be reused; no duplicate
+  tasks or dependency edges.
+- After run-settings setup: expect settings hash/executor binding reuse; no
+  settings overwrite.
+- After promote: expect idempotent promoted upstream state; no downstream
+  start.
+- After `start_worker` / `worker_running`: expect the existing `runId` to be
+  reused or worker state to block safely; no second worker start.
+- After evidence recorded: expect existing `evidenceBundleId` to be reused; no
+  duplicate evidence.
+- After review created: expect existing canonical `messageId` to be reused for
+  ACK; no duplicate message.
+- After review ACKed: expect finalization to require a fresh exact
+  confirmation token; ACK alone is not completion.
+- After `markDone` / `failItem` before final report, if this crash window is
+  reachable: expect completed decision refs to be reconciled and reported
+  without duplicate finalization.
+- After workflow completed: expect `terminal_completed` planning/report status
+  and no runner invocation.
+
+### Negative Smoke Checks
+
+- Same initial `requestId` with different typed request hash returns conflict
+  and does not invoke the runner.
+- Continuation without `metadata.workflowRunId` blocks.
+- Worker evidence continuation without typed `inputs.workerEvidence` remains
+  paused at worker evidence.
+- Worker evidence with mismatched `taskId`, `runId`, slot, or outcome shape
+  blocks/conflicts.
+- Missing fresh exact confirmation blocks worker start and finalization.
+- Missing `failureReason` blocks `dependency_failure_smoke` finalization.
+- Backend Queue control `disabled` blocks worker start and does not
+  auto-enable.
+- Downstream never auto-starts after upstream accepted completion or terminal
+  failure.
+- Prose-only confirmation is ignored/invalid.
+- `queue.review.ack` rejects stale `reviewMessageId`; canonical `messageId` is
+  required.
+- `queue.review.getEvidenceBundle` is the registered evidence read; there is
+  no `queue.lifecycle.getEvidenceBundle` workflow capability.
+- `globalExecutionState`, frontend overlays, Queue UI details, prompt-pack
+  preview ids, titles, prompts, file paths, and transcript text are never
+  workflow truth.
 
 ## Setup
 

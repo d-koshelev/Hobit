@@ -133,6 +133,11 @@ of truth for their domains.
 - `docs/testing/CURRENT_VALIDATION_SMOKE_CHECKLIST.md` - Phase 1 validation
   baseline and reporting labels for passing checks, expected environment
   failures, known warnings, unresolved blockers, and not-run checks.
+- `docs/SMART_QUEUE_MANUAL_SMOKE_CHECKLIST.md` - Smart Queue manual smoke
+  checklist. The current top section defines the typed headless dependency
+  workflow smoke for `dependency_acceptance_smoke` and
+  `dependency_failure_smoke`; the later desktop/UI section remains manual
+  product smoke and must not be treated as Queue workflow truth.
 - `docs/testing/NOTES_SMOKE_CHECKLIST.md` - current Notes behavior smoke
   checklist; Deferred Notebook behavior remains out of current smoke scope.
 - `docs/NOTES_DEV_MEMORY_API_DECISION.md` - Phase 2 Notes decision document

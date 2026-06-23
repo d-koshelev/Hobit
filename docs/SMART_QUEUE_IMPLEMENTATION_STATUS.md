@@ -73,6 +73,14 @@ frontend slot variables, backend report persistence merges authoritative
 binding refs and rejects conflicts, and the resume planner can recover safe
 refs from completed workflow actions or block incomplete binding/action/orphan
 worker states explicitly.
+Block 39 smoke-readiness audit verdict:
+`ready_for_manual_headless_smoke`. The next step is to execute the manual
+headless checklist in `docs/SMART_QUEUE_MANUAL_SMOKE_CHECKLIST.md` for both
+dependency workflows. No runtime blocker was identified for the typed
+workflow-request, persisted report, resume-plan, worker-evidence, review, and
+finalization path. The checklist remains operator/manual smoke only; it does
+not add scheduler behavior, downstream auto-start, validation execution, Git
+mutation, rollback, Terminal launch, or Queue UI truth.
 Workflow persistence APIs are not exposed as Workspace Agent broker
 capabilities.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
