@@ -116,7 +116,10 @@ struct NormalizedWorkflowEvidenceRequest {
 enum ExistingActionDecision {
     None,
     Completed(AgentQueueWorkflowActionRow),
-    Retryable(AgentQueueWorkflowActionRow),
+    Retryable {
+        action: AgentQueueWorkflowActionRow,
+        repair_target_refs: bool,
+    },
 }
 
 impl WorkspaceService {
@@ -492,7 +495,10 @@ impl WorkspaceService {
                     &request.action_idempotency_key,
                 )? {
                     Some(action) => {
-                        if !action_matches_target(&action, &request, &target_refs_json) {
+                        let target_refs_match =
+                            action_matches_target(&action, &request, &target_refs_json);
+                        let retryable_action = is_retryable_record_worker_evidence_action(&action);
+                        if !target_refs_match && !retryable_action {
                             return Ok(TxResult::Return(result(
                                 QueueWorkflowRecordWorkerEvidenceStatus::Conflict,
                                 Some(QueueWorkflowRun::from(workflow_run)),
@@ -514,7 +520,7 @@ impl WorkspaceService {
                             )));
                         }
                         if action.status != QueueWorkflowActionStatus::Completed.as_str()
-                            && !is_retryable_record_worker_evidence_action(&action)
+                            && !retryable_action
                         {
                             return Ok(TxResult::Return(result(
                                 QueueWorkflowRecordWorkerEvidenceStatus::Blocked,
@@ -534,7 +540,10 @@ impl WorkspaceService {
                         if action.status == QueueWorkflowActionStatus::Completed.as_str() {
                             ExistingActionDecision::Completed(action)
                         } else {
-                            ExistingActionDecision::Retryable(action)
+                            ExistingActionDecision::Retryable {
+                                action,
+                                repair_target_refs: !target_refs_match,
+                            }
                         }
                     }
                     None => ExistingActionDecision::None,
@@ -636,23 +645,38 @@ impl WorkspaceService {
                             updated_at: Some(&finished_at),
                         })?
                     }
-                    ExistingActionDecision::Retryable(action) => store
-                        .replace_agent_queue_workflow_action_resolution(
-                            &request.workspace_id,
-                            &request.workflow_run_id,
-                            &request.action_idempotency_key,
-                            AgentQueueWorkflowActionUpdate {
-                                status: QueueWorkflowActionStatus::Completed.as_str(),
-                                result_refs_json: Some(&result_refs_json),
-                                blocker_code: None,
-                                blocker_message: None,
-                                attempt_count: Some(action.attempt_count.saturating_add(1)),
-                                started_at: action.started_at.as_deref().or(Some(&finished_at)),
-                                completed_at: Some(&finished_at),
-                                updated_at: Some(&finished_at),
-                            },
-                        )?
-                        .ok_or(StorageError::QueryReturnedNoRows)?,
+                    ExistingActionDecision::Retryable {
+                        action,
+                        repair_target_refs,
+                    } => {
+                        let update = AgentQueueWorkflowActionUpdate {
+                            status: QueueWorkflowActionStatus::Completed.as_str(),
+                            result_refs_json: Some(&result_refs_json),
+                            blocker_code: None,
+                            blocker_message: None,
+                            attempt_count: Some(action.attempt_count.saturating_add(1)),
+                            started_at: action.started_at.as_deref().or(Some(&finished_at)),
+                            completed_at: Some(&finished_at),
+                            updated_at: Some(&finished_at),
+                        };
+                        if repair_target_refs {
+                            store.replace_agent_queue_workflow_action_refs_and_resolution(
+                                &request.workspace_id,
+                                &request.workflow_run_id,
+                                &request.action_idempotency_key,
+                                Some(&target_refs_json),
+                                update,
+                            )?
+                        } else {
+                            store.replace_agent_queue_workflow_action_resolution(
+                                &request.workspace_id,
+                                &request.workflow_run_id,
+                                &request.action_idempotency_key,
+                                update,
+                            )?
+                        }
+                        .ok_or(StorageError::QueryReturnedNoRows)?
+                    }
                 };
 
                 update_binding_with_evidence(
@@ -1489,11 +1513,18 @@ fn expected_worker_outcome_for_run_state(
 }
 
 fn is_retryable_record_worker_evidence_action(action: &AgentQueueWorkflowActionRow) -> bool {
+    if action_result_evidence_bundle_id(action).is_some() {
+        return false;
+    }
+    let blocker = action.blocker_code.as_deref();
+    let result_status = action_result_status(action);
     action.status == QueueWorkflowActionStatus::Blocked.as_str()
-        && action
-            .blocker_code
-            .as_deref()
-            .is_some_and(is_retryable_record_worker_evidence_blocker)
+        && (blocker.is_some_and(is_retryable_record_worker_evidence_blocker)
+            || blocker == Some("precondition_failed")
+            || result_status.as_deref() == Some("precondition_failed"))
+        || action.status == QueueWorkflowActionStatus::Failed.as_str()
+            && (blocker == Some("failed_unexpected")
+                || result_status.as_deref() == Some("failed_unexpected"))
 }
 
 pub(super) fn is_retryable_record_worker_evidence_blocker(code: &str) -> bool {
@@ -1522,7 +1553,18 @@ pub(super) fn is_retryable_record_worker_evidence_blocker(code: &str) -> bool {
             | "missing_settings_hash"
             | "missing_execution_target_hash"
             | "workflow_run_terminal"
+            | "precondition_failed"
     )
+}
+
+fn action_result_status(action: &AgentQueueWorkflowActionRow) -> Option<String> {
+    let refs = parse_action_refs(action.result_refs_json.as_deref())?;
+    action_string_field(&refs, "commandStatus").or_else(|| action_string_field(&refs, "status"))
+}
+
+fn action_result_evidence_bundle_id(action: &AgentQueueWorkflowActionRow) -> Option<String> {
+    let refs = parse_action_refs(action.result_refs_json.as_deref())?;
+    action_string_field(&refs, "evidenceBundleId")
 }
 
 fn evidence_matches_request(

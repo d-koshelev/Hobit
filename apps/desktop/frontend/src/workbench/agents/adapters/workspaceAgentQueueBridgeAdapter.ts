@@ -1422,9 +1422,79 @@ function workflowResumeDiagnostics(
       slotPresent: startWorker.hasSlot,
       taskIdPresent: startWorker.hasTaskId,
     },
+    staleHistory: workflowResumeStaleHistory(plan.actions),
     status: plan.status,
     workerState,
   };
+}
+
+function workflowResumeStaleHistory(
+  actions: readonly AgentQueueWorkflowAction[],
+) {
+  return actions
+    .filter(isStaleWorkerEvidenceHistoryAction)
+    .slice(0, 10)
+    .map(workflowActionSummary);
+}
+
+function isStaleWorkerEvidenceHistoryAction(action: AgentQueueWorkflowAction) {
+  if (
+    action.actionType === "queue.workflow.runner" &&
+    action.status === "failed" &&
+    (action.stepId === "runner.worker_evidence" ||
+      workflowActionPhase(action) === "worker_evidence")
+  ) {
+    return true;
+  }
+
+  if (action.actionType !== "record_worker_evidence" || action.status === "completed") {
+    return false;
+  }
+  if (workflowActionResultField(action, ["evidenceBundleId", "evidence_bundle_id"])) {
+    return false;
+  }
+  const blockerCode = action.blockerCode ?? null;
+  const resultStatus = workflowActionResultField(action, ["commandStatus", "status"]);
+  return (
+    blockerCode === "failed_unexpected" ||
+    blockerCode === "precondition_failed" ||
+    blockerCode === "worker_outcome_mismatch" ||
+    blockerCode === "workflow_run_terminal" ||
+    resultStatus === "failed_unexpected" ||
+    resultStatus === "precondition_failed"
+  );
+}
+
+function workflowActionPhase(action: AgentQueueWorkflowAction) {
+  return firstString([
+    workflowActionTargetField(action, ["phase"]),
+    workflowActionResultField(action, ["phase"]),
+  ]);
+}
+
+function workflowActionTargetField(
+  action: AgentQueueWorkflowAction,
+  keys: readonly string[],
+) {
+  return stringFieldFromRecordOrNull(
+    workflowRawRefRecord(action.targetRefsJson),
+    keys,
+  );
+}
+
+function workflowActionResultField(
+  action: AgentQueueWorkflowAction,
+  keys: readonly string[],
+) {
+  return stringFieldFromRecordOrNull(
+    workflowRawRefRecord(action.resultRefsJson),
+    keys,
+  );
+}
+
+function workflowRawRefRecord(json: string | null | undefined) {
+  const parsed = tryParseWorkflowJson(json);
+  return isRecord(parsed) ? parsed : null;
 }
 
 function workflowStartWorkerDiagnostics(

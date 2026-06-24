@@ -633,6 +633,7 @@ export type QueueAgentWorkflowResumeDiagnostics = {
     slotPresent: boolean;
     taskIdPresent: boolean;
   };
+  staleHistory: QueueAgentWorkflowActionSummary[];
   status: string;
   workerState: {
     evidenceState: string | null;

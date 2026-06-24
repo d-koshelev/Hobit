@@ -3348,6 +3348,28 @@ fn current_live_blocked_terminal_guard_shape_reenters_and_updates_evidence_actio
     );
     let service = WorkspaceService::new(store);
 
+    let plan = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            "queue-workflow-run-1782257290023621100_163",
+            None,
+        ))
+        .expect("plan live blocked evidence retry")
+        .expect("plan");
+    assert_eq!(
+        plan.status,
+        QueueWorkflowResumePlanStatus::RetryableWorkerEvidenceFailure
+    );
+    assert_eq!(plan.next_phase.as_deref(), Some("worker_evidence"));
+    assert_eq!(
+        plan.next_step.as_deref(),
+        Some("waiting_for_worker_evidence")
+    );
+    assert!(!plan
+        .blockers
+        .iter()
+        .any(|blocker| blocker.blocker_code == "incomplete_workflow_action_refs"));
+
     let result = service
         .record_queue_workflow_worker_evidence(workflow_evidence_request(
             "queue-workflow-run-1782257290023621100_163",
@@ -3390,6 +3412,125 @@ fn current_live_blocked_terminal_guard_shape_reenters_and_updates_evidence_actio
         .expect("get downstream")
         .expect("downstream");
     assert_eq!(downstream.status, "draft");
+}
+
+#[test]
+fn plan_resume_ignores_stale_non_mutating_record_worker_evidence_history() {
+    for (workflow_run_id, stale_status, blocker_code, result_refs_json) in [
+        (
+            "workflow-run-stale-blocked-evidence",
+            QueueWorkflowActionStatus::Blocked.as_str(),
+            "precondition_failed",
+            r#"{"commandStatus":"precondition_failed"}"#,
+        ),
+        (
+            "workflow-run-stale-failed-evidence",
+            QueueWorkflowActionStatus::Failed.as_str(),
+            "failed_unexpected",
+            r#"{"commandStatus":"failed_unexpected"}"#,
+        ),
+    ] {
+        let store = initialized_store();
+        create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+        create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+        create_run_link(
+            &store,
+            "workspace-1",
+            "task-1",
+            "run-1",
+            "link-1",
+            "completed",
+        );
+        insert_retryable_worker_evidence_workflow(
+            &store,
+            workflow_run_id,
+            "blocked",
+            "worker_evidence_blocked",
+            "task-1",
+            "run-1",
+        );
+        store
+            .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+                action_id: &format!("stale-record-evidence-{workflow_run_id}"),
+                workflow_run_id,
+                workspace_id: "workspace-1",
+                step_id: "record_worker_evidence",
+                action_type: "record_worker_evidence",
+                idempotency_key: &format!(
+                    "{workflow_run_id}:record_worker_evidence:upstream:task-1:run-1"
+                ),
+                status: stale_status,
+                target_refs_json: None,
+                result_refs_json: Some(result_refs_json),
+                blocker_code: Some(blocker_code),
+                blocker_message: Some("Stale non-mutating worker evidence attempt."),
+                attempt_count: 1,
+                started_at: Some("5"),
+                completed_at: Some("5"),
+                created_at: Some("5"),
+                updated_at: Some("5"),
+            })
+            .expect("insert stale record_worker_evidence action");
+        let service = WorkspaceService::new(store);
+
+        let plan = service
+            .plan_queue_workflow_resume(plan_request("workspace-1", workflow_run_id, None))
+            .expect("plan stale evidence retry")
+            .expect("plan");
+
+        assert_eq!(
+            plan.status,
+            QueueWorkflowResumePlanStatus::RetryableWorkerEvidenceFailure
+        );
+        assert_eq!(plan.next_phase.as_deref(), Some("worker_evidence"));
+        assert_eq!(
+            plan.next_step.as_deref(),
+            Some("waiting_for_worker_evidence")
+        );
+        assert!(plan
+            .blockers
+            .iter()
+            .all(|blocker| blocker.blocker_code != "incomplete_workflow_action_refs"));
+        assert!(service
+            .store
+            .get_agent_queue_worker_evidence_bundle("workspace-1", "task-1", "run-1")
+            .expect("evidence lookup before retry")
+            .is_none());
+
+        let evidence = service
+            .record_queue_workflow_worker_evidence(workflow_evidence_request(
+                workflow_run_id,
+                "upstream",
+                "task-1",
+                "run-1",
+                "completed",
+            ))
+            .expect("record corrected evidence");
+
+        assert_eq!(
+            evidence.status,
+            QueueWorkflowRecordWorkerEvidenceStatus::Recorded
+        );
+        let action = service
+            .store
+            .get_agent_queue_workflow_action_by_idempotency_key(
+                workflow_run_id,
+                &format!("{workflow_run_id}:record_worker_evidence:upstream:task-1:run-1"),
+            )
+            .expect("action lookup")
+            .expect("action");
+        assert_eq!(action.status, QueueWorkflowActionStatus::Completed.as_str());
+        assert_eq!(action.blocker_code, None);
+        assert_eq!(action.blocker_message, None);
+        assert_eq!(action.attempt_count, 2);
+        assert!(action.target_refs_json.as_deref().is_some_and(|refs| refs
+            .contains(r#""taskId":"task-1""#)
+            && refs.contains(r#""runId":"run-1""#)));
+        assert!(action
+            .result_refs_json
+            .as_deref()
+            .is_some_and(|refs| refs.contains("evidenceBundleId")));
+    }
 }
 
 #[test]
@@ -3627,6 +3768,20 @@ fn failed_worker_evidence_reentry_blocks_partial_evidence_review_and_decisions()
         "decision-completed",
     );
     let service = WorkspaceService::new(store);
+
+    let completed_action_plan = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            "workflow-run-completed-action",
+            None,
+        ))
+        .expect("plan completed evidence action")
+        .expect("plan");
+    assert_eq!(
+        completed_action_plan.status,
+        QueueWorkflowResumePlanStatus::TerminalFailed
+    );
+    assert!(!completed_action_plan.resume_available);
 
     for (workflow_run_id, task_id, run_id, expected) in [
         (

@@ -359,6 +359,19 @@ command:
   slot identity blocks as `blocked_incomplete_slot_binding`. The planner must
   not infer recovery ids from Activity logs, transcripts, UI selection, task
   titles, prompts, file paths, or prose.
+  Worker-evidence retry planning has one narrow stale-history exception:
+  non-mutating worker-evidence failures do not permanently poison retry when
+  current durable refs prove the same task/run can safely record evidence.
+  Stale retryable history is limited to `queue.workflow.runner` failed at
+  `worker_evidence` before evidence mutation, `record_worker_evidence`
+  blocked/precondition failures with no `evidenceBundleId`, and
+  `record_worker_evidence` `failed_unexpected` rows with no evidence bundle and
+  no completed evidence action. Such rows are diagnostic history, not required
+  action proof. The planner must still require complete current task/run,
+  settings hash, execution-target hash, slot binding or derived slot, durable
+  completed `start_worker` proof, no durable evidence/review/finalization, and
+  no running/orphan/mismatched worker before reporting
+  `retryable_worker_evidence_failure` or `waiting_for_worker_evidence`.
 - `queue.workflow.recordWorkerEvidence` records or reconciles durable worker
   evidence for one explicit workflow slot. It requires `workspaceId`,
   `workflowRunId`, `slot`, `taskId`, `runId`, bounded worker final
@@ -401,8 +414,14 @@ command:
   passes, the workflow is reopened only for evidence recording; success clears
   stale retryable worker-evidence blockers, clears terminal completion markers
   on the workflow run, records or updates the idempotent
-  `record_worker_evidence` action, stores `evidenceBundleId`, and resumes at
-  review-ready state.
+  `record_worker_evidence` action, repairs stale non-mutating action refs for
+  the canonical
+  `workflowRunId:record_worker_evidence:slot:taskId:runId` key when needed,
+  stores `evidenceBundleId`, and resumes at review-ready state. Completed
+  `record_worker_evidence` actions, existing evidence bundles, review messages,
+  completion decisions, failure decisions, completed/cancelled workflows,
+  arbitrary failed/blocked phases, mismatched workspace/task/run refs, unknown
+  worker state, and active running workers remain blockers.
 - `queue.workflow.recordRunnerReport` records bounded runtime-adapter report
   state and action-ledger summaries for supported create/setup/start,
   worker-evidence, read/review/finalization runner phases. It may update only

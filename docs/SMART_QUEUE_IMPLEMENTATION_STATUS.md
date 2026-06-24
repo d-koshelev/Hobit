@@ -168,16 +168,20 @@ requires `executorWidgetId`, an Agent Executor widget, an Agent Queue widget, or
 `queueOwnerWidgetInstanceId`; new `start_worker` action refs include `slot`,
 and existing missing-slot start rows recover from unambiguous task-to-slot
 bindings. Live smoke diagnostics can now determine whether to retry
-workerEvidence from read-only payloads. After Block 50F, the current live
+workerEvidence from read-only payloads. After Block 50G, the current live
 blocked failure smoke workflow
 `queue-workflow-run-1782257290023621100_163` can retry corrected
-`workerEvidence.outcome: "completed"` only when `planResume` reports
-`retryable_worker_evidence_failure` and backend evidence recording proves the
-same strict no-partial-mutation shape. The successful retry records
-`evidenceBundleId`, completes or updates the focused `record_worker_evidence`
-action, clears the stale worker-evidence blocker from the active report, and
-moves the workflow to review/awaiting-review state without starting another
-worker.
+`workerEvidence.outcome: "completed"` even when stale non-mutating
+worker-evidence history remains in the action log. `planResume` and backend
+evidence recording now agree on the same strict no-partial-mutation proof:
+current task/run/settings/execution-target refs must be complete, no durable
+evidence/review/finalization mutation may exist, and stale
+`queue.workflow.runner` or `record_worker_evidence` failures are diagnostic
+history rather than active `incomplete_workflow_action_refs` blockers. The
+successful retry records `evidenceBundleId`, completes or updates the focused
+`record_worker_evidence` action, clears the stale worker-evidence blocker from
+the active report, and moves the workflow to review/awaiting-review state
+without starting another worker.
 The broker
 continuation `hobit.action.result` context now preserves bounded structured
 payloads for `workspace.context.get`, `workbench.widgets.list`, and
@@ -226,8 +230,11 @@ or later `blocked` after the generic terminal guard is recoverable as
 no evidence bundle exists, no completed evidence action exists, no review or
 terminal task decision exists, a completed matching `start_worker` action
 exists, the explicit typed `runId` and `taskId` match durable state, the
-worker run is complete, and outcome matches the durable run state. Completed,
-cancelled, and arbitrary failed workflow runs remain terminal for
+worker run is complete, and outcome matches the durable run state. Stale
+non-mutating worker-evidence failures are retryable only within that proof;
+completed evidence actions, existing evidence bundles, review/finalization
+refs, running/orphan workers, mismatched durable refs, completed workflows,
+cancelled workflows, and arbitrary failed workflow runs remain terminal for
 worker-evidence mutation. Failure smoke records the actual worker outcome
 first; terminal failure is later applied through reviewed finalization with
 typed `failureReason` and `failItem`. It does not create/ACK reviews, mark

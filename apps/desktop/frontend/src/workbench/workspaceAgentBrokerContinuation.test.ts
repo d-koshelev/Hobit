@@ -3203,6 +3203,7 @@ function liveWorkflowResumePlanOutput() {
         slotPresent: true,
         taskIdPresent: true,
       },
+      staleHistory: [],
       status: "blocked_incomplete_workflow_action_refs",
       workerState: {
         evidenceState: "missing",

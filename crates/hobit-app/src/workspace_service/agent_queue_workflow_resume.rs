@@ -782,6 +782,8 @@ impl WorkspaceService {
         };
         if target.binding.task_id.is_none()
             || target.binding.run_id.is_none()
+            || target.binding.settings_hash.is_none()
+            || target.binding.execution_target_hash.is_none()
             || target.binding.evidence_bundle_id.is_some()
             || target.evidence.is_some()
             || target.review_message.is_some()
@@ -1351,18 +1353,30 @@ fn is_completed_worker_evidence_action(action: &QueueWorkflowAction) -> bool {
 }
 
 fn is_retryable_worker_evidence_action(action: &QueueWorkflowAction) -> bool {
-    action.action_type == "record_worker_evidence"
-        && action.status == "blocked"
-        && action
-            .blocker_code
-            .as_deref()
-            .is_some_and(is_retryable_record_worker_evidence_blocker)
+    is_stale_retryable_record_worker_evidence_action(action)
 }
 
 fn is_non_retryable_worker_evidence_action(action: &QueueWorkflowAction) -> bool {
     action.action_type == "record_worker_evidence"
         && !is_completed_worker_evidence_action(action)
-        && !is_retryable_worker_evidence_action(action)
+        && !is_stale_retryable_record_worker_evidence_action(action)
+}
+
+fn is_stale_retryable_record_worker_evidence_action(action: &QueueWorkflowAction) -> bool {
+    if action.action_type != "record_worker_evidence"
+        || action_result_evidence_bundle_id(action).is_some()
+    {
+        return false;
+    }
+    let blocker = action.blocker_code.as_deref();
+    let result_status = action_result_status(action);
+    action.status == "blocked"
+        && (blocker.is_some_and(is_retryable_record_worker_evidence_blocker)
+            || blocker == Some("precondition_failed")
+            || result_status.as_deref() == Some("precondition_failed"))
+        || action.status == "failed"
+            && (blocker == Some("failed_unexpected")
+                || result_status.as_deref() == Some("failed_unexpected"))
 }
 
 fn action_ref_phase(raw: Option<&str>) -> Option<String> {
@@ -1405,9 +1419,21 @@ fn has_completed_start_worker_action_for_slot(
             .and_then(Value::as_str)
             .map(str::trim)
             .filter(|value| !value.is_empty());
+        let target_settings_hash = target
+            .get("settingsHash")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let target_execution_target_hash = target
+            .get("executionTargetHash")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
 
         target_task_id == binding.task_id.as_deref()
             && result_run_id == binding.run_id.as_deref()
+            && target_settings_hash == binding.settings_hash.as_deref()
+            && target_execution_target_hash == binding.execution_target_hash.as_deref()
             && match target_slot {
                 Some(slot) => slot == binding.slot,
                 None => true,
@@ -1418,6 +1444,16 @@ fn has_completed_start_worker_action_for_slot(
 fn action_ref_value(raw: Option<&str>) -> Option<serde_json::Map<String, Value>> {
     raw.and_then(|raw| serde_json::from_str::<Value>(raw).ok())
         .and_then(|value| value.as_object().cloned())
+}
+
+fn action_result_status(action: &QueueWorkflowAction) -> Option<String> {
+    let refs = action_ref_value(action.result_refs_json.as_deref())?;
+    optional_string_ref(&refs, "commandStatus").or_else(|| optional_string_ref(&refs, "status"))
+}
+
+fn action_result_evidence_bundle_id(action: &QueueWorkflowAction) -> Option<String> {
+    let refs = action_ref_value(action.result_refs_json.as_deref())?;
+    optional_string_ref(&refs, "evidenceBundleId")
 }
 
 fn recover_create_task_action(
@@ -1804,12 +1840,7 @@ fn recover_worker_evidence_action(
     action: &QueueWorkflowAction,
     blockers: &mut Vec<QueueWorkflowResumeBlocker>,
 ) {
-    if action.status == "blocked"
-        && action
-            .blocker_code
-            .as_deref()
-            .is_some_and(is_retryable_record_worker_evidence_blocker)
-    {
+    if is_stale_retryable_record_worker_evidence_action(action) {
         return;
     }
     if action.status != "completed" {

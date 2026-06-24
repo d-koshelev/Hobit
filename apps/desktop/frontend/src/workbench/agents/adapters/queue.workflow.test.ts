@@ -341,6 +341,13 @@ describe("queue.workflow debug read capabilities", () => {
           taskIdPresent: true,
         },
         status: "retryable_worker_evidence_failure",
+        staleHistory: [
+          expect.objectContaining({
+            actionType: "queue.workflow.runner",
+            blockerCode: "failed_unexpected",
+            status: "failed",
+          }),
+        ],
         workerState: {
           latestRunId: "queue-run_1782257290066506600_169",
           latestRunStatus: "completed",

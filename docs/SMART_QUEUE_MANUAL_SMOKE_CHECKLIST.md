@@ -553,17 +553,23 @@ duplicate task/start/evidence/review/ACK/finalization is created.
   backend-owned `queue_local`, `planResume` and `readActionLog` must not require
   `executorWidgetId` or an Agent Queue widget, and old missing-slot
   `start_worker` actions may recover via unambiguous task-to-slot mapping.
-- After Block 50F, the live failure smoke at
+- After Block 50G, the live failure smoke at
   `queue-workflow-run-1782257290023621100_163` can retry typed
-  `workerEvidence.outcome: "completed"` only when `queue.workflow.planResume`
-  reports `retryable_worker_evidence_failure` and the backend evidence command
+  `workerEvidence.outcome: "completed"` even when stale non-mutating
+  `queue.workflow.runner` `failed_unexpected` history or stale
+  `record_worker_evidence` blocked/precondition/failed history remains in the
+  action log. `queue.workflow.planResume` should report
+  `retryable_worker_evidence_failure` or `waiting_for_worker_evidence`,
+  `safeToRecordWorkerEvidence=true`, no `incomplete_workflow_action_refs`
+  blocker, complete continuation refs for the upstream task/run, and bounded
+  stale-history diagnostics when present. The backend evidence command still
   independently proves recoverable typed task/run refs, no existing
   `evidenceBundleId`, no completed `record_worker_evidence`, no review, no
   final decision, matching durable worker state, and no downstream auto-start.
   Success should show the new `evidenceBundleId` in
   `queue.workflow.getReport`, a completed focused `record_worker_evidence`
-  action in `queue.workflow.readActionLog`, and a next resume phase of
-  review/awaiting review.
+  action in `queue.workflow.readActionLog`, a cleared active worker-evidence
+  blocker, and a next resume phase of review/awaiting review.
 - After evidence recorded: expect existing `evidenceBundleId` to be reused; no
   duplicate evidence.
 - After review created: expect existing canonical `messageId` to be reused for
@@ -587,6 +593,11 @@ duplicate task/start/evidence/review/ACK/finalization is created.
   blocks/conflicts. Worker evidence whose outcome conflicts with the durable
   worker run state blocks as `worker_outcome_mismatch` and can be retried with
   corrected typed input.
+- Stale non-mutating worker-evidence history is retryable only while durable
+  evidence/review/finalization is absent and current start-worker/run refs are
+  complete. Completed `record_worker_evidence`, existing evidence bundle,
+  review message, completion/failure decision, running worker, orphan worker,
+  and task/run/workspace mismatch remain blockers.
 - Completed, cancelled, and arbitrary failed workflow runs remain terminal for
   worker-evidence mutation unless the strict
   `retryable_worker_evidence_failure` proof above passes.
