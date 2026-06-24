@@ -47,6 +47,8 @@ const RESUME_STATUS_WAITING_FOR_RUN_SETTINGS: &str = "waiting_for_run_settings";
 const RESUME_STATUS_WAITING_FOR_PROMOTE: &str = "waiting_for_promote";
 const RESUME_STATUS_WAITING_FOR_WORKER_EVIDENCE: &str = "waiting_for_worker_evidence";
 const RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_FAILURE: &str = "retryable_worker_evidence_failure";
+const RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_ACTION_REPAIR: &str =
+    "retryable_worker_evidence_action_repair";
 const RESUME_STATUS_TERMINAL_COMPLETED: &str = "terminal_completed";
 const RESUME_STATUS_TERMINAL_FAILED: &str = "terminal_failed";
 const RESUME_STATUS_TERMINAL_CANCELLED: &str = "terminal_cancelled";
@@ -74,6 +76,7 @@ pub enum QueueWorkflowResumePlanStatus {
     WaitingForPromote,
     WaitingForWorkerEvidence,
     RetryableWorkerEvidenceFailure,
+    RetryableWorkerEvidenceActionRepair,
     TerminalCompleted,
     TerminalFailed,
     TerminalCancelled,
@@ -105,6 +108,9 @@ impl QueueWorkflowResumePlanStatus {
             Self::WaitingForPromote => RESUME_STATUS_WAITING_FOR_PROMOTE,
             Self::WaitingForWorkerEvidence => RESUME_STATUS_WAITING_FOR_WORKER_EVIDENCE,
             Self::RetryableWorkerEvidenceFailure => RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_FAILURE,
+            Self::RetryableWorkerEvidenceActionRepair => {
+                RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_ACTION_REPAIR
+            }
             Self::TerminalCompleted => RESUME_STATUS_TERMINAL_COMPLETED,
             Self::TerminalFailed => RESUME_STATUS_TERMINAL_FAILED,
             Self::TerminalCancelled => RESUME_STATUS_TERMINAL_CANCELLED,
@@ -702,13 +708,40 @@ impl WorkspaceService {
         {
             return Ok(None);
         }
-        if actions.iter().any(is_completed_worker_evidence_action)
-            || actions.iter().any(is_non_retryable_worker_evidence_action)
-        {
+        if let Some(blocker) = completed_worker_evidence_action_incomplete_blocker(&actions) {
+            return Ok(Some(plan_with_status(
+                workflow_run,
+                actions,
+                QueueWorkflowResumePlanStatus::BlockedIncompleteWorkflowActionRefs,
+                Some("worker_evidence".to_owned()),
+                Some("worker_evidence_blocked".to_owned()),
+                false,
+                false,
+                None,
+                vec![blocker],
+            )));
+        }
+        if actions.iter().any(is_completed_worker_evidence_action) {
             return Ok(None);
         }
+        if let Some(blocker) = non_retryable_worker_evidence_action_blocker(&actions) {
+            return Ok(Some(plan_with_status(
+                workflow_run,
+                actions,
+                QueueWorkflowResumePlanStatus::BlockedIncompleteWorkflowActionRefs,
+                Some("worker_evidence".to_owned()),
+                Some("worker_evidence_blocked".to_owned()),
+                false,
+                false,
+                None,
+                vec![blocker],
+            )));
+        }
+
+        let has_retryable_worker_evidence_action =
+            actions.iter().any(is_retryable_worker_evidence_action);
         if !actions.iter().any(is_worker_evidence_runner_failed_action)
-            && !actions.iter().any(is_retryable_worker_evidence_action)
+            && !has_retryable_worker_evidence_action
         {
             return Ok(None);
         }
@@ -794,10 +827,40 @@ impl WorkspaceService {
         {
             return Ok(None);
         }
+        if let Some(blocker) = retryable_worker_evidence_action_ref_blocker(
+            &actions,
+            &target.binding,
+            &workflow_run.workflow_run_id,
+        ) {
+            return Ok(Some(plan_with_status(
+                workflow_run,
+                actions,
+                QueueWorkflowResumePlanStatus::BlockedIncompleteWorkflowActionRefs,
+                Some("worker_evidence".to_owned()),
+                Some("worker_evidence_blocked".to_owned()),
+                false,
+                false,
+                None,
+                vec![blocker],
+            )));
+        }
 
+        let (status, blocker_code, blocker_message) = if has_retryable_worker_evidence_action {
+            (
+                QueueWorkflowResumePlanStatus::RetryableWorkerEvidenceActionRepair,
+                "retryable_worker_evidence_action_repair",
+                "Queue workflow has stale non-mutating record_worker_evidence history with incomplete refs; retry with corrected typed workerEvidence is allowed.",
+            )
+        } else {
+            (
+                QueueWorkflowResumePlanStatus::RetryableWorkerEvidenceFailure,
+                "retryable_worker_evidence_failure",
+                "Queue workflow failed during worker evidence recording before durable evidence mutation; retry with corrected typed workerEvidence is allowed.",
+            )
+        };
         let blockers = vec![binding_blocker(
-            "retryable_worker_evidence_failure",
-            "Queue workflow failed during worker evidence recording before durable evidence mutation; retry with corrected typed workerEvidence is allowed.",
+            blocker_code,
+            blocker_message,
             &target.binding,
             Some("workerEvidence"),
         )];
@@ -809,7 +872,6 @@ impl WorkspaceService {
             .iter()
             .map(slot_reconciliation)
             .collect::<Vec<_>>();
-        let status = QueueWorkflowResumePlanStatus::RetryableWorkerEvidenceFailure;
         let reconciled_variables_json = variables_value
             .as_ref()
             .and_then(|_| workflow_run.variables_json.clone());
@@ -1356,10 +1418,192 @@ fn is_retryable_worker_evidence_action(action: &QueueWorkflowAction) -> bool {
     is_stale_retryable_record_worker_evidence_action(action)
 }
 
-fn is_non_retryable_worker_evidence_action(action: &QueueWorkflowAction) -> bool {
-    action.action_type == "record_worker_evidence"
-        && !is_completed_worker_evidence_action(action)
-        && !is_stale_retryable_record_worker_evidence_action(action)
+fn completed_worker_evidence_action_incomplete_blocker(
+    actions: &[QueueWorkflowAction],
+) -> Option<QueueWorkflowResumeBlocker> {
+    actions
+        .iter()
+        .filter(|action| is_completed_worker_evidence_action(action))
+        .find_map(|action| {
+            (!completed_worker_evidence_action_refs_are_complete(action)).then(|| {
+                action_ref_blocker(
+                    "completed_evidence_action_incomplete",
+                    "A completed record_worker_evidence action is missing durable typed refs; resume planning will not duplicate evidence.",
+                    action,
+                    None,
+                    Some("recordWorkerEvidence.refs"),
+                )
+            })
+        })
+}
+
+fn non_retryable_worker_evidence_action_blocker(
+    actions: &[QueueWorkflowAction],
+) -> Option<QueueWorkflowResumeBlocker> {
+    actions
+        .iter()
+        .filter(|action| {
+            action.action_type == "record_worker_evidence"
+                && !is_completed_worker_evidence_action(action)
+                && !is_stale_retryable_record_worker_evidence_action(action)
+        })
+        .map(|action| {
+            if action_result_evidence_bundle_id(action).is_some() {
+                action_ref_blocker(
+                    "evidence_mutation_state_unknown",
+                    "A non-completed record_worker_evidence action has evidence result refs; resume planning will not assume the mutation is safe to retry.",
+                    action,
+                    None,
+                    Some("resultRefs.evidenceBundleId"),
+                )
+            } else {
+                action_ref_blocker(
+                    "stale_action_refs_ambiguous",
+                    "A non-completed record_worker_evidence action is not a proven stale non-mutating repair candidate.",
+                    action,
+                    None,
+                    Some("recordWorkerEvidence"),
+                )
+            }
+        })
+        .next()
+}
+
+fn retryable_worker_evidence_action_ref_blocker(
+    actions: &[QueueWorkflowAction],
+    binding: &SlotBinding,
+    workflow_run_id: &str,
+) -> Option<QueueWorkflowResumeBlocker> {
+    actions
+        .iter()
+        .filter(|action| is_retryable_worker_evidence_action(action))
+        .find_map(|action| {
+            let Some(target) = action_ref_value(action.target_refs_json.as_deref()) else {
+                if record_worker_evidence_idempotency_key(workflow_run_id, binding)
+                    .as_deref()
+                    == Some(action.idempotency_key.as_str())
+                {
+                    return None;
+                }
+                return Some(action_ref_blocker(
+                    "stale_action_refs_ambiguous",
+                    "A retryable record_worker_evidence action has unreadable target refs; resume planning will not repair it.",
+                    action,
+                    binding.task_id.as_deref(),
+                    Some("recordWorkerEvidence.targetRefs"),
+                ));
+            };
+            retryable_worker_evidence_ref_mismatch_blocker(
+                action,
+                &target,
+                binding,
+                workflow_run_id,
+            )
+        })
+}
+
+fn record_worker_evidence_idempotency_key(
+    workflow_run_id: &str,
+    binding: &SlotBinding,
+) -> Option<String> {
+    Some(format!(
+        "{workflow_run_id}:record_worker_evidence:{}:{}:{}",
+        binding.slot,
+        binding.task_id.as_deref()?,
+        binding.run_id.as_deref()?
+    ))
+}
+
+fn retryable_worker_evidence_ref_mismatch_blocker(
+    action: &QueueWorkflowAction,
+    target: &serde_json::Map<String, Value>,
+    binding: &SlotBinding,
+    workflow_run_id: &str,
+) -> Option<QueueWorkflowResumeBlocker> {
+    for (field, expected, code, message) in [
+        (
+            "workflowRunId",
+            Some(workflow_run_id),
+            "workflow_run_ref_mismatch",
+            "A retryable record_worker_evidence action points at a different workflowRunId.",
+        ),
+        (
+            "slot",
+            Some(binding.slot.as_str()),
+            "stale_action_refs_ambiguous",
+            "A retryable record_worker_evidence action points at a different slot.",
+        ),
+        (
+            "taskId",
+            binding.task_id.as_deref(),
+            "task_ref_mismatch",
+            "A retryable record_worker_evidence action points at a different taskId.",
+        ),
+        (
+            "runId",
+            binding.run_id.as_deref(),
+            "run_ref_mismatch",
+            "A retryable record_worker_evidence action points at a different runId.",
+        ),
+        (
+            "settingsHash",
+            binding.settings_hash.as_deref(),
+            "settings_hash_mismatch",
+            "A retryable record_worker_evidence action points at a different settingsHash.",
+        ),
+        (
+            "executionTargetHash",
+            binding.execution_target_hash.as_deref(),
+            "execution_target_hash_mismatch",
+            "A retryable record_worker_evidence action points at a different executionTargetHash.",
+        ),
+        (
+            "executionTargetKind",
+            binding.execution_target_kind.as_deref(),
+            "stale_action_refs_ambiguous",
+            "A retryable record_worker_evidence action points at a different executionTargetKind.",
+        ),
+        (
+            "providerId",
+            binding.provider_id.as_deref(),
+            "stale_action_refs_ambiguous",
+            "A retryable record_worker_evidence action points at a different providerId.",
+        ),
+        (
+            "queueOwnerWidgetInstanceId",
+            binding.queue_owner_widget_instance_id.as_deref(),
+            "stale_action_refs_ambiguous",
+            "A retryable record_worker_evidence action points at a different queueOwnerWidgetInstanceId.",
+        ),
+        (
+            "executorWidgetId",
+            binding.executor_widget_id.as_deref(),
+            "stale_action_refs_ambiguous",
+            "A retryable record_worker_evidence action points at a different executorWidgetId.",
+        ),
+    ] {
+        if present_ref_mismatch(target, field, expected) {
+            return Some(action_ref_blocker(
+                code,
+                message,
+                action,
+                binding.task_id.as_deref(),
+                Some("recordWorkerEvidence.targetRefs"),
+            ));
+        }
+    }
+    None
+}
+
+fn present_ref_mismatch(
+    target: &serde_json::Map<String, Value>,
+    field: &str,
+    expected: Option<&str>,
+) -> bool {
+    optional_string_ref(target, field).is_some_and(|actual| match expected {
+        Some(expected) => actual != expected,
+        None => true,
+    })
 }
 
 fn is_stale_retryable_record_worker_evidence_action(action: &QueueWorkflowAction) -> bool {
@@ -1376,7 +1620,30 @@ fn is_stale_retryable_record_worker_evidence_action(action: &QueueWorkflowAction
             || result_status.as_deref() == Some("precondition_failed"))
         || action.status == "failed"
             && (blocker == Some("failed_unexpected")
+                || blocker == Some("incomplete_workflow_action_refs")
                 || result_status.as_deref() == Some("failed_unexpected"))
+}
+
+fn completed_worker_evidence_action_refs_are_complete(action: &QueueWorkflowAction) -> bool {
+    let Some(target) = action_ref_value(action.target_refs_json.as_deref()) else {
+        return false;
+    };
+    let Some(result) = action_ref_value(action.result_refs_json.as_deref()) else {
+        return false;
+    };
+    [
+        "workflowRunId",
+        "slot",
+        "taskId",
+        "runId",
+        "settingsHash",
+        "executionTargetHash",
+    ]
+    .iter()
+    .all(|field| optional_string_ref(&target, field).is_some())
+        && ["evidenceBundleId", "runId", "outcome", "workerFinalStatus"]
+            .iter()
+            .all(|field| optional_string_ref(&result, field).is_some())
 }
 
 fn action_ref_phase(raw: Option<&str>) -> Option<String> {

@@ -1338,6 +1338,7 @@ function resumeDecisionForPlan({
 
   if (
     plan.status === "retryable_worker_evidence_failure" ||
+    plan.status === "retryable_worker_evidence_action_repair" ||
     plan.status === "waiting_for_worker_evidence" ||
     plan.nextStep === "waiting_for_worker_evidence" ||
     plan.nextStep === "worker_evidence_required"

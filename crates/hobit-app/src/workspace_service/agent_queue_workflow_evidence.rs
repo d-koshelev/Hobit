@@ -489,16 +489,23 @@ impl WorkspaceService {
                     }
                 }
 
-                let target_refs_json = target_refs_json(&request);
+                let target_refs_json = target_refs_json(&request, &existing_binding);
                 let existing_action = match store.get_agent_queue_workflow_action_by_idempotency_key(
                     &request.workflow_run_id,
                     &request.action_idempotency_key,
                 )? {
                     Some(action) => {
                         let target_refs_match =
-                            action_matches_target(&action, &request, &target_refs_json);
+                            action_matches_target(&action, &request, &existing_binding);
+                        let target_refs_compatible = action_target_refs_compatible_for_repair(
+                            &action,
+                            &request,
+                            &existing_binding,
+                        );
+                        let target_refs_complete =
+                            action.target_refs_json.as_deref() == Some(target_refs_json.as_str());
                         let retryable_action = is_retryable_record_worker_evidence_action(&action);
-                        if !target_refs_match && !retryable_action {
+                        if !target_refs_match && (!retryable_action || !target_refs_compatible) {
                             return Ok(TxResult::Return(result(
                                 QueueWorkflowRecordWorkerEvidenceStatus::Conflict,
                                 Some(QueueWorkflowRun::from(workflow_run)),
@@ -542,7 +549,7 @@ impl WorkspaceService {
                         } else {
                             ExistingActionDecision::Retryable {
                                 action,
-                                repair_target_refs: !target_refs_match,
+                                repair_target_refs: !target_refs_complete,
                             }
                         }
                     }
@@ -1141,10 +1148,24 @@ fn record_worker_evidence_action_reentry_blocker(
         .filter(|action| action.action_type == RECORD_WORKER_EVIDENCE_ACTION_TYPE)
     {
         if action.status == QueueWorkflowActionStatus::Completed.as_str() {
+            if !completed_record_worker_evidence_action_refs_are_complete(action) {
+                return Some(blocker(
+                    "completed_evidence_action_incomplete",
+                    "Queue workflow worker evidence re-entry is not allowed after a completed record_worker_evidence action with incomplete refs.",
+                    Some("recordWorkerEvidence.refs"),
+                ));
+            }
             return Some(blocker(
                 "record_worker_evidence_already_completed",
                 "Queue workflow worker evidence re-entry is not allowed after record_worker_evidence completed.",
                 Some("recordWorkerEvidence"),
+            ));
+        }
+        if action_result_evidence_bundle_id(action).is_some() {
+            return Some(blocker(
+                "evidence_mutation_state_unknown",
+                "Queue workflow worker evidence re-entry is not allowed when a non-completed record_worker_evidence action has evidence result refs.",
+                Some("resultRefs.evidenceBundleId"),
             ));
         }
         if is_retryable_record_worker_evidence_action(action) {
@@ -1157,6 +1178,30 @@ fn record_worker_evidence_action_reentry_blocker(
         ));
     }
     None
+}
+
+fn completed_record_worker_evidence_action_refs_are_complete(
+    action: &AgentQueueWorkflowActionRow,
+) -> bool {
+    let Some(target) = parse_action_refs(action.target_refs_json.as_deref()) else {
+        return false;
+    };
+    let Some(result) = parse_action_refs(action.result_refs_json.as_deref()) else {
+        return false;
+    };
+    [
+        "workflowRunId",
+        "slot",
+        "taskId",
+        "runId",
+        "settingsHash",
+        "executionTargetHash",
+    ]
+    .iter()
+    .all(|field| action_string_field(&target, field).is_some())
+        && ["evidenceBundleId", "runId", "outcome", "workerFinalStatus"]
+            .iter()
+            .all(|field| action_string_field(&result, field).is_some())
 }
 
 enum StartWorkerRunRecovery {
@@ -1454,22 +1499,156 @@ fn ref_binding_path(field: &str) -> &'static str {
 fn action_matches_target(
     action: &AgentQueueWorkflowActionRow,
     request: &NormalizedWorkflowEvidenceRequest,
-    target_refs_json: &str,
+    existing_binding: &Value,
 ) -> bool {
+    let Some(target_refs) = parse_action_refs(action.target_refs_json.as_deref()) else {
+        return false;
+    };
     action.workspace_id == request.workspace_id
         && action.workflow_run_id == request.workflow_run_id
         && action.step_id == RECORD_WORKER_EVIDENCE_STEP_ID
         && action.action_type == RECORD_WORKER_EVIDENCE_ACTION_TYPE
-        && action.target_refs_json.as_deref() == Some(target_refs_json)
+        && action_string_field(&target_refs, "workflowRunId").as_deref()
+            == Some(request.workflow_run_id.as_str())
+        && action_string_field(&target_refs, "slot").as_deref() == Some(request.slot.as_str())
+        && action_string_field(&target_refs, "taskId").as_deref()
+            == Some(request.worker.queue_item_id.as_str())
+        && action_string_field(&target_refs, "runId").as_deref()
+            == Some(request.worker.run_id.as_str())
+        && optional_target_ref_matches_binding(&target_refs, existing_binding, "settingsHash")
+        && optional_target_ref_matches_binding(
+            &target_refs,
+            existing_binding,
+            "executionTargetHash",
+        )
+        && optional_target_ref_matches_binding(
+            &target_refs,
+            existing_binding,
+            "executionTargetKind",
+        )
+        && optional_target_ref_matches_binding(&target_refs, existing_binding, "providerId")
+        && optional_target_ref_matches_binding(
+            &target_refs,
+            existing_binding,
+            "queueOwnerWidgetInstanceId",
+        )
+        && optional_target_ref_matches_binding(&target_refs, existing_binding, "executorWidgetId")
 }
 
-fn target_refs_json(request: &NormalizedWorkflowEvidenceRequest) -> String {
-    canonical_json_string(&json!({
-        "runId": request.worker.run_id,
-        "slot": request.slot,
-        "taskId": request.worker.queue_item_id,
-        "workflowRunId": request.workflow_run_id,
-    }))
+fn action_target_refs_compatible_for_repair(
+    action: &AgentQueueWorkflowActionRow,
+    request: &NormalizedWorkflowEvidenceRequest,
+    existing_binding: &Value,
+) -> bool {
+    if action.workspace_id != request.workspace_id
+        || action.workflow_run_id != request.workflow_run_id
+        || action.step_id != RECORD_WORKER_EVIDENCE_STEP_ID
+        || action.action_type != RECORD_WORKER_EVIDENCE_ACTION_TYPE
+    {
+        return false;
+    }
+    let Some(target_refs) = parse_action_refs(action.target_refs_json.as_deref()) else {
+        return action.idempotency_key == request.action_idempotency_key;
+    };
+    present_target_ref_matches(
+        &target_refs,
+        "workflowRunId",
+        Some(request.workflow_run_id.as_str()),
+    ) && present_target_ref_matches(&target_refs, "slot", Some(request.slot.as_str()))
+        && present_target_ref_matches(
+            &target_refs,
+            "taskId",
+            Some(request.worker.queue_item_id.as_str()),
+        )
+        && present_target_ref_matches(&target_refs, "runId", Some(request.worker.run_id.as_str()))
+        && present_target_ref_matches(
+            &target_refs,
+            "settingsHash",
+            string_field(existing_binding, "settingsHash"),
+        )
+        && present_target_ref_matches(
+            &target_refs,
+            "executionTargetHash",
+            string_field(existing_binding, "executionTargetHash"),
+        )
+        && present_target_ref_matches(
+            &target_refs,
+            "executionTargetKind",
+            string_field(existing_binding, "executionTargetKind"),
+        )
+        && present_target_ref_matches(
+            &target_refs,
+            "providerId",
+            string_field(existing_binding, "providerId"),
+        )
+        && present_target_ref_matches(
+            &target_refs,
+            "queueOwnerWidgetInstanceId",
+            string_field(existing_binding, "queueOwnerWidgetInstanceId"),
+        )
+        && present_target_ref_matches(
+            &target_refs,
+            "executorWidgetId",
+            string_field(existing_binding, "executorWidgetId"),
+        )
+}
+
+fn optional_target_ref_matches_binding(
+    target_refs: &Map<String, Value>,
+    existing_binding: &Value,
+    field: &str,
+) -> bool {
+    match (
+        action_string_field(target_refs, field),
+        string_field(existing_binding, field),
+    ) {
+        (Some(target), Some(binding)) => target == binding,
+        _ => true,
+    }
+}
+
+fn present_target_ref_matches(
+    target_refs: &Map<String, Value>,
+    field: &str,
+    expected: Option<&str>,
+) -> bool {
+    match action_string_field(target_refs, field) {
+        Some(actual) => expected.is_some_and(|expected| actual == expected),
+        None => true,
+    }
+}
+
+fn target_refs_json(
+    request: &NormalizedWorkflowEvidenceRequest,
+    existing_binding: &Value,
+) -> String {
+    let mut refs = Map::new();
+    refs.insert(
+        "runId".to_owned(),
+        Value::String(request.worker.run_id.clone()),
+    );
+    refs.insert("slot".to_owned(), Value::String(request.slot.clone()));
+    refs.insert(
+        "taskId".to_owned(),
+        Value::String(request.worker.queue_item_id.clone()),
+    );
+    refs.insert(
+        "workflowRunId".to_owned(),
+        Value::String(request.workflow_run_id.clone()),
+    );
+    for field in [
+        "settingsHash",
+        "executionTargetHash",
+        "executionTargetKind",
+        "providerId",
+        "queueOwnerWidgetInstanceId",
+        "executorWidgetId",
+    ] {
+        if let Some(value) = string_field(existing_binding, field) {
+            refs.insert(field.to_owned(), Value::String(value.to_owned()));
+        }
+    }
+    canonical_json_string(&Value::Object(refs))
 }
 
 fn result_refs_json(
@@ -1553,6 +1732,7 @@ pub(super) fn is_retryable_record_worker_evidence_blocker(code: &str) -> bool {
             | "missing_settings_hash"
             | "missing_execution_target_hash"
             | "workflow_run_terminal"
+            | "incomplete_workflow_action_refs"
             | "precondition_failed"
     )
 }

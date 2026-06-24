@@ -196,7 +196,7 @@ describe("queue.workflow debug read capabilities", () => {
 
     expect(reportResult.status).toBe("succeeded");
     expect(reportResult.result.output).toMatchObject({
-      actionSummaryCount: 6,
+      actionSummaryCount: 7,
       currentStep: "worker_evidence_failed_unexpected",
       persistentStatus: "failed",
       phase: "worker_evidence",
@@ -268,7 +268,7 @@ describe("queue.workflow debug read capabilities", () => {
       total: number;
       truncated: boolean;
     };
-    expect(actionLogOutput.total).toBe(6);
+    expect(actionLogOutput.total).toBe(7);
     expect(actionLogOutput.truncated).toBe(false);
     expect(actionLogOutput.actions).not.toEqual([]);
     expect(actionLogOutput.actions).toEqual(
@@ -283,6 +283,11 @@ describe("queue.workflow debug read capabilities", () => {
           actionType: "queue.workflow.runner",
           blockerCode: "failed_unexpected",
           status: "failed",
+        }),
+        expect.objectContaining({
+          actionType: "record_worker_evidence",
+          blockerCode: "incomplete_workflow_action_refs",
+          status: "blocked",
         }),
       ]),
     );
@@ -315,14 +320,14 @@ describe("queue.workflow debug read capabilities", () => {
     expect(planResult.result.output).toMatchObject({
       blockers: [
         expect.objectContaining({
-          blockerCode: "retryable_worker_evidence_failure",
+          blockerCode: "retryable_worker_evidence_action_repair",
           missingRequiredField: "workerEvidence",
         }),
       ],
       missingRefs: [],
       nextPhase: "worker_evidence",
       nextStep: "waiting_for_worker_evidence",
-      resumeStatus: "retryable_worker_evidence_failure",
+      resumeStatus: "retryable_worker_evidence_action_repair",
       runIdsBySlot: { upstream: "queue-run_1782257290066506600_169" },
       taskIdsBySlot: { upstream: "queue_task_wf_44a095e817b585b5" },
     });
@@ -340,14 +345,14 @@ describe("queue.workflow debug read capabilities", () => {
           slotPresent: true,
           taskIdPresent: true,
         },
-        status: "retryable_worker_evidence_failure",
-        staleHistory: [
+        status: "retryable_worker_evidence_action_repair",
+        staleHistory: expect.arrayContaining([
           expect.objectContaining({
             actionType: "queue.workflow.runner",
             blockerCode: "failed_unexpected",
             status: "failed",
           }),
-        ],
+        ]),
         workerState: {
           latestRunId: "queue-run_1782257290066506600_169",
           latestRunStatus: "completed",
@@ -382,6 +387,135 @@ describe("queue.workflow debug read capabilities", () => {
     ).not.toContain("...");
     expect(createItem).not.toHaveBeenCalled();
     expect(updateItem).not.toHaveBeenCalled();
+    expect(startWorkflowAssignedTask).not.toHaveBeenCalled();
+  });
+
+  it("surfaces repaired worker evidence debug reads without active stale blockers", async () => {
+    const getWorkflowReport = vi.fn(async () => repairedLiveFailureWorkflowReport());
+    const planWorkflowResume = vi.fn(async () => repairedWorkerEvidenceResumePlan());
+    const startWorkflowAssignedTask = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              queueEnabled: false,
+              workspaceId: "workspace-1",
+            }),
+            getWorkflowReport,
+            planWorkflowResume,
+            startWorkflowAssignedTask,
+          } as Partial<WorkspaceAgentQueueBridge>),
+        ),
+      ),
+      policy: { requireDryRunBeforeSideEffectingInvoke: false },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const reportResult = await broker.invokeAsync<Record<string, unknown>>(
+      request("queue.workflow.getReport", {
+        workflowRunId: "queue-workflow-run-1782257290023621100_163",
+      }),
+    );
+    const focusedActionLogResult = await broker.invokeAsync<Record<string, unknown>>(
+      request("queue.workflow.readActionLog", {
+        actionType: "record_worker_evidence",
+        includeRefs: true,
+        slot: "upstream",
+        workflowRunId: "queue-workflow-run-1782257290023621100_163",
+      }),
+    );
+    const planResult = await broker.invokeAsync<Record<string, unknown>>(
+      request("queue.workflow.planResume", {
+        workflowRunId: "queue-workflow-run-1782257290023621100_163",
+      }),
+    );
+
+    expect(reportResult.status).toBe("succeeded");
+    expect(reportResult.result.output).toMatchObject({
+      currentStep: "awaiting_review",
+      evidenceBundleIdsBySlot: {
+        upstream: "evidence-bundle-live-repaired",
+      },
+      persistentStatus: "paused",
+      diagnostics: {
+        refMaps: {
+          evidenceBundleIdsBySlot: {
+            upstream: "evidence-bundle-live-repaired",
+          },
+          runIdsBySlot: {
+            upstream: "queue-run_1782257290066506600_169",
+          },
+          taskIdsBySlot: {
+            upstream: "queue_task_wf_44a095e817b585b5",
+          },
+        },
+      },
+    });
+    expect(focusedActionLogResult.status).toBe("succeeded");
+    expect(focusedActionLogResult.result.output).toMatchObject({
+      actionTypeFilter: "record_worker_evidence",
+      ambiguous: false,
+      focusedAction: {
+        actionType: "record_worker_evidence",
+        resultRefs: {
+          evidenceBundleId: "evidence-bundle-live-repaired",
+          runId: "queue-run_1782257290066506600_169",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+        status: "completed",
+        targetRefs: {
+          executionTargetHash: "execution-target-hash-queue_local",
+          runId: "queue-run_1782257290066506600_169",
+          settingsHash: "settings-hash-upstream",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+          workflowRunId: "queue-workflow-run-1782257290023621100_163",
+        },
+      },
+      includeRefs: true,
+      slotFilter: "upstream",
+    });
+    expect(planResult.result.output).toMatchObject({
+      blockers: [],
+      nextPhase: "review",
+      nextStep: "review_create_ready",
+      resumeStatus: "resume_ready",
+      diagnostics: {
+        reasonIfNotSafe: "planner_not_at_worker_evidence",
+        safeToRecordWorkerEvidence: false,
+        status: "resume_ready",
+        staleHistory: expect.arrayContaining([
+          expect.objectContaining({
+            actionType: "queue.workflow.runner",
+            blockerCode: "failed_unexpected",
+            status: "failed",
+          }),
+        ]),
+      },
+    });
+    const staleHistory = (
+      planResult.result.output as {
+        diagnostics: { staleHistory: Array<{ actionType: string }> };
+      }
+    ).diagnostics.staleHistory;
+    expect(staleHistory).not.toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ actionType: "record_worker_evidence" }),
+      ]),
+    );
+
+    const serialized = JSON.stringify({
+      focusedActionLog: focusedActionLogResult.result.output,
+      plan: planResult.result.output,
+      report: reportResult.result.output,
+    });
+    expect(serialized).not.toContain("operator-confirmed");
+    expect(serialized).not.toContain("confirmationToken");
+    expect(serialized).not.toContain("rawProviderTranscript");
     expect(startWorkflowAssignedTask).not.toHaveBeenCalled();
   });
 
@@ -539,7 +673,7 @@ describe("queue.workflow debug read capabilities", () => {
           settingsHashPresent: true,
           taskIdPresent: true,
         },
-        status: "retryable_worker_evidence_failure",
+        status: "retryable_worker_evidence_action_repair",
         workerState: {
           latestRunStatus: "completed",
           workerRunState: "completed",
@@ -732,7 +866,7 @@ function workflowResumePlan(): AgentQueueWorkflowResumePlan {
 function liveFailureWorkflowRun(): AgentQueueWorkflowRun {
   return workflowRun({
     actionLogSummaryJson: JSON.stringify({
-      actionSummaryCount: 6,
+      actionSummaryCount: 7,
       nextPhase: "worker_evidence",
       nextStep: "waiting_for_worker_evidence",
     }),
@@ -868,6 +1002,24 @@ function liveFailureWorkflowReport(): AgentQueueWorkflowReport {
           workflowId: "dependency_failure_smoke",
         }),
       }),
+      liveFailureAction({
+        actionId: "workflow-action-record-worker-evidence-stale",
+        actionType: "record_worker_evidence",
+        blockerCode: "incomplete_workflow_action_refs",
+        blockerMessage:
+          "Workflow action refs are incomplete; worker evidence cannot be recorded yet.",
+        completedAt: null,
+        idempotencyKey:
+          "queue-workflow-run-1782257290023621100_163:record_worker_evidence:upstream:queue_task_wf_44a095e817b585b5:queue-run_1782257290066506600_169",
+        resultRefsJson: JSON.stringify({
+          commandStatus: "blocked",
+        }),
+        status: "blocked",
+        stepId: "record_worker_evidence",
+        targetRefsJson: JSON.stringify({
+          workflowRunId: "queue-workflow-run-1782257290023621100_163",
+        }),
+      }),
     ],
     reportSummary:
       "Queue workflow run failed during worker_evidence before durable evidence mutation.",
@@ -976,9 +1128,9 @@ function safeWorkerEvidenceResumePlan(): AgentQueueWorkflowResumePlan {
     ...liveFailureResumePlan(),
     blockers: [
       {
-        blockerCode: "retryable_worker_evidence_failure",
+        blockerCode: "retryable_worker_evidence_action_repair",
         blockerMessage:
-          "Queue workflow failed during worker evidence recording before durable evidence mutation; retry with corrected typed workerEvidence is allowed.",
+          "Queue workflow has stale non-mutating record_worker_evidence history with incomplete refs; retry with corrected typed workerEvidence is allowed.",
         completionDecisionId: null,
         evidenceBundleId: null,
         failureDecisionId: null,
@@ -1004,7 +1156,7 @@ function safeWorkerEvidenceResumePlan(): AgentQueueWorkflowResumePlan {
         taskExists: true,
       },
     ],
-    status: "retryable_worker_evidence_failure",
+    status: "retryable_worker_evidence_action_repair",
     taskSnapshots: [
       {
         ...liveFailureResumePlan().taskSnapshots[0],
@@ -1012,5 +1164,132 @@ function safeWorkerEvidenceResumePlan(): AgentQueueWorkflowResumePlan {
         workerRunState: "completed",
       },
     ],
+  };
+}
+
+function repairedLiveFailureWorkflowRun(): AgentQueueWorkflowRun {
+  return workflowRun({
+    ...liveFailureWorkflowRun(),
+    actionLogSummaryJson: JSON.stringify({
+      actionSummaryCount: 7,
+      nextPhase: "review",
+      nextStep: "review_create_ready",
+    }),
+    completedAt: null,
+    currentStep: "awaiting_review",
+    slotBindingsJson: JSON.stringify({
+      downstream: {
+        taskId: "queue_task_wf_50bf4534e054bec3",
+        taskSpecHash: "task-spec-hash-downstream",
+      },
+      upstream: {
+        evidenceActionId: "workflow-action-record-worker-evidence-stale",
+        evidenceActionIdempotencyKey:
+          "queue-workflow-run-1782257290023621100_163:record_worker_evidence:upstream:queue_task_wf_44a095e817b585b5:queue-run_1782257290066506600_169",
+        evidenceBundleId: "evidence-bundle-live-repaired",
+        executionTarget: {
+          kind: "queue_local",
+          providerId: "codex",
+        },
+        executionTargetHash: "execution-target-hash-queue_local",
+        runId: "queue-run_1782257290066506600_169",
+        settingsHash: "settings-hash-upstream",
+        taskId: "queue_task_wf_44a095e817b585b5",
+        taskSpecHash: "task-spec-hash-upstream",
+      },
+    }),
+    status: "paused",
+    variablesJson: JSON.stringify({
+      evidenceBundleIdsBySlot: {
+        upstream: "evidence-bundle-live-repaired",
+      },
+      runIdsBySlot: {
+        upstream: "queue-run_1782257290066506600_169",
+      },
+      taskIdsBySlot: {
+        downstream: "queue_task_wf_50bf4534e054bec3",
+        upstream: "queue_task_wf_44a095e817b585b5",
+      },
+    }),
+  });
+}
+
+function repairedLiveFailureWorkflowReport(): AgentQueueWorkflowReport {
+  return workflowReport({
+    actions: [
+      ...liveFailureWorkflowReport().actions.filter(
+        (action) =>
+          action.actionId !== "workflow-action-record-worker-evidence-stale",
+      ),
+      repairedRecordWorkerEvidenceAction(),
+    ],
+    reportSummary:
+      "Queue workflow worker evidence was repaired and recorded; review is ready.",
+    resumeAvailable: true,
+    resumeStatus: "resume_ready",
+    workflowRun: repairedLiveFailureWorkflowRun(),
+  });
+}
+
+function repairedRecordWorkerEvidenceAction(): AgentQueueWorkflowAction {
+  return liveFailureAction({
+    actionId: "workflow-action-record-worker-evidence-stale",
+    actionType: "record_worker_evidence",
+    blockerCode: null,
+    blockerMessage: null,
+    completedAt: "2026-06-23T12:07:00.000Z",
+    idempotencyKey:
+      "queue-workflow-run-1782257290023621100_163:record_worker_evidence:upstream:queue_task_wf_44a095e817b585b5:queue-run_1782257290066506600_169",
+    resultRefsJson: JSON.stringify({
+      evidenceBundleId: "evidence-bundle-live-repaired",
+      evidenceStatus: "available",
+      outcome: "completed",
+      runId: "queue-run_1782257290066506600_169",
+      taskId: "queue_task_wf_44a095e817b585b5",
+      workerFinalStatus: "completed",
+    }),
+    status: "completed",
+    stepId: "record_worker_evidence",
+    targetRefsJson: JSON.stringify({
+      executionTargetHash: "execution-target-hash-queue_local",
+      runId: "queue-run_1782257290066506600_169",
+      settingsHash: "settings-hash-upstream",
+      slot: "upstream",
+      taskId: "queue_task_wf_44a095e817b585b5",
+      workflowRunId: "queue-workflow-run-1782257290023621100_163",
+    }),
+    updatedAt: "2026-06-23T12:07:00.000Z",
+  });
+}
+
+function repairedWorkerEvidenceResumePlan(): AgentQueueWorkflowResumePlan {
+  return {
+    ...safeWorkerEvidenceResumePlan(),
+    actions: repairedLiveFailureWorkflowReport().actions,
+    blockers: [],
+    nextPhase: "review",
+    nextStep: "review_create_ready",
+    reportSummary:
+      "Queue workflow worker evidence is recorded; review creation is ready.",
+    resumeAvailable: true,
+    slotReconciliations: [
+      {
+        ...safeWorkerEvidenceResumePlan().slotReconciliations[0],
+        aggregateEvidenceState: "available",
+        evidenceBundleId: "evidence-bundle-live-repaired",
+        evidenceExists: true,
+      },
+    ],
+    status: "resume_ready",
+    taskSnapshots: [
+      {
+        ...safeWorkerEvidenceResumePlan().taskSnapshots[0],
+        evidenceState: "available",
+        latestEvidenceBundleId: "evidence-bundle-live-repaired",
+        latestRunStatus: "completed",
+        workerRunState: "completed",
+      },
+    ],
+    workflowRun: repairedLiveFailureWorkflowRun(),
   };
 }

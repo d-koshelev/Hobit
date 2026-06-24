@@ -208,8 +208,9 @@ worker, or start downstream work.
 
 Worker-evidence retry is the only narrow terminal workflow re-entry exception.
 If `queue.workflow.planResume` or the backend evidence command proves
-`retryable_worker_evidence_failure`, the runtime adapter may invoke only the
-typed `worker_evidence` phase for the existing workflow run with explicit
+`retryable_worker_evidence_failure` or
+`retryable_worker_evidence_action_repair`, the runtime adapter may invoke only
+the typed `worker_evidence` phase for the existing workflow run with explicit
 `workerEvidence`; it must not create a new workflow, start a worker, create or
 ACK review, finalize, or mutate downstream state. Completed and cancelled
 workflow runs never re-enter, and arbitrary failed or blocked workflow runs
@@ -364,14 +365,17 @@ command:
   current durable refs prove the same task/run can safely record evidence.
   Stale retryable history is limited to `queue.workflow.runner` failed at
   `worker_evidence` before evidence mutation, `record_worker_evidence`
-  blocked/precondition failures with no `evidenceBundleId`, and
-  `record_worker_evidence` `failed_unexpected` rows with no evidence bundle and
-  no completed evidence action. Such rows are diagnostic history, not required
-  action proof. The planner must still require complete current task/run,
-  settings hash, execution-target hash, slot binding or derived slot, durable
-  completed `start_worker` proof, no durable evidence/review/finalization, and
-  no running/orphan/mismatched worker before reporting
-  `retryable_worker_evidence_failure` or `waiting_for_worker_evidence`.
+  blocked/precondition failures with no `evidenceBundleId`,
+  `record_worker_evidence` `failed_unexpected` rows with no evidence bundle,
+  and stale non-completed `record_worker_evidence` rows blocked on
+  `incomplete_workflow_action_refs` with no evidence bundle. Such rows are
+  diagnostic history, not required action proof. The planner must still require
+  complete current task/run, settings hash, execution-target hash, slot binding
+  or derived slot, durable completed `start_worker` proof, no durable
+  evidence/review/finalization, and no running/orphan/mismatched worker before
+  reporting `retryable_worker_evidence_failure`,
+  `retryable_worker_evidence_action_repair`, or
+  `waiting_for_worker_evidence`.
 - `queue.workflow.recordWorkerEvidence` records or reconciles durable worker
   evidence for one explicit workflow slot. It requires `workspaceId`,
   `workflowRunId`, `slot`, `taskId`, `runId`, bounded worker final
@@ -401,7 +405,8 @@ command:
   roll back, launch Terminal, start workers, start downstream work,
   create/update/promote tasks, or enable Queue.
   Failed or blocked workflow runs may re-enter this command only when the
-  backend proves the exact `retryable_worker_evidence_failure` shape:
+  backend proves the exact `retryable_worker_evidence_failure` or
+  `retryable_worker_evidence_action_repair` shape:
   previous failure at `worker_evidence` before durable evidence mutation, no
   slot `evidenceBundleId`, no completed `record_worker_evidence` action, no
   review message, no accepted-completion or terminal-failure decision, a
@@ -418,7 +423,8 @@ command:
   the canonical
   `workflowRunId:record_worker_evidence:slot:taskId:runId` key when needed,
   stores `evidenceBundleId`, and resumes at review-ready state. Completed
-  `record_worker_evidence` actions, existing evidence bundles, review messages,
+  `record_worker_evidence` actions, non-completed evidence actions with
+  `resultRefs.evidenceBundleId`, existing evidence bundles, review messages,
   completion decisions, failure decisions, completed/cancelled workflows,
   arbitrary failed/blocked phases, mismatched workspace/task/run refs, unknown
   worker state, and active running workers remain blockers.
@@ -651,12 +657,15 @@ Resume planner statuses are typed and stable: `resume_ready`,
 `blocked_dependency_edge_missing`, `blocked_state_mismatch`,
 `blocked_missing_review_ack`, `blocked_missing_evidence`,
 `waiting_for_worker_evidence`,
-`retryable_worker_evidence_failure`, `blocked_missing_confirmation`,
+`retryable_worker_evidence_failure`,
+`retryable_worker_evidence_action_repair`, `blocked_missing_confirmation`,
 `blocked_stale_grant`, `terminal_completed`, `terminal_failed`,
 `terminal_cancelled`, `unsupported_phase`, `failed_unexpected`, and
 `version_conflict`. `retryable_worker_evidence_failure` is read-only proof that
 the persisted workflow can re-enter only the explicit worker-evidence phase
-under the strict backend evidence checks above. `terminal_failed` means the
+under the strict backend evidence checks above; `retryable_worker_evidence_action_repair`
+is the same proof with an additional stale non-mutating
+`record_worker_evidence` action-row repair target. `terminal_failed` means the
 workflow run itself is failed; it is not a Queue task failure. Mutating or
 finalizing next steps after restart require a fresh grant where their
 capability contract requires one. Worker start and finalizing restart targets

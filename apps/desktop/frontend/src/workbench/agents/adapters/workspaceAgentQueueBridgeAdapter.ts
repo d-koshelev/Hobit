@@ -1065,7 +1065,7 @@ function workflowPlanResumeResult(
       .filter(
         (blocker) =>
           Boolean(blocker.missingRequiredField) &&
-          blocker.blockerCode !== "retryable_worker_evidence_failure",
+          !isRetryableWorkerEvidencePlanBlocker(blocker.blockerCode),
       )
       .map(workflowResumeBlockerSummary),
     nextPhase: plan.nextPhase ?? null,
@@ -1117,6 +1117,13 @@ function workflowSlotReconciliationSummary(
     taskExists: reconciliation.taskExists,
     taskId: reconciliation.taskId,
   };
+}
+
+function isRetryableWorkerEvidencePlanBlocker(blockerCode: string | null) {
+  return (
+    blockerCode === "retryable_worker_evidence_failure" ||
+    blockerCode === "retryable_worker_evidence_action_repair"
+  );
 }
 
 function workflowActionLogResult(
@@ -1371,7 +1378,7 @@ function workflowResumeDiagnostics(
   const missingRefs = blockers.filter(
     (blocker) =>
       Boolean(blocker.missingRequiredField) &&
-      blocker.blockerCode !== "retryable_worker_evidence_failure",
+      !isRetryableWorkerEvidencePlanBlocker(blocker.blockerCode),
   );
   const workerState = workflowResumeWorkerState(plan, startWorker);
   const diagnosticRefs = workflowDiagnosticRefMaps(refs, startWorker.slot);
@@ -1392,6 +1399,7 @@ function workflowResumeDiagnostics(
     !refsIncomplete &&
     (plan.status === "waiting_for_worker_evidence" ||
       plan.status === "retryable_worker_evidence_failure" ||
+      plan.status === "retryable_worker_evidence_action_repair" ||
       plan.status === "resume_ready" ||
       plan.status === "resume_read_only_ready");
 
@@ -1457,6 +1465,7 @@ function isStaleWorkerEvidenceHistoryAction(action: AgentQueueWorkflowAction) {
   const resultStatus = workflowActionResultField(action, ["commandStatus", "status"]);
   return (
     blockerCode === "failed_unexpected" ||
+    blockerCode === "incomplete_workflow_action_refs" ||
     blockerCode === "precondition_failed" ||
     blockerCode === "worker_outcome_mismatch" ||
     blockerCode === "workflow_run_terminal" ||

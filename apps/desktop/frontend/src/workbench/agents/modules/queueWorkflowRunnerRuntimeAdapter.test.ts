@@ -1188,13 +1188,16 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     );
   });
 
-  it("resumes retryable worker evidence failure with corrected typed outcome", async () => {
+  it.each([
+    "retryable_worker_evidence_failure",
+    "retryable_worker_evidence_action_repair",
+  ])("resumes %s with corrected typed outcome", async (resumeStatus) => {
     const persistence = workflowPersistence({
       planAgentQueueWorkflowResume: vi.fn(async () =>
         workerEvidenceResumePlan({
           blockers: [
             {
-              blockerCode: "retryable_worker_evidence_failure",
+              blockerCode: resumeStatus,
               blockerMessage:
                 "Queue workflow failed during worker evidence recording before durable evidence mutation; retry with corrected typed workerEvidence is allowed.",
               completionDecisionId: null,
@@ -1208,8 +1211,8 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
             },
           ],
           reportSummary:
-            "Queue workflow run queue-workflow-run-1 resume plan status is retryable_worker_evidence_failure. Next step: waiting_for_worker_evidence. Blockers: 1. No workflow steps were executed.",
-          status: "retryable_worker_evidence_failure",
+            `Queue workflow run queue-workflow-run-1 resume plan status is ${resumeStatus}. Next step: waiting_for_worker_evidence. Blockers: 1. No workflow steps were executed.`,
+          status: resumeStatus,
           workflowRun: workflowRun({
             inputsSnapshotJson: JSON.stringify(validInputs()),
             phase: "worker_evidence",
