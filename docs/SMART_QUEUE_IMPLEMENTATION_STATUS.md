@@ -153,13 +153,19 @@ current Queue workflow smoke requires neither Agent Executor nor Agent Queue
 widget presence. Queue workflow debug reads now expose model-visible structured
 payloads for live recovery diagnostics: `queue.workflow.getReport` adds
 `data.workflowReport` with persistent status, phase/current step, request id,
-slot bindings, task/run/evidence/message/decision refs, action counts, and
-bounded action summaries; `queue.workflow.readActionLog` adds
-`data.workflowActionLog` with bounded action rows and safe target/result refs;
+slot bindings, task/run/evidence/message/decision refs, action counts,
+bounded action summaries, and targeted diagnostics with exact safe
+`start_worker` target/result refs for slot, task id, run id, settings hash,
+and execution target hash; `queue.workflow.readActionLog` adds
+`data.workflowActionLog` with bounded action rows, safe target/result refs, and
+an optional filtered `focusedAction` or structured no-match/ambiguity blocker;
 and `queue.workflow.planResume` adds `data.workflowResumePlan` with resume
 status, next phase/step, blockers, missing refs, recovered refs, required
-grant/confirmation flags, task snapshots, and continuation refs. Actual live
-Queue smoke continuation remains the next step. The broker
+grant/confirmation flags, task snapshots, continuation refs, and diagnostics
+for exact missing refs, worker state, start-worker ref completeness, and
+`safeToRecordWorkerEvidence`. Live smoke diagnostics can now determine whether
+to retry workerEvidence from read-only payloads; actual live Queue smoke
+continuation remains the next step. The broker
 continuation `hobit.action.result` context now preserves bounded structured
 payloads for `workspace.context.get`, `workbench.widgets.list`, and
 `queue.control.get` plus the workflow debug payloads above, so Workspace Agent

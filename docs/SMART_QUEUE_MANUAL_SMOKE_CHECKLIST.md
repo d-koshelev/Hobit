@@ -138,7 +138,11 @@ capabilities before any smoke execution step:
   payload is `data.workflowReport` and includes persistent status, phase,
   current step, request id, bounded variables summary, slot bindings,
   execution target kind/provider/hash where present, action counts, and
-  bounded action summaries.
+  bounded action summaries. It also exposes
+  `data.workflowReport.diagnostics.refMaps` and
+  `data.workflowReport.diagnostics.startWorker`, including exact safe
+  `start_worker` target/result refs for slot, task id, run id, settings hash,
+  and execution target hash.
 - `queue.workflow.planResume` is a read-only resume planner. Call it before
   continuation to read next phase/step, blockers, required fresh grant,
   required confirmation, worker/start-state blockers, task snapshots, and
@@ -146,13 +150,19 @@ capabilities before any smoke execution step:
   model-visible payload is `data.workflowResumePlan` and includes resume
   status, next phase/step, terminal status when applicable, missing refs,
   recovered refs, required grant/confirmation flags, task snapshots, and
-  slot/action reconciliation details where available.
+  slot/action reconciliation details where available. Its diagnostics include
+  exact `missingRefs`, recovered/continuation refs, worker state,
+  `startWorkerRefCheck`, `safeToRecordWorkerEvidence`, and
+  `reasonIfNotSafe`.
 - `queue.workflow.readActionLog` reads bounded workflow action summaries for
   idempotency/action debugging, with safe target/result refs and no raw logs or
   raw confirmation token exposure. In Workspace Agent continuation context,
   the model-visible payload is `data.workflowActionLog` and includes action
   count, truncated flag, status filter, and bounded action rows with safe
-  target/result refs.
+  target/result refs. When called with exact filters such as
+  `actionType: "start_worker"`, `slot: "upstream"`, and `includeRefs: true`,
+  it returns an exact safe `focusedAction` or a structured no-match/ambiguity
+  blocker instead of relying on compact action summaries.
 
 Use these discovery reads for live Queue smoke setup. The recommended Workspace
 Agent smoke chain is `workspace.context.get`, `workbench.widgets.list`,

@@ -176,12 +176,17 @@ restricted capabilities for explicit workspace/code execution requests only.
   control status/version metadata; `queue.workflow.getReport` exposes
   `data.workflowReport` with workflow status, phase/current step, slot
   bindings, task/run/evidence/message/decision refs by slot, action counts,
-  and bounded action summaries; `queue.workflow.readActionLog` exposes
-  `data.workflowActionLog` with bounded action rows and safe target/result
-  refs; `queue.workflow.planResume` exposes `data.workflowResumePlan` with
-  resume status, next phase/step, blockers, missing refs, recovered refs,
-  required grant/confirmation flags, and continuation refs. Activity rows and
-  transcript summaries remain compact.
+  bounded action summaries, and `diagnostics` containing exact safe
+  `refMaps` plus `startWorker` slot/task/run/settings/execution-target refs;
+  `queue.workflow.readActionLog` exposes `data.workflowActionLog` with bounded
+  action rows, safe target/result refs, and an optional filtered
+  `focusedAction` with exact refs when `actionType`, `slot`, and
+  `includeRefs` are supplied; `queue.workflow.planResume` exposes
+  `data.workflowResumePlan` with resume status, next phase/step, blockers,
+  missing refs, recovered refs, required grant/confirmation flags,
+  continuation refs, and `diagnostics` for start-worker ref completeness,
+  worker state, and `safeToRecordWorkerEvidence`. Activity rows and transcript
+  summaries remain compact.
   `workspaceRootPath` is durable Workspace data when present and is the source
   of truth for live Workspace Agent context. The desktop process current
   directory is only a legacy fallback for older Workspace rows without a
@@ -487,7 +492,11 @@ payloads now include bounded structured `data.workflowReport`,
 recovery diagnostics can inspect persistent status, phase/current step, slot
 bindings, task/run/evidence/message/decision refs, action summaries, resume
 blockers, missing refs, and recovered refs without relying on compact display
-text. They do not invoke workflows, start workers, mutate Queue state, create
+text. Targeted diagnostics also expose exact safe `start_worker` target/result
+refs, durable ref maps, resume missing refs, worker state, and
+`safeToRecordWorkerEvidence`, so a live read can determine whether
+workerEvidence is still blocked by a running worker, incomplete refs, or is
+safe to retry. They do not invoke workflows, start workers, mutate Queue state, create
 tasks, record evidence, create/ACK reviews, finalize tasks, launch shell/Git/
 Terminal/validation/rollback behavior, or expose raw provider transcripts or
 raw confirmation tokens. This persistence surface intentionally does not
@@ -1251,15 +1260,21 @@ Current honest foundation capabilities:
   workflow run ids without UI/prose inference.
 - `queue.workflow.getReport`: read-only bounded Queue workflow report with
   task/run/evidence/message/completion/failure decision refs by slot, blockers,
-  resume status, action count summary, and bounded report/action summaries.
+  resume status, action count summary, bounded report/action summaries, and
+  targeted diagnostics with exact safe ref maps plus start-worker
+  slot/task/run/settings/execution-target refs.
 - `queue.workflow.planResume`: read-only Queue workflow resume planner over
   existing backend state; returns resume status, next phase/step, blockers,
   required fresh grant/confirmation flags, task snapshots, and continuation
-  refs without executing any workflow step.
+  refs without executing any workflow step. Its diagnostics report exact
+  missing refs, recovered/continuation refs, worker state,
+  start-worker ref completeness, and whether workerEvidence can be safely
+  retried.
 - `queue.workflow.readActionLog`: read-only bounded action summary projection
   from the existing workflow report/action ledger, with optional status filter
-  and limit; it exposes safe target/result refs and never raw logs or raw
-  confirmation tokens.
+  and limit; optional `actionType`, `slot`, and `includeRefs` return an exact
+  safe `focusedAction` or a no-match/ambiguity blocker. It exposes safe
+  target/result refs and never raw logs or raw confirmation tokens.
 - `workspaceAgent.selfTest`: safe Workspace Agent capability self-test surface.
 - `codex.runTask`: restricted execute capability for explicit Codex Direct
   Work; not a product-action default.

@@ -2191,27 +2191,40 @@ export function formatWorkspaceAgentBrokerContinuationPrompt({
   maxActions: number;
 }): string {
   const contextJson = JSON.stringify(context);
-  return compactText(
-    [
-      "[Hobit broker continuation]",
-      `Action ${actionIndex.toString()}/${maxActions.toString()} completed.`,
-      "The app executed the typed Hobit action and returned this compact structured result.",
-      "Continue the same user request from this result.",
-      'Emit exactly one hobit.action.request envelope when another Hobit app action is needed, or {"type":"hobit.final.answer","message":"..."} when the task is done.',
-      "The final-answer marker lets the app distinguish completion from an intermediate stall.",
-      "Intermediate prose is not a capability call.",
-      'Queue bounded autonomy requires a structured {"type":"hobit.queue.autonomyGrant",...} grant from the user request. Prose like go or I confirm is not a grant.',
-      "Do not emit action lists. Use a fresh requestId for each envelope. Do not repeat a previous request id or same capability/input.",
-      "Prefer returned nextAction when present. Use nextAction.capabilityId and nextAction.input exactly; do not rename fields.",
-      "If nextAction is unavailable, ask or stop with the blocker. Do not guess from nextSuggestedCapability alone.",
-      "Inside an active Queue grant, follow schema-valid nextAction exactly. If policy blocks it, finish with a hobit.final.answer blocker.",
-      "Hard-stop statuses are blocked, invalid_input, needs_confirmation, policy_blocked, unavailable, paused, failed_unexpected, and failed compatibility.",
-      "Actionable/idempotent statuses such as blocked_actionable, already_exists, already_done, and precondition_failed may continue only through a schema-valid typed nextAction allowed by policy.",
-      "Never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose, titles, paths, final messages, or source text.",
-      "Do not use shell, raw Codex, Git, validation, rollback, Terminal, or hidden execution for Hobit product actions.",
-      contextJson,
-    ].join("\n"),
-    CONTINUATION_PROMPT_CHAR_LIMIT,
+  const prompt = [
+    "[Hobit broker continuation]",
+    `Action ${actionIndex.toString()}/${maxActions.toString()} completed.`,
+    "The app executed the typed Hobit action and returned this compact structured result.",
+    "Continue the same user request from this result.",
+    'Emit exactly one hobit.action.request envelope when another Hobit app action is needed, or {"type":"hobit.final.answer","message":"..."} when the task is done.',
+    "The final-answer marker lets the app distinguish completion from an intermediate stall.",
+    "Intermediate prose is not a capability call.",
+    'Queue bounded autonomy requires a structured {"type":"hobit.queue.autonomyGrant",...} grant from the user request. Prose like go or I confirm is not a grant.',
+    "Do not emit action lists. Use a fresh requestId for each envelope. Do not repeat a previous request id or same capability/input.",
+    "Prefer returned nextAction when present. Use nextAction.capabilityId and nextAction.input exactly; do not rename fields.",
+    "If nextAction is unavailable, ask or stop with the blocker. Do not guess from nextSuggestedCapability alone.",
+    "Inside an active Queue grant, follow schema-valid nextAction exactly. If policy blocks it, finish with a hobit.final.answer blocker.",
+    "Hard-stop statuses are blocked, invalid_input, needs_confirmation, policy_blocked, unavailable, paused, failed_unexpected, and failed compatibility.",
+    "Actionable/idempotent statuses such as blocked_actionable, already_exists, already_done, and precondition_failed may continue only through a schema-valid typed nextAction allowed by policy.",
+    "Never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose, titles, paths, final messages, or source text.",
+    "Do not use shell, raw Codex, Git, validation, rollback, Terminal, or hidden execution for Hobit product actions.",
+    contextJson,
+  ].join("\n");
+
+  if (hasWorkflowDebugDiagnostics(context)) {
+    return prompt;
+  }
+
+  return compactText(prompt, CONTINUATION_PROMPT_CHAR_LIMIT);
+}
+
+function hasWorkflowDebugDiagnostics(
+  context: WorkspaceAgentBrokerContinuationResultContext,
+) {
+  return Boolean(
+    recordField(context.data?.workflowReport ?? null, "diagnostics") ||
+      recordField(context.data?.workflowActionLog ?? null, "diagnostics") ||
+      recordField(context.data?.workflowResumePlan ?? null, "diagnostics"),
   );
 }
 
@@ -2562,6 +2575,7 @@ function workflowReportPayload(
       numberField(output, "actionSummaryCount") ??
       numberField(recordField(output, "actionCountSummary"), "total"),
     actionCountSummary: recordField(output, "actionCountSummary"),
+    diagnostics: recordField(output, "diagnostics"),
     actions: boundedWorkflowActionRecords(
       arrayField(output, "actionSummaries"),
       WORKFLOW_DEBUG_ACTION_PAYLOAD_LIMIT,
@@ -2614,8 +2628,19 @@ function workflowActionLogPayload(
   return compactObject({
     actionCount: numberField(output, "total") ?? actions.length,
     actionCountSummary: recordField(output, "actionCountSummary"),
+    actionTypeFilter: stringField(output, "actionTypeFilter"),
+    ambiguous: booleanFieldOrNull(output, "ambiguous"),
+    blocker: recordField(output, "blocker"),
+    diagnostics: recordField(output, "diagnostics"),
+    focusedAction: recordField(output, "focusedAction"),
+    includeRefs: booleanFieldOrNull(output, "includeRefs"),
+    matchingActions: boundedRecords(
+      arrayField(output, "matchingActions"),
+      WORKFLOW_DEBUG_ACTION_PAYLOAD_LIMIT,
+    ),
     actions,
     limit: numberField(output, "limit"),
+    slotFilter: stringField(output, "slotFilter"),
     statusFilter: stringField(output, "statusFilter"),
     truncated: booleanFieldOrNull(output, "truncated"),
     workflowId: stringField(output, "workflowId"),
@@ -2629,6 +2654,7 @@ function workflowResumePlanPayload(
 ): WorkspaceAgentBrokerContinuationWorkflowDebugPayload {
   return compactObject({
     actionCountSummary: recordField(output, "actionCountSummary"),
+    diagnostics: recordField(output, "diagnostics"),
     actions: boundedWorkflowActionRecords(
       arrayField(output, "actionSummaries"),
       WORKFLOW_DEBUG_ACTION_PAYLOAD_LIMIT,

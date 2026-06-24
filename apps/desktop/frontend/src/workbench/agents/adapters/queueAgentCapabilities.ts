@@ -1457,7 +1457,15 @@ function normalizeWorkflowReadActionLogInput(
     normalizeWorkflowRunIdInput<QueueAgentWorkflowReadActionLogInput>(
       input,
       "queue.workflow.readActionLog",
-      ["limit", "status", "workflowRunId", "workspaceId"],
+      [
+        "actionType",
+        "includeRefs",
+        "limit",
+        "slot",
+        "status",
+        "workflowRunId",
+        "workspaceId",
+      ],
     );
   if (!base.ok) {
     return base;
@@ -1489,11 +1497,43 @@ function normalizeWorkflowReadActionLogInput(
     };
   }
 
+  const actionType = optionalStringField(input, "actionType");
+  if (actionType.invalid) {
+    return {
+      fieldPath: "input.actionType",
+      ok: false,
+      message: "actionType must be a non-empty string when supplied.",
+    };
+  }
+
+  const slot = optionalStringField(input, "slot");
+  if (slot.invalid) {
+    return {
+      fieldPath: "input.slot",
+      ok: false,
+      message: "slot must be a non-empty string when supplied.",
+    };
+  }
+
+  const includeRefs = optionalBooleanField(input, "includeRefs");
+  if (includeRefs.invalid) {
+    return {
+      fieldPath: "input.includeRefs",
+      ok: false,
+      message: "includeRefs must be a boolean when supplied.",
+    };
+  }
+
   return {
     ok: true,
     value: {
       ...base.value,
+      ...(actionType.value ? { actionType: actionType.value } : {}),
+      ...(includeRefs.value !== undefined
+        ? { includeRefs: includeRefs.value }
+        : {}),
       ...(limit.value ? { limit: limit.value } : {}),
+      ...(slot.value ? { slot: slot.value } : {}),
       ...(status.value ? { status: status.value } : {}),
     },
   };
@@ -2306,6 +2346,19 @@ function optionalNonNegativeIntegerField(
     Number.isInteger(value) &&
     value >= 0
     ? { invalid: false, value }
+    : { invalid: true };
+}
+
+function optionalBooleanField(
+  input: Record<string, unknown>,
+  fieldName: string,
+): { invalid: boolean; value?: boolean } {
+  if (!hasOwn(input, fieldName) || input[fieldName] === undefined) {
+    return { invalid: false };
+  }
+
+  return typeof input[fieldName] === "boolean"
+    ? { invalid: false, value: input[fieldName] }
     : { invalid: true };
 }
 

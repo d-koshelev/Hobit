@@ -72,6 +72,7 @@ import {
   type QueueAgentUpdateRunSettingsInput,
   type QueueAgentUpdateRunSettingsResult,
   type QueueAgentWorkflowActionCountSummary,
+  type QueueAgentWorkflowFocusedAction,
   type QueueAgentWorkflowActionSummary,
   type QueueAgentWorkflowBlockerSummary,
   type QueueAgentWorkflowGetInput,
@@ -85,7 +86,9 @@ import {
   type QueueAgentWorkflowReadActionLogInput,
   type QueueAgentWorkflowReadActionLogResult,
   type QueueAgentWorkflowRefMaps,
+  type QueueAgentWorkflowReportDiagnostics,
   type QueueAgentWorkflowReportResult,
+  type QueueAgentWorkflowResumeDiagnostics,
   type QueueAgentWorkflowRunSummary,
   type QueueAgentWorkflowSafeJsonValue,
   type QueueAgentWorkflowSlotBindingSummary,
@@ -100,6 +103,8 @@ import type {
 export type WorkspaceAgentQueueBridgeAdapterOptions = {
   backendApi?: QueueBackendCapabilityPort | null;
 };
+
+const WORKFLOW_DIAGNOSTIC_REF_MAP_LIMIT = 25;
 
 export function createWorkspaceAgentQueueBridgeAdapterApi(
   bridge: WorkspaceAgentQueueBridge | null | undefined,
@@ -1001,6 +1006,7 @@ function workflowReportResult(
   const actionSummaries = report.actions
     .slice(0, 25)
     .map(workflowActionSummary);
+  const slotBindings = workflowSlotBindingsFromRun(workflowRun, refs);
   return {
     ...workflowNoMutationFlags(),
     ...refs,
@@ -1013,6 +1019,7 @@ function workflowReportResult(
     ],
     completedAt: workflowRun.completedAt ?? null,
     currentStep: workflowRun.currentStep ?? null,
+    diagnostics: workflowReportDiagnostics(report, refs, slotBindings),
     nextAction: nextActionFromSummary(actionLogSummary),
     nextPhase: stringFieldFromValue(actionLogSummary, [
       "nextPhase",
@@ -1025,7 +1032,7 @@ function workflowReportResult(
     requestId: workflowRun.requestId,
     resumeAvailable: report.resumeAvailable,
     resumeStatus: report.resumeStatus,
-    slotBindings: workflowSlotBindingsFromRun(workflowRun, refs),
+    slotBindings,
     slotBindingsSummary: safeWorkflowJsonSummary(workflowRun.slotBindingsJson),
     status: workflowRun.status,
     truncatedActionSummaries: report.actions.length > actionSummaries.length,
@@ -1053,6 +1060,7 @@ function workflowPlanResumeResult(
     actionCountSummary: workflowActionCountSummary(plan.actions),
     actionSummaries: plan.actions.slice(0, 25).map(workflowActionSummary),
     blockers: plan.blockers.map(workflowResumeBlockerSummary),
+    diagnostics: workflowResumeDiagnostics(plan, refs),
     missingRefs: plan.blockers
       .filter((blocker) => Boolean(blocker.missingRequiredField))
       .map(workflowResumeBlockerSummary),
@@ -1115,23 +1123,140 @@ function workflowActionLogResult(
     Omit<QueueAgentWorkflowReadActionLogInput, "workflowRunId">,
 ): QueueAgentWorkflowReadActionLogResult {
   const statusFilter = normalizedString(input.status);
-  const filteredActions = statusFilter
-    ? report.actions.filter((action) => action.status === statusFilter)
-    : report.actions;
+  const actionTypeFilter = normalizedString(input.actionType);
+  const slotFilter = normalizedString(input.slot);
+  const includeRefs = input.includeRefs === true;
+  const filteredActions = report.actions.filter((action) => {
+    if (statusFilter && action.status !== statusFilter) {
+      return false;
+    }
+    if (actionTypeFilter && action.actionType !== actionTypeFilter) {
+      return false;
+    }
+    if (slotFilter && workflowActionSlot(action) !== slotFilter) {
+      return false;
+    }
+    return true;
+  });
   const limit = boundedItemLimit(input.limit);
   const boundedActions = filteredActions.slice(0, limit);
+  const focused = workflowFocusedActionResult(filteredActions, {
+    actionTypeFilter,
+    includeRefs,
+    limit,
+    slotFilter,
+  });
 
   return {
     ...workflowNoMutationFlags(),
     actionCountSummary: workflowActionCountSummary(filteredActions),
+    actionTypeFilter,
+    ambiguous: focused.ambiguous,
     actions: boundedActions.map(workflowActionSummary),
+    blocker: focused.blocker,
+    focusedAction: focused.focusedAction,
+    includeRefs,
     limit,
+    matchingActions: focused.matchingActions,
+    slotFilter,
     statusFilter,
     total: filteredActions.length,
     truncated: filteredActions.length > boundedActions.length,
     workflowId: report.workflowRun.workflowId,
     workflowRunId: report.workflowRun.workflowRunId,
     workspaceId: report.workflowRun.workspaceId,
+  };
+}
+
+function workflowFocusedActionResult(
+  actions: readonly AgentQueueWorkflowAction[],
+  options: {
+    actionTypeFilter: string | null;
+    includeRefs: boolean;
+    limit: number;
+    slotFilter: string | null;
+  },
+): Pick<
+  QueueAgentWorkflowReadActionLogResult,
+  "ambiguous" | "blocker" | "focusedAction" | "matchingActions"
+> {
+  const focusRequested = Boolean(
+    options.actionTypeFilter || options.slotFilter,
+  );
+  if (!focusRequested) {
+    return {
+      ambiguous: false,
+      blocker: null,
+      focusedAction: null,
+      matchingActions: [],
+    };
+  }
+
+  if (actions.length === 0) {
+    return {
+      ambiguous: false,
+      blocker: {
+        blockerCode: "no_matching_action",
+        blockerMessage:
+          "No workflow action matched the requested actionType/slot filter.",
+        missingRequiredField: options.actionTypeFilter
+          ? "actionType"
+          : "slot",
+        slot: options.slotFilter,
+      },
+      focusedAction: null,
+      matchingActions: [],
+    };
+  }
+
+  if (actions.length > 1) {
+    return {
+      ambiguous: true,
+      blocker: {
+        blockerCode: "ambiguous_matching_action",
+        blockerMessage:
+          "Multiple workflow actions matched the requested actionType/slot filter.",
+        missingRequiredField: null,
+        slot: options.slotFilter,
+      },
+      focusedAction: null,
+      matchingActions: actions
+        .slice(0, options.limit)
+        .map((action) =>
+          workflowFocusedAction(action, { includeRefs: options.includeRefs }),
+        ),
+    };
+  }
+
+  return {
+    ambiguous: false,
+    blocker: null,
+    focusedAction: workflowFocusedAction(actions[0], {
+      includeRefs: options.includeRefs,
+    }),
+    matchingActions: [],
+  };
+}
+
+function workflowFocusedAction(
+  action: AgentQueueWorkflowAction,
+  options: { includeRefs: boolean },
+): QueueAgentWorkflowFocusedAction {
+  return {
+    actionId: action.actionId,
+    actionType: action.actionType,
+    blockerCode: action.blockerCode ?? null,
+    blockerMessage: boundedDiagnosticText(action.blockerMessage),
+    createdAt: action.createdAt,
+    idempotencyKey: action.idempotencyKey,
+    resultRefs: options.includeRefs
+      ? workflowExactRefsFromJson(action.resultRefsJson)
+      : safeWorkflowJsonSummary(action.resultRefsJson),
+    status: action.status,
+    targetRefs: options.includeRefs
+      ? workflowExactRefsFromJson(action.targetRefsJson)
+      : safeWorkflowJsonSummary(action.targetRefsJson),
+    updatedAt: action.updatedAt,
   };
 }
 
@@ -1154,6 +1279,321 @@ function workflowActionSummary(
     targetRefs: safeWorkflowJsonSummary(action.targetRefsJson),
     updatedAt: action.updatedAt,
   };
+}
+
+function workflowReportDiagnostics(
+  report: AgentQueueWorkflowReport,
+  refs: QueueAgentWorkflowRefMaps,
+  slotBindings: Record<string, QueueAgentWorkflowSlotBindingSummary>,
+): QueueAgentWorkflowReportDiagnostics {
+  const startWorker = workflowStartWorkerDiagnostics(
+    report.actions,
+    slotBindings,
+    refs,
+  );
+  const missingRefs = startWorkerMissingRefs(startWorker, refs);
+  const diagnosticRefs = workflowDiagnosticRefMaps(refs, startWorker.slot);
+
+  return {
+    recoveryState: {
+      canDiagnoseWorkerEvidence:
+        startWorker.actionPresent &&
+        missingRefs.length === 0 &&
+        startWorker.status === "completed",
+      missingRefs,
+      suspectedBlocker: workflowReportSuspectedBlocker(
+        startWorker,
+        missingRefs,
+      ),
+    },
+    refMaps: diagnosticRefs,
+    startWorker,
+  };
+}
+
+function workflowResumeDiagnostics(
+  plan: AgentQueueWorkflowResumePlan,
+  refs: QueueAgentWorkflowRefMaps,
+): QueueAgentWorkflowResumeDiagnostics {
+  const slotBindings = workflowSlotBindingsFromRun(plan.workflowRun, refs);
+  const startWorker = workflowStartWorkerDiagnostics(
+    plan.actions,
+    slotBindings,
+    refs,
+  );
+  const startWorkerMissing = startWorkerMissingRefs(startWorker, refs);
+  const blockers = plan.blockers.map(workflowResumeBlockerSummary);
+  const missingRefs = blockers.filter((blocker) =>
+    Boolean(blocker.missingRequiredField),
+  );
+  const workerState = workflowResumeWorkerState(plan, startWorker);
+  const diagnosticRefs = workflowDiagnosticRefMaps(refs, startWorker.slot);
+  const workerRunning =
+    workerState.workerRunState === "running" ||
+    workerState.latestRunStatus === "running";
+  const refsIncomplete =
+    startWorkerMissing.length > 0 ||
+    missingRefs.length > 0 ||
+    plan.status === "blocked_incomplete_workflow_action_refs";
+  const atWorkerEvidence =
+    plan.nextPhase === "worker_evidence" &&
+    (plan.nextStep === "waiting_for_worker_evidence" ||
+      plan.nextStep === "record_worker_evidence");
+  const safeToRecordWorkerEvidence =
+    atWorkerEvidence &&
+    !workerRunning &&
+    !refsIncomplete &&
+    (plan.status === "waiting_for_worker_evidence" ||
+      plan.status === "resume_ready" ||
+      plan.status === "resume_read_only_ready");
+
+  return {
+    blockers,
+    continuationRefs: diagnosticRefs,
+    missingRefs,
+    nextPhase: plan.nextPhase ?? null,
+    nextStep: plan.nextStep ?? null,
+    reasonIfNotSafe: safeToRecordWorkerEvidence
+      ? null
+      : workerRunning
+        ? "worker_running"
+        : refsIncomplete
+          ? "refs_incomplete"
+          : atWorkerEvidence
+            ? "planner_not_ready"
+            : "planner_not_at_worker_evidence",
+    recoveredRefs: diagnosticRefs,
+    safeToRecordWorkerEvidence,
+    startWorkerRefCheck: {
+      actionPresent: startWorker.actionPresent,
+      actionStatus: startWorker.status,
+      executionTargetHashPresent: startWorker.hasExecutionTargetHash,
+      missingRefs: startWorkerMissing,
+      runIdPresent: startWorker.hasRunId,
+      settingsHashPresent: startWorker.hasSettingsHash,
+      slotPresent: startWorker.hasSlot,
+      taskIdPresent: startWorker.hasTaskId,
+    },
+    status: plan.status,
+    workerState,
+  };
+}
+
+function workflowStartWorkerDiagnostics(
+  actions: readonly AgentQueueWorkflowAction[],
+  slotBindings: Record<string, QueueAgentWorkflowSlotBindingSummary>,
+  refs: QueueAgentWorkflowRefMaps,
+) {
+  const action = selectStartWorkerAction(actions);
+  if (!action) {
+    return {
+      actionId: null,
+      actionPresent: false,
+      blockerCode: null,
+      blockerMessage: null,
+      executionTargetHash: null,
+      hasExecutionTargetHash: false,
+      hasRunId: false,
+      hasSettingsHash: false,
+      hasSlot: false,
+      hasTaskId: false,
+      idempotencyKey: null,
+      resultRefs: null,
+      runId: null,
+      settingsHash: null,
+      slot: null,
+      status: null,
+      targetRefs: null,
+      taskId: null,
+    };
+  }
+
+  const targetRefs = workflowExactRefsFromJson(action.targetRefsJson);
+  const resultRefs = workflowExactRefsFromJson(action.resultRefsJson);
+  const targetRecord = workflowRefRecord(targetRefs);
+  const resultRecord = workflowRefRecord(resultRefs);
+  const slot = firstString([
+    stringFieldFromRecordOrNull(targetRecord, ["slot", "slotId", "taskSlot"]),
+    stringFieldFromRecordOrNull(resultRecord, ["slot", "slotId", "taskSlot"]),
+    workflowActionSlot(action),
+  ]);
+  const binding = slot ? slotBindings[slot] : null;
+  const runId = firstString([
+    stringFieldFromRecordOrNull(resultRecord, ["runId", "run_id"]),
+    binding?.runId,
+    slot ? refs.runIdsBySlot[slot] : null,
+  ]);
+  const taskId = firstString([
+    stringFieldFromRecordOrNull(targetRecord, ["taskId", "task_id"]),
+    stringFieldFromRecordOrNull(resultRecord, ["taskId", "task_id"]),
+    binding?.taskId,
+    slot ? refs.taskIdsBySlot[slot] : null,
+  ]);
+  const settingsHash = firstString([
+    stringFieldFromRecordOrNull(targetRecord, [
+      "settingsHash",
+      "settings_hash",
+    ]),
+    stringFieldFromRecordOrNull(resultRecord, [
+      "settingsHash",
+      "settings_hash",
+    ]),
+    binding?.settingsHash,
+  ]);
+  const executionTargetHash = firstString([
+    stringFieldFromRecordOrNull(targetRecord, [
+      "executionTargetHash",
+      "execution_target_hash",
+    ]),
+    stringFieldFromRecordOrNull(resultRecord, [
+      "executionTargetHash",
+      "execution_target_hash",
+    ]),
+    binding?.executionTargetHash,
+  ]);
+
+  return {
+    actionId: action.actionId,
+    actionPresent: true,
+    blockerCode: action.blockerCode ?? null,
+    blockerMessage: boundedDiagnosticText(action.blockerMessage),
+    executionTargetHash,
+    hasExecutionTargetHash: Boolean(executionTargetHash),
+    hasRunId: Boolean(runId),
+    hasSettingsHash: Boolean(settingsHash),
+    hasSlot: Boolean(slot),
+    hasTaskId: Boolean(taskId),
+    idempotencyKey: action.idempotencyKey,
+    resultRefs,
+    runId,
+    settingsHash,
+    slot,
+    status: action.status,
+    targetRefs,
+    taskId,
+  };
+}
+
+function selectStartWorkerAction(
+  actions: readonly AgentQueueWorkflowAction[],
+) {
+  const startWorkerActions = actions.filter(
+    (action) => action.actionType === "start_worker",
+  );
+  if (startWorkerActions.length <= 1) {
+    return startWorkerActions[0] ?? null;
+  }
+
+  const upstreamActions = startWorkerActions.filter(
+    (action) => workflowActionSlot(action) === "upstream",
+  );
+  return upstreamActions.length === 1 ? upstreamActions[0] : startWorkerActions[0];
+}
+
+function startWorkerMissingRefs(
+  startWorker: ReturnType<typeof workflowStartWorkerDiagnostics>,
+  refs: QueueAgentWorkflowRefMaps,
+) {
+  if (!startWorker.actionPresent) {
+    return ["startWorker.action"];
+  }
+
+  const missing: string[] = [];
+  if (!startWorker.hasSlot) {
+    missing.push("startWorker.targetRefs.slot");
+  }
+  if (!startWorker.hasTaskId) {
+    missing.push("startWorker.targetRefs.taskId");
+  }
+  if (!startWorker.hasSettingsHash) {
+    missing.push("startWorker.targetRefs.settingsHash");
+  }
+  if (!startWorker.hasExecutionTargetHash) {
+    missing.push("startWorker.targetRefs.executionTargetHash");
+  }
+  if (!startWorker.hasRunId) {
+    missing.push("startWorker.resultRefs.runId");
+  }
+  if (
+    startWorker.slot &&
+    startWorker.taskId &&
+    refs.taskIdsBySlot[startWorker.slot] !== startWorker.taskId
+  ) {
+    missing.push(`diagnostics.refMaps.taskIdsBySlot.${startWorker.slot}`);
+  }
+  if (
+    startWorker.slot &&
+    startWorker.runId &&
+    refs.runIdsBySlot[startWorker.slot] !== startWorker.runId
+  ) {
+    missing.push(`diagnostics.refMaps.runIdsBySlot.${startWorker.slot}`);
+  }
+
+  return missing;
+}
+
+function workflowReportSuspectedBlocker(
+  startWorker: ReturnType<typeof workflowStartWorkerDiagnostics>,
+  missingRefs: readonly string[],
+) {
+  if (!startWorker.actionPresent) {
+    return "start_worker_action_missing";
+  }
+  if (startWorker.status !== "completed") {
+    return "start_worker_action_not_completed";
+  }
+  if (missingRefs.length > 0) {
+    return "start_worker_refs_incomplete";
+  }
+  return null;
+}
+
+function workflowResumeWorkerState(
+  plan: AgentQueueWorkflowResumePlan,
+  startWorker: ReturnType<typeof workflowStartWorkerDiagnostics>,
+): QueueAgentWorkflowResumeDiagnostics["workerState"] {
+  const reconciliation =
+    findWorkflowSlotReconciliation(plan.slotReconciliations, startWorker) ??
+    null;
+  const snapshot =
+    plan.taskSnapshots.find(
+      (candidate) =>
+        candidate.taskId === startWorker.taskId ||
+        candidate.latestRunId === startWorker.runId,
+    ) ?? null;
+
+  return {
+    evidenceState:
+      snapshot?.evidenceState ?? reconciliation?.aggregateEvidenceState ?? null,
+    latestRunId: snapshot?.latestRunId ?? null,
+    latestRunStatus: snapshot?.latestRunStatus ?? null,
+    runExists: reconciliation?.runExists ?? null,
+    runId: reconciliation?.runId ?? startWorker.runId,
+    taskExists: reconciliation?.taskExists ?? null,
+    taskId: reconciliation?.taskId ?? snapshot?.taskId ?? startWorker.taskId,
+    ticketState:
+      snapshot?.ticketState ?? reconciliation?.aggregateTicketState ?? null,
+    workerRunState: snapshot?.workerRunState ?? null,
+  };
+}
+
+function findWorkflowSlotReconciliation(
+  reconciliations: readonly AgentQueueWorkflowSlotReconciliation[],
+  startWorker: ReturnType<typeof workflowStartWorkerDiagnostics>,
+) {
+  return (
+    reconciliations.find(
+      (candidate) => startWorker.slot && candidate.slot === startWorker.slot,
+    ) ??
+    reconciliations.find(
+      (candidate) =>
+        startWorker.taskId && candidate.taskId === startWorker.taskId,
+    ) ??
+    reconciliations.find(
+      (candidate) => startWorker.runId && candidate.runId === startWorker.runId,
+    ) ??
+    (reconciliations.length === 1 ? reconciliations[0] : null)
+  );
 }
 
 function workflowRunBlockers(
@@ -1240,6 +1680,54 @@ function workflowRefsFromRun(
     workflowRefsFromJson(workflowRun.variablesJson),
     workflowRefsFromJson(workflowRun.mutationRefsJson),
   );
+}
+
+function workflowDiagnosticRefMaps(
+  refs: QueueAgentWorkflowRefMaps,
+  prioritySlot: string | null,
+): QueueAgentWorkflowRefMaps {
+  return {
+    completionDecisionIdsBySlot: boundedWorkflowRefRecord(
+      refs.completionDecisionIdsBySlot,
+      prioritySlot,
+    ),
+    evidenceBundleIdsBySlot: boundedWorkflowRefRecord(
+      refs.evidenceBundleIdsBySlot,
+      prioritySlot,
+    ),
+    failureDecisionIdsBySlot: boundedWorkflowRefRecord(
+      refs.failureDecisionIdsBySlot,
+      prioritySlot,
+    ),
+    messageIdsBySlot: boundedWorkflowRefRecord(
+      refs.messageIdsBySlot,
+      prioritySlot,
+    ),
+    runIdsBySlot: boundedWorkflowRefRecord(refs.runIdsBySlot, prioritySlot),
+    taskIdsBySlot: boundedWorkflowRefRecord(refs.taskIdsBySlot, prioritySlot),
+  };
+}
+
+function boundedWorkflowRefRecord(
+  refs: Record<string, string>,
+  prioritySlot: string | null,
+): Record<string, string> {
+  const output: Record<string, string> = {};
+  if (prioritySlot && refs[prioritySlot]) {
+    output[prioritySlot] = refs[prioritySlot];
+  }
+
+  for (const [slot, value] of Object.entries(refs)) {
+    if (Object.keys(output).length >= WORKFLOW_DIAGNOSTIC_REF_MAP_LIMIT) {
+      break;
+    }
+    if (output[slot]) {
+      continue;
+    }
+    output[slot] = value;
+  }
+
+  return output;
 }
 
 function workflowSlotBindingsFromRun(
@@ -4567,6 +5055,124 @@ function safeWorkflowJsonSummary(
   return sanitizeWorkflowJsonValue(parsed, 0);
 }
 
+function workflowExactRefsFromJson(
+  json: string | null | undefined,
+): QueueAgentWorkflowSafeJsonValue | null {
+  const parsed = tryParseWorkflowJson(json);
+  if (!isRecord(parsed)) {
+    return null;
+  }
+
+  const refs = exactWorkflowRefRecord(parsed);
+  return Object.keys(refs).length > 0 ? refs : null;
+}
+
+function workflowActionSlot(action: AgentQueueWorkflowAction) {
+  const targetRefs = workflowRefRecord(
+    workflowExactRefsFromJson(action.targetRefsJson),
+  );
+  const resultRefs = workflowRefRecord(
+    workflowExactRefsFromJson(action.resultRefsJson),
+  );
+  return firstString([
+    stringFieldFromRecordOrNull(targetRefs, ["slot", "slotId", "taskSlot"]),
+    stringFieldFromRecordOrNull(resultRefs, ["slot", "slotId", "taskSlot"]),
+  ]);
+}
+
+function workflowRefRecord(
+  value: QueueAgentWorkflowSafeJsonValue | null,
+): Record<string, unknown> | null {
+  return isRecord(value) ? value : null;
+}
+
+function exactWorkflowRefRecord(
+  record: Record<string, unknown>,
+): Record<string, QueueAgentWorkflowSafeJsonValue> {
+  const output: Record<string, QueueAgentWorkflowSafeJsonValue> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (isSensitiveWorkflowKey(key) || isRawWorkflowLogKey(key)) {
+      continue;
+    }
+
+    if (isExactWorkflowRefKey(key) && typeof value === "string") {
+      const normalized = normalizedString(value);
+      if (normalized) {
+        output[key] = normalized;
+      }
+      continue;
+    }
+
+    if (isExactWorkflowRefKey(key) && typeof value === "boolean") {
+      output[key] = value;
+      continue;
+    }
+
+    if (key === "executionTarget" && isRecord(value)) {
+      const target = exactWorkflowExecutionTargetRef(value);
+      if (Object.keys(target).length > 0) {
+        output[key] = target;
+      }
+    }
+  }
+
+  return output;
+}
+
+function exactWorkflowExecutionTargetRef(
+  record: Record<string, unknown>,
+): Record<string, QueueAgentWorkflowSafeJsonValue> {
+  const output: Record<string, QueueAgentWorkflowSafeJsonValue> = {};
+  for (const [key, value] of Object.entries(record)) {
+    if (!isExactWorkflowExecutionTargetKey(key) || typeof value !== "string") {
+      continue;
+    }
+    const normalized = normalizedString(value);
+    if (normalized) {
+      output[key] = normalized;
+    }
+  }
+  return output;
+}
+
+function isExactWorkflowRefKey(key: string) {
+  const normalized = key.toLowerCase().replace(/[_-]/g, "");
+  return (
+    normalized === "actionid" ||
+    normalized === "completiondecisionid" ||
+    normalized === "dependencyedgehash" ||
+    normalized === "dependencyspechash" ||
+    normalized === "evidencebundleid" ||
+    normalized === "executiontargethash" ||
+    normalized === "executorwidgetid" ||
+    normalized === "failuredecisionid" ||
+    normalized === "messageid" ||
+    normalized === "providerid" ||
+    normalized === "queueownerwidgetinstanceid" ||
+    normalized === "reviewmessageid" ||
+    normalized === "runid" ||
+    normalized === "settingshash" ||
+    normalized === "slot" ||
+    normalized === "slotid" ||
+    normalized === "taskid" ||
+    normalized === "taskslot" ||
+    normalized === "taskslothash" ||
+    normalized === "taskspechash" ||
+    normalized === "workflowactionid" ||
+    normalized === "workflowrunid"
+  );
+}
+
+function isExactWorkflowExecutionTargetKey(key: string) {
+  const normalized = key.toLowerCase().replace(/[_-]/g, "");
+  return (
+    normalized === "executorwidgetid" ||
+    normalized === "kind" ||
+    normalized === "providerid" ||
+    normalized === "queueownerwidgetinstanceid"
+  );
+}
+
 function tryParseWorkflowJson(json: string | null | undefined): unknown | null {
   const trimmed = json?.trim() ?? "";
   if (!trimmed) {
@@ -4640,13 +5246,35 @@ function isSensitiveWorkflowKey(key: string) {
 function isRawWorkflowLogKey(key: string) {
   const normalized = key.toLowerCase().replace(/[_-]/g, "");
   return (
+    normalized.includes("gitoutput") ||
+    normalized.includes("providerlog") ||
+    normalized.includes("rawstderr") ||
+    normalized.includes("rawstdout") ||
+    normalized.includes("shelloutput") ||
     normalized.includes("transcript") ||
+    normalized.includes("validationoutput") ||
     normalized === "log" ||
     normalized === "logs" ||
     normalized === "rawlog" ||
     normalized === "rawlogs" ||
-    normalized.includes("providerlog")
+    normalized === "stderr" ||
+    normalized === "stdout"
   );
+}
+
+function boundedDiagnosticText(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) {
+    return null;
+  }
+
+  const redacted = trimmed
+    .replace(/operator-confirmed/g, "[redacted-confirmation-token]")
+    .replace(/confirmationToken/gi, "confirmation-token-redacted")
+    .replace(/confirmation_token/gi, "confirmation-token-redacted");
+  return redacted.length > 500
+    ? `${redacted.slice(0, 500)}[truncated]`
+    : redacted;
 }
 
 function normalizedString(value: string | null | undefined) {

@@ -179,6 +179,15 @@ describe("queue.workflow debug read capabilities", () => {
         workflowRunId: "queue-workflow-run-1782257290023621100_163",
       }),
     );
+    const focusedActionLogResult = await broker.invokeAsync<Record<string, unknown>>(
+      request("queue.workflow.readActionLog", {
+        actionType: "start_worker",
+        includeRefs: true,
+        limit: 10,
+        slot: "upstream",
+        workflowRunId: "queue-workflow-run-1782257290023621100_163",
+      }),
+    );
     const planResult = await broker.invokeAsync<Record<string, unknown>>(
       request("queue.workflow.planResume", {
         workflowRunId: "queue-workflow-run-1782257290023621100_163",
@@ -216,6 +225,44 @@ describe("queue.workflow debug read capabilities", () => {
       },
       workflowRunId: "queue-workflow-run-1782257290023621100_163",
     });
+    expect(reportResult.result.output).toMatchObject({
+      diagnostics: {
+        refMaps: {
+          runIdsBySlot: {
+            upstream: "queue-run_1782257290066506600_169",
+          },
+          taskIdsBySlot: {
+            downstream: "queue_task_wf_50bf4534e054bec3",
+            upstream: "queue_task_wf_44a095e817b585b5",
+          },
+        },
+        startWorker: {
+          actionId: "workflow-action-start-worker",
+          actionPresent: true,
+          executionTargetHash: "execution-target-hash-queue_local",
+          hasExecutionTargetHash: true,
+          hasRunId: true,
+          hasSettingsHash: true,
+          hasSlot: true,
+          hasTaskId: true,
+          resultRefs: {
+            runId: "queue-run_1782257290066506600_169",
+            slot: "upstream",
+            taskId: "queue_task_wf_44a095e817b585b5",
+          },
+          runId: "queue-run_1782257290066506600_169",
+          settingsHash: "settings-hash-upstream",
+          slot: "upstream",
+          targetRefs: {
+            executionTargetHash: "execution-target-hash-queue_local",
+            settingsHash: "settings-hash-upstream",
+            slot: "upstream",
+            taskId: "queue_task_wf_44a095e817b585b5",
+          },
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+      },
+    });
 
     const actionLogOutput = actionLogResult.result.output as {
       actions: Array<{ actionType: string; resultRefs: Record<string, unknown> }>;
@@ -237,6 +284,30 @@ describe("queue.workflow debug read capabilities", () => {
         }),
       ]),
     );
+    expect(focusedActionLogResult.status).toBe("succeeded");
+    expect(focusedActionLogResult.result.output).toMatchObject({
+      actionTypeFilter: "start_worker",
+      ambiguous: false,
+      focusedAction: {
+        actionType: "start_worker",
+        idempotencyKey:
+          "queue-workflow-run-1782257290023621100_163:start_worker:upstream:queue_task_wf_44a095e817b585b5:settings-hash-upstream",
+        resultRefs: {
+          runId: "queue-run_1782257290066506600_169",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+        status: "completed",
+        targetRefs: {
+          executionTargetHash: "execution-target-hash-queue_local",
+          settingsHash: "settings-hash-upstream",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+      },
+      includeRefs: true,
+      slotFilter: "upstream",
+    });
 
     expect(planResult.result.output).toMatchObject({
       blockers: [
@@ -259,9 +330,43 @@ describe("queue.workflow debug read capabilities", () => {
       runIdsBySlot: { upstream: "queue-run_1782257290066506600_169" },
       taskIdsBySlot: { upstream: "queue_task_wf_44a095e817b585b5" },
     });
+    expect(planResult.result.output).toMatchObject({
+      diagnostics: {
+        missingRefs: [
+          expect.objectContaining({
+            missingRequiredField: "resultRefs.evidenceBundleId",
+            runId: "queue-run_1782257290066506600_169",
+            slot: "upstream",
+            taskId: "queue_task_wf_44a095e817b585b5",
+          }),
+        ],
+        reasonIfNotSafe: "worker_running",
+        safeToRecordWorkerEvidence: false,
+        startWorkerRefCheck: {
+          actionPresent: true,
+          actionStatus: "completed",
+          executionTargetHashPresent: true,
+          runIdPresent: true,
+          settingsHashPresent: true,
+          slotPresent: true,
+          taskIdPresent: true,
+        },
+        status: "blocked_incomplete_workflow_action_refs",
+        workerState: {
+          latestRunId: "queue-run_1782257290066506600_169",
+          latestRunStatus: "running",
+          runExists: true,
+          runId: "queue-run_1782257290066506600_169",
+          taskExists: true,
+          taskId: "queue_task_wf_44a095e817b585b5",
+          workerRunState: "running",
+        },
+      },
+    });
 
     const serialized = JSON.stringify({
       actionLog: actionLogResult.result.output,
+      focusedActionLog: focusedActionLogResult.result.output,
       plan: planResult.result.output,
       report: reportResult.result.output,
     });
@@ -269,9 +374,187 @@ describe("queue.workflow debug read capabilities", () => {
     expect(serialized).not.toContain("confirmationToken");
     expect(serialized).not.toContain("rawProviderTranscript");
     expect(serialized).not.toContain("raw provider transcript");
+    expect(
+      JSON.stringify(
+        (reportResult.result.output as { diagnostics: unknown }).diagnostics,
+      ),
+    ).not.toContain("...");
+    expect(
+      JSON.stringify(
+        (planResult.result.output as { diagnostics: unknown }).diagnostics,
+      ),
+    ).not.toContain("...");
     expect(createItem).not.toHaveBeenCalled();
     expect(updateItem).not.toHaveBeenCalled();
     expect(startWorkflowAssignedTask).not.toHaveBeenCalled();
+  });
+
+  it("returns structured action-log no-match and ambiguity diagnostics", async () => {
+    const getWorkflowReport = vi.fn(async () =>
+      workflowReport({
+        actions: [
+          liveFailureAction({
+            actionId: "workflow-action-start-worker-a",
+            actionType: "start_worker",
+            idempotencyKey: "workflow-run-1:start_worker:upstream:a",
+            resultRefsJson: JSON.stringify({
+              runId: "run-a",
+              slot: "upstream",
+              taskId: "task-upstream",
+            }),
+            stepId: "start_worker_upstream",
+            targetRefsJson: JSON.stringify({
+              executionTargetHash: "execution-target-hash-a",
+              settingsHash: "settings-hash-a",
+              slot: "upstream",
+              taskId: "task-upstream",
+            }),
+          }),
+          liveFailureAction({
+            actionId: "workflow-action-start-worker-b",
+            actionType: "start_worker",
+            idempotencyKey: "workflow-run-1:start_worker:upstream:b",
+            resultRefsJson: JSON.stringify({
+              runId: "run-b",
+              slot: "upstream",
+              taskId: "task-upstream",
+            }),
+            stepId: "start_worker_upstream_retry",
+            targetRefsJson: JSON.stringify({
+              executionTargetHash: "execution-target-hash-b",
+              settingsHash: "settings-hash-b",
+              slot: "upstream",
+              taskId: "task-upstream",
+            }),
+          }),
+        ],
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              queueEnabled: false,
+              workspaceId: "workspace-1",
+            }),
+            getWorkflowReport,
+          }),
+        ),
+      ),
+      policy: { requireDryRunBeforeSideEffectingInvoke: false },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const ambiguous = await broker.invokeAsync<Record<string, unknown>>(
+      request("queue.workflow.readActionLog", {
+        actionType: "start_worker",
+        includeRefs: true,
+        slot: "upstream",
+        workflowRunId: "workflow-run-1",
+      }),
+    );
+    const noMatch = await broker.invokeAsync<Record<string, unknown>>(
+      request("queue.workflow.readActionLog", {
+        actionType: "record_worker_evidence",
+        includeRefs: true,
+        slot: "downstream",
+        workflowRunId: "workflow-run-1",
+      }),
+    );
+
+    expect(ambiguous.result.output).toMatchObject({
+      ambiguous: true,
+      blocker: {
+        blockerCode: "ambiguous_matching_action",
+      },
+      focusedAction: null,
+      matchingActions: [
+        expect.objectContaining({
+          actionId: "workflow-action-start-worker-a",
+          resultRefs: expect.objectContaining({
+            runId: "run-a",
+            slot: "upstream",
+          }),
+        }),
+        expect.objectContaining({
+          actionId: "workflow-action-start-worker-b",
+          resultRefs: expect.objectContaining({
+            runId: "run-b",
+            slot: "upstream",
+          }),
+        }),
+      ],
+    });
+    expect(noMatch.result.output).toMatchObject({
+      ambiguous: false,
+      blocker: {
+        blockerCode: "no_matching_action",
+        missingRequiredField: "actionType",
+        slot: "downstream",
+      },
+      focusedAction: null,
+      matchingActions: [],
+    });
+    expect(JSON.stringify(ambiguous.result.output)).not.toContain(
+      "confirmationToken",
+    );
+    expect(JSON.stringify(ambiguous.result.output)).not.toContain("raw log");
+  });
+
+  it("marks worker evidence retry safe only after completed worker refs are complete", async () => {
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              queueEnabled: false,
+              workspaceId: "workspace-1",
+            }),
+            planWorkflowResume: vi.fn(async () =>
+              safeWorkerEvidenceResumePlan(),
+            ),
+          }),
+        ),
+      ),
+      policy: { requireDryRunBeforeSideEffectingInvoke: false },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<Record<string, unknown>>(
+      request("queue.workflow.planResume", {
+        workflowRunId: "queue-workflow-run-1782257290023621100_163",
+      }),
+    );
+
+    expect(result.result.output).toMatchObject({
+      diagnostics: {
+        reasonIfNotSafe: null,
+        safeToRecordWorkerEvidence: true,
+        startWorkerRefCheck: {
+          missingRefs: [],
+          runIdPresent: true,
+          settingsHashPresent: true,
+          taskIdPresent: true,
+        },
+        status: "waiting_for_worker_evidence",
+        workerState: {
+          latestRunStatus: "completed",
+          workerRunState: "completed",
+        },
+      },
+    });
+    expect(
+      JSON.stringify(
+        (result.result.output as { diagnostics: unknown }).diagnostics,
+      ),
+    ).not.toContain("...");
   });
 
   it("returns a clear empty action log only when no workflow actions exist", async () => {
@@ -669,5 +952,35 @@ function liveFailureResumePlan(): AgentQueueWorkflowResumePlan {
     ],
     terminalStatus: null,
     workflowRun: liveFailureWorkflowRun(),
+  };
+}
+
+function safeWorkerEvidenceResumePlan(): AgentQueueWorkflowResumePlan {
+  return {
+    ...liveFailureResumePlan(),
+    blockers: [],
+    nextPhase: "worker_evidence",
+    nextStep: "waiting_for_worker_evidence",
+    reportSummary:
+      "Resume planning is waiting for explicit worker evidence input.",
+    resumeAvailable: true,
+    slotReconciliations: [
+      {
+        ...liveFailureResumePlan().slotReconciliations[0],
+        aggregateEvidenceState: "missing",
+        aggregateTicketState: "running",
+        blockerCode: null,
+        runExists: true,
+        taskExists: true,
+      },
+    ],
+    status: "waiting_for_worker_evidence",
+    taskSnapshots: [
+      {
+        ...liveFailureResumePlan().taskSnapshots[0],
+        latestRunStatus: "completed",
+        workerRunState: "completed",
+      },
+    ],
   };
 }

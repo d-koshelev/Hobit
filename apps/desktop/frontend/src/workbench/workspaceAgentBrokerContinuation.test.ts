@@ -2297,6 +2297,27 @@ ${JSON.stringify({
     expect(workflowReport.data?.workflowReport).toMatchObject({
       actionSummaryCount: 5,
       currentStep: "record_worker_evidence",
+      diagnostics: {
+        refMaps: {
+          runIdsBySlot: { upstream: "queue-run_1782257290066506600_169" },
+          taskIdsBySlot: {
+            upstream: "queue_task_wf_44a095e817b585b5",
+          },
+        },
+        startWorker: {
+          executionTargetHash: "execution-target-hash-queue_local",
+          hasExecutionTargetHash: true,
+          hasRunId: true,
+          hasSettingsHash: true,
+          resultRefs: {
+            runId: "queue-run_1782257290066506600_169",
+            slot: "upstream",
+            taskId: "queue_task_wf_44a095e817b585b5",
+          },
+          runId: "queue-run_1782257290066506600_169",
+          settingsHash: "settings-hash-upstream",
+        },
+      },
       persistentStatus: "paused",
       phase: "worker_evidence",
       runIdsBySlot: { upstream: "queue-run_1782257290066506600_169" },
@@ -2318,6 +2339,22 @@ ${JSON.stringify({
     });
     expect(workflowActionLog.data?.workflowActionLog).toMatchObject({
       actionCount: 5,
+      actionTypeFilter: "start_worker",
+      focusedAction: {
+        actionType: "start_worker",
+        resultRefs: {
+          runId: "queue-run_1782257290066506600_169",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+        targetRefs: {
+          executionTargetHash: "execution-target-hash-queue_local",
+          settingsHash: "settings-hash-upstream",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+      },
+      includeRefs: true,
       actions: [
         expect.objectContaining({
           actionType: "start_worker",
@@ -2329,6 +2366,23 @@ ${JSON.stringify({
       truncated: false,
     });
     expect(workflowResumePlan.data?.workflowResumePlan).toMatchObject({
+      diagnostics: {
+        missingRefs: [
+          expect.objectContaining({
+            missingRequiredField: "resultRefs.evidenceBundleId",
+            runId: "queue-run_1782257290066506600_169",
+          }),
+        ],
+        reasonIfNotSafe: "worker_running",
+        safeToRecordWorkerEvidence: false,
+        startWorkerRefCheck: {
+          actionPresent: true,
+          executionTargetHashPresent: true,
+          runIdPresent: true,
+          settingsHashPresent: true,
+          taskIdPresent: true,
+        },
+      },
       blockers: [
         expect.objectContaining({
           blockerCode: "incomplete_workflow_action_refs",
@@ -2357,12 +2411,19 @@ ${JSON.stringify({
       "queue-run_1782257290066506600_169",
     );
     expect(prompt).toContain('"workflowReport"');
+    expect(prompt).toContain('"diagnostics"');
     expect(prompt).toContain('"queue-workflow-run-1782257290023621100_163"');
     expect(prompt).toContain('"runIdsBySlot"');
     expect(prompt).not.toContain("operator-confirmed");
     expect(prompt).not.toContain("confirmationToken");
     expect(prompt).not.toContain("rawProviderTranscript");
     expect(prompt).not.toContain("raw provider transcript");
+    expect(JSON.stringify(workflowReport.data?.workflowReport)).not.toContain(
+      "...",
+    );
+    expect(
+      JSON.stringify(workflowResumePlan.data?.workflowResumePlan?.diagnostics),
+    ).not.toContain("...");
   });
 
   it("includes backend aggregate state dimensions in compact lifecycle result context", () => {
@@ -2898,6 +2959,56 @@ function liveWorkflowReportOutput() {
     blockers: [],
     completionDecisionIdsBySlot: {},
     currentStep: "record_worker_evidence",
+    diagnostics: {
+      recoveryState: {
+        canDiagnoseWorkerEvidence: true,
+        missingRefs: [],
+        suspectedBlocker: null,
+      },
+      refMaps: {
+        completionDecisionIdsBySlot: {},
+        evidenceBundleIdsBySlot: {},
+        failureDecisionIdsBySlot: {},
+        messageIdsBySlot: {},
+        runIdsBySlot: {
+          upstream: "queue-run_1782257290066506600_169",
+        },
+        taskIdsBySlot: {
+          downstream: "queue_task_wf_50bf4534e054bec3",
+          upstream: "queue_task_wf_44a095e817b585b5",
+        },
+      },
+      startWorker: {
+        actionId: "workflow-action-start-worker",
+        actionPresent: true,
+        blockerCode: null,
+        blockerMessage: null,
+        executionTargetHash: "execution-target-hash-queue_local",
+        hasExecutionTargetHash: true,
+        hasRunId: true,
+        hasSettingsHash: true,
+        hasSlot: true,
+        hasTaskId: true,
+        idempotencyKey:
+          "queue-workflow-run-1782257290023621100_163:start_worker:upstream",
+        resultRefs: {
+          runId: "queue-run_1782257290066506600_169",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+        runId: "queue-run_1782257290066506600_169",
+        settingsHash: "settings-hash-upstream",
+        slot: "upstream",
+        status: "completed",
+        targetRefs: {
+          executionTargetHash: "execution-target-hash-queue_local",
+          settingsHash: "settings-hash-upstream",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+        taskId: "queue_task_wf_44a095e817b585b5",
+      },
+    },
     evidenceBundleIdsBySlot: {},
     failureDecisionIdsBySlot: {},
     messageIdsBySlot: {},
@@ -2974,7 +3085,35 @@ function liveWorkflowActionLogOutput() {
         updatedAt: "2026-06-23T12:05:00.000Z",
       },
     ],
+    actionTypeFilter: "start_worker",
+    ambiguous: false,
+    blocker: null,
+    focusedAction: {
+      actionId: "workflow-action-start-worker",
+      actionType: "start_worker",
+      blockerCode: null,
+      blockerMessage: null,
+      createdAt: "2026-06-23T12:05:00.000Z",
+      idempotencyKey:
+        "queue-workflow-run-1782257290023621100_163:start_worker:upstream",
+      resultRefs: {
+        runId: "queue-run_1782257290066506600_169",
+        slot: "upstream",
+        taskId: "queue_task_wf_44a095e817b585b5",
+      },
+      status: "completed",
+      targetRefs: {
+        executionTargetHash: "execution-target-hash-queue_local",
+        settingsHash: "settings-hash-upstream",
+        slot: "upstream",
+        taskId: "queue_task_wf_44a095e817b585b5",
+      },
+      updatedAt: "2026-06-23T12:05:00.000Z",
+    },
+    includeRefs: true,
     limit: 10,
+    matchingActions: [],
+    slotFilter: "upstream",
     statusFilter: null,
     total: 5,
     truncated: false,
@@ -3003,6 +3142,80 @@ function liveWorkflowResumePlanOutput() {
         taskId: "queue_task_wf_44a095e817b585b5",
       },
     ],
+    diagnostics: {
+      blockers: [
+        {
+          blockerCode: "incomplete_workflow_action_refs",
+          blockerMessage:
+            "Workflow action refs are incomplete; worker evidence cannot be recorded yet.",
+          missingRequiredField: "resultRefs.evidenceBundleId",
+          runId: "queue-run_1782257290066506600_169",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+      ],
+      continuationRefs: {
+        completionDecisionIdsBySlot: {},
+        evidenceBundleIdsBySlot: {},
+        failureDecisionIdsBySlot: {},
+        messageIdsBySlot: {},
+        runIdsBySlot: {
+          upstream: "queue-run_1782257290066506600_169",
+        },
+        taskIdsBySlot: {
+          upstream: "queue_task_wf_44a095e817b585b5",
+        },
+      },
+      missingRefs: [
+        {
+          blockerCode: "incomplete_workflow_action_refs",
+          blockerMessage:
+            "Workflow action refs are incomplete; worker evidence cannot be recorded yet.",
+          missingRequiredField: "resultRefs.evidenceBundleId",
+          runId: "queue-run_1782257290066506600_169",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+      ],
+      nextPhase: "worker_evidence",
+      nextStep: "record_worker_evidence",
+      reasonIfNotSafe: "worker_running",
+      recoveredRefs: {
+        completionDecisionIdsBySlot: {},
+        evidenceBundleIdsBySlot: {},
+        failureDecisionIdsBySlot: {},
+        messageIdsBySlot: {},
+        runIdsBySlot: {
+          upstream: "queue-run_1782257290066506600_169",
+        },
+        taskIdsBySlot: {
+          upstream: "queue_task_wf_44a095e817b585b5",
+        },
+      },
+      safeToRecordWorkerEvidence: false,
+      startWorkerRefCheck: {
+        actionPresent: true,
+        actionStatus: "completed",
+        executionTargetHashPresent: true,
+        missingRefs: [],
+        runIdPresent: true,
+        settingsHashPresent: true,
+        slotPresent: true,
+        taskIdPresent: true,
+      },
+      status: "blocked_incomplete_workflow_action_refs",
+      workerState: {
+        evidenceState: "missing",
+        latestRunId: "queue-run_1782257290066506600_169",
+        latestRunStatus: "running",
+        runExists: true,
+        runId: "queue-run_1782257290066506600_169",
+        taskExists: true,
+        taskId: "queue_task_wf_44a095e817b585b5",
+        ticketState: "running",
+        workerRunState: "running",
+      },
+    },
     evidenceBundleIdsBySlot: {},
     messageIdsBySlot: {},
     missingRefs: [

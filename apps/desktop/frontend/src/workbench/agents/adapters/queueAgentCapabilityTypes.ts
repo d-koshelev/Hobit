@@ -445,7 +445,10 @@ export type QueueAgentWorkflowPlanResumeInput = QueueAgentWorkflowGetInput & {
 };
 
 export type QueueAgentWorkflowReadActionLogInput = QueueAgentWorkflowGetInput & {
+  actionType?: string;
+  includeRefs?: boolean;
   limit?: number;
+  slot?: string;
   status?: AgentQueueWorkflowActionStatus | string;
 };
 
@@ -547,6 +550,19 @@ export type QueueAgentWorkflowActionSummary = {
   updatedAt: string;
 };
 
+export type QueueAgentWorkflowFocusedAction = {
+  actionId: string;
+  actionType: string;
+  blockerCode: string | null;
+  blockerMessage: string | null;
+  createdAt: string;
+  idempotencyKey: string;
+  resultRefs: QueueAgentWorkflowSafeJsonValue | null;
+  status: string;
+  targetRefs: QueueAgentWorkflowSafeJsonValue | null;
+  updatedAt: string;
+};
+
 export type QueueAgentWorkflowSlotBindingSummary = {
   completionDecisionId: string | null;
   evidenceBundleId: string | null;
@@ -563,6 +579,70 @@ export type QueueAgentWorkflowSlotBindingSummary = {
   taskSpecHash: string | null;
 };
 
+export type QueueAgentWorkflowStartWorkerDiagnostics = {
+  actionId: string | null;
+  actionPresent: boolean;
+  blockerCode: string | null;
+  blockerMessage: string | null;
+  executionTargetHash: string | null;
+  hasExecutionTargetHash: boolean;
+  hasRunId: boolean;
+  hasSettingsHash: boolean;
+  hasSlot: boolean;
+  hasTaskId: boolean;
+  idempotencyKey: string | null;
+  resultRefs: QueueAgentWorkflowSafeJsonValue | null;
+  runId: string | null;
+  settingsHash: string | null;
+  slot: string | null;
+  status: string | null;
+  targetRefs: QueueAgentWorkflowSafeJsonValue | null;
+  taskId: string | null;
+};
+
+export type QueueAgentWorkflowReportDiagnostics = {
+  recoveryState: {
+    canDiagnoseWorkerEvidence: boolean;
+    missingRefs: string[];
+    suspectedBlocker: string | null;
+  };
+  refMaps: QueueAgentWorkflowRefMaps;
+  startWorker: QueueAgentWorkflowStartWorkerDiagnostics;
+};
+
+export type QueueAgentWorkflowResumeDiagnostics = {
+  blockers: QueueAgentWorkflowBlockerSummary[];
+  continuationRefs: QueueAgentWorkflowRefMaps;
+  missingRefs: QueueAgentWorkflowBlockerSummary[];
+  nextPhase: string | null;
+  nextStep: string | null;
+  reasonIfNotSafe: string | null;
+  recoveredRefs: QueueAgentWorkflowRefMaps;
+  safeToRecordWorkerEvidence: boolean;
+  startWorkerRefCheck: {
+    actionPresent: boolean;
+    actionStatus: string | null;
+    executionTargetHashPresent: boolean;
+    missingRefs: string[];
+    runIdPresent: boolean;
+    settingsHashPresent: boolean;
+    slotPresent: boolean;
+    taskIdPresent: boolean;
+  };
+  status: string;
+  workerState: {
+    evidenceState: string | null;
+    latestRunId: string | null;
+    latestRunStatus: string | null;
+    runExists: boolean | null;
+    runId: string | null;
+    taskExists: boolean | null;
+    taskId: string | null;
+    ticketState: string | null;
+    workerRunState: string | null;
+  };
+};
+
 export type QueueAgentWorkflowReportResult =
   QueueAgentWorkflowNoMutationFlags &
     QueueAgentWorkflowRefMaps & {
@@ -572,6 +652,7 @@ export type QueueAgentWorkflowReportResult =
       blockers: QueueAgentWorkflowBlockerSummary[];
       completedAt: string | null;
       currentStep: string | null;
+      diagnostics: QueueAgentWorkflowReportDiagnostics;
       nextAction: QueueAgentWorkflowSafeJsonValue | null;
       nextPhase: string | null;
       nextStep: string | null;
@@ -597,6 +678,7 @@ export type QueueAgentWorkflowPlanResumeResult =
       actionCountSummary: QueueAgentWorkflowActionCountSummary;
       actionSummaries: QueueAgentWorkflowActionSummary[];
       blockers: QueueAgentWorkflowBlockerSummary[];
+      diagnostics: QueueAgentWorkflowResumeDiagnostics;
       missingRefs: QueueAgentWorkflowBlockerSummary[];
       nextPhase: string | null;
       nextStep: string | null;
@@ -654,8 +736,15 @@ export type QueueAgentWorkflowPlanResumeResult =
 export type QueueAgentWorkflowReadActionLogResult =
   QueueAgentWorkflowNoMutationFlags & {
     actionCountSummary: QueueAgentWorkflowActionCountSummary;
+    actionTypeFilter: string | null;
+    ambiguous: boolean;
     actions: QueueAgentWorkflowActionSummary[];
+    blocker: QueueAgentWorkflowBlockerSummary | null;
+    focusedAction: QueueAgentWorkflowFocusedAction | null;
+    includeRefs: boolean;
     limit: number;
+    matchingActions: QueueAgentWorkflowFocusedAction[];
+    slotFilter: string | null;
     statusFilter: string | null;
     total: number;
     truncated: boolean;
