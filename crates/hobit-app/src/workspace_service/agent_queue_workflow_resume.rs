@@ -403,7 +403,16 @@ impl WorkspaceService {
                     Vec::new(),
                 )));
             }
-            "created" | "running" | "paused" | "blocked" => {}
+            "blocked" => {
+                if let Some(plan) = self.retryable_worker_evidence_failure_plan(
+                    &workspace_id,
+                    workflow_run.clone(),
+                    actions.clone(),
+                )? {
+                    return Ok(Some(plan));
+                }
+            }
+            "created" | "running" | "paused" => {}
             _ => {
                 return Ok(Some(plan_with_status(
                     workflow_run,
@@ -693,13 +702,14 @@ impl WorkspaceService {
         {
             return Ok(None);
         }
-        if actions
-            .iter()
-            .any(|action| action.action_type == "record_worker_evidence")
+        if actions.iter().any(is_completed_worker_evidence_action)
+            || actions.iter().any(is_non_retryable_worker_evidence_action)
         {
             return Ok(None);
         }
-        if !actions.iter().any(is_worker_evidence_runner_failed_action) {
+        if !actions.iter().any(is_worker_evidence_runner_failed_action)
+            && !actions.iter().any(is_retryable_worker_evidence_action)
+        {
             return Ok(None);
         }
 
@@ -774,9 +784,11 @@ impl WorkspaceService {
             || target.binding.run_id.is_none()
             || target.binding.evidence_bundle_id.is_some()
             || target.evidence.is_some()
+            || target.review_message.is_some()
             || target.completion_decision.is_some()
             || target.failure_decision.is_some()
             || !is_completed_worker_run_state(run_link)
+            || !has_completed_start_worker_action_for_slot(&actions, &target.binding)
         {
             return Ok(None);
         }
@@ -1334,6 +1346,25 @@ fn is_worker_evidence_runner_failed_action(action: &QueueWorkflowAction) -> bool
                 == Some("worker_evidence"))
 }
 
+fn is_completed_worker_evidence_action(action: &QueueWorkflowAction) -> bool {
+    action.action_type == "record_worker_evidence" && action.status == "completed"
+}
+
+fn is_retryable_worker_evidence_action(action: &QueueWorkflowAction) -> bool {
+    action.action_type == "record_worker_evidence"
+        && action.status == "blocked"
+        && action
+            .blocker_code
+            .as_deref()
+            .is_some_and(is_retryable_record_worker_evidence_blocker)
+}
+
+fn is_non_retryable_worker_evidence_action(action: &QueueWorkflowAction) -> bool {
+    action.action_type == "record_worker_evidence"
+        && !is_completed_worker_evidence_action(action)
+        && !is_retryable_worker_evidence_action(action)
+}
+
 fn action_ref_phase(raw: Option<&str>) -> Option<String> {
     raw.and_then(|raw| serde_json::from_str::<Value>(raw).ok())
         .and_then(|value| {
@@ -1343,6 +1374,50 @@ fn action_ref_phase(raw: Option<&str>) -> Option<String> {
                 .and_then(Value::as_str)
                 .map(str::to_owned)
         })
+}
+
+fn has_completed_start_worker_action_for_slot(
+    actions: &[QueueWorkflowAction],
+    binding: &SlotBinding,
+) -> bool {
+    actions.iter().any(|action| {
+        if action.action_type != "start_worker" || action.status != "completed" {
+            return false;
+        }
+        let Some(target) = action_ref_value(action.target_refs_json.as_deref()) else {
+            return false;
+        };
+        let Some(result) = action_ref_value(action.result_refs_json.as_deref()) else {
+            return false;
+        };
+        let target_task_id = target
+            .get("taskId")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let result_run_id = result
+            .get("runId")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+        let target_slot = target
+            .get("slot")
+            .and_then(Value::as_str)
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+
+        target_task_id == binding.task_id.as_deref()
+            && result_run_id == binding.run_id.as_deref()
+            && match target_slot {
+                Some(slot) => slot == binding.slot,
+                None => true,
+            }
+    })
+}
+
+fn action_ref_value(raw: Option<&str>) -> Option<serde_json::Map<String, Value>> {
+    raw.and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .and_then(|value| value.as_object().cloned())
 }
 
 fn recover_create_task_action(

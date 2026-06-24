@@ -1276,8 +1276,18 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     );
     expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
       expect.objectContaining({
+        blockerReason: null,
         currentStep: "awaiting_review",
         phase: "worker_evidence",
+        actions: [
+          expect.objectContaining({
+            actionType: "record_worker_evidence",
+            resultRefs: expect.objectContaining({
+              evidenceBundleId: "bundle-upstream",
+            }),
+            status: "completed",
+          }),
+        ],
         status: "paused",
       }),
     );
@@ -1498,6 +1508,49 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       status: "completed",
     });
     expect(bridge.getItemAggregate).not.toHaveBeenCalled();
+  });
+
+  it("blocks arbitrary terminal failed workflow without invoking worker evidence", async () => {
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        resumePlan({
+          nextPhase: "closed",
+          reportSummary: "Workflow failed before a retryable evidence point.",
+          resumeAvailable: false,
+          status: "terminal_failed",
+          terminalStatus: "failed",
+          workflowRun: workflowRun({
+            completedAt: "2026-06-22T00:00:00.000Z",
+            phase: "closed",
+            status: "failed",
+            workflowRunId: "queue-workflow-run-1",
+          }),
+        }),
+      ),
+    });
+    const recordWorkflowWorkerEvidence = vi.fn();
+    const bridge = queueBridge({ recordWorkflowWorkerEvidence });
+
+    const result = await runAdapter({
+      queueBridge: bridge,
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          inputs: workerEvidenceInputs(),
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: false,
+      persistentStatus: "failed",
+      resumePlan: expect.objectContaining({ status: "terminal_failed" }),
+      status: "blocked",
+    });
+    expect(recordWorkflowWorkerEvidence).not.toHaveBeenCalled();
+    expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
   });
 
   it("returns blocked resume plans without invoking the runner", async () => {

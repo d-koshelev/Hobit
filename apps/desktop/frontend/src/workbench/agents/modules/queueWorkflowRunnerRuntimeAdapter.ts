@@ -1107,6 +1107,41 @@ function actionSummariesForRunnerResult({
   const workerEvidence = runnerResult.report.workerEvidence;
   if (
     phase === "worker_evidence" &&
+    (workerEvidence.commandStatus === "recorded" ||
+      workerEvidence.commandStatus === "already_recorded") &&
+    workerEvidence.evidenceBundleId &&
+    workerEvidence.targetSlot &&
+    workerEvidence.taskId &&
+    workerEvidence.runId
+  ) {
+    actions.push({
+      actionType: "record_worker_evidence",
+      idempotencyKey: [
+        workflowRunId,
+        "record_worker_evidence",
+        workerEvidence.targetSlot,
+        workerEvidence.taskId,
+        workerEvidence.runId,
+      ].join(":"),
+      resultRefs: stripNullish({
+        evidenceBundleId: workerEvidence.evidenceBundleId,
+        evidenceStatus: "available",
+        outcome: workerEvidence.outcome,
+        runId: workerEvidence.runId,
+        workerFinalStatus: workerEvidence.workerFinalStatus,
+      }),
+      status: "completed",
+      stepId: "record_worker_evidence",
+      targetRefs: {
+        runId: workerEvidence.runId,
+        slot: workerEvidence.targetSlot,
+        taskId: workerEvidence.taskId,
+        workflowRunId,
+      },
+    });
+  }
+  if (
+    phase === "worker_evidence" &&
     workerEvidence.commandStatus &&
     workerEvidence.commandStatus !== "recorded" &&
     workerEvidence.commandStatus !== "already_recorded" &&

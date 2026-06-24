@@ -553,11 +553,17 @@ duplicate task/start/evidence/review/ACK/finalization is created.
   backend-owned `queue_local`, `planResume` and `readActionLog` must not require
   `executorWidgetId` or an Agent Queue widget, and old missing-slot
   `start_worker` actions may recover via unambiguous task-to-slot mapping.
-- After this block, the live failure smoke at
+- After Block 50F, the live failure smoke at
   `queue-workflow-run-1782257290023621100_163` can retry typed
-  `workerEvidence` only if `queue.workflow.planResume` reports
-  `retryable_worker_evidence_failure` or otherwise reports worker evidence
-  safe with recoverable typed task/run refs and no partial evidence mutation.
+  `workerEvidence.outcome: "completed"` only when `queue.workflow.planResume`
+  reports `retryable_worker_evidence_failure` and the backend evidence command
+  independently proves recoverable typed task/run refs, no existing
+  `evidenceBundleId`, no completed `record_worker_evidence`, no review, no
+  final decision, matching durable worker state, and no downstream auto-start.
+  Success should show the new `evidenceBundleId` in
+  `queue.workflow.getReport`, a completed focused `record_worker_evidence`
+  action in `queue.workflow.readActionLog`, and a next resume phase of
+  review/awaiting review.
 - After evidence recorded: expect existing `evidenceBundleId` to be reused; no
   duplicate evidence.
 - After review created: expect existing canonical `messageId` to be reused for
@@ -581,6 +587,9 @@ duplicate task/start/evidence/review/ACK/finalization is created.
   blocks/conflicts. Worker evidence whose outcome conflicts with the durable
   worker run state blocks as `worker_outcome_mismatch` and can be retried with
   corrected typed input.
+- Completed, cancelled, and arbitrary failed workflow runs remain terminal for
+  worker-evidence mutation unless the strict
+  `retryable_worker_evidence_failure` proof above passes.
 - Missing fresh exact confirmation blocks worker start and finalization.
 - Missing `failureReason` blocks `dependency_failure_smoke` finalization.
 - Backend Queue control `disabled` blocks worker start and does not

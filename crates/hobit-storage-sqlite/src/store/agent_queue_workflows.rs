@@ -205,6 +205,55 @@ impl SqliteStore {
         self.get_agent_queue_workflow_run(workspace_id, workflow_run_id)
     }
 
+    pub fn update_agent_queue_workflow_run_report_reopened(
+        &self,
+        workspace_id: &str,
+        workflow_run_id: &str,
+        update: AgentQueueWorkflowRunReportUpdate<'_>,
+    ) -> Result<Option<AgentQueueWorkflowRunRow>> {
+        let updated_at = update
+            .updated_at
+            .map(str::to_owned)
+            .unwrap_or_else(now_precise_timestamp);
+        let affected_rows = self.connection.execute(
+            "UPDATE agent_queue_workflow_runs
+             SET status = ?1,
+                 phase = ?2,
+                 current_step = ?3,
+                 pause_reason = ?4,
+                 blocker_reason = NULL,
+                 variables_json = COALESCE(?5, variables_json),
+                 slot_bindings_json = COALESCE(?6, slot_bindings_json),
+                 mutation_refs_json = COALESCE(?7, mutation_refs_json),
+                 idempotency_keys_json = COALESCE(?8, idempotency_keys_json),
+                 action_log_summary_json = COALESCE(?9, action_log_summary_json),
+                 completed_at = NULL,
+                 updated_at = ?10,
+                 version = version + 1
+             WHERE workspace_id = ?11 AND workflow_run_id = ?12",
+            params![
+                update.status,
+                update.phase,
+                update.current_step,
+                update.pause_reason,
+                update.variables_json,
+                update.slot_bindings_json,
+                update.mutation_refs_json,
+                update.idempotency_keys_json,
+                update.action_log_summary_json,
+                updated_at,
+                workspace_id,
+                workflow_run_id,
+            ],
+        )?;
+
+        if affected_rows == 0 {
+            return Ok(None);
+        }
+
+        self.get_agent_queue_workflow_run(workspace_id, workflow_run_id)
+    }
+
     pub fn insert_agent_queue_workflow_action(
         &self,
         input: NewAgentQueueWorkflowAction<'_>,

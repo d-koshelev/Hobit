@@ -168,8 +168,16 @@ requires `executorWidgetId`, an Agent Executor widget, an Agent Queue widget, or
 `queueOwnerWidgetInstanceId`; new `start_worker` action refs include `slot`,
 and existing missing-slot start rows recover from unambiguous task-to-slot
 bindings. Live smoke diagnostics can now determine whether to retry
-workerEvidence from read-only payloads; after this block, the paused live
-failure smoke can continue only if `planResume` reports worker evidence safe.
+workerEvidence from read-only payloads. After Block 50F, the current live
+blocked failure smoke workflow
+`queue-workflow-run-1782257290023621100_163` can retry corrected
+`workerEvidence.outcome: "completed"` only when `planResume` reports
+`retryable_worker_evidence_failure` and backend evidence recording proves the
+same strict no-partial-mutation shape. The successful retry records
+`evidenceBundleId`, completes or updates the focused `record_worker_evidence`
+action, clears the stale worker-evidence blocker from the active report, and
+moves the workflow to review/awaiting-review state without starting another
+worker.
 The broker
 continuation `hobit.action.result` context now preserves bounded structured
 payloads for `workspace.context.get`, `workbench.widgets.list`, and
@@ -213,14 +221,19 @@ states record `not_completed`. Mismatches block as
 action attempt when the runner reaches the evidence phase, and remain
 retryable with corrected typed input instead of becoming `failed_unexpected`.
 The existing live failure smoke shape that reached terminal workflow `failed`
-before any durable evidence or `record_worker_evidence` action is recoverable
-as `retryable_worker_evidence_failure` only when task/run refs are recoverable
-and no terminal task decision or partial evidence exists. Failure smoke records
-the actual worker outcome first; terminal failure is later applied through
-reviewed finalization with typed `failureReason` and `failItem`. It does not
-create/ACK reviews, mark done/fail/block/follow-up, run validation, mutate
-Git, roll back, launch Terminal, start workers, create/update/promote tasks,
-enable Queue, start downstream, or infer ids from prose/UI/session state.
+or later `blocked` after the generic terminal guard is recoverable as
+`retryable_worker_evidence_failure` only when task/run refs are recoverable,
+no evidence bundle exists, no completed evidence action exists, no review or
+terminal task decision exists, a completed matching `start_worker` action
+exists, the explicit typed `runId` and `taskId` match durable state, the
+worker run is complete, and outcome matches the durable run state. Completed,
+cancelled, and arbitrary failed workflow runs remain terminal for
+worker-evidence mutation. Failure smoke records the actual worker outcome
+first; terminal failure is later applied through reviewed finalization with
+typed `failureReason` and `failItem`. It does not create/ACK reviews, mark
+done/fail/block/follow-up, run validation, mutate Git, roll back, launch
+Terminal, start workers, create/update/promote tasks, enable Queue, start
+downstream, or infer ids from prose/UI/session state.
 
 Queue capability contract hardening is implemented at the manifest, instruction,
 adapter, and test boundary. Every registered `queue.*` capability is covered by

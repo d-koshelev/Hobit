@@ -2650,6 +2650,19 @@ fn plan_resume_recovers_retryable_worker_evidence_runner_failure_shape() {
         "link-1",
         "completed",
     );
+    let settings_hash = retryable_queue_local_settings_hash();
+    let execution_target_hash = retryable_queue_local_execution_target_hash();
+    let retryable_slot_bindings = json!({
+        "upstream": {
+            "executionTargetHash": execution_target_hash,
+            "executionTargetKind": "queue_local",
+            "providerId": "codex",
+            "settingsHash": settings_hash,
+            "taskId": "task-1",
+            "runId": "run-1"
+        }
+    })
+    .to_string();
     insert_resume_workflow(
         &store,
         "workflow-run-retryable-evidence",
@@ -2660,9 +2673,19 @@ fn plan_resume_recovers_retryable_worker_evidence_runner_failure_shape() {
         Some(
             r#"{"tasks":[{"slot":"upstream","title":"Task","prompt":"Prompt"},{"slot":"downstream","title":"Downstream","prompt":"Prompt","dependsOnSlots":["upstream"]}]}"#,
         ),
-        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1"}}"#),
+        Some(&retryable_slot_bindings),
         None,
         Some("1"),
+    );
+    insert_completed_start_worker_action_with_refs(
+        &store,
+        "workflow-run-retryable-evidence",
+        "start-worker-retryable-evidence",
+        "task-1",
+        Some("upstream"),
+        "run-1",
+        &settings_hash,
+        &execution_target_hash,
     );
     let target_refs = json!({
         "phase": "worker_evidence",
@@ -3181,6 +3204,572 @@ fn record_workflow_worker_evidence_records_upstream_and_stops_before_review() {
         .get_latest_agent_queue_failure_decision("workspace-1", "task-1")
         .expect("failure decision")
         .is_none());
+}
+
+#[test]
+fn retryable_failed_worker_evidence_reenters_and_records_completed_evidence() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "completed",
+    );
+    insert_retryable_worker_evidence_workflow(
+        &store,
+        "workflow-run-retryable-evidence-record",
+        "failed",
+        "worker_evidence_failed_unexpected",
+        "task-1",
+        "run-1",
+    );
+    let service = WorkspaceService::new(store);
+
+    let result = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-retryable-evidence-record",
+            "upstream",
+            "task-1",
+            "run-1",
+            "completed",
+        ))
+        .expect("record retryable failed evidence");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Recorded
+    );
+    let workflow_run = result.workflow_run.expect("workflow run");
+    assert_eq!(workflow_run.status, "paused");
+    assert_eq!(workflow_run.phase, "worker_evidence");
+    assert_eq!(
+        workflow_run.current_step.as_deref(),
+        Some("awaiting_review")
+    );
+    assert_eq!(workflow_run.blocker_reason, None);
+    assert_eq!(workflow_run.completed_at, None);
+    let binding = result.binding.expect("binding");
+    assert!(!binding.evidence_bundle_id.is_empty());
+    let report = service
+        .get_queue_workflow_report(QueueWorkflowGetRequest {
+            workspace_id: "workspace-1".to_owned(),
+            workflow_run_id: "workflow-run-retryable-evidence-record".to_owned(),
+        })
+        .expect("get report")
+        .expect("report");
+    assert!(report
+        .workflow_run
+        .slot_bindings_json
+        .as_deref()
+        .is_some_and(|json| json.contains(&binding.evidence_bundle_id)));
+    let action_log = service
+        .store
+        .list_agent_queue_workflow_actions("workspace-1", "workflow-run-retryable-evidence-record")
+        .expect("action log");
+    let evidence_action = action_log
+        .iter()
+        .find(|action| action.action_type == "record_worker_evidence")
+        .expect("record evidence action");
+    assert_eq!(
+        evidence_action.status,
+        QueueWorkflowActionStatus::Completed.as_str()
+    );
+    assert!(evidence_action
+        .result_refs_json
+        .as_deref()
+        .is_some_and(|refs| refs.contains("evidenceBundleId")));
+    let plan = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            "workflow-run-retryable-evidence-record",
+            None,
+        ))
+        .expect("plan after evidence")
+        .expect("plan");
+    assert_eq!(plan.next_phase.as_deref(), Some("review"));
+    assert_eq!(plan.next_step.as_deref(), Some("review_create_ready"));
+    assert!(!plan
+        .blockers
+        .iter()
+        .any(|blocker| blocker.blocker_code == "retryable_worker_evidence_failure"));
+    assert!(service
+        .store
+        .list_agent_queue_review_messages("workspace-1", "task-1")
+        .expect("review messages")
+        .is_empty());
+}
+
+#[test]
+fn current_live_blocked_terminal_guard_shape_reenters_and_updates_evidence_action() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(
+        &store,
+        "workspace-1",
+        "queue_task_wf_44a095e817b585b5",
+        "queued",
+        true,
+        None,
+    );
+    create_task_row(
+        &store,
+        "workspace-1",
+        "queue_task_wf_50bf4534e054bec3",
+        "draft",
+        false,
+        Some(r#"["queue_task_wf_44a095e817b585b5"]"#),
+    );
+    create_run_link(
+        &store,
+        "workspace-1",
+        "queue_task_wf_44a095e817b585b5",
+        "queue-run_1782257290066506600_169",
+        "queue-run-link-live-failure",
+        "completed",
+    );
+    insert_retryable_worker_evidence_workflow(
+        &store,
+        "queue-workflow-run-1782257290023621100_163",
+        "blocked",
+        "worker_evidence_blocked",
+        "queue_task_wf_44a095e817b585b5",
+        "queue-run_1782257290066506600_169",
+    );
+    insert_blocked_record_worker_evidence_action(
+        &store,
+        "queue-workflow-run-1782257290023621100_163",
+        "queue_task_wf_44a095e817b585b5",
+        "queue-run_1782257290066506600_169",
+        "workflow_run_terminal",
+    );
+    let service = WorkspaceService::new(store);
+
+    let result = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "queue-workflow-run-1782257290023621100_163",
+            "upstream",
+            "queue_task_wf_44a095e817b585b5",
+            "queue-run_1782257290066506600_169",
+            "completed",
+        ))
+        .expect("record live blocked evidence");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Recorded
+    );
+    let workflow_run = result.workflow_run.expect("workflow run");
+    assert_eq!(workflow_run.status, "paused");
+    assert_eq!(
+        workflow_run.current_step.as_deref(),
+        Some("awaiting_review")
+    );
+    assert_eq!(workflow_run.blocker_reason, None);
+    let action = service
+        .store
+        .get_agent_queue_workflow_action_by_idempotency_key(
+            "queue-workflow-run-1782257290023621100_163",
+            "queue-workflow-run-1782257290023621100_163:record_worker_evidence:upstream:queue_task_wf_44a095e817b585b5:queue-run_1782257290066506600_169",
+        )
+        .expect("action lookup")
+        .expect("action");
+    assert_eq!(action.status, QueueWorkflowActionStatus::Completed.as_str());
+    assert_eq!(action.blocker_code, None);
+    assert_eq!(action.attempt_count, 2);
+    assert!(action
+        .result_refs_json
+        .as_deref()
+        .is_some_and(|refs| refs.contains("evidenceBundleId")));
+    let downstream = service
+        .store
+        .get_agent_queue_task("workspace-1", "queue_task_wf_50bf4534e054bec3")
+        .expect("get downstream")
+        .expect("downstream");
+    assert_eq!(downstream.status, "draft");
+}
+
+#[test]
+fn terminal_completed_and_cancelled_workflows_cannot_reenter_worker_evidence() {
+    for (status, workflow_run_id) in [
+        ("completed", "workflow-run-completed"),
+        ("cancelled", "workflow-run-cancelled"),
+    ] {
+        let store = initialized_store();
+        create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+        create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+        create_run_link(
+            &store,
+            "workspace-1",
+            "task-1",
+            "run-1",
+            "link-1",
+            "completed",
+        );
+        insert_retryable_worker_evidence_workflow(
+            &store,
+            workflow_run_id,
+            status,
+            "worker_evidence_failed_unexpected",
+            "task-1",
+            "run-1",
+        );
+        let service = WorkspaceService::new(store);
+
+        let result = service
+            .record_queue_workflow_worker_evidence(workflow_evidence_request(
+                workflow_run_id,
+                "upstream",
+                "task-1",
+                "run-1",
+                "completed",
+            ))
+            .expect("record terminal evidence");
+
+        assert_eq!(
+            result.status,
+            QueueWorkflowRecordWorkerEvidenceStatus::Blocked
+        );
+        assert_eq!(
+            result.blocker.expect("blocker").blocker_code,
+            "workflow_run_terminal"
+        );
+        assert!(service
+            .store
+            .get_agent_queue_worker_evidence_bundle("workspace-1", "task-1", "run-1")
+            .expect("evidence lookup")
+            .is_none());
+    }
+}
+
+#[test]
+fn arbitrary_failed_workflow_cannot_reenter_worker_evidence() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "completed",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-arbitrary-failed-evidence",
+        "dependency_failure_smoke",
+        "failed",
+        "review",
+        Some("review_failed_unexpected"),
+        Some(r#"{"tasks":[{"slot":"upstream","title":"Task","prompt":"Prompt"}]}"#),
+        Some(
+            r#"{"upstream":{"executionTargetHash":"execution-target-hash-1","settingsHash":"settings-hash-1","taskId":"task-1","runId":"run-1"}}"#,
+        ),
+        Some(r#"{"constraints":{"noDownstreamAutoStart":true}}"#),
+        Some("1"),
+    );
+    insert_completed_start_worker_action(
+        &store,
+        "workflow-run-arbitrary-failed-evidence",
+        "start-worker-arbitrary",
+        "task-1",
+        Some("upstream"),
+        "run-1",
+    );
+    let service = WorkspaceService::new(store);
+
+    let result = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-arbitrary-failed-evidence",
+            "upstream",
+            "task-1",
+            "run-1",
+            "completed",
+        ))
+        .expect("arbitrary failed record");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Blocked
+    );
+    assert_eq!(
+        result.blocker.expect("blocker").blocker_code,
+        "worker_evidence_reentry_not_retryable"
+    );
+}
+
+#[test]
+fn failed_worker_evidence_reentry_blocks_partial_evidence_review_and_decisions() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    for (task_id, run_id, link_id, workflow_run_id) in [
+        (
+            "task-evidence",
+            "run-evidence",
+            "link-evidence",
+            "workflow-run-bound-evidence",
+        ),
+        (
+            "task-action",
+            "run-action",
+            "link-action",
+            "workflow-run-completed-action",
+        ),
+        (
+            "task-review",
+            "run-review",
+            "link-review",
+            "workflow-run-review-exists",
+        ),
+        (
+            "task-decision",
+            "run-decision",
+            "link-decision",
+            "workflow-run-decision-exists",
+        ),
+    ] {
+        create_task_row(&store, "workspace-1", task_id, "queued", true, None);
+        create_run_link(&store, "workspace-1", task_id, run_id, link_id, "completed");
+        insert_retryable_worker_evidence_workflow(
+            &store,
+            workflow_run_id,
+            "failed",
+            "worker_evidence_failed_unexpected",
+            task_id,
+            run_id,
+        );
+    }
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-evidence",
+        "run-evidence",
+        "link-evidence",
+        "bundle-evidence",
+        "completed",
+    );
+    let evidence_binding = json!({
+        "upstream": {
+            "evidenceBundleId": "bundle-evidence",
+            "executionTargetHash": "execution-target-hash-1",
+            "executionTargetKind": "queue_local",
+            "providerId": "codex",
+            "runId": "run-evidence",
+            "settingsHash": "settings-hash-1",
+            "taskId": "task-evidence"
+        }
+    })
+    .to_string();
+    service_update_slot_bindings_for_test(&store, "workflow-run-bound-evidence", &evidence_binding);
+    let target_refs = canonical_json_string(&json!({
+        "runId": "run-action",
+        "slot": "upstream",
+        "taskId": "task-action",
+        "workflowRunId": "workflow-run-completed-action"
+    }));
+    let result_refs = canonical_json_string(&json!({
+        "evidenceBundleId": "bundle-action",
+        "evidenceStatus": "available",
+        "outcome": "completed",
+        "runId": "run-action",
+        "workerFinalStatus": "completed"
+    }));
+    store
+        .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+            action_id: "record-worker-evidence-completed-action",
+            workflow_run_id: "workflow-run-completed-action",
+            workspace_id: "workspace-1",
+            step_id: "record_worker_evidence",
+            action_type: "record_worker_evidence",
+            idempotency_key:
+                "workflow-run-completed-action:record_worker_evidence:upstream:task-action:run-action",
+            status: QueueWorkflowActionStatus::Completed.as_str(),
+            target_refs_json: Some(&target_refs),
+            result_refs_json: Some(&result_refs),
+            blocker_code: None,
+            blocker_message: None,
+            attempt_count: 1,
+            started_at: Some("5"),
+            completed_at: Some("5"),
+            created_at: Some("5"),
+            updated_at: Some("5"),
+        })
+        .expect("insert completed record action");
+    create_review_message(
+        &store,
+        "workspace-1",
+        "task-review",
+        "run-review",
+        "link-review",
+        "message-review",
+        "created",
+    );
+    create_review_message(
+        &store,
+        "workspace-1",
+        "task-decision",
+        "run-decision",
+        "link-decision",
+        "message-decision",
+        "acknowledged",
+    );
+    create_completion_decision(
+        &store,
+        "workspace-1",
+        "task-decision",
+        "run-decision",
+        "link-decision",
+        "message-decision",
+        "decision-completed",
+    );
+    let service = WorkspaceService::new(store);
+
+    for (workflow_run_id, task_id, run_id, expected) in [
+        (
+            "workflow-run-bound-evidence",
+            "task-evidence",
+            "run-evidence",
+            "worker_evidence_already_bound",
+        ),
+        (
+            "workflow-run-completed-action",
+            "task-action",
+            "run-action",
+            "record_worker_evidence_already_completed",
+        ),
+        (
+            "workflow-run-review-exists",
+            "task-review",
+            "run-review",
+            "review_already_exists",
+        ),
+        (
+            "workflow-run-decision-exists",
+            "task-decision",
+            "run-decision",
+            "terminal_decision_exists",
+        ),
+    ] {
+        let result = service
+            .record_queue_workflow_worker_evidence(workflow_evidence_request(
+                workflow_run_id,
+                "upstream",
+                task_id,
+                run_id,
+                "completed",
+            ))
+            .expect("record partial-state evidence");
+        assert_eq!(
+            result.status,
+            QueueWorkflowRecordWorkerEvidenceStatus::Blocked
+        );
+        assert_eq!(result.blocker.expect("blocker").blocker_code, expected);
+    }
+}
+
+#[test]
+fn failed_worker_evidence_reentry_blocks_mismatched_running_and_orphan_workers() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    for (task_id, run_id, link_id, workflow_run_id, run_status) in [
+        (
+            "task-outcome",
+            "run-outcome",
+            "link-outcome",
+            "workflow-run-outcome-mismatch",
+            "completed",
+        ),
+        (
+            "task-run-mismatch",
+            "run-bound",
+            "link-run-bound",
+            "workflow-run-id-mismatch",
+            "completed",
+        ),
+        (
+            "task-running",
+            "run-running",
+            "link-running",
+            "workflow-run-running-worker",
+            "running",
+        ),
+    ] {
+        create_task_row(&store, "workspace-1", task_id, "queued", true, None);
+        create_run_link(&store, "workspace-1", task_id, run_id, link_id, run_status);
+        insert_retryable_worker_evidence_workflow(
+            &store,
+            workflow_run_id,
+            "failed",
+            "worker_evidence_failed_unexpected",
+            task_id,
+            run_id,
+        );
+    }
+    create_task_row(&store, "workspace-1", "task-orphan", "queued", true, None);
+    insert_retryable_worker_evidence_workflow(
+        &store,
+        "workflow-run-orphan-worker",
+        "failed",
+        "worker_evidence_failed_unexpected",
+        "task-orphan",
+        "run-orphan",
+    );
+    let service = WorkspaceService::new(store);
+
+    for (workflow_run_id, task_id, run_id, outcome, expected) in [
+        (
+            "workflow-run-outcome-mismatch",
+            "task-outcome",
+            "run-outcome",
+            "failed",
+            "worker_outcome_mismatch",
+        ),
+        (
+            "workflow-run-id-mismatch",
+            "task-run-mismatch",
+            "run-requested",
+            "completed",
+            "run_id_mismatch",
+        ),
+        (
+            "workflow-run-running-worker",
+            "task-running",
+            "run-running",
+            "completed",
+            "worker_run_not_complete",
+        ),
+        (
+            "workflow-run-orphan-worker",
+            "task-orphan",
+            "run-orphan",
+            "completed",
+            "run_missing",
+        ),
+    ] {
+        let result = service
+            .record_queue_workflow_worker_evidence(workflow_evidence_request(
+                workflow_run_id,
+                "upstream",
+                task_id,
+                run_id,
+                outcome,
+            ))
+            .expect("record unsafe worker evidence");
+        assert_eq!(
+            result.status,
+            QueueWorkflowRecordWorkerEvidenceStatus::Blocked
+        );
+        assert_eq!(result.blocker.expect("blocker").blocker_code, expected);
+        assert!(service
+            .store
+            .get_agent_queue_worker_evidence_bundle("workspace-1", task_id, run_id)
+            .expect("evidence lookup")
+            .is_none());
+    }
 }
 
 #[test]
@@ -4629,6 +5218,34 @@ fn insert_resume_workflow(
         .expect("insert workflow run");
 }
 
+fn service_update_slot_bindings_for_test(
+    store: &SqliteStore,
+    workflow_run_id: &str,
+    slot_bindings_json: &str,
+) {
+    store
+        .update_agent_queue_workflow_run_report(
+            "workspace-1",
+            workflow_run_id,
+            hobit_storage_sqlite::AgentQueueWorkflowRunReportUpdate {
+                status: "failed",
+                phase: None,
+                current_step: None,
+                pause_reason: None,
+                blocker_reason: None,
+                variables_json: None,
+                slot_bindings_json: Some(slot_bindings_json),
+                mutation_refs_json: None,
+                idempotency_keys_json: None,
+                action_log_summary_json: None,
+                updated_at: Some("6"),
+                completed_at: None,
+            },
+        )
+        .expect("update workflow slot bindings")
+        .expect("updated workflow run");
+}
+
 fn insert_completed_start_worker_action(
     store: &SqliteStore,
     workflow_run_id: &str,
@@ -4673,6 +5290,195 @@ fn insert_completed_start_worker_action(
             updated_at: Some("3"),
         })
         .expect("insert completed start_worker action");
+}
+
+fn insert_retryable_worker_evidence_workflow(
+    store: &SqliteStore,
+    workflow_run_id: &str,
+    workflow_status: &str,
+    current_step: &str,
+    task_id: &str,
+    run_id: &str,
+) {
+    let settings_hash = retryable_queue_local_settings_hash();
+    let execution_target_hash = retryable_queue_local_execution_target_hash();
+    let slot_bindings_json = json!({
+        "upstream": {
+            "executionTargetHash": execution_target_hash,
+            "executionTargetKind": "queue_local",
+            "providerId": "codex",
+            "runId": run_id,
+            "settingsHash": settings_hash,
+            "taskId": task_id
+        }
+    })
+    .to_string();
+    insert_resume_workflow(
+        store,
+        workflow_run_id,
+        "dependency_failure_smoke",
+        workflow_status,
+        "worker_evidence",
+        Some(current_step),
+        Some(
+            r#"{"tasks":[{"slot":"upstream","title":"Task","prompt":"Prompt"},{"slot":"downstream","title":"Downstream","prompt":"Prompt","dependsOnSlots":["upstream"]}],"failureReason":"typed failure reason"}"#,
+        ),
+        Some(&slot_bindings_json),
+        Some(r#"{"constraints":{"noDownstreamAutoStart":true}}"#),
+        Some("1"),
+    );
+    insert_completed_start_worker_action_with_refs(
+        store,
+        workflow_run_id,
+        &format!("start-worker-{workflow_run_id}"),
+        task_id,
+        Some("upstream"),
+        run_id,
+        &settings_hash,
+        &execution_target_hash,
+    );
+    insert_failed_worker_evidence_runner_action(store, workflow_run_id);
+}
+
+fn retryable_queue_local_settings_hash() -> String {
+    QueueWorkerStartSettingsSnapshot {
+        execution_workspace: "C:/workspace/project".to_owned(),
+        codex_executable: "codex".to_owned(),
+        sandbox: "workspace_write".to_owned(),
+        approval_policy: "never".to_owned(),
+        execution_policy: "manual".to_owned(),
+        execution_target_kind: "queue_local".to_owned(),
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: None,
+        executor_widget_id: String::new(),
+    }
+    .stable_hash()
+}
+
+fn retryable_queue_local_execution_target_hash() -> String {
+    QueueExecutionTargetSnapshot {
+        execution_target_kind: "queue_local".to_owned(),
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: None,
+        executor_widget_id: None,
+    }
+    .stable_hash()
+}
+
+fn insert_completed_start_worker_action_with_refs(
+    store: &SqliteStore,
+    workflow_run_id: &str,
+    action_id: &str,
+    task_id: &str,
+    slot: Option<&str>,
+    run_id: &str,
+    settings_hash: &str,
+    execution_target_hash: &str,
+) {
+    let mut target_refs = json!({
+        "executionTargetHash": execution_target_hash,
+        "executionTargetKind": "queue_local",
+        "providerId": "codex",
+        "settingsHash": settings_hash,
+        "taskId": task_id,
+        "workflowRunId": workflow_run_id
+    });
+    if let Some(slot) = slot {
+        target_refs
+            .as_object_mut()
+            .expect("target refs object")
+            .insert("slot".to_owned(), json!(slot));
+    }
+    let target_refs = target_refs.to_string();
+    let result_refs = json!({ "runId": run_id }).to_string();
+    store
+        .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+            action_id,
+            workflow_run_id,
+            workspace_id: "workspace-1",
+            step_id: "start_worker",
+            action_type: "start_worker",
+            idempotency_key: &format!("{workflow_run_id}:start_worker:{action_id}"),
+            status: QueueWorkflowActionStatus::Completed.as_str(),
+            target_refs_json: Some(&target_refs),
+            result_refs_json: Some(&result_refs),
+            blocker_code: None,
+            blocker_message: None,
+            attempt_count: 1,
+            started_at: Some("2"),
+            completed_at: Some("3"),
+            created_at: Some("2"),
+            updated_at: Some("3"),
+        })
+        .expect("insert completed start_worker action");
+}
+
+fn insert_failed_worker_evidence_runner_action(store: &SqliteStore, workflow_run_id: &str) {
+    let target_refs = json!({
+        "phase": "worker_evidence",
+        "requestId": "request-1",
+        "workflowId": "dependency_failure_smoke"
+    })
+    .to_string();
+    store
+        .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+            action_id: &format!("runner-worker-evidence-{workflow_run_id}"),
+            workflow_run_id,
+            workspace_id: "workspace-1",
+            step_id: "runner.worker_evidence",
+            action_type: "queue.workflow.runner",
+            idempotency_key: &format!(
+                "{workflow_run_id}:queue.workflow.runner:worker_evidence:request-1"
+            ),
+            status: QueueWorkflowActionStatus::Failed.as_str(),
+            target_refs_json: Some(&target_refs),
+            result_refs_json: None,
+            blocker_code: Some("failed_unexpected"),
+            blocker_message: Some("Queue workflow worker evidence failed unexpectedly."),
+            attempt_count: 1,
+            started_at: Some("4"),
+            completed_at: Some("4"),
+            created_at: Some("4"),
+            updated_at: Some("4"),
+        })
+        .expect("insert failed worker evidence runner action");
+}
+
+fn insert_blocked_record_worker_evidence_action(
+    store: &SqliteStore,
+    workflow_run_id: &str,
+    task_id: &str,
+    run_id: &str,
+    blocker_code: &str,
+) {
+    let target_refs = canonical_json_string(&json!({
+        "runId": run_id,
+        "slot": "upstream",
+        "taskId": task_id,
+        "workflowRunId": workflow_run_id
+    }));
+    store
+        .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+            action_id: &format!("record-worker-evidence-{workflow_run_id}"),
+            workflow_run_id,
+            workspace_id: "workspace-1",
+            step_id: "record_worker_evidence",
+            action_type: "record_worker_evidence",
+            idempotency_key: &format!(
+                "{workflow_run_id}:record_worker_evidence:upstream:{task_id}:{run_id}"
+            ),
+            status: QueueWorkflowActionStatus::Blocked.as_str(),
+            target_refs_json: Some(&target_refs),
+            result_refs_json: Some(r#"{"commandStatus":"blocked"}"#),
+            blocker_code: Some(blocker_code),
+            blocker_message: Some("Worker evidence retry is blocked."),
+            attempt_count: 1,
+            started_at: Some("5"),
+            completed_at: None,
+            created_at: Some("5"),
+            updated_at: Some("5"),
+        })
+        .expect("insert blocked record_worker_evidence action");
 }
 
 fn create_workspace_with_executor(

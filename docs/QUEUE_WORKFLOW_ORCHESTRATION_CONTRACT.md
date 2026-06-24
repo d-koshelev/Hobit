@@ -206,6 +206,15 @@ bundle returns `evidence_recorded` / `evidence_already_recorded` and stops at
 block/follow up, validate, mutate Git, roll back, launch Terminal, start any
 worker, or start downstream work.
 
+Worker-evidence retry is the only narrow terminal workflow re-entry exception.
+If `queue.workflow.planResume` or the backend evidence command proves
+`retryable_worker_evidence_failure`, the runtime adapter may invoke only the
+typed `worker_evidence` phase for the existing workflow run with explicit
+`workerEvidence`; it must not create a new workflow, start a worker, create or
+ACK review, finalize, or mutate downstream state. Completed and cancelled
+workflow runs never re-enter, and arbitrary failed or blocked workflow runs
+remain protected by the terminal guard.
+
 Read/review/finalization phases can also read existing Queue state only when
 explicit ids are supplied. Supported explicit id sources are structured
 workflow data such as `inputs.taskIdsBySlot`, `inputs.runIdsBySlot`,
@@ -378,6 +387,22 @@ command:
   review messages, mark done, fail, block, follow up, validate, mutate Git,
   roll back, launch Terminal, start workers, start downstream work,
   create/update/promote tasks, or enable Queue.
+  Failed or blocked workflow runs may re-enter this command only when the
+  backend proves the exact `retryable_worker_evidence_failure` shape:
+  previous failure at `worker_evidence` before durable evidence mutation, no
+  slot `evidenceBundleId`, no completed `record_worker_evidence` action, no
+  review message, no accepted-completion or terminal-failure decision, a
+  completed matching `start_worker` action, a durable worker run owned by the
+  same workspace/task/run, worker state that permits evidence recording,
+  explicit typed `slot`, `taskId`, and `runId` matching recovered durable refs,
+  outcome matching durable run state, and persisted constraints still forbidding
+  downstream auto-start. If any proof fails, the command records a typed
+  blocker/action state instead of applying the generic terminal guard. If proof
+  passes, the workflow is reopened only for evidence recording; success clears
+  stale retryable worker-evidence blockers, clears terminal completion markers
+  on the workflow run, records or updates the idempotent
+  `record_worker_evidence` action, stores `evidenceBundleId`, and resumes at
+  review-ready state.
 - `queue.workflow.recordRunnerReport` records bounded runtime-adapter report
   state and action-ledger summaries for supported create/setup/start,
   worker-evidence, read/review/finalization runner phases. It may update only
@@ -607,9 +632,12 @@ Resume planner statuses are typed and stable: `resume_ready`,
 `blocked_dependency_edge_missing`, `blocked_state_mismatch`,
 `blocked_missing_review_ack`, `blocked_missing_evidence`,
 `waiting_for_worker_evidence`,
-`blocked_missing_confirmation`, `blocked_stale_grant`, `terminal_completed`,
-`terminal_failed`, `terminal_cancelled`, `unsupported_phase`,
-`failed_unexpected`, and `version_conflict`. `terminal_failed` means the
+`retryable_worker_evidence_failure`, `blocked_missing_confirmation`,
+`blocked_stale_grant`, `terminal_completed`, `terminal_failed`,
+`terminal_cancelled`, `unsupported_phase`, `failed_unexpected`, and
+`version_conflict`. `retryable_worker_evidence_failure` is read-only proof that
+the persisted workflow can re-enter only the explicit worker-evidence phase
+under the strict backend evidence checks above. `terminal_failed` means the
 workflow run itself is failed; it is not a Queue task failure. Mutating or
 finalizing next steps after restart require a fresh grant where their
 capability contract requires one. Worker start and finalizing restart targets

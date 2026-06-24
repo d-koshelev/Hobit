@@ -1,7 +1,7 @@
 use hobit_storage_sqlite::{
     AgentQueueTaskRunLinkRow, AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkflowActionRow,
-    AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunReportUpdate, NewAgentQueueWorkflowAction,
-    SqliteStore, StorageError,
+    AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunReportUpdate, AgentQueueWorkflowRunRow,
+    NewAgentQueueWorkflowAction, SqliteStore, StorageError,
 };
 use serde_json::{json, Map, Value};
 
@@ -192,10 +192,7 @@ impl WorkspaceService {
                     )));
                 }
 
-                if matches!(
-                    workflow_run.status.as_str(),
-                    "completed" | "failed" | "cancelled"
-                ) {
+                if matches!(workflow_run.status.as_str(), "completed" | "cancelled") {
                     return Ok(TxResult::Return(result(
                         QueueWorkflowRecordWorkerEvidenceStatus::Blocked,
                         Some(QueueWorkflowRun::from(workflow_run)),
@@ -211,6 +208,16 @@ impl WorkspaceService {
                         None,
                     )));
                 }
+                let terminal_reentry_required =
+                    matches!(workflow_run.status.as_str(), "failed" | "blocked");
+                let workflow_actions = if terminal_reentry_required {
+                    Some(store.list_agent_queue_workflow_actions(
+                        &request.workspace_id,
+                        &request.workflow_run_id,
+                    )?)
+                } else {
+                    None
+                };
 
                 let mut slot_bindings =
                     match parse_slot_bindings(workflow_run.slot_bindings_json.as_deref()) {
@@ -270,6 +277,28 @@ impl WorkspaceService {
                         Some(bound_task_id.to_owned()),
                         Some(request.worker.queue_item_id.clone()),
                     )));
+                }
+
+                if terminal_reentry_required {
+                    if let Some(blocker) = retryable_worker_evidence_reentry_blocker(
+                        store,
+                        &workflow_run,
+                        &request,
+                        &slot_bindings,
+                        &existing_binding,
+                        workflow_actions.as_deref().unwrap_or(&[]),
+                    )? {
+                        return Ok(TxResult::Return(result(
+                            QueueWorkflowRecordWorkerEvidenceStatus::Blocked,
+                            Some(QueueWorkflowRun::from(workflow_run)),
+                            None,
+                            None,
+                            None,
+                            None,
+                            Some(blocker),
+                            None,
+                        )));
+                    }
                 }
 
                 let bound_run_id = string_field(&existing_binding, "runId").map(str::to_owned);
@@ -669,7 +698,7 @@ impl WorkspaceService {
                 )?;
 
                 let updated_run = store
-                    .update_agent_queue_workflow_run_report(
+                    .update_agent_queue_workflow_run_report_reopened(
                         &request.workspace_id,
                         &request.workflow_run_id,
                         AgentQueueWorkflowRunReportUpdate {
@@ -859,6 +888,251 @@ fn string_field<'a>(value: &'a Value, field: &str) -> Option<&'a str> {
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
+}
+
+fn retryable_worker_evidence_reentry_blocker(
+    store: &SqliteStore,
+    workflow_run: &AgentQueueWorkflowRunRow,
+    request: &NormalizedWorkflowEvidenceRequest,
+    slot_bindings: &Map<String, Value>,
+    existing_binding: &Value,
+    actions: &[AgentQueueWorkflowActionRow],
+) -> Result<Option<QueueWorkflowCommandBlocker>, StorageError> {
+    if workflow_run.phase != WORKFLOW_PHASE_WORKER_EVIDENCE
+        || !has_retryable_worker_evidence_reentry_marker(workflow_run, actions)
+    {
+        return Ok(Some(blocker(
+            "worker_evidence_reentry_not_retryable",
+            "Queue workflow worker evidence re-entry is allowed only for a proven retryable worker_evidence failure before durable evidence mutation.",
+            Some("workflowRunId"),
+        )));
+    }
+
+    if !grant_preserves_no_downstream_auto_start(workflow_run.grant_summary_json.as_deref()) {
+        return Ok(Some(blocker(
+            "worker_evidence_reentry_constraints_missing",
+            "Queue workflow worker evidence re-entry requires the persisted grant constraints to preserve noDownstreamAutoStart.",
+            Some("grantSummary.constraints.noDownstreamAutoStart"),
+        )));
+    }
+
+    if string_field(existing_binding, "evidenceBundleId").is_some() {
+        return Ok(Some(blocker(
+            "worker_evidence_already_bound",
+            "Queue workflow worker evidence re-entry is not allowed when the slot already has an evidenceBundleId.",
+            Some("slotBindings.evidenceBundleId"),
+        )));
+    }
+
+    if let Some(blocker) = record_worker_evidence_action_reentry_blocker(actions) {
+        return Ok(Some(blocker));
+    }
+
+    if store
+        .get_agent_queue_worker_evidence_bundle(
+            &request.workspace_id,
+            &request.worker.queue_item_id,
+            &request.worker.run_id,
+        )?
+        .is_some()
+    {
+        return Ok(Some(blocker(
+            "worker_evidence_already_durable",
+            "Queue workflow worker evidence re-entry is not allowed after durable worker evidence already exists.",
+            Some("workerEvidence.runId"),
+        )));
+    }
+
+    match recover_start_worker_run_id_for_evidence(
+        store,
+        request,
+        slot_bindings,
+        existing_binding,
+        true,
+    )? {
+        StartWorkerRunRecovery::Recovered(run_id) if run_id == request.worker.run_id => {}
+        StartWorkerRunRecovery::Recovered(run_id) => {
+            return Ok(Some(blocker(
+                "run_id_mismatch",
+                "Queue workflow evidence runId does not match the recovered start_worker runId.",
+                Some(if run_id.is_empty() {
+                    "startWorker.resultRefs.runId"
+                } else {
+                    "workerEvidence.runId"
+                }),
+            )));
+        }
+        StartWorkerRunRecovery::NotAvailable => {
+            return Ok(Some(blocker(
+                "missing_start_worker_action",
+                "Queue workflow worker evidence re-entry requires a completed start_worker workflow action.",
+                Some("startWorker"),
+            )));
+        }
+        StartWorkerRunRecovery::Blocked(blocker) => return Ok(Some(blocker)),
+        StartWorkerRunRecovery::Conflict { code, message, .. } => {
+            return Ok(Some(blocker(code, message, Some("startWorker"))));
+        }
+    }
+
+    let Some(run_link) = store
+        .get_agent_queue_task_run_link_by_run_id(&request.workspace_id, &request.worker.run_id)?
+    else {
+        return Ok(Some(blocker(
+            "run_missing",
+            "Queue workflow evidence runId was not found in the requested workspace.",
+            Some("runId"),
+        )));
+    };
+
+    if run_link.queue_task_id != request.worker.queue_item_id {
+        return Ok(Some(blocker(
+            "run_task_mismatch",
+            "Queue workflow evidence runId belongs to a different Queue task.",
+            Some("runId"),
+        )));
+    }
+    let bound_executor_widget_id = string_field(existing_binding, "executorWidgetId");
+    if bound_executor_widget_id
+        .is_some_and(|executor| executor != run_link.executor_widget_id.as_str())
+    {
+        return Ok(Some(blocker(
+            "run_executor_mismatch",
+            "Queue workflow evidence runId belongs to a different executorWidgetId.",
+            Some("executorWidgetId"),
+        )));
+    }
+    if run_link.status == AgentQueueTaskRunStatus::Running.as_str() {
+        return Ok(Some(blocker(
+            "worker_run_not_complete",
+            "Queue workflow worker run is still running; evidence recording is paused.",
+            Some("runId"),
+        )));
+    }
+    if !is_completed_worker_run_state(&run_link) {
+        return Ok(Some(blocker(
+            "worker_run_state_mismatch",
+            "Queue workflow worker run state is not a deterministic completed state.",
+            Some("runId"),
+        )));
+    }
+    if let Some(expected_outcome) = expected_worker_outcome_for_run_state(&run_link) {
+        if expected_outcome != request.worker.outcome {
+            return Ok(Some(blocker(
+                "worker_outcome_mismatch",
+                "Queue workflow worker evidence outcome does not match the durable worker run status.",
+                Some("workerEvidence.outcome"),
+            )));
+        }
+    }
+
+    if store
+        .get_latest_agent_queue_completion_decision(
+            &request.workspace_id,
+            &request.worker.queue_item_id,
+        )?
+        .is_some()
+        || store
+            .get_latest_agent_queue_failure_decision(
+                &request.workspace_id,
+                &request.worker.queue_item_id,
+            )?
+            .is_some()
+    {
+        return Ok(Some(blocker(
+            "terminal_decision_exists",
+            "Queue workflow worker evidence re-entry is not allowed after a task completion or failure decision exists.",
+            Some("taskId"),
+        )));
+    }
+    if store
+        .get_latest_agent_queue_review_message(
+            &request.workspace_id,
+            &request.worker.queue_item_id,
+        )?
+        .is_some()
+    {
+        return Ok(Some(blocker(
+            "review_already_exists",
+            "Queue workflow worker evidence re-entry is not allowed after a review message exists.",
+            Some("messageId"),
+        )));
+    }
+
+    Ok(None)
+}
+
+fn has_retryable_worker_evidence_reentry_marker(
+    workflow_run: &AgentQueueWorkflowRunRow,
+    actions: &[AgentQueueWorkflowActionRow],
+) -> bool {
+    if actions.iter().any(is_worker_evidence_runner_failed_action) {
+        return true;
+    }
+    workflow_run.status == "blocked"
+        && actions
+            .iter()
+            .any(is_retryable_record_worker_evidence_action)
+}
+
+fn is_worker_evidence_runner_failed_action(action: &AgentQueueWorkflowActionRow) -> bool {
+    action.action_type == "queue.workflow.runner"
+        && action.status == QueueWorkflowActionStatus::Failed.as_str()
+        && (action.step_id == "runner.worker_evidence"
+            || action_ref_phase(action.target_refs_json.as_deref()).as_deref()
+                == Some(WORKFLOW_PHASE_WORKER_EVIDENCE)
+            || action_ref_phase(action.result_refs_json.as_deref()).as_deref()
+                == Some(WORKFLOW_PHASE_WORKER_EVIDENCE))
+}
+
+fn action_ref_phase(raw: Option<&str>) -> Option<String> {
+    raw.and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .and_then(|value| {
+            value
+                .as_object()
+                .and_then(|object| object.get("phase"))
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+}
+
+fn grant_preserves_no_downstream_auto_start(raw: Option<&str>) -> bool {
+    raw.and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .and_then(|value| {
+            value
+                .as_object()
+                .and_then(|object| object.get("constraints"))
+                .and_then(Value::as_object)
+                .and_then(|constraints| constraints.get("noDownstreamAutoStart"))
+                .and_then(Value::as_bool)
+        })
+        == Some(true)
+}
+
+fn record_worker_evidence_action_reentry_blocker(
+    actions: &[AgentQueueWorkflowActionRow],
+) -> Option<QueueWorkflowCommandBlocker> {
+    for action in actions
+        .iter()
+        .filter(|action| action.action_type == RECORD_WORKER_EVIDENCE_ACTION_TYPE)
+    {
+        if action.status == QueueWorkflowActionStatus::Completed.as_str() {
+            return Some(blocker(
+                "record_worker_evidence_already_completed",
+                "Queue workflow worker evidence re-entry is not allowed after record_worker_evidence completed.",
+                Some("recordWorkerEvidence"),
+            ));
+        }
+        if is_retryable_record_worker_evidence_action(action) {
+            continue;
+        }
+        return Some(blocker(
+            "record_worker_evidence_action_not_retryable",
+            "Existing Queue workflow record_worker_evidence action is not retryable.",
+            Some("recordWorkerEvidence"),
+        ));
+    }
+    None
 }
 
 enum StartWorkerRunRecovery {
@@ -1247,6 +1521,7 @@ pub(super) fn is_retryable_record_worker_evidence_blocker(code: &str) -> bool {
             | "missing_start_worker_run_ref"
             | "missing_settings_hash"
             | "missing_execution_target_hash"
+            | "workflow_run_terminal"
     )
 }
 
