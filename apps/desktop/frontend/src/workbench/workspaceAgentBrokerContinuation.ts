@@ -30,6 +30,9 @@ const ID_LIMIT = 8;
 const BLOCKER_LIMIT = 6;
 const DISCOVERY_WIDGET_PAYLOAD_LIMIT = 12;
 const DISCOVERY_EXECUTOR_PAYLOAD_LIMIT = 8;
+const WORKFLOW_DEBUG_ACTION_PAYLOAD_LIMIT = 12;
+const WORKFLOW_DEBUG_BLOCKER_PAYLOAD_LIMIT = 12;
+const WORKFLOW_DEBUG_SLOT_PAYLOAD_LIMIT = 12;
 
 const DEFAULT_AUTO_CONTINUATION_RISK_CLASSES = new Set<QueueCapabilityRiskClass>(
   ["read", "review"],
@@ -364,9 +367,17 @@ export type WorkspaceAgentBrokerContinuationWorkbenchWidgetsPayload = {
   workspaceId: string | null;
 };
 
+export type WorkspaceAgentBrokerContinuationWorkflowDebugPayload = Record<
+  string,
+  unknown
+>;
+
 export type WorkspaceAgentBrokerContinuationResultData = {
   queueControl?: WorkspaceAgentBrokerContinuationQueueControlPayload;
   workbenchWidgets?: WorkspaceAgentBrokerContinuationWorkbenchWidgetsPayload;
+  workflowActionLog?: WorkspaceAgentBrokerContinuationWorkflowDebugPayload;
+  workflowReport?: WorkspaceAgentBrokerContinuationWorkflowDebugPayload;
+  workflowResumePlan?: WorkspaceAgentBrokerContinuationWorkflowDebugPayload;
   workspaceContext?: WorkspaceAgentBrokerContinuationWorkspaceContextPayload;
 };
 
@@ -2146,6 +2157,7 @@ export function createWorkspaceAgentBrokerActionResultContext({
         stringField(recordField(output, "latestRun"), "runId"),
         stringField(recordField(recordField(output, "aggregate"), "latestRun"), "runId"),
         stringField(recordField(output, "queueLinkedMetadata"), "runId"),
+        firstString(Object.values(stringRecordField(output, "runIdsBySlot"))),
       ]),
       taskIds: compactStringList(
         collectTaskIds(output, validNextAction),
@@ -2425,6 +2437,7 @@ function collectTaskIds(
       stringField(output, "taskId"),
       stringField(output, "queueItemId"),
       stringField(recordField(output, "aggregate"), "taskId"),
+      ...Object.values(stringRecordField(output, "taskIdsBySlot")),
       ...stringArrayField(output, "createdTaskIds"),
       stringField(recordField(output, "item"), "taskId"),
       stringField(recordField(output, "lifecycle"), "taskId"),
@@ -2481,6 +2494,7 @@ function collectEvidenceBundleIds(
       stringField(output, "evidenceBundleId"),
       stringField(recordField(output, "backendEvidenceBundle"), "bundleId"),
       stringField(recordField(output, "evidenceBundle"), "bundleId"),
+      ...Object.values(stringRecordField(output, "evidenceBundleIdsBySlot")),
     ],
     ID_LIMIT,
   );
@@ -2496,6 +2510,7 @@ function collectMessageIds(
       stringField(output, "messageId"),
       stringField(output, "existingReviewMessageId"),
       stringField(recordField(output, "latestReviewMessage"), "messageId"),
+      ...Object.values(stringRecordField(output, "messageIdsBySlot")),
     ],
     ID_LIMIT,
   );
@@ -2524,7 +2539,164 @@ function collectDiscoveryResultData(
     return queueControl ? { queueControl } : null;
   }
 
+  if (capabilityId === "queue.workflow.getReport") {
+    return { workflowReport: workflowReportPayload(output) };
+  }
+
+  if (capabilityId === "queue.workflow.readActionLog") {
+    return { workflowActionLog: workflowActionLogPayload(output) };
+  }
+
+  if (capabilityId === "queue.workflow.planResume") {
+    return { workflowResumePlan: workflowResumePlanPayload(output) };
+  }
+
   return null;
+}
+
+function workflowReportPayload(
+  output: Record<string, unknown>,
+): WorkspaceAgentBrokerContinuationWorkflowDebugPayload {
+  return compactObject({
+    actionSummaryCount:
+      numberField(output, "actionSummaryCount") ??
+      numberField(recordField(output, "actionCountSummary"), "total"),
+    actionCountSummary: recordField(output, "actionCountSummary"),
+    actions: boundedWorkflowActionRecords(
+      arrayField(output, "actionSummaries"),
+      WORKFLOW_DEBUG_ACTION_PAYLOAD_LIMIT,
+      "report",
+    ),
+    blockers: boundedRecords(
+      arrayField(output, "blockers"),
+      WORKFLOW_DEBUG_BLOCKER_PAYLOAD_LIMIT,
+    ),
+    completionDecisionIdsBySlot: stringRecordField(
+      output,
+      "completionDecisionIdsBySlot",
+    ),
+    currentStep: stringField(output, "currentStep"),
+    evidenceBundleIdsBySlot: stringRecordField(
+      output,
+      "evidenceBundleIdsBySlot",
+    ),
+    failureDecisionIdsBySlot: stringRecordField(
+      output,
+      "failureDecisionIdsBySlot",
+    ),
+    messageIdsBySlot: stringRecordField(output, "messageIdsBySlot"),
+    nextPhase: stringField(output, "nextPhase"),
+    nextStep: stringField(output, "nextStep"),
+    persistentStatus:
+      stringField(output, "persistentStatus") ?? stringField(output, "status"),
+    phase: stringField(output, "phase"),
+    requestId: stringField(output, "requestId"),
+    runIdsBySlot: stringRecordField(output, "runIdsBySlot"),
+    slotBindings: boundedRecordEntries(
+      recordField(output, "slotBindings"),
+      WORKFLOW_DEBUG_SLOT_PAYLOAD_LIMIT,
+    ),
+    taskIdsBySlot: stringRecordField(output, "taskIdsBySlot"),
+    variablesSummary: output.variablesSummary ?? null,
+    workflowId: stringField(output, "workflowId"),
+    workflowRunId: stringField(output, "workflowRunId"),
+    workspaceId: stringField(output, "workspaceId"),
+  });
+}
+
+function workflowActionLogPayload(
+  output: Record<string, unknown>,
+): WorkspaceAgentBrokerContinuationWorkflowDebugPayload {
+  const actions = boundedRecords(
+    arrayField(output, "actions"),
+    WORKFLOW_DEBUG_ACTION_PAYLOAD_LIMIT,
+  );
+  return compactObject({
+    actionCount: numberField(output, "total") ?? actions.length,
+    actionCountSummary: recordField(output, "actionCountSummary"),
+    actions,
+    limit: numberField(output, "limit"),
+    statusFilter: stringField(output, "statusFilter"),
+    truncated: booleanFieldOrNull(output, "truncated"),
+    workflowId: stringField(output, "workflowId"),
+    workflowRunId: stringField(output, "workflowRunId"),
+    workspaceId: stringField(output, "workspaceId"),
+  });
+}
+
+function workflowResumePlanPayload(
+  output: Record<string, unknown>,
+): WorkspaceAgentBrokerContinuationWorkflowDebugPayload {
+  return compactObject({
+    actionCountSummary: recordField(output, "actionCountSummary"),
+    actions: boundedWorkflowActionRecords(
+      arrayField(output, "actionSummaries"),
+      WORKFLOW_DEBUG_ACTION_PAYLOAD_LIMIT,
+      "resume",
+    ),
+    blockers: boundedRecords(
+      arrayField(output, "blockers"),
+      WORKFLOW_DEBUG_BLOCKER_PAYLOAD_LIMIT,
+    ),
+    completionDecisionIdsBySlot: stringRecordField(
+      output,
+      "completionDecisionIdsBySlot",
+    ),
+    evidenceBundleIdsBySlot: stringRecordField(
+      output,
+      "evidenceBundleIdsBySlot",
+    ),
+    failureDecisionIdsBySlot: stringRecordField(
+      output,
+      "failureDecisionIdsBySlot",
+    ),
+    messageIdsBySlot: stringRecordField(output, "messageIdsBySlot"),
+    missingRefs: boundedRecords(
+      arrayField(output, "missingRefs"),
+      WORKFLOW_DEBUG_BLOCKER_PAYLOAD_LIMIT,
+    ),
+    nextPhase: stringField(output, "nextPhase"),
+    nextStep: stringField(output, "nextStep"),
+    persistentStatus:
+      stringField(output, "persistentStatus") ?? stringField(output, "status"),
+    recoveredRefs: compactObject({
+      completionDecisionIdsBySlot: stringRecordField(
+        output,
+        "completionDecisionIdsBySlot",
+      ),
+      evidenceBundleIdsBySlot: stringRecordField(
+        output,
+        "evidenceBundleIdsBySlot",
+      ),
+      failureDecisionIdsBySlot: stringRecordField(
+        output,
+        "failureDecisionIdsBySlot",
+      ),
+      messageIdsBySlot: stringRecordField(output, "messageIdsBySlot"),
+      runIdsBySlot: stringRecordField(output, "runIdsBySlot"),
+      taskIdsBySlot: stringRecordField(output, "taskIdsBySlot"),
+    }),
+    requiredConfirmation: booleanFieldOrNull(output, "requiredConfirmation"),
+    requiredContinuationRefs: recordField(output, "requiredContinuationRefs"),
+    requiredFreshGrant: booleanFieldOrNull(output, "requiredFreshGrant"),
+    resumeAvailable: booleanFieldOrNull(output, "resumeAvailable"),
+    resumeStatus: stringField(output, "resumeStatus"),
+    runIdsBySlot: stringRecordField(output, "runIdsBySlot"),
+    slotReconciliations: boundedRecords(
+      arrayField(output, "slotReconciliations"),
+      WORKFLOW_DEBUG_SLOT_PAYLOAD_LIMIT,
+    ),
+    status: stringField(output, "status"),
+    taskIdsBySlot: stringRecordField(output, "taskIdsBySlot"),
+    taskSnapshots: boundedRecords(
+      arrayField(output, "taskSnapshots"),
+      WORKFLOW_DEBUG_SLOT_PAYLOAD_LIMIT,
+    ),
+    terminalStatus: stringField(output, "terminalStatus"),
+    workflowId: stringField(output, "workflowId"),
+    workflowRunId: stringField(output, "workflowRunId"),
+    workspaceId: stringField(output, "workspaceId"),
+  });
 }
 
 function workspaceContextPayload(
@@ -2947,6 +3119,60 @@ function boundDiscoveryResultData(
           },
         }
       : {}),
+    ...(data.workflowReport
+      ? { workflowReport: boundWorkflowDebugPayload(data.workflowReport) }
+      : {}),
+    ...(data.workflowActionLog
+      ? {
+          workflowActionLog: boundWorkflowDebugPayload(
+            data.workflowActionLog,
+          ),
+        }
+      : {}),
+    ...(data.workflowResumePlan
+      ? {
+          workflowResumePlan: boundWorkflowDebugPayload(
+            data.workflowResumePlan,
+          ),
+        }
+      : {}),
+  };
+}
+
+function boundWorkflowDebugPayload(
+  payload: WorkspaceAgentBrokerContinuationWorkflowDebugPayload,
+): WorkspaceAgentBrokerContinuationWorkflowDebugPayload {
+  const record = recordValue(payload) ?? {};
+  return {
+    ...payload,
+    ...(arrayField(record, "actions").length > 0
+      ? { actions: arrayField(record, "actions").slice(0, 6) }
+      : {}),
+    ...(arrayField(record, "blockers").length > 0
+      ? { blockers: arrayField(record, "blockers").slice(0, 6) }
+      : {}),
+    ...(arrayField(record, "missingRefs").length > 0
+      ? { missingRefs: arrayField(record, "missingRefs").slice(0, 6) }
+      : {}),
+    ...(recordField(record, "slotBindings")
+      ? {
+          slotBindings: boundedRecordEntries(
+            recordField(record, "slotBindings"),
+            6,
+          ),
+        }
+      : {}),
+    ...(arrayField(record, "slotReconciliations").length > 0
+      ? {
+          slotReconciliations: arrayField(
+            record,
+            "slotReconciliations",
+          ).slice(0, 6),
+        }
+      : {}),
+    ...(arrayField(record, "taskSnapshots").length > 0
+      ? { taskSnapshots: arrayField(record, "taskSnapshots").slice(0, 6) }
+      : {}),
   };
 }
 
@@ -3002,10 +3228,61 @@ function firstString(values: readonly (string | null | undefined)[]) {
   return values.find((value): value is string => Boolean(value?.trim())) ?? null;
 }
 
+function compactObject<TRecord extends Record<string, unknown>>(
+  value: TRecord,
+): TRecord {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, item]) => item !== undefined),
+  ) as TRecord;
+}
+
 function recordValue(value: unknown): Record<string, unknown> | null {
   return typeof value === "object" && value !== null && !Array.isArray(value)
     ? (value as Record<string, unknown>)
     : null;
+}
+
+function boundedRecords(values: readonly unknown[], limit: number) {
+  return values
+    .map(recordValue)
+    .filter((item): item is Record<string, unknown> => Boolean(item))
+    .slice(0, limit);
+}
+
+function boundedWorkflowActionRecords(
+  values: readonly unknown[],
+  limit: number,
+  mode: "report" | "resume",
+) {
+  return boundedRecords(values, limit).map((action) =>
+    compactObject({
+      actionId: stringField(action, "actionId"),
+      actionType: stringField(action, "actionType"),
+      blockerCode: stringField(action, "blockerCode"),
+      blockerMessage: stringField(action, "blockerMessage"),
+      resultRefs: recordField(action, "resultRefs"),
+      status: stringField(action, "status"),
+      stepId: stringField(action, "stepId"),
+      targetRefs: recordField(action, "targetRefs"),
+      ...(mode === "resume"
+        ? {
+            idempotencyKey: stringField(action, "idempotencyKey"),
+            updatedAt: stringField(action, "updatedAt"),
+          }
+        : {}),
+    }),
+  );
+}
+
+function boundedRecordEntries(
+  value: Record<string, unknown> | null,
+  limit: number,
+): Record<string, unknown> {
+  if (!value) {
+    return {};
+  }
+
+  return Object.fromEntries(Object.entries(value).slice(0, limit));
 }
 
 function recordField(
@@ -3050,6 +3327,25 @@ function stringArrayField(
           typeof item === "string" && Boolean(item.trim()),
       )
     : [];
+}
+
+function stringRecordField(
+  value: Record<string, unknown> | null,
+  fieldName: string,
+): Record<string, string> {
+  const field = recordField(value, fieldName);
+  if (!field) {
+    return {};
+  }
+
+  return Object.fromEntries(
+    Object.entries(field)
+      .map(([key, item]) => [
+        key.trim(),
+        typeof item === "string" ? item.trim() : "",
+      ])
+      .filter(([key, item]) => Boolean(key && item)),
+  );
 }
 
 function booleanFieldOrNull(

@@ -173,8 +173,15 @@ restricted capabilities for explicit workspace/code execution requests only.
   Agent Executor summaries, recommended executor id, Queue control state, and
   blockers; `workbench.widgets.list` exposes bounded widget and Agent Executor
   summaries plus recommendation/blockers; `queue.control.get` exposes backend
-  control status/version metadata. Activity rows and transcript summaries
-  remain compact.
+  control status/version metadata; `queue.workflow.getReport` exposes
+  `data.workflowReport` with workflow status, phase/current step, slot
+  bindings, task/run/evidence/message/decision refs by slot, action counts,
+  and bounded action summaries; `queue.workflow.readActionLog` exposes
+  `data.workflowActionLog` with bounded action rows and safe target/result
+  refs; `queue.workflow.planResume` exposes `data.workflowResumePlan` with
+  resume status, next phase/step, blockers, missing refs, recovered refs,
+  required grant/confirmation flags, and continuation refs. Activity rows and
+  transcript summaries remain compact.
   `workspaceRootPath` is durable Workspace data when present and is the source
   of truth for live Workspace Agent context. The desktop process current
   directory is only a legacy fallback for older Workspace rows without a
@@ -474,13 +481,19 @@ capabilities for workflow debug reads: `queue.workflow.get`,
 `queue.workflow.list`, `queue.workflow.getReport`,
 `queue.workflow.planResume`, and `queue.workflow.readActionLog`. These
 capabilities read the backend/Tauri workflow run, report, resume planner, and
-persisted action ledger summaries only. They do not invoke workflows, start
-workers, mutate Queue state, create tasks, record evidence, create/ACK reviews,
-finalize tasks, launch shell/Git/Terminal/validation/rollback behavior, or
-expose raw provider transcripts or raw confirmation tokens. This persistence
-surface intentionally does not implement `queue.workflow.invoke` or a generic
-public resume executor; invocation remains the canonical structured
-`hobit.workflow.request` protocol path.
+persisted action ledger summaries only. Their Workspace Agent continuation
+payloads now include bounded structured `data.workflowReport`,
+`data.workflowActionLog`, and `data.workflowResumePlan` objects so live smoke
+recovery diagnostics can inspect persistent status, phase/current step, slot
+bindings, task/run/evidence/message/decision refs, action summaries, resume
+blockers, missing refs, and recovered refs without relying on compact display
+text. They do not invoke workflows, start workers, mutate Queue state, create
+tasks, record evidence, create/ACK reviews, finalize tasks, launch shell/Git/
+Terminal/validation/rollback behavior, or expose raw provider transcripts or
+raw confirmation tokens. This persistence surface intentionally does not
+implement `queue.workflow.invoke` or a generic public resume executor;
+invocation remains the canonical structured `hobit.workflow.request` protocol
+path.
 Backend workflow task slot materialization now exists as a workflow-internal
 typed domain method: it creates/reuses draft/manual Queue tasks by explicit
 `workflowRunId + slot + taskSpecHash`, persists slot bindings, and materializes

@@ -88,6 +88,7 @@ import {
   type QueueAgentWorkflowReportResult,
   type QueueAgentWorkflowRunSummary,
   type QueueAgentWorkflowSafeJsonValue,
+  type QueueAgentWorkflowSlotBindingSummary,
 } from "./queueAgentCapabilityTypes";
 import type {
   QueueUpdateItemPatch,
@@ -993,15 +994,17 @@ function workflowReportResult(
   const actionLogSummary = safeWorkflowJsonSummary(
     workflowRun.actionLogSummaryJson,
   );
+  const refs = mergeWorkflowRefMaps(
+    workflowRefsFromRun(workflowRun),
+    workflowRefsFromActions(report.actions),
+  );
   const actionSummaries = report.actions
     .slice(0, 25)
     .map(workflowActionSummary);
   return {
     ...workflowNoMutationFlags(),
-    ...mergeWorkflowRefMaps(
-      workflowRefsFromRun(workflowRun),
-      workflowRefsFromActions(report.actions),
-    ),
+    ...refs,
+    actionSummaryCount: report.actions.length,
     actionCountSummary: workflowActionCountSummary(report.actions),
     actionSummaries,
     blockers: [
@@ -1015,12 +1018,18 @@ function workflowReportResult(
       "nextPhase",
       "next_phase",
     ]),
+    nextStep: stringFieldFromValue(actionLogSummary, ["nextStep", "next_step"]),
+    persistentStatus: workflowRun.status,
     phase: workflowRun.phase,
     reportSummary: boundedLongText(report.reportSummary, 2000),
+    requestId: workflowRun.requestId,
     resumeAvailable: report.resumeAvailable,
     resumeStatus: report.resumeStatus,
+    slotBindings: workflowSlotBindingsFromRun(workflowRun, refs),
+    slotBindingsSummary: safeWorkflowJsonSummary(workflowRun.slotBindingsJson),
     status: workflowRun.status,
     truncatedActionSummaries: report.actions.length > actionSummaries.length,
+    variablesSummary: safeWorkflowJsonSummary(workflowRun.variablesJson),
     workflowId: workflowRun.workflowId,
     workflowRunId: workflowRun.workflowRunId,
     workspaceId: workflowRun.workspaceId,
@@ -1042,9 +1051,14 @@ function workflowPlanResumeResult(
     ...workflowNoMutationFlags(),
     ...refs,
     actionCountSummary: workflowActionCountSummary(plan.actions),
+    actionSummaries: plan.actions.slice(0, 25).map(workflowActionSummary),
     blockers: plan.blockers.map(workflowResumeBlockerSummary),
+    missingRefs: plan.blockers
+      .filter((blocker) => Boolean(blocker.missingRequiredField))
+      .map(workflowResumeBlockerSummary),
     nextPhase: plan.nextPhase ?? null,
     nextStep: plan.nextStep ?? null,
+    persistentStatus: workflowRun.status,
     reconciledVariablesSummary: safeWorkflowJsonSummary(
       plan.reconciledVariablesJson,
     ),
@@ -1054,12 +1068,42 @@ function workflowPlanResumeResult(
     requiredFreshGrant: plan.requiredFreshGrant,
     resumeAvailable: plan.resumeAvailable,
     resumeStatus: plan.status,
+    slotReconciliations: plan.slotReconciliations
+      .slice(0, 25)
+      .map(workflowSlotReconciliationSummary),
     status: workflowRun.status,
     taskSnapshots: plan.taskSnapshots.slice(0, 25).map(workflowTaskSnapshot),
     terminalStatus: plan.terminalStatus ?? null,
     workflowId: workflowRun.workflowId,
     workflowRunId: workflowRun.workflowRunId,
     workspaceId: workflowRun.workspaceId,
+  };
+}
+
+function workflowSlotReconciliationSummary(
+  reconciliation: AgentQueueWorkflowSlotReconciliation,
+): QueueAgentWorkflowPlanResumeResult["slotReconciliations"][number] {
+  return {
+    aggregateDependencyState: reconciliation.aggregateDependencyState,
+    aggregateEvidenceState: reconciliation.aggregateEvidenceState,
+    aggregateReviewState: reconciliation.aggregateReviewState,
+    aggregateTicketState: reconciliation.aggregateTicketState,
+    blockerCode: reconciliation.blockerCode,
+    completionDecisionExists: reconciliation.completionDecisionExists,
+    completionDecisionId: reconciliation.completionDecisionId,
+    evidenceBundleId: reconciliation.evidenceBundleId,
+    evidenceExists: reconciliation.evidenceExists,
+    executorWidgetId: reconciliation.executorWidgetId,
+    failureDecisionExists: reconciliation.failureDecisionExists,
+    failureDecisionId: reconciliation.failureDecisionId,
+    messageId: reconciliation.messageId,
+    reviewMessageExists: reconciliation.reviewMessageExists,
+    reviewMessageStatus: reconciliation.reviewMessageStatus,
+    runExists: reconciliation.runExists,
+    runId: reconciliation.runId,
+    slot: reconciliation.slot,
+    taskExists: reconciliation.taskExists,
+    taskId: reconciliation.taskId,
   };
 }
 
@@ -1195,6 +1239,136 @@ function workflowRefsFromRun(
     workflowRefsFromJson(workflowRun.slotBindingsJson),
     workflowRefsFromJson(workflowRun.variablesJson),
     workflowRefsFromJson(workflowRun.mutationRefsJson),
+  );
+}
+
+function workflowSlotBindingsFromRun(
+  workflowRun: AgentQueueWorkflowRun,
+  refs: QueueAgentWorkflowRefMaps,
+): Record<string, QueueAgentWorkflowSlotBindingSummary> {
+  const parsed = tryParseWorkflowJson(workflowRun.slotBindingsJson);
+  const bindingRecords = isRecord(parsed) ? parsed : {};
+  const slots = new Set<string>([
+    ...Object.keys(bindingRecords),
+    ...Object.keys(refs.taskIdsBySlot),
+    ...Object.keys(refs.runIdsBySlot),
+    ...Object.keys(refs.evidenceBundleIdsBySlot),
+    ...Object.keys(refs.messageIdsBySlot),
+    ...Object.keys(refs.completionDecisionIdsBySlot),
+    ...Object.keys(refs.failureDecisionIdsBySlot),
+  ]);
+  const output: Record<string, QueueAgentWorkflowSlotBindingSummary> = {};
+
+  for (const slot of [...slots].slice(0, 25)) {
+    const normalizedSlot = normalizedString(slot);
+    if (!normalizedSlot) {
+      continue;
+    }
+
+    const binding = workflowSlotBindingSummary(
+      normalizedSlot,
+      isRecord(bindingRecords[slot])
+        ? (bindingRecords[slot] as Record<string, unknown>)
+        : null,
+      refs,
+    );
+    if (workflowSlotBindingHasData(binding)) {
+      output[normalizedSlot] = binding;
+    }
+  }
+
+  return output;
+}
+
+function workflowSlotBindingSummary(
+  slot: string,
+  binding: Record<string, unknown> | null,
+  refs: QueueAgentWorkflowRefMaps,
+): QueueAgentWorkflowSlotBindingSummary {
+  const executionTarget = recordFieldFromRecord(binding, [
+    "executionTarget",
+    "execution_target",
+  ]);
+  const executionTargetKind = firstString([
+    stringFieldFromRecordOrNull(binding, [
+      "executionTargetKind",
+      "execution_target_kind",
+      "kind",
+    ]),
+    stringFieldFromRecordOrNull(executionTarget, ["kind", "targetKind"]),
+  ]);
+  const providerId = firstString([
+    stringFieldFromRecordOrNull(binding, ["providerId", "provider_id"]),
+    stringFieldFromRecordOrNull(executionTarget, ["providerId", "provider_id"]),
+  ]);
+
+  return {
+    completionDecisionId:
+      stringFieldFromRecordOrNull(binding, [
+        "completionDecisionId",
+        "completion_decision_id",
+      ]) ?? refs.completionDecisionIdsBySlot[slot] ?? null,
+    evidenceBundleId:
+      stringFieldFromRecordOrNull(binding, [
+        "evidenceBundleId",
+        "evidence_bundle_id",
+      ]) ?? refs.evidenceBundleIdsBySlot[slot] ?? null,
+    executionTarget:
+      executionTargetKind || providerId
+        ? {
+            kind: executionTargetKind,
+            providerId,
+          }
+        : null,
+    executionTargetHash: stringFieldFromRecordOrNull(binding, [
+      "executionTargetHash",
+      "execution_target_hash",
+    ]),
+    failureDecisionId:
+      stringFieldFromRecordOrNull(binding, [
+        "failureDecisionId",
+        "failure_decision_id",
+      ]) ?? refs.failureDecisionIdsBySlot[slot] ?? null,
+    messageId:
+      stringFieldFromRecordOrNull(binding, [
+        "messageId",
+        "message_id",
+        "reviewMessageId",
+        "review_message_id",
+      ]) ?? refs.messageIdsBySlot[slot] ?? null,
+    runId:
+      stringFieldFromRecordOrNull(binding, ["runId", "run_id"]) ??
+      refs.runIdsBySlot[slot] ??
+      null,
+    settingsHash: stringFieldFromRecordOrNull(binding, [
+      "settingsHash",
+      "settings_hash",
+    ]),
+    taskId:
+      stringFieldFromRecordOrNull(binding, ["taskId", "task_id"]) ??
+      refs.taskIdsBySlot[slot] ??
+      null,
+    taskSpecHash: stringFieldFromRecordOrNull(binding, [
+      "taskSpecHash",
+      "task_spec_hash",
+    ]),
+  };
+}
+
+function workflowSlotBindingHasData(
+  binding: QueueAgentWorkflowSlotBindingSummary,
+) {
+  return Boolean(
+    binding.taskId ||
+      binding.taskSpecHash ||
+      binding.settingsHash ||
+      binding.executionTargetHash ||
+      binding.executionTarget ||
+      binding.runId ||
+      binding.evidenceBundleId ||
+      binding.messageId ||
+      binding.completionDecisionId ||
+      binding.failureDecisionId,
   );
 }
 
@@ -4438,14 +4612,10 @@ function sanitizeWorkflowJsonValue(
 
   const entries = Object.entries(value);
   const output: Record<string, QueueAgentWorkflowSafeJsonValue> = {};
+  let redactedFieldCount = 0;
   for (const [key, child] of entries.slice(0, 25)) {
-    if (isSensitiveWorkflowKey(key)) {
-      output[key] = "[redacted-confirmation-token]";
-      continue;
-    }
-
-    if (isRawWorkflowLogKey(key)) {
-      output[key] = "[redacted-raw-log]";
+    if (isSensitiveWorkflowKey(key) || isRawWorkflowLogKey(key)) {
+      redactedFieldCount += 1;
       continue;
     }
 
@@ -4454,6 +4624,9 @@ function sanitizeWorkflowJsonValue(
 
   if (entries.length > 25) {
     output.truncatedFieldCount = entries.length - 25;
+  }
+  if (redactedFieldCount > 0) {
+    output.redactedFieldCount = redactedFieldCount;
   }
 
   return output;
@@ -4545,6 +4718,35 @@ function stringFieldFromRecord(
   }
 
   return null;
+}
+
+function stringFieldFromRecordOrNull(
+  record: Record<string, unknown> | null,
+  fieldNames: readonly string[],
+) {
+  return record ? stringFieldFromRecord(record, fieldNames) : null;
+}
+
+function recordFieldFromRecord(
+  record: Record<string, unknown> | null,
+  fieldNames: readonly string[],
+): Record<string, unknown> | null {
+  if (!record) {
+    return null;
+  }
+
+  for (const fieldName of fieldNames) {
+    const value = record[fieldName];
+    if (isRecord(value)) {
+      return value;
+    }
+  }
+
+  return null;
+}
+
+function firstString(values: readonly (string | null | undefined)[]) {
+  return values.find((value): value is string => Boolean(value)) ?? null;
 }
 
 function hasOwn<TObject extends object, TKey extends PropertyKey>(

@@ -547,9 +547,26 @@ export type QueueAgentWorkflowActionSummary = {
   updatedAt: string;
 };
 
+export type QueueAgentWorkflowSlotBindingSummary = {
+  completionDecisionId: string | null;
+  evidenceBundleId: string | null;
+  executionTarget: {
+    kind: string | null;
+    providerId: string | null;
+  } | null;
+  executionTargetHash: string | null;
+  failureDecisionId: string | null;
+  messageId: string | null;
+  runId: string | null;
+  settingsHash: string | null;
+  taskId: string | null;
+  taskSpecHash: string | null;
+};
+
 export type QueueAgentWorkflowReportResult =
   QueueAgentWorkflowNoMutationFlags &
     QueueAgentWorkflowRefMaps & {
+      actionSummaryCount: number;
       actionCountSummary: QueueAgentWorkflowActionCountSummary;
       actionSummaries: QueueAgentWorkflowActionSummary[];
       blockers: QueueAgentWorkflowBlockerSummary[];
@@ -557,12 +574,18 @@ export type QueueAgentWorkflowReportResult =
       currentStep: string | null;
       nextAction: QueueAgentWorkflowSafeJsonValue | null;
       nextPhase: string | null;
+      nextStep: string | null;
+      persistentStatus: string;
       phase: string;
       reportSummary: string;
+      requestId: string;
       resumeAvailable: boolean;
       resumeStatus: string;
+      slotBindings: Record<string, QueueAgentWorkflowSlotBindingSummary>;
+      slotBindingsSummary: QueueAgentWorkflowSafeJsonValue | null;
       status: string;
       truncatedActionSummaries: boolean;
+      variablesSummary: QueueAgentWorkflowSafeJsonValue | null;
       workflowId: string;
       workflowRunId: string;
       workspaceId: string;
@@ -572,9 +595,12 @@ export type QueueAgentWorkflowPlanResumeResult =
   QueueAgentWorkflowNoMutationFlags &
     QueueAgentWorkflowRefMaps & {
       actionCountSummary: QueueAgentWorkflowActionCountSummary;
+      actionSummaries: QueueAgentWorkflowActionSummary[];
       blockers: QueueAgentWorkflowBlockerSummary[];
+      missingRefs: QueueAgentWorkflowBlockerSummary[];
       nextPhase: string | null;
       nextStep: string | null;
+      persistentStatus: string;
       reconciledVariablesSummary: QueueAgentWorkflowSafeJsonValue | null;
       reportSummary: string;
       requiredConfirmation: boolean;
@@ -582,6 +608,28 @@ export type QueueAgentWorkflowPlanResumeResult =
       requiredFreshGrant: boolean;
       resumeAvailable: boolean;
       resumeStatus: string;
+      slotReconciliations: readonly {
+        aggregateDependencyState: string | null;
+        aggregateEvidenceState: string | null;
+        aggregateReviewState: string | null;
+        aggregateTicketState: string | null;
+        blockerCode: string | null;
+        completionDecisionExists: boolean;
+        completionDecisionId: string | null;
+        evidenceBundleId: string | null;
+        evidenceExists: boolean;
+        executorWidgetId: string | null;
+        failureDecisionExists: boolean;
+        failureDecisionId: string | null;
+        messageId: string | null;
+        reviewMessageExists: boolean;
+        reviewMessageStatus: string | null;
+        runExists: boolean;
+        runId: string | null;
+        slot: string;
+        taskExists: boolean;
+        taskId: string | null;
+      }[];
       status: string;
       taskSnapshots: readonly {
         dependencyState: string;

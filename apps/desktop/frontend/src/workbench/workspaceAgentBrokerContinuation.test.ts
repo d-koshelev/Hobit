@@ -2260,6 +2260,111 @@ ${JSON.stringify({
     expect(prompt).not.toContain("raw context log");
   });
 
+  it("surfaces workflow debug read payloads in model-visible action result context", () => {
+    const workflowReport = createWorkspaceAgentBrokerActionResultContext({
+      request: requestFor("queue.workflow.getReport", {
+        workflowRunId: "queue-workflow-run-1782257290023621100_163",
+      }),
+      result: resultFor("queue.workflow.getReport", liveWorkflowReportOutput()),
+      summary: "Queue workflow report read.",
+    });
+    const workflowActionLog = createWorkspaceAgentBrokerActionResultContext({
+      request: requestFor("queue.workflow.readActionLog", {
+        workflowRunId: "queue-workflow-run-1782257290023621100_163",
+      }),
+      result: resultFor(
+        "queue.workflow.readActionLog",
+        liveWorkflowActionLogOutput(),
+      ),
+      summary: "Queue workflow action log read.",
+    });
+    const workflowResumePlan = createWorkspaceAgentBrokerActionResultContext({
+      request: requestFor("queue.workflow.planResume", {
+        workflowRunId: "queue-workflow-run-1782257290023621100_163",
+      }),
+      result: resultFor(
+        "queue.workflow.planResume",
+        liveWorkflowResumePlanOutput(),
+      ),
+      summary: "Queue workflow resume plan read.",
+    });
+    const prompt = formatWorkspaceAgentBrokerContinuationPrompt({
+      actionIndex: 1,
+      context: workflowReport,
+      maxActions: WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+    });
+
+    expect(workflowReport.data?.workflowReport).toMatchObject({
+      actionSummaryCount: 5,
+      currentStep: "record_worker_evidence",
+      persistentStatus: "paused",
+      phase: "worker_evidence",
+      runIdsBySlot: { upstream: "queue-run_1782257290066506600_169" },
+      slotBindings: {
+        upstream: {
+          executionTarget: {
+            kind: "queue_local",
+            providerId: "codex",
+          },
+          runId: "queue-run_1782257290066506600_169",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+      },
+      taskIdsBySlot: {
+        downstream: "queue_task_wf_50bf4534e054bec3",
+        upstream: "queue_task_wf_44a095e817b585b5",
+      },
+      workflowRunId: "queue-workflow-run-1782257290023621100_163",
+    });
+    expect(workflowActionLog.data?.workflowActionLog).toMatchObject({
+      actionCount: 5,
+      actions: [
+        expect.objectContaining({
+          actionType: "start_worker",
+          resultRefs: expect.objectContaining({
+            runId: "queue-run_1782257290066506600_169",
+          }),
+        }),
+      ],
+      truncated: false,
+    });
+    expect(workflowResumePlan.data?.workflowResumePlan).toMatchObject({
+      blockers: [
+        expect.objectContaining({
+          blockerCode: "incomplete_workflow_action_refs",
+          missingRequiredField: "resultRefs.evidenceBundleId",
+        }),
+      ],
+      missingRefs: [
+        expect.objectContaining({
+          missingRequiredField: "resultRefs.evidenceBundleId",
+        }),
+      ],
+      nextPhase: "worker_evidence",
+      nextStep: "record_worker_evidence",
+      recoveredRefs: {
+        runIdsBySlot: { upstream: "queue-run_1782257290066506600_169" },
+        taskIdsBySlot: { upstream: "queue_task_wf_44a095e817b585b5" },
+      },
+      requiredConfirmation: false,
+      requiredFreshGrant: false,
+      resumeStatus: "blocked_incomplete_workflow_action_refs",
+    });
+    expect(workflowReport.ids.taskIds).toContain(
+      "queue_task_wf_44a095e817b585b5",
+    );
+    expect(workflowReport.ids.runId).toBe(
+      "queue-run_1782257290066506600_169",
+    );
+    expect(prompt).toContain('"workflowReport"');
+    expect(prompt).toContain('"queue-workflow-run-1782257290023621100_163"');
+    expect(prompt).toContain('"runIdsBySlot"');
+    expect(prompt).not.toContain("operator-confirmed");
+    expect(prompt).not.toContain("confirmationToken");
+    expect(prompt).not.toContain("rawProviderTranscript");
+    expect(prompt).not.toContain("raw provider transcript");
+  });
+
   it("includes backend aggregate state dimensions in compact lifecycle result context", () => {
     const request = requestFor(
       "queue.lifecycle.get",
@@ -2757,6 +2862,212 @@ function resultFor(
     requestId: `${capabilityId}:request`,
     status,
   });
+}
+
+function liveWorkflowReportOutput() {
+  return {
+    actionCountSummary: {
+      byActionType: { start_worker: 1 },
+      byStatus: { completed: 5 },
+      total: 5,
+    },
+    actionSummaries: [
+      {
+        actionId: "workflow-action-start-worker",
+        actionType: "start_worker",
+        blockerCode: null,
+        blockerMessage: null,
+        createdAt: "2026-06-23T12:05:00.000Z",
+        idempotencyKey:
+          "queue-workflow-run-1782257290023621100_163:start_worker:upstream",
+        resultRefs: {
+          runId: "queue-run_1782257290066506600_169",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+        status: "completed",
+        stepId: "start_worker_upstream",
+        targetRefs: {
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+        updatedAt: "2026-06-23T12:05:00.000Z",
+      },
+    ],
+    actionSummaryCount: 5,
+    blockers: [],
+    completionDecisionIdsBySlot: {},
+    currentStep: "record_worker_evidence",
+    evidenceBundleIdsBySlot: {},
+    failureDecisionIdsBySlot: {},
+    messageIdsBySlot: {},
+    nextPhase: "worker_evidence",
+    nextStep: "record_worker_evidence",
+    persistentStatus: "paused",
+    phase: "worker_evidence",
+    requestId: "queue-workflow-request-live-failure",
+    runIdsBySlot: {
+      upstream: "queue-run_1782257290066506600_169",
+    },
+    slotBindings: {
+      downstream: {
+        executionTarget: null,
+        runId: null,
+        taskId: "queue_task_wf_50bf4534e054bec3",
+        taskSpecHash: "task-spec-hash-downstream",
+      },
+      upstream: {
+        executionTarget: {
+          kind: "queue_local",
+          providerId: "codex",
+        },
+        executionTargetHash: "execution-target-hash-queue_local",
+        runId: "queue-run_1782257290066506600_169",
+        settingsHash: "settings-hash-upstream",
+        taskId: "queue_task_wf_44a095e817b585b5",
+        taskSpecHash: "task-spec-hash-upstream",
+      },
+    },
+    status: "paused",
+    taskIdsBySlot: {
+      downstream: "queue_task_wf_50bf4534e054bec3",
+      upstream: "queue_task_wf_44a095e817b585b5",
+    },
+    variablesSummary: {
+      runIdsBySlot: {
+        upstream: "queue-run_1782257290066506600_169",
+      },
+    },
+    workflowId: "dependency_acceptance_smoke",
+    workflowRunId: "queue-workflow-run-1782257290023621100_163",
+    workspaceId: "workspace-1",
+  };
+}
+
+function liveWorkflowActionLogOutput() {
+  return {
+    actionCountSummary: {
+      byActionType: { start_worker: 1 },
+      byStatus: { completed: 5 },
+      total: 5,
+    },
+    actions: [
+      {
+        actionId: "workflow-action-start-worker",
+        actionType: "start_worker",
+        blockerCode: null,
+        blockerMessage: null,
+        createdAt: "2026-06-23T12:05:00.000Z",
+        idempotencyKey:
+          "queue-workflow-run-1782257290023621100_163:start_worker:upstream",
+        resultRefs: {
+          runId: "queue-run_1782257290066506600_169",
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+        status: "completed",
+        stepId: "start_worker_upstream",
+        targetRefs: {
+          slot: "upstream",
+          taskId: "queue_task_wf_44a095e817b585b5",
+        },
+        updatedAt: "2026-06-23T12:05:00.000Z",
+      },
+    ],
+    limit: 10,
+    statusFilter: null,
+    total: 5,
+    truncated: false,
+    workflowId: "dependency_acceptance_smoke",
+    workflowRunId: "queue-workflow-run-1782257290023621100_163",
+    workspaceId: "workspace-1",
+  };
+}
+
+function liveWorkflowResumePlanOutput() {
+  return {
+    actionCountSummary: {
+      byActionType: { start_worker: 1 },
+      byStatus: { completed: 5 },
+      total: 5,
+    },
+    actionSummaries: liveWorkflowActionLogOutput().actions,
+    blockers: [
+      {
+        blockerCode: "incomplete_workflow_action_refs",
+        blockerMessage:
+          "Workflow action refs are incomplete; worker evidence cannot be recorded yet.",
+        missingRequiredField: "resultRefs.evidenceBundleId",
+        runId: "queue-run_1782257290066506600_169",
+        slot: "upstream",
+        taskId: "queue_task_wf_44a095e817b585b5",
+      },
+    ],
+    evidenceBundleIdsBySlot: {},
+    messageIdsBySlot: {},
+    missingRefs: [
+      {
+        blockerCode: "incomplete_workflow_action_refs",
+        blockerMessage:
+          "Workflow action refs are incomplete; worker evidence cannot be recorded yet.",
+        missingRequiredField: "resultRefs.evidenceBundleId",
+        runId: "queue-run_1782257290066506600_169",
+        slot: "upstream",
+        taskId: "queue_task_wf_44a095e817b585b5",
+      },
+    ],
+    nextPhase: "worker_evidence",
+    nextStep: "record_worker_evidence",
+    persistentStatus: "paused",
+    requiredConfirmation: false,
+    requiredContinuationRefs: {
+      completionDecisionIdsBySlot: {},
+      evidenceBundleIdsBySlot: {},
+      failureDecisionIdsBySlot: {},
+      messageIdsBySlot: {},
+      runIdsBySlot: {
+        upstream: "queue-run_1782257290066506600_169",
+      },
+      taskIdsBySlot: {
+        upstream: "queue_task_wf_44a095e817b585b5",
+      },
+    },
+    requiredFreshGrant: false,
+    resumeAvailable: false,
+    resumeStatus: "blocked_incomplete_workflow_action_refs",
+    runIdsBySlot: {
+      upstream: "queue-run_1782257290066506600_169",
+    },
+    slotReconciliations: [
+      {
+        blockerCode: "incomplete_workflow_action_refs",
+        evidenceExists: false,
+        runExists: true,
+        runId: "queue-run_1782257290066506600_169",
+        slot: "upstream",
+        taskExists: true,
+        taskId: "queue_task_wf_44a095e817b585b5",
+      },
+    ],
+    status: "paused",
+    taskIdsBySlot: {
+      upstream: "queue_task_wf_44a095e817b585b5",
+    },
+    taskSnapshots: [
+      {
+        evidenceState: "missing",
+        latestRunId: "queue-run_1782257290066506600_169",
+        reviewState: "none",
+        taskId: "queue_task_wf_44a095e817b585b5",
+        ticketState: "running",
+        workerRunState: "running",
+      },
+    ],
+    terminalStatus: null,
+    workflowId: "dependency_acceptance_smoke",
+    workflowRunId: "queue-workflow-run-1782257290023621100_163",
+    workspaceId: "workspace-1",
+  };
 }
 
 function recordAttempt(

@@ -134,14 +134,25 @@ capabilities before any smoke execution step:
 - `queue.workflow.getReport` reads the bounded workflow report and exposes the
   continuation ids needed for smoke recovery: task ids, run ids, evidence
   bundle ids, review message ids, completion decision ids, and failure decision
-  ids by slot.
+  ids by slot. In Workspace Agent continuation context, the model-visible
+  payload is `data.workflowReport` and includes persistent status, phase,
+  current step, request id, bounded variables summary, slot bindings,
+  execution target kind/provider/hash where present, action counts, and
+  bounded action summaries.
 - `queue.workflow.planResume` is a read-only resume planner. Call it before
   continuation to read next phase/step, blockers, required fresh grant,
   required confirmation, worker/start-state blockers, task snapshots, and
-  continuation refs.
+  continuation refs. In Workspace Agent continuation context, the
+  model-visible payload is `data.workflowResumePlan` and includes resume
+  status, next phase/step, terminal status when applicable, missing refs,
+  recovered refs, required grant/confirmation flags, task snapshots, and
+  slot/action reconciliation details where available.
 - `queue.workflow.readActionLog` reads bounded workflow action summaries for
   idempotency/action debugging, with safe target/result refs and no raw logs or
-  raw confirmation token exposure.
+  raw confirmation token exposure. In Workspace Agent continuation context,
+  the model-visible payload is `data.workflowActionLog` and includes action
+  count, truncated flag, status filter, and bounded action rows with safe
+  target/result refs.
 
 Use these discovery reads for live Queue smoke setup. The recommended Workspace
 Agent smoke chain is `workspace.context.get`, `workbench.widgets.list`,
@@ -152,9 +163,12 @@ Agent smoke chain is `workspace.context.get`, `workbench.widgets.list`,
 workflow-debug discovery. Do not use DevTools, Queue UI text, DOM scraping,
 localStorage alone, task titles, prompt text, file paths, transcript text, or
 prose to infer ids. Codex shell still cannot perform live Queue smoke by itself
-because it has no live Tauri renderer/IPC context. Actual live
-`dependency_acceptance_smoke` and `dependency_failure_smoke` smoke execution is
-the next step after this structured result-payload surfacing fix.
+because it has no live Tauri renderer/IPC context. Live smoke recovery
+diagnostics can now inspect workflow report, action log, and resume plan
+payloads to decide whether a worker is still running, action refs are
+incomplete, durable run ids are present, or evidence can be safely retried.
+Actual live `dependency_acceptance_smoke` and `dependency_failure_smoke` smoke
+continuation remains the next step.
 `queue.workflow.invoke` is
 deliberately not implemented; invocation uses only `hobit.workflow.request`.
 

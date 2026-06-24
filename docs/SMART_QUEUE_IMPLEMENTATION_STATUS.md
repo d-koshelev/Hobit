@@ -150,14 +150,23 @@ attribution. Missing Queue widgets produce only a non-blocking suggestion to
 add Agent Queue for observability. The same result may still list legacy Agent
 Executor widgets by `definitionId === "agent-run"` for compatibility, but
 current Queue workflow smoke requires neither Agent Executor nor Agent Queue
-widget presence. Actual live Queue smoke remains the next step after this
-read-only context discovery path. The broker
+widget presence. Queue workflow debug reads now expose model-visible structured
+payloads for live recovery diagnostics: `queue.workflow.getReport` adds
+`data.workflowReport` with persistent status, phase/current step, request id,
+slot bindings, task/run/evidence/message/decision refs, action counts, and
+bounded action summaries; `queue.workflow.readActionLog` adds
+`data.workflowActionLog` with bounded action rows and safe target/result refs;
+and `queue.workflow.planResume` adds `data.workflowResumePlan` with resume
+status, next phase/step, blockers, missing refs, recovered refs, required
+grant/confirmation flags, task snapshots, and continuation refs. Actual live
+Queue smoke continuation remains the next step. The broker
 continuation `hobit.action.result` context now preserves bounded structured
 payloads for `workspace.context.get`, `workbench.widgets.list`, and
-`queue.control.get`, so Workspace Agent can read exact `workspaceId`,
-`workbenchId`, durable `workspaceRootPath`, Queue control status/version,
-queue-local execution target availability, optional Queue widget suggestions,
-and `recommendedQueueOwnerWidgetInstanceId` when applicable
+`queue.control.get` plus the workflow debug payloads above, so Workspace Agent
+can read exact `workspaceId`, `workbenchId`, durable `workspaceRootPath`, Queue
+control status/version, queue-local execution target availability, optional
+Queue widget suggestions, workflow report/action-log/resume-plan refs, and
+`recommendedQueueOwnerWidgetInstanceId` when applicable
 from action results rather than compact display text. Persisted Workspace root
 path is the product truth for new Workspaces. The desktop process current
 directory remains only a legacy fallback for old rows with null root path and
@@ -1307,11 +1316,15 @@ as available from the foundation above:
   `queue.workflow.getReport`, `queue.workflow.planResume`, and
   `queue.workflow.readActionLog`; these are bounded read-only broker
   capabilities over existing backend/Tauri workflow run, report, resume plan,
-  and action-ledger APIs. `queue.workflow.invoke` is intentionally not
-  implemented, and `hobit.workflow.request` remains the only workflow
-  invocation path. Codex shell still cannot perform live smoke without the
-  live Tauri renderer/IPC context. Actual live Queue smoke remains the next
-  step after the registry-consistent discovery/control/debug surface.
+  and action-ledger APIs, and their continuation payloads expose structured
+  `data.workflowReport`, `data.workflowActionLog`, and
+  `data.workflowResumePlan` objects for live recovery diagnostics. Debug reads
+  can inspect whether a worker is still running, whether start/evidence refs
+  are incomplete, whether a durable run id is present, and whether evidence can
+  be safely retried. `queue.workflow.invoke` is intentionally not implemented,
+  and `hobit.workflow.request` remains the only workflow invocation path.
+  Codex shell still cannot perform live smoke without the live Tauri renderer/
+  IPC context. Actual live Queue smoke continuation remains the next step.
 - durable backend Smart Queue persistence;
 - Queue workflow runner execution beyond the full typed
   `dependency_acceptance_smoke` and `dependency_failure_smoke` paths and the
