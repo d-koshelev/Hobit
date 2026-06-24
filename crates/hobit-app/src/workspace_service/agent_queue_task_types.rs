@@ -265,6 +265,7 @@ pub struct QueueWorkerStartContext {
     pub workflow_run_id: String,
     pub workflow_action_id: Option<String>,
     pub action_idempotency_key: Option<String>,
+    pub slot: Option<String>,
     pub task_id: String,
     pub executor_widget_id: Option<String>,
     pub settings_hash: String,

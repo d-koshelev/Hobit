@@ -2637,6 +2637,168 @@ fn plan_resume_waits_for_worker_evidence_for_finished_run() {
 }
 
 #[test]
+fn plan_resume_recovers_backend_queue_local_start_worker_missing_slot_refs() {
+    let store = initialized_store();
+    store
+        .create_workspace("workspace-1", "Workspace", None, "active")
+        .expect("create workspace");
+    store
+        .create_workspace_workbench("workbench-1", "workspace-1", None)
+        .expect("create workbench");
+    create_task_row(
+        &store,
+        "workspace-1",
+        "queue_task_wf_44a095e817b585b5",
+        "running",
+        true,
+        None,
+    );
+    create_task_row(
+        &store,
+        "workspace-1",
+        "queue_task_wf_50bf4534e054bec3",
+        "draft",
+        false,
+        Some(r#"["queue_task_wf_44a095e817b585b5"]"#),
+    );
+    store
+        .insert_agent_queue_task_run_link(NewAgentQueueTaskRunLink {
+            link_id: "queue-run-link-live-failure",
+            workspace_id: "workspace-1",
+            queue_task_id: "queue_task_wf_44a095e817b585b5",
+            executor_widget_id: QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
+            direct_work_run_id: "queue-run_1782257290066506600_169",
+            source: "manual",
+            status: "completed",
+            started_at: Some("2"),
+            completed_at: Some("3"),
+            validation_status: None,
+            review_status: Some("review_needed"),
+            created_at: Some("2"),
+            updated_at: Some("3"),
+        })
+        .expect("insert queue-local run link");
+    let settings_hash = QueueWorkerStartSettingsSnapshot {
+        execution_workspace: "C:/workspace/project".to_owned(),
+        codex_executable: "codex".to_owned(),
+        sandbox: "workspace_write".to_owned(),
+        approval_policy: "never".to_owned(),
+        execution_policy: "manual".to_owned(),
+        execution_target_kind: "queue_local".to_owned(),
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: None,
+        executor_widget_id: String::new(),
+    }
+    .stable_hash();
+    let execution_target_hash = QueueExecutionTargetSnapshot {
+        execution_target_kind: "queue_local".to_owned(),
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: None,
+        executor_widget_id: None,
+    }
+    .stable_hash();
+    let slot_bindings_json = json!({
+        "upstream": {
+            "executionTargetHash": execution_target_hash.clone(),
+            "executionTargetKind": "queue_local",
+            "executorWidgetId": "",
+            "providerId": "codex",
+            "queueOwnerWidgetInstanceId": Value::Null,
+            "runSettings": {
+                "approvalPolicy": "never",
+                "codexExecutable": "codex",
+                "executionPolicy": "manual",
+                "executionTarget": {
+                    "kind": "queue_local",
+                    "providerId": "codex",
+                    "queueOwnerWidgetInstanceId": Value::Null
+                },
+                "executorWidgetId": "",
+                "executionWorkspace": "C:/workspace/project",
+                "sandbox": "workspace_write"
+            },
+            "settingsHash": settings_hash.clone(),
+            "taskId": "queue_task_wf_44a095e817b585b5",
+            "taskSpecHash": "task-spec-hash-upstream"
+        },
+        "downstream": {
+            "taskId": "queue_task_wf_50bf4534e054bec3",
+            "taskSpecHash": "task-spec-hash-downstream"
+        }
+    })
+    .to_string();
+    insert_resume_workflow(
+        &store,
+        "queue-workflow-run-1782257290023621100_163",
+        "dependency_failure_smoke",
+        "paused",
+        "run_start",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(&slot_bindings_json),
+        None,
+        Some("1"),
+    );
+    let start_target_refs = json!({
+        "executionTargetHash": execution_target_hash,
+        "settingsHash": settings_hash,
+        "taskId": "queue_task_wf_44a095e817b585b5",
+        "workflowRunId": "queue-workflow-run-1782257290023621100_163"
+    })
+    .to_string();
+    let start_result_refs = json!({
+        "runId": "queue-run_1782257290066506600_169"
+    })
+    .to_string();
+    store
+        .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+            action_id: "workflow-action-start-worker",
+            workflow_run_id: "queue-workflow-run-1782257290023621100_163",
+            workspace_id: "workspace-1",
+            step_id: "start_worker",
+            action_type: "start_worker",
+            idempotency_key: "queue-workflow-run-1782257290023621100_163:start_worker:queue_task_wf_44a095e817b585b5:target:settings",
+            status: QueueWorkflowActionStatus::Completed.as_str(),
+            target_refs_json: Some(&start_target_refs),
+            result_refs_json: Some(&start_result_refs),
+            blocker_code: None,
+            blocker_message: None,
+            attempt_count: 1,
+            started_at: Some("2"),
+            completed_at: Some("3"),
+            created_at: Some("2"),
+            updated_at: Some("3"),
+        })
+        .expect("insert start action");
+    let service = WorkspaceService::new(store);
+
+    let plan = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            "queue-workflow-run-1782257290023621100_163",
+            None,
+        ))
+        .expect("plan resume")
+        .expect("plan");
+
+    assert_eq!(
+        plan.status,
+        QueueWorkflowResumePlanStatus::WaitingForWorkerEvidence
+    );
+    assert_eq!(
+        plan.next_step.as_deref(),
+        Some("waiting_for_worker_evidence")
+    );
+    assert!(plan.blockers.is_empty());
+    assert!(plan.slot_reconciliations.iter().any(|slot| {
+        slot.slot == "upstream"
+            && slot.task_id.as_deref() == Some("queue_task_wf_44a095e817b585b5")
+            && slot.run_id.as_deref() == Some("queue-run_1782257290066506600_169")
+            && slot.executor_widget_id.is_none()
+    }));
+}
+
+#[test]
 fn record_workflow_worker_evidence_records_upstream_and_stops_before_review() {
     let store = initialized_store();
     create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");

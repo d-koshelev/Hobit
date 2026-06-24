@@ -1312,10 +1312,19 @@ fn recover_update_run_settings_action(
         action,
         blockers,
     );
+    let execution_target_kind = binding
+        .execution_target_kind
+        .clone()
+        .or_else(|| optional_string_ref(&target, "executionTargetKind"))
+        .or_else(|| optional_string_ref(&result, "executionTargetKind"));
     set_binding_string(
         binding,
         "executorWidgetId",
-        string_ref(action, &result, "executorWidgetId", blockers),
+        if execution_target_kind.as_deref() == Some("queue_local") {
+            optional_string_ref(&result, "executorWidgetId")
+        } else {
+            string_ref(action, &result, "executorWidgetId", blockers)
+        },
         action,
         blockers,
     );
@@ -1441,22 +1450,76 @@ fn recover_start_worker_action(
     let Some(task_id) = string_ref(action, &target, "taskId", blockers) else {
         return;
     };
-    let Some(slot) = slot_for_task(by_slot, &task_id) else {
-        blockers.push(action_ref_blocker(
-            "incomplete_slot_binding",
-            "A workflow start_worker action has durable refs but no matching task slot binding.",
-            action,
-            Some(&task_id),
-            None,
-        ));
+    let slot = match optional_string_ref(&target, "slot") {
+        Some(slot) => slot,
+        None => match unique_slot_for_task(by_slot, &task_id) {
+            TaskSlotMatch::Found(slot) => slot,
+            TaskSlotMatch::Missing => {
+                blockers.push(action_ref_blocker(
+                    "incomplete_slot_binding",
+                    "A workflow start_worker action has durable refs but no matching task slot binding.",
+                    action,
+                    Some(&task_id),
+                    Some("slot"),
+                ));
+                return;
+            }
+            TaskSlotMatch::Ambiguous => {
+                blockers.push(action_ref_blocker(
+                    "ambiguous_slot_binding",
+                    "A workflow start_worker action taskId maps to multiple slots; resume planning will not guess.",
+                    action,
+                    Some(&task_id),
+                    Some("slot"),
+                ));
+                return;
+            }
+        },
+    };
+    let Some(binding) = binding_for_action_slot(by_slot, action, &slot, blockers) else {
         return;
     };
-    let binding = by_slot.get_mut(&slot).expect("slot exists");
     set_binding_string(binding, "taskId", Some(task_id), action, blockers);
     set_binding_string(
         binding,
+        "executionTargetKind",
+        optional_string_ref(&target, "executionTargetKind"),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "providerId",
+        optional_string_ref(&target, "providerId"),
+        action,
+        blockers,
+    );
+    set_binding_string(
+        binding,
+        "queueOwnerWidgetInstanceId",
+        optional_string_ref(&target, "queueOwnerWidgetInstanceId"),
+        action,
+        blockers,
+    );
+    let execution_target_kind = binding
+        .execution_target_kind
+        .clone()
+        .or_else(|| optional_string_ref(&target, "executionTargetKind"))
+        .or_else(|| {
+            binding
+                .run_settings
+                .as_ref()
+                .and_then(|settings| settings.execution_target.as_ref())
+                .map(|target| target.kind.clone())
+        });
+    set_binding_string(
+        binding,
         "executorWidgetId",
-        string_ref(action, &target, "executorWidgetId", blockers),
+        if execution_target_kind.as_deref() == Some("queue_local") {
+            optional_string_ref(&target, "executorWidgetId")
+        } else {
+            string_ref(action, &target, "executorWidgetId", blockers)
+        },
         action,
         blockers,
     );
@@ -1738,6 +1801,25 @@ fn slot_for_task(by_slot: &BTreeMap<String, SlotBinding>, task_id: &str) -> Opti
     })
 }
 
+enum TaskSlotMatch {
+    Found(String),
+    Missing,
+    Ambiguous,
+}
+
+fn unique_slot_for_task(by_slot: &BTreeMap<String, SlotBinding>, task_id: &str) -> TaskSlotMatch {
+    let mut matches = by_slot.iter().filter_map(|(slot, binding)| {
+        (binding.task_id.as_deref() == Some(task_id)).then(|| slot.clone())
+    });
+    let Some(first) = matches.next() else {
+        return TaskSlotMatch::Missing;
+    };
+    if matches.next().is_some() {
+        return TaskSlotMatch::Ambiguous;
+    }
+    TaskSlotMatch::Found(first)
+}
+
 fn set_binding_string(
     binding: &mut SlotBinding,
     field: &str,
@@ -1891,6 +1973,22 @@ fn parse_slot_run_settings(value: Option<&Value>) -> Option<SlotRunSettings> {
     } else {
         None
     };
+    let executor_widget_id = optional_string_field(fields.get("executorWidgetId"))
+        .or_else(|| {
+            execution_target
+                .as_ref()
+                .and_then(|target| target.executor_widget_id.clone())
+        })
+        .or_else(|| {
+            if execution_target
+                .as_ref()
+                .map_or(false, |target| target.kind == "queue_local")
+            {
+                Some(String::new())
+            } else {
+                None
+            }
+        })?;
     Some(SlotRunSettings {
         execution_workspace: optional_string_field(fields.get("executionWorkspace"))?,
         codex_executable: optional_string_field(fields.get("codexExecutable"))?,
@@ -1898,7 +1996,7 @@ fn parse_slot_run_settings(value: Option<&Value>) -> Option<SlotRunSettings> {
         approval_policy: optional_string_field(fields.get("approvalPolicy"))?,
         execution_policy: optional_string_field(fields.get("executionPolicy"))?,
         execution_target,
-        executor_widget_id: optional_string_field(fields.get("executorWidgetId"))?,
+        executor_widget_id,
     })
 }
 
@@ -2109,16 +2207,19 @@ fn validate_settings_binding(
             execution_target: run_settings.execution_target.clone(),
             executor_widget_id: run_settings.executor_widget_id.clone(),
         }
-    } else if let Some(settings) = run_settings_from_durable_task(task) {
-        settings
     } else {
-        blockers.push(binding_blocker(
-            "settings_binding_missing",
-            "Workflow slot binding has settingsHash but durable run settings are incomplete.",
-            binding,
-            Some("runSettings"),
-        ));
-        return;
+        match run_settings_from_durable_task(binding, task) {
+            Ok(settings) => settings,
+            Err(missing_field) => {
+                blockers.push(binding_blocker(
+                    "settings_binding_missing",
+                    "Workflow slot binding has settingsHash but durable run settings are incomplete.",
+                    binding,
+                    Some(missing_field),
+                ));
+                return;
+            }
+        }
     };
     let (canonical_settings, expected_hash) =
         match normalize_queue_workflow_run_settings_for_hash(normalized) {
@@ -2143,7 +2244,7 @@ fn validate_settings_binding(
         ));
     }
 
-    if task.assigned_executor_widget_id.as_deref() != Some(expected_executor_widget_id.as_str()) {
+    if task.assigned_executor_widget_id.clone().unwrap_or_default() != expected_executor_widget_id {
         blockers.push(binding_blocker(
             "executor_widget_mismatch",
             "Workflow slot executorWidgetId does not match the durable task assignment.",
@@ -2240,15 +2341,50 @@ fn validate_promote_binding(
     }
 }
 
-fn run_settings_from_durable_task(task: &AgentQueueTaskRow) -> Option<QueueWorkflowRunSettings> {
-    Some(QueueWorkflowRunSettings {
-        execution_workspace: task.execution_workspace.clone()?,
-        codex_executable: task.codex_executable.clone()?,
-        sandbox: task.sandbox.clone()?,
-        approval_policy: task.approval_policy.clone()?,
+fn run_settings_from_durable_task(
+    binding: &SlotBinding,
+    task: &AgentQueueTaskRow,
+) -> Result<QueueWorkflowRunSettings, &'static str> {
+    let execution_workspace = task
+        .execution_workspace
+        .clone()
+        .ok_or("runSettingsSnapshot")?;
+    let codex_executable = task.codex_executable.clone().ok_or("runSettingsSnapshot")?;
+    let sandbox = task.sandbox.clone().ok_or("runSettingsSnapshot")?;
+    let approval_policy = task.approval_policy.clone().ok_or("runSettingsSnapshot")?;
+
+    if binding.execution_target_kind.as_deref() == Some("queue_local") {
+        let provider_id = binding.provider_id.clone().ok_or("providerId")?;
+        if binding.execution_target_hash.is_none() {
+            return Err("executionTargetHash");
+        }
+        return Ok(QueueWorkflowRunSettings {
+            execution_workspace,
+            codex_executable,
+            sandbox,
+            approval_policy,
+            execution_policy: task.execution_policy.clone(),
+            execution_target: Some(QueueWorkflowExecutionTarget {
+                kind: "queue_local".to_owned(),
+                provider_id,
+                queue_owner_widget_instance_id: binding.queue_owner_widget_instance_id.clone(),
+                executor_widget_id: None,
+            }),
+            executor_widget_id: String::new(),
+        });
+    }
+
+    Ok(QueueWorkflowRunSettings {
+        execution_workspace,
+        codex_executable,
+        sandbox,
+        approval_policy,
         execution_policy: task.execution_policy.clone(),
         execution_target: None,
-        executor_widget_id: task.assigned_executor_widget_id.clone()?,
+        executor_widget_id: task
+            .assigned_executor_widget_id
+            .clone()
+            .ok_or("executorWidgetId")?,
     })
 }
 

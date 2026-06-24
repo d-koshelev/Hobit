@@ -1253,6 +1253,7 @@ export type QueueWorkerStartContext = {
   workflowRunId: string;
   workflowActionId?: string | null;
   actionIdempotencyKey?: string | null;
+  slot?: string | null;
   taskId: string;
   executorWidgetId?: string | null;
   settingsHash: string;

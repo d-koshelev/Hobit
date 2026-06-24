@@ -556,7 +556,9 @@ export type QueueAgentWorkflowFocusedAction = {
   blockerCode: string | null;
   blockerMessage: string | null;
   createdAt: string;
+  derivedSlot: string | null;
   idempotencyKey: string;
+  recoveredFromTaskId: boolean;
   resultRefs: QueueAgentWorkflowSafeJsonValue | null;
   status: string;
   targetRefs: QueueAgentWorkflowSafeJsonValue | null;
@@ -584,6 +586,7 @@ export type QueueAgentWorkflowStartWorkerDiagnostics = {
   actionPresent: boolean;
   blockerCode: string | null;
   blockerMessage: string | null;
+  derivedSlot: string | null;
   executionTargetHash: string | null;
   hasExecutionTargetHash: boolean;
   hasRunId: boolean;
@@ -591,6 +594,7 @@ export type QueueAgentWorkflowStartWorkerDiagnostics = {
   hasSlot: boolean;
   hasTaskId: boolean;
   idempotencyKey: string | null;
+  recoveredFromTaskId: boolean;
   resultRefs: QueueAgentWorkflowSafeJsonValue | null;
   runId: string | null;
   settingsHash: string | null;
@@ -740,10 +744,12 @@ export type QueueAgentWorkflowReadActionLogResult =
     ambiguous: boolean;
     actions: QueueAgentWorkflowActionSummary[];
     blocker: QueueAgentWorkflowBlockerSummary | null;
+    derivedSlot: string | null;
     focusedAction: QueueAgentWorkflowFocusedAction | null;
     includeRefs: boolean;
     limit: number;
     matchingActions: QueueAgentWorkflowFocusedAction[];
+    recoveredFromTaskId: boolean;
     slotFilter: string | null;
     statusFilter: string | null;
     total: number;

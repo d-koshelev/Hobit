@@ -26,6 +26,8 @@ pub(crate) struct QueueWorkerStartContextRequest {
     pub workflow_run_id: String,
     pub workflow_action_id: Option<String>,
     pub action_idempotency_key: Option<String>,
+    #[serde(default)]
+    pub slot: Option<String>,
     pub task_id: String,
     #[serde(default)]
     pub executor_widget_id: Option<String>,
@@ -145,6 +147,7 @@ impl From<QueueWorkerStartContextRequest> for QueueWorkerStartContext {
             workflow_run_id: request.workflow_run_id,
             workflow_action_id: request.workflow_action_id,
             action_idempotency_key: request.action_idempotency_key,
+            slot: request.slot,
             task_id: request.task_id,
             executor_widget_id: request.executor_widget_id,
             settings_hash: request.settings_hash,

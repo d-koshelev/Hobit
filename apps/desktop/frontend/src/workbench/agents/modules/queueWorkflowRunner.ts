@@ -1258,6 +1258,7 @@ export async function runQueueWorkflowCreateSetupStartRunner(
         executorWidgetId: settingsBinding.executorWidgetId ?? undefined,
         executionTargetHash: settingsBinding.executionTargetHash,
         settingsHash: settingsBinding.settingsHash,
+        slot: "upstream",
         taskId: upstreamBinding.taskId,
         workflowRunId: input.workflowRunId,
       },

@@ -43,11 +43,11 @@ use super::{
     validation::{required_input, validate_widget_run_ownership},
     AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AgentQueueTaskSummary,
     AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary, CodexDirectWorkRunSummary,
-    FinishAssignedAgentQueueTaskRunInput, QueueWorkerStartBlocker, QueueWorkerStartContext,
-    QueueWorkerStartSettingsSnapshot, QueueWorkflowActionStatus, RunCodexDirectWorkInput,
-    StartAssignedAgentQueueTaskInput, WorkspaceService, AGENT_QUEUE_WIDGET_DEFINITION_ID,
-    AGENT_RUN_WIDGET_DEFINITION_ID, QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
-    QUEUE_LOCAL_BACKEND_WORKBENCH_ID,
+    FinishAssignedAgentQueueTaskRunInput, QueueExecutionTargetSnapshot, QueueWorkerStartBlocker,
+    QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot, QueueWorkflowActionStatus,
+    RunCodexDirectWorkInput, StartAssignedAgentQueueTaskInput, WorkspaceService,
+    AGENT_QUEUE_WIDGET_DEFINITION_ID, AGENT_RUN_WIDGET_DEFINITION_ID,
+    QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID, QUEUE_LOCAL_BACKEND_WORKBENCH_ID,
 };
 
 const QUEUE_WORKER_START_ACTION_TYPE: &str = "start_worker";
@@ -259,7 +259,12 @@ impl WorkspaceService {
                         store,
                         workflow_context,
                         &input.workspace_id,
-                        &workflow_start_target_refs_json(workflow_context),
+                        &workflow_start_target_refs_json(
+                            store,
+                            &input,
+                            workflow_context,
+                            Some(&settings_snapshot),
+                        ),
                         &updated_at,
                     )?;
                 }
@@ -573,6 +578,7 @@ struct NormalizedQueueWorkerStartContext {
     workflow_run_id: String,
     workflow_action_id: Option<String>,
     action_idempotency_key: String,
+    slot: Option<String>,
     task_id: String,
     executor_widget_id: Option<String>,
     settings_hash: String,
@@ -684,6 +690,7 @@ fn normalize_queue_worker_start_context(
         workflow_run_id,
         workflow_action_id,
         action_idempotency_key,
+        slot: normalize_optional_context_field(context.slot),
         task_id,
         executor_widget_id,
         settings_hash,
@@ -973,7 +980,7 @@ fn resolve_existing_workflow_start(
         return Ok(None);
     };
 
-    let target_refs_json = workflow_start_target_refs_json(context);
+    let target_refs_json = workflow_start_target_refs_json(store, input, context, None);
     if !workflow_start_action_matches_target(&existing, &input.workspace_id, &target_refs_json) {
         return Ok(Some(StartTransactionResult::Blocked(
             workflow_start_blocker_with_workflow_refs(
@@ -1145,7 +1152,7 @@ fn record_workflow_start_blocked(
     blocker: QueueWorkerStartBlocker,
 ) -> Result<StartTransactionResult, hobit_storage_sqlite::StorageError> {
     let blocker = workflow_start_blocker_with_workflow_refs(blocker, context);
-    let target_refs_json = workflow_start_target_refs_json(context);
+    let target_refs_json = workflow_start_target_refs_json(store, input, context, None);
     let now = placeholder_timestamp();
 
     if let Some(existing) = store.get_agent_queue_workflow_action_by_idempotency_key(
@@ -1239,30 +1246,171 @@ fn workflow_start_action_matches_target(
     workspace_id: &str,
     target_refs_json: &str,
 ) -> bool {
-    action.workspace_id == workspace_id
+    if !(action.workspace_id == workspace_id
         && action.step_id == QUEUE_WORKER_START_STEP_ID
-        && action.action_type == QUEUE_WORKER_START_ACTION_TYPE
-        && action.target_refs_json.as_deref() == Some(target_refs_json)
+        && action.action_type == QUEUE_WORKER_START_ACTION_TYPE)
+    {
+        return false;
+    }
+    if action.target_refs_json.as_deref() == Some(target_refs_json) {
+        return true;
+    }
+
+    let Some(actual) = action
+        .target_refs_json
+        .as_deref()
+        .and_then(|raw| parse_json_object(Some(raw)))
+    else {
+        return false;
+    };
+    let Some(expected) = parse_json_object(Some(target_refs_json)) else {
+        return false;
+    };
+
+    for field in ["taskId", "settingsHash"] {
+        if json_string_field(&actual, field) != json_string_field(&expected, field) {
+            return false;
+        }
+    }
+    for field in ["workflowRunId", "executionTargetHash", "executorWidgetId"] {
+        let actual_value = json_string_field(&actual, field);
+        let expected_value = json_string_field(&expected, field);
+        if actual_value.is_some() && actual_value != expected_value {
+            return false;
+        }
+        if field == "executionTargetHash" && expected_value.is_some() && actual_value.is_none() {
+            let actual_executor = json_string_field(&actual, "executorWidgetId");
+            let expected_executor = json_string_field(&expected, "executorWidgetId");
+            if actual_executor.is_some() && actual_executor == expected_executor {
+                continue;
+            }
+            return false;
+        }
+        if field == "executorWidgetId" && expected_value.is_some() && actual_value.is_none() {
+            return false;
+        }
+    }
+    for field in [
+        "slot",
+        "executionTargetKind",
+        "providerId",
+        "queueOwnerWidgetInstanceId",
+    ] {
+        let actual_value = json_string_field(&actual, field);
+        let expected_value = json_string_field(&expected, field);
+        if actual_value.is_some() && actual_value != expected_value {
+            return false;
+        }
+    }
+
+    true
 }
 
-fn workflow_start_target_refs_json(context: &NormalizedQueueWorkerStartContext) -> String {
-    let mut refs = Map::new();
-    refs.insert(
-        "executorWidgetId".to_owned(),
-        context
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct WorkflowStartBindingRefs {
+    slot: Option<String>,
+    execution_target_kind: Option<String>,
+    provider_id: Option<String>,
+    queue_owner_widget_instance_id: Option<String>,
+    executor_widget_id: Option<String>,
+}
+
+fn workflow_start_target_refs_json(
+    store: &hobit_storage_sqlite::SqliteStore,
+    input: &NormalizedStartAssignedAgentQueueTaskInput,
+    context: &NormalizedQueueWorkerStartContext,
+    settings_snapshot: Option<&QueueWorkerStartSettingsSnapshot>,
+) -> String {
+    let binding_refs = workflow_start_binding_refs(store, input, context);
+    let slot = context.slot.clone().or(binding_refs.slot.clone());
+    let inferred_execution_target_kind = if input.queue_owner_widget_instance_id.is_some() {
+        Some("queue_local".to_owned())
+    } else if context.executor_widget_id.is_none() && context.execution_target_hash.is_some() {
+        Some("queue_local".to_owned())
+    } else if context.executor_widget_id.is_some() {
+        Some("agent_executor".to_owned())
+    } else {
+        None
+    };
+    let execution_target_kind = settings_snapshot
+        .map(|snapshot| snapshot.execution_target_kind.clone())
+        .or(binding_refs.execution_target_kind.clone())
+        .or(inferred_execution_target_kind);
+    let provider_id = settings_snapshot
+        .map(|snapshot| snapshot.provider_id.clone())
+        .or(binding_refs.provider_id.clone())
+        .or_else(|| execution_target_kind.as_ref().map(|_| "codex".to_owned()));
+    let queue_owner_widget_instance_id = settings_snapshot
+        .and_then(|snapshot| snapshot.queue_owner_widget_instance_id.clone())
+        .or(binding_refs.queue_owner_widget_instance_id.clone())
+        .or(input.queue_owner_widget_instance_id.clone());
+    let executor_widget_id = match execution_target_kind.as_deref() {
+        Some("queue_local") => None,
+        Some("agent_executor") => context
             .executor_widget_id
             .clone()
-            .map(Value::String)
-            .unwrap_or(Value::Null),
-    );
+            .or_else(|| {
+                settings_snapshot
+                    .map(|snapshot| snapshot.executor_widget_id.clone())
+                    .filter(|value| !value.is_empty())
+            })
+            .or(binding_refs.executor_widget_id.clone()),
+        _ => context
+            .executor_widget_id
+            .clone()
+            .or(binding_refs.executor_widget_id.clone()),
+    };
+    let execution_target_hash = context.execution_target_hash.clone().or_else(|| {
+        let execution_target_kind = execution_target_kind.as_ref()?;
+        let provider_id = provider_id.as_ref()?;
+        Some(
+            QueueExecutionTargetSnapshot {
+                execution_target_kind: execution_target_kind.clone(),
+                provider_id: provider_id.clone(),
+                queue_owner_widget_instance_id: queue_owner_widget_instance_id.clone(),
+                executor_widget_id: if execution_target_kind == "queue_local" {
+                    None
+                } else {
+                    executor_widget_id.clone()
+                },
+            }
+            .stable_hash(),
+        )
+    });
+
+    let mut refs = Map::new();
+    if let Some(slot) = slot {
+        refs.insert("slot".to_owned(), Value::String(slot));
+    }
+    if let Some(execution_target_kind) = execution_target_kind {
+        refs.insert(
+            "executionTargetKind".to_owned(),
+            Value::String(execution_target_kind),
+        );
+    }
+    if let Some(provider_id) = provider_id {
+        refs.insert("providerId".to_owned(), Value::String(provider_id));
+    }
+    if let Some(queue_owner_widget_instance_id) = queue_owner_widget_instance_id {
+        refs.insert(
+            "queueOwnerWidgetInstanceId".to_owned(),
+            Value::String(queue_owner_widget_instance_id),
+        );
+    }
+    if let Some(executor_widget_id) = executor_widget_id {
+        refs.insert(
+            "executorWidgetId".to_owned(),
+            Value::String(executor_widget_id),
+        );
+    }
     refs.insert(
         "settingsHash".to_owned(),
         Value::String(context.settings_hash.clone()),
     );
-    if let Some(execution_target_hash) = &context.execution_target_hash {
+    if let Some(execution_target_hash) = execution_target_hash {
         refs.insert(
             "executionTargetHash".to_owned(),
-            Value::String(execution_target_hash.clone()),
+            Value::String(execution_target_hash),
         );
     }
     refs.insert("taskId".to_owned(), Value::String(context.task_id.clone()));
@@ -1279,6 +1427,92 @@ fn workflow_start_target_refs_json(context: &NormalizedQueueWorkerStartContext) 
         Value::String(context.workflow_run_id.clone()),
     );
     Value::Object(refs).to_string()
+}
+
+fn workflow_start_binding_refs(
+    store: &hobit_storage_sqlite::SqliteStore,
+    input: &NormalizedStartAssignedAgentQueueTaskInput,
+    context: &NormalizedQueueWorkerStartContext,
+) -> WorkflowStartBindingRefs {
+    let Ok(Some(workflow_run)) =
+        store.get_agent_queue_workflow_run(&input.workspace_id, &context.workflow_run_id)
+    else {
+        return WorkflowStartBindingRefs::default();
+    };
+    let Some(slot_bindings_json) = workflow_run.slot_bindings_json.as_deref() else {
+        return WorkflowStartBindingRefs {
+            slot: context.slot.clone(),
+            ..WorkflowStartBindingRefs::default()
+        };
+    };
+    let Ok(Value::Object(slot_bindings)) = serde_json::from_str::<Value>(slot_bindings_json) else {
+        return WorkflowStartBindingRefs {
+            slot: context.slot.clone(),
+            ..WorkflowStartBindingRefs::default()
+        };
+    };
+
+    if let Some(slot) = context.slot.as_deref() {
+        let binding = slot_bindings.get(slot).and_then(Value::as_object);
+        let binding_matches_task = binding
+            .and_then(|binding| binding.get("taskId"))
+            .and_then(Value::as_str)
+            .map_or(true, |task_id| task_id == context.task_id);
+        if binding_matches_task {
+            return workflow_start_binding_refs_from_object(Some(slot), binding);
+        }
+        return WorkflowStartBindingRefs {
+            slot: Some(slot.to_owned()),
+            ..WorkflowStartBindingRefs::default()
+        };
+    }
+
+    let mut matches = slot_bindings
+        .iter()
+        .filter_map(|(slot, binding)| {
+            let binding = binding.as_object()?;
+            (binding.get("taskId").and_then(Value::as_str) == Some(context.task_id.as_str()))
+                .then_some((slot.as_str(), binding))
+        })
+        .collect::<Vec<_>>();
+    if matches.len() != 1 {
+        return WorkflowStartBindingRefs::default();
+    }
+    let (slot, binding) = matches.remove(0);
+    workflow_start_binding_refs_from_object(Some(slot), Some(binding))
+}
+
+fn workflow_start_binding_refs_from_object(
+    slot: Option<&str>,
+    binding: Option<&Map<String, Value>>,
+) -> WorkflowStartBindingRefs {
+    WorkflowStartBindingRefs {
+        slot: slot.map(str::to_owned),
+        execution_target_kind: binding
+            .and_then(|binding| json_string_field(binding, "executionTargetKind")),
+        provider_id: binding.and_then(|binding| json_string_field(binding, "providerId")),
+        queue_owner_widget_instance_id: binding
+            .and_then(|binding| json_string_field(binding, "queueOwnerWidgetInstanceId")),
+        executor_widget_id: binding
+            .and_then(|binding| json_string_field(binding, "executorWidgetId")),
+    }
+}
+
+fn json_string_field(object: &Map<String, Value>, field: &str) -> Option<String> {
+    object
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
+fn parse_json_object(raw: Option<&str>) -> Option<Map<String, Value>> {
+    let raw = raw?;
+    serde_json::from_str::<Value>(raw)
+        .ok()?
+        .as_object()
+        .cloned()
 }
 
 fn workflow_start_result_refs_json(run_id: &str, current_run_state: &str) -> String {

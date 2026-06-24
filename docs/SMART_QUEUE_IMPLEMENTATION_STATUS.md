@@ -156,16 +156,21 @@ payloads for live recovery diagnostics: `queue.workflow.getReport` adds
 slot bindings, task/run/evidence/message/decision refs, action counts,
 bounded action summaries, and targeted diagnostics with exact safe
 `start_worker` target/result refs for slot, task id, run id, settings hash,
-and execution target hash; `queue.workflow.readActionLog` adds
+execution target hash, and provider id; `queue.workflow.readActionLog` adds
 `data.workflowActionLog` with bounded action rows, safe target/result refs, and
 an optional filtered `focusedAction` or structured no-match/ambiguity blocker;
 and `queue.workflow.planResume` adds `data.workflowResumePlan` with resume
 status, next phase/step, blockers, missing refs, recovered refs, required
 grant/confirmation flags, task snapshots, continuation refs, and diagnostics
 for exact missing refs, worker state, start-worker ref completeness, and
-`safeToRecordWorkerEvidence`. Live smoke diagnostics can now determine whether
-to retry workerEvidence from read-only payloads; actual live Queue smoke
-continuation remains the next step. The broker
+`safeToRecordWorkerEvidence`. Backend-owned `queue_local` recovery no longer
+requires `executorWidgetId`, an Agent Executor widget, an Agent Queue widget, or
+`queueOwnerWidgetInstanceId`; new `start_worker` action refs include `slot`,
+and existing missing-slot start rows recover from unambiguous task-to-slot
+bindings. Live smoke diagnostics can now determine whether to retry
+workerEvidence from read-only payloads; after this block, the paused live
+failure smoke can continue only if `planResume` reports worker evidence safe.
+The broker
 continuation `hobit.action.result` context now preserves bounded structured
 payloads for `workspace.context.get`, `workbench.widgets.list`, and
 `queue.control.get` plus the workflow debug payloads above, so Workspace Agent
@@ -179,8 +184,9 @@ directory remains only a legacy fallback for old rows with null root path and
 can resolve to `apps/desktop/src-tauri` under `cargo tauri dev`.
 Worker start now has a backend-owned idempotency/control contract on the
 existing assigned-task start path for Queue workflow phases. Workflow
-context requires explicit workflow/action/task/executor-owner/settings refs
-plus optional `executionTargetHash` and exact confirmation, checks durable
+context requires explicit workflow/action/slot/task/settings refs plus
+optional `executionTargetHash`, provider/target refs, legacy executor-owner
+refs only for `agent_executor`, and exact confirmation, checks durable
 `manual_enabled`, task/dependency/executor-owner preconditions, and settings
 hash, records/reads `start_worker` action ledger
 rows, returns the prior run for duplicate same-key/same-ref starts, conflicts

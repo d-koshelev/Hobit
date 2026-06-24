@@ -322,7 +322,7 @@ state only.
 
 Worker start idempotency is backend/domain truth. The assigned Queue task start
 path accepts an optional typed workflow start context with explicit
-`workflowRunId`, `workflowActionId` or `actionIdempotencyKey`, `taskId`,
+`workflowRunId`, `workflowActionId` or `actionIdempotencyKey`, optional `slot`, `taskId`,
 optional `executorWidgetId`, `settingsHash`, optional `executionTargetHash`, optional
 expected Queue-control version, optional trusted actor id, and exact
 structured confirmation. Backend-owned Queue-local workflow starts require
@@ -338,6 +338,14 @@ When workflow context is supplied, backend start writes/reads a
 idempotency key and same target refs returns the existing run id/current state
 without launching a second worker. The same key with changed task, executor
 owner, execution target hash, workflow, action, or settings refs is a conflict.
+New `start_worker` target refs include `slot`, `taskId`, `settingsHash`,
+`executionTargetHash`, `executionTargetKind`, and `providerId`; optional
+`queueOwnerWidgetInstanceId` appears only when supplied, and
+`executorWidgetId` appears only for legacy `agent_executor` starts. Result refs
+include the durable `runId`. Existing completed start rows that predate `slot`
+can recover only when `targetRefs.taskId` maps to exactly one persisted slot
+binding. Queue-local recovery must not require an Agent Executor widget, Agent
+Queue widget, queue owner widget id, or legacy executor widget id.
 A prior incomplete action or
 ambiguous run-link/runtime state is persisted as a blocker such as
 `start_state_unknown` or `orphaned_start`; the backend must not silently retry

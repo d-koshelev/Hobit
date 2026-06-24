@@ -791,6 +791,39 @@ fn workflow_worker_start_duplicate_returns_existing_run_and_conflicting_key_bloc
             .len(),
         1
     );
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions(&workspace_id, &workflow_run_id)
+        .expect("workflow actions");
+    assert_eq!(actions.len(), 1);
+    let target_refs: Value =
+        serde_json::from_str(actions[0].target_refs_json.as_deref().expect("target refs"))
+            .expect("target refs json");
+    assert_eq!(target_refs["slot"].as_str(), Some("upstream"));
+    assert_eq!(
+        target_refs["executionTargetKind"].as_str(),
+        Some("agent_executor")
+    );
+    assert_eq!(target_refs["providerId"].as_str(), Some("codex"));
+    assert_eq!(
+        target_refs["executorWidgetId"].as_str(),
+        Some(executor_id.as_str())
+    );
+    assert!(target_refs["executionTargetHash"]
+        .as_str()
+        .map_or(false, |hash| hash
+            .starts_with("queue-execution-target-fnv1a64:")));
+    assert_eq!(
+        target_refs["settingsHash"].as_str(),
+        input
+            .workflow_start_context
+            .as_ref()
+            .map(|context| context.settings_hash.as_str())
+    );
+    let result_refs: Value =
+        serde_json::from_str(actions[0].result_refs_json.as_deref().expect("result refs"))
+            .expect("result refs json");
+    assert_eq!(result_refs["runId"].as_str(), Some(first.run_id.as_str()));
 
     let mut conflict = input;
     conflict
@@ -876,6 +909,21 @@ fn workflow_worker_start_queue_local_duplicate_uses_execution_target_hash() {
         target_refs["executionTargetHash"].as_str(),
         Some(execution_target_hash.as_str())
     );
+    assert_eq!(target_refs["slot"].as_str(), Some("upstream"));
+    assert_eq!(
+        target_refs["executionTargetKind"].as_str(),
+        Some("queue_local")
+    );
+    assert_eq!(target_refs["providerId"].as_str(), Some("codex"));
+    assert_eq!(
+        target_refs["queueOwnerWidgetInstanceId"].as_str(),
+        Some(queue_widget_id.as_str())
+    );
+    assert!(target_refs.get("executorWidgetId").is_none());
+    let result_refs: Value =
+        serde_json::from_str(actions[0].result_refs_json.as_deref().expect("result refs"))
+            .expect("result refs json");
+    assert_eq!(result_refs["runId"].as_str(), Some(first.run_id.as_str()));
 }
 
 #[test]
@@ -894,6 +942,10 @@ fn workflow_worker_start_backend_queue_local_does_not_require_queue_widget() {
         &workflow_run_id,
         "action-backend-queue-local",
     );
+    let expected_execution_target_hash = input
+        .workflow_start_context
+        .as_ref()
+        .and_then(|context| context.execution_target_hash.clone());
     bind_backend_queue_local_start(
         &service,
         &workspace.id,
@@ -935,6 +987,34 @@ fn workflow_worker_start_backend_queue_local_does_not_require_queue_widget() {
         .get_widget_run(&start.run_id)
         .expect("read widget run")
         .is_none());
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions(&workspace.id, &workflow_run_id)
+        .expect("workflow actions");
+    assert_eq!(actions.len(), 1);
+    let target_refs: Value =
+        serde_json::from_str(actions[0].target_refs_json.as_deref().expect("target refs"))
+            .expect("target refs json");
+    assert_eq!(target_refs["slot"].as_str(), Some("upstream"));
+    assert_eq!(
+        target_refs["executionTargetKind"].as_str(),
+        Some("queue_local")
+    );
+    assert_eq!(target_refs["providerId"].as_str(), Some("codex"));
+    assert_eq!(
+        target_refs["settingsHash"].as_str(),
+        start.settings_hash.as_deref()
+    );
+    assert_eq!(
+        target_refs["executionTargetHash"].as_str(),
+        expected_execution_target_hash.as_deref()
+    );
+    assert!(target_refs.get("executorWidgetId").is_none());
+    assert!(target_refs.get("queueOwnerWidgetInstanceId").is_none());
+    let result_refs: Value =
+        serde_json::from_str(actions[0].result_refs_json.as_deref().expect("result refs"))
+            .expect("result refs json");
+    assert_eq!(result_refs["runId"].as_str(), Some(start.run_id.as_str()));
 }
 
 #[test]
@@ -1286,6 +1366,7 @@ fn workflow_start_input(
         workflow_run_id: workflow_run_id.to_owned(),
         workflow_action_id: Some(workflow_action_id.to_owned()),
         action_idempotency_key: Some(action_idempotency_key),
+        slot: Some("upstream".to_owned()),
         task_id: queue_item_id.to_owned(),
         executor_widget_id: Some(executor_id.to_owned()),
         settings_hash,
@@ -1321,6 +1402,7 @@ fn queue_local_workflow_start_input(
         workflow_run_id: workflow_run_id.to_owned(),
         workflow_action_id: Some(workflow_action_id.to_owned()),
         action_idempotency_key: Some(action_idempotency_key),
+        slot: Some("upstream".to_owned()),
         task_id: queue_item_id.to_owned(),
         executor_widget_id: Some(queue_widget_id.to_owned()),
         settings_hash,
@@ -1354,6 +1436,7 @@ fn backend_queue_local_workflow_start_input(
         workflow_run_id: workflow_run_id.to_owned(),
         workflow_action_id: Some(workflow_action_id.to_owned()),
         action_idempotency_key: Some(action_idempotency_key),
+        slot: Some("upstream".to_owned()),
         task_id: queue_item_id.to_owned(),
         executor_widget_id: None,
         settings_hash,

@@ -526,7 +526,7 @@ transitional compatibility only when no backend API is available.
 Backend/domain worker start now accepts an optional typed workflow start
 context on the existing assigned-task start path. The context is backend-owned
 control-plane input, not prose, and contains explicit `workflowRunId`,
-`workflowActionId` or `actionIdempotencyKey`, `taskId`, optional
+`workflowActionId` or `actionIdempotencyKey`, optional explicit `slot`, `taskId`, optional
 `executorWidgetId`, `settingsHash`, optional `executionTargetHash`, optional
 `expectedQueueControlVersion`, optional trusted `actorId`, and the exact
 `confirmationToken` required for `run_start`. For queue-local workflow starts,
@@ -538,7 +538,9 @@ Queue widget attribution. Backend-owned queue-local starts omit both
 When workflow context is present, backend start uses the
 `agent_queue_workflow_actions` ledger with a `start_worker` action. The
 idempotency target refs include the explicit workflow run, action, task,
-executor owner when present, `executionTargetHash` when present, and settings hash. Current
+slot, execution target kind, provider, optional Queue owner when present,
+legacy executor owner only for `agent_executor`, `executionTargetHash` when
+present, and settings hash. Current
 QueueWorkflowRunner start keys use `executionTargetHash` plus `settingsHash`
 instead of requiring an `agent-run` widget identity. A repeated request with the same key and same
 refs returns the existing `runId` / current start state and must not start a
@@ -563,6 +565,17 @@ dependency blockers, and have an explicit executor binding matching
 rules. The supplied `settingsHash` must match the effective durable task run
 settings where those settings exist. A matching active run from another
 workflow/action blocks as `active_run_conflict`.
+
+Queue-local resume/recovery does not require `executorWidgetId`,
+`assignedExecutorWidgetId`, `queueOwnerWidgetInstanceId`, an Agent Executor
+widget, or an Agent Queue widget. Required queue-local recovery refs are
+`workflowRunId`, `slot`, `taskId`, `runId`, `settingsHash`,
+`executionTargetHash`, and `providerId` when available from the slot binding or
+run-settings snapshot. New `start_worker` rows include `slot` going forward.
+Existing completed `start_worker` rows that are missing `slot` may recover the
+slot from `targetRefs.taskId` only when the persisted workflow slot binding maps
+that task id to exactly one slot; ambiguous task-to-slot mappings must block
+instead of guessing.
 
 The QueueWorkflowRunner create/setup/start phase can call this worker-start
 path for only the explicit upstream dependency-smoke task after typed

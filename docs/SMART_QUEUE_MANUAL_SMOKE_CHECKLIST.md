@@ -142,7 +142,9 @@ capabilities before any smoke execution step:
   `data.workflowReport.diagnostics.refMaps` and
   `data.workflowReport.diagnostics.startWorker`, including exact safe
   `start_worker` target/result refs for slot, task id, run id, settings hash,
-  and execution target hash.
+  execution target hash, and provider id. New `start_worker` rows include
+  `slot`; older rows that omitted `slot` can be recovered through an
+  unambiguous `taskId -> slot` binding.
 - `queue.workflow.planResume` is a read-only resume planner. Call it before
   continuation to read next phase/step, blockers, required fresh grant,
   required confirmation, worker/start-state blockers, task snapshots, and
@@ -162,7 +164,10 @@ capabilities before any smoke execution step:
   target/result refs. When called with exact filters such as
   `actionType: "start_worker"`, `slot: "upstream"`, and `includeRefs: true`,
   it returns an exact safe `focusedAction` or a structured no-match/ambiguity
-  blocker instead of relying on compact action summaries.
+  blocker instead of relying on compact action summaries. If an older
+  `start_worker` row lacks a direct `targetRefs.slot`, the focused read may
+  return `derivedSlot: "upstream"` and `recoveredFromTaskId: true` when the
+  action `taskId` maps to exactly one workflow slot.
 
 Use these discovery reads for live Queue smoke setup. The recommended Workspace
 Agent smoke chain is `workspace.context.get`, `workbench.widgets.list`,
@@ -535,7 +540,14 @@ duplicate task/start/evidence/review/ACK/finalization is created.
 - After promote: expect idempotent promoted upstream state; no downstream
   start.
 - After `start_worker` / `worker_running`: expect the existing `runId` to be
-  reused or worker state to block safely; no second worker start.
+  reused or worker state to block safely; no second worker start. For
+  backend-owned `queue_local`, `planResume` and `readActionLog` must not require
+  `executorWidgetId` or an Agent Queue widget, and old missing-slot
+  `start_worker` actions may recover via unambiguous task-to-slot mapping.
+- After this block, the live failure smoke paused at
+  `queue-workflow-run-1782257290023621100_163` can retry typed
+  `workerEvidence` only if `queue.workflow.planResume` reports
+  `safeToRecordWorkerEvidence: true`.
 - After evidence recorded: expect existing `evidenceBundleId` to be reused; no
   duplicate evidence.
 - After review created: expect existing canonical `messageId` to be reused for

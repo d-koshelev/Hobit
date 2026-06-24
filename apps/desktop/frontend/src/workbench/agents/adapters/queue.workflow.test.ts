@@ -144,7 +144,7 @@ describe("queue.workflow debug read capabilities", () => {
     const updateItem = vi.fn();
     const startWorkflowAssignedTask = vi.fn();
     const getWorkflowReport = vi.fn(async () => liveFailureWorkflowReport());
-    const planWorkflowResume = vi.fn(async () => liveFailureResumePlan());
+    const planWorkflowResume = vi.fn(async () => safeWorkerEvidenceResumePlan());
     const broker = createHobitAgentActionBroker({
       handlers: createQueueAgentActionHandlers(
         createWorkspaceAgentQueueBridgeAdapterApi(
@@ -197,9 +197,9 @@ describe("queue.workflow debug read capabilities", () => {
     expect(reportResult.status).toBe("succeeded");
     expect(reportResult.result.output).toMatchObject({
       actionSummaryCount: 5,
-      currentStep: "record_worker_evidence",
+      currentStep: "awaiting_worker_completion",
       persistentStatus: "paused",
-      phase: "worker_evidence",
+      phase: "run_start",
       requestId: "queue-workflow-request-live-failure",
       runIdsBySlot: { upstream: "queue-run_1782257290066506600_169" },
       slotBindings: {
@@ -239,16 +239,16 @@ describe("queue.workflow debug read capabilities", () => {
         startWorker: {
           actionId: "workflow-action-start-worker",
           actionPresent: true,
+          derivedSlot: "upstream",
           executionTargetHash: "execution-target-hash-queue_local",
           hasExecutionTargetHash: true,
           hasRunId: true,
           hasSettingsHash: true,
           hasSlot: true,
           hasTaskId: true,
+          recoveredFromTaskId: true,
           resultRefs: {
             runId: "queue-run_1782257290066506600_169",
-            slot: "upstream",
-            taskId: "queue_task_wf_44a095e817b585b5",
           },
           runId: "queue-run_1782257290066506600_169",
           settingsHash: "settings-hash-upstream",
@@ -256,7 +256,6 @@ describe("queue.workflow debug read capabilities", () => {
           targetRefs: {
             executionTargetHash: "execution-target-hash-queue_local",
             settingsHash: "settings-hash-upstream",
-            slot: "upstream",
             taskId: "queue_task_wf_44a095e817b585b5",
           },
           taskId: "queue_task_wf_44a095e817b585b5",
@@ -278,8 +277,6 @@ describe("queue.workflow debug read capabilities", () => {
           actionType: "start_worker",
           resultRefs: expect.objectContaining({
             runId: "queue-run_1782257290066506600_169",
-            slot: "upstream",
-            taskId: "queue_task_wf_44a095e817b585b5",
           }),
         }),
       ]),
@@ -288,60 +285,42 @@ describe("queue.workflow debug read capabilities", () => {
     expect(focusedActionLogResult.result.output).toMatchObject({
       actionTypeFilter: "start_worker",
       ambiguous: false,
+      derivedSlot: "upstream",
       focusedAction: {
         actionType: "start_worker",
+        derivedSlot: "upstream",
         idempotencyKey:
           "queue-workflow-run-1782257290023621100_163:start_worker:upstream:queue_task_wf_44a095e817b585b5:settings-hash-upstream",
+        recoveredFromTaskId: true,
         resultRefs: {
           runId: "queue-run_1782257290066506600_169",
-          slot: "upstream",
-          taskId: "queue_task_wf_44a095e817b585b5",
         },
         status: "completed",
         targetRefs: {
           executionTargetHash: "execution-target-hash-queue_local",
           settingsHash: "settings-hash-upstream",
-          slot: "upstream",
           taskId: "queue_task_wf_44a095e817b585b5",
         },
       },
       includeRefs: true,
+      recoveredFromTaskId: true,
       slotFilter: "upstream",
     });
 
     expect(planResult.result.output).toMatchObject({
-      blockers: [
-        expect.objectContaining({
-          blockerCode: "incomplete_workflow_action_refs",
-          missingRequiredField: "resultRefs.evidenceBundleId",
-          runId: "queue-run_1782257290066506600_169",
-          slot: "upstream",
-          taskId: "queue_task_wf_44a095e817b585b5",
-        }),
-      ],
-      missingRefs: [
-        expect.objectContaining({
-          missingRequiredField: "resultRefs.evidenceBundleId",
-        }),
-      ],
+      blockers: [],
+      missingRefs: [],
       nextPhase: "worker_evidence",
-      nextStep: "record_worker_evidence",
-      resumeStatus: "blocked_incomplete_workflow_action_refs",
+      nextStep: "waiting_for_worker_evidence",
+      resumeStatus: "waiting_for_worker_evidence",
       runIdsBySlot: { upstream: "queue-run_1782257290066506600_169" },
       taskIdsBySlot: { upstream: "queue_task_wf_44a095e817b585b5" },
     });
     expect(planResult.result.output).toMatchObject({
       diagnostics: {
-        missingRefs: [
-          expect.objectContaining({
-            missingRequiredField: "resultRefs.evidenceBundleId",
-            runId: "queue-run_1782257290066506600_169",
-            slot: "upstream",
-            taskId: "queue_task_wf_44a095e817b585b5",
-          }),
-        ],
-        reasonIfNotSafe: "worker_running",
-        safeToRecordWorkerEvidence: false,
+        missingRefs: [],
+        reasonIfNotSafe: null,
+        safeToRecordWorkerEvidence: true,
         startWorkerRefCheck: {
           actionPresent: true,
           actionStatus: "completed",
@@ -351,15 +330,15 @@ describe("queue.workflow debug read capabilities", () => {
           slotPresent: true,
           taskIdPresent: true,
         },
-        status: "blocked_incomplete_workflow_action_refs",
+        status: "waiting_for_worker_evidence",
         workerState: {
           latestRunId: "queue-run_1782257290066506600_169",
-          latestRunStatus: "running",
+          latestRunStatus: "completed",
           runExists: true,
           runId: "queue-run_1782257290066506600_169",
           taskExists: true,
           taskId: "queue_task_wf_44a095e817b585b5",
-          workerRunState: "running",
+          workerRunState: "completed",
         },
       },
     });
@@ -738,10 +717,10 @@ function liveFailureWorkflowRun(): AgentQueueWorkflowRun {
     actionLogSummaryJson: JSON.stringify({
       actionSummaryCount: 5,
       nextPhase: "worker_evidence",
-      nextStep: "record_worker_evidence",
+      nextStep: "waiting_for_worker_evidence",
     }),
-    currentStep: "record_worker_evidence",
-    phase: "worker_evidence",
+    currentStep: "awaiting_worker_completion",
+    phase: "run_start",
     requestId: "queue-workflow-request-live-failure",
     slotBindingsJson: JSON.stringify({
       downstream: {
@@ -838,18 +817,14 @@ function liveFailureWorkflowReport(): AgentQueueWorkflowReport {
         idempotencyKey:
           "queue-workflow-run-1782257290023621100_163:start_worker:upstream:queue_task_wf_44a095e817b585b5:settings-hash-upstream",
         resultRefsJson: JSON.stringify({
-          confirmationToken: "operator-confirmed",
-          rawProviderTranscript: "raw provider transcript",
           runId: "queue-run_1782257290066506600_169",
-          slot: "upstream",
-          taskId: "queue_task_wf_44a095e817b585b5",
         }),
         stepId: "start_worker_upstream",
         targetRefsJson: JSON.stringify({
           executionTargetHash: "execution-target-hash-queue_local",
           settingsHash: "settings-hash-upstream",
-          slot: "upstream",
           taskId: "queue_task_wf_44a095e817b585b5",
+          workflowRunId: "queue-workflow-run-1782257290023621100_163",
         }),
       }),
     ],
