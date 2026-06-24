@@ -198,10 +198,17 @@ or downstream auto-start.
 Queue workflow worker-evidence recording now has a backend-owned MVP. The
 runtime adapter can resume a persisted dependency-smoke workflow from explicit
 typed `metadata.workflowRunId` plus `inputs.workerEvidence`, validate the
-persisted upstream slot/task/run binding, call the backend workflow evidence
+persisted upstream slot/task binding, use a verified recovered run ref when
+`slotBindings.runId` is absent, call the backend workflow evidence
 record/reconcile command, reuse existing matching durable evidence
-idempotently, persist `evidenceBundleId` and bounded worker final status in
-the workflow state/action ledger, and stop at `awaiting_review`. It does not
+idempotently, persist the reconciled `runId`, `evidenceBundleId`, and bounded
+worker final status in the workflow state/action ledger, and stop at
+`awaiting_review`. Recovered run refs must match completed `start_worker`
+action result refs, settings/execution-target hashes, the explicit typed
+`workerEvidence.runId`, and the durable task/run link. The existing blocked
+live failure smoke workflow can be retried safely through the same typed
+workerEvidence continuation; it does not require manual DB repair or a
+pre-existing slot-binding `runId` when these refs are recoverable. It does not
 create/ACK reviews, mark done/fail/block/follow-up, run validation, mutate
 Git, roll back, launch Terminal, start workers, create/update/promote tasks,
 enable Queue, start downstream, or infer ids from prose/UI/session state.

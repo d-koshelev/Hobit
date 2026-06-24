@@ -372,7 +372,13 @@ Continuation inputs:
   `inputs.workerEvidence.slot: "upstream"`, `taskId`, `runId`, `outcome`,
   and bounded optional fields such as `summary`, `changedFiles`,
   `validationSummary`, `errorSummary`, `source`, `workerId`, `finishedAt`,
-  and `actionIdempotencyKey`.
+  and `actionIdempotencyKey`. If the workflow report or `planResume` shows a
+  completed worker and a verified recovered `runId` from `start_worker`
+  action refs while `slotBindings.runId` is absent, retry the same typed
+  worker-evidence continuation with that exact `runId`. The backend evidence
+  command reconciles the verified run ref into the slot binding when it also
+  matches task/workspace ownership and settings/execution-target hashes; do
+  not repair the database manually or infer the id from prose/UI text.
 - Review: use `metadata.workflowRunId` plus `inputs.phase: "review"`.
   Normally resume planning supplies task/run/evidence/message bindings. If a
   checkpoint lacks a durable binding, provide explicit `taskIdsBySlot`,

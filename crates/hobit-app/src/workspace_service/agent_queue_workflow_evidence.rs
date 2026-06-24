@@ -1,6 +1,6 @@
 use hobit_storage_sqlite::{
     AgentQueueTaskRunLinkRow, AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkflowActionRow,
-    AgentQueueWorkflowRunReportUpdate, NewAgentQueueWorkflowAction, StorageError,
+    AgentQueueWorkflowRunReportUpdate, NewAgentQueueWorkflowAction, SqliteStore, StorageError,
 };
 use serde_json::{json, Map, Value};
 
@@ -268,7 +268,78 @@ impl WorkspaceService {
                     )));
                 }
 
-                let Some(bound_run_id) = string_field(&existing_binding, "runId") else {
+                let bound_run_id = string_field(&existing_binding, "runId").map(str::to_owned);
+                let start_worker_run = match recover_start_worker_run_id_for_evidence(
+                    store,
+                    &request,
+                    &slot_bindings,
+                    &existing_binding,
+                    bound_run_id.is_none(),
+                )? {
+                    StartWorkerRunRecovery::Recovered(run_id) => Some(run_id),
+                    StartWorkerRunRecovery::NotAvailable => None,
+                    StartWorkerRunRecovery::Blocked(blocker) => {
+                        return Ok(TxResult::Return(result(
+                            QueueWorkflowRecordWorkerEvidenceStatus::Blocked,
+                            Some(QueueWorkflowRun::from(workflow_run)),
+                            None,
+                            None,
+                            None,
+                            None,
+                            Some(blocker),
+                            None,
+                        )));
+                    }
+                    StartWorkerRunRecovery::Conflict {
+                        code,
+                        message,
+                        existing,
+                        requested,
+                    } => {
+                        return Ok(TxResult::Return(conflict_result(
+                            workflow_run,
+                            code,
+                            message,
+                            existing,
+                            requested,
+                        )));
+                    }
+                };
+
+                if let Some(bound_run_id) = bound_run_id.as_deref() {
+                    if bound_run_id != request.worker.run_id {
+                        return Ok(TxResult::Return(conflict_result(
+                            workflow_run,
+                            "slot_run_mismatch",
+                            "Queue workflow evidence runId does not match the persisted slot binding.",
+                            Some(bound_run_id.to_owned()),
+                            Some(request.worker.run_id.clone()),
+                        )));
+                    }
+                }
+
+                if let Some(recovered_run_id) = start_worker_run.as_deref() {
+                    if recovered_run_id != request.worker.run_id {
+                        return Ok(TxResult::Return(conflict_result(
+                            workflow_run,
+                            "run_id_mismatch",
+                            "Queue workflow evidence runId does not match the recovered start_worker runId.",
+                            Some(recovered_run_id.to_owned()),
+                            Some(request.worker.run_id.clone()),
+                        )));
+                    }
+                    if let Some(bound_run_id) = bound_run_id.as_deref() {
+                        if bound_run_id != recovered_run_id {
+                            return Ok(TxResult::Return(conflict_result(
+                                workflow_run,
+                                "run_id_mismatch",
+                                "Queue workflow slot binding runId does not match the recovered start_worker runId.",
+                                Some(recovered_run_id.to_owned()),
+                                Some(bound_run_id.to_owned()),
+                            )));
+                        }
+                    }
+                } else if bound_run_id.is_none() {
                     return Ok(TxResult::Return(result(
                         QueueWorkflowRecordWorkerEvidenceStatus::Blocked,
                         Some(QueueWorkflowRun::from(workflow_run)),
@@ -278,19 +349,10 @@ impl WorkspaceService {
                         None,
                         Some(blocker(
                             "missing_run_binding",
-                            "Queue workflow slot binding is missing runId.",
+                            "Queue workflow slot binding is missing runId and no verified start_worker runId was recoverable.",
                             Some("slotBindings.runId"),
                         )),
                         None,
-                    )));
-                };
-                if bound_run_id != request.worker.run_id {
-                    return Ok(TxResult::Return(conflict_result(
-                        workflow_run,
-                        "slot_run_mismatch",
-                        "Queue workflow evidence runId does not match the persisted slot binding.",
-                        Some(bound_run_id.to_owned()),
-                        Some(request.worker.run_id.clone()),
                     )));
                 }
 
@@ -751,6 +813,298 @@ fn string_field<'a>(value: &'a Value, field: &str) -> Option<&'a str> {
         .and_then(Value::as_str)
         .map(str::trim)
         .filter(|value| !value.is_empty())
+}
+
+enum StartWorkerRunRecovery {
+    Recovered(String),
+    NotAvailable,
+    Blocked(QueueWorkflowCommandBlocker),
+    Conflict {
+        code: &'static str,
+        message: &'static str,
+        existing: Option<String>,
+        requested: Option<String>,
+    },
+}
+
+enum TaskSlotResolution {
+    Found(String),
+    Missing,
+    Ambiguous,
+}
+
+fn recover_start_worker_run_id_for_evidence(
+    store: &SqliteStore,
+    request: &NormalizedWorkflowEvidenceRequest,
+    slot_bindings: &Map<String, Value>,
+    existing_binding: &Value,
+    require_recovery_hashes: bool,
+) -> Result<StartWorkerRunRecovery, StorageError> {
+    let actions =
+        store.list_agent_queue_workflow_actions(&request.workspace_id, &request.workflow_run_id)?;
+    let mut recovered_run_id: Option<String> = None;
+
+    for action in actions {
+        if action.action_type != "start_worker"
+            || action.status != QueueWorkflowActionStatus::Completed.as_str()
+        {
+            continue;
+        }
+
+        let Some(target_refs) = parse_action_refs(action.target_refs_json.as_deref()) else {
+            continue;
+        };
+
+        if action_string_field(&target_refs, "workflowRunId")
+            .as_deref()
+            .is_some_and(|workflow_run_id| workflow_run_id != request.workflow_run_id)
+        {
+            return Ok(StartWorkerRunRecovery::Conflict {
+                code: "start_worker_workflow_mismatch",
+                message:
+                    "Queue workflow start_worker action workflowRunId does not match the evidence workflowRunId.",
+                existing: action_string_field(&target_refs, "workflowRunId"),
+                requested: Some(request.workflow_run_id.clone()),
+            });
+        }
+
+        if action_string_field(&target_refs, "taskId").as_deref()
+            != Some(request.worker.queue_item_id.as_str())
+        {
+            continue;
+        }
+
+        match action_string_field(&target_refs, "slot") {
+            Some(slot) if slot != request.slot => continue,
+            Some(_) => {}
+            None => match unique_slot_for_task(slot_bindings, &request.worker.queue_item_id) {
+                TaskSlotResolution::Found(slot) if slot == request.slot => {}
+                TaskSlotResolution::Found(_) | TaskSlotResolution::Missing => continue,
+                TaskSlotResolution::Ambiguous => {
+                    return Ok(StartWorkerRunRecovery::Blocked(blocker(
+                        "ambiguous_task_slot_binding",
+                        "Queue workflow start_worker action does not name a slot and taskId maps to multiple slot bindings.",
+                        Some("slotBindings.taskId"),
+                    )));
+                }
+            },
+        }
+
+        if let Some(recovery) = validate_start_worker_recovery_refs(
+            &target_refs,
+            existing_binding,
+            require_recovery_hashes,
+        ) {
+            return Ok(recovery);
+        }
+
+        let Some(result_refs) = parse_action_refs(action.result_refs_json.as_deref()) else {
+            if require_recovery_hashes {
+                return Ok(StartWorkerRunRecovery::Blocked(blocker(
+                    "missing_start_worker_result_refs",
+                    "Queue workflow start_worker action is completed but has no durable result refs.",
+                    Some("startWorker.resultRefs"),
+                )));
+            }
+            continue;
+        };
+        let Some(run_id) = action_string_field(&result_refs, "runId") else {
+            if require_recovery_hashes {
+                return Ok(StartWorkerRunRecovery::Blocked(blocker(
+                    "missing_start_worker_run_ref",
+                    "Queue workflow start_worker action is completed but resultRefs.runId is missing.",
+                    Some("startWorker.resultRefs.runId"),
+                )));
+            }
+            continue;
+        };
+
+        if let Some(existing_run_id) = recovered_run_id.as_deref() {
+            if existing_run_id != run_id {
+                return Ok(StartWorkerRunRecovery::Conflict {
+                    code: "run_id_mismatch",
+                    message:
+                        "Queue workflow has conflicting completed start_worker runId refs for the same slot.",
+                    existing: Some(existing_run_id.to_owned()),
+                    requested: Some(run_id),
+                });
+            }
+        } else {
+            recovered_run_id = Some(run_id);
+        }
+    }
+
+    Ok(recovered_run_id
+        .map(StartWorkerRunRecovery::Recovered)
+        .unwrap_or(StartWorkerRunRecovery::NotAvailable))
+}
+
+fn validate_start_worker_recovery_refs(
+    target_refs: &Map<String, Value>,
+    existing_binding: &Value,
+    require_recovery_hashes: bool,
+) -> Option<StartWorkerRunRecovery> {
+    if require_recovery_hashes {
+        if let Some(recovery) =
+            validate_required_matching_ref(target_refs, existing_binding, "settingsHash")
+        {
+            return Some(recovery);
+        }
+        if let Some(recovery) =
+            validate_required_matching_ref(target_refs, existing_binding, "executionTargetHash")
+        {
+            return Some(recovery);
+        }
+    } else {
+        if let Some(recovery) =
+            validate_optional_matching_ref(target_refs, existing_binding, "settingsHash")
+        {
+            return Some(recovery);
+        }
+        if let Some(recovery) =
+            validate_optional_matching_ref(target_refs, existing_binding, "executionTargetHash")
+        {
+            return Some(recovery);
+        }
+    }
+
+    for field in [
+        "executionTargetKind",
+        "providerId",
+        "queueOwnerWidgetInstanceId",
+        "executorWidgetId",
+    ] {
+        if let Some(recovery) = validate_optional_matching_ref(target_refs, existing_binding, field)
+        {
+            return Some(recovery);
+        }
+    }
+
+    None
+}
+
+fn validate_required_matching_ref(
+    target_refs: &Map<String, Value>,
+    existing_binding: &Value,
+    field: &'static str,
+) -> Option<StartWorkerRunRecovery> {
+    let target = action_string_field(target_refs, field);
+    let binding = string_field(existing_binding, field).map(str::to_owned);
+
+    match (target, binding) {
+        (Some(target), Some(binding)) if target == binding => None,
+        (Some(target), Some(binding)) => Some(StartWorkerRunRecovery::Conflict {
+            code: ref_mismatch_code(field),
+            message: "Queue workflow start_worker refs do not match the persisted slot binding.",
+            existing: Some(binding),
+            requested: Some(target),
+        }),
+        (None, _) => Some(StartWorkerRunRecovery::Blocked(blocker(
+            ref_missing_code(field),
+            "Queue workflow start_worker action is missing a required recovery ref.",
+            Some(ref_target_path(field)),
+        ))),
+        (_, None) => Some(StartWorkerRunRecovery::Blocked(blocker(
+            ref_missing_code(field),
+            "Queue workflow slot binding is missing a required recovery ref.",
+            Some(ref_binding_path(field)),
+        ))),
+    }
+}
+
+fn validate_optional_matching_ref(
+    target_refs: &Map<String, Value>,
+    existing_binding: &Value,
+    field: &'static str,
+) -> Option<StartWorkerRunRecovery> {
+    let target = action_string_field(target_refs, field);
+    let binding = string_field(existing_binding, field).map(str::to_owned);
+
+    match (target, binding) {
+        (Some(target), Some(binding)) if target != binding => {
+            Some(StartWorkerRunRecovery::Conflict {
+                code: ref_mismatch_code(field),
+                message:
+                    "Queue workflow start_worker refs do not match the persisted slot binding.",
+                existing: Some(binding),
+                requested: Some(target),
+            })
+        }
+        _ => None,
+    }
+}
+
+fn parse_action_refs(raw: Option<&str>) -> Option<Map<String, Value>> {
+    let raw = raw?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    serde_json::from_str::<Value>(raw)
+        .ok()?
+        .as_object()
+        .cloned()
+}
+
+fn action_string_field(object: &Map<String, Value>, field: &str) -> Option<String> {
+    object
+        .get(field)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned)
+}
+
+fn unique_slot_for_task(slot_bindings: &Map<String, Value>, task_id: &str) -> TaskSlotResolution {
+    let mut matched_slot: Option<String> = None;
+    for (slot, binding) in slot_bindings {
+        if string_field(binding, "taskId") != Some(task_id) {
+            continue;
+        }
+        if matched_slot.is_some() {
+            return TaskSlotResolution::Ambiguous;
+        }
+        matched_slot = Some(slot.clone());
+    }
+
+    matched_slot
+        .map(TaskSlotResolution::Found)
+        .unwrap_or(TaskSlotResolution::Missing)
+}
+
+fn ref_mismatch_code(field: &str) -> &'static str {
+    match field {
+        "executionTargetHash" => "execution_target_hash_mismatch",
+        "executionTargetKind" => "execution_target_kind_mismatch",
+        "executorWidgetId" => "executor_widget_id_mismatch",
+        "providerId" => "provider_id_mismatch",
+        "queueOwnerWidgetInstanceId" => "queue_owner_widget_instance_id_mismatch",
+        "settingsHash" => "settings_hash_mismatch",
+        _ => "start_worker_ref_mismatch",
+    }
+}
+
+fn ref_missing_code(field: &str) -> &'static str {
+    match field {
+        "executionTargetHash" => "missing_execution_target_hash",
+        "settingsHash" => "missing_settings_hash",
+        _ => "missing_start_worker_ref",
+    }
+}
+
+fn ref_target_path(field: &str) -> &'static str {
+    match field {
+        "executionTargetHash" => "startWorker.targetRefs.executionTargetHash",
+        "settingsHash" => "startWorker.targetRefs.settingsHash",
+        _ => "startWorker.targetRefs",
+    }
+}
+
+fn ref_binding_path(field: &str) -> &'static str {
+    match field {
+        "executionTargetHash" => "slotBindings.executionTargetHash",
+        "settingsHash" => "slotBindings.settingsHash",
+        _ => "slotBindings",
+    }
 }
 
 fn action_matches_target(

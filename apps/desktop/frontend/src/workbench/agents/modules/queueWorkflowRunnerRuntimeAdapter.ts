@@ -922,7 +922,7 @@ function recordRequestForRunnerResult({
         ? pauseReasonForRunnerResult(phase, runnerResult)
         : null,
     phase: workflowPhaseForRuntimePhase(phase),
-    slotBindings: null,
+    slotBindings: slotBindingsForRunnerResult({ phase, runnerResult }),
     status: persistedRunStatusFromRunner(phase, runtimeStatus),
     variables: sanitizeJsonValue({
       evidenceBundleIdsBySlot: runnerResult.variables.evidenceBundleIdsBySlot,
@@ -1563,6 +1563,49 @@ function mutationRefsForRunnerResult(
       reviewTaskId: review.taskId,
     }),
   );
+}
+
+function slotBindingsForRunnerResult({
+  phase,
+  runnerResult,
+}: {
+  phase: QueueWorkflowRunnerRuntimePhase;
+  runnerResult: QueueWorkflowRunnerResult;
+}): AgentQueueWorkflowJsonValue | null {
+  if (phase !== "worker_evidence") return null;
+
+  const slots = new Set([
+    ...Object.keys(runnerResult.variables.slots),
+    ...Object.keys(runnerResult.variables.taskIdsBySlot),
+    ...Object.keys(runnerResult.variables.runIdsBySlot),
+    ...Object.keys(runnerResult.variables.evidenceBundleIdsBySlot),
+    ...Object.keys(runnerResult.variables.messageIdsBySlot),
+  ]);
+  const bindings: Record<string, AgentQueueWorkflowJsonValue> = {};
+
+  for (const slot of slots) {
+    const variables = runnerResult.variables.slots[slot];
+    const binding = stripUndefined({
+      evidenceBundleId: stringValue(
+        variables?.evidenceBundleId ??
+          runnerResult.variables.evidenceBundleIdsBySlot[slot],
+      ),
+      messageId: stringValue(
+        variables?.messageId ?? runnerResult.variables.messageIdsBySlot[slot],
+      ),
+      runId: stringValue(
+        variables?.runId ?? runnerResult.variables.runIdsBySlot[slot],
+      ),
+      taskId: stringValue(
+        variables?.taskId ?? runnerResult.variables.taskIdsBySlot[slot],
+      ),
+    });
+    if (Object.keys(binding).length > 0) {
+      bindings[slot] = sanitizeJsonValue(binding);
+    }
+  }
+
+  return Object.keys(bindings).length > 0 ? sanitizeJsonValue(bindings) : null;
 }
 
 function slotBindingsFromInputs(

@@ -2645,6 +2645,29 @@ fn plan_resume_recovers_backend_queue_local_start_worker_missing_slot_refs() {
     store
         .create_workspace_workbench("workbench-1", "workspace-1", None)
         .expect("create workbench");
+    store
+        .insert_widget_instance(NewWidgetInstance {
+            id: QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
+            workspace_id: "workspace-1",
+            workbench_id: "workbench-1",
+            definition_id: "agent-queue-worker",
+            title: "Queue Local Worker",
+            category: "agent",
+            layout_mode: "docked",
+            dock_x: Some(0),
+            dock_y: Some(0),
+            dock_width: Some(360),
+            dock_height: Some(240),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: false,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert queue-local worker owner");
     create_task_row(
         &store,
         "workspace-1",
@@ -2678,6 +2701,18 @@ fn plan_resume_recovers_backend_queue_local_start_worker_missing_slot_refs() {
             updated_at: Some("3"),
         })
         .expect("insert queue-local run link");
+    store
+        .insert_widget_run(NewWidgetRun {
+            id: "queue-run_1782257290066506600_169",
+            widget_instance_id: QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
+            status: "completed",
+            command_kind: Some("codex_direct_work"),
+            command_payload: Some("{}"),
+            started_at: Some("2"),
+            finished_at: Some("3"),
+            summary: Some("Worker summary"),
+        })
+        .expect("insert queue-local widget run");
     let settings_hash = QueueWorkerStartSettingsSnapshot {
         execution_workspace: "C:/workspace/project".to_owned(),
         codex_executable: "codex".to_owned(),
@@ -2740,8 +2775,8 @@ fn plan_resume_recovers_backend_queue_local_start_worker_missing_slot_refs() {
         Some("1"),
     );
     let start_target_refs = json!({
-        "executionTargetHash": execution_target_hash,
-        "settingsHash": settings_hash,
+        "executionTargetHash": execution_target_hash.clone(),
+        "settingsHash": settings_hash.clone(),
         "taskId": "queue_task_wf_44a095e817b585b5",
         "workflowRunId": "queue-workflow-run-1782257290023621100_163"
     })
@@ -2796,6 +2831,104 @@ fn plan_resume_recovers_backend_queue_local_start_worker_missing_slot_refs() {
             && slot.run_id.as_deref() == Some("queue-run_1782257290066506600_169")
             && slot.executor_widget_id.is_none()
     }));
+
+    let evidence = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "queue-workflow-run-1782257290023621100_163",
+            "upstream",
+            "queue_task_wf_44a095e817b585b5",
+            "queue-run_1782257290066506600_169",
+            "failed",
+        ))
+        .expect("record recovered queue-local evidence");
+
+    assert_eq!(
+        evidence.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Recorded
+    );
+    let binding = evidence.binding.expect("binding");
+    assert_eq!(binding.slot, "upstream");
+    assert_eq!(binding.task_id, "queue_task_wf_44a095e817b585b5");
+    assert_eq!(binding.run_id, "queue-run_1782257290066506600_169");
+    assert!(!binding.evidence_bundle_id.is_empty());
+    let workflow_run = evidence.workflow_run.expect("workflow run");
+    assert_eq!(workflow_run.status, "paused");
+    assert_eq!(workflow_run.phase, "worker_evidence");
+    assert_eq!(
+        workflow_run.current_step.as_deref(),
+        Some("awaiting_review")
+    );
+    let slot_bindings: Value =
+        serde_json::from_str(workflow_run.slot_bindings_json.as_deref().unwrap())
+            .expect("slot bindings json");
+    assert_eq!(
+        slot_bindings["upstream"]["runId"].as_str(),
+        Some("queue-run_1782257290066506600_169")
+    );
+    assert_eq!(
+        slot_bindings["upstream"]["evidenceBundleId"].as_str(),
+        Some(binding.evidence_bundle_id.as_str())
+    );
+    assert_eq!(
+        slot_bindings["upstream"]["settingsHash"].as_str(),
+        Some(settings_hash.as_str())
+    );
+    assert_eq!(
+        slot_bindings["upstream"]["executionTargetHash"].as_str(),
+        Some(execution_target_hash.as_str())
+    );
+    assert_eq!(
+        slot_bindings["upstream"]["taskSpecHash"].as_str(),
+        Some("task-spec-hash-upstream")
+    );
+
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions(
+            "workspace-1",
+            "queue-workflow-run-1782257290023621100_163",
+        )
+        .expect("workflow actions");
+    assert_eq!(
+        actions
+            .iter()
+            .filter(|action| action.action_type == "start_worker")
+            .count(),
+        1
+    );
+    assert_eq!(
+        actions
+            .iter()
+            .filter(|action| action.action_type == "record_worker_evidence")
+            .count(),
+        1
+    );
+    assert!(service
+        .store
+        .list_agent_queue_review_messages("workspace-1", "queue_task_wf_44a095e817b585b5")
+        .expect("review messages")
+        .is_empty());
+    assert!(
+        service
+            .store
+            .get_latest_agent_queue_completion_decision(
+                "workspace-1",
+                "queue_task_wf_44a095e817b585b5",
+            )
+            .expect("completion decision")
+            .is_none()
+    );
+    assert!(service
+        .store
+        .get_latest_agent_queue_failure_decision("workspace-1", "queue_task_wf_44a095e817b585b5",)
+        .expect("failure decision")
+        .is_none());
+    let downstream = service
+        .store
+        .get_agent_queue_task("workspace-1", "queue_task_wf_50bf4534e054bec3")
+        .expect("get downstream")
+        .expect("downstream task");
+    assert_eq!(downstream.status, "draft");
 }
 
 #[test]
@@ -3122,6 +3255,220 @@ fn record_workflow_worker_evidence_blocks_missing_bindings_and_running_worker() 
         ambiguous.blocker.unwrap().blocker_code,
         "ambiguous_worker_state"
     );
+}
+
+#[test]
+fn record_workflow_worker_evidence_blocks_unsafe_recovered_run_refs() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-bound",
+        "link-bound",
+        "completed",
+    );
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-recovered",
+        "link-recovered",
+        "completed",
+    );
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-requested",
+        "link-requested",
+        "completed",
+    );
+    let binding_without_run = json!({
+        "upstream": {
+            "executionTargetHash": "execution-target-hash-1",
+            "executionTargetKind": "queue_local",
+            "providerId": "codex",
+            "settingsHash": "settings-hash-1",
+            "taskId": "task-1"
+        }
+    })
+    .to_string();
+    let binding_with_run = json!({
+        "upstream": {
+            "executionTargetHash": "execution-target-hash-1",
+            "executionTargetKind": "queue_local",
+            "providerId": "codex",
+            "runId": "run-bound",
+            "settingsHash": "settings-hash-1",
+            "taskId": "task-1"
+        }
+    })
+    .to_string();
+    let ambiguous_binding = json!({
+        "downstream": {
+            "executionTargetHash": "execution-target-hash-1",
+            "settingsHash": "settings-hash-1",
+            "taskId": "task-1"
+        },
+        "upstream": {
+            "executionTargetHash": "execution-target-hash-1",
+            "settingsHash": "settings-hash-1",
+            "taskId": "task-1"
+        }
+    })
+    .to_string();
+
+    insert_resume_workflow(
+        &store,
+        "workflow-run-recovered-mismatch",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(&binding_without_run),
+        None,
+        Some("1"),
+    );
+    insert_completed_start_worker_action(
+        &store,
+        "workflow-run-recovered-mismatch",
+        "start-recovered-mismatch",
+        "task-1",
+        Some("upstream"),
+        "run-recovered",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-start-mismatch",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(&binding_with_run),
+        None,
+        Some("1"),
+    );
+    insert_completed_start_worker_action(
+        &store,
+        "workflow-run-start-mismatch",
+        "start-binding-mismatch",
+        "task-1",
+        Some("upstream"),
+        "run-recovered",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-ambiguous-start",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(&ambiguous_binding),
+        None,
+        Some("1"),
+    );
+    insert_completed_start_worker_action(
+        &store,
+        "workflow-run-ambiguous-start",
+        "start-ambiguous",
+        "task-1",
+        None,
+        "run-recovered",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-orphan-recovered",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("awaiting_worker_completion"),
+        None,
+        Some(&binding_without_run),
+        None,
+        Some("1"),
+    );
+    insert_completed_start_worker_action(
+        &store,
+        "workflow-run-orphan-recovered",
+        "start-orphan",
+        "task-1",
+        Some("upstream"),
+        "run-orphan",
+    );
+    let service = WorkspaceService::new(store);
+
+    let explicit_mismatch = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-recovered-mismatch",
+            "upstream",
+            "task-1",
+            "run-requested",
+            "completed",
+        ))
+        .expect("explicit mismatch");
+    let start_mismatch = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-start-mismatch",
+            "upstream",
+            "task-1",
+            "run-bound",
+            "completed",
+        ))
+        .expect("start mismatch");
+    let ambiguous_slot = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-ambiguous-start",
+            "upstream",
+            "task-1",
+            "run-recovered",
+            "completed",
+        ))
+        .expect("ambiguous slot");
+    let orphan_run = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-orphan-recovered",
+            "upstream",
+            "task-1",
+            "run-orphan",
+            "completed",
+        ))
+        .expect("orphan run");
+
+    assert_eq!(
+        explicit_mismatch.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Conflict
+    );
+    assert_eq!(
+        explicit_mismatch.conflict.unwrap().conflict_code,
+        "run_id_mismatch"
+    );
+    assert_eq!(
+        start_mismatch.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Conflict
+    );
+    assert_eq!(
+        start_mismatch.conflict.unwrap().conflict_code,
+        "run_id_mismatch"
+    );
+    assert_eq!(
+        ambiguous_slot.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Blocked
+    );
+    assert_eq!(
+        ambiguous_slot.blocker.unwrap().blocker_code,
+        "ambiguous_task_slot_binding"
+    );
+    assert_eq!(
+        orphan_run.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Blocked
+    );
+    assert_eq!(orphan_run.blocker.unwrap().blocker_code, "run_missing");
 }
 
 #[test]
@@ -3965,6 +4312,52 @@ fn insert_resume_workflow(
             completed_at: matches!(status, "completed" | "failed" | "cancelled").then_some("2"),
         })
         .expect("insert workflow run");
+}
+
+fn insert_completed_start_worker_action(
+    store: &SqliteStore,
+    workflow_run_id: &str,
+    action_id: &str,
+    task_id: &str,
+    slot: Option<&str>,
+    run_id: &str,
+) {
+    let mut target_refs = json!({
+        "executionTargetHash": "execution-target-hash-1",
+        "executionTargetKind": "queue_local",
+        "providerId": "codex",
+        "settingsHash": "settings-hash-1",
+        "taskId": task_id,
+        "workflowRunId": workflow_run_id
+    });
+    if let Some(slot) = slot {
+        target_refs
+            .as_object_mut()
+            .expect("target refs object")
+            .insert("slot".to_owned(), json!(slot));
+    }
+    let target_refs = target_refs.to_string();
+    let result_refs = json!({ "runId": run_id }).to_string();
+    store
+        .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+            action_id,
+            workflow_run_id,
+            workspace_id: "workspace-1",
+            step_id: "start_worker",
+            action_type: "start_worker",
+            idempotency_key: &format!("{workflow_run_id}:start_worker:{action_id}"),
+            status: QueueWorkflowActionStatus::Completed.as_str(),
+            target_refs_json: Some(&target_refs),
+            result_refs_json: Some(&result_refs),
+            blocker_code: None,
+            blocker_message: None,
+            attempt_count: 1,
+            started_at: Some("2"),
+            completed_at: Some("3"),
+            created_at: Some("2"),
+            updated_at: Some("3"),
+        })
+        .expect("insert completed start_worker action");
 }
 
 fn create_workspace_with_executor(

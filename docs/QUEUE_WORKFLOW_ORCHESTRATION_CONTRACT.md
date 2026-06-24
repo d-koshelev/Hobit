@@ -356,15 +356,21 @@ command:
   status/outcome/summary input, and either the default exact idempotency key
   `workflowRunId:record_worker_evidence:slot:taskId:runId` or an equivalent
   supplied key. For dependency smoke workflows this phase is limited to the
-  `upstream` slot. It validates the persisted slot binding, validates that the
-  run belongs to the task/workspace, blocks missing/running/ambiguous worker
-  state, treats existing matching evidence as idempotent success, conflicts on
-  existing mismatched evidence or changed action refs, persists the
-  `evidenceBundleId` into the workflow slot binding/action ledger, and stops
-  at `awaiting_review`. It must not create/ACK review messages, mark done,
-  fail, block, follow up, validate, mutate Git, roll back, launch Terminal,
-  start workers, start downstream work, create/update/promote tasks, or enable
-  Queue.
+  `upstream` slot. It validates the persisted slot binding task id and may use
+  a verified recovered `runId` from completed `start_worker` action
+  target/result refs or resume continuation refs when `slotBindings.runId` is
+  absent. Recovery requires unambiguous task-to-slot binding, matching
+  explicit `workerEvidence.runId`, matching settings/execution-target hashes,
+  and a durable run link for the same task/workspace; conflicting refs block
+  as `run_id_mismatch` or a specific ref mismatch instead of guessing. It
+  validates that the run belongs to the task/workspace, blocks
+  missing/running/ambiguous worker state, treats existing matching evidence as
+  idempotent success, conflicts on existing mismatched evidence or changed
+  action refs, persists the reconciled `runId` and `evidenceBundleId` into the
+  workflow slot binding/action ledger, and stops at `awaiting_review`. It must
+  not create/ACK review messages, mark done, fail, block, follow up, validate,
+  mutate Git, roll back, launch Terminal, start workers, start downstream work,
+  create/update/promote tasks, or enable Queue.
 - `queue.workflow.recordRunnerReport` records bounded runtime-adapter report
   state and action-ledger summaries for supported create/setup/start,
   worker-evidence, read/review/finalization runner phases. It may update only

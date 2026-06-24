@@ -979,7 +979,41 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
   it("resumes worker evidence phase with typed completion input", async () => {
     const persistence = workflowPersistence({
       planAgentQueueWorkflowResume: vi.fn(async () =>
-        workerEvidenceResumePlan(),
+        workerEvidenceResumePlan({
+          slotReconciliations: [
+            {
+              aggregateDependencyState: "none",
+              aggregateEvidenceState: "none",
+              aggregateReviewState: "none",
+              aggregateTicketState: "review_needed",
+              blockerCode: null,
+              completionDecisionExists: false,
+              completionDecisionId: null,
+              evidenceBundleId: null,
+              evidenceExists: false,
+              executorWidgetId: null,
+              failureDecisionExists: false,
+              failureDecisionId: null,
+              messageId: null,
+              reviewMessageExists: false,
+              reviewMessageStatus: null,
+              runExists: true,
+              runId: "run-upstream",
+              slot: "upstream",
+              taskExists: true,
+              taskId: "task-upstream",
+            },
+          ],
+          workflowRun: workflowRun({
+            inputsSnapshotJson: JSON.stringify(validInputs()),
+            phase: "worker_evidence",
+            slotBindingsJson: JSON.stringify({
+              upstream: { taskId: "task-upstream" },
+            }),
+            status: "paused",
+            workflowRunId: "queue-workflow-run-1",
+          }),
+        }),
       ),
     });
     const recordWorkflowWorkerEvidence = vi.fn(async (request) => ({
@@ -1045,6 +1079,16 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
         workflowRunId: "queue-workflow-run-1",
       }),
     );
+    const reportRequest = vi.mocked(
+      persistence.recordAgentQueueWorkflowRunnerReport,
+    ).mock.calls[0]?.[0];
+    expect(reportRequest?.slotBindings).toEqual({
+      upstream: {
+        evidenceBundleId: "bundle-upstream",
+        runId: "run-upstream",
+        taskId: "task-upstream",
+      },
+    });
     expect(result.runnerResult?.report.workerEvidence).toMatchObject({
       commandStatus: "recorded",
       evidenceBundleId: "bundle-upstream",
