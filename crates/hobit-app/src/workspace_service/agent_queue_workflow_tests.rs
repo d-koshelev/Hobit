@@ -6,6 +6,7 @@ use hobit_storage_sqlite::{
 };
 use serde_json::{json, Value};
 
+use super::agent_queue_workflow::canonical_json_string;
 use super::*;
 
 fn initialized_service() -> WorkspaceService {
@@ -2637,6 +2638,119 @@ fn plan_resume_waits_for_worker_evidence_for_finished_run() {
 }
 
 #[test]
+fn plan_resume_recovers_retryable_worker_evidence_runner_failure_shape() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "completed",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-retryable-evidence",
+        "dependency_failure_smoke",
+        "failed",
+        "worker_evidence",
+        Some("worker_evidence_failed_unexpected"),
+        Some(
+            r#"{"tasks":[{"slot":"upstream","title":"Task","prompt":"Prompt"},{"slot":"downstream","title":"Downstream","prompt":"Prompt","dependsOnSlots":["upstream"]}]}"#,
+        ),
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1"}}"#),
+        None,
+        Some("1"),
+    );
+    let target_refs = json!({
+        "phase": "worker_evidence",
+        "requestId": "request-1",
+        "workflowId": "dependency_failure_smoke"
+    })
+    .to_string();
+    store
+        .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+            action_id: "action-runner-worker-evidence",
+            workflow_run_id: "workflow-run-retryable-evidence",
+            workspace_id: "workspace-1",
+            step_id: "runner.worker_evidence",
+            action_type: "queue.workflow.runner",
+            idempotency_key:
+                "workflow-run-retryable-evidence:queue.workflow.runner:worker_evidence:request-1",
+            status: QueueWorkflowActionStatus::Failed.as_str(),
+            target_refs_json: Some(&target_refs),
+            result_refs_json: None,
+            blocker_code: Some("failed_unexpected"),
+            blocker_message: Some("Queue workflow worker evidence recording failed unexpectedly"),
+            attempt_count: 1,
+            started_at: Some("4"),
+            completed_at: Some("4"),
+            created_at: Some("4"),
+            updated_at: Some("4"),
+        })
+        .expect("insert failed runner action");
+    insert_resume_workflow(
+        &store,
+        "workflow-run-arbitrary-failed",
+        "review_acceptance",
+        "failed",
+        "worker_evidence",
+        Some("worker_evidence_failed_unexpected"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1"}}"#),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let plan = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            "workflow-run-retryable-evidence",
+            None,
+        ))
+        .expect("plan resume")
+        .expect("plan");
+
+    assert_eq!(
+        plan.status,
+        QueueWorkflowResumePlanStatus::RetryableWorkerEvidenceFailure
+    );
+    assert!(plan.resume_available);
+    assert_eq!(plan.next_phase.as_deref(), Some("worker_evidence"));
+    assert_eq!(
+        plan.next_step.as_deref(),
+        Some("waiting_for_worker_evidence")
+    );
+    assert!(plan.blockers.iter().any(|blocker| {
+        blocker.blocker_code == "retryable_worker_evidence_failure"
+            && blocker.missing_required_field.as_deref() == Some("workerEvidence")
+    }));
+    assert!(plan.slot_reconciliations.iter().any(|slot| {
+        slot.slot == "upstream"
+            && slot.task_id.as_deref() == Some("task-1")
+            && slot.run_id.as_deref() == Some("run-1")
+            && slot.evidence_bundle_id.is_none()
+    }));
+
+    let arbitrary = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            "workflow-run-arbitrary-failed",
+            None,
+        ))
+        .expect("plan arbitrary failed")
+        .expect("plan");
+    assert_eq!(
+        arbitrary.status,
+        QueueWorkflowResumePlanStatus::TerminalFailed
+    );
+    assert!(!arbitrary.resume_available);
+}
+
+#[test]
 fn plan_resume_recovers_backend_queue_local_start_worker_missing_slot_refs() {
     let store = initialized_store();
     store
@@ -2832,7 +2946,7 @@ fn plan_resume_recovers_backend_queue_local_start_worker_missing_slot_refs() {
             && slot.executor_widget_id.is_none()
     }));
 
-    let evidence = service
+    let mismatch = service
         .record_queue_workflow_worker_evidence(workflow_evidence_request(
             "queue-workflow-run-1782257290023621100_163",
             "upstream",
@@ -2840,7 +2954,49 @@ fn plan_resume_recovers_backend_queue_local_start_worker_missing_slot_refs() {
             "queue-run_1782257290066506600_169",
             "failed",
         ))
-        .expect("record recovered queue-local evidence");
+        .expect("record mismatched queue-local evidence");
+
+    assert_eq!(
+        mismatch.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Blocked
+    );
+    assert_eq!(
+        mismatch.blocker.expect("blocker").blocker_code,
+        "worker_outcome_mismatch"
+    );
+    assert!(mismatch.binding.is_none());
+    assert!(service
+        .store
+        .get_agent_queue_worker_evidence_bundle(
+            "workspace-1",
+            "queue_task_wf_44a095e817b585b5",
+            "queue-run_1782257290066506600_169",
+        )
+        .expect("evidence bundle lookup")
+        .is_none());
+    assert_eq!(
+        service
+            .store
+            .list_agent_queue_workflow_actions(
+                "workspace-1",
+                "queue-workflow-run-1782257290023621100_163",
+            )
+            .expect("workflow actions after mismatch")
+            .iter()
+            .filter(|action| action.action_type == "record_worker_evidence")
+            .count(),
+        0
+    );
+
+    let evidence = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "queue-workflow-run-1782257290023621100_163",
+            "upstream",
+            "queue_task_wf_44a095e817b585b5",
+            "queue-run_1782257290066506600_169",
+            "completed",
+        ))
+        .expect("record corrected queue-local evidence");
 
     assert_eq!(
         evidence.status,
@@ -3025,6 +3181,96 @@ fn record_workflow_worker_evidence_records_upstream_and_stops_before_review() {
         .get_latest_agent_queue_failure_decision("workspace-1", "task-1")
         .expect("failure decision")
         .is_none());
+}
+
+#[test]
+fn record_workflow_worker_evidence_retries_blocked_mismatch_action() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "completed",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-evidence",
+        "dependency_acceptance_smoke",
+        "paused",
+        "worker_evidence",
+        Some("worker_evidence_blocked"),
+        None,
+        Some(r#"{"upstream":{"taskId":"task-1","runId":"run-1","executorWidgetId":"executor-1"}}"#),
+        None,
+        Some("1"),
+    );
+    let target_refs = canonical_json_string(&json!({
+        "runId": "run-1",
+        "slot": "upstream",
+        "taskId": "task-1",
+        "workflowRunId": "workflow-run-evidence"
+    }));
+    let result_refs = json!({
+        "commandStatus": "blocked",
+        "outcome": "failed",
+        "status": "blocked_worker_outcome_mismatch"
+    })
+    .to_string();
+    store
+        .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+            action_id: "workflow-action-record-worker-evidence",
+            workflow_run_id: "workflow-run-evidence",
+            workspace_id: "workspace-1",
+            step_id: "record_worker_evidence",
+            action_type: "record_worker_evidence",
+            idempotency_key: "workflow-run-evidence:record_worker_evidence:upstream:task-1:run-1",
+            status: QueueWorkflowActionStatus::Blocked.as_str(),
+            target_refs_json: Some(&target_refs),
+            result_refs_json: Some(&result_refs),
+            blocker_code: Some("worker_outcome_mismatch"),
+            blocker_message: Some("Worker evidence outcome did not match run status."),
+            attempt_count: 1,
+            started_at: Some("2"),
+            completed_at: None,
+            created_at: Some("2"),
+            updated_at: Some("2"),
+        })
+        .expect("insert blocked record_worker_evidence action");
+    let service = WorkspaceService::new(store);
+
+    let result = service
+        .record_queue_workflow_worker_evidence(workflow_evidence_request(
+            "workflow-run-evidence",
+            "upstream",
+            "task-1",
+            "run-1",
+            "completed",
+        ))
+        .expect("retry corrected evidence");
+
+    assert_eq!(
+        result.status,
+        QueueWorkflowRecordWorkerEvidenceStatus::Recorded
+    );
+    let action = service
+        .store
+        .get_agent_queue_workflow_action_by_idempotency_key(
+            "workflow-run-evidence",
+            "workflow-run-evidence:record_worker_evidence:upstream:task-1:run-1",
+        )
+        .expect("action lookup")
+        .expect("action");
+    assert_eq!(action.status, QueueWorkflowActionStatus::Completed.as_str());
+    assert_eq!(action.blocker_code, None);
+    assert_eq!(action.blocker_message, None);
+    assert!(action
+        .result_refs_json
+        .as_deref()
+        .is_some_and(|refs| refs.contains("evidenceBundleId")));
 }
 
 #[test]
@@ -3246,14 +3492,17 @@ fn record_workflow_worker_evidence_blocks_missing_bindings_and_running_worker() 
         running.status,
         QueueWorkflowRecordWorkerEvidenceStatus::Blocked
     );
-    assert_eq!(running.blocker.unwrap().blocker_code, "worker_not_complete");
+    assert_eq!(
+        running.blocker.unwrap().blocker_code,
+        "worker_run_not_complete"
+    );
     assert_eq!(
         ambiguous.status,
         QueueWorkflowRecordWorkerEvidenceStatus::Blocked
     );
     assert_eq!(
         ambiguous.blocker.unwrap().blocker_code,
-        "ambiguous_worker_state"
+        "worker_run_state_mismatch"
     );
 }
 
@@ -3728,6 +3977,72 @@ fn plan_resume_after_ack_requires_fresh_confirmation_for_finalization() {
     assert!(plan
         .report_summary
         .contains("No workflow steps were executed"));
+}
+
+#[test]
+fn plan_resume_failure_workflow_uses_failure_reason_after_completed_evidence() {
+    let store = initialized_store();
+    create_workspace_with_executor(&store, "workspace-1", "workbench-1", "executor-1");
+    create_task_row(&store, "workspace-1", "task-1", "queued", true, None);
+    create_run_link(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "review_needed",
+    );
+    create_evidence(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "bundle-1",
+        "completed",
+    );
+    create_review_message(
+        &store,
+        "workspace-1",
+        "task-1",
+        "run-1",
+        "link-1",
+        "message-1",
+        "acknowledged",
+    );
+    insert_resume_workflow(
+        &store,
+        "workflow-run-failure-finalization",
+        "dependency_failure_smoke",
+        "running",
+        "decision",
+        Some("decision"),
+        Some(r#"{"failureReason":"Rejected after review"}"#),
+        Some(
+            r#"{"upstream":{"taskId":"task-1","runId":"run-1","evidenceBundleId":"bundle-1","messageId":"message-1"}}"#,
+        ),
+        None,
+        Some("1"),
+    );
+    let service = WorkspaceService::new(store);
+
+    let plan = service
+        .plan_queue_workflow_resume(plan_request(
+            "workspace-1",
+            "workflow-run-failure-finalization",
+            None,
+        ))
+        .expect("plan resume")
+        .expect("plan");
+
+    assert_eq!(
+        plan.status,
+        QueueWorkflowResumePlanStatus::BlockedMissingConfirmation
+    );
+    assert_eq!(plan.next_phase.as_deref(), Some("decision"));
+    assert_eq!(plan.next_step.as_deref(), Some("fail_ready"));
+    assert!(plan.required_fresh_grant);
+    assert!(plan.required_confirmation);
 }
 
 #[test]

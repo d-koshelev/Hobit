@@ -61,6 +61,7 @@ export type QueueWorkflowWorkerEvidenceStatus =
   | "recording_worker_evidence"
   | "evidence_recorded"
   | "evidence_already_recorded"
+  | "blocked_worker_outcome_mismatch"
   | "blocked_worker_not_complete"
   | "blocked_missing_run"
   | "blocked_missing_task"
@@ -139,6 +140,8 @@ export type QueueWorkflowRunnerBlockerReason =
   | "worker_evidence_not_supported_for_workflow"
   | "worker_evidence_port_unavailable"
   | "worker_not_complete"
+  | "worker_outcome_mismatch"
+  | "worker_run_state_mismatch"
   | "worker_state_ambiguous"
   | "workflow_not_supported_read_only";
 
@@ -1834,6 +1837,9 @@ function workerEvidenceBlockedStatus(
   reasonCode: QueueWorkflowRunnerBlockerReason,
 ): QueueWorkflowWorkerEvidenceStatus {
   if (reasonCode === "worker_not_complete") return "blocked_worker_not_complete";
+  if (reasonCode === "worker_outcome_mismatch") {
+    return "blocked_worker_outcome_mismatch";
+  }
   if (reasonCode === "worker_evidence_missing_task") return "blocked_missing_task";
   if (reasonCode === "worker_evidence_missing_run") return "blocked_missing_run";
   if (reasonCode === "worker_evidence_conflict") return "blocked_evidence_conflict";
@@ -1866,20 +1872,32 @@ function blockerReasonFromEvidenceCode(
   switch (code) {
     case "missing_task_binding":
     case "slot_task_mismatch":
+    case "task_id_mismatch":
+    case "missing_task_id":
       return "worker_evidence_missing_task";
     case "missing_run_binding":
     case "run_missing":
     case "slot_run_mismatch":
+    case "run_id_mismatch":
+    case "missing_run_id":
       return "worker_evidence_missing_run";
     case "worker_not_complete":
+    case "worker_run_not_complete":
       return "worker_not_complete";
+    case "worker_outcome_mismatch":
+      return "worker_outcome_mismatch";
     case "ambiguous_worker_state":
-      return "worker_state_ambiguous";
+    case "worker_run_state_mismatch":
+      return "worker_run_state_mismatch";
     case "evidence_conflict":
     case "evidence_metadata_conflict":
+    case "existing_evidence_mismatch":
     case "record_worker_evidence_action_ref_conflict":
     case "record_worker_evidence_action_result_conflict":
       return "worker_evidence_conflict";
+    case "recovered_run_ref_mismatch":
+    case "evidence_precondition_failed":
+      return "worker_evidence_blocked";
     case "invalid_worker_evidence":
       return "worker_evidence_invalid_input";
     default:

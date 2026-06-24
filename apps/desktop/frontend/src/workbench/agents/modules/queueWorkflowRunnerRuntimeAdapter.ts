@@ -1104,6 +1104,49 @@ function actionSummariesForRunnerResult({
     });
   }
 
+  const workerEvidence = runnerResult.report.workerEvidence;
+  if (
+    phase === "worker_evidence" &&
+    workerEvidence.commandStatus &&
+    workerEvidence.commandStatus !== "recorded" &&
+    workerEvidence.commandStatus !== "already_recorded" &&
+    workerEvidence.targetSlot &&
+    workerEvidence.taskId &&
+    workerEvidence.runId
+  ) {
+    const blocker = runnerResult.blockers[0];
+    const actionStatus =
+      workerEvidence.commandStatus === "failed_unexpected" ||
+      runnerResult.status.includes("failed_unexpected")
+        ? "failed"
+        : "blocked";
+    actions.push({
+      actionType: "record_worker_evidence",
+      blockerCode: blocker?.reasonCode ?? workerEvidence.commandStatus,
+      blockerMessage: blocker?.message ?? runnerResult.report.summary,
+      idempotencyKey: [
+        workflowRunId,
+        "record_worker_evidence",
+        workerEvidence.targetSlot,
+        workerEvidence.taskId,
+        workerEvidence.runId,
+      ].join(":"),
+      resultRefs: stripNullish({
+        commandStatus: workerEvidence.commandStatus,
+        outcome: workerEvidence.outcome,
+        status: workerEvidence.status,
+      }),
+      status: actionStatus,
+      stepId: "record_worker_evidence",
+      targetRefs: {
+        runId: workerEvidence.runId,
+        slot: workerEvidence.targetSlot,
+        taskId: workerEvidence.taskId,
+        workflowRunId,
+      },
+    });
+  }
+
   if (runnerResult.status.includes("failed_unexpected") && actions.length === 0) {
     actions.push({
       actionType: "queue.workflow.runner",
@@ -1259,6 +1302,7 @@ function resumeDecisionForPlan({
   }
 
   if (
+    plan.status === "retryable_worker_evidence_failure" ||
     plan.status === "waiting_for_worker_evidence" ||
     plan.nextStep === "waiting_for_worker_evidence" ||
     plan.nextStep === "worker_evidence_required"

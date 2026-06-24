@@ -596,10 +596,10 @@ describe("QueueWorkflowRunner", () => {
         phase: "worker_evidence",
         taskIdsBySlot: create.variables.taskIdsBySlot,
         workerEvidence: {
-          outcome: "failed",
+          outcome: "completed",
           runId: create.variables.runIdsBySlot.upstream,
           slot: "upstream",
-          summary: "Worker failed.",
+          summary: "Worker completed; operator will fail the smoke through finalization.",
           taskId: create.variables.taskIdsBySlot.upstream,
           workflowRunId: "queue-workflow-run-1",
         },
@@ -618,7 +618,7 @@ describe("QueueWorkflowRunner", () => {
         "task-upstream": aggregate({
           reviewState: "awaiting_review",
           taskId: "task-upstream",
-          workerRunState: "failed",
+          workerRunState: "completed",
         }),
       },
       evidence: {
@@ -668,7 +668,7 @@ describe("QueueWorkflowRunner", () => {
         "task-upstream": aggregate({
           reviewState: "in_review",
           taskId: "task-upstream",
-          workerRunState: "failed",
+          workerRunState: "completed",
         }),
       },
     });
@@ -678,7 +678,7 @@ describe("QueueWorkflowRunner", () => {
           reviewState: "failed",
           taskId: "task-upstream",
           ticketState: "failure",
-          workerRunState: "failed",
+          workerRunState: "completed",
         }),
         decisionId: "failure-decision-1",
         status: "succeeded",
@@ -691,7 +691,7 @@ describe("QueueWorkflowRunner", () => {
       inputs: {
         ...validInputs(),
         evidenceBundleIdsBySlot: evidence.variables.evidenceBundleIdsBySlot,
-        failureReason: "Upstream worker failed during smoke.",
+        failureReason: "Operator rejected the completed upstream evidence during smoke.",
         messageIdsBySlot: review.variables.messageIdsBySlot,
         runIdsBySlot: evidence.variables.runIdsBySlot,
         taskIdsBySlot: {
@@ -720,7 +720,7 @@ describe("QueueWorkflowRunner", () => {
         notAutoStartedVerified: true,
         workerRunState: "not_started",
       },
-      failureReason: "Upstream worker failed during smoke.",
+      failureReason: "Operator rejected the completed upstream evidence during smoke.",
       finalizationAction: "fail",
       status: "finalization_completed",
     });
@@ -733,7 +733,7 @@ describe("QueueWorkflowRunner", () => {
         evidenceBundleId: "evidence-bundle-1",
         messageId: "message-upstream",
         method: "failItem",
-        reason: "Upstream worker failed during smoke.",
+        reason: "Operator rejected the completed upstream evidence during smoke.",
         runId: "run-upstream",
         taskId: "task-upstream",
       },
@@ -817,6 +817,70 @@ describe("QueueWorkflowRunner", () => {
         didStartWorker: false,
       }),
     );
+  });
+
+  it("surfaces worker evidence outcome mismatch without review or finalization", async () => {
+    const port = fakeWorkerEvidencePort({
+      blockerCode: "worker_outcome_mismatch",
+      blockerMessage:
+        "Queue workflow worker evidence outcome does not match the durable worker run status.",
+      missingRequiredField: "workerEvidence.outcome",
+      status: "blocked",
+    });
+    const request = workerEvidenceWorkflowRequest({
+      inputs: {
+        phase: "worker_evidence",
+        workerEvidence: {
+          outcome: "failed",
+          runId: "run-upstream",
+          slot: "upstream",
+          summary: "Typed mismatched outcome.",
+          taskId: "task-upstream",
+          workflowRunId: "queue-workflow-run-1",
+        },
+      },
+    });
+
+    const result = await runQueueWorkflowWorkerEvidenceRunner({
+      request,
+      validation: validateQueueWorkflowRequest(request),
+      workerEvidencePort: port,
+      workflowRunId: "queue-workflow-run-1",
+    });
+
+    expect(result.status).toBe("blocked_worker_outcome_mismatch");
+    expect(result.blockers).toEqual([
+      expect.objectContaining({
+        fieldPath: "workerEvidence.outcome",
+        reasonCode: "worker_outcome_mismatch",
+      }),
+    ]);
+    expect(result.report.workerEvidence).toMatchObject({
+      commandStatus: "blocked",
+      outcome: "failed",
+      runId: "run-upstream",
+      status: "blocked_worker_outcome_mismatch",
+      targetSlot: "upstream",
+      taskId: "task-upstream",
+    });
+    expect(result.report.mutationSummary).toEqual(
+      expect.objectContaining({
+        didAckReview: false,
+        didCreateReviewMessage: false,
+        didFail: false,
+        didMarkDone: false,
+        didStartWorker: false,
+      }),
+    );
+    expect(result.variables.evidenceBundleIdsBySlot.upstream).toBeUndefined();
+    expect(port.calls).toEqual([
+      expect.objectContaining({
+        method: "recordWorkerEvidenceForSlot",
+        outcome: "failed",
+        runId: "run-upstream",
+        taskId: "task-upstream",
+      }),
+    ]);
   });
 
   it("runs create/setup/start with optional queueOwnerWidgetInstanceId attribution", async () => {
@@ -2454,7 +2518,12 @@ type FakeWorkerEvidencePort = QueueWorkflowWorkerEvidencePort & {
 };
 
 function fakeWorkerEvidencePort(
-  options: { status?: string } = {},
+  options: {
+    blockerCode?: string;
+    blockerMessage?: string;
+    missingRequiredField?: string;
+    status?: string;
+  } = {},
 ): FakeWorkerEvidencePort {
   const calls: FakeWorkerEvidencePort["calls"] = [];
   const status = options.status ?? "recorded";
@@ -2484,9 +2553,10 @@ function fakeWorkerEvidencePort(
         blocker:
           status === "blocked"
             ? {
-                blockerCode: "worker_not_complete",
-                blockerMessage: "Worker is still running.",
-                missingRequiredField: "runId",
+                blockerCode: options.blockerCode ?? "worker_not_complete",
+                blockerMessage:
+                  options.blockerMessage ?? "Worker is still running.",
+                missingRequiredField: options.missingRequiredField ?? "runId",
               }
             : null,
         conflict:

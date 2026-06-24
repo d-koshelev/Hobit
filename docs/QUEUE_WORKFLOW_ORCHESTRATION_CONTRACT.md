@@ -364,12 +364,19 @@ command:
   and a durable run link for the same task/workspace; conflicting refs block
   as `run_id_mismatch` or a specific ref mismatch instead of guessing. It
   validates that the run belongs to the task/workspace, blocks
-  missing/running/ambiguous worker state, treats existing matching evidence as
-  idempotent success, conflicts on existing mismatched evidence or changed
-  action refs, persists the reconciled `runId` and `evidenceBundleId` into the
-  workflow slot binding/action ledger, and stops at `awaiting_review`. It must
-  not create/ACK review messages, mark done, fail, block, follow up, validate,
-  mutate Git, roll back, launch Terminal, start workers, start downstream work,
+  missing/running/ambiguous worker state, and requires
+  `workerEvidence.outcome` to match the durable run state. A completed durable
+  run records `outcome: "completed"`; a failed/timed-out durable run records
+  `outcome: "failed"`; other deterministic non-success terminal states record
+  `outcome: "not_completed"`. A mismatch blocks with
+  `worker_outcome_mismatch` and remains retryable when corrected; it must not
+  be converted to `failed_unexpected`. Existing matching evidence is
+  idempotent success. Existing mismatched evidence or changed action refs
+  blocks as a typed evidence conflict. Successful recording persists the
+  reconciled `runId` and `evidenceBundleId` into the workflow slot
+  binding/action ledger and stops at `awaiting_review`. It must not create/ACK
+  review messages, mark done, fail, block, follow up, validate, mutate Git,
+  roll back, launch Terminal, start workers, start downstream work,
   create/update/promote tasks, or enable Queue.
 - `queue.workflow.recordRunnerReport` records bounded runtime-adapter report
   state and action-ledger summaries for supported create/setup/start,
@@ -397,11 +404,14 @@ command:
   `dependency_acceptance_smoke`, that adapter sequencing can complete the
   durable acceptance path through worker evidence, review create/ACK,
   upstream accepted completion, downstream ready/no-auto-start verification,
-  and completed workflow-run reporting. For `dependency_failure_smoke`, the
+  and completed workflow-run reporting. For `dependency_failure_smoke`, worker
+  evidence still records the actual durable worker outcome. If the worker run
+  completed, worker evidence uses `outcome: "completed"`; terminal failure is
+  applied later by finalization with typed `failureReason` and `failItem`. The
   same adapter sequencing can complete the durable failure path through worker
-  evidence, review create/ACK, upstream terminal failure with typed
-  `failureReason`, downstream `failed_upstream`/no-auto-start verification, and
-  completed workflow-run reporting.
+  evidence, review create/ACK, upstream terminal failure, downstream
+  `failed_upstream`/no-auto-start verification, and completed workflow-run
+  reporting.
 
 Persisted workflow snapshots contain only validated typed workflow inputs and
 safe bounded grant summaries. They must not contain raw prompts outside bounded

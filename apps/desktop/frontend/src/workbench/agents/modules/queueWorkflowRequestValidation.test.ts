@@ -239,7 +239,7 @@ describe("queueWorkflowRequestValidation", () => {
           grant: validGrant("queue_failure_smoke"),
           inputs: {
             phase: "finalization",
-            failureReason: "Upstream worker failed during smoke.",
+            failureReason: "Operator rejected the upstream smoke evidence.",
           },
           workflowId: "dependency_failure_smoke",
         }),

@@ -373,6 +373,52 @@ impl SqliteStore {
         self.get_agent_queue_workflow_action_by_idempotency_key(workflow_run_id, idempotency_key)
     }
 
+    pub fn replace_agent_queue_workflow_action_resolution(
+        &self,
+        workspace_id: &str,
+        workflow_run_id: &str,
+        idempotency_key: &str,
+        update: AgentQueueWorkflowActionUpdate<'_>,
+    ) -> Result<Option<AgentQueueWorkflowActionRow>> {
+        let updated_at = update
+            .updated_at
+            .map(str::to_owned)
+            .unwrap_or_else(now_precise_timestamp);
+        let affected_rows = self.connection.execute(
+            "UPDATE agent_queue_workflow_actions
+             SET status = ?1,
+                 result_refs_json = ?2,
+                 blocker_code = ?3,
+                 blocker_message = ?4,
+                 attempt_count = COALESCE(?5, attempt_count),
+                 started_at = COALESCE(?6, started_at),
+                 completed_at = COALESCE(?7, completed_at),
+                 updated_at = ?8
+             WHERE workspace_id = ?9
+               AND workflow_run_id = ?10
+               AND idempotency_key = ?11",
+            params![
+                update.status,
+                update.result_refs_json,
+                update.blocker_code,
+                update.blocker_message,
+                update.attempt_count,
+                update.started_at,
+                update.completed_at,
+                updated_at,
+                workspace_id,
+                workflow_run_id,
+                idempotency_key,
+            ],
+        )?;
+
+        if affected_rows == 0 {
+            return Ok(None);
+        }
+
+        self.get_agent_queue_workflow_action_by_idempotency_key(workflow_run_id, idempotency_key)
+    }
+
     fn get_agent_queue_workflow_run_by_id(
         &self,
         workflow_run_id: &str,

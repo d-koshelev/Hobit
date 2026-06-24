@@ -1105,6 +1105,186 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     );
   });
 
+  it("persists worker evidence outcome mismatch as a blocked evidence action", async () => {
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        workerEvidenceResumePlan(),
+      ),
+    });
+    const recordWorkflowWorkerEvidence = vi.fn(async (request) => ({
+      action: null,
+      aggregate: aggregate({ taskId: request.taskId }),
+      binding: null,
+      blocker: {
+        blockerCode: "worker_outcome_mismatch",
+        blockerMessage:
+          "Queue workflow worker evidence outcome does not match the durable worker run status.",
+        missingRequiredField: "workerEvidence.outcome",
+      },
+      conflict: null,
+      evidenceBundle: null,
+      status: "blocked",
+      workflowRun: null,
+    }));
+    const bridge = queueBridge({ recordWorkflowWorkerEvidence });
+
+    const result = await runAdapter({
+      queueBridge: bridge,
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          inputs: {
+            phase: "worker_evidence",
+            workerEvidence: {
+              ...workerEvidenceInputs().workerEvidence,
+              outcome: "failed",
+              summary: "Typed mismatched evidence outcome.",
+            },
+          },
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      actionLedgerSummaryCount: 1,
+      invoked: true,
+      phase: "worker_evidence",
+      status: "blocked",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(result.runnerResult?.status).toBe("blocked_worker_outcome_mismatch");
+    expect(result.runnerResult?.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "worker_outcome_mismatch",
+      }),
+    ]);
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actions: [
+          expect.objectContaining({
+            actionType: "record_worker_evidence",
+            blockerCode: "worker_outcome_mismatch",
+            idempotencyKey:
+              "queue-workflow-run-1:record_worker_evidence:upstream:task-upstream:run-upstream",
+            resultRefs: expect.objectContaining({
+              commandStatus: "blocked",
+              outcome: "failed",
+              status: "blocked_worker_outcome_mismatch",
+            }),
+            status: "blocked",
+            targetRefs: {
+              runId: "run-upstream",
+              slot: "upstream",
+              taskId: "task-upstream",
+              workflowRunId: "queue-workflow-run-1",
+            },
+          }),
+        ],
+        currentStep: "worker_evidence_blocked",
+        phase: "worker_evidence",
+        status: "blocked",
+      }),
+    );
+  });
+
+  it("resumes retryable worker evidence failure with corrected typed outcome", async () => {
+    const persistence = workflowPersistence({
+      planAgentQueueWorkflowResume: vi.fn(async () =>
+        workerEvidenceResumePlan({
+          blockers: [
+            {
+              blockerCode: "retryable_worker_evidence_failure",
+              blockerMessage:
+                "Queue workflow failed during worker evidence recording before durable evidence mutation; retry with corrected typed workerEvidence is allowed.",
+              completionDecisionId: null,
+              evidenceBundleId: null,
+              failureDecisionId: null,
+              messageId: null,
+              missingRequiredField: "workerEvidence",
+              runId: "run-upstream",
+              slot: "upstream",
+              taskId: "task-upstream",
+            },
+          ],
+          reportSummary:
+            "Queue workflow run queue-workflow-run-1 resume plan status is retryable_worker_evidence_failure. Next step: waiting_for_worker_evidence. Blockers: 1. No workflow steps were executed.",
+          status: "retryable_worker_evidence_failure",
+          workflowRun: workflowRun({
+            inputsSnapshotJson: JSON.stringify(validInputs()),
+            phase: "worker_evidence",
+            slotBindingsJson: JSON.stringify({
+              upstream: { runId: "run-upstream", taskId: "task-upstream" },
+            }),
+            status: "failed",
+            workflowRunId: "queue-workflow-run-1",
+          }),
+        }),
+      ),
+    });
+    const recordWorkflowWorkerEvidence = vi.fn(async (request) => ({
+      action: null,
+      aggregate: aggregate({ taskId: request.taskId }),
+      binding: {
+        evidenceActionId: "workflow-action-evidence",
+        evidenceActionIdempotencyKey:
+          `${request.workflowRunId}:record_worker_evidence:${request.slot}:${request.taskId}:${request.runId}`,
+        evidenceBundleId: "bundle-upstream",
+        evidenceRecordedAt: "2026-06-22T00:00:00.000Z",
+        runId: request.runId,
+        slot: request.slot,
+        taskId: request.taskId,
+        workerFinalStatus: "completed",
+        workerOutcome: request.outcome,
+      },
+      blocker: null,
+      conflict: null,
+      evidenceBundle: evidenceQuery({
+        runId: request.runId,
+        taskId: request.taskId,
+      }).evidenceBundle,
+      status: "recorded",
+      workflowRun: null,
+    }));
+    const bridge = queueBridge({ recordWorkflowWorkerEvidence });
+
+    const result = await runAdapter({
+      queueBridge: bridge,
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          inputs: workerEvidenceInputs(),
+          metadata: { workflowRunId: "queue-workflow-run-1" },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "worker_evidence",
+      status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
+    expect(recordWorkflowWorkerEvidence).toHaveBeenCalledWith(
+      expect.objectContaining({
+        outcome: "completed",
+        runId: "run-upstream",
+        slot: "upstream",
+        taskId: "task-upstream",
+      }),
+    );
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
+      expect.objectContaining({
+        currentStep: "awaiting_review",
+        phase: "worker_evidence",
+        status: "paused",
+      }),
+    );
+    expect(result.runnerResult?.report.review.status).toBeNull();
+    expect(result.runnerResult?.report.finalization.status).toBeNull();
+  });
+
   it("keeps worker evidence resume paused without typed completion input", async () => {
     const persistence = workflowPersistence({
       planAgentQueueWorkflowResume: vi.fn(async () =>

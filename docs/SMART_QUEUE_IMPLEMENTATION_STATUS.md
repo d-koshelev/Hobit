@@ -205,10 +205,19 @@ idempotently, persist the reconciled `runId`, `evidenceBundleId`, and bounded
 worker final status in the workflow state/action ledger, and stop at
 `awaiting_review`. Recovered run refs must match completed `start_worker`
 action result refs, settings/execution-target hashes, the explicit typed
-`workerEvidence.runId`, and the durable task/run link. The existing blocked
-live failure smoke workflow can be retried safely through the same typed
-workerEvidence continuation; it does not require manual DB repair or a
-pre-existing slot-binding `runId` when these refs are recoverable. It does not
+`workerEvidence.runId`, and the durable task/run link. `workerEvidence.outcome`
+must match the durable run state: a completed run records `completed`, a failed
+or timed-out run records `failed`, and deterministic non-success terminal
+states record `not_completed`. Mismatches block as
+`worker_outcome_mismatch`, are persisted as a typed `record_worker_evidence`
+action attempt when the runner reaches the evidence phase, and remain
+retryable with corrected typed input instead of becoming `failed_unexpected`.
+The existing live failure smoke shape that reached terminal workflow `failed`
+before any durable evidence or `record_worker_evidence` action is recoverable
+as `retryable_worker_evidence_failure` only when task/run refs are recoverable
+and no terminal task decision or partial evidence exists. Failure smoke records
+the actual worker outcome first; terminal failure is later applied through
+reviewed finalization with typed `failureReason` and `failItem`. It does not
 create/ACK reviews, mark done/fail/block/follow-up, run validation, mutate
 Git, roll back, launch Terminal, start workers, create/update/promote tasks,
 enable Queue, start downstream, or infer ids from prose/UI/session state.

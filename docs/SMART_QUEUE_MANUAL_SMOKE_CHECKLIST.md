@@ -511,8 +511,10 @@ plans after the relevant phase persists them.
 4. Capture `workflowRunId`, upstream `taskId`, downstream `taskId`, upstream
    `runId`, settings hash, and action counts from the workflow report.
 5. Continue with `metadata.workflowRunId` and typed upstream
-   `inputs.workerEvidence`. Use an outcome that matches the failure scenario,
-   normally `failed` or `not_completed`.
+   `inputs.workerEvidence`. `workerEvidence.outcome` must reflect the actual
+   durable worker run outcome. If the worker run completed, use
+   `outcome: "completed"`; do not force `failed` unless the worker run actually
+   failed.
 6. Verify durable `evidenceBundleId` is recorded/reused and the workflow pauses
    at `awaiting_review`.
 7. Continue with `metadata.workflowRunId` and `inputs.phase: "review"`.
@@ -520,7 +522,8 @@ plans after the relevant phase persists them.
    `messageId`.
 8. Continue with `metadata.workflowRunId`, `inputs.phase: "finalization"`,
    typed `inputs.failureReason`, and fresh exact
-   `grant.confirmationToken: "operator-confirmed"`.
+   `grant.confirmationToken: "operator-confirmed"`. This finalization step is
+   what applies the terminal failure through `failItem`.
 9. Verify the workflow completes, upstream is durably `failure`, downstream
    reads `failed_upstream`, and no downstream worker auto-started.
 10. Idempotency check: read `queue.workflow.getReport` for the completed
@@ -550,10 +553,11 @@ duplicate task/start/evidence/review/ACK/finalization is created.
   backend-owned `queue_local`, `planResume` and `readActionLog` must not require
   `executorWidgetId` or an Agent Queue widget, and old missing-slot
   `start_worker` actions may recover via unambiguous task-to-slot mapping.
-- After this block, the live failure smoke paused at
+- After this block, the live failure smoke at
   `queue-workflow-run-1782257290023621100_163` can retry typed
   `workerEvidence` only if `queue.workflow.planResume` reports
-  `safeToRecordWorkerEvidence: true`.
+  `retryable_worker_evidence_failure` or otherwise reports worker evidence
+  safe with recoverable typed task/run refs and no partial evidence mutation.
 - After evidence recorded: expect existing `evidenceBundleId` to be reused; no
   duplicate evidence.
 - After review created: expect existing canonical `messageId` to be reused for
@@ -573,8 +577,10 @@ duplicate task/start/evidence/review/ACK/finalization is created.
 - Continuation without `metadata.workflowRunId` blocks.
 - Worker evidence continuation without typed `inputs.workerEvidence` remains
   paused at worker evidence.
-- Worker evidence with mismatched `taskId`, `runId`, slot, or outcome shape
-  blocks/conflicts.
+- Worker evidence with mismatched `taskId`, `runId`, slot, or existing evidence
+  blocks/conflicts. Worker evidence whose outcome conflicts with the durable
+  worker run state blocks as `worker_outcome_mismatch` and can be retried with
+  corrected typed input.
 - Missing fresh exact confirmation blocks worker start and finalization.
 - Missing `failureReason` blocks `dependency_failure_smoke` finalization.
 - Backend Queue control `disabled` blocks worker start and does not

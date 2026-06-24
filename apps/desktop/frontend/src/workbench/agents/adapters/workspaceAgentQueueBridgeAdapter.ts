@@ -1062,7 +1062,11 @@ function workflowPlanResumeResult(
     blockers: plan.blockers.map(workflowResumeBlockerSummary),
     diagnostics: workflowResumeDiagnostics(plan, refs),
     missingRefs: plan.blockers
-      .filter((blocker) => Boolean(blocker.missingRequiredField))
+      .filter(
+        (blocker) =>
+          Boolean(blocker.missingRequiredField) &&
+          blocker.blockerCode !== "retryable_worker_evidence_failure",
+      )
       .map(workflowResumeBlockerSummary),
     nextPhase: plan.nextPhase ?? null,
     nextStep: plan.nextStep ?? null,
@@ -1364,8 +1368,10 @@ function workflowResumeDiagnostics(
   );
   const startWorkerMissing = startWorkerMissingRefs(startWorker, refs);
   const blockers = plan.blockers.map(workflowResumeBlockerSummary);
-  const missingRefs = blockers.filter((blocker) =>
-    Boolean(blocker.missingRequiredField),
+  const missingRefs = blockers.filter(
+    (blocker) =>
+      Boolean(blocker.missingRequiredField) &&
+      blocker.blockerCode !== "retryable_worker_evidence_failure",
   );
   const workerState = workflowResumeWorkerState(plan, startWorker);
   const diagnosticRefs = workflowDiagnosticRefMaps(refs, startWorker.slot);
@@ -1385,6 +1391,7 @@ function workflowResumeDiagnostics(
     !workerRunning &&
     !refsIncomplete &&
     (plan.status === "waiting_for_worker_evidence" ||
+      plan.status === "retryable_worker_evidence_failure" ||
       plan.status === "resume_ready" ||
       plan.status === "resume_read_only_ready");
 

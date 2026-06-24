@@ -15,6 +15,7 @@ use super::{
         AGENT_QUEUE_TASK_STATUS_DRAFT, AGENT_QUEUE_TASK_STATUS_QUEUED,
         AGENT_QUEUE_TASK_STATUS_READY,
     },
+    agent_queue_workflow_evidence::is_retryable_record_worker_evidence_blocker,
     agent_queue_workflow_materialization::{
         normalize_queue_workflow_task_spec_for_hash, workflow_dependency_edge_hash,
         QueueWorkflowTaskSpec,
@@ -45,6 +46,7 @@ const RESUME_STATUS_BLOCKED_INCOMPLETE_WORKFLOW_ACTION_REFS: &str =
 const RESUME_STATUS_WAITING_FOR_RUN_SETTINGS: &str = "waiting_for_run_settings";
 const RESUME_STATUS_WAITING_FOR_PROMOTE: &str = "waiting_for_promote";
 const RESUME_STATUS_WAITING_FOR_WORKER_EVIDENCE: &str = "waiting_for_worker_evidence";
+const RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_FAILURE: &str = "retryable_worker_evidence_failure";
 const RESUME_STATUS_TERMINAL_COMPLETED: &str = "terminal_completed";
 const RESUME_STATUS_TERMINAL_FAILED: &str = "terminal_failed";
 const RESUME_STATUS_TERMINAL_CANCELLED: &str = "terminal_cancelled";
@@ -71,6 +73,7 @@ pub enum QueueWorkflowResumePlanStatus {
     WaitingForRunSettings,
     WaitingForPromote,
     WaitingForWorkerEvidence,
+    RetryableWorkerEvidenceFailure,
     TerminalCompleted,
     TerminalFailed,
     TerminalCancelled,
@@ -101,6 +104,7 @@ impl QueueWorkflowResumePlanStatus {
             Self::WaitingForRunSettings => RESUME_STATUS_WAITING_FOR_RUN_SETTINGS,
             Self::WaitingForPromote => RESUME_STATUS_WAITING_FOR_PROMOTE,
             Self::WaitingForWorkerEvidence => RESUME_STATUS_WAITING_FOR_WORKER_EVIDENCE,
+            Self::RetryableWorkerEvidenceFailure => RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_FAILURE,
             Self::TerminalCompleted => RESUME_STATUS_TERMINAL_COMPLETED,
             Self::TerminalFailed => RESUME_STATUS_TERMINAL_FAILED,
             Self::TerminalCancelled => RESUME_STATUS_TERMINAL_CANCELLED,
@@ -365,6 +369,13 @@ impl WorkspaceService {
                 )));
             }
             "failed" => {
+                if let Some(plan) = self.retryable_worker_evidence_failure_plan(
+                    &workspace_id,
+                    workflow_run.clone(),
+                    actions.clone(),
+                )? {
+                    return Ok(Some(plan));
+                }
                 let current_step = workflow_run.current_step.clone();
                 return Ok(Some(plan_with_status(
                     workflow_run,
@@ -664,6 +675,152 @@ impl WorkspaceService {
             blockers,
             required_fresh_grant: derived.required_fresh_grant,
             required_confirmation: derived.required_confirmation,
+            terminal_status: None,
+            report_summary,
+        }))
+    }
+
+    fn retryable_worker_evidence_failure_plan(
+        &self,
+        workspace_id: &str,
+        workflow_run: QueueWorkflowRun,
+        actions: Vec<QueueWorkflowAction>,
+    ) -> Result<Option<QueueWorkflowResumePlan>, WorkspaceServiceError> {
+        if !matches!(
+            workflow_run.workflow_id.as_str(),
+            "dependency_acceptance_smoke" | "dependency_failure_smoke"
+        ) || workflow_run.phase != "worker_evidence"
+        {
+            return Ok(None);
+        }
+        if actions
+            .iter()
+            .any(|action| action.action_type == "record_worker_evidence")
+        {
+            return Ok(None);
+        }
+        if !actions.iter().any(is_worker_evidence_runner_failed_action) {
+            return Ok(None);
+        }
+
+        let variables_value = match parse_json_field(
+            workflow_run.variables_json.as_deref(),
+            "variables",
+            "invalid_variables_json",
+        ) {
+            Ok(value) => value,
+            Err(_) => return Ok(None),
+        };
+        let inputs_value = match parse_json_field(
+            workflow_run.inputs_snapshot_json.as_deref(),
+            "inputsSnapshot",
+            "invalid_inputs_snapshot_json",
+        ) {
+            Ok(value) => value,
+            Err(_) => return Ok(None),
+        };
+        let slot_bindings_value = match parse_json_field(
+            workflow_run.slot_bindings_json.as_deref(),
+            "slotBindings",
+            "invalid_slot_bindings_json",
+        ) {
+            Ok(value) => value,
+            Err(_) => return Ok(None),
+        };
+        let slot_bindings = match parse_slot_bindings(slot_bindings_value.as_ref()) {
+            Ok(bindings) => bindings,
+            Err(_) => return Ok(None),
+        };
+        let (slot_bindings, action_recovery_blockers) =
+            augment_slot_bindings_from_actions(&workflow_run, slot_bindings, &actions);
+        if !action_recovery_blockers.is_empty() {
+            return Ok(None);
+        }
+
+        let task_templates = match parse_task_templates(inputs_value.as_ref()) {
+            Ok(templates) => templates,
+            Err(_) => return Ok(None),
+        };
+        let slot_binding_map = slot_bindings
+            .iter()
+            .cloned()
+            .map(|binding| (binding.slot.clone(), binding))
+            .collect::<BTreeMap<_, _>>();
+
+        let mut reconciled_slots = Vec::new();
+        for binding in slot_bindings {
+            let template = task_templates.get(&binding.slot);
+            reconciled_slots.push(self.reconcile_workflow_slot(
+                workspace_id,
+                binding,
+                template,
+                &slot_binding_map,
+            )?);
+        }
+
+        if reconciled_slots
+            .iter()
+            .any(|slot| !slot.blockers.is_empty())
+        {
+            return Ok(None);
+        }
+        let Some(target) = target_slot(&workflow_run, &reconciled_slots) else {
+            return Ok(None);
+        };
+        let Some(run_link) = target.run_link.as_ref() else {
+            return Ok(None);
+        };
+        if target.binding.task_id.is_none()
+            || target.binding.run_id.is_none()
+            || target.binding.evidence_bundle_id.is_some()
+            || target.evidence.is_some()
+            || target.completion_decision.is_some()
+            || target.failure_decision.is_some()
+            || !is_completed_worker_run_state(run_link)
+        {
+            return Ok(None);
+        }
+
+        let blockers = vec![binding_blocker(
+            "retryable_worker_evidence_failure",
+            "Queue workflow failed during worker evidence recording before durable evidence mutation; retry with corrected typed workerEvidence is allowed.",
+            &target.binding,
+            Some("workerEvidence"),
+        )];
+        let task_snapshots = reconciled_slots
+            .iter()
+            .filter_map(task_snapshot)
+            .collect::<Vec<_>>();
+        let slot_reconciliations = reconciled_slots
+            .iter()
+            .map(slot_reconciliation)
+            .collect::<Vec<_>>();
+        let status = QueueWorkflowResumePlanStatus::RetryableWorkerEvidenceFailure;
+        let reconciled_variables_json = variables_value
+            .as_ref()
+            .and_then(|_| workflow_run.variables_json.clone());
+        let report_summary = report_summary(
+            &workflow_run.workflow_run_id,
+            status,
+            Some("waiting_for_worker_evidence"),
+            blockers.len(),
+            false,
+            false,
+        );
+
+        Ok(Some(QueueWorkflowResumePlan {
+            status,
+            resume_available: status.resume_available(),
+            workflow_run,
+            actions,
+            reconciled_variables_json,
+            slot_reconciliations,
+            task_snapshots,
+            next_phase: Some("worker_evidence".to_owned()),
+            next_step: Some("waiting_for_worker_evidence".to_owned()),
+            blockers,
+            required_fresh_grant: false,
+            required_confirmation: false,
             terminal_status: None,
             report_summary,
         }))
@@ -1167,6 +1324,27 @@ fn augment_slot_bindings_from_actions(
     (by_slot.into_values().collect(), blockers)
 }
 
+fn is_worker_evidence_runner_failed_action(action: &QueueWorkflowAction) -> bool {
+    action.action_type == "queue.workflow.runner"
+        && action.status == "failed"
+        && (action.step_id == "runner.worker_evidence"
+            || action_ref_phase(action.target_refs_json.as_deref()).as_deref()
+                == Some("worker_evidence")
+            || action_ref_phase(action.result_refs_json.as_deref()).as_deref()
+                == Some("worker_evidence"))
+}
+
+fn action_ref_phase(raw: Option<&str>) -> Option<String> {
+    raw.and_then(|raw| serde_json::from_str::<Value>(raw).ok())
+        .and_then(|value| {
+            value
+                .as_object()
+                .and_then(|object| object.get("phase"))
+                .and_then(Value::as_str)
+                .map(str::to_owned)
+        })
+}
+
 fn recover_create_task_action(
     by_slot: &mut BTreeMap<String, SlotBinding>,
     action: &QueueWorkflowAction,
@@ -1551,6 +1729,14 @@ fn recover_worker_evidence_action(
     action: &QueueWorkflowAction,
     blockers: &mut Vec<QueueWorkflowResumeBlocker>,
 ) {
+    if action.status == "blocked"
+        && action
+            .blocker_code
+            .as_deref()
+            .is_some_and(is_retryable_record_worker_evidence_blocker)
+    {
+        return;
+    }
     if action.status != "completed" {
         blockers.push(action_ref_blocker(
             "incomplete_workflow_action_refs",

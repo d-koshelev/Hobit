@@ -963,6 +963,7 @@ export type AgentQueueWorkflowResumePlanStatus =
   | "waiting_for_run_settings"
   | "waiting_for_promote"
   | "waiting_for_worker_evidence"
+  | "retryable_worker_evidence_failure"
   | "terminal_completed"
   | "terminal_failed"
   | "terminal_cancelled"

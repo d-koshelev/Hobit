@@ -196,10 +196,10 @@ describe("queue.workflow debug read capabilities", () => {
 
     expect(reportResult.status).toBe("succeeded");
     expect(reportResult.result.output).toMatchObject({
-      actionSummaryCount: 5,
-      currentStep: "awaiting_worker_completion",
-      persistentStatus: "paused",
-      phase: "run_start",
+      actionSummaryCount: 6,
+      currentStep: "worker_evidence_failed_unexpected",
+      persistentStatus: "failed",
+      phase: "worker_evidence",
       requestId: "queue-workflow-request-live-failure",
       runIdsBySlot: { upstream: "queue-run_1782257290066506600_169" },
       slotBindings: {
@@ -268,7 +268,7 @@ describe("queue.workflow debug read capabilities", () => {
       total: number;
       truncated: boolean;
     };
-    expect(actionLogOutput.total).toBe(5);
+    expect(actionLogOutput.total).toBe(6);
     expect(actionLogOutput.truncated).toBe(false);
     expect(actionLogOutput.actions).not.toEqual([]);
     expect(actionLogOutput.actions).toEqual(
@@ -278,6 +278,11 @@ describe("queue.workflow debug read capabilities", () => {
           resultRefs: expect.objectContaining({
             runId: "queue-run_1782257290066506600_169",
           }),
+        }),
+        expect.objectContaining({
+          actionType: "queue.workflow.runner",
+          blockerCode: "failed_unexpected",
+          status: "failed",
         }),
       ]),
     );
@@ -308,11 +313,16 @@ describe("queue.workflow debug read capabilities", () => {
     });
 
     expect(planResult.result.output).toMatchObject({
-      blockers: [],
+      blockers: [
+        expect.objectContaining({
+          blockerCode: "retryable_worker_evidence_failure",
+          missingRequiredField: "workerEvidence",
+        }),
+      ],
       missingRefs: [],
       nextPhase: "worker_evidence",
       nextStep: "waiting_for_worker_evidence",
-      resumeStatus: "waiting_for_worker_evidence",
+      resumeStatus: "retryable_worker_evidence_failure",
       runIdsBySlot: { upstream: "queue-run_1782257290066506600_169" },
       taskIdsBySlot: { upstream: "queue_task_wf_44a095e817b585b5" },
     });
@@ -330,7 +340,7 @@ describe("queue.workflow debug read capabilities", () => {
           slotPresent: true,
           taskIdPresent: true,
         },
-        status: "waiting_for_worker_evidence",
+        status: "retryable_worker_evidence_failure",
         workerState: {
           latestRunId: "queue-run_1782257290066506600_169",
           latestRunStatus: "completed",
@@ -522,7 +532,7 @@ describe("queue.workflow debug read capabilities", () => {
           settingsHashPresent: true,
           taskIdPresent: true,
         },
-        status: "waiting_for_worker_evidence",
+        status: "retryable_worker_evidence_failure",
         workerState: {
           latestRunStatus: "completed",
           workerRunState: "completed",
@@ -715,12 +725,13 @@ function workflowResumePlan(): AgentQueueWorkflowResumePlan {
 function liveFailureWorkflowRun(): AgentQueueWorkflowRun {
   return workflowRun({
     actionLogSummaryJson: JSON.stringify({
-      actionSummaryCount: 5,
+      actionSummaryCount: 6,
       nextPhase: "worker_evidence",
       nextStep: "waiting_for_worker_evidence",
     }),
-    currentStep: "awaiting_worker_completion",
-    phase: "run_start",
+    currentStep: "worker_evidence_failed_unexpected",
+    completedAt: "2026-06-23T12:06:00.000Z",
+    phase: "worker_evidence",
     requestId: "queue-workflow-request-live-failure",
     slotBindingsJson: JSON.stringify({
       downstream: {
@@ -739,6 +750,7 @@ function liveFailureWorkflowRun(): AgentQueueWorkflowRun {
         taskSpecHash: "task-spec-hash-upstream",
       },
     }),
+    status: "failed",
     variablesJson: JSON.stringify({
       runIdsBySlot: {
         upstream: "queue-run_1782257290066506600_169",
@@ -827,9 +839,31 @@ function liveFailureWorkflowReport(): AgentQueueWorkflowReport {
           workflowRunId: "queue-workflow-run-1782257290023621100_163",
         }),
       }),
+      liveFailureAction({
+        actionId: "workflow-action-runner-worker-evidence",
+        actionType: "queue.workflow.runner",
+        blockerCode: "failed_unexpected",
+        blockerMessage:
+          "Queue workflow worker evidence recording failed unexpectedly",
+        idempotencyKey:
+          "queue-workflow-run-1782257290023621100_163:queue.workflow.runner:worker_evidence:live-failure-smoke-001",
+        resultRefsJson: JSON.stringify({
+          phase: "worker_evidence",
+          runnerStatus: "failed_unexpected",
+          summary:
+            "Queue workflow worker evidence recording failed unexpectedly",
+        }),
+        status: "failed",
+        stepId: "runner.worker_evidence",
+        targetRefsJson: JSON.stringify({
+          phase: "worker_evidence",
+          requestId: "live-failure-smoke-001",
+          workflowId: "dependency_failure_smoke",
+        }),
+      }),
     ],
     reportSummary:
-      "Queue workflow run paused at worker_evidence after create/setup/start.",
+      "Queue workflow run failed during worker_evidence before durable evidence mutation.",
     workflowRun: liveFailureWorkflowRun(),
   });
 }
@@ -933,11 +967,25 @@ function liveFailureResumePlan(): AgentQueueWorkflowResumePlan {
 function safeWorkerEvidenceResumePlan(): AgentQueueWorkflowResumePlan {
   return {
     ...liveFailureResumePlan(),
-    blockers: [],
+    blockers: [
+      {
+        blockerCode: "retryable_worker_evidence_failure",
+        blockerMessage:
+          "Queue workflow failed during worker evidence recording before durable evidence mutation; retry with corrected typed workerEvidence is allowed.",
+        completionDecisionId: null,
+        evidenceBundleId: null,
+        failureDecisionId: null,
+        messageId: null,
+        missingRequiredField: "workerEvidence",
+        runId: "queue-run_1782257290066506600_169",
+        slot: "upstream",
+        taskId: "queue_task_wf_44a095e817b585b5",
+      },
+    ],
     nextPhase: "worker_evidence",
     nextStep: "waiting_for_worker_evidence",
     reportSummary:
-      "Resume planning is waiting for explicit worker evidence input.",
+      "Resume planning found a retryable worker evidence failure before durable evidence mutation.",
     resumeAvailable: true,
     slotReconciliations: [
       {
@@ -949,7 +997,7 @@ function safeWorkerEvidenceResumePlan(): AgentQueueWorkflowResumePlan {
         taskExists: true,
       },
     ],
-    status: "waiting_for_worker_evidence",
+    status: "retryable_worker_evidence_failure",
     taskSnapshots: [
       {
         ...liveFailureResumePlan().taskSnapshots[0],

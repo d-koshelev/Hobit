@@ -1,6 +1,7 @@
 use hobit_storage_sqlite::{
     AgentQueueTaskRunLinkRow, AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkflowActionRow,
-    AgentQueueWorkflowRunReportUpdate, NewAgentQueueWorkflowAction, SqliteStore, StorageError,
+    AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunReportUpdate, NewAgentQueueWorkflowAction,
+    SqliteStore, StorageError,
 };
 use serde_json::{json, Map, Value};
 
@@ -13,6 +14,8 @@ use super::{
         record_agent_queue_worker_finished_in_store, worker_evidence_bundle_summary,
         worker_evidence_changed_files_json, AgentQueueWorkerEvidenceBundleSummary,
         NormalizedRecordAgentQueueWorkerFinishedInput, RecordAgentQueueWorkerFinishedInput,
+        AGENT_QUEUE_WORKER_EVIDENCE_OUTCOME_COMPLETED, AGENT_QUEUE_WORKER_EVIDENCE_OUTCOME_FAILED,
+        AGENT_QUEUE_WORKER_EVIDENCE_OUTCOME_NOT_COMPLETED,
     },
     agent_queue_workflow::{
         canonical_json_string, QueueWorkflowAction, QueueWorkflowActionStatus,
@@ -113,6 +116,7 @@ struct NormalizedWorkflowEvidenceRequest {
 enum ExistingActionDecision {
     None,
     Completed(AgentQueueWorkflowActionRow),
+    Retryable(AgentQueueWorkflowActionRow),
 }
 
 impl WorkspaceService {
@@ -410,7 +414,7 @@ impl WorkspaceService {
                         None,
                         None,
                         Some(blocker(
-                            "worker_not_complete",
+                            "worker_run_not_complete",
                             "Queue workflow worker run is still running; evidence recording is paused.",
                             Some("runId"),
                         )),
@@ -426,12 +430,31 @@ impl WorkspaceService {
                         None,
                         None,
                         Some(blocker(
-                            "ambiguous_worker_state",
+                            "worker_run_state_mismatch",
                             "Queue workflow worker run state is not a deterministic completed state.",
                             Some("runId"),
                         )),
                         None,
                     )));
+                }
+
+                if let Some(expected_outcome) = expected_worker_outcome_for_run_state(&run_link) {
+                    if expected_outcome != request.worker.outcome {
+                        return Ok(TxResult::Return(result(
+                            QueueWorkflowRecordWorkerEvidenceStatus::Blocked,
+                            Some(QueueWorkflowRun::from(workflow_run)),
+                            None,
+                            None,
+                            None,
+                            None,
+                            Some(blocker(
+                                "worker_outcome_mismatch",
+                                "Queue workflow worker evidence outcome does not match the durable worker run status.",
+                                Some("workerEvidence.outcome"),
+                            )),
+                            None,
+                        )));
+                    }
                 }
 
                 let target_refs_json = target_refs_json(&request);
@@ -461,7 +484,9 @@ impl WorkspaceService {
                                 }),
                             )));
                         }
-                        if action.status != QueueWorkflowActionStatus::Completed.as_str() {
+                        if action.status != QueueWorkflowActionStatus::Completed.as_str()
+                            && !is_retryable_record_worker_evidence_action(&action)
+                        {
                             return Ok(TxResult::Return(result(
                                 QueueWorkflowRecordWorkerEvidenceStatus::Blocked,
                                 Some(QueueWorkflowRun::from(workflow_run)),
@@ -477,7 +502,11 @@ impl WorkspaceService {
                                 None,
                             )));
                         }
-                        ExistingActionDecision::Completed(action)
+                        if action.status == QueueWorkflowActionStatus::Completed.as_str() {
+                            ExistingActionDecision::Completed(action)
+                        } else {
+                            ExistingActionDecision::Retryable(action)
+                        }
                     }
                     None => ExistingActionDecision::None,
                 };
@@ -578,6 +607,23 @@ impl WorkspaceService {
                             updated_at: Some(&finished_at),
                         })?
                     }
+                    ExistingActionDecision::Retryable(action) => store
+                        .replace_agent_queue_workflow_action_resolution(
+                            &request.workspace_id,
+                            &request.workflow_run_id,
+                            &request.action_idempotency_key,
+                            AgentQueueWorkflowActionUpdate {
+                                status: QueueWorkflowActionStatus::Completed.as_str(),
+                                result_refs_json: Some(&result_refs_json),
+                                blocker_code: None,
+                                blocker_message: None,
+                                attempt_count: Some(action.attempt_count.saturating_add(1)),
+                                started_at: action.started_at.as_deref().or(Some(&finished_at)),
+                                completed_at: Some(&finished_at),
+                                updated_at: Some(&finished_at),
+                            },
+                        )?
+                        .ok_or(StorageError::QueryReturnedNoRows)?,
                 };
 
                 update_binding_with_evidence(
@@ -1151,6 +1197,57 @@ fn is_completed_worker_run_state(run_link: &AgentQueueTaskRunLinkRow) -> bool {
                 | AgentQueueTaskRunStatus::Cancelled
                 | AgentQueueTaskRunStatus::ReviewNeeded
         )
+}
+
+fn expected_worker_outcome_for_run_state(
+    run_link: &AgentQueueTaskRunLinkRow,
+) -> Option<&'static str> {
+    match AgentQueueTaskRunStatus::from_current_status(&run_link.status) {
+        AgentQueueTaskRunStatus::Completed => Some(AGENT_QUEUE_WORKER_EVIDENCE_OUTCOME_COMPLETED),
+        AgentQueueTaskRunStatus::Failed | AgentQueueTaskRunStatus::TimedOut => {
+            Some(AGENT_QUEUE_WORKER_EVIDENCE_OUTCOME_FAILED)
+        }
+        AgentQueueTaskRunStatus::Cancelled | AgentQueueTaskRunStatus::ReviewNeeded => {
+            Some(AGENT_QUEUE_WORKER_EVIDENCE_OUTCOME_NOT_COMPLETED)
+        }
+        AgentQueueTaskRunStatus::Running | AgentQueueTaskRunStatus::Unknown => None,
+    }
+}
+
+fn is_retryable_record_worker_evidence_action(action: &AgentQueueWorkflowActionRow) -> bool {
+    action.status == QueueWorkflowActionStatus::Blocked.as_str()
+        && action
+            .blocker_code
+            .as_deref()
+            .is_some_and(is_retryable_record_worker_evidence_blocker)
+}
+
+pub(super) fn is_retryable_record_worker_evidence_blocker(code: &str) -> bool {
+    matches!(
+        code,
+        "worker_outcome_mismatch"
+            | "worker_run_not_complete"
+            | "worker_run_state_mismatch"
+            | "run_id_mismatch"
+            | "task_id_mismatch"
+            | "missing_run_id"
+            | "missing_task_id"
+            | "evidence_conflict"
+            | "existing_evidence_mismatch"
+            | "evidence_precondition_failed"
+            | "recovered_run_ref_mismatch"
+            | "missing_run_binding"
+            | "run_missing"
+            | "slot_run_mismatch"
+            | "missing_task_binding"
+            | "slot_task_mismatch"
+            | "run_task_mismatch"
+            | "ambiguous_task_slot_binding"
+            | "missing_start_worker_result_refs"
+            | "missing_start_worker_run_ref"
+            | "missing_settings_hash"
+            | "missing_execution_target_hash"
+    )
 }
 
 fn evidence_matches_request(
