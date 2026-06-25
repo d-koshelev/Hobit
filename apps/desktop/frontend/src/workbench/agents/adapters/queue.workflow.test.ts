@@ -16,6 +16,11 @@ import {
 } from "../runtime";
 import adapterSource from "./workspaceAgentQueueBridgeAdapter.ts?raw";
 import capabilitySource from "./queueAgentCapabilities.ts?raw";
+import workflowDebugSource from "./queueBridge/queueBridgeWorkflowDebugCapabilities.ts?raw";
+import workflowDiagnosticsSource from "./queueBridge/queueBridgeWorkflowDiagnostics.ts?raw";
+import workflowProjectionSource from "./queueBridge/queueBridgeWorkflowProjection.ts?raw";
+import workflowRedactionSource from "./queueBridge/queueBridgeWorkflowRedaction.ts?raw";
+import workflowRefsSource from "./queueBridge/queueBridgeWorkflowRefs.ts?raw";
 import { createQueueAgentActionHandlers } from "./queueAgentActionHandlers";
 import { createWorkspaceAgentQueueBridgeAdapterApi } from "./workspaceAgentQueueBridgeAdapter";
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
@@ -725,7 +730,15 @@ describe("queue.workflow debug read capabilities", () => {
   });
 
   it("keeps workflow debug reads free of Queue UI and visual shell imports", () => {
-    for (const source of [adapterSource, capabilitySource]) {
+    for (const source of [
+      adapterSource,
+      capabilitySource,
+      workflowDebugSource,
+      workflowDiagnosticsSource,
+      workflowProjectionSource,
+      workflowRedactionSource,
+      workflowRefsSource,
+    ]) {
       expect(source).not.toContain("AgentQueueV2Board");
       expect(source).not.toContain("AgentQueuePlaceholderWidget");
       expect(source).not.toContain("ModuleShell");

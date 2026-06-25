@@ -72,6 +72,15 @@ Backend workflow test coverage was split by transition/domain in Block 54 under
 a tests-only refactor with no runtime behavior, Queue workflow semantics,
 storage/schema, Tauri/API, frontend UI, smoke execution, scheduler behavior, or
 natural-language/id inference changes.
+Workspace Agent Queue bridge adapter ownership was split by capability group in
+Block 55 under
+`apps/desktop/frontend/src/workbench/agents/adapters/queueBridge/`. The
+compatibility entrypoint
+`apps/desktop/frontend/src/workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts`
+now only re-exports the stable adapter API. This was a frontend adapter
+refactor only and did not change Queue runtime behavior, Queue workflow
+semantics, Queue UI behavior, visual-shell behavior, backend/Tauri behavior,
+smoke execution, natural-language routing, or id inference.
 Restart/recovery hardening is implemented for those existing dependency smoke
 workflows: runner reports no longer overwrite backend-rich slot bindings with
 frontend slot variables, backend report persistence merges authoritative

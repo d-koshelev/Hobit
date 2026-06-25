@@ -1,5 +1,5 @@
 // @ts-expect-error Node types are intentionally absent from the frontend tsconfig; this test reads source in Vitest only.
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -117,6 +117,7 @@ describe("queueAgentCapabilities discovery and broker separation", () => {
       "workbench/agents/adapters/queueBackendCapabilityPort.ts",
       "workbench/agents/adapters/workspaceAgentLiveContextCapabilities.ts",
       "workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
+      ...queueBridgeSourcePaths(),
     ]
       .map(frontendSource)
       .join("\n");
@@ -143,6 +144,7 @@ describe("queueAgentCapabilities discovery and broker separation", () => {
       "workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts",
       "workbench/agents/adapters/queueAgentCapabilityTypes.ts",
       "workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
+      ...queueBridgeSourcePaths(),
     ]
       .map(frontendSource)
       .join("\n");
@@ -4483,6 +4485,7 @@ describe("queueAgentCapabilities self-test and architecture safety", () => {
       "workbench/agents/adapters/queueBackendCapabilityPort.ts",
       "workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
       "workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts",
+      ...queueBridgeSourcePaths(),
     ].map(frontendSource);
     const forbiddenImports = [
       "AgentQueueV2Board",
@@ -5351,4 +5354,13 @@ function frontendSource(path: string) {
   ).process.cwd();
 
   return readFileSync(`${cwd}/src/${path}`, "utf8");
+}
+
+function queueBridgeSourcePaths() {
+  const cwd = (
+    globalThis as unknown as { process: { cwd: () => string } }
+  ).process.cwd();
+  return readdirSync(`${cwd}/src/workbench/agents/adapters/queueBridge`)
+    .filter((name: string) => name.endsWith(".ts"))
+    .map((name: string) => `workbench/agents/adapters/queueBridge/${name}`);
 }

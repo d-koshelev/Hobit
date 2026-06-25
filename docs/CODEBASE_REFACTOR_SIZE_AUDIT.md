@@ -152,6 +152,27 @@ workflow source modules according to the active plan. The
 `workspaceAgentQueueBridgeAdapter.ts` bridge remains the top Priority B bridge
 target after workflow ownership is clearer.
 
+## Block 55 Update
+
+The Workspace Agent Queue bridge adapter
+`apps/desktop/frontend/src/workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts`
+was split by capability group under
+`apps/desktop/frontend/src/workbench/agents/adapters/queueBridge/`.
+
+The original adapter file is now a thin compatibility entrypoint that re-exports
+the stable `createWorkspaceAgentQueueBridgeAdapterApi` API. The old oversized
+source allowlist entry was removed because the facade and all new queueBridge
+source modules are below the 1000-line source threshold.
+
+This was a frontend adapter refactor only: no runtime behavior, Queue workflow
+behavior, Queue UI behavior, visual-shell behavior, backend/Tauri behavior,
+storage/schema behavior, smoke execution, natural-language routing, or
+prose/UI/path id inference changed.
+
+Next refactor focus remains `queueWorkflowRunner.ts` or
+`agent_queue_workflow_resume.rs`, depending on whether the next priority is the
+frontend runner boundary or backend workflow resume ownership.
+
 ## Refactor Priority Plan
 
 ### Priority A: Queue Workflow Ownership

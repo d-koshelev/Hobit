@@ -3,18 +3,8 @@
   "description": "Explicit oversized-file debt for scripts/hobit/check-line-counts.mjs. Guard mode allows these files only while they stay at or below currentLineCount. Do not add source globs.",
   "files": [
     {
-      "path": "apps/desktop/frontend/src/workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
-      "currentLineCount": 5591,
-      "category": "source",
-      "reason": "Workspace Agent Queue bridge adapter currently mixes protocol parsing, capability dispatch, lifecycle mapping, and Queue handoff concerns.",
-      "plannedRefactorBlock": "Priority B - split Workspace Agent Queue bridge by protocol, command mapping, and task/run handoff.",
-      "ownerDomain": "Workspace Agent Queue bridge",
-      "targetMaxLineCount": 700,
-      "removeAfter": "Remove after adapter responsibilities move into focused modules and the facade stays below the source threshold."
-    },
-    {
       "path": "apps/desktop/frontend/src/workbench/agents/adapters/queueAgentCapabilities.test.ts",
-      "currentLineCount": 5354,
+      "currentLineCount": 5366,
       "category": "test",
       "reason": "Queue capability behavior tests are concentrated in one frontend test module.",
       "plannedRefactorBlock": "Priority B - split Queue capability tests by contract, validation, and action family.",
@@ -244,7 +234,7 @@
     },
     {
       "path": "docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md",
-      "currentLineCount": 1519,
+      "currentLineCount": 1528,
       "category": "docs",
       "reason": "Smart Queue status history has accumulated implementation notes beyond the docs warning threshold.",
       "plannedRefactorBlock": "Priority D - archive or split Smart Queue status history in a docs-only cleanup block.",
@@ -344,7 +334,7 @@
     },
     {
       "path": "apps/desktop/frontend/src/workbench/agents/adapters/queue.workflow.test.ts",
-      "currentLineCount": 1295,
+      "currentLineCount": 1308,
       "category": "test",
       "reason": "Queue workflow adapter tests cover multiple workflow action families in one file.",
       "plannedRefactorBlock": "Priority B - split workflow adapter tests by action family and response contract.",
