@@ -1,4 +1,16 @@
 import runnerSource from "./queueWorkflowRunner.ts?raw";
+import createSetupStartHelpersSource from "./queueWorkflowRunner/queueWorkflowCreateSetupStartHelpers.ts?raw";
+import createSetupStartPhaseSource from "./queueWorkflowRunner/queueWorkflowCreateSetupStartPhase.ts?raw";
+import downstreamVerificationSource from "./queueWorkflowRunner/queueWorkflowDownstreamVerification.ts?raw";
+import finalizationHelpersSource from "./queueWorkflowRunner/queueWorkflowFinalizationHelpers.ts?raw";
+import finalizationPhaseSource from "./queueWorkflowRunner/queueWorkflowFinalizationPhase.ts?raw";
+import runnerIndexSource from "./queueWorkflowRunner/index.ts?raw";
+import readSnapshotsSource from "./queueWorkflowRunner/queueWorkflowRunnerReadSnapshots.ts?raw";
+import refsSource from "./queueWorkflowRunner/queueWorkflowRunnerRefs.ts?raw";
+import reportsSource from "./queueWorkflowRunner/queueWorkflowRunnerReports.ts?raw";
+import reviewHelpersSource from "./queueWorkflowRunner/queueWorkflowReviewHelpers.ts?raw";
+import reviewPhaseSource from "./queueWorkflowRunner/queueWorkflowReviewPhase.ts?raw";
+import workerEvidencePhaseSource from "./queueWorkflowRunner/queueWorkflowWorkerEvidencePhase.ts?raw";
 
 import { describe, expect, it } from "vitest";
 
@@ -2396,21 +2408,37 @@ describe("QueueWorkflowRunner", () => {
   });
 
   it("does not import Queue UI, visual shell, providers, Tauri, or WorkerProvider", () => {
-    expect(runnerSource).not.toContain("@tauri-apps");
-    expect(runnerSource).not.toContain("AgentProvider");
-    expect(runnerSource).not.toContain("WorkerProvider");
-    expect(runnerSource).not.toContain("AgentQueueV2Board");
-    expect(runnerSource).not.toContain("AgentQueuePlaceholderWidget");
-    expect(runnerSource).not.toContain("ModuleShell");
-    expect(runnerSource).not.toContain("reviewMessageId");
-    expect(runnerSource).not.toContain("queue.lifecycle.agentFinished");
-    expect(runnerSource).not.toContain("recordWorkerFinished");
-    expect(runnerSource).not.toContain("approveValidation");
-    expect(runnerSource).not.toContain("addFollowUpPrompt");
-    expect(runnerSource).not.toContain("blockItem");
-    expect(runnerSource).not.toContain("startRun");
-    expect(runnerSource).not.toContain("widget.css");
-    expect(runnerSource).not.toContain("queueV2");
+    const runnerSources = [
+      runnerSource,
+      runnerIndexSource,
+      createSetupStartHelpersSource,
+      createSetupStartPhaseSource,
+      downstreamVerificationSource,
+      finalizationHelpersSource,
+      finalizationPhaseSource,
+      readSnapshotsSource,
+      refsSource,
+      reportsSource,
+      reviewHelpersSource,
+      reviewPhaseSource,
+      workerEvidencePhaseSource,
+    ].join("\n");
+
+    expect(runnerSources).not.toContain("@tauri-apps");
+    expect(runnerSources).not.toContain("AgentProvider");
+    expect(runnerSources).not.toContain("WorkerProvider");
+    expect(runnerSources).not.toContain("AgentQueueV2Board");
+    expect(runnerSources).not.toContain("AgentQueuePlaceholderWidget");
+    expect(runnerSources).not.toContain("ModuleShell");
+    expect(runnerSources).not.toContain("reviewMessageId");
+    expect(runnerSources).not.toContain("queue.lifecycle.agentFinished");
+    expect(runnerSources).not.toContain("recordWorkerFinished");
+    expect(runnerSources).not.toContain("approveValidation");
+    expect(runnerSources).not.toContain("addFollowUpPrompt");
+    expect(runnerSources).not.toContain("blockItem");
+    expect(runnerSources).not.toContain("startRun");
+    expect(runnerSources).not.toContain("widget.css");
+    expect(runnerSources).not.toContain("queueV2");
   });
 });
 

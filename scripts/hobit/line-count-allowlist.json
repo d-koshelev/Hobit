@@ -13,16 +13,6 @@
       "removeAfter": "Remove after capability tests are split into focused files below the test threshold."
     },
     {
-      "path": "apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.ts",
-      "currentLineCount": 4940,
-      "category": "source",
-      "reason": "Queue workflow runner combines workflow state transitions, command sequencing, dependency handling, and report assembly.",
-      "plannedRefactorBlock": "Priority A - split Queue workflow runner by state machine, command execution, worker evidence, and reporting boundaries.",
-      "ownerDomain": "Queue workflow runner",
-      "targetMaxLineCount": 700,
-      "removeAfter": "Remove after runner ownership is split and the remaining facade stays below the source threshold."
-    },
-    {
       "path": "crates/hobit-app/src/workspace_service/agent_queue_workflow_resume.rs",
       "currentLineCount": 3863,
       "category": "source",
@@ -74,7 +64,7 @@
     },
     {
       "path": "apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.test.ts",
-      "currentLineCount": 3020,
+      "currentLineCount": 3048,
       "category": "test",
       "reason": "Queue workflow runner tests cover multiple runner phases in one frontend test module.",
       "plannedRefactorBlock": "Priority A - split runner tests by lifecycle phase, dependencies, evidence, and report output.",
@@ -234,7 +224,7 @@
     },
     {
       "path": "docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md",
-      "currentLineCount": 1528,
+      "currentLineCount": 1538,
       "category": "docs",
       "reason": "Smart Queue status history has accumulated implementation notes beyond the docs warning threshold.",
       "plannedRefactorBlock": "Priority D - archive or split Smart Queue status history in a docs-only cleanup block.",

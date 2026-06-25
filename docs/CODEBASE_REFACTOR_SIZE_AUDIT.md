@@ -173,6 +173,31 @@ Next refactor focus remains `queueWorkflowRunner.ts` or
 `agent_queue_workflow_resume.rs`, depending on whether the next priority is the
 frontend runner boundary or backend workflow resume ownership.
 
+## Block 56 Update
+
+The frontend Queue workflow runner
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.ts`
+was split by phase/domain under
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/`.
+
+The original runner file is now a thin compatibility entrypoint that re-exports
+the stable public runner API. Runner types, shared refs, report/event builders,
+read-only snapshots, create/setup/start, backend-owned worker-evidence
+delegation, review create/ACK, finalization, and downstream verification now
+live in focused modules below the source threshold.
+
+This was a frontend runner refactor only: no runtime behavior, Queue workflow
+behavior, Queue UI behavior, visual-shell behavior, backend/Tauri behavior,
+smoke execution, natural-language routing, or prose/UI/path id inference
+changed. Worker evidence remains a backend-owned transition; the frontend
+worker-evidence module only preserves the existing typed delegation/reporting
+boundary.
+
+Next refactor focus remains `agent_queue_workflow_resume.rs` or
+`workspaceAgentBrokerContinuation.ts`, depending on whether the next priority
+is backend workflow resume ownership or Priority B Workspace Agent
+continuation ownership.
+
 ## Refactor Priority Plan
 
 ### Priority A: Queue Workflow Ownership

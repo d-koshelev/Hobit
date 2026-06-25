@@ -81,6 +81,16 @@ now only re-exports the stable adapter API. This was a frontend adapter
 refactor only and did not change Queue runtime behavior, Queue workflow
 semantics, Queue UI behavior, visual-shell behavior, backend/Tauri behavior,
 smoke execution, natural-language routing, or id inference.
+Queue workflow runner ownership was split by phase/domain in Block 56 under
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/`. The
+compatibility entrypoint
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.ts`
+now only re-exports the stable public runner API. This was a frontend runner
+refactor only and did not change runtime behavior, Queue workflow semantics,
+Queue UI behavior, visual-shell behavior, backend/Tauri behavior, smoke
+execution, natural-language routing, or id inference. The worker-evidence phase
+remains backend-owned; the frontend module preserves only the existing typed
+delegation/reporting boundary.
 Restart/recovery hardening is implemented for those existing dependency smoke
 workflows: runner reports no longer overwrite backend-rich slot bindings with
 frontend slot variables, backend report persistence merges authoritative
