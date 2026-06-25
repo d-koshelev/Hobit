@@ -8,6 +8,9 @@
     "build": "tsc -b && vite build --configLoader native",
     "preview": "vite preview",
     "test": "vitest run --configLoader native --pool threads",
+    "report:line-count": "node ../../../scripts/hobit/check-line-counts.mjs --mode report",
+    "check:line-count": "node ../../../scripts/hobit/check-line-counts.mjs --mode guard",
+    "test:line-count": "node --test ../../../scripts/hobit/check-line-counts.test.mjs",
     "typecheck": "tsc -b",
     "tauri:dev": "cd ../src-tauri && tauri dev",
     "tauri:build": "cd ../src-tauri && tauri build"

@@ -93,6 +93,12 @@ warning-only dead-code audit direction, and explicit Finder exclusion. It does
 not add frontend behavior, CSS, backend APIs, storage/schema, runtime behavior,
 validation automation, widget id changes, or new widgets.
 
+`docs/CODEBASE_REFACTOR_SIZE_AUDIT.md` is the docs-only status and plan for the
+line-count audit/guard. It records current oversized source, test, docs, and
+style debt, the explicit allowlist model, and the A-D refactor priority order.
+It does not add runtime behavior, UI behavior, Queue workflow behavior,
+storage/schema changes, or refactor implementation by itself.
+
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
 examples for planning vocabulary only; current Finder behavior is governed by
@@ -1163,7 +1169,9 @@ These documents should not override the Workspace Agent model or
   `docs/EVIDENCE_SOURCES_CONTRACT.md` when the work touches result sharing,
   citations, AI-readable context, or evidence capture.
 - Refactor-only work: read `docs/CODE_ORGANIZATION_CONTRACT.md` and this
-  index; read domain contracts only if behavior boundaries could be affected.
+  index; use `docs/CODEBASE_REFACTOR_SIZE_AUDIT.md` when the block touches
+  oversized-file debt or the A-D refactor plan; read domain contracts only if
+  behavior boundaries could be affected.
 
 ## Stale Doc Rule
 

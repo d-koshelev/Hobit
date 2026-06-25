@@ -136,6 +136,35 @@ newly oversized or grows beyond its baseline while still oversized. Full scans
 report the current debt inventory clearly and fail only active errors or
 ratchet violations.
 
+### `check-line-counts.mjs`
+
+Runs the category-aware oversized-file audit and guard:
+
+```sh
+node scripts/hobit/check-line-counts.mjs --mode report
+node scripts/hobit/check-line-counts.mjs --mode guard
+node scripts/hobit/check-line-counts.mjs --mode report --json
+```
+
+The frontend package also exposes:
+
+```powershell
+npm.cmd run report:line-count --prefix apps/desktop/frontend
+npm.cmd run check:line-count --prefix apps/desktop/frontend
+npm.cmd run test:line-count --prefix apps/desktop/frontend
+```
+
+The script classifies files as source, test, docs, styles, or config; ignores
+generated/vendor/build paths and lockfiles; reports files exceeding category
+thresholds; and fails guard mode when an oversized file is not explicitly
+allowlisted or an allowlisted file grows beyond its recorded line count.
+
+Current debt is recorded in `scripts/hobit/line-count-allowlist.json`.
+Allowlist entries are specific paths only and include owner/domain, reason,
+planned refactor block, target max line count, and remove-after debt notes.
+The current inventory and phased refactor plan live in
+`docs/CODEBASE_REFACTOR_SIZE_AUDIT.md`.
+
 ### `module-map.py`
 
 Prints a compact directory/module map with line counts:
