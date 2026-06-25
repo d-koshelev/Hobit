@@ -29,6 +29,9 @@ use super::{
     QueueItemAggregate, QueueWorkflowAction, QueueWorkflowRun, WorkspaceService,
 };
 
+#[path = "agent_queue_workflow_resume_review.rs"]
+mod resume_review;
+
 const QUEUE_WORKFLOW_SCHEMA_VERSION: i64 = 1;
 const RESUME_STATUS_RESUME_READY: &str = "resume_ready";
 const RESUME_STATUS_RESUME_READ_ONLY_READY: &str = "resume_read_only_ready";
@@ -51,6 +54,8 @@ const RESUME_STATUS_WAITING_FOR_WORKER_EVIDENCE: &str = "waiting_for_worker_evid
 const RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_FAILURE: &str = "retryable_worker_evidence_failure";
 const RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_ACTION_REPAIR: &str =
     "retryable_worker_evidence_action_repair";
+const RESUME_STATUS_RETRYABLE_REVIEW_FAILURE_BEFORE_MUTATION: &str =
+    "retryable_review_failure_before_mutation";
 const RESUME_STATUS_TERMINAL_COMPLETED: &str = "terminal_completed";
 const RESUME_STATUS_TERMINAL_FAILED: &str = "terminal_failed";
 const RESUME_STATUS_TERMINAL_CANCELLED: &str = "terminal_cancelled";
@@ -79,6 +84,7 @@ pub enum QueueWorkflowResumePlanStatus {
     WaitingForWorkerEvidence,
     RetryableWorkerEvidenceFailure,
     RetryableWorkerEvidenceActionRepair,
+    RetryableReviewFailureBeforeMutation,
     TerminalCompleted,
     TerminalFailed,
     TerminalCancelled,
@@ -112,6 +118,9 @@ impl QueueWorkflowResumePlanStatus {
             Self::RetryableWorkerEvidenceFailure => RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_FAILURE,
             Self::RetryableWorkerEvidenceActionRepair => {
                 RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_ACTION_REPAIR
+            }
+            Self::RetryableReviewFailureBeforeMutation => {
+                RESUME_STATUS_RETRYABLE_REVIEW_FAILURE_BEFORE_MUTATION
             }
             Self::TerminalCompleted => RESUME_STATUS_TERMINAL_COMPLETED,
             Self::TerminalFailed => RESUME_STATUS_TERMINAL_FAILED,
@@ -384,6 +393,14 @@ impl WorkspaceService {
                 )? {
                     return Ok(Some(plan));
                 }
+                if let Some(plan) = resume_review::retryable_review_failure_before_mutation_plan(
+                    self,
+                    &workspace_id,
+                    workflow_run.clone(),
+                    actions.clone(),
+                )? {
+                    return Ok(Some(plan));
+                }
                 let current_step = workflow_run.current_step.clone();
                 return Ok(Some(plan_with_status(
                     workflow_run,
@@ -600,6 +617,11 @@ impl WorkspaceService {
             reconciled_slots
                 .iter()
                 .flat_map(|slot| slot.blockers.clone()),
+        );
+        resume_review::filter_downstream_promote_mismatch_after_review_ack(
+            &workflow_run,
+            &reconciled_slots,
+            &mut blockers,
         );
 
         let mut derived = if blockers.is_empty() {
@@ -3268,8 +3290,8 @@ fn derive_next_step(
     if failure_workflow && failure_reason(inputs, variables).is_none() {
         return DerivedStep {
             status: QueueWorkflowResumePlanStatus::BlockedStateMismatch,
-            next_phase: Some("decision".to_owned()),
-            next_step: Some("fail_ready".to_owned()),
+            next_phase: Some("finalization".to_owned()),
+            next_step: Some("awaiting_finalization".to_owned()),
             required_fresh_grant: true,
             required_confirmation: true,
             blockers: vec![blocker(
@@ -3283,12 +3305,8 @@ fn derive_next_step(
 
     DerivedStep {
         status: QueueWorkflowResumePlanStatus::BlockedMissingConfirmation,
-        next_phase: Some("decision".to_owned()),
-        next_step: Some(if failure_workflow {
-            "fail_ready".to_owned()
-        } else {
-            "mark_done_ready".to_owned()
-        }),
+        next_phase: Some("finalization".to_owned()),
+        next_step: Some("awaiting_finalization".to_owned()),
         required_fresh_grant: true,
         required_confirmation: true,
         blockers: vec![blocker(

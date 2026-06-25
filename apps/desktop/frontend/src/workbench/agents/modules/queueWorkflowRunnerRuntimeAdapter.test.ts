@@ -26,6 +26,7 @@ import {
   runQueueWorkflowRunnerRuntimeAdapter,
   type QueueWorkflowPersistencePort,
 } from "./queueWorkflowRunnerRuntimeAdapter";
+import { reviewStepResult } from "./queueWorkflowRunnerReviewStepTestHelpers";
 
 describe("QueueWorkflowRunnerRuntimeAdapter", () => {
   it("invokes read-only runner for valid dependency_acceptance_smoke with explicit ids", async () => {
@@ -625,7 +626,7 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(workflowBridge.calls).toEqual([]);
   });
 
-  it("review phase calls evidence, create review message, and ACK review message", async () => {
+  it("review phase delegates create and ACK to the backend review step", async () => {
     const persistence = workflowPersistence();
     const bridge = queueBridge({
       ackReviewMessage: vi.fn(async () => reviewCommandResult()),
@@ -660,44 +661,29 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(result).toMatchObject({
       invoked: true,
       phase: "review",
-      status: "completed",
+      status: "paused",
     });
-    expect(bridge.getWorkerEvidenceBundle).toHaveBeenCalledWith({
-      runId: "run-upstream",
-      taskId: "task-upstream",
-    });
-    expect(bridge.createReviewMessage).toHaveBeenCalledWith(
+    expect(
+      persistence.executeAgentQueueWorkflowReviewStep,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
         actorId: "workspace-agent:test",
-        evidenceBundleId: "bundle-upstream",
-        runId: "run-upstream",
-        taskId: "task-upstream",
+        slot: "upstream",
+        workflowRunId: "queue-workflow-run-1",
+        workspaceId: "workspace-1",
       }),
     );
-    expect(bridge.ackReviewMessage).toHaveBeenCalledWith({
-      actorId: "workspace-agent:test",
-      messageId: "message-upstream",
-      taskId: "task-upstream",
-    });
-    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actions: expect.arrayContaining([
-          expect.objectContaining({ actionType: "queue.evidence.lookup" }),
-          expect.objectContaining({
-            actionType: "queue.review.createMessage",
-            status: "completed",
-          }),
-          expect.objectContaining({
-            actionType: "queue.review.ack",
-            status: "completed",
-          }),
-        ]),
-      }),
-    );
+    expect(bridge.getWorkerEvidenceBundle).not.toHaveBeenCalled();
+    expect(bridge.createReviewMessage).not.toHaveBeenCalled();
+    expect(bridge.ackReviewMessage).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
+    expect(result.runnerResult?.report.review.status).toBe("review_acknowledged");
+    expect(result.runnerResult?.report.nextMutatingPhase).toBe("finalization");
     expect(bridge.markItemDone).not.toHaveBeenCalled();
   });
 
-  it("supports validation-deferred review_acceptance only through review runner inputs", async () => {
+  it("delegates validation-deferred review_acceptance to the backend review step", async () => {
+    const persistence = workflowPersistence();
     const bridge = queueBridge({
       ackReviewMessage: vi.fn(async () => reviewCommandResult()),
       createReviewMessage: vi.fn(async () => reviewCreateResult()),
@@ -713,6 +699,7 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
 
     const result = await runAdapter({
       queueBridge: bridge,
+      workflowPersistence: persistence,
       workflowRequestRead: validRead(
         workflowRequest({
           grant: validGrant("queue_acceptance_smoke"),
@@ -729,10 +716,12 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(result).toMatchObject({
       invoked: true,
       phase: "review",
-      status: "completed",
+      status: "paused",
     });
-    expect(bridge.createReviewMessage).toHaveBeenCalled();
-    expect(bridge.ackReviewMessage).toHaveBeenCalled();
+    expect(persistence.executeAgentQueueWorkflowReviewStep).toHaveBeenCalled();
+    expect(bridge.createReviewMessage).not.toHaveBeenCalled();
+    expect(bridge.ackReviewMessage).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
   });
 
   it("acceptance finalization calls markDone only after confirmation and review precondition", async () => {
@@ -1336,7 +1325,7 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(result.runnerResult?.report.mutationSummary.didMutateQueue).toBe(false);
   });
 
-  it("resumes review create and ACK after worker evidence is durable", async () => {
+  it("resumes review create and ACK through the backend review step", async () => {
     const persistence = workflowPersistence({
       planAgentQueueWorkflowResume: vi.fn(async () => reviewCreateResumePlan()),
     });
@@ -1365,33 +1354,22 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(result).toMatchObject({
       invoked: true,
       phase: "review",
-      status: "completed",
+      status: "paused",
       workflowRunId: "queue-workflow-run-1",
     });
-    expect(bridge.createReviewMessage).toHaveBeenCalledWith(
+    expect(persistence.executeAgentQueueWorkflowReviewStep).toHaveBeenCalledWith(
       expect.objectContaining({
-        evidenceBundleId: "bundle-upstream",
-        runId: "run-upstream",
-        taskId: "task-upstream",
-      }),
-    );
-    expect(bridge.ackReviewMessage).toHaveBeenCalledWith(
-      expect.objectContaining({
-        messageId: "message-upstream",
-        taskId: "task-upstream",
-      }),
-    );
-    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        currentStep: "review_ack",
-        phase: "review",
-        status: "paused",
+        slot: "upstream",
         workflowRunId: "queue-workflow-run-1",
+        workspaceId: "workspace-1",
       }),
     );
+    expect(bridge.createReviewMessage).not.toHaveBeenCalled();
+    expect(bridge.ackReviewMessage).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
   });
 
-  it("resumes review ACK from durable messageId without creating another message", async () => {
+  it("resumes review ACK from durable messageId through the backend step", async () => {
     const persistence = workflowPersistence({
       planAgentQueueWorkflowResume: vi.fn(async () => reviewAckResumePlan()),
     });
@@ -1420,13 +1398,14 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(result).toMatchObject({
       invoked: true,
       phase: "review",
-      status: "completed",
+      status: "paused",
     });
     expect(bridge.createReviewMessage).not.toHaveBeenCalled();
-    expect(bridge.ackReviewMessage).toHaveBeenCalledWith(
+    expect(bridge.ackReviewMessage).not.toHaveBeenCalled();
+    expect(persistence.executeAgentQueueWorkflowReviewStep).toHaveBeenCalledWith(
       expect.objectContaining({
-        messageId: "message-upstream",
-        taskId: "task-upstream",
+        slot: "upstream",
+        workflowRunId: "queue-workflow-run-1",
       }),
     );
   });
@@ -1801,6 +1780,9 @@ function workflowPersistence(
   overrides: Partial<QueueWorkflowPersistencePort> = {},
 ): QueueWorkflowPersistencePort {
   return {
+    executeAgentQueueWorkflowReviewStep: vi.fn(async (request) =>
+      reviewStepResult({ request }),
+    ),
     executeAgentQueueWorkflowWorkerEvidenceStep: vi.fn(async (request) =>
       workerEvidenceStepResult({ request }),
     ),

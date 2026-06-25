@@ -49,6 +49,7 @@ import {
   recordAgentQueueWorkflowWorkerEvidence,
   startAgentQueueWorkflow,
 } from "../../workspace/tauriAgentQueueWorkflowApi";
+import { executeAgentQueueWorkflowReviewStep } from "../../workspace/tauriAgentQueueWorkflowReviewStepApi";
 import {
   createWorkspaceAgentQueueBridge,
   type WorkspaceAgentQueueAutonomousActionName,
@@ -539,6 +540,7 @@ export function useWorkspaceQueueApi({
     invokeHobitAgentActionRequest,
     queueWorkflowPersistence: {
       planAgentQueueWorkflowResume,
+      executeAgentQueueWorkflowReviewStep,
       executeAgentQueueWorkflowWorkerEvidenceStep,
       recordAgentQueueWorkflowRunnerReport,
       recordAgentQueueWorkflowWorkerEvidence,

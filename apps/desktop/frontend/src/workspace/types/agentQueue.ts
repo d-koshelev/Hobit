@@ -990,6 +990,7 @@ export type AgentQueueWorkflowResumePlanStatus =
   | "waiting_for_worker_evidence"
   | "retryable_worker_evidence_failure"
   | "retryable_worker_evidence_action_repair"
+  | "retryable_review_failure_before_mutation"
   | "terminal_completed"
   | "terminal_failed"
   | "terminal_cancelled"

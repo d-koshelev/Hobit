@@ -286,6 +286,10 @@ run validation, mutate Git, roll back, launch Terminal, start workers,
 create/update/promote tasks, enable Queue, start downstream, or infer ids from
 prose/UI/session state.
 
+Queue workflow review now has a backend-owned StepPlan / StepResult MVP for
+dependency-smoke workflows: phase `review` creates/reuses and ACKs the review
+message, persists `messageId`, pauses before finalization, supports queue-local run links without `widget_runs`, and retries strict pre-mutation live failures.
+
 Queue capability contract hardening is implemented at the manifest, instruction,
 adapter, and test boundary. Every registered `queue.*` capability is covered by
 a compact contract inventory that records implementation/backing status,
@@ -391,19 +395,15 @@ Queue workflow ids still report not declared. A deterministic
 `QueueWorkflowRunner` now exists under the Queue module control-plane code with
 separate create/setup/start, worker-evidence, read-only, review, and
 finalization phases. It can consume validated
-Queue workflow requests and inspect explicit existing Queue
-aggregate/lifecycle/evidence ids through an injected read port, returning
-workflow-local variables, read snapshots, steps, events, blockers, pause
-reasons, and a structured report. The worker-evidence phase can resume from
-typed upstream task/run completion input, record or reconcile durable evidence
-through the backend workflow evidence command, persist `evidenceBundleId`, and
-stop before review. The review phase can additionally resolve evidence, create
-a backend review message, and ACK that review message through an injected
-review port when all required explicit typed ids are present. The finalization
-phase can call an injected typed finalization port to mark the explicit
-upstream done for `dependency_acceptance_smoke` or failed for
-`dependency_failure_smoke`, with exact structured confirmation, explicit
-failure reason for failure, and review ACK/precondition proof. It verifies
+Queue workflow requests and inspect explicit existing Queue ids through an
+injected read port, returning workflow-local variables, read snapshots, steps,
+events, blockers, pause reasons, and a structured report. Worker-evidence and
+review phases now delegate mutation to backend workflow commands/steps and stop
+before finalization. The finalization phase can call an injected typed
+finalization port to mark the explicit upstream done for
+`dependency_acceptance_smoke` or failed for `dependency_failure_smoke`, with
+exact structured confirmation, explicit failure reason for failure, and review
+ACK/precondition proof. It verifies
 explicit downstream dependency/no-auto-start state when a downstream task id is
 available and reports verification missing when it is not. It requires explicit
 task/run/evidence/message ids and does not infer ids from title, prompt, prose,

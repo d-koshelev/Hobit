@@ -22,6 +22,7 @@ import {
   recordAgentQueueWorkflowWorkerEvidence,
   startAgentQueueWorkflow,
 } from "./tauriAgentQueueWorkflowApi";
+import { executeAgentQueueWorkflowReviewStep } from "./tauriAgentQueueWorkflowReviewStepApi";
 
 const tauriRun = {
   action_log_summary_json: "{\"count\":0}",
@@ -752,6 +753,104 @@ describe("queueWorkflow Tauri API wrapper", () => {
           task_id: "task_1",
           validation_summary: null,
           worker_id: "workspace-agent",
+          workflow_run_id: "workflow_run_1",
+          workspace_id: "workspace_1",
+        },
+      },
+    );
+  });
+
+  it("executes queueWorkflow review through the backend step Tauri command", async () => {
+    const createAction = {
+      action_id: "action_review_create",
+      action_type: "queue.review.createMessage",
+      attempt_count: 1,
+      blocker_code: null,
+      blocker_message: null,
+      completed_at: "2026-06-22T10:03:00Z",
+      created_at: "2026-06-22T10:03:00Z",
+      idempotency_key:
+        "workflow_run_1:create_review_message:upstream:task_1:run_1:bundle_1",
+      result_refs_json: "{\"messageId\":\"message_1\"}",
+      started_at: "2026-06-22T10:03:00Z",
+      status: "completed",
+      step_id: "review.create",
+      target_refs_json: "{\"taskId\":\"task_1\"}",
+      updated_at: "2026-06-22T10:03:00Z",
+      workflow_run_id: "workflow_run_1",
+      workspace_id: "workspace_1",
+    };
+    mocks.invoke.mockResolvedValueOnce({
+      ack_action: {
+        ...createAction,
+        action_id: "action_review_ack",
+        action_type: "queue.review.ack",
+        idempotency_key: "workflow_run_1:ack_review_message:upstream:message_1",
+        step_id: "review.ack",
+      },
+      ack_status: "acknowledged",
+      binding: {
+        ack_action_id: "action_review_ack",
+        ack_action_idempotency_key:
+          "workflow_run_1:ack_review_message:upstream:message_1",
+        ack_status: "acknowledged",
+        create_action_id: "action_review_create",
+        create_action_idempotency_key:
+          "workflow_run_1:create_review_message:upstream:task_1:run_1:bundle_1",
+        evidence_bundle_id: "bundle_1",
+        message_id: "message_1",
+        review_acked_at: "2026-06-22T10:03:00Z",
+        review_created_at: "2026-06-22T10:03:00Z",
+        run_id: "run_1",
+        slot: "upstream",
+        task_id: "task_1",
+      },
+      blockers: [],
+      conflict: null,
+      create_action: createAction,
+      message_id: "message_1",
+      next_phase: "finalization",
+      next_step: "awaiting_finalization",
+      status: "executed",
+      transition: "review",
+      workflow_run: { ...tauriRun, current_step: "awaiting_finalization" },
+      workflow_run_id: "workflow_run_1",
+    });
+
+    await expect(
+      executeAgentQueueWorkflowReviewStep({
+        actorId: "workspace-agent",
+        grantSummary: { constraints: { noDownstreamAutoStart: true } },
+        requestId: "request_1",
+        slot: "upstream",
+        workflowRunId: "workflow_run_1",
+        workspaceId: "workspace_1",
+      }),
+    ).resolves.toMatchObject({
+      ackAction: { actionId: "action_review_ack" },
+      ackStatus: "acknowledged",
+      binding: {
+        evidenceBundleId: "bundle_1",
+        messageId: "message_1",
+        runId: "run_1",
+        slot: "upstream",
+        taskId: "task_1",
+      },
+      createAction: { actionId: "action_review_create" },
+      messageId: "message_1",
+      nextPhase: "finalization",
+      nextStep: "awaiting_finalization",
+      status: "executed",
+      workflowRun: { ...expectedRun, currentStep: "awaiting_finalization" },
+    });
+    expect(mocks.invoke).toHaveBeenLastCalledWith(
+      "execute_agent_queue_workflow_review_step",
+      {
+        request: {
+          actor_id: "workspace-agent",
+          grant_summary: { constraints: { noDownstreamAutoStart: true } },
+          request_id: "request_1",
+          slot: "upstream",
           workflow_run_id: "workflow_run_1",
           workspace_id: "workspace_1",
         },

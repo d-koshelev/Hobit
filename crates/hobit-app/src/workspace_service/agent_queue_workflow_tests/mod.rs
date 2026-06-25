@@ -13,6 +13,7 @@ mod resume_immutability_tests;
 mod resume_lifecycle_tests;
 mod resume_setup_tests;
 mod resume_worker_tests;
+mod review_step_tests;
 mod review_tests;
 mod setup_tests;
 mod start_tests;

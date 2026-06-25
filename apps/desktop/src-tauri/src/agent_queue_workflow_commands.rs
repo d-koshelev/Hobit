@@ -16,6 +16,9 @@ use crate::agent_queue_workflow_dto::{
     PromoteAgentQueueWorkflowTaskSlotRequest, RecordAgentQueueWorkflowRunnerReportRequest,
     RecordAgentQueueWorkflowWorkerEvidenceRequest, StartAgentQueueWorkflowRequest,
 };
+use crate::agent_queue_workflow_review_step_dto::{
+    AgentQueueWorkflowReviewStepResultDto, ExecuteAgentQueueWorkflowReviewStepRequest,
+};
 use crate::app_state::AppState;
 
 #[tauri::command]
@@ -193,6 +196,25 @@ pub(crate) fn execute_agent_queue_workflow_worker_evidence_step_blocking(
     service
         .execute_queue_workflow_worker_evidence_step(request.into())
         .map(AgentQueueWorkflowWorkerEvidenceStepResultDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn execute_agent_queue_workflow_review_step(
+    request: ExecuteAgentQueueWorkflowReviewStepRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueWorkflowReviewStepResultDto, String> {
+    execute_agent_queue_workflow_review_step_blocking(request, state.db_path().to_path_buf())
+}
+
+pub(crate) fn execute_agent_queue_workflow_review_step_blocking(
+    request: ExecuteAgentQueueWorkflowReviewStepRequest,
+    db_path: PathBuf,
+) -> Result<AgentQueueWorkflowReviewStepResultDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .execute_queue_workflow_review_step(request.into())
+        .map(AgentQueueWorkflowReviewStepResultDto::from)
         .map_err(command_error)
 }
 

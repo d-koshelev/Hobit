@@ -380,15 +380,19 @@ Continuation inputs:
   matches task/workspace ownership and settings/execution-target hashes; do
   not repair the database manually or infer the id from prose/UI text.
 - Review: use `metadata.workflowRunId` plus `inputs.phase: "review"`.
-  Normally resume planning supplies task/run/evidence/message bindings. If a
-  checkpoint lacks a durable binding, provide explicit `taskIdsBySlot`,
-  `runIdsBySlot`, `evidenceBundleIdsBySlot`, and/or `messageIdsBySlot`.
-  ACK uses canonical `messageId`; stale `reviewMessageId` is not an ACK input.
+  The runtime adapter delegates this phase to the backend review step; do not
+  expect frontend raw review create/ACK runner actions. Normally resume
+  planning supplies task/run/evidence/message bindings. The backend creates or
+  reuses the durable review message, ACKs it idempotently, persists
+  `messageId` into the workflow slot binding, and pauses at
+  `finalization / awaiting_finalization`. ACK uses canonical `messageId`;
+  stale `reviewMessageId` is not an ACK input.
 - Acceptance finalization: use `metadata.workflowRunId`,
   `inputs.phase: "finalization"`, and fresh
   `grant.confirmationToken: "operator-confirmed"`.
 - Failure finalization: same as acceptance finalization, plus typed
-  `inputs.failureReason`.
+  `inputs.failureReason`. Finalization remains the current frontend-led
+  workflow runner phase and is the next backend-owned transition target.
 
 Schematic initial request shape:
 

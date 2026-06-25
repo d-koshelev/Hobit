@@ -14,7 +14,7 @@
     },
     {
       "path": "crates/hobit-app/src/workspace_service/agent_queue_workflow_resume.rs",
-      "currentLineCount": 3863,
+      "currentLineCount": 3881,
       "category": "source",
       "reason": "Queue workflow resume owns too much continuation, action-ledger, report, and resume-planning behavior in one backend module.",
       "plannedRefactorBlock": "Priority A - split resume planning, action ledger reads, report assembly, and resume command ownership.",
@@ -114,7 +114,7 @@
     },
     {
       "path": "apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.ts",
-      "currentLineCount": 2340,
+      "currentLineCount": 2362,
       "category": "source",
       "reason": "Runtime adapter mixes frontend workflow runner persistence, API adapter, and result/report persistence concerns.",
       "plannedRefactorBlock": "Priority A - split runtime adapter by API access, result persistence, and runner handoff.",
@@ -184,7 +184,7 @@
     },
     {
       "path": "apps/desktop/frontend/src/workspace/types/agentQueue.ts",
-      "currentLineCount": 1610,
+      "currentLineCount": 1611,
       "category": "source",
       "reason": "Agent Queue frontend DTO/type definitions include multiple workflow, task, run-link, and context shapes in one file.",
       "plannedRefactorBlock": "Priority C - split Queue frontend types by task, workflow, run history, and context ownership.",
@@ -274,7 +274,7 @@
     },
     {
       "path": "apps/desktop/frontend/src/workbench/queue/useWorkspaceQueueApi.ts",
-      "currentLineCount": 1393,
+      "currentLineCount": 1395,
       "category": "source",
       "reason": "Workspace Queue API hook wraps task, assignment, workflow, history, and context paths in one frontend module.",
       "plannedRefactorBlock": "Priority C - split Workspace Queue API hook by task CRUD, workflow control, run history, and context attach.",

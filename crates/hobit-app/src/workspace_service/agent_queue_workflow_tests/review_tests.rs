@@ -175,7 +175,8 @@ fn plan_resume_after_ack_requires_fresh_confirmation_for_finalization() {
         plan.status,
         QueueWorkflowResumePlanStatus::BlockedMissingConfirmation
     );
-    assert_eq!(plan.next_step.as_deref(), Some("mark_done_ready"));
+    assert_eq!(plan.next_phase.as_deref(), Some("finalization"));
+    assert_eq!(plan.next_step.as_deref(), Some("awaiting_finalization"));
     assert!(plan.required_fresh_grant);
     assert!(plan.required_confirmation);
     assert!(plan

@@ -70,8 +70,8 @@ fn plan_resume_failure_workflow_uses_failure_reason_after_completed_evidence() {
         plan.status,
         QueueWorkflowResumePlanStatus::BlockedMissingConfirmation
     );
-    assert_eq!(plan.next_phase.as_deref(), Some("decision"));
-    assert_eq!(plan.next_step.as_deref(), Some("fail_ready"));
+    assert_eq!(plan.next_phase.as_deref(), Some("finalization"));
+    assert_eq!(plan.next_step.as_deref(), Some("awaiting_finalization"));
     assert!(plan.required_fresh_grant);
     assert!(plan.required_confirmation);
 }

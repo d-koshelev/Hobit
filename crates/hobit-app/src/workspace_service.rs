@@ -70,6 +70,7 @@ mod agent_queue_workflow;
 mod agent_queue_workflow_evidence;
 mod agent_queue_workflow_materialization;
 mod agent_queue_workflow_resume;
+mod agent_queue_workflow_review;
 mod agent_queue_workflow_setup;
 #[cfg(test)]
 mod agent_queue_workflow_tests;
@@ -250,6 +251,11 @@ pub use agent_queue_workflow_resume::{
     QueueWorkflowPlanResumeRequest, QueueWorkflowResumeBlocker, QueueWorkflowResumePlan,
     QueueWorkflowResumePlanStatus, QueueWorkflowSlotReconciliation,
     QueueWorkflowTaskResumeSnapshot,
+};
+pub use agent_queue_workflow_review::{
+    QueueWorkflowReviewBindingSummary, QueueWorkflowReviewStepPlan, QueueWorkflowReviewStepRequest,
+    QueueWorkflowReviewStepResult, QueueWorkflowReviewStepResultStatus,
+    QueueWorkflowReviewStepTransition,
 };
 pub use agent_queue_workflow_setup::{
     QueueWorkflowApplyRunSettingsRequest, QueueWorkflowApplyRunSettingsResult,

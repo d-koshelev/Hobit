@@ -206,13 +206,20 @@ stops at `awaiting_review`. It does not create review messages, ACK reviews,
 finalize, block/follow up, validate, mutate Git, roll back, launch Terminal,
 start any worker, or start downstream work.
 
-Worker-evidence retry is the only narrow terminal workflow re-entry exception.
+Worker-evidence retry remains a narrow terminal workflow re-entry exception.
 If `queue.workflow.planResume` or the backend evidence command proves
 `retryable_worker_evidence_failure` or
 `retryable_worker_evidence_action_repair`, the runtime adapter may invoke only
 the typed `worker_evidence` phase for the existing workflow run with explicit
 `workerEvidence`; it must not create a new workflow, start a worker, create or
-ACK review, finalize, or mutate downstream state. Completed and cancelled
+ACK review, finalize, or mutate downstream state.
+
+Review-before-mutation retry is the second narrow exception. If the backend
+review resolver proves `retryable_review_failure_before_mutation`, the runtime
+adapter may invoke only the backend-owned review step for the existing workflow
+run. The proof requires durable worker evidence, no review message/ACK, no
+terminal task decision, no downstream start, no review mutation action, and
+only stale diagnostic read history after evidence. Completed and cancelled
 workflow runs never re-enter, and arbitrary failed or blocked workflow runs
 remain protected by the terminal guard.
 
@@ -228,14 +235,15 @@ prompts, prose, UI selection, UI order, file paths, or repository roots.
 
 The read-only phase uses only an injected `QueueWorkflowReadPort` with read
 methods for Queue aggregate, lifecycle, list, and evidence inspection. The
-worker-evidence phase is owned by the backend StepPlan/StepResult API and is
-not implemented through frontend phase-specific evidence mutation. The review
-phase uses the read port plus a separate
-injected
-`QueueWorkflowReviewPort` for review message create and ACK commands. The
-finalization phase uses the read port plus a separate injected
-`QueueWorkflowFinalizationPort` for explicit accepted completion or terminal
-failure commands. Tests use fake ports. The runner does not import Queue UI,
+worker-evidence and review phases are owned by backend StepPlan/StepResult
+APIs and are not implemented through frontend phase-specific mutation logic.
+For review, the runtime adapter passes `workflowRunId`, optional slot, fresh
+grant summary, actor, and request id to the backend review step, then renders
+the returned StepResult; it does not call raw frontend review create/ACK ports
+and does not synthesize review action ledger rows. The finalization phase still
+uses the read port plus a separate injected `QueueWorkflowFinalizationPort` for
+explicit accepted completion or terminal failure commands and is the next
+migration target. Tests use fake ports. The runner does not import Queue UI,
 visual shell modules, Tauri APIs, AgentProvider, WorkerProvider, Action Broker
 invocation, or Queue adapter mutation handlers.
 
@@ -248,25 +256,18 @@ for the required `upstream` and `downstream` slots, the runner pauses with
 The read-only runner still treats `review_acceptance` and `terminal_failure` as
 `input_validation_deferred` and does not inspect or execute them.
 
-The same module now also exposes an explicit Queue review runner phase through
-an injected `QueueWorkflowReviewPort`. The review runner is provider-
-independent and UI-independent. It can read lifecycle/aggregate state, read a
-durable evidence bundle, create a backend review message, and ACK that review
-message when all required typed ids are present. For dependency smoke
-workflows, review targets only the explicit `upstream` slot and requires an
-explicit upstream `taskId` plus explicit `runId` or `evidenceBundleId`.
-`review_acceptance` is supported only through a minimal explicit typed input
-shape such as `inputs.taskId` plus `inputs.runId` or
-`inputs.evidenceBundleId`; its generic Workspace Agent request validation
-remains deferred. Scope arrays bound ids but never assign slots by order.
-
-Review runner statuses include `review_acknowledged`,
-`review_blocked_missing_evidence`, `review_blocked_missing_task_or_run`,
-`review_message_already_exists`, `review_not_supported_for_workflow`, and
-`failed_unexpected`. Duplicate review creation with an existing `messageId`
-is idempotent and can continue to ACK. ACK `already_done` or `already_exists`
-is also idempotent. ACK uses canonical `messageId`; compatibility
-`reviewMessageId` is not a runner input.
+The backend review step targets dependency smoke workflows and currently
+defaults to the explicit `upstream` slot. Planning and execution share one
+resolver for task/run/evidence/message refs, canonical action keys, durable
+Queue facts, blockers, conflicts, and slot-binding updates. It creates or
+reuses a durable review message, ACKs idempotently, records completed
+`queue.review.createMessage` and `queue.review.ack` workflow actions, persists
+`messageId` into the slot binding and variables, and moves the workflow to
+`review / awaiting_finalization` with `nextPhase=finalization`. It validates
+queue-local run identity through `agent_queue_task_run_links`; review messages
+do not require `widget_runs` rows and no synthetic widget runs are created.
+It does not finalize, mark done, fail, start workers, start downstream, run
+validation, mutate Git, launch Terminal, or infer ids from prose/UI state.
 
 The same module now also exposes an explicit Queue finalization runner phase
 through an injected `QueueWorkflowFinalizationPort`. For
@@ -671,7 +672,8 @@ Resume planner statuses are typed and stable: `resume_ready`,
 `blocked_missing_review_ack`, `blocked_missing_evidence`,
 `waiting_for_worker_evidence`,
 `retryable_worker_evidence_failure`,
-`retryable_worker_evidence_action_repair`, `blocked_missing_confirmation`,
+`retryable_worker_evidence_action_repair`,
+`retryable_review_failure_before_mutation`, `blocked_missing_confirmation`,
 `blocked_stale_grant`, `terminal_completed`, `terminal_failed`,
 `terminal_cancelled`, `unsupported_phase`, `failed_unexpected`, and
 `version_conflict`. `retryable_worker_evidence_failure` is read-only proof that

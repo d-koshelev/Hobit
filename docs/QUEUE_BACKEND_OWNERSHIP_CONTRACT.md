@@ -153,21 +153,35 @@ up, validate, mutate Git, roll back, launch Terminal, start workers, start
 downstream work, create/update/promote tasks, enable Queue, or infer ids from
 prose/UI/session state.
 
-The typed Queue workflow runtime adapter can now complete both
-`dependency_acceptance_smoke` and `dependency_failure_smoke` end to end by
-using only backend-owned workflow, aggregate, review, worker-evidence, and
-finalization APIs. It resumes from an explicit `metadata.workflowRunId`, calls
-the read-only resume planner before each continuation phase,
-records/reconciles upstream evidence, creates and ACKs a durable review message
-from explicit durable ids, then finalizes only the upstream task with a fresh
-exact structured confirmation. Acceptance marks the upstream done and verifies
-the explicit downstream task's dependency-ready/no-auto-start state. Failure
-requires typed `failureReason`, fails the upstream task, and verifies the
-explicit downstream task's `failed_upstream`/no-auto-start state. The workflow
-report may persist bounded task/run/evidence/message/decision refs, sanitized
-failure reason, and action counts, but must not persist raw transcripts,
-reusable confirmation tokens, validation output, Git output, Terminal output,
-rollback output, or downstream worker starts.
+Workflow-owned review is a separate narrow backend/domain transition step.
+Planning and execution must share the same review resolver, canonical refs,
+preconditions, blocker taxonomy, slot-binding merge behavior, and action-ledger
+behavior. The resolver validates the persisted workflow run, explicit slot,
+task, queue-local run link, durable evidence bundle, existing review message,
+terminal decision absence, downstream-not-started state, and fresh grant
+constraints. The canonical create action key is
+`workflowRunId:create_review_message:slot:taskId:runId:evidenceBundleId`; the
+canonical ACK action key is
+`workflowRunId:ack_review_message:slot:messageId`. Execution creates or reuses
+the review message, ACKs it idempotently, records completed create/ACK action
+rows, persists `messageId` and review action refs into workflow state, and
+pauses at `review / awaiting_finalization` with `nextPhase=finalization`.
+Backend-owned `queue_local` review runs validate through
+`agent_queue_task_run_links`; `agent_queue_review_messages.run_id` does not
+require a `widget_runs` row and no synthetic widget run is created. This path
+must not finalize, mark done, fail, block, follow up, validate, mutate Git,
+roll back, launch Terminal, start workers, start downstream work,
+create/update/promote tasks, enable Queue, or infer ids from prose/UI/session
+state.
+
+The typed Queue workflow runtime adapter now delegates both `worker_evidence`
+and `review` dependency-smoke transitions to backend StepResult APIs. It
+resumes from an explicit `metadata.workflowRunId`, calls the read-only resume
+planner before continuation phases, records/reconciles upstream evidence
+through the backend worker-evidence step, and creates/ACKs durable review
+messages through the backend review step. Finalization remains the current
+frontend-led workflow runner phase over explicit backend completion/failure
+commands and is the next migration target.
 
 Resume planning must reconcile only explicit persisted bindings and variables:
 task ids, run ids, evidence bundle ids, review message ids, completion decision
@@ -203,6 +217,12 @@ require fresh exact structured confirmation. Review create/ACK restart targets
 require durable evidence/message ids and a fresh grant, but they must not
 replay or persist reusable confirmation tokens. Persisted confirmation tokens
 are never replayed.
+The only terminal failed review retry allowed today is
+`retryable_review_failure_before_mutation`, which requires strict proof that
+review failed before durable review mutation: durable worker evidence exists,
+no review message or ACK exists, no terminal task decision exists, downstream
+has not started, no review mutation action or partial message result exists,
+and only stale diagnostic read history remains after evidence.
 
 ## Backend-Backed Capabilities
 

@@ -39,7 +39,7 @@ import {
   type TauriAgentQueueItemAggregate,
 } from "./tauriAgentQueueAggregateApi";
 
-type TauriAgentQueueWorkflowRun = {
+export type TauriAgentQueueWorkflowRun = {
   workflow_run_id: string;
   workspace_id: string;
   workflow_id: string;
@@ -65,7 +65,7 @@ type TauriAgentQueueWorkflowRun = {
   completed_at: string | null;
 };
 
-type TauriAgentQueueWorkflowAction = {
+export type TauriAgentQueueWorkflowAction = {
   action_id: string;
   workflow_run_id: string;
   workspace_id: string;
@@ -84,13 +84,13 @@ type TauriAgentQueueWorkflowAction = {
   updated_at: string;
 };
 
-type TauriAgentQueueWorkflowCommandBlocker = {
+export type TauriAgentQueueWorkflowCommandBlocker = {
   blocker_code: string;
   blocker_message: string;
   missing_required_field: string | null;
 };
 
-type TauriAgentQueueWorkflowConflict = {
+export type TauriAgentQueueWorkflowConflict = {
   conflict_code: string;
   conflict_message: string;
   existing_workflow_run_id: string | null;
@@ -883,7 +883,7 @@ function normalizeResumePlan(
   };
 }
 
-function normalizeRun(run: TauriAgentQueueWorkflowRun): AgentQueueWorkflowRun {
+export function normalizeRun(run: TauriAgentQueueWorkflowRun): AgentQueueWorkflowRun {
   return {
     actionLogSummaryJson: run.action_log_summary_json,
     actorId: run.actor_id,
@@ -1039,7 +1039,7 @@ function isAgentQueueTaskExecutionPolicy(
   );
 }
 
-function normalizeAction(
+export function normalizeAction(
   action: TauriAgentQueueWorkflowAction,
 ): AgentQueueWorkflowAction {
   return {
@@ -1062,7 +1062,7 @@ function normalizeAction(
   };
 }
 
-function normalizeBlocker(
+export function normalizeBlocker(
   blocker: TauriAgentQueueWorkflowCommandBlocker,
 ): AgentQueueWorkflowCommandBlocker {
   return {
@@ -1138,7 +1138,7 @@ function normalizeTaskResumeSnapshot(
   };
 }
 
-function normalizeConflict(
+export function normalizeConflict(
   conflict: TauriAgentQueueWorkflowConflict,
 ): AgentQueueWorkflowConflict {
   return {

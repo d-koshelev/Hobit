@@ -1,12 +1,15 @@
 import type { HobitAgentWorkflowRequestEnvelopeReadResult } from "../broker";
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
+import { executeBackendOwnedReviewStep } from "./queueWorkflowRunnerBackendReviewPhase";
 import type {
   AgentQueueWorkflowJsonValue,
   AgentQueueWorkflowResumePlan,
+  AgentQueueWorkflowReviewStepResult,
   AgentQueueWorkflowRunnerReportRecordResult,
   AgentQueueWorkflowStartResult,
   AgentQueueWorkflowWorkerEvidenceRecordResult,
   AgentQueueWorkflowWorkerEvidenceStepResult,
+  ExecuteAgentQueueWorkflowReviewStepRequest,
   RecordAgentQueueWorkflowRunnerReportAction,
   RecordAgentQueueWorkflowRunnerReportRequest,
   RecordAgentQueueWorkflowWorkerEvidenceRequest,
@@ -73,6 +76,9 @@ export type QueueWorkflowPersistencePort = {
   executeAgentQueueWorkflowWorkerEvidenceStep?: (
     request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
   ) => Promise<AgentQueueWorkflowWorkerEvidenceStepResult>;
+  executeAgentQueueWorkflowReviewStep?: (
+    request: ExecuteAgentQueueWorkflowReviewStepRequest,
+  ) => Promise<AgentQueueWorkflowReviewStepResult>;
   startAgentQueueWorkflow: (
     request: StartAgentQueueWorkflowRequest,
   ) => Promise<AgentQueueWorkflowStartResult>;
@@ -99,6 +105,7 @@ export type QueueWorkflowRunnerRuntimeResult = {
   phasesExecuted: readonly string[];
   evidenceRecordResult?: AgentQueueWorkflowWorkerEvidenceRecordResult;
   evidenceStepResult?: AgentQueueWorkflowWorkerEvidenceStepResult;
+  reviewStepResult?: AgentQueueWorkflowReviewStepResult;
   recordResult?: AgentQueueWorkflowRunnerReportRecordResult;
   requestId: string | null;
   requestHashConflict?: AgentQueueWorkflowStartResult["conflict"];
@@ -412,12 +419,21 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
       startResult.status === "already_exists" ? "reused" : "started";
   }
 
-  const runtimePorts =
-    ports ??
-    createQueueWorkflowRunnerRuntimePortsFromQueueBridge({
+  if (selectedPhase === "review") {
+    return executeBackendOwnedReviewStep({
       actorId: actorId?.trim() || DEFAULT_ACTOR_ID,
-      queueBridge,
+      persistenceStatus,
+      persistentStatus,
+      request: runnerRequest,
+      resumePlan,
+      validationReasons: validation.reasons,
+      validationStatus: validation.status,
+      workflowPersistence,
+      workflowRunId: workflowRunId!,
+      workspaceId: normalizedWorkspaceId,
+      workflowStartStatus,
     });
+  }
   if (selectedPhase === "worker_evidence") {
     return executeBackendOwnedWorkerEvidenceStep({
       actorId: actorId?.trim() || DEFAULT_ACTOR_ID,
@@ -433,6 +449,12 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
       workflowStartStatus,
     });
   }
+  const runtimePorts =
+    ports ??
+    createQueueWorkflowRunnerRuntimePortsFromQueueBridge({
+      actorId: actorId?.trim() || DEFAULT_ACTOR_ID,
+      queueBridge,
+    });
   const runnerResult = await runSelectedRunner({
     phase: selectedPhase,
     ports: runtimePorts,
