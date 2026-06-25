@@ -167,7 +167,7 @@ CREATE TABLE IF NOT EXISTS agent_queue_worker_evidence_bundles (
     bundle_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
     queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
-    run_id TEXT NOT NULL REFERENCES widget_runs(id) ON DELETE CASCADE,
+    run_id TEXT NOT NULL,
     run_link_id TEXT NULL REFERENCES agent_queue_task_run_links(link_id) ON DELETE SET NULL,
     executor_widget_id TEXT NULL REFERENCES widget_instances(id) ON DELETE SET NULL,
     worker_id TEXT NULL,

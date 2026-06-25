@@ -893,6 +893,16 @@ export type AgentQueueWorkflowWorkerEvidenceRecordStatus =
   | "invalid_input"
   | string;
 
+export type AgentQueueWorkflowWorkerEvidenceStepStatus =
+  | "executed"
+  | "already_applied"
+  | "blocked_precondition"
+  | "invalid_input"
+  | "conflict"
+  | "not_found"
+  | "failed_unexpected"
+  | string;
+
 export type AgentQueueWorkflowStartResult = {
   status: AgentQueueWorkflowStartStatus;
   workflowRun: AgentQueueWorkflowRun | null;
@@ -935,6 +945,21 @@ export type AgentQueueWorkflowWorkerEvidenceRecordResult = {
   evidenceBundle: AgentQueueWorkerEvidenceBundle | null;
   status: AgentQueueWorkflowWorkerEvidenceRecordStatus;
   workflowRun: AgentQueueWorkflowRun | null;
+};
+
+export type AgentQueueWorkflowWorkerEvidenceStepResult = {
+  action: AgentQueueWorkflowAction | null;
+  aggregate: AgentQueueItemAggregate | null;
+  binding: AgentQueueWorkflowWorkerEvidenceBinding | null;
+  blockers: AgentQueueWorkflowCommandBlocker[];
+  conflict: AgentQueueWorkflowConflict | null;
+  evidenceBundle: AgentQueueWorkerEvidenceBundle | null;
+  nextPhase: string | null;
+  nextStep: string | null;
+  status: AgentQueueWorkflowWorkerEvidenceStepStatus;
+  transition: "record_worker_evidence" | string;
+  workflowRun: AgentQueueWorkflowRun | null;
+  workflowRunId: string;
 };
 
 export type AgentQueueWorkflowReport = {

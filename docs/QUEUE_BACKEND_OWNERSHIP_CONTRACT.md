@@ -129,21 +129,29 @@ persisting/reusing the upstream worker run id and reporting
 separate work.
 
 Workflow-owned worker evidence recording is a separate narrow backend/domain
-path. It requires explicit `workspaceId`, `workflowRunId`, `slot`, `taskId`,
-`runId`, bounded worker final status/outcome/summary input, and an exact
-workflow action idempotency key. The default key is
-`workflowRunId:record_worker_evidence:slot:taskId:runId`. The backend must
-validate that the task/run match the persisted slot binding, that the run
-belongs to the task and workspace, and that the worker is durably complete
-enough to record evidence. Existing matching evidence is idempotent success;
-existing mismatched evidence, changed action refs, missing bindings, missing
-worker completion, or ambiguous worker state must block or conflict. On
-success the backend persists `evidenceBundleId`, evidence action refs,
-recorded timestamp, and bounded worker final status into workflow state and
-the action ledger. This path must not create/ACK reviews, mark done, fail,
-block, follow up, validate, mutate Git, roll back, launch Terminal, start
-workers, start downstream work, create/update/promote tasks, enable Queue, or
-infer ids from prose/UI/session state.
+path and is the first backend-owned workflow transition step. It requires
+explicit `workspaceId`, `workflowRunId`, `slot`, `taskId`, `runId`, bounded
+worker final status/outcome/summary input, and an exact workflow action
+idempotency key. The default key is
+`workflowRunId:record_worker_evidence:slot:taskId:runId`. Planning and
+execution must share the same worker-evidence resolver, canonical refs,
+preconditions, blocker taxonomy, idempotency key, slot-binding merge behavior,
+and action-ledger behavior. The backend must validate that the task/run match
+the persisted slot binding, that the run belongs to the task and workspace via
+`agent_queue_task_run_links`, and that the worker is durably complete enough to
+record evidence. Backend-owned `queue_local` runs do not require `widget_runs`
+rows and must not synthesize them; widget attribution is optional and only
+stored when a real widget instance exists. Existing matching evidence is
+idempotent success; existing mismatched evidence, changed action refs, missing
+bindings, missing worker completion, or ambiguous worker state must block or
+conflict. Execution creates or locks the canonical `record_worker_evidence`
+action before the mutation attempt. On success the backend completes that
+action and persists `evidenceBundleId`, evidence action refs, recorded
+timestamp, and bounded worker final status into workflow state and the action
+ledger. This path must not create/ACK reviews, mark done, fail, block, follow
+up, validate, mutate Git, roll back, launch Terminal, start workers, start
+downstream work, create/update/promote tasks, enable Queue, or infer ids from
+prose/UI/session state.
 
 The typed Queue workflow runtime adapter can now complete both
 `dependency_acceptance_smoke` and `dependency_failure_smoke` end to end by

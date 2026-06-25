@@ -72,6 +72,79 @@ fn init_schema_is_idempotent() {
 }
 
 #[test]
+fn worker_evidence_bundle_accepts_queue_local_run_link_without_widget_run() {
+    let store = initialized_store();
+    create_workspace_and_workbench(&store);
+    store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: "task-1",
+            workspace_id: "workspace-1",
+            title: "Task",
+            description: "",
+            prompt: "Prompt",
+            status: "queued",
+            priority: 1,
+            depends_on: None,
+            execution_policy: Some("manual"),
+            execution_workspace: Some("C:/workspace/project"),
+            codex_executable: Some("codex"),
+            sandbox: Some("workspace_write"),
+            approval_policy: Some("never"),
+            context_json: None,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create queue task");
+    store
+        .insert_agent_queue_task_run_link(NewAgentQueueTaskRunLink {
+            link_id: "run-link-1",
+            workspace_id: "workspace-1",
+            queue_task_id: "task-1",
+            executor_widget_id: "queue-local-codex",
+            direct_work_run_id: "queue-local-run-1",
+            source: "queue_local",
+            status: "completed",
+            started_at: Some("2"),
+            completed_at: Some("3"),
+            validation_status: None,
+            review_status: Some("review_needed"),
+            created_at: Some("2"),
+            updated_at: Some("3"),
+        })
+        .expect("insert queue-local run link");
+    assert!(store
+        .get_widget_run("queue-local-run-1")
+        .expect("widget run lookup")
+        .is_none());
+
+    let evidence = store
+        .upsert_agent_queue_worker_evidence_bundle(NewAgentQueueWorkerEvidenceBundle {
+            bundle_id: "bundle-1",
+            workspace_id: "workspace-1",
+            queue_task_id: "task-1",
+            run_id: "queue-local-run-1",
+            run_link_id: Some("run-link-1"),
+            executor_widget_id: None,
+            worker_id: Some("workspace-agent"),
+            source: "workspace_agent",
+            outcome: "completed",
+            summary: "Worker evidence is durable.",
+            changed_files_json: "[]",
+            changed_files_count: 0,
+            changed_files_summary: None,
+            validation_summary: None,
+            error_summary: None,
+            metadata_json: None,
+            created_at: Some("4"),
+            updated_at: Some("4"),
+        })
+        .expect("insert evidence bundle without widget run");
+
+    assert_eq!(evidence.run_id, "queue-local-run-1");
+    assert_eq!(evidence.run_link_id.as_deref(), Some("run-link-1"));
+}
+
+#[test]
 fn transaction_rolls_back_when_operation_fails() {
     let store = initialized_store();
 

@@ -213,23 +213,32 @@ starting a second worker. QueueWorkflowRunner create/setup/start now uses this
 path only for the explicit upstream dependency-smoke task and pauses before
 workflow worker-evidence recording, lifecycle finalization, scheduler pickup,
 or downstream auto-start.
-Queue workflow worker-evidence recording now has a backend-owned MVP. The
-runtime adapter can resume a persisted dependency-smoke workflow from explicit
-typed `metadata.workflowRunId` plus `inputs.workerEvidence`, validate the
-persisted upstream slot/task binding, use a verified recovered run ref when
-`slotBindings.runId` is absent, call the backend workflow evidence
-record/reconcile command, reuse existing matching durable evidence
-idempotently, persist the reconciled `runId`, `evidenceBundleId`, and bounded
-worker final status in the workflow state/action ledger, and stop at
-`awaiting_review`. Recovered run refs must match completed `start_worker`
-action result refs, settings/execution-target hashes, the explicit typed
-`workerEvidence.runId`, and the durable task/run link. `workerEvidence.outcome`
-must match the durable run state: a completed run records `completed`, a failed
-or timed-out run records `failed`, and deterministic non-success terminal
-states record `not_completed`. Mismatches block as
-`worker_outcome_mismatch`, are persisted as a typed `record_worker_evidence`
-action attempt when the runner reaches the evidence phase, and remain
-retryable with corrected typed input instead of becoming `failed_unexpected`.
+Queue workflow worker-evidence recording now has a backend-owned StepPlan /
+StepResult MVP. The runtime adapter can resume a persisted dependency-smoke
+workflow from explicit typed `metadata.workflowRunId` plus
+`inputs.workerEvidence`, call the backend worker-evidence step endpoint, and
+render the returned StepResult without frontend evidence mutation/recovery
+logic or synthesized worker-evidence action rows. Planning, resume planning,
+and execution share one backend resolver for the persisted upstream slot/task
+binding, recovered run refs, canonical idempotency key, blocker taxonomy,
+slot-binding merge behavior, and action-ledger behavior. The backend validates
+the persisted upstream slot/task binding, uses a verified recovered run ref
+when `slotBindings.runId` is absent, creates or locks the canonical
+`record_worker_evidence` action before mutation, reuses existing matching
+durable evidence idempotently, persists the reconciled `runId`,
+`evidenceBundleId`, and bounded worker final status in workflow state/action
+ledger, and stops at `awaiting_review`. Backend-owned `queue_local` runs are
+validated through `agent_queue_task_run_links` and no longer require a
+`widget_runs` row or synthetic widget run. Recovered run refs must match
+completed `start_worker` action result refs, settings/execution-target hashes,
+the explicit typed `workerEvidence.runId`, and the durable task/run link.
+`workerEvidence.outcome` must match the durable run state: a completed run
+records `completed`, a failed or timed-out run records `failed`, and
+deterministic non-success terminal states record `not_completed`. Mismatches
+block as `worker_outcome_mismatch`, are persisted as a typed
+`record_worker_evidence` action attempt when enough workflow refs are known,
+and remain retryable with corrected typed input instead of becoming
+`failed_unexpected`.
 The existing live failure smoke shape that reached terminal workflow `failed`
 or later `blocked` after the generic terminal guard is recoverable as
 `retryable_worker_evidence_failure` or
@@ -243,6 +252,9 @@ that proof; completed evidence actions, existing evidence bundles, evidence
 actions with unknown mutation refs, review/finalization refs, running/orphan
 workers, mismatched durable refs, completed workflows, cancelled workflows, and
 arbitrary failed workflow runs remain terminal for worker-evidence mutation.
+`queue.workflow.planResume` uses the same backend worker-evidence resolver for
+retryable evidence phases, so a clean retry plan and mutation cannot diverge on
+task/run/evidence preconditions unless state changes between plan and execute.
 Failure smoke records the actual worker outcome first; terminal failure is
 later applied through reviewed finalization with typed `failureReason` and
 `failItem`. It does not create/ACK reviews, mark done/fail/block/follow-up,

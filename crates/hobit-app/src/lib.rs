@@ -150,6 +150,8 @@ pub use workspace_service::{
     QueueWorkflowSlotReconciliation, QueueWorkflowStartRequest, QueueWorkflowStartResult,
     QueueWorkflowStartStatus, QueueWorkflowTaskResumeSnapshot, QueueWorkflowTaskSlotBindingSummary,
     QueueWorkflowTaskSpec, QueueWorkflowWorkerEvidenceBindingSummary,
+    QueueWorkflowWorkerEvidenceStepPlan, QueueWorkflowWorkerEvidenceStepResult,
+    QueueWorkflowWorkerEvidenceStepResultStatus, QueueWorkflowWorkerEvidenceStepTransition,
     RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
     RecordAgentQueueWorkerFinishedInput, RecordKnowledgeDraftReviewInput,
     RunAgentQueueValidationSuiteInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,

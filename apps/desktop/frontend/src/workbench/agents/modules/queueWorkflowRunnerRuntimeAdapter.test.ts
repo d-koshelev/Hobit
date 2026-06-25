@@ -1061,7 +1061,7 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       workflowRunId: "queue-workflow-run-1",
     });
     expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
-    expect(recordWorkflowWorkerEvidence).toHaveBeenCalledWith(
+    expect(persistence.executeAgentQueueWorkflowWorkerEvidenceStep).toHaveBeenCalledWith(
       expect.objectContaining({
         outcome: "completed",
         runId: "run-upstream",
@@ -1070,25 +1070,8 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
         workflowRunId: "queue-workflow-run-1",
       }),
     );
-    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        currentStep: "awaiting_review",
-        phase: "worker_evidence",
-        pauseReason: "awaiting_review",
-        status: "paused",
-        workflowRunId: "queue-workflow-run-1",
-      }),
-    );
-    const reportRequest = vi.mocked(
-      persistence.recordAgentQueueWorkflowRunnerReport,
-    ).mock.calls[0]?.[0];
-    expect(reportRequest?.slotBindings).toEqual({
-      upstream: {
-        evidenceBundleId: "bundle-upstream",
-        runId: "run-upstream",
-        taskId: "task-upstream",
-      },
-    });
+    expect(recordWorkflowWorkerEvidence).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
     expect(result.runnerResult?.report.workerEvidence).toMatchObject({
       commandStatus: "recorded",
       evidenceBundleId: "bundle-upstream",
@@ -1109,6 +1092,18 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     const persistence = workflowPersistence({
       planAgentQueueWorkflowResume: vi.fn(async () =>
         workerEvidenceResumePlan(),
+      ),
+      executeAgentQueueWorkflowWorkerEvidenceStep: vi.fn(async (request) =>
+        workerEvidenceStepResult({
+          blocker: {
+            blockerCode: "worker_outcome_mismatch",
+            blockerMessage:
+              "Queue workflow worker evidence outcome does not match the durable worker run status.",
+            missingRequiredField: "workerEvidence.outcome",
+          },
+          request,
+          status: "blocked_precondition",
+        }),
       ),
     });
     const recordWorkflowWorkerEvidence = vi.fn(async (request) => ({
@@ -1159,33 +1154,13 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
         reasonCode: "worker_outcome_mismatch",
       }),
     ]);
-    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actions: [
-          expect.objectContaining({
-            actionType: "record_worker_evidence",
-            blockerCode: "worker_outcome_mismatch",
-            idempotencyKey:
-              "queue-workflow-run-1:record_worker_evidence:upstream:task-upstream:run-upstream",
-            resultRefs: expect.objectContaining({
-              commandStatus: "blocked",
-              outcome: "failed",
-              status: "blocked_worker_outcome_mismatch",
-            }),
-            status: "blocked",
-            targetRefs: {
-              runId: "run-upstream",
-              slot: "upstream",
-              taskId: "task-upstream",
-              workflowRunId: "queue-workflow-run-1",
-            },
-          }),
-        ],
-        currentStep: "worker_evidence_blocked",
-        phase: "worker_evidence",
-        status: "blocked",
-      }),
-    );
+    expect(recordWorkflowWorkerEvidence).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
+    expect(result.evidenceStepResult?.action).toMatchObject({
+      actionType: "record_worker_evidence",
+      blockerCode: "worker_outcome_mismatch",
+      status: "blocked",
+    });
   });
 
   it.each([
@@ -1269,7 +1244,7 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       workflowRunId: "queue-workflow-run-1",
     });
     expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
-    expect(recordWorkflowWorkerEvidence).toHaveBeenCalledWith(
+    expect(persistence.executeAgentQueueWorkflowWorkerEvidenceStep).toHaveBeenCalledWith(
       expect.objectContaining({
         outcome: "completed",
         runId: "run-upstream",
@@ -1277,23 +1252,12 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
         taskId: "task-upstream",
       }),
     );
-    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        blockerReason: null,
-        currentStep: "awaiting_review",
-        phase: "worker_evidence",
-        actions: [
-          expect.objectContaining({
-            actionType: "record_worker_evidence",
-            resultRefs: expect.objectContaining({
-              evidenceBundleId: "bundle-upstream",
-            }),
-            status: "completed",
-          }),
-        ],
-        status: "paused",
-      }),
-    );
+    expect(recordWorkflowWorkerEvidence).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
+    expect(result.evidenceStepResult?.action).toMatchObject({
+      actionType: "record_worker_evidence",
+      status: "completed",
+    });
     expect(result.runnerResult?.report.review.status).toBeNull();
     expect(result.runnerResult?.report.finalization.status).toBeNull();
   });
@@ -1302,6 +1266,12 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     const persistence = workflowPersistence({
       planAgentQueueWorkflowResume: vi.fn(async () =>
         workerEvidenceResumePlan(),
+      ),
+      executeAgentQueueWorkflowWorkerEvidenceStep: vi.fn(async (request) =>
+        workerEvidenceStepResult({
+          request,
+          status: "already_applied",
+        }),
       ),
     });
     const recordWorkflowWorkerEvidence = vi.fn();
@@ -1333,32 +1303,15 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       planAgentQueueWorkflowResume: vi.fn(async () =>
         workerEvidenceResumePlan(),
       ),
+      executeAgentQueueWorkflowWorkerEvidenceStep: vi.fn(async (request) =>
+        workerEvidenceStepResult({
+          request,
+          status: "already_applied",
+        }),
+      ),
     });
     const bridge = queueBridge({
-      recordWorkflowWorkerEvidence: vi.fn(async (request) => ({
-        action: null,
-        aggregate: aggregate({ taskId: request.taskId }),
-        binding: {
-          evidenceActionId: "workflow-action-evidence",
-          evidenceActionIdempotencyKey:
-            `${request.workflowRunId}:record_worker_evidence:${request.slot}:${request.taskId}:${request.runId}`,
-          evidenceBundleId: "bundle-upstream",
-          evidenceRecordedAt: "2026-06-22T00:00:00.000Z",
-          runId: request.runId,
-          slot: request.slot,
-          taskId: request.taskId,
-          workerFinalStatus: "completed",
-          workerOutcome: request.outcome,
-        },
-        blocker: null,
-        conflict: null,
-        evidenceBundle: evidenceQuery({
-          runId: request.runId,
-          taskId: request.taskId,
-        }).evidenceBundle,
-        status: "already_recorded",
-        workflowRun: null,
-      })),
+      recordWorkflowWorkerEvidence: vi.fn(),
     });
 
     const result = await runAdapter({
@@ -1378,6 +1331,8 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       idempotent: true,
       status: "evidence_already_recorded",
     });
+    expect(bridge.recordWorkflowWorkerEvidence).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
     expect(result.runnerResult?.report.mutationSummary.didMutateQueue).toBe(false);
   });
 
@@ -1846,6 +1801,9 @@ function workflowPersistence(
   overrides: Partial<QueueWorkflowPersistencePort> = {},
 ): QueueWorkflowPersistencePort {
   return {
+    executeAgentQueueWorkflowWorkerEvidenceStep: vi.fn(async (request) =>
+      workerEvidenceStepResult({ request }),
+    ),
     planAgentQueueWorkflowResume: vi.fn(async () => null),
     recordAgentQueueWorkflowRunnerReport: vi.fn(
       async (
@@ -1904,6 +1862,104 @@ function workflowPersistence(
       }),
     ),
     ...overrides,
+  };
+}
+
+function workerEvidenceStepResult({
+  request,
+  status = "executed",
+  blocker = null,
+}: {
+  request: Parameters<
+    NonNullable<
+      QueueWorkflowPersistencePort["executeAgentQueueWorkflowWorkerEvidenceStep"]
+    >
+  >[0];
+  status?: "executed" | "already_applied" | "blocked_precondition";
+  blocker?: {
+    blockerCode: string;
+    blockerMessage: string;
+    missingRequiredField: string | null;
+  } | null;
+}) {
+  const evidenceBundleId =
+    status === "blocked_precondition" ? null : "bundle-upstream";
+  return {
+    action: {
+      actionId: "workflow-action-evidence",
+      actionType: "record_worker_evidence",
+      attemptCount: status === "already_applied" ? 1 : 2,
+      blockerCode: blocker?.blockerCode ?? null,
+      blockerMessage: blocker?.blockerMessage ?? null,
+      completedAt: "2026-06-22T00:00:00.000Z",
+      createdAt: "2026-06-22T00:00:00.000Z",
+      idempotencyKey:
+        request.actionIdempotencyKey ??
+        `${request.workflowRunId}:record_worker_evidence:${request.slot}:${request.taskId}:${request.runId}`,
+      resultRefsJson: evidenceBundleId
+        ? JSON.stringify({
+            evidenceBundleId,
+            evidenceStatus: "available",
+            outcome: request.outcome,
+            runId: request.runId,
+            workerFinalStatus: "completed",
+          })
+        : JSON.stringify({
+            commandStatus: "blocked_precondition",
+            outcome: request.outcome,
+            status: blocker?.blockerCode ?? "blocked_precondition",
+          }),
+      startedAt: "2026-06-22T00:00:00.000Z",
+      status: status === "blocked_precondition" ? "blocked" : "completed",
+      stepId: "record_worker_evidence",
+      targetRefsJson: JSON.stringify({
+        runId: request.runId,
+        slot: request.slot,
+        taskId: request.taskId,
+        workflowRunId: request.workflowRunId,
+      }),
+      updatedAt: "2026-06-22T00:00:00.000Z",
+      workflowRunId: request.workflowRunId,
+      workspaceId: request.workspaceId,
+    },
+    aggregate: aggregate({ taskId: request.taskId }),
+    binding: evidenceBundleId
+      ? {
+          evidenceActionId: "workflow-action-evidence",
+          evidenceActionIdempotencyKey:
+            request.actionIdempotencyKey ??
+            `${request.workflowRunId}:record_worker_evidence:${request.slot}:${request.taskId}:${request.runId}`,
+          evidenceBundleId,
+          evidenceRecordedAt: "2026-06-22T00:00:00.000Z",
+          runId: request.runId,
+          slot: request.slot,
+          taskId: request.taskId,
+          workerFinalStatus: "completed",
+          workerOutcome: request.outcome,
+        }
+      : null,
+    blockers: blocker ? [blocker] : [],
+    conflict: null,
+    evidenceBundle: evidenceBundleId
+      ? evidenceQuery({
+          runId: request.runId,
+          taskId: request.taskId,
+        }).evidenceBundle
+      : null,
+    nextPhase: status === "blocked_precondition" ? "worker_evidence" : "review",
+    nextStep:
+      status === "blocked_precondition" ? "worker_evidence_blocked" : "awaiting_review",
+    status,
+    transition: "record_worker_evidence",
+    workflowRun: workflowRun({
+      currentStep:
+        status === "blocked_precondition" ? "worker_evidence_blocked" : "awaiting_review",
+      phase: "worker_evidence",
+      status: status === "blocked_precondition" ? "blocked" : "paused",
+      workflowRunId: request.workflowRunId,
+      workspaceId: request.workspaceId,
+    }),
+    workflowRunId: request.workflowRunId,
   };
 }
 

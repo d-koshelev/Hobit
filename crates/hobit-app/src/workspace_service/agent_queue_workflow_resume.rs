@@ -15,7 +15,9 @@ use super::{
         AGENT_QUEUE_TASK_STATUS_DRAFT, AGENT_QUEUE_TASK_STATUS_QUEUED,
         AGENT_QUEUE_TASK_STATUS_READY,
     },
-    agent_queue_workflow_evidence::is_retryable_record_worker_evidence_blocker,
+    agent_queue_workflow_evidence::{
+        is_retryable_record_worker_evidence_blocker, QueueWorkflowRecordWorkerEvidenceRequest,
+    },
     agent_queue_workflow_materialization::{
         normalize_queue_workflow_task_spec_for_hash, workflow_dependency_edge_hash,
         QueueWorkflowTaskSpec,
@@ -842,6 +844,66 @@ impl WorkspaceService {
                 false,
                 None,
                 vec![blocker],
+            )));
+        }
+
+        let Some(task_id) = target.binding.task_id.clone() else {
+            return Ok(None);
+        };
+        let Some(run_id) = target.binding.run_id.clone() else {
+            return Ok(None);
+        };
+        let Some(outcome) = worker_evidence_outcome_for_resume(&run_link.status) else {
+            return Ok(None);
+        };
+        let worker_evidence_step_plan = self.plan_queue_workflow_worker_evidence_step(
+            QueueWorkflowRecordWorkerEvidenceRequest {
+                workspace_id: workspace_id.to_owned(),
+                workflow_run_id: workflow_run.workflow_run_id.clone(),
+                slot: target.binding.slot.clone(),
+                task_id,
+                run_id,
+                outcome: outcome.to_owned(),
+                summary: Some("Queue workflow resume worker-evidence planner probe.".to_owned()),
+                changed_files: Vec::new(),
+                changed_files_summary: None,
+                validation_summary: None,
+                error_summary: None,
+                worker_id: None,
+                source: Some("queue_workflow_resume_plan".to_owned()),
+                metadata_json: None,
+                finished_at: None,
+                actor_id: None,
+                action_idempotency_key: None,
+            },
+        )?;
+        if !worker_evidence_step_plan.safe_to_record_worker_evidence {
+            let blockers = worker_evidence_step_plan
+                .blockers
+                .into_iter()
+                .map(|blocker| QueueWorkflowResumeBlocker {
+                    blocker_code: blocker.blocker_code,
+                    blocker_message: blocker.blocker_message,
+                    slot: Some(target.binding.slot.clone()),
+                    task_id: target.binding.task_id.clone(),
+                    run_id: target.binding.run_id.clone(),
+                    evidence_bundle_id: target.binding.evidence_bundle_id.clone(),
+                    message_id: target.binding.message_id.clone(),
+                    completion_decision_id: target.binding.completion_decision_id.clone(),
+                    failure_decision_id: target.binding.failure_decision_id.clone(),
+                    missing_required_field: blocker.missing_required_field,
+                })
+                .collect::<Vec<_>>();
+            return Ok(Some(plan_with_status(
+                workflow_run,
+                actions,
+                status_for_blockers(&blockers),
+                Some("worker_evidence".to_owned()),
+                Some("worker_evidence_blocked".to_owned()),
+                false,
+                false,
+                None,
+                blockers,
             )));
         }
 
@@ -3269,6 +3331,15 @@ fn is_completed_worker_run_state(run_link: &AgentQueueTaskRunLinkRow) -> bool {
             run_link.status.as_str(),
             "completed" | "failed" | "timed_out" | "cancelled" | "review_needed"
         )
+}
+
+fn worker_evidence_outcome_for_resume(run_status: &str) -> Option<&'static str> {
+    match run_status {
+        "completed" => Some("completed"),
+        "failed" | "timed_out" => Some("failed"),
+        "cancelled" | "review_needed" => Some("not_completed"),
+        _ => None,
+    }
 }
 
 fn has_next_action(aggregate: &QueueItemAggregate, code: &str) -> bool {

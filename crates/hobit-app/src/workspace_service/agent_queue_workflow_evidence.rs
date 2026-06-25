@@ -103,6 +103,82 @@ pub struct QueueWorkflowRecordWorkerEvidenceResult {
     pub conflict: Option<QueueWorkflowConflict>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QueueWorkflowWorkerEvidenceStepTransition {
+    RecordWorkerEvidence,
+}
+
+impl QueueWorkflowWorkerEvidenceStepTransition {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::RecordWorkerEvidence => RECORD_WORKER_EVIDENCE_ACTION_TYPE,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QueueWorkflowWorkerEvidenceStepResultStatus {
+    Executed,
+    AlreadyApplied,
+    BlockedPrecondition,
+    InvalidInput,
+    Conflict,
+    NotFound,
+    FailedUnexpected,
+}
+
+impl QueueWorkflowWorkerEvidenceStepResultStatus {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Executed => "executed",
+            Self::AlreadyApplied => "already_applied",
+            Self::BlockedPrecondition => "blocked_precondition",
+            Self::InvalidInput => "invalid_input",
+            Self::Conflict => "conflict",
+            Self::NotFound => "not_found",
+            Self::FailedUnexpected => "failed_unexpected",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueWorkflowWorkerEvidenceStepPlan {
+    pub workflow_run_id: String,
+    pub workflow_id: Option<String>,
+    pub persistent_status: Option<String>,
+    pub phase: Option<String>,
+    pub current_step: Option<String>,
+    pub transition: QueueWorkflowWorkerEvidenceStepTransition,
+    pub executable: bool,
+    pub idempotency_key: Option<String>,
+    pub target_refs: Option<Value>,
+    pub current_refs: Option<Value>,
+    pub missing_refs: Vec<String>,
+    pub required_input: Vec<String>,
+    pub blockers: Vec<QueueWorkflowCommandBlocker>,
+    pub safe_to_record_worker_evidence: bool,
+    pub reason_if_not_safe: Option<String>,
+    pub stale_history: bool,
+    pub expected_next_phase_on_success: Option<String>,
+    pub expected_next_step_on_success: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueWorkflowWorkerEvidenceStepResult {
+    pub workflow_run_id: String,
+    pub transition: QueueWorkflowWorkerEvidenceStepTransition,
+    pub status: QueueWorkflowWorkerEvidenceStepResultStatus,
+    pub action: Option<QueueWorkflowAction>,
+    pub evidence_bundle: Option<AgentQueueWorkerEvidenceBundleSummary>,
+    pub aggregate: Option<QueueItemAggregate>,
+    pub binding: Option<QueueWorkflowWorkerEvidenceBindingSummary>,
+    pub workflow_run: Option<QueueWorkflowRun>,
+    pub next_phase: Option<String>,
+    pub next_step: Option<String>,
+    pub blockers: Vec<QueueWorkflowCommandBlocker>,
+    pub conflict: Option<QueueWorkflowConflict>,
+}
+
 #[derive(Clone, Debug)]
 struct NormalizedWorkflowEvidenceRequest {
     workspace_id: String,
@@ -122,7 +198,104 @@ enum ExistingActionDecision {
     },
 }
 
+#[derive(Clone, Debug)]
+struct WorkerEvidenceStepResolution {
+    request: NormalizedWorkflowEvidenceRequest,
+    workflow_run: AgentQueueWorkflowRunRow,
+    slot_bindings: Map<String, Value>,
+    run_link: AgentQueueTaskRunLinkRow,
+    existing_evidence: Option<AgentQueueWorkerEvidenceBundleRow>,
+    existing_action: ExistingActionDecision,
+    target_refs_json: String,
+    changed_files_json: String,
+    finished_at: String,
+    bundle_id: String,
+    stale_history: bool,
+}
+
+#[derive(Clone, Debug)]
+enum WorkerEvidenceStepResolveStatus {
+    Ready(WorkerEvidenceStepResolution),
+    Blocked {
+        request: Option<NormalizedWorkflowEvidenceRequest>,
+        workflow_run: Option<AgentQueueWorkflowRunRow>,
+        action: Option<AgentQueueWorkflowActionRow>,
+        target_refs_json: Option<String>,
+        blocker: QueueWorkflowCommandBlocker,
+        stale_history: bool,
+    },
+    Conflict {
+        workflow_run: Option<AgentQueueWorkflowRunRow>,
+        action: Option<AgentQueueWorkflowActionRow>,
+        evidence: Option<AgentQueueWorkerEvidenceBundleRow>,
+        conflict: QueueWorkflowConflict,
+        blocker: Option<QueueWorkflowCommandBlocker>,
+    },
+    NotFound {
+        request: NormalizedWorkflowEvidenceRequest,
+        blocker: QueueWorkflowCommandBlocker,
+    },
+    InvalidInput {
+        workflow_run_id: String,
+        blocker: QueueWorkflowCommandBlocker,
+    },
+}
+
 impl WorkspaceService {
+    pub fn plan_queue_workflow_worker_evidence_step(
+        &self,
+        request: QueueWorkflowRecordWorkerEvidenceRequest,
+    ) -> Result<QueueWorkflowWorkerEvidenceStepPlan, WorkspaceServiceError> {
+        let workflow_run_id = request.workflow_run_id.trim().to_owned();
+        let resolution = self
+            .store
+            .with_immediate_transaction(|store| {
+                resolve_queue_workflow_worker_evidence_step(store, request)
+            })
+            .map_err(map_storage_agent_queue_task_error)?;
+
+        Ok(plan_from_worker_evidence_resolution(
+            &workflow_run_id,
+            resolution,
+        ))
+    }
+
+    pub fn execute_queue_workflow_worker_evidence_step(
+        &self,
+        request: QueueWorkflowRecordWorkerEvidenceRequest,
+    ) -> Result<QueueWorkflowWorkerEvidenceStepResult, WorkspaceServiceError> {
+        let tx_result = self
+            .store
+            .with_immediate_transaction(|store| {
+                let resolution = resolve_queue_workflow_worker_evidence_step(store, request)?;
+                execute_worker_evidence_step_resolution(store, resolution)
+            })
+            .map_err(map_storage_agent_queue_task_error)?;
+
+        match tx_result {
+            QueueWorkflowWorkerEvidenceStepResult {
+                aggregate: Some(_), ..
+            } => Ok(tx_result),
+            mut result => {
+                if let Some(task_id) = result
+                    .binding
+                    .as_ref()
+                    .map(|binding| binding.task_id.clone())
+                {
+                    result.aggregate = self.get_queue_item_aggregate(
+                        result
+                            .workflow_run
+                            .as_ref()
+                            .map(|run| run.workspace_id.as_str())
+                            .unwrap_or(""),
+                        &task_id,
+                    )?;
+                }
+                Ok(result)
+            }
+        }
+    }
+
     pub fn record_queue_workflow_worker_evidence(
         &self,
         request: QueueWorkflowRecordWorkerEvidenceRequest,
@@ -815,6 +988,1148 @@ enum TxResult {
         evidence: AgentQueueWorkerEvidenceBundleSummary,
         binding: QueueWorkflowWorkerEvidenceBindingSummary,
     },
+}
+
+fn resolve_queue_workflow_worker_evidence_step(
+    store: &SqliteStore,
+    request: QueueWorkflowRecordWorkerEvidenceRequest,
+) -> Result<WorkerEvidenceStepResolveStatus, StorageError> {
+    let request = match normalize_workflow_evidence_request(request) {
+        Ok(request) => request,
+        Err(blocker) => {
+            let workflow_run_id = blocker
+                .missing_required_field
+                .as_deref()
+                .map(|_| String::new())
+                .unwrap_or_default();
+            return Ok(WorkerEvidenceStepResolveStatus::InvalidInput {
+                workflow_run_id,
+                blocker,
+            });
+        }
+    };
+
+    let finished_at = request
+        .worker
+        .finished_at
+        .clone()
+        .unwrap_or_else(placeholder_timestamp);
+    let bundle_id = placeholder_id("queue_worker_evidence_");
+    let changed_files_json = worker_evidence_changed_files_json(&request.worker.changed_files)
+        .map_err(|error| StorageError::InvalidParameterName(error.to_string()))?;
+
+    let Some(workflow_run) =
+        store.get_agent_queue_workflow_run(&request.workspace_id, &request.workflow_run_id)?
+    else {
+        return Ok(WorkerEvidenceStepResolveStatus::NotFound {
+            request,
+            blocker: blocker(
+                "workflow_run_not_found",
+                "Queue workflow run was not found.",
+                Some("workflowRunId"),
+            ),
+        });
+    };
+
+    if !matches!(
+        workflow_run.workflow_id.as_str(),
+        "dependency_acceptance_smoke" | "dependency_failure_smoke"
+    ) {
+        return Ok(blocked_worker_evidence_resolution(
+            Some(request),
+            Some(workflow_run),
+            None,
+            None,
+            blocker(
+                "unsupported_workflow",
+                "Worker evidence recording is currently supported only for dependency Queue workflows.",
+                Some("workflowId"),
+            ),
+            false,
+        ));
+    }
+
+    if matches!(workflow_run.status.as_str(), "completed" | "cancelled") {
+        return Ok(blocked_worker_evidence_resolution(
+            Some(request),
+            Some(workflow_run),
+            None,
+            None,
+            blocker(
+                "workflow_run_terminal",
+                "Terminal Queue workflow runs cannot record worker evidence.",
+                Some("status"),
+            ),
+            false,
+        ));
+    }
+    let terminal_reentry_required = matches!(workflow_run.status.as_str(), "failed" | "blocked");
+    let workflow_actions = if terminal_reentry_required {
+        store.list_agent_queue_workflow_actions(&request.workspace_id, &request.workflow_run_id)?
+    } else {
+        Vec::new()
+    };
+    let stale_history = workflow_actions
+        .iter()
+        .any(|action| is_worker_evidence_runner_failed_action(action))
+        || workflow_actions
+            .iter()
+            .any(is_retryable_record_worker_evidence_action);
+
+    let slot_bindings = match parse_slot_bindings(workflow_run.slot_bindings_json.as_deref()) {
+        Ok(slot_bindings) => slot_bindings,
+        Err(blocker) => {
+            return Ok(blocked_worker_evidence_resolution(
+                Some(request),
+                Some(workflow_run),
+                None,
+                None,
+                blocker,
+                stale_history,
+            ));
+        }
+    };
+
+    let Some(existing_binding) = slot_bindings.get(&request.slot).cloned() else {
+        let target_refs_json = target_refs_json_without_binding(&request);
+        return Ok(blocked_worker_evidence_resolution(
+            Some(request),
+            Some(workflow_run),
+            None,
+            Some(target_refs_json),
+            blocker(
+                "missing_slot_binding",
+                "Queue workflow slot binding is missing for worker evidence recording.",
+                Some("slot"),
+            ),
+            stale_history,
+        ));
+    };
+
+    let target_refs_json = target_refs_json(&request, &existing_binding);
+
+    let Some(bound_task_id) = string_field(&existing_binding, "taskId") else {
+        return Ok(blocked_worker_evidence_resolution(
+            Some(request),
+            Some(workflow_run),
+            None,
+            Some(target_refs_json),
+            blocker(
+                "missing_task_binding",
+                "Queue workflow slot binding is missing taskId.",
+                Some("slotBindings.taskId"),
+            ),
+            stale_history,
+        ));
+    };
+    if bound_task_id != request.worker.queue_item_id {
+        return Ok(conflict_worker_evidence_resolution(
+            Some(workflow_run),
+            None,
+            None,
+            "slot_task_mismatch",
+            "Queue workflow evidence taskId does not match the persisted slot binding.",
+            Some(bound_task_id.to_owned()),
+            Some(request.worker.queue_item_id.clone()),
+        ));
+    }
+
+    if terminal_reentry_required {
+        if let Some(blocker) = retryable_worker_evidence_reentry_blocker(
+            store,
+            &workflow_run,
+            &request,
+            &slot_bindings,
+            &existing_binding,
+            &workflow_actions,
+        )? {
+            return Ok(blocked_worker_evidence_resolution(
+                Some(request),
+                Some(workflow_run),
+                None,
+                Some(target_refs_json),
+                blocker,
+                stale_history,
+            ));
+        }
+    }
+
+    let bound_run_id = string_field(&existing_binding, "runId").map(str::to_owned);
+    let start_worker_run = match recover_start_worker_run_id_for_evidence(
+        store,
+        &request,
+        &slot_bindings,
+        &existing_binding,
+        bound_run_id.is_none(),
+    )? {
+        StartWorkerRunRecovery::Recovered(run_id) => Some(run_id),
+        StartWorkerRunRecovery::NotAvailable => None,
+        StartWorkerRunRecovery::Blocked(blocker) => {
+            return Ok(blocked_worker_evidence_resolution(
+                Some(request),
+                Some(workflow_run),
+                None,
+                Some(target_refs_json),
+                blocker,
+                stale_history,
+            ));
+        }
+        StartWorkerRunRecovery::Conflict {
+            code,
+            message,
+            existing,
+            requested,
+        } => {
+            return Ok(conflict_worker_evidence_resolution(
+                Some(workflow_run),
+                None,
+                None,
+                code,
+                message,
+                existing,
+                requested,
+            ));
+        }
+    };
+
+    if let Some(bound_run_id) = bound_run_id.as_deref() {
+        if bound_run_id != request.worker.run_id {
+            return Ok(conflict_worker_evidence_resolution(
+                Some(workflow_run),
+                None,
+                None,
+                "slot_run_mismatch",
+                "Queue workflow evidence runId does not match the persisted slot binding.",
+                Some(bound_run_id.to_owned()),
+                Some(request.worker.run_id.clone()),
+            ));
+        }
+    }
+
+    if let Some(recovered_run_id) = start_worker_run.as_deref() {
+        if recovered_run_id != request.worker.run_id {
+            return Ok(conflict_worker_evidence_resolution(
+                Some(workflow_run),
+                None,
+                None,
+                "run_id_mismatch",
+                "Queue workflow evidence runId does not match the recovered start_worker runId.",
+                Some(recovered_run_id.to_owned()),
+                Some(request.worker.run_id.clone()),
+            ));
+        }
+    } else if bound_run_id.is_none() {
+        return Ok(blocked_worker_evidence_resolution(
+            Some(request),
+            Some(workflow_run),
+            None,
+            Some(target_refs_json),
+            blocker(
+                "missing_run_binding",
+                "Queue workflow slot binding is missing runId and no verified start_worker runId was recoverable.",
+                Some("slotBindings.runId"),
+            ),
+            stale_history,
+        ));
+    }
+
+    let Some(run_link) = store
+        .get_agent_queue_task_run_link_by_run_id(&request.workspace_id, &request.worker.run_id)?
+    else {
+        return Ok(blocked_worker_evidence_resolution(
+            Some(request),
+            Some(workflow_run),
+            None,
+            Some(target_refs_json),
+            blocker(
+                "run_missing",
+                "Queue workflow evidence runId was not found in the requested workspace.",
+                Some("runId"),
+            ),
+            stale_history,
+        ));
+    };
+
+    if run_link.queue_task_id != request.worker.queue_item_id {
+        return Ok(conflict_worker_evidence_resolution(
+            Some(workflow_run),
+            None,
+            None,
+            "run_task_mismatch",
+            "Queue workflow evidence runId belongs to a different Queue task.",
+            Some(run_link.queue_task_id),
+            Some(request.worker.queue_item_id.clone()),
+        ));
+    }
+    let bound_executor_widget_id = string_field(&existing_binding, "executorWidgetId");
+    if bound_executor_widget_id
+        .is_some_and(|executor| executor != run_link.executor_widget_id.as_str())
+    {
+        return Ok(conflict_worker_evidence_resolution(
+            Some(workflow_run),
+            None,
+            None,
+            "run_executor_mismatch",
+            "Queue workflow evidence runId belongs to a different executorWidgetId.",
+            Some(run_link.executor_widget_id.clone()),
+            bound_executor_widget_id.map(str::to_owned),
+        ));
+    }
+
+    if run_link.status == AgentQueueTaskRunStatus::Running.as_str() {
+        return Ok(blocked_worker_evidence_resolution(
+            Some(request),
+            Some(workflow_run),
+            None,
+            Some(target_refs_json),
+            blocker(
+                "worker_run_not_complete",
+                "Queue workflow worker run is still running; evidence recording is paused.",
+                Some("runId"),
+            ),
+            stale_history,
+        ));
+    }
+    if !is_completed_worker_run_state(&run_link) {
+        return Ok(blocked_worker_evidence_resolution(
+            Some(request),
+            Some(workflow_run),
+            None,
+            Some(target_refs_json),
+            blocker(
+                "worker_run_state_mismatch",
+                "Queue workflow worker run state is not a deterministic completed state.",
+                Some("runId"),
+            ),
+            stale_history,
+        ));
+    }
+    if let Some(expected_outcome) = expected_worker_outcome_for_run_state(&run_link) {
+        if expected_outcome != request.worker.outcome {
+            return Ok(blocked_worker_evidence_resolution(
+                Some(request),
+                Some(workflow_run),
+                None,
+                Some(target_refs_json),
+                blocker(
+                    "worker_outcome_mismatch",
+                    "Queue workflow worker evidence outcome does not match the durable worker run status.",
+                    Some("workerEvidence.outcome"),
+                ),
+                stale_history,
+            ));
+        }
+    }
+
+    let existing_action = match store.get_agent_queue_workflow_action_by_idempotency_key(
+        &request.workflow_run_id,
+        &request.action_idempotency_key,
+    )? {
+        Some(action) => {
+            let target_refs_match = action_matches_target(&action, &request, &existing_binding);
+            let target_refs_compatible =
+                action_target_refs_compatible_for_repair(&action, &request, &existing_binding);
+            let target_refs_complete =
+                action.target_refs_json.as_deref() == Some(target_refs_json.as_str());
+            let retryable_action = is_retryable_record_worker_evidence_action(&action);
+            if !target_refs_match && (!retryable_action || !target_refs_compatible) {
+                return Ok(WorkerEvidenceStepResolveStatus::Conflict {
+                    workflow_run: Some(workflow_run),
+                    action: Some(action.clone()),
+                    evidence: None,
+                    blocker: None,
+                    conflict: QueueWorkflowConflict {
+                        conflict_code: "record_worker_evidence_action_ref_conflict".to_owned(),
+                        conflict_message:
+                            "A Queue workflow record_worker_evidence action already exists for this idempotency key with different typed refs."
+                                .to_owned(),
+                        existing_workflow_run_id: Some(action.workflow_run_id),
+                        existing_request_hash: action.target_refs_json,
+                        requested_request_hash: Some(target_refs_json),
+                    },
+                });
+            }
+            if action.status != QueueWorkflowActionStatus::Completed.as_str() && !retryable_action {
+                return Ok(blocked_worker_evidence_resolution(
+                    Some(request),
+                    Some(workflow_run),
+                    Some(action),
+                    Some(target_refs_json),
+                    blocker(
+                        "record_worker_evidence_action_not_completed",
+                        "Existing Queue workflow record_worker_evidence action is not completed and will not be retried blindly.",
+                        Some("actionIdempotencyKey"),
+                    ),
+                    stale_history,
+                ));
+            }
+            if action.status == QueueWorkflowActionStatus::Completed.as_str() {
+                ExistingActionDecision::Completed(action)
+            } else {
+                ExistingActionDecision::Retryable {
+                    action,
+                    repair_target_refs: !target_refs_complete,
+                }
+            }
+        }
+        None => ExistingActionDecision::None,
+    };
+
+    let existing_evidence = store.get_agent_queue_worker_evidence_bundle(
+        &request.workspace_id,
+        &request.worker.queue_item_id,
+        &request.worker.run_id,
+    )?;
+    if let Some(existing_evidence) = existing_evidence.as_ref() {
+        if !evidence_matches_request(existing_evidence, &request.worker, &changed_files_json) {
+            return Ok(WorkerEvidenceStepResolveStatus::Conflict {
+                workflow_run: Some(workflow_run),
+                action: None,
+                evidence: Some(existing_evidence.clone()),
+                blocker: Some(blocker(
+                    "evidence_conflict",
+                    "Durable worker evidence already exists for this task/run with different bounded metadata.",
+                    Some("workerEvidence"),
+                )),
+                conflict: QueueWorkflowConflict {
+                    conflict_code: "evidence_metadata_conflict".to_owned(),
+                    conflict_message:
+                        "Durable worker evidence already exists for this task/run with different bounded metadata."
+                            .to_owned(),
+                    existing_workflow_run_id: Some(request.workflow_run_id.clone()),
+                    existing_request_hash: Some(evidence_identity_json(existing_evidence)),
+                    requested_request_hash: Some(request_evidence_identity_json(
+                        &request.worker,
+                        &changed_files_json,
+                    )),
+                },
+            });
+        }
+    } else if store
+        .get_latest_agent_queue_completion_decision(
+            &request.workspace_id,
+            &request.worker.queue_item_id,
+        )?
+        .is_some()
+        || store
+            .get_latest_agent_queue_failure_decision(
+                &request.workspace_id,
+                &request.worker.queue_item_id,
+            )?
+            .is_some()
+    {
+        return Ok(blocked_worker_evidence_resolution(
+            Some(request),
+            Some(workflow_run),
+            None,
+            Some(target_refs_json),
+            blocker(
+                "terminal_decision_exists",
+                "Queue workflow worker evidence recording is blocked after a task completion or failure decision exists.",
+                Some("taskId"),
+            ),
+            stale_history,
+        ));
+    } else if store
+        .get_latest_agent_queue_review_message(
+            &request.workspace_id,
+            &request.worker.queue_item_id,
+        )?
+        .is_some()
+    {
+        return Ok(blocked_worker_evidence_resolution(
+            Some(request),
+            Some(workflow_run),
+            None,
+            Some(target_refs_json),
+            blocker(
+                "review_already_exists",
+                "Queue workflow worker evidence recording is blocked after a review message exists without matching durable evidence.",
+                Some("messageId"),
+            ),
+            stale_history,
+        ));
+    }
+
+    Ok(WorkerEvidenceStepResolveStatus::Ready(
+        WorkerEvidenceStepResolution {
+            request,
+            workflow_run,
+            slot_bindings,
+            run_link,
+            existing_evidence,
+            existing_action,
+            target_refs_json,
+            changed_files_json,
+            finished_at,
+            bundle_id,
+            stale_history,
+        },
+    ))
+}
+
+fn execute_worker_evidence_step_resolution(
+    store: &SqliteStore,
+    resolution: WorkerEvidenceStepResolveStatus,
+) -> Result<QueueWorkflowWorkerEvidenceStepResult, StorageError> {
+    match resolution {
+        WorkerEvidenceStepResolveStatus::Ready(resolved) => {
+            execute_ready_worker_evidence_step(store, resolved)
+        }
+        WorkerEvidenceStepResolveStatus::Blocked {
+            request,
+            workflow_run,
+            action,
+            target_refs_json,
+            blocker,
+            ..
+        } => {
+            let action = match (
+                request.as_ref(),
+                workflow_run.as_ref(),
+                target_refs_json.as_ref(),
+            ) {
+                (Some(request), Some(workflow_run), Some(target_refs_json)) => {
+                    Some(record_blocked_worker_evidence_action(
+                        store,
+                        request,
+                        workflow_run,
+                        action,
+                        target_refs_json,
+                        &blocker,
+                    )?)
+                }
+                _ => action,
+            };
+            let workflow_run = match (request.as_ref(), workflow_run) {
+                (Some(request), Some(workflow_run)) => Some(block_workflow_run_for_evidence(
+                    store,
+                    request,
+                    &workflow_run,
+                    &blocker,
+                )?),
+                (_, workflow_run) => workflow_run,
+            };
+            Ok(QueueWorkflowWorkerEvidenceStepResult {
+                workflow_run_id: request
+                    .as_ref()
+                    .map(|request| request.workflow_run_id.clone())
+                    .or_else(|| workflow_run.as_ref().map(|run| run.workflow_run_id.clone()))
+                    .unwrap_or_default(),
+                transition: QueueWorkflowWorkerEvidenceStepTransition::RecordWorkerEvidence,
+                status: QueueWorkflowWorkerEvidenceStepResultStatus::BlockedPrecondition,
+                action: action.map(QueueWorkflowAction::from),
+                evidence_bundle: None,
+                aggregate: None,
+                binding: None,
+                workflow_run: workflow_run.map(QueueWorkflowRun::from),
+                next_phase: Some(WORKFLOW_PHASE_WORKER_EVIDENCE.to_owned()),
+                next_step: Some("worker_evidence_blocked".to_owned()),
+                blockers: vec![blocker],
+                conflict: None,
+            })
+        }
+        WorkerEvidenceStepResolveStatus::Conflict {
+            workflow_run,
+            action,
+            evidence,
+            conflict,
+            blocker,
+        } => Ok(QueueWorkflowWorkerEvidenceStepResult {
+            workflow_run_id: workflow_run
+                .as_ref()
+                .map(|run| run.workflow_run_id.clone())
+                .or_else(|| conflict.existing_workflow_run_id.clone())
+                .unwrap_or_default(),
+            transition: QueueWorkflowWorkerEvidenceStepTransition::RecordWorkerEvidence,
+            status: QueueWorkflowWorkerEvidenceStepResultStatus::Conflict,
+            action: action.map(QueueWorkflowAction::from),
+            evidence_bundle: evidence
+                .map(worker_evidence_bundle_summary_for_tx)
+                .transpose()?,
+            aggregate: None,
+            binding: None,
+            workflow_run: workflow_run.map(QueueWorkflowRun::from),
+            next_phase: Some(WORKFLOW_PHASE_WORKER_EVIDENCE.to_owned()),
+            next_step: Some("worker_evidence_blocked".to_owned()),
+            blockers: blocker.into_iter().collect(),
+            conflict: Some(conflict),
+        }),
+        WorkerEvidenceStepResolveStatus::NotFound { request, blocker } => {
+            Ok(QueueWorkflowWorkerEvidenceStepResult {
+                workflow_run_id: request.workflow_run_id,
+                transition: QueueWorkflowWorkerEvidenceStepTransition::RecordWorkerEvidence,
+                status: QueueWorkflowWorkerEvidenceStepResultStatus::NotFound,
+                action: None,
+                evidence_bundle: None,
+                aggregate: None,
+                binding: None,
+                workflow_run: None,
+                next_phase: Some(WORKFLOW_PHASE_WORKER_EVIDENCE.to_owned()),
+                next_step: None,
+                blockers: vec![blocker],
+                conflict: None,
+            })
+        }
+        WorkerEvidenceStepResolveStatus::InvalidInput {
+            workflow_run_id,
+            blocker,
+        } => Ok(QueueWorkflowWorkerEvidenceStepResult {
+            workflow_run_id,
+            transition: QueueWorkflowWorkerEvidenceStepTransition::RecordWorkerEvidence,
+            status: QueueWorkflowWorkerEvidenceStepResultStatus::InvalidInput,
+            action: None,
+            evidence_bundle: None,
+            aggregate: None,
+            binding: None,
+            workflow_run: None,
+            next_phase: Some(WORKFLOW_PHASE_WORKER_EVIDENCE.to_owned()),
+            next_step: None,
+            blockers: vec![blocker],
+            conflict: None,
+        }),
+    }
+}
+
+fn execute_ready_worker_evidence_step(
+    store: &SqliteStore,
+    mut resolved: WorkerEvidenceStepResolution,
+) -> Result<QueueWorkflowWorkerEvidenceStepResult, StorageError> {
+    let started_action = open_worker_evidence_action_for_execution(store, &resolved)?;
+    let had_existing_evidence = resolved.existing_evidence.is_some();
+    let evidence = match resolved.existing_evidence.take() {
+        Some(evidence) => evidence,
+        None => record_agent_queue_worker_finished_in_store(
+            store,
+            &resolved.request.worker,
+            &resolved.finished_at,
+            &resolved.bundle_id,
+            &resolved.changed_files_json,
+        )?,
+    };
+    let result_refs_json = result_refs_json(&evidence, &resolved.run_link.status);
+    let action =
+        complete_worker_evidence_action(store, &resolved, started_action, &result_refs_json)?;
+
+    update_binding_with_evidence(
+        &mut resolved.slot_bindings,
+        &resolved.request,
+        &evidence,
+        &action,
+        &resolved.finished_at,
+        &resolved.run_link.status,
+    );
+    let slot_bindings_json = bounded_json(
+        canonical_json_string(&Value::Object(resolved.slot_bindings)),
+        MAX_WORKFLOW_SLOT_BINDINGS_JSON_BYTES,
+        "slotBindings",
+    )?;
+    let mutation_refs_json = bounded_json(
+        mutation_refs_json(
+            resolved.workflow_run.mutation_refs_json.as_deref(),
+            &resolved.request,
+            &evidence,
+        ),
+        MAX_WORKFLOW_MUTATION_REFS_JSON_BYTES,
+        "mutationRefs",
+    )?;
+    let idempotency_keys_json = bounded_json(
+        idempotency_keys_json(
+            resolved.workflow_run.idempotency_keys_json.as_deref(),
+            &resolved.request.action_idempotency_key,
+        ),
+        MAX_WORKFLOW_IDEMPOTENCY_KEYS_JSON_BYTES,
+        "idempotencyKeys",
+    )?;
+    let action_log_summary_json = bounded_json(
+        action_log_summary_json(
+            resolved.workflow_run.action_log_summary_json.as_deref(),
+            &resolved.request,
+            &evidence,
+            &resolved.run_link.status,
+        ),
+        MAX_WORKFLOW_ACTION_LOG_SUMMARY_JSON_BYTES,
+        "actionLogSummary",
+    )?;
+    let variables_json = bounded_json(
+        variables_json(
+            resolved.workflow_run.variables_json.as_deref(),
+            &resolved.request,
+            &evidence,
+        ),
+        MAX_WORKFLOW_VARIABLES_JSON_BYTES,
+        "variables",
+    )?;
+
+    let updated_run = store
+        .update_agent_queue_workflow_run_report_reopened(
+            &resolved.request.workspace_id,
+            &resolved.request.workflow_run_id,
+            AgentQueueWorkflowRunReportUpdate {
+                status: QueueWorkflowRunStatus::Paused.as_str(),
+                phase: Some(WORKFLOW_PHASE_WORKER_EVIDENCE),
+                current_step: Some(WORKFLOW_STEP_AWAITING_REVIEW),
+                pause_reason: Some(PAUSE_REASON_AWAITING_REVIEW),
+                blocker_reason: None,
+                variables_json: Some(&variables_json),
+                slot_bindings_json: Some(&slot_bindings_json),
+                mutation_refs_json: Some(&mutation_refs_json),
+                idempotency_keys_json: Some(&idempotency_keys_json),
+                action_log_summary_json: Some(&action_log_summary_json),
+                updated_at: Some(&resolved.finished_at),
+                completed_at: None,
+            },
+        )?
+        .ok_or(StorageError::QueryReturnedNoRows)?;
+    store.touch_workspace(&resolved.request.workspace_id)?;
+
+    let evidence_summary = worker_evidence_bundle_summary_for_tx(evidence.clone())?;
+    let binding = QueueWorkflowWorkerEvidenceBindingSummary {
+        slot: resolved.request.slot.clone(),
+        task_id: evidence.queue_task_id.clone(),
+        run_id: evidence.run_id.clone(),
+        evidence_bundle_id: evidence.bundle_id.clone(),
+        evidence_action_id: Some(action.action_id.clone()),
+        evidence_action_idempotency_key: resolved.request.action_idempotency_key.clone(),
+        evidence_recorded_at: evidence.updated_at.clone(),
+        worker_final_status: resolved.run_link.status.clone(),
+        worker_outcome: evidence.outcome.clone(),
+    };
+
+    Ok(QueueWorkflowWorkerEvidenceStepResult {
+        workflow_run_id: resolved.request.workflow_run_id,
+        transition: QueueWorkflowWorkerEvidenceStepTransition::RecordWorkerEvidence,
+        status: if had_existing_evidence {
+            QueueWorkflowWorkerEvidenceStepResultStatus::AlreadyApplied
+        } else {
+            QueueWorkflowWorkerEvidenceStepResultStatus::Executed
+        },
+        action: Some(QueueWorkflowAction::from(action)),
+        evidence_bundle: Some(evidence_summary),
+        aggregate: None,
+        binding: Some(binding),
+        workflow_run: Some(QueueWorkflowRun::from(updated_run)),
+        next_phase: Some("review".to_owned()),
+        next_step: Some(WORKFLOW_STEP_AWAITING_REVIEW.to_owned()),
+        blockers: Vec::new(),
+        conflict: None,
+    })
+}
+
+fn open_worker_evidence_action_for_execution(
+    store: &SqliteStore,
+    resolved: &WorkerEvidenceStepResolution,
+) -> Result<AgentQueueWorkflowActionRow, StorageError> {
+    match &resolved.existing_action {
+        ExistingActionDecision::None => {
+            let action_id = placeholder_id("queue-workflow-action-");
+            store.insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+                action_id: &action_id,
+                workflow_run_id: &resolved.request.workflow_run_id,
+                workspace_id: &resolved.request.workspace_id,
+                step_id: RECORD_WORKER_EVIDENCE_STEP_ID,
+                action_type: RECORD_WORKER_EVIDENCE_ACTION_TYPE,
+                idempotency_key: &resolved.request.action_idempotency_key,
+                status: QueueWorkflowActionStatus::Running.as_str(),
+                target_refs_json: Some(&resolved.target_refs_json),
+                result_refs_json: None,
+                blocker_code: None,
+                blocker_message: None,
+                attempt_count: 1,
+                started_at: Some(&resolved.finished_at),
+                completed_at: None,
+                created_at: Some(&resolved.finished_at),
+                updated_at: Some(&resolved.finished_at),
+            })
+        }
+        ExistingActionDecision::Completed(action) => Ok(action.clone()),
+        ExistingActionDecision::Retryable {
+            action,
+            repair_target_refs,
+        } => {
+            let update = AgentQueueWorkflowActionUpdate {
+                status: QueueWorkflowActionStatus::Running.as_str(),
+                result_refs_json: None,
+                blocker_code: None,
+                blocker_message: None,
+                attempt_count: Some(action.attempt_count.saturating_add(1)),
+                started_at: Some(&resolved.finished_at),
+                completed_at: None,
+                updated_at: Some(&resolved.finished_at),
+            };
+            if *repair_target_refs {
+                store.replace_agent_queue_workflow_action_refs_and_resolution(
+                    &resolved.request.workspace_id,
+                    &resolved.request.workflow_run_id,
+                    &resolved.request.action_idempotency_key,
+                    Some(&resolved.target_refs_json),
+                    update,
+                )
+            } else {
+                store.replace_agent_queue_workflow_action_resolution(
+                    &resolved.request.workspace_id,
+                    &resolved.request.workflow_run_id,
+                    &resolved.request.action_idempotency_key,
+                    update,
+                )
+            }?
+            .ok_or(StorageError::QueryReturnedNoRows)
+        }
+    }
+}
+
+fn complete_worker_evidence_action(
+    store: &SqliteStore,
+    resolved: &WorkerEvidenceStepResolution,
+    action: AgentQueueWorkflowActionRow,
+    result_refs_json: &str,
+) -> Result<AgentQueueWorkflowActionRow, StorageError> {
+    if action.status == QueueWorkflowActionStatus::Completed.as_str() {
+        if action.result_refs_json.as_deref() != Some(result_refs_json) {
+            return Err(StorageError::InvalidParameterName(
+                "Existing Queue workflow record_worker_evidence action result refs do not match durable evidence.".to_owned(),
+            ));
+        }
+        return Ok(action);
+    }
+
+    store
+        .replace_agent_queue_workflow_action_resolution(
+            &resolved.request.workspace_id,
+            &resolved.request.workflow_run_id,
+            &resolved.request.action_idempotency_key,
+            AgentQueueWorkflowActionUpdate {
+                status: QueueWorkflowActionStatus::Completed.as_str(),
+                result_refs_json: Some(result_refs_json),
+                blocker_code: None,
+                blocker_message: None,
+                attempt_count: Some(action.attempt_count),
+                started_at: action.started_at.as_deref().or(Some(&resolved.finished_at)),
+                completed_at: Some(&resolved.finished_at),
+                updated_at: Some(&resolved.finished_at),
+            },
+        )?
+        .ok_or(StorageError::QueryReturnedNoRows)
+}
+
+fn record_blocked_worker_evidence_action(
+    store: &SqliteStore,
+    request: &NormalizedWorkflowEvidenceRequest,
+    _workflow_run: &AgentQueueWorkflowRunRow,
+    existing_action: Option<AgentQueueWorkflowActionRow>,
+    target_refs_json: &str,
+    blocker: &QueueWorkflowCommandBlocker,
+) -> Result<AgentQueueWorkflowActionRow, StorageError> {
+    let result_refs = canonical_json_string(&json!({
+        "commandStatus": "blocked_precondition",
+        "outcome": request.worker.outcome,
+        "status": blocker.blocker_code,
+    }));
+    match existing_action {
+        Some(action) => store
+            .replace_agent_queue_workflow_action_resolution(
+                &request.workspace_id,
+                &request.workflow_run_id,
+                &request.action_idempotency_key,
+                AgentQueueWorkflowActionUpdate {
+                    status: QueueWorkflowActionStatus::Blocked.as_str(),
+                    result_refs_json: Some(&result_refs),
+                    blocker_code: Some(&blocker.blocker_code),
+                    blocker_message: Some(&blocker.blocker_message),
+                    attempt_count: Some(action.attempt_count.saturating_add(1)),
+                    started_at: action.started_at.as_deref(),
+                    completed_at: None,
+                    updated_at: None,
+                },
+            )?
+            .ok_or(StorageError::QueryReturnedNoRows),
+        None => {
+            let now = placeholder_timestamp();
+            let action_id = placeholder_id("queue-workflow-action-");
+            store.insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+                action_id: &action_id,
+                workflow_run_id: &request.workflow_run_id,
+                workspace_id: &request.workspace_id,
+                step_id: RECORD_WORKER_EVIDENCE_STEP_ID,
+                action_type: RECORD_WORKER_EVIDENCE_ACTION_TYPE,
+                idempotency_key: &request.action_idempotency_key,
+                status: QueueWorkflowActionStatus::Blocked.as_str(),
+                target_refs_json: Some(target_refs_json),
+                result_refs_json: Some(&result_refs),
+                blocker_code: Some(&blocker.blocker_code),
+                blocker_message: Some(&blocker.blocker_message),
+                attempt_count: 1,
+                started_at: Some(&now),
+                completed_at: Some(&now),
+                created_at: Some(&now),
+                updated_at: Some(&now),
+            })
+        }
+    }
+}
+
+fn block_workflow_run_for_evidence(
+    store: &SqliteStore,
+    request: &NormalizedWorkflowEvidenceRequest,
+    _workflow_run: &AgentQueueWorkflowRunRow,
+    blocker: &QueueWorkflowCommandBlocker,
+) -> Result<AgentQueueWorkflowRunRow, StorageError> {
+    let now = placeholder_timestamp();
+    store
+        .update_agent_queue_workflow_run_report(
+            &request.workspace_id,
+            &request.workflow_run_id,
+            AgentQueueWorkflowRunReportUpdate {
+                status: QueueWorkflowRunStatus::Blocked.as_str(),
+                phase: Some(WORKFLOW_PHASE_WORKER_EVIDENCE),
+                current_step: Some("worker_evidence_blocked"),
+                pause_reason: None,
+                blocker_reason: Some(&blocker.blocker_message),
+                variables_json: None,
+                slot_bindings_json: None,
+                mutation_refs_json: None,
+                idempotency_keys_json: None,
+                action_log_summary_json: None,
+                updated_at: Some(&now),
+                completed_at: None,
+            },
+        )?
+        .ok_or(StorageError::QueryReturnedNoRows)
+}
+
+fn plan_from_worker_evidence_resolution(
+    fallback_workflow_run_id: &str,
+    resolution: WorkerEvidenceStepResolveStatus,
+) -> QueueWorkflowWorkerEvidenceStepPlan {
+    match resolution {
+        WorkerEvidenceStepResolveStatus::Ready(resolved) => {
+            let existing_bundle = resolved
+                .existing_evidence
+                .as_ref()
+                .map(|evidence| evidence.bundle_id.clone());
+            QueueWorkflowWorkerEvidenceStepPlan {
+                workflow_run_id: resolved.request.workflow_run_id.clone(),
+                workflow_id: Some(resolved.workflow_run.workflow_id.clone()),
+                persistent_status: Some(resolved.workflow_run.status.clone()),
+                phase: Some(resolved.workflow_run.phase.clone()),
+                current_step: resolved.workflow_run.current_step.clone(),
+                transition: QueueWorkflowWorkerEvidenceStepTransition::RecordWorkerEvidence,
+                executable: true,
+                idempotency_key: Some(resolved.request.action_idempotency_key.clone()),
+                target_refs: parse_json_value(&resolved.target_refs_json),
+                current_refs: Some(current_refs_json(
+                    &resolved.run_link,
+                    existing_bundle.as_deref(),
+                    action_ref_for_plan(&resolved.existing_action).as_ref(),
+                )),
+                missing_refs: Vec::new(),
+                required_input: Vec::new(),
+                blockers: Vec::new(),
+                safe_to_record_worker_evidence: true,
+                reason_if_not_safe: None,
+                stale_history: resolved.stale_history,
+                expected_next_phase_on_success: Some("review".to_owned()),
+                expected_next_step_on_success: Some(WORKFLOW_STEP_AWAITING_REVIEW.to_owned()),
+            }
+        }
+        WorkerEvidenceStepResolveStatus::Blocked {
+            request,
+            workflow_run,
+            target_refs_json,
+            blocker,
+            stale_history,
+            ..
+        } => QueueWorkflowWorkerEvidenceStepPlan {
+            workflow_run_id: request
+                .as_ref()
+                .map(|request| request.workflow_run_id.clone())
+                .or_else(|| workflow_run.as_ref().map(|run| run.workflow_run_id.clone()))
+                .unwrap_or_else(|| fallback_workflow_run_id.to_owned()),
+            workflow_id: workflow_run.as_ref().map(|run| run.workflow_id.clone()),
+            persistent_status: workflow_run.as_ref().map(|run| run.status.clone()),
+            phase: workflow_run.as_ref().map(|run| run.phase.clone()),
+            current_step: workflow_run
+                .as_ref()
+                .and_then(|run| run.current_step.clone()),
+            transition: QueueWorkflowWorkerEvidenceStepTransition::RecordWorkerEvidence,
+            executable: false,
+            idempotency_key: request
+                .as_ref()
+                .map(|request| request.action_idempotency_key.clone()),
+            target_refs: target_refs_json.as_deref().and_then(parse_json_value),
+            current_refs: None,
+            missing_refs: blocker.missing_required_field.clone().into_iter().collect(),
+            required_input: blocker.missing_required_field.clone().into_iter().collect(),
+            blockers: vec![blocker.clone()],
+            safe_to_record_worker_evidence: false,
+            reason_if_not_safe: Some(blocker.blocker_message),
+            stale_history,
+            expected_next_phase_on_success: Some("review".to_owned()),
+            expected_next_step_on_success: Some(WORKFLOW_STEP_AWAITING_REVIEW.to_owned()),
+        },
+        WorkerEvidenceStepResolveStatus::Conflict {
+            workflow_run,
+            conflict,
+            blocker,
+            ..
+        } => QueueWorkflowWorkerEvidenceStepPlan {
+            workflow_run_id: workflow_run
+                .as_ref()
+                .map(|run| run.workflow_run_id.clone())
+                .or_else(|| conflict.existing_workflow_run_id.clone())
+                .unwrap_or_else(|| fallback_workflow_run_id.to_owned()),
+            workflow_id: workflow_run.as_ref().map(|run| run.workflow_id.clone()),
+            persistent_status: workflow_run.as_ref().map(|run| run.status.clone()),
+            phase: workflow_run.as_ref().map(|run| run.phase.clone()),
+            current_step: workflow_run
+                .as_ref()
+                .and_then(|run| run.current_step.clone()),
+            transition: QueueWorkflowWorkerEvidenceStepTransition::RecordWorkerEvidence,
+            executable: false,
+            idempotency_key: None,
+            target_refs: None,
+            current_refs: None,
+            missing_refs: Vec::new(),
+            required_input: Vec::new(),
+            blockers: blocker.into_iter().collect(),
+            safe_to_record_worker_evidence: false,
+            reason_if_not_safe: Some(conflict.conflict_message),
+            stale_history: false,
+            expected_next_phase_on_success: Some("review".to_owned()),
+            expected_next_step_on_success: Some(WORKFLOW_STEP_AWAITING_REVIEW.to_owned()),
+        },
+        WorkerEvidenceStepResolveStatus::NotFound { request, blocker } => {
+            QueueWorkflowWorkerEvidenceStepPlan {
+                workflow_run_id: request.workflow_run_id,
+                workflow_id: None,
+                persistent_status: None,
+                phase: None,
+                current_step: None,
+                transition: QueueWorkflowWorkerEvidenceStepTransition::RecordWorkerEvidence,
+                executable: false,
+                idempotency_key: Some(request.action_idempotency_key),
+                target_refs: None,
+                current_refs: None,
+                missing_refs: vec!["workflowRunId".to_owned()],
+                required_input: Vec::new(),
+                blockers: vec![blocker.clone()],
+                safe_to_record_worker_evidence: false,
+                reason_if_not_safe: Some(blocker.blocker_message),
+                stale_history: false,
+                expected_next_phase_on_success: Some("review".to_owned()),
+                expected_next_step_on_success: Some(WORKFLOW_STEP_AWAITING_REVIEW.to_owned()),
+            }
+        }
+        WorkerEvidenceStepResolveStatus::InvalidInput {
+            workflow_run_id,
+            blocker,
+        } => QueueWorkflowWorkerEvidenceStepPlan {
+            workflow_run_id: if workflow_run_id.is_empty() {
+                fallback_workflow_run_id.to_owned()
+            } else {
+                workflow_run_id
+            },
+            workflow_id: None,
+            persistent_status: None,
+            phase: None,
+            current_step: None,
+            transition: QueueWorkflowWorkerEvidenceStepTransition::RecordWorkerEvidence,
+            executable: false,
+            idempotency_key: None,
+            target_refs: None,
+            current_refs: None,
+            missing_refs: blocker.missing_required_field.clone().into_iter().collect(),
+            required_input: blocker.missing_required_field.clone().into_iter().collect(),
+            blockers: vec![blocker.clone()],
+            safe_to_record_worker_evidence: false,
+            reason_if_not_safe: Some(blocker.blocker_message),
+            stale_history: false,
+            expected_next_phase_on_success: Some("review".to_owned()),
+            expected_next_step_on_success: Some(WORKFLOW_STEP_AWAITING_REVIEW.to_owned()),
+        },
+    }
+}
+
+fn blocked_worker_evidence_resolution(
+    request: Option<NormalizedWorkflowEvidenceRequest>,
+    workflow_run: Option<AgentQueueWorkflowRunRow>,
+    action: Option<AgentQueueWorkflowActionRow>,
+    target_refs_json: Option<String>,
+    blocker: QueueWorkflowCommandBlocker,
+    stale_history: bool,
+) -> WorkerEvidenceStepResolveStatus {
+    WorkerEvidenceStepResolveStatus::Blocked {
+        request,
+        workflow_run,
+        action,
+        target_refs_json,
+        blocker,
+        stale_history,
+    }
+}
+
+fn conflict_worker_evidence_resolution(
+    workflow_run: Option<AgentQueueWorkflowRunRow>,
+    action: Option<AgentQueueWorkflowActionRow>,
+    evidence: Option<AgentQueueWorkerEvidenceBundleRow>,
+    code: &str,
+    message: &str,
+    existing: Option<String>,
+    requested: Option<String>,
+) -> WorkerEvidenceStepResolveStatus {
+    WorkerEvidenceStepResolveStatus::Conflict {
+        workflow_run: workflow_run.clone(),
+        action,
+        evidence,
+        blocker: None,
+        conflict: QueueWorkflowConflict {
+            conflict_code: code.to_owned(),
+            conflict_message: message.to_owned(),
+            existing_workflow_run_id: workflow_run.map(|run| run.workflow_run_id),
+            existing_request_hash: existing,
+            requested_request_hash: requested,
+        },
+    }
+}
+
+fn target_refs_json_without_binding(request: &NormalizedWorkflowEvidenceRequest) -> String {
+    canonical_json_string(&json!({
+        "runId": request.worker.run_id,
+        "slot": request.slot,
+        "taskId": request.worker.queue_item_id,
+        "workflowRunId": request.workflow_run_id,
+    }))
+}
+
+fn parse_json_value(raw: &str) -> Option<Value> {
+    serde_json::from_str::<Value>(raw).ok()
+}
+
+fn current_refs_json(
+    run_link: &AgentQueueTaskRunLinkRow,
+    evidence_bundle_id: Option<&str>,
+    action: Option<&QueueWorkflowAction>,
+) -> Value {
+    json!({
+        "actionId": action.map(|action| action.action_id.clone()),
+        "actionStatus": action.map(|action| action.status.clone()),
+        "evidenceBundleId": evidence_bundle_id,
+        "runId": run_link.direct_work_run_id.clone(),
+        "runLinkId": run_link.link_id.clone(),
+        "workerFinalStatus": run_link.status.clone(),
+    })
+}
+
+fn action_ref_for_plan(action: &ExistingActionDecision) -> Option<QueueWorkflowAction> {
+    match action {
+        ExistingActionDecision::None => None,
+        ExistingActionDecision::Completed(action) => {
+            Some(QueueWorkflowAction::from(action.clone()))
+        }
+        ExistingActionDecision::Retryable { action, .. } => {
+            Some(QueueWorkflowAction::from(action.clone()))
+        }
+    }
 }
 
 fn normalize_workflow_evidence_request(

@@ -363,15 +363,26 @@ pub(super) fn record_agent_queue_worker_finished_in_store(
             ))
         })?;
 
-    let widget_run_status = widget_run_status_for_worker_outcome(&input.outcome);
-    let _run = store.finish_widget_run(
-        &input.run_id,
-        WidgetRunFinishUpdate {
-            status: widget_run_status,
-            finished_at: Some(finished_at),
-            summary: Some(&input.summary),
-        },
-    )?;
+    if store.get_widget_run(&input.run_id)?.is_some() {
+        let widget_run_status = widget_run_status_for_worker_outcome(&input.outcome);
+        let _run = store.finish_widget_run(
+            &input.run_id,
+            WidgetRunFinishUpdate {
+                status: widget_run_status,
+                finished_at: Some(finished_at),
+                summary: Some(&input.summary),
+            },
+        )?;
+    }
+
+    let executor_widget_id = if store
+        .get_widget_instance(&run_link.executor_widget_id)?
+        .is_some()
+    {
+        Some(run_link.executor_widget_id.as_str())
+    } else {
+        None
+    };
 
     store.upsert_agent_queue_worker_evidence_bundle(NewAgentQueueWorkerEvidenceBundle {
         bundle_id,
@@ -379,7 +390,7 @@ pub(super) fn record_agent_queue_worker_finished_in_store(
         queue_task_id: &input.queue_item_id,
         run_id: &input.run_id,
         run_link_id: Some(&run_link.link_id),
-        executor_widget_id: Some(&run_link.executor_widget_id),
+        executor_widget_id,
         worker_id: input.worker_id.as_deref(),
         source: &input.source,
         outcome: &input.outcome,

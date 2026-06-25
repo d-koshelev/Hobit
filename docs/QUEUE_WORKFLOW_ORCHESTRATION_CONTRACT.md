@@ -193,18 +193,18 @@ report/action summaries, and pause at `awaiting_worker_completion` /
 finalizes, starts downstream, runs validation, mutates Git, launches Terminal,
 or schedules work.
 
-The runner also exposes a separate explicit `worker_evidence` phase for
-dependency smoke workflows. It accepts only typed continuation input for the
+The `worker_evidence` transition for dependency smoke workflows is now
+backend-owned. The runtime adapter accepts only typed continuation input for the
 explicit `upstream` slot: `workflowRunId`, `slot`, `taskId`, `runId`, bounded
 worker outcome/summary fields, optional trusted actor/source metadata, and an
-optional exact action idempotency key. It calls an injected
-`QueueWorkflowWorkerEvidencePort`, which delegates to backend-owned workflow
-evidence recording/reconciliation. Missing typed completion input returns
-`awaiting_worker_completion` without mutation. A recorded or already-recorded
-bundle returns `evidence_recorded` / `evidence_already_recorded` and stops at
-`awaiting_review`. It does not create review messages, ACK reviews, finalize,
-block/follow up, validate, mutate Git, roll back, launch Terminal, start any
-worker, or start downstream work.
+optional exact action idempotency key. It calls the backend worker-evidence
+StepResult API and renders the result; it does not run frontend
+worker-evidence mutation/recovery logic and does not synthesize action ledger
+rows. Missing typed completion input is reported as a typed backend blocker. A
+recorded or already-recorded bundle returns `executed` / `already_applied` and
+stops at `awaiting_review`. It does not create review messages, ACK reviews,
+finalize, block/follow up, validate, mutate Git, roll back, launch Terminal,
+start any worker, or start downstream work.
 
 Worker-evidence retry is the only narrow terminal workflow re-entry exception.
 If `queue.workflow.planResume` or the backend evidence command proves
@@ -228,9 +228,9 @@ prompts, prose, UI selection, UI order, file paths, or repository roots.
 
 The read-only phase uses only an injected `QueueWorkflowReadPort` with read
 methods for Queue aggregate, lifecycle, list, and evidence inspection. The
-worker-evidence phase uses a separate injected
-`QueueWorkflowWorkerEvidencePort` for the single backend workflow evidence
-record/reconcile command. The review phase uses the read port plus a separate
+worker-evidence phase is owned by the backend StepPlan/StepResult API and is
+not implemented through frontend phase-specific evidence mutation. The review
+phase uses the read port plus a separate
 injected
 `QueueWorkflowReviewPort` for review message create and ACK commands. The
 finalization phase uses the read port plus a separate injected
@@ -363,6 +363,10 @@ command:
   Worker-evidence retry planning has one narrow stale-history exception:
   non-mutating worker-evidence failures do not permanently poison retry when
   current durable refs prove the same task/run can safely record evidence.
+  Worker-evidence retryability must be derived from the same backend
+  worker-evidence step resolver used by mutation; `planResume` must not
+  independently bless a retry that `executeWorkerEvidenceStep` would reject
+  under a different set of preconditions.
   Stale retryable history is limited to `queue.workflow.runner` failed at
   `worker_evidence` before evidence mutation, `record_worker_evidence`
   blocked/precondition failures with no `evidenceBundleId`,
@@ -376,19 +380,23 @@ command:
   reporting `retryable_worker_evidence_failure`,
   `retryable_worker_evidence_action_repair`, or
   `waiting_for_worker_evidence`.
-- `queue.workflow.recordWorkerEvidence` records or reconciles durable worker
-  evidence for one explicit workflow slot. It requires `workspaceId`,
-  `workflowRunId`, `slot`, `taskId`, `runId`, bounded worker final
-  status/outcome/summary input, and either the default exact idempotency key
+- `queue.workflow.executeWorkerEvidenceStep` records or reconciles durable
+  worker evidence for one explicit workflow slot through a backend-owned
+  StepPlan/StepResult transition. It requires `workspaceId`, `workflowRunId`,
+  `slot`, `taskId`, `runId`, bounded worker final status/outcome/summary input,
+  and either the default exact idempotency key
   `workflowRunId:record_worker_evidence:slot:taskId:runId` or an equivalent
-  supplied key. For dependency smoke workflows this phase is limited to the
-  `upstream` slot. It validates the persisted slot binding task id and may use
-  a verified recovered `runId` from completed `start_worker` action
-  target/result refs or resume continuation refs when `slotBindings.runId` is
-  absent. Recovery requires unambiguous task-to-slot binding, matching
-  explicit `workerEvidence.runId`, matching settings/execution-target hashes,
-  and a durable run link for the same task/workspace; conflicting refs block
-  as `run_id_mismatch` or a specific ref mismatch instead of guessing. It
+  supplied key. `planQueueWorkflowWorkerEvidenceStep` and
+  `executeWorkerEvidenceStep` share one resolver, one canonical ref set, one
+  blocker taxonomy, one slot-binding merge path, and one action-ledger model.
+  For dependency smoke workflows this transition is limited to the `upstream`
+  slot. It validates the persisted slot binding task id and may use a verified
+  recovered `runId` from completed `start_worker` action target/result refs or
+  resume continuation refs when `slotBindings.runId` is absent. Recovery
+  requires unambiguous task-to-slot binding, matching explicit
+  `workerEvidence.runId`, matching settings/execution-target hashes, and a
+  durable run link for the same task/workspace; conflicting refs block as
+  `run_id_mismatch` or a specific ref mismatch instead of guessing. It
   validates that the run belongs to the task/workspace, blocks
   missing/running/ambiguous worker state, and requires
   `workerEvidence.outcome` to match the durable run state. A completed durable
@@ -397,13 +405,16 @@ command:
   `outcome: "not_completed"`. A mismatch blocks with
   `worker_outcome_mismatch` and remains retryable when corrected; it must not
   be converted to `failed_unexpected`. Existing matching evidence is
-  idempotent success. Existing mismatched evidence or changed action refs
-  blocks as a typed evidence conflict. Successful recording persists the
-  reconciled `runId` and `evidenceBundleId` into the workflow slot
-  binding/action ledger and stops at `awaiting_review`. It must not create/ACK
-  review messages, mark done, fail, block, follow up, validate, mutate Git,
-  roll back, launch Terminal, start workers, start downstream work,
-  create/update/promote tasks, or enable Queue.
+  idempotent `already_applied`. Existing mismatched evidence or changed action
+  refs blocks as a typed evidence conflict. Before a mutation attempt, execute
+  creates or locks the canonical `record_worker_evidence` action. Successful
+  recording completes that action, stores `evidenceBundleId` in result refs,
+  persists the reconciled `runId` and `evidenceBundleId` into the workflow slot
+  binding/action ledger, and stops at `awaiting_review`. Expected blockers are
+  recorded as typed blocked/precondition action state when enough workflow refs
+  are known. It must not create/ACK review messages, mark done, fail, block,
+  follow up, validate, mutate Git, roll back, launch Terminal, start workers,
+  start downstream work, create/update/promote tasks, or enable Queue.
   Failed or blocked workflow runs may re-enter this command only when the
   backend proves the exact `retryable_worker_evidence_failure` or
   `retryable_worker_evidence_action_repair` shape:
@@ -429,8 +440,10 @@ command:
   arbitrary failed/blocked phases, mismatched workspace/task/run refs, unknown
   worker state, and active running workers remain blockers.
 - `queue.workflow.recordRunnerReport` records bounded runtime-adapter report
-  state and action-ledger summaries for supported create/setup/start,
-  worker-evidence, read/review/finalization runner phases. It may update only
+  state and action-ledger summaries for supported create/setup/start and
+  read/review/finalization runner phases. Worker-evidence durable transition
+  state is produced by the backend StepResult path, not by frontend report
+  synthesis. Report persistence may update only
   `agent_queue_workflow_runs` and `agent_queue_workflow_actions`; it must not
   mutate Queue tasks, run links, worker evidence, review messages,
   completion/failure decisions, Queue control state, validation, Git,

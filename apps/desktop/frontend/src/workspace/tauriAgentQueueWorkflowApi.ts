@@ -11,6 +11,7 @@ import type {
   AgentQueueWorkflowResumeBlocker,
   AgentQueueWorkflowResumePlan,
   AgentQueueWorkflowRunnerReportRecordResult,
+  AgentQueueWorkflowWorkerEvidenceStepResult,
   AgentQueueWorkflowWorkerEvidenceRecordResult,
   AgentQueueWorkerEvidenceBundle,
   AgentQueueTask,
@@ -160,6 +161,21 @@ type TauriAgentQueueWorkflowWorkerEvidenceRecordResult = {
   evidence_bundle: TauriAgentQueueWorkerEvidenceBundle | null;
   status: string;
   workflow_run: TauriAgentQueueWorkflowRun | null;
+};
+
+type TauriAgentQueueWorkflowWorkerEvidenceStepResult = {
+  action: TauriAgentQueueWorkflowAction | null;
+  aggregate: TauriAgentQueueItemAggregate | null;
+  binding: TauriAgentQueueWorkflowWorkerEvidenceBinding | null;
+  blockers: TauriAgentQueueWorkflowCommandBlocker[];
+  conflict: TauriAgentQueueWorkflowConflict | null;
+  evidence_bundle: TauriAgentQueueWorkerEvidenceBundle | null;
+  next_phase: string | null;
+  next_step: string | null;
+  status: string;
+  transition: string;
+  workflow_run: TauriAgentQueueWorkflowRun | null;
+  workflow_run_id: string;
 };
 
 type TauriAgentQueueWorkflowTaskSlotBinding = {
@@ -460,29 +476,24 @@ export async function recordAgentQueueWorkflowWorkerEvidence(
   const result = await invoke<TauriAgentQueueWorkflowWorkerEvidenceRecordResult>(
     "record_agent_queue_workflow_worker_evidence",
     {
-      request: {
-        action_idempotency_key: request.actionIdempotencyKey ?? null,
-        actor_id: request.actorId ?? null,
-        changed_files: request.changedFiles ?? [],
-        changed_files_summary: request.changedFilesSummary ?? null,
-        error_summary: request.errorSummary ?? null,
-        finished_at: request.finishedAt ?? null,
-        metadata_json: request.metadataJson ?? null,
-        outcome: request.outcome,
-        run_id: request.runId,
-        slot: request.slot,
-        source: request.source ?? null,
-        summary: request.summary ?? null,
-        task_id: request.taskId,
-        validation_summary: request.validationSummary ?? null,
-        worker_id: request.workerId ?? null,
-        workflow_run_id: request.workflowRunId,
-        workspace_id: request.workspaceId,
-      },
+      request: toTauriWorkerEvidenceRequest(request),
     },
   );
 
   return normalizeWorkerEvidenceRecordResult(result);
+}
+
+export async function executeAgentQueueWorkflowWorkerEvidenceStep(
+  request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
+): Promise<AgentQueueWorkflowWorkerEvidenceStepResult> {
+  const result = await invoke<TauriAgentQueueWorkflowWorkerEvidenceStepResult>(
+    "execute_agent_queue_workflow_worker_evidence_step",
+    {
+      request: toTauriWorkerEvidenceRequest(request),
+    },
+  );
+
+  return normalizeWorkerEvidenceStepResult(result);
 }
 
 export async function materializeAgentQueueWorkflowTaskSlot(
@@ -635,6 +646,66 @@ function normalizeWorkerEvidenceRecordResult(
       : null,
     status: result.status,
     workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
+  };
+}
+
+function normalizeWorkerEvidenceStepResult(
+  result: TauriAgentQueueWorkflowWorkerEvidenceStepResult,
+): AgentQueueWorkflowWorkerEvidenceStepResult {
+  return {
+    action: result.action ? normalizeAction(result.action) : null,
+    aggregate: result.aggregate
+      ? normalizeAgentQueueItemAggregate(result.aggregate)
+      : null,
+    binding: result.binding
+      ? {
+          evidenceActionId: result.binding.evidence_action_id,
+          evidenceActionIdempotencyKey:
+            result.binding.evidence_action_idempotency_key,
+          evidenceBundleId: result.binding.evidence_bundle_id,
+          evidenceRecordedAt: result.binding.evidence_recorded_at,
+          runId: result.binding.run_id,
+          slot: result.binding.slot,
+          taskId: result.binding.task_id,
+          workerFinalStatus: result.binding.worker_final_status,
+          workerOutcome: result.binding.worker_outcome,
+        }
+      : null,
+    blockers: result.blockers.map(normalizeBlocker),
+    conflict: result.conflict ? normalizeConflict(result.conflict) : null,
+    evidenceBundle: result.evidence_bundle
+      ? normalizeWorkerEvidenceBundle(result.evidence_bundle)
+      : null,
+    nextPhase: result.next_phase,
+    nextStep: result.next_step,
+    status: result.status,
+    transition: result.transition,
+    workflowRun: result.workflow_run ? normalizeRun(result.workflow_run) : null,
+    workflowRunId: result.workflow_run_id,
+  };
+}
+
+function toTauriWorkerEvidenceRequest(
+  request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
+) {
+  return {
+    action_idempotency_key: request.actionIdempotencyKey ?? null,
+    actor_id: request.actorId ?? null,
+    changed_files: request.changedFiles ?? [],
+    changed_files_summary: request.changedFilesSummary ?? null,
+    error_summary: request.errorSummary ?? null,
+    finished_at: request.finishedAt ?? null,
+    metadata_json: request.metadataJson ?? null,
+    outcome: request.outcome,
+    run_id: request.runId,
+    slot: request.slot,
+    source: request.source ?? null,
+    summary: request.summary ?? null,
+    task_id: request.taskId,
+    validation_summary: request.validationSummary ?? null,
+    worker_id: request.workerId ?? null,
+    workflow_run_id: request.workflowRunId,
+    workspace_id: request.workspaceId,
   };
 }
 

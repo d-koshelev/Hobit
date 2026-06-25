@@ -9,8 +9,9 @@ use crate::agent_queue_workflow_dto::{
     AgentQueueWorkflowMaterializeTaskSlotResultDto, AgentQueueWorkflowPromoteTaskSlotResultDto,
     AgentQueueWorkflowReportDto, AgentQueueWorkflowResumePlanDto, AgentQueueWorkflowRunDto,
     AgentQueueWorkflowRunnerReportRecordResultDto, AgentQueueWorkflowStartResultDto,
-    AgentQueueWorkflowWorkerEvidenceRecordResultDto, ApplyAgentQueueWorkflowRunSettingsRequest,
-    CancelAgentQueueWorkflowRequest, GetAgentQueueWorkflowRequest, ListAgentQueueWorkflowsRequest,
+    AgentQueueWorkflowWorkerEvidenceRecordResultDto, AgentQueueWorkflowWorkerEvidenceStepResultDto,
+    ApplyAgentQueueWorkflowRunSettingsRequest, CancelAgentQueueWorkflowRequest,
+    GetAgentQueueWorkflowRequest, ListAgentQueueWorkflowsRequest,
     MaterializeAgentQueueWorkflowTaskSlotRequest, PlanAgentQueueWorkflowResumeRequest,
     PromoteAgentQueueWorkflowTaskSlotRequest, RecordAgentQueueWorkflowRunnerReportRequest,
     RecordAgentQueueWorkflowWorkerEvidenceRequest, StartAgentQueueWorkflowRequest,
@@ -170,6 +171,28 @@ pub(crate) fn record_agent_queue_workflow_worker_evidence_blocking(
     service
         .record_queue_workflow_worker_evidence(request.into())
         .map(AgentQueueWorkflowWorkerEvidenceRecordResultDto::from)
+        .map_err(command_error)
+}
+
+#[tauri::command]
+pub(crate) fn execute_agent_queue_workflow_worker_evidence_step(
+    request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
+    state: State<'_, AppState>,
+) -> Result<AgentQueueWorkflowWorkerEvidenceStepResultDto, String> {
+    execute_agent_queue_workflow_worker_evidence_step_blocking(
+        request,
+        state.db_path().to_path_buf(),
+    )
+}
+
+pub(crate) fn execute_agent_queue_workflow_worker_evidence_step_blocking(
+    request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
+    db_path: PathBuf,
+) -> Result<AgentQueueWorkflowWorkerEvidenceStepResultDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .execute_queue_workflow_worker_evidence_step(request.into())
+        .map(AgentQueueWorkflowWorkerEvidenceStepResultDto::from)
         .map_err(command_error)
 }
 

@@ -238,6 +238,8 @@ pub use agent_queue_workflow::{
 pub use agent_queue_workflow_evidence::{
     QueueWorkflowRecordWorkerEvidenceRequest, QueueWorkflowRecordWorkerEvidenceResult,
     QueueWorkflowRecordWorkerEvidenceStatus, QueueWorkflowWorkerEvidenceBindingSummary,
+    QueueWorkflowWorkerEvidenceStepPlan, QueueWorkflowWorkerEvidenceStepResult,
+    QueueWorkflowWorkerEvidenceStepResultStatus, QueueWorkflowWorkerEvidenceStepTransition,
 };
 pub use agent_queue_workflow_materialization::{
     QueueWorkflowMaterializeTaskSlotRequest, QueueWorkflowMaterializeTaskSlotResult,

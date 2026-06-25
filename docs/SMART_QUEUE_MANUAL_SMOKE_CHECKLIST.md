@@ -567,14 +567,18 @@ duplicate task/start/evidence/review/ACK/finalization is created.
   `safeToRecordWorkerEvidence=true`, no active
   `incomplete_workflow_action_refs` blocker, complete continuation refs for
   the upstream task/run, and bounded stale-history diagnostics when present.
-  The backend evidence command still independently proves recoverable typed
-  task/run refs, no existing `evidenceBundleId`, no completed
-  `record_worker_evidence`, no review, no final decision, matching durable
-  worker state, and no downstream auto-start. Success should show the new
-  `evidenceBundleId` in `queue.workflow.getReport`, a completed focused
-  canonical `record_worker_evidence` action with full refs in
-  `queue.workflow.readActionLog`, a cleared active worker-evidence blocker,
-  and a next resume phase of review/awaiting review.
+  The backend worker-evidence StepPlan/StepResult path uses the same resolver
+  for planning and mutation: it proves recoverable typed task/run refs, no
+  existing `evidenceBundleId`, no completed `record_worker_evidence`, no
+  review, no final decision, matching durable worker state, and no downstream
+  auto-start before recording evidence. A corrected retry should return a
+  backend StepResult status of `executed` or `already_applied`, show the new
+  or reused `evidenceBundleId` in `queue.workflow.getReport`, show a completed
+  focused canonical `record_worker_evidence` action with full refs in
+  `queue.workflow.readActionLog`, clear the active worker-evidence blocker,
+  and leave the next resume phase at review/awaiting review. For backend-owned
+  `queue_local` runs, this path must be validated through the task run link
+  and must not require or synthesize a `widget_runs` row.
 - After evidence recorded: expect existing `evidenceBundleId` to be reused; no
   duplicate evidence.
 - After review created: expect existing canonical `messageId` to be reused for

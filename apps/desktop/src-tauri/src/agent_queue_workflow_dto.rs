@@ -11,7 +11,7 @@ use hobit_app::{
     QueueWorkflowResumePlan, QueueWorkflowRun, QueueWorkflowRunSettings,
     QueueWorkflowSlotReconciliation, QueueWorkflowStartRequest, QueueWorkflowStartResult,
     QueueWorkflowTaskResumeSnapshot, QueueWorkflowTaskSpec,
-    QueueWorkflowWorkerEvidenceBindingSummary,
+    QueueWorkflowWorkerEvidenceBindingSummary, QueueWorkflowWorkerEvidenceStepResult,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -307,6 +307,22 @@ pub(crate) struct AgentQueueWorkflowWorkerEvidenceRecordResultDto {
     pub aggregate: Option<QueueItemAggregateDto>,
     pub binding: Option<AgentQueueWorkflowWorkerEvidenceBindingDto>,
     pub blocker: Option<AgentQueueWorkflowCommandBlockerDto>,
+    pub conflict: Option<AgentQueueWorkflowConflictDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct AgentQueueWorkflowWorkerEvidenceStepResultDto {
+    pub workflow_run_id: String,
+    pub transition: String,
+    pub status: String,
+    pub workflow_run: Option<AgentQueueWorkflowRunDto>,
+    pub action: Option<AgentQueueWorkflowActionDto>,
+    pub evidence_bundle: Option<AgentQueueWorkerEvidenceBundleDto>,
+    pub aggregate: Option<QueueItemAggregateDto>,
+    pub binding: Option<AgentQueueWorkflowWorkerEvidenceBindingDto>,
+    pub next_phase: Option<String>,
+    pub next_step: Option<String>,
+    pub blockers: Vec<AgentQueueWorkflowCommandBlockerDto>,
     pub conflict: Option<AgentQueueWorkflowConflictDto>,
 }
 
@@ -831,6 +847,33 @@ impl From<QueueWorkflowRecordWorkerEvidenceResult>
             blocker: result
                 .blocker
                 .map(AgentQueueWorkflowCommandBlockerDto::from),
+            conflict: result.conflict.map(AgentQueueWorkflowConflictDto::from),
+        }
+    }
+}
+
+impl From<QueueWorkflowWorkerEvidenceStepResult> for AgentQueueWorkflowWorkerEvidenceStepResultDto {
+    fn from(result: QueueWorkflowWorkerEvidenceStepResult) -> Self {
+        Self {
+            workflow_run_id: result.workflow_run_id,
+            transition: result.transition.as_str().to_owned(),
+            status: result.status.as_str().to_owned(),
+            workflow_run: result.workflow_run.map(AgentQueueWorkflowRunDto::from),
+            action: result.action.map(AgentQueueWorkflowActionDto::from),
+            evidence_bundle: result
+                .evidence_bundle
+                .map(AgentQueueWorkerEvidenceBundleDto::from),
+            aggregate: result.aggregate.map(QueueItemAggregateDto::from),
+            binding: result
+                .binding
+                .map(AgentQueueWorkflowWorkerEvidenceBindingDto::from),
+            next_phase: result.next_phase,
+            next_step: result.next_step,
+            blockers: result
+                .blockers
+                .into_iter()
+                .map(AgentQueueWorkflowCommandBlockerDto::from)
+                .collect(),
             conflict: result.conflict.map(AgentQueueWorkflowConflictDto::from),
         }
     }

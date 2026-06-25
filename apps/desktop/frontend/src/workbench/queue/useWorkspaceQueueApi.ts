@@ -38,6 +38,7 @@ import {
 } from "../../workspace/tauriAgentQueueWorkerEvidenceApi";
 import {
   applyAgentQueueWorkflowRunSettings,
+  executeAgentQueueWorkflowWorkerEvidenceStep,
   getAgentQueueWorkflow,
   getAgentQueueWorkflowReport,
   listAgentQueueWorkflows,
@@ -538,6 +539,7 @@ export function useWorkspaceQueueApi({
     invokeHobitAgentActionRequest,
     queueWorkflowPersistence: {
       planAgentQueueWorkflowResume,
+      executeAgentQueueWorkflowWorkerEvidenceStep,
       recordAgentQueueWorkflowRunnerReport,
       recordAgentQueueWorkflowWorkerEvidence,
       startAgentQueueWorkflow,
