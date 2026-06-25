@@ -198,6 +198,25 @@ Next refactor focus remains `agent_queue_workflow_resume.rs` or
 is backend workflow resume ownership or Priority B Workspace Agent
 continuation ownership.
 
+## Block 58 Update
+
+The frontend Queue workflow runtime adapter
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.ts`
+was thinned for backend-owned workflow phases. Worker evidence and review now
+delegate through the focused
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowBackendStepDispatcher.ts`
+module, which stays below the 600-line preferred new-source limit.
+
+This was a frontend workflow ownership cleanup for phases already owned by the
+backend: no Queue UI behavior, visual-shell behavior, backend transition
+behavior, storage/schema, worker start, scheduler/autodispatch, downstream
+mutation, natural-language routing, or id inference changed. The runtime
+adapter remains oversized but was reduced from 2229 lines before this block to
+1526 lines, and its allowlist entry was ratcheted down. No new oversized source
+allowlist entry was added. The required Smart Queue status update left
+`docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md` below the docs warning threshold, so
+that stale docs allowlist entry was removed.
+
 ## Refactor Priority Plan
 
 ### Priority A: Queue Workflow Ownership

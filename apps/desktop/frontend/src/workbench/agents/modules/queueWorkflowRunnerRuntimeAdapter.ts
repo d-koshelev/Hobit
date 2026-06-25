@@ -1,13 +1,16 @@
 import type { HobitAgentWorkflowRequestEnvelopeReadResult } from "../broker";
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
-import { executeBackendOwnedReviewStep } from "./queueWorkflowRunnerBackendReviewPhase";
+import {
+  dispatchQueueWorkflowBackendStep,
+  isBackendOwnedQueueWorkflowPhase,
+  isLegacyFrontendQueueWorkflowPhase,
+} from "./queueWorkflowBackendStepDispatcher";
 import type {
   AgentQueueWorkflowJsonValue,
   AgentQueueWorkflowResumePlan,
   AgentQueueWorkflowReviewStepResult,
   AgentQueueWorkflowRunnerReportRecordResult,
   AgentQueueWorkflowStartResult,
-  AgentQueueWorkflowWorkerEvidenceRecordResult,
   AgentQueueWorkflowWorkerEvidenceStepResult,
   ExecuteAgentQueueWorkflowReviewStepRequest,
   RecordAgentQueueWorkflowRunnerReportAction,
@@ -19,20 +22,13 @@ import {
   runQueueWorkflowCreateSetupStartRunner,
   runQueueWorkflowFinalizationRunner,
   runQueueWorkflowReadOnlyRunner,
-  runQueueWorkflowReviewRunner,
-  runQueueWorkflowWorkerEvidenceRunner,
-  type QueueWorkflowAckReviewMessageResult,
   type QueueWorkflowCreateSetupStartPort,
   type QueueWorkflowFinalizationCommandResult,
   type QueueWorkflowFinalizationCommandStatus,
   type QueueWorkflowFinalizationPort,
   type QueueWorkflowReadPort,
-  type QueueWorkflowReviewCommandStatus,
-  type QueueWorkflowReviewPort,
-  type QueueWorkflowRunnerBlockerReason,
   type QueueWorkflowRunnerRequest,
   type QueueWorkflowRunnerResult,
-  type QueueWorkflowWorkerEvidencePort,
 } from "./queueWorkflowRunner";
 import { validateQueueWorkflowRequest } from "./queueWorkflowRequestValidation";
 
@@ -57,8 +53,6 @@ export type QueueWorkflowRunnerRuntimePorts = {
   createSetupStartPort?: QueueWorkflowCreateSetupStartPort | null;
   finalizationPort?: QueueWorkflowFinalizationPort | null;
   readPort?: QueueWorkflowReadPort | null;
-  reviewPort?: QueueWorkflowReviewPort | null;
-  workerEvidencePort?: QueueWorkflowWorkerEvidencePort | null;
 };
 
 export type QueueWorkflowPersistencePort = {
@@ -70,9 +64,6 @@ export type QueueWorkflowPersistencePort = {
   recordAgentQueueWorkflowRunnerReport: (
     request: RecordAgentQueueWorkflowRunnerReportRequest,
   ) => Promise<AgentQueueWorkflowRunnerReportRecordResult>;
-  recordAgentQueueWorkflowWorkerEvidence?: (
-    request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
-  ) => Promise<AgentQueueWorkflowWorkerEvidenceRecordResult>;
   executeAgentQueueWorkflowWorkerEvidenceStep?: (
     request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
   ) => Promise<AgentQueueWorkflowWorkerEvidenceStepResult>;
@@ -103,7 +94,6 @@ export type QueueWorkflowRunnerRuntimeResult = {
   persistentStatus?: string | null;
   phase: QueueWorkflowRunnerRuntimePhase | null;
   phasesExecuted: readonly string[];
-  evidenceRecordResult?: AgentQueueWorkflowWorkerEvidenceRecordResult;
   evidenceStepResult?: AgentQueueWorkflowWorkerEvidenceStepResult;
   reviewStepResult?: AgentQueueWorkflowReviewStepResult;
   recordResult?: AgentQueueWorkflowRunnerReportRecordResult;
@@ -128,19 +118,6 @@ const CREATE_SETUP_START_WORKFLOWS = new Set([
   "dependency_failure_smoke",
 ]);
 const SUPPORTED_REVIEW_DEFERRED_WORKFLOWS = new Set(["review_acceptance"]);
-
-const REVIEW_COMMAND_STATUSES = new Set<QueueWorkflowReviewCommandStatus>([
-  "already_done",
-  "already_exists",
-  "blocked",
-  "failed_unexpected",
-  "invalid_input",
-  "needs_confirmation",
-  "policy_blocked",
-  "precondition_failed",
-  "succeeded",
-  "unavailable",
-]);
 
 const FINALIZATION_COMMAND_STATUSES =
   new Set<QueueWorkflowFinalizationCommandStatus>([
@@ -419,11 +396,12 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
       startResult.status === "already_exists" ? "reused" : "started";
   }
 
-  if (selectedPhase === "review") {
-    return executeBackendOwnedReviewStep({
+  if (isBackendOwnedQueueWorkflowPhase(selectedPhase)) {
+    return dispatchQueueWorkflowBackendStep({
       actorId: actorId?.trim() || DEFAULT_ACTOR_ID,
       persistenceStatus,
       persistentStatus,
+      phase: selectedPhase,
       request: runnerRequest,
       resumePlan,
       validationReasons: validation.reasons,
@@ -434,21 +412,7 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
       workflowStartStatus,
     });
   }
-  if (selectedPhase === "worker_evidence") {
-    return executeBackendOwnedWorkerEvidenceStep({
-      actorId: actorId?.trim() || DEFAULT_ACTOR_ID,
-      persistenceStatus,
-      persistentStatus,
-      request: runnerRequest,
-      resumePlan,
-      validationReasons: validation.reasons,
-      validationStatus: validation.status,
-      workflowPersistence,
-      workflowRunId: workflowRunId!,
-      workspaceId: normalizedWorkspaceId,
-      workflowStartStatus,
-    });
-  }
+
   const runtimePorts =
     ports ??
     createQueueWorkflowRunnerRuntimePortsFromQueueBridge({
@@ -528,10 +492,6 @@ export function createQueueWorkflowRunnerRuntimePortsFromQueueBridge({
       ? createFinalizationPort(queueBridge, actorId)
       : null,
     readPort: queueBridge ? createReadPort(queueBridge) : null,
-    reviewPort: queueBridge ? createReviewPort(queueBridge, actorId) : null,
-    workerEvidencePort: queueBridge
-      ? createWorkerEvidencePort(queueBridge, actorId)
-      : null,
   };
 }
 
@@ -557,15 +517,6 @@ async function runSelectedRunner({
     });
   }
 
-  if (phase === "review") {
-    return runQueueWorkflowReviewRunner({
-      readPort: ports.readPort,
-      request,
-      reviewPort: ports.reviewPort,
-      validation,
-    });
-  }
-
   if (phase === "finalization") {
     return runQueueWorkflowFinalizationRunner({
       finalizationPort: ports.finalizationPort,
@@ -575,13 +526,8 @@ async function runSelectedRunner({
     });
   }
 
-  if (phase === "worker_evidence") {
-    return runQueueWorkflowWorkerEvidenceRunner({
-      request,
-      validation,
-      workerEvidencePort: ports.workerEvidencePort,
-      workflowRunId,
-    });
+  if (!isLegacyFrontendQueueWorkflowPhase(phase)) {
+    throw new Error(`Backend-owned Queue workflow phase ${phase} must use the backend step dispatcher.`);
   }
 
   return runQueueWorkflowReadOnlyRunner({
@@ -635,72 +581,6 @@ function createCreateSetupStartPort(
       queueBridge.promoteWorkflowTaskSlot!(request),
     startWorkerForSlot: (request) =>
       queueBridge.startWorkflowAssignedTask!(request),
-  };
-}
-
-function createWorkerEvidencePort(
-  queueBridge: WorkspaceAgentQueueBridge,
-  actorId: string,
-): QueueWorkflowWorkerEvidencePort | null {
-  if (!queueBridge.recordWorkflowWorkerEvidence) {
-    return null;
-  }
-
-  return {
-    recordWorkerEvidenceForSlot: (request) =>
-      queueBridge.recordWorkflowWorkerEvidence!({
-        ...request,
-        actorId: request.actorId ?? actorId,
-      }),
-  };
-}
-
-function createReviewPort(
-  queueBridge: WorkspaceAgentQueueBridge,
-  actorId: string,
-): QueueWorkflowReviewPort | null {
-  if (!queueBridge.createReviewMessage || !queueBridge.ackReviewMessage) {
-    return null;
-  }
-
-  return {
-    ackReviewMessage: async (request): Promise<QueueWorkflowAckReviewMessageResult> => {
-      const result = await queueBridge.ackReviewMessage!({
-        actorId,
-        messageId: request.messageId,
-        taskId: request.taskId,
-      });
-      const candidate = result as { status?: unknown };
-      return {
-        aggregate: result.aggregate,
-        durable: result.durable,
-        messageId: result.messageId,
-        reviewMessage: result.reviewMessage,
-        status: reviewCommandStatus(candidate.status, "succeeded"),
-        taskId: result.taskId,
-      };
-    },
-    createReviewMessage: async (request) => {
-      const result = await queueBridge.createReviewMessage!({
-        actorId,
-        evidenceBundleId: request.evidenceBundleId,
-        messageBody: request.messageBody,
-        runId: request.runId,
-        taskId: request.taskId,
-      });
-      return {
-        aggregate: result.aggregate,
-        blocker: result.blocker,
-        durable: result.durable,
-        evidenceBundleId: result.evidenceBundleId,
-        existingMessageId: result.blocker?.existingMessageId,
-        messageId: result.messageId,
-        reviewMessage: result.reviewMessage,
-        runId: result.runId,
-        status: reviewCommandStatus(result.status, "failed_unexpected"),
-        taskId: result.taskId,
-      };
-    },
   };
 }
 
@@ -766,434 +646,6 @@ function finalizationResult(
     ...result,
     status: finalizationCommandStatus(result.status),
   };
-}
-
-async function executeBackendOwnedWorkerEvidenceStep({
-  actorId,
-  persistenceStatus,
-  persistentStatus,
-  request,
-  resumePlan,
-  validationReasons,
-  validationStatus,
-  workflowPersistence,
-  workflowRunId,
-  workspaceId,
-  workflowStartStatus,
-}: {
-  actorId: string;
-  persistenceStatus: string | null;
-  persistentStatus: string | null;
-  request: QueueWorkflowRunnerRequest;
-  resumePlan?: AgentQueueWorkflowResumePlan;
-  validationReasons: readonly string[];
-  validationStatus?: string;
-  workflowPersistence: QueueWorkflowPersistencePort;
-  workflowRunId: string;
-  workspaceId: string;
-  workflowStartStatus: AgentQueueWorkflowStartResult["status"] | null;
-}): Promise<QueueWorkflowRunnerRuntimeResult> {
-  if (!workflowPersistence.executeAgentQueueWorkflowWorkerEvidenceStep) {
-    return notInvoked({
-      blockers: ["Backend-owned Queue workflow worker evidence step is unavailable."],
-      moduleId: request.moduleId,
-      persistenceStatus,
-      persistentStatus,
-      phase: "worker_evidence",
-      requestId: request.requestId,
-      resumePlan,
-      status: "unavailable",
-      summary:
-        "Queue workflow worker evidence step is unavailable; evidence was not recorded.",
-      validationReasons,
-      validationStatus,
-      workflowId: request.workflowId,
-      workflowRunId,
-      workflowStartStatus,
-    });
-  }
-
-  const stepRequest = workerEvidenceStepRequestFromRunnerRequest({
-    actorId,
-    request,
-    workflowRunId,
-    workspaceId,
-  });
-  if (!stepRequest.ok) {
-    return notInvoked({
-      blockers: [stepRequest.message],
-      moduleId: request.moduleId,
-      persistenceStatus,
-      persistentStatus,
-      phase: "worker_evidence",
-      requestId: request.requestId,
-      resumePlan,
-      status: "paused",
-      summary: stepRequest.message,
-      validationReasons,
-      validationStatus,
-      workflowId: request.workflowId,
-      workflowRunId,
-      workflowStartStatus,
-    });
-  }
-
-  const evidenceStepResult =
-    await workflowPersistence.executeAgentQueueWorkflowWorkerEvidenceStep(
-      stepRequest.request,
-    );
-  const runnerResult = runnerResultFromWorkerEvidenceStep({
-    request,
-    result: evidenceStepResult,
-  });
-  const runtimeStatus = runtimeStatusFromWorkerEvidenceStep(evidenceStepResult);
-  const persistentRecordedStatus =
-    evidenceStepResult.workflowRun?.status ?? persistentStatus;
-
-  return {
-    actionLedgerSummaryCount: evidenceStepResult.action ? 1 : 0,
-    blockers: evidenceStepResult.blockers.map(
-      (blocker) => blocker.blockerMessage,
-    ),
-    evidenceStepResult,
-    invoked: true,
-    moduleId: request.moduleId,
-    persistedActionCount: evidenceStepResult.action ? 1 : 0,
-    persistenceStatus: `worker_evidence_step_${evidenceStepResult.status}`,
-    persistentStatus: persistentRecordedStatus,
-    phase: "worker_evidence",
-    phasesExecuted: ["worker_evidence"],
-    requestId: request.requestId,
-    resumePlan,
-    runnerResult,
-    status: runtimeStatus,
-    summary: runnerResult.report.summary,
-    validationReasons,
-    validationStatus,
-    workflowId: request.workflowId,
-    workflowRunId,
-    workflowStartStatus,
-  };
-}
-
-function workerEvidenceStepRequestFromRunnerRequest({
-  actorId,
-  request,
-  workflowRunId,
-  workspaceId,
-}: {
-  actorId: string;
-  request: QueueWorkflowRunnerRequest;
-  workflowRunId: string;
-  workspaceId: string;
-}):
-  | { ok: true; request: RecordAgentQueueWorkflowWorkerEvidenceRequest }
-  | { ok: false; message: string } {
-  const workerEvidence = recordRecord(request.inputs, "workerEvidence");
-  const slot = stringValue(workerEvidence.slot);
-  const taskId = stringValue(workerEvidence.taskId);
-  const runId = stringValue(workerEvidence.runId);
-  const outcome = stringValue(workerEvidence.outcome);
-
-  if (!slot || !taskId || !runId || !outcome) {
-    return {
-      ok: false,
-      message: "Typed inputs.workerEvidence is required to record worker evidence.",
-    };
-  }
-  if (!["completed", "not_completed", "failed"].includes(outcome)) {
-    return {
-      ok: false,
-      message:
-        "Typed inputs.workerEvidence.outcome must be completed, not_completed, or failed.",
-    };
-  }
-
-  return {
-    ok: true,
-    request: {
-      actionIdempotencyKey: stringValue(workerEvidence.actionIdempotencyKey),
-      actorId,
-      changedFiles: stringArrayValue(workerEvidence.changedFiles),
-      changedFilesSummary: stringValue(workerEvidence.changedFilesSummary),
-      errorSummary: stringValue(workerEvidence.errorSummary),
-      finishedAt: stringValue(workerEvidence.finishedAt),
-      metadataJson: stringValue(workerEvidence.metadataJson),
-      outcome: outcome as RecordAgentQueueWorkflowWorkerEvidenceRequest["outcome"],
-      runId,
-      slot,
-      source: stringValue(workerEvidence.source),
-      summary: stringValue(workerEvidence.summary),
-      taskId,
-      validationSummary: stringValue(workerEvidence.validationSummary),
-      workerId: stringValue(workerEvidence.workerId),
-      workflowRunId,
-      workspaceId,
-    },
-  };
-}
-
-function runnerResultFromWorkerEvidenceStep({
-  request,
-  result,
-}: {
-  request: QueueWorkflowRunnerRequest;
-  result: AgentQueueWorkflowWorkerEvidenceStepResult;
-}): QueueWorkflowRunnerResult {
-  const slot = result.binding?.slot ?? "upstream";
-  const taskId = result.binding?.taskId ?? workerEvidenceInputString(request, "taskId");
-  const runId = result.binding?.runId ?? workerEvidenceInputString(request, "runId");
-  const evidenceBundleId =
-    result.binding?.evidenceBundleId ?? result.evidenceBundle?.bundleId;
-  const workerFinalStatus = result.binding?.workerFinalStatus;
-  const outcome =
-    result.binding?.workerOutcome ?? workerEvidenceInputString(request, "outcome");
-  const status = runnerStatusFromWorkerEvidenceStep(result);
-  const blocker = result.blockers[0];
-  const variables = {
-    evidenceBundleIdsBySlot: evidenceBundleId ? { [slot]: evidenceBundleId } : {},
-    messageIdsBySlot: {},
-    readSnapshots: {
-      aggregatesByTaskId: {},
-      evidenceByKey: {},
-      lifecycleByTaskId: {},
-    },
-    requestId: request.requestId,
-    runIdsBySlot: runId ? { [slot]: runId } : {},
-    scopedEvidenceBundleIds: evidenceBundleId ? [evidenceBundleId] : [],
-    scopedMessageIds: [],
-    scopedRunIds: runId ? [runId] : [],
-    scopedTaskIds: taskId ? [taskId] : [],
-    slots: {
-      [slot]: stripUndefined({
-        evidenceBundleId,
-        runId,
-        slot,
-        taskId,
-      }),
-    },
-    taskIdsBySlot: taskId ? { [slot]: taskId } : {},
-    workflowId: request.workflowId,
-  };
-  const workerEvidenceStatus = workerEvidenceReportStatusFromStep(result);
-
-  return {
-    blockers: blocker
-      ? [
-          {
-            fieldPath: blocker.missingRequiredField ?? undefined,
-            message: blocker.blockerMessage,
-            reasonCode:
-              blocker.blockerCode as QueueWorkflowRunnerBlockerReason,
-            slot,
-            taskId,
-          },
-        ]
-      : [],
-    events: [
-      {
-        message: workerEvidenceStepSummary(result),
-        phase: "worker_evidence",
-        status:
-          result.status === "executed" || result.status === "already_applied"
-            ? "completed"
-            : result.status === "failed_unexpected"
-              ? "failed_unexpected"
-              : "blocked",
-      },
-    ],
-    report: {
-      createSetupStart: {
-        materializedSlots: {},
-        phase: "create_setup_start",
-        status: null,
-        supportedWorkflow: true,
-      },
-      evidenceReads: [],
-      finalization: {
-        confirmationTokenAccepted: false,
-        downstreamVerification: {
-          dependencyVerified: null,
-          notAutoStartedVerified: null,
-          verificationMissing: true,
-        },
-        idempotent: false,
-        phase: "finalization",
-        status: null,
-        supportedWorkflow: true,
-      },
-      missingExplicitIds: [],
-      mutationSummary: workerEvidenceMutationSummary(result.status === "executed"),
-      nextMutatingPhase:
-        result.status === "executed" || result.status === "already_applied"
-          ? "review"
-          : null,
-      readOnly: false,
-      review: {
-        idempotentAck: false,
-        idempotentCreate: false,
-        phase: "review",
-        status: null,
-        supportedWorkflow: true,
-      },
-      summary: workerEvidenceStepSummary(result),
-      taskReads: [],
-      workerEvidence: {
-        commandStatus: workerEvidenceCommandStatusFromStep(result),
-        evidenceBundleId,
-        idempotent: result.status === "already_applied",
-        outcome,
-        phase: "worker_evidence",
-        runId,
-        status: workerEvidenceStatus,
-        supportedWorkflow: true,
-        targetSlot: slot,
-        taskId,
-        workerFinalStatus,
-      },
-    },
-    requestId: request.requestId,
-    status,
-    steps: [
-      {
-        evidenceBundleId,
-        message: workerEvidenceStepSummary(result),
-        phase: "worker_evidence",
-        reasonCode: blocker?.blockerCode as QueueWorkflowRunnerBlockerReason,
-        runId,
-        slot,
-        status:
-          result.status === "executed" || result.status === "already_applied"
-            ? "completed"
-            : result.status === "failed_unexpected"
-              ? "failed_unexpected"
-              : "blocked",
-        stepId: "record_worker_evidence",
-        taskId,
-      },
-    ],
-    variables,
-    workflowId: request.workflowId,
-  };
-}
-
-function workerEvidenceMutationSummary(
-  didMutateQueue: boolean,
-): QueueWorkflowRunnerResult["report"]["mutationSummary"] {
-  return {
-    didAckReview: false,
-    didBlock: false,
-    didCreateReviewMessage: false,
-    didFail: false,
-    didFollowUp: false,
-    ["didLaunch" + "Term" + "inal"]: false,
-    didMarkDone: false,
-    didMutateGit: false,
-    didMutateQueue,
-    didRollback: false,
-    didStartWorker: false,
-    didValidate: false,
-  } as QueueWorkflowRunnerResult["report"]["mutationSummary"];
-}
-
-function runtimeStatusFromWorkerEvidenceStep(
-  result: AgentQueueWorkflowWorkerEvidenceStepResult,
-): QueueWorkflowRunnerRuntimeStatus {
-  if (result.status === "executed" || result.status === "already_applied") {
-    return "paused";
-  }
-  if (result.status === "failed_unexpected") return "failed_unexpected";
-  if (result.status === "invalid_input") return "invalid_request";
-  return "blocked";
-}
-
-function runnerStatusFromWorkerEvidenceStep(
-  result: AgentQueueWorkflowWorkerEvidenceStepResult,
-): QueueWorkflowRunnerResult["status"] {
-  if (result.status === "executed" || result.status === "already_applied") {
-    return "awaiting_review";
-  }
-  if (result.status === "invalid_input") return "invalid_request";
-  if (result.status === "failed_unexpected") return "failed_unexpected";
-  const blockerCode = result.blockers[0]?.blockerCode;
-  if (blockerCode === "worker_outcome_mismatch") {
-    return "blocked_worker_outcome_mismatch";
-  }
-  if (blockerCode === "worker_run_not_complete") {
-    return "blocked_worker_not_complete";
-  }
-  if (blockerCode === "run_missing" || result.status === "not_found") {
-    return "blocked_missing_run";
-  }
-  if (blockerCode === "missing_task_binding") {
-    return "blocked_missing_task";
-  }
-  if (result.status === "conflict" || blockerCode === "evidence_conflict") {
-    return "blocked_evidence_conflict";
-  }
-  return "blocked";
-}
-
-function workerEvidenceReportStatusFromStep(
-  result: AgentQueueWorkflowWorkerEvidenceStepResult,
-) {
-  if (result.status === "executed") return "evidence_recorded";
-  if (result.status === "already_applied") return "evidence_already_recorded";
-  const blockerCode = result.blockers[0]?.blockerCode;
-  if (blockerCode === "worker_outcome_mismatch") {
-    return "blocked_worker_outcome_mismatch";
-  }
-  if (blockerCode === "worker_run_not_complete") {
-    return "blocked_worker_not_complete";
-  }
-  if (blockerCode === "run_missing" || result.status === "not_found") {
-    return "blocked_missing_run";
-  }
-  if (blockerCode === "missing_task_binding") return "blocked_missing_task";
-  if (result.status === "conflict" || blockerCode === "evidence_conflict") {
-    return "blocked_evidence_conflict";
-  }
-  return null;
-}
-
-function workerEvidenceCommandStatusFromStep(
-  result: AgentQueueWorkflowWorkerEvidenceStepResult,
-): AgentQueueWorkflowWorkerEvidenceRecordResult["status"] {
-  if (result.status === "executed") return "recorded";
-  if (result.status === "already_applied") return "already_recorded";
-  if (result.status === "blocked_precondition") return "blocked";
-  return result.status;
-}
-
-function workerEvidenceStepSummary(
-  result: AgentQueueWorkflowWorkerEvidenceStepResult,
-): string {
-  if (result.status === "executed") {
-    return "Queue workflow worker evidence was recorded by the backend step and the workflow is awaiting review.";
-  }
-  if (result.status === "already_applied") {
-    return "Queue workflow worker evidence was already durable and the workflow is awaiting review.";
-  }
-  return (
-    result.blockers[0]?.blockerMessage ??
-    result.conflict?.conflictMessage ??
-    `Queue workflow worker evidence step returned ${result.status}.`
-  );
-}
-
-function workerEvidenceInputString(
-  request: QueueWorkflowRunnerRequest,
-  field: string,
-): string | undefined {
-  return stringValue(recordRecord(request.inputs, "workerEvidence")[field]);
-}
-
-function stringArrayValue(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  return value
-    .filter((item): item is string => typeof item === "string")
-    .map((item) => item.trim())
-    .filter(Boolean);
 }
 
 function resolveRuntimePhase(
@@ -1393,7 +845,7 @@ function recordRequestForRunnerResult({
         ? pauseReasonForRunnerResult(phase, runnerResult)
         : null,
     phase: workflowPhaseForRuntimePhase(phase),
-    slotBindings: slotBindingsForRunnerResult({ phase, runnerResult }),
+    slotBindings: null,
     status: persistedRunStatusFromRunner(phase, runtimeStatus),
     variables: sanitizeJsonValue({
       evidenceBundleIdsBySlot: runnerResult.variables.evidenceBundleIdsBySlot,
@@ -1487,57 +939,6 @@ function actionSummariesForRunnerResult({
     });
   }
 
-  const review = runnerResult.report.review;
-  if (review.createStatus && review.createStatus !== "skipped_existing_message") {
-    const taskId = review.taskId ?? "unknown-task";
-    actions.push({
-      actionType: "queue.review.createMessage",
-      idempotencyKey: [
-        workflowRunId,
-        "queue.review.createMessage",
-        taskId,
-        review.runId ?? "no-run",
-        review.evidenceBundleId ?? "no-evidence",
-      ].join(":"),
-      resultRefs: stripNullish({
-        idempotent: review.idempotentCreate,
-        messageId: review.messageId,
-        status: review.createStatus,
-      }),
-      status: workflowActionStatusFromCommand(review.createStatus),
-      stepId: `review.create:${taskId}`,
-      targetRefs: stripNullish({
-        evidenceBundleId: review.evidenceBundleId,
-        runId: review.runId,
-        taskId,
-      }),
-    });
-  }
-  if (review.ackStatus) {
-    const taskId = review.taskId ?? "unknown-task";
-    const messageId = review.messageId ?? "unknown-message";
-    actions.push({
-      actionType: "queue.review.ack",
-      idempotencyKey: [
-        workflowRunId,
-        "queue.review.ack",
-        taskId,
-        messageId,
-      ].join(":"),
-      resultRefs: stripNullish({
-        idempotent: review.idempotentAck,
-        messageId: review.messageId,
-        status: review.ackStatus,
-      }),
-      status: workflowActionStatusFromCommand(review.ackStatus),
-      stepId: `review.ack:${taskId}`,
-      targetRefs: stripNullish({
-        messageId: review.messageId,
-        taskId,
-      }),
-    });
-  }
-
   const finalization = runnerResult.report.finalization;
   if (finalization.finalizationAction && finalization.commandStatus) {
     const taskId = finalization.taskId ?? "unknown-task";
@@ -1572,84 +973,6 @@ function actionSummariesForRunnerResult({
         runId: slotVars.runId,
         taskId,
       }),
-    });
-  }
-
-  const workerEvidence = runnerResult.report.workerEvidence;
-  if (
-    phase === "worker_evidence" &&
-    (workerEvidence.commandStatus === "recorded" ||
-      workerEvidence.commandStatus === "already_recorded") &&
-    workerEvidence.evidenceBundleId &&
-    workerEvidence.targetSlot &&
-    workerEvidence.taskId &&
-    workerEvidence.runId
-  ) {
-    actions.push({
-      actionType: "record_worker_evidence",
-      idempotencyKey: [
-        workflowRunId,
-        "record_worker_evidence",
-        workerEvidence.targetSlot,
-        workerEvidence.taskId,
-        workerEvidence.runId,
-      ].join(":"),
-      resultRefs: stripNullish({
-        evidenceBundleId: workerEvidence.evidenceBundleId,
-        evidenceStatus: "available",
-        outcome: workerEvidence.outcome,
-        runId: workerEvidence.runId,
-        workerFinalStatus: workerEvidence.workerFinalStatus,
-      }),
-      status: "completed",
-      stepId: "record_worker_evidence",
-      targetRefs: {
-        runId: workerEvidence.runId,
-        slot: workerEvidence.targetSlot,
-        taskId: workerEvidence.taskId,
-        workflowRunId,
-      },
-    });
-  }
-  if (
-    phase === "worker_evidence" &&
-    workerEvidence.commandStatus &&
-    workerEvidence.commandStatus !== "recorded" &&
-    workerEvidence.commandStatus !== "already_recorded" &&
-    workerEvidence.targetSlot &&
-    workerEvidence.taskId &&
-    workerEvidence.runId
-  ) {
-    const blocker = runnerResult.blockers[0];
-    const actionStatus =
-      workerEvidence.commandStatus === "failed_unexpected" ||
-      runnerResult.status.includes("failed_unexpected")
-        ? "failed"
-        : "blocked";
-    actions.push({
-      actionType: "record_worker_evidence",
-      blockerCode: blocker?.reasonCode ?? workerEvidence.commandStatus,
-      blockerMessage: blocker?.message ?? runnerResult.report.summary,
-      idempotencyKey: [
-        workflowRunId,
-        "record_worker_evidence",
-        workerEvidence.targetSlot,
-        workerEvidence.taskId,
-        workerEvidence.runId,
-      ].join(":"),
-      resultRefs: stripNullish({
-        commandStatus: workerEvidence.commandStatus,
-        outcome: workerEvidence.outcome,
-        status: workerEvidence.status,
-      }),
-      status: actionStatus,
-      stepId: "record_worker_evidence",
-      targetRefs: {
-        runId: workerEvidence.runId,
-        slot: workerEvidence.targetSlot,
-        taskId: workerEvidence.taskId,
-        workflowRunId,
-      },
     });
   }
 
@@ -1807,12 +1130,16 @@ function resumeDecisionForPlan({
     };
   }
 
+  if (plan.status === "resume_read_only_ready") {
+    return {
+      ok: true,
+      phase: plannedPhase === "create_setup_start" ? plannedPhase : "read",
+    };
+  }
+
   if (
-    plan.status === "retryable_worker_evidence_failure" ||
-    plan.status === "retryable_worker_evidence_action_repair" ||
-    plan.status === "waiting_for_worker_evidence" ||
-    plan.nextStep === "waiting_for_worker_evidence" ||
-    plan.nextStep === "worker_evidence_required"
+    isWorkerEvidenceResumeStep(plan) &&
+    workerEvidenceResumeAllowedByPlan(plan)
   ) {
     if (!hasTypedWorkerEvidenceInput(request)) {
       return {
@@ -1827,25 +1154,24 @@ function resumeDecisionForPlan({
     return { ok: true, phase: "worker_evidence" };
   }
 
+  if (isWorkerEvidenceResumeStep(plan)) {
+    return {
+      blockers: plan.blockers.map((blocker) => blocker.blockerMessage),
+      ok: false,
+      phase: "worker_evidence",
+      status: plan.status === "failed_unexpected" ? "failed_unexpected" : "blocked",
+      summary: plan.reportSummary,
+    };
+  }
+
   if (isReviewResumeStep(plan)) {
-    if (!resumePlanHasEvidence(plan)) {
+    if (!reviewResumeAllowedByPlan(plan)) {
       return {
-        blockers: ["Durable worker evidence is required before review can resume."],
+        blockers: plan.blockers.map((blocker) => blocker.blockerMessage),
         ok: false,
         phase: "review",
-        status: "blocked",
-        summary:
-          "Queue workflow review resume requires durable evidence; Queue workflow runner was not invoked.",
-      };
-    }
-    if (isReviewAckResumeStep(plan) && !resumePlanHasMessageId(plan)) {
-      return {
-        blockers: ["Durable review messageId is required before review ACK can resume."],
-        ok: false,
-        phase: "review",
-        status: "blocked",
-        summary:
-          "Queue workflow review ACK resume requires a durable messageId; Queue workflow runner was not invoked.",
+        status: plan.status === "failed_unexpected" ? "failed_unexpected" : "blocked",
+        summary: plan.reportSummary,
       };
     }
     return { ok: true, phase: "review" };
@@ -1910,17 +1236,12 @@ function resumeDecisionForPlan({
 
   if (
     plan.status === "resume_ready" ||
-    plan.status === "resume_read_only_ready" ||
     plan.status === "waiting_for_run_settings" ||
     plan.status === "waiting_for_promote"
   ) {
     return {
       ok: true,
-      phase:
-        plan.status === "resume_read_only_ready" &&
-        plannedPhase !== "create_setup_start"
-          ? "read"
-          : plannedPhase,
+      phase: plannedPhase,
     };
   }
 
@@ -1933,6 +1254,24 @@ function resumeDecisionForPlan({
   };
 }
 
+function isWorkerEvidenceResumeStep(plan: AgentQueueWorkflowResumePlan): boolean {
+  return (
+    plan.nextPhase === "worker_evidence" ||
+    plan.nextStep === "waiting_for_worker_evidence" ||
+    plan.nextStep === "worker_evidence_required"
+  );
+}
+
+function workerEvidenceResumeAllowedByPlan(
+  plan: AgentQueueWorkflowResumePlan,
+): boolean {
+  return (
+    plan.status === "retryable_worker_evidence_failure" ||
+    plan.status === "retryable_worker_evidence_action_repair" ||
+    plan.status === "waiting_for_worker_evidence"
+  );
+}
+
 function isReviewResumeStep(plan: AgentQueueWorkflowResumePlan): boolean {
   return (
     plan.nextPhase === "review" &&
@@ -1942,24 +1281,12 @@ function isReviewResumeStep(plan: AgentQueueWorkflowResumePlan): boolean {
   );
 }
 
-function isReviewAckResumeStep(plan: AgentQueueWorkflowResumePlan): boolean {
-  return plan.nextPhase === "review" && plan.nextStep === "review_ack_ready";
-}
-
-function resumePlanHasEvidence(plan: AgentQueueWorkflowResumePlan): boolean {
-  return plan.slotReconciliations.some(
-    (reconciliation) =>
-      reconciliation.slot === "upstream" &&
-      Boolean(
-        reconciliation.evidenceBundleId || reconciliation.evidenceExists,
-      ),
-  );
-}
-
-function resumePlanHasMessageId(plan: AgentQueueWorkflowResumePlan): boolean {
-  return plan.slotReconciliations.some(
-    (reconciliation) =>
-      reconciliation.slot === "upstream" && Boolean(reconciliation.messageId),
+function reviewResumeAllowedByPlan(plan: AgentQueueWorkflowResumePlan): boolean {
+  return (
+    plan.status === "resume_ready" ||
+    plan.status === "retryable_review_failure_before_mutation" ||
+    (plan.status === "blocked_missing_review_ack" &&
+      plan.nextStep === "review_ack_ready")
   );
 }
 
@@ -2116,49 +1443,6 @@ function mutationRefsForRunnerResult(
   );
 }
 
-function slotBindingsForRunnerResult({
-  phase,
-  runnerResult,
-}: {
-  phase: QueueWorkflowRunnerRuntimePhase;
-  runnerResult: QueueWorkflowRunnerResult;
-}): AgentQueueWorkflowJsonValue | null {
-  if (phase !== "worker_evidence") return null;
-
-  const slots = new Set([
-    ...Object.keys(runnerResult.variables.slots),
-    ...Object.keys(runnerResult.variables.taskIdsBySlot),
-    ...Object.keys(runnerResult.variables.runIdsBySlot),
-    ...Object.keys(runnerResult.variables.evidenceBundleIdsBySlot),
-    ...Object.keys(runnerResult.variables.messageIdsBySlot),
-  ]);
-  const bindings: Record<string, AgentQueueWorkflowJsonValue> = {};
-
-  for (const slot of slots) {
-    const variables = runnerResult.variables.slots[slot];
-    const binding = stripUndefined({
-      evidenceBundleId: stringValue(
-        variables?.evidenceBundleId ??
-          runnerResult.variables.evidenceBundleIdsBySlot[slot],
-      ),
-      messageId: stringValue(
-        variables?.messageId ?? runnerResult.variables.messageIdsBySlot[slot],
-      ),
-      runId: stringValue(
-        variables?.runId ?? runnerResult.variables.runIdsBySlot[slot],
-      ),
-      taskId: stringValue(
-        variables?.taskId ?? runnerResult.variables.taskIdsBySlot[slot],
-      ),
-    });
-    if (Object.keys(binding).length > 0) {
-      bindings[slot] = sanitizeJsonValue(binding);
-    }
-  }
-
-  return Object.keys(bindings).length > 0 ? sanitizeJsonValue(bindings) : null;
-}
-
 function slotBindingsFromInputs(
   inputs: QueueWorkflowRunnerRequest["inputs"],
 ): AgentQueueWorkflowJsonValue {
@@ -2261,16 +1545,6 @@ function recordRecord(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function reviewCommandStatus(
-  value: unknown,
-  fallback: QueueWorkflowReviewCommandStatus,
-): QueueWorkflowReviewCommandStatus {
-  return typeof value === "string" &&
-    REVIEW_COMMAND_STATUSES.has(value as QueueWorkflowReviewCommandStatus)
-    ? (value as QueueWorkflowReviewCommandStatus)
-    : fallback;
 }
 
 function finalizationCommandStatus(

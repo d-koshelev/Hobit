@@ -71,7 +71,7 @@ export async function executeBackendOwnedReviewStep({
   });
   const reviewStepResult =
     await workflowPersistence.executeAgentQueueWorkflowReviewStep(stepRequest);
-  const runnerResult = runnerResultFromReviewStep({
+  const runnerResult = projectReviewStepResultToRunnerResult({
     request,
     result: reviewStepResult,
   });
@@ -129,7 +129,7 @@ function reviewStepRequestFromRunnerRequest({
   };
 }
 
-function runnerResultFromReviewStep({
+export function projectReviewStepResultToRunnerResult({
   request,
   result,
 }: {

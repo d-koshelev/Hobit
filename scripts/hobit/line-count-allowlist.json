@@ -114,7 +114,7 @@
     },
     {
       "path": "apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.ts",
-      "currentLineCount": 2362,
+      "currentLineCount": 1636,
       "category": "source",
       "reason": "Runtime adapter mixes frontend workflow runner persistence, API adapter, and result/report persistence concerns.",
       "plannedRefactorBlock": "Priority A - split runtime adapter by API access, result persistence, and runner handoff.",
@@ -223,16 +223,6 @@
       "removeAfter": "Remove after Knowledge styles are split below the style threshold."
     },
     {
-      "path": "docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md",
-      "currentLineCount": 1538,
-      "category": "docs",
-      "reason": "Smart Queue status history has accumulated implementation notes beyond the docs warning threshold.",
-      "plannedRefactorBlock": "Priority D - archive or split Smart Queue status history in a docs-only cleanup block.",
-      "ownerDomain": "Smart Queue documentation",
-      "targetMaxLineCount": 1200,
-      "removeAfter": "Remove after status history is split or condensed below the docs threshold."
-    },
-    {
       "path": "crates/hobit-app/src/workspace_service/agent_queue_workflow.rs",
       "currentLineCount": 1465,
       "category": "source",
@@ -274,7 +264,7 @@
     },
     {
       "path": "apps/desktop/frontend/src/workbench/queue/useWorkspaceQueueApi.ts",
-      "currentLineCount": 1395,
+      "currentLineCount": 1394,
       "category": "source",
       "reason": "Workspace Queue API hook wraps task, assignment, workflow, history, and context paths in one frontend module.",
       "plannedRefactorBlock": "Priority C - split Workspace Queue API hook by task CRUD, workflow control, run history, and context attach.",

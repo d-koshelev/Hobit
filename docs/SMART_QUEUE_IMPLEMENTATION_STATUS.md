@@ -22,91 +22,51 @@ calls, or Agent Executor execution.
 
 ## Current Status
 
-Smart Queue has an implemented backend/domain read-model foundation plus a
-frontend foundation for singleton Queue view safety, prompt-pack
-materialization, dependency-aware eligibility,
-frontend/controller execution gating, attempt and coordinator decision
-presentation, explicit retry/handoff/proposal actions, typed Queue dogfood
-lifecycle broker capabilities, a full fake broker-driven Queue dogfood loop
-self-test, a frontend Queue worker evidence bundle model/adapter path, and
-a frontend Queue worker evidence ingestion bridge, a Queue-linked Direct Work
-metadata seam, Queue-linked Direct Work evidence event wiring, and focused
-smoke coverage, a bounded Workspace Agent broker-action continuation loop for
-structured action-request chains, Workspace Agent action-protocol enforcement
-for typed capability mode, an active Queue V2 Codex executable setup
-affordance for existing tasks, active Queue V2 Draft readiness discoverability
-and explicit Draft-to-queued promotion through the existing Queue task update
-path, plus a minimal active Queue details review/evidence UI for explicit
-broker-driven coordinator review actions. Workspace Agent/Broker read
-capabilities `queue.items.list` and `queue.lifecycle.get` now read
-backend/Tauri authoritative Queue item aggregate DTOs, and
+Smart Queue has a backend/domain read-model foundation, singleton Queue view
+safety, prompt-pack materialization, dependency-aware eligibility,
+controller execution gating, explicit retry/handoff/proposal actions, typed
+Queue dogfood lifecycle broker capabilities, Queue-linked Direct Work evidence
+wiring, active Draft promotion, and minimal Queue details review/evidence
+controls for explicit broker-driven actions.
+
+Workspace Agent/Broker read capabilities `queue.items.list` and
+`queue.lifecycle.get` read backend/Tauri authoritative aggregate DTOs.
 `queue.lifecycle.agentFinished`, `queue.review.getEvidenceBundle`,
 `queue.review.createMessage`, `queue.review.ack`, `queue.item.markDone`, and
-`queue.item.fail` now call
-backend/domain/Tauri command or query contracts. These paths do not use Queue
-board snapshots, selected task detail, frontend lifecycle/evidence overlays,
-UI hooks, or broker-local lifecycle maps as product truth.
-The Workspace Agent/Broker adapter boundary uses an injected Queue backend API
-port so backend-backed capability paths can be tested without mounting the
-frontend Queue UI.
-Queue workflow persistence now has a backend-owned MVP: durable
-`agent_queue_workflow_runs` and `agent_queue_workflow_actions` storage,
-typed start/get/list/cancel/report/planResume plus runner-report-record backend
-and Tauri/frontend API wrappers, idempotent start by request hash, bounded JSON
-snapshots, safe grant-summary persistence, action-ledger idempotency rows, and
-a read-only resume planner. The Workspace Agent Queue workflow runtime adapter
-now creates or reuses a durable workflow run before supported runner
-invocation, blocks request-hash conflicts before execution, records bounded
-runner reports/action summaries, and uses the resume planner before continuing
-an explicit typed `metadata.workflowRunId`. Create/setup/start plus existing
-worker-evidence/read/review/finalization runner phases are wired. The
-`dependency_acceptance_smoke` and `dependency_failure_smoke` paths can now
-compose those phases end to end: upstream task setup/start, typed upstream
-evidence recording, review message create/ACK, upstream accepted completion or
-typed terminal failure with fresh exact structured confirmation, downstream
-dependency-ready or `failed_upstream` no-auto-start verification, and a
-completed bounded workflow report. Scheduler behavior, downstream auto-start,
-and generic public resume execution remain not implemented.
-Backend workflow test coverage was split by transition/domain in Block 54 under
-`crates/hobit-app/src/workspace_service/agent_queue_workflow_tests/`. This was
-a tests-only refactor with no runtime behavior, Queue workflow semantics,
-storage/schema, Tauri/API, frontend UI, smoke execution, scheduler behavior, or
-natural-language/id inference changes.
-Workspace Agent Queue bridge adapter ownership was split by capability group in
-Block 55 under
-`apps/desktop/frontend/src/workbench/agents/adapters/queueBridge/`. The
-compatibility entrypoint
-`apps/desktop/frontend/src/workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts`
-now only re-exports the stable adapter API. This was a frontend adapter
-refactor only and did not change Queue runtime behavior, Queue workflow
-semantics, Queue UI behavior, visual-shell behavior, backend/Tauri behavior,
-smoke execution, natural-language routing, or id inference.
-Queue workflow runner ownership was split by phase/domain in Block 56 under
-`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/`. The
-compatibility entrypoint
-`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.ts`
-now only re-exports the stable public runner API. This was a frontend runner
-refactor only and did not change runtime behavior, Queue workflow semantics,
-Queue UI behavior, visual-shell behavior, backend/Tauri behavior, smoke
-execution, natural-language routing, or id inference. The worker-evidence phase
-remains backend-owned; the frontend module preserves only the existing typed
-delegation/reporting boundary.
-Restart/recovery hardening is implemented for those existing dependency smoke
-workflows: runner reports no longer overwrite backend-rich slot bindings with
-frontend slot variables, backend report persistence merges authoritative
-binding refs and rejects conflicts, and the resume planner can recover safe
-refs from completed workflow actions or block incomplete binding/action/orphan
-worker states explicitly.
-Block 39 smoke-readiness audit verdict:
-`ready_for_manual_headless_smoke`. The next step is to execute the manual
-headless checklist in `docs/SMART_QUEUE_MANUAL_SMOKE_CHECKLIST.md` for both
-dependency workflows. No runtime blocker was identified for the typed
-workflow-request, persisted report, resume-plan, worker-evidence, review, and
-finalization path. The checklist remains operator/manual smoke only; it does
-not add scheduler behavior, downstream auto-start, validation execution, Git
-mutation, rollback, Terminal launch, or Queue UI truth.
-Workflow persistence APIs are not exposed as Workspace Agent broker
-capabilities.
+`queue.item.fail` call backend/domain/Tauri contracts and do not use Queue UI
+snapshots or frontend lifecycle/evidence overlays as product truth.
+
+Queue workflow persistence has a backend-owned MVP: durable workflow run/action
+storage, typed start/get/list/cancel/report/planResume APIs, idempotent start
+by request hash, bounded JSON snapshots, safe grant-summary persistence,
+action-ledger rows, and a read-only resume planner. The frontend workflow
+runtime creates or reuses a durable run before legacy phase execution, blocks
+request-hash conflicts, records bounded reports for legacy frontend phases, and
+uses resume planning for typed `metadata.workflowRunId`.
+
+Block 58 de-orchestrated the live frontend workflow path for backend-owned
+phases. `worker_evidence` and `review` route through
+`queueWorkflowBackendStepDispatcher`, which normalizes typed input, calls the
+backend worker-evidence/review StepResult APIs, and projects returned results
+for runner/activity/report display. The runtime adapter no longer wires raw
+`recordWorkflowWorkerEvidence`, `createReviewMessage`, or `ackReviewMessage`
+ports for those phases, does not synthesize `record_worker_evidence`,
+`queue.review.createMessage`, or `queue.review.ack` action rows, and does not
+persist backend-owned slot-binding/status/currentStep deltas after those steps.
+
+Create/setup/start, read, and finalization remain legacy frontend-led phases.
+No new mutating phase may be added to frontend workflow orchestration.
+Restart/recovery hardening preserves backend-rich slot bindings and lets the
+resume planner recover safe refs from completed workflow actions or block
+incomplete binding/action/orphan worker states explicitly.
+
+The dependency smoke workflows can compose the current phases end to end with
+typed evidence, backend review create/ACK, accepted completion or terminal
+failure with fresh exact confirmation, dependency-ready or `failed_upstream`
+verification, and a bounded workflow report. Scheduler behavior, downstream
+auto-start, generic public resume execution, natural-language/id inference, and
+Queue workflow broker capabilities remain not implemented. Block 39 remains
+`ready_for_manual_headless_smoke` for the manual checklist.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
 It creates or reuses durable draft/manual Queue tasks by explicit
 `workflowRunId + slot + taskSpecHash`, stores slot-to-task bindings in
@@ -1420,8 +1380,8 @@ as available from the foundation above:
 - durable backend Smart Queue persistence;
 - Queue workflow runner execution beyond the full typed
   `dependency_acceptance_smoke` and `dependency_failure_smoke` paths and the
-  existing explicit create/setup/start, worker-evidence, read/review/
-  finalization helper phases;
+  existing explicit create/setup/start, read, and finalization legacy frontend
+  helper phases plus backend-owned worker-evidence/review StepResult phases;
 - Queue-specific input validation for review/terminal workflows;
 - durable Queue lifecycle transition commands beyond the current aggregate DTO,
   worker-evidence/review create/ACK commands, and accepted-completion /

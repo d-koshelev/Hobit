@@ -543,7 +543,6 @@ export function useWorkspaceQueueApi({
       executeAgentQueueWorkflowReviewStep,
       executeAgentQueueWorkflowWorkerEvidenceStep,
       recordAgentQueueWorkflowRunnerReport,
-      recordAgentQueueWorkflowWorkerEvidence,
       startAgentQueueWorkflow,
     },
     queueExecutorSlots,

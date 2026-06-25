@@ -193,18 +193,21 @@ report/action summaries, and pause at `awaiting_worker_completion` /
 finalizes, starts downstream, runs validation, mutates Git, launches Terminal,
 or schedules work.
 
-The `worker_evidence` transition for dependency smoke workflows is now
-backend-owned. The runtime adapter accepts only typed continuation input for the
-explicit `upstream` slot: `workflowRunId`, `slot`, `taskId`, `runId`, bounded
-worker outcome/summary fields, optional trusted actor/source metadata, and an
-optional exact action idempotency key. It calls the backend worker-evidence
-StepResult API and renders the result; it does not run frontend
-worker-evidence mutation/recovery logic and does not synthesize action ledger
-rows. Missing typed completion input is reported as a typed backend blocker. A
-recorded or already-recorded bundle returns `executed` / `already_applied` and
-stops at `awaiting_review`. It does not create review messages, ACK reviews,
-finalize, block/follow up, validate, mutate Git, roll back, launch Terminal,
-start any worker, or start downstream work.
+The `worker_evidence` transition for dependency smoke workflows is fully
+backend-owned through the frontend runtime boundary. The runtime adapter uses a
+thin backend-step dispatcher for typed request normalization, then calls the
+backend worker-evidence StepResult API and projects the returned StepResult for
+display/report compatibility. It does not run frontend worker-evidence
+mutation/recovery logic, call raw evidence mutation ports, synthesize action
+ledger rows, write slot-binding deltas, or derive persistent workflow
+status/currentStep. Missing or invalid typed completion input may be rejected as
+malformed request normalization before transport; durable preconditions,
+retryability, stale-action repair, refs, blockers, idempotency, action ledger,
+slot bindings, and workflow state are backend/domain decisions. A recorded or
+already-recorded bundle returns `executed` / `already_applied` and stops at
+`awaiting_review`. It does not create review messages, ACK reviews, finalize,
+block/follow up, validate, mutate Git, roll back, launch Terminal, start any
+worker, or start downstream work.
 
 Worker-evidence retry remains a narrow terminal workflow re-entry exception.
 If `queue.workflow.planResume` or the backend evidence command proves
@@ -239,13 +242,28 @@ worker-evidence and review phases are owned by backend StepPlan/StepResult
 APIs and are not implemented through frontend phase-specific mutation logic.
 For review, the runtime adapter passes `workflowRunId`, optional slot, fresh
 grant summary, actor, and request id to the backend review step, then renders
-the returned StepResult; it does not call raw frontend review create/ACK ports
-and does not synthesize review action ledger rows. The finalization phase still
-uses the read port plus a separate injected `QueueWorkflowFinalizationPort` for
-explicit accepted completion or terminal failure commands and is the next
-migration target. Tests use fake ports. The runner does not import Queue UI,
-visual shell modules, Tauri APIs, AgentProvider, WorkerProvider, Action Broker
-invocation, or Queue adapter mutation handlers.
+the returned StepResult; it does not inspect local evidence/message refs before
+invoking a backend-approved ready/retryable review step, call raw frontend
+review create/ACK ports, synthesize review action ledger rows, write message
+slot-binding deltas, or derive persistent workflow status/currentStep. Backend
+action snapshots returned by StepResult may remain visible in debug/report
+projection, but they are not frontend-created action rows. The finalization
+phase still uses the read port plus a separate injected
+`QueueWorkflowFinalizationPort` for explicit accepted completion or terminal
+failure commands and is the next migration target. Tests use fake ports. The
+runner does not import Queue UI, visual shell modules, Tauri APIs,
+AgentProvider, WorkerProvider, Action Broker invocation, or Queue adapter
+mutation handlers.
+
+The current frontend boundary is explicit:
+
+- `backendOwnedPhases`: `worker_evidence`, `review`.
+- `legacyFrontendPhases`: `create_setup_start`, `read`, `finalization`.
+
+No new mutating phase may be added to frontend orchestration. Future mutating
+phase work must add a backend/domain StepPlan/StepResult path first, then expose
+only typed request normalization, backend command invocation, and StepResult
+projection in the frontend runtime adapter.
 
 Read-only runner results are structured as `completed`, `blocked`, `paused`,
 `invalid_request`, `unavailable`, or `failed_unexpected` with workflow-local

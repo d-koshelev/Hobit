@@ -175,13 +175,28 @@ create/update/promote tasks, enable Queue, or infer ids from prose/UI/session
 state.
 
 The typed Queue workflow runtime adapter now delegates both `worker_evidence`
-and `review` dependency-smoke transitions to backend StepResult APIs. It
-resumes from an explicit `metadata.workflowRunId`, calls the read-only resume
-planner before continuation phases, records/reconciles upstream evidence
-through the backend worker-evidence step, and creates/ACKs durable review
-messages through the backend review step. Finalization remains the current
-frontend-led workflow runner phase over explicit backend completion/failure
-commands and is the next migration target.
+and `review` dependency-smoke transitions to backend StepResult APIs through a
+thin frontend backend-step dispatcher. It resumes from an explicit
+`metadata.workflowRunId`, calls the read-only resume planner before
+continuation phases, invokes the backend worker-evidence or review step when
+the backend plan marks that step ready/retryable, and projects the returned
+StepResult for activity/report/debug display. For those backend-owned phases,
+the frontend does not call raw evidence/review mutation ports, inspect local
+Queue aggregates or local evidence/message refs to decide executability,
+synthesize workflow action rows, write slot-binding deltas, persist
+authoritative workflow status/currentStep, repair stale actions, or turn typed
+backend blockers into generic runner-failed action rows. Backend StepResult
+action snapshots may remain visible as backend-owned debug/report data.
+
+The frontend phase boundary is:
+
+- `backendOwnedPhases`: `worker_evidence`, `review`.
+- `legacyFrontendPhases`: `create_setup_start`, `read`, `finalization`.
+
+Create/setup/start and finalization remain the current migration debt. No new
+mutating workflow phase may be added to frontend orchestration; future
+mutating phases must start as backend/domain StepPlan/StepResult commands with
+frontend request normalization and projection only.
 
 Resume planning must reconcile only explicit persisted bindings and variables:
 task ids, run ids, evidence bundle ids, review message ids, completion decision
