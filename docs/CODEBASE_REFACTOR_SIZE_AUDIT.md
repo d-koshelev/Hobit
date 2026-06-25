@@ -104,7 +104,7 @@ Block 53 scan result after adding the guard:
 | 2362 | `apps/desktop/frontend/src/styles/agent-queue.css` | styles | D |
 | 1553 | `docs/JDBC_WIDGET_CONTRACT.md` | docs | D |
 | 1518 | `apps/desktop/frontend/src/styles/widget-v2-knowledge.css` | styles | D |
-| 1514 | `docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md` | docs | D |
+| 1519 | `docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md` | docs | D |
 | 1302 | `apps/desktop/frontend/src/styles/widget-v2-queue.css` | styles | D |
 
 ## Ownership Risk Summary
@@ -131,6 +131,27 @@ because they are mostly consumers of those boundaries.
 Priority D is style/docs cleanup. These should remain visual/docs no-op blocks
 and must not be used to change Queue UI or visual-shell behavior.
 
+## Block 54 Update
+
+The backend Queue workflow test file
+`crates/hobit-app/src/workspace_service/agent_queue_workflow_tests.rs` was
+split into the `agent_queue_workflow_tests/` module directory by workflow
+transition/domain: persistence, report/action ledger, materialization, setup,
+start/promote, resume, worker evidence, review, finalization, and immutable
+planning checks.
+
+The old 6417-line allowlist entry was removed. No new backend workflow test
+module exceeds the 1200-line test threshold.
+
+This was a tests-only refactor: no runtime behavior, Queue workflow behavior,
+storage/schema, Tauri/API, frontend behavior, Queue UI, visual-shell behavior,
+smoke execution, new runtime path, or natural-language/id inference changed.
+
+Next Priority A refactor focus remains `queueWorkflowRunner.ts` or the backend
+workflow source modules according to the active plan. The
+`workspaceAgentQueueBridgeAdapter.ts` bridge remains the top Priority B bridge
+target after workflow ownership is clearer.
+
 ## Refactor Priority Plan
 
 ### Priority A: Queue Workflow Ownership
@@ -153,7 +174,7 @@ Sequence:
 
 1. Write a no-behavior-change module map for backend Queue workflow ownership.
 2. Split backend tests by workflow phase while preserving test names and
-   assertions.
+   assertions. Completed in Block 54.
 3. Split backend resume/evidence/setup modules behind existing public exports.
 4. Split frontend runtime adapter into API access, persistence/reporting, and
    runner handoff.
@@ -219,4 +240,3 @@ Every refactor block that consumes this audit should state:
 - No new runtime execution path.
 - No natural-language routing or prose-derived ID inference.
 - No broad formatter over unrelated files.
-

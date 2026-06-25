@@ -67,6 +67,11 @@ typed terminal failure with fresh exact structured confirmation, downstream
 dependency-ready or `failed_upstream` no-auto-start verification, and a
 completed bounded workflow report. Scheduler behavior, downstream auto-start,
 and generic public resume execution remain not implemented.
+Backend workflow test coverage was split by transition/domain in Block 54 under
+`crates/hobit-app/src/workspace_service/agent_queue_workflow_tests/`. This was
+a tests-only refactor with no runtime behavior, Queue workflow semantics,
+storage/schema, Tauri/API, frontend UI, smoke execution, scheduler behavior, or
+natural-language/id inference changes.
 Restart/recovery hardening is implemented for those existing dependency smoke
 workflows: runner reports no longer overwrite backend-rich slot bindings with
 frontend slot variables, backend report persistence merges authoritative

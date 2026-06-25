@@ -3,16 +3,6 @@
   "description": "Explicit oversized-file debt for scripts/hobit/check-line-counts.mjs. Guard mode allows these files only while they stay at or below currentLineCount. Do not add source globs.",
   "files": [
     {
-      "path": "crates/hobit-app/src/workspace_service/agent_queue_workflow_tests.rs",
-      "currentLineCount": 6417,
-      "category": "test",
-      "reason": "Queue workflow state-machine test coverage is concentrated in one Rust test module.",
-      "plannedRefactorBlock": "Priority A - split Queue workflow state-machine tests by runner phase and worker-evidence ownership.",
-      "ownerDomain": "Queue workflow backend tests",
-      "targetMaxLineCount": 1000,
-      "removeAfter": "Remove after tests are split into focused phase/evidence modules below the test threshold."
-    },
-    {
       "path": "apps/desktop/frontend/src/workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
       "currentLineCount": 5591,
       "category": "source",
@@ -254,7 +244,7 @@
     },
     {
       "path": "docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md",
-      "currentLineCount": 1514,
+      "currentLineCount": 1519,
       "category": "docs",
       "reason": "Smart Queue status history has accumulated implementation notes beyond the docs warning threshold.",
       "plannedRefactorBlock": "Priority D - archive or split Smart Queue status history in a docs-only cleanup block.",
