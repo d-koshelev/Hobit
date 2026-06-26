@@ -42,7 +42,7 @@ backend-owned create/setup/start, worker-evidence, review, and finalization
 StepResult APIs, idempotent start by request hash, bounded JSON snapshots,
 safe grant-summary persistence, action-ledger rows, and read-only resume
 planning. The frontend runtime normalizes typed input, calls backend
-StepResult APIs, and projects returned results.
+StepResult APIs, and projects returned results. `docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md` now records docs-only coordination vocabulary and guardrails for Task, RunAttempt, ActorRef, ExecutorTarget, QueueEvent, ArtifactLink, compatibility fields, and UI independence; it adds no schema, code, runtime behavior, UI, server/sync/ACL, remote-agent runtime, scheduler runtime, smoke, or Queue state mutation.
 
 Block 60 completed frontend de-orchestration for initial create/setup/start.
 Backend/domain now owns workflow start/reuse/conflict, explicit upstream/

@@ -6,6 +6,13 @@ This contract defines how Workspace Agent, Broker capabilities, backend Queue
 aggregate state, and typed next actions must orchestrate Queue dogfooding
 workflows.
 
+Queue coordination vocabulary for Task, RunAttempt, ActorRef, Assignment,
+Claim, ExecutorTarget, QueueEvent, and ArtifactLink is defined in
+`docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md`. Workflow terminology in this
+contract uses that vocabulary: a workflow coordinates Queue tasks and run
+attempts; it is not itself a task, and its action ledger is not the general
+Queue event log.
+
 It does not add scheduler runtime, validation execution, Git mutation,
 rollback execution, Terminal launch, hidden worker dispatch, Queue UI
 migration, or new storage schema by itself.
@@ -57,6 +64,11 @@ requests and emits normalized worker evidence/result events. Queue workflow
 runners may consume WorkerProvider later, but this contract does not wire a
 runner to WorkerProvider, does not auto-start workers, and does not change
 current Queue-linked Direct Work behavior.
+
+Run-start and evidence phases must keep Task, RunAttempt, actor attribution,
+and ExecutorTarget distinct. Current `queue_local` plus `providerId=codex` is
+the MVP executor target; legacy widget/direct-work ids remain compatibility
+projection, not canonical workflow execution truth.
 
 ## Legal Transition Categories
 

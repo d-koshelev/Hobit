@@ -828,6 +828,13 @@ the local executor flow visible to operators.
   manifest, broker handler, `ModuleControlSurface`, and continuation policy
   layers; `queue.control.setManualEnabled` remains setup/write-gated, and
   workflow invocation remains `hobit.workflow.request` only.
+- `docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md` - authoritative Queue
+  coordination vocabulary. Read before adding or changing Queue task/run,
+  actor, assignment, claim, executor target, event/audit, artifact/evidence
+  link, workflow relation, or API/UI independence contracts. It keeps Queue
+  prepared for Workspace coordination while current MVP remains single-user,
+  local desktop, no server sync, no ACL, no remote-agent runtime, and no
+  scheduler runtime.
 - `docs/QUEUE_SYSTEM_ARCHITECTURE_RESET.md` - current Queue / Workspace Agent
   architecture correction note. Read before broad Queue dogfooding,
   continuation-policy, capability-contract, or responsibility-boundary cleanup.
@@ -1135,7 +1142,8 @@ These documents should not override the Workspace Agent model or
   only when changing current Git behavior, Git plugin API, or Git mutation
   boundaries.
 - Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md`,
-  `docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`, and
+  `docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`,
+  `docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md`, and
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.

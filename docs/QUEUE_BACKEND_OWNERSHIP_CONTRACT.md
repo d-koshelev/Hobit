@@ -10,6 +10,11 @@ Workflow orchestration, action risk classes, typed `nextAction`, structured
 confirmation, and bounded grant rules are defined in
 `docs/QUEUE_WORKFLOW_ORCHESTRATION_CONTRACT.md`.
 
+Queue coordination vocabulary for Task, RunAttempt, ActorRef,
+ExecutorTarget, QueueEvent, ArtifactLink, Assignment, and Claim is defined in
+`docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md`. New Queue backend/API work
+must use that vocabulary when adding coordination model fields or contracts.
+
 ## Ownership Rules
 
 - Queue business truth lives in backend/domain/storage.
@@ -39,6 +44,10 @@ confirmation, and bounded grant rules are defined in
   components, CSS, or visual shell modules. Other modules will register later.
 - Queue UI widgets are not executable Queue APIs. Backend-backed capabilities
   must remain testable without mounting Queue UI components.
+- Backend Queue APIs must not require Queue UI, Agent Queue widget presence, or
+  Agent Executor widget identity for backend-owned `queue_local` workflows.
+  Widget ids are compatibility/display attribution unless an older explicit
+  Agent Executor path is being preserved.
 - Frontend API wrappers translate desktop/browser availability into typed API
   calls. They do not derive Queue state from UI-selected task detail.
 - UI may render authoritative DTOs, collect explicit operator input, and manage
