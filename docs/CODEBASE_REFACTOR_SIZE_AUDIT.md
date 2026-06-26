@@ -289,6 +289,43 @@ confirmation-token persistence, or synthetic widget-run behavior changed. No
 new oversized source allowlist entry was added and no allowlist limit was
 increased.
 
+## Block 63 Update
+
+The remaining legacy frontend mutating Queue workflow engine modules were
+removed after create/setup/start, worker-evidence, review, and finalization
+became backend-owned StepResult paths. The frontend runner package now exports
+only the read-only compatibility runner and shared result/report types.
+
+Deleted legacy modules:
+
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowCreateSetupStartPhase.ts` (533 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowCreateSetupStartHelpers.ts` (641 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowWorkerEvidencePhase.ts` (523 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowReviewPhase.ts` (547 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowReviewHelpers.ts` (355 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowFinalizationPhase.ts` (439 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowFinalizationHelpers.ts` (354 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowDownstreamVerification.ts` (91 lines)
+
+Focused shrink/ratchet results:
+
+- `queueWorkflowRunnerRuntimeAdapter.ts`: Toolbelt count 1476 -> 1432 lines; raw
+  create/setup/start port wiring was removed, and the allowlist was ratcheted
+  down to 1432.
+- `queueWorkflowRunner.test.ts`: the old 3048-line oversized allowlist entry
+  was removed because the remaining read-only runner tests are below the test
+  threshold.
+- `queueWorkflowRunner/queueWorkflowRunnerTypes.ts`: 553 -> 391 lines after
+  removing raw mutating runner port/input types.
+
+No Queue UI files, visual-shell files, backend transition behavior,
+storage/schema, smoke execution, worker starts outside backend workflow steps,
+downstream mutation, scheduler/autodispatch, natural-language routing,
+prose/UI/path/order id inference, ActorRef/EventLog/ArtifactLink
+implementation, remote/server/sync/ACL behavior, or raw confirmation-token
+persistence/exposure changed. No new oversized source allowlist entry was
+added and no allowlist limit was increased.
+
 ## Refactor Priority Plan
 
 ### Priority A: Queue Workflow Ownership

@@ -413,6 +413,14 @@ describe("QueueWorkflowRunner backend step dispatcher", () => {
     expect(adapterSource).not.toContain("queue.review.createMessage");
     expect(adapterSource).not.toContain("queue.review.ack");
     expect(adapterSource).not.toContain("queue.lifecycle.agentFinished");
+    expect(adapterSource).not.toContain("materializeTaskSlot");
+    expect(adapterSource).not.toContain("applyRunSettings");
+    expect(adapterSource).not.toContain("promoteTaskSlot");
+    expect(adapterSource).not.toContain("startWorkerForSlot");
+    expect(adapterSource).not.toContain("materializeWorkflowTaskSlot");
+    expect(adapterSource).not.toContain("applyWorkflowRunSettings");
+    expect(adapterSource).not.toContain("promoteWorkflowTaskSlot");
+    expect(adapterSource).not.toContain("startWorkflowAssignedTask");
 
     const backendOwnedSources = `${dispatcherSource}\n${createSetupStartPhaseSource}\n${reviewPhaseSource}`;
     const forbiddenFragments = [

@@ -44,23 +44,20 @@ safe grant-summary persistence, action-ledger rows, and read-only resume
 planning. The frontend runtime normalizes typed input, calls backend
 StepResult APIs, and projects returned results. `docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md` now records docs-only coordination vocabulary and guardrails for Task, RunAttempt, ActorRef, ExecutorTarget, QueueEvent, ArtifactLink, compatibility fields, and UI independence; it adds no schema, code, runtime behavior, UI, server/sync/ACL, remote-agent runtime, scheduler runtime, smoke, or Queue state mutation.
 
-Block 60 completed frontend de-orchestration for initial create/setup/start.
-Backend/domain now owns workflow start/reuse/conflict, explicit upstream/
-downstream materialization, dependency-edge creation, run-settings setup,
-upstream promotion, Queue control gating, upstream worker start, action ledger
-rows, slot-binding merge, and the transition to `run_start` /
-`awaiting_worker_completion`. The runtime adapter no longer starts/reuses the
-workflow run before this phase, calls raw materialize/settings/promote/start
-ports, synthesizes create/setup/start action rows, or persists backend-owned
-slot-binding/status/currentStep deltas after the step.
+Block 63 completed frontend mutating workflow de-orchestration. Backend/domain
+owns create/setup/start, worker-evidence, review, finalization, action ledger
+rows, slot-binding merge, workflow status/current step, retry/recovery, and
+final accepted-completion or terminal-failure decisions. The runtime adapter
+normalizes typed requests, calls backend StepResult APIs, and projects results;
+it no longer calls raw workflow mutation ports, synthesizes mutating action
+rows, writes slot-binding deltas, classifies retry/recovery, or persists
+backend-owned status/currentStep after backend-owned steps.
 
 All mutating dependency-smoke workflow phases are backend-owned:
 `create_setup_start`, `worker_evidence`, `review`, and `finalization`; `read`
-is the only legacy frontend workflow runner phase. Restart/recovery hardening
-preserves backend-rich slot bindings and lets the resume planner recover safe
-refs from completed workflow actions or block incomplete binding/action/
-orphan-worker states. The next block should remove remaining legacy frontend
-workflow engine code and run clean manual smoke.
+is the only legacy frontend workflow runner phase. The remaining legacy
+frontend mutating phase modules were deleted, and the next step is clean
+acceptance/failure smoke.
 
 The dependency smoke workflows can compose the current phases end to end with
 backend-owned create/setup/start, typed evidence, backend review create/ACK,

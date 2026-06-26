@@ -64,21 +64,16 @@ export type {
   QueueWorkflowRequestValidationStatus,
 } from "./queueWorkflowRequestValidation";
 export {
-  runQueueWorkflowFinalizationRunner,
   runQueueWorkflowReadOnlyRunner,
-  runQueueWorkflowReviewRunner,
 } from "./queueWorkflowRunner";
 export type {
   QueueWorkflowEvidenceReadRequest,
-  QueueWorkflowFinalizationCommandResult,
   QueueWorkflowFinalizationCommandStatus,
-  QueueWorkflowFinalizationPort,
   QueueWorkflowFinalizationReport,
   QueueWorkflowLifecycleSnapshot,
   QueueWorkflowReadPort,
   QueueWorkflowReadSnapshots,
   QueueWorkflowReviewCommandStatus,
-  QueueWorkflowReviewPort,
   QueueWorkflowReviewReport,
   QueueWorkflowRunnerBlocker,
   QueueWorkflowRunnerBlockerReason,

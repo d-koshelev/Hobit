@@ -15,9 +15,7 @@ import type {
   RecordAgentQueueWorkflowRunnerReportRequest, RecordAgentQueueWorkflowWorkerEvidenceRequest, StartAgentQueueWorkflowRequest,
 } from "../../../workspace/types";
 import {
-  runQueueWorkflowCreateSetupStartRunner,
   runQueueWorkflowReadOnlyRunner,
-  type QueueWorkflowCreateSetupStartPort,
   type QueueWorkflowReadPort,
   type QueueWorkflowRunnerRequest,
   type QueueWorkflowRunnerResult,
@@ -42,7 +40,6 @@ export type QueueWorkflowRunnerRuntimeStatus =
   | "unsupported";
 
 export type QueueWorkflowRunnerRuntimePorts = {
-  createSetupStartPort?: QueueWorkflowCreateSetupStartPort | null;
   readPort?: QueueWorkflowReadPort | null;
 };
 
@@ -413,7 +410,6 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
     ports: runtimePorts,
     request: runnerRequest,
     validation,
-    workflowRunId: workflowRunId!,
   });
   const recordRequest = recordRequestForRunnerResult({
     phase: selectedPhase,
@@ -473,9 +469,6 @@ export function createQueueWorkflowRunnerRuntimePortsFromQueueBridge({
   queueBridge?: WorkspaceAgentQueueBridge | null;
 }): QueueWorkflowRunnerRuntimePorts {
   return {
-    createSetupStartPort: queueBridge
-      ? createCreateSetupStartPort(queueBridge)
-      : null,
     readPort: queueBridge ? createReadPort(queueBridge) : null,
   };
 }
@@ -485,23 +478,12 @@ async function runSelectedRunner({
   ports,
   request,
   validation,
-  workflowRunId,
 }: {
   phase: QueueWorkflowRunnerRuntimePhase;
   ports: QueueWorkflowRunnerRuntimePorts;
   request: QueueWorkflowRunnerRequest;
   validation: Parameters<typeof runQueueWorkflowReadOnlyRunner>[0]["validation"];
-  workflowRunId: string;
 }) {
-  if (phase === "create_setup_start") {
-    return runQueueWorkflowCreateSetupStartRunner({
-      createSetupStartPort: ports.createSetupStartPort,
-      request,
-      validation,
-      workflowRunId,
-    });
-  }
-
   if (!isLegacyFrontendQueueWorkflowPhase(phase)) {
     throw new Error(`Backend-owned Queue workflow phase ${phase} must use the backend step dispatcher.`);
   }
@@ -531,32 +513,6 @@ function createReadPort(
     getLifecycle: (taskId) => queueBridge.getItemAggregate!({ taskId }),
     getQueueItemAggregate: (taskId) => queueBridge.getItemAggregate!({ taskId }),
     listQueueItemAggregates: () => queueBridge.listItemAggregates!(),
-  };
-}
-
-function createCreateSetupStartPort(
-  queueBridge: WorkspaceAgentQueueBridge,
-): QueueWorkflowCreateSetupStartPort | null {
-  if (
-    !queueBridge.applyWorkflowRunSettings ||
-    !queueBridge.getQueueControlState ||
-    !queueBridge.materializeWorkflowTaskSlot ||
-    !queueBridge.promoteWorkflowTaskSlot ||
-    !queueBridge.startWorkflowAssignedTask
-  ) {
-    return null;
-  }
-
-  return {
-    applyRunSettings: (request) =>
-      queueBridge.applyWorkflowRunSettings!(request),
-    getQueueControlState: () => queueBridge.getQueueControlState!(),
-    materializeTaskSlot: (request) =>
-      queueBridge.materializeWorkflowTaskSlot!(request),
-    promoteTaskSlot: (request) =>
-      queueBridge.promoteWorkflowTaskSlot!(request),
-    startWorkerForSlot: (request) =>
-      queueBridge.startWorkflowAssignedTask!(request),
   };
 }
 

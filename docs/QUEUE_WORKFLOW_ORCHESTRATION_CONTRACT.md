@@ -295,6 +295,11 @@ mutating phase may be added to frontend orchestration. Future mutating phase
 work must add a backend/domain StepPlan/StepResult path first, then expose
 only typed request normalization, backend command invocation, and StepResult
 projection in the frontend runtime adapter.
+The remaining legacy frontend mutating phase modules and raw workflow mutation
+port wiring have been removed. The frontend Queue workflow runner package now
+retains only the read-only compatibility runner plus shared projection/report
+types; create/setup/start, worker-evidence, review, and finalization execute
+only through the backend-step dispatcher.
 
 Read-only runner results are structured as `completed`, `blocked`, `paused`,
 `invalid_request`, `unavailable`, or `failed_unexpected` with workflow-local

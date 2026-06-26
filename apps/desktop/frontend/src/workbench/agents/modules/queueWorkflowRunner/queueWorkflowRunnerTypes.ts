@@ -3,23 +3,10 @@ import type {
   WorkflowInputs,
 } from "../../broker/workflowGrantInputSplit";
 import type {
-  AgentQueueControlStatus,
   AgentQueueItemAggregate,
-  AgentQueueWorkflowExecutionTarget,
-  AgentQueueWorkflowApplyRunSettingsResult,
-  AgentQueueWorkflowMaterializeTaskSlotResult,
-  AgentQueueWorkflowPromoteTaskSlotResult,
-  AgentQueueWorkflowWorkerEvidenceRecordResult,
-  AgentQueueReviewCreateMessageBlocker,
-  AgentQueueReviewMessage,
+  AgentQueueWorkflowWorkerEvidenceRecordStatus,
   AgentQueueWorkerEvidenceQueryResult,
   AgentQueueWorkerEvidenceOutcome,
-  ApplyAgentQueueWorkflowRunSettingsRequest,
-  MaterializeAgentQueueWorkflowTaskSlotRequest,
-  PromoteAgentQueueWorkflowTaskSlotRequest,
-  RecordAgentQueueWorkflowWorkerEvidenceRequest,
-  StartAssignedAgentQueueTaskRequest,
-  StartAssignedAgentQueueTaskResponse,
 } from "../../../../workspace/types";
 import type { QueueWorkflowRequestValidationResult } from "../queueWorkflowRequestValidation";
 
@@ -229,57 +216,6 @@ export type QueueWorkflowReviewCommandStatus =
   | "succeeded"
   | "unavailable";
 
-export type QueueWorkflowCreateReviewMessageRequest = {
-  evidenceBundleId: string;
-  messageBody?: string;
-  runId?: string;
-  taskId: string;
-};
-
-export type QueueWorkflowAckReviewMessageRequest = {
-  messageId: string;
-  taskId: string;
-};
-
-export type QueueWorkflowCreateReviewMessageResult = {
-  aggregate?: AgentQueueItemAggregate | null;
-  blocker?: AgentQueueReviewCreateMessageBlocker | null;
-  durable?: boolean;
-  evidenceBundleId?: string | null;
-  existingMessageId?: string | null;
-  fieldPath?: string;
-  fieldPaths?: readonly string[];
-  message?: string;
-  messageId?: string | null;
-  reasonCode?: string;
-  reviewMessage?: AgentQueueReviewMessage | null;
-  runId?: string | null;
-  status: QueueWorkflowReviewCommandStatus;
-  taskId?: string;
-};
-
-export type QueueWorkflowAckReviewMessageResult = {
-  aggregate?: AgentQueueItemAggregate | null;
-  durable?: boolean;
-  fieldPath?: string;
-  fieldPaths?: readonly string[];
-  message?: string;
-  messageId?: string | null;
-  reasonCode?: string;
-  reviewMessage?: AgentQueueReviewMessage | null;
-  status: QueueWorkflowReviewCommandStatus;
-  taskId?: string;
-};
-
-export type QueueWorkflowReviewPort = {
-  ackReviewMessage: (
-    request: QueueWorkflowAckReviewMessageRequest,
-  ) => Promise<QueueWorkflowAckReviewMessageResult>;
-  createReviewMessage: (
-    request: QueueWorkflowCreateReviewMessageRequest,
-  ) => Promise<QueueWorkflowCreateReviewMessageResult>;
-};
-
 export type QueueWorkflowFinalizationCommandStatus =
   | "already_done"
   | "already_failed"
@@ -291,101 +227,6 @@ export type QueueWorkflowFinalizationCommandStatus =
   | "precondition_failed"
   | "succeeded"
   | "unavailable";
-
-export type QueueWorkflowFinalizationBlocker = {
-  blockerCode?: string | null;
-  blockerMessage?: string | null;
-  dependencyState?: string | null;
-  evidenceBundleId?: string | null;
-  evidenceState?: string | null;
-  missingRequiredField?: string | null;
-  nextSuggestedCapability?: string | null;
-  reviewState?: string | null;
-  runId?: string | null;
-  taskId?: string | null;
-  ticketState?: string | null;
-  validationState?: string | null;
-  workerRunState?: string | null;
-};
-
-export type QueueWorkflowMarkDoneRequest = {
-  confirmationToken: string;
-  messageId?: string;
-  reason?: string;
-  runId?: string;
-  taskId: string;
-};
-
-export type QueueWorkflowFailItemRequest = {
-  confirmationToken: string;
-  evidenceBundleId?: string;
-  messageId?: string;
-  reason: string;
-  runId?: string;
-  taskId: string;
-};
-
-export type QueueWorkflowFinalizationCommandResult = {
-  aggregate?: AgentQueueItemAggregate | null;
-  blocker?: QueueWorkflowFinalizationBlocker | null;
-  decisionId?: string | null;
-  durable?: boolean;
-  evidenceBundleId?: string | null;
-  fieldPath?: string;
-  fieldPaths?: readonly string[];
-  message?: string;
-  reasonCode?: string;
-  runId?: string | null;
-  status: QueueWorkflowFinalizationCommandStatus;
-  taskId?: string;
-};
-
-export type QueueWorkflowFinalizationPort = {
-  failItem: (
-    request: QueueWorkflowFailItemRequest,
-  ) => Promise<QueueWorkflowFinalizationCommandResult>;
-  markDone: (
-    request: QueueWorkflowMarkDoneRequest,
-  ) => Promise<QueueWorkflowFinalizationCommandResult>;
-};
-
-export type QueueWorkflowQueueControlState = {
-  backendOwned?: boolean;
-  globalExecutionState?: string | null;
-  queueEnabled?: boolean;
-  status?: AgentQueueControlStatus | string | null;
-  version?: number | null;
-};
-
-export type QueueWorkflowCreateSetupStartPort = {
-  applyRunSettings: (
-    request: Omit<ApplyAgentQueueWorkflowRunSettingsRequest, "workspaceId">,
-  ) => Promise<AgentQueueWorkflowApplyRunSettingsResult>;
-  getQueueControlState: () =>
-    | Promise<QueueWorkflowQueueControlState | null>
-    | QueueWorkflowQueueControlState
-    | null;
-  materializeTaskSlot: (
-    request: Omit<MaterializeAgentQueueWorkflowTaskSlotRequest, "workspaceId">,
-  ) => Promise<AgentQueueWorkflowMaterializeTaskSlotResult>;
-  promoteTaskSlot: (
-    request: Omit<PromoteAgentQueueWorkflowTaskSlotRequest, "workspaceId">,
-  ) => Promise<AgentQueueWorkflowPromoteTaskSlotResult>;
-  startWorkerForSlot: (
-    request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
-  ) => Promise<StartAssignedAgentQueueTaskResponse>;
-};
-
-export type QueueWorkflowRecordWorkerEvidenceRequest = Omit<
-  RecordAgentQueueWorkflowWorkerEvidenceRequest,
-  "workspaceId"
->;
-
-export type QueueWorkflowWorkerEvidencePort = {
-  recordWorkerEvidenceForSlot: (
-    request: QueueWorkflowRecordWorkerEvidenceRequest,
-  ) => Promise<AgentQueueWorkflowWorkerEvidenceRecordResult>;
-};
 
 export type QueueWorkflowRunnerRequest = {
   grant?: WorkflowGrant;
@@ -547,7 +388,7 @@ export type QueueWorkflowReviewReport = {
 };
 
 export type QueueWorkflowWorkerEvidenceReport = {
-  commandStatus?: AgentQueueWorkflowWorkerEvidenceRecordResult["status"];
+  commandStatus?: AgentQueueWorkflowWorkerEvidenceRecordStatus;
   evidenceBundleId?: string;
   idempotent: boolean;
   outcome?: AgentQueueWorkerEvidenceOutcome | string;
@@ -576,24 +417,3 @@ export type QueueWorkflowRunnerInput = {
   request: QueueWorkflowRunnerRequest;
   validation: QueueWorkflowRequestValidationResult;
 };
-
-export type QueueWorkflowReviewRunnerInput = QueueWorkflowRunnerInput & {
-  reviewPort?: QueueWorkflowReviewPort | null;
-};
-
-export type QueueWorkflowFinalizationRunnerInput = QueueWorkflowRunnerInput & {
-  finalizationPort?: QueueWorkflowFinalizationPort | null;
-};
-
-export type QueueWorkflowWorkerEvidenceRunnerInput = QueueWorkflowRunnerInput & {
-  workerEvidencePort?: QueueWorkflowWorkerEvidencePort | null;
-  workflowRunId: string;
-};
-
-export type QueueWorkflowCreateSetupStartRunnerInput =
-  QueueWorkflowRunnerInput & {
-    createSetupStartPort?: QueueWorkflowCreateSetupStartPort | null;
-    resumeNextPhase?: string | null;
-    resumeNextStep?: string | null;
-    workflowRunId: string;
-  };

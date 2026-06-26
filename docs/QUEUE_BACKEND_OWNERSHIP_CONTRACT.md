@@ -244,6 +244,13 @@ All mutating dependency-smoke workflow phases are backend-owned. No new
 mutating workflow phase may be added to frontend orchestration; future mutating
 phases must start as backend/domain StepPlan/StepResult commands with
 frontend request normalization and projection only.
+The frontend runtime adapter no longer exposes raw workflow mutation ports for
+materialize/settings/promote/start, worker evidence recording, review
+create/ACK, or final mark-done/fail execution. Deleted legacy frontend phase
+modules must not be reintroduced; backend StepResult action snapshots may be
+projected for display/debug, but frontend code must not synthesize mutating
+action rows, slot-binding deltas, workflow status/currentStep, retryability,
+or recovery decisions for these phases.
 
 Resume planning must reconcile only explicit persisted bindings and variables:
 task ids, run ids, evidence bundle ids, review message ids, completion decision
