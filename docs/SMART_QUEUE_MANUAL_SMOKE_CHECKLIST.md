@@ -389,10 +389,13 @@ Continuation inputs:
   stale `reviewMessageId` is not an ACK input.
 - Acceptance finalization: use `metadata.workflowRunId`,
   `inputs.phase: "finalization"`, and fresh
-  `grant.confirmationToken: "operator-confirmed"`.
+  `grant.confirmationToken: "operator-confirmed"`. The runtime adapter
+  delegates this phase to the backend finalization step; do not expect
+  frontend raw `markDone` runner actions.
 - Failure finalization: same as acceptance finalization, plus typed
-  `inputs.failureReason`. Finalization remains the current frontend-led
-  workflow runner phase and is the next backend-owned transition target.
+  `inputs.failureReason`. The backend finalization step applies terminal
+  failure through `failItem`; do not expect frontend raw `failItem` runner
+  actions.
 
 Schematic initial request shape:
 
@@ -588,10 +591,11 @@ duplicate task/start/evidence/review/ACK/finalization is created.
 - After review created: expect existing canonical `messageId` to be reused for
   ACK; no duplicate message.
 - After review ACKed: expect finalization to require a fresh exact
-  confirmation token; ACK alone is not completion.
+  confirmation token through the backend finalization StepPlan/StepResult path;
+  ACK alone is not completion.
 - After `markDone` / `failItem` before final report, if this crash window is
   reachable: expect completed decision refs to be reconciled and reported
-  without duplicate finalization.
+  without duplicate finalization by the backend finalization resolver.
 - After workflow completed: expect `terminal_completed` planning/report status
   and no runner invocation.
 
@@ -617,6 +621,10 @@ duplicate task/start/evidence/review/ACK/finalization is created.
   `retryable_worker_evidence_action_repair` proof above passes.
 - Missing fresh exact confirmation blocks worker start and finalization.
 - Missing `failureReason` blocks `dependency_failure_smoke` finalization.
+- Prose confirmation, empty failure reason, stale/out-of-scope grant, opposite
+  existing terminal decision, arbitrary failed workflow, cancelled workflow, or
+  downstream already-started state blocks finalization with typed backend
+  blockers.
 - Backend Queue control `disabled` blocks worker start and does not
   auto-enable.
 - Downstream never auto-starts after upstream accepted completion or terminal

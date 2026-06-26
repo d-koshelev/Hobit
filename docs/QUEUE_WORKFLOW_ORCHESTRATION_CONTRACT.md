@@ -238,8 +238,9 @@ prompts, prose, UI selection, UI order, file paths, or repository roots.
 
 The read-only phase uses only an injected `QueueWorkflowReadPort` with read
 methods for Queue aggregate, lifecycle, list, and evidence inspection. The
-worker-evidence and review phases are owned by backend StepPlan/StepResult
-APIs and are not implemented through frontend phase-specific mutation logic.
+worker-evidence, review, and finalization phases are owned by backend
+StepPlan/StepResult APIs and are not implemented through frontend
+phase-specific mutation logic.
 For review, the runtime adapter passes `workflowRunId`, optional slot, fresh
 grant summary, actor, and request id to the backend review step, then renders
 the returned StepResult; it does not inspect local evidence/message refs before
@@ -247,23 +248,30 @@ invoking a backend-approved ready/retryable review step, call raw frontend
 review create/ACK ports, synthesize review action ledger rows, write message
 slot-binding deltas, or derive persistent workflow status/currentStep. Backend
 action snapshots returned by StepResult may remain visible in debug/report
-projection, but they are not frontend-created action rows. The finalization
-phase still uses the read port plus a separate injected
-`QueueWorkflowFinalizationPort` for explicit accepted completion or terminal
-failure commands and is the next migration target. Tests use fake ports. The
-runner does not import Queue UI, visual shell modules, Tauri APIs,
-AgentProvider, WorkerProvider, Action Broker invocation, or Queue adapter
-mutation handlers.
+projection, but they are not frontend-created action rows. For finalization,
+the runtime adapter passes `workflowRunId`, optional slot, fresh grant summary,
+fresh exact structured confirmation token, typed `failureReason` when the
+workflow is `dependency_failure_smoke`, actor, request id, and expected version
+to the backend finalization step, then renders the returned StepResult. It
+does not inspect local review ACK/evidence/decision refs before invoking a
+backend-approved ready/retryable finalization step, call raw frontend
+mark-done/fail ports, synthesize finalization action ledger rows, write
+decision slot-binding deltas, derive persistent terminal workflow
+status/currentStep, persist raw confirmation tokens, or verify downstream
+state locally. Tests use fake backend-step ports. The runner does not import
+Queue UI, visual shell modules, Tauri APIs, AgentProvider, WorkerProvider,
+Action Broker invocation, or Queue adapter mutation handlers.
 
 The current frontend boundary is explicit:
 
-- `backendOwnedPhases`: `worker_evidence`, `review`.
-- `legacyFrontendPhases`: `create_setup_start`, `read`, `finalization`.
+- `backendOwnedPhases`: `worker_evidence`, `review`, `finalization`.
+- `legacyFrontendPhases`: `create_setup_start`, `read`.
 
-No new mutating phase may be added to frontend orchestration. Future mutating
-phase work must add a backend/domain StepPlan/StepResult path first, then expose
-only typed request normalization, backend command invocation, and StepResult
-projection in the frontend runtime adapter.
+Create/setup/start remains the last mutating frontend-owned workflow phase. No
+new mutating phase may be added to frontend orchestration. Future mutating
+phase work must add a backend/domain StepPlan/StepResult path first, then
+expose only typed request normalization, backend command invocation, and
+StepResult projection in the frontend runtime adapter.
 
 Read-only runner results are structured as `completed`, `blocked`, `paused`,
 `invalid_request`, `unavailable`, or `failed_unexpected` with workflow-local
@@ -287,22 +295,26 @@ do not require `widget_runs` rows and no synthetic widget runs are created.
 It does not finalize, mark done, fail, start workers, start downstream, run
 validation, mutate Git, launch Terminal, or infer ids from prose/UI state.
 
-The same module now also exposes an explicit Queue finalization runner phase
-through an injected `QueueWorkflowFinalizationPort`. For
-`dependency_acceptance_smoke`, finalization targets only the explicit
-`upstream` slot and calls `markDone` only when an explicit upstream task id,
-exact structured `confirmationToken`, and review ACK/precondition proof are
-present. For `dependency_failure_smoke`, finalization targets only the
-explicit `upstream` slot and calls `failItem` only when those preconditions and
-a non-empty structured `failureReason` are present. `already_done` is
-idempotent acceptance success, and `already_failed` is idempotent failure
-success. Other backend statuses stop as typed blockers or unexpected failures.
-If an explicit downstream task id is present, the runner reads downstream
-aggregate/lifecycle state after finalization and reports dependency-state and
-no-auto-start verification. If downstream id is absent, upstream finalization
-can still complete but downstream verification is reported missing. The runner
-never infers downstream ids from titles, order, prose, UI, or file paths, and
-never starts downstream work.
+The backend finalization step targets dependency smoke workflows and defaults
+to the explicit `upstream` slot. Planning and execution share one resolver for
+task/run/evidence/message/decision refs, canonical action keys, durable Queue
+facts, confirmation/grant validation, typed blockers, conflicts, slot-binding
+updates, terminal workflow state, and downstream read-only verification. For
+`dependency_acceptance_smoke`, finalization requires durable worker evidence,
+a durable review message and ACK, a fresh exact structured
+`confirmationToken`, no supplied `failureReason`, and downstream no-auto-start
+scope; execution calls `markDone` idempotently, persists
+`completionDecisionId`, marks the workflow completed at
+`closed / finalization_complete`, and verifies downstream dependency
+ready/satisfied without starting it. For `dependency_failure_smoke`,
+finalization requires the same durable evidence/review/ACK and exact
+confirmation plus typed non-empty `failureReason`; execution calls `failItem`
+idempotently, persists `failureDecisionId`, marks the workflow completed, and
+verifies downstream `failed_upstream`/blocked state without starting it.
+Existing matching decisions are `already_applied`; opposite decisions are
+typed conflicts. Backend-owned `queue_local` finalization validates through
+the Queue task run link, evidence bundle, review message/ACK, and Queue task
+ownership and does not require or synthesize `widget_runs`.
 
 For `dependency_acceptance_smoke` and `dependency_failure_smoke`, the runtime
 adapter can now complete the full headless typed workflow by composing the
@@ -310,24 +322,25 @@ existing runner phases through durable workflow persistence: materialize tasks,
 apply upstream run settings, promote upstream, verify backend
 `manual_enabled`, start only the upstream worker, pause for typed worker
 evidence, record/reconcile upstream evidence, create and ACK a durable review
-message, then finalize only the upstream task after fresh exact structured
-confirmation. Acceptance uses `markDone`, verifies downstream dependency
-readiness/no-auto-start state, and persists the workflow run as completed.
-Failure uses typed `failureReason`, calls `failItem`, verifies downstream
-`failed_upstream`/no-auto-start state, and persists the workflow run as
-completed. The adapter always calls `queue.workflow.planResume` before
+message, then invoke the backend finalization step for only the upstream task
+after fresh exact structured confirmation. Acceptance finalization verifies
+downstream dependency readiness/no-auto-start state and persists the workflow
+run as completed. Failure finalization uses typed `failureReason`, verifies
+downstream `failed_upstream`/no-auto-start state, and persists the workflow run
+as completed. The adapter always calls `queue.workflow.planResume` before
 continuation execution for an existing `metadata.workflowRunId` and may execute
 only the next typed phase that the plan marks ready.
 
 The review runner may mutate only the backend review message/ACK ledger
-through the injected review port. ACK is not completion. The finalization
-runner may mutate only explicit upstream accepted-completion or terminal-
-failure state through the injected finalization port. The runner does not
-enable Queue, record worker evidence, block, add follow-up prompts, approve
-validation, run validation, mutate Git, execute rollback, launch Terminal, call
-shell/Codex, start downstream work, or add scheduler behavior. Its only task
-create/settings/promote/start mutations are the create/setup/start phase above,
-scoped to explicit dependency-smoke slots and typed workflow start context.
+through the backend review step. ACK is not completion. The finalization path
+may mutate only explicit upstream accepted-completion or terminal-failure state
+through the backend finalization step. The runner does not enable Queue, record
+worker evidence outside the backend worker-evidence step, block, add follow-up
+prompts, approve validation, run validation, mutate Git, execute rollback,
+launch Terminal, call shell/Codex, start downstream work, or add scheduler
+behavior. Its only remaining frontend-owned task create/settings/promote/start
+mutations are the create/setup/start phase above, scoped to explicit
+dependency-smoke slots and typed workflow start context.
 
 ## Queue Workflow Persistence MVP
 
@@ -460,9 +473,9 @@ command:
   worker state, and active running workers remain blockers.
 - `queue.workflow.recordRunnerReport` records bounded runtime-adapter report
   state and action-ledger summaries for supported create/setup/start and
-  read/review/finalization runner phases. Worker-evidence durable transition
-  state is produced by the backend StepResult path, not by frontend report
-  synthesis. Report persistence may update only
+  read runner phases. Worker-evidence, review, and finalization durable
+  transition state is produced by backend StepResult paths, not by frontend
+  report synthesis. Report persistence may update only
   `agent_queue_workflow_runs` and `agent_queue_workflow_actions`; it must not
   mutate Queue tasks, run links, worker evidence, review messages,
   completion/failure decisions, Queue control state, validation, Git,
@@ -478,6 +491,16 @@ command:
   can execute create/setup/start. They require `workflowRunId` and `slot`, use
   explicit typed task specs/run settings, and are not Workspace Agent broker
   capabilities or natural-language routes.
+- `queue.workflow.executeFinalizationStep` executes the backend-owned
+  finalization StepPlan/StepResult transition for dependency smoke workflows.
+  It requires `workspaceId`, `workflowRunId`, request/actor context, fresh exact
+  structured confirmation, grant constraints, and typed `failureReason` only
+  for `dependency_failure_smoke`. It shares the finalization resolver with
+  `planResume`, records a canonical `mark_done` or `fail_item` action, persists
+  the completion/failure decision ref into the slot binding, completes the
+  workflow run, and returns downstream no-auto-start verification. It must not
+  start downstream workers, synthesize widget runs, expose raw confirmation
+  tokens, or infer refs from UI/prose.
 - A separate public `queue.workflow.resume` execution command is not
   implemented. Continuation from an explicit typed `metadata.workflowRunId`
   uses `queue.workflow.planResume` first, then the frontend runtime adapter may
@@ -485,13 +508,14 @@ command:
   ready and fresh typed grant/confirmation input is present when required. For
   `dependency_acceptance_smoke`, that adapter sequencing can complete the
   durable acceptance path through worker evidence, review create/ACK,
-  upstream accepted completion, downstream ready/no-auto-start verification,
-  and completed workflow-run reporting. For `dependency_failure_smoke`, worker
-  evidence still records the actual durable worker outcome. If the worker run
-  completed, worker evidence uses `outcome: "completed"`; terminal failure is
-  applied later by finalization with typed `failureReason` and `failItem`. The
-  same adapter sequencing can complete the durable failure path through worker
-  evidence, review create/ACK, upstream terminal failure, downstream
+  backend finalization, upstream accepted completion, downstream
+  ready/no-auto-start verification, and completed workflow-run reporting. For
+  `dependency_failure_smoke`, worker evidence still records the actual durable
+  worker outcome. If the worker run completed, worker evidence uses
+  `outcome: "completed"`; terminal failure is applied later by backend
+  finalization with typed `failureReason`. The same adapter sequencing can
+  complete the durable failure path through worker evidence, review
+  create/ACK, backend finalization, upstream terminal failure, downstream
   `failed_upstream`/no-auto-start verification, and completed workflow-run
   reporting.
 

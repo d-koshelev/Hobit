@@ -39,6 +39,7 @@ mod agent_queue_worker_evidence_commands;
 mod agent_queue_worker_evidence_dto;
 mod agent_queue_workflow_commands;
 mod agent_queue_workflow_dto;
+mod agent_queue_workflow_finalization_step_dto;
 mod agent_queue_workflow_review_step_dto;
 mod app_state;
 mod codex_direct_work_dto;
@@ -238,6 +239,7 @@ pub fn run() {
             agent_queue_workflow_commands::record_agent_queue_workflow_worker_evidence,
             agent_queue_workflow_commands::execute_agent_queue_workflow_worker_evidence_step,
             agent_queue_workflow_commands::execute_agent_queue_workflow_review_step,
+            agent_queue_workflow_commands::execute_agent_queue_workflow_finalization_step,
             agent_queue_workflow_commands::materialize_agent_queue_workflow_task_slot,
             agent_queue_workflow_commands::apply_agent_queue_workflow_run_settings,
             agent_queue_workflow_commands::promote_agent_queue_workflow_task_slot,

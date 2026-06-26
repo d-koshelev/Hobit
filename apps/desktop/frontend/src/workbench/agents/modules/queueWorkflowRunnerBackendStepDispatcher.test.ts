@@ -30,11 +30,11 @@ describe("QueueWorkflowRunner backend step dispatcher", () => {
     expect(backendOwnedQueueWorkflowPhases).toEqual([
       "worker_evidence",
       "review",
+      "finalization",
     ]);
     expect(legacyFrontendQueueWorkflowPhases).toEqual([
       "create_setup_start",
       "read",
-      "finalization",
     ]);
   });
 

@@ -152,7 +152,8 @@ pub(super) fn filter_downstream_promote_mismatch_after_review_ack(
     if !target_review_acknowledged(run, slots) {
         return;
     }
-    let Some(target_slot_name) = target_slot(run, slots).map(|slot| slot.binding.slot.clone())
+    let Some(target_slot_name) =
+        resume_support::target_slot(run, slots).map(|slot| slot.binding.slot.clone())
     else {
         return;
     };
@@ -171,7 +172,7 @@ fn target_review_acknowledged(run: &QueueWorkflowRun, slots: &[ReconciledSlot]) 
             run.current_step.as_deref(),
             Some("awaiting_finalization") | Some("review_acknowledged")
         )
-        && target_slot(run, slots)
+        && resume_support::target_slot(run, slots)
             .and_then(|slot| slot.review_message.as_ref())
             .is_some_and(|message| message.status == REVIEW_MESSAGE_STATUS_ACKNOWLEDGED)
 }

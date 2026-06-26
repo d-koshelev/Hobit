@@ -68,6 +68,7 @@ mod agent_queue_workers;
 mod agent_queue_workers_tests;
 mod agent_queue_workflow;
 mod agent_queue_workflow_evidence;
+mod agent_queue_workflow_finalization;
 mod agent_queue_workflow_materialization;
 mod agent_queue_workflow_resume;
 mod agent_queue_workflow_review;
@@ -241,6 +242,12 @@ pub use agent_queue_workflow_evidence::{
     QueueWorkflowRecordWorkerEvidenceStatus, QueueWorkflowWorkerEvidenceBindingSummary,
     QueueWorkflowWorkerEvidenceStepPlan, QueueWorkflowWorkerEvidenceStepResult,
     QueueWorkflowWorkerEvidenceStepResultStatus, QueueWorkflowWorkerEvidenceStepTransition,
+};
+pub use agent_queue_workflow_finalization::{
+    QueueWorkflowFinalizationBindingSummary, QueueWorkflowFinalizationDownstreamVerification,
+    QueueWorkflowFinalizationStepPlan, QueueWorkflowFinalizationStepRequest,
+    QueueWorkflowFinalizationStepResult, QueueWorkflowFinalizationStepResultStatus,
+    QueueWorkflowFinalizationStepTransition,
 };
 pub use agent_queue_workflow_materialization::{
     QueueWorkflowMaterializeTaskSlotRequest, QueueWorkflowMaterializeTaskSlotResult,

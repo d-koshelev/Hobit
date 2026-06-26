@@ -174,27 +174,49 @@ roll back, launch Terminal, start workers, start downstream work,
 create/update/promote tasks, enable Queue, or infer ids from prose/UI/session
 state.
 
-The typed Queue workflow runtime adapter now delegates both `worker_evidence`
-and `review` dependency-smoke transitions to backend StepResult APIs through a
-thin frontend backend-step dispatcher. It resumes from an explicit
-`metadata.workflowRunId`, calls the read-only resume planner before
-continuation phases, invokes the backend worker-evidence or review step when
-the backend plan marks that step ready/retryable, and projects the returned
-StepResult for activity/report/debug display. For those backend-owned phases,
-the frontend does not call raw evidence/review mutation ports, inspect local
-Queue aggregates or local evidence/message refs to decide executability,
-synthesize workflow action rows, write slot-binding deltas, persist
-authoritative workflow status/currentStep, repair stale actions, or turn typed
-backend blockers into generic runner-failed action rows. Backend StepResult
-action snapshots may remain visible as backend-owned debug/report data.
+Workflow-owned finalization is a separate narrow backend/domain transition
+step. Planning and execution must share the same finalization resolver,
+canonical refs, preconditions, blocker taxonomy, slot-binding merge behavior,
+terminal workflow-state update, downstream read-only verification, and
+action-ledger model. Acceptance finalization targets only
+`dependency_acceptance_smoke`, requires durable worker evidence, a durable
+review message and ACK, a fresh exact structured confirmation token, and no
+failure reason, then idempotently calls `markDone`, persists
+`completionDecisionId`, completes the workflow, and verifies downstream
+dependency-ready/no-auto-start state. Failure finalization targets only
+`dependency_failure_smoke`, requires the same durable evidence/review/ACK and
+fresh exact confirmation plus a typed non-empty `failureReason`, then
+idempotently calls `failItem`, persists `failureDecisionId`, completes the
+workflow, and verifies downstream `failed_upstream`/no-auto-start state.
+Backend-owned `queue_local` finalization validates run identity through
+`agent_queue_task_run_links`, evidence bundles, review messages/ACKs, and
+Queue task ownership; completion/failure decision `run_id` values do not
+require a `widget_runs` row and no synthetic widget run is created. Raw
+confirmation tokens must not be stored in workflow JSON, action refs, reports,
+logs, or debug projections.
+
+The typed Queue workflow runtime adapter now delegates `worker_evidence`,
+`review`, and `finalization` dependency-smoke transitions to backend
+StepResult APIs through a thin frontend backend-step dispatcher. It resumes
+from an explicit `metadata.workflowRunId`, calls the read-only resume planner
+before continuation phases, invokes the backend step when the backend plan
+marks that step ready/retryable, and projects the returned StepResult for
+activity/report/debug display. For those backend-owned phases, the frontend
+does not call raw evidence/review/finalization mutation ports, inspect local
+Queue aggregates or local evidence/message/decision refs to decide
+executability, synthesize workflow action rows, write slot-binding deltas,
+persist authoritative workflow status/currentStep, repair stale actions, or
+turn typed backend blockers into generic runner-failed action rows. Backend
+StepResult action snapshots may remain visible as backend-owned debug/report
+data.
 
 The frontend phase boundary is:
 
-- `backendOwnedPhases`: `worker_evidence`, `review`.
-- `legacyFrontendPhases`: `create_setup_start`, `read`, `finalization`.
+- `backendOwnedPhases`: `worker_evidence`, `review`, `finalization`.
+- `legacyFrontendPhases`: `create_setup_start`, `read`.
 
-Create/setup/start and finalization remain the current migration debt. No new
-mutating workflow phase may be added to frontend orchestration; future
+Create/setup/start remains the last mutating frontend-owned workflow phase. No
+new mutating workflow phase may be added to frontend orchestration; future
 mutating phases must start as backend/domain StepPlan/StepResult commands with
 frontend request normalization and projection only.
 

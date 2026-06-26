@@ -44,28 +44,30 @@ runtime creates or reuses a durable run before legacy phase execution, blocks
 request-hash conflicts, records bounded reports for legacy frontend phases, and
 uses resume planning for typed `metadata.workflowRunId`.
 
-Block 58 de-orchestrated the live frontend workflow path for backend-owned
-phases. `worker_evidence` and `review` route through
-`queueWorkflowBackendStepDispatcher`, which normalizes typed input, calls the
-backend worker-evidence/review StepResult APIs, and projects returned results
-for runner/activity/report display. The runtime adapter no longer wires raw
-`recordWorkflowWorkerEvidence`, `createReviewMessage`, or `ackReviewMessage`
-ports for those phases, does not synthesize `record_worker_evidence`,
-`queue.review.createMessage`, or `queue.review.ack` action rows, and does not
-persist backend-owned slot-binding/status/currentStep deltas after those steps.
+Block 59 completed the live frontend workflow de-orchestration for backend-owned
+dependency-smoke phases. `worker_evidence`, `review`, and `finalization` route
+through `queueWorkflowBackendStepDispatcher`, which normalizes typed input,
+calls backend StepResult APIs, and projects returned results for
+runner/activity/report display. The runtime adapter no longer wires raw
+`recordWorkflowWorkerEvidence`, `createReviewMessage`, `ackReviewMessage`,
+`markDone`, or `failItem` ports for those phases, does not synthesize
+worker-evidence/review/finalization action rows, and does not persist
+backend-owned slot-binding/status/currentStep deltas after those steps.
 
-Create/setup/start, read, and finalization remain legacy frontend-led phases.
-No new mutating phase may be added to frontend workflow orchestration.
-Restart/recovery hardening preserves backend-rich slot bindings and lets the
-resume planner recover safe refs from completed workflow actions or block
-incomplete binding/action/orphan worker states explicitly.
+Create/setup/start and read remain legacy frontend-led phases; create/setup/
+start is the last mutating frontend-owned workflow phase. No new mutating phase
+may be added to frontend workflow orchestration. Restart/recovery hardening
+preserves backend-rich slot bindings and lets the resume planner recover safe
+refs from completed workflow actions or block incomplete
+binding/action/orphan-worker states explicitly.
 
 The dependency smoke workflows can compose the current phases end to end with
-typed evidence, backend review create/ACK, accepted completion or terminal
-failure with fresh exact confirmation, dependency-ready or `failed_upstream`
-verification, and a bounded workflow report. Scheduler behavior, downstream
-auto-start, generic public resume execution, natural-language/id inference, and
-Queue workflow broker capabilities remain not implemented. Block 39 remains
+typed evidence, backend review create/ACK, backend finalization with fresh
+exact confirmation, accepted completion or terminal failure, dependency-ready
+or `failed_upstream` verification, and a bounded workflow report. Backend-owned
+finalization works for queue-local run links without `widget_runs`; no
+synthetic widget run is created. Scheduler behavior, downstream auto-start,
+generic public resume execution, natural-language/id inference, and Queue workflow broker capabilities remain not implemented. Block 39 remains
 `ready_for_manual_headless_smoke` for the manual checklist.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
 It creates or reuses durable draft/manual Queue tasks by explicit

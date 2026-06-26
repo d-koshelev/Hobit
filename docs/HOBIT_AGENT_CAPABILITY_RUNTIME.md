@@ -443,25 +443,25 @@ dependency acceptance/failure smoke requests now validate typed
 grant modes, and safety constraints for setup phases. Phase-tagged typed
 continuations may omit setup inputs and rely on persisted workflow bindings;
 `dependency_failure_smoke` still requires a typed non-empty `failureReason` at
-the finalization runner boundary before `queue.item.fail`. The validation
-result is non-executable and eligible only for supported QueueWorkflowRunner
-adapter phases. `review_acceptance` and `terminal_failure` remain declared
-with deferred input validation in the generic request path.
+the backend finalization step before terminal failure. The validation result is
+non-executable and eligible only for supported QueueWorkflowRunner adapter
+phases. `review_acceptance` and `terminal_failure` remain declared with
+deferred input validation in the generic request path.
 `QueueWorkflowRunner` can consume validated Queue workflow requests for
-explicit read inspection through a `QueueWorkflowReadPort`; its explicit review
-phase can consume a `QueueWorkflowReviewPort` to perform evidence lookup,
-review message create, and review ACK; and its explicit finalization phase can
-consume a `QueueWorkflowFinalizationPort` to mark the explicit upstream done or
-failed for the dependency smoke workflows only. Workspace Agent workflow
-requests now invoke it only for supported Queue phases through typed backend
-ports. Create/setup/start can create/reuse dependency-smoke task slots, apply
-settings, promote upstream, start the explicit upstream worker, and pause
-awaiting worker completion. The separate worker-evidence phase can resume from
-typed completion input, record/reconcile durable upstream evidence through the
-backend workflow evidence command, persist `evidenceBundleId`, and stop before
-review. There is still no validation execution, Git mutation, rollback,
-Terminal launch, scheduler behavior, backend lifecycle semantic change beyond
-this phase, Queue UI truth path, or downstream auto-start.
+explicit read inspection through a `QueueWorkflowReadPort`; backend-owned
+worker-evidence, review, and finalization phases are invoked through typed
+backend StepResult APIs and then projected by the adapter. Create/setup/start
+can create/reuse dependency-smoke task slots, apply settings, promote upstream,
+start the explicit upstream worker, and pause awaiting worker completion. The
+separate worker-evidence phase can resume from typed completion input,
+record/reconcile durable upstream evidence through the backend workflow
+evidence command, persist `evidenceBundleId`, and stop before review. Review
+creates/ACKs durable review state through the backend review step, and
+finalization records accepted completion or terminal failure through the
+backend finalization step. There is still no validation execution, Git
+mutation, rollback, Terminal launch, scheduler behavior, backend lifecycle
+semantic change beyond these phases, Queue UI truth path, or downstream
+auto-start.
 
 Queue workflow persistence now exists as a backend-owned storage/API
 foundation for workflow-run and action-ledger records. The typed

@@ -6,7 +6,6 @@ import {
   useState,
   type MutableRefObject,
 } from "react";
-
 import type { WorkbenchWidgetInstanceActions } from "../useWorkbenchWidgetActions";
 import type { DirectWorkRunHandoffController } from "../useDirectWorkRunHandoff";
 import type { AgentExecutorSlot, WidgetInstanceId } from "../types";
@@ -49,6 +48,7 @@ import {
   recordAgentQueueWorkflowWorkerEvidence,
   startAgentQueueWorkflow,
 } from "../../workspace/tauriAgentQueueWorkflowApi";
+import { executeAgentQueueWorkflowFinalizationStep } from "../../workspace/tauriAgentQueueWorkflowFinalizationStepApi";
 import { executeAgentQueueWorkflowReviewStep } from "../../workspace/tauriAgentQueueWorkflowReviewStepApi";
 import {
   createWorkspaceAgentQueueBridge,
@@ -532,7 +532,6 @@ export function useWorkspaceQueueApi({
       }),
     [queueApi],
   );
-
   return {
     ...bridge,
     controller,
@@ -540,6 +539,7 @@ export function useWorkspaceQueueApi({
     invokeHobitAgentActionRequest,
     queueWorkflowPersistence: {
       planAgentQueueWorkflowResume,
+      executeAgentQueueWorkflowFinalizationStep,
       executeAgentQueueWorkflowReviewStep,
       executeAgentQueueWorkflowWorkerEvidenceStep,
       recordAgentQueueWorkflowRunnerReport,

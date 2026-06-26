@@ -7,11 +7,13 @@ import {
 } from "./queueWorkflowBackendStepDispatcher";
 import type {
   AgentQueueWorkflowJsonValue,
+  AgentQueueWorkflowFinalizationStepResult,
   AgentQueueWorkflowResumePlan,
   AgentQueueWorkflowReviewStepResult,
   AgentQueueWorkflowRunnerReportRecordResult,
   AgentQueueWorkflowStartResult,
   AgentQueueWorkflowWorkerEvidenceStepResult,
+  ExecuteAgentQueueWorkflowFinalizationStepRequest,
   ExecuteAgentQueueWorkflowReviewStepRequest,
   RecordAgentQueueWorkflowRunnerReportAction,
   RecordAgentQueueWorkflowRunnerReportRequest,
@@ -20,12 +22,8 @@ import type {
 } from "../../../workspace/types";
 import {
   runQueueWorkflowCreateSetupStartRunner,
-  runQueueWorkflowFinalizationRunner,
   runQueueWorkflowReadOnlyRunner,
   type QueueWorkflowCreateSetupStartPort,
-  type QueueWorkflowFinalizationCommandResult,
-  type QueueWorkflowFinalizationCommandStatus,
-  type QueueWorkflowFinalizationPort,
   type QueueWorkflowReadPort,
   type QueueWorkflowRunnerRequest,
   type QueueWorkflowRunnerResult,
@@ -51,7 +49,6 @@ export type QueueWorkflowRunnerRuntimeStatus =
 
 export type QueueWorkflowRunnerRuntimePorts = {
   createSetupStartPort?: QueueWorkflowCreateSetupStartPort | null;
-  finalizationPort?: QueueWorkflowFinalizationPort | null;
   readPort?: QueueWorkflowReadPort | null;
 };
 
@@ -70,6 +67,9 @@ export type QueueWorkflowPersistencePort = {
   executeAgentQueueWorkflowReviewStep?: (
     request: ExecuteAgentQueueWorkflowReviewStepRequest,
   ) => Promise<AgentQueueWorkflowReviewStepResult>;
+  executeAgentQueueWorkflowFinalizationStep?: (
+    request: ExecuteAgentQueueWorkflowFinalizationStepRequest,
+  ) => Promise<AgentQueueWorkflowFinalizationStepResult>;
   startAgentQueueWorkflow: (
     request: StartAgentQueueWorkflowRequest,
   ) => Promise<AgentQueueWorkflowStartResult>;
@@ -95,6 +95,7 @@ export type QueueWorkflowRunnerRuntimeResult = {
   phase: QueueWorkflowRunnerRuntimePhase | null;
   phasesExecuted: readonly string[];
   evidenceStepResult?: AgentQueueWorkflowWorkerEvidenceStepResult;
+  finalizationStepResult?: AgentQueueWorkflowFinalizationStepResult;
   reviewStepResult?: AgentQueueWorkflowReviewStepResult;
   recordResult?: AgentQueueWorkflowRunnerReportRecordResult;
   requestId: string | null;
@@ -118,20 +119,6 @@ const CREATE_SETUP_START_WORKFLOWS = new Set([
   "dependency_failure_smoke",
 ]);
 const SUPPORTED_REVIEW_DEFERRED_WORKFLOWS = new Set(["review_acceptance"]);
-
-const FINALIZATION_COMMAND_STATUSES =
-  new Set<QueueWorkflowFinalizationCommandStatus>([
-    "already_done",
-    "already_failed",
-    "blocked",
-    "failed_unexpected",
-    "invalid_input",
-    "needs_confirmation",
-    "policy_blocked",
-    "precondition_failed",
-    "succeeded",
-    "unavailable",
-  ]);
 
 export async function runQueueWorkflowRunnerRuntimeAdapter({
   actorId,
@@ -325,14 +312,17 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
     });
     persistenceStatus = "resume_planned";
   } else {
-    if (selectedPhase === "worker_evidence") {
+    if (selectedPhase === "worker_evidence" || selectedPhase === "finalization") {
+      const phaseLabel =
+        selectedPhase === "worker_evidence"
+          ? "Queue worker evidence recording"
+          : "Queue workflow finalization";
       return notInvoked({
-        blockers: ["Queue worker evidence recording requires metadata.workflowRunId."],
+        blockers: [`${phaseLabel} requires metadata.workflowRunId.`],
         moduleId: request.moduleId,
         requestId: request.requestId,
         status: "blocked",
-        summary:
-          "Queue worker evidence recording requires a persisted workflowRunId; no workflow was started.",
+        summary: `${phaseLabel} requires a persisted workflowRunId; no workflow was started.`,
         validationReasons: validation.reasons,
         validationStatus: validation.status,
         workflowId: request.workflowId,
@@ -478,7 +468,6 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
 }
 
 export function createQueueWorkflowRunnerRuntimePortsFromQueueBridge({
-  actorId,
   queueBridge,
 }: {
   actorId: string;
@@ -487,9 +476,6 @@ export function createQueueWorkflowRunnerRuntimePortsFromQueueBridge({
   return {
     createSetupStartPort: queueBridge
       ? createCreateSetupStartPort(queueBridge)
-      : null,
-    finalizationPort: queueBridge
-      ? createFinalizationPort(queueBridge, actorId)
       : null,
     readPort: queueBridge ? createReadPort(queueBridge) : null,
   };
@@ -514,15 +500,6 @@ async function runSelectedRunner({
       request,
       validation,
       workflowRunId,
-    });
-  }
-
-  if (phase === "finalization") {
-    return runQueueWorkflowFinalizationRunner({
-      finalizationPort: ports.finalizationPort,
-      readPort: ports.readPort,
-      request,
-      validation,
     });
   }
 
@@ -581,70 +558,6 @@ function createCreateSetupStartPort(
       queueBridge.promoteWorkflowTaskSlot!(request),
     startWorkerForSlot: (request) =>
       queueBridge.startWorkflowAssignedTask!(request),
-  };
-}
-
-function createFinalizationPort(
-  queueBridge: WorkspaceAgentQueueBridge,
-  actorId: string,
-): QueueWorkflowFinalizationPort | null {
-  if (!queueBridge.markItemDone || !queueBridge.failItem) {
-    return null;
-  }
-
-  return {
-    failItem: async (request) => {
-      const result = await queueBridge.failItem!({
-        actorId,
-        confirmationToken: request.confirmationToken,
-        evidenceBundleId: request.evidenceBundleId,
-        reason: request.reason,
-        reviewMessageId: request.messageId,
-        runId: request.runId,
-        taskId: request.taskId,
-      });
-      return finalizationResult({
-        aggregate: result.aggregate,
-        blocker: result.blocker,
-        decisionId: result.decisionId,
-        durable: result.durable,
-        evidenceBundleId: result.evidenceBundleId,
-        runId: result.runId,
-        status: result.status,
-        taskId: result.taskId,
-      });
-    },
-    markDone: async (request) => {
-      const result = await queueBridge.markItemDone!({
-        actorId,
-        confirmationToken: request.confirmationToken,
-        reason: request.reason,
-        reviewMessageId: request.messageId,
-        runId: request.runId,
-        taskId: request.taskId,
-      });
-      return finalizationResult({
-        aggregate: result.aggregate,
-        blocker: result.blocker,
-        decisionId: result.decisionId,
-        durable: result.durable,
-        evidenceBundleId: result.evidenceBundleId,
-        runId: result.runId,
-        status: result.status,
-        taskId: result.taskId,
-      });
-    },
-  };
-}
-
-function finalizationResult(
-  result: Omit<QueueWorkflowFinalizationCommandResult, "status"> & {
-    status: unknown;
-  },
-): QueueWorkflowFinalizationCommandResult {
-  return {
-    ...result,
-    status: finalizationCommandStatus(result.status),
   };
 }
 
@@ -870,7 +783,6 @@ function workflowReportRefs(
 ): AgentQueueWorkflowJsonValue {
   return sanitizeJsonValue(
     stripUndefined({
-      completionDecisionId: runnerResult.report.finalization.decisionId,
       downstreamTaskId:
         runnerResult.report.createSetupStart.downstreamTaskId ??
         runnerResult.variables.taskIdsBySlot.downstream,
@@ -935,43 +847,6 @@ function actionSummariesForRunnerResult({
         evidenceBundleId: evidenceRead.evidenceBundleId,
         runId: evidenceRead.runId,
         taskId: evidenceRead.taskId,
-      }),
-    });
-  }
-
-  const finalization = runnerResult.report.finalization;
-  if (finalization.finalizationAction && finalization.commandStatus) {
-    const taskId = finalization.taskId ?? "unknown-task";
-    const slot = finalization.targetSlot ?? "upstream";
-    const slotVars = runnerResult.variables.slots[slot] ?? {};
-    const actionType =
-      finalization.finalizationAction === "mark_done"
-        ? "queue.item.markDone"
-        : "queue.item.fail";
-    actions.push({
-      actionType,
-      idempotencyKey: [
-        workflowRunId,
-        actionType,
-        taskId,
-        slotVars.runId ?? "no-run",
-        slotVars.messageId ?? "no-message",
-        slotVars.evidenceBundleId ?? "no-evidence",
-      ].join(":"),
-      resultRefs: stripNullish({
-        commandStatus: finalization.commandStatus,
-        decisionId: finalization.decisionId,
-        failureReason: finalization.failureReason,
-        idempotent: finalization.idempotent,
-        status: finalization.status,
-      }),
-      status: workflowActionStatusFromCommand(finalization.commandStatus),
-      stepId: `finalization.${finalization.finalizationAction}:${taskId}`,
-      targetRefs: stripNullish({
-        evidenceBundleId: slotVars.evidenceBundleId,
-        messageId: slotVars.messageId,
-        runId: slotVars.runId,
-        taskId,
       }),
     });
   }
@@ -1178,8 +1053,10 @@ function resumeDecisionForPlan({
   }
 
   if (plan.requiredConfirmation || plan.status === "blocked_missing_confirmation") {
+    if (plannedPhase === "finalization") {
+      return { ok: true, phase: plannedPhase };
+    }
     if (
-      plannedPhase !== "finalization" &&
       !(
         plannedPhase === "create_setup_start" &&
         plan.nextStep === "start_worker_ready"
@@ -1333,9 +1210,6 @@ function persistedRunStatusFromRunner(
   ) {
     return "blocked";
   }
-  if (phase === "finalization" && runtimeStatus === "completed") {
-    return "completed";
-  }
   return "paused";
 }
 
@@ -1351,9 +1225,6 @@ function currentStepForRunnerResult(
   }
   if (runtimeStatus === "failed_unexpected") return `${phase}_failed_unexpected`;
   if (runtimeStatus === "blocked") return `${phase}_blocked`;
-  if (phase === "finalization" && runtimeStatus === "completed") {
-    return "finalization_complete";
-  }
   if (phase === "review" && runtimeStatus === "completed") return "review_ack";
   if (phase === "read" && runtimeStatus === "completed") return "read_complete";
   return `${phase}_${runtimeStatus}`;
@@ -1361,7 +1232,6 @@ function currentStepForRunnerResult(
 
 function workflowPhaseForRuntimePhase(phase: QueueWorkflowRunnerRuntimePhase) {
   if (phase === "create_setup_start") return "run_start";
-  if (phase === "finalization") return "decision";
   if (phase === "review") return "review";
   if (phase === "worker_evidence") return "worker_evidence";
   return "worker_evidence";
@@ -1398,35 +1268,17 @@ function pauseReasonForRunnerResult(
   return "awaiting_next_typed_workflow_request";
 }
 
-function workflowActionStatusFromCommand(status: string) {
-  if (
-    status === "succeeded" ||
-    status === "already_exists" ||
-    status === "already_done" ||
-    status === "already_failed"
-  ) {
-    return "completed";
-  }
-  if (status === "failed_unexpected") return "failed";
-  return "blocked";
-}
-
 function mutationRefsForRunnerResult(
   runnerResult: QueueWorkflowRunnerResult,
 ): AgentQueueWorkflowJsonValue {
   const createSetupStart = runnerResult.report.createSetupStart;
   const workerEvidence = runnerResult.report.workerEvidence;
   const review = runnerResult.report.review;
-  const finalization = runnerResult.report.finalization;
   return sanitizeJsonValue(
     stripUndefined({
       createSetupStartStatus: createSetupStart.status,
       downstreamTaskId: createSetupStart.downstreamTaskId,
       evidenceBundleId: workerEvidence.evidenceBundleId,
-      finalizationAction: finalization.finalizationAction,
-      finalizationCommandStatus: finalization.commandStatus,
-      finalizationDecisionId: finalization.decisionId,
-      finalizationTaskId: finalization.taskId,
       recordWorkerEvidenceStatus: workerEvidence.commandStatus,
       executionTargetHash: createSetupStart.runSettings?.executionTargetHash,
       executionTargetKind: createSetupStart.runSettings?.executionTargetKind,
@@ -1545,17 +1397,6 @@ function recordRecord(
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
-}
-
-function finalizationCommandStatus(
-  value: unknown,
-): QueueWorkflowFinalizationCommandStatus {
-  return typeof value === "string" &&
-    FINALIZATION_COMMAND_STATUSES.has(
-      value as QueueWorkflowFinalizationCommandStatus,
-    )
-    ? (value as QueueWorkflowFinalizationCommandStatus)
-    : "failed_unexpected";
 }
 
 function notInvoked({

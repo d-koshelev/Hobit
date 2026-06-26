@@ -6,6 +6,7 @@ import type {
   AgentQueueWorkflowWorkerEvidenceStepResult,
   RecordAgentQueueWorkflowWorkerEvidenceRequest,
 } from "../../../workspace/types";
+import { executeBackendOwnedFinalizationStep } from "./queueWorkflowRunnerBackendFinalizationPhase";
 import { executeBackendOwnedReviewStep } from "./queueWorkflowRunnerBackendReviewPhase";
 import type {
   QueueWorkflowPersistencePort,
@@ -19,9 +20,9 @@ import type {
   QueueWorkflowRunnerResult,
 } from "./queueWorkflowRunner";
 
-export const backendOwnedQueueWorkflowPhases = ["worker_evidence", "review"] as const satisfies readonly QueueWorkflowRunnerRuntimePhase[];
+export const backendOwnedQueueWorkflowPhases = ["worker_evidence", "review", "finalization"] as const satisfies readonly QueueWorkflowRunnerRuntimePhase[];
 
-export const legacyFrontendQueueWorkflowPhases = ["create_setup_start", "read", "finalization"] as const satisfies readonly QueueWorkflowRunnerRuntimePhase[];
+export const legacyFrontendQueueWorkflowPhases = ["create_setup_start", "read"] as const satisfies readonly QueueWorkflowRunnerRuntimePhase[];
 
 export type BackendOwnedQueueWorkflowPhase =
   (typeof backendOwnedQueueWorkflowPhases)[number];
@@ -67,6 +68,22 @@ export async function dispatchQueueWorkflowBackendStep({
 }): Promise<QueueWorkflowRunnerRuntimeResult> {
   if (phase === "review") {
     return executeBackendOwnedReviewStep({
+      actorId,
+      persistenceStatus,
+      persistentStatus,
+      request,
+      resumePlan,
+      validationReasons,
+      validationStatus,
+      workflowPersistence,
+      workflowRunId,
+      workspaceId,
+      workflowStartStatus,
+    });
+  }
+
+  if (phase === "finalization") {
+    return executeBackendOwnedFinalizationStep({
       actorId,
       persistenceStatus,
       persistentStatus,

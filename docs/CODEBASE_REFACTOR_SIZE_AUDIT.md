@@ -72,7 +72,7 @@ Block 53 scan result after adding the guard:
 | ---: | --- | --- | --- |
 | 5591 | `apps/desktop/frontend/src/workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts` | Workspace Agent Queue bridge | B |
 | 4940 | `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.ts` | Queue workflow runner | A |
-| 3863 | `crates/hobit-app/src/workspace_service/agent_queue_workflow_resume.rs` | Queue workflow backend resume | A |
+| 3623 | `crates/hobit-app/src/workspace_service/agent_queue_workflow_resume.rs` | Queue workflow backend resume | A |
 | 3390 | `apps/desktop/frontend/src/workbench/workspaceAgentBrokerContinuation.ts` | Workspace Agent broker continuation | B |
 | 3366 | `crates/hobit-app/src/workspace_service/agent_queue_workflow_evidence.rs` | Queue workflow worker evidence | A |
 | 2617 | `apps/desktop/frontend/src/workbench/FinderWidget.tsx` | Finder widget | C |
@@ -216,6 +216,23 @@ adapter remains oversized but was reduced from 2229 lines before this block to
 allowlist entry was added. The required Smart Queue status update left
 `docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md` below the docs warning threshold, so
 that stale docs allowlist entry was removed.
+
+## Block 59 Update
+
+Queue workflow finalization moved to backend-owned StepPlan/StepResult modules.
+Acceptance and failure finalization share one backend resolver for durable
+evidence/review ACK proof, exact confirmation, typed failure reason validation,
+canonical action idempotency, completion/failure decision refs, terminal
+workflow state, and downstream no-auto-start verification.
+
+The frontend runtime adapter now routes `worker_evidence`, `review`, and
+`finalization` through the backend-step dispatcher and only projects returned
+StepResults. It no longer wires raw mark-done/fail ports for workflow
+finalization, synthesizes finalization action rows, writes decision slot-binding
+deltas, or persists terminal workflow status/currentStep for that phase.
+Create/setup/start remains the last mutating frontend-owned workflow phase.
+New backend finalization modules were added below the hard oversized threshold;
+no new oversized source allowlist entry was added.
 
 ## Refactor Priority Plan
 

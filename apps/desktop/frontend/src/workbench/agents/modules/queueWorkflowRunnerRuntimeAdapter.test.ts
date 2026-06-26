@@ -8,8 +8,6 @@ import {
   type HobitAgentWorkflowRequestEnvelopeReadResult,
 } from "../broker";
 import type {
-  AgentQueueCompletionCommandResult,
-  AgentQueueFailureCommandResult,
   AgentQueueItemAggregate,
   AgentQueueReviewCommandResult,
   AgentQueueReviewCreateMessageResult,
@@ -724,211 +722,6 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
   });
 
-  it("acceptance finalization calls markDone only after confirmation and review precondition", async () => {
-    const persistence = workflowPersistence();
-    const bridge = queueBridge({
-      failItem: vi.fn(),
-      getItemAggregate: vi.fn(async ({ taskId }: { taskId: string }) =>
-        aggregate({
-          dependencyState: taskId === "task-downstream" ? "done" : "none",
-          reviewState: taskId === "task-upstream" ? "in_review" : "none",
-          taskId,
-          workerRunState: "not_started",
-        }),
-      ),
-      listItemAggregates: vi.fn(async () => []),
-      markItemDone: vi.fn(async () => completionResult()),
-    });
-
-    const result = await runAdapter({
-      actorId: "workspace-agent:test",
-      queueBridge: bridge,
-      workflowPersistence: persistence,
-      workflowRequestRead: validRead(
-        workflowRequest({
-          grant: validGrant("queue_acceptance_smoke", {
-            confirmationToken: "operator-confirmed",
-          }),
-          inputs: {
-            ...validInputs(),
-            messageIdsBySlot: { upstream: "message-upstream" },
-            phase: "finalization",
-            reviewAcknowledgedBySlot: { upstream: true },
-            runIdsBySlot: { upstream: "run-upstream" },
-            taskIdsBySlot: explicitDependencyTaskIds(),
-          },
-        }),
-      ),
-    });
-
-    expect(result).toMatchObject({
-      invoked: true,
-      phase: "finalization",
-      status: "completed",
-    });
-    expect(bridge.markItemDone).toHaveBeenCalledWith({
-      actorId: "workspace-agent:test",
-      confirmationToken: "operator-confirmed",
-      reason: undefined,
-      reviewMessageId: "message-upstream",
-      runId: "run-upstream",
-      taskId: "task-upstream",
-    });
-    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actions: expect.arrayContaining([
-          expect.objectContaining({
-            actionType: "queue.item.markDone",
-            status: "completed",
-          }),
-        ]),
-        status: "completed",
-      }),
-    );
-  });
-
-  it("failure finalization calls failItem only with structured failureReason", async () => {
-    const persistence = workflowPersistence();
-    const bridge = queueBridge({
-      failItem: vi.fn(async () => failureResult()),
-      getItemAggregate: vi.fn(async ({ taskId }: { taskId: string }) =>
-        aggregate({
-          dependencyState:
-            taskId === "task-downstream" ? "failed_upstream" : "none",
-          reviewState: taskId === "task-upstream" ? "in_review" : "none",
-          taskId,
-          workerRunState: taskId === "task-downstream" ? "not_started" : "failed",
-        }),
-      ),
-      listItemAggregates: vi.fn(async () => []),
-      markItemDone: vi.fn(),
-    });
-
-    const result = await runAdapter({
-      actorId: "workspace-agent:test",
-      queueBridge: bridge,
-      workflowPersistence: persistence,
-      workflowRequestRead: validRead(
-        workflowRequest({
-          grant: validGrant("queue_failure_smoke", {
-            confirmationToken: "operator-confirmed",
-          }),
-          inputs: {
-            ...validInputs(),
-            evidenceBundleIdsBySlot: { upstream: "bundle-upstream" },
-            failureReason: "Upstream failed during smoke.",
-            messageIdsBySlot: { upstream: "message-upstream" },
-            phase: "finalization",
-            reviewAcknowledgedBySlot: { upstream: true },
-            runIdsBySlot: { upstream: "run-upstream" },
-            taskIdsBySlot: explicitDependencyTaskIds(),
-          },
-          workflowId: "dependency_failure_smoke",
-        }),
-      ),
-    });
-
-    expect(result).toMatchObject({
-      invoked: true,
-      phase: "finalization",
-      status: "completed",
-    });
-    expect(bridge.failItem).toHaveBeenCalledWith({
-      actorId: "workspace-agent:test",
-      confirmationToken: "operator-confirmed",
-      evidenceBundleId: "bundle-upstream",
-      reason: "Upstream failed during smoke.",
-      reviewMessageId: "message-upstream",
-      runId: "run-upstream",
-      taskId: "task-upstream",
-    });
-    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actions: expect.arrayContaining([
-          expect.objectContaining({
-            actionType: "queue.item.fail",
-            status: "completed",
-          }),
-        ]),
-        status: "completed",
-      }),
-    );
-  });
-
-  it("blocks finalization before markDone when confirmation is missing", async () => {
-    const bridge = queueBridge({
-      getItemAggregate: vi.fn(async ({ taskId }: { taskId: string }) =>
-        aggregate({ reviewState: "in_review", taskId }),
-      ),
-      listItemAggregates: vi.fn(async () => []),
-      markItemDone: vi.fn(),
-    });
-
-    const result = await runAdapter({
-      queueBridge: bridge,
-      workflowRequestRead: validRead(
-        workflowRequest({
-          inputs: {
-            ...validInputs(),
-            phase: "finalization",
-            reviewAcknowledgedBySlot: { upstream: true },
-            taskIdsBySlot: explicitDependencyTaskIds(),
-          },
-        }),
-      ),
-    });
-
-    expect(result).toMatchObject({
-      invoked: true,
-      phase: "finalization",
-      status: "paused",
-    });
-    expect(result.blockers).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("confirmationToken"),
-      ]),
-    );
-    expect(bridge.markItemDone).not.toHaveBeenCalled();
-  });
-
-  it("blocks failure finalization before failItem when failureReason is missing", async () => {
-    const bridge = queueBridge({
-      failItem: vi.fn(),
-      getItemAggregate: vi.fn(),
-      markItemDone: vi.fn(),
-    });
-
-    const result = await runAdapter({
-      queueBridge: bridge,
-      workflowRequestRead: validRead(
-        workflowRequest({
-          grant: validGrant("queue_failure_smoke", {
-            confirmationToken: "operator-confirmed",
-          }),
-          inputs: {
-            ...validInputs(),
-            phase: "finalization",
-            reviewAcknowledgedBySlot: { upstream: true },
-            taskIdsBySlot: explicitDependencyTaskIds(),
-          },
-          workflowId: "dependency_failure_smoke",
-        }),
-      ),
-    });
-
-    expect(result).toMatchObject({
-      invoked: true,
-      phase: "finalization",
-      status: "blocked",
-    });
-    expect(result.runnerResult?.blockers).toEqual([
-      expect.objectContaining({
-        reasonCode: "finalization_missing_failure_reason",
-      }),
-    ]);
-    expect(bridge.failItem).not.toHaveBeenCalled();
-  });
-
   it("uses resume planning for explicit workflowRunId before runner execution", async () => {
     const persistence = workflowPersistence({
       planAgentQueueWorkflowResume: vi.fn(async () => resumePlan()),
@@ -1535,11 +1328,23 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(bridge.getItemAggregate).not.toHaveBeenCalled();
   });
 
-  it("blocks mutating resume plans without fresh confirmation", async () => {
+  it("resumes finalization without fresh confirmation through backend typed blocking", async () => {
+    const executeFinalization = vi.fn(async (request) =>
+      finalizationStepResult({
+        blocker: {
+          blockerCode: "fresh_confirmation_required",
+          blockerMessage: "Fresh exact structured confirmation is required.",
+          missingRequiredField: "$.grant.confirmationToken",
+        },
+        request,
+        status: "blocked_precondition",
+      }),
+    );
     const persistence = workflowPersistence({
+      executeAgentQueueWorkflowFinalizationStep: executeFinalization,
       planAgentQueueWorkflowResume: vi.fn(async () => finalizationResumePlan()),
     });
-    const bridge = queueBridge({ markItemDone: vi.fn() });
+    const bridge = queueBridge({ failItem: vi.fn(), markItemDone: vi.fn() });
 
     const result = await runAdapter({
       queueBridge: bridge,
@@ -1556,32 +1361,33 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     });
 
     expect(result).toMatchObject({
-      invoked: false,
-      status: "paused",
+      invoked: true,
+      phase: "finalization",
+      status: "blocked",
     });
-    expect(result.blockers).toEqual(
-      expect.arrayContaining([
-        expect.stringContaining("confirmationToken"),
-      ]),
+    expect(executeFinalization).toHaveBeenCalledWith(
+      expect.objectContaining({ confirmationToken: null }),
     );
+    expect(result.runnerResult?.blockers).toEqual([
+      expect.objectContaining({
+        reasonCode: "fresh_confirmation_required",
+      }),
+    ]);
     expect(bridge.markItemDone).not.toHaveBeenCalled();
+    expect(bridge.failItem).not.toHaveBeenCalled();
   });
 
-  it("allows fresh confirmation to resume only supported finalization", async () => {
+  it("allows fresh confirmation to resume supported backend finalization", async () => {
+    const executeFinalization = vi.fn(async (request) =>
+      finalizationStepResult({ request }),
+    );
     const persistence = workflowPersistence({
+      executeAgentQueueWorkflowFinalizationStep: executeFinalization,
       planAgentQueueWorkflowResume: vi.fn(async () => finalizationResumePlan()),
     });
     const bridge = queueBridge({
       failItem: vi.fn(),
-      getItemAggregate: vi.fn(async ({ taskId }: { taskId: string }) =>
-        aggregate({
-          dependencyState: taskId === "task-downstream" ? "ready" : "none",
-          reviewState: taskId === "task-upstream" ? "in_review" : "none",
-          taskId,
-        }),
-      ),
-      listItemAggregates: vi.fn(async () => []),
-      markItemDone: vi.fn(async () => completionResult()),
+      markItemDone: vi.fn(),
     });
 
     const result = await runAdapter({
@@ -1615,49 +1421,31 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       },
       status: "finalization_completed",
     });
-    expect(bridge.markItemDone).toHaveBeenCalledWith(
+    expect(executeFinalization).toHaveBeenCalledWith(
       expect.objectContaining({
         confirmationToken: "operator-confirmed",
-        taskId: "task-upstream",
+        failureReason: undefined,
+        workflowRunId: "queue-workflow-run-1",
       }),
     );
-    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actions: expect.arrayContaining([
-          expect.objectContaining({
-            actionType: "queue.item.markDone",
-            resultRefs: expect.objectContaining({
-              decisionId: "completion-decision-1",
-            }),
-          }),
-        ]),
-        currentStep: "finalization_complete",
-        phase: "decision",
-        status: "completed",
-      }),
-    );
+    expect(bridge.markItemDone).not.toHaveBeenCalled();
+    expect(bridge.failItem).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
     expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
   });
 
   it("resumes dependency_failure_smoke failure finalization from a persisted workflow run", async () => {
+    const executeFinalization = vi.fn(async (request) =>
+      finalizationStepResult({ request }),
+    );
     const persistence = workflowPersistence({
+      executeAgentQueueWorkflowFinalizationStep: executeFinalization,
       planAgentQueueWorkflowResume: vi.fn(async () =>
         failureFinalizationResumePlan(),
       ),
     });
     const bridge = queueBridge({
-      failItem: vi.fn(async () => failureResult()),
-      getItemAggregate: vi.fn(async ({ taskId }: { taskId: string }) =>
-        aggregate({
-          dependencyState:
-            taskId === "task-downstream" ? "failed_upstream" : "none",
-          reviewState: taskId === "task-upstream" ? "in_review" : "none",
-          taskId,
-          workerRunState:
-            taskId === "task-downstream" ? "not_started" : "failed",
-        }),
-      ),
-      listItemAggregates: vi.fn(async () => []),
+      failItem: vi.fn(),
       markItemDone: vi.fn(),
     });
 
@@ -1688,48 +1476,26 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       workflowRunId: "queue-workflow-run-1",
     });
     expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
-    expect(bridge.failItem).toHaveBeenCalledWith({
-      actorId: "workspace-agent:test",
-      confirmationToken: "operator-confirmed",
-      evidenceBundleId: "bundle-upstream",
-      reason: "Upstream worker failed during smoke.",
-      reviewMessageId: "message-upstream",
-      runId: "run-upstream",
-      taskId: "task-upstream",
-    });
+    expect(executeFinalization).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actorId: "workspace-agent:test",
+        confirmationToken: "operator-confirmed",
+        failureReason: "Upstream worker failed during smoke.",
+        workflowRunId: "queue-workflow-run-1",
+      }),
+    );
+    expect(bridge.failItem).not.toHaveBeenCalled();
     expect(bridge.markItemDone).not.toHaveBeenCalled();
     expect(result.runnerResult?.report.finalization).toMatchObject({
       downstreamVerification: {
-        dependencyState: "failed_upstream",
         dependencyVerified: true,
         notAutoStartedVerified: true,
       },
-      failureReason: "Upstream worker failed during smoke.",
       finalizationAction: "fail",
       status: "finalization_completed",
     });
-    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actions: expect.arrayContaining([
-          expect.objectContaining({
-            actionType: "queue.item.fail",
-            resultRefs: expect.objectContaining({
-              failureReason: "Upstream worker failed during smoke.",
-            }),
-            status: "completed",
-          }),
-        ]),
-        currentStep: "finalization_complete",
-        phase: "decision",
-        status: "completed",
-      }),
-    );
-    expect(
-      JSON.stringify(
-        vi.mocked(persistence.recordAgentQueueWorkflowRunnerReport).mock
-          .calls[0]?.[0],
-      ),
-    ).not.toContain("confirmationToken");
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain("operator-confirmed");
   });
 
   it("does not import providers, Queue UI, visual shell, worker start, lifecycle finish, or evidence recording", () => {
@@ -1782,6 +1548,9 @@ function workflowPersistence(
   return {
     executeAgentQueueWorkflowReviewStep: vi.fn(async (request) =>
       reviewStepResult({ request }),
+    ),
+    executeAgentQueueWorkflowFinalizationStep: vi.fn(async (request) =>
+      finalizationStepResult({ request }),
     ),
     executeAgentQueueWorkflowWorkerEvidenceStep: vi.fn(async (request) =>
       workerEvidenceStepResult({ request }),
@@ -1938,6 +1707,115 @@ function workerEvidenceStepResult({
         status === "blocked_precondition" ? "worker_evidence_blocked" : "awaiting_review",
       phase: "worker_evidence",
       status: status === "blocked_precondition" ? "blocked" : "paused",
+      workflowRunId: request.workflowRunId,
+      workspaceId: request.workspaceId,
+    }),
+    workflowRunId: request.workflowRunId,
+  };
+}
+
+function finalizationStepResult({
+  request,
+  status = "executed",
+  blocker = null,
+}: {
+  request: Parameters<
+    NonNullable<
+      QueueWorkflowPersistencePort["executeAgentQueueWorkflowFinalizationStep"]
+    >
+  >[0];
+  status?: "executed" | "already_applied" | "blocked_precondition" | "invalid_input";
+  blocker?: {
+    blockerCode: string;
+    blockerMessage: string;
+    missingRequiredField: string | null;
+  } | null;
+}) {
+  const isFailure = request.failureReason !== null && request.failureReason !== undefined;
+  const decisionId =
+    status === "blocked_precondition"
+      ? null
+      : isFailure
+        ? "failure-decision-1"
+        : "completion-decision-1";
+  const transition = isFailure ? "finalize_fail" : "finalize_done";
+
+  return {
+    action: {
+      actionId: "workflow-action-finalization",
+      actionType: isFailure ? "queue.item.fail" : "queue.item.markDone",
+      attemptCount: status === "already_applied" ? 1 : 2,
+      blockerCode: blocker?.blockerCode ?? null,
+      blockerMessage: blocker?.blockerMessage ?? null,
+      completedAt: "2026-06-22T00:00:00.000Z",
+      createdAt: "2026-06-22T00:00:00.000Z",
+      idempotencyKey: `${request.workflowRunId}:${isFailure ? "fail_item" : "mark_done"}:upstream:task-upstream`,
+      resultRefsJson: JSON.stringify({
+        confirmationAccepted: Boolean(request.confirmationToken),
+        decisionId,
+        failureReason: isFailure ? request.failureReason : undefined,
+      }),
+      startedAt: "2026-06-22T00:00:00.000Z",
+      status: status === "blocked_precondition" ? "blocked" : "completed",
+      stepId: isFailure ? "finalization.fail" : "finalization.mark_done",
+      targetRefsJson: JSON.stringify({
+        runId: "run-upstream",
+        slot: "upstream",
+        taskId: "task-upstream",
+        workflowRunId: request.workflowRunId,
+      }),
+      updatedAt: "2026-06-22T00:00:00.000Z",
+      workflowRunId: request.workflowRunId,
+      workspaceId: request.workspaceId,
+    },
+    binding:
+      status === "blocked_precondition"
+        ? null
+        : {
+            actionIdempotencyKey: `${request.workflowRunId}:${isFailure ? "fail_item" : "mark_done"}:upstream:task-upstream`,
+            completionDecisionId: isFailure ? null : decisionId,
+            evidenceBundleId: "bundle-upstream",
+            failureDecisionId: isFailure ? decisionId : null,
+            finalizationActionId: "workflow-action-finalization",
+            finalizedAt: "2026-06-22T00:00:00.000Z",
+            messageId: "message-upstream",
+            runId: "run-upstream",
+            slot: "upstream",
+            taskId: "task-upstream",
+            terminalStatus: "completed",
+          },
+    blockers: blocker ? [blocker] : [],
+    completionDecisionId: isFailure ? null : decisionId,
+    conflict: null,
+    downstreamVerification: {
+      dependencyState: isFailure ? "failed_upstream" : "ready",
+      dependencyVerified: status !== "blocked_precondition",
+      downstreamTaskId: "task-downstream",
+      expectedDependencyState: isFailure ? "failed_upstream" : "ready",
+      latestRunId: null,
+      notAutoStartedVerified: true,
+      ticketState: isFailure ? "blocked" : "queued",
+      verificationMissing: false,
+      workerRunState: "not_started",
+    },
+    failureDecisionId: isFailure ? decisionId : null,
+    nextPhase: status === "blocked_precondition" ? "finalization" : "closed",
+    nextStep:
+      status === "blocked_precondition"
+        ? "finalization_blocked"
+        : "finalization_complete",
+    status,
+    terminalStatus: status === "blocked_precondition" ? null : "completed",
+    transition,
+    workflowId: isFailure ? "dependency_failure_smoke" : "dependency_acceptance_smoke",
+    workflowRun: workflowRun({
+      currentStep:
+        status === "blocked_precondition"
+          ? "finalization_blocked"
+          : "finalization_complete",
+      phase: status === "blocked_precondition" ? "finalization" : "closed",
+      status: status === "blocked_precondition" ? "blocked" : "completed",
+      workflowId: isFailure ? "dependency_failure_smoke" : "dependency_acceptance_smoke",
       workflowRunId: request.workflowRunId,
       workspaceId: request.workspaceId,
     }),
@@ -2855,38 +2733,6 @@ function reviewMessage() {
     status: "acked",
     taskId: "task-upstream",
     updatedAt: "2026-06-22T00:01:00.000Z",
-    workspaceId: "workspace-1",
-  };
-}
-
-function completionResult(): AgentQueueCompletionCommandResult {
-  return {
-    aggregate: aggregate({ taskId: "task-upstream", ticketState: "done" }),
-    blocker: null,
-    completionDecision: null,
-    decisionId: "completion-decision-1",
-    durable: true,
-    evidenceBundleId: null,
-    reviewMessageId: "message-upstream",
-    runId: "run-upstream",
-    status: "succeeded",
-    taskId: "task-upstream",
-    workspaceId: "workspace-1",
-  };
-}
-
-function failureResult(): AgentQueueFailureCommandResult {
-  return {
-    aggregate: aggregate({ taskId: "task-upstream", ticketState: "failure" }),
-    blocker: null,
-    decisionId: null,
-    durable: true,
-    evidenceBundleId: "bundle-upstream",
-    failureDecision: null,
-    reviewMessageId: "message-upstream",
-    runId: "run-upstream",
-    status: "succeeded",
-    taskId: "task-upstream",
     workspaceId: "workspace-1",
   };
 }

@@ -18,6 +18,7 @@ use super::{
     agent_queue_workflow_evidence::{
         is_retryable_record_worker_evidence_blocker, QueueWorkflowRecordWorkerEvidenceRequest,
     },
+    agent_queue_workflow_finalization::QueueWorkflowFinalizationStepRequest,
     agent_queue_workflow_materialization::{
         normalize_queue_workflow_task_spec_for_hash, workflow_dependency_edge_hash,
         QueueWorkflowTaskSpec,
@@ -29,8 +30,12 @@ use super::{
     QueueItemAggregate, QueueWorkflowAction, QueueWorkflowRun, WorkspaceService,
 };
 
+#[path = "agent_queue_workflow_resume_finalization.rs"]
+mod resume_finalization;
 #[path = "agent_queue_workflow_resume_review.rs"]
 mod resume_review;
+#[path = "agent_queue_workflow_resume_support.rs"]
+mod resume_support;
 
 const QUEUE_WORKFLOW_SCHEMA_VERSION: i64 = 1;
 const RESUME_STATUS_RESUME_READY: &str = "resume_ready";
@@ -56,6 +61,8 @@ const RESUME_STATUS_RETRYABLE_WORKER_EVIDENCE_ACTION_REPAIR: &str =
     "retryable_worker_evidence_action_repair";
 const RESUME_STATUS_RETRYABLE_REVIEW_FAILURE_BEFORE_MUTATION: &str =
     "retryable_review_failure_before_mutation";
+const RESUME_STATUS_RETRYABLE_FINALIZATION_FAILURE_BEFORE_MUTATION: &str =
+    "retryable_finalization_failure_before_mutation";
 const RESUME_STATUS_TERMINAL_COMPLETED: &str = "terminal_completed";
 const RESUME_STATUS_TERMINAL_FAILED: &str = "terminal_failed";
 const RESUME_STATUS_TERMINAL_CANCELLED: &str = "terminal_cancelled";
@@ -85,6 +92,7 @@ pub enum QueueWorkflowResumePlanStatus {
     RetryableWorkerEvidenceFailure,
     RetryableWorkerEvidenceActionRepair,
     RetryableReviewFailureBeforeMutation,
+    RetryableFinalizationFailureBeforeMutation,
     TerminalCompleted,
     TerminalFailed,
     TerminalCancelled,
@@ -121,6 +129,9 @@ impl QueueWorkflowResumePlanStatus {
             }
             Self::RetryableReviewFailureBeforeMutation => {
                 RESUME_STATUS_RETRYABLE_REVIEW_FAILURE_BEFORE_MUTATION
+            }
+            Self::RetryableFinalizationFailureBeforeMutation => {
+                RESUME_STATUS_RETRYABLE_FINALIZATION_FAILURE_BEFORE_MUTATION
             }
             Self::TerminalCompleted => RESUME_STATUS_TERMINAL_COMPLETED,
             Self::TerminalFailed => RESUME_STATUS_TERMINAL_FAILED,
@@ -401,6 +412,16 @@ impl WorkspaceService {
                 )? {
                     return Ok(Some(plan));
                 }
+                if let Some(plan) =
+                    resume_finalization::retryable_finalization_failure_before_mutation_plan(
+                        self,
+                        &workspace_id,
+                        workflow_run.clone(),
+                        actions.clone(),
+                    )?
+                {
+                    return Ok(Some(plan));
+                }
                 let current_step = workflow_run.current_step.clone();
                 return Ok(Some(plan_with_status(
                     workflow_run,
@@ -642,6 +663,17 @@ impl WorkspaceService {
             }
         };
         blockers.append(&mut derived.blockers);
+        if let Some(finalization) = resume_finalization::finalization_step_from_resolver(
+            self,
+            &workspace_id,
+            &workflow_run,
+            inputs_value.as_ref(),
+            variables_value.as_ref(),
+            &derived,
+        )? {
+            derived = finalization.derived;
+            blockers.extend(finalization.blockers);
+        }
 
         if derived.required_fresh_grant {
             if let Some(stale) =
@@ -831,7 +863,7 @@ impl WorkspaceService {
         {
             return Ok(None);
         }
-        let Some(target) = target_slot(&workflow_run, &reconciled_slots) else {
+        let Some(target) = resume_support::target_slot(&workflow_run, &reconciled_slots) else {
             return Ok(None);
         };
         let Some(run_link) = target.run_link.as_ref() else {
@@ -846,7 +878,7 @@ impl WorkspaceService {
             || target.review_message.is_some()
             || target.completion_decision.is_some()
             || target.failure_decision.is_some()
-            || !is_completed_worker_run_state(run_link)
+            || !resume_support::is_completed_worker_run_state(run_link)
             || !has_completed_start_worker_action_for_slot(&actions, &target.binding)
         {
             return Ok(None);
@@ -875,7 +907,8 @@ impl WorkspaceService {
         let Some(run_id) = target.binding.run_id.clone() else {
             return Ok(None);
         };
-        let Some(outcome) = worker_evidence_outcome_for_resume(&run_link.status) else {
+        let Some(outcome) = resume_support::worker_evidence_outcome_for_resume(&run_link.status)
+        else {
             return Ok(None);
         };
         let worker_evidence_step_plan = self.plan_queue_workflow_worker_evidence_step(
@@ -1179,7 +1212,7 @@ impl WorkspaceService {
                     .get_agent_queue_completion_decision_by_id(workspace_id, decision_id)?;
                 match decision {
                     Some(decision) => {
-                        validate_completion_decision_matches_binding(
+                        resume_finalization::validate_completion_decision_matches_binding(
                             &binding,
                             review_message.as_ref(),
                             &decision,
@@ -1206,7 +1239,7 @@ impl WorkspaceService {
             },
         };
         if let Some(decision) = completion_decision.as_ref() {
-            validate_completion_decision_matches_binding(
+            resume_finalization::validate_completion_decision_matches_binding(
                 &binding,
                 review_message.as_ref(),
                 decision,
@@ -1221,7 +1254,7 @@ impl WorkspaceService {
                     .get_agent_queue_failure_decision_by_id(workspace_id, decision_id)?;
                 match decision {
                     Some(decision) => {
-                        validate_failure_decision_matches_binding(
+                        resume_finalization::validate_failure_decision_matches_binding(
                             &binding,
                             evidence.as_ref(),
                             review_message.as_ref(),
@@ -1249,7 +1282,7 @@ impl WorkspaceService {
             },
         };
         if let Some(decision) = failure_decision.as_ref() {
-            validate_failure_decision_matches_binding(
+            resume_finalization::validate_failure_decision_matches_binding(
                 &binding,
                 evidence.as_ref(),
                 review_message.as_ref(),
@@ -1458,6 +1491,9 @@ fn augment_slot_bindings_from_actions(
     let mut blockers = Vec::new();
 
     for action in actions {
+        if resume_finalization::recover_finalization_action(&mut by_slot, action, &mut blockers) {
+            continue;
+        }
         match action.action_type.as_str() {
             "create_task" => recover_create_task_action(&mut by_slot, action, &mut blockers),
             "update_run_settings" => {
@@ -1470,12 +1506,6 @@ fn augment_slot_bindings_from_actions(
             }
             "queue.review.createMessage" | "queue.review.ack" => {
                 recover_review_action(&mut by_slot, action, &mut blockers)
-            }
-            "queue.item.markDone" => {
-                recover_decision_action(&mut by_slot, action, "completionDecisionId", &mut blockers)
-            }
-            "queue.item.fail" => {
-                recover_decision_action(&mut by_slot, action, "failureDecisionId", &mut blockers)
             }
             _ => {}
         }
@@ -2278,68 +2308,6 @@ fn recover_review_action(
     set_binding_string(binding, "messageId", message_id, action, blockers);
 }
 
-fn recover_decision_action(
-    by_slot: &mut BTreeMap<String, SlotBinding>,
-    action: &QueueWorkflowAction,
-    decision_field: &str,
-    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
-) {
-    if action.status != "completed" {
-        return;
-    }
-    let Some(target) = action_ref_object(action, action.target_refs_json.as_deref(), blockers)
-    else {
-        return;
-    };
-    let Some(result) = action_ref_object(action, action.result_refs_json.as_deref(), blockers)
-    else {
-        return;
-    };
-    let Some(task_id) = string_ref(action, &target, "taskId", blockers) else {
-        return;
-    };
-    let Some(slot) = slot_for_task(by_slot, &task_id) else {
-        blockers.push(action_ref_blocker(
-            "incomplete_slot_binding",
-            "A workflow finalization action has durable refs but no matching task slot binding.",
-            action,
-            Some(&task_id),
-            None,
-        ));
-        return;
-    };
-    let binding = by_slot.get_mut(&slot).expect("slot exists");
-    set_binding_string(binding, "taskId", Some(task_id), action, blockers);
-    set_binding_string(
-        binding,
-        "runId",
-        string_ref(action, &target, "runId", blockers),
-        action,
-        blockers,
-    );
-    set_binding_string(
-        binding,
-        "evidenceBundleId",
-        string_ref(action, &target, "evidenceBundleId", blockers),
-        action,
-        blockers,
-    );
-    set_binding_string(
-        binding,
-        "messageId",
-        string_ref(action, &target, "messageId", blockers),
-        action,
-        blockers,
-    );
-    set_binding_string(
-        binding,
-        decision_field,
-        string_ref(action, &result, "decisionId", blockers),
-        action,
-        blockers,
-    );
-}
-
 fn action_ref_object(
     action: &QueueWorkflowAction,
     raw: Option<&str>,
@@ -2525,7 +2493,7 @@ fn set_binding_strings(
         _ => return,
     };
     if !target.is_empty() {
-        if !same_string_set(target, &incoming) {
+        if !resume_support::same_string_set(target, &incoming) {
             blockers.push(action_ref_blocker(
                 "workflow_action_ref_binding_mismatch",
                 &format!(
@@ -2773,7 +2741,8 @@ fn validate_task_materialization_binding(
         }
     }
 
-    let expected_task_ids = expected_dependency_task_ids(binding, task_template, slot_bindings);
+    let expected_task_ids =
+        resume_support::expected_dependency_task_ids(binding, task_template, slot_bindings);
     if expected_task_ids.is_empty() && binding.dependency_edge_hash.is_none() {
         return Ok(());
     }
@@ -2789,8 +2758,8 @@ fn validate_task_materialization_binding(
         }
     }
 
-    let actual_task_ids = task_dependency_ids(task).unwrap_or_default();
-    if !same_string_set(&actual_task_ids, &expected_task_ids) {
+    let actual_task_ids = resume_support::task_dependency_ids(task).unwrap_or_default();
+    if !resume_support::same_string_set(&actual_task_ids, &expected_task_ids) {
         blockers.push(binding_blocker(
             "dependency_edge_missing",
             "Bound Queue task depends_on does not match explicit workflow dependsOnSlots.",
@@ -2820,7 +2789,7 @@ fn validate_settings_binding(
     blockers: &mut Vec<QueueWorkflowResumeBlocker>,
 ) {
     let Some(settings_hash) = binding.settings_hash.as_deref() else {
-        if binding_has_runtime_progress(binding) {
+        if resume_support::binding_has_runtime_progress(binding) {
             return;
         }
         let pristine_materialized_task = task.execution_policy == "manual"
@@ -2940,7 +2909,10 @@ fn validate_promote_binding(
             Some("promoted"),
         ));
     }
-    if !binding.promoted && durable_promoted && !binding_has_runtime_progress(binding) {
+    if !binding.promoted
+        && durable_promoted
+        && !resume_support::binding_has_runtime_progress(binding)
+    {
         blockers.push(binding_blocker(
             "promote_state_mismatch",
             "Durable Queue task has left draft state but the workflow slot has no promote binding.",
@@ -3031,56 +3003,6 @@ fn run_settings_from_durable_task(
     })
 }
 
-fn binding_has_runtime_progress(binding: &SlotBinding) -> bool {
-    binding.run_id.is_some()
-        || binding.evidence_bundle_id.is_some()
-        || binding.message_id.is_some()
-        || binding.completion_decision_id.is_some()
-        || binding.failure_decision_id.is_some()
-}
-
-fn expected_dependency_task_ids(
-    binding: &SlotBinding,
-    task_template: Option<&ResumeTaskTemplate>,
-    slot_bindings: &BTreeMap<String, SlotBinding>,
-) -> Vec<String> {
-    if !binding.dependency_task_ids.is_empty() {
-        let mut task_ids = binding.dependency_task_ids.clone();
-        task_ids.sort();
-        task_ids.dedup();
-        return task_ids;
-    }
-
-    let depends_on_slots = task_template
-        .map(|template| template.depends_on_slots.as_slice())
-        .unwrap_or(binding.depends_on_slots.as_slice());
-    let mut task_ids = depends_on_slots
-        .iter()
-        .filter_map(|slot| slot_bindings.get(slot))
-        .filter_map(|binding| binding.task_id.clone())
-        .collect::<Vec<_>>();
-    task_ids.sort();
-    task_ids.dedup();
-    task_ids
-}
-
-fn task_dependency_ids(task: &AgentQueueTaskRow) -> Result<Vec<String>, serde_json::Error> {
-    let mut ids = serde_json::from_str::<Vec<String>>(&task.depends_on)?;
-    ids.sort();
-    ids.dedup();
-    Ok(ids)
-}
-
-fn same_string_set(left: &[String], right: &[String]) -> bool {
-    let mut left = left.to_vec();
-    let mut right = right.to_vec();
-    left.sort();
-    left.dedup();
-    right.sort();
-    right.dedup();
-    left == right
-}
-
 fn derive_next_step(
     run: &QueueWorkflowRun,
     slots: &[ReconciledSlot],
@@ -3098,7 +3020,7 @@ fn derive_next_step(
         };
     }
 
-    let Some(slot) = target_slot(run, slots) else {
+    let Some(slot) = resume_support::target_slot(run, slots) else {
         return DerivedStep {
             status: QueueWorkflowResumePlanStatus::BlockedStateMismatch,
             next_phase: Some(run.phase.clone()),
@@ -3173,7 +3095,9 @@ fn derive_next_step(
             };
         }
         let next_step = match slot.aggregate.as_ref() {
-            Some(aggregate) if has_next_action(aggregate, "start_run") => "start_worker_ready",
+            Some(aggregate) if resume_support::has_next_action(aggregate, "start_run") => {
+                "start_worker_ready"
+            }
             Some(aggregate)
                 if matches!(
                     aggregate.dependency_state.as_str(),
@@ -3227,7 +3151,7 @@ fn derive_next_step(
                     blockers: Vec::new(),
                 };
             }
-            if is_completed_worker_run_state(run_link) {
+            if resume_support::is_completed_worker_run_state(run_link) {
                 return DerivedStep {
                     status: QueueWorkflowResumePlanStatus::WaitingForWorkerEvidence,
                     next_phase: Some("worker_evidence".to_owned()),
@@ -3283,94 +3207,7 @@ fn derive_next_step(
         Some(_) => {}
     }
 
-    let failure_workflow = matches!(
-        run.workflow_id.as_str(),
-        "dependency_failure_smoke" | "terminal_failure"
-    );
-    if failure_workflow && failure_reason(inputs, variables).is_none() {
-        return DerivedStep {
-            status: QueueWorkflowResumePlanStatus::BlockedStateMismatch,
-            next_phase: Some("finalization".to_owned()),
-            next_step: Some("awaiting_finalization".to_owned()),
-            required_fresh_grant: true,
-            required_confirmation: true,
-            blockers: vec![blocker(
-                "failure_reason_missing",
-                "Terminal failure resume planning requires a structured failureReason.",
-                None,
-                Some("failureReason"),
-            )],
-        };
-    }
-
-    DerivedStep {
-        status: QueueWorkflowResumePlanStatus::BlockedMissingConfirmation,
-        next_phase: Some("finalization".to_owned()),
-        next_step: Some("awaiting_finalization".to_owned()),
-        required_fresh_grant: true,
-        required_confirmation: true,
-        blockers: vec![blocker(
-            "fresh_confirmation_required",
-            "A fresh exact structured confirmation is required before finalization can resume execution.",
-            None,
-            Some("confirmationToken"),
-        )],
-    }
-}
-
-fn target_slot<'a>(
-    run: &QueueWorkflowRun,
-    slots: &'a [ReconciledSlot],
-) -> Option<&'a ReconciledSlot> {
-    if let Some(slot) = slots.iter().find(|slot| slot.binding.slot == "upstream") {
-        return Some(slot);
-    }
-    if slots.len() == 1 {
-        return slots.first();
-    }
-    if matches!(
-        run.workflow_id.as_str(),
-        "review_acceptance" | "terminal_failure"
-    ) {
-        let task_bound_slots = slots
-            .iter()
-            .filter(|slot| slot.binding.task_id.is_some())
-            .collect::<Vec<_>>();
-        if task_bound_slots.len() == 1 {
-            return task_bound_slots.first().copied();
-        }
-    }
-    None
-}
-
-fn is_completed_worker_run_state(run_link: &AgentQueueTaskRunLinkRow) -> bool {
-    run_link.completed_at.is_some()
-        && matches!(
-            run_link.status.as_str(),
-            "completed" | "failed" | "timed_out" | "cancelled" | "review_needed"
-        )
-}
-
-fn worker_evidence_outcome_for_resume(run_status: &str) -> Option<&'static str> {
-    match run_status {
-        "completed" => Some("completed"),
-        "failed" | "timed_out" => Some("failed"),
-        "cancelled" | "review_needed" => Some("not_completed"),
-        _ => None,
-    }
-}
-
-fn has_next_action(aggregate: &QueueItemAggregate, code: &str) -> bool {
-    aggregate
-        .next_actions
-        .iter()
-        .any(|action| action.code == code && action.available)
-}
-
-fn failure_reason(inputs: Option<&Value>, variables: Option<&Value>) -> Option<String> {
-    inputs
-        .and_then(|value| optional_string_field(value.get("failureReason")))
-        .or_else(|| variables.and_then(|value| optional_string_field(value.get("failureReason"))))
+    resume_finalization::derive_finalization_step(run, inputs, variables)
 }
 
 fn validate_evidence_matches_binding(
@@ -3464,101 +3301,6 @@ fn validate_review_message_matches_binding(
             blockers.push(binding_blocker(
                 "review_message_evidence_run_mismatch",
                 "Bound messageId and evidenceBundleId refer to different runs.",
-                binding,
-                None,
-            ));
-        }
-    }
-}
-
-fn validate_completion_decision_matches_binding(
-    binding: &SlotBinding,
-    message: Option<&AgentQueueReviewMessageRow>,
-    decision: &AgentQueueCompletionDecisionRow,
-    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
-) {
-    if binding
-        .task_id
-        .as_deref()
-        .is_some_and(|task_id| task_id != decision.queue_task_id)
-    {
-        blockers.push(binding_blocker(
-            "completion_decision_task_mismatch",
-            "Bound completionDecisionId belongs to a different Queue task.",
-            binding,
-            None,
-        ));
-    }
-    if let (Some(bound_run), Some(decision_run)) =
-        (binding.run_id.as_deref(), decision.run_id.as_deref())
-    {
-        if bound_run != decision_run {
-            blockers.push(binding_blocker(
-                "completion_decision_run_mismatch",
-                "Bound completionDecisionId belongs to a different runId.",
-                binding,
-                None,
-            ));
-        }
-    }
-    if let Some(message) = message {
-        if decision.review_message_id.as_deref() != Some(message.message_id.as_str()) {
-            blockers.push(binding_blocker(
-                "completion_decision_review_mismatch",
-                "Completion decision does not reference the bound review message.",
-                binding,
-                None,
-            ));
-        }
-    }
-}
-
-fn validate_failure_decision_matches_binding(
-    binding: &SlotBinding,
-    evidence: Option<&AgentQueueWorkerEvidenceBundleRow>,
-    message: Option<&AgentQueueReviewMessageRow>,
-    decision: &AgentQueueFailureDecisionRow,
-    blockers: &mut Vec<QueueWorkflowResumeBlocker>,
-) {
-    if binding
-        .task_id
-        .as_deref()
-        .is_some_and(|task_id| task_id != decision.queue_task_id)
-    {
-        blockers.push(binding_blocker(
-            "failure_decision_task_mismatch",
-            "Bound failureDecisionId belongs to a different Queue task.",
-            binding,
-            None,
-        ));
-    }
-    if let (Some(bound_run), Some(decision_run)) =
-        (binding.run_id.as_deref(), decision.run_id.as_deref())
-    {
-        if bound_run != decision_run {
-            blockers.push(binding_blocker(
-                "failure_decision_run_mismatch",
-                "Bound failureDecisionId belongs to a different runId.",
-                binding,
-                None,
-            ));
-        }
-    }
-    if let Some(evidence) = evidence {
-        if decision.evidence_bundle_id.as_deref() != Some(evidence.bundle_id.as_str()) {
-            blockers.push(binding_blocker(
-                "failure_decision_evidence_mismatch",
-                "Failure decision does not reference the bound evidence bundle.",
-                binding,
-                None,
-            ));
-        }
-    }
-    if let Some(message) = message {
-        if decision.review_message_id.as_deref() != Some(message.message_id.as_str()) {
-            blockers.push(binding_blocker(
-                "failure_decision_review_mismatch",
-                "Failure decision does not reference the bound review message.",
                 binding,
                 None,
             ));
