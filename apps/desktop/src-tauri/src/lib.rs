@@ -41,6 +41,7 @@ mod agent_queue_workflow_commands;
 mod agent_queue_workflow_dto;
 mod agent_queue_workflow_finalization_step_dto;
 mod agent_queue_workflow_review_step_dto;
+mod agent_queue_workflow_start_step_dto;
 mod app_state;
 mod codex_direct_work_dto;
 #[cfg(test)]
@@ -237,6 +238,7 @@ pub fn run() {
             agent_queue_workflow_commands::plan_agent_queue_workflow_resume,
             agent_queue_workflow_commands::record_agent_queue_workflow_runner_report,
             agent_queue_workflow_commands::record_agent_queue_workflow_worker_evidence,
+            agent_queue_workflow_commands::execute_agent_queue_workflow_create_setup_start_step,
             agent_queue_workflow_commands::execute_agent_queue_workflow_worker_evidence_step,
             agent_queue_workflow_commands::execute_agent_queue_workflow_review_step,
             agent_queue_workflow_commands::execute_agent_queue_workflow_finalization_step,

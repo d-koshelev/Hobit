@@ -24,6 +24,7 @@ import {
   runQueueWorkflowRunnerRuntimeAdapter,
   type QueueWorkflowPersistencePort,
 } from "./queueWorkflowRunnerRuntimeAdapter";
+import { createSetupStartStepResult } from "./queueWorkflowCreateSetupStartStepTestHelpers";
 import { reviewStepResult } from "./queueWorkflowRunnerReviewStepTestHelpers";
 
 describe("QueueWorkflowRunnerRuntimeAdapter", () => {
@@ -329,9 +330,7 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
 
   it("persists create/setup/start report for valid dependency workflow requests", async () => {
     const workflowBridge = createSetupStartBridge();
-    const persistence = workflowPersistence({
-      recordAgentQueueWorkflowRunnerReport: recordWithPersistedCreateSetupActions(),
-    });
+    const persistence = workflowPersistence();
 
     const result = await runAdapter({
       queueBridge: queueBridge(workflowBridge.bridge),
@@ -354,32 +353,28 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       workflowRunId: "queue-workflow-run-1",
     });
     expect(result.summary).toContain("queue-workflow-run-1");
-    expect(result.summary).toContain("task-upstream");
-    expect(result.summary).toContain("run-upstream");
-    expect(persistence.recordAgentQueueWorkflowRunnerReport).toHaveBeenCalledWith(
+    expect(result.runnerResult?.variables.taskIdsBySlot.upstream).toBe(
+      "task-upstream",
+    );
+    expect(result.runnerResult?.variables.runIdsBySlot.upstream).toBe(
+      "run-upstream",
+    );
+    expect(
+      persistence.executeAgentQueueWorkflowCreateSetupStartStep,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
-        currentStep: "awaiting_worker_completion",
-        pauseReason: "awaiting_worker_completion",
-        phase: "run_start",
-        status: "paused",
-        workflowRunId: "queue-workflow-run-1",
+        confirmationToken: "operator-confirmed",
+        requestId: "workflow-request-1",
+        workflowRunId: null,
       }),
     );
-    expect(workflowBridge.calls.map((call) => call.method)).toEqual([
-      "materializeWorkflowTaskSlot",
-      "materializeWorkflowTaskSlot",
-      "applyWorkflowRunSettings",
-      "promoteWorkflowTaskSlot",
-      "getQueueControlState",
-      "startWorkflowAssignedTask",
-    ]);
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
+    expect(workflowBridge.calls.map((call) => call.method)).toEqual([]);
   });
 
   it("starts dependency_failure_smoke setup without requiring the final failure reason", async () => {
     const workflowBridge = createSetupStartBridge();
-    const persistence = workflowPersistence({
-      recordAgentQueueWorkflowRunnerReport: recordWithPersistedCreateSetupActions(),
-    });
+    const persistence = workflowPersistence();
 
     const result = await runAdapter({
       queueBridge: queueBridge(workflowBridge.bridge),
@@ -401,35 +396,29 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       workflowId: "dependency_failure_smoke",
       workflowRunId: "queue-workflow-run-1",
     });
-    expect(persistence.startAgentQueueWorkflow).toHaveBeenCalledWith(
+    expect(
+      persistence.executeAgentQueueWorkflowCreateSetupStartStep,
+    ).toHaveBeenCalledWith(
       expect.objectContaining({
+        confirmationToken: "operator-confirmed",
         workflowId: "dependency_failure_smoke",
+        workflowRunId: null,
       }),
     );
-    expect(workflowBridge.calls.filter((call) => call.method === "startWorkflowAssignedTask")).toEqual([
-      expect.objectContaining({ queueItemId: "task-upstream" }),
-    ]);
+    expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
+    expect(workflowBridge.calls.map((call) => call.method)).toEqual([]);
   });
 
   it("reuses create/setup/start actions for repeated requestId/hash", async () => {
-    const workflowBridge = createSetupStartBridge({
-      applyStatus: "reused",
-      materializeStatus: "reused",
-      promoteStatus: "reused",
-      startStatus: "already_started",
-    });
+    const workflowBridge = createSetupStartBridge();
     const persistence = workflowPersistence({
-      startAgentQueueWorkflow: vi.fn(async (request) => ({
-        blocker: null,
-        conflict: null,
-        status: "already_exists",
-        workflowRun: workflowRun({
-          requestId: request.requestId,
-          workflowId: request.workflowId,
+      executeAgentQueueWorkflowCreateSetupStartStep: vi.fn(async (request) =>
+        createSetupStartStepResult({
+          request,
+          status: "already_applied",
           workflowRunId: "queue-workflow-run-existing",
-          workspaceId: request.workspaceId,
         }),
-      })),
+      ),
     });
 
     const result = await runAdapter({
@@ -445,18 +434,16 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     });
 
     expect(result).toMatchObject({
-      persistenceStatus: "reused",
+      persistenceStatus: "create_setup_start_step_already_applied",
       phase: "create_setup_start",
       status: "paused",
       workflowRunId: "queue-workflow-run-existing",
-      workflowStartStatus: "already_exists",
+      workflowStartStatus: null,
     });
-    expect(workflowBridge.calls.filter((call) => call.method === "startWorkflowAssignedTask")).toHaveLength(1);
-    expect(result.runnerResult?.report.mutationSummary).toEqual(
-      expect.objectContaining({
-        didMutateQueue: false,
-        didStartWorker: false,
-      }),
+    expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
+    expect(workflowBridge.calls.map((call) => call.method)).toEqual([]);
+    expect(result.runnerResult?.report.createSetupStart.start?.status).toBe(
+      "already_started",
     );
   });
 
@@ -488,15 +475,16 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     expect(result).toMatchObject({
       invoked: true,
       phase: "create_setup_start",
-      resumePlan: expect.objectContaining({
-        status: "waiting_for_run_settings",
-      }),
       status: "paused",
     });
+    expect(persistence.planAgentQueueWorkflowResume).toHaveBeenCalled();
     expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
-    expect(workflowBridge.calls.map((call) => call.method)).toContain(
-      "applyWorkflowRunSettings",
+    expect(
+      persistence.executeAgentQueueWorkflowCreateSetupStartStep,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowRunId: "queue-workflow-run-1" }),
     );
+    expect(workflowBridge.calls.map((call) => call.method)).toEqual([]);
   });
 
   it("resumes waiting_for_promote through create/setup/start", async () => {
@@ -525,9 +513,12 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
     });
 
     expect(result.phase).toBe("create_setup_start");
-    expect(workflowBridge.calls.map((call) => call.method)).toContain(
-      "promoteWorkflowTaskSlot",
+    expect(
+      persistence.executeAgentQueueWorkflowCreateSetupStartStep,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({ workflowRunId: "queue-workflow-run-1" }),
     );
+    expect(workflowBridge.calls.map((call) => call.method)).toEqual([]);
   });
 
   it("resumes start_worker_ready only with fresh confirmation", async () => {
@@ -562,9 +553,15 @@ describe("QueueWorkflowRunnerRuntimeAdapter", () => {
       phase: "create_setup_start",
       status: "paused",
     });
-    expect(workflowBridge.calls.map((call) => call.method)).toContain(
-      "startWorkflowAssignedTask",
+    expect(
+      persistence.executeAgentQueueWorkflowCreateSetupStartStep,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confirmationToken: "operator-confirmed",
+        workflowRunId: "queue-workflow-run-1",
+      }),
     );
+    expect(workflowBridge.calls.map((call) => call.method)).toEqual([]);
   });
 
   it("does not start a second worker when resume planner reports worker running", async () => {
@@ -1546,6 +1543,9 @@ function workflowPersistence(
   overrides: Partial<QueueWorkflowPersistencePort> = {},
 ): QueueWorkflowPersistencePort {
   return {
+    executeAgentQueueWorkflowCreateSetupStartStep: vi.fn(async (request) =>
+      createSetupStartStepResult({ request }),
+    ),
     executeAgentQueueWorkflowReviewStep: vi.fn(async (request) =>
       reviewStepResult({ request }),
     ),
@@ -2303,48 +2303,6 @@ function createSetupStartBridge(
   };
 
   return { bridge, calls };
-}
-
-function recordWithPersistedCreateSetupActions(): QueueWorkflowPersistencePort["recordAgentQueueWorkflowRunnerReport"] {
-  return vi.fn(async (request) => ({
-    actions: ["create-upstream", "create-downstream", "settings", "promote", "start"].map(
-      (suffix, index) => ({
-        actionId: `workflow-action-${suffix}`,
-        actionType:
-          index < 2
-            ? "create_task"
-            : index === 2
-              ? "update_run_settings"
-              : index === 3
-                ? "promote_task"
-                : "start_worker",
-        attemptCount: 1,
-        blockerCode: null,
-        blockerMessage: null,
-        completedAt: "2026-06-22T00:00:00.000Z",
-        createdAt: "2026-06-22T00:00:00.000Z",
-        idempotencyKey: `${request.workflowRunId}:${suffix}`,
-        resultRefsJson: "{}",
-        startedAt: "2026-06-22T00:00:00.000Z",
-        status: "completed",
-        stepId: suffix,
-        targetRefsJson: "{}",
-        updatedAt: "2026-06-22T00:00:00.000Z",
-        workflowRunId: request.workflowRunId,
-        workspaceId: request.workspaceId,
-      }),
-    ),
-    blocker: null,
-    conflict: null,
-    status: "recorded",
-    workflowRun: workflowRun({
-      currentStep: request.currentStep ?? null,
-      phase: request.phase ?? "run_start",
-      status: request.status,
-      workflowRunId: request.workflowRunId,
-      workspaceId: request.workspaceId,
-    }),
-  }));
 }
 
 function createSetupStartResumePlan(

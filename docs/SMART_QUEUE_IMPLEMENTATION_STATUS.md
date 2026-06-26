@@ -36,52 +36,51 @@ Workspace Agent/Broker read capabilities `queue.items.list` and
 `queue.item.fail` call backend/domain/Tauri contracts and do not use Queue UI
 snapshots or frontend lifecycle/evidence overlays as product truth.
 
-Queue workflow persistence has a backend-owned MVP: durable workflow run/action
-storage, typed start/get/list/cancel/report/planResume APIs, idempotent start
-by request hash, bounded JSON snapshots, safe grant-summary persistence,
-action-ledger rows, and a read-only resume planner. The frontend workflow
-runtime creates or reuses a durable run before legacy phase execution, blocks
-request-hash conflicts, records bounded reports for legacy frontend phases, and
-uses resume planning for typed `metadata.workflowRunId`.
+Queue workflow persistence has a backend-owned MVP: durable workflow
+run/action storage, typed start/get/list/cancel/report/planResume APIs,
+backend-owned create/setup/start, worker-evidence, review, and finalization
+StepResult APIs, idempotent start by request hash, bounded JSON snapshots,
+safe grant-summary persistence, action-ledger rows, and read-only resume
+planning. The frontend runtime normalizes typed input, calls backend
+StepResult APIs, and projects returned results.
 
-Block 59 completed the live frontend workflow de-orchestration for backend-owned
-dependency-smoke phases. `worker_evidence`, `review`, and `finalization` route
-through `queueWorkflowBackendStepDispatcher`, which normalizes typed input,
-calls backend StepResult APIs, and projects returned results for
-runner/activity/report display. The runtime adapter no longer wires raw
-`recordWorkflowWorkerEvidence`, `createReviewMessage`, `ackReviewMessage`,
-`markDone`, or `failItem` ports for those phases, does not synthesize
-worker-evidence/review/finalization action rows, and does not persist
-backend-owned slot-binding/status/currentStep deltas after those steps.
+Block 60 completed frontend de-orchestration for initial create/setup/start.
+Backend/domain now owns workflow start/reuse/conflict, explicit upstream/
+downstream materialization, dependency-edge creation, run-settings setup,
+upstream promotion, Queue control gating, upstream worker start, action ledger
+rows, slot-binding merge, and the transition to `run_start` /
+`awaiting_worker_completion`. The runtime adapter no longer starts/reuses the
+workflow run before this phase, calls raw materialize/settings/promote/start
+ports, synthesizes create/setup/start action rows, or persists backend-owned
+slot-binding/status/currentStep deltas after the step.
 
-Create/setup/start and read remain legacy frontend-led phases; create/setup/
-start is the last mutating frontend-owned workflow phase. No new mutating phase
-may be added to frontend workflow orchestration. Restart/recovery hardening
+All mutating dependency-smoke workflow phases are backend-owned:
+`create_setup_start`, `worker_evidence`, `review`, and `finalization`; `read`
+is the only legacy frontend workflow runner phase. Restart/recovery hardening
 preserves backend-rich slot bindings and lets the resume planner recover safe
-refs from completed workflow actions or block incomplete
-binding/action/orphan-worker states explicitly.
+refs from completed workflow actions or block incomplete binding/action/
+orphan-worker states. The next block should remove remaining legacy frontend
+workflow engine code and run clean manual smoke.
 
 The dependency smoke workflows can compose the current phases end to end with
-typed evidence, backend review create/ACK, backend finalization with fresh
-exact confirmation, accepted completion or terminal failure, dependency-ready
-or `failed_upstream` verification, and a bounded workflow report. Backend-owned
-finalization works for queue-local run links without `widget_runs`; no
-synthetic widget run is created. Scheduler behavior, downstream auto-start,
-generic public resume execution, natural-language/id inference, and Queue workflow broker capabilities remain not implemented. Block 39 remains
-`ready_for_manual_headless_smoke` for the manual checklist.
+backend-owned create/setup/start, typed evidence, backend review create/ACK,
+backend finalization with fresh exact confirmation, accepted completion or
+terminal failure, dependency-ready or `failed_upstream` verification, and a
+bounded workflow report. Backend-owned queue-local workflow steps work without
+`widget_runs`; no synthetic widget run is created. Scheduler behavior,
+downstream auto-start, generic public resume execution, natural-language/id
+inference, and Queue workflow broker capabilities remain not implemented.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
 It creates or reuses durable draft/manual Queue tasks by explicit
 `workflowRunId + slot + taskSpecHash`, stores slot-to-task bindings in
 workflow persistence, records a `create_task` workflow action row, and writes
 dependency edges only by resolving explicit `dependsOnSlots` to already-bound
-upstream task ids. The same workflow/slot/hash is idempotent, a different hash
-for the same workflow/slot conflicts, and the same slot/spec in a different
-workflow does not deduplicate globally. This is wired only into the
-QueueWorkflowRunner create/setup/start path through typed runtime-adapter ports,
-not Workspace Agent broker routing, and materialization itself does not update
-run settings, promote tasks, enable Queue, start workers, record evidence/
-reviews/finalization, run validation, mutate Git, roll back, launch Terminal,
-schedule, or auto-start downstream work.
+upstream task ids. For dependency-smoke workflows it is invoked by the backend
+create/setup/start step, not by frontend runner
+orchestration or Workspace Agent broker routing. Materialization itself does
+not update run settings, promote tasks, enable Queue, start workers, record
+evidence/reviews/finalization, run validation, mutate Git, roll back, launch
+Terminal, schedule, or auto-start downstream work.
 Queue workflow run-settings setup and task promotion now exist as backend/
 domain MVP primitives for already materialized slots. Run-settings setup
 applies typed durable task settings plus executor assignment, computes a
@@ -94,11 +93,12 @@ settings/executor assignment, moves draft to queued or treats already
 queued/ready as idempotent only with matching hashes, persists promote refs in
 the slot binding, and records a `promote_task` action row keyed by
 `workflowRunId:promote_task:slot:taskSpecHash:settingsHash`. These backend
-methods are wired only into QueueWorkflowRunner create/setup/start execution
-through typed runtime-adapter ports, not Workspace Agent broker routing, and
-they do not themselves start workers, create run links, enable Queue, satisfy
-dependencies, record evidence/reviews/finalization, run validation, mutate Git,
-roll back, launch Terminal, schedule, or auto-start downstream work.
+methods are invoked by the backend create/setup/start step for dependency-smoke
+workflow setup, not by frontend runner orchestration or Workspace Agent broker
+routing, and they do not themselves start workers, create run links, enable
+Queue, satisfy dependencies, record evidence/reviews/finalization, run
+validation, mutate Git, roll back, launch Terminal, schedule, or auto-start
+downstream work.
 Queue control state is also backend-owned and durable per workspace. The MVP
 control states are `disabled` and `manual_enabled`, exposed through typed
 backend/Tauri/frontend wrappers. `manual_enabled` is a manual/no-autodispatch
@@ -195,7 +195,7 @@ refs only for `agent_executor`, and exact confirmation, checks durable
 hash, records/reads `start_worker` action ledger
 rows, returns the prior run for duplicate same-key/same-ref starts, conflicts
 on changed refs, and blocks orphan/unknown start windows instead of silently
-starting a second worker. QueueWorkflowRunner create/setup/start now uses this
+starting a second worker. The backend create/setup/start step now uses this
 path only for the explicit upstream dependency-smoke task and pauses before
 workflow worker-evidence recording, lifecycle finalization, scheduler pickup,
 or downstream auto-start.
@@ -1381,9 +1381,9 @@ as available from the foundation above:
   IPC context. Actual live Queue smoke continuation remains the next step.
 - durable backend Smart Queue persistence;
 - Queue workflow runner execution beyond the full typed
-  `dependency_acceptance_smoke` and `dependency_failure_smoke` paths and the
-  existing explicit create/setup/start, read, and finalization legacy frontend
-  helper phases plus backend-owned worker-evidence/review StepResult phases;
+  `dependency_acceptance_smoke` and `dependency_failure_smoke` paths, the
+  backend-owned create/setup/start, worker-evidence, review, and finalization
+  StepResult phases, and the legacy read-only helper phase;
 - Queue-specific input validation for review/terminal workflows;
 - durable Queue lifecycle transition commands beyond the current aggregate DTO,
   worker-evidence/review create/ACK commands, and accepted-completion /

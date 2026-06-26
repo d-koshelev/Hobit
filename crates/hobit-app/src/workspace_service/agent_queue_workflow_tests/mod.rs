@@ -17,5 +17,6 @@ mod resume_worker_tests;
 mod review_step_tests;
 mod review_tests;
 mod setup_tests;
+mod start_step_tests;
 mod start_tests;
 mod support;

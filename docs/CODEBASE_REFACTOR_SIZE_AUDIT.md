@@ -230,9 +230,64 @@ The frontend runtime adapter now routes `worker_evidence`, `review`, and
 StepResults. It no longer wires raw mark-done/fail ports for workflow
 finalization, synthesizes finalization action rows, writes decision slot-binding
 deltas, or persists terminal workflow status/currentStep for that phase.
-Create/setup/start remains the last mutating frontend-owned workflow phase.
+At the end of Block 59, create/setup/start was still the last mutating
+frontend-owned workflow phase; Block 60 supersedes that status below.
 New backend finalization modules were added below the hard oversized threshold;
 no new oversized source allowlist entry was added.
+
+## Block 60 Update
+
+Queue workflow create/setup/start moved to backend-owned StepPlan/StepResult
+modules. The backend start step owns workflow start/reuse/conflict, explicit
+upstream/downstream task materialization, dependency-edge creation, upstream
+run-settings setup, upstream promotion, Queue control gating, upstream worker
+start, action-ledger rows, slot-binding merge, and the transition to
+`run_start` / `awaiting_worker_completion`.
+
+The backend start step was then split before commit so the facade and focused
+modules stay well below the hard oversized threshold:
+
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step.rs`
+  is an 8-line facade.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_apply.rs`
+  is 107 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_materialize.rs`
+  is 108 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_plan.rs`
+  is 88 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_projection.rs`
+  is 330 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_promote.rs`
+  is 60 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_settings.rs`
+  is 60 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_state.rs`
+  is 445 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_support.rs`
+  is 503 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_types.rs`
+  is 161 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_worker.rs`
+  is 149 lines.
+- `apps/desktop/src-tauri/src/agent_queue_workflow_start_step_dto.rs` is 183
+  lines.
+- `apps/desktop/frontend/src/workspace/tauriAgentQueueWorkflowStartStepApi.ts`
+  is 139 lines.
+- `apps/desktop/frontend/src/workspace/types/agentQueueWorkflowStartStep.ts`
+  is 72 lines.
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerBackendCreateSetupStartPhase.ts`
+  is 446 lines.
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowCreateSetupStartStepTestHelpers.ts`
+  is 202 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_tests/start_step_tests.rs`
+  is 364 lines.
+
+Existing oversized files received only minimal wiring/import/export changes.
+No Queue UI behavior, visual-shell behavior, storage schema, scheduler/
+autodispatch, downstream mutation, natural-language routing, id inference, raw
+confirmation-token persistence, or synthetic widget-run behavior changed. No
+new oversized source allowlist entry was added and no allowlist limit was
+increased.
 
 ## Refactor Priority Plan
 

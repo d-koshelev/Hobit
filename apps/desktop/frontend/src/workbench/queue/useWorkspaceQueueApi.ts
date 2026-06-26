@@ -48,8 +48,9 @@ import {
   recordAgentQueueWorkflowWorkerEvidence,
   startAgentQueueWorkflow,
 } from "../../workspace/tauriAgentQueueWorkflowApi";
-import { executeAgentQueueWorkflowFinalizationStep } from "../../workspace/tauriAgentQueueWorkflowFinalizationStepApi";
 import { executeAgentQueueWorkflowReviewStep } from "../../workspace/tauriAgentQueueWorkflowReviewStepApi";
+import { executeAgentQueueWorkflowCreateSetupStartStep } from "../../workspace/tauriAgentQueueWorkflowStartStepApi";
+import { executeAgentQueueWorkflowFinalizationStep } from "../../workspace/tauriAgentQueueWorkflowFinalizationStepApi";
 import {
   createWorkspaceAgentQueueBridge,
   type WorkspaceAgentQueueAutonomousActionName,
@@ -538,9 +539,8 @@ export function useWorkspaceQueueApi({
     ingestQueueLinkedDirectWorkEvidence,
     invokeHobitAgentActionRequest,
     queueWorkflowPersistence: {
-      planAgentQueueWorkflowResume,
-      executeAgentQueueWorkflowFinalizationStep,
-      executeAgentQueueWorkflowReviewStep,
+      planAgentQueueWorkflowResume, executeAgentQueueWorkflowCreateSetupStartStep,
+      executeAgentQueueWorkflowFinalizationStep, executeAgentQueueWorkflowReviewStep,
       executeAgentQueueWorkflowWorkerEvidenceStep,
       recordAgentQueueWorkflowRunnerReport,
       startAgentQueueWorkflow,

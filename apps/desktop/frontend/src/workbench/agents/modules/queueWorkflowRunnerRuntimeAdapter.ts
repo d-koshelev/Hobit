@@ -6,19 +6,13 @@ import {
   isLegacyFrontendQueueWorkflowPhase,
 } from "./queueWorkflowBackendStepDispatcher";
 import type {
-  AgentQueueWorkflowJsonValue,
-  AgentQueueWorkflowFinalizationStepResult,
-  AgentQueueWorkflowResumePlan,
-  AgentQueueWorkflowReviewStepResult,
-  AgentQueueWorkflowRunnerReportRecordResult,
-  AgentQueueWorkflowStartResult,
-  AgentQueueWorkflowWorkerEvidenceStepResult,
-  ExecuteAgentQueueWorkflowFinalizationStepRequest,
-  ExecuteAgentQueueWorkflowReviewStepRequest,
-  RecordAgentQueueWorkflowRunnerReportAction,
-  RecordAgentQueueWorkflowRunnerReportRequest,
-  RecordAgentQueueWorkflowWorkerEvidenceRequest,
-  StartAgentQueueWorkflowRequest,
+  AgentQueueWorkflowCreateSetupStartStepResult,
+  AgentQueueWorkflowFinalizationStepResult, AgentQueueWorkflowJsonValue,
+  AgentQueueWorkflowResumePlan, AgentQueueWorkflowReviewStepResult,
+  AgentQueueWorkflowRunnerReportRecordResult, AgentQueueWorkflowStartResult, AgentQueueWorkflowWorkerEvidenceStepResult,
+  ExecuteAgentQueueWorkflowCreateSetupStartStepRequest, ExecuteAgentQueueWorkflowFinalizationStepRequest,
+  ExecuteAgentQueueWorkflowReviewStepRequest, RecordAgentQueueWorkflowRunnerReportAction,
+  RecordAgentQueueWorkflowRunnerReportRequest, RecordAgentQueueWorkflowWorkerEvidenceRequest, StartAgentQueueWorkflowRequest,
 } from "../../../workspace/types";
 import {
   runQueueWorkflowCreateSetupStartRunner,
@@ -64,6 +58,7 @@ export type QueueWorkflowPersistencePort = {
   executeAgentQueueWorkflowWorkerEvidenceStep?: (
     request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
   ) => Promise<AgentQueueWorkflowWorkerEvidenceStepResult>;
+  executeAgentQueueWorkflowCreateSetupStartStep?: (request: ExecuteAgentQueueWorkflowCreateSetupStartStepRequest) => Promise<AgentQueueWorkflowCreateSetupStartStepResult>;
   executeAgentQueueWorkflowReviewStep?: (
     request: ExecuteAgentQueueWorkflowReviewStepRequest,
   ) => Promise<AgentQueueWorkflowReviewStepResult>;
@@ -94,7 +89,7 @@ export type QueueWorkflowRunnerRuntimeResult = {
   persistentStatus?: string | null;
   phase: QueueWorkflowRunnerRuntimePhase | null;
   phasesExecuted: readonly string[];
-  evidenceStepResult?: AgentQueueWorkflowWorkerEvidenceStepResult;
+  evidenceStepResult?: AgentQueueWorkflowWorkerEvidenceStepResult; createSetupStartStepResult?: AgentQueueWorkflowCreateSetupStartStepResult;
   finalizationStepResult?: AgentQueueWorkflowFinalizationStepResult;
   reviewStepResult?: AgentQueueWorkflowReviewStepResult;
   recordResult?: AgentQueueWorkflowRunnerReportRecordResult;
@@ -328,62 +323,66 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
         workflowId: request.workflowId,
       });
     }
-    const startResult = await workflowPersistence.startAgentQueueWorkflow(
-      startRequestForWorkflow({
-        actorId: actorId?.trim() || DEFAULT_ACTOR_ID,
-        phase: selectedPhase,
-        request: baseRunnerRequest,
-        workspaceId: normalizedWorkspaceId,
-      }),
-    );
-    workflowStartStatus = startResult.status;
-    workflowRunId = startResult.workflowRun?.workflowRunId ?? null;
-    persistentStatus = startResult.workflowRun?.status ?? null;
+    if (selectedPhase === "create_setup_start" && isBackendOwnedQueueWorkflowPhase(selectedPhase)) {
+      persistenceStatus = "backend_start_pending";
+    } else {
+      const startResult = await workflowPersistence.startAgentQueueWorkflow(
+        startRequestForWorkflow({
+          actorId: actorId?.trim() || DEFAULT_ACTOR_ID,
+          phase: selectedPhase,
+          request: baseRunnerRequest,
+          workspaceId: normalizedWorkspaceId,
+        }),
+      );
+      workflowStartStatus = startResult.status;
+      workflowRunId = startResult.workflowRun?.workflowRunId ?? null;
+      persistentStatus = startResult.workflowRun?.status ?? null;
 
-    if (startResult.status === "conflict") {
-      return notInvoked({
-        blockers: [
-          startResult.conflict?.conflictMessage ??
-            "Queue workflow requestId conflicts with a different persisted request hash.",
-        ],
-        moduleId: request.moduleId,
-        persistenceStatus: "conflict",
-        persistentStatus,
-        requestHashConflict: startResult.conflict,
-        requestId: request.requestId,
-        status: "blocked",
-        summary:
-          "Queue workflow requestId/hash conflict; Queue workflow runner was not invoked.",
-        validationReasons: validation.reasons,
-        validationStatus: validation.status,
-        workflowId: request.workflowId,
-        workflowRunId,
-        workflowStartStatus,
-      });
+      if (startResult.status === "conflict") {
+        return notInvoked({
+          blockers: [
+            startResult.conflict?.conflictMessage ??
+              "Queue workflow requestId conflicts with a different persisted request hash.",
+          ],
+          moduleId: request.moduleId,
+          persistenceStatus: "conflict",
+          persistentStatus,
+          requestHashConflict: startResult.conflict,
+          requestId: request.requestId,
+          status: "blocked",
+          summary:
+            "Queue workflow requestId/hash conflict; Queue workflow runner was not invoked.",
+          validationReasons: validation.reasons,
+          validationStatus: validation.status,
+          workflowId: request.workflowId,
+          workflowRunId,
+          workflowStartStatus,
+        });
+      }
+
+      if (!startResult.workflowRun || startResult.status === "invalid_input") {
+        return notInvoked({
+          blockers: [
+            startResult.blocker?.blockerMessage ??
+              "Queue workflow start failed before runner invocation.",
+          ],
+          moduleId: request.moduleId,
+          persistenceStatus: startResult.status,
+          requestId: request.requestId,
+          status: "blocked",
+          summary:
+            "Queue workflow start failed; Queue workflow runner was not invoked.",
+          validationReasons: validation.reasons,
+          validationStatus: validation.status,
+          workflowId: request.workflowId,
+          workflowRunId,
+          workflowStartStatus,
+        });
+      }
+
+      persistenceStatus =
+        startResult.status === "already_exists" ? "reused" : "started";
     }
-
-    if (!startResult.workflowRun || startResult.status === "invalid_input") {
-      return notInvoked({
-        blockers: [
-          startResult.blocker?.blockerMessage ??
-            "Queue workflow start failed before runner invocation.",
-        ],
-        moduleId: request.moduleId,
-        persistenceStatus: startResult.status,
-        requestId: request.requestId,
-        status: "blocked",
-        summary:
-          "Queue workflow start failed; Queue workflow runner was not invoked.",
-        validationReasons: validation.reasons,
-        validationStatus: validation.status,
-        workflowId: request.workflowId,
-        workflowRunId,
-        workflowStartStatus,
-      });
-    }
-
-    persistenceStatus =
-      startResult.status === "already_exists" ? "reused" : "started";
   }
 
   if (isBackendOwnedQueueWorkflowPhase(selectedPhase)) {
@@ -397,7 +396,7 @@ export async function runQueueWorkflowRunnerRuntimeAdapter({
       validationReasons: validation.reasons,
       validationStatus: validation.status,
       workflowPersistence,
-      workflowRunId: workflowRunId!,
+      workflowRunId,
       workspaceId: normalizedWorkspaceId,
       workflowStartStatus,
     });

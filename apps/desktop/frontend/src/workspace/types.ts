@@ -3,6 +3,7 @@ export * from "./types/agentExecutor";
 export * from "./types/agentQueue";
 export * from "./types/agentQueueWorkflowFinalizationStep";
 export * from "./types/agentQueueWorkflowReviewStep";
+export * from "./types/agentQueueWorkflowStartStep";
 export * from "./types/core";
 export * from "./types/coordinatorProvider";
 export * from "./types/git";

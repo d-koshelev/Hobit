@@ -71,8 +71,10 @@ action rows. Resume planning reads persisted workflow state and durable Queue
 facts to return a typed plan/blocker; it does not execute workflow steps.
 Runner-report recording may update only the workflow run/action ledgers with
 bounded status, phase/step, blocker, variable/slot-binding, mutation-ref, and
-idempotent action-summary state for supported create/setup/start,
-worker-evidence, read/review/finalization runner phases.
+idempotent action-summary state for legacy read/report compatibility.
+Create/setup/start, worker-evidence, review, and finalization transition state
+is produced by backend StepPlan/StepResult paths, not by frontend report
+synthesis.
 Slot bindings are backend-owned recovery bindings, not frontend runner
 variables. Runner-report recording must merge incoming binding fields into the
 existing binding, preserve existing non-null task/spec/dependency/settings/
@@ -119,17 +121,27 @@ runtime adapter. No public append-event command exists; action-ledger mutation
 remains backend-internal. Persisted grant summaries and runner reports must not
 store reusable confirmation tokens or secrets.
 
-The Queue workflow runtime adapter may call materialization, run-settings
-setup, promotion, control-state read, and assigned-task worker start only
-through typed backend/Tauri APIs for the create/setup/start phase. These calls
-do not expose new Workspace Agent broker capabilities, do not route natural
-language, and do not use UI state as Queue truth. The phase must stop after
-persisting/reusing the upstream worker run id and reporting
-`awaiting_worker_completion` / `worker_running`; downstream start remains
-separate work.
+Workflow-owned create/setup/start is a backend/domain StepPlan/StepResult
+transition. Planning and execution must share the same resolver, canonical
+request hash, task/dependency/settings/execution-target hashes, Queue control
+snapshot, blockers, action-ledger model, and slot-binding merge behavior.
+Execution starts or reuses the workflow run by `workspaceId + requestId +
+requestHash`, materializes explicit upstream/downstream slots, creates explicit
+dependency edges, applies upstream run settings, promotes only upstream,
+checks backend Queue control, starts only the upstream worker with canonical
+`start_worker` refs, stores `runId`, and pauses at `run_start` /
+`awaiting_worker_completion`. Same request id with a different typed snapshot
+is a backend conflict. Expected blockers are stored on focused action rows
+when possible. The frontend workflow path must call this step instead of raw
+materialization/settings/promote/start ports, must not synthesize create/setup/
+start action rows, must not write slot-binding deltas, and must not decide
+persistent workflow status/currentStep. The step does not record evidence,
+create/ACK reviews, finalize, validate, mutate Git, roll back, launch Terminal,
+schedule work, create synthetic widget runs, infer ids from prose/UI/order/
+path, or start downstream work.
 
 Workflow-owned worker evidence recording is a separate narrow backend/domain
-path and is the first backend-owned workflow transition step. It requires
+path. It requires
 explicit `workspaceId`, `workflowRunId`, `slot`, `taskId`, `runId`, bounded
 worker final status/outcome/summary input, and an exact workflow action
 idempotency key. The default key is
@@ -195,29 +207,33 @@ require a `widget_runs` row and no synthetic widget run is created. Raw
 confirmation tokens must not be stored in workflow JSON, action refs, reports,
 logs, or debug projections.
 
-The typed Queue workflow runtime adapter now delegates `worker_evidence`,
-`review`, and `finalization` dependency-smoke transitions to backend
-StepResult APIs through a thin frontend backend-step dispatcher. It resumes
-from an explicit `metadata.workflowRunId`, calls the read-only resume planner
-before continuation phases, invokes the backend step when the backend plan
-marks that step ready/retryable, and projects the returned StepResult for
+The typed Queue workflow runtime adapter now delegates `create_setup_start`,
+`worker_evidence`, `review`, and `finalization` dependency-smoke transitions
+to backend StepResult APIs through a thin frontend backend-step dispatcher.
+For initial requests, the adapter passes the structured workflow request to
+the backend create/setup/start step without independently starting the workflow
+run. For continuations, it resumes from an explicit
+`metadata.workflowRunId`, calls the read-only resume planner before
+continuation phases, invokes the backend step when the backend plan marks that
+step ready/retryable, and projects the returned StepResult for
 activity/report/debug display. For those backend-owned phases, the frontend
-does not call raw evidence/review/finalization mutation ports, inspect local
-Queue aggregates or local evidence/message/decision refs to decide
-executability, synthesize workflow action rows, write slot-binding deltas,
-persist authoritative workflow status/currentStep, repair stale actions, or
-turn typed backend blockers into generic runner-failed action rows. Backend
-StepResult action snapshots may remain visible as backend-owned debug/report
-data.
+does not call raw materialization/settings/promote/start/evidence/review/
+finalization mutation ports, inspect local Queue aggregates or local refs to
+decide executability, synthesize workflow action rows, write slot-binding
+deltas, persist authoritative workflow status/currentStep, repair stale
+actions, or turn typed backend blockers into generic runner-failed action
+rows. Backend StepResult action snapshots may remain visible as backend-owned
+debug/report data.
 
 The frontend phase boundary is:
 
-- `backendOwnedPhases`: `worker_evidence`, `review`, `finalization`.
-- `legacyFrontendPhases`: `create_setup_start`, `read`.
+- `backendOwnedPhases`: `create_setup_start`, `worker_evidence`, `review`,
+  `finalization`.
+- `legacyFrontendPhases`: `read`.
 
-Create/setup/start remains the last mutating frontend-owned workflow phase. No
-new mutating workflow phase may be added to frontend orchestration; future
-mutating phases must start as backend/domain StepPlan/StepResult commands with
+All mutating dependency-smoke workflow phases are backend-owned. No new
+mutating workflow phase may be added to frontend orchestration; future mutating
+phases must start as backend/domain StepPlan/StepResult commands with
 frontend request normalization and projection only.
 
 Resume planning must reconcile only explicit persisted bindings and variables:

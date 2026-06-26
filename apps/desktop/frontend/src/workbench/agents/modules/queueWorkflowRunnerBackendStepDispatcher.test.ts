@@ -1,5 +1,6 @@
 import adapterSource from "./queueWorkflowRunnerRuntimeAdapter.ts?raw";
 import dispatcherSource from "./queueWorkflowBackendStepDispatcher.ts?raw";
+import createSetupStartPhaseSource from "./queueWorkflowRunnerBackendCreateSetupStartPhase.ts?raw";
 import reviewPhaseSource from "./queueWorkflowRunnerBackendReviewPhase.ts?raw";
 
 import { describe, expect, it, vi } from "vitest";
@@ -11,6 +12,7 @@ import {
 } from "../broker";
 import type {
   AgentQueueItemAggregate,
+  AgentQueueWorkflowCreateSetupStartStepResult,
   AgentQueueWorkflowRun,
   AgentQueueWorkflowWorkerEvidenceStepResult,
 } from "../../../workspace/types";
@@ -28,14 +30,109 @@ import { reviewStepResult } from "./queueWorkflowRunnerReviewStepTestHelpers";
 describe("QueueWorkflowRunner backend step dispatcher", () => {
   it("declares backend-owned and legacy frontend phase boundaries", () => {
     expect(backendOwnedQueueWorkflowPhases).toEqual([
+      "create_setup_start",
       "worker_evidence",
       "review",
       "finalization",
     ]);
-    expect(legacyFrontendQueueWorkflowPhases).toEqual([
-      "create_setup_start",
-      "read",
-    ]);
+    expect(legacyFrontendQueueWorkflowPhases).toEqual(["read"]);
+  });
+
+  it("delegates initial create_setup_start to backend without raw Queue ports or local report synthesis", async () => {
+    const rawMaterialize = vi.fn();
+    const rawSettings = vi.fn();
+    const rawPromote = vi.fn();
+    const rawStart = vi.fn();
+    const persistence = workflowPersistence();
+
+    const result = await runAdapter({
+      queueBridge: queueBridge({
+        applyWorkflowRunSettings: rawSettings,
+        getQueueControlState: vi.fn(),
+        materializeWorkflowTaskSlot: rawMaterialize,
+        promoteWorkflowTaskSlot: rawPromote,
+        startWorkflowAssignedTask: rawStart,
+      }),
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          grant: {
+            ...validGrant("queue_acceptance_smoke"),
+            confirmationToken: "operator-confirmed",
+          },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      invoked: true,
+      phase: "create_setup_start",
+      status: "paused",
+      workflowRunId: "queue-workflow-run-1",
+    });
+    expect(
+      persistence.executeAgentQueueWorkflowCreateSetupStartStep,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        confirmationToken: "operator-confirmed",
+        requestId: "workflow-request-1",
+        workflowId: "dependency_acceptance_smoke",
+        workflowRunId: null,
+        workspaceId: "workspace-1",
+      }),
+    );
+    expect(persistence.startAgentQueueWorkflow).not.toHaveBeenCalled();
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
+    expect(rawMaterialize).not.toHaveBeenCalled();
+    expect(rawSettings).not.toHaveBeenCalled();
+    expect(rawPromote).not.toHaveBeenCalled();
+    expect(rawStart).not.toHaveBeenCalled();
+    expect(result.runnerResult?.report.createSetupStart).toMatchObject({
+      start: { runId: "run-upstream", status: "started" },
+      status: "awaiting_worker_completion",
+      upstreamTaskId: "task-upstream",
+      downstreamTaskId: "task-downstream",
+    });
+  });
+
+  it("surfaces create_setup_start backend blockers unchanged", async () => {
+    const persistence = workflowPersistence({
+      executeAgentQueueWorkflowCreateSetupStartStep: vi.fn(async (request) =>
+        createSetupStartStepResult({
+          request,
+          status: "blocked_precondition",
+          blocker: {
+            blockerCode: "blocked_control_disabled",
+            blockerMessage:
+              "Queue control state is disabled; enable manual Queue control before starting workers.",
+            missingRequiredField: null,
+          },
+        }),
+      ),
+    });
+
+    const result = await runAdapter({
+      workflowPersistence: persistence,
+      workflowRequestRead: validRead(
+        workflowRequest({
+          grant: {
+            ...validGrant("queue_acceptance_smoke"),
+            confirmationToken: "operator-confirmed",
+          },
+        }),
+      ),
+    });
+
+    expect(result).toMatchObject({
+      blockers: [
+        "Queue control state is disabled; enable manual Queue control before starting workers.",
+      ],
+      invoked: true,
+      phase: "create_setup_start",
+      status: "blocked",
+    });
+    expect(result.runnerResult?.status).toBe("blocked_queue_control");
+    expect(persistence.recordAgentQueueWorkflowRunnerReport).not.toHaveBeenCalled();
   });
 
   it("delegates worker_evidence to the backend step without raw evidence mutation or report synthesis", async () => {
@@ -317,7 +414,7 @@ describe("QueueWorkflowRunner backend step dispatcher", () => {
     expect(adapterSource).not.toContain("queue.review.ack");
     expect(adapterSource).not.toContain("queue.lifecycle.agentFinished");
 
-    const backendOwnedSources = `${dispatcherSource}\n${reviewPhaseSource}`;
+    const backendOwnedSources = `${dispatcherSource}\n${createSetupStartPhaseSource}\n${reviewPhaseSource}`;
     const forbiddenFragments = [
       "AgentQueueV2Board",
       "AgentQueuePlaceholderWidget",
@@ -329,6 +426,14 @@ describe("QueueWorkflowRunner backend step dispatcher", () => {
       "recordAgentQueueWorkflowRunnerReport",
       "slotBindings:",
       "currentStep:",
+      "actionType: \"create_task\"",
+      "actionType: \"update_run_settings\"",
+      "actionType: \"promote_task\"",
+      "actionType: \"start_worker\"",
+      "materializeTaskSlot",
+      "applyRunSettings",
+      "promoteTaskSlot",
+      "startWorkerForSlot",
       "queue.workflow.runner",
       "queue.lifecycle.agentFinished",
       "record_worker_evidence",
@@ -388,6 +493,9 @@ function workflowPersistence(
   overrides: Partial<QueueWorkflowPersistencePort> = {},
 ): QueueWorkflowPersistencePort {
   return {
+    executeAgentQueueWorkflowCreateSetupStartStep: vi.fn(async (request) =>
+      createSetupStartStepResult({ request }),
+    ),
     executeAgentQueueWorkflowReviewStep: vi.fn(async (request) =>
       reviewStepResult({ request }),
     ),
@@ -419,6 +527,161 @@ function workflowPersistence(
       }),
     })),
     ...overrides,
+  };
+}
+
+function createSetupStartStepResult({
+  request,
+  status = "executed",
+  blocker = null,
+}: {
+  request: Parameters<
+    NonNullable<
+      QueueWorkflowPersistencePort["executeAgentQueueWorkflowCreateSetupStartStep"]
+    >
+  >[0];
+  status?: "executed" | "already_applied" | "blocked_precondition";
+  blocker?: {
+    blockerCode: string;
+    blockerMessage: string;
+    missingRequiredField: string | null;
+  } | null;
+}): AgentQueueWorkflowCreateSetupStartStepResult {
+  const success = status === "executed" || status === "already_applied";
+  const workflowRunId = request.workflowRunId ?? "queue-workflow-run-1";
+  const runIdsBySlot: Record<string, string> = success
+    ? { upstream: "run-upstream" }
+    : {};
+  return {
+    actions: {
+      createTaskDownstream: workflowAction({
+        actionId: "action-create-downstream",
+        actionType: "create_task",
+        idempotencyKey: `${workflowRunId}:create_task:downstream:hash-downstream`,
+        status: "completed",
+        workflowRunId,
+      }),
+      createTaskUpstream: workflowAction({
+        actionId: "action-create-upstream",
+        actionType: "create_task",
+        idempotencyKey: `${workflowRunId}:create_task:upstream:hash-upstream`,
+        status: "completed",
+        workflowRunId,
+      }),
+      promoteTask: workflowAction({
+        actionId: "action-promote",
+        actionType: "promote_task",
+        idempotencyKey: `${workflowRunId}:promote_task:upstream:hash-upstream:settings-hash`,
+        status: "completed",
+        workflowRunId,
+      }),
+      startWorker: workflowAction({
+        actionId: "action-start",
+        actionType: "start_worker",
+        blockerCode: blocker?.blockerCode ?? null,
+        blockerMessage: blocker?.blockerMessage ?? null,
+        idempotencyKey: `${workflowRunId}:start_worker:task-upstream:target-hash:settings-hash`,
+        status: success ? "completed" : "blocked",
+        workflowRunId,
+      }),
+      updateRunSettings: workflowAction({
+        actionId: "action-settings",
+        actionType: "update_run_settings",
+        idempotencyKey: `${workflowRunId}:update_run_settings:upstream:settings-hash`,
+        status: "completed",
+        workflowRunId,
+      }),
+    },
+    blockers: blocker ? [blocker] : [],
+    conflict: null,
+    downstreamVerification: {
+      dependencyEdgeExists: true,
+      downstreamNotStarted: true,
+      downstreamRunIdAbsent: true,
+      downstreamTaskExists: true,
+      downstreamTaskId: "task-downstream",
+    },
+    executionTargetHash: "target-hash",
+    executionTargetKind: "queue_local",
+    nextPhase: "run_start",
+    nextStep: success ? "awaiting_worker_completion" : "start_worker_blocked",
+    providerId: "codex",
+    queueControl: {
+      status: success ? "manual_enabled" : "disabled",
+      version: 1,
+    },
+    requestId: request.requestId,
+    runIdsBySlot,
+    settingsHash: "settings-hash",
+    slotBindingSnapshot: {
+      downstream: {
+        dependencyTaskIds: ["task-upstream"],
+        dependsOnSlots: ["upstream"],
+        taskId: "task-downstream",
+        taskSpecHash: "hash-downstream",
+      },
+      upstream: {
+        executionTargetHash: "target-hash",
+        executionTargetKind: "queue_local",
+        providerId: "codex",
+        ...(runIdsBySlot.upstream ? { runId: runIdsBySlot.upstream } : {}),
+        settingsHash: "settings-hash",
+        taskId: "task-upstream",
+        taskSpecHash: "hash-upstream",
+      },
+    },
+    status,
+    taskIdsBySlot: {
+      downstream: "task-downstream",
+      upstream: "task-upstream",
+    },
+    transition: "create_setup_start",
+    workflowId: request.workflowId,
+    workflowRun: workflowRun({
+      currentStep: success ? "awaiting_worker_completion" : "start_worker_blocked",
+      phase: "run_start",
+      status: success ? "paused" : "blocked",
+      workflowRunId,
+      workspaceId: request.workspaceId,
+    }),
+    workflowRunId,
+  };
+}
+
+function workflowAction({
+  actionId,
+  actionType,
+  blockerCode = null,
+  blockerMessage = null,
+  idempotencyKey,
+  status,
+  workflowRunId,
+}: {
+  actionId: string;
+  actionType: string;
+  blockerCode?: string | null;
+  blockerMessage?: string | null;
+  idempotencyKey: string;
+  status: string;
+  workflowRunId: string;
+}) {
+  return {
+    actionId,
+    actionType,
+    attemptCount: 1,
+    blockerCode,
+    blockerMessage,
+    completedAt: "2026-06-22T00:00:00.000Z",
+    createdAt: "2026-06-22T00:00:00.000Z",
+    idempotencyKey,
+    resultRefsJson: "{}",
+    startedAt: "2026-06-22T00:00:00.000Z",
+    status,
+    stepId: actionType,
+    targetRefsJson: "{}",
+    updatedAt: "2026-06-22T00:00:00.000Z",
+    workflowRunId,
+    workspaceId: "workspace-1",
   };
 }
 

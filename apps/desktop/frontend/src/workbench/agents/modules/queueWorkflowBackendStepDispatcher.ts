@@ -19,10 +19,11 @@ import type {
   QueueWorkflowRunnerRequest,
   QueueWorkflowRunnerResult,
 } from "./queueWorkflowRunner";
+import { executeBackendOwnedCreateSetupStartStep } from "./queueWorkflowRunnerBackendCreateSetupStartPhase";
 
-export const backendOwnedQueueWorkflowPhases = ["worker_evidence", "review", "finalization"] as const satisfies readonly QueueWorkflowRunnerRuntimePhase[];
+export const backendOwnedQueueWorkflowPhases = ["create_setup_start", "worker_evidence", "review", "finalization"] as const satisfies readonly QueueWorkflowRunnerRuntimePhase[];
 
-export const legacyFrontendQueueWorkflowPhases = ["create_setup_start", "read"] as const satisfies readonly QueueWorkflowRunnerRuntimePhase[];
+export const legacyFrontendQueueWorkflowPhases = ["read"] as const satisfies readonly QueueWorkflowRunnerRuntimePhase[];
 
 export type BackendOwnedQueueWorkflowPhase =
   (typeof backendOwnedQueueWorkflowPhases)[number];
@@ -62,10 +63,25 @@ export async function dispatchQueueWorkflowBackendStep({
   validationReasons: readonly string[];
   validationStatus?: string;
   workflowPersistence: QueueWorkflowPersistencePort;
-  workflowRunId: string;
+  workflowRunId: string | null;
   workspaceId: string;
   workflowStartStatus: AgentQueueWorkflowStartResult["status"] | null;
 }): Promise<QueueWorkflowRunnerRuntimeResult> {
+  if (phase === "create_setup_start") {
+    return executeBackendOwnedCreateSetupStartStep({
+      actorId,
+      persistenceStatus,
+      persistentStatus,
+      request,
+      validationReasons,
+      validationStatus,
+      workflowPersistence,
+      workflowRunId,
+      workspaceId,
+      workflowStartStatus,
+    });
+  }
+
   if (phase === "review") {
     return executeBackendOwnedReviewStep({
       actorId,
@@ -76,7 +92,7 @@ export async function dispatchQueueWorkflowBackendStep({
       validationReasons,
       validationStatus,
       workflowPersistence,
-      workflowRunId,
+      workflowRunId: workflowRunId ?? "",
       workspaceId,
       workflowStartStatus,
     });
@@ -92,7 +108,7 @@ export async function dispatchQueueWorkflowBackendStep({
       validationReasons,
       validationStatus,
       workflowPersistence,
-      workflowRunId,
+      workflowRunId: workflowRunId ?? "",
       workspaceId,
       workflowStartStatus,
     });
@@ -107,7 +123,7 @@ export async function dispatchQueueWorkflowBackendStep({
     validationReasons,
     validationStatus,
     workflowPersistence,
-    workflowRunId,
+    workflowRunId: workflowRunId ?? "",
     workspaceId,
     workflowStartStatus,
   });

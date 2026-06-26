@@ -396,6 +396,12 @@ Continuation inputs:
   `inputs.failureReason`. The backend finalization step applies terminal
   failure through `failItem`; do not expect frontend raw `failItem` runner
   actions.
+- Initial create/setup/start: send the structured workflow request without
+  `metadata.workflowRunId`. The runtime adapter delegates this phase to the
+  backend create/setup/start step; do not expect frontend raw
+  materialize/settings/promote/start runner actions, frontend action-row
+  synthesis, frontend slot-binding deltas, or frontend workflow status
+  transitions.
 
 Schematic initial request shape:
 
@@ -480,9 +486,10 @@ plans after the relevant phase persists them.
 2. Send a typed `dependency_acceptance_smoke` initial request with a stable
    `requestId`, typed run settings, typed upstream/downstream task specs, and
    explicit `downstream.dependsOnSlots: ["upstream"]`.
-3. Verify the workflow starts or reuses a durable `workflowRunId`, materializes
-   both slots, applies upstream run settings, promotes upstream, starts only
-   the upstream worker, and pauses at `awaiting_worker_completion` /
+3. Verify the backend create/setup/start step starts or reuses a durable
+   `workflowRunId`, materializes both slots, creates the explicit dependency
+   edge, applies upstream run settings, promotes upstream, starts only the
+   upstream worker, and pauses at `awaiting_worker_completion` /
    `worker_running`.
 4. Capture `workflowRunId`, upstream `taskId`, downstream `taskId`, upstream
    `runId`, settings hash, and action counts from the workflow report.
@@ -504,8 +511,8 @@ plans after the relevant phase persists them.
     `metadata.workflowRunId` and verify resume planning reports
     `terminal_completed` without invoking runner work. Separately, re-submit
     the exact same initial `requestId` and typed hash only to verify
-    `queue.workflow.start` returns/reuses the existing workflow run; do not
-    treat UI state as the proof.
+    the backend create/setup/start step returns/reuses the existing workflow
+    run; do not treat UI state as the proof.
 
 ### Failure Smoke Sequence
 
@@ -513,8 +520,9 @@ plans after the relevant phase persists them.
 2. Send a typed `dependency_failure_smoke` initial request with a stable
    `requestId`, typed run settings, typed upstream/downstream task specs, and
    explicit `downstream.dependsOnSlots: ["upstream"]`.
-3. Verify the workflow reaches `awaiting_worker_completion` /
-   `worker_running` for only the upstream worker.
+3. Verify the backend create/setup/start step reaches
+   `awaiting_worker_completion` / `worker_running` for only the upstream
+   worker.
 4. Capture `workflowRunId`, upstream `taskId`, downstream `taskId`, upstream
    `runId`, settings hash, and action counts from the workflow report.
 5. Continue with `metadata.workflowRunId` and typed upstream
@@ -538,7 +546,8 @@ plans after the relevant phase persists them.
     `metadata.workflowRunId` and verify resume planning reports
     `terminal_completed` without invoking runner work. Separately, re-submit
     the exact same initial `requestId` and typed hash only to verify
-    `queue.workflow.start` returns/reuses the existing workflow run.
+    the backend create/setup/start step returns/reuses the existing workflow
+    run.
 
 ### Restart/Resume Checkpoints
 

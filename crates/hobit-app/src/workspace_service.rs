@@ -73,6 +73,17 @@ mod agent_queue_workflow_materialization;
 mod agent_queue_workflow_resume;
 mod agent_queue_workflow_review;
 mod agent_queue_workflow_setup;
+mod agent_queue_workflow_start_step;
+mod agent_queue_workflow_start_step_apply;
+mod agent_queue_workflow_start_step_materialize;
+mod agent_queue_workflow_start_step_plan;
+mod agent_queue_workflow_start_step_projection;
+mod agent_queue_workflow_start_step_promote;
+mod agent_queue_workflow_start_step_settings;
+mod agent_queue_workflow_start_step_state;
+mod agent_queue_workflow_start_step_support;
+mod agent_queue_workflow_start_step_types;
+mod agent_queue_workflow_start_step_worker;
 #[cfg(test)]
 mod agent_queue_workflow_tests;
 mod coordinator_provider;
@@ -270,6 +281,14 @@ pub use agent_queue_workflow_setup::{
     QueueWorkflowPromoteTaskSlotBindingSummary, QueueWorkflowPromoteTaskSlotRequest,
     QueueWorkflowPromoteTaskSlotResult, QueueWorkflowPromoteTaskSlotStatus,
     QueueWorkflowRunSettings, QueueWorkflowRunSettingsBindingSummary,
+};
+pub use agent_queue_workflow_start_step::{
+    QueueWorkflowCreateSetupStartActionSnapshots,
+    QueueWorkflowCreateSetupStartDownstreamVerification,
+    QueueWorkflowCreateSetupStartQueueControlSnapshot, QueueWorkflowCreateSetupStartStepPlan,
+    QueueWorkflowCreateSetupStartStepPlanAction, QueueWorkflowCreateSetupStartStepRequest,
+    QueueWorkflowCreateSetupStartStepResult, QueueWorkflowCreateSetupStartStepResultStatus,
+    QueueWorkflowCreateSetupStartStepTransition,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;
 pub use coordinator_provider_external::{

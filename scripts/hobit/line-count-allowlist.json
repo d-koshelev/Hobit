@@ -74,7 +74,7 @@
     },
     {
       "path": "apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.test.ts",
-      "currentLineCount": 2738,
+      "currentLineCount": 2696,
       "category": "test",
       "reason": "Runtime adapter tests combine persistence, workflow API, and run-link behavior in one file.",
       "plannedRefactorBlock": "Priority A - split runtime-adapter tests by persistence, workflow API, and run-link ownership.",
@@ -114,7 +114,7 @@
     },
     {
       "path": "apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.ts",
-      "currentLineCount": 1477,
+      "currentLineCount": 1476,
       "category": "source",
       "reason": "Runtime adapter mixes frontend workflow runner persistence, API adapter, and result/report persistence concerns.",
       "plannedRefactorBlock": "Priority A - split runtime adapter by API access, result persistence, and runner handoff.",
@@ -164,7 +164,7 @@
     },
     {
       "path": "apps/desktop/frontend/src/workbench/workspaceAgentBrokerActionRuntime.test.ts",
-      "currentLineCount": 1687,
+      "currentLineCount": 1560,
       "category": "test",
       "reason": "Broker action-runtime tests combine protocol, runtime, and failure-path assertions.",
       "plannedRefactorBlock": "Priority B - split broker action-runtime tests by protocol, execution, and error handling.",

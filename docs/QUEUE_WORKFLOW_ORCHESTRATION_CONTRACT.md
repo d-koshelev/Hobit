@@ -183,15 +183,18 @@ truth.
 
 The runner accepts a Queue workflow request plus its existing Queue workflow
 validation result. For `dependency_acceptance_smoke` and
-`dependency_failure_smoke`, it now has a create/setup/start phase. That phase
-uses only typed ports to materialize the explicit `upstream` and `downstream`
-task slots, apply upstream typed run settings, promote only the upstream task,
-verify backend `QueueControlState=manual_enabled`, start only the explicit
-upstream worker with a structured workflow start context, persist bounded
-report/action summaries, and pause at `awaiting_worker_completion` /
-`worker_running`. That phase never records evidence, creates or ACKs reviews,
-finalizes, starts downstream, runs validation, mutates Git, launches Terminal,
-or schedules work.
+`dependency_failure_smoke`, create/setup/start is now a backend-owned
+StepPlan/StepResult transition. The frontend runtime adapter validates and
+normalizes the structured workflow envelope, invokes the backend
+create/setup/start step, and projects the returned StepResult for
+display/report compatibility only. Backend/domain owns workflow start/reuse/
+conflict, explicit `upstream` and `downstream` task materialization,
+dependency-edge creation, upstream run-settings setup, upstream promotion,
+Queue control gating, upstream worker start, action-ledger rows, slot-binding
+merge, and the workflow transition to `run_start` /
+`awaiting_worker_completion`. The step never records evidence, creates or ACKs
+reviews, finalizes, starts downstream, runs validation, mutates Git, launches
+Terminal, or schedules work.
 
 The `worker_evidence` transition for dependency smoke workflows is fully
 backend-owned through the frontend runtime boundary. The runtime adapter uses a
@@ -238,9 +241,16 @@ prompts, prose, UI selection, UI order, file paths, or repository roots.
 
 The read-only phase uses only an injected `QueueWorkflowReadPort` with read
 methods for Queue aggregate, lifecycle, list, and evidence inspection. The
-worker-evidence, review, and finalization phases are owned by backend
-StepPlan/StepResult APIs and are not implemented through frontend
-phase-specific mutation logic.
+create/setup/start, worker-evidence, review, and finalization phases are
+owned by backend StepPlan/StepResult APIs and are not implemented through
+frontend phase-specific mutation logic.
+For create/setup/start, the runtime adapter passes the structured workflow
+request, safe grant summary, fresh exact confirmation token, and optional
+workflow run/version context to the backend step, then renders the returned
+StepResult. It does not call raw frontend materialization/settings/promote/
+worker-start ports, synthesize create/setup/start action ledger rows, write
+slot-binding deltas, derive persistent workflow status/currentStep, or persist
+raw confirmation tokens.
 For review, the runtime adapter passes `workflowRunId`, optional slot, fresh
 grant summary, actor, and request id to the backend review step, then renders
 the returned StepResult; it does not inspect local evidence/message refs before
@@ -264,14 +274,15 @@ Action Broker invocation, or Queue adapter mutation handlers.
 
 The current frontend boundary is explicit:
 
-- `backendOwnedPhases`: `worker_evidence`, `review`, `finalization`.
-- `legacyFrontendPhases`: `create_setup_start`, `read`.
+- `backendOwnedPhases`: `create_setup_start`, `worker_evidence`, `review`,
+  `finalization`.
+- `legacyFrontendPhases`: `read`.
 
-Create/setup/start remains the last mutating frontend-owned workflow phase. No
-new mutating phase may be added to frontend orchestration. Future mutating
-phase work must add a backend/domain StepPlan/StepResult path first, then
-expose only typed request normalization, backend command invocation, and
-StepResult projection in the frontend runtime adapter.
+All mutating dependency-smoke workflow phases are backend-owned. No new
+mutating phase may be added to frontend orchestration. Future mutating phase
+work must add a backend/domain StepPlan/StepResult path first, then expose
+only typed request normalization, backend command invocation, and StepResult
+projection in the frontend runtime adapter.
 
 Read-only runner results are structured as `completed`, `blocked`, `paused`,
 `invalid_request`, `unavailable`, or `failed_unexpected` with workflow-local
@@ -338,9 +349,9 @@ through the backend finalization step. The runner does not enable Queue, record
 worker evidence outside the backend worker-evidence step, block, add follow-up
 prompts, approve validation, run validation, mutate Git, execute rollback,
 launch Terminal, call shell/Codex, start downstream work, or add scheduler
-behavior. Its only remaining frontend-owned task create/settings/promote/start
-mutations are the create/setup/start phase above, scoped to explicit
-dependency-smoke slots and typed workflow start context.
+behavior. It has no frontend-owned task create/settings/promote/start
+mutations for dependency-smoke workflows; create/setup/start is invoked as a
+backend step and projected for display only.
 
 ## Queue Workflow Persistence MVP
 
@@ -352,9 +363,9 @@ execution failure and must not be interpreted as Queue task terminal failure.
 
 The public backend/Tauri/frontend workflow API surface is limited to
 start/get/list/cancel/report/planResume, narrow runner-report recording, the
-backend-owned workflow setup primitives consumed by the Queue workflow runtime
-adapter, and the narrow workflow-owned worker evidence record/reconcile
-command:
+backend-owned create/setup/start StepPlan/StepResult command, lower-level
+workflow setup primitives retained as narrow typed backend APIs, and the
+narrow workflow-owned worker evidence record/reconcile command:
 
 - `queue.workflow.start` creates or reuses a workflow-run record only. It is
   idempotent for the same `workspaceId + requestId` when the stable request
@@ -412,6 +423,19 @@ command:
   reporting `retryable_worker_evidence_failure`,
   `retryable_worker_evidence_action_repair`, or
   `waiting_for_worker_evidence`.
+- `queue.workflow.executeCreateSetupStartStep` executes the backend-owned
+  create/setup/start StepPlan/StepResult transition for dependency smoke
+  workflows. It starts or reuses the workflow run by canonical request hash,
+  blocks same-request/different-hash conflicts, materializes explicit
+  upstream/downstream slots, writes the explicit dependency edge, applies
+  upstream run settings, promotes upstream, checks backend Queue control,
+  starts only the upstream worker with canonical `start_worker` refs, merges
+  slot bindings, records focused action-ledger rows, verifies downstream
+  no-auto-start, and pauses at `run_start` /
+  `awaiting_worker_completion`. It shares resolver logic with planning and
+  must not record worker evidence, create/ACK reviews, finalize, validate,
+  mutate Git, launch Terminal, create synthetic widget runs, infer ids from
+  prose/UI/order/path, schedule work, or start downstream.
 - `queue.workflow.executeWorkerEvidenceStep` records or reconciles durable
   worker evidence for one explicit workflow slot through a backend-owned
   StepPlan/StepResult transition. It requires `workspaceId`, `workflowRunId`,
@@ -472,8 +496,8 @@ command:
   arbitrary failed/blocked phases, mismatched workspace/task/run refs, unknown
   worker state, and active running workers remain blockers.
 - `queue.workflow.recordRunnerReport` records bounded runtime-adapter report
-  state and action-ledger summaries for supported create/setup/start and
-  read runner phases. Worker-evidence, review, and finalization durable
+  state and action-ledger summaries for legacy read/report compatibility.
+  Create/setup/start, worker-evidence, review, and finalization durable
   transition state is produced by backend StepResult paths, not by frontend
   report synthesis. Report persistence may update only
   `agent_queue_workflow_runs` and `agent_queue_workflow_actions`; it must not
@@ -487,10 +511,12 @@ command:
   but cannot overwrite backend-rich recovery bindings.
 - `queue.workflow.materializeTaskSlot`,
   `queue.workflow.applyRunSettings`, and `queue.workflow.promoteTaskSlot` are
-  typed backend-owned workflow primitives exposed only so the runtime adapter
-  can execute create/setup/start. They require `workflowRunId` and `slot`, use
-  explicit typed task specs/run settings, and are not Workspace Agent broker
-  capabilities or natural-language routes.
+  lower-level typed backend-owned workflow primitives retained for narrow
+  backend/Tauri compatibility and direct contract tests. The dependency-smoke
+  frontend workflow path must use `queue.workflow.executeCreateSetupStartStep`
+  instead. They require `workflowRunId` and `slot`, use explicit typed task
+  specs/run settings, and are not Workspace Agent broker capabilities or
+  natural-language routes.
 - `queue.workflow.executeFinalizationStep` executes the backend-owned
   finalization StepPlan/StepResult transition for dependency smoke workflows.
   It requires `workspaceId`, `workflowRunId`, request/actor context, fresh exact
@@ -574,9 +600,9 @@ mismatched dependency edges block resume planning with typed blockers; the
 planner does not repair dependency edges in this MVP. No dependency may be
 inferred from task title, prompt text, order, UI position, file path, or prose.
 
-This method is not exposed as a Workspace Agent broker capability. It is wired
-only through the QueueWorkflowRunner create/setup/start phase and runtime
-adapter with validated typed workflow input; it remains unavailable through
+This method is not exposed as a Workspace Agent broker capability. It is
+invoked for dependency-smoke workflow setup by the backend create/setup/start
+step with validated typed workflow input; it remains unavailable through
 natural-language routing or generic broker capability exposure.
 
 ## Queue Workflow Run Settings / Promote MVP
@@ -699,10 +725,10 @@ slot from `targetRefs.taskId` only when the persisted workflow slot binding maps
 that task id to exactly one slot; ambiguous task-to-slot mappings must block
 instead of guessing.
 
-The QueueWorkflowRunner create/setup/start phase can call this worker-start
-path for only the explicit upstream dependency-smoke task after typed
-materialization, settings, promotion, backend `manual_enabled` verification,
-and exact structured confirmation. It records/reuses the workflow
+The backend create/setup/start step can call this worker-start path for only
+the explicit upstream dependency-smoke task after typed materialization,
+settings, promotion, backend `manual_enabled` verification, and exact
+structured confirmation. It records/reuses the workflow
 `start_worker` action and then pauses at `awaiting_worker_completion` /
 `worker_running`. It does not record worker evidence, create/ACK reviews, mark
 done/fail/block/follow-up, run validation, run Git, launch Terminal, schedule
@@ -1023,8 +1049,9 @@ Product action execution requires structured `hobit.action.request` plus
 Broker policy and backend preconditions.
 Workflow requests require structured `hobit.workflow.request`. The protocol
 runtime validates/classifies the envelope first, and the QueueWorkflowRunner
-runtime adapter can then invoke explicit create/setup/start, worker-evidence,
-read, review, and finalization phases through typed ports for supported
+runtime adapter can then invoke explicit backend-owned create/setup/start,
+worker-evidence, review, and finalization steps, plus the legacy read-only
+phase, through typed ports for supported
 `moduleId: "queue"` workflow requests only.
 Unsupported,
 invalid, or still-deferred workflows do not invoke the runner.
@@ -1041,8 +1068,9 @@ This contract does not implement:
 - rollback execution;
 - Terminal launch;
 - broad worker automation;
-- Queue workflow mutation/execution beyond explicit create/setup/start,
-  worker-evidence, read/review/finalization runner phases;
+- Queue workflow mutation/execution beyond explicit backend-owned
+  create/setup/start, worker-evidence, review/finalization steps and the
+  read-only runner phase;
 - Queue-specific input validation for review/terminal workflows;
 - UI redesign;
 - additional Queue widget/view surfaces.
