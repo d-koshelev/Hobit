@@ -43,6 +43,7 @@ pub(super) fn invalid_result(
         downstream_verification: None,
         blockers: vec![blocker],
         conflict: None,
+        worker_launch_intent: None,
     }
 }
 
@@ -275,6 +276,7 @@ pub(super) fn success_start_step_result(
         downstream_verification,
         blockers: Vec::new(),
         conflict: None,
+        worker_launch_intent: None,
     }
 }
 
@@ -309,6 +311,7 @@ pub(super) fn blocked_start_step_result(
         downstream_verification,
         blockers: vec![blocker],
         conflict: None,
+        worker_launch_intent: None,
     }
 }
 

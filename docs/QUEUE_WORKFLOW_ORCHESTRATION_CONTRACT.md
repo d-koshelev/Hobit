@@ -208,6 +208,22 @@ merge, and the workflow transition to `run_start` /
 reviews, finalizes, starts downstream, runs validation, mutates Git, launches
 Terminal, or schedules work.
 
+For desktop/Tauri execution, the backend create/setup/start StepResult may
+carry an internal worker launch intent when it newly creates a
+`queue_local`/`codex` run link. That intent is not part of the frontend DTO and
+may include the internal Direct Work input needed by the Tauri host. The Tauri
+workflow command consumes only `launchDisposition: newly_started` intents,
+registers the run in the in-session Direct Work active-run registry, starts
+one background Codex Direct Work process, and lets the existing completion
+bridge update `agent_queue_task_run_links` and task status when the process
+finishes, fails, times out, or is cancelled. Already-applied, already-running,
+blocked, conflict, invalid, or disabled-control StepResults must not launch a
+second process. Backend-owned `queue_local` launch and completion do not
+require an Agent Executor widget, Agent Queue widget, or `widget_runs` row.
+The bridge does not record worker evidence, create or ACK reviews, finalize
+the task, start downstream work, run validation, mutate Git, launch Terminal,
+or expose raw prompt/stdout/stderr in workflow DTOs.
+
 The `worker_evidence` transition for dependency smoke workflows is fully
 backend-owned through the frontend runtime boundary. The runtime adapter uses a
 thin backend-step dispatcher for typed request normalization, then calls the
@@ -747,7 +763,10 @@ the explicit upstream dependency-smoke task after typed materialization,
 settings, promotion, backend `manual_enabled` verification, and exact
 structured confirmation. It records/reuses the workflow
 `start_worker` action and then pauses at `awaiting_worker_completion` /
-`worker_running`. It does not record worker evidence, create/ACK reviews, mark
+`worker_running`. On desktop, a newly-started backend-owned `queue_local` run
+is handed to the Tauri launch bridge so the durable run link has an actual
+in-session Codex Direct Work process behind it. It does not record worker
+evidence, create/ACK reviews, mark
 done/fail/block/follow-up, run validation, run Git, launch Terminal, schedule
 workers, or auto-start downstream tasks.
 

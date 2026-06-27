@@ -401,7 +401,10 @@ Continuation inputs:
   backend create/setup/start step; do not expect frontend raw
   materialize/settings/promote/start runner actions, frontend action-row
   synthesis, frontend slot-binding deltas, or frontend workflow status
-  transitions.
+  transitions. In the desktop shell, a newly-started backend-owned
+  `queue_local` worker is handed to the Tauri Direct Work launch bridge so the
+  run link has one real background Codex process; the StepResult projection
+  must not expose the direct work input, prompt, stdout, or stderr.
 
 Schematic initial request shape:
 
@@ -490,12 +493,18 @@ plans after the relevant phase persists them.
    `workflowRunId`, materializes both slots, creates the explicit dependency
    edge, applies upstream run settings, promotes upstream, starts only the
    upstream worker, and pauses at `awaiting_worker_completion` /
-   `worker_running`.
+   `worker_running`. For a newly-started desktop `queue_local` run, verify the
+   Tauri bridge launched exactly one background Direct Work run for the
+   upstream run link; no Agent Executor widget, Agent Queue widget, or
+   `widget_runs` row is required.
 4. Capture `workflowRunId`, upstream `taskId`, downstream `taskId`, upstream
    `runId`, settings hash, and action counts from the workflow report.
-5. After the upstream worker is durably complete, continue with
+5. After the upstream worker run link is terminal through the completion
+   bridge, continue with
    `metadata.workflowRunId` and typed `inputs.workerEvidence` for the
-   `upstream` slot. Use `outcome: "completed"` for acceptance.
+   `upstream` slot. Use `outcome: "completed"` for acceptance. Evidence must
+   remain blocked while the run link is still running and must not be recorded
+   automatically by worker completion.
 6. Verify durable `evidenceBundleId` is recorded/reused and the workflow pauses
    at `awaiting_review`.
 7. Continue with `metadata.workflowRunId` and `inputs.phase: "review"`.
@@ -522,7 +531,9 @@ plans after the relevant phase persists them.
    explicit `downstream.dependsOnSlots: ["upstream"]`.
 3. Verify the backend create/setup/start step reaches
    `awaiting_worker_completion` / `worker_running` for only the upstream
-   worker.
+   worker. For a newly-started desktop `queue_local` run, verify the Tauri
+   bridge launched exactly one background Direct Work run and did not create
+   `widget_runs` or evidence.
 4. Capture `workflowRunId`, upstream `taskId`, downstream `taskId`, upstream
    `runId`, settings hash, and action counts from the workflow report.
 5. Continue with `metadata.workflowRunId` and typed upstream
@@ -565,10 +576,11 @@ duplicate task/start/evidence/review/ACK/finalization is created.
 - After promote: expect idempotent promoted upstream state; no downstream
   start.
 - After `start_worker` / `worker_running`: expect the existing `runId` to be
-  reused or worker state to block safely; no second worker start. For
-  backend-owned `queue_local`, `planResume` and `readActionLog` must not require
-  `executorWidgetId` or an Agent Queue widget, and old missing-slot
-  `start_worker` actions may recover via unambiguous task-to-slot mapping.
+  reused or worker state to block safely; no second worker start or second
+  Tauri launch. For backend-owned `queue_local`, `planResume` and
+  `readActionLog` must not require `executorWidgetId`, an Agent Queue widget,
+  or a `widget_runs` row, and old missing-slot `start_worker` actions may
+  recover via unambiguous task-to-slot mapping.
 - After Block 50H, the live failure smoke at
   `queue-workflow-run-1782257290023621100_163` can retry typed
   `workerEvidence.outcome: "completed"` even when stale non-mutating

@@ -11,6 +11,7 @@ use hobit_app::{
 use crate::agent_queue_execution_dto::{
     GetAgentQueueTaskLatestRunLinkRequest, ListAgentQueueTaskRunLinksRequest,
 };
+use crate::app_state::DirectWorkActiveRun;
 
 #[test]
 fn start_assigned_agent_queue_task_command_helper_starts_direct_work_run() {

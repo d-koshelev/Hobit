@@ -60,6 +60,7 @@ impl WorkspaceService {
                     downstream_verification: None,
                     blockers: Vec::new(),
                     conflict: Some(conflict),
+                    worker_launch_intent: None,
                 });
             }
         };

@@ -288,7 +288,8 @@ pub use agent_queue_workflow_start_step::{
     QueueWorkflowCreateSetupStartQueueControlSnapshot, QueueWorkflowCreateSetupStartStepPlan,
     QueueWorkflowCreateSetupStartStepPlanAction, QueueWorkflowCreateSetupStartStepRequest,
     QueueWorkflowCreateSetupStartStepResult, QueueWorkflowCreateSetupStartStepResultStatus,
-    QueueWorkflowCreateSetupStartStepTransition,
+    QueueWorkflowCreateSetupStartStepTransition, QueueWorkflowWorkerLaunchDisposition,
+    QueueWorkflowWorkerLaunchIntent,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;
 pub use coordinator_provider_external::{

@@ -4,6 +4,9 @@ use hobit_app::WorkspaceService;
 use hobit_storage_sqlite::SqliteStore;
 use tauri::State;
 
+use crate::agent_queue_direct_work_launcher::{
+    spawn_queue_direct_work_background_run, QueueDirectWorkLaunch,
+};
 use crate::agent_queue_workflow_dto::{
     AgentQueueWorkflowApplyRunSettingsResultDto, AgentQueueWorkflowCancelResultDto,
     AgentQueueWorkflowMaterializeTaskSlotResultDto, AgentQueueWorkflowPromoteTaskSlotResultDto,
@@ -209,23 +212,85 @@ pub(crate) fn execute_agent_queue_workflow_worker_evidence_step_blocking(
 #[tauri::command]
 pub(crate) fn execute_agent_queue_workflow_create_setup_start_step(
     request: ExecuteAgentQueueWorkflowCreateSetupStartStepRequest,
+    app: tauri::AppHandle,
     state: State<'_, AppState>,
 ) -> Result<AgentQueueWorkflowCreateSetupStartStepResultDto, String> {
-    execute_agent_queue_workflow_create_setup_start_step_blocking(
+    execute_agent_queue_workflow_create_setup_start_step_with_launch_bridge(
         request,
         state.db_path().to_path_buf(),
+        app,
+        state.direct_work_active_runs(),
     )
 }
 
-pub(crate) fn execute_agent_queue_workflow_create_setup_start_step_blocking(
+pub(crate) fn execute_agent_queue_workflow_create_setup_start_step_with_launch_bridge(
     request: ExecuteAgentQueueWorkflowCreateSetupStartStepRequest,
     db_path: PathBuf,
+    app: tauri::AppHandle,
+    active_runs: crate::app_state::DirectWorkActiveRunRegistry,
 ) -> Result<AgentQueueWorkflowCreateSetupStartStepResultDto, String> {
     let service = workspace_service(&db_path)?;
-    service
+    let result = service
         .execute_queue_workflow_create_setup_start_step(request.into())
-        .map(AgentQueueWorkflowCreateSetupStartStepResultDto::from)
-        .map_err(command_error)
+        .map_err(command_error)?;
+    if let Some(intent) = result.worker_launch_intent.clone() {
+        launch_queue_workflow_worker_intent(intent, db_path, app, active_runs)?;
+    }
+    Ok(AgentQueueWorkflowCreateSetupStartStepResultDto::from(
+        result,
+    ))
+}
+
+#[cfg(test)]
+pub(crate) fn execute_agent_queue_workflow_create_setup_start_step_with_test_launcher<L>(
+    request: ExecuteAgentQueueWorkflowCreateSetupStartStepRequest,
+    db_path: PathBuf,
+    mut launch: L,
+) -> Result<AgentQueueWorkflowCreateSetupStartStepResultDto, String>
+where
+    L: FnMut(hobit_app::QueueWorkflowWorkerLaunchIntent, PathBuf) -> Result<(), String>,
+{
+    let service = workspace_service(&db_path)?;
+    let result = service
+        .execute_queue_workflow_create_setup_start_step(request.into())
+        .map_err(command_error)?;
+    if let Some(intent) = result.worker_launch_intent.clone() {
+        if intent.launch_disposition
+            == hobit_app::QueueWorkflowWorkerLaunchDisposition::NewlyStarted
+            && intent.executor_target_kind == "queue_local"
+        {
+            launch(intent, db_path)?;
+        }
+    }
+    Ok(AgentQueueWorkflowCreateSetupStartStepResultDto::from(
+        result,
+    ))
+}
+
+fn launch_queue_workflow_worker_intent(
+    intent: hobit_app::QueueWorkflowWorkerLaunchIntent,
+    db_path: PathBuf,
+    app: tauri::AppHandle,
+    active_runs: crate::app_state::DirectWorkActiveRunRegistry,
+) -> Result<(), String> {
+    if intent.launch_disposition != hobit_app::QueueWorkflowWorkerLaunchDisposition::NewlyStarted
+        || intent.executor_target_kind != "queue_local"
+    {
+        return Ok(());
+    }
+
+    let _launch_status = spawn_queue_direct_work_background_run(
+        QueueDirectWorkLaunch {
+            workspace_id: intent.workspace_id,
+            queue_item_id: intent.queue_task_id,
+            run_id: intent.run_id,
+            direct_work_input: intent.direct_work_input,
+        },
+        db_path,
+        app,
+        active_runs,
+    )?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -335,3 +400,5 @@ fn command_error(error: impl std::fmt::Display) -> String {
 
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod workflow_launch_bridge_tests;

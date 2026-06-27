@@ -67,6 +67,27 @@ impl DirectWorkActiveRunRegistry {
             .insert(run.run_id.clone(), run);
     }
 
+    pub(crate) fn try_register(&self, run: DirectWorkActiveRun) -> bool {
+        let _active_run_artifact =
+            DirectWorkHostRuntimeBoundarySummary::from_active_run_status(&run.run_id, "active");
+        let mut runs = self
+            .runs
+            .lock()
+            .expect("direct work active run registry lock");
+        if runs.contains_key(&run.run_id) {
+            return false;
+        }
+        runs.insert(run.run_id.clone(), run);
+        true
+    }
+
+    pub(crate) fn has_active_run(&self, run_id: &str) -> bool {
+        self.runs
+            .lock()
+            .expect("direct work active run registry lock")
+            .contains_key(run_id)
+    }
+
     pub(crate) fn request_cancellation(
         &self,
         workspace_id: &str,
@@ -268,5 +289,25 @@ mod tests {
         assert!(!registry.has_active_widget_run("ws_1", "other", "wid_1"));
         assert!(registry.has_active_workspace_run("ws_1"));
         assert!(!registry.has_active_workspace_run("other"));
+    }
+
+    #[test]
+    fn active_run_registry_try_register_rejects_duplicate_run_id() {
+        let registry = DirectWorkActiveRunRegistry::default();
+        assert!(registry.try_register(DirectWorkActiveRun::new(
+            "run_1".to_owned(),
+            "ws_1".to_owned(),
+            "wb_1".to_owned(),
+            "wid_1".to_owned(),
+            CodexDirectStreamCancellationToken::new(),
+        )));
+        assert!(!registry.try_register(DirectWorkActiveRun::new(
+            "run_1".to_owned(),
+            "ws_1".to_owned(),
+            "wb_1".to_owned(),
+            "wid_1".to_owned(),
+            CodexDirectStreamCancellationToken::new(),
+        )));
+        assert!(registry.has_active_run("run_1"));
     }
 }

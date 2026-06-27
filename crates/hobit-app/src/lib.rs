@@ -163,6 +163,7 @@ pub use workspace_service::{
     QueueWorkflowTaskSpec, QueueWorkflowWorkerEvidenceBindingSummary,
     QueueWorkflowWorkerEvidenceStepPlan, QueueWorkflowWorkerEvidenceStepResult,
     QueueWorkflowWorkerEvidenceStepResultStatus, QueueWorkflowWorkerEvidenceStepTransition,
+    QueueWorkflowWorkerLaunchDisposition, QueueWorkflowWorkerLaunchIntent,
     RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
     RecordAgentQueueWorkerFinishedInput, RecordKnowledgeDraftReviewInput,
     RunAgentQueueValidationSuiteInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,

@@ -196,6 +196,7 @@ impl WorkspaceService {
             downstream_verification: None,
             blockers: blocker.into_iter().collect(),
             conflict,
+            worker_launch_intent: None,
         })
     }
 

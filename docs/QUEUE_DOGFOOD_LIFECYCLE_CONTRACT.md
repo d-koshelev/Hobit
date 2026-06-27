@@ -162,10 +162,16 @@ Backend/domain aggregate and review command foundation:
   upstream/downstream slots, applies upstream run settings, promotes upstream,
   verifies backend `manual_enabled`, starts only the explicit upstream worker
   with workflow start context, persists report/action summaries, and pauses at
-  `awaiting_worker_completion` / `worker_running`. It does not record evidence,
-  call `queue.lifecycle.agentFinished`, review/ACK, mark done/fail/block/
-  follow-up, run validation/Git/rollback/Terminal, schedule workers, or
-  auto-start downstream.
+  `awaiting_worker_completion` / `worker_running`. In the desktop shell, a
+  newly-started backend-owned `queue_local` StepResult is bridged to the Tauri
+  Direct Work launcher so one in-session Codex process is actually started and
+  the existing completion bridge updates the Queue run link/task status when
+  that process reaches a terminal state. This bridge does not require Agent
+  Executor, Agent Queue, or `widget_runs`, and it does not create synthetic
+  widget runs. It does not record evidence, call
+  `queue.lifecycle.agentFinished`, review/ACK, mark done/fail/block/follow-up,
+  run validation/Git/rollback/Terminal, schedule workers, or auto-start
+  downstream.
 - Queue workflow worker-evidence recording now exists as the next dependency
   smoke phase after explicit upstream worker completion. It resumes only from
   typed workflow continuation input with exact `workflowRunId`, `slot:

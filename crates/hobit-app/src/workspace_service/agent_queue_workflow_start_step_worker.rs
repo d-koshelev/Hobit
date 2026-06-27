@@ -12,6 +12,7 @@ use super::{
     },
     agent_queue_workflow_start_step_types::{
         QueueWorkflowCreateSetupStartActionSnapshots, QueueWorkflowCreateSetupStartStepResult,
+        QueueWorkflowWorkerLaunchDisposition, QueueWorkflowWorkerLaunchIntent,
     },
     AgentQueueTaskRunSource, AgentQueueTaskSummary, QueueWorkerStartContext,
     StartAssignedAgentQueueTaskInput, WorkspaceService,
@@ -37,6 +38,24 @@ impl WorkspaceService {
             if existing_start.status == "completed" {
                 if let Some(existing_run_id) = action_run_id(&existing_start) {
                     actions.start_worker = Some(existing_start);
+                    let existing_start_summary = self
+                        .start_assigned_agent_queue_task_with_run_source(
+                            workflow_worker_start_input(
+                                &normalized,
+                                &workflow_run_id,
+                                &upstream_task,
+                                &start_key,
+                            ),
+                            AgentQueueTaskRunSource::Manual,
+                        )?;
+                    let launch_intent = workflow_worker_launch_intent(
+                        self,
+                        &normalized,
+                        &workflow_run_id,
+                        &upstream_task.queue_item_id,
+                        &existing_start_summary,
+                        &actions,
+                    )?;
                     let updated_run = self.update_start_step_workflow_report(
                         &normalized,
                         &workflow_run_id,
@@ -50,48 +69,34 @@ impl WorkspaceService {
                         &normalized.workspace_id,
                         downstream_task.as_ref(),
                     )?;
-                    return Ok(success_start_step_result(
+                    let mut result = success_start_step_result(
                         normalized,
                         updated_run,
                         actions,
                         control,
                         downstream_verification,
                         true,
-                    ));
+                    );
+                    result.worker_launch_intent = launch_intent;
+                    return Ok(result);
                 }
             }
         }
         let start_result = self.start_assigned_agent_queue_task_with_run_source(
-            StartAssignedAgentQueueTaskInput {
-                workspace_id: normalized.workspace_id.clone(),
-                queue_item_id: upstream_task.queue_item_id.clone(),
-                queue_owner_widget_instance_id: normalized.queue_owner_widget_instance_id.clone(),
-                codex_executable: normalized.run_settings.codex_executable.clone(),
-                repo_root: PathBuf::from(&normalized.run_settings.execution_workspace),
-                sandbox: normalized.run_settings.sandbox.clone(),
-                approval_policy: normalized.run_settings.approval_policy.clone(),
-                timeout_ms: None,
-                stdout_cap_bytes: None,
-                stderr_cap_bytes: None,
-                workflow_start_context: Some(QueueWorkerStartContext {
-                    workflow_run_id: workflow_run_id.clone(),
-                    workflow_action_id: None,
-                    action_idempotency_key: Some(start_key.clone()),
-                    slot: Some(UPSTREAM_SLOT.to_owned()),
-                    task_id: upstream_task.queue_item_id.clone(),
-                    executor_widget_id: normalized.executor_widget_id.clone(),
-                    settings_hash: normalized.settings_hash.clone(),
-                    execution_target_hash: Some(normalized.execution_target_hash.clone()),
-                    expected_queue_control_version: normalized.expected_queue_control_version,
-                    actor_id: Some(normalized.actor_id.clone()),
-                    confirmation_token: normalized.confirmation_token.clone(),
-                }),
-            },
+            workflow_worker_start_input(&normalized, &workflow_run_id, &upstream_task, &start_key),
             AgentQueueTaskRunSource::Manual,
         );
         actions.start_worker = self.workflow_action_by_key(&workflow_run_id, &start_key)?;
         match start_result {
             Ok(start) => {
+                let launch_intent = workflow_worker_launch_intent(
+                    self,
+                    &normalized,
+                    &workflow_run_id,
+                    &upstream_task.queue_item_id,
+                    &start,
+                    &actions,
+                )?;
                 let run_id = start.run_id;
                 actions.start_worker = self.workflow_action_by_key(&workflow_run_id, &start_key)?;
                 let updated_run = self.update_start_step_workflow_report(
@@ -105,14 +110,16 @@ impl WorkspaceService {
                 )?;
                 let downstream_verification = self
                     .downstream_verification(&normalized.workspace_id, downstream_task.as_ref())?;
-                Ok(success_start_step_result(
+                let mut result = success_start_step_result(
                     normalized,
                     updated_run,
                     actions,
                     control,
                     downstream_verification,
                     start.status == "already_started",
-                ))
+                );
+                result.worker_launch_intent = launch_intent;
+                Ok(result)
             }
             Err(WorkspaceServiceError::InvalidInput(message)) => {
                 actions.start_worker = self.workflow_action_by_key(&workflow_run_id, &start_key)?;
@@ -146,4 +153,79 @@ impl WorkspaceService {
             Err(error) => Err(error),
         }
     }
+}
+
+fn workflow_worker_start_input(
+    normalized: &NormalizedCreateSetupStartStepRequest,
+    workflow_run_id: &str,
+    upstream_task: &AgentQueueTaskSummary,
+    start_key: &str,
+) -> StartAssignedAgentQueueTaskInput {
+    StartAssignedAgentQueueTaskInput {
+        workspace_id: normalized.workspace_id.clone(),
+        queue_item_id: upstream_task.queue_item_id.clone(),
+        queue_owner_widget_instance_id: normalized.queue_owner_widget_instance_id.clone(),
+        codex_executable: normalized.run_settings.codex_executable.clone(),
+        repo_root: PathBuf::from(&normalized.run_settings.execution_workspace),
+        sandbox: normalized.run_settings.sandbox.clone(),
+        approval_policy: normalized.run_settings.approval_policy.clone(),
+        timeout_ms: None,
+        stdout_cap_bytes: None,
+        stderr_cap_bytes: None,
+        workflow_start_context: Some(QueueWorkerStartContext {
+            workflow_run_id: workflow_run_id.to_owned(),
+            workflow_action_id: None,
+            action_idempotency_key: Some(start_key.to_owned()),
+            slot: Some(UPSTREAM_SLOT.to_owned()),
+            task_id: upstream_task.queue_item_id.clone(),
+            executor_widget_id: normalized.executor_widget_id.clone(),
+            settings_hash: normalized.settings_hash.clone(),
+            execution_target_hash: Some(normalized.execution_target_hash.clone()),
+            expected_queue_control_version: normalized.expected_queue_control_version,
+            actor_id: Some(normalized.actor_id.clone()),
+            confirmation_token: normalized.confirmation_token.clone(),
+        }),
+    }
+}
+
+fn workflow_worker_launch_intent(
+    service: &WorkspaceService,
+    normalized: &NormalizedCreateSetupStartStepRequest,
+    workflow_run_id: &str,
+    upstream_task_id: &str,
+    start: &super::AssignedAgentQueueTaskStartSummary,
+    actions: &QueueWorkflowCreateSetupStartActionSnapshots,
+) -> Result<Option<QueueWorkflowWorkerLaunchIntent>, WorkspaceServiceError> {
+    if normalized.execution_target_kind != "queue_local" {
+        return Ok(None);
+    }
+    let launch_disposition = match start.status.as_str() {
+        "started" => QueueWorkflowWorkerLaunchDisposition::NewlyStarted,
+        "already_started" => match start.current_run_state.as_deref() {
+            Some("running") => QueueWorkflowWorkerLaunchDisposition::AlreadyRunning,
+            _ => QueueWorkflowWorkerLaunchDisposition::AlreadyStarted,
+        },
+        _ => return Ok(None),
+    };
+
+    let run_link_id = service
+        .get_latest_agent_queue_task_run_link(&normalized.workspace_id, upstream_task_id)?
+        .filter(|link| link.direct_work_run_id == start.run_id)
+        .map(|link| link.link_id.0);
+
+    Ok(Some(QueueWorkflowWorkerLaunchIntent {
+        workspace_id: normalized.workspace_id.clone(),
+        queue_task_id: upstream_task_id.to_owned(),
+        run_id: start.run_id.clone(),
+        run_link_id,
+        executor_target_kind: normalized.execution_target_kind.clone(),
+        provider_id: normalized.provider_id.clone(),
+        direct_work_input: start.direct_work_input.clone(),
+        started_by_workflow_run_id: workflow_run_id.to_owned(),
+        workflow_action_id: actions
+            .start_worker
+            .as_ref()
+            .map(|action| action.action_id.clone()),
+        launch_disposition,
+    }))
 }

@@ -16,6 +16,7 @@ mod agent_queue_completion_commands;
 mod agent_queue_completion_dto;
 mod agent_queue_control_commands;
 mod agent_queue_control_dto;
+mod agent_queue_direct_work_launcher;
 mod agent_queue_dto;
 #[cfg(test)]
 mod agent_queue_dto_tests;

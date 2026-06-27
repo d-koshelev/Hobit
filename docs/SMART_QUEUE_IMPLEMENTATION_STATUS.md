@@ -59,14 +59,14 @@ is the only legacy frontend workflow runner phase. The remaining legacy
 frontend mutating phase modules were deleted, and the next step is clean
 acceptance/failure smoke.
 
-The dependency smoke workflows can compose the current phases end to end with
+The dependency smoke workflows compose the current phases end to end:
 backend-owned create/setup/start, typed evidence, backend review create/ACK,
-backend finalization with fresh exact confirmation, accepted completion or
-terminal failure, dependency-ready or `failed_upstream` verification, and a
-bounded workflow report. Backend-owned queue-local workflow steps work without
-`widget_runs`; no synthetic widget run is created. Scheduler behavior,
-downstream auto-start, generic public resume execution, natural-language/id
-inference, and Queue workflow broker capabilities remain not implemented.
+backend finalization with fresh confirmation, terminal acceptance/failure,
+dependency-ready or `failed_upstream` verification, and a bounded report.
+Queue-local workflow steps do not use `widget_runs` or synthetic widget runs.
+In desktop, newly-started `queue_local` create/setup/start runs go through the
+Tauri Direct Work launch bridge; worker evidence remains explicit. Scheduler,
+downstream auto-start, public resume execution, natural-language/id inference, and workflow broker capabilities remain not implemented.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
 It creates or reuses durable draft/manual Queue tasks by explicit
 `workflowRunId + slot + taskSpecHash`, stores slot-to-task bindings in
@@ -195,7 +195,10 @@ on changed refs, and blocks orphan/unknown start windows instead of silently
 starting a second worker. The backend create/setup/start step now uses this
 path only for the explicit upstream dependency-smoke task and pauses before
 workflow worker-evidence recording, lifecycle finalization, scheduler pickup,
-or downstream auto-start.
+or downstream auto-start. In Tauri desktop execution, a new backend-owned
+`queue_local` StepResult carries an internal launch intent consumed by the
+workflow command to spawn one background Codex Direct Work run; repeated starts
+do not spawn again.
 Queue workflow worker-evidence recording now has a backend-owned StepPlan /
 StepResult MVP. The runtime adapter can resume a persisted dependency-smoke
 workflow from explicit typed `metadata.workflowRunId` plus

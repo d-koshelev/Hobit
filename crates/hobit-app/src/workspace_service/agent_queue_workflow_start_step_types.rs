@@ -7,6 +7,7 @@ use super::{
         QueueWorkflowAction, QueueWorkflowCommandBlocker, QueueWorkflowConflict, QueueWorkflowRun,
     },
     agent_queue_workflow_start_step_support::START_TRANSITION,
+    RunCodexDirectWorkInput,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -158,4 +159,38 @@ pub struct QueueWorkflowCreateSetupStartStepResult {
     pub downstream_verification: Option<QueueWorkflowCreateSetupStartDownstreamVerification>,
     pub blockers: Vec<QueueWorkflowCommandBlocker>,
     pub conflict: Option<QueueWorkflowConflict>,
+    pub worker_launch_intent: Option<QueueWorkflowWorkerLaunchIntent>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QueueWorkflowWorkerLaunchDisposition {
+    NewlyStarted,
+    AlreadyStarted,
+    AlreadyRunning,
+    None,
+}
+
+impl QueueWorkflowWorkerLaunchDisposition {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::NewlyStarted => "newly_started",
+            Self::AlreadyStarted => "already_started",
+            Self::AlreadyRunning => "already_running",
+            Self::None => "none",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueWorkflowWorkerLaunchIntent {
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub run_id: String,
+    pub run_link_id: Option<String>,
+    pub executor_target_kind: String,
+    pub provider_id: String,
+    pub direct_work_input: RunCodexDirectWorkInput,
+    pub started_by_workflow_run_id: String,
+    pub workflow_action_id: Option<String>,
+    pub launch_disposition: QueueWorkflowWorkerLaunchDisposition,
 }

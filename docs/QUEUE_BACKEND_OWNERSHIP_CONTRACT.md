@@ -149,6 +149,23 @@ create/ACK reviews, finalize, validate, mutate Git, roll back, launch Terminal,
 schedule work, create synthetic widget runs, infer ids from prose/UI/order/
 path, or start downstream work.
 
+The backend StepResult is also the source of an internal worker launch intent
+for Tauri when the create/setup/start step newly creates a backend-owned
+`queue_local` run. The intent carries typed launch refs such as workspace id,
+task id, run id, run-link id when known, execution target kind, provider id,
+workflow run/action refs, launch disposition, and the internal Direct Work
+input. This intent is not frontend product truth and must not be serialized in
+the frontend workflow StepResult DTO. Tauri consumes only
+`launchDisposition: newly_started` for `executionTargetKind: queue_local`,
+registers that run in the in-session `DirectWorkActiveRunRegistry`, and starts
+one Codex Direct Work process. Duplicate/idempotent StepResults,
+already-running starts, disabled Queue control, conflicts, invalid input, and
+blocked preconditions do not launch. On process terminal status, the existing
+completion bridge updates the Queue run link and task lifecycle; worker
+evidence remains a separate explicit phase. Backend-owned `queue_local`
+launch/completion does not require an Agent Executor widget, Agent Queue
+widget, or `widget_runs`, and no synthetic widget run may be created.
+
 Workflow-owned worker evidence recording is a separate narrow backend/domain
 path. It requires
 explicit `workspaceId`, `workflowRunId`, `slot`, `taskId`, `runId`, bounded

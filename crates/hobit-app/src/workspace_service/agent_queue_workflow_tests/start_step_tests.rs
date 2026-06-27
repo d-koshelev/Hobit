@@ -107,6 +107,34 @@ fn create_setup_start_step_acceptance_creates_dependency_and_starts_only_upstrea
         result.run_ids_by_slot.get("upstream").map(String::as_str),
         Some(upstream_link.direct_work_run_id.as_str())
     );
+    let launch_intent = result
+        .worker_launch_intent
+        .as_ref()
+        .expect("new queue-local start exposes internal launch intent");
+    assert_eq!(
+        launch_intent.launch_disposition,
+        QueueWorkflowWorkerLaunchDisposition::NewlyStarted
+    );
+    assert_eq!(launch_intent.workspace_id.as_str(), "workspace-1");
+    assert_eq!(launch_intent.queue_task_id.as_str(), upstream_id.as_str());
+    assert_eq!(
+        launch_intent.run_id.as_str(),
+        upstream_link.direct_work_run_id.as_str()
+    );
+    assert_eq!(
+        launch_intent.run_link_id.as_deref(),
+        Some(upstream_link.link_id.as_str())
+    );
+    assert_eq!(launch_intent.executor_target_kind, "queue_local");
+    assert_eq!(launch_intent.provider_id, "codex");
+    assert_eq!(
+        launch_intent.direct_work_input.widget_instance_id.as_str(),
+        QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID
+    );
+    assert_eq!(
+        launch_intent.started_by_workflow_run_id.as_str(),
+        result.workflow_run_id.as_deref().expect("workflow run id")
+    );
     assert!(
         service
             .get_latest_agent_queue_task_run_link("workspace-1", &downstream_id)
@@ -196,10 +224,12 @@ fn create_setup_start_step_reuses_same_request_hash_and_conflicts_on_different_h
         duplicate.blockers
     );
     assert_eq!(duplicate.workflow_run_id, first.workflow_run_id);
+    assert!(duplicate.worker_launch_intent.is_none());
     assert_eq!(
         conflict.status,
         QueueWorkflowCreateSetupStartStepResultStatus::Conflict
     );
+    assert!(conflict.worker_launch_intent.is_none());
     assert_eq!(
         conflict.conflict.expect("conflict").conflict_code,
         "request_id_hash_conflict"
@@ -223,6 +253,7 @@ fn create_setup_start_step_blocks_disabled_queue_control_before_worker_run() {
         QueueWorkflowCreateSetupStartStepResultStatus::BlockedPrecondition
     );
     assert_eq!(result.blockers[0].blocker_code, "blocked_control_disabled");
+    assert!(result.worker_launch_intent.is_none());
     assert_eq!(
         result
             .actions

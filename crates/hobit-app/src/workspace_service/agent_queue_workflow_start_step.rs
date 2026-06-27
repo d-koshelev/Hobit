@@ -4,5 +4,6 @@ pub use super::agent_queue_workflow_start_step_types::{
     QueueWorkflowCreateSetupStartQueueControlSnapshot, QueueWorkflowCreateSetupStartStepPlan,
     QueueWorkflowCreateSetupStartStepPlanAction, QueueWorkflowCreateSetupStartStepRequest,
     QueueWorkflowCreateSetupStartStepResult, QueueWorkflowCreateSetupStartStepResultStatus,
-    QueueWorkflowCreateSetupStartStepTransition,
+    QueueWorkflowCreateSetupStartStepTransition, QueueWorkflowWorkerLaunchDisposition,
+    QueueWorkflowWorkerLaunchIntent,
 };
