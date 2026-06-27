@@ -49,19 +49,20 @@ Block 63 completed frontend mutating workflow de-orchestration: backend/domain o
 Block 67 split the frontend runtime adapter into focused request, backend-step, read-only compatibility, projection, activity, error, and guard modules behind the same public import path. This was structural only: Queue workflow behavior and backend transition ownership did not change.
 
 Block 68 added deterministic Tauri-level headless smoke automation for
-`dependency_acceptance_smoke` and `dependency_failure_smoke`. The canonical
-regression command is:
-
-```text
-cargo test -p hobit-desktop queue_workflow_headless_smoke
-```
+`dependency_acceptance_smoke` and `dependency_failure_smoke`. Block 69 adds the
+canonical gate runner: `node scripts/hobit/run-queue-smoke-gate.mjs --quick`
+after focused lifecycle changes, `--workflow` before Queue workflow commits,
+and `--full` before large refactors or checkpoints. The quick gate wraps
+`cargo test -p hobit-desktop queue_workflow_headless_smoke`; the raw cargo
+filter remains useful only for focused diagnosis.
 
 The smoke harness drives backend/Tauri create/setup/start, fake Queue-local
 worker completion through the Direct Work completion bridge, explicit worker
 evidence, backend review create/ACK, finalization, idempotency, no
 `widget_runs` dependency, and downstream no-auto-start. Manual Workspace Agent
 prompting is no longer the primary validation model for these workflow
-lifecycle transitions.
+lifecycle transitions; it remains exploratory/product validation only after the
+automated headless gate passes.
 
 All mutating dependency-smoke workflow phases are backend-owned: `create_setup_start`, `worker_evidence`, `review`, and `finalization`; `read` is the only legacy frontend workflow runner phase. The remaining legacy frontend mutating phase modules were deleted, and clean acceptance/failure lifecycle smoke is automated through the Tauri headless harness.
 

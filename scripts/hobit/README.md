@@ -165,6 +165,35 @@ planned refactor block, target max line count, and remove-after debt notes.
 The current inventory and phased refactor plan live in
 `docs/CODEBASE_REFACTOR_SIZE_AUDIT.md`.
 
+### `run-queue-smoke-gate.mjs`
+
+Runs the headless Queue workflow regression gate without launching Hobit UI:
+
+```powershell
+node scripts/hobit/run-queue-smoke-gate.mjs --quick
+node scripts/hobit/run-queue-smoke-gate.mjs --workflow
+node scripts/hobit/run-queue-smoke-gate.mjs --full
+node scripts/hobit/run-queue-smoke-gate.mjs --list
+```
+
+Modes:
+
+- `--quick` runs only `cargo test -p hobit-desktop queue_workflow_headless_smoke`.
+- `--workflow` adds the focused Queue workflow/execution Rust test filters.
+- `--full` adds Rust format/check, the focused Queue tests, full `cargo test`,
+  and the Queue smoke docs guard.
+
+Optional flags:
+
+- `--include-frontend` also runs focused Queue workflow frontend Vitest
+  filters, typecheck, and build.
+- `--include-line-count` also runs the frontend line-count report, guard, and
+  tests.
+
+The script is read-only validation orchestration. It does not launch the Hobit
+UI, call real `codex.cmd`, mutate Queue state outside tests, run Git
+mutations, launch Terminal, or require network access.
+
 ### `module-map.py`
 
 Prints a compact directory/module map with line counts:

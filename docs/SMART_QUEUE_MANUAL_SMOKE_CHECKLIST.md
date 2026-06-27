@@ -308,11 +308,24 @@ Verdict: `automated_headless_smoke_canonical`.
 
 Automated headless smoke is the canonical regression path for durable
 `dependency_acceptance_smoke` and `dependency_failure_smoke` orchestration.
-Run it before any fresh manual Workspace Agent smoke:
+Run the headless smoke gate before any fresh manual Workspace Agent smoke:
 
 ```text
-cargo test -p hobit-desktop queue_workflow_headless_smoke
+node scripts/hobit/run-queue-smoke-gate.mjs --quick
 ```
+
+Use the broader gates by risk:
+
+```text
+node scripts/hobit/run-queue-smoke-gate.mjs --workflow
+node scripts/hobit/run-queue-smoke-gate.mjs --full
+```
+
+Run `--quick` after focused Queue workflow lifecycle changes. Run
+`--workflow` before Queue workflow commits. Run `--full` before large
+refactors or checkpoints. The quick gate wraps the underlying smoke command
+`cargo test -p hobit-desktop queue_workflow_headless_smoke`; use the raw cargo
+command only for focused diagnosis.
 
 The automated harness drives backend/Tauri workflow step APIs directly,
 injects a deterministic test Queue-local launcher, completes the Queue run link
@@ -323,12 +336,13 @@ no-auto-start. It does not call real `codex.cmd`, shell, Git, Terminal,
 validation, rollback, network, Queue UI, Agent Queue widgets, Agent Executor
 widgets, or Workspace Agent prompting.
 
-Manual Workspace Agent prompting is no longer the primary regression path for
-Queue workflow lifecycle correctness. Manual smoke remains exploratory/product
+Manual Workspace Agent prompting is not the regression suite for Queue
+workflow lifecycle correctness. Manual smoke remains exploratory/product
 validation only, and fresh manual smoke should be run only after the automated
-headless smoke passes. When manual smoke is still useful, it must use fresh
-workflow ids and fresh request ids; old stale workflow runs remain diagnostic
-artifacts only and must not be reused as acceptance/failure proof.
+headless smoke gate passes. When manual smoke is still useful, it must use
+fresh workflow ids and fresh request ids; old stale workflow runs and old
+`workflowRunId` values remain diagnostic artifacts only and must not be reused
+as acceptance/failure proof.
 
 Use the remainder of this section as the manual/exploratory reference for the
 same typed workflow shape. It must use only structured

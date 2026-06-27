@@ -490,12 +490,17 @@ These capabilities are still transitional:
   task/run identity, and no hidden execution.
 - Tauri/backend headless smoke tests prove full
   `dependency_acceptance_smoke` and `dependency_failure_smoke` lifecycles
-  through `cargo test -p hobit-desktop queue_workflow_headless_smoke` using a
-  test-only Queue-local launcher and the Direct Work completion bridge. They
-  must not call real Codex, shell, Git, Terminal, validation, rollback, Queue
-  UI, Agent Queue widgets, Agent Executor widgets, or synthetic `widget_runs`.
-  Manual Workspace Agent smoke is exploratory/product validation only after
-  automated smoke passes, and stale workflow ids are not proof.
+  through `node scripts/hobit/run-queue-smoke-gate.mjs --quick` using a
+  test-only Queue-local launcher and the Direct Work completion bridge. The
+  quick gate wraps `cargo test -p hobit-desktop
+  queue_workflow_headless_smoke`; run
+  `node scripts/hobit/run-queue-smoke-gate.mjs --workflow` before Queue
+  workflow commits and `node scripts/hobit/run-queue-smoke-gate.mjs --full`
+  before large refactors or checkpoints. They must not call real Codex, shell,
+  Git, Terminal, validation, rollback, Queue UI, Agent Queue widgets, Agent
+  Executor widgets, or synthetic `widget_runs`. Manual Workspace Agent smoke
+  is exploratory/product validation only after automated smoke passes, and
+  stale workflow ids or old `workflowRunId` values are not proof.
 - Broker/adapter tests prove backend-backed capabilities use the backend port,
   do not import Queue UI modules, do not use frontend overlays as truth, and
   return only registered `nextSuggestedCapability` ids.
