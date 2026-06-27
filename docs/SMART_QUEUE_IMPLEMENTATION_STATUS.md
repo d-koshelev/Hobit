@@ -67,6 +67,10 @@ Queue-local workflow steps do not use `widget_runs` or synthetic widget runs.
 In desktop, newly-started `queue_local` create/setup/start runs go through the
 Tauri Direct Work launch bridge; worker evidence remains explicit. Scheduler,
 downstream auto-start, public resume execution, natural-language/id inference, and workflow broker capabilities remain not implemented.
+Manual acceptance/failure smoke evidence after the launch bridge must use a
+fresh app session, fresh initial `requestId`, and fresh backend-created
+`workflowRunId`; pre-bridge or stale workflow runs are diagnostic artifacts
+only and must not be reused as validation evidence.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
 It creates or reuses durable draft/manual Queue tasks by explicit
 `workflowRunId + slot + taskSpecHash`, stores slot-to-task bindings in
@@ -151,26 +155,24 @@ requires `executorWidgetId`, an Agent Executor widget, an Agent Queue widget, or
 `queueOwnerWidgetInstanceId`; new `start_worker` action refs include `slot`,
 and existing missing-slot start rows recover from unambiguous task-to-slot
 bindings. Live smoke diagnostics can now determine whether to retry
-workerEvidence from read-only payloads. After Block 50H, the current live
-blocked failure smoke workflow
-`queue-workflow-run-1782257290023621100_163` can retry corrected
-`workerEvidence.outcome: "completed"` even when stale non-mutating
-worker-evidence history remains in the action log. `planResume` and backend
+workerEvidence from read-only payloads for diagnostics, but current manual
+smoke validation must start from a fresh workflow. `planResume` and backend
 evidence recording now agree on the same strict no-partial-mutation proof:
 current task/run/settings/execution-target refs must be complete, no durable
 evidence/review/finalization mutation may exist, and stale
 `queue.workflow.runner` or non-completed `record_worker_evidence` rows without
 `resultRefs.evidenceBundleId` are diagnostic history rather than active
-`incomplete_workflow_action_refs` blockers. A stale
+`incomplete_workflow_action_refs` blockers. A stale diagnostic
 `record_worker_evidence` action repair reports
 `retryable_worker_evidence_action_repair` and proceeds only when every present
 target ref matches the proven binding; conflicting refs, completed incomplete
 evidence rows, unknown evidence mutation state, terminal decisions, review
 messages, completed/cancelled workflows, and arbitrary failed phases remain
-protected. The successful retry records `evidenceBundleId`, completes or
-updates the focused canonical `record_worker_evidence` action with full refs,
-clears the stale worker-evidence blocker from the active report, and moves the
-workflow to review/awaiting-review state without starting another worker.
+protected. A fresh valid worker-evidence continuation records
+`evidenceBundleId`, completes or updates the focused canonical
+`record_worker_evidence` action with full refs, clears the active
+worker-evidence blocker, and moves the workflow to review/awaiting-review
+state without starting another worker.
 The broker
 continuation `hobit.action.result` context now preserves bounded structured
 payloads for `workspace.context.get`, `workbench.widgets.list`, and

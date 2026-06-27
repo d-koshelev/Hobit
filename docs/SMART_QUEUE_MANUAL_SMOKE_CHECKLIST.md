@@ -250,11 +250,13 @@ Queue action-request smoke must use the manifest schemas exactly. Do not infer
 task ids, run ids, message ids, evidence ids, executor widget ids, actor ids, or
 capability ids from prose or UI selection. For run settings, use only sandbox
 values `read_only`, `workspace_write`, `danger_full_access` and approval policy
-values `never`, `on_request`, `untrusted`. `queue.item.startRun` must include
-explicit `input.taskId`, explicit `input.executorWidgetId`, and top-level
+values `never`, `on_request`, `untrusted`. Legacy assigned Agent Executor
+`queue.item.startRun` action-request smoke must include explicit
+`input.taskId`, compatibility `input.executorWidgetId`, and top-level
 `confirmationToken: "operator-confirmed"` after user confirmation; a prose-only
-"I confirm" message remains insufficient. `queue.importPromptPack` uses the
-same top-level confirmation token. Backend-backed Queue capabilities are
+"I confirm" message remains insufficient. Current backend-owned `queue_local`
+workflow smoke does not require `executorWidgetId`. `queue.importPromptPack`
+uses the same top-level confirmation token. Backend-backed Queue capabilities are
 `queue.control.get`, `queue.items.list`, `queue.lifecycle.get`,
 `queue.review.getEvidenceBundle`, `queue.review.createMessage`,
 `queue.review.ack`, and `queue.lifecycle.agentFinished`,
@@ -311,6 +313,48 @@ typed continuation inputs, backend Queue control state, backend workflow
 reports, and backend resume plans. Do not use Queue UI truth, transcript/prose
 inference, manual database edits, task ids copied from titles, or file paths as
 workflow input.
+
+### Fresh-Run Requirement
+
+After the backend-owned workflow phase and Tauri launch bridge changes, manual
+headless smoke evidence must come from a fresh app session and a fresh
+workflow:
+
+- Fully restart Hobit before starting the smoke.
+- Use a new unique `requestId` for each acceptance or failure initial request.
+- Treat the resulting backend-created `workflowRunId` as the fresh run id for
+  that smoke only.
+- Do not reuse a pre-bridge, pre-backend-owned, stale workflow, or old
+  workflowRunId as validation evidence.
+- Old stuck workflow runs may remain useful diagnostic artifacts, but they are
+  not current acceptance/failure smoke proof.
+
+Current smoke sequence requirements:
+
+- Queue control state must be `manual_enabled` before worker start.
+- `create_setup_start` starts the upstream `queue_local` worker through the
+  Tauri Direct Work launch bridge for a newly-started desktop run.
+- Worker evidence may be recorded only after the upstream run link reaches a
+  terminal durable state.
+- `workerEvidence.outcome` must match the actual durable worker run state.
+- Failure workflow terminal failure is applied only in finalization through
+  typed `failureReason` and backend `failItem`, not by faking a failed worker
+  evidence outcome.
+- Downstream work must not auto-start.
+
+### Canonical Queue Identity
+
+- Task is the work intent; RunAttempt is one execution attempt.
+- Queue-owned run identity is the task run link and its `runId`.
+- `widget_runs` and Direct Work/widget run ids are not canonical Queue
+  identity.
+- `executorWidgetId`, `assignedExecutorWidgetId`,
+  `queueOwnerWidgetInstanceId`, and `directWorkRunId` are compatibility,
+  legacy assignment, or UI attribution fields only.
+- Agent Queue widgets are optional observability/control surfaces, not
+  execution truth.
+- Agent Executor widgets and `agent-run` are not required for current
+  backend-owned `queue_local` workflow smoke.
 
 ### Typed Request Schema
 
@@ -411,7 +455,7 @@ Schematic initial request shape:
 ```json
 {
   "type": "hobit.workflow.request",
-  "requestId": "acceptance-smoke-001",
+  "requestId": "acceptance-smoke-<fresh-unique-id>",
   "moduleId": "queue",
   "workflowId": "dependency_acceptance_smoke",
   "grant": {
@@ -472,7 +516,7 @@ Collect these before starting:
 - Explicit `workspaceRoot` / execution workspace.
 - `sandbox`.
 - `approvalPolicy`.
-- Stable initial `requestId` values for acceptance and failure workflows.
+- Fresh unique initial `requestId` values for acceptance and failure workflows.
 - Typed upstream/downstream task specs.
 - Typed worker evidence payload for the upstream continuation.
 - Fresh exact `grant.confirmationToken` when starting/finalizing requires it.
@@ -562,10 +606,11 @@ plans after the relevant phase persists them.
 
 ### Restart/Resume Checkpoints
 
-At each reachable checkpoint, restart the app or start a fresh session, then
-continue only with `metadata.workflowRunId` and the typed continuation data
-required by the resume plan. Verify no UI/session state is required and no
-duplicate task/start/evidence/review/ACK/finalization is created.
+At each reachable checkpoint of the fresh workflow, restart the app or start a
+fresh session, then continue only with that fresh `metadata.workflowRunId` and
+the typed continuation data required by the resume plan. Verify no UI/session
+state is required and no duplicate task/start/evidence/review/ACK/finalization
+is created.
 
 - After workflow run creation before materialization, if this pause is
   reachable: expect resume to continue setup only from persisted typed inputs.
@@ -579,34 +624,20 @@ duplicate task/start/evidence/review/ACK/finalization is created.
   reused or worker state to block safely; no second worker start or second
   Tauri launch. For backend-owned `queue_local`, `planResume` and
   `readActionLog` must not require `executorWidgetId`, an Agent Queue widget,
-  or a `widget_runs` row, and old missing-slot `start_worker` actions may
-  recover via unambiguous task-to-slot mapping.
-- After Block 50H, the live failure smoke at
-  `queue-workflow-run-1782257290023621100_163` can retry typed
-  `workerEvidence.outcome: "completed"` even when stale non-mutating
-  `queue.workflow.runner` `failed_unexpected` history or stale
-  `record_worker_evidence` blocked/precondition/failed history remains in the
-  action log. Stale non-completed `record_worker_evidence` rows blocked on
-  `incomplete_workflow_action_refs` are repairable only when they have no
-  `resultRefs.evidenceBundleId` and every present target ref matches the
-  proven slot/task/run/settings/execution-target binding. `queue.workflow.planResume`
-  should report `retryable_worker_evidence_action_repair`,
-  `retryable_worker_evidence_failure`, or `waiting_for_worker_evidence`,
-  `safeToRecordWorkerEvidence=true`, no active
-  `incomplete_workflow_action_refs` blocker, complete continuation refs for
-  the upstream task/run, and bounded stale-history diagnostics when present.
-  The backend worker-evidence StepPlan/StepResult path uses the same resolver
-  for planning and mutation: it proves recoverable typed task/run refs, no
+  or a `widget_runs` row. When inspecting old diagnostic artifacts only,
+  missing-slot `start_worker` actions may recover via unambiguous task-to-slot
+  mapping, but those runs are not fresh smoke validation evidence.
+- For current fresh smoke worker evidence, `queue.workflow.planResume` should
+  report complete continuation refs for the upstream task/run, no active
+  `incomplete_workflow_action_refs` blocker, and
+  `safeToRecordWorkerEvidence=true` only after the durable run link is
+  terminal. The backend worker-evidence StepPlan/StepResult path uses the same
+  resolver for planning and mutation: it proves typed task/run refs, no
   existing `evidenceBundleId`, no completed `record_worker_evidence`, no
   review, no final decision, matching durable worker state, and no downstream
-  auto-start before recording evidence. A corrected retry should return a
-  backend StepResult status of `executed` or `already_applied`, show the new
-  or reused `evidenceBundleId` in `queue.workflow.getReport`, show a completed
-  focused canonical `record_worker_evidence` action with full refs in
-  `queue.workflow.readActionLog`, clear the active worker-evidence blocker,
-  and leave the next resume phase at review/awaiting review. For backend-owned
-  `queue_local` runs, this path must be validated through the task run link
-  and must not require or synthesize a `widget_runs` row.
+  auto-start before recording evidence. For backend-owned `queue_local` runs,
+  this path must be validated through the task run link and must not require
+  or synthesize a `widget_runs` row.
 - After evidence recorded: expect existing `evidenceBundleId` to be reused; no
   duplicate evidence.
 - After review created: expect existing canonical `messageId` to be reused for
@@ -1248,10 +1279,13 @@ During the smoke, verify these product labels appear where applicable:
       `queue.item.fail` remain explicit and confirmation-required; they may
       continue only inside the appropriate structured Queue autonomy grant
       with a valid typed nextAction, exact token, and backend preconditions.
-    - Expected with a valid `queue_acceptance_smoke` grant: a typed
+    - Expected with a valid `queue_acceptance_smoke` grant for legacy assigned
+      start-run reconciliation: a typed
       `queue.control.setManualEnabled -> queue.item.startRun` nextAction
-      continues when `taskId`, `executorWidgetId`, and exact confirmation are
-      available; older `queue.enable -> queue.item.startRun` nextActions remain
+      continues when `taskId`, compatibility `executorWidgetId`, and exact
+      confirmation are available. Current backend-owned `queue_local` workflow
+      smoke does not use this legacy field as canonical run identity. Older
+      `queue.enable -> queue.item.startRun` nextActions remain
       compatibility-only. `queue.item.markDone` can run only from a valid
       final-accept nextAction, and success does not auto-start downstream work.
     - Expected with a valid `queue_failure_smoke` grant: a typed
@@ -1264,7 +1298,11 @@ During the smoke, verify these product labels appear where applicable:
       repeated request id, repeated capability/input, unsupported envelope,
       restricted capability, max action count, or unavailable thread.
 
-## Typed StartRun Reconciliation Smoke
+## Legacy Assigned StartRun Reconciliation Smoke
+
+This section is compatibility coverage for the older assigned Agent Executor
+start path. It is not current backend-owned `queue_local` workflow smoke
+validation and must not replace the fresh headless workflow smoke above.
 
 1. In Workspace Agent, ask the agent to use typed Queue capabilities and emit
    one `hobit.action.request` envelope at a time.
@@ -1310,14 +1348,16 @@ During the smoke, verify these product labels appear where applicable:
      `queue.control.setManualEnabled`. `nextSuggestedCapability` alone remains
      informational.
 
-6. Invoke `queue.item.startRun` with the same exact `taskId` and an explicit
-   `executorWidgetId`.
+6. If intentionally testing the legacy assigned Agent Executor path, invoke
+   `queue.item.startRun` with the same exact `taskId` and an explicit
+   compatibility `executorWidgetId`.
    - Required: backend Queue control is already `manual_enabled` and the
      request has top-level `confirmationToken: "operator-confirmed"`.
-   - Expected on accepted start: the result includes `taskId`,
-     `executorWidgetId`, and `runId`; the Queue task refreshes to `running` or
-     the latest backend final state; latest run-link metadata shows the
-     returned run id; the board/details do not remain stale as Ready/Queued.
+   - Expected on accepted legacy start: the result includes `taskId`,
+     compatibility `executorWidgetId`, and canonical Queue run-link `runId`;
+     the Queue task refreshes to `running` or the latest backend final state;
+     latest run-link metadata shows the returned run id; the board/details do
+     not remain stale as Ready/Queued.
    - Expected when Queue is disabled: the capability returns blocked with
      `Queue disabled.` and may expose typed `nextAction` for `queue.enable`;
      it does not auto-enable Queue.
