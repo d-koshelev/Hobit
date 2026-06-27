@@ -224,6 +224,23 @@ The bridge does not record worker evidence, create or ACK reviews, finalize
 the task, start downstream work, run validation, mutate Git, launch Terminal,
 or expose raw prompt/stdout/stderr in workflow DTOs.
 
+The canonical regression proof for the full dependency-smoke lifecycle is the
+deterministic Tauri/backend headless smoke harness:
+
+```text
+cargo test -p hobit-desktop queue_workflow_headless_smoke
+```
+
+That harness uses a test-only Queue-local launcher injection, marks the Queue
+run link terminal through the same Direct Work completion bridge used by the
+real Tauri launch path, and then executes worker evidence, review, and
+finalization through typed backend/Tauri step APIs. It verifies acceptance,
+failure, stuck-running evidence blocking, idempotency, no `widget_runs`
+dependency, downstream no-auto-start, and no raw Direct Work prompt/stdout/
+stderr or confirmation-token exposure in workflow DTOs. Manual Workspace Agent
+prompting is exploratory/product validation only and should be run only after
+this automated smoke passes with fresh request/workflow ids.
+
 The `worker_evidence` transition for dependency smoke workflows is fully
 backend-owned through the frontend runtime boundary. The runtime adapter uses a
 thin backend-step dispatcher for typed request normalization, then calls the

@@ -152,12 +152,13 @@ fn execute_ready_review_step(
             updated_at: Some(&now),
         })?,
     };
-    let create_result_refs = canonical_json_string(&json!({
-        "evidenceBundleId": resolved.evidence.bundle_id,
-        "messageId": message.message_id,
-        "runId": resolved.run_id,
-        "status": if had_message { "reused" } else { "created" },
-    }));
+    let create_result_refs = review_create_result_refs(
+        &create_action,
+        &resolved.evidence.bundle_id,
+        &message.message_id,
+        &resolved.run_id,
+        had_message,
+    );
     let create_action = complete_review_action(
         store,
         &resolved.request,
@@ -210,11 +211,7 @@ fn execute_ready_review_step(
             )?
             .ok_or(StorageError::QueryReturnedNoRows)?
     };
-    let ack_result_refs = canonical_json_string(&json!({
-        "ackStatus": if had_ack { "already_acknowledged" } else { "acknowledged" },
-        "messageId": message.message_id,
-        "status": "acknowledged",
-    }));
+    let ack_result_refs = review_ack_result_refs(&ack_action, &message.message_id, had_ack);
     let ack_action = complete_review_action(
         store,
         &resolved.request,
@@ -333,6 +330,73 @@ fn execute_ready_review_step(
         blockers: Vec::new(),
         conflict: None,
     })
+}
+
+fn review_create_result_refs(
+    action: &AgentQueueWorkflowActionRow,
+    evidence_bundle_id: &str,
+    message_id: &str,
+    run_id: &str,
+    had_message: bool,
+) -> String {
+    if action.status == QueueWorkflowActionStatus::Completed.as_str() {
+        if let Some(existing_refs) = action.result_refs_json.as_deref() {
+            if review_create_refs_match(existing_refs, evidence_bundle_id, message_id, run_id) {
+                return existing_refs.to_owned();
+            }
+        }
+    }
+
+    canonical_json_string(&json!({
+        "evidenceBundleId": evidence_bundle_id,
+        "messageId": message_id,
+        "runId": run_id,
+        "status": if had_message { "reused" } else { "created" },
+    }))
+}
+
+fn review_create_refs_match(
+    raw_refs: &str,
+    evidence_bundle_id: &str,
+    message_id: &str,
+    run_id: &str,
+) -> bool {
+    let Some(refs) = parse_json_value(raw_refs) else {
+        return false;
+    };
+
+    string_field(&refs, "evidenceBundleId") == Some(evidence_bundle_id)
+        && string_field(&refs, "messageId") == Some(message_id)
+        && string_field(&refs, "runId") == Some(run_id)
+}
+
+fn review_ack_result_refs(
+    action: &AgentQueueWorkflowActionRow,
+    message_id: &str,
+    had_ack: bool,
+) -> String {
+    if action.status == QueueWorkflowActionStatus::Completed.as_str() {
+        if let Some(existing_refs) = action.result_refs_json.as_deref() {
+            if review_ack_refs_match(existing_refs, message_id) {
+                return existing_refs.to_owned();
+            }
+        }
+    }
+
+    canonical_json_string(&json!({
+        "ackStatus": if had_ack { "already_acknowledged" } else { "acknowledged" },
+        "messageId": message_id,
+        "status": "acknowledged",
+    }))
+}
+
+fn review_ack_refs_match(raw_refs: &str, message_id: &str) -> bool {
+    let Some(refs) = parse_json_value(raw_refs) else {
+        return false;
+    };
+
+    string_field(&refs, "messageId") == Some(message_id)
+        && string_field(&refs, "status") == Some(REVIEW_MESSAGE_STATUS_ACKNOWLEDGED)
 }
 
 pub(super) fn plan_from_review_resolution(

@@ -182,8 +182,9 @@ because it has no live Tauri renderer/IPC context. Live smoke recovery
 diagnostics can now inspect workflow report, action log, and resume plan
 payloads to decide whether a worker is still running, action refs are
 incomplete, durable run ids are present, or evidence can be safely retried.
-Actual live `dependency_acceptance_smoke` and `dependency_failure_smoke` smoke
-continuation remains the next step.
+Automated headless smoke is now the first regression proof for actual
+`dependency_acceptance_smoke` and `dependency_failure_smoke` continuation;
+live Workspace Agent smoke is exploratory/product validation after that pass.
 `queue.workflow.invoke` is
 deliberately not implemented; invocation uses only `hobit.workflow.request`.
 
@@ -303,11 +304,34 @@ work.
 
 ## Headless Queue Workflow Smoke
 
-Verdict: `ready_for_manual_headless_smoke`.
+Verdict: `automated_headless_smoke_canonical`.
 
-Use this section before the desktop/UI smoke when the goal is to prove durable
-headless orchestration for `dependency_acceptance_smoke` and
-`dependency_failure_smoke`. It must use only structured
+Automated headless smoke is the canonical regression path for durable
+`dependency_acceptance_smoke` and `dependency_failure_smoke` orchestration.
+Run it before any fresh manual Workspace Agent smoke:
+
+```text
+cargo test -p hobit-desktop queue_workflow_headless_smoke
+```
+
+The automated harness drives backend/Tauri workflow step APIs directly,
+injects a deterministic test Queue-local launcher, completes the Queue run link
+through the same completion bridge used by real Direct Work, records worker
+evidence explicitly, creates/ACKs review, finalizes acceptance/failure, checks
+idempotency, verifies no `widget_runs` dependency, and verifies downstream
+no-auto-start. It does not call real `codex.cmd`, shell, Git, Terminal,
+validation, rollback, network, Queue UI, Agent Queue widgets, Agent Executor
+widgets, or Workspace Agent prompting.
+
+Manual Workspace Agent prompting is no longer the primary regression path for
+Queue workflow lifecycle correctness. Manual smoke remains exploratory/product
+validation only, and fresh manual smoke should be run only after the automated
+headless smoke passes. When manual smoke is still useful, it must use fresh
+workflow ids and fresh request ids; old stale workflow runs remain diagnostic
+artifacts only and must not be reused as acceptance/failure proof.
+
+Use the remainder of this section as the manual/exploratory reference for the
+same typed workflow shape. It must use only structured
 `hobit.workflow.request` envelopes, `metadata.workflowRunId` continuations,
 typed continuation inputs, backend Queue control state, backend workflow
 reports, and backend resume plans. Do not use Queue UI truth, transcript/prose
@@ -316,9 +340,8 @@ workflow input.
 
 ### Fresh-Run Requirement
 
-After the backend-owned workflow phase and Tauri launch bridge changes, manual
-headless smoke evidence must come from a fresh app session and a fresh
-workflow:
+After the automated headless smoke passes, any manual exploratory headless
+smoke evidence must come from a fresh app session and a fresh workflow:
 
 - Fully restart Hobit before starting the smoke.
 - Use a new unique `requestId` for each acceptance or failure initial request.

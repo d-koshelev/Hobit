@@ -46,9 +46,24 @@ StepResult APIs, and projects returned results. `docs/QUEUE_WORKSPACE_COORDINATI
 
 Block 63 completed frontend mutating workflow de-orchestration: backend/domain owns create/setup/start, worker-evidence, review, finalization, action ledger rows, slot-binding merge, workflow status/current step, retry/recovery, and final accepted-completion or terminal-failure decisions. The runtime adapter normalizes typed requests, calls backend StepResult APIs, and projects results; it no longer calls raw workflow mutation ports, synthesizes mutating action rows, writes slot-binding deltas, classifies retry/recovery, or persists backend-owned status/currentStep after backend-owned steps.
 
-Block 67 split the frontend runtime adapter into focused request, backend-step, read-only compatibility, projection, activity, error, and guard modules behind the same public import path. This was structural only: Queue workflow behavior and backend transition ownership did not change, and fresh acceptance/failure smoke after commit/restart remains the next manual validation step.
+Block 67 split the frontend runtime adapter into focused request, backend-step, read-only compatibility, projection, activity, error, and guard modules behind the same public import path. This was structural only: Queue workflow behavior and backend transition ownership did not change.
 
-All mutating dependency-smoke workflow phases are backend-owned: `create_setup_start`, `worker_evidence`, `review`, and `finalization`; `read` is the only legacy frontend workflow runner phase. The remaining legacy frontend mutating phase modules were deleted, and the next step is clean acceptance/failure smoke.
+Block 68 added deterministic Tauri-level headless smoke automation for
+`dependency_acceptance_smoke` and `dependency_failure_smoke`. The canonical
+regression command is:
+
+```text
+cargo test -p hobit-desktop queue_workflow_headless_smoke
+```
+
+The smoke harness drives backend/Tauri create/setup/start, fake Queue-local
+worker completion through the Direct Work completion bridge, explicit worker
+evidence, backend review create/ACK, finalization, idempotency, no
+`widget_runs` dependency, and downstream no-auto-start. Manual Workspace Agent
+prompting is no longer the primary validation model for these workflow
+lifecycle transitions.
+
+All mutating dependency-smoke workflow phases are backend-owned: `create_setup_start`, `worker_evidence`, `review`, and `finalization`; `read` is the only legacy frontend workflow runner phase. The remaining legacy frontend mutating phase modules were deleted, and clean acceptance/failure lifecycle smoke is automated through the Tauri headless harness.
 
 The dependency smoke workflows compose the current phases end to end:
 backend-owned create/setup/start, typed evidence, backend review create/ACK,
@@ -56,12 +71,14 @@ backend finalization with fresh confirmation, terminal acceptance/failure,
 dependency-ready or `failed_upstream` verification, and a bounded report.
 Queue-local workflow steps do not use `widget_runs` or synthetic widget runs.
 In desktop, newly-started `queue_local` create/setup/start runs go through the
-Tauri Direct Work launch bridge; worker evidence remains explicit. Scheduler,
-downstream auto-start, public resume execution, natural-language/id inference, and workflow broker capabilities remain not implemented.
-Manual acceptance/failure smoke evidence after the launch bridge must use a
-fresh app session, fresh initial `requestId`, and fresh backend-created
-`workflowRunId`; pre-bridge or stale workflow runs are diagnostic artifacts
-only and must not be reused as validation evidence.
+Tauri Direct Work launch bridge; worker evidence remains explicit. The
+automated smoke harness uses a deterministic test launcher instead of real
+`codex.cmd`. Scheduler, downstream auto-start, public resume execution,
+natural-language/id inference, and workflow broker capabilities remain not
+implemented. Any later manual acceptance/failure smoke after the automated
+pass must use a fresh app session, fresh initial `requestId`, and fresh
+backend-created `workflowRunId`; pre-bridge or stale workflow runs are
+diagnostic artifacts only and must not be reused as validation evidence.
 Queue workflow task slot materialization now exists as a backend/domain MVP.
 It creates or reuses durable draft/manual Queue tasks by explicit
 `workflowRunId + slot + taskSpecHash`, stores slot-to-task bindings in
@@ -1345,33 +1362,21 @@ Implemented as focused frontend smoke/regression coverage.
 The following features are not current implementation and must not be claimed
 as available from the foundation above:
 
-- Actual live `dependency_acceptance_smoke` /
-  `dependency_failure_smoke` smoke execution from the desktop Workspace Agent
-  session. The discovery/control/invocation foundation is implemented:
-  `workspace.context.get` reads current workspace/workbench/root context from
-  live renderer state backed by durable Workspace root path data,
-  `workbench.widgets.list` lists bounded widget instances and reports the
-  backend-owned queue-local target without requiring Agent Queue or Agent
-  Executor widgets, while retaining Agent Queue widget attribution and
-  `agent-run` discovery as compatibility/display information only,
-  `queue.control.get` reads backend Queue control state through the Queue
-  control bridge, `queue.control.setManualEnabled` sets only backend Queue
-  control state to `manual_enabled`, and structured `hobit.workflow.request`
-  invokes supported Queue workflow phases through the existing
-  QueueWorkflowRunner runtime adapter. Workspace Agent can also read Queue
-  workflow debug state through `queue.workflow.get`, `queue.workflow.list`,
-  `queue.workflow.getReport`, `queue.workflow.planResume`, and
-  `queue.workflow.readActionLog`; these are bounded read-only broker
-  capabilities over existing backend/Tauri workflow run, report, resume plan,
-  and action-ledger APIs, and their continuation payloads expose structured
-  `data.workflowReport`, `data.workflowActionLog`, and
-  `data.workflowResumePlan` objects for live recovery diagnostics. Debug reads
-  can inspect whether a worker is still running, whether start/evidence refs
-  are incomplete, whether a durable run id is present, and whether evidence can
-  be safely retried. `queue.workflow.invoke` is intentionally not implemented,
-  and `hobit.workflow.request` remains the only workflow invocation path.
-  Codex shell still cannot perform live smoke without the live Tauri renderer/
-  IPC context. Actual live Queue smoke continuation remains the next step.
+- Automated Workspace Agent-driven UI prompting for
+  `dependency_acceptance_smoke` / `dependency_failure_smoke` remains not
+  implemented and is no longer the primary regression goal. The backend/Tauri
+  lifecycle is covered by `cargo test -p hobit-desktop
+  queue_workflow_headless_smoke`. Live Workspace Agent smoke remains
+  exploratory/product validation after that pass. The discovery/control/
+  invocation foundation is still available for manual exploration:
+  `workspace.context.get`, `workbench.widgets.list`, `queue.control.get`,
+  `queue.control.setManualEnabled`, structured `hobit.workflow.request`, and
+  read-only workflow diagnostics through `queue.workflow.get`,
+  `queue.workflow.list`, `queue.workflow.getReport`,
+  `queue.workflow.planResume`, and `queue.workflow.readActionLog`.
+  `queue.workflow.invoke` remains intentionally not implemented, and Codex
+  shell still cannot perform live smoke without the live Tauri renderer/IPC
+  context.
 - durable backend Smart Queue persistence;
 - Queue workflow runner execution beyond the full typed
   `dependency_acceptance_smoke` and `dependency_failure_smoke` paths, the

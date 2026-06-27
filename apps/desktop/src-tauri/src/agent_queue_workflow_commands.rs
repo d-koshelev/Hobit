@@ -399,6 +399,9 @@ fn command_error(error: impl std::fmt::Display) -> String {
 }
 
 #[cfg(test)]
+#[path = "agent_queue_workflow_commands/headless_smoke_tests.rs"]
+mod queue_workflow_headless_smoke_tests;
+#[cfg(test)]
 mod tests;
 #[cfg(test)]
 mod workflow_launch_bridge_tests;
