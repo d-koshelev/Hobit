@@ -10,7 +10,7 @@ import type {
   QueueWorkflowRunnerRuntimePhase,
   QueueWorkflowRunnerRuntimeResult,
   QueueWorkflowRunnerRuntimeStatus,
-} from "./queueWorkflowRunnerRuntimeAdapter";
+} from "./queueWorkflowRuntimeAdapter/queueWorkflowRuntimeAdapterTypes";
 import type {
   QueueWorkflowReviewCommandStatus,
   QueueWorkflowRunnerBlockerReason,

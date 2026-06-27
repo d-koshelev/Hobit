@@ -7,7 +7,7 @@ import type {
   QueueWorkflowPersistencePort,
   QueueWorkflowRunnerRuntimeResult,
   QueueWorkflowRunnerRuntimeStatus,
-} from "./queueWorkflowRunnerRuntimeAdapter";
+} from "./queueWorkflowRuntimeAdapter/queueWorkflowRuntimeAdapterTypes";
 import type {
   QueueWorkflowRunnerBlockerReason,
   QueueWorkflowRunnerRequest,

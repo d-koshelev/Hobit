@@ -326,6 +326,35 @@ implementation, remote/server/sync/ACL behavior, or raw confirmation-token
 persistence/exposure changed. No new oversized source allowlist entry was
 added and no allowlist limit was increased.
 
+## Block 67 Update
+
+The frontend Queue workflow runtime adapter
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.ts`
+was reduced to a one-line public facade that re-exports the focused
+`queueWorkflowRuntimeAdapter/` package. Runtime responsibilities are now split
+into request normalization, read-only compatibility persistence, backend-step
+dispatch, read-only runner bridge, StepResult/report projection, activity
+status shaping, error mapping, and small shared guards.
+
+Focused line-count results:
+
+- `queueWorkflowRunnerRuntimeAdapter.ts`: 1432 -> 1 line.
+- New runtime adapter source modules: 34-567 lines each.
+- `queueWorkflowRunnerRuntimeAdapter.test.ts`: deleted/split from 2696 lines.
+- New focused runtime adapter tests: 101-568 lines each.
+
+The oversized source and test allowlist entries for the runtime adapter were
+removed. No new oversized source allowlist entry was added and no allowlist
+limit was increased.
+
+This was a frontend runtime-adapter cleanup only: no Queue workflow behavior,
+backend transition behavior, Queue UI behavior, visual-shell behavior,
+storage/schema behavior, smoke execution, worker starts outside backend
+workflow steps, downstream mutation, scheduler/autodispatch, natural-language
+routing, prose/UI/path/order id inference, ActorRef/EventLog/ArtifactLink
+implementation, remote/server/sync/ACL behavior, or raw confirmation-token
+persistence/exposure changed.
+
 ## Refactor Priority Plan
 
 ### Priority A: Queue Workflow Ownership
@@ -351,7 +380,7 @@ Sequence:
    assertions. Completed in Block 54.
 3. Split backend resume/evidence/setup modules behind existing public exports.
 4. Split frontend runtime adapter into API access, persistence/reporting, and
-   runner handoff.
+   runner handoff. Completed in Block 67.
 5. Split frontend runner into state-machine, dependency, evidence, and report
    modules.
 

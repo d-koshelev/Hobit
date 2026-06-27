@@ -63,16 +63,6 @@
       "removeAfter": "Remove after worker-evidence concerns are split below the source threshold."
     },
     {
-      "path": "apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.test.ts",
-      "currentLineCount": 2696,
-      "category": "test",
-      "reason": "Runtime adapter tests combine persistence, workflow API, and run-link behavior in one file.",
-      "plannedRefactorBlock": "Priority A - split runtime-adapter tests by persistence, workflow API, and run-link ownership.",
-      "ownerDomain": "Queue workflow runtime adapter tests",
-      "targetMaxLineCount": 1000,
-      "removeAfter": "Remove after adapter tests are split below the test threshold."
-    },
-    {
       "path": "apps/desktop/frontend/src/workbench/FinderWidget.tsx",
       "currentLineCount": 2617,
       "category": "source",
@@ -101,16 +91,6 @@
       "ownerDomain": "Queue styles",
       "targetMaxLineCount": 900,
       "removeAfter": "Remove after Queue styles are split below the style threshold."
-    },
-    {
-      "path": "apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.ts",
-      "currentLineCount": 1432,
-      "category": "source",
-      "reason": "Runtime adapter mixes frontend workflow runner persistence, API adapter, and result/report persistence concerns.",
-      "plannedRefactorBlock": "Priority A - split runtime adapter by API access, result persistence, and runner handoff.",
-      "ownerDomain": "Queue workflow runtime adapter",
-      "targetMaxLineCount": 700,
-      "removeAfter": "Remove after runtime adapter responsibilities are split below the source threshold."
     },
     {
       "path": "apps/desktop/frontend/src/workbench/queue/useAgentQueueController.executionState.test.tsx",

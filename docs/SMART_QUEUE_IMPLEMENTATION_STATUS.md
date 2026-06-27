@@ -44,20 +44,11 @@ safe grant-summary persistence, action-ledger rows, and read-only resume
 planning. The frontend runtime normalizes typed input, calls backend
 StepResult APIs, and projects returned results. `docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md` now records docs-only coordination vocabulary and guardrails for Task, RunAttempt, ActorRef, ExecutorTarget, QueueEvent, ArtifactLink, compatibility fields, and UI independence; it adds no schema, code, runtime behavior, UI, server/sync/ACL, remote-agent runtime, scheduler runtime, smoke, or Queue state mutation.
 
-Block 63 completed frontend mutating workflow de-orchestration. Backend/domain
-owns create/setup/start, worker-evidence, review, finalization, action ledger
-rows, slot-binding merge, workflow status/current step, retry/recovery, and
-final accepted-completion or terminal-failure decisions. The runtime adapter
-normalizes typed requests, calls backend StepResult APIs, and projects results;
-it no longer calls raw workflow mutation ports, synthesizes mutating action
-rows, writes slot-binding deltas, classifies retry/recovery, or persists
-backend-owned status/currentStep after backend-owned steps.
+Block 63 completed frontend mutating workflow de-orchestration: backend/domain owns create/setup/start, worker-evidence, review, finalization, action ledger rows, slot-binding merge, workflow status/current step, retry/recovery, and final accepted-completion or terminal-failure decisions. The runtime adapter normalizes typed requests, calls backend StepResult APIs, and projects results; it no longer calls raw workflow mutation ports, synthesizes mutating action rows, writes slot-binding deltas, classifies retry/recovery, or persists backend-owned status/currentStep after backend-owned steps.
 
-All mutating dependency-smoke workflow phases are backend-owned:
-`create_setup_start`, `worker_evidence`, `review`, and `finalization`; `read`
-is the only legacy frontend workflow runner phase. The remaining legacy
-frontend mutating phase modules were deleted, and the next step is clean
-acceptance/failure smoke.
+Block 67 split the frontend runtime adapter into focused request, backend-step, read-only compatibility, projection, activity, error, and guard modules behind the same public import path. This was structural only: Queue workflow behavior and backend transition ownership did not change, and fresh acceptance/failure smoke after commit/restart remains the next manual validation step.
+
+All mutating dependency-smoke workflow phases are backend-owned: `create_setup_start`, `worker_evidence`, `review`, and `finalization`; `read` is the only legacy frontend workflow runner phase. The remaining legacy frontend mutating phase modules were deleted, and the next step is clean acceptance/failure smoke.
 
 The dependency smoke workflows compose the current phases end to end:
 backend-owned create/setup/start, typed evidence, backend review create/ACK,
