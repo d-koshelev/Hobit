@@ -5,7 +5,7 @@ use crate::codex_cli::{CodexApprovalPolicy, CodexSandboxMode};
 use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
@@ -465,6 +465,40 @@ fn skip_git_repo_check_request_adds_exec_arg_after_exec() {
 }
 
 #[test]
+fn worker_launch_removes_dogfood_operator_control_environment() {
+    static ENV_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    let _guard = ENV_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .expect("env lock");
+    let endpoint_file = temp_path("operator-endpoint").join("dogfood-operator-endpoint.json");
+
+    for name in DOGFOOD_OPERATOR_CONTROL_ENV_VARS {
+        std::env::set_var(name, format!("{name}-secret"));
+    }
+    std::env::set_var("HOBIT_DOGFOOD_OPERATOR_ENDPOINT_FILE", &endpoint_file);
+
+    let output = run_codex_direct_work_streaming(
+        request_with_program(temp_repo("env-check"), "env-check", direct_stream_helper()),
+        |_| {},
+    );
+
+    for name in DOGFOOD_OPERATOR_CONTROL_ENV_VARS {
+        std::env::remove_var(name);
+    }
+
+    assert_eq!(output.status, CodexDirectStreamStatus::Completed);
+    let final_message = output.final_message.expect("final message");
+    for name in DOGFOOD_OPERATOR_CONTROL_ENV_VARS {
+        assert!(
+            final_message.contains(&format!("{name}=absent")),
+            "worker launch context exposed {name}: {final_message}"
+        );
+    }
+    assert!(!final_message.contains(&endpoint_file.to_string_lossy().into_owned()));
+}
+
+#[test]
 fn resume_thread_request_builds_explicit_resume_without_last() {
     let mut request = request_with_program(
         temp_repo("resume-thread"),
@@ -828,6 +862,24 @@ fn main() {
     if prompt == "trusted-directory-error" {
         eprintln!("Not inside a trusted directory and --skip-git-repo-check was not specified");
         std::process::exit(1);
+    }
+
+    if prompt == "env-check" {
+        let names = [
+            "HOBIT_DOGFOOD_OPERATOR_ENDPOINT",
+            "HOBIT_DOGFOOD_OPERATOR_ENDPOINT_FILE",
+            "HOBIT_DOGFOOD_OPERATOR_TOKEN",
+            "HOBIT_DOGFOOD_PROFILE",
+            "HOBIT_DOGFOOD_PROFILE_DIR",
+            "HOBIT_DOGFOOD_WORKSPACE_ROOT",
+        ];
+        let mut lines = Vec::new();
+        for name in names {
+            let status = if std::env::var_os(name).is_some() { "present" } else { "absent" };
+            lines.push(format!("{name}={status}"));
+        }
+        std::fs::write(output_path, lines.join("\n")).unwrap();
+        return;
     }
 
     println!("helper stdout");

@@ -144,6 +144,23 @@ impl WorkspaceService {
             .map(map_run_link_row))
     }
 
+    pub fn get_agent_queue_task_run_link_by_id(
+        &self,
+        workspace_id: &str,
+        run_link_id: &str,
+    ) -> Result<Option<AgentQueueTaskRunSummary>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let run_link_id = required_input(run_link_id, "run link id")?;
+        let Some(link) = self
+            .store
+            .get_agent_queue_task_run_link(workspace_id, run_link_id)?
+        else {
+            return Ok(None);
+        };
+        self.validate_agent_queue_run_link_task_access(workspace_id, &link.queue_task_id)?;
+        Ok(Some(map_run_link_row(link)))
+    }
+
     fn validate_agent_queue_run_link_task_access(
         &self,
         workspace_id: &str,

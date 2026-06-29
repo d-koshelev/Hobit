@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "packId": "hobit-queue-dogfood-next",
+  "title": "Hobit Queue Dogfood Next",
+  "description": "First backend-owned Queue dogfood prompt pack for exercising preview, materialization, selected-task queue_local start, and operator reporting.",
+  "defaults": {
+    "status": "draft",
+    "priority": 3
+  },
+  "runSettings": {
+    "executionTarget": {
+      "kind": "queue_local",
+      "providerId": "codex"
+    },
+    "executionPolicy": "manual",
+    "sandbox": "workspace_write",
+    "approvalPolicy": "never"
+  },
+  "constraints": {
+    "noAutoRun": true
+  },
+  "tasks": [
+    {
+      "id": "dogfood-foundation-checkpoint",
+      "title": "Dogfood foundation checkpoint",
+      "prompt": "Inspect the current Queue dogfood foundation and produce a concise checkpoint. Confirm the BLOCK 70B, 70C, and 70D files are present. Confirm prompt-pack preview, prompt-pack materialization, and selected-task start tests still pass. Summarize current uncommitted status. Do not modify code unless required to fix a failing test. Do not touch apps/desktop/src-tauri/Cargo.toml. Do not run real codex.cmd in tests. Produce next-step evidence.",
+      "dependsOn": [],
+      "tags": ["dogfood", "queue", "checkpoint"],
+      "priority": 4
+    },
+    {
+      "id": "dogfood-file-import-hardening",
+      "title": "Harden workspace-file prompt pack import path",
+      "prompt": "Inspect the workspace-file based prompt-pack preview and materialize path from BLOCK 70E and harden it if needed. Verify canonicalization under the workspace root. Verify extension and size caps. Verify parser reuse. Verify no frontend-owned materializer is canonical. Add or adjust tests only if gaps are found. Do not add scheduler or autodispatch behavior.",
+      "dependsOn": ["dogfood-foundation-checkpoint"],
+      "tags": ["dogfood", "prompt-pack", "backend"],
+      "priority": 5
+    },
+    {
+      "id": "dogfood-selected-task-run-report",
+      "title": "Report first selected-task dogfood run",
+      "prompt": "Produce a run report from the first materialized selected-task execution. Include generated Queue task id and run link id if available. Include whether the completion bridge terminalized the run. Include tests and gates run. Include blockers. Do not infer ids from UI order, title, prose, or prompt text. Do not start dependent tasks automatically.",
+      "dependsOn": ["dogfood-file-import-hardening"],
+      "tags": ["dogfood", "queue-local", "report"],
+      "priority": 4
+    },
+    {
+      "id": "dogfood-next-implementation-block",
+      "title": "Draft next Queue-driven implementation block",
+      "prompt": "Draft the next implementation prompt from Queue evidence. Use the report from previous tasks. Keep scope small. Preserve backend-owned lifecycle. Avoid UI redesign and scheduler or autodispatch behavior. Include validation commands and guardrails.",
+      "dependsOn": ["dogfood-selected-task-run-report"],
+      "tags": ["dogfood", "planning"],
+      "priority": 3
+    },
+    {
+      "id": "dogfood-docs-loop",
+      "title": "Document Queue dogfood operator loop",
+      "prompt": "Update dogfood docs with the operational loop. Include the prompt pack file location, backend preview and materialize steps, selected-task manual start, completion bridge, report and update cycle, boundaries, and non-goals.",
+      "dependsOn": ["dogfood-next-implementation-block"],
+      "tags": ["dogfood", "docs"],
+      "priority": 2
+    }
+  ]
+}

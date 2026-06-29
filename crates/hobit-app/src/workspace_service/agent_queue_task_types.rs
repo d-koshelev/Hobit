@@ -309,6 +309,30 @@ pub struct StartAssignedAgentQueueTaskInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StartSelectedAgentQueueTaskLocalInput {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SelectedAgentQueueTaskLocalStartSummary {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub workbench_id: String,
+    pub executor_widget_instance_id: String,
+    pub run_id: Option<String>,
+    pub run_link_id: Option<String>,
+    pub status: String,
+    pub direct_work_input: Option<super::RunCodexDirectWorkInput>,
+    pub current_run_state: Option<String>,
+    pub blocker: Option<QueueWorkerStartBlocker>,
+    pub created_run_link: bool,
+    pub created_widget_run: bool,
+    pub used_workflow_slot: bool,
+    pub used_widget_identity: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FinishAssignedAgentQueueTaskRunInput {
     pub workspace_id: String,
     pub queue_item_id: String,

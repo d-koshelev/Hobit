@@ -28,8 +28,10 @@ pub(crate) use executable::resolve_codex_executable;
 
 pub const DEFAULT_CODEX_CLI_PROGRAM: &str = "codex";
 pub const DEFAULT_CODEX_CLI_PROBE_TIMEOUT_MS: u64 = 2_000;
+pub const DEFAULT_CODEX_CLI_DOCTOR_TIMEOUT_MS: u64 = 15_000;
 
 const CODEX_CLI_PROBE_OUTPUT_CAP_BYTES: usize = 16 * 1024;
+const CODEX_CLI_DOCTOR_OUTPUT_CAP_BYTES: usize = 64 * 1024;
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct CodexCliProbeRequest {
@@ -51,6 +53,23 @@ pub struct CodexCliProbeOutput {
     pub available: bool,
     pub program: String,
     pub version: Option<String>,
+    pub stdout: String,
+    pub stderr: String,
+    pub error_message: Option<String>,
+    pub duration_ms: u128,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CodexCliDoctorRequest {
+    pub program: Option<String>,
+    pub timeout_ms: Option<u64>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CodexCliDoctorOutput {
+    pub started: bool,
+    pub program: String,
+    pub exit_code: Option<i32>,
     pub stdout: String,
     pub stderr: String,
     pub error_message: Option<String>,
@@ -131,6 +150,74 @@ pub fn probe_codex_cli(request: CodexCliProbeRequest) -> CodexCliProbeOutput {
         stdout: output.stdout,
         stderr: output.stderr,
         error_message,
+        duration_ms: output.duration_ms,
+    }
+}
+
+/// Run the redacted Codex CLI diagnostic report.
+///
+/// This helper only invokes `codex doctor --json`. It does not run a prompt,
+/// launch Direct Work, or target the Hobit repository as the working directory.
+pub fn run_codex_cli_doctor_json(request: CodexCliDoctorRequest) -> CodexCliDoctorOutput {
+    let started_at = Instant::now();
+    let program = request
+        .program
+        .unwrap_or_else(|| DEFAULT_CODEX_CLI_PROGRAM.to_owned())
+        .trim()
+        .to_owned();
+
+    if program.is_empty() {
+        return CodexCliDoctorOutput {
+            started: false,
+            program,
+            exit_code: None,
+            stdout: String::new(),
+            stderr: String::new(),
+            error_message: Some("program must not be empty".to_owned()),
+            duration_ms: started_at.elapsed().as_millis(),
+        };
+    }
+
+    let resolution = match resolve_codex_executable(&program) {
+        Ok(resolution) => resolution,
+        Err(error) => {
+            return CodexCliDoctorOutput {
+                started: false,
+                program,
+                exit_code: None,
+                stdout: String::new(),
+                stderr: String::new(),
+                error_message: Some(error.message),
+                duration_ms: started_at.elapsed().as_millis(),
+            };
+        }
+    };
+
+    let launch = executable::codex_launch_command(
+        &resolution.program,
+        vec!["doctor".to_owned(), "--json".to_owned()],
+    );
+    let output = run_process_once(ProcessRunRequest {
+        program: launch.program,
+        args: launch.args,
+        stdin: None,
+        working_directory: std::env::temp_dir(),
+        timeout_ms: request
+            .timeout_ms
+            .unwrap_or(DEFAULT_CODEX_CLI_DOCTOR_TIMEOUT_MS),
+        stdout_cap_bytes: CODEX_CLI_DOCTOR_OUTPUT_CAP_BYTES,
+        stderr_cap_bytes: CODEX_CLI_DOCTOR_OUTPUT_CAP_BYTES,
+    });
+
+    CodexCliDoctorOutput {
+        started: output.status == ProcessRunStatus::Completed,
+        program: resolution.program,
+        exit_code: output.exit_code,
+        stdout: output.stdout,
+        stderr: output.stderr,
+        error_message: output
+            .error_message
+            .map(|message| executable::actionable_codex_launch_error(&message)),
         duration_ms: output.duration_ms,
     }
 }

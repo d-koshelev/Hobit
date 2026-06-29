@@ -2,7 +2,8 @@ use std::path::PathBuf;
 
 use hobit_app::{
     AgentQueueTaskRunSummary, AssignedAgentQueueTaskStartSummary, QueueWorkerStartBlocker,
-    QueueWorkerStartContext, StartAssignedAgentQueueTaskInput,
+    QueueWorkerStartContext, SelectedAgentQueueTaskLocalStartSummary,
+    StartAssignedAgentQueueTaskInput, StartSelectedAgentQueueTaskLocalInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -53,6 +54,29 @@ pub(crate) struct StartAssignedAgentQueueTaskResponseDto {
     pub settings_hash: Option<String>,
     pub current_run_state: Option<String>,
     pub blocker: Option<QueueWorkerStartBlockerDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+pub(crate) struct StartSelectedAgentQueueTaskLocalRequest {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct StartSelectedAgentQueueTaskLocalResponseDto {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub run_link_id: Option<String>,
+    pub run_id: Option<String>,
+    pub status: String,
+    pub blocked_reason: Option<String>,
+    pub blocker_code: Option<String>,
+    pub current_run_state: Option<String>,
+    pub would_start_workers: bool,
+    pub created_widget_run: bool,
+    pub created_run_link: bool,
+    pub used_workflow_slot: bool,
+    pub used_widget_identity: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -122,6 +146,15 @@ impl From<StartAssignedAgentQueueTaskRequest> for StartAssignedAgentQueueTaskInp
     }
 }
 
+impl From<StartSelectedAgentQueueTaskLocalRequest> for StartSelectedAgentQueueTaskLocalInput {
+    fn from(request: StartSelectedAgentQueueTaskLocalRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            queue_item_id: request.queue_item_id,
+        }
+    }
+}
+
 impl From<AssignedAgentQueueTaskStartSummary> for StartAssignedAgentQueueTaskResponseDto {
     fn from(summary: AssignedAgentQueueTaskStartSummary) -> Self {
         Self {
@@ -137,6 +170,35 @@ impl From<AssignedAgentQueueTaskStartSummary> for StartAssignedAgentQueueTaskRes
             settings_hash: summary.settings_hash,
             current_run_state: summary.current_run_state,
             blocker: summary.blocker.map(QueueWorkerStartBlockerDto::from),
+        }
+    }
+}
+
+impl From<SelectedAgentQueueTaskLocalStartSummary> for StartSelectedAgentQueueTaskLocalResponseDto {
+    fn from(summary: SelectedAgentQueueTaskLocalStartSummary) -> Self {
+        let blocker_code = summary
+            .blocker
+            .as_ref()
+            .map(|blocker| blocker.blocker_code.clone());
+        let blocked_reason = summary
+            .blocker
+            .as_ref()
+            .map(|blocker| blocker.blocker_message.clone());
+
+        Self {
+            workspace_id: summary.workspace_id,
+            queue_item_id: summary.queue_item_id,
+            run_link_id: summary.run_link_id,
+            run_id: summary.run_id,
+            status: summary.status,
+            blocked_reason,
+            blocker_code,
+            current_run_state: summary.current_run_state,
+            would_start_workers: false,
+            created_widget_run: summary.created_widget_run,
+            created_run_link: summary.created_run_link,
+            used_workflow_slot: summary.used_workflow_slot,
+            used_widget_identity: summary.used_widget_identity,
         }
     }
 }

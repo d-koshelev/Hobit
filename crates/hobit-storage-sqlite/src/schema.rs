@@ -24,6 +24,13 @@ CREATE TABLE IF NOT EXISTS workspace_sessions (
     current_focus_ref TEXT NULL
 );
 
+CREATE TABLE IF NOT EXISTS dogfood_operator_workspace_bindings (
+    canonical_root TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS workbench_presets (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
@@ -286,6 +293,36 @@ CREATE TABLE IF NOT EXISTS agent_queue_workflow_actions (
     UNIQUE(workflow_run_id, idempotency_key)
 );
 
+CREATE TABLE IF NOT EXISTS agent_queue_prompt_pack_materializations (
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    pack_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NULL,
+    pack_spec_hash TEXT NOT NULL,
+    run_settings_hash TEXT NOT NULL,
+    dependency_spec_hash TEXT NOT NULL,
+    full_preview_hash TEXT NOT NULL,
+    task_count INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(workspace_id, pack_id)
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_prompt_pack_task_mappings (
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    pack_id TEXT NOT NULL,
+    pack_task_id TEXT NOT NULL,
+    queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+    task_spec_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(workspace_id, pack_id, pack_task_id),
+    UNIQUE(workspace_id, queue_task_id),
+    FOREIGN KEY(workspace_id, pack_id)
+        REFERENCES agent_queue_prompt_pack_materializations(workspace_id, pack_id)
+        ON DELETE CASCADE
+);
+
 CREATE TABLE IF NOT EXISTS notes (
     note_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
@@ -435,6 +472,9 @@ CREATE TABLE IF NOT EXISTS workbench_events (
 
 CREATE INDEX IF NOT EXISTS idx_workspace_sessions_workspace_id
     ON workspace_sessions(workspace_id);
+
+CREATE INDEX IF NOT EXISTS idx_dogfood_operator_workspace_bindings_workspace_id
+    ON dogfood_operator_workspace_bindings(workspace_id);
 
 CREATE INDEX IF NOT EXISTS idx_workspace_workbenches_workspace_id
     ON workspace_workbenches(workspace_id);
@@ -590,6 +630,9 @@ CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_actions_run_step
 
 CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_actions_workspace_created
     ON agent_queue_workflow_actions(workspace_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_prompt_pack_tasks_queue_task
+    ON agent_queue_prompt_pack_task_mappings(workspace_id, queue_task_id);
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_documents_scope
     ON knowledge_documents(scope);

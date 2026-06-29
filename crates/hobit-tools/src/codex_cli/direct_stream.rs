@@ -30,6 +30,14 @@ use stream_io::{
 };
 
 const PROCESS_POLL_INTERVAL: Duration = Duration::from_millis(10);
+const DOGFOOD_OPERATOR_CONTROL_ENV_VARS: &[&str] = &[
+    "HOBIT_DOGFOOD_OPERATOR_ENDPOINT",
+    "HOBIT_DOGFOOD_OPERATOR_ENDPOINT_FILE",
+    "HOBIT_DOGFOOD_OPERATOR_TOKEN",
+    "HOBIT_DOGFOOD_PROFILE",
+    "HOBIT_DOGFOOD_PROFILE_DIR",
+    "HOBIT_DOGFOOD_WORKSPACE_ROOT",
+];
 mod command;
 mod json;
 mod status;
@@ -178,14 +186,16 @@ where
         .stderr_cap_bytes
         .unwrap_or(DEFAULT_CODEX_DIRECT_RUN_STDERR_CAP_BYTES);
 
-    let mut child = match Command::new(&launch.program)
+    let mut command = Command::new(&launch.program);
+    command
         .args(&launch.args)
         .current_dir(&request.repo_root)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .spawn()
-    {
+        .stderr(Stdio::piped());
+    remove_dogfood_operator_control_environment(&mut command);
+
+    let mut child = match command.spawn() {
         Ok(child) => child,
         Err(error) => {
             return rejected_request(
@@ -403,6 +413,12 @@ where
         command_summary,
         event_count,
         force_killed,
+    }
+}
+
+fn remove_dogfood_operator_control_environment(command: &mut Command) {
+    for name in DOGFOOD_OPERATOR_CONTROL_ENV_VARS {
+        command.env_remove(name);
     }
 }
 

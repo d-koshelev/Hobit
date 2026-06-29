@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use hobit_app::{
     AssignedAgentQueueTaskStartSummary, FinishAssignedAgentQueueTaskRunInput,
-    RunCodexDirectWorkInput, WorkspaceService,
+    RunCodexDirectWorkInput, SelectedAgentQueueTaskLocalStartSummary, WorkspaceService,
 };
 use hobit_storage_sqlite::SqliteStore;
 use tauri::Emitter;
@@ -19,6 +19,7 @@ pub(crate) struct QueueDirectWorkLaunch {
     pub(crate) workspace_id: String,
     pub(crate) queue_item_id: String,
     pub(crate) run_id: String,
+    pub(crate) run_link_id: Option<String>,
     pub(crate) direct_work_input: RunCodexDirectWorkInput,
 }
 
@@ -35,8 +36,29 @@ impl QueueDirectWorkLaunch {
             workspace_id: start.workspace_id.clone(),
             queue_item_id: start.queue_item_id.clone(),
             run_id: start.run_id.clone(),
+            run_link_id: None,
             direct_work_input: start.direct_work_input.clone(),
         }
+    }
+
+    pub(crate) fn from_selected_start_summary(
+        start: &SelectedAgentQueueTaskLocalStartSummary,
+    ) -> Result<Self, String> {
+        let run_id = start
+            .run_id
+            .clone()
+            .ok_or_else(|| "selected Queue task start did not return a run id".to_owned())?;
+        let direct_work_input = start.direct_work_input.clone().ok_or_else(|| {
+            "selected Queue task start did not return backend-prepared launch data".to_owned()
+        })?;
+
+        Ok(Self {
+            workspace_id: start.workspace_id.clone(),
+            queue_item_id: start.queue_item_id.clone(),
+            run_id,
+            run_link_id: start.run_link_id.clone(),
+            direct_work_input,
+        })
     }
 }
 
@@ -163,6 +185,23 @@ fn finish_queue_direct_work_launch(
     direct_work_status: &str,
 ) -> Result<(), String> {
     let service = workspace_service(db_path)?;
+    if let Some(run_link_id) = launch.run_link_id.as_deref() {
+        let link = service
+            .get_latest_agent_queue_task_run_link(&launch.workspace_id, &launch.queue_item_id)
+            .map_err(command_error)?
+            .ok_or_else(|| {
+                format!(
+                    "queue task run link not found for selected task: {}",
+                    launch.queue_item_id
+                )
+            })?;
+        if link.link_id.as_str() != run_link_id || link.direct_work_run_id != launch.run_id {
+            return Err(format!(
+                "queue task run link mismatch for selected task: {}",
+                launch.queue_item_id
+            ));
+        }
+    }
     service
         .finish_assigned_agent_queue_task_run(FinishAssignedAgentQueueTaskRunInput {
             workspace_id: launch.workspace_id.clone(),
@@ -173,6 +212,13 @@ fn finish_queue_direct_work_launch(
         })
         .map(|_| ())
         .map_err(command_error)
+}
+
+pub(crate) fn finish_queue_direct_work_launch_after_sync_failure(
+    launch: &QueueDirectWorkLaunch,
+    db_path: &Path,
+) -> Result<(), String> {
+    finish_queue_direct_work_launch(launch, db_path, "failed")
 }
 
 fn emit_direct_work_stream_event(

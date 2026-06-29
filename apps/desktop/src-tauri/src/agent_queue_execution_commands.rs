@@ -5,12 +5,14 @@ use hobit_storage_sqlite::SqliteStore;
 use tauri::State;
 
 use crate::agent_queue_direct_work_launcher::{
-    spawn_queue_direct_work_background_run, QueueDirectWorkLaunch,
+    finish_queue_direct_work_launch_after_sync_failure, spawn_queue_direct_work_background_run,
+    QueueDirectWorkLaunch, QueueDirectWorkLaunchStatus,
 };
 use crate::agent_queue_execution_dto::{
     AgentQueueTaskRunLinkDto, GetAgentQueueTaskLatestRunLinkRequest,
     ListAgentQueueTaskRunLinksRequest, StartAssignedAgentQueueTaskRequest,
-    StartAssignedAgentQueueTaskResponseDto,
+    StartAssignedAgentQueueTaskResponseDto, StartSelectedAgentQueueTaskLocalRequest,
+    StartSelectedAgentQueueTaskLocalResponseDto,
 };
 use crate::app_state::{AppState, DirectWorkActiveRunRegistry};
 
@@ -23,6 +25,17 @@ pub(crate) async fn start_assigned_agent_queue_task(
     let db_path = state.db_path().to_path_buf();
     let active_runs = state.direct_work_active_runs();
     start_assigned_agent_queue_task_from_request(request, app, db_path, active_runs).await
+}
+
+#[tauri::command]
+pub(crate) async fn start_selected_agent_queue_task_local(
+    request: StartSelectedAgentQueueTaskLocalRequest,
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+) -> Result<StartSelectedAgentQueueTaskLocalResponseDto, String> {
+    let db_path = state.db_path().to_path_buf();
+    let active_runs = state.direct_work_active_runs();
+    start_selected_agent_queue_task_local_from_request(request, app, db_path, active_runs).await
 }
 
 #[tauri::command]
@@ -39,6 +52,108 @@ pub(crate) fn list_agent_queue_task_run_links(
     state: State<'_, AppState>,
 ) -> Result<Vec<AgentQueueTaskRunLinkDto>, String> {
     list_agent_queue_task_run_links_blocking(request, state.db_path().to_path_buf())
+}
+
+pub(crate) async fn start_selected_agent_queue_task_local_from_request(
+    request: StartSelectedAgentQueueTaskLocalRequest,
+    app: tauri::AppHandle,
+    db_path: PathBuf,
+    active_runs: DirectWorkActiveRunRegistry,
+) -> Result<StartSelectedAgentQueueTaskLocalResponseDto, String> {
+    let start = tauri::async_runtime::spawn_blocking({
+        let db_path = db_path.clone();
+        move || start_selected_agent_queue_task_local_blocking(request, db_path)
+    })
+    .await
+    .map_err(command_error)??;
+
+    launch_selected_agent_queue_task_local_start(
+        start,
+        db_path,
+        active_runs,
+        |launch, db_path, active_runs| {
+            spawn_queue_direct_work_background_run(launch, db_path, app, active_runs)
+        },
+    )
+}
+
+pub(crate) fn start_selected_agent_queue_task_local_blocking(
+    request: StartSelectedAgentQueueTaskLocalRequest,
+    db_path: PathBuf,
+) -> Result<hobit_app::SelectedAgentQueueTaskLocalStartSummary, String> {
+    let input: hobit_app::StartSelectedAgentQueueTaskLocalInput = request.into();
+    let service = workspace_service(&db_path)?;
+    service
+        .start_selected_agent_queue_task_local(input)
+        .map_err(command_error)
+}
+
+#[cfg(test)]
+pub(crate) fn start_selected_agent_queue_task_local_from_request_with_launcher<F>(
+    request: StartSelectedAgentQueueTaskLocalRequest,
+    db_path: PathBuf,
+    active_runs: DirectWorkActiveRunRegistry,
+    launcher: F,
+) -> Result<StartSelectedAgentQueueTaskLocalResponseDto, String>
+where
+    F: FnOnce(
+        QueueDirectWorkLaunch,
+        PathBuf,
+        DirectWorkActiveRunRegistry,
+    ) -> Result<QueueDirectWorkLaunchStatus, String>,
+{
+    let start = start_selected_agent_queue_task_local_blocking(request, db_path.clone())?;
+    launch_selected_agent_queue_task_local_start(start, db_path, active_runs, launcher)
+}
+
+fn launch_selected_agent_queue_task_local_start<F>(
+    start: hobit_app::SelectedAgentQueueTaskLocalStartSummary,
+    db_path: PathBuf,
+    active_runs: DirectWorkActiveRunRegistry,
+    launcher: F,
+) -> Result<StartSelectedAgentQueueTaskLocalResponseDto, String>
+where
+    F: FnOnce(
+        QueueDirectWorkLaunch,
+        PathBuf,
+        DirectWorkActiveRunRegistry,
+    ) -> Result<QueueDirectWorkLaunchStatus, String>,
+{
+    let mut response = StartSelectedAgentQueueTaskLocalResponseDto::from(start.clone());
+    if start.status != "launched" {
+        return Ok(response);
+    }
+
+    let launch = QueueDirectWorkLaunch::from_selected_start_summary(&start)?;
+    match launcher(launch.clone(), db_path.clone(), active_runs) {
+        Ok(QueueDirectWorkLaunchStatus::Spawned) => {
+            response.would_start_workers = true;
+            Ok(response)
+        }
+        Ok(QueueDirectWorkLaunchStatus::AlreadyActive) => {
+            response.status = "already_running".to_owned();
+            response.blocker_code = Some("active_run_conflict".to_owned());
+            response.blocked_reason =
+                Some("queue task already has an active queue_local run".to_owned());
+            Ok(response)
+        }
+        Ok(QueueDirectWorkLaunchStatus::BlockedActiveWidget) => {
+            response.status = "failed".to_owned();
+            response.blocker_code = Some("active_worker_target_conflict".to_owned());
+            response.blocked_reason =
+                Some("queue_local worker target already has an active Direct Work run".to_owned());
+            Ok(response)
+        }
+        Err(error) => {
+            finish_queue_direct_work_launch_after_sync_failure(&launch, &db_path).map_err(
+                |finish_error| format!("{error}; failed to mark queue run failed: {finish_error}"),
+            )?;
+            response.status = "failed".to_owned();
+            response.blocker_code = Some("launch_failed".to_owned());
+            response.blocked_reason = Some(error);
+            Ok(response)
+        }
+    }
 }
 
 pub(crate) fn get_agent_queue_task_latest_run_link_blocking(

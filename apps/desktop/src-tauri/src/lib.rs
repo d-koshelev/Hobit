@@ -26,6 +26,7 @@ mod agent_queue_execution_dto;
 mod agent_queue_execution_dto_tests;
 mod agent_queue_failure_commands;
 mod agent_queue_failure_dto;
+mod agent_queue_prompt_pack_commands;
 mod agent_queue_review_commands;
 mod agent_queue_review_dto;
 mod agent_queue_runner;
@@ -56,6 +57,8 @@ mod database_startup;
 mod direct_work_host_artifacts;
 #[cfg(test)]
 mod direct_work_host_artifacts_tests;
+pub mod dogfood_operator;
+mod dogfood_operator_endpoint;
 mod git_commit_dto;
 #[cfg(test)]
 mod git_commit_dto_tests;
@@ -126,6 +129,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(initialize_app_state(app)?);
+            dogfood_operator_endpoint::start_dogfood_operator_endpoint(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -191,6 +195,10 @@ pub fn run() {
             knowledge_documents_commands::search_knowledge_documents,
             knowledge_document_import_commands::read_knowledge_document_import_file,
             prompt_pack_import_commands::read_prompt_pack_source,
+            agent_queue_prompt_pack_commands::preview_agent_queue_prompt_pack,
+            agent_queue_prompt_pack_commands::preview_agent_queue_prompt_pack_file,
+            agent_queue_prompt_pack_commands::materialize_agent_queue_prompt_pack,
+            agent_queue_prompt_pack_commands::materialize_agent_queue_prompt_pack_file,
             knowledge_draft_review_commands::record_knowledge_draft_review,
             knowledge_draft_review_commands::list_knowledge_draft_reviews,
             jdbc_connector_commands::create_jdbc_connector,
@@ -247,6 +255,7 @@ pub fn run() {
             agent_queue_workflow_commands::apply_agent_queue_workflow_run_settings,
             agent_queue_workflow_commands::promote_agent_queue_workflow_task_slot,
             agent_queue_execution_commands::start_assigned_agent_queue_task,
+            agent_queue_execution_commands::start_selected_agent_queue_task_local,
             agent_queue_execution_commands::get_agent_queue_task_latest_run_link,
             agent_queue_execution_commands::list_agent_queue_task_run_links,
             agent_queue_runner_commands::start_agent_queue_runner_session,

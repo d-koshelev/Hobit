@@ -14,7 +14,8 @@ pub use crate::inputs::{
     AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunReportUpdate,
     AgentQueueWorkflowRunStatusUpdate, JdbcConnectionProfileUpdate, JdbcConnectorUpdate,
     KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision, NewAgentQueueControlState,
-    NewAgentQueueFailureDecision, NewAgentQueueItem, NewAgentQueueReviewMessage, NewAgentQueueTask,
+    NewAgentQueueFailureDecision, NewAgentQueueItem, NewAgentQueuePromptPackMaterialization,
+    NewAgentQueuePromptPackTaskMapping, NewAgentQueueReviewMessage, NewAgentQueueTask,
     NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewAgentQueueWorkerEvidenceBundle,
     NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun, NewJdbcConnectionProfile,
     NewJdbcConnector, NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject,
@@ -25,7 +26,8 @@ pub use crate::inputs::{
 use crate::rows::TableColumn;
 pub use crate::rows::{
     AgentQueueCompletionDecisionRow, AgentQueueControlStateRow, AgentQueueFailureDecisionRow,
-    AgentQueueItemRow, AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
+    AgentQueueItemRow, AgentQueuePromptPackMaterializationRow, AgentQueuePromptPackTaskMappingRow,
+    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
     AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, AgentQueueWorkflowActionRow,
     AgentQueueWorkflowRunRow, JdbcConnectionProfileRow, JdbcConnectorRow,
     KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
@@ -39,12 +41,14 @@ mod agent_queue_completion_decisions;
 mod agent_queue_control_states;
 mod agent_queue_failure_decisions;
 mod agent_queue_items;
+mod agent_queue_prompt_packs;
 mod agent_queue_review_messages;
 mod agent_queue_task_run_links;
 mod agent_queue_tasks;
 mod agent_queue_worker_evidence_bundles;
 mod agent_queue_workers;
 mod agent_queue_workflows;
+mod dogfood_operator_workspace_bindings;
 mod events;
 mod jdbc_connection_profiles;
 mod jdbc_connectors;

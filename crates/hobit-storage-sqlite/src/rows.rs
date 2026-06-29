@@ -165,6 +165,32 @@ pub struct AgentQueueTaskRunLinkRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueuePromptPackMaterializationRow {
+    pub workspace_id: String,
+    pub pack_id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub pack_spec_hash: String,
+    pub run_settings_hash: String,
+    pub dependency_spec_hash: String,
+    pub full_preview_hash: String,
+    pub task_count: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueuePromptPackTaskMappingRow {
+    pub workspace_id: String,
+    pub pack_id: String,
+    pub pack_task_id: String,
+    pub queue_task_id: String,
+    pub task_spec_hash: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueReviewMessageRow {
     pub message_id: String,
     pub workspace_id: String,

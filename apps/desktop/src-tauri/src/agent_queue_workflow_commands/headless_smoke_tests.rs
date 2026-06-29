@@ -394,6 +394,7 @@ impl TestQueueLocalLauncher {
                     workspace_id: intent.workspace_id.clone(),
                     queue_item_id: intent.queue_task_id.clone(),
                     run_id: intent.run_id.clone(),
+                    run_link_id: Some(link.link_id.as_str().to_owned()),
                     direct_work_input: intent.direct_work_input.clone(),
                 },
                 db_path,

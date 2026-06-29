@@ -22,6 +22,7 @@ pub use inputs::{
     AgentQueueWorkflowRunStatusUpdate, JdbcConnectionProfileUpdate, JdbcConnectorUpdate,
     KnowledgeDocumentSearchFilters, KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision,
     NewAgentQueueControlState, NewAgentQueueFailureDecision, NewAgentQueueItem,
+    NewAgentQueuePromptPackMaterialization, NewAgentQueuePromptPackTaskMapping,
     NewAgentQueueReviewMessage, NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorker,
     NewAgentQueueWorkerEvidenceBundle, NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun,
     NewJdbcConnectionProfile, NewJdbcConnector, NewKnowledgeDocument,
@@ -31,7 +32,8 @@ pub use inputs::{
 };
 pub use rows::{
     AgentQueueCompletionDecisionRow, AgentQueueControlStateRow, AgentQueueFailureDecisionRow,
-    AgentQueueItemRow, AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
+    AgentQueueItemRow, AgentQueuePromptPackMaterializationRow, AgentQueuePromptPackTaskMappingRow,
+    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
     AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, AgentQueueWorkflowActionRow,
     AgentQueueWorkflowRunRow, JdbcConnectionProfileRow, JdbcConnectorRow,
     KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,

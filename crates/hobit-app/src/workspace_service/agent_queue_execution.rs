@@ -18,7 +18,9 @@ use super::{
     agent_queue_lifecycle::{
         map_direct_work_final_status_to_queue_status, AgentQueueExecutionLifecycleStatus,
         AgentQueueTaskLifecycleStatus, AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL,
-        AGENT_QUEUE_TASK_STATUS_RUNNING,
+        AGENT_QUEUE_TASK_STATUS_DRAFT, AGENT_QUEUE_TASK_STATUS_FAILED,
+        AGENT_QUEUE_TASK_STATUS_QUEUED, AGENT_QUEUE_TASK_STATUS_READY,
+        AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED, AGENT_QUEUE_TASK_STATUS_RUNNING,
     },
     agent_queue_run_links::{
         record_agent_queue_task_run_final_status_in_store,
@@ -45,7 +47,8 @@ use super::{
     AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary, CodexDirectWorkRunSummary,
     FinishAssignedAgentQueueTaskRunInput, QueueExecutionTargetSnapshot, QueueWorkerStartBlocker,
     QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot, QueueWorkflowActionStatus,
-    RunCodexDirectWorkInput, StartAssignedAgentQueueTaskInput, WorkspaceService,
+    RunCodexDirectWorkInput, SelectedAgentQueueTaskLocalStartSummary,
+    StartAssignedAgentQueueTaskInput, StartSelectedAgentQueueTaskLocalInput, WorkspaceService,
     AGENT_QUEUE_WIDGET_DEFINITION_ID, AGENT_RUN_WIDGET_DEFINITION_ID,
     QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID, QUEUE_LOCAL_BACKEND_WORKBENCH_ID,
 };
@@ -54,6 +57,10 @@ const QUEUE_WORKER_START_ACTION_TYPE: &str = "start_worker";
 const QUEUE_WORKER_START_STEP_ID: &str = "start_worker";
 const QUEUE_WORKER_START_CONFIRMATION_TOKEN: &str = "operator-confirmed";
 const QUEUE_WORKER_START_STATUS_ALREADY_STARTED: &str = "already_started";
+const SELECTED_QUEUE_LOCAL_STATUS_LAUNCHED: &str = "launched";
+const SELECTED_QUEUE_LOCAL_STATUS_ALREADY_RUNNING: &str = "already_running";
+const SELECTED_QUEUE_LOCAL_STATUS_BLOCKED: &str = "blocked";
+const SELECTED_QUEUE_LOCAL_DEFAULT_CODEX_EXECUTABLE: &str = "codex";
 
 impl WorkspaceService {
     pub fn prepare_assigned_agent_queue_task_run(
@@ -377,6 +384,203 @@ impl WorkspaceService {
         }
     }
 
+    pub fn start_selected_agent_queue_task_local(
+        &self,
+        input: StartSelectedAgentQueueTaskLocalInput,
+    ) -> Result<SelectedAgentQueueTaskLocalStartSummary, WorkspaceServiceError> {
+        self.start_selected_agent_queue_task_local_with_mode(
+            input,
+            SelectedQueueLocalStartMode::Start,
+        )
+    }
+
+    pub fn retry_selected_agent_queue_task_local(
+        &self,
+        input: StartSelectedAgentQueueTaskLocalInput,
+    ) -> Result<SelectedAgentQueueTaskLocalStartSummary, WorkspaceServiceError> {
+        self.start_selected_agent_queue_task_local_with_mode(
+            input,
+            SelectedQueueLocalStartMode::RetryFailed,
+        )
+    }
+
+    fn start_selected_agent_queue_task_local_with_mode(
+        &self,
+        input: StartSelectedAgentQueueTaskLocalInput,
+        mode: SelectedQueueLocalStartMode,
+    ) -> Result<SelectedAgentQueueTaskLocalStartSummary, WorkspaceServiceError> {
+        let input = normalize_start_selected_agent_queue_task_local_input(input)?;
+        let updated_at = placeholder_timestamp();
+
+        self.store
+            .with_immediate_transaction(|store| {
+                let Some(workspace) = store.get_workspace(&input.workspace_id)? else {
+                    return Ok(selected_queue_local_blocked_summary(
+                        &input.workspace_id,
+                        &input.queue_item_id,
+                        selected_queue_local_blocker(
+                            "workspace_not_found",
+                            format!("workspace not found: {}", input.workspace_id),
+                            Some(&input.queue_item_id),
+                            None,
+                            Some("workspace_id"),
+                        ),
+                    ));
+                };
+
+                let Some(task) = store.get_agent_queue_task_by_id(&input.queue_item_id)? else {
+                    return Ok(selected_queue_local_blocked_summary(
+                        &input.workspace_id,
+                        &input.queue_item_id,
+                        selected_queue_local_blocker(
+                            "task_not_found",
+                            format!("queue task not found: {}", input.queue_item_id),
+                            Some(&input.queue_item_id),
+                            None,
+                            Some("queue_item_id"),
+                        ),
+                    ));
+                };
+
+                if task.workspace_id != input.workspace_id {
+                    return Ok(selected_queue_local_blocked_summary(
+                        &input.workspace_id,
+                        &input.queue_item_id,
+                        selected_queue_local_blocker(
+                            "workspace_mismatch",
+                            "queue task does not belong to the requested workspace",
+                            Some(&input.queue_item_id),
+                            Some(task.status.as_str()),
+                            Some("workspace_id"),
+                        ),
+                    ));
+                }
+
+                if let Some(active_link) =
+                    latest_active_task_run_link(store, &input.workspace_id, &input.queue_item_id)?
+                {
+                    return Ok(selected_queue_local_already_running_summary(
+                        &task,
+                        &active_link,
+                    ));
+                }
+
+                let control = ensure_default_control_state(store, &input.workspace_id)?;
+                if control.status != AGENT_QUEUE_CONTROL_STATUS_MANUAL_ENABLED {
+                    return Ok(selected_queue_local_blocked_summary(
+                        &input.workspace_id,
+                        &input.queue_item_id,
+                        selected_queue_local_blocker(
+                            "blocked_control_disabled",
+                            "Queue control state is disabled; enable manual Queue control before starting selected tasks.",
+                            Some(&input.queue_item_id),
+                            Some(control.status.as_str()),
+                            Some("queue_control"),
+                        ),
+                    ));
+                }
+
+                let state_blocker = match mode {
+                    SelectedQueueLocalStartMode::Start => {
+                        validate_selected_queue_local_task_state(&task)
+                    }
+                    SelectedQueueLocalStartMode::RetryFailed => {
+                        validate_selected_queue_local_retry_state(
+                            store,
+                            &input.workspace_id,
+                            &task,
+                        )?
+                    }
+                };
+                if let Some(blocker) = state_blocker {
+                    return Ok(selected_queue_local_blocked_summary(
+                        &input.workspace_id,
+                        &input.queue_item_id,
+                        blocker,
+                    ));
+                }
+
+                if let Err(blocker) =
+                    validate_queue_task_dependencies_ready(store, &input.workspace_id, &task)
+                {
+                    return Ok(selected_queue_local_blocked_summary(
+                        &input.workspace_id,
+                        &input.queue_item_id,
+                        blocker,
+                    ));
+                }
+
+                let settings = match selected_queue_local_run_settings(&workspace.root_path, &task)
+                {
+                    Ok(settings) => settings,
+                    Err(blocker) => {
+                        return Ok(selected_queue_local_blocked_summary(
+                            &input.workspace_id,
+                            &input.queue_item_id,
+                            blocker,
+                        ));
+                    }
+                };
+
+                let direct_work_input = RunCodexDirectWorkInput {
+                    workspace_id: input.workspace_id.clone(),
+                    workbench_id: QUEUE_LOCAL_BACKEND_WORKBENCH_ID.to_owned(),
+                    widget_instance_id: QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID.to_owned(),
+                    codex_executable: SELECTED_QUEUE_LOCAL_DEFAULT_CODEX_EXECUTABLE.to_owned(),
+                    repo_root: std::path::PathBuf::from(&settings.execution_workspace),
+                    operator_prompt: operator_prompt_for_queue_task(&task)
+                        .map_err(|error| storage_invalid_input(error.to_string()))?,
+                    codex_thread_id: None,
+                    sandbox: settings.sandbox.clone(),
+                    approval_policy: settings.approval_policy.clone(),
+                    skip_git_repo_check: true,
+                    timeout_ms: None,
+                    stdout_cap_bytes: None,
+                    stderr_cap_bytes: None,
+                };
+                normalize_direct_work_input(direct_work_input.clone())
+                    .map_err(|error| storage_invalid_input(error.to_string()))?;
+
+                let run_id = placeholder_id("queue-run_");
+                let link = record_agent_queue_task_run_started_in_store(
+                    store,
+                    &input.workspace_id,
+                    &input.queue_item_id,
+                    QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
+                    &run_id,
+                    AgentQueueTaskRunSource::Manual,
+                )?;
+                let task = store
+                    .update_agent_queue_task_status(
+                        &input.workspace_id,
+                        &input.queue_item_id,
+                        AGENT_QUEUE_TASK_STATUS_RUNNING,
+                        Some(&updated_at),
+                    )?
+                    .ok_or(hobit_storage_sqlite::StorageError::QueryReturnedNoRows)?;
+                store.touch_workspace(&input.workspace_id)?;
+
+                Ok(SelectedAgentQueueTaskLocalStartSummary {
+                    workspace_id: task.workspace_id,
+                    queue_item_id: task.queue_item_id,
+                    workbench_id: QUEUE_LOCAL_BACKEND_WORKBENCH_ID.to_owned(),
+                    executor_widget_instance_id: QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID
+                        .to_owned(),
+                    run_id: Some(run_id),
+                    run_link_id: Some(link.link_id.as_str().to_owned()),
+                    status: SELECTED_QUEUE_LOCAL_STATUS_LAUNCHED.to_owned(),
+                    direct_work_input: Some(direct_work_input),
+                    current_run_state: Some(AgentQueueTaskRunStatus::Running.as_str().to_owned()),
+                    blocker: None,
+                    created_run_link: true,
+                    created_widget_run: false,
+                    used_workflow_slot: false,
+                    used_widget_identity: false,
+                })
+            })
+            .map_err(map_storage_agent_queue_task_error)
+    }
+
     pub fn finish_assigned_agent_queue_task_run(
         &self,
         input: FinishAssignedAgentQueueTaskRunInput,
@@ -586,6 +790,34 @@ struct NormalizedQueueWorkerStartContext {
     expected_queue_control_version: Option<i64>,
     actor_id: Option<String>,
     confirmation_token: String,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum SelectedQueueLocalStartMode {
+    Start,
+    RetryFailed,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct NormalizedStartSelectedAgentQueueTaskLocalInput {
+    workspace_id: String,
+    queue_item_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SelectedQueueLocalRunSettings {
+    execution_workspace: String,
+    sandbox: String,
+    approval_policy: String,
+}
+
+fn normalize_start_selected_agent_queue_task_local_input(
+    input: StartSelectedAgentQueueTaskLocalInput,
+) -> Result<NormalizedStartSelectedAgentQueueTaskLocalInput, WorkspaceServiceError> {
+    Ok(NormalizedStartSelectedAgentQueueTaskLocalInput {
+        workspace_id: required_input(&input.workspace_id, "workspace id")?.to_owned(),
+        queue_item_id: required_input(&input.queue_item_id, "queue item id")?.to_owned(),
+    })
 }
 
 fn normalize_start_assigned_agent_queue_task_input(
@@ -1748,6 +1980,332 @@ fn validate_queue_task_dependencies_ready(
 
 fn queue_task_dependency_ids(task: &hobit_storage_sqlite::AgentQueueTaskRow) -> Vec<String> {
     serde_json::from_str::<Vec<String>>(&task.depends_on).unwrap_or_default()
+}
+
+fn validate_selected_queue_local_task_state(
+    task: &hobit_storage_sqlite::AgentQueueTaskRow,
+) -> Option<QueueWorkerStartBlocker> {
+    if task.assigned_executor_widget_id.is_some() {
+        return Some(selected_queue_local_blocker(
+            "unsupported_execution_target",
+            "selected queue_local start requires an unassigned Queue-owned task",
+            Some(&task.queue_item_id),
+            Some(task.status.as_str()),
+            Some("assigned_executor_widget_id"),
+        ));
+    }
+
+    if !matches!(
+        task.status.as_str(),
+        AGENT_QUEUE_TASK_STATUS_DRAFT
+            | AGENT_QUEUE_TASK_STATUS_QUEUED
+            | AGENT_QUEUE_TASK_STATUS_READY
+            | AGENT_QUEUE_TASK_STATUS_REVIEW_NEEDED
+    ) {
+        return Some(selected_queue_local_blocker(
+            "task_not_ready",
+            format!("queue task status cannot be run: {}", task.status),
+            Some(&task.queue_item_id),
+            Some(task.status.as_str()),
+            Some("task_status"),
+        ));
+    }
+
+    if task.prompt.trim().is_empty() {
+        return Some(selected_queue_local_blocker(
+            "task_not_ready",
+            "queue task prompt must not be empty before running",
+            Some(&task.queue_item_id),
+            Some(task.status.as_str()),
+            Some("prompt"),
+        ));
+    }
+
+    if task.execution_policy != AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL {
+        return Some(selected_queue_local_blocker(
+            "unsupported_execution_policy",
+            "selected queue_local start supports only manual Queue task execution policy",
+            Some(&task.queue_item_id),
+            Some(task.execution_policy.as_str()),
+            Some("execution_policy"),
+        ));
+    }
+
+    validate_selected_queue_local_context(task)
+}
+
+fn validate_selected_queue_local_retry_state(
+    store: &hobit_storage_sqlite::SqliteStore,
+    workspace_id: &str,
+    task: &hobit_storage_sqlite::AgentQueueTaskRow,
+) -> Result<Option<QueueWorkerStartBlocker>, hobit_storage_sqlite::StorageError> {
+    if task.assigned_executor_widget_id.is_some() {
+        return Ok(Some(selected_queue_local_blocker(
+            "unsupported_execution_target",
+            "selected queue_local retry requires an unassigned Queue-owned task",
+            Some(&task.queue_item_id),
+            Some(task.status.as_str()),
+            Some("assigned_executor_widget_id"),
+        )));
+    }
+
+    if task.status != AGENT_QUEUE_TASK_STATUS_FAILED {
+        return Ok(Some(selected_queue_local_blocker(
+            "not_retryable_task_status",
+            format!("queue task status cannot be retried: {}", task.status),
+            Some(&task.queue_item_id),
+            Some(task.status.as_str()),
+            Some("task_status"),
+        )));
+    }
+
+    let latest_link =
+        store.get_latest_agent_queue_task_run_link(workspace_id, &task.queue_item_id)?;
+    match latest_link {
+        Some(link) if link.status == AgentQueueTaskRunStatus::Failed.as_str() => {}
+        Some(link) => {
+            return Ok(Some(selected_queue_local_blocker(
+                "not_retryable_run_link_status",
+                format!(
+                    "latest queue_local run link cannot be retried: {}",
+                    link.status
+                ),
+                Some(&task.queue_item_id),
+                Some(link.status.as_str()),
+                Some("run_link_status"),
+            )));
+        }
+        None => {
+            return Ok(Some(selected_queue_local_blocker(
+                "missing_failed_run_link",
+                "failed selected Queue task has no failed run link to retry",
+                Some(&task.queue_item_id),
+                Some(task.status.as_str()),
+                Some("run_link_id"),
+            )));
+        }
+    }
+
+    if task.prompt.trim().is_empty() {
+        return Ok(Some(selected_queue_local_blocker(
+            "task_not_ready",
+            "queue task prompt must not be empty before retrying",
+            Some(&task.queue_item_id),
+            Some(task.status.as_str()),
+            Some("prompt"),
+        )));
+    }
+
+    if task.execution_policy != AGENT_QUEUE_TASK_EXECUTION_POLICY_MANUAL {
+        return Ok(Some(selected_queue_local_blocker(
+            "unsupported_execution_policy",
+            "selected queue_local retry supports only manual Queue task execution policy",
+            Some(&task.queue_item_id),
+            Some(task.execution_policy.as_str()),
+            Some("execution_policy"),
+        )));
+    }
+
+    Ok(validate_selected_queue_local_context(task))
+}
+
+fn validate_selected_queue_local_context(
+    task: &hobit_storage_sqlite::AgentQueueTaskRow,
+) -> Option<QueueWorkerStartBlocker> {
+    let Some(context_json) = task.context_json.as_deref() else {
+        return None;
+    };
+    let Ok(Value::Object(context)) = serde_json::from_str::<Value>(context_json) else {
+        return Some(selected_queue_local_blocker(
+            "invalid_task_context",
+            "Queue task context_json is not valid JSON for selected queue_local start",
+            Some(&task.queue_item_id),
+            Some(task.status.as_str()),
+            Some("context_json"),
+        ));
+    };
+    let Some(execution_target) = context.get("executionTarget") else {
+        return None;
+    };
+    if execution_target.is_null() {
+        return None;
+    }
+    let Some(execution_target) = execution_target.as_object() else {
+        return Some(selected_queue_local_blocker(
+            "unsupported_execution_target",
+            "Queue task executionTarget context must be an object",
+            Some(&task.queue_item_id),
+            Some(task.status.as_str()),
+            Some("context_json.executionTarget"),
+        ));
+    };
+    let kind = execution_target
+        .get("kind")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let provider_id = execution_target
+        .get("providerId")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    if kind == "queue_local" && provider_id == "codex" {
+        return None;
+    }
+
+    Some(selected_queue_local_blocker(
+        "unsupported_execution_target",
+        "selected Queue task must target queue_local/codex execution",
+        Some(&task.queue_item_id),
+        Some(task.status.as_str()),
+        Some("context_json.executionTarget"),
+    ))
+}
+
+fn selected_queue_local_run_settings(
+    workspace_root_path: &Option<String>,
+    task: &hobit_storage_sqlite::AgentQueueTaskRow,
+) -> Result<SelectedQueueLocalRunSettings, QueueWorkerStartBlocker> {
+    let execution_workspace = task
+        .execution_workspace
+        .as_deref()
+        .and_then(non_empty_trimmed)
+        .or_else(|| workspace_root_path.as_deref().and_then(non_empty_trimmed))
+        .ok_or_else(|| {
+            selected_queue_local_blocker(
+                "missing_workspace",
+                "selected queue_local start requires a durable task execution workspace or Workspace root path",
+                Some(&task.queue_item_id),
+                Some(task.status.as_str()),
+                Some("execution_workspace"),
+            )
+        })?;
+
+    let sandbox = task
+        .sandbox
+        .as_deref()
+        .and_then(non_empty_trimmed)
+        .ok_or_else(|| {
+            selected_queue_local_blocker(
+                "missing_sandbox",
+                "selected queue_local start requires durable task sandbox settings",
+                Some(&task.queue_item_id),
+                Some(task.status.as_str()),
+                Some("sandbox"),
+            )
+        })?;
+    if !matches!(sandbox, "read_only" | "workspace_write") {
+        return Err(selected_queue_local_blocker(
+            "unsupported_sandbox",
+            "selected queue_local start supports only read_only or workspace_write sandbox",
+            Some(&task.queue_item_id),
+            Some(sandbox),
+            Some("sandbox"),
+        ));
+    }
+
+    let approval_policy = task
+        .approval_policy
+        .as_deref()
+        .and_then(non_empty_trimmed)
+        .ok_or_else(|| {
+            selected_queue_local_blocker(
+                "missing_approval_policy",
+                "selected queue_local start requires durable task approval policy settings",
+                Some(&task.queue_item_id),
+                Some(task.status.as_str()),
+                Some("approval_policy"),
+            )
+        })?;
+    if approval_policy != "never" {
+        return Err(selected_queue_local_blocker(
+            "unsupported_approval_policy",
+            "selected queue_local start supports only approval policy never for MVP",
+            Some(&task.queue_item_id),
+            Some(approval_policy),
+            Some("approval_policy"),
+        ));
+    }
+
+    Ok(SelectedQueueLocalRunSettings {
+        execution_workspace: execution_workspace.to_owned(),
+        sandbox: sandbox.to_owned(),
+        approval_policy: approval_policy.to_owned(),
+    })
+}
+
+fn non_empty_trimmed(value: &str) -> Option<&str> {
+    let value = value.trim();
+    (!value.is_empty()).then_some(value)
+}
+
+fn selected_queue_local_already_running_summary(
+    task: &hobit_storage_sqlite::AgentQueueTaskRow,
+    active_link: &AgentQueueTaskRunLinkRow,
+) -> SelectedAgentQueueTaskLocalStartSummary {
+    SelectedAgentQueueTaskLocalStartSummary {
+        workspace_id: task.workspace_id.clone(),
+        queue_item_id: task.queue_item_id.clone(),
+        workbench_id: QUEUE_LOCAL_BACKEND_WORKBENCH_ID.to_owned(),
+        executor_widget_instance_id: QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID.to_owned(),
+        run_id: Some(active_link.direct_work_run_id.clone()),
+        run_link_id: Some(active_link.link_id.clone()),
+        status: SELECTED_QUEUE_LOCAL_STATUS_ALREADY_RUNNING.to_owned(),
+        direct_work_input: None,
+        current_run_state: Some(active_link.status.clone()),
+        blocker: Some(selected_queue_local_blocker(
+            "active_run_conflict",
+            "queue task already has an active queue_local run",
+            Some(&task.queue_item_id),
+            Some(active_link.status.as_str()),
+            None,
+        )),
+        created_run_link: false,
+        created_widget_run: false,
+        used_workflow_slot: false,
+        used_widget_identity: false,
+    }
+}
+
+fn selected_queue_local_blocked_summary(
+    workspace_id: &str,
+    queue_item_id: &str,
+    blocker: QueueWorkerStartBlocker,
+) -> SelectedAgentQueueTaskLocalStartSummary {
+    SelectedAgentQueueTaskLocalStartSummary {
+        workspace_id: workspace_id.to_owned(),
+        queue_item_id: queue_item_id.to_owned(),
+        workbench_id: QUEUE_LOCAL_BACKEND_WORKBENCH_ID.to_owned(),
+        executor_widget_instance_id: QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID.to_owned(),
+        run_id: blocker.run_id.clone(),
+        run_link_id: None,
+        status: SELECTED_QUEUE_LOCAL_STATUS_BLOCKED.to_owned(),
+        direct_work_input: None,
+        current_run_state: blocker.current_run_state.clone(),
+        blocker: Some(blocker),
+        created_run_link: false,
+        created_widget_run: false,
+        used_workflow_slot: false,
+        used_widget_identity: false,
+    }
+}
+
+fn selected_queue_local_blocker(
+    blocker_code: &str,
+    blocker_message: impl Into<String>,
+    task_id: Option<&str>,
+    current_run_state: Option<&str>,
+    missing_required_field: Option<&str>,
+) -> QueueWorkerStartBlocker {
+    workflow_start_blocker(
+        blocker_code,
+        blocker_message,
+        task_id,
+        None,
+        None,
+        current_run_state,
+        None,
+        None,
+        missing_required_field,
+    )
 }
 
 fn effective_worker_start_settings(

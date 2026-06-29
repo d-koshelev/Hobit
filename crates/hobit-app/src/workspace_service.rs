@@ -42,6 +42,8 @@ mod agent_queue_headless_contract_tests;
 mod agent_queue_lifecycle;
 #[cfg(test)]
 mod agent_queue_lifecycle_tests;
+mod agent_queue_prompt_pack;
+mod agent_queue_provider_readiness;
 mod agent_queue_review;
 #[cfg(test)]
 mod agent_queue_review_tests;
@@ -108,6 +110,7 @@ mod direct_work_tests;
 mod direct_work_validation;
 #[cfg(test)]
 mod direct_work_validation_tests;
+mod dogfood_operator_context;
 mod git;
 mod git_artifacts;
 #[cfg(test)]
@@ -207,6 +210,17 @@ pub use agent_queue_failure::{
     AgentQueueFailureCommandStatus, AgentQueueFailureDecisionSummary, FailAgentQueueItemInput,
     AGENT_QUEUE_FAILURE_CONFIRMATION_TOKEN, AGENT_QUEUE_FAILURE_DECISION_FAILED,
 };
+pub use agent_queue_prompt_pack::{
+    parse_and_preview_agent_queue_prompt_pack, AgentQueuePromptPackConstraintsPreview,
+    AgentQueuePromptPackDefaultsPreview, AgentQueuePromptPackExecutionTargetPreview,
+    AgentQueuePromptPackFileRequest, AgentQueuePromptPackMaterializeRequest,
+    AgentQueuePromptPackMaterializeResult, AgentQueuePromptPackMaterializedTaskResult,
+    AgentQueuePromptPackMetadataPreview, AgentQueuePromptPackPreview,
+    AgentQueuePromptPackPreviewDiagnostic, AgentQueuePromptPackPreviewRequest,
+    AgentQueuePromptPackPreviewResult, AgentQueuePromptPackRunSettingsPreview,
+    AgentQueuePromptPackSafetyPreview, AgentQueuePromptPackSourceMetadata,
+    AgentQueuePromptPackTaskPreview,
+};
 pub use agent_queue_review::{
     AckAgentQueueReviewMessageInput, AgentQueueReviewCommandResult,
     AgentQueueReviewCreateMessageBlocker, AgentQueueReviewCreateMessageResult,
@@ -227,9 +241,10 @@ pub use agent_queue_task_types::{
     FinishAssignedAgentQueueTaskRunInput, QueueExecutionTargetSnapshot, QueueWorkerStartBlocker,
     QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot,
     RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
-    RunAgentQueueValidationSuiteInput, StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput,
-    UpdateAgentQueueWorkerInput, QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
-    QUEUE_LOCAL_BACKEND_WORKBENCH_ID,
+    RunAgentQueueValidationSuiteInput, SelectedAgentQueueTaskLocalStartSummary,
+    StartAssignedAgentQueueTaskInput, StartSelectedAgentQueueTaskLocalInput,
+    UpdateAgentQueueTaskInput, UpdateAgentQueueWorkerInput,
+    QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID, QUEUE_LOCAL_BACKEND_WORKBENCH_ID,
 };
 pub use agent_queue_worker_evidence::{
     AgentQueueWorkerEvidenceBundleSummary, AgentQueueWorkerEvidenceQueryResult,
@@ -305,6 +320,7 @@ pub use coordinator_provider_types::{
     CoordinatorProviderResponse, CoordinatorProviderVisibleInput,
     GenerateCoordinatorProviderResponseInput,
 };
+pub use dogfood_operator_context::DogfoodOperatorWorkspaceContextSummary;
 pub use jdbc_connection_profile_types::{
     CreateJdbcConnectionProfileInput, DeleteJdbcConnectionProfileInput,
     JdbcConnectionProfileSummary, UpdateJdbcConnectionProfileInput,
@@ -336,6 +352,7 @@ pub use types::{
     AgentExecutorRunSummary, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CancelCodexDirectWorkRunInput,
+    CheckQueueLocalProviderAuthContextInput, CheckQueueLocalProviderReadinessInput,
     CodexDirectWorkCancellationSummary, CodexDirectWorkForceKillSummary, CodexDirectWorkRunSummary,
     CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
     CreateAgentQueueItemFromProposalInput, CreateGitCommitInput, CreateSkillInput,
@@ -345,13 +362,15 @@ pub use types::{
     GitCommitRunSummary, GitDiffCommandSummary, GitFileChangeSummary, GitFileDiffSummary,
     GitLastCommitSummary, GitLogEntrySummary, GitLogSummary, GitPushCommandSummary,
     GitPushRunSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
-    PersistAgentChatProposalInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
-    RunTerminalCommandInput, SharedStateObjectSummary, SkillSummary, TerminalCommandRunSummary,
-    UpdateSkillInput, UpdateWorkspaceNoteInput, WidgetInstanceLayout, WidgetInstanceSummary,
-    WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput,
-    WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary,
-    WorkspaceDeletionSummary, WorkspaceNoteSummary, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    PersistAgentChatProposalInput, QueueLocalProviderAuthContextSnapshot,
+    QueueLocalProviderAuthContextSummary, QueueLocalProviderAuthContextsSummary,
+    QueueLocalProviderEnvironmentSummary, QueueLocalProviderReadinessSummary,
+    RunCodexDirectWorkInput, RunDirectWorkValidationInput, RunTerminalCommandInput,
+    SharedStateObjectSummary, SkillSummary, TerminalCommandRunSummary, UpdateSkillInput,
+    UpdateWorkspaceNoteInput, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
+    WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary,
+    WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary,
+    WorkspaceNoteSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);
 const WORKBENCH_STATE_RECENT_EVENT_LIMIT: usize = 100;

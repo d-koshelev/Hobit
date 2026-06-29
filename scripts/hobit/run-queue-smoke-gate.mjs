@@ -34,9 +34,38 @@ const WORKFLOW_COMMANDS = [
   },
 ];
 
+const DOGFOOD_COMMANDS = [
+  {
+    label: "Prompt pack backend tests",
+    program: "cargo",
+    args: ["test", "-p", "hobit-desktop", "prompt_pack"],
+  },
+  {
+    label: "Selected Queue task bridge tests",
+    program: "cargo",
+    args: ["test", "-p", "hobit-desktop", "selected_task"],
+  },
+  {
+    label: "queue_local bridge tests",
+    program: "cargo",
+    args: ["test", "-p", "hobit-desktop", "queue_local"],
+  },
+  {
+    label: "Queue dogfood prompt pack tests",
+    program: "cargo",
+    args: ["test", "-p", "hobit-desktop", "dogfood"],
+  },
+  {
+    label: "Queue dogfood operator endpoint and adapter tests",
+    program: "cargo",
+    args: ["test", "-p", "hobit-desktop", "dogfood_operator"],
+  },
+];
+
 const MODE_COMMANDS = {
   quick: [QUEUE_HEADLESS_SMOKE],
   workflow: WORKFLOW_COMMANDS,
+  dogfood: DOGFOOD_COMMANDS,
   full: [
     {
       label: "Rust format check",
@@ -186,10 +215,15 @@ function parseArgs(argv) {
       options.includeLineCount = true;
       continue;
     }
-    if (arg === "--quick" || arg === "--workflow" || arg === "--full") {
+    if (
+      arg === "--quick" ||
+      arg === "--workflow" ||
+      arg === "--dogfood" ||
+      arg === "--full"
+    ) {
       const mode = arg.slice(2);
       if (options.mode && options.mode !== mode) {
-        throw new Error("choose only one mode: --quick, --workflow, or --full");
+        throw new Error("choose only one mode: --quick, --workflow, --dogfood, or --full");
       }
       options.mode = mode;
       continue;
@@ -198,7 +232,7 @@ function parseArgs(argv) {
   }
 
   if (!options.help && !options.list && !options.mode) {
-    throw new Error("choose one mode: --quick, --workflow, or --full");
+    throw new Error("choose one mode: --quick, --workflow, --dogfood, or --full");
   }
 
   return options;
@@ -328,7 +362,7 @@ function printSummary(results) {
 function printList(repoRoot) {
   console.log(`[queue-smoke-gate] repo root: ${repoRoot}`);
   console.log("Available modes:");
-  for (const mode of ["quick", "workflow", "full"]) {
+  for (const mode of ["quick", "workflow", "dogfood", "full"]) {
     console.log("");
     console.log(`--${mode}`);
     for (const command of MODE_COMMANDS[mode]) {
@@ -351,12 +385,14 @@ function printHelp() {
   console.log(`Usage:
   node scripts/hobit/run-queue-smoke-gate.mjs --quick [options]
   node scripts/hobit/run-queue-smoke-gate.mjs --workflow [options]
+  node scripts/hobit/run-queue-smoke-gate.mjs --dogfood [options]
   node scripts/hobit/run-queue-smoke-gate.mjs --full [options]
   node scripts/hobit/run-queue-smoke-gate.mjs --list
 
 Modes:
   --quick     Run only the canonical headless Queue lifecycle smoke.
   --workflow  Run the headless smoke plus focused Queue workflow/execution tests.
+  --dogfood   Run safe prompt-pack and selected-task dogfood bridge tests.
   --full      Run Rust format/check, focused Queue workflow tests, full cargo test, and docs guard.
 
 Options:

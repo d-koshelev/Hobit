@@ -284,6 +284,7 @@ fn launch_queue_workflow_worker_intent(
             workspace_id: intent.workspace_id,
             queue_item_id: intent.queue_task_id,
             run_id: intent.run_id,
+            run_link_id: None,
             direct_work_input: intent.direct_work_input,
         },
         db_path,

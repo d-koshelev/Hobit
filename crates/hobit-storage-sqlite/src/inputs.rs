@@ -162,6 +162,32 @@ pub struct NewAgentQueueTaskRunLink<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueuePromptPackMaterialization<'a> {
+    pub workspace_id: &'a str,
+    pub pack_id: &'a str,
+    pub title: &'a str,
+    pub description: Option<&'a str>,
+    pub pack_spec_hash: &'a str,
+    pub run_settings_hash: &'a str,
+    pub dependency_spec_hash: &'a str,
+    pub full_preview_hash: &'a str,
+    pub task_count: i64,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueuePromptPackTaskMapping<'a> {
+    pub workspace_id: &'a str,
+    pub pack_id: &'a str,
+    pub pack_task_id: &'a str,
+    pub queue_task_id: &'a str,
+    pub task_spec_hash: &'a str,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueTaskRunLinkFinalUpdate<'a> {
     pub status: &'a str,
     pub completed_at: Option<&'a str>,

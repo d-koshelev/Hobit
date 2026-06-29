@@ -4,7 +4,8 @@ use rusqlite::Result;
 
 use crate::rows::{
     AgentQueueCompletionDecisionRow, AgentQueueControlStateRow, AgentQueueFailureDecisionRow,
-    AgentQueueItemRow, AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
+    AgentQueueItemRow, AgentQueuePromptPackMaterializationRow, AgentQueuePromptPackTaskMappingRow,
+    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
     AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, AgentQueueWorkflowActionRow,
     AgentQueueWorkflowRunRow, JdbcConnectionProfileRow, JdbcConnectorRow,
     KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDraftReviewRecordRow,
@@ -187,6 +188,38 @@ pub(crate) fn agent_queue_task_run_link_row(
         review_status: row.get(10)?,
         created_at: row.get(11)?,
         updated_at: row.get(12)?,
+    })
+}
+
+pub(crate) fn agent_queue_prompt_pack_materialization_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<AgentQueuePromptPackMaterializationRow> {
+    Ok(AgentQueuePromptPackMaterializationRow {
+        workspace_id: row.get(0)?,
+        pack_id: row.get(1)?,
+        title: row.get(2)?,
+        description: row.get(3)?,
+        pack_spec_hash: row.get(4)?,
+        run_settings_hash: row.get(5)?,
+        dependency_spec_hash: row.get(6)?,
+        full_preview_hash: row.get(7)?,
+        task_count: row.get(8)?,
+        created_at: row.get(9)?,
+        updated_at: row.get(10)?,
+    })
+}
+
+pub(crate) fn agent_queue_prompt_pack_task_mapping_row(
+    row: &rusqlite::Row<'_>,
+) -> Result<AgentQueuePromptPackTaskMappingRow> {
+    Ok(AgentQueuePromptPackTaskMappingRow {
+        workspace_id: row.get(0)?,
+        pack_id: row.get(1)?,
+        pack_task_id: row.get(2)?,
+        queue_task_id: row.get(3)?,
+        task_spec_hash: row.get(4)?,
+        created_at: row.get(5)?,
+        updated_at: row.get(6)?,
     })
 }
 
