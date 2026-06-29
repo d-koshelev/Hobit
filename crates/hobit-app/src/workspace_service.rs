@@ -241,6 +241,7 @@ pub use agent_queue_task_types::{
     FinishAssignedAgentQueueTaskRunInput, QueueExecutionTargetSnapshot, QueueWorkerStartBlocker,
     QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot,
     RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
+    RecoverStaleQueueLocalRunInput, RecoverStaleQueueLocalRunResult,
     RunAgentQueueValidationSuiteInput, SelectedAgentQueueTaskLocalStartSummary,
     StartAssignedAgentQueueTaskInput, StartSelectedAgentQueueTaskLocalInput,
     UpdateAgentQueueTaskInput, UpdateAgentQueueWorkerInput,

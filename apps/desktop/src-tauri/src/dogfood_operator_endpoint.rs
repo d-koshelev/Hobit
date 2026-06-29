@@ -19,6 +19,8 @@ use hobit_app::{
     QueueLocalProviderReadinessSummary, SelectedAgentQueueTaskLocalStartSummary,
     QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
 };
+#[cfg(test)]
+use hobit_storage_sqlite::NewAgentQueueTaskRunLink;
 use hobit_storage_sqlite::SqliteStore;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -28,8 +30,9 @@ use crate::{
     app_state::{ActiveWorkspaceContext, ActiveWorkspaceRegistry, AppState},
     dogfood_operator::{
         real_worker_runner, run_dogfood_operator_for_app_workspace_with_runner,
-        run_dogfood_resume_for_app_workspace_with_runner, DogfoodOperatorAppWorkspaceRunInput,
-        DogfoodOperatorContextEvidence, DogfoodOperatorWorkerOutcome,
+        run_dogfood_plan_for_app_workspace, run_dogfood_resume_for_app_workspace_with_runner,
+        DogfoodOperatorAppWorkspaceRunInput, DogfoodOperatorContextEvidence,
+        DogfoodOperatorWorkerOutcome,
     },
 };
 
@@ -254,6 +257,19 @@ struct EndpointResumeDogfoodRequest {
     allow_real_worker: bool,
     #[serde(default)]
     allow_unknown_provider_readiness: bool,
+    #[serde(default)]
+    recover_stale_dogfood_run: bool,
+    #[serde(default)]
+    run_link_id: Option<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+struct EndpointRecoverStaleDogfoodRunRequest {
+    pack_path: String,
+    run_link_id: String,
+    #[serde(default)]
+    allow_unknown_provider_readiness: bool,
 }
 
 #[derive(Deserialize)]
@@ -380,6 +396,13 @@ fn route_request(
                 false,
             )
         }
+        ("POST", "/dogfood_plan") => {
+            let request: EndpointPackRequest = match parse_json_body(&request.body) {
+                Ok(request) => request,
+                Err(error) => return json_error(400, "invalid_request", error),
+            };
+            dogfood_plan_operation(state, request.pack_path, false)
+        }
         ("POST", "/start_pack_task") => {
             let request: EndpointStartPackTaskRequest = match parse_json_body(&request.body) {
                 Ok(request) => request,
@@ -422,6 +445,23 @@ fn route_request(
                 request.pack_path,
                 request.allow_real_worker,
                 request.allow_unknown_provider_readiness,
+                request.recover_stale_dogfood_run,
+                request.run_link_id,
+            )
+        }
+        ("POST", "/recover_stale_dogfood_run") => {
+            let request: EndpointRecoverStaleDogfoodRunRequest =
+                match parse_json_body(&request.body) {
+                    Ok(request) => request,
+                    Err(error) => return json_error(400, "invalid_request", error),
+                };
+            resume_dogfood_operation(
+                state,
+                request.pack_path,
+                true,
+                request.allow_unknown_provider_readiness,
+                true,
+                Some(request.run_link_id),
             )
         }
         ("POST", "/run_detail") => {
@@ -649,13 +689,68 @@ fn run_pack_operation(
     }
 }
 
+fn dogfood_plan_operation(
+    state: &DogfoodOperatorEndpointState,
+    pack_path: String,
+    allow_unknown_provider_readiness: bool,
+) -> JsonResponse {
+    let pack_path = match normalize_endpoint_pack_path(&pack_path) {
+        Ok(pack_path) => pack_path,
+        Err(error) => return json_error(400, "invalid_pack_path", error),
+    };
+    let active_workspace = match state.active_workspace.current() {
+        Some(active_workspace) => active_workspace,
+        None => return json_error(409, "no_active_workspace", NO_ACTIVE_WORKSPACE_MESSAGE),
+    };
+    let service = match workspace_service(&state.db_path) {
+        Ok(service) => service,
+        Err(error) => return json_error(500, "backend_unavailable", error),
+    };
+    let provider_readiness = match provider_readiness_summary(state, &service, "codex".to_owned()) {
+        Ok(readiness) => readiness,
+        Err(error) => return json_error(400, "provider_readiness_failed", error),
+    };
+    let plan = run_dogfood_plan_for_app_workspace(
+        &service,
+        DogfoodOperatorAppWorkspaceRunInput {
+            workspace_id: active_workspace.workspace_id,
+            workspace_resolution_method: active_workspace.workspace_resolution_method,
+            workspace_root: active_workspace.workspace_root,
+            pack_path,
+            preview: false,
+            materialize: false,
+            start_pack_task_id: None,
+            retry_pack_task_id: None,
+            allow_worker_start: false,
+            endpoint_kind: Some(state.endpoint_kind.clone()),
+            endpoint_pid: Some(state.endpoint_pid),
+            profile_mode: Some(state.profile_mode.clone()),
+            provider_readiness: Some(provider_readiness),
+            allow_unknown_provider_readiness,
+        },
+    );
+    match plan {
+        Ok(plan) => json_ok(serde_json::to_value(plan).unwrap_or_else(|error| {
+            json!({
+                "serializationError": error.to_string()
+            })
+        })),
+        Err(error) if error == NO_ACTIVE_WORKSPACE_MESSAGE => {
+            json_error(409, "no_active_workspace", error)
+        }
+        Err(error) => json_error(400, "operation_failed", error),
+    }
+}
+
 fn resume_dogfood_operation(
     state: &DogfoodOperatorEndpointState,
     pack_path: String,
     allow_real_worker: bool,
     allow_unknown_provider_readiness: bool,
+    recover_stale_dogfood_run: bool,
+    run_link_id: Option<String>,
 ) -> JsonResponse {
-    if !allow_real_worker {
+    if !allow_real_worker && !recover_stale_dogfood_run {
         return json_error(
             400,
             "worker_start_not_allowed",
@@ -679,6 +774,7 @@ fn resume_dogfood_operation(
         Err(error) => return json_error(400, "provider_readiness_failed", error),
     };
     let worker_mode = state.worker_mode.clone();
+    let recover_run_link_id = run_link_id.clone();
     let evidence = run_dogfood_resume_for_app_workspace_with_runner(
         &service,
         DogfoodOperatorAppWorkspaceRunInput {
@@ -698,6 +794,8 @@ fn resume_dogfood_operation(
             allow_unknown_provider_readiness,
         },
         move |service, start| run_worker(&worker_mode, service, start),
+        recover_stale_dogfood_run,
+        recover_run_link_id.as_deref(),
     );
     match evidence {
         Ok(evidence) => json_ok(serde_json::to_value(evidence).unwrap_or_else(|error| {
@@ -1334,6 +1432,88 @@ mod tests {
     }
 
     #[test]
+    fn dogfood_operator_endpoint_plan_is_read_only_with_per_task_state() {
+        let fixture = EndpointFixture::with_active_workspace(false);
+        let materialized = request_json(
+            &fixture.server,
+            "POST",
+            "/materialize_prompt_pack_file",
+            Some(json!({ "packPath": DOGFOOD_PACK })),
+            Some("test-token"),
+        );
+        assert_eq!(materialized.status, 200, "{}", materialized.body);
+        let service = workspace_service(&fixture.db_path).expect("service");
+        let foundation_queue_task_id =
+            response_queue_task_id(&materialized.body, "dogfood-foundation-checkpoint");
+        let before = service
+            .get_agent_queue_task(&fixture.workspace_id, &foundation_queue_task_id)
+            .expect("task before")
+            .expect("task before");
+
+        let plan = request_json(
+            &fixture.server,
+            "POST",
+            "/dogfood_plan",
+            Some(json!({ "packPath": DOGFOOD_PACK })),
+            Some("test-token"),
+        );
+
+        assert_eq!(plan.status, 200, "{}", plan.body);
+        assert_eq!(plan.body["nextAction"]["kind"], "start_task");
+        assert_eq!(plan.body["usedDirectDatabasePath"], false);
+        assert_eq!(plan.body["widgetRunsCreated"], false);
+        assert_eq!(plan.body["schedulerAutodispatch"], false);
+        assert_eq!(
+            plan.body["taskStates"]
+                .as_array()
+                .expect("task states")
+                .len(),
+            5
+        );
+        assert_eq!(
+            plan.body["taskStates"][0]["packTaskId"],
+            "dogfood-foundation-checkpoint"
+        );
+        assert!(plan.body["taskStates"][0]["startEligible"]
+            .as_bool()
+            .expect("start eligible"));
+
+        let after = service
+            .get_agent_queue_task(&fixture.workspace_id, &foundation_queue_task_id)
+            .expect("task after")
+            .expect("task after");
+        assert_eq!(after.status, before.status);
+        assert!(service
+            .list_agent_queue_task_run_links(&fixture.workspace_id, &foundation_queue_task_id)
+            .expect("run links")
+            .is_empty());
+        assert_no_widget_runs(&fixture.db_path);
+    }
+
+    #[test]
+    fn dogfood_operator_endpoint_plan_reports_materialize_when_pack_missing() {
+        let fixture = EndpointFixture::with_active_workspace(false);
+
+        let plan = request_json(
+            &fixture.server,
+            "POST",
+            "/dogfood_plan",
+            Some(json!({ "packPath": DOGFOOD_PACK })),
+            Some("test-token"),
+        );
+
+        assert_eq!(plan.status, 200, "{}", plan.body);
+        assert_eq!(plan.body["nextAction"]["kind"], "materialize_pack");
+        assert_eq!(plan.body["materializationStatus"], "not_materialized");
+        let service = workspace_service(&fixture.db_path).expect("service");
+        assert!(service
+            .list_agent_queue_tasks(&fixture.workspace_id)
+            .expect("tasks")
+            .is_empty());
+        assert_no_widget_runs(&fixture.db_path);
+    }
+
+    #[test]
     fn dogfood_operator_endpoint_selected_start_uses_backend_fake_launcher_in_tests() {
         let fixture = EndpointFixture::with_active_workspace(true);
 
@@ -1377,6 +1557,14 @@ mod tests {
     #[test]
     fn dogfood_operator_endpoint_resume_starts_at_most_one_task_without_dependents() {
         let fixture = EndpointFixture::with_active_workspace(true);
+        let materialized = request_json(
+            &fixture.server,
+            "POST",
+            "/materialize_prompt_pack_file",
+            Some(json!({ "packPath": DOGFOOD_PACK })),
+            Some("test-token"),
+        );
+        assert_eq!(materialized.status, 200, "{}", materialized.body);
 
         let response = request_json(
             &fixture.server,
@@ -1390,6 +1578,10 @@ mod tests {
         );
 
         assert_eq!(response.status, 200, "{}", response.body);
+        assert_eq!(
+            response.body["dogfoodPlan"]["nextAction"]["kind"],
+            "start_task"
+        );
         assert_eq!(response.body["resumeDogfood"]["status"], "started_one_task");
         assert_eq!(response.body["resumeDogfood"]["startedNewWorkerCount"], 1);
         assert_eq!(
@@ -1453,16 +1645,20 @@ mod tests {
         );
 
         assert_eq!(response.status, 200, "{}", response.body);
-        assert_eq!(response.body["resumeDogfood"]["status"], "started_one_task");
-        assert_eq!(response.body["resumeDogfood"]["startedNewWorkerCount"], 1);
+        assert_eq!(
+            response.body["dogfoodPlan"]["nextAction"]["kind"],
+            "finalize_completed_dependency"
+        );
+        assert_eq!(
+            response.body["resumeDogfood"]["status"],
+            "finalize_completed_dependency"
+        );
+        assert_eq!(response.body["resumeDogfood"]["startedNewWorkerCount"], 0);
         assert_eq!(
             response.body["resumeDogfood"]["selectedPackTaskId"],
-            "dogfood-file-import-hardening"
+            Value::Null
         );
-        assert_eq!(
-            response.body["selectedTask"]["selectedPackTaskId"],
-            "dogfood-file-import-hardening"
-        );
+        assert!(response.body["selectedTask"].is_null());
         let accepted = response.body["resumeDogfood"]["acceptedDependencies"]
             .as_array()
             .expect("accepted dependencies");
@@ -1497,6 +1693,37 @@ mod tests {
             .list_agent_queue_task_run_links(&fixture.workspace_id, &next_dependent_queue_task_id)
             .expect("next dependent run links")
             .is_empty());
+
+        let plan = request_json(
+            &fixture.server,
+            "POST",
+            "/dogfood_plan",
+            Some(json!({ "packPath": DOGFOOD_PACK })),
+            Some("test-token"),
+        );
+        assert_eq!(plan.status, 200, "{}", plan.body);
+        assert_eq!(plan.body["nextAction"]["kind"], "start_task");
+        assert_eq!(
+            plan.body["nextAction"]["packTaskId"],
+            "dogfood-file-import-hardening"
+        );
+
+        let next = request_json(
+            &fixture.server,
+            "POST",
+            "/resume_dogfood",
+            Some(json!({
+                "packPath": DOGFOOD_PACK,
+                "allowRealWorker": true
+            })),
+            Some("test-token"),
+        );
+        assert_eq!(next.status, 200, "{}", next.body);
+        assert_eq!(next.body["resumeDogfood"]["status"], "started_one_task");
+        assert_eq!(
+            next.body["selectedTask"]["selectedPackTaskId"],
+            "dogfood-file-import-hardening"
+        );
         assert_no_widget_runs(&fixture.db_path);
     }
 
@@ -1587,6 +1814,202 @@ mod tests {
             .list_agent_queue_task_run_links(&fixture.workspace_id, queue_task_id)
             .expect("run links");
         assert!(links.is_empty());
+        assert_no_widget_runs(&fixture.db_path);
+    }
+
+    #[test]
+    fn dogfood_operator_endpoint_plan_provider_block_only_when_start_eligible() {
+        let db_path = unique_test_db_path();
+        let workspace_id = create_test_workspace(&db_path);
+        let active_workspace = ActiveWorkspaceRegistry::default();
+        active_workspace.set(workspace_id.clone());
+        let fixture = EndpointFixture::start_with_provider_readiness(
+            db_path,
+            active_workspace,
+            workspace_id,
+            Some("completed"),
+            fake_provider_readiness("blocked", "unauthorized", vec!["codex_auth_unauthorized"]),
+        );
+        let queue_task_id = materialize_foundation_queue_task_id(&fixture);
+
+        let plan = request_json(
+            &fixture.server,
+            "POST",
+            "/dogfood_plan",
+            Some(json!({ "packPath": DOGFOOD_PACK })),
+            Some("test-token"),
+        );
+
+        assert_eq!(plan.status, 200, "{}", plan.body);
+        assert_eq!(
+            plan.body["nextAction"]["kind"],
+            "start_task_blocked_by_provider"
+        );
+        assert_eq!(plan.body["nextAction"]["queueTaskId"], queue_task_id);
+        let service = workspace_service(&fixture.db_path).expect("service");
+        assert!(service
+            .list_agent_queue_task_run_links(&fixture.workspace_id, &queue_task_id)
+            .expect("run links")
+            .is_empty());
+        assert_no_widget_runs(&fixture.db_path);
+    }
+
+    #[test]
+    fn dogfood_operator_endpoint_plan_waits_for_active_run_before_provider_blocker() {
+        let db_path = unique_test_db_path();
+        let workspace_id = create_test_workspace(&db_path);
+        let active_workspace = ActiveWorkspaceRegistry::default();
+        active_workspace.set(workspace_id.clone());
+        let fixture = EndpointFixture::start_with_provider_readiness(
+            db_path,
+            active_workspace,
+            workspace_id,
+            None,
+            fake_provider_readiness("blocked", "unauthorized", vec!["codex_auth_unauthorized"]),
+        );
+        let queue_task_id = materialize_foundation_queue_task_id(&fixture);
+        let active = start_running_queue_local_task(&fixture, &queue_task_id);
+        let active_run_link_id = active.run_link_id.as_deref().expect("active run link id");
+
+        let plan = request_json(
+            &fixture.server,
+            "POST",
+            "/dogfood_plan",
+            Some(json!({ "packPath": DOGFOOD_PACK })),
+            Some("test-token"),
+        );
+
+        assert_eq!(plan.status, 200, "{}", plan.body);
+        assert_eq!(plan.body["nextAction"]["kind"], "wait_active_run");
+        assert_eq!(plan.body["nextAction"]["runLinkId"], active_run_link_id);
+        assert_eq!(plan.body["activeRunLinkIds"][0], active_run_link_id);
+        assert_eq!(
+            plan.body["staleCandidateRunLinkIds"]
+                .as_array()
+                .unwrap()
+                .len(),
+            0
+        );
+        assert_no_widget_runs(&fixture.db_path);
+    }
+
+    #[test]
+    fn dogfood_operator_endpoint_stale_running_requires_explicit_recovery_then_retries() {
+        let fixture = EndpointFixture::with_active_workspace(true);
+        let queue_task_id = materialize_foundation_queue_task_id(&fixture);
+        let (run_id, run_link_id) = insert_stale_running_queue_local_run(&fixture, &queue_task_id);
+
+        let plan = request_json(
+            &fixture.server,
+            "POST",
+            "/dogfood_plan",
+            Some(json!({ "packPath": DOGFOOD_PACK })),
+            Some("test-token"),
+        );
+        assert_eq!(plan.status, 200, "{}", plan.body);
+        assert_eq!(
+            plan.body["nextAction"]["kind"],
+            "recover_stale_running_task"
+        );
+        assert_eq!(plan.body["nextAction"]["runLinkId"], run_link_id);
+        assert_eq!(plan.body["staleCandidateRunLinkIds"][0], run_link_id);
+
+        let no_recovery = request_json(
+            &fixture.server,
+            "POST",
+            "/resume_dogfood",
+            Some(json!({
+                "packPath": DOGFOOD_PACK,
+                "allowRealWorker": true
+            })),
+            Some("test-token"),
+        );
+        assert_eq!(no_recovery.status, 200, "{}", no_recovery.body);
+        assert_eq!(
+            no_recovery.body["resumeDogfood"]["status"],
+            "recover_stale_running_task"
+        );
+        assert!(no_recovery.body["resumeDogfood"]["staleRecovery"].is_null());
+        let service = workspace_service(&fixture.db_path).expect("service");
+        let running_link = service
+            .get_agent_queue_task_run_link_by_id(&fixture.workspace_id, &run_link_id)
+            .expect("running link")
+            .expect("running link");
+        assert_eq!(running_link.status, AgentQueueTaskRunStatus::Running);
+
+        let recovered = request_json(
+            &fixture.server,
+            "POST",
+            "/recover_stale_dogfood_run",
+            Some(json!({
+                "packPath": DOGFOOD_PACK,
+                "runLinkId": run_link_id
+            })),
+            Some("test-token"),
+        );
+        assert_eq!(recovered.status, 200, "{}", recovered.body);
+        assert_eq!(
+            recovered.body["resumeDogfood"]["staleRecovery"]["reason"],
+            "stale_running_recovered_by_dogfood_coordinator"
+        );
+        assert_eq!(
+            recovered.body["resumeDogfood"]["staleRecovery"]["createdRunLink"],
+            false
+        );
+        assert_eq!(
+            recovered.body["resumeDogfood"]["staleRecovery"]["workerStarted"],
+            false
+        );
+        let failed_link = service
+            .get_agent_queue_task_run_link_by_id(&fixture.workspace_id, &run_link_id)
+            .expect("failed link")
+            .expect("failed link");
+        assert_eq!(failed_link.status, AgentQueueTaskRunStatus::Failed);
+        assert_eq!(failed_link.direct_work_run_id, run_id);
+        let failed_task = service
+            .get_agent_queue_task(&fixture.workspace_id, &queue_task_id)
+            .expect("failed task")
+            .expect("failed task");
+        assert_eq!(failed_task.status, "failed");
+        assert_eq!(
+            service
+                .list_agent_queue_task_run_links(&fixture.workspace_id, &queue_task_id)
+                .expect("links after recovery")
+                .len(),
+            1
+        );
+
+        let retry_plan = request_json(
+            &fixture.server,
+            "POST",
+            "/dogfood_plan",
+            Some(json!({ "packPath": DOGFOOD_PACK })),
+            Some("test-token"),
+        );
+        assert_eq!(retry_plan.status, 200, "{}", retry_plan.body);
+        assert_eq!(retry_plan.body["nextAction"]["kind"], "start_task");
+        assert_eq!(retry_plan.body["nextAction"]["retryFailed"], true);
+
+        let retry = request_json(
+            &fixture.server,
+            "POST",
+            "/resume_dogfood",
+            Some(json!({
+                "packPath": DOGFOOD_PACK,
+                "allowRealWorker": true
+            })),
+            Some("test-token"),
+        );
+        assert_eq!(retry.status, 200, "{}", retry.body);
+        assert_eq!(retry.body["resumeDogfood"]["status"], "started_one_task");
+        assert_eq!(retry.body["selectedTask"]["fakeWorkerUsed"], true);
+        assert_eq!(
+            service
+                .list_agent_queue_task_run_links(&fixture.workspace_id, &queue_task_id)
+                .expect("links after retry")
+                .len(),
+            2
+        );
         assert_no_widget_runs(&fixture.db_path);
     }
 
@@ -1784,18 +2207,25 @@ mod tests {
         assert!(script.contains("--provider-readiness"));
         assert!(script.contains("--provider-auth-context"));
         assert!(script.contains("--run-detail"));
+        assert!(script.contains("--dogfood-plan"));
+        assert!(script.contains("--recover-stale-dogfood-run"));
         assert!(script.contains("--retry-pack-task"));
         assert!(script.contains("--resume-dogfood"));
         assert!(script.contains("running_app_endpoint"));
         assert!(script.contains("usedDirectDatabasePath"));
         assert!(script.contains("--direct-database-diagnostic"));
         assert!(script.contains("/run_detail"));
+        assert!(script.contains("/dogfood_plan"));
+        assert!(script.contains("/recover_stale_dogfood_run"));
         assert!(script.contains("/retry_pack_task"));
         assert!(script.contains("/resume_dogfood"));
         assert!(script.contains("/provider_readiness"));
         assert!(script.contains("/provider_auth_context"));
         assert!(script.contains("operatorEnvironmentSummary"));
         assert!(script.contains("allowUnknownProviderReadiness"));
+        assert!(script.contains("formatTaskStateTable"));
+        assert!(script.contains("nextAction.kind"));
+        assert!(script.contains("stale candidates"));
     }
 
     #[test]
@@ -2056,6 +2486,70 @@ mod tests {
             .and_then(|mapping| mapping["queueTaskId"].as_str())
             .unwrap_or_else(|| panic!("missing queue task id for {pack_task_id}"))
             .to_owned()
+    }
+
+    fn materialize_foundation_queue_task_id(fixture: &EndpointFixture) -> String {
+        let materialized = request_json(
+            &fixture.server,
+            "POST",
+            "/materialize_prompt_pack_file",
+            Some(json!({ "packPath": DOGFOOD_PACK })),
+            Some("test-token"),
+        );
+        assert_eq!(materialized.status, 200, "{}", materialized.body);
+        response_queue_task_id(&materialized.body, "dogfood-foundation-checkpoint")
+    }
+
+    fn start_running_queue_local_task(
+        fixture: &EndpointFixture,
+        queue_task_id: &str,
+    ) -> SelectedAgentQueueTaskLocalStartSummary {
+        let service = workspace_service(&fixture.db_path).expect("service");
+        service
+            .start_selected_agent_queue_task_local(
+                hobit_app::StartSelectedAgentQueueTaskLocalInput {
+                    workspace_id: fixture.workspace_id.clone(),
+                    queue_item_id: queue_task_id.to_owned(),
+                },
+            )
+            .expect("start selected task without launcher")
+    }
+
+    fn insert_stale_running_queue_local_run(
+        fixture: &EndpointFixture,
+        queue_task_id: &str,
+    ) -> (String, String) {
+        let store = SqliteStore::open(&fixture.db_path).expect("open store");
+        store.init_schema().expect("init schema");
+        let run_id = "stale-dogfood-run".to_owned();
+        let run_link_id = "stale-dogfood-run-link".to_owned();
+        store
+            .insert_agent_queue_task_run_link(NewAgentQueueTaskRunLink {
+                link_id: &run_link_id,
+                workspace_id: &fixture.workspace_id,
+                queue_task_id,
+                executor_widget_id: QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
+                direct_work_run_id: &run_id,
+                source: "manual",
+                status: AgentQueueTaskRunStatus::Running.as_str(),
+                started_at: Some("1.000000000"),
+                completed_at: None,
+                validation_status: None,
+                review_status: None,
+                created_at: Some("1.000000000"),
+                updated_at: Some("1.000000000"),
+            })
+            .expect("insert stale run link");
+        store
+            .update_agent_queue_task_status(
+                &fixture.workspace_id,
+                queue_task_id,
+                "running",
+                Some("1.000000000"),
+            )
+            .expect("mark task running")
+            .expect("running task row");
+        (run_id, run_link_id)
     }
 
     fn repo_root_for_test() -> PathBuf {

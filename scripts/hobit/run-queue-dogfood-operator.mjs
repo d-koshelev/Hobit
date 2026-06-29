@@ -79,7 +79,9 @@ function parseArgs(argv) {
     packPath: null,
     preview: false,
     materialize: false,
+    dogfoodPlan: false,
     resumeDogfood: false,
+    recoverStaleDogfoodRun: false,
     startPackTaskId: null,
     retryPackTaskId: null,
     allowRealWorker: false,
@@ -121,8 +123,14 @@ function parseArgs(argv) {
       case "--materialize":
         options.materialize = true;
         break;
+      case "--dogfood-plan":
+        options.dogfoodPlan = true;
+        break;
       case "--resume-dogfood":
         options.resumeDogfood = true;
+        break;
+      case "--recover-stale-dogfood-run":
+        options.recoverStaleDogfoodRun = true;
         break;
       case "--start-pack-task":
         options.startPackTaskId = requiredArg(argv, ++index, "--start-pack-task");
@@ -210,7 +218,9 @@ function validateOptions(options) {
   const packOperations =
     Number(options.preview) +
     Number(options.materialize) +
+    Number(options.dogfoodPlan) +
     Number(options.resumeDogfood) +
+    Number(options.recoverStaleDogfoodRun) +
     Number(Boolean(options.startPackTaskId)) +
     Number(Boolean(options.retryPackTaskId));
   if (infoOperations > 1) {
@@ -243,16 +253,18 @@ function validateOptions(options) {
   if ((options.startPackTaskId || options.retryPackTaskId) && !options.allowRealWorker) {
     throw new Error("refusing to start a real queue_local worker without --allow-real-worker");
   }
-  if ((options.runLinkId || options.queueTaskId) && !options.runDetail) {
+  if ((options.runLinkId || options.queueTaskId) && !options.runDetail && !options.recoverStaleDogfoodRun) {
     throw new Error("--run-link-id and --queue-task-id require --run-detail");
   }
   if (
     options.allowUnknownProviderReadiness &&
     !options.startPackTaskId &&
     !options.retryPackTaskId &&
-    !options.resumeDogfood
+    !options.resumeDogfood &&
+    !options.dogfoodPlan &&
+    !options.recoverStaleDogfoodRun
   ) {
-    throw new Error("--allow-unknown-provider-readiness applies only to selected task start/retry/resume");
+    throw new Error("--allow-unknown-provider-readiness applies only to selected task start/retry/resume/plan/recovery");
   }
   if (options.runDetail && Boolean(options.runLinkId) === Boolean(options.queueTaskId)) {
     throw new Error("--run-detail requires exactly one of --run-link-id or --queue-task-id");
@@ -268,17 +280,25 @@ function validateOptions(options) {
     !options.resolveWorkspace &&
             !options.preview &&
             !options.materialize &&
+            !options.dogfoodPlan &&
             !options.resumeDogfood &&
+            !options.recoverStaleDogfoodRun &&
             !options.startPackTaskId &&
             !options.retryPackTaskId
   ) {
-    throw new Error("choose --operator-health, --provider-readiness, --provider-auth-context, --run-detail, --preview, --materialize, --resume-dogfood, --start-pack-task, or --retry-pack-task");
+    throw new Error("choose --operator-health, --provider-readiness, --provider-auth-context, --run-detail, --dogfood-plan, --preview, --materialize, --resume-dogfood, --recover-stale-dogfood-run, --start-pack-task, or --retry-pack-task");
   }
   if (options.resumeDogfood && !options.allowRealWorker) {
     throw new Error("refusing to resume dogfood without --allow-real-worker");
   }
-  if (options.resumeDogfood && (options.preview || options.materialize || options.startPackTaskId || options.retryPackTaskId)) {
-    throw new Error("--resume-dogfood cannot be combined with preview/materialize/start/retry operations");
+  if (options.resumeDogfood && (options.preview || options.materialize || options.dogfoodPlan || options.startPackTaskId || options.retryPackTaskId)) {
+    throw new Error("--resume-dogfood cannot be combined with preview/materialize/plan/start/retry operations");
+  }
+  if (options.recoverStaleDogfoodRun && !options.resumeDogfood && !options.runLinkId) {
+    throw new Error("--recover-stale-dogfood-run requires --run-link-id unless combined with --resume-dogfood");
+  }
+  if (options.recoverStaleDogfoodRun && (options.preview || options.materialize || options.dogfoodPlan || options.startPackTaskId || options.retryPackTaskId)) {
+    throw new Error("--recover-stale-dogfood-run cannot be combined with preview/materialize/plan/start/retry operations");
   }
 }
 
@@ -315,6 +335,20 @@ async function runEndpointOperation(options, repoRoot) {
   }
 
   const packPath = options.packPath ?? DEFAULT_PACK_PATH;
+  if (options.dogfoodPlan) {
+    const evidence = await callEndpoint(session.endpoint, "POST", "/dogfood_plan", {
+      packPath,
+    });
+    return annotateOperatorResult(evidence, session);
+  }
+  if (options.recoverStaleDogfoodRun && !options.resumeDogfood) {
+    const evidence = await callEndpoint(session.endpoint, "POST", "/recover_stale_dogfood_run", {
+      packPath,
+      runLinkId: options.runLinkId,
+      allowUnknownProviderReadiness: options.allowUnknownProviderReadiness,
+    });
+    return annotateOperatorResult(evidence, session);
+  }
   if (options.resumeDogfood) {
     const health = await callEndpoint(session.endpoint, "GET", "/health", null);
     const readiness = await callEndpoint(session.endpoint, "POST", "/provider_readiness", {
@@ -328,6 +362,8 @@ async function runEndpointOperation(options, repoRoot) {
         packPath,
         allowRealWorker: options.allowRealWorker,
         allowUnknownProviderReadiness: options.allowUnknownProviderReadiness,
+        recoverStaleDogfoodRun: options.recoverStaleDogfoodRun,
+        runLinkId: options.runLinkId,
       },
       { timeoutMs: 30 * 60 * 1000 },
     );
@@ -855,19 +891,23 @@ function writeReport(repoRoot, reportPath, { argv, packPath, evidence, error }) 
 }
 
 function renderReport({ branch, command, packPath, evidence, error }) {
-  const context = evidence?.operatorContext ?? error?.endpointResponse?.operatorContext;
+  const plan = evidence?.dogfoodPlan ?? (evidence?.nextAction ? evidence : null);
+  const context = evidence?.operatorContext ?? plan?.operatorContext ?? error?.endpointResponse?.operatorContext;
   const attach = evidence?.endpointAttach;
   const preview = evidence?.preview;
   const materialization = evidence?.materialization;
-  const providerReadiness = evidence?.providerReadiness ?? error?.endpointResponse?.providerReadiness;
+  const providerReadiness = evidence?.providerReadiness ?? plan?.providerReadiness ?? error?.endpointResponse?.providerReadiness;
   const providerAuthContext =
     evidence?.providerAuthContext ?? error?.endpointResponse?.providerAuthContext;
   const selected = evidence?.selectedTask;
   const resume = evidence?.resumeDogfood;
+  const nextAction = resume?.nextAction ?? plan?.nextAction;
+  const taskStates = plan?.taskStates ?? resume?.taskStatesBefore ?? [];
+  const taskStatesAfter = resume?.taskStatesAfterAction ?? [];
   const completionSucceeded = selected?.completionStatus === "completed";
   const blocker =
     error?.message ??
-    (providerReadiness?.status && providerReadiness.status !== "ready"
+    (nextAction?.kind === "start_task_blocked_by_provider" && providerReadiness?.status && providerReadiness.status !== "ready"
       ? `provider readiness ${providerReadiness.status}: ${(providerReadiness.blockers ?? []).join(", ") || "unknown"}`
       : null) ??
     (providerAuthContext?.authSourceClassification &&
@@ -877,16 +917,21 @@ function renderReport({ branch, command, packPath, evidence, error }) {
     (selected?.completionStatus && !completionSucceeded
       ? `selected task terminalized as ${selected.completionStatus}`
       : "none");
-  const mappings = materialization?.mappings ?? [];
+  const mappings = materialization?.mappings ?? taskStates.map((state) => ({
+    packTaskId: state.packTaskId,
+    queueTaskId: state.queueTaskId,
+    status: plan?.materializationStatus ?? "planned",
+  }));
   const acceptedDependencies = resume?.acceptedDependencies ?? [];
-  return `# ${resume ? "Queue Dogfood Resume" : "Queue Dogfood Run 010"}
+  return `# ${resume ? "Queue Dogfood Resume" : plan ? "Queue Dogfood Plan" : "Queue Dogfood Run 010"}
 
 ## Run Summary
 
 - Date: ${new Date().toISOString()}
 - Branch: \`${branch}\`
 - Pack path: \`${packPath}\`
-- Pack id: \`${preview?.packId ?? materialization?.packId ?? "not available"}\`
+- Pack id: \`${preview?.packId ?? materialization?.packId ?? plan?.packId ?? "not available"}\`
+- Next action: \`${formatNextAction(nextAction)}\`
 - Operator context source: \`${context?.contextSource ?? "not available"}\`
 - Endpoint kind: \`${context?.endpointKind ?? attach?.endpointKind ?? "not available"}\`
 - Endpoint pid: \`${context?.endpointPid ?? attach?.endpointPid ?? "not available"}\`
@@ -901,6 +946,9 @@ function renderReport({ branch, command, packPath, evidence, error }) {
 - Resume status: \`${resume?.status ?? "not applicable"}\`
 - Started new worker count: ${resume?.startedNewWorkerCount ?? 0}
 - Accepted/finalized dependencies: ${acceptedDependencies.length}
+- Run link created: ${resume?.runLinkCreated ?? selected?.createdRunLink ?? false}
+- Worker started: ${resume?.workerStarted ?? selected?.wouldStartWorkers ?? false}
+- Dependent auto-started: ${resume?.dependentsAutoStarted ?? selected?.dependentTasksAutoStarted ?? false}
 - Blocker: \`${blocker}\`
 
 ## Command
@@ -917,16 +965,36 @@ ${command}
 
 ## Preview
 
-- packSpecHash: \`${preview?.packSpecHash ?? materialization?.packSpecHash ?? "not available"}\`
-- runSettingsHash: \`${preview?.runSettingsHash ?? materialization?.runSettingsHash ?? "not available"}\`
-- dependencySpecHash: \`${preview?.dependencySpecHash ?? materialization?.dependencySpecHash ?? "not available"}\`
-- fullPreviewHash: \`${preview?.fullPreviewHash ?? materialization?.fullPreviewHash ?? "not available"}\`
+- packSpecHash: \`${preview?.packSpecHash ?? materialization?.packSpecHash ?? plan?.packSpecHash ?? "not available"}\`
+- runSettingsHash: \`${preview?.runSettingsHash ?? materialization?.runSettingsHash ?? plan?.runSettingsHash ?? "not available"}\`
+- dependencySpecHash: \`${preview?.dependencySpecHash ?? materialization?.dependencySpecHash ?? plan?.dependencySpecHash ?? "not available"}\`
+- fullPreviewHash: \`${preview?.fullPreviewHash ?? materialization?.fullPreviewHash ?? plan?.fullPreviewHash ?? "not available"}\`
+
+## Dogfood Plan
+
+- nextAction.kind: \`${nextAction?.kind ?? "not available"}\`
+- nextAction.packTaskId: \`${nextAction?.packTaskId ?? "not available"}\`
+- nextAction.queueTaskId: \`${nextAction?.queueTaskId ?? "not available"}\`
+- nextAction.runLinkId: \`${nextAction?.runLinkId ?? "not available"}\`
+- nextAction.retryFailed: ${nextAction?.retryFailed ?? false}
+- materializationStatus: \`${plan?.materializationStatus ?? "not available"}\`
+- active run links: \`${(plan?.activeRunLinkIds ?? resume?.activeRunLinkIds ?? []).join(", ") || "none"}\`
+- stale candidates: \`${(plan?.staleCandidateRunLinkIds ?? resume?.staleCandidateRunLinkIds ?? []).join(", ") || "none"}\`
+- blockers: \`${(plan?.blockers ?? []).join(", ") || "none"}\`
+- warnings: \`${(plan?.warnings ?? []).join(", ") || "none"}\`
+
+${formatTaskStateTable(taskStates)}
+
+## Task States After Action
+
+${formatTaskStateTable(taskStatesAfter)}
 
 ## Provider Readiness
 
 - providerId: \`${providerReadiness?.providerId ?? "not available"}\`
 - executionTarget: \`${providerReadiness?.executionTarget ?? "not available"}\`
 - status: \`${providerReadiness?.status ?? "not available"}\`
+- primary blocker: ${nextAction?.kind === "start_task_blocked_by_provider" ? "yes" : "no"}
 - codexExecutableResolved: ${providerReadiness?.codexExecutableResolved ?? "not available"}
 - codexExecutableSummary: \`${providerReadiness?.codexExecutableSummary ?? "not available"}\`
 - codexVersion: \`${providerReadiness?.codexVersion ?? "not available"}\`
@@ -970,6 +1038,14 @@ ${mappings.length > 0 ? mappings.map((mapping) => `- \`${mapping.packTaskId}\` -
 - completion bridge terminalized run: ${Boolean(selected?.completionStatus)}
 - dependent task auto-started: ${resume?.dependentsAutoStarted ?? selected?.dependentTasksAutoStarted ?? false}
 
+## Stale Recovery
+
+- recovery executed: ${Boolean(resume?.staleRecovery)}
+- recovery runLinkId: \`${resume?.staleRecovery?.runLinkId ?? "not available"}\`
+- recovery reason: \`${resume?.staleRecovery?.reason ?? "not available"}\`
+- recovery created run link: ${resume?.staleRecovery?.createdRunLink ?? false}
+- recovery worker started: ${resume?.staleRecovery?.workerStarted ?? false}
+
 ## Accepted Dependencies
 
 ${acceptedDependencies.length > 0 ? acceptedDependencies.map((dependency) => `- \`${dependency.packTaskId}\` -> \`${dependency.queueTaskId}\` (${dependency.status})`).join("\n") : "- none"}
@@ -992,8 +1068,48 @@ ${acceptedDependencies.length > 0 ? acceptedDependencies.map((dependency) => `- 
 
 ## Next
 
-- ${completionSucceeded ? "Resume invocation stopped after exactly one selected task." : "Smallest next unblock action: inspect provider readiness or selected task status before the next resume."}
+- ${nextAction?.kind ? `Next planned action is ${nextAction.kind}.` : completionSucceeded ? "Resume invocation stopped after exactly one selected task." : "Smallest next unblock action: inspect provider readiness or selected task status before the next resume."}
 `;
+}
+
+function formatNextAction(action) {
+  if (!action) {
+    return "not available";
+  }
+  const suffix = action.packTaskId ? `:${action.packTaskId}` : "";
+  return `${action.kind}${suffix}`;
+}
+
+function formatTaskStateTable(states) {
+  if (!Array.isArray(states) || states.length === 0) {
+    return "- task states: not available";
+  }
+  const rows = states.map((state) => [
+    state.packTaskId,
+    state.queueTaskId ?? "",
+    state.ticketState ?? "",
+    state.workerRunState ?? "",
+    state.reviewState ?? "",
+    state.evidenceState ?? "",
+    state.dependencyState ?? "",
+    state.latestRunStatus ?? "",
+    state.latestRunLinkId ?? "",
+    state.startEligible ? "yes" : "no",
+    state.finalizationEligible ? "yes" : "no",
+    state.activeRun ? "yes" : "no",
+    state.staleRunningCandidate ? "yes" : "no",
+    state.dependencyAccepted ? "yes" : "no",
+    state.dependencyBlockedReason ?? "",
+  ].map(markdownCell));
+  return [
+    "| packTaskId | queueTaskId | ticket | worker | review | evidence | dependency | runStatus | runLinkId | start | final | active | stale | depAccepted | depBlocker |",
+    "| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |",
+    ...rows.map((row) => `| ${row.join(" | ")} |`),
+  ].join("\n");
+}
+
+function markdownCell(value) {
+  return String(value ?? "").replaceAll("|", "\\|").replace(/\s+/g, " ").trim();
 }
 
 function formatEnvPresence(entries) {
@@ -1166,9 +1282,11 @@ function printHelp() {
   node scripts/hobit/run-queue-dogfood-operator.mjs --provider-readiness codex --json
   node scripts/hobit/run-queue-dogfood-operator.mjs --provider-auth-context codex --json
   node scripts/hobit/run-queue-dogfood-operator.mjs --run-detail --run-link-id queue_run_link_1782673319681359700_4 --json
+  node scripts/hobit/run-queue-dogfood-operator.mjs --dogfood-plan --json
   node scripts/hobit/run-queue-dogfood-operator.mjs --pack docs/dogfood/queue-prompt-packs/hobit-queue-dogfood-next.json --preview --json
   node scripts/hobit/run-queue-dogfood-operator.mjs --pack docs/dogfood/queue-prompt-packs/hobit-queue-dogfood-next.json --materialize --json
   node scripts/hobit/run-queue-dogfood-operator.mjs --resume-dogfood --allow-real-worker --json --report docs/dogfood/reports/queue-dogfood-resume-001.md
+  node scripts/hobit/run-queue-dogfood-operator.mjs --recover-stale-dogfood-run --run-link-id queue_run_link_1782673319681359700_4 --json
   node scripts/hobit/run-queue-dogfood-operator.mjs --pack docs/dogfood/queue-prompt-packs/hobit-queue-dogfood-next.json --materialize --start-pack-task dogfood-foundation-checkpoint --allow-real-worker --json --report ${DEFAULT_REPORT_PATH}
   node scripts/hobit/run-queue-dogfood-operator.mjs --pack docs/dogfood/queue-prompt-packs/hobit-queue-dogfood-next.json --retry-pack-task dogfood-foundation-checkpoint --allow-real-worker --json --report ${DEFAULT_REPORT_PATH}
 
@@ -1208,8 +1326,11 @@ Options:
   --run-detail              Read-only selected-task run detail/status.
   --run-link-id <id>        Inspect a specific Queue run link with --run-detail.
   --queue-task-id <id>      Inspect the latest Queue task run link with --run-detail.
+  --dogfood-plan            Read-only dogfood coordinator plan.
+  --recover-stale-dogfood-run
+                            Explicitly recover the planned/current stale dogfood run; standalone mode requires --run-link-id.
   --retry-pack-task <id>    Explicitly retry a terminal failed materialized pack task.
-  --resume-dogfood          Coordinator-owned single-task dogfood resume loop.
+  --resume-dogfood          Coordinator-owned single-action dogfood resume/apply.
 
 The endpoint context reports:
   contextSource: running_app_endpoint | launched_app_endpoint

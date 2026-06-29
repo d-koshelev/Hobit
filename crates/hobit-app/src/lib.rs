@@ -178,6 +178,7 @@ pub use workspace_service::{
     QueueWorkflowWorkerLaunchDisposition, QueueWorkflowWorkerLaunchIntent,
     RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
     RecordAgentQueueWorkerFinishedInput, RecordKnowledgeDraftReviewInput,
+    RecoverStaleQueueLocalRunInput, RecoverStaleQueueLocalRunResult,
     RunAgentQueueValidationSuiteInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
     RunTerminalCommandInput, SearchKnowledgeDocumentsFiltersInput, SearchKnowledgeDocumentsInput,
     SelectedAgentQueueTaskLocalStartSummary, SetAgentQueueControlStateInput,

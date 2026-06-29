@@ -509,11 +509,12 @@ impl WorkspaceService {
                 "prompt-pack workspace file must be valid UTF-8 text".to_owned(),
             )
         })?;
+        let source_bytes = json_payload.len() as u64;
         let source_hash = stable_fnv1a64_hash(
             "prompt_pack_workspace_source",
             &canonical_json_string(&json!({
                 "workspaceRelativePath": relative_path,
-                "sourceBytes": metadata.len(),
+                "sourceBytes": source_bytes,
                 "jsonPayload": json_payload,
             })),
         );
@@ -523,7 +524,7 @@ impl WorkspaceService {
             metadata: AgentQueuePromptPackSourceMetadata {
                 source_kind: "workspace_path".to_owned(),
                 workspace_relative_path: relative_path,
-                source_bytes: metadata.len(),
+                source_bytes,
                 source_hash,
             },
         })

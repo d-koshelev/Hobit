@@ -342,6 +342,28 @@ pub struct FinishAssignedAgentQueueTaskRunInput {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecoverStaleQueueLocalRunInput {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub run_id: String,
+    pub run_link_id: String,
+    pub reason: String,
+    pub actor_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RecoverStaleQueueLocalRunResult {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub run_id: String,
+    pub run_link_id: String,
+    pub reason: String,
+    pub task_status: String,
+    pub run_link_status: String,
+    pub evidence_bundle_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AssignedAgentQueueTaskRunPlan {
     pub workspace_id: String,
     pub queue_item_id: String,

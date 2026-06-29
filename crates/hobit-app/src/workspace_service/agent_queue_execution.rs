@@ -1,6 +1,6 @@
 use hobit_storage_sqlite::{
     AgentQueueTaskRunLinkRow, AgentQueueWorkflowActionRow, AgentQueueWorkflowActionUpdate,
-    NewAgentQueueWorkflowAction,
+    NewAgentQueueWorkerEvidenceBundle, NewAgentQueueWorkflowAction,
 };
 use hobit_tools::codex_cli::{
     run_codex_direct_work_streaming_with_cancellation, CodexDirectStreamCancellationToken,
@@ -43,10 +43,11 @@ use super::{
     placeholder_id, placeholder_timestamp,
     runs::widget_run_status_value,
     validation::{required_input, validate_widget_run_ownership},
-    AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AgentQueueTaskSummary,
-    AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary, CodexDirectWorkRunSummary,
-    FinishAssignedAgentQueueTaskRunInput, QueueExecutionTargetSnapshot, QueueWorkerStartBlocker,
-    QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot, QueueWorkflowActionStatus,
+    AgentQueueTaskRunReviewStatus, AgentQueueTaskRunSource, AgentQueueTaskRunStatus,
+    AgentQueueTaskSummary, AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary,
+    CodexDirectWorkRunSummary, FinishAssignedAgentQueueTaskRunInput, QueueExecutionTargetSnapshot,
+    QueueWorkerStartBlocker, QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot,
+    QueueWorkflowActionStatus, RecoverStaleQueueLocalRunInput, RecoverStaleQueueLocalRunResult,
     RunCodexDirectWorkInput, SelectedAgentQueueTaskLocalStartSummary,
     StartAssignedAgentQueueTaskInput, StartSelectedAgentQueueTaskLocalInput, WorkspaceService,
     AGENT_QUEUE_WIDGET_DEFINITION_ID, AGENT_RUN_WIDGET_DEFINITION_ID,
@@ -664,6 +665,126 @@ impl WorkspaceService {
                 Ok(task)
             })
             .map(agent_queue_task_summary)
+            .map_err(map_storage_agent_queue_task_error)
+    }
+
+    pub fn recover_stale_queue_local_run_failed(
+        &self,
+        input: RecoverStaleQueueLocalRunInput,
+    ) -> Result<RecoverStaleQueueLocalRunResult, WorkspaceServiceError> {
+        let workspace_id = required_input(&input.workspace_id, "workspace id")?.to_owned();
+        let queue_item_id = required_input(&input.queue_item_id, "queue item id")?.to_owned();
+        let run_id = required_input(&input.run_id, "run id")?.to_owned();
+        let run_link_id = required_input(&input.run_link_id, "run link id")?.to_owned();
+        let reason = required_input(&input.reason, "reason")?.to_owned();
+        let actor_id = required_input(&input.actor_id, "actor id")?.to_owned();
+        let now = placeholder_timestamp();
+        let bundle_id = placeholder_id("queue_worker_evidence_");
+
+        self.store
+            .with_immediate_transaction(|store| {
+                let task = load_agent_queue_task(store, &workspace_id, &queue_item_id)?;
+                if task.assigned_executor_widget_id.is_some() {
+                    return Err(storage_invalid_input(
+                        "stale queue_local recovery requires an unassigned Queue-owned task"
+                            .to_owned(),
+                    ));
+                }
+                if task.status != AGENT_QUEUE_TASK_STATUS_RUNNING {
+                    return Err(storage_invalid_input(format!(
+                        "stale queue_local recovery requires a running task: {}",
+                        task.status
+                    )));
+                }
+                let Some(link) =
+                    store.get_agent_queue_task_run_link(&workspace_id, &run_link_id)?
+                else {
+                    return Err(storage_invalid_input(format!(
+                        "queue task run link not found: {run_link_id}"
+                    )));
+                };
+                if link.queue_task_id != queue_item_id {
+                    return Err(storage_invalid_input(
+                        "stale queue_local recovery run link does not belong to the selected task"
+                            .to_owned(),
+                    ));
+                }
+                if link.direct_work_run_id != run_id {
+                    return Err(storage_invalid_input(
+                        "stale queue_local recovery run id does not match the run link".to_owned(),
+                    ));
+                }
+                if link.executor_widget_id != QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID {
+                    return Err(storage_invalid_input(
+                        "stale recovery applies only to backend-owned queue_local run links"
+                            .to_owned(),
+                    ));
+                }
+                if link.status != AgentQueueTaskRunStatus::Running.as_str() {
+                    return Err(storage_invalid_input(format!(
+                        "stale queue_local recovery requires a running run link: {}",
+                        link.status
+                    )));
+                }
+
+                let task = store
+                    .update_agent_queue_task_status(
+                        &workspace_id,
+                        &queue_item_id,
+                        AGENT_QUEUE_TASK_STATUS_FAILED,
+                        Some(&now),
+                    )?
+                    .ok_or(hobit_storage_sqlite::StorageError::QueryReturnedNoRows)?;
+                let link = store
+                    .update_agent_queue_task_run_link_final_status(
+                        &workspace_id,
+                        &queue_item_id,
+                        &run_id,
+                        hobit_storage_sqlite::AgentQueueTaskRunLinkFinalUpdate {
+                            status: AgentQueueTaskRunStatus::Failed.as_str(),
+                            completed_at: Some(&now),
+                            validation_status: None,
+                            review_status: Some(
+                                AgentQueueTaskRunReviewStatus::ReviewNeeded.as_str(),
+                            ),
+                            updated_at: Some(&now),
+                        },
+                    )?
+                    .ok_or(hobit_storage_sqlite::StorageError::QueryReturnedNoRows)?;
+                let evidence = store.upsert_agent_queue_worker_evidence_bundle(
+                    NewAgentQueueWorkerEvidenceBundle {
+                        bundle_id: &bundle_id,
+                        workspace_id: &workspace_id,
+                        queue_task_id: &queue_item_id,
+                        run_id: &run_id,
+                        run_link_id: Some(&run_link_id),
+                        executor_widget_id: None,
+                        worker_id: Some(actor_id.as_str()),
+                        source: "dogfood_operator_stale_recovery",
+                        outcome: AgentQueueTaskRunStatus::Failed.as_str(),
+                        summary: &reason,
+                        changed_files_json: "[]",
+                        changed_files_count: 0,
+                        changed_files_summary: None,
+                        validation_summary: None,
+                        error_summary: Some(&reason),
+                        metadata_json: None,
+                        created_at: Some(&now),
+                        updated_at: Some(&now),
+                    },
+                )?;
+                store.touch_workspace(&workspace_id)?;
+                Ok(RecoverStaleQueueLocalRunResult {
+                    workspace_id,
+                    queue_item_id,
+                    run_id,
+                    run_link_id,
+                    reason,
+                    task_status: task.status,
+                    run_link_status: link.status,
+                    evidence_bundle_id: evidence.bundle_id,
+                })
+            })
             .map_err(map_storage_agent_queue_task_error)
     }
 

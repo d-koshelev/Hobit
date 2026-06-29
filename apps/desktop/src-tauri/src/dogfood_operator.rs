@@ -1,20 +1,23 @@
 use std::{
     env, fs,
     path::{Path, PathBuf},
+    time::{SystemTime, UNIX_EPOCH},
 };
 
 use hobit_app::{
     AckAgentQueueReviewMessageInput, AgentQueueCompletionCommandStatus,
     AgentQueuePromptPackFileRequest, AgentQueuePromptPackMaterializeResult,
-    AgentQueuePromptPackPreviewResult, AgentQueueReviewCreateMessageStatus,
+    AgentQueuePromptPackPreview, AgentQueuePromptPackPreviewResult,
+    AgentQueueReviewCreateMessageStatus, AgentQueueTaskRunStatus,
     AgentQueueWorkerEvidenceQueryState, CodexDirectStreamCancellationToken,
     CreateAgentQueueReviewMessageInput, FinishAssignedAgentQueueTaskRunInput,
     GetAgentQueueWorkerEvidenceBundleInput, MarkAgentQueueItemDoneInput, QueueItemAggregate,
     QueueItemAggregateDependencyState, QueueItemAggregateReviewState,
     QueueItemAggregateTicketState, QueueItemAggregateWorkerRunState,
     QueueLocalProviderReadinessSummary, RecordAgentQueueWorkerFinishedInput,
-    SelectedAgentQueueTaskLocalStartSummary, StartSelectedAgentQueueTaskLocalInput,
-    WorkspaceService, AGENT_QUEUE_ACCEPTED_COMPLETION_CONFIRMATION_TOKEN,
+    RecoverStaleQueueLocalRunInput, SelectedAgentQueueTaskLocalStartSummary,
+    StartSelectedAgentQueueTaskLocalInput, WorkspaceService,
+    AGENT_QUEUE_ACCEPTED_COMPLETION_CONFIRMATION_TOKEN, QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
 };
 use hobit_storage_sqlite::SqliteStore;
 use serde::Serialize;
@@ -27,6 +30,8 @@ pub const DEFAULT_FIRST_DOGFOOD_TASK_ID: &str = "dogfood-foundation-checkpoint";
 const APP_BACKEND_ENDPOINT_UNAVAILABLE: &str =
     "Hobit app/backend operator endpoint is unavailable.";
 const WORKER_OUTPUT_TAIL_BYTES: usize = 4000;
+const STALE_RUNNING_THRESHOLD_SECONDS: f64 = 2.0 * 60.0 * 60.0;
+const STALE_RUNNING_RECOVERY_REASON: &str = "stale_running_recovered_by_dogfood_coordinator";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DogfoodOperatorRunInput {
@@ -88,6 +93,8 @@ pub struct DogfoodOperatorEvidence {
     pub selected_task: Option<DogfoodOperatorSelectedTaskEvidence>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub resume_dogfood: Option<DogfoodOperatorResumeEvidence>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub dogfood_plan: Option<DogfoodOperatorPlanEvidence>,
     pub boundaries: DogfoodOperatorBoundaryEvidence,
     pub real_dogfood_run_performed: bool,
 }
@@ -227,16 +234,75 @@ pub struct DogfoodOperatorBoundaryEvidence {
 #[serde(rename_all = "camelCase")]
 pub struct DogfoodOperatorResumeEvidence {
     pub status: String,
+    pub next_action: DogfoodOperatorNextActionEvidence,
     pub started_new_worker_count: usize,
     pub selected_pack_task_id: Option<String>,
     pub selected_queue_task_id: Option<String>,
+    pub run_link_created: bool,
+    pub worker_started: bool,
+    pub stale_recovery: Option<DogfoodOperatorStaleRecoveryEvidence>,
     pub accepted_dependencies: Vec<DogfoodOperatorDependencyFinalizationEvidence>,
     pub task_states_before: Vec<DogfoodOperatorPackTaskStateEvidence>,
     pub task_states_after_finalization: Vec<DogfoodOperatorPackTaskStateEvidence>,
     pub task_states_after_start: Vec<DogfoodOperatorPackTaskStateEvidence>,
+    pub task_states_after_action: Vec<DogfoodOperatorPackTaskStateEvidence>,
+    pub active_run_link_ids: Vec<String>,
+    pub stale_candidate_run_link_ids: Vec<String>,
     pub dependents_auto_started: bool,
     pub widget_runs_created: bool,
     pub scheduler_autodispatch_used: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DogfoodOperatorPlanEvidence {
+    pub operator_context: DogfoodOperatorContextEvidence,
+    pub workspace_id: String,
+    pub workspace_resolution: DogfoodWorkspaceResolutionEvidence,
+    pub pack_path: String,
+    pub pack_id: Option<String>,
+    pub pack_spec_hash: Option<String>,
+    pub run_settings_hash: Option<String>,
+    pub dependency_spec_hash: Option<String>,
+    pub full_preview_hash: Option<String>,
+    pub materialization_status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub provider_readiness: Option<QueueLocalProviderReadinessSummary>,
+    pub next_action: DogfoodOperatorNextActionEvidence,
+    pub blockers: Vec<String>,
+    pub warnings: Vec<String>,
+    pub task_states: Vec<DogfoodOperatorPackTaskStateEvidence>,
+    pub active_run_link_ids: Vec<String>,
+    pub stale_candidate_run_link_ids: Vec<String>,
+    pub used_direct_database_path: bool,
+    pub widget_runs_created: bool,
+    pub scheduler_autodispatch: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DogfoodOperatorNextActionEvidence {
+    pub kind: String,
+    pub pack_task_id: Option<String>,
+    pub queue_task_id: Option<String>,
+    pub run_id: Option<String>,
+    pub run_link_id: Option<String>,
+    pub retry_failed: bool,
+    pub reason: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DogfoodOperatorStaleRecoveryEvidence {
+    pub status: String,
+    pub pack_task_id: String,
+    pub queue_task_id: String,
+    pub run_id: String,
+    pub run_link_id: String,
+    pub reason: String,
+    pub created_run_link: bool,
+    pub worker_started: bool,
+    pub widget_runs_created: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -260,6 +326,8 @@ pub struct DogfoodOperatorDependencyFinalizationEvidence {
 pub struct DogfoodOperatorPackTaskStateEvidence {
     pub pack_task_id: String,
     pub queue_task_id: Option<String>,
+    pub task_spec_hash: Option<String>,
+    pub dependency_queue_task_ids: Vec<String>,
     pub ticket_state: Option<String>,
     pub worker_run_state: Option<String>,
     pub review_state: Option<String>,
@@ -268,8 +336,16 @@ pub struct DogfoodOperatorPackTaskStateEvidence {
     pub latest_run_id: Option<String>,
     pub latest_run_link_id: Option<String>,
     pub latest_run_status: Option<String>,
+    pub latest_run_source: Option<String>,
+    pub latest_run_executor_widget_id: Option<String>,
+    pub latest_run_started_at: Option<String>,
+    pub latest_run_completed_at: Option<String>,
     pub start_eligible: bool,
     pub finalization_eligible: bool,
+    pub active_run: bool,
+    pub stale_running_candidate: bool,
+    pub dependency_accepted: bool,
+    pub dependency_blocked_reason: Option<String>,
 }
 
 pub fn run_cli<I, S>(args: I) -> Result<(), String>
@@ -446,6 +522,7 @@ where
         provider_readiness: None,
         selected_task,
         resume_dogfood: None,
+        dogfood_plan: None,
         boundaries: DogfoodOperatorBoundaryEvidence {
             frontend_materializer_canonical: false,
             queue_lifecycle_frontend_owned: false,
@@ -591,6 +668,7 @@ where
         provider_readiness: input.provider_readiness,
         selected_task,
         resume_dogfood: None,
+        dogfood_plan: None,
         boundaries: DogfoodOperatorBoundaryEvidence {
             frontend_materializer_canonical: false,
             queue_lifecycle_frontend_owned: false,
@@ -604,10 +682,95 @@ where
     })
 }
 
+pub(crate) fn run_dogfood_plan_for_app_workspace(
+    service: &WorkspaceService,
+    input: DogfoodOperatorAppWorkspaceRunInput,
+) -> Result<DogfoodOperatorPlanEvidence, String> {
+    validate_app_workspace_identity_input(&input)?;
+    let (workspace_resolution, workspace_root) = app_workspace_resolution(service, &input)?;
+    let workspace_id = workspace_resolution.workspace_id.clone();
+    let operator_context =
+        app_operator_context(&input, &workspace_id, &workspace_resolution, workspace_root);
+    let request = AgentQueuePromptPackFileRequest {
+        workspace_id: workspace_id.clone(),
+        workspace_relative_path: input.pack_path.clone(),
+    };
+    let preview_result = service
+        .preview_agent_queue_prompt_pack_file(request)
+        .map_err(|error| error.to_string())?;
+    let preview = preview_result.preview.ok_or_else(|| {
+        format!(
+            "prompt-pack preview failed: {}",
+            diagnostic_summary(&preview_result.errors)
+        )
+    })?;
+    let mut blockers = preview
+        .blockers
+        .iter()
+        .map(|blocker| format!("{}: {}", blocker.code, blocker.message))
+        .collect::<Vec<_>>();
+    let warnings = preview
+        .warnings
+        .iter()
+        .map(|warning| format!("{}: {}", warning.code, warning.message))
+        .collect::<Vec<_>>();
+    let materialization_status = preview.materialization_status.clone();
+    let task_states = if materialization_status == "reusable" {
+        inspect_pack_task_states_from_preview(service, &workspace_id, &preview)?
+    } else {
+        Vec::new()
+    };
+    if materialization_status == "conflict" && blockers.is_empty() {
+        blockers.push("prompt_pack_materialization_conflict".to_owned());
+    }
+    let next_action = choose_dogfood_next_action(
+        &materialization_status,
+        &task_states,
+        input.provider_readiness.as_ref(),
+        input.allow_unknown_provider_readiness,
+        &blockers,
+    );
+    let active_run_link_ids = task_states
+        .iter()
+        .filter(|state| state.active_run)
+        .filter_map(|state| state.latest_run_link_id.clone())
+        .collect::<Vec<_>>();
+    let stale_candidate_run_link_ids = task_states
+        .iter()
+        .filter(|state| state.stale_running_candidate)
+        .filter_map(|state| state.latest_run_link_id.clone())
+        .collect::<Vec<_>>();
+
+    Ok(DogfoodOperatorPlanEvidence {
+        operator_context,
+        workspace_id,
+        workspace_resolution,
+        pack_path: input.pack_path,
+        pack_id: Some(preview.pack.pack_id),
+        pack_spec_hash: Some(preview.pack_spec_hash),
+        run_settings_hash: Some(preview.run_settings_hash),
+        dependency_spec_hash: Some(preview.dependency_spec_hash),
+        full_preview_hash: Some(preview.full_preview_hash),
+        materialization_status,
+        provider_readiness: input.provider_readiness,
+        next_action,
+        blockers,
+        warnings,
+        task_states,
+        active_run_link_ids,
+        stale_candidate_run_link_ids,
+        used_direct_database_path: false,
+        widget_runs_created: false,
+        scheduler_autodispatch: false,
+    })
+}
+
 pub(crate) fn run_dogfood_resume_for_app_workspace_with_runner<F>(
     service: &WorkspaceService,
     mut input: DogfoodOperatorAppWorkspaceRunInput,
     runner: F,
+    recover_stale_dogfood_run: bool,
+    recover_run_link_id: Option<&str>,
 ) -> Result<DogfoodOperatorEvidence, String>
 where
     F: FnOnce(
@@ -615,8 +778,8 @@ where
         &SelectedAgentQueueTaskLocalStartSummary,
     ) -> Result<DogfoodOperatorWorkerOutcome, String>,
 {
-    input.preview = true;
-    input.materialize = true;
+    input.preview = false;
+    input.materialize = false;
     input.start_pack_task_id = None;
     input.retry_pack_task_id = None;
     if !input.allow_worker_start {
@@ -626,77 +789,108 @@ where
         );
     }
 
-    validate_app_workspace_run_input(&input)?;
-    let workspace = service
-        .get_workspace_summary(&input.workspace_id)
-        .map_err(|error| error.to_string())?
-        .ok_or_else(|| "No active app workspace available for dogfood operator.".to_owned())?;
-    let mut warnings = Vec::new();
-    let workspace_root = match input.workspace_root.clone().or(workspace.root_path) {
-        Some(root_path) if !root_path.trim().is_empty() => root_path,
-        _ => {
-            warnings.push("active app workspace has no root path".to_owned());
-            "<no workspace root>".to_owned()
+    validate_app_workspace_identity_input(&input)?;
+    let plan = run_dogfood_plan_for_app_workspace(service, input.clone())?;
+    if recover_stale_dogfood_run {
+        if let Some(expected_run_link_id) = recover_run_link_id {
+            if plan.next_action.run_link_id.as_deref() != Some(expected_run_link_id) {
+                return Err(
+                    "explicit stale recovery runLinkId did not match the dogfood plan".to_owned(),
+                );
+            }
         }
-    };
-    let workspace_resolution = DogfoodWorkspaceResolutionEvidence {
-        workspace_id: input.workspace_id.clone(),
-        resolution_method: input.workspace_resolution_method.clone(),
-        workspace_root: workspace_root.clone(),
-        candidate_count: 0,
-        ambiguity_avoided: false,
-        dogfood_binding_reused: false,
-        dogfood_workspace_created: false,
-        warnings,
-    };
+    }
+    let (workspace_resolution, workspace_root) = app_workspace_resolution(service, &input)?;
     let workspace_id = workspace_resolution.workspace_id.clone();
     let request = AgentQueuePromptPackFileRequest {
         workspace_id: workspace_id.clone(),
         workspace_relative_path: input.pack_path.clone(),
     };
+    let mut preview = None;
+    let mut materialization = None;
+    let mut selected_task = None;
+    let mut accepted_dependencies = Vec::new();
+    let mut stale_recovery = None;
+    let states_before = plan.task_states.clone();
+    let mut states_after_finalization = plan.task_states.clone();
+    let mut states_after_start = plan.task_states.clone();
+    let mut states_after_action = plan.task_states.clone();
 
-    let preview = Some(preview_evidence(
-        service
-            .preview_agent_queue_prompt_pack_file(request.clone())
-            .map_err(|error| error.to_string())?,
-    )?);
-    let materialization_result = service
-        .materialize_agent_queue_prompt_pack_file(request)
-        .map_err(|error| error.to_string())?;
-    let materialization = Some(materialization_evidence(&materialization_result));
-    let states_before = inspect_pack_task_states(service, &workspace_id, &materialization_result)?;
-    let accepted_dependencies =
-        finalize_safe_completed_pack_tasks(service, &workspace_id, &materialization_result)?;
-    let states_after_finalization =
-        inspect_pack_task_states(service, &workspace_id, &materialization_result)?;
-
-    let selected_pack_task_id = states_after_finalization
-        .iter()
-        .find(|state| state.start_eligible)
-        .map(|state| state.pack_task_id.clone());
-
-    let selected_task = match selected_pack_task_id.as_deref() {
-        Some(pack_task_id) => Some(start_or_retry_selected_pack_task(
-            service,
-            &materialization_result,
-            &workspace_id,
-            pack_task_id,
-            false,
-            input.provider_readiness.as_ref(),
-            input.allow_unknown_provider_readiness,
-            runner,
-        )?),
-        None => None,
+    match plan.next_action.kind.as_str() {
+        "materialize_pack" => {
+            let preview_result = service
+                .preview_agent_queue_prompt_pack_file(request.clone())
+                .map_err(|error| error.to_string())?;
+            preview = Some(preview_evidence(preview_result)?);
+            let result = service
+                .materialize_agent_queue_prompt_pack_file(request)
+                .map_err(|error| error.to_string())?;
+            states_after_action = inspect_pack_task_states(service, &workspace_id, &result)?;
+            materialization = Some(materialization_evidence(&result));
+        }
+        "finalize_completed_dependency" => {
+            let result = materialized_prompt_pack_from_plan(&plan)?;
+            let Some(pack_task_id) = plan.next_action.pack_task_id.as_deref() else {
+                return Err("dogfood plan finalize action had no pack task id".to_owned());
+            };
+            let Some(queue_task_id) = plan.next_action.queue_task_id.as_deref() else {
+                return Err("dogfood plan finalize action had no queue task id".to_owned());
+            };
+            let aggregate = service
+                .get_queue_item_aggregate(&workspace_id, queue_task_id)
+                .map_err(|error| error.to_string())?
+                .ok_or_else(|| format!("queue task not found: {queue_task_id}"))?;
+            accepted_dependencies.push(finalize_completed_pack_task(
+                service,
+                &workspace_id,
+                pack_task_id,
+                queue_task_id,
+                &aggregate,
+            )?);
+            states_after_finalization = inspect_pack_task_states(service, &workspace_id, &result)?;
+            states_after_action = states_after_finalization.clone();
+            materialization = Some(materialization_evidence(&result));
+        }
+        "start_task" => {
+            let result = materialized_prompt_pack_from_plan(&plan)?;
+            let Some(pack_task_id) = plan.next_action.pack_task_id.as_deref() else {
+                return Err("dogfood plan start action had no pack task id".to_owned());
+            };
+            selected_task = Some(start_or_retry_selected_pack_task(
+                service,
+                &result,
+                &workspace_id,
+                pack_task_id,
+                plan.next_action.retry_failed,
+                input.provider_readiness.as_ref(),
+                input.allow_unknown_provider_readiness,
+                runner,
+            )?);
+            states_after_start = inspect_pack_task_states(service, &workspace_id, &result)?;
+            states_after_action = states_after_start.clone();
+            materialization = Some(materialization_evidence(&result));
+        }
+        "recover_stale_running_task" => {
+            if recover_stale_dogfood_run {
+                let result = materialized_prompt_pack_from_plan(&plan)?;
+                stale_recovery = Some(recover_stale_running_task(service, &workspace_id, &plan)?);
+                states_after_action = inspect_pack_task_states(service, &workspace_id, &result)?;
+                states_after_start = states_after_action.clone();
+                states_after_finalization = states_after_action.clone();
+                materialization = Some(materialization_evidence(&result));
+            } else {
+                states_after_action = plan.task_states.clone();
+            }
+        }
+        _ => {}
     };
 
-    let states_after_start =
-        inspect_pack_task_states(service, &workspace_id, &materialization_result)?;
     let selected_queue_task_id = selected_task
         .as_ref()
         .map(|task| task.selected_queue_task_id.clone());
     let dependents_auto_started = unselected_pack_task_gained_run(
-        &states_after_finalization,
-        &states_after_start,
+        &states_before,
+        &states_after_action,
         selected_queue_task_id.as_deref(),
     );
     let started_new_worker_count = selected_task
@@ -707,7 +901,7 @@ where
     let resume_status = match selected_task.as_ref() {
         Some(task) if task.launch_status == "launched" => "started_one_task",
         Some(task) => task.launch_status.as_str(),
-        None => "no_eligible_task",
+        None => plan.next_action.kind.as_str(),
     }
     .to_owned();
     let real_dogfood_run_performed = selected_task
@@ -740,15 +934,28 @@ where
         selected_task: selected_task.clone(),
         resume_dogfood: Some(DogfoodOperatorResumeEvidence {
             status: resume_status,
+            next_action: plan.next_action.clone(),
             started_new_worker_count,
             selected_pack_task_id: selected_task
                 .as_ref()
                 .map(|task| task.selected_pack_task_id.clone()),
             selected_queue_task_id,
+            run_link_created: selected_task
+                .as_ref()
+                .map(|task| task.created_run_link)
+                .unwrap_or(false),
+            worker_started: selected_task
+                .as_ref()
+                .map(|task| task.would_start_workers)
+                .unwrap_or(false),
+            stale_recovery: stale_recovery.take(),
             accepted_dependencies,
             task_states_before: states_before,
             task_states_after_finalization: states_after_finalization,
             task_states_after_start: states_after_start,
+            task_states_after_action: states_after_action,
+            active_run_link_ids: plan.active_run_link_ids.clone(),
+            stale_candidate_run_link_ids: plan.stale_candidate_run_link_ids.clone(),
             dependents_auto_started,
             widget_runs_created: selected_task
                 .as_ref()
@@ -756,6 +963,7 @@ where
                 .unwrap_or(false),
             scheduler_autodispatch_used: false,
         }),
+        dogfood_plan: Some(plan),
         boundaries: DogfoodOperatorBoundaryEvidence {
             frontend_materializer_canonical: false,
             queue_lifecycle_frontend_owned: false,
@@ -837,9 +1045,7 @@ fn validate_run_input(input: &DogfoodOperatorRunInput) -> Result<(), String> {
 fn validate_app_workspace_run_input(
     input: &DogfoodOperatorAppWorkspaceRunInput,
 ) -> Result<(), String> {
-    if input.workspace_id.trim().is_empty() {
-        return Err("workspace id must not be empty".to_owned());
-    }
+    validate_app_workspace_identity_input(input)?;
     validate_operation_input(
         &input.pack_path,
         input.preview,
@@ -848,6 +1054,18 @@ fn validate_app_workspace_run_input(
         input.retry_pack_task_id.as_deref(),
         input.allow_worker_start,
     )
+}
+
+fn validate_app_workspace_identity_input(
+    input: &DogfoodOperatorAppWorkspaceRunInput,
+) -> Result<(), String> {
+    if input.workspace_id.trim().is_empty() {
+        return Err("workspace id must not be empty".to_owned());
+    }
+    if input.pack_path.trim().is_empty() {
+        return Err("prompt-pack path is required".to_owned());
+    }
+    Ok(())
 }
 
 fn validate_operation_input(
@@ -876,6 +1094,58 @@ fn validate_operation_input(
         return Err("choose --preview, --materialize, or --start-pack-task".to_owned());
     }
     Ok(())
+}
+
+fn app_workspace_resolution(
+    service: &WorkspaceService,
+    input: &DogfoodOperatorAppWorkspaceRunInput,
+) -> Result<(DogfoodWorkspaceResolutionEvidence, String), String> {
+    let workspace = service
+        .get_workspace_summary(&input.workspace_id)
+        .map_err(|error| error.to_string())?
+        .ok_or_else(|| "No active app workspace available for dogfood operator.".to_owned())?;
+    let mut warnings = Vec::new();
+    let workspace_root = match input.workspace_root.clone().or(workspace.root_path) {
+        Some(root_path) if !root_path.trim().is_empty() => root_path,
+        _ => {
+            warnings.push("active app workspace has no root path".to_owned());
+            "<no workspace root>".to_owned()
+        }
+    };
+    Ok((
+        DogfoodWorkspaceResolutionEvidence {
+            workspace_id: input.workspace_id.clone(),
+            resolution_method: input.workspace_resolution_method.clone(),
+            workspace_root: workspace_root.clone(),
+            candidate_count: 0,
+            ambiguity_avoided: false,
+            dogfood_binding_reused: false,
+            dogfood_workspace_created: false,
+            warnings,
+        },
+        workspace_root,
+    ))
+}
+
+fn app_operator_context(
+    input: &DogfoodOperatorAppWorkspaceRunInput,
+    workspace_id: &str,
+    workspace_resolution: &DogfoodWorkspaceResolutionEvidence,
+    workspace_root: String,
+) -> DogfoodOperatorContextEvidence {
+    DogfoodOperatorContextEvidence {
+        context_source: "running_app_endpoint".to_owned(),
+        workspace_id: workspace_id.to_owned(),
+        workspace_resolution_method: workspace_resolution.resolution_method.clone(),
+        database_path: None,
+        used_direct_database_path: false,
+        endpoint_kind: input.endpoint_kind.clone(),
+        endpoint_pid: input.endpoint_pid,
+        profile_mode: input.profile_mode.clone(),
+        workspace_root: Some(workspace_root),
+        app_launch_attempted: None,
+        app_launch_command_summary: None,
+    }
 }
 
 pub fn resolve_dogfood_operator_workspace(
@@ -1001,6 +1271,38 @@ fn inspect_pack_task_states(
             Ok(pack_task_state_evidence(
                 &task.pack_task_id,
                 task.queue_task_id.clone(),
+                Some(task.task_spec_hash.clone()),
+                task.dependency_queue_task_ids.clone(),
+                aggregate.as_ref(),
+            ))
+        })
+        .collect()
+}
+
+fn inspect_pack_task_states_from_preview(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    preview: &AgentQueuePromptPackPreview,
+) -> Result<Vec<DogfoodOperatorPackTaskStateEvidence>, String> {
+    preview
+        .tasks
+        .iter()
+        .map(|task| {
+            let aggregate = task
+                .queue_task_id
+                .as_deref()
+                .map(|queue_task_id| {
+                    service
+                        .get_queue_item_aggregate(workspace_id, queue_task_id)
+                        .map_err(|error| error.to_string())
+                })
+                .transpose()?
+                .flatten();
+            Ok(pack_task_state_evidence(
+                &task.id,
+                task.queue_task_id.clone(),
+                Some(task.task_spec_hash.clone()),
+                task.dependency_queue_task_ids.clone(),
                 aggregate.as_ref(),
             ))
         })
@@ -1010,12 +1312,40 @@ fn inspect_pack_task_states(
 fn pack_task_state_evidence(
     pack_task_id: &str,
     queue_task_id: Option<String>,
+    task_spec_hash: Option<String>,
+    dependency_queue_task_ids: Vec<String>,
     aggregate: Option<&QueueItemAggregate>,
 ) -> DogfoodOperatorPackTaskStateEvidence {
     let latest_run = aggregate.and_then(|aggregate| aggregate.latest_run.as_ref());
+    let active_run = latest_run
+        .map(|run| run.status == AgentQueueTaskRunStatus::Running.as_str())
+        .unwrap_or(false);
+    let stale_running_candidate = aggregate
+        .zip(latest_run)
+        .map(|(aggregate, run)| is_stale_running_candidate(aggregate, run))
+        .unwrap_or(false);
+    let dependency_accepted = aggregate
+        .map(|aggregate| {
+            matches!(
+                aggregate.dependency_state,
+                QueueItemAggregateDependencyState::None | QueueItemAggregateDependencyState::Ready
+            )
+        })
+        .unwrap_or(false);
+    let dependency_blocked_reason = aggregate.and_then(|aggregate| {
+        dependency_accepted.then_some(None).unwrap_or_else(|| {
+            aggregate
+                .blockers
+                .first()
+                .map(|blocker| format!("{}: {}", blocker.code, blocker.message))
+                .or_else(|| Some(aggregate.dependency_state.as_str().to_owned()))
+        })
+    });
     DogfoodOperatorPackTaskStateEvidence {
         pack_task_id: pack_task_id.to_owned(),
         queue_task_id,
+        task_spec_hash,
+        dependency_queue_task_ids,
         ticket_state: aggregate.map(|aggregate| aggregate.ticket_state.as_str().to_owned()),
         worker_run_state: aggregate.map(|aggregate| aggregate.worker_run_state.as_str().to_owned()),
         review_state: aggregate.map(|aggregate| aggregate.review_state.as_str().to_owned()),
@@ -1024,15 +1354,23 @@ fn pack_task_state_evidence(
         latest_run_id: latest_run.map(|run| run.run_id.clone()),
         latest_run_link_id: latest_run.map(|run| run.run_link_id.clone()),
         latest_run_status: latest_run.map(|run| run.status.clone()),
+        latest_run_source: latest_run.map(|run| run.source.clone()),
+        latest_run_executor_widget_id: latest_run.map(|run| run.executor_widget_id.clone()),
+        latest_run_started_at: latest_run.map(|run| run.started_at.clone()),
+        latest_run_completed_at: latest_run.and_then(|run| run.completed_at.clone()),
         start_eligible: aggregate.map(is_resume_start_eligible).unwrap_or(false),
         finalization_eligible: aggregate
             .map(is_resume_finalization_eligible)
             .unwrap_or(false),
+        active_run: active_run && !stale_running_candidate,
+        stale_running_candidate,
+        dependency_accepted,
+        dependency_blocked_reason,
     }
 }
 
 fn is_resume_start_eligible(aggregate: &QueueItemAggregate) -> bool {
-    matches!(
+    let normal_start = matches!(
         aggregate.ticket_state,
         QueueItemAggregateTicketState::Draft
             | QueueItemAggregateTicketState::Queued
@@ -1044,7 +1382,24 @@ fn is_resume_start_eligible(aggregate: &QueueItemAggregate) -> bool {
     ) && matches!(
         aggregate.dependency_state,
         QueueItemAggregateDependencyState::None | QueueItemAggregateDependencyState::Ready
-    )
+    );
+    normal_start || is_resume_retry_eligible(aggregate)
+}
+
+fn is_resume_retry_eligible(aggregate: &QueueItemAggregate) -> bool {
+    matches!(
+        aggregate.ticket_state,
+        QueueItemAggregateTicketState::AwaitingReview | QueueItemAggregateTicketState::Failure
+    ) && matches!(
+        aggregate.worker_run_state,
+        QueueItemAggregateWorkerRunState::Failed
+    ) && matches!(
+        aggregate.dependency_state,
+        QueueItemAggregateDependencyState::None | QueueItemAggregateDependencyState::Ready
+    ) && aggregate.latest_run.as_ref().is_some_and(|run| {
+        run.status == AgentQueueTaskRunStatus::Failed.as_str()
+            && is_backend_queue_local_run(run.executor_widget_id.as_str(), run.source.as_str())
+    })
 }
 
 fn is_resume_finalization_eligible(aggregate: &QueueItemAggregate) -> bool {
@@ -1066,53 +1421,289 @@ fn is_resume_finalization_eligible(aggregate: &QueueItemAggregate) -> bool {
         .is_some_and(|run| run.status == "completed")
 }
 
-fn finalize_safe_completed_pack_tasks(
+fn is_backend_queue_local_run(executor_widget_id: &str, source: &str) -> bool {
+    executor_widget_id == QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID
+        && matches!(source, "manual" | "queue_local" | "unknown")
+}
+
+fn is_stale_running_candidate(
+    aggregate: &QueueItemAggregate,
+    latest_run: &hobit_app::QueueItemAggregateLatestRun,
+) -> bool {
+    latest_run.status == AgentQueueTaskRunStatus::Running.as_str()
+        && is_backend_queue_local_run(
+            latest_run.executor_widget_id.as_str(),
+            latest_run.source.as_str(),
+        )
+        && !matches!(
+            aggregate.worker_run_state,
+            QueueItemAggregateWorkerRunState::Completed
+        )
+        && !matches!(
+            aggregate.evidence_state,
+            hobit_app::QueueItemAggregateEvidenceState::Available
+        )
+        && run_started_older_than(
+            latest_run.started_at.as_str(),
+            STALE_RUNNING_THRESHOLD_SECONDS,
+        )
+}
+
+fn run_started_older_than(started_at: &str, threshold_seconds: f64) -> bool {
+    let Ok(start_seconds) = started_at.parse::<f64>() else {
+        return false;
+    };
+    let Ok(now) = SystemTime::now().duration_since(UNIX_EPOCH) else {
+        return false;
+    };
+    let now_seconds = now.as_secs() as f64 + f64::from(now.subsec_nanos()) / 1_000_000_000.0;
+    now_seconds - start_seconds > threshold_seconds
+}
+
+fn choose_dogfood_next_action(
+    materialization_status: &str,
+    task_states: &[DogfoodOperatorPackTaskStateEvidence],
+    provider_readiness: Option<&QueueLocalProviderReadinessSummary>,
+    allow_unknown_provider_readiness: bool,
+    blockers: &[String],
+) -> DogfoodOperatorNextActionEvidence {
+    if materialization_status == "not_materialized" {
+        return next_action("materialize_pack", None, None, None, None, false, None);
+    }
+    if materialization_status != "reusable" {
+        return next_action(
+            "blocked",
+            None,
+            None,
+            None,
+            None,
+            false,
+            Some(blockers.first().cloned().unwrap_or_else(|| {
+                format!("pack materialization status is {materialization_status}")
+            })),
+        );
+    }
+    if let Some(state) = task_states.iter().find(|state| state.finalization_eligible) {
+        return state_action("finalize_completed_dependency", state, false, None);
+    }
+    if let Some(state) = task_states.iter().find(|state| state.active_run) {
+        return state_action(
+            "wait_active_run",
+            state,
+            false,
+            Some("running run link is still active".to_owned()),
+        );
+    }
+    if let Some(state) = task_states
+        .iter()
+        .find(|state| state.stale_running_candidate)
+    {
+        return state_action(
+            "recover_stale_running_task",
+            state,
+            false,
+            Some("running backend-owned queue_local run is a stale candidate".to_owned()),
+        );
+    }
+    if let Some(state) = task_states.iter().find(|state| state.start_eligible) {
+        if provider_readiness
+            .map(|readiness| {
+                provider_readiness_blocks_launch(readiness, allow_unknown_provider_readiness)
+            })
+            .unwrap_or(false)
+        {
+            return state_action(
+                "start_task_blocked_by_provider",
+                state,
+                is_plan_retry_start(state),
+                Some("provider readiness blocked selected-task launch".to_owned()),
+            );
+        }
+        return state_action("start_task", state, is_plan_retry_start(state), None);
+    }
+    if !task_states.is_empty()
+        && task_states
+            .iter()
+            .all(|state| state.ticket_state.as_deref() == Some("done"))
+    {
+        return next_action("pack_complete", None, None, None, None, false, None);
+    }
+    next_action(
+        "blocked",
+        None,
+        None,
+        None,
+        None,
+        false,
+        Some("no actionable dogfood task state".to_owned()),
+    )
+}
+
+fn state_action(
+    kind: &str,
+    state: &DogfoodOperatorPackTaskStateEvidence,
+    retry_failed: bool,
+    reason: Option<String>,
+) -> DogfoodOperatorNextActionEvidence {
+    next_action(
+        kind,
+        Some(state.pack_task_id.clone()),
+        state.queue_task_id.clone(),
+        state.latest_run_id.clone(),
+        state.latest_run_link_id.clone(),
+        retry_failed,
+        reason,
+    )
+}
+
+fn next_action(
+    kind: &str,
+    pack_task_id: Option<String>,
+    queue_task_id: Option<String>,
+    run_id: Option<String>,
+    run_link_id: Option<String>,
+    retry_failed: bool,
+    reason: Option<String>,
+) -> DogfoodOperatorNextActionEvidence {
+    DogfoodOperatorNextActionEvidence {
+        kind: kind.to_owned(),
+        pack_task_id,
+        queue_task_id,
+        run_id,
+        run_link_id,
+        retry_failed,
+        reason,
+    }
+}
+
+fn is_plan_retry_start(state: &DogfoodOperatorPackTaskStateEvidence) -> bool {
+    matches!(
+        state.ticket_state.as_deref(),
+        Some("awaiting_review" | "failure")
+    ) && state.worker_run_state.as_deref() == Some("failed")
+        && state.latest_run_status.as_deref() == Some(AgentQueueTaskRunStatus::Failed.as_str())
+}
+
+fn materialized_prompt_pack_from_plan(
+    plan: &DogfoodOperatorPlanEvidence,
+) -> Result<AgentQueuePromptPackMaterializeResult, String> {
+    if plan.materialization_status != "reusable" {
+        return Err(format!(
+            "dogfood pack is not materialized: {}",
+            plan.materialization_status
+        ));
+    }
+    Ok(AgentQueuePromptPackMaterializeResult {
+        status: "reused".to_owned(),
+        pack_id: plan.pack_id.clone(),
+        pack_spec_hash: plan.pack_spec_hash.clone(),
+        run_settings_hash: plan.run_settings_hash.clone(),
+        dependency_spec_hash: plan.dependency_spec_hash.clone(),
+        full_preview_hash: plan.full_preview_hash.clone(),
+        task_count: plan.task_states.len(),
+        created_count: 0,
+        reused_count: plan.task_states.len(),
+        conflict_count: 0,
+        tasks: plan
+            .task_states
+            .iter()
+            .map(
+                |state| hobit_app::AgentQueuePromptPackMaterializedTaskResult {
+                    pack_task_id: state.pack_task_id.clone(),
+                    queue_task_id: state.queue_task_id.clone(),
+                    task_spec_hash: state.task_spec_hash.clone().unwrap_or_default(),
+                    status: "reused".to_owned(),
+                    dependency_queue_task_ids: state.dependency_queue_task_ids.clone(),
+                },
+            )
+            .collect(),
+        errors: Vec::new(),
+        would_start_workers: false,
+        would_create_run_links: false,
+        would_mutate_queue: false,
+        source: None,
+    })
+}
+
+fn recover_stale_running_task(
     service: &WorkspaceService,
     workspace_id: &str,
-    materialization: &AgentQueuePromptPackMaterializeResult,
-) -> Result<Vec<DogfoodOperatorDependencyFinalizationEvidence>, String> {
-    let mut accepted = Vec::new();
-    for task in &materialization.tasks {
-        let Some(queue_task_id) = task.queue_task_id.as_deref() else {
-            continue;
-        };
-        let Some(aggregate) = service
-            .get_queue_item_aggregate(workspace_id, queue_task_id)
-            .map_err(|error| error.to_string())?
-        else {
-            continue;
-        };
-        if matches!(aggregate.ticket_state, QueueItemAggregateTicketState::Done) {
-            accepted.push(DogfoodOperatorDependencyFinalizationEvidence {
-                pack_task_id: task.pack_task_id.clone(),
-                queue_task_id: queue_task_id.to_owned(),
-                status: "already_finalized".to_owned(),
-                safe_to_finalize: true,
-                run_id: aggregate.latest_run.as_ref().map(|run| run.run_id.clone()),
-                run_link_id: aggregate
-                    .latest_run
-                    .as_ref()
-                    .map(|run| run.run_link_id.clone()),
-                evidence_bundle_id: None,
-                review_message_id: None,
-                completion_decision_id: None,
-                blocker_code: None,
-                blocker_message: None,
-            });
-            continue;
-        }
-        if !is_resume_finalization_eligible(&aggregate) {
-            continue;
-        }
-        accepted.push(finalize_completed_pack_task(
-            service,
-            workspace_id,
-            &task.pack_task_id,
-            queue_task_id,
-            &aggregate,
-        )?);
+    plan: &DogfoodOperatorPlanEvidence,
+) -> Result<DogfoodOperatorStaleRecoveryEvidence, String> {
+    let action = &plan.next_action;
+    if action.kind != "recover_stale_running_task" {
+        return Err(format!(
+            "dogfood plan next action is not stale recovery: {}",
+            action.kind
+        ));
     }
-    Ok(accepted)
+    let pack_task_id = action
+        .pack_task_id
+        .clone()
+        .ok_or_else(|| "stale recovery action had no pack task id".to_owned())?;
+    let queue_task_id = action
+        .queue_task_id
+        .clone()
+        .ok_or_else(|| "stale recovery action had no queue task id".to_owned())?;
+    let run_id = action
+        .run_id
+        .clone()
+        .ok_or_else(|| "stale recovery action had no run id".to_owned())?;
+    let run_link_id = action
+        .run_link_id
+        .clone()
+        .ok_or_else(|| "stale recovery action had no run link id".to_owned())?;
+    let state = plan
+        .task_states
+        .iter()
+        .find(|state| {
+            state.pack_task_id == pack_task_id
+                && state.queue_task_id.as_deref() == Some(queue_task_id.as_str())
+        })
+        .ok_or_else(|| "stale recovery task was not in dogfood plan state".to_owned())?;
+    if !state.stale_running_candidate {
+        return Err("selected dogfood run is not a stale running candidate".to_owned());
+    }
+    if state.latest_run_link_id.as_deref() != Some(run_link_id.as_str())
+        || state.latest_run_id.as_deref() != Some(run_id.as_str())
+    {
+        return Err("stale recovery action does not match latest dogfood run link".to_owned());
+    }
+    if state.latest_run_status.as_deref() != Some(AgentQueueTaskRunStatus::Running.as_str()) {
+        return Err("stale recovery requires a running run link".to_owned());
+    }
+    if !is_backend_queue_local_run(
+        state
+            .latest_run_executor_widget_id
+            .as_deref()
+            .unwrap_or_default(),
+        state.latest_run_source.as_deref().unwrap_or_default(),
+    ) {
+        return Err("stale recovery requires a backend-owned queue_local run link".to_owned());
+    }
+
+    service
+        .recover_stale_queue_local_run_failed(RecoverStaleQueueLocalRunInput {
+            workspace_id: workspace_id.to_owned(),
+            queue_item_id: queue_task_id.clone(),
+            run_id: run_id.clone(),
+            run_link_id: run_link_id.clone(),
+            reason: STALE_RUNNING_RECOVERY_REASON.to_owned(),
+            actor_id: "hobit-dogfood-coordinator".to_owned(),
+        })
+        .map_err(|error| error.to_string())?;
+
+    Ok(DogfoodOperatorStaleRecoveryEvidence {
+        status: "recovered".to_owned(),
+        pack_task_id,
+        queue_task_id,
+        run_id,
+        run_link_id,
+        reason: STALE_RUNNING_RECOVERY_REASON.to_owned(),
+        created_run_link: false,
+        worker_started: false,
+        widget_runs_created: false,
+    })
 }
 
 fn finalize_completed_pack_task(
