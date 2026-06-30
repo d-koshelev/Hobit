@@ -1,9 +1,9 @@
 use hobit_app::{WorkspaceDeletionSummary, WorkspaceSummary, WorkspaceWorkbenchState};
 
 use crate::workspace_dto::{
-    SharedStateObjectSummaryDto, WidgetInstanceSummaryDto, WorkbenchEventSummaryDto,
-    WorkbenchSummaryDto, WorkspaceDeletionResponseDto, WorkspaceSummaryDto,
-    WorkspaceWorkbenchStateDto,
+    QueueWorkspaceRecoveryProjectionDto, SharedStateObjectSummaryDto, WidgetInstanceSummaryDto,
+    WorkbenchEventSummaryDto, WorkbenchSummaryDto, WorkspaceDeletionResponseDto,
+    WorkspaceSummaryDto, WorkspaceWorkbenchStateDto,
 };
 
 pub(crate) fn summary(
@@ -66,6 +66,7 @@ pub(crate) fn workbench_state(
     WorkspaceWorkbenchStateDto {
         workspace: summary(state.workspace, fallback_root_path),
         workbench: state.workbench.map(WorkbenchSummaryDto::from),
+        queue_recovery: QueueWorkspaceRecoveryProjectionDto::from(state.queue_recovery),
         widget_instances: state
             .widget_instances
             .into_iter()

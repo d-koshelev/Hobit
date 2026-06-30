@@ -20,6 +20,7 @@ import { useDirectWorkRunHandoff } from "./useDirectWorkRunHandoff";
 import { useWorkspaceAgentQueueChatRequests } from "./useWorkspaceAgentQueueChatRequests";
 import { useWorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import { findWorkspaceSingletonWidget } from "./workspaceSingletonWidgets";
+import { widgetCatalogTemplates } from "./catalogTemplates";
 import { currentWorkspaceRootFromViewState } from "./workspaceCurrentRoot";
 import {
   AGENT_QUEUE_WIDGET_DEFINITION_ID,
@@ -27,7 +28,10 @@ import {
   isUserFacingWidgetDefinition,
 } from "./widgetRegistry";
 import { createWorkspaceAgentLiveWorkbenchContextSnapshot } from "./workspaceAgentLiveWorkbenchContext";
-import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
+import type {
+  WorkbenchWidgetActions,
+  WorkbenchWidgetInstanceActions,
+} from "./useWorkbenchWidgetActions";
 import { useWorkbenchLayoutInteractions } from "./useWorkbenchLayoutInteractions";
 import type {
   AgentExecutorRunOpenRequest,
@@ -62,8 +66,11 @@ type WorkbenchCanvasProps = {
   onOpenWidgetCatalog: () => void;
   onStartCoordinatorWorkspace?: () => void;
   viewState: WorkbenchViewState;
-  widgetActions: WorkbenchWidgetInstanceActions;
+  widgetActions: WorkbenchCanvasWidgetActions;
 };
+
+type WorkbenchCanvasWidgetActions = WorkbenchWidgetInstanceActions &
+  Partial<Pick<WorkbenchWidgetActions, "addWidgetTemplate">>;
 
 type ActivePopoutDrag = {
   offsetX: number;
@@ -113,6 +120,11 @@ export function WorkbenchCanvas({
   const queueWidget = findWorkspaceSingletonWidget(
     visibleWidgets,
     AGENT_QUEUE_WIDGET_DEFINITION_ID,
+  );
+  const queueCatalogTemplate = widgetCatalogTemplates.find(
+    (template) =>
+      (template.futureWidgetDefinitionId ?? template.id) ===
+      AGENT_QUEUE_WIDGET_DEFINITION_ID,
   );
   const agentExecutorSlots = useMemo(() => agentExecutorSlotsFromWidgets(viewState.widgets), [viewState.widgets]);
   const directWorkGitReview = useDirectWorkGitReviewHandoff();
@@ -474,6 +486,15 @@ export function WorkbenchCanvas({
     });
   }
 
+  async function openQueueRecoveryView() {
+    if (!queueCatalogTemplate || !widgetActions.addWidgetTemplate) {
+      onOpenWidgetCatalog();
+      return;
+    }
+
+    await widgetActions.addWidgetTemplate(queueCatalogTemplate);
+  }
+
   function publishAgentActivityEvents(events: AgentActivityEvent[]) {
     const workspaceId = viewState.workspace.id;
     const scopedEvents = events.filter((event) => event.workspaceId === workspaceId);
@@ -495,9 +516,11 @@ export function WorkbenchCanvas({
           canvasLabel={canvasLabel}
           canvasShellClass={canvasShellClass}
           onOpenWidgetCatalog={onOpenWidgetCatalog}
+          onOpenQueueView={() => void openQueueRecoveryView()}
           onStartCoordinatorWorkspace={
             onStartCoordinatorWorkspace ?? onOpenWidgetCatalog
           }
+          queueRecovery={viewState.queueRecovery}
         />
         {memoryDiagnosticsEnabled ? (
           <RendererMemoryDiagnosticsPanel source={memoryDiagnosticsSource} />

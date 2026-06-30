@@ -1,6 +1,7 @@
 import type { GitRepositoryStatus } from "../workspace/types";
 import type {
   AgentQueueReportActionCard,
+  QueueWorkspaceRecoveryProjection,
   AgentQueueTask,
 } from "../workspace/types";
 
@@ -122,6 +123,7 @@ export type WorkbenchEventView = {
 export type WorkbenchViewState = {
   workspace: WorkbenchWorkspaceView;
   workbench: WorkbenchSurfaceView;
+  queueRecovery?: QueueWorkspaceRecoveryProjection;
   widgets: WidgetInstance[];
   sharedStateObjects: WorkbenchSharedStateView[];
   recentEvents: WorkbenchEventView[];

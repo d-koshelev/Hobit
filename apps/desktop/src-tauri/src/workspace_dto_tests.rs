@@ -3,14 +3,14 @@ use std::path::PathBuf;
 use hobit_app::{
     AgentChatProposalRunSummary, GitBranchStatusSummary, GitFileChangeSummary,
     GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
-    PersistAgentChatProposalInput, RunTerminalCommandInput, SharedStateObjectSummary,
-    TerminalCommandRunSummary, WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    PersistAgentChatProposalInput, QueueWorkspaceRecoveryProjection, RunTerminalCommandInput,
+    SharedStateObjectSummary, TerminalCommandRunSummary, WidgetInstanceSummary, WidgetLogSummary,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceSessionSummary,
+    WorkspaceSummary, WorkspaceWorkbenchState,
 };
 use hobit_app::{
     AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
-    AgentMonitoringSnapshot,
+    AgentMonitoringSnapshot, AgentQueueControlStateSummary,
 };
 use serde_json::json;
 
@@ -229,6 +229,23 @@ fn maps_workspace_workbench_state_to_dto() {
             workspace_id: "ws_1".to_owned(),
             preset_origin_id: None,
         }),
+        queue_recovery: QueueWorkspaceRecoveryProjection {
+            workspace_id: "ws_1".to_owned(),
+            queue_task_count: 2,
+            running_task_count: 1,
+            stale_running_candidate_count: 1,
+            has_visible_queue_view: false,
+            canonical_queue_widget_id: Some("queue_widget_1".to_owned()),
+            control_state: Some(AgentQueueControlStateSummary {
+                workspace_id: "ws_1".to_owned(),
+                status: "manual_enabled".to_owned(),
+                version: 2,
+                updated_by_actor_id: Some("operator".to_owned()),
+                reason: Some("manual resume".to_owned()),
+                created_at: "2026-05-25T10:00:00Z".to_owned(),
+                updated_at: "2026-05-25T10:30:00Z".to_owned(),
+            }),
+        },
         widget_instances: vec![WidgetInstanceSummary {
             id: "widget-1".to_owned(),
             definition_id: "notes".to_owned(),
@@ -274,6 +291,22 @@ fn maps_workspace_workbench_state_to_dto() {
             .as_ref()
             .map(|workbench| workbench.id.as_str()),
         Some("wb_1")
+    );
+    assert_eq!(dto.queue_recovery.workspace_id, "ws_1");
+    assert_eq!(dto.queue_recovery.queue_task_count, 2);
+    assert_eq!(dto.queue_recovery.running_task_count, 1);
+    assert_eq!(dto.queue_recovery.stale_running_candidate_count, 1);
+    assert!(!dto.queue_recovery.has_visible_queue_view);
+    assert_eq!(
+        dto.queue_recovery.canonical_queue_widget_id.as_deref(),
+        Some("queue_widget_1")
+    );
+    assert_eq!(
+        dto.queue_recovery
+            .control_state
+            .as_ref()
+            .map(|control| control.status.as_str()),
+        Some("manual_enabled")
     );
     assert_eq!(dto.widget_instances[0].definition_id, "notes");
     assert_eq!(dto.widget_instances[0].dock_x, Some(12));

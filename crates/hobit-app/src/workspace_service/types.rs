@@ -1,6 +1,8 @@
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use crate::QueueWorkspaceRecoveryProjection;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceSummary {
     pub id: String,
@@ -39,6 +41,7 @@ pub struct WorkspaceSessionSummary {
 pub struct WorkspaceWorkbenchState {
     pub workspace: WorkspaceSummary,
     pub workbench: Option<WorkbenchSummary>,
+    pub queue_recovery: QueueWorkspaceRecoveryProjection,
     pub widget_instances: Vec<WidgetInstanceSummary>,
     pub shared_state_objects: Vec<SharedStateObjectSummary>,
     pub recent_events: Vec<WorkbenchEventSummary>,

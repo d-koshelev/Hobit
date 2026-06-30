@@ -141,6 +141,126 @@ describe("WorkbenchShell global activity", () => {
     expect(workspaceApiMocks.listAgentQueueTasks).toHaveBeenCalledTimes(1);
     expect(workspaceApiMocks.getAgentQueueTask).toHaveBeenCalledTimes(1);
   });
+
+  it("opens the saved Agent Queue from the empty workbench recovery CTA", async () => {
+    const onViewStateChange = vi.fn();
+
+    workspaceApiMocks.addWidgetInstanceToWorkbench.mockResolvedValueOnce(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: [AGENT_QUEUE_WIDGET_DEFINITION_ID],
+      }),
+    );
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValueOnce(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: [AGENT_QUEUE_WIDGET_DEFINITION_ID],
+      }),
+    );
+
+    renderShell(
+      workbenchViewState({
+        queueRecovery: queueRecoveryProjection({
+          queueTaskCount: 2,
+          runningTaskCount: 1,
+          staleRunningCandidateCount: 1,
+        }),
+      }),
+      onViewStateChange,
+    );
+
+    expect(document.body.textContent).toContain(
+      "Agent Queue has saved tasks",
+    );
+    expect(document.body.textContent).toContain(
+      "2 Queue tasks are stored in this Workspace.",
+    );
+    expect(document.body.textContent).toContain(
+      "1 running; 1 may need recovery review",
+    );
+
+    await act(async () => {
+      buttonWithText("Open Agent Queue").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.addWidgetInstanceToWorkbench).toHaveBeenCalledWith(
+      expect.objectContaining({
+        definitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+      }),
+    );
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          dockHeight: 680,
+          dockWidth: 1160,
+          dockX: 0,
+          dockY: 0,
+        }),
+        widgetInstanceId: "widget_1",
+      }),
+    );
+    expect(onViewStateChange).toHaveBeenCalledTimes(1);
+    expect(onViewStateChange.mock.calls[0][0].widgets).toEqual([
+      expect.objectContaining({
+        definitionId: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+        visible: true,
+      }),
+    ]);
+  });
+
+  it("restores a hidden Agent Queue singleton from recovery without duplicating the view", async () => {
+    const onViewStateChange = vi.fn();
+    const hiddenQueueWidget = {
+      ...agentQueueWidget(),
+      visible: false,
+    };
+
+    workspaceApiMocks.updateWidgetInstanceLayout.mockResolvedValueOnce(
+      workspaceWorkbenchState({
+        widgetDefinitionIds: [AGENT_QUEUE_WIDGET_DEFINITION_ID],
+      }),
+    );
+
+    renderShell(
+      workbenchViewState({
+        queueRecovery: queueRecoveryProjection({
+          canonicalQueueWidgetId: hiddenQueueWidget.id,
+          queueTaskCount: 3,
+        }),
+        widgets: [hiddenQueueWidget],
+      }),
+      onViewStateChange,
+    );
+
+    await act(async () => {
+      buttonWithText("Open Agent Queue").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+    await flushShellEffects();
+
+    expect(workspaceApiMocks.addWidgetInstanceToWorkbench).not.toHaveBeenCalled();
+    expect(workspaceApiMocks.updateWidgetInstanceLayout).toHaveBeenCalledWith(
+      expect.objectContaining({
+        layout: expect.objectContaining({
+          dockHeight: hiddenQueueWidget.layout.height,
+          dockWidth: hiddenQueueWidget.layout.width,
+          isVisible: true,
+        }),
+        widgetInstanceId: hiddenQueueWidget.id,
+      }),
+    );
+    expect(onViewStateChange).toHaveBeenCalledTimes(1);
+    expect(
+      onViewStateChange.mock.calls[0][0].widgets.filter(
+        (widget: WorkbenchViewState["widgets"][number]) =>
+          widget.definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID,
+      ),
+    ).toHaveLength(1);
+  });
 });
 
 describe("WorkbenchShell empty canvas recovery", () => {
@@ -911,14 +1031,21 @@ function workspaceWorkbenchState({
     },
     widgetInstances: widgetDefinitionIds.map((definitionId, index) => {
       const isCoordinator = definitionId === "interactive-agent";
+      const isQueue = definitionId === AGENT_QUEUE_WIDGET_DEFINITION_ID;
 
       return {
         alwaysOnTop: false,
-        category: "core",
+        category: isQueue ? "workflow" : "core",
         config: "{}",
         definitionId,
-        dockHeight: usePresetLayout ? 560 : 240,
-        dockWidth: usePresetLayout ? (isCoordinator ? 840 : 360) : 360,
+        dockHeight: usePresetLayout ? 560 : isQueue ? 680 : 240,
+        dockWidth: usePresetLayout
+          ? isCoordinator
+            ? 840
+            : 360
+          : isQueue
+            ? 1160
+            : 360,
         dockX: usePresetLayout ? (isCoordinator ? 0 : 864) : 0,
         dockY: usePresetLayout ? 0 : index * 256,
         id: `widget_${index + 1}`,
@@ -929,7 +1056,11 @@ function workspaceWorkbenchState({
         popoutX: null,
         popoutY: null,
         state: "{}",
-        title: isCoordinator ? "Workspace Agent" : "Notes",
+        title: isCoordinator
+          ? "Workspace Agent"
+          : isQueue
+            ? "Agent Queue"
+            : "Notes",
       };
     }),
     sharedStateObjects: [],
@@ -1077,6 +1208,21 @@ function workbenchViewState(
       status: "open",
       title: "Shell Activity Test",
     },
+    ...overrides,
+  };
+}
+
+function queueRecoveryProjection(
+  overrides: Partial<NonNullable<WorkbenchViewState["queueRecovery"]>> = {},
+): NonNullable<WorkbenchViewState["queueRecovery"]> {
+  return {
+    canonicalQueueWidgetId: null,
+    controlState: null,
+    hasVisibleQueueView: false,
+    queueTaskCount: 1,
+    runningTaskCount: 0,
+    staleRunningCandidateCount: 0,
+    workspaceId: "workspace_1",
     ...overrides,
   };
 }

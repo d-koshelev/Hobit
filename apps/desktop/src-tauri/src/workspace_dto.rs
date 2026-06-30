@@ -3,13 +3,15 @@ use hobit_app::{
     AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
     AgentMonitoringSnapshot, GitBranchStatusSummary, GitFileChangeSummary, GitLastCommitSummary,
     GitRepositoryStatusSummary, GitWorkingTreeStatusSummary, PersistAgentChatProposalInput,
-    RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
-    WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    QueueWorkspaceRecoveryProjection, RunTerminalCommandInput, SharedStateObjectSummary,
+    TerminalCommandRunSummary, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
+    WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceSessionSummary,
+    WorkspaceSummary, WorkspaceWorkbenchState,
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+use crate::agent_queue_control_dto::AgentQueueControlStateDto;
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct CreateWorkspaceRequest {
     pub title: String,
@@ -169,9 +171,21 @@ pub(crate) struct WorkspaceSessionSummaryDto {
 pub(crate) struct WorkspaceWorkbenchStateDto {
     pub workspace: WorkspaceSummaryDto,
     pub workbench: Option<WorkbenchSummaryDto>,
+    pub queue_recovery: QueueWorkspaceRecoveryProjectionDto,
     pub widget_instances: Vec<WidgetInstanceSummaryDto>,
     pub shared_state_objects: Vec<SharedStateObjectSummaryDto>,
     pub recent_events: Vec<WorkbenchEventSummaryDto>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct QueueWorkspaceRecoveryProjectionDto {
+    pub workspace_id: String,
+    pub queue_task_count: usize,
+    pub running_task_count: usize,
+    pub stale_running_candidate_count: usize,
+    pub has_visible_queue_view: bool,
+    pub canonical_queue_widget_id: Option<String>,
+    pub control_state: Option<AgentQueueControlStateDto>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
@@ -394,6 +408,7 @@ impl From<WorkspaceWorkbenchState> for WorkspaceWorkbenchStateDto {
         Self {
             workspace: WorkspaceSummaryDto::from(state.workspace),
             workbench: state.workbench.map(WorkbenchSummaryDto::from),
+            queue_recovery: QueueWorkspaceRecoveryProjectionDto::from(state.queue_recovery),
             widget_instances: state
                 .widget_instances
                 .into_iter()
@@ -409,6 +424,22 @@ impl From<WorkspaceWorkbenchState> for WorkspaceWorkbenchStateDto {
                 .into_iter()
                 .map(WorkbenchEventSummaryDto::from)
                 .collect(),
+        }
+    }
+}
+
+impl From<QueueWorkspaceRecoveryProjection> for QueueWorkspaceRecoveryProjectionDto {
+    fn from(projection: QueueWorkspaceRecoveryProjection) -> Self {
+        Self {
+            workspace_id: projection.workspace_id,
+            queue_task_count: projection.queue_task_count,
+            running_task_count: projection.running_task_count,
+            stale_running_candidate_count: projection.stale_running_candidate_count,
+            has_visible_queue_view: projection.has_visible_queue_view,
+            canonical_queue_widget_id: projection.canonical_queue_widget_id,
+            control_state: projection
+                .control_state
+                .map(AgentQueueControlStateDto::from),
         }
     }
 }

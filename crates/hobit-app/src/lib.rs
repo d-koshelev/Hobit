@@ -200,3 +200,14 @@ pub use workspace_service::{
     MAX_WORKFLOW_SLOT_BINDINGS_JSON_BYTES, MAX_WORKFLOW_VARIABLES_JSON_BYTES,
     QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID, QUEUE_LOCAL_BACKEND_WORKBENCH_ID,
 };
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueWorkspaceRecoveryProjection {
+    pub workspace_id: String,
+    pub queue_task_count: usize,
+    pub running_task_count: usize,
+    pub stale_running_candidate_count: usize,
+    pub has_visible_queue_view: bool,
+    pub canonical_queue_widget_id: Option<String>,
+    pub control_state: Option<AgentQueueControlStateSummary>,
+}

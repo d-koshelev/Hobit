@@ -355,6 +355,33 @@
   gap: var(--space-sm);
 }
 
+.empty-workbench-recovery {
+  display: grid;
+  width: min(420px, 100%);
+  justify-items: center;
+  gap: var(--space-sm);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-overlay-surface);
+  padding: var(--space-md);
+}
+
+.empty-workbench-recovery-title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--text-sm);
+  font-weight: 680;
+  line-height: var(--line-tight);
+}
+
+.empty-workbench-recovery-text,
+.empty-workbench-recovery-meta {
+  margin: var(--space-2xs) 0 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-xs);
+  line-height: var(--line-normal);
+}
+
 .widget-layout-surface {
   position: relative;
   flex: 1;

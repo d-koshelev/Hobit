@@ -38,6 +38,12 @@
     "apps/desktop/frontend/src/workbench/TerminalPtySessionPanel.tsx": {
       "lines": 809
     },
+    "apps/desktop/frontend/src/workbench/WorkbenchCanvas.tsx": {
+      "lines": 744
+    },
+    "apps/desktop/frontend/src/workbench/WorkbenchShell.test.tsx": {
+      "lines": 1346
+    },
     "apps/desktop/frontend/src/workbench/coordinatorLocalProposalGeneration.ts": {
       "lines": 753
     },
@@ -71,6 +77,9 @@
     "apps/desktop/frontend/src/workspace/tauriAgentQueueApi.ts": {
       "lines": 703
     },
+    "apps/desktop/frontend/src/workspace/tauriWorkspaceApi.test.ts": {
+      "lines": 1292
+    },
     "apps/desktop/src-tauri/src/agent_queue_runner.rs": {
       "lines": 1298
     },
@@ -87,7 +96,7 @@
       "lines": 920
     },
     "apps/desktop/src-tauri/src/workspace_dto.rs": {
-      "lines": 711
+      "lines": 744
     },
     "crates/hobit-app/src/audit_events/mod.rs": {
       "lines": 641
@@ -114,7 +123,7 @@
       "lines": 878
     },
     "crates/hobit-app/src/workspace_service/types.rs": {
-      "lines": 881
+      "lines": 896
     },
     "crates/hobit-storage-sqlite/src/store.rs": {
       "lines": 360

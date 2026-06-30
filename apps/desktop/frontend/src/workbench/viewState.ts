@@ -82,6 +82,7 @@ export function createWorkbenchViewStateFromWorkspaceState(
         description: preset.description,
       },
     },
+    queueRecovery: state.queueRecovery,
     widgets: widgetInstances.map((widgetInstance, index) => {
       const mode = normalizeWidgetLayoutMode(widgetInstance.layoutMode);
       const layoutDefaults = getWidgetLayoutDefaults(

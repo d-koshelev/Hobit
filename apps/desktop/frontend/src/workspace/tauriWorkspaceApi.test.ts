@@ -129,6 +129,73 @@ describe("tauri workspace api adapter", () => {
     expect(mocks.invoke).toHaveBeenCalledWith("list_workspaces");
   });
 
+  it("normalizes workspace Queue recovery projection from workbench state", async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      workspace: {
+        id: "ws_1",
+        title: "Incident",
+        description: null,
+        root_path: null,
+        status: "active",
+        created_at: "2026-05-27T10:00:00Z",
+        updated_at: "2026-05-27T11:00:00Z",
+        last_opened_at: null,
+        widget_count: 0,
+        workspace_agent_count: 0,
+        note_count: 0,
+        skill_count: 0,
+        knowledge_document_count: 0,
+        queue_task_count: 2,
+        workbench_id: "wb_1",
+      },
+      workbench: {
+        id: "wb_1",
+        workspace_id: "ws_1",
+        preset_origin_id: null,
+      },
+      queue_recovery: {
+        workspace_id: "ws_1",
+        queue_task_count: 2,
+        running_task_count: 1,
+        stale_running_candidate_count: 1,
+        has_visible_queue_view: false,
+        canonical_queue_widget_id: "queue_widget_1",
+        control_state: {
+          workspace_id: "ws_1",
+          status: "manual_enabled",
+          version: 2,
+          updated_by_actor_id: "operator",
+          reason: "manual recovery",
+          created_at: "2026-05-27T10:00:00Z",
+          updated_at: "2026-05-27T11:00:00Z",
+        },
+      },
+      widget_instances: [],
+      shared_state_objects: [],
+      recent_events: [],
+    });
+
+    await expect(
+      tauriWorkspaceApi.getWorkspaceWorkbenchState("ws_1"),
+    ).resolves.toMatchObject({
+      queueRecovery: {
+        canonicalQueueWidgetId: "queue_widget_1",
+        hasVisibleQueueView: false,
+        queueTaskCount: 2,
+        runningTaskCount: 1,
+        staleRunningCandidateCount: 1,
+        workspaceId: "ws_1",
+        controlState: {
+          status: "manual_enabled",
+          version: 2,
+        },
+      },
+    });
+    expect(mocks.invoke).toHaveBeenCalledWith("get_workspace_workbench_state", {
+      workspaceId: "ws_1",
+    });
+  });
+
   it("maps create workspace rootPath to the Tauri create request", async () => {
     mocks.invoke.mockResolvedValueOnce({
       id: "ws_1",
