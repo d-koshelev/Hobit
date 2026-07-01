@@ -136,6 +136,13 @@ export async function sendMessage(message: string) {
   });
 }
 
+export function finalAnswerEnvelope(message: string) {
+  return JSON.stringify({
+    message,
+    type: "hobit.final.answer",
+  });
+}
+
 export async function setTextareaValue(message: string) {
   const textarea = document.querySelector("textarea");
   if (!textarea) {

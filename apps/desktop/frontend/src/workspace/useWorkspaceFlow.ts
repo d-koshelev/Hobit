@@ -11,6 +11,7 @@ import {
   getWorkspaceWorkbenchState,
   listWorkspaces,
   openWorkspace as openWorkspaceCommand,
+  selectWorkspaceDirectory,
 } from "./workspaceApi";
 import type { WorkspaceStartSelection } from "./selection";
 import type { WorkspaceSummary } from "./types";
@@ -30,6 +31,8 @@ export function useWorkspaceFlow({
   );
   const [isLoadingWorkspaces, setIsLoadingWorkspaces] = useState(true);
   const [isCreatingWorkspace, setIsCreatingWorkspace] = useState(false);
+  const [isSelectingWorkspaceDirectory, setIsSelectingWorkspaceDirectory] =
+    useState(false);
   const [openingWorkspaceId, setOpeningWorkspaceId] = useState<string | null>(
     null,
   );
@@ -40,6 +43,9 @@ export function useWorkspaceFlow({
   const [selectedPresetId, setSelectedPresetId] = useState(
     defaultWorkbenchPreset.id,
   );
+  const [selectedWorkspaceRootPath, setSelectedWorkspaceRootPath] = useState<
+    string | null
+  >(null);
   const selectedPreset =
     workbenchPresets.find((preset) => preset.id === selectedPresetId) ??
     defaultWorkbenchPreset;
@@ -77,6 +83,12 @@ export function useWorkspaceFlow({
 
   async function createWorkspace() {
     const workspaceTitle = workspaceName.trim() || DEFAULT_WORKSPACE_NAME;
+    const workspaceRootPath = normalizeWorkspaceRoot(selectedWorkspaceRootPath);
+
+    if (!workspaceRootPath) {
+      setErrorMessage("Choose a workspace folder before creating a Workspace.");
+      return;
+    }
 
     setIsCreatingWorkspace(true);
     setErrorMessage(null);
@@ -85,6 +97,7 @@ export function useWorkspaceFlow({
       const workspace = await createWorkspaceCommand({
         title: workspaceTitle,
         description: null,
+        rootPath: workspaceRootPath,
       });
       const session = await openWorkspaceCommand(workspace.id);
 
@@ -115,6 +128,25 @@ export function useWorkspaceFlow({
       setErrorMessage(errorToMessage(error));
     } finally {
       setIsCreatingWorkspace(false);
+    }
+  }
+
+  async function chooseWorkspaceDirectory() {
+    setIsSelectingWorkspaceDirectory(true);
+    setErrorMessage(null);
+
+    try {
+      const selectedDirectory = normalizeWorkspaceRoot(
+        await selectWorkspaceDirectory(),
+      );
+
+      if (selectedDirectory) {
+        setSelectedWorkspaceRootPath(selectedDirectory);
+      }
+    } catch (error) {
+      setErrorMessage(errorToMessage(error));
+    } finally {
+      setIsSelectingWorkspaceDirectory(false);
     }
   }
 
@@ -176,20 +208,33 @@ export function useWorkspaceFlow({
   return {
     clearError,
     createWorkspace,
+    chooseWorkspaceDirectory,
     deleteRecentWorkspace,
     deletingWorkspaceId,
     errorMessage,
     isCreatingWorkspace,
     isLoadingWorkspaces,
+    isSelectingWorkspaceDirectory,
     openingWorkspaceId,
     openRecentWorkspace,
     recentWorkspaces,
     selectedPreset,
+    selectedWorkspaceRootPath,
     setSelectedPresetId,
     setWorkspaceName,
     workbenchPresets,
     workspaceName,
   };
+}
+
+function normalizeWorkspaceRoot(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }
 
 function errorToMessage(error: unknown) {

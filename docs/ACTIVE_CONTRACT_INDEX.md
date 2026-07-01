@@ -93,6 +93,12 @@ warning-only dead-code audit direction, and explicit Finder exclusion. It does
 not add frontend behavior, CSS, backend APIs, storage/schema, runtime behavior,
 validation automation, widget id changes, or new widgets.
 
+`docs/CODEBASE_REFACTOR_SIZE_AUDIT.md` is the docs-only status and plan for the
+line-count audit/guard. It records current oversized source, test, docs, and
+style debt, the explicit allowlist model, and the A-D refactor priority order.
+It does not add runtime behavior, UI behavior, Queue workflow behavior,
+storage/schema changes, or refactor implementation by itself.
+
 `docs/WIDGET_CONTRACT_TEMPLATE.md` is the reusable docs-only template for
 authoring widget contracts before implementation. It includes Queue and Finder
 examples for planning vocabulary only; current Finder behavior is governed by
@@ -133,6 +139,11 @@ of truth for their domains.
 - `docs/testing/CURRENT_VALIDATION_SMOKE_CHECKLIST.md` - Phase 1 validation
   baseline and reporting labels for passing checks, expected environment
   failures, known warnings, unresolved blockers, and not-run checks.
+- `docs/SMART_QUEUE_MANUAL_SMOKE_CHECKLIST.md` - Smart Queue manual smoke
+  checklist. The current top section defines the typed headless dependency
+  workflow smoke for `dependency_acceptance_smoke` and
+  `dependency_failure_smoke`; the later desktop/UI section remains manual
+  product smoke and must not be treated as Queue workflow truth.
 - `docs/testing/NOTES_SMOKE_CHECKLIST.md` - current Notes behavior smoke
   checklist; Deferred Notebook behavior remains out of current smoke scope.
 - `docs/NOTES_DEV_MEMORY_API_DECISION.md` - Phase 2 Notes decision document
@@ -420,6 +431,113 @@ unless the task explicitly requests it.
   Capability Boundary v0 vocabulary. It is type scaffolding only and does not
   add capability execution, permission checks, audit emission, server runtime,
   RBAC, storage, DTO, Tauri, frontend, or widget behavior changes.
+- `docs/HOBIT_AGENT_CAPABILITY_RUNTIME.md` - read before changing agent
+  capability metadata, Action Broker behavior, Widget Agent Contracts, or
+  Module Control Surface metadata. `ModuleControlSurface` is the generic
+  agent-facing module contract for typed module capabilities and future typed
+  workflows. `ModuleControlSurfaceRegistry` is the UI-independent discovery
+  layer for registered agent-facing module surfaces; Queue and Workbench live
+  context reads are registered modules. Queue capability metadata is adapted
+  from the Queue capability contract inventory for the generic surface, and
+  Workbench metadata covers `workspace.context.get` plus
+  `workbench.widgets.list` as read-only broker-safe live context reads.
+  Registry metadata is not runtime behavior. Generic `hobit.workflow.request` parsing and
+  validation lives at the Workspace Agent protocol/broker boundary, enforces
+  the generic grant/input split, and checks module/workflow availability
+  through this registry before any runner phase. Queue declares the initial
+  workflow ids `dependency_acceptance_smoke`,
+  `dependency_failure_smoke`, `review_acceptance`, and `terminal_failure` as
+  validation-only metadata with narrow QueueWorkflowRunner adapter support.
+  `dependency_acceptance_smoke` and
+  `dependency_failure_smoke` validate typed `inputs.runSettings`,
+  `inputs.tasks`, task slots, explicit dependency slot references, grant modes,
+  and safety constraints for setup phases before returning
+  `workflow_valid_not_executable`; phase-tagged typed continuations may rely on
+  persisted workflow bindings, while `dependency_failure_smoke` still requires
+  typed `failureReason` at the finalization runner boundary before
+  `queue.item.fail`;
+  `review_acceptance` and `terminal_failure` remain declared with
+  `input_validation_deferred` in the generic request path. A Queue-specific
+  `QueueWorkflowRunner` exists as an explicit control-plane helper with
+  create/setup/start, worker-evidence, read-only, review, and finalization
+  phases. Its
+  create/setup/start phase can materialize explicit upstream/downstream slots,
+  apply upstream run settings, promote upstream, verify backend
+  `manual_enabled`, start only the explicit upstream worker with typed
+  workflow start context, persist report/action summaries, and pause at
+  `awaiting_worker_completion` without downstream auto-start. Its separate
+  worker-evidence phase can resume from typed upstream task/run completion
+  input, record/reconcile durable evidence, persist `evidenceBundleId` in
+  workflow state/action ledger, and stop before review. It can inspect
+  explicit existing Queue aggregate/lifecycle/evidence ids through an injected
+  read port; its review phase can create and ACK backend review messages
+  through an injected review port; and its finalization phase can
+  mark the explicit upstream done
+  for `dependency_acceptance_smoke` or failed for
+  `dependency_failure_smoke` through an injected finalization port when exact
+  typed ids, confirmation, failure reason where needed, and review
+  ACK/precondition proof are present. ACK is not completion; already-existing
+  review messages, already-done ACKs, `already_done`, and `already_failed` are
+  idempotent states. For `dependency_acceptance_smoke` and
+  `dependency_failure_smoke`, the runtime adapter now composes these typed
+  phases through durable workflow persistence until the workflow run is
+  completed: upstream evidence, review create/ACK, upstream accepted
+  completion or typed terminal failure with fresh exact structured
+  confirmation, downstream ready/`failed_upstream` no-auto-start verification,
+  and bounded completed report persistence.
+  The Workspace Agent workflow request path now invokes it only for supported
+  Queue phases through typed backend ports; unsupported, invalid, or deferred
+  workflows do not invoke the runner, and downstream work is not auto-started.
+  Backend workflow task slot materialization now exists
+  as a workflow-internal domain method: it creates/reuses draft/manual Queue
+  tasks by explicit `workflowRunId + slot + taskSpecHash`, persists durable
+  slot bindings, and materializes dependency edges only from explicit
+  `dependsOnSlots`. It is not a Workspace Agent broker capability and is wired
+  only through typed QueueWorkflowRunner create/setup/start execution. Backend workflow run-settings
+  setup and task promotion now also exist as workflow-internal domain methods
+  for already materialized slots: they persist `settingsHash`,
+  bounded run-settings snapshots, `update_run_settings` refs, and
+  `promote_task` refs in the workflow slot binding/action ledger; same typed
+  refs are idempotent and changed hashes/refs conflict or block. They are not
+  broker capabilities; they are wired only through typed QueueWorkflowRunner
+  create/setup/start execution and do not themselves start workers, create run links, enable Queue,
+  satisfy dependencies, record evidence/reviews/finalization, run validation,
+  mutate Git, launch Terminal, schedule, or auto-start downstream work. A
+  backend-owned worker-start
+  idempotency/control
+  contract now exists on the assigned Queue task start path for the workflow
+  start phase: it requires explicit workflow/action/task/executor/settings refs,
+  exact confirmation, durable `manual_enabled`, workflow action-ledger
+  idempotency, dependency/executor/settings checks, and orphan/unknown blocker
+  handling. The current QueueWorkflowRunner calls it only for explicit
+  upstream dependency-smoke start and pauses before the separate evidence
+  phase.
+  Unknown ids remain not declared. `grant` is
+  permission/scope only, `inputs` is the only workflow data location, and prose
+  is never executable workflow input. Workspace Agent direct turns use a provider-neutral
+  AgentProvider seam and AgentRuntime lifecycle layer; Codex is the default
+  current provider implementation rather than the architecture, and fake
+  providers support deterministic protocol tests. AgentRuntime owns provider
+  turn lifecycle/cancellation delegation and delegates final-output
+  classification to AgentProtocolRuntime without invoking the broker,
+  executing workflows, starting workers, calling backend/Tauri APIs, or
+  touching Queue UI.
+  BrokerContinuationRuntime is the pure continuation-chain orchestration layer
+  for already-classified protocol and broker results. It emits typed
+  invocation/continuation/repair/stop/complete intents while the React
+  controller still invokes the broker, invokes the Queue workflow runner
+  adapter for supported Queue workflow requests, applies continuation turns,
+  and applies UI state. Queue bounded-autonomy continuation policy remains explicitly
+  Queue-specific transitional policy.
+  AgentActivityRecorder is the pure formatting/append-intent layer for
+  already-decided provider/protocol/broker/continuation output; the React
+  controller still owns visible state and execution flow.
+  WorkerProvider is a separate provider-neutral seam for explicit worker items
+  and normalized worker evidence/result events; Codex Direct Work remains a
+  concrete worker implementation, and the current QueueWorkflowRunner phases
+  do not consume the seam. UI widgets are not executable module APIs, and Codex is a
+  provider/worker implementation rather than the module integration
+  architecture.
 - `docs/EVIDENCE_SOURCES_CONTRACT.md` - read for evidence, source
   provenance, AI-readable context approval, citations, or trust-layer work.
 - `docs/EVENT_AUDIT_ENVELOPE_CONTRACT.md` - read for Event/Audit Envelope v0
@@ -683,6 +801,70 @@ the local executor flow visible to operators.
   It requires exactly one logical Queue and exactly one Queue UI view per
   Workspace. `agent-queue` is the saved-compatible singleton Queue widget
   identity, and `queue-v2` must not become a second Queue widget/view.
+- `docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md` - current Queue responsibility
+  boundary. Read before Queue backend/domain/storage/Tauri/API, Workspace
+  Agent broker adapter, or frontend API boundary work. It states that Queue
+  business truth lives in backend/domain/storage, including Queue workflow
+  run/action persistence and durable Queue control state, and frontend UI may
+  only render authoritative DTOs plus local loading/display state. Workspace
+  Agent live smoke discovery may read live renderer-held workspace/workbench
+  and widget instance state through `workspace.context.get` and
+  `workbench.widgets.list`, and backend Queue control state through
+  `queue.control.get`. `workspace.context.get` reports durable Workspace root
+  path data when present; the desktop process cwd fallback is legacy only and
+  can point at `apps/desktop/src-tauri` in Tauri dev. Workspace Agent may set
+  only backend Queue control
+  state to `manual_enabled` through `queue.control.setManualEnabled`; this does
+  not start workers, dispatch a scheduler, mutate Queue tasks, create run
+  links, record evidence/reviews/finalization, invoke workflows, or launch
+  shell/Git/Terminal/validation/rollback behavior. Workspace Agent may read
+  workflow debug state through bounded read-only `queue.workflow.get`,
+  `queue.workflow.list`, `queue.workflow.getReport`,
+  `queue.workflow.planResume`, and `queue.workflow.readActionLog` broker
+  capabilities over backend workflow run/report/resume/action-ledger APIs. It
+  must not infer ids from UI text, titles, prose, order, file paths,
+  localStorage, or transcripts. The live Queue smoke discovery/control/debug
+  capabilities are expected to resolve concrete module/risk metadata across
+  manifest, broker handler, `ModuleControlSurface`, and continuation policy
+  layers; `queue.control.setManualEnabled` remains setup/write-gated, and
+  workflow invocation remains `hobit.workflow.request` only.
+- `docs/QUEUE_CANONICAL_WORKSPACE_PROJECTION_CONTRACT.md` - current canonical
+  Workspace Queue projection contract. Read before changing Workspace overview
+  Queue recovery, Queue presence/count/control-state projection, visible Queue
+  view metadata, or singleton restore/open affordances. It requires backend/
+  storage-owned Queue truth and forbids frontend-owned Queue lifecycle,
+  mounted-widget emptiness inference, direct DB probing, duplicate Queue
+  views, worker execution, and synthetic `widget_runs`.
+- `docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md` - authoritative Queue
+  coordination vocabulary. Read before adding or changing Queue task/run,
+  actor, assignment, claim, executor target, event/audit, artifact/evidence
+  link, workflow relation, or API/UI independence contracts. It keeps Queue
+  prepared for Workspace coordination while current MVP remains single-user,
+  local desktop, no server sync, no ACL, no remote-agent runtime, and no
+  scheduler runtime.
+- `docs/QUEUE_SYSTEM_ARCHITECTURE_RESET.md` - current Queue / Workspace Agent
+  architecture correction note. Read before broad Queue dogfooding,
+  continuation-policy, capability-contract, or responsibility-boundary cleanup.
+  It records the root causes, corrected layer responsibilities, current debt,
+  overengineering, under-designed contracts, and next implementation sequence.
+- `docs/QUEUE_WORKFLOW_ORCHESTRATION_CONTRACT.md` - current Queue workflow
+  orchestration contract. Read before changing Workspace Agent Queue
+  continuation, typed `nextAction`, risk-class policy, structured
+  confirmation, bounded grants, generic `hobit.workflow.request` validation,
+  result statuses, dependency satisfaction, or backend-backed broker
+  capability behavior. It also records the backend-owned QueueWorkflowRun
+  persistence MVP: start/get/list/cancel/report/planResume APIs, read-only
+  resume planning, internal action ledger, and runtime-adapter report/action
+  persistence for supported create/setup/start, worker-evidence,
+  read/review/finalization runner phases. Workspace Agent broker workflow debug
+  reads are available for get/list/report/planResume/action-log inspection;
+  official Workspace Agent workflow invocation uses the structured
+  `hobit.workflow.request` protocol path with `metadata.workflowRunId` for
+  continuations. Generic public resume execution, `queue.workflow.invoke`, and
+  scheduler behavior remain not implemented.
+- `docs/QUEUE_RESPONSIBILITY_REFACTOR_AUDIT.md` - focused audit/status note
+  for the Queue backend ownership refactor, transitional capability debt, and
+  phased cleanup plan.
 - `docs/SMART_QUEUE_WORKFLOW_CONTRACT.md` - planned Smart Queue prompt-pack
   workflow contract. Read before prompt-pack driven QueueBatch/QueueTask
   modeling, Smart Queue eligibility, Queue lifecycle state, or role-boundary
@@ -966,7 +1148,10 @@ These documents should not override the Workspace Agent model or
   `docs/UNIVERSAL_WIDGET_SHELL_CONTRACT.md`; add `docs/GIT_WIDGET_CONTRACT.md`
   only when changing current Git behavior, Git plugin API, or Git mutation
   boundaries.
-- Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md` and
+- Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md`,
+  `docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`,
+  `docs/QUEUE_CANONICAL_WORKSPACE_PROJECTION_CONTRACT.md`,
+  `docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md`, and
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and
   `docs/QUEUE_ITEM_EXECUTION_CONTRACT.md` only when execution is involved.
@@ -1000,7 +1185,9 @@ These documents should not override the Workspace Agent model or
   `docs/EVIDENCE_SOURCES_CONTRACT.md` when the work touches result sharing,
   citations, AI-readable context, or evidence capture.
 - Refactor-only work: read `docs/CODE_ORGANIZATION_CONTRACT.md` and this
-  index; read domain contracts only if behavior boundaries could be affected.
+  index; use `docs/CODEBASE_REFACTOR_SIZE_AUDIT.md` when the block touches
+  oversized-file debt or the A-D refactor plan; read domain contracts only if
+  behavior boundaries could be affected.
 
 ## Stale Doc Rule
 

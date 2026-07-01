@@ -72,6 +72,79 @@ fn init_schema_is_idempotent() {
 }
 
 #[test]
+fn worker_evidence_bundle_accepts_queue_local_run_link_without_widget_run() {
+    let store = initialized_store();
+    create_workspace_and_workbench(&store);
+    store
+        .create_agent_queue_task(NewAgentQueueTask {
+            queue_item_id: "task-1",
+            workspace_id: "workspace-1",
+            title: "Task",
+            description: "",
+            prompt: "Prompt",
+            status: "queued",
+            priority: 1,
+            depends_on: None,
+            execution_policy: Some("manual"),
+            execution_workspace: Some("C:/workspace/project"),
+            codex_executable: Some("codex"),
+            sandbox: Some("workspace_write"),
+            approval_policy: Some("never"),
+            context_json: None,
+            created_at: Some("1"),
+            updated_at: Some("1"),
+        })
+        .expect("create queue task");
+    store
+        .insert_agent_queue_task_run_link(NewAgentQueueTaskRunLink {
+            link_id: "run-link-1",
+            workspace_id: "workspace-1",
+            queue_task_id: "task-1",
+            executor_widget_id: "queue-local-codex",
+            direct_work_run_id: "queue-local-run-1",
+            source: "queue_local",
+            status: "completed",
+            started_at: Some("2"),
+            completed_at: Some("3"),
+            validation_status: None,
+            review_status: Some("review_needed"),
+            created_at: Some("2"),
+            updated_at: Some("3"),
+        })
+        .expect("insert queue-local run link");
+    assert!(store
+        .get_widget_run("queue-local-run-1")
+        .expect("widget run lookup")
+        .is_none());
+
+    let evidence = store
+        .upsert_agent_queue_worker_evidence_bundle(NewAgentQueueWorkerEvidenceBundle {
+            bundle_id: "bundle-1",
+            workspace_id: "workspace-1",
+            queue_task_id: "task-1",
+            run_id: "queue-local-run-1",
+            run_link_id: Some("run-link-1"),
+            executor_widget_id: None,
+            worker_id: Some("workspace-agent"),
+            source: "workspace_agent",
+            outcome: "completed",
+            summary: "Worker evidence is durable.",
+            changed_files_json: "[]",
+            changed_files_count: 0,
+            changed_files_summary: None,
+            validation_summary: None,
+            error_summary: None,
+            metadata_json: None,
+            created_at: Some("4"),
+            updated_at: Some("4"),
+        })
+        .expect("insert evidence bundle without widget run");
+
+    assert_eq!(evidence.run_id, "queue-local-run-1");
+    assert_eq!(evidence.run_link_id.as_deref(), Some("run-link-1"));
+}
+
+#[test]
 fn transaction_rolls_back_when_operation_fails() {
     let store = initialized_store();
 
@@ -225,11 +298,52 @@ fn init_schema_upgrades_agent_queue_task_assignment_column() {
 }
 
 #[test]
+fn init_schema_upgrades_workspaces_root_path_column() {
+    let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
+    store
+        .connection
+        .execute_batch(
+            r#"
+                CREATE TABLE workspaces (
+                    id TEXT PRIMARY KEY,
+                    title TEXT NOT NULL,
+                    description TEXT NULL,
+                    status TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+
+                INSERT INTO workspaces (
+                    id, title, description, status, created_at, updated_at
+                ) VALUES (
+                    'workspace-1', 'Workspace', NULL, 'active', '1', '1'
+                );
+                "#,
+        )
+        .expect("create legacy workspace table");
+
+    store.init_schema().expect("upgrade schema");
+
+    let workspace = store
+        .get_workspace("workspace-1")
+        .expect("get upgraded workspace")
+        .expect("upgraded workspace");
+
+    assert_eq!(workspace.root_path, None);
+}
+
+#[test]
 fn create_and_load_workspace() {
     let store = initialized_store();
 
     let created = store
-        .create_workspace("workspace-1", "Incident", Some("Investigate"), "active")
+        .create_workspace_with_root_path(
+            "workspace-1",
+            "Incident",
+            Some("Investigate"),
+            Some("C:/repo"),
+            "active",
+        )
         .expect("create workspace");
     let loaded = store
         .get_workspace("workspace-1")
@@ -239,6 +353,7 @@ fn create_and_load_workspace() {
     assert_eq!(created.id, loaded.id);
     assert_eq!(loaded.title, "Incident");
     assert_eq!(loaded.description.as_deref(), Some("Investigate"));
+    assert_eq!(loaded.root_path.as_deref(), Some("C:/repo"));
     assert_eq!(loaded.status, "active");
 }
 
@@ -526,6 +641,7 @@ fn list_workspace_summaries_includes_metadata_and_scoped_counts() {
         .expect("get workspace summary")
         .expect("workspace summary");
 
+    assert_eq!(summary.root_path, None);
     assert_eq!(summary.last_opened_at.as_deref(), Some("20"));
     assert_eq!(summary.widget_count, 2);
     assert_eq!(summary.workspace_agent_count, 1);

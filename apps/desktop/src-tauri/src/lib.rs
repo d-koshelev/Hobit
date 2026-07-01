@@ -8,6 +8,15 @@ mod agent_executor_diff_dto_tests;
 mod agent_executor_history_dto;
 #[cfg(test)]
 mod agent_executor_history_dto_tests;
+mod agent_queue_aggregate_commands;
+mod agent_queue_aggregate_dto;
+#[cfg(test)]
+mod agent_queue_aggregate_dto_tests;
+mod agent_queue_completion_commands;
+mod agent_queue_completion_dto;
+mod agent_queue_control_commands;
+mod agent_queue_control_dto;
+mod agent_queue_direct_work_launcher;
 mod agent_queue_dto;
 #[cfg(test)]
 mod agent_queue_dto_tests;
@@ -15,6 +24,11 @@ mod agent_queue_execution_commands;
 mod agent_queue_execution_dto;
 #[cfg(test)]
 mod agent_queue_execution_dto_tests;
+mod agent_queue_failure_commands;
+mod agent_queue_failure_dto;
+mod agent_queue_prompt_pack_commands;
+mod agent_queue_review_commands;
+mod agent_queue_review_dto;
 mod agent_queue_runner;
 mod agent_queue_runner_commands;
 mod agent_queue_task_commands;
@@ -23,6 +37,13 @@ mod agent_queue_task_dto;
 mod agent_queue_task_dto_tests;
 mod agent_queue_worker_commands;
 mod agent_queue_worker_dto;
+mod agent_queue_worker_evidence_commands;
+mod agent_queue_worker_evidence_dto;
+mod agent_queue_workflow_commands;
+mod agent_queue_workflow_dto;
+mod agent_queue_workflow_finalization_step_dto;
+mod agent_queue_workflow_review_step_dto;
+mod agent_queue_workflow_start_step_dto;
 mod app_state;
 mod codex_direct_work_dto;
 #[cfg(test)]
@@ -36,6 +57,8 @@ mod database_startup;
 mod direct_work_host_artifacts;
 #[cfg(test)]
 mod direct_work_host_artifacts_tests;
+pub mod dogfood_operator;
+mod dogfood_operator_endpoint;
 mod git_commit_dto;
 #[cfg(test)]
 mod git_commit_dto_tests;
@@ -68,6 +91,7 @@ mod prompt_pack_import_commands;
 mod prompt_pack_import_dto;
 #[cfg(test)]
 mod prompt_pack_import_dto_tests;
+mod queue_workspace_recovery_dto;
 mod skills_commands;
 mod skills_dto;
 #[cfg(test)]
@@ -106,6 +130,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             app.manage(initialize_app_state(app)?);
+            dogfood_operator_endpoint::start_dogfood_operator_endpoint(app)?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -171,6 +196,10 @@ pub fn run() {
             knowledge_documents_commands::search_knowledge_documents,
             knowledge_document_import_commands::read_knowledge_document_import_file,
             prompt_pack_import_commands::read_prompt_pack_source,
+            agent_queue_prompt_pack_commands::preview_agent_queue_prompt_pack,
+            agent_queue_prompt_pack_commands::preview_agent_queue_prompt_pack_file,
+            agent_queue_prompt_pack_commands::materialize_agent_queue_prompt_pack,
+            agent_queue_prompt_pack_commands::materialize_agent_queue_prompt_pack_file,
             knowledge_draft_review_commands::record_knowledge_draft_review,
             knowledge_draft_review_commands::list_knowledge_draft_reviews,
             jdbc_connector_commands::create_jdbc_connector,
@@ -197,13 +226,41 @@ pub fn run() {
             agent_queue_task_commands::assign_agent_queue_task_to_executor,
             agent_queue_task_commands::clear_agent_queue_task_assignment,
             agent_queue_task_commands::delete_agent_queue_task,
+            agent_queue_aggregate_commands::list_agent_queue_item_aggregates,
+            agent_queue_aggregate_commands::get_agent_queue_item_aggregate,
+            agent_queue_review_commands::create_agent_queue_review_message,
+            agent_queue_review_commands::ack_agent_queue_review_message,
+            agent_queue_completion_commands::mark_agent_queue_item_done,
+            agent_queue_failure_commands::fail_agent_queue_item,
+            agent_queue_control_commands::get_agent_queue_control_state,
+            agent_queue_control_commands::set_agent_queue_control_state,
+            agent_queue_worker_evidence_commands::record_agent_queue_worker_finished,
+            agent_queue_worker_evidence_commands::get_agent_queue_worker_evidence_bundle,
             agent_queue_worker_commands::list_agent_queue_workers,
             agent_queue_worker_commands::create_agent_queue_worker,
             agent_queue_worker_commands::update_agent_queue_worker,
             agent_queue_worker_commands::delete_agent_queue_worker,
+            agent_queue_workflow_commands::start_agent_queue_workflow,
+            agent_queue_workflow_commands::get_agent_queue_workflow,
+            agent_queue_workflow_commands::list_agent_queue_workflows,
+            agent_queue_workflow_commands::cancel_agent_queue_workflow,
+            agent_queue_workflow_commands::get_agent_queue_workflow_report,
+            agent_queue_workflow_commands::plan_agent_queue_workflow_resume,
+            agent_queue_workflow_commands::record_agent_queue_workflow_runner_report,
+            agent_queue_workflow_commands::record_agent_queue_workflow_worker_evidence,
+            agent_queue_workflow_commands::execute_agent_queue_workflow_create_setup_start_step,
+            agent_queue_workflow_commands::execute_agent_queue_workflow_worker_evidence_step,
+            agent_queue_workflow_commands::execute_agent_queue_workflow_review_step,
+            agent_queue_workflow_commands::execute_agent_queue_workflow_finalization_step,
+            agent_queue_workflow_commands::materialize_agent_queue_workflow_task_slot,
+            agent_queue_workflow_commands::apply_agent_queue_workflow_run_settings,
+            agent_queue_workflow_commands::promote_agent_queue_workflow_task_slot,
             agent_queue_execution_commands::start_assigned_agent_queue_task,
+            agent_queue_execution_commands::start_selected_agent_queue_task_local,
             agent_queue_execution_commands::get_agent_queue_task_latest_run_link,
             agent_queue_execution_commands::list_agent_queue_task_run_links,
+            agent_queue_execution_commands::list_stale_queue_local_runs,
+            agent_queue_execution_commands::recover_stale_queue_local_run_failed,
             agent_queue_runner_commands::start_agent_queue_runner_session,
             agent_queue_runner_commands::stop_agent_queue_runner_session,
             agent_queue_runner_commands::get_agent_queue_runner_snapshot,

@@ -7,6 +7,7 @@ import {
   clickButtonIn,
   directWorkEvent,
   expectedCoordinatorCodexExecutable,
+  finalAnswerEnvelope,
   agentPicker,
   InteractiveAgentPlaceholderWidget,
   knowledgeDocumentFixture,
@@ -79,7 +80,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             finalStatus: "completed",
             isFinal: true,
             runId: "run_brain",
-            text: "Codex handled the task.",
+            text: finalAnswerEnvelope("Codex handled the task."),
           }),
         );
         return {
@@ -162,7 +163,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             eventKind: "completed",
             finalStatus: "completed",
             isFinal: true,
-            text: "Unsafe sandbox smoke complete.",
+            text: finalAnswerEnvelope("Unsafe sandbox smoke complete."),
           }),
         );
         return {
@@ -286,7 +287,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             eventKind: "final_message",
             isFinal: false,
             runId,
-            text: `Final for ${runId}.`,
+            text: finalAnswerEnvelope(`Final for ${runId}.`),
           }),
         );
         onEvent(
@@ -362,7 +363,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             finalStatus: "completed",
             isFinal: true,
             runId,
-            text: "Done.",
+            text: finalAnswerEnvelope("Done."),
           }),
         );
         return {
@@ -431,7 +432,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             finalStatus: "completed",
             isFinal: true,
             runId,
-            text: `Final for ${widgetInstanceId}.`,
+            text: finalAnswerEnvelope(`Final for ${widgetInstanceId}.`),
             widgetInstanceId,
           }),
         );
@@ -520,7 +521,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             finalStatus: "completed",
             isFinal: true,
             runId,
-            text: "Workspace A final.",
+            text: finalAnswerEnvelope("Workspace A final."),
             workspaceId: "workspace_a",
           }),
         );
@@ -584,7 +585,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             finalStatus: "completed",
             isFinal: true,
             runId,
-            text: "Widget final.",
+            text: finalAnswerEnvelope("Widget final."),
             widgetInstanceId,
           }),
         );
@@ -650,7 +651,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             finalStatus: "completed",
             isFinal: true,
             runId,
-            text: `Final for ${runId}.`,
+            text: finalAnswerEnvelope(`Final for ${runId}.`),
           }),
         );
         return {
@@ -703,7 +704,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             finalStatus: "completed",
             isFinal: true,
             runId,
-            text: "Falcon answer handled.",
+            text: finalAnswerEnvelope("Falcon answer handled."),
           }),
         );
         return {
@@ -778,7 +779,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             finalStatus: "completed",
             isFinal: true,
             runId,
-            text: `Final for ${runId}.`,
+            text: finalAnswerEnvelope(`Final for ${runId}.`),
           }),
         );
         return {
@@ -833,7 +834,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             finalStatus: "completed",
             isFinal: true,
             runId,
-            text: `Final for ${runId}.`,
+            text: finalAnswerEnvelope(`Final for ${runId}.`),
           }),
         );
         return {
@@ -996,7 +997,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             eventKind: "completed",
             finalStatus: "completed",
             isFinal: true,
-            text: "Codex used visible context if relevant.",
+            text: finalAnswerEnvelope("Codex used visible context if relevant."),
           }),
         );
         return {
@@ -1051,7 +1052,7 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             eventKind: "completed",
             finalStatus: "completed",
             isFinal: true,
-            text: "No matching workspace knowledge.",
+            text: finalAnswerEnvelope("No matching workspace knowledge."),
           }),
         );
         return {
@@ -1110,10 +1111,11 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
             finalStatus: "completed",
             isFinal: true,
             runId,
-            text:
+            text: finalAnswerEnvelope(
               workspaceForRun === "workspace_a"
                 ? "The secret smoke code for Falcon is BLUE-RAVEN-42."
                 : "No workspace-local Falcon knowledge was found.",
+            ),
             workspaceId: workspaceForRun,
           }),
         );

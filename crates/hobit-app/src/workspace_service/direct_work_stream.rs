@@ -333,7 +333,7 @@ pub(super) fn insert_codex_direct_work_stream_start(
     }))
 }
 
-fn direct_work_stream_event_summary(
+pub(super) fn direct_work_stream_event_summary(
     input: &NormalizedDirectWorkInput,
     run_id: &str,
     event: &CodexDirectStreamEvent,
@@ -399,7 +399,7 @@ fn direct_work_stream_log_record(
     ))
 }
 
-fn direct_work_stream_final_status(status: CodexDirectStreamStatus) -> WidgetRunStatus {
+pub(super) fn direct_work_stream_final_status(status: CodexDirectStreamStatus) -> WidgetRunStatus {
     match status {
         CodexDirectStreamStatus::Completed => WidgetRunStatus::Completed,
         CodexDirectStreamStatus::Failed | CodexDirectStreamStatus::FailedToStart => {
@@ -410,7 +410,7 @@ fn direct_work_stream_final_status(status: CodexDirectStreamStatus) -> WidgetRun
     }
 }
 
-fn direct_work_stream_result_summary(output: &CodexDirectStreamOutput) -> String {
+pub(super) fn direct_work_stream_result_summary(output: &CodexDirectStreamOutput) -> String {
     if output.force_killed {
         return "Codex Direct Work stream force-killed".to_owned();
     }

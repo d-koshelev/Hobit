@@ -118,6 +118,7 @@ import type {
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   WidgetLogEntry,
+  QueueWorkspaceRecoveryReason,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
@@ -254,9 +255,33 @@ type TauriWorkspaceSessionSummary = {
 type TauriWorkspaceWorkbenchState = {
   workspace: TauriWorkspaceSummary;
   workbench: TauriWorkbenchSummary | null;
+  queue_recovery?: TauriQueueWorkspaceRecoveryProjection | null;
   widget_instances: TauriWorkspaceWidgetInstanceSummary[];
   shared_state_objects: TauriWorkspaceSharedStateObjectSummary[];
   recent_events: TauriWorkspaceEventSummary[];
+};
+
+type TauriQueueWorkspaceRecoveryProjection = {
+  workspace_id: string;
+  queue_task_count: number;
+  running_task_count: number;
+  stale_running_candidate_count: number;
+  has_visible_queue_view: boolean;
+  canonical_queue_widget_id: string | null;
+  control_state: TauriAgentQueueControlState | null;
+  recovery_available?: boolean;
+  can_restore_queue_view?: boolean;
+  recovery_reason?: QueueWorkspaceRecoveryReason | null;
+};
+
+type TauriAgentQueueControlState = {
+  workspace_id: string;
+  status: "disabled" | "manual_enabled";
+  version: number;
+  updated_by_actor_id: string | null;
+  reason: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 type TauriWorkbenchSummary = {
@@ -316,6 +341,7 @@ async function createWorkspace(
     request: {
       title: request.title,
       description: request.description ?? null,
+      root_path: normalizeWorkspaceRoot(request.rootPath),
     },
   });
 
@@ -547,6 +573,7 @@ function normalizeWorkspaceSessionSummary(
 function normalizeWorkspaceWorkbenchState(
   state: TauriWorkspaceWorkbenchState,
 ): WorkspaceWorkbenchState {
+  const workspace = normalizeWorkspaceSummary(state.workspace);
   const widgetInstances = computeDuplicateQueueViewRepair(
     state.widget_instances.map((widgetInstance) => ({
       id: widgetInstance.id,
@@ -570,7 +597,7 @@ function normalizeWorkspaceWorkbenchState(
   ).repairedWidgets;
 
   return {
-    workspace: normalizeWorkspaceSummary(state.workspace),
+    workspace,
     workbench: state.workbench
       ? {
           id: state.workbench.id,
@@ -578,6 +605,10 @@ function normalizeWorkspaceWorkbenchState(
           presetOriginId: state.workbench.preset_origin_id,
         }
       : null,
+    queueRecovery: normalizeQueueRecoveryProjection(
+      state.queue_recovery,
+      workspace,
+    ),
     widgetInstances,
     sharedStateObjects: state.shared_state_objects.map((stateObject) => ({
       id: stateObject.id,
@@ -591,6 +622,49 @@ function normalizeWorkspaceWorkbenchState(
       summary: event.summary,
       createdAt: event.created_at,
     })),
+  };
+}
+
+function normalizeQueueRecoveryProjection(
+  projection: TauriQueueWorkspaceRecoveryProjection | null | undefined,
+  workspace: WorkspaceSummary,
+): WorkspaceWorkbenchState["queueRecovery"] {
+  if (!projection) {
+    return {
+      workspaceId: workspace.id,
+      queueTaskCount: workspace.queueTaskCount,
+      runningTaskCount: 0,
+      staleRunningCandidateCount: 0,
+      hasVisibleQueueView: false,
+      canonicalQueueWidgetId: null,
+      controlState: null,
+      recoveryAvailable: false,
+      canRestoreQueueView: false,
+      recoveryReason: "unknown",
+    };
+  }
+
+  return {
+    workspaceId: projection.workspace_id,
+    queueTaskCount: projection.queue_task_count,
+    runningTaskCount: projection.running_task_count,
+    staleRunningCandidateCount: projection.stale_running_candidate_count,
+    hasVisibleQueueView: projection.has_visible_queue_view,
+    canonicalQueueWidgetId: projection.canonical_queue_widget_id,
+    controlState: projection.control_state
+      ? {
+          workspaceId: projection.control_state.workspace_id,
+          status: projection.control_state.status,
+          version: projection.control_state.version,
+          updatedByActorId: projection.control_state.updated_by_actor_id,
+          reason: projection.control_state.reason,
+          createdAt: projection.control_state.created_at,
+          updatedAt: projection.control_state.updated_at,
+        }
+      : null,
+    recoveryAvailable: projection.recovery_available ?? false,
+    canRestoreQueueView: projection.can_restore_queue_view ?? false,
+    recoveryReason: projection.recovery_reason ?? "unknown",
   };
 }
 

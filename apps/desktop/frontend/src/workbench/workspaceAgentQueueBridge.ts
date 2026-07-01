@@ -9,10 +9,41 @@ import type {
 } from "./queue/agentQueueWidgetApiTypes";
 import type { AgentQueueTaskRunSettingsDefaults } from "./queue/agentQueueRunSettingsDefaults";
 import type {
+  AgentQueueControlStatus,
   AgentQueueTask,
+  AgentQueueItemAggregate,
+  AgentQueueReviewCommandResult,
+  AgentQueueReviewCreateMessageResult,
+  AgentQueueCompletionCommandResult,
+  AgentQueueFailureCommandResult,
+  AgentQueueWorkerEvidenceQueryResult,
+  AgentQueueWorkerFinishedCommandResult,
+  AckAgentQueueReviewMessageRequest,
+  ApplyAgentQueueWorkflowRunSettingsRequest,
+  CreateAgentQueueReviewMessageRequest,
+  FailAgentQueueItemRequest,
+  GetAgentQueueWorkerEvidenceBundleRequest,
+  GetAgentQueueItemAggregateRequest,
+  ListAgentQueueItemAggregatesRequest,
+  MarkAgentQueueItemDoneRequest,
+  MaterializeAgentQueueWorkflowTaskSlotRequest,
+  PromoteAgentQueueWorkflowTaskSlotRequest,
+  RecordAgentQueueWorkerFinishedRequest,
+  StartAssignedAgentQueueTaskRequest,
   AttachKnowledgeToQueueTaskRequest,
   AttachSkillToQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
+  AgentQueueWorkflowApplyRunSettingsResult,
+  AgentQueueWorkflowMaterializeTaskSlotResult,
+  AgentQueueWorkflowPromoteTaskSlotResult,
+  AgentQueueWorkflowReport,
+  AgentQueueWorkflowResumePlan,
+  AgentQueueWorkflowRun,
+  AgentQueueWorkflowWorkerEvidenceRecordResult,
+  GetAgentQueueWorkflowRequest,
+  ListAgentQueueWorkflowsRequest,
+  PlanAgentQueueWorkflowResumeRequest,
+  RecordAgentQueueWorkflowWorkerEvidenceRequest,
 } from "../workspace/types";
 import type { AgentExecutorSlot } from "./types";
 
@@ -40,7 +71,16 @@ export type WorkspaceAgentQueueEnableRequest = {
   dryRun: boolean;
 };
 
+export type WorkspaceAgentQueueSetManualEnabledRequest = {
+  actorId?: string | null;
+  dryRun: boolean;
+  expectedVersion?: number | null;
+  reason?: string | null;
+  workspaceId?: string | null;
+};
+
 export type WorkspaceAgentQueueEnableResult = {
+  backendOwned?: boolean;
   blockerReasons?: string[];
   didAutoRunWorkers: false;
   didStartWorkers: false;
@@ -48,7 +88,46 @@ export type WorkspaceAgentQueueEnableResult = {
   message: string;
   ok: boolean;
   queueEnabled: boolean;
+  queueControlStatus?: AgentQueueControlStatus;
   status: "blocked" | "enabled" | "preview" | "unavailable";
+  version?: number;
+};
+
+export type WorkspaceAgentQueueSetManualEnabledResult = {
+  backendOwned: true;
+  blocker?: {
+    actualVersion?: number | null;
+    blockerCode?: string | null;
+    blockerMessage?: string | null;
+    expectedVersion?: number | null;
+    missingRequiredField?: string | null;
+  } | null;
+  blockerReasons?: string[];
+  controlState: WorkspaceAgentQueueControlState | null;
+  didAutoRunWorkers: false;
+  didCreateRunLinks: false;
+  didInvokeWorkflowRunner: false;
+  didMutateEvidence: false;
+  didMutateFinalization: false;
+  didMutateQueueControlState: boolean;
+  didMutateQueueTasks: false;
+  didMutateReviews: false;
+  didScheduleOrAutodispatch: false;
+  didStartDownstream: false;
+  didStartWorkers: false;
+  message: string;
+  ok: boolean;
+  queueEnabled: boolean;
+  status:
+    | "preview"
+    | "succeeded"
+    | "already_in_state"
+    | "invalid_input"
+    | "workspace_not_found"
+    | "version_conflict"
+    | "failed_unexpected"
+    | "unavailable";
+  workspaceId: string | null;
 };
 
 export type WorkspaceAgentQueueStartRunRequest = {
@@ -56,6 +135,19 @@ export type WorkspaceAgentQueueStartRunRequest = {
   executorWidgetId: string;
   queueId?: string;
   taskId: string;
+};
+
+export type WorkspaceAgentQueueControlState = {
+  backendOwned?: boolean;
+  createdAt?: string | null;
+  globalExecutionState?: string | null;
+  queueEnabled: boolean;
+  reason?: string | null;
+  status?: AgentQueueControlStatus;
+  updatedAt?: string | null;
+  updatedByActorId?: string | null;
+  version?: number;
+  workspaceId?: string | null;
 };
 
 export type WorkspaceAgentQueueStartRunResult = {
@@ -77,6 +169,10 @@ export type WorkspaceQueueControlActions = {
     request: WorkspaceAgentQueueEnableRequest,
   ) => Promise<WorkspaceAgentQueueEnableResult>;
   getAvailableExecutorTargets?: () => AgentExecutorSlot[];
+  getQueueControlState?: () => WorkspaceAgentQueueControlState | null;
+  setQueueControlManualEnabled?: (
+    request: WorkspaceAgentQueueSetManualEnabledRequest,
+  ) => Promise<WorkspaceAgentQueueSetManualEnabledResult>;
   startQueueLinkedRun: (
     request: WorkspaceAgentQueueStartRunRequest,
   ) => Promise<WorkspaceAgentQueueStartRunResult>;
@@ -97,6 +193,75 @@ export type WorkspaceQueueContextActions = {
   ) => Promise<AgentQueueTask>;
 };
 
+export type WorkspaceQueueAggregateReadActions = {
+  getAgentQueueItemAggregate: (
+    request: GetAgentQueueItemAggregateRequest,
+  ) => Promise<AgentQueueItemAggregate | null>;
+  listAgentQueueItemAggregates: (
+    request: ListAgentQueueItemAggregatesRequest,
+  ) => Promise<AgentQueueItemAggregate[]>;
+};
+
+export type WorkspaceQueueReviewActions = {
+  ackAgentQueueReviewMessage: (
+    request: AckAgentQueueReviewMessageRequest,
+  ) => Promise<AgentQueueReviewCommandResult>;
+  createAgentQueueReviewMessage: (
+    request: CreateAgentQueueReviewMessageRequest,
+  ) => Promise<AgentQueueReviewCreateMessageResult>;
+};
+
+export type WorkspaceQueueCompletionActions = {
+  markAgentQueueItemDone: (
+    request: MarkAgentQueueItemDoneRequest,
+  ) => Promise<AgentQueueCompletionCommandResult>;
+};
+
+export type WorkspaceQueueFailureActions = {
+  failAgentQueueItem: (
+    request: FailAgentQueueItemRequest,
+  ) => Promise<AgentQueueFailureCommandResult>;
+};
+
+export type WorkspaceQueueWorkerEvidenceActions = {
+  getAgentQueueWorkerEvidenceBundle: (
+    request: GetAgentQueueWorkerEvidenceBundleRequest,
+  ) => Promise<AgentQueueWorkerEvidenceQueryResult>;
+  recordAgentQueueWorkerFinished: (
+    request: RecordAgentQueueWorkerFinishedRequest,
+  ) => Promise<AgentQueueWorkerFinishedCommandResult>;
+};
+
+export type WorkspaceQueueWorkflowActions = {
+  getWorkflow: (
+    request: GetAgentQueueWorkflowRequest,
+  ) => Promise<AgentQueueWorkflowRun | null>;
+  getWorkflowReport: (
+    request: GetAgentQueueWorkflowRequest,
+  ) => Promise<AgentQueueWorkflowReport | null>;
+  listWorkflows: (
+    request: ListAgentQueueWorkflowsRequest,
+  ) => Promise<AgentQueueWorkflowRun[]>;
+  planWorkflowResume: (
+    request: PlanAgentQueueWorkflowResumeRequest,
+  ) => Promise<AgentQueueWorkflowResumePlan | null>;
+  applyWorkflowRunSettings: (
+    request: ApplyAgentQueueWorkflowRunSettingsRequest,
+  ) => Promise<AgentQueueWorkflowApplyRunSettingsResult>;
+  materializeWorkflowTaskSlot: (
+    request: MaterializeAgentQueueWorkflowTaskSlotRequest,
+  ) => Promise<AgentQueueWorkflowMaterializeTaskSlotResult>;
+  promoteWorkflowTaskSlot: (
+    request: PromoteAgentQueueWorkflowTaskSlotRequest,
+  ) => Promise<AgentQueueWorkflowPromoteTaskSlotResult>;
+  recordWorkflowWorkerEvidence: (
+    request: RecordAgentQueueWorkflowWorkerEvidenceRequest,
+  ) => Promise<AgentQueueWorkflowWorkerEvidenceRecordResult>;
+  startAssignedAgentQueueTask: (
+    request: StartAssignedAgentQueueTaskRequest,
+  ) => Promise<StartAssignedAgentQueueTaskResponse>;
+};
+
 export type WorkspaceAgentQueueBridge = {
   attachKnowledgeToQueueTask?: (
     request: Omit<AttachKnowledgeToQueueTaskRequest, "workspaceId">,
@@ -110,9 +275,59 @@ export type WorkspaceAgentQueueBridge = {
   getCurrentWorkspaceRoot?: () => string | null;
   getRunSettingsDefaults?: () => AgentQueueTaskRunSettingsDefaults | null;
   getAvailableExecutorTargets?: () => AgentExecutorSlot[];
+  getQueueControlState?: () => WorkspaceAgentQueueControlState | null;
   getSnapshot: (
     request?: Omit<Partial<QueueGetSnapshotRequest>, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetSnapshot>>;
+  getItemAggregate?: (
+    request: Omit<GetAgentQueueItemAggregateRequest, "workspaceId">,
+  ) => Promise<AgentQueueItemAggregate | null>;
+  listItemAggregates?: () => Promise<AgentQueueItemAggregate[]>;
+  ackReviewMessage?: (
+    request: Omit<AckAgentQueueReviewMessageRequest, "workspaceId">,
+  ) => Promise<AgentQueueReviewCommandResult>;
+  createReviewMessage?: (
+    request: Omit<CreateAgentQueueReviewMessageRequest, "workspaceId">,
+  ) => Promise<AgentQueueReviewCreateMessageResult>;
+  markItemDone?: (
+    request: Omit<MarkAgentQueueItemDoneRequest, "workspaceId">,
+  ) => Promise<AgentQueueCompletionCommandResult>;
+  failItem?: (
+    request: Omit<FailAgentQueueItemRequest, "workspaceId">,
+  ) => Promise<AgentQueueFailureCommandResult>;
+  getWorkerEvidenceBundle?: (
+    request: Omit<GetAgentQueueWorkerEvidenceBundleRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkerEvidenceQueryResult>;
+  getWorkflow?: (
+    request: Omit<GetAgentQueueWorkflowRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowRun | null>;
+  getWorkflowReport?: (
+    request: Omit<GetAgentQueueWorkflowRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowReport | null>;
+  listWorkflows?: (
+    request?: Omit<ListAgentQueueWorkflowsRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowRun[]>;
+  planWorkflowResume?: (
+    request: Omit<PlanAgentQueueWorkflowResumeRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowResumePlan | null>;
+  recordWorkerFinished?: (
+    request: Omit<RecordAgentQueueWorkerFinishedRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkerFinishedCommandResult>;
+  applyWorkflowRunSettings?: (
+    request: Omit<ApplyAgentQueueWorkflowRunSettingsRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowApplyRunSettingsResult>;
+  materializeWorkflowTaskSlot?: (
+    request: Omit<MaterializeAgentQueueWorkflowTaskSlotRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowMaterializeTaskSlotResult>;
+  promoteWorkflowTaskSlot?: (
+    request: Omit<PromoteAgentQueueWorkflowTaskSlotRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowPromoteTaskSlotResult>;
+  recordWorkflowWorkerEvidence?: (
+    request: Omit<RecordAgentQueueWorkflowWorkerEvidenceRequest, "workspaceId">,
+  ) => Promise<AgentQueueWorkflowWorkerEvidenceRecordResult>;
+  startWorkflowAssignedTask?: (
+    request: Omit<StartAssignedAgentQueueTaskRequest, "workspaceId">,
+  ) => Promise<StartAssignedAgentQueueTaskResponse>;
   updateItem: (
     request: Omit<QueueUpdateItemRequest, "workspaceId">,
   ) => Promise<QueueWidgetActionResult<QueueWidgetItemSnapshot>>;
@@ -120,6 +335,9 @@ export type WorkspaceAgentQueueBridge = {
   enableQueue?: (
     request: WorkspaceAgentQueueEnableRequest,
   ) => Promise<WorkspaceAgentQueueEnableResult>;
+  setQueueControlManualEnabled?: (
+    request: WorkspaceAgentQueueSetManualEnabledRequest,
+  ) => Promise<WorkspaceAgentQueueSetManualEnabledResult>;
   startQueueLinkedRun?: (
     request: WorkspaceAgentQueueStartRunRequest,
   ) => Promise<WorkspaceAgentQueueStartRunResult>;
@@ -128,17 +346,29 @@ export type WorkspaceAgentQueueBridge = {
 
 export function createWorkspaceAgentQueueBridge({
   autonomousActions,
+  aggregateReadActions,
   contextActions,
+  completionActions,
   controlActions,
+  failureActions,
   queueApi,
+  reviewActions,
   queueState,
+  workflowActions,
+  workerEvidenceActions,
   workspaceId,
 }: {
   autonomousActions?: WorkspaceQueueAutonomousActions | null;
+  aggregateReadActions?: WorkspaceQueueAggregateReadActions | null;
   contextActions?: WorkspaceQueueContextActions | null;
+  completionActions?: WorkspaceQueueCompletionActions | null;
   controlActions?: WorkspaceQueueControlActions | null;
+  failureActions?: WorkspaceQueueFailureActions | null;
   queueApi: AgentQueueWidgetApi;
+  reviewActions?: WorkspaceQueueReviewActions | null;
   queueState?: WorkspaceQueueStateAccess | null;
+  workflowActions?: WorkspaceQueueWorkflowActions | null;
+  workerEvidenceActions?: WorkspaceQueueWorkerEvidenceActions | null;
   workspaceId: string;
 }): WorkspaceAgentQueueBridge {
   return {
@@ -177,6 +407,8 @@ export function createWorkspaceAgentQueueBridge({
       queueState?.getRunSettingsDefaults() ?? null,
     getAvailableExecutorTargets: () =>
       controlActions?.getAvailableExecutorTargets?.() ?? [],
+    getQueueControlState: () =>
+      controlActions?.getQueueControlState?.() ?? null,
     getCurrentWorkspaceRoot: () =>
       queueState?.getCurrentWorkspaceRoot?.() ?? null,
     getSnapshot: (request = {}) =>
@@ -184,6 +416,121 @@ export function createWorkspaceAgentQueueBridge({
         ...request,
         workspaceId,
       }),
+    getItemAggregate: aggregateReadActions
+      ? (request) =>
+          aggregateReadActions.getAgentQueueItemAggregate({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    listItemAggregates: aggregateReadActions
+      ? () => aggregateReadActions.listAgentQueueItemAggregates({ workspaceId })
+      : undefined,
+    ackReviewMessage: reviewActions
+      ? (request) =>
+          reviewActions.ackAgentQueueReviewMessage({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    createReviewMessage: reviewActions
+      ? (request) =>
+          reviewActions.createAgentQueueReviewMessage({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    markItemDone: completionActions
+      ? (request) =>
+          completionActions.markAgentQueueItemDone({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    failItem: failureActions
+      ? (request) =>
+          failureActions.failAgentQueueItem({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    getWorkerEvidenceBundle: workerEvidenceActions
+      ? (request) =>
+          workerEvidenceActions.getAgentQueueWorkerEvidenceBundle({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    recordWorkerFinished: workerEvidenceActions
+      ? (request) =>
+          workerEvidenceActions.recordAgentQueueWorkerFinished({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    getWorkflow: workflowActions
+      ? (request) =>
+          workflowActions.getWorkflow({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    getWorkflowReport: workflowActions
+      ? (request) =>
+          workflowActions.getWorkflowReport({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    listWorkflows: workflowActions
+      ? (request = {}) =>
+          workflowActions.listWorkflows({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    planWorkflowResume: workflowActions
+      ? (request) =>
+          workflowActions.planWorkflowResume({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    applyWorkflowRunSettings: workflowActions
+      ? (request) =>
+          workflowActions.applyWorkflowRunSettings({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    materializeWorkflowTaskSlot: workflowActions
+      ? (request) =>
+          workflowActions.materializeWorkflowTaskSlot({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    promoteWorkflowTaskSlot: workflowActions
+      ? (request) =>
+          workflowActions.promoteWorkflowTaskSlot({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    recordWorkflowWorkerEvidence: workflowActions
+      ? (request) =>
+          workflowActions.recordWorkflowWorkerEvidence({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
+    startWorkflowAssignedTask: workflowActions
+      ? (request) =>
+          workflowActions.startAssignedAgentQueueTask({
+            ...request,
+            workspaceId,
+          })
+      : undefined,
     updateItem: async (request) => {
       const result = await queueApi.updateItem({
         ...request,
@@ -210,6 +557,14 @@ export function createWorkspaceAgentQueueBridge({
         : Promise.resolve(
             unavailableQueueEnableResult(
               "Queue enable controls are unavailable.",
+            ),
+          ),
+    setQueueControlManualEnabled: (request) =>
+      controlActions?.setQueueControlManualEnabled
+        ? controlActions.setQueueControlManualEnabled(request)
+        : Promise.resolve(
+            unavailableQueueSetManualEnabledResult(
+              "Queue manual control controls are unavailable.",
             ),
           ),
     startQueueLinkedRun: (request) =>
@@ -243,6 +598,36 @@ function unavailableQueueEnableResult(
     ok: false,
     queueEnabled: false,
     status: "unavailable",
+  };
+}
+
+function unavailableQueueSetManualEnabledResult(
+  message: string,
+): WorkspaceAgentQueueSetManualEnabledResult {
+  return {
+    backendOwned: true,
+    blocker: {
+      blockerCode: "capability_unavailable",
+      blockerMessage: message,
+    },
+    blockerReasons: [message],
+    controlState: null,
+    didAutoRunWorkers: false,
+    didCreateRunLinks: false,
+    didInvokeWorkflowRunner: false,
+    didMutateEvidence: false,
+    didMutateFinalization: false,
+    didMutateQueueControlState: false,
+    didMutateQueueTasks: false,
+    didMutateReviews: false,
+    didScheduleOrAutodispatch: false,
+    didStartDownstream: false,
+    didStartWorkers: false,
+    message,
+    ok: false,
+    queueEnabled: false,
+    status: "unavailable",
+    workspaceId: null,
   };
 }
 

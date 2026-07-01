@@ -79,7 +79,14 @@ import { useWorkspaceAgentDirectWorkController } from "./useWorkspaceAgentDirect
 import { useWorkspaceAgentQueueCardRequests } from "./useWorkspaceAgentQueueCardRequests";
 import { useWorkspaceAgentPromptPackImport } from "./useWorkspaceAgentPromptPackImport";
 import { explicitQueueCommandWorkspaceRoot } from "./workspaceAgentExplicitQueueRoot";
-import { createWorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
+import {
+  createWorkspaceAgentHobitActionInvoker,
+  createWorkspaceAgentQueueWorkflowInvoker,
+} from "./workspaceAgentBrokerActionRuntime";
+import {
+  createWorkspaceAgentLiveWorkbenchContextSnapshot,
+  type WorkspaceAgentLiveWorkbenchContextSnapshot,
+} from "./workspaceAgentLiveWorkbenchContext";
 
 type InteractiveAgentMessage = WorkspaceAgentTranscriptMessage;
 
@@ -110,9 +117,13 @@ export function InteractiveAgentPlaceholderWidget({
   onSelectWorkspaceDirectory, onReadPromptPackSource,
   onStartCodexDirectWorkStream,
   onUpdateAgentQueueTask, createQueueItemsFromPromptPackPreview,
+  workspaceAgentLiveWorkbenchContext,
+  workbenchId,
+  workbenchWidgets,
   queueReportActionCardRequest,
   queueTaskStatusCardRequest,
-  queueValidationRunner, workspaceAgentQueueBridge,
+  queueValidationRunner, workspaceAgentProvider, workspaceAgentQueueBridge,
+  workspaceAgentQueueWorkflowPersistence,
   onStartFrameMove,
   title,
   workspaceId,
@@ -153,15 +164,60 @@ export function InteractiveAgentPlaceholderWidget({
   const currentAgentActivityEvents = (agentActivityEvents ?? []).filter(
     (event) => event.sourceWidgetInstanceId === instance.id,
   );
+  const liveWorkbenchContextSnapshot =
+    useMemo<WorkspaceAgentLiveWorkbenchContextSnapshot | null>(
+      () =>
+        workspaceAgentLiveWorkbenchContext ??
+        (workbenchWidgets
+          ? createWorkspaceAgentLiveWorkbenchContextSnapshot({
+              widgetInstances: workbenchWidgets,
+              workbenchId,
+              workspaceId: workspaceScopeId,
+              workspaceRootPath: currentWorkspaceRoot,
+            })
+          : null),
+      [
+        currentWorkspaceRoot,
+        workbenchId,
+        workbenchWidgets,
+        workspaceAgentLiveWorkbenchContext,
+        workspaceScopeId,
+      ],
+    );
   const invokeHobitAgentActionRequest = useMemo(
     () =>
       onInvokeHobitAgentActionRequest ??
       createWorkspaceAgentHobitActionInvoker({
+        workspaceAgentLiveContext: {
+          getQueueControlState: () =>
+            workspaceAgentQueueBridge?.getQueueControlState?.() ?? null,
+          workbenchSnapshot: liveWorkbenchContextSnapshot,
+        },
         workspaceAgentQueueBridge,
       }),
-    [onInvokeHobitAgentActionRequest, workspaceAgentQueueBridge],
+    [
+      liveWorkbenchContextSnapshot,
+      onInvokeHobitAgentActionRequest,
+      workspaceAgentQueueBridge,
+    ],
+  );
+  const invokeQueueWorkflowRequest = useMemo(
+    () =>
+      createWorkspaceAgentQueueWorkflowInvoker({
+        actorId: `workspace-agent:${instance.id}`,
+        workspaceAgentQueueBridge,
+        workflowPersistence: workspaceAgentQueueWorkflowPersistence,
+        workspaceId: workspaceScopeId,
+      }),
+    [
+      instance.id,
+      workspaceAgentQueueBridge,
+      workspaceAgentQueueWorkflowPersistence,
+      workspaceScopeId,
+    ],
   );
   const directWork = useWorkspaceAgentDirectWorkController({
+    agentProvider: workspaceAgentProvider,
     currentWorkspaceRoot,
     draft,
     instanceId: instance.id,
@@ -181,6 +237,7 @@ export function InteractiveAgentPlaceholderWidget({
       window.setTimeout(() => textareaRef.current?.focus(), 0);
     },
     onInvokeHobitAgentActionRequest: invokeHobitAgentActionRequest,
+    onInvokeQueueWorkflowRequest: invokeQueueWorkflowRequest,
     onPublishAgentActivityEvents,
     onRemoveVisibleAttachedContext: removeVisibleAttachedContext,
     onSearchKnowledgeDocuments,

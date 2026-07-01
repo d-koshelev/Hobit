@@ -1,5 +1,5 @@
 // @ts-expect-error Node types are intentionally absent from the frontend tsconfig; this test reads source in Vitest only.
-import { readFileSync } from "fs";
+import { readFileSync, readdirSync } from "fs";
 
 import { describe, expect, it, vi } from "vitest";
 
@@ -13,6 +13,12 @@ import {
   findCapability,
   HOBIT_AGENT_INITIAL_CAPABILITIES,
 } from "../capabilities";
+import {
+  QUEUE_CAPABILITY_CONTRACT_INVENTORY,
+  QUEUE_RUN_APPROVAL_POLICY_VALUES,
+  QUEUE_RUN_SANDBOX_VALUES,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "../capabilities/queueCapabilityContracts";
 import {
   createAgentRuntimeState,
   HOBIT_TEST_AGENT_A,
@@ -28,6 +34,10 @@ import {
   createWorkspaceAgentQueueBridgeAdapterApi,
 } from "./workspaceAgentQueueBridgeAdapter";
 import {
+  createQueueBackendCapabilityPort,
+  type QueueBackendCapabilityPort,
+} from "./queueBackendCapabilityPort";
+import {
   QUEUE_AGENT_CAPABILITY_IDS,
   type QueueAgentAdapterApi,
   type QueueAgentCreateItemsRequest,
@@ -36,6 +46,19 @@ import {
   type QueueAgentSelfTestReport,
 } from "./queueAgentCapabilityTypes";
 import type { WorkspaceAgentQueueBridge } from "../../workspaceAgentQueueBridge";
+import type {
+  AgentQueueCompletionCommandResult,
+  AgentQueueFailureCommandResult,
+  AgentQueueItemAggregate,
+  AgentQueueReviewCommandResult,
+  AgentQueueReviewCreateMessageResult,
+  AgentQueueWorkerEvidenceQueryResult,
+  AgentQueueWorkerFinishedCommandResult,
+  AgentQueueWorkflowAction,
+  AgentQueueWorkflowReport,
+  AgentQueueWorkflowResumePlan,
+  AgentQueueWorkflowRun,
+} from "../../../workspace/types";
 import type {
   QueueWidgetActionResult,
   QueueWidgetItemSnapshot,
@@ -86,6 +109,120 @@ describe("queueAgentCapabilities discovery and broker separation", () => {
     expect(source).not.toContain('"queue.createItems"');
     expect(source).not.toContain("wouldCreateItems");
   });
+
+  it("keeps Queue broker adapters independent from Queue UI modules", () => {
+    const adapterSources = [
+      "workbench/agents/adapters/queueAgentCapabilities.ts",
+      "workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts",
+      "workbench/agents/adapters/queueBackendCapabilityPort.ts",
+      "workbench/agents/adapters/workspaceAgentLiveContextCapabilities.ts",
+      "workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
+      ...queueBridgeSourcePaths(),
+    ]
+      .map(frontendSource)
+      .join("\n");
+
+    expect(adapterSources).not.toContain("AgentQueueV2Board");
+    expect(adapterSources).not.toContain("AgentQueuePlaceholderWidget");
+    expect(adapterSources).not.toContain("WorkspaceAgentQueueTaskStatusCard");
+    expect(adapterSources).not.toContain("widgetV2/queueV2");
+    expect(adapterSources).not.toContain("queue/details");
+    expect(adapterSources).not.toContain("queueReviewEvidenceViewModel");
+    expect(adapterSources).not.toContain(".css");
+    expect(adapterSources).not.toContain("ModuleShell");
+    expect(adapterSources).not.toContain("ModuleHeader");
+  });
+
+  it("keeps Queue adapter capability references registered", () => {
+    const registeredCapabilityIds = new Set(
+      createHobitAgentCapabilityRegistry().capabilities.map(
+        (capability) => capability.id,
+      ),
+    );
+    const adapterSources = [
+      "workbench/agents/adapters/queueAgentCapabilities.ts",
+      "workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts",
+      "workbench/agents/adapters/queueAgentCapabilityTypes.ts",
+      "workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
+      ...queueBridgeSourcePaths(),
+    ]
+      .map(frontendSource)
+      .join("\n");
+    const queueCapabilityReferences = [
+      ...Array.from(
+        adapterSources.matchAll(/nextSuggestedCapability:\s*["'](queue\.[A-Za-z0-9.]+)["']/g),
+      ).map((match) => match[1]),
+      ...Array.from(
+        adapterSources.matchAll(/return\s+["'](queue\.[A-Za-z0-9.]+)["']/g),
+      ).map((match) => match[1]),
+    ];
+
+    expect(queueCapabilityReferences).not.toContain(
+      "queue.lifecycle.getEvidenceBundle",
+    );
+    for (const capabilityId of queueCapabilityReferences) {
+      expect(registeredCapabilityIds.has(capabilityId), capabilityId).toBe(true);
+    }
+  });
+
+  it("keeps every Queue capability contract inventory entry registered and implemented", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const registeredQueueIds = registry.capabilities
+      .filter((capability) => capability.id.startsWith("queue."))
+      .map((capability) => capability.id)
+      .sort();
+    const inventoryIds = QUEUE_CAPABILITY_CONTRACT_INVENTORY.map(
+      (contract) => contract.capabilityId,
+    ).sort();
+
+    expect(inventoryIds).toEqual(registeredQueueIds);
+
+    for (const contract of QUEUE_CAPABILITY_CONTRACT_INVENTORY) {
+      const capability = findCapability(registry, contract.capabilityId);
+
+      expect(contract.registered).toBe(true);
+      expect(contract.implemented).toBe(true);
+      expect(capability).not.toBeNull();
+      expect(capability?.sideEffectLevel).toBe(contract.sideEffectLevel);
+      expect(capability?.confirmationRequirement).toBe(
+        contract.confirmationRequirement,
+      );
+      for (const nextCapabilityId of contract.nextSuggestedCapabilities) {
+        expect(findCapability(registry, nextCapabilityId)).not.toBeNull();
+      }
+    }
+  });
+
+  it("registers Queue workflow debug reads as read-only Queue capabilities", () => {
+    const registry = createHobitAgentCapabilityRegistry();
+    const workflowReadCapabilityIds = [
+      "queue.workflow.get",
+      "queue.workflow.list",
+      "queue.workflow.getReport",
+      "queue.workflow.planResume",
+      "queue.workflow.readActionLog",
+    ];
+
+    for (const capabilityId of workflowReadCapabilityIds) {
+      const capability = requiredCapability(registry, capabilityId);
+      const contract = QUEUE_CAPABILITY_CONTRACT_INVENTORY.find(
+        (candidate) => candidate.capabilityId === capabilityId,
+      );
+
+      expect(capability.ownerSurface).toBe("Agent Queue");
+      expect(capability.sideEffectLevel).toBe("read");
+      expect(capability.confirmationRequirement).toBe("none");
+      expect(capability.restricted).toBe(false);
+      expect(contract).toMatchObject({
+        backing: "backend_backed",
+        confirmationRequirement: "none",
+        readOnly: true,
+        riskClass: "read",
+        sideEffectLevel: "read",
+      });
+      expect(contract?.trustedContextFields).toContain("requestId");
+    }
+  });
 });
 
 describe("queueAgentCapabilities dry-run", () => {
@@ -104,7 +241,12 @@ describe("queueAgentCapabilities dry-run", () => {
         input: {
           items: [
             { id: "a", prompt: "Prompt A", title: "Task A" },
-            { dependencies: ["a"], id: "b", prompt: "Prompt B", title: "Task B" },
+            {
+              dependsOn: ["queue-existing-upstream"],
+              id: "b",
+              prompt: "Prompt B",
+              title: "Task B",
+            },
           ],
         },
       }),
@@ -150,6 +292,56 @@ describe("queueAgentCapabilities dry-run", () => {
 
     expect(result.status).toBe("invalid_input");
     expect(result.result.message).toBe("Queue item title is required.");
+  });
+
+  it("rejects invalid Queue dependency create fields before adapter mutation", () => {
+    const adapter = fakeQueueAdapter();
+    const broker = createQueueBroker(adapter, { allowWriteInvoke: true });
+
+    const wrongType = broker.invoke(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependsOn: "upstream-task",
+          prompt: "Run after upstream.",
+          title: "Dependent task",
+        },
+      }),
+    );
+    const oldField = broker.invoke(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependencies: ["upstream-task"],
+          prompt: "Run after upstream.",
+          title: "Dependent task",
+        },
+      }),
+    );
+    const snakeCaseField = broker.invoke(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          depends_on: ["upstream-task"],
+          prompt: "Run after upstream.",
+          title: "Dependent task",
+        },
+      }),
+    );
+
+    expect(wrongType.status).toBe("invalid_input");
+    expect(wrongType.result.message).toBe(
+      "Queue item dependsOn must be an array of Queue task ids.",
+    );
+    expect(oldField.status).toBe("invalid_input");
+    expect(oldField.result.message).toBe(
+      "Queue item dependencies must use dependsOn, not dependencies.",
+    );
+    expect(snakeCaseField.status).toBe("invalid_input");
+    expect(snakeCaseField.result.message).toBe(
+      "Queue item dependencies must use dependsOn, not depends_on.",
+    );
+    expect(adapter.createItems).not.toHaveBeenCalled();
   });
 
   it("keeps Queue item prompt required for createItem and createItems", () => {
@@ -200,6 +392,33 @@ describe("queueAgentCapabilities dry-run", () => {
       expect(result.status).toBe("invalid_input");
       expect(result.result.message).toBe("Queue item prompt is required.");
     }
+  });
+
+  it("does not infer Queue dependencies from title, prompt, prose, or item order", () => {
+    const adapter = fakeQueueAdapter();
+    const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke(
+      request({
+        capabilityId: "queue.createItems",
+        input: {
+          items: [
+            {
+              prompt: "Prepare the upstream output.",
+              title: "Task A",
+            },
+            {
+              prompt:
+                "After Task A is done, use its output. This prose is not a dependency field.",
+              title: "Task B after Task A",
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(adapter.createdItems).toHaveLength(2);
+    expect(adapter.createdItems[0]?.dependencies).toEqual([]);
+    expect(adapter.createdItems[1]?.dependencies).toEqual([]);
   });
 });
 
@@ -302,7 +521,7 @@ describe("queueAgentCapabilities invoke", () => {
     expect(adapter.operations.workerStarts).toBe(0);
   });
 
-  it("creates multiple Queue items and preserves source metadata and dependency edges", () => {
+  it("creates multiple Queue items and preserves source metadata and explicit dependency ids", () => {
     const adapter = fakeQueueAdapter();
     const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke<{
       dependencyEdgesPreserved: boolean;
@@ -319,7 +538,7 @@ describe("queueAgentCapabilities invoke", () => {
               title: "First",
             },
             {
-              dependencies: ["first"],
+              dependsOn: ["queue-existing-upstream"],
               id: "second",
               prompt: "Second prompt.",
               sourceMetadata: { promptId: "002" },
@@ -332,7 +551,13 @@ describe("queueAgentCapabilities invoke", () => {
 
     expect(result.status).toBe("succeeded");
     expect(result.result.output).toMatchObject({
+      candidateTaskIds: ["first", "second"],
       dependencyEdgesPreserved: true,
+      nextActionUnavailable: {
+        ambiguousCandidateIds: ["first", "second"],
+        reasonCode: "ambiguous_next_action",
+      },
+      nextActionUnavailableCode: "ambiguous_next_action",
       wouldAutoRunWorkers: false,
       wouldCreateDuplicateQueueView: false,
     });
@@ -340,8 +565,37 @@ describe("queueAgentCapabilities invoke", () => {
       "first",
       "second",
     ]);
-    expect(adapter.createdItems[1]?.dependencies).toEqual(["first"]);
+    expect(adapter.createdItems[1]?.dependencies).toEqual([
+      "queue-existing-upstream",
+    ]);
     expect(adapter.lastCreateRequest?.sourceMetadata).toEqual({ packId: "pack-1" });
+  });
+
+  it("creates a downstream Queue item with explicit dependsOn task ids", () => {
+    const adapter = fakeQueueAdapter();
+    const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke<{
+      createdItems: Array<{ dependencies: string[]; id: string }>;
+      createdTaskIds: string[];
+    }>(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependsOn: ["queue-upstream-task-id"],
+          prompt: "Run only after the upstream task is accepted complete.",
+          title: "Downstream task",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(adapter.createdItems).toHaveLength(1);
+    expect(adapter.createdItems[0]?.dependencies).toEqual([
+      "queue-upstream-task-id",
+    ]);
+    expect(result.result.output?.createdItems[0]?.dependencies).toEqual([
+      "queue-upstream-task-id",
+    ]);
+    expect(result.result.output?.createdTaskIds).toEqual(["item-1"]);
   });
 
   it("uses the injected Workspace Agent Queue bridge for createItems", async () => {
@@ -381,7 +635,7 @@ describe("queueAgentCapabilities invoke", () => {
         input: {
           items: [
             {
-              dependencies: ["first"],
+              dependsOn: ["queue-existing-upstream"],
               id: "second",
               prompt: "Second prompt.",
               status: "queued",
@@ -396,7 +650,7 @@ describe("queueAgentCapabilities invoke", () => {
     expect(createItem).toHaveBeenCalledTimes(1);
     expect(createItem).toHaveBeenCalledWith(
       expect.objectContaining({
-        dependencies: ["first"],
+        dependencies: ["queue-existing-upstream"],
         prompt: "Second prompt.",
         status: "queued",
         title: "Second",
@@ -411,6 +665,2285 @@ describe("queueAgentCapabilities invoke", () => {
       wouldTargetSingletonQueue: true,
     });
     expect(result.result.output?.createdItems).toHaveLength(1);
+  });
+
+  it("creates upstream then downstream through the injected bridge with explicit dependsOn", async () => {
+    const createItem = vi.fn(
+      async (input: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        queueBridgeItemResult({
+          dependencies: input.dependencies ?? [],
+          id: input.title === "Upstream" ? "task-upstream" : "task-downstream",
+          prompt: input.prompt,
+          status: input.status,
+          title: input.title,
+        }),
+    );
+    const runAutonomousQueue = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createItem, runAutonomousQueue }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const upstream = await broker.invokeAsync<{ createdTaskIds: string[] }>(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          prompt: "Prepare the prerequisite result.",
+          title: "Upstream",
+        },
+      }),
+    );
+    const upstreamTaskId = upstream.result.output?.createdTaskIds[0] ?? "";
+    const downstream = await broker.invokeAsync<{
+      createdItems: Array<{ dependencies: string[]; id: string }>;
+      createdTaskIds: string[];
+    }>(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependsOn: [upstreamTaskId],
+          prompt: "Use the accepted upstream result.",
+          title: "Downstream",
+        },
+      }),
+    );
+
+    expect(upstream.status).toBe("succeeded");
+    expect(upstreamTaskId).toBe("task-upstream");
+    expect(downstream.status).toBe("succeeded");
+    expect(createItem).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        dependencies: ["task-upstream"],
+        prompt: "Use the accepted upstream result.",
+        title: "Downstream",
+      }),
+    );
+    expect(downstream.result.output).toMatchObject({
+      createdItems: [
+        {
+          dependencies: ["task-upstream"],
+          id: "task-downstream",
+        },
+      ],
+      createdTaskIds: ["task-downstream"],
+    });
+    expect(runAutonomousQueue).not.toHaveBeenCalled();
+  });
+
+  it("uses backend aggregate dependency waiting state in downstream create results when available", async () => {
+    const createItem = vi.fn(
+      async (input: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) =>
+        queueBridgeItemResult({
+          dependencies: input.dependencies ?? [],
+          id: "task-downstream",
+          prompt: input.prompt,
+          status: "queued",
+          title: input.title,
+        }),
+    );
+    const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>
+      queueAggregate({
+        blockers: [
+          {
+            code: "dependency_waiting",
+            message: "At least one dependency has not reached accepted completion.",
+          },
+        ],
+        dependencyState: "waiting",
+        nextActions: [
+          {
+            available: false,
+            code: "none",
+            label: "No action",
+            unavailableReason: "dependencies_not_ready",
+          },
+        ],
+        taskId,
+        ticketState: "queued",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createItem, getItemAggregate }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      createdItems: Array<{
+        dependencies: string[];
+        nextSuggestedCapability: string | null;
+        readiness: {
+          authoritativeBackendAggregate?: boolean;
+          blockerReasons: string[];
+          canStart: boolean;
+          dependencyState?: string;
+          nextSuggestedCapability?: string | null;
+        };
+      }>;
+      nextSuggestedCapability: string | null;
+    }>(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependsOn: ["task-upstream"],
+          prompt: "Run after upstream accepted completion.",
+          title: "Downstream",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(getItemAggregate).toHaveBeenCalledWith({
+      taskId: "task-downstream",
+    });
+    expect(result.result.output).toMatchObject({
+      createdItems: [
+        {
+          dependencies: ["task-upstream"],
+          nextSuggestedCapability: null,
+          readiness: {
+            authoritativeBackendAggregate: true,
+            blockerReasons: [
+              "At least one dependency has not reached accepted completion.",
+            ],
+            canStart: false,
+            dependencyState: "waiting",
+            nextSuggestedCapability: null,
+          },
+        },
+      ],
+      nextSuggestedCapability: null,
+    });
+  });
+
+  it("returns backend create validation failures for missing explicit upstream ids", async () => {
+    const createItem = vi.fn(
+      async (input: Parameters<WorkspaceAgentQueueBridge["createItem"]>[0]) => {
+        if (input.dependencies?.includes("missing-upstream")) {
+          return {
+            action: "queue.createItem",
+            error: {
+              code: "create_failed",
+              message:
+                "queue task dependency not found in workspace: missing-upstream",
+            },
+            events: [],
+            message:
+              "queue task dependency not found in workspace: missing-upstream",
+            ok: false,
+            safetyClass: "safe_create_update",
+          } satisfies QueueWidgetActionResult<QueueWidgetItemSnapshot>;
+        }
+
+        return queueBridgeItemResult();
+      },
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(queueBridge({ createItem })),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.createItem",
+        input: {
+          dependsOn: ["missing-upstream"],
+          prompt: "Run after the missing upstream task.",
+          title: "Dependent",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("failed_unexpected");
+    expect(result.result.reasonCode).toBe("unexpected_error");
+    expect(result.result.message).toBe(
+      "queue task dependency not found in workspace: missing-upstream",
+    );
+    expect(createItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        dependencies: ["missing-upstream"],
+      }),
+    );
+  });
+
+  it("reads queue.items.list from backend aggregate API instead of Queue snapshots", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        blockers: [{ code: "missing_codex_executable", message: "Missing Codex executable." }],
+        codexExecutable: null,
+        evidenceState: "not_durable",
+        latestRun: {
+          completedAt: "2026-06-15T10:05:00.000Z",
+          executorWidgetId: "executor-1",
+          finalDetailAvailable: true,
+          reviewStatus: "review_needed",
+          runId: "run-1",
+          runLinkId: "link-1",
+          source: "manual",
+          startedAt: "2026-06-15T10:00:00.000Z",
+          status: "completed",
+          validationStatus: "passed",
+        },
+        nextActions: [
+          {
+            available: false,
+            code: "update_run_settings",
+            label: "Update run settings",
+            unavailableReason: "Codex executable is missing.",
+          },
+        ],
+        taskId: "task-aggregate",
+        validationState: "unknown",
+      }),
+    ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getSnapshot, listItemAggregates }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      aggregateSource: string;
+      authoritativeBackendAggregate: boolean;
+      items: Array<{
+        authoritativeBackendAggregate: boolean;
+        blockerReasons: string[];
+        blockers: unknown[];
+        durableFlags: { evidenceState: boolean; frontendOverlayUsed: boolean };
+        evidenceState: string;
+        latestRun: { runId: string; status: string };
+        nextActions: Array<{
+          code: string;
+          suggestedCapability?: string | null;
+        }>;
+        taskId: string;
+        validationState: string;
+      }>;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(listItemAggregates).toHaveBeenCalledTimes(1);
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      aggregateSource: "tauri_queue_item_aggregate",
+      authoritativeBackendAggregate: true,
+      items: [
+        {
+          authoritativeBackendAggregate: true,
+          blockerReasons: ["Missing Codex executable."],
+          evidenceState: "not_durable",
+          latestRun: { runId: "run-1", status: "completed" },
+          nextActions: [
+            {
+              code: "update_run_settings",
+              suggestedCapability: "queue.item.updateRunSettings",
+            },
+          ],
+          taskId: "task-aggregate",
+          validationState: "unknown",
+        },
+      ],
+    });
+    expect(result.result.output?.items[0]?.durableFlags).toMatchObject({
+      evidenceState: false,
+      frontendOverlayUsed: false,
+    });
+  });
+
+  it("handles read-only Queue workflow get/list/report/resume/action-log capabilities from workflow APIs", async () => {
+    const getWorkflow = vi.fn(async () => workflowRun());
+    const listWorkflows = vi.fn(async () => [
+      workflowRun({ workflowRunId: "workflow-run-1" }),
+      workflowRun({
+        currentStep: "review_waiting",
+        updatedAt: "2026-06-23T12:15:00.000Z",
+        workflowRunId: "workflow-run-2",
+      }),
+    ]);
+    const getWorkflowReport = vi.fn(async () => workflowReport());
+    const planWorkflowResume = vi.fn(async () => workflowResumePlan());
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              backendOwned: true,
+              queueEnabled: false,
+              status: "disabled",
+              workspaceId: "workspace-1",
+            }),
+            getWorkflow,
+            getWorkflowReport,
+            listWorkflows,
+            planWorkflowResume,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const getResult = await broker.invokeAsync<Record<string, unknown>>(
+      request({
+        capabilityId: "queue.workflow.get",
+        input: {
+          workflowRunId: "workflow-run-1",
+          workspaceId: "workspace-1",
+        },
+      }),
+    );
+    expect(getResult.status).toBe("succeeded");
+    expect(getWorkflow).toHaveBeenCalledWith({
+      workflowRunId: "workflow-run-1",
+    });
+    expect(getResult.result.output).toMatchObject({
+      didInvokeWorkflowRunner: false,
+      didMutateQueue: false,
+      didStartWorkers: false,
+      missingCapabilities: ["queue.workflow.debug.read"],
+      phase: "worker_evidence",
+      requestId: "workflow-request-1",
+      status: "paused",
+      taskIdsBySlot: { upstream: "task-upstream" },
+      workflowId: "dependency_acceptance_smoke",
+      workflowRunId: "workflow-run-1",
+    });
+    expect(JSON.stringify(getResult.result.output)).not.toContain(
+      "operator-confirmed",
+    );
+
+    const listResult = await broker.invokeAsync<Record<string, unknown>>(
+      request({
+        capabilityId: "queue.workflow.list",
+        input: {
+          limit: 1,
+          status: "paused",
+          workflowId: "dependency_acceptance_smoke",
+          workspaceId: "workspace-1",
+        },
+      }),
+    );
+    expect(listResult.status).toBe("succeeded");
+    expect(listWorkflows).toHaveBeenCalledWith({
+      status: "paused",
+      workflowId: "dependency_acceptance_smoke",
+    });
+    expect(listResult.result.output).toMatchObject({
+      didInvokeWorkflowRunner: false,
+      limit: 1,
+      total: 2,
+      truncated: true,
+      workflows: [
+        {
+          workflowRunId: "workflow-run-1",
+          workflowId: "dependency_acceptance_smoke",
+          status: "paused",
+        },
+      ],
+    });
+
+    const reportResult = await broker.invokeAsync<Record<string, unknown>>(
+      request({
+        capabilityId: "queue.workflow.getReport",
+        input: { workflowRunId: "workflow-run-1" },
+      }),
+    );
+    expect(reportResult.status).toBe("succeeded");
+    expect(reportResult.result.output).toMatchObject({
+      actionCountSummary: {
+        byActionType: {
+          materialize_task_slot: 1,
+          record_worker_evidence: 1,
+        },
+        byStatus: { completed: 2 },
+        total: 2,
+      },
+      completionDecisionIdsBySlot: { upstream: "completion-decision-1" },
+      evidenceBundleIdsBySlot: { upstream: "evidence-bundle-1" },
+      failureDecisionIdsBySlot: { upstream: "failure-decision-1" },
+      messageIdsBySlot: { upstream: "review-message-1" },
+      runIdsBySlot: { upstream: "run-upstream-1" },
+      taskIdsBySlot: { upstream: "task-upstream" },
+      workflowRunId: "workflow-run-1",
+    });
+    const reportJson = JSON.stringify(reportResult.result.output);
+    expect(reportJson).not.toContain("operator-confirmed");
+    expect(reportJson).not.toContain("raw provider transcript");
+
+    const planResult = await broker.invokeAsync<Record<string, unknown>>(
+      request({
+        capabilityId: "queue.workflow.planResume",
+        input: {
+          expectedVersion: 7,
+          workflowRunId: "workflow-run-1",
+        },
+      }),
+    );
+    expect(planResult.status).toBe("succeeded");
+    expect(planWorkflowResume).toHaveBeenCalledWith({
+      expectedVersion: 7,
+      workflowRunId: "workflow-run-1",
+    });
+    expect(planResult.result.output).toMatchObject({
+      blockers: [
+        {
+          blockerCode: "waiting_for_review_ack",
+          messageId: "review-message-1",
+          taskId: "task-upstream",
+        },
+      ],
+      evidenceBundleIdsBySlot: { upstream: "evidence-bundle-1" },
+      nextPhase: "review",
+      nextStep: "ack_review_message",
+      requiredConfirmation: false,
+      requiredFreshGrant: true,
+      resumeStatus: "resume_read_only_ready",
+      taskIdsBySlot: { upstream: "task-upstream" },
+    });
+
+    const actionLogResult = await broker.invokeAsync<Record<string, unknown>>(
+      request({
+        capabilityId: "queue.workflow.readActionLog",
+        input: {
+          limit: 1,
+          status: "completed",
+          workflowRunId: "workflow-run-1",
+        },
+      }),
+    );
+    expect(actionLogResult.status).toBe("succeeded");
+    expect(actionLogResult.result.output).toMatchObject({
+      actionCountSummary: { total: 2 },
+      actions: [
+        {
+          actionType: "materialize_task_slot",
+          status: "completed",
+        },
+      ],
+      limit: 1,
+      total: 2,
+      truncated: true,
+      workflowRunId: "workflow-run-1",
+    });
+    const actionLogJson = JSON.stringify(actionLogResult.result.output);
+    expect(actionLogJson).not.toContain("operator-confirmed");
+    expect(actionLogJson).not.toContain("raw provider transcript");
+  });
+
+  it("rejects Queue workflow debug reads without explicit workflowRunId", async () => {
+    const getWorkflow = vi.fn(async () => workflowRun());
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(queueBridge({ getWorkflow })),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.workflow.get",
+        input: {},
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.fieldPath).toBe("input.workflowRunId");
+    expect(getWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("keeps Queue workflow debug reads isolated to the current workspace", async () => {
+    const getWorkflow = vi.fn(async () => workflowRun());
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              queueEnabled: false,
+              workspaceId: "workspace-1",
+            }),
+            getWorkflow,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.workflow.get",
+        input: {
+          workflowRunId: "workflow-run-1",
+          workspaceId: "other-workspace",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("precondition_failed");
+    expect(result.result.reasonCode).toBe("precondition_failed");
+    expect(getWorkflow).not.toHaveBeenCalled();
+  });
+
+  it("reads queue.lifecycle.get from backend aggregate API with explicit taskId", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>
+      queueAggregate({
+        blockers: [
+          { code: "review_not_durable", message: "Review state is not durable yet." },
+        ],
+        commitState: "not_durable",
+        dependencyState: "unknown",
+        evidenceState: "not_durable",
+        evidenceSummary: {
+          available: false,
+          notDurableReason: "Worker evidence was not recorded durably.",
+          source: "aggregate",
+          summary: null,
+        },
+        latestRun: {
+          completedAt: "2026-06-15T10:05:00.000Z",
+          executorWidgetId: "executor-1",
+          finalDetailAvailable: true,
+          reviewStatus: "review_needed",
+          runId: "run-1",
+          runLinkId: "link-1",
+          source: "manual",
+          startedAt: "2026-06-15T10:00:00.000Z",
+          status: "completed",
+          validationStatus: null,
+        },
+        nextActions: [
+          {
+            available: false,
+            code: "create_review_message",
+            label: "Create review message",
+            unavailableReason: "Review command is not durable yet.",
+          },
+        ],
+        reviewState: "in_review",
+        taskId,
+        ticketState: "awaiting_review",
+        validationState: "unknown",
+        workerRunState: "completed",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getItemAggregate, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      aggregateSource: string;
+      authoritativeBackendAggregate: boolean;
+      blockerReasons: string[];
+      blockers: Array<{ code: string; message: string }>;
+      commitState: string;
+      dependencyState: string;
+      durableFlags: {
+        commitState: boolean;
+        evidenceState: boolean;
+        frontendOverlayUsed: boolean;
+      };
+      evidenceState: string;
+      evidenceSummary: {
+        available: boolean;
+        notDurableReason: string | null;
+        source: string;
+        summary: string | null;
+      } | null;
+      latestRun: { runId: string; status: string };
+      lifecycle: null;
+      nextActions: Array<{ code: string; suggestedCapability?: string | null }>;
+      nextSuggestedCapability: string | null;
+      reviewState: string;
+      taskId: string;
+      ticketState: string;
+      validationState: string;
+      workerRunState: string;
+    }>(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-aggregate" },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(getItemAggregate).toHaveBeenCalledWith({ taskId: "task-aggregate" });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      aggregateSource: "tauri_queue_item_aggregate",
+      authoritativeBackendAggregate: true,
+      blockerReasons: ["Review state is not durable yet."],
+      blockers: [
+        {
+          code: "review_not_durable",
+          message: "Review state is not durable yet.",
+        },
+      ],
+      commitState: "not_durable",
+      dependencyState: "unknown",
+      evidenceState: "not_durable",
+      evidenceSummary: {
+        available: false,
+        notDurableReason: "Worker evidence was not recorded durably.",
+        source: "aggregate",
+        summary: null,
+      },
+      latestRun: {
+        runId: "run-1",
+        status: "completed",
+      },
+      lifecycle: null,
+      nextActions: [
+        {
+          code: "create_review_message",
+          suggestedCapability: "queue.review.createMessage",
+        },
+      ],
+      nextSuggestedCapability: "queue.review.createMessage",
+      reviewState: "in_review",
+      taskId: "task-aggregate",
+      ticketState: "awaiting_review",
+      validationState: "unknown",
+      workerRunState: "completed",
+    });
+    expect(result.result.output?.durableFlags).toMatchObject({
+      commitState: false,
+      evidenceState: false,
+      frontendOverlayUsed: false,
+    });
+  });
+
+  it("rejects missing queue.lifecycle.get taskId before aggregate or snapshot reads", async () => {
+    const getItemAggregate = vi.fn();
+    const getSnapshot = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getItemAggregate, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: {},
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toBe("taskId is required.");
+    expect(getItemAggregate).not.toHaveBeenCalled();
+    expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("runs backend-backed Queue capabilities through the backend port without Queue UI state", async () => {
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        nextActions: [
+          {
+            available: true,
+            code: "create_review_message",
+            label: "Create review message",
+            unavailableReason: null,
+          },
+        ],
+        taskId: "task-backend",
+        ticketState: "awaiting_review",
+        workerRunState: "completed",
+      }),
+    ]);
+    const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>
+      queueAggregate({
+        nextActions: [
+          {
+            available: true,
+            code: "create_review_message",
+            label: "Create review message",
+            unavailableReason: null,
+          },
+        ],
+        taskId,
+        ticketState: "awaiting_review",
+        workerRunState: "completed",
+      }),
+    );
+    const recordWorkerFinished = vi.fn(async () =>
+      workerFinishedCommandResult({
+        aggregate: queueAggregate({
+          evidenceState: "available",
+          nextActions: [
+            {
+              available: true,
+              code: "create_review_message",
+              label: "Create review message",
+              unavailableReason: null,
+            },
+          ],
+          taskId: "task-backend",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        runId: "run-backend",
+      }),
+    );
+    const getWorkerEvidenceBundle = vi.fn(async () =>
+      workerEvidenceQueryResult({
+        aggregate: queueAggregate({
+          evidenceState: "available",
+          taskId: "task-backend",
+          ticketState: "awaiting_review",
+        }),
+        runId: "run-backend",
+      }),
+    );
+    const createReviewMessage = vi.fn(async () =>
+      reviewCreateMessageResult({
+        aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: true,
+              code: "ack_review",
+              label: "Acknowledge review",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "review_message_created",
+          taskId: "task-backend",
+          ticketState: "awaiting_review",
+        }),
+        evidenceBundleId: "bundle-1",
+        messageId: "review-message-backend",
+        runId: "run-backend",
+      }),
+    );
+    const ackReviewMessage = vi.fn(async () =>
+      reviewCommandResult({
+        aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: true,
+              code: "mark_done",
+              label: "Mark done",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "in_review",
+          taskId: "task-backend",
+          ticketState: "in_review",
+        }),
+        messageId: "review-message-backend",
+        status: "acknowledged",
+      }),
+    );
+    const markItemDone = vi.fn(async () =>
+      completionCommandResult({
+        aggregate: queueAggregate({
+          durableFlags: {
+            commitState: true,
+            completionState: true,
+            dependencyState: true,
+            evidenceState: true,
+            failureState: false,
+            frontendOverlayUsed: false,
+            latestRunLink: true,
+            reviewState: true,
+            taskRow: true,
+            validationState: true,
+          },
+          evidenceState: "available",
+          reviewState: "done",
+          taskId: "task-backend",
+          ticketState: "done",
+          workerRunState: "completed",
+        }),
+      }),
+    );
+    const backendApi = queueBackendPort({
+      ackReviewMessage,
+      createReviewMessage,
+      getItemAggregate,
+      getWorkerEvidenceBundle,
+      listItemAggregates,
+      markItemDone,
+      recordWorkerFinished,
+    });
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(null, { backendApi }),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const list = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+    const lifecycle = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-backend" },
+      }),
+    );
+    const finished = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.agentFinished",
+        input: {
+          finalAgentMessage: "Worker completed.",
+          outcome: "completed",
+          runId: "run-backend",
+          taskId: "task-backend",
+        },
+      }),
+    );
+    const evidence = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.getEvidenceBundle",
+        input: { runId: "run-backend", taskId: "task-backend" },
+      }),
+    );
+    const review = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: { taskId: "task-backend" },
+      }),
+    );
+    const ack = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "review-message-backend",
+          taskId: "task-backend",
+        },
+      }),
+    );
+    const markDone = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Operator accepted completion.",
+          taskId: "task-backend",
+        },
+      }),
+    );
+
+    expect(list.status).toBe("succeeded");
+    expect(lifecycle.status).toBe("succeeded");
+    expect(finished.status).toBe("succeeded");
+    expect(evidence.status).toBe("succeeded");
+    expect(review.status).toBe("succeeded");
+    expect(ack.status).toBe("succeeded");
+    expect(markDone.status).toBe("succeeded");
+    expect(listItemAggregates).toHaveBeenCalledTimes(1);
+    expect(getItemAggregate).toHaveBeenCalledWith({ taskId: "task-backend" });
+    expect(recordWorkerFinished).toHaveBeenCalledWith(
+      expect.objectContaining({
+        runId: "run-backend",
+        taskId: "task-backend",
+      }),
+    );
+    expect(getWorkerEvidenceBundle).toHaveBeenCalledWith({
+      runId: "run-backend",
+      taskId: "task-backend",
+    });
+    expect(createReviewMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        evidenceBundleId: null,
+        runId: null,
+        taskId: "task-backend",
+      }),
+    );
+    expect(ackReviewMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messageId: "review-message-backend",
+        taskId: "task-backend",
+      }),
+    );
+    expect(markItemDone).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      reason: "Operator accepted completion.",
+      reviewMessageId: null,
+      runId: null,
+      taskId: "task-backend",
+    });
+  });
+
+  it("routes queue.item.markDone through backend command only with exact structured confirmation", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const markItemDone = vi.fn(async () =>
+      completionCommandResult({
+        aggregate: queueAggregate({
+          durableFlags: {
+            commitState: true,
+            completionState: true,
+            dependencyState: true,
+            evidenceState: true,
+            failureState: false,
+            frontendOverlayUsed: false,
+            latestRunLink: true,
+            reviewState: true,
+            taskRow: true,
+            validationState: true,
+          },
+          evidenceState: "available",
+          reviewState: "done",
+          taskId: "task-done",
+          ticketState: "done",
+          workerRunState: "completed",
+        }),
+        decisionId: "decision-done-1",
+        reviewMessageId: "review-message-1",
+        runId: "run-1",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getSnapshot, markItemDone }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const missingTask = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: { reason: "Missing task id." },
+      }),
+    );
+    const proseOnly = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.markDone",
+        input: { taskId: "task-done" },
+      }),
+    );
+    const success = await broker.invokeAsync<{
+      backendCompletionStatus: string;
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      ticketState: string;
+      wouldCallGit: boolean;
+      wouldExecuteRollback: boolean;
+      wouldLaunchTerminal: boolean;
+      wouldRunValidation: boolean;
+    }>(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Operator accepted completion.",
+          reviewMessageId: "review-message-1",
+          runId: "run-1",
+          taskId: "task-done",
+        },
+      }),
+    );
+
+    expect(missingTask.status).toBe("invalid_input");
+    expect(proseOnly.status).toBe("needs_confirmation");
+    expect(markItemDone).toHaveBeenCalledTimes(1);
+    expect(markItemDone).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      reason: "Operator accepted completion.",
+      reviewMessageId: "review-message-1",
+      runId: "run-1",
+      taskId: "task-done",
+    });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(success.status).toBe("succeeded");
+    expect(success.result.output).toMatchObject({
+      backendCompletionStatus: "succeeded",
+      nextSuggestedCapability: null,
+      queueMutation: "backend_domain",
+      ticketState: "done",
+      wouldCallGit: false,
+      wouldExecuteRollback: false,
+      wouldLaunchTerminal: false,
+      wouldRunValidation: false,
+    });
+  });
+
+  it("surfaces queue.item.markDone backend blockers with state dimensions", async () => {
+    const markItemDone = vi.fn(async () =>
+      completionCommandResult({
+        aggregate: queueAggregate({
+          dependencyState: "none",
+          evidenceState: "available",
+          reviewState: "review_message_created",
+          taskId: "task-blocked",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        blocker: {
+          blockerCode: "review_not_acked",
+          blockerMessage:
+            "The backend review message must be ACKed before queue.item.markDone.",
+          commitState: "none",
+          dependencyState: "none",
+          evidenceBundleId: "bundle-1",
+          evidenceState: "available",
+          missingRequiredField: null,
+          nextSuggestedCapability: "queue.review.ack",
+          reviewMessageId: "review-message-1",
+          reviewState: "review_message_created",
+          runId: "run-1",
+          taskId: "task-blocked",
+          ticketState: "awaiting_review",
+          validationState: "not_requested",
+          workerRunState: "completed",
+        },
+        completionDecision: null,
+        decisionId: null,
+        durable: false,
+        evidenceBundleId: "bundle-1",
+        reviewMessageId: "review-message-1",
+        runId: "run-1",
+        status: "blocked",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ markItemDone }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      backendCompletionStatus: string;
+      blockerCode: string;
+      nextAction: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      reviewState: string;
+      ticketState: string;
+    }>(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: { taskId: "task-blocked" },
+      }),
+    );
+
+    expect(result.status).toBe("blocked_actionable");
+    expect(result.result.reasonCode).toBe("review_not_acked");
+    expect(result.result.output).toMatchObject({
+      backendCompletionStatus: "blocked",
+      blockerCode: "review_not_acked",
+      nextAction: {
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-blocked" },
+      },
+      nextSuggestedCapability: "queue.lifecycle.get",
+      queueMutation: "none",
+      reviewState: "review_message_created",
+      ticketState: "awaiting_review",
+    });
+  });
+
+  it("maps queue.item.markDone already_done as an idempotent typed result", async () => {
+    const markItemDone = vi.fn(async () =>
+      completionCommandResult({
+        aggregate: queueAggregate({
+          reviewState: "done",
+          taskId: "task-already-done",
+          ticketState: "done",
+          workerRunState: "completed",
+        }),
+        status: "already_done",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ markItemDone }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: { taskId: "task-already-done" },
+      }),
+    );
+
+    expect(result.status).toBe("already_done");
+    expect(result.result.reasonCode).toBe("already_done");
+  });
+
+  it("routes queue.item.fail through backend command only with exact structured confirmation", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const failItem = vi.fn(async () =>
+      failureCommandResult({
+        aggregate: queueAggregate({
+          durableFlags: {
+            commitState: true,
+            completionState: false,
+            dependencyState: true,
+            evidenceState: true,
+            failureState: true,
+            frontendOverlayUsed: false,
+            latestRunLink: true,
+            reviewState: true,
+            taskRow: true,
+            validationState: true,
+          },
+          evidenceState: "available",
+          reviewState: "failed",
+          taskId: "task-failed",
+          ticketState: "failure",
+          workerRunState: "failed",
+        }),
+        decisionId: "decision-failed-1",
+        evidenceBundleId: "bundle-1",
+        reviewMessageId: "review-message-1",
+        runId: "run-1",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ failItem, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const missingTask = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: { reason: "Missing task id." },
+      }),
+    );
+    const proseOnly = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.fail",
+        input: {
+          reason: "I confirm. Fail the task.",
+          taskId: "task-failed",
+        },
+      }),
+    );
+    const malformedConfirmation = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: "confirmed",
+        input: {
+          reason: "Operator rejected evidence.",
+          taskId: "task-failed",
+        },
+      }),
+    );
+    const success = await broker.invokeAsync<{
+      backendFailureStatus: string;
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      reviewOutcome: string;
+      ticketState: string;
+      wouldCallGit: boolean;
+      wouldExecuteRollback: boolean;
+      wouldLaunchTerminal: boolean;
+      wouldRunValidation: boolean;
+      wouldStartWorkers: boolean;
+    }>(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          evidenceBundleId: "bundle-1",
+          reason: "Operator rejected evidence.",
+          reviewMessageId: "review-message-1",
+          runId: "run-1",
+          taskId: "task-failed",
+        },
+      }),
+    );
+
+    expect(missingTask.status).toBe("invalid_input");
+    expect(proseOnly.status).toBe("needs_confirmation");
+    expect(malformedConfirmation.status).toBe("invalid_input");
+    expect(failItem).toHaveBeenCalledTimes(1);
+    expect(failItem).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      evidenceBundleId: "bundle-1",
+      reason: "Operator rejected evidence.",
+      reviewMessageId: "review-message-1",
+      runId: "run-1",
+      taskId: "task-failed",
+    });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(success.status).toBe("succeeded");
+    expect(success.result.output).toMatchObject({
+      backendFailureStatus: "succeeded",
+      nextSuggestedCapability: null,
+      queueMutation: "backend_domain",
+      reviewOutcome: "failed",
+      ticketState: "failure",
+      wouldCallGit: false,
+      wouldExecuteRollback: false,
+      wouldLaunchTerminal: false,
+      wouldRunValidation: false,
+      wouldStartWorkers: false,
+    });
+  });
+
+  it("surfaces queue.item.fail backend blockers with state dimensions", async () => {
+    const failItem = vi.fn(async () =>
+      failureCommandResult({
+        aggregate: queueAggregate({
+          dependencyState: "none",
+          evidenceState: "available",
+          reviewState: "review_message_created",
+          taskId: "task-blocked-fail",
+          ticketState: "awaiting_review",
+          workerRunState: "failed",
+        }),
+        blocker: {
+          blockerCode: "review_not_acked",
+          blockerMessage:
+            "The backend review message must be ACKed before queue.item.fail.",
+          commitState: "none",
+          dependencyState: "none",
+          evidenceBundleId: "bundle-1",
+          evidenceState: "available",
+          missingRequiredField: null,
+          nextSuggestedCapability: "queue.review.ack",
+          reviewMessageId: "review-message-1",
+          reviewState: "review_message_created",
+          runId: "run-1",
+          taskId: "task-blocked-fail",
+          ticketState: "awaiting_review",
+          validationState: "not_requested",
+          workerRunState: "failed",
+        },
+        decisionId: null,
+        durable: false,
+        evidenceBundleId: "bundle-1",
+        failureDecision: null,
+        reviewMessageId: "review-message-1",
+        runId: "run-1",
+        status: "blocked",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ failItem }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      backendFailureStatus: string;
+      blockerCode: string;
+      nextAction: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      reviewState: string;
+      ticketState: string;
+    }>(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Operator rejected evidence.",
+          taskId: "task-blocked-fail",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("blocked_actionable");
+    expect(result.result.reasonCode).toBe("review_not_acked");
+    expect(result.result.output).toMatchObject({
+      backendFailureStatus: "blocked",
+      blockerCode: "review_not_acked",
+      nextAction: {
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-blocked-fail" },
+      },
+      nextSuggestedCapability: "queue.lifecycle.get",
+      queueMutation: "none",
+      reviewState: "review_message_created",
+      ticketState: "awaiting_review",
+    });
+  });
+
+  it("maps queue.item.fail already_failed as an idempotent typed result", async () => {
+    const failItem = vi.fn(async () =>
+      failureCommandResult({
+        aggregate: queueAggregate({
+          reviewState: "failed",
+          taskId: "task-already-failed",
+          ticketState: "failure",
+          workerRunState: "failed",
+        }),
+        status: "already_failed",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(queueBridge({ failItem })),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Already terminal failed.",
+          taskId: "task-already-failed",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("already_failed");
+    expect(result.result.reasonCode).toBe("already_failed");
+  });
+
+  it("creates review messages through backend bridge command with trusted actor default", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const createReviewMessage = vi.fn(async () =>
+      reviewCreateMessageResult({
+        aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: true,
+              code: "ack_review",
+              label: "Acknowledge review message",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "review_message_created",
+          taskId: "task-review",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        evidenceBundleId: "bundle-1",
+        messageId: "review-message-1",
+        runId: "run-1",
+      }),
+    );
+    const getItemAggregate = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage, getItemAggregate, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      lifecycle: null;
+      messageId: string;
+      nextAction: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      reviewState: string;
+      taskId: string;
+      wouldPersistBackend: boolean;
+    }>(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: {
+          finalAgentMessage: "Worker final report.",
+          taskId: "task-review",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(createReviewMessage).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      evidenceBundleId: null,
+      messageBody: "Worker final report.",
+      runId: null,
+      taskId: "task-review",
+    });
+    expect(getItemAggregate).not.toHaveBeenCalled();
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      lifecycle: null,
+      messageId: "review-message-1",
+      nextAction: {
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "review-message-1",
+          taskId: "task-review",
+        },
+      },
+      nextSuggestedCapability: "queue.review.ack",
+      queueMutation: "backend_domain",
+      reviewState: "review_message_created",
+      taskId: "task-review",
+      wouldPersistBackend: true,
+    });
+    expect(result.result.output?.nextAction.input).not.toHaveProperty(
+      "reviewMessageId",
+    );
+  });
+
+  it("acknowledges review messages through backend bridge command with trusted actor default", async () => {
+    const ackReviewMessage = vi.fn(async () =>
+      reviewCommandResult({
+        aggregate: queueAggregate({
+          reviewState: "in_review",
+          taskId: "task-review",
+          ticketState: "in_review",
+        }),
+        messageId: "review-message-1",
+        status: "acknowledged",
+      }),
+    );
+    const getSnapshot = vi.fn();
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ ackReviewMessage, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync(
+      request({
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "review-message-1",
+          taskId: "task-review",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(ackReviewMessage).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      messageId: "review-message-1",
+      taskId: "task-review",
+    });
+    expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("records agentFinished through backend worker evidence command", async () => {
+    const recordWorkerFinished = vi.fn(async () =>
+      workerFinishedCommandResult({
+        aggregate: queueAggregate({
+          evidenceState: "available",
+          latestRun: {
+            completedAt: "2026-06-15T10:01:00.000Z",
+            executorWidgetId: "executor-1",
+            finalDetailAvailable: true,
+            reviewStatus: "review_needed",
+            runId: "run-1",
+            runLinkId: "link-1",
+            source: "manual",
+            startedAt: "2026-06-15T10:00:00.000Z",
+            status: "completed",
+            validationStatus: null,
+          },
+          nextActions: [
+            {
+              available: true,
+              code: "create_review_message",
+              label: "Create review message",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "awaiting_review",
+          taskId: "task-review",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        bundleId: "bundle-1",
+        runId: "run-1",
+      }),
+    );
+    const getSnapshot = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getSnapshot, recordWorkerFinished }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      evidenceBundleId: string;
+      evidenceState: string;
+      nextAction: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
+      nextSuggestedCapability: string | null;
+      queueMutation: string;
+      runId: string;
+      taskId: string;
+      wouldPersistBackend: boolean;
+    }>(
+      request({
+        capabilityId: "queue.lifecycle.agentFinished",
+        input: {
+          changedFilesSummary: ["src/lib.rs"],
+          finalAgentMessage: "Worker final report.",
+          outcome: "completed",
+          runId: "run-1",
+          taskId: "task-review",
+          validationSummary: "not run",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(recordWorkerFinished).toHaveBeenCalledWith({
+      changedFiles: ["src/lib.rs"],
+      changedFilesSummary: "src/lib.rs",
+      errorSummary: null,
+      finishedAt: null,
+      outcome: "completed",
+      runId: "run-1",
+      source: "workspace_agent",
+      summary: "Worker final report.",
+      taskId: "task-review",
+      validationSummary: "not run",
+      workerId: "test.agentA",
+    });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      evidenceBundleId: "bundle-1",
+      evidenceState: "available",
+      nextAction: {
+        capabilityId: "queue.review.createMessage",
+        input: {
+          evidenceBundleId: "bundle-1",
+          runId: "run-1",
+          taskId: "task-review",
+        },
+      },
+      nextSuggestedCapability: "queue.review.createMessage",
+      queueMutation: "backend_domain",
+      runId: "run-1",
+      taskId: "task-review",
+      wouldPersistBackend: true,
+    });
+  });
+
+  it("rejects agentFinished without runId before backend worker evidence command", async () => {
+    const recordWorkerFinished = vi.fn();
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ recordWorkerFinished }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.agentFinished",
+        input: {
+          finalAgentMessage: "Worker final report.",
+          outcome: "completed",
+          taskId: "task-review",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toBe("runId is required.");
+    expect(recordWorkerFinished).not.toHaveBeenCalled();
+  });
+
+  it("reads review evidence bundles through backend worker evidence query", async () => {
+    const getWorkerEvidenceBundle = vi.fn(async () =>
+      workerEvidenceQueryResult({
+        aggregate: queueAggregate({
+          evidenceState: "available",
+          nextActions: [
+            {
+              available: true,
+              code: "create_review_message",
+              label: "Create review message",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "awaiting_review",
+          taskId: "task-review",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        bundleId: "bundle-1",
+        runId: "run-1",
+      }),
+    );
+    const getSnapshot = vi.fn();
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getSnapshot, getWorkerEvidenceBundle }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync<{
+      backendEvidenceBundle: { bundleId: string; runId: string };
+      evidenceBundleId: string;
+      evidenceBundlePersistence: string;
+      evidenceState: string;
+      nextAction: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
+      nextSuggestedCapability: string | null;
+      runId: string;
+    }>(
+      request({
+        capabilityId: "queue.review.getEvidenceBundle",
+        input: {
+          runId: "run-1",
+          taskId: "task-review",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(getWorkerEvidenceBundle).toHaveBeenCalledWith({
+      runId: "run-1",
+      taskId: "task-review",
+    });
+    expect(getSnapshot).not.toHaveBeenCalled();
+    expect(result.result.output).toMatchObject({
+      backendEvidenceBundle: {
+        bundleId: "bundle-1",
+        runId: "run-1",
+      },
+      evidenceBundleId: "bundle-1",
+      evidenceBundlePersistence: "backend_durable",
+      evidenceState: "available",
+      nextAction: {
+        capabilityId: "queue.review.createMessage",
+        input: {
+          evidenceBundleId: "bundle-1",
+          runId: "run-1",
+          taskId: "task-review",
+        },
+      },
+      nextSuggestedCapability: "queue.review.createMessage",
+      runId: "run-1",
+    });
+  });
+
+  it("rejects missing review create taskId before backend bridge reads or commands", async () => {
+    const createReviewMessage = vi.fn();
+    const getSnapshot = vi.fn();
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage, getSnapshot }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: {},
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toBe("taskId is required.");
+    expect(createReviewMessage).not.toHaveBeenCalled();
+    expect(getSnapshot).not.toHaveBeenCalled();
+  });
+
+  it("rejects missing review and evidence ids before backend reads or commands", async () => {
+    const ackReviewMessage = vi.fn();
+    const getItemAggregate = vi.fn();
+    const getWorkerEvidenceBundle = vi.fn();
+    const recordWorkerFinished = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            ackReviewMessage,
+            getItemAggregate,
+            getWorkerEvidenceBundle,
+            recordWorkerFinished,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const missingAckTaskId = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.ack",
+        input: { messageId: "review-message-1" },
+      }),
+    );
+    const missingAckMessageId = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.ack",
+        input: { taskId: "task-review" },
+      }),
+    );
+    const missingEvidenceTaskId = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.getEvidenceBundle",
+        input: { runId: "run-1" },
+      }),
+    );
+    const missingLifecycleTaskId = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: {},
+      }),
+    );
+    const missingAgentFinishedTaskId = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.agentFinished",
+        input: {
+          finalAgentMessage: "Done.",
+          outcome: "completed",
+          runId: "run-1",
+        },
+      }),
+    );
+
+    expect(missingAckTaskId.status).toBe("invalid_input");
+    expect(missingAckTaskId.result.message).toBe("taskId is required.");
+    expect(missingAckMessageId.status).toBe("invalid_input");
+    expect(missingAckMessageId.result.message).toBe("messageId is required.");
+    expect(missingEvidenceTaskId.status).toBe("invalid_input");
+    expect(missingEvidenceTaskId.result.message).toBe("taskId is required.");
+    expect(missingLifecycleTaskId.status).toBe("invalid_input");
+    expect(missingLifecycleTaskId.result.message).toBe("taskId is required.");
+    expect(missingAgentFinishedTaskId.status).toBe("invalid_input");
+    expect(missingAgentFinishedTaskId.result.message).toBe(
+      "taskId is required.",
+    );
+    expect(ackReviewMessage).not.toHaveBeenCalled();
+    expect(getItemAggregate).not.toHaveBeenCalled();
+    expect(getWorkerEvidenceBundle).not.toHaveBeenCalled();
+    expect(recordWorkerFinished).not.toHaveBeenCalled();
+  });
+
+  it("does not infer review or evidence ids from prose fields", async () => {
+    const createReviewMessage = vi.fn();
+    const getWorkerEvidenceBundle = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage, getWorkerEvidenceBundle }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const proseReview = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: {
+          reason:
+            "Create a review for taskId task-review and messageId message-1.",
+        },
+      }),
+    );
+    const proseEvidence = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.review.getEvidenceBundle",
+        input: {
+          reason:
+            "Read evidence for taskId task-review and runId run-1.",
+        },
+      }),
+    );
+
+    expect(proseReview.status).toBe("invalid_input");
+    expect(proseReview.result.message).toBe(
+      "reason is not supported by queue.review.createMessage.",
+    );
+    expect(proseEvidence.status).toBe("invalid_input");
+    expect(proseEvidence.result.message).toBe(
+      "reason is not supported by queue.review.getEvidenceBundle.",
+    );
+    expect(createReviewMessage).not.toHaveBeenCalled();
+    expect(getWorkerEvidenceBundle).not.toHaveBeenCalled();
+  });
+
+  it("surfaces backend aggregate blockers for draft review create", async () => {
+    const createReviewMessage = vi.fn(async () =>
+      reviewCreateMessageBlockedResult({
+        aggregate: queueAggregate({
+          evidenceState: "none",
+          reviewState: "not_requested",
+          taskId: "task-draft",
+          ticketState: "draft",
+          workerRunState: "not_started",
+        }),
+      }),
+    );
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: { taskId: "task-draft" },
+      }),
+    );
+
+    expect(result.status).toBe("blocked_actionable");
+    expect(result.result.reasonCode).toBe("task_is_draft");
+    expect(createReviewMessage).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      evidenceBundleId: null,
+      messageBody: null,
+      runId: null,
+      taskId: "task-draft",
+    });
+    expect(result.result.message).toContain("task_is_draft");
+    expect(result.result.output).toMatchObject({
+      backendCreateMessageStatus: "precondition_failed",
+      blockerCode: "task_is_draft",
+      evidenceState: "none",
+      reviewState: "not_requested",
+      ticketState: "draft",
+      workerRunState: "not_started",
+    });
+  });
+
+  it("maps unexpected review create backend exceptions to failed_unexpected", async () => {
+    const createReviewMessage = vi.fn(async () => {
+      throw new Error("Review command crashed.");
+    });
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: { taskId: "task-review-crash" },
+      }),
+    );
+
+    expect(result.status).toBe("failed_unexpected");
+    expect(result.result.reasonCode).toBe("unexpected_error");
+    expect(result.result.message).toBe("Review command crashed.");
+  });
+
+  it("maps duplicate review create existingMessageId to typed ACK nextAction", async () => {
+    const createReviewMessage = vi.fn(async () =>
+      reviewCreateMessageBlockedResult({
+        aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: true,
+              code: "ack_review",
+              label: "Acknowledge review",
+              unavailableReason: null,
+            },
+          ],
+          reviewState: "review_message_created",
+          taskId: "task-review",
+          ticketState: "awaiting_review",
+          workerRunState: "completed",
+        }),
+        blockerCode: "review_message_already_exists",
+        blockerMessage: "A review message already exists for this Queue item.",
+        existingMessageId: "queue-review-message-existing",
+        nextSuggestedCapability: "queue.review.ack",
+        reviewMessageAlreadyExists: true,
+        status: "already_exists",
+      }),
+    );
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ createReviewMessage }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync<{
+      blockerCode: string;
+      existingReviewMessageId: string;
+      messageId: string;
+      nextAction: {
+        autoContinuationSafe: boolean;
+        capabilityId: string;
+        input: Record<string, unknown>;
+        requiresConfirmation: boolean;
+      };
+      nextSuggestedCapability: string | null;
+      productStatus: string;
+      reviewMessageAlreadyExists: boolean;
+    }>(
+      request({
+        capabilityId: "queue.review.createMessage",
+        input: { taskId: "task-review" },
+      }),
+    );
+
+    expect(result.status).toBe("already_exists");
+    expect(result.result.reasonCode).toBe("review_message_already_exists");
+    expect(result.result.output).toMatchObject({
+      blockerCode: "review_message_already_exists",
+      existingReviewMessageId: "queue-review-message-existing",
+      messageId: "queue-review-message-existing",
+      nextAction: {
+        autoContinuationSafe: true,
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "queue-review-message-existing",
+          taskId: "task-review",
+        },
+        moduleId: "queue",
+        requiresConfirmation: false,
+      },
+      nextSuggestedCapability: "queue.review.ack",
+      productStatus: "already_exists",
+      reviewMessageAlreadyExists: true,
+    });
+    expect(result.result.output?.nextAction.input).not.toHaveProperty(
+      "reviewMessageId",
+    );
+  });
+
+  it("acknowledges review messages through backend bridge command", async () => {
+    const ackReviewMessage = vi.fn(async () =>
+      reviewCommandResult({
+        aggregate: queueAggregate({
+          nextActions: [
+            {
+              available: false,
+              code: "none",
+              label: "No action",
+              unavailableReason: "in_review",
+            },
+          ],
+          reviewState: "in_review",
+          taskId: "task-review",
+          ticketState: "in_review",
+        }),
+        messageId: "review-message-1",
+        status: "acknowledged",
+      }),
+    );
+    const result = await createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ ackReviewMessage }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    }).invokeAsync<{
+      messageId: string;
+      queueMutation: string;
+      reviewState: string;
+      ticketState: string;
+    }>(
+      request({
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "review-message-1",
+          taskId: "task-review",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(ackReviewMessage).toHaveBeenCalledWith({
+      actorId: "test.agentA",
+      messageId: "review-message-1",
+      taskId: "task-review",
+    });
+    expect(result.result.output).toMatchObject({
+      messageId: "review-message-1",
+      nextAction: {
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-review" },
+      },
+      nextSuggestedCapability: "queue.lifecycle.get",
+      queueMutation: "backend_domain",
+      reviewState: "in_review",
+      ticketState: "in_review",
+    });
+    expect(result.result.output).not.toMatchObject({
+      nextAction: { capabilityId: "queue.item.markDone" },
+    });
+  });
+
+  it("handles aggregate read not found and unavailable states cleanly", async () => {
+    const notFoundBroker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getItemAggregate: vi.fn(async () => null) }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+    const unavailableBroker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            listItemAggregates: vi.fn(async () => {
+              throw new Error("Aggregate command unavailable.");
+            }),
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const notFound = await notFoundBroker.invokeAsync(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "missing-task" },
+      }),
+    );
+    const unavailable = await unavailableBroker.invokeAsync(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(notFound.status).toBe("precondition_failed");
+    expect(notFound.result.reasonCode).toBe("precondition_failed");
+    expect(notFound.result.message).toBe('Queue item "missing-task" was not found.');
+    expect(unavailable.status).toBe("unavailable");
+    expect(unavailable.result.message).toBe("Aggregate command unavailable.");
   });
 
   it("invokes typed Queue run-control capabilities through the injected bridge", async () => {
@@ -449,6 +2982,23 @@ describe("queueAgentCapabilities invoke", () => {
           status: input.patch.status === "queued" ? "queued" : "draft",
         }),
     );
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        executionWorkspace: "C:/repo",
+        nextActions: [
+          {
+            available: true,
+            code: "promote_draft",
+            label: "Promote draft",
+            unavailableReason: null,
+          },
+        ],
+        sandbox: "workspace_write",
+        taskId: "task-1",
+      }),
+    ]);
     const enableQueue = vi.fn(async () => ({
       didAutoRunWorkers: false as const,
       didStartWorkers: false as const,
@@ -485,6 +3035,7 @@ describe("queueAgentCapabilities invoke", () => {
               },
             ],
             getSnapshot,
+            listItemAggregates,
             startQueueLinkedRun,
             updateItem,
           }),
@@ -536,7 +3087,7 @@ describe("queueAgentCapabilities invoke", () => {
     }>(
       request({
         capabilityId: "queue.item.startRun",
-        confirmationToken: "confirmed",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
         input: {
           executorWidgetId: "executor-1",
           taskId: "task-1",
@@ -568,6 +3119,11 @@ describe("queueAgentCapabilities invoke", () => {
     expect(startResult.status).toBe("succeeded");
     expect(startResult.result.output).toMatchObject({
       executorWidgetId: "executor-1",
+      nextAction: {
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-1" },
+      },
+      nextSuggestedCapability: "queue.lifecycle.get",
       queueItemId: "task-1",
       runId: "run-1",
     });
@@ -578,7 +3134,25 @@ describe("queueAgentCapabilities invoke", () => {
     });
   });
 
-  it("keeps queued runnable items out of the final-status blocker path", async () => {
+  it("routes runnable backend aggregate next action to queue.enable while Queue is disabled", async () => {
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        approvalPolicy: "on_request",
+        codexExecutable: "codex.cmd",
+        executionWorkspace: "C:/repo",
+        nextActions: [
+          {
+            available: true,
+            code: "start_run",
+            label: "Start run",
+            unavailableReason: null,
+          },
+        ],
+        sandbox: "workspace_write",
+        taskId: "task-disabled",
+        ticketState: "queued",
+      }),
+    ]);
     const broker = createHobitAgentActionBroker({
       handlers: createQueueAgentActionHandlers(
         createWorkspaceAgentQueueBridgeAdapterApi(
@@ -590,29 +3164,821 @@ describe("queueAgentCapabilities invoke", () => {
                 widgetInstanceId: "executor-1",
               },
             ],
-            getSnapshot: vi.fn(async () =>
-              queueBridgeSnapshotResult({
-                itemCounts: { total: 2 } as QueueWidgetSnapshot["itemCounts"],
-                items: [
-                  queueBridgeSnapshotItem({
-                    approvalPolicy: "never",
-                    codexExecutable: "codex.cmd",
-                    executionWorkspace: "C:/repo",
-                    id: "queued-task",
-                    sandbox: "workspace_write",
-                    status: "queued",
-                  }),
-                  queueBridgeSnapshotItem({
-                    approvalPolicy: "never",
-                    codexExecutable: "codex.cmd",
-                    executionWorkspace: "C:/repo",
-                    id: "completed-task",
-                    sandbox: "workspace_write",
-                    status: "completed",
-                  }),
-                ],
-              }),
-            ),
+            getQueueControlState: () => ({
+              globalExecutionState: "stopped",
+              queueEnabled: false,
+            }),
+            listItemAggregates,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      items: Array<{
+        blockers: Array<{ code: string; message: string }>;
+        blockerReasons: string[];
+        canStart: boolean;
+        nextAction?: {
+          capabilityId: string;
+          input: Record<string, unknown>;
+        };
+        nextActions: Array<{ code: string; suggestedCapability?: string | null }>;
+        nextSuggestedCapability?: string | null;
+        taskId: string;
+      }>;
+      nextAction?: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output?.nextAction).toMatchObject({
+      capabilityId: "queue.enable",
+      input: {},
+    });
+    expect(result.result.output?.nextSuggestedCapability).toBe("queue.enable");
+    expect(result.result.output?.items[0]).toMatchObject({
+      blockerReasons: ["Queue disabled."],
+      blockers: [{ code: "queue_disabled", message: "Queue disabled." }],
+      canStart: false,
+      nextAction: {
+        capabilityId: "queue.enable",
+        input: {},
+      },
+      nextSuggestedCapability: "queue.enable",
+      taskId: "task-disabled",
+    });
+    expect(result.result.output?.items[0]?.nextActions).toContainEqual(
+      expect.objectContaining({
+        code: "start_run",
+        suggestedCapability: "queue.enable",
+      }),
+    );
+  });
+
+  it("does not choose a top-level nextAction when queue.items.list returns multiple setup candidates", async () => {
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        approvalPolicy: null,
+        codexExecutable: null,
+        executionWorkspace: null,
+        nextActions: [
+          {
+            available: true,
+            code: "update_run_settings",
+            label: "Update run settings",
+            unavailableReason: null,
+          },
+        ],
+        sandbox: null,
+        taskId: "task-a",
+        ticketState: "draft",
+      }),
+      queueAggregate({
+        approvalPolicy: null,
+        codexExecutable: null,
+        executionWorkspace: null,
+        nextActions: [
+          {
+            available: true,
+            code: "update_run_settings",
+            label: "Update run settings",
+            unavailableReason: null,
+          },
+        ],
+        sandbox: null,
+        taskId: "task-b",
+        ticketState: "draft",
+      }),
+    ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ listItemAggregates }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      candidateTaskIds?: string[];
+      nextAction?: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
+      nextActionUnavailable?: {
+        ambiguousCandidateIds?: string[];
+        reasonCode: string;
+      };
+      nextActionUnavailableCode?: string;
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output?.nextAction).toBeUndefined();
+    expect(result.result.output).toMatchObject({
+      candidateTaskIds: ["task-a", "task-b"],
+      nextActionUnavailable: {
+        ambiguousCandidateIds: ["task-a", "task-b"],
+        reasonCode: "ambiguous_next_action",
+      },
+      nextActionUnavailableCode: "ambiguous_next_action",
+      nextSuggestedCapability: "queue.item.updateRunSettings",
+    });
+  });
+
+  it("keeps backend dependency-waiting aggregate out of startRun and queue.enable suggestions", async () => {
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        blockers: [
+          {
+            code: "dependency_waiting",
+            message: "At least one dependency has not reached accepted completion.",
+          },
+        ],
+        dependencyState: "waiting",
+        nextActions: [
+          {
+            available: false,
+            code: "none",
+            label: "No action",
+            unavailableReason: "dependencies_not_ready",
+          },
+        ],
+        taskId: "task-dependent",
+        ticketState: "queued",
+      }),
+    ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              globalExecutionState: "stopped",
+              queueEnabled: false,
+            }),
+            listItemAggregates,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      items: Array<{
+        blockerReasons: string[];
+        canStart: boolean;
+        dependencyState: string;
+        nextAction?: {
+          capabilityId: string;
+          input: Record<string, unknown>;
+        };
+        nextActions: Array<{ code: string; suggestedCapability?: string | null }>;
+        nextSuggestedCapability?: string | null;
+        taskId: string;
+      }>;
+      nextAction?: {
+        capabilityId: string;
+        input: Record<string, unknown>;
+      };
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output?.nextAction).toBeUndefined();
+    expect(result.result.output?.nextSuggestedCapability).toBeNull();
+    expect(result.result.output?.items[0]).toMatchObject({
+      blockerReasons: [
+        "At least one dependency has not reached accepted completion.",
+      ],
+      canStart: false,
+      dependencyState: "waiting",
+      nextSuggestedCapability: null,
+      taskId: "task-dependent",
+    });
+    expect(result.result.output?.items[0]).not.toHaveProperty("nextAction");
+    expect(result.result.output?.items[0]?.nextActions).toContainEqual(
+      expect.objectContaining({
+        code: "none",
+        suggestedCapability: null,
+      }),
+    );
+  });
+
+  it("keeps backend dependency-waiting draft out of promoteDraft suggestions", async () => {
+    const getItemAggregate = vi.fn(async ({ taskId }: { taskId: string }) =>
+      queueAggregate({
+        blockers: [
+          {
+            code: "dependency_waiting",
+            message: "At least one dependency has not reached accepted completion.",
+          },
+        ],
+        dependencyState: "waiting",
+        nextActions: [
+          {
+            available: false,
+            code: "none",
+            label: "No action",
+            unavailableReason: "dependencies_not_ready",
+          },
+        ],
+        taskId,
+        ticketState: "draft",
+      }),
+    );
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ getItemAggregate }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      aggregate: {
+        canPromote: boolean;
+      };
+      dependencyState: string;
+      nextSuggestedCapability: string | null;
+    }>(
+      request({
+        capabilityId: "queue.lifecycle.get",
+        input: { taskId: "task-dependent-draft" },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output).toMatchObject({
+      aggregate: {
+        canPromote: false,
+      },
+      dependencyState: "waiting",
+      nextSuggestedCapability: null,
+    });
+  });
+
+  it("uses downstream readiness after backend accepted completion clears dependency waiting", async () => {
+    const listItemAggregates = vi
+      .fn()
+      .mockResolvedValueOnce([
+        queueAggregate({
+          blockers: [
+            {
+              code: "missing_codex_executable",
+              message: "Codex executable is required before running.",
+            },
+          ],
+          codexExecutable: null,
+          dependencyState: "ready",
+          nextActions: [
+            {
+              available: true,
+              code: "update_run_settings",
+              label: "Update run settings",
+              unavailableReason: null,
+            },
+          ],
+          taskId: "task-ready-missing-settings",
+          ticketState: "queued",
+        }),
+      ])
+      .mockResolvedValueOnce([
+        queueAggregate({
+          dependencyState: "ready",
+          nextActions: [
+            {
+              available: true,
+              code: "start_run",
+              label: "Start run",
+              unavailableReason: null,
+            },
+          ],
+          taskId: "task-ready-runnable",
+          ticketState: "queued",
+        }),
+      ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getQueueControlState: () => ({
+              globalExecutionState: "started",
+              queueEnabled: true,
+            }),
+            listItemAggregates,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const missingSettings = await broker.invokeAsync<{
+      items: Array<{ nextSuggestedCapability?: string | null; taskId: string }>;
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+    const runnable = await broker.invokeAsync<{
+      items: Array<{ nextSuggestedCapability?: string | null; taskId: string }>;
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(missingSettings.result.output?.items[0]).toMatchObject({
+      nextSuggestedCapability: "queue.item.updateRunSettings",
+      taskId: "task-ready-missing-settings",
+    });
+    expect(runnable.result.output?.items[0]).toMatchObject({
+      nextSuggestedCapability: "queue.item.startRun",
+      taskId: "task-ready-runnable",
+    });
+  });
+
+  it("returns queue.enable after run settings make a queued task runnable while Queue is disabled", async () => {
+    const getSnapshot = vi.fn(async () =>
+      queueBridgeSnapshotResult({
+        items: [
+          queueBridgeSnapshotItem({
+            approvalPolicy: "on_request",
+            codexExecutable: "codex.cmd",
+            executionWorkspace: "C:/repo",
+            id: "task-disabled",
+            sandbox: "workspace_write",
+            status: "queued",
+          }),
+        ],
+        selectedItem: queueBridgeSnapshotItem({
+          approvalPolicy: "on_request",
+          codexExecutable: "codex.cmd",
+          executionWorkspace: "C:/repo",
+          id: "task-disabled",
+          sandbox: "workspace_write",
+          status: "queued",
+        }),
+        selectedItemId: "task-disabled",
+      }),
+    );
+    const updateItem = vi.fn(
+      async (input: Parameters<WorkspaceAgentQueueBridge["updateItem"]>[0]) =>
+        queueBridgeItemResult({
+          approvalPolicy: "on_request",
+          codexExecutable: input.patch.codexExecutable ?? "codex.cmd",
+          executionWorkspace: "C:/repo",
+          id: input.itemId,
+          sandbox: "workspace_write",
+          status: "queued",
+        }),
+    );
+    const enableQueue = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            enableQueue,
+            getAvailableExecutorTargets: () => [
+              {
+                label: "Local executor ready",
+                ownerKind: "agent_queue",
+                widgetInstanceId: "executor-1",
+              },
+            ],
+            getQueueControlState: () => ({
+              globalExecutionState: "stopped",
+              queueEnabled: false,
+            }),
+            getSnapshot,
+            updateItem,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      item: {
+        blockers?: Array<{ code: string; message: string }>;
+        blockerReasons: string[];
+        canStart: boolean;
+        nextSuggestedCapability?: string | null;
+      };
+      nextSuggestedCapability?: string | null;
+    }>(
+      request({
+        capabilityId: "queue.item.updateRunSettings",
+        input: {
+          codexExecutable: "codex.cmd",
+          taskId: "task-disabled",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output?.nextSuggestedCapability).toBe("queue.enable");
+    expect(result.result.output?.item).toMatchObject({
+      blockerReasons: ["Queue disabled."],
+      blockers: [{ code: "queue_disabled", message: "Queue disabled." }],
+      canStart: false,
+      nextSuggestedCapability: "queue.enable",
+    });
+    expect(enableQueue).not.toHaveBeenCalled();
+  });
+
+  it("keeps startRun blocked while Queue is disabled and does not auto-enable", async () => {
+    const enableQueue = vi.fn();
+    const startQueueLinkedRun = vi.fn(async () => ({
+      blockerReasons: ["Queue disabled."],
+      message: "Queue disabled.",
+      ok: false,
+      status: "blocked" as const,
+    }));
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            enableQueue,
+            getQueueControlState: () => ({
+              backendOwned: true,
+              globalExecutionState: "stopped",
+              queueEnabled: false,
+              status: "disabled",
+              version: 1,
+            }),
+            startQueueLinkedRun,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      blockers: Array<{ code: string; message: string }>;
+      blockerReasons: string[];
+      nextSuggestedCapability?: string | null;
+      queueEnabled: boolean;
+      startedDirectWork: boolean;
+    }>(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-disabled",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("blocked_actionable");
+    expect(result.result.reasonCode).toBe("queue_disabled");
+    expect(result.result.message).toBe("Queue disabled.");
+    expect(result.result.output).toMatchObject({
+      blockers: [{ code: "queue_disabled", message: "Queue disabled." }],
+      blockerReasons: ["Queue disabled."],
+      nextSuggestedCapability: "queue.enable",
+      queueEnabled: false,
+      startedDirectWork: false,
+    });
+    expect(startQueueLinkedRun).toHaveBeenCalledTimes(1);
+    expect(enableQueue).not.toHaveBeenCalled();
+  });
+
+  it("suggests startRun after explicit queue.enable succeeds", async () => {
+    const enableQueue = vi.fn(async () => ({
+      backendOwned: true,
+      didAutoRunWorkers: false as const,
+      didStartWorkers: false as const,
+      globalExecutionState: "started",
+      message: "Queue enabled.",
+      ok: true,
+      queueControlStatus: "manual_enabled" as const,
+      queueEnabled: true,
+      status: "enabled" as const,
+      version: 2,
+    }));
+    const startQueueLinkedRun = vi.fn(async () => ({
+      executorWidgetId: "executor-1",
+      message: "Queue-linked Direct Work run started.",
+      ok: true,
+      response: {
+        executorWidgetInstanceId: "executor-1",
+        queueItemId: "task-1",
+        runId: "run-1",
+        status: "running",
+        workbenchId: "workbench-1",
+        workspaceId: "workspace-1",
+      },
+      status: "started" as const,
+    }));
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            enableQueue,
+            getQueueControlState: () => ({
+              globalExecutionState: "started",
+              queueEnabled: true,
+            }),
+            startQueueLinkedRun,
+          }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const enableResult = await broker.invokeAsync<{
+      nextSuggestedCapability?: string | null;
+      queueEnabled: boolean;
+    }>(
+      request({
+        capabilityId: "queue.enable",
+        input: {},
+      }),
+    );
+    const startResult = await broker.invokeAsync<{ runId: string }>(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(enableResult.status).toBe("succeeded");
+    expect(enableResult.result.output).toMatchObject({
+      backendOwned: true,
+      nextSuggestedCapability: "queue.item.startRun",
+      queueControlStatus: "manual_enabled",
+      queueEnabled: true,
+      version: 2,
+    });
+    expect(startResult.status).toBe("succeeded");
+    expect(startResult.result.output).toMatchObject({ runId: "run-1" });
+    expect(enableQueue).toHaveBeenCalledTimes(1);
+    expect(startQueueLinkedRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("accepts only exact Queue run-settings enum values", () => {
+    const adapter = fakeQueueAdapter();
+    adapter.updateRunSettings = vi.fn(
+      (
+        input: Parameters<
+          NonNullable<QueueAgentAdapterApi["updateRunSettings"]>
+        >[0],
+      ) => ({
+      message: "Queue run settings updated",
+      output: {
+        appliedFields: Object.keys(input).filter((field) => field !== "taskId"),
+        item: {
+          blockerReasons: [],
+          canPromote: false,
+          canStart: true,
+          draftState: "not_draft" as const,
+          hasApprovalPolicy: true,
+          hasCodexExecutable: true,
+          hasPrompt: true,
+          hasSandbox: true,
+          hasWorkspace: true,
+          readinessState: "runnable" as const,
+          status: "queued",
+          taskId: input.taskId,
+          title: "Queue task",
+        },
+        taskId: input.taskId,
+      },
+      status: "succeeded" as const,
+    }),
+    );
+    const broker = createQueueBroker(adapter, { allowWriteInvoke: true });
+
+    for (const sandbox of QUEUE_RUN_SANDBOX_VALUES) {
+      const result = broker.invoke(
+        request({
+          capabilityId: "queue.item.updateRunSettings",
+          input: { sandbox, taskId: `task-${sandbox}` },
+        }),
+      );
+
+      expect(result.status).toBe("succeeded");
+    }
+
+    for (const approvalPolicy of QUEUE_RUN_APPROVAL_POLICY_VALUES) {
+      const result = broker.invoke(
+        request({
+          capabilityId: "queue.item.updateRunSettings",
+          input: { approvalPolicy, taskId: `task-${approvalPolicy}` },
+        }),
+      );
+
+      expect(result.status).toBe("succeeded");
+    }
+
+    for (const sandbox of [
+      "workspace-write",
+      "workspaceWrite",
+      "default",
+      "",
+    ]) {
+      const result = broker.invoke(
+        request({
+          capabilityId: "queue.item.updateRunSettings",
+          input: { sandbox, taskId: "task-invalid-sandbox" },
+        }),
+      );
+
+      expect(result.status).toBe("invalid_input");
+      expect(result.result.message).toContain("sandbox must be one of");
+    }
+
+    for (const approvalPolicy of [
+      "on-request",
+      "onRequest",
+      "default",
+      "",
+    ]) {
+      const result = broker.invoke(
+        request({
+          capabilityId: "queue.item.updateRunSettings",
+          input: { approvalPolicy, taskId: "task-invalid-approval" },
+        }),
+      );
+
+      expect(result.status).toBe("invalid_input");
+      expect(result.result.message).toContain(
+        "approvalPolicy must be one of",
+      );
+    }
+
+    expect(adapter.updateRunSettings).toHaveBeenCalledTimes(
+      QUEUE_RUN_SANDBOX_VALUES.length + QUEUE_RUN_APPROVAL_POLICY_VALUES.length,
+    );
+  });
+
+  it("reports missing approvalPolicy as a readiness blocker when absent", async () => {
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        approvalPolicy: null,
+        codexExecutable: "codex.cmd",
+        executionWorkspace: "C:/repo",
+        sandbox: "workspace_write",
+        taskId: "task-missing-approval",
+      }),
+    ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ listItemAggregates }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const result = await broker.invokeAsync<{
+      items: Array<{ blockerReasons: string[]; taskId: string }>;
+    }>(
+      request({
+        capabilityId: "queue.items.list",
+        input: { limit: 10 },
+      }),
+    );
+
+    expect(result.status).toBe("succeeded");
+    expect(result.result.output?.items[0]).toMatchObject({
+      blockerReasons: expect.arrayContaining(["Missing approval policy."]),
+      taskId: "task-missing-approval",
+    });
+  });
+
+  it("keeps queued runnable items out of the final-status blocker path", async () => {
+    const getSnapshot = vi.fn(async () => queueBridgeSnapshotResult());
+    const listItemAggregates = vi.fn(async () => [
+      queueAggregate({
+        approvalPolicy: "never",
+        codexExecutable: "codex.cmd",
+        executionWorkspace: "C:/repo",
+        nextActions: [
+          {
+            available: true,
+            code: "start_run",
+            label: "Start run",
+            unavailableReason: null,
+          },
+        ],
+        sandbox: "workspace_write",
+        taskId: "queued-task",
+        ticketState: "queued",
+      }),
+      queueAggregate({
+        approvalPolicy: "never",
+        blockers: [
+          {
+            code: "final_status",
+            message: "Final-status Queue items cannot be started.",
+          },
+        ],
+        codexExecutable: "codex.cmd",
+        executionWorkspace: "C:/repo",
+        nextActions: [],
+        sandbox: "workspace_write",
+        taskId: "completed-task",
+        ticketState: "completed",
+      }),
+    ]);
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({
+            getAvailableExecutorTargets: () => [
+              {
+                label: "Local executor ready",
+                ownerKind: "agent_queue",
+                widgetInstanceId: "executor-1",
+              },
+            ],
+            getSnapshot,
+            listItemAggregates,
           }),
         ),
       ),
@@ -663,6 +4029,8 @@ describe("queueAgentCapabilities invoke", () => {
     expect(completedItem?.blockerReasons).toContain(
       "Final-status Queue items cannot be started.",
     );
+    expect(listItemAggregates).toHaveBeenCalledTimes(1);
+    expect(getSnapshot).not.toHaveBeenCalled();
   });
 
   it("returns a blocked start result without claiming success when the bridge cannot start", async () => {
@@ -690,7 +4058,7 @@ describe("queueAgentCapabilities invoke", () => {
     const result = await broker.invokeAsync(
       request({
         capabilityId: "queue.item.startRun",
-        confirmationToken: "confirmed",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
         input: {
           executorWidgetId: "executor-1",
           taskId: "task-1",
@@ -698,7 +4066,8 @@ describe("queueAgentCapabilities invoke", () => {
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("precondition_failed");
+    expect(result.result.reasonCode).toBe("precondition_failed");
     expect(result.result.message).toBe("Local executor unavailable.");
     expect(result.result.output).not.toMatchObject({
       startedDirectWork: true,
@@ -738,16 +4107,20 @@ describe("queueAgentCapabilities invoke", () => {
     const missingTaskId = await broker.invokeAsync(
       request({
         capabilityId: "queue.item.startRun",
-        confirmationToken: "confirmed",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
         input: { executorWidgetId: "executor-1" },
       }),
     );
 
     expect(whitespaceExecutable.status).toBe("invalid_input");
+    expect(whitespaceExecutable.result.fieldPath).toBe("input.codexExecutable");
+    expect(whitespaceExecutable.result.reasonCode).toBe("invalid_payload");
     expect(whitespaceExecutable.result.message).toContain(
       "codexExecutable must be a non-empty string",
     );
     expect(missingTaskId.status).toBe("invalid_input");
+    expect(missingTaskId.result.fieldPath).toBe("input.taskId");
+    expect(missingTaskId.result.reasonCode).toBe("invalid_payload");
     expect(missingTaskId.result.message).toBe(
       "queue.item.startRun requires taskId.",
     );
@@ -755,7 +4128,142 @@ describe("queueAgentCapabilities invoke", () => {
     expect(startQueueLinkedRun).not.toHaveBeenCalled();
   });
 
-  it("returns failed when dependencies cannot be represented by the injected adapter", () => {
+  it("requires exact structured startRun confirmation and never infers it from prose", async () => {
+    const startQueueLinkedRun = vi.fn(async () => ({
+      executorWidgetId: "executor-1",
+      message: "Queue-linked Direct Work run started.",
+      ok: true,
+      response: {
+        executorWidgetInstanceId: "executor-1",
+        queueItemId: "task-1",
+        runId: "run-1",
+        status: "running",
+        workbenchId: "workbench-1",
+        workspaceId: "workspace-1",
+      },
+      status: "started" as const,
+    }));
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ startQueueLinkedRun }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const missingConfirmation = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.startRun",
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        },
+      }),
+    );
+    const proseOnlyConfirmation = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.startRun",
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        },
+        reason: "I confirm. Start task-1 with executor-1.",
+      }),
+    );
+    const malformedConfirmation = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: "confirmed",
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        },
+      }),
+    );
+    const exactConfirmation = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          executorWidgetId: "executor-1",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(missingConfirmation.status).toBe("needs_confirmation");
+    expect(proseOnlyConfirmation.status).toBe("needs_confirmation");
+    expect(malformedConfirmation.status).toBe("invalid_input");
+    expect(malformedConfirmation.result.message).toContain(
+      `confirmationToken "${QUEUE_START_RUN_CONFIRMATION_TOKEN}"`,
+    );
+    expect(exactConfirmation.status).toBe("succeeded");
+    expect(startQueueLinkedRun).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not infer startRun taskId or executorWidgetId from prose or UI aliases", async () => {
+    const startQueueLinkedRun = vi.fn();
+    const broker = createHobitAgentActionBroker({
+      handlers: createQueueAgentActionHandlers(
+        createWorkspaceAgentQueueBridgeAdapterApi(
+          queueBridge({ startQueueLinkedRun }),
+        ),
+      ),
+      policy: {
+        requireDryRunBeforeSideEffectingInvoke: false,
+      },
+      registry: createHobitAgentCapabilityRegistry([
+        ...HOBIT_TEST_AGENT_CAPABILITIES,
+        ...HOBIT_AGENT_INITIAL_CAPABILITIES,
+      ]),
+    });
+
+    const inferredTask = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          executorWidgetId: "executor-1",
+          reason: "I confirm task task-1.",
+          selectedTaskId: "task-1",
+          taskTitle: "Task 1",
+        },
+      }),
+    );
+    const inferredExecutor = await broker.invokeAsync(
+      request({
+        capabilityId: "queue.item.startRun",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          executorLabel: "Local executor ready",
+          reason: "I confirm executor executor-1.",
+          selectedExecutorWidgetId: "executor-1",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(inferredTask.status).toBe("invalid_input");
+    expect(inferredTask.result.message).toBe(
+      "queue.item.startRun requires taskId.",
+    );
+    expect(inferredExecutor.status).toBe("invalid_input");
+    expect(inferredExecutor.result.fieldPath).toBe("input.executorWidgetId");
+    expect(inferredExecutor.result.reasonCode).toBe("invalid_payload");
+    expect(inferredExecutor.result.message).toBe(
+      "queue.item.startRun requires executorWidgetId.",
+    );
+    expect(startQueueLinkedRun).not.toHaveBeenCalled();
+  });
+
+  it("returns unavailable when dependencies cannot be represented by the injected adapter", () => {
     const result = createQueueBroker(
       fakeQueueAdapter({ supportsDependencyEdges: false }),
       { allowWriteInvoke: true },
@@ -765,13 +4273,19 @@ describe("queueAgentCapabilities invoke", () => {
         input: {
           items: [
             { id: "a", prompt: "A", title: "A" },
-            { dependencies: ["a"], id: "b", prompt: "B", title: "B" },
+            {
+              dependsOn: ["queue-existing-upstream"],
+              id: "b",
+              prompt: "B",
+              title: "B",
+            },
           ],
         },
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("unavailable");
+    expect(result.result.reasonCode).toBe("capability_unavailable");
     expect(result.result.message).toContain("dependency edges are not supported");
   });
 });
@@ -819,7 +4333,7 @@ describe("queueAgentCapabilities prompt pack", () => {
     const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke(
       request({
         capabilityId: "queue.importPromptPack",
-        confirmationToken: "confirmed",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
         input: { sourceText: promptPackSourceText() },
       }),
     );
@@ -833,6 +4347,23 @@ describe("queueAgentCapabilities prompt pack", () => {
     expect(adapter.lastImportInput).toMatchObject({
       sourceText: promptPackSourceText(),
     });
+  });
+
+  it("rejects malformed structured confirmation for prompt-pack import", () => {
+    const adapter = fakeQueueAdapter();
+    const result = createQueueBroker(adapter, { allowWriteInvoke: true }).invoke(
+      request({
+        capabilityId: "queue.importPromptPack",
+        confirmationToken: "confirmed",
+        input: { sourceText: promptPackSourceText() },
+      }),
+    );
+
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.message).toContain(
+      `confirmationToken "${QUEUE_START_RUN_CONFIRMATION_TOKEN}"`,
+    );
+    expect(adapter.importPromptPack).not.toHaveBeenCalled();
   });
 });
 
@@ -947,6 +4478,31 @@ describe("queueAgentCapabilities self-test and architecture safety", () => {
     expect(source).not.toContain("classify");
     expect(workspaceAgentSource).not.toContain("createQueueAgentActionHandlers");
     expect(workspaceAgentSource).not.toContain("createHobitAgentActionBroker");
+  });
+
+  it("keeps backend-backed Queue broker capabilities isolated from Queue UI modules", () => {
+    const backendPathSources = [
+      "workbench/agents/adapters/queueBackendCapabilityPort.ts",
+      "workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts",
+      "workbench/agents/adapters/queueAgentDogfoodLifecycleCapabilities.ts",
+      ...queueBridgeSourcePaths(),
+    ].map(frontendSource);
+    const forbiddenImports = [
+      "AgentQueueV2Board",
+      "AgentQueuePlaceholderWidget",
+      "queue/details/",
+      "queueV2/",
+      "QueueV2",
+      "smartQueueDogfoodLifecycleController",
+      "queueReviewEvidenceViewModel",
+      "queueReviewEvidenceActions",
+    ];
+
+    for (const source of backendPathSources) {
+      for (const forbiddenImport of forbiddenImports) {
+        expect(source).not.toContain(forbiddenImport);
+      }
+    }
   });
 });
 
@@ -1087,11 +4643,13 @@ function request({
   confirmationToken = null,
   dryRun = false,
   input = {},
+  reason = null,
 }: {
   capabilityId: string;
   confirmationToken?: string | null;
   dryRun?: boolean;
   input?: unknown;
+  reason?: string | null;
 }) {
   return createActionRequest({
     agentId: "test.agentA",
@@ -1101,6 +4659,7 @@ function request({
     createdAt: "2026-06-15T10:00:00.000Z",
     dryRun,
     input,
+    reason,
     requestId: `request-${capabilityId}`,
   });
 }
@@ -1134,6 +4693,199 @@ function promptPackSourceText() {
   });
 }
 
+function workflowRun(
+  overrides: Partial<AgentQueueWorkflowRun> = {},
+): AgentQueueWorkflowRun {
+  return {
+    actionLogSummaryJson: JSON.stringify({
+      missingCapabilities: ["queue.workflow.debug.read"],
+      nextAction: { capabilityId: "queue.workflow.planResume" },
+      nextPhase: "review",
+    }),
+    actorId: "workspace-agent:test",
+    blockerReason: null,
+    completedAt: null,
+    createdAt: "2026-06-23T12:00:00.000Z",
+    currentStep: "record_worker_evidence",
+    grantSummaryJson: null,
+    idempotencyKeysJson: null,
+    inputsSnapshotJson: null,
+    mutationRefsJson: null,
+    pauseReason: null,
+    phase: "worker_evidence",
+    requestHash: "workflow-request-hash",
+    requestId: "workflow-request-1",
+    schemaVersion: 1,
+    slotBindingsJson: JSON.stringify({
+      upstream: {
+        completionDecisionId: "completion-decision-1",
+        confirmationToken: "operator-confirmed",
+        evidenceBundleId: "evidence-bundle-1",
+        failureDecisionId: "failure-decision-1",
+        messageId: "review-message-1",
+        runId: "run-upstream-1",
+        taskId: "task-upstream",
+      },
+    }),
+    status: "paused",
+    updatedAt: "2026-06-23T12:10:00.000Z",
+    variablesJson: JSON.stringify({
+      confirmationToken: "operator-confirmed",
+      workerOutcome: "completed",
+    }),
+    version: 7,
+    workflowId: "dependency_acceptance_smoke",
+    workflowRunId: "workflow-run-1",
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
+}
+
+function workflowAction(
+  overrides: Partial<AgentQueueWorkflowAction> = {},
+): AgentQueueWorkflowAction {
+  return {
+    actionId: "workflow-action-1",
+    actionType: "materialize_task_slot",
+    attemptCount: 1,
+    blockerCode: null,
+    blockerMessage: null,
+    completedAt: "2026-06-23T12:02:00.000Z",
+    createdAt: "2026-06-23T12:01:00.000Z",
+    idempotencyKey: "workflow-run-1:upstream:materialize",
+    resultRefsJson: JSON.stringify({
+      confirmationToken: "operator-confirmed",
+      rawProviderTranscript: "raw provider transcript",
+      slot: "upstream",
+      taskId: "task-upstream",
+    }),
+    startedAt: "2026-06-23T12:01:00.000Z",
+    status: "completed",
+    stepId: "materialize_upstream",
+    targetRefsJson: JSON.stringify({
+      slot: "upstream",
+    }),
+    updatedAt: "2026-06-23T12:02:00.000Z",
+    workflowRunId: "workflow-run-1",
+    workspaceId: "workspace-1",
+    ...overrides,
+  };
+}
+
+function workflowReport(
+  overrides: Partial<AgentQueueWorkflowReport> = {},
+): AgentQueueWorkflowReport {
+  return {
+    actions: [
+      workflowAction(),
+      workflowAction({
+        actionId: "workflow-action-2",
+        actionType: "record_worker_evidence",
+        idempotencyKey: "workflow-run-1:upstream:worker-evidence",
+        resultRefsJson: JSON.stringify({
+          completionDecisionId: "completion-decision-1",
+          evidenceBundleId: "evidence-bundle-1",
+          failureDecisionId: "failure-decision-1",
+          messageId: "review-message-1",
+          runId: "run-upstream-1",
+          slot: "upstream",
+        }),
+        stepId: "record_worker_evidence",
+        targetRefsJson: JSON.stringify({
+          runId: "run-upstream-1",
+          slot: "upstream",
+          taskId: "task-upstream",
+        }),
+      }),
+    ],
+    reportSummary: "Queue workflow runner report. Status: paused.",
+    resumeAvailable: true,
+    resumeStatus: "plan_required",
+    workflowRun: workflowRun(),
+    ...overrides,
+  };
+}
+
+function workflowResumePlan(
+  overrides: Partial<AgentQueueWorkflowResumePlan> = {},
+): AgentQueueWorkflowResumePlan {
+  return {
+    actions: workflowReport().actions,
+    blockers: [
+      {
+        blockerCode: "waiting_for_review_ack",
+        blockerMessage: "Review message must be acknowledged before finalization.",
+        completionDecisionId: null,
+        evidenceBundleId: "evidence-bundle-1",
+        failureDecisionId: null,
+        messageId: "review-message-1",
+        missingRequiredField: null,
+        runId: "run-upstream-1",
+        slot: "upstream",
+        taskId: "task-upstream",
+      },
+    ],
+    nextPhase: "review",
+    nextStep: "ack_review_message",
+    reconciledVariablesJson: JSON.stringify({
+      upstream: {
+        taskId: "task-upstream",
+      },
+    }),
+    reportSummary: "Queue workflow resume plan. Status: resume_read_only_ready.",
+    requiredConfirmation: false,
+    requiredFreshGrant: true,
+    resumeAvailable: true,
+    slotReconciliations: [
+      {
+        aggregateDependencyState: "none",
+        aggregateEvidenceState: "available",
+        aggregateReviewState: "awaiting_review",
+        aggregateTicketState: "awaiting_review",
+        blockerCode: null,
+        completionDecisionExists: false,
+        completionDecisionId: "completion-decision-1",
+        evidenceBundleId: "evidence-bundle-1",
+        evidenceExists: true,
+        executorWidgetId: "executor-1",
+        failureDecisionExists: false,
+        failureDecisionId: "failure-decision-1",
+        messageId: "review-message-1",
+        reviewMessageExists: true,
+        reviewMessageStatus: "open",
+        runExists: true,
+        runId: "run-upstream-1",
+        slot: "upstream",
+        taskExists: true,
+        taskId: "task-upstream",
+      },
+    ],
+    status: "resume_read_only_ready",
+    taskSnapshots: [
+      {
+        commitState: "none",
+        dependencyState: "none",
+        evidenceState: "available",
+        latestCompletionDecisionId: "completion-decision-1",
+        latestEvidenceBundleId: "evidence-bundle-1",
+        latestFailureDecisionId: "failure-decision-1",
+        latestReviewMessageId: "review-message-1",
+        latestReviewMessageStatus: "open",
+        latestRunId: "run-upstream-1",
+        latestRunStatus: "completed",
+        reviewState: "awaiting_review",
+        taskId: "task-upstream",
+        ticketState: "awaiting_review",
+        validationState: "passed",
+        workerRunState: "completed",
+      },
+    ],
+    terminalStatus: null,
+    workflowRun: workflowRun(),
+    ...overrides,
+  };
+}
+
 function queueBridge(
   overrides: Partial<WorkspaceAgentQueueBridge> = {},
 ): WorkspaceAgentQueueBridge {
@@ -1143,6 +4895,16 @@ function queueBridge(
     updateItem: vi.fn(async () => queueBridgeItemResult()),
     ...overrides,
   };
+}
+
+function queueBackendPort(
+  overrides: Partial<QueueBackendCapabilityPort>,
+): QueueBackendCapabilityPort {
+  const port = createQueueBackendCapabilityPort(overrides);
+  if (!port) {
+    throw new Error("Expected queue backend test port.");
+  }
+  return port;
 }
 
 function queueBridgeItemResult(
@@ -1216,10 +4978,389 @@ function queueBridgeSnapshotItem(
   } as QueueWidgetItemSnapshot;
 }
 
+function queueAggregate({
+  approvalPolicy = "on_request",
+  assignedExecutorWidgetId = null,
+  blockers = [],
+  codexExecutable = "codex.cmd",
+  commitState = "none",
+  dependencyState = "none",
+  durableFlags,
+  evidenceState = "none",
+  evidenceSummary = null,
+  executionPolicy = "manual",
+  executionWorkspace = "C:/repo",
+  latestRun = null,
+  nextActions = [
+    {
+      available: true,
+      code: "start_run",
+      label: "Start run",
+      unavailableReason: null,
+    },
+  ],
+  reviewState = "not_requested",
+  sandbox = "workspace_write",
+  taskId = "task-1",
+  ticketState = "queued",
+  title = "Queue task",
+  updatedAt = "2026-06-15T10:00:00.000Z",
+  validationState = "not_requested",
+  workerRunState = "not_started",
+  workspaceId = "workspace-1",
+}: Partial<
+  AgentQueueItemAggregate & {
+    approvalPolicy: string | null;
+    assignedExecutorWidgetId: string | null;
+    codexExecutable: string | null;
+    executionPolicy: string;
+    executionWorkspace: string | null;
+    sandbox: string | null;
+  }
+> = {}): AgentQueueItemAggregate {
+  return {
+    blockers,
+    commitState,
+    dependencyState,
+    durableFlags: durableFlags ?? {
+      commitState: commitState !== "not_durable",
+      completionState: ticketState === "done",
+      dependencyState: dependencyState !== "unknown",
+      evidenceState: evidenceState !== "not_durable",
+      failureState: ticketState === "failure",
+      frontendOverlayUsed: false,
+      latestRunLink: Boolean(latestRun),
+      reviewState: reviewState !== "not_durable",
+      taskRow: true,
+      validationState: validationState !== "unknown",
+    },
+    evidenceState,
+    evidenceSummary,
+    latestRun,
+    nextActions,
+    reviewState,
+    runSettings: {
+      approvalPolicy,
+      assignedExecutorWidgetId,
+      codexExecutable,
+      executionPolicy,
+      executionWorkspace,
+      sandbox,
+    },
+    taskId,
+    ticketState,
+    title,
+    updatedAt,
+    validationState,
+    workerRunState,
+    workspaceId,
+  };
+}
+
+function reviewCommandResult({
+  aggregate = queueAggregate(),
+  messageId = "review-message-1",
+  status = "created",
+}: Partial<AgentQueueReviewCommandResult> & {
+  aggregate?: AgentQueueItemAggregate;
+  status?: string;
+} = {}): AgentQueueReviewCommandResult {
+  return {
+    aggregate,
+    durable: true,
+    messageId,
+    reviewMessage: {
+      ackActorId: status === "acknowledged" ? "test.agentA" : null,
+      ackedAt: status === "acknowledged" ? "2026-06-15T10:01:00.000Z" : null,
+      actorId: "test.agentA",
+      createdAt: "2026-06-15T10:00:00.000Z",
+      messageBody: "Ready for review.",
+      messageId,
+      metadataJson: null,
+      runId: null,
+      runLinkId: null,
+      status,
+      taskId: aggregate.taskId,
+      updatedAt: "2026-06-15T10:00:00.000Z",
+      workspaceId: aggregate.workspaceId,
+    },
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function reviewCreateMessageResult({
+  aggregate = queueAggregate(),
+  evidenceBundleId = "bundle-1",
+  messageId = "review-message-1",
+  runId = "run-1",
+  status = "succeeded",
+}: Partial<AgentQueueReviewCreateMessageResult> & {
+  aggregate?: AgentQueueItemAggregate;
+  status?: AgentQueueReviewCreateMessageResult["status"];
+} = {}): AgentQueueReviewCreateMessageResult {
+  const resolvedMessageId = messageId ?? "review-message-1";
+  const command = reviewCommandResult({
+    aggregate,
+    messageId: resolvedMessageId,
+    status: "created",
+  });
+
+  return {
+    aggregate,
+    blocker: null,
+    durable: true,
+    evidenceBundleId,
+    messageId: resolvedMessageId,
+    reviewMessage: command.reviewMessage,
+    runId,
+    status,
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function completionCommandResult({
+  aggregate = queueAggregate({
+    reviewState: "done",
+    ticketState: "done",
+    workerRunState: "completed",
+  }),
+  blocker = null,
+  completionDecision,
+  decisionId = "completion-decision-1",
+  durable = true,
+  evidenceBundleId = "bundle-1",
+  reviewMessageId = "review-message-1",
+  runId = "run-1",
+  status = "succeeded",
+}: Partial<AgentQueueCompletionCommandResult> & {
+  aggregate?: AgentQueueItemAggregate;
+  status?: AgentQueueCompletionCommandResult["status"];
+} = {}): AgentQueueCompletionCommandResult {
+  const resolvedDecision =
+    completionDecision === undefined
+      ? {
+          actorId: "test.agentA",
+          createdAt: "2026-06-15T10:02:00.000Z",
+          decision: "accepted",
+          decisionId: decisionId ?? "completion-decision-1",
+          metadataJson: null,
+          reason: "Operator accepted completion.",
+          reviewMessageId,
+          runId,
+          runLinkId: "link-1",
+          taskId: aggregate.taskId,
+          workspaceId: aggregate.workspaceId,
+        }
+      : completionDecision;
+
+  return {
+    aggregate,
+    blocker,
+    completionDecision: resolvedDecision,
+    decisionId,
+    durable,
+    evidenceBundleId,
+    reviewMessageId,
+    runId,
+    status,
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function failureCommandResult({
+  aggregate = queueAggregate({
+    evidenceState: "available",
+    reviewState: "failed",
+    ticketState: "failure",
+    workerRunState: "failed",
+  }),
+  blocker = null,
+  decisionId = "failure-decision-1",
+  durable = true,
+  evidenceBundleId = "bundle-1",
+  failureDecision,
+  reviewMessageId = "review-message-1",
+  runId = "run-1",
+  status = "succeeded",
+}: Partial<AgentQueueFailureCommandResult> & {
+  aggregate?: AgentQueueItemAggregate;
+  status?: AgentQueueFailureCommandResult["status"];
+} = {}): AgentQueueFailureCommandResult {
+  const resolvedDecision =
+    failureDecision === undefined
+      ? {
+          actorId: "test.agentA",
+          createdAt: "2026-06-15T10:02:00.000Z",
+          decision: "failed",
+          decisionId: decisionId ?? "failure-decision-1",
+          evidenceBundleId,
+          metadataJson: null,
+          reason: "Operator rejected evidence.",
+          reviewMessageId,
+          runId,
+          runLinkId: "link-1",
+          taskId: aggregate.taskId,
+          workspaceId: aggregate.workspaceId,
+        }
+      : failureDecision;
+
+  return {
+    aggregate,
+    blocker,
+    decisionId,
+    durable,
+    evidenceBundleId,
+    failureDecision: resolvedDecision,
+    reviewMessageId,
+    runId,
+    status,
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function reviewCreateMessageBlockedResult({
+  aggregate = queueAggregate({
+    evidenceState: "none",
+    reviewState: "not_requested",
+    ticketState: "draft",
+    workerRunState: "not_started",
+  }),
+  blockerCode = "task_is_draft",
+  blockerMessage = "Draft Queue tasks cannot create review messages.",
+  evidenceBundleId = null,
+  existingMessageId = null,
+  nextSuggestedCapability = "queue.item.updateRunSettings",
+  reviewMessageAlreadyExists = false,
+  runId = null,
+  status = "precondition_failed",
+}: {
+  aggregate?: AgentQueueItemAggregate;
+  blockerCode?: string;
+  blockerMessage?: string;
+  evidenceBundleId?: string | null;
+  existingMessageId?: string | null;
+  nextSuggestedCapability?: string | null;
+  reviewMessageAlreadyExists?: boolean;
+  runId?: string | null;
+  status?: AgentQueueReviewCreateMessageResult["status"];
+} = {}): AgentQueueReviewCreateMessageResult {
+  return {
+    aggregate,
+    blocker: {
+      blockerCode,
+      blockerMessage,
+      durableEvidenceRequired: false,
+      evidenceBundleId,
+      evidenceBundleIdRequired: false,
+      evidenceState: aggregate.evidenceState,
+      existingMessageId,
+      missingRequiredField: null,
+      nextSuggestedCapability,
+      reviewMessageAlreadyExists,
+      reviewState: aggregate.reviewState,
+      runId,
+      runIdRequired: false,
+      taskId: aggregate.taskId,
+      ticketState: aggregate.ticketState,
+      workerRunState: aggregate.workerRunState,
+    },
+    durable: false,
+    evidenceBundleId,
+    messageId: null,
+    reviewMessage: null,
+    runId,
+    status,
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function workerFinishedCommandResult({
+  aggregate = queueAggregate(),
+  bundleId = "bundle-1",
+  runId = "run-1",
+}: Partial<AgentQueueWorkerFinishedCommandResult> & {
+  aggregate?: AgentQueueItemAggregate;
+} = {}): AgentQueueWorkerFinishedCommandResult {
+  return {
+    aggregate,
+    bundleId,
+    durable: true,
+    evidenceBundle: workerEvidenceBundle({ aggregate, bundleId, runId }),
+    runId,
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function workerEvidenceQueryResult({
+  aggregate = queueAggregate(),
+  bundleId = "bundle-1",
+  runId = "run-1",
+}: {
+  aggregate?: AgentQueueItemAggregate;
+  bundleId?: string;
+  runId?: string;
+} = {}): AgentQueueWorkerEvidenceQueryResult {
+  return {
+    aggregate,
+    durable: true,
+    evidenceBundle: workerEvidenceBundle({ aggregate, bundleId, runId }),
+    runId,
+    state: "available",
+    taskId: aggregate.taskId,
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
+function workerEvidenceBundle({
+  aggregate,
+  bundleId,
+  runId,
+}: {
+  aggregate: AgentQueueItemAggregate;
+  bundleId: string;
+  runId: string;
+}) {
+  return {
+    bundleId,
+    changedFiles: ["src/lib.rs"],
+    changedFilesCount: 1,
+    changedFilesSummary: "src/lib.rs",
+    createdAt: "2026-06-15T10:01:00.000Z",
+    errorSummary: null,
+    executorWidgetId: "executor-1",
+    metadataJson: null,
+    outcome: "completed" as const,
+    runId,
+    runLinkId: "link-1",
+    source: "workspace_agent",
+    summary: "Worker final report.",
+    taskId: aggregate.taskId,
+    updatedAt: "2026-06-15T10:01:00.000Z",
+    validationSummary: "not run",
+    workerId: "test.agentA",
+    workspaceId: aggregate.workspaceId,
+  };
+}
+
 function frontendSource(path: string) {
   const cwd = (
     globalThis as unknown as { process: { cwd: () => string } }
   ).process.cwd();
 
   return readFileSync(`${cwd}/src/${path}`, "utf8");
+}
+
+function queueBridgeSourcePaths() {
+  const cwd = (
+    globalThis as unknown as { process: { cwd: () => string } }
+  ).process.cwd();
+  return readdirSync(`${cwd}/src/workbench/agents/adapters/queueBridge`)
+    .filter((name: string) => name.endsWith(".ts"))
+    .map((name: string) => `workbench/agents/adapters/queueBridge/${name}`);
 }

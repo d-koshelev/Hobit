@@ -8,7 +8,6 @@ import {
   createDogfoodLifecycleItem,
   createReviewMessage,
   failAgentPrompt,
-  failQueueItem,
   markAgentPromptNotCompleted,
   markQueueItemDone,
   queueDogfoodLifecycleItem,
@@ -28,7 +27,6 @@ import type {
   QueueAgentApproveValidationInput,
   QueueAgentBlockInput,
   QueueAgentDogfoodLifecycleAdapterApi,
-  QueueAgentFailInput,
   QueueAgentLifecycleAgentFinishedInput,
   QueueAgentLifecycleGetInput,
   QueueAgentLifecycleGetOutput,
@@ -58,26 +56,23 @@ type LifecycleResolverResult =
 type RequiredAgentFinishedInput = Required<
   Pick<
     QueueAgentLifecycleAgentFinishedInput,
-    "finalAgentMessage" | "outcome" | "taskId"
+    "finalAgentMessage" | "outcome" | "runId" | "taskId"
   >
 > &
   Omit<
     QueueAgentLifecycleAgentFinishedInput,
-    "finalAgentMessage" | "outcome" | "taskId"
+    "finalAgentMessage" | "outcome" | "runId" | "taskId"
   >;
 
 type RequiredReviewMessageInput = Required<
-  Pick<QueueAgentReviewCreateMessageInput, "coordinatorAgentId" | "taskId">
+  Pick<QueueAgentReviewCreateMessageInput, "taskId">
 > &
-  Omit<QueueAgentReviewCreateMessageInput, "coordinatorAgentId" | "taskId">;
+  Omit<QueueAgentReviewCreateMessageInput, "taskId">;
 
 type RequiredReviewAckInput = Required<
-  Pick<QueueAgentReviewAckInput, "coordinatorAgentId" | "messageId" | "taskId">
+  Pick<QueueAgentReviewAckInput, "messageId" | "taskId">
 > &
-  Omit<
-    QueueAgentReviewAckInput,
-    "coordinatorAgentId" | "messageId" | "taskId"
-  >;
+  Omit<QueueAgentReviewAckInput, "messageId" | "taskId">;
 
 type RequiredValidationInput = Required<
   Pick<QueueAgentApproveValidationInput, "coordinatorAgentId" | "taskId">
@@ -96,25 +91,14 @@ type RequiredFollowUpInput = Required<
   >;
 
 type RequiredMarkDoneInput = Required<
-  Pick<
-    QueueAgentMarkDoneInput,
-    "coordinatorAgentId" | "taskId" | "validationApproved"
-  >
+  Pick<QueueAgentMarkDoneInput, "confirmationToken" | "taskId">
 > &
-  Omit<
-    QueueAgentMarkDoneInput,
-    "coordinatorAgentId" | "taskId" | "validationApproved"
-  >;
+  Omit<QueueAgentMarkDoneInput, "confirmationToken" | "taskId">;
 
 type RequiredBlockInput = Required<
   Pick<QueueAgentBlockInput, "coordinatorAgentId" | "reason" | "taskId">
 > &
   Omit<QueueAgentBlockInput, "coordinatorAgentId" | "reason" | "taskId">;
-
-type RequiredFailInput = Required<
-  Pick<QueueAgentFailInput, "coordinatorAgentId" | "reason" | "taskId">
-> &
-  Omit<QueueAgentFailInput, "coordinatorAgentId" | "reason" | "taskId">;
 
 export function createInMemoryQueueDogfoodLifecycleAdapterApi({
   getTaskSeed,
@@ -221,7 +205,7 @@ export function createInMemoryQueueDogfoodLifecycleAdapterApi({
             ackId:
               input.ackId ??
               idFromParts("review-ack", input.taskId, input.messageId),
-            coordinatorAgentId: input.coordinatorAgentId,
+            coordinatorAgentId: reviewActorId(input.coordinatorAgentId, context),
             messageId: input.messageId,
             receivedAt: input.receivedAt ?? context.requestedAt,
           }),
@@ -328,23 +312,20 @@ export function createInMemoryQueueDogfoodLifecycleAdapterApi({
             messageId:
               input.messageId ??
               idFromParts("review-message", input.taskId, context.requestId),
-            toCoordinatorAgentId: input.coordinatorAgentId,
+            toCoordinatorAgentId: reviewActorId(input.coordinatorAgentId, context),
             validationSummary:
               input.validationSummary ?? evidence.validationSummary,
           });
         },
       ),
-    failItem: (input: RequiredFailInput, context) =>
-      applyTransition(input, context, "Queue item failed", (item) =>
-        failQueueItem(item, {
-          coordinatorAgentId: input.coordinatorAgentId,
-          decisionId:
-            input.decisionId ??
-            idFromParts("decision-fail", input.taskId, context.requestId),
-          failedAt: input.failedAt ?? context.requestedAt,
-          reason: input.reason,
-        }),
-      ),
+    failItem: () => ({
+      message:
+        "Queue terminal failure is backend-owned and unavailable from the in-memory lifecycle controller.",
+      reasons: [
+        "Queue terminal failure is backend-owned and unavailable from the in-memory lifecycle controller.",
+      ],
+      status: "unavailable",
+    }),
     getEvidenceBundle: (
       input: Required<Pick<QueueAgentReviewEvidenceBundleInput, "taskId">>,
     ) =>
@@ -400,80 +381,14 @@ export function createInMemoryQueueDogfoodLifecycleAdapterApi({
         },
       );
     },
-    markDone: (input: RequiredMarkDoneInput, context) =>
-      applyTransition<unknown>(input, context, "Queue item marked done", (item) => {
-        if (!input.validationApproved) {
-          return transitionFailure(
-            item,
-            "markQueueItemDone",
-            "Done requires validationApproved: true.",
-          );
-        }
-
-        const validationApproved =
-          item.validationApprovals.length > 0
-            ? { item, ok: true as const }
-            : approveValidation(item, {
-                approvedAt: context.requestedAt,
-                approvedByCoordinatorAgentId: input.coordinatorAgentId,
-                summary: input.validationSummary ?? "Validation approved.",
-                validationApprovalId:
-                  input.validationApprovalId ??
-                  idFromParts("validation", input.taskId, context.requestId),
-              });
-        if (!validationApproved.ok) {
-          return validationApproved;
-        }
-
-        const commitRequested =
-          validationApproved.item.commitRequests.length > 0
-            ? { item: validationApproved.item, ok: true as const }
-            : requestCommit(validationApproved.item, {
-                commitRequestId: idFromParts(
-                  "commit-request",
-                  input.taskId,
-                  context.requestId,
-                ),
-                createdAt: context.requestedAt,
-                reason: "Attach fake commit result. No Git mutation.",
-                requestedByCoordinatorAgentId: input.coordinatorAgentId,
-              });
-        if (!commitRequested.ok) {
-          return commitRequested;
-        }
-
-        const commitAttached = commitRequested.item.commitResults.some(
-          (result) => result.status === "success",
-        )
-          ? { item: commitRequested.item, ok: true as const }
-          : attachCommitResult(commitRequested.item, {
-              attachedAt: context.requestedAt,
-              commitHash: input.commit?.commitHash,
-              commitRequestId:
-                commitRequested.item.commitRequests[
-                  commitRequested.item.commitRequests.length - 1
-                ]?.commitRequestId,
-              commitResultId:
-                input.commit?.commitResultId ??
-                idFromParts("commit-result", input.taskId, context.requestId),
-              status: "success",
-              summary: input.commit?.commitTitle
-                ? `Fake commit result: ${input.commit.commitTitle}.`
-                : "Fake commit result attached. No Git mutation.",
-            });
-        if (!commitAttached.ok) {
-          return commitAttached;
-        }
-
-        return markQueueItemDone(commitAttached.item, {
-          completedAt: input.completedAt ?? context.requestedAt,
-          coordinatorAgentId: input.coordinatorAgentId,
-          decisionId:
-            input.decisionId ??
-            idFromParts("decision-done", input.taskId, context.requestId),
-          reason: input.reason ?? "Accepted by coordinator.",
-        });
-      }),
+    markDone: () => ({
+      message:
+        "Queue accepted completion is backend-owned and unavailable from the in-memory lifecycle controller.",
+      reasons: [
+        "Queue accepted completion is backend-owned and unavailable from the in-memory lifecycle controller.",
+      ],
+      status: "unavailable",
+    }),
   };
 }
 
@@ -629,6 +544,13 @@ function idFromParts(...parts: readonly string[]) {
     .map((part) => part.trim())
     .filter(Boolean)
     .join(":");
+}
+
+function reviewActorId(
+  coordinatorAgentId: string | undefined,
+  context: QueueAgentLifecycleHandlerContext,
+) {
+  return coordinatorAgentId?.trim() || context.agentId.trim() || "workspace-agent";
 }
 
 function withMaybe<TValue, TResult>(

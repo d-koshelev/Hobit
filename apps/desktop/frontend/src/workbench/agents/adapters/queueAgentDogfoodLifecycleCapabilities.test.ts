@@ -14,6 +14,13 @@ import {
   HOBIT_AGENT_INITIAL_CAPABILITIES,
   type HobitAgentCapability,
 } from "../capabilities";
+import {
+  buildQueueCapabilityNextAction,
+  QUEUE_CAPABILITY_CONTRACT_BY_ID,
+  queueCapabilityNextActionAgreesWithSuggestion,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+  validateQueueCapabilityNextAction,
+} from "../capabilities/queueCapabilityContracts";
 import { HOBIT_TEST_AGENT_CAPABILITIES } from "../runtime";
 import {
   acknowledgeReviewMessage,
@@ -66,12 +73,15 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       expect(capability).toMatchObject({
         availability: { status: "available" },
         ownerSurface: "Agent Queue",
-        supportsDryRun: true,
+        supportsDryRun:
+          capabilityId === "queue.item.markDone" ||
+          capabilityId === "queue.item.fail"
+            ? false
+            : true,
       });
       expect(capability.inputSchema?.requiredFields).toBeDefined();
       expect(capability.forbiddenSideEffects).toEqual(
         expect.arrayContaining([
-          "backend_durability",
           "git_mutation",
           "worker_start",
           "worker_auto_run",
@@ -83,6 +93,18 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
           "shell_command",
         ]),
       );
+      if (
+        capabilityId !== "queue.lifecycle.agentFinished" &&
+        capabilityId !== "queue.review.getEvidenceBundle" &&
+        capabilityId !== "queue.review.createMessage" &&
+        capabilityId !== "queue.review.ack" &&
+        capabilityId !== "queue.item.markDone" &&
+        capabilityId !== "queue.item.fail"
+      ) {
+        expect(capability.forbiddenSideEffects).toEqual(
+          expect.arrayContaining(["backend_durability"]),
+        );
+      }
 
       for (const example of capability.examples ?? []) {
         const parsed = readHobitAgentActionRequestEnvelope(
@@ -110,28 +132,60 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     ).toMatchObject({
       acceptedFields: expect.arrayContaining([
         "taskId",
+        "runId",
         "outcome",
         "finalAgentMessage",
         "evidenceBundle",
         "threadId",
       ]),
-      requiredFields: ["taskId or evidenceBundle.taskId"],
+      requiredFields: [
+        "taskId or evidenceBundle.taskId",
+        "runId or evidenceBundle.runId",
+      ],
     });
     expect(
       requiredCapability(registry, "queue.review.ack").inputSchema,
     ).toMatchObject({
-      requiredFields: ["taskId", "messageId", "coordinatorAgentId"],
+      requiredFields: ["taskId", "messageId"],
+    });
+    expect(
+      requiredCapability(registry, "queue.review.createMessage").inputSchema,
+    ).toMatchObject({
+      acceptedFields: expect.arrayContaining([
+        "taskId",
+        "runId",
+        "evidenceBundleId",
+      ]),
+      requiredFields: ["taskId"],
     });
     expect(
       requiredCapability(registry, "queue.item.markDone").inputSchema,
     ).toMatchObject({
       acceptedFields: expect.arrayContaining([
         "taskId",
-        "coordinatorAgentId",
-        "validationApproved",
-        "commit",
+        "reason",
+        "runId",
+        "reviewMessageId",
       ]),
-      requiredFields: ["taskId", "coordinatorAgentId", "validationApproved"],
+      requiredFields: ["taskId", "top-level confirmationToken"],
+    });
+    expect(
+      requiredCapability(registry, "queue.item.fail").inputSchema,
+    ).toMatchObject({
+      acceptedFields: expect.arrayContaining([
+        "taskId",
+        "reason",
+        "runId",
+        "evidenceBundleId",
+        "reviewMessageId",
+      ]),
+      requiredFields: ["taskId", "reason", "top-level confirmationToken"],
+    });
+    expect(
+      requiredCapability(registry, "queue.lifecycle.get").inputSchema,
+    ).toMatchObject({
+      acceptedFields: ["taskId"],
+      requiredFields: ["taskId"],
     });
 
     for (const capabilityId of LIFECYCLE_CAPABILITY_IDS) {
@@ -145,6 +199,193 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       expect(acceptedFields).not.toContain("rollback");
       expect(acceptedFields).not.toContain("terminalCommand");
     }
+  });
+
+  it("documents lifecycle backing, id requirements, and continuation policy in the Queue contract inventory", () => {
+    const backendBackedCapabilities = [
+      "queue.lifecycle.agentFinished",
+      "queue.lifecycle.get",
+      "queue.item.fail",
+      "queue.item.markDone",
+      "queue.review.ack",
+      "queue.review.createMessage",
+      "queue.review.getEvidenceBundle",
+    ];
+    const transitionalCapabilities = [
+      "queue.coordinator.approveValidation",
+      "queue.coordinator.addFollowUpPrompt",
+      "queue.item.block",
+    ];
+
+    for (const capabilityId of backendBackedCapabilities) {
+      expect(QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId)).toMatchObject({
+        backing: "backend_backed",
+        implemented: true,
+        registered: true,
+      });
+    }
+
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.review.getEvidenceBundle"),
+    ).toMatchObject({
+      autoContinuationSafe: true,
+      readOnly: true,
+      requiredIds: {
+        taskId: true,
+      },
+      sideEffectLevel: "read",
+    });
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.lifecycle.agentFinished"),
+    ).toMatchObject({
+      requiredIds: {
+        runId: true,
+        taskId: true,
+      },
+    });
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.review.ack"),
+    ).toMatchObject({
+      autoContinuationSafe: true,
+      requiredIds: {
+        messageId: true,
+        taskId: true,
+      },
+    });
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.review.createMessage"),
+    ).toMatchObject({
+      autoContinuationSafe: false,
+      backing: "backend_backed",
+      requiredIds: {
+        taskId: true,
+      },
+    });
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.item.markDone"),
+    ).toMatchObject({
+      autoContinuationSafe: false,
+      backing: "backend_backed",
+      confirmation: {
+        required: true,
+        value: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      },
+      confirmationRequirement: "required",
+      requiredIds: {
+        taskId: true,
+      },
+    });
+    expect(
+      QUEUE_CAPABILITY_CONTRACT_BY_ID.get("queue.item.fail"),
+    ).toMatchObject({
+      autoContinuationSafe: false,
+      backing: "backend_backed",
+      confirmation: {
+        required: true,
+        value: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+      },
+      confirmationRequirement: "required",
+      requiredIds: {
+        taskId: true,
+      },
+    });
+
+    for (const capabilityId of transitionalCapabilities) {
+      expect(QUEUE_CAPABILITY_CONTRACT_BY_ID.get(capabilityId)).toMatchObject({
+        autoContinuationSafe: false,
+        backing: "transitional_frontend_overlay",
+        confirmationRequirement: "recommended",
+        registered: true,
+      });
+    }
+  });
+
+  it("validates typed Queue nextAction payloads against canonical capability schemas", () => {
+    const ack = buildQueueCapabilityNextAction({
+      capabilityId: "queue.review.ack",
+      input: { messageId: "review-message-1", taskId: "task-1" },
+      reason: "Duplicate review message can be acknowledged.",
+    });
+
+    expect(ack).toMatchObject({
+      nextAction: {
+        autoContinuationSafe: true,
+        capabilityId: "queue.review.ack",
+        input: {
+          messageId: "review-message-1",
+          taskId: "task-1",
+        },
+        moduleId: "queue",
+        requiresConfirmation: false,
+      },
+      ok: true,
+    });
+    if (!ack.ok) {
+      throw new Error("Expected ACK nextAction to validate.");
+    }
+    expect(
+      queueCapabilityNextActionAgreesWithSuggestion({
+        nextAction: ack.nextAction,
+        nextSuggestedCapability: "queue.review.ack",
+      }),
+    ).toBe(true);
+    expect(
+      queueCapabilityNextActionAgreesWithSuggestion({
+        nextAction: ack.nextAction,
+        nextSuggestedCapability: "queue.review.createMessage",
+      }),
+    ).toBe(false);
+
+    expect(
+      validateQueueCapabilityNextAction({
+        ...ack.nextAction,
+        input: { reviewMessageId: "review-message-1", taskId: "task-1" },
+      }),
+    ).toMatchObject({
+      missingRequiredFields: ["messageId"],
+      ok: false,
+      reasons: expect.arrayContaining([
+        "reviewMessageId is not supported by queue.review.ack.",
+        "messageId is required by queue.review.ack.",
+      ]),
+    });
+    expect(
+      validateQueueCapabilityNextAction({
+        ...ack.nextAction,
+        capabilityId: "queue.review.unregistered",
+      }),
+    ).toMatchObject({
+      ok: false,
+      reasons: [
+        "nextAction capability is not registered: queue.review.unregistered.",
+      ],
+    });
+    expect(
+      buildQueueCapabilityNextAction({
+        capabilityId: "queue.item.updateRunSettings",
+        input: { sandbox: "workspace-write", taskId: "task-1" },
+      }),
+    ).toMatchObject({
+      ok: false,
+      reason:
+        "sandbox must be one of read_only, workspace_write, danger_full_access for queue.item.updateRunSettings.",
+    });
+    expect(
+      buildQueueCapabilityNextAction({
+        capabilityId: "queue.item.markDone",
+        input: { taskId: "task-1" },
+      }),
+    ).toMatchObject({
+      nextAction: {
+        autoContinuationSafe: false,
+        confirmationRequired: {
+          field: "confirmationToken",
+          value: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        },
+        requiresConfirmation: true,
+      },
+      ok: true,
+    });
   });
 
   it("dry-runs agentFinished without mutating the lifecycle overlay", () => {
@@ -229,6 +470,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       finalAgentMessage: "Implemented the requested changes.",
       logReference: "frontend://logs/attempt-1",
       outcome: "completed",
+      runId: "run-1",
       taskId: "task-1",
       threadId: "thread-1",
       validationOutputPreview: "typecheck passed",
@@ -275,6 +517,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       changedFiles: [],
       finalAgentMessage: "Done.",
       outcome: "completed",
+      runId: "run-1",
       taskId: "task-other",
     });
 
@@ -356,6 +599,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       finalAgentMessage: "Implemented the requested changes.",
       logReference: "frontend://logs/attempt-1",
       outcome: "completed",
+      runId: "run-1",
       taskId: "task-1",
       threadId: "thread-1",
       validationStatus: "passed",
@@ -538,46 +782,80 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     expect(outputOf(result).lifecycle.followUpPrompts).toHaveLength(1);
   });
 
-  it("marks a reviewed item done with fake commit metadata only", () => {
+  it("requires exact structured confirmation before markDone reaches backend", () => {
     const broker = lifecycleBroker({
       initialLifecycles: [inReviewItem()],
     });
 
-    const result = broker.invoke(
+    const missingConfirmation = broker.invoke(
       request({
         capabilityId: "queue.item.markDone",
         input: {
-          commit: {
-            commitHash: "fake-hash",
-            commitTitle: "frontend: example",
-          },
-          coordinatorAgentId: "workspace-agent",
           taskId: "task-1",
-          validationApproved: true,
         },
       }),
     );
 
-    expect(result.status).toBe("succeeded");
-    const output = outputOf(result);
-    expect(output).toMatchObject({
-      ticketState: "done",
-      wouldCallGit: false,
-      wouldExecuteRollback: false,
-      wouldStartWorkers: false,
-    });
-    expect(output.lifecycle.commitResults).toMatchObject([
-      {
-        commitHash: "fake-hash",
-        modelOnly: true,
-        noGitMutationPerformed: true,
-        status: "success",
-      },
-    ]);
-    expect(canStartDependentAfterReviewGate(output.lifecycle)).toBe(true);
+    expect(missingConfirmation.status).toBe("needs_confirmation");
+    expect(missingConfirmation.result.message).toContain(
+      "queue.item.markDone requires confirmation.",
+    );
+
+    const exactConfirmation = broker.invoke(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Accepted by operator.",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(exactConfirmation.status).toBe("unavailable");
+    expect(exactConfirmation.result.message).toBe(
+      "Queue accepted completion is backend-owned and unavailable from the in-memory lifecycle controller.",
+    );
   });
 
-  it("keeps dependents gated until done", () => {
+  it("requires exact structured confirmation before fail reaches backend", () => {
+    const broker = lifecycleBroker({
+      initialLifecycles: [inReviewItem()],
+    });
+
+    const missingConfirmation = broker.invoke(
+      request({
+        capabilityId: "queue.item.fail",
+        input: {
+          reason: "Operator rejected evidence.",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(missingConfirmation.status).toBe("needs_confirmation");
+    expect(missingConfirmation.result.message).toContain(
+      "queue.item.fail requires confirmation.",
+    );
+
+    const exactConfirmation = broker.invoke(
+      request({
+        capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          reason: "Operator rejected evidence.",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(exactConfirmation.status).toBe("unavailable");
+    expect(exactConfirmation.result.message).toBe(
+      "Queue terminal failure is backend-owned and unavailable from the in-memory lifecycle controller.",
+    );
+  });
+
+  it("keeps dependents gated until backend accepted completion", () => {
     const awaitingReview = awaitingReviewItem();
     const inReview = inReviewItem();
 
@@ -585,23 +863,47 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     expect(canStartDependentAfterReviewGate(inReview)).toBe(false);
 
     const broker = lifecycleBroker({ initialLifecycles: [inReview] });
-    const done = broker.invoke(
+    const result = broker.invoke(
       request({
         capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
         input: {
-          coordinatorAgentId: "workspace-agent",
+          taskId: "task-1",
+        },
+      }),
+    );
+
+    expect(result.status).toBe("unavailable");
+  });
+
+  it("rejects old fake commit and validation markDone fields", () => {
+    const broker = lifecycleBroker({
+      initialLifecycles: [inReviewItem()],
+    });
+
+    const result = broker.invoke(
+      request({
+        capabilityId: "queue.item.markDone",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
+        input: {
+          commit: {
+            commitHash: "fake-hash",
+          },
           taskId: "task-1",
           validationApproved: true,
         },
       }),
     );
 
-    expect(canStartDependentAfterReviewGate(outputOf(done).lifecycle)).toBe(
-      true,
+    expect(result.status).toBe("invalid_input");
+    expect(result.result.fieldPath).toBe("input.commit");
+    expect(result.result.reasonCode).toBe("invalid_payload");
+    expect(result.result.message).toBe(
+      "commit is not supported by queue.item.markDone.",
     );
   });
 
-  it("blocks and fails in-review items with visible reasons", () => {
+  it("blocks transitional items but does not fake backend-owned failure", () => {
     const broker = lifecycleBroker({
       initialLifecycles: [inReviewItem("task-block"), inReviewItem("task-fail")],
     });
@@ -619,8 +921,8 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
     const failed = broker.invoke(
       request({
         capabilityId: "queue.item.fail",
+        confirmationToken: QUEUE_START_RUN_CONFIRMATION_TOKEN,
         input: {
-          coordinatorAgentId: "workspace-agent",
           reason: "Validation cannot pass.",
           taskId: "task-fail",
         },
@@ -634,13 +936,10 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
       },
       ticketState: "blocked",
     });
-    expect(failed.status).toBe("succeeded");
-    expect(failed.result.output).toMatchObject({
-      lifecycle: {
-        failureReason: "Validation cannot pass.",
-      },
-      ticketState: "failure",
-    });
+    expect(failed.status).toBe("unavailable");
+    expect(failed.result.message).toBe(
+      "Queue terminal failure is backend-owned and unavailable from the in-memory lifecycle controller.",
+    );
   });
 
   it("returns unavailable when lifecycle controller dependencies are absent", () => {
@@ -678,6 +977,7 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
         input: {
           finalAgentMessage: "Implemented.",
           outcome: "completed",
+          runId: "run-1",
           taskId: "task-1",
           terminalCommand: "npm test",
         },
@@ -692,17 +992,13 @@ describe("queue dogfood lifecycle Action Broker capabilities", () => {
 
   it("exposes safety outputs and does not add regex routing modules", () => {
     const broker = lifecycleBroker({
-      initialLifecycles: [inReviewItem()],
+      initialLifecycles: [runningItem()],
     });
     const result = broker.invoke(
       request({
-        capabilityId: "queue.item.markDone",
+        capabilityId: "queue.lifecycle.agentFinished",
         dryRun: true,
-        input: {
-          coordinatorAgentId: "workspace-agent",
-          taskId: "task-1",
-          validationApproved: true,
-        },
+        input: agentFinishedInput(),
       }),
     );
 
@@ -752,10 +1048,12 @@ function lifecycleBroker({
 
 function request({
   capabilityId,
+  confirmationToken,
   dryRun = false,
   input,
 }: {
   capabilityId: string;
+  confirmationToken?: string | null;
   dryRun?: boolean;
   input: unknown;
 }) {
@@ -763,6 +1061,7 @@ function request({
     agentId: "workspace-agent",
     agentRoleId: "workspace_agent",
     capabilityId,
+    confirmationToken,
     createdAt: NOW,
     dryRun,
     input,
@@ -776,6 +1075,7 @@ function agentFinishedInput() {
     changedFilesSummary: ["apps/desktop/frontend/src/..."],
     finalAgentMessage: "Implemented the requested changes.",
     outcome: "completed",
+    runId: "run-1",
     taskId: "task-1",
     validationSummary: "typecheck passed",
   };

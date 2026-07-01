@@ -62,7 +62,11 @@ pub(crate) fn create_workspace(
 ) -> Result<WorkspaceSummaryDto, String> {
     let service = workspace_service(state.db_path())?;
     service
-        .create_empty_workspace(request.title, request.description)
+        .create_empty_workspace_with_root_path(
+            request.title,
+            request.description,
+            request.root_path,
+        )
         .map(|summary| root_dto::summary(summary, state.workspace_root()))
         .map_err(command_error)
 }
@@ -83,13 +87,16 @@ pub(crate) fn delete_workspace(
     request: DeleteWorkspaceRequest,
     state: State<'_, AppState>,
 ) -> Result<WorkspaceDeletionResponseDto, String> {
-    delete_workspace_blocking(
+    let deleted_workspace_id = request.workspace_id.clone();
+    let response = delete_workspace_blocking(
         request,
         state.db_path().to_path_buf(),
         state.workspace_root().map(str::to_owned),
         state.direct_work_active_runs(),
         state.terminal_pty_sessions(),
-    )
+    )?;
+    state.active_workspace().clear_if(&deleted_workspace_id);
+    Ok(response)
 }
 
 fn delete_workspace_blocking(
@@ -137,10 +144,14 @@ pub(crate) fn open_workspace(
     state: State<'_, AppState>,
 ) -> Result<Option<WorkspaceSessionSummaryDto>, String> {
     let service = workspace_service(state.db_path())?;
-    service
+    let summary = service
         .open_workspace(&workspace_id)
         .map(|summary| summary.map(WorkspaceSessionSummaryDto::from))
-        .map_err(command_error)
+        .map_err(command_error)?;
+    if summary.is_some() {
+        state.active_workspace().set(workspace_id);
+    }
+    Ok(summary)
 }
 
 #[tauri::command]
@@ -149,10 +160,14 @@ pub(crate) fn get_workspace_workbench_state(
     state: State<'_, AppState>,
 ) -> Result<Option<WorkspaceWorkbenchStateDto>, String> {
     let service = workspace_service(state.db_path())?;
-    service
+    let summary = service
         .get_workspace_workbench_state(&workspace_id)
         .map(|summary| root_dto::optional_workbench_state(summary, state.workspace_root()))
-        .map_err(command_error)
+        .map_err(command_error)?;
+    if summary.is_some() {
+        state.active_workspace().set(workspace_id);
+    }
+    Ok(summary)
 }
 
 #[tauri::command]

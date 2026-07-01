@@ -1,0 +1,445 @@
+# Codebase Refactor Size Audit
+
+## Purpose
+
+This document records the Block 53 line-count audit and refactor guard.
+
+This block adds measurement, debt tracking, and refactor planning only. It does
+not change runtime behavior, Queue workflow behavior, Queue UI behavior, visual
+shell behavior, storage/schema behavior, or widget behavior.
+
+## Guard
+
+Toolbelt script:
+
+```powershell
+node scripts/hobit/check-line-counts.mjs --mode report
+node scripts/hobit/check-line-counts.mjs --mode guard
+```
+
+Frontend package scripts:
+
+```powershell
+npm.cmd run report:line-count --prefix apps/desktop/frontend
+npm.cmd run check:line-count --prefix apps/desktop/frontend
+npm.cmd run test:line-count --prefix apps/desktop/frontend
+```
+
+Allowlist:
+
+- `scripts/hobit/line-count-allowlist.json`
+- Specific paths only; source globs are rejected.
+- Each entry records current line count, category, reason, owner/domain,
+  planned refactor block, target max line count, and remove-after debt note.
+- Guard mode fails when an oversized file is not allowlisted, an allowlisted
+  file grows above its recorded line count, an allowlisted path disappears, or
+  an allowlisted category no longer matches.
+
+Thresholds:
+
+| Category | Threshold | Guard intent |
+| --- | ---: | --- |
+| source | hard over 1000 lines | prevent new oversized source and ratcheting existing source debt |
+| test | warning over 1200 lines | require explicit debt entry and split plan |
+| docs | warning over 1500 lines | require explicit debt entry and docs cleanup plan |
+| styles | warning over 1200 lines | require explicit debt entry and style ownership plan |
+| config | warning over 1500 lines | visible category coverage, no current findings |
+
+The script ignores generated/vendor/local build paths such as `.git`,
+`node_modules`, `target`, `dist`, `build`, `.vite`, `coverage`, `gen`,
+`apps/desktop/src-tauri/gen`, lockfiles, and zip archives.
+
+## Current Inventory
+
+Block 53 scan result after adding the guard:
+
+- Scanned files: 1664
+- Source scanned: 1003
+- Test scanned: 366
+- Docs scanned: 247
+- Styles scanned: 32
+- Config scanned: 16
+- Oversized findings: 46
+- Oversized source files: 25
+- Oversized test files: 15
+- Oversized docs files: 2
+- Oversized style files: 4
+- Oversized config files: 0
+
+### Top Oversized Source Files
+
+| Lines | Path | Owner/domain | Priority |
+| ---: | --- | --- | --- |
+| 5591 | `apps/desktop/frontend/src/workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts` | Workspace Agent Queue bridge | B |
+| 4940 | `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.ts` | Queue workflow runner | A |
+| 3623 | `crates/hobit-app/src/workspace_service/agent_queue_workflow_resume.rs` | Queue workflow backend resume | A |
+| 3390 | `apps/desktop/frontend/src/workbench/workspaceAgentBrokerContinuation.ts` | Workspace Agent broker continuation | B |
+| 3366 | `crates/hobit-app/src/workspace_service/agent_queue_workflow_evidence.rs` | Queue workflow worker evidence | A |
+| 2617 | `apps/desktop/frontend/src/workbench/FinderWidget.tsx` | Finder widget | C |
+| 2410 | `apps/desktop/frontend/src/workbench/agents/adapters/queueAgentCapabilities.ts` | Queue agent capabilities | B |
+| 2340 | `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.ts` | Queue workflow runtime adapter | A |
+| 2033 | `crates/hobit-app/src/workspace_service/agent_queue_workflow_setup.rs` | Queue workflow backend setup | A |
+| 1932 | `crates/hobit-app/src/workspace_service/agent_queue_execution.rs` | Queue backend execution | A |
+
+### Top Oversized Test Files
+
+| Lines | Path | Owner/domain | Priority |
+| ---: | --- | --- | --- |
+| 6417 | `crates/hobit-app/src/workspace_service/agent_queue_workflow_tests.rs` | Queue workflow backend tests | A |
+| 5354 | `apps/desktop/frontend/src/workbench/agents/adapters/queueAgentCapabilities.test.ts` | Queue agent capability tests | B |
+| 3380 | `apps/desktop/frontend/src/workbench/workspaceAgentBrokerContinuation.test.ts` | Workspace Agent broker continuation tests | B |
+| 3020 | `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.test.ts` | Queue workflow runner tests | A |
+| 2910 | `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.test.ts` | Queue workflow runtime adapter tests | A |
+| 2267 | `apps/desktop/frontend/src/workbench/queue/useAgentQueueController.executionState.test.tsx` | Queue controller tests | C |
+| 1751 | `apps/desktop/frontend/src/workbench/InteractiveAgentPlaceholderWidget.action-request.test.tsx` | Workspace Agent action-request tests | C |
+| 1687 | `apps/desktop/frontend/src/workbench/workspaceAgentBrokerActionRuntime.test.ts` | Workspace Agent broker action runtime tests | B |
+| 1673 | `crates/hobit-app/src/workspace_service/agent_queue_execution_tests.rs` | Queue backend execution tests | A |
+| 1435 | `crates/hobit-storage-sqlite/src/store/tests.rs` | SQLite storage tests | C |
+
+### Oversized Styles And Docs
+
+| Lines | Path | Category | Priority |
+| ---: | --- | --- | --- |
+| 3680 | `apps/desktop/frontend/src/styles/components.css` | styles | D |
+| 2362 | `apps/desktop/frontend/src/styles/agent-queue.css` | styles | D |
+| 1553 | `docs/JDBC_WIDGET_CONTRACT.md` | docs | D |
+| 1518 | `apps/desktop/frontend/src/styles/widget-v2-knowledge.css` | styles | D |
+| 1519 | `docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md` | docs | D |
+| 1302 | `apps/desktop/frontend/src/styles/widget-v2-queue.css` | styles | D |
+
+## Ownership Risk Summary
+
+The most serious risk is not raw line count. It is split ownership hidden inside
+large files.
+
+Priority A files mix Queue workflow state-machine behavior, worker-evidence
+ownership, resume/report assembly, runtime-adapter persistence, and tests. This
+is the highest-risk area because live Queue smoke already exposed ownership
+bugs around workflow continuation and evidence handling. Refactors here must be
+behavior-preserving and should split by durable ownership boundaries before
+renaming or moving public APIs.
+
+Priority B files mix Workspace Agent protocol handling with Queue capability
+validation, action routing, and continuation mapping. These should be split
+after the Queue workflow ownership boundary is clearer, otherwise the bridge
+may preserve the same ambiguity in smaller files.
+
+Priority C files are large UI/controller/type surfaces. They are important for
+reviewability, but they should follow the Queue workflow and bridge splits
+because they are mostly consumers of those boundaries.
+
+Priority D is style/docs cleanup. These should remain visual/docs no-op blocks
+and must not be used to change Queue UI or visual-shell behavior.
+
+## Block 54 Update
+
+The backend Queue workflow test file
+`crates/hobit-app/src/workspace_service/agent_queue_workflow_tests.rs` was
+split into the `agent_queue_workflow_tests/` module directory by workflow
+transition/domain: persistence, report/action ledger, materialization, setup,
+start/promote, resume, worker evidence, review, finalization, and immutable
+planning checks.
+
+The old 6417-line allowlist entry was removed. No new backend workflow test
+module exceeds the 1200-line test threshold.
+
+This was a tests-only refactor: no runtime behavior, Queue workflow behavior,
+storage/schema, Tauri/API, frontend behavior, Queue UI, visual-shell behavior,
+smoke execution, new runtime path, or natural-language/id inference changed.
+
+Next Priority A refactor focus remains `queueWorkflowRunner.ts` or the backend
+workflow source modules according to the active plan. The
+`workspaceAgentQueueBridgeAdapter.ts` bridge remains the top Priority B bridge
+target after workflow ownership is clearer.
+
+## Block 55 Update
+
+The Workspace Agent Queue bridge adapter
+`apps/desktop/frontend/src/workbench/agents/adapters/workspaceAgentQueueBridgeAdapter.ts`
+was split by capability group under
+`apps/desktop/frontend/src/workbench/agents/adapters/queueBridge/`.
+
+The original adapter file is now a thin compatibility entrypoint that re-exports
+the stable `createWorkspaceAgentQueueBridgeAdapterApi` API. The old oversized
+source allowlist entry was removed because the facade and all new queueBridge
+source modules are below the 1000-line source threshold.
+
+This was a frontend adapter refactor only: no runtime behavior, Queue workflow
+behavior, Queue UI behavior, visual-shell behavior, backend/Tauri behavior,
+storage/schema behavior, smoke execution, natural-language routing, or
+prose/UI/path id inference changed.
+
+Next refactor focus remains `queueWorkflowRunner.ts` or
+`agent_queue_workflow_resume.rs`, depending on whether the next priority is the
+frontend runner boundary or backend workflow resume ownership.
+
+## Block 56 Update
+
+The frontend Queue workflow runner
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner.ts`
+was split by phase/domain under
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/`.
+
+The original runner file is now a thin compatibility entrypoint that re-exports
+the stable public runner API. Runner types, shared refs, report/event builders,
+read-only snapshots, create/setup/start, backend-owned worker-evidence
+delegation, review create/ACK, finalization, and downstream verification now
+live in focused modules below the source threshold.
+
+This was a frontend runner refactor only: no runtime behavior, Queue workflow
+behavior, Queue UI behavior, visual-shell behavior, backend/Tauri behavior,
+smoke execution, natural-language routing, or prose/UI/path id inference
+changed. Worker evidence remains a backend-owned transition; the frontend
+worker-evidence module only preserves the existing typed delegation/reporting
+boundary.
+
+Next refactor focus remains `agent_queue_workflow_resume.rs` or
+`workspaceAgentBrokerContinuation.ts`, depending on whether the next priority
+is backend workflow resume ownership or Priority B Workspace Agent
+continuation ownership.
+
+## Block 58 Update
+
+The frontend Queue workflow runtime adapter
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.ts`
+was thinned for backend-owned workflow phases. Worker evidence and review now
+delegate through the focused
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowBackendStepDispatcher.ts`
+module, which stays below the 600-line preferred new-source limit.
+
+This was a frontend workflow ownership cleanup for phases already owned by the
+backend: no Queue UI behavior, visual-shell behavior, backend transition
+behavior, storage/schema, worker start, scheduler/autodispatch, downstream
+mutation, natural-language routing, or id inference changed. The runtime
+adapter remains oversized but was reduced from 2229 lines before this block to
+1526 lines, and its allowlist entry was ratcheted down. No new oversized source
+allowlist entry was added. The required Smart Queue status update left
+`docs/SMART_QUEUE_IMPLEMENTATION_STATUS.md` below the docs warning threshold, so
+that stale docs allowlist entry was removed.
+
+## Block 59 Update
+
+Queue workflow finalization moved to backend-owned StepPlan/StepResult modules.
+Acceptance and failure finalization share one backend resolver for durable
+evidence/review ACK proof, exact confirmation, typed failure reason validation,
+canonical action idempotency, completion/failure decision refs, terminal
+workflow state, and downstream no-auto-start verification.
+
+The frontend runtime adapter now routes `worker_evidence`, `review`, and
+`finalization` through the backend-step dispatcher and only projects returned
+StepResults. It no longer wires raw mark-done/fail ports for workflow
+finalization, synthesizes finalization action rows, writes decision slot-binding
+deltas, or persists terminal workflow status/currentStep for that phase.
+At the end of Block 59, create/setup/start was still the last mutating
+frontend-owned workflow phase; Block 60 supersedes that status below.
+New backend finalization modules were added below the hard oversized threshold;
+no new oversized source allowlist entry was added.
+
+## Block 60 Update
+
+Queue workflow create/setup/start moved to backend-owned StepPlan/StepResult
+modules. The backend start step owns workflow start/reuse/conflict, explicit
+upstream/downstream task materialization, dependency-edge creation, upstream
+run-settings setup, upstream promotion, Queue control gating, upstream worker
+start, action-ledger rows, slot-binding merge, and the transition to
+`run_start` / `awaiting_worker_completion`.
+
+The backend start step was then split before commit so the facade and focused
+modules stay well below the hard oversized threshold:
+
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step.rs`
+  is an 8-line facade.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_apply.rs`
+  is 107 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_materialize.rs`
+  is 108 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_plan.rs`
+  is 88 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_projection.rs`
+  is 330 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_promote.rs`
+  is 60 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_settings.rs`
+  is 60 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_state.rs`
+  is 445 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_support.rs`
+  is 503 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_types.rs`
+  is 161 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_start_step_worker.rs`
+  is 149 lines.
+- `apps/desktop/src-tauri/src/agent_queue_workflow_start_step_dto.rs` is 183
+  lines.
+- `apps/desktop/frontend/src/workspace/tauriAgentQueueWorkflowStartStepApi.ts`
+  is 139 lines.
+- `apps/desktop/frontend/src/workspace/types/agentQueueWorkflowStartStep.ts`
+  is 72 lines.
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerBackendCreateSetupStartPhase.ts`
+  is 446 lines.
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowCreateSetupStartStepTestHelpers.ts`
+  is 202 lines.
+- `crates/hobit-app/src/workspace_service/agent_queue_workflow_tests/start_step_tests.rs`
+  is 364 lines.
+
+Existing oversized files received only minimal wiring/import/export changes.
+No Queue UI behavior, visual-shell behavior, storage schema, scheduler/
+autodispatch, downstream mutation, natural-language routing, id inference, raw
+confirmation-token persistence, or synthetic widget-run behavior changed. No
+new oversized source allowlist entry was added and no allowlist limit was
+increased.
+
+## Block 63 Update
+
+The remaining legacy frontend mutating Queue workflow engine modules were
+removed after create/setup/start, worker-evidence, review, and finalization
+became backend-owned StepResult paths. The frontend runner package now exports
+only the read-only compatibility runner and shared result/report types.
+
+Deleted legacy modules:
+
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowCreateSetupStartPhase.ts` (533 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowCreateSetupStartHelpers.ts` (641 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowWorkerEvidencePhase.ts` (523 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowReviewPhase.ts` (547 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowReviewHelpers.ts` (355 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowFinalizationPhase.ts` (439 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowFinalizationHelpers.ts` (354 lines)
+- `apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunner/queueWorkflowDownstreamVerification.ts` (91 lines)
+
+Focused shrink/ratchet results:
+
+- `queueWorkflowRunnerRuntimeAdapter.ts`: Toolbelt count 1476 -> 1432 lines; raw
+  create/setup/start port wiring was removed, and the allowlist was ratcheted
+  down to 1432.
+- `queueWorkflowRunner.test.ts`: the old 3048-line oversized allowlist entry
+  was removed because the remaining read-only runner tests are below the test
+  threshold.
+- `queueWorkflowRunner/queueWorkflowRunnerTypes.ts`: 553 -> 391 lines after
+  removing raw mutating runner port/input types.
+
+No Queue UI files, visual-shell files, backend transition behavior,
+storage/schema, smoke execution, worker starts outside backend workflow steps,
+downstream mutation, scheduler/autodispatch, natural-language routing,
+prose/UI/path/order id inference, ActorRef/EventLog/ArtifactLink
+implementation, remote/server/sync/ACL behavior, or raw confirmation-token
+persistence/exposure changed. No new oversized source allowlist entry was
+added and no allowlist limit was increased.
+
+## Block 67 Update
+
+The frontend Queue workflow runtime adapter
+`apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRunnerRuntimeAdapter.ts`
+was reduced to a one-line public facade that re-exports the focused
+`queueWorkflowRuntimeAdapter/` package. Runtime responsibilities are now split
+into request normalization, read-only compatibility persistence, backend-step
+dispatch, read-only runner bridge, StepResult/report projection, activity
+status shaping, error mapping, and small shared guards.
+
+Focused line-count results:
+
+- `queueWorkflowRunnerRuntimeAdapter.ts`: 1432 -> 1 line.
+- New runtime adapter source modules: 34-567 lines each.
+- `queueWorkflowRunnerRuntimeAdapter.test.ts`: deleted/split from 2696 lines.
+- New focused runtime adapter tests: 101-568 lines each.
+
+The oversized source and test allowlist entries for the runtime adapter were
+removed. No new oversized source allowlist entry was added and no allowlist
+limit was increased.
+
+This was a frontend runtime-adapter cleanup only: no Queue workflow behavior,
+backend transition behavior, Queue UI behavior, visual-shell behavior,
+storage/schema behavior, smoke execution, worker starts outside backend
+workflow steps, downstream mutation, scheduler/autodispatch, natural-language
+routing, prose/UI/path/order id inference, ActorRef/EventLog/ArtifactLink
+implementation, remote/server/sync/ACL behavior, or raw confirmation-token
+persistence/exposure changed.
+
+## Refactor Priority Plan
+
+### Priority A: Queue Workflow Ownership
+
+Target ownership boundaries:
+
+- Backend Queue workflow state machine and worker-evidence ownership.
+- Resume planning/action ledger/report assembly in
+  `agent_queue_workflow_resume.rs`.
+- Worker-evidence collection/materialization in
+  `agent_queue_workflow_evidence.rs`.
+- Setup/materialization/facade boundaries in `agent_queue_workflow_setup.rs`,
+  `agent_queue_workflow_materialization.rs`, and `agent_queue_workflow.rs`.
+- Frontend runner orchestration in `queueWorkflowRunner.ts`.
+- Runtime persistence/API handoff in `queueWorkflowRunnerRuntimeAdapter.ts`.
+- Test files split by workflow phase, evidence ownership, resume behavior, and
+  runtime adapter boundary.
+
+Sequence:
+
+1. Write a no-behavior-change module map for backend Queue workflow ownership.
+2. Split backend tests by workflow phase while preserving test names and
+   assertions. Completed in Block 54.
+3. Split backend resume/evidence/setup modules behind existing public exports.
+4. Split frontend runtime adapter into API access, persistence/reporting, and
+   runner handoff. Completed in Block 67.
+5. Split frontend runner into state-machine, dependency, evidence, and report
+   modules.
+
+### Priority B: Workspace Agent Queue Bridge
+
+Target ownership boundaries:
+
+- `workspaceAgentQueueBridgeAdapter.ts` becomes a thin adapter facade.
+- `queueAgentCapabilities.ts`, `queueAgentCapabilityTypes.ts`, and
+  `queueCapabilityContracts.ts` split by capability family and protocol
+  response boundary.
+- `workspaceAgentBrokerContinuation.ts` splits protocol recovery, action
+  replay, resume mapping, and status projection.
+- Tests split by contract family rather than by current giant implementation
+  file.
+
+Sequence:
+
+1. Freeze current public imports and compatibility IDs.
+2. Split type/contract-only modules first.
+3. Split validation and action mapping next.
+4. Split continuation tests and then implementation.
+
+### Priority C: UI, Controllers, And Type Surfaces
+
+Target ownership boundaries:
+
+- `FinderWidget.tsx`: shell, column navigation, file preview/edit, Finder Git
+  review.
+- `InteractiveAgentPlaceholderWidget.tsx`: composer, transcript, visible
+  context, action cards.
+- `useWorkspaceQueueApi.ts`: task CRUD, workflow control, run history, context
+  attach.
+- `useWorkspaceAgentDirectWorkController.ts`: launch, stream event handling,
+  activity publishing, view-state projection.
+- Queue and Workspace API type files split by domain family.
+
+These blocks should not redesign UI, change visual shell files, or alter Queue
+behavior. They should preserve public props/imports until consumers are moved.
+
+### Priority D: Styles And Docs
+
+Style cleanup must be visual no-op and should avoid visual shell files unless a
+future block explicitly scopes them. Queue CSS cleanup must not change Queue UI
+behavior.
+
+Docs cleanup should archive or split long historical status documents without
+changing current contracts. `docs/ACTIVE_CONTRACT_INDEX.md` remains the
+navigation source for contract authority.
+
+## No Behavior-Change Rule
+
+Every refactor block that consumes this audit should state:
+
+- No runtime behavior change.
+- No Queue workflow behavior change unless explicitly requested.
+- No Queue UI behavior change unless explicitly requested.
+- No visual-shell behavior change unless explicitly requested.
+- No storage/schema change unless explicitly requested.
+- No new runtime execution path.
+- No natural-language routing or prose-derived ID inference.
+- No broad formatter over unrelated files.

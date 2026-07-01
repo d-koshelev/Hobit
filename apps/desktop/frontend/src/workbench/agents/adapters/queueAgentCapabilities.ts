@@ -16,12 +16,18 @@ import {
   createQueueSelfTestReport,
   noHiddenSideEffectFlags,
   queueAgentCreatedItem,
+  queueAgentCapabilityStatusToBrokerStatus,
+  queueNextActionUnavailableFields,
   queueSideEffectFlags,
   QUEUE_ACTIVITY_EVENTS,
   singletonQueueTarget,
   type QueueAgentAdapterApi,
   type QueueAgentAdapterResult,
   type QueueAgentCapabilityStatus,
+  type QueueAgentControlGetInput,
+  type QueueAgentControlGetResult,
+  type QueueAgentControlSetManualEnabledInput,
+  type QueueAgentControlSetManualEnabledResult,
   type QueueAgentCreateItemInput,
   type QueueAgentCreateItemsInput,
   type QueueAgentCreateItemsRequest,
@@ -37,26 +43,66 @@ import {
   type QueueAgentSelfTestReport,
   type QueueAgentStartRunInput,
   type QueueAgentUpdateRunSettingsInput,
+  type QueueAgentWorkflowGetInput,
+  type QueueAgentWorkflowGetReportInput,
+  type QueueAgentWorkflowGetResult,
+  type QueueAgentWorkflowListInput,
+  type QueueAgentWorkflowListResult,
+  type QueueAgentWorkflowPlanResumeInput,
+  type QueueAgentWorkflowPlanResumeResult,
+  type QueueAgentWorkflowReadActionLogInput,
+  type QueueAgentWorkflowReadActionLogResult,
+  type QueueAgentWorkflowReportResult,
 } from "./queueAgentCapabilityTypes";
+import {
+  QUEUE_RUN_APPROVAL_POLICY_VALUES,
+  QUEUE_RUN_SANDBOX_VALUES,
+  QUEUE_START_RUN_CONFIRMATION_FIELD,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "../capabilities/queueCapabilityContracts";
 
 type ValidationResult<T> =
   | { ok: true; value: T }
-  | { ok: false; message: string };
+  | { fieldPath?: string; ok: false; message: string };
 
 type QueueAgentActionHandlerResult =
   | HobitAgentActionResult
   | Promise<HobitAgentActionResult>;
 
+const QUEUE_WORKFLOW_RUN_STATUS_VALUES = [
+  "blocked",
+  "cancelled",
+  "completed",
+  "created",
+  "failed",
+  "paused",
+  "running",
+] as const;
+
 export function createQueueAgentActionHandlers(
   adapterApi: QueueAgentAdapterApi,
 ): HobitAgentActionHandlerMap {
   return {
+    "queue.control.get": ({ request }) =>
+      handleQueueControlGet(adapterApi, request),
+    "queue.control.setManualEnabled": ({ request }) =>
+      handleQueueControlSetManualEnabled(adapterApi, request),
     "queue.createItem": ({ request }) => handleCreateItem(adapterApi, request),
     "queue.createItems": ({ request }) => handleCreateItems(adapterApi, request),
     "queue.enable": ({ request }) => handleEnableQueue(adapterApi, request),
     "queue.importPromptPack": ({ request }) =>
       handleImportPromptPack(adapterApi, request),
     "queue.items.list": ({ request }) => handleListItems(adapterApi, request),
+    "queue.workflow.get": ({ request }) =>
+      handleWorkflowGet(adapterApi, request),
+    "queue.workflow.getReport": ({ request }) =>
+      handleWorkflowGetReport(adapterApi, request),
+    "queue.workflow.list": ({ request }) =>
+      handleWorkflowList(adapterApi, request),
+    "queue.workflow.planResume": ({ request }) =>
+      handleWorkflowPlanResume(adapterApi, request),
+    "queue.workflow.readActionLog": ({ request }) =>
+      handleWorkflowReadActionLog(adapterApi, request),
     "queue.item.promoteDraft": ({ request }) =>
       handlePromoteDraft(adapterApi, request),
     "queue.item.startRun": ({ request }) =>
@@ -75,16 +121,24 @@ export function createDefaultQueueAgentAdapterApi(): QueueAgentAdapterApi {
   return {
     createItems: (request) => {
       const preview = createQueueAgentItemsPreview(request.items);
+      const createdItems = request.items.map(queueAgentCreatedItem);
+      const nextSuggestedCapability =
+        createdItems.find((item) => item.nextSuggestedCapability)
+          ?.nextSuggestedCapability ?? null;
       return {
         activityEventNames: [...QUEUE_ACTIVITY_EVENTS.createItems],
         message: "Queue items created",
         output: {
           ...preview,
+          ...nextActionFieldsForSingleCreatedItem(
+            createdItems,
+            nextSuggestedCapability,
+          ),
           createdItemCount: request.items.length,
-          createdItems: request.items.map(queueAgentCreatedItem),
+          createdItems,
           createdTaskIds: request.items.map((item) => item.id),
           dependencyEdgesPreserved: true,
-          nextSuggestedCapability: "queue.item.updateRunSettings",
+          nextSuggestedCapability,
         },
         status: "succeeded",
       };
@@ -106,17 +160,25 @@ export function createDefaultQueueAgentAdapterApi(): QueueAgentAdapterApi {
         };
       }
       const preview = createQueueAgentItemsPreview(request.items);
+      const createdItems = request.items.map(queueAgentCreatedItem);
+      const nextSuggestedCapability =
+        createdItems.find((item) => item.nextSuggestedCapability)
+          ?.nextSuggestedCapability ?? null;
       return {
         activityEventNames: [...QUEUE_ACTIVITY_EVENTS.importPromptPack],
         message: "Queue items created",
         output: {
           ...promptPackPreview.output,
           ...preview,
+          ...nextActionFieldsForSingleCreatedItem(
+            createdItems,
+            nextSuggestedCapability,
+          ),
           createdItemCount: request.items.length,
-          createdItems: request.items.map(queueAgentCreatedItem),
+          createdItems,
           createdTaskIds: request.items.map((item) => item.id),
           dependencyEdgesPreserved: true,
-          nextSuggestedCapability: "queue.item.updateRunSettings",
+          nextSuggestedCapability,
         },
         status: "succeeded",
       };
@@ -134,13 +196,109 @@ export function createDefaultQueueAgentAdapterApi(): QueueAgentAdapterApi {
   };
 }
 
+function nextActionFieldsForSingleCreatedItem(
+  createdItems: readonly ReturnType<typeof queueAgentCreatedItem>[],
+  nextSuggestedCapability: string | null,
+) {
+  if (!nextSuggestedCapability) {
+    return {};
+  }
+
+  if (createdItems.length !== 1) {
+    return queueNextActionUnavailableFields({
+      ambiguousCandidateIds: createdItems.map((item) => item.id),
+      reasonCode: "ambiguous_next_action",
+      reasonMessage:
+        "A top-level Queue nextAction is unavailable because the result contains multiple created task ids.",
+    });
+  }
+
+  const item = createdItems[0];
+  return item.nextAction
+    ? { nextAction: item.nextAction }
+    : queueNextActionUnavailableFields({
+        invalidPayloadReason: item.nextActionUnavailableReason,
+        missingRequiredInputs: item.missingNextActionInput ?? [],
+        reasonCode: item.missingNextActionInput?.length
+          ? "missing_required_input"
+          : "next_action_unavailable",
+        reasonMessage:
+          item.nextActionUnavailableReason ??
+          "A top-level Queue nextAction is unavailable for the created task.",
+      });
+}
+
+function handleQueueControlGet(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeQueueControlGetInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.getQueueControlState) {
+    return unavailable(
+      request,
+      "Queue control read is unavailable: the Workspace Queue bridge did not expose typed Queue control state.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentControlGetResult>({
+    adapterResult: adapterApi.getQueueControlState(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue control state read",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleQueueControlSetManualEnabled(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeQueueControlSetManualEnabledInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.setQueueControlManualEnabled) {
+    return unavailable(
+      request,
+      "Queue manual control mutation is unavailable: the Workspace Queue bridge did not expose typed backend Queue control plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentControlSetManualEnabledResult>({
+    adapterResult: adapterApi.setQueueControlManualEnabled(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: request.dryRun
+      ? "Queue manual control preview prepared"
+      : "Queue manual control set",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
 function handleListItems(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
 ): QueueAgentActionHandlerResult {
   const validation = normalizeListItemsInput(request.input);
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   if (!adapterApi.listItems) {
@@ -159,13 +317,165 @@ function handleListItems(
   });
 }
 
+function handleWorkflowGet(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeWorkflowGetInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.getWorkflow) {
+    return unavailable(
+      request,
+      "Queue workflow read is unavailable: the Workspace Queue bridge did not expose typed workflow get plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentWorkflowGetResult>({
+    adapterResult: adapterApi.getWorkflow(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue workflow run read",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleWorkflowList(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeWorkflowListInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.listWorkflows) {
+    return unavailable(
+      request,
+      "Queue workflow list is unavailable: the Workspace Queue bridge did not expose typed workflow list plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentWorkflowListResult>({
+    adapterResult: adapterApi.listWorkflows(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue workflow runs listed",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleWorkflowGetReport(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeWorkflowGetReportInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.getWorkflowReport) {
+    return unavailable(
+      request,
+      "Queue workflow report read is unavailable: the Workspace Queue bridge did not expose typed workflow report plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentWorkflowReportResult>({
+    adapterResult: adapterApi.getWorkflowReport(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue workflow report read",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleWorkflowPlanResume(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeWorkflowPlanResumeInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.planWorkflowResume) {
+    return unavailable(
+      request,
+      "Queue workflow resume planning is unavailable: the Workspace Queue bridge did not expose typed workflow resume planning plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentWorkflowPlanResumeResult>({
+    adapterResult: adapterApi.planWorkflowResume(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue workflow resume plan read",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
+function handleWorkflowReadActionLog(
+  adapterApi: QueueAgentAdapterApi,
+  request: HobitAgentActionRequest,
+): QueueAgentActionHandlerResult {
+  const validation = normalizeWorkflowReadActionLogInput(request.input);
+  if (!validation.ok) {
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  if (!adapterApi.readWorkflowActionLog) {
+    return unavailable(
+      request,
+      "Queue workflow action-log read is unavailable: the Workspace Queue bridge did not expose typed workflow report plumbing.",
+    );
+  }
+
+  return actionResultFromMaybeAdapter<QueueAgentWorkflowReadActionLogResult>({
+    adapterResult: adapterApi.readWorkflowActionLog(
+      validation.value,
+      contextForRequest(request),
+    ),
+    capabilityId: request.capabilityId,
+    defaultMessage: "Queue workflow action log read",
+    dryRun: request.dryRun,
+    requestId: request.requestId,
+  });
+}
+
 function handleUpdateRunSettings(
   adapterApi: QueueAgentAdapterApi,
   request: HobitAgentActionRequest,
 ): QueueAgentActionHandlerResult {
   const validation = normalizeUpdateRunSettingsInput(request.input);
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   if (!adapterApi.updateRunSettings) {
@@ -198,7 +508,9 @@ function handlePromoteDraft(
     "queue.item.promoteDraft requires taskId.",
   );
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   if (!adapterApi.promoteDraft) {
@@ -228,7 +540,9 @@ function handleEnableQueue(
 ): QueueAgentActionHandlerResult {
   const validation = normalizeEnableInput(request.input);
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   if (!adapterApi.enableQueue) {
@@ -255,7 +569,16 @@ function handleStartQueueLinkedRun(
 ): QueueAgentActionHandlerResult {
   const validation = normalizeStartRunInput(request.input);
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  const confirmationError = exactQueueConfirmationError(request);
+  if (confirmationError) {
+    return invalidInput(request, confirmationError, {
+      fieldPath: QUEUE_START_RUN_CONFIRMATION_FIELD,
+    });
   }
 
   if (!adapterApi.startQueueLinkedRun) {
@@ -301,7 +624,9 @@ function handleCreateItem(
     : null;
 
   if (!input) {
-    return invalidInput(request, "Queue item input is required.");
+    return invalidInput(request, "Queue item input is required.", {
+      fieldPath: "input",
+    });
   }
 
   return runCreateItems(adapterApi, request, input, "Queue items created");
@@ -312,7 +637,9 @@ function handleCreateItems(
   request: HobitAgentActionRequest,
 ): QueueAgentActionHandlerResult {
   if (!isRecord(request.input)) {
-    return invalidInput(request, "Queue items input is required.");
+    return invalidInput(request, "Queue items input is required.", {
+      fieldPath: "input",
+    });
   }
 
   return runCreateItems(
@@ -331,11 +658,13 @@ function runCreateItems(
 ): QueueAgentActionHandlerResult {
   const validation = normalizeCreateItemsInput(input);
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   if (!adapterApi.supportsDependencyEdges && hasDependencyEdges(validation.value.items)) {
-    return failed(
+    return unavailable(
       request,
       "Queue item creation unavailable: dependency edges are not supported by this Queue adapter.",
     );
@@ -381,7 +710,9 @@ function handlePreparePromptPackPreview(
 ): QueueAgentActionHandlerResult {
   const validation = normalizePromptPackInput(request.input);
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
   }
 
   return actionResultFromMaybeAdapter({
@@ -399,7 +730,16 @@ function handleImportPromptPack(
 ): QueueAgentActionHandlerResult {
   const validation = normalizePromptPackInput(request.input);
   if (!validation.ok) {
-    return invalidInput(request, validation.message);
+    return invalidInput(request, validation.message, {
+      fieldPath: validation.fieldPath,
+    });
+  }
+
+  const confirmationError = exactQueueConfirmationError(request);
+  if (confirmationError) {
+    return invalidInput(request, confirmationError, {
+      fieldPath: QUEUE_START_RUN_CONFIRMATION_FIELD,
+    });
   }
 
   return withAdapterResult(
@@ -423,6 +763,7 @@ function handleImportPromptPack(
         return invalidInput(
           request,
           "Prompt-pack input has blocking validation errors.",
+          { fieldPath: "input" },
         );
       }
 
@@ -430,14 +771,16 @@ function handleImportPromptPack(
         previewResult.output,
       );
       if (!createValidation.ok) {
-        return invalidInput(request, createValidation.message);
+        return invalidInput(request, createValidation.message, {
+          fieldPath: createValidation.fieldPath,
+        });
       }
 
       if (
         !adapterApi.supportsDependencyEdges &&
         hasDependencyEdges(createValidation.value.items)
       ) {
-        return failed(
+        return unavailable(
           request,
           "Queue item creation unavailable: dependency edges are not supported by this Queue adapter.",
         );
@@ -944,7 +1287,7 @@ function createItemsFromPromptPackPreview(
     dependencyIdsByTaskId.set(dependency.downstreamTaskId, dependencyIds);
   }
   const items = materialization.tasks.map((task) => ({
-    dependencies: dependencyIdsByTaskId.get(task.taskId) ?? [],
+    dependsOn: dependencyIdsByTaskId.get(task.taskId) ?? [],
     description: `Prompt pack: ${task.source.packName ?? "Prompt Pack"} (${task.source.packId})`,
     id: task.taskId,
     prompt: task.prompt,
@@ -963,14 +1306,18 @@ function createItemsFromPromptPackPreview(
 
   return normalized.ok
     ? normalized
-    : { ok: false, message: normalized.message };
+    : { fieldPath: normalized.fieldPath, ok: false, message: normalized.message };
 }
 
 function normalizePromptPackInput(
   input: unknown,
 ): ValidationResult<QueueAgentPromptPackInput> {
   if (!isRecord(input)) {
-    return { ok: false, message: "Prompt-pack input is required." };
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "Prompt-pack input is required.",
+    };
   }
 
   const candidate = input as QueueAgentPromptPackInput;
@@ -982,19 +1329,28 @@ function normalizePromptPackInput(
 
   return hasInput
     ? { ok: true, value: candidate }
-    : { ok: false, message: "Prompt-pack input is required." };
+    : {
+        fieldPath: "input",
+        ok: false,
+        message: "Prompt-pack input is required.",
+      };
 }
 
 function normalizeListItemsInput(
   input: unknown,
 ): ValidationResult<QueueAgentListItemsInput> {
   if (!isRecord(input)) {
-    return { ok: false, message: "Queue items list input must be an object." };
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "Queue items list input must be an object.",
+    };
   }
 
   const taskId = optionalStringField(input, "taskId");
   if (taskId.invalid) {
     return {
+      fieldPath: "input.taskId",
       ok: false,
       message: "taskId must be a non-empty string when supplied.",
     };
@@ -1003,6 +1359,7 @@ function normalizeListItemsInput(
   const limit = optionalLimitField(input, "limit");
   if (limit.invalid) {
     return {
+      fieldPath: "input.limit",
       ok: false,
       message: "limit must be an integer between 1 and 50 when supplied.",
     };
@@ -1014,6 +1371,301 @@ function normalizeListItemsInput(
       ...(taskId.value ? { taskId: taskId.value } : {}),
       ...(limit.value ? { limit: limit.value } : {}),
     },
+  };
+}
+
+function normalizeWorkflowGetInput(
+  input: unknown,
+): ValidationResult<
+  Required<Pick<QueueAgentWorkflowGetInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowGetInput, "workflowRunId">
+> {
+  return normalizeWorkflowRunIdInput<QueueAgentWorkflowGetInput>(
+    input,
+    "queue.workflow.get",
+    ["workflowRunId", "workspaceId"],
+  );
+}
+
+function normalizeWorkflowGetReportInput(
+  input: unknown,
+): ValidationResult<
+  Required<Pick<QueueAgentWorkflowGetReportInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowGetReportInput, "workflowRunId">
+> {
+  return normalizeWorkflowRunIdInput<QueueAgentWorkflowGetReportInput>(
+    input,
+    "queue.workflow.getReport",
+    ["workflowRunId", "workspaceId"],
+  );
+}
+
+function normalizeWorkflowPlanResumeInput(
+  input: unknown,
+): ValidationResult<
+  Required<Pick<QueueAgentWorkflowPlanResumeInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowPlanResumeInput, "workflowRunId">
+> {
+  const base = normalizeWorkflowRunIdInput<QueueAgentWorkflowPlanResumeInput>(
+    input,
+    "queue.workflow.planResume",
+    ["expectedVersion", "workflowRunId", "workspaceId"],
+  );
+  if (!base.ok) {
+    return base;
+  }
+
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.workflow.planResume input must be an object.",
+    };
+  }
+
+  const expectedVersion = optionalNonNegativeIntegerField(
+    input,
+    "expectedVersion",
+  );
+  if (expectedVersion.invalid) {
+    return {
+      fieldPath: "input.expectedVersion",
+      ok: false,
+      message:
+        "expectedVersion must be a non-negative integer when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...base.value,
+      ...(expectedVersion.value !== undefined
+        ? { expectedVersion: expectedVersion.value }
+        : {}),
+    },
+  };
+}
+
+function normalizeWorkflowReadActionLogInput(
+  input: unknown,
+): ValidationResult<
+  Required<Pick<QueueAgentWorkflowReadActionLogInput, "workflowRunId">> &
+    Omit<QueueAgentWorkflowReadActionLogInput, "workflowRunId">
+> {
+  const base =
+    normalizeWorkflowRunIdInput<QueueAgentWorkflowReadActionLogInput>(
+      input,
+      "queue.workflow.readActionLog",
+      [
+        "actionType",
+        "includeRefs",
+        "limit",
+        "slot",
+        "status",
+        "workflowRunId",
+        "workspaceId",
+      ],
+    );
+  if (!base.ok) {
+    return base;
+  }
+
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.workflow.readActionLog input must be an object.",
+    };
+  }
+
+  const limit = optionalLimitField(input, "limit");
+  if (limit.invalid) {
+    return {
+      fieldPath: "input.limit",
+      ok: false,
+      message: "limit must be an integer between 1 and 50 when supplied.",
+    };
+  }
+
+  const status = optionalStringField(input, "status");
+  if (status.invalid) {
+    return {
+      fieldPath: "input.status",
+      ok: false,
+      message: "status must be a non-empty string when supplied.",
+    };
+  }
+
+  const actionType = optionalStringField(input, "actionType");
+  if (actionType.invalid) {
+    return {
+      fieldPath: "input.actionType",
+      ok: false,
+      message: "actionType must be a non-empty string when supplied.",
+    };
+  }
+
+  const slot = optionalStringField(input, "slot");
+  if (slot.invalid) {
+    return {
+      fieldPath: "input.slot",
+      ok: false,
+      message: "slot must be a non-empty string when supplied.",
+    };
+  }
+
+  const includeRefs = optionalBooleanField(input, "includeRefs");
+  if (includeRefs.invalid) {
+    return {
+      fieldPath: "input.includeRefs",
+      ok: false,
+      message: "includeRefs must be a boolean when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...base.value,
+      ...(actionType.value ? { actionType: actionType.value } : {}),
+      ...(includeRefs.value !== undefined
+        ? { includeRefs: includeRefs.value }
+        : {}),
+      ...(limit.value ? { limit: limit.value } : {}),
+      ...(slot.value ? { slot: slot.value } : {}),
+      ...(status.value ? { status: status.value } : {}),
+    },
+  };
+}
+
+function normalizeWorkflowListInput(
+  input: unknown,
+): ValidationResult<QueueAgentWorkflowListInput> {
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.workflow.list input must be an object.",
+    };
+  }
+
+  const unsupported = unsupportedInputFields(input, [
+    "limit",
+    "status",
+    "workflowId",
+    "workspaceId",
+  ]);
+  if (unsupported) {
+    return {
+      fieldPath: `input.${unsupported}`,
+      ok: false,
+      message: `${unsupported} is not supported by queue.workflow.list.`,
+    };
+  }
+
+  const workspaceId = optionalStringField(input, "workspaceId");
+  if (workspaceId.invalid) {
+    return {
+      fieldPath: "input.workspaceId",
+      ok: false,
+      message: "workspaceId must be a non-empty string when supplied.",
+    };
+  }
+
+  const workflowId = optionalStringField(input, "workflowId");
+  if (workflowId.invalid) {
+    return {
+      fieldPath: "input.workflowId",
+      ok: false,
+      message: "workflowId must be a non-empty string when supplied.",
+    };
+  }
+
+  const status = optionalEnumField(
+    input,
+    "status",
+    QUEUE_WORKFLOW_RUN_STATUS_VALUES,
+  );
+  if (status.invalid) {
+    return {
+      fieldPath: "input.status",
+      ok: false,
+      message:
+        `status must be one of ${QUEUE_WORKFLOW_RUN_STATUS_VALUES.join(", ")} when supplied.`,
+    };
+  }
+
+  const limit = optionalLimitField(input, "limit");
+  if (limit.invalid) {
+    return {
+      fieldPath: "input.limit",
+      ok: false,
+      message: "limit must be an integer between 1 and 50 when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...(limit.value ? { limit: limit.value } : {}),
+      ...(status.value ? { status: status.value } : {}),
+      ...(workflowId.value ? { workflowId: workflowId.value } : {}),
+      ...(workspaceId.value ? { workspaceId: workspaceId.value } : {}),
+    },
+  };
+}
+
+function normalizeWorkflowRunIdInput<TInput extends QueueAgentWorkflowGetInput>(
+  input: unknown,
+  capabilityId: string,
+  acceptedFields: readonly string[],
+): ValidationResult<
+  Required<Pick<TInput, "workflowRunId">> & Omit<TInput, "workflowRunId">
+> {
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: `${capabilityId} input must be an object.`,
+    };
+  }
+
+  const unsupported = unsupportedInputFields(input, acceptedFields);
+  if (unsupported) {
+    return {
+      fieldPath: `input.${unsupported}`,
+      ok: false,
+      message: `${unsupported} is not supported by ${capabilityId}.`,
+    };
+  }
+
+  const workflowRunId = optionalStringField(input, "workflowRunId");
+  if (workflowRunId.invalid || !workflowRunId.value) {
+    return {
+      fieldPath: "input.workflowRunId",
+      ok: false,
+      message: `${capabilityId} requires workflowRunId.`,
+    };
+  }
+
+  const workspaceId = optionalStringField(input, "workspaceId");
+  if (workspaceId.invalid) {
+    return {
+      fieldPath: "input.workspaceId",
+      ok: false,
+      message: "workspaceId must be a non-empty string when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...(input as Omit<TInput, "workflowRunId" | "workspaceId">),
+      workflowRunId: workflowRunId.value,
+      ...(workspaceId.value ? { workspaceId: workspaceId.value } : {}),
+    } as Required<Pick<TInput, "workflowRunId">> &
+      Omit<TInput, "workflowRunId">,
   };
 }
 
@@ -1033,7 +1685,11 @@ function normalizeUpdateRunSettingsInput(
   }
 
   if (!isRecord(input)) {
-    return { ok: false, message: "Queue run settings input must be an object." };
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "Queue run settings input must be an object.",
+    };
   }
 
   const suppliedFields = [
@@ -1044,6 +1700,7 @@ function normalizeUpdateRunSettingsInput(
   ].filter((fieldName) => hasOwn(input, fieldName));
   if (suppliedFields.length === 0) {
     return {
+      fieldPath: "input",
       ok: false,
       message:
         "queue.item.updateRunSettings requires at least one supplied setting.",
@@ -1053,6 +1710,7 @@ function normalizeUpdateRunSettingsInput(
   const codexExecutable = optionalStringOrNullField(input, "codexExecutable");
   if (codexExecutable.invalid) {
     return {
+      fieldPath: "input.codexExecutable",
       ok: false,
       message: "codexExecutable must be a non-empty string when supplied.",
     };
@@ -1061,34 +1719,33 @@ function normalizeUpdateRunSettingsInput(
   const workspaceRoot = optionalStringOrNullField(input, "workspaceRoot");
   if (workspaceRoot.invalid) {
     return {
+      fieldPath: "input.workspaceRoot",
       ok: false,
       message: "workspaceRoot must be a non-empty string when supplied.",
     };
   }
 
   const sandbox = optionalEnumOrNullField(input, "sandbox", [
-    "danger_full_access",
-    "read_only",
-    "workspace_write",
+    ...QUEUE_RUN_SANDBOX_VALUES,
   ]);
   if (sandbox.invalid) {
     return {
+      fieldPath: "input.sandbox",
       ok: false,
       message:
-        "sandbox must be one of danger_full_access, read_only, or workspace_write when supplied.",
+        `sandbox must be one of ${QUEUE_RUN_SANDBOX_VALUES.join(", ")} when supplied.`,
     };
   }
 
   const approvalPolicy = optionalEnumOrNullField(input, "approvalPolicy", [
-    "never",
-    "on_request",
-    "untrusted",
+    ...QUEUE_RUN_APPROVAL_POLICY_VALUES,
   ]);
   if (approvalPolicy.invalid) {
     return {
+      fieldPath: "input.approvalPolicy",
       ok: false,
       message:
-        "approvalPolicy must be one of never, on_request, or untrusted when supplied.",
+        `approvalPolicy must be one of ${QUEUE_RUN_APPROVAL_POLICY_VALUES.join(", ")} when supplied.`,
     };
   }
 
@@ -1114,11 +1771,16 @@ function normalizeEnableInput(
   input: unknown,
 ): ValidationResult<QueueAgentEnableInput> {
   if (!isRecord(input)) {
-    return { ok: false, message: "queue.enable input must be an object." };
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.enable input must be an object.",
+    };
   }
 
   if (Object.keys(input).length > 0) {
     return {
+      fieldPath: "input",
       ok: false,
       message:
         "queue.enable does not accept input fields. Use an empty input object.",
@@ -1126,6 +1788,114 @@ function normalizeEnableInput(
   }
 
   return { ok: true, value: {} };
+}
+
+function normalizeQueueControlGetInput(
+  input: unknown,
+): ValidationResult<QueueAgentControlGetInput> {
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.control.get input must be an object.",
+    };
+  }
+
+  const unsupported = Object.keys(input).filter(
+    (fieldName) => fieldName !== "workspaceId",
+  );
+  if (unsupported.length > 0) {
+    return {
+      fieldPath: `input.${unsupported[0]}`,
+      ok: false,
+      message: `${unsupported[0]} is not supported by queue.control.get.`,
+    };
+  }
+
+  const workspaceId = optionalStringField(input, "workspaceId");
+  if (workspaceId.invalid) {
+    return {
+      fieldPath: "input.workspaceId",
+      ok: false,
+      message: "workspaceId must be a non-empty string when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: workspaceId.value ? { workspaceId: workspaceId.value } : {},
+  };
+}
+
+function normalizeQueueControlSetManualEnabledInput(
+  input: unknown,
+): ValidationResult<QueueAgentControlSetManualEnabledInput> {
+  if (!isRecord(input)) {
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "queue.control.setManualEnabled input must be an object.",
+    };
+  }
+
+  const supportedFields = new Set([
+    "expectedVersion",
+    "reason",
+    "workspaceId",
+  ]);
+  const unsupported = Object.keys(input).filter(
+    (fieldName) => !supportedFields.has(fieldName),
+  );
+  if (unsupported.length > 0) {
+    return {
+      fieldPath: `input.${unsupported[0]}`,
+      ok: false,
+      message: `${unsupported[0]} is not supported by queue.control.setManualEnabled.`,
+    };
+  }
+
+  const workspaceId = optionalStringField(input, "workspaceId");
+  if (workspaceId.invalid) {
+    return {
+      fieldPath: "input.workspaceId",
+      ok: false,
+      message: "workspaceId must be a non-empty string when supplied.",
+    };
+  }
+
+  const expectedVersion = optionalNonNegativeIntegerField(
+    input,
+    "expectedVersion",
+  );
+  if (expectedVersion.invalid) {
+    return {
+      fieldPath: "input.expectedVersion",
+      ok: false,
+      message:
+        "expectedVersion must be a non-negative integer when supplied.",
+    };
+  }
+
+  const reason = optionalBoundedStringField(input, "reason", 240);
+  if (reason.invalid) {
+    return {
+      fieldPath: "input.reason",
+      ok: false,
+      message:
+        "reason must be a non-empty string up to 240 characters when supplied.",
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ...(expectedVersion.value !== undefined
+        ? { expectedVersion: expectedVersion.value }
+        : {}),
+      ...(reason.value ? { reason: reason.value } : {}),
+      ...(workspaceId.value ? { workspaceId: workspaceId.value } : {}),
+    },
+  };
 }
 
 function normalizeStartRunInput(
@@ -1143,12 +1913,17 @@ function normalizeStartRunInput(
   }
 
   if (!isRecord(input)) {
-    return { ok: false, message: "Queue start input must be an object." };
+    return {
+      fieldPath: "input",
+      ok: false,
+      message: "Queue start input must be an object.",
+    };
   }
 
   const executorWidgetId = optionalStringField(input, "executorWidgetId");
   if (executorWidgetId.invalid || !executorWidgetId.value) {
     return {
+      fieldPath: "input.executorWidgetId",
       ok: false,
       message: "queue.item.startRun requires executorWidgetId.",
     };
@@ -1157,6 +1932,7 @@ function normalizeStartRunInput(
   const queueId = optionalStringField(input, "queueId");
   if (queueId.invalid) {
     return {
+      fieldPath: "input.queueId",
       ok: false,
       message: "queueId must be a non-empty string when supplied.",
     };
@@ -1179,12 +1955,12 @@ function normalizeTaskIdInput<TInput extends { taskId?: string }>(
   Required<Pick<TInput, "taskId">> & Omit<TInput, "taskId">
 > {
   if (!isRecord(input)) {
-    return { ok: false, message: missingMessage };
+    return { fieldPath: "input", ok: false, message: missingMessage };
   }
 
   const taskId = optionalStringField(input, "taskId");
   if (taskId.invalid || !taskId.value) {
-    return { ok: false, message: missingMessage };
+    return { fieldPath: "input.taskId", ok: false, message: missingMessage };
   }
 
   return {
@@ -1200,7 +1976,11 @@ function normalizeCreateItemsInput(
   input: QueueAgentCreateItemsInput,
 ): ValidationResult<Omit<QueueAgentCreateItemsRequest, "target">> {
   if (!Array.isArray(input.items) || input.items.length === 0) {
-    return { ok: false, message: "Queue createItems requires at least one item." };
+    return {
+      fieldPath: "input.items",
+      ok: false,
+      message: "Queue createItems requires at least one item.",
+    };
   }
 
   const normalizedItems: QueueAgentNormalizedCreateItem[] = [];
@@ -1210,22 +1990,43 @@ function normalizeCreateItemsInput(
     const title = item.title?.trim() ?? "";
     const prompt = item.prompt?.trim() ?? "";
     const id = item.id?.trim() || `item-${(index + 1).toString()}`;
+    const dependencies = normalizeDependsOnRefs(item, index);
 
     if (!title) {
-      return { ok: false, message: "Queue item title is required." };
+      return {
+        fieldPath: `input.items[${index.toString()}].title`,
+        ok: false,
+        message: "Queue item title is required.",
+      };
     }
 
     if (!prompt) {
-      return { ok: false, message: "Queue item prompt is required." };
+      return {
+        fieldPath: `input.items[${index.toString()}].prompt`,
+        ok: false,
+        message: "Queue item prompt is required.",
+      };
     }
 
     if (ids.has(id)) {
-      return { ok: false, message: `Queue item id "${id}" is duplicated.` };
+      return {
+        fieldPath: `input.items[${index.toString()}].id`,
+        ok: false,
+        message: `Queue item id "${id}" is duplicated.`,
+      };
     }
     ids.add(id);
 
+    if (!dependencies.ok) {
+      return {
+        fieldPath: dependencies.fieldPath,
+        ok: false,
+        message: dependencies.message,
+      };
+    }
+
     normalizedItems.push({
-      dependencies: normalizeDependencyRefs(item.dependencies),
+      dependencies: dependencies.value,
       description: item.description?.trim() ?? "",
       id,
       prompt,
@@ -1235,9 +2036,10 @@ function normalizeCreateItemsInput(
     });
   }
 
-  for (const item of normalizedItems) {
+  for (const [index, item] of normalizedItems.entries()) {
     if (item.dependencies.includes(item.id)) {
       return {
+        fieldPath: `input.items[${index.toString()}].dependsOn`,
         ok: false,
         message: `Queue item "${item.id}" cannot depend on itself.`,
       };
@@ -1253,10 +2055,67 @@ function normalizeCreateItemsInput(
   };
 }
 
-function normalizeDependencyRefs(value: unknown) {
-  return Array.isArray(value)
-    ? [...new Set(value.map((item) => String(item).trim()).filter(Boolean))]
-    : [];
+function normalizeDependsOnRefs(
+  item: QueueAgentCreateItemInput,
+  itemIndex: number,
+): ValidationResult<string[]> {
+  const input = item as Record<string, unknown>;
+
+  if (hasOwn(input, "dependencies")) {
+    return {
+      fieldPath: `input.items[${itemIndex.toString()}].dependencies`,
+      ok: false,
+      message:
+        "Queue item dependencies must use dependsOn, not dependencies.",
+    };
+  }
+
+  if (hasOwn(input, "depends_on")) {
+    return {
+      fieldPath: `input.items[${itemIndex.toString()}].depends_on`,
+      ok: false,
+      message:
+        "Queue item dependencies must use dependsOn, not depends_on.",
+    };
+  }
+
+  if (!hasOwn(input, "dependsOn") || input.dependsOn === undefined) {
+    return { ok: true, value: [] };
+  }
+
+  if (!Array.isArray(input.dependsOn)) {
+    return {
+      fieldPath: `input.items[${itemIndex.toString()}].dependsOn`,
+      ok: false,
+      message: "Queue item dependsOn must be an array of Queue task ids.",
+    };
+  }
+
+  const dependencyIds: string[] = [];
+  for (const [dependencyIndex, dependencyId] of input.dependsOn.entries()) {
+    if (typeof dependencyId !== "string") {
+      return {
+        fieldPath: `input.items[${itemIndex.toString()}].dependsOn[${dependencyIndex.toString()}]`,
+        ok: false,
+        message:
+          "Queue item dependsOn entries must be non-empty Queue task id strings.",
+      };
+    }
+
+    const trimmedDependencyId = dependencyId.trim();
+    if (!trimmedDependencyId) {
+      return {
+        fieldPath: `input.items[${itemIndex.toString()}].dependsOn[${dependencyIndex.toString()}]`,
+        ok: false,
+        message:
+          "Queue item dependsOn entries must be non-empty Queue task id strings.",
+      };
+    }
+
+    dependencyIds.push(trimmedDependencyId);
+  }
+
+  return { ok: true, value: dependencyIds };
 }
 
 function actionResultFromAdapter<TOutput>({
@@ -1272,25 +2131,14 @@ function actionResultFromAdapter<TOutput>({
   dryRun: boolean;
   requestId: string;
 }): HobitAgentActionResult {
-  const status =
-    adapterResult.status === "succeeded"
-      ? "succeeded"
-      : adapterResult.status === "invalid_input"
-        ? "invalid_input"
-        : adapterResult.status === "unavailable"
-          ? "unavailable"
-          : adapterResult.status === "policy_blocked"
-            ? "policy_blocked"
-            : adapterResult.status === "dry_run_required"
-              ? "dry_run_required"
-              : adapterResult.status === "confirmation_required"
-                ? "needs_confirmation"
-                : "failed";
+  const status = queueAgentCapabilityStatusToBrokerStatus(adapterResult.status);
 
   return createActionResult({
     auditEvents: [],
     capabilityId,
     dryRun,
+    fieldPath: adapterResult.fieldPath,
+    fieldPaths: adapterResult.fieldPaths,
     hiddenSideEffectFlags: noHiddenSideEffectFlags(),
     message: adapterResult.message || defaultMessage,
     output: {
@@ -1301,6 +2149,7 @@ function actionResultFromAdapter<TOutput>({
         : { result: adapterResult.output }),
     },
     policyReasons: adapterResult.reasons ?? (status === "succeeded" ? [] : [adapterResult.message]),
+    reasonCode: adapterResult.reasonCode,
     requestId,
     status,
   });
@@ -1344,33 +2193,27 @@ function withAdapterResult<TValue, TResult>(
 function invalidInput(
   request: HobitAgentActionRequest,
   message: string,
+  options: { fieldPath?: string; fieldPaths?: string[] } = {},
 ): HobitAgentActionResult {
   return createActionResult({
     auditEvents: [],
     capabilityId: request.capabilityId,
     dryRun: request.dryRun,
+    fieldPath: options.fieldPath,
+    fieldPaths: options.fieldPaths,
     hiddenSideEffectFlags: noHiddenSideEffectFlags(),
     message,
     policyReasons: [message],
+    reasonCode: "invalid_payload",
     requestId: request.requestId,
     status: "invalid_input",
   });
 }
 
-function failed(
-  request: HobitAgentActionRequest,
-  message: string,
-): HobitAgentActionResult {
-  return createActionResult({
-    auditEvents: [],
-    capabilityId: request.capabilityId,
-    dryRun: request.dryRun,
-    hiddenSideEffectFlags: noHiddenSideEffectFlags(),
-    message,
-    policyReasons: [message],
-    requestId: request.requestId,
-    status: "failed",
-  });
+function exactQueueConfirmationError(request: HobitAgentActionRequest) {
+  return request.confirmationToken === QUEUE_START_RUN_CONFIRMATION_TOKEN
+    ? null
+    : `${request.capabilityId} requires top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD} "${QUEUE_START_RUN_CONFIRMATION_TOKEN}".`;
 }
 
 function unavailable(
@@ -1384,6 +2227,7 @@ function unavailable(
     hiddenSideEffectFlags: noHiddenSideEffectFlags(),
     message,
     policyReasons: [message],
+    reasonCode: "capability_unavailable",
     requestId: request.requestId,
     status: "unavailable",
   });
@@ -1457,6 +2301,21 @@ function optionalEnumOrNullField<TValue extends string>(
     : { invalid: true };
 }
 
+function optionalEnumField<TValue extends string>(
+  input: Record<string, unknown>,
+  fieldName: string,
+  values: readonly TValue[],
+): { invalid: boolean; value?: TValue } {
+  if (!hasOwn(input, fieldName) || input[fieldName] === undefined) {
+    return { invalid: false };
+  }
+
+  return typeof input[fieldName] === "string" &&
+    values.includes(input[fieldName] as TValue)
+    ? { invalid: false, value: input[fieldName] as TValue }
+    : { invalid: true };
+}
+
 function optionalLimitField(
   input: Record<string, unknown>,
   fieldName: string,
@@ -1474,11 +2333,67 @@ function optionalLimitField(
     : { invalid: true };
 }
 
+function optionalNonNegativeIntegerField(
+  input: Record<string, unknown>,
+  fieldName: string,
+): { invalid: boolean; value?: number } {
+  if (!hasOwn(input, fieldName) || input[fieldName] === undefined) {
+    return { invalid: false };
+  }
+
+  const value = input[fieldName];
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 0
+    ? { invalid: false, value }
+    : { invalid: true };
+}
+
+function optionalBooleanField(
+  input: Record<string, unknown>,
+  fieldName: string,
+): { invalid: boolean; value?: boolean } {
+  if (!hasOwn(input, fieldName) || input[fieldName] === undefined) {
+    return { invalid: false };
+  }
+
+  return typeof input[fieldName] === "boolean"
+    ? { invalid: false, value: input[fieldName] }
+    : { invalid: true };
+}
+
+function optionalBoundedStringField(
+  input: Record<string, unknown>,
+  fieldName: string,
+  maxLength: number,
+): { invalid: boolean; value?: string } {
+  if (!hasOwn(input, fieldName) || input[fieldName] === undefined) {
+    return { invalid: false };
+  }
+
+  if (typeof input[fieldName] !== "string") {
+    return { invalid: true };
+  }
+
+  const value = input[fieldName].trim();
+  return value && value.length <= maxLength
+    ? { invalid: false, value }
+    : { invalid: true };
+}
+
 function hasOwn<TObject extends object, TKey extends PropertyKey>(
   object: TObject,
   key: TKey,
 ): object is TObject & Record<TKey, unknown> {
   return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function unsupportedInputFields(
+  input: Record<string, unknown>,
+  acceptedFields: readonly string[],
+) {
+  const accepted = new Set(acceptedFields);
+  return Object.keys(input).find((fieldName) => !accepted.has(fieldName));
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

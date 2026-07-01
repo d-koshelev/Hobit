@@ -17,6 +17,11 @@ import type {
   AgentRunResult,
   AgentTokenUsage,
 } from "./agentRuntimeTypes";
+import type {
+  AgentProvider,
+  AgentProviderEvent,
+  AgentProviderTurnRequest,
+} from "./agentProvider";
 
 export const CODEX_AGENT_PROVIDER_ID = "codex-direct-work";
 
@@ -44,6 +49,10 @@ export type CodexAgentRuntimeActions = {
     onEvent: (event: DirectWorkStreamEvent) => void,
     signal?: AbortSignal,
   ) => Promise<CodexDirectWorkStreamSession | null>;
+};
+
+export type CodexAgentProviderOptions = CodexAgentRuntimeActions & {
+  codexExecutable: string;
 };
 
 export type CodexAgentRuntimeRunHandle = {
@@ -165,6 +174,85 @@ export function mapDirectWorkStreamEventToAgentRunEvent(
     sequence,
     timestampMs: Date.now(),
     title,
+  };
+}
+
+export function mapDirectWorkStreamEventToAgentProviderEvent(
+  event: DirectWorkStreamEvent,
+  sequence: number,
+  providerId = CODEX_AGENT_PROVIDER_ID,
+): AgentProviderEvent {
+  const base = {
+    providerId,
+    providerThreadId: event.codexThreadId ?? null,
+    rawDirectWorkEvent: event,
+    runId: event.runId,
+    sequence,
+    timestampMs: Date.now(),
+  };
+
+  if (event.eventKind === "started") {
+    return {
+      ...base,
+      type: "run_started",
+    };
+  }
+
+  if (event.eventKind === "cancelled") {
+    return {
+      ...base,
+      message: event.text ?? event.status ?? undefined,
+      type: "cancelled",
+    };
+  }
+
+  if (event.eventKind === "failed" || event.eventKind === "timed_out") {
+    return {
+      ...base,
+      errorMessage:
+        event.errorMessage ??
+        event.text ??
+        event.stderrPreview ??
+        event.finalStatus ??
+        "Codex Direct Work failed.",
+      type: "error",
+    };
+  }
+
+  if (event.isFinal) {
+    return {
+      ...base,
+      elapsedMs: event.elapsedMs >= 0 ? event.elapsedMs : null,
+      finalMessage: messageFromDirectWorkEvent(event),
+      status: providerFinalStatusFromDirectWorkEvent(event),
+      type: "run_finished",
+    };
+  }
+
+  const text = messageFromDirectWorkEvent(event);
+  if (text) {
+    const structuredType = structuredProviderEventTypeFromText(text);
+    if (structuredType) {
+      return {
+        ...base,
+        text,
+        type: structuredType,
+      };
+    }
+  }
+
+  if (event.eventKind === "stdout_line" || event.eventKind === "stderr_line") {
+    return {
+      ...base,
+      text: text ?? "",
+      type: "text_delta",
+    };
+  }
+
+  return {
+    ...base,
+    text: text ?? event.eventKind,
+    type: "message_delta",
   };
 }
 
@@ -305,6 +393,104 @@ export function createCodexAgentRuntimeAdapter(
   };
 }
 
+export function createCodexAgentProvider({
+  cancelCodexDirectWorkRun,
+  codexExecutable,
+  startCodexDirectWorkStream,
+}: CodexAgentProviderOptions): AgentProvider {
+  const capabilities = createCodexProviderCapabilities({
+    supportsCancellation: Boolean(cancelCodexDirectWorkRun),
+  });
+
+  return {
+    capabilities,
+    async cancelRun(widgetInstanceId, runId) {
+      if (!cancelCodexDirectWorkRun) {
+        return {
+          message: "Codex Direct Work cancellation is unavailable.",
+          providerId: CODEX_AGENT_PROVIDER_ID,
+          runId,
+          status: "not_supported",
+        };
+      }
+
+      const response = await cancelCodexDirectWorkRun(widgetInstanceId, runId);
+      return {
+        message:
+          response && isRecord(response) && typeof response.message === "string"
+            ? response.message
+            : "Codex Direct Work cancellation requested.",
+        providerId: CODEX_AGENT_PROVIDER_ID,
+        runId,
+        status: "requested",
+      };
+    },
+    providerDisplayName: capabilities.displayName,
+    providerId: CODEX_AGENT_PROVIDER_ID,
+    async startTurn(request, onEvent, options) {
+      if (!startCodexDirectWorkStream) {
+        onEvent({
+          errorMessage: "Codex Direct Work stream API is unavailable.",
+          providerId: CODEX_AGENT_PROVIDER_ID,
+          providerThreadId: request.providerThreadId ?? null,
+          runId: request.id,
+          sequence: 1,
+          timestampMs: Date.now(),
+          type: "error",
+        });
+        onEvent({
+          elapsedMs: null,
+          providerId: CODEX_AGENT_PROVIDER_ID,
+          providerThreadId: request.providerThreadId ?? null,
+          runId: request.id,
+          sequence: 2,
+          status: "failed",
+          timestampMs: Date.now(),
+          type: "run_finished",
+        });
+        return null;
+      }
+
+      let sequence = 0;
+      const session = await startCodexDirectWorkStream(
+        request.widgetInstanceId,
+        codexProviderTurnRequestToDirectWorkRequest(request, codexExecutable),
+        (event) => {
+          sequence += 1;
+          onEvent(
+            mapDirectWorkStreamEventToAgentProviderEvent(
+              event,
+              sequence,
+              CODEX_AGENT_PROVIDER_ID,
+            ),
+          );
+        },
+        options?.signal,
+      );
+
+      if (!session) {
+        onEvent({
+          errorMessage:
+            "Codex Direct Work stream was not accepted for this widget.",
+          providerId: CODEX_AGENT_PROVIDER_ID,
+          providerThreadId: request.providerThreadId ?? null,
+          runId: request.id,
+          sequence: sequence + 1,
+          timestampMs: Date.now(),
+          type: "error",
+        });
+        return null;
+      }
+
+      return {
+        providerId: CODEX_AGENT_PROVIDER_ID,
+        runId: session.runId,
+        stopListening: session.stopListening,
+      };
+    },
+  };
+}
+
 function lifecycleFromDirectWorkEvent(
   event: DirectWorkStreamEvent,
 ): AgentRunLifecycle {
@@ -333,6 +519,15 @@ function finalResultLifecycleFromDirectWorkEvent(
     return "cancelled";
   }
   return "failed";
+}
+
+function providerFinalStatusFromDirectWorkEvent(
+  event: DirectWorkStreamEvent,
+): "cancelled" | "completed" | "failed" {
+  const lifecycle = finalResultLifecycleFromDirectWorkEvent(event);
+  return lifecycle === "cancelled" || lifecycle === "completed"
+    ? lifecycle
+    : "failed";
 }
 
 function agentRunEventKindFromDirectWorkEvent(
@@ -382,6 +577,71 @@ function messageFromDirectWorkEvent(event: DirectWorkStreamEvent) {
     event.finalStatus ??
     undefined
   );
+}
+
+function codexProviderTurnRequestToDirectWorkRequest(
+  request: AgentProviderTurnRequest,
+  codexExecutable: string,
+) {
+  return {
+    approvalPolicy: request.approvalPolicy,
+    codexExecutable,
+    codexThreadId: request.providerThreadId ?? null,
+    operatorPrompt: request.prompt,
+    repoRoot: request.workingDirectory,
+    sandbox: request.sandbox,
+    skipGitRepoCheck: true,
+    stderrCapBytes: null,
+    stdoutCapBytes: null,
+    timeoutMs: null,
+  };
+}
+
+function structuredProviderEventTypeFromText(
+  text: string,
+): Extract<
+  AgentProviderEvent["type"],
+  | "action_request_detected"
+  | "final_answer"
+  | "structured_output"
+  | "workflow_request_detected"
+> | null {
+  const parsed = parseJsonRecord(text);
+  const type = parsed ? stringField(parsed, "type") : null;
+  if (type === "hobit.action.request") {
+    return "action_request_detected";
+  }
+  if (type === "hobit.workflow.request") {
+    return "workflow_request_detected";
+  }
+  if (type === "hobit.final.answer") {
+    return "final_answer";
+  }
+
+  return parsed ? "structured_output" : null;
+}
+
+function parseJsonRecord(text: string): Record<string, unknown> | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("{") || !trimmed.endsWith("}")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    return isRecord(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function stringField(value: Record<string, unknown>, fieldName: string) {
+  const field = value[fieldName];
+  return typeof field === "string" && field.trim() ? field.trim() : null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function unsupportedResult(

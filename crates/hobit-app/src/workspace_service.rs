@@ -19,15 +19,34 @@ mod agent_monitoring_tests;
 mod agent_proposal_tests;
 mod agent_proposals;
 mod agent_queue;
+mod agent_queue_aggregate;
+#[cfg(test)]
+mod agent_queue_aggregate_tests;
+mod agent_queue_completion;
+#[cfg(test)]
+mod agent_queue_completion_tests;
 mod agent_queue_context;
 #[cfg(test)]
 mod agent_queue_context_tests;
+mod agent_queue_control;
+#[cfg(test)]
+mod agent_queue_control_tests;
 mod agent_queue_execution;
 #[cfg(test)]
 mod agent_queue_execution_tests;
+mod agent_queue_failure;
+#[cfg(test)]
+mod agent_queue_failure_tests;
+#[cfg(test)]
+mod agent_queue_headless_contract_tests;
 mod agent_queue_lifecycle;
 #[cfg(test)]
 mod agent_queue_lifecycle_tests;
+mod agent_queue_prompt_pack;
+mod agent_queue_provider_readiness;
+mod agent_queue_review;
+#[cfg(test)]
+mod agent_queue_review_tests;
 mod agent_queue_run_links;
 #[cfg(test)]
 mod agent_queue_run_links_tests;
@@ -43,9 +62,32 @@ mod agent_queue_tests;
 mod agent_queue_validation_runner;
 #[cfg(test)]
 mod agent_queue_validation_runner_tests;
+mod agent_queue_worker_evidence;
+#[cfg(test)]
+mod agent_queue_worker_evidence_tests;
 mod agent_queue_workers;
 #[cfg(test)]
 mod agent_queue_workers_tests;
+mod agent_queue_workflow;
+mod agent_queue_workflow_evidence;
+mod agent_queue_workflow_finalization;
+mod agent_queue_workflow_materialization;
+mod agent_queue_workflow_resume;
+mod agent_queue_workflow_review;
+mod agent_queue_workflow_setup;
+mod agent_queue_workflow_start_step;
+mod agent_queue_workflow_start_step_apply;
+mod agent_queue_workflow_start_step_materialize;
+mod agent_queue_workflow_start_step_plan;
+mod agent_queue_workflow_start_step_projection;
+mod agent_queue_workflow_start_step_promote;
+mod agent_queue_workflow_start_step_settings;
+mod agent_queue_workflow_start_step_state;
+mod agent_queue_workflow_start_step_support;
+mod agent_queue_workflow_start_step_types;
+mod agent_queue_workflow_start_step_worker;
+#[cfg(test)]
+mod agent_queue_workflow_tests;
 mod coordinator_provider;
 mod coordinator_provider_drafts;
 mod coordinator_provider_external;
@@ -68,6 +110,7 @@ mod direct_work_tests;
 mod direct_work_validation;
 #[cfg(test)]
 mod direct_work_validation_tests;
+mod dogfood_operator_context;
 mod git;
 mod git_artifacts;
 #[cfg(test)]
@@ -143,6 +186,47 @@ mod workbenches;
 #[cfg(test)]
 mod workspace_deletion_tests;
 mod workspaces;
+pub use agent_queue_aggregate::{
+    QueueItemAggregate, QueueItemAggregateBlocker, QueueItemAggregateCommitState,
+    QueueItemAggregateDependencyState, QueueItemAggregateDurableFlags,
+    QueueItemAggregateEvidenceState, QueueItemAggregateEvidenceSummary,
+    QueueItemAggregateLatestRun, QueueItemAggregateNextAction, QueueItemAggregateReviewState,
+    QueueItemAggregateRunSettings, QueueItemAggregateTicketState,
+    QueueItemAggregateValidationState, QueueItemAggregateWorkerRunState,
+};
+pub use agent_queue_completion::{
+    AgentQueueCompletionCommandBlocker, AgentQueueCompletionCommandResult,
+    AgentQueueCompletionCommandStatus, AgentQueueCompletionDecisionSummary,
+    MarkAgentQueueItemDoneInput, AGENT_QUEUE_ACCEPTED_COMPLETION_CONFIRMATION_TOKEN,
+    AGENT_QUEUE_COMPLETION_DECISION_ACCEPTED,
+};
+pub use agent_queue_control::{
+    AgentQueueControlCommandBlocker, AgentQueueControlCommandStatus, AgentQueueControlStateSummary,
+    SetAgentQueueControlStateInput, SetAgentQueueControlStateResult,
+    AGENT_QUEUE_CONTROL_STATUS_DISABLED, AGENT_QUEUE_CONTROL_STATUS_MANUAL_ENABLED,
+};
+pub use agent_queue_failure::{
+    AgentQueueFailureCommandBlocker, AgentQueueFailureCommandResult,
+    AgentQueueFailureCommandStatus, AgentQueueFailureDecisionSummary, FailAgentQueueItemInput,
+    AGENT_QUEUE_FAILURE_CONFIRMATION_TOKEN, AGENT_QUEUE_FAILURE_DECISION_FAILED,
+};
+pub use agent_queue_prompt_pack::{
+    parse_and_preview_agent_queue_prompt_pack, AgentQueuePromptPackConstraintsPreview,
+    AgentQueuePromptPackDefaultsPreview, AgentQueuePromptPackExecutionTargetPreview,
+    AgentQueuePromptPackFileRequest, AgentQueuePromptPackMaterializeRequest,
+    AgentQueuePromptPackMaterializeResult, AgentQueuePromptPackMaterializedTaskResult,
+    AgentQueuePromptPackMetadataPreview, AgentQueuePromptPackPreview,
+    AgentQueuePromptPackPreviewDiagnostic, AgentQueuePromptPackPreviewRequest,
+    AgentQueuePromptPackPreviewResult, AgentQueuePromptPackRunSettingsPreview,
+    AgentQueuePromptPackSafetyPreview, AgentQueuePromptPackSourceMetadata,
+    AgentQueuePromptPackTaskPreview,
+};
+pub use agent_queue_review::{
+    AckAgentQueueReviewMessageInput, AgentQueueReviewCommandResult,
+    AgentQueueReviewCreateMessageBlocker, AgentQueueReviewCreateMessageResult,
+    AgentQueueReviewCreateMessageStatus, AgentQueueReviewMessageSummary,
+    CreateAgentQueueReviewMessageInput,
+};
 pub use agent_queue_task_types::{
     AgentQueueTaskRunLink, AgentQueueTaskRunLinkId, AgentQueueTaskRunReviewStatus,
     AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AgentQueueTaskRunSummary,
@@ -154,9 +238,77 @@ pub use agent_queue_task_types::{
     AttachSkillToQueueTaskInput, ClearAgentQueueTaskAssignmentInput, CreateAgentQueueTaskInput,
     CreateAgentQueueWorkerInput, DeleteAgentQueueTaskInput, DeleteAgentQueueWorkerInput,
     DetachKnowledgeFromQueueTaskInput, DetachSkillFromQueueTaskInput,
-    FinishAssignedAgentQueueTaskRunInput, RecordAgentQueueTaskRunFinalStatusInput,
-    RecordAgentQueueTaskRunStartedInput, RunAgentQueueValidationSuiteInput,
-    StartAssignedAgentQueueTaskInput, UpdateAgentQueueTaskInput, UpdateAgentQueueWorkerInput,
+    FinishAssignedAgentQueueTaskRunInput, ListStaleQueueLocalRunsInput,
+    QueueExecutionTargetSnapshot, QueueStaleRunCandidateSummary, QueueWorkerStartBlocker,
+    QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot,
+    RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput,
+    RecoverStaleQueueLocalRunInput, RecoverStaleQueueLocalRunResult,
+    RunAgentQueueValidationSuiteInput, SelectedAgentQueueTaskLocalStartSummary,
+    StartAssignedAgentQueueTaskInput, StartSelectedAgentQueueTaskLocalInput,
+    UpdateAgentQueueTaskInput, UpdateAgentQueueWorkerInput,
+    DEFAULT_STALE_QUEUE_LOCAL_MIN_AGE_SECONDS, QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
+    QUEUE_LOCAL_BACKEND_WORKBENCH_ID, STALE_QUEUE_LOCAL_RECOVERY_CONFIRMATION_TOKEN,
+    STALE_QUEUE_LOCAL_RECOVERY_EVIDENCE_SOURCE, STALE_QUEUE_LOCAL_RUN_REASON_CODE,
+};
+pub use agent_queue_worker_evidence::{
+    AgentQueueWorkerEvidenceBundleSummary, AgentQueueWorkerEvidenceQueryResult,
+    AgentQueueWorkerEvidenceQueryState, AgentQueueWorkerFinishedCommandResult,
+    GetAgentQueueWorkerEvidenceBundleInput, RecordAgentQueueWorkerFinishedInput,
+};
+pub use agent_queue_workflow::{
+    QueueWorkflowAction, QueueWorkflowActionStatus, QueueWorkflowCancelRequest,
+    QueueWorkflowCancelResult, QueueWorkflowCancelStatus, QueueWorkflowCommandBlocker,
+    QueueWorkflowConflict, QueueWorkflowGetRequest, QueueWorkflowListRequest,
+    QueueWorkflowRecordRunnerAction, QueueWorkflowRecordRunnerReportRequest,
+    QueueWorkflowRecordRunnerReportResult, QueueWorkflowRecordRunnerReportStatus,
+    QueueWorkflowReport, QueueWorkflowRun, QueueWorkflowRunStatus, QueueWorkflowStartRequest,
+    QueueWorkflowStartResult, QueueWorkflowStartStatus, MAX_WORKFLOW_ACTION_LOG_SUMMARY_JSON_BYTES,
+    MAX_WORKFLOW_GRANT_SUMMARY_JSON_BYTES, MAX_WORKFLOW_IDEMPOTENCY_KEYS_JSON_BYTES,
+    MAX_WORKFLOW_INPUTS_JSON_BYTES, MAX_WORKFLOW_MUTATION_REFS_JSON_BYTES,
+    MAX_WORKFLOW_SLOT_BINDINGS_JSON_BYTES, MAX_WORKFLOW_VARIABLES_JSON_BYTES,
+};
+pub use agent_queue_workflow_evidence::{
+    QueueWorkflowRecordWorkerEvidenceRequest, QueueWorkflowRecordWorkerEvidenceResult,
+    QueueWorkflowRecordWorkerEvidenceStatus, QueueWorkflowWorkerEvidenceBindingSummary,
+    QueueWorkflowWorkerEvidenceStepPlan, QueueWorkflowWorkerEvidenceStepResult,
+    QueueWorkflowWorkerEvidenceStepResultStatus, QueueWorkflowWorkerEvidenceStepTransition,
+};
+pub use agent_queue_workflow_finalization::{
+    QueueWorkflowFinalizationBindingSummary, QueueWorkflowFinalizationDownstreamVerification,
+    QueueWorkflowFinalizationStepPlan, QueueWorkflowFinalizationStepRequest,
+    QueueWorkflowFinalizationStepResult, QueueWorkflowFinalizationStepResultStatus,
+    QueueWorkflowFinalizationStepTransition,
+};
+pub use agent_queue_workflow_materialization::{
+    QueueWorkflowMaterializeTaskSlotRequest, QueueWorkflowMaterializeTaskSlotResult,
+    QueueWorkflowMaterializeTaskSlotStatus, QueueWorkflowTaskSlotBindingSummary,
+    QueueWorkflowTaskSpec,
+};
+pub use agent_queue_workflow_resume::{
+    QueueWorkflowPlanResumeRequest, QueueWorkflowResumeBlocker, QueueWorkflowResumePlan,
+    QueueWorkflowResumePlanStatus, QueueWorkflowSlotReconciliation,
+    QueueWorkflowTaskResumeSnapshot,
+};
+pub use agent_queue_workflow_review::{
+    QueueWorkflowReviewBindingSummary, QueueWorkflowReviewStepPlan, QueueWorkflowReviewStepRequest,
+    QueueWorkflowReviewStepResult, QueueWorkflowReviewStepResultStatus,
+    QueueWorkflowReviewStepTransition,
+};
+pub use agent_queue_workflow_setup::{
+    QueueWorkflowApplyRunSettingsRequest, QueueWorkflowApplyRunSettingsResult,
+    QueueWorkflowApplyRunSettingsStatus, QueueWorkflowExecutionTarget,
+    QueueWorkflowPromoteTaskSlotBindingSummary, QueueWorkflowPromoteTaskSlotRequest,
+    QueueWorkflowPromoteTaskSlotResult, QueueWorkflowPromoteTaskSlotStatus,
+    QueueWorkflowRunSettings, QueueWorkflowRunSettingsBindingSummary,
+};
+pub use agent_queue_workflow_start_step::{
+    QueueWorkflowCreateSetupStartActionSnapshots,
+    QueueWorkflowCreateSetupStartDownstreamVerification,
+    QueueWorkflowCreateSetupStartQueueControlSnapshot, QueueWorkflowCreateSetupStartStepPlan,
+    QueueWorkflowCreateSetupStartStepPlanAction, QueueWorkflowCreateSetupStartStepRequest,
+    QueueWorkflowCreateSetupStartStepResult, QueueWorkflowCreateSetupStartStepResultStatus,
+    QueueWorkflowCreateSetupStartStepTransition, QueueWorkflowWorkerLaunchDisposition,
+    QueueWorkflowWorkerLaunchIntent,
 };
 pub use coordinator_provider::MockCoordinatorProviderAdapter;
 pub use coordinator_provider_external::{
@@ -172,6 +324,7 @@ pub use coordinator_provider_types::{
     CoordinatorProviderResponse, CoordinatorProviderVisibleInput,
     GenerateCoordinatorProviderResponseInput,
 };
+pub use dogfood_operator_context::DogfoodOperatorWorkspaceContextSummary;
 pub use jdbc_connection_profile_types::{
     CreateJdbcConnectionProfileInput, DeleteJdbcConnectionProfileInput,
     JdbcConnectionProfileSummary, UpdateJdbcConnectionProfileInput,
@@ -203,6 +356,7 @@ pub use types::{
     AgentExecutorRunSummary, AgentMonitoringProposalActionSummary,
     AgentMonitoringProposalResultSummary, AgentMonitoringSnapshot, AgentQueueItemSummary,
     AgentQueueProposalActionSummary, AgentQueueSnapshot, CancelCodexDirectWorkRunInput,
+    CheckQueueLocalProviderAuthContextInput, CheckQueueLocalProviderReadinessInput,
     CodexDirectWorkCancellationSummary, CodexDirectWorkForceKillSummary, CodexDirectWorkRunSummary,
     CodexDirectWorkStreamEventSummary, CodexDirectWorkStreamStartSummary,
     CreateAgentQueueItemFromProposalInput, CreateGitCommitInput, CreateSkillInput,
@@ -212,13 +366,15 @@ pub use types::{
     GitCommitRunSummary, GitDiffCommandSummary, GitFileChangeSummary, GitFileDiffSummary,
     GitLastCommitSummary, GitLogEntrySummary, GitLogSummary, GitPushCommandSummary,
     GitPushRunSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
-    PersistAgentChatProposalInput, RunCodexDirectWorkInput, RunDirectWorkValidationInput,
-    RunTerminalCommandInput, SharedStateObjectSummary, SkillSummary, TerminalCommandRunSummary,
-    UpdateSkillInput, UpdateWorkspaceNoteInput, WidgetInstanceLayout, WidgetInstanceSummary,
-    WidgetLogSummary, WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput,
-    WidgetRunSummary, WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary,
-    WorkspaceDeletionSummary, WorkspaceNoteSummary, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    PersistAgentChatProposalInput, QueueLocalProviderAuthContextSnapshot,
+    QueueLocalProviderAuthContextSummary, QueueLocalProviderAuthContextsSummary,
+    QueueLocalProviderEnvironmentSummary, QueueLocalProviderReadinessSummary,
+    RunCodexDirectWorkInput, RunDirectWorkValidationInput, RunTerminalCommandInput,
+    SharedStateObjectSummary, SkillSummary, TerminalCommandRunSummary, UpdateSkillInput,
+    UpdateWorkspaceNoteInput, WidgetInstanceLayout, WidgetInstanceSummary, WidgetLogSummary,
+    WidgetResultSummary, WidgetRunCommandInput, WidgetRunResultInput, WidgetRunSummary,
+    WidgetRunWithResultsSummary, WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary,
+    WorkspaceNoteSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 static NEXT_ID_SUFFIX: AtomicU64 = AtomicU64::new(1);
 const WORKBENCH_STATE_RECENT_EVENT_LIMIT: usize = 100;

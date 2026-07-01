@@ -11,10 +11,12 @@ describe("memory workspace api fallback", () => {
     const workspace = await memoryWorkspaceApi.createWorkspace({
       title: " API drift memory ",
       description: null,
+      rootPath: " C:/repo ",
     });
 
     expect(workspace).toMatchObject({
       lastOpenedAt: null,
+      rootPath: "C:/repo",
       title: "API drift memory",
       widgetCount: 0,
       workspaceAgentCount: 0,

@@ -52,6 +52,7 @@ coverage/
 *.local.db
 /.local-data/
 /.local-storage/
+/.hobit/
 /tmp/
 /temp/
 

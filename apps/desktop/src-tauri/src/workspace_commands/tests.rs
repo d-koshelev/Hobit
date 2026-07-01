@@ -303,6 +303,29 @@ fn delete_workspace_blocking_returns_remaining_workspaces() {
 }
 
 #[test]
+fn workspace_workbench_state_dto_uses_persisted_root_before_fallback() {
+    let db_path = unique_test_db_path();
+    let root_path = std::env::temp_dir().to_string_lossy().to_string();
+    let store = SqliteStore::open(&db_path).expect("open sqlite test store");
+    store.init_schema().expect("initialize schema");
+    let service = WorkspaceService::new(store);
+    let workspace = service
+        .create_empty_workspace_with_root_path("Persisted root test", None, Some(root_path.clone()))
+        .expect("create workspace with root");
+    drop(service);
+
+    let service = workspace_service(&db_path).expect("workspace service");
+    let state = service
+        .get_workspace_workbench_state(&workspace.id)
+        .expect("get workbench state");
+    let dto = root_dto::optional_workbench_state(state, Some("C:/src-tauri"))
+        .expect("workbench state dto");
+
+    assert_eq!(dto.workspace.root_path.as_deref(), Some(root_path.as_str()));
+    remove_test_db_files(&db_path);
+}
+
+#[test]
 fn delete_workspace_blocking_rejects_active_direct_work_run() {
     let db_path = unique_test_db_path();
     let (workspace_id, workbench_id, widget_id) = create_widget_in_test_db(&db_path);

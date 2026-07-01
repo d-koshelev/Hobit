@@ -1,6 +1,7 @@
 import type {
   HobitAgentActionRequest,
   HobitAgentActionResult,
+  HobitAgentActionReasonCode,
   HobitAgentActionStatus,
   HobitAgentAuditEvent,
   HobitAgentHiddenSideEffectFlags,
@@ -32,8 +33,10 @@ export function createActionRequest({
   dryRun = false,
   input = {},
   reason = null,
+  rawRequestId,
   requestedAt = null,
   requestId,
+  requestIdSource,
 }: {
   agentId?: HobitAgentId;
   agentRole?: HobitAgentRoleId;
@@ -44,10 +47,13 @@ export function createActionRequest({
   dryRun?: boolean;
   input?: unknown;
   reason?: string | null;
+  rawRequestId?: string | null;
   requestedAt?: string | null;
   requestId?: string;
+  requestIdSource?: HobitAgentActionRequest["requestIdSource"];
 }): HobitAgentActionRequest {
   const resolvedAgentRole = agentRole ?? agentRoleId;
+  const resolvedRequestId = requestId ?? `${capabilityId}:request`;
 
   return {
     agentId,
@@ -59,8 +65,10 @@ export function createActionRequest({
     dryRun,
     input,
     reason,
+    ...(rawRequestId !== undefined ? { rawRequestId } : {}),
     requestedAt: requestedAt ?? createdAt,
-    requestId: requestId ?? `${capabilityId}:request`,
+    requestId: resolvedRequestId,
+    ...(requestIdSource ? { requestIdSource } : {}),
   };
 }
 
@@ -68,22 +76,28 @@ export function createActionResult<TOutput = unknown>({
   auditEvents = [],
   capabilityId,
   dryRun = false,
+  fieldPath,
+  fieldPaths,
   hiddenSideEffectFlags = createNoHiddenSideEffectFlags(),
   message,
   output,
   policyDecision,
   policyReasons = [],
+  reasonCode,
   requestId = `${capabilityId}:request`,
   status = "succeeded",
 }: {
   auditEvents?: HobitAgentAuditEvent[];
   capabilityId: HobitAgentCapabilityId;
   dryRun?: boolean;
+  fieldPath?: string;
+  fieldPaths?: string[];
   hiddenSideEffectFlags?: HobitAgentHiddenSideEffectFlags;
   message: string;
   output?: TOutput;
   policyDecision?: HobitAgentPolicyDecision;
   policyReasons?: string[];
+  reasonCode?: HobitAgentActionReasonCode;
   requestId?: string;
   status?: HobitAgentActionStatus;
 }): HobitAgentActionResult<TOutput> {
@@ -91,15 +105,29 @@ export function createActionResult<TOutput = unknown>({
     auditEvents,
     capabilityId,
     dryRun,
+    ...(fieldPath ? { fieldPath } : {}),
+    ...(fieldPaths && fieldPaths.length > 0 ? { fieldPaths } : {}),
     hiddenSideEffectFlags,
     message,
-    ok: status === "succeeded",
+    ok: hobitAgentActionStatusIsOk(status),
     output,
     ...(policyDecision ? { policyDecision } : {}),
     policyReasons,
+    ...(reasonCode ? { reasonCode } : {}),
     requestId,
     status,
   };
+}
+
+export function hobitAgentActionStatusIsOk(
+  status: HobitAgentActionStatus,
+): boolean {
+  return (
+    status === "succeeded" ||
+    status === "already_exists" ||
+    status === "already_done" ||
+    status === "already_failed"
+  );
 }
 
 export function createUnavailableActionResult({
@@ -126,6 +154,7 @@ export function createUnavailableActionResult({
     ok: false,
     ...(policyDecision ? { policyDecision } : {}),
     policyReasons: [reason],
+    reasonCode: "capability_unavailable",
     requestId,
     status: "unavailable",
     unavailableReason: reason,
@@ -154,6 +183,7 @@ export function createPolicyBlockedActionResult({
     ok: false,
     ...(policyDecision ? { policyDecision } : {}),
     policyReasons: [...reasons],
+    reasonCode: "policy_denied",
     requestId,
     status: "policy_blocked",
   };

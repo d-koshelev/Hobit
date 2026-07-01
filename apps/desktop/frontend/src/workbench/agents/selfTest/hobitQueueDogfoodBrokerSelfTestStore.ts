@@ -128,6 +128,7 @@ export function createQueueDogfoodBrokerSelfTestFakeStore(
       capabilityId: string,
       input: unknown,
       options: {
+        readonly confirmationToken?: string;
         readonly dryRun?: boolean;
         readonly requestId?: string;
       } = {},
@@ -138,6 +139,7 @@ export function createQueueDogfoodBrokerSelfTestFakeStore(
           agentId: "queue-dogfood-broker:self-test",
           agentRoleId: "test_harness",
           capabilityId,
+          confirmationToken: options.confirmationToken ?? null,
           createdAt: resolved.createdAt,
           dryRun: options.dryRun ?? false,
           input,

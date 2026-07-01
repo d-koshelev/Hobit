@@ -21,6 +21,7 @@ export type AgentActivitySeverity =
 
 export type AgentActivityRunKind =
   | "direct-work"
+  | "workspace-agent-broker-continuation"
   | "workspace-agent-self-test";
 
 export type AgentActivityLifecycleStage =

@@ -28,6 +28,10 @@ import type {
   ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
   ListAgentQueueWorkersRequest,
+  ListStaleQueueLocalRunsRequest,
+  QueueStaleRunCandidateSummary,
+  RecoverStaleQueueLocalRunRequest,
+  RecoverStaleQueueLocalRunResult,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartAgentQueueRunnerSessionRequest,
@@ -42,6 +46,8 @@ import type {
   TauriAgentQueueTask,
   TauriAgentQueueTaskRunLink,
   TauriAgentQueueWorker,
+  TauriQueueStaleRunCandidate,
+  TauriRecoverStaleQueueLocalRunResponse,
   TauriStartAssignedAgentQueueTaskResponse,
 } from "./tauriAgentQueueDto";
 
@@ -310,6 +316,25 @@ export async function startAssignedAgentQueueTask(
         timeout_ms: request.timeoutMs ?? null,
         stdout_cap_bytes: request.stdoutCapBytes ?? null,
         stderr_cap_bytes: request.stderrCapBytes ?? null,
+        workflow_start_context: request.workflowStartContext
+          ? {
+              workflow_run_id: request.workflowStartContext.workflowRunId,
+              workflow_action_id: request.workflowStartContext.workflowActionId ?? null,
+              action_idempotency_key:
+                request.workflowStartContext.actionIdempotencyKey ?? null,
+              slot: request.workflowStartContext.slot ?? null,
+              task_id: request.workflowStartContext.taskId,
+              executor_widget_id:
+                request.workflowStartContext.executorWidgetId ?? null,
+              settings_hash: request.workflowStartContext.settingsHash,
+              execution_target_hash:
+                request.workflowStartContext.executionTargetHash ?? null,
+              expected_queue_control_version:
+                request.workflowStartContext.expectedQueueControlVersion ?? null,
+              actor_id: request.workflowStartContext.actorId ?? null,
+              confirmation_token: request.workflowStartContext.confirmationToken ?? null,
+            }
+          : null,
       },
     },
   );
@@ -347,6 +372,43 @@ export async function listAgentQueueTaskRunLinks(
   );
 
   return links.map(normalizeAgentQueueTaskRunLink);
+}
+
+export async function listStaleQueueLocalRuns(
+  request: ListStaleQueueLocalRunsRequest,
+): Promise<QueueStaleRunCandidateSummary[]> {
+  const candidates = await invoke<TauriQueueStaleRunCandidate[]>(
+    "list_stale_queue_local_runs",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        min_age_seconds: request.minAgeSeconds ?? null,
+      },
+    },
+  );
+
+  return candidates.map(normalizeQueueStaleRunCandidate);
+}
+
+export async function recoverStaleQueueLocalRunFailed(
+  request: RecoverStaleQueueLocalRunRequest,
+): Promise<RecoverStaleQueueLocalRunResult> {
+  const result = await invoke<TauriRecoverStaleQueueLocalRunResponse>(
+    "recover_stale_queue_local_run_failed",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        queue_item_id: request.queueItemId,
+        run_id: request.runId,
+        run_link_id: request.runLinkId,
+        reason: request.reason,
+        actor_id: request.actorId,
+        confirmation_token: request.confirmationToken,
+      },
+    },
+  );
+
+  return normalizeRecoverStaleQueueLocalRunResult(result);
 }
 
 export async function startAgentQueueRunnerSession(
@@ -596,6 +658,30 @@ function normalizeStartAssignedAgentQueueTaskResponse(
     executorWidgetInstanceId: response.executor_widget_instance_id,
     runId: response.run_id,
     status: response.status,
+    workflowRunId: response.workflow_run_id,
+    workflowActionId: response.workflow_action_id,
+    actionIdempotencyKey: response.action_idempotency_key,
+    settingsHash: response.settings_hash,
+    currentRunState: response.current_run_state,
+    blocker: response.blocker
+      ? {
+          blockerCode: response.blocker.blocker_code,
+          blockerMessage: response.blocker.blocker_message,
+          taskId: response.blocker.task_id,
+          executorWidgetId: response.blocker.executor_widget_id,
+          runId: response.blocker.run_id,
+          workflowRunId: response.blocker.workflow_run_id,
+          workflowActionId: response.blocker.workflow_action_id,
+          actionIdempotencyKey: response.blocker.action_idempotency_key,
+          currentRunState: response.blocker.current_run_state,
+          expectedQueueControlVersion:
+            response.blocker.expected_queue_control_version,
+          actualQueueControlVersion: response.blocker.actual_queue_control_version,
+          expectedSettingsHash: response.blocker.expected_settings_hash,
+          actualSettingsHash: response.blocker.actual_settings_hash,
+          missingRequiredField: response.blocker.missing_required_field,
+        }
+      : null,
   };
 }
 
@@ -616,6 +702,40 @@ function normalizeAgentQueueTaskRunLink(
     reviewStatus: normalizeReviewStatus(link.review_status),
     createdAt: link.created_at,
     updatedAt: link.updated_at,
+  };
+}
+
+function normalizeQueueStaleRunCandidate(
+  candidate: TauriQueueStaleRunCandidate,
+): QueueStaleRunCandidateSummary {
+  return {
+    workspaceId: candidate.workspace_id,
+    queueItemId: candidate.queue_item_id,
+    taskTitle: candidate.task_title,
+    runId: candidate.run_id,
+    runLinkId: candidate.run_link_id,
+    executorWidgetId: candidate.executor_widget_id,
+    source: candidate.source,
+    taskStatus: candidate.task_status,
+    runLinkStatus: normalizeRunStatus(candidate.run_link_status),
+    startedAt: candidate.started_at,
+    ageSeconds: candidate.age_seconds,
+    reasonCode: candidate.reason_code,
+  };
+}
+
+function normalizeRecoverStaleQueueLocalRunResult(
+  result: TauriRecoverStaleQueueLocalRunResponse,
+): RecoverStaleQueueLocalRunResult {
+  return {
+    workspaceId: result.workspace_id,
+    queueItemId: result.queue_item_id,
+    runId: result.run_id,
+    runLinkId: result.run_link_id,
+    reason: result.reason,
+    taskStatus: result.task_status,
+    runLinkStatus: normalizeRunStatus(result.run_link_status),
+    evidenceBundleId: result.evidence_bundle_id,
   };
 }
 

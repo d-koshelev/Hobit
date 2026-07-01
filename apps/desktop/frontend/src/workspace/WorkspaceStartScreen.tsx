@@ -25,15 +25,18 @@ export function WorkspaceStartScreen({
 }: WorkspaceStartScreenProps) {
   const {
     createWorkspace,
+    chooseWorkspaceDirectory,
     deleteRecentWorkspace,
     deletingWorkspaceId,
     errorMessage,
     isCreatingWorkspace,
     isLoadingWorkspaces,
+    isSelectingWorkspaceDirectory,
     openingWorkspaceId,
     openRecentWorkspace,
     recentWorkspaces,
     selectedPreset,
+    selectedWorkspaceRootPath,
     setSelectedPresetId,
     setWorkspaceName,
     workbenchPresets,
@@ -76,6 +79,29 @@ export function WorkspaceStartScreen({
           placeholder="Workspace name"
           value={workspaceName}
         />
+      </div>
+
+      <div className="workspace-field">
+        <label className="workspace-label" htmlFor="workspace-root-path">
+          Workspace folder
+        </label>
+        <Input
+          disabled={isCreatingWorkspace}
+          id="workspace-root-path"
+          placeholder="Choose a folder"
+          readOnly
+          value={selectedWorkspaceRootPath ?? ""}
+        />
+        <div className="workspace-start-actions">
+          <Button
+            disabled={isCreatingWorkspace || isSelectingWorkspaceDirectory}
+            onClick={() => void chooseWorkspaceDirectory()}
+            type="button"
+            variant="secondary"
+          >
+            {isSelectingWorkspaceDirectory ? "Choosing..." : "Choose Folder"}
+          </Button>
+        </div>
       </div>
 
       <fieldset className="preset-field">

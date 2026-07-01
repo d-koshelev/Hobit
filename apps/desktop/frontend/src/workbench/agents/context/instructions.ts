@@ -1,5 +1,11 @@
 import type { HobitAgentAppContext } from "./types";
 import type { HobitAgentCapability } from "../capabilities/types";
+import {
+  QUEUE_RUN_APPROVAL_POLICY_VALUES,
+  QUEUE_RUN_SANDBOX_VALUES,
+  QUEUE_START_RUN_CONFIRMATION_FIELD,
+  QUEUE_START_RUN_CONFIRMATION_TOKEN,
+} from "../capabilities/queueCapabilityContracts";
 
 export function createCapabilityInstructionBlock(
   context: HobitAgentAppContext,
@@ -13,13 +19,17 @@ export function createCapabilityInstructionBlock(
     createQueueLifecycleCapabilityInstructionLines(capabilities);
   const queueRunControlInstructionLines =
     createQueueRunControlCapabilityInstructionLines(capabilities);
+  const queueWorkflowDebugInstructionLines =
+    shouldIncludeQueueWorkflowDebugInstructions(context.currentPrompt)
+      ? createQueueWorkflowDebugCapabilityInstructionLines(capabilities)
+      : [];
   const compactManifestCapabilities = capabilities.filter(
     (capability) => !isQueueLifecycleCapabilityId(capability.id),
   );
   const lines = [
     `You are inside ${context.appName}, an AI Workbench.`,
     `You are operating from the ${context.surface.title} surface.`,
-    "You are the operational brain and product-action orchestrator of the app.",
+    "You are the operational brain and product-action orchestrator.",
     `Role: ${context.role.title}. Primary duty: product-action orchestrator first.`,
     `Workspace: ${context.workspace.workspaceName ?? context.workspace.workspaceId}.`,
     context.workspace.workspaceRoot
@@ -27,18 +37,38 @@ export function createCapabilityInstructionBlock(
       : null,
     "Use typed Hobit app capabilities before Codex or shell.",
     "App and product actions must use typed Hobit capabilities.",
-    'If a Hobit app capability is needed, emit one JSON envelope: {"type":"hobit.action.request","capabilityId":"<id>","dryRun":false,"input":{...},"confirmationToken":"optional"}.',
-    "Do not use shell or Codex for product actions.",
-    "Do not execute app actions through shell or Codex.",
+    'When needed emit one JSON envelope with a fresh requestId: {"type":"hobit.action.request","requestId":"action-1","capabilityId":"<id>","dryRun":false,"input":{...}}.',
+    'When finished in action mode emit one final JSON object: {"type":"hobit.final.answer","message":"<final user-facing answer or blocker>"}',
+    "One envelope only; do not emit action lists. Use the exact capability id, exact input fields, exact enum values, and a unique requestId.",
+    'Queue workflow invocation uses only the generic envelope: {"type":"hobit.workflow.request","moduleId":"queue","workflowId":"dependency_acceptance_smoke|dependency_failure_smoke","grant":{},"inputs":{}}.',
+    "Do not use queue.workflow.invoke. Prose is not workflow input; undeclared workflows report unsupported.",
+    "Continue with hobit.workflow.request plus metadata.workflowRunId and typed inputs; debug with queue.workflow.getReport/planResume/readActionLog.",
+    "Workflow grant authorizes only permission/scope. Workflow inputs configure data such as runSettings, task slots, prompts, and dependency slot references.",
+    "Never put runSettings/tasks/prompts/dependencies/workspaceRoot/codexExecutable/sandbox/approvalPolicy in grant; grant.scope taskIds/runIds/messageIds/evidenceBundleIds/executorWidgetIds only; confirmationToken in grant is permission metadata only.",
+    "Intermediate prose is not a capability call; emit an envelope or final marker. Do not write awaiting capability result.",
+    "After hobit.action.result, prefer returned nextAction: use nextAction.capabilityId and nextAction.input exactly; do not rename fields.",
+    "If nextAction is unavailable, ask or stop with the blocker; do not guess ids, fields, or actions from nextSuggestedCapability alone.",
+    'Queue bounded autonomy requires structured "hobit.queue.autonomyGrant"; prose like go, approve, or I confirm is not a grant.',
+    "Inside a valid Queue grant, follow schema-valid nextAction exactly; stop with hobit.final.answer on blockers.",
+    "Stop on blocked, unavailable, confirmation_required, policy_blocked, failed, invalid, repeated, or max actions.",
+    "For commands requiring confirmation, include the exact structured confirmation field after user confirmation; prose alone is insufficient.",
+    `Queue required confirmation token: top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}", not inside input.`,
+    "Do not use shell or Codex for product actions. Do not execute app actions through shell, Codex, Git, Terminal, rollback, or validation.",
     "Do not inspect source files for product actions.",
     "Queue item creation is a Queue capability.",
     "Queue item creation should use queue.createItems.",
-    "Prompt-pack Queue flows use queue.preparePromptPackPreview or queue.importPromptPack.",
+    "Prompt-pack flows use queue.preparePromptPackPreview or queue.importPromptPack.",
+    "Queue reads use backend aggregates.",
+    'Queue smoke chain: workspace.context.get, workbench.widgets.list, queue.control.get, queue.control.setManualEnabled, hobit.workflow.request, debug reads; never agent.status.read.',
+    queueWorkflowDebugInstructionLines.length > 0
+      ? "Queue workflow debug reads use typed Queue workflow capabilities only; never DevTools, UI text, DOM scraping, task titles, file paths, transcript text, or prose id inference."
+      : null,
     ...queueCreateInstructionLines,
     ...queueRunControlInstructionLines,
+    ...queueWorkflowDebugInstructionLines,
     ...queueLifecycleInstructionLines,
     "Codex and shell are restricted capabilities and are not default app-action paths.",
-    "Destructive/execute capabilities require policy and confirmation.",
+    "Execute/destructive capabilities require policy and confirmation.",
     `Compact capability manifest: ${compactManifestCapabilities
       .map(
         (capability) =>
@@ -59,7 +89,8 @@ function isQueueLifecycleCapabilityId(capabilityId: string) {
     capabilityId.startsWith("queue.coordinator.") ||
     capabilityId.startsWith("queue.item.") ||
     capabilityId.startsWith("queue.lifecycle.") ||
-    capabilityId.startsWith("queue.review.")
+    capabilityId.startsWith("queue.review.") ||
+    capabilityId.startsWith("queue.workflow.")
   );
 }
 
@@ -95,13 +126,13 @@ function createQueueLifecycleCapabilityInstructionLines(
   );
   const requiredInputLine = [
     presentCapabilityIds.has("queue.lifecycle.agentFinished")
-      ? "agentFinished(evidenceBundle or taskId,outcome,finalAgentMessage)"
+      ? "agentFinished(evidenceBundle or taskId,runId,outcome,finalAgentMessage)"
       : null,
     presentCapabilityIds.has("queue.review.createMessage")
-      ? "createMessage(taskId,coordinatorAgentId)"
+      ? "createMessage(taskId)"
       : null,
     presentCapabilityIds.has("queue.review.ack")
-      ? "ack(taskId,messageId,coordinatorAgentId)"
+      ? "ack(taskId,messageId)"
       : null,
     presentCapabilityIds.has("queue.coordinator.approveValidation")
       ? "approveValidation(taskId,coordinatorAgentId)"
@@ -110,30 +141,24 @@ function createQueueLifecycleCapabilityInstructionLines(
       ? "addFollowUpPrompt(taskId,coordinatorAgentId,prompt)"
       : null,
     presentCapabilityIds.has("queue.item.markDone")
-      ? "markDone(taskId,coordinatorAgentId,validationApproved:true)"
+      ? "markDone(taskId) plus top-level confirmationToken=operator-confirmed"
       : null,
     presentCapabilityIds.has("queue.item.block")
       ? "block(taskId,coordinatorAgentId,reason)"
       : null,
     presentCapabilityIds.has("queue.item.fail")
-      ? "fail(taskId,coordinatorAgentId,reason)"
+      ? "fail(taskId,reason) plus top-level confirmationToken=operator-confirmed"
       : null,
-    presentCapabilityIds.has("queue.lifecycle.get") ? "get(taskId?)" : null,
+    presentCapabilityIds.has("queue.lifecycle.get") ? "get(taskId)" : null,
     presentCapabilityIds.has("queue.review.getEvidenceBundle")
-      ? "getEvidenceBundle(taskId)"
+      ? "getEvidenceBundle(taskId,runId?)"
       : null,
   ].filter((item): item is string => Boolean(item)).join("; ");
-  const agentFinishedExample = lifecycleCapabilities
-    .find((capability) => capability.id === "queue.lifecycle.agentFinished")
-    ?.examples?.[0]?.exampleActionRequest;
-
   return [
-    "Queue lifecycle actions: typed overlay only; no backend, worker, validation, Git, Terminal, rollback, shell, or Codex.",
-    "Queue lifecycle schemas:",
+    "Queue lifecycle schemas are exact structured contracts; do not invent capability ids or ids.",
     requiredInputLine,
-    agentFinishedExample
-      ? `Queue lifecycle example: ${JSON.stringify(agentFinishedExample)}`
-      : null,
+    "Review create/ack use trusted runtime/backend actor defaults when coordinatorAgentId is omitted; do not invent actor ids.",
+    "ACK does not mean done or failed. queue.item.markDone accepts completion; queue.item.fail is terminal failure. Worker failure evidence alone is not terminal failure. Prose confirmation is insufficient; no Git, validation, rollback, Terminal, or workers.",
   ].filter((line): line is string => Boolean(line));
 }
 
@@ -152,19 +177,9 @@ function createQueueCreateCapabilityInstructionLines(
     return [];
   }
 
-  const exampleLines = queueCreateCapabilities.flatMap((capability) => {
-    const example = capability.examples?.find(
-      (candidate) => !candidate.exampleActionRequest.dryRun,
-    );
-
-    return example
-      ? [
-          `Example ${capability.id}: ${JSON.stringify(
-            example.exampleActionRequest,
-          )}`,
-        ]
-      : [];
-  });
+  const exampleIds = queueCreateCapabilities
+    .map((capability) => `{"capabilityId":"${capability.id}"}`)
+    .join("; ");
 
   return [
     "Queue create action schemas:",
@@ -173,22 +188,27 @@ function createQueueCreateCapabilityInstructionLines(
         ? `- ${capability.id}: required=${capability.inputSchema.requiredFields.join(",")}`
         : `- ${capability.id}: ${capability.inputSchemaDescription}`,
     ),
-    "Queue item prompt is required; Queue item creation requires both title and prompt.",
-    "The prompt is the runnable task instruction, not just a display description.",
-    "Use prompt exactly; body,text,content,operatorPrompt,initialState,dependsOn,queueTag,priority do not satisfy Queue create input.",
+    "Queue item prompt is required; prompt is the runnable task instruction.",
+    "Use title,prompt plus optional dependsOn:string[] with explicit upstream Queue task ids returned by typed results.",
+    "For dependency smoke, create upstream first, then create downstream with dependsOn:[upstreamTaskId].",
+    "Do not infer dependencies from order,title,prompt,prose,or prompt-pack ids.",
+    "Do not use body,text,content,operatorPrompt,initialState,dependencies,depends_on,queueTag,priority for Queue create input.",
     "For a test, dummy, or example Queue item, create a safe placeholder prompt.",
     "If a real Queue item lacks task content, ask a concise clarification.",
-    "Do not use shell, Codex, or source-code inspection to invent Queue product action data.",
     "Do not auto-run workers.",
-    ...exampleLines,
-    "Dry-run previews use the same Queue create input shape with dryRun=true.",
-  ];
+    '{"capabilityId":"queue.createItem","input":{"title":"Test Queue item","prompt":"Review the current workspace state and report one safe next step."}}',
+    exampleIds ? `Queue create envelope ids: ${exampleIds}.` : null,
+  ].filter((line): line is string => Boolean(line));
 }
 
 function createQueueRunControlCapabilityInstructionLines(
   capabilities: readonly HobitAgentCapability[],
 ) {
   const capabilityIds = [
+    "workspace.context.get",
+    "workbench.widgets.list",
+    "queue.control.get",
+    "queue.control.setManualEnabled",
     "queue.items.list",
     "queue.item.updateRunSettings",
     "queue.item.promoteDraft",
@@ -207,19 +227,63 @@ function createQueueRunControlCapabilityInstructionLines(
     return [];
   }
 
-  const examples = runControlCapabilities.flatMap((capability) =>
-    (capability.examples ?? []).slice(0, 1).map(
-      (example) =>
-        `Example ${capability.id}: ${JSON.stringify(
-          example.exampleActionRequest,
-        )}`,
-    ),
-  );
+  const exampleIds = runControlCapabilities
+    .filter((capability) => capability.id.startsWith("queue."))
+    .map((capability) => `{"capabilityId":"${capability.id}"}`)
+    .join("; ");
 
   return [
-    "Queue run-control actions are typed only; never infer taskId or executorWidgetId from prose, titles, prompts, paths, final messages, or source text.",
-    "Run-control fields: list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({}); start(taskId,executorWidgetId,queueId?).",
-    "Use queue.items.list when ids are missing; settings/promote/enable do not start work; start requires confirmation and no codex.runTask fallback.",
-    ...examples,
+    "Queue run-control typed only; never infer taskId, runId, evidenceBundleId, messageId, or executorWidgetId from prose/titles/prompts/paths/final messages/source.",
+    "Prepare smoke with queue.control.get, then queue.control.setManualEnabled; queue.enable is compat-only.",
+    `Run settings enums: sandbox=${QUEUE_RUN_SANDBOX_VALUES.join("|")}; approvalPolicy=${QUEUE_RUN_APPROVAL_POLICY_VALUES.join("|")}.`,
+    `Run-control fields: get(workspaceId?); setManualEnabled(workspaceId?,expectedVersion?,reason?); list(limit?,taskId?); settings(taskId,codexExecutable?,workspaceRoot?,sandbox?,approvalPolicy?); promote(taskId); enable({} compat); start(taskId,executorWidgetId,queueId?, top-level ${QUEUE_START_RUN_CONFIRMATION_FIELD}="${QUEUE_START_RUN_CONFIRMATION_TOKEN}").`,
+    "Use queue.items.list for missing ids; setup does not start; start needs confirmation; no codex.runTask fallback.",
+    exampleIds ? `Run-control envelope ids: ${exampleIds}.` : null,
+  ].filter((line): line is string => Boolean(line));
+}
+
+function createQueueWorkflowDebugCapabilityInstructionLines(
+  capabilities: readonly HobitAgentCapability[],
+) {
+  const capabilityIds = [
+    "queue.workflow.list",
+    "queue.workflow.get",
+    "queue.workflow.getReport",
+    "queue.workflow.planResume",
+    "queue.workflow.readActionLog",
   ];
+  const workflowDebugCapabilities = capabilityIds
+    .map((capabilityId) =>
+      capabilities.find((capability) => capability.id === capabilityId),
+    )
+    .filter((capability): capability is HobitAgentCapability =>
+      Boolean(capability),
+    );
+
+  if (workflowDebugCapabilities.length === 0) {
+    return [];
+  }
+
+  const exampleIds = workflowDebugCapabilities
+    .map((capability) => `{"capabilityId":"${capability.id}"}`)
+    .join("; ");
+
+  return [
+    "Queue workflow debug read schemas:",
+    "Use list to recover workflowRunId; get for run summary; getReport for task/run/evidence/message/completion/failure ids; planResume before continuation; readActionLog for idempotency/action issues.",
+    "Reads never invoke workflows/start workers/mutate Queue/run shell/Git/Terminal/validation/rollback or expose raw confirmationToken; invocation is hobit.workflow.request.",
+    exampleIds ? `Workflow-debug envelope ids: ${exampleIds}.` : null,
+  ].filter((line): line is string => Boolean(line));
+}
+
+function shouldIncludeQueueWorkflowDebugInstructions(currentPrompt: string) {
+  const prompt = currentPrompt.toLowerCase();
+  return (
+    prompt.includes("queue") ||
+    prompt.includes("workflow") ||
+    prompt.includes("smoke") ||
+    prompt.includes("resume") ||
+    prompt.includes("action log") ||
+    prompt.includes("debug")
+  );
 }

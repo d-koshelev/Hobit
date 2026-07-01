@@ -129,6 +129,110 @@ describe("tauri workspace api adapter", () => {
     expect(mocks.invoke).toHaveBeenCalledWith("list_workspaces");
   });
 
+  it("normalizes workspace Queue recovery projection from workbench state", async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      workspace: {
+        id: "ws_1",
+        title: "Incident",
+        description: null,
+        root_path: null,
+        status: "active",
+        created_at: "2026-05-27T10:00:00Z",
+        updated_at: "2026-05-27T11:00:00Z",
+        last_opened_at: null,
+        widget_count: 0,
+        workspace_agent_count: 0,
+        note_count: 0,
+        skill_count: 0,
+        knowledge_document_count: 0,
+        queue_task_count: 2,
+        workbench_id: "wb_1",
+      },
+      workbench: {
+        id: "wb_1",
+        workspace_id: "ws_1",
+        preset_origin_id: null,
+      },
+      queue_recovery: {
+        workspace_id: "ws_1",
+        queue_task_count: 2,
+        running_task_count: 1,
+        stale_running_candidate_count: 1,
+        has_visible_queue_view: false, canonical_queue_widget_id: "queue_widget_1",
+        recovery_available: true, can_restore_queue_view: true, recovery_reason: "hidden_queue_view_exists",
+        control_state: {
+          workspace_id: "ws_1",
+          status: "manual_enabled",
+          version: 2,
+          updated_by_actor_id: "operator",
+          reason: "manual recovery",
+          created_at: "2026-05-27T10:00:00Z",
+          updated_at: "2026-05-27T11:00:00Z",
+        },
+      },
+      widget_instances: [],
+      shared_state_objects: [],
+      recent_events: [],
+    });
+
+    await expect(
+      tauriWorkspaceApi.getWorkspaceWorkbenchState("ws_1"),
+    ).resolves.toMatchObject({
+      queueRecovery: {
+        canonicalQueueWidgetId: "queue_widget_1",
+        hasVisibleQueueView: false, queueTaskCount: 2,
+        recoveryAvailable: true, canRestoreQueueView: true, recoveryReason: "hidden_queue_view_exists",
+        runningTaskCount: 1,
+        staleRunningCandidateCount: 1,
+        workspaceId: "ws_1",
+        controlState: {
+          status: "manual_enabled",
+          version: 2,
+        },
+      },
+    });
+    expect(mocks.invoke).toHaveBeenCalledWith("get_workspace_workbench_state", {
+      workspaceId: "ws_1",
+    });
+  });
+
+  it("maps create workspace rootPath to the Tauri create request", async () => {
+    mocks.invoke.mockResolvedValueOnce({
+      id: "ws_1",
+      title: "Repo workspace",
+      description: null,
+      root_path: "C:/Users/Dmitry/Documents/prj/Hobit_queue_logic",
+      status: "active",
+      created_at: "2026-06-23T10:00:00Z",
+      updated_at: "2026-06-23T10:00:00Z",
+      last_opened_at: null,
+      widget_count: 0,
+      workspace_agent_count: 0,
+      note_count: 0,
+      skill_count: 0,
+      knowledge_document_count: 0,
+      queue_task_count: 0,
+      workbench_id: "wb_1",
+    });
+
+    await expect(
+      tauriWorkspaceApi.createWorkspace({
+        title: "Repo workspace",
+        description: null,
+        rootPath: " C:/Users/Dmitry/Documents/prj/Hobit_queue_logic ",
+      }),
+    ).resolves.toMatchObject({
+      rootPath: "C:/Users/Dmitry/Documents/prj/Hobit_queue_logic",
+    });
+    expect(mocks.invoke).toHaveBeenCalledWith("create_workspace", {
+      request: {
+        title: "Repo workspace",
+        description: null,
+        root_path: "C:/Users/Dmitry/Documents/prj/Hobit_queue_logic",
+      },
+    });
+  });
+
   it("maps workspace rename payloads and normalized summaries", async () => {
     mocks.invoke.mockResolvedValueOnce({
       id: "ws_1",
@@ -809,6 +913,12 @@ describe("tauri workspace api adapter", () => {
         executor_widget_instance_id: "exec_1",
         run_id: "run_1",
         status: "running",
+        workflow_run_id: null,
+        workflow_action_id: null,
+        action_idempotency_key: null,
+        settings_hash: null,
+        current_run_state: null,
+        blocker: null,
       })
       .mockResolvedValueOnce({
         workspace_id: "ws_1",
@@ -887,6 +997,7 @@ describe("tauri workspace api adapter", () => {
           approval_policy: "never",
           queue_item_id: "queue_1",
           repo_root: "C:/repo",
+          workflow_start_context: null,
         }),
       },
     );

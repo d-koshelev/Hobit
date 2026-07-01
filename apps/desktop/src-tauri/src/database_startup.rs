@@ -77,6 +77,12 @@ pub(crate) fn initialize_database(
     initialize_database_with_override(default_app_data_dir, env::var_os(HOBIT_DATABASE_PATH_ENV))
 }
 
+pub(crate) fn initialize_database_without_override(
+    default_app_data_dir: &Path,
+) -> Result<InitializedDatabase, DatabaseStartupError> {
+    initialize_database_with_override(default_app_data_dir, None)
+}
+
 fn initialize_database_with_override(
     default_app_data_dir: &Path,
     override_path: Option<OsString>,
@@ -251,6 +257,19 @@ mod tests {
 
         assert_eq!(initialized.path, db_path);
         assert!(db_path.exists());
+
+        cleanup_temp_test_dir(&root);
+    }
+
+    #[test]
+    fn dogfood_operator_profile_database_without_override_uses_profile_directory() {
+        let root = temp_test_dir("dogfood-profile");
+
+        let initialized =
+            initialize_database_without_override(&root).expect("initialize profile database");
+
+        assert_eq!(initialized.path, root.join(DEFAULT_DATABASE_FILE_NAME));
+        assert!(initialized.path.exists());
 
         cleanup_temp_test_dir(&root);
     }

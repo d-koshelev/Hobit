@@ -1,3 +1,5 @@
+import type { AgentQueueControlState } from "./agentQueue";
+
 export type WorkspaceSummary = {
   id: string;
   title: string;
@@ -19,6 +21,7 @@ export type WorkspaceSummary = {
 export type CreateWorkspaceRequest = {
   title: string;
   description?: string | null;
+  rootPath?: string | null;
 };
 
 export type UpdateWorkspaceRequest = {
@@ -105,9 +108,30 @@ export type WorkspaceSessionSummary = {
 export type WorkspaceWorkbenchState = {
   workspace: WorkspaceSummary;
   workbench: WorkbenchSummary | null;
+  queueRecovery?: QueueWorkspaceRecoveryProjection;
   widgetInstances: WorkspaceWidgetInstanceSummary[];
   sharedStateObjects: WorkspaceSharedStateObjectSummary[];
   recentEvents: WorkspaceEventSummary[];
+};
+
+export type QueueWorkspaceRecoveryReason =
+  | "no_queue_state"
+  | "visible_queue_view_exists"
+  | "hidden_queue_view_exists"
+  | "queue_state_without_visible_view"
+  | "unknown";
+
+export type QueueWorkspaceRecoveryProjection = {
+  workspaceId: string;
+  queueTaskCount: number;
+  runningTaskCount: number;
+  staleRunningCandidateCount: number;
+  hasVisibleQueueView: boolean;
+  canonicalQueueWidgetId: string | null;
+  controlState: AgentQueueControlState | null;
+  recoveryAvailable: boolean;
+  canRestoreQueueView: boolean;
+  recoveryReason: QueueWorkspaceRecoveryReason;
 };
 
 export type WorkbenchSummary = {

@@ -158,6 +158,7 @@ fn add_executor(service: &WorkspaceService) -> (String, String, String) {
     let workspace = service
         .create_empty_workspace("Queue run link workspace", None)
         .expect("create workspace");
+    enable_queue_manual(service, &workspace.id);
     let workbench_id = workspace
         .workbench_id
         .as_deref()
@@ -233,5 +234,17 @@ fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQue
         timeout_ms: Some(10),
         stdout_cap_bytes: Some(11),
         stderr_cap_bytes: Some(12),
+        workflow_start_context: None,
     }
+}
+
+fn enable_queue_manual(service: &WorkspaceService, workspace_id: &str) {
+    service
+        .enable_agent_queue_manual_control(
+            workspace_id.to_owned(),
+            Some("test-operator".to_owned()),
+            Some("test start fixture".to_owned()),
+            None,
+        )
+        .expect("enable queue manual control");
 }

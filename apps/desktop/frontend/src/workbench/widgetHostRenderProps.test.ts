@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { DirectWorkGitReviewHandoff } from "./useDirectWorkGitReviewHandoff";
 import type { DirectWorkRunHandoffController } from "./useDirectWorkRunHandoff";
 import type { WorkbenchWidgetInstanceActions } from "./useWorkbenchWidgetActions";
+import type { WidgetInstance } from "./types";
 import { widgetHostRenderProps } from "./widgetHostRenderProps";
 import type { WorkspaceQueueApi } from "./queue/useWorkspaceQueueApi";
 import {
@@ -10,6 +11,7 @@ import {
   parsePromptPackImportPlan,
 } from "./promptPack";
 import { createUnavailableValidationRunner } from "./validation";
+import { createWorkspaceAgentLiveWorkbenchContextSnapshot } from "./workspaceAgentLiveWorkbenchContext";
 import {
   AGENT_ACTIVITY_COMPONENT_KEY,
   AGENT_QUEUE_PLACEHOLDER_COMPONENT_KEY,
@@ -43,6 +45,13 @@ describe("widgetHostRenderProps", () => {
   it("wires Workspace Agent directory, Knowledge, activity, Direct Work, and Queue bridge callbacks", async () => {
     const actions = widgetActions();
     const invokeHobitAgentActionRequest = vi.fn();
+    const liveWorkbenchContext =
+      createWorkspaceAgentLiveWorkbenchContextSnapshot({
+        widgetInstances: [widgetInstance({ definitionId: "agent-run" })],
+        workbenchId: "workbench_1",
+        workspaceId: "workspace_1",
+        workspaceRootPath: "C:/repo",
+      });
     const publish = vi.fn();
     const workspaceQueue = workspaceQueueApi({
       invokeHobitAgentActionRequest,
@@ -68,6 +77,7 @@ describe("widgetHostRenderProps", () => {
       },
       onPublishAgentActivityEvents: publish,
       widgetActions: actions,
+      workspaceAgentLiveWorkbenchContext: liveWorkbenchContext,
       workspaceQueueApi: workspaceQueue,
     });
 
@@ -98,6 +108,7 @@ describe("widgetHostRenderProps", () => {
       invokeHobitAgentActionRequest,
     );
     expect(props.workspaceAgentQueueBridge).toBeDefined();
+    expect(props.workspaceAgentLiveWorkbenchContext).toBe(liveWorkbenchContext);
     expect(props.createQueueItemsFromPromptPackPreview).toBeDefined();
     expect(props.workspaceAgentQueueBridge?.getRunSettingsDefaults?.()).toEqual(
       {
@@ -556,6 +567,27 @@ function workspaceQueueApi(
     stopAutonomousQueueAfterCurrent: vi.fn(),
     updateItem: vi.fn(),
     validationRunner: createUnavailableValidationRunner(),
+    ...overrides,
+  };
+}
+
+function widgetInstance(overrides: Partial<WidgetInstance> = {}): WidgetInstance {
+  return {
+    config: {},
+    definitionId: "notes",
+    id: "widget_1",
+    layout: {
+      area: "main",
+      height: 360,
+      mode: "docked",
+      order: 0,
+      width: 480,
+      x: 0,
+      y: 0,
+    },
+    state: {},
+    title: "Widget",
+    visible: true,
     ...overrides,
   };
 }

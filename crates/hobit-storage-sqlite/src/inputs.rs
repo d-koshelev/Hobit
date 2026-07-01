@@ -162,11 +162,115 @@ pub struct NewAgentQueueTaskRunLink<'a> {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueuePromptPackMaterialization<'a> {
+    pub workspace_id: &'a str,
+    pub pack_id: &'a str,
+    pub title: &'a str,
+    pub description: Option<&'a str>,
+    pub pack_spec_hash: &'a str,
+    pub run_settings_hash: &'a str,
+    pub dependency_spec_hash: &'a str,
+    pub full_preview_hash: &'a str,
+    pub task_count: i64,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueuePromptPackTaskMapping<'a> {
+    pub workspace_id: &'a str,
+    pub pack_id: &'a str,
+    pub pack_task_id: &'a str,
+    pub queue_task_id: &'a str,
+    pub task_spec_hash: &'a str,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueTaskRunLinkFinalUpdate<'a> {
     pub status: &'a str,
     pub completed_at: Option<&'a str>,
     pub validation_status: Option<&'a str>,
     pub review_status: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueReviewMessage<'a> {
+    pub message_id: &'a str,
+    pub workspace_id: &'a str,
+    pub queue_task_id: &'a str,
+    pub run_id: Option<&'a str>,
+    pub run_link_id: Option<&'a str>,
+    pub actor_id: &'a str,
+    pub message_body: &'a str,
+    pub status: &'a str,
+    pub created_at: Option<&'a str>,
+    pub acked_at: Option<&'a str>,
+    pub ack_actor_id: Option<&'a str>,
+    pub metadata_json: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueWorkerEvidenceBundle<'a> {
+    pub bundle_id: &'a str,
+    pub workspace_id: &'a str,
+    pub queue_task_id: &'a str,
+    pub run_id: &'a str,
+    pub run_link_id: Option<&'a str>,
+    pub executor_widget_id: Option<&'a str>,
+    pub worker_id: Option<&'a str>,
+    pub source: &'a str,
+    pub outcome: &'a str,
+    pub summary: &'a str,
+    pub changed_files_json: &'a str,
+    pub changed_files_count: i64,
+    pub changed_files_summary: Option<&'a str>,
+    pub validation_summary: Option<&'a str>,
+    pub error_summary: Option<&'a str>,
+    pub metadata_json: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueCompletionDecision<'a> {
+    pub decision_id: &'a str,
+    pub workspace_id: &'a str,
+    pub queue_task_id: &'a str,
+    pub run_id: Option<&'a str>,
+    pub run_link_id: Option<&'a str>,
+    pub review_message_id: Option<&'a str>,
+    pub actor_id: &'a str,
+    pub decision: &'a str,
+    pub reason: Option<&'a str>,
+    pub metadata_json: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueFailureDecision<'a> {
+    pub decision_id: &'a str,
+    pub workspace_id: &'a str,
+    pub queue_task_id: &'a str,
+    pub run_id: Option<&'a str>,
+    pub run_link_id: Option<&'a str>,
+    pub evidence_bundle_id: Option<&'a str>,
+    pub review_message_id: Option<&'a str>,
+    pub actor_id: &'a str,
+    pub decision: &'a str,
+    pub reason: &'a str,
+    pub metadata_json: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueReviewMessageAckUpdate<'a> {
+    pub actor_id: &'a str,
+    pub status: &'a str,
+    pub acked_at: Option<&'a str>,
     pub updated_at: Option<&'a str>,
 }
 
@@ -192,6 +296,111 @@ pub struct AgentQueueWorkerUpdate<'a> {
     pub queue_tag_id: Option<&'a str>,
     pub queue_tag_name: Option<&'a str>,
     pub display_order: i64,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueControlState<'a> {
+    pub workspace_id: &'a str,
+    pub status: &'a str,
+    pub version: i64,
+    pub updated_by_actor_id: Option<&'a str>,
+    pub reason: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueControlStateUpdate<'a> {
+    pub status: &'a str,
+    pub updated_by_actor_id: Option<&'a str>,
+    pub reason: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueWorkflowRun<'a> {
+    pub workflow_run_id: &'a str,
+    pub workspace_id: &'a str,
+    pub workflow_id: &'a str,
+    pub request_id: &'a str,
+    pub request_hash: &'a str,
+    pub status: &'a str,
+    pub phase: &'a str,
+    pub current_step: Option<&'a str>,
+    pub pause_reason: Option<&'a str>,
+    pub blocker_reason: Option<&'a str>,
+    pub actor_id: Option<&'a str>,
+    pub inputs_snapshot_json: Option<&'a str>,
+    pub grant_summary_json: Option<&'a str>,
+    pub variables_json: Option<&'a str>,
+    pub slot_bindings_json: Option<&'a str>,
+    pub mutation_refs_json: Option<&'a str>,
+    pub idempotency_keys_json: Option<&'a str>,
+    pub action_log_summary_json: Option<&'a str>,
+    pub version: i64,
+    pub schema_version: i64,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkflowRunStatusUpdate<'a> {
+    pub status: &'a str,
+    pub phase: Option<&'a str>,
+    pub current_step: Option<&'a str>,
+    pub pause_reason: Option<&'a str>,
+    pub blocker_reason: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkflowRunReportUpdate<'a> {
+    pub status: &'a str,
+    pub phase: Option<&'a str>,
+    pub current_step: Option<&'a str>,
+    pub pause_reason: Option<&'a str>,
+    pub blocker_reason: Option<&'a str>,
+    pub variables_json: Option<&'a str>,
+    pub slot_bindings_json: Option<&'a str>,
+    pub mutation_refs_json: Option<&'a str>,
+    pub idempotency_keys_json: Option<&'a str>,
+    pub action_log_summary_json: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NewAgentQueueWorkflowAction<'a> {
+    pub action_id: &'a str,
+    pub workflow_run_id: &'a str,
+    pub workspace_id: &'a str,
+    pub step_id: &'a str,
+    pub action_type: &'a str,
+    pub idempotency_key: &'a str,
+    pub status: &'a str,
+    pub target_refs_json: Option<&'a str>,
+    pub result_refs_json: Option<&'a str>,
+    pub blocker_code: Option<&'a str>,
+    pub blocker_message: Option<&'a str>,
+    pub attempt_count: i64,
+    pub started_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
+    pub created_at: Option<&'a str>,
+    pub updated_at: Option<&'a str>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkflowActionUpdate<'a> {
+    pub status: &'a str,
+    pub result_refs_json: Option<&'a str>,
+    pub blocker_code: Option<&'a str>,
+    pub blocker_message: Option<&'a str>,
+    pub attempt_count: Option<i64>,
+    pub started_at: Option<&'a str>,
+    pub completed_at: Option<&'a str>,
     pub updated_at: Option<&'a str>,
 }
 

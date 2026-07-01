@@ -54,13 +54,13 @@ describe("Queue dogfood broker self-test", () => {
       status: "passed",
     });
     expect(caseById(report, "queue-dogfood-broker:mark-done")).toMatchObject({
-      message: "Mark done.",
+      message: "Mark done unavailable without backend completion command.",
       status: "passed",
     });
     expect(
       caseById(report, "queue-dogfood-broker:dependent-unblocked-after-done"),
     ).toMatchObject({
-      message: "Dependent unblocked after done.",
+      message: "Dependent remains gated until backend accepted completion.",
       status: "passed",
     });
   });
@@ -83,7 +83,7 @@ describe("Queue dogfood broker self-test", () => {
     );
   });
 
-  it("passes the failure branch and keeps the dependent task blocked", () => {
+  it("keeps terminal failure backend-owned in the fake broker self-test", () => {
     const report = runQueueDogfoodBrokerSelfTest();
     const failure = caseById(
       report,
@@ -91,12 +91,12 @@ describe("Queue dogfood broker self-test", () => {
     );
 
     expect(failure).toMatchObject({
-      message: "Failure keeps dependent blocked.",
+      message: "Terminal failure requires backend durability.",
       status: "passed",
     });
     expect(failure.evidence).toEqual(
       expect.arrayContaining([
-        "ticketState: failure.",
+        "ticketState: backend-unavailable.",
         "Dependent startable after upstream failure: false.",
       ]),
     );
@@ -267,6 +267,7 @@ describe("Queue dogfood broker capability calls", () => {
       attemptId: store.fakeAttemptId,
       finalAgentMessage: store.finalAgentMessage,
       outcome: "completed",
+      runId: "fake-run-upstream-1",
       taskId: store.taskId,
       validationSummary: store.validationSummary,
     });
@@ -285,18 +286,22 @@ describe("Queue dogfood broker capability calls", () => {
     expect(wrongAck.result.message).toContain("message target does not match");
   });
 
-  it("requires in-review state before markDone can close the item", () => {
+  it("requires backend completion command before markDone can close the item", () => {
     const store = createQueueDogfoodBrokerSelfTestFakeStore();
 
-    const result = store.invoke("queue.item.markDone", {
-      commit: store.fakeCommit,
-      coordinatorAgentId: store.coordinatorAgentId,
-      taskId: store.taskId,
-      validationApproved: true,
-    });
+    const result = store.invoke(
+      "queue.item.markDone",
+      {
+        reason: "Accepted in fake broker self-test.",
+        taskId: store.taskId,
+      },
+      {
+        confirmationToken: "operator-confirmed",
+      },
+    );
 
-    expect(result.status).toBe("failed");
-    expect(result.result.message).toContain("approveValidation cannot run");
+    expect(result.status).toBe("unavailable");
+    expect(result.result.message).toContain("backend-owned");
     expect(store.readLifecycle(store.taskId)).toMatchObject({
       ticketState: "running",
     });

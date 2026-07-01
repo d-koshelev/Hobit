@@ -2,12 +2,15 @@ use super::*;
 
 use std::path::PathBuf;
 
-use hobit_storage_sqlite::SqliteStore;
+use hobit_storage_sqlite::{
+    AgentQueueWorkflowRunReportUpdate, NewAgentQueueFailureDecision, NewAgentQueueWorkflowAction,
+    SqliteStore,
+};
 use hobit_tools::codex_cli::{
     CodexApprovalPolicy, CodexDirectStreamEvent, CodexDirectStreamEventKind,
     CodexDirectStreamOutput, CodexDirectStreamRequest, CodexDirectStreamStatus, CodexSandboxMode,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 
 fn initialized_service() -> WorkspaceService {
     let store = SqliteStore::open_in_memory().expect("open in-memory sqlite");
@@ -144,6 +147,7 @@ fn queue_owned_task_start_does_not_require_agent_executor_assignment() {
     let workspace = service
         .create_empty_workspace("Queue workspace", None)
         .expect("create workspace");
+    enable_queue_manual(&service, &workspace.id);
     let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
     let queue_widget_id = add_widget(
         &service,
@@ -196,6 +200,7 @@ fn queue_owned_task_stream_uses_text_only_direct_work_request() {
     let workspace = service
         .create_empty_workspace("Queue workspace", None)
         .expect("create workspace");
+    enable_queue_manual(&service, &workspace.id);
     let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
     let queue_widget_id = add_widget(
         &service,
@@ -338,6 +343,7 @@ fn assigned_queue_task_start_rejects_bad_executor_and_workspace_targets() {
     let workspace = service
         .create_empty_workspace("Queue workspace", None)
         .expect("create workspace");
+    enable_queue_manual(&service, &workspace.id);
     let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
     let notes_widget_id = add_widget(&service, &workspace.id, workbench_id, "notes", "Notes");
     let task = create_task(&service, &workspace.id, "queued", "Prompt");
@@ -449,6 +455,713 @@ fn assigned_queue_task_start_accepts_danger_full_access_sandbox() {
 }
 
 #[test]
+fn workflow_worker_start_blocks_when_queue_control_disabled_and_persists_blocker() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue workspace", None)
+        .expect("create workspace");
+    let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
+    let executor_id = add_widget(
+        &service,
+        &workspace.id,
+        workbench_id,
+        AGENT_RUN_WIDGET_DEFINITION_ID,
+        "Agent Executor",
+    );
+    let task = create_task(&service, &workspace.id, "queued", "Prompt");
+    assign_task(&service, &workspace.id, &task.queue_item_id, &executor_id);
+    let workflow_run_id = create_workflow_run(&service, &workspace.id, "request-disabled");
+    let input = workflow_start_input(
+        &workspace.id,
+        &task.queue_item_id,
+        &executor_id,
+        &workflow_run_id,
+        "action-disabled",
+    );
+
+    let error = service
+        .start_assigned_agent_queue_task(input)
+        .expect_err("disabled control blocks workflow start");
+
+    assert!(error.to_string().contains("blocked_control_disabled"));
+    assert!(service
+        .store
+        .list_widget_runs_for_widget(&executor_id)
+        .expect("list runs")
+        .is_empty());
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions(&workspace.id, &workflow_run_id)
+        .expect("list workflow actions");
+    assert_eq!(actions.len(), 1);
+    assert_eq!(actions[0].status, "blocked");
+    assert_eq!(
+        actions[0].blocker_code.as_deref(),
+        Some("blocked_control_disabled")
+    );
+}
+
+#[test]
+fn workflow_worker_start_rejects_missing_structured_context_fields() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let task = create_task(&service, &workspace_id, "queued", "Prompt");
+    assign_task(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-missing");
+    let mut input = workflow_start_input(
+        &workspace_id,
+        &task.queue_item_id,
+        &executor_id,
+        &workflow_run_id,
+        "action-missing",
+    );
+    let context = input
+        .workflow_start_context
+        .as_mut()
+        .expect("workflow context");
+    context.workflow_run_id.clear();
+
+    let error = service
+        .start_assigned_agent_queue_task(input)
+        .expect_err("missing workflow run id rejected");
+    assert!(error.to_string().contains("workflow run id"));
+
+    let mut input = workflow_start_input(
+        &workspace_id,
+        &task.queue_item_id,
+        &executor_id,
+        &workflow_run_id,
+        "action-missing-key",
+    );
+    let context = input
+        .workflow_start_context
+        .as_mut()
+        .expect("workflow context");
+    context.workflow_action_id = None;
+    context.action_idempotency_key = None;
+    let error = service
+        .start_assigned_agent_queue_task(input)
+        .expect_err("missing action key rejected");
+    assert!(error
+        .to_string()
+        .contains("workflowActionId or actionIdempotencyKey"));
+
+    let mut input = workflow_start_input(
+        &workspace_id,
+        &task.queue_item_id,
+        &executor_id,
+        &workflow_run_id,
+        "action-missing-executor",
+    );
+    input
+        .workflow_start_context
+        .as_mut()
+        .expect("workflow context")
+        .executor_widget_id = None;
+    let error = service
+        .start_assigned_agent_queue_task(input)
+        .expect_err("missing executor rejected");
+    assert!(error
+        .to_string()
+        .contains("executorWidgetId or executionTargetHash"));
+}
+
+#[test]
+fn workflow_worker_start_blocks_version_executor_and_settings_mismatches() {
+    let service = initialized_service();
+    let (workspace_id, workbench_id, executor_id) = add_executor(&service);
+    let other_executor_id = add_widget(
+        &service,
+        &workspace_id,
+        &workbench_id,
+        AGENT_RUN_WIDGET_DEFINITION_ID,
+        "Other Executor",
+    );
+    let task = create_task(&service, &workspace_id, "queued", "Prompt");
+    assign_task(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    let control = service
+        .get_agent_queue_control_state(&workspace_id)
+        .expect("get control state")
+        .expect("control state");
+
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-version");
+    let mut version_conflict = workflow_start_input(
+        &workspace_id,
+        &task.queue_item_id,
+        &executor_id,
+        &workflow_run_id,
+        "action-version",
+    );
+    version_conflict
+        .workflow_start_context
+        .as_mut()
+        .expect("workflow context")
+        .expected_queue_control_version = Some(control.version + 1);
+    let error = service
+        .start_assigned_agent_queue_task(version_conflict)
+        .expect_err("version conflict rejected");
+    assert!(error.to_string().contains("version_conflict"));
+
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-executor");
+    let mut mismatched_executor = workflow_start_input(
+        &workspace_id,
+        &task.queue_item_id,
+        &executor_id,
+        &workflow_run_id,
+        "action-executor",
+    );
+    mismatched_executor
+        .workflow_start_context
+        .as_mut()
+        .expect("workflow context")
+        .executor_widget_id = Some(other_executor_id);
+    let error = service
+        .start_assigned_agent_queue_task(mismatched_executor)
+        .expect_err("executor mismatch rejected");
+    assert!(error.to_string().contains("executor_binding_mismatch"));
+
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-settings");
+    let mut bad_settings = workflow_start_input(
+        &workspace_id,
+        &task.queue_item_id,
+        &executor_id,
+        &workflow_run_id,
+        "action-settings",
+    );
+    bad_settings
+        .workflow_start_context
+        .as_mut()
+        .expect("workflow context")
+        .settings_hash = "queue-settings-fnv1a64:0000000000000000".to_owned();
+    let error = service
+        .start_assigned_agent_queue_task(bad_settings)
+        .expect_err("settings mismatch rejected");
+    assert!(error.to_string().contains("settings_hash_mismatch"));
+}
+
+#[test]
+fn workflow_worker_start_blocks_dependency_and_task_readiness_states() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let upstream = create_task(&service, &workspace_id, "queued", "Upstream");
+    let waiting = create_task_with_dependencies(
+        &service,
+        &workspace_id,
+        "queued",
+        "Waiting downstream",
+        vec![upstream.queue_item_id.clone()],
+    );
+    assign_task(
+        &service,
+        &workspace_id,
+        &waiting.queue_item_id,
+        &executor_id,
+    );
+
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-waiting");
+    let error = service
+        .start_assigned_agent_queue_task(workflow_start_input(
+            &workspace_id,
+            &waiting.queue_item_id,
+            &executor_id,
+            &workflow_run_id,
+            "action-waiting",
+        ))
+        .expect_err("waiting dependency rejected");
+    assert!(error.to_string().contains("dependency_waiting"));
+
+    service
+        .store
+        .insert_agent_queue_failure_decision(NewAgentQueueFailureDecision {
+            decision_id: "failure-upstream",
+            workspace_id: &workspace_id,
+            queue_task_id: &upstream.queue_item_id,
+            run_id: None,
+            run_link_id: None,
+            evidence_bundle_id: None,
+            review_message_id: None,
+            actor_id: "test-operator",
+            decision: "failed",
+            reason: "failed upstream",
+            metadata_json: None,
+            created_at: Some("3"),
+        })
+        .expect("insert failure decision");
+    let failed = create_task_with_dependencies(
+        &service,
+        &workspace_id,
+        "queued",
+        "Failed downstream",
+        vec![upstream.queue_item_id.clone()],
+    );
+    assign_task(&service, &workspace_id, &failed.queue_item_id, &executor_id);
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-failed");
+    let error = service
+        .start_assigned_agent_queue_task(workflow_start_input(
+            &workspace_id,
+            &failed.queue_item_id,
+            &executor_id,
+            &workflow_run_id,
+            "action-failed",
+        ))
+        .expect_err("failed dependency rejected");
+    assert!(error.to_string().contains("dependency_failed"));
+
+    let blocked_upstream = create_task(&service, &workspace_id, "queued", "Blocked upstream");
+    service
+        .store
+        .update_agent_queue_task_status(
+            &workspace_id,
+            &blocked_upstream.queue_item_id,
+            "blocked",
+            Some("4"),
+        )
+        .expect("force blocked upstream status");
+    let blocked = create_task_with_dependencies(
+        &service,
+        &workspace_id,
+        "queued",
+        "Blocked downstream",
+        vec![blocked_upstream.queue_item_id.clone()],
+    );
+    assign_task(
+        &service,
+        &workspace_id,
+        &blocked.queue_item_id,
+        &executor_id,
+    );
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-blocked");
+    let error = service
+        .start_assigned_agent_queue_task(workflow_start_input(
+            &workspace_id,
+            &blocked.queue_item_id,
+            &executor_id,
+            &workflow_run_id,
+            "action-blocked",
+        ))
+        .expect_err("blocked dependency rejected");
+    assert!(error.to_string().contains("dependency_blocked"));
+
+    let draft = create_task(&service, &workspace_id, "draft", "Draft");
+    assign_task(&service, &workspace_id, &draft.queue_item_id, &executor_id);
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-draft");
+    let error = service
+        .start_assigned_agent_queue_task(workflow_start_input(
+            &workspace_id,
+            &draft.queue_item_id,
+            &executor_id,
+            &workflow_run_id,
+            "action-draft",
+        ))
+        .expect_err("draft task rejected");
+    assert!(error.to_string().contains("task_not_ready"));
+}
+
+#[test]
+fn workflow_worker_start_duplicate_returns_existing_run_and_conflicting_key_blocks() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let task = create_task(&service, &workspace_id, "queued", "Prompt");
+    assign_task(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-duplicate");
+    let input = workflow_start_input(
+        &workspace_id,
+        &task.queue_item_id,
+        &executor_id,
+        &workflow_run_id,
+        "action-duplicate",
+    );
+
+    let first = service
+        .start_assigned_agent_queue_task(input.clone())
+        .expect("first workflow start");
+    let second = service
+        .start_assigned_agent_queue_task(input.clone())
+        .expect("duplicate workflow start returns existing");
+
+    assert_eq!(first.status, "started");
+    assert_eq!(second.status, "already_started");
+    assert_eq!(second.run_id, first.run_id);
+    assert_eq!(second.current_run_state.as_deref(), Some("running"));
+    assert_eq!(
+        service
+            .store
+            .list_widget_runs_for_widget(&executor_id)
+            .expect("list widget runs")
+            .len(),
+        1
+    );
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions(&workspace_id, &workflow_run_id)
+        .expect("workflow actions");
+    assert_eq!(actions.len(), 1);
+    let target_refs: Value =
+        serde_json::from_str(actions[0].target_refs_json.as_deref().expect("target refs"))
+            .expect("target refs json");
+    assert_eq!(target_refs["slot"].as_str(), Some("upstream"));
+    assert_eq!(
+        target_refs["executionTargetKind"].as_str(),
+        Some("agent_executor")
+    );
+    assert_eq!(target_refs["providerId"].as_str(), Some("codex"));
+    assert_eq!(
+        target_refs["executorWidgetId"].as_str(),
+        Some(executor_id.as_str())
+    );
+    assert!(target_refs["executionTargetHash"]
+        .as_str()
+        .map_or(false, |hash| hash
+            .starts_with("queue-execution-target-fnv1a64:")));
+    assert_eq!(
+        target_refs["settingsHash"].as_str(),
+        input
+            .workflow_start_context
+            .as_ref()
+            .map(|context| context.settings_hash.as_str())
+    );
+    let result_refs: Value =
+        serde_json::from_str(actions[0].result_refs_json.as_deref().expect("result refs"))
+            .expect("result refs json");
+    assert_eq!(result_refs["runId"].as_str(), Some(first.run_id.as_str()));
+
+    let mut conflict = input;
+    conflict
+        .workflow_start_context
+        .as_mut()
+        .expect("workflow context")
+        .settings_hash = "queue-settings-fnv1a64:ffffffffffffffff".to_owned();
+    let error = service
+        .start_assigned_agent_queue_task(conflict)
+        .expect_err("same key with changed target refs rejected");
+    assert!(error
+        .to_string()
+        .contains("workflow_action_idempotency_conflict"));
+}
+
+#[test]
+fn workflow_worker_start_queue_local_duplicate_uses_execution_target_hash() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue workspace", None)
+        .expect("create workspace");
+    enable_queue_manual(&service, &workspace.id);
+    let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
+    let queue_widget_id = add_widget(
+        &service,
+        &workspace.id,
+        workbench_id,
+        AGENT_QUEUE_WIDGET_DEFINITION_ID,
+        "Agent Queue",
+    );
+    let task = create_task(&service, &workspace.id, "queued", "Prompt");
+    let workflow_run_id = create_workflow_run(&service, &workspace.id, "request-queue-local");
+    let input = queue_local_workflow_start_input(
+        &workspace.id,
+        &task.queue_item_id,
+        &queue_widget_id,
+        &workflow_run_id,
+        "action-queue-local",
+    );
+    let context = input
+        .workflow_start_context
+        .as_ref()
+        .expect("workflow context");
+    let execution_target_hash = context
+        .execution_target_hash
+        .clone()
+        .expect("execution target hash");
+
+    let first = service
+        .start_assigned_agent_queue_task(input.clone())
+        .expect("first queue-local workflow start");
+    let second = service
+        .start_assigned_agent_queue_task(input)
+        .expect("duplicate queue-local workflow start returns existing");
+
+    assert_eq!(first.status, "started");
+    assert_eq!(second.status, "already_started");
+    assert_eq!(second.run_id, first.run_id);
+    assert!(second
+        .action_idempotency_key
+        .as_deref()
+        .expect("action key")
+        .contains(&execution_target_hash));
+    assert_eq!(first.executor_widget_instance_id, queue_widget_id);
+    assert_eq!(
+        service
+            .store
+            .list_widget_runs_for_widget(&queue_widget_id)
+            .expect("list queue widget runs")
+            .len(),
+        1
+    );
+
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions(&workspace.id, &workflow_run_id)
+        .expect("workflow actions");
+    assert_eq!(actions.len(), 1);
+    let target_refs: Value =
+        serde_json::from_str(actions[0].target_refs_json.as_deref().expect("target refs"))
+            .expect("target refs json");
+    assert_eq!(
+        target_refs["executionTargetHash"].as_str(),
+        Some(execution_target_hash.as_str())
+    );
+    assert_eq!(target_refs["slot"].as_str(), Some("upstream"));
+    assert_eq!(
+        target_refs["executionTargetKind"].as_str(),
+        Some("queue_local")
+    );
+    assert_eq!(target_refs["providerId"].as_str(), Some("codex"));
+    assert_eq!(
+        target_refs["queueOwnerWidgetInstanceId"].as_str(),
+        Some(queue_widget_id.as_str())
+    );
+    assert!(target_refs.get("executorWidgetId").is_none());
+    let result_refs: Value =
+        serde_json::from_str(actions[0].result_refs_json.as_deref().expect("result refs"))
+            .expect("result refs json");
+    assert_eq!(result_refs["runId"].as_str(), Some(first.run_id.as_str()));
+}
+
+#[test]
+fn workflow_worker_start_backend_queue_local_does_not_require_queue_widget() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue workspace", None)
+        .expect("create workspace");
+    enable_queue_manual(&service, &workspace.id);
+    let task = create_task(&service, &workspace.id, "queued", "Prompt");
+    let workflow_run_id =
+        create_workflow_run(&service, &workspace.id, "request-backend-queue-local");
+    let input = backend_queue_local_workflow_start_input(
+        &workspace.id,
+        &task.queue_item_id,
+        &workflow_run_id,
+        "action-backend-queue-local",
+    );
+    let expected_execution_target_hash = input
+        .workflow_start_context
+        .as_ref()
+        .and_then(|context| context.execution_target_hash.clone());
+    bind_backend_queue_local_start(
+        &service,
+        &workspace.id,
+        &workflow_run_id,
+        &task.queue_item_id,
+        input
+            .workflow_start_context
+            .as_ref()
+            .expect("workflow context"),
+    );
+
+    let start = service
+        .start_assigned_agent_queue_task(input)
+        .expect("backend queue-local workflow start");
+    let stored_task = service
+        .get_agent_queue_task(&workspace.id, &task.queue_item_id)
+        .expect("get queue task")
+        .expect("queue task");
+    let link = service
+        .get_latest_agent_queue_task_run_link(&workspace.id, &task.queue_item_id)
+        .expect("get latest link")
+        .expect("latest link");
+
+    assert_eq!(start.status, "started");
+    assert_eq!(
+        start.executor_widget_instance_id,
+        QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID
+    );
+    assert_eq!(start.workbench_id, QUEUE_LOCAL_BACKEND_WORKBENCH_ID);
+    assert_eq!(stored_task.status, "running");
+    assert_eq!(stored_task.assigned_executor_widget_id, None);
+    assert_eq!(
+        link.executor_widget_id,
+        QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID
+    );
+    assert_eq!(link.direct_work_run_id, start.run_id);
+    assert!(service
+        .store
+        .get_widget_run(&start.run_id)
+        .expect("read widget run")
+        .is_none());
+    let actions = service
+        .store
+        .list_agent_queue_workflow_actions(&workspace.id, &workflow_run_id)
+        .expect("workflow actions");
+    assert_eq!(actions.len(), 1);
+    let target_refs: Value =
+        serde_json::from_str(actions[0].target_refs_json.as_deref().expect("target refs"))
+            .expect("target refs json");
+    assert_eq!(target_refs["slot"].as_str(), Some("upstream"));
+    assert_eq!(
+        target_refs["executionTargetKind"].as_str(),
+        Some("queue_local")
+    );
+    assert_eq!(target_refs["providerId"].as_str(), Some("codex"));
+    assert_eq!(
+        target_refs["settingsHash"].as_str(),
+        start.settings_hash.as_deref()
+    );
+    assert_eq!(
+        target_refs["executionTargetHash"].as_str(),
+        expected_execution_target_hash.as_deref()
+    );
+    assert!(target_refs.get("executorWidgetId").is_none());
+    assert!(target_refs.get("queueOwnerWidgetInstanceId").is_none());
+    let result_refs: Value =
+        serde_json::from_str(actions[0].result_refs_json.as_deref().expect("result refs"))
+            .expect("result refs json");
+    assert_eq!(result_refs["runId"].as_str(), Some(start.run_id.as_str()));
+}
+
+#[test]
+fn workflow_worker_start_blocks_active_or_orphaned_prior_starts_without_side_effects() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let task = create_task(&service, &workspace_id, "queued", "Prompt");
+    assign_task(&service, &workspace_id, &task.queue_item_id, &executor_id);
+    let first = service
+        .start_assigned_agent_queue_task(start_input(&workspace_id, &task.queue_item_id))
+        .expect("manual start");
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-active");
+    let error = service
+        .start_assigned_agent_queue_task(workflow_start_input(
+            &workspace_id,
+            &task.queue_item_id,
+            &executor_id,
+            &workflow_run_id,
+            "action-active",
+        ))
+        .expect_err("active external run blocks workflow start");
+    assert!(error.to_string().contains("active_run_conflict"));
+    assert_eq!(
+        service
+            .store
+            .list_widget_runs_for_widget(&executor_id)
+            .expect("list widget runs")
+            .len(),
+        1
+    );
+
+    let orphan_task = create_task(&service, &workspace_id, "queued", "Orphan");
+    assign_task(
+        &service,
+        &workspace_id,
+        &orphan_task.queue_item_id,
+        &executor_id,
+    );
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-orphan");
+    let input = workflow_start_input(
+        &workspace_id,
+        &orphan_task.queue_item_id,
+        &executor_id,
+        &workflow_run_id,
+        "action-orphan",
+    );
+    let context = input
+        .workflow_start_context
+        .as_ref()
+        .expect("workflow context");
+    service
+        .store
+        .insert_agent_queue_workflow_action(NewAgentQueueWorkflowAction {
+            action_id: context.workflow_action_id.as_deref().expect("action id"),
+            workflow_run_id: &context.workflow_run_id,
+            workspace_id: &workspace_id,
+            step_id: "start_worker",
+            action_type: "start_worker",
+            idempotency_key: context
+                .action_idempotency_key
+                .as_deref()
+                .expect("idempotency key"),
+            status: "running",
+            target_refs_json: Some(&workflow_start_target_refs_for_test(context)),
+            result_refs_json: Some(r#"{"currentRunState":"unknown","runId":"orphan-run"}"#),
+            blocker_code: None,
+            blocker_message: None,
+            attempt_count: 1,
+            started_at: Some("4"),
+            completed_at: None,
+            created_at: Some("4"),
+            updated_at: Some("4"),
+        })
+        .expect("insert orphan action");
+    let error = service
+        .start_assigned_agent_queue_task(input)
+        .expect_err("orphaned start blocks retry");
+    assert!(error.to_string().contains("orphaned_start"));
+
+    assert_eq!(first.executor_widget_instance_id, executor_id);
+}
+
+#[test]
+fn workflow_worker_start_does_not_record_evidence_finish_or_downstream_start() {
+    let service = initialized_service();
+    let (workspace_id, _workbench_id, executor_id) = add_executor(&service);
+    let upstream = create_task(&service, &workspace_id, "queued", "Upstream");
+    assign_task(
+        &service,
+        &workspace_id,
+        &upstream.queue_item_id,
+        &executor_id,
+    );
+    let downstream = create_task_with_dependencies(
+        &service,
+        &workspace_id,
+        "queued",
+        "Downstream",
+        vec![upstream.queue_item_id.clone()],
+    );
+    assign_task(
+        &service,
+        &workspace_id,
+        &downstream.queue_item_id,
+        &executor_id,
+    );
+    let workflow_run_id = create_workflow_run(&service, &workspace_id, "request-side-effects");
+
+    let start = service
+        .start_assigned_agent_queue_task(workflow_start_input(
+            &workspace_id,
+            &upstream.queue_item_id,
+            &executor_id,
+            &workflow_run_id,
+            "action-side-effects",
+        ))
+        .expect("workflow start");
+
+    assert_eq!(start.status, "started");
+    assert!(service
+        .store
+        .get_latest_agent_queue_worker_evidence_bundle(&workspace_id, &upstream.queue_item_id)
+        .expect("get evidence")
+        .is_none());
+    assert!(service
+        .store
+        .get_latest_agent_queue_completion_decision(&workspace_id, &upstream.queue_item_id)
+        .expect("get completion")
+        .is_none());
+    assert!(service
+        .store
+        .get_latest_agent_queue_failure_decision(&workspace_id, &upstream.queue_item_id)
+        .expect("get failure")
+        .is_none());
+    assert!(service
+        .store
+        .get_latest_agent_queue_task_run_link(&workspace_id, &downstream.queue_item_id)
+        .expect("get downstream run link")
+        .is_none());
+    let downstream = service
+        .get_agent_queue_task(&workspace_id, &downstream.queue_item_id)
+        .expect("get downstream")
+        .expect("downstream");
+    assert_eq!(downstream.status, "queued");
+}
+
+#[test]
 fn assigned_queue_task_finish_maps_direct_work_statuses_to_queue_statuses() {
     assert_queue_finish_status(CodexDirectStreamStatus::Completed, "completed");
     assert_queue_finish_status(CodexDirectStreamStatus::Failed, "failed");
@@ -492,6 +1205,7 @@ fn add_executor(service: &WorkspaceService) -> (String, String, String) {
     let workspace = service
         .create_empty_workspace("Queue workspace", None)
         .expect("create workspace");
+    enable_queue_manual(service, &workspace.id);
     let workbench_id = workspace
         .workbench_id
         .as_deref()
@@ -550,6 +1264,31 @@ fn create_task(
         .expect("create queue task")
 }
 
+fn create_task_with_dependencies(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    status: &str,
+    prompt: &str,
+    depends_on: Vec<String>,
+) -> AgentQueueTaskSummary {
+    service
+        .create_agent_queue_task(CreateAgentQueueTaskInput {
+            workspace_id: workspace_id.to_owned(),
+            title: "Queue task".to_owned(),
+            description: "Description".to_owned(),
+            prompt: prompt.to_owned(),
+            status: status.to_owned(),
+            priority: 1,
+            depends_on: Some(depends_on),
+            execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
+        })
+        .expect("create queue task")
+}
+
 fn assign_task(
     service: &WorkspaceService,
     workspace_id: &str,
@@ -565,6 +1304,37 @@ fn assign_task(
         .expect("assign queue task");
 }
 
+fn create_workflow_run(service: &WorkspaceService, workspace_id: &str, request_id: &str) -> String {
+    let result = service
+        .start_queue_workflow(QueueWorkflowStartRequest {
+            workspace_id: workspace_id.to_owned(),
+            workflow_id: "queue_worker_start_contract".to_owned(),
+            request_id: request_id.to_owned(),
+            phase: Some("run_start".to_owned()),
+            current_step: Some("start_worker".to_owned()),
+            actor_id: Some("test-operator".to_owned()),
+            inputs_snapshot: Some(json!({"purpose": "worker_start_contract"})),
+            grant_summary: Some(json!({
+                "actorId": "test-operator",
+                "allowedRiskClasses": ["run_start"],
+                "constraints": {
+                    "noGit": true,
+                    "noValidationExecution": true,
+                    "noRollback": true,
+                    "noTerminal": true,
+                    "noDownstreamAutoStart": true
+                }
+            })),
+            variables: Some(json!({})),
+            slot_bindings: Some(json!({})),
+            mutation_refs: Some(json!({})),
+            idempotency_keys: Some(json!({})),
+            action_log_summary: Some(json!([])),
+        })
+        .expect("start workflow run");
+    result.workflow_run.expect("workflow run").workflow_run_id
+}
+
 fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQueueTaskInput {
     StartAssignedAgentQueueTaskInput {
         workspace_id: workspace_id.to_owned(),
@@ -577,7 +1347,256 @@ fn start_input(workspace_id: &str, queue_item_id: &str) -> StartAssignedAgentQue
         timeout_ms: Some(2_000),
         stdout_cap_bytes: Some(16 * 1024),
         stderr_cap_bytes: Some(8 * 1024),
+        workflow_start_context: None,
     }
+}
+
+fn workflow_start_input(
+    workspace_id: &str,
+    queue_item_id: &str,
+    executor_id: &str,
+    workflow_run_id: &str,
+    workflow_action_id: &str,
+) -> StartAssignedAgentQueueTaskInput {
+    let mut input = start_input(workspace_id, queue_item_id);
+    let settings_hash = worker_settings_hash_for_input(&input, executor_id);
+    let action_idempotency_key =
+        format!("{workflow_run_id}:start_worker:{queue_item_id}:{executor_id}:{settings_hash}");
+    input.workflow_start_context = Some(QueueWorkerStartContext {
+        workflow_run_id: workflow_run_id.to_owned(),
+        workflow_action_id: Some(workflow_action_id.to_owned()),
+        action_idempotency_key: Some(action_idempotency_key),
+        slot: Some("upstream".to_owned()),
+        task_id: queue_item_id.to_owned(),
+        executor_widget_id: Some(executor_id.to_owned()),
+        settings_hash,
+        execution_target_hash: None,
+        expected_queue_control_version: None,
+        actor_id: Some("test-operator".to_owned()),
+        confirmation_token: Some("operator-confirmed".to_owned()),
+    });
+    input
+}
+
+fn queue_local_workflow_start_input(
+    workspace_id: &str,
+    queue_item_id: &str,
+    queue_widget_id: &str,
+    workflow_run_id: &str,
+    workflow_action_id: &str,
+) -> StartAssignedAgentQueueTaskInput {
+    let mut input = start_input(workspace_id, queue_item_id);
+    input.queue_owner_widget_instance_id = Some(queue_widget_id.to_owned());
+    let settings_hash = worker_settings_hash_for_input(&input, queue_widget_id);
+    let execution_target_hash = QueueExecutionTargetSnapshot {
+        execution_target_kind: "queue_local".to_owned(),
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: Some(queue_widget_id.to_owned()),
+        executor_widget_id: None,
+    }
+    .stable_hash();
+    let action_idempotency_key = format!(
+        "{workflow_run_id}:start_worker:{queue_item_id}:{execution_target_hash}:{settings_hash}"
+    );
+    input.workflow_start_context = Some(QueueWorkerStartContext {
+        workflow_run_id: workflow_run_id.to_owned(),
+        workflow_action_id: Some(workflow_action_id.to_owned()),
+        action_idempotency_key: Some(action_idempotency_key),
+        slot: Some("upstream".to_owned()),
+        task_id: queue_item_id.to_owned(),
+        executor_widget_id: Some(queue_widget_id.to_owned()),
+        settings_hash,
+        execution_target_hash: Some(execution_target_hash),
+        expected_queue_control_version: None,
+        actor_id: Some("test-operator".to_owned()),
+        confirmation_token: Some("operator-confirmed".to_owned()),
+    });
+    input
+}
+
+fn backend_queue_local_workflow_start_input(
+    workspace_id: &str,
+    queue_item_id: &str,
+    workflow_run_id: &str,
+    workflow_action_id: &str,
+) -> StartAssignedAgentQueueTaskInput {
+    let mut input = start_input(workspace_id, queue_item_id);
+    let settings_hash = backend_queue_local_settings_hash_for_input(&input);
+    let execution_target_hash = QueueExecutionTargetSnapshot {
+        execution_target_kind: "queue_local".to_owned(),
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: None,
+        executor_widget_id: None,
+    }
+    .stable_hash();
+    let action_idempotency_key = format!(
+        "{workflow_run_id}:start_worker:{queue_item_id}:{execution_target_hash}:{settings_hash}"
+    );
+    input.workflow_start_context = Some(QueueWorkerStartContext {
+        workflow_run_id: workflow_run_id.to_owned(),
+        workflow_action_id: Some(workflow_action_id.to_owned()),
+        action_idempotency_key: Some(action_idempotency_key),
+        slot: Some("upstream".to_owned()),
+        task_id: queue_item_id.to_owned(),
+        executor_widget_id: None,
+        settings_hash,
+        execution_target_hash: Some(execution_target_hash),
+        expected_queue_control_version: None,
+        actor_id: Some("test-operator".to_owned()),
+        confirmation_token: Some("operator-confirmed".to_owned()),
+    });
+    input
+}
+
+fn bind_backend_queue_local_start(
+    service: &WorkspaceService,
+    workspace_id: &str,
+    workflow_run_id: &str,
+    queue_item_id: &str,
+    context: &QueueWorkerStartContext,
+) {
+    let slot_bindings = json!({
+        "upstream": {
+            "executionTargetHash": context
+                .execution_target_hash
+                .as_deref()
+                .expect("execution target hash"),
+            "executionTargetKind": "queue_local",
+            "executorWidgetId": "",
+            "providerId": "codex",
+            "queueOwnerWidgetInstanceId": Value::Null,
+            "runSettings": {
+                "approvalPolicy": "never",
+                "codexExecutable": "codex",
+                "executionPolicy": "manual",
+                "executionTarget": {
+                    "kind": "queue_local",
+                    "providerId": "codex",
+                    "queueOwnerWidgetInstanceId": Value::Null
+                },
+                "executorWidgetId": "",
+                "executionWorkspace": std::env::current_dir()
+                    .expect("current dir")
+                    .to_string_lossy()
+                    .into_owned(),
+                "sandbox": "workspace_write"
+            },
+            "settingsHash": &context.settings_hash,
+            "taskId": queue_item_id
+        }
+    })
+    .to_string();
+    service
+        .store
+        .update_agent_queue_workflow_run_report(
+            workspace_id,
+            workflow_run_id,
+            AgentQueueWorkflowRunReportUpdate {
+                status: "running",
+                phase: None,
+                current_step: None,
+                pause_reason: None,
+                blocker_reason: None,
+                variables_json: None,
+                slot_bindings_json: Some(&slot_bindings),
+                mutation_refs_json: None,
+                idempotency_keys_json: None,
+                action_log_summary_json: None,
+                updated_at: Some("backend-bind"),
+                completed_at: None,
+            },
+        )
+        .expect("bind backend queue-local slot");
+}
+
+fn worker_settings_hash_for_input(
+    input: &StartAssignedAgentQueueTaskInput,
+    executor_id: &str,
+) -> String {
+    let queue_owner_widget_instance_id = input.queue_owner_widget_instance_id.clone();
+    let queue_local_target = queue_owner_widget_instance_id.is_some();
+    QueueWorkerStartSettingsSnapshot {
+        execution_workspace: input.repo_root.to_string_lossy().into_owned(),
+        codex_executable: input.codex_executable.clone(),
+        sandbox: input.sandbox.clone(),
+        approval_policy: input.approval_policy.clone(),
+        execution_policy: "manual".to_owned(),
+        execution_target_kind: if queue_local_target {
+            "queue_local".to_owned()
+        } else {
+            "agent_executor".to_owned()
+        },
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id,
+        executor_widget_id: if queue_local_target {
+            String::new()
+        } else {
+            executor_id.to_owned()
+        },
+    }
+    .stable_hash()
+}
+
+fn backend_queue_local_settings_hash_for_input(input: &StartAssignedAgentQueueTaskInput) -> String {
+    QueueWorkerStartSettingsSnapshot {
+        execution_workspace: input.repo_root.to_string_lossy().into_owned(),
+        codex_executable: input.codex_executable.clone(),
+        sandbox: input.sandbox.clone(),
+        approval_policy: input.approval_policy.clone(),
+        execution_policy: "manual".to_owned(),
+        execution_target_kind: "queue_local".to_owned(),
+        provider_id: "codex".to_owned(),
+        queue_owner_widget_instance_id: None,
+        executor_widget_id: String::new(),
+    }
+    .stable_hash()
+}
+
+fn workflow_start_target_refs_for_test(context: &QueueWorkerStartContext) -> String {
+    let mut refs = serde_json::Map::new();
+    refs.insert(
+        "executorWidgetId".to_owned(),
+        context
+            .executor_widget_id
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    refs.insert(
+        "settingsHash".to_owned(),
+        Value::String(context.settings_hash.clone()),
+    );
+    if let Some(execution_target_hash) = &context.execution_target_hash {
+        refs.insert(
+            "executionTargetHash".to_owned(),
+            Value::String(execution_target_hash.clone()),
+        );
+    }
+    refs.insert("taskId".to_owned(), Value::String(context.task_id.clone()));
+    refs.insert(
+        "workflowActionId".to_owned(),
+        context
+            .workflow_action_id
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
+    refs.insert(
+        "workflowRunId".to_owned(),
+        Value::String(context.workflow_run_id.clone()),
+    );
+    Value::Object(refs).to_string()
+}
+
+fn enable_queue_manual(service: &WorkspaceService, workspace_id: &str) {
+    service
+        .enable_agent_queue_manual_control(
+            workspace_id.to_owned(),
+            Some("test-operator".to_owned()),
+            Some("test start fixture".to_owned()),
+            None,
+        )
+        .expect("enable queue manual control");
 }
 
 fn assert_start_rejected(

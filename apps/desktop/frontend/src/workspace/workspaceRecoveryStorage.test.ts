@@ -22,7 +22,7 @@ describe("workspaceRecoveryStorage", () => {
     });
     expect(
       window.localStorage.getItem(LAST_OPEN_WORKSPACE_STORAGE_KEY),
-    ).not.toContain("repo");
+    ).not.toContain("Hobit_queue_logic");
   });
 
   it("clears the last-open workspace record", () => {
@@ -55,6 +55,7 @@ function workspaceSummary(): WorkspaceSummary {
     lastOpenedAt: "2026-05-25T11:00:00.000Z",
     noteCount: 0,
     queueTaskCount: 0,
+    rootPath: "C:/Users/Dmitry/Documents/prj/Hobit_queue_logic",
     skillCount: 0,
     status: "active",
     title: "Recovery Workspace",

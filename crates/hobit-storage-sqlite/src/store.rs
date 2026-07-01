@@ -9,9 +9,15 @@ use std::path::Path;
 use rusqlite::{Connection, Result};
 
 pub use crate::inputs::{
+    AgentQueueControlStateUpdate, AgentQueueReviewMessageAckUpdate,
     AgentQueueTaskRunLinkFinalUpdate, AgentQueueTaskUpdate, AgentQueueWorkerUpdate,
-    JdbcConnectionProfileUpdate, JdbcConnectorUpdate, KnowledgeDocumentUpdate, NewAgentQueueItem,
-    NewAgentQueueTask, NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewJdbcConnectionProfile,
+    AgentQueueWorkflowActionUpdate, AgentQueueWorkflowRunReportUpdate,
+    AgentQueueWorkflowRunStatusUpdate, JdbcConnectionProfileUpdate, JdbcConnectorUpdate,
+    KnowledgeDocumentUpdate, NewAgentQueueCompletionDecision, NewAgentQueueControlState,
+    NewAgentQueueFailureDecision, NewAgentQueueItem, NewAgentQueuePromptPackMaterialization,
+    NewAgentQueuePromptPackTaskMapping, NewAgentQueueReviewMessage, NewAgentQueueTask,
+    NewAgentQueueTaskRunLink, NewAgentQueueWorker, NewAgentQueueWorkerEvidenceBundle,
+    NewAgentQueueWorkflowAction, NewAgentQueueWorkflowRun, NewJdbcConnectionProfile,
     NewJdbcConnector, NewKnowledgeDocument, NewKnowledgeDraftReviewRecord, NewSharedStateObject,
     NewSkill, NewWidgetInstance, NewWidgetLog, NewWidgetResult, NewWidgetRun, NewWorkspaceNote,
     NewWorkspaceSession, SkillUpdate, WidgetInstanceLayoutUpdate, WidgetRunFinishUpdate,
@@ -19,19 +25,30 @@ pub use crate::inputs::{
 };
 use crate::rows::TableColumn;
 pub use crate::rows::{
-    AgentQueueItemRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow, AgentQueueWorkerRow,
-    JdbcConnectionProfileRow, JdbcConnectorRow, KnowledgeDocumentChunkRow, KnowledgeDocumentRow,
-    KnowledgeDocumentSearchResultRow, KnowledgeDraftReviewRecordRow, SharedStateObjectRow,
-    SkillRow, WidgetInstanceRow, WidgetLogRow, WidgetResultRow, WidgetRunRow, WorkbenchEventRow,
-    WorkspaceNoteRow, WorkspaceRow, WorkspaceSessionRow, WorkspaceSummaryRow,
-    WorkspaceWorkbenchRow,
+    AgentQueueCompletionDecisionRow, AgentQueueControlStateRow, AgentQueueFailureDecisionRow,
+    AgentQueueItemRow, AgentQueuePromptPackMaterializationRow, AgentQueuePromptPackTaskMappingRow,
+    AgentQueueReviewMessageRow, AgentQueueTaskRow, AgentQueueTaskRunLinkRow,
+    AgentQueueWorkerEvidenceBundleRow, AgentQueueWorkerRow, AgentQueueWorkflowActionRow,
+    AgentQueueWorkflowRunRow, JdbcConnectionProfileRow, JdbcConnectorRow,
+    KnowledgeDocumentChunkRow, KnowledgeDocumentRow, KnowledgeDocumentSearchResultRow,
+    KnowledgeDraftReviewRecordRow, SharedStateObjectRow, SkillRow, WidgetInstanceRow, WidgetLogRow,
+    WidgetResultRow, WidgetRunRow, WorkbenchEventRow, WorkspaceNoteRow, WorkspaceRow,
+    WorkspaceSessionRow, WorkspaceSummaryRow, WorkspaceWorkbenchRow,
 };
 use crate::schema;
 
+mod agent_queue_completion_decisions;
+mod agent_queue_control_states;
+mod agent_queue_failure_decisions;
 mod agent_queue_items;
+mod agent_queue_prompt_packs;
+mod agent_queue_review_messages;
 mod agent_queue_task_run_links;
 mod agent_queue_tasks;
+mod agent_queue_worker_evidence_bundles;
 mod agent_queue_workers;
+mod agent_queue_workflows;
+mod dogfood_operator_workspace_bindings;
 mod events;
 mod jdbc_connection_profiles;
 mod jdbc_connectors;
@@ -51,11 +68,19 @@ mod workbenches;
 mod workspaces;
 
 #[cfg(test)]
+mod agent_queue_control_states_tests;
+#[cfg(test)]
+mod agent_queue_decision_backend_owned_tests;
+#[cfg(test)]
+mod agent_queue_review_messages_tests;
+#[cfg(test)]
 mod agent_queue_task_run_links_tests;
 #[cfg(test)]
 mod agent_queue_tasks_tests;
 #[cfg(test)]
 mod agent_queue_workers_tests;
+#[cfg(test)]
+mod agent_queue_workflows_tests;
 #[cfg(test)]
 mod jdbc_connection_profiles_tests;
 #[cfg(test)]
@@ -135,7 +160,13 @@ impl SqliteStore {
 
     fn upgrade_schema(&self) -> Result<()> {
         self.upgrade_widget_logs_schema()?;
+        self.upgrade_agent_queue_task_run_links_backend_owned_schema()?;
+        self.upgrade_agent_queue_worker_evidence_backend_owned_schema()?;
+        self.upgrade_agent_queue_review_messages_backend_owned_schema()?;
+        self.upgrade_agent_queue_completion_decisions_backend_owned_schema()?;
+        self.upgrade_agent_queue_failure_decisions_backend_owned_schema()?;
         self.upgrade_knowledge_documents_schema()?;
+        self.ensure_column("workspaces", "root_path", "root_path TEXT NULL")?;
         self.ensure_column(
             "widget_results",
             "result_type",
@@ -179,6 +210,259 @@ impl SqliteStore {
             "context_json TEXT NULL",
         )?;
         self.connection.execute_batch(schema::POST_INIT_SCHEMA)?;
+        Ok(())
+    }
+
+    fn upgrade_agent_queue_worker_evidence_backend_owned_schema(&self) -> Result<()> {
+        let mut statement = self
+            .connection
+            .prepare("PRAGMA foreign_key_list(agent_queue_worker_evidence_bundles)")?;
+        let has_widget_run_fk = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            })?
+            .collect::<Result<Vec<_>>>()?
+            .iter()
+            .any(|(table, from, to)| table == "widget_runs" && from == "run_id" && to == "id");
+        if !has_widget_run_fk {
+            return Ok(());
+        }
+        drop(statement);
+
+        self.connection.pragma_update(None, "foreign_keys", "OFF")?;
+        let migration = self.connection.execute_batch(
+            r#"
+            ALTER TABLE agent_queue_worker_evidence_bundles
+                RENAME TO agent_queue_worker_evidence_bundles_legacy;
+
+            CREATE TABLE agent_queue_worker_evidence_bundles (
+                bundle_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+                run_id TEXT NOT NULL,
+                run_link_id TEXT NULL REFERENCES agent_queue_task_run_links(link_id) ON DELETE SET NULL,
+                executor_widget_id TEXT NULL REFERENCES widget_instances(id) ON DELETE SET NULL,
+                worker_id TEXT NULL,
+                source TEXT NOT NULL,
+                outcome TEXT NOT NULL,
+                summary TEXT NOT NULL,
+                changed_files_json TEXT NOT NULL,
+                changed_files_count INTEGER NOT NULL DEFAULT 0,
+                changed_files_summary TEXT NULL,
+                validation_summary TEXT NULL,
+                error_summary TEXT NULL,
+                metadata_json TEXT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(workspace_id, queue_task_id, run_id)
+            );
+
+            INSERT INTO agent_queue_worker_evidence_bundles (
+                bundle_id, workspace_id, queue_task_id, run_id, run_link_id,
+                executor_widget_id, worker_id, source, outcome, summary,
+                changed_files_json, changed_files_count, changed_files_summary,
+                validation_summary, error_summary, metadata_json, created_at, updated_at
+            )
+            SELECT
+                bundle_id, workspace_id, queue_task_id, run_id, run_link_id,
+                executor_widget_id, worker_id, source, outcome, summary,
+                changed_files_json, changed_files_count, changed_files_summary,
+                validation_summary, error_summary, metadata_json, created_at, updated_at
+            FROM agent_queue_worker_evidence_bundles_legacy;
+
+            DROP TABLE agent_queue_worker_evidence_bundles_legacy;
+            "#,
+        );
+        let restore = self.connection.pragma_update(None, "foreign_keys", "ON");
+        migration?;
+        restore?;
+        Ok(())
+    }
+
+    fn upgrade_agent_queue_review_messages_backend_owned_schema(&self) -> Result<()> {
+        let mut statement = self
+            .connection
+            .prepare("PRAGMA foreign_key_list(agent_queue_review_messages)")?;
+        let has_widget_run_fk = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            })?
+            .collect::<Result<Vec<_>>>()?
+            .iter()
+            .any(|(table, from, to)| table == "widget_runs" && from == "run_id" && to == "id");
+        if !has_widget_run_fk {
+            return Ok(());
+        }
+        drop(statement);
+
+        self.connection.pragma_update(None, "foreign_keys", "OFF")?;
+        let migration = self.connection.execute_batch(
+            r#"
+            ALTER TABLE agent_queue_review_messages
+                RENAME TO agent_queue_review_messages_legacy;
+
+            CREATE TABLE agent_queue_review_messages (
+                message_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+                run_id TEXT NULL,
+                run_link_id TEXT NULL REFERENCES agent_queue_task_run_links(link_id) ON DELETE SET NULL,
+                actor_id TEXT NOT NULL,
+                message_body TEXT NOT NULL,
+                status TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                acked_at TEXT NULL,
+                ack_actor_id TEXT NULL,
+                metadata_json TEXT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            INSERT INTO agent_queue_review_messages (
+                message_id, workspace_id, queue_task_id, run_id, run_link_id,
+                actor_id, message_body, status, created_at, acked_at, ack_actor_id,
+                metadata_json, updated_at
+            )
+            SELECT
+                message_id, workspace_id, queue_task_id, run_id, run_link_id,
+                actor_id, message_body, status, created_at, acked_at, ack_actor_id,
+                metadata_json, updated_at
+            FROM agent_queue_review_messages_legacy;
+
+            DROP TABLE agent_queue_review_messages_legacy;
+            "#,
+        );
+        let restore = self.connection.pragma_update(None, "foreign_keys", "ON");
+        migration?;
+        restore?;
+        Ok(())
+    }
+
+    fn upgrade_agent_queue_completion_decisions_backend_owned_schema(&self) -> Result<()> {
+        let mut statement = self
+            .connection
+            .prepare("PRAGMA foreign_key_list(agent_queue_completion_decisions)")?;
+        let has_widget_run_fk = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            })?
+            .collect::<Result<Vec<_>>>()?
+            .iter()
+            .any(|(table, from, to)| table == "widget_runs" && from == "run_id" && to == "id");
+        if !has_widget_run_fk {
+            return Ok(());
+        }
+        drop(statement);
+
+        self.connection.pragma_update(None, "foreign_keys", "OFF")?;
+        let migration = self.connection.execute_batch(
+            r#"
+            ALTER TABLE agent_queue_completion_decisions
+                RENAME TO agent_queue_completion_decisions_legacy;
+
+            CREATE TABLE agent_queue_completion_decisions (
+                decision_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+                run_id TEXT NULL,
+                run_link_id TEXT NULL REFERENCES agent_queue_task_run_links(link_id) ON DELETE SET NULL,
+                review_message_id TEXT NULL REFERENCES agent_queue_review_messages(message_id) ON DELETE SET NULL,
+                actor_id TEXT NOT NULL,
+                decision TEXT NOT NULL,
+                reason TEXT NULL,
+                metadata_json TEXT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(workspace_id, queue_task_id)
+            );
+
+            INSERT INTO agent_queue_completion_decisions (
+                decision_id, workspace_id, queue_task_id, run_id, run_link_id,
+                review_message_id, actor_id, decision, reason, metadata_json, created_at
+            )
+            SELECT
+                decision_id, workspace_id, queue_task_id, run_id, run_link_id,
+                review_message_id, actor_id, decision, reason, metadata_json, created_at
+            FROM agent_queue_completion_decisions_legacy;
+
+            DROP TABLE agent_queue_completion_decisions_legacy;
+            "#,
+        );
+        let restore = self.connection.pragma_update(None, "foreign_keys", "ON");
+        migration?;
+        restore?;
+        Ok(())
+    }
+
+    fn upgrade_agent_queue_failure_decisions_backend_owned_schema(&self) -> Result<()> {
+        let mut statement = self
+            .connection
+            .prepare("PRAGMA foreign_key_list(agent_queue_failure_decisions)")?;
+        let has_widget_run_fk = statement
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(2)?,
+                    row.get::<_, String>(3)?,
+                    row.get::<_, String>(4)?,
+                ))
+            })?
+            .collect::<Result<Vec<_>>>()?
+            .iter()
+            .any(|(table, from, to)| table == "widget_runs" && from == "run_id" && to == "id");
+        if !has_widget_run_fk {
+            return Ok(());
+        }
+        drop(statement);
+
+        self.connection.pragma_update(None, "foreign_keys", "OFF")?;
+        let migration = self.connection.execute_batch(
+            r#"
+            ALTER TABLE agent_queue_failure_decisions
+                RENAME TO agent_queue_failure_decisions_legacy;
+
+            CREATE TABLE agent_queue_failure_decisions (
+                decision_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+                queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+                run_id TEXT NULL,
+                run_link_id TEXT NULL REFERENCES agent_queue_task_run_links(link_id) ON DELETE SET NULL,
+                evidence_bundle_id TEXT NULL REFERENCES agent_queue_worker_evidence_bundles(bundle_id) ON DELETE SET NULL,
+                review_message_id TEXT NULL REFERENCES agent_queue_review_messages(message_id) ON DELETE SET NULL,
+                actor_id TEXT NOT NULL,
+                decision TEXT NOT NULL,
+                reason TEXT NOT NULL,
+                metadata_json TEXT NULL,
+                created_at TEXT NOT NULL,
+                UNIQUE(workspace_id, queue_task_id)
+            );
+
+            INSERT INTO agent_queue_failure_decisions (
+                decision_id, workspace_id, queue_task_id, run_id, run_link_id,
+                evidence_bundle_id, review_message_id, actor_id, decision, reason,
+                metadata_json, created_at
+            )
+            SELECT
+                decision_id, workspace_id, queue_task_id, run_id, run_link_id,
+                evidence_bundle_id, review_message_id, actor_id, decision, reason,
+                metadata_json, created_at
+            FROM agent_queue_failure_decisions_legacy;
+
+            DROP TABLE agent_queue_failure_decisions_legacy;
+            "#,
+        );
+        let restore = self.connection.pragma_update(None, "foreign_keys", "ON");
+        migration?;
+        restore?;
         Ok(())
     }
 
@@ -240,6 +524,62 @@ impl SqliteStore {
         );
 
         self.connection.execute_batch(&sql)?;
+        Ok(())
+    }
+
+    fn upgrade_agent_queue_task_run_links_backend_owned_schema(&self) -> Result<()> {
+        let mut statement = self
+            .connection
+            .prepare("PRAGMA foreign_key_list(agent_queue_task_run_links)")?;
+        let foreign_tables = statement
+            .query_map([], |row| row.get::<_, String>(2))?
+            .collect::<Result<Vec<_>>>()?;
+        if !foreign_tables
+            .iter()
+            .any(|table| table == "widget_instances" || table == "widget_runs")
+        {
+            return Ok(());
+        }
+        drop(statement);
+
+        self.connection.pragma_update(None, "foreign_keys", "OFF")?;
+        let migration = self.connection.execute_batch(
+            r#"
+            ALTER TABLE agent_queue_task_run_links RENAME TO agent_queue_task_run_links_legacy;
+
+            CREATE TABLE agent_queue_task_run_links (
+                link_id TEXT PRIMARY KEY,
+                workspace_id TEXT NOT NULL REFERENCES workspaces(id),
+                queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+                executor_widget_id TEXT NOT NULL,
+                direct_work_run_id TEXT NOT NULL UNIQUE,
+                source TEXT NOT NULL,
+                status TEXT NOT NULL,
+                started_at TEXT NOT NULL,
+                completed_at TEXT NULL,
+                validation_status TEXT NULL,
+                review_status TEXT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            );
+
+            INSERT INTO agent_queue_task_run_links (
+                link_id, workspace_id, queue_task_id, executor_widget_id, direct_work_run_id,
+                source, status, started_at, completed_at, validation_status, review_status,
+                created_at, updated_at
+            )
+            SELECT
+                link_id, workspace_id, queue_task_id, executor_widget_id, direct_work_run_id,
+                source, status, started_at, completed_at, validation_status, review_status,
+                created_at, updated_at
+            FROM agent_queue_task_run_links_legacy;
+
+            DROP TABLE agent_queue_task_run_links_legacy;
+            "#,
+        );
+        let restore = self.connection.pragma_update(None, "foreign_keys", "ON");
+        migration?;
+        restore?;
         Ok(())
     }
 

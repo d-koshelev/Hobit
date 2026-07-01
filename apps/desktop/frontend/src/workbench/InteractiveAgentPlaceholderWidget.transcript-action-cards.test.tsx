@@ -8,6 +8,7 @@ import {
   clickButtonIn,
   directWorkEvent,
   expectedCoordinatorCodexExecutable,
+  finalAnswerEnvelope,
   agentPicker,
   InteractiveAgentPlaceholderWidget,
   knowledgeDocumentFixture,
@@ -507,22 +508,24 @@ describe("InteractiveAgentPlaceholderWidget Workspace Agent UI", () => {
           directWorkEvent({
             eventKind: "final_message",
             isFinal: false,
-            text: [
-              "Drafted from visible content.",
-              "```hobit-catalog-action",
-              JSON.stringify({
-                prerequisites: "Release branch selected",
-                review_status: "draft",
-                risks: "Rollback may be needed",
-                steps: "Run deploy\nCheck health",
-                tags: ["codex", "deploy"],
-                title: "Codex deploy skill",
-                type: "create_skill",
-                validation: "Health checks pass",
-                when_to_use: "Before deployment",
-              }),
-              "```",
-            ].join("\n"),
+            text: finalAnswerEnvelope(
+              [
+                "Drafted from visible content.",
+                "```hobit-catalog-action",
+                JSON.stringify({
+                  prerequisites: "Release branch selected",
+                  review_status: "draft",
+                  risks: "Rollback may be needed",
+                  steps: "Run deploy\nCheck health",
+                  tags: ["codex", "deploy"],
+                  title: "Codex deploy skill",
+                  type: "create_skill",
+                  validation: "Health checks pass",
+                  when_to_use: "Before deployment",
+                }),
+                "```",
+              ].join("\n"),
+            ),
           }),
         );
         onEvent(

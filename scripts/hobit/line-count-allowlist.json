@@ -1,0 +1,396 @@
+{
+  "schema": 1,
+  "description": "Explicit oversized-file debt for scripts/hobit/check-line-counts.mjs. Guard mode allows these files only while they stay at or below currentLineCount. Do not add source globs.",
+  "files": [
+    {
+      "path": "apps/desktop/frontend/src/workbench/agents/adapters/queueAgentCapabilities.test.ts",
+      "currentLineCount": 5366,
+      "category": "test",
+      "reason": "Queue capability behavior tests are concentrated in one frontend test module.",
+      "plannedRefactorBlock": "Priority B - split Queue capability tests by contract, validation, and action family.",
+      "ownerDomain": "Queue agent capability tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after capability tests are split into focused files below the test threshold."
+    },
+    {
+      "path": "crates/hobit-app/src/workspace_service/agent_queue_workflow_resume.rs",
+      "currentLineCount": 3623,
+      "category": "source",
+      "reason": "Queue workflow resume owns too much continuation, action-ledger, report, and resume-planning behavior in one backend module.",
+      "plannedRefactorBlock": "Priority A - split resume planning, action ledger reads, report assembly, and resume command ownership.",
+      "ownerDomain": "Queue workflow backend resume",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after backend resume ownership is split into focused modules below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/styles/components.css",
+      "currentLineCount": 3680,
+      "category": "styles",
+      "reason": "Shared component CSS accumulated multiple unrelated surface families.",
+      "plannedRefactorBlock": "Priority D - split shared component CSS by design-system ownership without visual changes.",
+      "ownerDomain": "Shared frontend styles",
+      "targetMaxLineCount": 900,
+      "removeAfter": "Remove after shared component styles are split below the style threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/workspaceAgentBrokerContinuation.ts",
+      "currentLineCount": 3390,
+      "category": "source",
+      "reason": "Workspace Agent broker continuation combines protocol recovery, action replay, continuation mapping, and status derivation.",
+      "plannedRefactorBlock": "Priority B - split broker continuation by protocol model, resume mapping, and status projection.",
+      "ownerDomain": "Workspace Agent broker continuation",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after continuation responsibilities move into focused modules below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/workspaceAgentBrokerContinuation.test.ts",
+      "currentLineCount": 3380,
+      "category": "test",
+      "reason": "Broker continuation tests cover multiple continuation paths in one file.",
+      "plannedRefactorBlock": "Priority B - split broker continuation tests by protocol recovery, action replay, and status projection.",
+      "ownerDomain": "Workspace Agent broker continuation tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after tests are split below the test threshold."
+    },
+    {
+      "path": "crates/hobit-app/src/workspace_service/agent_queue_workflow_evidence.rs",
+      "currentLineCount": 3366,
+      "category": "source",
+      "reason": "Queue worker-evidence collection, validation, and materialization are concentrated in one backend workflow module.",
+      "plannedRefactorBlock": "Priority A - split worker-evidence domain ownership from workflow orchestration.",
+      "ownerDomain": "Queue workflow worker evidence",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after worker-evidence concerns are split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/FinderWidget.tsx",
+      "currentLineCount": 2617,
+      "category": "source",
+      "reason": "Finder UI, preview/edit state, and Finder Git review flows remain concentrated in one widget component.",
+      "plannedRefactorBlock": "Priority C - split Finder widget into shell, navigation, preview/edit, and Git review controllers.",
+      "ownerDomain": "Finder widget",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after Finder component ownership is split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/agents/adapters/queueAgentCapabilities.ts",
+      "currentLineCount": 2410,
+      "category": "source",
+      "reason": "Queue capability implementation combines validation, command execution, and protocol response shaping.",
+      "plannedRefactorBlock": "Priority B - split Queue capability implementation by capability family and action boundary.",
+      "ownerDomain": "Queue agent capabilities",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after capability implementation is split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/styles/agent-queue.css",
+      "currentLineCount": 2362,
+      "category": "styles",
+      "reason": "Queue styles are concentrated in one legacy stylesheet.",
+      "plannedRefactorBlock": "Priority D - split Queue CSS by active surface ownership after Queue UI refactor boundaries are stable.",
+      "ownerDomain": "Queue styles",
+      "targetMaxLineCount": 900,
+      "removeAfter": "Remove after Queue styles are split below the style threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/queue/useAgentQueueController.executionState.test.tsx",
+      "currentLineCount": 2267,
+      "category": "test",
+      "reason": "Queue controller execution-state coverage is concentrated in one test file.",
+      "plannedRefactorBlock": "Priority C - split Queue controller tests by execution state, review state, and action state.",
+      "ownerDomain": "Queue controller tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after controller tests are split below the test threshold."
+    },
+    {
+      "path": "crates/hobit-app/src/workspace_service/agent_queue_workflow_setup.rs",
+      "currentLineCount": 2033,
+      "category": "source",
+      "reason": "Queue workflow setup combines setup validation, command preparation, and backend workflow assembly.",
+      "plannedRefactorBlock": "Priority A - split setup validation and command preparation from workflow orchestration.",
+      "ownerDomain": "Queue workflow backend setup",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after setup responsibilities are split below the source threshold."
+    },
+    {
+      "path": "crates/hobit-app/src/workspace_service/agent_queue_execution.rs",
+      "currentLineCount": 1932,
+      "category": "source",
+      "reason": "Queue execution service concerns span task execution, assignment checks, and Direct Work handoff.",
+      "plannedRefactorBlock": "Priority A - split Queue execution service by eligibility, assignment, and Direct Work handoff.",
+      "ownerDomain": "Queue backend execution",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after execution responsibilities are split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/InteractiveAgentPlaceholderWidget.action-request.test.tsx",
+      "currentLineCount": 1751,
+      "category": "test",
+      "reason": "Workspace Agent action-request tests cover several capability paths in one module.",
+      "plannedRefactorBlock": "Priority C - split Workspace Agent action-request tests by capability family.",
+      "ownerDomain": "Workspace Agent action-request tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after tests are split below the test threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/workspaceAgentBrokerActionRuntime.test.ts",
+      "currentLineCount": 1560,
+      "category": "test",
+      "reason": "Broker action-runtime tests combine protocol, runtime, and failure-path assertions.",
+      "plannedRefactorBlock": "Priority B - split broker action-runtime tests by protocol, execution, and error handling.",
+      "ownerDomain": "Workspace Agent broker action runtime tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after tests are split below the test threshold."
+    },
+    {
+      "path": "crates/hobit-app/src/workspace_service/agent_queue_execution_tests.rs",
+      "currentLineCount": 1673,
+      "category": "test",
+      "reason": "Queue execution backend tests are concentrated in one module.",
+      "plannedRefactorBlock": "Priority A - split Queue execution tests by eligibility, assignment, and Direct Work handoff.",
+      "ownerDomain": "Queue backend execution tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after tests are split below the test threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workspace/types/agentQueue.ts",
+      "currentLineCount": 1611,
+      "category": "source",
+      "reason": "Agent Queue frontend DTO/type definitions include multiple workflow, task, run-link, and context shapes in one file.",
+      "plannedRefactorBlock": "Priority C - split Queue frontend types by task, workflow, run history, and context ownership.",
+      "ownerDomain": "Queue frontend types",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after type ownership is split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/agents/capabilities/manifest.ts",
+      "currentLineCount": 1553,
+      "category": "source",
+      "reason": "Agent capability manifest combines multiple capability families and contract metadata in one module.",
+      "plannedRefactorBlock": "Priority C - split capability manifest by capability family while preserving public exports.",
+      "ownerDomain": "Agent capability manifest",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after manifest ownership is split below the source threshold."
+    },
+    {
+      "path": "docs/JDBC_WIDGET_CONTRACT.md",
+      "currentLineCount": 1553,
+      "category": "docs",
+      "reason": "JDBC contract includes current behavior, preview sidecar notes, and future boundaries in one document.",
+      "plannedRefactorBlock": "Priority D - split or summarize JDBC contract only through a docs-only cleanup block.",
+      "ownerDomain": "JDBC documentation",
+      "targetMaxLineCount": 1200,
+      "removeAfter": "Remove after docs are split or condensed below the docs threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/styles/widget-v2-knowledge.css",
+      "currentLineCount": 1518,
+      "category": "styles",
+      "reason": "KnowledgeV2 widget styles are concentrated in one stylesheet.",
+      "plannedRefactorBlock": "Priority D - split Knowledge styles by table, popup, and catalog sections without behavior changes.",
+      "ownerDomain": "Knowledge styles",
+      "targetMaxLineCount": 900,
+      "removeAfter": "Remove after Knowledge styles are split below the style threshold."
+    },
+    {
+      "path": "crates/hobit-app/src/workspace_service/agent_queue_workflow.rs",
+      "currentLineCount": 1465,
+      "category": "source",
+      "reason": "Queue workflow facade still includes orchestration and state ownership beyond a thin module boundary.",
+      "plannedRefactorBlock": "Priority A - thin the Queue workflow facade after resume/setup/evidence splits.",
+      "ownerDomain": "Queue workflow backend facade",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after workflow facade is below the source threshold."
+    },
+    {
+      "path": "crates/hobit-storage-sqlite/src/store/tests.rs",
+      "currentLineCount": 1435,
+      "category": "test",
+      "reason": "SQLite store tests cover multiple storage domains in one module.",
+      "plannedRefactorBlock": "Priority C - split storage tests by workspace, widget, Queue, and Knowledge storage domain.",
+      "ownerDomain": "SQLite storage tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after storage tests are split below the test threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/useWorkspaceAgentDirectWorkController.ts",
+      "currentLineCount": 1425,
+      "category": "source",
+      "reason": "Workspace Agent Direct Work controller combines run launch, stream handling, activity, and UI state projection.",
+      "plannedRefactorBlock": "Priority C - split Direct Work controller by launch, stream event handling, and view-state projection.",
+      "ownerDomain": "Workspace Agent Direct Work controller",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after controller ownership is split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/agent_queue_runner_commands/tests.rs",
+      "currentLineCount": 1414,
+      "category": "test",
+      "reason": "Agent Queue runner command tests cover multiple command paths in one module.",
+      "plannedRefactorBlock": "Priority A - split runner command tests by command family after workflow backend ownership is clear.",
+      "ownerDomain": "Queue runner command tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after command tests are split below the test threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/queue/useWorkspaceQueueApi.ts",
+      "currentLineCount": 1394,
+      "category": "source",
+      "reason": "Workspace Queue API hook wraps task, assignment, workflow, history, and context paths in one frontend module.",
+      "plannedRefactorBlock": "Priority C - split Workspace Queue API hook by task CRUD, workflow control, run history, and context attach.",
+      "ownerDomain": "Workspace Queue API frontend hook",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after API hook ownership is split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/agents/adapters/queueAgentCapabilityTypes.ts",
+      "currentLineCount": 1384,
+      "category": "source",
+      "reason": "Queue capability types cover multiple capability contracts and response shapes in one adapter module.",
+      "plannedRefactorBlock": "Priority B - split Queue capability types by capability family and protocol boundary.",
+      "ownerDomain": "Queue agent capability types",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after capability types are split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/JdbcConnectorWidget.test.tsx",
+      "currentLineCount": 1347,
+      "category": "test",
+      "reason": "JDBC widget tests cover connector metadata and read-only query paths in one module.",
+      "plannedRefactorBlock": "Priority C - split JDBC widget tests by connector metadata, query validation, and runtime state.",
+      "ownerDomain": "JDBC widget tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after tests are split below the test threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/styles/widget-v2-queue.css",
+      "currentLineCount": 1302,
+      "category": "styles",
+      "reason": "QueueV2 styles exceed the style warning threshold.",
+      "plannedRefactorBlock": "Priority D - split QueueV2 CSS only in a visual no-op style ownership cleanup.",
+      "ownerDomain": "QueueV2 styles",
+      "targetMaxLineCount": 900,
+      "removeAfter": "Remove after QueueV2 styles are split below the style threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/queue/smartQueueWorkerEvidenceBundle.ts",
+      "currentLineCount": 1297,
+      "category": "source",
+      "reason": "Smart Queue worker evidence bundle logic is still a large single frontend module.",
+      "plannedRefactorBlock": "Priority A - split worker evidence bundle model after backend worker-evidence ownership is clarified.",
+      "ownerDomain": "Queue worker evidence frontend model",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after evidence bundle ownership is split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/agents/adapters/queue.workflow.test.ts",
+      "currentLineCount": 1308,
+      "category": "test",
+      "reason": "Queue workflow adapter tests cover multiple workflow action families in one file.",
+      "plannedRefactorBlock": "Priority B - split workflow adapter tests by action family and response contract.",
+      "ownerDomain": "Queue workflow adapter tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after tests are split below the test threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/agents/hobitAgentCapabilityRuntime.test.ts",
+      "currentLineCount": 1284,
+      "category": "test",
+      "reason": "Agent capability runtime tests cover multiple capability runtime contracts in one module.",
+      "plannedRefactorBlock": "Priority C - split runtime tests by registry, policy, action, and audit behavior.",
+      "ownerDomain": "Agent capability runtime tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after tests are split below the test threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workspace/tauriWorkspaceApi.test.ts",
+      "currentLineCount": 1225,
+      "category": "test",
+      "reason": "Tauri workspace API tests exceed the warning threshold by covering several API families together.",
+      "plannedRefactorBlock": "Priority C - split workspace API tests by workspace lifecycle, widgets, and domain APIs.",
+      "ownerDomain": "Workspace API tests",
+      "targetMaxLineCount": 1000,
+      "removeAfter": "Remove after tests are split below the test threshold."
+    },
+    {
+      "path": "crates/hobit-app/src/workspace_service/agent_queue_aggregate.rs",
+      "currentLineCount": 1195,
+      "category": "source",
+      "reason": "Queue aggregate backend module combines projection and summary behavior in a large source file.",
+      "plannedRefactorBlock": "Priority A - split Queue aggregate projection after workflow state ownership is clarified.",
+      "ownerDomain": "Queue backend aggregate",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after aggregate ownership is split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workspace/tauriAgentQueueWorkflowApi.ts",
+      "currentLineCount": 1151,
+      "category": "source",
+      "reason": "Tauri Queue workflow API wrapper has accumulated many request/response paths.",
+      "plannedRefactorBlock": "Priority A - split Queue workflow API wrapper by command family after backend workflow boundary cleanup.",
+      "ownerDomain": "Queue workflow Tauri API wrapper",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after API wrapper ownership is split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/InteractiveAgentPlaceholderWidget.tsx",
+      "currentLineCount": 1118,
+      "category": "source",
+      "reason": "Workspace Agent compatibility component still owns multiple composer, transcript, and action-card UI paths.",
+      "plannedRefactorBlock": "Priority C - split Workspace Agent component by composer, transcript, visible context, and action-card sections.",
+      "ownerDomain": "Workspace Agent component",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after component ownership is split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/src-tauri/src/agent_queue_workflow_dto.rs",
+      "currentLineCount": 1108,
+      "category": "source",
+      "reason": "Queue workflow DTO definitions are concentrated in one Tauri module.",
+      "plannedRefactorBlock": "Priority A - split workflow DTOs by request, response, action, and report family without schema changes.",
+      "ownerDomain": "Queue workflow DTOs",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after DTO ownership is split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/agents/modules/queueWorkflowRequestValidation.ts",
+      "currentLineCount": 1098,
+      "category": "source",
+      "reason": "Queue workflow request validation handles multiple request families in one module.",
+      "plannedRefactorBlock": "Priority A - split request validation by workflow request family.",
+      "ownerDomain": "Queue workflow request validation",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after validation ownership is split below the source threshold."
+    },
+    {
+      "path": "crates/hobit-app/src/workspace_service/agent_queue_workflow_materialization.rs",
+      "currentLineCount": 1032,
+      "category": "source",
+      "reason": "Queue workflow materialization barely exceeds the source threshold and should remain bounded during workflow refactors.",
+      "plannedRefactorBlock": "Priority A - thin materialization after worker-evidence and setup ownership are split.",
+      "ownerDomain": "Queue workflow materialization",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after materialization is below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/agents/capabilities/queueCapabilityContracts.ts",
+      "currentLineCount": 1030,
+      "category": "source",
+      "reason": "Queue capability contracts slightly exceed the source threshold and should split by capability family.",
+      "plannedRefactorBlock": "Priority B - split Queue capability contracts by family while preserving public contract exports.",
+      "ownerDomain": "Queue capability contracts",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after contracts are split below the source threshold."
+    },
+    {
+      "path": "apps/desktop/frontend/src/workbench/queue/useAgentQueueController.ts",
+      "currentLineCount": 1009,
+      "category": "source",
+      "reason": "Queue controller slightly exceeds the source threshold and should not receive more mixed responsibilities.",
+      "plannedRefactorBlock": "Priority C - thin Queue controller after API and execution-state ownership splits.",
+      "ownerDomain": "Queue frontend controller",
+      "targetMaxLineCount": 700,
+      "removeAfter": "Remove after controller is below the source threshold."
+    }
+  ]
+}

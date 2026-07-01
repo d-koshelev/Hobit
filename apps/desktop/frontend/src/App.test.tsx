@@ -18,6 +18,7 @@ const workspaceApiMocks = vi.hoisted(() => ({
   listTerminalPtySessions: vi.fn(),
   listWorkspaces: vi.fn(),
   openWorkspace: vi.fn(),
+  selectWorkspaceDirectory: vi.fn(),
   updateWorkspace: vi.fn(),
   updateWidgetInstanceLayout: vi.fn(),
 }));
@@ -35,6 +36,7 @@ vi.mock("./workspace/workspaceApi", async (importOriginal) => {
     listTerminalPtySessions: workspaceApiMocks.listTerminalPtySessions,
     listWorkspaces: workspaceApiMocks.listWorkspaces,
     openWorkspace: workspaceApiMocks.openWorkspace,
+    selectWorkspaceDirectory: workspaceApiMocks.selectWorkspaceDirectory,
     updateWorkspace: workspaceApiMocks.updateWorkspace,
     updateWidgetInstanceLayout: workspaceApiMocks.updateWidgetInstanceLayout,
   };
@@ -127,10 +129,12 @@ describe("App workspace lifecycle", () => {
   it("creates the default Workspace Agent plus Notes workspace", async () => {
     const workspace = workspaceSummary({
       id: "workspace_create",
+      rootPath: "C:/repo",
       title: "Untitled",
       workbenchId: "workbench_create",
     });
     workspaceApiMocks.listWorkspaces.mockResolvedValue([]);
+    workspaceApiMocks.selectWorkspaceDirectory.mockResolvedValue("C:/repo");
     workspaceApiMocks.createWorkspace.mockResolvedValue(workspace);
     workspaceApiMocks.openWorkspace.mockResolvedValue(
       sessionSummary({ workspaceId: workspace.id }),
@@ -161,6 +165,14 @@ describe("App workspace lifecycle", () => {
     )).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
 
     await act(async () => {
+      buttonWithText("Choose Folder").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    await act(async () => {
       buttonWithText("Create Workspace").dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
@@ -173,15 +185,22 @@ describe("App workspace lifecycle", () => {
         ([request]) => request.definitionId,
       ),
     ).toEqual(["interactive-agent", "notes"]);
+    expect(workspaceApiMocks.createWorkspace).toHaveBeenCalledWith({
+      title: "Untitled",
+      description: null,
+      rootPath: "C:/repo",
+    });
   });
 
   it("keeps start empty available without changing the default start mode", async () => {
     const workspace = workspaceSummary({
       id: "workspace_empty",
+      rootPath: "C:/repo",
       title: "Untitled",
       workbenchId: "workbench_empty",
     });
     workspaceApiMocks.listWorkspaces.mockResolvedValue([]);
+    workspaceApiMocks.selectWorkspaceDirectory.mockResolvedValue("C:/repo");
     workspaceApiMocks.createWorkspace.mockResolvedValue(workspace);
     workspaceApiMocks.openWorkspace.mockResolvedValue(
       sessionSummary({ workspaceId: workspace.id }),
@@ -209,6 +228,14 @@ describe("App workspace lifecycle", () => {
     expect(presetStatusTexts()).toEqual(["Default", "Selected"]);
 
     await act(async () => {
+      buttonWithText("Choose Folder").dispatchEvent(
+        new MouseEvent("click", { bubbles: true }),
+      );
+      await Promise.resolve();
+    });
+    await flushEffects();
+
+    await act(async () => {
       buttonWithText("Create Workspace").dispatchEvent(
         new MouseEvent("click", { bubbles: true }),
       );
@@ -219,6 +246,7 @@ describe("App workspace lifecycle", () => {
     expect(workspaceApiMocks.createWorkspace).toHaveBeenCalledWith({
       title: "Untitled",
       description: null,
+      rootPath: "C:/repo",
     });
     expect(workspaceApiMocks.addWidgetInstanceToWorkbench).not.toHaveBeenCalled();
   });

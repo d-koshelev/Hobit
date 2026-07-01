@@ -1,5 +1,9 @@
 import { createActionRequest } from "./results";
 import type { HobitAgentActionRequest } from "./types";
+import {
+  createHobitAgentCapabilityRegistry,
+  findCapability,
+} from "../capabilities";
 import type { HobitAgentRoleId } from "../context/types";
 import type { HobitAgentId } from "../runtime/hobitMultiAgentRuntime";
 
@@ -16,9 +20,20 @@ export type HobitAgentActionRequestEnvelope = {
   type: typeof HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE;
 };
 
+export type HobitAgentActionRequestEnvelopeRequestIdSource =
+  | "blank"
+  | "explicit"
+  | "missing";
+
+export type HobitAgentActionRequestEnvelopeDryRunSource =
+  | "default_read"
+  | "explicit";
+
 export type HobitAgentActionRequestEnvelopeReadResult =
   | {
+      dryRunSource: HobitAgentActionRequestEnvelopeDryRunSource;
       envelope: HobitAgentActionRequestEnvelope;
+      requestIdSource: HobitAgentActionRequestEnvelopeRequestIdSource;
       source: "direct_json" | "embedded_json" | "fenced_json";
       status: "valid";
     }
@@ -42,9 +57,17 @@ type FencedBlock = {
   language: string;
 };
 
+const ACTION_REQUEST_DRY_RUN_CAPABILITY_REGISTRY =
+  createHobitAgentCapabilityRegistry();
+
 export function readHobitAgentActionRequestEnvelope(
   text: string,
 ): HobitAgentActionRequestEnvelopeReadResult {
+  const actionListValidation = rejectTopLevelActionList(text);
+  if (actionListValidation) {
+    return actionListValidation;
+  }
+
   const candidates = collectJsonCandidates(text);
 
   for (const candidate of candidates) {
@@ -61,7 +84,9 @@ export function readHobitAgentActionRequestEnvelope(
     const validation = validateHobitActionRequestEnvelope(parsed.value);
     if (validation.status === "valid") {
       return {
+        dryRunSource: validation.dryRunSource,
         envelope: validation.envelope,
+        requestIdSource: validation.requestIdSource,
         source: candidate.source,
         status: "valid",
       };
@@ -79,13 +104,19 @@ export function createHobitAgentActionRequestFromEnvelope({
   agentId,
   agentRoleId = "workspace_agent",
   createdAt,
+  derivedRequestId,
   envelope,
 }: {
   agentId: HobitAgentId;
   agentRoleId?: HobitAgentRoleId;
   createdAt: string;
+  derivedRequestId?: string | null;
   envelope: HobitAgentActionRequestEnvelope;
 }): HobitAgentActionRequest {
+  const explicitRequestId = envelope.requestId?.trim() || null;
+  const fallbackRequestId =
+    derivedRequestId?.trim() || `${envelope.capabilityId}:workspace-agent-action`;
+
   return createActionRequest({
     agentId,
     agentRoleId,
@@ -95,9 +126,9 @@ export function createHobitAgentActionRequestFromEnvelope({
     dryRun: envelope.dryRun,
     input: envelope.input,
     reason: envelope.reason ?? null,
-    requestId:
-      envelope.requestId?.trim() ||
-      `${envelope.capabilityId}:workspace-agent-action`,
+    rawRequestId: envelope.requestId ?? null,
+    requestId: explicitRequestId ?? fallbackRequestId,
+    requestIdSource: explicitRequestId ? "explicit" : "derived",
   });
 }
 
@@ -144,6 +175,31 @@ function collectJsonCandidates(text: string): JsonCandidate[] {
   return candidates;
 }
 
+function rejectTopLevelActionList(
+  text: string,
+): Extract<HobitAgentActionRequestEnvelopeReadResult, { status: "invalid" }> | null {
+  const trimmed = text.trim();
+  if (!trimmed.startsWith("[") || !trimmed.endsWith("]")) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(trimmed) as unknown;
+    if (
+      Array.isArray(parsed) &&
+      parsed.some((item) => recordHasHobitActionType(item))
+    ) {
+      return invalidEnvelope([
+        "Action lists are not supported. Emit exactly one hobit.action.request envelope.",
+      ]);
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
 function addCandidate(
   candidates: JsonCandidate[],
   seen: Set<string>,
@@ -183,12 +239,15 @@ function validateHobitActionRequestEnvelope(
     return invalidEnvelope(["Envelope must be a JSON object."]);
   }
 
+  const capabilityId =
+    typeof value.capabilityId === "string" ? value.capabilityId.trim() : "";
+  const dryRunValidation = validateDryRunForCapability(value, capabilityId);
   const reasons = [
     value.type === HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE
       ? null
       : "Envelope type must be hobit.action.request.",
     requiredString(value.capabilityId, "capabilityId"),
-    typeof value.dryRun === "boolean" ? null : "dryRun must be a boolean.",
+    dryRunValidation.ok ? null : dryRunValidation.reason,
     Object.prototype.hasOwnProperty.call(value, "input")
       ? null
       : "input is required.",
@@ -197,15 +256,19 @@ function validateHobitActionRequestEnvelope(
     optionalString(value.confirmationToken, "confirmationToken"),
   ].filter((reason): reason is string => Boolean(reason));
 
+  if (!dryRunValidation.ok) {
+    return invalidEnvelope(reasons);
+  }
+
   if (reasons.length > 0) {
     return invalidEnvelope(reasons);
   }
 
-  const capabilityId =
-    typeof value.capabilityId === "string" ? value.capabilityId.trim() : "";
-  const dryRun = typeof value.dryRun === "boolean" ? value.dryRun : false;
+  const requestIdSource = requestIdSourceForEnvelope(value);
+  const dryRun = dryRunValidation.dryRun;
 
   return {
+    dryRunSource: dryRunValidation.source,
     envelope: {
       capabilityId,
       confirmationToken: optionalTrimmed(value.confirmationToken),
@@ -215,8 +278,51 @@ function validateHobitActionRequestEnvelope(
       requestId: optionalTrimmed(value.requestId),
       type: HOBIT_AGENT_ACTION_REQUEST_ENVELOPE_TYPE,
     },
+    requestIdSource,
     source: "direct_json",
     status: "valid",
+  };
+}
+
+function validateDryRunForCapability(
+  value: Record<string, unknown>,
+  capabilityId: string,
+):
+  | {
+      dryRun: boolean;
+      ok: true;
+      source: HobitAgentActionRequestEnvelopeDryRunSource;
+    }
+  | { ok: false; reason: string } {
+  const hasDryRun = Object.prototype.hasOwnProperty.call(value, "dryRun");
+  if (hasDryRun) {
+    return typeof value.dryRun === "boolean"
+      ? { dryRun: value.dryRun, ok: true, source: "explicit" }
+      : { ok: false, reason: "dryRun must be a boolean." };
+  }
+
+  if (!capabilityId) {
+    return { ok: false, reason: "dryRun must be a boolean." };
+  }
+
+  const capability = findCapability(
+    ACTION_REQUEST_DRY_RUN_CAPABILITY_REGISTRY,
+    capabilityId,
+  );
+  if (!capability) {
+    return {
+      ok: false,
+      reason: `dryRun is required for unknown capability ${capabilityId}.`,
+    };
+  }
+
+  if (capability.sideEffectLevel === "read") {
+    return { dryRun: false, ok: true, source: "default_read" };
+  }
+
+  return {
+    ok: false,
+    reason: `dryRun is required for non-read capability ${capabilityId}.`,
   };
 }
 
@@ -349,6 +455,18 @@ function optionalString(value: unknown, fieldName: string) {
 
 function optionalTrimmed(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function requestIdSourceForEnvelope(
+  value: Record<string, unknown>,
+): HobitAgentActionRequestEnvelopeRequestIdSource {
+  if (!Object.prototype.hasOwnProperty.call(value, "requestId")) {
+    return "missing";
+  }
+
+  return typeof value.requestId === "string" && value.requestId.trim()
+    ? "explicit"
+    : "blank";
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

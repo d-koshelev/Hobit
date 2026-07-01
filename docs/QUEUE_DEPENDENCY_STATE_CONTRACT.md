@@ -11,7 +11,17 @@ behavior, Git mutation, or Terminal launch.
 
 ## Status
 
-Planned for Smart Queue dependency modeling.
+Current for backend aggregate dependency read state. Planned for broader Smart
+Queue scheduler behavior, dependency override policy, and durable coordinator
+block commands. Explicit terminal failure now comes from the backend failure
+decision ledger.
+
+Current backend aggregates report dependency-derived read state and treat an
+upstream as satisfied only after durable backend accepted completion. Failed
+upstream propagation comes from the durable backend failure decision ledger.
+Block propagation remains planned until an explicit backend block command
+exists. Frontend overlays may present compatibility labels but must not become
+dependency product truth.
 
 ## Structural Dependency
 
@@ -35,22 +45,42 @@ configuration, or a Queue Coordinator decision.
 
 ## Dependency Gates
 
-- none: no upstream dependencies.
-- waiting: at least one upstream dependency is incomplete, with no failed
+Backend aggregate `dependencyState` values are:
+
+- `none`: no upstream dependencies.
+- `ready`: every upstream dependency has reached accepted completion.
+- `waiting`: at least one upstream dependency is incomplete, with no failed
   upstream dependency.
-- satisfied: every upstream dependency has reached accepted completion.
-- failed: at least one upstream dependency failed.
-- blocked: at least one upstream dependency is blocked or needs intervention.
+- `blocked`: at least one upstream dependency is explicitly blocked when a
+  durable blocked state exists.
+- `failed_upstream`: at least one upstream dependency has a durable terminal
+  failure decision before accepted completion.
+- `unknown`: the backend cannot determine dependency state safely, such as a
+  missing upstream task row.
 
 Dependency gate `waiting` keeps a dependent task out of the eligible set but
 does not by itself make the task Blocked.
 
-Dependency gate `failed` changes downstream waiting tasks to Blocked with
+Dependency gate `failed_upstream` changes downstream waiting tasks to Blocked with
 blocker kind `dependency_failed`.
 
 Dependency gate `blocked` exposes that upstream intervention is needed. The
 Queue Coordinator decides whether downstream remains Waiting dependency or
 becomes Blocked with `dependency_blocked`.
+
+For `waiting`, `blocked`, `failed_upstream`, and `unknown`, the backend
+aggregate exposes a dependency blocker and returns no runnable next action. It
+must not suggest `queue.item.startRun`, and it must not suggest
+`queue.item.promoteDraft` as runnable while the dependency gate is unsatisfied.
+Broker result mappers must also not emit a typed `nextAction` for
+`queue.item.startRun` from dependency-waiting aggregates. After upstream
+accepted completion clears the blocker, any downstream `nextAction` must be
+built from that downstream task's own readiness and validated capability input.
+Workspace Agent bounded autonomy grants do not override this dependency gate:
+even under `queue_acceptance_smoke` or `queue_failure_smoke`, a typed
+`queue.item.startRun` nextAction stops when the authoritative backend/result
+state reports `waiting`, `blocked`, `failed_upstream`, `unknown`, or a
+dependency blocker.
 
 ## Completion For Dependency Satisfaction
 
@@ -59,9 +89,29 @@ completed process, passing validation, or `completed` compatibility status is
 not sufficient by itself if coordinator finalization or closure is still
 required.
 
-Accepted completion maps to a Queue-owned closed/finalized outcome, such as an
-explicit Closed human status or a current compatibility closure state accepted
-by the active Queue contracts.
+Accepted completion maps to the backend/domain `queue.item.markDone` decision
+ledger. Review ACK and worker completion do not satisfy dependencies until that
+durable completion decision exists.
+
+Raw `task.status=completed`, a completed run link, durable worker evidence,
+`reviewState=in_review`, and review ACK are review/completion inputs only. They
+do not unblock dependents without an accepted-completion decision.
+
+## Failure For Dependency Blocking
+
+Dependency failure requires an explicit durable backend failure decision from
+`queue.item.fail`. Worker failure evidence, failed run links, review message
+creation, review ACK, raw failed compatibility status, validation failure
+evidence, and frontend lifecycle overlays do not by themselves create
+`failed_upstream`.
+
+After `queue.item.fail` succeeds for an upstream task, downstream aggregate
+reads expose `dependencyState=failed_upstream`, a `dependency_failed` blocker,
+and no runnable `queue.item.startRun`, `queue.enable`, or
+`queue.item.promoteDraft` path. No downstream task starts automatically.
+`queue_failure_smoke` grants may allow the explicit upstream
+`queue.item.fail` command with exact structured confirmation, but they must not
+start, promote, or otherwise mutate downstream tasks.
 
 ## Dependency Record Shape
 
@@ -81,12 +131,79 @@ type QueueTaskDependency = {
 The current compatibility `dependsOn: string[]` field may continue to represent
 upstream task ids until a richer model is explicitly implemented.
 
+Workspace Agent typed Queue create capabilities use `dependsOn: string[]` as
+the public dependency field. The values must be explicit upstream Queue task ids
+returned by prior typed Queue results such as `queue.createItem`,
+`queue.createItems`, `queue.items.list`, or `queue.lifecycle.get`.
+Dependencies must not be inferred from task order, title, prompt text, prose, or
+prompt-pack-local ids. For dependency smoke, create the upstream task first,
+then create the downstream task with `dependsOn: [upstreamTaskId]`.
+
+Queue workflow task slot materialization uses a different internal typed
+dependency shape: `dependsOnSlots`. A downstream workflow slot can be
+materialized only after each upstream slot already has a durable slot binding
+to a Queue task id in the same workflow/workspace. The backend resolves those
+explicit slots to existing task ids and writes the existing Queue task
+`depends_on` edge. It does not infer dependencies from slot order, title,
+prompt, UI position, file path, or prose. Missing upstream slot bindings block
+materialization, and missing persisted dependency edges block resume planning
+as `blocked_dependency_edge_missing`; the planner does not repair edges in the
+MVP.
+
+After a downstream workflow slot is materialized, workflow-owned setup may
+apply typed run settings and promote that downstream task idempotently while
+the upstream dependency is still waiting. Promotion does not satisfy the
+dependency and does not make the downstream task startable. Backend start
+eligibility must continue to block on `dependency_waiting`,
+`dependency_blocked`, `dependency_failed`, or `dependency_unknown` until the
+upstream dependency has durable accepted completion.
+
+The dependency-smoke create/setup/start phase materializes the downstream slot
+only to persist the explicit dependency edge. In this MVP it applies run
+settings, promotes, and starts only the upstream slot, then pauses awaiting
+upstream worker completion. It does not auto-promote, auto-start, or schedule
+downstream work.
+
+The dependency-smoke worker-evidence phase records or reconciles durable
+worker evidence only for the explicit upstream slot after the upstream run has
+completed. It persists the upstream `evidenceBundleId` in workflow state and
+then stops at the separate review boundary. Durable worker evidence still does
+not satisfy the downstream dependency; only a later explicit accepted
+completion decision for the upstream task can clear the downstream dependency
+gate. This phase does not start downstream work.
+
+The full `dependency_acceptance_smoke` workflow can now continue after durable
+worker evidence to create and ACK the upstream review message, mark only the
+upstream task done with a fresh exact structured confirmation, and then read
+the explicit downstream task to verify the dependency is ready/satisfied and
+that no downstream worker auto-started. If the downstream task id is missing,
+upstream acceptance may still complete with downstream verification reported
+missing. If downstream is unexpectedly running, the workflow reports that
+state instead of starting, stopping, or repairing it.
+
+The full `dependency_failure_smoke` workflow can now continue after durable
+worker evidence to create and ACK the upstream review message, fail only the
+upstream task with typed `failureReason` and fresh exact structured
+confirmation, and then read the explicit downstream task to verify the
+dependency is `failed_upstream` and no downstream worker auto-started.
+Downstream failure/block state remains derived from the upstream durable
+failure decision; the workflow does not mark or repair downstream directly.
+
+Downstream verification is read-only recovery work. After restart, the
+workflow planner/runner may recompute downstream ready or `failed_upstream`
+state by reading the explicit downstream task aggregate and the durable
+upstream completion/failure decision. It must not require a persisted
+verification marker for correctness, and it must not mutate, start, stop,
+fail, or repair the downstream task.
+
 ## Blocker Kinds
 
 Dependency-derived blockers use:
 
+- dependency_waiting
 - dependency_failed
 - dependency_blocked
+- dependency_unknown
 
 Other Smart Queue blockers are defined in
 `docs/SMART_QUEUE_WORKFLOW_CONTRACT.md`.

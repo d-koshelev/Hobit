@@ -312,6 +312,7 @@ async function createWorkspace(
   request: CreateWorkspaceRequest,
 ): Promise<WorkspaceSummary> {
   const title = request.title.trim();
+  const rootPath = normalizeWorkspaceRoot(request.rootPath);
 
   if (!title) {
     throw new Error("workspace title must not be empty");
@@ -324,6 +325,7 @@ async function createWorkspace(
     id,
     title,
     description: request.description ?? null,
+    ...(rootPath ? { rootPath } : {}),
     status: "active",
     createdAt: now,
     updatedAt: now,
@@ -573,6 +575,16 @@ function requiredValue(value: string, label: string) {
     throw new Error(`${label} must not be empty`);
   }
   return trimmedValue;
+}
+
+function normalizeWorkspaceRoot(value: string | null | undefined) {
+  const trimmed = value?.trim() ?? "";
+
+  if (!trimmed || trimmed === "~" || trimmed === ".") {
+    return null;
+  }
+
+  return trimmed;
 }
 
 function validateWidgetLayout(

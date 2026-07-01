@@ -136,6 +136,64 @@ newly oversized or grows beyond its baseline while still oversized. Full scans
 report the current debt inventory clearly and fail only active errors or
 ratchet violations.
 
+### `check-line-counts.mjs`
+
+Runs the category-aware oversized-file audit and guard:
+
+```sh
+node scripts/hobit/check-line-counts.mjs --mode report
+node scripts/hobit/check-line-counts.mjs --mode guard
+node scripts/hobit/check-line-counts.mjs --mode report --json
+```
+
+The frontend package also exposes:
+
+```powershell
+npm.cmd run report:line-count --prefix apps/desktop/frontend
+npm.cmd run check:line-count --prefix apps/desktop/frontend
+npm.cmd run test:line-count --prefix apps/desktop/frontend
+```
+
+The script classifies files as source, test, docs, styles, or config; ignores
+generated/vendor/build paths and lockfiles; reports files exceeding category
+thresholds; and fails guard mode when an oversized file is not explicitly
+allowlisted or an allowlisted file grows beyond its recorded line count.
+
+Current debt is recorded in `scripts/hobit/line-count-allowlist.json`.
+Allowlist entries are specific paths only and include owner/domain, reason,
+planned refactor block, target max line count, and remove-after debt notes.
+The current inventory and phased refactor plan live in
+`docs/CODEBASE_REFACTOR_SIZE_AUDIT.md`.
+
+### `run-queue-smoke-gate.mjs`
+
+Runs the headless Queue workflow regression gate without launching Hobit UI:
+
+```powershell
+node scripts/hobit/run-queue-smoke-gate.mjs --quick
+node scripts/hobit/run-queue-smoke-gate.mjs --workflow
+node scripts/hobit/run-queue-smoke-gate.mjs --full
+node scripts/hobit/run-queue-smoke-gate.mjs --list
+```
+
+Modes:
+
+- `--quick` runs only `cargo test -p hobit-desktop queue_workflow_headless_smoke`.
+- `--workflow` adds the focused Queue workflow/execution Rust test filters.
+- `--full` adds Rust format/check, the focused Queue tests, full `cargo test`,
+  and the Queue smoke docs guard.
+
+Optional flags:
+
+- `--include-frontend` also runs focused Queue workflow frontend Vitest
+  filters, typecheck, and build.
+- `--include-line-count` also runs the frontend line-count report, guard, and
+  tests.
+
+The script is read-only validation orchestration. It does not launch the Hobit
+UI, call real `codex.cmd`, mutate Queue state outside tests, run Git
+mutations, launch Terminal, or require network access.
+
 ### `module-map.py`
 
 Prints a compact directory/module map with line counts:

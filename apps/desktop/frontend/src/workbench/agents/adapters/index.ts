@@ -1,4 +1,7 @@
 export type {
+  QueueBackendCapabilityPort,
+} from "./queueBackendCapabilityPort";
+export type {
   QueueAgentAdapterApi,
   QueueAgentAdapterResult,
   QueueAgentAddFollowUpPromptInput,
@@ -6,6 +9,8 @@ export type {
   QueueAgentBlockInput,
   QueueAgentCapabilityId,
   QueueAgentCapabilityStatus,
+  QueueAgentControlGetInput,
+  QueueAgentControlGetResult,
   QueueAgentCreateItemInput,
   QueueAgentCreateItemsInput,
   QueueAgentCreateItemsPreview,
@@ -44,6 +49,8 @@ export type {
   QueueAgentSideEffectFlags,
   QueueAgentSingletonTarget,
   QueueAgentSourceMetadata,
+  QueueAgentStartRunAttemptResult,
+  QueueAgentStartRunBlockedResult,
   QueueAgentStartRunInput,
   QueueAgentStartRunResult,
   QueueAgentTaskReadiness,
@@ -51,6 +58,9 @@ export type {
   QueueAgentUpdateRunSettingsInput,
   QueueAgentUpdateRunSettingsResult,
 } from "./queueAgentCapabilityTypes";
+export type {
+  WorkspaceAgentLiveContextSource,
+} from "./workspaceAgentLiveContextCapabilities";
 export type {
   QueueWorkerEvidenceBundle,
   QueueWorkerEvidenceBundleInput,
@@ -61,7 +71,9 @@ export type {
 export {
   createDefaultQueueAgentAdapterApi,
 } from "./queueAgentCapabilities";
+export { createQueueBackendCapabilityPort } from "./queueBackendCapabilityPort";
 export { createQueueAgentActionHandlers } from "./queueAgentActionHandlers";
 export { createInMemoryQueueDogfoodLifecycleAdapterApi } from "./queueAgentDogfoodLifecycleController";
 export { QUEUE_AGENT_CAPABILITY_IDS } from "./queueAgentCapabilityTypes";
+export { createWorkspaceAgentLiveContextActionHandlers } from "./workspaceAgentLiveContextCapabilities";
 export { createWorkspaceAgentQueueBridgeAdapterApi } from "./workspaceAgentQueueBridgeAdapter";

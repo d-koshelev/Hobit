@@ -3,20 +3,20 @@ use std::path::PathBuf;
 use hobit_app::{
     AgentChatProposalRunSummary, GitBranchStatusSummary, GitFileChangeSummary,
     GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
-    PersistAgentChatProposalInput, RunTerminalCommandInput, SharedStateObjectSummary,
-    TerminalCommandRunSummary, WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary,
-    WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceSessionSummary, WorkspaceSummary,
-    WorkspaceWorkbenchState,
+    PersistAgentChatProposalInput, QueueWorkspaceRecoveryProjection, QueueWorkspaceRecoveryReason,
+    RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
+    WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary, WorkbenchSummary,
+    WorkspaceDeletionSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 use hobit_app::{
     AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
-    AgentMonitoringSnapshot,
+    AgentMonitoringSnapshot, AgentQueueControlStateSummary,
 };
 use serde_json::json;
 
 use crate::workspace_dto::{
     AgentChatProposalActionRequest, AgentChatProposalRequest, AgentMonitoringSnapshotDto,
-    DeleteWidgetInstanceFromWorkbenchRequest, DeleteWorkspaceRequest,
+    CreateWorkspaceRequest, DeleteWidgetInstanceFromWorkbenchRequest, DeleteWorkspaceRequest,
     GetAgentMonitoringSnapshotRequest, GitRepositoryStatusDto, PersistAgentChatProposalRequest,
     PersistAgentChatProposalResponseDto, RunTerminalCommandRequest, RunTerminalCommandResponseDto,
     WidgetLogDto, WorkspaceDeletionResponseDto, WorkspaceSessionSummaryDto, WorkspaceSummaryDto,
@@ -139,6 +139,50 @@ fn maps_workspace_summary_fallback_root_to_dto_root_path() {
 }
 
 #[test]
+fn maps_persisted_workspace_root_before_fallback_root() {
+    let summary = WorkspaceSummary {
+        id: "ws_1".to_owned(),
+        title: "Incident".to_owned(),
+        description: None,
+        root_path: Some("C:/repo".to_owned()),
+        status: "active".to_owned(),
+        created_at: "2026-05-25T10:00:00Z".to_owned(),
+        updated_at: "2026-05-25T10:30:00Z".to_owned(),
+        last_opened_at: None,
+        widget_count: 0,
+        workspace_agent_count: 0,
+        note_count: 0,
+        skill_count: 0,
+        knowledge_document_count: 0,
+        queue_task_count: 0,
+        workbench_id: Some("wb_1".to_owned()),
+    };
+
+    let dto = root_dto::summary(summary, Some("C:/src-tauri"));
+
+    assert_eq!(dto.root_path.as_deref(), Some("C:/repo"));
+}
+
+#[test]
+fn deserializes_create_workspace_request_root_path_aliases() {
+    let snake_case: CreateWorkspaceRequest = serde_json::from_value(json!({
+        "title": "Repo workspace",
+        "description": null,
+        "root_path": "C:/repo"
+    }))
+    .expect("deserialize snake root path");
+    let camel_case: CreateWorkspaceRequest = serde_json::from_value(json!({
+        "title": "Repo workspace",
+        "description": null,
+        "rootPath": "C:/repo"
+    }))
+    .expect("deserialize camel root path");
+
+    assert_eq!(snake_case.root_path.as_deref(), Some("C:/repo"));
+    assert_eq!(camel_case.root_path.as_deref(), Some("C:/repo"));
+}
+
+#[test]
 fn maps_workspace_session_summary_to_dto() {
     let summary = WorkspaceSessionSummary {
         id: "wss_1".to_owned(),
@@ -185,6 +229,26 @@ fn maps_workspace_workbench_state_to_dto() {
             workspace_id: "ws_1".to_owned(),
             preset_origin_id: None,
         }),
+        queue_recovery: QueueWorkspaceRecoveryProjection {
+            workspace_id: "ws_1".to_owned(),
+            queue_task_count: 2,
+            running_task_count: 1,
+            stale_running_candidate_count: 1,
+            has_visible_queue_view: false,
+            canonical_queue_widget_id: Some("queue_widget_1".to_owned()),
+            control_state: Some(AgentQueueControlStateSummary {
+                workspace_id: "ws_1".to_owned(),
+                status: "manual_enabled".to_owned(),
+                version: 2,
+                updated_by_actor_id: Some("operator".to_owned()),
+                reason: Some("manual resume".to_owned()),
+                created_at: "2026-05-25T10:00:00Z".to_owned(),
+                updated_at: "2026-05-25T10:30:00Z".to_owned(),
+            }),
+            recovery_available: true,
+            can_restore_queue_view: true,
+            recovery_reason: QueueWorkspaceRecoveryReason::HiddenQueueViewExists,
+        },
         widget_instances: vec![WidgetInstanceSummary {
             id: "widget-1".to_owned(),
             definition_id: "notes".to_owned(),
@@ -230,6 +294,36 @@ fn maps_workspace_workbench_state_to_dto() {
             .as_ref()
             .map(|workbench| workbench.id.as_str()),
         Some("wb_1")
+    );
+    assert_eq!(dto.queue_recovery.workspace_id, "ws_1");
+    assert_eq!(dto.queue_recovery.queue_task_count, 2);
+    assert_eq!(dto.queue_recovery.running_task_count, 1);
+    assert_eq!(dto.queue_recovery.stale_running_candidate_count, 1);
+    assert!(!dto.queue_recovery.has_visible_queue_view);
+    assert!(dto.queue_recovery.recovery_available);
+    assert!(dto.queue_recovery.can_restore_queue_view);
+    assert_eq!(
+        dto.queue_recovery.recovery_reason,
+        "hidden_queue_view_exists"
+    );
+    let queue_recovery_json =
+        serde_json::to_value(&dto.queue_recovery).expect("serialize queue recovery projection");
+    assert_eq!(queue_recovery_json["recovery_available"], json!(true));
+    assert_eq!(queue_recovery_json["can_restore_queue_view"], json!(true));
+    assert_eq!(
+        queue_recovery_json["recovery_reason"],
+        json!("hidden_queue_view_exists")
+    );
+    assert_eq!(
+        dto.queue_recovery.canonical_queue_widget_id.as_deref(),
+        Some("queue_widget_1")
+    );
+    assert_eq!(
+        dto.queue_recovery
+            .control_state
+            .as_ref()
+            .map(|control| control.status.as_str()),
+        Some("manual_enabled")
     );
     assert_eq!(dto.widget_instances[0].definition_id, "notes");
     assert_eq!(dto.widget_instances[0].dock_x, Some(12));

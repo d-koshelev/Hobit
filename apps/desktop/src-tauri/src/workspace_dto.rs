@@ -10,10 +10,14 @@ use hobit_app::{
 };
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+pub(crate) use crate::queue_workspace_recovery_dto::QueueWorkspaceRecoveryProjectionDto;
 #[derive(Clone, Debug, Deserialize)]
 pub(crate) struct CreateWorkspaceRequest {
     pub title: String,
     pub description: Option<String>,
+    #[serde(default, alias = "rootPath")]
+    pub root_path: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -167,6 +171,7 @@ pub(crate) struct WorkspaceSessionSummaryDto {
 pub(crate) struct WorkspaceWorkbenchStateDto {
     pub workspace: WorkspaceSummaryDto,
     pub workbench: Option<WorkbenchSummaryDto>,
+    pub queue_recovery: QueueWorkspaceRecoveryProjectionDto,
     pub widget_instances: Vec<WidgetInstanceSummaryDto>,
     pub shared_state_objects: Vec<SharedStateObjectSummaryDto>,
     pub recent_events: Vec<WorkbenchEventSummaryDto>,
@@ -392,6 +397,7 @@ impl From<WorkspaceWorkbenchState> for WorkspaceWorkbenchStateDto {
         Self {
             workspace: WorkspaceSummaryDto::from(state.workspace),
             workbench: state.workbench.map(WorkbenchSummaryDto::from),
+            queue_recovery: QueueWorkspaceRecoveryProjectionDto::from(state.queue_recovery),
             widget_instances: state
                 .widget_instances
                 .into_iter()

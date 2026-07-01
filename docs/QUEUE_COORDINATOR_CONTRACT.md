@@ -11,12 +11,23 @@ Terminal launch, Finder behavior, or Workspace Agent tool execution.
 
 ## Status
 
-Planned for Smart Queue decision semantics.
+Planned for broad Smart Queue decision semantics. The narrow accepted
+completion path is implemented now as backend/domain-owned
+`queue.item.markDone`; it records durable completion only after explicit
+structured confirmation and backend aggregate preconditions. The narrow
+terminal failure path is also implemented as backend/domain-owned
+`queue.item.fail`; it records durable failure only after explicit structured
+confirmation, visible reason, durable worker evidence, ACKed review, and
+backend aggregate preconditions. Worker failure evidence alone is not terminal
+task failure.
 
 ## Ownership
 
 The Queue Coordinator owns Queue lifecycle decisions. Workspace Agent assistance
 may inform a decision, but the Workspace Agent is not the lifecycle owner.
+Current frontend coordinator overlays are transitional compatibility state.
+Durable coordinator decisions belong in backend/domain/storage per
+`docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`.
 
 Coordinator-owned decisions include:
 
@@ -28,6 +39,10 @@ Coordinator-owned decisions include:
 - block downstream tasks after dependency failure;
 - accept a worker report;
 - reject a worker report;
+- accept completion through the backend finalization command after review ACK
+  and durable worker evidence;
+- fail a task through the backend terminal-failure command after review ACK,
+  durable worker evidence, explicit confirmation, and visible reason;
 - request Workspace Agent assistance;
 - create or request follow-up work through explicit Queue-owned flows.
 
@@ -60,7 +75,8 @@ specific context.
 - request_assistance: ask Workspace Agent or human assistance for a bounded
   question.
 - block_task: mark a task Blocked with a blocker kind and visible reason.
-- fail_task: mark a task Failed after terminal failure or rejection.
+- fail_task: mark a task Failed through explicit terminal failure or rejection;
+  worker failure evidence alone only creates review evidence.
 - close_task: mark a task Closed after accepted completion.
 - cancel_task: cancel unstarted or active work through explicit controls.
 - pause_queue: stop new starts without cancelling running attempts.
@@ -112,6 +128,7 @@ from visible request context. It must not:
 - start workers;
 - override dependency gates;
 - mark tasks closed or failed;
+- treat review ACK, worker completion, or prose confirmation as done;
 - mutate Git;
 - launch Terminal;
 - read Finder state;

@@ -254,6 +254,10 @@ function activityRunGroup(
     return selfTestActivityRunGroup(id, sortedEvents);
   }
 
+  if (runKind === "workspace-agent-broker-continuation") {
+    return brokerContinuationActivityRunGroup(id, sortedEvents);
+  }
+
   const latestEvent = sortedEvents[sortedEvents.length - 1]!;
   const finalRunEvent = [...sortedEvents].reverse().find(isRunFinalEvent);
   const status = finalRunEvent?.status ?? groupStatus(sortedEvents);
@@ -278,6 +282,34 @@ function activityRunGroup(
     timestampLabel: latestEvent.timestampLabel,
     title: "Agent run",
     workspaceId: latestEvent.workspaceId,
+  };
+}
+
+function brokerContinuationActivityRunGroup(
+  id: string,
+  sortedEvents: AgentActivityEvent[],
+): AgentActivityRunGroup {
+  const latestEvent = sortedEvents[sortedEvents.length - 1]!;
+  const finalEvent = [...sortedEvents].reverse().find(isTerminalLifecycleEvent);
+  const displayEvent = finalEvent ?? latestEvent;
+  const status = finalEvent?.status ?? groupStatus(sortedEvents);
+  const severity = finalEvent?.severity ?? groupSeverity(sortedEvents, status);
+
+  return {
+    events: sortedEvents,
+    id,
+    runKind: "workspace-agent-broker-continuation",
+    runId: displayEvent.runId,
+    severity,
+    sourceKind: displayEvent.sourceKind,
+    sourceLabel: displayEvent.sourceLabel,
+    sourceWidgetInstanceId: displayEvent.sourceWidgetInstanceId,
+    status,
+    summary: displayEvent.summary ?? statusLabel(status),
+    timestamp: displayEvent.timestamp,
+    timestampLabel: displayEvent.timestampLabel,
+    title: "Workspace Agent action chain",
+    workspaceId: displayEvent.workspaceId,
   };
 }
 

@@ -386,7 +386,7 @@ describe("hobitAgentActionBroker handler model", () => {
     ]);
   });
 
-  it("turns handler failures into structured failed results", () => {
+  it("turns handler failures into structured unexpected failure results", () => {
     const broker = createHobitAgentActionBroker({
       handlers: {
         "agent.status.read": () => {
@@ -402,11 +402,12 @@ describe("hobitAgentActionBroker handler model", () => {
       }),
     );
 
-    expect(result.status).toBe("failed");
+    expect(result.status).toBe("failed_unexpected");
     expect(result.result).toMatchObject({
       message: "Handler failed in test.",
       ok: false,
-      status: "failed",
+      reasonCode: "unexpected_error",
+      status: "failed_unexpected",
     });
     expect(result.result.auditEvents.map((event) => event.eventName)).toEqual([
       "capability.validation.started",

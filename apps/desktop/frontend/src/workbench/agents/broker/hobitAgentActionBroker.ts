@@ -171,8 +171,9 @@ export function createHobitAgentActionBroker({
             message,
             policyDecision,
             policyReasons: [message],
+            reasonCode: "unexpected_error",
             requestId: request.requestId,
-            status: "failed",
+            status: "failed_unexpected",
           });
 
           return {
@@ -182,7 +183,7 @@ export function createHobitAgentActionBroker({
               ...result,
               auditEvents: [...auditEvents, ...result.auditEvents],
             },
-            status: "failed",
+            status: "failed_unexpected",
           } as HobitAgentBrokerResult<TOutput>;
         }
 
@@ -229,20 +230,21 @@ export function createHobitAgentActionBroker({
           message,
           policyDecision,
           policyReasons: [message],
+          reasonCode: "unexpected_error",
           requestId: request.requestId,
-          status: "failed",
+          status: "failed_unexpected",
         });
 
         return {
           policyDecision,
           request,
           result: {
-            ...result,
-            auditEvents: [...auditEvents, ...result.auditEvents],
-          },
-          status: "failed",
-        } as HobitAgentBrokerResult<TOutput>;
-      }
+          ...result,
+          auditEvents: [...auditEvents, ...result.auditEvents],
+        },
+        status: "failed_unexpected",
+      } as HobitAgentBrokerResult<TOutput>;
+    }
     },
     invokeAsync<TOutput = unknown>(
       request: HobitAgentActionRequest,
@@ -415,8 +417,9 @@ async function invokeHobitAgentActionBrokerAsync<TOutput = unknown>({
       message,
       policyDecision,
       policyReasons: [message],
+      reasonCode: "unexpected_error",
       requestId: request.requestId,
-      status: "failed",
+      status: "failed_unexpected",
     });
 
     return {
@@ -426,7 +429,7 @@ async function invokeHobitAgentActionBrokerAsync<TOutput = unknown>({
         ...result,
         auditEvents: [...auditEvents, ...result.auditEvents],
       },
-      status: "failed",
+      status: "failed_unexpected",
     } as HobitAgentBrokerResult<TOutput>;
   }
 }
@@ -659,6 +662,7 @@ export function createBrokerNeedsConfirmationResult({
       `${request.capabilityId} requires confirmation.`,
     policyDecision,
     policyReasons: policyDecision.reasons,
+    reasonCode: "confirmation_required",
     requestId: request.requestId,
     status: "needs_confirmation",
   });
@@ -689,6 +693,7 @@ export function createBrokerDryRunRequiredResult({
       `${request.capabilityId} requires dry-run before invocation.`,
     policyDecision,
     policyReasons: policyDecision.reasons,
+    reasonCode: "precondition_failed",
     requestId: request.requestId,
     status: "dry_run_required",
   });
@@ -724,6 +729,7 @@ export function createBrokerInvalidInputResult({
     message: reasons[0] ?? "Action request input is invalid.",
     policyDecision,
     policyReasons: [...reasons],
+    reasonCode: "invalid_payload",
     requestId: request.requestId,
     status: "invalid_input",
   });

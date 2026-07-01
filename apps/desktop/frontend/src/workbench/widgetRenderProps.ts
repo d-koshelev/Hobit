@@ -85,6 +85,7 @@ import type {
   WriteTerminalPtySessionRequest,
 } from "../workspace/types";
 import type { AgentActivityEvent } from "./agentActivityModel";
+import type { AgentProvider } from "./agentRuntime";
 import type {
   PromptPackImportPreviewModel,
   PromptPackFileEntry,
@@ -114,6 +115,8 @@ import type {
 } from "./types";
 import type { WorkspaceAgentQueueBridge } from "./workspaceAgentQueueBridge";
 import type { WorkspaceAgentHobitActionInvoker } from "./workspaceAgentBrokerActionRuntime";
+import type { QueueWorkflowPersistencePort } from "./agents/modules";
+import type { WorkspaceAgentLiveWorkbenchContextSnapshot } from "./workspaceAgentLiveWorkbenchContext";
 import type { AgentQueueController } from "./queue/useAgentQueueController";
 import type {
   QueueValidationRunResult,
@@ -124,10 +127,14 @@ import type { QueueLinkedDirectWorkEvidenceIngestionCallback } from "./queueLink
 export type WidgetRenderProps = {
   agentActivityEvents?: AgentActivityEvent[];
   agentQueueController?: AgentQueueController;
+  workspaceAgentProvider?: AgentProvider;
   agentExecutorSlots?: AgentExecutorSlot[];
   config: Record<string, unknown>;
   definition: WidgetDefinition;
   currentWorkspaceRoot?: string | null;
+  workspaceAgentLiveWorkbenchContext?: WorkspaceAgentLiveWorkbenchContextSnapshot | null;
+  workbenchId?: string | null;
+  workbenchWidgets?: readonly WidgetInstance[];
   directWorkGitReviewRequest?: DirectWorkGitReviewRequest | null;
   directWorkGitReviewStatus?: DirectWorkGitReviewStatus | null;
   directWorkRunHandoff?: DirectWorkRunHandoff | null;
@@ -417,6 +424,7 @@ export type WidgetRenderProps = {
     options?: { currentWorkspaceRoot?: string | null },
   ) => Promise<PromptPackMaterializationResult>;
   workspaceAgentQueueBridge?: WorkspaceAgentQueueBridge;
+  workspaceAgentQueueWorkflowPersistence?: QueueWorkflowPersistencePort;
   queueValidationRunner?: ValidationRunner | null;
   onRequestQueueValidation?: (
     task: AgentQueueTask,

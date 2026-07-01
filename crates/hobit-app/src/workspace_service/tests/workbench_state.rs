@@ -1,4 +1,5 @@
 use super::*;
+use crate::QueueWorkspaceRecoveryReason;
 
 #[test]
 fn get_workbench_state_returns_none_for_missing_workspace() {
@@ -35,6 +36,14 @@ fn get_workbench_state_for_empty_workspace_has_empty_widgets() {
     assert!(state.shared_state_objects.is_empty());
     assert_eq!(state.recent_events.len(), 1);
     assert_eq!(state.recent_events[0].kind, "workspace_created");
+    assert_eq!(state.queue_recovery.workspace_id, workspace.id);
+    assert_eq!(state.queue_recovery.queue_task_count, 0);
+    assert!(!state.queue_recovery.recovery_available);
+    assert!(!state.queue_recovery.can_restore_queue_view);
+    assert_eq!(
+        state.queue_recovery.recovery_reason,
+        QueueWorkspaceRecoveryReason::NoQueueState
+    );
 }
 
 #[test]
@@ -175,5 +184,266 @@ fn get_workbench_state_includes_widget_instances() {
             config: Some("{\"scope\":\"workspace\"}".to_owned()),
             state: Some("{\"dirty\":false}".to_owned()),
         }]
+    );
+}
+
+#[test]
+fn get_workbench_state_projects_queue_recovery_without_mounted_queue_view() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue Recovery", None)
+        .expect("create workspace");
+    let task = service
+        .create_agent_queue_task(CreateAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            title: "Recover saved Queue".to_owned(),
+            description: "Queue state should remain openable.".to_owned(),
+            prompt: "Check Queue recovery projection.".to_owned(),
+            status: "running".to_owned(),
+            priority: 3,
+            depends_on: None,
+            execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
+        })
+        .expect("create queue task");
+
+    let before_tasks = service
+        .store
+        .list_agent_queue_tasks(&workspace.id)
+        .expect("list queue tasks before");
+    assert!(service
+        .store
+        .get_agent_queue_control_state(&workspace.id)
+        .expect("get control before")
+        .is_none());
+
+    let state = service
+        .get_workspace_workbench_state(&workspace.id)
+        .expect("get workbench state")
+        .expect("workbench state");
+
+    assert_eq!(state.queue_recovery.workspace_id, workspace.id);
+    assert_eq!(state.queue_recovery.queue_task_count, 1);
+    assert_eq!(state.workspace.queue_task_count, 1);
+    assert_eq!(state.queue_recovery.running_task_count, 1);
+    assert_eq!(state.queue_recovery.stale_running_candidate_count, 0);
+    assert!(!state.queue_recovery.has_visible_queue_view);
+    assert_eq!(state.queue_recovery.canonical_queue_widget_id, None);
+    assert_eq!(state.queue_recovery.control_state, None);
+    assert!(state.queue_recovery.recovery_available);
+    assert!(state.queue_recovery.can_restore_queue_view);
+    assert_eq!(
+        state.queue_recovery.recovery_reason,
+        QueueWorkspaceRecoveryReason::QueueStateWithoutVisibleView
+    );
+    assert!(state.widget_instances.is_empty());
+    assert_eq!(
+        service
+            .store
+            .list_agent_queue_tasks(&workspace.id)
+            .expect("list queue tasks after"),
+        before_tasks
+    );
+    assert!(service
+        .store
+        .get_agent_queue_control_state(&workspace.id)
+        .expect("get control after")
+        .is_none());
+    assert!(service
+        .list_agent_queue_task_run_links(&workspace.id, &task.queue_item_id)
+        .expect("list run links")
+        .is_empty());
+}
+
+#[test]
+fn get_workbench_state_projects_hidden_queue_view_and_stale_queue_local_candidate() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue Recovery", None)
+        .expect("create workspace");
+    let workbench_id = workspace
+        .workbench_id
+        .as_deref()
+        .expect("created workbench id");
+    let task = service
+        .create_agent_queue_task(CreateAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            title: "Recover running Queue".to_owned(),
+            description: String::new(),
+            prompt: "Project a backend-owned running run link.".to_owned(),
+            status: "running".to_owned(),
+            priority: 4,
+            depends_on: None,
+            execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
+        })
+        .expect("create queue task");
+    service
+        .store
+        .insert_widget_instance(NewWidgetInstance {
+            id: "queue-widget-hidden",
+            workspace_id: &workspace.id,
+            workbench_id,
+            definition_id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+            title: "Agent Queue",
+            category: "workflow",
+            layout_mode: "docked",
+            dock_x: Some(12),
+            dock_y: Some(24),
+            dock_width: Some(1160),
+            dock_height: Some(680),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: false,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert hidden queue widget");
+    service
+        .record_agent_queue_task_run_started(RecordAgentQueueTaskRunStartedInput {
+            workspace_id: workspace.id.clone(),
+            queue_task_id: task.queue_item_id.clone(),
+            executor_widget_id: QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID.to_owned(),
+            direct_work_run_id: "queue-local-run-1".to_owned(),
+            source: AgentQueueTaskRunSource::Manual,
+        })
+        .expect("record queue-local run link");
+    service
+        .set_agent_queue_control_state(SetAgentQueueControlStateInput {
+            workspace_id: workspace.id.clone(),
+            status: AGENT_QUEUE_CONTROL_STATUS_MANUAL_ENABLED.to_owned(),
+            actor_id: Some("operator".to_owned()),
+            reason: Some("manual recovery test".to_owned()),
+            expected_version: None,
+        })
+        .expect("set control state");
+    let before_tasks = service
+        .store
+        .list_agent_queue_tasks(&workspace.id)
+        .expect("list queue tasks before");
+    let before_links = service
+        .store
+        .list_agent_queue_task_run_links(&workspace.id, &task.queue_item_id)
+        .expect("list run links before");
+
+    let state = service
+        .get_workspace_workbench_state(&workspace.id)
+        .expect("get workbench state")
+        .expect("workbench state");
+
+    assert_eq!(state.queue_recovery.queue_task_count, 1);
+    assert_eq!(state.queue_recovery.running_task_count, 1);
+    assert_eq!(state.queue_recovery.stale_running_candidate_count, 1);
+    assert!(!state.queue_recovery.has_visible_queue_view);
+    assert_eq!(
+        state.queue_recovery.canonical_queue_widget_id.as_deref(),
+        Some("queue-widget-hidden")
+    );
+    assert!(state.queue_recovery.recovery_available);
+    assert!(state.queue_recovery.can_restore_queue_view);
+    assert_eq!(
+        state.queue_recovery.recovery_reason,
+        QueueWorkspaceRecoveryReason::HiddenQueueViewExists
+    );
+    assert_eq!(
+        state
+            .queue_recovery
+            .control_state
+            .as_ref()
+            .map(|control| control.status.as_str()),
+        Some(AGENT_QUEUE_CONTROL_STATUS_MANUAL_ENABLED)
+    );
+    assert_eq!(
+        service
+            .store
+            .list_agent_queue_tasks(&workspace.id)
+            .expect("list queue tasks after"),
+        before_tasks
+    );
+    assert_eq!(
+        service
+            .store
+            .list_agent_queue_task_run_links(&workspace.id, &task.queue_item_id)
+            .expect("list run links after"),
+        before_links
+    );
+}
+
+#[test]
+fn get_workbench_state_projects_visible_queue_view_as_open_not_recovery() {
+    let service = initialized_service();
+    let workspace = service
+        .create_empty_workspace("Queue Visible", None)
+        .expect("create workspace");
+    let workbench_id = workspace
+        .workbench_id
+        .as_deref()
+        .expect("created workbench id");
+    service
+        .create_agent_queue_task(CreateAgentQueueTaskInput {
+            workspace_id: workspace.id.clone(),
+            title: "Visible Queue task".to_owned(),
+            description: String::new(),
+            prompt: "Visible Queue view exists.".to_owned(),
+            status: "draft".to_owned(),
+            priority: 0,
+            depends_on: None,
+            execution_policy: None,
+            execution_workspace: None,
+            codex_executable: None,
+            sandbox: None,
+            approval_policy: None,
+        })
+        .expect("create queue task");
+    service
+        .store
+        .insert_widget_instance(NewWidgetInstance {
+            id: "queue-widget-visible",
+            workspace_id: &workspace.id,
+            workbench_id,
+            definition_id: AGENT_QUEUE_WIDGET_DEFINITION_ID,
+            title: "Agent Queue",
+            category: "workflow",
+            layout_mode: "docked",
+            dock_x: Some(0),
+            dock_y: Some(0),
+            dock_width: Some(1160),
+            dock_height: Some(680),
+            popout_x: None,
+            popout_y: None,
+            popout_width: None,
+            popout_height: None,
+            always_on_top: false,
+            is_visible: true,
+            config: Some("{}"),
+            state: Some("{}"),
+        })
+        .expect("insert visible queue widget");
+
+    let state = service
+        .get_workspace_workbench_state(&workspace.id)
+        .expect("get workbench state")
+        .expect("workbench state");
+
+    assert_eq!(state.queue_recovery.queue_task_count, 1);
+    assert!(state.queue_recovery.has_visible_queue_view);
+    assert_eq!(
+        state.queue_recovery.canonical_queue_widget_id.as_deref(),
+        Some("queue-widget-visible")
+    );
+    assert!(!state.queue_recovery.recovery_available);
+    assert!(!state.queue_recovery.can_restore_queue_view);
+    assert_eq!(
+        state.queue_recovery.recovery_reason,
+        QueueWorkspaceRecoveryReason::VisibleQueueViewExists
     );
 }

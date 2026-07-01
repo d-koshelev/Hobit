@@ -123,7 +123,7 @@ function queueLinkedEvidenceEventWiringInventoryCases(): QueueDogfoodBrokerSelfT
       caseId: "queue-dogfood-broker:raw-non-queue-ingestion-blocked",
       evidence: [
         "Raw Workspace Agent, raw Direct Work, Agent Activity, and standalone Agent Executor history are not ingestion sources.",
-        "Evidence ingestion requires explicit Queue task linkage and never infers taskId from prompt, title, final message, repo path, or changed files.",
+        "Evidence ingestion requires explicit Queue task/run linkage and never infers taskId or runId from prompt, title, final message, repo path, or changed files.",
       ],
       message: "Raw non-Queue Direct Work ingestion is blocked.",
       required: false,
@@ -206,13 +206,10 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
   const done = store.invoke<QueueAgentLifecycleTransitionOutput>(
     "queue.item.markDone",
     {
-      commit: store.fakeCommit,
-      coordinatorAgentId: store.coordinatorAgentId,
-      decisionId: "decision-done-upstream-1",
       reason: "Accepted by fake broker self-test.",
       taskId: store.taskId,
-      validationApproved: true,
     },
+    { confirmationToken: "operator-confirmed" },
   );
   const doneOutput = lifecycleOutput(done);
   const dependentAfterDoneStartable = store.canDependentStart(
@@ -233,8 +230,8 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
   const agentFinishedPassed =
     agentFinished.status === "succeeded" &&
     agentFinishedOutput?.ticketState === "awaiting_review" &&
-    agentFinishedOutput.lifecycle.workerEvidenceBundle?.taskId === store.taskId &&
-    agentFinishedOutput.lifecycle.currentThreadId === store.fakeThreadId;
+    agentFinishedOutput.lifecycle?.workerEvidenceBundle?.taskId === store.taskId &&
+    agentFinishedOutput.lifecycle?.currentThreadId === store.fakeThreadId;
   const reviewCreatedPassed =
     reviewCreated.status === "succeeded" && reviewMessageHasEvidence;
   const ackPassed =
@@ -242,18 +239,12 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
   const validationPassed =
     approved.status === "succeeded" &&
     approvedOutput?.ticketState === "in_review" &&
-    approvedOutput.lifecycle.validationApprovals.length > 0 &&
+    (approvedOutput.lifecycle?.validationApprovals.length ?? 0) > 0 &&
     approvedOutput.wouldRunValidation === false;
   const markDonePassed =
-    done.status === "succeeded" &&
-    doneOutput?.ticketState === "done" &&
-    doneOutput.lifecycle.commitResults.some(
-      (commit) =>
-        commit.commitHash === store.fakeCommit.commitHash &&
-        commit.noGitMutationPerformed === true,
-    );
+    done.status === "unavailable" && doneOutput?.ticketState !== "done";
   const dependentGatePassed =
-    !dependentBeforeDoneStartable && dependentAfterDoneStartable;
+    !dependentBeforeDoneStartable && !dependentAfterDoneStartable;
 
   return {
     cases: [
@@ -263,8 +254,8 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
         evidence: [
           brokerEvidence(agentFinished),
           `ticketState: ${agentFinishedOutput?.ticketState ?? "unknown"}.`,
-          `Evidence bundle task: ${agentFinishedOutput?.lifecycle.workerEvidenceBundle?.taskId ?? "missing"}.`,
-          `Evidence thread: ${agentFinishedOutput?.lifecycle.currentThreadId ?? "missing"}.`,
+          `Evidence bundle task: ${agentFinishedOutput?.lifecycle?.workerEvidenceBundle?.taskId ?? "missing"}.`,
+          `Evidence thread: ${agentFinishedOutput?.lifecycle?.currentThreadId ?? "missing"}.`,
           "Broker invoked queue.lifecycle.agentFinished with a worker evidence bundle.",
         ],
         message: agentFinishedPassed
@@ -326,29 +317,28 @@ function runMainSuccessPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
         caseId: "queue-dogfood-broker:mark-done",
         evidence: [
           brokerEvidence(done),
-          `ticketState: ${doneOutput?.ticketState ?? "unknown"}.`,
-          `Fake commit hash: ${store.fakeCommit.commitHash}.`,
-          "noGitMutationPerformed: true.",
+          "Backend accepted completion is required for done.",
+          "No frontend fake done state or fake commit metadata is attached by queue.item.markDone.",
         ],
         message: markDonePassed
-          ? "Mark done."
-          : "Mark done did not attach fake commit metadata and close the item.",
+          ? "Mark done unavailable without backend completion command."
+          : "Mark done unexpectedly finalized through the frontend broker.",
         status: markDonePassed ? "passed" : "failed",
-        title: "Mark done",
+        title: "Mark done backend required",
       }),
       selfTestCase({
         capabilityIds: ["queue.item.markDone"],
         caseId: "queue-dogfood-broker:dependent-unblocked-after-done",
         evidence: [
           `Dependent startable before done: ${String(dependentBeforeDoneStartable)}.`,
-          `Dependent startable after done: ${String(dependentAfterDoneStartable)}.`,
-          "Dependency gate uses dogfood done, not agent completion or review state.",
+          `Dependent startable without accepted completion: ${String(dependentAfterDoneStartable)}.`,
+          "Dependency gate uses backend accepted completion, not agent completion or review ACK.",
         ],
         message: dependentGatePassed
-          ? "Dependent unblocked after done."
-          : "Dependent dependency gate did not wait for upstream done.",
+          ? "Dependent remains gated until backend accepted completion."
+          : "Dependent dependency gate unblocked before backend accepted completion.",
         status: dependentGatePassed ? "passed" : "failed",
-        title: "Dependent unblocked after done",
+        title: "Dependent gated until backend completion",
       }),
     ],
     passed:
@@ -369,6 +359,7 @@ function runFollowUpPath(store: QueueDogfoodBrokerSelfTestFakeStore): {
     attemptId: "attempt-follow-up-1",
     finalAgentMessage: "Follow-up needed after fake review.",
     outcome: "completed",
+    runId: "fake-run-follow-up-1",
     taskId: store.followUpTaskId,
     validationSummary: "Follow-up validation needs another pass.",
   });
@@ -436,6 +427,7 @@ function runFailurePath(store: QueueDogfoodBrokerSelfTestFakeStore): {
     attemptId: "attempt-failure-1",
     finalAgentMessage: "Fake worker reported terminal failure evidence.",
     outcome: "failed",
+    runId: "fake-run-failure-1",
     taskId: store.failureTaskId,
     validationSummary: "Validation failed in fake evidence.",
   });
@@ -452,18 +444,18 @@ function runFailurePath(store: QueueDogfoodBrokerSelfTestFakeStore): {
   const failed = store.invoke<QueueAgentLifecycleTransitionOutput>(
     "queue.item.fail",
     {
-      coordinatorAgentId: store.coordinatorAgentId,
       reason: "Fake coordinator accepted the failure evidence.",
       taskId: store.failureTaskId,
     },
+    { confirmationToken: "operator-confirmed" },
   );
   const output = lifecycleOutput(failed);
   const dependentStartable = store.canDependentStart(
     store.failureDependentTaskId,
   );
   const passed =
-    failed.status === "succeeded" &&
-    output?.ticketState === "failure" &&
+    failed.status === "unavailable" &&
+    failed.result.message.includes("backend-owned") &&
     dependentStartable === false;
 
   return {
@@ -478,14 +470,14 @@ function runFailurePath(store: QueueDogfoodBrokerSelfTestFakeStore): {
         caseId: "queue-dogfood-broker:failure-dependent-blocked",
         evidence: [
           brokerEvidence(failed),
-          `ticketState: ${output?.ticketState ?? "unknown"}.`,
+          `ticketState: ${output?.ticketState ?? "backend-unavailable"}.`,
           `Dependent startable after upstream failure: ${String(dependentStartable)}.`,
         ],
         message: passed
-          ? "Failure keeps dependent blocked."
-          : "Failure branch did not keep dependent blocked.",
+          ? "Terminal failure requires backend durability."
+          : "Terminal failure branch did not stop at backend-owned boundary.",
         status: passed ? "passed" : "failed",
-        title: "Failure keeps dependent blocked",
+        title: "Terminal failure requires backend durability",
       }),
     ],
     passed,

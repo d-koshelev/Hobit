@@ -145,7 +145,7 @@ describe("hobitAgentSelfTestReportViewModel", () => {
     });
     expect(row(report, "queue-dogfood-broker:mark-done")).toMatchObject({
       capabilityId: "queue.item.markDone",
-      message: "Mark done.",
+      message: "Mark done unavailable without backend completion command.",
       status: "passed",
     });
     expect(row(report, "queue-dogfood-broker:follow-up-running")).toMatchObject({

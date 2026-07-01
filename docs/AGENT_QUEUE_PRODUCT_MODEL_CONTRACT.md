@@ -314,7 +314,8 @@ Current Agent Queue remains:
 - with frontend current-session Queue-to-Executor handoff and final-status
   auto-refresh
 - non-dispatching
-- without dependency management
+- with backend-validated dependency fields and dependency-state projections,
+  but without dependency execution, scheduler dispatch, or automatic starts
 
 The task and assignment foundation stores Workspace-scoped task records only. It
 does not add scheduler behavior, dependency execution, automatic dispatch, or

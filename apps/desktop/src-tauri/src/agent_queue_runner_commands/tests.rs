@@ -1275,6 +1275,14 @@ fn create_workspace_with_executor(db_path: &Path) -> (String, String) {
     let workspace = service
         .create_empty_workspace("Queue Autorun command test", None)
         .expect("create workspace");
+    service
+        .enable_agent_queue_manual_control(
+            workspace.id.clone(),
+            Some("test-operator".to_owned()),
+            Some("test autorun fixture".to_owned()),
+            None,
+        )
+        .expect("enable queue manual control");
     let workbench_id = workspace.workbench_id.as_deref().expect("workbench id");
     let executor_widget_id = service
         .add_widget_instance_to_workbench(

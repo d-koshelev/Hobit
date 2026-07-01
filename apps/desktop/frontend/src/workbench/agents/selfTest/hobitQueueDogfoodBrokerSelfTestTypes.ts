@@ -84,6 +84,7 @@ export type QueueDogfoodBrokerSelfTestFakeStore = {
     capabilityId: string,
     input: unknown,
     options?: {
+      readonly confirmationToken?: string;
       readonly dryRun?: boolean;
       readonly requestId?: string;
     },

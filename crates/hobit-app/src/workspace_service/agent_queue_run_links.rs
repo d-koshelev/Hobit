@@ -15,6 +15,7 @@ use super::{
     AgentQueueTaskRunSource, AgentQueueTaskRunStatus, AgentQueueTaskRunSummary,
     RecordAgentQueueTaskRunFinalStatusInput, RecordAgentQueueTaskRunStartedInput, WorkspaceService,
     AGENT_QUEUE_WIDGET_DEFINITION_ID, AGENT_RUN_WIDGET_DEFINITION_ID,
+    QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
 };
 
 impl WorkspaceService {
@@ -76,6 +77,9 @@ impl WorkspaceService {
 
                 let completed_at = match input.completed_at.clone() {
                     Some(completed_at) => Some(completed_at),
+                    None if input.executor_widget_id == QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID => {
+                        Some(placeholder_timestamp())
+                    }
                     None => store
                         .get_widget_run(&input.direct_work_run_id)?
                         .and_then(|run| run.finished_at),
@@ -138,6 +142,23 @@ impl WorkspaceService {
             .store
             .get_latest_agent_queue_task_run_link(workspace_id, queue_task_id)?
             .map(map_run_link_row))
+    }
+
+    pub fn get_agent_queue_task_run_link_by_id(
+        &self,
+        workspace_id: &str,
+        run_link_id: &str,
+    ) -> Result<Option<AgentQueueTaskRunSummary>, WorkspaceServiceError> {
+        let workspace_id = required_input(workspace_id, "workspace id")?;
+        let run_link_id = required_input(run_link_id, "run link id")?;
+        let Some(link) = self
+            .store
+            .get_agent_queue_task_run_link(workspace_id, run_link_id)?
+        else {
+            return Ok(None);
+        };
+        self.validate_agent_queue_run_link_task_access(workspace_id, &link.queue_task_id)?;
+        Ok(Some(map_run_link_row(link)))
     }
 
     fn validate_agent_queue_run_link_task_access(
@@ -257,9 +278,14 @@ pub(super) fn record_agent_queue_task_run_final_status_in_store(
     )?;
 
     let status = AgentQueueTaskRunStatus::from_current_status(status);
-    let completed_at = store
-        .get_widget_run(direct_work_run_id)?
-        .and_then(|run| run.finished_at);
+    let completed_at = if executor_widget_id == QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID {
+        placeholder_timestamp()
+    } else {
+        store
+            .get_widget_run(direct_work_run_id)?
+            .and_then(|run| run.finished_at)
+            .unwrap_or_else(placeholder_timestamp)
+    };
     let review_status = match status {
         AgentQueueTaskRunStatus::Running => AgentQueueTaskRunReviewStatus::Unknown,
         _ => AgentQueueTaskRunReviewStatus::ReviewNeeded,
@@ -273,7 +299,7 @@ pub(super) fn record_agent_queue_task_run_final_status_in_store(
             direct_work_run_id,
             AgentQueueTaskRunLinkFinalUpdate {
                 status: status.as_str(),
-                completed_at: completed_at.as_deref(),
+                completed_at: Some(completed_at.as_str()),
                 validation_status: None,
                 review_status: Some(review_status.as_str()),
                 updated_at: Some(&updated_at),
@@ -290,6 +316,15 @@ fn validate_queue_task_executor_run_link(
     direct_work_run_id: &str,
 ) -> Result<(), hobit_storage_sqlite::StorageError> {
     let task = load_agent_queue_task(store, workspace_id, queue_task_id)?;
+    if executor_widget_id == QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID {
+        if task.assigned_executor_widget_id.is_some() {
+            return Err(storage_invalid_input(
+                "backend-owned queue_local run cannot be linked to an assigned executor task"
+                    .to_owned(),
+            ));
+        }
+        return Ok(());
+    }
     let Some(executor) = store.get_widget_instance(executor_widget_id)? else {
         return Err(storage_invalid_input(format!(
             "queue task run owner not found: {executor_widget_id}"

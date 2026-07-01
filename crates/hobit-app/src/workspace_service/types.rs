@@ -1,4 +1,7 @@
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+
+use crate::QueueWorkspaceRecoveryProjection;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WorkspaceSummary {
@@ -38,6 +41,7 @@ pub struct WorkspaceSessionSummary {
 pub struct WorkspaceWorkbenchState {
     pub workspace: WorkspaceSummary,
     pub workbench: Option<WorkbenchSummary>,
+    pub queue_recovery: QueueWorkspaceRecoveryProjection,
     pub widget_instances: Vec<WidgetInstanceSummary>,
     pub shared_state_objects: Vec<SharedStateObjectSummary>,
     pub recent_events: Vec<WorkbenchEventSummary>,
@@ -587,6 +591,79 @@ pub struct RunCodexDirectWorkInput {
     pub timeout_ms: Option<u64>,
     pub stdout_cap_bytes: Option<usize>,
     pub stderr_cap_bytes: Option<usize>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CheckQueueLocalProviderReadinessInput {
+    pub provider_id: String,
+    pub profile_mode: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CheckQueueLocalProviderAuthContextInput {
+    pub provider_id: String,
+    pub profile_mode: Option<String>,
+    pub operator_environment_summary: Vec<QueueLocalProviderEnvironmentSummary>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueLocalProviderReadinessSummary {
+    pub provider_id: String,
+    pub execution_target: String,
+    pub status: String,
+    pub codex_executable_resolved: bool,
+    pub codex_executable_summary: Option<String>,
+    pub codex_version: Option<String>,
+    pub auth_status: String,
+    pub auth_source_summary: String,
+    pub auth_source_fingerprint: Option<String>,
+    pub environment_summary: Vec<QueueLocalProviderEnvironmentSummary>,
+    pub readiness_check_method: String,
+    pub last_known_provider_failure: Option<String>,
+    pub blockers: Vec<String>,
+    pub warnings: Vec<String>,
+    pub used_direct_database_path: bool,
+    pub profile_mode: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueLocalProviderEnvironmentSummary {
+    pub name: String,
+    pub present: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueLocalProviderAuthContextSummary {
+    pub provider_id: String,
+    pub status: String,
+    pub contexts: QueueLocalProviderAuthContextsSummary,
+    pub mismatch_reasons: Vec<String>,
+    pub auth_source_classification: String,
+    pub profile_mode: Option<String>,
+    pub used_direct_database_path: bool,
+    pub warnings: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueLocalProviderAuthContextsSummary {
+    pub operator_process: QueueLocalProviderAuthContextSnapshot,
+    pub app_process: QueueLocalProviderAuthContextSnapshot,
+    pub worker_launch_context: QueueLocalProviderAuthContextSnapshot,
+    pub codex_doctor_context: QueueLocalProviderAuthContextSnapshot,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueueLocalProviderAuthContextSnapshot {
+    pub context_id: String,
+    pub env_presence: Vec<QueueLocalProviderEnvironmentSummary>,
+    pub auth_source_summary: String,
+    pub auth_status: String,
+    pub readiness_check_method: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

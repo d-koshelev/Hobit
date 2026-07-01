@@ -7,6 +7,7 @@ CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
     title TEXT NOT NULL,
     description TEXT NULL,
+    root_path TEXT NULL,
     status TEXT NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
@@ -21,6 +22,13 @@ CREATE TABLE IF NOT EXISTS workspace_sessions (
     active_widget_id TEXT NULL,
     current_focus_kind TEXT NULL,
     current_focus_ref TEXT NULL
+);
+
+CREATE TABLE IF NOT EXISTS dogfood_operator_workspace_bindings (
+    canonical_root TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS workbench_presets (
@@ -134,8 +142,8 @@ CREATE TABLE IF NOT EXISTS agent_queue_task_run_links (
     link_id TEXT PRIMARY KEY,
     workspace_id TEXT NOT NULL REFERENCES workspaces(id),
     queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
-    executor_widget_id TEXT NOT NULL REFERENCES widget_instances(id) ON DELETE CASCADE,
-    direct_work_run_id TEXT NOT NULL UNIQUE REFERENCES widget_runs(id) ON DELETE CASCADE,
+    executor_widget_id TEXT NOT NULL,
+    direct_work_run_id TEXT NOT NULL UNIQUE,
     source TEXT NOT NULL,
     status TEXT NOT NULL,
     started_at TEXT NOT NULL,
@@ -144,6 +152,75 @@ CREATE TABLE IF NOT EXISTS agent_queue_task_run_links (
     review_status TEXT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_review_messages (
+    message_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+    run_id TEXT NULL,
+    run_link_id TEXT NULL REFERENCES agent_queue_task_run_links(link_id) ON DELETE SET NULL,
+    actor_id TEXT NOT NULL,
+    message_body TEXT NOT NULL,
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    acked_at TEXT NULL,
+    ack_actor_id TEXT NULL,
+    metadata_json TEXT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_worker_evidence_bundles (
+    bundle_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+    run_id TEXT NOT NULL,
+    run_link_id TEXT NULL REFERENCES agent_queue_task_run_links(link_id) ON DELETE SET NULL,
+    executor_widget_id TEXT NULL REFERENCES widget_instances(id) ON DELETE SET NULL,
+    worker_id TEXT NULL,
+    source TEXT NOT NULL,
+    outcome TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    changed_files_json TEXT NOT NULL,
+    changed_files_count INTEGER NOT NULL DEFAULT 0,
+    changed_files_summary TEXT NULL,
+    validation_summary TEXT NULL,
+    error_summary TEXT NULL,
+    metadata_json TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(workspace_id, queue_task_id, run_id)
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_completion_decisions (
+    decision_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+    run_id TEXT NULL,
+    run_link_id TEXT NULL REFERENCES agent_queue_task_run_links(link_id) ON DELETE SET NULL,
+    review_message_id TEXT NULL REFERENCES agent_queue_review_messages(message_id) ON DELETE SET NULL,
+    actor_id TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    reason TEXT NULL,
+    metadata_json TEXT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(workspace_id, queue_task_id)
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_failure_decisions (
+    decision_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+    run_id TEXT NULL,
+    run_link_id TEXT NULL REFERENCES agent_queue_task_run_links(link_id) ON DELETE SET NULL,
+    evidence_bundle_id TEXT NULL REFERENCES agent_queue_worker_evidence_bundles(bundle_id) ON DELETE SET NULL,
+    review_message_id TEXT NULL REFERENCES agent_queue_review_messages(message_id) ON DELETE SET NULL,
+    actor_id TEXT NOT NULL,
+    decision TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    metadata_json TEXT NULL,
+    created_at TEXT NOT NULL,
+    UNIQUE(workspace_id, queue_task_id)
 );
 
 CREATE TABLE IF NOT EXISTS agent_queue_workers (
@@ -157,6 +234,93 @@ CREATE TABLE IF NOT EXISTS agent_queue_workers (
     display_order INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_control_states (
+    workspace_id TEXT PRIMARY KEY REFERENCES workspaces(id) ON DELETE CASCADE,
+    status TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    updated_by_actor_id TEXT NULL,
+    reason TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_workflow_runs (
+    workflow_run_id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    workflow_id TEXT NOT NULL,
+    request_id TEXT NOT NULL,
+    request_hash TEXT NOT NULL,
+    status TEXT NOT NULL,
+    phase TEXT NOT NULL,
+    current_step TEXT NULL,
+    pause_reason TEXT NULL,
+    blocker_reason TEXT NULL,
+    actor_id TEXT NULL,
+    inputs_snapshot_json TEXT NULL,
+    grant_summary_json TEXT NULL,
+    variables_json TEXT NULL,
+    slot_bindings_json TEXT NULL,
+    mutation_refs_json TEXT NULL,
+    idempotency_keys_json TEXT NULL,
+    action_log_summary_json TEXT NULL,
+    version INTEGER NOT NULL,
+    schema_version INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    completed_at TEXT NULL,
+    UNIQUE(workspace_id, request_id)
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_workflow_actions (
+    action_id TEXT PRIMARY KEY,
+    workflow_run_id TEXT NOT NULL REFERENCES agent_queue_workflow_runs(workflow_run_id) ON DELETE CASCADE,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    step_id TEXT NOT NULL,
+    action_type TEXT NOT NULL,
+    idempotency_key TEXT NOT NULL,
+    status TEXT NOT NULL,
+    target_refs_json TEXT NULL,
+    result_refs_json TEXT NULL,
+    blocker_code TEXT NULL,
+    blocker_message TEXT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 1,
+    started_at TEXT NULL,
+    completed_at TEXT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(workflow_run_id, idempotency_key)
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_prompt_pack_materializations (
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    pack_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    description TEXT NULL,
+    pack_spec_hash TEXT NOT NULL,
+    run_settings_hash TEXT NOT NULL,
+    dependency_spec_hash TEXT NOT NULL,
+    full_preview_hash TEXT NOT NULL,
+    task_count INTEGER NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(workspace_id, pack_id)
+);
+
+CREATE TABLE IF NOT EXISTS agent_queue_prompt_pack_task_mappings (
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    pack_id TEXT NOT NULL,
+    pack_task_id TEXT NOT NULL,
+    queue_task_id TEXT NOT NULL REFERENCES agent_queue_tasks(queue_item_id) ON DELETE CASCADE,
+    task_spec_hash TEXT NOT NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(workspace_id, pack_id, pack_task_id),
+    UNIQUE(workspace_id, queue_task_id),
+    FOREIGN KEY(workspace_id, pack_id)
+        REFERENCES agent_queue_prompt_pack_materializations(workspace_id, pack_id)
+        ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS notes (
@@ -309,6 +473,9 @@ CREATE TABLE IF NOT EXISTS workbench_events (
 CREATE INDEX IF NOT EXISTS idx_workspace_sessions_workspace_id
     ON workspace_sessions(workspace_id);
 
+CREATE INDEX IF NOT EXISTS idx_dogfood_operator_workspace_bindings_workspace_id
+    ON dogfood_operator_workspace_bindings(workspace_id);
+
 CREATE INDEX IF NOT EXISTS idx_workspace_workbenches_workspace_id
     ON workspace_workbenches(workspace_id);
 
@@ -410,8 +577,62 @@ CREATE INDEX IF NOT EXISTS idx_agent_queue_task_run_links_task_started
 CREATE INDEX IF NOT EXISTS idx_agent_queue_task_run_links_run_id
     ON agent_queue_task_run_links(direct_work_run_id);
 
+CREATE INDEX IF NOT EXISTS idx_agent_queue_review_messages_task_created
+    ON agent_queue_review_messages(workspace_id, queue_task_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_review_messages_run_id
+    ON agent_queue_review_messages(run_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_worker_evidence_task_updated
+    ON agent_queue_worker_evidence_bundles(workspace_id, queue_task_id, updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_worker_evidence_run_id
+    ON agent_queue_worker_evidence_bundles(workspace_id, run_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_completion_decisions_task_created
+    ON agent_queue_completion_decisions(workspace_id, queue_task_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_completion_decisions_run_id
+    ON agent_queue_completion_decisions(workspace_id, run_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_failure_decisions_task_created
+    ON agent_queue_failure_decisions(workspace_id, queue_task_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_failure_decisions_run_id
+    ON agent_queue_failure_decisions(workspace_id, run_id);
+
 CREATE INDEX IF NOT EXISTS idx_agent_queue_workers_workspace_order
     ON agent_queue_workers(workspace_id, display_order, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_control_states_status
+    ON agent_queue_control_states(status);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_control_states_updated
+    ON agent_queue_control_states(updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_runs_workspace_status
+    ON agent_queue_workflow_runs(workspace_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_runs_workspace_workflow
+    ON agent_queue_workflow_runs(workspace_id, workflow_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_runs_workspace_created
+    ON agent_queue_workflow_runs(workspace_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_runs_workspace_updated
+    ON agent_queue_workflow_runs(workspace_id, updated_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_actions_run_status
+    ON agent_queue_workflow_actions(workflow_run_id, status);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_actions_run_step
+    ON agent_queue_workflow_actions(workflow_run_id, step_id);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_workflow_actions_workspace_created
+    ON agent_queue_workflow_actions(workspace_id, created_at);
+
+CREATE INDEX IF NOT EXISTS idx_agent_queue_prompt_pack_tasks_queue_task
+    ON agent_queue_prompt_pack_task_mappings(workspace_id, queue_task_id);
 
 CREATE INDEX IF NOT EXISTS idx_knowledge_documents_scope
     ON knowledge_documents(scope);

@@ -1,5 +1,6 @@
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
@@ -8,19 +9,10 @@ import {
   cappedPreviewText,
 } from "../renderMemoryGuards";
 import type { DirectWorkSandbox, DirectWorkStreamEvent } from "../workspace/types";
-import { createWorkspaceAgentPromptWithCapabilityContext } from "./agents/context";
 import {
-  createHobitAgentActionRequestFromEnvelope,
-  readHobitAgentActionRequestEnvelope,
   type HobitAgentActionRequest,
   type HobitAgentActionResult,
 } from "./agents/broker";
-import { agentActivityEventFromDirectWorkStreamEvent } from "./agentActivityModel";
-import type {
-  AgentActivityEvent,
-  AgentActivitySeverity,
-  AgentActivityStatus,
-} from "./agentActivityModel";
 import {
   CODEX_THREAD_NOT_AVAILABLE_MESSAGE,
   DIRECT_WORK_DIRECTORY_ACCESS_DENIED_WARNING,
@@ -35,7 +27,6 @@ import {
   defaultCoordinatorCodexExecutable,
   directWorkEventBelongsToCurrentAgent,
   directWorkEventHasAccessDenied,
-  directWorkEventText,
   directWorkFailureIsAccessDenied,
   directWorkFailureReason,
   shortCodexThreadId,
@@ -62,14 +53,38 @@ import {
   type WorkspaceAgentRunTokenUsage,
 } from "./workspaceAgentRunMetadata";
 import {
-  workspaceAgentHobitActionActivityTitle,
+  buildWorkspaceAgentRuntimeTurnInput,
+  createCodexAgentProvider,
+  directWorkStreamEventFromAgentRuntimeEvent,
+  recordAgentActivity,
+  resolveAgentRuntimeProtocolOutcome,
+  runBrokerContinuationRuntime,
+  startAgentRuntimeTurn,
   workspaceAgentHobitActionResultMessage,
-  workspaceAgentInvalidActionRequestMessage,
-  type WorkspaceAgentHobitActionInvoker,
+  type AgentProvider,
+  type AgentActivityRecorderResult,
+  type AgentProtocolRuntimeResult,
+  type AgentRuntimeEvent,
+  type AgentRuntimeRunHandle,
+  type BrokerContinuationRuntimeResult,
+  type BrokerContinuationTurnIntent,
+} from "./agentRuntime";
+import type {
+  WorkspaceAgentHobitActionInvoker,
+  WorkspaceAgentQueueWorkflowInvoker,
 } from "./workspaceAgentBrokerActionRuntime";
+import {
+  createWorkspaceAgentBrokerContinuationState,
+  readWorkspaceAgentQueueAutonomyGrantFromText,
+  WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+  type WorkspaceAgentBrokerPolicyDiagnostics,
+  type WorkspaceAgentBrokerContinuationState,
+  type WorkspaceAgentBrokerContinuationStopReason,
+} from "./workspaceAgentBrokerContinuation";
 import type { WidgetRenderProps } from "./types";
 
 type UseWorkspaceAgentDirectWorkControllerOptions = {
+  agentProvider?: AgentProvider;
   currentWorkspaceRoot?: string | null;
   draft: string;
   instanceId: string;
@@ -90,6 +105,7 @@ type UseWorkspaceAgentDirectWorkControllerOptions = {
   onClearVisibleAttachedContext: () => void;
   onFocusComposer: () => void;
   onInvokeHobitAgentActionRequest?: WorkspaceAgentHobitActionInvoker;
+  onInvokeQueueWorkflowRequest?: WorkspaceAgentQueueWorkflowInvoker;
   onPublishAgentActivityEvents?: WidgetRenderProps["onPublishAgentActivityEvents"];
   onRemoveVisibleAttachedContext: () => void;
   onSearchKnowledgeDocuments?: WidgetRenderProps["onSearchKnowledgeDocuments"];
@@ -102,6 +118,7 @@ type RunWithCodexOptions = {
 };
 
 export function useWorkspaceAgentDirectWorkController({
+  agentProvider,
   currentWorkspaceRoot,
   draft,
   instanceId,
@@ -114,6 +131,7 @@ export function useWorkspaceAgentDirectWorkController({
   onClearVisibleAttachedContext,
   onFocusComposer,
   onInvokeHobitAgentActionRequest,
+  onInvokeQueueWorkflowRequest,
   onPublishAgentActivityEvents,
   onRemoveVisibleAttachedContext,
   onStartCodexDirectWorkStream,
@@ -156,8 +174,11 @@ export function useWorkspaceAgentDirectWorkController({
     null,
   );
   const isMountedRef = useRef(false);
+  const agentRuntimeRunHandleRef = useRef<AgentRuntimeRunHandle | null>(null);
   const directWorkCompletedDuringStartRef = useRef(false);
   const directWorkFinalMessageRef = useRef<string | null>(null);
+  const directWorkProtocolOutcomeRef =
+    useRef<AgentProtocolRuntimeResult | null>(null);
   const directWorkAccessDeniedRef = useRef(false);
   const directWorkCapturedThreadIdRef = useRef<string | null>(null);
   const directWorkActivitySummaryRef = useRef<WorkspaceAgentActivitySummary>(
@@ -169,15 +190,31 @@ export function useWorkspaceAgentDirectWorkController({
   const directWorkRunScopeRef = useRef<ActiveDirectWorkRunScope | null>(null);
   const productActionLoopGuardRef =
     useRef<ProductActionToolLoopGuardState | null>(null);
+  const brokerContinuationStateRef =
+    useRef<WorkspaceAgentBrokerContinuationState | null>(null);
+  const activeBrokerContinuationChainIdRef = useRef<string | null>(null);
   const directWorkLogSequenceRef = useRef(0);
   const workspaceScopeId = workspaceId?.trim() || "__local_workspace__";
+  const workspaceAgentProvider = useMemo(
+    () =>
+      agentProvider ??
+      createCodexAgentProvider({
+        cancelCodexDirectWorkRun: onCancelCodexDirectWorkRun,
+        codexExecutable: defaultCoordinatorCodexExecutable(),
+        startCodexDirectWorkStream: onStartCodexDirectWorkStream,
+      }),
+    [agentProvider, onCancelCodexDirectWorkRun, onStartCodexDirectWorkStream],
+  );
+  const hasAgentProviderRuntime = Boolean(
+    agentProvider || onStartCodexDirectWorkStream,
+  );
   const activeThreadId = codexThreadIdForScope(
     currentCodexThread,
     workspaceScopeId,
     instanceId,
     directWorkDirectory.trim(),
   );
-  const isDirectModeEnabled = Boolean(onStartCodexDirectWorkStream);
+  const isDirectModeEnabled = hasAgentProviderRuntime;
   const canStartDirectWork =
     isDirectModeEnabled &&
     directWorkStatus !== "running" &&
@@ -186,7 +223,7 @@ export function useWorkspaceAgentDirectWorkController({
   const canStopDirectWork =
     directWorkStatus === "running" &&
     Boolean(directWorkRunId) &&
-    Boolean(onCancelCodexDirectWorkRun);
+    Boolean(workspaceAgentProvider.cancelRun);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -215,7 +252,73 @@ export function useWorkspaceAgentDirectWorkController({
       return;
     }
 
-    if (!onStartCodexDirectWorkStream) {
+    if (!hasAgentProviderRuntime) {
+      recordDirectWorkLocalFailure(DIRECT_WORK_UNAVAILABLE_MESSAGE);
+      return;
+    }
+
+    const chainId = `workspace-agent-action-chain-${Date.now().toString()}`;
+    const queueAutonomyGrantRead =
+      readWorkspaceAgentQueueAutonomyGrantFromText(operatorPrompt);
+    brokerContinuationStateRef.current =
+      createWorkspaceAgentBrokerContinuationState({
+        autonomyGrantRejectionReasons: queueAutonomyGrantRead.reasons,
+        chainId,
+        queueAutonomyGrant: queueAutonomyGrantRead.grant,
+      });
+    activeBrokerContinuationChainIdRef.current = null;
+    await startDirectWorkTurn({
+      appendOperatorTranscript: true,
+      attachCapabilityContext: true,
+      clearDraftAndVisibleContext: true,
+      initialLocalNotice: queueAutonomyGrantNotice(queueAutonomyGrantRead),
+      operatorPrompt,
+      repoRoot,
+      startNewThread: Boolean(options.startNewThread),
+    });
+  }
+
+  async function startDirectWorkTurn({
+    appendOperatorTranscript,
+    attachCapabilityContext,
+    brokerContinuationChainId = null,
+    clearDraftAndVisibleContext,
+    initialLocalNotice = null,
+    operatorPrompt,
+    repoRoot,
+    resumeThreadIdOverride,
+    startNewThread = false,
+  }: {
+    appendOperatorTranscript: boolean;
+    attachCapabilityContext: boolean;
+    brokerContinuationChainId?: string | null;
+    clearDraftAndVisibleContext: boolean;
+    initialLocalNotice?: string | null;
+    operatorPrompt: string;
+    repoRoot: string;
+    resumeThreadIdOverride?: string | null;
+    startNewThread?: boolean;
+  }) {
+    if (!hasAgentProviderRuntime) {
+      if (brokerContinuationChainId) {
+        recordBrokerContinuationStop({
+          message:
+            "Workspace Agent Direct Work is unavailable for broker continuation.",
+          runMetadata: {
+            durationMs: null,
+            status: "failed",
+            stepCount: 0,
+            threadId: null,
+            tokenUsage: null,
+          },
+          severity: "error",
+          status: "failed",
+          stopReason: "unavailable",
+        });
+        clearBrokerContinuationState();
+        return;
+      }
+
       recordDirectWorkLocalFailure(DIRECT_WORK_UNAVAILABLE_MESSAGE);
       return;
     }
@@ -223,6 +326,7 @@ export function useWorkspaceAgentDirectWorkController({
     stopDirectWorkEventListening();
     directWorkCompletedDuringStartRef.current = false;
     directWorkFinalMessageRef.current = null;
+    directWorkProtocolOutcomeRef.current = null;
     directWorkAccessDeniedRef.current = false;
     directWorkCapturedThreadIdRef.current = null;
     directWorkTokenUsageRef.current = null;
@@ -233,15 +337,18 @@ export function useWorkspaceAgentDirectWorkController({
     };
     productActionLoopGuardRef.current =
       createProductActionToolLoopGuardState(operatorPrompt);
-    const startNewThread = Boolean(options.startNewThread);
-    const resumeThreadId = startNewThread
-      ? null
-      : codexThreadIdForScope(
-          currentCodexThread,
-          workspaceScopeId,
-          instanceId,
-          repoRoot,
-        );
+    activeBrokerContinuationChainIdRef.current = brokerContinuationChainId;
+    const resumeThreadId =
+      resumeThreadIdOverride !== undefined
+        ? resumeThreadIdOverride
+        : startNewThread
+          ? null
+          : codexThreadIdForScope(
+              currentCodexThread,
+              workspaceScopeId,
+              instanceId,
+              repoRoot,
+            );
     if (startNewThread && currentCodexThread) {
       setCurrentCodexThread(null);
       setCodexThreadNotice("Starting a new Codex thread.");
@@ -253,19 +360,29 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkStartAbortControllerRef.current?.abort();
     const startAbortController = new AbortController();
     directWorkStartAbortControllerRef.current = startAbortController;
-    const threadStartText = resumeThreadId
-      ? `Continuing Codex thread ${shortCodexThreadId(resumeThreadId)}.`
-      : "Starting new Codex thread.";
-    const promptWithCapabilityContext =
-      createWorkspaceAgentPromptWithCapabilityContext({
-        currentPrompt: operatorPrompt,
-        widgetInstanceId: instanceId,
-        workspaceId: workspaceScopeId,
-        workspaceRoot: currentWorkspaceRoot?.trim() || repoRoot,
-      });
-    onAppendOperatorTranscript(operatorPrompt);
-    onClearDraft();
-    onClearVisibleAttachedContext();
+    const runtimeTurn = buildWorkspaceAgentRuntimeTurnInput({
+      attachCapabilityContext,
+      brokerContinuationActive: Boolean(brokerContinuationStateRef.current),
+      currentWorkspaceRoot,
+      directWorkSandbox,
+      instanceId,
+      isBrokerContinuationTurn: Boolean(brokerContinuationChainId),
+      operatorPrompt,
+      provider: workspaceAgentProvider,
+      providerThreadId: resumeThreadId,
+      repoRoot,
+      requestCreatedAtMs: Date.now(),
+      requestId: `workspace-agent-turn-${Date.now().toString()}`,
+      signal: startAbortController.signal,
+      workspaceScopeId,
+    });
+    if (appendOperatorTranscript) {
+      onAppendOperatorTranscript(operatorPrompt);
+    }
+    if (clearDraftAndVisibleContext) {
+      onClearDraft();
+      onClearVisibleAttachedContext();
+    }
     setDirectWorkStatus("running");
     setDirectWorkRunId(null);
     setDirectWorkError(null);
@@ -274,55 +391,40 @@ export function useWorkspaceAgentDirectWorkController({
     setDirectWorkFinalResult(null);
     setDirectWorkRunMetadata(null);
     updateDirectWorkActivitySummary(
-      workspaceAgentActivitySummaryForLocalStart(
-        resumeThreadId ? "Starting agent turn" : "Starting Codex thread",
-      ),
+      workspaceAgentActivitySummaryForLocalStart(runtimeTurn.startSummaryLabel),
     );
     setDirectWorkLogs([
       {
         id: "direct-local-starting",
         kind: "local",
-        text: `${threadStartText} Hobit capability context attached. Capability manifest attached. Knowledge is not searched automatically; only visible composer text plus capability instructions are sent. Starting Codex Direct Work from ${repoRoot}.`,
+        text: `${runtimeTurn.threadStartText} ${runtimeTurn.contextLogText} ${initialLocalNotice ? `${initialLocalNotice} ` : ""}Starting ${workspaceAgentProvider.providerDisplayName} from ${repoRoot}.`,
       },
     ]);
 
     try {
-      const session = await onStartCodexDirectWorkStream(
-        instanceId,
-        {
-          approvalPolicy: "never",
-          codexExecutable: defaultCoordinatorCodexExecutable(),
-          codexThreadId: resumeThreadId,
-          operatorPrompt: promptWithCapabilityContext,
-          repoRoot,
-          sandbox: directWorkSandbox,
-          skipGitRepoCheck: true,
-          stderrCapBytes: null,
-          stdoutCapBytes: null,
-          timeoutMs: null,
-        },
-        recordDirectWorkEvent,
-        startAbortController.signal,
+      const runtimeHandle = await startAgentRuntimeTurn(
+        runtimeTurn.runtimeInput,
+        recordAgentRuntimeEvent,
       );
-
       if (!isMountedRef.current || startAbortController.signal.aborted) {
-        session?.stopListening();
+        runtimeHandle?.stopListening();
         return;
       }
 
-      if (!session) {
+      if (!runtimeHandle) {
         throw new Error(
-          "Workspace Agent Direct Work was not accepted for this widget.",
+          `${workspaceAgentProvider.providerDisplayName} was not accepted for this widget.`,
         );
       }
 
       if (directWorkCompletedDuringStartRef.current) {
-        session.stopListening();
+        runtimeHandle.stopListening();
       } else {
-        directWorkStopListeningRef.current = session.stopListening;
-        setDirectWorkRunId(session.runId);
+        agentRuntimeRunHandleRef.current = runtimeHandle;
+        directWorkStopListeningRef.current = runtimeHandle.stopListening;
+        setDirectWorkRunId(runtimeHandle.runId);
         appendDirectWorkLog(
-          `Direct Work run ${session.runId} started.`,
+          `Direct Work run ${runtimeHandle.runId} started.`,
           "local",
         );
       }
@@ -345,6 +447,7 @@ export function useWorkspaceAgentDirectWorkController({
         return nextSummary;
       });
       productActionLoopGuardRef.current = null;
+      clearBrokerContinuationState();
       appendDirectWorkLog(message, "local");
       onAppendAssistantTranscript("failed", message);
     } finally {
@@ -360,7 +463,7 @@ export function useWorkspaceAgentDirectWorkController({
   async function handleStopDirectWork() {
     if (
       !directWorkRunId ||
-      !onCancelCodexDirectWorkRun ||
+      !agentRuntimeRunHandleRef.current ||
       isDirectWorkStopPending
     ) {
       return;
@@ -371,10 +474,7 @@ export function useWorkspaceAgentDirectWorkController({
     appendDirectWorkLog("Stop requested.", "local");
 
     try {
-      const response = await onCancelCodexDirectWorkRun(
-        instanceId,
-        directWorkRunId,
-      );
+      const response = await agentRuntimeRunHandleRef.current.cancel();
 
       if (!response) {
         throw new Error("Stop command returned no response.");
@@ -424,12 +524,16 @@ export function useWorkspaceAgentDirectWorkController({
     stopDirectWorkEventListening();
     directWorkCompletedDuringStartRef.current = false;
     directWorkFinalMessageRef.current = null;
+    directWorkProtocolOutcomeRef.current = null;
     directWorkAccessDeniedRef.current = false;
     directWorkCapturedThreadIdRef.current = null;
     directWorkTokenUsageRef.current = null;
     directWorkRunScopeRef.current = null;
     productActionLoopGuardRef.current = null;
+    brokerContinuationStateRef.current = null;
+    activeBrokerContinuationChainIdRef.current = null;
     directWorkLogSequenceRef.current = 0;
+    agentRuntimeRunHandleRef.current = null;
     setDirectWorkDirectory("~");
     setDirectWorkSandbox("workspace_write");
     setDirectWorkStatus("idle");
@@ -445,6 +549,32 @@ export function useWorkspaceAgentDirectWorkController({
     updateDirectWorkActivitySummary(EMPTY_WORKSPACE_AGENT_ACTIVITY_SUMMARY);
     setWorkspaceKnowledgeLookup(EMPTY_WORKSPACE_KNOWLEDGE_LOOKUP);
     setIsDirectWorkStopPending(false);
+  }
+
+  function recordAgentRuntimeEvent(event: AgentRuntimeEvent) {
+    if (event.type === "protocol_output_classified") {
+      directWorkProtocolOutcomeRef.current = event.protocolResult;
+      return;
+    }
+
+    if (event.type !== "provider_event") {
+      return;
+    }
+
+    const runScope = directWorkRunScopeRef.current ?? {
+      widgetInstanceId: instanceId,
+      workspaceId: workspaceScopeId,
+    };
+    const directWorkEvent = directWorkStreamEventFromAgentRuntimeEvent(event, {
+      providerStoppedMessage: `${workspaceAgentProvider.providerDisplayName} stopped.`,
+      widgetInstanceId: runScope.widgetInstanceId,
+      workspaceId: runScope.workspaceId,
+    });
+    if (!directWorkEvent) {
+      return;
+    }
+
+    recordDirectWorkEvent(directWorkEvent);
   }
 
   function recordDirectWorkEvent(event: DirectWorkStreamEvent) {
@@ -478,17 +608,23 @@ export function useWorkspaceAgentDirectWorkController({
       onAppendAssistantTranscript("failed", productActionLoopResult.message);
       directWorkRunScopeRef.current = null;
       productActionLoopGuardRef.current = null;
+      clearBrokerContinuationState();
       return;
     }
 
-    const activityEvent = agentActivityEventFromDirectWorkStreamEvent({
-      event,
-      sourceKind: "workspace-agent",
-      sourceLabel: "Workspace Agent",
-    });
-    if (activityEvent) {
-      onPublishAgentActivityEvents?.([activityEvent]);
-    }
+    applyAgentActivityRecorderResult(
+      recordAgentActivity({
+        event: {
+          brokerContinuationChainId:
+            activeBrokerContinuationChainIdRef.current,
+          streamEvent: event,
+          type: "provider_stream_event",
+        },
+        timestampMs: Date.now(),
+        widgetInstanceId: instanceId,
+        workspaceId: workspaceScopeId,
+      }),
+    );
     const tokenUsage = tokenUsageFromDirectWorkStreamEvent(event);
     if (tokenUsage) {
       directWorkTokenUsageRef.current = tokenUsage;
@@ -528,11 +664,6 @@ export function useWorkspaceAgentDirectWorkController({
         RENDER_MEMORY_CAPS.transcriptMessageChars,
       );
     }
-
-    appendDirectWorkLog(
-      directWorkEventText(event),
-      event.eventKind,
-    );
 
     if (!event.isFinal) {
       const nextSummary = workspaceAgentActivitySummaryFromEvent(
@@ -643,68 +774,332 @@ export function useWorkspaceAgentDirectWorkController({
     runMetadata: WorkspaceAgentRunMetadata;
   }) {
     if (finalStatus !== "completed") {
+      directWorkProtocolOutcomeRef.current = null;
       return false;
     }
 
-    const envelopeRead = readHobitAgentActionRequestEnvelope(
-      finalAgentMessage ?? finalResult,
-    );
+    const protocolOutcome = resolveAgentRuntimeProtocolOutcome({
+      fallbackMode: brokerContinuationStateRef.current
+        ? "typed_capability_action"
+        : "normal",
+      fallbackText: finalAgentMessage ?? finalResult,
+      runtimeProtocolOutcome: directWorkProtocolOutcomeRef.current,
+    });
+    directWorkProtocolOutcomeRef.current = null;
 
-    if (envelopeRead.status === "none") {
+    return applyBrokerContinuationRuntimeResult({
+      runId,
+      runMetadata,
+      runtimeResult: runBrokerContinuationRuntime({
+        activeChainId: activeBrokerContinuationChainIdRef.current,
+        agentId: `workspace-agent:${instanceId}`,
+        continuationThreadId: brokerContinuationThreadId(runMetadata),
+        createdAt: new Date().toISOString(),
+        derivedChainId: `workspace-agent-action-chain-${runId}`,
+        kind: "provider_protocol_result",
+        protocolOutcome,
+        state: brokerContinuationStateRef.current,
+      }),
+    });
+  }
+
+  function applyBrokerContinuationRuntimeResult({
+    runId,
+    runMetadata,
+    runtimeResult,
+  }: {
+    runId: string;
+    runMetadata: WorkspaceAgentRunMetadata;
+    runtimeResult: BrokerContinuationRuntimeResult;
+  }) {
+    if (!runtimeResult.handled) {
       return false;
     }
 
-    if (envelopeRead.status === "invalid") {
-      const message = workspaceAgentInvalidActionRequestMessage(
-        envelopeRead.reasons,
+    for (const effect of runtimeResult.effects) {
+      if (effect.type === "complete") {
+        if (
+          effect.completionKind === "final_answer" &&
+          effect.stopReason &&
+          effect.chainId
+        ) {
+          recordBrokerContinuationStop({
+            chainId: effect.chainId,
+            message: "Workspace Agent completed the action chain.",
+            runMetadata,
+            severity: "success",
+            status: "completed",
+            stopReason: effect.stopReason,
+          });
+        }
+
+        if (effect.completionKind === "final_answer") {
+          applyAgentActivityRecorderResult(
+            recordAgentActivity({
+              event: {
+                finalAnswer: effect.finalAnswer,
+                runId,
+                runMetadata,
+                type: "provider_final_answer",
+              },
+              timestampMs: Date.now(),
+              widgetInstanceId: instanceId,
+              workspaceId: workspaceScopeId,
+            }),
+          );
+        } else if (
+          effect.protocolOutcome.workflowRequest.moduleId === "queue" &&
+          onInvokeQueueWorkflowRequest
+        ) {
+          void invokeWorkspaceAgentQueueWorkflowRequest({
+            runId: effect.chainId ?? runId,
+            runMetadata,
+            workflowRequestRead: effect.protocolOutcome.workflowRequestRead,
+          });
+        } else {
+          applyAgentActivityRecorderResult(
+            recordAgentActivity({
+              event: {
+                runId: effect.chainId ?? runId,
+                runMetadata,
+                type: "workflow_request_recognized",
+                workflowRequestRead:
+                  effect.protocolOutcome.workflowRequestRead,
+              },
+              timestampMs: Date.now(),
+              widgetInstanceId: instanceId,
+              workspaceId: workspaceScopeId,
+            }),
+          );
+        }
+        continue;
+      }
+
+      if (effect.type === "queue_structured_confirmation_injected") {
+        appendDirectWorkLog(effect.message, "local");
+        continue;
+      }
+
+      if (effect.type === "record_broker_action_result") {
+        recordHobitActionResultTranscript({
+          activityRunId: effect.activityRunId,
+          actionIndex: effect.actionIndex,
+          capabilityId: effect.capabilityId,
+          message: effect.message,
+          policyDiagnostics: effect.policyDiagnostics,
+          result: effect.result,
+          runMetadata,
+          stopReason: effect.stopReason,
+        });
+        continue;
+      }
+
+      if (effect.type === "invoke_next_action") {
+        brokerContinuationStateRef.current = effect.state;
+        applyAgentActivityRecorderResult(
+          recordAgentActivity({
+            event: {
+              actionIndex: effect.intent.actionIndex,
+              capabilityId: effect.intent.request.capabilityId,
+              maxActions: effect.state.maxActions,
+              runId: effect.state.chainId,
+              type: "broker_action_requested",
+            },
+            timestampMs: Date.now(),
+            widgetInstanceId: instanceId,
+            workspaceId: workspaceScopeId,
+          }),
+        );
+
+        if (!onInvokeHobitAgentActionRequest) {
+          recordHobitActionResultTranscript({
+            activityRunId: effect.state.chainId,
+            actionIndex: effect.intent.actionIndex,
+            capabilityId: effect.intent.request.capabilityId,
+            message:
+              "Action unavailable. Workspace Agent Action Broker is unavailable.",
+            runMetadata,
+            severity: "warning",
+            status: "failed",
+            stopReason: "broker_unavailable",
+            title: "Action unavailable",
+          });
+          clearBrokerContinuationState();
+          continue;
+        }
+
+        void invokeWorkspaceAgentHobitActionRequest({
+          actionIndex: effect.intent.actionIndex,
+          confirmationInjected: effect.intent.confirmationInjected,
+          request: effect.intent.request,
+          runMetadata,
+        });
+        continue;
+      }
+
+      if (effect.type === "request_repair_turn") {
+        brokerContinuationStateRef.current = effect.state;
+        applyAgentActivityRecorderResult(
+          recordAgentActivity({
+            event: {
+              outcome: effect.outcome,
+              runId: effect.state.chainId,
+              runMetadata,
+              type: "protocol_repair_required",
+            },
+            timestampMs: Date.now(),
+            widgetInstanceId: instanceId,
+            workspaceId: workspaceScopeId,
+          }),
+        );
+        void startBrokerProtocolRepairTurn(effect.intent);
+        continue;
+      }
+
+      if (effect.type === "request_continuation_turn") {
+        brokerContinuationStateRef.current = effect.state;
+        void startBrokerContinuationTurn(effect.intent);
+        continue;
+      }
+
+      if (effect.type === "stop") {
+        setDirectWorkStatus("failed");
+        if (effect.protocolOutcome?.kind === "invalid_action_request") {
+          applyAgentActivityRecorderResult(
+            recordAgentActivity({
+              event: {
+                actionIndex: effect.actionIndex,
+                reasons: effect.protocolOutcome.actionRequestRead.reasons,
+                runId: effect.chainId,
+                runMetadata,
+                type: "invalid_action_request",
+              },
+              timestampMs: Date.now(),
+              widgetInstanceId: instanceId,
+              workspaceId: workspaceScopeId,
+            }),
+          );
+        } else if (
+          effect.protocolOutcome?.kind === "invalid_workflow_request" ||
+          effect.protocolOutcome?.kind === "mixed_action_and_workflow_request"
+        ) {
+          applyAgentActivityRecorderResult(
+            recordAgentActivity({
+              event: {
+                actionIndex: effect.actionIndex,
+                reasons: effect.protocolOutcome.workflowRequestRead.reasons,
+                runId: effect.chainId,
+                runMetadata,
+                type: effect.protocolOutcome.kind,
+              },
+              timestampMs: Date.now(),
+              widgetInstanceId: instanceId,
+              workspaceId: workspaceScopeId,
+            }),
+          );
+        } else if (
+          effect.protocolOutcome?.kind === "protocol_stall" ||
+          effect.protocolOutcome?.kind === "no_action_output"
+        ) {
+          applyAgentActivityRecorderResult(
+            recordAgentActivity({
+              event: {
+                outcome: effect.protocolOutcome,
+                runId: effect.chainId,
+                runMetadata,
+                type: "protocol_error",
+              },
+              timestampMs: Date.now(),
+              widgetInstanceId: instanceId,
+              workspaceId: workspaceScopeId,
+            }),
+          );
+        } else if (effect.message) {
+          recordHobitActionResultTranscript({
+            activityRunId: effect.chainId,
+            actionIndex: effect.actionIndex,
+            capabilityId: effect.capabilityId,
+            message: effect.message,
+            runMetadata,
+            severity: "warning",
+            status: "failed",
+            stopReason: effect.stopReason,
+            title: effect.title,
+          });
+        }
+
+        if (effect.logMessage) {
+          appendDirectWorkLog(effect.logMessage, "local");
+        }
+      }
+    }
+
+    if (runtimeResult.nextState === null) {
+      clearBrokerContinuationState();
+    }
+
+    return true;
+  }
+
+  async function invokeWorkspaceAgentQueueWorkflowRequest({
+    runId,
+    runMetadata,
+    workflowRequestRead,
+  }: {
+    runId: string;
+    runMetadata: WorkspaceAgentRunMetadata;
+    workflowRequestRead: Parameters<WorkspaceAgentQueueWorkflowInvoker>[0];
+  }) {
+    try {
+      const runtimeResult =
+        await onInvokeQueueWorkflowRequest?.(workflowRequestRead);
+      if (!runtimeResult || !isMountedRef.current) {
+        return;
+      }
+
+      applyAgentActivityRecorderResult(
+        recordAgentActivity({
+          event: {
+            runId,
+            runMetadata,
+            type: "queue_workflow_runtime_result",
+            workflowRuntimeResult: runtimeResult,
+          },
+          timestampMs: Date.now(),
+          widgetInstanceId: instanceId,
+          workspaceId: workspaceScopeId,
+        }),
       );
+    } catch (error) {
+      if (!isMountedRef.current) {
+        return;
+      }
+
+      const message = errorToMessage(error, "Queue workflow runner failed.");
       recordHobitActionResultTranscript({
         activityRunId: runId,
         message,
         runMetadata,
         severity: "error",
         status: "failed",
-        title: "Invalid Hobit action request",
+        stopReason: "failed",
+        title: "Queue workflow runner failed",
       });
-      return true;
+      clearBrokerContinuationState();
     }
-
-    const actionRequest = createHobitAgentActionRequestFromEnvelope({
-      agentId: `workspace-agent:${instanceId}`,
-      createdAt: new Date().toISOString(),
-      envelope: envelopeRead.envelope,
-    });
-    publishHobitActionActivityEvent({
-      runId: actionRequest.requestId,
-      severity: "info",
-      status: "running",
-      summary: actionRequest.reason ?? actionRequest.capabilityId,
-      title: "Hobit action requested",
-    });
-    setDirectWorkFinalResult("Hobit action requested.");
-    appendDirectWorkLog("Hobit action requested.", "local");
-
-    if (!onInvokeHobitAgentActionRequest) {
-      recordHobitActionResultTranscript({
-        activityRunId: actionRequest.requestId,
-        message:
-          "Action unavailable. Workspace Agent Action Broker is unavailable.",
-        runMetadata,
-        severity: "warning",
-        status: "failed",
-        title: "Action unavailable",
-      });
-      return true;
-    }
-
-    void invokeWorkspaceAgentHobitActionRequest(actionRequest, runMetadata);
-    return true;
   }
 
-  async function invokeWorkspaceAgentHobitActionRequest(
-    request: HobitAgentActionRequest,
-    runMetadata: WorkspaceAgentRunMetadata,
-  ) {
+  async function invokeWorkspaceAgentHobitActionRequest({
+    actionIndex,
+    confirmationInjected,
+    request,
+    runMetadata,
+  }: {
+    actionIndex: number;
+    confirmationInjected: boolean;
+    request: HobitAgentActionRequest;
+    runMetadata: WorkspaceAgentRunMetadata;
+  }) {
     try {
       const brokerResult = await onInvokeHobitAgentActionRequest?.(request);
       if (!brokerResult || !isMountedRef.current) {
@@ -714,11 +1109,19 @@ export function useWorkspaceAgentDirectWorkController({
       const message = workspaceAgentHobitActionResultMessage(
         brokerResult.result,
       );
-      recordHobitActionResultTranscript({
-        activityRunId: request.requestId,
-        message,
-        result: brokerResult.result,
+      applyBrokerContinuationRuntimeResult({
+        runId: request.requestId,
         runMetadata,
+        runtimeResult: runBrokerContinuationRuntime({
+          actionIndex,
+          brokerResult,
+          confirmationInjected,
+          continuationThreadId: brokerContinuationThreadId(runMetadata),
+          kind: "broker_action_result",
+          message,
+          request,
+          state: brokerContinuationStateRef.current,
+        }),
       });
     } catch (error) {
       if (!isMountedRef.current) {
@@ -726,50 +1129,122 @@ export function useWorkspaceAgentDirectWorkController({
       }
 
       const message = errorToMessage(error, "Hobit action failed.");
+      const state = brokerContinuationStateRef.current;
       recordHobitActionResultTranscript({
-        activityRunId: request.requestId,
+        activityRunId: state?.chainId ?? request.requestId,
+        actionIndex,
+        capabilityId: request.capabilityId,
         message,
         runMetadata,
         severity: "error",
         status: "failed",
+        stopReason: "failed",
         title: "Hobit action failed",
       });
+      clearBrokerContinuationState();
     }
   }
 
+  async function startBrokerContinuationTurn(intent: BrokerContinuationTurnIntent) {
+    await startDirectWorkTurn({
+      appendOperatorTranscript: false,
+      attachCapabilityContext: false,
+      brokerContinuationChainId: intent.chainId,
+      clearDraftAndVisibleContext: false,
+      operatorPrompt: intent.prompt,
+      repoRoot: directWorkDirectory.trim(),
+      resumeThreadIdOverride: intent.resumeThreadId,
+    });
+  }
+
+  async function startBrokerProtocolRepairTurn(intent: BrokerContinuationTurnIntent) {
+    await startDirectWorkTurn({
+      appendOperatorTranscript: false,
+      attachCapabilityContext: false,
+      brokerContinuationChainId: intent.chainId,
+      clearDraftAndVisibleContext: false,
+      operatorPrompt: intent.prompt,
+      repoRoot: directWorkDirectory.trim(),
+      resumeThreadIdOverride: intent.resumeThreadId,
+    });
+  }
+
+  function brokerContinuationThreadId(runMetadata: WorkspaceAgentRunMetadata) {
+    return (
+      runMetadata.threadId ??
+      directWorkCapturedThreadIdRef.current ??
+      codexThreadIdForScope(
+        currentCodexThread,
+        workspaceScopeId,
+        instanceId,
+        directWorkDirectory.trim(),
+      )
+    );
+  }
+
+  function queueAutonomyGrantNotice(
+    readResult: ReturnType<typeof readWorkspaceAgentQueueAutonomyGrantFromText>,
+  ) {
+    if (readResult.status === "valid") {
+      return `Structured Queue autonomy grant active: ${readResult.grant.mode}.`;
+    }
+
+    if (readResult.status === "invalid") {
+      return `Queue autonomy grant ignored: ${readResult.reasons.join(" ")}`;
+    }
+
+    return null;
+  }
+
   function recordHobitActionResultTranscript({
+    actionIndex,
     activityRunId,
+    capabilityId,
     message,
+    policyDiagnostics,
     result,
     runMetadata,
     severity,
     status,
+    stopReason,
     title,
   }: {
+    actionIndex?: number;
     activityRunId: string;
+    capabilityId?: string;
     message: string;
+    policyDiagnostics?: WorkspaceAgentBrokerPolicyDiagnostics;
     result?: HobitAgentActionResult;
     runMetadata: WorkspaceAgentRunMetadata;
-    severity?: AgentActivitySeverity;
-    status?: AgentActivityStatus;
+    severity?: AgentActivityRecorderResult["activityAppends"][number]["severity"];
+    status?: AgentActivityRecorderResult["activityAppends"][number]["status"];
+    stopReason?: WorkspaceAgentBrokerContinuationStopReason;
     title?: string;
   }) {
-    setDirectWorkFinalResult(message);
-    appendDirectWorkLog(message, "local");
-    publishHobitActionActivityEvent({
-      runId: activityRunId,
-      severity: severity ?? activitySeverityForHobitActionResult(result),
-      status: status ?? activityStatusForHobitActionResult(result),
-      summary: message,
-      title:
-        title ??
-        workspaceAgentHobitActionActivityTitle(
-          result?.status ?? "failed",
-          result?.capabilityId,
-          result?.dryRun ?? false,
-        ),
-    });
-    appendAssistantActionTranscript(message, runMetadata);
+    applyAgentActivityRecorderResult(
+      recordAgentActivity({
+        event: {
+          actionIndex,
+          activityRunId,
+          capabilityId,
+          maxActions:
+            brokerContinuationStateRef.current?.maxActions ??
+            WORKSPACE_AGENT_BROKER_CONTINUATION_MAX_ACTIONS,
+          message,
+          policyDiagnostics,
+          result,
+          runMetadata,
+          severity,
+          status,
+          stopReason,
+          title,
+          type: "broker_action_result",
+        },
+        timestampMs: Date.now(),
+        widgetInstanceId: instanceId,
+        workspaceId: workspaceScopeId,
+      }),
+    );
   }
 
   function appendAssistantActionTranscript(
@@ -784,78 +1259,84 @@ export function useWorkspaceAgentDirectWorkController({
     onAppendAssistantTranscript("completed", body, true, runMetadata);
   }
 
-  function publishHobitActionActivityEvent({
-    runId,
+  function recordBrokerContinuationStop({
+    chainId,
+    message,
+    runMetadata,
     severity,
     status,
-    summary,
-    title,
+    stopReason,
   }: {
-    runId: string;
-    severity: AgentActivitySeverity;
-    status: AgentActivityStatus;
-    summary?: string;
-    title: string;
+    chainId?: string;
+    message: string;
+    runMetadata: WorkspaceAgentRunMetadata;
+    severity: AgentActivityRecorderResult["activityAppends"][number]["severity"];
+    status: AgentActivityRecorderResult["activityAppends"][number]["status"];
+    stopReason: WorkspaceAgentBrokerContinuationStopReason;
   }) {
-    const event: AgentActivityEvent = {
-      id: `${workspaceScopeId}:${instanceId}:hobit-action:${runId}:${status}:${title}`,
-      runId,
-      severity,
-      sourceKind: "workspace-agent",
-      sourceLabel: "Workspace Agent",
-      sourceWidgetInstanceId: instanceId,
-      status,
-      summary,
-      timestamp: Date.now(),
-      timestampLabel: "0s",
-      title,
-      workspaceId: workspaceScopeId,
-    };
+    const state = brokerContinuationStateRef.current;
+    const runId = chainId ?? state?.chainId ?? null;
+    if (!runId) {
+      return;
+    }
 
-    onPublishAgentActivityEvents?.([event]);
+    applyAgentActivityRecorderResult(
+      recordAgentActivity({
+        event: {
+          message,
+          runId,
+          runMetadata,
+          severity,
+          status,
+          stopReason,
+          type: "broker_continuation_stopped",
+        },
+        timestampMs: Date.now(),
+        widgetInstanceId: instanceId,
+        workspaceId: workspaceScopeId,
+      }),
+    );
   }
 
-  function activityStatusForHobitActionResult(
-    result: HobitAgentActionResult | undefined,
-  ): AgentActivityStatus {
-    if (!result) {
-      return "failed";
-    }
-
-    if (result.status === "succeeded") {
-      return "completed";
-    }
-
-    if (
-      result.status === "needs_confirmation" ||
-      result.status === "dry_run_required"
-    ) {
-      return "pending";
-    }
-
-    return "failed";
+  function clearBrokerContinuationState() {
+    brokerContinuationStateRef.current = null;
+    activeBrokerContinuationChainIdRef.current = null;
   }
 
-  function activitySeverityForHobitActionResult(
-    result: HobitAgentActionResult | undefined,
-  ): AgentActivitySeverity {
-    if (!result) {
-      return "error";
+  function applyAgentActivityRecorderResult(
+    recorderResult: AgentActivityRecorderResult,
+  ) {
+    for (const notice of recorderResult.notices) {
+      if (notice.kind === "direct_work_error") {
+        setDirectWorkError(notice.value);
+      } else if (notice.kind === "direct_work_final_result") {
+        setDirectWorkFinalResult(notice.value);
+      }
     }
 
-    if (result.status === "succeeded") {
-      return "success";
+    for (const logAppend of recorderResult.logAppends) {
+      appendDirectWorkLog(logAppend.text, logAppend.kind);
     }
 
-    if (
-      result.status === "needs_confirmation" ||
-      result.status === "dry_run_required" ||
-      result.status === "unavailable"
-    ) {
-      return "warning";
+    if (recorderResult.activityAppends.length > 0) {
+      onPublishAgentActivityEvents?.(recorderResult.activityAppends);
     }
 
-    return "error";
+    for (const transcriptAppend of recorderResult.transcriptAppends) {
+      if (transcriptAppend.kind === "assistant_action") {
+        appendAssistantActionTranscript(
+          transcriptAppend.body,
+          transcriptAppend.runMetadata,
+        );
+      } else {
+        onAppendAssistantTranscript(
+          transcriptAppend.status,
+          transcriptAppend.body,
+          transcriptAppend.useDirectBody,
+          transcriptAppend.runMetadata,
+        );
+      }
+    }
   }
 
   function appendDirectWorkLog(
@@ -895,6 +1376,7 @@ export function useWorkspaceAgentDirectWorkController({
       return nextSummary;
     });
     productActionLoopGuardRef.current = null;
+    clearBrokerContinuationState();
     appendDirectWorkLog(reason, "local");
     onAppendAssistantTranscript("failed", reason);
   }
@@ -911,6 +1393,7 @@ export function useWorkspaceAgentDirectWorkController({
     directWorkStartAbortControllerRef.current = null;
     directWorkStopListeningRef.current?.();
     directWorkStopListeningRef.current = null;
+    agentRuntimeRunHandleRef.current = null;
   }
 
   return {

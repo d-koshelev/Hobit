@@ -5,6 +5,7 @@ pub struct WorkspaceRow {
     pub id: String,
     pub title: String,
     pub description: Option<String>,
+    pub root_path: Option<String>,
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
@@ -15,6 +16,7 @@ pub struct WorkspaceSummaryRow {
     pub id: String,
     pub title: String,
     pub description: Option<String>,
+    pub root_path: Option<String>,
     pub status: String,
     pub created_at: String,
     pub updated_at: String,
@@ -163,6 +165,102 @@ pub struct AgentQueueTaskRunLinkRow {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueuePromptPackMaterializationRow {
+    pub workspace_id: String,
+    pub pack_id: String,
+    pub title: String,
+    pub description: Option<String>,
+    pub pack_spec_hash: String,
+    pub run_settings_hash: String,
+    pub dependency_spec_hash: String,
+    pub full_preview_hash: String,
+    pub task_count: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueuePromptPackTaskMappingRow {
+    pub workspace_id: String,
+    pub pack_id: String,
+    pub pack_task_id: String,
+    pub queue_task_id: String,
+    pub task_spec_hash: String,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueReviewMessageRow {
+    pub message_id: String,
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub run_id: Option<String>,
+    pub run_link_id: Option<String>,
+    pub actor_id: String,
+    pub message_body: String,
+    pub status: String,
+    pub created_at: String,
+    pub acked_at: Option<String>,
+    pub ack_actor_id: Option<String>,
+    pub metadata_json: Option<String>,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkerEvidenceBundleRow {
+    pub bundle_id: String,
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub run_id: String,
+    pub run_link_id: Option<String>,
+    pub executor_widget_id: Option<String>,
+    pub worker_id: Option<String>,
+    pub source: String,
+    pub outcome: String,
+    pub summary: String,
+    pub changed_files_json: String,
+    pub changed_files_count: i64,
+    pub changed_files_summary: Option<String>,
+    pub validation_summary: Option<String>,
+    pub error_summary: Option<String>,
+    pub metadata_json: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueCompletionDecisionRow {
+    pub decision_id: String,
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub run_id: Option<String>,
+    pub run_link_id: Option<String>,
+    pub review_message_id: Option<String>,
+    pub actor_id: String,
+    pub decision: String,
+    pub reason: Option<String>,
+    pub metadata_json: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueFailureDecisionRow {
+    pub decision_id: String,
+    pub workspace_id: String,
+    pub queue_task_id: String,
+    pub run_id: Option<String>,
+    pub run_link_id: Option<String>,
+    pub evidence_bundle_id: Option<String>,
+    pub review_message_id: Option<String>,
+    pub actor_id: String,
+    pub decision: String,
+    pub reason: String,
+    pub metadata_json: Option<String>,
+    pub created_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AgentQueueWorkerRow {
     pub worker_id: String,
     pub workspace_id: String,
@@ -172,6 +270,64 @@ pub struct AgentQueueWorkerRow {
     pub queue_tag_id: Option<String>,
     pub queue_tag_name: Option<String>,
     pub display_order: i64,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueControlStateRow {
+    pub workspace_id: String,
+    pub status: String,
+    pub version: i64,
+    pub updated_by_actor_id: Option<String>,
+    pub reason: Option<String>,
+    pub created_at: String,
+    pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkflowRunRow {
+    pub workflow_run_id: String,
+    pub workspace_id: String,
+    pub workflow_id: String,
+    pub request_id: String,
+    pub request_hash: String,
+    pub status: String,
+    pub phase: String,
+    pub current_step: Option<String>,
+    pub pause_reason: Option<String>,
+    pub blocker_reason: Option<String>,
+    pub actor_id: Option<String>,
+    pub inputs_snapshot_json: Option<String>,
+    pub grant_summary_json: Option<String>,
+    pub variables_json: Option<String>,
+    pub slot_bindings_json: Option<String>,
+    pub mutation_refs_json: Option<String>,
+    pub idempotency_keys_json: Option<String>,
+    pub action_log_summary_json: Option<String>,
+    pub version: i64,
+    pub schema_version: i64,
+    pub created_at: String,
+    pub updated_at: String,
+    pub completed_at: Option<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AgentQueueWorkflowActionRow {
+    pub action_id: String,
+    pub workflow_run_id: String,
+    pub workspace_id: String,
+    pub step_id: String,
+    pub action_type: String,
+    pub idempotency_key: String,
+    pub status: String,
+    pub target_refs_json: Option<String>,
+    pub result_refs_json: Option<String>,
+    pub blocker_code: Option<String>,
+    pub blocker_message: Option<String>,
+    pub attempt_count: i64,
+    pub started_at: Option<String>,
+    pub completed_at: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
