@@ -26,6 +26,7 @@ import {
   agentQueueTaskRunSettingsDefaultsFromRun,
   defaultAgentQueueTaskRunSettings,
 } from "./queue/agentQueueRunSettingsDefaults";
+import { QueueStaleRecoveryReview } from "./queue/QueueStaleRecoveryReview";
 import type { WidgetRenderProps } from "./types";
 
 export function AgentQueuePlaceholderWidget({
@@ -49,6 +50,7 @@ export function AgentQueuePlaceholderWidget({
   onStartFrameMove,
   queueValidationRunner,
   title,
+  workspaceId,
 }: WidgetRenderProps) {
   const createTitleInputId = useId();
   const createDescriptionInputId = useId();
@@ -239,6 +241,10 @@ export function AgentQueuePlaceholderWidget({
         ) : (
           <div className="agent-queue-main-surface">
             {/* Active product route: WidgetHost -> AgentQueuePlaceholderWidget -> AgentQueueV2Board. */}
+            <QueueStaleRecoveryReview
+              queue={queue}
+              workspaceId={workspaceId ?? null}
+            />
             <AgentQueueV2Board
               autorunArmed={
                 queue.autorun.snapshot?.isActive ??
