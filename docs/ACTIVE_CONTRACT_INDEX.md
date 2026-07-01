@@ -828,6 +828,13 @@ the local executor flow visible to operators.
   manifest, broker handler, `ModuleControlSurface`, and continuation policy
   layers; `queue.control.setManualEnabled` remains setup/write-gated, and
   workflow invocation remains `hobit.workflow.request` only.
+- `docs/QUEUE_CANONICAL_WORKSPACE_PROJECTION_CONTRACT.md` - current canonical
+  Workspace Queue projection contract. Read before changing Workspace overview
+  Queue recovery, Queue presence/count/control-state projection, visible Queue
+  view metadata, or singleton restore/open affordances. It requires backend/
+  storage-owned Queue truth and forbids frontend-owned Queue lifecycle,
+  mounted-widget emptiness inference, direct DB probing, duplicate Queue
+  views, worker execution, and synthetic `widget_runs`.
 - `docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md` - authoritative Queue
   coordination vocabulary. Read before adding or changing Queue task/run,
   actor, assignment, claim, executor target, event/audit, artifact/evidence
@@ -1143,6 +1150,7 @@ These documents should not override the Workspace Agent model or
   boundaries.
 - Queue work: read `docs/QUEUE_SINGLETON_CONTRACT.md`,
   `docs/QUEUE_BACKEND_OWNERSHIP_CONTRACT.md`,
+  `docs/QUEUE_CANONICAL_WORKSPACE_PROJECTION_CONTRACT.md`,
   `docs/QUEUE_WORKSPACE_COORDINATION_CONTRACT.md`, and
   `docs/AGENT_QUEUE_PRODUCT_MODEL_CONTRACT.md`; add
   `docs/QUEUE_TO_EXECUTOR_ASSIGNMENT_CONTRACT.md` for assignment and

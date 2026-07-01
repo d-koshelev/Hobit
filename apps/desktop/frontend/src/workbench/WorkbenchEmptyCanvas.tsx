@@ -24,8 +24,8 @@ export function WorkbenchEmptyCanvas({
   const shouldShowQueueRecovery =
     Boolean(onOpenQueueView) &&
     Boolean(queueRecovery) &&
-    queueRecovery!.queueTaskCount > 0 &&
-    !queueRecovery!.hasVisibleQueueView;
+    queueRecovery!.recoveryAvailable &&
+    queueRecovery!.canRestoreQueueView;
   const queueTaskLabel =
     queueRecovery?.queueTaskCount === 1
       ? "1 Queue task"

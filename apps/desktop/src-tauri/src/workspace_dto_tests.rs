@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use hobit_app::{
     AgentChatProposalRunSummary, GitBranchStatusSummary, GitFileChangeSummary,
     GitLastCommitSummary, GitRepositoryStatusSummary, GitWorkingTreeStatusSummary,
-    PersistAgentChatProposalInput, QueueWorkspaceRecoveryProjection, RunTerminalCommandInput,
-    SharedStateObjectSummary, TerminalCommandRunSummary, WidgetInstanceSummary, WidgetLogSummary,
-    WorkbenchEventSummary, WorkbenchSummary, WorkspaceDeletionSummary, WorkspaceSessionSummary,
-    WorkspaceSummary, WorkspaceWorkbenchState,
+    PersistAgentChatProposalInput, QueueWorkspaceRecoveryProjection, QueueWorkspaceRecoveryReason,
+    RunTerminalCommandInput, SharedStateObjectSummary, TerminalCommandRunSummary,
+    WidgetInstanceSummary, WidgetLogSummary, WorkbenchEventSummary, WorkbenchSummary,
+    WorkspaceDeletionSummary, WorkspaceSessionSummary, WorkspaceSummary, WorkspaceWorkbenchState,
 };
 use hobit_app::{
     AgentMonitoringProposalActionSummary, AgentMonitoringProposalResultSummary,
@@ -245,6 +245,9 @@ fn maps_workspace_workbench_state_to_dto() {
                 created_at: "2026-05-25T10:00:00Z".to_owned(),
                 updated_at: "2026-05-25T10:30:00Z".to_owned(),
             }),
+            recovery_available: true,
+            can_restore_queue_view: true,
+            recovery_reason: QueueWorkspaceRecoveryReason::HiddenQueueViewExists,
         },
         widget_instances: vec![WidgetInstanceSummary {
             id: "widget-1".to_owned(),
@@ -297,6 +300,20 @@ fn maps_workspace_workbench_state_to_dto() {
     assert_eq!(dto.queue_recovery.running_task_count, 1);
     assert_eq!(dto.queue_recovery.stale_running_candidate_count, 1);
     assert!(!dto.queue_recovery.has_visible_queue_view);
+    assert!(dto.queue_recovery.recovery_available);
+    assert!(dto.queue_recovery.can_restore_queue_view);
+    assert_eq!(
+        dto.queue_recovery.recovery_reason,
+        "hidden_queue_view_exists"
+    );
+    let queue_recovery_json =
+        serde_json::to_value(&dto.queue_recovery).expect("serialize queue recovery projection");
+    assert_eq!(queue_recovery_json["recovery_available"], json!(true));
+    assert_eq!(queue_recovery_json["can_restore_queue_view"], json!(true));
+    assert_eq!(
+        queue_recovery_json["recovery_reason"],
+        json!("hidden_queue_view_exists")
+    );
     assert_eq!(
         dto.queue_recovery.canonical_queue_widget_id.as_deref(),
         Some("queue_widget_1")

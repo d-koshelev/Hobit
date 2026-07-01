@@ -5,7 +5,9 @@ use hobit_storage_sqlite::{
     WorkspaceWorkbenchRow,
 };
 
-use crate::{QueueWorkspaceRecoveryProjection, WorkspaceServiceError};
+use crate::{
+    QueueWorkspaceRecoveryProjection, QueueWorkspaceRecoveryReason, WorkspaceServiceError,
+};
 
 use super::{
     agent_queue_lifecycle::AGENT_QUEUE_TASK_STATUS_RUNNING,
@@ -124,6 +126,14 @@ fn queue_workspace_recovery_projection_from_store(
     let control_state = store
         .get_agent_queue_control_state(workspace_id)?
         .map(agent_queue_control_state_summary);
+    let recovery_available = tasks.len() > 0 && !has_visible_queue_view;
+    let can_restore_queue_view =
+        !has_visible_queue_view && (canonical_queue_widget_id.is_some() || !tasks.is_empty());
+    let recovery_reason = queue_recovery_reason(
+        tasks.len(),
+        has_visible_queue_view,
+        canonical_queue_widget_id.as_ref(),
+    );
 
     Ok(QueueWorkspaceRecoveryProjection {
         workspace_id: workspace_id.to_owned(),
@@ -133,7 +143,30 @@ fn queue_workspace_recovery_projection_from_store(
         has_visible_queue_view,
         canonical_queue_widget_id,
         control_state,
+        recovery_available,
+        can_restore_queue_view,
+        recovery_reason,
     })
+}
+
+fn queue_recovery_reason(
+    queue_task_count: usize,
+    has_visible_queue_view: bool,
+    canonical_queue_widget_id: Option<&String>,
+) -> QueueWorkspaceRecoveryReason {
+    if has_visible_queue_view {
+        return QueueWorkspaceRecoveryReason::VisibleQueueViewExists;
+    }
+
+    if canonical_queue_widget_id.is_some() {
+        return QueueWorkspaceRecoveryReason::HiddenQueueViewExists;
+    }
+
+    if queue_task_count > 0 {
+        return QueueWorkspaceRecoveryReason::QueueStateWithoutVisibleView;
+    }
+
+    QueueWorkspaceRecoveryReason::NoQueueState
 }
 
 fn compare_queue_widget_rank(left: &&WidgetInstanceRow, right: &&WidgetInstanceRow) -> Ordering {

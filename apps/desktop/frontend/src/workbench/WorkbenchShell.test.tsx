@@ -1216,12 +1216,12 @@ function queueRecoveryProjection(
   overrides: Partial<NonNullable<WorkbenchViewState["queueRecovery"]>> = {},
 ): NonNullable<WorkbenchViewState["queueRecovery"]> {
   return {
-    canonicalQueueWidgetId: null,
-    controlState: null,
+    canonicalQueueWidgetId: null, controlState: null,
     hasVisibleQueueView: false,
     queueTaskCount: 1,
-    runningTaskCount: 0,
-    staleRunningCandidateCount: 0,
+    recoveryAvailable: true, canRestoreQueueView: true,
+    recoveryReason: "queue_state_without_visible_view",
+    runningTaskCount: 0, staleRunningCandidateCount: 0,
     workspaceId: "workspace_1",
     ...overrides,
   };

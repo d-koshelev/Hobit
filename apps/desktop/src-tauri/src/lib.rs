@@ -91,6 +91,7 @@ mod prompt_pack_import_commands;
 mod prompt_pack_import_dto;
 #[cfg(test)]
 mod prompt_pack_import_dto_tests;
+mod queue_workspace_recovery_dto;
 mod skills_commands;
 mod skills_dto;
 #[cfg(test)]

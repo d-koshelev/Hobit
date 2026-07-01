@@ -114,6 +114,13 @@ export type WorkspaceWorkbenchState = {
   recentEvents: WorkspaceEventSummary[];
 };
 
+export type QueueWorkspaceRecoveryReason =
+  | "no_queue_state"
+  | "visible_queue_view_exists"
+  | "hidden_queue_view_exists"
+  | "queue_state_without_visible_view"
+  | "unknown";
+
 export type QueueWorkspaceRecoveryProjection = {
   workspaceId: string;
   queueTaskCount: number;
@@ -122,6 +129,9 @@ export type QueueWorkspaceRecoveryProjection = {
   hasVisibleQueueView: boolean;
   canonicalQueueWidgetId: string | null;
   controlState: AgentQueueControlState | null;
+  recoveryAvailable: boolean;
+  canRestoreQueueView: boolean;
+  recoveryReason: QueueWorkspaceRecoveryReason;
 };
 
 export type WorkbenchSummary = {

@@ -158,8 +158,8 @@ describe("tauri workspace api adapter", () => {
         queue_task_count: 2,
         running_task_count: 1,
         stale_running_candidate_count: 1,
-        has_visible_queue_view: false,
-        canonical_queue_widget_id: "queue_widget_1",
+        has_visible_queue_view: false, canonical_queue_widget_id: "queue_widget_1",
+        recovery_available: true, can_restore_queue_view: true, recovery_reason: "hidden_queue_view_exists",
         control_state: {
           workspace_id: "ws_1",
           status: "manual_enabled",
@@ -180,8 +180,8 @@ describe("tauri workspace api adapter", () => {
     ).resolves.toMatchObject({
       queueRecovery: {
         canonicalQueueWidgetId: "queue_widget_1",
-        hasVisibleQueueView: false,
-        queueTaskCount: 2,
+        hasVisibleQueueView: false, queueTaskCount: 2,
+        recoveryAvailable: true, canRestoreQueueView: true, recoveryReason: "hidden_queue_view_exists",
         runningTaskCount: 1,
         staleRunningCandidateCount: 1,
         workspaceId: "ws_1",

@@ -210,4 +210,28 @@ pub struct QueueWorkspaceRecoveryProjection {
     pub has_visible_queue_view: bool,
     pub canonical_queue_widget_id: Option<String>,
     pub control_state: Option<AgentQueueControlStateSummary>,
+    pub recovery_available: bool,
+    pub can_restore_queue_view: bool,
+    pub recovery_reason: QueueWorkspaceRecoveryReason,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum QueueWorkspaceRecoveryReason {
+    NoQueueState,
+    VisibleQueueViewExists,
+    HiddenQueueViewExists,
+    QueueStateWithoutVisibleView,
+    Unknown,
+}
+
+impl QueueWorkspaceRecoveryReason {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::NoQueueState => "no_queue_state",
+            Self::VisibleQueueViewExists => "visible_queue_view_exists",
+            Self::HiddenQueueViewExists => "hidden_queue_view_exists",
+            Self::QueueStateWithoutVisibleView => "queue_state_without_visible_view",
+            Self::Unknown => "unknown",
+        }
+    }
 }

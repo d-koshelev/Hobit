@@ -118,6 +118,7 @@ import type {
   UpdateWidgetInstanceLayoutRequest,
   UpdateWidgetInstanceStateRequest,
   WidgetLogEntry,
+  QueueWorkspaceRecoveryReason,
   WorkspaceSessionSummary,
   WorkspaceSummary,
   WorkspaceWorkbenchState,
@@ -268,6 +269,9 @@ type TauriQueueWorkspaceRecoveryProjection = {
   has_visible_queue_view: boolean;
   canonical_queue_widget_id: string | null;
   control_state: TauriAgentQueueControlState | null;
+  recovery_available?: boolean;
+  can_restore_queue_view?: boolean;
+  recovery_reason?: QueueWorkspaceRecoveryReason | null;
 };
 
 type TauriAgentQueueControlState = {
@@ -634,6 +638,9 @@ function normalizeQueueRecoveryProjection(
       hasVisibleQueueView: false,
       canonicalQueueWidgetId: null,
       controlState: null,
+      recoveryAvailable: false,
+      canRestoreQueueView: false,
+      recoveryReason: "unknown",
     };
   }
 
@@ -655,6 +662,9 @@ function normalizeQueueRecoveryProjection(
           updatedAt: projection.control_state.updated_at,
         }
       : null,
+    recoveryAvailable: projection.recovery_available ?? false,
+    canRestoreQueueView: projection.can_restore_queue_view ?? false,
+    recoveryReason: projection.recovery_reason ?? "unknown",
   };
 }
 
