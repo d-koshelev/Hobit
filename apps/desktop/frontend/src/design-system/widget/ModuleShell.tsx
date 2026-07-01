@@ -1,7 +1,8 @@
-import type {
-  ButtonHTMLAttributes,
-  HTMLAttributes,
-  ReactNode,
+import {
+  forwardRef,
+  type ButtonHTMLAttributes,
+  type HTMLAttributes,
+  type ReactNode,
 } from "react";
 
 export type ModuleHeaderStateTone =
@@ -59,22 +60,23 @@ type ModuleBodyProps = HTMLAttributes<HTMLDivElement> & {
   readonly collapsed?: boolean;
 };
 
-export function ModuleShell({
-  bodyCollapsed = false,
-  children,
-  className,
-  ...props
-}: ModuleShellProps) {
-  return (
-    <section
-      {...props}
-      className={["module-shell", className].filter(Boolean).join(" ")}
-      data-module-body-collapsed={bodyCollapsed ? "true" : "false"}
-    >
-      {children}
-    </section>
-  );
-}
+export const ModuleShell = forwardRef<HTMLElement, ModuleShellProps>(
+  function ModuleShell(
+    { bodyCollapsed = false, children, className, ...props },
+    ref,
+  ) {
+    return (
+      <section
+        {...props}
+        className={["module-shell", className].filter(Boolean).join(" ")}
+        data-module-body-collapsed={bodyCollapsed ? "true" : "false"}
+        ref={ref}
+      >
+        {children}
+      </section>
+    );
+  },
+);
 
 export function ModuleHeader({
   className,
@@ -154,6 +156,7 @@ export function ModuleHeaderState({
       ]
         .filter(Boolean)
         .join(" ")}
+      data-module-header-state="indicator"
       data-module-state-tone={tone}
     >
       {children}
@@ -180,6 +183,8 @@ export function ModuleHeaderAction({
         .filter(Boolean)
         .join(" ")}
       data-active={active ? "true" : "false"}
+      data-module-header-action="true"
+      data-module-header-action-flat="true"
       type={type}
     >
       {children}
@@ -211,7 +216,11 @@ export function ModuleHeaderMinimize({
         .join(" ")}
       title={title ?? defaultLabel}
     >
-      {collapsed ? "+" : "-"}
+      <span
+        aria-hidden="true"
+        className="module-header-minimize-mark"
+        data-collapsed={collapsed ? "true" : "false"}
+      />
     </ModuleHeaderAction>
   );
 }
@@ -236,3 +245,9 @@ export function ModuleBody({
     </div>
   );
 }
+
+export { ModuleRail, ModuleSplit, ModuleSplitRegion } from "./ModuleSplit";
+export type {
+  ModuleRailOrientation,
+  ModuleSplitRegionKind,
+} from "./ModuleSplit";

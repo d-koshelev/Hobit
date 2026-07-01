@@ -1,21 +1,167 @@
 .module-shell-visual-preview {
   display: grid;
   min-height: 100vh;
-  place-items: center;
-  overflow: auto;
-  background: var(--color-app-bg);
-  padding: clamp(var(--space-2xl), 4vw, 48px);
+  align-items: start;
+  justify-items: center;
+  overflow: visible;
+  background-color: var(--module-preview-app-background);
+  background-image: none;
+  background-position: center;
+  padding: clamp(var(--space-2xl), 5vw, 56px);
+}
+
+.module-shell-visual-preview[data-module-background="grid"] {
+  background-image:
+    linear-gradient(
+      to right,
+      var(--module-preview-grid-line-muted) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--module-preview-grid-line-muted) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to right,
+      var(--module-preview-grid-line) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--module-preview-grid-line) 1px,
+      transparent 1px
+    );
+  background-position: center;
+  background-size:
+    var(--workbench-grid-step) var(--workbench-grid-step),
+    var(--workbench-grid-step) var(--workbench-grid-step),
+    calc(var(--workbench-grid-step) * 4) calc(var(--workbench-grid-step) * 4),
+    calc(var(--workbench-grid-step) * 4) calc(var(--workbench-grid-step) * 4);
+}
+
+.module-shell-visual-preview[data-module-background="plain"] {
+  background-image: none;
+}
+
+.module-shell-visual-preview[data-module-background="fine-grid"] {
+  background-image:
+    linear-gradient(
+      to right,
+      var(--module-preview-grid-line-faint) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--module-preview-grid-line-faint) 1px,
+      transparent 1px
+    );
+  background-size:
+    calc(var(--workbench-grid-step) / 2) calc(var(--workbench-grid-step) / 2),
+    calc(var(--workbench-grid-step) / 2) calc(var(--workbench-grid-step) / 2);
+}
+
+.module-shell-visual-preview[data-module-background="dots"] {
+  background-image:
+    radial-gradient(
+      circle,
+      var(--module-preview-grid-line) 0 1px,
+      transparent 1.2px
+    );
+  background-size: var(--workbench-grid-step) var(--workbench-grid-step);
+}
+
+.module-shell-visual-preview[data-module-background="sparse-dots"] {
+  background-image:
+    radial-gradient(
+      circle,
+      var(--module-preview-grid-line-muted) 0 1px,
+      transparent 1.2px
+    );
+  background-size:
+    calc(var(--workbench-grid-step) * 2) calc(var(--workbench-grid-step) * 2);
+}
+
+.module-shell-visual-preview[data-module-background="dense-grid"] {
+  background-image:
+    linear-gradient(
+      to right,
+      var(--module-preview-grid-line-muted) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--module-preview-grid-line-muted) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to right,
+      var(--module-preview-grid-line) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--module-preview-grid-line) 1px,
+      transparent 1px
+    );
+  background-size:
+    calc(var(--workbench-grid-step) / 2) calc(var(--workbench-grid-step) / 2),
+    calc(var(--workbench-grid-step) / 2) calc(var(--workbench-grid-step) / 2),
+    calc(var(--workbench-grid-step) * 2) calc(var(--workbench-grid-step) * 2),
+    calc(var(--workbench-grid-step) * 2) calc(var(--workbench-grid-step) * 2);
+}
+
+.module-shell-visual-preview[data-module-background="cross-grid"] {
+  background-image:
+    linear-gradient(
+      to right,
+      var(--module-preview-grid-line-muted) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--module-preview-grid-line-muted) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to right,
+      var(--module-preview-grid-line-strong) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      to bottom,
+      var(--module-preview-grid-line-strong) 1px,
+      transparent 1px
+    );
+  background-size:
+    var(--workbench-grid-step) var(--workbench-grid-step),
+    var(--workbench-grid-step) var(--workbench-grid-step),
+    calc(var(--workbench-grid-step) * 4) calc(var(--workbench-grid-step) * 4),
+    calc(var(--workbench-grid-step) * 4) calc(var(--workbench-grid-step) * 4);
+}
+
+.module-shell-visual-preview[data-module-background="noir"] {
+  background-color: var(--module-preview-noir-background);
+  background-image: none;
 }
 
 .module-shell-visual-preview__stage {
+  position: relative;
   display: grid;
-  width: min(920px, 100%);
-  min-height: 320px;
+  width: min(1040px, 100%);
+  align-items: start;
+  justify-items: stretch;
+  overflow: visible;
+  min-height: min(560px, calc(100vh - 112px));
 }
 
 .module-shell-visual-preview__stage .module-shell {
-  min-height: 320px;
-  box-shadow: var(--shadow-widget);
+  min-height: min(560px, calc(100vh - 112px));
+}
+
+.module-shell-visual-preview__stage
+  .module-shell[data-module-body-collapsed="true"] {
+  min-height: 0;
 }
 
 @media (max-width: 560px) {
@@ -26,6 +172,6 @@
 
   .module-shell-visual-preview__stage,
   .module-shell-visual-preview__stage .module-shell {
-    min-height: 260px;
+    min-height: 300px;
   }
 }
