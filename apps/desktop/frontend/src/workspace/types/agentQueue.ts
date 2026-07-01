@@ -1415,6 +1415,47 @@ export type AgentQueueTaskRunLinkSummary = {
   updatedAt: string;
 };
 
+export type ListStaleQueueLocalRunsRequest = {
+  workspaceId: string;
+  minAgeSeconds?: number | null;
+};
+
+export type QueueStaleRunCandidateSummary = {
+  workspaceId: string;
+  queueItemId: string;
+  taskTitle: string;
+  runId: string;
+  runLinkId: string;
+  executorWidgetId: string;
+  source: string;
+  taskStatus: AgentQueueTaskStatus | string;
+  runLinkStatus: AgentQueueTaskRunStatus | string;
+  startedAt: string;
+  ageSeconds: number;
+  reasonCode: string;
+};
+
+export type RecoverStaleQueueLocalRunRequest = {
+  workspaceId: string;
+  queueItemId: string;
+  runId: string;
+  runLinkId: string;
+  reason: string;
+  actorId: string;
+  confirmationToken: string;
+};
+
+export type RecoverStaleQueueLocalRunResult = {
+  workspaceId: string;
+  queueItemId: string;
+  runId: string;
+  runLinkId: string;
+  reason: string;
+  taskStatus: AgentQueueTaskStatus | string;
+  runLinkStatus: AgentQueueTaskRunStatus | string;
+  evidenceBundleId: string;
+};
+
 export type StartAgentQueueRunnerPolicyRequest = {
   stopOnFailure?: boolean;
   stopOnReviewNeeded?: boolean;

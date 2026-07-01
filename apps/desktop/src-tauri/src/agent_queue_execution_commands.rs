@@ -10,9 +10,10 @@ use crate::agent_queue_direct_work_launcher::{
 };
 use crate::agent_queue_execution_dto::{
     AgentQueueTaskRunLinkDto, GetAgentQueueTaskLatestRunLinkRequest,
-    ListAgentQueueTaskRunLinksRequest, StartAssignedAgentQueueTaskRequest,
-    StartAssignedAgentQueueTaskResponseDto, StartSelectedAgentQueueTaskLocalRequest,
-    StartSelectedAgentQueueTaskLocalResponseDto,
+    ListAgentQueueTaskRunLinksRequest, ListStaleQueueLocalRunsRequest, QueueStaleRunCandidateDto,
+    RecoverStaleQueueLocalRunRequest, RecoverStaleQueueLocalRunResponseDto,
+    StartAssignedAgentQueueTaskRequest, StartAssignedAgentQueueTaskResponseDto,
+    StartSelectedAgentQueueTaskLocalRequest, StartSelectedAgentQueueTaskLocalResponseDto,
 };
 use crate::app_state::{AppState, DirectWorkActiveRunRegistry};
 
@@ -52,6 +53,22 @@ pub(crate) fn list_agent_queue_task_run_links(
     state: State<'_, AppState>,
 ) -> Result<Vec<AgentQueueTaskRunLinkDto>, String> {
     list_agent_queue_task_run_links_blocking(request, state.db_path().to_path_buf())
+}
+
+#[tauri::command]
+pub(crate) fn list_stale_queue_local_runs(
+    request: ListStaleQueueLocalRunsRequest,
+    state: State<'_, AppState>,
+) -> Result<Vec<QueueStaleRunCandidateDto>, String> {
+    list_stale_queue_local_runs_blocking(request, state.db_path().to_path_buf())
+}
+
+#[tauri::command]
+pub(crate) fn recover_stale_queue_local_run_failed(
+    request: RecoverStaleQueueLocalRunRequest,
+    state: State<'_, AppState>,
+) -> Result<RecoverStaleQueueLocalRunResponseDto, String> {
+    recover_stale_queue_local_run_failed_blocking(request, state.db_path().to_path_buf())
 }
 
 pub(crate) async fn start_selected_agent_queue_task_local_from_request(
@@ -180,6 +197,33 @@ pub(crate) fn list_agent_queue_task_run_links_blocking(
                 .map(AgentQueueTaskRunLinkDto::from)
                 .collect()
         })
+        .map_err(command_error)
+}
+
+pub(crate) fn list_stale_queue_local_runs_blocking(
+    request: ListStaleQueueLocalRunsRequest,
+    db_path: PathBuf,
+) -> Result<Vec<QueueStaleRunCandidateDto>, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .list_stale_queue_local_runs(request.into())
+        .map(|candidates| {
+            candidates
+                .into_iter()
+                .map(QueueStaleRunCandidateDto::from)
+                .collect()
+        })
+        .map_err(command_error)
+}
+
+pub(crate) fn recover_stale_queue_local_run_failed_blocking(
+    request: RecoverStaleQueueLocalRunRequest,
+    db_path: PathBuf,
+) -> Result<RecoverStaleQueueLocalRunResponseDto, String> {
+    let service = workspace_service(&db_path)?;
+    service
+        .recover_stale_queue_local_run_failed(request.into())
+        .map(RecoverStaleQueueLocalRunResponseDto::from)
         .map_err(command_error)
 }
 

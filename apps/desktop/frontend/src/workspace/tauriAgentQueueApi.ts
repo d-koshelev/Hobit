@@ -28,6 +28,10 @@ import type {
   ListAgentQueueTaskRunLinksRequest,
   ListAgentQueueTasksRequest,
   ListAgentQueueWorkersRequest,
+  ListStaleQueueLocalRunsRequest,
+  QueueStaleRunCandidateSummary,
+  RecoverStaleQueueLocalRunRequest,
+  RecoverStaleQueueLocalRunResult,
   StartAssignedAgentQueueTaskRequest,
   StartAssignedAgentQueueTaskResponse,
   StartAgentQueueRunnerSessionRequest,
@@ -42,6 +46,8 @@ import type {
   TauriAgentQueueTask,
   TauriAgentQueueTaskRunLink,
   TauriAgentQueueWorker,
+  TauriQueueStaleRunCandidate,
+  TauriRecoverStaleQueueLocalRunResponse,
   TauriStartAssignedAgentQueueTaskResponse,
 } from "./tauriAgentQueueDto";
 
@@ -368,6 +374,43 @@ export async function listAgentQueueTaskRunLinks(
   return links.map(normalizeAgentQueueTaskRunLink);
 }
 
+export async function listStaleQueueLocalRuns(
+  request: ListStaleQueueLocalRunsRequest,
+): Promise<QueueStaleRunCandidateSummary[]> {
+  const candidates = await invoke<TauriQueueStaleRunCandidate[]>(
+    "list_stale_queue_local_runs",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        min_age_seconds: request.minAgeSeconds ?? null,
+      },
+    },
+  );
+
+  return candidates.map(normalizeQueueStaleRunCandidate);
+}
+
+export async function recoverStaleQueueLocalRunFailed(
+  request: RecoverStaleQueueLocalRunRequest,
+): Promise<RecoverStaleQueueLocalRunResult> {
+  const result = await invoke<TauriRecoverStaleQueueLocalRunResponse>(
+    "recover_stale_queue_local_run_failed",
+    {
+      request: {
+        workspace_id: request.workspaceId,
+        queue_item_id: request.queueItemId,
+        run_id: request.runId,
+        run_link_id: request.runLinkId,
+        reason: request.reason,
+        actor_id: request.actorId,
+        confirmation_token: request.confirmationToken,
+      },
+    },
+  );
+
+  return normalizeRecoverStaleQueueLocalRunResult(result);
+}
+
 export async function startAgentQueueRunnerSession(
   request: StartAgentQueueRunnerSessionRequest,
 ): Promise<AgentQueueRunnerSnapshot> {
@@ -659,6 +702,40 @@ function normalizeAgentQueueTaskRunLink(
     reviewStatus: normalizeReviewStatus(link.review_status),
     createdAt: link.created_at,
     updatedAt: link.updated_at,
+  };
+}
+
+function normalizeQueueStaleRunCandidate(
+  candidate: TauriQueueStaleRunCandidate,
+): QueueStaleRunCandidateSummary {
+  return {
+    workspaceId: candidate.workspace_id,
+    queueItemId: candidate.queue_item_id,
+    taskTitle: candidate.task_title,
+    runId: candidate.run_id,
+    runLinkId: candidate.run_link_id,
+    executorWidgetId: candidate.executor_widget_id,
+    source: candidate.source,
+    taskStatus: candidate.task_status,
+    runLinkStatus: normalizeRunStatus(candidate.run_link_status),
+    startedAt: candidate.started_at,
+    ageSeconds: candidate.age_seconds,
+    reasonCode: candidate.reason_code,
+  };
+}
+
+function normalizeRecoverStaleQueueLocalRunResult(
+  result: TauriRecoverStaleQueueLocalRunResponse,
+): RecoverStaleQueueLocalRunResult {
+  return {
+    workspaceId: result.workspace_id,
+    queueItemId: result.queue_item_id,
+    runId: result.run_id,
+    runLinkId: result.run_link_id,
+    reason: result.reason,
+    taskStatus: result.task_status,
+    runLinkStatus: normalizeRunStatus(result.run_link_status),
+    evidenceBundleId: result.evidence_bundle_id,
   };
 }
 

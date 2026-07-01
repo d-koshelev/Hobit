@@ -259,6 +259,8 @@ pub fn run() {
             agent_queue_execution_commands::start_selected_agent_queue_task_local,
             agent_queue_execution_commands::get_agent_queue_task_latest_run_link,
             agent_queue_execution_commands::list_agent_queue_task_run_links,
+            agent_queue_execution_commands::list_stale_queue_local_runs,
+            agent_queue_execution_commands::recover_stale_queue_local_run_failed,
             agent_queue_runner_commands::start_agent_queue_runner_session,
             agent_queue_runner_commands::stop_agent_queue_runner_session,
             agent_queue_runner_commands::get_agent_queue_runner_snapshot,

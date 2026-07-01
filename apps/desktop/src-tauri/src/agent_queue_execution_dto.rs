@@ -1,9 +1,11 @@
 use std::path::PathBuf;
 
 use hobit_app::{
-    AgentQueueTaskRunSummary, AssignedAgentQueueTaskStartSummary, QueueWorkerStartBlocker,
-    QueueWorkerStartContext, SelectedAgentQueueTaskLocalStartSummary,
-    StartAssignedAgentQueueTaskInput, StartSelectedAgentQueueTaskLocalInput,
+    AgentQueueTaskRunSummary, AssignedAgentQueueTaskStartSummary, ListStaleQueueLocalRunsInput,
+    QueueStaleRunCandidateSummary, QueueWorkerStartBlocker, QueueWorkerStartContext,
+    RecoverStaleQueueLocalRunInput, RecoverStaleQueueLocalRunResult,
+    SelectedAgentQueueTaskLocalStartSummary, StartAssignedAgentQueueTaskInput,
+    StartSelectedAgentQueueTaskLocalInput,
 };
 use serde::{Deserialize, Serialize};
 
@@ -109,6 +111,23 @@ pub(crate) struct ListAgentQueueTaskRunLinksRequest {
     pub queue_item_id: String,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct ListStaleQueueLocalRunsRequest {
+    pub workspace_id: String,
+    pub min_age_seconds: Option<u64>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Deserialize)]
+pub(crate) struct RecoverStaleQueueLocalRunRequest {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub run_id: String,
+    pub run_link_id: String,
+    pub reason: String,
+    pub actor_id: String,
+    pub confirmation_token: String,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub(crate) struct AgentQueueTaskRunLinkDto {
     pub link_id: String,
@@ -124,6 +143,34 @@ pub(crate) struct AgentQueueTaskRunLinkDto {
     pub review_status: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct QueueStaleRunCandidateDto {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub task_title: String,
+    pub run_id: String,
+    pub run_link_id: String,
+    pub executor_widget_id: String,
+    pub source: String,
+    pub task_status: String,
+    pub run_link_status: String,
+    pub started_at: String,
+    pub age_seconds: u64,
+    pub reason_code: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub(crate) struct RecoverStaleQueueLocalRunResponseDto {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub run_id: String,
+    pub run_link_id: String,
+    pub reason: String,
+    pub task_status: String,
+    pub run_link_status: String,
+    pub evidence_bundle_id: String,
 }
 
 impl From<StartAssignedAgentQueueTaskRequest> for StartAssignedAgentQueueTaskInput {
@@ -151,6 +198,29 @@ impl From<StartSelectedAgentQueueTaskLocalRequest> for StartSelectedAgentQueueTa
         Self {
             workspace_id: request.workspace_id,
             queue_item_id: request.queue_item_id,
+        }
+    }
+}
+
+impl From<ListStaleQueueLocalRunsRequest> for ListStaleQueueLocalRunsInput {
+    fn from(request: ListStaleQueueLocalRunsRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            min_age_seconds: request.min_age_seconds,
+        }
+    }
+}
+
+impl From<RecoverStaleQueueLocalRunRequest> for RecoverStaleQueueLocalRunInput {
+    fn from(request: RecoverStaleQueueLocalRunRequest) -> Self {
+        Self {
+            workspace_id: request.workspace_id,
+            queue_item_id: request.queue_item_id,
+            run_id: request.run_id,
+            run_link_id: request.run_link_id,
+            reason: request.reason,
+            actor_id: request.actor_id,
+            confirmation_token: request.confirmation_token,
         }
     }
 }
@@ -238,6 +308,40 @@ impl From<QueueWorkerStartBlocker> for QueueWorkerStartBlockerDto {
             expected_settings_hash: blocker.expected_settings_hash,
             actual_settings_hash: blocker.actual_settings_hash,
             missing_required_field: blocker.missing_required_field,
+        }
+    }
+}
+
+impl From<QueueStaleRunCandidateSummary> for QueueStaleRunCandidateDto {
+    fn from(summary: QueueStaleRunCandidateSummary) -> Self {
+        Self {
+            workspace_id: summary.workspace_id,
+            queue_item_id: summary.queue_item_id,
+            task_title: summary.task_title,
+            run_id: summary.run_id,
+            run_link_id: summary.run_link_id,
+            executor_widget_id: summary.executor_widget_id,
+            source: summary.source,
+            task_status: summary.task_status,
+            run_link_status: summary.run_link_status,
+            started_at: summary.started_at,
+            age_seconds: summary.age_seconds,
+            reason_code: summary.reason_code,
+        }
+    }
+}
+
+impl From<RecoverStaleQueueLocalRunResult> for RecoverStaleQueueLocalRunResponseDto {
+    fn from(result: RecoverStaleQueueLocalRunResult) -> Self {
+        Self {
+            workspace_id: result.workspace_id,
+            queue_item_id: result.queue_item_id,
+            run_id: result.run_id,
+            run_link_id: result.run_link_id,
+            reason: result.reason,
+            task_status: result.task_status,
+            run_link_status: result.run_link_status,
+            evidence_bundle_id: result.evidence_bundle_id,
         }
     }
 }

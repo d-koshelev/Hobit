@@ -122,6 +122,32 @@ export type TauriAgentQueueTaskRunLink = {
   updated_at: string;
 };
 
+export type TauriQueueStaleRunCandidate = {
+  workspace_id: string;
+  queue_item_id: string;
+  task_title: string;
+  run_id: string;
+  run_link_id: string;
+  executor_widget_id: string;
+  source: string;
+  task_status: string;
+  run_link_status: string;
+  started_at: string;
+  age_seconds: number;
+  reason_code: string;
+};
+
+export type TauriRecoverStaleQueueLocalRunResponse = {
+  workspace_id: string;
+  queue_item_id: string;
+  run_id: string;
+  run_link_id: string;
+  reason: string;
+  task_status: string;
+  run_link_status: string;
+  evidence_bundle_id: string;
+};
+
 export type TauriAgentQueueRunnerPolicy = {
   require_operator_start: boolean;
   one_task_at_a_time: boolean;

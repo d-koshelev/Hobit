@@ -1,5 +1,9 @@
 pub const QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID: &str = "queue_local:codex";
 pub const QUEUE_LOCAL_BACKEND_WORKBENCH_ID: &str = "queue_local_backend";
+pub const DEFAULT_STALE_QUEUE_LOCAL_MIN_AGE_SECONDS: u64 = 2 * 60 * 60;
+pub const STALE_QUEUE_LOCAL_RECOVERY_CONFIRMATION_TOKEN: &str = "recover-stale-queue-local-run";
+pub const STALE_QUEUE_LOCAL_RECOVERY_EVIDENCE_SOURCE: &str = "queue_stale_running_recovery";
+pub const STALE_QUEUE_LOCAL_RUN_REASON_CODE: &str = "stale_running_queue_local";
 const QUEUE_LOCAL_NULL_OWNER_HASH_MARKER: &str = "<queue-owner:null>";
 const QUEUE_LOCAL_NULL_EXECUTOR_HASH_MARKER: &str = "<executor:null>";
 
@@ -349,6 +353,7 @@ pub struct RecoverStaleQueueLocalRunInput {
     pub run_link_id: String,
     pub reason: String,
     pub actor_id: String,
+    pub confirmation_token: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -361,6 +366,28 @@ pub struct RecoverStaleQueueLocalRunResult {
     pub task_status: String,
     pub run_link_status: String,
     pub evidence_bundle_id: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ListStaleQueueLocalRunsInput {
+    pub workspace_id: String,
+    pub min_age_seconds: Option<u64>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct QueueStaleRunCandidateSummary {
+    pub workspace_id: String,
+    pub queue_item_id: String,
+    pub task_title: String,
+    pub run_id: String,
+    pub run_link_id: String,
+    pub executor_widget_id: String,
+    pub source: String,
+    pub task_status: String,
+    pub run_link_status: String,
+    pub started_at: String,
+    pub age_seconds: u64,
+    pub reason_code: String,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

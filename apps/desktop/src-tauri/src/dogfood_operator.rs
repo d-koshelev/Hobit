@@ -18,6 +18,7 @@ use hobit_app::{
     RecoverStaleQueueLocalRunInput, SelectedAgentQueueTaskLocalStartSummary,
     StartSelectedAgentQueueTaskLocalInput, WorkspaceService,
     AGENT_QUEUE_ACCEPTED_COMPLETION_CONFIRMATION_TOKEN, QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID,
+    STALE_QUEUE_LOCAL_RECOVERY_CONFIRMATION_TOKEN,
 };
 use hobit_storage_sqlite::SqliteStore;
 use serde::Serialize;
@@ -1690,6 +1691,7 @@ fn recover_stale_running_task(
             run_link_id: run_link_id.clone(),
             reason: STALE_RUNNING_RECOVERY_REASON.to_owned(),
             actor_id: "hobit-dogfood-coordinator".to_owned(),
+            confirmation_token: STALE_QUEUE_LOCAL_RECOVERY_CONFIRMATION_TOKEN.to_owned(),
         })
         .map_err(|error| error.to_string())?;
 

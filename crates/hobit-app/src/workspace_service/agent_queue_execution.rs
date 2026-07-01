@@ -7,6 +7,7 @@ use hobit_tools::codex_cli::{
     CodexDirectStreamEvent, CodexDirectStreamOutput, CodexDirectStreamRequest,
 };
 use serde_json::{Map, Value};
+use std::time::{SystemTime, UNIX_EPOCH};
 
 use crate::WorkspaceServiceError;
 
@@ -45,13 +46,16 @@ use super::{
     validation::{required_input, validate_widget_run_ownership},
     AgentQueueTaskRunReviewStatus, AgentQueueTaskRunSource, AgentQueueTaskRunStatus,
     AgentQueueTaskSummary, AssignedAgentQueueTaskRunPlan, AssignedAgentQueueTaskStartSummary,
-    CodexDirectWorkRunSummary, FinishAssignedAgentQueueTaskRunInput, QueueExecutionTargetSnapshot,
-    QueueWorkerStartBlocker, QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot,
-    QueueWorkflowActionStatus, RecoverStaleQueueLocalRunInput, RecoverStaleQueueLocalRunResult,
-    RunCodexDirectWorkInput, SelectedAgentQueueTaskLocalStartSummary,
-    StartAssignedAgentQueueTaskInput, StartSelectedAgentQueueTaskLocalInput, WorkspaceService,
-    AGENT_QUEUE_WIDGET_DEFINITION_ID, AGENT_RUN_WIDGET_DEFINITION_ID,
+    CodexDirectWorkRunSummary, FinishAssignedAgentQueueTaskRunInput, ListStaleQueueLocalRunsInput,
+    QueueExecutionTargetSnapshot, QueueStaleRunCandidateSummary, QueueWorkerStartBlocker,
+    QueueWorkerStartContext, QueueWorkerStartSettingsSnapshot, QueueWorkflowActionStatus,
+    RecoverStaleQueueLocalRunInput, RecoverStaleQueueLocalRunResult, RunCodexDirectWorkInput,
+    SelectedAgentQueueTaskLocalStartSummary, StartAssignedAgentQueueTaskInput,
+    StartSelectedAgentQueueTaskLocalInput, WorkspaceService, AGENT_QUEUE_WIDGET_DEFINITION_ID,
+    AGENT_RUN_WIDGET_DEFINITION_ID, DEFAULT_STALE_QUEUE_LOCAL_MIN_AGE_SECONDS,
     QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID, QUEUE_LOCAL_BACKEND_WORKBENCH_ID,
+    STALE_QUEUE_LOCAL_RECOVERY_CONFIRMATION_TOKEN, STALE_QUEUE_LOCAL_RECOVERY_EVIDENCE_SOURCE,
+    STALE_QUEUE_LOCAL_RUN_REASON_CODE,
 };
 
 const QUEUE_WORKER_START_ACTION_TYPE: &str = "start_worker";
@@ -678,6 +682,13 @@ impl WorkspaceService {
         let run_link_id = required_input(&input.run_link_id, "run link id")?.to_owned();
         let reason = required_input(&input.reason, "reason")?.to_owned();
         let actor_id = required_input(&input.actor_id, "actor id")?.to_owned();
+        let confirmation_token =
+            required_input(&input.confirmation_token, "confirmation token")?.to_owned();
+        if confirmation_token != STALE_QUEUE_LOCAL_RECOVERY_CONFIRMATION_TOKEN {
+            return Err(WorkspaceServiceError::InvalidInput(
+                "stale queue_local recovery requires the exact confirmation token".to_owned(),
+            ));
+        }
         let now = placeholder_timestamp();
         let bundle_id = placeholder_id("queue_worker_evidence_");
 
@@ -726,6 +737,15 @@ impl WorkspaceService {
                         link.status
                     )));
                 }
+                if store
+                    .get_agent_queue_worker_evidence_bundle(&workspace_id, &queue_item_id, &run_id)?
+                    .is_some()
+                {
+                    return Err(storage_invalid_input(
+                        "stale queue_local recovery refuses to overwrite existing worker evidence"
+                            .to_owned(),
+                    ));
+                }
 
                 let task = store
                     .update_agent_queue_task_status(
@@ -760,7 +780,7 @@ impl WorkspaceService {
                         run_link_id: Some(&run_link_id),
                         executor_widget_id: None,
                         worker_id: Some(actor_id.as_str()),
-                        source: "dogfood_operator_stale_recovery",
+                        source: STALE_QUEUE_LOCAL_RECOVERY_EVIDENCE_SOURCE,
                         outcome: AgentQueueTaskRunStatus::Failed.as_str(),
                         summary: &reason,
                         changed_files_json: "[]",
@@ -786,6 +806,83 @@ impl WorkspaceService {
                 })
             })
             .map_err(map_storage_agent_queue_task_error)
+    }
+
+    pub fn list_stale_queue_local_runs(
+        &self,
+        input: ListStaleQueueLocalRunsInput,
+    ) -> Result<Vec<QueueStaleRunCandidateSummary>, WorkspaceServiceError> {
+        let workspace_id = required_input(&input.workspace_id, "workspace id")?.to_owned();
+        if self.store.get_workspace(&workspace_id)?.is_none() {
+            return Err(WorkspaceServiceError::InvalidInput(format!(
+                "workspace not found: {workspace_id}"
+            )));
+        }
+
+        let min_age_seconds = input
+            .min_age_seconds
+            .unwrap_or(DEFAULT_STALE_QUEUE_LOCAL_MIN_AGE_SECONDS);
+        let now_seconds = current_epoch_seconds();
+        let mut candidates = Vec::new();
+
+        for task in self.store.list_agent_queue_tasks(&workspace_id)? {
+            if task.status != AGENT_QUEUE_TASK_STATUS_RUNNING
+                || task.assigned_executor_widget_id.is_some()
+            {
+                continue;
+            }
+
+            for link in self
+                .store
+                .list_agent_queue_task_run_links(&workspace_id, &task.queue_item_id)?
+            {
+                if link.executor_widget_id != QUEUE_LOCAL_BACKEND_EXECUTION_TARGET_ID
+                    || link.status != AgentQueueTaskRunStatus::Running.as_str()
+                {
+                    continue;
+                }
+                let Some(age_seconds) = timestamp_age_seconds(&link.started_at, now_seconds) else {
+                    continue;
+                };
+                if age_seconds < min_age_seconds {
+                    continue;
+                }
+                if self
+                    .store
+                    .get_agent_queue_worker_evidence_bundle(
+                        &workspace_id,
+                        &task.queue_item_id,
+                        &link.direct_work_run_id,
+                    )?
+                    .is_some()
+                {
+                    continue;
+                }
+                candidates.push(QueueStaleRunCandidateSummary {
+                    workspace_id: workspace_id.clone(),
+                    queue_item_id: task.queue_item_id.clone(),
+                    task_title: task.title.clone(),
+                    run_id: link.direct_work_run_id,
+                    run_link_id: link.link_id,
+                    executor_widget_id: link.executor_widget_id,
+                    source: link.source,
+                    task_status: task.status.clone(),
+                    run_link_status: link.status,
+                    started_at: link.started_at,
+                    age_seconds,
+                    reason_code: STALE_QUEUE_LOCAL_RUN_REASON_CODE.to_owned(),
+                });
+            }
+        }
+
+        candidates.sort_by(|left, right| {
+            right
+                .age_seconds
+                .cmp(&left.age_seconds)
+                .then_with(|| left.queue_item_id.cmp(&right.queue_item_id))
+                .then_with(|| left.run_link_id.cmp(&right.run_link_id))
+        });
+        Ok(candidates)
     }
 
     pub fn run_backend_owned_agent_queue_direct_work_stream_with_cancellation<E>(
@@ -864,6 +961,21 @@ fn backend_owned_direct_work_summary(
         no_auto_push: true,
         git_mutations_performed_by_hobit: false,
     }
+}
+
+fn current_epoch_seconds() -> f64 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|duration| duration.as_secs() as f64 + f64::from(duration.subsec_nanos()) / 1e9)
+        .unwrap_or(0.0)
+}
+
+fn timestamp_age_seconds(started_at: &str, now_seconds: f64) -> Option<u64> {
+    let started_seconds = started_at.parse::<f64>().ok()?;
+    if started_seconds > now_seconds {
+        return Some(0);
+    }
+    Some((now_seconds - started_seconds).floor() as u64)
 }
 
 fn operator_prompt_for_queue_task(
