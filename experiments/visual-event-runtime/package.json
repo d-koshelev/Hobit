@@ -1,0 +1,13 @@
+{
+  "name": "visual-event-runtime",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "blender:check": "node scripts/check-blender.mjs",
+    "blender:smoke": "node scripts/run-blender-smoke.mjs",
+    "test": "node scripts/test.mjs",
+    "build": "node scripts/build.mjs",
+    "validate:assets": "node scripts/validate-assets.mjs"
+  }
+}
