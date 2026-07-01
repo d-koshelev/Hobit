@@ -1,1 +1,3 @@
-dist/
+.npm-cache/
+.vite-*.log
+.agents/

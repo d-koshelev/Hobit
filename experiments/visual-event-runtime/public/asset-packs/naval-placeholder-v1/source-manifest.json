@@ -1,0 +1,28 @@
+{
+  "assets": [
+    {
+      "name": "deck fighter",
+      "sheet": "hobit_deck_fighter_v1_spritesheet.png",
+      "preview": "hobit_deck_fighter_v1_preview.gif",
+      "clip": "hobit_deck_fighter_v1_clip.json"
+    },
+    {
+      "name": "aircraft carrier",
+      "sheet": "hobit_aircraft_carrier_v1_spritesheet.png",
+      "preview": "hobit_aircraft_carrier_v1_preview.gif",
+      "clip": "hobit_aircraft_carrier_v1_clip.json"
+    },
+    {
+      "name": "escort destroyer",
+      "sheet": "hobit_escort_destroyer_v1_spritesheet.png",
+      "preview": "hobit_escort_destroyer_v1_preview.gif",
+      "clip": "hobit_escort_destroyer_v1_clip.json"
+    },
+    {
+      "name": "support freighter",
+      "sheet": "hobit_support_freighter_v1_spritesheet.png",
+      "preview": "hobit_support_freighter_v1_preview.gif",
+      "clip": "hobit_support_freighter_v1_clip.json"
+    }
+  ]
+}

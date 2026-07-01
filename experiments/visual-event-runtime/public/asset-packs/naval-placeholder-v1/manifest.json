@@ -1,0 +1,440 @@
+{
+  "id": "naval-placeholder-v1",
+  "name": "Naval Placeholder V1",
+  "version": "0.1.0",
+  "description": "Temporary low-fidelity local naval placeholder pack for zero-setup demos.",
+  "style": "temporary low-fidelity naval placeholders, debug/demo fallback",
+  "basePath": "/asset-packs/naval-placeholder-v1/",
+  "assets": [
+    {
+      "key": "coordinator_carrier_idle",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_aircraft_carrier_v1_spritesheet.png",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder aircraft carrier used by coordinator_carrier_idle."
+    },
+    {
+      "key": "queue_carrier_idle",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_aircraft_carrier_v1_spritesheet.png",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder aircraft carrier used by queue_carrier_idle."
+    },
+    {
+      "key": "deck_fighter_flying",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_deck_fighter_v1_spritesheet.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 16,
+      "columns": 16,
+      "rows": 1,
+      "description": "Temporary placeholder deck fighter used by deck_fighter_flying."
+    },
+    {
+      "key": "db_ship_healthy",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_escort_destroyer_v1_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder escort destroyer used by db_ship_healthy."
+    },
+    {
+      "key": "db_ship_down",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_escort_destroyer_v1_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder escort destroyer used by db_ship_down."
+    },
+    {
+      "key": "db_ship_recovering",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_support_freighter_v1_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder support freighter used by db_ship_recovering."
+    },
+    {
+      "key": "codebase_target",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_support_freighter_v1_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder support freighter used by codebase_target."
+    },
+    {
+      "key": "support_ship_healthy",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_support_freighter_v1_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder support freighter used by support_ship_healthy."
+    },
+    {
+      "key": "oil_rig_idle",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_support_freighter_v1_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder support freighter used by oil_rig_idle."
+    },
+    {
+      "key": "explosion_once",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_escort_destroyer_v1_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder sheet used by explosion_once."
+    },
+    {
+      "key": "smoke_loop",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_escort_destroyer_v1_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder sheet used by smoke_loop."
+    },
+    {
+      "key": "repair_dock_loop",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_support_freighter_v1_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder sheet used by repair_dock_loop."
+    },
+    {
+      "key": "scanner_drone_loop",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_deck_fighter_v1_spritesheet.png",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 16,
+      "columns": 16,
+      "rows": 1,
+      "description": "Temporary placeholder deck fighter used by scanner_drone_loop."
+    },
+    {
+      "key": "scan_ring_loop",
+      "kind": "spriteSheet",
+      "src": "spritesheets/hobit_support_freighter_v1_spritesheet.png",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "columns": 12,
+      "rows": 1,
+      "description": "Temporary placeholder sheet used by scan_ring_loop."
+    }
+  ],
+  "animations": [
+    {
+      "id": "coordinator_carrier_idle_loop",
+      "assetKey": "coordinator_carrier_idle",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    },
+    {
+      "id": "queue_carrier_idle_loop",
+      "assetKey": "queue_carrier_idle",
+      "frameWidth": 256,
+      "frameHeight": 256,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    },
+    {
+      "id": "deck_fighter_flying_loop",
+      "assetKey": "deck_fighter_flying",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 16,
+      "fps": 15,
+      "playback": "loop"
+    },
+    {
+      "id": "db_ship_healthy_idle",
+      "assetKey": "db_ship_healthy",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    },
+    {
+      "id": "db_ship_down_loop",
+      "assetKey": "db_ship_down",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    },
+    {
+      "id": "db_ship_recovering_loop",
+      "assetKey": "db_ship_recovering",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    },
+    {
+      "id": "codebase_target_idle_loop",
+      "assetKey": "codebase_target",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    },
+    {
+      "id": "support_ship_healthy_idle",
+      "assetKey": "support_ship_healthy",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    },
+    {
+      "id": "oil_rig_idle_loop",
+      "assetKey": "oil_rig_idle",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    },
+    {
+      "id": "explosion_once",
+      "assetKey": "explosion_once",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "once",
+      "onCompleteState": "down"
+    },
+    {
+      "id": "smoke_loop",
+      "assetKey": "smoke_loop",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    },
+    {
+      "id": "repair_dock_loop",
+      "assetKey": "repair_dock_loop",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    },
+    {
+      "id": "scanner_drone_loop",
+      "assetKey": "scanner_drone_loop",
+      "frameWidth": 128,
+      "frameHeight": 128,
+      "frameCount": 16,
+      "fps": 15,
+      "playback": "loop"
+    },
+    {
+      "id": "scan_ring_loop",
+      "assetKey": "scan_ring_loop",
+      "frameWidth": 160,
+      "frameHeight": 160,
+      "frameCount": 12,
+      "fps": 10,
+      "playback": "loop"
+    }
+  ],
+  "objectPresets": [
+    {
+      "id": "preset.coordinator_carrier",
+      "name": "Coordinator Carrier",
+      "kind": "carrier",
+      "defaultAssetKey": "coordinator_carrier_idle",
+      "defaultAnimationId": "coordinator_carrier_idle_loop",
+      "defaultWidth": 220,
+      "defaultHeight": 150,
+      "defaultVisualState": "idle",
+      "animationsByState": {
+        "idle": "coordinator_carrier_idle_loop"
+      }
+    },
+    {
+      "id": "preset.queue_carrier",
+      "name": "Queue Carrier",
+      "kind": "carrier",
+      "defaultAssetKey": "queue_carrier_idle",
+      "defaultAnimationId": "queue_carrier_idle_loop",
+      "defaultWidth": 220,
+      "defaultHeight": 150,
+      "defaultVisualState": "idle",
+      "animationsByState": {
+        "idle": "queue_carrier_idle_loop"
+      }
+    },
+    {
+      "id": "preset.database_ship",
+      "name": "Database Ship",
+      "kind": "database_ship",
+      "defaultAssetKey": "db_ship_healthy",
+      "defaultAnimationId": "db_ship_healthy_idle",
+      "defaultWidth": 170,
+      "defaultHeight": 120,
+      "defaultVisualState": "healthy",
+      "animationsByState": {
+        "healthy": "db_ship_healthy_idle",
+        "down": "db_ship_down_loop",
+        "recovering": "db_ship_recovering_loop"
+      }
+    },
+    {
+      "id": "preset.codebase_target",
+      "name": "Codebase Target",
+      "kind": "analysis_target",
+      "defaultAssetKey": "codebase_target",
+      "defaultAnimationId": "codebase_target_idle_loop",
+      "defaultWidth": 150,
+      "defaultHeight": 110,
+      "defaultVisualState": "idle",
+      "animationsByState": {
+        "idle": "codebase_target_idle_loop",
+        "scanning": "codebase_target_idle_loop"
+      }
+    },
+    {
+      "id": "preset.deck_fighter",
+      "name": "Deck Fighter",
+      "kind": "aircraft",
+      "defaultAssetKey": "deck_fighter_flying",
+      "defaultAnimationId": "deck_fighter_flying_loop",
+      "defaultWidth": 140,
+      "defaultHeight": 110,
+      "defaultVisualState": "flying",
+      "animationsByState": {
+        "flying": "deck_fighter_flying_loop"
+      }
+    },
+    {
+      "id": "preset.scanner_drone",
+      "name": "Scanner Drone",
+      "kind": "drone",
+      "defaultAssetKey": "scanner_drone_loop",
+      "defaultAnimationId": "scanner_drone_loop",
+      "defaultWidth": 130,
+      "defaultHeight": 110,
+      "defaultVisualState": "scanning",
+      "animationsByState": {
+        "scanning": "scanner_drone_loop"
+      }
+    },
+    {
+      "id": "preset.scan_ring_effect",
+      "name": "Scan Ring Effect",
+      "kind": "effect",
+      "defaultAssetKey": "scan_ring_loop",
+      "defaultAnimationId": "scan_ring_loop",
+      "defaultWidth": 120,
+      "defaultHeight": 120,
+      "defaultVisualState": "scanning",
+      "animationsByState": {
+        "scanning": "scan_ring_loop"
+      },
+      "metadata": {
+        "overlay": true
+      }
+    },
+    {
+      "id": "preset.explosion_effect",
+      "name": "Explosion Effect",
+      "kind": "effect",
+      "defaultAssetKey": "explosion_once",
+      "defaultAnimationId": "explosion_once",
+      "defaultWidth": 140,
+      "defaultHeight": 120,
+      "defaultVisualState": "exploding",
+      "animationsByState": {
+        "exploding": "explosion_once"
+      },
+      "metadata": {
+        "overlay": true
+      }
+    },
+    {
+      "id": "preset.smoke_effect",
+      "name": "Smoke Effect",
+      "kind": "effect",
+      "defaultAssetKey": "smoke_loop",
+      "defaultAnimationId": "smoke_loop",
+      "defaultWidth": 120,
+      "defaultHeight": 110,
+      "defaultVisualState": "smoking",
+      "animationsByState": {
+        "smoking": "smoke_loop"
+      },
+      "metadata": {
+        "overlay": true
+      }
+    },
+    {
+      "id": "preset.repair_dock_effect",
+      "name": "Repair Dock Effect",
+      "kind": "effect",
+      "defaultAssetKey": "repair_dock_loop",
+      "defaultAnimationId": "repair_dock_loop",
+      "defaultWidth": 130,
+      "defaultHeight": 120,
+      "defaultVisualState": "repairing",
+      "animationsByState": {
+        "repairing": "repair_dock_loop"
+      },
+      "metadata": {
+        "overlay": true
+      }
+    }
+  ]
+}

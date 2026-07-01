@@ -1,0 +1,41 @@
+{
+  "asset": {
+    "key": "escort_destroyer_sheet_v1",
+    "kind": "spriteSheet",
+    "src": "assets/hobit_escort_destroyer_v1_spritesheet.png",
+    "frameWidth": 160,
+    "frameHeight": 160,
+    "frameCount": 12,
+    "columns": 12,
+    "rows": 1,
+    "description": "hobit escort destroyer v1"
+  },
+  "animation": {
+    "id": "escort_destroyer_idle_loop_v1",
+    "assetKey": "escort_destroyer_sheet_v1",
+    "frameWidth": 160,
+    "frameHeight": 160,
+    "frameCount": 12,
+    "fps": 10,
+    "playback": "loop"
+  },
+  "objectExample": {
+    "id": "escort_destroyer_001",
+    "entityId": "monitoring_target_alpha",
+    "kind": "monitoring_target",
+    "name": "Escort destroyer",
+    "assetKey": "escort_destroyer_sheet_v1",
+    "x": 760,
+    "y": 190,
+    "width": 160,
+    "height": 160,
+    "rotation": -4,
+    "zIndex": 8,
+    "hidden": false,
+    "visualState": "healthy",
+    "currentAnimationId": "escort_destroyer_idle_loop_v1",
+    "animationsByState": {
+      "healthy": "escort_destroyer_idle_loop_v1"
+    }
+  }
+}

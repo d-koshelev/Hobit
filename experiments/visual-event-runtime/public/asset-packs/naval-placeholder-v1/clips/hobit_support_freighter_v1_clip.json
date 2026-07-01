@@ -1,0 +1,41 @@
+{
+  "asset": {
+    "key": "support_freighter_sheet_v1",
+    "kind": "spriteSheet",
+    "src": "assets/hobit_support_freighter_v1_spritesheet.png",
+    "frameWidth": 160,
+    "frameHeight": 160,
+    "frameCount": 12,
+    "columns": 12,
+    "rows": 1,
+    "description": "hobit support freighter v1"
+  },
+  "animation": {
+    "id": "support_freighter_idle_loop_v1",
+    "assetKey": "support_freighter_sheet_v1",
+    "frameWidth": 160,
+    "frameHeight": 160,
+    "frameCount": 12,
+    "fps": 10,
+    "playback": "loop"
+  },
+  "objectExample": {
+    "id": "support_freighter_001",
+    "entityId": "knowledge_storage_alpha",
+    "kind": "knowledge_storage",
+    "name": "Support freighter",
+    "assetKey": "support_freighter_sheet_v1",
+    "x": 880,
+    "y": 360,
+    "width": 160,
+    "height": 160,
+    "rotation": 5,
+    "zIndex": 7,
+    "hidden": false,
+    "visualState": "healthy",
+    "currentAnimationId": "support_freighter_idle_loop_v1",
+    "animationsByState": {
+      "healthy": "support_freighter_idle_loop_v1"
+    }
+  }
+}
